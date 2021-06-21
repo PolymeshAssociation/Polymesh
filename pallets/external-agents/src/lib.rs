@@ -63,7 +63,7 @@ use pallet_identity::PermissionedCallOriginData;
 pub use polymesh_common_utilities::traits::external_agents::{Config, Event, WeightInfo};
 use polymesh_primitives::agent::{AGId, AgentGroup};
 use polymesh_primitives::{
-    ExtrinsicPermissions, IdentityId, PalletPermissions, SubsetRestriction, Ticker,
+    extract_auth, ExtrinsicPermissions, IdentityId, PalletPermissions, SubsetRestriction, Ticker,
 };
 use sp_std::prelude::*;
 
@@ -215,6 +215,27 @@ decl_module! {
         pub fn change_group(origin, ticker: Ticker, agent: IdentityId, group: AgentGroup) -> DispatchResult {
             Self::base_change_group(origin, ticker, agent, group)
         }
+
+        /// Accept an authorization by an agent "Alice" who issued `auth_id`
+        /// to also become an agent of the ticker Alice specified.
+        ///
+        /// # Arguments
+        /// - `auth_id` identifying the authorization to accept.
+        ///
+        /// # Errors
+        /// - `AuthorizationError::Invalid` if `auth_id` does not exist for the given caller.
+        /// - `AuthorizationError::Expired` if `auth_id` is for an auth that has expired.
+        /// - `AuthorizationError::BadType` if `auth_id` was not for a `BecomeAgent` auth type.
+        /// - `UnauthorizedAgent` if "Alice" is not permissioned to provide the auth.
+        /// - `NoSuchAG` if the group referred to a custom that does not exist.
+        /// - `AlreadyAnAgent` if the caller is already an agent of the ticker.
+        ///
+        /// # Permissions
+        /// * Agent
+        #[weight = <T as Config>::WeightInfo::accept_become_agent()]
+        pub fn accept_become_agent(origin, auth_id: u64) -> DispatchResult {
+            Self::base_accept_become_agent(origin, auth_id)
+        }
     }
 }
 
@@ -242,27 +263,25 @@ decl_error! {
     }
 }
 
-impl<T: Config> polymesh_common_utilities::identity::IdentityToExternalAgents for Module<T> {
-    fn accept_become_agent(
-        did: IdentityId,
-        from: IdentityId,
-        ticker: Ticker,
-        group: AgentGroup,
-    ) -> DispatchResult {
-        Self::ensure_agent_permissioned(ticker, from)?;
-        Self::ensure_agent_group_valid(ticker, group)?;
-        ensure!(
-            GroupOfAgent::get(ticker, did).is_none(),
-            Error::<T>::AlreadyAnAgent
-        );
-
-        Self::unchecked_add_agent(ticker, did, group)?;
-        Self::deposit_event(Event::AgentAdded(did.for_event(), ticker, group));
-        Ok(())
-    }
-}
-
 impl<T: Config> Module<T> {
+    fn base_accept_become_agent(origin: T::Origin, auth_id: u64) -> DispatchResult {
+        let to = Identity::<T>::ensure_perms(origin)?;
+        Identity::<T>::accept_auth_with(&to.into(), auth_id, |data, from| {
+            let (ticker, group) = extract_auth!(data, BecomeAgent(t, ag));
+
+            Self::ensure_agent_permissioned(ticker, from)?;
+            Self::ensure_agent_group_valid(ticker, group)?;
+            ensure!(
+                GroupOfAgent::get(ticker, to).is_none(),
+                Error::<T>::AlreadyAnAgent
+            );
+
+            Self::unchecked_add_agent(ticker, to, group)?;
+            Self::deposit_event(Event::AgentAdded(to.for_event(), ticker, group));
+            Ok(())
+        })
+    }
+
     fn base_create_group(
         origin: T::Origin,
         ticker: Ticker,

@@ -57,8 +57,8 @@ use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
 pub use polymesh_common_utilities::traits::portfolio::{Config, Event, RawEvent, WeightInfo};
 use polymesh_common_utilities::CommonConfig;
 use polymesh_primitives::{
-    identity_id::PortfolioValidityResult, storage_migration_ver, IdentityId, PortfolioId,
-    PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Ticker, extract_auth,
+    extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, IdentityId,
+    PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
 };
 use sp_arithmetic::traits::{CheckedSub, Saturating};
 use sp_std::{iter, mem, prelude::Vec};

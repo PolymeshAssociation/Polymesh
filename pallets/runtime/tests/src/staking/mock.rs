@@ -41,7 +41,6 @@ use polymesh_common_utilities::{
         asset::AssetSubTrait,
         balances::{AccountData, CheckCdd},
         group::{GroupTrait, InactiveMember},
-        identity::IdentityToExternalAgents,
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
@@ -448,17 +447,6 @@ impl AssetSubTrait<Balance> for Test {
     }
     fn scope_id_of(_: &Ticker, _: &IdentityId) -> ScopeId {
         ScopeId::from(0u128)
-    }
-}
-
-impl IdentityToExternalAgents for Test {
-    fn accept_become_agent(
-        _: IdentityId,
-        _: IdentityId,
-        _: Ticker,
-        _: AgentGroup,
-    ) -> DispatchResult {
-        Ok(())
     }
 }
 

@@ -32,13 +32,12 @@ impl pallet_portfolio::WeightInfo for WeightInfo {
     }
     fn quit_portfolio_custody() -> Weight {
         (116_199_000 as Weight)
-            .saturating_add(T::DbWeight::get().reads(7 as Weight))
-            .saturating_add(T::DbWeight::get().writes(2 as Weight))
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
     }
     fn accept_portfolio_custody() -> Weight {
         (98_413_000 as Weight)
-            .saturating_add(T::DbWeight::get().reads(8 as Weight))
-            .saturating_add(T::DbWeight::get().writes(5 as Weight))
+            .saturating_add(DbWeight::get().reads(8 as Weight))
+            .saturating_add(DbWeight::get().writes(5 as Weight))
     }
-
 }

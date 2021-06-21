@@ -161,7 +161,7 @@ pub struct Authorization<AccountId, Moment> {
 macro_rules! extract_auth {
     ($data:expr, $variant:ident ( $($f:ident),*) ) => {
         match $data {
-            $crate::authorization::AuthorizationData::$variant($($f),*) => $($f),*,
+            $crate::authorization::AuthorizationData::$variant($($f),*) => ($($f),*),
             _ => frame_support::fail!($crate::authorization::AuthorizationError::BadType),
         }
     }

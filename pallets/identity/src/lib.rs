@@ -118,8 +118,8 @@ use polymesh_common_utilities::{
         asset::AssetSubTrait,
         group::{GroupTrait, InactiveMember},
         identity::{
-            AuthorizationNonce, Config, IdentityFnTrait, IdentityToExternalAgents as _, RawEvent,
-            SecondaryKeyWithAuth, TargetIdAuthorization,
+            AuthorizationNonce, Config, IdentityFnTrait, RawEvent, SecondaryKeyWithAuth,
+            TargetIdAuthorization,
         },
         multisig::MultiSigSubTrait,
         transaction_payment::CddAndFeeDetails,
@@ -577,13 +577,10 @@ decl_module! {
             let (auth, signer) = Self::ensure_authorization(&signer_did, auth_id)
                 .map(|a| (a, signer_did))
                 .or_else(|_| Self::ensure_authorization(&signer_key, auth_id).map(|a| (a, signer_key)))?;
-            let from = auth.authorized_by;
 
             Self::ensure_auth_unexpired(auth.expiry)?;
 
             match (signer.clone(), auth.authorization_data) {
-                (Signatory::Identity(did), AuthorizationData::BecomeAgent(ticker, group)) =>
-                    T::ExternalAgents::accept_become_agent(did, from, ticker, group),
                 (_,
                     AuthorizationData::AttestPrimaryKeyRotation(..)
                     | AuthorizationData::Custom(..)
@@ -596,14 +593,9 @@ decl_module! {
                     | AuthorizationData::TransferCorporateActionAgent(..)
                     | AuthorizationData::RotatePrimaryKey(..)
                     | AuthorizationData::PortfolioCustody(..)
-                )
-                | (Signatory::Account(_),
                     | AuthorizationData::BecomeAgent(..)
                 ) => fail!(AuthorizationError::BadType)
-            }?;
-
-            Self::unchecked_take_auth(&signer, auth_id, auth.authorized_by);
-            Ok(())
+            }
         }
 
         /// It adds secondary keys to target identity `id`.

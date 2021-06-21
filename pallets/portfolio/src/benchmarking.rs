@@ -17,7 +17,7 @@ use crate::*;
 use core::convert::TryInto;
 use frame_benchmarking::benchmarks;
 use polymesh_common_utilities::{
-    benchs::{AccountIdOf, user, User},
+    benchs::{user, AccountIdOf, User},
     TestUtilsFn,
 };
 use polymesh_primitives::{AuthorizationData, PortfolioName, Signatory};
@@ -29,7 +29,8 @@ fn make_worst_memo() -> Option<Memo> {
     Some(Memo([7u8; 32]))
 }
 
-fn owner_portfolio<T: Config + TestUtilsFn<<T as frame_system::Config>::AccountId>>() -> (User<T>, PortfolioId) {
+fn owner_portfolio<T: Config + TestUtilsFn<<T as frame_system::Config>::AccountId>>(
+) -> (User<T>, PortfolioId) {
     let owner = user::<T>("owner", 0);
 
     let name = PortfolioName(vec![65u8; PORTFOLIO_NAME_LEN as usize]);
@@ -50,7 +51,10 @@ fn add_auth<T: Config>(owner: &User<T>, custodian: &User<T>, pid: PortfolioId) -
 }
 
 fn assert_custodian<T: Config>(pid: PortfolioId, custodian: &User<T>, holds: bool) {
-    assert_eq!(PortfolioCustodian::get(&pid), holds.then(|| custodian.did()));
+    assert_eq!(
+        PortfolioCustodian::get(&pid),
+        holds.then(|| custodian.did())
+    );
     assert_eq!(PortfoliosInCustody::get(&custodian.did(), &pid), holds);
 }
 
