@@ -41,7 +41,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     investor_zkproof_data::v1::InvestorZKProofData, AccountId, Authorization, AuthorizationData,
     BlockNumber, CddId, Claim, InvestorUid, Moment, Permissions as AuthPermissions,
-    PortfolioNumber, Scope, ScopeId,
+    PortfolioNumber, Scope, ScopeId, TrustedFor, TrustedIssuer,
 };
 use polymesh_runtime_common::{merge_active_and_inactive, runtime::VMO};
 use polymesh_runtime_develop::constants::time::{
@@ -270,6 +270,24 @@ impl User {
 
     pub fn uid(&self) -> InvestorUid {
         create_investor_uid(self.acc())
+    }
+
+    /// Create a `Scope::Identity` from a User
+    pub fn scope(&self) -> Scope {
+        Scope::Identity(self.did)
+    }
+
+    /// Create a `TrustedIssuer` trusted from a User
+    pub fn trusted_issuer_for(&self, trusted_for: TrustedFor) -> TrustedIssuer {
+        TrustedIssuer {
+            issuer: self.did,
+            trusted_for,
+        }
+    }
+
+    /// Create a `TrustedIssuer` trusted from a User
+    pub fn issuer(&self) -> TrustedIssuer {
+        self.did.into()
     }
 }
 
@@ -795,7 +813,7 @@ pub fn provide_scope_claim_to_multiple_parties<'a>(
     ticker: Ticker,
     cdd_provider: AccountId,
 ) {
-    parties.into_iter().enumerate().for_each(|(_, id)| {
+    parties.into_iter().for_each(|id| {
         let uid = create_investor_uid(Identity::did_records(id).primary_key);
         provide_scope_claim(*id, ticker, uid, cdd_provider.clone(), None).0;
     });
