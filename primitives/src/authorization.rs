@@ -25,7 +25,7 @@ use sp_std::prelude::*;
 /// Authorization data for two step processes.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum AuthorizationData<AccountId> {
+pub enum AuthorizationData<AccountId, Balance> {
     // TODO: Remove Custom type and move NoData at the start
     /// CDD provider's attestation to change primary key
     AttestPrimaryKeyRotation(IdentityId),
@@ -57,11 +57,11 @@ pub enum AuthorizationData<AccountId> {
     BecomeAgent(Ticker, AgentGroup),
     /// Add Relayer paying key to user key
     /// Must be issued by the paying key.
-    /// `AddRelayerPayingKey(user_key, paying_key)`
-    AddRelayerPayingKey(AccountId, AccountId),
+    /// `AddRelayerPayingKey(user_key, paying_key, polyx_limit)`
+    AddRelayerPayingKey(AccountId, AccountId, Balance),
 }
 
-impl<T> AuthorizationData<T> {
+impl<Balance, AccountId> AuthorizationData<Balance, AccountId> {
     /// Returns the `AuthorizationType` of this auth data.
     pub fn auth_type(&self) -> AuthorizationType {
         match self {
@@ -119,7 +119,7 @@ pub enum AuthorizationType {
     AddRelayerPayingKey,
 }
 
-impl<AccountId> Default for AuthorizationData<AccountId> {
+impl<AccountId, Balance> Default for AuthorizationData<AccountId, Balance> {
     fn default() -> Self {
         AuthorizationData::NoData
     }
@@ -157,9 +157,9 @@ impl From<AuthorizationError> for DispatchError {
 /// Authorization struct
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct Authorization<AccountId, Moment> {
+pub struct Authorization<AccountId, Balance, Moment> {
     /// Enum that contains authorization type and data
-    pub authorization_data: AuthorizationData<AccountId>,
+    pub authorization_data: AuthorizationData<AccountId, Balance>,
 
     /// Identity of the organization/individual that added this authorization
     pub authorized_by: IdentityId,

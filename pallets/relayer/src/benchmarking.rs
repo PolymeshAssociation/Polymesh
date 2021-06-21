@@ -32,6 +32,14 @@ fn setup_users<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, User<T>) 
     (payer, user)
 }
 
+fn setup_paying_key<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, User<T>) {
+    let (payer, user) = setup_users::<T>();
+    let user_signer = Signatory::Account(user.account());
+    // accept paying key
+    <Relayer<T>>::auth_accept_paying_key(user_signer, payer.did(), user.account(), payer.account(), 0u128.into()).unwrap();
+    (payer, user)
+}
+
 benchmarks! {
     where_clause { where T: Config, T: TestUtilsFn<AccountIdOf<T>> }
 
@@ -43,14 +51,15 @@ benchmarks! {
         let (payer, user) = setup_users::<T>();
         // setup authorization
         let auth_id = <Relayer<T>>::unsafe_add_auth_for_paying_key(
-            payer.did(), user.account(), payer.account()
+            payer.did(), user.account(), payer.account(), 100u128.into()
         );
     }: _(user.origin(), auth_id)
 
     remove_paying_key {
-        let (payer, user) = setup_users::<T>();
-        let user_signer = Signatory::Account(user.account());
-        // accept paying key
-        <Relayer<T>>::auth_accept_paying_key(user_signer, payer.did(), user.account(), payer.account()).unwrap();
+        let (payer, user) = setup_paying_key::<T>();
     }: _(payer.origin(), user.account(), payer.account())
+
+    update_polyx_limit {
+        let (payer, user) = setup_paying_key::<T>();
+    }: _(payer.origin(), user.account(), 1_000u128.into())
 }

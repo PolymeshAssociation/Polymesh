@@ -190,7 +190,7 @@ decl_storage! {
 
         /// All authorizations that an identity/key has
         pub Authorizations get(fn authorizations): double_map hasher(blake2_128_concat)
-            Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Authorization<T::AccountId, T::Moment>;
+            Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Authorization<T::AccountId, T::Balance, T::Moment>;
 
         /// All authorizations that an identity has given. (Authorizer, auth_id -> authorized)
         pub AuthorizationsGiven: double_map hasher(blake2_128_concat)
@@ -520,7 +520,7 @@ decl_module! {
         pub fn add_authorization(
             origin,
             target: Signatory<T::AccountId>,
-            authorization_data: AuthorizationData<T::AccountId>,
+            authorization_data: AuthorizationData<T::AccountId, T::Balance>,
             expiry: Option<T::Moment>
         ) {
             let from_did = Self::ensure_perms(origin)?;
@@ -588,7 +588,7 @@ decl_module! {
 
             match (signer.clone(), auth.authorization_data) {
                 (sig, AuthorizationData::AddMultiSigSigner(ms)) => T::MultiSig::accept_multisig_signer(sig, from, ms),
-                (sig, AuthorizationData::AddRelayerPayingKey(user_key, paying_key)) => T::Relayer::auth_accept_paying_key(sig, from, user_key, paying_key),
+                (sig, AuthorizationData::AddRelayerPayingKey(user_key, paying_key, polyx_limit)) => T::Relayer::auth_accept_paying_key(sig, from, user_key, paying_key, polyx_limit),
                 (sig, AuthorizationData::JoinIdentity(_)) => Self::join_identity(sig, auth_id),
                 (Signatory::Identity(did), AuthorizationData::TransferTicker(ticker)) =>
                     T::AssetSubTraitTarget::accept_ticker_transfer(did, from, ticker),
@@ -985,7 +985,7 @@ impl<T: Config> Module<T> {
     pub fn add_auth(
         from: IdentityId,
         target: Signatory<T::AccountId>,
-        authorization_data: AuthorizationData<T::AccountId>,
+        authorization_data: AuthorizationData<T::AccountId, T::Balance>,
         expiry: Option<T::Moment>,
     ) -> u64 {
         let new_nonce = Self::multi_purpose_nonce() + 1u64;
@@ -1075,7 +1075,7 @@ impl<T: Config> Module<T> {
     pub fn accept_auth_with(
         signer: &Signatory<T::AccountId>,
         auth_id: u64,
-        accepter: impl FnOnce(AuthorizationData<T::AccountId>, IdentityId) -> DispatchResult,
+        accepter: impl FnOnce(AuthorizationData<T::AccountId, T::Balance>, IdentityId) -> DispatchResult,
     ) -> DispatchResult {
         let auth = Self::ensure_authorization(signer, auth_id)?;
         Self::ensure_auth_unexpired(auth.expiry)?;
@@ -1088,7 +1088,7 @@ impl<T: Config> Module<T> {
     fn ensure_authorization(
         target: &Signatory<T::AccountId>,
         auth_id: u64,
-    ) -> Result<Authorization<T::AccountId, T::Moment>, DispatchError> {
+    ) -> Result<Authorization<T::AccountId, T::Balance, T::Moment>, DispatchError> {
         Self::maybe_authorization(target, auth_id).ok_or_else(|| AuthorizationError::Invalid.into())
     }
 
@@ -1096,7 +1096,7 @@ impl<T: Config> Module<T> {
     fn maybe_authorization(
         target: &Signatory<T::AccountId>,
         auth_id: u64,
-    ) -> Option<Authorization<T::AccountId, T::Moment>> {
+    ) -> Option<Authorization<T::AccountId, T::Balance, T::Moment>> {
         <Authorizations<T>>::contains_key(target, auth_id)
             .then(|| <Authorizations<T>>::get(target, auth_id))
     }
@@ -1798,7 +1798,7 @@ impl<T: Config> Module<T> {
     pub fn get_non_expired_auth(
         target: &Signatory<T::AccountId>,
         auth_id: &u64,
-    ) -> Option<Authorization<T::AccountId, T::Moment>> {
+    ) -> Option<Authorization<T::AccountId, T::Balance, T::Moment>> {
         Self::maybe_authorization(target, *auth_id).filter(|auth| {
             auth.expiry
                 .filter(|&expiry| <pallet_timestamp::Module<T>>::get() > expiry)
@@ -1933,7 +1933,7 @@ impl<T: Config> Module<T> {
         signatory: Signatory<T::AccountId>,
         allow_expired: bool,
         auth_type: Option<AuthorizationType>,
-    ) -> Vec<Authorization<T::AccountId, T::Moment>> {
+    ) -> Vec<Authorization<T::AccountId, T::Balance, T::Moment>> {
         let now = <pallet_timestamp::Module<T>>::get();
         let auths = <Authorizations<T>>::iter_prefix_values(signatory)
             .filter(|auth| allow_expired || auth.expiry.filter(|&e| e < now).is_none());
@@ -1947,7 +1947,7 @@ impl<T: Config> Module<T> {
     }
 
     pub fn get_type(
-        authorization_data: AuthorizationData<T::AccountId>,
+        authorization_data: AuthorizationData<T::AccountId, T::Balance>,
         type_of_auth: AuthorizationType,
     ) -> bool {
         type_of_auth == authorization_data.auth_type()

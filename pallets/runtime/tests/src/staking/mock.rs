@@ -515,12 +515,13 @@ impl PortfolioSubTrait<Balance, AccountId> for Test {
     }
 }
 
-impl IdentityToRelayer<AccountId> for Test {
+impl IdentityToRelayer<Balance, AccountId> for Test {
     fn auth_accept_paying_key(
         _: Signatory<AccountId>,
         _: IdentityId,
         _: AccountId,
         _: AccountId,
+        _: Balance,
     ) -> DispatchResult {
         unimplemented!()
     }
@@ -1719,7 +1720,7 @@ pub fn create_did_and_add_claim_with_expiry(stash: AccountId, expiry: u64) {
 // `iter_prefix_values` has no guarantee that it will iterate in a sequential
 // order. However, we need the latest `auth_id`. Which is why we search for the claim
 // with the highest `auth_id`.
-pub fn get_last_auth(signatory: &Signatory<AccountId>) -> Authorization<AccountId, u64> {
+pub fn get_last_auth(signatory: &Signatory<AccountId>) -> Authorization<AccountId, Balance, u64> {
     <identity::Authorizations<Test>>::iter_prefix_values(signatory)
         .into_iter()
         .max_by_key(|x| x.auth_id)

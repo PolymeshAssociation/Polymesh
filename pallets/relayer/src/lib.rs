@@ -15,8 +15,8 @@
 
 //! # Simple Relayer Module
 //!
-//! TODO: Add description.
-//! TODO: Add PolyLimit
+//! TODO: Add pallet description.
+//! TODO: Add tests.
 //! TODO: Add support for `AuthorizationData::AddRelayerPayingKey` to `CddAndFeeDetails` in `pallets/runtime/*/src/fee_details.rs`
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -24,6 +24,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+use codec::{Decode, Encode};
 use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 pub use polymesh_common_utilities::traits::relayer::{
@@ -33,11 +34,18 @@ use polymesh_primitives::{AuthorizationData, AuthorizationError, IdentityId, Sig
 
 type Identity<T> = identity::Module<T>;
 
+/// The paying key and remaining polyx balance.
+#[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Subsidy<Acc, Bal> {
+    pub paying_key: Acc,
+    pub remaining: Bal,
+}
+
 decl_storage! {
     trait Store for Module<T: Config> as Relayer {
         /// map `user_key` to `paying_key`
-        pub PayingKeys get(fn paying_keys):
-            map hasher(blake2_128_concat) T::AccountId => T::AccountId;
+        pub Subsidies get(fn paying_keys):
+            map hasher(blake2_128_concat) T::AccountId => Subsidy<T::AccountId, T::Balance>;
     }
 }
 
@@ -67,6 +75,14 @@ decl_module! {
         pub fn remove_paying_key(origin, user_key: T::AccountId, paying_key: T::AccountId) -> DispatchResult {
             Self::base_remove_paying_key(origin, user_key, paying_key)
         }
+
+        /// Update polyx limit/remaining balance for `user_key`
+        /// TODO: Add docs.
+        #[weight = <T as Config>::WeightInfo::update_polyx_limit()]
+        pub fn update_polyx_limit(origin, user_key: T::AccountId, polyx_limit: T::Balance) -> DispatchResult {
+            Self::base_update_polyx_limit(origin, user_key, polyx_limit)
+        }
+
     }
 }
 
@@ -98,7 +114,7 @@ impl<T: Config> Module<T> {
         } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
 
         // Create authorization for setting the `paying_key` to the `user_key`
-        Self::unsafe_add_auth_for_paying_key(paying_did, user_key, paying_key);
+        Self::unsafe_add_auth_for_paying_key(paying_did, user_key, paying_key, 0u128.into());
         Ok(())
     }
 
@@ -109,14 +125,14 @@ impl<T: Config> Module<T> {
         let signer = Signatory::Account(user_key);
 
         <Identity<T>>::accept_auth_with(&signer, auth_id, |data, auth_by| -> DispatchResult {
-            let (user_key, paying_key) = match data {
-                AuthorizationData::AddRelayerPayingKey(user_key, paying_key) => {
-                    Ok((user_key, paying_key))
+            let (user_key, paying_key, polyx_limit) = match data {
+                AuthorizationData::AddRelayerPayingKey(user_key, paying_key, polyx_limit) => {
+                    Ok((user_key, paying_key, polyx_limit))
                 }
                 _ => Err(AuthorizationError::BadAuthType),
             }?;
 
-            Self::auth_accept_paying_key(signer.clone(), auth_by, user_key, paying_key)
+            Self::auth_accept_paying_key(signer.clone(), auth_by, user_key, paying_key, polyx_limit)
         })
     }
 
@@ -142,18 +158,48 @@ impl<T: Config> Module<T> {
 
         // Check if there is a paying key.
         ensure!(
-            <PayingKeys<T>>::contains_key(&user_key),
+            <Subsidies<T>>::contains_key(&user_key),
             Error::<T>::NoPayingKey
         );
 
+        // Get current Subsidy
+        let subsidy = <Subsidies<T>>::get(&user_key);
+
         // Check if the current paying key matches.
-        ensure!(
-            <PayingKeys<T>>::get(&user_key) == paying_key,
-            Error::<T>::NotPayingKey
-        );
+        ensure!(subsidy.paying_key == paying_key, Error::<T>::NotPayingKey);
 
         // Remove paying key for user key.
-        <PayingKeys<T>>::remove(&user_key);
+        <Subsidies<T>>::remove(&user_key);
+
+        Ok(())
+    }
+
+    fn base_update_polyx_limit(
+        origin: T::Origin,
+        user_key: T::AccountId,
+        polyx_limit: T::Balance,
+    ) -> DispatchResult {
+        let PermissionedCallOriginData {
+            sender: paying_key,
+            ..
+        } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
+
+        // Check if there is a paying key.
+        ensure!(
+            <Subsidies<T>>::contains_key(&user_key),
+            Error::<T>::NoPayingKey
+        );
+
+        // Get current Subsidy
+        let subsidy = <Subsidies<T>>::get(&user_key);
+
+        // Check if the current paying key matches.
+        ensure!(subsidy.paying_key == paying_key, Error::<T>::NotPayingKey);
+
+        // Update polyx limit
+        <Subsidies<T>>::mutate(&user_key, |subsidy| {
+            (*subsidy).remaining = polyx_limit;
+        });
 
         Ok(())
     }
@@ -163,11 +209,16 @@ impl<T: Config> Module<T> {
         from: IdentityId,
         user_key: T::AccountId,
         paying_key: T::AccountId,
+        polyx_limit: T::Balance,
     ) -> u64 {
         let auth_id = <Identity<T>>::add_auth(
             from,
             Signatory::Account(user_key.clone()),
-            AuthorizationData::AddRelayerPayingKey(user_key.clone(), paying_key.clone()),
+            AuthorizationData::AddRelayerPayingKey(
+                user_key.clone(),
+                paying_key.clone(),
+                polyx_limit,
+            ),
             None,
         );
         Self::deposit_event(RawEvent::PayingKeyAuthorized(
@@ -206,7 +257,7 @@ impl<T: Config> Module<T> {
             Error::<T>::PayingKeyCddMissing
         );
         ensure!(
-            !<PayingKeys<T>>::contains_key(user_key),
+            !<Subsidies<T>>::contains_key(user_key),
             Error::<T>::AlreadyHasPayingKey
         );
 
@@ -214,12 +265,13 @@ impl<T: Config> Module<T> {
     }
 }
 
-impl<T: Config> IdentityToRelayer<T::AccountId> for Module<T> {
+impl<T: Config> IdentityToRelayer<T::Balance, T::AccountId> for Module<T> {
     fn auth_accept_paying_key(
         signer: Signatory<T::AccountId>,
         from: IdentityId,
         user_key: T::AccountId,
         paying_key: T::AccountId,
+        polyx_limit: T::Balance,
     ) -> DispatchResult {
         // Check `signer` is DID/Key of `user_key`
         ensure!(
@@ -236,11 +288,17 @@ impl<T: Config> IdentityToRelayer<T::AccountId> for Module<T> {
         Self::ensure_set_paying_key(from, &user_key, &paying_key)?;
 
         ensure!(
-            !<PayingKeys<T>>::contains_key(&user_key),
+            !<Subsidies<T>>::contains_key(&user_key),
             Error::<T>::AlreadyHasPayingKey
         );
 
-        <PayingKeys<T>>::insert(user_key, paying_key);
+        <Subsidies<T>>::insert(
+            user_key,
+            Subsidy {
+                paying_key,
+                remaining: polyx_limit,
+            },
+        );
         Ok(())
     }
 }

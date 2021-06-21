@@ -688,7 +688,7 @@ pub fn get_identity_id(acc: AccountKeyring) -> Option<IdentityId> {
     Identity::get_identity(&acc.to_account_id())
 }
 
-pub fn authorizations_to(to: &Signatory<AccountId>) -> Vec<Authorization<AccountId, u64>> {
+pub fn authorizations_to(to: &Signatory<AccountId>) -> Vec<Authorization<AccountId, Balance, u64>> {
     identity::Authorizations::<TestStorage>::iter_prefix_values(to).collect::<Vec<_>>()
 }
 
@@ -713,7 +713,7 @@ pub fn fast_forward_blocks(offset: u32) -> Weight {
 // `iter_prefix_values` has no guarantee that it will iterate in a sequential
 // order. However, we need the latest `auth_id`. Which is why we search for the claim
 // with the highest `auth_id`.
-pub fn get_last_auth(signatory: &Signatory<AccountId>) -> Authorization<AccountId, u64> {
+pub fn get_last_auth(signatory: &Signatory<AccountId>) -> Authorization<AccountId, Balance, u64> {
     <identity::Authorizations<TestStorage>>::iter_prefix_values(signatory)
         .into_iter()
         .max_by_key(|x| x.auth_id)

@@ -20,7 +20,17 @@ const MAX_IDENTITIES_ALLOWED_TO_QUERY: u32 = 500;
 
 /// Identity RPC methods
 #[rpc]
-pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountId, SecondaryKey, Signatory, Moment> {
+pub trait IdentityApi<
+    BlockHash,
+    IdentityId,
+    Ticker,
+    AccountId,
+    Balance,
+    SecondaryKey,
+    Signatory,
+    Moment,
+>
+{
     /// Below function use to tell whether the given did has valid cdd claim or not
     #[rpc(name = "identity_isIdentityHasValidCdd")]
     fn is_identity_has_valid_cdd(
@@ -50,7 +60,7 @@ pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountId, SecondaryKey, Si
         allow_expired: bool,
         auth_type: Option<AuthorizationType>,
         at: Option<BlockHash>,
-    ) -> Result<Vec<Authorization<AccountId, Moment>>>;
+    ) -> Result<Vec<Authorization<AccountId, Balance, Moment>>>;
 
     /// Provide the status of a given DID
     #[rpc(name = "identity_getDidStatus")]
@@ -98,12 +108,13 @@ pub enum Error {
     RuntimeError,
 }
 
-impl<C, Block, IdentityId, Ticker, AccountId, SecondaryKey, Signatory, Moment>
+impl<C, Block, IdentityId, Ticker, AccountId, Balance, SecondaryKey, Signatory, Moment>
     IdentityApi<
         <Block as BlockT>::Hash,
         IdentityId,
         Ticker,
         AccountId,
+        Balance,
         SecondaryKey,
         Signatory,
         Moment,
@@ -113,11 +124,20 @@ where
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
-    C::Api:
-        IdentityRuntimeApi<Block, IdentityId, Ticker, AccountId, SecondaryKey, Signatory, Moment>,
+    C::Api: IdentityRuntimeApi<
+        Block,
+        IdentityId,
+        Ticker,
+        AccountId,
+        Balance,
+        SecondaryKey,
+        Signatory,
+        Moment,
+    >,
     IdentityId: Codec,
     Ticker: Codec,
     AccountId: Codec,
+    Balance: Codec,
     SecondaryKey: Codec,
     Signatory: Codec,
     Moment: Codec,
@@ -177,7 +197,7 @@ where
         allow_expired: bool,
         auth_type: Option<AuthorizationType>,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Vec<Authorization<AccountId, Moment>>> {
+    ) -> Result<Vec<Authorization<AccountId, Balance, Moment>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 

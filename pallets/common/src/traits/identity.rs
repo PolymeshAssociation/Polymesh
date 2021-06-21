@@ -123,7 +123,7 @@ pub trait Config: CommonConfig + pallet_timestamp::Config + crate::traits::base:
     /// MultiSig module
     type MultiSig: MultiSigSubTrait<Self::AccountId>;
     /// Relayer module
-    type Relayer: IdentityToRelayer<Self::AccountId>;
+    type Relayer: IdentityToRelayer<Self::Balance, Self::AccountId>;
     /// Portfolio module. Required to accept portfolio custody transfers.
     type Portfolio: PortfolioSubTrait<Self::Balance, Self::AccountId>;
     /// Group module
@@ -163,6 +163,7 @@ decl_event!(
     where
         AccountId = <T as frame_system::Config>::AccountId,
         Moment = <T as pallet_timestamp::Config>::Moment,
+        Balance = <T as CommonConfig>::Balance,
     {
         /// DID, primary key account ID, secondary keys
         DidCreated(IdentityId, AccountId, Vec<SecondaryKey<AccountId>>),
@@ -203,7 +204,7 @@ decl_event!(
             Option<IdentityId>,
             Option<AccountId>,
             u64,
-            AuthorizationData<AccountId>,
+            AuthorizationData<AccountId, Balance>,
             Option<Moment>,
         ),
 

@@ -129,6 +129,7 @@ where
         IdentityId,
         Ticker,
         AccountId,
+        Balance,
         SecondaryKey<AccountId>,
         Signatory<AccountId>,
         Moment,

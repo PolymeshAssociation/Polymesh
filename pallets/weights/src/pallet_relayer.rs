@@ -22,4 +22,8 @@ impl pallet_relayer::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(1 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
+    fn update_polyx_limit() -> Weight {
+        // TODO: re-run benchmarks.
+        (50_000_000 as Weight)
+    }
 }

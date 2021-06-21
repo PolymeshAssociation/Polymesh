@@ -691,7 +691,8 @@
                 "Custom": "Ticker",
                 "NoData": "",
                 "TransferCorporateActionAgent": "Ticker",
-                "BecomeAgent": "(Ticker, AgentGroup)"
+                "BecomeAgent": "(Ticker, AgentGroup)",
+                "AddRelayerPayingKey": "(AccountId, AccountId, Balance)"
             }
         },
         "SmartExtensionType": {
