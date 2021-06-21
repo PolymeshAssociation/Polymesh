@@ -2,29 +2,26 @@ use crate::{
     asset_test::max_len_bytes,
     ext_builder::MockProtocolBaseFees,
     storage::{
-        account_from, make_account_with_uid, make_account_without_cdd, root, AccountId,
-        TestStorage, User,
+        account_from, make_account_with_uid, make_account_without_cdd, root, TestStorage, User,
     },
     ExtBuilder,
 };
 use codec::Encode;
 use frame_support::{
     assert_noop, assert_ok,
-    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
+    dispatch::{DispatchError, DispatchResultWithPostInfo},
     weights::GetDispatchInfo,
     StorageMap,
 };
 use hex_literal::hex;
 use pallet_balances as balances;
-use pallet_contracts::{ContractAddressFor, ContractInfoOf, Gas};
+use pallet_contracts::ContractInfoOf;
 use pallet_permissions as permissions;
 use polymesh_common_utilities::{protocol_fee::ProtocolOp, traits::CddAndFeeDetails};
-use polymesh_contracts::MetadataOfTemplate;
-use polymesh_contracts::{Call as ContractsCall, NonceBasedAddressDeterminer};
+use polymesh_contracts::{Call as ContractsCall, MetadataOfTemplate};
 use polymesh_primitives::{
-    IdentityId, InvestorUid, SmartExtensionType, TemplateDetails, TemplateMetadata,
+    IdentityId, InvestorUid, SmartExtensionType, TemplateDetails, TemplateMetadata, Gas, AccountId
 };
-use sp_core::sr25519::Public;
 use sp_runtime::{traits::Hash, Perbill};
 use test_client::AccountKeyring;
 
@@ -33,12 +30,12 @@ const GAS_LIMIT: Gas = 10_000_000_000;
 type Balances = balances::Module<TestStorage>;
 type System = frame_system::Module<TestStorage>;
 type WrapperContracts = polymesh_contracts::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 type Contracts = pallet_contracts::Module<TestStorage>;
 type WrapperContractsError = polymesh_contracts::Error<TestStorage>;
 type ProtocolFeeError = pallet_protocol_fee::Error<TestStorage>;
 type PermissionError = permissions::Error<TestStorage>;
-type Hashing = <TestStorage as frame_system::Trait>::Hashing;
+type Hashing = <TestStorage as frame_system::Config>::Hashing;
 type CodeHash = <Hashing as Hash>::Output;
 
 /// Load a given wasm module represented by a .wat file and returns a wasm binary contents along
@@ -61,10 +58,8 @@ pub fn create_se_template(
     code_hash: CodeHash,
     wasm: Vec<u8>,
 ) {
-    let wasm_length_weight = 1426500000;
-
     // Set payer in context
-    TestStorage::set_payer_context(Some(template_creator));
+    TestStorage::set_payer_context(Some(template_creator.clone()));
 
     // Create smart extension metadata
     let se_meta_data = TemplateMetadata {
@@ -76,21 +71,35 @@ pub fn create_se_template(
     };
 
     // verify the weight value of the put_code extrinsic.
-    let weight_of_extrinsic = ContractsCall::<TestStorage>::put_code(
+    let subsistence = Contracts::subsistence_threshold();
+    let data = vec![];
+    let salt = vec![];
+    let weight_of_extrinsic = ContractsCall::<TestStorage>::instantiate_with_code(
+        subsistence,
+        GAS_LIMIT,
+        wasm.clone(),
+        data.clone(),
+        salt.clone(),
         se_meta_data.clone(),
         instantiation_fee,
-        wasm.clone(),
     )
     .get_dispatch_info()
     .weight;
-    assert_eq!(wasm_length_weight + 50_000_000, weight_of_extrinsic);
+    assert_eq!(
+        11_864_975_000,
+        weight_of_extrinsic
+    );
 
     // Execute `put_code`
-    assert_ok!(WrapperContracts::put_code(
+    assert_ok!(WrapperContracts::instantiate_with_code(
         Origin::signed(template_creator),
+        subsistence,
+        GAS_LIMIT,
+        wasm,
+        data,
+        salt,
         se_meta_data.clone(),
-        instantiation_fee,
-        wasm
+        instantiation_fee
     ));
 
     // Expected data provide by the runtime.
@@ -115,12 +124,13 @@ pub fn create_se_template(
 pub fn create_contract_instance(
     instance_creator: AccountId,
     code_hash: CodeHash,
+    salt: Vec<u8>,
     max_fee: u128,
     fail: bool,
 ) -> DispatchResultWithPostInfo {
     let input_data = hex!("0222FF18");
     // Set payer of the transaction
-    TestStorage::set_payer_context(Some(instance_creator));
+    TestStorage::set_payer_context(Some(instance_creator.clone()));
 
     // Access the extension nonce.
     let current_extension_nonce = WrapperContracts::extension_nonce();
@@ -132,10 +142,11 @@ pub fn create_contract_instance(
         GAS_LIMIT,
         code_hash,
         input_data.to_vec(),
+        salt,
         max_fee,
     );
 
-    if !fail {
+    if result.is_ok() && !fail {
         assert_eq!(
             WrapperContracts::extension_nonce(),
             current_extension_nonce + 1
@@ -176,15 +187,15 @@ fn free(acc: AccountId) -> u128 {
 fn check_put_code_functionality() {
     let protocol_fee = MockProtocolBaseFees(vec![(ProtocolOp::ContractsPutCode, 500)]);
 
-    execute_externalities_with_wasm(0, protocol_fee, |wasm, code_hash| {
-        let alice = AccountKeyring::Alice.public();
+    execute_externalities_with_wasm(0, protocol_fee.clone(), |wasm, code_hash| {
+        let alice = AccountKeyring::Alice.to_account_id();
         // Create Alice account & the identity for her.
-        let (_, alice_did) = make_account_without_cdd(alice).unwrap();
+        let (_, alice_did) = make_account_without_cdd(alice.clone()).unwrap();
 
         // Get the balance of the Alice.
-        let alice_balance = free(alice);
+        let alice_balance = free(alice.clone());
 
-        create_se_template(alice, alice_did, 0, code_hash, wasm);
+        create_se_template(alice.clone(), alice_did, 0, code_hash, wasm);
 
         // Check the storage of the base pallet.
         assert!(<pallet_contracts::PristineCode<TestStorage>>::get(code_hash).is_some());
@@ -195,7 +206,7 @@ fn check_put_code_functionality() {
         ]);
 
         // Check for protocol fee deduction.
-        assert_eq!(free(alice), alice_balance - fee_deducted);
+        assert_eq!(free(alice), alice_balance - fee_deducted - 16);
 
         // Balance of fee collector
         assert_eq!(free(account_from(5000)), fee_deducted);
@@ -209,8 +220,7 @@ fn check_put_code_functionality() {
 fn check_instantiation_functionality() {
     let protocol_fee = MockProtocolBaseFees(vec![(ProtocolOp::ContractsPutCode, 500)]);
 
-    execute_externalities_with_wasm(0, protocol_fee, |wasm, code_hash| {
-        let input_data = hex!("0222FF18");
+    execute_externalities_with_wasm(0, protocol_fee.clone(), |wasm, code_hash| {
         let extrinsic_wrapper_weight = 500_000_000;
         let instantiation_fee = 99999;
 
@@ -226,44 +236,62 @@ fn check_instantiation_functionality() {
         let bob_balance = free(bob.acc());
 
         // Create instance of contract.
-        let result = create_contract_instance(bob.acc(), code_hash, instantiation_fee, false);
+        let salt_1 = &b"1"[..];
+        let result = create_contract_instance(
+            bob.acc(),
+            code_hash,
+            salt_1.to_vec(),
+            instantiation_fee,
+            false,
+        );
         // Verify the actual weight of the extrinsic.
         assert!(result.unwrap().actual_weight.unwrap() > extrinsic_wrapper_weight);
 
         // Verify whether the instantiation fee deducted properly or not.
         // Alice balance should increased by `instantiation_fee` and Bob balance should be decreased by the same amount.
-        assert_eq!(bob_balance - free(bob.acc()), instantiation_fee + 100); // 100 for instantiation.
+        assert_eq!(
+            bob_balance - free(bob.acc()),
+            instantiation_fee
+                .saturating_add(100) // 100 for instantiation.
+                .saturating_add(put_code_fee(&protocol_fee))
+        ); // Protocol fee
         assert_eq!(alice_balance + instantiation_fee, free(alice.acc()));
 
         // Generate the contract address.
-        let addr_for = || {
-            NonceBasedAddressDeterminer::<TestStorage>::contract_address_for(
-                &code_hash,
-                &input_data.to_vec(),
-                &bob.acc(),
-            )
-        };
-        let flipper_address_1 = addr_for();
+        let addr_for = |salt| Contracts::contract_address(&bob.acc(), &code_hash, salt);
+        let flipper_address_1 = addr_for(&salt_1);
 
         // Check whether the contract creation allowed or not with same constructor data.
         // It should be as contract creation is depend on the nonce of the account.
+        let salt_2 = &b"2"[..];
         assert_ok!(create_contract_instance(
             bob.acc(),
             code_hash,
+            salt_2.to_vec(),
             instantiation_fee,
             false
         ));
 
         // Verify that contract address is different.
-        assert!(flipper_address_1 != addr_for());
+        assert!(flipper_address_1 != addr_for(salt_2));
     });
+}
+
+fn put_code_fee(fees: &MockProtocolBaseFees) -> u128 {
+    fees.0
+        .iter()
+        .find_map(|(op, fee)| match op {
+            ProtocolOp::ContractsPutCode => Some(fee.clone()),
+            _ => None,
+        })
+        .unwrap_or_default()
 }
 
 #[test]
 fn allow_network_share_deduction() {
     let protocol_fee = MockProtocolBaseFees(vec![(ProtocolOp::ContractsPutCode, 500)]);
 
-    execute_externalities_with_wasm(25, protocol_fee, |wasm, code_hash| {
+    execute_externalities_with_wasm(25, protocol_fee.clone(), |wasm, code_hash| {
         let inst_fee = 5000;
         let fee_collector = account_from(5000);
 
@@ -276,15 +304,12 @@ fn allow_network_share_deduction() {
         // Get the balance of Alice.
         let alice_balance = free(alice.acc());
         // Get Network fee collector balance.
-        let fee_collector_balance = free(fee_collector);
+        let fee_collector_balance = free(fee_collector.clone());
 
         // Create instance of contract.
-        assert_ok!(create_contract_instance(
-            bob.acc(),
-            code_hash,
-            inst_fee,
-            false
-        ));
+        let salt = b"1".to_vec();
+        let dispath_res = create_contract_instance(bob.acc(), code_hash, salt, inst_fee, false);
+        assert_ok!(dispath_res);
 
         // Check the fee division.
         // 25 % of fee should be consumed by the network and 75% should be transferred to template owner.
@@ -293,9 +318,11 @@ fn allow_network_share_deduction() {
             alice_balance.saturating_add(Perbill::from_percent(75) * inst_fee),
             free(alice.acc())
         );
-        // 25% check
+        // 25% check + Protocol Fee
         assert_eq!(
-            fee_collector_balance.saturating_add(Perbill::from_percent(25) * inst_fee),
+            fee_collector_balance
+                .saturating_add(Perbill::from_percent(25) * inst_fee)
+                .saturating_add(put_code_fee(&protocol_fee)),
             free(fee_collector)
         );
     });
@@ -303,7 +330,8 @@ fn allow_network_share_deduction() {
 
 #[test]
 fn check_behavior_when_instantiation_fee_changes() {
-    execute_externalities_with_wasm(30, <_>::default(), |wasm, code_hash| {
+    let protocol_fee: MockProtocolBaseFees = Default::default();
+    execute_externalities_with_wasm(30, protocol_fee.clone(), |wasm, code_hash| {
         let instantiation_fee = 5000;
         let fee_collector = account_from(5000);
 
@@ -370,12 +398,14 @@ fn check_behavior_when_instantiation_fee_changes() {
         // Get the balance of Alice.
         let alice_balance = free(alice.acc());
         // Get Network fee collector balance.
-        let fee_collector_balance = free(fee_collector);
+        let fee_collector_balance = free(fee_collector.clone());
 
         // create instance of contract
+        let salt = b"1".to_vec();
         assert_ok!(create_contract_instance(
             bob.acc(),
             code_hash,
+            salt,
             new_instantiation_fee,
             false
         ));
@@ -387,9 +417,11 @@ fn check_behavior_when_instantiation_fee_changes() {
             alice_balance.saturating_add(Perbill::from_percent(70) * new_instantiation_fee),
             free(alice.acc())
         );
-        // 30% check
+        // 30% check + protocol fee
         assert_eq!(
-            fee_collector_balance.saturating_add(Perbill::from_percent(30) * new_instantiation_fee),
+            fee_collector_balance
+                .saturating_add(Perbill::from_percent(30) * new_instantiation_fee)
+                .saturating_add(put_code_fee(&protocol_fee)),
             free(fee_collector)
         );
     });
@@ -419,9 +451,12 @@ fn check_freeze_unfreeze_functionality() {
         assert_noop!(freeze(), WrapperContractsError::InstantiationAlreadyFrozen);
 
         // Instantiation should fail.
-        let create = |fee, fail| create_contract_instance(bob.acc(), code_hash, fee, fail);
+        let salt = &b"1"[..];
+        let create = |fee, fail, salt: &[u8]| {
+            create_contract_instance(bob.acc(), code_hash, salt.to_vec(), fee, fail)
+        };
         assert_noop!(
-            create(instantiation_fee, true),
+            create(instantiation_fee, true, salt),
             WrapperContractsError::InstantiationIsNotAllowed
         );
 
@@ -438,10 +473,13 @@ fn check_freeze_unfreeze_functionality() {
         );
 
         // Instantiation should fail if we max_fee is less than the instantiation fee.
-        assert_noop!(create(500, true), WrapperContractsError::InsufficientMaxFee);
+        assert_noop!(
+            create(500, true, salt),
+            WrapperContractsError::InsufficientMaxFee
+        );
 
         // Instantiation should passed
-        assert_ok!(create(instantiation_fee, false));
+        assert_ok!(create(instantiation_fee, false, salt));
     });
 }
 
@@ -452,7 +490,7 @@ fn validate_transfer_template_ownership_functionality() {
 
     ExtBuilder::default()
         .network_fee_share(Perbill::from_percent(30))
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .set_contracts_put_code(true)
         .build()
         .execute_with(|| {
@@ -461,7 +499,7 @@ fn validate_transfer_template_ownership_functionality() {
             let alice = User::new(AccountKeyring::Alice);
 
             // Create Bob account & the identity for her.
-            let bob = AccountKeyring::Bob.public();
+            let bob = AccountKeyring::Bob.to_account_id();
             let bob_uid = InvestorUid::from("bob_take_1");
             let (_, bob_did) = make_account_with_uid(bob, bob_uid).unwrap();
 
@@ -524,12 +562,19 @@ fn check_transaction_rollback_functionality_for_put_code() {
         };
 
         // Execute `put_code`
+        let subsistence = Contracts::subsistence_threshold();
+        let data = vec![];
+        let salt = vec![];
         assert_noop!(
-            WrapperContracts::put_code(
+            WrapperContracts::instantiate_with_code(
                 alice.origin(),
+                subsistence,
+                GAS_LIMIT,
+                wasm,
+                data,
+                salt,
                 se_meta_data.clone(),
                 instantiation_fee,
-                wasm
             ),
             ProtocolFeeError::InsufficientAccountBalance
         );
@@ -545,7 +590,6 @@ fn check_transaction_rollback_functionality_for_instantiation() {
     let protocol_fee = MockProtocolBaseFees(vec![(ProtocolOp::ContractsPutCode, 500)]);
 
     execute_externalities_with_wasm(30, protocol_fee, |wasm, code_hash| {
-        let input_data = hex!("0222FF18");
         let instantiation_fee = 10000000000;
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
@@ -554,18 +598,14 @@ fn check_transaction_rollback_functionality_for_instantiation() {
         create_se_template(alice.acc(), alice.did, instantiation_fee, code_hash, wasm);
 
         // create instance of contract
+        let salt = b"1".to_vec();
         assert_noop!(
-            create_contract_instance(bob.acc(), code_hash, instantiation_fee, true),
+            create_contract_instance(bob.acc(), code_hash, salt, instantiation_fee, true),
             ProtocolFeeError::InsufficientAccountBalance
         );
 
         // Generate the contract address.
-        let flipper_address_1 = NonceBasedAddressDeterminer::<TestStorage>::contract_address_for(
-            &code_hash,
-            &input_data.to_vec(),
-            &bob.acc(),
-        );
-
+        let flipper_address_1 = Contracts::contract_address(&bob.acc(), &code_hash, &[]);
         assert!(!ContractInfoOf::<TestStorage>::contains_key(
             flipper_address_1
         ));
@@ -595,32 +635,38 @@ fn check_meta_url_functionality() {
 
 #[test]
 fn check_put_code_flag() {
-    let user = AccountKeyring::Charlie.public();
+    let user = AccountKeyring::Charlie.to_account_id();
 
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Dave.public()])
-        .add_regular_users_from_accounts(&[user])
+        .monied(true)
+        .cdd_providers(vec![AccountKeyring::Dave.to_account_id()])
+        .add_regular_users_from_accounts(&[user.clone()])
         .build()
         .execute_with(|| check_put_code_flag_ext(user))
 }
 
-fn check_put_code_flag_ext(user: Public) {
+fn check_put_code_flag_ext(user: AccountId) {
     let (_, wasm) = flipper();
-    let put_code = |acc: Public| -> DispatchResult {
-        WrapperContracts::put_code(
+    let subsistence = Contracts::subsistence_threshold();
+    let put_code = |acc: AccountId| -> DispatchResultWithPostInfo {
+        WrapperContracts::instantiate_with_code(
             Origin::signed(acc),
-            TemplateMetadata::default(),
-            0u128,
+            subsistence,
+            GAS_LIMIT,
             wasm.clone(),
+            vec![],
+            vec![],
+            TemplateMetadata::default(),
+            99999,
         )
     };
 
     // Flag is disable, so `put_code` should fail.
-    assert_noop!(put_code(user), WrapperContractsError::PutCodeIsNotAllowed);
+    assert_noop!(put_code(user.clone()), WrapperContractsError::PutCodeIsNotAllowed);
 
     // Non GC member cannot update the flag.
     assert_noop!(
-        WrapperContracts::set_put_code_flag(Origin::signed(user), true),
+        WrapperContracts::set_put_code_flag(Origin::signed(user.clone()), true),
         DispatchError::BadOrigin
     );
 
@@ -636,8 +682,18 @@ fn put_code_length_limited() {
 
         let user = User::new(AccountKeyring::Alice);
         let (_, wasm) = flipper();
-        let put_code = |meta| -> DispatchResult {
-            WrapperContracts::put_code(user.origin(), meta, 0u128, wasm.clone())
+        let subsistence = Contracts::subsistence_threshold();
+        let put_code = |meta| -> DispatchResultWithPostInfo {
+            WrapperContracts::instantiate_with_code(
+                user.origin(),
+                subsistence,
+                GAS_LIMIT,
+                wasm.clone(),
+                vec![],
+                vec![],
+                meta,
+                0u128,
+            )
         };
         assert_too_long!(put_code(TemplateMetadata {
             url: Some(max_len_bytes(1)),

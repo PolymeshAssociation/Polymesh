@@ -15,20 +15,20 @@
 
 use pallet_identity as identity;
 use pallet_multisig as multisig;
-use polymesh_common_utilities::traits::{balances::CheckCdd, identity::Trait as IdentityTrait};
+use polymesh_common_utilities::traits::{balances::CheckCdd, identity::Config as IdentityConfig};
 use polymesh_primitives::IdentityId;
 
 pub struct CddChecker<R>(sp_std::marker::PhantomData<R>);
 
-impl<R> CheckCdd<<R as frame_system::Trait>::AccountId> for CddChecker<R>
+impl<R> CheckCdd<<R as frame_system::Config>::AccountId> for CddChecker<R>
 where
-    R: IdentityTrait + multisig::Trait,
+    R: IdentityConfig + multisig::Config,
 {
-    fn check_key_cdd(key: &<R as frame_system::Trait>::AccountId) -> bool {
+    fn check_key_cdd(key: &<R as frame_system::Config>::AccountId) -> bool {
         Self::get_key_cdd_did(key).is_some()
     }
 
-    fn get_key_cdd_did(key: &<R as frame_system::Trait>::AccountId) -> Option<IdentityId> {
+    fn get_key_cdd_did(key: &<R as frame_system::Config>::AccountId) -> Option<IdentityId> {
         identity::Module::<R>::get_identity(key)
             .filter(|&did| identity::Module::<R>::has_valid_cdd(did))
     }

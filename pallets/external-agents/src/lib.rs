@@ -49,7 +49,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(iter_advance_by)]
-#![feature(array_value_iter)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -61,7 +60,7 @@ use frame_support::{
     ensure,
 };
 use pallet_identity::PermissionedCallOriginData;
-pub use polymesh_common_utilities::traits::external_agents::{Event, Trait, WeightInfo};
+pub use polymesh_common_utilities::traits::external_agents::{Config, Event, WeightInfo};
 use polymesh_primitives::agent::{AGId, AgentGroup};
 use polymesh_primitives::{
     ExtrinsicPermissions, IdentityId, PalletPermissions, SubsetRestriction, Ticker,
@@ -72,7 +71,7 @@ type Identity<T> = pallet_identity::Module<T>;
 type Permissions<T> = pallet_permissions::Module<T>;
 
 decl_storage! {
-    trait Store for Module<T: Trait> as ExternalAgent {
+    trait Store for Module<T: Config> as ExternalAgent {
         /// The next per-`Ticker` AG ID in the sequence.
         ///
         /// The full ID is defined as a combination of `Ticker` and a number in this sequence,
@@ -110,7 +109,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -133,7 +132,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Agent
-        #[weight = <T as Trait>::WeightInfo::create_group(perms.complexity() as u32)]
+        #[weight = <T as Config>::WeightInfo::create_group(perms.complexity() as u32)]
         pub fn create_group(origin, ticker: Ticker, perms: ExtrinsicPermissions) -> DispatchResult {
             Self::base_create_group(origin, ticker, perms)
         }
@@ -153,7 +152,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Agent
-        #[weight = <T as Trait>::WeightInfo::set_group_permissions(perms.complexity() as u32)]
+        #[weight = <T as Config>::WeightInfo::set_group_permissions(perms.complexity() as u32)]
         pub fn set_group_permissions(origin, ticker: Ticker, id: AGId, perms: ExtrinsicPermissions) -> DispatchResult {
             Self::base_set_group_permissions(origin, ticker, id, perms)
         }
@@ -172,7 +171,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Agent
-        #[weight = <T as Trait>::WeightInfo::remove_agent()]
+        #[weight = <T as Config>::WeightInfo::remove_agent()]
         pub fn remove_agent(origin, ticker: Ticker, agent: IdentityId) -> DispatchResult {
             Self::base_remove_agent(origin, ticker, agent)
         }
@@ -188,7 +187,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Trait>::WeightInfo::abdicate()]
+        #[weight = <T as Config>::WeightInfo::abdicate()]
         pub fn abdicate(origin, ticker: Ticker) -> DispatchResult {
             Self::base_abdicate(origin, ticker)
         }
@@ -210,8 +209,8 @@ decl_module! {
         /// * Asset
         /// * Agent
         #[weight = match group {
-            AgentGroup::Custom(_) => <T as Trait>::WeightInfo::change_group_custom(),
-            _ => <T as Trait>::WeightInfo::change_group_builtin(),
+            AgentGroup::Custom(_) => <T as Config>::WeightInfo::change_group_custom(),
+            _ => <T as Config>::WeightInfo::change_group_builtin(),
         }]
         pub fn change_group(origin, ticker: Ticker, agent: IdentityId, group: AgentGroup) -> DispatchResult {
             Self::base_change_group(origin, ticker, agent, group)
@@ -220,7 +219,7 @@ decl_module! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// There have been too many AGs for this ticker and the ID would overflow.
         /// This won't occur in practice.
         LocalAGIdOverflow,
@@ -243,7 +242,7 @@ decl_error! {
     }
 }
 
-impl<T: Trait> polymesh_common_utilities::identity::IdentityToExternalAgents for Module<T> {
+impl<T: Config> polymesh_common_utilities::identity::IdentityToExternalAgents for Module<T> {
     fn accept_become_agent(
         did: IdentityId,
         from: IdentityId,
@@ -263,7 +262,7 @@ impl<T: Trait> polymesh_common_utilities::identity::IdentityToExternalAgents for
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     fn base_create_group(
         origin: T::Origin,
         ticker: Ticker,

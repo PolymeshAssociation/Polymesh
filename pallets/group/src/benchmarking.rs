@@ -1,7 +1,7 @@
 use crate::*;
 use polymesh_common_utilities::{
     benchs::{AccountIdOf, User, UserBuilder},
-    group::{GroupTrait, Trait},
+    group::{Config, GroupTrait},
     Context, TestUtilsFn,
 };
 
@@ -11,7 +11,7 @@ use frame_system::RawOrigin;
 const MAX_MEMBERS: u32 = 1_000;
 
 /// Create `m` new users.
-fn make_users<T: Trait<I> + TestUtilsFn<AccountIdOf<T>>, I: Instance>(m: u32) -> Vec<IdentityId> {
+fn make_users<T: Config<I> + TestUtilsFn<AccountIdOf<T>>, I: Instance>(m: u32) -> Vec<IdentityId> {
     (0..m)
         .map(|s| {
             UserBuilder::<T>::default()
@@ -24,7 +24,9 @@ fn make_users<T: Trait<I> + TestUtilsFn<AccountIdOf<T>>, I: Instance>(m: u32) ->
 }
 
 /// Create `m` new users and add them into the group.
-fn make_members<T: Trait<I> + TestUtilsFn<AccountIdOf<T>>, I: Instance>(m: u32) -> Vec<IdentityId> {
+fn make_members<T: Config<I> + TestUtilsFn<AccountIdOf<T>>, I: Instance>(
+    m: u32,
+) -> Vec<IdentityId> {
     <ActiveMembersLimit<I>>::put(u32::MAX);
     let dids = make_users::<T, I>(m);
     dids.iter().for_each(|did| {
@@ -35,7 +37,7 @@ fn make_members<T: Trait<I> + TestUtilsFn<AccountIdOf<T>>, I: Instance>(m: u32) 
 }
 
 /// Check if inactive members contain the given identity.
-fn inactive_members_contains<T: Trait<I>, I: Instance>(did: &IdentityId) -> bool {
+fn inactive_members_contains<T: Config<I>, I: Instance>(did: &IdentityId) -> bool {
     Module::<T, I>::get_inactive_members()
         .into_iter()
         .map(|m| m.id)
@@ -43,7 +45,7 @@ fn inactive_members_contains<T: Trait<I>, I: Instance>(did: &IdentityId) -> bool
         .is_some()
 }
 
-fn build_new_member<T: Trait<I> + TestUtilsFn<AccountIdOf<T>>, I: Instance>() -> User<T> {
+fn build_new_member<T: Config<I> + TestUtilsFn<AccountIdOf<T>>, I: Instance>() -> User<T> {
     UserBuilder::<T>::default()
         .generate_did()
         .build("new member")
@@ -51,8 +53,6 @@ fn build_new_member<T: Trait<I> + TestUtilsFn<AccountIdOf<T>>, I: Instance>() ->
 
 benchmarks_instance! {
     where_clause {  where T: TestUtilsFn<AccountIdOf<T>> }
-
-    _ {}
 
     set_active_members_limit {
     }: _(RawOrigin::Root, 5u32)

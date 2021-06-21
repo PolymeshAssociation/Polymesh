@@ -33,8 +33,6 @@ fn make_worst_memo() -> Option<Memo> {
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
-    _ {}
-
     // Benchmark `transfer` extrinsic with the worst possible conditions:
     // * Transfer will create the recipient account.
     transfer {

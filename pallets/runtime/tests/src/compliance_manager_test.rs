@@ -13,8 +13,8 @@ use pallet_compliance_manager::{self as compliance_manager, Error as CMError};
 use pallet_group as group;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
+    compliance_manager::Config as _,
     constants::{ERC1400_TRANSFER_FAILURE, ERC1400_TRANSFER_SUCCESS},
-    traits::compliance_manager::Trait as ComplianceManagerTrait,
     Context,
 };
 use polymesh_primitives::{
@@ -35,7 +35,7 @@ type Asset = pallet_asset::Module<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
 type CDDGroup = group::Module<TestStorage, group::Instance2>;
 type Moment = u64;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 type EAError = pallet_external_agents::Error<TestStorage>;
 
 macro_rules! assert_invalid_transfer {
@@ -350,7 +350,7 @@ fn should_reset_asset_compliance_we() {
 #[test]
 fn pause_resume_asset_compliance() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(pause_resume_asset_compliance_we);
 }
@@ -392,7 +392,7 @@ fn pause_resume_asset_compliance_we() {
     provide_scope_claim_to_multiple_parties(
         &[owner.did, receiver.did],
         ticker,
-        AccountKeyring::Eve.public(),
+        AccountKeyring::Eve.to_account_id(),
     );
 
     // 5. Verify pause/resume mechanism.
@@ -725,7 +725,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
 #[test]
 fn jurisdiction_asset_compliance() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(jurisdiction_asset_compliance_we);
 }
@@ -742,7 +742,7 @@ fn jurisdiction_asset_compliance_we() {
     provide_scope_claim_to_multiple_parties(
         &[owner.did, user.did],
         ticker,
-        AccountKeyring::Eve.public(),
+        AccountKeyring::Eve.to_account_id(),
     );
 
     // 2. Set up compliance requirements for Asset transfer.
@@ -790,7 +790,7 @@ fn jurisdiction_asset_compliance_we() {
 #[test]
 fn scope_asset_compliance() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(scope_asset_compliance_we);
 }
@@ -799,6 +799,7 @@ fn scope_asset_compliance_we() {
     let owner = User::new(AccountKeyring::Alice);
     let cdd = User::new(AccountKeyring::Bob);
     let user = User::new(AccountKeyring::Charlie);
+
     // 1. Create a token.
     let (ticker, _) = create_token(owner);
 
@@ -806,7 +807,7 @@ fn scope_asset_compliance_we() {
     provide_scope_claim_to_multiple_parties(
         &[owner.did, user.did],
         ticker,
-        AccountKeyring::Eve.public(),
+        AccountKeyring::Eve.to_account_id(),
     );
 
     // 2. Set up compliance requirements for Asset transfer.
@@ -837,7 +838,7 @@ fn scope_asset_compliance_we() {
 #[test]
 fn cm_test_case_9() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::One.public()])
+        .cdd_providers(vec![AccountKeyring::One.to_account_id()])
         .build()
         .execute_with(cm_test_case_9_we);
 }
@@ -877,7 +878,7 @@ fn cm_test_case_9_we() {
     provide_scope_claim_to_multiple_parties(
         &[owner, charlie, dave, eve, ferdie].map(|u| u.did),
         ticker,
-        AccountKeyring::One.public(),
+        AccountKeyring::One.to_account_id(),
     );
 
     let verify_restriction_granular = |user: User, claim| {
@@ -915,7 +916,7 @@ fn cm_test_case_9_we() {
 #[test]
 fn cm_test_case_11() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Ferdie.public()])
+        .cdd_providers(vec![AccountKeyring::Ferdie.to_account_id()])
         .build()
         .execute_with(cm_test_case_11_we);
 }
@@ -925,7 +926,7 @@ fn cm_test_case_11_we() {
     // 0. Create accounts
     let owner = User::new(AccountKeyring::Alice);
     let issuer = User::new(AccountKeyring::Bob);
-    let ferdie = AccountKeyring::Ferdie.public();
+    let ferdie = AccountKeyring::Ferdie.to_account_id();
 
     // 1. Create a token.
     let (ticker, _) = create_token(owner);
@@ -1031,7 +1032,7 @@ fn cm_test_case_11_we() {
 #[test]
 fn cm_test_case_13() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Ferdie.public()])
+        .cdd_providers(vec![AccountKeyring::Ferdie.to_account_id()])
         .build()
         .execute_with(cm_test_case_13_we);
 }
@@ -1083,7 +1084,7 @@ fn cm_test_case_13_we() {
     provide_scope_claim_to_multiple_parties(
         &[owner, charlie, dave, eve].map(|u| u.did),
         ticker,
-        AccountKeyring::Ferdie.public(),
+        AccountKeyring::Ferdie.to_account_id(),
     );
 
     // 3.1. Charlie has a 'KnowYourCustomer' Claim BUT he does not have any of { 'Affiliate',
@@ -1165,7 +1166,7 @@ fn cm_test_case_13_we() {
 #[test]
 fn can_verify_restriction_with_primary_issuance_agent() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(can_verify_restriction_with_primary_issuance_agent_we);
 }
@@ -1177,6 +1178,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
 
     // 1. Create a token.
     let (ticker, _) = create_token(owner);
+
     let auth_id = Identity::add_auth(
         owner.did,
         Signatory::from(issuer.did),
@@ -1190,7 +1192,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
     provide_scope_claim_to_multiple_parties(
         &[owner, other, issuer].map(|u| u.did),
         ticker,
-        AccountKeyring::Eve.public(),
+        AccountKeyring::Eve.to_account_id(),
     );
 
     // No compliance requirement is present, compliance should fail
