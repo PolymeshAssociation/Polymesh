@@ -36,6 +36,7 @@ type ComplianceManager = compliance_manager::Module<TestStorage>;
 type CDDGroup = group::Module<TestStorage, group::Instance2>;
 type Moment = u64;
 type Origin = <TestStorage as frame_system::Config>::Origin;
+type ExternalAgents = pallet_external_agents::Module<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;
 
 macro_rules! assert_invalid_transfer {
@@ -1185,7 +1186,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
         AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),
         None,
     );
-    assert_ok!(Identity::accept_authorization(issuer.origin(), auth_id));
+    assert_ok!(ExternalAgents::accept_become_agent(issuer.origin(), auth_id));
     let amount = 1_000;
 
     // Provide scope claim for sender and receiver.

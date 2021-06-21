@@ -48,9 +48,8 @@ use polymesh_common_utilities::{
     },
 };
 use polymesh_primitives::{
-    agent::AgentGroup, identity_id::GenesisIdentityRecord, Authorization, AuthorizationData, CddId,
-    Claim, IdentityId, InvestorUid, Moment, Permissions, PortfolioId, ScopeId, SecondaryKey,
-    Signatory, Ticker,
+    identity_id::GenesisIdentityRecord, Authorization, AuthorizationData, CddId, Claim, IdentityId,
+    InvestorUid, Moment, Permissions, PortfolioId, ScopeId, SecondaryKey, Signatory, Ticker,
 };
 use sp_core::H256;
 use sp_npos_elections::{
@@ -341,7 +340,6 @@ impl polymesh_common_utilities::traits::identity::Config for Test {
     type ProtocolFee = protocol_fee::Module<Test>;
     type GCVotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
-    type ExternalAgents = Test;
     type IdentityFn = identity::Module<Test>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
