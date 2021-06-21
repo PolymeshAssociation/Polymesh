@@ -584,12 +584,8 @@ decl_module! {
             Self::ensure_auth_unexpired(auth.expiry)?;
 
             match (signer.clone(), auth.authorization_data) {
-                (Signatory::Identity(did), AuthorizationData::TransferTicker(ticker)) =>
-                    T::AssetSubTraitTarget::accept_ticker_transfer(did, from, ticker),
                 (Signatory::Identity(did), AuthorizationData::BecomeAgent(ticker, group)) =>
                     T::ExternalAgents::accept_become_agent(did, from, ticker, group),
-                (Signatory::Identity(did), AuthorizationData::TransferAssetOwnership(ticker)) =>
-                    T::AssetSubTraitTarget::accept_asset_ownership_transfer(did, from, ticker),
                 (Signatory::Identity(did), AuthorizationData::PortfolioCustody(pid)) =>
                     T::Portfolio::accept_portfolio_custody(did, from, pid),
                 (Signatory::Account(key), AuthorizationData::RotatePrimaryKey(_)) =>
@@ -600,14 +596,14 @@ decl_module! {
                     | AuthorizationData::NoData
                     | AuthorizationData::AddMultiSigSigner(..)
                     | AuthorizationData::JoinIdentity(..)
+                    | AuthorizationData::TransferTicker(..)
+                    | AuthorizationData::TransferAssetOwnership(..)
                     | AuthorizationData::TransferPrimaryIssuanceAgent(..)
                     | AuthorizationData::TransferCorporateActionAgent(..)
                 )
                 | (Signatory::Identity(_), AuthorizationData::RotatePrimaryKey(..))
                 | (Signatory::Account(_),
-                    AuthorizationData::TransferTicker(..)
                     | AuthorizationData::BecomeAgent(..)
-                    | AuthorizationData::TransferAssetOwnership(..)
                     | AuthorizationData::PortfolioCustody(..)
                 ) => fail!(AuthorizationError::BadType)
             }?;
