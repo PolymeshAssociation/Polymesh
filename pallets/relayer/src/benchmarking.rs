@@ -36,7 +36,14 @@ fn setup_paying_key<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, User
     let (payer, user) = setup_users::<T>();
     let user_signer = Signatory::Account(user.account());
     // accept paying key
-    <Relayer<T>>::auth_accept_paying_key(user_signer, payer.did(), user.account(), payer.account(), 0u128.into()).unwrap();
+    <Relayer<T>>::auth_accept_paying_key(
+        user_signer,
+        payer.did(),
+        user.account(),
+        payer.account(),
+        0u128.into(),
+    )
+    .unwrap();
     (payer, user)
 }
 

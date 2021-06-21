@@ -180,8 +180,7 @@ impl<T: Config> Module<T> {
         polyx_limit: T::Balance,
     ) -> DispatchResult {
         let PermissionedCallOriginData {
-            sender: paying_key,
-            ..
+            sender: paying_key, ..
         } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
 
         // Check if there is a paying key.
