@@ -584,7 +584,6 @@ decl_module! {
             Self::ensure_auth_unexpired(auth.expiry)?;
 
             match (signer.clone(), auth.authorization_data) {
-                (sig, AuthorizationData::JoinIdentity(_)) => Self::join_identity(sig, auth_id),
                 (Signatory::Identity(did), AuthorizationData::TransferTicker(ticker)) =>
                     T::AssetSubTraitTarget::accept_ticker_transfer(did, from, ticker),
                 (Signatory::Identity(did), AuthorizationData::BecomeAgent(ticker, group)) =>
@@ -600,6 +599,7 @@ decl_module! {
                     | AuthorizationData::Custom(..)
                     | AuthorizationData::NoData
                     | AuthorizationData::AddMultiSigSigner(..)
+                    | AuthorizationData::JoinIdentity(..)
                     | AuthorizationData::TransferPrimaryIssuanceAgent(..)
                     | AuthorizationData::TransferCorporateActionAgent(..)
                 )
@@ -908,54 +908,46 @@ impl<T: Config> Module<T> {
 
     /// Accepts an auth to join an identity as a signer
     pub fn join_identity(signer: Signatory<T::AccountId>, auth_id: u64) -> DispatchResult {
-        Self::accept_auth_with(&signer, auth_id, |data, auth_by| {
+        Self::accept_auth_with(&signer, auth_id, |data, target_did| {
             let permissions = extract_auth!(data, JoinIdentity(p));
             // Not really needed unless we allow identities to be deleted.
-            Self::ensure_id_record_exists(auth_by)?;
-            Self::base_join_identity(auth_by, permissions.into(), &signer)
+            Self::ensure_id_record_exists(target_did)?;
+
+            let charge_fee =
+                || T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddSecondaryKeysWithAuthorization);
+
+            // Link the secondary key.
+            match &signer {
+                Signatory::Account(key) => {
+                    ensure!(
+                        Self::can_link_account_key_to_did(key),
+                        Error::<T>::AlreadyLinked
+                    );
+                    // Check that the new Identity has a valid CDD claim.
+                    ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
+                    // Charge the protocol fee after all checks.
+                    charge_fee()?;
+                    // Update current did of the transaction to the newly joined did.
+                    // This comes handy when someone uses a batch transaction to leave their identity,
+                    // join another identity, and then do something as the new identity.
+                    T::CddHandler::set_current_identity(&target_did);
+
+                    Self::link_account_key_to_did(key, target_did);
+                }
+                Signatory::Identity(_) => {
+                    // Check if secondary keys already contains this signer.
+                    ensure!(
+                        !<DidRecords<T>>::get(target_did).contains_secondary_key(&signer),
+                        Error::<T>::AlreadyLinked
+                    );
+                    // Charge the protocol fee after all checks.
+                    charge_fee()?;
+                }
+            }
+
+            Self::unsafe_join_identity(target_did, permissions, &signer);
+            Ok(())
         })
-    }
-
-    /// Joins an identity as signer
-    pub fn base_join_identity(
-        target_did: IdentityId,
-        permissions: Permissions,
-        signer: &Signatory<T::AccountId>,
-    ) -> DispatchResult {
-        let charge_fee =
-            || T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddSecondaryKeysWithAuthorization);
-
-        // Link the secondary key.
-        match signer {
-            Signatory::Account(key) => {
-                ensure!(
-                    Self::can_link_account_key_to_did(key),
-                    Error::<T>::AlreadyLinked
-                );
-                // Check that the new Identity has a valid CDD claim.
-                ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
-                // Charge the protocol fee after all checks.
-                charge_fee()?;
-                // Update current did of the transaction to the newly joined did.
-                // This comes handy when someone uses a batch transaction to leave their identity, join another identity,
-                // and then do something as the new identity.
-                T::CddHandler::set_current_identity(&target_did);
-
-                Self::link_account_key_to_did(key, target_did);
-            }
-            Signatory::Identity(_) => {
-                // Check if secondary keys already contains this signer.
-                ensure!(
-                    !<DidRecords<T>>::get(target_did).contains_secondary_key(signer),
-                    Error::<T>::AlreadyLinked
-                );
-                // Charge the protocol fee after all checks.
-                charge_fee()?;
-            }
-        }
-
-        Self::unsafe_join_identity(target_did, permissions, signer);
-        Ok(())
     }
 
     /// Joins an identity as signer
