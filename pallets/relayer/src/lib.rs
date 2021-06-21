@@ -29,7 +29,7 @@ use pallet_identity::{self as identity, PermissionedCallOriginData};
 pub use polymesh_common_utilities::traits::relayer::{
     Config, Event, IdentityToRelayer, RawEvent, WeightInfo,
 };
-use polymesh_primitives::{AuthorizationData, IdentityId, Signatory};
+use polymesh_primitives::{AuthorizationData, AuthorizationError, IdentityId, Signatory};
 
 type Identity<T> = identity::Module<T>;
 
@@ -82,8 +82,6 @@ decl_error! {
         NoPayingKey,
         /// The `user_key` has a different `paying_key`.
         NotPayingKey,
-        /// Not a relayer authorization.
-        NotARelayerAuth,
         /// The signer not authorized for `paying_key`.
         NotAuthorizedForPayingKey,
         /// The signer not authorized for `user_key`.
@@ -115,7 +113,7 @@ impl<T: Config> Module<T> {
                 AuthorizationData::AddRelayerPayingKey(user_key, paying_key) => {
                     Ok((user_key, paying_key))
                 }
-                _ => Err(Error::<T>::NotARelayerAuth),
+                _ => Err(AuthorizationError::BadAuthType),
             }?;
 
             Self::auth_accept_paying_key(signer.clone(), auth_by, user_key, paying_key)

@@ -135,6 +135,8 @@ pub enum AuthorizationError {
     Unauthorized,
     /// Auth expired already
     Expired,
+    /// Bad Authorization Type
+    BadAuthType,
 }
 
 impl From<AuthorizationError> for DispatchError {
@@ -145,6 +147,9 @@ impl From<AuthorizationError> for DispatchError {
                 DispatchError::Other("Illegal use of Authorization")
             }
             AuthorizationError::Expired => DispatchError::Other("Authorization expired"),
+            AuthorizationError::BadAuthType => {
+                DispatchError::Other("Authorization does not match expected type")
+            }
         }
     }
 }
