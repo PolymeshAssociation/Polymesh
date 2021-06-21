@@ -18,7 +18,7 @@ use crate::{
         group::GroupTrait,
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
-        relayer::RelayerSubTrait,
+        relayer::IdentityToRelayer,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
         CommonTrait,
     },
@@ -123,7 +123,7 @@ pub trait Trait: CommonTrait + pallet_timestamp::Trait + crate::traits::base::Tr
     /// MultiSig module
     type MultiSig: MultiSigSubTrait<Self::AccountId>;
     /// Relayer module
-    type Relayer: RelayerSubTrait<Self::AccountId>;
+    type Relayer: IdentityToRelayer<Self::AccountId>;
     /// Portfolio module. Required to accept portfolio custody transfers.
     type Portfolio: PortfolioSubTrait<Self::Balance, Self::AccountId>;
     /// Group module

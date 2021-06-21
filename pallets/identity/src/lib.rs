@@ -123,7 +123,7 @@ use polymesh_common_utilities::{
         },
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
-        relayer::RelayerSubTrait,
+        relayer::IdentityToRelayer,
         transaction_payment::CddAndFeeDetails,
         AccountCallPermissionsData, CheckAccountCallPermissions,
     },

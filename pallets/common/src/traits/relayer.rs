@@ -10,7 +10,7 @@ pub trait WeightInfo {
 }
 
 /// This trait is used to add a paying key to a user key.
-pub trait RelayerSubTrait<AccountId> {
+pub trait IdentityToRelayer<AccountId> {
     /// Accepts and adds a paying key to a user key
     ///
     /// # Arguments

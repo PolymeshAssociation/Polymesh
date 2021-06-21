@@ -43,7 +43,7 @@ use polymesh_common_utilities::{
         identity::{IdentityToExternalAgents, Trait as IdentityTrait},
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
-        relayer::RelayerSubTrait,
+        relayer::IdentityToRelayer,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
         CommonTrait, PermissionChecker,
     },
@@ -566,7 +566,7 @@ impl PortfolioSubTrait<Balance, AccountId> for Test {
     }
 }
 
-impl RelayerSubTrait<AccountId> for Test {
+impl IdentityToRelayer<AccountId> for Test {
     fn auth_accept_paying_key(
         _: Signatory<AccountId>,
         _: IdentityId,

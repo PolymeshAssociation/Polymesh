@@ -28,7 +28,7 @@ use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchRes
 use frame_system::ensure_signed;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 pub use polymesh_common_utilities::traits::relayer::{
-    Event, RawEvent, RelayerSubTrait, Trait, WeightInfo,
+    Event, RawEvent, IdentityToRelayer, Trait, WeightInfo,
 };
 use polymesh_primitives::{AuthorizationData, IdentityId, Signatory};
 
@@ -179,7 +179,7 @@ impl<T: Trait> Module<T> {
     }
 }
 
-impl<T: Trait> RelayerSubTrait<T::AccountId> for Module<T> {
+impl<T: Trait> IdentityToRelayer<T::AccountId> for Module<T> {
     fn auth_accept_paying_key(
         signer: Signatory<T::AccountId>,
         from: IdentityId,
