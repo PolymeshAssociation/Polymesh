@@ -496,16 +496,8 @@ impl<T: Config> Module<T> {
             Some(AgentGroup::Custom(ag_id)) => {
                 GroupPermissions::get(ticker, ag_id).unwrap_or_else(ExtrinsicPermissions::empty)
             }
-            // Anything but extrinsics in this pallet & `accept_authorization`.
-            Some(AgentGroup::ExceptMeta) => SubsetRestriction::excepts(IntoIter::new([
-                // `Identity::accept_authorization` needs to be excluded.
-                in_pallet(
-                    "Identity",
-                    SubsetRestriction::elem("accept_authorization".into()),
-                ),
-                // `ExternalAgents` needs to be excluded.
-                pallet("ExternalAgents"),
-            ])),
+            // Anything but extrinsics in this pallet.
+            Some(AgentGroup::ExceptMeta) => SubsetRestriction::except(pallet("ExternalAgents")),
             // Pallets `CorporateAction`, `CorporateBallot`, and `CapitalDistribution`.
             Some(AgentGroup::PolymeshV1CAA) => elems([
                 pallet("CorporateAction"),
