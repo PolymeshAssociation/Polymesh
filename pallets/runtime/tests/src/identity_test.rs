@@ -87,6 +87,15 @@ fn get_secondary_keys(target: IdentityId) -> Vec<SecondaryKey<AccountId>> {
     }
 }
 
+fn target_id_auth(user: User) -> (TargetIdAuthorization<u64>, u64) {
+    let expires_at = 100u64;
+    (TargetIdAuthorization {
+        target_id: user.did,
+        nonce: Identity::offchain_authorization_nonce(user.did),
+        expires_at,
+    }, expires_at)
+}
+
 fn create_new_token(name: &[u8], owner: User) -> (Ticker, SecurityToken<u128>) {
     let r = token(name, owner.did);
     assert_ok!(basic_asset(owner, r.0, &r.1));
@@ -615,9 +624,8 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
 
 fn run_add_secondary_key_with_perm_test<F>(add_key_with_perms: F)
   where
-    F: Fn(User, User, Permissions) -> DispatchResult
+    F: Fn(User, Permissions) -> DispatchResult
 {
-    let bob = User::new(AccountKeyring::Bob);
     let alice = User::new(AccountKeyring::Alice);
 
     let perm1 = Permissions::empty();
@@ -629,17 +637,17 @@ fn run_add_secondary_key_with_perm_test<F>(add_key_with_perms: F)
     let count_keys = || get_secondary_keys(alice.did).len();
 
     // Add bob's identity signatory with empty permissions
-    let res = add_key_with_perms(alice, bob, perm1.clone());
+    let res = add_key_with_perms(alice, perm1.clone());
     assert_ok!(res);
     assert_eq!(count_keys(), 1);
 
     // Add bob's identity signatory again with non-empty permissions
-    let res = add_key_with_perms(alice, bob, perm2.clone());
+    let res = add_key_with_perms(alice, perm2.clone());
     assert_noop!(res, Error::AlreadyLinked);
     assert_eq!(count_keys(), 1);
 
     // Add bob's identity signatory again.
-    let res = add_key_with_perms(alice, bob, perm1.clone());
+    let res = add_key_with_perms(alice, perm1.clone());
     assert_noop!(res, Error::AlreadyLinked);
     assert_eq!(count_keys(), 1);
 }
@@ -653,15 +661,11 @@ fn add_secondary_keys_with_ident_signer_test() {
 }
 
 fn do_add_secondary_keys_with_ident_signer_test() {
+    let bob = User::new(AccountKeyring::Bob);
+
     // Try adding the same `secondary_key` using `add_secondary_keys_with_authorization`.
-    run_add_secondary_key_with_perm_test(|alice, bob, perms| {
-        let expires_at = 100u64;
-        let target_id_auth = |user: User| TargetIdAuthorization {
-            target_id: user.did,
-            nonce: Identity::offchain_authorization_nonce(user.did),
-            expires_at,
-        };
-        let authorization = target_id_auth(alice);
+    run_add_secondary_key_with_perm_test(move |alice, perms| {
+        let (authorization, expires_at) = target_id_auth(alice);
         let auth_encoded = authorization.encode();
         let auth_signature = H512::from(bob.ring.sign(&auth_encoded));
 
@@ -687,16 +691,40 @@ fn join_identity_as_identity_with_perm_test() {
 }
 
 fn do_join_identity_as_identity_with_perm_test() {
-    // Use `add_auth` and `join_identity` to add a secondary key.
-    run_add_secondary_key_with_perm_test(|alice, bob, perms| {
-        let signer = Signatory::Identity(bob.did);
+    let bob = User::new(AccountKeyring::Bob);
+
+    // Use `add_auth` and `join_identity_as_identity` to add a secondary key.
+    run_add_secondary_key_with_perm_test(move |alice, perms| {
         let auth_id = Identity::add_auth(
             alice.did,
-            signer.clone(),
+            Signatory::Identity(bob.did),
             AuthorizationData::JoinIdentity(perms),
             None,
         );
-        Identity::join_identity(signer, auth_id)
+        Identity::join_identity_as_identity(bob.origin(), auth_id)
+    })
+}
+
+#[test]
+fn join_identity_as_key_with_perm_test() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(&do_join_identity_as_key_with_perm_test);
+}
+
+fn do_join_identity_as_key_with_perm_test() {
+    let bob_acc = AccountKeyring::Bob.to_account_id();
+
+    // Use `add_auth` and `join_identity_as_key` to add a secondary key.
+    run_add_secondary_key_with_perm_test(move |alice, perms| {
+        let auth_id = Identity::add_auth(
+            alice.did,
+            Signatory::Account(bob_acc.clone()),
+            AuthorizationData::JoinIdentity(perms),
+            None,
+        );
+        Identity::join_identity_as_key(Origin::signed(bob_acc.clone()), auth_id)
     })
 }
 
@@ -732,13 +760,7 @@ fn do_add_secondary_keys_with_permissions_test() {
     );
 
     // Try addind the same secondary_key using `add_secondary_keys_with_authorization`
-    let expires_at = 100u64;
-    let target_id_auth = |user: User| TargetIdAuthorization {
-        target_id: user.did,
-        nonce: Identity::offchain_authorization_nonce(user.did),
-        expires_at,
-    };
-    let authorization = target_id_auth(alice);
+    let (authorization, expires_at) = target_id_auth(alice);
     let auth_encoded = authorization.encode();
     let auth_signature = H512::from(alice.ring.sign(&auth_encoded));
 
@@ -1180,13 +1202,7 @@ fn one_step_join_id() {
 fn one_step_join_id_with_ext() {
     let a = User::new(AccountKeyring::Alice);
 
-    let expires_at = 100u64;
-    let target_id_auth = |user: User| TargetIdAuthorization {
-        target_id: user.did,
-        nonce: Identity::offchain_authorization_nonce(user.did),
-        expires_at,
-    };
-    let authorization = target_id_auth(a);
+    let (authorization, expires_at) = target_id_auth(a);
     let auth_encoded = authorization.encode();
 
     let keys = [
@@ -1220,7 +1236,7 @@ fn one_step_join_id_with_ext() {
 
     // Check revoke off-chain authorization.
     let e = User::new(AccountKeyring::Eve);
-    let eve_auth = target_id_auth(a);
+    let (eve_auth, _) = target_id_auth(a);
     assert_ne!(authorization.nonce, eve_auth.nonce);
 
     let eve_secondary_key_with_auth = SecondaryKeyWithAuth {
@@ -1243,7 +1259,7 @@ fn one_step_join_id_with_ext() {
     Timestamp::set_timestamp(expires_at);
 
     let f = User::new(AccountKeyring::Ferdie);
-    let ferdie_auth = target_id_auth(a);
+    let (ferdie_auth, _) = target_id_auth(a);
     let ferdie_secondary_key_with_auth = SecondaryKeyWithAuth {
         secondary_key: SecondaryKey::from(f.did).into(),
         auth_signature: H512::from(AccountKeyring::Eve.sign(ferdie_auth.encode().as_slice())),
