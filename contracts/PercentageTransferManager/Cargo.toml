@@ -12,7 +12,7 @@ ink_lang = { git = "https://github.com/paritytech/ink", default-features = false
 ink_prelude = { git = "https://github.com/paritytech/ink", default-features = false, tag = "v3.0.0-rc2" }
 ink_env = { git = "https://github.com/paritytech/ink", default-features = false, tag = "v3.0.0-rc2" }
 
-scale = { package = "parity-scale-codec", version = "1.3", default-features = false, features = ["derive"] }
+scale = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "0.4", default-features = false, features = ["derive"], optional = true }
 
 [lib]

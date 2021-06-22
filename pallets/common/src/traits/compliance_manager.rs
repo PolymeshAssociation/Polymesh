@@ -17,7 +17,7 @@ use core::result::Result;
 use frame_support::{dispatch::DispatchError, weights::Weight};
 use polymesh_primitives::{compliance_manager::AssetComplianceResult, IdentityId, Ticker};
 
-pub trait Trait<Balance> {
+pub trait Config<Balance> {
     fn verify_restriction(
         ticker: &Ticker,
         from_id: Option<IdentityId>,

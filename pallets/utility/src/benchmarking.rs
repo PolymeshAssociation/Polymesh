@@ -12,29 +12,29 @@ use sp_runtime::MultiSignature;
 const MAX_CALLS: u32 = 30;
 
 /// Generate `c` no-op system remark calls.
-fn make_calls<T: Trait>(c: u32) -> Vec<<T as Trait>::Call> {
-    let call: <T as Trait>::Call = frame_system::Call::<T>::remark(vec![]).into();
+fn make_calls<T: Config>(c: u32) -> Vec<<T as Config>::Call> {
+    let call: <T as Config>::Call = frame_system::Call::<T>::remark(vec![]).into();
     vec![call; c as usize]
 }
 
 /// Generate `c` transfers calls to `to` account of `amount` poly.
-fn make_transfer_calls<T: Trait>(
+fn make_transfer_calls<T: Config>(
     c: u32,
     to: T::AccountId,
     amount: u128,
-) -> Vec<<T as Trait>::Call> {
-    let idx = <T as frame_system::Trait>::Lookup::unlookup(to);
-    let call: <T as Trait>::Call = BalancesCall::transfer(idx, amount.into()).into();
+) -> Vec<<T as Config>::Call> {
+    let idx = <T as frame_system::Config>::Lookup::unlookup(to);
+    let call: <T as Config>::Call = BalancesCall::transfer(idx, amount.into()).into();
     vec![call; c as usize]
 }
 
 /// Double-check that free balance of `account` account is the expected value.
-fn verify_free_balance<T: Trait>(account: &T::AccountId, expected_balance: u128) {
+fn verify_free_balance<T: Config>(account: &T::AccountId, expected_balance: u128) {
     let acc_balance = balances::Module::<T>::free_balance(account);
     assert_eq!(acc_balance, expected_balance.into())
 }
 
-fn make_relay_tx_users<T: Trait + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, User<T>) {
+fn make_relay_tx_users<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, User<T>) {
     let alice = UserBuilder::<T>::default()
         .balance(1_000_000u32)
         .generate_did()
@@ -47,10 +47,10 @@ fn make_relay_tx_users<T: Trait + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, Us
     (alice, bob)
 }
 
-fn remark_call_builder<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+fn remark_call_builder<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     signer: &User<T>,
     _: T::AccountId,
-) -> (UniqueCall<<T as Trait>::Call>, Vec<u8>) {
+) -> (UniqueCall<<T as Config>::Call>, Vec<u8>) {
     let call = make_calls::<T>(1).pop().unwrap();
     let nonce: AuthorizationNonce = Module::<T>::nonce(signer.account());
     let call = UniqueCall::new(nonce, call);
@@ -67,10 +67,10 @@ fn remark_call_builder<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     (call, encoded)
 }
 
-fn transfer_call_builder<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+fn transfer_call_builder<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     signer: &User<T>,
     target: T::AccountId,
-) -> (UniqueCall<<T as Trait>::Call>, Vec<u8>) {
+) -> (UniqueCall<<T as Config>::Call>, Vec<u8>) {
     let call = make_transfer_calls::<T>(1, target, 1).pop().unwrap();
     let nonce: AuthorizationNonce = Module::<T>::nonce(signer.account());
     let call = UniqueCall::new(nonce, call);
@@ -89,8 +89,6 @@ fn transfer_call_builder<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
 
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
-
-    _ {}
 
     batch {
         let c in 0..MAX_CALLS;

@@ -15,19 +15,20 @@ use pallet_portfolio::Call as PortfolioCall;
 use pallet_utility::{self as utility, Event, UniqueCall};
 use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
 use polymesh_primitives::{
-    PalletPermissions, Permissions, PortfolioName, PortfolioNumber, Signatory, SubsetRestriction,
+    AccountId, PalletPermissions, Permissions, PortfolioName, PortfolioNumber, Signatory,
+    SubsetRestriction,
 };
-use sp_core::sr25519::{Public, Signature};
+use sp_core::sr25519::Signature;
 use test_client::AccountKeyring;
 
 type Error = utility::Error<TestStorage>;
 
-fn transfer(to: Public, amount: u128) -> Call {
-    Call::Balances(BalancesCall::transfer(to, amount))
+fn transfer(to: AccountId, amount: u128) -> Call {
+    Call::Balances(BalancesCall::transfer(to.into(), amount))
 }
 
 const ERROR: DispatchError = DispatchError::Module {
-    index: 0,
+    index: 4,
     error: 2,
     message: None,
 };
@@ -39,20 +40,20 @@ fn assert_event(event: Event) {
     )
 }
 
-fn batch_test(test: impl FnOnce(Public, Public)) {
+fn batch_test(test: impl FnOnce(AccountId, AccountId)) {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
 
-        let alice = AccountKeyring::Alice.public();
-        TestStorage::set_payer_context(Some(alice));
+        let alice = AccountKeyring::Alice.to_account_id();
+        TestStorage::set_payer_context(Some(alice.clone()));
         let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
 
-        let bob = AccountKeyring::Bob.public();
-        TestStorage::set_payer_context(Some(bob));
+        let bob = AccountKeyring::Bob.to_account_id();
+        TestStorage::set_payer_context(Some(bob.clone()));
         let _ = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
 
-        assert_balance(alice, 1000, 0);
-        assert_balance(bob, 1000, 0);
+        assert_balance(alice.clone(), 1000, 0);
+        assert_balance(bob.clone(), 1000, 0);
 
         test(alice, bob)
     });
@@ -61,8 +62,8 @@ fn batch_test(test: impl FnOnce(Public, Public)) {
 #[test]
 fn batch_with_signed_works() {
     batch_test(|alice, bob| {
-        let calls = vec![transfer(bob, 400), transfer(bob, 400)];
-        assert_ok!(Utility::batch(Origin::signed(alice), calls));
+        let calls = vec![transfer(bob.clone(), 400), transfer(bob.clone(), 400)];
+        assert_ok!(Utility::batch(Origin::signed(alice.clone()), calls));
         assert_balance(alice, 200, 0);
         assert_balance(bob, 1000 + 400 + 400, 0);
         assert_event(Event::BatchCompleted(vec![1, 1]));
@@ -72,8 +73,12 @@ fn batch_with_signed_works() {
 #[test]
 fn batch_early_exit_works() {
     batch_test(|alice, bob| {
-        let calls = vec![transfer(bob, 400), transfer(bob, 900), transfer(bob, 400)];
-        assert_ok!(Utility::batch(Origin::signed(alice), calls));
+        let calls = vec![
+            transfer(bob.clone(), 400),
+            transfer(bob.clone(), 900),
+            transfer(bob.clone(), 400),
+        ];
+        assert_ok!(Utility::batch(Origin::signed(alice.clone()), calls));
         assert_balance(alice, 600, 0);
         assert_balance(bob, 1000 + 400, 0);
         assert_event(Event::BatchInterrupted(vec![1, 0], (1, ERROR)));
@@ -83,8 +88,11 @@ fn batch_early_exit_works() {
 #[test]
 fn batch_optimistic_works() {
     batch_test(|alice, bob| {
-        let calls = vec![transfer(bob, 401), transfer(bob, 402)];
-        assert_ok!(Utility::batch_optimistic(Origin::signed(alice), calls));
+        let calls = vec![transfer(bob.clone(), 401), transfer(bob.clone(), 402)];
+        assert_ok!(Utility::batch_optimistic(
+            Origin::signed(alice.clone()),
+            calls
+        ));
         assert_event(Event::BatchCompleted(vec![1, 1]));
         assert_balance(alice, 1000 - 401 - 402, 0);
         assert_balance(bob, 1000 + 401 + 402, 0);
@@ -95,13 +103,13 @@ fn batch_optimistic_works() {
 fn batch_optimistic_failures_listed() {
     batch_test(|alice, bob| {
         assert_ok!(Utility::batch_optimistic(
-            Origin::signed(alice),
+            Origin::signed(alice.clone()),
             vec![
-                transfer(bob, 401), // YAY.
-                transfer(bob, 900), // NAY.
-                transfer(bob, 800), // NAY.
-                transfer(bob, 402), // YAY.
-                transfer(bob, 403), // NAY.
+                transfer(bob.clone(), 401), // YAY.
+                transfer(bob.clone(), 900), // NAY.
+                transfer(bob.clone(), 800), // NAY.
+                transfer(bob.clone(), 402), // YAY.
+                transfer(bob.clone(), 403), // NAY.
             ]
         ));
         assert_event(Event::BatchOptimisticFailed(
@@ -116,8 +124,8 @@ fn batch_optimistic_failures_listed() {
 #[test]
 fn batch_atomic_works() {
     batch_test(|alice, bob| {
-        let calls = vec![transfer(bob, 401), transfer(bob, 402)];
-        assert_ok!(Utility::batch_atomic(Origin::signed(alice), calls));
+        let calls = vec![transfer(bob.clone(), 401), transfer(bob.clone(), 402)];
+        assert_ok!(Utility::batch_atomic(Origin::signed(alice.clone()), calls));
         assert_event(Event::BatchCompleted(vec![1, 1]));
         assert_balance(alice, 1000 - 401 - 402, 0);
         assert_balance(bob, 1000 + 401 + 402, 0);
@@ -127,8 +135,9 @@ fn batch_atomic_works() {
 #[test]
 fn batch_atomic_early_exit_works() {
     batch_test(|alice, bob| {
-        let calls = vec![transfer(bob, 400), transfer(bob, 900), transfer(bob, 400)];
-        assert_ok!(Utility::batch_atomic(Origin::signed(alice), calls));
+        let trans = |x| transfer(bob.clone(), x);
+        let calls = vec![trans(400), trans(900), trans(400)];
+        assert_ok!(Utility::batch_atomic(Origin::signed(alice.clone()), calls));
         assert_balance(alice, 1000, 0);
         assert_balance(bob, 1000, 0);
         assert_event(Event::BatchInterrupted(vec![1, 0], (1, ERROR)));
@@ -143,28 +152,28 @@ fn relay_happy_case() {
 }
 
 fn _relay_happy_case() {
-    let alice = AccountKeyring::Alice.public();
+    let alice = AccountKeyring::Alice.to_account_id();
     let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
 
-    let bob = AccountKeyring::Bob.public();
+    let bob = AccountKeyring::Bob.to_account_id();
     let _ = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
 
-    let charlie = AccountKeyring::Charlie.public();
+    let charlie = AccountKeyring::Charlie.to_account_id();
     let _ = register_keyring_account_with_balance(AccountKeyring::Charlie, 1_000).unwrap();
 
     // 41 Extra for registering a DID
-    assert_balance(bob, 1041, 0);
-    assert_balance(charlie, 1041, 0);
+    assert_balance(bob.clone(), 1041, 0);
+    assert_balance(charlie.clone(), 1041, 0);
 
     let origin = Origin::signed(alice);
     let transaction = UniqueCall::new(
-        Utility::nonce(bob),
-        Call::Balances(BalancesCall::transfer(charlie, 50)),
+        Utility::nonce(bob.clone()),
+        Call::Balances(BalancesCall::transfer(charlie.clone().into(), 50)),
     );
 
     assert_ok!(Utility::relay_tx(
         origin,
-        bob,
+        bob.clone(),
         AccountKeyring::Bob.sign(&transaction.encode()).into(),
         transaction
     ));
@@ -181,23 +190,23 @@ fn relay_unhappy_cases() {
 }
 
 fn _relay_unhappy_cases() {
-    let alice = AccountKeyring::Alice.public();
+    let alice = AccountKeyring::Alice.to_account_id();
     let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
 
-    let bob = AccountKeyring::Bob.public();
+    let bob = AccountKeyring::Bob.to_account_id();
 
-    let charlie = AccountKeyring::Charlie.public();
+    let charlie = AccountKeyring::Charlie.to_account_id();
 
     let origin = Origin::signed(alice);
     let transaction = UniqueCall::new(
-        Utility::nonce(bob),
-        Call::Balances(BalancesCall::transfer(charlie, 59)),
+        Utility::nonce(bob.clone()),
+        Call::Balances(BalancesCall::transfer(charlie.clone().into(), 59)),
     );
 
     assert_noop!(
         Utility::relay_tx(
             origin.clone(),
-            bob,
+            bob.clone(),
             Signature::default().into(),
             transaction.clone()
         ),
@@ -207,7 +216,7 @@ fn _relay_unhappy_cases() {
     assert_noop!(
         Utility::relay_tx(
             origin.clone(),
-            bob,
+            bob.clone(),
             AccountKeyring::Bob.sign(&transaction.encode()).into(),
             transaction.clone()
         ),
@@ -217,8 +226,8 @@ fn _relay_unhappy_cases() {
     let _ = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
 
     let transaction = UniqueCall::new(
-        Utility::nonce(bob) + 1,
-        Call::Balances(BalancesCall::transfer(charlie, 59)),
+        Utility::nonce(bob.clone()) + 1,
+        Call::Balances(BalancesCall::transfer(charlie.into(), 59)),
     );
 
     assert_noop!(
@@ -242,21 +251,21 @@ fn batch_secondary_with_permissions_works() {
 fn batch_secondary_with_permissions() {
     System::set_block_number(1);
     let alice = User::new(AccountKeyring::Alice).balance(1_000);
-    let bob_key = AccountKeyring::Bob.public();
-    let bob_origin = Origin::signed(bob_key);
+    let bob_key = AccountKeyring::Bob.to_account_id();
+    let bob_origin = Origin::signed(bob_key.clone());
     let bob_signer = Signatory::Account(bob_key);
     let check_name = |name| {
         assert_eq!(Portfolio::portfolios(&alice.did, &PortfolioNumber(1)), name);
     };
 
     // Add Bob.
-    add_secondary_key(alice.did, bob_signer);
+    add_secondary_key(alice.did, bob_signer.clone());
     let low_risk_name: PortfolioName = b"low risk".into();
     assert_ok!(Portfolio::create_portfolio(
         bob_origin.clone(),
         low_risk_name.clone()
     ));
-    assert_last_event!(EventTest::portfolio(
+    assert_last_event!(EventTest::pallet_portfolio(
         pallet_portfolio::RawEvent::PortfolioCreated(_, _, _)
     ));
     check_name(low_risk_name.clone());

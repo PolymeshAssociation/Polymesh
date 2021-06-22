@@ -34,26 +34,26 @@ const PROPOSAL_ALMOST_APPROVED: u32 = COMMITTEE_MEMBERS_MAX - 3;
 fn make_proposal<T, I>(
     n: u32,
 ) -> (
-    <T as frame_system::Trait>::Call,
-    <T as frame_system::Trait>::Hash,
+    <T as frame_system::Config>::Call,
+    <T as frame_system::Config>::Hash,
 )
 where
     I: Instance,
-    T: Trait<I>,
-    <T as frame_system::Trait>::Call: From<frame_system::Call<T>>,
+    T: Config<I>,
+    <T as frame_system::Config>::Call: From<frame_system::Call<T>>,
 {
     let bytes: [u8; 4] = n.to_be_bytes();
     let padding = bytes.repeat(PROPOSAL_PADDING_WORDS);
     let proposal = frame_system::Call::<T>::remark(padding).into();
-    let hash = <T as frame_system::Trait>::Hashing::hash_of(&proposal);
+    let hash = <T as frame_system::Config>::Hashing::hash_of(&proposal);
     (proposal, hash)
 }
 
 fn make_proposals_and_vote<T, I>(users: &[User<T>]) -> DispatchResult
 where
     I: Instance,
-    T: Trait<I>,
-    <T as frame_system::Trait>::Call: From<frame_system::Call<T>>,
+    T: Config<I>,
+    <T as frame_system::Config>::Call: From<frame_system::Call<T>>,
 {
     assert!(
         users.len() > 0,
@@ -85,8 +85,8 @@ where
 fn make_members_and_proposals<T, I>() -> Result<Vec<User<T>>, DispatchError>
 where
     I: Instance,
-    T: Trait<I> + TestUtilsFn<AccountIdOf<T>>,
-    <T as frame_system::Trait>::Call: From<frame_system::Call<T>>,
+    T: Config<I> + TestUtilsFn<AccountIdOf<T>>,
+    <T as frame_system::Config>::Call: From<frame_system::Call<T>>,
 {
     let members: Vec<_> = (0..COMMITTEE_MEMBERS_MAX)
         .map(|i| user::<T>("member", i))
@@ -100,13 +100,13 @@ where
 
 fn vote_verify<T, I>(
     did: &IdentityId,
-    hash: <T as frame_system::Trait>::Hash,
+    hash: <T as frame_system::Config>::Hash,
     proposal_num: u32,
     vote: bool,
 ) -> DispatchResult
 where
     I: Instance,
-    T: Trait<I>,
+    T: Config<I>,
 {
     if COMMITTEE_MEMBERS_MAX > 4 || (COMMITTEE_MEMBERS_MAX == 4 && !vote) {
         // The proposal is not finalised because there is no quorum yet.
@@ -129,10 +129,8 @@ benchmarks_instance! {
     where_clause {
         where
             T: TestUtilsFn<AccountIdOf<T>>,
-            <T as frame_system::Trait>::Call: From<frame_system::Call<T>>,
+            <T as frame_system::Config>::Call: From<frame_system::Call<T>>,
     }
-
-    _ {}
 
     set_vote_threshold {
         let n = 1;

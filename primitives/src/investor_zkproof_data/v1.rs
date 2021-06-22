@@ -69,7 +69,7 @@ impl Encode for InvestorZKProofData {
         64
     }
 
-    fn encode_to<W: Output>(&self, dest: &mut W) {
+    fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
         let signature = self.0.to_bytes();
         signature.encode_to(dest);
     }

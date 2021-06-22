@@ -1,33 +1,24 @@
 use super::{
     assert_last_event,
-    asset_test::{a_token, basic_asset, max_len_bytes},
+    asset_test::{create_token, max_len_bytes},
     storage::{EventTest, System, TestStorage, User},
     ExtBuilder,
 };
 use frame_support::{assert_noop, assert_ok, StorageMap};
 use frame_system::EventRecord;
-use pallet_asset::SecurityToken;
 use pallet_portfolio::{MovePortfolioItem, RawEvent};
 use polymesh_common_utilities::balances::Memo;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, PortfolioId, PortfolioName, PortfolioNumber, Signatory,
-    Ticker,
 };
 use test_client::AccountKeyring;
 
 type Asset = pallet_asset::Module<TestStorage>;
 type Error = pallet_portfolio::Error<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
-
-fn create_token() -> (Ticker, SecurityToken<u128>) {
-    let owner = User::existing(AccountKeyring::Alice);
-    let r = a_token(owner.did);
-    assert_ok!(basic_asset(owner, r.0, &r.1));
-    r
-}
 
 fn create_portfolio() -> (User, PortfolioNumber) {
     let owner = User::new(AccountKeyring::Alice);
@@ -102,7 +93,7 @@ fn can_recover_funds_from_deleted_portfolio() {
         System::set_block_number(1); // This is needed to enable events.
 
         let (owner, num) = create_portfolio();
-        let (ticker, token) = create_token();
+        let (ticker, token) = create_token(owner);
         let owner_default_portfolio = PortfolioId::default_portfolio(owner.did);
         let owner_user_portfolio = PortfolioId::user_portfolio(owner.did, num);
 
@@ -120,7 +111,7 @@ fn can_recover_funds_from_deleted_portfolio() {
         ));
         // check MovedBetweenPortfolios event
         assert_last_event!(
-            EventTest::portfolio(RawEvent::MovedBetweenPortfolios(
+            EventTest::pallet_portfolio(RawEvent::MovedBetweenPortfolios(
                 did, from, to, i_ticker, i_amount, i_memo
             )),
             did == &owner.did
@@ -180,7 +171,7 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
 
     let (owner, num) = create_portfolio();
     let bob = User::new(AccountKeyring::Bob);
-    let (ticker, token) = create_token();
+    let (ticker, token) = create_token(owner);
     assert_eq!(
         Portfolio::default_portfolio_balance(owner.did, &ticker),
         token.total_supply,
@@ -281,7 +272,7 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
     ));
     // check MovedBetweenPortfolios event
     assert_last_event!(
-        EventTest::portfolio(RawEvent::MovedBetweenPortfolios(
+        EventTest::pallet_portfolio(RawEvent::MovedBetweenPortfolios(
             did, from, to, i_ticker, i_amount, i_memo
         )),
         did == &owner.did
@@ -311,7 +302,7 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
 fn can_lock_unlock_assets() {
     ExtBuilder::default().build().execute_with(|| {
         let (owner, num) = create_portfolio();
-        let (ticker, token) = create_token();
+        let (ticker, token) = create_token(owner);
         assert_eq!(
             Portfolio::default_portfolio_balance(owner.did, &ticker),
             token.total_supply,

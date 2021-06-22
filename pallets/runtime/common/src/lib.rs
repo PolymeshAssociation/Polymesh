@@ -25,18 +25,16 @@ pub mod runtime;
 pub use cdd_check::CddChecker;
 pub use sp_runtime::{Perbill, Permill};
 
-pub use frame_support::weights::{
-    constants::{WEIGHT_PER_MICROS, WEIGHT_PER_MILLIS, WEIGHT_PER_NANOS, WEIGHT_PER_SECOND},
-    GetDispatchInfo, Weight,
-};
-use frame_support::{
+pub use frame_support::{
     parameter_types,
     traits::Currency,
     weights::{
-        RuntimeDbWeight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
+        constants::{WEIGHT_PER_MICROS, WEIGHT_PER_MILLIS, WEIGHT_PER_NANOS, WEIGHT_PER_SECOND},
+        DispatchClass, GetDispatchInfo, RuntimeDbWeight, Weight, WeightToFeeCoefficient,
+        WeightToFeeCoefficients, WeightToFeePolynomial,
     },
 };
-use frame_system::{self as system};
+use frame_system::limits::{BlockLength, BlockWeights};
 use pallet_balances as balances;
 use polymesh_common_utilities::constants::currency::*;
 use polymesh_primitives::{Balance, BlockNumber, IdentityId, Moment};
@@ -45,14 +43,28 @@ use smallvec::smallvec;
 pub use impls::{Author, CurrencyToVoteHandler};
 
 pub type NegativeImbalance<T> =
-    <balances::Module<T> as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
+    <balances::Module<T> as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
+pub const fn deposit(items: u32, bytes: u32) -> Balance {
+    items as Balance * 15 * CENTS + (bytes as Balance) * 6 * CENTS
+}
+
+/// We assume that ~10% of the block weight is consumed by `on_initalize` handlers.
+/// This is used to limit the maximal weight of a single extrinsic.
+pub const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
+/// We allow `Normal` extrinsics to fill up the block up to 75%, the rest can be used
+/// by  Operational  extrinsics.
+const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
+/// We allow for 2 seconds of compute with a 6 second average block time.
+const MAXIMUM_BLOCK_WEIGHT: Weight = 2 * WEIGHT_PER_SECOND;
+
+// TODO (miguel) Remove unused constants.
 parameter_types! {
     pub const BlockHashCount: BlockNumber = 250;
     /// We allow for 2 seconds of compute with a 6 second average block time.
     ///
     /// If this is updated, `PipsEnactSnapshotMaximumWeight` needs to be updated accordingly.
-    pub const MaximumBlockWeight: Weight = 2 * WEIGHT_PER_SECOND;
+    pub const MaximumBlockWeight: Weight = MAXIMUM_BLOCK_WEIGHT;
     /// Portion of the block available to normal class of dispatches.
     ///
     /// If this is updated, `PipsEnactSnapshotMaximumWeight` needs to be updated accordingly.
@@ -77,7 +89,50 @@ parameter_types! {
     pub const PolyXBaseFee: Balance = 3 * CENTS;
     /// The maximum weight of the pips extrinsic `enact_snapshot_results` which equals to
     /// `MaximumBlockWeight * AvailableBlockRatio`.
-    pub const PipsEnactSnapshotMaximumWeight: Weight = WEIGHT_PER_SECOND * 2 * 75 / 100;
+    pub const PipsEnactSnapshotMaximumWeight: Weight = MAXIMUM_BLOCK_WEIGHT * 75 / 100;
+    /// Number of block delay an extrinsic claim surcharge has.
+    pub const SignedClaimHandicap: u32 = 2;
+    /// The balance every contract needs to deposit to stay alive indefinitely.
+    pub const DepositPerContract: u128 = 10 * CENTS;
+    /// The balance a contract needs to deposit per storage byte to stay alive indefinitely.
+    pub const DepositPerStorageByte: u128 = deposit(0, 1);
+    /// The balance a contract needs to deposit per storage item to stay alive indefinitely.
+    pub const DepositPerStorageItem: u128 = deposit(1, 0);
+    /// The maximum nesting level of a call/instantiate stack.
+    pub const ContractsMaxDepth: u32 = 32;
+    /// The maximum size of a storage value and event payload in bytes.
+    pub const ContractsMaxValueSize: u32 = 16 * 1024;
+    /// Max length of (instrumented) contract code in bytes.
+    pub const ContractsMaxCodeSize: u32 = 100 * 1024;
+    /// The designated SS85 prefix of this chain.
+    pub const SS58Prefix: u8 = 12;
+
+    pub RuntimeBlockLength: BlockLength =
+        BlockLength::max_with_normal_ratio(10 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+
+    pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
+        .base_block(BlockExecutionWeight::get())
+        .for_class(DispatchClass::all(), |weights| {
+            weights.base_extrinsic = ExtrinsicBaseWeight::get();
+        })
+    .for_class(DispatchClass::Normal, |weights| {
+        weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
+    })
+    .for_class(DispatchClass::Operational, |weights| {
+        weights.max_total = Some(MAXIMUM_BLOCK_WEIGHT);
+        // Operational transactions have some extra reserved space, so that they
+        // are included even if block reached `MAXIMUM_BLOCK_WEIGHT`.
+        weights.reserved = Some(
+            MAXIMUM_BLOCK_WEIGHT - NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT
+            );
+    })
+    .avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
+        .build_or_panic();
+
+    pub OffchainSolutionWeightLimit: Weight = RuntimeBlockWeights::get()
+        .get(DispatchClass::Normal)
+        .max_extrinsic.expect("Normal extrinsics have a weight limit configured; qed")
+        .saturating_sub(BlockExecutionWeight::get());
 }
 
 /// Converts Weight to Fee

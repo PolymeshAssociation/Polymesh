@@ -119,12 +119,9 @@ use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
+use polymesh_common_utilities::traits::balances::Config as BalancesConfig;
 use polymesh_common_utilities::{
-    traits::{
-        balances::{CheckCdd, Trait as BalancesTrait},
-        identity::Trait as IdentityTrait,
-        CommonTrait,
-    },
+    traits::{balances::CheckCdd, identity::Config as IdentityConfig, CommonConfig},
     Context, GC_DID,
 };
 use polymesh_primitives::{storage_migration_ver, IdentityId, Signatory};
@@ -132,17 +129,17 @@ use sp_core::H256;
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-use sp_std::{convert::TryFrom, prelude::*};
+use sp_std::{convert::TryFrom, fmt::Debug, prelude::*};
 
 type Identity<T> = identity::Module<T>;
 
-pub trait Trait: multisig::Trait + BalancesTrait + pallet_base::Trait {
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-    type Proposal: From<Call<Self>> + Into<<Self as IdentityTrait>::Proposal>;
+pub trait Config: multisig::Config + BalancesConfig + pallet_base::Config {
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+    type Proposal: From<Call<Self>> + Into<<Self as IdentityConfig>::Proposal>;
     /// Scheduler of timelocked bridge transactions.
     type Scheduler: ScheduleAnon<
         Self::BlockNumber,
-        <Self as Trait>::Proposal,
+        <Self as Config>::Proposal,
         Self::SchedulerOrigin,
     >;
 }
@@ -220,14 +217,14 @@ impl<T, E: Encode> From<Result<T, E>> for HandledTxStatus {
 }
 
 pub mod weight_for {
-    use super::Trait;
+    use super::Config;
     use frame_support::{traits::Get, weights::Weight};
 
     /// <weight>
     /// * Read operation - 1 for read block no. + 1 for reading bridge txn details.
     /// * Write operation - 1 for updating the bridge tx status.
     /// </weight>
-    pub(crate) fn handle_bridge_tx<T: Trait>() -> Weight {
+    pub(crate) fn handle_bridge_tx<T: Config>() -> Weight {
         let db = T::DbWeight::get();
         db.reads_writes(2, 1)
             .saturating_add(700_000_000) // base fee for the handle bridge tx
@@ -241,14 +238,14 @@ pub mod weight_for {
     /// * Write operation - 2
     /// * Base value - 500_000_000
     /// </weight>
-    pub(crate) fn handle_bridge_tx_later<T: Trait>() -> Weight {
+    pub(crate) fn handle_bridge_tx_later<T: Config>() -> Weight {
         let db = T::DbWeight::get();
         db.reads_writes(4, 2).saturating_add(500_000_000) // base value
     }
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// The bridge controller address is not set.
         ControllerNotSet,
         /// The origin is not the controller or the admin address.
@@ -283,7 +280,7 @@ decl_error! {
 storage_migration_ver!(1);
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Bridge {
+    trait Store for Module<T: Config> as Bridge {
         /// The multisig account of the bridge controller. The genesis signers accept their
         /// authorizations and are able to get their proposals delivered. The bridge creator
         /// transfers some POLY to their identity.
@@ -336,9 +333,9 @@ decl_storage! {
 decl_event! {
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Trait>::AccountId,
-        Balance = <T as CommonTrait>::Balance,
-        BlockNumber = <T as frame_system::Trait>::BlockNumber,
+        AccountId = <T as frame_system::Config>::AccountId,
+        Balance = <T as CommonConfig>::Balance,
+        BlockNumber = <T as frame_system::Config>::BlockNumber,
     {
         /// Confirmation of a signer set change.
         ControllerChanged(IdentityId, AccountId),
@@ -369,7 +366,7 @@ decl_event! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Trait>::Origin {
+    pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -553,7 +550,7 @@ decl_module! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     pub fn controller_key() -> T::AccountId {
         Self::controller()
     }
@@ -588,7 +585,6 @@ impl<T: Trait> Module<T> {
         exempted_did: Option<IdentityId>,
     ) -> DispatchResult {
         let did = exempted_did
-            .clone()
             .or_else(|| T::CddChecker::get_key_cdd_did(&recipient))
             .ok_or(Error::<T>::NoValidCdd)?;
         let is_exempted = exempted_did.is_some() || Self::bridge_exempted(did);
@@ -708,7 +704,7 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         let sender_signer = Signatory::Account(sender);
         let propose = |tx| {
-            let proposal = <T as Trait>::Proposal::from(Call::<T>::handle_bridge_tx(tx));
+            let proposal = <T as Config>::Proposal::from(Call::<T>::handle_bridge_tx(tx));
             let boxed_proposal = Box::new(proposal.into());
             <multisig::Module<T>>::create_or_approve_proposal(
                 Self::controller(),
@@ -729,7 +725,7 @@ impl<T: Trait> Module<T> {
         bridge_tx: BridgeTx<T::AccountId, T::Balance>,
     ) -> DispatchResult {
         let sender_signer = Signatory::Account(sender);
-        let proposal = <T as Trait>::Proposal::from(Call::<T>::handle_bridge_tx(bridge_tx));
+        let proposal = <T as Config>::Proposal::from(Call::<T>::handle_bridge_tx(bridge_tx));
         let boxed_proposal = Box::new(proposal.into());
         <multisig::Module<T>>::create_or_approve_proposal(
             Self::controller(),
@@ -811,7 +807,7 @@ impl<T: Trait> Module<T> {
     fn schedule_call(block_number: T::BlockNumber, bridge_tx: BridgeTx<T::AccountId, T::Balance>) {
         // Schedule the transaction as a dispatchable call.
         let call = Call::<T>::handle_scheduled_bridge_tx(bridge_tx.clone()).into();
-        if let Err(e) = <T as Trait>::Scheduler::schedule(
+        if let Err(e) = <T as Config>::Scheduler::schedule(
             DispatchTime::At(block_number),
             None,
             LOWEST_PRIORITY,

@@ -1,4 +1,4 @@
-use crate::{BridgeTxDetail, BridgeTxStatus, GenesisConfig, Trait};
+use crate::{BridgeTxDetail, BridgeTxStatus, Config, GenesisConfig};
 
 use frame_support::{debug, storage::StorageDoubleMap};
 use polymesh_common_utilities::{balances::CheckCdd, constants::currency::POLY, Context};
@@ -8,7 +8,7 @@ use sp_std::convert::TryFrom;
 
 type Identity<T> = pallet_identity::Module<T>;
 
-pub(crate) fn controller<T: Trait>(config: &GenesisConfig<T>) -> T::AccountId {
+pub(crate) fn controller<T: Config>(config: &GenesisConfig<T>) -> T::AccountId {
     if config.signatures_required > u64::try_from(config.signers.len()).unwrap_or_default() {
         panic!("too many signatures required");
     }
@@ -49,7 +49,7 @@ pub(crate) fn controller<T: Trait>(config: &GenesisConfig<T>) -> T::AccountId {
     multisig_id
 }
 
-pub(crate) fn bridge_tx_details<T: Trait>(
+pub(crate) fn bridge_tx_details<T: Config>(
     config: &GenesisConfig<T>,
 ) -> Vec<(
     T::AccountId,
