@@ -120,10 +120,10 @@ fn only_primary_or_secondary_keys_can_authenticate_as_an_identity() {
         let charlie_signer = Signatory::Account(charlie_key);
 
         // Add charlie's key as a secondary key of bob.
-        add_secondary_key(bob.did, charlie_signer);
+        add_secondary_key(bob.did, charlie_signer.clone());
 
         // Add dave's identity as a secondary key of alice.
-        add_secondary_key(alice.did, dave_ident_signer);
+        add_secondary_key(alice.did, dave_ident_signer.clone());
 
         // Check primary key.  `Signatory::Account`
         assert!(Identity::is_signer_authorized(alice.did, &alice_signer));
