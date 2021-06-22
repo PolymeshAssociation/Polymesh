@@ -405,27 +405,21 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::join_identity_as_key()]
         pub fn join_identity_as_key(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer = Signatory::Account(sender);
-            Self::join_identity(signer, auth_id)
+            Self::join_identity(Signatory::Account(sender), auth_id)
         }
 
         /// Join an identity as a secondary identity.
         #[weight = <T as Config>::WeightInfo::join_identity_as_identity()]
         pub fn join_identity_as_identity(origin, auth_id: u64) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let sender_did = Context::current_identity_or::<Self>(&sender)?;
+            let sender_did = Self::ensure_perms(origin)?;
             Self::join_identity(Signatory::from(sender_did), auth_id)
         }
 
         /// Leave the secondary key's identity.
         #[weight = <T as Config>::WeightInfo::leave_identity_as_key()]
         pub fn leave_identity_as_key(origin) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let _ = CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            if let Some(did) = Self::get_identity(&sender) {
-                return Self::leave_identity(Signatory::Account(sender), did);
-            }
-            Ok(())
+            let data = Self::ensure_origin_call_permissions(origin)?;
+            Self::leave_identity(Signatory::Account(data.sender), data.primary_did)
         }
 
         /// Leave an identity as a secondary identity.
@@ -1321,10 +1315,9 @@ impl<T: Config> Module<T> {
     /// # Errors
     /// Only primary key can freeze/unfreeze an identity.
     fn set_frozen_secondary_key_flags(origin: T::Origin, freeze: bool) -> DispatchResult {
-        let sender = ensure_signed(origin)?;
-        CallPermissions::<T>::ensure_call_permissions(&sender)?;
-        let did = Context::current_identity_or::<Self>(&sender)?;
-        let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
+        let data = Self::ensure_origin_call_permissions(origin)?;
+        let did = data.primary_did;
+        let _ = Self::grant_check_only_primary_key(&data.sender, did)?;
 
         let event = if freeze {
             IsDidFrozen::insert(&did, true);
