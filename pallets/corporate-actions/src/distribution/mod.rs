@@ -65,7 +65,7 @@
 pub mod benchmarking;
 
 use crate as ca;
-use ca::{CAId, Tax, Trait};
+use ca::{CAId, Config, Tax};
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -79,7 +79,7 @@ use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     portfolio::PortfolioSubTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    with_transaction, CommonTrait,
+    with_transaction, CommonConfig,
 };
 use polymesh_primitives::{
     storage_migrate_on, storage_migration_ver, Balance, EventDid, IdentityId, Moment, PortfolioId,
@@ -140,7 +140,7 @@ pub trait WeightInfo {
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as CapitalDistribution {
+    trait Store for Module<T: Config> as CapitalDistribution {
         /// All capital distributions, tied to their respective corporate actions (CAs).
         ///
         /// (CAId) => Distribution
@@ -159,7 +159,7 @@ decl_storage! {
 storage_migration_ver!(1);
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -210,7 +210,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Portfolio
-        #[weight = <T as Trait>::DistWeightInfo::distribute()]
+        #[weight = <T as Config>::DistWeightInfo::distribute()]
         pub fn distribute(
             origin,
             ca_id: CAId,
@@ -300,7 +300,7 @@ decl_module! {
         /// - `BalanceAmountProductOverflowed` if `ba = balance * amount` would overflow.
         /// - `BalanceAmountProductSupplyDivisionFailed` if `ba * supply` would overflow.
         /// - Other errors can occur if the compliance manager rejects the transfer.
-        #[weight = <T as Trait>::DistWeightInfo::claim(T::MaxTargetIds::get(), T::MaxDidWhts::get())]
+        #[weight = <T as Config>::DistWeightInfo::claim(T::MaxTargetIds::get(), T::MaxDidWhts::get())]
         pub fn claim(origin, ca_id: CAId) {
             let did = <Identity<T>>::ensure_perms(origin)?;
             Self::transfer_benefit(did.for_event(), did, ca_id)?;
@@ -328,7 +328,7 @@ decl_module! {
         /// - `BalanceAmountProductOverflowed` if `ba = balance * amount` would overflow.
         /// - `BalanceAmountProductSupplyDivisionFailed` if `ba * supply` would overflow.
         /// - Other errors can occur if the compliance manager rejects the transfer.
-        #[weight = <T as Trait>::DistWeightInfo::push_benefit(T::MaxTargetIds::get(), T::MaxDidWhts::get())]
+        #[weight = <T as Config>::DistWeightInfo::push_benefit(T::MaxTargetIds::get(), T::MaxDidWhts::get())]
         pub fn push_benefit(origin, ca_id: CAId, holder: IdentityId) {
             let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
             Self::transfer_benefit(agent, holder, ca_id)?;
@@ -346,7 +346,7 @@ decl_module! {
         /// - `NotDistributionCreator` if `origin` is not the original creator of the distribution.
         /// - `AlreadyReclaimed` if this function has already been called successfully.
         /// - `NotExpired` if `now < expiry`.
-        #[weight = <T as Trait>::DistWeightInfo::reclaim()]
+        #[weight = <T as Config>::DistWeightInfo::reclaim()]
         pub fn reclaim(origin, ca_id: CAId) {
             // Ensure DID is the dist creator, they haven't reclaimed, and that expiry has passed.
             let did = <Identity<T>>::ensure_perms(origin.clone())?;
@@ -386,7 +386,7 @@ decl_module! {
         /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
         /// - `NoSuchDistribution` if there's no capital distribution for `ca_id`.
         /// - `DistributionStarted` if `payment_at <= now`.
-        #[weight = <T as Trait>::DistWeightInfo::remove_distribution()]
+        #[weight = <T as Config>::DistWeightInfo::remove_distribution()]
         pub fn remove_distribution(origin, ca_id: CAId) {
             let caa = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
             let dist = Self::ensure_distribution_exists(ca_id)?;
@@ -398,7 +398,7 @@ decl_module! {
 decl_event! {
     pub enum Event<T>
     where
-        Balance = <T as CommonTrait>::Balance,
+        Balance = <T as CommonConfig>::Balance,
     {
         /// A capital distribution, with details included,
         /// was created by the DID (the CAA) for the CA specified by the `CAId`.
@@ -424,7 +424,7 @@ decl_event! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// A corporate ballot was made for a non-benefit CA.
         CANotBenefit,
         /// A distribution already exists for this CA.
@@ -458,7 +458,7 @@ decl_error! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     /// Kill the distribution identified by `ca_id`.
     crate fn remove_distribution_base(
         caa: EventDid,

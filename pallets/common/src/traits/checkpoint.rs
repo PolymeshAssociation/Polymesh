@@ -1,4 +1,4 @@
-use crate::CommonTrait;
+use crate::CommonConfig;
 use codec::{Decode, Encode};
 use frame_support::decl_event;
 use frame_support::weights::Weight;
@@ -43,7 +43,7 @@ pub trait WeightInfo {
 decl_event! {
     pub enum Event<T>
     where
-        Balance = <T as CommonTrait>::Balance,
+        Balance = <T as CommonConfig>::Balance,
     {
         /// A checkpoint was created.
         ///

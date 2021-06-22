@@ -23,10 +23,9 @@ use polymesh_common_utilities::{
     constants::currency::POLY,
     TestUtilsFn,
 };
-use polymesh_contracts::ExtensionInfo;
-use polymesh_primitives::{
-    asset::AssetName, ticker::TICKER_LEN, ExtensionAttributes, Signatory, SmartExtension, Ticker,
-};
+//use polymesh_contracts::ExtensionInfo;
+use polymesh_primitives::{asset::AssetName, ticker::TICKER_LEN, Signatory, Ticker};
+//use polymesh_primitives::{ExtensionAttributes, SmartExtension};
 use sp_io::hashing::keccak_256;
 use sp_std::{convert::TryInto, iter, prelude::*};
 
@@ -46,14 +45,14 @@ pub fn make_document() -> Document {
     }
 }
 
-fn make_default_reg_config<T: Trait>() -> TickerRegistrationConfig<T::Moment> {
+fn make_default_reg_config<T: Config>() -> TickerRegistrationConfig<T::Moment> {
     TickerRegistrationConfig {
         max_ticker_length: 8,
         registration_length: Some(10000u32.into()),
     }
 }
 
-fn make_classic_ticker<T: Trait>(eth_owner: ethereum::EthereumAddress, ticker: Ticker) {
+fn make_classic_ticker<T: Config>(eth_owner: ethereum::EthereumAddress, ticker: Ticker) {
     let classic_ticker = ClassicTickerImport {
         eth_owner,
         ticker,
@@ -67,7 +66,8 @@ fn make_classic_ticker<T: Trait>(eth_owner: ethereum::EthereumAddress, ticker: T
         .expect("`reserve_classic_ticker` failed");
 }
 
-fn make_extension<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+/*
+fn make_extension<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     is_archive: bool,
 ) -> SmartExtension<T::AccountId> {
     // Simulate that extension was added.
@@ -92,7 +92,7 @@ fn make_extension<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     extension_details
 }
 
-fn add_ext<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+fn add_ext<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     is_archive: bool,
 ) -> (User<T>, Ticker, T::AccountId) {
     let owner = owner::<T>();
@@ -103,8 +103,9 @@ fn add_ext<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
         .expect("Extension cannot be added");
     (owner, ticker, ext_id)
 }
+*/
 
-fn emulate_controller_transfer<T: Trait>(
+fn emulate_controller_transfer<T: Config>(
     ticker: Ticker,
     investor_did: IdentityId,
     pia: IdentityId,
@@ -122,17 +123,17 @@ fn emulate_controller_transfer<T: Trait>(
     mock_storage(pia, 5000u32.into());
 }
 
-fn owner<T: Trait + TestUtilsFn<AccountIdOf<T>>>() -> User<T> {
+fn owner<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> User<T> {
     UserBuilder::<T>::default().generate_did().build("owner")
 }
 
-pub fn owned_ticker<T: Trait + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, Ticker) {
+pub fn owned_ticker<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, Ticker) {
     let owner = owner::<T>();
     let ticker = make_asset::<T>(&owner, None);
     (owner, ticker)
 }
 
-fn verify_ownership<T: Trait>(
+fn verify_ownership<T: Config>(
     ticker: Ticker,
     old: IdentityId,
     new: IdentityId,
@@ -145,14 +146,14 @@ fn verify_ownership<T: Trait>(
     assert_eq!(Module::<T>::asset_ownership_relation(new, ticker), rel);
 }
 
-fn set_config<T: Trait>() {
+fn set_config<T: Config>() {
     <TickerConfig<T>>::put(TickerRegistrationConfig {
         max_ticker_length: TICKER_LEN as u8,
         registration_length: Some((60u32 * 24 * 60 * 60).into()),
     });
 }
 
-fn setup_create_asset<T: Trait + TestUtilsFn<<T as frame_system::Trait>::AccountId>>(
+fn setup_create_asset<T: Config + TestUtilsFn<<T as frame_system::Config>::AccountId>>(
     n: u32,
     i: u32,
     f: u32,
@@ -187,8 +188,6 @@ fn setup_create_asset<T: Trait + TestUtilsFn<<T as frame_system::Trait>::Account
 
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
-
-    _ {}
 
     register_ticker {
         let caller = UserBuilder::<T>::default().generate_did().build("caller");
@@ -362,6 +361,7 @@ benchmarks! {
         assert_eq!(Module::<T>::identifiers(ticker), identifiers2);
     }
 
+    /*
     add_extension {
         let (owner, ticker) = owned_ticker::<T>();
         let details = make_extension::<T>(false);
@@ -394,6 +394,7 @@ benchmarks! {
     verify {
         assert_eq!(<ExtensionDetails<T>>::contains_key((ticker, ext_id2)), false);
     }
+    */
 
     claim_classic_ticker {
         let owner = owner::<T>();

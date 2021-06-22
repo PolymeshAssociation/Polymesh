@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2019-2020 Parity Technologies (UK) Ltd.
+// Copyright (C) 2019-2021 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -42,19 +42,20 @@ where
 {
     // Milliseconds per year for the Julian year (365.25 days).
     const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
+
     let portion = Perbill::from_rational_approximation(era_duration as u64, MILLISECONDS_PER_YEAR);
     // Have fixed rewards kicked in?
     if total_tokens >= max_inflated_issuance {
         let payout = portion * non_inflated_yearly_reward;
         // payout is always maximum.
-        (payout.clone(), payout)
-    } else {
-        let payout = portion
-            * yearly_inflation
-                .calculate_for_fraction_times_denominator(npos_token_staked, total_tokens.clone());
-        let maximum = portion * (yearly_inflation.maximum * total_tokens);
-        (payout, maximum)
+        return (payout.clone(), payout);
     }
+
+    let payout = portion
+        * yearly_inflation
+            .calculate_for_fraction_times_denominator(npos_token_staked, total_tokens.clone());
+    let maximum = portion * (yearly_inflation.maximum * total_tokens);
+    (payout, maximum)
 }
 
 #[cfg(test)]
@@ -62,7 +63,7 @@ mod test {
     use sp_runtime::{curve::PiecewiseLinear, Perbill};
 
     pallet_staking_reward_curve::build! {
-        const I_NPOS: PiecewiseLinear<'_> = curve!(
+        const I_NPOS: PiecewiseLinear<'static> = curve!(
             min_inflation: 0_025_000,
             max_inflation: 0_100_000,
             ideal_stake: 0_500_000,

@@ -21,8 +21,6 @@ use polymesh_primitives::PosRatio;
 use sp_std::prelude::*;
 
 benchmarks! {
-    _ {}
-
     change_coefficient {
         let n in 0 .. u32::MAX;
         let d in 0 .. u32::MAX;

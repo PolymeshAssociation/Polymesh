@@ -41,13 +41,13 @@ pub mod benchmarking;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReason},
+    traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReasons},
     weights::Weight,
 };
 use frame_system::ensure_root;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    identity::Trait as IdentityTrait,
+    identity::Config as IdentityConfig,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     transaction_payment::CddAndFeeDetails,
     Context, GC_DID,
@@ -59,9 +59,10 @@ use sp_runtime::{
 };
 
 type BalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
+    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::NegativeImbalance;
 /// Either an imbalance or an error.
 type WithdrawFeeResult<T> = sp_std::result::Result<NegativeImbalanceOf<T>, DispatchError>;
 type Identity<T> = identity::Module<T>;
@@ -71,8 +72,8 @@ pub trait WeightInfo {
     fn change_base_fee() -> Weight;
 }
 
-pub trait Trait: frame_system::Trait + IdentityTrait {
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+pub trait Config: frame_system::Config + IdentityConfig {
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     /// The currency type in which fees will be paid.
     type Currency: Currency<Self::AccountId> + Send + Sync;
     /// Handler for the unbalanced reduction when taking protocol fees.
@@ -82,7 +83,7 @@ pub trait Trait: frame_system::Trait + IdentityTrait {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// Insufficient account balance to pay the fee.
         InsufficientAccountBalance,
         /// Not able to handled the imbalances
@@ -91,7 +92,7 @@ decl_error! {
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as ProtocolFee {
+    trait Store for Module<T: Config> as ProtocolFee {
         /// The mapping of operation names to the base fees of those operations.
         pub BaseFees get(fn base_fees) config(): map hasher(twox_64_concat) ProtocolOp => BalanceOf<T>;
         /// The fee coefficient as a positive rational (numerator, denominator).
@@ -107,7 +108,7 @@ decl_storage! {
 
 decl_event! {
     pub enum Event<T> where
-        AccountId = <T as frame_system::Trait>::AccountId,
+        AccountId = <T as frame_system::Config>::AccountId,
         Balance = BalanceOf<T>,
     {
         /// The protocol fee of an operation.
@@ -120,7 +121,7 @@ decl_event! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -129,7 +130,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `BadOrigin` - Only root allowed.
-        #[weight = <T as Trait>::WeightInfo::change_coefficient()]
+        #[weight = <T as Config>::WeightInfo::change_coefficient()]
         pub fn change_coefficient(origin, coefficient: PosRatio) {
             ensure_root(origin)?;
             let id = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
@@ -142,7 +143,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `BadOrigin` - Only root allowed.
-        #[weight = <T as Trait>::WeightInfo::change_base_fee()]
+        #[weight = <T as Config>::WeightInfo::change_base_fee()]
         pub fn change_base_fee(origin, op: ProtocolOp, base_fee: BalanceOf<T>) {
             ensure_root(origin)?;
             let id = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
@@ -153,7 +154,7 @@ decl_module! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     /// Computes the fee of the operation as `(base_fee * coefficient.0) / coefficient.1`.
     pub fn compute_fee(ops: &[ProtocolOp]) -> BalanceOf<T> {
         let coefficient = Self::coefficient();
@@ -216,7 +217,7 @@ impl<T: Trait> Module<T> {
         let ret = T::Currency::withdraw(
             &account,
             fee,
-            WithdrawReason::Fee.into(),
+            WithdrawReasons::FEE,
             ExistenceRequirement::KeepAlive,
         )
         .map_err(|_| Error::<T>::InsufficientAccountBalance)?;
@@ -233,7 +234,7 @@ impl<T: Trait> Module<T> {
     }
 }
 
-impl<T: Trait> ChargeProtocolFee<T::AccountId, BalanceOf<T>> for Module<T> {
+impl<T: Config> ChargeProtocolFee<T::AccountId, BalanceOf<T>> for Module<T> {
     fn charge_fee(op: ProtocolOp) -> DispatchResult {
         Self::charge_fees(&[op])
     }

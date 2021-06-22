@@ -1,6 +1,6 @@
-use super::storage::AccountId;
 use crate::TestStorage;
 use confidential_identity::mocked::make_investor_uid as make_investor_uid_v2;
+use frame_support::traits::GenesisBuild;
 use pallet_asset::{self as asset, TickerRegistrationConfig};
 use pallet_balances as balances;
 use pallet_bridge::BridgeTx;
@@ -8,12 +8,13 @@ use pallet_committee as committee;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_pips as pips;
-use polymesh_common_utilities::{protocol_fee::ProtocolOp, SystematicIssuers, GC_DID};
-use polymesh_primitives::{
-    cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, Identity, IdentityId, PosRatio,
-    Signatory, SmartExtensionType,
+use polymesh_common_utilities::{
+    constants::currency::POLY, protocol_fee::ProtocolOp, SystematicIssuers, GC_DID,
 };
-use sp_core::sr25519::Public;
+use polymesh_primitives::{
+    cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, AccountId, Identity, IdentityId,
+    PosRatio, Signatory, SmartExtensionType,
+};
 use sp_io::TestExternalities;
 use sp_runtime::{Perbill, Storage};
 use sp_std::{cell::RefCell, convert::From, iter};
@@ -22,9 +23,9 @@ use test_client::AccountKeyring;
 /// A prime number fee to test the split between multiple recipients.
 pub const PROTOCOL_OP_BASE_FEE: u128 = 41;
 
-pub const COOL_OFF_PERIOD: u64 = 100;
+pub const COOL_OFF_PERIOD: u32 = 100;
 const DEFAULT_BRIGDE_LIMIT: u128 = 1_000_000_000_000_000;
-const DEFAULT_BRIDGE_TIMELOCK: u64 = 3;
+const DEFAULT_BRIDGE_TIMELOCK: u32 = 3;
 
 struct BuilderVoteThreshold {
     pub numerator: u32,
@@ -40,6 +41,7 @@ impl Default for BuilderVoteThreshold {
     }
 }
 
+#[derive(Clone)]
 pub struct MockProtocolBaseFees(pub Vec<(ProtocolOp, u128)>);
 
 impl Default for MockProtocolBaseFees {
@@ -73,15 +75,15 @@ struct BridgeConfig {
     /// Complete TXs
     pub complete_txs: Vec<BridgeTx<AccountId, u128>>,
     /// Bridge admin key. See `Bridge` documentation for details.
-    pub admin: Option<Public>,
+    pub admin: Option<AccountId>,
     /// signers of the controller multisig account.
-    pub signers: Vec<Signatory<Public>>,
+    pub signers: Vec<Signatory<AccountId>>,
     /// # of signers required for controller multisig account.
     pub signatures_required: u64,
     /// Bridge limit.
     pub limit: Option<u128>,
     /// Bridge timelock.
-    pub timelock: Option<u64>,
+    pub timelock: Option<u32>,
 }
 
 #[derive(Default)]
@@ -101,12 +103,12 @@ pub struct ExtBuilder {
     monied: bool,
     vesting: bool,
     /// CDD Service provides. Their DID will be generated.
-    cdd_providers: Vec<Public>,
+    cdd_providers: Vec<AccountId>,
     /// Governance committee members. Their DID will be generated.
-    governance_committee_members: Vec<Public>,
+    governance_committee_members: Vec<AccountId>,
     governance_committee_vote_threshold: BuilderVoteThreshold,
     /// Regular users. Their DID will be generated.
-    regular_users: Vec<Identity<Public>>,
+    regular_users: Vec<Identity<AccountId>>,
 
     protocol_base_fees: MockProtocolBaseFees,
     protocol_coefficient: PosRatio,
@@ -118,8 +120,10 @@ pub struct ExtBuilder {
     /// The minimum duration for a checkpoint period, in seconds.
     min_checkpoint_duration: u64,
     adjust: Option<Box<dyn FnOnce(&mut Storage)>>,
+    /*
     /// Enable `put_code` in contracts pallet
     enable_contracts_put_code: bool,
+    */
     /// Bridge configuration
     bridge: BridgeConfig,
 }
@@ -185,7 +189,7 @@ impl ExtBuilder {
         self
     }
 
-    pub fn governance_committee(mut self, members: Vec<Public>) -> Self {
+    pub fn governance_committee(mut self, members: Vec<AccountId>) -> Self {
         self.governance_committee_members = members;
         self.governance_committee_members.sort();
         self
@@ -200,21 +204,25 @@ impl ExtBuilder {
     }
 
     /// It sets `providers` as CDD providers.
-    pub fn cdd_providers(mut self, providers: Vec<Public>) -> Self {
+    pub fn cdd_providers(mut self, providers: Vec<AccountId>) -> Self {
         self.cdd_providers = providers;
         self.cdd_providers.sort();
         self
     }
 
     /// Adds DID to `users` accounts.
-    pub fn add_regular_users(mut self, users: &[Identity<Public>]) -> Self {
+    pub fn add_regular_users(mut self, users: &[Identity<AccountId>]) -> Self {
         self.regular_users.extend_from_slice(users);
         self
     }
 
     pub fn add_regular_users_from_accounts(mut self, accounts: &[AccountId]) -> Self {
-        self.regular_users
-            .extend(accounts.iter().cloned().map(Identity::<AccountId>::from));
+        let identities = accounts
+            .iter()
+            .map(|acc: &AccountId| Identity::new(acc.clone()))
+            .collect::<Vec<_>>();
+
+        self.regular_users.extend(identities);
         self
     }
 
@@ -246,12 +254,14 @@ impl ExtBuilder {
         self
     }
 
+    /*
     /// Enables `contracts::put_code` at genesis if `enable` is `true`.
     /// By default, it is disabled.
     pub fn set_contracts_put_code(mut self, enable: bool) -> Self {
         self.enable_contracts_put_code = enable;
         self
     }
+    */
 
     pub fn set_bridge_complete_tx(mut self, txs: Vec<BridgeTx<AccountId, u128>>) -> Self {
         self.bridge.complete_txs = txs;
@@ -261,8 +271,8 @@ impl ExtBuilder {
     /// Sets the bridge controller.
     pub fn set_bridge_controller(
         mut self,
-        admin: Public,
-        signers: Vec<Public>,
+        admin: AccountId,
+        signers: Vec<AccountId>,
         signatures_required: u64,
     ) -> Self {
         self.bridge.admin = Some(admin);
@@ -279,7 +289,7 @@ impl ExtBuilder {
         self
     }
 
-    pub fn set_bridge_timelock(mut self, timelock: u64) -> Self {
+    pub fn set_bridge_timelock(mut self, timelock: u32) -> Self {
         self.bridge.timelock = Some(timelock);
         self
     }
@@ -292,19 +302,28 @@ impl ExtBuilder {
         MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow_mut() = self.max_no_of_tm_allowed);
     }
 
-    fn make_balances(&self) -> Vec<(Public, u128)> {
+    fn make_balances(&self) -> Vec<(AccountId, u128)> {
         if self.monied {
             vec![
-                (AccountKeyring::Alice.public(), 1_000 * self.balance_factor),
-                (AccountKeyring::Bob.public(), 2_000 * self.balance_factor),
                 (
-                    AccountKeyring::Charlie.public(),
-                    3_000 * self.balance_factor,
+                    AccountKeyring::Alice.to_account_id(),
+                    1_000 * POLY * self.balance_factor,
                 ),
-                (AccountKeyring::Dave.public(), 4_000 * self.balance_factor),
+                (
+                    AccountKeyring::Bob.to_account_id(),
+                    2_000 * POLY * self.balance_factor,
+                ),
+                (
+                    AccountKeyring::Charlie.to_account_id(),
+                    3_000 * POLY * self.balance_factor,
+                ),
+                (
+                    AccountKeyring::Dave.to_account_id(),
+                    4_000 * POLY * self.balance_factor,
+                ),
                 // CDD Accounts
-                (AccountKeyring::Eve.public(), 1_000_000),
-                (AccountKeyring::Ferdie.public(), 1_000_000),
+                (AccountKeyring::Eve.to_account_id(), 1_000_000),
+                (AccountKeyring::Ferdie.to_account_id(), 1_000_000),
             ]
         } else {
             vec![]
@@ -349,7 +368,7 @@ impl ExtBuilder {
     }
 
     fn build_bridge(&self, storage: &mut Storage) {
-        if let Some(creator) = self.bridge.admin {
+        if let Some(creator) = &self.bridge.admin {
             pallet_bridge::GenesisConfig::<TestStorage> {
                 creator: creator.clone(),
                 signers: self.bridge.signers.clone(),
@@ -489,6 +508,7 @@ impl ExtBuilder {
         .unwrap();
     }
 
+    /*
     fn build_contracts_genesis(&self, storage: &mut Storage) {
         polymesh_contracts::GenesisConfig {
             enable_put_code: self.enable_contracts_put_code,
@@ -497,6 +517,7 @@ impl ExtBuilder {
         .assimilate_storage(storage)
         .unwrap();
     }
+    */
 
     fn build_bridge_genesis(&self, storage: &mut Storage) {
         pallet_bridge::GenesisConfig::<TestStorage> {
@@ -544,7 +565,7 @@ impl ExtBuilder {
             .map(|gen_id| gen_id.did)
             .next()
             .unwrap_or(SystematicIssuers::CDDProvider.as_id());
-        let regular_accounts = self.regular_users.iter().map(|id| id.primary_key);
+        let regular_accounts = self.regular_users.iter().map(|id| id.primary_key.clone());
 
         // Create regular user identities + .
         let mut user_identities = Self::make_identities(
@@ -582,7 +603,7 @@ impl ExtBuilder {
         self.build_committee_genesis(&mut storage, gc_full_identities.as_slice());
         self.build_protocol_fee_genesis(&mut storage);
         self.build_pips_genesis(&mut storage);
-        self.build_contracts_genesis(&mut storage);
+        //self.build_contracts_genesis(&mut storage);
         self.build_bridge_genesis(&mut storage);
 
         self.build_bridge(&mut storage);
