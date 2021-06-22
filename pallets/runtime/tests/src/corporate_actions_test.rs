@@ -1925,6 +1925,14 @@ fn dist_reclaim_works() {
         assert_ok!(transfer_caa(ticker, owner, other));
         Timestamp::set_timestamp(6);
         let pid = PortfolioId::default_portfolio(other.did);
+        
+        // No custody over portfolio.
+        let custody =
+            |who: User| Custodian::insert(PortfolioId::default_portfolio(other.did), who.did);
+        custody(owner);
+        assert_noop!(reclaim(id, other), PError::UnauthorizedCustodian);
+        custody(other);
+
         let ensure = |x| Portfolio::ensure_sufficient_balance(&pid, &currency, &x);
         assert_noop!(ensure(1), PError::InsufficientPortfolioBalance);
         let dist = Dist::distributions(id).unwrap();
