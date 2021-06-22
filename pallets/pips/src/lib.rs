@@ -126,6 +126,7 @@ use sp_core::H256;
 use sp_runtime::traits::{
     BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, Hash, One, Saturating, Zero,
 };
+use sp_runtime::DispatchError;
 use sp_std::{convert::From, prelude::*};
 use sp_version::RuntimeVersion;
 
@@ -387,6 +388,7 @@ pub enum SnapshotResult {
 pub type SkippedCount = u8;
 
 type Identity<T> = identity::Module<T>;
+type CallPermissions<T> = pallet_permissions::Module<T>;
 
 /// The module's configuration trait.
 pub trait Config:
@@ -722,9 +724,7 @@ decl_module! {
             description: Option<PipDescription>,
         ) {
             // Infer the proposer from `origin`.
-            let proposer = Self::ensure_infer_proposer(origin)?;
-
-            let did = Self::current_did_or_missing()?;
+            let (proposer, did) = Self::ensure_infer_proposer(origin)?;
 
             // Ensure strings are limited in length.
             ensure_opt_string_limited::<T>(url.as_deref())?;
@@ -837,7 +837,12 @@ decl_module! {
         /// * `InsufficientDeposit` if `origin` cannot reserve `deposit - old_deposit`.
         #[weight = <T as Config>::WeightInfo::vote()]
         pub fn vote(origin, id: PipId, aye_or_nay: bool, deposit: BalanceOf<T>) {
-            let voter = ensure_signed(origin)?;
+            let PermissionedCallOriginData {
+                sender: voter,
+                primary_did,
+                ..
+             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+
             let pip = Self::proposals(id).ok_or(Error::<T>::NoSuchProposal)?;
 
             // Proposal must be from the community.
@@ -854,8 +859,6 @@ decl_module! {
 
             // Proposal must be pending.
             Self::is_proposal_state(id, ProposalState::Pending)?;
-
-            let current_did = Self::current_did_or_missing()?;
 
             let old_res = Self::aggregate_result(id);
 
@@ -880,7 +883,7 @@ decl_module! {
             });
 
             // Emit event.
-            Self::deposit_event(RawEvent::Voted(current_did, voter, id, aye_or_nay, deposit));
+            Self::deposit_event(RawEvent::Voted(primary_did, voter, id, aye_or_nay, deposit));
         }
 
         /// Approves the pending committee PIP given by the `id`.
@@ -1142,30 +1145,33 @@ impl<T: Config> Module<T> {
 
     /// Ensure that `origin` represents one of:
     /// - a signed extrinsic (i.e. transaction), and infer the account id, as a community proposer.
+    ///   In this case, permissions are also checked
     /// - a committee, where the committee is also inferred.
     ///
-    /// Returns the inferred proposer.
+    /// Returns the inferred proposer and its DID.
     ///
     /// # Errors
     /// * `BadOrigin` if not a signed extrinsic.
     fn ensure_infer_proposer(
         origin: T::Origin,
-    ) -> Result<Proposer<T::AccountId>, sp_runtime::traits::BadOrigin> {
-        ensure_signed(origin.clone())
-            .map(Proposer::Community)
-            .or_else(|_| {
-                T::TechnicalCommitteeVMO::ensure_origin(origin.clone())
+    ) -> Result<(Proposer<T::AccountId>, IdentityId), DispatchError> {
+        match ensure_signed(origin.clone()) {
+            Ok(sender) => {
+                let did = CallPermissions::<T>::ensure_call_permissions(&sender)?.primary_did;
+                Ok((Proposer::Community(sender), did))
+            }
+            Err(_) => {
+                let proposer = T::TechnicalCommitteeVMO::ensure_origin(origin.clone())
                     .map(|_| Committee::Technical)
                     .or_else(|_| {
                         T::UpgradeCommitteeVMO::ensure_origin(origin).map(|_| Committee::Upgrade)
                     })
-                    .map(Proposer::Committee)
-            })
-    }
-
-    /// Returns the current identity or emits `MissingCurrentIdentity`.
-    fn current_did_or_missing() -> Result<IdentityId, Error<T>> {
-        Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)
+                    .map(Proposer::Committee)?;
+                let did = Context::current_identity::<Identity<T>>()
+                    .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+                Ok((proposer, did))
+            }
+        }
     }
 
     /// Rejects the given `id`, refunding the deposit, and possibly pruning the proposal's data.
