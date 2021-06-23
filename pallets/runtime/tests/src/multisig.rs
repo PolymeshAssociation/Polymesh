@@ -1,6 +1,6 @@
 use super::{
     next_block,
-    storage::{get_last_auth_id, register_keyring_account, Call, TestStorage},
+    storage::{get_last_auth_id, register_keyring_account, Call, TestStorage, User},
     ExtBuilder,
 };
 use frame_support::{assert_noop, assert_ok};
@@ -16,6 +16,7 @@ type Identity = identity::Module<TestStorage>;
 type MultiSig = multisig::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::Origin;
+type IdError = identity::Error<TestStorage>;
 type Error = multisig::Error<TestStorage>;
 type System = frame_system::Module<TestStorage>;
 type Scheduler = pallet_scheduler::Module<TestStorage>;
@@ -526,17 +527,14 @@ fn make_multisig_primary() {
 #[test]
 fn make_multisig_signer() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
-        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
-        let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
 
-        let musig_address =
-            MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id());
+        let multisig = MultiSig::get_next_multisig_address(alice.acc());
 
         assert_ok!(MultiSig::create_multisig(
-            alice.clone(),
-            vec![Signatory::from(alice_did)],
+            alice.origin(),
+            vec![Signatory::from(alice.did)],
             1,
         ));
         let permissions =
@@ -544,29 +542,22 @@ fn make_multisig_signer() {
                 b"multisig".as_ref().into(),
             )]);
         // The desired secondary key record.
-        let musig_secondary =
-            SecondaryKey::new(Signatory::Account(musig_address.clone()), permissions);
-        let secondary_keys = Identity::did_records(alice_did).secondary_keys;
-        assert!(secondary_keys
-            .iter()
-            .find(|si| **si == musig_secondary)
-            .is_none());
+        let musig_secondary = SecondaryKey::new(Signatory::Account(multisig.clone()), permissions);
 
-        assert_noop!(
-            MultiSig::make_multisig_signer(bob.clone(), musig_address.clone()),
-            Error::IdentityNotCreator
-        );
+        let has_ms_sk = || {
+            Identity::did_records(alice.did)
+                .secondary_keys
+                .contains(&musig_secondary)
+        };
+        assert!(!has_ms_sk());
 
-        assert_ok!(MultiSig::make_multisig_signer(
-            alice.clone(),
-            musig_address.clone(),
-        ));
+        let mk_ms_signer = |u: User| MultiSig::make_multisig_signer(u.origin(), multisig.clone());
+        assert_noop!(mk_ms_signer(bob), Error::IdentityNotCreator);
 
-        let secondary_keys2 = Identity::did_records(alice_did).secondary_keys;
-        assert!(secondary_keys2
-            .iter()
-            .find(|si| **si == musig_secondary)
-            .is_some());
+        assert_ok!(mk_ms_signer(alice));
+        assert!(has_ms_sk());
+
+        assert_noop!(mk_ms_signer(alice), IdError::AlreadyLinked);
     });
 }
 

@@ -852,10 +852,7 @@ impl<T: Config> Module<T> {
             // Link the secondary key.
             match &signer {
                 Signatory::Account(key) => {
-                    ensure!(
-                        Self::can_link_account_key_to_did(key),
-                        Error::<T>::AlreadyLinked
-                    );
+                    Self::ensure_key_did_unlinked(key)?;
                     // Check that the new Identity has a valid CDD claim.
                     ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
                     // Charge the protocol fee after all checks.
@@ -881,6 +878,15 @@ impl<T: Config> Module<T> {
             Self::unsafe_join_identity(target_did, permissions, &signer);
             Ok(())
         })
+    }
+
+    /// Ensure `key` isn't linked to a DID.
+    pub fn ensure_key_did_unlinked(key: &T::AccountId) -> DispatchResult {
+        ensure!(
+            Self::can_link_account_key_to_did(key),
+            Error::<T>::AlreadyLinked
+        );
+        Ok(())
     }
 
     /// Joins an identity as signer
@@ -1049,10 +1055,7 @@ impl<T: Config> Module<T> {
             })?;
         }
 
-        ensure!(
-            Self::can_link_account_key_to_did(&sender),
-            Error::<T>::AlreadyLinked,
-        );
+        Self::ensure_key_did_unlinked(&sender)?;
 
         // Replace primary key of the owner that initiated key rotation
         let old_primary_key = Self::did_records(&rotation_for_did).primary_key;
@@ -1330,16 +1333,16 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Checks that a primary key is not linked to any identity or multisig.
+    /// Checks that a key is not linked to any identity or multisig.
     pub fn can_link_account_key_to_did(key: &T::AccountId) -> bool {
         !<KeyToIdentityIds<T>>::contains_key(key) && !T::MultiSig::is_signer(key)
     }
 
     /// Links a primary or secondary `AccountId` key `key` to an identity `did`.
     ///
-    /// This function applies the change if `can_link_account_key_to_did` returns `true`. Otherwise,
-    /// it does nothing.
-    fn link_account_key_to_did(key: &T::AccountId, did: IdentityId) {
+    /// This function applies the change if `can_link_account_key_to_did` returns `true`.
+    /// Otherwise, it does nothing.
+    pub fn link_account_key_to_did(key: &T::AccountId, did: IdentityId) {
         if !<KeyToIdentityIds<T>>::contains_key(key) {
             // `key` is not yet linked to any identity, so no constraints.
             <KeyToIdentityIds<T>>::insert(key, did);
@@ -1377,10 +1380,7 @@ impl<T: Config> Module<T> {
 
         // 1 Check constraints.
         // Primary key is not linked to any identity.
-        ensure!(
-            Self::can_link_account_key_to_did(&sender),
-            Error::<T>::AlreadyLinked
-        );
+        Self::ensure_key_did_unlinked(&sender)?;
         // Primary key is not part of secondary keys.
         ensure!(
             !secondary_keys
@@ -1399,10 +1399,7 @@ impl<T: Config> Module<T> {
         // Secondary keys can be linked to the new identity.
         for sk in &secondary_keys {
             if let Signatory::Account(ref key) = sk.signer {
-                ensure!(
-                    Self::can_link_account_key_to_did(key),
-                    Error::<T>::AlreadyLinked
-                );
+                Self::ensure_key_did_unlinked(key)?;
             }
         }
 
