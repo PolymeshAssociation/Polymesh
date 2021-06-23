@@ -41,9 +41,9 @@ use polymesh_primitives::{
     calendar::{
         CalendarPeriod, CalendarUnit, CheckpointId, CheckpointSchedule, FixedOrVariableCalendarUnit,
     },
-    AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, Document, DocumentId,
-    IdentityId, InvestorUid, Moment, Permissions, PortfolioId, PortfolioName, SecondaryKey,
-    Signatory, Ticker,
+    AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document,
+    DocumentId, IdentityId, InvestorUid, Moment, Permissions, PortfolioId, PortfolioName,
+    SecondaryKey, Signatory, Ticker,
 };
 use rand::Rng;
 use sp_io::hashing::keccak_256;
@@ -581,7 +581,7 @@ fn transfer_ticker() {
 
         assert_noop!(
             Asset::accept_ticker_transfer(bob.origin(), auth_id),
-            AssetError::NoTickerTransferAuth
+            AuthorizationError::BadType
         );
 
         let auth_id = add_auth(AuthorizationData::TransferTicker(ticker), now() + 100);
@@ -726,7 +726,7 @@ fn transfer_token_ownership() {
 
         assert_noop!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id),
-            AssetError::NotTickerOwnershipTransferAuth
+            AuthorizationError::BadType
         );
 
         auth_id = Identity::add_auth(

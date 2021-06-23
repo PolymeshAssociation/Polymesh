@@ -2951,7 +2951,7 @@ fn multiple_custodian_settlement() {
                 AuthorizationData::PortfolioCustody(PortfolioId::user_portfolio(bob_did, bob_num)),
                 None,
             );
-            assert_ok!(Identity::accept_authorization(
+            assert_ok!(Portfolio::accept_portfolio_custody(
                 alice_signed.clone(),
                 auth_id
             ));
@@ -3068,7 +3068,10 @@ fn multiple_custodian_settlement() {
                 )),
                 None,
             );
-            assert_ok!(Identity::accept_authorization(bob_signed.clone(), auth_id2));
+            assert_ok!(Portfolio::accept_portfolio_custody(
+                bob_signed.clone(),
+                auth_id2
+            ));
 
             // Bob fails to approve the instruction with both of his portfolios since he doesn't have custody for the second one
             let portfolios_bob = vec![
