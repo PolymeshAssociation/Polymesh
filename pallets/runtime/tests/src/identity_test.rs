@@ -1646,7 +1646,7 @@ fn cdd_register_did_test_we() {
 
     let dave_auth_id = get_last_auth_id(&dave_si.signer);
 
-    assert_ok!(Identity::accept_authorization(
+    assert_ok!(Identity::join_identity_as_key(
         Origin::signed(dave),
         dave_auth_id
     ));
@@ -1658,7 +1658,7 @@ fn cdd_register_did_test_we() {
     let alice_auth_id = get_last_auth_id(&alice_si.signer);
 
     TestStorage::set_current_identity(&alice_id);
-    assert_ok!(Identity::accept_authorization(
+    assert_ok!(Identity::join_identity_as_identity(
         Origin::signed(alice),
         alice_auth_id
     ));
@@ -2026,13 +2026,13 @@ fn add_permission_with_secondary_key() {
             println!("Print the protocol base fee: {:?}", PROTOCOL_OP_BASE_FEE);
 
             // accept the auth_id
-            assert_ok!(Identity::accept_authorization(
+            assert_ok!(Identity::join_identity_as_key(
                 Origin::signed(bob_acc),
                 bob_auth_id
             ));
 
             // accept the auth_id
-            assert_ok!(Identity::accept_authorization(
+            assert_ok!(Identity::join_identity_as_key(
                 Origin::signed(charlie_acc),
                 charlie_auth_id
             ));
@@ -2236,7 +2236,7 @@ fn ext_join_identity_as_identity() {
         let auth_id = get_last_auth_id(&bob.did.into());
         assert_noop!(
             Identity::join_identity_as_identity(bob.origin(), auth_id),
-            AuthorizationError::Invalid
+            AuthorizationError::BadType
         );
 
         setup_join_identity(&alice, &bob);

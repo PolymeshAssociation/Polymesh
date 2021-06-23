@@ -44,10 +44,10 @@ fn add_become_agent(
     let auth = Id::add_auth(from.did, sig, data, None);
     match expected {
         Ok(_) => {
-            assert_ok!(Id::accept_authorization(to.origin(), auth));
+            assert_ok!(ExternalAgents::accept_become_agent(to.origin(), auth));
         }
         Err(e) => {
-            assert_noop!(Id::accept_authorization(to.origin(), auth), e);
+            assert_noop!(ExternalAgents::accept_become_agent(to.origin(), auth), e);
         }
     };
 }

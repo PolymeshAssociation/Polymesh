@@ -32,18 +32,6 @@ use sp_std::vec::Vec;
 
 /// This trait is used to accept custody of a portfolio
 pub trait PortfolioSubTrait<Balance, AccountId: Encode + Decode> {
-    /// Accepts custody of a portfolio
-    ///
-    /// # Arguments
-    /// * `to` - DID of the new custodian
-    /// * `from` - Sender of the authorization
-    /// * `pid` - The old portfolio ID
-    fn accept_portfolio_custody(
-        to: IdentityId,
-        from: IdentityId,
-        pid: PortfolioId,
-    ) -> DispatchResult;
-
     /// Checks that the custodian is authorized for the portfolio
     ///
     /// # Arguments
@@ -88,6 +76,7 @@ pub trait WeightInfo {
     fn move_portfolio_funds(i: u32) -> Weight;
     fn rename_portfolio(i: u32) -> Weight;
     fn quit_portfolio_custody() -> Weight;
+    fn accept_portfolio_custody() -> Weight;
 }
 
 pub trait Config: CommonConfig + identity::Config + base::Config {
