@@ -24,43 +24,20 @@ type Scheduler = pallet_scheduler::Module<TestStorage>;
 #[test]
 fn create_multisig() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-        let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
 
-        let musig_address =
-            MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id());
+        let musig_address = MultiSig::get_next_multisig_address(alice.acc());
 
-        assert_ok!(MultiSig::create_multisig(
-            alice.clone(),
-            vec![Signatory::from(alice_did), Signatory::from(bob_did)],
-            1,
-        ));
+        let signers = || vec![Signatory::from(alice.did), Signatory::from(bob.did)];
+        let create = |signers, nsigs| MultiSig::create_multisig(alice.origin(), signers, nsigs);
 
+        assert_ok!(create(signers(), 1));
         assert_eq!(MultiSig::ms_signs_required(musig_address), 1);
 
-        assert_noop!(
-            MultiSig::create_multisig(alice.clone(), vec![], 10,),
-            Error::NoSigners
-        );
-
-        assert_noop!(
-            MultiSig::create_multisig(
-                alice.clone(),
-                vec![Signatory::from(alice_did), Signatory::from(bob_did)],
-                0,
-            ),
-            Error::RequiredSignaturesOutOfBounds
-        );
-
-        assert_noop!(
-            MultiSig::create_multisig(
-                alice.clone(),
-                vec![Signatory::from(alice_did), Signatory::from(bob_did)],
-                10,
-            ),
-            Error::RequiredSignaturesOutOfBounds
-        );
+        assert_noop!(create(vec![], 10), Error::NoSigners);
+        assert_noop!(create(signers(), 0), Error::RequiredSignaturesOutOfBounds);
+        assert_noop!(create(signers(), 10), Error::RequiredSignaturesOutOfBounds);
     });
 }
 
