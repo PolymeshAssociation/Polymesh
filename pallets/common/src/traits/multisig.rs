@@ -18,25 +18,10 @@
 //! The interface allows to process addition of a multisig signer from modules other than the
 //! multisig module itself.
 
-use frame_support::dispatch::DispatchResult;
-use polymesh_primitives::{IdentityId, Signatory};
-
 use sp_std::vec::Vec;
 
 /// This trait is used to add a signer to a multisig and enable unlinking multisig from an identity
 pub trait MultiSigSubTrait<AccountId> {
-    /// Accepts and adds a multisig signer.
-    ///
-    /// # Arguments
-    /// * `signer` - DID/key of the signer
-    /// * `from` - The DID that sent the authorization
-    /// * `multisig` - The multisig address
-    fn accept_multisig_signer(
-        signer: Signatory<AccountId>,
-        from: IdentityId,
-        multisig: AccountId,
-    ) -> DispatchResult;
-
     /// Fetches signers of a multisig
     ///
     /// # Arguments

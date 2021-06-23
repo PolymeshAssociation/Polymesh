@@ -892,14 +892,12 @@
                 "AttestPrimaryKeyRotation": "",
                 "RotatePrimaryKey": "",
                 "TransferTicker": "",
-                "TransferPrimaryIssuanceAgent": "",
                 "AddMultiSigSigner": "",
                 "TransferAssetOwnership": "",
                 "JoinIdentity": "",
                 "PortfolioCustody": "",
                 "Custom": "",
-                "NoData": "",
-                "TransferCorporateActionAgent": ""
+                "NoData": ""
             }
         },
         "ProposalDetails": {

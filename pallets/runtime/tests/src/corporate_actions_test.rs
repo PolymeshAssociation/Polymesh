@@ -128,7 +128,7 @@ fn add_caa_auth(ticker: Ticker, from: User, to: User) -> u64 {
 
 fn transfer_caa(ticker: Ticker, from: User, to: User) -> DispatchResult {
     let auth_id = add_caa_auth(ticker, from, to);
-    Identity::accept_authorization(to.origin(), auth_id)?;
+    ExternalAgents::accept_become_agent(to.origin(), auth_id)?;
     ExternalAgents::abdicate(from.origin(), ticker)?;
     Ok(())
 }
@@ -332,7 +332,7 @@ fn only_owner_caa_invite() {
     test(|ticker, [_, caa, other]| {
         let auth_id = add_caa_auth(ticker, other, caa);
         assert_noop!(
-            Identity::accept_authorization(caa.origin(), auth_id),
+            ExternalAgents::accept_become_agent(caa.origin(), auth_id),
             EAError::UnauthorizedAgent
         );
     });
