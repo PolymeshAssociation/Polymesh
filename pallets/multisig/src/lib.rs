@@ -552,14 +552,11 @@ decl_module! {
         /// * `multi_sig` - multi sig address
         #[weight = <T as Config>::WeightInfo::make_multisig_primary()]
         pub fn make_multisig_primary(origin, multisig: T::AccountId, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
+            let did = Self::ensure_ms_creator(origin, &multisig)?;
             Self::ensure_ms(&multisig)?;
-            let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            Self::verify_sender_is_creator(sender_did, &multisig)?;
-            Self::ensure_primary_key(&sender_did, &sender)?;
             <Identity<T>>::unsafe_primary_key_rotation(
                 multisig,
-                sender_did,
+                did,
                 optional_cdd_auth_id
             )
         }

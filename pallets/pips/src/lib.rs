@@ -1308,8 +1308,7 @@ impl<T: Config> Module<T> {
         let res = proposal.proposal.dispatch(system::RawOrigin::Root.into());
         let weight = res.unwrap_or_else(|e| e.post_info).actual_weight;
         let new_state = res.map_or(ProposalState::Failed, |_| ProposalState::Executed);
-        let did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-        Self::maybe_prune(did, id, new_state);
+        Self::maybe_prune(GC_DID, id, new_state);
         Ok(Some(weight.unwrap_or(0)).into())
     }
 
