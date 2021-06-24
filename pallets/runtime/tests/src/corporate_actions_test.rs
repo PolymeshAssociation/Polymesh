@@ -1920,7 +1920,6 @@ fn dist_reclaim_works() {
             Some(6)
         ));
         assert_ok!(transfer_caa(ticker, other, owner));
-        assert_noop!(reclaim(id, owner), DistError::NotDistributionCreator);
 
         // Not expired yet.
         Timestamp::set_timestamp(5);
@@ -1930,7 +1929,7 @@ fn dist_reclaim_works() {
         assert_ok!(transfer_caa(ticker, owner, other));
         Timestamp::set_timestamp(6);
         let pid = PortfolioId::default_portfolio(other.did);
-        
+
         // No custody over portfolio.
         let custody =
             |who: User| Custodian::insert(PortfolioId::default_portfolio(other.did), who.did);
