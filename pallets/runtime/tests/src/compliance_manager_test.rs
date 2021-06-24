@@ -1,5 +1,5 @@
 use super::{
-    asset_test::create_token,
+    asset_test::{allow_all_transfers, create_token},
     storage::{
         create_cdd_id, create_investor_uid, provide_scope_claim_to_multiple_parties, set_curr_did,
         TestStorage, User,
@@ -281,12 +281,7 @@ fn should_replace_asset_compliance_we() {
 
     Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
-    assert_ok!(ComplianceManager::add_compliance_requirement(
-        owner.origin(),
-        ticker,
-        vec![],
-        vec![]
-    ));
+    allow_all_transfers(ticker, owner);
 
     let asset_compliance = ComplianceManager::asset_compliance(ticker);
     assert_eq!(asset_compliance.requirements.len(), 1);
@@ -328,12 +323,7 @@ fn should_reset_asset_compliance_we() {
 
     Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
-    assert_ok!(ComplianceManager::add_compliance_requirement(
-        owner.origin(),
-        ticker,
-        vec![],
-        vec![]
-    ));
+    allow_all_transfers(ticker, owner);
 
     let asset_compliance = ComplianceManager::asset_compliance(ticker);
     assert_eq!(asset_compliance.requirements.len(), 1);
@@ -1305,12 +1295,7 @@ fn check_new_return_type_of_rpc() {
         Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
         // Add empty rules
-        assert_ok!(ComplianceManager::add_compliance_requirement(
-            owner.origin(),
-            ticker,
-            vec![],
-            vec![]
-        ));
+        allow_all_transfers(ticker, owner);
 
         let result = ComplianceManager::verify_restriction_granular(
             &ticker,
