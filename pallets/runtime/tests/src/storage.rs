@@ -830,6 +830,10 @@ pub fn make_remark_proposal() -> Call {
     Call::System(frame_system::Call::remark(vec![b'X'; 100])).into()
 }
 
+crate fn set_curr_did(did: Option<IdentityId>) {
+    Context::set_current_identity::<Identity>(did);
+}
+
 #[macro_export]
 macro_rules! assert_last_event {
     ($event:pat) => {

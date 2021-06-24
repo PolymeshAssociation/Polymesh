@@ -1,8 +1,8 @@
 use super::{
     asset_test::create_token,
     storage::{
-        create_cdd_id, create_investor_uid, provide_scope_claim_to_multiple_parties, TestStorage,
-        User,
+        create_cdd_id, create_investor_uid, provide_scope_claim_to_multiple_parties, set_curr_did,
+        TestStorage, User,
     },
     ExtBuilder,
 };
@@ -15,7 +15,6 @@ use pallet_identity as identity;
 use polymesh_common_utilities::{
     compliance_manager::Config as _,
     constants::{ERC1400_TRANSFER_FAILURE, ERC1400_TRANSFER_SUCCESS},
-    Context,
 };
 use polymesh_primitives::{
     agent::AgentGroup,
@@ -400,22 +399,22 @@ fn pause_resume_asset_compliance_we() {
     // 5.1. Transfer should be cancelled.
     assert_invalid_transfer!(ticker, owner.did, receiver.did, 10);
 
-    Context::set_current_identity::<Identity>(Some(owner.did));
+    set_curr_did(Some(owner.did));
     // 5.2. Pause asset compliance, and run the transaction.
     assert_ok!(ComplianceManager::pause_asset_compliance(
         owner.origin(),
         ticker
     ));
-    Context::set_current_identity::<Identity>(None);
+    set_curr_did(None);
     assert_valid_transfer!(ticker, owner.did, receiver.did, 10);
 
-    Context::set_current_identity::<Identity>(Some(owner.did));
+    set_curr_did(Some(owner.did));
     // 5.3. Resume asset compliance, and new transfer should fail again.
     assert_ok!(ComplianceManager::resume_asset_compliance(
         owner.origin(),
         ticker
     ));
-    Context::set_current_identity::<Identity>(None);
+    set_curr_did(None);
     assert_invalid_transfer!(ticker, owner.did, receiver.did, 10);
 }
 

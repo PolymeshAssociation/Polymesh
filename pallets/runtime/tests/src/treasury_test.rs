@@ -1,20 +1,16 @@
 use super::{
-    storage::{root, TestStorage, User},
+    storage::{root, set_curr_did, TestStorage, User},
     ExtBuilder,
 };
 
 use frame_support::{assert_noop, assert_ok};
-use pallet_balances as balances;
-use pallet_identity as identity;
-use pallet_treasury::{self as treasury};
-use polymesh_common_utilities::Context;
 use polymesh_primitives::Beneficiary;
 use sp_runtime::DispatchError;
 use test_client::AccountKeyring;
 
-pub type Balances = balances::Module<TestStorage>;
-pub type Treasury = treasury::Module<TestStorage>;
-type Identity = identity::Module<TestStorage>;
+pub type Balances = pallet_balances::Module<TestStorage>;
+pub type Treasury = pallet_treasury::Module<TestStorage>;
+type Identity = pallet_identity::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::Origin;
 
 #[test]
@@ -50,7 +46,7 @@ fn reimbursement_and_disbursement_we() {
     let before_alice_balance = Balances::free_balance(&alice.acc());
     let before_bob_balance = Balances::free_balance(&bob.acc());
     assert_ok!(Treasury::disbursement(root(), beneficiaries));
-    Context::set_current_identity::<Identity>(None);
+    set_curr_did(None);
     assert_eq!(Treasury::balance(), 400);
     assert_eq!(
         Balances::free_balance(&alice.acc()),
