@@ -4347,7 +4347,7 @@ dependencies = [
 name = "pallet-asset"
 version = "0.1.0"
 dependencies = [
- "arrayvec 0.5.2",
+ "arrayvec 0.7.1",
  "frame-benchmarking 3.1.0",
  "frame-support",
  "frame-system",

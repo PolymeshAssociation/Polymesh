@@ -27,14 +27,14 @@ use crate::{
 use codec::{Decode, Encode};
 use frame_support::{
     decl_event,
-    dispatch::{DispatchResult, PostDispatchInfo},
+    dispatch::PostDispatchInfo,
     traits::{Currency, EnsureOrigin, Get, GetCallMetadata},
     weights::{GetDispatchInfo, Weight},
     Parameter,
 };
 use polymesh_primitives::{
-    agent::AgentGroup, secondary_key::api::SecondaryKey, AuthorizationData, DispatchableName,
-    IdentityClaim, IdentityId, InvestorUid, PalletName, Permissions, Signatory, Ticker,
+    secondary_key::api::SecondaryKey, AuthorizationData, DispatchableName, IdentityClaim,
+    IdentityId, InvestorUid, PalletName, Permissions, Signatory, Ticker,
 };
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
@@ -98,17 +98,6 @@ pub trait WeightInfo {
     fn revoke_claim_by_index() -> Weight;
 }
 
-/// The link between the identity and external agents pallet for becoming agent authorization.
-pub trait IdentityToExternalAgents {
-    /// Accept from `from`, for `did`, the role as an agent of `ticker` with `group`.
-    fn accept_become_agent(
-        did: IdentityId,
-        from: IdentityId,
-        ticker: Ticker,
-        group: AgentGroup,
-    ) -> DispatchResult;
-}
-
 /// The module's configuration trait.
 pub trait Config: CommonConfig + pallet_timestamp::Config + crate::traits::base::Config {
     /// The overarching event type.
@@ -141,9 +130,6 @@ pub trait Config: CommonConfig + pallet_timestamp::Config + crate::traits::base:
 
     /// Weight information for extrinsics in the identity pallet.
     type WeightInfo: WeightInfo;
-
-    /// Negotiates between External Agents and the Identity pallet.
-    type ExternalAgents: IdentityToExternalAgents;
 
     /// Identity functions
     type IdentityFn: IdentityFnTrait<Self::AccountId>;

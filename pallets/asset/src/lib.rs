@@ -110,10 +110,10 @@ use polymesh_primitives::{
     asset::{AssetName, AssetType, FundingRoundName, GranularCanTransferResult},
     calendar::CheckpointId,
     ethereum::{self, EcdsaSignature, EthereumAddress},
+    extract_auth,
     statistics::TransferManagerResult,
-    storage_migrate_on, storage_migration_ver, AssetIdentifier, AuthorizationData, Document,
-    DocumentId, IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, SmartExtension,
-    SmartExtensionType, Ticker,
+    storage_migrate_on, storage_migration_ver, AssetIdentifier, Document, DocumentId, IdentityId,
+    MetaVersion as ExtVersion, PortfolioId, ScopeId, SmartExtension, SmartExtensionType, Ticker,
 };
 use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 #[cfg(feature = "std")]
@@ -423,12 +423,11 @@ decl_module! {
         /// * `auth_id` Authorization ID of ticker transfer authorization.
         ///
         /// ## Errors
-        /// - `NoTickerTransferAuth` if `auth_id` is not a valid ticket transfer authorization.
+        /// - `AuthorizationError::BadType` if `auth_id` is not a valid ticket transfer authorization.
         ///
         #[weight = <T as Config>::WeightInfo::accept_ticker_transfer()]
         pub fn accept_ticker_transfer(origin, auth_id: u64) -> DispatchResult {
-            let to_did = Identity::<T>::ensure_perms(origin)?;
-            Self::base_accept_ticker_transfer(to_did, auth_id)
+            Self::base_accept_ticker_transfer(origin, auth_id)
         }
 
         /// This function is used to accept a token ownership transfer.
@@ -439,8 +438,7 @@ decl_module! {
         /// * `auth_id` Authorization ID of the token ownership transfer authorization.
         #[weight = <T as Config>::WeightInfo::accept_asset_ownership_transfer()]
         pub fn accept_asset_ownership_transfer(origin, auth_id: u64) -> DispatchResult {
-            let to_did = Identity::<T>::ensure_perms(origin)?;
-            Self::base_accept_token_ownership_transfer(to_did, auth_id)
+            Self::base_accept_token_ownership_transfer(origin, auth_id)
         }
 
         /// Initializes a new security token, with the initiating account as its owner.
@@ -791,12 +789,6 @@ decl_module! {
 
 decl_error! {
     pub enum Error for Module<T: Config> {
-        /// Not a ticker transfer auth.
-        NoTickerTransferAuth,
-        /// Not a primary issuance agent transfer auth.
-        NoPrimaryIssuanceAgentTransferAuth,
-        /// Not a token ownership transfer auth.
-        NotTickerOwnershipTransferAuth,
         /// The user is not authorized.
         Unauthorized,
         /// When extension already archived.
@@ -938,34 +930,6 @@ impl<T: Config> AssetFnTrait<T::Balance, T::AccountId, T::Origin> for Module<T> 
 }
 
 impl<T: Config> AssetSubTrait<T::Balance> for Module<T> {
-    fn accept_ticker_transfer(to: IdentityId, from: IdentityId, ticker: Ticker) -> DispatchResult {
-        Self::ensure_asset_fresh(&ticker)?;
-
-        let owner = Self::ticker_registration(&ticker).owner;
-        <Identity<T>>::ensure_auth_by(from, owner)?;
-
-        Self::transfer_ticker(ticker, to, owner);
-        ClassicTickers::remove(&ticker); // Not a classic ticker anymore if it was.
-        Ok(())
-    }
-
-    fn accept_asset_ownership_transfer(
-        to: IdentityId,
-        from: IdentityId,
-        ticker: Ticker,
-    ) -> DispatchResult {
-        Self::ensure_asset_exists(&ticker)?;
-        <ExternalAgents<T>>::ensure_agent_permissioned(ticker, from)?;
-
-        let owner = Self::ticker_registration(&ticker).owner;
-        AssetOwnershipRelations::remove(owner, ticker);
-        AssetOwnershipRelations::insert(to, ticker, AssetOwnershipRelation::AssetOwned);
-        <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to);
-        <Tokens<T>>::mutate(&ticker, |tr| tr.owner_did = to);
-        Self::deposit_event(RawEvent::AssetOwnershipTransferred(to, ticker, owner));
-        Ok(())
-    }
-
     fn update_balance_of_scope_id(scope_id: ScopeId, target_did: IdentityId, ticker: Ticker) {
         // If `target_did` already has another ScopeId, clean up the old ScopeId data.
         if ScopeIdOf::contains_key(&ticker, &target_did) {
@@ -1454,13 +1418,19 @@ impl<T: Config> Module<T> {
     }
 
     /// Accepts and executes the ticker transfer.
-    pub fn base_accept_ticker_transfer(to_did: IdentityId, auth_id: u64) -> DispatchResult {
-        <Identity<T>>::accept_auth_with(&to_did.into(), auth_id, |data, auth_by| {
-            let ticker = match data {
-                AuthorizationData::TransferTicker(t) => t,
-                _ => fail!(Error::<T>::NoTickerTransferAuth),
-            };
-            <Self as AssetSubTrait<_>>::accept_ticker_transfer(to_did, auth_by, ticker)
+    fn base_accept_ticker_transfer(origin: T::Origin, auth_id: u64) -> DispatchResult {
+        let to = Identity::<T>::ensure_perms(origin)?;
+        <Identity<T>>::accept_auth_with(&to.into(), auth_id, |data, auth_by| {
+            let ticker = extract_auth!(data, TransferTicker(t));
+
+            Self::ensure_asset_fresh(&ticker)?;
+
+            let owner = Self::ticker_registration(&ticker).owner;
+            <Identity<T>>::ensure_auth_by(auth_by, owner)?;
+
+            Self::transfer_ticker(ticker, to, owner);
+            ClassicTickers::remove(&ticker); // Not a classic ticker anymore if it was.
+            Ok(())
         })
     }
 
@@ -1473,13 +1443,21 @@ impl<T: Config> Module<T> {
     }
 
     /// Accept and process a token ownership transfer.
-    pub fn base_accept_token_ownership_transfer(to: IdentityId, id: u64) -> DispatchResult {
+    fn base_accept_token_ownership_transfer(origin: T::Origin, id: u64) -> DispatchResult {
+        let to = Identity::<T>::ensure_perms(origin)?;
         <Identity<T>>::accept_auth_with(&to.into(), id, |data, auth_by| {
-            let ticker = match data {
-                AuthorizationData::TransferAssetOwnership(t) => t,
-                _ => fail!(Error::<T>::NotTickerOwnershipTransferAuth),
-            };
-            <Self as AssetSubTrait<_>>::accept_asset_ownership_transfer(to, auth_by, ticker)
+            let ticker = extract_auth!(data, TransferAssetOwnership(t));
+
+            Self::ensure_asset_exists(&ticker)?;
+            <ExternalAgents<T>>::ensure_agent_permissioned(ticker, auth_by)?;
+
+            let owner = Self::ticker_registration(&ticker).owner;
+            AssetOwnershipRelations::remove(owner, ticker);
+            AssetOwnershipRelations::insert(to, ticker, AssetOwnershipRelation::AssetOwned);
+            <Tickers<T>>::mutate(&ticker, |tr| tr.owner = to);
+            <Tokens<T>>::mutate(&ticker, |tr| tr.owner_did = to);
+            Self::deposit_event(RawEvent::AssetOwnershipTransferred(to, ticker, owner));
+            Ok(())
         })
     }
 
@@ -1716,7 +1694,7 @@ impl<T: Config> Module<T> {
 
         // Charge protocol fees.
         T::ProtocolFee::charge_fees(&{
-            let mut fees = ArrayVec::<[_; 2]>::new();
+            let mut fees = ArrayVec::<_, 2>::new();
             if available {
                 fees.push(ProtocolOp::AssetRegisterTicker);
             }

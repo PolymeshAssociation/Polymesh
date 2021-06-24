@@ -41,7 +41,6 @@ use polymesh_common_utilities::{
         asset::AssetSubTrait,
         balances::{AccountData, CheckCdd},
         group::{GroupTrait, InactiveMember},
-        identity::IdentityToExternalAgents,
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
@@ -49,9 +48,8 @@ use polymesh_common_utilities::{
     },
 };
 use polymesh_primitives::{
-    agent::AgentGroup, identity_id::GenesisIdentityRecord, Authorization, AuthorizationData, CddId,
-    Claim, IdentityId, InvestorUid, Moment, Permissions, PortfolioId, ScopeId, SecondaryKey,
-    Signatory, Ticker,
+    identity_id::GenesisIdentityRecord, Authorization, AuthorizationData, CddId, Claim, IdentityId,
+    InvestorUid, Moment, Permissions, PortfolioId, ScopeId, SecondaryKey, Signatory, Ticker,
 };
 use sp_core::H256;
 use sp_npos_elections::{
@@ -342,7 +340,6 @@ impl polymesh_common_utilities::traits::identity::Config for Test {
     type ProtocolFee = protocol_fee::Module<Test>;
     type GCVotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
-    type ExternalAgents = Test;
     type IdentityFn = identity::Module<Test>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
@@ -442,12 +439,6 @@ impl GroupTrait<Moment> for Test {
 }
 
 impl AssetSubTrait<Balance> for Test {
-    fn accept_ticker_transfer(_: IdentityId, _: IdentityId, _: Ticker) -> DispatchResult {
-        Ok(())
-    }
-    fn accept_asset_ownership_transfer(_: IdentityId, _: IdentityId, _: Ticker) -> DispatchResult {
-        Ok(())
-    }
     fn update_balance_of_scope_id(_: ScopeId, _: IdentityId, _: Ticker) {}
     fn balance_of_at_scope(_: &ScopeId, _: &IdentityId) -> Balance {
         0
@@ -457,25 +448,7 @@ impl AssetSubTrait<Balance> for Test {
     }
 }
 
-impl IdentityToExternalAgents for Test {
-    fn accept_become_agent(
-        _: IdentityId,
-        _: IdentityId,
-        _: Ticker,
-        _: AgentGroup,
-    ) -> DispatchResult {
-        Ok(())
-    }
-}
-
 impl MultiSigSubTrait<AccountId> for Test {
-    fn accept_multisig_signer(
-        _: Signatory<AccountId>,
-        _: IdentityId,
-        _: AccountId,
-    ) -> DispatchResult {
-        unimplemented!()
-    }
     fn get_key_signers(_multisig: &AccountId) -> Vec<AccountId> {
         unimplemented!()
     }
@@ -489,9 +462,6 @@ impl MultiSigSubTrait<AccountId> for Test {
 }
 
 impl PortfolioSubTrait<Balance, AccountId> for Test {
-    fn accept_portfolio_custody(_: IdentityId, _: IdentityId, _: PortfolioId) -> DispatchResult {
-        unimplemented!()
-    }
     fn ensure_portfolio_custody(_: PortfolioId, _: IdentityId) -> DispatchResult {
         unimplemented!()
     }
