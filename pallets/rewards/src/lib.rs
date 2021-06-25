@@ -27,8 +27,10 @@
 //!
 //! - `TODO`: TODO.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+#![recursion_limit = "256"]
+
 use codec::{Decode, Encode};
-use frame_support::sp_runtime::MultiAddress;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
@@ -38,12 +40,11 @@ use frame_support::{
 };
 use pallet_balances as balances;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
-use pallet_staking as staking;
-use pallet_staking::RewardDestination;
+use pallet_staking::{self as staking, RewardDestination};
 use polymesh_common_utilities::constants::currency::POLY;
 use polymesh_common_utilities::traits::{identity::Config as IdentityConfig, CommonConfig};
 use polymesh_common_utilities::with_transaction;
-use sp_runtime::traits::{StaticLookup, Verify};
+use sp_runtime::traits::Verify;
 
 type Balances<T> = balances::Module<T>;
 type Identity<T> = identity::Module<T>;
@@ -118,13 +119,14 @@ decl_module! {
                 match reward {
                     // Unclaimed. Attempt to claim.
                     Some(ItnRewardStatus::UnClaimed(amount)) => {
+                        let amount = *amount;
                         ensure!(
-                            signiture.verify((sender.clone(), itn_address.clone(), *amount).encode().as_slice(), &itn_address),
+                            signiture.verify((sender.clone(), itn_address.clone(), amount).encode().as_slice(), &itn_address),
                             Error::<T>::InvalidSignature
                         );
                         with_transaction(|| {
                             // Deposit `amount` + 1 because `amount` will be bounded, we want the user to have some unbonded balance.
-                            let _ = <Balances<T>>::deposit_into_existing(&sender, *amount + (1 * POLY).into())?;
+                            let _ = <Balances<T>>::deposit_into_existing(&sender, amount + (1 * POLY).into())?;
                             //TODO(Connor): Finalize bonding details.
                             <Staking<T>>::bond(origin, sender, *amount.into(), RewardDestination::Stash)?;
                             *reward = Some(ItnRewardStatus::Claimed);
