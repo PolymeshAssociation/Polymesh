@@ -4915,6 +4915,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-rewards"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking 3.1.0",
+ "frame-support",
+ "frame-system",
+ "pallet-balances 0.1.0",
+ "pallet-base",
+ "pallet-identity",
+ "pallet-scheduler",
+ "pallet-staking",
+ "parity-scale-codec 2.1.3",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "serde",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-scheduler"
 version = "3.0.0"
 source = "git+https://github.com/PolymathNetwork/substrate?branch=polymath-3.0.0#a4e65535d65dd0eabb361b0ad2dffa1f5409fb6a"
@@ -6045,6 +6066,7 @@ dependencies = [
  "pallet-protocol-fee",
  "pallet-protocol-fee-rpc-runtime-api",
  "pallet-randomness-collective-flip",
+ "pallet-rewards",
  "pallet-scheduler",
  "pallet-session",
  "pallet-settlement",
