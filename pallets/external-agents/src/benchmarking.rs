@@ -16,10 +16,9 @@
 use crate::*;
 use frame_benchmarking::benchmarks;
 use polymesh_common_utilities::benchs::{make_asset, user, AccountIdOf, User};
-use polymesh_common_utilities::identity::IdentityToExternalAgents as _;
 use polymesh_common_utilities::traits::asset::Config as Asset;
 use polymesh_common_utilities::TestUtilsFn;
-use polymesh_primitives::{ExtrinsicPermissions, PalletPermissions, Ticker};
+use polymesh_primitives::{AuthorizationData, ExtrinsicPermissions, PalletPermissions, Ticker};
 use sp_std::prelude::*;
 
 pub(crate) const SEED: u32 = 0;
@@ -37,10 +36,24 @@ fn perms(n: u32) -> ExtrinsicPermissions {
     )
 }
 
+fn add_auth<T: Asset + TestUtilsFn<AccountIdOf<T>>>(
+    owner: &User<T>,
+    ticker: Ticker,
+) -> (User<T>, u64) {
+    let other = user("other", SEED);
+    let auth_id = pallet_identity::Module::<T>::add_auth(
+        owner.did(),
+        other.did().into(),
+        AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),
+        None,
+    );
+    (other, auth_id)
+}
+
 fn setup_removal<T: Asset + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, User<T>, Ticker) {
     let (owner, ticker) = setup::<T>();
-    let other = user::<T>("other", SEED);
-    Module::<T>::accept_become_agent(other.did(), owner.did(), ticker, AgentGroup::Full).unwrap();
+    let (other, auth_id) = add_auth::<T>(&owner, ticker);
+    Module::<T>::accept_become_agent(other.origin().into(), auth_id).unwrap();
     (owner, other, ticker)
 }
 
@@ -103,5 +116,13 @@ benchmarks! {
     }: change_group(owner.origin(), ticker, other.did(), AgentGroup::ExceptMeta)
     verify {
         assert_eq!(Some(AgentGroup::ExceptMeta), GroupOfAgent::get(ticker, other.did()));
+    }
+
+    accept_become_agent {
+        let (owner, ticker) = setup::<T>();
+        let (other, auth_id) = add_auth::<T>(&owner, ticker);
+    }: _(other.origin(), auth_id)
+    verify {
+        assert!(GroupOfAgent::get(ticker, other.did()).is_some());
     }
 }

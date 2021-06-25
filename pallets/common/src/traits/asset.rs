@@ -31,26 +31,6 @@ use sp_std::prelude::Vec;
 
 /// This trait is used by the `identity` pallet to interact with the `pallet-asset`.
 pub trait AssetSubTrait<Balance> {
-    /// Accept and process a ticker transfer
-    ///
-    /// # Arguments
-    /// * `to` did of the receiver.
-    /// * `from` sender of the authorization.
-    /// * `ticker` that is being transferred.
-    fn accept_ticker_transfer(to: IdentityId, from: IdentityId, ticker: Ticker) -> DispatchResult;
-
-    /// Accept and process a token ownership transfer
-    ///
-    /// # Arguments
-    /// * `to` did of the receiver.
-    /// * `from` sender of the authorization.
-    /// * `ticker` that is being transferred.
-    fn accept_asset_ownership_transfer(
-        to: IdentityId,
-        from: IdentityId,
-        ticker: Ticker,
-    ) -> DispatchResult;
-
     /// Update the `ticker` balance of `target_did` under `scope_id`. Clean up the balances related
     /// to any previous valid `old_scope_ids`.
     ///

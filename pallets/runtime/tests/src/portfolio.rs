@@ -37,7 +37,7 @@ fn set_custodian_ok(current_custodian: User, new_custodian: User, portfolio_id: 
         AuthorizationData::PortfolioCustody(portfolio_id),
         None,
     );
-    assert_ok!(Identity::accept_authorization(
+    assert_ok!(Portfolio::accept_portfolio_custody(
         new_custodian.origin(),
         auth_id
     ));
@@ -459,19 +459,19 @@ fn can_take_custody_of_portfolios() {
 
         let auth_id = add_auth(bob, bob);
         assert_noop!(
-            Identity::accept_authorization(bob.origin(), auth_id),
+            Portfolio::accept_portfolio_custody(bob.origin(), auth_id),
             AuthorizationError::Unauthorized
         );
 
         // Can not accept an invalid auth
         assert_noop!(
-            Identity::accept_authorization(bob.origin(), auth_id + 1),
+            Portfolio::accept_portfolio_custody(bob.origin(), auth_id + 1),
             AuthorizationError::Invalid
         );
 
         // Can accept a valid custody transfer auth
         let auth_id = add_auth(owner, bob);
-        assert_ok!(Identity::accept_authorization(bob.origin(), auth_id));
+        assert_ok!(Portfolio::accept_portfolio_custody(bob.origin(), auth_id));
 
         assert_ok!(Portfolio::ensure_portfolio_custody(
             owner_default_portfolio,
@@ -498,7 +498,7 @@ fn can_take_custody_of_portfolios() {
         // Owner can not issue authorization for custody transfer of a portfolio they don't have custody of
         let auth_id = add_auth(owner, owner);
         assert_noop!(
-            Identity::accept_authorization(owner.origin(), auth_id),
+            Portfolio::accept_portfolio_custody(owner.origin(), auth_id),
             AuthorizationError::Unauthorized
         );
 
