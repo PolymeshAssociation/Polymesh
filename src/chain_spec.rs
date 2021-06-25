@@ -194,6 +194,8 @@ fn adjust_last<'a>(bytes: &'a mut [u8], n: u8) -> &'a str {
 
 const BOOTSTRAP_STASH: u128 = 10_000 * POLY;
 const BOOTSTRAP_TREASURY: u128 = 30_000_000 * POLY;
+// Needed for integration tests
+const BOOTSTRAP_BIG: u128 = 30_000_000 * POLY;
 
 #[derive(Clone)]
 struct BridgeLockId {
@@ -294,7 +296,7 @@ fn genesis_processed_data(
         .map(|(BridgeLockId { nonce, tx_hash }, recipient)| BridgeTx {
             nonce,
             recipient,
-            amount: BOOTSTRAP_TREASURY,
+            amount: BOOTSTRAP_BIG,
             tx_hash,
         })
         .collect();
