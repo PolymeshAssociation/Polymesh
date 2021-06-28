@@ -18,6 +18,7 @@
 //! TODO: Add pallet description.
 //! TODO: Add tests.
 //! TODO: Add support for `AuthorizationData::AddRelayerPayingKey` to `CddAndFeeDetails` in `pallets/runtime/*/src/fee_details.rs`
+//! TODO: Fix rpc support for `Balance`
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -25,10 +26,10 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
-use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, fail};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 pub use polymesh_common_utilities::traits::relayer::{Config, Event, RawEvent, WeightInfo};
-use polymesh_primitives::{extract_auth, AuthorizationData, AuthorizationError, IdentityId, Signatory};
+use polymesh_primitives::{extract_auth, AuthorizationData, IdentityId, Signatory};
 
 type Identity<T> = identity::Module<T>;
 
@@ -43,7 +44,7 @@ decl_storage! {
     trait Store for Module<T: Config> as Relayer {
         /// map `user_key` to `paying_key`
         pub Subsidies get(fn paying_keys):
-            map hasher(blake2_128_concat) T::AccountId => Subsidy<T::AccountId, T::Balance>;
+            map hasher(blake2_128_concat) T::AccountId => Option<Subsidy<T::AccountId, T::Balance>>;
     }
 }
 
@@ -149,17 +150,8 @@ impl<T: Config> Module<T> {
             );
         }
 
-        // Check if there is a paying key.
-        ensure!(
-            <Subsidies<T>>::contains_key(&user_key),
-            Error::<T>::NoPayingKey
-        );
-
-        // Get current Subsidy
-        let subsidy = <Subsidies<T>>::get(&user_key);
-
         // Check if the current paying key matches.
-        ensure!(subsidy.paying_key == paying_key, Error::<T>::NotPayingKey);
+        Self::ensure_is_paying_key(&user_key, &paying_key)?;
 
         // Remove paying key for user key.
         <Subsidies<T>>::remove(&user_key);
@@ -176,21 +168,14 @@ impl<T: Config> Module<T> {
             sender: paying_key, ..
         } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
 
-        // Check if there is a paying key.
-        ensure!(
-            <Subsidies<T>>::contains_key(&user_key),
-            Error::<T>::NoPayingKey
-        );
-
-        // Get current Subsidy
-        let subsidy = <Subsidies<T>>::get(&user_key);
-
         // Check if the current paying key matches.
-        ensure!(subsidy.paying_key == paying_key, Error::<T>::NotPayingKey);
+        Self::ensure_is_paying_key(&user_key, &paying_key)?;
 
         // Update polyx limit
         <Subsidies<T>>::mutate(&user_key, |subsidy| {
-            (*subsidy).remaining = polyx_limit;
+            if let Some(subsidy) = subsidy {
+                subsidy.remaining = polyx_limit;
+            }
         });
 
         Ok(())
@@ -230,30 +215,18 @@ impl<T: Config> Module<T> {
         }
     }
 
-    fn ensure_set_paying_key(
-        from: IdentityId,
+    fn ensure_is_paying_key(
         user_key: &T::AccountId,
         paying_key: &T::AccountId,
     ) -> DispatchResult {
-        ensure!(
-            <Identity<T>>::get_identity(paying_key) == Some(from),
-            Error::<T>::NotAuthorizedForPayingKey
-        );
-
-        ensure!(
-            Self::key_has_valid_cdd(user_key),
-            Error::<T>::UserKeyCddMissing
-        );
-        ensure!(
-            Self::key_has_valid_cdd(paying_key),
-            Error::<T>::PayingKeyCddMissing
-        );
-        ensure!(
-            !<Subsidies<T>>::contains_key(user_key),
-            Error::<T>::AlreadyHasPayingKey
-        );
-
-        Ok(())
+        // Check if the current paying key matches
+        match <Subsidies<T>>::get(user_key) {
+            // There was no subsidy.
+            None => fail!(Error::<T>::NoPayingKey),
+            // paying key doesn't match
+            Some(s) if s.paying_key != *paying_key => fail!(Error::<T>::NotPayingKey),
+            Some(_) => Ok(()),
+        }
     }
 
     fn auth_accept_paying_key(
@@ -274,14 +247,29 @@ impl<T: Config> Module<T> {
             Error::<T>::NotAuthorizedForUserKey
         );
 
-        // ensure that we can still set the paying key
-        Self::ensure_set_paying_key(from, &user_key, &paying_key)?;
+        // ensure that the authorization came from the DID of the paying_key.
+        ensure!(
+            <Identity<T>>::get_identity(&paying_key) == Some(from),
+            Error::<T>::NotAuthorizedForPayingKey
+        );
 
+        // ensure the user_key doesn't already have a paying_key.
         ensure!(
             !<Subsidies<T>>::contains_key(&user_key),
             Error::<T>::AlreadyHasPayingKey
         );
 
+        // ensure both user_key and paying_key have valid CDD.
+        ensure!(
+            Self::key_has_valid_cdd(&user_key),
+            Error::<T>::UserKeyCddMissing
+        );
+        ensure!(
+            Self::key_has_valid_cdd(&paying_key),
+            Error::<T>::PayingKeyCddMissing
+        );
+
+        // all checks passed.
         <Subsidies<T>>::insert(
             user_key,
             Subsidy {
