@@ -14,7 +14,8 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    agent::AgentGroup, Balance, identity_id::IdentityId, secondary_key::Permissions, PortfolioId, Ticker,
+    agent::AgentGroup, identity_id::IdentityId, secondary_key::Permissions, Balance, PortfolioId,
+    Ticker,
 };
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchError;

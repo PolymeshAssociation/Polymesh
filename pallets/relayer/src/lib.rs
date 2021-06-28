@@ -26,7 +26,9 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
-use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, fail};
+use frame_support::{
+    decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, fail,
+};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 pub use polymesh_common_utilities::traits::relayer::{Config, Event, RawEvent, WeightInfo};
 use polymesh_primitives::{extract_auth, AuthorizationData, IdentityId, Signatory};
@@ -124,9 +126,16 @@ impl<T: Config> Module<T> {
         let signer = Signatory::Account(user_key);
 
         <Identity<T>>::accept_auth_with(&signer, auth_id, |data, auth_by| -> DispatchResult {
-            let (user_key, paying_key, polyx_limit) = extract_auth!(data, AddRelayerPayingKey(user_key, paying_key, polyx_limit));
+            let (user_key, paying_key, polyx_limit) =
+                extract_auth!(data, AddRelayerPayingKey(user_key, paying_key, polyx_limit));
 
-            Self::auth_accept_paying_key(signer.clone(), auth_by, user_key, paying_key, polyx_limit.into())
+            Self::auth_accept_paying_key(
+                signer.clone(),
+                auth_by,
+                user_key,
+                paying_key,
+                polyx_limit.into(),
+            )
         })
     }
 
@@ -215,10 +224,7 @@ impl<T: Config> Module<T> {
         }
     }
 
-    fn ensure_is_paying_key(
-        user_key: &T::AccountId,
-        paying_key: &T::AccountId,
-    ) -> DispatchResult {
+    fn ensure_is_paying_key(user_key: &T::AccountId, paying_key: &T::AccountId) -> DispatchResult {
         // Check if the current paying key matches
         match <Subsidies<T>>::get(user_key) {
             // There was no subsidy.

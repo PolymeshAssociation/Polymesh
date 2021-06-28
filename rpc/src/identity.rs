@@ -20,16 +20,7 @@ const MAX_IDENTITIES_ALLOWED_TO_QUERY: u32 = 500;
 
 /// Identity RPC methods
 #[rpc]
-pub trait IdentityApi<
-    BlockHash,
-    IdentityId,
-    Ticker,
-    AccountId,
-    SecondaryKey,
-    Signatory,
-    Moment,
->
-{
+pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountId, SecondaryKey, Signatory, Moment> {
     /// Below function use to tell whether the given did has valid cdd claim or not
     #[rpc(name = "identity_isIdentityHasValidCdd")]
     fn is_identity_has_valid_cdd(
@@ -122,15 +113,8 @@ where
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
-    C::Api: IdentityRuntimeApi<
-        Block,
-        IdentityId,
-        Ticker,
-        AccountId,
-        SecondaryKey,
-        Signatory,
-        Moment,
-    >,
+    C::Api:
+        IdentityRuntimeApi<Block, IdentityId, Ticker, AccountId, SecondaryKey, Signatory, Moment>,
     IdentityId: Codec,
     Ticker: Codec,
     AccountId: Codec,
