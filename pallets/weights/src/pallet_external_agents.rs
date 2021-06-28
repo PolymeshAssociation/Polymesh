@@ -39,4 +39,9 @@ impl pallet_external_agents::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(8 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
+    fn accept_become_agent() -> Weight {
+        (109_562_000 as Weight)
+            .saturating_add(DbWeight::get().reads(10 as Weight))
+            .saturating_add(DbWeight::get().writes(5 as Weight))
+    }
 }

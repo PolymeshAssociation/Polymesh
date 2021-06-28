@@ -28,7 +28,7 @@ use codec::{Decode, Encode};
 use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 pub use polymesh_common_utilities::traits::relayer::{Config, Event, RawEvent, WeightInfo};
-use polymesh_primitives::{AuthorizationData, AuthorizationError, IdentityId, Signatory};
+use polymesh_primitives::{extract_auth, AuthorizationData, AuthorizationError, IdentityId, Signatory};
 
 type Identity<T> = identity::Module<T>;
 
@@ -123,12 +123,7 @@ impl<T: Config> Module<T> {
         let signer = Signatory::Account(user_key);
 
         <Identity<T>>::accept_auth_with(&signer, auth_id, |data, auth_by| -> DispatchResult {
-            let (user_key, paying_key, polyx_limit) = match data {
-                AuthorizationData::AddRelayerPayingKey(user_key, paying_key, polyx_limit) => {
-                    Ok((user_key, paying_key, polyx_limit))
-                }
-                _ => Err(AuthorizationError::BadAuthType),
-            }?;
+            let (user_key, paying_key, polyx_limit) = extract_auth!(data, AddRelayerPayingKey(user_key, paying_key, polyx_limit));
 
             Self::auth_accept_paying_key(signer.clone(), auth_by, user_key, paying_key, polyx_limit.into())
         })
