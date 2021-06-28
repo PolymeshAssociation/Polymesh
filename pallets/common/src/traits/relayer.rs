@@ -10,25 +10,6 @@ pub trait WeightInfo {
     fn update_polyx_limit() -> Weight;
 }
 
-/// This trait is used to add a paying key to a user key.
-pub trait IdentityToRelayer<Balance, AccountId> {
-    /// Accepts and adds a paying key to a user key
-    ///
-    /// # Arguments
-    /// * `signer` - DID/key of the signer.
-    /// * `from` - The DID that sent the authorization.
-    /// * `user_key` - The user key.
-    /// * `paying_key` - The paying key.
-    /// * `polyx_limit` - Initial Polyx limit.
-    fn auth_accept_paying_key(
-        signer: Signatory<AccountId>,
-        from: IdentityId,
-        user_key: AccountId,
-        paying_key: AccountId,
-        polyx_limit: Balance,
-    ) -> DispatchResult;
-}
-
 pub trait Config: CommonConfig + identity::Config {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -55,6 +36,5 @@ decl_event! {
         ///
         /// (Caller DID, User Key, Paying Key)
         RemovedPayingKey(EventDid, AccountId, AccountId),
-
     }
 }

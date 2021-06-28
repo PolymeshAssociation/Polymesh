@@ -44,7 +44,6 @@ use polymesh_common_utilities::{
         identity::IdentityToExternalAgents,
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
-        relayer::IdentityToRelayer,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
         CommonConfig,
     },
@@ -510,18 +509,6 @@ impl PortfolioSubTrait<Balance, AccountId> for Test {
         _: PortfolioId,
         _: IdentityId,
         _: Option<&SecondaryKey<AccountId>>,
-    ) -> DispatchResult {
-        unimplemented!()
-    }
-}
-
-impl IdentityToRelayer<Balance, AccountId> for Test {
-    fn auth_accept_paying_key(
-        _: Signatory<AccountId>,
-        _: IdentityId,
-        _: AccountId,
-        _: AccountId,
-        _: Balance,
     ) -> DispatchResult {
         unimplemented!()
     }

@@ -27,9 +27,7 @@ pub mod benchmarking;
 use codec::{Decode, Encode};
 use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
-pub use polymesh_common_utilities::traits::relayer::{
-    Config, Event, IdentityToRelayer, RawEvent, WeightInfo,
-};
+pub use polymesh_common_utilities::traits::relayer::{Config, Event, RawEvent, WeightInfo};
 use polymesh_primitives::{AuthorizationData, AuthorizationError, IdentityId, Signatory};
 
 type Identity<T> = identity::Module<T>;
@@ -262,9 +260,7 @@ impl<T: Config> Module<T> {
 
         Ok(())
     }
-}
 
-impl<T: Config> IdentityToRelayer<T::Balance, T::AccountId> for Module<T> {
     fn auth_accept_paying_key(
         signer: Signatory<T::AccountId>,
         from: IdentityId,

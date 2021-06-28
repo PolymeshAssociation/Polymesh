@@ -123,7 +123,6 @@ use polymesh_common_utilities::{
         },
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
-        relayer::IdentityToRelayer,
         transaction_payment::CddAndFeeDetails,
         AccountCallPermissionsData, CheckAccountCallPermissions,
     },
@@ -588,7 +587,6 @@ decl_module! {
 
             match (signer.clone(), auth.authorization_data) {
                 (sig, AuthorizationData::AddMultiSigSigner(ms)) => T::MultiSig::accept_multisig_signer(sig, from, ms),
-                (sig, AuthorizationData::AddRelayerPayingKey(user_key, paying_key, polyx_limit)) => T::Relayer::auth_accept_paying_key(sig, from, user_key, paying_key, polyx_limit),
                 (sig, AuthorizationData::JoinIdentity(_)) => Self::join_identity(sig, auth_id),
                 (Signatory::Identity(did), AuthorizationData::TransferTicker(ticker)) =>
                     T::AssetSubTraitTarget::accept_ticker_transfer(did, from, ticker),
