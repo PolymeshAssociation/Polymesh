@@ -143,6 +143,10 @@
       "secondary_key": "SecondaryKey",
       "auth_signature": "Signature"
     },
+    "Subsidy": {
+      "paying_key": "AccountId",
+      "remaining": "Balance"
+    },
     "IdentityRole": {
       "_enum": [
         "Issuer",
