@@ -333,7 +333,6 @@ impl polymesh_common_utilities::traits::identity::Config for Test {
     type Proposal = Call;
     type MultiSig = Test;
     type Portfolio = Test;
-    type Relayer = Test;
     type CddServiceProviders = group::Module<Test, group::Instance2>;
     type Balances = Balances;
     type ChargeTxFeeTarget = Test;
@@ -1707,7 +1706,7 @@ pub fn create_did_and_add_claim_with_expiry(stash: AccountId, expiry: u64) {
 // `iter_prefix_values` has no guarantee that it will iterate in a sequential
 // order. However, we need the latest `auth_id`. Which is why we search for the claim
 // with the highest `auth_id`.
-pub fn get_last_auth(signatory: &Signatory<AccountId>) -> Authorization<AccountId, Balance, u64> {
+pub fn get_last_auth(signatory: &Signatory<AccountId>) -> Authorization<AccountId, u64> {
     <identity::Authorizations<Test>>::iter_prefix_values(signatory)
         .into_iter()
         .max_by_key(|x| x.auth_id)

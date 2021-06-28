@@ -49,6 +49,7 @@ pub trait CommonConfig: frame_system::Config + permissions::Config {
         + Debug
         + Unsigned
         + From<u128>
+        + Into<u128>
         + From<Self::BlockNumber>;
 
     type AssetSubTraitTarget: asset::AssetSubTrait<Self::Balance>;

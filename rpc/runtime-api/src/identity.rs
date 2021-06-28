@@ -4,11 +4,10 @@ use polymesh_primitives::{Authorization, AuthorizationType};
 use sp_std::prelude::*;
 
 sp_api::decl_runtime_apis! {
-    pub trait IdentityApi<IdentityId, Ticker, AccountId, Balance, SecondaryKey, Signatory, Moment> where
+    pub trait IdentityApi<IdentityId, Ticker, AccountId, SecondaryKey, Signatory, Moment> where
         IdentityId: Codec,
         Ticker: Codec,
         AccountId: Codec,
-        Balance: Codec,
         SecondaryKey: Codec,
         Signatory: Codec,
         Moment: Codec
@@ -27,7 +26,7 @@ sp_api::decl_runtime_apis! {
             signatory: Signatory,
             allow_expired: bool,
             auth_type: Option<AuthorizationType>
-        ) -> Vec<Authorization<AccountId, Balance, Moment>>;
+        ) -> Vec<Authorization<AccountId, Moment>>;
 
         /// Retrieve the status of the DID
         fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus>;

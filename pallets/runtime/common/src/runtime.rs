@@ -768,7 +768,6 @@ macro_rules! runtime_apis {
                     IdentityId,
                     Ticker,
                     polymesh_primitives::AccountId,
-                    polymesh_primitives::Balance,
                     SecondaryKey<polymesh_primitives::AccountId>,
                     Signatory<polymesh_primitives::AccountId>,
                     Moment
@@ -805,7 +804,7 @@ macro_rules! runtime_apis {
                     signatory: Signatory<polymesh_primitives::AccountId>,
                     allow_expired: bool,
                     auth_type: Option<polymesh_primitives::AuthorizationType>
-                ) -> Vec<polymesh_primitives::Authorization<polymesh_primitives::AccountId, polymesh_primitives::Balance, Moment>> {
+                ) -> Vec<polymesh_primitives::Authorization<polymesh_primitives::AccountId, Moment>> {
                     Identity::get_filtered_authorizations(signatory, allow_expired, auth_type)
                 }
             }

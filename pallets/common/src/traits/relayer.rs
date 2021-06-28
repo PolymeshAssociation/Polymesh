@@ -1,7 +1,6 @@
 use crate::{traits::identity, CommonConfig};
-use frame_support::dispatch::DispatchResult;
 use frame_support::{decl_event, weights::Weight};
-use polymesh_primitives::{EventDid, IdentityId, Signatory};
+use polymesh_primitives::EventDid;
 
 pub trait WeightInfo {
     fn set_paying_key() -> Weight;

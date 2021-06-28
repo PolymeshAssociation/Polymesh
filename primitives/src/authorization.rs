@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    agent::AgentGroup, identity_id::IdentityId, secondary_key::Permissions, PortfolioId, Ticker,
+    agent::AgentGroup, Balance, identity_id::IdentityId, secondary_key::Permissions, PortfolioId, Ticker,
 };
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchError;
@@ -25,7 +25,7 @@ use sp_std::prelude::*;
 /// Authorization data for two step processes.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum AuthorizationData<AccountId, Balance> {
+pub enum AuthorizationData<AccountId> {
     // TODO: Remove Custom type and move NoData at the start
     /// CDD provider's attestation to change primary key
     AttestPrimaryKeyRotation(IdentityId),
@@ -61,7 +61,7 @@ pub enum AuthorizationData<AccountId, Balance> {
     AddRelayerPayingKey(AccountId, AccountId, Balance),
 }
 
-impl<Balance, AccountId> AuthorizationData<Balance, AccountId> {
+impl<AccountId> AuthorizationData<AccountId> {
     /// Returns the `AuthorizationType` of this auth data.
     pub fn auth_type(&self) -> AuthorizationType {
         match self {
@@ -119,7 +119,7 @@ pub enum AuthorizationType {
     AddRelayerPayingKey,
 }
 
-impl<AccountId, Balance> Default for AuthorizationData<AccountId, Balance> {
+impl<AccountId> Default for AuthorizationData<AccountId> {
     fn default() -> Self {
         AuthorizationData::NoData
     }
@@ -157,9 +157,9 @@ impl From<AuthorizationError> for DispatchError {
 /// Authorization struct
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct Authorization<AccountId, Balance, Moment> {
+pub struct Authorization<AccountId, Moment> {
     /// Enum that contains authorization type and data
-    pub authorization_data: AuthorizationData<AccountId, Balance>,
+    pub authorization_data: AuthorizationData<AccountId>,
 
     /// Identity of the organization/individual that added this authorization
     pub authorized_by: IdentityId,

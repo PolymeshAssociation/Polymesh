@@ -160,7 +160,6 @@ decl_event!(
     where
         AccountId = <T as frame_system::Config>::AccountId,
         Moment = <T as pallet_timestamp::Config>::Moment,
-        Balance = <T as CommonConfig>::Balance,
     {
         /// DID, primary key account ID, secondary keys
         DidCreated(IdentityId, AccountId, Vec<SecondaryKey<AccountId>>),
@@ -201,7 +200,7 @@ decl_event!(
             Option<IdentityId>,
             Option<AccountId>,
             u64,
-            AuthorizationData<AccountId, Balance>,
+            AuthorizationData<AccountId>,
             Option<Moment>,
         ),
 

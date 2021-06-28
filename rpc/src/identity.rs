@@ -25,7 +25,6 @@ pub trait IdentityApi<
     IdentityId,
     Ticker,
     AccountId,
-    Balance,
     SecondaryKey,
     Signatory,
     Moment,
@@ -60,7 +59,7 @@ pub trait IdentityApi<
         allow_expired: bool,
         auth_type: Option<AuthorizationType>,
         at: Option<BlockHash>,
-    ) -> Result<Vec<Authorization<AccountId, Balance, Moment>>>;
+    ) -> Result<Vec<Authorization<AccountId, Moment>>>;
 
     /// Provide the status of a given DID
     #[rpc(name = "identity_getDidStatus")]
@@ -108,13 +107,12 @@ pub enum Error {
     RuntimeError,
 }
 
-impl<C, Block, IdentityId, Ticker, AccountId, Balance, SecondaryKey, Signatory, Moment>
+impl<C, Block, IdentityId, Ticker, AccountId, SecondaryKey, Signatory, Moment>
     IdentityApi<
         <Block as BlockT>::Hash,
         IdentityId,
         Ticker,
         AccountId,
-        Balance,
         SecondaryKey,
         Signatory,
         Moment,
@@ -129,7 +127,6 @@ where
         IdentityId,
         Ticker,
         AccountId,
-        Balance,
         SecondaryKey,
         Signatory,
         Moment,
@@ -137,7 +134,6 @@ where
     IdentityId: Codec,
     Ticker: Codec,
     AccountId: Codec,
-    Balance: Codec,
     SecondaryKey: Codec,
     Signatory: Codec,
     Moment: Codec,
@@ -197,7 +193,7 @@ where
         allow_expired: bool,
         auth_type: Option<AuthorizationType>,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Vec<Authorization<AccountId, Balance, Moment>>> {
+    ) -> Result<Vec<Authorization<AccountId, Moment>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 

@@ -130,7 +130,7 @@ impl<T: Config> Module<T> {
                 _ => Err(AuthorizationError::BadAuthType),
             }?;
 
-            Self::auth_accept_paying_key(signer.clone(), auth_by, user_key, paying_key, polyx_limit)
+            Self::auth_accept_paying_key(signer.clone(), auth_by, user_key, paying_key, polyx_limit.into())
         })
     }
 
@@ -214,7 +214,7 @@ impl<T: Config> Module<T> {
             AuthorizationData::AddRelayerPayingKey(
                 user_key.clone(),
                 paying_key.clone(),
-                polyx_limit,
+                polyx_limit.into(),
             ),
             None,
         );

@@ -189,7 +189,7 @@ decl_storage! {
 
         /// All authorizations that an identity/key has
         pub Authorizations get(fn authorizations): double_map hasher(blake2_128_concat)
-            Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Authorization<T::AccountId, T::Balance, T::Moment>;
+            Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Authorization<T::AccountId, T::Moment>;
 
         /// All authorizations that an identity has given. (Authorizer, auth_id -> authorized)
         pub AuthorizationsGiven: double_map hasher(blake2_128_concat)
@@ -519,15 +519,12 @@ decl_module! {
         pub fn add_authorization(
             origin,
             target: Signatory<T::AccountId>,
-            authorization_data: AuthorizationData<T::AccountId, T::Balance>,
+            authorization_data: AuthorizationData<T::AccountId>,
             expiry: Option<T::Moment>
         ) {
             let from_did = Self::ensure_perms(origin)?;
-            match &authorization_data {
-                AuthorizationData::JoinIdentity(perms) => {
-                    Self::ensure_perms_length_limited(perms)?;
-                }
-                _ => ()
+            if let AuthorizationData::JoinIdentity(perms) = &authorization_data {
+                Self::ensure_perms_length_limited(perms)?;
             }
             Self::add_auth(from_did, target, authorization_data, expiry);
         }
@@ -983,7 +980,7 @@ impl<T: Config> Module<T> {
     pub fn add_auth(
         from: IdentityId,
         target: Signatory<T::AccountId>,
-        authorization_data: AuthorizationData<T::AccountId, T::Balance>,
+        authorization_data: AuthorizationData<T::AccountId>,
         expiry: Option<T::Moment>,
     ) -> u64 {
         let new_nonce = Self::multi_purpose_nonce() + 1u64;
@@ -1073,7 +1070,7 @@ impl<T: Config> Module<T> {
     pub fn accept_auth_with(
         signer: &Signatory<T::AccountId>,
         auth_id: u64,
-        accepter: impl FnOnce(AuthorizationData<T::AccountId, T::Balance>, IdentityId) -> DispatchResult,
+        accepter: impl FnOnce(AuthorizationData<T::AccountId>, IdentityId) -> DispatchResult,
     ) -> DispatchResult {
         let auth = Self::ensure_authorization(signer, auth_id)?;
         Self::ensure_auth_unexpired(auth.expiry)?;
@@ -1086,7 +1083,7 @@ impl<T: Config> Module<T> {
     fn ensure_authorization(
         target: &Signatory<T::AccountId>,
         auth_id: u64,
-    ) -> Result<Authorization<T::AccountId, T::Balance, T::Moment>, DispatchError> {
+    ) -> Result<Authorization<T::AccountId, T::Moment>, DispatchError> {
         Self::maybe_authorization(target, auth_id).ok_or_else(|| AuthorizationError::Invalid.into())
     }
 
@@ -1094,7 +1091,7 @@ impl<T: Config> Module<T> {
     fn maybe_authorization(
         target: &Signatory<T::AccountId>,
         auth_id: u64,
-    ) -> Option<Authorization<T::AccountId, T::Balance, T::Moment>> {
+    ) -> Option<Authorization<T::AccountId, T::Moment>> {
         <Authorizations<T>>::contains_key(target, auth_id)
             .then(|| <Authorizations<T>>::get(target, auth_id))
     }
@@ -1796,7 +1793,7 @@ impl<T: Config> Module<T> {
     pub fn get_non_expired_auth(
         target: &Signatory<T::AccountId>,
         auth_id: &u64,
-    ) -> Option<Authorization<T::AccountId, T::Balance, T::Moment>> {
+    ) -> Option<Authorization<T::AccountId, T::Moment>> {
         Self::maybe_authorization(target, *auth_id).filter(|auth| {
             auth.expiry
                 .filter(|&expiry| <pallet_timestamp::Module<T>>::get() > expiry)
@@ -1931,7 +1928,7 @@ impl<T: Config> Module<T> {
         signatory: Signatory<T::AccountId>,
         allow_expired: bool,
         auth_type: Option<AuthorizationType>,
-    ) -> Vec<Authorization<T::AccountId, T::Balance, T::Moment>> {
+    ) -> Vec<Authorization<T::AccountId, T::Moment>> {
         let now = <pallet_timestamp::Module<T>>::get();
         let auths = <Authorizations<T>>::iter_prefix_values(signatory)
             .filter(|auth| allow_expired || auth.expiry.filter(|&e| e < now).is_none());
@@ -1945,7 +1942,7 @@ impl<T: Config> Module<T> {
     }
 
     pub fn get_type(
-        authorization_data: AuthorizationData<T::AccountId, T::Balance>,
+        authorization_data: AuthorizationData<T::AccountId>,
         type_of_auth: AuthorizationType,
     ) -> bool {
         type_of_auth == authorization_data.auth_type()

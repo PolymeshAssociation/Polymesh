@@ -202,7 +202,6 @@ impl polymesh_common_utilities::traits::identity::Config for Runtime {
     type Event = Event;
     type Proposal = Call;
     type MultiSig = MultiSig;
-    type Relayer = Relayer;
     type Portfolio = Portfolio;
     type CddServiceProviders = CddServiceProviders;
     type Balances = pallet_balances::Module<Runtime>;
