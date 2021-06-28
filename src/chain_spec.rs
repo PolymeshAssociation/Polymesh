@@ -7,6 +7,7 @@ use pallet_staking::StakerStatus;
 use polymesh_common_utilities::{
     constants::{currency::POLY, TREASURY_MODULE_ID},
     protocol_fee::ProtocolOp,
+    SystematicIssuers,
 };
 use polymesh_primitives::{
     identity_id::GenesisIdentityRecord, AccountId, IdentityId, Moment, PosRatio, SecondaryKey,
@@ -184,6 +185,8 @@ fn adjust_last<'a>(bytes: &'a mut [u8], n: u8) -> &'a str {
 
 const BOOTSTRAP_STASH: u128 = 10_000 * POLY;
 const BOOTSTRAP_TREASURY: u128 = 30_000_000 * POLY;
+// Needed for integration tests
+const BOOTSTRAP_BIG: u128 = 30_000_000 * POLY;
 
 #[derive(Clone)]
 struct BridgeLockId {
@@ -271,6 +274,11 @@ fn genesis_processed_data(
         push_key(controller);
     }
 
+    // Give CDD issuer to operator since it won't receive CDD from the group automatically
+    identities[3]
+        .issuers
+        .push(SystematicIssuers::CDDProvider.as_id());
+
     // Accumulate bridge transactions
     let mut complete_txs: Vec<_> = key_bridge_locks
         .iter()
@@ -279,7 +287,7 @@ fn genesis_processed_data(
         .map(|(BridgeLockId { nonce, tx_hash }, recipient)| BridgeTx {
             nonce,
             recipient,
-            amount: BOOTSTRAP_STASH,
+            amount: BOOTSTRAP_BIG,
             tx_hash,
         })
         .collect();
@@ -684,7 +692,7 @@ pub mod testnet {
 
     fn develop_genesis() -> rt::runtime::GenesisConfig {
         genesis(
-            vec![get_authority_keys_from_seed("Alice", false)],
+            vec![get_authority_keys_from_seed("Bob", false)],
             seeded_acc_id("Alice"),
             true,
             BridgeLockId::new(1, BRIDGE_LOCK_HASH),
