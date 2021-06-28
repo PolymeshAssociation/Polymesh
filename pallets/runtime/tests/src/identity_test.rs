@@ -89,11 +89,14 @@ fn get_secondary_keys(target: IdentityId) -> Vec<SecondaryKey<AccountId>> {
 
 fn target_id_auth(user: User) -> (TargetIdAuthorization<u64>, u64) {
     let expires_at = 100u64;
-    (TargetIdAuthorization {
-        target_id: user.did,
-        nonce: Identity::offchain_authorization_nonce(user.did),
+    (
+        TargetIdAuthorization {
+            target_id: user.did,
+            nonce: Identity::offchain_authorization_nonce(user.did),
+            expires_at,
+        },
         expires_at,
-    }, expires_at)
+    )
 }
 
 fn create_new_token(name: &[u8], owner: User) -> (Ticker, SecurityToken<u128>) {
@@ -140,10 +143,16 @@ fn only_primary_or_secondary_keys_can_authenticate_as_an_identity() {
         assert!(Identity::is_signer_authorized(bob.did, &charlie_signer));
 
         // charlie's key isn't a signer for dave
-        assert!(Identity::is_signer_authorized(dave.did, &charlie_signer) == false);
+        assert_eq!(
+            Identity::is_signer_authorized(dave.did, &charlie_signer),
+            false
+        );
 
         // Check dave's identity as a signer for alice.
-        assert!(Identity::is_signer_authorized(alice.did, &dave_ident_signer));
+        assert!(Identity::is_signer_authorized(
+            alice.did,
+            &dave_ident_signer
+        ));
 
         // Remove charlie's key from the secondary keys of bob.
         assert_ok!(Identity::remove_secondary_keys(
@@ -152,7 +161,10 @@ fn only_primary_or_secondary_keys_can_authenticate_as_an_identity() {
         ));
 
         // Verify the secondary key was removed.
-        assert!(Identity::is_signer_authorized(bob.did, &charlie_signer) == false);
+        assert_eq!(
+            Identity::is_signer_authorized(bob.did, &charlie_signer),
+            false
+        );
 
         // Switch to Alice's identity
         TestStorage::set_current_identity(&alice.did);
@@ -164,7 +176,10 @@ fn only_primary_or_secondary_keys_can_authenticate_as_an_identity() {
         ));
 
         // Verify the secondary key was removed.
-        assert!(Identity::is_signer_authorized(alice.did, &dave_ident_signer) == false);
+        assert_eq!(
+            Identity::is_signer_authorized(alice.did, &dave_ident_signer),
+            false
+        );
     });
 }
 
@@ -623,8 +638,8 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
 }
 
 fn run_add_secondary_key_with_perm_test<F>(add_key_with_perms: F)
-  where
-    F: Fn(User, Permissions) -> DispatchResult
+where
+    F: Fn(User, Permissions) -> DispatchResult,
 {
     let alice = User::new(AccountKeyring::Alice);
 
