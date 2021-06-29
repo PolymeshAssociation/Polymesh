@@ -18,7 +18,6 @@
 //! TODO: Add pallet description.
 //! TODO: Add tests.
 //! TODO: Add support for `AuthorizationData::AddRelayerPayingKey` to `CddAndFeeDetails` in `pallets/runtime/*/src/fee_details.rs`
-//! TODO: Fix rpc support for `Balance`
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -187,6 +186,12 @@ impl<T: Config> Module<T> {
             }
         });
 
+        Self::deposit_event(RawEvent::UpdatePolyxLimit(
+            from.for_event(),
+            user_key,
+            paying_key,
+            polyx_limit.into(),
+        ));
         Ok(())
     }
 
