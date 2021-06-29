@@ -1,6 +1,6 @@
 use crate::{traits::identity, CommonConfig};
 use frame_support::{decl_event, weights::Weight};
-use polymesh_primitives::EventDid;
+use polymesh_primitives::{Balance, EventDid};
 
 pub trait WeightInfo {
     fn set_paying_key() -> Weight;
@@ -23,8 +23,8 @@ decl_event! {
     {
         /// Authorization given for `paying_key` to `user_key`.
         ///
-        /// (Caller DID, User Key, Paying Key, Auth ID)
-        PayingKeyAuthorized(EventDid, AccountId, AccountId, u64),
+        /// (Caller DID, User Key, Paying Key, Initial POLYX limimt, Auth ID)
+        PayingKeyAuthorized(EventDid, AccountId, AccountId, Balance, u64),
 
         /// Accepted paying key.
         ///

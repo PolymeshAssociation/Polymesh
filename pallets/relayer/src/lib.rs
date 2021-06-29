@@ -211,6 +211,7 @@ impl<T: Config> Module<T> {
             from.for_event(),
             user_key,
             paying_key,
+            polyx_limit.into(),
             auth_id,
         ));
         auth_id
