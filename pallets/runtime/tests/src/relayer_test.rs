@@ -1,21 +1,10 @@
 use super::{
-    storage::{
-        get_last_auth_id,
-        TestStorage, User,
-    },
+    storage::{get_last_auth_id, TestStorage, User},
     ExtBuilder,
 };
-use frame_support::{
-    assert_noop, assert_ok,
-};
-use polymesh_common_utilities::{
-    traits::{
-        transaction_payment::CddAndFeeDetails,
-    },
-};
-use polymesh_primitives::{
-    Signatory,
-};
+use frame_support::{assert_noop, assert_ok};
+use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
+use polymesh_primitives::Signatory;
 use test_client::AccountKeyring;
 
 type Relayer = pallet_relayer::Module<TestStorage>;
@@ -38,27 +27,17 @@ fn do_basic_relayer_paying_key_test() {
     let dave = User::new(AccountKeyring::Dave);
 
     // add authorization for using Alice as the paying key for bob
-    assert_ok!(Relayer::set_paying_key(
-        alice.origin(),
-        bob.acc(),
-    ));
+    assert_ok!(Relayer::set_paying_key(alice.origin(), bob.acc(),));
 
     // Bob accept's the paying key
     TestStorage::set_current_identity(&bob.did);
     let auth_id = get_last_auth_id(&Signatory::Account(bob.acc()));
-    assert_ok!(Relayer::accept_paying_key(
-        bob.origin(),
-        auth_id
-    ));
+    assert_ok!(Relayer::accept_paying_key(bob.origin(), auth_id));
 
     // Bob tries to increase his Polyx limit.  Not allowed
     TestStorage::set_current_identity(&bob.did);
     assert_noop!(
-        Relayer::update_polyx_limit(
-            bob.origin(),
-            bob.acc(),
-            12345u128
-        ),
+        Relayer::update_polyx_limit(bob.origin(), bob.acc(), 12345u128),
         Error::NotPayingKey
     );
 
@@ -73,29 +52,19 @@ fn do_basic_relayer_paying_key_test() {
     // Dave tries to remove the paying key from Bob's key.  Not allowed.
     TestStorage::set_current_identity(&dave.did);
     assert_noop!(
-        Relayer::remove_paying_key(
-            dave.origin(),
-            bob.acc(),
-            alice.acc(),
-        ),
+        Relayer::remove_paying_key(dave.origin(), bob.acc(), alice.acc(),),
         Error::NotAuthorizedForUserKey
     );
 
     // add authorization for using Dave as the paying key for bob
     TestStorage::set_current_identity(&dave.did);
-    assert_ok!(Relayer::set_paying_key(
-        dave.origin(),
-        bob.acc(),
-    ));
+    assert_ok!(Relayer::set_paying_key(dave.origin(), bob.acc(),));
 
     // Bob tries to accept the new paying key, but he already has a paying key
     TestStorage::set_current_identity(&bob.did);
     let auth_id = get_last_auth_id(&Signatory::Account(bob.acc()));
     assert_noop!(
-        Relayer::accept_paying_key(
-            bob.origin(),
-            auth_id
-        ),
+        Relayer::accept_paying_key(bob.origin(), auth_id),
         Error::AlreadyHasPayingKey
     );
 
@@ -107,4 +76,3 @@ fn do_basic_relayer_paying_key_test() {
         alice.acc(),
     ));
 }
-
