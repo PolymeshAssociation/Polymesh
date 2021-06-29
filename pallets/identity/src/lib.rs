@@ -122,6 +122,7 @@ use polymesh_common_utilities::{
             TargetIdAuthorization,
         },
         multisig::MultiSigSubTrait,
+        relayer::IdentityToRelayer,
         transaction_payment::CddAndFeeDetails,
         AccountCallPermissionsData, CheckAccountCallPermissions,
     },
@@ -336,6 +337,13 @@ decl_module! {
                 ..
             } = Self::ensure_origin_call_permissions(origin)?;
             let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
+
+            // ensure that it is safe to unlink the secondary keys from the did.
+            for signer in &signers_to_remove {
+                if let Signatory::Account(key) = &signer {
+                    Self::ensure_unlink_account_key_from_did_is_safe(key)?;
+                }
+            }
 
             // Remove links and get all authorization IDs per signer.
             signers_to_remove
@@ -838,6 +846,11 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    fn ensure_unlink_account_key_from_did_is_safe(key: &T::AccountId) -> DispatchResult {
+        T::Relayer::ensure_paying_key_is_unused(key)?;
+        Ok(())
+    }
+
     /// Returns `Err(DidDoesNotExist)` unless `id` has an associated record.
     fn ensure_id_record_exists(id: IdentityId) -> DispatchResult {
         ensure!(Self::is_identity_exists(&id), Error::<T>::DidDoesNotExist);
@@ -1060,8 +1073,13 @@ impl<T: Config> Module<T> {
             Error::<T>::AlreadyLinked,
         );
 
-        // Replace primary key of the owner that initiated key rotation
+        // Get the current primary key
         let old_primary_key = Self::did_records(&rotation_for_did).primary_key;
+
+        // ensure that it is safe to unlink the primary key from the did.
+        Self::ensure_unlink_account_key_from_did_is_safe(&old_primary_key)?;
+
+        // Replace primary key of the owner that initiated key rotation
         <DidRecords<T>>::mutate(&rotation_for_did, |record| {
             Self::unlink_account_key_from_did(&record.primary_key, rotation_for_did);
             record.primary_key = sender.clone();
@@ -1725,6 +1743,9 @@ impl<T: Config> Module<T> {
         ensure!(Self::is_signer(did, &signer), Error::<T>::NotASigner);
 
         if let Signatory::Account(key) = &signer {
+            // ensure that it is safe to unlink the account key from the did.
+            Self::ensure_unlink_account_key_from_did_is_safe(&key)?;
+
             // Unlink multisig signers.
             if T::MultiSig::is_multisig(key) {
                 ensure!(

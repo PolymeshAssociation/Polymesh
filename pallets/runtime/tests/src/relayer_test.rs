@@ -14,6 +14,12 @@ type Error = pallet_relayer::Error<TestStorage>;
 // Relayer Test Helper functions
 // =======================================
 
+macro_rules! assert_key_usage {
+    ($user:expr, $usage:expr) => {
+        assert_eq!(Relayer::get_paying_key_usage(&$user.acc()), $usage);
+    };
+}
+
 #[test]
 fn basic_relayer_paying_key_test() {
     ExtBuilder::default()
@@ -29,10 +35,18 @@ fn do_basic_relayer_paying_key_test() {
     // add authorization for using Alice as the paying key for bob
     assert_ok!(Relayer::set_paying_key(alice.origin(), bob.acc(),));
 
+    // No paying key is used yet.
+    assert_key_usage!(alice, 0);
+    assert_key_usage!(dave, 0);
+    assert_key_usage!(bob, 0);
+
     // Bob accept's the paying key
     TestStorage::set_current_identity(&bob.did);
     let auth_id = get_last_auth_id(&Signatory::Account(bob.acc()));
     assert_ok!(Relayer::accept_paying_key(bob.origin(), auth_id));
+
+    // check alice's key is be used.
+    assert_key_usage!(alice, 1);
 
     // Bob tries to increase his Polyx limit.  Not allowed
     TestStorage::set_current_identity(&bob.did);
@@ -75,4 +89,7 @@ fn do_basic_relayer_paying_key_test() {
         bob.acc(),
         alice.acc(),
     ));
+
+    // check alice's key is not used any more.
+    assert_key_usage!(alice, 0);
 }

@@ -29,7 +29,7 @@ use frame_support::{
     decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, fail,
 };
 use pallet_identity::{self as identity, PermissionedCallOriginData};
-pub use polymesh_common_utilities::traits::relayer::{Config, Event, RawEvent, WeightInfo};
+pub use polymesh_common_utilities::traits::relayer::{Config, Event, IdentityToRelayer, RawEvent, WeightInfo};
 use polymesh_primitives::{extract_auth, AuthorizationData, IdentityId, Signatory};
 
 type Identity<T> = identity::Module<T>;
@@ -46,6 +46,9 @@ decl_storage! {
         /// map `user_key` to `paying_key`
         pub Subsidies get(fn paying_keys):
             map hasher(blake2_128_concat) T::AccountId => Option<Subsidy<T::AccountId, T::Balance>>;
+        /// Track `paying_key` usage.
+        pub PayingKeyUsage get(fn paying_key_usage):
+            map hasher(blake2_128_concat) T::AccountId => u64;
     }
 }
 
@@ -102,10 +105,31 @@ decl_error! {
         NotAuthorizedForPayingKey,
         /// The signer not authorized for `user_key`.
         NotAuthorizedForUserKey,
+        /// The key is being used as a `paying_key`.
+        PayingKeyIsBeingUsed,
     }
 }
 
 impl<T: Config> Module<T> {
+    /// Get the usage count of a `paying_key`
+    pub fn get_paying_key_usage(paying_key: &T::AccountId) -> u64 {
+        if <PayingKeyUsage<T>>::contains_key(paying_key) {
+            // Get paying key's usage (count of user key using it).
+            <PayingKeyUsage<T>>::get(paying_key)
+        } else {
+            0
+        }
+    }
+
+    /// Ensure that the key is not being used as a `paying_key`
+    pub fn ensure_paying_key_is_unused(paying_key: &T::AccountId) -> DispatchResult {
+        ensure!(
+            Self::get_paying_key_usage(paying_key) == 0,
+            Error::<T>::PayingKeyIsBeingUsed
+        );
+        Ok(())
+    }
+
     fn base_set_paying_key(origin: T::Origin, user_key: T::AccountId) -> DispatchResult {
         let PermissionedCallOriginData {
             sender: paying_key,
@@ -160,6 +184,9 @@ impl<T: Config> Module<T> {
 
         // Check if the current paying key matches.
         Self::ensure_is_paying_key(&user_key, &paying_key)?;
+
+        // Decrease paying key usage
+        <PayingKeyUsage<T>>::mutate(&paying_key, |n| *n -= 1_u64);
 
         // Remove paying key for user key.
         <Subsidies<T>>::remove(&user_key);
@@ -283,6 +310,9 @@ impl<T: Config> Module<T> {
             Error::<T>::PayingKeyCddMissing
         );
 
+        // Increase paying key usage
+        <PayingKeyUsage<T>>::mutate(&paying_key, |n| *n += 1_u64);
+
         // all checks passed.
         <Subsidies<T>>::insert(
             user_key,
@@ -290,6 +320,18 @@ impl<T: Config> Module<T> {
                 paying_key,
                 remaining: polyx_limit,
             },
+        );
+
+        Ok(())
+    }
+}
+
+impl<T: Config> IdentityToRelayer<T::AccountId> for Module<T> {
+    /// Ensure that the key is not being used as a `paying_key`
+    fn ensure_paying_key_is_unused(key: &T::AccountId) -> DispatchResult {
+        ensure!(
+            Self::get_paying_key_usage(key) == 0,
+            Error::<T>::PayingKeyIsBeingUsed
         );
         Ok(())
     }

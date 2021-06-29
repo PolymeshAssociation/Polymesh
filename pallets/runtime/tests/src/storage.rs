@@ -493,6 +493,7 @@ impl polymesh_common_utilities::traits::identity::Config for TestStorage {
     type Proposal = Call;
     type MultiSig = multisig::Module<TestStorage>;
     type Portfolio = portfolio::Module<TestStorage>;
+    type Relayer = pallet_relayer::Module<TestStorage>;
     type CddServiceProviders = CddServiceProvider;
     type Balances = balances::Module<TestStorage>;
     type ChargeTxFeeTarget = TestStorage;
