@@ -173,7 +173,9 @@ impl<T: Config> Module<T> {
         polyx_limit: T::Balance,
     ) -> DispatchResult {
         let PermissionedCallOriginData {
-            sender: paying_key, ..
+            sender: paying_key,
+            primary_did: paying_did,
+            ..
         } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
 
         // Check if the current paying key matches.
@@ -187,7 +189,7 @@ impl<T: Config> Module<T> {
         });
 
         Self::deposit_event(RawEvent::UpdatePolyxLimit(
-            from.for_event(),
+            paying_did.for_event(),
             user_key,
             paying_key,
             polyx_limit.into(),
