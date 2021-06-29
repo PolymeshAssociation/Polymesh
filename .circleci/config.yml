@@ -239,4 +239,3 @@ workflows:
       - benchmark:
           requires:
             - benchmark-build
-      - rpc-check
