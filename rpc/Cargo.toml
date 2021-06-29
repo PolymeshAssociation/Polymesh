@@ -27,7 +27,7 @@ frame-support = { version = "3.0.0", default-features = false }
 frame-system = { version = "3.0.0", default-features = false }
 
 # Others
-jsonrpc-core = "15.0.0"
+jsonrpc-core = { version = "15.0", features = ["arbitrary_precision"] }
 jsonrpc-core-client = "15.0.0"
 jsonrpc-derive = "15.0.0"
 serde = { version = "1.0.104", optional = true, features = ["derive"] }
