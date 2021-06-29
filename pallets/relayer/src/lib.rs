@@ -29,7 +29,9 @@ use frame_support::{
     decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, fail,
 };
 use pallet_identity::{self as identity, PermissionedCallOriginData};
-pub use polymesh_common_utilities::traits::relayer::{Config, Event, IdentityToRelayer, RawEvent, WeightInfo};
+pub use polymesh_common_utilities::traits::relayer::{
+    Config, Event, IdentityToRelayer, RawEvent, WeightInfo,
+};
 use polymesh_primitives::{extract_auth, AuthorizationData, IdentityId, Signatory};
 
 type Identity<T> = identity::Module<T>;
