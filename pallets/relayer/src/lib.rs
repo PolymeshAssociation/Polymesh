@@ -16,7 +16,7 @@
 //! # Simple Relayer Module
 //!
 //! TODO: Add pallet description.
-//! TODO: Add tests.
+//! TODO: Add more tests.
 //! TODO: Add support for `AuthorizationData::AddRelayerPayingKey` to `CddAndFeeDetails` in `pallets/runtime/*/src/fee_details.rs`
 
 #![cfg_attr(not(feature = "std"), no_std)]
