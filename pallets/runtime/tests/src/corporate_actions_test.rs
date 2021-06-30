@@ -1894,7 +1894,7 @@ fn dist_remove_works() {
 
 #[test]
 fn dist_reclaim_works() {
-    test(|ticker, [owner, other, _]| {
+    test(|ticker, [owner, other, charlie]| {
         set_schedule_complexity();
 
         let currency = create_asset(b"BETA", owner);
@@ -1907,6 +1907,7 @@ fn dist_reclaim_works() {
 
         // Dist creator different from CAA.
         transfer(&currency, owner, other);
+        transfer(&currency, owner, charlie);
         let id = dist_ca(owner, ticker, Some(1)).unwrap();
         assert_ok!(transfer_caa(ticker, owner, other));
         assert_ok!(Dist::distribute(
@@ -1935,6 +1936,12 @@ fn dist_reclaim_works() {
             |who: User| Custodian::insert(PortfolioId::default_portfolio(other.did), who.did);
         custody(owner);
         assert_noop!(reclaim(id, other), PError::UnauthorizedCustodian);
+       
+        custody(charlie);
+        assert_noop!(reclaim(id, charlie), EAError::UnauthorizedAgent);
+        custody(owner);
+        assert_ok!(transfer_caa(ticker, other, charlie));
+        assert_noop!(reclaim(id, charlie), PError::UnauthorizedCustodian);
         custody(other);
 
         let ensure = |x| Portfolio::ensure_sufficient_balance(&pid, &currency, &x);
