@@ -1,25 +1,34 @@
 // Auto-generated via `yarn polkadot-types-from-chain`, do not edit
 /* eslint-disable */
 
-import type { Vec, u32, u64 } from '@polkadot/types';
+import type { Vec, u32, u64, u8 } from '@polkadot/types';
 import type { Codec } from '@polkadot/types/types';
-import type { Balance, BalanceOf, BlockNumber, Moment, Perbill, Permill, RuntimeDbWeight, Weight } from '@polkadot/types/interfaces/runtime';
+import type { Balance, BalanceOf, BlockNumber, Moment, Perbill, Permill, RuntimeDbWeight } from '@polkadot/types/interfaces/runtime';
 import type { SessionIndex } from '@polkadot/types/interfaces/session';
 import type { EraIndex } from '@polkadot/types/interfaces/staking';
+import type { RuntimeVersion } from '@polkadot/types/interfaces/state';
 import type { WeightToFeeCoefficient } from '@polkadot/types/interfaces/support';
+import type { BlockLength, BlockWeights } from '@polkadot/types/interfaces/system';
 import type { ApiTypes } from '@polkadot/api/types';
 
 declare module '@polkadot/api/types/consts' {
   export interface AugmentedConsts<ApiType> {
     asset: {
+      assetNameMaxLength: u32 & AugmentedConst<ApiType>;
+      fundingRoundNameMaxLength: u32 & AugmentedConst<ApiType>;
+      maxNumberOfTmExtensionForAsset: u32 & AugmentedConst<ApiType>;
+      /**
+       * Generic const
+       **/
       [key: string]: Codec;
-      allowedGasLimit: u64 & AugmentedConst<ApiType>;
     };
     babe: {
-      [key: string]: Codec;
       /**
        * The number of **slots** that an epoch takes. We couple sessions to
        * epochs, i.e. we start a new session once the new epoch begins.
+       * NOTE: Currently it is not possible to change the epoch duration
+       * after the chain has started. Attempting to do so will brick block
+       * production.
        **/
       epochDuration: u64 & AugmentedConst<ApiType>;
       /**
@@ -30,93 +39,61 @@ declare module '@polkadot/api/types/consts' {
        * the probability of a slot being empty).
        **/
       expectedBlockTime: Moment & AugmentedConst<ApiType>;
+      /**
+       * Generic const
+       **/
+      [key: string]: Codec;
     };
     balances: {
-      [key: string]: Codec;
       /**
-       * This is no longer needed but kept for compatibility reasons
        * The minimum amount required to keep an account open.
        **/
       existentialDeposit: Balance & AugmentedConst<ApiType>;
-    };
-    baseContracts: {
+      /**
+       * Generic const
+       **/
       [key: string]: Codec;
-      /**
-       * The maximum nesting level of a call/instantiate stack. A reasonable default
-       * value is 100.
-       **/
-      maxDepth: u32 & AugmentedConst<ApiType>;
-      /**
-       * The maximum size of a storage value in bytes. A reasonable default is 16 KiB.
-       **/
-      maxValueSize: u32 & AugmentedConst<ApiType>;
-      /**
-       * Price of a byte of storage per one block interval. Should be greater than 0.
-       **/
-      rentByteFee: BalanceOf & AugmentedConst<ApiType>;
-      /**
-       * The amount of funds a contract should deposit in order to offset
-       * the cost of one byte.
-       * 
-       * Let's suppose the deposit is 1,000 BU (balance units)/byte and the rent is 1 BU/byte/day,
-       * then a contract with 1,000,000 BU that uses 1,000 bytes of storage would pay no rent.
-       * But if the balance reduced to 500,000 BU and the storage stayed the same at 1,000,
-       * then it would pay 500 BU/day.
-       **/
-      rentDepositOffset: BalanceOf & AugmentedConst<ApiType>;
-      /**
-       * Number of block delay an extrinsic claim surcharge has.
-       * 
-       * When claim surcharge is called by an extrinsic the rent is checked
-       * for current_block - delay
-       **/
-      signedClaimHandicap: BlockNumber & AugmentedConst<ApiType>;
-      /**
-       * A size offset for an contract. A just created account with untouched storage will have that
-       * much of storage from the perspective of the state rent.
-       * 
-       * This is a simple way to ensure that contracts with empty storage eventually get deleted
-       * by making them pay rent. This creates an incentive to remove them early in order to save
-       * rent.
-       **/
-      storageSizeOffset: u32 & AugmentedConst<ApiType>;
-      /**
-       * Reward that is received by the party whose touch has led
-       * to removal of a contract.
-       **/
-      surchargeReward: BalanceOf & AugmentedConst<ApiType>;
-      /**
-       * The minimum amount required to generate a tombstone.
-       **/
-      tombstoneDeposit: BalanceOf & AugmentedConst<ApiType>;
     };
-    contracts: {
-      [key: string]: Codec;
+    base: {
+      maxLen: u32 & AugmentedConst<ApiType>;
       /**
-       * The minimum amount required to generate a tombstone.
+       * Generic const
        **/
-      networkShareInInstantiationFee: Perbill & AugmentedConst<ApiType>;
+      [key: string]: Codec;
     };
-    finalityTracker: {
+    complianceManager: {
+      maxConditionComplexity: u32 & AugmentedConst<ApiType>;
+      /**
+       * Generic const
+       **/
       [key: string]: Codec;
+    };
+    corporateAction: {
+      maxDidWhts: u32 & AugmentedConst<ApiType>;
+      maxTargetIds: u32 & AugmentedConst<ApiType>;
       /**
-       * The delay after which point things become suspicious. Default is 1000.
+       * Generic const
        **/
-      reportLatency: BlockNumber & AugmentedConst<ApiType>;
+      [key: string]: Codec;
+    };
+    identity: {
+      initialPolyx: Balance & AugmentedConst<ApiType>;
       /**
-       * The number of recent samples to keep from this chain. Default is 101.
+       * Generic const
        **/
-      windowSize: BlockNumber & AugmentedConst<ApiType>;
+      [key: string]: Codec;
     };
     indices: {
-      [key: string]: Codec;
       /**
        * The deposit needed for reserving an index.
        **/
       deposit: BalanceOf & AugmentedConst<ApiType>;
+      /**
+       * Generic const
+       **/
+      [key: string]: Codec;
     };
     staking: {
-      [key: string]: Codec;
       /**
        * Number of eras that staked funds must remain bonded for.
        **/
@@ -159,6 +136,10 @@ declare module '@polkadot/api/types/consts' {
        **/
       maxVariableInflationTotalIssuance: BalanceOf & AugmentedConst<ApiType>;
       /**
+       * Minimum amount of POLYX that must be bonded for a new bond.
+       **/
+      minimumBond: BalanceOf & AugmentedConst<ApiType>;
+      /**
        * The threshold of improvement that should be provided for a new solution to be accepted.
        **/
       minSolutionScoreBump: Perbill & AugmentedConst<ApiType>;
@@ -174,36 +155,53 @@ declare module '@polkadot/api/types/consts' {
        * intervention.
        **/
       slashDeferDuration: EraIndex & AugmentedConst<ApiType>;
+      /**
+       * Generic const
+       **/
+      [key: string]: Codec;
+    };
+    statistics: {
+      maxTransferManagersPerAsset: u32 & AugmentedConst<ApiType>;
+      /**
+       * Generic const
+       **/
+      [key: string]: Codec;
     };
     system: {
-      [key: string]: Codec;
       /**
-       * The base weight of executing a block, independent of the transactions in the block.
-       **/
-      blockExecutionWeight: Weight & AugmentedConst<ApiType>;
-      /**
-       * The maximum number of blocks to allow in mortal eras.
+       * Maximum number of block number to block hash mappings to keep (oldest pruned first).
        **/
       blockHashCount: BlockNumber & AugmentedConst<ApiType>;
+      /**
+       * The maximum length of a block (in bytes).
+       **/
+      blockLength: BlockLength & AugmentedConst<ApiType>;
+      /**
+       * Block & extrinsics weights: base values and limits.
+       **/
+      blockWeights: BlockWeights & AugmentedConst<ApiType>;
       /**
        * The weight of runtime database operations the runtime can invoke.
        **/
       dbWeight: RuntimeDbWeight & AugmentedConst<ApiType>;
       /**
-       * The base weight of an Extrinsic in the block, independent of the of extrinsic being executed.
+       * The designated SS85 prefix of this chain.
+       * 
+       * This replaces the "ss58Format" property declared in the chain spec. Reason is
+       * that the runtime should know about the prefix in order to make use of it as
+       * an identifier of the chain.
        **/
-      extrinsicBaseWeight: Weight & AugmentedConst<ApiType>;
+      ss58Prefix: u8 & AugmentedConst<ApiType>;
       /**
-       * The maximum length of a block (in bytes).
+       * Get the chain's current version.
        **/
-      maximumBlockLength: u32 & AugmentedConst<ApiType>;
+      version: RuntimeVersion & AugmentedConst<ApiType>;
       /**
-       * The maximum weight of a block.
+       * Generic const
        **/
-      maximumBlockWeight: Weight & AugmentedConst<ApiType>;
+      [key: string]: Codec;
     };
     timestamp: {
-      [key: string]: Codec;
       /**
        * The minimum period between blocks. Beware that this is different to the *expected* period
        * that the block production apparatus provides. Your chosen consensus system will generally
@@ -211,9 +209,12 @@ declare module '@polkadot/api/types/consts' {
        * period on default settings.
        **/
       minimumPeriod: Moment & AugmentedConst<ApiType>;
+      /**
+       * Generic const
+       **/
+      [key: string]: Codec;
     };
     transactionPayment: {
-      [key: string]: Codec;
       /**
        * The fee to be paid for making a transaction; the per-byte portion.
        **/
@@ -222,6 +223,10 @@ declare module '@polkadot/api/types/consts' {
        * The polynomial that is applied in order to derive fee from weight.
        **/
       weightToFee: Vec<WeightToFeeCoefficient> & AugmentedConst<ApiType>;
+      /**
+       * Generic const
+       **/
+      [key: string]: Codec;
     };
   }
 
