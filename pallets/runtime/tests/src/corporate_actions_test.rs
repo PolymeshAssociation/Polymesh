@@ -1942,6 +1942,7 @@ fn dist_reclaim_works() {
         custody(owner);
         assert_ok!(transfer_caa(ticker, other, charlie));
         assert_noop!(reclaim(id, charlie), PError::UnauthorizedCustodian);
+        assert_ok!(transfer_caa(ticker, charlie, other));
         custody(other);
 
         let ensure = |x| Portfolio::ensure_sufficient_balance(&pid, &currency, &x);
