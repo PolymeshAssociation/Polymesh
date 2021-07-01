@@ -1936,7 +1936,7 @@ fn dist_reclaim_works() {
             |who: User| Custodian::insert(PortfolioId::default_portfolio(other.did), who.did);
         custody(owner);
         assert_noop!(reclaim(id, other), PError::UnauthorizedCustodian);
-       
+
         custody(charlie);
         assert_noop!(reclaim(id, charlie), EAError::UnauthorizedAgent);
         custody(owner);
