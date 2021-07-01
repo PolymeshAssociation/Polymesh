@@ -44,7 +44,8 @@ use pallet_staking::{self as staking, RewardDestination};
 use polymesh_common_utilities::constants::currency::POLY;
 use polymesh_common_utilities::traits::{identity::Config as IdentityConfig, CommonConfig};
 use polymesh_common_utilities::with_transaction;
-use sp_runtime::traits::Verify;
+use sp_runtime::traits::{StaticLookup, Verify};
+use sp_std::convert::TryInto;
 
 type Balances<T> = balances::Module<T>;
 type Identity<T> = identity::Module<T>;
@@ -76,6 +77,8 @@ decl_error! {
         ItnRewardAlreadyClaimed,
         /// Provided signature was invalid.
         InvalidSignature,
+        /// Balance can not be converted to a primitive.
+        UnableToCovertBalance,
     }
 }
 
@@ -114,21 +117,20 @@ decl_module! {
         /// - Todo
         #[weight = (0, DispatchClass::Operational, Pays::No)]
         pub fn claim_itn_reaward(origin, itn_address: T::AccountId, signiture: T::OffChainSignature) -> DispatchResult {
-            let PermissionedCallOriginData{ sender, primary_did, .. } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
+            let PermissionedCallOriginData{ sender, .. } = <Identity<T>>::ensure_origin_call_permissions(origin.clone())?;
             <ItnRewards<T>>::try_mutate(&itn_address, |reward| {
                 match reward {
                     // Unclaimed. Attempt to claim.
                     Some(ItnRewardStatus::UnClaimed(amount)) => {
-                        let amount = *amount;
+                        let amount: u128 = (*amount).try_into().map_err(|_| Error::<T>::UnableToCovertBalance)?;
                         ensure!(
                             signiture.verify((sender.clone(), itn_address.clone(), amount).encode().as_slice(), &itn_address),
                             Error::<T>::InvalidSignature
                         );
                         with_transaction(|| {
                             // Deposit `amount` + 1 because `amount` will be bounded, we want the user to have some unbonded balance.
-                            let _ = <Balances<T>>::deposit_into_existing(&sender, amount + (1 * POLY).into())?;
-                            //TODO(Connor): Finalize bonding details.
-                            <Staking<T>>::bond(origin, sender, *amount.into(), RewardDestination::Stash)?;
+                            let _ = <Balances<T>>::deposit_into_existing(&sender, (amount + (1 * POLY)).into())?;
+                            <Staking<T>>::bond(origin, T::Lookup::unlookup(sender), amount.try_into().map_err(|_| Error::<T>::UnableToCovertBalance)?, RewardDestination::Staked)?;
                             *reward = Some(ItnRewardStatus::Claimed);
                             Ok(())
                         })
