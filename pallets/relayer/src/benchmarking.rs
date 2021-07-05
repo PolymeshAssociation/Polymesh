@@ -56,17 +56,34 @@ benchmarks! {
 
     accept_paying_key {
         let (payer, user) = setup_users::<T>();
+        let limit = 100u128;
         // setup authorization
         let auth_id = <Relayer<T>>::unsafe_add_auth_for_paying_key(
-            payer.did(), user.account(), payer.account(), 100u128.into()
+            payer.did(), user.account(), payer.account(), limit.into()
         );
     }: _(user.origin(), auth_id)
+    verify {
+        assert_eq!(Subsidies::<T>::get(user.account()), Some(Subsidy {
+            paying_key: payer.account(),
+            remaining: limit.into(),
+        }));
+    }
 
     remove_paying_key {
         let (payer, user) = setup_paying_key::<T>();
     }: _(payer.origin(), user.account(), payer.account())
+    verify {
+        assert_eq!(Subsidies::<T>::get(user.account()), None);
+    }
 
     update_polyx_limit {
+        let limit = 1_000u128;
         let (payer, user) = setup_paying_key::<T>();
-    }: _(payer.origin(), user.account(), 1_000u128.into())
+    }: _(payer.origin(), user.account(), limit.into())
+    verify {
+        assert_eq!(Subsidies::<T>::get(user.account()), Some(Subsidy {
+            paying_key: payer.account(),
+            remaining: limit.into(),
+        }));
+    }
 }
