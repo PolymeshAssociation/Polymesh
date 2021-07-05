@@ -102,8 +102,6 @@ decl_error! {
         NotAuthorizedForPayingKey,
         /// The signer not authorized for `user_key`.
         NotAuthorizedForUserKey,
-        /// The key is being used as a `paying_key`.
-        PayingKeyIsBeingUsed,
     }
 }
 
@@ -115,7 +113,7 @@ impl<T: Config> Module<T> {
             ..
         } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
 
-        // Create authorization for setting the `paying_key` to the `user_key`
+        // Create authorization for setting the `paying_key` to the `user_key`, with 0 `polyx_limit`
         Self::unsafe_add_auth_for_paying_key(paying_did, user_key, paying_key, 0u128.into());
         Ok(())
     }
