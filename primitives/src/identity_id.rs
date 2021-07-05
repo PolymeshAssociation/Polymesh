@@ -241,8 +241,10 @@ impl From<u64> for PortfolioNumber {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum PortfolioKind {
     /// The default portfolio of a DID.
+    #[cfg_attr(feature = "std", serde(alias = "default"))]
     Default,
     /// A user-defined portfolio of a DID.
+    #[cfg_attr(feature = "std", serde(alias = "user"))]
     User(PortfolioNumber),
 }
 

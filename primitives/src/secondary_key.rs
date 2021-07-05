@@ -149,7 +149,9 @@ impl Permissions {
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum Signatory<AccountId> {
+    #[cfg_attr(feature = "std", serde(alias = "identity"))]
     Identity(IdentityId),
+    #[cfg_attr(feature = "std", serde(alias = "account"))]
     Account(AccountId),
 }
 
