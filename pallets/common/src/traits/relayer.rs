@@ -1,5 +1,4 @@
 use crate::{traits::identity, CommonConfig};
-use frame_support::dispatch::DispatchResult;
 use frame_support::{decl_event, weights::Weight};
 use polymesh_primitives::{Balance, EventDid};
 
@@ -8,12 +7,6 @@ pub trait WeightInfo {
     fn accept_paying_key() -> Weight;
     fn remove_paying_key() -> Weight;
     fn update_polyx_limit() -> Weight;
-}
-
-/// This trait is used for checking if a key is used as a paying key by Relayer.
-pub trait IdentityToRelayer<AccountId> {
-    /// Ensure that `key` is not being used as a paying key for a user key.
-    fn ensure_paying_key_is_unused(key: &AccountId) -> DispatchResult;
 }
 
 pub trait Config: CommonConfig + identity::Config {

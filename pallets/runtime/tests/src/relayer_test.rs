@@ -8,6 +8,7 @@ use polymesh_primitives::Signatory;
 use test_client::AccountKeyring;
 
 type Relayer = pallet_relayer::Module<TestStorage>;
+type Identity = pallet_identity::Module<TestStorage>;
 
 type Error = pallet_relayer::Error<TestStorage>;
 
@@ -16,7 +17,7 @@ type Error = pallet_relayer::Error<TestStorage>;
 
 macro_rules! assert_key_usage {
     ($user:expr, $usage:expr) => {
-        assert_eq!(Relayer::get_paying_key_usage(&$user.acc()), $usage);
+        assert_eq!(Identity::get_account_key_usage(&$user.acc()), $usage);
     };
 }
 
@@ -47,6 +48,8 @@ fn do_basic_relayer_paying_key_test() {
 
     // check alice's key is be used.
     assert_key_usage!(alice, 1);
+    // check bob's key is be used.
+    assert_key_usage!(bob, 1);
 
     // Bob tries to increase his Polyx limit.  Not allowed
     TestStorage::set_current_identity(&bob.did);

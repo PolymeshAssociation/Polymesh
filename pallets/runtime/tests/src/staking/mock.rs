@@ -43,7 +43,6 @@ use polymesh_common_utilities::{
         group::{GroupTrait, InactiveMember},
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
-        relayer::IdentityToRelayer,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
         CommonConfig,
     },
@@ -332,7 +331,6 @@ impl polymesh_common_utilities::traits::identity::Config for Test {
     type Proposal = Call;
     type MultiSig = Test;
     type Portfolio = Test;
-    type Relayer = Test;
     type CddServiceProviders = group::Module<Test, group::Instance2>;
     type Balances = Balances;
     type ChargeTxFeeTarget = Test;
@@ -481,12 +479,6 @@ impl PortfolioSubTrait<Balance, AccountId> for Test {
         _: IdentityId,
         _: Option<&SecondaryKey<AccountId>>,
     ) -> DispatchResult {
-        unimplemented!()
-    }
-}
-
-impl IdentityToRelayer<AccountId> for Test {
-    fn ensure_paying_key_is_unused(_: &AccountId) -> DispatchResult {
         unimplemented!()
     }
 }

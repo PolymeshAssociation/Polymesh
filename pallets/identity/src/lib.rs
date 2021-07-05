@@ -122,7 +122,6 @@ use polymesh_common_utilities::{
             TargetIdAuthorization,
         },
         multisig::MultiSigSubTrait,
-        relayer::IdentityToRelayer,
         transaction_payment::CddAndFeeDetails,
         AccountCallPermissionsData, CheckAccountCallPermissions,
     },
@@ -206,6 +205,11 @@ decl_storage! {
 
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(3).unwrap()): Version;
+
+        /// Track `account_key` usage.  Lock a key to it's identity if it is used.
+        /// TODO: Add usage reason (Relayer paying key or user key).  This would allow providing a more useful error message.
+        pub AccountKeyUsage get(fn account_key_usage):
+            map hasher(blake2_128_concat) T::AccountId => u64;
     }
     add_extra_genesis {
         // Identities at genesis.
@@ -830,7 +834,9 @@ decl_error! {
         /// Do not allow forwarded call to be called recursively
         RecursionNotAllowed,
         /// Claim and Proof versions are different.
-        ClaimAndProofVersionsDoNotMatch
+        ClaimAndProofVersionsDoNotMatch,
+        /// The account key is being used, it can't be unlinked.
+        AccountKeyIsBeingUsed
     }
 }
 
@@ -846,8 +852,32 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    /// Get the usage count of a key.
+    pub fn get_account_key_usage(key: &T::AccountId) -> u64 {
+        if <AccountKeyUsage<T>>::contains_key(key) {
+            // Get a key's usage.
+            <AccountKeyUsage<T>>::get(key)
+        } else {
+            0
+        }
+    }
+
+    pub fn add_account_key_usage(key: &T::AccountId) {
+        // Decrease account key usage
+        <AccountKeyUsage<T>>::mutate(key, |n| *n = n.saturating_add(1_u64));
+    }
+
+    pub fn remove_account_key_usage(key: &T::AccountId) {
+        // Decrease account key usage
+        <AccountKeyUsage<T>>::mutate(key, |n| *n = n.saturating_sub(1_u64));
+    }
+
+    /// Ensure that the account key is safe to unlink from it's identity.
     fn ensure_unlink_account_key_from_did_is_safe(key: &T::AccountId) -> DispatchResult {
-        T::Relayer::ensure_paying_key_is_unused(key)?;
+        ensure!(
+            Self::get_account_key_usage(key) == 0,
+            Error::<T>::AccountKeyIsBeingUsed
+        );
         Ok(())
     }
 
