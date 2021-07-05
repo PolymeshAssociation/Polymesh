@@ -6,7 +6,6 @@ import type { ApiTypes } from '@polkadot/api/types';
 declare module '@polkadot/api/types/errors' {
   export interface AugmentedErrors<ApiType> {
     asset: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * When extension already archived.
        **/
@@ -48,6 +47,10 @@ declare module '@polkadot/api/types/errors' {
        **/
       InsufficientBalance: AugmentedError<ApiType>;
       /**
+       * Some `AssetIdentifier` was invalid.
+       **/
+      InvalidAssetIdentifier: AugmentedError<ApiType>;
+      /**
        * An invalid Ethereum `EcdsaSignature`.
        **/
       InvalidEthereumSignature: AugmentedError<ApiType>;
@@ -55,10 +58,6 @@ declare module '@polkadot/api/types/errors' {
        * An invalid granularity.
        **/
       InvalidGranularity: AugmentedError<ApiType>;
-      /**
-       * An invalid total supply.
-       **/
-      InvalidTotalSupply: AugmentedError<ApiType>;
       /**
        * Transfer validation check failed.
        **/
@@ -71,10 +70,6 @@ declare module '@polkadot/api/types/errors' {
        * Maximum length of asset name has been exceeded.
        **/
       MaxLengthOfAssetNameExceeded: AugmentedError<ApiType>;
-      /**
-       * Not a primary issuance agent transfer auth.
-       **/
-      NoPrimaryIssuanceAgentTransferAuth: AugmentedError<ApiType>;
       /**
        * No such token.
        **/
@@ -99,18 +94,6 @@ declare module '@polkadot/api/types/errors' {
        * The asset must be frozen.
        **/
       NotFrozen: AugmentedError<ApiType>;
-      /**
-       * Not a ticker transfer auth.
-       **/
-      NoTickerTransferAuth: AugmentedError<ApiType>;
-      /**
-       * Not a token ownership transfer auth.
-       **/
-      NotTickerOwnershipTransferAuth: AugmentedError<ApiType>;
-      /**
-       * The secondary key does not have the required Asset permission
-       **/
-      SecondaryKeyNotAuthorizedForAsset: AugmentedError<ApiType>;
       /**
        * Transfers to self are not allowed
        **/
@@ -143,9 +126,12 @@ declare module '@polkadot/api/types/errors' {
        * The user is not authorized.
        **/
       Unauthorized: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     authorship: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * The uncle is genesis.
        **/
@@ -174,9 +160,12 @@ declare module '@polkadot/api/types/errors' {
        * Uncles already set in the block.
        **/
       UnclesAlreadySet: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     balances: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * Value too low to create account due to existential deposit
        **/
@@ -197,92 +186,23 @@ declare module '@polkadot/api/types/errors' {
        * Receiver does not have a valid CDD
        **/
       ReceiverCddMissing: AugmentedError<ApiType>;
-    };
-    baseContracts: {
+      /**
+       * Generic error
+       **/
       [key: string]: AugmentedError<ApiType>;
+    };
+    base: {
       /**
-       * Performing the requested transfer would have brought the contract below
-       * the subsistence threshold. No transfer is allowed to do this in order to allow
-       * for a tombstone to be created. Use `seal_terminate` to remove a contract without
-       * leaving a tombstone behind.
+       * Exceeded a generic length limit.
+       * The limit could be for any sort of lists of things, including a string.
        **/
-      BelowSubsistenceThreshold: AugmentedError<ApiType>;
+      TooLong: AugmentedError<ApiType>;
       /**
-       * No code could be found at the supplied code hash.
+       * Generic error
        **/
-      CodeNotFound: AugmentedError<ApiType>;
-      /**
-       * The code supplied to `put_code` exceeds the limit specified in the current schedule.
-       **/
-      CodeTooLarge: AugmentedError<ApiType>;
-      /**
-       * Contract trapped during execution.
-       **/
-      ContractTrapped: AugmentedError<ApiType>;
-      /**
-       * Input passed to a contract API function failed to decode as expected type.
-       **/
-      DecodingFailed: AugmentedError<ApiType>;
-      /**
-       * An origin TrieId written in the current block.
-       **/
-      InvalidContractOrigin: AugmentedError<ApiType>;
-      /**
-       * Cannot restore to nonexisting or alive contract.
-       **/
-      InvalidDestinationContract: AugmentedError<ApiType>;
-      /**
-       * A new schedule must have a greater version than the current one.
-       **/
-      InvalidScheduleVersion: AugmentedError<ApiType>;
-      /**
-       * Cannot restore from nonexisting or tombstone contract.
-       **/
-      InvalidSourceContract: AugmentedError<ApiType>;
-      /**
-       * An origin must be signed or inherent and auxiliary sender only provided on inherent.
-       **/
-      InvalidSurchargeClaim: AugmentedError<ApiType>;
-      /**
-       * Tombstones don't match.
-       **/
-      InvalidTombstone: AugmentedError<ApiType>;
-      /**
-       * Performing a call was denied because the calling depth reached the limit
-       * of what is specified in the schedule.
-       **/
-      MaxCallDepthReached: AugmentedError<ApiType>;
-      /**
-       * The newly created contract is below the subsistence threshold after executing
-       * its contructor. No contracts are allowed to exist below that threshold.
-       **/
-      NewContractNotFunded: AugmentedError<ApiType>;
-      /**
-       * The contract that was called is either no contract at all (a plain account)
-       * or is a tombstone.
-       **/
-      NotCallable: AugmentedError<ApiType>;
-      /**
-       * A buffer outside of sandbox memory was passed to a contract API function.
-       **/
-      OutOfBounds: AugmentedError<ApiType>;
-      /**
-       * The executed contract exhausted its gas limit.
-       **/
-      OutOfGas: AugmentedError<ApiType>;
-      /**
-       * The output buffer supplied to a contract API call was too small.
-       **/
-      OutputBufferTooSmall: AugmentedError<ApiType>;
-      /**
-       * Performing the requested transfer failed for a reason originating in the
-       * chosen currency implementation of the runtime. Most probably the balance is
-       * too low or locks are placed on it.
-       **/
-      TransferFailed: AugmentedError<ApiType>;
+      [key: string]: AugmentedError<ApiType>;
     };
     bridge: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * The origin is not the admin address.
        **/
@@ -335,9 +255,12 @@ declare module '@polkadot/api/types/errors' {
        * Unauthorized to perform an operation.
        **/
       Unauthorized: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     capitalDistribution: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * A distribution already exists for this CA.
        **/
@@ -347,13 +270,9 @@ declare module '@polkadot/api/types/errors' {
        **/
       AlreadyReclaimed: AugmentedError<ApiType>;
       /**
-       * Multiplication of the balance with the total payout amount overflowed.
+       * Multiplication of the balance with the per share payout amount overflowed.
        **/
-      BalanceAmountProductOverflowed: AugmentedError<ApiType>;
-      /**
-       * A failed division of the balance amount product by the total supply.
-       **/
-      BalanceAmountProductSupplyDivisionFailed: AugmentedError<ApiType>;
+      BalancePerShareProductOverflowed: AugmentedError<ApiType>;
       /**
        * Distribution's expiry has passed. DID cannot claim anymore and has forfeited the benefits.
        **/
@@ -385,6 +304,10 @@ declare module '@polkadot/api/types/errors' {
        **/
       HolderAlreadyPaid: AugmentedError<ApiType>;
       /**
+       * A distribution has insufficient remaining amount of currency to distribute.
+       **/
+      InsufficientRemainingAmount: AugmentedError<ApiType>;
+      /**
        * A capital distribution doesn't exist for this CA.
        **/
       NoSuchDistribution: AugmentedError<ApiType>;
@@ -396,9 +319,12 @@ declare module '@polkadot/api/types/errors' {
        * Distribution had not expired yet, or there's no expiry date.
        **/
       NotExpired: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     cddServiceProviders: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * The limit for the number of concurrent active members for this group has been exceeded.
        **/
@@ -423,9 +349,12 @@ declare module '@polkadot/api/types/errors' {
        * Only primary key of the identity is allowed.
        **/
       OnlyPrimaryKeyAllowed: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     checkpoint: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * An overflow while calculating the checkpoint ID.
        **/
@@ -456,9 +385,12 @@ declare module '@polkadot/api/types/errors' {
        * For example, they are too many, or they occurs too frequently.
        **/
       SchedulesTooComplex: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     committeeMembership: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * The limit for the number of concurrent active members for this group has been exceeded.
        **/
@@ -483,9 +415,12 @@ declare module '@polkadot/api/types/errors' {
        * Only primary key of the identity is allowed.
        **/
       OnlyPrimaryKeyAllowed: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     complianceManager: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * The worst case scenario of the compliance requirement is too complex
        **/
@@ -510,44 +445,12 @@ declare module '@polkadot/api/types/errors' {
        * User is not authorized.
        **/
       Unauthorized: AugmentedError<ApiType>;
-    };
-    contracts: {
+      /**
+       * Generic error
+       **/
       [key: string]: AugmentedError<ApiType>;
-      /**
-       * When instantiation of the template is already frozen.
-       **/
-      InstantiationAlreadyFrozen: AugmentedError<ApiType>;
-      /**
-       * When instantiation of the template is already un-frozen.
-       **/
-      InstantiationAlreadyUnFrozen: AugmentedError<ApiType>;
-      /**
-       * Instantiation is not allowed.
-       **/
-      InstantiationIsNotAllowed: AugmentedError<ApiType>;
-      /**
-       * Insufficient max_fee provided by the user to instantiate the SE.
-       **/
-      InsufficientMaxFee: AugmentedError<ApiType>;
-      /**
-       * Given identityId is not CDD.
-       **/
-      NewOwnerIsNotCDD: AugmentedError<ApiType>;
-      /**
-       * `put_code` extrinsic is disabled. See `set_put_code_flag` extrinsic.
-       **/
-      PutCodeIsNotAllowed: AugmentedError<ApiType>;
-      /**
-       * Smart extension template not exist in the storage.
-       **/
-      TemplateNotExists: AugmentedError<ApiType>;
-      /**
-       * When un-authorized personnel try to access the un-authorized extrinsic.
-       **/
-      UnAuthorizedOrigin: AugmentedError<ApiType>;
     };
     corporateAction: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * The authorization type is not to transfer the CAA to another DID.
        **/
@@ -605,12 +508,11 @@ declare module '@polkadot/api/types/errors' {
        **/
       TooManyTargetIds: AugmentedError<ApiType>;
       /**
-       * The signer is not authorized to act as a CAA for this asset.
+       * Generic error
        **/
-      UnauthorizedAsAgent: AugmentedError<ApiType>;
+      [key: string]: AugmentedError<ApiType>;
     };
     corporateBallot: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * A corporate ballot already exists for this CA.
        **/
@@ -667,20 +569,53 @@ declare module '@polkadot/api/types/errors' {
        * Provided list of balances does not match the total number of choices.
        **/
       WrongVoteCount: AugmentedError<ApiType>;
-    };
-    finalityTracker: {
+      /**
+       * Generic error
+       **/
       [key: string]: AugmentedError<ApiType>;
+    };
+    externalAgents: {
       /**
-       * Final hint must be updated only once in the block
+       * The provided `agent` is already an agent for the `Ticker`.
        **/
-      AlreadyUpdated: AugmentedError<ApiType>;
+      AlreadyAnAgent: AugmentedError<ApiType>;
       /**
-       * Finalized height above block number
+       * There have been too many AGs for this ticker and the ID would overflow.
+       * This won't occur in practice.
        **/
-      BadHint: AugmentedError<ApiType>;
+      LocalAGIdOverflow: AugmentedError<ApiType>;
+      /**
+       * An AG with the given `AGId` did not exist for the `Ticker`.
+       **/
+      NoSuchAG: AugmentedError<ApiType>;
+      /**
+       * The provided `agent` is not an agent for the `Ticker`.
+       **/
+      NotAnAgent: AugmentedError<ApiType>;
+      /**
+       * The counter for full agents will overflow.
+       * This should never happen in practice, but is theoretically possible.
+       **/
+      NumFullAgentsOverflow: AugmentedError<ApiType>;
+      /**
+       * This agent is the last full one, and it's being removed,
+       * making the asset orphaned.
+       **/
+      RemovingLastFullAgent: AugmentedError<ApiType>;
+      /**
+       * The caller's secondary key does not have the required asset permission.
+       **/
+      SecondaryKeyNotAuthorizedForAsset: AugmentedError<ApiType>;
+      /**
+       * The agent is not authorized to call the current extrinsic.
+       **/
+      UnauthorizedAgent: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     grandpa: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * Attempt to signal GRANDPA change with one already pending.
        **/
@@ -711,11 +646,14 @@ declare module '@polkadot/api/types/errors' {
        * Cannot signal forced change so soon after last.
        **/
       TooSoon: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     identity: {
-      [key: string]: AugmentedError<ApiType>;
       /**
-       * One secondary key can only belong to one DID
+       * One secondary or primary key can only belong to one DID
        **/
       AlreadyLinked: AugmentedError<ApiType>;
       /**
@@ -738,6 +676,10 @@ declare module '@polkadot/api/types/errors' {
        * CDDId should be unique & same within all cdd claims possessed by a DID.
        **/
       CDDIdNotUniqueForIdentity: AugmentedError<ApiType>;
+      /**
+       * Claim and Proof versions are different.
+       **/
+      ClaimAndProofVersionsDoNotMatch: AugmentedError<ApiType>;
       /**
        * Try to add a claim variant using un-designated extrinsic.
        **/
@@ -839,12 +781,11 @@ declare module '@polkadot/api/types/errors' {
        **/
       UnAuthorizedCddProvider: AugmentedError<ApiType>;
       /**
-       * Given authorization is not pre-known
+       * Generic error
        **/
-      UnknownAuthorization: AugmentedError<ApiType>;
+      [key: string]: AugmentedError<ApiType>;
     };
     imOnline: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * Duplicated heartbeat.
        **/
@@ -853,9 +794,12 @@ declare module '@polkadot/api/types/errors' {
        * Non existent public key.
        **/
       InvalidKey: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     multiSig: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * Already a signer.
        **/
@@ -909,10 +853,6 @@ declare module '@polkadot/api/types/errors' {
        **/
       NoSuchMultisig: AugmentedError<ApiType>;
       /**
-       * Not a multisig authorization.
-       **/
-      NotAMultisigAuth: AugmentedError<ApiType>;
-      /**
        * Not a signer.
        **/
       NotASigner: AugmentedError<ApiType>;
@@ -952,17 +892,23 @@ declare module '@polkadot/api/types/errors' {
        * More signers than required.
        **/
       TooManySigners: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     permissions: {
-      [key: string]: AugmentedError<ApiType>;
       RecursionNotAllowed: AugmentedError<ApiType>;
       /**
        * The caller is not authorized to call the current extrinsic.
        **/
       UnauthorizedCaller: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     pips: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * When enacting snapshot results, an unskippable PIP was skipped.
        **/
@@ -1038,9 +984,12 @@ declare module '@polkadot/api/types/errors' {
        * and the proposal is not by a committee.
        **/
       TooManyActivePips: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     polymeshCommittee: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * Duplicate proposal.
        **/
@@ -1076,9 +1025,12 @@ declare module '@polkadot/api/types/errors' {
        * Proposal exists, but it has expired.
        **/
       ProposalExpired: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     portfolio: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * The source and destination portfolios should be different.
        **/
@@ -1095,10 +1047,6 @@ declare module '@polkadot/api/types/errors' {
        * Can not unlock more tokens than what are locked
        **/
       InsufficientTokensLocked: AugmentedError<ApiType>;
-      /**
-       * The authorization is for something other than portfolio custody
-       **/
-      IrrelevantAuthorization: AugmentedError<ApiType>;
       /**
        * The portfolio doesn't exist.
        **/
@@ -1119,9 +1067,12 @@ declare module '@polkadot/api/types/errors' {
        * The porfolio's custody is with someone other than the caller.
        **/
       UnauthorizedCustodian: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     protocolFee: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * Insufficient account balance to pay the fee.
        **/
@@ -1130,24 +1081,34 @@ declare module '@polkadot/api/types/errors' {
        * Not able to handled the imbalances
        **/
       UnHandledImbalances: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     scheduler: {
-      [key: string]: AugmentedError<ApiType>;
-      /**
-       * Failed to cancel a scheduled call
-       **/
-      FailedToCancel: AugmentedError<ApiType>;
       /**
        * Failed to schedule a call
        **/
       FailedToSchedule: AugmentedError<ApiType>;
       /**
+       * Cannot find the scheduled call.
+       **/
+      NotFound: AugmentedError<ApiType>;
+      /**
+       * Reschedule failed because it does not change scheduled time.
+       **/
+      RescheduleNoChange: AugmentedError<ApiType>;
+      /**
        * Given target block number is in the past.
        **/
       TargetBlockNumberInPast: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     session: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * Registered duplicate key.
        **/
@@ -1157,6 +1118,10 @@ declare module '@polkadot/api/types/errors' {
        **/
       InvalidProof: AugmentedError<ApiType>;
       /**
+       * Key setting account is not live, so it's impossible to associate keys.
+       **/
+      NoAccount: AugmentedError<ApiType>;
+      /**
        * No associated validator ID for account.
        **/
       NoAssociatedValidatorId: AugmentedError<ApiType>;
@@ -1164,9 +1129,12 @@ declare module '@polkadot/api/types/errors' {
        * No keys are associated with this account.
        **/
       NoKeys: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     settlement: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * While affirming the transfer, system failed to lock the assets involved.
        **/
@@ -1187,6 +1155,10 @@ declare module '@polkadot/api/types/errors' {
        * Instruction has not been affirmed.
        **/
       InstructionNotAffirmed: AugmentedError<ApiType>;
+      /**
+       * Provided instruction is not failing execution.
+       **/
+      InstructionNotFailed: AugmentedError<ApiType>;
       /**
        * Provided instruction is not pending execution.
        **/
@@ -1255,9 +1227,16 @@ declare module '@polkadot/api/types/errors' {
        * The current instruction affirmation status does not support the requested action.
        **/
       UnexpectedAffirmationStatus: AugmentedError<ApiType>;
+      /**
+       * Instruction status is unknown
+       **/
+      UnknownInstruction: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     staking: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * Stash is already bonded.
        **/
@@ -1274,6 +1253,10 @@ declare module '@polkadot/api/types/errors' {
        * Controller is already paired.
        **/
       AlreadyPaired: AugmentedError<ApiType>;
+      /**
+       * Internal state has become somehow corrupted and the operation cannot continue.
+       **/
+      BadState: AugmentedError<ApiType>;
       /**
        * When the amount to be bonded is less than `MinimumBond`
        **/
@@ -1409,9 +1392,12 @@ declare module '@polkadot/api/types/errors' {
        * Validator stash identity was not permissioned.
        **/
       StashIdentityNotPermissioned: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     statistics: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * The transfer manager already exists
        **/
@@ -1428,9 +1414,12 @@ declare module '@polkadot/api/types/errors' {
        * The limit of transfer managers allowed for an asset has been reached
        **/
       TransferManagersLimitReached: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     sto: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * Fundraiser has been closed/stopped already.
        **/
@@ -1479,16 +1468,22 @@ declare module '@polkadot/api/types/errors' {
        * Sender does not have required permissions.
        **/
       Unauthorized: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     sudo: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * Sender must be the Sudo account
        **/
       RequireSudo: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     system: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * Failed to extract the runtime version from the new runtime.
        * 
@@ -1513,9 +1508,12 @@ declare module '@polkadot/api/types/errors' {
        * and the new runtime.
        **/
       SpecVersionNeedsToIncrease: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     technicalCommittee: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * Duplicate proposal.
        **/
@@ -1551,9 +1549,12 @@ declare module '@polkadot/api/types/errors' {
        * Proposal exists, but it has expired.
        **/
       ProposalExpired: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     technicalCommitteeMembership: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * The limit for the number of concurrent active members for this group has been exceeded.
        **/
@@ -1578,16 +1579,22 @@ declare module '@polkadot/api/types/errors' {
        * Only primary key of the identity is allowed.
        **/
       OnlyPrimaryKeyAllowed: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     treasury: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * Proposer's balance is too low.
        **/
       InsufficientBalance: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     upgradeCommittee: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * Duplicate proposal.
        **/
@@ -1623,9 +1630,12 @@ declare module '@polkadot/api/types/errors' {
        * Proposal exists, but it has expired.
        **/
       ProposalExpired: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     upgradeCommitteeMembership: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * The limit for the number of concurrent active members for this group has been exceeded.
        **/
@@ -1650,9 +1660,12 @@ declare module '@polkadot/api/types/errors' {
        * Only primary key of the identity is allowed.
        **/
       OnlyPrimaryKeyAllowed: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
     utility: {
-      [key: string]: AugmentedError<ApiType>;
       /**
        * Provided nonce was invalid
        * If the provided nonce < current nonce, the call was already executed
@@ -1667,6 +1680,10 @@ declare module '@polkadot/api/types/errors' {
        * Target does not have a valid CDD
        **/
       TargetCddMissing: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
     };
   }
 
