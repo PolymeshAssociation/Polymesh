@@ -8,7 +8,6 @@ edition = "2018"
 polymesh-common-utilities = { path = "../common", default-features = false }
 polymesh-primitives = { path = "../../primitives", default-features = false }
 
-pallet-balances = { path = "../balances", default-features = false }
 pallet-identity = { path = "../identity", default-features = false }
 pallet-staking = { path = "../staking", default-features = false }
 
@@ -34,7 +33,6 @@ std = [
     "frame-benchmarking/std",
     "frame-support/std",
     "frame-system/std",
-    "pallet-balances/std",
     "pallet-identity/std",
     "pallet-staking/std",
     "polymesh-common-utilities/std",
