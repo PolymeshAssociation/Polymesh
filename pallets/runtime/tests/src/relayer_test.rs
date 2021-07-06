@@ -4,7 +4,10 @@ use super::{
 };
 use frame_support::{assert_noop, assert_ok};
 use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
-use polymesh_primitives::Signatory;
+use polymesh_common_utilities::Context;
+use polymesh_primitives::{Signatory, TransactionError};
+use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
+use sp_runtime::transaction_validity::InvalidTransaction;
 use test_client::AccountKeyring;
 
 type Relayer = pallet_relayer::Module<TestStorage>;
@@ -95,4 +98,33 @@ fn do_basic_relayer_paying_key_test() {
 
     // check alice's key is not used any more.
     assert_key_usage!(alice, 0);
+}
+
+#[test]
+fn relayer_accept_cdd_and_fees_test() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(&do_relayer_accept_cdd_and_fees_test);
+}
+fn do_relayer_accept_cdd_and_fees_test() {
+    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new(AccountKeyring::Bob);
+    let bob_sign = Signatory::Account(bob.acc());
+
+    // Alice creates authoration to subsidise for Bob.
+    assert_ok!(Relayer::set_paying_key(
+        alice.origin(),
+        bob.acc()
+    ));
+    let bob_auth_id = get_last_auth_id(&bob_sign);
+
+    // Check that Bob can accept the subsidy with Alice paying for the transaction.
+    assert_eq!(
+        CddHandler::get_valid_payer(
+            &Call::Relayer(pallet_relayer::Call::accept_paying_key(bob_auth_id)),
+            &bob.acc()
+        ),
+        Ok(Some(alice.acc()))
+    );
 }
