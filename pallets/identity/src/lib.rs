@@ -74,7 +74,6 @@
 //! - `unfreeze_secondary_keys` - Re-enables all secondary keys of the caller's identity.
 //! - `add_authorization` - Adds an authorization.
 //! - `remove_authorization` - Removes an authorization.
-//! - `accept_authorization` - Accepts an authorization.
 //! - `add_secondary_keys_with_authorization` - Adds secondary keys to target identity `id`.
 //! - `revoke_offchain_authorization` - Revokes the `auth` off-chain authorization of `signer`.
 //! - `add_investor_uniqueness_claim` - Adds InvestorUniqueness claim for a given target identity.
@@ -1078,7 +1077,7 @@ impl<T: Config> Module<T> {
         rotation_for_did: IdentityId,
         optional_cdd_auth_id: Option<u64>,
     ) -> DispatchResult {
-        // Aceept authorization from CDD service provider
+        // Accept authorization from CDD service provider
         if Self::cdd_auth_for_primary_key_rotation() {
             let auth_id = optional_cdd_auth_id
                 .ok_or_else(|| Error::<T>::InvalidAuthorizationFromCddProvider)?;
