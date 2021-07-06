@@ -15,7 +15,27 @@
 
 //! # Simple Relayer Module
 //!
-//! TODO: Add pallet description.
+//! The Simple Relayer module provides extrinsics for subsidising of
+//! both transaction fees as well as protocol fees.
+//!
+//! ## Overview
+//!
+//! The Simple Relayer module provides functions for:
+//!
+//! - Adding or removing a subsidiser for another user's key.
+//! - Managing how much POLYX can be used by a user key to pay
+//!   transaction/protocol fees.
+//!
+//! ## Interface
+//!
+//! ### Dispatchable Functions
+//!
+//! - `set_paying_key` - creates an authorization to allow a `user_key`
+//!   to accept a `paying_key` as their subsidiser.
+//! - `accept_paying_key` - accepts a `paying_key` authorization.
+//! - `remove_paying_key` - removes the `paying_key` from a `user_key`.
+//! - `update_polyx_limit` - updates the available POLYX for a `user_key`.
+//!
 //! TODO: Add more tests.
 //! TODO: Add support for `AuthorizationData::AddRelayerPayingKey` to `CddAndFeeDetails` in `pallets/runtime/*/src/fee_details.rs`
 
@@ -55,29 +75,76 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        /// Set paying key for `user_key`
-        /// TODO: Add docs.
+        /// Creates an authorization to allow a `user_key` to accept a `paying_key` as their subsidiser.
+        ///
+        /// # Arguments
+        /// - `user_key` the user key to subsidise.
+        ///
+        /// # Errors
+        /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
+        ///
+        /// # Permissions
+        /// * Relayer
         #[weight = <T as Config>::WeightInfo::set_paying_key()]
         pub fn set_paying_key(origin, user_key: T::AccountId) -> DispatchResult {
             Self::base_set_paying_key(origin, user_key)
         }
 
-        /// Accept paying key for `origin = user_key`
-        /// TODO: Add docs.
+        /// Accepts a `paying_key` authorization.
+        ///
+        /// # Arguments
+        /// - `auth_id` the authorization id to accept a `paying_key`.
+        ///
+        /// # Errors
+        /// - `AuthorizationError::Invalid` if `auth_id` does not exist for the given caller.
+        /// - `AuthorizationError::Expired` if `auth_id` the authorization has expired.
+        /// - `AuthorizationError::BadType` if `auth_id` was not a `AddRelayerPayingKey` authorization.
+        /// - `NotAuthorizedForUserKey` if `origin` is not authorized to accept the authorization for the `user_key`.
+        /// - `NotAuthorizedForPayingKey` if the authorization was created by a signer that isn't authorized by the `paying_key`.
+        /// - `AlreadyHasPayingKey` if the `user_key` already has a subsidising `paying_key`.
+        /// - `UserKeyCddMissing` if the `user_key` is not attached to a CDD'd identity.
+        /// - `PayingKeyCddMissing` if the `paying_key` is not attached to a CDD'd identity.
+        /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
+        ///
+        /// # Permissions
+        /// * Relayer
         #[weight = <T as Config>::WeightInfo::accept_paying_key()]
         pub fn accept_paying_key(origin, auth_id: u64) -> DispatchResult {
             Self::base_accept_paying_key(origin, auth_id)
         }
 
-        /// Remove paying key for `user_key`
-        /// TODO: Add docs.
+        /// Removes the `paying_key` from a `user_key`.
+        ///
+        /// # Arguments
+        /// - `user_key` the user key to remove the subsidy from.
+        /// - `paying_key` the paying key that was subsidising the `user_key`.
+        ///
+        /// # Errors
+        /// - `NotAuthorizedForUserKey` if `origin` is not authorized to remove the subsidy for the `user_key`.
+        /// - `NoPayingKey` if the `user_key` doesn't have a `paying_key`.
+        /// - `NotPayingKey` if the `paying_key` doesn't match the current `paying_key`.
+        /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
+        ///
+        /// # Permissions
+        /// * Relayer
         #[weight = <T as Config>::WeightInfo::remove_paying_key()]
         pub fn remove_paying_key(origin, user_key: T::AccountId, paying_key: T::AccountId) -> DispatchResult {
             Self::base_remove_paying_key(origin, user_key, paying_key)
         }
 
-        /// Update polyx limit/remaining balance for `user_key`
-        /// TODO: Add docs.
+        /// Updates the available POLYX for a `user_key`.
+        ///
+        /// # Arguments
+        /// - `user_key` the user key to remove the subsidy from.
+        /// - `polyx_limit` the amount of POLYX available for subsidising the `user_key`.
+        ///
+        /// # Errors
+        /// - `NoPayingKey` if the `user_key` doesn't have a `paying_key`.
+        /// - `NotPayingKey` if `origin` doesn't match the current `paying_key`.
+        /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
+        ///
+        /// # Permissions
+        /// * Relayer
         #[weight = <T as Config>::WeightInfo::update_polyx_limit()]
         pub fn update_polyx_limit(origin, user_key: T::AccountId, polyx_limit: T::Balance) -> DispatchResult {
             Self::base_update_polyx_limit(origin, user_key, polyx_limit)
@@ -229,6 +296,7 @@ impl<T: Config> Module<T> {
         auth_id
     }
 
+    /// Check if the `key` has a valid CDD.
     fn key_has_valid_cdd(key: &T::AccountId) -> bool {
         if let Some(did) = <Identity<T>>::get_identity(key) {
             <Identity<T>>::has_valid_cdd(did)
@@ -237,6 +305,7 @@ impl<T: Config> Module<T> {
         }
     }
 
+    /// Ensure that `paying_key` is the paying key for `user_key`.
     fn ensure_is_paying_key(user_key: &T::AccountId, paying_key: &T::AccountId) -> DispatchResult {
         // Check if the current paying key matches
         match <Subsidies<T>>::get(user_key) {
@@ -248,6 +317,7 @@ impl<T: Config> Module<T> {
         }
     }
 
+    /// Validate and accept a `paying_key` for the `user_key`.
     fn auth_accept_paying_key(
         signer: Signatory<T::AccountId>,
         from: IdentityId,
