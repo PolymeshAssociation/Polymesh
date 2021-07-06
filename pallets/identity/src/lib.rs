@@ -862,11 +862,13 @@ impl<T: Config> Module<T> {
         }
     }
 
+    /// Increase the usage counter for `key`.
     pub fn add_account_key_usage(key: &T::AccountId) {
         // Decrease account key usage
         <AccountKeyUsage<T>>::mutate(key, |n| *n = n.saturating_add(1_u64));
     }
 
+    /// Decrease the usage counter for `key`.
     pub fn remove_account_key_usage(key: &T::AccountId) {
         // Decrease account key usage
         <AccountKeyUsage<T>>::mutate(key, |n| *n = n.saturating_sub(1_u64));
