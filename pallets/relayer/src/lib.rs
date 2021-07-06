@@ -37,7 +37,6 @@
 //! - `update_polyx_limit` - updates the available POLYX for a `user_key`.
 //!
 //! TODO: Add more tests.
-//! TODO: Add support for `AuthorizationData::AddRelayerPayingKey` to `CddAndFeeDetails` in `pallets/runtime/*/src/fee_details.rs`
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -187,7 +186,9 @@ impl<T: Config> Module<T> {
 
     fn base_accept_paying_key(origin: T::Origin, auth_id: u64) -> DispatchResult {
         let PermissionedCallOriginData {
-            sender: user_key, ..
+            sender: user_key,
+            primary_did: sender_did,
+            ..
         } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
         let signer = Signatory::Account(user_key);
 
@@ -198,10 +199,18 @@ impl<T: Config> Module<T> {
             Self::auth_accept_paying_key(
                 signer.clone(),
                 auth_by,
+                user_key.clone(),
+                paying_key.clone(),
+                polyx_limit.into(),
+            )?;
+
+            Self::deposit_event(RawEvent::AcceptedPayingKey(
+                sender_did.for_event(),
                 user_key,
                 paying_key,
-                polyx_limit.into(),
-            )
+            ));
+
+            Ok(())
         })
     }
 
@@ -236,6 +245,11 @@ impl<T: Config> Module<T> {
         // Remove paying key for user key.
         <Subsidies<T>>::remove(&user_key);
 
+        Self::deposit_event(RawEvent::RemovedPayingKey(
+            sender_did.for_event(),
+            user_key,
+            paying_key,
+        ));
         Ok(())
     }
 
@@ -260,7 +274,7 @@ impl<T: Config> Module<T> {
             }
         });
 
-        Self::deposit_event(RawEvent::UpdatePolyxLimit(
+        Self::deposit_event(RawEvent::UpdatedPolyxLimit(
             paying_did.for_event(),
             user_key,
             paying_key,
@@ -286,7 +300,7 @@ impl<T: Config> Module<T> {
             ),
             None,
         );
-        Self::deposit_event(RawEvent::PayingKeyAuthorized(
+        Self::deposit_event(RawEvent::AuthorizedPayingKey(
             from.for_event(),
             user_key,
             paying_key,

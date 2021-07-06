@@ -24,21 +24,21 @@ decl_event! {
         /// Authorization given for `paying_key` to `user_key`.
         ///
         /// (Caller DID, User Key, Paying Key, Initial POLYX limit, Auth ID)
-        PayingKeyAuthorized(EventDid, AccountId, AccountId, Balance, u64),
+        AuthorizedPayingKey(EventDid, AccountId, AccountId, Balance, u64),
 
         /// Accepted paying key.
         ///
         /// (Caller DID, User Key, Paying Key)
         AcceptedPayingKey(EventDid, AccountId, AccountId),
 
-        /// Remove paying key.
+        /// Removed paying key.
         ///
         /// (Caller DID, User Key, Paying Key)
         RemovedPayingKey(EventDid, AccountId, AccountId),
 
-        /// Update polyx limit
+        /// Updated polyx limit
         ///
         /// (Caller DID, User Key, Paying Key, POLYX limit)
-        UpdatePolyxLimit(EventDid, AccountId, AccountId, Balance),
+        UpdatedPolyxLimit(EventDid, AccountId, AccountId, Balance),
     }
 }
