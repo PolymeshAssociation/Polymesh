@@ -113,10 +113,7 @@ fn do_relayer_accept_cdd_and_fees_test() {
     let bob_sign = Signatory::Account(bob.acc());
 
     // Alice creates authoration to subsidise for Bob.
-    assert_ok!(Relayer::set_paying_key(
-        alice.origin(),
-        bob.acc()
-    ));
+    assert_ok!(Relayer::set_paying_key(alice.origin(), bob.acc()));
     let bob_auth_id = get_last_auth_id(&bob_sign);
 
     // Check that Bob can accept the subsidy with Alice paying for the transaction.
