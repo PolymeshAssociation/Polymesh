@@ -247,7 +247,7 @@ Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
 
 # Substrate Framework
 
-Polymesh is built on [Substrate](https://www.parity.io/what-is-substrate/).
+Polymesh is built using the [Substrate Framework](https://www.parity.io/what-is-substrate/).
 
 # Polymath
 
