@@ -175,7 +175,7 @@ node run test
 
 See [README](https://github.com/PolymathNetwork/Polymesh/tree/develop/scripts/cli) for details.
 
-# Benchmark
+# Benchmarks
 
 Polymesh runtime benchmarks can be run with a command that specifies the pallet and the name of the
 extrinsic to be benchmarked, for example:
