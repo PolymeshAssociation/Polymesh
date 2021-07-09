@@ -43,13 +43,14 @@ use pallet_staking::{self as staking, RewardDestination};
 use polymesh_common_utilities::{
     constants::{currency::POLY, REWARDS_MODULE_ID},
     traits::{identity::Config as IdentityConfig, CommonConfig},
+    with_transaction,
 };
-use polymesh_primitives::EventDid;
 use sp_runtime::{
     traits::{AccountIdConversion, StaticLookup, Verify},
     DispatchError,
 };
 use sp_std::convert::TryInto;
+use polymesh_primitives::IdentityId;
 
 type Identity<T> = identity::Module<T>;
 type Staking<T> = staking::Module<T>;
@@ -114,38 +115,46 @@ decl_module! {
         #[weight = (0, DispatchClass::Operational, Pays::No)]
         pub fn claim_itn_reaward(origin, itn_address: T::AccountId, signiture: T::OffChainSignature) -> DispatchResult {
             let PermissionedCallOriginData{ sender, primary_did, .. } = <Identity<T>>::ensure_origin_call_permissions(origin.clone())?;
-            match <ItnRewards<T>>::get(&itn_address) {
-                // Unclaimed. Attempt to claim.
-                Some(ItnRewardStatus::UnClaimed(amount)) => {
-                    // `amount` and `bonded_amount` are equal in value but different types.
-                    // `deposit_amount` is 1 POLY more because we bond `bonded_amount`, we don't want all the users poly bonded.
-                    let (bonded_amount, deposit_amount) = Self::convert_balance(amount)?;
-                    ensure!(
-                        Self::balance() >= deposit_amount,
-                        Error::<T>::InsufficientBalance
-                    );
-                    ensure!(
-                        signiture.verify((sender.clone(), itn_address.clone(), amount).encode().as_slice(), &itn_address),
-                        Error::<T>::InvalidSignature
-                    );
-                    let _ = T::Currency::withdraw(
-                        &Self::account_id(),
-                        deposit_amount,
-                        WithdrawReasons::TRANSFER,
-                        ExistenceRequirement::AllowDeath,
-                    );
-                    let _ = T::Currency::deposit_into_existing(&sender, deposit_amount);
-                    <ItnRewards<T>>::insert(&itn_address, ItnRewardStatus::Claimed);
-                    //TODO(Connor): Handle bond failure.
-                    let _ = <Staking<T>>::bond(origin, T::Lookup::unlookup(sender), bonded_amount, RewardDestination::Staked);
-                    Self::deposit_event(Event::ItnRwardClaimed(primary_did.into(), amount))
-                    Ok(())
-                },
-                // Already Claimed.
-                Some(ItnRewardStatus::Claimed) => Err(Error::<T>::ItnRewardAlreadyClaimed.into()),
-                // Unknown Address.
-                None => Err(Error::<T>::UnknownItnAddress.into()),
-            }
+            <ItnRewards<T>>::try_mutate(&itn_address, |reward| {
+                match reward{
+                    // Unclaimed. Attempt to claim.
+                    Some(ItnRewardStatus::UnClaimed(amount)) => {
+                        let amount = *amount;
+                        // `amount` and `bonded_amount` are equal in value but different types.
+                        // `deposit_amount` is 1 POLY more because we bond `bonded_amount`, we don't want all the users poly bonded.
+                        let (bonded_amount, deposit_amount) = Self::convert_balance(amount)?;
+                        ensure!(
+                            Self::balance() >= deposit_amount,
+                            Error::<T>::InsufficientBalance
+                        );
+                        ensure!(
+                            signiture.verify((sender.clone(), itn_address.clone(), amount).encode().as_slice(), &itn_address),
+                            Error::<T>::InvalidSignature
+                        );
+                        with_transaction(|| {
+                           let _ = T::Currency::withdraw(
+                                &Self::account_id(),
+                                deposit_amount,
+                                WithdrawReasons::TRANSFER,
+                                ExistenceRequirement::AllowDeath,
+                            );
+                            let _ = T::Currency::deposit_into_existing(&sender, deposit_amount);
+                            if <Staking<T>>::bonded(&sender).is_some() {
+                                <Staking<T>>::bond_extra(origin, bonded_amount)?;
+                            } else {
+                                <Staking<T>>::bond(origin, T::Lookup::unlookup(sender), bonded_amount, RewardDestination::Staked)?;
+                            }
+                            *reward = Some(ItnRewardStatus::Claimed);
+                            Self::deposit_event(Event::<T>::ItnRwardClaimed(primary_did, amount));
+                            Ok(())
+                        })
+                    },
+                    // Already Claimed.
+                    Some(ItnRewardStatus::Claimed) => Err(Error::<T>::ItnRewardAlreadyClaimed.into()),
+                    // Unknown Address.
+                    None => Err(Error::<T>::UnknownItnAddress.into()),
+                }
+            })
         }
     }
 }
@@ -156,7 +165,7 @@ decl_event! {
         Balance = <T as CommonConfig>::Balance,
     {
         /// Itn reward was claimed.
-        ItnRwardClaimed(EventDid, Balance),
+        ItnRwardClaimed(IdentityId, Balance),
     }
 }
 
