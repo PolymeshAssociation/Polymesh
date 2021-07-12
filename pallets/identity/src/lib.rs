@@ -405,27 +405,21 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::join_identity_as_key()]
         pub fn join_identity_as_key(origin, auth_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            let signer = Signatory::Account(sender);
-            Self::join_identity(signer, auth_id)
+            Self::join_identity(Signatory::Account(sender), auth_id)
         }
 
         /// Join an identity as a secondary identity.
         #[weight = <T as Config>::WeightInfo::join_identity_as_identity()]
         pub fn join_identity_as_identity(origin, auth_id: u64) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let sender_did = Context::current_identity_or::<Self>(&sender)?;
+            let sender_did = Self::ensure_perms(origin)?;
             Self::join_identity(Signatory::from(sender_did), auth_id)
         }
 
         /// Leave the secondary key's identity.
         #[weight = <T as Config>::WeightInfo::leave_identity_as_key()]
         pub fn leave_identity_as_key(origin) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let _ = CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            if let Some(did) = Self::get_identity(&sender) {
-                return Self::leave_identity(Signatory::Account(sender), did);
-            }
-            Ok(())
+            let data = Self::ensure_origin_call_permissions(origin)?;
+            Self::leave_identity(Signatory::Account(data.sender), data.primary_did)
         }
 
         /// Leave an identity as a secondary identity.
@@ -858,10 +852,7 @@ impl<T: Config> Module<T> {
             // Link the secondary key.
             match &signer {
                 Signatory::Account(key) => {
-                    ensure!(
-                        Self::can_link_account_key_to_did(key),
-                        Error::<T>::AlreadyLinked
-                    );
+                    Self::ensure_key_did_unlinked(key)?;
                     // Check that the new Identity has a valid CDD claim.
                     ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
                     // Charge the protocol fee after all checks.
@@ -887,6 +878,15 @@ impl<T: Config> Module<T> {
             Self::unsafe_join_identity(target_did, permissions, &signer);
             Ok(())
         })
+    }
+
+    /// Ensure `key` isn't linked to a DID.
+    pub fn ensure_key_did_unlinked(key: &T::AccountId) -> DispatchResult {
+        ensure!(
+            Self::can_link_account_key_to_did(key),
+            Error::<T>::AlreadyLinked
+        );
+        Ok(())
     }
 
     /// Joins an identity as signer
@@ -1055,10 +1055,7 @@ impl<T: Config> Module<T> {
             })?;
         }
 
-        ensure!(
-            Self::can_link_account_key_to_did(&sender),
-            Error::<T>::AlreadyLinked,
-        );
+        Self::ensure_key_did_unlinked(&sender)?;
 
         // Replace primary key of the owner that initiated key rotation
         let old_primary_key = Self::did_records(&rotation_for_did).primary_key;
@@ -1321,10 +1318,9 @@ impl<T: Config> Module<T> {
     /// # Errors
     /// Only primary key can freeze/unfreeze an identity.
     fn set_frozen_secondary_key_flags(origin: T::Origin, freeze: bool) -> DispatchResult {
-        let sender = ensure_signed(origin)?;
-        CallPermissions::<T>::ensure_call_permissions(&sender)?;
-        let did = Context::current_identity_or::<Self>(&sender)?;
-        let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
+        let data = Self::ensure_origin_call_permissions(origin)?;
+        let did = data.primary_did;
+        let _ = Self::grant_check_only_primary_key(&data.sender, did)?;
 
         let event = if freeze {
             IsDidFrozen::insert(&did, true);
@@ -1337,16 +1333,16 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Checks that a primary key is not linked to any identity or multisig.
+    /// Checks that a key is not linked to any identity or multisig.
     pub fn can_link_account_key_to_did(key: &T::AccountId) -> bool {
         !<KeyToIdentityIds<T>>::contains_key(key) && !T::MultiSig::is_signer(key)
     }
 
     /// Links a primary or secondary `AccountId` key `key` to an identity `did`.
     ///
-    /// This function applies the change if `can_link_account_key_to_did` returns `true`. Otherwise,
-    /// it does nothing.
-    fn link_account_key_to_did(key: &T::AccountId, did: IdentityId) {
+    /// This function applies the change if `can_link_account_key_to_did` returns `true`.
+    /// Otherwise, it does nothing.
+    pub fn link_account_key_to_did(key: &T::AccountId, did: IdentityId) {
         if !<KeyToIdentityIds<T>>::contains_key(key) {
             // `key` is not yet linked to any identity, so no constraints.
             <KeyToIdentityIds<T>>::insert(key, did);
@@ -1384,10 +1380,7 @@ impl<T: Config> Module<T> {
 
         // 1 Check constraints.
         // Primary key is not linked to any identity.
-        ensure!(
-            Self::can_link_account_key_to_did(&sender),
-            Error::<T>::AlreadyLinked
-        );
+        Self::ensure_key_did_unlinked(&sender)?;
         // Primary key is not part of secondary keys.
         ensure!(
             !secondary_keys
@@ -1406,10 +1399,7 @@ impl<T: Config> Module<T> {
         // Secondary keys can be linked to the new identity.
         for sk in &secondary_keys {
             if let Signatory::Account(ref key) = sk.signer {
-                ensure!(
-                    Self::can_link_account_key_to_did(key),
-                    Error::<T>::AlreadyLinked
-                );
+                Self::ensure_key_did_unlinked(key)?;
             }
         }
 

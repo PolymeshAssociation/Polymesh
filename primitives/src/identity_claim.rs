@@ -133,18 +133,18 @@ impl Claim {
     /// The scope of this claim.
     pub fn as_scope(&self) -> Option<&Scope> {
         match self {
-            Claim::Accredited(ref scope) => Some(scope),
-            Claim::Affiliate(ref scope) => Some(scope),
-            Claim::BuyLockup(ref scope) => Some(scope),
-            Claim::SellLockup(ref scope) => Some(scope),
-            Claim::CustomerDueDiligence(..) => None,
-            Claim::KnowYourCustomer(ref scope) => Some(scope),
-            Claim::Jurisdiction(.., ref scope) => Some(scope),
-            Claim::Exempted(ref scope) => Some(scope),
-            Claim::Blocked(ref scope) => Some(scope),
-            Claim::InvestorUniqueness(ref ticker_scope, ..) => Some(ticker_scope),
-            Claim::InvestorUniquenessV2(..) => None,
-            Claim::NoData => None,
+            Claim::Accredited(scope)
+            | Claim::Affiliate(scope)
+            | Claim::BuyLockup(scope)
+            | Claim::SellLockup(scope)
+            | Claim::KnowYourCustomer(scope)
+            | Claim::Jurisdiction(.., scope)
+            | Claim::Exempted(scope)
+            | Claim::Blocked(scope)
+            | Claim::InvestorUniqueness(scope, ..) => Some(scope),
+            Claim::CustomerDueDiligence(..) | Claim::InvestorUniquenessV2(..) | Claim::NoData => {
+                None
+            }
         }
     }
 
