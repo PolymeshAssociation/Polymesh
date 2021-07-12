@@ -102,7 +102,6 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     //traits::contracts::ContractsFn,
     with_transaction,
-    Context,
     SystematicIssuers,
 };
 use polymesh_primitives::{
@@ -533,27 +532,22 @@ decl_module! {
             Self::base_rename_asset(origin, ticker, name)
         }
 
-        /// Function is used to issue(or mint) new tokens to the primary issuance agent.
-        /// It can be executed by the token owner or the PIA.
+        /// Issue, or mint, new tokens to the caller,
+        /// which must be an authorized agent, e.g., a primary issuance agent.
         ///
         /// # Arguments
-        /// * `origin` Secondary key of token owner.
-        /// * `ticker` Ticker of the token.
-        /// * `value` Amount of tokens that get issued.
+        /// * `origin` must be the secondary key of token owner.
+        /// * `ticker` of the token.
+        /// * `amount` of tokens that get issued.
         ///
         /// # Permissions
         /// * Asset
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::issue()]
-        pub fn issue(origin, ticker: Ticker, value: T::Balance) -> DispatchResult {
+        pub fn issue(origin, ticker: Ticker, amount: T::Balance) -> DispatchResult {
             // Ensure origin is agent with custody and permissions for default portfolio.
-            let PermissionedCallOriginData {
-                sender,
-                primary_did,
-                ..
-            } = Self::ensure_agent_with_custody_and_perms(origin, ticker)?;
-
-            Self::_mint(&ticker, sender, primary_did, value, Some(ProtocolOp::AssetIssue))
+            let did = Self::ensure_agent_with_custody_and_perms(origin, ticker)?;
+            Self::_mint(&ticker, did, amount, Some(ProtocolOp::AssetIssue))
         }
 
         /// Redeems existing tokens by reducing the balance of the PIA's default portfolio and the total supply of the token
@@ -1007,14 +1001,14 @@ impl<T: Config> Module<T> {
     fn ensure_agent_with_custody_and_perms(
         origin: T::Origin,
         ticker: Ticker,
-    ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
+    ) -> Result<IdentityId, DispatchError> {
         let data = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ticker)?;
 
         // Ensure the PIA has not assigned custody of their default portfolio and that caller is permissioned.
         let portfolio = PortfolioId::default_portfolio(data.primary_did);
         let skey = data.secondary_key.as_ref();
         Portfolio::<T>::ensure_portfolio_custody_and_permission(portfolio, data.primary_did, skey)?;
-        Ok(data)
+        Ok(data.primary_did)
     }
 
     /// Ensure that `did` is the owner of `ticker`.
@@ -1313,9 +1307,8 @@ impl<T: Config> Module<T> {
         <BalanceOfAtScope<T>>::insert(scope_id, did, updated_balance);
     }
 
-    pub fn _mint(
+    fn _mint(
         ticker: &Ticker,
-        caller: T::AccountId,
         to_did: IdentityId,
         value: T::Balance,
         protocol_fee_data: Option<ProtocolOp>,
@@ -1341,8 +1334,6 @@ impl<T: Config> Module<T> {
             PortfolioId::default_portfolio(to_did),
             ticker,
         ) + value;
-
-        let caller_did = Context::current_identity_or::<Identity<T>>(&caller)?;
 
         // In transaction because we don't want fee to be charged if advancing fails.
         with_transaction(|| {
@@ -1379,15 +1370,15 @@ impl<T: Config> Module<T> {
         let issued_in_this_round = Self::issued_in_funding_round(&ticker_round) + value;
         <IssuedInFundingRound<T>>::insert(&ticker_round, issued_in_this_round);
 
-        Self::deposit_event(RawEvent::Transfer(
-            caller_did,
+        Self::deposit_event(Event::<T>::Transfer(
+            to_did,
             *ticker,
             PortfolioId::default(),
             PortfolioId::default_portfolio(to_did),
             value,
         ));
-        Self::deposit_event(RawEvent::Issued(
-            caller_did,
+        Self::deposit_event(Event::<T>::Issued(
+            to_did,
             *ticker,
             to_did,
             value,
@@ -1614,7 +1605,7 @@ impl<T: Config> Module<T> {
         funding_round: Option<FundingRoundName>,
     ) -> DispatchResult {
         with_transaction(|| {
-            let (sender, did) = Self::base_create_asset(
+            let did = Self::base_create_asset(
                 origin,
                 name,
                 ticker,
@@ -1626,7 +1617,7 @@ impl<T: Config> Module<T> {
 
             // Mint total supply to PIA
             if total_supply > Zero::zero() {
-                Self::_mint(&ticker, sender, did, total_supply, None)?
+                Self::_mint(&ticker, did, total_supply, None)?
             }
             Ok(())
         })
@@ -1640,7 +1631,7 @@ impl<T: Config> Module<T> {
         asset_type: AssetType,
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
-    ) -> Result<(T::AccountId, IdentityId), DispatchError> {
+    ) -> Result<IdentityId, DispatchError> {
         ensure!(
             name.len() as u32 <= T::AssetNameMaxLength::get(),
             Error::<T>::MaxLengthOfAssetNameExceeded
@@ -1658,9 +1649,9 @@ impl<T: Config> Module<T> {
         Self::ensure_asset_idents_valid(&identifiers)?;
 
         let PermissionedCallOriginData {
-            sender,
             primary_did: did,
             secondary_key,
+            ..
         } = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
         Self::ensure_create_asset_parameters(&ticker)?;
@@ -1750,7 +1741,7 @@ impl<T: Config> Module<T> {
         // Grant owner full agent permissions.
         <ExternalAgents<T>>::unchecked_add_agent(ticker, did, AgentGroup::Full).unwrap();
 
-        Ok((sender, did))
+        Ok(did)
     }
 
     fn set_freeze(origin: T::Origin, ticker: Ticker, freeze: bool) -> DispatchResult {
@@ -1788,7 +1779,7 @@ impl<T: Config> Module<T> {
 
     fn base_redeem(origin: T::Origin, ticker: Ticker, value: T::Balance) -> DispatchResult {
         // Ensure origin is agent with custody and permissions for default portfolio.
-        let pia = Self::ensure_agent_with_custody_and_perms(origin, ticker)?.primary_did;
+        let pia = Self::ensure_agent_with_custody_and_perms(origin, ticker)?;
 
         Self::ensure_granular(&ticker, value)?;
 
@@ -2092,7 +2083,7 @@ impl<T: Config> Module<T> {
         from_portfolio: PortfolioId,
     ) -> DispatchResult {
         // Ensure `origin` has perms.
-        let pia = Self::ensure_agent_with_custody_and_perms(origin, ticker)?.primary_did;
+        let pia = Self::ensure_agent_with_custody_and_perms(origin, ticker)?;
         let to_portfolio = PortfolioId::default_portfolio(pia);
 
         // Transfer `value` of ticker tokens from `investor_did` to controller

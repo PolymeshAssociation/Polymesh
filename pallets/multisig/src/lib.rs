@@ -527,21 +527,23 @@ decl_module! {
         /// multisig.
         ///
         /// # Arguments
-        /// * `multi_sig` - multi sig address
+        /// * `multisig` - multi sig address
         #[weight = <T as Config>::WeightInfo::make_multisig_signer()]
         pub fn make_multisig_signer(origin, multisig: T::AccountId) {
-            let sender = ensure_signed(origin)?;
+            let did = <Identity<T>>::ensure_perms(origin)?;
             Self::ensure_ms(&multisig)?;
-            let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            Self::verify_sender_is_creator(sender_did, &multisig)?;
+            Self::verify_sender_is_creator(did, &multisig)?;
+            <Identity<T>>::ensure_key_did_unlinked(&multisig)?;
+
+            <Identity<T>>::link_account_key_to_did(&multisig, did);
             <Identity<T>>::unsafe_join_identity(
-                sender_did,
+                did,
                 Permissions::from_pallet_permissions(
                     // TODO: Check if there is a variable for the pallet name and, if there is, use
                     // it instead of b"_".
                     iter::once(PalletPermissions::entire_pallet(b"multisig".as_ref().into()))
                 ),
-                &Signatory::Account(multisig)
+                &Signatory::Account(multisig),
             );
         }
 
@@ -552,14 +554,11 @@ decl_module! {
         /// * `multi_sig` - multi sig address
         #[weight = <T as Config>::WeightInfo::make_multisig_primary()]
         pub fn make_multisig_primary(origin, multisig: T::AccountId, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
+            let did = Self::ensure_ms_creator(origin, &multisig)?;
             Self::ensure_ms(&multisig)?;
-            let sender_did = Context::current_identity_or::<Identity<T>>(&sender)?;
-            Self::verify_sender_is_creator(sender_did, &multisig)?;
-            Self::ensure_primary_key(&sender_did, &sender)?;
             <Identity<T>>::unsafe_primary_key_rotation(
                 multisig,
-                sender_did,
+                did,
                 optional_cdd_auth_id
             )
         }
