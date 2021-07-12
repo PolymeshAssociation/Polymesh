@@ -1920,14 +1920,12 @@ fn dist_reclaim_works() {
             5,
             Some(6)
         ));
-        assert_ok!(transfer_caa(ticker, other, owner));
 
         // Not expired yet.
         Timestamp::set_timestamp(5);
         assert_noop!(reclaim(id, other), DistError::NotExpired);
 
         // Test successful behavior.
-        assert_ok!(transfer_caa(ticker, owner, other));
         Timestamp::set_timestamp(6);
         let pid = PortfolioId::default_portfolio(other.did);
 

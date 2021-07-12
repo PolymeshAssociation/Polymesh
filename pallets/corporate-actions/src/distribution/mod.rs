@@ -342,19 +342,20 @@ decl_module! {
         ///
         /// # Errors
         /// - `NoSuchDistribution` if there's no capital distribution for `ca_id`.
-        /// - `NotDistributionCreator` if `origin` is not the original creator of the distribution.
         /// - `AlreadyReclaimed` if this function has already been called successfully.
         /// - `NotExpired` if `now < expiry`.
         #[weight = <T as Config>::DistWeightInfo::reclaim()]
         pub fn reclaim(origin, ca_id: CAId) {
-            let dist = Self::ensure_distribution_exists(ca_id)?;
-            ensure!(!dist.reclaimed, Error::<T>::AlreadyReclaimed);
-            ensure!(expired(dist.expires_at, <Checkpoint<T>>::now_unix()), Error::<T>::NotExpired);
+            // Ensure distribution is created, they haven't reclaimed, and that expiry has passed.
+            // CA must be authorized and be the custodian.
             let PermissionedCallOriginData {
                 primary_did: caa,
                 secondary_key,
                 ..
             } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin.clone(), ca_id.ticker)?;
+            let dist = Self::ensure_distribution_exists(ca_id)?;
+            ensure!(!dist.reclaimed, Error::<T>::AlreadyReclaimed);
+            ensure!(expired(dist.expires_at, <Checkpoint<T>>::now_unix()), Error::<T>::NotExpired);
             <Portfolio<T>>::ensure_portfolio_custody_and_permission(dist.from, caa, secondary_key.as_ref())?;
 
             // Unlock `remaining` of `currency` from DID's portfolio.
