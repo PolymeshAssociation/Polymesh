@@ -1,12 +1,21 @@
 use crate::{traits::identity, CommonConfig};
-use frame_support::{decl_event, weights::Weight};
 use polymesh_primitives::{Balance, EventDid};
+
+use frame_support::{decl_event, weights::Weight};
+use sp_runtime::transaction_validity::InvalidTransaction;
 
 pub trait WeightInfo {
     fn set_paying_key() -> Weight;
     fn accept_paying_key() -> Weight;
     fn remove_paying_key() -> Weight;
     fn update_polyx_limit() -> Weight;
+}
+
+pub trait SubsidiserTrait<AccountId, Balance> {
+    /// Check if a key has a subsidiser and that the subsidy can pay the fee.
+    fn get_subsidy(key: &AccountId, fee: Balance) -> Result<Option<AccountId>, InvalidTransaction>;
+    /// Update the remaing balance of the subsidy for key.
+    fn update_subsidy(key: &AccountId, fee: Balance);
 }
 
 pub trait Config: CommonConfig + identity::Config {

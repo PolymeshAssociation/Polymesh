@@ -124,6 +124,7 @@ macro_rules! misc_pallet_impls {
             type WeightToFee = polymesh_runtime_common::WeightToFee;
             type FeeMultiplierUpdate = ();
             type CddHandler = CddHandler;
+            type Subsidiser = Relayer;
             type GovernanceCommittee = PolymeshCommittee;
             type CddProviders = CddServiceProviders;
             type Identity = Identity;

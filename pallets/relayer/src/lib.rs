@@ -50,9 +50,12 @@ use frame_support::{
     ensure, fail,
 };
 use frame_system::ensure_signed;
+use sp_runtime::{traits::Saturating, transaction_validity::InvalidTransaction};
 
 use pallet_identity::{self as identity, PermissionedCallOriginData};
-pub use polymesh_common_utilities::traits::relayer::{Config, Event, RawEvent, WeightInfo};
+pub use polymesh_common_utilities::traits::relayer::{
+    Config, Event, RawEvent, SubsidiserTrait, WeightInfo,
+};
 use polymesh_primitives::{extract_auth, AuthorizationData, IdentityId, Signatory};
 
 type Identity<T> = identity::Module<T>;
@@ -154,7 +157,6 @@ decl_module! {
         pub fn update_polyx_limit(origin, user_key: T::AccountId, polyx_limit: T::Balance) -> DispatchResult {
             Self::base_update_polyx_limit(origin, user_key, polyx_limit)
         }
-
     }
 }
 
@@ -384,5 +386,32 @@ impl<T: Config> Module<T> {
         );
 
         Ok(())
+    }
+}
+
+impl<T: Config> SubsidiserTrait<T::AccountId, T::Balance> for Module<T> {
+    fn get_subsidy(
+        key: &T::AccountId,
+        fee: T::Balance,
+    ) -> Result<Option<T::AccountId>, InvalidTransaction> {
+        // Check if the current paying key matches
+        match <Subsidies<T>>::get(key) {
+            // There was no subsidy.
+            None => Ok(None),
+            // Has subsidy, but not enough remaining POLYX.
+            // TODO: Should we fail here or allow falling back to the user key paying?
+            Some(s) if s.remaining < fee => fail!(InvalidTransaction::Payment),
+            // Has subsidy and enough POLYX.
+            Some(s) => Ok(Some(s.paying_key)),
+        }
+    }
+
+    fn update_subsidy(key: &T::AccountId, fee: T::Balance) {
+        // Substract the fee from the remaining POLYX of subsidy.
+        <Subsidies<T>>::mutate(key, |subsidy| {
+            if let Some(subsidy) = subsidy {
+                subsidy.remaining = subsidy.remaining.saturating_sub(fee);
+            }
+        });
     }
 }

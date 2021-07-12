@@ -64,6 +64,7 @@ use frame_support::{
 use polymesh_common_utilities::traits::{
     group::GroupTrait,
     identity::IdentityFnTrait,
+    relayer::SubsidiserTrait,
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
 };
 use polymesh_primitives::TransactionError;
@@ -277,6 +278,9 @@ pub trait Config: frame_system::Config + pallet_timestamp::Config {
     // Polymesh note: This was specifically added for Polymesh
     /// Fetch the signatory to charge fee from. Also sets fee payer and identity in context.
     type CddHandler: CddAndFeeDetails<Self::AccountId, Self::Call>;
+
+    /// Subsidiser.
+    type Subsidiser: SubsidiserTrait<Self::AccountId, BalanceOf<Self>>;
 
     /// CDD providers group.
     type CddProviders: GroupTrait<Self::Moment>;
@@ -545,6 +549,7 @@ where
         (
             BalanceOf<T>,
             <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
+            Option<T::AccountId>,
         ),
         TransactionValidityError,
     > {
@@ -554,18 +559,24 @@ where
         // Only mess with balances if fee is not zero.
         if fee.is_zero() {
             let liquidity_info = Default::default();
-            return Ok((fee, liquidity_info));
+            return Ok((fee, liquidity_info, None));
         }
 
+        // Get the payer for this transaction.
         let payer_key =
             T::CddHandler::get_valid_payer(call, &who)?.ok_or(InvalidTransaction::Payment)?;
 
+        // Check if the payer is being subsidised.
+        let subsidiser = T::Subsidiser::get_subsidy(&payer_key, fee)?;
+
+        // key to pay the fee.
+        let fee_key = subsidiser.as_ref().unwrap_or(&payer_key);
         let liquidity_info =
             <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee_with_call(
-                &payer_key, call, info, fee, tip,
+                fee_key, call, info, fee, tip,
             )?;
         T::CddHandler::set_payer_context(Some(payer_key));
-        Ok((fee, liquidity_info))
+        Ok((fee, liquidity_info, subsidiser))
     }
 
     /// Returns `true` iff `who` is member of `T::GovernanceCommittee` or `T::CddProviders`.
@@ -627,6 +638,8 @@ where
         Self::AccountId,
         // imbalance resulting from withdrawing the fee
         <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
+        // Subsidiser
+        Option<Self::AccountId>,
     );
     fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
         Ok(())
@@ -642,7 +655,7 @@ where
     ) -> TransactionValidity {
         let tip = self.ensure_valid_tip(who, info)?;
 
-        let (_fee, _) = self.withdraw_fee(who, call, info, len)?;
+        let (_fee, _, _) = self.withdraw_fee(who, call, info, len)?;
         // NOTE: The priority of TX is just its `tip`, to ensure that operational one can be
         // priorized and normal TX will follow the FIFO (defined by its `insertion_id`).
         Ok(ValidTransaction {
@@ -659,8 +672,8 @@ where
         len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
         let tip = self.ensure_valid_tip(who, info)?;
-        let (_fee, imbalance) = self.withdraw_fee(who, call, info, len)?;
-        Ok((tip, who.clone(), imbalance))
+        let (_fee, imbalance, subsidiser) = self.withdraw_fee(who, call, info, len)?;
+        Ok((tip, who.clone(), imbalance, subsidiser))
     }
 
     fn post_dispatch(
@@ -670,15 +683,25 @@ where
         len: usize,
         _result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
-        let (tip, who, imbalance) = pre;
+        let (tip, who, imbalance, subsidiser) = pre;
         let actual_fee = Module::<T>::compute_actual_fee(len as u32, info, post_info, tip);
 
         // Fee returned to original payer.
         // If payer context is empty, the fee is returned to the caller account.
         let payer = T::CddHandler::get_payer_from_context().unwrap_or(who);
 
+        // `fee_key` is either a subsidiser or the original payer.
+        let fee_key = if let Some(subsidiser_key) = subsidiser {
+            // Update subsidy with actual fee.
+            T::Subsidiser::update_subsidy(&payer, actual_fee);
+            subsidiser_key
+        } else {
+            // No subsidy.
+            payer
+        };
+
         T::OnChargeTransaction::correct_and_deposit_fee(
-            &payer, info, post_info, actual_fee, tip, imbalance,
+            &fee_key, info, post_info, actual_fee, tip, imbalance,
         )?;
 
         // It clears the identity and payer in the context after transaction.

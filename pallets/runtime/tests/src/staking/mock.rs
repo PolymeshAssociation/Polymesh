@@ -43,6 +43,7 @@ use polymesh_common_utilities::{
         group::{GroupTrait, InactiveMember},
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
+        relayer::SubsidiserTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
         CommonConfig,
     },
@@ -377,6 +378,14 @@ impl CddAndFeeDetails<AccountId, Call> for Test {
         None
     }
     fn set_current_identity(_: &IdentityId) {}
+}
+
+impl SubsidiserTrait<AccountId, Balance> for Test {
+    fn get_subsidy(_: &AccountId, _: Balance) -> Result<Option<AccountId>, InvalidTransaction> {
+        Ok(None)
+    }
+    fn update_subsidy(_: &AccountId, _: Balance) {
+    }
 }
 
 impl ChargeTxFee for Test {
