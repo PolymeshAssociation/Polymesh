@@ -1009,9 +1009,6 @@ impl<T: Config> Module<T> {
 
     /// Accepts an authorization `auth_id` as `target`,
     /// executing `accepter` for case-specific additional validation and storage changes.
-    ///
-    /// Used when encoding one-off authorization-accepting extrinsics,
-    /// as opposed to `accept_authorization`.
     pub fn accept_auth_with(
         target: &Signatory<T::AccountId>,
         auth_id: u64,
