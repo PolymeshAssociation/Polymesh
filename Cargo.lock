@@ -4816,6 +4816,7 @@ dependencies = [
  "pallet-committee",
  "pallet-group",
  "pallet-identity",
+ "pallet-permissions",
  "pallet-timestamp",
  "pallet-treasury 0.1.0",
  "parity-scale-codec 2.1.3",

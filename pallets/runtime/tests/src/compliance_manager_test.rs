@@ -1,8 +1,8 @@
 use super::{
-    asset_test::create_token,
+    asset_test::{allow_all_transfers, create_token},
     storage::{
-        create_cdd_id, create_investor_uid, provide_scope_claim_to_multiple_parties, TestStorage,
-        User,
+        create_cdd_id, create_investor_uid, provide_scope_claim_to_multiple_parties, set_curr_did,
+        TestStorage, User,
     },
     ExtBuilder,
 };
@@ -15,7 +15,6 @@ use pallet_identity as identity;
 use polymesh_common_utilities::{
     compliance_manager::Config as _,
     constants::{ERC1400_TRANSFER_FAILURE, ERC1400_TRANSFER_SUCCESS},
-    Context,
 };
 use polymesh_primitives::{
     agent::AgentGroup,
@@ -282,12 +281,7 @@ fn should_replace_asset_compliance_we() {
 
     Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
-    assert_ok!(ComplianceManager::add_compliance_requirement(
-        owner.origin(),
-        ticker,
-        vec![],
-        vec![]
-    ));
+    allow_all_transfers(ticker, owner);
 
     let asset_compliance = ComplianceManager::asset_compliance(ticker);
     assert_eq!(asset_compliance.requirements.len(), 1);
@@ -329,12 +323,7 @@ fn should_reset_asset_compliance_we() {
 
     Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
-    assert_ok!(ComplianceManager::add_compliance_requirement(
-        owner.origin(),
-        ticker,
-        vec![],
-        vec![]
-    ));
+    allow_all_transfers(ticker, owner);
 
     let asset_compliance = ComplianceManager::asset_compliance(ticker);
     assert_eq!(asset_compliance.requirements.len(), 1);
@@ -400,22 +389,22 @@ fn pause_resume_asset_compliance_we() {
     // 5.1. Transfer should be cancelled.
     assert_invalid_transfer!(ticker, owner.did, receiver.did, 10);
 
-    Context::set_current_identity::<Identity>(Some(owner.did));
+    set_curr_did(Some(owner.did));
     // 5.2. Pause asset compliance, and run the transaction.
     assert_ok!(ComplianceManager::pause_asset_compliance(
         owner.origin(),
         ticker
     ));
-    Context::set_current_identity::<Identity>(None);
+    set_curr_did(None);
     assert_valid_transfer!(ticker, owner.did, receiver.did, 10);
 
-    Context::set_current_identity::<Identity>(Some(owner.did));
+    set_curr_did(Some(owner.did));
     // 5.3. Resume asset compliance, and new transfer should fail again.
     assert_ok!(ComplianceManager::resume_asset_compliance(
         owner.origin(),
         ticker
     ));
-    Context::set_current_identity::<Identity>(None);
+    set_curr_did(None);
     assert_invalid_transfer!(ticker, owner.did, receiver.did, 10);
 }
 
@@ -1306,12 +1295,7 @@ fn check_new_return_type_of_rpc() {
         Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
         // Add empty rules
-        assert_ok!(ComplianceManager::add_compliance_requirement(
-            owner.origin(),
-            ticker,
-            vec![],
-            vec![]
-        ));
+        allow_all_transfers(ticker, owner);
 
         let result = ComplianceManager::verify_restriction_granular(
             &ticker,
