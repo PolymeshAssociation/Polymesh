@@ -1067,7 +1067,7 @@ impl<T: Config> Module<T> {
         rotation_for_did: IdentityId,
         optional_cdd_auth_id: Option<u64>,
     ) -> DispatchResult {
-        // Accept authorization from CDD service provider
+        // Accept authorization from CDD service provider.
         if Self::cdd_auth_for_primary_key_rotation() {
             let auth_id = optional_cdd_auth_id
                 .ok_or_else(|| Error::<T>::InvalidAuthorizationFromCddProvider)?;
@@ -1094,7 +1094,7 @@ impl<T: Config> Module<T> {
             Error::<T>::AlreadyLinked,
         );
 
-        // Get the current primary key
+        // Get the current primary key.
         let old_primary_key = Self::did_records(&rotation_for_did).primary_key;
 
         // Ensure that it is safe to unlink the primary key from the did.
