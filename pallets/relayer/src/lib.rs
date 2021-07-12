@@ -30,11 +30,11 @@
 //!
 //! ### Dispatchable Functions
 //!
-//! - `set_paying_key` - creates an authorization to allow a `user_key`
+//! - `set_paying_key` creates an authorization to allow a `user_key`
 //!   to accept a `paying_key` as their subsidiser.
-//! - `accept_paying_key` - accepts a `paying_key` authorization.
-//! - `remove_paying_key` - removes the `paying_key` from a `user_key`.
-//! - `update_polyx_limit` - updates the available POLYX for a `user_key`.
+//! - `accept_paying_key` accepts a `paying_key` authorization.
+//! - `remove_paying_key` removes the `paying_key` from a `user_key`.
+//! - `update_polyx_limit` updates the available POLYX for a `user_key`.
 //!
 //! TODO: Add more tests.
 
@@ -53,17 +53,22 @@ use polymesh_primitives::{extract_auth, AuthorizationData, IdentityId, Signatory
 
 type Identity<T> = identity::Module<T>;
 
-/// The paying key and remaining polyx balance.
+/// A Subsidy for transaction and protocol fees.
+///
+/// This holds the subsidiser's paying key and the remaining POLYX balance
+/// available for subsidising transaction and protocol fees.
 #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Subsidy<Acc, Bal> {
+    /// The subsidiser's paying key.
     pub paying_key: Acc,
+    /// How much POLYX is remaining for subsidising transaction and protocol fees.
     pub remaining: Bal,
 }
 
 decl_storage! {
     trait Store for Module<T: Config> as Relayer {
-        /// map `user_key` to `paying_key`
-        pub Subsidies get(fn paying_keys):
+        /// map `user_key` -> Subsidy
+        pub Subsidies get(fn subsidies):
             map hasher(blake2_128_concat) T::AccountId => Option<Subsidy<T::AccountId, T::Balance>>;
     }
 }
@@ -238,9 +243,9 @@ impl<T: Config> Module<T> {
         Self::ensure_is_paying_key(&user_key, &paying_key)?;
 
         // Decrease paying key usage
-        <Identity<T>>::remove_account_key_usage(&paying_key);
+        <Identity<T>>::remove_account_key_ref_count(&paying_key);
         // Decrease user key usage
-        <Identity<T>>::remove_account_key_usage(&user_key);
+        <Identity<T>>::remove_account_key_ref_count(&user_key);
 
         // Remove paying key for user key.
         <Subsidies<T>>::remove(&user_key);
@@ -373,9 +378,9 @@ impl<T: Config> Module<T> {
         );
 
         // Increase paying key usage
-        <Identity<T>>::add_account_key_usage(&paying_key);
+        <Identity<T>>::add_account_key_ref_count(&paying_key);
         // Increase user key usage
-        <Identity<T>>::add_account_key_usage(&user_key);
+        <Identity<T>>::add_account_key_ref_count(&user_key);
 
         // all checks passed.
         <Subsidies<T>>::insert(

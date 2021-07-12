@@ -205,9 +205,14 @@ decl_storage! {
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(3).unwrap()): Version;
 
-        /// Track `account_key` usage.  Lock a key to it's identity if it is used.
-        /// TODO: Add usage reason (Relayer paying key or user key).  This would allow providing a more useful error message.
-        pub AccountKeyUsage get(fn account_key_usage):
+        /// How many "strong" references to the account key.
+        ///
+        /// Strong references will block a key from leaving it's identity.
+        ///
+        /// Pallets using "strong" references to account keys:
+        /// * Relayer: For `user_key` and `paying_key`
+        ///
+        pub AccountKeyRefCount get(fn account_key_ref_count):
             map hasher(blake2_128_concat) T::AccountId => u64;
     }
     add_extra_genesis {
@@ -341,10 +346,10 @@ decl_module! {
             } = Self::ensure_origin_call_permissions(origin)?;
             let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
 
-            // ensure that it is safe to unlink the secondary keys from the did.
+            // Ensure that it is safe to unlink the secondary keys from the did.
             for signer in &signers_to_remove {
                 if let Signatory::Account(key) = &signer {
-                    Self::ensure_unlink_account_key_from_did_is_safe(key)?;
+                    Self::ensure_key_unlinkable_from_did(key)?;
                 }
             }
 
@@ -851,32 +856,20 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Get the usage count of a key.
-    pub fn get_account_key_usage(key: &T::AccountId) -> u64 {
-        if <AccountKeyUsage<T>>::contains_key(key) {
-            // Get a key's usage.
-            <AccountKeyUsage<T>>::get(key)
-        } else {
-            0
-        }
+    /// Increment the reference counter for `key`.
+    pub fn add_account_key_ref_count(key: &T::AccountId) {
+        <AccountKeyRefCount<T>>::mutate(key, |n| *n = n.saturating_add(1_u64));
     }
 
-    /// Increase the usage counter for `key`.
-    pub fn add_account_key_usage(key: &T::AccountId) {
-        // Decrease account key usage
-        <AccountKeyUsage<T>>::mutate(key, |n| *n = n.saturating_add(1_u64));
-    }
-
-    /// Decrease the usage counter for `key`.
-    pub fn remove_account_key_usage(key: &T::AccountId) {
-        // Decrease account key usage
-        <AccountKeyUsage<T>>::mutate(key, |n| *n = n.saturating_sub(1_u64));
+    /// Decrement the reference counter for `key`.
+    pub fn remove_account_key_ref_count(key: &T::AccountId) {
+        <AccountKeyRefCount<T>>::mutate(key, |n| *n = n.saturating_sub(1_u64));
     }
 
     /// Ensure that the account key is safe to unlink from it's identity.
-    fn ensure_unlink_account_key_from_did_is_safe(key: &T::AccountId) -> DispatchResult {
+    fn ensure_key_unlinkable_from_did(key: &T::AccountId) -> DispatchResult {
         ensure!(
-            Self::get_account_key_usage(key) == 0,
+            <AccountKeyRefCount<T>>::get(key) == 0,
             Error::<T>::AccountKeyIsBeingUsed
         );
         Ok(())
@@ -1104,8 +1097,8 @@ impl<T: Config> Module<T> {
         // Get the current primary key
         let old_primary_key = Self::did_records(&rotation_for_did).primary_key;
 
-        // ensure that it is safe to unlink the primary key from the did.
-        Self::ensure_unlink_account_key_from_did_is_safe(&old_primary_key)?;
+        // Ensure that it is safe to unlink the primary key from the did.
+        Self::ensure_key_unlinkable_from_did(&old_primary_key)?;
 
         // Replace primary key of the owner that initiated key rotation
         <DidRecords<T>>::mutate(&rotation_for_did, |record| {
@@ -1771,8 +1764,8 @@ impl<T: Config> Module<T> {
         ensure!(Self::is_signer(did, &signer), Error::<T>::NotASigner);
 
         if let Signatory::Account(key) = &signer {
-            // ensure that it is safe to unlink the account key from the did.
-            Self::ensure_unlink_account_key_from_did_is_safe(&key)?;
+            // Ensure that it is safe to unlink the account key from the did.
+            Self::ensure_key_unlinkable_from_did(&key)?;
 
             // Unlink multisig signers.
             if T::MultiSig::is_multisig(key) {

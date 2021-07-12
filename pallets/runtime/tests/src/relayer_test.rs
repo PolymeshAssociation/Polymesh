@@ -2,7 +2,7 @@ use super::{
     storage::{get_last_auth_id, TestStorage, User},
     ExtBuilder,
 };
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, StorageMap};
 use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{Signatory, TransactionError};
@@ -12,6 +12,7 @@ use test_client::AccountKeyring;
 
 type Relayer = pallet_relayer::Module<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
+type AccountKeyRefCount = pallet_identity::AccountKeyRefCount<TestStorage>;
 
 type Error = pallet_relayer::Error<TestStorage>;
 
@@ -20,7 +21,7 @@ type Error = pallet_relayer::Error<TestStorage>;
 
 macro_rules! assert_key_usage {
     ($user:expr, $usage:expr) => {
-        assert_eq!(Identity::get_account_key_usage(&$user.acc()), $usage);
+        assert_eq!(AccountKeyRefCount::get(&$user.acc()), $usage);
     };
 }
 
