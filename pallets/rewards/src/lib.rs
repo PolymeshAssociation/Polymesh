@@ -110,10 +110,13 @@ decl_module! {
         /// `itn_address` - Address of the awarded account on ITN.
         /// `signature` - Signature of the encoded reward data (originKey, ItnKey, amount)
         ///
-        /// ## Errors
-        /// - Todo
+        /// # Errors
+        /// * `InsufficientBalance` - Itn rewards has insufficient funds to issue the reward.
+        /// * `InvalidSignature` - `signature` had an invalid signer or invalid message.
+        /// * `ItnRewardAlreadyClaimed` - Reward issued to the `itn_address` has already been claimed.
+        /// * `UnknownItnAddress` - `itn_address` is not in the rewards table and has no reward to be claimed.
         #[weight = (0, DispatchClass::Operational, Pays::No)]
-        pub fn claim_itn_reaward(origin, itn_address: T::AccountId, signiture: T::OffChainSignature) -> DispatchResult {
+        pub fn claim_itn_reaward(origin, itn_address: T::AccountId, signature: T::OffChainSignature) -> DispatchResult {
             let PermissionedCallOriginData{ sender, primary_did, .. } = <Identity<T>>::ensure_origin_call_permissions(origin.clone())?;
             <ItnRewards<T>>::try_mutate(&itn_address, |reward| {
                 match reward{
@@ -128,7 +131,7 @@ decl_module! {
                             Error::<T>::InsufficientBalance
                         );
                         ensure!(
-                            signiture.verify((sender.clone(), itn_address.clone(), amount).encode().as_slice(), &itn_address),
+                            signature.verify((sender.clone(), itn_address.clone(), amount).encode().as_slice(), &itn_address),
                             Error::<T>::InvalidSignature
                         );
                         with_transaction(|| {
