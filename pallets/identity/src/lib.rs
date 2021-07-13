@@ -1091,18 +1091,18 @@ impl<T: Config> Module<T> {
 
         Self::ensure_key_did_unlinked(&sender)?;
 
-        // Get the current primary key.
-        let old_primary_key = Self::did_records(&rotation_for_did).primary_key;
+        // Get the current DidRecord.
+        let mut record = Self::did_records(&rotation_for_did);
+        let old_primary_key = record.primary_key;
 
         // Ensure that it is safe to unlink the primary key from the did.
         Self::ensure_key_unlinkable_from_did(&old_primary_key)?;
 
-        // Replace primary key of the owner that initiated key rotation
-        <DidRecords<T>>::mutate(&rotation_for_did, |record| {
-            Self::unlink_account_key_from_did(&record.primary_key, rotation_for_did);
-            record.primary_key = sender.clone();
-            Self::link_account_key_to_did(&sender, rotation_for_did);
-        });
+        // Replace primary key of the owner that initiated key rotation.
+        Self::unlink_account_key_from_did(&old_primary_key, rotation_for_did);
+        record.primary_key = sender.clone();
+        Self::link_account_key_to_did(&sender, rotation_for_did);
+        <DidRecords<T>>::insert(&rotation_for_did, record);
 
         Self::deposit_event(RawEvent::PrimaryKeyUpdated(
             rotation_for_did,
