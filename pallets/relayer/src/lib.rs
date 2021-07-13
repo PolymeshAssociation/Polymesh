@@ -387,14 +387,12 @@ impl<T: Config> Module<T> {
 
         Ok(())
     }
-}
 
-impl<T: Config> SubsidiserTrait<T::AccountId, T::Balance> for Module<T> {
     fn get_subsidy(
         key: &T::AccountId,
         fee: T::Balance,
-    ) -> Result<Option<T::AccountId>, InvalidTransaction> {
-        // Check if the current paying key matches
+    ) -> Result<Option<Subsidy<T::AccountId, T::Balance>>, InvalidTransaction> {
+        // Get the Subsidy for `key`.
         match <Subsidies<T>>::get(key) {
             // There was no subsidy.
             None => Ok(None),
@@ -402,16 +400,31 @@ impl<T: Config> SubsidiserTrait<T::AccountId, T::Balance> for Module<T> {
             // TODO: Should we fail here or allow falling back to the user key paying?
             Some(s) if s.remaining < fee => fail!(InvalidTransaction::Payment),
             // Has subsidy and enough POLYX.
-            Some(s) => Ok(Some(s.paying_key)),
+            Some(s) => Ok(Some(s)),
         }
     }
+}
 
-    fn update_subsidy(key: &T::AccountId, fee: T::Balance) {
-        // Substract the fee from the remaining POLYX of subsidy.
-        <Subsidies<T>>::mutate(key, |subsidy| {
-            if let Some(subsidy) = subsidy {
-                subsidy.remaining = subsidy.remaining.saturating_sub(fee);
-            }
-        });
+impl<T: Config> SubsidiserTrait<T::AccountId, T::Balance> for Module<T> {
+    fn check_subsidy(
+        key: &T::AccountId,
+        fee: T::Balance,
+    ) -> Result<Option<T::AccountId>, InvalidTransaction> {
+        Ok(Self::get_subsidy(key, fee)?.map(|s| s.paying_key))
+    }
+
+    fn debit_subsidy(
+        key: &T::AccountId,
+        fee: T::Balance,
+    ) -> Result<Option<T::AccountId>, InvalidTransaction> {
+        if let Some(mut subsidy) = Self::get_subsidy(key, fee)? {
+            let paying_key = subsidy.paying_key.clone();
+            // Debit the fee from the remaining POLYX of subsidy.
+            subsidy.remaining = subsidy.remaining.saturating_sub(fee);
+            <Subsidies<T>>::insert(key, subsidy);
+            Ok(Some(paying_key))
+        } else {
+            Ok(None)
+        }
     }
 }

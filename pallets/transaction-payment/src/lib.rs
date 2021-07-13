@@ -567,7 +567,7 @@ where
             T::CddHandler::get_valid_payer(call, &who)?.ok_or(InvalidTransaction::Payment)?;
 
         // Check if the payer is being subsidised.
-        let subsidiser = T::Subsidiser::get_subsidy(&payer_key, fee)?;
+        let subsidiser = T::Subsidiser::check_subsidy(&payer_key, fee)?;
 
         // key to pay the fee.
         let fee_key = subsidiser.as_ref().unwrap_or(&payer_key);
@@ -634,9 +634,9 @@ where
     type Pre = (
         // tip
         BalanceOf<T>,
-        // who paid the fee
+        // The payer for the transaction, they might be subsidised.
         Self::AccountId,
-        // imbalance resulting from withdrawing the fee
+        // Imbalance resulting from withdrawing the fee.
         <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
         // Subsidiser
         Option<Self::AccountId>,
@@ -692,8 +692,9 @@ where
 
         // `fee_key` is either a subsidiser or the original payer.
         let fee_key = if let Some(subsidiser_key) = subsidiser {
-            // Update subsidy with actual fee.
-            T::Subsidiser::update_subsidy(&payer, actual_fee);
+            // Debit the actual fee from the subsidy.
+            // This shouldn't fail, since the subsidy was checked in `pre_dispatch`.
+            T::Subsidiser::debit_subsidy(&payer, actual_fee)?;
             subsidiser_key
         } else {
             // No subsidy.
