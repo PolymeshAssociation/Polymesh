@@ -190,7 +190,7 @@ impl<T: Config> Module<T> {
         } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
 
         // Create authorization for setting the `paying_key` to the `user_key`, with 0 `polyx_limit`.
-        Self::unsafe_add_auth_for_paying_key(paying_did, user_key, paying_key, 0u128.into());
+        Self::unverified_add_auth_for_paying_key(paying_did, user_key, paying_key, 0u128.into());
         Ok(())
     }
 
@@ -293,8 +293,8 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Adds an authorization to add a `paying_key` to the `user_key`
-    pub fn unsafe_add_auth_for_paying_key(
+    /// Adds an authorization to add a `paying_key` to the `user_key`.
+    pub fn unverified_add_auth_for_paying_key(
         from: IdentityId,
         user_key: T::AccountId,
         paying_key: T::AccountId,
