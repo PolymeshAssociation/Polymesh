@@ -151,6 +151,7 @@ macro_rules! misc_pallet_impls {
             type Currency = Balances;
             type OnProtocolFeePayment = DealWithFees;
             type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
+            type Subsidiser = Relayer;
         }
 
         impl pallet_timestamp::Config for Runtime {

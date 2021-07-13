@@ -48,6 +48,7 @@ use frame_system::ensure_root;
 use polymesh_common_utilities::{
     identity::Config as IdentityConfig,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
+    traits::relayer::SubsidiserTrait,
     transaction_payment::CddAndFeeDetails,
     GC_DID,
 };
@@ -78,6 +79,8 @@ pub trait Config: frame_system::Config + IdentityConfig {
     type OnProtocolFeePayment: OnUnbalanced<NegativeImbalanceOf<Self>>;
     /// Weight calaculation.
     type WeightInfo: WeightInfo;
+    /// Subsidiser.
+    type Subsidiser: SubsidiserTrait<Self::AccountId, BalanceOf<Self>>;
 }
 
 decl_error! {
@@ -208,8 +211,15 @@ impl<T: Config> Module<T> {
     /// Withdraws a precomputed fee from the current payer if it is defined or from the current
     /// identity otherwise.
     fn withdraw_fee(account: T::AccountId, fee: BalanceOf<T>) -> WithdrawFeeResult<T> {
+        // Check if the `account` is being subsidised.
+        let subsidiser = T::Subsidiser::debit_subsidy(&account, fee)
+            .map_err(|_| Error::<T>::InsufficientAccountBalance)?;
+
+        // key to pay the fee.
+        let fee_key = subsidiser.as_ref().unwrap_or(&account);
+
         let ret = T::Currency::withdraw(
-            &account,
+            fee_key,
             fee,
             WithdrawReasons::FEE,
             ExistenceRequirement::KeepAlive,

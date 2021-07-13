@@ -325,6 +325,7 @@ impl protocol_fee::Config for Test {
     type Currency = Balances;
     type OnProtocolFeePayment = ();
     type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
+    type Subsidiser = Test;
 }
 
 impl polymesh_common_utilities::traits::identity::Config for Test {

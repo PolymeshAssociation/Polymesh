@@ -389,11 +389,11 @@ impl<T: Config> Module<T> {
     }
 
     fn get_subsidy(
-        key: &T::AccountId,
+        user_key: &T::AccountId,
         fee: T::Balance,
     ) -> Result<Option<Subsidy<T::AccountId, T::Balance>>, InvalidTransaction> {
-        // Get the Subsidy for `key`.
-        match <Subsidies<T>>::get(key) {
+        // Get the Subsidy for `user_key`.
+        match <Subsidies<T>>::get(user_key) {
             // There was no subsidy.
             None => Ok(None),
             // Has subsidy, but not enough remaining POLYX.
@@ -407,21 +407,21 @@ impl<T: Config> Module<T> {
 
 impl<T: Config> SubsidiserTrait<T::AccountId, T::Balance> for Module<T> {
     fn check_subsidy(
-        key: &T::AccountId,
+        user_key: &T::AccountId,
         fee: T::Balance,
     ) -> Result<Option<T::AccountId>, InvalidTransaction> {
-        Ok(Self::get_subsidy(key, fee)?.map(|s| s.paying_key))
+        Ok(Self::get_subsidy(user_key, fee)?.map(|s| s.paying_key))
     }
 
     fn debit_subsidy(
-        key: &T::AccountId,
+        user_key: &T::AccountId,
         fee: T::Balance,
     ) -> Result<Option<T::AccountId>, InvalidTransaction> {
-        if let Some(mut subsidy) = Self::get_subsidy(key, fee)? {
+        if let Some(mut subsidy) = Self::get_subsidy(user_key, fee)? {
             let paying_key = subsidy.paying_key.clone();
             // Debit the fee from the remaining POLYX of subsidy.
             subsidy.remaining = subsidy.remaining.saturating_sub(fee);
-            <Subsidies<T>>::insert(key, subsidy);
+            <Subsidies<T>>::insert(user_key, subsidy);
             Ok(Some(paying_key))
         } else {
             Ok(None)

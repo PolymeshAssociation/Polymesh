@@ -12,10 +12,16 @@ pub trait WeightInfo {
 }
 
 pub trait SubsidiserTrait<AccountId, Balance> {
-    /// Check if a key has a subsidiser and that the subsidy can pay the fee.
-    fn check_subsidy(key: &AccountId, fee: Balance) -> Result<Option<AccountId>, InvalidTransaction>;
-    /// Debit the fee from the remaing balance of the subsidy.
-    fn debit_subsidy(key: &AccountId, fee: Balance) -> Result<Option<AccountId>, InvalidTransaction>;
+    /// Check if a `user_key` has a subsidiser and that the subsidy can pay the fee.
+    fn check_subsidy(
+        user_key: &AccountId,
+        fee: Balance,
+    ) -> Result<Option<AccountId>, InvalidTransaction>;
+    /// Debit the fee from the remaing balance of the subsidy for `user_key`.
+    fn debit_subsidy(
+        user_key: &AccountId,
+        fee: Balance,
+    ) -> Result<Option<AccountId>, InvalidTransaction>;
 }
 
 pub trait Config: CommonConfig + identity::Config {
