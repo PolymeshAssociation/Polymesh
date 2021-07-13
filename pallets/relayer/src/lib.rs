@@ -45,7 +45,9 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, fail,
+    decl_error, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult},
+    ensure, fail,
 };
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 pub use polymesh_common_utilities::traits::relayer::{Config, Event, RawEvent, WeightInfo};
@@ -275,14 +277,11 @@ impl<T: Config> Module<T> {
         } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
 
         // Check if the current paying key matches.
-        Self::ensure_is_paying_key(&user_key, &paying_key)?;
+        let mut subsidy = Self::ensure_is_paying_key(&user_key, &paying_key)?;
 
         // Update polyx limit.
-        <Subsidies<T>>::mutate(&user_key, |subsidy| {
-            if let Some(subsidy) = subsidy {
-                subsidy.remaining = polyx_limit;
-            }
-        });
+        subsidy.remaining = polyx_limit;
+        <Subsidies<T>>::insert(&user_key, subsidy);
 
         Self::deposit_event(RawEvent::UpdatedPolyxLimit(
             paying_did.for_event(),
@@ -330,14 +329,17 @@ impl<T: Config> Module<T> {
     }
 
     /// Ensure that `paying_key` is the paying key for `user_key`.
-    fn ensure_is_paying_key(user_key: &T::AccountId, paying_key: &T::AccountId) -> DispatchResult {
+    fn ensure_is_paying_key(
+        user_key: &T::AccountId,
+        paying_key: &T::AccountId,
+    ) -> Result<Subsidy<T::AccountId, T::Balance>, DispatchError> {
         // Check if the current paying key matches.
         match <Subsidies<T>>::get(user_key) {
             // There was no subsidy.
             None => fail!(Error::<T>::NoPayingKey),
             // Paying key doesn't match.
             Some(s) if s.paying_key != *paying_key => fail!(Error::<T>::NotPayingKey),
-            Some(_) => Ok(()),
+            Some(s) => Ok(s),
         }
     }
 
