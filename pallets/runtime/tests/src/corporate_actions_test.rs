@@ -1894,7 +1894,7 @@ fn dist_remove_works() {
 
 #[test]
 fn dist_reclaim_works() {
-    test(|ticker, [owner, other, _]| {
+    test(|ticker, [owner, other, charlie]| {
         set_schedule_complexity();
 
         let currency = create_asset(b"BETA", owner);
@@ -1907,6 +1907,7 @@ fn dist_reclaim_works() {
 
         // Dist creator different from CAA.
         transfer(&currency, owner, other);
+        transfer(&currency, owner, charlie);
         let id = dist_ca(owner, ticker, Some(1)).unwrap();
         assert_ok!(transfer_caa(ticker, owner, other));
         assert_ok!(Dist::distribute(
@@ -1919,17 +1920,29 @@ fn dist_reclaim_works() {
             5,
             Some(6)
         ));
-        assert_ok!(transfer_caa(ticker, other, owner));
-        assert_noop!(reclaim(id, owner), DistError::NotDistributionCreator);
 
         // Not expired yet.
         Timestamp::set_timestamp(5);
         assert_noop!(reclaim(id, other), DistError::NotExpired);
 
         // Test successful behavior.
-        assert_ok!(transfer_caa(ticker, owner, other));
         Timestamp::set_timestamp(6);
         let pid = PortfolioId::default_portfolio(other.did);
+
+        // No custody over portfolio.
+        let custody =
+            |who: User| Custodian::insert(PortfolioId::default_portfolio(other.did), who.did);
+        custody(owner);
+        assert_noop!(reclaim(id, other), PError::UnauthorizedCustodian);
+
+        custody(charlie);
+        assert_noop!(reclaim(id, charlie), EAError::UnauthorizedAgent);
+        custody(owner);
+        assert_ok!(transfer_caa(ticker, other, charlie));
+        assert_noop!(reclaim(id, charlie), PError::UnauthorizedCustodian);
+        assert_ok!(transfer_caa(ticker, charlie, other));
+        custody(other);
+
         let ensure = |x| Portfolio::ensure_sufficient_balance(&pid, &currency, &x);
         assert_noop!(ensure(1), PError::InsufficientPortfolioBalance);
         let dist = Dist::distributions(id).unwrap();
