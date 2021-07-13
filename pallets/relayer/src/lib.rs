@@ -67,7 +67,12 @@ pub struct Subsidy<Acc, Bal> {
 
 decl_storage! {
     trait Store for Module<T: Config> as Relayer {
-        /// map `user_key` -> Subsidy
+        /// The subsidy for a `user_key` if they are being subsidised,
+        /// as a map `user_key` => `Subsidy`.
+        ///
+        /// A key can only have one subsidy at a time.  To change subsidisers
+        /// a key needs to call `remove_paying_key` to remove the current subsidy,
+        /// before they can accept a new subsidiser.
         pub Subsidies get(fn subsidies):
             map hasher(blake2_128_concat) T::AccountId => Option<Subsidy<T::AccountId, T::Balance>>;
     }
@@ -79,7 +84,7 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        /// Creates an authorization to allow a `user_key` to accept a `paying_key` as their subsidiser.
+        /// Creates an authorization to allow `user_key` to accept the caller (`origin == paying_key`) as their subsidiser.
         ///
         /// # Arguments
         /// - `user_key` the user key to subsidise.
@@ -169,9 +174,9 @@ decl_error! {
         NoPayingKey,
         /// The `user_key` has a different `paying_key`.
         NotPayingKey,
-        /// The signer not authorized for `paying_key`.
+        /// The signer is not authorized for `paying_key`.
         NotAuthorizedForPayingKey,
-        /// The signer not authorized for `user_key`.
+        /// The signer is not authorized for `user_key`.
         NotAuthorizedForUserKey,
     }
 }
@@ -184,7 +189,7 @@ impl<T: Config> Module<T> {
             ..
         } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
 
-        // Create authorization for setting the `paying_key` to the `user_key`, with 0 `polyx_limit`
+        // Create authorization for setting the `paying_key` to the `user_key`, with 0 `polyx_limit`.
         Self::unsafe_add_auth_for_paying_key(paying_did, user_key, paying_key, 0u128.into());
         Ok(())
     }
@@ -230,9 +235,9 @@ impl<T: Config> Module<T> {
             ..
         } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
 
-        // allow: `origin == user_key` or `origin == paying_key`
+        // Allow: `origin == user_key` or `origin == paying_key`.
         if sender != user_key && sender != paying_key {
-            // allow: `origin == primary key of user_key's identity`
+            // Allow: `origin == primary key of user_key's identity`.
             ensure!(
                 <Identity<T>>::get_identity(&user_key) == Some(sender_did),
                 Error::<T>::NotAuthorizedForUserKey
@@ -242,9 +247,9 @@ impl<T: Config> Module<T> {
         // Check if the current paying key matches.
         Self::ensure_is_paying_key(&user_key, &paying_key)?;
 
-        // Decrease paying key usage
+        // Decrease paying key usage.
         <Identity<T>>::remove_account_key_ref_count(&paying_key);
-        // Decrease user key usage
+        // Decrease user key usage.
         <Identity<T>>::remove_account_key_ref_count(&user_key);
 
         // Remove paying key for user key.
@@ -272,7 +277,7 @@ impl<T: Config> Module<T> {
         // Check if the current paying key matches.
         Self::ensure_is_paying_key(&user_key, &paying_key)?;
 
-        // Update polyx limit
+        // Update polyx limit.
         <Subsidies<T>>::mutate(&user_key, |subsidy| {
             if let Some(subsidy) = subsidy {
                 subsidy.remaining = polyx_limit;
@@ -326,11 +331,11 @@ impl<T: Config> Module<T> {
 
     /// Ensure that `paying_key` is the paying key for `user_key`.
     fn ensure_is_paying_key(user_key: &T::AccountId, paying_key: &T::AccountId) -> DispatchResult {
-        // Check if the current paying key matches
+        // Check if the current paying key matches.
         match <Subsidies<T>>::get(user_key) {
             // There was no subsidy.
             None => fail!(Error::<T>::NoPayingKey),
-            // paying key doesn't match
+            // Paying key doesn't match.
             Some(s) if s.paying_key != *paying_key => fail!(Error::<T>::NotPayingKey),
             Some(_) => Ok(()),
         }
@@ -344,7 +349,7 @@ impl<T: Config> Module<T> {
         paying_key: T::AccountId,
         polyx_limit: T::Balance,
     ) -> DispatchResult {
-        // Check `signer` is DID/Key of `user_key`
+        // Check `signer` is DID/Key of `user_key`.
         ensure!(
             match signer {
                 Signatory::Account(signer_key) => (signer_key == user_key),
@@ -355,19 +360,19 @@ impl<T: Config> Module<T> {
             Error::<T>::NotAuthorizedForUserKey
         );
 
-        // ensure that the authorization came from the DID of the paying_key.
+        // Ensure that the authorization came from the DID of the paying_key.
         ensure!(
             <Identity<T>>::get_identity(&paying_key) == Some(from),
             Error::<T>::NotAuthorizedForPayingKey
         );
 
-        // ensure the user_key doesn't already have a paying_key.
+        // Ensure the user_key doesn't already have a paying_key.
         ensure!(
             !<Subsidies<T>>::contains_key(&user_key),
             Error::<T>::AlreadyHasPayingKey
         );
 
-        // ensure both user_key and paying_key have valid CDD.
+        // Ensure both user_key and paying_key have valid CDD.
         ensure!(
             Self::key_has_valid_cdd(&user_key),
             Error::<T>::UserKeyCddMissing
@@ -377,12 +382,12 @@ impl<T: Config> Module<T> {
             Error::<T>::PayingKeyCddMissing
         );
 
-        // Increase paying key usage
+        // Increase paying key usage.
         <Identity<T>>::add_account_key_ref_count(&paying_key);
-        // Increase user key usage
+        // Increase user key usage.
         <Identity<T>>::add_account_key_ref_count(&user_key);
 
-        // all checks passed.
+        // All checks passed.
         <Subsidies<T>>::insert(
             user_key,
             Subsidy {

@@ -36,7 +36,7 @@ decl_event! {
         /// (Caller DID, User Key, Paying Key)
         RemovedPayingKey(EventDid, AccountId, AccountId),
 
-        /// Updated polyx limit
+        /// Updated polyx limit.
         ///
         /// (Caller DID, User Key, Paying Key, POLYX limit)
         UpdatedPolyxLimit(EventDid, AccountId, AccountId, Balance),
