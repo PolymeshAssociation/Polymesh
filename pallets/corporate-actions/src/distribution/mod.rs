@@ -238,8 +238,7 @@ decl_module! {
                 ..
             } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ca_id.ticker)?;
             let from = PortfolioId { did: caa, kind: portfolio.into() };
-            <Portfolio<T>>::ensure_portfolio_custody(from, caa)?;
-            <Portfolio<T>>::ensure_user_portfolio_permission(secondary_key.as_ref(), from)?;
+            <Portfolio<T>>::ensure_portfolio_custody_and_permission(from, caa, secondary_key.as_ref())?;
             <Portfolio<T>>::ensure_portfolio_validity(&from)?;
 
             // Ensure that `ca_id` exists, that its a benefit.
@@ -343,18 +342,21 @@ decl_module! {
         ///
         /// # Errors
         /// - `NoSuchDistribution` if there's no capital distribution for `ca_id`.
-        /// - `NotDistributionCreator` if `origin` is not the original creator of the distribution.
         /// - `AlreadyReclaimed` if this function has already been called successfully.
         /// - `NotExpired` if `now < expiry`.
         #[weight = <T as Config>::DistWeightInfo::reclaim()]
         pub fn reclaim(origin, ca_id: CAId) {
-            // Ensure DID is the dist creator, they haven't reclaimed, and that expiry has passed.
-            let did = <Identity<T>>::ensure_perms(origin)?;
+            // Ensure distribution is created, they haven't reclaimed, and that expiry has passed.
+            // CA must be authorized and be the custodian.
+            let PermissionedCallOriginData {
+                primary_did: caa,
+                secondary_key,
+                ..
+            } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin.clone(), ca_id.ticker)?;
             let dist = Self::ensure_distribution_exists(ca_id)?;
-            ensure!(did == dist.from.did, Error::<T>::NotDistributionCreator);
-            let did = did.for_event();
             ensure!(!dist.reclaimed, Error::<T>::AlreadyReclaimed);
             ensure!(expired(dist.expires_at, <Checkpoint<T>>::now_unix()), Error::<T>::NotExpired);
+            <Portfolio<T>>::ensure_portfolio_custody_and_permission(dist.from, caa, secondary_key.as_ref())?;
 
             // Unlock `remaining` of `currency` from DID's portfolio.
             // This won't fail, as we've already locked the requisite amount prior.
@@ -364,7 +366,7 @@ decl_module! {
             <Distributions<T>>::insert(ca_id, Distribution { reclaimed: true, remaining:0u32.into(), ..dist });
 
             // Emit event.
-            Self::deposit_event(Event::<T>::Reclaimed(did, ca_id, dist.remaining));
+            Self::deposit_event(Event::<T>::Reclaimed(caa.for_event(), ca_id, dist.remaining));
         }
 
         /// Removes a distribution that hasn't started yet,
