@@ -35,7 +35,8 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
     ensure,
-    traits::{Currency, ExistenceRequirement, WithdrawReasons},
+    traits::{Currency, ExistenceRequirement, GetCallMetadata, IsSubType, WithdrawReasons},
+    unsigned::{TransactionValidity, TransactionValidityError},
     weights::{DispatchClass, Pays},
 };
 use pallet_identity::{self as identity, PermissionedCallOriginData};
@@ -45,12 +46,14 @@ use polymesh_common_utilities::{
     traits::{identity::Config as IdentityConfig, CommonConfig},
     with_transaction,
 };
+use polymesh_primitives::IdentityId;
+use sp_runtime::transaction_validity::InvalidTransaction;
 use sp_runtime::{
-    traits::{AccountIdConversion, StaticLookup, Verify},
+    traits::{AccountIdConversion, DispatchInfoOf, SignedExtension, StaticLookup, Verify},
+    transaction_validity::ValidTransaction,
     DispatchError,
 };
-use sp_std::convert::TryInto;
-use polymesh_primitives::IdentityId;
+use sp_std::{convert::TryInto, fmt, marker::PhantomData};
 
 type Identity<T> = identity::Module<T>;
 type Staking<T> = staking::Module<T>;
@@ -72,6 +75,22 @@ pub trait WeightInfo {}
 pub enum ItnRewardStatus<Balance: Encode + Decode> {
     UnClaimed(Balance),
     Claimed,
+}
+
+/// A signed extension used to prevent invalid ITN reward claims.
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Default)]
+pub struct ValidateItnRewardClaim<T: Config>(PhantomData<T>);
+
+impl<T: Config> fmt::Debug for ValidateItnRewardClaim<T> {
+    #[cfg(feature = "std")]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "ValidateItnRewardClaim<{:?}>", self.0)
+    }
+
+    #[cfg(not(feature = "std"))]
+    fn fmt(&self, _: &mut fmt::Formatter) -> fmt::Result {
+        Ok(())
+    }
 }
 
 decl_error! {
@@ -197,5 +216,56 @@ impl<T: Config> Module<T> {
                 .try_into()
                 .map_err(|_| Error::<T>::UnableToCovertBalance)?,
         ))
+    }
+
+    fn valid_claim(
+        sender: &T::AccountId,
+        itn_address: &T::AccountId,
+        signature: &T::OffChainSignature,
+    ) -> bool {
+        match <ItnRewards<T>>::get(itn_address) {
+            Some(ItnRewardStatus::UnClaimed(amount)) => signature.verify(
+                (sender.clone(), itn_address.clone(), amount)
+                    .encode()
+                    .as_slice(),
+                itn_address,
+            ),
+            _ => false,
+        }
+    }
+}
+
+impl<T> SignedExtension for ValidateItnRewardClaim<T>
+where
+    T: Config + Send + Sync,
+    <T as frame_system::Config>::Call: GetCallMetadata + IsSubType<Call<T>>,
+{
+    const IDENTIFIER: &'static str = "ValidateItnRewardClaim";
+    type AccountId = T::AccountId;
+    type Call = <T as frame_system::Config>::Call;
+    type AdditionalSigned = ();
+    type Pre = ();
+
+    fn additional_signed(&self) -> Result<(), TransactionValidityError> {
+        Ok(())
+    }
+
+    fn validate(
+        &self,
+        sender: &Self::AccountId,
+        call: &Self::Call,
+        _: &DispatchInfoOf<Self::Call>,
+        _: usize,
+    ) -> TransactionValidity {
+        if let Some(local_call) = IsSubType::<Call<T>>::is_sub_type(call) {
+            if let Call::claim_itn_reaward(itn_address, signature) = local_call {
+                if !<Module<T>>::valid_claim(sender, itn_address, signature) {
+                    return Err(TransactionValidityError::Invalid(
+                        InvalidTransaction::Custom(0),
+                    ));
+                }
+            }
+        }
+        Ok(ValidTransaction::default())
     }
 }
