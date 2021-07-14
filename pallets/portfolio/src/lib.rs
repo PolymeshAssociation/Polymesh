@@ -81,32 +81,38 @@ pub struct MovePortfolioItem<Balance> {
 
 decl_storage! {
     trait Store for Module<T: Config> as Portfolio {
+        /// The next portfolio sequence number of an identity.
+        pub NextPortfolioNumber get(fn next_portfolio_number):
+            map hasher(twox_64_concat) IdentityId => PortfolioNumber;
+
         /// The set of existing portfolios with their names. If a certain pair of a DID and
         /// portfolio number maps to `None` then such a portfolio doesn't exist. Conversely, if a
         /// pair maps to `Some(name)` then such a portfolio exists and is called `name`.
         pub Portfolios get(fn portfolios):
             double_map hasher(twox_64_concat) IdentityId, hasher(twox_64_concat) PortfolioNumber =>
             PortfolioName;
+
         /// The asset balances of portfolios.
         pub PortfolioAssetBalances get(fn portfolio_asset_balances):
             double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) Ticker =>
             T::Balance;
-        /// The next portfolio sequence number of an identity.
-        pub NextPortfolioNumber get(fn next_portfolio_number):
-            map hasher(twox_64_concat) IdentityId => PortfolioNumber;
-        /// The custodian of a particular portfolio. None implies that the identity owner is the custodian.
-        pub PortfolioCustodian get(fn portfolio_custodian):
-            map hasher(twox_64_concat) PortfolioId => Option<IdentityId>;
+
         /// Amount of assets locked in a portfolio.
         /// These assets show up in portfolio balance but can not be transferred away.
         pub PortfolioLockedAssets get(fn locked_assets):
             double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) Ticker =>
             T::Balance;
+
+        /// The custodian of a particular portfolio. None implies that the identity owner is the custodian.
+        pub PortfolioCustodian get(fn portfolio_custodian):
+            map hasher(twox_64_concat) PortfolioId => Option<IdentityId>;
+
         /// Tracks all the portfolios in custody of a particular identity. Only used by the UIs.
         /// When `true` is stored as the value for a given `(did, pid)`, it means that `pid` is in custody of `did`.
         /// `false` values are never explicitly stored in the map, and are instead inferred by the absence of a key.
         pub PortfoliosInCustody get(fn portfolios_in_custody):
             double_map hasher(twox_64_concat) IdentityId, hasher(twox_64_concat) PortfolioId => bool;
+
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
