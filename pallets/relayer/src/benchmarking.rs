@@ -34,7 +34,6 @@ fn setup_users<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, User<T>) 
 
 fn setup_paying_key<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, User<T>) {
     let (payer, user) = setup_users::<T>();
-    let user_signer = Signatory::Account(user.account());
     // accept paying key
     <Relayer<T>>::auth_accept_paying_key(
         user.did(),
