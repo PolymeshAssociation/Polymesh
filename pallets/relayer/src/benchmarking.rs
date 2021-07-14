@@ -52,7 +52,7 @@ benchmarks! {
 
     set_paying_key {
         let (payer, user) = setup_users::<T>();
-    }: _(payer.origin(), user.account())
+    }: _(payer.origin(), user.account(), 0u128.into())
 
     accept_paying_key {
         let (payer, user) = setup_users::<T>();
