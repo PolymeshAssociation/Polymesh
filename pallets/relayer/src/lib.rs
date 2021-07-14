@@ -49,6 +49,8 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure, fail,
 };
+use frame_system::ensure_signed;
+
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 pub use polymesh_common_utilities::traits::relayer::{Config, Event, RawEvent, WeightInfo};
 use polymesh_primitives::{extract_auth, AuthorizationData, IdentityId, Signatory};
@@ -193,11 +195,9 @@ impl<T: Config> Module<T> {
     }
 
     fn base_accept_paying_key(origin: T::Origin, auth_id: u64) -> DispatchResult {
-        let PermissionedCallOriginData {
-            sender: user_key,
-            primary_did: user_did,
-            ..
-        } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
+        let user_key = ensure_signed(origin)?;
+        let user_did =
+            <Identity<T>>::get_identity(&user_key).ok_or(Error::<T>::UserKeyCddMissing)?;
         let signer = Signatory::Account(user_key);
 
         <Identity<T>>::accept_auth_with(&signer, auth_id, |data, auth_by| -> DispatchResult {
