@@ -175,7 +175,7 @@ function finalizeTransaction(amount, initializeProof, receiverMercatAccountInfo)
 
 async function affirmConfidentialInstruction(api, instruction_id, proof, signer, signer_did) {
     const portfolio = reqImports.getDefaultPortfolio(signer_did);
-    const transaction = await api.tx.settlement.affirmConfidentialInstruction(instruction_id, proof, [portfolio]);
+    const transaction = await api.tx.settlement.affirmConfidentialInstruction(instruction_id, proof, [portfolio], 1);
     let tx = await reqImports.sendTx(signer, transaction);
     if(tx !== -1) reqImports.fail_count--;
 }
