@@ -634,8 +634,6 @@ async function addConfidentialInstruction(
   let instructionCounter = await api.query.settlement.instructionCounter();
 
   let ConfidentialLeg = {
-    from: getDefaultPortfolio(sender_did),
-    to: getDefaultPortfolio(receiver_did),
     mediator: getDefaultPortfolio(mediator_did),
     from_account_id: fromAccountId,
     to_account_id: toAccountId
@@ -646,7 +644,13 @@ async function addConfidentialInstruction(
       0,
       null,
       null,
-      [{"ConfidentialLeg": ConfidentialLeg}]
+      [
+        {
+          from: getDefaultPortfolio(sender_did),
+          to: getDefaultPortfolio(receiver_did),
+          kind: {Confidential: ConfidentialLeg}
+        }
+      ]
     );
 
   await sendTx(signer, transaction);
