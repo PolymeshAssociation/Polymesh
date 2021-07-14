@@ -36,7 +36,11 @@ fn do_basic_relayer_paying_key_test() {
     let dave = User::new(AccountKeyring::Dave);
 
     // add authorization for using Alice as the paying key for bob
-    assert_ok!(Relayer::set_paying_key(alice.origin(), bob.acc(),));
+    assert_ok!(Relayer::set_paying_key(
+        alice.origin(),
+        bob.acc(),
+        0u128.into()
+    ));
 
     // No paying key is used yet.
     assert_key_usage!(alice, 0);
@@ -77,7 +81,11 @@ fn do_basic_relayer_paying_key_test() {
 
     // add authorization for using Dave as the paying key for bob
     TestStorage::set_current_identity(&dave.did);
-    assert_ok!(Relayer::set_paying_key(dave.origin(), bob.acc(),));
+    assert_ok!(Relayer::set_paying_key(
+        dave.origin(),
+        bob.acc(),
+        0u128.into()
+    ));
 
     // Bob tries to accept the new paying key, but he already has a paying key
     TestStorage::set_current_identity(&bob.did);
@@ -112,7 +120,11 @@ fn do_relayer_accept_cdd_and_fees_test() {
     let bob_sign = Signatory::Account(bob.acc());
 
     // Alice creates authoration to subsidise for Bob.
-    assert_ok!(Relayer::set_paying_key(alice.origin(), bob.acc()));
+    assert_ok!(Relayer::set_paying_key(
+        alice.origin(),
+        bob.acc(),
+        0u128.into()
+    ));
     let bob_auth_id = get_last_auth_id(&bob_sign);
 
     // Check that Bob can accept the subsidy with Alice paying for the transaction.

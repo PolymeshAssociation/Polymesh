@@ -90,15 +90,13 @@ decl_module! {
         ///
         /// # Arguments
         /// - `user_key` the user key to subsidise.
+        /// - `polyx_limit` the initial POLYX limit for this subsidy.
         ///
         /// # Errors
         /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
-        ///
-        /// # Permissions
-        /// * Relayer
         #[weight = <T as Config>::WeightInfo::set_paying_key()]
-        pub fn set_paying_key(origin, user_key: T::AccountId) -> DispatchResult {
-            Self::base_set_paying_key(origin, user_key)
+        pub fn set_paying_key(origin, user_key: T::AccountId, polyx_limit: T::Balance) -> DispatchResult {
+            Self::base_set_paying_key(origin, user_key, polyx_limit)
         }
 
         /// Accepts a `paying_key` authorization.
@@ -116,9 +114,6 @@ decl_module! {
         /// - `UserKeyCddMissing` if the `user_key` is not attached to a CDD'd identity.
         /// - `PayingKeyCddMissing` if the `paying_key` is not attached to a CDD'd identity.
         /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
-        ///
-        /// # Permissions
-        /// * Relayer
         #[weight = <T as Config>::WeightInfo::accept_paying_key()]
         pub fn accept_paying_key(origin, auth_id: u64) -> DispatchResult {
             Self::base_accept_paying_key(origin, auth_id)
@@ -135,9 +130,6 @@ decl_module! {
         /// - `NoPayingKey` if the `user_key` doesn't have a `paying_key`.
         /// - `NotPayingKey` if the `paying_key` doesn't match the current `paying_key`.
         /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
-        ///
-        /// # Permissions
-        /// * Relayer
         #[weight = <T as Config>::WeightInfo::remove_paying_key()]
         pub fn remove_paying_key(origin, user_key: T::AccountId, paying_key: T::AccountId) -> DispatchResult {
             Self::base_remove_paying_key(origin, user_key, paying_key)
@@ -184,22 +176,26 @@ decl_error! {
 }
 
 impl<T: Config> Module<T> {
-    fn base_set_paying_key(origin: T::Origin, user_key: T::AccountId) -> DispatchResult {
+    fn base_set_paying_key(
+        origin: T::Origin,
+        user_key: T::AccountId,
+        polyx_limit: T::Balance,
+    ) -> DispatchResult {
         let PermissionedCallOriginData {
             sender: paying_key,
             primary_did: paying_did,
             ..
         } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
 
-        // Create authorization for setting the `paying_key` to the `user_key`, with 0 `polyx_limit`.
-        Self::unverified_add_auth_for_paying_key(paying_did, user_key, paying_key, 0u128.into());
+        // Create authorization for `paying_key` to subsidise the `user_key`, with `polyx_limit` POLYX.
+        Self::unverified_add_auth_for_paying_key(paying_did, user_key, paying_key, polyx_limit);
         Ok(())
     }
 
     fn base_accept_paying_key(origin: T::Origin, auth_id: u64) -> DispatchResult {
         let PermissionedCallOriginData {
             sender: user_key,
-            primary_did: sender_did,
+            primary_did: user_did,
             ..
         } = <Identity<T>>::ensure_origin_call_permissions(origin)?;
         let signer = Signatory::Account(user_key);
@@ -209,7 +205,7 @@ impl<T: Config> Module<T> {
                 extract_auth!(data, AddRelayerPayingKey(user_key, paying_key, polyx_limit));
 
             Self::auth_accept_paying_key(
-                signer.clone(),
+                user_did,
                 auth_by,
                 user_key.clone(),
                 paying_key.clone(),
@@ -217,7 +213,7 @@ impl<T: Config> Module<T> {
             )?;
 
             Self::deposit_event(RawEvent::AcceptedPayingKey(
-                sender_did.for_event(),
+                user_did.for_event(),
                 user_key,
                 paying_key,
             ));
@@ -345,23 +341,12 @@ impl<T: Config> Module<T> {
 
     /// Validate and accept a `paying_key` for the `user_key`.
     fn auth_accept_paying_key(
-        signer: Signatory<T::AccountId>,
+        user_did: IdentityId,
         from: IdentityId,
         user_key: T::AccountId,
         paying_key: T::AccountId,
         polyx_limit: T::Balance,
     ) -> DispatchResult {
-        // Check `signer` is DID/Key of `user_key`.
-        ensure!(
-            match signer {
-                Signatory::Account(signer_key) => (signer_key == user_key),
-                Signatory::Identity(signer_did) => {
-                    <Identity<T>>::get_identity(&user_key) == Some(signer_did)
-                }
-            },
-            Error::<T>::NotAuthorizedForUserKey
-        );
-
         // Ensure that the authorization came from the DID of the paying_key.
         ensure!(
             <Identity<T>>::get_identity(&paying_key) == Some(from),
@@ -376,7 +361,7 @@ impl<T: Config> Module<T> {
 
         // Ensure both user_key and paying_key have valid CDD.
         ensure!(
-            Self::key_has_valid_cdd(&user_key),
+            <Identity<T>>::has_valid_cdd(user_did),
             Error::<T>::UserKeyCddMissing
         );
         ensure!(
