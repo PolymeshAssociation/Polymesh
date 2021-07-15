@@ -20,4 +20,4 @@ Items should be added to the `changelog` using bulletpoints.
 
 ### modified agent functionality
 
-- [the addition or removal of any extrinsics that relate to agent permissions]
+- [the addition or removal of any extrinsics or events emitted by those extrinsics, that relate to permissioned agents]
