@@ -73,7 +73,7 @@ impl Default for MockProtocolBaseFees {
 #[derive(Default)]
 struct BridgeConfig {
     /// Complete TXs
-    pub complete_txs: Vec<BridgeTx<AccountId, u128>>,
+    pub complete_txs: Vec<BridgeTx<AccountId>>,
     /// Bridge admin key. See `Bridge` documentation for details.
     pub admin: Option<AccountId>,
     /// signers of the controller multisig account.
@@ -263,7 +263,7 @@ impl ExtBuilder {
     }
     */
 
-    pub fn set_bridge_complete_tx(mut self, txs: Vec<BridgeTx<AccountId, u128>>) -> Self {
+    pub fn set_bridge_complete_tx(mut self, txs: Vec<BridgeTx<AccountId>>) -> Self {
         self.bridge.complete_txs = txs;
         self
     }
@@ -487,7 +487,7 @@ impl ExtBuilder {
     }
 
     fn build_protocol_fee_genesis(&self, storage: &mut Storage) {
-        pallet_protocol_fee::GenesisConfig::<TestStorage> {
+        pallet_protocol_fee::GenesisConfig {
             base_fees: self.protocol_base_fees.0.clone(),
             coefficient: self.protocol_coefficient,
         }

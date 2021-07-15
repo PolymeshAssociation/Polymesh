@@ -14,13 +14,17 @@ pub(crate) fn on_runtime_upgrade<T: Config>() -> Weight {
         let now = frame_system::Module::<T>::block_number();
 
         // Migrate timelocked transactions.
-        StorageKeyIterator::<T::BlockNumber, Vec::<BridgeTx<T::AccountId, T::Balance>>, Twox64Concat>::new(b"Bridge", b"TimelockedTxs")
-            .drain()
-            .for_each(|(block_number, txs)| {
-                // Schedule only for future blocks.
-                let block_number = T::BlockNumber::max(block_number, now + One::one());
-                txs.into_iter().for_each(|tx| Module::<T>::schedule_call(block_number, tx));
-            });
+        StorageKeyIterator::<T::BlockNumber, Vec<BridgeTx<T::AccountId>>, Twox64Concat>::new(
+            b"Bridge",
+            b"TimelockedTxs",
+        )
+        .drain()
+        .for_each(|(block_number, txs)| {
+            // Schedule only for future blocks.
+            let block_number = T::BlockNumber::max(block_number, now + One::one());
+            txs.into_iter()
+                .for_each(|tx| Module::<T>::schedule_call(block_number, tx));
+        });
     });
 
     // No need to calculate correct weight for testnet

@@ -6,7 +6,7 @@ use super::{
 };
 use frame_support::{assert_noop, assert_ok, StorageMap};
 use frame_system::EventRecord;
-use pallet_portfolio::{MovePortfolioItem, RawEvent};
+use pallet_portfolio::{Event, MovePortfolioItem};
 use polymesh_common_utilities::balances::Memo;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
 use polymesh_primitives::{
@@ -111,7 +111,7 @@ fn cannot_delete_portfolio_with_asset() {
         ));
         // check MovedBetweenPortfolios event
         assert_last_event!(
-            EventTest::pallet_portfolio(RawEvent::MovedBetweenPortfolios(
+            EventTest::pallet_portfolio(Event::MovedBetweenPortfolios(
                 did, from, to, i_ticker, i_amount, i_memo
             )),
             did == &owner.did
@@ -207,7 +207,7 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
             &owner_default_portfolio,
             &owner_user_portfolio,
             &ticker,
-            &(token.total_supply * 2),
+            token.total_supply * 2,
         ),
         Error::InsufficientPortfolioBalance
     );
@@ -231,7 +231,7 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
             &owner_default_portfolio,
             &owner_default_portfolio,
             &ticker,
-            &1,
+            1,
         ),
         Error::DestinationIsSamePortfolio
     );
@@ -242,7 +242,7 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
             &owner_default_portfolio,
             &PortfolioId::user_portfolio(owner.did, PortfolioNumber(666)),
             &ticker,
-            &1,
+            1,
         ),
         Error::PortfolioDoesNotExist
     );
@@ -276,7 +276,7 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
     ));
     // check MovedBetweenPortfolios event
     assert_last_event!(
-        EventTest::pallet_portfolio(RawEvent::MovedBetweenPortfolios(
+        EventTest::pallet_portfolio(Event::MovedBetweenPortfolios(
             did, from, to, i_ticker, i_amount, i_memo
         )),
         did == &owner.did
@@ -290,7 +290,7 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
         &owner_default_portfolio,
         &owner_user_portfolio,
         &ticker,
-        &move_amount,
+        move_amount,
     ));
     assert_eq!(
         Portfolio::default_portfolio_balance(owner.did, &ticker),
@@ -320,7 +320,7 @@ fn can_lock_unlock_assets() {
         assert_ok!(Portfolio::lock_tokens(
             &owner_default_portfolio,
             &ticker,
-            &lock_amount
+            lock_amount
         ));
 
         assert_eq!(
@@ -389,7 +389,7 @@ fn can_lock_unlock_assets() {
         assert_ok!(Portfolio::unlock_tokens(
             &owner_default_portfolio,
             &ticker,
-            &lock_amount
+            lock_amount
         ));
 
         assert_eq!(

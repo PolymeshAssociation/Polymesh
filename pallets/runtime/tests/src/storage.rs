@@ -34,7 +34,6 @@ use polymesh_common_utilities::{
     traits::{
         group::GroupTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-        CommonConfig,
     },
     Context,
 };
@@ -218,16 +217,16 @@ frame_support::construct_runtime!(
         Settlement: pallet_settlement::{Module, Call, Storage, Event<T>, Config} = 36,
         Sto: pallet_sto::{Module, Call, Storage, Event<T>} = 37,
         Statistics: pallet_statistics::{Module, Call, Storage, Event} = 39,
-        ProtocolFee: pallet_protocol_fee::{Module, Call, Storage, Event<T>, Config<T>} = 40,
+        ProtocolFee: pallet_protocol_fee::{Module, Call, Storage, Event<T>, Config} = 40,
         Utility: pallet_utility::{Module, Call, Storage, Event} = 41,
-        Portfolio: pallet_portfolio::{Module, Call, Storage, Event<T>} = 42,
+        Portfolio: pallet_portfolio::{Module, Call, Storage, Event} = 42,
         // Removed pallet Confidential = 43,
         Permissions: pallet_permissions::{Module, Storage} = 44,
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>} = 45,
         CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event, Config} = 46,
-        CorporateBallot: corporate_ballots::{Module, Call, Storage, Event<T>} = 47,
-        CapitalDistribution: capital_distributions::{Module, Call, Storage, Event<T>} = 48,
-        Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event<T>, Config} = 49,
+        CorporateBallot: corporate_ballots::{Module, Call, Storage, Event} = 47,
+        CapitalDistribution: capital_distributions::{Module, Call, Storage, Event} = 48,
+        Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event, Config} = 49,
         TestUtils: pallet_test_utils::{Module, Call, Storage, Event<T> } = 50,
         Base: pallet_base::{Module, Call, Event} = 51,
         ExternalAgents: pallet_external_agents::{Module, Call, Storage, Event} = 52,
@@ -613,7 +612,7 @@ pub fn make_account_with_uid(
 pub fn make_account_with_balance(
     id: AccountId,
     uid: InvestorUid,
-    balance: <TestStorage as CommonConfig>::Balance,
+    balance: Balance,
 ) -> Result<(<TestStorage as frame_system::Config>::Origin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, balance);
@@ -659,7 +658,7 @@ pub fn register_keyring_account(acc: AccountKeyring) -> Result<IdentityId, &'sta
 
 pub fn register_keyring_account_with_balance(
     acc: AccountKeyring,
-    balance: <TestStorage as CommonConfig>::Balance,
+    balance: Balance,
 ) -> Result<IdentityId, &'static str> {
     let acc_id = acc.to_account_id();
     let uid = create_investor_uid(acc_id.clone());

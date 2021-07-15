@@ -97,7 +97,7 @@ macro_rules! assert_too_long {
     };
 }
 
-crate fn token(name: &[u8], owner_did: IdentityId) -> (Ticker, SecurityToken<u128>) {
+crate fn token(name: &[u8], owner_did: IdentityId) -> (Ticker, SecurityToken) {
     let ticker = Ticker::try_from(name).unwrap();
     let token = SecurityToken {
         name: name.into(),
@@ -110,7 +110,7 @@ crate fn token(name: &[u8], owner_did: IdentityId) -> (Ticker, SecurityToken<u12
     (ticker, token)
 }
 
-crate fn a_token(owner_did: IdentityId) -> (Ticker, SecurityToken<u128>) {
+crate fn a_token(owner_did: IdentityId) -> (Ticker, SecurityToken) {
     token(b"A", owner_did)
 }
 
@@ -128,7 +128,7 @@ fn has_ticker_record(ticker: Ticker) -> bool {
 fn asset_with_ids(
     owner: User,
     ticker: Ticker,
-    token: &SecurityToken<u128>,
+    token: &SecurityToken,
     ids: Vec<AssetIdentifier>,
 ) -> DispatchResult {
     Asset::base_create_asset_and_mint(
@@ -145,11 +145,11 @@ fn asset_with_ids(
     Ok(())
 }
 
-crate fn basic_asset(owner: User, ticker: Ticker, token: &SecurityToken<u128>) -> DispatchResult {
+crate fn basic_asset(owner: User, ticker: Ticker, token: &SecurityToken) -> DispatchResult {
     asset_with_ids(owner, ticker, token, vec![])
 }
 
-crate fn create_token(owner: User) -> (Ticker, SecurityToken<u128>) {
+crate fn create_token(owner: User) -> (Ticker, SecurityToken) {
     let r = a_token(owner.did);
     assert_ok!(basic_asset(owner, r.0, &r.1));
     r

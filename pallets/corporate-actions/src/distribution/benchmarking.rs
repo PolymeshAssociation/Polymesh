@@ -28,12 +28,7 @@ use polymesh_primitives::{PortfolioId, PortfolioNumber, Ticker};
 const MAX_TARGETS: u32 = 1000;
 const MAX_DID_WHT_IDS: u32 = 1000;
 
-fn portfolio<T: Config>(
-    owner: &User<T>,
-    pnum: PortfolioNumber,
-    ticker: Ticker,
-    amount: T::Balance,
-) {
+fn portfolio<T: Config>(owner: &User<T>, pnum: PortfolioNumber, ticker: Ticker, amount: Balance) {
     let did = owner.did();
     let origin: T::Origin = owner.origin().into();
     <Portfolio<T>>::create_portfolio(origin.clone(), "portfolio".into()).unwrap();
@@ -124,7 +119,7 @@ benchmarks! {
         portfolio::<T>(&owner, pnum, currency, amount);
     }: _(owner.origin(), ca_id, Some(pnum), currency, per_share, amount, 3000, Some(4000))
     verify {
-        assert!(<Distributions<T>>::get(ca_id).is_some(), "distribution not created");
+        assert!(Distributions::get(ca_id).is_some(), "distribution not created");
     }
 
     claim {
@@ -153,13 +148,13 @@ benchmarks! {
         <pallet_timestamp::Now<T>>::set(5000u32.into());
     }: _(owner.origin(), ca_id)
     verify {
-        assert!(<Distributions<T>>::get(ca_id).unwrap().reclaimed, "not reclaimed");
+        assert!(Distributions::get(ca_id).unwrap().reclaimed, "not reclaimed");
     }
 
     remove_distribution {
         let (owner, ca_id, currency) = dist::<T>(0);
     }: _(owner.origin(), ca_id)
     verify {
-        assert!(<Distributions<T>>::get(ca_id).is_none(), "not removed");
+        assert!(Distributions::get(ca_id).is_none(), "not removed");
     }
 }

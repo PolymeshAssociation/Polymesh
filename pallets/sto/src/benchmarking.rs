@@ -59,7 +59,7 @@ fn create_assets_and_compliance<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     Ok(())
 }
 
-fn generate_tiers<T: Config>(n: u32) -> Vec<PriceTier<T::Balance>> {
+fn generate_tiers<T: Config>(n: u32) -> Vec<PriceTier> {
     let n = n as usize;
     let mut tiers = Vec::with_capacity(n);
     for i in 0..n {
