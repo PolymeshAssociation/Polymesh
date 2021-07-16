@@ -142,7 +142,6 @@ impl Default for AssetOwnershipRelation {
 /// struct to store the token details.
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct SecurityToken {
-    pub name: AssetName,
     pub total_supply: Balance,
     pub owner_did: IdentityId,
     pub divisible: bool,
@@ -155,7 +154,7 @@ mod migrate {
 
     /// struct to store the token details.
     #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
-    pub struct SecurityTokenOld {
+    pub struct SecurityTokenOld1 {
         pub name: AssetName,
         pub total_supply: Balance,
         pub owner_did: IdentityId,
@@ -164,9 +163,9 @@ mod migrate {
         pub primary_issuance_agent: Option<IdentityId>,
     }
 
-    impl Migrate for SecurityTokenOld {
+    impl Migrate for SecurityTokenOld1 {
         type Context = Empty;
-        type Into = SecurityToken;
+        type Into = SecurityTokenOld2;
         fn migrate(self, _: Self::Context) -> Option<Self::Into> {
             let Self {
                 name,
@@ -178,6 +177,36 @@ mod migrate {
             } = self;
             Some(Self::Into {
                 name,
+                total_supply,
+                owner_did,
+                divisible,
+                asset_type,
+            })
+        }
+    }
+
+    /// struct to store the token details.
+    #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
+    pub struct SecurityTokenOld2 {
+        pub name: AssetName,
+        pub total_supply: Balance,
+        pub owner_did: IdentityId,
+        pub divisible: bool,
+        pub asset_type: AssetType,
+    }
+
+    impl Migrate for SecurityTokenOld2 {
+        type Context = Empty;
+        type Into = SecurityToken;
+        fn migrate(self, _: Self::Context) -> Option<Self::Into> {
+            let Self {
+                name: _,
+                total_supply,
+                owner_did,
+                divisible,
+                asset_type,
+            } = self;
+            Some(Self::Into {
                 total_supply,
                 owner_did,
                 divisible,
@@ -251,7 +280,7 @@ pub struct ClassicTickerRegistration {
 
 // A value placed in storage that represents the current version of this storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-storage_migration_ver!(3);
+storage_migration_ver!(4);
 
 decl_storage! {
     trait Store for Module<T: Config> as Asset {
@@ -264,6 +293,9 @@ decl_storage! {
         /// Details of the token corresponding to the token ticker.
         /// (ticker) -> SecurityToken details [returns SecurityToken struct]
         pub Tokens get(fn token_details): map hasher(blake2_128_concat) Ticker => SecurityToken;
+        /// Asset name of the token corresponding to the token ticker.
+        /// (ticker) -> `AssetName`
+        pub AssetNames get(fn asset_names): map hasher(blake2_128_concat) Ticker => AssetName;
         /// The total asset ticker balance per identity.
         /// (ticker, DID) -> Balance
         pub BalanceOf get(fn balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) IdentityId => Balance;
@@ -311,7 +343,7 @@ decl_storage! {
         /// (Ticker, IdentityId) => ScopeId.
         pub ScopeIdOf get(fn scope_id_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) IdentityId => ScopeId;
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(2).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(4).unwrap()): Version;
     }
     add_extra_genesis {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
@@ -381,16 +413,28 @@ decl_module! {
             });
 
             storage_migrate_on!(StorageVersion::get(), 3, {
-                use crate::migrate::SecurityTokenOld;
+                use crate::migrate::SecurityTokenOld1;
                 use polymesh_primitives::migrate::migrate_map_keys_and_value;
                 migrate_map_keys_and_value::<_, _, Blake2_128Concat, _, _, _>(
                     b"Asset", b"Tokens", b"Tokens",
-                    |ticker: Ticker, token: SecurityTokenOld| {
+                    |ticker: Ticker, token: SecurityTokenOld1| {
                         ExternalAgents::<T>::add_agent_if_not(ticker, token.owner_did, AgentGroup::Full).unwrap();
 
                         if let Some(pia) = token.primary_issuance_agent {
                             ExternalAgents::<T>::add_agent_if_not(ticker, pia, AgentGroup::PolymeshV1PIA).unwrap();
                         }
+                        token.migrate(Empty).map(|t| (ticker, t))
+                    },
+                );
+            });
+
+            storage_migrate_on!(StorageVersion::get(), 4, {
+                use crate::migrate::SecurityTokenOld2;
+                use polymesh_primitives::migrate::migrate_map_keys_and_value;
+                migrate_map_keys_and_value::<_, _, Blake2_128Concat, _, _, _>(
+                    b"Asset", b"Tokens", b"Tokens",
+                    |ticker: Ticker, token: SecurityTokenOld2| {
+                        AssetNames::insert(ticker, token.name.clone());
                         token.migrate(Empty).map(|t| (ticker, t))
                     },
                 );
@@ -1633,20 +1677,13 @@ impl<T: Config> Module<T> {
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
     ) -> Result<IdentityId, DispatchError> {
-        ensure!(
-            name.len() as u32 <= T::AssetNameMaxLength::get(),
-            Error::<T>::MaxLengthOfAssetNameExceeded
-        );
+        Self::ensure_asset_name_bounded(&name)?;
         if let AssetType::Custom(ty) = &asset_type {
             ensure_string_limited::<T>(ty)?;
         }
-        ensure!(
-            funding_round
-                .as_ref()
-                .map_or(0u32, |name| name.len() as u32)
-                <= T::FundingRoundNameMaxLength::get(),
-            Error::<T>::FundingRoundNameMaxLengthExceeded
-        );
+        if let Some(fr) = &funding_round {
+            Self::ensure_funding_round_name_bounded(fr)?;
+        }
         Self::ensure_asset_idents_valid(&identifiers)?;
 
         let PermissionedCallOriginData {
@@ -1718,18 +1755,18 @@ impl<T: Config> Module<T> {
         }
 
         let token = SecurityToken {
-            name,
             total_supply: Zero::zero(),
             owner_did: did,
             divisible,
             asset_type: asset_type.clone(),
         };
         Tokens::insert(&ticker, token);
+        AssetNames::insert(&ticker, name);
         // NB - At the time of asset creation it is obvious that asset issuer/ primary issuance agent will not have
         // `InvestorUniqueness` claim. So we are skipping the scope claim based stats update as
         // those data points will get added in to the system whenever asset issuer/ primary issuance agent
         // have InvestorUniqueness claim. This also applies when issuing assets.
-        <AssetOwnershipRelations>::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
+        AssetOwnershipRelations::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
         Self::deposit_event(RawEvent::AssetCreated(
             did, ticker, divisible, asset_type, did,
         ));
@@ -1765,16 +1802,21 @@ impl<T: Config> Module<T> {
     }
 
     fn base_rename_asset(origin: T::Origin, ticker: Ticker, name: AssetName) -> DispatchResult {
+        Self::ensure_asset_name_bounded(&name)?;
+        Self::ensure_asset_exists(&ticker)?;
+        let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+
+        AssetNames::insert(&ticker, name.clone());
+        Self::deposit_event(RawEvent::AssetRenamed(did, ticker, name));
+        Ok(())
+    }
+
+    /// Ensure `name` is within the global limit for asset name lengths.
+    fn ensure_asset_name_bounded(name: &AssetName) -> DispatchResult {
         ensure!(
             name.len() as u32 <= T::AssetNameMaxLength::get(),
             Error::<T>::MaxLengthOfAssetNameExceeded
         );
-
-        // Verify the ownership of token.
-        let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
-        Self::ensure_asset_exists(&ticker)?;
-        Tokens::mutate(&ticker, |token| token.name = name.clone());
-        Self::deposit_event(RawEvent::AssetRenamed(did, ticker, name));
         Ok(())
     }
 
@@ -1883,15 +1925,20 @@ impl<T: Config> Module<T> {
         ticker: Ticker,
         name: FundingRoundName,
     ) -> DispatchResult {
-        ensure!(
-            name.len() as u32 <= T::FundingRoundNameMaxLength::get(),
-            Error::<T>::FundingRoundNameMaxLengthExceeded
-        );
+        Self::ensure_funding_round_name_bounded(&name)?;
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
         FundingRound::insert(ticker, name.clone());
         Self::deposit_event(RawEvent::FundingRoundSet(did, ticker, name));
+        Ok(())
+    }
 
+    /// Ensure `name` is within the global limit for asset name lengths.
+    fn ensure_funding_round_name_bounded(name: &FundingRoundName) -> DispatchResult {
+        ensure!(
+            name.len() as u32 <= T::FundingRoundNameMaxLength::get(),
+            Error::<T>::FundingRoundNameMaxLengthExceeded
+        );
         Ok(())
     }
 
