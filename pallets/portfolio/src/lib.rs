@@ -91,7 +91,13 @@ decl_storage! {
         /// pair maps to `Some(name)` then such a portfolio exists and is called `name`.
         pub Portfolios get(fn portfolios):
             double_map hasher(twox_64_concat) IdentityId, hasher(twox_64_concat) PortfolioNumber =>
-            PortfolioName;
+                PortfolioName;
+
+        /// Inverse map of `Portfolios` used to ensure bijectivitiy,
+        /// and uniqueness of names in `Portfolios`.
+        pub NameToNumber get(fn name_to_number):
+            double_map hasher(twox_64_concat) IdentityId, hasher(blake2_128_concat) PortfolioName =>
+                PortfolioNumber;
 
         /// How many assets with non-zero balance this portfolio contains.
         pub PortfolioAssetCount get(fn portfolio_has_assets):
@@ -164,12 +170,18 @@ decl_module! {
             });
 
             storage_migrate_on!(StorageVersion::get(), 2, {
+                // Cache asset counts in portfolios.
                 let mut counts = BTreeMap::new();
                 for (pid, ..) in PortfolioAssetBalances::iter().filter(|(.., b)| !b.is_zero()) {
                     *counts.entry(pid).or_insert(0) += 1;
                 }
                 for (pid, count) in counts {
                     PortfolioAssetCount::insert(pid, count);
+                }
+
+                // Create `NameToNumber` caches.
+                for (did, num, name) in Portfolios::iter() {
+                    NameToNumber::insert(did, name, num);
                 }
             });
 
@@ -179,11 +191,13 @@ decl_module! {
         /// Creates a portfolio with the given `name`.
         #[weight = <T as Config>::WeightInfo::create_portfolio()]
         pub fn create_portfolio(origin, name: PortfolioName) {
-            let primary_did = Identity::<T>::ensure_perms(origin)?;
-            Self::ensure_name_unique(&primary_did, &name)?;
-            let num = Self::get_next_portfolio_number(&primary_did);
-            Portfolios::insert(&primary_did, &num, name.clone());
-            Self::deposit_event(Event::PortfolioCreated(primary_did, num, name));
+            let did = Identity::<T>::ensure_perms(origin)?;
+            Self::ensure_name_unique(&did, &name)?;
+
+            let num = Self::get_next_portfolio_number(&did);
+            NameToNumber::insert(&did, &name, num);
+            Portfolios::insert(&did, &num, name.clone());
+            Self::deposit_event(Event::PortfolioCreated(did, num, name));
         }
 
         /// Deletes a user portfolio. A portfolio can be deleted only if it has no funds.
@@ -301,10 +315,22 @@ decl_module! {
                 secondary_key,
                 ..
             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+
+            // Enforce custody & validty of portfolio.
             Self::ensure_user_portfolio_permission(secondary_key.as_ref(), PortfolioId::user_portfolio(primary_did, num))?;
             Self::ensure_user_portfolio_validity(primary_did, num)?;
+
+            // Enforce new name uniqueness.
+            // A side-effect of the ordering here is that you cannot rename e.g., "foo" to "foo".
+            // You would first need to rename to "bar" and then back to "foo".
             Self::ensure_name_unique(&primary_did, &to_name)?;
-            Portfolios::mutate(&primary_did, &num, |p| *p = to_name.clone());
+
+            // Change the name in storage.
+            Portfolios::mutate(&primary_did, &num, |p| {
+                NameToNumber::remove(&primary_did, mem::replace(p, to_name.clone()));
+            });
+
+            // Emit Event.
             Self::deposit_event(Event::PortfolioRenamed(
                 primary_did,
                 num,
@@ -379,8 +405,10 @@ impl<T: Config> Module<T> {
     /// Ensures that there is no portfolio with the desired `name` yet.
     fn ensure_name_unique(did: &IdentityId, name: &PortfolioName) -> DispatchResult {
         pallet_base::ensure_string_limited::<T>(name)?;
-        let name_uniq = Portfolios::iter_prefix(&did).all(|n| &n.1 != name);
-        ensure!(name_uniq, Error::<T>::PortfolioNameAlreadyInUse);
+        ensure!(
+            !NameToNumber::contains_key(did, name),
+            Error::<T>::PortfolioNameAlreadyInUse
+        );
         Ok(())
     }
 
