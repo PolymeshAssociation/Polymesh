@@ -163,6 +163,7 @@ pallet-pips = { path = "pallets/pips", default-features = false }
 pallet-protocol-fee = { path = "pallets/protocol-fee", default-features = false }
 pallet-staking = { path = "pallets/staking", default-features = false }
 pallet-sudo = { path = "pallets/sudo", default-features = false }
+pallet-rewards = { path = "pallets/rewards", default-features = false }
 polymesh-common-utilities = { path = "pallets/common", default-features = false }
 polymesh-primitives = { path = "primitives", default-features = false }
 polymesh-runtime-common = { path = "pallets/runtime/common", default-features = false }

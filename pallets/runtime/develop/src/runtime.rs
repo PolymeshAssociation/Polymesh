@@ -397,7 +397,7 @@ construct_runtime!(
         TestUtils: pallet_test_utils::{Module, Call, Storage, Event<T> } = 50,
         Base: pallet_base::{Module, Call, Event} = 51,
         ExternalAgents: pallet_external_agents::{Module, Call, Storage, Event} = 52,
-        Rewards: pallet_rewards::{Module, Call, Storage, Event<T> } = 53,
+        Rewards: pallet_rewards::{Module, Call, Storage, Event<T>, Config<T>} = 53,
     }
 );
 

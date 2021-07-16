@@ -485,6 +485,23 @@ macro_rules! protocol_fee {
     };
 }
 
+macro_rules! rewards {
+    () => {
+        pallet_rewards::GenesisConfig {
+            itn_rewards: itn_rewards(),
+        }
+    };
+}
+
+#[allow(unreachable_code)]
+fn itn_rewards<AccountId, Balance>() -> Vec<(AccountId, Balance)> {
+    #[cfg(feature = "runtime-benchmarks")]
+    return Vec::new();
+
+    let itn_rewards_file = include_str!("data/itn_rewards.json");
+    serde_json::from_str(&itn_rewards_file).unwrap()
+}
+
 pub mod general {
     use super::*;
     use polymesh_runtime_develop::{self as rt, constants::time};
@@ -562,6 +579,7 @@ pub mod general {
                 transaction_version: 1,
             }),
             pallet_corporate_actions: Some(corporate_actions!()),
+            pallet_rewards: Some(rewards!()),
         }
     }
 

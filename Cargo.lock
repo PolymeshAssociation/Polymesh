@@ -5827,6 +5827,7 @@ dependencies = [
  "pallet-protocol-fee",
  "pallet-protocol-fee-rpc",
  "pallet-protocol-fee-rpc-runtime-api",
+ "pallet-rewards",
  "pallet-session",
  "pallet-staking",
  "pallet-staking-rpc-runtime-api",
