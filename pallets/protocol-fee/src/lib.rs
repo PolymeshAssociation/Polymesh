@@ -89,7 +89,9 @@ decl_error! {
         /// Insufficient account balance to pay the fee.
         InsufficientAccountBalance,
         /// Not able to handled the imbalances
-        UnHandledImbalances
+        UnHandledImbalances,
+        /// Insufficient subsidy balance to pay the fee.
+        InsufficientSubsidyBalance,
     }
 }
 
@@ -214,9 +216,9 @@ impl<T: Config> Module<T> {
     fn withdraw_fee(account: T::AccountId, fee: BalanceOf<T>) -> WithdrawFeeResult<T> {
         // Check if the `account` is being subsidised.
         let subsidiser = T::Subsidiser::debit_subsidy(&account, fee)
-            .map_err(|_| Error::<T>::InsufficientAccountBalance)?;
+            .map_err(|_| Error::<T>::InsufficientSubsidyBalance)?;
 
-        // key to pay the fee.
+        // Key to pay the fee.
         let fee_key = subsidiser.as_ref().unwrap_or(&account);
 
         let ret = T::Currency::withdraw(
