@@ -1,10 +1,10 @@
 use super::{
-    storage::{get_identity_id, register_keyring_account, TestStorage},
+    storage::{get_identity_id, register_keyring_account, set_curr_did, TestStorage},
     ExtBuilder,
 };
 use pallet_group::{self as group};
 use pallet_identity as identity;
-use polymesh_common_utilities::{traits::group::GroupTrait, Context};
+use polymesh_common_utilities::traits::group::GroupTrait;
 use polymesh_primitives::IdentityId;
 
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
@@ -51,7 +51,7 @@ fn add_member_works_we() {
     let non_root = Origin::signed(AccountKeyring::Bob.to_account_id());
     let non_root_did = get_identity_id(AccountKeyring::Alice).unwrap();
 
-    Context::set_current_identity::<Identity>(Some(non_root_did));
+    set_curr_did(Some(non_root_did));
     assert_noop!(
         CommitteeGroup::add_member(non_root, IdentityId::from(3)),
         DispatchError::BadOrigin
@@ -170,7 +170,7 @@ fn remove_member_works_we() {
 
     let non_root_did = get_identity_id(AccountKeyring::Alice).unwrap();
 
-    Context::set_current_identity::<Identity>(Some(non_root_did));
+    set_curr_did(Some(non_root_did));
 
     assert_noop!(
         CommitteeGroup::remove_member(non_root, IdentityId::from(3)),
@@ -208,7 +208,7 @@ fn swap_member_works_we() {
     let charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let non_root_did = get_identity_id(AccountKeyring::Charlie).unwrap();
 
-    Context::set_current_identity::<Identity>(Some(non_root_did));
+    set_curr_did(Some(non_root_did));
     assert_noop!(
         CommitteeGroup::swap_member(non_root, alice_id, IdentityId::from(5)),
         DispatchError::BadOrigin
@@ -280,7 +280,7 @@ fn rage_quit_we() {
 
     // Ferdie is NOT a member
     assert_eq!(CommitteeGroup::is_member(&ferdie_did), false);
-    Context::set_current_identity::<Identity>(Some(ferdie_did));
+    set_curr_did(Some(ferdie_did));
     assert_noop!(
         CommitteeGroup::abdicate_membership(ferdie_signer),
         group::Error::<TestStorage, group::Instance1>::NoSuchMember
@@ -288,20 +288,20 @@ fn rage_quit_we() {
 
     // Bob quits, its vote should be removed.
     assert_eq!(CommitteeGroup::is_member(&bob_did), true);
-    Context::set_current_identity::<Identity>(Some(bob_did));
+    set_curr_did(Some(bob_did));
     assert_ok!(CommitteeGroup::abdicate_membership(bob_signer.clone()));
     assert_eq!(CommitteeGroup::is_member(&bob_did), false);
 
     // Charlie quits, its vote should be removed and
     // propose should be accepted.
     assert_eq!(CommitteeGroup::is_member(&charlie_did), true);
-    Context::set_current_identity::<Identity>(Some(charlie_did));
+    set_curr_did(Some(charlie_did));
     assert_ok!(CommitteeGroup::abdicate_membership(charlie_signer.clone()));
     assert_eq!(CommitteeGroup::is_member(&charlie_did), false);
 
     // Alice should not quit because she is the last member.
     assert_eq!(CommitteeGroup::is_member(&alice_did), true);
-    Context::set_current_identity::<Identity>(Some(alice_did));
+    set_curr_did(Some(alice_did));
     assert_noop!(
         CommitteeGroup::abdicate_membership(alice_signer),
         group::Error::<TestStorage, group::Instance1>::LastMemberCannotQuit

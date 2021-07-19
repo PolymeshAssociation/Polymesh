@@ -45,12 +45,11 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::ensure_root;
-use pallet_identity as identity;
 use polymesh_common_utilities::{
     identity::Config as IdentityConfig,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     transaction_payment::CddAndFeeDetails,
-    Context, GC_DID,
+    GC_DID,
 };
 use polymesh_primitives::{IdentityId, PosRatio};
 use sp_runtime::{
@@ -65,7 +64,6 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 >>::NegativeImbalance;
 /// Either an imbalance or an error.
 type WithdrawFeeResult<T> = sp_std::result::Result<NegativeImbalanceOf<T>, DispatchError>;
-type Identity<T> = identity::Module<T>;
 
 pub trait WeightInfo {
     fn change_coefficient() -> Weight;
@@ -133,10 +131,8 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::change_coefficient()]
         pub fn change_coefficient(origin, coefficient: PosRatio) {
             ensure_root(origin)?;
-            let id = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
-
             Coefficient::put(&coefficient);
-            Self::deposit_event(RawEvent::CoefficientSet(id, coefficient));
+            Self::deposit_event(RawEvent::CoefficientSet(GC_DID, coefficient));
         }
 
         /// Changes the a base fee for the root origin.
@@ -146,10 +142,8 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::change_base_fee()]
         pub fn change_base_fee(origin, op: ProtocolOp, base_fee: BalanceOf<T>) {
             ensure_root(origin)?;
-            let id = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
-
             <BaseFees<T>>::insert(op, &base_fee);
-            Self::deposit_event(RawEvent::FeeSet(id, base_fee));
+            Self::deposit_event(RawEvent::FeeSet(GC_DID, base_fee));
         }
     }
 }
