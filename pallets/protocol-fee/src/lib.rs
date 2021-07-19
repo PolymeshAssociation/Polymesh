@@ -79,7 +79,8 @@ pub trait Config: frame_system::Config + IdentityConfig {
     type OnProtocolFeePayment: OnUnbalanced<NegativeImbalanceOf<Self>>;
     /// Weight calaculation.
     type WeightInfo: WeightInfo;
-    /// Subsidiser.
+    /// Connection to the `Relayer` pallet.
+    /// Used to charge protocol fees to a subsidiser, if any, instead of the payer.
     type Subsidiser: SubsidiserTrait<Self::AccountId, BalanceOf<Self>>;
 }
 

@@ -1,7 +1,6 @@
 use crate::{traits::identity, CommonConfig};
-use polymesh_primitives::{Balance, EventDid};
-
 use frame_support::{decl_event, weights::Weight};
+use polymesh_primitives::{Balance, EventDid};
 use sp_runtime::transaction_validity::InvalidTransaction;
 
 pub trait WeightInfo {
@@ -12,12 +11,12 @@ pub trait WeightInfo {
 }
 
 pub trait SubsidiserTrait<AccountId, Balance> {
-    /// Check if a `user_key` has a subsidiser and that the subsidy can pay the fee.
+    /// Check if a `user_key` has a subsidiser and that the subsidy can pay the `fee`.
     fn check_subsidy(
         user_key: &AccountId,
         fee: Balance,
     ) -> Result<Option<AccountId>, InvalidTransaction>;
-    /// Debit the fee from the remaing balance of the subsidy for `user_key`.
+    /// Debit `fee` from the remaining balance of the subsidy for `user_key`.
     fn debit_subsidy(
         user_key: &AccountId,
         fee: Balance,
