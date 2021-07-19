@@ -279,7 +279,8 @@ pub trait Config: frame_system::Config + pallet_timestamp::Config {
     /// Fetch the signatory to charge fee from. Also sets fee payer and identity in context.
     type CddHandler: CddAndFeeDetails<Self::AccountId, Self::Call>;
 
-    /// Subsidiser.
+    /// Connection to the `Relayer` pallet.
+    /// Used to charge transaction fees to a subsidiser, if any, instead of the payer.
     type Subsidiser: SubsidiserTrait<Self::AccountId, BalanceOf<Self>>;
 
     /// CDD providers group.

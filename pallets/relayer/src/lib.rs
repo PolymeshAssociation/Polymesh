@@ -397,7 +397,6 @@ impl<T: Config> Module<T> {
             // There was no subsidy.
             None => Ok(None),
             // Has subsidy, but not enough remaining POLYX.
-            // TODO: Should we fail here or allow falling back to the user key paying?
             Some(s) if s.remaining < fee => fail!(InvalidTransaction::Payment),
             // Has subsidy and enough POLYX.
             Some(s) => Ok(Some(s)),
