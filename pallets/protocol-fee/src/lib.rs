@@ -215,12 +215,11 @@ impl<T: Config> Module<T> {
     /// identity otherwise.
     fn withdraw_fee(account: T::AccountId, fee: BalanceOf<T>) -> WithdrawFeeResult<T> {
         // Check if the `account` is being subsidised.
-        let subsidiser = T::Subsidiser::debit_subsidy(&account, fee)
+        let subsidiser = T::Subsidiser::check_subsidy(&account, fee)
             .map_err(|_| Error::<T>::InsufficientSubsidyBalance)?;
 
-        // Key to pay the fee.
+        // Withdraw protocol `fee` from the `account` or their `subsidiser`.
         let fee_key = subsidiser.as_ref().unwrap_or(&account);
-
         let ret = T::Currency::withdraw(
             fee_key,
             fee,
@@ -228,6 +227,14 @@ impl<T: Config> Module<T> {
             ExistenceRequirement::KeepAlive,
         )
         .map_err(|_| Error::<T>::InsufficientAccountBalance)?;
+
+        // Debit the protocol `fee` from the subsidy if there was a subsidiser.
+        if subsidiser.is_some() {
+            // This shouldn't fail, since the subsidy was already checked.
+            T::Subsidiser::debit_subsidy(&account, fee)
+                .map_err(|_| Error::<T>::InsufficientSubsidyBalance)?;
+        }
+
         Self::deposit_event(RawEvent::FeeCharged(account, fee));
         Ok(ret)
     }
