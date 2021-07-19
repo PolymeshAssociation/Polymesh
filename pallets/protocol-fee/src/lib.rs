@@ -215,7 +215,7 @@ impl<T: Config> Module<T> {
     /// identity otherwise.
     fn withdraw_fee(account: T::AccountId, fee: BalanceOf<T>) -> WithdrawFeeResult<T> {
         // Check if the `account` is being subsidised.
-        let subsidiser = T::Subsidiser::check_subsidy(&account, fee)
+        let subsidiser = T::Subsidiser::check_subsidy(&account, fee, None)
             .map_err(|_| Error::<T>::InsufficientSubsidyBalance)?;
 
         // Withdraw protocol `fee` from the `account` or their `subsidiser`.

@@ -271,6 +271,8 @@ pub enum TransactionError {
     CddRequired = 2,
     /// Invalid auth id
     InvalidAuthorization = 3,
+    /// Subsidy is not available for this pallet.
+    PalletNotSubsidised = 4,
 }
 
 /// Represents the target identity and the amount requested by a beneficiary.

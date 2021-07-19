@@ -56,9 +56,12 @@ use pallet_identity::{self as identity, PermissionedCallOriginData};
 pub use polymesh_common_utilities::traits::relayer::{
     Config, Event, RawEvent, SubsidiserTrait, WeightInfo,
 };
-use polymesh_primitives::{extract_auth, AuthorizationData, IdentityId, Signatory};
+use polymesh_primitives::{
+    extract_auth, AuthorizationData, IdentityId, Signatory, TransactionError,
+};
 
 type Identity<T> = identity::Module<T>;
+type Permissions<T> = pallet_permissions::Module<T>;
 
 /// A Subsidy for transaction and protocol fees.
 ///
@@ -388,6 +391,18 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    fn ensure_pallet_is_subsidised(pallet: Option<&[u8]>) -> Result<(), InvalidTransaction> {
+        let current_pallet = <Permissions<T>>::current_pallet_name();
+        let pallet = pallet.unwrap_or(current_pallet.as_slice());
+        match pallet {
+            b"Asset" | b"ComplianceManager" | b"CorporateActions" | b"ExternalAgents"
+            | b"Permissions" | b"Portfolio" | b"Settlement" | b"Statistics" | b"Sto" => Ok(()),
+            name => fail!(InvalidTransaction::Custom(
+                TransactionError::PalletNotSubsidised
+            )),
+        }
+    }
+
     fn get_subsidy(
         user_key: &T::AccountId,
         fee: T::Balance,
@@ -408,8 +423,16 @@ impl<T: Config> SubsidiserTrait<T::AccountId, T::Balance> for Module<T> {
     fn check_subsidy(
         user_key: &T::AccountId,
         fee: T::Balance,
+        pallet: Option<&[u8]>,
     ) -> Result<Option<T::AccountId>, InvalidTransaction> {
-        Ok(Self::get_subsidy(user_key, fee)?.map(|s| s.paying_key))
+        match Self::get_subsidy(user_key, fee)? {
+            Some(s) => {
+                // Ensure that the current pallet can be subsidised.
+                Self::ensure_pallet_is_subsidised(pallet)?;
+                Ok(Some(s.paying_key))
+            }
+            _ => Ok(None),
+        }
     }
 
     fn debit_subsidy(

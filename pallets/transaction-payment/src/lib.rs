@@ -55,7 +55,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     decl_module, decl_storage,
     dispatch::DispatchResult,
-    traits::{Currency, Get},
+    traits::{Currency, Get, GetCallMetadata},
     weights::{
         DispatchClass, DispatchInfo, GetDispatchInfo, Pays, PostDispatchInfo, Weight,
         WeightToFeeCoefficient, WeightToFeePolynomial,
@@ -532,7 +532,7 @@ pub struct ChargeTransactionPayment<T: Config>(#[codec(compact)] BalanceOf<T>);
 
 impl<T: Config> ChargeTransactionPayment<T>
 where
-    T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo> + GetCallMetadata,
     BalanceOf<T>: Send + Sync + FixedPointOperand,
 {
     /// utility constructor. Used only in client/factory code.
@@ -568,7 +568,12 @@ where
             T::CddHandler::get_valid_payer(call, &who)?.ok_or(InvalidTransaction::Payment)?;
 
         // Check if the payer is being subsidised.
-        let subsidiser = T::Subsidiser::check_subsidy(&payer_key, fee)?;
+        let metadata = call.get_call_metadata();
+        let subsidiser = T::Subsidiser::check_subsidy(
+            &payer_key,
+            fee,
+            Some(metadata.pallet_name.as_bytes().into()),
+        )?;
 
         // key to pay the fee.
         let fee_key = subsidiser.as_ref().unwrap_or(&payer_key);
@@ -626,7 +631,7 @@ impl<T: Config> sp_std::fmt::Debug for ChargeTransactionPayment<T> {
 impl<T: Config> SignedExtension for ChargeTransactionPayment<T>
 where
     BalanceOf<T>: Send + Sync + From<u64> + FixedPointOperand,
-    T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo> + GetCallMetadata,
 {
     const IDENTIFIER: &'static str = "ChargeTransactionPayment";
     type AccountId = T::AccountId;

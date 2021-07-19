@@ -15,6 +15,7 @@ pub trait SubsidiserTrait<AccountId, Balance> {
     fn check_subsidy(
         user_key: &AccountId,
         fee: Balance,
+        pallet: Option<&[u8]>,
     ) -> Result<Option<AccountId>, InvalidTransaction>;
     /// Debit `fee` from the remaining balance of the subsidy for `user_key`.
     fn debit_subsidy(
