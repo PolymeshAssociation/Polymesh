@@ -397,8 +397,8 @@ impl<T: Config> Module<T> {
         match pallet {
             b"Asset" | b"ComplianceManager" | b"CorporateActions" | b"ExternalAgents"
             | b"Permissions" | b"Portfolio" | b"Settlement" | b"Statistics" | b"Sto" => Ok(()),
-            name => fail!(InvalidTransaction::Custom(
-                TransactionError::PalletNotSubsidised
+            _ => fail!(InvalidTransaction::Custom(
+                TransactionError::PalletNotSubsidised as u8
             )),
         }
     }
