@@ -61,7 +61,6 @@ use polymesh_primitives::{
 };
 
 type Identity<T> = identity::Module<T>;
-type Permissions<T> = pallet_permissions::Module<T>;
 
 /// A Subsidy for transaction and protocol fees.
 ///
@@ -391,9 +390,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn ensure_pallet_is_subsidised(pallet: Option<&[u8]>) -> Result<(), InvalidTransaction> {
-        let current_pallet = <Permissions<T>>::current_pallet_name();
-        let pallet = pallet.unwrap_or(current_pallet.as_slice());
+    fn ensure_pallet_is_subsidised(pallet: &[u8]) -> Result<(), InvalidTransaction> {
         match pallet {
             b"Asset" | b"ComplianceManager" | b"CorporateActions" | b"ExternalAgents"
             | b"Permissions" | b"Portfolio" | b"Settlement" | b"Statistics" | b"Sto" => Ok(()),
@@ -428,7 +425,9 @@ impl<T: Config> SubsidiserTrait<T::AccountId, T::Balance> for Module<T> {
         match Self::get_subsidy(user_key, fee)? {
             Some(s) => {
                 // Ensure that the current pallet can be subsidised.
-                Self::ensure_pallet_is_subsidised(pallet)?;
+                if let Some(pallet) = pallet {
+                    Self::ensure_pallet_is_subsidised(pallet)?;
+                }
                 Ok(Some(s.paying_key))
             }
             _ => Ok(None),

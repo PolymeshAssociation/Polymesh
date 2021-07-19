@@ -6,7 +6,6 @@ edition = "2018"
 
 [dependencies]
 pallet-identity = { path = "../identity", default-features = false}
-pallet-permissions = { path = "../permissions", default-features = false }
 polymesh-common-utilities = { path = "../common", default-features = false }
 polymesh-primitives = { path = "../../primitives", default-features = false}
 
@@ -30,7 +29,6 @@ std = [
     "frame-system/std",
     "sp-std/std",
     "pallet-identity/std",
-    "pallet-permissions/std",
     "polymesh-primitives/std",
     "polymesh-common-utilities/std",
 ]

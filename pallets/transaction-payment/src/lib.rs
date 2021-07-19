@@ -572,7 +572,7 @@ where
         let subsidiser = T::Subsidiser::check_subsidy(
             &payer_key,
             fee,
-            Some(metadata.pallet_name.as_bytes().into()),
+            Some(metadata.pallet_name.as_bytes()),
         )?;
 
         // key to pay the fee.
