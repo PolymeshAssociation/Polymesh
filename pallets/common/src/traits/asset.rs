@@ -19,7 +19,7 @@ use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
-use polymesh_primitives::asset::{AssetName, AssetType, FundingRoundName};
+use polymesh_primitives::asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName};
 use polymesh_primitives::ethereum::EthereumAddress;
 use polymesh_primitives::migrate::MigrationError;
 use polymesh_primitives::{
@@ -105,6 +105,7 @@ pub trait WeightInfo {
     fn archive_extension() -> Weight;
     fn unarchive_extension() -> Weight;
     fn controller_transfer() -> Weight;
+    fn register_custom_asset_type(n: u32) -> Weight;
 }
 
 /// The module's configuration trait.
@@ -228,5 +229,11 @@ decl_event! {
         /// Event for when a forced transfer takes place.
         /// caller DID/ controller DID, ticker, Portfolio of token holder, value.
         ControllerTransfer(IdentityId, Ticker, PortfolioId, Balance),
+        /// A custom asset type already exists on-chain.
+        /// caller DID, the ID of the custom asset type, the string contents registered.
+        CustomAssetTypeExists(IdentityId, CustomAssetTypeId, Vec<u8>),
+        /// A custom asset type was registered on-chain.
+        /// caller DID, the ID of the custom asset type, the string contents registered.
+        CustomAssetTypeRegistered(IdentityId, CustomAssetTypeId, Vec<u8>),
     }
 }

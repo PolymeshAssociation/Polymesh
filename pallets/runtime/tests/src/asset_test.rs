@@ -12,15 +12,15 @@ use chrono::prelude::Utc;
 use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
-    IterableStorageDoubleMap, IterableStorageMap, StorageDoubleMap, StorageMap,
+    IterableStorageDoubleMap, IterableStorageMap, StorageDoubleMap, StorageMap, StorageValue,
 };
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
 use pallet_asset::checkpoint::ScheduleSpec;
 use pallet_asset::{
     self as asset, AssetOwnershipRelation, ClassicTickerImport, ClassicTickerRegistration,
-    ClassicTickers, Config as AssetConfig, ScopeIdOf, SecurityToken, TickerRegistration,
-    TickerRegistrationConfig, Tickers,
+    ClassicTickers, Config as AssetConfig, CustomTypeIdSequence, CustomTypes, CustomTypesInverse,
+    ScopeIdOf, SecurityToken, TickerRegistration, TickerRegistrationConfig, Tickers,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -37,7 +37,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::ethereum;
 use polymesh_primitives::{
     agent::AgentGroup,
-    asset::{AssetName, AssetType, FundingRoundName},
+    asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName},
     calendar::{
         CalendarPeriod, CalendarUnit, CheckpointId, CheckpointSchedule, FixedOrVariableCalendarUnit,
     },
@@ -2363,14 +2363,55 @@ fn create_asset_errors(owner: AccountId, other: AccountId) {
 #[test]
 fn asset_type_custom_too_long() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Alice);
-        let (ticker, mut token) = a_token(owner.did);
-        let mut case = |add| {
-            token.asset_type = AssetType::Custom(max_len_bytes(add));
-            basic_asset(owner, ticker, &token)
-        };
+        let user = User::new(AccountKeyring::Alice);
+        let case = |add| Asset::register_custom_asset_type(user.origin(), max_len_bytes(add));
         assert_too_long!(case(1));
         assert_ok!(case(0));
+    });
+}
+
+#[test]
+fn asset_type_custom_works() {
+    ExtBuilder::default().build().execute_with(|| {
+        let user = User::new(AccountKeyring::Alice);
+        let register = |ty: &str| Asset::register_custom_asset_type(user.origin(), ty.into());
+        let seq_is = |num| {
+            assert_eq!(CustomTypeIdSequence::get().0, num);
+        };
+        let slot_has = |id, data: &str| {
+            seq_is(id);
+            let id = CustomAssetTypeId(id);
+            let data = data.as_bytes();
+            assert_eq!(CustomTypes::get(id), data);
+            assert_eq!(CustomTypesInverse::get(data), id);
+        };
+
+        // Nothing so far. Generator (G) at 0.
+        seq_is(0);
+
+        // Register first type. G -> 1.
+        assert_ok!(register("foo"));
+        slot_has(1, "foo");
+
+        // Register same type. G unmoved.
+        assert_ok!(register("foo"));
+        slot_has(1, "foo");
+
+        // Register different type. G -> 2.
+        assert_ok!(register("bar"));
+        slot_has(2, "bar");
+
+        // Register same type. G unmoved.
+        assert_ok!(register("bar"));
+        slot_has(2, "bar");
+
+        // Register different type. G -> 3.
+        assert_ok!(register("foobar"));
+        slot_has(3, "foobar");
+
+        // Set G to max. Next registration fails.
+        CustomTypeIdSequence::put(CustomAssetTypeId(u32::MAX));
+        assert_noop!(register("qux"), AssetError::CustomAssetTypeIdOverflow);
     });
 }
 
