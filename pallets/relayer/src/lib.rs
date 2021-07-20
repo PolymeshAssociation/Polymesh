@@ -212,7 +212,7 @@ impl<T: Config> Module<T> {
                 auth_by,
                 user_key.clone(),
                 paying_key.clone(),
-                polyx_limit.into(),
+                polyx_limit,
             )?;
 
             Self::deposit_event(RawEvent::AcceptedPayingKey(
@@ -279,6 +279,7 @@ impl<T: Config> Module<T> {
         let mut subsidy = Self::ensure_is_paying_key(&user_key, &paying_key)?;
 
         // Update polyx limit.
+        let old_remaining = subsidy.remaining;
         subsidy.remaining = polyx_limit;
         <Subsidies<T>>::insert(&user_key, subsidy);
 
@@ -286,7 +287,8 @@ impl<T: Config> Module<T> {
             paying_did.for_event(),
             user_key,
             paying_key,
-            polyx_limit.into(),
+            polyx_limit,
+            old_remaining,
         ));
         Ok(())
     }
@@ -304,7 +306,7 @@ impl<T: Config> Module<T> {
             AuthorizationData::AddRelayerPayingKey(
                 user_key.clone(),
                 paying_key.clone(),
-                polyx_limit.into(),
+                polyx_limit,
             ),
             None,
         );
@@ -312,7 +314,7 @@ impl<T: Config> Module<T> {
             from.for_event(),
             user_key,
             paying_key,
-            polyx_limit.into(),
+            polyx_limit,
             auth_id,
         ));
         auth_id

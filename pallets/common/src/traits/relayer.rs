@@ -53,7 +53,7 @@ decl_event! {
 
         /// Updated polyx limit.
         ///
-        /// (Caller DID, User Key, Paying Key, POLYX limit)
-        UpdatedPolyxLimit(EventDid, AccountId, AccountId, Balance),
+        /// (Caller DID, User Key, Paying Key, POLYX limit, old remaining POLYX)
+        UpdatedPolyxLimit(EventDid, AccountId, AccountId, Balance, Balance),
     }
 }
