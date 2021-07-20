@@ -10,8 +10,8 @@ use polymesh_common_utilities::{
     SystematicIssuers,
 };
 use polymesh_primitives::{
-    identity_id::GenesisIdentityRecord, AccountId, Balance, IdentityId, Moment, PosRatio,
-    SecondaryKey, Signatory, Signature, SmartExtensionType, Ticker,
+    identity_id::GenesisIdentityRecord, AccountId, Balance, HexAccountId, IdentityId, Moment,
+    PosRatio, SecondaryKey, Signatory, Signature, SmartExtensionType, Ticker,
 };
 use sc_chain_spec::ChainType;
 use sc_service::Properties;
@@ -494,12 +494,16 @@ macro_rules! rewards {
 }
 
 #[allow(unreachable_code)]
-fn itn_rewards<'de, AccountId: Deserialize<'de>>() -> Vec<(AccountId, Balance)> {
+fn itn_rewards<AccountId: From<[u8; 32]>>() -> Vec<(AccountId, Balance)> {
     #[cfg(feature = "runtime-benchmarks")]
     return Vec::new();
 
     let itn_rewards_file = include_str!("data/itn_rewards.json");
-    serde_json::from_str(&itn_rewards_file).unwrap()
+    serde_json::from_str::<Vec<(HexAccountId, Balance)>>(&itn_rewards_file)
+        .unwrap()
+        .into_iter()
+        .map(|(acc, bal)| (acc.0.into(), bal))
+        .collect()
 }
 
 pub mod general {

@@ -6319,6 +6319,7 @@ dependencies = [
  "pallet-protocol-fee-rpc-runtime-api",
  "pallet-randomness-collective-flip",
  "pallet-relayer",
+ "pallet-rewards",
  "pallet-scheduler",
  "pallet-session",
  "pallet-settlement",

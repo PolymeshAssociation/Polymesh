@@ -1202,6 +1202,12 @@
         "PolymeshV1CAA": "",
         "PolymeshV1PIA": ""
       }
+    },
+    "ItnRewardStatus": {
+      "_enum": {
+        "Unclaimed": "Balance",
+        "Claimed": ""
+      }
     }
   },
   "rpc": {

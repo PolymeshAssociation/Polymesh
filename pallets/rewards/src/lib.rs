@@ -113,13 +113,13 @@ decl_storage! {
             => Option<ItnRewardStatus>;
     }
     add_extra_genesis {
-    config(itn_rewards): Vec<(T::AccountId, Balance)>;
-    build(|config: &GenesisConfig<T>| {
-        for (account, balance) in &config.itn_rewards {
-            <ItnRewards<T>>::insert(account, ItnRewardStatus::Unclaimed(*balance));
-        }
-    });
-}
+        config(itn_rewards): Vec<(T::AccountId, Balance)>;
+        build(|config: &GenesisConfig<T>| {
+            for (account, balance) in &config.itn_rewards {
+                <ItnRewards<T>>::insert(account, ItnRewardStatus::Unclaimed(*balance));
+            }
+        });
+    }
 }
 
 decl_module! {
@@ -271,7 +271,7 @@ where
             if let Call::claim_itn_reward(reward_address, itn_address, signature) = local_call {
                 if !<Module<T>>::valid_claim(reward_address, itn_address, signature) {
                     return Err(TransactionValidityError::Invalid(
-                        InvalidTransaction::Custom(0), //TODO better error
+                        InvalidTransaction::Custom(156), //TODO better error
                     ));
                 }
             }
