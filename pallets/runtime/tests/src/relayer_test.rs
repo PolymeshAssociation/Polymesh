@@ -25,7 +25,7 @@ fn assert_key_usage(user: User, usage: u64) {
     assert_eq!(AccountKeyRefCount::get(&user.acc()), usage);
 }
 
-fn get_subsidy(user: User) -> Option<Subsidy<AccountId, Balance>> {
+fn get_subsidy(user: User) -> Option<Subsidy<AccountId>> {
     Subsidies::get(&user.acc())
 }
 
