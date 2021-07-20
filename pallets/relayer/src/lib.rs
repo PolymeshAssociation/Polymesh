@@ -392,7 +392,7 @@ impl<T: Config> Module<T> {
 
     fn ensure_pallet_is_subsidised(pallet: &[u8]) -> Result<(), InvalidTransaction> {
         match pallet {
-            b"Asset" | b"ComplianceManager" | b"CorporateActions" | b"ExternalAgents"
+            b"Asset" | b"ComplianceManager" | b"CorporateAction" | b"ExternalAgents"
             | b"Permissions" | b"Portfolio" | b"Settlement" | b"Statistics" | b"Sto" => Ok(()),
             _ => fail!(InvalidTransaction::Custom(
                 TransactionError::PalletNotSubsidised as u8
