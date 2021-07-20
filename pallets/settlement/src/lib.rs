@@ -77,7 +77,8 @@ use polymesh_common_utilities::{
     SystematicIssuers::Settlement as SettlementDID,
 };
 use polymesh_primitives::{
-    storage_migrate_on, storage_migration_ver, IdentityId, PortfolioId, SecondaryKey, Ticker,
+    storage_migrate_on, storage_migration_ver, Balance, IdentityId, PortfolioId, SecondaryKey,
+    Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{One, Verify};
@@ -222,7 +223,7 @@ pub struct Instruction<Moment, BlockNumber> {
 
 /// Details of a leg including the leg id in the instruction
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct Leg<Balance> {
+pub struct Leg {
     /// Portfolio of the sender
     pub from: PortfolioId,
     /// Portfolio of the receiver
@@ -332,7 +333,6 @@ pub trait WeightInfo {
 decl_event!(
     pub enum Event<T>
     where
-        Balance = <T as CommonConfig>::Balance,
         Moment = <T as pallet_timestamp::Config>::Moment,
         BlockNumber = <T as frame_system::Config>::BlockNumber,
         AccountId = <T as frame_system::Config>::AccountId,
@@ -350,7 +350,7 @@ decl_event!(
             SettlementType<BlockNumber>,
             Option<Moment>,
             Option<Moment>,
-            Vec<Leg<Balance>>,
+            Vec<Leg>,
         ),
         /// An instruction has been affirmed (did, portfolio, instruction_id)
         InstructionAffirmed(IdentityId, PortfolioId, u64),
@@ -455,7 +455,7 @@ decl_storage! {
         /// Details about an instruction. instruction_id -> instruction_details
         InstructionDetails get(fn instruction_details): map hasher(twox_64_concat) u64 => Instruction<T::Moment, T::BlockNumber>;
         /// Legs under an instruction. (instruction_id, leg_id) -> Leg
-        pub InstructionLegs get(fn instruction_legs): double_map hasher(twox_64_concat) u64, hasher(twox_64_concat) u64 => Leg<T::Balance>;
+        pub InstructionLegs get(fn instruction_legs): double_map hasher(twox_64_concat) u64, hasher(twox_64_concat) u64 => Leg;
         /// Status of a leg under an instruction. (instruction_id, leg_id) -> LegStatus
         InstructionLegStatus get(fn instruction_leg_status): double_map hasher(twox_64_concat) u64, hasher(twox_64_concat) u64 => LegStatus<T::AccountId>;
         /// Number of affirmations pending before instruction is executed. instruction_id -> affirm_pending
@@ -573,7 +573,7 @@ decl_module! {
             settlement_type: SettlementType<T::BlockNumber>,
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
-            legs: Vec<Leg<T::Balance>>
+            legs: Vec<Leg>,
         ) {
             let did = Identity::<T>::ensure_perms(origin)?;
             Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs)?;
@@ -602,7 +602,7 @@ decl_module! {
             settlement_type: SettlementType<T::BlockNumber>,
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
-            legs: Vec<Leg<T::Balance>>,
+            legs: Vec<Leg>,
             portfolios: Vec<PortfolioId>
         ) -> DispatchResult {
             let did = Identity::<T>::ensure_perms(origin.clone())?;
@@ -663,7 +663,7 @@ decl_module! {
                 Self::instruction_details(instruction_id).status != InstructionStatus::Unknown,
                 Error::<T>::UnknownInstruction
             );
-            let legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
+            let legs = InstructionLegs::iter_prefix(instruction_id).collect::<Vec<_>>();
             Self::unsafe_unclaim_receipts(instruction_id, &legs);
             Self::unchecked_release_locks(instruction_id, &legs);
             let _ = T::Scheduler::cancel_named((SETTLEMENT_INSTRUCTION_EXECUTION, instruction_id).encode());
@@ -831,7 +831,7 @@ decl_module! {
 
             // Schedule instruction to be executed in the next block.
             let execution_at = system::Module::<T>::block_number() + One::one();
-            Self::schedule_instruction(instruction_id, execution_at, <InstructionLegs<T>>::iter_prefix(instruction_id).count() as u32);
+            Self::schedule_instruction(instruction_id, execution_at, InstructionLegs::iter_prefix(instruction_id).count() as u32);
 
             Self::deposit_event(RawEvent::InstructionRescheduled(did, instruction_id));
         }
@@ -839,12 +839,12 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
-    fn lock_via_leg(leg: &Leg<T::Balance>) -> DispatchResult {
-        T::Portfolio::lock_tokens(&leg.from, &leg.asset, &leg.amount)
+    fn lock_via_leg(leg: &Leg) -> DispatchResult {
+        T::Portfolio::lock_tokens(&leg.from, &leg.asset, leg.amount)
     }
 
-    fn unlock_via_leg(leg: &Leg<T::Balance>) -> DispatchResult {
-        T::Portfolio::unlock_tokens(&leg.from, &leg.asset, &leg.amount)
+    fn unlock_via_leg(leg: &Leg) -> DispatchResult {
+        T::Portfolio::unlock_tokens(&leg.from, &leg.asset, leg.amount)
     }
 
     /// Ensure origin call permission and the given instruction validity.
@@ -877,7 +877,7 @@ impl<T: Config> Module<T> {
         settlement_type: SettlementType<T::BlockNumber>,
         trade_date: Option<T::Moment>,
         value_date: Option<T::Moment>,
-        legs: Vec<Leg<T::Balance>>,
+        legs: Vec<Leg>,
     ) -> Result<u64, DispatchError> {
         // Ensure that the scheduled block number is in the future so that `T::Scheduler::schedule_named`
         // doesn't fail.
@@ -935,7 +935,7 @@ impl<T: Config> Module<T> {
         }
 
         for (i, leg) in legs.iter().enumerate() {
-            <InstructionLegs<T>>::insert(
+            InstructionLegs::insert(
                 instruction_counter,
                 u64::try_from(i).unwrap_or_default(),
                 leg.clone(),
@@ -1071,7 +1071,7 @@ impl<T: Config> Module<T> {
             Error::<T>::InstructionNotPending
         );
 
-        let mut legs = <InstructionLegs<T>>::iter_prefix(instruction_id).collect::<Vec<_>>();
+        let mut legs = InstructionLegs::iter_prefix(instruction_id).collect::<Vec<_>>();
         // NB: Execution order doesn't matter in most cases but might matter in some edge cases around compliance
         // Example of an edge case: Consider a token with total supply 100 and maximum percentage ownership of 10%.
         // Alice owns 10 tokens, Bob owns 5 and Charlie owns 0.
@@ -1143,7 +1143,7 @@ impl<T: Config> Module<T> {
     }
 
     fn prune_instruction(instruction_id: u64) {
-        let legs = <InstructionLegs<T>>::drain_prefix(instruction_id).collect::<Vec<_>>();
+        let legs = InstructionLegs::drain_prefix(instruction_id).collect::<Vec<_>>();
         <InstructionDetails<T>>::remove(instruction_id);
         <InstructionLegStatus<T>>::remove_prefix(instruction_id);
         InstructionAffirmsPending::remove(instruction_id);
@@ -1282,7 +1282,7 @@ impl<T: Config> Module<T> {
 
     // Unclaims all receipts for an instruction
     // Should only be used if user is unclaiming, or instruction has failed
-    fn unsafe_unclaim_receipts(instruction_id: u64, legs: &Vec<(u64, Leg<T::Balance>)>) {
+    fn unsafe_unclaim_receipts(instruction_id: u64, legs: &Vec<(u64, Leg)>) {
         for (leg_id, _) in legs.iter() {
             match Self::instruction_leg_status(instruction_id, leg_id) {
                 LegStatus::ExecutionToBeSkipped(signer, receipt_uid) => {
@@ -1300,7 +1300,7 @@ impl<T: Config> Module<T> {
         }
     }
 
-    fn unchecked_release_locks(instruction_id: u64, legs: &Vec<(u64, Leg<T::Balance>)>) {
+    fn unchecked_release_locks(instruction_id: u64, legs: &Vec<(u64, Leg)>) {
         for (leg_id, leg_details) in legs.iter() {
             match Self::instruction_leg_status(instruction_id, leg_id) {
                 LegStatus::ExecutionPending => {
@@ -1628,9 +1628,9 @@ impl<T: Config> Module<T> {
         instruction_id: u64,
         portfolios: &BTreeSet<PortfolioId>,
         max_filtered_legs: u32,
-    ) -> Result<(u32, Vec<(u64, Leg<T::Balance>)>), DispatchError> {
+    ) -> Result<(u32, Vec<(u64, Leg)>), DispatchError> {
         let mut legs_count = 0;
-        let filtered_legs = <InstructionLegs<T>>::iter_prefix(instruction_id)
+        let filtered_legs = InstructionLegs::iter_prefix(instruction_id)
             .into_iter()
             .inspect(|_| legs_count += 1)
             .filter(|(_, leg_details)| portfolios.contains(&leg_details.from))

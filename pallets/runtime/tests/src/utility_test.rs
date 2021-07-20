@@ -266,7 +266,7 @@ fn batch_secondary_with_permissions() {
         low_risk_name.clone()
     ));
     assert_last_event!(EventTest::pallet_portfolio(
-        pallet_portfolio::RawEvent::PortfolioCreated(_, _, _)
+        pallet_portfolio::Event::PortfolioCreated(_, _, _)
     ));
     check_name(low_risk_name.clone());
 

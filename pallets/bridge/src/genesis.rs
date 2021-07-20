@@ -51,11 +51,7 @@ pub(crate) fn controller<T: Config>(config: &GenesisConfig<T>) -> T::AccountId {
 
 pub(crate) fn bridge_tx_details<T: Config>(
     config: &GenesisConfig<T>,
-) -> Vec<(
-    T::AccountId,
-    u32,
-    BridgeTxDetail<T::Balance, T::BlockNumber>,
-)> {
+) -> Vec<(T::AccountId, u32, BridgeTxDetail<T::BlockNumber>)> {
     config
         .complete_txs
         .iter()
@@ -74,7 +70,7 @@ pub(crate) fn bridge_tx_details<T: Config>(
             recipient,
             recipient_did,
             tx.nonce,
-            tx.amount / T::Balance::from(POLY)
+            tx.amount / POLY
             );
 
             crate::Module::<T>::issue(&recipient, &tx.amount, recipient_did)

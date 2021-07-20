@@ -238,7 +238,7 @@ fn genesis_processed_data(
         u128,
         StakerStatus<AccountId>,
     )>,
-    Vec<BridgeTx<AccountId, u128>>,
+    Vec<BridgeTx<AccountId>>,
 ) {
     // Identities and their roles
     // 1 = GC + UC
@@ -322,7 +322,7 @@ fn dev_genesis_processed_data(
         u128,
         StakerStatus<AccountId>,
     )>,
-    Vec<BridgeTx<AccountId, u128>>,
+    Vec<BridgeTx<AccountId>>,
 ) {
     let mut identity = GenesisIdentityRecord::new(1u8, initial_authorities[0].0.clone());
 
