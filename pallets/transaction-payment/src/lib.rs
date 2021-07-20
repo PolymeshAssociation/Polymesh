@@ -281,7 +281,7 @@ pub trait Config: frame_system::Config + pallet_timestamp::Config {
 
     /// Connection to the `Relayer` pallet.
     /// Used to charge transaction fees to a subsidiser, if any, instead of the payer.
-    type Subsidiser: SubsidiserTrait<Self::AccountId, BalanceOf<Self>>;
+    type Subsidiser: SubsidiserTrait<Self::AccountId>;
 
     /// CDD providers group.
     type CddProviders: GroupTrait<Self::Moment>;
@@ -533,7 +533,7 @@ pub struct ChargeTransactionPayment<T: Config>(#[codec(compact)] BalanceOf<T>);
 impl<T: Config> ChargeTransactionPayment<T>
 where
     T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo> + GetCallMetadata,
-    BalanceOf<T>: Send + Sync + FixedPointOperand,
+    BalanceOf<T>: Send + Sync + FixedPointOperand + Into<u128>,
 {
     /// utility constructor. Used only in client/factory code.
     pub fn from(fee: BalanceOf<T>) -> Self {
@@ -569,8 +569,11 @@ where
 
         // Check if the payer is being subsidised.
         let metadata = call.get_call_metadata();
-        let subsidiser =
-            T::Subsidiser::check_subsidy(&payer_key, fee, Some(metadata.pallet_name.as_bytes()))?;
+        let subsidiser = T::Subsidiser::check_subsidy(
+            &payer_key,
+            fee.into(),
+            Some(metadata.pallet_name.as_bytes()),
+        )?;
 
         // key to pay the fee.
         let fee_key = subsidiser.as_ref().unwrap_or(&payer_key);
@@ -627,7 +630,7 @@ impl<T: Config> sp_std::fmt::Debug for ChargeTransactionPayment<T> {
 
 impl<T: Config> SignedExtension for ChargeTransactionPayment<T>
 where
-    BalanceOf<T>: Send + Sync + From<u64> + FixedPointOperand,
+    BalanceOf<T>: Send + Sync + From<u64> + FixedPointOperand + Into<u128>,
     T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo> + GetCallMetadata,
 {
     const IDENTIFIER: &'static str = "ChargeTransactionPayment";
@@ -697,7 +700,7 @@ where
         let fee_key = if let Some(subsidiser_key) = subsidiser {
             // Debit the actual fee from the subsidy.
             // This shouldn't fail, since the subsidy was checked in `pre_dispatch`.
-            T::Subsidiser::debit_subsidy(&payer, actual_fee)?;
+            T::Subsidiser::debit_subsidy(&payer, actual_fee.into())?;
             subsidiser_key
         } else {
             // No subsidy.

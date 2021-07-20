@@ -13,7 +13,7 @@ pub trait Config:
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
     /// Asset module
-    type Asset: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;
+    type Asset: AssetFnTrait<Self::AccountId, Self::Origin>;
     /// Maximum transfer managers that can be enabled for an Asset
     type MaxTransferManagersPerAsset: Get<u32>;
     /// Weights for extrinsics

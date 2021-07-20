@@ -14,7 +14,7 @@ use frame_support::{
     IterableStorageDoubleMap, StorageDoubleMap, StorageMap,
 };
 use pallet_corporate_actions::{
-    ballot::{self, BallotMeta, BallotTimeRange, BallotVote, Motion},
+    ballot::{BallotMeta, BallotTimeRange, BallotVote, Motion, Votes},
     distribution::{self, Distribution, PER_SHARE_PRECISION},
     CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, CorporateActions,
     LocalCAId, RecordDate, RecordDateSpec, TargetIdentities, TargetTreatment,
@@ -43,16 +43,15 @@ type Identity = pallet_identity::Module<TestStorage>;
 type Authorizations = pallet_identity::Authorizations<TestStorage>;
 type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
 type CA = pallet_corporate_actions::Module<TestStorage>;
-type Ballot = ballot::Module<TestStorage>;
+type Ballot = pallet_corporate_actions::ballot::Module<TestStorage>;
 type Dist = distribution::Module<TestStorage>;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
 type Error = pallet_corporate_actions::Error<TestStorage>;
-type BallotError = ballot::Error<TestStorage>;
+type BallotError = pallet_corporate_actions::ballot::Error<TestStorage>;
 type DistError = distribution::Error<TestStorage>;
 type PError = pallet_portfolio::Error<TestStorage>;
 type CPError = pallet_asset::checkpoint::Error<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;
-type Votes = ballot::Votes<TestStorage>;
 type Custodian = pallet_portfolio::PortfolioCustodian;
 
 const CDDP: AccountKeyring = AccountKeyring::Eve;
@@ -216,7 +215,7 @@ struct BallotData {
     choices: Vec<u16>,
     rcv: bool,
     results: Vec<Balance>,
-    votes: Vec<(IdentityId, Vec<BallotVote<Balance>>)>,
+    votes: Vec<(IdentityId, Vec<BallotVote>)>,
 }
 
 fn ballot_data(id: CAId) -> BallotData {
@@ -1527,14 +1526,14 @@ fn vote_wrong_count() {
     });
 }
 
-fn fallbacks(fs: &[Option<u16>]) -> Vec<BallotVote<Balance>> {
+fn fallbacks(fs: &[Option<u16>]) -> Vec<BallotVote> {
     fs.iter()
         .copied()
         .map(|fallback| BallotVote { power: 0, fallback })
         .collect()
 }
 
-fn votes(vs: &[Balance]) -> Vec<BallotVote<Balance>> {
+fn votes(vs: &[Balance]) -> Vec<BallotVote> {
     vs.iter()
         .copied()
         .map(|power| BallotVote {
@@ -1943,7 +1942,7 @@ fn dist_reclaim_works() {
         assert_ok!(transfer_caa(ticker, charlie, other));
         custody(other);
 
-        let ensure = |x| Portfolio::ensure_sufficient_balance(&pid, &currency, &x);
+        let ensure = |x| Portfolio::ensure_sufficient_balance(&pid, &currency, x);
         assert_noop!(ensure(1), PError::InsufficientPortfolioBalance);
         let dist = Dist::distributions(id).unwrap();
         assert_ok!(reclaim(id, other));
@@ -2094,9 +2093,9 @@ fn dist_claim_works() {
         let pid = PortfolioId::default_portfolio(owner.did);
         let wht = benefit_foo - post_tax_foo + benefit_bar - post_tax_bar;
         let rem = Asset::total_supply(ticker) - amount + wht;
-        assert_ok!(Portfolio::ensure_sufficient_balance(&pid, &currency, &rem));
+        assert_ok!(Portfolio::ensure_sufficient_balance(&pid, &currency, rem));
         assert_noop!(
-            Portfolio::ensure_sufficient_balance(&pid, &currency, &(rem + 1)),
+            Portfolio::ensure_sufficient_balance(&pid, &currency, rem + 1),
             PError::InsufficientPortfolioBalance,
         );
 

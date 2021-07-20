@@ -112,15 +112,15 @@ pub fn create_asset_<T: Config>(owner: &User<T>) -> Ticker {
 }
 
 // fund portfolio
-fn fund_portfolio<T: Config>(portfolio: &PortfolioId, ticker: &Ticker, amount: T::Balance) {
-    <PortfolioAssetBalances<T>>::insert(portfolio, ticker, amount);
+fn fund_portfolio<T: Config>(portfolio: &PortfolioId, ticker: &Ticker, amount: Balance) {
+    PortfolioAssetBalances::insert(portfolio, ticker, amount);
 }
 
 fn setup_leg_and_portfolio<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     to_user: Option<UserData<T>>,
     from_user: Option<UserData<T>>,
     index: u32,
-    legs: &mut Vec<Leg<T::Balance>>,
+    legs: &mut Vec<Leg>,
     sender_portfolios: &mut Vec<PortfolioId>,
     receiver_portfolios: &mut Vec<PortfolioId>,
 ) {
@@ -167,7 +167,7 @@ fn generate_portfolio<T: Config + TestUtilsFn<AccountIdOf<T>>>(
 
 fn populate_legs_for_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     index: u32,
-    legs: &mut Vec<Leg<T::Balance>>,
+    legs: &mut Vec<Leg>,
 ) {
     legs.push(Leg {
         from: generate_portfolio::<T>("from_did", index + 500, None),
@@ -221,7 +221,7 @@ fn emulate_add_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     create_portfolios: bool,
 ) -> Result<
     (
-        Vec<Leg<T::Balance>>,
+        Vec<Leg>,
         u64,
         RawOrigin<T::AccountId>,
         IdentityId,
@@ -231,7 +231,7 @@ fn emulate_add_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     ),
     DispatchError,
 > {
-    let mut legs: Vec<Leg<T::Balance>> = Vec::with_capacity(l as usize);
+    let mut legs: Vec<Leg> = Vec::with_capacity(l as usize);
     let mut sender_portfolios: Vec<PortfolioId> = Vec::with_capacity(l as usize);
     let mut receiver_portfolios: Vec<PortfolioId> = Vec::with_capacity(l as usize);
     // create venue
@@ -275,7 +275,7 @@ fn emulate_portfolios<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     receiver: Option<UserData<T>>,
     ticker: Ticker,
     index: u32,
-    legs: &mut Vec<Leg<T::Balance>>,
+    legs: &mut Vec<Leg>,
     sender_portfolios: &mut Vec<PortfolioId>,
     receiver_portfolios: &mut Vec<PortfolioId>,
 ) {
@@ -294,7 +294,7 @@ fn emulate_portfolios<T: Config + TestUtilsFn<AccountIdOf<T>>>(
 }
 
 // Generate signature.
-fn get_encoded_signature<T: Config>(signer: &User<T>, msg: &Receipt<T::Balance>) -> Vec<u8> {
+fn get_encoded_signature<T: Config>(signer: &User<T>, msg: &Receipt<Balance>) -> Vec<u8> {
     let raw_signature: [u8; 64] = signer.sign(&msg.encode()).expect("Data cannot be signed").0;
     let encoded = MultiSignature::from(Signature::from_raw(raw_signature)).encode();
     encoded
@@ -379,7 +379,7 @@ fn setup_affirm_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     UserData<T>,
     UserData<T>,
     Vec<Ticker>,
-    Vec<Leg<T::Balance>>,
+    Vec<Leg>,
 ) {
     // create venue
     let from = UserBuilder::<T>::default().generate_did().build("creator");
@@ -388,7 +388,7 @@ fn setup_affirm_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     let to = UserBuilder::<T>::default().generate_did().build("receiver");
     let mut portfolios_from: Vec<PortfolioId> = Vec::with_capacity(l as usize);
     let mut portfolios_to: Vec<PortfolioId> = Vec::with_capacity(l as usize);
-    let mut legs: Vec<Leg<T::Balance>> = Vec::with_capacity(l as usize);
+    let mut legs: Vec<Leg> = Vec::with_capacity(l as usize);
     let mut tickers = Vec::with_capacity(l as usize);
     let from_data = UserData::from(from.clone());
     let to_data = UserData::from(to);
@@ -457,7 +457,7 @@ fn add_smart_extension_to_ticker<T: Config>(
 
 fn create_receipt_details<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     index: u32,
-    leg: Leg<T::Balance>,
+    leg: Leg,
 ) -> ReceiptDetails<T::AccountId, T::OffChainSignature> {
     let User {
         account, secret, ..
@@ -774,7 +774,7 @@ benchmarks! {
         let amount = 100u128;
         // Some manual setup to support the extrinsic.
         set_instruction_leg_status_to_pending::<T>(instruction_id, leg_id);
-        T::Portfolio::lock_tokens(s_portfolios.first().unwrap(), &ticker, &amount.into()).unwrap();
+        T::Portfolio::lock_tokens(s_portfolios.first().unwrap(), &ticker, amount.into()).unwrap();
         let s_receipt = receipt.clone();
     }: _(origin, instruction_id, s_receipt)
     verify {
@@ -832,7 +832,7 @@ benchmarks! {
         // Keep the portfolio asset balance before the instruction execution to verify it later.
         let legs_count: u32 = legs.len().try_into().unwrap();
         let first_leg = legs.into_iter().nth(0).unwrap_or_default();
-        let before_transfer_balance = <PortfolioAssetBalances<T>>::get(first_leg.from, first_leg.asset);
+        let before_transfer_balance = PortfolioAssetBalances::get(first_leg.from, first_leg.asset);
         // It always be one as no other instruction is already scheduled.
         let instruction_id = 1;
         let origin = RawOrigin::Root;
@@ -860,7 +860,7 @@ benchmarks! {
     }: _(origin, instruction_id, l)
     verify {
         // Assert that any one leg processed through that give sufficient evidence of successful execution of instruction.
-        let after_transfer_balance = <PortfolioAssetBalances<T>>::get(first_leg.from, first_leg.asset);
+        let after_transfer_balance = PortfolioAssetBalances::get(first_leg.from, first_leg.asset);
         let traded_amount = before_transfer_balance - after_transfer_balance;
         let expected_transfer_amount = first_leg.amount;
         assert_eq!(traded_amount, expected_transfer_amount,"Settlement: Failed to execute the instruction");

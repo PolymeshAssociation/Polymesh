@@ -10,7 +10,7 @@ pub trait WeightInfo {
     fn update_polyx_limit() -> Weight;
 }
 
-pub trait SubsidiserTrait<AccountId, Balance> {
+pub trait SubsidiserTrait<AccountId> {
     /// Check if a `user_key` has a subsidiser and that the subsidy can pay the `fee`.
     fn check_subsidy(
         user_key: &AccountId,

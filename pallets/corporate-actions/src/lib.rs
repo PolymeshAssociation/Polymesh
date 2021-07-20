@@ -113,7 +113,7 @@ use polymesh_common_utilities::{
     traits::checkpoint::ScheduleId, with_transaction, GC_DID,
 };
 use polymesh_primitives::{
-    agent::AgentGroup, calendar::CheckpointId, storage_migrate_on, storage_migration_ver,
+    agent::AgentGroup, calendar::CheckpointId, storage_migrate_on, storage_migration_ver, Balance,
     DocumentId, EventDid, IdentityId, Moment, Ticker,
 };
 use polymesh_primitives_derive::{Migrate, VecU8StrongTyped};
@@ -325,8 +325,8 @@ pub trait WeightInfo {
 pub trait Config: frame_system::Config + BalancesConfig + IdentityConfig + asset::Config {
     /// The overarching event type.
     type Event: From<Event>
-        + From<ballot::Event<Self>>
-        + From<distribution::Event<Self>>
+        + From<ballot::Event>
+        + From<distribution::Event>
         + Into<<Self as frame_system::Config>::Event>;
 
     /// Max number of DID specified in `TargetIdentities`.
@@ -883,7 +883,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Returns the balance for `did` at `cp`, if any, or `did`'s current balance otherwise.
-    crate fn balance_at_cp(did: IdentityId, ca_id: CAId, cp: Option<CheckpointId>) -> T::Balance {
+    crate fn balance_at_cp(did: IdentityId, ca_id: CAId, cp: Option<CheckpointId>) -> Balance {
         let ticker = ca_id.ticker;
         match cp {
             // CP exists, use it.

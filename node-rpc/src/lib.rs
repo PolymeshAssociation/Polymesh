@@ -31,8 +31,7 @@
 #![warn(missing_docs)]
 
 use polymesh_primitives::{
-    AccountId, Balance, Block, BlockNumber, Hash, IdentityId, Index, Moment, SecondaryKey,
-    Signatory, Ticker,
+    AccountId, Block, BlockNumber, Hash, IdentityId, Index, Moment, SecondaryKey, Signatory, Ticker,
 };
 use sc_client_api::AuxStore;
 use sc_consensus_babe::{Config, Epoch};
@@ -121,9 +120,9 @@ where
         + 'static,
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
     //C::Api: pallet_contracts_rpc::ContractsRuntimeApi<Block, AccountId, Balance, BlockNumber>,
-    C::Api: node_rpc::transaction_payment::TransactionPaymentRuntimeApi<Block, Balance, UE>,
+    C::Api: node_rpc::transaction_payment::TransactionPaymentRuntimeApi<Block, UE>,
     C::Api: pallet_staking_rpc::StakingRuntimeApi<Block>,
-    C::Api: node_rpc::pips::PipsRuntimeApi<Block, AccountId, Balance>,
+    C::Api: node_rpc::pips::PipsRuntimeApi<Block, AccountId>,
     C::Api: node_rpc::identity::IdentityRuntimeApi<
         Block,
         IdentityId,
@@ -136,7 +135,7 @@ where
     C::Api: pallet_protocol_fee_rpc::ProtocolFeeRuntimeApi<Block>,
     C::Api: node_rpc::asset::AssetRuntimeApi<Block, AccountId>,
     C::Api: pallet_group_rpc::GroupRuntimeApi<Block>,
-    C::Api: node_rpc::compliance_manager::ComplianceManagerRuntimeApi<Block, AccountId, Balance>,
+    C::Api: node_rpc::compliance_manager::ComplianceManagerRuntimeApi<Block, AccountId>,
     C::Api: BabeApi<Block>,
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + 'static,
@@ -250,7 +249,7 @@ where
     P: TransactionPool + 'static,
     M: jsonrpc_core::Metadata + Default,
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>
-        + node_rpc::transaction_payment::TransactionPaymentRuntimeApi<Block, Balance, UE>,
+        + node_rpc::transaction_payment::TransactionPaymentRuntimeApi<Block, UE>,
     UE: codec::Codec + 'static,
 {
     use substrate_frame_rpc_system::{LightSystem, SystemApi};

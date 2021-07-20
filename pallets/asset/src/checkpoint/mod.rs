@@ -112,13 +112,13 @@ decl_storage! {
         ///
         /// (ticker, checkpointId) -> total supply at given checkpoint
         pub TotalSupply get(fn total_supply_at):
-            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) CheckpointId => T::Balance;
+            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) CheckpointId => polymesh_primitives::Balance;
 
         /// Balance of a DID at a checkpoint.
         ///
         /// (ticker, did, checkpoint ID) -> Balance of a DID at a checkpoint
         pub Balance get(fn balance_at_checkpoint):
-            double_map hasher(blake2_128_concat) (Ticker, CheckpointId), hasher(twox_64_concat) IdentityId => T::Balance;
+            double_map hasher(blake2_128_concat) (Ticker, CheckpointId), hasher(twox_64_concat) IdentityId => polymesh_primitives::Balance;
 
         // ------------------------ Checkpoint storage -------------------------
 
@@ -253,7 +253,7 @@ decl_module! {
         pub fn set_schedules_max_complexity(origin, max_complexity: u64) {
             ensure_root(origin)?;
             SchedulesMaxComplexity::put(max_complexity);
-            Self::deposit_event(Event::<T>::MaximumSchedulesComplexityChanged(GC_DID, max_complexity));
+            Self::deposit_event(Event::MaximumSchedulesComplexityChanged(GC_DID, max_complexity));
         }
 
         /// Creates a schedule generating checkpoints
@@ -320,7 +320,7 @@ decl_module! {
             ScheduleRefCount::remove(ticker, id);
 
             // Emit event.
-            Self::deposit_event(Event::<T>::ScheduleRemoved(owner, ticker, schedule));
+            Self::deposit_event(Event::ScheduleRemoved(owner, ticker, schedule));
         }
     }
 }
@@ -361,7 +361,11 @@ impl<T: Config> Module<T> {
     ///
     /// N.B. in case of `None`, you likely want the current balance instead.
     /// To compute that, use `Asset::get_balance_at(ticker, did, cp)`, which calls into here.
-    pub fn balance_at(ticker: Ticker, did: IdentityId, cp: CheckpointId) -> Option<T::Balance> {
+    pub fn balance_at(
+        ticker: Ticker,
+        did: IdentityId,
+        cp: CheckpointId,
+    ) -> Option<polymesh_primitives::Balance> {
         if Self::checkpoint_exists(&ticker, cp) && BalanceUpdates::contains_key(ticker, did) {
             // Checkpoint exists and user has some part in that.
             let balance_updates = BalanceUpdates::get(ticker, did);
@@ -381,7 +385,7 @@ impl<T: Config> Module<T> {
     /// and for each DID in `updates`, sets their balance to the one provided.
     pub fn advance_update_balances(
         ticker: &Ticker,
-        updates: &[(IdentityId, T::Balance)],
+        updates: &[(IdentityId, polymesh_primitives::Balance)],
     ) -> DispatchResult {
         Self::advance_schedules(ticker)?;
         Self::update_balances(ticker, updates);
@@ -393,15 +397,15 @@ impl<T: Config> Module<T> {
     /// # Assumption
     ///
     /// * When minting, the total supply of `ticker` is updated **after** this function is called.
-    fn update_balances(ticker: &Ticker, updates: &[(IdentityId, T::Balance)]) {
+    fn update_balances(ticker: &Ticker, updates: &[(IdentityId, polymesh_primitives::Balance)]) {
         let last_cp = CheckpointIdSequence::get(ticker);
         if last_cp < CheckpointId(1) {
             return;
         }
         for (did, balance) in updates {
             let first_key = (ticker, last_cp);
-            if !<Balance<T>>::contains_key(first_key, did) {
-                <Balance<T>>::insert(first_key, did, balance);
+            if !Balance::contains_key(first_key, did) {
+                Balance::insert(first_key, did, balance);
                 BalanceUpdates::append(ticker, did, last_cp);
             }
         }
@@ -584,7 +588,7 @@ impl<T: Config> Module<T> {
 
         ScheduleRefCount::insert(ticker, id, ref_count);
         ScheduleIdSequence::insert(ticker, id);
-        Self::deposit_event(Event::<T>::ScheduleCreated(did, ticker, schedule));
+        Self::deposit_event(Event::ScheduleCreated(did, ticker, schedule));
         Ok(schedule)
     }
 
@@ -611,13 +615,13 @@ impl<T: Config> Module<T> {
     fn create_at(actor: Option<EventDid>, ticker: Ticker, id: CheckpointId, at: Moment) {
         // Record total supply at checkpoint ID.
         let supply = <Asset<T>>::token_details(ticker).total_supply;
-        <TotalSupply<T>>::insert(ticker, id, supply);
+        TotalSupply::insert(ticker, id, supply);
 
         // Relate Ticker -> ID -> time.
         Timestamps::insert(ticker, id, at);
 
         // Emit event & we're done.
-        Self::deposit_event(Event::<T>::CheckpointCreated(actor, ticker, id, supply, at));
+        Self::deposit_event(Event::CheckpointCreated(actor, ticker, id, supply, at));
     }
 
     /// Verify that `needed` amount of `CheckpointId`s can be reserved,

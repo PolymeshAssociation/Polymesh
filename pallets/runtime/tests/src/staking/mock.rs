@@ -156,7 +156,7 @@ frame_support::construct_runtime!(
         Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
         Identity: pallet_identity::{Module, Call, Storage, Event<T>, Config<T>},
         CddServiceProviders: pallet_group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
-        ProtocolFee: pallet_protocol_fee::{Module, Call, Storage, Event<T>, Config<T>},
+        ProtocolFee: pallet_protocol_fee::{Module, Call, Storage, Event<T>, Config},
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
         Treasury: pallet_treasury::{Module, Call, Event<T>},
         PolymeshCommittee: pallet_committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
@@ -213,7 +213,7 @@ impl frame_system::Config for Test {
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = AccountData<Balance>;
+    type AccountData = AccountData;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
@@ -226,7 +226,6 @@ impl pallet_base::Config for Test {
 }
 
 impl CommonConfig for Test {
-    type Balance = Balance;
     type AssetSubTraitTarget = Test;
     type BlockRewardsReserve = pallet_balances::Module<Test>;
 }
@@ -381,7 +380,7 @@ impl CddAndFeeDetails<AccountId, Call> for Test {
     fn set_current_identity(_: &IdentityId) {}
 }
 
-impl SubsidiserTrait<AccountId, Balance> for Test {
+impl SubsidiserTrait<AccountId> for Test {
     fn check_subsidy(
         _: &AccountId,
         _: Balance,
@@ -453,7 +452,7 @@ impl GroupTrait<Moment> for Test {
     }
 }
 
-impl AssetSubTrait<Balance> for Test {
+impl AssetSubTrait for Test {
     fn update_balance_of_scope_id(_: ScopeId, _: IdentityId, _: Ticker) {}
     fn balance_of_at_scope(_: &ScopeId, _: &IdentityId) -> Balance {
         0
@@ -476,16 +475,16 @@ impl MultiSigSubTrait<AccountId> for Test {
     }
 }
 
-impl PortfolioSubTrait<Balance, AccountId> for Test {
+impl PortfolioSubTrait<AccountId> for Test {
     fn ensure_portfolio_custody(_: PortfolioId, _: IdentityId) -> DispatchResult {
         unimplemented!()
     }
 
-    fn lock_tokens(_: &PortfolioId, _: &Ticker, _: &Balance) -> DispatchResult {
+    fn lock_tokens(_: &PortfolioId, _: &Ticker, _: Balance) -> DispatchResult {
         unimplemented!()
     }
 
-    fn unlock_tokens(_: &PortfolioId, _: &Ticker, _: &Balance) -> DispatchResult {
+    fn unlock_tokens(_: &PortfolioId, _: &Ticker, _: Balance) -> DispatchResult {
         unimplemented!()
     }
 
@@ -1579,7 +1578,7 @@ pub fn make_account_with_uid(
 /// It creates an Account and registers its DID.
 pub fn make_account_with_balance(
     id: AccountId,
-    balance: <Test as CommonConfig>::Balance,
+    balance: Balance,
     expiry: Option<Moment>,
 ) -> Result<(<Test as frame_system::Config>::Origin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id.clone());

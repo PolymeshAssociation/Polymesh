@@ -36,7 +36,7 @@ benchmarks! {
     // Benchmark `transfer` extrinsic with the worst possible conditions:
     // * Transfer will create the recipient account.
     transfer {
-        let amount = T::Balance::from(500u32);
+        let amount = Balance::from(500u32);
         let caller = UserBuilder::<T>::default().balance(1200u32).generate_did().build("caller");
         let recipient = UserBuilder::<T>::default().balance(0u32).generate_did().build( "recipient");
     }: _(caller.origin(), recipient.lookup(), amount)
@@ -68,8 +68,8 @@ benchmarks! {
 
     set_balance {
         let caller = UserBuilder::<T>::default().balance(1000u32).generate_did().build("caller");
-        let free_balance :T::Balance = 1_000_000u32.into();
-        let reserved_balance :T::Balance = 100u32.into();
+        let free_balance: Balance = 1_000_000u32.into();
+        let reserved_balance: Balance = 100u32.into();
     }: _(RawOrigin::Root, caller.lookup(), free_balance.clone(), reserved_balance)
     verify {
         assert_eq!(Balances::<T>::free_balance(&caller.account), free_balance);

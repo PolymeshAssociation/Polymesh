@@ -1,9 +1,8 @@
-use crate::CommonConfig;
 use codec::{Decode, Encode};
 use frame_support::decl_event;
 use frame_support::weights::Weight;
 use polymesh_primitives::calendar::{CheckpointId, CheckpointSchedule};
-use polymesh_primitives::{EventDid, IdentityId, Moment, Ticker};
+use polymesh_primitives::{Balance, EventDid, IdentityId, Moment, Ticker};
 use polymesh_primitives_derive::Migrate;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -41,10 +40,7 @@ pub trait WeightInfo {
 }
 
 decl_event! {
-    pub enum Event<T>
-    where
-        Balance = <T as CommonConfig>::Balance,
-    {
+    pub enum Event {
         /// A checkpoint was created.
         ///
         /// (caller DID, ticker, checkpoint ID, total supply, checkpoint timestamp)

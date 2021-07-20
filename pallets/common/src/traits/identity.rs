@@ -111,7 +111,7 @@ pub trait Config: CommonConfig + pallet_timestamp::Config + crate::traits::base:
     /// MultiSig module
     type MultiSig: MultiSigSubTrait<Self::AccountId>;
     /// Portfolio module. Required to accept portfolio custody transfers.
-    type Portfolio: PortfolioSubTrait<Self::Balance, Self::AccountId>;
+    type Portfolio: PortfolioSubTrait<Self::AccountId>;
     /// Group module
     type CddServiceProviders: GroupTrait<Self::Moment>;
     /// Balances module
@@ -123,7 +123,7 @@ pub trait Config: CommonConfig + pallet_timestamp::Config + crate::traits::base:
 
     type Public: IdentifyAccount<AccountId = Self::AccountId>;
     type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode;
-    type ProtocolFee: ChargeProtocolFee<Self::AccountId, Self::Balance>;
+    type ProtocolFee: ChargeProtocolFee<Self::AccountId>;
 
     /// Origin for Governance Committee voting majority origin.
     type GCVotingMajorityOrigin: EnsureOrigin<Self::Origin>;

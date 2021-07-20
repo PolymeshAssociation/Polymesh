@@ -50,28 +50,27 @@ use frame_support::{
     ensure, fail,
 };
 use frame_system::ensure_signed;
-use sp_runtime::{traits::Saturating, transaction_validity::InvalidTransaction};
-
-use pallet_identity::{self as identity, PermissionedCallOriginData};
+use pallet_identity::PermissionedCallOriginData;
 pub use polymesh_common_utilities::traits::relayer::{
     Config, Event, RawEvent, SubsidiserTrait, WeightInfo,
 };
 use polymesh_primitives::{
-    extract_auth, AuthorizationData, IdentityId, Signatory, TransactionError,
+    extract_auth, AuthorizationData, Balance, IdentityId, Signatory, TransactionError,
 };
+use sp_runtime::transaction_validity::InvalidTransaction;
 
-type Identity<T> = identity::Module<T>;
+type Identity<T> = pallet_identity::Module<T>;
 
 /// A Subsidy for transaction and protocol fees.
 ///
 /// This holds the subsidiser's paying key and the remaining POLYX balance
 /// available for subsidising transaction and protocol fees.
 #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Subsidy<Acc, Bal> {
+pub struct Subsidy<Acc> {
     /// The subsidiser's paying key.
     pub paying_key: Acc,
     /// How much POLYX is remaining for subsidising transaction and protocol fees.
-    pub remaining: Bal,
+    pub remaining: Balance,
 }
 
 decl_storage! {
@@ -83,7 +82,7 @@ decl_storage! {
         /// a key needs to call `remove_paying_key` to remove the current subsidy,
         /// before they can accept a new subsidiser.
         pub Subsidies get(fn subsidies):
-            map hasher(blake2_128_concat) T::AccountId => Option<Subsidy<T::AccountId, T::Balance>>;
+            map hasher(blake2_128_concat) T::AccountId => Option<Subsidy<T::AccountId>>;
     }
 }
 
@@ -102,7 +101,7 @@ decl_module! {
         /// # Errors
         /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
         #[weight = <T as Config>::WeightInfo::set_paying_key()]
-        pub fn set_paying_key(origin, user_key: T::AccountId, polyx_limit: T::Balance) -> DispatchResult {
+        pub fn set_paying_key(origin, user_key: T::AccountId, polyx_limit: Balance) -> DispatchResult {
             Self::base_set_paying_key(origin, user_key, polyx_limit)
         }
 
@@ -156,7 +155,7 @@ decl_module! {
         /// # Permissions
         /// * Relayer
         #[weight = <T as Config>::WeightInfo::update_polyx_limit()]
-        pub fn update_polyx_limit(origin, user_key: T::AccountId, polyx_limit: T::Balance) -> DispatchResult {
+        pub fn update_polyx_limit(origin, user_key: T::AccountId, polyx_limit: Balance) -> DispatchResult {
             Self::base_update_polyx_limit(origin, user_key, polyx_limit)
         }
     }
@@ -185,7 +184,7 @@ impl<T: Config> Module<T> {
     fn base_set_paying_key(
         origin: T::Origin,
         user_key: T::AccountId,
-        polyx_limit: T::Balance,
+        polyx_limit: Balance,
     ) -> DispatchResult {
         let PermissionedCallOriginData {
             sender: paying_key,
@@ -268,7 +267,7 @@ impl<T: Config> Module<T> {
     fn base_update_polyx_limit(
         origin: T::Origin,
         user_key: T::AccountId,
-        polyx_limit: T::Balance,
+        polyx_limit: Balance,
     ) -> DispatchResult {
         let PermissionedCallOriginData {
             sender: paying_key,
@@ -297,7 +296,7 @@ impl<T: Config> Module<T> {
         from: IdentityId,
         user_key: T::AccountId,
         paying_key: T::AccountId,
-        polyx_limit: T::Balance,
+        polyx_limit: Balance,
     ) -> u64 {
         let auth_id = <Identity<T>>::add_auth(
             from,
@@ -332,7 +331,7 @@ impl<T: Config> Module<T> {
     fn ensure_is_paying_key(
         user_key: &T::AccountId,
         paying_key: &T::AccountId,
-    ) -> Result<Subsidy<T::AccountId, T::Balance>, DispatchError> {
+    ) -> Result<Subsidy<T::AccountId>, DispatchError> {
         // Check if the current paying key matches.
         match <Subsidies<T>>::get(user_key) {
             // There was no subsidy.
@@ -349,7 +348,7 @@ impl<T: Config> Module<T> {
         from: IdentityId,
         user_key: T::AccountId,
         paying_key: T::AccountId,
-        polyx_limit: T::Balance,
+        polyx_limit: Balance,
     ) -> DispatchResult {
         // Ensure that the authorization came from the DID of the paying_key.
         ensure!(
@@ -402,8 +401,8 @@ impl<T: Config> Module<T> {
 
     fn get_subsidy(
         user_key: &T::AccountId,
-        fee: T::Balance,
-    ) -> Result<Option<Subsidy<T::AccountId, T::Balance>>, InvalidTransaction> {
+        fee: Balance,
+    ) -> Result<Option<Subsidy<T::AccountId>>, InvalidTransaction> {
         // Get the Subsidy for `user_key`.
         match <Subsidies<T>>::get(user_key) {
             // There was no subsidy.
@@ -416,10 +415,10 @@ impl<T: Config> Module<T> {
     }
 }
 
-impl<T: Config> SubsidiserTrait<T::AccountId, T::Balance> for Module<T> {
+impl<T: Config> SubsidiserTrait<T::AccountId> for Module<T> {
     fn check_subsidy(
         user_key: &T::AccountId,
-        fee: T::Balance,
+        fee: Balance,
         pallet: Option<&[u8]>,
     ) -> Result<Option<T::AccountId>, InvalidTransaction> {
         match Self::get_subsidy(user_key, fee)? {
@@ -436,7 +435,7 @@ impl<T: Config> SubsidiserTrait<T::AccountId, T::Balance> for Module<T> {
 
     fn debit_subsidy(
         user_key: &T::AccountId,
-        fee: T::Balance,
+        fee: Balance,
     ) -> Result<Option<T::AccountId>, InvalidTransaction> {
         if let Some(mut subsidy) = Self::get_subsidy(user_key, fee)? {
             let paying_key = subsidy.paying_key.clone();
