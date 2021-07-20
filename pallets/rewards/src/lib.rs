@@ -39,13 +39,13 @@ use frame_support::{
     unsigned::{TransactionValidity, TransactionValidityError},
 };
 use frame_system::{ensure_none, RawOrigin};
-use pallet_identity::{self as identity};
 use pallet_staking::{self as staking, RewardDestination};
 use polymesh_common_utilities::{
     constants::{currency::POLY, REWARDS_MODULE_ID},
-    traits::{identity::Config as IdentityConfig, CommonConfig},
+    traits::identity::Config as IdentityConfig,
     with_transaction,
 };
+use polymesh_primitives::Balance;
 use sp_runtime::transaction_validity::InvalidTransaction;
 use sp_runtime::{
     traits::{AccountIdConversion, DispatchInfoOf, SignedExtension, StaticLookup, Verify},
@@ -70,7 +70,7 @@ pub trait WeightInfo {}
 
 /// Represents an Itn reward's status.
 #[derive(Decode, Encode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum ItnRewardStatus<Balance: Encode + Decode> {
+pub enum ItnRewardStatus {
     Unclaimed(Balance),
     Claimed,
 }
@@ -108,12 +108,12 @@ decl_error! {
 
 decl_storage! {
     trait Store for Module<T: Config> as Rewards {
-        /// Map of (Itn Address `T::AccountId`) -> (Reward `ItnRewardStatus`).
+        /// Map of (Itn Address `AccountId`) -> (Reward `ItnRewardStatus`).
         pub ItnRewards get(fn itn_rewards): map hasher(blake2_128_concat) T::AccountId
-            => Option<ItnRewardStatus<T::Balance>>;
+            => Option<ItnRewardStatus>;
     }
     add_extra_genesis {
-    config(itn_rewards): Vec<(T::AccountId, T::Balance)>;
+    config(itn_rewards): Vec<(T::AccountId, Balance)>;
     build(|config: &GenesisConfig<T>| {
         for (account, balance) in &config.itn_rewards {
             <ItnRewards<T>>::insert(account, ItnRewardStatus::Unclaimed(*balance));
@@ -143,7 +143,7 @@ decl_module! {
         pub fn claim_itn_reward(origin, reward_address: T::AccountId, itn_address: T::AccountId, signature: T::OffChainSignature) -> DispatchResult {
             ensure_none(origin)?;
             <ItnRewards<T>>::try_mutate(&itn_address, |reward| {
-                match reward{
+                match reward {
                     // Unclaimed. Attempt to claim.
                     Some(ItnRewardStatus::Unclaimed(amount)) => {
                         let amount = *amount;
@@ -187,7 +187,6 @@ decl_module! {
 decl_event! {
     pub enum Event<T>
     where
-        Balance = <T as CommonConfig>::Balance,
         AccountId = <T as frame_system::Config>::AccountId,
     {
         /// Itn reward was claimed.
@@ -208,10 +207,7 @@ impl<T: Config> Module<T> {
         <T as pallet_staking::Config>::Currency::free_balance(&Self::account_id())
     }
 
-    fn convert_balance(balance: T::Balance) -> Result<(BalanceOf<T>, BalanceOf<T>), DispatchError> {
-        let raw_balance: u128 = balance
-            .try_into()
-            .map_err(|_| Error::<T>::UnableToCovertBalance)?;
+    fn convert_balance(raw_balance: u128) -> Result<(BalanceOf<T>, BalanceOf<T>), DispatchError> {
         Ok((
             raw_balance
                 .try_into()

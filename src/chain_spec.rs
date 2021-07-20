@@ -10,8 +10,8 @@ use polymesh_common_utilities::{
     SystematicIssuers,
 };
 use polymesh_primitives::{
-    identity_id::GenesisIdentityRecord, AccountId, IdentityId, Moment, PosRatio, SecondaryKey,
-    Signatory, Signature, SmartExtensionType, Ticker,
+    identity_id::GenesisIdentityRecord, AccountId, Balance, IdentityId, Moment, PosRatio,
+    SecondaryKey, Signatory, Signature, SmartExtensionType, Ticker,
 };
 use sc_chain_spec::ChainType;
 use sc_service::Properties;
@@ -494,7 +494,7 @@ macro_rules! rewards {
 }
 
 #[allow(unreachable_code)]
-fn itn_rewards<AccountId, Balance>() -> Vec<(AccountId, Balance)> {
+fn itn_rewards<'de, AccountId: Deserialize<'de>>() -> Vec<(AccountId, Balance)> {
     #[cfg(feature = "runtime-benchmarks")]
     return Vec::new();
 
