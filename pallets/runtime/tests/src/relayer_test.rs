@@ -1,12 +1,26 @@
 use super::{
-    storage::{get_last_auth_id, make_account_without_cdd, TestStorage, User},
+    ext_builder::MockProtocolBaseFees,
+    storage::{get_last_auth_id, make_account_without_cdd, Call, TestStorage, User},
     ExtBuilder,
 };
-use frame_support::{assert_noop, assert_ok, StorageMap};
+use frame_support::{
+    assert_noop, assert_ok,
+    weights::{DispatchInfo, Pays, PostDispatchInfo, Weight},
+    StorageMap,
+};
 use pallet_relayer::Subsidy;
-use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
-use polymesh_primitives::{AccountId, Balance, Signatory};
-use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
+use polymesh_common_utilities::{
+    constants::currency::POLY, protocol_fee::ProtocolOp,
+    traits::transaction_payment::CddAndFeeDetails,
+};
+use polymesh_primitives::{AccountId, Balance, Signatory, Ticker, TransactionError};
+use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call as DevCall};
+use sp_runtime::{
+    traits::SignedExtension,
+    transaction_validity::{InvalidTransaction, TransactionValidityError},
+    MultiAddress,
+};
+use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type Relayer = pallet_relayer::Module<TestStorage>;
@@ -15,10 +29,41 @@ type Subsidies = pallet_relayer::Subsidies<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
 type AccountKeyRefCount = pallet_identity::AccountKeyRefCount<TestStorage>;
 
+type Balances = pallet_balances::Module<TestStorage>;
+
+type ChargeTransactionPayment = pallet_transaction_payment::ChargeTransactionPayment<TestStorage>;
+
 type Error = pallet_relayer::Error<TestStorage>;
 
 // Relayer Test Helper functions
 // =======================================
+
+fn call_balance_transfer(val: Balance) -> <TestStorage as frame_system::Config>::Call {
+    Call::Balances(pallet_balances::Call::transfer(
+        MultiAddress::Id(AccountKeyring::Alice.to_account_id()),
+        val,
+    ))
+}
+
+fn call_asset_register_ticker(name: &[u8]) -> <TestStorage as frame_system::Config>::Call {
+    let ticker = Ticker::try_from(name).unwrap();
+    Call::Asset(pallet_asset::Call::register_ticker(ticker))
+}
+
+/// create a transaction info struct from weight. Handy to avoid building the whole struct.
+pub fn info_from_weight(w: Weight) -> DispatchInfo {
+    DispatchInfo {
+        weight: w,
+        ..Default::default()
+    }
+}
+
+fn post_info_from_weight(w: Weight) -> PostDispatchInfo {
+    PostDispatchInfo {
+        actual_weight: Some(w),
+        pays_fee: Pays::Yes,
+    }
+}
 
 #[track_caller]
 fn assert_key_usage(user: User, usage: u64) {
@@ -35,6 +80,24 @@ fn assert_subsidy(user: User, subsidy: Option<(User, Balance)>) {
         get_subsidy(user).map(|s| (s.paying_key, s.remaining)),
         subsidy.map(|s| (s.0.acc(), s.1))
     );
+}
+
+/// Setup a subsidy with the `payer` paying for the `user`.
+#[track_caller]
+fn setup_subsidy(user: User, payer: User, limit: Balance) {
+    // Add authorization for using `payer` as the paying key for `user`.
+    assert_ok!(Relayer::set_paying_key(payer.origin(), user.acc(), limit));
+
+    // No subsidy yet.
+    assert_subsidy(user, None);
+
+    // `user` accept's the paying key.
+    TestStorage::set_current_identity(&user.did);
+    let auth_id = get_last_auth_id(&Signatory::Account(user.acc()));
+    assert_ok!(Relayer::accept_paying_key(user.origin(), auth_id));
+
+    // `user` now has a subsidy of `limit` POLYX.
+    assert_subsidy(user, Some((payer, limit)));
 }
 
 #[test]
@@ -182,7 +245,7 @@ fn relayer_paying_key_missing_cdd_test() {
 fn do_relayer_paying_key_missing_cdd_test() {
     let alice = User::new(AccountKeyring::Alice);
     let bob_acc = AccountKeyring::Bob.to_account_id();
-    let (bob_sign, bob_did) = make_account_without_cdd(bob_acc.clone()).unwrap();
+    let (bob_sign, _) = make_account_without_cdd(bob_acc.clone()).unwrap();
 
     // Add authorization for using Bob as the paying key for Alice.
     assert_ok!(Relayer::set_paying_key(bob_sign, alice.acc(), 10u128));
@@ -197,7 +260,83 @@ fn do_relayer_paying_key_missing_cdd_test() {
     );
 }
 
-/// TODO: Add tests for subsidiser interface.
+#[test]
+fn relayer_transaction_fees_test() {
+    let protocol_fee = MockProtocolBaseFees(vec![(ProtocolOp::AssetRegisterTicker, 500)]);
+    ExtBuilder::default()
+        .monied(true)
+        .transaction_fees(5, 1, 1)
+        .set_protocol_base_fees(protocol_fee)
+        .build()
+        .execute_with(&do_relayer_transaction_fees_test);
+}
+fn do_relayer_transaction_fees_test() {
+    let bob = User::new(AccountKeyring::Bob);
+    let alice = User::new(AccountKeyring::Alice);
+
+    let prev_balance = Balances::free_balance(&alice.acc());
+    let remaining = 2_000 * POLY;
+
+    setup_subsidy(bob, alice, remaining);
+
+    let diff_balance = || {
+        let curr_balance = Balances::free_balance(&alice.acc());
+        let curr_remaining = get_subsidy(bob).map(|s| s.remaining).unwrap();
+        (prev_balance - curr_balance, remaining - curr_remaining)
+    };
+
+    let len = 10;
+    let expected_err = TransactionValidityError::Invalid(InvalidTransaction::Custom(
+        TransactionError::PalletNotSubsidised as u8,
+    ));
+
+    // Pallet Balance is not subsidised.
+    // test `validate`
+    let pre_err = ChargeTransactionPayment::from(0)
+        .validate(
+            &bob.acc(),
+            &call_balance_transfer(42),
+            &info_from_weight(5),
+            len,
+        )
+        .map(|_| ())
+        .unwrap_err();
+    assert_eq!(pre_err, expected_err);
+
+    // test `pre_dispatch`
+    let pre_err = ChargeTransactionPayment::from(0)
+        .pre_dispatch(
+            &bob.acc(),
+            &call_balance_transfer(42),
+            &info_from_weight(5),
+            len,
+        )
+        .map(|_| ())
+        .unwrap_err();
+    assert_eq!(pre_err, expected_err);
+
+    // No charge to subsidiser balance or subsidy remaining POLYX.
+    assert_eq!(diff_balance(), (0, 0));
+
+    let pre = ChargeTransactionPayment::from(0)
+        .pre_dispatch(
+            &bob.acc(),
+            &call_asset_register_ticker(b"A"),
+            &info_from_weight(100),
+            len,
+        )
+        .unwrap();
+
+    assert!(ChargeTransactionPayment::post_dispatch(
+        pre,
+        &info_from_weight(100),
+        &post_info_from_weight(50),
+        len,
+        &Ok(())
+    )
+    .is_ok());
+    assert_eq!(diff_balance(), (30999, 30999));
+}
 
 #[test]
 fn relayer_accept_cdd_and_fees_test() {
@@ -218,7 +357,7 @@ fn do_relayer_accept_cdd_and_fees_test() {
     // Check that Bob can accept the subsidy with Alice paying for the transaction.
     assert_eq!(
         CddHandler::get_valid_payer(
-            &Call::Relayer(pallet_relayer::Call::accept_paying_key(bob_auth_id)),
+            &DevCall::Relayer(pallet_relayer::Call::accept_paying_key(bob_auth_id)),
             &bob.acc()
         ),
         Ok(Some(alice.acc()))
