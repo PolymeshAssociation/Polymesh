@@ -2,7 +2,6 @@ use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
 use sp_runtime::traits::{IdentifyAccount, Verify};
-use sp_runtime::AccountId32;
 
 /// Alias to an sr25519 or ed25519 key.
 pub type AccountId = <<super::Signature as Verify>::Signer as IdentifyAccount>::AccountId;

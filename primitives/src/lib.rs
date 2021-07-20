@@ -30,7 +30,7 @@ use sp_std::prelude::Vec;
 use codec::{Decode, Encode};
 use sp_runtime::{
     generic,
-    traits::{BlakeTwo256, IdentifyAccount, Verify},
+    traits::{BlakeTwo256, Verify},
     MultiSignature,
 };
 
