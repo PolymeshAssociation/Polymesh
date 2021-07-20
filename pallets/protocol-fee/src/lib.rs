@@ -51,14 +51,9 @@ use polymesh_common_utilities::{
     transaction_payment::CddAndFeeDetails,
     GC_DID,
 };
-use polymesh_primitives::{IdentityId, PosRatio};
-use sp_runtime::{
-    traits::{Saturating, Zero},
-    Perbill,
-};
+use polymesh_primitives::{Balance, IdentityId, PosRatio};
+use sp_runtime::{traits::Zero, Perbill};
 
-type BalanceOf<T> =
-    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
@@ -73,7 +68,7 @@ pub trait WeightInfo {
 pub trait Config: frame_system::Config + IdentityConfig {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     /// The currency type in which fees will be paid.
-    type Currency: Currency<Self::AccountId> + Send + Sync;
+    type Currency: Currency<Self::AccountId, Balance = Balance> + Send + Sync;
     /// Handler for the unbalanced reduction when taking protocol fees.
     type OnProtocolFeePayment: OnUnbalanced<NegativeImbalanceOf<Self>>;
     /// Weight calaculation.
@@ -92,9 +87,9 @@ decl_error! {
 decl_storage! {
     trait Store for Module<T: Config> as ProtocolFee {
         /// The mapping of operation names to the base fees of those operations.
-        pub BaseFees get(fn base_fees) config(): map hasher(twox_64_concat) ProtocolOp => BalanceOf<T>;
+        pub BaseFees get(fn base_fees) config(): map hasher(twox_64_concat) ProtocolOp => Balance;
         /// The fee coefficient as a positive rational (numerator, denominator).
-        pub Coefficient get(fn coefficient) config() build(|config: &GenesisConfig<T>| {
+        pub Coefficient get(fn coefficient) config() build(|config: &GenesisConfig| {
             if config.coefficient.1 == 0 {
                 PosRatio(1, 1)
             } else {
@@ -107,7 +102,6 @@ decl_storage! {
 decl_event! {
     pub enum Event<T> where
         AccountId = <T as frame_system::Config>::AccountId,
-        Balance = BalanceOf<T>,
     {
         /// The protocol fee of an operation.
         FeeSet(IdentityId, Balance),
@@ -132,7 +126,7 @@ decl_module! {
         pub fn change_coefficient(origin, coefficient: PosRatio) {
             ensure_root(origin)?;
             Coefficient::put(&coefficient);
-            Self::deposit_event(RawEvent::CoefficientSet(GC_DID, coefficient));
+            Self::deposit_event(Event::<T>::CoefficientSet(GC_DID, coefficient));
         }
 
         /// Changes the a base fee for the root origin.
@@ -140,17 +134,17 @@ decl_module! {
         /// # Errors
         /// * `BadOrigin` - Only root allowed.
         #[weight = <T as Config>::WeightInfo::change_base_fee()]
-        pub fn change_base_fee(origin, op: ProtocolOp, base_fee: BalanceOf<T>) {
+        pub fn change_base_fee(origin, op: ProtocolOp, base_fee: Balance) {
             ensure_root(origin)?;
-            <BaseFees<T>>::insert(op, &base_fee);
-            Self::deposit_event(RawEvent::FeeSet(GC_DID, base_fee));
+            BaseFees::insert(op, &base_fee);
+            Self::deposit_event(Event::<T>::FeeSet(GC_DID, base_fee));
         }
     }
 }
 
 impl<T: Config> Module<T> {
     /// Computes the fee of the operation as `(base_fee * coefficient.0) / coefficient.1`.
-    pub fn compute_fee(ops: &[ProtocolOp]) -> BalanceOf<T> {
+    pub fn compute_fee(ops: &[ProtocolOp]) -> Balance {
         let coefficient = Self::coefficient();
         let ratio = Perbill::from_rational_approximation(coefficient.0, coefficient.1);
         let base = ops.iter().fold(Zero::zero(), |a, e| a + Self::base_fees(e));
@@ -174,7 +168,7 @@ impl<T: Config> Module<T> {
     /// Used to charge the instantiation fee of the smart extension.
     /// fee get divided between the owner of the template and the network (Treasury + Block Author).
     pub fn charge_extension_instantiation_fee(
-        fee: BalanceOf<T>,
+        fee: Balance,
         owner: T::AccountId,
         network_share: Perbill,
     ) -> DispatchResult {
@@ -198,7 +192,7 @@ impl<T: Config> Module<T> {
 
     /// Computes the fee for `count` similar operations, and charges that fee to the current payer.
     pub fn batch_charge_fee(op: ProtocolOp, count: usize) -> DispatchResult {
-        let fee = Self::compute_fee(&[op]).saturating_mul(<BalanceOf<T>>::from(count as u32));
+        let fee = Self::compute_fee(&[op]).saturating_mul(Balance::from(count as u32));
         if fee.is_zero() {
             return Ok(());
         }
@@ -207,7 +201,7 @@ impl<T: Config> Module<T> {
 
     /// Withdraws a precomputed fee from the current payer if it is defined or from the current
     /// identity otherwise.
-    fn withdraw_fee(account: T::AccountId, fee: BalanceOf<T>) -> WithdrawFeeResult<T> {
+    fn withdraw_fee(account: T::AccountId, fee: Balance) -> WithdrawFeeResult<T> {
         let ret = T::Currency::withdraw(
             &account,
             fee,
@@ -219,7 +213,7 @@ impl<T: Config> Module<T> {
         Ok(ret)
     }
 
-    fn withdraw_from_payer(fee: BalanceOf<T>) -> DispatchResult {
+    fn withdraw_from_payer(fee: Balance) -> DispatchResult {
         if let Some(payer) = T::CddHandler::get_payer_from_context() {
             let imbalance = Self::withdraw_fee(payer, fee)?;
             T::OnProtocolFeePayment::on_unbalanced(imbalance);
@@ -228,7 +222,7 @@ impl<T: Config> Module<T> {
     }
 }
 
-impl<T: Config> ChargeProtocolFee<T::AccountId, BalanceOf<T>> for Module<T> {
+impl<T: Config> ChargeProtocolFee<T::AccountId> for Module<T> {
     fn charge_fee(op: ProtocolOp) -> DispatchResult {
         Self::charge_fees(&[op])
     }
@@ -242,7 +236,7 @@ impl<T: Config> ChargeProtocolFee<T::AccountId, BalanceOf<T>> for Module<T> {
     }
 
     fn charge_extension_instantiation_fee(
-        fee: BalanceOf<T>,
+        fee: Balance,
         owner: T::AccountId,
         network_share: Perbill,
     ) -> DispatchResult {

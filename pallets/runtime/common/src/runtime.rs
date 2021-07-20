@@ -72,9 +72,7 @@ macro_rules! misc_pallet_impls {
             /// What to do if an account is fully reaped from the system.
             type OnKilledAccount = ();
             /// The data to be stored in an account.
-            type AccountData = polymesh_common_utilities::traits::balances::AccountData<
-                polymesh_primitives::Balance,
-            >;
+            type AccountData = polymesh_common_utilities::traits::balances::AccountData;
             type SystemWeightInfo = polymesh_weights::frame_system::WeightInfo;
         }
 
@@ -130,7 +128,6 @@ macro_rules! misc_pallet_impls {
         }
 
         impl polymesh_common_utilities::traits::CommonConfig for Runtime {
-            type Balance = polymesh_primitives::Balance;
             type AssetSubTraitTarget = Asset;
             type BlockRewardsReserve = pallet_balances::Module<Runtime>;
         }
@@ -709,7 +706,6 @@ macro_rules! runtime_apis {
 
             impl node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<
                 Block,
-                Balance,
                 UncheckedExtrinsic,
             > for Runtime {
                 fn query_info(uxt: UncheckedExtrinsic, len: u32) -> RuntimeDispatchInfo<Balance> {
@@ -735,11 +731,11 @@ macro_rules! runtime_apis {
                 }
             }
 
-            impl node_rpc_runtime_api::pips::PipsApi<Block, polymesh_primitives::AccountId, Balance>
+            impl node_rpc_runtime_api::pips::PipsApi<Block, polymesh_primitives::AccountId>
             for Runtime
             {
                 /// Get vote count for a given proposal index
-                fn get_votes(index: u32) -> VoteCount<Balance> {
+                fn get_votes(index: u32) -> VoteCount {
                     Pips::get_votes(index)
                 }
 
@@ -838,7 +834,7 @@ macro_rules! runtime_apis {
                 }
             }
 
-            impl node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, polymesh_primitives::AccountId, Balance>
+            impl node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, polymesh_primitives::AccountId>
                 for Runtime
             {
                 #[inline]

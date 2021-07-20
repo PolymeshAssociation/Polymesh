@@ -3294,8 +3294,7 @@ fn dirty_storage_with_tx() {
             );
             next_block();
             assert_eq!(
-                settlement::InstructionLegs::<TestStorage>::iter_prefix(instruction_counter)
-                    .count(),
+                settlement::InstructionLegs::iter_prefix(instruction_counter).count(),
                 0
             );
 

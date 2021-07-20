@@ -113,11 +113,11 @@ fn emulate_controller_transfer<T: Config>(
     pia: IdentityId,
 ) {
     // Assign balance to an investor.
-    let mock_storage = |id: IdentityId, bal: T::Balance| {
+    let mock_storage = |id: IdentityId, bal: Balance| {
         let s_id: ScopeId = id;
-        <BalanceOf<T>>::insert(ticker, id, bal);
-        <BalanceOfAtScope<T>>::insert(s_id, id, bal);
-        <AggregateBalance<T>>::insert(ticker, id, bal);
+        BalanceOf::insert(ticker, id, bal);
+        BalanceOfAtScope::insert(s_id, id, bal);
+        AggregateBalance::insert(ticker, id, bal);
         ScopeIdOf::insert(ticker, id, s_id);
         Statistics::<T>::update_transfer_stats(&ticker, None, Some(bal), bal);
     };
@@ -164,7 +164,7 @@ fn setup_create_asset<T: Config + TestUtilsFn<<T as frame_system::Config>::Accou
     RawOrigin<T::AccountId>,
     AssetName,
     Ticker,
-    SecurityToken<T::Balance>,
+    SecurityToken,
     Vec<AssetIdentifier>,
     Option<FundingRoundName>,
 ) {

@@ -23,16 +23,13 @@ pub use node_rpc_runtime_api::pips::{
 };
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{
-    generic::BlockId,
-    traits::{Block as BlockT, UniqueSaturatedInto},
-};
+use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use sp_std::{prelude::*, vec::Vec};
 use std::sync::Arc;
 
 /// Pips RPC methods.
 #[rpc]
-pub trait PipsApi<BlockHash, AccountId, Balance> {
+pub trait PipsApi<BlockHash, AccountId> {
     /// Summary of votes of a proposal given by `index`
     #[rpc(name = "pips_getVotes")]
     fn get_votes(&self, index: u32, at: Option<BlockHash>) -> Result<VoteCount>;
@@ -63,16 +60,14 @@ impl<T, U> Pips<T, U> {
     }
 }
 
-impl<C, Block, AccountId, Balance> PipsApi<<Block as BlockT>::Hash, AccountId, Balance>
-    for Pips<C, Block>
+impl<C, Block, AccountId> PipsApi<<Block as BlockT>::Hash, AccountId> for Pips<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
-    C::Api: PipsRuntimeApi<Block, AccountId, Balance>,
+    C::Api: PipsRuntimeApi<Block, AccountId>,
     AccountId: Codec,
-    Balance: Codec + UniqueSaturatedInto<u64>,
 {
     fn get_votes(&self, index: u32, at: Option<<Block as BlockT>::Hash>) -> Result<VoteCount> {
         rpc_forward_call!(
