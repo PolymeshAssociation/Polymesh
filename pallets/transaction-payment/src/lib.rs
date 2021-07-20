@@ -569,11 +569,8 @@ where
 
         // Check if the payer is being subsidised.
         let metadata = call.get_call_metadata();
-        let subsidiser = T::Subsidiser::check_subsidy(
-            &payer_key,
-            fee,
-            Some(metadata.pallet_name.as_bytes()),
-        )?;
+        let subsidiser =
+            T::Subsidiser::check_subsidy(&payer_key, fee, Some(metadata.pallet_name.as_bytes()))?;
 
         // key to pay the fee.
         let fee_key = subsidiser.as_ref().unwrap_or(&payer_key);
