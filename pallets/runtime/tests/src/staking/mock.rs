@@ -382,7 +382,11 @@ impl CddAndFeeDetails<AccountId, Call> for Test {
 }
 
 impl SubsidiserTrait<AccountId, Balance> for Test {
-    fn check_subsidy(_: &AccountId, _: Balance, _: Option<&[u8]>) -> Result<Option<AccountId>, InvalidTransaction> {
+    fn check_subsidy(
+        _: &AccountId,
+        _: Balance,
+        _: Option<&[u8]>,
+    ) -> Result<Option<AccountId>, InvalidTransaction> {
         Ok(None)
     }
     fn debit_subsidy(_: &AccountId, _: Balance) -> Result<Option<AccountId>, InvalidTransaction> {
