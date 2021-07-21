@@ -78,8 +78,8 @@ fn investor_count_with_ext() {
     let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
     // 1. Alice create an asset.
+    let name = &[0x01];
     let token = SecurityToken {
-        name: vec![0x01].into(),
         owner_did: alice_did,
         total_supply: 1_000_000,
         divisible: true,
@@ -87,10 +87,10 @@ fn investor_count_with_ext() {
     };
 
     let identifiers = Vec::new();
-    let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+    let ticker = Ticker::try_from(name.as_ref()).unwrap();
     assert_ok!(Asset::base_create_asset_and_mint(
         alice_signed.clone(),
-        token.name.clone(),
+        name.into(),
         ticker,
         1_000_000, // Total supply over the limit
         true,
@@ -99,7 +99,7 @@ fn investor_count_with_ext() {
         None,
     ));
 
-    let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+    let ticker = Ticker::try_from(name.as_ref()).unwrap();
     assert_ok!(ComplianceManager::add_compliance_requirement(
         alice_signed.clone(),
         ticker,
