@@ -1125,7 +1125,6 @@
       "kind": "CAKind",
       "decl_date": "Moment",
       "record_date": "Option<RecordDate>",
-      "details": "Text",
       "targets": "TargetIdentities",
       "default_withholding_tax": "Tax",
       "withholding_tax": "Vec<(IdentityId, Tax)>"

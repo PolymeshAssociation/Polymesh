@@ -13,7 +13,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, AccountId, Identity, IdentityId,
-    PosRatio, Signatory, SmartExtensionType,
+    PosRatio, Signatory,
 };
 use sp_io::TestExternalities;
 use sp_runtime::{Perbill, Storage};
