@@ -100,7 +100,6 @@ macro_rules! assert_too_long {
 crate fn token(name: &[u8], owner_did: IdentityId) -> (Ticker, SecurityToken) {
     let ticker = Ticker::try_from(name).unwrap();
     let token = SecurityToken {
-        name: name.into(),
         owner_did,
         total_supply: TOTAL_SUPPLY,
         divisible: true,
@@ -133,7 +132,7 @@ fn asset_with_ids(
 ) -> DispatchResult {
     Asset::base_create_asset_and_mint(
         owner.origin(),
-        token.name.clone(),
+        ticker.as_ref().into(),
         ticker,
         token.total_supply,
         token.divisible,
@@ -246,7 +245,7 @@ fn issuers_can_create_and_rename_tokens() {
         let create = |supply| {
             Asset::base_create_asset_and_mint(
                 owner.origin(),
-                token.name.clone(),
+                ticker.as_ref().into(),
                 ticker,
                 supply,
                 true,
@@ -285,16 +284,9 @@ fn issuers_can_create_and_rename_tokens() {
         // The token should remain unchanged in storage.
         assert_eq!(Asset::token_details(ticker), token);
         // Rename the token and check storage has been updated.
-        let renamed_token = SecurityToken {
-            name: vec![0x42].into(),
-            ..token
-        };
-        assert_ok!(Asset::rename_asset(
-            owner.origin(),
-            ticker,
-            renamed_token.name.clone()
-        ));
-        assert_eq!(Asset::token_details(ticker), renamed_token);
+        let new: AssetName = [0x42].into();
+        assert_ok!(Asset::rename_asset(owner.origin(), ticker, new.clone()));
+        assert_eq!(Asset::asset_names(ticker), new);
         assert!(Asset::identifiers(ticker).is_empty());
     });
 }
@@ -1103,7 +1095,7 @@ fn frozen_secondary_keys_create_asset_we() {
     let (ticker_1, token_1) = a_token(alice_id);
     assert_ok!(Asset::base_create_asset_and_mint(
         Origin::signed(bob),
-        token_1.name.clone(),
+        ticker_1.as_ref().into(),
         ticker_1,
         token_1.total_supply,
         true,

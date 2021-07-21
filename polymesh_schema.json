@@ -71,7 +71,6 @@
     "FundingRoundName": "Text",
     "VenueDetails": "Text",
     "SecurityToken": {
-      "name": "AssetName",
       "total_supply": "Balance",
       "owner_did": "IdentityId",
       "divisible": "bool",
