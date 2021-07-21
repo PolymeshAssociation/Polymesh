@@ -156,7 +156,7 @@ decl_module! {
                                 <Staking<T>>::bond(origin, T::Lookup::unlookup(reward_address.clone()), bonded_amount, RewardDestination::Staked)?;
                             }
                             *reward = Some(ItnRewardStatus::Claimed);
-                            Self::deposit_event(Event::<T>::ItnRwardClaimed(reward_address, amount));
+                            Self::deposit_event(Event::<T>::ItnRewardClaimed(reward_address, amount));
                             Ok(())
                         })
                     },
@@ -176,7 +176,7 @@ decl_event! {
         AccountId = <T as frame_system::Config>::AccountId,
     {
         /// Itn reward was claimed.
-        ItnRwardClaimed(AccountId, Balance),
+        ItnRewardClaimed(AccountId, Balance),
     }
 }
 
@@ -224,7 +224,6 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         let mut msg = [0u8; 80];
         msg[..32].copy_from_slice(&reward_address.encode());
-        msg[32..64].copy_from_slice(&itn_address.encode());
         msg[64..].copy_from_slice(b"claim_itn_reward");
         ensure!(
             signature.verify(msg.as_slice(), itn_address),
