@@ -179,7 +179,6 @@ fn setup_create_asset<T: Config + TestUtilsFn<<T as frame_system::Config>::Accou
     let owner = owner::<T>();
 
     let token = SecurityToken {
-        name: name.clone(),
         owner_did: owner.did(),
         total_supply: total_supply.into(),
         divisible: true,
@@ -281,7 +280,7 @@ benchmarks! {
         let (owner, ticker) = owned_ticker::<T>();
     }: _(owner.origin, ticker, new_name)
     verify {
-        assert_eq!(Module::<T>::token_details(ticker).name, new_name2);
+        assert_eq!(Module::<T>::asset_names(ticker), new_name2);
     }
 
     issue {
