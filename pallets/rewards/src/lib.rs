@@ -32,6 +32,7 @@
 #![recursion_limit = "256"]
 
 use codec::{Decode, Encode};
+use frame_support::dispatch::Weight;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
@@ -68,7 +69,9 @@ pub trait Config: frame_system::Config + IdentityConfig + staking::Config {
     type WeightInfo: WeightInfo;
 }
 
-pub trait WeightInfo {}
+pub trait WeightInfo {
+    fn claim_itn_reward() -> Weight;
+}
 
 /// Represents an Itn reward's status.
 #[derive(Decode, Encode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -125,7 +128,7 @@ decl_module! {
         /// * `InvalidSignature` - `signature` had an invalid signer or invalid message.
         /// * `ItnRewardAlreadyClaimed` - Reward issued to the `itn_address` has already been claimed.
         /// * `UnknownItnAddress` - `itn_address` is not in the rewards table and has no reward to be claimed.
-        #[weight = 0]
+        #[weight = <T as Config>::WeightInfo::claim_itn_reward()]
         pub fn claim_itn_reward(origin, reward_address: T::AccountId, itn_address: T::AccountId, signature: T::OffChainSignature) -> DispatchResult {
             ensure_none(origin)?;
             <ItnRewards<T>>::try_mutate(&itn_address, |reward| {
@@ -222,9 +225,9 @@ impl<T: Config> Module<T> {
         itn_address: &T::AccountId,
         signature: &T::OffChainSignature,
     ) -> DispatchResult {
-        let mut msg = [0u8; 80];
+        let mut msg = [0u8; 48];
         msg[..32].copy_from_slice(&reward_address.encode());
-        msg[64..].copy_from_slice(b"claim_itn_reward");
+        msg[32..].copy_from_slice(b"claim_itn_reward");
         ensure!(
             signature.verify(msg.as_slice(), itn_address),
             Error::<T>::InvalidSignature
