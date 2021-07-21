@@ -18,7 +18,7 @@ use pallet_portfolio::MovePortfolioItem;
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
     self as settlement, AffirmationStatus, Instruction, InstructionStatus, Leg, LegStatus, Receipt,
-    ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails, VenueType,
+    ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails, VenueInstructions, VenueType,
 };
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
@@ -124,12 +124,16 @@ fn venue_details_length_limited() {
         let actor = User::new(AccountKeyring::Alice);
         let id = Settlement::venue_counter();
         let create = |d| Settlement::create_venue(actor.origin(), d, vec![], VenueType::Exchange);
-        let update = |d| Settlement::update_venue(actor.origin(), id, Some(d), None);
+        let update = |d| Settlement::update_venue_details(actor.origin(), id, d);
         assert_too_long!(create(max_len_bytes(1)));
         assert_ok!(create(max_len_bytes(0)));
         assert_too_long!(update(max_len_bytes(1)));
         assert_ok!(update(max_len_bytes(0)));
     });
+}
+
+fn venue_instructions(id: u64) -> Vec<u64> {
+    VenueInstructions::iter_prefix(id).map(|(i, _)| i).collect()
 }
 
 #[test]
@@ -151,8 +155,8 @@ fn venue_registration() {
         assert_eq!(Settlement::venue_counter(), venue_counter + 1);
         assert_eq!(Settlement::user_venues(alice_did), [venue_counter]);
         assert_eq!(venue_info.creator, alice_did);
-        assert_eq!(venue_info.instructions.len(), 0);
-        assert_eq!(venue_info.details, VenueDetails::default());
+        assert_eq!(venue_instructions(venue_counter).len(), 0);
+        assert_eq!(Settlement::details(venue_counter), VenueDetails::default());
         assert_eq!(venue_info.venue_type, VenueType::Exchange);
         assert_eq!(
             Settlement::venue_signers(venue_counter, AccountKeyring::Alice.to_account_id()),
@@ -183,16 +187,15 @@ fn venue_registration() {
         );
 
         // Editing venue details
-        assert_ok!(Settlement::update_venue(
+        assert_ok!(Settlement::update_venue_details(
             alice_signed,
             venue_counter,
-            Some([0x01].into()),
-            None
+            [0x01].into(),
         ));
         let venue_info = Settlement::venue_info(venue_counter).unwrap();
         assert_eq!(venue_info.creator, alice_did);
-        assert_eq!(venue_info.instructions.len(), 0);
-        assert_eq!(venue_info.details, [0x01].into());
+        assert_eq!(venue_instructions(venue_counter).len(), 0);
+        assert_eq!(Settlement::details(venue_counter), [0x01].into());
         assert_eq!(venue_info.venue_type, VenueType::Exchange);
     });
 }
@@ -487,10 +490,7 @@ fn token_swap() {
                 Settlement::instruction_affirms_pending(instruction_counter),
                 2
             );
-            assert_eq!(
-                Settlement::venue_info(venue_counter).unwrap().instructions,
-                vec![instruction_counter]
-            );
+            assert_eq!(venue_instructions(venue_counter), vec![instruction_counter]);
 
             assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
@@ -804,10 +804,7 @@ fn claiming_receipt() {
                 Settlement::instruction_affirms_pending(instruction_counter),
                 2
             );
-            assert_eq!(
-                Settlement::venue_info(venue_counter).unwrap().instructions,
-                vec![instruction_counter]
-            );
+            assert_eq!(venue_instructions(venue_counter), vec![instruction_counter]);
 
             assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
@@ -1243,10 +1240,7 @@ fn settle_on_block() {
                 Settlement::instruction_affirms_pending(instruction_counter),
                 2
             );
-            assert_eq!(
-                Settlement::venue_info(venue_counter).unwrap().instructions,
-                vec![instruction_counter]
-            );
+            assert_eq!(venue_instructions(venue_counter), vec![instruction_counter]);
 
             assert_eq!(Asset::balance_of(&ticker, alice_did), alice_init_balance);
             assert_eq!(Asset::balance_of(&ticker, bob_did), bob_init_balance);
@@ -1526,10 +1520,7 @@ fn failed_execution() {
             Settlement::instruction_affirms_pending(instruction_counter),
             2
         );
-        assert_eq!(
-            Settlement::venue_info(venue_counter).unwrap().instructions,
-            vec![instruction_counter]
-        );
+        assert_eq!(venue_instructions(venue_counter), vec![instruction_counter]);
 
         // Ensure balances have not changed.
         ensure_balance_unchanged();
