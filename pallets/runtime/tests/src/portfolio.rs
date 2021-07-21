@@ -4,9 +4,10 @@ use super::{
     storage::{EventTest, System, TestStorage, User},
     ExtBuilder,
 };
+use frame_support::storage::StorageDoubleMap;
 use frame_support::{assert_noop, assert_ok, StorageMap};
 use frame_system::EventRecord;
-use pallet_portfolio::{Event, MovePortfolioItem};
+use pallet_portfolio::{Event, MovePortfolioItem, NameToNumber};
 use polymesh_common_utilities::balances::Memo;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
 use polymesh_primitives::{
@@ -69,9 +70,32 @@ fn portfolio_name_too_long() {
 }
 
 #[test]
+fn portfolio_name_taken() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Alice);
+        let id = Portfolio::next_portfolio_number(owner.did);
+        let create = |name: &str| Portfolio::create_portfolio(owner.origin(), name.into());
+        let rename = |name: &str| Portfolio::rename_portfolio(owner.origin(), id, name.into());
+
+        assert_ok!(create("foo"));
+        assert_ok!(create("bar"));
+        assert_noop!(create("foo"), Error::PortfolioNameAlreadyInUse);
+        assert_noop!(rename("foo"), Error::PortfolioNameAlreadyInUse);
+        assert_noop!(rename("bar"), Error::PortfolioNameAlreadyInUse);
+    });
+}
+
+#[test]
 fn can_create_rename_delete_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
         let (owner, num) = create_portfolio();
+
+        let name = || Portfolio::portfolios(owner.did, num);
+        let num_of = |name| Portfolio::name_to_number(owner.did, name);
+
+        let first_name = name();
+        assert_eq!(num_of(&first_name), num);
+
         let new_name = PortfolioName::from([55u8].to_vec());
         assert_ok!(Portfolio::rename_portfolio(
             owner.origin(),
@@ -82,7 +106,8 @@ fn can_create_rename_delete_portfolio() {
             Portfolio::next_portfolio_number(&owner.did),
             PortfolioNumber(2)
         );
-        assert_eq!(Portfolio::portfolios(&owner.did, num), new_name);
+        assert_eq!(name(), new_name);
+        assert!(!NameToNumber::contains_key(owner.did, name()));
         assert_ok!(Portfolio::delete_portfolio(owner.origin(), num));
     });
 }
