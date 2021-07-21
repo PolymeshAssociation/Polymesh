@@ -414,11 +414,13 @@ impl ExtBuilder {
             registration_length: Some(10000),
         };
         asset::GenesisConfig::<TestStorage> {
+            /*
             versions: vec![
                 (SmartExtensionType::TransferManager, 5000),
                 (SmartExtensionType::Offerings, 5000),
                 (SmartExtensionType::SmartWallet, 5000),
             ],
+            */
             classic_migration_tickers: vec![],
             classic_migration_contract_did: IdentityId::from(1),
             classic_migration_tconfig: ticker_registration_config.clone(),
