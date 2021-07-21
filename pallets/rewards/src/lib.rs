@@ -27,6 +27,7 @@
 //!
 //! - `TODO`: TODO.
 
+#![feature(array_methods)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
@@ -35,8 +36,9 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
     ensure,
-    traits::{Currency, ExistenceRequirement, GetCallMetadata, IsSubType, WithdrawReasons},
-    unsigned::{TransactionValidity, TransactionValidityError},
+    traits::{Currency, ExistenceRequirement, WithdrawReasons},
+    unsigned::TransactionSource,
+    unsigned::TransactionValidity,
 };
 use frame_system::{ensure_none, RawOrigin};
 use pallet_staking::{self as staking, RewardDestination};
@@ -46,13 +48,13 @@ use polymesh_common_utilities::{
     with_transaction,
 };
 use polymesh_primitives::Balance;
-use sp_runtime::transaction_validity::InvalidTransaction;
+use sp_runtime::transaction_validity::{InvalidTransaction, TransactionLongevity};
 use sp_runtime::{
-    traits::{AccountIdConversion, DispatchInfoOf, SignedExtension, StaticLookup, Verify},
+    traits::{AccountIdConversion, StaticLookup, Verify},
     transaction_validity::ValidTransaction,
     DispatchError,
 };
-use sp_std::{convert::TryInto, fmt, marker::PhantomData};
+use sp_std::{convert::TryInto, prelude::*};
 
 type Staking<T> = staking::Module<T>;
 type BalanceOf<T> = <<T as pallet_staking::Config>::Currency as Currency<
@@ -73,22 +75,6 @@ pub trait WeightInfo {}
 pub enum ItnRewardStatus {
     Unclaimed(Balance),
     Claimed,
-}
-
-/// A signed extension used to prevent invalid ITN reward claims.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Default)]
-pub struct ValidateItnRewardClaim<T: Config>(PhantomData<T>);
-
-impl<T: Config> fmt::Debug for ValidateItnRewardClaim<T> {
-    #[cfg(feature = "std")]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "ValidateItnRewardClaim<{:?}>", self.0)
-    }
-
-    #[cfg(not(feature = "std"))]
-    fn fmt(&self, _: &mut fmt::Formatter) -> fmt::Result {
-        Ok(())
-    }
 }
 
 decl_error! {
@@ -236,7 +222,10 @@ impl<T: Config> Module<T> {
         itn_address: &T::AccountId,
         signature: &T::OffChainSignature,
     ) -> DispatchResult {
-        let msg = (reward_address, itn_address, "claim_itn_reward").encode();
+        let mut msg = [0u8; 80];
+        msg[..32].copy_from_slice(&reward_address.encode());
+        msg[32..64].copy_from_slice(&itn_address.encode());
+        msg[64..].copy_from_slice(b"claim_itn_reward");
         ensure!(
             signature.verify(msg.as_slice(), itn_address),
             Error::<T>::InvalidSignature
@@ -245,37 +234,22 @@ impl<T: Config> Module<T> {
     }
 }
 
-impl<T> SignedExtension for ValidateItnRewardClaim<T>
-where
-    T: Config + Send + Sync,
-    <T as frame_system::Config>::Call: GetCallMetadata + IsSubType<Call<T>>,
-{
-    const IDENTIFIER: &'static str = "ValidateItnRewardClaim";
-    type AccountId = T::AccountId;
-    type Call = <T as frame_system::Config>::Call;
-    type AdditionalSigned = ();
-    type Pre = ();
+impl<T: Config> sp_runtime::traits::ValidateUnsigned for Module<T> {
+    type Call = Call<T>;
 
-    fn additional_signed(&self) -> Result<(), TransactionValidityError> {
-        Ok(())
-    }
-
-    fn validate(
-        &self,
-        _: &Self::AccountId,
-        call: &Self::Call,
-        _: &DispatchInfoOf<Self::Call>,
-        _: usize,
-    ) -> TransactionValidity {
-        if let Some(local_call) = IsSubType::<Call<T>>::is_sub_type(call) {
-            if let Call::claim_itn_reward(reward_address, itn_address, signature) = local_call {
-                if !<Module<T>>::valid_claim(reward_address, itn_address, signature) {
-                    return Err(TransactionValidityError::Invalid(
-                        InvalidTransaction::Custom(156), //TODO better error
-                    ));
-                }
+    fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+        const PRIORITY: u64 = 100;
+        if let Call::claim_itn_reward(reward_address, itn_address, signature) = call {
+            if Self::valid_claim(reward_address, itn_address, signature) {
+                return Ok(ValidTransaction {
+                    priority: PRIORITY,
+                    requires: Vec::new(),
+                    provides: vec![("rewards", reward_address).encode()],
+                    longevity: TransactionLongevity::MAX,
+                    propagate: true,
+                });
             }
         }
-        Ok(ValidTransaction::default())
+        Err(InvalidTransaction::Call.into())
     }
 }
