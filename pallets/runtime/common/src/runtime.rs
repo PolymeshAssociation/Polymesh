@@ -122,6 +122,7 @@ macro_rules! misc_pallet_impls {
             type WeightToFee = polymesh_runtime_common::WeightToFee;
             type FeeMultiplierUpdate = ();
             type CddHandler = CddHandler;
+            type Subsidiser = Relayer;
             type GovernanceCommittee = PolymeshCommittee;
             type CddProviders = CddServiceProviders;
             type Identity = Identity;
@@ -147,6 +148,7 @@ macro_rules! misc_pallet_impls {
             type Currency = Balances;
             type OnProtocolFeePayment = DealWithFees;
             type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
+            type Subsidiser = Relayer;
         }
 
         impl pallet_timestamp::Config for Runtime {

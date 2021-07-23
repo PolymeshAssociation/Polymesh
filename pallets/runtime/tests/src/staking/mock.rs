@@ -43,6 +43,7 @@ use polymesh_common_utilities::{
         group::{GroupTrait, InactiveMember},
         multisig::MultiSigSubTrait,
         portfolio::PortfolioSubTrait,
+        relayer::SubsidiserTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
         CommonConfig,
     },
@@ -323,6 +324,7 @@ impl protocol_fee::Config for Test {
     type Currency = Balances;
     type OnProtocolFeePayment = ();
     type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
+    type Subsidiser = Test;
 }
 
 impl polymesh_common_utilities::traits::identity::Config for Test {
@@ -376,6 +378,19 @@ impl CddAndFeeDetails<AccountId, Call> for Test {
         None
     }
     fn set_current_identity(_: &IdentityId) {}
+}
+
+impl SubsidiserTrait<AccountId> for Test {
+    fn check_subsidy(
+        _: &AccountId,
+        _: Balance,
+        _: Option<&[u8]>,
+    ) -> Result<Option<AccountId>, InvalidTransaction> {
+        Ok(None)
+    }
+    fn debit_subsidy(_: &AccountId, _: Balance) -> Result<Option<AccountId>, InvalidTransaction> {
+        Ok(None)
+    }
 }
 
 impl ChargeTxFee for Test {
