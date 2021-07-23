@@ -55,7 +55,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     decl_module, decl_storage,
     dispatch::DispatchResult,
-    traits::{Currency, Get},
+    traits::{Currency, Get, GetCallMetadata},
     weights::{
         DispatchClass, DispatchInfo, GetDispatchInfo, Pays, PostDispatchInfo, Weight,
         WeightToFeeCoefficient, WeightToFeePolynomial,
@@ -64,6 +64,7 @@ use frame_support::{
 use polymesh_common_utilities::traits::{
     group::GroupTrait,
     identity::IdentityFnTrait,
+    relayer::SubsidiserTrait,
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
 };
 use polymesh_primitives::TransactionError;
@@ -277,6 +278,10 @@ pub trait Config: frame_system::Config + pallet_timestamp::Config {
     // Polymesh note: This was specifically added for Polymesh
     /// Fetch the signatory to charge fee from. Also sets fee payer and identity in context.
     type CddHandler: CddAndFeeDetails<Self::AccountId, Self::Call>;
+
+    /// Connection to the `Relayer` pallet.
+    /// Used to charge transaction fees to a subsidiser, if any, instead of the payer.
+    type Subsidiser: SubsidiserTrait<Self::AccountId>;
 
     /// CDD providers group.
     type CddProviders: GroupTrait<Self::Moment>;
@@ -527,8 +532,8 @@ pub struct ChargeTransactionPayment<T: Config>(#[codec(compact)] BalanceOf<T>);
 
 impl<T: Config> ChargeTransactionPayment<T>
 where
-    T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-    BalanceOf<T>: Send + Sync + FixedPointOperand,
+    T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo> + GetCallMetadata,
+    BalanceOf<T>: Send + Sync + FixedPointOperand + Into<u128>,
 {
     /// utility constructor. Used only in client/factory code.
     pub fn from(fee: BalanceOf<T>) -> Self {
@@ -545,6 +550,7 @@ where
         (
             BalanceOf<T>,
             <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
+            Option<T::AccountId>,
         ),
         TransactionValidityError,
     > {
@@ -554,18 +560,29 @@ where
         // Only mess with balances if fee is not zero.
         if fee.is_zero() {
             let liquidity_info = Default::default();
-            return Ok((fee, liquidity_info));
+            return Ok((fee, liquidity_info, None));
         }
 
+        // Get the payer for this transaction.
         let payer_key =
             T::CddHandler::get_valid_payer(call, &who)?.ok_or(InvalidTransaction::Payment)?;
 
+        // Check if the payer is being subsidised.
+        let metadata = call.get_call_metadata();
+        let subsidiser = T::Subsidiser::check_subsidy(
+            &payer_key,
+            fee.into(),
+            Some(metadata.pallet_name.as_bytes()),
+        )?;
+
+        // key to pay the fee.
+        let fee_key = subsidiser.as_ref().unwrap_or(&payer_key);
         let liquidity_info =
             <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee_with_call(
-                &payer_key, call, info, fee, tip,
+                fee_key, call, info, fee, tip,
             )?;
         T::CddHandler::set_payer_context(Some(payer_key));
-        Ok((fee, liquidity_info))
+        Ok((fee, liquidity_info, subsidiser))
     }
 
     /// Returns `true` iff `who` is member of `T::GovernanceCommittee` or `T::CddProviders`.
@@ -613,8 +630,8 @@ impl<T: Config> sp_std::fmt::Debug for ChargeTransactionPayment<T> {
 
 impl<T: Config> SignedExtension for ChargeTransactionPayment<T>
 where
-    BalanceOf<T>: Send + Sync + From<u64> + FixedPointOperand,
-    T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    BalanceOf<T>: Send + Sync + From<u64> + FixedPointOperand + Into<u128>,
+    T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo> + GetCallMetadata,
 {
     const IDENTIFIER: &'static str = "ChargeTransactionPayment";
     type AccountId = T::AccountId;
@@ -623,10 +640,12 @@ where
     type Pre = (
         // tip
         BalanceOf<T>,
-        // who paid the fee
+        // The payer for the transaction, they might be subsidised.
         Self::AccountId,
-        // imbalance resulting from withdrawing the fee
+        // Imbalance resulting from withdrawing the fee.
         <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
+        // Subsidiser
+        Option<Self::AccountId>,
     );
     fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
         Ok(())
@@ -642,7 +661,7 @@ where
     ) -> TransactionValidity {
         let tip = self.ensure_valid_tip(who, info)?;
 
-        let (_fee, _) = self.withdraw_fee(who, call, info, len)?;
+        let (_fee, _, _) = self.withdraw_fee(who, call, info, len)?;
         // NOTE: The priority of TX is just its `tip`, to ensure that operational one can be
         // priorized and normal TX will follow the FIFO (defined by its `insertion_id`).
         Ok(ValidTransaction {
@@ -659,8 +678,8 @@ where
         len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
         let tip = self.ensure_valid_tip(who, info)?;
-        let (_fee, imbalance) = self.withdraw_fee(who, call, info, len)?;
-        Ok((tip, who.clone(), imbalance))
+        let (_fee, imbalance, subsidiser) = self.withdraw_fee(who, call, info, len)?;
+        Ok((tip, who.clone(), imbalance, subsidiser))
     }
 
     fn post_dispatch(
@@ -670,15 +689,26 @@ where
         len: usize,
         _result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
-        let (tip, who, imbalance) = pre;
+        let (tip, who, imbalance, subsidiser) = pre;
         let actual_fee = Module::<T>::compute_actual_fee(len as u32, info, post_info, tip);
 
         // Fee returned to original payer.
         // If payer context is empty, the fee is returned to the caller account.
         let payer = T::CddHandler::get_payer_from_context().unwrap_or(who);
 
+        // `fee_key` is either a subsidiser or the original payer.
+        let fee_key = if let Some(subsidiser_key) = subsidiser {
+            // Debit the actual fee from the subsidy.
+            // This shouldn't fail, since the subsidy was checked in `pre_dispatch`.
+            T::Subsidiser::debit_subsidy(&payer, actual_fee.into())?;
+            subsidiser_key
+        } else {
+            // No subsidy.
+            payer
+        };
+
         T::OnChargeTransaction::correct_and_deposit_fee(
-            &payer, info, post_info, actual_fee, tip, imbalance,
+            &fee_key, info, post_info, actual_fee, tip, imbalance,
         )?;
 
         // It clears the identity and payer in the context after transaction.

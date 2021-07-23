@@ -215,8 +215,8 @@ decl_module! {
             ca_id: CAId,
             portfolio: Option<PortfolioNumber>,
             currency: Ticker,
-            per_share:Balance,
-            amount:Balance,
+            per_share: Balance,
+            amount: Balance,
             payment_at: Moment,
             expires_at: Option<Moment>,
         ) {
