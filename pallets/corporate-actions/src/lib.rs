@@ -217,7 +217,7 @@ pub struct CADetails(pub Vec<u8>);
 
 /// Defines how to identify a CA's associated checkpoint, if any.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug, Migrate)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug)]
 pub enum CACheckpoint {
     /// CA uses a record date scheduled to occur in the future.
     /// Checkpoint ID will be taken after the record date.
@@ -225,7 +225,7 @@ pub enum CACheckpoint {
     /// Since a schedule can be recurring,
     /// the `u64` stores the number of checkpoints before the CA was made.
     /// This allows indexing into the list of CPs, getting exactly the right one.
-    Scheduled(ScheduleId, #[migrate_with(0)] u64),
+    Scheduled(ScheduleId, u64),
     /// CA uses an existing checkpoint ID which was recorded in the past.
     Existing(CheckpointId),
 }
@@ -233,12 +233,11 @@ pub enum CACheckpoint {
 /// Defines the record date, at which impact should be calculated,
 /// along with checkpoint info to assess the impact at the date.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug, Migrate)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug)]
 pub struct RecordDate {
     /// When the impact should be calculated, or already has.
     pub date: Moment,
     /// Info used to determine the `CheckpointId` once `date` has passed.
-    #[migrate]
     pub checkpoint: CACheckpoint,
 }
 
@@ -265,10 +264,11 @@ pub struct CorporateAction {
     /// When the CA was declared off-chain.
     pub decl_date: Moment,
     /// Date at which any impact, if any, should be calculated.
-    #[migrate(RecordDate)]
     pub record_date: Option<RecordDate>,
-    /// Free-form text up to a limit.
-    pub details: CADetails,
+    /// UNUSED! Data moved to `Details` storage map.
+    #[migrate_from(CADetails)]
+    #[migrate_with(())]
+    pub details: (),
     /// The identities this CA is relevant to.
     pub targets: TargetIdentities,
     /// The default withholding tax at the time of CA creation.
@@ -403,12 +403,16 @@ decl_storage! {
         /// so we can infer `Ticker => CAId`. Therefore, we don't need a double map.
         pub CADocLink get(fn ca_doc_link): map hasher(blake2_128_concat) CAId => Vec<DocumentId>;
 
+        /// Associates details in free-form text with a CA by its ID.
+        /// (CAId => CADetails)
+        pub Details get(fn details): map hasher(blake2_128_concat) CAId => CADetails;
+
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(2).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(3).unwrap()): Version;
     }
 }
 
-storage_migration_ver!(2);
+storage_migration_ver!(3);
 
 // Public interface for this runtime module.
 decl_module! {
@@ -422,7 +426,6 @@ decl_module! {
         const MaxDidWhts: u32 = T::MaxDidWhts::get();
 
         fn on_runtime_upgrade() -> Weight {
-
             storage_migrate_on!(StorageVersion::get(), 2, {
                 use polymesh_primitives::migrate::{Empty, migrate_map};
                 migrate_map::<CorporateActionOld, _>(b"CorporateAction", b"CorporateActions", |_| Empty);
@@ -431,6 +434,21 @@ decl_module! {
                     .for_each(|(ticker, agent)| {
                         ExternalAgents::<T>::add_agent_if_not(ticker, agent, AgentGroup::PolymeshV1CAA).unwrap();
                     });
+            });
+
+            storage_migrate_on!(StorageVersion::get(), 3, {
+                use core::mem;
+                use polymesh_primitives::migrate::{Empty, Migrate, migrate_double_map_only_values};
+                migrate_double_map_only_values::<_, _, Blake2_128Concat, _, Blake2_128Concat, _, _, ()>(
+                    b"CorporateAction",
+                    b"CorporateActions",
+                    |ticker: Ticker, local_id: LocalCAId, mut old: CorporateActionOld| {
+                        let id = CAId { ticker, local_id };
+                        Details::insert(id, mem::take(&mut old.details));
+                        old.migrate(Empty).ok_or(())
+                    }
+                )
+                .for_each(drop);
             });
 
             0
@@ -638,15 +656,16 @@ decl_module! {
                 kind,
                 decl_date,
                 record_date,
-                details,
+                details: (),
                 targets,
                 default_withholding_tax,
                 withholding_tax,
             };
             CorporateActions::insert(ticker, id.local_id, ca.clone());
+            Details::insert(id, details.clone());
 
             // Emit event.
-            Self::deposit_event(Event::CAInitiated(caa, id, ca));
+            Self::deposit_event(Event::CAInitiated(caa, id, ca, details));
         }
 
         /// Link the given CA `id` to the given `docs`.
@@ -725,6 +744,7 @@ decl_module! {
             Self::dec_strong_ref_count(ca_id, ca.record_date);
             CorporateActions::remove(ca_id.ticker, ca_id.local_id);
             CADocLink::remove(ca_id);
+            Details::remove(ca_id);
             Self::deposit_event(Event::CARemoved(caa, ca_id));
         }
 
@@ -801,8 +821,8 @@ decl_event! {
         /// (New CAA DID, Ticker, New CAA DID).
         CAATransferred(IdentityId, Ticker, IdentityId),
         /// A CA was initiated.
-        /// (CAA DID, CA id, the CA)
-        CAInitiated(EventDid, CAId, CorporateAction),
+        /// (CAA DID, CA id, the CA, the CA details)
+        CAInitiated(EventDid, CAId, CorporateAction, CADetails),
         /// A CA was linked to a set of docs.
         /// (CAA, CA Id, List of doc identifiers)
         CALinkedToDoc(IdentityId, CAId, Vec<DocumentId>),

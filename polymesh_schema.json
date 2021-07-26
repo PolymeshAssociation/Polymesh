@@ -37,6 +37,7 @@
       "filing_date": "Option<Moment>"
     },
     "Version": "u8",
+    "CustomAssetTypeId": "u32",
     "AssetType": {
       "_enum": {
         "EquityCommon": "",
@@ -48,7 +49,7 @@
         "RevenueShareAgreement": "",
         "StructuredProduct": "",
         "Derivative": "",
-        "Custom": "Vec<u8>",
+        "Custom": "CustomAssetTypeId",
         "StableCoin": ""
       }
     },
@@ -1121,7 +1122,6 @@
       "kind": "CAKind",
       "decl_date": "Moment",
       "record_date": "Option<RecordDate>",
-      "details": "Text",
       "targets": "TargetIdentities",
       "default_withholding_tax": "Tax",
       "withholding_tax": "Vec<(IdentityId, Tax)>"

@@ -17,7 +17,7 @@ use pallet_corporate_actions::{
     ballot::{BallotMeta, BallotTimeRange, BallotVote, Motion, Votes},
     distribution::{self, Distribution, PER_SHARE_PRECISION},
     CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, CorporateActions,
-    LocalCAId, RecordDate, RecordDateSpec, TargetIdentities, TargetTreatment,
+    Details, LocalCAId, RecordDate, RecordDateSpec, TargetIdentities, TargetTreatment,
     TargetTreatment::{Exclude, Include},
     Tax,
 };
@@ -483,7 +483,8 @@ fn initiate_corporate_action_details() {
     test(|ticker, [owner, ..]| {
         assert_ok!(CA::set_max_details_length(root(), 2));
         let init_ca = |details: &str| -> DispatchResult {
-            let ca = init_ca(
+            let id = next_ca_id(ticker);
+            init_ca(
                 owner,
                 ticker,
                 CAKind::Other,
@@ -493,7 +494,7 @@ fn initiate_corporate_action_details() {
                 None,
                 None,
             )?;
-            assert_eq!(details.as_bytes(), ca.details.as_slice());
+            assert_eq!(details.as_bytes(), Details::get(id).as_slice());
             Ok(())
         };
         assert_ok!(init_ca("f"));
