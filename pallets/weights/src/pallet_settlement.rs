@@ -12,12 +12,18 @@ impl pallet_settlement::WeightInfo for WeightInfo {
             .saturating_add((10_000 as Weight).saturating_mul(d as Weight))
             .saturating_add((7_378_000 as Weight).saturating_mul(s as Weight))
             .saturating_add(DbWeight::get().reads(8 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+            .saturating_add(DbWeight::get().writes(4 as Weight))
             .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(s as Weight)))
     }
-    fn update_venue(d: u32) -> Weight {
-        (104_338_000 as Weight)
-            .saturating_add((9_000 as Weight).saturating_mul(d as Weight))
+    fn update_venue_details(d: u32) -> Weight {
+        (68_144_000 as Weight)
+            // Standard Error: 0
+            .saturating_add((2_000 as Weight).saturating_mul(d as Weight))
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn update_venue_type() -> Weight {
+        (64_361_000 as Weight)
             .saturating_add(DbWeight::get().reads(7 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }

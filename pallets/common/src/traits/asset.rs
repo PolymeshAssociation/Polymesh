@@ -23,8 +23,7 @@ use polymesh_primitives::asset::{AssetName, AssetType, CustomAssetTypeId, Fundin
 use polymesh_primitives::ethereum::EthereumAddress;
 use polymesh_primitives::migrate::MigrationError;
 use polymesh_primitives::{
-    AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, ScopeId,
-    SmartExtensionName, SmartExtensionType, Ticker,
+    AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, ScopeId, Ticker,
 };
 use sp_std::prelude::Vec;
 
@@ -206,6 +205,7 @@ decl_event! {
         /// An event carrying the name of the current funding round of a ticker.
         /// Parameters: caller DID, ticker, funding round name.
         FundingRoundSet(IdentityId, Ticker, FundingRoundName),
+        /*
         /// Emitted when extension is added successfully.
         /// caller DID, ticker, extension AccountId, extension name, type of smart Extension
         ExtensionAdded(IdentityId, Ticker, AccountId, SmartExtensionName, SmartExtensionType),
@@ -215,6 +215,7 @@ decl_event! {
         /// Emitted when extension get archived.
         /// caller DID, ticker, AccountId
         ExtensionUnArchived(IdentityId, Ticker, AccountId),
+        */
         /// A new document attached to an asset
         DocumentAdded(IdentityId, Ticker, DocumentId, Document),
         /// A document removed from an asset

@@ -112,8 +112,7 @@ use polymesh_primitives::{
     extract_auth,
     statistics::TransferManagerResult,
     storage_migrate_on, storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId,
-    IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, SmartExtension,
-    SmartExtensionType, Ticker,
+    IdentityId, PortfolioId, ScopeId, Ticker,
 };
 use sp_runtime::traits::Zero;
 #[cfg(feature = "std")]
@@ -358,12 +357,14 @@ decl_storage! {
         /// The total balances of tokens issued in all recorded funding rounds.
         /// (ticker, funding round) -> balance
         IssuedInFundingRound get(fn issued_in_funding_round): map hasher(blake2_128_concat) (Ticker, FundingRoundName) => Balance;
+        /*
         /// List of Smart extension added for the given tokens.
         /// ticker, AccountId (SE address) -> SmartExtension detail
         pub ExtensionDetails get(fn extension_details): map hasher(blake2_128_concat) (Ticker, T::AccountId) => SmartExtension<T::AccountId>;
         /// List of Smart extension added for the given tokens and for the given type.
         /// ticker, type of SE -> address/AccountId of SE
         pub Extensions get(fn extensions): map hasher(blake2_128_concat) (Ticker, SmartExtensionType) => Vec<T::AccountId>;
+        */
         /// The set of frozen assets implemented as a membership map.
         /// ticker -> bool
         pub Frozen get(fn frozen): map hasher(blake2_128_concat) Ticker => bool;
@@ -380,8 +381,10 @@ decl_storage! {
         pub AssetDocumentsIdSequence get(fn asset_documents_id_sequence): map hasher(blake2_128_concat) Ticker => DocumentId;
         /// Ticker registration details on Polymath Classic / Ethereum.
         pub ClassicTickers get(fn classic_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<ClassicTickerRegistration>;
+        /*
         /// Supported extension version.
         pub CompatibleSmartExtVersion get(fn compatible_extension_version): map hasher(blake2_128_concat) SmartExtensionType => ExtVersion;
+        */
         /// Balances get stored on the basis of the `ScopeId`.
         /// Right now it is only helpful for the UI purposes but in future it can be used to do miracles on-chain.
         /// (ScopeId, IdentityId) => Balance.
@@ -400,8 +403,10 @@ decl_storage! {
         config(classic_migration_tconfig): TickerRegistrationConfig<T::Moment>;
         config(classic_migration_contract_did): IdentityId;
         config(reserved_country_currency_codes): Vec<Ticker>;
+        /*
         /// Smart Extension supported version at genesis.
         config(versions): Vec<(SmartExtensionType, ExtVersion)>;
+        */
         build(|config: &GenesisConfig<T>| {
             use frame_system::RawOrigin;
 
@@ -419,13 +424,15 @@ decl_storage! {
             for currency_ticker in &config.reserved_country_currency_codes {
                 <Module<T>>::unverified_register_ticker(&currency_ticker, fiat_tickers_reservation_did, None);
             }
+
+            /*
             config.versions
                 .iter()
                 .filter(|(t, _)| !<CompatibleSmartExtVersion>::contains_key(&t))
                 .for_each(|(se_type, ver)| {
                     CompatibleSmartExtVersion::insert(se_type, ver);
             });
-
+            */
         });
     }
 }
@@ -924,8 +931,10 @@ decl_error! {
         InvalidGranularity,
         /// The asset must be frozen.
         NotFrozen,
+        /*
         /// No such smart extension.
         NoSuchSmartExtension,
+        */
         /// Transfer validation check failed.
         InvalidTransfer,
         /// The sender balance is not sufficient.
