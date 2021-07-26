@@ -106,14 +106,13 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     agent::AgentGroup,
-    asset::{AssetName, AssetType, FundingRoundName, GranularCanTransferResult},
+    asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName, GranularCanTransferResult},
     calendar::CheckpointId,
     ethereum::{self, EcdsaSignature, EthereumAddress},
     extract_auth,
     statistics::TransferManagerResult,
     storage_migrate_on, storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId,
-    IdentityId, MetaVersion as ExtVersion, PortfolioId, ScopeId, SmartExtension,
-    SmartExtensionType, Ticker,
+    IdentityId, PortfolioId, ScopeId, Ticker,
 };
 use sp_runtime::traits::Zero;
 #[cfg(feature = "std")]
@@ -153,13 +152,13 @@ mod migrate {
     use polymesh_primitives::migrate::{Empty, Migrate};
 
     /// struct to store the token details.
-    #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
+    #[derive(Encode, Decode, Clone, PartialEq, Debug)]
     pub struct SecurityTokenOld1 {
         pub name: AssetName,
         pub total_supply: Balance,
         pub owner_did: IdentityId,
         pub divisible: bool,
-        pub asset_type: AssetType,
+        pub asset_type: AssetTypeOld,
         pub primary_issuance_agent: Option<IdentityId>,
     }
 
@@ -186,13 +185,29 @@ mod migrate {
     }
 
     /// struct to store the token details.
-    #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
+    #[derive(Encode, Decode, Clone, PartialEq, Debug)]
     pub struct SecurityTokenOld2 {
         pub name: AssetName,
         pub total_supply: Balance,
         pub owner_did: IdentityId,
         pub divisible: bool,
-        pub asset_type: AssetType,
+        pub asset_type: AssetTypeOld,
+    }
+
+    /// The type of security represented by a token.
+    #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+    pub enum AssetTypeOld {
+        EquityCommon,
+        EquityPreferred,
+        Commodity,
+        FixedIncome,
+        REIT,
+        Fund,
+        RevenueShareAgreement,
+        StructuredProduct,
+        Derivative,
+        Custom(Vec<u8>),
+        StableCoin,
     }
 
     impl Migrate for SecurityTokenOld2 {
@@ -206,6 +221,31 @@ mod migrate {
                 divisible,
                 asset_type,
             } = self;
+
+            let asset_type = match asset_type {
+                AssetTypeOld::EquityCommon => AssetType::EquityCommon,
+                AssetTypeOld::EquityPreferred => AssetType::EquityPreferred,
+                AssetTypeOld::Commodity => AssetType::Commodity,
+                AssetTypeOld::FixedIncome => AssetType::FixedIncome,
+                AssetTypeOld::REIT => AssetType::REIT,
+                AssetTypeOld::Fund => AssetType::Fund,
+                AssetTypeOld::RevenueShareAgreement => AssetType::RevenueShareAgreement,
+                AssetTypeOld::StructuredProduct => AssetType::StructuredProduct,
+                AssetTypeOld::Derivative => AssetType::Derivative,
+                AssetTypeOld::StableCoin => AssetType::StableCoin,
+                AssetTypeOld::Custom(string) => {
+                    let id = CustomTypesInverse::try_get(&string).unwrap_or_else(|_| {
+                        CustomTypeIdSequence::mutate(|id| {
+                            id.0 += 1;
+                            CustomTypesInverse::insert(&string, *id);
+                            CustomTypes::insert(*id, string);
+                            *id
+                        })
+                    });
+                    AssetType::Custom(id)
+                }
+            };
+
             Some(Self::Into {
                 total_supply,
                 owner_did,
@@ -302,18 +342,29 @@ decl_storage! {
         /// A map of a ticker name and asset identifiers.
         pub Identifiers get(fn identifiers): map hasher(blake2_128_concat) Ticker => Vec<AssetIdentifier>;
 
+        /// The next `AgentType::Custom` ID in the sequence.
+        ///
+        /// Numbers in the sequence start from 1 rather than 0.
+        pub CustomTypeIdSequence get(fn custom_type_id_seq): CustomAssetTypeId;
+        /// Maps custom agent type ids to the registered string contents.
+        pub CustomTypes get(fn custom_types): map hasher(twox_64_concat) CustomAssetTypeId => Vec<u8>;
+        /// Inverse map of `CustomTypes`, from registered string contents to custom agent type ids.
+        pub CustomTypesInverse get(fn custom_types_inverse): map hasher(blake2_128_concat) Vec<u8> => CustomAssetTypeId;
+
         /// The name of the current funding round.
         /// ticker -> funding round
         FundingRound get(fn funding_round): map hasher(blake2_128_concat) Ticker => FundingRoundName;
         /// The total balances of tokens issued in all recorded funding rounds.
         /// (ticker, funding round) -> balance
         IssuedInFundingRound get(fn issued_in_funding_round): map hasher(blake2_128_concat) (Ticker, FundingRoundName) => Balance;
+        /*
         /// List of Smart extension added for the given tokens.
         /// ticker, AccountId (SE address) -> SmartExtension detail
         pub ExtensionDetails get(fn extension_details): map hasher(blake2_128_concat) (Ticker, T::AccountId) => SmartExtension<T::AccountId>;
         /// List of Smart extension added for the given tokens and for the given type.
         /// ticker, type of SE -> address/AccountId of SE
         pub Extensions get(fn extensions): map hasher(blake2_128_concat) (Ticker, SmartExtensionType) => Vec<T::AccountId>;
+        */
         /// The set of frozen assets implemented as a membership map.
         /// ticker -> bool
         pub Frozen get(fn frozen): map hasher(blake2_128_concat) Ticker => bool;
@@ -330,8 +381,10 @@ decl_storage! {
         pub AssetDocumentsIdSequence get(fn asset_documents_id_sequence): map hasher(blake2_128_concat) Ticker => DocumentId;
         /// Ticker registration details on Polymath Classic / Ethereum.
         pub ClassicTickers get(fn classic_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<ClassicTickerRegistration>;
+        /*
         /// Supported extension version.
         pub CompatibleSmartExtVersion get(fn compatible_extension_version): map hasher(blake2_128_concat) SmartExtensionType => ExtVersion;
+        */
         /// Balances get stored on the basis of the `ScopeId`.
         /// Right now it is only helpful for the UI purposes but in future it can be used to do miracles on-chain.
         /// (ScopeId, IdentityId) => Balance.
@@ -350,8 +403,10 @@ decl_storage! {
         config(classic_migration_tconfig): TickerRegistrationConfig<T::Moment>;
         config(classic_migration_contract_did): IdentityId;
         config(reserved_country_currency_codes): Vec<Ticker>;
+        /*
         /// Smart Extension supported version at genesis.
         config(versions): Vec<(SmartExtensionType, ExtVersion)>;
+        */
         build(|config: &GenesisConfig<T>| {
             use frame_system::RawOrigin;
 
@@ -369,13 +424,15 @@ decl_storage! {
             for currency_ticker in &config.reserved_country_currency_codes {
                 <Module<T>>::unverified_register_ticker(&currency_ticker, fiat_tickers_reservation_did, None);
             }
+
+            /*
             config.versions
                 .iter()
                 .filter(|(t, _)| !<CompatibleSmartExtVersion>::contains_key(&t))
                 .for_each(|(se_type, ver)| {
                     CompatibleSmartExtVersion::insert(se_type, ver);
             });
-
+            */
         });
     }
 }
@@ -823,6 +880,20 @@ decl_module! {
         pub fn controller_transfer(origin, ticker: Ticker, value: Balance, from_portfolio: PortfolioId) -> DispatchResult {
             Self::base_controller_transfer(origin, ticker, value, from_portfolio)
         }
+
+        /// Registers a custom asset type.
+        ///
+        /// The provided `ty` will be bound to an ID in storage.
+        /// The ID can then be used in `AssetType::Custom`.
+        /// Should the `ty` already exist in storage, no second ID is assigned to it.
+        ///
+        /// # Arguments
+        /// * `origin` who called the extrinsic.
+        /// * `ty` contains the string representation of the asset type.
+        #[weight = <T as Config>::WeightInfo::register_custom_asset_type(ty.len() as u32)]
+        pub fn register_custom_asset_type(origin, ty: Vec<u8>) -> DispatchResult {
+            Self::base_register_custom_asset_type(origin, ty)
+        }
     }
 }
 
@@ -860,8 +931,10 @@ decl_error! {
         InvalidGranularity,
         /// The asset must be frozen.
         NotFrozen,
+        /*
         /// No such smart extension.
         NoSuchSmartExtension,
+        */
         /// Transfer validation check failed.
         InvalidTransfer,
         /// The sender balance is not sufficient.
@@ -888,6 +961,8 @@ decl_error! {
         FundingRoundNameMaxLengthExceeded,
         /// Some `AssetIdentifier` was invalid.
         InvalidAssetIdentifier,
+        /// An overflow while generating the next `CustomAssetTypeId`.
+        CustomAssetTypeIdOverflow,
     }
 }
 
@@ -1678,9 +1753,6 @@ impl<T: Config> Module<T> {
         funding_round: Option<FundingRoundName>,
     ) -> Result<IdentityId, DispatchError> {
         Self::ensure_asset_name_bounded(&name)?;
-        if let AssetType::Custom(ty) = &asset_type {
-            ensure_string_limited::<T>(ty)?;
-        }
         if let Some(fr) = &funding_round {
             Self::ensure_funding_round_name_bounded(fr)?;
         }
@@ -2295,5 +2367,28 @@ impl<T: Config> Module<T> {
             Self::aggregate_balance_of(ticker, &to_scope_id),
             token.total_supply,
         )
+    }
+
+    fn base_register_custom_asset_type(origin: T::Origin, ty: Vec<u8>) -> DispatchResult {
+        ensure_string_limited::<T>(&ty)?;
+
+        let did = Identity::<T>::ensure_perms(origin)?;
+
+        match CustomTypesInverse::try_get(&ty) {
+            Ok(id) => Self::deposit_event(Event::<T>::CustomAssetTypeExists(did, id, ty)),
+            Err(()) => {
+                let id = CustomTypeIdSequence::try_mutate(|id| -> Result<_, DispatchError> {
+                    id.0 =
+                        id.0.checked_add(1)
+                            .ok_or(Error::<T>::CustomAssetTypeIdOverflow)?;
+                    Ok(*id)
+                })?;
+                CustomTypesInverse::insert(&ty, id);
+                CustomTypes::insert(id, ty.clone());
+                Self::deposit_event(Event::<T>::CustomAssetTypeRegistered(did, id, ty));
+            }
+        }
+
+        Ok(())
     }
 }

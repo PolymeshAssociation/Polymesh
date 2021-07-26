@@ -28,8 +28,12 @@ use sp_std::prelude::Vec;
 )]
 pub struct AssetName(pub Vec<u8>);
 
+/// The ID of a custom asset type.
+#[derive(Encode, Decode, Copy, Clone, Default, Debug, PartialEq, Eq)]
+pub struct CustomAssetTypeId(pub u32);
+
 /// The type of security represented by a token.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum AssetType {
     /// Common stock - a security that represents ownership in a corporation.
     EquityCommon,
@@ -61,7 +65,7 @@ pub enum AssetType {
     /// swaps.
     Derivative,
     /// Anything else.
-    Custom(Vec<u8>),
+    Custom(CustomAssetTypeId),
     /// Stablecoins are cryptocurrencies designed to minimize the volatility of the price of the stablecoin,
     /// relative to some "stable" asset or basket of assets.
     /// A stablecoin can be pegged to a cryptocurrency, fiat money, or to exchange-traded commodities.
@@ -70,7 +74,7 @@ pub enum AssetType {
 
 impl Default for AssetType {
     fn default() -> Self {
-        Self::Custom(b"undefined".to_vec())
+        Self::EquityCommon
     }
 }
 

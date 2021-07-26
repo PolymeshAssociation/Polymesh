@@ -445,4 +445,15 @@ benchmarks! {
     verify {
         assert_eq!(Module::<T>::balance_of(ticker, investor.did()), 500u32.into());
     }
+
+    register_custom_asset_type {
+        let n in 1 .. T::MaxLen::get() as u32;
+
+        let id = Module::<T>::custom_type_id_seq();
+        let owner = owner::<T>();
+        let ty = vec![b'X'; n as usize];
+    }: _(owner.origin, ty)
+    verify {
+        assert_ne!(id, Module::<T>::custom_type_id_seq());
+    }
 }
