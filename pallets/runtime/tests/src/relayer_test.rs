@@ -98,7 +98,7 @@ fn setup_subsidy(user: User, payer: User, limit: Balance) {
     // No subsidy yet.
     assert_subsidy(user, None);
 
-    // `user` accept's the paying key.
+    // `user` accepts the paying key.
     TestStorage::set_current_identity(&user.did);
     let auth_id = get_last_auth_id(&Signatory::Account(user.acc()));
     assert_ok!(Relayer::accept_paying_key(user.origin(), auth_id));
@@ -130,7 +130,7 @@ fn do_basic_relayer_paying_key_test() {
     // No subsidy yet.
     assert_subsidy(bob, None);
 
-    // Bob accept's the paying key.
+    // Bob accepts the paying key.
     TestStorage::set_current_identity(&bob.did);
     let auth_id = get_last_auth_id(&Signatory::Account(bob.acc()));
     assert_ok!(Relayer::accept_paying_key(bob.origin(), auth_id));
@@ -201,14 +201,14 @@ fn do_basic_relayer_paying_key_test() {
     assert_key_usage(alice, 0);
 
     // Alice tries to update the poly limit for Bob,
-    // but Bob no longer has a subsiy.
+    // but Bob no longer has a subsidy.
     assert_noop!(
         Relayer::update_polyx_limit(alice.origin(), bob.acc(), 42u128),
         Error::NoPayingKey
     );
 
     // Alice tries to remove the paying key a second time,
-    // but Bob no longer has a subsiy.
+    // but Bob no longer has a subsidy.
     assert_noop!(
         Relayer::remove_paying_key(alice.origin(), bob.acc(), alice.acc()),
         Error::NoPayingKey
@@ -446,7 +446,9 @@ fn do_relayer_transaction_and_protocol_fees_test() {
     let call_info = info_from_weight(100);
     // 0. Calculate fees for registering an asset ticker.
     let transaction_fee = TransactionPayment::compute_fee(len as u32, &call_info, 0);
+    assert!(transaction_fee > 0);
     let protocol_fee = ProtocolFee::compute_fee(&[ProtocolOp::AssetRegisterTicker]);
+    assert!(protocol_fee > 0);
     let total_fee = transaction_fee + protocol_fee;
 
     // 1. Call `pre_dispatch`.
