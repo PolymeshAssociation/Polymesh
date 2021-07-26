@@ -133,7 +133,7 @@ impl Default for InstructionStatus {
 }
 
 /// Type of the venue. Used for offchain filtering.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum VenueType {
     /// Default type - used for mixed and unknown types
     Other,
@@ -239,33 +239,22 @@ pub struct Leg {
 pub struct Venue {
     /// Identity of the venue's creator
     pub creator: IdentityId,
-    /// instructions under this venue (Only needed for the UI)
-    pub instructions: Vec<u64>,
-    /// Additional details about this venue (Only needed for the UI)
-    pub details: VenueDetails,
     /// Specifies type of the venue (Only needed for the UI)
     pub venue_type: VenueType,
 }
 
-/// Old venue details format. Used only for storage migration.
-#[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct OldVenue {
-    /// Identity of the venue's creator
-    pub creator: IdentityId,
-    /// instructions under this venue (Only needed for the UI)
-    pub instructions: Vec<u64>,
-    /// Additional details about this venue (Only needed for the UI)
-    pub details: VenueDetails,
-}
-
-impl Venue {
-    pub fn new(creator: IdentityId, details: VenueDetails, venue_type: VenueType) -> Self {
-        Self {
-            creator,
-            instructions: Vec::new(),
-            details,
-            venue_type,
-        }
+mod migrate {
+    use super::*;
+    #[derive(Encode, Decode)]
+    pub struct VenueOld {
+        /// Identity of the venue's creator
+        pub creator: IdentityId,
+        /// instructions under this venue (Only needed for the UI)
+        pub instructions: Vec<u64>,
+        /// Additional details about this venue (Only needed for the UI)
+        pub details: VenueDetails,
+        /// Specifies type of the venue (Only needed for the UI)
+        pub venue_type: VenueType,
     }
 }
 
@@ -307,7 +296,8 @@ pub struct ReceiptDetails<AccountId, OffChainSignature> {
 
 pub trait WeightInfo {
     fn create_venue(d: u32, u: u32) -> Weight;
-    fn update_venue(d: u32) -> Weight;
+    fn update_venue_details(d: u32) -> Weight;
+    fn update_venue_type() -> Weight;
     fn add_instruction(u: u32) -> Weight;
     fn add_and_affirm_instruction(u: u32) -> Weight;
     fn affirm_instruction(l: u32) -> Weight;
@@ -339,8 +329,10 @@ decl_event!(
     {
         /// A new venue has been created (did, venue_id, details, type)
         VenueCreated(IdentityId, u64, VenueDetails, VenueType),
-        /// An existing venue has been updated (did, venue_id, details, type)
-        VenueUpdated(IdentityId, u64, VenueDetails, VenueType),
+        /// An existing venue's details has been updated (did, venue_id, details)
+        VenueDetailsUpdated(IdentityId, u64, VenueDetails),
+        /// An existing venue's type has been updated (did, venue_id, type)
+        VenueTypeUpdated(IdentityId, u64, VenueType),
         /// A new instruction has been created
         /// (did, venue_id, instruction_id, settlement_type, trade_date, value_date, legs)
         InstructionCreated(
@@ -442,12 +434,26 @@ decl_error! {
 
 // A value placed in storage that represents the current version of the this storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-storage_migration_ver!(1);
+storage_migration_ver!(2);
 
 decl_storage! {
     trait Store for Module<T: Config> as Settlement {
-        /// Info about a venue. venue_id -> venue_details
+        /// Info about a venue. venue_id -> venue
         pub VenueInfo get(fn venue_info): map hasher(twox_64_concat) u64 => Option<Venue>;
+
+        /// Free-form text about a venue. venue_id -> `VenueDetails`
+        /// Only needed for the UI.
+        pub Details get(fn details): map hasher(twox_64_concat) u64 => VenueDetails;
+
+        /// Instructions under a venue.
+        /// Only needed for the UI.
+        ///
+        /// venue_id -> instruction_id -> ()
+        pub VenueInstructions get(fn venue_instructions):
+            double_map hasher(twox_64_concat) u64,
+                       hasher(twox_64_concat) u64
+                    => ();
+
         /// Signers allowed by the venue. (venue_id, signer) -> bool
         VenueSigners get(fn venue_signers): double_map hasher(twox_64_concat) u64, hasher(twox_64_concat) T::AccountId => bool;
         /// Array of venues created by an identity. Only needed for the UI. IdentityId -> Vec<venue_id>
@@ -477,7 +483,7 @@ decl_storage! {
         /// Number of instructions in the system (It's one more than the actual number)
         InstructionCounter get(fn instruction_counter) build(|_| 1u64): u64;
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2).unwrap()): Version;
     }
 }
 
@@ -488,9 +494,7 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-
-            let storage_ver = StorageVersion::get();
-            storage_migrate_on!(storage_ver, 1, {
+            storage_migrate_on!(StorageVersion::get(), 1, {
                 // Delete all settlement data that were stored at a wrong prefix.
                 let prefix = Twox128::hash(b"StoCapped");
                 storage::unhashed::kill_prefix(&prefix);
@@ -500,6 +504,26 @@ decl_module! {
                 InstructionCounter::put(1);
             });
 
+            storage_migrate_on!(StorageVersion::get(), 2, {
+                use polymesh_primitives::migrate::migrate_map_keys_and_value;
+                use frame_support::Twox64Concat;
+                use migrate::*;
+
+                migrate_map_keys_and_value::<_, _, Twox64Concat, _, _, _>(
+                    b"Settlement",
+                    b"VenueInfo",
+                    b"VenueInfo",
+                    |venue_id: u64, old: VenueOld| {
+                        for instruction_id in old.instructions {
+                            VenueInstructions::insert(venue_id, instruction_id, ());
+                        }
+                        Details::insert(venue_id, old.details);
+                        let venue = Venue { creator: old.creator, venue_type: old.venue_type };
+                        Some((venue_id, venue))
+                    }
+                )
+            });
+
             1_000
         }
 
@@ -507,48 +531,53 @@ decl_module! {
         ///
         /// * `details` - Extra details about a venue
         /// * `signers` - Array of signers that are allowed to sign receipts for this venue
-        /// * `venue_type` - Type of venue being created
+        /// * `typ` - Type of venue being created
         #[weight = <T as Config>::WeightInfo::create_venue(details.len() as u32, signers.len() as u32)]
-        pub fn create_venue(origin, details: VenueDetails, signers: Vec<T::AccountId>, venue_type: VenueType) {
+        pub fn create_venue(origin, details: VenueDetails, signers: Vec<T::AccountId>, typ: VenueType) {
             let did = Identity::<T>::ensure_perms(origin)?;
             ensure_string_limited::<T>(&details)?;
-            let venue = Venue::new(did, details, venue_type);
+            let venue = Venue { creator: did, venue_type: typ };
             // NB: Venue counter starts with 1.
-            let venue_counter = VenueCounter::mutate(|c| mem::replace(c, *c + 1));
-            VenueInfo::insert(venue_counter, venue.clone());
+            let id = VenueCounter::mutate(|c| mem::replace(c, *c + 1));
+            VenueInfo::insert(id, venue.clone());
+            Details::insert(id, details.clone());
             for signer in signers {
-                <VenueSigners<T>>::insert(venue_counter, signer, true);
+                <VenueSigners<T>>::insert(id, signer, true);
             }
-            UserVenues::append(did, venue_counter);
-            Self::deposit_event(RawEvent::VenueCreated(did, venue_counter, venue.details, venue.venue_type));
+            UserVenues::append(did, id);
+            Self::deposit_event(RawEvent::VenueCreated(did, id, details, typ));
         }
 
-        /// Edit venue details and types.
-        /// Both parameters are optional, they will be updated only if Some(value) is provided
+        /// Edit a venue's details.
         ///
-        /// * `venue_id` - ID of the venue to edit
-        /// * `details` - Extra details about a venue
-        /// * `type` - Type of venue being created
-        #[weight = <T as Config>::WeightInfo::update_venue(details.as_ref().map( |d| d.len() as u32).unwrap_or_default())]
-        pub fn update_venue(origin, venue_id: u64, details: Option<VenueDetails>, typ: Option<VenueType>) -> DispatchResult {
+        /// * `id` specifies the ID of the venue to edit.
+        /// * `details` specifies the updated venue details.
+        #[weight = <T as Config>::WeightInfo::update_venue_details(details.len() as u32)]
+        pub fn update_venue_details(origin, id: u64, details: VenueDetails) -> DispatchResult {
+            ensure_string_limited::<T>(&details)?;
             let did = Identity::<T>::ensure_perms(origin)?;
-            VenueInfo::try_mutate(venue_id, |venue| {
-                // Ensure venue exists & that DID created it.
-                let venue = venue.as_mut().ok_or(Error::<T>::InvalidVenue)?;
-                ensure!(venue.creator == did, Error::<T>::Unauthorized);
+            Self::venue_for_management(id, did)?;
 
-                // Update details & type.
-                if let Some(details) = details {
-                    ensure_string_limited::<T>(&details)?;
-                    venue.details = details;
-                }
-                if let Some(typ) = typ {
-                    venue.venue_type = typ;
-                }
+            // Commit to storage.
+            Details::insert(id, details.clone());
+            Self::deposit_event(RawEvent::VenueDetailsUpdated(did, id, details));
+            Ok(())
+        }
 
-                Self::deposit_event(RawEvent::VenueUpdated(did, venue_id, venue.details.clone(), venue.venue_type.clone()));
-                Ok(())
-            })
+        /// Edit a venue's type.
+        ///
+        /// * `id` specifies the ID of the venue to edit.
+        /// * `type` specifies the new type of the venue.
+        #[weight = <T as Config>::WeightInfo::update_venue_type()]
+        pub fn update_venue_type(origin, id: u64, typ: VenueType) -> DispatchResult {
+            let did = Identity::<T>::ensure_perms(origin)?;
+
+            let mut venue = Self::venue_for_management(id, did)?;
+            venue.venue_type = typ;
+            VenueInfo::insert(id, venue);
+
+            Self::deposit_event(RawEvent::VenueTypeUpdated(did, id, typ));
+            Ok(())
         }
 
         /// Adds a new instruction.
@@ -871,6 +900,14 @@ impl<T: Config> Module<T> {
         ))
     }
 
+    // Extract `Venue` with `id`, assuming it was created by `did`, or error.
+    fn venue_for_management(id: u64, did: IdentityId) -> Result<Venue, DispatchError> {
+        // Ensure venue exists & that DID created it.
+        let venue = Self::venue_info(id).ok_or(Error::<T>::InvalidVenue)?;
+        ensure!(venue.creator == did, Error::<T>::Unauthorized);
+        Ok(venue)
+    }
+
     pub fn base_add_instruction(
         did: IdentityId,
         venue_id: u64,
@@ -888,9 +925,8 @@ impl<T: Config> Module<T> {
             );
         }
 
-        // Check if a venue exists and the sender is the creator of the venue
-        let mut venue = Self::venue_info(venue_id).ok_or(Error::<T>::InvalidVenue)?;
-        ensure!(venue.creator == did, Error::<T>::Unauthorized);
+        // Ensure venue exists & sender is its creator.
+        Self::venue_for_management(venue_id, did)?;
 
         // Prepare data to store in storage
         let mut counter_parties = BTreeSet::new();
@@ -951,8 +987,7 @@ impl<T: Config> Module<T> {
             instruction_counter,
             u64::try_from(counter_parties.len()).unwrap_or_default(),
         );
-        venue.instructions.push(instruction_counter);
-        VenueInfo::insert(venue_id, venue);
+        VenueInstructions::insert(venue_id, instruction_counter, ());
         InstructionCounter::put(instruction_counter + 1);
         Self::deposit_event(RawEvent::InstructionCreated(
             did,
