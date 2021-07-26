@@ -9,7 +9,6 @@ use polymesh_runtime_develop::{
 };
 
 use frame_support::{
-    traits::GenesisBuild,
     weights::{DispatchClass, DispatchInfo},
 };
 use frame_system::{CheckEra, CheckGenesis, CheckNonce, CheckSpecVersion, CheckTxVersion};

@@ -24,7 +24,7 @@ use frame_support::{
     dispatch::DispatchResult,
     parameter_types,
     traits::{
-        Contains, Currency, FindAuthor, GenesisBuild, Get, Imbalance, KeyOwnerProofSystem,
+        Contains, Currency, FindAuthor, Get, Imbalance, KeyOwnerProofSystem,
         OnFinalize, OnInitialize, OnUnbalanced, OneSessionHandler,
     },
     weights::{constants::RocksDbWeight, DispatchInfo, Weight},

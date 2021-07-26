@@ -1,6 +1,5 @@
 use crate::TestStorage;
 use confidential_identity::mocked::make_investor_uid as make_investor_uid_v2;
-use frame_support::traits::GenesisBuild;
 use pallet_asset::{self as asset, TickerRegistrationConfig};
 use pallet_balances as balances;
 use pallet_bridge::BridgeTx;
