@@ -5511,7 +5511,7 @@ fn test_reward_scheduling() {
                 }
             );
             let _part_for_10 = Perbill::from_rational_approximation::<u32>(1000, 1125);
-            let part_for_20 = Perbill::from_rational_approximation::<u32>(1000, 1375);
+            let _part_for_20 = Perbill::from_rational_approximation::<u32>(1000, 1375);
             let part_for_100_from_10 = Perbill::from_rational_approximation::<u32>(125, 1125);
             let part_for_100_from_20 = Perbill::from_rational_approximation::<u32>(375, 1375);
 
