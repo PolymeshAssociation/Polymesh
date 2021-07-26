@@ -326,61 +326,34 @@ fn do_user_remove_paying_key_transaction_fee_test() {
     };
 
     let len = 10;
-    let expected_err = TransactionValidityError::Invalid(InvalidTransaction::Custom(
-        TransactionError::PalletNotSubsidised as u8,
-    ));
+    //
+    // Bob removes alice's key from the subsidy.
+    //
+    let call = call_relayer_remove_paying_key(bob.acc(), alice.acc());
+    let call_info = info_from_weight(5);
+    // 0. Calculate fees for registering an asset ticker.
+    let transaction_fee = TransactionPayment::compute_fee(len as u32, &call_info, 0);
 
-    // Pallet Relayer is not subsidised.
-    // TODO: Need to allow the user key to call `pallet_relayer::remove_paying_key`.
-    let pre_err = ChargeTransactionPayment::from(0)
-        .pre_dispatch(
-            &bob.acc(),
-            &call_relayer_remove_paying_key(bob.acc(), alice.acc()),
-            &info_from_weight(5),
-            len,
-        )
-        .map(|_| ())
-        .unwrap_err();
-    assert_eq!(pre_err, expected_err);
+    // 1. Call `pre_dispatch`.
+    let pre = ChargeTransactionPayment::from(0)
+        .pre_dispatch(&bob.acc(), &call, &call_info, len)
+        .unwrap();
 
-    // No charge to the balances.
-    assert_eq!(diff_balances(), (0, 0));
+    // 2. Execute extrinsic.
+    assert_ok!(call.dispatch(bob.origin()));
 
-    // TODO: Allow user key to remove the paying key.
-    ////
-    //// Bob removes alice's key from the subsidy.
-    ////
-    //let call = call_relayer_remove_paying_key(bob.acc(), alice.acc());
-    //let call_info = info_from_weight(5);
-    //// 0. Calculate fees for registering an asset ticker.
-    //let transaction_fee = TransactionPayment::compute_fee(len as u32, &call_info, 0);
+    // 3. Call `post_dispatch`.
+    assert!(ChargeTransactionPayment::post_dispatch(
+        pre,
+        &call_info,
+        &post_info_from_weight(5),
+        len,
+        &Ok(())
+    )
+    .is_ok());
 
-    //// 1. Call `pre_dispatch`.
-    //let pre = ChargeTransactionPayment::from(0)
-    //    .pre_dispatch(
-    //        &bob.acc(),
-    //        &call,
-    //        &call_info,
-    //        len,
-    //    )
-    //    .unwrap();
-
-    //// 2. Execute extrinsic.
-    //assert_ok!(call.dispatch(bob.origin()));
-
-    //// 3. Call `post_dispatch`.
-    //assert!(ChargeTransactionPayment::post_dispatch(
-    //    pre,
-    //    &call_info,
-    //    &post_info_from_weight(5),
-    //    len,
-    //    &Ok(())
-    //)
-    //.is_ok());
-
-    //// Verify that the correct fee was deducted from alice's balance
-    //// and Bob's subsidy's remaining POLYX.
-    //assert_eq!(diff_balances(), (0, transaction_fee));
+    // Verify that Bob paid for the transaction fee and not Alice.
+    assert_eq!(diff_balances(), (0, transaction_fee));
 }
 
 #[test]

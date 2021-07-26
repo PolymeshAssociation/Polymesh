@@ -389,10 +389,16 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn ensure_pallet_is_subsidised(pallet: &[u8]) -> Result<(), InvalidTransaction> {
+    fn ensure_pallet_is_subsidised(pallet: &[u8]) -> Result<Option<()>, InvalidTransaction> {
         match pallet {
+            // These pallets are subsidised by the paying key.
             b"Asset" | b"ComplianceManager" | b"CorporateAction" | b"ExternalAgents"
-            | b"Permissions" | b"Portfolio" | b"Settlement" | b"Statistics" | b"Sto" => Ok(()),
+            | b"Permissions" | b"Portfolio" | b"Settlement" | b"Statistics" | b"Sto" => {
+                Ok(Some(()))
+            }
+            // The user key needs to pay for `remove_pakying_key` call.
+            b"Relayer" => Ok(None),
+            // Reject all other pallets.
             _ => fail!(InvalidTransaction::Custom(
                 TransactionError::PalletNotSubsidised as u8
             )),
@@ -421,15 +427,16 @@ impl<T: Config> SubsidiserTrait<T::AccountId> for Module<T> {
         fee: Balance,
         pallet: Option<&[u8]>,
     ) -> Result<Option<T::AccountId>, InvalidTransaction> {
-        match Self::get_subsidy(user_key, fee)? {
-            Some(s) => {
+        match (Self::get_subsidy(user_key, fee)?, pallet) {
+            (Some(s), Some(pallet)) => {
                 // Ensure that the current pallet can be subsidised.
-                if let Some(pallet) = pallet {
-                    Self::ensure_pallet_is_subsidised(pallet)?;
-                }
+                Ok(Self::ensure_pallet_is_subsidised(pallet)?.map(|_| s.paying_key))
+            }
+            (Some(s), None) => {
+                // No pallet restriction applied (protocol fees).
                 Ok(Some(s.paying_key))
             }
-            _ => Ok(None),
+            (None, _) => Ok(None),
         }
     }
 
