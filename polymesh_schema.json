@@ -1009,8 +1009,6 @@
     },
     "Venue": {
       "creator": "IdentityId",
-      "instructions": "Vec<u64>",
-      "details": "VenueDetails",
       "venue_type": "VenueType"
     },
     "Receipt": {
