@@ -18,7 +18,7 @@ import type { Keys, SessionIndex } from '@polkadot/types/interfaces/session';
 import type { ActiveEraInfo, ElectionResult, ElectionScore, ElectionStatus, EraIndex, EraRewardPoints, Exposure, Forcing, Nominations, RewardDestination, SlashingSpans, SpanIndex, SpanRecord, StakingLedger, UnappliedSlash, ValidatorPrefs } from '@polkadot/types/interfaces/staking';
 import type { AccountInfo, ConsumedWeight, DigestOf, EventIndex, EventRecord, LastRuntimeUpgradeInfo, Phase } from '@polkadot/types/interfaces/system';
 import type { Multiplier } from '@polkadot/types/interfaces/txpayment';
-import type { AGId, AffirmationStatus, AgentGroup, AssetCompliance, AssetIdentifier, AssetOwnershipRelation, Authorization, AuthorizationNonce, BallotMeta, BallotTimeRange, BallotVote, BridgeTxDetail, CAId, CheckpointId, Claim1stKey, Claim2ndKey, ClassicTickerRegistration, CorporateAction, Counter, DepositInfo, DidRecord, Distribution, Document, DocumentId, ExtVersion, ExtrinsicPermissions, FundingRoundName, Fundraiser, FundraiserName, IdentityClaim, IdentityId, InactiveMember, Instruction, Leg, LegStatus, LocalCAId, MaybeBlock, PermissionedIdentityPrefs, Pip, PipId, PipsMetadata, PolymeshVotes, PortfolioId, PortfolioName, PortfolioNumber, PosRatio, ProposalDetails, ProtocolOp, ScheduleId, ScopeId, SecurityToken, Signatory, SkippedCount, SlashingSwitch, SmartExtension, SmartExtensionType, SnapshotMetadata, SnapshottedPip, StoredSchedule, TargetIdAuthorization, TargetIdentities, Tax, Ticker, TickerRegistration, TickerRegistrationConfig, TransferManager, TrustedIssuer, Venue, Version, VotingResult } from 'polymesh-typegen/interfaces/default';
+import type { AGId, AffirmationStatus, AgentGroup, AssetCompliance, AssetIdentifier, AssetOwnershipRelation, Authorization, AuthorizationNonce, BallotMeta, BallotTimeRange, BallotVote, BridgeTxDetail, CAId, CheckpointId, Claim1stKey, Claim2ndKey, ClassicTickerRegistration, CorporateAction, Counter, DepositInfo, DidRecord, DispatchableName, Distribution, Document, DocumentId, ExtVersion, ExtrinsicPermissions, FundingRoundName, Fundraiser, FundraiserName, IdentityClaim, IdentityId, InactiveMember, Instruction, Leg, LegStatus, LocalCAId, MaybeBlock, PalletName, PermissionedIdentityPrefs, Pip, PipId, PipsMetadata, PolymeshVotes, PortfolioId, PortfolioName, PortfolioNumber, PosRatio, ProposalDetails, ProtocolOp, ScheduleId, ScopeId, SecurityToken, Signatory, SkippedCount, SlashingSwitch, SmartExtension, SmartExtensionType, SnapshotMetadata, SnapshottedPip, StoredSchedule, Subsidy, TargetIdAuthorization, TargetIdentities, Tax, Ticker, TickerRegistration, TickerRegistrationConfig, TransferManager, TrustedIssuer, Venue, Version, VotingResult } from 'polymesh-typegen/interfaces/default';
 import type { ApiTypes } from '@polkadot/api/types';
 
 declare module '@polkadot/api/types/storage' {
@@ -626,6 +626,16 @@ declare module '@polkadot/api/types/storage' {
     };
     identity: {
       /**
+       * How many "strong" references to the account key.
+       * 
+       * Strong references will block a key from leaving it's identity.
+       * 
+       * Pallets using "strong" references to account keys:
+       * * Relayer: For `user_key` and `paying_key`
+       * 
+       **/
+      accountKeyRefCount: AugmentedQuery<ApiType, (arg: AccountId | string | Uint8Array) => Observable<u64>, [AccountId]> & QueryableStorageEntry<ApiType, [AccountId]>;
+      /**
        * All authorizations that an identity/key has
        **/
       authorizations: AugmentedQuery<ApiType, (arg1: Signatory | { Identity: any } | { Account: any } | string | Uint8Array, arg2: u64 | AnyNumber | Uint8Array) => Observable<Authorization>, [Signatory, u64]> & QueryableStorageEntry<ApiType, [Signatory, u64]>;
@@ -801,6 +811,20 @@ declare module '@polkadot/api/types/storage' {
        * different types are not supported at the moment so we are doing the manual serialization.
        **/
       reportsByKindIndex: AugmentedQuery<ApiType, (arg: Kind | string | Uint8Array) => Observable<Bytes>, [Kind]> & QueryableStorageEntry<ApiType, [Kind]>;
+      /**
+       * Generic query
+       **/
+      [key: string]: QueryableStorageEntry<ApiType>;
+    };
+    permissions: {
+      /**
+       * The name of the current function (aka extrinsic).
+       **/
+      currentDispatchableName: AugmentedQuery<ApiType, () => Observable<DispatchableName>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * The name of the current pallet (aka module name).
+       **/
+      currentPalletName: AugmentedQuery<ApiType, () => Observable<PalletName>, []> & QueryableStorageEntry<ApiType, []>;
       /**
        * Generic query
        **/
@@ -1011,6 +1035,21 @@ declare module '@polkadot/api/types/storage' {
        * the oldest hash.
        **/
       randomMaterial: AugmentedQuery<ApiType, () => Observable<Vec<Hash>>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * Generic query
+       **/
+      [key: string]: QueryableStorageEntry<ApiType>;
+    };
+    relayer: {
+      /**
+       * The subsidy for a `user_key` if they are being subsidised,
+       * as a map `user_key` => `Subsidy`.
+       * 
+       * A key can only have one subsidy at a time.  To change subsidisers
+       * a key needs to call `remove_paying_key` to remove the current subsidy,
+       * before they can accept a new subsidiser.
+       **/
+      subsidies: AugmentedQuery<ApiType, (arg: AccountId | string | Uint8Array) => Observable<Option<Subsidy>>, [AccountId]> & QueryableStorageEntry<ApiType, [AccountId]>;
       /**
        * Generic query
        **/

@@ -4,14 +4,14 @@
 import type { Bytes, Compact, Enum, Option, Struct, Text, U8aFixed, Vec, bool, u16, u32, u64, u8 } from '@polkadot/types';
 import type { ITuple } from '@polkadot/types/types';
 import type { Signature } from '@polkadot/types/interfaces/extrinsics';
-import type { AccountId, Balance, BlockNumber, Call, H256, H512, Hash, IndicesLookupSource, Perbill, Permill } from '@polkadot/types/interfaces/runtime';
+import type { AccountId, Balance, BlockNumber, Call, H256, H512, Hash, MultiAddress, Perbill, Permill } from '@polkadot/types/interfaces/runtime';
 import type { AccountInfoWithDualRefCount, DispatchError } from '@polkadot/types/interfaces/system';
 
 /** @name AccountInfo */
 export interface AccountInfo extends AccountInfoWithDualRefCount {}
 
 /** @name Address */
-export interface Address extends IndicesLookupSource {}
+export interface Address extends MultiAddress {}
 
 /** @name AffirmationStatus */
 export interface AffirmationStatus extends Enum {
@@ -141,6 +141,8 @@ export interface AuthorizationData extends Enum {
   readonly asTransferCorporateActionAgent: Ticker;
   readonly isBecomeAgent: boolean;
   readonly asBecomeAgent: ITuple<[Ticker, AgentGroup]>;
+  readonly isAddRelayerPayingKey: boolean;
+  readonly asAddRelayerPayingKey: ITuple<[AccountId, AccountId, Balance]>;
 }
 
 /** @name AuthorizationNonce */
@@ -151,14 +153,12 @@ export interface AuthorizationType extends Enum {
   readonly isAttestPrimaryKeyRotation: boolean;
   readonly isRotatePrimaryKey: boolean;
   readonly isTransferTicker: boolean;
-  readonly isTransferPrimaryIssuanceAgent: boolean;
   readonly isAddMultiSigSigner: boolean;
   readonly isTransferAssetOwnership: boolean;
   readonly isJoinIdentity: boolean;
   readonly isPortfolioCustody: boolean;
   readonly isCustom: boolean;
   readonly isNoData: boolean;
-  readonly isTransferCorporateActionAgent: boolean;
 }
 
 /** @name BallotMeta */
@@ -994,7 +994,7 @@ export interface LegStatus extends Enum {
 export interface LocalCAId extends u32 {}
 
 /** @name LookupSource */
-export interface LookupSource extends IndicesLookupSource {}
+export interface LookupSource extends MultiAddress {}
 
 /** @name MaybeBlock */
 export interface MaybeBlock extends Enum {
@@ -1438,6 +1438,12 @@ export interface StoredSchedule extends Struct {
   readonly id: ScheduleId;
   readonly at: Moment;
   readonly remaining: u32;
+}
+
+/** @name Subsidy */
+export interface Subsidy extends Struct {
+  readonly paying_key: AccountId;
+  readonly remaining: Balance;
 }
 
 /** @name TargetIdAuthorization */

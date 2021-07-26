@@ -15,9 +15,10 @@
     "start": "yarn build",
     "create": "yarn build && yarn test",
     "build": "yarn clean:some && tsc -p .",
-    "build:types": "yarn generate:defs && yarn generate:meta",
+    "build:types": "yarn generate:polymesh-meta && yarn generate:defs && yarn generate:meta",
     "generate:defs": "ts-node --skip-project node_modules/.bin/polkadot-types-from-defs --package polymesh-typegen/interfaces --input ./src/interfaces",
-    "generate:meta": "ts-node --skip-project node_modules/.bin/polkadot-types-from-chain --package polymesh-typegen/interfaces --endpoint ./alcyone-polymesh.json --output ./src/interfaces",
+    "generate:meta": "ts-node --skip-project node_modules/.bin/polkadot-types-from-chain --package polymesh-typegen/interfaces --endpoint ./polymesh-meta.json --output ./src/interfaces",
+    "generate:polymesh-meta": "./chain_metadata.sh",
     "lint": "tsc --noEmit --pretty",
     "clean:some": "rm -rf ./dist ./docs",
     "clean:all": "rm -rf ./node_modules ./yarn.lock ./dist ./docs",
@@ -39,6 +40,7 @@
     "10_governance_management": "node ./dist/tests/10_governance_management.js",
     "11_A_settlement": "node ./dist/tests/11_A_settlement.js",
     "11_B_settlement": "node ./dist/tests/11_B_settlement.js",
+    "12_external_agents": "node ./dist/tests/12_external_agents.js",
     "schema_test": "./util/schema_test.sh",
     "offchain_worker_test": "node ./dist/util/offchain_worker_test.js",
     "polyx_balances": "node ./util/userBalancePOLYX.js",
@@ -47,7 +49,7 @@
   "author": "Polymath Network",
   "license": "UNLICENSED",
   "dependencies": {
-    "@polkadot/api": "4.14.1",
+    "@polkadot/api": "5.0.1",
     "@polkadot/util": "6.9.1",
     "@polkadot/util-crypto": "6.9.1",
     "chai": "4.2.0",
@@ -69,7 +71,7 @@
     "readline-sync": "1.4.10"
   },
   "devDependencies": {
-    "@polkadot/typegen": "4.14.1",
+    "@polkadot/typegen": "5.0.1",
     "@types/chai": "4.2.15",
     "@types/clear": "0.1.1",
     "@types/figlet": "1.2.1",

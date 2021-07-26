@@ -1019,6 +1019,36 @@ declare module '@polkadot/api/types/events' {
        **/
       [key: string]: AugmentedEvent<ApiType>;
     };
+    relayer: {
+      /**
+       * Accepted paying key.
+       * 
+       * (Caller DID, User Key, Paying Key)
+       **/
+      AcceptedPayingKey: AugmentedEvent<ApiType, [EventDid, AccountId, AccountId]>;
+      /**
+       * Authorization given for `paying_key` to `user_key`.
+       * 
+       * (Caller DID, User Key, Paying Key, Initial POLYX limit, Auth ID)
+       **/
+      AuthorizedPayingKey: AugmentedEvent<ApiType, [EventDid, AccountId, AccountId, Balance, u64]>;
+      /**
+       * Removed paying key.
+       * 
+       * (Caller DID, User Key, Paying Key)
+       **/
+      RemovedPayingKey: AugmentedEvent<ApiType, [EventDid, AccountId, AccountId]>;
+      /**
+       * Updated polyx limit.
+       * 
+       * (Caller DID, User Key, Paying Key, POLYX limit)
+       **/
+      UpdatedPolyxLimit: AugmentedEvent<ApiType, [EventDid, AccountId, AccountId, Balance]>;
+      /**
+       * Generic event
+       **/
+      [key: string]: AugmentedEvent<ApiType>;
+    };
     scheduler: {
       /**
        * Canceled some task. \[when, index\]
