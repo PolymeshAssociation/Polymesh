@@ -174,18 +174,6 @@ fn do_basic_relayer_paying_key_test() {
         Error::NotPayingKey
     );
 
-    // Add authorization for using Dave as the paying key for Bob.
-    assert_ok!(Relayer::set_paying_key(dave.origin(), bob.acc(), 0u128));
-
-    // Bob tries to accept the new paying key, but he already has a paying key.
-    // TODO: Need to allow changing the paying key.
-    TestStorage::set_current_identity(&bob.did);
-    let auth_id = get_last_auth_id(&Signatory::Account(bob.acc()));
-    assert_noop!(
-        Relayer::accept_paying_key(bob.origin(), auth_id),
-        Error::AlreadyHasPayingKey
-    );
-
     // Alice tries to remove the paying key from Bob's key.  Allowed.
     TestStorage::set_current_identity(&alice.did);
     assert_ok!(Relayer::remove_paying_key(
@@ -212,6 +200,51 @@ fn do_basic_relayer_paying_key_test() {
     assert_noop!(
         Relayer::remove_paying_key(alice.origin(), bob.acc(), alice.acc()),
         Error::NoPayingKey
+    );
+}
+
+#[test]
+fn accept_new_paying_key_test() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(&do_accept_new_paying_key_test);
+}
+fn do_accept_new_paying_key_test() {
+    let bob = User::new(AccountKeyring::Bob);
+    let alice = User::new(AccountKeyring::Alice);
+    let dave = User::new(AccountKeyring::Dave);
+
+    let assert_usages = |bob_cnt, alice_cnt, dave_cnt| {
+        assert_key_usage(bob, bob_cnt);
+        assert_key_usage(alice, alice_cnt);
+        assert_key_usage(dave, dave_cnt);
+    };
+
+    setup_subsidy(bob, alice, 10);
+    assert_usages(1, 1, 0);
+
+    // Bob now has a subsidy of 10 POLYX from Alice.
+    assert_subsidy(bob, Some((alice, 10u128)));
+
+    // Add authorization for using Dave as the paying key for Bob.
+    TestStorage::set_current_identity(&dave.did);
+    assert_ok!(Relayer::set_paying_key(dave.origin(), bob.acc(), 200u128));
+
+    // Bob accepts Dave as his new subsidiser replacing Alice as the subsidiser.
+    TestStorage::set_current_identity(&bob.did);
+    let auth_id = get_last_auth_id(&Signatory::Account(bob.acc()));
+    assert_ok!(Relayer::accept_paying_key(bob.origin(), auth_id));
+
+    assert_usages(1, 0, 1);
+    // Bob now has a subsidy of 200 POLYX from Dave.
+    assert_subsidy(bob, Some((dave, 200u128)));
+
+    // Alice tries to remove the paying key from Bob's key.  Not allowed.
+    TestStorage::set_current_identity(&alice.did);
+    assert_noop!(
+        Relayer::remove_paying_key(alice.origin(), bob.acc(), dave.acc()),
+        Error::NotAuthorizedForUserKey
     );
 }
 

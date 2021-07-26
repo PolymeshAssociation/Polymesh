@@ -114,7 +114,6 @@ decl_module! {
         /// - `AuthorizationError::BadType` if `auth_id` was not a `AddRelayerPayingKey` authorization.
         /// - `NotAuthorizedForUserKey` if `origin` is not authorized to accept the authorization for the `user_key`.
         /// - `NotAuthorizedForPayingKey` if the authorization was created by a signer that isn't authorized by the `paying_key`.
-        /// - `AlreadyHasPayingKey` if the `user_key` already has a subsidising `paying_key`.
         /// - `UserKeyCddMissing` if the `user_key` is not attached to a CDD'd identity.
         /// - `PayingKeyCddMissing` if the `paying_key` is not attached to a CDD'd identity.
         /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
@@ -165,8 +164,6 @@ decl_error! {
         UserKeyCddMissing,
         /// The `user_key` is not attached to a CDD'd identity.
         PayingKeyCddMissing,
-        /// The `user_key` already has a `paying_key`.
-        AlreadyHasPayingKey,
         /// The `user_key` doesn't have a `paying_key`.
         NoPayingKey,
         /// The `user_key` has a different `paying_key`.
@@ -356,12 +353,6 @@ impl<T: Config> Module<T> {
             Error::<T>::NotAuthorizedForPayingKey
         );
 
-        // Ensure the user_key doesn't already have a paying_key.
-        ensure!(
-            !<Subsidies<T>>::contains_key(&user_key),
-            Error::<T>::AlreadyHasPayingKey
-        );
-
         // Ensure both user_key and paying_key have valid CDD.
         ensure!(
             <Identity<T>>::has_valid_cdd(user_did),
@@ -372,10 +363,23 @@ impl<T: Config> Module<T> {
             Error::<T>::PayingKeyCddMissing
         );
 
+        // Remove existing subsidy for the user_key, if it exists.
+        if let Some(subsidy) = <Subsidies<T>>::take(&user_key) {
+            // Decrease old paying key usage.
+            <Identity<T>>::remove_account_key_ref_count(&subsidy.paying_key);
+
+            Self::deposit_event(RawEvent::RemovedPayingKey(
+                user_did.for_event(),
+                user_key.clone(),
+                subsidy.paying_key,
+            ));
+        } else {
+            // Increase user key usage.
+            <Identity<T>>::add_account_key_ref_count(&user_key);
+        }
+
         // Increase paying key usage.
         <Identity<T>>::add_account_key_ref_count(&paying_key);
-        // Increase user key usage.
-        <Identity<T>>::add_account_key_ref_count(&user_key);
 
         // All checks passed.
         <Subsidies<T>>::insert(
