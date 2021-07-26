@@ -364,7 +364,7 @@ impl<T: Config> Module<T> {
         );
 
         // Remove existing subsidy for the user_key, if it exists.
-        if let Some(subsidy) = <Subsidies<T>>::take(&user_key) {
+        if let Some(subsidy) = <Subsidies<T>>::get(&user_key) {
             // Decrease old paying key usage.
             <Identity<T>>::remove_account_key_ref_count(&subsidy.paying_key);
 
@@ -400,7 +400,7 @@ impl<T: Config> Module<T> {
             | b"Permissions" | b"Portfolio" | b"Settlement" | b"Statistics" | b"Sto" => {
                 Ok(Some(()))
             }
-            // The user key needs to pay for `remove_pakying_key` call.
+            // The user key needs to pay for `remove_paying_key` call.
             b"Relayer" => Ok(None),
             // Reject all other pallets.
             _ => fail!(InvalidTransaction::Custom(
