@@ -198,10 +198,10 @@ impl<T: Config> Module<T> {
         <T as pallet_staking::Config>::Currency::free_balance(&Self::account_id())
     }
 
-    // Converts u128 balances into (`bonded_amount`, `deposit_amount`).
-    // `bonded_amount` is equal to raw_balance but type converted to `BalanceOf<T>`.
-    // `deposit_amount` is 1 Poly greater than raw_balance and also converted to `BalanceOf<T>`.
-    fn convert_balance(raw_balance: u128) -> Result<(BalanceOf<T>, BalanceOf<T>), DispatchError> {
+    // Converts `polymesh_primitive::Balance` balances into (`bonded_amount`, `deposit_amount`).
+    // `bonded_amount` is equal to `raw_balance` but type converted to `BalanceOf<T>`.
+    // `deposit_amount` is 1 Poly greater than `raw_balance` and also converted to `BalanceOf<T>`.
+    fn convert_balance(raw_balance: Balance) -> Result<(BalanceOf<T>, BalanceOf<T>), DispatchError> {
         Ok((
             raw_balance
                 .try_into()
