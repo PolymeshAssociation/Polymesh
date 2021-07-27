@@ -295,11 +295,6 @@ impl pallet_test_utils::Config for Runtime {
     type WeightInfo = polymesh_weights::pallet_test_utils::WeightInfo;
 }
 
-impl pallet_rewards::Config for Runtime {
-    type Event = Event;
-    type WeightInfo = polymesh_weights::pallet_rewards::WeightInfo;
-}
-
 /// NB It is needed by benchmarks, in order to use `UserBuilder`.
 impl TestUtilsFn<AccountId> for Runtime {
     fn register_did(
@@ -451,6 +446,7 @@ polymesh_runtime_common::runtime_apis! {
             add_benchmark!(params, batches, pallet_capital_distribution, CapitalDistribution);
             add_benchmark!(params, batches, pallet_external_agents, ExternalAgents);
             add_benchmark!(params, batches, pallet_relayer, Relayer);
+            add_benchmark!(params, batches, pallet_rewards, Rewards);
             //add_benchmark!(params, batches, polymesh_contracts, Contracts);
             add_benchmark!(params, batches, pallet_committee, PolymeshCommittee);
             add_benchmark!(params, batches, pallet_utility, Utility);
