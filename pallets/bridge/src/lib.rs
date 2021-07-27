@@ -551,7 +551,7 @@ decl_module! {
         )]
         fn handle_scheduled_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId>) {
             ensure_root(origin)?;
-            let _ = Self::handle_bridge_tx_now(bridge_tx, false, None)?;
+            Self::handle_bridge_tx_now(bridge_tx, false, None)
         }
 
         /// Add a freeze admin.
@@ -647,7 +647,7 @@ impl<T: Config> Module<T> {
         bridge_tx: BridgeTx<T::AccountId>,
         untrusted_manual_retry: bool,
         exempted_did: Option<IdentityId>,
-    ) -> Result<Weight, DispatchError> {
+    ) -> DispatchResult {
         let mut tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx.nonce);
         // NB: This function does not care if a transaction is timelocked. Therefore, this should only be called
         // after timelock has expired or timelock is to be bypassed by an admin.
@@ -686,15 +686,14 @@ impl<T: Config> Module<T> {
             // Recipient missing CDD or limit reached. Retry this tx again later.
             return Self::handle_bridge_tx_later(bridge_tx, Self::timelock());
         }
-        // TODO: Unused `weight` value.  Nothing uses this value.
-        Ok(weight_for::handle_bridge_tx::<T>())
+        Ok(())
     }
 
     /// Handles a bridge transaction proposal after `timelock` blocks.
     fn handle_bridge_tx_later(
         bridge_tx: BridgeTx<T::AccountId>,
         timelock: T::BlockNumber,
-    ) -> Result<Weight, DispatchError> {
+    ) -> DispatchResult {
         let mut already_tried = 0;
         let mut tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx.nonce);
         match tx_details.status {
@@ -728,8 +727,7 @@ impl<T: Config> Module<T> {
 
         Self::schedule_call(unlock_block_number, bridge_tx);
 
-        // TODO: Unused `weight` value.  Nothing uses this value.
-        Ok(weight_for::handle_bridge_tx_later::<T>())
+        Ok(())
     }
 
     /// Proposes a vector of bridge transaction. The bridge controller must be set.
@@ -786,14 +784,12 @@ impl<T: Config> Module<T> {
                 } else {
                     Self::handle_bridge_tx_later(bridge_tx, timelock)
                 }
-                .map(drop) // TODO: Why drop the result?
             }
             // Pending cdd bridge tx.
             BridgeTxStatus::Pending(_) => {
                 // TODO: Why do we allow anyone to retry a `Pending` transaction?
                 // Someone could call this a few times to delay a transaction for a long time.
-                Self::handle_bridge_tx_now(bridge_tx, true, None).map(drop)
-                // TODO: Why drop the result?
+                Self::handle_bridge_tx_now(bridge_tx, true, None)
             }
             // Pre frozen tx. We just set the correct amount.
             BridgeTxStatus::Frozen => {
@@ -816,8 +812,7 @@ impl<T: Config> Module<T> {
         // NB: To avoid code duplication, this uses a hacky approach of temporarily exempting the did.
         let exempted_did =
             T::CddChecker::get_key_cdd_did(&bridge_tx.recipient).ok_or(Error::<T>::NoValidCdd)?;
-        let _ = Self::handle_bridge_tx_now(bridge_tx, false, Some(exempted_did))?;
-        Ok(())
+        Self::handle_bridge_tx_now(bridge_tx, false, Some(exempted_did))
     }
 
     /// Applies a handler `f` to a vector of transactions `bridge_txs` and outputs a vector of
