@@ -17,19 +17,16 @@
 //! RPC interface for the transaction payment module.
 
 pub use self::gen_client::Client as TransactionPaymentClient;
-pub use node_rpc_runtime_api::transaction_payment::TransactionPaymentApi as TransactionPaymentRuntimeApi;
-use pallet_transaction_payment::RuntimeDispatchInfo;
-
 use codec::{Codec, Decode};
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
+pub use node_rpc_runtime_api::transaction_payment::TransactionPaymentApi as TransactionPaymentRuntimeApi;
+use pallet_transaction_payment::RuntimeDispatchInfo;
+use polymesh_primitives::Balance;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
-use sp_runtime::{
-    generic::BlockId,
-    traits::{Block as BlockT, MaybeDisplay, MaybeFromStr},
-};
+use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
 
 #[rpc]
@@ -71,14 +68,13 @@ impl From<Error> for i64 {
     }
 }
 
-impl<C, Block, Balance, Extrinsic>
+impl<C, Block, Extrinsic>
     TransactionPaymentApi<<Block as BlockT>::Hash, RuntimeDispatchInfo<Balance>>
     for TransactionPayment<C, (Block, Extrinsic)>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    C::Api: TransactionPaymentRuntimeApi<Block, Balance, Extrinsic>,
-    Balance: Codec + MaybeDisplay + MaybeFromStr,
+    C::Api: TransactionPaymentRuntimeApi<Block, Extrinsic>,
     Extrinsic: Codec + Send + Sync + 'static,
 {
     fn query_info(

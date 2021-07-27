@@ -33,7 +33,7 @@ pub type BalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 #[rpc]
-pub trait ComplianceManagerApi<BlockHash, AccountId, T> {
+pub trait ComplianceManagerApi<BlockHash, AccountId> {
     #[rpc(name = "compliance_canTransfer")]
     fn can_transfer(
         &self,
@@ -60,16 +60,15 @@ impl<T, U> ComplianceManager<T, U> {
     }
 }
 
-impl<C, Block, AccountId, T> ComplianceManagerApi<<Block as BlockT>::Hash, AccountId, T>
+impl<C, Block, AccountId> ComplianceManagerApi<<Block as BlockT>::Hash, AccountId>
     for ComplianceManager<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
-    C::Api: ComplianceManagerRuntimeApi<Block, AccountId, T>,
+    C::Api: ComplianceManagerRuntimeApi<Block, AccountId>,
     AccountId: Codec,
-    T: Codec,
 {
     fn can_transfer(
         &self,

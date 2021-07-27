@@ -66,18 +66,23 @@ fn set_block_number<T: Config>(new_block_no: u64) {
     system::Module::<T>::set_block_number(new_block_no.saturated_into::<T::BlockNumber>());
 }
 
+fn creator<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> User<T> {
+    UserBuilder::<T>::default().generate_did().build("creator")
+}
+
 /// Set venue related storage without any sanity checks.
 fn create_venue_<T: Config>(did: IdentityId, signers: Vec<T::AccountId>) -> u64 {
-    // Worst case length for the venue details.
-    let venue_details = VenueDetails::from(vec![b'A'; 200 as usize].as_slice());
-    let venue = Venue::new(did, venue_details, VenueType::Distribution);
+    let venue = Venue {
+        creator: did,
+        venue_type: VenueType::Distribution,
+    };
     // NB: Venue counter starts with 1.
     let venue_counter = Module::<T>::venue_counter();
-    <VenueInfo>::insert(venue_counter, venue);
+    VenueInfo::insert(venue_counter, venue);
     for signer in signers {
         <VenueSigners<T>>::insert(venue_counter, signer, true);
     }
-    <VenueCounter>::put(venue_counter + 1);
+    VenueCounter::put(venue_counter + 1);
     Module::<T>::venue_counter() - 1
 }
 
@@ -112,15 +117,15 @@ pub fn create_asset_<T: Config>(owner: &User<T>) -> Ticker {
 }
 
 // fund portfolio
-fn fund_portfolio<T: Config>(portfolio: &PortfolioId, ticker: &Ticker, amount: T::Balance) {
-    <PortfolioAssetBalances<T>>::insert(portfolio, ticker, amount);
+fn fund_portfolio<T: Config>(portfolio: &PortfolioId, ticker: &Ticker, amount: Balance) {
+    PortfolioAssetBalances::insert(portfolio, ticker, amount);
 }
 
 fn setup_leg_and_portfolio<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     to_user: Option<UserData<T>>,
     from_user: Option<UserData<T>>,
     index: u32,
-    legs: &mut Vec<Leg<T::Balance>>,
+    legs: &mut Vec<Leg>,
     sender_portfolios: &mut Vec<PortfolioId>,
     receiver_portfolios: &mut Vec<PortfolioId>,
 ) {
@@ -167,7 +172,7 @@ fn generate_portfolio<T: Config + TestUtilsFn<AccountIdOf<T>>>(
 
 fn populate_legs_for_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     index: u32,
-    legs: &mut Vec<Leg<T::Balance>>,
+    legs: &mut Vec<Leg>,
 ) {
     legs.push(Leg {
         from: generate_portfolio::<T>("from_did", index + 500, None),
@@ -221,7 +226,7 @@ fn emulate_add_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     create_portfolios: bool,
 ) -> Result<
     (
-        Vec<Leg<T::Balance>>,
+        Vec<Leg>,
         u64,
         RawOrigin<T::AccountId>,
         IdentityId,
@@ -231,11 +236,11 @@ fn emulate_add_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     ),
     DispatchError,
 > {
-    let mut legs: Vec<Leg<T::Balance>> = Vec::with_capacity(l as usize);
+    let mut legs: Vec<Leg> = Vec::with_capacity(l as usize);
     let mut sender_portfolios: Vec<PortfolioId> = Vec::with_capacity(l as usize);
     let mut receiver_portfolios: Vec<PortfolioId> = Vec::with_capacity(l as usize);
     // create venue
-    let user = UserBuilder::<T>::default().generate_did().build("creator");
+    let user = creator::<T>();
     let user_data = UserData::from(user);
     let venue_id = create_venue_::<T>(user_data.did, vec![user_data.account.clone()]);
 
@@ -275,7 +280,7 @@ fn emulate_portfolios<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     receiver: Option<UserData<T>>,
     ticker: Ticker,
     index: u32,
-    legs: &mut Vec<Leg<T::Balance>>,
+    legs: &mut Vec<Leg>,
     sender_portfolios: &mut Vec<PortfolioId>,
     receiver_portfolios: &mut Vec<PortfolioId>,
 ) {
@@ -294,7 +299,7 @@ fn emulate_portfolios<T: Config + TestUtilsFn<AccountIdOf<T>>>(
 }
 
 // Generate signature.
-fn get_encoded_signature<T: Config>(signer: &User<T>, msg: &Receipt<T::Balance>) -> Vec<u8> {
+fn get_encoded_signature<T: Config>(signer: &User<T>, msg: &Receipt<Balance>) -> Vec<u8> {
     let raw_signature: [u8; 64] = signer.sign(&msg.encode()).expect("Data cannot be signed").0;
     let encoded = MultiSignature::from(Signature::from_raw(raw_signature)).encode();
     encoded
@@ -379,16 +384,16 @@ fn setup_affirm_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     UserData<T>,
     UserData<T>,
     Vec<Ticker>,
-    Vec<Leg<T::Balance>>,
+    Vec<Leg>,
 ) {
     // create venue
-    let from = UserBuilder::<T>::default().generate_did().build("creator");
+    let from = creator::<T>();
     let venue_id = create_venue_::<T>(from.did(), vec![]);
     let settlement_type: SettlementType<T::BlockNumber> = SettlementType::SettleOnAffirmation;
     let to = UserBuilder::<T>::default().generate_did().build("receiver");
     let mut portfolios_from: Vec<PortfolioId> = Vec::with_capacity(l as usize);
     let mut portfolios_to: Vec<PortfolioId> = Vec::with_capacity(l as usize);
-    let mut legs: Vec<Leg<T::Balance>> = Vec::with_capacity(l as usize);
+    let mut legs: Vec<Leg> = Vec::with_capacity(l as usize);
     let mut tickers = Vec::with_capacity(l as usize);
     let from_data = UserData::from(from.clone());
     let to_data = UserData::from(to);
@@ -457,11 +462,11 @@ fn add_smart_extension_to_ticker<T: Config>(
 
 fn create_receipt_details<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     index: u32,
-    leg: Leg<T::Balance>,
+    leg: Leg,
 ) -> ReceiptDetails<T::AccountId, T::OffChainSignature> {
     let User {
         account, secret, ..
-    } = UserBuilder::<T>::default().build("creator");
+    } = creator::<T>();
     let msg = Receipt {
         receipt_uid: index as u64,
         from: leg.from,
@@ -540,22 +545,27 @@ benchmarks! {
         assert!(Module::<T>::venue_info(1).is_some(), "Incorrect venue info set");
     }
 
-
-    update_venue {
+    update_venue_details {
         // Variations for the venue_details length.
         let d in 1 .. MAX_VENUE_DETAILS_LENGTH;
-        let venue_details = VenueDetails::from(vec![b'D'; d as usize].as_slice());
-        let venue_details2 = venue_details.clone();
-        // Venue type.
-        let venue_type = VenueType::Sto;
-        let User {account, origin, did, ..} = UserBuilder::<T>::default().generate_did().build("creator");
-        // create venue
+        let details1 = VenueDetails::from(vec![b'D'; d as usize].as_slice());
+        let details2 = details1.clone();
+
+        let User { origin, did, .. } = creator::<T>();
         let venue_id = create_venue_::<T>(did.unwrap(), vec![]);
-    }: _(origin, venue_id, Some(venue_details), Some(venue_type))
+    }: _(origin, venue_id, details1)
     verify {
-        let updated_venue_details = Module::<T>::venue_info(1).unwrap();
-        assert_eq!(updated_venue_details.venue_type, VenueType::Sto, "Incorrect venue type value");
-        assert_eq!(updated_venue_details.details, venue_details2, "Incorrect venue details");
+        assert_eq!(Module::<T>::details(venue_id), details2, "Incorrect venue details");
+    }
+
+    update_venue_type {
+        let ty = VenueType::Sto;
+
+        let User { account, origin, did, .. } = creator::<T>();
+        let venue_id = create_venue_::<T>(did.unwrap(), vec![]);
+    }: _(origin, venue_id, ty)
+    verify {
+        assert_eq!(Module::<T>::venue_info(1).unwrap().venue_type, ty, "Incorrect venue type value");
     }
 
 
@@ -617,7 +627,7 @@ benchmarks! {
 
     set_venue_filtering {
         // Constant time function. It is only for allow venue filtering.
-        let user = UserBuilder::<T>::default().generate_did().build("creator");
+        let user = creator::<T>();
         let ticker = create_asset_::<T>(&user);
     }: _(user.origin, ticker, true)
     verify {
@@ -627,7 +637,7 @@ benchmarks! {
 
     set_venue_filtering_disallow {
         // Constant time function. It is only for disallowing venue filtering.
-        let user = UserBuilder::<T>::default().generate_did().build("creator");
+        let user = creator::<T>();
         let ticker = create_asset_::<T>(&user);
     }: set_venue_filtering(user.origin, ticker, false)
     verify {
@@ -638,7 +648,7 @@ benchmarks! {
     allow_venues {
         // Count of venue is variant for this dispatchable.
         let v in 0 .. MAX_VENUE_ALLOWED;
-        let user = UserBuilder::<T>::default().generate_did().build("creator");
+        let user = creator::<T>();
         let ticker = create_asset_::<T>(&user);
         let mut venues: Vec<u64> = Vec::new();
         for i in 0 .. v {
@@ -656,7 +666,7 @@ benchmarks! {
     disallow_venues {
         // Count of venue is variant for this dispatchable.
         let v in 0 .. MAX_VENUE_ALLOWED;
-        let user = UserBuilder::<T>::default().generate_did().build("creator");
+        let user = creator::<T>();
         let ticker = create_asset_::<T>(&user);
         let mut venues: Vec<u64> = Vec::new();
         for i in 0 .. v {
@@ -774,7 +784,7 @@ benchmarks! {
         let amount = 100u128;
         // Some manual setup to support the extrinsic.
         set_instruction_leg_status_to_pending::<T>(instruction_id, leg_id);
-        T::Portfolio::lock_tokens(s_portfolios.first().unwrap(), &ticker, &amount.into()).unwrap();
+        T::Portfolio::lock_tokens(s_portfolios.first().unwrap(), &ticker, amount.into()).unwrap();
         let s_receipt = receipt.clone();
     }: _(origin, instruction_id, s_receipt)
     verify {
@@ -832,7 +842,7 @@ benchmarks! {
         // Keep the portfolio asset balance before the instruction execution to verify it later.
         let legs_count: u32 = legs.len().try_into().unwrap();
         let first_leg = legs.into_iter().nth(0).unwrap_or_default();
-        let before_transfer_balance = <PortfolioAssetBalances<T>>::get(first_leg.from, first_leg.asset);
+        let before_transfer_balance = PortfolioAssetBalances::get(first_leg.from, first_leg.asset);
         // It always be one as no other instruction is already scheduled.
         let instruction_id = 1;
         let origin = RawOrigin::Root;
@@ -860,7 +870,7 @@ benchmarks! {
     }: _(origin, instruction_id, l)
     verify {
         // Assert that any one leg processed through that give sufficient evidence of successful execution of instruction.
-        let after_transfer_balance = <PortfolioAssetBalances<T>>::get(first_leg.from, first_leg.asset);
+        let after_transfer_balance = PortfolioAssetBalances::get(first_leg.from, first_leg.asset);
         let traded_amount = before_transfer_balance - after_transfer_balance;
         let expected_transfer_amount = first_leg.amount;
         assert_eq!(traded_amount, expected_transfer_amount,"Settlement: Failed to execute the instruction");

@@ -12,15 +12,15 @@ use chrono::prelude::Utc;
 use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
-    IterableStorageDoubleMap, IterableStorageMap, StorageDoubleMap, StorageMap,
+    IterableStorageDoubleMap, IterableStorageMap, StorageDoubleMap, StorageMap, StorageValue,
 };
 use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
 use pallet_asset::checkpoint::ScheduleSpec;
 use pallet_asset::{
     self as asset, AssetOwnershipRelation, ClassicTickerImport, ClassicTickerRegistration,
-    ClassicTickers, Config as AssetConfig, ScopeIdOf, SecurityToken, TickerRegistration,
-    TickerRegistrationConfig, Tickers,
+    ClassicTickers, Config as AssetConfig, CustomTypeIdSequence, CustomTypes, CustomTypesInverse,
+    ScopeIdOf, SecurityToken, TickerRegistration, TickerRegistrationConfig, Tickers,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -37,7 +37,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::ethereum;
 use polymesh_primitives::{
     agent::AgentGroup,
-    asset::{AssetName, AssetType, FundingRoundName},
+    asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName},
     calendar::{
         CalendarPeriod, CalendarUnit, CheckpointId, CheckpointSchedule, FixedOrVariableCalendarUnit,
     },
@@ -97,10 +97,9 @@ macro_rules! assert_too_long {
     };
 }
 
-crate fn token(name: &[u8], owner_did: IdentityId) -> (Ticker, SecurityToken<u128>) {
+crate fn token(name: &[u8], owner_did: IdentityId) -> (Ticker, SecurityToken) {
     let ticker = Ticker::try_from(name).unwrap();
     let token = SecurityToken {
-        name: name.into(),
         owner_did,
         total_supply: TOTAL_SUPPLY,
         divisible: true,
@@ -110,7 +109,7 @@ crate fn token(name: &[u8], owner_did: IdentityId) -> (Ticker, SecurityToken<u12
     (ticker, token)
 }
 
-crate fn a_token(owner_did: IdentityId) -> (Ticker, SecurityToken<u128>) {
+crate fn a_token(owner_did: IdentityId) -> (Ticker, SecurityToken) {
     token(b"A", owner_did)
 }
 
@@ -128,12 +127,12 @@ fn has_ticker_record(ticker: Ticker) -> bool {
 fn asset_with_ids(
     owner: User,
     ticker: Ticker,
-    token: &SecurityToken<u128>,
+    token: &SecurityToken,
     ids: Vec<AssetIdentifier>,
 ) -> DispatchResult {
     Asset::base_create_asset_and_mint(
         owner.origin(),
-        token.name.clone(),
+        ticker.as_ref().into(),
         ticker,
         token.total_supply,
         token.divisible,
@@ -145,11 +144,11 @@ fn asset_with_ids(
     Ok(())
 }
 
-crate fn basic_asset(owner: User, ticker: Ticker, token: &SecurityToken<u128>) -> DispatchResult {
+crate fn basic_asset(owner: User, ticker: Ticker, token: &SecurityToken) -> DispatchResult {
     asset_with_ids(owner, ticker, token, vec![])
 }
 
-crate fn create_token(owner: User) -> (Ticker, SecurityToken<u128>) {
+crate fn create_token(owner: User) -> (Ticker, SecurityToken) {
     let r = a_token(owner.did);
     assert_ok!(basic_asset(owner, r.0, &r.1));
     r
@@ -246,7 +245,7 @@ fn issuers_can_create_and_rename_tokens() {
         let create = |supply| {
             Asset::base_create_asset_and_mint(
                 owner.origin(),
-                token.name.clone(),
+                ticker.as_ref().into(),
                 ticker,
                 supply,
                 true,
@@ -285,16 +284,9 @@ fn issuers_can_create_and_rename_tokens() {
         // The token should remain unchanged in storage.
         assert_eq!(Asset::token_details(ticker), token);
         // Rename the token and check storage has been updated.
-        let renamed_token = SecurityToken {
-            name: vec![0x42].into(),
-            ..token
-        };
-        assert_ok!(Asset::rename_asset(
-            owner.origin(),
-            ticker,
-            renamed_token.name.clone()
-        ));
-        assert_eq!(Asset::token_details(ticker), renamed_token);
+        let new: AssetName = [0x42].into();
+        assert_ok!(Asset::rename_asset(owner.origin(), ticker, new.clone()));
+        assert_eq!(Asset::asset_names(ticker), new);
         assert!(Asset::identifiers(ticker).is_empty());
     });
 }
@@ -1103,7 +1095,7 @@ fn frozen_secondary_keys_create_asset_we() {
     let (ticker_1, token_1) = a_token(alice_id);
     assert_ok!(Asset::base_create_asset_and_mint(
         Origin::signed(bob),
-        token_1.name.clone(),
+        ticker_1.as_ref().into(),
         ticker_1,
         token_1.total_supply,
         true,
@@ -1398,7 +1390,7 @@ fn classic_ticker_genesis_works() {
             ..standard_config
         },
         reserved_country_currency_codes: vec![],
-        versions: vec![],
+        //versions: vec![],
     };
 
     // Define expected ticker data after genesis.
@@ -1698,7 +1690,7 @@ fn classic_ticker_claim_works() {
         },
         classic_migration_contract_did: 0.into(),
         reserved_country_currency_codes: vec![],
-        versions: vec![],
+        //versions: vec![],
     };
 
     // Define the fees and initial balance.
@@ -2371,14 +2363,55 @@ fn create_asset_errors(owner: AccountId, other: AccountId) {
 #[test]
 fn asset_type_custom_too_long() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Alice);
-        let (ticker, mut token) = a_token(owner.did);
-        let mut case = |add| {
-            token.asset_type = AssetType::Custom(max_len_bytes(add));
-            basic_asset(owner, ticker, &token)
-        };
+        let user = User::new(AccountKeyring::Alice);
+        let case = |add| Asset::register_custom_asset_type(user.origin(), max_len_bytes(add));
         assert_too_long!(case(1));
         assert_ok!(case(0));
+    });
+}
+
+#[test]
+fn asset_type_custom_works() {
+    ExtBuilder::default().build().execute_with(|| {
+        let user = User::new(AccountKeyring::Alice);
+        let register = |ty: &str| Asset::register_custom_asset_type(user.origin(), ty.into());
+        let seq_is = |num| {
+            assert_eq!(CustomTypeIdSequence::get().0, num);
+        };
+        let slot_has = |id, data: &str| {
+            seq_is(id);
+            let id = CustomAssetTypeId(id);
+            let data = data.as_bytes();
+            assert_eq!(CustomTypes::get(id), data);
+            assert_eq!(CustomTypesInverse::get(data), id);
+        };
+
+        // Nothing so far. Generator (G) at 0.
+        seq_is(0);
+
+        // Register first type. G -> 1.
+        assert_ok!(register("foo"));
+        slot_has(1, "foo");
+
+        // Register same type. G unmoved.
+        assert_ok!(register("foo"));
+        slot_has(1, "foo");
+
+        // Register different type. G -> 2.
+        assert_ok!(register("bar"));
+        slot_has(2, "bar");
+
+        // Register same type. G unmoved.
+        assert_ok!(register("bar"));
+        slot_has(2, "bar");
+
+        // Register different type. G -> 3.
+        assert_ok!(register("foobar"));
+        slot_has(3, "foobar");
+
+        // Set G to max. Next registration fails.
+        CustomTypeIdSequence::put(CustomAssetTypeId(u32::MAX));
+        assert_noop!(register("qux"), AssetError::CustomAssetTypeIdOverflow);
     });
 }
 

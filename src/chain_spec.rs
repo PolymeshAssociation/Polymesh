@@ -11,7 +11,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     identity_id::GenesisIdentityRecord, AccountId, Balance, HexAccountId, IdentityId, Moment,
-    PosRatio, SecondaryKey, Signatory, Signature, SmartExtensionType, Ticker,
+    PosRatio, SecondaryKey, Signatory, Signature, Ticker,
 };
 use sc_chain_spec::ChainType;
 use sc_service::Properties;
@@ -120,11 +120,13 @@ macro_rules! asset {
                 // Reservations will expire at end of 2021
                 registration_length: Some(1640995199999),
             },
+            /*
             versions: vec![
                 (SmartExtensionType::TransferManager, 5000),
                 (SmartExtensionType::Offerings, 5000),
                 (SmartExtensionType::SmartWallet, 5000),
             ],
+            */
             // Always use the first id, whomever that may be.
             classic_migration_contract_did: IdentityId::from(1),
             classic_migration_tickers: classic_reserved_tickers(),
@@ -240,7 +242,7 @@ fn genesis_processed_data(
         u128,
         StakerStatus<AccountId>,
     )>,
-    Vec<BridgeTx<AccountId, u128>>,
+    Vec<BridgeTx<AccountId>>,
 ) {
     // Identities and their roles
     // 1 = GC + UC
@@ -325,7 +327,7 @@ fn dev_genesis_processed_data(
         u128,
         StakerStatus<AccountId>,
     )>,
-    Vec<BridgeTx<AccountId, u128>>,
+    Vec<BridgeTx<AccountId>>,
 ) {
     let mut identity = GenesisIdentityRecord::new(1u8, initial_authorities[0].0.clone());
 

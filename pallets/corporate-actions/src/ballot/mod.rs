@@ -93,10 +93,9 @@ use pallet_asset::checkpoint;
 use pallet_base::ensure_string_limited;
 use pallet_identity as identity;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
-use polymesh_common_utilities::CommonConfig;
-use polymesh_primitives::{EventDid, IdentityId, Moment};
+use polymesh_primitives::{Balance, EventDid, IdentityId, Moment};
 use polymesh_primitives_derive::VecU8StrongTyped;
-use sp_runtime::traits::{CheckedAdd, Zero};
+use sp_runtime::traits::Zero;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
@@ -180,7 +179,7 @@ pub struct BallotTimeRange {
 /// A vote cast on some choice in some motion in a ballot.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, PartialEq, Eq, Default, Debug, Encode, Decode)]
-pub struct BallotVote<Balance> {
+pub struct BallotVote {
     /// The weight / voting power assigned to this vote.
     pub power: Balance,
     /// The fallback choice, if any, to assign `power` to,
@@ -278,7 +277,7 @@ decl_storage! {
         /// and because it would not be efficient.
         ///
         /// (CAId) => [current vote weights]
-        pub Results get(fn results): map hasher(blake2_128_concat) CAId => Vec<T::Balance>;
+        pub Results get(fn results): map hasher(blake2_128_concat) CAId => Vec<Balance>;
 
         /// Stores each DID's votes in a given ballot.
         /// See the documentation of `BallotVote` for notes on semantics.
@@ -288,7 +287,7 @@ decl_storage! {
         /// User must enter 0 vote weight if they don't want to vote for a choice.
         pub Votes get(fn votes):
             double_map hasher(blake2_128_concat) CAId, hasher(blake2_128_concat) IdentityId =>
-                Vec<BallotVote<T::Balance>>;
+                Vec<BallotVote>;
     }
 }
 
@@ -349,7 +348,7 @@ decl_module! {
             RCV::insert(ca_id, rcv);
 
             // Emit event.
-            Self::deposit_event(Event::<T>::Created(caa, ca_id, range, meta, rcv));
+            Self::deposit_event(Event::Created(caa, ca_id, range, meta, rcv));
         }
 
         /// Cast `votes` in the ballot attached to the CA identified by `ca_id`.
@@ -370,7 +369,7 @@ decl_module! {
         /// - `InsufficientVotes` if the voting power used for any motion in `votes`
         ///    exceeds `origin`'s DID's voting power.
         #[weight = <T as Config>::BallotWeightInfo::vote(votes.len() as u32, T::MaxTargetIds::get())]
-        pub fn vote(origin, ca_id: CAId, votes: Vec<BallotVote<T::Balance>>) {
+        pub fn vote(origin, ca_id: CAId, votes: Vec<BallotVote>) {
             let did = <Identity<T>>::ensure_perms(origin)?;
 
             // Ensure ballot has started but not ended, i.e. `start <= now <= end`.
@@ -434,14 +433,14 @@ decl_module! {
 
             // Ensure the total balance used in each motion doesn't exceed caller's voting power.
             motions
-                .map(|vs| vs.iter().try_fold(T::Balance::zero(), |acc, vote| acc.checked_add(&vote.power)))
+                .map(|vs| vs.iter().try_fold(Balance::zero(), |acc, vote| acc.checked_add(vote.power)))
                 .all(|power| power.filter(|&p| p <= available_power).is_some())
                 .then_some(())
                 .ok_or(Error::<T>::InsufficientVotes)?;
 
             // Update vote and total results.
-            <Votes<T>>::mutate(ca_id, did, |vslot| {
-                <Results<T>>::mutate_exists(ca_id, |rslot| match rslot {
+            Votes::mutate(ca_id, did, |vslot| {
+                Results::mutate_exists(ca_id, |rslot| match rslot {
                     Some(rslot) => {
                         for (result, old) in rslot.iter_mut().zip(vslot.iter()) {
                             *result -= old.power;
@@ -456,7 +455,7 @@ decl_module! {
             });
 
             // Emit event.
-            Self::deposit_event(Event::<T>::VoteCast(did, ca_id, votes));
+            Self::deposit_event(Event::VoteCast(did, ca_id, votes));
         }
 
         /// Amend the end date of the ballot of the CA identified by `ca_id`.
@@ -484,7 +483,7 @@ decl_module! {
 
             // Commit new range to storage + emit event.
             TimeRanges::insert(ca_id, range);
-            Self::deposit_event(Event::<T>::RangeChanged(caa, ca_id, range));
+            Self::deposit_event(Event::RangeChanged(caa, ca_id, range));
         }
 
         /// Amend the metadata (title, motions, etc.) of the ballot of the CA identified by `ca_id`.
@@ -513,7 +512,7 @@ decl_module! {
             // Commit metadata to storage + emit event.
             MotionNumChoices::insert(ca_id, choices);
             Metas::insert(ca_id, meta.clone());
-            Self::deposit_event(Event::<T>::MetaChanged(caa, ca_id, meta));
+            Self::deposit_event(Event::MetaChanged(caa, ca_id, meta));
         }
 
         /// Amend RCV support for the ballot of the CA identified by `ca_id`.
@@ -535,7 +534,7 @@ decl_module! {
 
             // Commit to storage + emit event.
             RCV::insert(ca_id, rcv);
-            Self::deposit_event(Event::<T>::RCVChanged(caa, ca_id, rcv));
+            Self::deposit_event(Event::RCVChanged(caa, ca_id, rcv));
         }
 
         /// Remove the ballot of the CA identified by `ca_id`.
@@ -558,10 +557,7 @@ decl_module! {
 }
 
 decl_event! {
-    pub enum Event<T>
-    where
-        Balance = <T as CommonConfig>::Balance,
-    {
+    pub enum Event {
         /// A corporate ballot was created.
         ///
         /// (Ticker's CAA, CA's ID, Voting start/end, Ballot metadata, RCV enabled?)
@@ -570,7 +566,7 @@ decl_event! {
         /// A vote was cast in a corporate ballot.
         ///
         /// (voter DID, CAId, Votes)
-        VoteCast(IdentityId, CAId, Vec<BallotVote<Balance>>),
+        VoteCast(IdentityId, CAId, Vec<BallotVote>),
 
         /// A corporate ballot changed its start/end date range.
         ///
@@ -643,7 +639,7 @@ impl<T: Config> Module<T> {
         RCV::remove(ca_id);
 
         // Emit event.
-        Self::deposit_event(Event::<T>::Removed(caa, ca_id));
+        Self::deposit_event(Event::Removed(caa, ca_id));
         Ok(())
     }
 

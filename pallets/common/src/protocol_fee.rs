@@ -15,6 +15,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchResult;
+use polymesh_primitives::Balance;
 use sp_runtime::Perbill;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -43,7 +44,7 @@ pub enum ProtocolOp {
 }
 
 /// Common interface to protocol fees for runtime modules.
-pub trait ChargeProtocolFee<AccountId, Balance> {
+pub trait ChargeProtocolFee<AccountId> {
     /// Computes the fee of the operation and charges it to the given signatory.
     /// Equivalent to `charge_fees(&[op])`.
     fn charge_fee(op: ProtocolOp) -> DispatchResult;

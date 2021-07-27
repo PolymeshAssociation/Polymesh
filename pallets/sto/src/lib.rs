@@ -38,13 +38,12 @@ use pallet_settlement::{
 use polymesh_common_utilities::{
     portfolio::PortfolioSubTrait,
     traits::{identity, portfolio},
-    with_transaction, CommonConfig,
+    with_transaction,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 
 use frame_support::weights::Weight;
-use polymesh_primitives::{EventDid, IdentityId, PortfolioId, Ticker};
-use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, Saturating};
+use polymesh_primitives::{Balance, EventDid, IdentityId, PortfolioId, Ticker};
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 pub const MAX_TIERS: usize = 10;
@@ -77,7 +76,7 @@ impl Default for FundraiserStatus {
 /// Details about the Fundraiser.
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Fundraiser<Balance, Moment> {
+pub struct Fundraiser<Moment> {
     /// The primary issuance agent that created the `Fundraiser`.
     pub creator: IdentityId,
     /// Portfolio containing the asset being offered.
@@ -91,7 +90,7 @@ pub struct Fundraiser<Balance, Moment> {
     /// Tiers of the fundraiser.
     /// Each tier has a set amount of tokens available at a fixed price.
     /// The sum of the tiers is the total amount available in this fundraiser.
-    pub tiers: Vec<FundraiserTier<Balance>>,
+    pub tiers: Vec<FundraiserTier>,
     /// Id of the venue to use for this fundraise.
     pub venue_id: u64,
     /// Start time of the fundraiser.
@@ -104,7 +103,7 @@ pub struct Fundraiser<Balance, Moment> {
     pub minimum_investment: Balance,
 }
 
-impl<Balance, Moment> Fundraiser<Balance, Moment> {
+impl<Moment> Fundraiser<Moment> {
     pub fn is_closed(&self) -> bool {
         self.status == FundraiserStatus::Closed || self.status == FundraiserStatus::ClosedEarly
     }
@@ -112,7 +111,7 @@ impl<Balance, Moment> Fundraiser<Balance, Moment> {
 
 /// Single tier of a tiered pricing model.
 #[derive(Encode, Decode, Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PriceTier<Balance> {
+pub struct PriceTier {
     /// Total amount available.
     pub total: Balance,
     /// Price per unit.
@@ -123,7 +122,7 @@ pub struct PriceTier<Balance> {
 /// Similar to a `PriceTier` but with an extra field `remaining` for tracking the amount available for purchase in a tier.
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct FundraiserTier<Balance> {
+pub struct FundraiserTier {
     /// Total amount available.
     pub total: Balance,
     /// Price per unit.
@@ -132,8 +131,8 @@ pub struct FundraiserTier<Balance> {
     pub remaining: Balance,
 }
 
-impl<Balance: Clone> Into<FundraiserTier<Balance>> for PriceTier<Balance> {
-    fn into(self) -> FundraiserTier<Balance> {
+impl Into<FundraiserTier> for PriceTier {
+    fn into(self) -> FundraiserTier {
         FundraiserTier {
             total: self.total.clone(),
             price: self.price,
@@ -173,12 +172,11 @@ pub trait Config:
 decl_event!(
     pub enum Event<T>
     where
-        Balance = <T as CommonConfig>::Balance,
         Moment = <T as pallet_timestamp::Config>::Moment,
     {
         /// A new fundraiser has been created.
         /// (primary issuance agent, fundraiser id, fundraiser name, fundraiser details)
-        FundraiserCreated(IdentityId, u64, FundraiserName, Fundraiser<Balance, Moment>),
+        FundraiserCreated(IdentityId, u64, FundraiserName, Fundraiser<Moment>),
         /// An investor invested in the fundraiser.
         /// (Investor, fundraiser_id, offering token, raise token, offering_token_amount, raise_token_amount)
         Invested(IdentityId, u64, Ticker, Ticker, Balance, Balance),
@@ -238,7 +236,7 @@ decl_storage! {
     trait Store for Module<T: Config> as StoCapped {
         /// All fundraisers that are currently running.
         /// (ticker, fundraiser_id) -> Fundraiser
-        Fundraisers get(fn fundraisers): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) u64 => Option<Fundraiser<T::Balance, T::Moment>>;
+        Fundraisers get(fn fundraisers): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) u64 => Option<Fundraiser<T::Moment>>;
         /// Total fundraisers created for a token.
         FundraiserCount get(fn fundraiser_count): map hasher(twox_64_concat) Ticker => u64;
         /// Name for the Fundraiser. It is only used offchain.
@@ -276,11 +274,11 @@ decl_module! {
             offering_asset: Ticker,
             raising_portfolio: PortfolioId,
             raising_asset: Ticker,
-            tiers: Vec<PriceTier<T::Balance>>,
+            tiers: Vec<PriceTier>,
             venue_id: u64,
             start: Option<T::Moment>,
             end: Option<T::Moment>,
-            minimum_investment: T::Balance,
+            minimum_investment: Balance,
             fundraiser_name: FundraiserName
         ) {
             pallet_base::ensure_string_limited::<T>(&fundraiser_name)?;
@@ -303,10 +301,10 @@ decl_module! {
                 Error::<T>::InvalidPriceTiers
             );
 
-            let offering_amount: T::Balance = tiers
+            let offering_amount: Balance = tiers
                 .iter()
                 .map(|t| t.total)
-                .try_fold(0u32.into(), |total: T::Balance, x| total.checked_add(&x))
+                .try_fold(0u32.into(), |total: Balance, x| total.checked_add(x))
                 .ok_or(Error::<T>::InvalidPriceTiers)?;
 
             let start = start.unwrap_or_else(Timestamp::<T>::get);
@@ -314,7 +312,7 @@ decl_module! {
                 ensure!(start < end, Error::<T>::InvalidOfferingWindow);
             }
 
-            <Portfolio<T>>::lock_tokens(&offering_portfolio, &offering_asset, &offering_amount)?;
+            <Portfolio<T>>::lock_tokens(&offering_portfolio, &offering_asset, offering_amount)?;
 
             let fundraiser = Fundraiser {
                 creator: did,
@@ -356,8 +354,8 @@ decl_module! {
             funding_portfolio: PortfolioId,
             offering_asset: Ticker,
             fundraiser_id: u64,
-            purchase_amount: T::Balance,
-            max_price: Option<T::Balance>,
+            purchase_amount: Balance,
+            max_price: Option<Balance>,
             receipt: Option<ReceiptDetails<T::AccountId, T::OffChainSignature>>
         ) {
             let PermissionedCallOriginData {
@@ -384,12 +382,12 @@ decl_module! {
             // Total cost to to fulfil the investment amount.
             // Primary use is to calculate the blended price (offering_token_amount / cost).
             // Blended price must be <= to max_price or the investment will fail.
-            let mut cost = T::Balance::from(0u32);
+            let mut cost = Balance::from(0u32);
 
             // Price is entered as a multiple of 1_000_000
             // i.e. a price of 1 unit is 1_000_000
             // a price of 1.5 units is 1_500_00
-            let price_divisor = T::Balance::from(1_000_000u32);
+            let price_divisor = Balance::from(1_000_000u32);
             // Individual purchases from each tier that accumulate to fulfil the investment amount.
             // Tuple of (tier_id, amount to purchase from that tier).
             let mut purchases = Vec::new();
@@ -412,10 +410,10 @@ decl_module! {
                 remaining -= purchase_amount;
                 purchases.push((id, purchase_amount));
                 cost = purchase_amount
-                    .checked_mul(&tier.price)
+                    .checked_mul(tier.price)
                     .ok_or(Error::<T>::Overflow)?
-                    .checked_div(&price_divisor)
-                    .and_then(|pa| cost.checked_add(&pa))
+                    .checked_div(price_divisor)
+                    .and_then(|pa| cost.checked_add(pa))
                     .ok_or(Error::<T>::Overflow)?;
             }
 
@@ -442,7 +440,7 @@ decl_module! {
             ];
 
             with_transaction(|| {
-                <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, &purchase_amount)?;
+                <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, purchase_amount)?;
 
                 let instruction_id = Settlement::<T>::base_add_instruction(
                     fundraiser.creator,
@@ -549,12 +547,12 @@ decl_module! {
 
             ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
 
-            let remaining_amount: T::Balance = fundraiser.tiers
+            let remaining_amount: Balance = fundraiser.tiers
                 .iter()
                 .map(|t| t.remaining)
                 .fold(0u32.into(), |remaining, x| remaining + x);
 
-            <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, &remaining_amount)?;
+            <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, remaining_amount)?;
             fundraiser.status = match fundraiser.end {
                 Some(end) if end > Timestamp::<T>::get() => FundraiserStatus::ClosedEarly,
                 _ => FundraiserStatus::Closed,

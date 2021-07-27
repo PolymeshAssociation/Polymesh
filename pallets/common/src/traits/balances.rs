@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::traits::{identity::Config as IdentityConfig, CommonConfig, NegativeImbalance};
+use crate::traits::{identity::Config as IdentityConfig, NegativeImbalance};
 use codec::{Decode, Encode};
 use frame_support::{
     decl_event,
@@ -24,9 +24,9 @@ use frame_support::{
     },
     weights::Weight,
 };
-use polymesh_primitives::IdentityId;
+use polymesh_primitives::{Balance, IdentityId};
 use polymesh_primitives_derive::SliceU8StrongTyped;
-use sp_runtime::{traits::Saturating, RuntimeDebug};
+use sp_runtime::RuntimeDebug;
 use sp_std::ops::BitOr;
 
 #[derive(Encode, Default, Decode, Clone, PartialEq, Eq, PartialOrd, Ord, SliceU8StrongTyped)]
@@ -35,7 +35,7 @@ pub struct Memo(pub [u8; 32]);
 // POLYMESH-NOTE: Make `AccountData` public to access it from the outside module.
 /// All balance information for an account.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug)]
-pub struct AccountData<Balance> {
+pub struct AccountData {
     /// Non-reserved part of the balance. There may still be restrictions on this, but it is the
     /// total pool what may in principle be transferred, reserved and used for tipping.
     ///
@@ -57,7 +57,7 @@ pub struct AccountData<Balance> {
     pub fee_frozen: Balance,
 }
 
-impl<Balance: Saturating + Copy + Ord> AccountData<Balance> {
+impl AccountData {
     /// How much this account's balance can be reduced for the given `reasons`.
     pub fn usable(&self, reasons: Reasons) -> Balance {
         self.free.saturating_sub(self.frozen(reasons))
@@ -112,8 +112,7 @@ impl BitOr for Reasons {
 
 decl_event!(
     pub enum Event<T> where
-    <T as frame_system::Config>::AccountId,
-    <T as CommonConfig>::Balance
+    <T as frame_system::Config>::AccountId
     {
          /// An account was created with some free balance. \[did, account, free_balance]
         Endowed(Option<IdentityId>, AccountId, Balance),
@@ -146,7 +145,7 @@ pub trait WeightInfo {
 
 pub trait Config: IdentityConfig {
     /// The means of storing the balances of an account.
-    type AccountStore: StoredMap<Self::AccountId, AccountData<Self::Balance>>;
+    type AccountStore: StoredMap<Self::AccountId, AccountData>;
 
     /// Handler for the unbalanced reduction when removing a dust account.
     type DustRemoval: OnUnbalanced<NegativeImbalance<Self>>;
@@ -156,7 +155,7 @@ pub trait Config: IdentityConfig {
 
     /// This type is no longer needed but kept for compatibility reasons.
     /// The minimum amount required to keep an account open.
-    type ExistentialDeposit: Get<<Self as CommonConfig>::Balance>;
+    type ExistentialDeposit: Get<Balance>;
 
     /// Used to check if an account is linked to a CDD'd identity
     type CddChecker: CheckCdd<Self::AccountId>;
@@ -169,10 +168,10 @@ pub trait Config: IdentityConfig {
     type MaxLocks: Get<u32>;
 }
 
-pub trait BalancesTrait<A, B, NI> {
+pub trait BalancesTrait<A, NI> {
     fn withdraw(
         who: &A,
-        value: B,
+        value: Balance,
         reasons: WithdrawReasons,
         _liveness: ExistenceRequirement,
     ) -> sp_std::result::Result<NI, DispatchError>;
@@ -185,11 +184,11 @@ pub trait CheckCdd<AccountId> {
 
 /// Additional functionality atop `LockableCurrency` allowing a local,
 /// per-id, stacking layer atop the overlay.
-pub trait LockableCurrencyExt<AccountId>: LockableCurrency<AccountId> {
+pub trait LockableCurrencyExt<AccountId>: LockableCurrency<AccountId, Balance = Balance> {
     /// Reduce the locked amount under `id` for `who`.
     /// If less than `amount` was locked, then `InsufficientBalance` is raised.
     /// If the whole locked amount is reduced, then the lock is removed.
-    fn reduce_lock(id: LockIdentifier, who: &AccountId, amount: Self::Balance) -> DispatchResult;
+    fn reduce_lock(id: LockIdentifier, who: &AccountId, amount: Balance) -> DispatchResult;
 
     /// Increase the locked amount under `id` for `who` or raises `Overflow`.
     /// If there's no lock already, it will be made, unless `amount.is_zero()`.
@@ -198,8 +197,8 @@ pub trait LockableCurrencyExt<AccountId>: LockableCurrency<AccountId> {
     fn increase_lock(
         id: LockIdentifier,
         who: &AccountId,
-        amount: Self::Balance,
+        amount: Balance,
         reasons: WithdrawReasons,
-        check_sum: impl FnOnce(Self::Balance) -> DispatchResult,
+        check_sum: impl FnOnce(Balance) -> DispatchResult,
     ) -> DispatchResult;
 }

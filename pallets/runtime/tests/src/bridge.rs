@@ -23,8 +23,8 @@ type Origin = <TestStorage as frame_system::Config>::Origin;
 type System = frame_system::Module<TestStorage>;
 type Scheduler = pallet_scheduler::Module<TestStorage>;
 
-type BridgeTx = GBridgeTx<AccountId, u128>;
-type BridgeTxDetail = GBridgeTxDetail<u128, u32>;
+type BridgeTx = GBridgeTx<AccountId>;
+type BridgeTxDetail = GBridgeTxDetail<u32>;
 
 const AMOUNT: u128 = 1_000_000_000;
 const AMOUNT_OVER_LIMIT: u128 = 1_000_000_000_000_000_000_000;
