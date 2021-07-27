@@ -78,8 +78,8 @@ fn basic_itn_claim() {
     claim_itn_reward(&alice, &bob, None, Ok(()));
 
     // Check balances were updated.
-    assert_eq!(Balances::free_balance(alice.acc()), alice_init_balance);
-    assert_eq!(Balances::free_balance(bob.acc()), bob_init_balance + 2);
+    assert_eq!(Balances::free_balance(alice.acc()), alice_init_balance + (2 * POLY));
+    assert_eq!(Balances::free_balance(bob.acc()), bob_init_balance);
 
     // Check double claim fails.
     claim_itn_reward(
