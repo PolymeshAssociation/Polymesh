@@ -8,9 +8,7 @@ use polymesh_runtime_develop::{
     Runtime,
 };
 
-use frame_support::{
-    weights::{DispatchClass, DispatchInfo},
-};
+use frame_support::weights::{DispatchClass, DispatchInfo};
 use frame_system::{CheckEra, CheckGenesis, CheckNonce, CheckSpecVersion, CheckTxVersion};
 use sp_io::TestExternalities;
 use sp_runtime::{generic, traits::SignedExtension};
