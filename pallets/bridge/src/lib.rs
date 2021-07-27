@@ -218,35 +218,6 @@ impl<T, E: Encode> From<Result<T, E>> for HandledTxStatus {
     }
 }
 
-// TODO: Nothing uses these weights.
-pub mod weight_for {
-    use super::Config;
-    use frame_support::{traits::Get, weights::Weight};
-
-    /// <weight>
-    /// * Read operation - 1 for read block no. + 1 for reading bridge txn details.
-    /// * Write operation - 1 for updating the bridge tx status.
-    /// </weight>
-    pub(crate) fn handle_bridge_tx<T: Config>() -> Weight {
-        let db = T::DbWeight::get();
-        db.reads_writes(2, 1)
-            .saturating_add(700_000_000) // base fee for the handle bridge tx
-            .saturating_add(800_000) // base value for issue function
-            .saturating_add(db.reads_writes(3, 1)) // read and write for the issue() function
-            .saturating_add(db.reads_writes(1, 1)) // read and write for the deposit_creating() function under issue() call
-    }
-
-    /// <weight>
-    /// * Read operation - 4 where 1 is for reading bridge txn details & 3 for general operations
-    /// * Write operation - 2
-    /// * Base value - 500_000_000
-    /// </weight>
-    pub(crate) fn handle_bridge_tx_later<T: Config>() -> Weight {
-        let db = T::DbWeight::get();
-        db.reads_writes(4, 2).saturating_add(500_000_000) // base value
-    }
-}
-
 decl_error! {
     pub enum Error for Module<T: Config> {
         /// The bridge controller address is not set.
@@ -764,7 +735,6 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         let sender = ensure_signed(origin)?;
         let ensure_caller = || -> DispatchResult {
-            // TODO: Review admin permissions to handle bridge txs before itn.
             ensure!(
                 sender == Self::controller() || sender == Self::admin(),
                 Error::<T>::BadCaller
@@ -776,6 +746,7 @@ impl<T: Config> Module<T> {
         match tx_details.status {
             // New bridge tx.
             BridgeTxStatus::Absent => {
+                // Ensure the caller is either the admin or controller.
                 ensure_caller()?;
                 let timelock = Self::timelock();
                 if timelock.is_zero() {
@@ -786,12 +757,12 @@ impl<T: Config> Module<T> {
             }
             // Pending cdd bridge tx.
             BridgeTxStatus::Pending(_) => {
-                // TODO: Why do we allow anyone to retry a `Pending` transaction?
-                // Someone could call this a few times to delay a transaction for a long time.
+                // NB: Anyone can retry a `Pending` transaction.
                 Self::handle_bridge_tx_now(bridge_tx, tx_details, true, None)
             }
             // Pre frozen tx. We just set the correct amount.
             BridgeTxStatus::Frozen => {
+                // Ensure the caller is either the admin or controller.
                 ensure_caller()?;
                 tx_details.amount = bridge_tx.amount;
                 <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
