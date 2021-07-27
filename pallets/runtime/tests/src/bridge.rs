@@ -273,37 +273,26 @@ fn do_test_freeze_admins(_signers: &[AccountId]) {
     let ferdie = User::existing(Ferdie);
     let admin = signed_admin();
 
-    let test_freeze_allowed = |user: User| {
+    let test_freeze = |user: User, can_freeze: bool| {
         // Make sure we start with the bridge unfrozen.
         assert!(!Bridge::frozen());
 
-        assert_ok!(Bridge::freeze(user.origin()));
-        assert!(Bridge::frozen());
+        if can_freeze {
+            // User is not allowed to freeze the bridge.
+            assert_ok!(Bridge::freeze(user.origin()));
+            assert!(Bridge::frozen());
+        } else {
+            // User is not allowed to freeze the bridge.
+            assert_noop!(Bridge::freeze(user.origin()), Error::BadAdmin);
+            assert!(!Bridge::frozen());
 
-        // Unfreeze the bridge.
-        assert_ok!(Bridge::unfreeze(user.origin()));
-        assert!(!Bridge::frozen());
-    };
-    let test_freeze_denied = |user: User| {
-        // Make sure we start with the bridge unfrozen.
-        assert!(!Bridge::frozen());
-
-        // User is not allowed to freeze the bridge.
-        assert_noop!(
-            Bridge::freeze(user.origin()),
-            Error::BadAdmin
-        );
-        assert!(!Bridge::frozen());
-
-        // Use admin to freeze the bridge.
-        assert_ok!(Bridge::freeze(admin.clone()));
-        assert!(Bridge::frozen());
+            // Use admin to freeze the bridge.
+            assert_ok!(Bridge::freeze(admin.clone()));
+            assert!(Bridge::frozen());
+        }
 
         // User is not allowed to unfreeze the bridge.
-        assert_noop!(
-            Bridge::unfreeze(user.origin()),
-            Error::BadAdmin
-        );
+        assert_noop!(Bridge::unfreeze(user.origin()), Error::BadAdmin);
         assert!(Bridge::frozen());
 
         // Use admin to unfreeze the bridge.
@@ -316,7 +305,7 @@ fn do_test_freeze_admins(_signers: &[AccountId]) {
         assert!(Bridge::freeze_admins(user.acc()));
 
         // Check that they can freeze/unfreeze the bridge.
-        test_freeze_allowed(user);
+        test_freeze(user, true);
     };
     let remove_freeze_admin = |user: User| {
         // Use admin to remove a freeze admin.
@@ -324,37 +313,37 @@ fn do_test_freeze_admins(_signers: &[AccountId]) {
         assert!(!Bridge::freeze_admins(user.acc()));
 
         // Check that they cannot freeze/unfreeze the bridge.
-        test_freeze_denied(user);
+        test_freeze(user, false);
     };
 
     // Eve and Ferdie are not freeze admins.
-    test_freeze_denied(eve);
-    test_freeze_denied(ferdie);
+    test_freeze(eve, false);
+    test_freeze(ferdie, false);
 
     // Add Eve as a freeze admin.
     add_freeze_admin(eve);
 
     // Ferdie is still denied.
-    test_freeze_denied(ferdie);
+    test_freeze(ferdie, false);
 
     // Add Ferdie as a freeze admin.
     add_freeze_admin(ferdie);
 
     // Test that Eve can still freeze/unfreeze the bridge.
-    test_freeze_allowed(eve);
+    test_freeze(eve, true);
 
     // Remove Eve from freeze admins.
     remove_freeze_admin(eve);
 
     // Test that Ferdie can still freeze/unfreeze the bridge.
-    test_freeze_allowed(ferdie);
+    test_freeze(ferdie, true);
 
     // Remove Ferdie from freeze admins.
     remove_freeze_admin(ferdie);
 
     // Both Eve and Ferdie are no longer freeze admins.
-    test_freeze_denied(eve);
-    test_freeze_denied(ferdie);
+    test_freeze(eve, false);
+    test_freeze(ferdie, false);
 }
 
 #[test]

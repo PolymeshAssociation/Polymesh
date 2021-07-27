@@ -894,7 +894,11 @@ impl<T: Config> Module<T> {
     }
 
     fn set_freeze(origin: T::Origin, freeze: bool) -> DispatchResult {
-        let did = Self::ensure_freeze_admin_did(origin)?;
+        let did = if freeze {
+            Self::ensure_freeze_admin_did(origin)?
+        } else {
+            Self::ensure_admin_did(origin)?
+        };
 
         let (event, error) = match freeze {
             true => (RawEvent::Frozen(did), Error::<T>::Frozen),
