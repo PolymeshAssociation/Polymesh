@@ -550,8 +550,7 @@ decl_module! {
             Pays::Yes
         )]
         fn handle_scheduled_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId>) {
-            ensure_root(origin)?;
-            Self::handle_bridge_tx_now(bridge_tx, false, None)
+            Self::base_handle_scheduled_bridge_tx(origin, bridge_tx)?;
         }
 
         /// Add a freeze admin.
@@ -607,8 +606,8 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn update_status(tx: &BridgeTx<T::AccountId>, status: BridgeTxStatus) {
-        <BridgeTxDetails<T>>::mutate(&tx.recipient, &tx.nonce, |detail| detail.status = status);
+    fn get_tx_details(tx: &BridgeTx<T::AccountId>) -> BridgeTxDetail<T::BlockNumber> {
+        Self::bridge_tx_details(&tx.recipient, &tx.nonce)
     }
 
     /// Issues the transacted amount to the recipient.
@@ -645,10 +644,10 @@ impl<T: Config> Module<T> {
     /// Handles a bridge transaction proposal immediately.
     fn handle_bridge_tx_now(
         bridge_tx: BridgeTx<T::AccountId>,
+        mut tx_details: BridgeTxDetail<T::BlockNumber>,
         untrusted_manual_retry: bool,
         exempted_did: Option<IdentityId>,
     ) -> DispatchResult {
-        let mut tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx.nonce);
         // NB: This function does not care if a transaction is timelocked. Therefore, this should only be called
         // after timelock has expired or timelock is to be bypassed by an admin.
         ensure!(
@@ -664,7 +663,7 @@ impl<T: Config> Module<T> {
             // Un-trusted manual retries not allowed during frozen state.
             ensure!(!untrusted_manual_retry, Error::<T>::Frozen);
             // Bridge module frozen. Retry this tx again later.
-            return Self::handle_bridge_tx_later(bridge_tx, Self::timelock());
+            return Self::handle_bridge_tx_later(bridge_tx, tx_details, Self::timelock());
         }
 
         let amount = if untrusted_manual_retry {
@@ -684,7 +683,7 @@ impl<T: Config> Module<T> {
         } else if !untrusted_manual_retry {
             // NB: If this was a manual retry, tx's automated retry schedule is not updated.
             // Recipient missing CDD or limit reached. Retry this tx again later.
-            return Self::handle_bridge_tx_later(bridge_tx, Self::timelock());
+            return Self::handle_bridge_tx_later(bridge_tx, tx_details, Self::timelock());
         }
         Ok(())
     }
@@ -692,10 +691,10 @@ impl<T: Config> Module<T> {
     /// Handles a bridge transaction proposal after `timelock` blocks.
     fn handle_bridge_tx_later(
         bridge_tx: BridgeTx<T::AccountId>,
+        mut tx_details: BridgeTxDetail<T::BlockNumber>,
         timelock: T::BlockNumber,
     ) -> DispatchResult {
         let mut already_tried = 0;
-        let mut tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx.nonce);
         match tx_details.status {
             BridgeTxStatus::Absent => {
                 tx_details.status = BridgeTxStatus::Timelocked;
@@ -773,23 +772,23 @@ impl<T: Config> Module<T> {
             Ok(())
         };
 
-        let mut tx_details = Self::bridge_tx_details(&bridge_tx.recipient, &bridge_tx.nonce);
+        let mut tx_details = Self::get_tx_details(&bridge_tx);
         match tx_details.status {
             // New bridge tx.
             BridgeTxStatus::Absent => {
                 ensure_caller()?;
                 let timelock = Self::timelock();
                 if timelock.is_zero() {
-                    Self::handle_bridge_tx_now(bridge_tx, false, None)
+                    Self::handle_bridge_tx_now(bridge_tx, tx_details, false, None)
                 } else {
-                    Self::handle_bridge_tx_later(bridge_tx, timelock)
+                    Self::handle_bridge_tx_later(bridge_tx, tx_details, timelock)
                 }
             }
             // Pending cdd bridge tx.
             BridgeTxStatus::Pending(_) => {
                 // TODO: Why do we allow anyone to retry a `Pending` transaction?
                 // Someone could call this a few times to delay a transaction for a long time.
-                Self::handle_bridge_tx_now(bridge_tx, true, None)
+                Self::handle_bridge_tx_now(bridge_tx, tx_details, true, None)
             }
             // Pre frozen tx. We just set the correct amount.
             BridgeTxStatus::Frozen => {
@@ -812,7 +811,8 @@ impl<T: Config> Module<T> {
         // NB: To avoid code duplication, this uses a hacky approach of temporarily exempting the did.
         let exempted_did =
             T::CddChecker::get_key_cdd_did(&bridge_tx.recipient).ok_or(Error::<T>::NoValidCdd)?;
-        Self::handle_bridge_tx_now(bridge_tx, false, Some(exempted_did))
+        let tx_details = Self::get_tx_details(&bridge_tx);
+        Self::handle_bridge_tx_now(bridge_tx, tx_details, false, Some(exempted_did))
     }
 
     /// Applies a handler `f` to a vector of transactions `bridge_txs` and outputs a vector of
@@ -849,6 +849,15 @@ impl<T: Config> Module<T> {
                 block_number,
             ));
         }
+    }
+
+    fn base_handle_scheduled_bridge_tx(
+        origin: T::Origin,
+        bridge_tx: BridgeTx<T::AccountId>,
+    ) -> DispatchResult {
+        ensure_root(origin)?;
+        let tx_details = Self::get_tx_details(&bridge_tx);
+        Self::handle_bridge_tx_now(bridge_tx, tx_details, false, None)
     }
 
     fn base_change_controller(origin: T::Origin, controller: T::AccountId) -> DispatchResult {
@@ -935,11 +944,17 @@ impl<T: Config> Module<T> {
         let did = Self::ensure_admin_did(origin)?;
         bridge_txs
             .into_iter()
-            .filter(|tx| {
-                Self::bridge_tx_details(&tx.recipient, &tx.nonce).status != BridgeTxStatus::Handled
+            .filter_map(|tx| {
+                let tx_details = Self::get_tx_details(&tx);
+                if tx_details.status != BridgeTxStatus::Handled {
+                    Some((tx, tx_details))
+                } else {
+                    None
+                }
             })
-            .for_each(|tx| {
-                Self::update_status(&tx, BridgeTxStatus::Frozen);
+            .for_each(|(tx, mut tx_details)| {
+                tx_details.status = BridgeTxStatus::Frozen;
+                <BridgeTxDetails<T>>::insert(&tx.recipient, &tx.nonce, tx_details);
                 Self::deposit_event(RawEvent::FrozenTx(did, tx));
             });
         Ok(())
@@ -953,14 +968,20 @@ impl<T: Config> Module<T> {
         let did = Self::ensure_admin_did(origin)?;
         let txs_result = bridge_txs
             .into_iter()
-            .filter(|tx| {
-                Self::bridge_tx_details(&tx.recipient, &tx.nonce).status == BridgeTxStatus::Frozen
+            .filter_map(|tx| {
+                let tx_details = Self::get_tx_details(&tx);
+                if tx_details.status == BridgeTxStatus::Frozen {
+                    Some((tx, tx_details))
+                } else {
+                    None
+                }
             })
-            .map(|tx| {
-                Self::update_status(&tx, BridgeTxStatus::Absent);
+            .map(|(tx, mut tx_details)| {
+                tx_details.status = BridgeTxStatus::Absent;
+                <BridgeTxDetails<T>>::insert(&tx.recipient, &tx.nonce, tx_details.clone());
                 Self::deposit_event(RawEvent::UnfrozenTx(did, tx.clone()));
                 let (recipient, nonce) = (tx.recipient.clone(), tx.nonce);
-                let status = Self::handle_bridge_tx_now(tx, true, None).into();
+                let status = Self::handle_bridge_tx_now(tx, tx_details, true, None).into();
                 (recipient, nonce, status)
             })
             .collect::<Vec<_>>();
