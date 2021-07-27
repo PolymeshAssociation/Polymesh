@@ -62,7 +62,7 @@ fn basic_itn_claim() {
     let _ = Balances::deposit_into_existing(&Rewards::account_id(), 2 * POLY);
     assert_eq!(Rewards::balance(), 2 * POLY);
 
-    // Check sig.
+    // Check that, provided a signature from the wrong user, we get an error.
     claim_itn_reward(
         &alice,
         &bob,
