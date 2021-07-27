@@ -474,7 +474,7 @@ decl_module! {
         pub fn batch_propose_bridge_tx(origin, bridge_txs: Vec<BridgeTx<T::AccountId>>) ->
             DispatchResult
         {
-            Self::base_batch_propose_bridge_tx(origin, bridge_txs)
+            Self::base_batch_propose_bridge_tx(origin, bridge_txs, true)
         }
 
         /// Proposes a bridge transaction, which amounts to making a multisig proposal for the
@@ -487,7 +487,7 @@ decl_module! {
         pub fn propose_bridge_tx(origin, bridge_tx: BridgeTx<T::AccountId>) ->
             DispatchResult
         {
-            Self::base_propose_bridge_tx(origin, bridge_tx)
+            Self::base_batch_propose_bridge_tx(origin, vec![bridge_tx], false)
         }
 
         /// Handles an approved bridge transaction proposal.
@@ -733,6 +733,7 @@ impl<T: Config> Module<T> {
     fn base_batch_propose_bridge_tx(
         origin: T::Origin,
         bridge_txs: Vec<BridgeTx<T::AccountId>>,
+        send_event: bool,
     ) -> DispatchResult {
         let sender = ensure_signed(origin)?;
         Self::ensure_controller_set()?;
@@ -750,28 +751,10 @@ impl<T: Config> Module<T> {
             )
         };
         let txs_result = Self::apply_handler(propose, bridge_txs);
-        Self::deposit_event(RawEvent::TxsHandled(txs_result));
+        if send_event {
+            Self::deposit_event(RawEvent::TxsHandled(txs_result));
+        }
         Ok(())
-    }
-
-    /// Proposes a bridge transaction. The bridge controller must be set.
-    fn base_propose_bridge_tx(
-        origin: T::Origin,
-        bridge_tx: BridgeTx<T::AccountId>,
-    ) -> DispatchResult {
-        let sender = ensure_signed(origin)?;
-        Self::ensure_controller_set()?;
-
-        let sender_signer = Signatory::Account(sender);
-        let proposal = <T as Config>::Proposal::from(Call::<T>::handle_bridge_tx(bridge_tx));
-        let boxed_proposal = Box::new(proposal.into());
-        <multisig::Module<T>>::create_or_approve_proposal(
-            Self::controller(),
-            sender_signer,
-            boxed_proposal,
-            None,
-            true,
-        )
     }
 
     /// Handles an approved bridge transaction proposal.
