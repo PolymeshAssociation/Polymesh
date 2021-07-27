@@ -218,6 +218,7 @@ impl<T, E: Encode> From<Result<T, E>> for HandledTxStatus {
     }
 }
 
+// TODO: Nothing uses these weights.
 pub mod weight_for {
     use super::Config;
     use frame_support::{traits::Get, weights::Weight};
@@ -685,6 +686,7 @@ impl<T: Config> Module<T> {
             // Recipient missing CDD or limit reached. Retry this tx again later.
             return Self::handle_bridge_tx_later(bridge_tx, Self::timelock());
         }
+        // TODO: Unused `weight` value.  Nothing uses this value.
         Ok(weight_for::handle_bridge_tx::<T>())
     }
 
@@ -726,6 +728,7 @@ impl<T: Config> Module<T> {
 
         Self::schedule_call(unlock_block_number, bridge_tx);
 
+        // TODO: Unused `weight` value.  Nothing uses this value.
         Ok(weight_for::handle_bridge_tx_later::<T>())
     }
 
@@ -783,13 +786,14 @@ impl<T: Config> Module<T> {
                 } else {
                     Self::handle_bridge_tx_later(bridge_tx, timelock)
                 }
-                .map(drop)
+                .map(drop) // TODO: Why drop the result?
             }
             // Pending cdd bridge tx.
             BridgeTxStatus::Pending(_) => {
                 // TODO: Why do we allow anyone to retry a `Pending` transaction?
                 // Someone could call this a few times to delay a transaction for a long time.
                 Self::handle_bridge_tx_now(bridge_tx, true, None).map(drop)
+                // TODO: Why drop the result?
             }
             // Pre frozen tx. We just set the correct amount.
             BridgeTxStatus::Frozen => {
