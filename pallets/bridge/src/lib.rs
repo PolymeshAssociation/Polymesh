@@ -693,9 +693,12 @@ impl<T: Config> Module<T> {
             .saturating_add(timelock)
             .saturating_add(T::BlockNumber::from(2u32.pow(already_tried.into())));
         tx_details.execution_block = unlock_block_number;
-        <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
 
-        Self::schedule_call(unlock_block_number, bridge_tx);
+        // Schedule next retry.
+        Self::schedule_call(unlock_block_number, bridge_tx.clone())?;
+
+        // Update transaction details.
+        <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
 
         Ok(())
     }
@@ -800,26 +803,26 @@ impl<T: Config> Module<T> {
 
     /// Schedules a timelocked transaction call with constant arguments and emits an event on success or
     /// prints an error message on failure.
-    // TODO: handle errors.
-    fn schedule_call(block_number: T::BlockNumber, bridge_tx: BridgeTx<T::AccountId>) {
+    fn schedule_call(
+        block_number: T::BlockNumber,
+        bridge_tx: BridgeTx<T::AccountId>,
+    ) -> DispatchResult {
         // Schedule the transaction as a dispatchable call.
         let call = Call::<T>::handle_scheduled_bridge_tx(bridge_tx.clone()).into();
-        if let Err(e) = <T as Config>::Scheduler::schedule(
+        <T as Config>::Scheduler::schedule(
             DispatchTime::At(block_number),
             None,
             LOWEST_PRIORITY,
             RawOrigin::Root.into(),
             call,
-        ) {
-            pallet_base::emit_unexpected_error::<T>(Some(e));
-        } else {
-            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| GC_DID);
-            Self::deposit_event(RawEvent::BridgeTxScheduled(
-                current_did,
-                bridge_tx,
-                block_number,
-            ));
-        }
+        )?;
+        let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| GC_DID);
+        Self::deposit_event(RawEvent::BridgeTxScheduled(
+            current_did,
+            bridge_tx,
+            block_number,
+        ));
+        Ok(())
     }
 
     fn base_handle_scheduled_bridge_tx(
