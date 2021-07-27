@@ -278,7 +278,7 @@ fn do_test_freeze_admins(_signers: &[AccountId]) {
         assert!(!Bridge::frozen());
 
         if can_freeze {
-            // User is not allowed to freeze the bridge.
+            // User is allowed to freeze the bridge.
             assert_ok!(Bridge::freeze(user.origin()));
             assert!(Bridge::frozen());
         } else {
