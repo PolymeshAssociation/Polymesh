@@ -137,7 +137,8 @@ decl_module! {
                     Some(ItnRewardStatus::Unclaimed(amount)) => {
                         let amount = *amount;
                         // `amount` and `bonded_amount` are equal in value but different types.
-                        // `deposit_amount` is 1 POLY more because we bond `bonded_amount`, we don't want all the users poly bonded.
+                        // `deposit_amount` is 1 POLY more because we bond `bonded_amount`,
+                        // and we don't want all of the user's poly bonded.
                         let (bonded_amount, deposit_amount) = Self::convert_balance(amount)?;
                         ensure!(
                             Self::balance() >= deposit_amount,
