@@ -152,6 +152,8 @@ decl_module! {
                                 ExistenceRequirement::AllowDeath,
                             );
                             let _ = T::Currency::deposit_into_existing(&reward_address, deposit_amount);
+
+                            // Bond additional `bonded_amount` for `reward_address`.
                             let origin = RawOrigin::Signed(reward_address.clone()).into();
                             if <Staking<T>>::bonded(&reward_address).is_some() {
                                 <Staking<T>>::bond_extra(origin, bonded_amount)?;
