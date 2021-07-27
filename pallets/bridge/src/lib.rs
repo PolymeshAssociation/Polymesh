@@ -685,7 +685,7 @@ impl<T: Config> Module<T> {
         tx_details.tx_hash = bridge_tx.tx_hash;
 
         if already_tried > 24 {
-            // Limits the exponential backoff to *almost infinity* (~180 years).
+            // Limits the exponential backoff to 2^24 blocks (about 3 years).
             already_tried = 24;
         }
 
