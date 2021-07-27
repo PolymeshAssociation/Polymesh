@@ -94,6 +94,8 @@
 //! - `handle_bridge_tx`: Handles an approved bridge transaction proposal.
 //! - `freeze_txs`: Freezes given bridge transactions.
 //! - `unfreeze_txs`: Unfreezes given bridge transactions.
+//! - `add_freeze_admin`: Add a freeze admin.
+//! - `remove_freeze_admin`: Remove a freeze admin.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(const_option)]
@@ -300,6 +302,9 @@ decl_storage! {
         /// Whether or not the bridge operation is frozen.
         Frozen get(fn frozen): bool;
 
+        /// Freeze bridge admins.  These accounts can only freeze the bridge.
+        FreezeAdmins get(fn freeze_admins): map hasher(blake2_128_concat) T::AccountId => bool;
+
         /// The bridge transaction timelock period, in blocks, since the acceptance of the
         /// transaction proposal during which the admin key can freeze the transaction.
         Timelock get(fn timelock) config(): T::BlockNumber;
@@ -361,6 +366,10 @@ decl_event! {
         TxsHandled(Vec<(AccountId, u32, HandledTxStatus)>),
         /// Bridge Tx Scheduled
         BridgeTxScheduled(IdentityId, BridgeTx<AccountId>, BlockNumber),
+        /// A new freeze admin has been added.
+        FreezeAdminAdded(IdentityId, AccountId),
+        /// A freeze admin has been removed.
+        FreezeAdminRemoved(IdentityId, AccountId),
     }
 }
 
@@ -546,6 +555,24 @@ decl_module! {
             ensure_root(origin)?;
             let _ = Self::handle_bridge_tx_now(bridge_tx, false, None)?;
         }
+
+        /// Add a freeze admin.
+        ///
+        /// ## Errors
+        /// - `BadAdmin` if `origin` is not `Self::admin()` account.
+        #[weight = (300_000_000, DispatchClass::Operational, Pays::Yes)]
+        pub fn add_freeze_admin(origin, freeze_admin: T::AccountId) -> DispatchResult {
+            Self::base_add_freeze_admin(origin, freeze_admin)
+        }
+
+        /// Remove a freeze admin.
+        ///
+        /// ## Errors
+        /// - `BadAdmin` if `origin` is not `Self::admin()` account.
+        #[weight = (300_000_000, DispatchClass::Operational, Pays::Yes)]
+        pub fn remove_freeze_admin(origin, freeze_admin: T::AccountId) -> DispatchResult {
+            Self::base_remove_freeze_admin(origin, freeze_admin)
+        }
     }
 }
 
@@ -563,6 +590,15 @@ impl<T: Config> Module<T> {
         let sender = ensure_signed(origin)?;
         ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
         Ok(sender)
+    }
+
+    fn ensure_freeze_admin_did(origin: T::Origin) -> Result<IdentityId, DispatchError> {
+        let sender = ensure_signed(origin)?;
+        if !<FreezeAdmins<T>>::get(&sender) {
+            // Not a freeze admin, check if they are the main admin.
+            ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
+        }
+        Context::current_identity_or::<Identity<T>>(&sender)
     }
 
     fn ensure_controller_set() -> DispatchResult {
@@ -843,8 +879,22 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn set_freeze(origin: T::Origin, freeze: bool) -> DispatchResult {
+    fn base_add_freeze_admin(origin: T::Origin, freeze_admin: T::AccountId) -> DispatchResult {
         let did = Self::ensure_admin_did(origin)?;
+        <FreezeAdmins<T>>::insert(freeze_admin.clone(), true);
+        Self::deposit_event(RawEvent::FreezeAdminAdded(did, freeze_admin));
+        Ok(())
+    }
+
+    fn base_remove_freeze_admin(origin: T::Origin, freeze_admin: T::AccountId) -> DispatchResult {
+        let did = Self::ensure_admin_did(origin)?;
+        <FreezeAdmins<T>>::remove(freeze_admin.clone());
+        Self::deposit_event(RawEvent::FreezeAdminRemoved(did, freeze_admin));
+        Ok(())
+    }
+
+    fn set_freeze(origin: T::Origin, freeze: bool) -> DispatchResult {
+        let did = Self::ensure_freeze_admin_did(origin)?;
 
         let (event, error) = match freeze {
             true => (RawEvent::Frozen(did), Error::<T>::Frozen),
