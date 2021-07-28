@@ -37,7 +37,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
     ensure,
-    traits::{Currency, ExistenceRequirement, WithdrawReasons},
+    traits::{Currency, ExistenceRequirement},
     unsigned::TransactionSource,
     unsigned::TransactionValidity,
 };
@@ -56,6 +56,9 @@ use sp_runtime::{
     DispatchError,
 };
 use sp_std::{convert::TryInto, prelude::*};
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 
 type Staking<T> = staking::Module<T>;
 type BalanceOf<T> = <<T as pallet_staking::Config>::Currency as Currency<
@@ -90,8 +93,6 @@ decl_error! {
         InvalidSignature,
         /// Balance can not be converted to a primitive.
         UnableToCovertBalance,
-        // Insufficient balance to payout rewards.
-        InsufficientBalance,
     }
 }
 
@@ -108,6 +109,16 @@ decl_storage! {
                 <ItnRewards<T>>::insert(account, ItnRewardStatus::Unclaimed(*balance));
             }
         });
+    }
+}
+
+decl_event! {
+    pub enum Event<T>
+    where
+        AccountId = <T as frame_system::Config>::AccountId,
+    {
+        /// Itn reward was claimed.
+        ItnRewardClaimed(AccountId, Balance),
     }
 }
 
@@ -131,75 +142,24 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::claim_itn_reward()]
         pub fn claim_itn_reward(origin, reward_address: T::AccountId, itn_address: T::AccountId, signature: T::OffChainSignature) -> DispatchResult {
             ensure_none(origin)?;
-            <ItnRewards<T>>::try_mutate(&itn_address, |reward| {
-                match reward {
-                    // Unclaimed. Attempt to claim.
-                    Some(ItnRewardStatus::Unclaimed(amount)) => {
-                        let amount = *amount;
-                        // `amount` and `bonded_amount` are equal in value but different types.
-                        // `deposit_amount` is 1 POLY more because we bond `bonded_amount`, we don't want all the users poly bonded.
-                        let (bonded_amount, deposit_amount) = Self::convert_balance(amount)?;
-                        ensure!(
-                            Self::balance() >= deposit_amount,
-                            Error::<T>::InsufficientBalance
-                        );
-                        Self::verify_itn_sig(&reward_address, &itn_address, &signature)?;
-                        with_transaction(|| {
-                           let _ = T::Currency::withdraw(
-                                &Self::account_id(),
-                                deposit_amount,
-                                WithdrawReasons::TRANSFER,
-                                ExistenceRequirement::AllowDeath,
-                            );
-                            let _ = T::Currency::deposit_into_existing(&reward_address, deposit_amount);
-                            let origin = RawOrigin::Signed(reward_address.clone()).into();
-                            if <Staking<T>>::bonded(&reward_address).is_some() {
-                                <Staking<T>>::bond_extra(origin, bonded_amount)?;
-                            } else {
-                                <Staking<T>>::bond(origin, T::Lookup::unlookup(reward_address.clone()), bonded_amount, RewardDestination::Staked)?;
-                            }
-                            *reward = Some(ItnRewardStatus::Claimed);
-                            Self::deposit_event(Event::<T>::ItnRewardClaimed(reward_address, amount));
-                            Ok(())
-                        })
-                    },
-                    // Already Claimed.
-                    Some(ItnRewardStatus::Claimed) => Err(Error::<T>::ItnRewardAlreadyClaimed.into()),
-                    // Unknown Address.
-                    None => Err(Error::<T>::UnknownItnAddress.into()),
-                }
-            })
+            //TODO(Connor): Check cdd claim.
+            Self::base_claim_itn_reward(reward_address, itn_address, signature)
         }
-    }
-}
-
-decl_event! {
-    pub enum Event<T>
-    where
-        AccountId = <T as frame_system::Config>::AccountId,
-    {
-        /// Itn reward was claimed.
-        ItnRewardClaimed(AccountId, Balance),
     }
 }
 
 impl<T: Config> Module<T> {
     /// The account ID of the rewards pot.
-    ///
-    /// This actually does computation. If you need to keep using it, then make sure you cache the
-    /// value and only call this once.
     pub fn account_id() -> T::AccountId {
         REWARDS_MODULE_ID.into_account()
     }
 
-    pub fn balance() -> BalanceOf<T> {
-        <T as pallet_staking::Config>::Currency::free_balance(&Self::account_id())
-    }
-
-    // Converts u128 balances into (`bonded_amount`, `deposit_amount`).
-    // `bonded_amount` is equal to raw_balance but type converted to `BalanceOf<T>`.
-    // `deposit_amount` is 1 Poly greater than raw_balance and also converted to `BalanceOf<T>`.
-    fn convert_balance(raw_balance: u128) -> Result<(BalanceOf<T>, BalanceOf<T>), DispatchError> {
+    // Converts `polymesh_primitive::Balance` balances into (`bonded_amount`, `deposit_amount`).
+    // `bonded_amount` is equal to `raw_balance` but type converted to `BalanceOf<T>`.
+    // `deposit_amount` is 1 Poly greater than `raw_balance` and also converted to `BalanceOf<T>`.
+    fn convert_balance(
+        raw_balance: Balance,
+    ) -> Result<(BalanceOf<T>, BalanceOf<T>), DispatchError> {
         Ok((
             raw_balance
                 .try_into()
@@ -236,6 +196,60 @@ impl<T: Config> Module<T> {
             Error::<T>::InvalidSignature
         );
         Ok(())
+    }
+
+    pub fn base_claim_itn_reward(
+        reward_address: T::AccountId,
+        itn_address: T::AccountId,
+        signature: T::OffChainSignature,
+    ) -> DispatchResult {
+        <ItnRewards<T>>::try_mutate(&itn_address, |reward| {
+            match reward {
+                // Unclaimed. Attempt to claim.
+                Some(ItnRewardStatus::Unclaimed(amount)) => {
+                    // `amount` and `bonded_amount` are equal in value but different types.
+                    // `deposit_amount` is 1 POLY more because we bond `bonded_amount`, we don't want all the users poly bonded.
+                    let amount = *amount;
+                    let (bonded_amount, deposit_amount) = Self::convert_balance(amount)?;
+
+                    // Verify the signature.
+                    Self::verify_itn_sig(&reward_address, &itn_address, &signature)?;
+
+                    // `with_transaction` is required because we must undo the transfer if bonding fails.
+                    with_transaction(|| {
+                        // Transfer `deposit_amount` from the rewards treasury to the `reward_address`.
+                        T::Currency::transfer(
+                            &Self::account_id(),
+                            &reward_address,
+                            deposit_amount,
+                            ExistenceRequirement::AllowDeath,
+                        )?;
+
+                        // Bond additional `bonded_amount` for `reward_address`.
+                        let origin = RawOrigin::Signed(reward_address.clone()).into();
+                        if <Staking<T>>::bonded(&reward_address).is_some() {
+                            <Staking<T>>::bond_extra(origin, bonded_amount)
+                        } else {
+                            <Staking<T>>::bond(
+                                origin,
+                                T::Lookup::unlookup(reward_address.clone()),
+                                bonded_amount,
+                                RewardDestination::Staked,
+                            )
+                        }
+                    })?;
+
+                    // Set the reward to claimed.
+                    *reward = Some(ItnRewardStatus::Claimed);
+                    Self::deposit_event(Event::<T>::ItnRewardClaimed(reward_address, amount));
+                    Ok(())
+                }
+                // Already Claimed.
+                Some(ItnRewardStatus::Claimed) => Err(Error::<T>::ItnRewardAlreadyClaimed.into()),
+                // Unknown Address.
+                None => Err(Error::<T>::UnknownItnAddress.into()),
+            }
+        })
     }
 }
 

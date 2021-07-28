@@ -738,6 +738,7 @@ pub mod testnet {
                 transaction_version: 1,
             }),
             pallet_corporate_actions: Some(corporate_actions!()),
+            pallet_rewards: Some(rewards!()),
         }
     }
 
@@ -875,6 +876,7 @@ pub mod polymesh_itn {
                 transaction_version: 1,
             }),
             pallet_corporate_actions: Some(corporate_actions!()),
+            pallet_rewards: Some(rewards!()),
         }
     }
 

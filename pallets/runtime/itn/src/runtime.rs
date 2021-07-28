@@ -370,6 +370,7 @@ construct_runtime!(
         Base: pallet_base::{Module, Call, Event} = 45,
         ExternalAgents: pallet_external_agents::{Module, Call, Storage, Event} = 46,
         Relayer: pallet_relayer::{Module, Call, Storage, Event<T>} = 47,
+        Rewards: pallet_rewards::{Module, Call, Storage, Event<T>, Config<T>, ValidateUnsigned} = 48,
     }
 );
 

@@ -14,6 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::traits::identity::Config;
+use codec::Decode;
 use frame_system::RawOrigin;
 use polymesh_primitives::{crypto::native_schnorrkel, IdentityId, InvestorUid};
 use sp_core::sr25519::Signature;
