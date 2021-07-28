@@ -128,7 +128,7 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        /// Claim an ITN reward
+        /// Claim an ITN reward.
         ///
         /// ## Arguments
         /// `itn_address` - Address of the awarded account on ITN.
