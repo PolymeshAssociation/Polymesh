@@ -131,8 +131,10 @@ decl_module! {
         /// Claim an ITN reward.
         ///
         /// ## Arguments
-        /// `itn_address` - Address of the awarded account on ITN.
-        /// `signature` - Signature of the encoded reward data (originKey, ItnKey, amount)
+        /// * `itn_address` specifying the awarded address on ITN.
+        /// * `signature` authenticating the claim to the reward.
+        ///    The signature should contain `reward_address` followed by the suffix `"claim_itn_reward"`,
+        ///    and must have been signed by `itn_address`.
         ///
         /// # Errors
         /// * `InsufficientBalance` - Itn rewards has insufficient funds to issue the reward.
