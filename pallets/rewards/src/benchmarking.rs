@@ -32,17 +32,28 @@ benchmarks! {
     where_clause { where T: Config, T: TestUtilsFn<AccountIdOf<T>> }
 
     claim_itn_reward {
-        let alice = user::<T>("alice", SEED);
-        let bob = user::<T>("bob", SEED);
-        let _ = T::Currency::deposit_into_existing(&<Rewards<T>>::account_id(), (2 * POLY).try_into().ok().unwrap());
-        <ItnRewards<T>>::insert(&bob.account(), ItnRewardStatus::Unclaimed(1 * POLY));
-        let mut msg = [0u8; 48];
-        msg[..32].copy_from_slice(&alice.account().encode());
-        msg[32..].copy_from_slice(b"claim_itn_reward");
-        let sig = MultiSignature::Sr25519(bob.sign(&msg).unwrap()).encode();
-        let sig = Decode::decode(&mut sig.as_slice()).unwrap();
-    }: _(RawOrigin::None, alice.account(), bob.account(), sig)
-    verify {
+        // Construct a mainnet user and an ITN one.
+        let mainnet = user::<T>("alice", SEED);
+        let mainnet_acc = itn.account();
+        let itn = user::<T>("bob", SEED);
+        let itn_acc = mainnet.account();
 
+        // Endow rewards pot with sufficient balance to withdraw from.
+        let _ = T::Currency::deposit_into_existing(&<Rewards<T>>::account_id(), (2 * POLY).try_into().ok().unwrap());
+
+        // Register a reward for the ITN account.
+        <ItnRewards<T>>::insert(&itn_acc, ItnRewardStatus::Unclaimed(1 * POLY));
+
+        // Create the signature needed to claim the reward.
+        let mut msg = [0u8; 48];
+        msg[..32].copy_from_slice(&mainnet_acc.encode());
+        msg[32..].copy_from_slice(b"claim_itn_reward");
+        let sig = MultiSignature::Sr25519(itn.sign(&msg).unwrap()).encode();
+        let sig = Decode::decode(&mut sig.as_slice()).unwrap();
+
+        let itn_acc2 = itn_acc.clone();
+    }: _(RawOrigin::None, mainnet_acc, itn_acc, sig)
+    verify {
+        <ItnRewards<T>>::get(&itn_acc, ItnRewardStatus::Claimed);
     }
 }
