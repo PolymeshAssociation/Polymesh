@@ -82,7 +82,7 @@ fn basic_itn_claim() {
     // Check that claiming a reward fails when itn wallet is empty.
     assert_noop!(
         claim_itn_reward_basic(None, &alice, &bob, None),
-        INSUFFICIENT_BALANCE_ERROR
+        pallet_balances::Error::<TestStorage>::InsufficientBalance,
     );
 
     // Give itn rewards wallet some balance.
