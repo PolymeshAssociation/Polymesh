@@ -851,7 +851,7 @@ pub trait WeightInfo {
     fn force_unstake(s: u32) -> Weight;
     fn cancel_deferred_slash(s: u32) -> Weight;
     fn payout_stakers(n: u32) -> Weight;
-    fn payout_stakers_alive_controller() -> Weight;
+    fn payout_stakers_alive_controller(n: u32) -> Weight;
     fn rebond(l: u32) -> Weight;
     fn set_history_depth(e: u32) -> Weight;
     fn reap_stash(s: u32) -> Weight;
@@ -1876,13 +1876,13 @@ decl_module! {
                 // Ensure stash's identity is be permissioned.
                 let mut id_pref = Self::permissioned_identity(id)
                     .ok_or_else(|| Error::<T>::StashIdentityNotPermissioned)?;
-                // Ensure identity doesn't run more validators than the intended count.
-                ensure!(id_pref.running_count < id_pref.intended_count, Error::<T>::HitIntendedValidatorCount);
                 ensure!(ledger.active >= <MinimumBondThreshold<T>>::get(), Error::<T>::InsufficientValue);
                 // Ensures that the passed commission is within the cap.
                 ensure!(prefs.commission <= Self::validator_commission_cap(), Error::<T>::InvalidValidatorCommission);
                 // Updates the running count.
                 if !<Validators<T>>::contains_key(stash) {
+                    // Ensure identity doesn't run more validators than the intended count.
+                    ensure!(id_pref.running_count < id_pref.intended_count, Error::<T>::HitIntendedValidatorCount);
                     id_pref.running_count += 1;
                 }
                 PermissionedIdentity::insert(id, id_pref);

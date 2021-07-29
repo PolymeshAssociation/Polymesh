@@ -32,7 +32,7 @@ const UUID_LEN: usize = 32usize;
 
 /// The record to initialize an identity in the chain spec.
 #[derive(Default, Clone)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
 pub struct GenesisIdentityRecord<AccountId: Encode + Decode> {
     /// Identity primary key.
     pub primary_key: AccountId,

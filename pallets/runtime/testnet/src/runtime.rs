@@ -59,7 +59,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 2021,
+    spec_version: 2022,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 7,
@@ -196,7 +196,7 @@ impl polymesh_common_utilities::traits::identity::Trait for Runtime {
     type ProtocolFee = pallet_protocol_fee::Module<Runtime>;
     type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
-    type CorporateAction = CorporateAction;
+    type ExternalAgents = ExternalAgents;
     type IdentityFn = pallet_identity::Module<Runtime>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
@@ -292,6 +292,7 @@ construct_runtime!(
         Babe: pallet_babe::{Module, Call, Storage, Config, Inherent, ValidateUnsigned} = 1,
         Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent} = 2,
         Indices: pallet_indices::{Module, Call, Storage, Config<T>, Event<T>} = 3,
+        Authorship: pallet_authorship::{Module, Call, Storage, Inherent} = 7,
 
         // Balance: Genesis config dependencies: System.
         Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>} = 4,
@@ -301,10 +302,13 @@ construct_runtime!(
 
         // Identity: Genesis config deps: Timestamp.
         Identity: pallet_identity::{Module, Call, Storage, Event<T>, Config<T>} = 6,
-        Authorship: pallet_authorship::{Module, Call, Storage, Inherent} = 7,
+        MultiSig: pallet_multisig::{Module, Call, Config, Storage, Event<T>} = 18,
 
         // CddServiceProviders: Genesis config deps: Identity
         CddServiceProviders: pallet_group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>} = 38,
+
+        // Bridge: Genesis config deps: Multisig, Identity,
+        Bridge: pallet_bridge::{Module, Call, Storage, Config<T>, Event<T>} = 31,
 
         // Staking: Genesis config deps: Balances, Indices, Identity, Babe, Timestamp, CddServiceProviders.
         Staking: pallet_staking::{Module, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 8,
@@ -322,7 +326,6 @@ construct_runtime!(
         // Sudo. Usable initially.
         // RELEASE: remove this for release build.
         Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>} = 17,
-        MultiSig: pallet_multisig::{Module, Call, Config, Storage, Event<T>} = 18,
 
         // Contracts
         BaseContracts: pallet_contracts::{Module, Config, Storage, Event<T>} = 19,
@@ -344,14 +347,9 @@ construct_runtime!(
         // UpgradeCommitteeMembership: Genesis config deps: UpgradeCommittee
         UpgradeCommitteeMembership: pallet_group::<Instance4>::{Module, Call, Storage, Event<T>, Config<T>} = 28,
 
-        //Polymesh
-        ////////////
-
         // Asset: Genesis config deps: Timestamp,
         Asset: pallet_asset::{Module, Call, Storage, Config<T>, Event<T>} = 29,
 
-        // Bridge: Genesis config deps: Multisig, Identity,
-        Bridge: pallet_bridge::{Module, Call, Storage, Config<T>, Event<T>} = 31,
         ComplianceManager: pallet_compliance_manager::{Module, Call, Storage, Event} = 32,
         Settlement: pallet_settlement::{Module, Call, Storage, Event<T>, Config} = 36,
         Sto: pallet_sto::{Module, Call, Storage, Event<T>} = 37,
@@ -367,6 +365,7 @@ construct_runtime!(
         Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event<T>, Config} = 49,
         TestUtils: pallet_test_utils::{Module, Call, Storage, Event<T> } = 50,
         Base: pallet_base::{Module, Call, Event} = 51,
+        ExternalAgents: pallet_external_agents::{Module, Call, Storage, Event} = 52,
     }
 );
 

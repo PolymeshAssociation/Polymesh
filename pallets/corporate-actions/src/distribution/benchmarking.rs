@@ -36,7 +36,11 @@ fn portfolio<T: Trait>(owner: &User<T>, pnum: PortfolioNumber, ticker: Ticker, a
         origin,
         PortfolioId::default_portfolio(did),
         PortfolioId::user_portfolio(did, pnum),
-        vec![MovePortfolioItem { ticker, amount }],
+        vec![MovePortfolioItem {
+            ticker,
+            amount,
+            memo: None,
+        }],
     )
     .unwrap();
 }
@@ -117,7 +121,7 @@ benchmarks! {
         portfolio::<T>(&owner, pnum, currency, amount);
     }: _(owner.origin(), ca_id, Some(pnum), currency, per_share, amount, 3000, Some(4000))
     verify {
-        ensure!(<Distributions<T>>::get(ca_id).is_some(), "distribution not created");
+        assert!(<Distributions<T>>::get(ca_id).is_some(), "distribution not created");
     }
 
     claim {
@@ -127,7 +131,7 @@ benchmarks! {
         let (_, holder, ca_id) = prepare_transfer::<T>(t, w);
     }: _(holder.origin(), ca_id)
     verify {
-        ensure!(HolderPaid::get((ca_id, holder.did())), "not paid");
+        assert!(HolderPaid::get((ca_id, holder.did())), "not paid");
     }
 
     push_benefit {
@@ -137,7 +141,7 @@ benchmarks! {
         let (owner, holder, ca_id) = prepare_transfer::<T>(t, w);
     }: _(owner.origin(), ca_id, holder.did())
     verify {
-        ensure!(HolderPaid::get((ca_id, holder.did())), "not paid");
+        assert!(HolderPaid::get((ca_id, holder.did())), "not paid");
     }
 
     reclaim {
@@ -146,13 +150,13 @@ benchmarks! {
         <pallet_timestamp::Now<T>>::set(5000u32.into());
     }: _(owner.origin(), ca_id)
     verify {
-        ensure!(<Distributions<T>>::get(ca_id).unwrap().reclaimed, "not reclaimed");
+        assert!(<Distributions<T>>::get(ca_id).unwrap().reclaimed, "not reclaimed");
     }
 
     remove_distribution {
         let (owner, ca_id, currency) = dist::<T>(0);
     }: _(owner.origin(), ca_id)
     verify {
-        ensure!(<Distributions<T>>::get(ca_id).is_none(), "not removed");
+        assert!(<Distributions<T>>::get(ca_id).is_none(), "not removed");
     }
 }

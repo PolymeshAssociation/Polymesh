@@ -11,6 +11,7 @@ polymesh-common-utilities = { path = "../common", default-features = false }
 
 # Our pallets
 pallet-base = { path = "../base", default-features = false }
+pallet-external-agents = { path = "../external-agents", default-features = false }
 pallet-identity = { path = "../identity", default-features = false  }
 pallet-permissions = { path = "../permissions", default-features = false }
 ## Only for benchmarks

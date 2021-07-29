@@ -55,7 +55,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 2021,
+    spec_version: 2022,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 7,
@@ -195,7 +195,7 @@ impl polymesh_common_utilities::traits::identity::Trait for Runtime {
     type ProtocolFee = pallet_protocol_fee::Module<Runtime>;
     type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
-    type CorporateAction = CorporateAction;
+    type ExternalAgents = ExternalAgents;
     type IdentityFn = pallet_identity::Module<Runtime>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
@@ -333,9 +333,6 @@ construct_runtime!(
         BaseContracts: pallet_contracts::{Module, Config, Storage, Event<T>} = 27,
         Contracts: polymesh_contracts::{Module, Call, Storage, Event<T>} = 28,
 
-        //Polymesh
-        ////////////
-
         // Asset: Genesis config deps: Timestamp,
         Asset: pallet_asset::{Module, Call, Storage, Config<T>, Event<T>} = 29,
         CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>} = 30,
@@ -354,6 +351,7 @@ construct_runtime!(
         Treasury: pallet_treasury::{Module, Call, Event<T>} = 43,
         Utility: pallet_utility::{Module, Call, Storage, Event} = 44,
         Base: pallet_base::{Module, Call, Event} = 45,
+        ExternalAgents: pallet_external_agents::{Module, Call, Storage, Event} = 46,
     }
 );
 

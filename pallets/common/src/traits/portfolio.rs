@@ -17,18 +17,32 @@
 //!
 //! The interface allows to accept portfolio custody
 
+use crate::{
+    traits::{balances::Memo, base, identity},
+    CommonTrait,
+};
 use codec::{Decode, Encode};
+use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
-use polymesh_primitives::{IdentityId, PortfolioId, SecondaryKey, Ticker};
+use frame_support::weights::Weight;
+use polymesh_primitives::{
+    IdentityId, PortfolioId, PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
+};
+use sp_std::vec::Vec;
 
 /// This trait is used to accept custody of a portfolio
 pub trait PortfolioSubTrait<Balance, AccountId: Encode + Decode> {
     /// Accepts custody of a portfolio
     ///
     /// # Arguments
-    /// * `new_custodian` - DID of the new custodian
-    /// * `auth_id` - Authorization ID of the authorization created by the current custodian.
-    fn accept_portfolio_custody(new_custodian: IdentityId, auth_id: u64) -> DispatchResult;
+    /// * `to` - DID of the new custodian
+    /// * `from` - Sender of the authorization
+    /// * `pid` - The old portfolio ID
+    fn accept_portfolio_custody(
+        to: IdentityId,
+        from: IdentityId,
+        pid: PortfolioId,
+    ) -> DispatchResult;
 
     /// Checks that the custodian is authorized for the portfolio
     ///
@@ -66,4 +80,73 @@ pub trait PortfolioSubTrait<Balance, AccountId: Encode + Decode> {
         custodian: IdentityId,
         secondary_key: Option<&SecondaryKey<AccountId>>,
     ) -> DispatchResult;
+}
+
+pub trait WeightInfo {
+    fn create_portfolio() -> Weight;
+    fn delete_portfolio() -> Weight;
+    fn move_portfolio_funds(i: u32) -> Weight;
+    fn rename_portfolio(i: u32) -> Weight;
+    fn quit_portfolio_custody() -> Weight;
+}
+
+pub trait Trait: CommonTrait + identity::Trait + base::Trait {
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type WeightInfo: WeightInfo;
+}
+
+decl_event! {
+    pub enum Event<T> where
+        Balance = <T as CommonTrait>::Balance,
+    {
+        /// The portfolio has been successfully created.
+        ///
+        /// # Parameters
+        /// * origin DID
+        /// * portfolio number
+        /// * portfolio name
+        PortfolioCreated(IdentityId, PortfolioNumber, PortfolioName),
+        /// The portfolio has been successfully removed.
+        ///
+        /// # Parameters
+        /// * origin DID
+        /// * portfolio number
+        PortfolioDeleted(IdentityId, PortfolioNumber),
+        /// A token amount has been moved from one portfolio to another.
+        ///
+        /// # Parameters
+        /// * origin DID
+        /// * source portfolio
+        /// * destination portfolio
+        /// * asset ticker
+        /// * asset balance that was moved
+        MovedBetweenPortfolios(
+            IdentityId,
+            PortfolioId,
+            PortfolioId,
+            Ticker,
+            Balance,
+            Option<Memo>,
+        ),
+        /// The portfolio identified with `num` has been renamed to `name`.
+        ///
+        /// # Parameters
+        /// * origin DID
+        /// * portfolio number
+        /// * portfolio name
+        PortfolioRenamed(IdentityId, PortfolioNumber, PortfolioName),
+        /// All non-default portfolio numbers and names of a DID.
+        ///
+        /// # Parameters
+        /// * origin DID
+        /// * vector of number-name pairs
+        UserPortfolios(IdentityId, Vec<(PortfolioNumber, PortfolioName)>),
+        /// Custody of a portfolio has been given to a different identity
+        ///
+        /// # Parameters
+        /// * origin DID
+        /// * portfolio id
+        /// * portfolio custodian did
+        PortfolioCustodianChanged(IdentityId, PortfolioId, IdentityId),
+    }
 }
