@@ -1,11 +1,14 @@
 use super::{
+    assert_last_event,
     asset_test::{a_token, basic_asset, max_len_bytes},
-    storage::{TestStorage, User},
+    storage::{EventTest, System, TestStorage, User},
     ExtBuilder,
 };
 use frame_support::{assert_noop, assert_ok, StorageMap};
+use frame_system::EventRecord;
 use pallet_asset::SecurityToken;
-use pallet_portfolio::MovePortfolioItem;
+use pallet_portfolio::{MovePortfolioItem, RawEvent};
+use polymesh_common_utilities::balances::Memo;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, PortfolioId, PortfolioName, PortfolioNumber, Signatory,
@@ -34,6 +37,29 @@ fn create_portfolio() -> (User, PortfolioNumber) {
     assert_ok!(Portfolio::create_portfolio(owner.origin(), name.clone()));
     assert_eq!(Portfolio::portfolios(&owner.did, num), name);
     (owner, num)
+}
+
+fn set_custodian_ok(current_custodian: User, new_custodian: User, portfolio_id: PortfolioId) {
+    let auth_id = Identity::add_auth(
+        current_custodian.did,
+        Signatory::from(new_custodian.did),
+        AuthorizationData::PortfolioCustody(portfolio_id),
+        None,
+    );
+    assert_ok!(Identity::accept_authorization(
+        new_custodian.origin(),
+        auth_id
+    ));
+}
+
+macro_rules! assert_owner_is_custodian {
+    ($p:expr) => {{
+        assert_eq!(Portfolio::portfolios_in_custody($p.did, $p), false);
+        assert_eq!(
+            pallet_portfolio::PortfolioCustodian::contains_key(&$p),
+            false
+        );
+    }};
 }
 
 #[test]
@@ -73,6 +99,8 @@ fn can_create_rename_delete_portfolio() {
 #[test]
 fn can_recover_funds_from_deleted_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
+        System::set_block_number(1); // This is needed to enable events.
+
         let (owner, num) = create_portfolio();
         let (ticker, token) = create_token();
         let owner_default_portfolio = PortfolioId::default_portfolio(owner.did);
@@ -87,8 +115,21 @@ fn can_recover_funds_from_deleted_portfolio() {
             vec![MovePortfolioItem {
                 ticker,
                 amount: move_amount,
+                memo: None,
             }]
         ));
+        // check MovedBetweenPortfolios event
+        assert_last_event!(
+            EventTest::portfolio(RawEvent::MovedBetweenPortfolios(
+                did, from, to, i_ticker, i_amount, i_memo
+            )),
+            did == &owner.did
+                && from == &owner_default_portfolio
+                && to == &owner_user_portfolio
+                && i_ticker == &ticker
+                && i_amount == &move_amount
+                && i_memo.is_none()
+        );
         let ensure_balances = |default_portfolio_balance, user_portfolio_balance| {
             assert_eq!(
                 Portfolio::default_portfolio_balance(owner.did, &ticker),
@@ -113,6 +154,7 @@ fn can_recover_funds_from_deleted_portfolio() {
             vec![MovePortfolioItem {
                 ticker,
                 amount: move_amount,
+                memo: None,
             }]
         ));
         ensure_balances(token.total_supply, 0);
@@ -123,10 +165,19 @@ fn can_recover_funds_from_deleted_portfolio() {
 fn can_move_asset_from_portfolio() {
     ExtBuilder::default()
         .build()
-        .execute_with(do_move_asset_from_portfolio);
+        .execute_with(|| do_move_asset_from_portfolio(None));
 }
 
-fn do_move_asset_from_portfolio() {
+#[test]
+fn can_move_asset_from_portfolio_with_memo() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(|| do_move_asset_from_portfolio(Some(Memo::from("Test memo"))));
+}
+
+fn do_move_asset_from_portfolio(memo: Option<Memo>) {
+    System::set_block_number(1); // This is needed to enable events.
+
     let (owner, num) = create_portfolio();
     let bob = User::new(AccountKeyring::Bob);
     let (ticker, token) = create_token();
@@ -151,6 +202,7 @@ fn do_move_asset_from_portfolio() {
             vec![MovePortfolioItem {
                 ticker,
                 amount: token.total_supply * 2,
+                memo: memo.clone()
             }]
         ),
         Error::InsufficientPortfolioBalance
@@ -171,7 +223,11 @@ fn do_move_asset_from_portfolio() {
             owner.origin(),
             owner_default_portfolio,
             owner_default_portfolio,
-            vec![MovePortfolioItem { ticker, amount: 1 }]
+            vec![MovePortfolioItem {
+                ticker,
+                amount: 1,
+                memo: memo.clone()
+            }]
         ),
         Error::DestinationIsSamePortfolio
     );
@@ -202,7 +258,11 @@ fn do_move_asset_from_portfolio() {
             bob.origin(),
             owner_default_portfolio,
             owner_user_portfolio,
-            vec![MovePortfolioItem { ticker, amount: 1 }]
+            vec![MovePortfolioItem {
+                ticker,
+                amount: 1,
+                memo: memo.clone()
+            }]
         ),
         Error::UnauthorizedCustodian
     );
@@ -216,8 +276,21 @@ fn do_move_asset_from_portfolio() {
         vec![MovePortfolioItem {
             ticker,
             amount: move_amount,
+            memo: memo.clone()
         }]
     ));
+    // check MovedBetweenPortfolios event
+    assert_last_event!(
+        EventTest::portfolio(RawEvent::MovedBetweenPortfolios(
+            did, from, to, i_ticker, i_amount, i_memo
+        )),
+        did == &owner.did
+            && from == &owner_default_portfolio
+            && to == &owner_user_portfolio
+            && i_ticker == &ticker
+            && i_amount == &move_amount
+            && i_memo == &memo
+    );
     assert_ok!(Portfolio::ensure_portfolio_transfer_validity(
         &owner_default_portfolio,
         &owner_user_portfolio,
@@ -272,6 +345,7 @@ fn can_lock_unlock_assets() {
                 vec![MovePortfolioItem {
                     ticker,
                     amount: token.total_supply,
+                    memo: None,
                 }]
             ),
             Error::InsufficientPortfolioBalance
@@ -285,6 +359,7 @@ fn can_lock_unlock_assets() {
             vec![MovePortfolioItem {
                 ticker,
                 amount: lock_amount,
+                memo: None,
             }]
         ));
         assert_eq!(
@@ -306,7 +381,11 @@ fn can_lock_unlock_assets() {
                 owner.origin(),
                 owner_default_portfolio,
                 owner_user_portfolio,
-                vec![MovePortfolioItem { ticker, amount: 1 }]
+                vec![MovePortfolioItem {
+                    ticker,
+                    amount: 1,
+                    memo: None
+                }]
             ),
             Error::InsufficientPortfolioBalance
         );
@@ -339,6 +418,7 @@ fn can_lock_unlock_assets() {
             vec![MovePortfolioItem {
                 ticker,
                 amount: token.total_supply - lock_amount,
+                memo: None,
             }]
         ));
         assert_eq!(Portfolio::default_portfolio_balance(owner.did, &ticker), 0,);
@@ -432,13 +512,29 @@ fn can_take_custody_of_portfolios() {
         );
 
         // Bob transfers portfolio custody back to Alice.
-        let auth_id = add_auth(bob, owner);
-        assert_ok!(Identity::accept_authorization(owner.origin(), auth_id));
-        assert!(has_custody(owner));
+        set_custodian_ok(bob, owner, owner_user_portfolio);
         // The mapping is removed which means the owner is the custodian.
-        assert_eq!(
-            pallet_portfolio::PortfolioCustodian::contains_key(&owner_user_portfolio),
-            false
+        assert_owner_is_custodian!(owner_user_portfolio);
+    });
+}
+
+#[test]
+fn quit_portfolio_custody() {
+    ExtBuilder::default().build().execute_with(|| {
+        let (alice, num) = create_portfolio();
+        let bob = User::new(AccountKeyring::Bob);
+        let user_portfolio = PortfolioId::user_portfolio(alice.did, num);
+
+        assert_noop!(
+            Portfolio::quit_portfolio_custody(bob.origin(), user_portfolio),
+            Error::UnauthorizedCustodian
         );
+        set_custodian_ok(alice, bob, user_portfolio);
+        assert_ok!(Portfolio::quit_portfolio_custody(
+            bob.origin(),
+            user_portfolio
+        ));
+        // The mapping is removed which means the owner is the custodian.
+        assert_owner_is_custodian!(user_portfolio);
     });
 }

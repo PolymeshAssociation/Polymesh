@@ -20,9 +20,9 @@ let nonces = new Map();
 
 let totalPermissions =
 {
-  "asset": null,
-  "extrinsic": null,
-  "portfolio": null
+  "asset": { "Whole": "" },
+  "extrinsic": { "Whole": "" },
+  "portfolio": { "Whole": "" }
 };
 
 let fail_count = 1;
@@ -35,17 +35,20 @@ let synced_block_ts = 0;
 // Amount to seed each key with
 let transfer_amount = new BN(25000).mul(new BN(10).pow(new BN(6)));
 
-const senderConditions1 = function (trusted_did, asset_did) {
-  return [
-    {
-      "condition_type": {
-        "IsPresent": {
-          "Exempted": asset_did
+const senderConditions1 = function (trusted_did) {
+  return {
+      condition_type: {
+        IsPresent: {
+          Exempted: {
+            Identity: trusted_did
+          }
         }
       },
-      issuers: [{ "issuer": trusted_did, "trusted_for": { "Any": "" } }]
-    },
-  ];
+      issuers: [{
+        issuer: trusted_did,
+        trusted_for: {Any: ""}
+      }]
+    };
 };
 
 const receiverConditions1 = senderConditions1;
@@ -297,14 +300,10 @@ async function issueTokenPerDid(api, accounts, ticker, amount, fundingRound) {
   let tickerExist = await api.query.asset.tickers(ticker);
 
   if (tickerExist.owner == 0) {
-
-
-    const transaction = api.tx.asset.createAsset(
-      ticker, ticker, amount, true, 0, [], fundingRound
-    );
-
-    await sendTx(accounts[0], transaction);
-
+    await sendTx(accounts[0], api.tx.asset.createAsset(
+        ticker, ticker, true, 0, [], fundingRound
+    ));
+    await sendTx(accounts[0], api.tx.asset.issue(ticker, amount));
   } else {
     console.log("ticker exists already");
   }
@@ -326,14 +325,14 @@ async function createClaimCompliance(api, accounts, dids, ticker) {
 
   assert(ticker.length <= 12, "Ticker cannot be longer than 12 characters");
 
-  let senderConditions = senderConditions1(dids[1], { "Ticker": ticker });
-  let receiverConditions = receiverConditions1(dids[1], { "Ticker": ticker });
+  let senderConditions = senderConditions1(dids[1]);
+  let receiverConditions = receiverConditions1(dids[1]);
 
   let nonceObj = { nonce: nonces.get(accounts[0].address) };
   const transaction = api.tx.complianceManager.addComplianceRequirement(
     ticker,
-    senderConditions,
-    receiverConditions
+    [senderConditions],
+    [receiverConditions]
   );
   await sendTransaction(transaction, accounts[0], nonceObj);
 

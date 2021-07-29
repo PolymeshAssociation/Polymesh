@@ -11,7 +11,7 @@ use pallet_pips as pips;
 use polymesh_common_utilities::{protocol_fee::ProtocolOp, SystematicIssuers, GC_DID};
 use polymesh_primitives::{
     cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, Identity, IdentityId, PosRatio,
-    SmartExtensionType,
+    Signatory, SmartExtensionType,
 };
 use sp_core::sr25519::Public;
 use sp_io::TestExternalities;
@@ -23,6 +23,8 @@ use test_client::AccountKeyring;
 pub const PROTOCOL_OP_BASE_FEE: u128 = 41;
 
 pub const COOL_OFF_PERIOD: u64 = 100;
+const DEFAULT_BRIGDE_LIMIT: u128 = 1_000_000_000_000_000;
+const DEFAULT_BRIDGE_TIMELOCK: u64 = 3;
 
 struct BuilderVoteThreshold {
     pub numerator: u32,
@@ -67,6 +69,22 @@ impl Default for MockProtocolBaseFees {
 }
 
 #[derive(Default)]
+struct BridgeConfig {
+    /// Complete TXs
+    pub complete_txs: Vec<BridgeTx<AccountId, u128>>,
+    /// Bridge admin key. See `Bridge` documentation for details.
+    pub admin: Option<Public>,
+    /// signers of the controller multisig account.
+    pub signers: Vec<Signatory<Public>>,
+    /// # of signers required for controller multisig account.
+    pub signatures_required: u64,
+    /// Bridge limit.
+    pub limit: Option<u128>,
+    /// Bridge timelock.
+    pub timelock: Option<u64>,
+}
+
+#[derive(Default)]
 pub struct ExtBuilder {
     /// Minimum weight for the extrinsic (see `weight_to_fee` below).
     extrinsic_base_weight: u64,
@@ -102,8 +120,8 @@ pub struct ExtBuilder {
     adjust: Option<Box<dyn FnOnce(&mut Storage)>>,
     /// Enable `put_code` in contracts pallet
     enable_contracts_put_code: bool,
-    /// Bridge complete TXs
-    bridge_complete_txs: Vec<BridgeTx<AccountId, u128>>,
+    /// Bridge configuration
+    bridge: BridgeConfig,
 }
 
 thread_local! {
@@ -236,7 +254,33 @@ impl ExtBuilder {
     }
 
     pub fn set_bridge_complete_tx(mut self, txs: Vec<BridgeTx<AccountId, u128>>) -> Self {
-        self.bridge_complete_txs = txs;
+        self.bridge.complete_txs = txs;
+        self
+    }
+
+    /// Sets the bridge controller.
+    pub fn set_bridge_controller(
+        mut self,
+        admin: Public,
+        signers: Vec<Public>,
+        signatures_required: u64,
+    ) -> Self {
+        self.bridge.admin = Some(admin);
+        self.bridge.signers = signers
+            .into_iter()
+            .map(Signatory::Account)
+            .collect::<Vec<_>>();
+        self.bridge.signatures_required = signatures_required;
+        self
+    }
+
+    pub fn set_bridge_limit(mut self, limit: u128) -> Self {
+        self.bridge.limit = Some(limit);
+        self
+    }
+
+    pub fn set_bridge_timelock(mut self, timelock: u64) -> Self {
+        self.bridge.timelock = Some(timelock);
         self
     }
 
@@ -302,6 +346,25 @@ impl ExtBuilder {
             .enumerate()
             .map(|(idx, acc)| (acc, did_maker(idx)))
             .collect()
+    }
+
+    fn build_bridge(&self, storage: &mut Storage) {
+        if let Some(creator) = self.bridge.admin {
+            pallet_bridge::GenesisConfig::<TestStorage> {
+                creator: creator.clone(),
+                signers: self.bridge.signers.clone(),
+                signatures_required: self.bridge.signatures_required,
+                bridge_limit: (self.bridge.limit.unwrap_or(DEFAULT_BRIGDE_LIMIT), 1),
+                timelock: self
+                    .bridge
+                    .timelock
+                    .unwrap_or(DEFAULT_BRIDGE_TIMELOCK)
+                    .into(),
+                ..Default::default()
+            }
+            .assimilate_storage(storage)
+            .unwrap();
+        }
     }
 
     fn build_identity_genesis(
@@ -437,7 +500,7 @@ impl ExtBuilder {
 
     fn build_bridge_genesis(&self, storage: &mut Storage) {
         pallet_bridge::GenesisConfig::<TestStorage> {
-            complete_txs: self.bridge_complete_txs.clone(),
+            complete_txs: self.bridge.complete_txs.clone(),
             ..Default::default()
         }
         .assimilate_storage(storage)
@@ -521,6 +584,8 @@ impl ExtBuilder {
         self.build_pips_genesis(&mut storage);
         self.build_contracts_genesis(&mut storage);
         self.build_bridge_genesis(&mut storage);
+
+        self.build_bridge(&mut storage);
 
         if let Some(adjust) = self.adjust {
             adjust(&mut storage);

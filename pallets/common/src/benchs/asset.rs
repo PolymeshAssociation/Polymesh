@@ -1,10 +1,8 @@
 use crate::{
     benchs::User,
     constants::currency::POLY,
-    traits::{asset::AssetFnTrait, identity::Trait as IdentityTrait},
+    traits::asset::{AssetFnTrait, Trait},
 };
-
-use frame_system::RawOrigin;
 use polymesh_primitives::{
     asset::{AssetName, AssetType},
     Ticker,
@@ -14,75 +12,39 @@ use sp_std::{convert::TryFrom, vec};
 pub type ResultTicker = Result<Ticker, &'static str>;
 
 /// Create a ticker and register it.
-pub fn make_ticker<Asset, Balance, Acc, O, N>(owner: O, opt_name: Option<N>) -> ResultTicker
-where
-    Asset: AssetFnTrait<Balance, Acc, O>,
-    N: AsRef<[u8]>,
-{
-    let ticker = match &opt_name {
-        Some(name) => Ticker::try_from(name.as_ref()).map_err(|_| "Invalid ticker name")?,
+pub fn make_ticker<T: Trait>(owner: T::Origin, opt_name: Option<&[u8]>) -> Ticker {
+    let ticker = match opt_name {
+        Some(name) => Ticker::try_from(name).expect("Invalid ticker name"),
         _ => Ticker::repeating(b'A'),
     };
-    Asset::register_ticker(owner, ticker).map_err(|_| "Ticker cannot be registered")?;
-
-    Ok(ticker)
+    T::AssetFn::register_ticker(owner, ticker).expect("Ticker cannot be registered");
+    ticker
 }
 
-pub fn make_asset<Asset, Identity, Balance, Acc, Origin, N>(
-    owner: &User<Identity>,
-    name: Option<N>,
-) -> ResultTicker
-where
-    Asset: AssetFnTrait<Balance, Acc, Origin>,
-    Identity: IdentityTrait,
-    Origin: From<RawOrigin<<Identity as frame_system::Trait>::AccountId>>,
-    Balance: From<u128>,
-    N: AsRef<[u8]>,
-{
-    make_base_asset::<Asset, Identity, Balance, Acc, Origin, N>(owner, true, name)
+pub fn make_asset<T: Trait>(owner: &User<T>, name: Option<&[u8]>) -> Ticker {
+    make_base_asset::<T>(owner, true, name)
 }
 
-pub fn make_indivisible_asset<Asset, Identity, Balance, Acc, Origin, N>(
-    owner: &User<Identity>,
-    name: Option<N>,
-) -> ResultTicker
-where
-    Asset: AssetFnTrait<Balance, Acc, Origin>,
-    Identity: IdentityTrait,
-    Origin: From<RawOrigin<<Identity as frame_system::Trait>::AccountId>>,
-    Balance: From<u128>,
-    N: AsRef<[u8]>,
-{
-    make_base_asset::<Asset, Identity, Balance, Acc, Origin, N>(owner, false, name)
+pub fn make_indivisible_asset<T: Trait>(owner: &User<T>, name: Option<&[u8]>) -> Ticker {
+    make_base_asset::<T>(owner, false, name)
 }
 
-fn make_base_asset<Asset, Identity, Balance, Acc, Origin, N>(
-    owner: &User<Identity>,
-    divisible: bool,
-    name: Option<N>,
-) -> ResultTicker
-where
-    Asset: AssetFnTrait<Balance, Acc, Origin>,
-    Identity: IdentityTrait,
-    Origin: From<RawOrigin<<Identity as frame_system::Trait>::AccountId>>,
-    Balance: From<u128>,
-    N: AsRef<[u8]>,
-{
-    let ticker = make_ticker::<Asset, _, _, _, _>(owner.origin().into(), name)?;
+fn make_base_asset<T: Trait>(owner: &User<T>, divisible: bool, name: Option<&[u8]>) -> Ticker {
+    let ticker = make_ticker::<T>(owner.origin().into(), name);
     let name: AssetName = ticker.as_slice().into();
-    let total_supply: Balance = (1_000_000 * POLY).into();
 
-    Asset::create_asset(
+    T::AssetFn::create_asset(
         owner.origin().into(),
-        name,
+        name.clone(),
         ticker,
-        total_supply,
         divisible,
         AssetType::default(),
         vec![],
         None,
     )
-    .map_err(|_| "Asset cannot be created")?;
+    .expect("Asset cannot be created");
 
-    Ok(ticker)
+    T::AssetFn::issue(owner.origin().into(), ticker, (1_000_000 * POLY).into()).unwrap();
+
+    ticker
 }

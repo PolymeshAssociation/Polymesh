@@ -23,7 +23,6 @@ pub trait Trait<Balance> {
         from_id: Option<IdentityId>,
         to_id: Option<IdentityId>,
         _value: Balance,
-        primary_issuance_agent: IdentityId,
     ) -> Result<u8, DispatchError>;
 
     fn verify_restriction_granular(

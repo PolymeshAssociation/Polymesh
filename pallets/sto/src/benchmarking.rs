@@ -1,5 +1,6 @@
 use crate::*;
 use frame_benchmarking::benchmarks;
+use frame_support::dispatch::DispatchError;
 use frame_support::traits::Get;
 use pallet_settlement::{
     benchmarking::{add_transfer_managers, compliance_setup},
@@ -16,7 +17,7 @@ const RAISE_TICKER: Ticker = Ticker::repeating(b'B');
 
 pub type Asset<T> = pallet_asset::Module<T>;
 pub type ComplianceManager<T> = pallet_compliance_manager::Module<T>;
-pub type Identity<T> = identity::Module<T>;
+pub type Identity<T> = pallet_identity::Module<T>;
 pub type Timestamp<T> = pallet_timestamp::Module<T>;
 pub type Settlement<T> = pallet_settlement::Module<T>;
 pub type Sto<T> = crate::Module<T>;
@@ -39,7 +40,7 @@ fn create_assets_and_compliance<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
                  complexity: u32,
                  transfer_managers: u32|
      -> DispatchResult {
-        make_asset::<T::AssetFn, T, T::Balance, T::AccountId, T::Origin, Ticker>(a, Some(ticker))?;
+        make_asset::<T>(a, Some(ticker.as_slice()));
         compliance_setup::<T>(
             complexity,
             ticker,
@@ -52,8 +53,8 @@ fn create_assets_and_compliance<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
         Ok(())
     };
 
-    setup(from, to, offering_ticker, complexity, transfer_managers)?;
-    setup(to, from, raise_ticker, complexity, transfer_managers)?;
+    setup(from, to, offering_ticker, complexity, transfer_managers).unwrap();
+    setup(to, from, raise_ticker, complexity, transfer_managers).unwrap();
 
     Ok(())
 }
@@ -77,7 +78,8 @@ fn create_venue<T: Trait>(user: &User<T>) -> Result<u64, DispatchError> {
         VenueDetails::default(),
         vec![user.account()],
         VenueType::Sto,
-    )?;
+    )
+    .unwrap();
     Ok(venue_id)
 }
 
@@ -101,9 +103,10 @@ fn setup_fundraiser<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
         RAISE_TICKER,
         complexity,
         transfer_managers,
-    )?;
+    )
+    .unwrap();
 
-    let venue_id = create_venue(&alice.user)?;
+    let venue_id = create_venue(&alice.user).unwrap();
 
     <Sto<T>>::create_fundraiser(
         alice.user.origin().into(),
@@ -117,7 +120,8 @@ fn setup_fundraiser<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
         Some(101u32.into()),
         0u32.into(),
         vec![].into(),
-    )?;
+    )
+    .unwrap();
 
     Ok((alice, bob))
 }
@@ -139,9 +143,9 @@ benchmarks! {
 
         let alice = user::<T>("alice");
 
-        create_assets_and_compliance::<T>(&alice.user, &alice.user, OFFERING_TICKER, RAISE_TICKER, 0, 0)?;
+        create_assets_and_compliance::<T>(&alice.user, &alice.user, OFFERING_TICKER, RAISE_TICKER, 0, 0).unwrap();
 
-        let venue_id = create_venue(&alice.user)?;
+        let venue_id = create_venue(&alice.user).unwrap();
         let tiers = generate_tiers::<T>(i);
     }: _(
             alice.user.origin(),
@@ -157,11 +161,11 @@ benchmarks! {
             vec![].into()
         )
     verify {
-        ensure!(FundraiserCount::get(OFFERING_TICKER) > 0, "create_fundraiser");
+        assert!(FundraiserCount::get(OFFERING_TICKER) > 0, "create_fundraiser");
     }
 
     invest {
-        let (alice, bob) = setup_fundraiser::<T>(T::MaxConditionComplexity::get() as u32, MAX_TIERS as u32, T::MaxTransferManagersPerAsset::get() as u32)?;
+        let (alice, bob) = setup_fundraiser::<T>(T::MaxConditionComplexity::get() as u32, MAX_TIERS as u32, T::MaxTransferManagersPerAsset::get() as u32).unwrap();
     }: _(
             bob.user.origin(),
             bob.portfolio,
@@ -173,39 +177,39 @@ benchmarks! {
             None
         )
     verify {
-        ensure!(<Asset<T>>::balance_of(&OFFERING_TICKER, bob.user.did()) > 0u32.into(), "invest");
+        assert!(<Asset<T>>::balance_of(&OFFERING_TICKER, bob.user.did()) > 0u32.into(), "invest");
     }
 
     freeze_fundraiser {
-        let (alice, _) = setup_fundraiser::<T>(0, 1, 0)?;
+        let (alice, _) = setup_fundraiser::<T>(0, 1, 0).unwrap();
     }: _(alice.user.origin(), OFFERING_TICKER, 0)
     verify {
-        ensure!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().status == FundraiserStatus::Frozen, "freeze_fundraiser");
+        assert_eq!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().status, FundraiserStatus::Frozen, "freeze_fundraiser");
     }
 
     unfreeze_fundraiser {
-        let (alice, _) = setup_fundraiser::<T>(0, 1, 0)?;
+        let (alice, _) = setup_fundraiser::<T>(0, 1, 0).unwrap();
         <Sto<T>>::freeze_fundraiser(
             alice.user.origin().into(),
             OFFERING_TICKER,
             0,
-        )?;
+        ).unwrap();
     }: _(alice.user.origin(), OFFERING_TICKER, 0)
     verify {
-        ensure!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().status == FundraiserStatus::Live, "unfreeze_fundraiser");
+        assert_eq!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().status, FundraiserStatus::Live, "unfreeze_fundraiser");
     }
 
     modify_fundraiser_window {
-        let (alice, _) = setup_fundraiser::<T>(0, 1, 0)?;
+        let (alice, _) = setup_fundraiser::<T>(0, 1, 0).unwrap();
     }: _(alice.user.origin(), OFFERING_TICKER, 0, 100u32.into(), Some(101u32.into()))
     verify {
-        ensure!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().end == Some(101u32.into()), "modify_fundraiser_window");
+        assert_eq!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().end, Some(101u32.into()), "modify_fundraiser_window");
     }
 
     stop {
-        let (alice, _) = setup_fundraiser::<T>(0, 1, 0)?;
+        let (alice, _) = setup_fundraiser::<T>(0, 1, 0).unwrap();
     }: _(alice.user.origin(), OFFERING_TICKER, 0)
     verify {
-        ensure!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().is_closed(), "stop");
+        assert!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().is_closed(), "stop");
     }
 }

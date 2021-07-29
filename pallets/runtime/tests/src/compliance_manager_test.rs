@@ -7,7 +7,7 @@ use super::{
 };
 use chrono::prelude::Utc;
 use frame_support::{assert_noop, assert_ok, traits::Currency};
-use pallet_asset::{self as asset, Error as AssetError, SecurityToken};
+use pallet_asset::SecurityToken;
 use pallet_balances as balances;
 use pallet_compliance_manager::{self as compliance_manager, Error as CMError};
 use pallet_group as group;
@@ -18,6 +18,7 @@ use polymesh_common_utilities::{
     Context,
 };
 use polymesh_primitives::{
+    agent::AgentGroup,
     asset::{AssetName, AssetType},
     compliance_manager::{
         AssetComplianceResult, ComplianceRequirement, ComplianceRequirementResult,
@@ -31,11 +32,12 @@ use test_client::AccountKeyring;
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
-type Asset = asset::Module<TestStorage>;
+type Asset = pallet_asset::Module<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
 type CDDGroup = group::Module<TestStorage, group::Instance2>;
 type Moment = u64;
 type Origin = <TestStorage as frame_system::Trait>::Origin;
+type EAError = pallet_external_agents::Error<TestStorage>;
 
 macro_rules! assert_invalid_transfer {
     ($ticker:expr, $from:expr, $to:expr, $amount:expr) => {
@@ -84,7 +86,7 @@ fn make_ticker_env(owner: AccountKeyring, token_name: AssetName) -> (Ticker, Ide
     };
 
     let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         Origin::signed(owner.public()),
         token.name.clone(),
         ticker,
@@ -130,7 +132,7 @@ fn should_add_and_verify_compliance_requirement_we() {
     Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
     // Share issuance is successful
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -345,7 +347,7 @@ fn should_replace_asset_compliance_we() {
     Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
     // Share issuance is successful
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -413,7 +415,7 @@ fn should_reset_asset_compliance_we() {
     Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
     // Share issuance is successful
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -472,7 +474,7 @@ fn pause_resume_asset_compliance_we() {
     Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
     // 2. Share issuance is successful
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -570,7 +572,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
     let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
 
     // 2. Share issuance is successful
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -581,10 +583,12 @@ fn should_successfully_add_and_use_default_issuers_we() {
         None,
     ));
 
+    /*
     assert_ok!(Asset::remove_primary_issuance_agent(
         token_owner_signed.clone(),
         ticker
     ));
+    */
 
     // Failed because trusted issuer identity not exist
     assert_noop!(
@@ -731,7 +735,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
 
     // 2. Share issuance is successful
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -855,14 +859,14 @@ fn should_modify_vector_of_trusted_issuer_we() {
         id: 1,
     };
 
-    // Failed because sender is not the owner of the ticker
+    // Failed because sender is not an agent of the ticker
     assert_noop!(
         ComplianceManager::change_compliance_requirement(
             receiver_signed.clone(),
             ticker,
             compliance_requirement.clone()
         ),
-        AssetError::<TestStorage>::Unauthorized
+        EAError::UnauthorizedAgent
     );
 
     let compliance_requirement_failure = ComplianceRequirement {
@@ -915,7 +919,7 @@ fn jurisdiction_asset_compliance_we() {
         ..Default::default()
     };
     let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -1375,7 +1379,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
     let random_guy_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
     let token_name: AssetName = vec![b'A'].into();
     let ticker = Ticker::try_from(token_name.0.as_slice()).unwrap();
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         owner_origin.clone(),
         token_name,
         ticker,
@@ -1388,10 +1392,10 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
     let auth_id = Identity::add_auth(
         owner_id,
         Signatory::from(issuer_id),
-        AuthorizationData::TransferPrimaryIssuanceAgent(ticker),
+        AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),
         None,
     );
-    assert_ok!(Asset::accept_primary_issuance_agent_transfer(
+    assert_ok!(Identity::accept_authorization(
         Origin::signed(issuer),
         auth_id
     ));
@@ -1406,16 +1410,17 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
 
     // No compliance requirement is present, compliance should fail
     assert_ok!(
-        ComplianceManager::verify_restriction(&ticker, None, Some(issuer_id), amount, issuer_id),
+        ComplianceManager::verify_restriction(&ticker, None, Some(issuer_id), amount),
         ERC1400_TRANSFER_FAILURE
     );
 
-    // Add compliance requirement that requires sender to be primary issuance agent (dynamic) and receiver to be a specific random_guy_id
+    // Add compliance requirement that requires sender to be primary issuance agent (dynamic)
+    // and receiver to be a specific random_guy_id.
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner_origin,
         ticker,
         vec![Condition {
-            condition_type: ConditionType::IsIdentity(TargetIdentity::PrimaryIssuanceAgent),
+            condition_type: ConditionType::IsIdentity(TargetIdentity::ExternalAgent),
             issuers: vec![],
         }],
         vec![Condition {
@@ -1424,41 +1429,17 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
         }]
     ));
 
+    let verify =
+        |from, to| ComplianceManager::verify_restriction(&ticker, Some(from), Some(to), amount);
+
     // From primary issuance agent to the random guy should succeed
-    assert_ok!(
-        ComplianceManager::verify_restriction(
-            &ticker,
-            Some(issuer_id),
-            Some(random_guy_id),
-            amount,
-            issuer_id
-        ),
-        ERC1400_TRANSFER_SUCCESS
-    );
+    assert_ok!(verify(issuer_id, random_guy_id), ERC1400_TRANSFER_SUCCESS);
 
     // From primary issuance agent to owner should fail
-    assert_ok!(
-        ComplianceManager::verify_restriction(
-            &ticker,
-            Some(issuer_id),
-            Some(owner_id),
-            amount,
-            issuer_id
-        ),
-        ERC1400_TRANSFER_FAILURE
-    );
+    assert_ok!(verify(issuer_id, owner_id), ERC1400_TRANSFER_FAILURE);
 
     // From random guy to primary issuance agent should fail
-    assert_ok!(
-        ComplianceManager::verify_restriction(
-            &ticker,
-            Some(random_guy_id),
-            Some(issuer_id),
-            amount,
-            issuer_id
-        ),
-        ERC1400_TRANSFER_FAILURE
-    );
+    assert_ok!(verify(random_guy_id, issuer_id), ERC1400_TRANSFER_FAILURE);
 }
 
 #[test]
@@ -1487,7 +1468,7 @@ fn should_limit_compliance_requirements_complexity_we() {
     Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
     // Share issuance is successful
-    assert_ok!(Asset::create_asset(
+    assert_ok!(Asset::base_create_asset_and_mint(
         token_owner_signed.clone(),
         token.name.clone(),
         ticker,
@@ -1566,7 +1547,7 @@ fn check_new_return_type_of_rpc() {
         Balances::make_free_balance_be(&token_owner_acc, 1_000_000);
 
         // 2. Share issuance is successful
-        assert_ok!(Asset::create_asset(
+        assert_ok!(Asset::base_create_asset_and_mint(
             token_owner_signed.clone(),
             token.name.clone(),
             ticker,

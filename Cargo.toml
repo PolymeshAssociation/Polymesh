@@ -1,6 +1,6 @@
 [package]
 name = "polymesh"
-version = "3.0.4"
+version = "3.1.0"
 authors = ["Polymath"]
 build = "build.rs"
 edition = "2018"
@@ -115,6 +115,7 @@ members = [
     "pallets/compliance-manager",
     "pallets/contracts",
     "pallets/corporate-actions",
+    "pallets/external-agents",
     "pallets/group",
     "pallets/group/rpc",
     "pallets/group/rpc/runtime-api",
@@ -152,6 +153,7 @@ pallet-balances = { path = "pallets/balances", default-features = false  }
 pallet-bridge = { path = "pallets/bridge", default-features = false }
 pallet-committee = { path = "pallets/committee", default-features = false }
 pallet-corporate-actions = { path = "pallets/corporate-actions", default-features = false }
+pallet-external-agents = { path = "pallets/external-agents", default-features = false }
 pallet-group = { path = "pallets/group", default-features = false }
 pallet-identity = { path = "pallets/identity", default-features = false }
 pallet-multisig = { path = "pallets/multisig", default-features = false }

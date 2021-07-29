@@ -89,3 +89,6 @@ pub const CDD_MODULE_ID: ModuleId = ModuleId(*b"pm/cusdd");
 pub const SETTLEMENT_MODULE_ID: ModuleId = ModuleId(*b"pm/setmn");
 pub const CLASSIC_MIGRATION_MODULE_ID: ModuleId = ModuleId(*b"pm/ehmig");
 pub const FIAT_TICKERS_RESERVATION_MODULE_ID: ModuleId = ModuleId(*b"pm/ftres");
+
+/// Base module constants
+pub const ENSURED_MAX_LEN: u32 = 2048;

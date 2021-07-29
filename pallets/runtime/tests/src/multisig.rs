@@ -1,8 +1,9 @@
 use super::{
+    next_block,
     storage::{get_last_auth_id, register_keyring_account, Call, TestStorage},
     ExtBuilder,
 };
-use frame_support::{assert_noop, assert_ok, traits::OnInitialize};
+use frame_support::{assert_noop, assert_ok};
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_multisig as multisig;
@@ -19,12 +20,6 @@ type Origin = <TestStorage as frame_system::Trait>::Origin;
 type Error = multisig::Error<TestStorage>;
 type System = frame_system::Module<TestStorage>;
 type Scheduler = pallet_scheduler::Module<TestStorage>;
-
-pub fn next_block() {
-    let block_number = System::block_number() + 1;
-    System::set_block_number(block_number);
-    let _ = Scheduler::on_initialize(block_number);
-}
 
 #[test]
 fn create_multisig() {

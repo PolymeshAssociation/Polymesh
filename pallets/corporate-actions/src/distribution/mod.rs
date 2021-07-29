@@ -92,6 +92,7 @@ use sp_std::prelude::*;
 
 type Asset<T> = asset::Module<T>;
 type Checkpoint<T> = checkpoint::Module<T>;
+type ExternalAgents<T> = pallet_external_agents::Module<T>;
 type CA<T> = ca::Module<T>;
 type Identity<T> = identity::Module<T>;
 type Portfolio<T> = pallet_portfolio::Module<T>;
@@ -184,7 +185,7 @@ decl_module! {
         /// if provided, or if `None`, then there's no expiry.
         ///
         /// ## Arguments
-        /// - `origin` which must be a signer for the CAA of `ca_id`.
+        /// - `origin` which must be a signer for a CAA of `ca_id`.
         /// - `ca_id` identifies the CA to start a capital distribution for.
         /// - `portfolio` specifies the portfolio number of the CAA to distribute `amount` from.
         /// - `currency` to withdraw and distribute from the `portfolio`.
@@ -196,7 +197,7 @@ decl_module! {
         ///    and may be reclaimed by `origin`.
         ///
         /// # Errors
-        /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
         /// - `DistributingAsset` if `ca_id.ticker == currency`.
         /// - `ExpiryBeforePayment` if `expires_at.unwrap() <= payment_at`.
         /// - `NoSuchCA` if `ca_id` does not identify an existing CA.
@@ -235,7 +236,7 @@ decl_module! {
                 primary_did: caa,
                 secondary_key,
                 ..
-            } = <CA<T>>::ensure_ca_agent_with_perms(origin, ca_id.ticker)?;
+            } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ca_id.ticker)?;
             let from = PortfolioId { did: caa, kind: portfolio.into() };
             <Portfolio<T>>::ensure_portfolio_custody(from, caa)?;
             <Portfolio<T>>::ensure_user_portfolio_permission(secondary_key.as_ref(), from)?;
@@ -286,7 +287,7 @@ decl_module! {
         /// All benefits are rounded by truncation (down to first integer below).
         ///
         /// ## Arguments
-        /// - `origin` which must be a holder of for the CAA of `ca_id`.
+        /// - `origin` which must be a holder of for a CAA of `ca_id`.
         /// - `ca_id` identifies the CA to start a capital distribution for.
         ///
         /// # Errors
@@ -313,12 +314,12 @@ decl_module! {
         /// All benefits are rounded by truncation (down to first integer below).
         ///
         /// ## Arguments
-        /// - `origin` which must be a holder of for the CAA of `ca_id`.
+        /// - `origin` which must be a holder of for a CAA of `ca_id`.
         /// - `ca_id` identifies the CA with a capital distributions to push benefits for.
         /// - `holder` to push benefits to.
         ///
         /// # Errors
-        /// - `UnauthorizedAsAgent` if `origin` is not the `ticker`'s CAA or owner.
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
         /// - `NoSuchDistribution` if there's no capital distribution for `ca_id`.
         /// - `CannotClaimBeforeStart` if `now < payment_at`.
         /// - `CannotClaimAfterExpiry` if `now > expiry_at.unwrap()`.
@@ -329,9 +330,8 @@ decl_module! {
         /// - Other errors can occur if the compliance manager rejects the transfer.
         #[weight = <T as Trait>::DistWeightInfo::push_benefit(T::MaxTargetIds::get(), T::MaxDidWhts::get())]
         pub fn push_benefit(origin, ca_id: CAId, holder: IdentityId) {
-            // N.B. we allow the asset owner to call this as well, not just the CAA.
-            let caa_ish = Self::ensure_caa_or_owner(origin, ca_id.ticker)?.for_event();
-            Self::transfer_benefit(caa_ish, holder, ca_id)?;
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
+            Self::transfer_benefit(agent, holder, ca_id)?;
         }
 
         /// Assuming a distribution has expired,
@@ -371,16 +371,16 @@ decl_module! {
         /// unlocking the full amount in the distributor portfolio.
         ///
         /// ## Arguments
-        /// - `origin` which must be a signer for the CAA of `ca_id`.
+        /// - `origin` which must be a signer for a CAA of `ca_id`.
         /// - `ca_id` identifies the CA with a not-yet-started capital distribution to remove.
         ///
         /// # Errors
-        /// - `UnauthorizedAsAgent` if `origin` is not `ticker`'s sole CAA (owner is not necessarily the CAA).
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
         /// - `NoSuchDistribution` if there's no capital distribution for `ca_id`.
         /// - `DistributionStarted` if `payment_at <= now`.
         #[weight = <T as Trait>::DistWeightInfo::remove_distribution()]
         pub fn remove_distribution(origin, ca_id: CAId) {
-            let caa = <CA<T>>::ensure_ca_agent(origin, ca_id.ticker)?.for_event();
+            let caa = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
             let dist = Self::ensure_distribution_exists(ca_id)?;
             Self::remove_distribution_base(caa, ca_id, &dist)?;
         }
@@ -564,18 +564,5 @@ impl<T: Trait> Module<T> {
             Error::<T>::CannotClaimAfterExpiry
         );
         Ok(dist)
-    }
-
-    /// Ensure that `origin` is authorized as a CA agent of the asset `ticker` or its owner.
-    /// When `origin` is unsigned, `BadOrigin` occurs.
-    /// If DID is not the CAA of `ticker` or its owner, `UnauthorizedAsAgent` occurs.
-    fn ensure_caa_or_owner(origin: T::Origin, ticker: Ticker) -> Result<IdentityId, DispatchError> {
-        let did = <Identity<T>>::ensure_perms(origin)?;
-        ensure!(
-            <CA<T>>::agent(ticker).filter(|caa| caa == &did).is_some()
-                || <Asset<T>>::is_owner(&ticker, did),
-            ca::Error::<T>::UnauthorizedAsAgent
-        );
-        Ok(did)
     }
 }

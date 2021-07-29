@@ -1,5 +1,4 @@
 //! Polymesh CLI binary.
-#![feature(box_syntax)]
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
 
