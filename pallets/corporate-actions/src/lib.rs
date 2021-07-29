@@ -404,7 +404,7 @@ decl_storage! {
         pub CADocLink get(fn ca_doc_link): map hasher(blake2_128_concat) CAId => Vec<DocumentId>;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2).unwrap()): Version;
     }
 }
 
@@ -422,13 +422,11 @@ decl_module! {
         const MaxDidWhts: u32 = T::MaxDidWhts::get();
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion::get(), 1, {
-                use polymesh_primitives::migrate::{Empty, migrate_map};
-                migrate_map::<CorporateActionOld, _>(b"CorporateActions", b"CorporateActions", |_| Empty);
-            });
 
             storage_migrate_on!(StorageVersion::get(), 2, {
-                StorageKeyIterator::<Ticker, IdentityId, Blake2_128Concat>::new(b"CorporateActions", b"Agent")
+                use polymesh_primitives::migrate::{Empty, migrate_map};
+                migrate_map::<CorporateActionOld, _>(b"CorporateAction", b"CorporateActions", |_| Empty);
+                StorageKeyIterator::<Ticker, IdentityId, Blake2_128Concat>::new(b"CorporateAction", b"Agent")
                     .drain()
                     .for_each(|(ticker, agent)| {
                         ExternalAgents::<T>::add_agent_if_not(ticker, agent, AgentGroup::PolymeshV1CAA).unwrap();
