@@ -1573,10 +1573,7 @@ impl<T: Config> Module<T> {
     ///
     /// # Errors
     /// - `CDDIdNotUniqueForIdentity` is returned when new cdd claim's cdd_id doesn't match the existing cdd claim's cdd_id.
-    fn ensure_cdd_id_validness(
-        claim: &Claim,
-        target: IdentityId,
-    ) -> DispatchResult {
+    fn ensure_cdd_id_validness(claim: &Claim, target: IdentityId) -> DispatchResult {
         if let Claim::CustomerDueDiligence(cdd_id) = claim {
             ensure!(
                 cdd_id.is_default_cdd()
