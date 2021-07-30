@@ -395,6 +395,13 @@ decl_storage! {
         /// Tracks the ScopeId of the identity for a given ticker.
         /// (Ticker, IdentityId) => ScopeId.
         pub ScopeIdOf get(fn scope_id_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) IdentityId => ScopeId;
+
+        /// Decides whether investor uniqueness requirement is enforced for this asset.
+        /// `false` means that it is enforced.
+        ///
+        /// Ticker => bool.
+        pub DisableInvestorUniqueness get(fn disable_iu): map hasher(blake2_128_concat) Ticker => bool;
+
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(4).unwrap()): Version;
     }
@@ -553,6 +560,8 @@ decl_module! {
         /// * `asset_type` - the asset type.
         /// * `identifiers` - a vector of asset identifiers.
         /// * `funding_round` - name of the funding round.
+        /// * `disable_iu` - whether or not investor uniqueness enforcement should be disabled.
+        ///   This cannot be changed after creating the asset.
         ///
         /// ## Errors
         /// - `InvalidAssetIdentifier` if any of `identifiers` are invalid.
@@ -578,10 +587,11 @@ decl_module! {
             divisible: bool,
             asset_type: AssetType,
             identifiers: Vec<AssetIdentifier>,
-            funding_round: Option<FundingRoundName>
+            funding_round: Option<FundingRoundName>,
+            disable_iu: bool,
         ) -> DispatchResult {
-            Self::base_create_asset(origin, name, ticker, divisible, asset_type, identifiers, funding_round)
-                .map(|_| ())
+            Self::base_create_asset(origin, name, ticker, divisible, asset_type, identifiers, funding_round, disable_iu)
+                .map(drop)
         }
 
         /// Freezes transfers and minting of a given token.
@@ -980,6 +990,7 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::Origin> for Module<T> {
         asset_type: AssetType,
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
+        disable_iu: bool,
     ) -> DispatchResult {
         Self::create_asset(
             origin,
@@ -989,6 +1000,7 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::Origin> for Module<T> {
             asset_type,
             identifiers,
             funding_round,
+            disable_iu,
         )
     }
 
@@ -1047,7 +1059,7 @@ impl<T: Config> AssetSubTrait for Module<T> {
     fn update_balance_of_scope_id(scope_id: ScopeId, target_did: IdentityId, ticker: Ticker) {
         // If `target_did` already has another ScopeId, clean up the old ScopeId data.
         if ScopeIdOf::contains_key(&ticker, &target_did) {
-            let old_scope_id = Self::scope_id_of(&ticker, &target_did);
+            let old_scope_id = Self::scope_id(&ticker, &target_did);
             // Delete the balance of target_did at old_scope_id.
             let target_balance = BalanceOfAtScope::take(old_scope_id, target_did);
             // Reduce the aggregate balance of identities with the same ScopeId by the deleted balance.
@@ -1077,8 +1089,12 @@ impl<T: Config> AssetSubTrait for Module<T> {
         Self::balance_of_at_scope(scope_id, target)
     }
 
-    fn scope_id_of(ticker: &Ticker, did: &IdentityId) -> ScopeId {
-        Self::scope_id_of(ticker, did)
+    fn scope_id(ticker: &Ticker, did: &IdentityId) -> ScopeId {
+        if DisableInvestorUniqueness::get(ticker) {
+            Self::scope_id_of(ticker, did)
+        } else {
+            Self::scope_id_of(ticker, did)
+        }
     }
 }
 
@@ -1366,8 +1382,8 @@ impl<T: Config> Module<T> {
             value,
         );
 
-        let from_scope_id = Self::scope_id_of(ticker, &from_portfolio.did);
-        let to_scope_id = Self::scope_id_of(ticker, &to_portfolio.did);
+        let from_scope_id = Self::scope_id(ticker, &from_portfolio.did);
+        let to_scope_id = Self::scope_id(ticker, &to_portfolio.did);
 
         Self::update_scope_balance(
             ticker,
@@ -1473,7 +1489,7 @@ impl<T: Config> Module<T> {
         Tokens::insert(ticker, token);
 
         let updated_to_balance = if ScopeIdOf::contains_key(ticker, &to_did) {
-            let scope_id = Self::scope_id_of(ticker, &to_did);
+            let scope_id = Self::scope_id(ticker, &to_did);
             Self::update_scope_balance(&ticker, value, scope_id, to_did, updated_to_balance, false);
             // Using the aggregate balance to update the unique investor count.
             Self::aggregate_balance_of(ticker, &scope_id)
@@ -1733,6 +1749,7 @@ impl<T: Config> Module<T> {
                 asset_type,
                 identifiers,
                 funding_round,
+                false,
             )?;
 
             // Mint total supply to PIA
@@ -1751,6 +1768,7 @@ impl<T: Config> Module<T> {
         asset_type: AssetType,
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
+        disable_iu: bool,
     ) -> Result<IdentityId, DispatchError> {
         Self::ensure_asset_name_bounded(&name)?;
         if let Some(fr) = &funding_round {
@@ -1834,6 +1852,7 @@ impl<T: Config> Module<T> {
         };
         Tokens::insert(&ticker, token);
         AssetNames::insert(&ticker, name);
+        DisableInvestorUniqueness::insert(&ticker, disable_iu);
         // NB - At the time of asset creation it is obvious that asset issuer/ primary issuance agent will not have
         // `InvestorUniqueness` claim. So we are skipping the scope claim based stats update as
         // those data points will get added in to the system whenever asset issuer/ primary issuance agent
@@ -1917,7 +1936,7 @@ impl<T: Config> Module<T> {
         Tokens::mutate(ticker, |token| token.total_supply -= value);
 
         // Update scope balances
-        let scope_id = Self::scope_id_of(ticker, &pia);
+        let scope_id = Self::scope_id(&ticker, &pia);
         Self::update_scope_balance(&ticker, value, scope_id, pia, updated_balance, true);
 
         // Update statistic info.
@@ -2292,6 +2311,7 @@ impl<T: Config> Module<T> {
     }
 
     fn missing_scope_claim(ticker: &Ticker, from: &PortfolioId, to: &PortfolioId) -> bool {
+        DisableInvestorUniqueness::get(ticker) ||
         !Identity::<T>::verify_iu_claims_for_transfer(*ticker, to.did, from.did)
     }
 
@@ -2324,8 +2344,8 @@ impl<T: Config> Module<T> {
         ticker: &Ticker,
     ) -> (ScopeId, ScopeId, SecurityToken) {
         (
-            Self::scope_id_of(ticker, &from_portfolio.did),
-            Self::scope_id_of(ticker, &to_portfolio.did),
+            Self::scope_id(ticker, &from_portfolio.did),
+            Self::scope_id(ticker, &to_portfolio.did),
             Tokens::get(ticker),
         )
     }

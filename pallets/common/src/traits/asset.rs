@@ -46,7 +46,7 @@ pub trait AssetSubTrait {
     fn balance_of_at_scope(scope_id: &ScopeId, target: &IdentityId) -> Balance;
 
     /// Returns the `ScopeId` for a given `ticker` and `did`.
-    fn scope_id_of(ticker: &Ticker, did: &IdentityId) -> ScopeId;
+    fn scope_id(ticker: &Ticker, did: &IdentityId) -> ScopeId;
 }
 
 pub trait AssetFnTrait<Account, Origin> {
@@ -60,6 +60,7 @@ pub trait AssetFnTrait<Account, Origin> {
         asset_type: AssetType,
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
+        disable_iu: bool,
     ) -> DispatchResult;
 
     fn create_asset_and_mint(
