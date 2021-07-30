@@ -1004,28 +1004,6 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::Origin> for Module<T> {
         )
     }
 
-    fn create_asset_and_mint(
-        origin: T::Origin,
-        name: AssetName,
-        ticker: Ticker,
-        total_supply: Balance,
-        divisible: bool,
-        asset_type: AssetType,
-        identifiers: Vec<AssetIdentifier>,
-        funding_round: Option<FundingRoundName>,
-    ) -> DispatchResult {
-        Self::base_create_asset_and_mint(
-            origin,
-            name,
-            ticker,
-            total_supply,
-            divisible,
-            asset_type,
-            identifiers,
-            funding_round,
-        )
-    }
-
     fn register_ticker(origin: T::Origin, ticker: Ticker) -> DispatchResult {
         Self::base_register_ticker(origin, ticker)
     }
@@ -1729,36 +1707,6 @@ impl<T: Config> Module<T> {
         Ok(did)
     }
     */
-
-    pub fn base_create_asset_and_mint(
-        origin: T::Origin,
-        name: AssetName,
-        ticker: Ticker,
-        total_supply: Balance,
-        divisible: bool,
-        asset_type: AssetType,
-        identifiers: Vec<AssetIdentifier>,
-        funding_round: Option<FundingRoundName>,
-    ) -> DispatchResult {
-        with_transaction(|| {
-            let did = Self::base_create_asset(
-                origin,
-                name,
-                ticker,
-                divisible,
-                asset_type,
-                identifiers,
-                funding_round,
-                false,
-            )?;
-
-            // Mint total supply to PIA
-            if total_supply > Zero::zero() {
-                Self::_mint(&ticker, did, total_supply, None)?
-            }
-            Ok(())
-        })
-    }
 
     fn base_create_asset(
         origin: T::Origin,
