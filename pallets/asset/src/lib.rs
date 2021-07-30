@@ -1069,7 +1069,7 @@ impl<T: Config> AssetSubTrait for Module<T> {
 
     fn scope_id(ticker: &Ticker, did: &IdentityId) -> ScopeId {
         if DisableInvestorUniqueness::get(ticker) {
-            Self::scope_id_of(ticker, did)
+            *did
         } else {
             Self::scope_id_of(ticker, did)
         }
