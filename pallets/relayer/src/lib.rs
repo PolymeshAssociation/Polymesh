@@ -35,8 +35,6 @@
 //! - `accept_paying_key` accepts a `paying_key` authorization.
 //! - `remove_paying_key` removes the `paying_key` from a `user_key`.
 //! - `update_polyx_limit` updates the available POLYX for a `user_key`.
-//!
-//! TODO: Add more tests.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
