@@ -40,7 +40,7 @@ fn setup_paying_key<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, User
         payer.did(),
         user.account(),
         payer.account(),
-        0u128.into(),
+        0u128,
     )
     .unwrap();
     (payer, user)
@@ -51,20 +51,20 @@ benchmarks! {
 
     set_paying_key {
         let (payer, user) = setup_users::<T>();
-    }: _(payer.origin(), user.account(), 0u128.into())
+    }: _(payer.origin(), user.account(), 0u128)
 
     accept_paying_key {
         let (payer, user) = setup_users::<T>();
         let limit = 100u128;
         // setup authorization
         let auth_id = <Relayer<T>>::unverified_add_auth_for_paying_key(
-            payer.did(), user.account(), payer.account(), limit.into()
+            payer.did(), user.account(), payer.account(), limit
         );
     }: _(user.origin(), auth_id)
     verify {
         assert_eq!(Subsidies::<T>::get(user.account()), Some(Subsidy {
             paying_key: payer.account(),
-            remaining: limit.into(),
+            remaining: limit,
         }));
     }
 
@@ -78,11 +78,11 @@ benchmarks! {
     update_polyx_limit {
         let limit = 1_000u128;
         let (payer, user) = setup_paying_key::<T>();
-    }: _(payer.origin(), user.account(), limit.into())
+    }: _(payer.origin(), user.account(), limit)
     verify {
         assert_eq!(Subsidies::<T>::get(user.account()), Some(Subsidy {
             paying_key: payer.account(),
-            remaining: limit.into(),
+            remaining: limit,
         }));
     }
 }

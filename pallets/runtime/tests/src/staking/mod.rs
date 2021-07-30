@@ -71,6 +71,28 @@ macro_rules! assert_permissioned_identity_prefs {
     };
 }
 
+// Polymath: Re-implement `assert_eq_uvec` from substrate to fix compile warnings.
+#[macro_export]
+#[doc(hidden)]
+macro_rules! assert_eq_uvec {
+    ( $x:expr, $y:expr $(,)? ) => {
+        $crate::__assert_eq_uvec!($x, $y);
+        $crate::__assert_eq_uvec!($y, $x);
+    };
+}
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __assert_eq_uvec {
+    ( $x:expr, $y:expr ) => {
+        $x.iter().for_each(|e| {
+            // Polymath: removed the un-needed `format!`.
+            if !$y.contains(e) {
+                panic!("vectors not equal: {:?} != {:?}", $x, $y);
+            }
+        });
+    };
+}
+
 mod mock;
 use chrono::prelude::Utc;
 use codec::Decode;
@@ -94,7 +116,6 @@ use sp_staking::{
     offence::{OffenceDetails, OnOffenceHandler},
     SessionIndex,
 };
-use substrate_test_utils::assert_eq_uvec;
 
 #[test]
 fn force_unstake_works() {
@@ -3278,7 +3299,6 @@ mod offchain_phragmen {
     use sp_npos_elections::StakedAssignment;
     use sp_runtime::transaction_validity::TransactionSource;
     use std::sync::Arc;
-    use substrate_test_utils::assert_eq_uvec;
 
     fn percent(x: u16) -> OffchainAccuracy {
         OffchainAccuracy::from_percent(x)
@@ -5491,7 +5511,7 @@ fn test_reward_scheduling() {
                 }
             );
             let _part_for_10 = Perbill::from_rational_approximation::<u32>(1000, 1125);
-            let part_for_20 = Perbill::from_rational_approximation::<u32>(1000, 1375);
+            let _part_for_20 = Perbill::from_rational_approximation::<u32>(1000, 1375);
             let part_for_100_from_10 = Perbill::from_rational_approximation::<u32>(125, 1125);
             let part_for_100_from_20 = Perbill::from_rational_approximation::<u32>(375, 1375);
 

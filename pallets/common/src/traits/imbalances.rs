@@ -14,9 +14,11 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::traits::CommonConfig;
+use core::marker::PhantomData;
 use frame_support::traits::{Imbalance, TryDrop};
 use polymesh_primitives::traits::BlockRewardsReserveCurrency;
-use sp_arithmetic::traits::{Saturating, Zero};
+use polymesh_primitives::Balance;
+use sp_arithmetic::traits::Zero;
 use sp_std::{mem, result};
 
 // wrapping these imbalances in a private module is necessary to ensure absolute privacy
@@ -25,12 +27,12 @@ use sp_std::{mem, result};
 /// Opaque, move-only struct with private fields that serves as a token denoting that
 /// funds have been created without any equal and opposite accounting.
 #[must_use]
-pub struct PositiveImbalance<T: CommonConfig>(T::Balance);
+pub struct PositiveImbalance<T: CommonConfig>(Balance, PhantomData<T>);
 
 impl<T: CommonConfig> PositiveImbalance<T> {
     /// Create a new positive imbalance from a balance.
-    pub fn new(amount: T::Balance) -> Self {
-        PositiveImbalance(amount)
+    pub fn new(amount: Balance) -> Self {
+        PositiveImbalance(amount, PhantomData)
     }
 }
 
@@ -40,11 +42,11 @@ impl<T: CommonConfig> TryDrop for PositiveImbalance<T> {
     }
 }
 
-impl<T: CommonConfig> Imbalance<T::Balance> for PositiveImbalance<T> {
+impl<T: CommonConfig> Imbalance<Balance> for PositiveImbalance<T> {
     type Opposite = NegativeImbalance<T>;
 
     fn zero() -> Self {
-        Self(Zero::zero())
+        Self::new(Zero::zero())
     }
 
     fn drop_zero(self) -> result::Result<(), Self> {
@@ -55,12 +57,12 @@ impl<T: CommonConfig> Imbalance<T::Balance> for PositiveImbalance<T> {
         }
     }
 
-    fn split(self, amount: T::Balance) -> (Self, Self) {
+    fn split(self, amount: Balance) -> (Self, Self) {
         let first = self.0.min(amount);
         let second = self.0 - first;
 
         mem::forget(self);
-        (Self(first), Self(second))
+        (Self::new(first), Self::new(second))
     }
 
     fn merge(mut self, other: Self) -> Self {
@@ -80,13 +82,13 @@ impl<T: CommonConfig> Imbalance<T::Balance> for PositiveImbalance<T> {
         mem::forget((self, other));
 
         if a >= b {
-            Ok(Self(a - b))
+            Ok(Self::new(a - b))
         } else {
             Err(NegativeImbalance::new(b - a))
         }
     }
 
-    fn peek(&self) -> T::Balance {
+    fn peek(&self) -> Balance {
         self.0
     }
 }
@@ -101,12 +103,12 @@ impl<T: CommonConfig> Drop for PositiveImbalance<T> {
 /// Opaque, move-only struct with private fields that serves as a token denoting that
 /// funds have been destroyed without any equal and opposite accounting.
 #[must_use]
-pub struct NegativeImbalance<T: CommonConfig>(T::Balance);
+pub struct NegativeImbalance<T: CommonConfig>(Balance, PhantomData<T>);
 
 impl<T: CommonConfig> NegativeImbalance<T> {
     /// Create a new negative imbalance from a balance.
-    pub fn new(amount: T::Balance) -> Self {
-        NegativeImbalance(amount)
+    pub fn new(amount: Balance) -> Self {
+        NegativeImbalance(amount, PhantomData)
     }
 }
 
@@ -116,11 +118,11 @@ impl<T: CommonConfig> TryDrop for NegativeImbalance<T> {
     }
 }
 
-impl<T: CommonConfig> Imbalance<T::Balance> for NegativeImbalance<T> {
+impl<T: CommonConfig> Imbalance<Balance> for NegativeImbalance<T> {
     type Opposite = PositiveImbalance<T>;
 
     fn zero() -> Self {
-        Self(Zero::zero())
+        Self::new(Zero::zero())
     }
 
     fn drop_zero(self) -> result::Result<(), Self> {
@@ -131,12 +133,12 @@ impl<T: CommonConfig> Imbalance<T::Balance> for NegativeImbalance<T> {
         }
     }
 
-    fn split(self, amount: T::Balance) -> (Self, Self) {
+    fn split(self, amount: Balance) -> (Self, Self) {
         let first = self.0.min(amount);
         let second = self.0 - first;
 
         mem::forget(self);
-        (Self(first), Self(second))
+        (Self::new(first), Self::new(second))
     }
 
     fn merge(mut self, other: Self) -> Self {
@@ -156,13 +158,13 @@ impl<T: CommonConfig> Imbalance<T::Balance> for NegativeImbalance<T> {
         mem::forget((self, other));
 
         if a >= b {
-            Ok(Self(a - b))
+            Ok(Self::new(a - b))
         } else {
             Err(PositiveImbalance::new(b - a))
         }
     }
 
-    fn peek(&self) -> T::Balance {
+    fn peek(&self) -> Balance {
         self.0
     }
 }

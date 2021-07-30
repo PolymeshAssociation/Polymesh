@@ -79,13 +79,12 @@ use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     portfolio::PortfolioSubTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    with_transaction, CommonConfig,
+    with_transaction,
 };
 use polymesh_primitives::{
     storage_migrate_on, storage_migration_ver, Balance, EventDid, IdentityId, Moment, PortfolioId,
     PortfolioNumber, Ticker,
 };
-use sp_runtime::traits::{CheckedMul as _, CheckedSub as _};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
@@ -105,7 +104,7 @@ pub const PER_SHARE_PRECISION: Balance = 1_000_000;
 /// All information contained is used by on-chain logic.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Encode, Decode)]
-pub struct Distribution<Balance> {
+pub struct Distribution {
     /// The portfolio to distribute from.
     pub from: PortfolioId,
     /// The currency that payouts happen in.
@@ -144,7 +143,7 @@ decl_storage! {
         /// All capital distributions, tied to their respective corporate actions (CAs).
         ///
         /// (CAId) => Distribution
-        Distributions get(fn distributions): map hasher(blake2_128_concat) CAId => Option<Distribution<T::Balance>>;
+        Distributions get(fn distributions): map hasher(blake2_128_concat) CAId => Option<Distribution>;
 
         /// Has an asset holder been paid yet?
         ///
@@ -216,8 +215,8 @@ decl_module! {
             ca_id: CAId,
             portfolio: Option<PortfolioNumber>,
             currency: Ticker,
-            per_share: T::Balance,
-            amount: T::Balance,
+            per_share: Balance,
+            amount: Balance,
             payment_at: Moment,
             expires_at: Option<Moment>,
         ) {
@@ -228,7 +227,7 @@ decl_module! {
             ensure!(!expired(expires_at, payment_at), Error::<T>::ExpiryBeforePayment);
 
             // Ensure CA doesn't have a distribution yet.
-            ensure!(!<Distributions<T>>::contains_key(ca_id), Error::<T>::AlreadyExists);
+            ensure!(!Distributions::contains_key(ca_id), Error::<T>::AlreadyExists);
 
             // Ensure origin is CAA and that they have custody over `from`.
             // Also ensure secondary key has perms for `from` + portfolio is valid.
@@ -253,13 +252,13 @@ decl_module! {
             <CA<T>>::ensure_record_date_before_start(&ca, payment_at)?;
 
             // Ensure `from` has at least `amount` to later lock (1).
-            <Portfolio<T>>::ensure_sufficient_balance(&from, &currency, &amount)?;
+            <Portfolio<T>>::ensure_sufficient_balance(&from, &currency, amount)?;
 
             // Charge the protocol fee. Last check; we are in commit phase after this.
             T::ProtocolFee::charge_fee(ProtocolOp::DistributionDistribute)?;
 
             // (1) Lock `amount` in `from`.
-            <Portfolio<T>>::unchecked_lock_tokens(&from, &currency, &amount);
+            <Portfolio<T>>::unchecked_lock_tokens(&from, &currency, amount);
 
             // Commit to storage.
             let distribution = Distribution {
@@ -272,10 +271,10 @@ decl_module! {
                 payment_at,
                 expires_at,
             };
-            <Distributions<T>>::insert(ca_id, distribution);
+            Distributions::insert(ca_id, distribution);
 
             // Emit event.
-            Self::deposit_event(Event::<T>::Created(caa, ca_id, distribution));
+            Self::deposit_event(Event::Created(caa, ca_id, distribution));
         }
 
         /// Claim a benefit of the capital distribution attached to `ca_id`.
@@ -363,10 +362,10 @@ decl_module! {
             Self::unlock(&dist, dist.remaining)?;
 
             // Zero `remaining` + note that we've reclaimed.
-            <Distributions<T>>::insert(ca_id, Distribution { reclaimed: true, remaining:0u32.into(), ..dist });
+            Distributions::insert(ca_id, Distribution { reclaimed: true, remaining:0u32.into(), ..dist });
 
             // Emit event.
-            Self::deposit_event(Event::<T>::Reclaimed(caa.for_event(), ca_id, dist.remaining));
+            Self::deposit_event(Event::Reclaimed(caa.for_event(), ca_id, dist.remaining));
         }
 
         /// Removes a distribution that hasn't started yet,
@@ -390,20 +389,17 @@ decl_module! {
 }
 
 decl_event! {
-    pub enum Event<T>
-    where
-        Balance = <T as CommonConfig>::Balance,
-    {
+    pub enum Event {
         /// A capital distribution, with details included,
         /// was created by the DID (the CAA) for the CA specified by the `CAId`.
         ///
         /// (CAA of CAId's ticker, CA's ID, distribution details)
-        Created(EventDid, CAId, Distribution<Balance>),
+        Created(EventDid, CAId, Distribution),
 
         /// A token holder's benefit of a capital distribution for the given `CAId` was claimed.
         ///
         /// (Caller DID, Holder/Claimant DID, CA's ID, updated distribution details, DID's benefit, DID's tax %)
-        BenefitClaimed(EventDid, EventDid, CAId, Distribution<Balance>, Balance, Tax),
+        BenefitClaimed(EventDid, EventDid, CAId, Distribution, Balance, Tax),
 
         /// Stats from `push_benefit` was emitted.
         ///
@@ -457,22 +453,22 @@ impl<T: Config> Module<T> {
     crate fn remove_distribution_base(
         caa: EventDid,
         ca_id: CAId,
-        dist: &Distribution<T::Balance>,
+        dist: &Distribution,
     ) -> DispatchResult {
         // Cannot remove payment has started.
         Self::ensure_distribution_not_started(&dist)?;
 
         // Unlock and remove chain data.
         Self::unlock(&dist, dist.amount)?;
-        <Distributions<T>>::remove(ca_id);
+        Distributions::remove(ca_id);
 
         // Emit event.
-        Self::deposit_event(Event::<T>::Removed(caa, ca_id));
+        Self::deposit_event(Event::Removed(caa, ca_id));
         Ok(())
     }
 
     /// Ensure that `now < payment_at`.
-    crate fn ensure_distribution_not_started(dist: &Distribution<T::Balance>) -> DispatchResult {
+    crate fn ensure_distribution_not_started(dist: &Distribution) -> DispatchResult {
         ensure!(
             <Checkpoint<T>>::now_unix() < dist.payment_at,
             Error::<T>::DistributionStarted
@@ -505,7 +501,7 @@ impl<T: Config> Module<T> {
         // Ensure we have enough remaining.
         dist.remaining = dist
             .remaining
-            .checked_sub(&benefit)
+            .checked_sub(benefit)
             .ok_or(Error::<T>::InsufficientRemainingAmount)?;
 
         // Compute withholding tax + gain.
@@ -526,10 +522,10 @@ impl<T: Config> Module<T> {
         let holder = holder.for_event();
 
         // Commit `dist` change to storage.
-        <Distributions<T>>::insert(ca_id, dist);
+        Distributions::insert(ca_id, dist);
 
         // Emit event.
-        Self::deposit_event(Event::<T>::BenefitClaimed(
+        Self::deposit_event(Event::BenefitClaimed(
             actor, holder, ca_id, dist, benefit, tax,
         ));
 
@@ -537,26 +533,26 @@ impl<T: Config> Module<T> {
     }
 
     /// Unlock `amount` of `dist.currency` in the `dist.from` portfolio.
-    fn unlock(dist: &Distribution<T::Balance>, amount: T::Balance) -> DispatchResult {
-        <Portfolio<T>>::unlock_tokens(&dist.from, &dist.currency, &amount)
+    fn unlock(dist: &Distribution, amount: Balance) -> DispatchResult {
+        <Portfolio<T>>::unlock_tokens(&dist.from, &dist.currency, amount)
     }
 
     // Compute `balance * per_share`, i.e. DID's benefit.
-    fn benefit_of(balance: T::Balance, per_share: T::Balance) -> Result<T::Balance, DispatchError> {
+    fn benefit_of(balance: Balance, per_share: Balance) -> Result<Balance, DispatchError> {
         balance
-            .checked_mul(&per_share)
+            .checked_mul(per_share)
             // `per_share` was entered as a multiple of 1_000_000.
-            .map(|v| v / T::Balance::from(PER_SHARE_PRECISION))
+            .map(|v| v / Balance::from(PER_SHARE_PRECISION))
             .ok_or_else(|| Error::<T>::BalancePerShareProductOverflowed.into())
     }
 
     /// Ensure `ca_id` has some distribution and return it.
-    fn ensure_distribution_exists(ca_id: CAId) -> Result<Distribution<T::Balance>, DispatchError> {
-        <Distributions<T>>::get(ca_id).ok_or_else(|| Error::<T>::NoSuchDistribution.into())
+    fn ensure_distribution_exists(ca_id: CAId) -> Result<Distribution, DispatchError> {
+        Distributions::get(ca_id).ok_or_else(|| Error::<T>::NoSuchDistribution.into())
     }
 
     /// Ensure `ca_id` has a started and non-expired, i.e. active, distribution, which is returned.
-    fn ensure_active_distribution(ca_id: CAId) -> Result<Distribution<T::Balance>, DispatchError> {
+    fn ensure_active_distribution(ca_id: CAId) -> Result<Distribution, DispatchError> {
         // Fetch the distribution, ensuring it exists + start date is satisfied + not expired.
         let dist = Self::ensure_distribution_exists(ca_id)?;
         let now = <Checkpoint<T>>::now_unix();
