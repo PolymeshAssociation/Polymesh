@@ -18,11 +18,10 @@ use crate::*;
 use codec::{Decode, Encode};
 use frame_benchmarking::benchmarks;
 use polymesh_common_utilities::{
-    benchs::{user, AccountIdOf, User},
+    benchs::{user, AccountIdOf},
     traits::TestUtilsFn,
 };
 use sp_runtime::MultiSignature;
-use sp_std::prelude::*;
 
 type Rewards<T> = crate::Module<T>;
 
@@ -34,9 +33,9 @@ benchmarks! {
     claim_itn_reward {
         // Construct a mainnet user and an ITN one.
         let mainnet = user::<T>("alice", SEED);
-        let mainnet_acc = itn.account();
+        let mainnet_acc = mainnet.account();
         let itn = user::<T>("bob", SEED);
-        let itn_acc = mainnet.account();
+        let itn_acc = itn.account();
 
         // Endow rewards pot with sufficient balance to withdraw from.
         let _ = T::Currency::deposit_into_existing(&<Rewards<T>>::account_id(), (2 * POLY).try_into().ok().unwrap());
@@ -54,6 +53,6 @@ benchmarks! {
         let itn_acc2 = itn_acc.clone();
     }: _(RawOrigin::None, mainnet_acc, itn_acc, sig)
     verify {
-        <ItnRewards<T>>::get(&itn_acc, ItnRewardStatus::Claimed);
+        assert_eq!(<ItnRewards<T>>::get(&itn_acc2), Some(ItnRewardStatus::Claimed));
     }
 }
