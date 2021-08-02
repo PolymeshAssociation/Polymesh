@@ -1,5 +1,4 @@
 use super::{
-    ext_builder::MockProtocolBaseFees,
     storage::{get_last_auth_id, make_account_without_cdd, Call, TestStorage, User},
     ExtBuilder,
 };
