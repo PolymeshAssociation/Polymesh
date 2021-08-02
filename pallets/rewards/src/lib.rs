@@ -15,17 +15,19 @@
 
 //! # Rewards Module
 //!
-//! TODO.
+//! Implements reward claiming and distribution.
 //!
 //! ## Overview
 //!
-//! TODO
+//! The only available rewards are those from the ITN(Incentivised Test Network).
+//! These rewards can be claimed using the `claim_itn_reward` extrinsic.
 //!
 //! ## Interface
 //!
 //! ### Dispatchable Functions
 //!
-//! - `TODO`: TODO.
+//! - `claim_itn_reward`: Claim an ITN reward with a valid signature.
+//! - `set_itn_reward_status`: Set the status of an account ITN reward, can only be called by root.
 
 #![feature(array_methods)]
 #![cfg_attr(not(feature = "std"), no_std)]
