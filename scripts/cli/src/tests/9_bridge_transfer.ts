@@ -1,21 +1,25 @@
 import { initMain, sleep } from "../util/init";
-import { bridgeTransfer, freezeTransaction, unfreezeTransaction } from "../helpers/bridge_helper";
+import {
+  bridgeTransfer,
+  freezeTransaction,
+  unfreezeTransaction,
+} from "../helpers/bridge_helper";
+import PrettyError from "pretty-error";
 
 async function main(): Promise<void> {
-	const testEntities = await initMain();
-	const alice = testEntities[0];
-	const relay = testEntities[1];
-	await bridgeTransfer(relay, alice);
-	await freezeTransaction(alice);
-	await sleep(50000).then(async () => {
-		await unfreezeTransaction(alice);
-	});
+  const testEntities = await initMain();
+  const relay = testEntities[1];
+  const admin = testEntities[2];
+  await bridgeTransfer(relay, admin);
+  await freezeTransaction(admin);
+  await sleep(5000);
+  await unfreezeTransaction(admin);
 }
 
 main()
-	.catch((err: unknown) => {
-		if (err instanceof Error) {
-			console.log(`Error: ${err.message}`);
-		}
-	})
-	.finally(() => process.exit());
+  .catch((err: any) => {
+    const pe = new PrettyError();
+    console.error(pe.render(err));
+    process.exit(1);
+  })
+  .finally(() => process.exit());
