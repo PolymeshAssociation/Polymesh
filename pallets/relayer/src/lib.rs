@@ -35,6 +35,8 @@
 //! - `accept_paying_key` accepts a `paying_key` authorization.
 //! - `remove_paying_key` removes the `paying_key` from a `user_key`.
 //! - `update_polyx_limit` updates the available POLYX for a `user_key`.
+//! - `increase_polyx_limit` increase the available POLYX for a `user_key`.
+//! - `decrease_polyx_limit` decrease the available POLYX for a `user_key`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -156,7 +158,7 @@ decl_module! {
         /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
         #[weight = <T as Config>::WeightInfo::update_polyx_limit()]
         pub fn update_polyx_limit(origin, user_key: T::AccountId, polyx_limit: Balance) -> DispatchResult {
-            Self::unverified_update_polyx_limit(origin, user_key, UpdateAction::Set, polyx_limit)
+            Self::base_update_polyx_limit(origin, user_key, UpdateAction::Set, polyx_limit)
         }
 
         /// Increase the available POLYX for a `user_key`.
@@ -172,7 +174,7 @@ decl_module! {
         /// - `Overlow` if the subsidy's remaining POLYX would have overflowed `u128::MAX`.
         #[weight = <T as Config>::WeightInfo::increase_polyx_limit()]
         pub fn increase_polyx_limit(origin, user_key: T::AccountId, amount: Balance) -> DispatchResult {
-            Self::unverified_update_polyx_limit(origin, user_key, UpdateAction::Add, amount)
+            Self::base_update_polyx_limit(origin, user_key, UpdateAction::Add, amount)
         }
 
         /// Decrease the available POLYX for a `user_key`.
@@ -188,7 +190,7 @@ decl_module! {
         /// - `Overlow` if the subsidy has less then `amount` POLYX remaining.
         #[weight = <T as Config>::WeightInfo::decrease_polyx_limit()]
         pub fn decrease_polyx_limit(origin, user_key: T::AccountId, amount: Balance) -> DispatchResult {
-            Self::unverified_update_polyx_limit(origin, user_key, UpdateAction::Sub, amount)
+            Self::base_update_polyx_limit(origin, user_key, UpdateAction::Sub, amount)
         }
     }
 }
@@ -296,7 +298,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn unverified_update_polyx_limit(
+    fn base_update_polyx_limit(
         origin: T::Origin,
         user_key: T::AccountId,
         action: UpdateAction,
