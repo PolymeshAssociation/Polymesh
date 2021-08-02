@@ -55,4 +55,12 @@ benchmarks! {
     verify {
         assert_eq!(<ItnRewards<T>>::get(&itn_acc2), Some(ItnRewardStatus::Claimed));
     }
+
+    set_itn_reward_status {
+        let user = user::<T>("alice", SEED);
+        let user_acc = user.account();
+    }: _(RawOrigin::Root, user_acc, ItnRewardStatus::Claimed)
+    verify {
+        assert!(<ItnRewards<T>>::get(&user.account()).is_some());
+    }
 }
