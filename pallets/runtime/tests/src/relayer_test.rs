@@ -203,6 +203,82 @@ fn do_basic_relayer_paying_key_test() {
 }
 
 #[test]
+fn update_polyx_limit_test() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(&do_update_polyx_limit_test);
+}
+fn do_update_polyx_limit_test() {
+    let bob = User::new(AccountKeyring::Bob);
+    let alice = User::new(AccountKeyring::Alice);
+
+    let assert_limit = |limit| {
+        assert_subsidy(bob, Some((alice, limit)));
+    };
+
+    let mut limit = 10u128;
+    setup_subsidy(bob, alice, limit);
+
+    // Bob tries to update his Polyx limit.  Not allowed
+    assert_noop!(
+        Relayer::update_polyx_limit(bob.origin(), bob.acc(), 1_000_000u128),
+        Error::NotPayingKey
+    );
+    assert_limit(limit);
+    assert_noop!(
+        Relayer::increase_polyx_limit(bob.origin(), bob.acc(), 100u128),
+        Error::NotPayingKey
+    );
+    assert_limit(limit);
+    assert_noop!(
+        Relayer::decrease_polyx_limit(bob.origin(), bob.acc(), 100u128),
+        Error::NotPayingKey
+    );
+    assert_limit(limit);
+
+    // Alice updates the Polyx limit for Bob.  Allowed
+    TestStorage::set_current_identity(&alice.did);
+    limit = 10_000u128;
+    assert_ok!(Relayer::update_polyx_limit(
+        alice.origin(),
+        bob.acc(),
+        limit,
+    ));
+    assert_limit(limit);
+
+    // Alice increases the limit.
+    assert_ok!(Relayer::increase_polyx_limit(
+        alice.origin(),
+        bob.acc(),
+        100u128,
+    ));
+    limit += 100u128;
+    assert_limit(limit);
+
+    // Alice decreases the limit.
+    assert_ok!(Relayer::decrease_polyx_limit(
+        alice.origin(),
+        bob.acc(),
+        100u128,
+    ));
+    limit -= 100u128;
+    assert_limit(limit);
+
+    // Test `Overflow` error.
+    assert_noop!(
+        Relayer::increase_polyx_limit(alice.origin(), bob.acc(), u128::MAX),
+        Error::Overflow
+    );
+    assert_limit(limit);
+    assert_noop!(
+        Relayer::decrease_polyx_limit(alice.origin(), bob.acc(), limit + 100u128),
+        Error::Overflow
+    );
+    assert_limit(limit);
+}
+
+#[test]
 fn accept_new_paying_key_test() {
     ExtBuilder::default()
         .monied(true)
