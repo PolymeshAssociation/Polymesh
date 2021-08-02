@@ -12,20 +12,20 @@
     "@polkadot/util": "5.5.1"
   },
   "scripts": {
-    "start": "yarn build",
-    "create": "yarn build && yarn test",
-    "build": "yarn clean:some && tsc -p .",
-    "build:types": "yarn generate:polymesh-meta && yarn generate:defs && yarn generate:meta",
+    "start": "npm run build",
+    "create": "npm run build && npm run test",
+    "build": "npm run clean:some && tsc -p .",
+    "build:types": "npm run generate:polymesh-meta && npm run generate:defs && npm run generate:meta",
     "generate:defs": "ts-node --skip-project node_modules/.bin/polkadot-types-from-defs --package polymesh-typegen/interfaces --input ./src/interfaces",
     "generate:meta": "ts-node --skip-project node_modules/.bin/polkadot-types-from-chain --package polymesh-typegen/interfaces --endpoint ./polymesh-meta.json --output ./src/interfaces",
     "generate:polymesh-meta": "./chain_metadata.sh",
     "lint": "tsc --noEmit --pretty",
     "clean:some": "rm -rf ./dist ./docs",
-    "clean:all": "rm -rf ./node_modules ./yarn.lock ./dist ./docs",
+    "clean:all": "rm -rf ./node_modules ./npm package-lock.json ./dist ./docs",
     "tscov": "type-coverage --at-least 95",
     "tscov:d": "type-coverage --detail",
-    "refresh": "yarn clean:all && yarn install",
-    "publish-package": "yarn build && yarn publish",
+    "refresh": "npm run clean:all && npm run install",
+    "publish-package": "npm run build && npm run publish",
     "docs": "typedoc src/tests src/helpers src/util --out dist/docs ",
     "0_create_identities": "node ./dist/tests/0_create_identities.js",
     "1_poly_transfer": "node ./dist/tests/1_poly_transfer.js",
@@ -82,7 +82,6 @@
     "ts-node": "9.1.1",
     "type-coverage": "2.16.3",
     "typedoc": "0.20.28",
-    "typescript": "^4.3.5",
-    "yarn-deduplicate": "3.1.0"
+    "typescript": "^4.3.5"
   }
 }
