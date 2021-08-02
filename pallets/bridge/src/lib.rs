@@ -405,6 +405,7 @@ decl_module! {
         ///
         /// ## Errors
         /// - `BadAdmin` if `origin` is not `Self::admin()` account.
+        /// - `DivisionByZero` if `duration` is zero.
         #[weight = (500_000_000, DispatchClass::Operational, Pays::Yes)]
         pub fn change_bridge_limit(origin, amount: Balance, duration: T::BlockNumber) -> DispatchResult {
             Self::base_change_bridge_limit(origin, amount, duration)
@@ -645,6 +646,7 @@ impl<T: Config> Module<T> {
             bridge_tx.amount
         };
 
+        // TODO: Handle errors returned from `issue`.
         if Self::issue(&bridge_tx.recipient, &amount, exempted_did).is_ok() {
             tx_details.status = BridgeTxStatus::Handled;
             tx_details.execution_block = <system::Module<T>>::block_number();
@@ -894,6 +896,9 @@ impl<T: Config> Module<T> {
         duration: T::BlockNumber,
     ) -> DispatchResult {
         let did = Self::ensure_admin_did(origin)?;
+        // Don't allow `duration` to equal zero.
+        ensure!(!duration.is_zero(), Error::<T>::DivisionByZero);
+
         <BridgeLimit<T>>::put((amount, duration));
         Self::deposit_event(RawEvent::BridgeLimitUpdated(did, amount, duration));
         Ok(())
