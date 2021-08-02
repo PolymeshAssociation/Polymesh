@@ -89,7 +89,7 @@ benchmarks! {
         let mut items = Vec::with_capacity(a as usize);
         let target = user::<T>("target", 0);
         let first_ticker = Ticker::generate_into(0u64);
-        let amount = T::Balance::from(10u32);
+        let amount = Balance::from(10u32);
         let portfolio_name = PortfolioName(vec![65u8; 5]);
         let next_portfolio_num = NextPortfolioNumber::get(&target.did());
         let default_portfolio = PortfolioId::default_portfolio(target.did());
@@ -102,17 +102,17 @@ benchmarks! {
                 amount: amount,
                 memo: make_worst_memo(),
             });
-            <PortfolioAssetBalances<T>>::insert(&default_portfolio, &ticker, amount);
+            PortfolioAssetBalances::insert(&default_portfolio, &ticker, amount);
         }
 
         Module::<T>::create_portfolio(target.origin.clone().into(), portfolio_name.clone()).unwrap();
 
-        assert_eq!(<PortfolioAssetBalances<T>>::get(&default_portfolio, &first_ticker), amount);
-        assert_eq!(<PortfolioAssetBalances<T>>::get(&user_portfolio, &first_ticker), 0u32.into());
+        assert_eq!(PortfolioAssetBalances::get(&default_portfolio, &first_ticker), amount);
+        assert_eq!(PortfolioAssetBalances::get(&user_portfolio, &first_ticker), 0u32.into());
     }: _(target.origin, default_portfolio, user_portfolio, items)
     verify {
-        assert_eq!(<PortfolioAssetBalances<T>>::get(&default_portfolio, &first_ticker), 0u32.into());
-        assert_eq!(<PortfolioAssetBalances<T>>::get(&user_portfolio, &first_ticker), amount);
+        assert_eq!(PortfolioAssetBalances::get(&default_portfolio, &first_ticker), 0u32.into());
+        assert_eq!(PortfolioAssetBalances::get(&user_portfolio, &first_ticker), amount);
     }
 
     rename_portfolio {

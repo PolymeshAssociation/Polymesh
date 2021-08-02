@@ -113,11 +113,11 @@ fn emulate_controller_transfer<T: Config>(
     pia: IdentityId,
 ) {
     // Assign balance to an investor.
-    let mock_storage = |id: IdentityId, bal: T::Balance| {
+    let mock_storage = |id: IdentityId, bal: Balance| {
         let s_id: ScopeId = id;
-        <BalanceOf<T>>::insert(ticker, id, bal);
-        <BalanceOfAtScope<T>>::insert(s_id, id, bal);
-        <AggregateBalance<T>>::insert(ticker, id, bal);
+        BalanceOf::insert(ticker, id, bal);
+        BalanceOfAtScope::insert(s_id, id, bal);
+        AggregateBalance::insert(ticker, id, bal);
         ScopeIdOf::insert(ticker, id, s_id);
         Statistics::<T>::update_transfer_stats(&ticker, None, Some(bal), bal);
     };
@@ -164,7 +164,7 @@ fn setup_create_asset<T: Config + TestUtilsFn<<T as frame_system::Config>::Accou
     RawOrigin<T::AccountId>,
     AssetName,
     Ticker,
-    SecurityToken<T::Balance>,
+    SecurityToken,
     Vec<AssetIdentifier>,
     Option<FundingRoundName>,
 ) {
@@ -179,7 +179,6 @@ fn setup_create_asset<T: Config + TestUtilsFn<<T as frame_system::Config>::Accou
     let owner = owner::<T>();
 
     let token = SecurityToken {
-        name: name.clone(),
         owner_did: owner.did(),
         total_supply: total_supply.into(),
         divisible: true,
@@ -281,7 +280,7 @@ benchmarks! {
         let (owner, ticker) = owned_ticker::<T>();
     }: _(owner.origin, ticker, new_name)
     verify {
-        assert_eq!(Module::<T>::token_details(ticker).name, new_name2);
+        assert_eq!(Module::<T>::asset_names(ticker), new_name2);
     }
 
     issue {
@@ -445,5 +444,16 @@ benchmarks! {
     }: _(pia.origin, ticker, 500u32.into(), portfolio_to)
     verify {
         assert_eq!(Module::<T>::balance_of(ticker, investor.did()), 500u32.into());
+    }
+
+    register_custom_asset_type {
+        let n in 1 .. T::MaxLen::get() as u32;
+
+        let id = Module::<T>::custom_type_id_seq();
+        let owner = owner::<T>();
+        let ty = vec![b'X'; n as usize];
+    }: _(owner.origin, ty)
+    verify {
+        assert_ne!(id, Module::<T>::custom_type_id_seq());
     }
 }

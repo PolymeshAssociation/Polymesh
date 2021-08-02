@@ -99,7 +99,7 @@ fn target_id_auth(user: User) -> (TargetIdAuthorization<u64>, u64) {
     )
 }
 
-fn create_new_token(name: &[u8], owner: User) -> (Ticker, SecurityToken<u128>) {
+fn create_new_token(name: &[u8], owner: User) -> (Ticker, SecurityToken) {
     let r = token(name, owner.did);
     assert_ok!(basic_asset(owner, r.0, &r.1));
     r
@@ -2100,7 +2100,7 @@ fn do_add_investor_uniqueness_claim() {
     let no_balance_at_scope = |scope_id| {
         assert_eq!(
             false,
-            <pallet_asset::BalanceOfAtScope<TestStorage>>::contains_key(scope_id, alice.did)
+            pallet_asset::BalanceOfAtScope::contains_key(scope_id, alice.did)
         );
     };
     let balance_at_scope = |scope_id, balance| {

@@ -1,6 +1,6 @@
 use super::{
     fast_forward_blocks, next_block,
-    storage::{Call, TestStorage},
+    storage::{Call, TestStorage, User},
     ExtBuilder,
 };
 
@@ -23,8 +23,8 @@ type Origin = <TestStorage as frame_system::Config>::Origin;
 type System = frame_system::Module<TestStorage>;
 type Scheduler = pallet_scheduler::Module<TestStorage>;
 
-type BridgeTx = GBridgeTx<AccountId, u128>;
-type BridgeTxDetail = GBridgeTxDetail<u128, u32>;
+type BridgeTx = GBridgeTx<AccountId>;
+type BridgeTxDetail = GBridgeTxDetail<u32>;
 
 const AMOUNT: u128 = 1_000_000_000;
 const AMOUNT_OVER_LIMIT: u128 = 1_000_000_000_000_000_000_000;
@@ -216,11 +216,11 @@ fn cannot_call_bridge_callback_extrinsics() {
 }
 
 #[test]
-fn can_freeze_and_unfreeze_bridge() {
-    test_with_controller(&do_freeze_and_unfreeze_bridge)
+fn can_admin_freeze_and_unfreeze_bridge() {
+    test_with_controller(&do_admin_freeze_and_unfreeze_bridge)
 }
 
-fn do_freeze_and_unfreeze_bridge(signers: &[AccountId]) {
+fn do_admin_freeze_and_unfreeze_bridge(signers: &[AccountId]) {
     let alice = Alice.to_account_id();
     let admin = signed_admin();
     let proposal = alice_proposal_tx(AMOUNT);
@@ -261,6 +261,89 @@ fn do_freeze_and_unfreeze_bridge(signers: &[AccountId]) {
     // Now the tokens are issued.
     assert_eq!(alice_balance(), starting_alices_balance + AMOUNT);
     let _ = ensure_tx_status(alice, 1, BridgeTxStatus::Handled);
+}
+
+#[test]
+fn test_freeze_admins() {
+    test_with_controller(&do_test_freeze_admins)
+}
+
+fn do_test_freeze_admins(_signers: &[AccountId]) {
+    let eve = User::existing(Eve);
+    let ferdie = User::existing(Ferdie);
+    let admin = signed_admin();
+
+    let test_freeze = |user: User, can_freeze: bool| {
+        // Make sure we start with the bridge unfrozen.
+        assert!(!Bridge::frozen());
+
+        if can_freeze {
+            // User is allowed to freeze the bridge.
+            assert_ok!(Bridge::freeze(user.origin()));
+            assert!(Bridge::frozen());
+        } else {
+            // User is not allowed to freeze the bridge.
+            assert_noop!(Bridge::freeze(user.origin()), Error::BadAdmin);
+            assert!(!Bridge::frozen());
+
+            // Use admin to freeze the bridge.
+            assert_ok!(Bridge::freeze(admin.clone()));
+            assert!(Bridge::frozen());
+        }
+
+        // User is not allowed to unfreeze the bridge.
+        assert_noop!(Bridge::unfreeze(user.origin()), Error::BadAdmin);
+        assert!(Bridge::frozen());
+
+        // Use admin to unfreeze the bridge.
+        assert_ok!(Bridge::unfreeze(admin.clone()));
+        assert!(!Bridge::frozen());
+    };
+    let add_freeze_admin = |user: User| {
+        // Use admin to add a freeze admin.
+        assert_ok!(Bridge::add_freeze_admin(admin.clone(), user.acc()));
+        assert!(Bridge::freeze_admins(user.acc()));
+
+        // Check that they can freeze/unfreeze the bridge.
+        test_freeze(user, true);
+    };
+    let remove_freeze_admin = |user: User| {
+        // Use admin to remove a freeze admin.
+        assert_ok!(Bridge::remove_freeze_admin(admin.clone(), user.acc()));
+        assert!(!Bridge::freeze_admins(user.acc()));
+
+        // Check that they cannot freeze/unfreeze the bridge.
+        test_freeze(user, false);
+    };
+
+    // Eve and Ferdie are not freeze admins.
+    test_freeze(eve, false);
+    test_freeze(ferdie, false);
+
+    // Add Eve as a freeze admin.
+    add_freeze_admin(eve);
+
+    // Ferdie is still denied.
+    test_freeze(ferdie, false);
+
+    // Add Ferdie as a freeze admin.
+    add_freeze_admin(ferdie);
+
+    // Test that Eve can still freeze/unfreeze the bridge.
+    test_freeze(eve, true);
+
+    // Remove Eve from freeze admins.
+    remove_freeze_admin(eve);
+
+    // Test that Ferdie can still freeze/unfreeze the bridge.
+    test_freeze(ferdie, true);
+
+    // Remove Ferdie from freeze admins.
+    remove_freeze_admin(ferdie);
+
+    // Both Eve and Ferdie are no longer freeze admins.
+    test_freeze(eve, false);
+    test_freeze(ferdie, false);
 }
 
 #[test]

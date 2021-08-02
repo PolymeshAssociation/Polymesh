@@ -1,6 +1,5 @@
 use crate::TestStorage;
 use confidential_identity::mocked::make_investor_uid as make_investor_uid_v2;
-use frame_support::traits::GenesisBuild;
 use pallet_asset::{self as asset, TickerRegistrationConfig};
 use pallet_balances as balances;
 use pallet_bridge::BridgeTx;
@@ -13,7 +12,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, AccountId, Identity, IdentityId,
-    PosRatio, Signatory, SmartExtensionType,
+    PosRatio, Signatory,
 };
 use sp_io::TestExternalities;
 use sp_runtime::{Perbill, Storage};
@@ -73,7 +72,7 @@ impl Default for MockProtocolBaseFees {
 #[derive(Default)]
 struct BridgeConfig {
     /// Complete TXs
-    pub complete_txs: Vec<BridgeTx<AccountId, u128>>,
+    pub complete_txs: Vec<BridgeTx<AccountId>>,
     /// Bridge admin key. See `Bridge` documentation for details.
     pub admin: Option<AccountId>,
     /// signers of the controller multisig account.
@@ -263,7 +262,7 @@ impl ExtBuilder {
     }
     */
 
-    pub fn set_bridge_complete_tx(mut self, txs: Vec<BridgeTx<AccountId, u128>>) -> Self {
+    pub fn set_bridge_complete_tx(mut self, txs: Vec<BridgeTx<AccountId>>) -> Self {
         self.bridge.complete_txs = txs;
         self
     }
@@ -414,11 +413,13 @@ impl ExtBuilder {
             registration_length: Some(10000),
         };
         asset::GenesisConfig::<TestStorage> {
+            /*
             versions: vec![
                 (SmartExtensionType::TransferManager, 5000),
                 (SmartExtensionType::Offerings, 5000),
                 (SmartExtensionType::SmartWallet, 5000),
             ],
+            */
             classic_migration_tickers: vec![],
             classic_migration_contract_did: IdentityId::from(1),
             classic_migration_tconfig: ticker_registration_config.clone(),
@@ -487,7 +488,7 @@ impl ExtBuilder {
     }
 
     fn build_protocol_fee_genesis(&self, storage: &mut Storage) {
-        pallet_protocol_fee::GenesisConfig::<TestStorage> {
+        pallet_protocol_fee::GenesisConfig {
             base_fees: self.protocol_base_fees.0.clone(),
             coefficient: self.protocol_coefficient,
         }

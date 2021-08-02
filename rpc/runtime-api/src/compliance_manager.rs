@@ -26,10 +26,9 @@ pub trait Trait: frame_system::Config {
 sp_api::decl_runtime_apis! {
 
     /// The API to interact with Compliance manager.
-    pub trait ComplianceManagerApi<AccountId, Balance>
+    pub trait ComplianceManagerApi<AccountId>
     where
         AccountId: Codec,
-        Balance: Codec
     {
          /// Checks whether a transaction with given parameters can take place or not.
          ///

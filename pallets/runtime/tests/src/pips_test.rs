@@ -75,7 +75,7 @@ macro_rules! assert_no_pip {
     }};
 }
 
-fn spip(id: PipId, dir: bool, power: u128) -> SnapshottedPip<u128> {
+fn spip(id: PipId, dir: bool, power: u128) -> SnapshottedPip {
     SnapshottedPip {
         id,
         weight: (dir, power),
@@ -420,9 +420,9 @@ fn skip_limit_works() {
 
 fn assert_vote_details(
     id: PipId,
-    results: VotingResult<u128>,
-    deposits: Vec<DepositInfo<AccountId, u128>>,
-    votes: Vec<Vote<u128>>,
+    results: VotingResult,
+    deposits: Vec<DepositInfo<AccountId>>,
+    votes: Vec<Vote>,
 ) {
     assert_eq!(results, Pips::proposal_result(id));
     assert_eq!(
@@ -1818,7 +1818,7 @@ fn propose_dupe_live_insert_panics() {
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
         // Manipulate storage to provoke panic in `insert_live_queue`.
-        <LiveQueue<TestStorage>>::mutate(|queue| *queue = vec![spip(0, true, 0)]);
+        LiveQueue::mutate(|queue| *queue = vec![spip(0, true, 0)]);
 
         // Triggers a panic, assertion never reached.
         assert_ok!(community_proposal(User::new(AccountKeyring::Alice), 0));
