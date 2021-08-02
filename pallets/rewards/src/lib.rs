@@ -41,7 +41,7 @@ use frame_support::{
     unsigned::TransactionSource,
     unsigned::TransactionValidity,
 };
-use frame_system::{ensure_none, RawOrigin};
+use frame_system::{ensure_none, ensure_root, RawOrigin};
 use pallet_staking::{self as staking, RewardDestination};
 use polymesh_common_utilities::{
     constants::{currency::POLY, REWARDS_MODULE_ID},
@@ -74,6 +74,7 @@ pub trait Config: frame_system::Config + IdentityConfig + staking::Config {
 
 pub trait WeightInfo {
     fn claim_itn_reward() -> Weight;
+    fn set_itn_reward_status() -> Weight;
 }
 
 /// Represents an Itn reward's status.
@@ -106,7 +107,7 @@ decl_storage! {
         config(itn_rewards): Vec<(T::AccountId, Balance)>;
         build(|config: &GenesisConfig<T>| {
             for (account, balance) in &config.itn_rewards {
-                <ItnRewards<T>>::insert(account, ItnRewardStatus::Unclaimed(*balance));
+                <Module::<T>>::base_set_itn_reward_status(account, ItnRewardStatus::Unclaimed(*balance));
             }
         });
     }
@@ -146,6 +147,13 @@ decl_module! {
             ensure_none(origin)?;
             //TODO(Connor): Check cdd claim.
             Self::base_claim_itn_reward(reward_address, itn_address, signature)
+        }
+
+        #[weight = <T as Config>::WeightInfo::set_itn_reward_status()]
+        pub fn set_itn_reward_status(origin, itn_address: T::AccountId, status: ItnRewardStatus) -> DispatchResult {
+            ensure_root(origin)?;
+            Self::base_set_itn_reward_status(&itn_address, status);
+            Ok(())
         }
     }
 }
@@ -253,6 +261,10 @@ impl<T: Config> Module<T> {
                 None => Err(Error::<T>::UnknownItnAddress.into()),
             }
         })
+    }
+
+    pub fn base_set_itn_reward_status(itn_address: &T::AccountId, status: ItnRewardStatus) {
+        <ItnRewards<T>>::insert(itn_address, status);
     }
 }
 
