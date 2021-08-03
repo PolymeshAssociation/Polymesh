@@ -35,8 +35,8 @@
 //! - `accept_paying_key` accepts a `paying_key` authorization.
 //! - `remove_paying_key` removes the `paying_key` from a `user_key`.
 //! - `update_polyx_limit` updates the available POLYX for a `user_key`.
-//! - `increase_polyx_limit` increase the available POLYX for a `user_key`.
-//! - `decrease_polyx_limit` decrease the available POLYX for a `user_key`.
+//! - `increase_polyx_limit` increases the available POLYX for a `user_key`.
+//! - `decrease_polyx_limit` decreases the available POLYX for a `user_key`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -73,9 +73,13 @@ pub struct Subsidy<Acc> {
     pub remaining: Balance,
 }
 
+/// Update action for subsidy POLYX limit.
 enum UpdateAction {
+    /// Set the current subsidy limit to `amount`.
     Set,
+    /// Add `amount` to the current subsidy limit.
     Add,
+    /// Subtract `amount` from the current subsidy limit.
     Sub,
 }
 
