@@ -338,6 +338,8 @@ decl_event! {
         TxsHandled(Vec<(AccountId, u32, HandledTxStatus)>),
         /// Bridge Tx Scheduled.
         BridgeTxScheduled(IdentityId, BridgeTx<AccountId>, BlockNumber),
+        /// Failed to schedule Bridge Tx.
+        BridgeTxScheduleFailed(IdentityId, BridgeTx<AccountId>, Vec<u8>),
         /// A new freeze admin has been added.
         FreezeAdminAdded(IdentityId, AccountId),
         /// A freeze admin has been removed.
@@ -646,19 +648,37 @@ impl<T: Config> Module<T> {
             bridge_tx.amount
         };
 
-        // TODO: Handle errors returned from `issue`.
-        if Self::issue(&bridge_tx.recipient, &amount, exempted_did).is_ok() {
-            tx_details.status = BridgeTxStatus::Handled;
-            tx_details.execution_block = <system::Module<T>>::block_number();
-            <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
-            let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| GC_DID);
-            Self::deposit_event(RawEvent::Bridged(current_did, bridge_tx));
-        } else if !untrusted_manual_retry {
-            // NB: If this was a manual retry, tx's automated retry schedule is not updated.
-            // Recipient missing CDD or limit reached. Retry this tx again later.
-            return Self::handle_bridge_tx_later(bridge_tx, tx_details, Self::timelock());
+        // Try to handle the transaction.
+        match Self::issue(&bridge_tx.recipient, &amount, exempted_did) {
+            Ok(_) => {
+                tx_details.status = BridgeTxStatus::Handled;
+                tx_details.execution_block = <system::Module<T>>::block_number();
+                <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
+                let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| GC_DID);
+                Self::deposit_event(RawEvent::Bridged(current_did, bridge_tx));
+                Ok(())
+            }
+            Err(e) => {
+                // NB: If this was a manual retry, tx's automated retry schedule is not updated.
+                if untrusted_manual_retry {
+                    return Err(e);
+                }
+                // Recipient missing CDD or limit reached. Retry this tx again later.
+                if let Err(sched_e) =
+                    Self::handle_bridge_tx_later(bridge_tx.clone(), tx_details, Self::timelock())
+                {
+                    // Report scheduling error as an event.
+                    let current_did =
+                        Context::current_identity::<Identity<T>>().unwrap_or_else(|| GC_DID);
+                    Self::deposit_event(RawEvent::BridgeTxScheduleFailed(
+                        current_did,
+                        bridge_tx,
+                        sched_e.encode(),
+                    ));
+                }
+                Err(e)
+            }
         }
-        Ok(())
     }
 
     /// Handles a bridge transaction proposal after `timelock` blocks.
