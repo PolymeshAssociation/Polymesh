@@ -46,6 +46,18 @@ fn setup_paying_key<T: Config + TestUtilsFn<AccountIdOf<T>>>(limit: u128) -> (Us
     (payer, user)
 }
 
+#[track_caller]
+fn assert_subsidy<T: Config + TestUtilsFn<AccountIdOf<T>>>(
+    user: User<T>,
+    subsidy: Option<(User<T>, Balance)>,
+) {
+    let expect = subsidy.map(|(payer, limit)| Subsidy {
+        paying_key: payer.account(),
+        remaining: limit,
+    });
+    assert_eq!(Subsidies::<T>::get(user.account()), expect);
+}
+
 benchmarks! {
     where_clause { where T: Config, T: TestUtilsFn<AccountIdOf<T>> }
 
@@ -62,17 +74,14 @@ benchmarks! {
         );
     }: _(user.origin(), auth_id)
     verify {
-        assert_eq!(Subsidies::<T>::get(user.account()), Some(Subsidy {
-            paying_key: payer.account(),
-            remaining: limit,
-        }));
+        assert_subsidy(user, Some((payer, limit)));
     }
 
     remove_paying_key {
         let (payer, user) = setup_paying_key::<T>(0u128);
     }: _(payer.origin(), user.account(), payer.account())
     verify {
-        assert_eq!(Subsidies::<T>::get(user.account()), None);
+        assert_subsidy(user, None);
     }
 
     update_polyx_limit {
@@ -80,10 +89,7 @@ benchmarks! {
         let (payer, user) = setup_paying_key::<T>(42u128);
     }: _(payer.origin(), user.account(), limit)
     verify {
-        assert_eq!(Subsidies::<T>::get(user.account()), Some(Subsidy {
-            paying_key: payer.account(),
-            remaining: limit,
-        }));
+        assert_subsidy(user, Some((payer, limit)));
     }
 
     increase_polyx_limit {
@@ -91,10 +97,7 @@ benchmarks! {
         let (payer, user) = setup_paying_key::<T>(0u128);
     }: _(payer.origin(), user.account(), limit)
     verify {
-        assert_eq!(Subsidies::<T>::get(user.account()), Some(Subsidy {
-            paying_key: payer.account(),
-            remaining: limit,
-        }));
+        assert_subsidy(user, Some((payer, limit)));
     }
 
     decrease_polyx_limit {
@@ -102,9 +105,6 @@ benchmarks! {
         let (payer, user) = setup_paying_key::<T>(1_000u128);
     }: _(payer.origin(), user.account(), limit)
     verify {
-        assert_eq!(Subsidies::<T>::get(user.account()), Some(Subsidy {
-            paying_key: payer.account(),
-            remaining: limit,
-        }));
+        assert_subsidy(user, Some((payer, limit)));
     }
 }

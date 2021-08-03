@@ -213,10 +213,6 @@ fn do_update_polyx_limit_test() {
     let bob = User::new(AccountKeyring::Bob);
     let alice = User::new(AccountKeyring::Alice);
 
-    let assert_limit = |limit| {
-        assert_subsidy(bob, Some((alice, limit)));
-    };
-
     let set = |p: User, x| Relayer::update_polyx_limit(p.origin(), bob.acc(), x);
     let add = |p: User, x| Relayer::increase_polyx_limit(p.origin(), bob.acc(), x);
     let sub = |p: User, x| Relayer::decrease_polyx_limit(p.origin(), bob.acc(), x);
