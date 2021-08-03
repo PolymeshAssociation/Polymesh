@@ -7,9 +7,9 @@
     "polymesh-cli": "./dist/polymesh_cli.js"
   },
   "resolutions": {
-    "@polkadot/keyring": "5.5.1",
-    "@polkadot/util-crypto": "5.5.1",
-    "@polkadot/util": "5.5.1"
+    "@polkadot/keyring": "6.9.1",
+    "@polkadot/util-crypto": "6.9.1",
+    "@polkadot/util": "6.9.1"
   },
   "scripts": {
     "start": "yarn build",
