@@ -654,7 +654,8 @@ impl<T: Config> Module<T> {
                 tx_details.status = BridgeTxStatus::Handled;
                 tx_details.execution_block = <system::Module<T>>::block_number();
                 <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
-                let current_did = Context::current_identity::<Identity<T>>().unwrap_or_else(|| GC_DID);
+                let current_did =
+                    Context::current_identity::<Identity<T>>().unwrap_or_else(|| GC_DID);
                 Self::deposit_event(RawEvent::Bridged(current_did, bridge_tx));
                 Ok(())
             }
