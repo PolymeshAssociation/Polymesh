@@ -13,7 +13,6 @@ impl<T: frame_system::Config> pallet_rewards::WeightInfo for WeightInfo<T> {
             .saturating_add(T::DbWeight::get().writes(7 as Weight))
     }
     fn set_itn_reward_status() -> Weight {
-        (1_510_000 as Weight)
-            .saturating_add(T::DbWeight::get().writes(1 as Weight))
+        (1_510_000 as Weight).saturating_add(T::DbWeight::get().writes(1 as Weight))
     }
 }

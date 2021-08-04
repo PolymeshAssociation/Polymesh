@@ -109,7 +109,7 @@ decl_storage! {
         config(itn_rewards): Vec<(T::AccountId, Balance)>;
         build(|config: &GenesisConfig<T>| {
             for (account, balance) in &config.itn_rewards {
-                <Module::<T>>::base_set_itn_reward_status(account, ItnRewardStatus::Unclaimed(*balance));
+                let _ = <Module::<T>>::base_set_itn_reward_status(RawOrigin::Root.into(), account, ItnRewardStatus::Unclaimed(*balance));
             }
         });
     }
@@ -153,9 +153,7 @@ decl_module! {
 
         #[weight = <T as Config>::WeightInfo::set_itn_reward_status()]
         pub fn set_itn_reward_status(origin, itn_address: T::AccountId, status: ItnRewardStatus) -> DispatchResult {
-            ensure_root(origin)?;
-            Self::base_set_itn_reward_status(&itn_address, status);
-            Ok(())
+            Self::base_set_itn_reward_status(origin, &itn_address, status)
         }
     }
 }
@@ -265,8 +263,14 @@ impl<T: Config> Module<T> {
         })
     }
 
-    pub fn base_set_itn_reward_status(itn_address: &T::AccountId, status: ItnRewardStatus) {
+    pub fn base_set_itn_reward_status(
+        origin: T::Origin,
+        itn_address: &T::AccountId,
+        status: ItnRewardStatus,
+    ) -> DispatchResult {
+        ensure_root(origin)?;
         <ItnRewards<T>>::insert(itn_address, status);
+        Ok(())
     }
 }
 
