@@ -31,6 +31,10 @@ declare module '@polkadot/api/types/errors' {
        **/
       BalanceOverflow: AugmentedError<ApiType>;
       /**
+       * An overflow while generating the next `CustomAssetTypeId`.
+       **/
+      CustomAssetTypeIdOverflow: AugmentedError<ApiType>;
+      /**
        * When extension is already added.
        **/
       ExtensionAlreadyPresent: AugmentedError<ApiType>;
@@ -82,10 +86,6 @@ declare module '@polkadot/api/types/errors' {
        * The given Document does not exist.
        **/
       NoSuchDoc: AugmentedError<ApiType>;
-      /**
-       * No such smart extension.
-       **/
-      NoSuchSmartExtension: AugmentedError<ApiType>;
       /**
        * Not an owner of the token.
        **/
@@ -653,6 +653,10 @@ declare module '@polkadot/api/types/errors' {
     };
     identity: {
       /**
+       * The account key is being used, it can't be unlinked.
+       **/
+      AccountKeyIsBeingUsed: AugmentedError<ApiType>;
+      /**
        * One secondary or primary key can only belong to one DID
        **/
       AlreadyLinked: AugmentedError<ApiType>;
@@ -1078,9 +1082,47 @@ declare module '@polkadot/api/types/errors' {
        **/
       InsufficientAccountBalance: AugmentedError<ApiType>;
       /**
+       * Insufficient subsidy balance to pay the fee.
+       **/
+      InsufficientSubsidyBalance: AugmentedError<ApiType>;
+      /**
        * Not able to handled the imbalances
        **/
       UnHandledImbalances: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
+    };
+    relayer: {
+      /**
+       * The `user_key` already has a `paying_key`.
+       **/
+      AlreadyHasPayingKey: AugmentedError<ApiType>;
+      /**
+       * The `user_key` doesn't have a `paying_key`.
+       **/
+      NoPayingKey: AugmentedError<ApiType>;
+      /**
+       * The signer is not authorized for `paying_key`.
+       **/
+      NotAuthorizedForPayingKey: AugmentedError<ApiType>;
+      /**
+       * The signer is not authorized for `user_key`.
+       **/
+      NotAuthorizedForUserKey: AugmentedError<ApiType>;
+      /**
+       * The `user_key` has a different `paying_key`.
+       **/
+      NotPayingKey: AugmentedError<ApiType>;
+      /**
+       * The `user_key` is not attached to a CDD'd identity.
+       **/
+      PayingKeyCddMissing: AugmentedError<ApiType>;
+      /**
+       * The `user_key` is not attached to a CDD'd identity.
+       **/
+      UserKeyCddMissing: AugmentedError<ApiType>;
       /**
        * Generic error
        **/

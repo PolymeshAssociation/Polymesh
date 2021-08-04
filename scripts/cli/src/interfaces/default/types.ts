@@ -4,14 +4,14 @@
 import type { Bytes, Compact, Enum, Option, Struct, Text, U8aFixed, Vec, bool, u16, u32, u64, u8 } from '@polkadot/types';
 import type { ITuple } from '@polkadot/types/types';
 import type { Signature } from '@polkadot/types/interfaces/extrinsics';
-import type { AccountId, Balance, BlockNumber, Call, H256, H512, Hash, IndicesLookupSource, Perbill, Permill } from '@polkadot/types/interfaces/runtime';
+import type { AccountId, Balance, BlockNumber, Call, H256, H512, Hash, MultiAddress, Perbill, Permill } from '@polkadot/types/interfaces/runtime';
 import type { AccountInfoWithDualRefCount, DispatchError } from '@polkadot/types/interfaces/system';
 
 /** @name AccountInfo */
 export interface AccountInfo extends AccountInfoWithDualRefCount {}
 
 /** @name Address */
-export interface Address extends IndicesLookupSource {}
+export interface Address extends MultiAddress {}
 
 /** @name AffirmationStatus */
 export interface AffirmationStatus extends Enum {
@@ -104,7 +104,7 @@ export interface AssetType extends Enum {
   readonly isStructuredProduct: boolean;
   readonly isDerivative: boolean;
   readonly isCustom: boolean;
-  readonly asCustom: Bytes;
+  readonly asCustom: CustomAssetTypeId;
   readonly isStableCoin: boolean;
 }
 
@@ -141,6 +141,8 @@ export interface AuthorizationData extends Enum {
   readonly asTransferCorporateActionAgent: Ticker;
   readonly isBecomeAgent: boolean;
   readonly asBecomeAgent: ITuple<[Ticker, AgentGroup]>;
+  readonly isAddRelayerPayingKey: boolean;
+  readonly asAddRelayerPayingKey: ITuple<[AccountId, AccountId, Balance]>;
 }
 
 /** @name AuthorizationNonce */
@@ -151,14 +153,12 @@ export interface AuthorizationType extends Enum {
   readonly isAttestPrimaryKeyRotation: boolean;
   readonly isRotatePrimaryKey: boolean;
   readonly isTransferTicker: boolean;
-  readonly isTransferPrimaryIssuanceAgent: boolean;
   readonly isAddMultiSigSigner: boolean;
   readonly isTransferAssetOwnership: boolean;
   readonly isJoinIdentity: boolean;
   readonly isPortfolioCustody: boolean;
   readonly isCustom: boolean;
   readonly isNoData: boolean;
-  readonly isTransferCorporateActionAgent: boolean;
 }
 
 /** @name BallotMeta */
@@ -425,7 +425,6 @@ export interface CorporateAction extends Struct {
   readonly kind: CAKind;
   readonly decl_date: Moment;
   readonly record_date: Option<RecordDate>;
-  readonly details: Text;
   readonly targets: TargetIdentities;
   readonly default_withholding_tax: Tax;
   readonly withholding_tax: Vec<ITuple<[IdentityId, Tax]>>;
@@ -687,6 +686,9 @@ export interface CountryCode extends Enum {
   readonly isCw: boolean;
   readonly isSx: boolean;
 }
+
+/** @name CustomAssetTypeId */
+export interface CustomAssetTypeId extends u32 {}
 
 /** @name DepositInfo */
 export interface DepositInfo extends Struct {
@@ -994,7 +996,7 @@ export interface LegStatus extends Enum {
 export interface LocalCAId extends u32 {}
 
 /** @name LookupSource */
-export interface LookupSource extends IndicesLookupSource {}
+export interface LookupSource extends MultiAddress {}
 
 /** @name MaybeBlock */
 export interface MaybeBlock extends Enum {
@@ -1350,7 +1352,6 @@ export interface SecondaryKeyWithAuth extends Struct {
 
 /** @name SecurityToken */
 export interface SecurityToken extends Struct {
-  readonly name: AssetName;
   readonly total_supply: Balance;
   readonly owner_did: IdentityId;
   readonly divisible: bool;
@@ -1438,6 +1439,12 @@ export interface StoredSchedule extends Struct {
   readonly id: ScheduleId;
   readonly at: Moment;
   readonly remaining: u32;
+}
+
+/** @name Subsidy */
+export interface Subsidy extends Struct {
+  readonly paying_key: AccountId;
+  readonly remaining: Balance;
 }
 
 /** @name TargetIdAuthorization */
@@ -1558,8 +1565,6 @@ export interface ValidatorPrefsWithBlocked extends Struct {
 /** @name Venue */
 export interface Venue extends Struct {
   readonly creator: IdentityId;
-  readonly instructions: Vec<u64>;
-  readonly details: VenueDetails;
   readonly venue_type: VenueType;
 }
 
