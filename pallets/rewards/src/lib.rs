@@ -166,9 +166,9 @@ impl<T: Config> Module<T> {
         REWARDS_MODULE_ID.into_account()
     }
 
-    // Converts `polymesh_primitive::Balance` balances into (`bonded_amount`, `deposit_amount`).
-    // `bonded_amount` is equal to `raw_balance` but type converted to `BalanceOf<T>`.
-    // `deposit_amount` is 1 Poly greater than `raw_balance` and also converted to `BalanceOf<T>`.
+    /// Converts `polymesh_primitive::Balance` balances into (`bonded_amount`, `deposit_amount`).
+    /// `bonded_amount` is equal to `raw_balance` but type converted to `BalanceOf<T>`.
+    /// `deposit_amount` is 1 Poly greater than `raw_balance` and also converted to `BalanceOf<T>`.
     fn convert_balance(
         raw_balance: Balance,
     ) -> Result<(BalanceOf<T>, BalanceOf<T>), DispatchError> {
