@@ -296,18 +296,21 @@ decl_module! {
             <Portfolio<T>>::ensure_portfolio_custody_and_permission(raising_portfolio, did, secondary_key.as_ref())?;
             <Portfolio<T>>::ensure_portfolio_custody_and_permission(offering_portfolio, did, secondary_key.as_ref())?;
 
+            // Ensure there are [1, MAX_TIERS] tiers and that all of their totals are non-zero.
+            let mut totals = tiers.iter().map(|t| t.total);
             ensure!(
-                tiers.len() > 0 && tiers.len() <= MAX_TIERS && tiers.iter().all(|t| t.total > 0u32.into()),
+                (1..=MAX_TIERS).contains(&tiers.len()) && totals.clone().all(|t| t > 0),
                 Error::<T>::InvalidPriceTiers
             );
 
-            let offering_amount: Balance = tiers
-                .iter()
-                .map(|t| t.total)
-                .try_fold(0u32.into(), |total: Balance, x| total.checked_add(x))
+            // Sum all totals, or bail on overflow.
+            let offering_amount = totals
+                .try_fold(0, |total: Balance, x| total.checked_add(x))
                 .ok_or(Error::<T>::InvalidPriceTiers)?;
 
+            // Use current time if start isn't provided.
             let start = start.unwrap_or_else(Timestamp::<T>::get);
+            // The start must come strictly before the end.
             if let Some(end) = end {
                 ensure!(start < end, Error::<T>::InvalidOfferingWindow);
             }

@@ -130,16 +130,17 @@ fn asset_with_ids(
     token: &SecurityToken,
     ids: Vec<AssetIdentifier>,
 ) -> DispatchResult {
-    Asset::base_create_asset_and_mint(
+    Asset::create_asset(
         owner.origin(),
         ticker.as_ref().into(),
         ticker,
-        token.total_supply,
         token.divisible,
         token.asset_type.clone(),
         ids,
         None,
+        false,
     )?;
+    Asset::issue(owner.origin(), ticker, token.total_supply)?;
     assert_eq!(Asset::balance_of(&ticker, owner.did), token.total_supply);
     Ok(())
 }
@@ -241,29 +242,27 @@ fn issuers_can_create_and_rename_tokens() {
         let (ticker, token) = a_token(owner.did);
         assert!(!has_ticker_record(ticker));
 
+        // Create asset.
         let funding_round_name: FundingRoundName = b"round1".into();
-        let create = |supply| {
-            Asset::base_create_asset_and_mint(
-                owner.origin(),
-                ticker.as_ref().into(),
-                ticker,
-                supply,
-                true,
-                token.asset_type.clone(),
-                Vec::new(),
-                Some(funding_round_name.clone()),
-            )
-        };
+        assert_ok!(Asset::create_asset(
+            owner.origin(),
+            ticker.as_ref().into(),
+            ticker,
+            true,
+            token.asset_type.clone(),
+            Vec::new(),
+            Some(funding_round_name.clone()),
+            false,
+        ));
 
+        let issue = |supply| Asset::issue(owner.origin(), ticker, supply);
         assert_noop!(
-            create(1_000_000_000_000_000_000_000_000), // Total supply over the limit.
+            issue(1_000_000_000_000_000_000_000_000),
             AssetError::TotalSupplyAboveLimit
         );
 
-        // Issuance is successful.
-        assert_ok!(create(token.total_supply));
-
-        // Check the update investor count for the newly created asset
+        // Sucessfully issue. Investor count should now be 1.
+        assert_ok!(issue(token.total_supply));
         assert_eq!(Statistics::investor_count(ticker), 1);
 
         // A correct entry is added
@@ -1093,15 +1092,20 @@ fn frozen_secondary_keys_create_asset_we() {
 
     // 2. Bob can create token
     let (ticker_1, token_1) = a_token(alice_id);
-    assert_ok!(Asset::base_create_asset_and_mint(
-        Origin::signed(bob),
+    assert_ok!(Asset::create_asset(
+        Origin::signed(bob.clone()),
         ticker_1.as_ref().into(),
         ticker_1,
-        token_1.total_supply,
         true,
         token_1.asset_type.clone(),
         vec![],
         None,
+        false,
+    ));
+    assert_ok!(Asset::issue(
+        Origin::signed(bob),
+        ticker_1,
+        token_1.total_supply
     ));
     assert_eq!(Asset::token_details(ticker_1), token_1);
 
@@ -1474,15 +1478,15 @@ fn classic_ticker_register_works() {
 
         // Create BETA as an asset and fail to register it.
         classic.ticker = ticker("BETA");
-        assert_ok!(Asset::base_create_asset_and_mint(
+        assert_ok!(Asset::create_asset(
             alice.origin(),
             b"".into(),
             classic.ticker,
-            0,
             false,
             <_>::default(),
             vec![],
             None,
+            false,
         ));
         assert_noop!(
             Asset::reserve_classic_ticker(root(), classic, alice.did, config.clone()),
@@ -1736,15 +1740,15 @@ fn classic_ticker_claim_works() {
         let create = |user: User, name: &str, bal_after| {
             let asset = name.try_into().unwrap();
             let ticker = ticker(name);
-            let ret = Asset::base_create_asset_and_mint(
+            let ret = Asset::create_asset(
                 user.origin(),
                 asset,
                 ticker,
-                1,
                 true,
                 <_>::default(),
                 vec![],
                 None,
+                false,
             );
             assert_balance(user.acc(), bal_after, 0);
             ret
@@ -2289,73 +2293,50 @@ fn bytes_of_len<R: From<Vec<u8>>>(e: u8, len: usize) -> R {
 
 fn create_asset_errors(owner: AccountId, other: AccountId) {
     let o = Origin::signed(owner);
-    let o2 = Origin::signed(other);
-
-    let ticker = Ticker::try_from(&b"MYUSD"[..]).unwrap();
-    let name: AssetName = ticker.as_ref().into();
-    let atype = AssetType::default();
-
-    let name_max_length = <TestStorage as AssetConfig>::AssetNameMaxLength::get() + 1;
-    let input_expected = vec![
-        (
-            bytes_of_len(b'A', name_max_length as usize),
-            TOTAL_SUPPLY,
-            true,
-            None,
-            AssetError::MaxLengthOfAssetNameExceeded,
-        ),
-        (
-            name.clone(),
-            TOTAL_SUPPLY,
-            true,
-            Some(exceeded_funding_round_name()),
-            AssetError::FundingRoundNameMaxLengthExceeded,
-        ),
-        (
-            name.clone(),
-            1_000,
-            false,
-            None,
-            AssetError::InvalidGranularity,
-        ),
-        (
-            name.clone(),
-            u128::MAX,
-            true,
-            None,
-            AssetError::TotalSupplyAboveLimit,
-        ),
-    ];
-
-    for (name, total_supply, is_divisible, funding_name, expected_err) in input_expected.into_iter()
-    {
-        assert_noop!(
-            Asset::base_create_asset_and_mint(
-                o.clone(),
-                name,
-                ticker,
-                total_supply,
-                is_divisible,
-                atype.clone(),
-                vec![],
-                funding_name
-            ),
-            expected_err
-        );
-    }
-
-    assert_ok!(Asset::register_ticker(o2.clone(), ticker));
-    assert_noop!(
-        Asset::base_create_asset_and_mint(
+    let create = |ticker, name, is_divisible, funding_name| {
+        Asset::create_asset(
             o.clone(),
-            name.clone(),
+            name,
             ticker,
-            TOTAL_SUPPLY,
-            true,
-            atype.clone(),
+            is_divisible,
+            AssetType::default(),
             vec![],
-            None
-        ),
+            funding_name,
+            false,
+        )
+    };
+
+    let ta = Ticker::try_from(&b"A"[..]).unwrap();
+    let max_length = <TestStorage as AssetConfig>::AssetNameMaxLength::get() + 1;
+    assert_noop!(
+        create(ta, bytes_of_len(b'A', max_length as usize), true, None),
+        AssetError::MaxLengthOfAssetNameExceeded
+    );
+
+    let name: AssetName = ta.as_ref().into();
+    assert_noop!(
+        create(ta, name.clone(), true, Some(exceeded_funding_round_name()),),
+        AssetError::FundingRoundNameMaxLengthExceeded,
+    );
+
+    assert_ok!(create(ta, name.clone(), false, None));
+    assert_noop!(
+        Asset::issue(o.clone(), ta, 1_000),
+        AssetError::InvalidGranularity,
+    );
+
+    let tb = Ticker::try_from(&b"B"[..]).unwrap();
+    assert_ok!(create(tb, name.clone(), true, None));
+    assert_noop!(
+        Asset::issue(o.clone(), tb, u128::MAX),
+        AssetError::TotalSupplyAboveLimit,
+    );
+
+    let o2 = Origin::signed(other);
+    let tc = Ticker::try_from(&b"C"[..]).unwrap();
+    assert_ok!(Asset::register_ticker(o2.clone(), tc));
+    assert_noop!(
+        create(tc, name, true, None),
         AssetError::TickerAlreadyRegistered
     );
 }

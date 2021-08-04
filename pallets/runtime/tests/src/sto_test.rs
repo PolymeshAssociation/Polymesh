@@ -75,25 +75,17 @@ fn stop_fundraiser_ext() {
 }
 
 pub fn create_asset(origin: Origin, ticker: Ticker, supply: u128) {
-    assert_ok!(Asset::base_create_asset_and_mint(
-        origin,
+    assert_ok!(Asset::create_asset(
+        origin.clone(),
         vec![b'A'].into(),
         ticker,
-        supply,
         true,
         AssetType::default(),
         vec![],
         None,
+        false,
     ));
-}
-
-fn empty_compliance(origin: Origin, ticker: Ticker) {
-    assert_ok!(ComplianceManager::add_compliance_requirement(
-        origin,
-        ticker,
-        vec![],
-        vec![]
-    ));
+    assert_ok!(Asset::issue(origin, ticker, supply));
 }
 
 struct RaiseContext {

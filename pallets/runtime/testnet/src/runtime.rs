@@ -75,6 +75,7 @@ parameter_types! {
     // Frame:
     pub const EpochDuration: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
     pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
+    pub const SS58Prefix: u8 = 42;
 
     // Base:
     pub const MaxLen: u32 = 2048;
