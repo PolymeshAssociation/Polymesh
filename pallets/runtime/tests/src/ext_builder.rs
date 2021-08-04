@@ -126,7 +126,6 @@ pub struct ExtBuilder {
     */
     /// Bridge configuration
     bridge: BridgeConfig,
-    itn_rewards: Vec<(AccountId, Balance)>,
 }
 
 thread_local! {
@@ -292,11 +291,6 @@ impl ExtBuilder {
 
     pub fn set_bridge_timelock(mut self, timelock: u32) -> Self {
         self.bridge.timelock = Some(timelock);
-        self
-    }
-
-    pub fn set_itn_rewards(mut self, itn_rewards: Vec<(AccountId, Balance)>) -> Self {
-        self.itn_rewards = itn_rewards;
         self
     }
 
@@ -536,14 +530,6 @@ impl ExtBuilder {
         .unwrap()
     }
 
-    fn build_rewards_genesis(&self, storage: &mut Storage) {
-        pallet_rewards::GenesisConfig::<TestStorage> {
-            itn_rewards: self.itn_rewards.clone(),
-        }
-        .assimilate_storage(storage)
-        .unwrap()
-    }
-
     /// Create externalities.
     pub fn build(self) -> TestExternalities {
         self.set_associated_consts();
@@ -621,7 +607,6 @@ impl ExtBuilder {
         self.build_pips_genesis(&mut storage);
         //self.build_contracts_genesis(&mut storage);
         self.build_bridge_genesis(&mut storage);
-        self.build_rewards_genesis(&mut storage);
 
         self.build_bridge(&mut storage);
 

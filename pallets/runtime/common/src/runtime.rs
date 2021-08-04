@@ -272,7 +272,7 @@ macro_rules! misc_pallet_impls {
 
         impl pallet_rewards::Config for Runtime {
             type Event = Event;
-            type WeightInfo = polymesh_weights::pallet_rewards::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_rewards::WeightInfo<Runtime>;
         }
 
         impl pallet_asset::Config for Runtime {

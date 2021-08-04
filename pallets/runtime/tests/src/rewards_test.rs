@@ -18,17 +18,17 @@ type Origin = <TestStorage as frame_system::Config>::Origin;
 type OffChainSignature =
     <TestStorage as polymesh_common_utilities::traits::identity::Config>::OffChainSignature;
 
-const INSUFFICIENT_BALANCE_ERROR: DispatchError = DispatchError::Module {
-    index: 4,
-    error: 2,
-    message: Some("InsufficientBalance"),
-};
-
 #[test]
 fn basic_itn_claim_ext() {
     ExtBuilder::default()
         .monied(true)
-        .set_itn_rewards(vec![(AccountKeyring::Bob.to_account_id(), 1 * POLY)])
+        .adjust(Box::new(move |storage| {
+            pallet_rewards::GenesisConfig::<TestStorage> {
+                itn_rewards: vec![(AccountKeyring::Bob.to_account_id(), 1 * POLY)],
+            }
+            .assimilate_storage(storage)
+            .unwrap();
+        }))
         .build()
         .execute_with(basic_itn_claim);
 }
