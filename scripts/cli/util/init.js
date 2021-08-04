@@ -301,7 +301,7 @@ async function issueTokenPerDid(api, accounts, ticker, amount, fundingRound) {
 
   if (tickerExist.owner == 0) {
     await sendTx(accounts[0], api.tx.asset.createAsset(
-        ticker, ticker, true, 0, [], fundingRound
+        ticker, ticker, true, 0, [], fundingRound, false
     ));
     await sendTx(accounts[0], api.tx.asset.issue(ticker, amount));
   } else {

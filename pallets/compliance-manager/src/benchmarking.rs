@@ -71,17 +71,24 @@ pub fn make_token<T: Config>(owner: &User<T>, name: Vec<u8>) -> Ticker {
     };
     let ticker = Ticker::try_from(&*name).unwrap();
 
-    T::Asset::create_asset_and_mint(
+    T::Asset::create_asset(
         owner.origin.clone().into(),
         name.into(),
-        ticker.clone(),
-        u128::try_from(token.total_supply).unwrap().into(),
+        ticker,
         true,
         token.asset_type.clone(),
         vec![],
         None,
+        false,
     )
     .expect("Cannot create an asset");
+
+    T::Asset::issue(
+        owner.origin.clone().into(),
+        ticker,
+        u128::try_from(token.total_supply).unwrap().into(),
+    )
+    .expect("Cannot mint for asset");
 
     ticker
 }

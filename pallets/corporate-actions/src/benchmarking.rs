@@ -140,17 +140,19 @@ fn attach<T: Config>(owner: &User<T>, ca_id: CAId) {
 
 crate fn currency<T: Config>(owner: &User<T>) -> Ticker {
     let currency = Ticker::try_from(b"B" as &[_]).unwrap();
-    Asset::<T>::base_create_asset_and_mint(
+    Asset::<T>::create_asset(
         owner.origin().into(),
         currency.as_slice().into(),
         currency,
-        1_000_000u32.into(),
         true,
         <_>::default(),
         vec![],
         None,
+        false,
     )
     .expect("Asset cannot be created");
+    Asset::<T>::issue(owner.origin().into(), currency, 1_000_000u32.into())
+        .expect("Could not mint for asset");
     currency
 }
 
