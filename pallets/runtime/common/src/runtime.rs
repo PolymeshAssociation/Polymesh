@@ -35,7 +35,7 @@ macro_rules! misc_pallet_impls {
             /// This replaces the "ss58Format" property declared in the chain spec. Reason is
             /// that the runtime should know about the prefix in order to make use of it as
             /// an identifier of the chain.
-            type SS58Prefix = polymesh_runtime_common::SS58Prefix;
+            type SS58Prefix = SS58Prefix;
             /// The identifier used to distinguish between accounts.
             type AccountId = polymesh_primitives::AccountId;
             /// The aggregated dispatch type that is available for extrinsics.
