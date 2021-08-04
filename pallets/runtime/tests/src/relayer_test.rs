@@ -216,9 +216,17 @@ fn do_update_polyx_limit_test() {
     use UpdateAction::*;
     let test_update = |action, p: User, x, expected_res: Result<(), Error>, expected_limit| {
         if let Err(e) = expected_res {
-            assert_noop!(Relayer::base_update_polyx_limit(p.origin(), bob.acc(), action, x), e);
+            assert_noop!(
+                Relayer::base_update_polyx_limit(p.origin(), bob.acc(), action, x),
+                e
+            );
         } else {
-            assert_ok!(Relayer::base_update_polyx_limit(p.origin(), bob.acc(), action, x));
+            assert_ok!(Relayer::base_update_polyx_limit(
+                p.origin(),
+                bob.acc(),
+                action,
+                x
+            ));
         }
         assert_subsidy(bob, Some((alice, expected_limit)));
     };
