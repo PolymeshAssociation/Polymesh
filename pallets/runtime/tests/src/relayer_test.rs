@@ -7,7 +7,7 @@ use frame_support::{
     weights::{DispatchInfo, Pays, PostDispatchInfo, Weight},
     StorageMap,
 };
-use pallet_relayer::Subsidy;
+use pallet_relayer::{Subsidy, UpdateAction};
 use polymesh_common_utilities::{
     constants::currency::POLY, protocol_fee::ProtocolOp,
     traits::transaction_payment::CddAndFeeDetails,
@@ -213,43 +213,40 @@ fn do_update_polyx_limit_test() {
     let bob = User::new(AccountKeyring::Bob);
     let alice = User::new(AccountKeyring::Alice);
 
-    let set = |p: User, x| Relayer::update_polyx_limit(p.origin(), bob.acc(), x);
-    let add = |p: User, x| Relayer::increase_polyx_limit(p.origin(), bob.acc(), x);
-    let sub = |p: User, x| Relayer::decrease_polyx_limit(p.origin(), bob.acc(), x);
-
-    let test_update = |res, expected_res: Result<(), Error>, expected_limit| {
+    use UpdateAction::*;
+    let test_update = |action, p: User, x, expected_res: Result<(), Error>, expected_limit| {
         if let Err(e) = expected_res {
-            assert_noop!(res, e);
+            assert_noop!(Relayer::base_update_polyx_limit(p.origin(), bob.acc(), action, x), e);
         } else {
-            assert_ok!(res);
+            assert_ok!(Relayer::base_update_polyx_limit(p.origin(), bob.acc(), action, x));
         }
         assert_subsidy(bob, Some((alice, expected_limit)));
     };
 
-    let mut limit = 10u128;
+    let mut limit = 10;
     setup_subsidy(bob, alice, limit);
 
     // Bob tries to update his Polyx limit.  Not allowed
-    test_update(set(bob, 1_000_000u128), Err(Error::NotPayingKey), limit);
-    test_update(add(bob, 100u128), Err(Error::NotPayingKey), limit);
-    test_update(sub(bob, 100u128), Err(Error::NotPayingKey), limit);
+    test_update(Set, bob, 1_000_000, Err(Error::NotPayingKey), limit);
+    test_update(Add, bob, 100, Err(Error::NotPayingKey), limit);
+    test_update(Sub, bob, 100, Err(Error::NotPayingKey), limit);
 
     // Alice updates the Polyx limit for Bob.  Allowed
     TestStorage::set_current_identity(&alice.did);
-    limit = 10_000u128;
-    test_update(set(alice, limit), Ok(()), limit);
+    limit = 10_000;
+    test_update(Set, alice, limit, Ok(()), limit);
 
     // Alice increases the limit.
-    limit += 100u128;
-    test_update(add(alice, 100u128), Ok(()), limit);
+    limit += 100;
+    test_update(Add, alice, 100, Ok(()), limit);
 
     // Alice decreases the limit.
-    limit -= 100u128;
-    test_update(sub(alice, 100u128), Ok(()), limit);
+    limit -= 100;
+    test_update(Sub, alice, 100, Ok(()), limit);
 
     // Test `Overflow` error.
-    test_update(add(alice, u128::MAX), Err(Error::Overflow), limit);
-    test_update(sub(alice, limit + 100u128), Err(Error::Overflow), limit);
+    test_update(Add, alice, u128::MAX, Err(Error::Overflow), limit);
+    test_update(Sub, alice, limit + 100, Err(Error::Overflow), limit);
 }
 
 #[test]
