@@ -21,6 +21,7 @@ use pallet_balances as balances;
 use pallet_identity::types::DidRecords as RpcDidRecords;
 use pallet_identity::{self as identity, DidRecords};
 use polymesh_common_utilities::{
+    asset::AssetSubTrait,
     protocol_fee::ProtocolOp,
     traits::{
         group::GroupTrait,
@@ -2107,7 +2108,7 @@ fn do_add_investor_uniqueness_claim() {
         assert_eq!(balance, Asset::balance_of_at_scope(scope_id, alice.did));
     };
     let scope_id_of = |scope_id| {
-        assert_eq!(scope_id, Asset::scope_id_of(ticker, alice.did));
+        assert_eq!(scope_id, Asset::scope_id(&ticker, &alice.did));
     };
     let aggregate_balance = |scope_id, balance| {
         assert_eq!(balance, Asset::aggregate_balance_of(ticker, scope_id));

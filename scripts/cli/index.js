@@ -419,7 +419,7 @@ async function issueTokenPerDid(api, accounts, dids, prepend, submitBar, complet
 
     if (fast) {
       await reqImports.sendTransaction(
-          api.tx.asset.createAsset(ticker, ticker, true, 0, [], "abc", dids[i]),
+          api.tx.asset.createAsset(ticker, ticker, true, 0, [], "abc", dids[i], false),
           accounts[i],
           {nonce: reqImports.nonces.get(accounts[i].address)}
       );
@@ -431,7 +431,7 @@ async function issueTokenPerDid(api, accounts, dids, prepend, submitBar, complet
     } else {
 
       let nonceObj = {nonce: reqImports.nonces.get(accounts[i].address)};
-      const transaction = api.tx.asset.createAsset(ticker, ticker, true, 0, [], "abc", dids[i]);
+      const transaction = api.tx.asset.createAsset(ticker, ticker, true, 0, [], "abc", dids[i], false);
       const result = await reqImports.sendTransaction(transaction, accounts[i], nonceObj);
       const passed = result.findRecord('system', 'ExtrinsicSuccess');
 
