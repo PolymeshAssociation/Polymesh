@@ -104,8 +104,6 @@ parameter_types! {
     pub const ContractsMaxValueSize: u32 = 16 * 1024;
     /// Max length of (instrumented) contract code in bytes.
     pub const ContractsMaxCodeSize: u32 = 100 * 1024;
-    /// The designated SS85 prefix of this chain.
-    pub const SS58Prefix: u8 = 12;
 
     pub RuntimeBlockLength: BlockLength =
         BlockLength::max_with_normal_ratio(10 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
