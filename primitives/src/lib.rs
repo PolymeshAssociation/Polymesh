@@ -30,7 +30,7 @@ use sp_std::prelude::Vec;
 use codec::{Decode, Encode};
 use sp_runtime::{
     generic,
-    traits::{BlakeTwo256, IdentifyAccount, Verify},
+    traits::{BlakeTwo256, Verify},
     MultiSignature,
 };
 
@@ -44,9 +44,6 @@ pub type Moment = u64;
 /// Alias to 512-bit hash when used in the context of a signature on the relay chain.
 /// Equipped with logic for possibly "unsigned" messages.
 pub type Signature = MultiSignature;
-
-/// Alias to an sr25519 or ed25519 key.
-pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 /// Alias for `EnsureRoot<AccountId>`.
 pub type EnsureRoot = frame_system::EnsureRoot<AccountId>;
@@ -149,6 +146,10 @@ pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 /// Utility byte container where equality comparison are ignored case.
 pub mod ignored_case_string;
 pub use ignored_case_string::IgnoredCaseString;
+
+/// Account types.
+pub mod account;
+pub use account::{AccountId, HexAccountId};
 
 /// External agents.
 pub mod agent;
