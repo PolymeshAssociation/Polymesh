@@ -22,8 +22,11 @@ pub(crate) fn on_runtime_upgrade<T: Config>() -> Weight {
         .for_each(|(block_number, txs)| {
             // Schedule only for future blocks.
             let block_number = T::BlockNumber::max(block_number, now + One::one());
-            txs.into_iter()
-                .for_each(|tx| Module::<T>::schedule_call(block_number, tx));
+            txs.into_iter().for_each(|tx| {
+                if let Err(e) = Module::<T>::schedule_call(block_number, tx) {
+                    pallet_base::emit_unexpected_error::<T>(Some(e));
+                }
+            });
         });
     });
 
