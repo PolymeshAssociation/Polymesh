@@ -5,13 +5,13 @@ use pallet_bridge::BridgeTx;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_staking::StakerStatus;
 use polymesh_common_utilities::{
-    constants::{currency::POLY, TREASURY_MODULE_ID},
+    constants::{currency::POLY, REWARDS_MODULE_ID, TREASURY_MODULE_ID},
     protocol_fee::ProtocolOp,
     SystematicIssuers,
 };
 use polymesh_primitives::{
-    identity_id::GenesisIdentityRecord, AccountId, IdentityId, Moment, PosRatio, SecondaryKey,
-    Signatory, Signature, Ticker,
+    identity_id::GenesisIdentityRecord, AccountId, Balance, HexAccountId, IdentityId, Moment,
+    PosRatio, SecondaryKey, Signatory, Signature, Ticker,
 };
 use sc_chain_spec::ChainType;
 use sc_service::Properties;
@@ -31,6 +31,8 @@ use std::convert::TryInto;
 // The URL for the telemetry server.
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
 const BRIDGE_LOCK_HASH: &str = "0x1000000000000000000000000000000000000000000000000000000000000001";
+const REWARDS_LOCK_HASH: &str =
+    "0x1000000000000000000000000000000000000000000000000000000000000002";
 
 /// Generate a crypto pair from seed.
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -313,6 +315,7 @@ fn genesis_processed_data(
 
 fn dev_genesis_processed_data(
     initial_authorities: &Vec<InitialAuth>,
+    rewards_bridge_lock: BridgeLockId,
     key_bridge_locks: Vec<BridgeLockId>,
     other_funded_accounts: Vec<AccountId>,
 ) -> (
@@ -354,7 +357,7 @@ fn dev_genesis_processed_data(
     }
 
     // Accumulate bridge transactions
-    let complete_txs: Vec<_> = key_bridge_locks
+    let mut complete_txs: Vec<_> = key_bridge_locks
         .iter()
         .cloned()
         .zip(
@@ -370,6 +373,13 @@ fn dev_genesis_processed_data(
             tx_hash,
         })
         .collect();
+
+    complete_txs.push(BridgeTx {
+        nonce: rewards_bridge_lock.nonce,
+        recipient: REWARDS_MODULE_ID.into_account(),
+        amount: itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+        tx_hash: rewards_bridge_lock.tx_hash,
+    });
 
     // The 0th key is the primary key
     identity.secondary_keys.remove(0);
@@ -487,6 +497,27 @@ macro_rules! protocol_fee {
     };
 }
 
+macro_rules! rewards {
+    () => {
+        pallet_rewards::GenesisConfig {
+            itn_rewards: itn_rewards(),
+        }
+    };
+}
+
+#[allow(unreachable_code)]
+fn itn_rewards() -> Vec<(AccountId, Balance)> {
+    #[cfg(feature = "runtime-benchmarks")]
+    return Vec::new();
+
+    let itn_rewards_file = include_str!("data/itn_rewards.json");
+    serde_json::from_str::<Vec<(HexAccountId, Balance)>>(&itn_rewards_file)
+        .unwrap()
+        .into_iter()
+        .map(|(acc, bal)| (acc.0.into(), bal))
+        .collect()
+}
+
 pub mod general {
     use super::*;
     use polymesh_runtime_develop::{self as rt, constants::time};
@@ -499,11 +530,13 @@ pub mod general {
         initial_authorities: Vec<InitialAuth>,
         root_key: AccountId,
         _enable_println: bool,
+        rewards_bridge_lock: BridgeLockId,
         key_bridge_locks: Vec<BridgeLockId>,
         other_funded_accounts: Vec<AccountId>,
     ) -> rt::runtime::GenesisConfig {
         let (identity, stakers, complete_txs) = dev_genesis_processed_data(
             &initial_authorities,
+            rewards_bridge_lock,
             key_bridge_locks,
             other_funded_accounts,
         );
@@ -564,6 +597,7 @@ pub mod general {
                 transaction_version: 1,
             }),
             pallet_corporate_actions: Some(corporate_actions!()),
+            pallet_rewards: Some(rewards!()),
         }
     }
 
@@ -572,6 +606,7 @@ pub mod general {
             vec![get_authority_keys_from_seed("Alice", false)],
             seeded_acc_id("Alice"),
             true,
+            BridgeLockId::new(2, REWARDS_LOCK_HASH),
             BridgeLockId::generate_bridge_locks(20),
             vec![
                 seeded_acc_id("Bob"),
@@ -609,6 +644,7 @@ pub mod general {
             ],
             seeded_acc_id("Alice"),
             true,
+            BridgeLockId::new(2, REWARDS_LOCK_HASH),
             BridgeLockId::generate_bridge_locks(20),
             vec![
                 seeded_acc_id("Charlie"),
@@ -702,6 +738,7 @@ pub mod testnet {
                 transaction_version: 1,
             }),
             pallet_corporate_actions: Some(corporate_actions!()),
+            pallet_rewards: Some(rewards!()),
         }
     }
 
@@ -839,6 +876,7 @@ pub mod polymesh_itn {
                 transaction_version: 1,
             }),
             pallet_corporate_actions: Some(corporate_actions!()),
+            pallet_rewards: Some(rewards!()),
         }
     }
 
