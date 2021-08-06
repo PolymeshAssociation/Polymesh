@@ -793,9 +793,7 @@ impl<T: Config> Currency<T::AccountId> for Module<T> {
         value: Self::Balance,
         existence_requirement: ExistenceRequirement,
     ) -> DispatchResult {
-        // Calling `transfer_core()` instead of the `safe_transfer_core()` to support the
-        // transfer to the smart extensions using the pallet-contracts.
-        Self::transfer_core(transactor, dest, value, None, existence_requirement)?;
+        Self::safe_transfer_core(transactor, dest, value, None, existence_requirement)?;
         Ok(())
     }
 
