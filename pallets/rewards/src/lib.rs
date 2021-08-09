@@ -147,7 +147,6 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::claim_itn_reward()]
         pub fn claim_itn_reward(origin, reward_address: T::AccountId, itn_address: T::AccountId, signature: T::OffChainSignature) -> DispatchResult {
             ensure_none(origin)?;
-            //TODO(Connor): Check cdd claim.
             Self::base_claim_itn_reward(reward_address, itn_address, signature)
         }
 
