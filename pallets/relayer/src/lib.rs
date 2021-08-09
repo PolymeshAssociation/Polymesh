@@ -74,7 +74,7 @@ pub struct Subsidy<Acc> {
 }
 
 /// Update action for subsidy POLYX limit.
-pub enum UpdateAction {
+enum UpdateAction {
     /// Set the current subsidy limit to `amount`.
     Set,
     /// Add `amount` to the current subsidy limit.
@@ -302,7 +302,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    pub fn base_update_polyx_limit(
+    fn base_update_polyx_limit(
         origin: T::Origin,
         user_key: T::AccountId,
         action: UpdateAction,

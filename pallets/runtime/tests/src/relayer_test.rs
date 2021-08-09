@@ -7,7 +7,7 @@ use frame_support::{
     weights::{DispatchInfo, Pays, PostDispatchInfo, Weight},
     StorageMap,
 };
-use pallet_relayer::{Subsidy, UpdateAction};
+use pallet_relayer::Subsidy;
 use polymesh_common_utilities::{
     constants::currency::POLY, protocol_fee::ProtocolOp,
     traits::transaction_payment::CddAndFeeDetails,
@@ -213,20 +213,22 @@ fn do_update_polyx_limit_test() {
     let bob = User::new(AccountKeyring::Bob);
     let alice = User::new(AccountKeyring::Alice);
 
-    use UpdateAction::*;
+    enum Action {
+        Set,
+        Add,
+        Sub,
+    }
+    use Action::*;
     let test_update = |action, p: User, x, expected_res: Result<(), Error>, expected_limit| {
+        let ext = match action {
+            Set => Relayer::update_polyx_limit,
+            Add => Relayer::increase_polyx_limit,
+            Sub => Relayer::decrease_polyx_limit,
+        };
         if let Err(e) = expected_res {
-            assert_noop!(
-                Relayer::base_update_polyx_limit(p.origin(), bob.acc(), action, x),
-                e
-            );
+            assert_noop!(ext(p.origin(), bob.acc(), x), e);
         } else {
-            assert_ok!(Relayer::base_update_polyx_limit(
-                p.origin(),
-                bob.acc(),
-                action,
-                x
-            ));
+            assert_ok!(ext(p.origin(), bob.acc(), x));
         }
         assert_subsidy(bob, Some((alice, expected_limit)));
     };
