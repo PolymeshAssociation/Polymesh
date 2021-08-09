@@ -35,6 +35,8 @@
 //! - `accept_paying_key` accepts a `paying_key` authorization.
 //! - `remove_paying_key` removes the `paying_key` from a `user_key`.
 //! - `update_polyx_limit` updates the available POLYX for a `user_key`.
+//! - `increase_polyx_limit` increases the available POLYX for a `user_key`.
+//! - `decrease_polyx_limit` decreases the available POLYX for a `user_key`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -69,6 +71,16 @@ pub struct Subsidy<Acc> {
     pub paying_key: Acc,
     /// How much POLYX is remaining for subsidising transaction and protocol fees.
     pub remaining: Balance,
+}
+
+/// Update action for subsidy POLYX limit.
+enum UpdateAction {
+    /// Set the current subsidy limit to `amount`.
+    Set,
+    /// Add `amount` to the current subsidy limit.
+    Add,
+    /// Subtract `amount` from the current subsidy limit.
+    Sub,
 }
 
 decl_storage! {
@@ -141,19 +153,48 @@ decl_module! {
         /// Updates the available POLYX for a `user_key`.
         ///
         /// # Arguments
-        /// - `user_key` the user key to remove the subsidy from.
+        /// - `user_key` the user key of the subsidy to update the available POLYX.
         /// - `polyx_limit` the amount of POLYX available for subsidising the `user_key`.
         ///
         /// # Errors
         /// - `NoPayingKey` if the `user_key` doesn't have a `paying_key`.
         /// - `NotPayingKey` if `origin` doesn't match the current `paying_key`.
         /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
-        ///
-        /// # Permissions
-        /// * Relayer
         #[weight = <T as Config>::WeightInfo::update_polyx_limit()]
         pub fn update_polyx_limit(origin, user_key: T::AccountId, polyx_limit: Balance) -> DispatchResult {
-            Self::base_update_polyx_limit(origin, user_key, polyx_limit)
+            Self::base_update_polyx_limit(origin, user_key, UpdateAction::Set, polyx_limit)
+        }
+
+        /// Increase the available POLYX for a `user_key`.
+        ///
+        /// # Arguments
+        /// - `user_key` the user key of the subsidy to update the available POLYX.
+        /// - `amount` the amount of POLYX to add to the subsidy of `user_key`.
+        ///
+        /// # Errors
+        /// - `NoPayingKey` if the `user_key` doesn't have a `paying_key`.
+        /// - `NotPayingKey` if `origin` doesn't match the current `paying_key`.
+        /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
+        /// - `Overlow` if the subsidy's remaining POLYX would have overflowed `u128::MAX`.
+        #[weight = <T as Config>::WeightInfo::increase_polyx_limit()]
+        pub fn increase_polyx_limit(origin, user_key: T::AccountId, amount: Balance) -> DispatchResult {
+            Self::base_update_polyx_limit(origin, user_key, UpdateAction::Add, amount)
+        }
+
+        /// Decrease the available POLYX for a `user_key`.
+        ///
+        /// # Arguments
+        /// - `user_key` the user key of the subsidy to update the available POLYX.
+        /// - `amount` the amount of POLYX to remove from the subsidy of `user_key`.
+        ///
+        /// # Errors
+        /// - `NoPayingKey` if the `user_key` doesn't have a `paying_key`.
+        /// - `NotPayingKey` if `origin` doesn't match the current `paying_key`.
+        /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
+        /// - `Overlow` if the subsidy has less then `amount` POLYX remaining.
+        #[weight = <T as Config>::WeightInfo::decrease_polyx_limit()]
+        pub fn decrease_polyx_limit(origin, user_key: T::AccountId, amount: Balance) -> DispatchResult {
+            Self::base_update_polyx_limit(origin, user_key, UpdateAction::Sub, amount)
         }
     }
 }
@@ -172,6 +213,8 @@ decl_error! {
         NotAuthorizedForPayingKey,
         /// The signer is not authorized for `user_key`.
         NotAuthorizedForUserKey,
+        /// The remaining POLYX for `user_key` overflowed.
+        Overflow,
     }
 }
 
@@ -262,7 +305,8 @@ impl<T: Config> Module<T> {
     fn base_update_polyx_limit(
         origin: T::Origin,
         user_key: T::AccountId,
-        polyx_limit: Balance,
+        action: UpdateAction,
+        amount: Balance,
     ) -> DispatchResult {
         let PermissionedCallOriginData {
             sender: paying_key,
@@ -275,14 +319,23 @@ impl<T: Config> Module<T> {
 
         // Update polyx limit.
         let old_remaining = subsidy.remaining;
-        subsidy.remaining = polyx_limit;
+        let new_remaining = match action {
+            UpdateAction::Set => amount,
+            UpdateAction::Add => old_remaining
+                .checked_add(amount)
+                .ok_or(Error::<T>::Overflow)?,
+            UpdateAction::Sub => old_remaining
+                .checked_sub(amount)
+                .ok_or(Error::<T>::Overflow)?,
+        };
+        subsidy.remaining = new_remaining;
         <Subsidies<T>>::insert(&user_key, subsidy);
 
         Self::deposit_event(RawEvent::UpdatedPolyxLimit(
             paying_did.for_event(),
             user_key,
             paying_key,
-            polyx_limit,
+            new_remaining,
             old_remaining,
         ));
         Ok(())
