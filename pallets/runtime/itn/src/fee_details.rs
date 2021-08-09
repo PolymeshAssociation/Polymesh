@@ -80,12 +80,13 @@ where
             Call::Relayer(pallet_relayer::Call::accept_paying_key(auth_id)) => {
                 is_auth_valid(caller, auth_id, CallType::AcceptRelayerPayingKey)
             }
-            // Call made by an Account key to propose or approve a multisig transaction.
+            // Call made by an Account key to propose, reject or approve a multisig transaction.
             // The multisig must have valid CDD and the caller must be a signer of the multisig.
             Call::MultiSig(
                 pallet_multisig::Call::create_or_approve_proposal_as_key(multisig, ..)
                 | pallet_multisig::Call::create_proposal_as_key(multisig, ..)
-                | pallet_multisig::Call::approve_as_key(multisig, ..),
+                | pallet_multisig::Call::approve_as_key(multisig, ..)
+                | pallet_multisig::Call::reject_as_key(multisig, ..),
             ) => handle_multisig(multisig, caller),
             // Call made by an Account key to propose or approve a multisig transaction via the bridge helper
             // The multisig must have valid CDD and the caller must be a signer of the multisig.
