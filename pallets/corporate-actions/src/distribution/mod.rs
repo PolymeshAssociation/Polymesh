@@ -496,6 +496,7 @@ impl<T: Config> Module<T> {
 
         // Compute `balance * amount / supply`, i.e. DID's benefit.
         let balance = <CA<T>>::balance_at_cp(holder, ca_id, cp_id);
+        ensure!(balance > 0, Error::<T>::NotTargetedByCA);
         let benefit = Self::benefit_of(balance, dist.per_share)?;
 
         // Ensure we have enough remaining.
