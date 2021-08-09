@@ -765,11 +765,12 @@ fn check_for_approval_closure() {
         let multi_purpose_nonce = Identity::multi_purpose_nonce();
 
         set_curr_did(Some(eve_did));
-        assert_ok!(MultiSig::approve_as_identity(
-            eve.clone(),
-            musig_address.clone(),
-            proposal_id
-        ));
+
+        assert_noop!(
+            MultiSig::approve_as_identity(eve.clone(), musig_address.clone(), proposal_id),
+            Error::ProposalAlreadyExecuted
+        );
+
         next_block();
         let after_extra_approval_auth_id = get_last_auth_id(&bob_signer.clone());
         let after_extra_approval_multi_purpose_nonce = Identity::multi_purpose_nonce();
@@ -781,7 +782,7 @@ fn check_for_approval_closure() {
         );
         assert_eq!(
             MultiSig::proposal_detail(&(musig_address.clone(), proposal_id)).approvals,
-            2
+            1
         );
     });
 }
