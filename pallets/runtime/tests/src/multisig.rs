@@ -765,11 +765,7 @@ fn check_for_approval_closure() {
         let multi_purpose_nonce = Identity::multi_purpose_nonce();
 
         set_curr_did(Some(eve_did));
-        assert_ok!(MultiSig::approve_as_identity(
-            eve.clone(),
-            musig_address.clone(),
-            proposal_id
-        ));
+
         assert_noop!(
             MultiSig::approve_as_identity(eve.clone(), musig_address.clone(), proposal_id),
             Error::ProposalAlreadyExecuted
