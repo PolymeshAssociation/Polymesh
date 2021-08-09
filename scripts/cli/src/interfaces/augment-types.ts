@@ -88,6 +88,7 @@ declare module '@polkadot/types/types/registry' {
     'Compact<ContractDiscriminant>': Compact<ContractDiscriminant>;
     'Compact<CoreIndex>': Compact<CoreIndex>;
     'Compact<Counter>': Compact<Counter>;
+    'Compact<CustomAssetTypeId>': Compact<CustomAssetTypeId>;
     'Compact<DepositBalance>': Compact<DepositBalance>;
     'Compact<DepositBalanceOf>': Compact<DepositBalanceOf>;
     'Compact<DocumentId>': Compact<DocumentId>;
@@ -417,6 +418,7 @@ declare module '@polkadot/types/types/registry' {
     'Option<Counter>': Option<Counter>;
     'Option<CountryCode>': Option<CountryCode>;
     'Option<CreatedBlock>': Option<CreatedBlock>;
+    'Option<CustomAssetTypeId>': Option<CustomAssetTypeId>;
     'Option<Data>': Option<Data>;
     'Option<DeferredOffenceOf>': Option<DeferredOffenceOf>;
     'Option<DefunctVoter>': Option<DefunctVoter>;
@@ -1495,6 +1497,7 @@ declare module '@polkadot/types/types/registry' {
     'Vec<Counter>': Vec<Counter>;
     'Vec<CountryCode>': Vec<CountryCode>;
     'Vec<CreatedBlock>': Vec<CreatedBlock>;
+    'Vec<CustomAssetTypeId>': Vec<CustomAssetTypeId>;
     'Vec<Data>': Vec<Data>;
     'Vec<DeferredOffenceOf>': Vec<DeferredOffenceOf>;
     'Vec<DefunctVoter>': Vec<DefunctVoter>;
@@ -2573,6 +2576,7 @@ declare module '@polkadot/types/types/registry' {
     Counter: Counter;
     CountryCode: CountryCode;
     CreatedBlock: CreatedBlock;
+    CustomAssetTypeId: CustomAssetTypeId;
     Data: Data;
     DeferredOffenceOf: DeferredOffenceOf;
     DefunctVoter: DefunctVoter;

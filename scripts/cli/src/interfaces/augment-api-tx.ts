@@ -96,6 +96,8 @@ declare module '@polkadot/api/types/submittable' {
        * * `asset_type` - the asset type.
        * * `identifiers` - a vector of asset identifiers.
        * * `funding_round` - name of the funding round.
+       * * `disable_iu` - whether or not investor uniqueness enforcement should be disabled.
+       * This cannot be changed after creating the asset.
        * 
        * ## Errors
        * - `InvalidAssetIdentifier` if any of `identifiers` are invalid.
@@ -110,7 +112,7 @@ declare module '@polkadot/api/types/submittable' {
        * ## Permissions
        * * Portfolio
        **/
-      createAsset: AugmentedSubmittable<(name: AssetName | string, ticker: Ticker | string | Uint8Array, divisible: bool | boolean | Uint8Array, assetType: AssetType | { EquityCommon: any } | { EquityPreferred: any } | { Commodity: any } | { FixedIncome: any } | { REIT: any } | { Fund: any } | { RevenueShareAgreement: any } | { StructuredProduct: any } | { Derivative: any } | { Custom: any } | { StableCoin: any } | string | Uint8Array, identifiers: Vec<AssetIdentifier> | (AssetIdentifier | { CUSIP: any } | { CINS: any } | { ISIN: any } | { LEI: any } | string | Uint8Array)[], fundingRound: Option<FundingRoundName> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AssetName, Ticker, bool, AssetType, Vec<AssetIdentifier>, Option<FundingRoundName>]>;
+      createAsset: AugmentedSubmittable<(name: AssetName | string, ticker: Ticker | string | Uint8Array, divisible: bool | boolean | Uint8Array, assetType: AssetType | { EquityCommon: any } | { EquityPreferred: any } | { Commodity: any } | { FixedIncome: any } | { REIT: any } | { Fund: any } | { RevenueShareAgreement: any } | { StructuredProduct: any } | { Derivative: any } | { Custom: any } | { StableCoin: any } | string | Uint8Array, identifiers: Vec<AssetIdentifier> | (AssetIdentifier | { CUSIP: any } | { CINS: any } | { ISIN: any } | { LEI: any } | string | Uint8Array)[], fundingRound: Option<FundingRoundName> | null | object | string | Uint8Array, disableIu: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [AssetName, Ticker, bool, AssetType, Vec<AssetIdentifier>, Option<FundingRoundName>, bool]>;
       /**
        * Freezes transfers and minting of a given token.
        * 
@@ -171,6 +173,18 @@ declare module '@polkadot/api/types/submittable' {
        * * Portfolio
        **/
       redeem: AugmentedSubmittable<(ticker: Ticker | string | Uint8Array, value: Balance | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Ticker, Balance]>;
+      /**
+       * Registers a custom asset type.
+       * 
+       * The provided `ty` will be bound to an ID in storage.
+       * The ID can then be used in `AssetType::Custom`.
+       * Should the `ty` already exist in storage, no second ID is assigned to it.
+       * 
+       * # Arguments
+       * * `origin` who called the extrinsic.
+       * * `ty` contains the string representation of the asset type.
+       **/
+      registerCustomAssetType: AugmentedSubmittable<(ty: Bytes | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Bytes]>;
       /**
        * Registers a new ticker or extends validity of an existing ticker.
        * NB: Ticker validity does not get carry forward when renewing ticker.
@@ -1935,7 +1949,7 @@ declare module '@polkadot/api/types/submittable' {
        * * `deposit` minimum deposit value, which is ignored if `proposer` is a committee.
        * * `url` a link to a website for proposal discussion
        **/
-      propose: AugmentedSubmittable<(proposal: Proposal | { callIndex?: any; args?: any } | string | Uint8Array, deposit: BalanceOf | AnyNumber | Uint8Array, url: Option<Url> | null | object | string | Uint8Array, description: Option<PipDescription> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Proposal, BalanceOf, Option<Url>, Option<PipDescription>]>;
+      propose: AugmentedSubmittable<(proposal: Proposal | { callIndex?: any; args?: any } | string | Uint8Array, deposit: Balance | AnyNumber | Uint8Array, url: Option<Url> | null | object | string | Uint8Array, description: Option<PipDescription> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Proposal, Balance, Option<Url>, Option<PipDescription>]>;
       /**
        * Prune the PIP given by the `id`, refunding any funds not already refunded.
        * The PIP may not be active
@@ -2002,7 +2016,7 @@ declare module '@polkadot/api/types/submittable' {
        * # Arguments
        * * `deposit` the new min deposit required to start a proposal
        **/
-      setMinProposalDeposit: AugmentedSubmittable<(deposit: BalanceOf | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [BalanceOf]>;
+      setMinProposalDeposit: AugmentedSubmittable<(deposit: Balance | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Balance]>;
       /**
        * Change the amount of blocks after which a pending PIP is expired.
        * If `expiry` is `None` then PIPs never expire.
@@ -2048,7 +2062,7 @@ declare module '@polkadot/api/types/submittable' {
        * * `IncorrectProposalState` if PIP isn't pending.
        * * `InsufficientDeposit` if `origin` cannot reserve `deposit - old_deposit`.
        **/
-      vote: AugmentedSubmittable<(id: PipId | AnyNumber | Uint8Array, ayeOrNay: bool | boolean | Uint8Array, deposit: BalanceOf | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [PipId, bool, BalanceOf]>;
+      vote: AugmentedSubmittable<(id: PipId | AnyNumber | Uint8Array, ayeOrNay: bool | boolean | Uint8Array, deposit: Balance | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [PipId, bool, Balance]>;
       /**
        * Generic tx
        **/
@@ -2187,7 +2201,7 @@ declare module '@polkadot/api/types/submittable' {
        * # Errors
        * * `BadOrigin` - Only root allowed.
        **/
-      changeBaseFee: AugmentedSubmittable<(op: ProtocolOp | 'AssetRegisterTicker' | 'AssetIssue' | 'AssetAddDocument' | 'AssetCreateAsset' | 'AssetCreateCheckpointSchedule' | 'DividendNew' | 'ComplianceManagerAddComplianceRequirement' | 'IdentityRegisterDid' | 'IdentityCddRegisterDid' | 'IdentityAddClaim' | 'IdentitySetPrimaryKey' | 'IdentityAddSecondaryKeysWithAuthorization' | 'PipsPropose' | 'VotingAddBallot' | 'ContractsPutCode' | 'BallotAttachBallot' | 'DistributionDistribute' | number | Uint8Array, baseFee: BalanceOf | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [ProtocolOp, BalanceOf]>;
+      changeBaseFee: AugmentedSubmittable<(op: ProtocolOp | 'AssetRegisterTicker' | 'AssetIssue' | 'AssetAddDocument' | 'AssetCreateAsset' | 'AssetCreateCheckpointSchedule' | 'DividendNew' | 'ComplianceManagerAddComplianceRequirement' | 'IdentityRegisterDid' | 'IdentityCddRegisterDid' | 'IdentityAddClaim' | 'IdentitySetPrimaryKey' | 'IdentityAddSecondaryKeysWithAuthorization' | 'PipsPropose' | 'VotingAddBallot' | 'ContractsPutCode' | 'BallotAttachBallot' | 'DistributionDistribute' | number | Uint8Array, baseFee: Balance | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [ProtocolOp, Balance]>;
       /**
        * Changes the fee coefficient for the root origin.
        * 
@@ -2473,9 +2487,9 @@ declare module '@polkadot/api/types/submittable' {
        * 
        * * `details` - Extra details about a venue
        * * `signers` - Array of signers that are allowed to sign receipts for this venue
-       * * `venue_type` - Type of venue being created
+       * * `typ` - Type of venue being created
        **/
-      createVenue: AugmentedSubmittable<(details: VenueDetails | string, signers: Vec<AccountId> | (AccountId | string | Uint8Array)[], venueType: VenueType | 'Other' | 'Distribution' | 'Sto' | 'Exchange' | number | Uint8Array) => SubmittableExtrinsic<ApiType>, [VenueDetails, Vec<AccountId>, VenueType]>;
+      createVenue: AugmentedSubmittable<(details: VenueDetails | string, signers: Vec<AccountId> | (AccountId | string | Uint8Array)[], typ: VenueType | 'Other' | 'Distribution' | 'Sto' | 'Exchange' | number | Uint8Array) => SubmittableExtrinsic<ApiType>, [VenueDetails, Vec<AccountId>, VenueType]>;
       /**
        * Revokes permission given to venues for creating instructions involving a particular asset.
        * 
@@ -2533,14 +2547,19 @@ declare module '@polkadot/api/types/submittable' {
        **/
       unclaimReceipt: AugmentedSubmittable<(instructionId: u64 | AnyNumber | Uint8Array, legId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64, u64]>;
       /**
-       * Edit venue details and types.
-       * Both parameters are optional, they will be updated only if Some(value) is provided
+       * Edit a venue's details.
        * 
-       * * `venue_id` - ID of the venue to edit
-       * * `details` - Extra details about a venue
-       * * `type` - Type of venue being created
+       * * `id` specifies the ID of the venue to edit.
+       * * `details` specifies the updated venue details.
        **/
-      updateVenue: AugmentedSubmittable<(venueId: u64 | AnyNumber | Uint8Array, details: Option<VenueDetails> | null | object | string | Uint8Array, typ: Option<VenueType> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64, Option<VenueDetails>, Option<VenueType>]>;
+      updateVenueDetails: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, details: VenueDetails | string) => SubmittableExtrinsic<ApiType>, [u64, VenueDetails]>;
+      /**
+       * Edit a venue's type.
+       * 
+       * * `id` specifies the ID of the venue to edit.
+       * * `type` specifies the new type of the venue.
+       **/
+      updateVenueType: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, typ: VenueType | 'Other' | 'Distribution' | 'Sto' | 'Exchange' | number | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64, VenueType]>;
       /**
        * Withdraw an affirmation for a given instruction.
        * 

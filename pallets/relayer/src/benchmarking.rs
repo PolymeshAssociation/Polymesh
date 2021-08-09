@@ -32,7 +32,7 @@ fn setup_users<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, User<T>) 
     (payer, user)
 }
 
-fn setup_paying_key<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, User<T>) {
+fn setup_paying_key<T: Config + TestUtilsFn<AccountIdOf<T>>>(limit: u128) -> (User<T>, User<T>) {
     let (payer, user) = setup_users::<T>();
     // accept paying key
     <Relayer<T>>::auth_accept_paying_key(
@@ -40,10 +40,22 @@ fn setup_paying_key<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, User
         payer.did(),
         user.account(),
         payer.account(),
-        0u128,
+        limit,
     )
     .unwrap();
     (payer, user)
+}
+
+#[track_caller]
+fn assert_subsidy<T: Config + TestUtilsFn<AccountIdOf<T>>>(
+    user: User<T>,
+    subsidy: Option<(User<T>, Balance)>,
+) {
+    let expect = subsidy.map(|(payer, limit)| Subsidy {
+        paying_key: payer.account(),
+        remaining: limit,
+    });
+    assert_eq!(Subsidies::<T>::get(user.account()), expect);
 }
 
 benchmarks! {
@@ -62,27 +74,37 @@ benchmarks! {
         );
     }: _(user.origin(), auth_id)
     verify {
-        assert_eq!(Subsidies::<T>::get(user.account()), Some(Subsidy {
-            paying_key: payer.account(),
-            remaining: limit,
-        }));
+        assert_subsidy(user, Some((payer, limit)));
     }
 
     remove_paying_key {
-        let (payer, user) = setup_paying_key::<T>();
+        let (payer, user) = setup_paying_key::<T>(0u128);
     }: _(payer.origin(), user.account(), payer.account())
     verify {
-        assert_eq!(Subsidies::<T>::get(user.account()), None);
+        assert_subsidy(user, None);
     }
 
     update_polyx_limit {
         let limit = 1_000u128;
-        let (payer, user) = setup_paying_key::<T>();
+        let (payer, user) = setup_paying_key::<T>(42u128);
     }: _(payer.origin(), user.account(), limit)
     verify {
-        assert_eq!(Subsidies::<T>::get(user.account()), Some(Subsidy {
-            paying_key: payer.account(),
-            remaining: limit,
-        }));
+        assert_subsidy(user, Some((payer, limit)));
+    }
+
+    increase_polyx_limit {
+        let limit = 500u128;
+        let (payer, user) = setup_paying_key::<T>(0u128);
+    }: _(payer.origin(), user.account(), limit)
+    verify {
+        assert_subsidy(user, Some((payer, limit)));
+    }
+
+    decrease_polyx_limit {
+        let limit = 500u128;
+        let (payer, user) = setup_paying_key::<T>(1_000u128);
+    }: _(payer.origin(), user.account(), limit)
+    verify {
+        assert_subsidy(user, Some((payer, limit)));
     }
 }

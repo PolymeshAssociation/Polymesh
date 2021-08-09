@@ -246,7 +246,7 @@ benchmarks! {
        let (origin, name, ticker, token, identifiers, fundr) = setup_create_asset::<T>(n, i , f, 0);
        let identifiers2 = identifiers.clone();
        let asset_type = token.asset_type.clone();
-    }: _(origin, name, ticker, token.divisible, asset_type, identifiers, fundr)
+    }: _(origin, name, ticker, token.divisible, asset_type, identifiers, fundr, false)
     verify {
         assert_eq!(Module::<T>::token_details(ticker), token);
         assert_eq!(Module::<T>::identifiers(ticker), identifiers2);

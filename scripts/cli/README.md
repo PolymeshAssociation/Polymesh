@@ -26,7 +26,8 @@ $ ./node_modules/.bin/pm2 log pmesh-peer-node-2
 To run the scripts and execute transactions:
 
 ```shell
-$ npm test
+$ yarn build
+$ yarn test
 ```
 
 
@@ -187,3 +188,12 @@ DONE
 Claims Batch Test
 Claim Batch Test Completed
 ```
+
+## Updating types:
+1. Build latest version `cargo build --release`
+2. Install dependencies with: `yarn`
+3. Run a node: `./run.sh`
+4. Get new metadata: `echo "state_getMetadata" | websocat 'ws://0.0.0.0:9944' --jsonrpc -n1 -B 500000 > alcyone-polymesh.json`
+5. Copy (`polymesh-schema.json`).types to scripts/cli/src/interfaces/definitions.ts
+6. Build new type definitions: `yarn build:types`
+7. Stop the node: `./stop.sh`

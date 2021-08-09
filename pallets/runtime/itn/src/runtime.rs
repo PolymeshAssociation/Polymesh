@@ -70,6 +70,7 @@ parameter_types! {
     // Frame:
     pub const EpochDuration: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
     pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
+    pub const SS58Prefix: u8 = 12;
 
     // Base:
     pub const MaxLen: u32 = 2048;
@@ -370,6 +371,7 @@ construct_runtime!(
         Base: pallet_base::{Module, Call, Event} = 45,
         ExternalAgents: pallet_external_agents::{Module, Call, Storage, Event} = 46,
         Relayer: pallet_relayer::{Module, Call, Storage, Event<T>} = 47,
+        Rewards: pallet_rewards::{Module, Call, Storage, Event<T>, Config<T>, ValidateUnsigned} = 48,
     }
 );
 

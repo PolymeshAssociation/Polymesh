@@ -231,6 +231,7 @@ frame_support::construct_runtime!(
         Base: pallet_base::{Module, Call, Event} = 51,
         ExternalAgents: pallet_external_agents::{Module, Call, Storage, Event} = 52,
         Relayer: pallet_relayer::{Module, Call, Storage, Event<T>} = 53,
+        Rewards: pallet_rewards::{Module, Call, Storage, Event<T>, Config<T>} = 54,
     }
 );
 
@@ -327,6 +328,7 @@ impl OnUnbalanced<NegativeImbalance<TestStorage>> for DealWithFees {
 }
 
 parameter_types! {
+    pub const SS58Prefix: u8 = 12;
     pub const ExistentialDeposit: u64 = 0;
     pub const MaxLocks: u32 = 50;
     pub const MaxLen: u32 = 256;

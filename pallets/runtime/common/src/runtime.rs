@@ -35,7 +35,7 @@ macro_rules! misc_pallet_impls {
             /// This replaces the "ss58Format" property declared in the chain spec. Reason is
             /// that the runtime should know about the prefix in order to make use of it as
             /// an identifier of the chain.
-            type SS58Prefix = polymesh_runtime_common::SS58Prefix;
+            type SS58Prefix = SS58Prefix;
             /// The identifier used to distinguish between accounts.
             type AccountId = polymesh_primitives::AccountId;
             /// The aggregated dispatch type that is available for extrinsics.
@@ -268,6 +268,11 @@ macro_rules! misc_pallet_impls {
         impl pallet_relayer::Config for Runtime {
             type Event = Event;
             type WeightInfo = polymesh_weights::pallet_relayer::WeightInfo<Runtime>;
+        }
+
+        impl pallet_rewards::Config for Runtime {
+            type Event = Event;
+            type WeightInfo = polymesh_weights::pallet_rewards::WeightInfo<Runtime>;
         }
 
         impl pallet_asset::Config for Runtime {

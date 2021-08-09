@@ -74,6 +74,7 @@ parameter_types! {
     // Frame:
     pub const EpochDuration: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
     pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
+    pub const SS58Prefix: u8 = 42;
 
     // Base:
     pub const MaxLen: u32 = ENSURED_MAX_LEN;
@@ -393,6 +394,7 @@ construct_runtime!(
         Base: pallet_base::{Module, Call, Event} = 51,
         ExternalAgents: pallet_external_agents::{Module, Call, Storage, Event} = 52,
         Relayer: pallet_relayer::{Module, Call, Storage, Event<T>} = 53,
+        Rewards: pallet_rewards::{Module, Call, Storage, Event<T>, Config<T>, ValidateUnsigned} = 54,
     }
 );
 
@@ -445,6 +447,7 @@ polymesh_runtime_common::runtime_apis! {
             add_benchmark!(params, batches, pallet_capital_distribution, CapitalDistribution);
             add_benchmark!(params, batches, pallet_external_agents, ExternalAgents);
             add_benchmark!(params, batches, pallet_relayer, Relayer);
+            add_benchmark!(params, batches, pallet_rewards, Rewards);
             //add_benchmark!(params, batches, polymesh_contracts, Contracts);
             add_benchmark!(params, batches, pallet_committee, PolymeshCommittee);
             add_benchmark!(params, batches, pallet_utility, Utility);

@@ -26,7 +26,7 @@ The latest release for Polymesh can be found at:
 
 Generally you should be able to run the latest release for both Alcyone and the ITN, although the on-chain version of each network might differ during upgrade cycles.
 
-Below are simple instructions for running a non-operating node (i.e. a node that does not produce blocks or validate consensus). For more details on monitoring infrastructure for nodes and running an operator node, see the https://github.com/PolymathNetwork/polymesh-tools repository.
+Below are simple instructions for running a non-operating node (i.e. a node that does not produce blocks or vote on the correctness of other blocks). For more details on monitoring infrastructure for nodes and running an operator node, see the https://github.com/PolymathNetwork/polymesh-tools repository.
 
 ## Polymesh Incentivised Testnet (ITN)
 

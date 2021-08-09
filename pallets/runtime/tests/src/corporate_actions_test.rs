@@ -21,7 +21,6 @@ use pallet_corporate_actions::{
     TargetTreatment::{Exclude, Include},
     Tax,
 };
-use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::traits::checkpoint::{ScheduleId, StoredSchedule};
 use polymesh_primitives::{
     agent::AgentGroup,
@@ -1624,7 +1623,7 @@ fn vote_works() {
         // Total asset balance voter == 500.
         transfer(&ticker, owner, voter);
         transfer(&ticker, owner, other);
-        assert_eq!(Asset::balance(&ticker, voter.did), 500);
+        assert_eq!(Asset::balance_of(&ticker, voter.did), 500);
 
         let id = notice_ca(owner, ticker, Some(1)).unwrap();
         assert_ok!(attach(owner, id, false));
@@ -2077,7 +2076,7 @@ fn dist_claim_works() {
         already(foo);
         let benefit_foo = 500 * per_share / PER_SHARE_PRECISION;
         let post_tax_foo = benefit_foo - benefit_foo * 1 / 4;
-        assert_eq!(Asset::balance(&currency, foo.did), post_tax_foo);
+        assert_eq!(Asset::balance_of(&currency, foo.did), post_tax_foo);
         let assert_rem =
             |removed| assert_eq!(Dist::distributions(id).unwrap().remaining, amount - removed);
         assert_rem(benefit_foo);
@@ -2087,7 +2086,7 @@ fn dist_claim_works() {
         already(bar);
         let benefit_bar = 1_000 * per_share / PER_SHARE_PRECISION;
         let post_tax_bar = benefit_bar * 2 / 3; // Using 1/3 tax to test rounding.
-        assert_eq!(Asset::balance(&currency, bar.did), post_tax_bar);
+        assert_eq!(Asset::balance_of(&currency, bar.did), post_tax_bar);
         assert_rem(benefit_foo + benefit_bar);
 
         // Owner should have some free currency balance due to withheld taxes.
@@ -2180,10 +2179,10 @@ fn dist_claim_cp_test(mk_ca: impl FnOnce(Ticker, User) -> CAId) {
 
         // Check the balances; tax is 0%.
         assert_eq!(
-            Asset::balance(&currency, claimant.did),
+            Asset::balance_of(&currency, claimant.did),
             500 * per_share / PER_SHARE_PRECISION
         );
-        assert_eq!(Asset::balance(&currency, other.did), 0);
+        assert_eq!(Asset::balance_of(&currency, other.did), 0);
     });
 }
 

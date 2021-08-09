@@ -31,6 +31,10 @@ declare module '@polkadot/api/types/errors' {
        **/
       BalanceOverflow: AugmentedError<ApiType>;
       /**
+       * An overflow while generating the next `CustomAssetTypeId`.
+       **/
+      CustomAssetTypeIdOverflow: AugmentedError<ApiType>;
+      /**
        * When extension is already added.
        **/
       ExtensionAlreadyPresent: AugmentedError<ApiType>;
@@ -82,10 +86,6 @@ declare module '@polkadot/api/types/errors' {
        * The given Document does not exist.
        **/
       NoSuchDoc: AugmentedError<ApiType>;
-      /**
-       * No such smart extension.
-       **/
-      NoSuchSmartExtension: AugmentedError<ApiType>;
       /**
        * Not an owner of the token.
        **/
@@ -1081,6 +1081,10 @@ declare module '@polkadot/api/types/errors' {
        * Insufficient account balance to pay the fee.
        **/
       InsufficientAccountBalance: AugmentedError<ApiType>;
+      /**
+       * Insufficient subsidy balance to pay the fee.
+       **/
+      InsufficientSubsidyBalance: AugmentedError<ApiType>;
       /**
        * Not able to handled the imbalances
        **/
