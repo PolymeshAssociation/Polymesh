@@ -85,7 +85,7 @@ where
             Call::MultiSig(
                 pallet_multisig::Call::create_or_approve_proposal_as_key(multisig, ..)
                 | pallet_multisig::Call::create_proposal_as_key(multisig, ..)
-                | pallet_multisig::Call::approve_as_key(multisig, ..),
+                | pallet_multisig::Call::approve_as_key(multisig, ..)
                 | pallet_multisig::Call::reject_as_key(multisig, ..),
             ) => handle_multisig(multisig, caller),
             // Call made by an Account key to propose or approve a multisig transaction via the bridge helper
