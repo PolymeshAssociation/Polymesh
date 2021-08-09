@@ -782,7 +782,7 @@ fn check_for_approval_closure() {
         );
         assert_eq!(
             MultiSig::proposal_detail(&(musig_address.clone(), proposal_id)).approvals,
-            2
+            1
         );
     });
 }
