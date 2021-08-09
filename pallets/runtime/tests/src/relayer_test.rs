@@ -1,5 +1,4 @@
 use super::{
-    ext_builder::MockProtocolBaseFees,
     storage::{get_last_auth_id, make_account_without_cdd, Call, TestStorage, User},
     ExtBuilder,
 };
@@ -201,6 +200,63 @@ fn do_basic_relayer_paying_key_test() {
         Relayer::remove_paying_key(alice.origin(), bob.acc(), alice.acc()),
         Error::NoPayingKey
     );
+}
+
+#[test]
+fn update_polyx_limit_test() {
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(&do_update_polyx_limit_test);
+}
+fn do_update_polyx_limit_test() {
+    let bob = User::new(AccountKeyring::Bob);
+    let alice = User::new(AccountKeyring::Alice);
+
+    enum Action {
+        Set,
+        Add,
+        Sub,
+    }
+    use Action::*;
+    let test_update = |action, p: User, x, expected_res: Result<(), Error>, expected_limit| {
+        let ext = match action {
+            Set => Relayer::update_polyx_limit,
+            Add => Relayer::increase_polyx_limit,
+            Sub => Relayer::decrease_polyx_limit,
+        };
+        if let Err(e) = expected_res {
+            assert_noop!(ext(p.origin(), bob.acc(), x), e);
+        } else {
+            assert_ok!(ext(p.origin(), bob.acc(), x));
+        }
+        assert_subsidy(bob, Some((alice, expected_limit)));
+    };
+
+    let mut limit = 10;
+    setup_subsidy(bob, alice, limit);
+
+    // Bob tries to update his Polyx limit.  Not allowed
+    test_update(Set, bob, 1_000_000, Err(Error::NotPayingKey), limit);
+    test_update(Add, bob, 100, Err(Error::NotPayingKey), limit);
+    test_update(Sub, bob, 100, Err(Error::NotPayingKey), limit);
+
+    // Alice updates the Polyx limit for Bob.  Allowed
+    TestStorage::set_current_identity(&alice.did);
+    limit = 10_000;
+    test_update(Set, alice, limit, Ok(()), limit);
+
+    // Alice increases the limit.
+    limit += 100;
+    test_update(Add, alice, 100, Ok(()), limit);
+
+    // Alice decreases the limit.
+    limit -= 100;
+    test_update(Sub, alice, 100, Ok(()), limit);
+
+    // Test `Overflow` error.
+    test_update(Add, alice, u128::MAX, Err(Error::Overflow), limit);
+    test_update(Sub, alice, limit + 100, Err(Error::Overflow), limit);
 }
 
 #[test]
