@@ -8,6 +8,8 @@ pub trait WeightInfo {
     fn accept_paying_key() -> Weight;
     fn remove_paying_key() -> Weight;
     fn update_polyx_limit() -> Weight;
+    fn increase_polyx_limit() -> Weight;
+    fn decrease_polyx_limit() -> Weight;
 }
 
 pub trait SubsidiserTrait<AccountId> {
