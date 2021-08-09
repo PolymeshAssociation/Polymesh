@@ -1,7 +1,8 @@
-import { initMain, generateRandomEntity, generateRandomTicker } from "../util/init";
+import { initMain, generateRandomEntity, generateRandomTicker, transferAmount } from "../util/init";
 import { createIdentities } from "../helpers/identity_helper";
 import { issueTokenToDid } from "../helpers/asset_helper";
-import { createGroup, setGroupPermissions } from "../helpers/external_agent_helper";
+import { distributePoly } from "../helpers/poly_helper";
+import { createGroup, setGroupPermissions, acceptBecomeAgent, nextAgId } from "../helpers/external_agent_helper";
 import { ExtrinsicPermissions } from "../types";
 import PrettyError from "pretty-error";
 
@@ -12,17 +13,13 @@ async function main(): Promise<void> {
   const bobDid = (await createIdentities(alice, [bob]))[0];
   let extrinsics: ExtrinsicPermissions = { These: [] };
 
-  // Mint tokens
+  await distributePoly(alice, bob, transferAmount);
   const ticker = generateRandomTicker();
   await issueTokenToDid(alice, ticker, 1000000, null);
-
-  // Create Group
   await createGroup(alice, ticker, extrinsics);
-
-  // Set Group Permissions
-  await setGroupPermissions(alice, ticker, 1, extrinsics);
-  
-
+  const agId = await nextAgId(ticker);
+  await setGroupPermissions(alice, ticker, agId, extrinsics);
+  await acceptBecomeAgent(bob, bobDid, alice, ticker, { Full: "" });
 
 }
 

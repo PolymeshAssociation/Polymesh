@@ -12,6 +12,8 @@ import type {
   ExtrinsicPermissions,
   PortfolioPermissions,
   AssetPermissions,
+  Signatory,
+  AuthorizationData
 } from "../types";
 import { sendTx, keyToIdentityIds, ApiSingleton } from "../util/init";
 import type { IdentityId } from "../interfaces";
@@ -149,4 +151,24 @@ async function addCddClaim(
     const transaction = api.tx.identity.addClaim(dids[i], claim, expiry);
     await sendTx(signer, transaction);
   }
+}
+
+export async function addAuthorization(
+	signer: KeyringPair,
+	receiver: Signatory,
+	auth_data: any,
+	expiry: Expiry
+) {
+	const api = await ApiSingleton.getInstance();
+	const transaction = api.tx.identity.addAuthorization(
+		receiver,
+		auth_data,
+		expiry
+	);
+	await sendTx(signer, transaction);
+}
+
+export async function getAuthId() {
+	const api = await ApiSingleton.getInstance();
+	return api.query.identity.multiPurposeNonce();
 }
