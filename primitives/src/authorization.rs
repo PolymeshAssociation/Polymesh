@@ -31,7 +31,7 @@ pub enum AuthorizationData<AccountId> {
     /// CDD provider's attestation to change primary key
     AttestPrimaryKeyRotation(IdentityId),
     /// Authorization to change primary key
-    RotatePrimaryKey(IdentityId),
+    RotatePrimaryKey,
     /// Authorization to transfer a ticker
     /// Must be issued by the current owner of the ticker
     TransferTicker(Ticker),
@@ -67,7 +67,7 @@ impl<AccountId> AuthorizationData<AccountId> {
     pub fn auth_type(&self) -> AuthorizationType {
         match self {
             Self::AttestPrimaryKeyRotation(..) => AuthorizationType::AttestPrimaryKeyRotation,
-            Self::RotatePrimaryKey(..) => AuthorizationType::RotatePrimaryKey,
+            Self::RotatePrimaryKey => AuthorizationType::RotatePrimaryKey,
             Self::TransferTicker(..) => AuthorizationType::TransferTicker,
             Self::TransferPrimaryIssuanceAgent(..) => AuthorizationType::NoData,
             Self::TransferCorporateActionAgent(..) => AuthorizationType::NoData,
