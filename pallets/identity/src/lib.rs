@@ -151,7 +151,7 @@ type CallPermissions<T> = pallet_permissions::Module<T>;
 
 // A value placed in storage that represents the current version of the this storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-storage_migration_ver!(3);
+storage_migration_ver!(4);
 
 decl_storage! {
     trait Store for Module<T: Config> as identity {
@@ -203,7 +203,7 @@ decl_storage! {
         pub CddAuthForPrimaryKeyRotation get(fn cdd_auth_for_primary_key_rotation): bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(3).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(4).unwrap()): Version;
 
         /// How many "strong" references to the account key.
         ///
@@ -279,9 +279,24 @@ decl_module! {
         const InitialPOLYX: <T::Balances as Currency<T::AccountId>>::Balance = T::InitialPOLYX::get().into();
 
         fn on_runtime_upgrade() -> Weight {
+            // Migrate `Authorizations`.
+            use frame_support::{Blake2_128Concat, Twox64Concat};
+            use polymesh_primitives::migrate::migrate_double_map_only_values;
+
             let storage_ver = StorageVersion::get();
 
             storage_migrate_on!(storage_ver, 3, { Claims::translate(migration::migrate_claim); });
+
+            // Migrate Authorizations.
+            storage_migrate_on!(storage_ver, 4, {
+                migrate_double_map_only_values::<_, _, Blake2_128Concat, _, Twox64Concat, _, _, _>(
+                    b"Identity", b"Authorizations", migration::migrate_auth_v1::<T::AccountId, T::Moment>)
+                .for_each(|migrate_status| {
+                    if let Err(err) = migrate_status {
+                        Self::deposit_event( RawEvent::MigrationFailure(err));
+                    }
+                });
+            });
 
             // It's gonna be alot, so lets pretend its 0 anyways.
             0
