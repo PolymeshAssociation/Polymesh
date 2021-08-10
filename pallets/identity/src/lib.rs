@@ -1055,7 +1055,9 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         let sender = ensure_signed(origin)?;
         let signer = Signatory::Account(sender.clone());
-        Self::accept_auth_with(&signer, rotation_auth_id, |_, target_did| {
+        Self::accept_auth_with(&signer, rotation_auth_id, |data, target_did| {
+            // Ensure Authorization is a `RotatePrimaryKey`.
+            extract_auth!(data, RotatePrimaryKey);
             Self::unsafe_primary_key_rotation(sender, target_did, optional_cdd_auth_id)
         })
     }

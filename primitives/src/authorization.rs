@@ -172,5 +172,11 @@ macro_rules! extract_auth {
             $crate::authorization::AuthorizationData::$variant($($f),*) => ($($f),*),
             _ => frame_support::fail!($crate::authorization::AuthorizationError::BadType),
         }
-    }
+    };
+    ($data:expr, $variant:ident ) => {
+        match $data {
+            $crate::authorization::AuthorizationData::$variant => (),
+            _ => frame_support::fail!($crate::authorization::AuthorizationError::BadType),
+        }
+    };
 }
