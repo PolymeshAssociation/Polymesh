@@ -77,7 +77,7 @@ export interface AuthorizationData {
 	Custom?: Ticker;
 	NoData?: string;
 	TransferCorporateActionAgent?: Ticker;
-	BecomeAgent?: { Ticker: Ticker; AgentGroup: AgentGroup };
+	BecomeAgent?: (string | AgentGroup)[];
 }
 
 export interface AgentGroup {

@@ -2,18 +2,14 @@ import type { KeyringPair } from "@polkadot/keyring/types";
 import type { AccountId } from "@polkadot/types/interfaces";
 import type { AnyNumber } from "@polkadot/types/types";
 import type {
-  LegacyPalletPermissions,
-  PortfolioId,
-  Ticker,
   Permissions,
   Expiry,
-  SubsetRestriction,
-  PalletPermissions,
   ExtrinsicPermissions,
   PortfolioPermissions,
   AssetPermissions,
   Signatory,
-  AuthorizationData
+  AuthorizationData,
+  AgentGroup
 } from "../types";
 import { sendTx, keyToIdentityIds, ApiSingleton } from "../util/init";
 import type { IdentityId } from "../interfaces";

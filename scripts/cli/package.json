@@ -21,7 +21,7 @@
     "generate:polymesh-meta": "./chain_metadata.sh",
     "lint": "tsc --noEmit --pretty",
     "clean:some": "rm -rf ./dist ./docs",
-    "clean:all": "rm -rf ./node_modules ./npm package-lock.json ./dist ./docs",
+    "clean:all": "rm -rf ./node_modules package-lock.json ./dist ./docs",
     "tscov": "type-coverage --at-least 95",
     "tscov:d": "type-coverage --detail",
     "refresh": "npm run clean:all && npm run install",
