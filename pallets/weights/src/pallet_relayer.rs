@@ -49,4 +49,14 @@ impl<T: frame_system::Config> pallet_relayer::WeightInfo for WeightInfo<T> {
             .saturating_add(T::DbWeight::get().reads(7 as Weight))
             .saturating_add(T::DbWeight::get().writes(1 as Weight))
     }
+    fn increase_polyx_limit() -> Weight {
+        (176_517_000 as Weight)
+            .saturating_add(T::DbWeight::get().reads(7 as Weight))
+            .saturating_add(T::DbWeight::get().writes(1 as Weight))
+    }
+    fn decrease_polyx_limit() -> Weight {
+        (176_517_000 as Weight)
+            .saturating_add(T::DbWeight::get().reads(7 as Weight))
+            .saturating_add(T::DbWeight::get().writes(1 as Weight))
+    }
 }

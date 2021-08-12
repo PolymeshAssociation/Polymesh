@@ -876,7 +876,9 @@ impl<T: Config> Module<T> {
         match proposal_details.status {
             ProposalStatus::Invalid => return Err(Error::<T>::ProposalMissing.into()),
             ProposalStatus::Rejected => return Err(Error::<T>::ProposalAlreadyRejected.into()),
-            ProposalStatus::ExecutionSuccessful | ProposalStatus::ExecutionFailed => {}
+            ProposalStatus::ExecutionSuccessful | ProposalStatus::ExecutionFailed => {
+                return Err(Error::<T>::ProposalAlreadyExecuted.into())
+            }
             ProposalStatus::ActiveOrExpired => {
                 // Ensure proposal is not expired
                 if let Some(expiry) = proposal_details.expiry {
