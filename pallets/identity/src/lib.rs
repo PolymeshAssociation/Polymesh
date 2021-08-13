@@ -279,9 +279,6 @@ decl_module! {
         const InitialPOLYX: <T::Balances as Currency<T::AccountId>>::Balance = T::InitialPOLYX::get().into();
 
         fn on_runtime_upgrade() -> Weight {
-            // Migrate `Authorizations`.
-            use frame_support::{Blake2_128Concat, Twox64Concat};
-
             let storage_ver = StorageVersion::get();
 
             storage_migrate_on!(storage_ver, 3, { Claims::translate(migration::migrate_claim); });

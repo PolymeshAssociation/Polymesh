@@ -225,9 +225,6 @@ decl_event!(
 
         /// Forwarded Call - (calling DID, target DID, pallet name, function name)
         ForwardedCall(IdentityId, IdentityId, PalletName, DispatchableName),
-
-        /// Migration error event.
-        MigrationFailure(MigrationError<()>),
     }
 );
 
