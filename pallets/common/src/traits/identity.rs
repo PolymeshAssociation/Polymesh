@@ -32,7 +32,6 @@ use frame_support::{
     weights::{GetDispatchInfo, Weight},
     Parameter,
 };
-use polymesh_primitives::migrate::MigrationError;
 use polymesh_primitives::{
     secondary_key::api::SecondaryKey, AuthorizationData, DispatchableName, IdentityClaim,
     IdentityId, InvestorUid, PalletName, Permissions, Signatory, Ticker,
