@@ -60,7 +60,7 @@ pub fn migrate_auth_v1<AccountId, Moment>(
     _k1: Signatory<AccountId>,
     _k2: u64,
     auth: AuthV1<AccountId, Moment>,
-) -> Result<Authorization<AccountId, Moment>, ()> {
+) -> Option<Authorization<AccountId, Moment>> {
     let authorization_data = match auth.authorization_data {
         AuthDataV1::AttestPrimaryKeyRotation(did) => {
             AuthorizationData::AttestPrimaryKeyRotation(did)
@@ -87,7 +87,7 @@ pub fn migrate_auth_v1<AccountId, Moment>(
         }
     };
 
-    Ok(Authorization {
+    Some(Authorization {
         authorization_data,
         authorized_by: auth.authorized_by,
         expiry: auth.expiry,

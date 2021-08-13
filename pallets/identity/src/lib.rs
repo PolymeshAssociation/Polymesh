@@ -281,7 +281,6 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
             // Migrate `Authorizations`.
             use frame_support::{Blake2_128Concat, Twox64Concat};
-            use polymesh_primitives::migrate::migrate_double_map_only_values;
 
             let storage_ver = StorageVersion::get();
 
@@ -289,13 +288,7 @@ decl_module! {
 
             // Migrate Authorizations.
             storage_migrate_on!(storage_ver, 4, {
-                migrate_double_map_only_values::<_, _, Blake2_128Concat, _, Twox64Concat, _, _, _>(
-                    b"Identity", b"Authorizations", migration::migrate_auth_v1::<T::AccountId, T::Moment>)
-                .for_each(|migrate_status| {
-                    if let Err(err) = migrate_status {
-                        Self::deposit_event( RawEvent::MigrationFailure(err));
-                    }
-                });
+                <Authorizations<T>>::translate(migration::migrate_auth_v1::<T::AccountId, T::Moment>);
             });
 
             // It's gonna be alot, so lets pretend its 0 anyways.
