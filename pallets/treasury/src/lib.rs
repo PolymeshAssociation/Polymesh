@@ -38,13 +38,13 @@ pub mod benchmarking;
 
 use frame_support::{
     decl_error, decl_event, decl_module, ensure,
-    traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReason},
+    traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReasons},
     weights::Weight,
 };
 use frame_system::ensure_root;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    constants::TREASURY_MODULE_ID, traits::balances::Trait as BalancesTrait, Context, GC_DID,
+    constants::TREASURY_MODULE_ID, traits::balances::Config as BalancesConfig, Context, GC_DID,
 };
 use polymesh_primitives::{Beneficiary, IdentityId};
 use sp_runtime::traits::{AccountIdConversion, Saturating};
@@ -54,13 +54,14 @@ pub type ProposalIndex = u32;
 
 type Identity<T> = identity::Module<T>;
 type BalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
+    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::NegativeImbalance;
 
-pub trait Trait: frame_system::Trait + BalancesTrait {
+pub trait Config: frame_system::Config + BalancesConfig {
     // The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     /// The native currency.
     type Currency: Currency<Self::AccountId>;
     /// Weight information for extrinsics in the identity pallet.
@@ -93,14 +94,14 @@ decl_event!(
 
 decl_error! {
     /// Error for the treasury module.
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// Proposer's balance is too low.
         InsufficientBalance,
     }
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -111,7 +112,7 @@ decl_module! {
         /// # Error
         /// * `BadOrigin`: Only root can execute transaction.
         /// * `InsufficientBalance`: If treasury balances is not enough to cover all beneficiaries.
-        #[weight = <T as Trait>::WeightInfo::disbursement( beneficiaries.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::disbursement( beneficiaries.len() as u32)]
         pub fn disbursement(origin, beneficiaries: Vec<Beneficiary<BalanceOf<T>>>) {
             ensure_root(origin)?;
 
@@ -127,7 +128,7 @@ decl_module! {
         /// It transfers the specific `amount` from `origin` account into treasury.
         ///
         /// Only accounts which are associated to an identity can make a donation to treasury.
-        #[weight = <T as Trait>::WeightInfo::reimbursement()]
+        #[weight = <T as Config>::WeightInfo::reimbursement()]
         pub fn reimbursement(origin, amount: BalanceOf<T>) {
             let identity::PermissionedCallOriginData {
                 sender,
@@ -149,7 +150,7 @@ decl_module! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     /// The account ID of the treasury pot.
     ///
     /// This actually does computation. If you need to keep using it, then make sure you cache the
@@ -162,7 +163,7 @@ impl<T: Trait> Module<T> {
         let _ = T::Currency::withdraw(
             &Self::account_id(),
             amount,
-            WithdrawReason::Transfer.into(),
+            WithdrawReasons::TRANSFER,
             ExistenceRequirement::AllowDeath,
         );
         let primary_key = Identity::<T>::did_records(target).primary_key;
@@ -176,7 +177,7 @@ impl<T: Trait> Module<T> {
     }
 }
 
-impl<T: Trait> TreasuryTrait<BalanceOf<T>> for Module<T> {
+impl<T: Config> TreasuryTrait<BalanceOf<T>> for Module<T> {
     #[inline]
     fn disbursement(target: IdentityId, amount: BalanceOf<T>) {
         Self::unsafe_disbursement(target, amount);
@@ -189,7 +190,7 @@ impl<T: Trait> TreasuryTrait<BalanceOf<T>> for Module<T> {
 }
 
 /// That trait implementation is needed to receive a portion of the fees from transactions.
-impl<T: Trait> OnUnbalanced<NegativeImbalanceOf<T>> for Module<T> {
+impl<T: Config> OnUnbalanced<NegativeImbalanceOf<T>> for Module<T> {
     fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<T>) {
         let numeric_amount = amount.peek();
 

@@ -19,7 +19,7 @@
 
 use crate::{
     traits::{balances::Memo, base, identity},
-    CommonTrait,
+    CommonConfig,
 };
 use codec::{Decode, Encode};
 use frame_support::decl_event;
@@ -90,14 +90,14 @@ pub trait WeightInfo {
     fn quit_portfolio_custody() -> Weight;
 }
 
-pub trait Trait: CommonTrait + identity::Trait + base::Trait {
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+pub trait Config: CommonConfig + identity::Config + base::Config {
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     type WeightInfo: WeightInfo;
 }
 
 decl_event! {
     pub enum Event<T> where
-        Balance = <T as CommonTrait>::Balance,
+        Balance = <T as CommonConfig>::Balance,
     {
         /// The portfolio has been successfully created.
         ///

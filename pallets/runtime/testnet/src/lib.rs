@@ -1,4 +1,3 @@
-#![feature(or_patterns)]
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
@@ -17,9 +16,9 @@ pub use runtime::{native_version, WASM_BINARY};
 pub use runtime::DryRunRuntimeUpgrade;
 
 pub use runtime::{
-    api, Asset, Authorship, Balances, BalancesCall, BaseContracts, Bridge, Call, CheckedExtrinsic,
-    Contracts, MinimumPeriod, ProtocolFee, Runtime, RuntimeApi, SessionKeys, System, SystemCall,
-    TransactionPayment, UncheckedExtrinsic,
+    api, Asset, Authorship, Balances, BalancesCall, Bridge, Call, CheckedExtrinsic, MinimumPeriod,
+    ProtocolFee, Runtime, RuntimeApi, SessionKeys, System, SystemCall, TransactionPayment,
+    UncheckedExtrinsic,
 };
 
 pub use sp_runtime::{Perbill, Permill};

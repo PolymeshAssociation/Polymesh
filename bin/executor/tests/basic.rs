@@ -22,7 +22,7 @@ use frame_support::{
     StorageMap, StorageValue,
 };
 use frame_system::{self, EventRecord, Phase};
-use pallet_contracts::ContractAddressFor;
+//use pallet_contracts::ContractAddressFor;
 use sp_core::{storage::well_known_keys, traits::Externalities, NeverNativeValue};
 use sp_runtime::{
     traits::Hash as HashT, transaction_validity::InvalidTransaction, ApplyExtrinsicResult,
@@ -637,12 +637,13 @@ const CODE_TRANSFER: &str = r#"
 )
 "#;
 
+/*
 #[test]
 fn deploying_wasm_contract_should_work() {
     let transfer_code = wabt::wat2wasm(CODE_TRANSFER).unwrap();
-    let transfer_ch = <Runtime as frame_system::Trait>::Hashing::hash(&transfer_code);
+    let transfer_ch = <Runtime as frame_system::Config>::Hashing::hash(&transfer_code);
 
-    let addr = <Runtime as pallet_contracts::Trait>::DetermineContractAddress::contract_address_for(
+    let addr = <Runtime as pallet_contracts::Config>::DetermineContractAddress::contract_address_for(
         &transfer_ch,
         &[],
         &charlie(),
@@ -703,6 +704,7 @@ fn deploying_wasm_contract_should_work() {
         );
     });
 }
+*/
 
 #[test]
 fn wasm_big_block_import_fails() {

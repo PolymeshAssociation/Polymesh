@@ -78,7 +78,7 @@
 pub mod benchmarking;
 
 use crate as ca;
-use ca::{CAId, CAKind, CorporateAction, Trait};
+use ca::{CAId, CAKind, Config, CorporateAction};
 use codec::{Decode, Encode};
 use core::convert::TryInto;
 use core::mem;
@@ -93,7 +93,7 @@ use pallet_asset::checkpoint;
 use pallet_base::ensure_string_limited;
 use pallet_identity as identity;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
-use polymesh_common_utilities::CommonTrait;
+use polymesh_common_utilities::CommonConfig;
 use polymesh_primitives::{EventDid, IdentityId, Moment};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{CheckedAdd, Zero};
@@ -242,7 +242,7 @@ pub trait WeightInfo {
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as CorporateBallot {
+    trait Store for Module<T: Config> as CorporateBallot {
         /// Metadata of a corporate ballot.
         ///
         /// (CAId) => BallotMeta
@@ -293,7 +293,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -324,7 +324,7 @@ decl_module! {
         /// - `NumberOfChoicesOverflow` if the total choice in `meta` overflows `usize`.
         /// - `TooLong` if any of the embedded strings in `meta` are too long.
         /// - `InsufficientBalance` if the protocol fee couldn't be charged.
-        #[weight = <T as Trait>::BallotWeightInfo::attach_ballot(meta.saturating_num_choices())]
+        #[weight = <T as Config>::BallotWeightInfo::attach_ballot(meta.saturating_num_choices())]
         pub fn attach_ballot(origin, ca_id: CAId, range: BallotTimeRange, meta: BallotMeta, rcv: bool) {
             // Ensure origin is CAA, that `ca_id` exists, that its a notice, and the date invariant.
             let caa = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?;
@@ -369,7 +369,7 @@ decl_module! {
         /// - `NotTargetedByCA` if the CA does not target `origin`'s DID.
         /// - `InsufficientVotes` if the voting power used for any motion in `votes`
         ///    exceeds `origin`'s DID's voting power.
-        #[weight = <T as Trait>::BallotWeightInfo::vote(votes.len() as u32, T::MaxTargetIds::get())]
+        #[weight = <T as Config>::BallotWeightInfo::vote(votes.len() as u32, T::MaxTargetIds::get())]
         pub fn vote(origin, ca_id: CAId, votes: Vec<BallotVote<T::Balance>>) {
             let did = <Identity<T>>::ensure_perms(origin)?;
 
@@ -471,7 +471,7 @@ decl_module! {
         /// - `NoSuchBallot` if `ca_id` does not identify a ballot.
         /// - `VotingAlreadyStarted` if `start >= now`, where `now` is the current time.
         /// - `StartAfterEnd` if `start > end`.
-        #[weight = <T as Trait>::BallotWeightInfo::change_end()]
+        #[weight = <T as Config>::BallotWeightInfo::change_end()]
         pub fn change_end(origin, ca_id: CAId, end: Moment) {
             // Ensure origin is CAA, ballot exists, and start is in the future.
             let caa = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?;
@@ -500,7 +500,7 @@ decl_module! {
         /// - `VotingAlreadyStarted` if `start >= now`, where `now` is the current time.
         /// - `NumberOfChoicesOverflow` if the total choice in `meta` overflows `usize`.
         /// - `TooLong` if any of the embedded strings in `meta` are too long.
-        #[weight = <T as Trait>::BallotWeightInfo::change_meta(meta.saturating_num_choices())]
+        #[weight = <T as Config>::BallotWeightInfo::change_meta(meta.saturating_num_choices())]
         pub fn change_meta(origin, ca_id: CAId, meta: BallotMeta) {
             // Ensure origin is CAA, a ballot exists, start is in the future.
             let caa = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?;
@@ -527,7 +527,7 @@ decl_module! {
         /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
         /// - `NoSuchBallot` if `ca_id` does not identify a ballot.
         /// - `VotingAlreadyStarted` if `start >= now`, where `now` is the current time.
-        #[weight = <T as Trait>::BallotWeightInfo::change_rcv()]
+        #[weight = <T as Config>::BallotWeightInfo::change_rcv()]
         pub fn change_rcv(origin, ca_id: CAId, rcv: bool) {
             // Ensure origin is CAA, a ballot exists, start is in the future.
             let caa = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?;
@@ -548,7 +548,7 @@ decl_module! {
         /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
         /// - `NoSuchBallot` if `ca_id` does not identify a ballot.
         /// - `VotingAlreadyStarted` if `start >= now`, where `now` is the current time.
-        #[weight = <T as Trait>::BallotWeightInfo::remove_ballot()]
+        #[weight = <T as Config>::BallotWeightInfo::remove_ballot()]
         pub fn remove_ballot(origin, ca_id: CAId) {
             let caa = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
             let range = Self::ensure_ballot_exists(ca_id)?;
@@ -560,7 +560,7 @@ decl_module! {
 decl_event! {
     pub enum Event<T>
     where
-        Balance = <T as CommonTrait>::Balance,
+        Balance = <T as CommonConfig>::Balance,
     {
         /// A corporate ballot was created.
         ///
@@ -595,7 +595,7 @@ decl_event! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// A corporate ballot was made for a non `IssuerNotice` CA.
         CANotNotice,
         /// A corporate ballot already exists for this CA.
@@ -627,7 +627,7 @@ decl_error! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     /// Ensure the ballot hasn't started and remove it.
     crate fn remove_ballot_base(
         caa: EventDid,

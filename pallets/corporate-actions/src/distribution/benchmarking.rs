@@ -28,7 +28,12 @@ use polymesh_primitives::{PortfolioId, PortfolioNumber, Ticker};
 const MAX_TARGETS: u32 = 1000;
 const MAX_DID_WHT_IDS: u32 = 1000;
 
-fn portfolio<T: Trait>(owner: &User<T>, pnum: PortfolioNumber, ticker: Ticker, amount: T::Balance) {
+fn portfolio<T: Config>(
+    owner: &User<T>,
+    pnum: PortfolioNumber,
+    ticker: Ticker,
+    amount: T::Balance,
+) {
     let did = owner.did();
     let origin: T::Origin = owner.origin().into();
     <Portfolio<T>>::create_portfolio(origin.clone(), "portfolio".into()).unwrap();
@@ -45,7 +50,7 @@ fn portfolio<T: Trait>(owner: &User<T>, pnum: PortfolioNumber, ticker: Ticker, a
     .unwrap();
 }
 
-fn dist<T: Trait + TestUtilsFn<AccountIdOf<T>>>(target_ids: u32) -> (User<T>, CAId, Ticker) {
+fn dist<T: Config + TestUtilsFn<AccountIdOf<T>>>(target_ids: u32) -> (User<T>, CAId, Ticker) {
     let (owner, ca_id) = setup_ca::<T>(CAKind::UnpredictableBenefit);
 
     let currency = currency::<T>(&owner);
@@ -70,7 +75,7 @@ fn dist<T: Trait + TestUtilsFn<AccountIdOf<T>>>(target_ids: u32) -> (User<T>, CA
     (owner, ca_id, currency)
 }
 
-fn prepare_transfer<T: Trait + pallet_compliance_manager::Trait + TestUtilsFn<AccountIdOf<T>>>(
+fn prepare_transfer<T: Config + pallet_compliance_manager::Config + TestUtilsFn<AccountIdOf<T>>>(
     target_ids: u32,
     did_whts_num: u32,
 ) -> (User<T>, User<T>, CAId) {
@@ -85,11 +90,11 @@ fn prepare_transfer<T: Trait + pallet_compliance_manager::Trait + TestUtilsFn<Ac
     <pallet_timestamp::Now<T>>::set(3000u32.into());
 
     let holder = user::<T>("holder", SEED);
-    <T as pallet_compliance_manager::Trait>::Asset::add_investor_uniqueness_claim(
+    <T as pallet_compliance_manager::Config>::Asset::add_investor_uniqueness_claim(
         owner.did(),
         currency,
     );
-    <T as pallet_compliance_manager::Trait>::Asset::add_investor_uniqueness_claim(
+    <T as pallet_compliance_manager::Config>::Asset::add_investor_uniqueness_claim(
         holder.did(),
         currency,
     );
@@ -106,11 +111,9 @@ fn prepare_transfer<T: Trait + pallet_compliance_manager::Trait + TestUtilsFn<Ac
 
 benchmarks! {
     where_clause { where
-        T: pallet_compliance_manager::Trait,
+        T: pallet_compliance_manager::Config,
         T: TestUtilsFn<AccountIdOf<T>>,
     }
-
-    _ {}
 
     distribute {
         let (owner, ca_id) = setup_ca::<T>(CAKind::UnpredictableBenefit);

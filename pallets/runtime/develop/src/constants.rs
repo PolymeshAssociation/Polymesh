@@ -1,3 +1,5 @@
+use sp_arithmetic::Perbill;
+
 /// Time and blocks.
 pub mod time {
     use polymesh_primitives::{BlockNumber, Moment};
@@ -21,8 +23,7 @@ pub mod time {
 
 /// Fee-related.
 pub mod fee {
-    pub use sp_arithmetic::Perbill;
-
+    use super::*;
     /// The block saturation level. Fees will be updates based on this value.
     pub const TARGET_BLOCK_FULLNESS: Perbill = Perbill::from_percent(25);
 }

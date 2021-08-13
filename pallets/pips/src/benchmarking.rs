@@ -58,7 +58,7 @@ use limits::*;
 pub const MAX_SKIPPED_COUNT: u8 = 255;
 
 /// Makes a proposal.
-fn make_proposal<T: Trait>() -> (Box<T::Proposal>, Url, PipDescription) {
+fn make_proposal<T: Config>() -> (Box<T::Proposal>, Url, PipDescription) {
     let content = vec![b'X'; PROPOSAL_PADDING_LEN];
     let proposal = Box::new(frame_system::Call::<T>::remark(content).into());
     let url = Url::try_from(vec![b'X'; URL_LEN].as_slice()).unwrap();
@@ -67,7 +67,7 @@ fn make_proposal<T: Trait>() -> (Box<T::Proposal>, Url, PipDescription) {
 }
 
 /// Creates voters with seeds from 1 to `num_voters` inclusive.
-fn make_voters<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+fn make_voters<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     num_voters: usize,
     prefix: &'static str,
 ) -> Vec<(T::AccountId, RawOrigin<T::AccountId>, IdentityId)> {
@@ -85,7 +85,7 @@ fn make_voters<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
 }
 
 /// Casts an `aye_or_nay` vote from each of the given voters.
-fn cast_votes<T: Trait>(
+fn cast_votes<T: Config>(
     id: PipId,
     voters: &[(T::AccountId, RawOrigin<T::AccountId>, IdentityId)],
     aye_or_nay: bool,
@@ -98,7 +98,7 @@ fn cast_votes<T: Trait>(
 }
 
 /// Sets up PIPs and votes.
-fn pips_and_votes_setup<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+fn pips_and_votes_setup<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     approve_only: bool,
 ) -> Result<(RawOrigin<T::AccountId>, IdentityId), DispatchError> {
     Module::<T>::set_active_pip_limit(RawOrigin::Root.into(), PROPOSALS_NUM as u32).unwrap();
@@ -137,7 +137,7 @@ fn pips_and_votes_setup<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     Ok((origin, did))
 }
 
-fn enact_call<T: Trait>(num_approves: usize, num_rejects: usize, num_skips: usize) -> Call<T> {
+fn enact_call<T: Config>(num_approves: usize, num_rejects: usize, num_skips: usize) -> Call<T> {
     let seed = [42; 32];
     let mut rng = ChaCha20Rng::from_seed(seed);
     let mut snapshot_results: Vec<_> = iter::repeat(SnapshotResult::Approve)
@@ -156,7 +156,7 @@ fn enact_call<T: Trait>(num_approves: usize, num_rejects: usize, num_skips: usiz
     )
 }
 
-fn propose_verify<T: Trait>(url: Url, description: PipDescription) -> DispatchResult {
+fn propose_verify<T: Config>(url: Url, description: PipDescription) -> DispatchResult {
     let meta = Module::<T>::proposal_metadata(0).unwrap();
     assert_eq!(0, meta.id, "incorrect meta.id");
     assert_eq!(Some(url), meta.url, "incorrect meta.url");
@@ -168,7 +168,7 @@ fn propose_verify<T: Trait>(url: Url, description: PipDescription) -> DispatchRe
     Ok(())
 }
 
-fn execute_verify<T: Trait>(state: ProposalState, err: &'static str) -> DispatchResult {
+fn execute_verify<T: Config>(state: ProposalState, err: &'static str) -> DispatchResult {
     if Proposals::<T>::contains_key(&0) {
         assert_eq!(state, Module::<T>::proposals(&0).unwrap().state, "{}", err);
     }
@@ -177,8 +177,6 @@ fn execute_verify<T: Trait>(state: ProposalState, err: &'static str) -> Dispatch
 
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
-
-    _ {}
 
     set_prune_historical_pips {
         let origin = RawOrigin::Root;

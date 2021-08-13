@@ -29,8 +29,6 @@ const REWARD: u32 = 10;
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
-    _ {}
-
     disbursement {
         let b in 1..MAX_BENEFICIARIES;
 

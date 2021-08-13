@@ -28,19 +28,20 @@ use sp_runtime::{
 use sp_runtime::{Deserialize, Serialize};
 use std::convert::TryInto;
 
+// The URL for the telemetry server.
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
 const BRIDGE_LOCK_HASH: &str = "0x1000000000000000000000000000000000000000000000000000000000000001";
 
-type AccountPublic = <Signature as Verify>::Signer;
-
-/// Helper function to generate a crypto pair from seed
+/// Generate a crypto pair from seed.
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
     TPublic::Pair::from_string(&format!("//{}", seed), None)
         .expect("static values are valid; qed")
         .public()
 }
 
-/// Helper function to generate an account ID from seed
+type AccountPublic = <Signature as Verify>::Signer;
+
+/// Generate an account ID from seed.
 pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
 where
     AccountPublic: From<<TPublic::Pair as Pair>::Public>,
@@ -52,27 +53,35 @@ fn seeded_acc_id(seed: &str) -> AccountId {
     get_account_id_from_seed::<sr25519::Public>(seed)
 }
 
-/// Helper function to generate stash, controller and session key from seed
-pub fn get_authority_keys_from_seed(seed: &str, uniq: bool) -> InitialAuth {
-    if uniq {
+/// Generate an Aura authority key.
+pub fn get_authority_keys_from_seed(s: &str, uniq: bool) -> InitialAuth {
+    let stash_acc_id = seeded_acc_id(&format!("{}//stash", s));
+    let acc_id = seeded_acc_id(s);
+
+    let (grandpa_id, babe_id, im_online_id, discovery_id) = if uniq {
         (
-            seeded_acc_id(&format!("{}//stash", seed)),
-            seeded_acc_id(seed),
-            get_from_seed::<GrandpaId>(&format!("{}//gran", seed)),
-            get_from_seed::<BabeId>(&format!("{}//babe", seed)),
-            get_from_seed::<ImOnlineId>(&format!("{}//imon", seed)),
-            get_from_seed::<AuthorityDiscoveryId>(&format!("{}//auth", seed)),
+            get_from_seed::<GrandpaId>(&format!("{}//gran", s)),
+            get_from_seed::<BabeId>(&format!("{}//babe", s)),
+            get_from_seed::<ImOnlineId>(&format!("{}//imon", s)),
+            get_from_seed::<AuthorityDiscoveryId>(&format!("{}//auth", s)),
         )
     } else {
         (
-            seeded_acc_id(&format!("{}//stash", seed)),
-            seeded_acc_id(seed),
-            get_from_seed::<GrandpaId>(seed),
-            get_from_seed::<BabeId>(seed),
-            get_from_seed::<ImOnlineId>(seed),
-            get_from_seed::<AuthorityDiscoveryId>(seed),
+            get_from_seed::<GrandpaId>(s),
+            get_from_seed::<BabeId>(s),
+            get_from_seed::<ImOnlineId>(s),
+            get_from_seed::<AuthorityDiscoveryId>(s),
         )
-    }
+    };
+
+    (
+        stash_acc_id,
+        acc_id,
+        grandpa_id,
+        babe_id,
+        im_online_id,
+        discovery_id,
+    )
 }
 
 fn polymath_props(ss58: u8) -> Properties {
@@ -487,7 +496,7 @@ pub mod general {
     fn genesis(
         initial_authorities: Vec<InitialAuth>,
         root_key: AccountId,
-        enable_println: bool,
+        _enable_println: bool,
         key_bridge_locks: Vec<BridgeLockId>,
         other_funded_accounts: Vec<AccountId>,
     ) -> rt::runtime::GenesisConfig {
@@ -528,12 +537,14 @@ pub mod general {
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
             pallet_grandpa: Some(Default::default()),
+            /*
             pallet_contracts: Some(pallet_contracts::GenesisConfig {
                 current_schedule: pallet_contracts::Schedule {
                     enable_println, // this should only be enabled on development chains
                     ..Default::default()
                 },
             }),
+            */
             // Governance Council:
             pallet_group_Instance1: Some(group_membership!(1)),
             pallet_committee_Instance1: Some(committee!(1)),
@@ -626,7 +637,7 @@ pub mod testnet {
     fn genesis(
         initial_authorities: Vec<InitialAuth>,
         root_key: AccountId,
-        enable_println: bool,
+        _enable_println: bool,
         treasury_bridge_lock: BridgeLockId,
         key_bridge_locks: Vec<BridgeLockId>,
     ) -> rt::runtime::GenesisConfig {
@@ -664,12 +675,14 @@ pub mod testnet {
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
             pallet_grandpa: Some(Default::default()),
+            /*
             pallet_contracts: Some(pallet_contracts::GenesisConfig {
                 current_schedule: pallet_contracts::Schedule {
                     enable_println, // this should only be enabled on development chains
                     ..Default::default()
                 },
             }),
+            */
             // Governing council
             pallet_group_Instance1: Some(group_membership!(1, 2, 3, 5)),
             pallet_committee_Instance1: Some(committee!(1, (2, 4))),
@@ -757,7 +770,7 @@ pub mod polymesh_itn {
     fn genesis(
         initial_authorities: Vec<InitialAuth>,
         root_key: AccountId,
-        enable_println: bool,
+        _enable_println: bool,
         treasury_bridge_lock: BridgeLockId,
         key_bridge_locks: Vec<BridgeLockId>,
     ) -> rt::runtime::GenesisConfig {
@@ -799,12 +812,14 @@ pub mod polymesh_itn {
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
             pallet_grandpa: Some(Default::default()),
+            /*
             pallet_contracts: Some(pallet_contracts::GenesisConfig {
                 current_schedule: pallet_contracts::Schedule {
                     enable_println, // this should only be enabled on development chains
                     ..Default::default()
                 },
             }),
+            */
             // Governing council
             pallet_group_Instance1: Some(group_membership!(1, 2, 3)), // 3 GC members
             pallet_committee_Instance1: Some(committee!(1, (2, 3))),  // RC = 1, 2/3 votes required

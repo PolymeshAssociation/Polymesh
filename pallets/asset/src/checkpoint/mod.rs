@@ -68,7 +68,7 @@ use polymesh_primitives::{
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
-use crate::Trait;
+use crate::Config;
 
 type Asset<T> = crate::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
@@ -105,7 +105,7 @@ impl From<Moment> for ScheduleSpec {
 storage_migration_ver!(2);
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Checkpoint {
+    trait Store for Module<T: Config> as Checkpoint {
         // --------------------- Supply / Balance storage ----------------------
 
         /// Total supply of the token at the checkpoint.
@@ -184,7 +184,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -326,7 +326,7 @@ decl_module! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// An overflow while calculating the checkpoint ID.
         CheckpointOverflow,
         /// An overflow while calculating the checkpoint schedule ID.
@@ -346,7 +346,7 @@ decl_error! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     /// Does checkpoint with ID `cp_id` exist for `ticker`?
     pub fn checkpoint_exists(ticker: &Ticker, cp: CheckpointId) -> bool {
         (CheckpointId(1)..=CheckpointIdSequence::get(ticker)).contains(&cp)
@@ -664,7 +664,7 @@ impl<T: Trait> Module<T> {
 fn add_schedule(ss: &mut Vec<StoredSchedule>, schedule: StoredSchedule) {
     // `Ok(_)` is unreachable at runtime as adding a schedule with the same ID twice won't happen.
     // However, we do this to simplify, as the comparison against IDs affords us sorting stability.
-    let Err(i) | Ok(i) =
+    let (Err(i) | Ok(i)) =
         ss.binary_search_by(|s| s.at.cmp(&schedule.at).then(s.id.cmp(&schedule.id)));
     ss.insert(i, schedule);
 }

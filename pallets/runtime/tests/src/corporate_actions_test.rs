@@ -34,7 +34,7 @@ use std::convert::TryInto;
 use test_client::AccountKeyring;
 
 type System = frame_system::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 type Asset = pallet_asset::Module<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
 type ExternalAgents = pallet_external_agents::Module<TestStorage>;
@@ -65,7 +65,7 @@ const P75: Permill = Permill::from_percent(75);
 #[track_caller]
 fn test(logic: impl FnOnce(Ticker, [User; 3])) {
     ExtBuilder::default()
-        .cdd_providers(vec![CDDP.public()])
+        .cdd_providers(vec![CDDP.to_account_id()])
         .build()
         .execute_with(|| {
             System::set_block_number(1);
@@ -91,7 +91,7 @@ fn currency_test(logic: impl FnOnce(Ticker, Ticker, [User; 3])) {
         // Create `currency` & add scope claims for it to `users`.
         let currency = create_asset(b"BETA", owner);
         let parties = users.iter().map(|u| &u.did);
-        provide_scope_claim_to_multiple_parties(parties, currency, CDDP.public());
+        provide_scope_claim_to_multiple_parties(parties, currency, CDDP.to_account_id());
 
         logic(ticker, currency, users);
     });
@@ -99,7 +99,7 @@ fn currency_test(logic: impl FnOnce(Ticker, Ticker, [User; 3])) {
 
 fn transfer(ticker: &Ticker, from: User, to: User) {
     // Provide scope claim to sender and receiver of the transaction.
-    provide_scope_claim_to_multiple_parties(&[from.did, to.did], *ticker, CDDP.public());
+    provide_scope_claim_to_multiple_parties(&[from.did, to.did], *ticker, CDDP.to_account_id());
     assert_ok!(crate::asset_test::transfer(*ticker, from, to, 500));
 }
 
@@ -114,7 +114,12 @@ fn create_asset(ticker: &[u8], owner: User) -> Ticker {
 fn add_caa_auth(ticker: Ticker, from: User, to: User) -> u64 {
     let sig: Signatory<_> = to.did.into();
     let data = AuthorizationData::BecomeAgent(ticker, AgentGroup::Full);
-    assert_ok!(Identity::add_authorization(from.origin(), sig, data, None));
+    assert_ok!(Identity::add_authorization(
+        from.origin(),
+        sig.clone(),
+        data,
+        None
+    ));
     Authorizations::iter_prefix_values(sig)
         .next()
         .unwrap()
@@ -2014,7 +2019,7 @@ fn dist_claim_not_targeted() {
 fn dist_claim_works() {
     currency_test(|ticker, currency, [owner, foo, bar]| {
         let baz = User::new(AccountKeyring::Dave);
-        provide_scope_claim_to_multiple_parties(&[baz.did], currency, CDDP.public());
+        provide_scope_claim_to_multiple_parties(&[baz.did], currency, CDDP.to_account_id());
 
         // Transfer 500 to `foo` and 1000 to `bar`.
         transfer(&ticker, owner, foo);

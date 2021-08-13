@@ -30,7 +30,7 @@ const MAX_RECEIVER_CONDITIONS_PER_COMPLIANCE: u32 = 3;
 const MAX_COMPLIANCE_REQUIREMENTS: u32 = 2;
 
 /// Create a token issuer trusted for `Any`.
-pub fn make_issuer<T: IdentityTrait + TestUtilsFn<AccountIdOf<T>>>(id: u32) -> TrustedIssuer {
+pub fn make_issuer<T: IdentityConfig + TestUtilsFn<AccountIdOf<T>>>(id: u32) -> TrustedIssuer {
     let u = UserBuilder::<T>::default()
         .generate_did()
         .seed(id)
@@ -46,7 +46,7 @@ pub fn make_issuer<T: IdentityTrait + TestUtilsFn<AccountIdOf<T>>>(id: u32) -> T
 ///   - It could have more complexity if `TrustedIssuer::trusted_for` is a vector but not on
 ///   benchmarking of add/remove. That could be useful for benchmarking executions/evaluation of
 ///   complience requiriments.
-pub fn make_issuers<T: IdentityTrait + TestUtilsFn<AccountIdOf<T>>>(s: u32) -> Vec<TrustedIssuer> {
+pub fn make_issuers<T: IdentityConfig + TestUtilsFn<AccountIdOf<T>>>(s: u32) -> Vec<TrustedIssuer> {
     (0..s).map(|i| make_issuer::<T>(i)).collect::<Vec<_>>()
 }
 
@@ -61,7 +61,7 @@ pub fn make_conditions(s: u32, issuers: &Vec<TrustedIssuer>) -> Vec<Condition> {
 }
 /// Create a new token with name `name` on behalf of `owner`.
 /// The new token is a _divisible_ one with 1_000_000 units.
-pub fn make_token<T: Trait>(owner: &User<T>, name: Vec<u8>) -> Ticker {
+pub fn make_token<T: Config>(owner: &User<T>, name: Vec<u8>) -> Ticker {
     let token = SecurityToken {
         name: name.into(),
         owner_did: owner.did.clone().unwrap(),
@@ -88,7 +88,7 @@ pub fn make_token<T: Trait>(owner: &User<T>, name: Vec<u8>) -> Ticker {
 }
 
 /// This struct helps to simplify the parameter copy/pass during the benchmarks.
-struct ComplianceRequirementInfo<T: Trait> {
+struct ComplianceRequirementInfo<T: Config> {
     pub owner: User<T>,
     pub buyer: User<T>,
     pub ticker: Ticker,
@@ -97,7 +97,7 @@ struct ComplianceRequirementInfo<T: Trait> {
     pub receiver_conditions: Vec<Condition>,
 }
 
-impl<T: Trait + TestUtilsFn<AccountIdOf<T>>> ComplianceRequirementInfo<T> {
+impl<T: Config + TestUtilsFn<AccountIdOf<T>>> ComplianceRequirementInfo<T> {
     pub fn add_default_trusted_claim_issuer(self: &Self, i: u32) {
         make_issuers::<T>(i).into_iter().for_each(|issuer| {
             Module::<T>::add_default_trusted_claim_issuer(
@@ -110,12 +110,12 @@ impl<T: Trait + TestUtilsFn<AccountIdOf<T>>> ComplianceRequirementInfo<T> {
     }
 }
 
-struct ComplianceRequirementBuilder<T: Trait> {
+struct ComplianceRequirementBuilder<T: Config> {
     info: ComplianceRequirementInfo<T>,
     has_been_added: bool,
 }
 
-impl<T: Trait + TestUtilsFn<AccountIdOf<T>>> ComplianceRequirementBuilder<T> {
+impl<T: Config + TestUtilsFn<AccountIdOf<T>>> ComplianceRequirementBuilder<T> {
     pub fn new(
         trusted_issuer_count: u32,
         sender_conditions_count: u32,
@@ -147,7 +147,7 @@ impl<T: Trait + TestUtilsFn<AccountIdOf<T>>> ComplianceRequirementBuilder<T> {
     }
 }
 
-impl<T: Trait> ComplianceRequirementBuilder<T> {
+impl<T: Config> ComplianceRequirementBuilder<T> {
     /// Register the compliance requirement in the module.
     pub fn add_compliance_requirement(mut self: Self) -> Self {
         assert!(!self.has_been_added, "Compliance has been added before");
@@ -169,8 +169,6 @@ impl<T: Trait> ComplianceRequirementBuilder<T> {
 
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
-
-    _ {}
 
     add_compliance_requirement {
         // INTERNAL: This benchmark only evaluate the adding operation. Its execution should be measured in another module.

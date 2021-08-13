@@ -41,7 +41,7 @@ fn setup_investor_uniqueness_claim_common<T, P, IF, CF, SF, IUF, PF>(
     make_proof: PF,
 ) -> (User<T>, Scope, Claim, P)
 where
-    T: Trait + TestUtilsFn<AccountIdOf<T>>,
+    T: Config + TestUtilsFn<AccountIdOf<T>>,
     IF: Fn(&[u8]) -> InvestorUid,
     CF: Fn(IdentityId, InvestorUid) -> CddId,
     SF: Fn(&[u8], &InvestorUid) -> IdentityId,
@@ -71,7 +71,7 @@ fn setup_investor_uniqueness_claim_v2<T>(
     name: &'static str,
 ) -> (User<T>, Scope, Claim, v2::InvestorZKProofData)
 where
-    T: Trait + TestUtilsFn<AccountIdOf<T>>,
+    T: Config + TestUtilsFn<AccountIdOf<T>>,
 {
     setup_investor_uniqueness_claim_common::<T, _, _, _, _, _, _>(
         name,
@@ -92,7 +92,7 @@ fn setup_investor_uniqueness_claim_v1<T>(
     name: &'static str,
 ) -> (User<T>, Scope, Claim, v1::InvestorZKProofData)
 where
-    T: Trait + TestUtilsFn<AccountIdOf<T>>,
+    T: Config + TestUtilsFn<AccountIdOf<T>>,
 {
     #[cfg(feature = "std")]
     let make_proof = v1::InvestorZKProofData::new;
@@ -112,7 +112,7 @@ where
     )
 }
 
-pub fn generate_secondary_keys<T: Trait>(n: usize) -> Vec<SecondaryKey<T::AccountId>> {
+pub fn generate_secondary_keys<T: Config>(n: usize) -> Vec<SecondaryKey<T::AccountId>> {
     let mut secondary_keys = Vec::with_capacity(n);
     for x in 0..n {
         secondary_keys.push(SecondaryKey {
@@ -137,8 +137,6 @@ use limits::*;
 
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
-
-    _ {}
 
     cdd_register_did {
         // Number of secondary items.

@@ -17,10 +17,11 @@ use crate::{runtime, Runtime};
 use codec::{Decode, Encode};
 use frame_support::{StorageDoubleMap, StorageMap};
 use polymesh_common_utilities::{traits::transaction_payment::CddAndFeeDetails, Context};
-use polymesh_primitives::{AccountId, AuthorizationData, IdentityId, Signatory};
+use polymesh_primitives::{AccountId, AuthorizationData, Hash, IdentityId, Signatory};
 use polymesh_runtime_common::fee_details::{
     CallType, ValidPayerResult, CDD_REQUIRED, INVALID_AUTH, MISSING_ID,
 };
+use sp_core::crypto::UncheckedFrom;
 
 type Identity = pallet_identity::Module<Runtime>;
 type Bridge = pallet_bridge::Module<Runtime>;
@@ -29,7 +30,10 @@ type Call = runtime::Call;
 #[derive(Default, Encode, Decode, Clone, Eq, PartialEq)]
 pub struct CddHandler;
 
-impl CddAndFeeDetails<AccountId, Call> for CddHandler {
+impl CddAndFeeDetails<AccountId, Call> for CddHandler
+where
+    AccountId: UncheckedFrom<Hash> + AsRef<[u8]>,
+{
     /// Check if there's an eligible payer with valid CDD.
     /// Return the payer if found or else an error.
     /// Can also return Ok(none) to represent the case where

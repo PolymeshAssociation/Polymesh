@@ -22,7 +22,7 @@ pub type Timestamp<T> = pallet_timestamp::Module<T>;
 pub type Settlement<T> = pallet_settlement::Module<T>;
 pub type Sto<T> = crate::Module<T>;
 
-fn create_assets_and_compliance<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+fn create_assets_and_compliance<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     from: &User<T>,
     to: &User<T>,
     offering_ticker: Ticker,
@@ -59,7 +59,7 @@ fn create_assets_and_compliance<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     Ok(())
 }
 
-fn generate_tiers<T: Trait>(n: u32) -> Vec<PriceTier<T::Balance>> {
+fn generate_tiers<T: Config>(n: u32) -> Vec<PriceTier<T::Balance>> {
     let n = n as usize;
     let mut tiers = Vec::with_capacity(n);
     for i in 0..n {
@@ -71,7 +71,7 @@ fn generate_tiers<T: Trait>(n: u32) -> Vec<PriceTier<T::Balance>> {
     tiers
 }
 
-fn create_venue<T: Trait>(user: &User<T>) -> Result<u64, DispatchError> {
+fn create_venue<T: Config>(user: &User<T>) -> Result<u64, DispatchError> {
     let venue_id = <Settlement<T>>::venue_counter();
     <Settlement<T>>::create_venue(
         user.origin().into(),
@@ -83,12 +83,12 @@ fn create_venue<T: Trait>(user: &User<T>) -> Result<u64, DispatchError> {
     Ok(venue_id)
 }
 
-struct UserWithPortfolio<T: Trait> {
+struct UserWithPortfolio<T: Config> {
     user: User<T>,
     portfolio: PortfolioId,
 }
 
-fn setup_fundraiser<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
+fn setup_fundraiser<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     complexity: u32,
     tiers: u32,
     transfer_managers: u32,
@@ -126,7 +126,7 @@ fn setup_fundraiser<T: Trait + TestUtilsFn<AccountIdOf<T>>>(
     Ok((alice, bob))
 }
 
-fn user<T: Trait + TestUtilsFn<AccountIdOf<T>>>(name: &'static str) -> UserWithPortfolio<T> {
+fn user<T: Config + TestUtilsFn<AccountIdOf<T>>>(name: &'static str) -> UserWithPortfolio<T> {
     let user = <UserBuilder<T>>::default().generate_did().build(name);
     let portfolio = PortfolioId::default_portfolio(user.did());
     UserWithPortfolio { user, portfolio }
@@ -134,8 +134,6 @@ fn user<T: Trait + TestUtilsFn<AccountIdOf<T>>>(name: &'static str) -> UserWithP
 
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
-
-    _ {}
 
     create_fundraiser {
         // Number of tiers
