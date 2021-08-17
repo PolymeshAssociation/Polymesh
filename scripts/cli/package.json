@@ -14,7 +14,7 @@
   "scripts": {
     "start": "npm run build",
     "create": "npm run build && npm run test",
-    "build": "npm run clean:some && tsc -p .",
+    "build": "npm run build:types && npm run clean:some && tsc -p .",
     "build:types": "npm run generate:polymesh-types && npm run generate:polymesh-meta && npm run generate:defs && npm run generate:meta",
     "generate:defs": "ts-node --skip-project node_modules/.bin/polkadot-types-from-defs --package polymesh-typegen/interfaces --input ./src/interfaces",
     "generate:meta": "ts-node --skip-project node_modules/.bin/polkadot-types-from-chain --package polymesh-typegen/interfaces --endpoint ./polymesh-meta.json --output ./src/interfaces",
