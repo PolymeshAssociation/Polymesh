@@ -568,7 +568,8 @@ fn transfer_ticker() {
             "Authorization expired"
         );
 
-        let auth_id = add_auth(AuthorizationData::Custom(ticker), now() + 100);
+        // Try accepting the wrong authorization type.
+        let auth_id = add_auth(AuthorizationData::RotatePrimaryKey, now() + 100);
 
         assert_noop!(
             Asset::accept_ticker_transfer(bob.origin(), auth_id),
@@ -708,10 +709,11 @@ fn transfer_token_ownership() {
             "Authorization expired"
         );
 
+        // Try accepting the wrong authorization type.
         auth_id = Identity::add_auth(
             alice.did,
             Signatory::from(bob.did),
-            AuthorizationData::Custom(ticker),
+            AuthorizationData::RotatePrimaryKey,
             Some(now() + 100),
         );
 

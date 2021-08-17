@@ -2260,7 +2260,7 @@ fn ext_join_identity_as_identity() {
         assert_ok!(Identity::add_authorization(
             alice.origin(),
             bob.did.into(),
-            AuthorizationData::Custom(Ticker::default()),
+            AuthorizationData::RotatePrimaryKey,
             None
         ));
 
