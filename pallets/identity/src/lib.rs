@@ -151,7 +151,7 @@ type CallPermissions<T> = pallet_permissions::Module<T>;
 
 // A value placed in storage that represents the current version of the this storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-storage_migration_ver!(3);
+storage_migration_ver!(4);
 
 decl_storage! {
     trait Store for Module<T: Config> as identity {
@@ -203,7 +203,7 @@ decl_storage! {
         pub CddAuthForPrimaryKeyRotation get(fn cdd_auth_for_primary_key_rotation): bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(3).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(4).unwrap()): Version;
 
         /// How many "strong" references to the account key.
         ///
@@ -282,6 +282,11 @@ decl_module! {
             let storage_ver = StorageVersion::get();
 
             storage_migrate_on!(storage_ver, 3, { Claims::translate(migration::migrate_claim); });
+
+            // Migrate Authorizations.
+            storage_migrate_on!(storage_ver, 4, {
+                <Authorizations<T>>::translate(migration::migrate_auth_v1::<T::AccountId, T::Moment>);
+            });
 
             // It's gonna be alot, so lets pretend its 0 anyways.
             0
@@ -1055,9 +1060,10 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         let sender = ensure_signed(origin)?;
         let signer = Signatory::Account(sender.clone());
-        Self::accept_auth_with(&signer, rotation_auth_id, |data, _| {
-            let rotation_for_did = extract_auth!(data, RotatePrimaryKey(r));
-            Self::unsafe_primary_key_rotation(sender, rotation_for_did, optional_cdd_auth_id)
+        Self::accept_auth_with(&signer, rotation_auth_id, |data, target_did| {
+            // Ensure Authorization is a `RotatePrimaryKey`.
+            extract_auth!(data, RotatePrimaryKey);
+            Self::unsafe_primary_key_rotation(sender, target_did, optional_cdd_auth_id)
         })
     }
 

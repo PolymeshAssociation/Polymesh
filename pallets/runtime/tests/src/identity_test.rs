@@ -1516,7 +1516,7 @@ fn changing_primary_key_we() {
         Identity::add_auth(
             alice.did,
             Signatory::Account(ring.to_account_id()),
-            AuthorizationData::RotatePrimaryKey(alice.did),
+            AuthorizationData::RotatePrimaryKey,
             None,
         )
     };
@@ -1565,7 +1565,7 @@ fn changing_primary_key_with_cdd_auth_we() {
     let owner_auth_id = Identity::add_auth(
         alice_did,
         Signatory::Account(new_key.clone()),
-        AuthorizationData::RotatePrimaryKey(alice_did),
+        AuthorizationData::RotatePrimaryKey,
         None,
     );
 
@@ -1588,7 +1588,7 @@ fn changing_primary_key_with_cdd_auth_we() {
     let owner_auth_id2 = Identity::add_auth(
         alice_did,
         Signatory::Account(new_key),
-        AuthorizationData::RotatePrimaryKey(alice_did),
+        AuthorizationData::RotatePrimaryKey,
         None,
     );
 
