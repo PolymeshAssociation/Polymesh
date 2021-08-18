@@ -144,7 +144,7 @@ fn is_auth_valid(acc: &AccountId, auth_id: &u64, call_type: CallType) -> ValidPa
             by,
             (AuthorizationData::AddMultiSigSigner(_), CallType::AcceptMultiSigSigner)
             | (AuthorizationData::JoinIdentity(_), CallType::AcceptIdentitySecondary)
-            | (AuthorizationData::RotatePrimaryKey(_), CallType::AcceptIdentityPrimary)
+            | (AuthorizationData::RotatePrimaryKey, CallType::AcceptIdentityPrimary)
             | (AuthorizationData::AddRelayerPayingKey(..), CallType::AcceptRelayerPayingKey)
             | (_, CallType::RemoveAuthorization),
         )) => check_cdd(&by),

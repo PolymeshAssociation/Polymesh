@@ -188,7 +188,7 @@ benchmarks! {
 
         let owner_auth_id =  Module::<T>::add_auth(
             target.did(), signatory,
-            AuthorizationData::RotatePrimaryKey(target.did()),
+            AuthorizationData::RotatePrimaryKey,
             None,
         );
     }: _(new_key.origin, owner_auth_id, Some(cdd_auth_id))
