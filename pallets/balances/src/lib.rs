@@ -159,9 +159,6 @@
 //!
 //! * Total issued balanced of all accounts should be less than `Trait::Balance::max_value()`.
 
-// TODO: Benchmark modified extrinsics. Currently using Substrate values based on non-modified code.
-// Specifically CDD checks should be considered!
-
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -533,7 +530,7 @@ impl<T: Config> Module<T> {
             Locks::<T>::remove(who);
             if existed {
                 // TODO: use Locks::<T, I>::hashed_key
-                // https://github.com/PolymathNetwork/substrate/issues/4969
+                // https://github.com/paritytech/substrate/issues/4969
                 system::Module::<T>::dec_consumers(who);
             }
         } else {

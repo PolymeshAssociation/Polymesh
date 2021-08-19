@@ -132,8 +132,6 @@ fn signed_extension_transaction_payment_multiplied_refund_works() {
         });
 }
 
-/*
-// TODO: readd test!
 #[test]
 fn signed_extension_transaction_payment_is_bounded() {
     ExtBuilder::default()
@@ -157,7 +155,6 @@ fn signed_extension_transaction_payment_is_bounded() {
             );
         });
 }
-*/
 
 #[test]
 fn signed_extension_allows_free_transactions() {
