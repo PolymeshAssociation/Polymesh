@@ -138,7 +138,7 @@ parameter_types! {
     pub const MaxScheduledPerBlock: u32 = 50;
 
     // Identity:
-    pub const InitialPOLYX: Balance = 100_000 * POLY;
+    pub const InitialPOLYX: Balance = 0;
 
     /*
     /// The fraction of the deposit that should be used as rent per block.

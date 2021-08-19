@@ -685,7 +685,7 @@
     "AuthorizationData": {
       "_enum": {
         "AttestPrimaryKeyRotation": "IdentityId",
-        "RotatePrimaryKey": "IdentityId",
+        "RotatePrimaryKey": "",
         "TransferTicker": "Ticker",
         "TransferPrimaryIssuanceAgent": "Ticker",
         "AddMultiSigSigner": "AccountId",
