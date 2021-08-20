@@ -35,8 +35,6 @@ async function main(): Promise<void> {
   await issueTokenToDid(bob, ticker2, 1000000, null);
   await addComplianceRequirement(alice, ticker);
   await addComplianceRequirement(bob, ticker2);
-  await mintingAsset(alice, ticker);
-  await mintingAsset(bob, ticker2);
 
   let aliceBalance = await assetBalance(ticker, aliceDid);
   let bobBalance = await assetBalance(ticker, bobDid);
