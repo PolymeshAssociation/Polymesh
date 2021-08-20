@@ -2259,6 +2259,9 @@ impl<T: Config> Module<T> {
     }
 
     fn missing_scope_claim(ticker: &Ticker, from: &PortfolioId, to: &PortfolioId) -> bool {
+        // We want this function missing_scope_claim to return true iff:
+        // - ticker enforces scope claims (i.e. DisableInvestorUniqueness::get(ticker) == false ) AND
+        // - to.did / from.did don’t have a scope claim (i.e. !Identity::<T>::verify_iu_claims_for_transfer(*ticker, to.did, from.did) )
         !DisableInvestorUniqueness::get(ticker)
             && !Identity::<T>::verify_iu_claims_for_transfer(*ticker, to.did, from.did)
     }
