@@ -25,26 +25,22 @@ async function main(): Promise<void> {
   const charlieDid = (await createIdentities(alice, [charlie]))[0];
   const daveDid = (await createIdentities(alice, [dave]))[0];
   const eveDid = (await createIdentities(alice, [eve]))[0];
-  console.log("DIDs Created");
+
   await distributePolyBatch(
     alice,
     [bob, charlie, dave, eve],
     init.transferAmount
   );
-  console.log("POLY Distributed");
   await issueTokenToDid(alice, ticker, 1000000, null);
   await issueTokenToDid(bob, ticker2, 1000000, null);
-  console.log("Assets Created");
   await addComplianceRequirement(alice, ticker);
   await addComplianceRequirement(bob, ticker2);
-  console.log("Compliance Rules Added");
 
   let aliceBalance = await assetBalance(ticker, aliceDid);
   let bobBalance = await assetBalance(ticker, bobDid);
   let charlieBalance = await assetBalance(ticker, charlieDid);
   let daveBalance = await assetBalance(ticker, daveDid);
   let eveBalance = await assetBalance(ticker, eveDid);
-  console.log("Asset balances generated");
 
   console.log("Balance for Alice Asset (Before)");
   console.log(`alice asset balance -------->  ${aliceBalance}`);
