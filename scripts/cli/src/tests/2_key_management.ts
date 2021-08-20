@@ -34,6 +34,6 @@ main()
     process.exit(1);
   })
   .finally(() => {
-    console.log("Completed: POLY TRANSFERS");
+    console.log("Completed: KEY MANAGEMENT");
     process.exit();
   });

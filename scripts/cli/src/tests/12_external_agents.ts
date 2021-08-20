@@ -27,20 +27,26 @@ async function main(): Promise<void> {
 	const bob = await generateRandomEntity();
 	const bobDid = (await createIdentities(alice, [bob]))[0];
 	let extrinsics: ExtrinsicPermissions = { These: [] };
-
+	console.log("Identities Created")
 	await distributePoly(alice, bob, transferAmount);
 	const ticker = generateRandomTicker();
 	await issueTokenToDid(alice, ticker, 1000000, null);
+	console.log("EA: Group")
 	await createGroup(alice, ticker, extrinsics);
 	let agId = await nextAgId(ticker);
+	console.log("EA: Group Permissions")
 	await setGroupPermissions(alice, ticker, agId, extrinsics);
+	console.log("EA: Become Agent")
 	await acceptBecomeAgent(bob, bobDid, alice, ticker, { Full: "" });
 	await abdicate(alice, ticker);
+	console.log("EA: Accept Agent")
 	await acceptBecomeAgent(alice, aliceDid, bob, ticker, { Full: "" });
 	await removeAgent(alice, ticker, bobDid);
+	console.log("EA: Group")
 	await createGroup(alice, ticker, extrinsics);
 	agId = await nextAgId(ticker);
 	await setGroupPermissions(alice, ticker, agId, extrinsics);
+	console.log("EA: Change Group")
 	await changeGroup(alice, ticker, aliceDid, { Full: "" });
 }
 
