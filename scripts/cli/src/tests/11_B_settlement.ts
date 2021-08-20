@@ -1,4 +1,5 @@
 import * as init from "../util/init";
+
 import { createIdentities } from "../helpers/identity_helper";
 import { distributePolyBatch } from "../helpers/poly_helper";
 import {
@@ -86,6 +87,9 @@ async function main(): Promise<void> {
   await settlement.affirmInstruction(dave, instructionCounter, daveDid, 0);
   //await settlement.rejectInstruction(eve, instructionCounter);
   await settlement.affirmInstruction(eve, instructionCounter, eveDid, 0);
+
+  // Wait for settlement to be executed - happens in the next block
+  await init.sleep(15000);
 
   aliceBalance = await assetBalance(ticker, aliceDid);
   bobBalance = await assetBalance(ticker, bobDid);

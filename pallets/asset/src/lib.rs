@@ -2259,8 +2259,8 @@ impl<T: Config> Module<T> {
     }
 
     fn missing_scope_claim(ticker: &Ticker, from: &PortfolioId, to: &PortfolioId) -> bool {
-        DisableInvestorUniqueness::get(ticker)
-            || !Identity::<T>::verify_iu_claims_for_transfer(*ticker, to.did, from.did)
+        !DisableInvestorUniqueness::get(ticker)
+            && !Identity::<T>::verify_iu_claims_for_transfer(*ticker, to.did, from.did)
     }
 
     fn custodian_error(from: PortfolioId, custodian: IdentityId) -> bool {

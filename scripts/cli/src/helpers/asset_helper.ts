@@ -46,7 +46,7 @@ export async function issueTokenToDid(
       { EquityCommon: "" },
       [],
       fundingRound,
-      false
+      true
     );
     await sendTx(signer, createTx);
     const issueTx = api.tx.asset.issue(ticker, amount);
