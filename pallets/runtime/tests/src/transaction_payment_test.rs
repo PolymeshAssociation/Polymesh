@@ -3,7 +3,10 @@ use super::storage::{Call, TestStorage};
 use codec::Encode;
 use frame_support::{
     traits::Currency,
-    weights::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays, PostDispatchInfo, Weight},
+    weights::{
+        DispatchClass, DispatchInfo, GetDispatchInfo, Pays, PostDispatchInfo, Weight,
+        WeightToFeePolynomial,
+    },
 };
 use pallet_balances::Call as BalancesCall;
 use pallet_transaction_payment::{ChargeTransactionPayment, Multiplier, RuntimeDispatchInfo};
@@ -35,6 +38,10 @@ pub fn info_from_weight(w: Weight) -> DispatchInfo {
         weight: w,
         ..Default::default()
     }
+}
+
+fn weight_to_fee(weight: Weight) -> u128 {
+    <TestStorage as pallet_transaction_payment::Config>::WeightToFee::calc(&weight)
 }
 
 fn operational_info_from_weight(w: Weight) -> DispatchInfo {
@@ -142,17 +149,24 @@ fn signed_extension_transaction_payment_is_bounded() {
         .execute_with(|| {
             let user = AccountKeyring::Bob.to_account_id();
             let free_user = Balances::free_balance(&user);
+
+            // Get the current weight settings.
+            let weights = <TestStorage as frame_system::Config>::BlockWeights::get();
+            let per_byte =
+                <TestStorage as pallet_transaction_payment::Config>::TransactionByteFee::get();
+
+            // Calculate maximum transaction fee.
+            let base_fee = weight_to_fee(weights.get(DispatchClass::Normal).base_extrinsic);
+            let len_fee = per_byte.saturating_mul(10);
+            let max_block_fee = weight_to_fee(weights.max_block);
+            let max_fee = base_fee + len_fee + max_block_fee;
+
             // maximum weight possible
             ChargeTransactionPayment::<TestStorage>::from(0)
                 .pre_dispatch(&user, &call(), &info_from_weight(Weight::max_value()), 10)
                 .unwrap();
             // fee will be proportional to what is the actual maximum weight in the runtime.
-            assert_eq!(
-                Balances::free_balance(&user),
-                (free_user
-                    - <TestStorage as frame_system::Config>::MaximumBlockWeight::get() as u128)
-                    as u128
-            );
+            assert_eq!(Balances::free_balance(&user), (free_user - max_fee));
         });
 }
 
