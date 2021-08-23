@@ -106,11 +106,6 @@ fn set_instruction_leg_status_to_pending<T: Config>(instruction_id: u64, leg_id:
     <InstructionLegStatus<T>>::insert(instruction_id, leg_id, LegStatus::ExecutionPending);
 }
 
-/// Set user affirmation without any sanity checks.
-fn set_user_affirmations(instruction_id: u64, portfolio: PortfolioId, affirm: AffirmationStatus) {
-    UserAffirmations::insert(portfolio, instruction_id, affirm);
-}
-
 // create asset
 pub fn create_asset_<T: Config>(owner: &User<T>) -> Ticker {
     make_asset::<T>(owner, Some(&Ticker::generate(8u64)))
