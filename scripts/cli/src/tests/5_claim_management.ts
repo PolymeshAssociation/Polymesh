@@ -37,4 +37,7 @@ main()
     console.error(pe.render(err));
     process.exit(1);
   })
-  .finally(() => process.exit());
+  .finally(() => {
+    console.log("Completed: CLAIM MANAGEMENT");
+    process.exit();
+  });
