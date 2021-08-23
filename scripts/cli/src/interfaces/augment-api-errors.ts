@@ -1096,10 +1096,6 @@ declare module '@polkadot/api/types/errors' {
     };
     relayer: {
       /**
-       * The `user_key` already has a `paying_key`.
-       **/
-      AlreadyHasPayingKey: AugmentedError<ApiType>;
-      /**
        * The `user_key` doesn't have a `paying_key`.
        **/
       NoPayingKey: AugmentedError<ApiType>;
@@ -1116,6 +1112,10 @@ declare module '@polkadot/api/types/errors' {
        **/
       NotPayingKey: AugmentedError<ApiType>;
       /**
+       * The remaining POLYX for `user_key` overflowed.
+       **/
+      Overflow: AugmentedError<ApiType>;
+      /**
        * The `user_key` is not attached to a CDD'd identity.
        **/
       PayingKeyCddMissing: AugmentedError<ApiType>;
@@ -1123,6 +1123,28 @@ declare module '@polkadot/api/types/errors' {
        * The `user_key` is not attached to a CDD'd identity.
        **/
       UserKeyCddMissing: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
+    };
+    rewards: {
+      /**
+       * Provided signature was invalid.
+       **/
+      InvalidSignature: AugmentedError<ApiType>;
+      /**
+       * Itn reward was already claimed.
+       **/
+      ItnRewardAlreadyClaimed: AugmentedError<ApiType>;
+      /**
+       * Balance can not be converted to a primitive.
+       **/
+      UnableToCovertBalance: AugmentedError<ApiType>;
+      /**
+       * Address was not found in the list of Itn addresses.
+       **/
+      UnknownItnAddress: AugmentedError<ApiType>;
       /**
        * Generic error
        **/
