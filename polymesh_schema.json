@@ -892,7 +892,9 @@
         "JoinIdentity": "",
         "PortfolioCustody": "",
         "Custom": "",
-        "NoData": ""
+        "NoData": "",
+				"BecomeAgent": "",
+				"AddRelayerPayingKey": ""
       }
     },
     "ProposalDetails": {
