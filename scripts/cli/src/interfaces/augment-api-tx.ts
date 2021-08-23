@@ -14,7 +14,7 @@ import type { Period, Priority } from '@polkadot/types/interfaces/scheduler';
 import type { Keys } from '@polkadot/types/interfaces/session';
 import type { CompactAssignments, ElectionScore, ElectionSize, EraIndex, RewardDestination, ValidatorIndex, ValidatorPrefs } from '@polkadot/types/interfaces/staking';
 import type { Key } from '@polkadot/types/interfaces/system';
-import type { AGId, AgentGroup, AssetIdentifier, AssetName, AssetType, AuthorizationData, BallotMeta, BallotTimeRange, BallotVote, Beneficiary, BridgeTx, CADetails, CAId, CAKind, Claim, ClaimType, ClassicTickerImport, ComplianceRequirement, Condition, Document, DocumentId, ExtrinsicPermissions, FundingRoundName, FundraiserName, IdentityId, InvestorUid, InvestorZKProofData, Leg, LegacyPermissions, MaybeBlock, Memo, MovePortfolioItem, OffChainSignature, Permissions, PipDescription, PipId, PortfolioId, PortfolioName, PortfolioNumber, PosRatio, PriceTier, ProtocolOp, ReceiptDetails, RecordDateSpec, ScheduleId, ScheduleSpec, Scope, ScopeClaimProof, ScopeId, SecondaryKey, SecondaryKeyWithAuth, SettlementType, Signatory, SkippedCount, SlashingSwitch, SnapshotResult, TargetIdAuthorization, TargetIdentities, Tax, Ticker, TickerRegistrationConfig, TransferManager, TrustedIssuer, UniqueCall, Url, VenueDetails, VenueType } from 'polymesh-typegen/interfaces/default';
+import type { AGId, AgentGroup, AssetIdentifier, AssetName, AssetType, AuthorizationData, BallotMeta, BallotTimeRange, BallotVote, Beneficiary, BridgeTx, CADetails, CAId, CAKind, Claim, ClaimType, ClassicTickerImport, ComplianceRequirement, Condition, Document, DocumentId, ExtrinsicPermissions, FundingRoundName, FundraiserName, IdentityId, InvestorUid, InvestorZKProofData, ItnRewardStatus, Leg, LegacyPermissions, MaybeBlock, Memo, MovePortfolioItem, OffChainSignature, Permissions, PipDescription, PipId, PortfolioId, PortfolioName, PortfolioNumber, PosRatio, PriceTier, ProtocolOp, ReceiptDetails, RecordDateSpec, ScheduleId, ScheduleSpec, Scope, ScopeClaimProof, ScopeId, SecondaryKey, SecondaryKeyWithAuth, SettlementType, Signatory, SkippedCount, SlashingSwitch, SnapshotResult, TargetIdAuthorization, TargetIdentities, Tax, Ticker, TickerRegistrationConfig, TransferManager, TrustedIssuer, UniqueCall, Url, VenueDetails, VenueType } from 'polymesh-typegen/interfaces/default';
 import type { ApiTypes, SubmittableExtrinsic } from '@polkadot/api/types';
 
 declare module '@polkadot/api/types/submittable' {
@@ -397,12 +397,19 @@ declare module '@polkadot/api/types/submittable' {
     };
     bridge: {
       /**
+       * Add a freeze admin.
+       * 
+       * ## Errors
+       * - `BadAdmin` if `origin` is not `Self::admin()` account.
+       **/
+      addFreezeAdmin: AugmentedSubmittable<(freezeAdmin: AccountId | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId]>;
+      /**
        * Proposes a vector of bridge transactions. The vector is processed until the first
        * proposal which causes an error, in which case the error is returned and the rest of
        * proposals are not processed.
        * 
        * ## Errors
-       * - `ControllerNotSet` if `Controlles` was not set.
+       * - `ControllerNotSet` if `Controllers` was not set.
        * 
        * # Weight
        * `500_000_000 + 7_000_000 * bridge_txs.len()`
@@ -427,6 +434,7 @@ declare module '@polkadot/api/types/submittable' {
        * 
        * ## Errors
        * - `BadAdmin` if `origin` is not `Self::admin()` account.
+       * - `DivisionByZero` if `duration` is zero.
        **/
       changeBridgeLimit: AugmentedSubmittable<(amount: Balance | AnyNumber | Uint8Array, duration: BlockNumber | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Balance, BlockNumber]>;
       /**
@@ -494,9 +502,16 @@ declare module '@polkadot/api/types/submittable' {
        * transaction has already been proposed.
        * 
        * ## Errors
-       * - `ControllerNotSet` if `Controlles` was not set.
+       * - `ControllerNotSet` if `Controllers` was not set.
        **/
       proposeBridgeTx: AugmentedSubmittable<(bridgeTx: BridgeTx | { nonce?: any; recipient?: any; value?: any; tx_hash?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [BridgeTx]>;
+      /**
+       * Remove a freeze admin.
+       * 
+       * ## Errors
+       * - `BadAdmin` if `origin` is not `Self::admin()` account.
+       **/
+      removeFreezeAdmin: AugmentedSubmittable<(freezeAdmin: AccountId | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId]>;
       /**
        * Unfreezes transaction handling in the bridge module if it is frozen.
        * 
@@ -2227,12 +2242,39 @@ declare module '@polkadot/api/types/submittable' {
        * - `AuthorizationError::BadType` if `auth_id` was not a `AddRelayerPayingKey` authorization.
        * - `NotAuthorizedForUserKey` if `origin` is not authorized to accept the authorization for the `user_key`.
        * - `NotAuthorizedForPayingKey` if the authorization was created by a signer that isn't authorized by the `paying_key`.
-       * - `AlreadyHasPayingKey` if the `user_key` already has a subsidising `paying_key`.
        * - `UserKeyCddMissing` if the `user_key` is not attached to a CDD'd identity.
        * - `PayingKeyCddMissing` if the `paying_key` is not attached to a CDD'd identity.
        * - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
        **/
       acceptPayingKey: AugmentedSubmittable<(authId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64]>;
+      /**
+       * Decrease the available POLYX for a `user_key`.
+       * 
+       * # Arguments
+       * - `user_key` the user key of the subsidy to update the available POLYX.
+       * - `amount` the amount of POLYX to remove from the subsidy of `user_key`.
+       * 
+       * # Errors
+       * - `NoPayingKey` if the `user_key` doesn't have a `paying_key`.
+       * - `NotPayingKey` if `origin` doesn't match the current `paying_key`.
+       * - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
+       * - `Overlow` if the subsidy has less then `amount` POLYX remaining.
+       **/
+      decreasePolyxLimit: AugmentedSubmittable<(userKey: AccountId | string | Uint8Array, amount: Balance | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId, Balance]>;
+      /**
+       * Increase the available POLYX for a `user_key`.
+       * 
+       * # Arguments
+       * - `user_key` the user key of the subsidy to update the available POLYX.
+       * - `amount` the amount of POLYX to add to the subsidy of `user_key`.
+       * 
+       * # Errors
+       * - `NoPayingKey` if the `user_key` doesn't have a `paying_key`.
+       * - `NotPayingKey` if `origin` doesn't match the current `paying_key`.
+       * - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
+       * - `Overlow` if the subsidy's remaining POLYX would have overflowed `u128::MAX`.
+       **/
+      increasePolyxLimit: AugmentedSubmittable<(userKey: AccountId | string | Uint8Array, amount: Balance | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId, Balance]>;
       /**
        * Removes the `paying_key` from a `user_key`.
        * 
@@ -2262,18 +2304,38 @@ declare module '@polkadot/api/types/submittable' {
        * Updates the available POLYX for a `user_key`.
        * 
        * # Arguments
-       * - `user_key` the user key to remove the subsidy from.
+       * - `user_key` the user key of the subsidy to update the available POLYX.
        * - `polyx_limit` the amount of POLYX available for subsidising the `user_key`.
        * 
        * # Errors
        * - `NoPayingKey` if the `user_key` doesn't have a `paying_key`.
        * - `NotPayingKey` if `origin` doesn't match the current `paying_key`.
        * - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
-       * 
-       * # Permissions
-       * * Relayer
        **/
       updatePolyxLimit: AugmentedSubmittable<(userKey: AccountId | string | Uint8Array, polyxLimit: Balance | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId, Balance]>;
+      /**
+       * Generic tx
+       **/
+      [key: string]: SubmittableExtrinsicFunction<ApiType>;
+    };
+    rewards: {
+      /**
+       * Claim an ITN reward.
+       * 
+       * ## Arguments
+       * * `itn_address` specifying the awarded address on ITN.
+       * * `signature` authenticating the claim to the reward.
+       * The signature should contain `reward_address` followed by the suffix `"claim_itn_reward"`,
+       * and must have been signed by `itn_address`.
+       * 
+       * # Errors
+       * * `InsufficientBalance` - Itn rewards has insufficient funds to issue the reward.
+       * * `InvalidSignature` - `signature` had an invalid signer or invalid message.
+       * * `ItnRewardAlreadyClaimed` - Reward issued to the `itn_address` has already been claimed.
+       * * `UnknownItnAddress` - `itn_address` is not in the rewards table and has no reward to be claimed.
+       **/
+      claimItnReward: AugmentedSubmittable<(rewardAddress: AccountId | string | Uint8Array, itnAddress: AccountId | string | Uint8Array, signature: OffChainSignature | { Ed25519: any } | { Sr25519: any } | { Ecdsa: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId, AccountId, OffChainSignature]>;
+      setItnRewardStatus: AugmentedSubmittable<(itnAddress: AccountId | string | Uint8Array, status: ItnRewardStatus | { Unclaimed: any } | { Claimed: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId, ItnRewardStatus]>;
       /**
        * Generic tx
        **/
@@ -3011,7 +3073,7 @@ declare module '@polkadot/api/types/submittable' {
        * - Worse solution is retraced in pre-dispatch-checks which sets its own weight.
        * # </weight>
        **/
-      submitElectionSolution: AugmentedSubmittable<(winners: Vec<ValidatorIndex> | (ValidatorIndex | AnyNumber | Uint8Array)[], compact: CompactAssignments | { votes1?: any; votes2?: any; votes3?: any; votes4?: any; votes5?: any; votes6?: any; votes7?: any; votes8?: any; votes9?: any; votes10?: any; votes11?: any; votes12?: any; votes13?: any; votes14?: any; votes15?: any; votes16?: any; votes17?: any; votes18?: any; votes19?: any; votes20?: any; votes21?: any; votes22?: any; votes23?: any; votes24?: any } | string | Uint8Array, score: ElectionScore, era: EraIndex | AnyNumber | Uint8Array, size: ElectionSize | { validators?: any; nominators?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Vec<ValidatorIndex>, CompactAssignments, ElectionScore, EraIndex, ElectionSize]>;
+      submitElectionSolution: AugmentedSubmittable<(winners: Vec<ValidatorIndex> | (ValidatorIndex | AnyNumber | Uint8Array)[], compact: CompactAssignments | { votes1?: any; votes2?: any; votes3?: any; votes4?: any; votes5?: any; votes6?: any; votes7?: any; votes8?: any; votes9?: any; votes10?: any; votes11?: any; votes12?: any; votes13?: any; votes14?: any; votes15?: any; votes16?: any } | string | Uint8Array, score: ElectionScore, era: EraIndex | AnyNumber | Uint8Array, size: ElectionSize | { validators?: any; nominators?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Vec<ValidatorIndex>, CompactAssignments, ElectionScore, EraIndex, ElectionSize]>;
       /**
        * Unsigned version of `submit_election_solution`.
        * 
@@ -3023,7 +3085,7 @@ declare module '@polkadot/api/types/submittable' {
        * See [`submit_election_solution`].
        * # </weight>
        **/
-      submitElectionSolutionUnsigned: AugmentedSubmittable<(winners: Vec<ValidatorIndex> | (ValidatorIndex | AnyNumber | Uint8Array)[], compact: CompactAssignments | { votes1?: any; votes2?: any; votes3?: any; votes4?: any; votes5?: any; votes6?: any; votes7?: any; votes8?: any; votes9?: any; votes10?: any; votes11?: any; votes12?: any; votes13?: any; votes14?: any; votes15?: any; votes16?: any; votes17?: any; votes18?: any; votes19?: any; votes20?: any; votes21?: any; votes22?: any; votes23?: any; votes24?: any } | string | Uint8Array, score: ElectionScore, era: EraIndex | AnyNumber | Uint8Array, size: ElectionSize | { validators?: any; nominators?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Vec<ValidatorIndex>, CompactAssignments, ElectionScore, EraIndex, ElectionSize]>;
+      submitElectionSolutionUnsigned: AugmentedSubmittable<(winners: Vec<ValidatorIndex> | (ValidatorIndex | AnyNumber | Uint8Array)[], compact: CompactAssignments | { votes1?: any; votes2?: any; votes3?: any; votes4?: any; votes5?: any; votes6?: any; votes7?: any; votes8?: any; votes9?: any; votes10?: any; votes11?: any; votes12?: any; votes13?: any; votes14?: any; votes15?: any; votes16?: any } | string | Uint8Array, score: ElectionScore, era: EraIndex | AnyNumber | Uint8Array, size: ElectionSize | { validators?: any; nominators?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Vec<ValidatorIndex>, CompactAssignments, ElectionScore, EraIndex, ElectionSize]>;
       /**
        * Schedule a portion of the stash to be unlocked ready for transfer out after the bond
        * period ends. If this leaves an amount actively bonded less than
