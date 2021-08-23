@@ -19,7 +19,7 @@ use codec::Codec;
 use frame_support::traits::Currency;
 use polymesh_primitives::{compliance_manager::AssetComplianceResult, IdentityId, Ticker};
 
-pub trait Trait: frame_system::Trait {
+pub trait Trait: frame_system::Config {
     type Currency: Currency<Self::AccountId>;
 }
 

@@ -2,7 +2,7 @@ version: 2
 jobs:
   lint:
     docker:
-      - image: polymathnet/rust:debian-nightly-2021-01-25
+      - image: polymathnet/rust:debian-nightly-2021-05-10
     resource_class: medium
     environment:
       VERBOSE: "1"
@@ -11,19 +11,9 @@ jobs:
       - run:
           name: Check formatting
           command: ./scripts/rustfmt.sh
-  rpc-check:
-    docker:
-      - image: circleci/node:lts-buster
-    resource_class: small
-    steps:
-      - checkout
-      - run:
-          name: Ensure valid RPC return types
-          command: node util/rpc_u128_check.js
-          working_directory: ./scripts/cli
   build:
     docker:
-      - image: polymathnet/rust:debian-nightly-2021-01-25
+      - image: polymathnet/rust:debian-nightly-2021-05-10
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -48,7 +38,7 @@ jobs:
             - "./target"
   benchmark-build:
     docker:
-      - image: polymathnet/rust:debian-nightly-2021-01-25
+      - image: polymathnet/rust:debian-nightly-2021-05-10
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -90,7 +80,7 @@ jobs:
           no_output_timeout: 1h
   migration-tests:
     docker:
-      - image: polymathnet/rust:debian-nightly-2021-01-25
+      - image: polymathnet/rust:debian-nightly-2021-05-10
     resource_class: large
     environment:
       - VERBOSE: "1"
@@ -116,7 +106,7 @@ jobs:
             - "./target"
   test:
     docker:
-      - image: polymathnet/rust:debian-nightly-2021-01-25
+      - image: polymathnet/rust:debian-nightly-2021-05-10
     resource_class: large
     environment:
       - VERBOSE: "1"
@@ -151,7 +141,7 @@ jobs:
             - "./target"
   coverage:
     docker:
-      - image: polymathnet/rust:debian-nightly-2021-01-25
+      - image: polymathnet/rust:debian-nightly-2021-05-10
     resource_class: large
     environment:
       - VERBOSE: "1"
@@ -179,7 +169,7 @@ jobs:
             - "./target"
   cli:
     docker:
-      - image: polymathnet/rust:debian-nightly-2021-01-25
+      - image: polymathnet/rust:debian-nightly-2021-05-10
     resource_class: xlarge
     environment:
       VERBOSE: "1"
@@ -218,7 +208,7 @@ jobs:
             - "./scripts/cli/node_modules"
   clippy:
     docker:
-      - image: polymathnet/rust:debian-nightly-2021-01-25
+      - image: polymathnet/rust:debian-nightly-2021-05-10
     resource_class: large
     environment:
       VERBOSE: "1"
@@ -249,4 +239,3 @@ workflows:
       - benchmark:
           requires:
             - benchmark-build
-      - rpc-check

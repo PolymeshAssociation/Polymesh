@@ -1,7 +1,7 @@
 use crate::{
     benchs::User,
     constants::currency::POLY,
-    traits::asset::{AssetFnTrait, Trait},
+    traits::asset::{AssetFnTrait, Config},
 };
 use polymesh_primitives::{
     asset::{AssetName, AssetType},
@@ -12,7 +12,7 @@ use sp_std::{convert::TryFrom, vec};
 pub type ResultTicker = Result<Ticker, &'static str>;
 
 /// Create a ticker and register it.
-pub fn make_ticker<T: Trait>(owner: T::Origin, opt_name: Option<&[u8]>) -> Ticker {
+pub fn make_ticker<T: Config>(owner: T::Origin, opt_name: Option<&[u8]>) -> Ticker {
     let ticker = match opt_name {
         Some(name) => Ticker::try_from(name).expect("Invalid ticker name"),
         _ => Ticker::repeating(b'A'),
@@ -21,15 +21,15 @@ pub fn make_ticker<T: Trait>(owner: T::Origin, opt_name: Option<&[u8]>) -> Ticke
     ticker
 }
 
-pub fn make_asset<T: Trait>(owner: &User<T>, name: Option<&[u8]>) -> Ticker {
+pub fn make_asset<T: Config>(owner: &User<T>, name: Option<&[u8]>) -> Ticker {
     make_base_asset::<T>(owner, true, name)
 }
 
-pub fn make_indivisible_asset<T: Trait>(owner: &User<T>, name: Option<&[u8]>) -> Ticker {
+pub fn make_indivisible_asset<T: Config>(owner: &User<T>, name: Option<&[u8]>) -> Ticker {
     make_base_asset::<T>(owner, false, name)
 }
 
-fn make_base_asset<T: Trait>(owner: &User<T>, divisible: bool, name: Option<&[u8]>) -> Ticker {
+fn make_base_asset<T: Config>(owner: &User<T>, divisible: bool, name: Option<&[u8]>) -> Ticker {
     let ticker = make_ticker::<T>(owner.origin().into(), name);
     let name: AssetName = ticker.as_slice().into();
 

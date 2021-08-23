@@ -149,7 +149,9 @@ impl Permissions {
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum Signatory<AccountId> {
+    #[cfg_attr(feature = "std", serde(alias = "identity"))]
     Identity(IdentityId),
+    #[cfg_attr(feature = "std", serde(alias = "account"))]
     Account(AccountId),
 }
 
@@ -404,10 +406,10 @@ pub mod api {
         fn from(p: LegacyPalletPermissions) -> PalletPermissions {
             PalletPermissions {
                 pallet_name: p.pallet_name,
-                dispatchable_names: if !p.total {
-                    SubsetRestriction::These(p.dispatchable_names.into_iter().collect())
-                } else {
+                dispatchable_names: if p.total {
                     SubsetRestriction::Whole
+                } else {
+                    SubsetRestriction::These(p.dispatchable_names.into_iter().collect())
                 },
             }
         }

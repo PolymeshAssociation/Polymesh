@@ -15,7 +15,7 @@ use test_client::AccountKeyring;
 pub type Balances = balances::Module<TestStorage>;
 pub type Treasury = treasury::Module<TestStorage>;
 type Identity = identity::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 
 #[test]
 fn reimbursement_and_disbursement() {
@@ -27,9 +27,9 @@ fn reimbursement_and_disbursement() {
 
 fn reimbursement_and_disbursement_we() {
     let alice = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let alice_acc = Origin::signed(AccountKeyring::Alice.public());
-    let alice_pub = AccountKeyring::Alice.public();
-    let bob_pub = AccountKeyring::Bob.public();
+    let alice_acc = Origin::signed(AccountKeyring::Alice.to_account_id());
+    let alice_pub = AccountKeyring::Alice.to_account_id();
+    let bob_pub = AccountKeyring::Bob.to_account_id();
     let bob = register_keyring_account(AccountKeyring::Bob).unwrap();
 
     let total_issuance = Balances::total_issuance();

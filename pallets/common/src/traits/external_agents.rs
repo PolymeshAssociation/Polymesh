@@ -11,9 +11,9 @@ pub trait WeightInfo {
     fn change_group_custom() -> Weight;
 }
 
-pub trait Trait: frame_system::Trait + crate::balances::Trait {
+pub trait Config: frame_system::Config + crate::balances::Config {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
 
     type WeightInfo: WeightInfo;
 }

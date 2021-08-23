@@ -16,7 +16,7 @@
 
 // Modified by Polymath Inc - 23rd March 2020
 // Polymesh changes - This module is inspired from the `pallet-collective`
-// https://github.com/paritytech/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/collective
+// https://github.com/PolymathNetwork/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/collective
 // It is modified as per the requirement of the Polymesh
 // -`set_members()` dispatchable get removed and members are maintained by the group module
 // - New instance of the group module is being added and assigned committee instance to
@@ -70,12 +70,11 @@ use frame_support::{
     traits::{ChangeMembers, EnsureOrigin, InitializeMembers},
     weights::{DispatchClass, GetDispatchInfo, Weight},
 };
-use frame_system::{self as system};
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     governance_group::GovernanceGroupTrait,
     group::{GroupTrait, InactiveMember, MemberCount},
-    identity::{IdentityFnTrait, Trait as IdentityModuleTrait},
+    identity::{Config as IdentityModuleConfig, IdentityFnTrait},
     Context, MaybeBlock, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{storage_migration_ver, IdentityId};
@@ -108,22 +107,22 @@ pub trait WeightInfo {
 pub type ProposalIndex = u32;
 
 /// The committee trait.
-pub trait Trait<I>:
-    frame_system::Trait<
+pub trait Config<I>:
+    frame_system::Config<
         Call: Parameter
-                  + Dispatchable<Origin = <Self as frame_system::Trait>::Origin>
+                  + Dispatchable<Origin = <Self as frame_system::Config>::Origin>
                   + GetDispatchInfo,
-        Origin: From<RawOrigin<<Self as frame_system::Trait>::AccountId, I>>,
-    > + IdentityModuleTrait
+        Origin: From<RawOrigin<<Self as frame_system::Config>::AccountId, I>>,
+    > + IdentityModuleConfig
 {
     /// Required origin for changing behaviour of this module.
-    type CommitteeOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
+    type CommitteeOrigin: EnsureOrigin<<Self as frame_system::Config>::Origin>;
 
     /// Required origin for changing the voting threshold.
-    type VoteThresholdOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
+    type VoteThresholdOrigin: EnsureOrigin<<Self as frame_system::Config>::Origin>;
 
     /// The outer event type.
-    type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self, I>> + Into<<Self as frame_system::Config>::Event>;
 
     /// Weight computation.
     type WeightInfo: WeightInfo;
@@ -138,7 +137,7 @@ pub enum RawOrigin<AccountId, I> {
 }
 
 /// Origin for the committee module.
-pub type Origin<T, I = DefaultInstance> = RawOrigin<<T as system::Trait>::AccountId, I>;
+pub type Origin<T, I = DefaultInstance> = RawOrigin<<T as frame_system::Config>::AccountId, I>;
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
 /// Info for keeping track of a motion being voted on.
@@ -194,11 +193,11 @@ mod migrate {
 storage_migration_ver!(1);
 
 decl_storage! {
-    trait Store for Module<T: Trait<I>, I: Instance=DefaultInstance> as Committee {
+    trait Store for Module<T: Config<I>, I: Instance=DefaultInstance> as Committee {
         /// The hashes of the active proposals.
         pub Proposals get(fn proposals): Vec<T::Hash>;
         /// Actual proposal for a given hash.
-        pub ProposalOf get(fn proposal_of): map hasher(twox_64_concat) T::Hash => Option<<T as frame_system::Trait>::Call>;
+        pub ProposalOf get(fn proposal_of): map hasher(twox_64_concat) T::Hash => Option<<T as frame_system::Config>::Call>;
         /// PolymeshVotes on a given proposal, if it is ongoing.
         pub Voting get(fn voting): map hasher(twox_64_concat) T::Hash => Option<PolymeshVotes<T::BlockNumber>>;
         /// Proposals so far.
@@ -221,8 +220,8 @@ decl_storage! {
 
 decl_event!(
     pub enum Event<T, I> where
-        <T as frame_system::Trait>::Hash,
-        BlockNumber = <T as frame_system::Trait>::BlockNumber,
+        <T as frame_system::Config>::Hash,
+        BlockNumber = <T as frame_system::Config>::BlockNumber,
     {
         /// A motion (given hash) has been proposed (by given account) with a threshold (given `MemberCount`).
         /// Parameters: caller DID, proposal index, proposal hash.
@@ -261,7 +260,7 @@ decl_event!(
 );
 
 decl_error! {
-    pub enum Error for Module<T: Trait<I>, I: Instance> {
+    pub enum Error for Module<T: Config<I>, I: Instance> {
         /// Duplicate votes are not allowed.
         DuplicateVote,
         /// A DID isn't part of the committee.
@@ -287,7 +286,7 @@ decl_error! {
 type Identity<T> = identity::Module<T>;
 
 decl_module! {
-    pub struct Module<T: Trait<I>, I: Instance=DefaultInstance> for enum Call where origin: <T as frame_system::Trait>::Origin {
+    pub struct Module<T: Config<I>, I: Instance=DefaultInstance> for enum Call where origin: <T as frame_system::Config>::Origin {
 
         type Error = Error<T, I>;
 
@@ -312,7 +311,7 @@ decl_module! {
         /// * `n` - Numerator of the fraction representing vote threshold.
         /// * `d` - Denominator of the fraction representing vote threshold.
         #[weight = (
-            <T as Trait<I>>::WeightInfo::set_vote_threshold(),
+            <T as Config<I>>::WeightInfo::set_vote_threshold(),
             DispatchClass::Operational
         )]
         pub fn set_vote_threshold(origin, n: u32, d: u32) {
@@ -331,7 +330,7 @@ decl_module! {
         /// # Errors
         /// * `NotAMember`, If the new coordinator `id` is not part of the committee.
         #[weight = (
-            <T as Trait<I>>::WeightInfo::set_release_coordinator(),
+            <T as Config<I>>::WeightInfo::set_release_coordinator(),
             DispatchClass::Operational
         )]
         pub fn set_release_coordinator(origin, id: IdentityId) {
@@ -346,7 +345,7 @@ decl_module! {
         /// # Arguments
         /// * `expiry` - The new expiry time.
         #[weight = (
-            <T as Trait<I>>::WeightInfo::set_expires_after(),
+            <T as Config<I>>::WeightInfo::set_expires_after(),
             DispatchClass::Operational
         )]
         pub fn set_expires_after(origin, expiry: MaybeBlock<T::BlockNumber>) {
@@ -373,10 +372,10 @@ decl_module! {
         /// * `FirstVoteReject`, if `call` hasn't been proposed and `approve == false`.
         /// * `NotAMember`, if the `origin` is not a member of this committee.
         #[weight = (
-            <T as Trait<I>>::WeightInfo::vote_or_propose_new_proposal() + call.get_dispatch_info().weight,
+            <T as Config<I>>::WeightInfo::vote_or_propose_new_proposal() + call.get_dispatch_info().weight,
             DispatchClass::Operational,
         )]
-        pub fn vote_or_propose(origin, approve: bool, call: Box<<T as frame_system::Trait>::Call>) -> DispatchResult {
+        pub fn vote_or_propose(origin, approve: bool, call: Box<<T as frame_system::Config>::Call>) -> DispatchResult {
             // Either create a new proposal or vote on an existing one.
             let hash = T::Hashing::hash_of(&call);
             match Self::voting(hash) {
@@ -437,7 +436,7 @@ decl_module! {
     }
 }
 
-impl<T: Trait<I>, I: Instance> Module<T, I> {
+impl<T: Config<I>, I: Instance> Module<T, I> {
     /// Ensure proposal with `hash` exists and has index `idx`.
     fn ensure_proposal(
         hash: &T::Hash,
@@ -450,7 +449,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 
     /// Ensures that `origin` is a committee member, returning its identity, or throws `NotAMember`.
     fn ensure_is_member(
-        origin: <T as frame_system::Trait>::Origin,
+        origin: <T as frame_system::Config>::Origin,
     ) -> Result<IdentityId, DispatchError> {
         let did = <Identity<T>>::ensure_perms(origin)?;
         Self::ensure_did_is_member(&did)?;
@@ -580,7 +579,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         expiry: MaybeBlock<T::BlockNumber>,
     ) -> Result<(), Error<T, I>> {
         match expiry {
-            MaybeBlock::Some(e) if e <= system::Module::<T>::block_number() => {
+            MaybeBlock::Some(e) if e <= frame_system::Module::<T>::block_number() => {
                 Self::clear_proposal(proposal);
                 <ProposalOf<T, I>>::remove(proposal);
                 Err(Error::<T, I>::ProposalExpired)
@@ -589,7 +588,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         }
     }
 
-    fn execute(did: IdentityId, proposal: <T as frame_system::Trait>::Call, hash: T::Hash) {
+    fn execute(did: IdentityId, proposal: <T as frame_system::Config>::Call, hash: T::Hash) {
         let origin = RawOrigin::Endorsed(PhantomData).into();
         let res = proposal.dispatch(origin).map_err(|e| e.error).map(drop);
         Self::deposit_event(RawEvent::Executed(did, hash, res));
@@ -600,8 +599,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     /// # Arguments
     /// * `proposal` - A dispatchable call.
     fn propose(
-        origin: <T as frame_system::Trait>::Origin,
-        proposal: <T as frame_system::Trait>::Call,
+        origin: <T as frame_system::Config>::Origin,
+        proposal: <T as frame_system::Config>::Call,
     ) -> DispatchResult {
         // 1. Ensure `origin` is a committee member.
         let did = Self::ensure_is_member(origin)?;
@@ -620,7 +619,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
             let index = <ProposalCount<I>>::mutate(|i| mem::replace(i, *i + 1));
             <Proposals<T, I>>::append(proposal_hash);
             <ProposalOf<T, I>>::insert(proposal_hash, proposal);
-            let now = system::Module::<T>::block_number();
+            let now = frame_system::Module::<T>::block_number();
             let votes = PolymeshVotes {
                 index,
                 ayes: vec![did],
@@ -636,7 +635,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     }
 }
 
-impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
+impl<T: Config<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
     /// Retrieve all members of this committee
     fn get_members() -> Vec<IdentityId> {
         Self::members()
@@ -659,7 +658,7 @@ impl<T: Trait<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
     }
 }
 
-impl<T: Trait<I>, I: Instance> GovernanceGroupTrait<T::Moment> for Module<T, I> {
+impl<T: Config<I>, I: Instance> GovernanceGroupTrait<T::Moment> for Module<T, I> {
     fn release_coordinator() -> Option<IdentityId> {
         Self::release_coordinator()
     }
@@ -673,7 +672,7 @@ impl<T: Trait<I>, I: Instance> GovernanceGroupTrait<T::Moment> for Module<T, I> 
     }
 }
 
-impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
+impl<T: Config<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
     /// This function is called when the group updates its members, and it executes the following
     /// actions:
     /// * It removes outgoing member's vote of each current proposal.
@@ -712,7 +711,7 @@ impl<T: Trait<I>, I: Instance> ChangeMembers<IdentityId> for Module<T, I> {
     }
 }
 
-impl<T: Trait<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
+impl<T: Config<I>, I: Instance> InitializeMembers<IdentityId> for Module<T, I> {
     /// Initializes the members and adds the Systemic CDD claim (issued by
     /// `SystematicIssuers::Committee`).
     fn initialize_members(members: &[IdentityId]) {
@@ -744,11 +743,11 @@ where
     }
 }
 
-fn vote<T: Trait<I>, I: Instance>(approve: bool) -> (Weight, DispatchClass) {
+fn vote<T: Config<I>, I: Instance>(approve: bool) -> (Weight, DispatchClass) {
     let weight = if approve {
-        <T as Trait<I>>::WeightInfo::vote_aye()
+        <T as Config<I>>::WeightInfo::vote_aye()
     } else {
-        <T as Trait<I>>::WeightInfo::vote_nay()
+        <T as Config<I>>::WeightInfo::vote_nay()
     };
 
     (weight, DispatchClass::Operational)

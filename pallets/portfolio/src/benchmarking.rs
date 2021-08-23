@@ -32,8 +32,6 @@ fn make_worst_memo() -> Option<Memo> {
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
-    _ {}
-
     create_portfolio {
         let target = UserBuilder::<T>::default().generate_did().build("target");
         let did = target.did();

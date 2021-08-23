@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::identity::Trait as IdentityTrait;
+use crate::identity::Config as IdentityConfig;
 
 use polymesh_primitives::IdentityId;
 
@@ -90,26 +90,26 @@ pub trait WeightInfo {
     fn abdicate_membership() -> Weight;
 }
 
-pub trait Trait<I>: frame_system::Trait + pallet_timestamp::Trait + IdentityTrait {
+pub trait Config<I>: frame_system::Config + pallet_timestamp::Config + IdentityConfig {
     /// The overarching event type.
-    type Event: From<Event<Self, I>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self, I>> + Into<<Self as frame_system::Config>::Event>;
 
     /// Required origin for changing the active limit.
     /// It's recommended that e.g., in case of a committee,
     /// this be an origin that cannot be formed through a committee majority.
-    type LimitOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
+    type LimitOrigin: EnsureOrigin<<Self as frame_system::Config>::Origin>;
 
     /// Required origin for adding a member (though can always be Root).
-    type AddOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
+    type AddOrigin: EnsureOrigin<<Self as frame_system::Config>::Origin>;
 
     /// Required origin for removing a member (though can always be Root).
-    type RemoveOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
+    type RemoveOrigin: EnsureOrigin<<Self as frame_system::Config>::Origin>;
 
     /// Required origin for adding and removing a member in a single action.
-    type SwapOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
+    type SwapOrigin: EnsureOrigin<<Self as frame_system::Config>::Origin>;
 
     /// Required origin for resetting membership.
-    type ResetOrigin: EnsureOrigin<<Self as frame_system::Trait>::Origin>;
+    type ResetOrigin: EnsureOrigin<<Self as frame_system::Config>::Origin>;
 
     /// The receiver of the signal for when the membership has been initialized. This happens pre-
     /// genesis and will usually be the same as `MembershipChanged`. If you need to do something
@@ -125,8 +125,8 @@ pub trait Trait<I>: frame_system::Trait + pallet_timestamp::Trait + IdentityTrai
 
 decl_event!(
     pub enum Event<T, I> where
-    <T as frame_system::Trait>::AccountId,
-    <T as Trait<I>>::Event,
+    <T as frame_system::Config>::AccountId,
+    <T as Config<I>>::Event,
     {
         /// The given member was added; see the transaction for who.
         /// caller DID, New member DID.
