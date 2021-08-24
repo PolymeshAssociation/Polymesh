@@ -28,6 +28,7 @@ use polymesh_primitives::{
     AuthorizationData, Claim, CountryCode, IdentityId, Permissions, Scope, ScopeId, SecondaryKey,
     Signatory,
 };
+use sp_core::H512;
 use sp_std::prelude::*;
 
 const SEED: u32 = 0;
@@ -313,46 +314,30 @@ benchmarks! {
         );
     }: _(caller.origin, signatory, auth_id, true)
 
-    // TODO: fix this.
-    // Account keyring is not available in no_std so it's not possible to sign data directly.
-    // However, substrate injects the required functions as host functions in WASM.
-    // We need to setup some helper functions to access those.
-    // A defensive weight has been hardcoded for now.
-    // add_secondary_keys_with_authorization {
-    //     // Number of keys.
-    //     let n in 0 .. 8;
+    add_secondary_keys_with_authorization {
+        // Number of keys.
+        let i in 0 .. MAX_SECONDARY_KEYS;
 
-    //     let (_, origin, did) = make_account::<T>("caller", SEED);
+        let caller = UserBuilder::<T>::default().generate_did().seed(SEED).build("caller");
 
-    //     let expires_at = 600u64;
-    //     let authorization = TargetIdAuthorization::<u64> {
-    //         target_id: did.clone(),
-    //         nonce: Module::<T>::offchain_authorization_nonce(did),
-    //         expires_at,
-    //     };
-    //     let auth_encoded = authorization.encode();
+        let expires_at: T::Moment = 600u32.into();
+        let authorization = TargetIdAuthorization::<T::Moment> {
+            target_id: caller.did(),
+            nonce: Module::<T>::offchain_authorization_nonce(caller.did()),
+            expires_at,
+        };
+        let auth_encoded = authorization.encode();
 
-    //     let accounts = [
-    //         AccountKeyring::Alice,
-    //         AccountKeyring::Bob,
-    //         AccountKeyring::Charlie,
-    //         AccountKeyring::Dave,
-    //         AccountKeyring::Eve,
-    //         AccountKeyring::Ferdie,
-    //         AccountKeyring::One,
-    //         AccountKeyring::Two
-    //     ];
-
-    //     let secondary_keys_with_auth = accounts.into_iter().enumerate().take(n as usize).map(|(i, acc)| {
-    //         let (_, _, key_did) = make_account::<T>("key", i as u32);
-    //         let sig = H512::from(acc.sign(&auth_encoded));
-    //         SecondaryKeyWithAuth {
-    //             secondary_key: SecondaryKey::from(key_did).into(),
-    //             auth_signature: sig,
-    //         }
-    //     }).collect::<Vec<_>>();
-
-    // }: _(origin, secondary_keys_with_auth, expires_at)
+        let mut secondary_keys_with_auth = Vec::with_capacity(i as usize);
+        for x in 0..i {
+            let user = UserBuilder::<T>::default().generate_did().seed(i as u32).build("key");
+            let sig = H512::from(user.sign(&auth_encoded).unwrap());
+            secondary_keys_with_auth.push(SecondaryKeyWithAuth {
+                secondary_key: SecondaryKey::from(user.did()).into(),
+                auth_signature: sig,
+            });
+        }
+    }: _(caller.origin, secondary_keys_with_auth, expires_at)
 
     revoke_offchain_authorization {
         let caller = UserBuilder::<T>::default().generate_did().build("caller");

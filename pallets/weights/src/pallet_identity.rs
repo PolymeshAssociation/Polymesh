@@ -95,6 +95,13 @@ impl pallet_identity::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(7 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
     }
+    fn add_secondary_keys_with_authorization(i: u32) -> Weight {
+        (257_564_000 as Weight)
+            // Standard Error: 47_000
+            .saturating_add((108_801_000 as Weight).saturating_mul(i as Weight))
+            .saturating_add(DbWeight::get().reads(12 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
     fn revoke_offchain_authorization() -> Weight {
         (119_376_000 as Weight)
             .saturating_add(DbWeight::get().reads(6 as Weight))
