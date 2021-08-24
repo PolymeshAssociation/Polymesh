@@ -27,8 +27,6 @@ use sp_std::prelude::*;
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum AuthorizationData<AccountId> {
-    /// No authorization.
-    NoData,
     /// CDD provider's attestation to change primary key
     AttestPrimaryKeyRotation(IdentityId),
     /// Authorization to change primary key
@@ -59,7 +57,6 @@ impl<AccountId> AuthorizationData<AccountId> {
     /// Returns the `AuthorizationType` of this auth data.
     pub fn auth_type(&self) -> AuthorizationType {
         match self {
-            Self::NoData => AuthorizationType::NoData,
             Self::AttestPrimaryKeyRotation(..) => AuthorizationType::AttestPrimaryKeyRotation,
             Self::RotatePrimaryKey => AuthorizationType::RotatePrimaryKey,
             Self::TransferTicker(..) => AuthorizationType::TransferTicker,
@@ -77,8 +74,6 @@ impl<AccountId> AuthorizationData<AccountId> {
 #[derive(Eq, PartialEq, Encode, Decode, Clone)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub enum AuthorizationType {
-    /// No authorization.
-    NoData,
     /// CDD Authorization to rotate primary key.
     AttestPrimaryKeyRotation,
     /// Authorization to rotate primary key.
@@ -97,12 +92,6 @@ pub enum AuthorizationType {
     BecomeAgent,
     /// Authorization to add a Relayer paying key.
     AddRelayerPayingKey,
-}
-
-impl<AccountId> Default for AuthorizationData<AccountId> {
-    fn default() -> Self {
-        AuthorizationData::NoData
-    }
 }
 
 /// Status of an Authorization after consume is called on it.
@@ -135,7 +124,7 @@ impl From<AuthorizationError> for DispatchError {
 }
 
 /// Authorization struct
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Authorization<AccountId, Moment> {
     /// Enum that contains authorization type and data

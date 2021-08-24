@@ -188,7 +188,7 @@ decl_storage! {
 
         /// All authorizations that an identity/key has
         pub Authorizations get(fn authorizations): double_map hasher(blake2_128_concat)
-            Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Authorization<T::AccountId, T::Moment>;
+            Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Option<Authorization<T::AccountId, T::Moment>>;
 
         /// All authorizations that an identity has given. (Authorizer, auth_id -> authorized)
         pub AuthorizationsGiven: double_map hasher(blake2_128_concat)
@@ -1040,16 +1040,7 @@ impl<T: Config> Module<T> {
         target: &Signatory<T::AccountId>,
         auth_id: u64,
     ) -> Result<Authorization<T::AccountId, T::Moment>, DispatchError> {
-        Self::maybe_authorization(target, auth_id).ok_or_else(|| AuthorizationError::Invalid.into())
-    }
-
-    /// Returns the authorization `auth_id` for `target`, if any.
-    fn maybe_authorization(
-        target: &Signatory<T::AccountId>,
-        auth_id: u64,
-    ) -> Option<Authorization<T::AccountId, T::Moment>> {
-        <Authorizations<T>>::contains_key(target, auth_id)
-            .then(|| <Authorizations<T>>::get(target, auth_id))
+        Self::authorizations(target, auth_id).ok_or_else(|| AuthorizationError::Invalid.into())
     }
 
     /// Accepts a primary key rotation.
@@ -1730,7 +1721,7 @@ impl<T: Config> Module<T> {
         target: &Signatory<T::AccountId>,
         auth_id: &u64,
     ) -> Option<Authorization<T::AccountId, T::Moment>> {
-        Self::maybe_authorization(target, *auth_id).filter(|auth| {
+        Self::authorizations(target, *auth_id).filter(|auth| {
             auth.expiry
                 .filter(|&expiry| <pallet_timestamp::Module<T>>::get() > expiry)
                 .is_none()
