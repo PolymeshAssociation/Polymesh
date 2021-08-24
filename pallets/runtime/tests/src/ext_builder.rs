@@ -11,7 +11,7 @@ use polymesh_common_utilities::{
     constants::currency::POLY, protocol_fee::ProtocolOp, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, AccountId, Balance, Identity,
+    cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, AccountId, Identity,
     IdentityId, PosRatio, Signatory,
 };
 use sp_io::TestExternalities;

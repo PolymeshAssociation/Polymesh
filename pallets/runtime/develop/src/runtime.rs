@@ -405,10 +405,11 @@ polymesh_runtime_common::runtime_apis! {
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
-            //use frame_system_benchmarking::Module as SystemBench;
-            use crate::benchmarks::pallet_session::Module as SessionBench;
 
+            type SystemBench = frame_system_benchmarking::Module<Runtime>;
             impl frame_system_benchmarking::Config for Runtime {}
+
+            use crate::benchmarks::pallet_session::Module as SessionBench;
             impl crate::benchmarks::pallet_session::Config for Runtime {}
 
             let whitelist: Vec<TrackedStorageKey> = vec![
@@ -436,7 +437,7 @@ polymesh_runtime_common::runtime_apis! {
             add_benchmark!(params, batches, pallet_multisig, MultiSig);
             add_benchmark!(params, batches, pallet_portfolio, Portfolio);
             add_benchmark!(params, batches, pallet_protocol_fee, ProtocolFee);
-            //add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
+            add_benchmark!(params, batches, frame_system, SystemBench);
             //add_benchmark!(params, batches, pallet_timestamp, Timestamp);
             add_benchmark!(params, batches, pallet_settlement, Settlement);
             add_benchmark!(params, batches, pallet_sto, Sto);

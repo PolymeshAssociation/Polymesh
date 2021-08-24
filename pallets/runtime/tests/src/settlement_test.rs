@@ -1602,7 +1602,7 @@ fn venue_filtering() {
 
 #[test]
 fn basic_fuzzing() {
-    test_with_cdd_provider(|eve| {
+    test_with_cdd_provider(|_eve| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
         let charlie = User::new(AccountKeyring::Charlie);
