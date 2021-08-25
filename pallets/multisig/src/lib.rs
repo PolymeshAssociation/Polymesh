@@ -113,6 +113,8 @@ use sp_std::{convert::TryFrom, iter, prelude::*};
 
 type Identity<T> = identity::Module<T>;
 
+pub const NAME: &[u8] = b"MultiSig";
+
 /// Either the ID of a successfully created multisig account or an error.
 pub type CreateMultisigAccountResult<T> =
     sp_std::result::Result<<T as frame_system::Config>::AccountId, DispatchError>;
@@ -248,7 +250,7 @@ decl_module! {
             if last_version < current_version {
                 TransactionVersion::set(current_version);
                 for item in &["Proposals", "ProposalIds", "ProposalDetail", "Votes"] {
-                    kill_item(b"MultiSig", item.as_bytes())
+                    kill_item(NAME, item.as_bytes())
                 }
             }
 
@@ -539,9 +541,7 @@ decl_module! {
             <Identity<T>>::unsafe_join_identity(
                 did,
                 Permissions::from_pallet_permissions(
-                    // TODO: Check if there is a variable for the pallet name and, if there is, use
-                    // it instead of b"_".
-                    iter::once(PalletPermissions::entire_pallet(b"multisig".as_ref().into()))
+                    iter::once(PalletPermissions::entire_pallet(NAME.into()))
                 ),
                 &Signatory::Account(multisig),
             );
