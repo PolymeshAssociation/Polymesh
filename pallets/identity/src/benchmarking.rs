@@ -95,10 +95,15 @@ where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
 {
     #[cfg(feature = "std")]
-    let make_proof = v1::InvestorZKProofData::new;
+    let make_proof = |did: &IdentityId, investor: &InvestorUid, ticker: &Ticker| {
+        let proof = v1::InvestorZKProofData::new(did, investor, ticker);
+        // NOTE: Use this to update the hard-coded proof for `no_std`.
+        eprintln!("make_proof() = {:?}", hex::encode(proof.encode()));
+        proof
+    };
     #[cfg(not(feature = "std"))]
     let make_proof = |_: &IdentityId, _: &InvestorUid, _: &Ticker| {
-        let proof_encoded = hex::decode("0e0e257ad7cce3bd73462a28824134fff972df3379a9be9f0205d37fbde3212e51edd0a96a3b76df4a1c35b0d07394cad263d361c108d3ffa8efa10350410380").unwrap();
+        let proof_encoded = hex::decode("ae7f1762f494b8685ad6a3d92bce88e933e8d34dfe0acfc55f3bc11f655fe3500cc6973575c100dab793ffc949b5f90f81cc268cc5ba637ccfc99cac2223e089").unwrap();
         <v1::InvestorZKProofData>::decode(&mut &proof_encoded[..]).expect("Invalid encoded proof")
     };
 
