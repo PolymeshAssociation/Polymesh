@@ -956,6 +956,13 @@ export interface IssueRecipient extends Enum {
   readonly asIdentity: IdentityId;
 }
 
+/** @name ItnRewardStatus */
+export interface ItnRewardStatus extends Enum {
+  readonly isUnclaimed: boolean;
+  readonly asUnclaimed: Balance;
+  readonly isClaimed: boolean;
+}
+
 /** @name KeyIdentityData */
 export interface KeyIdentityData extends Struct {
   readonly identity: IdentityId;

@@ -189,17 +189,21 @@ declare module '@polkadot/api/types/events' {
        **/
       AdminChanged: AugmentedEvent<ApiType, [IdentityId, AccountId]>;
       /**
-       * Confirmation of POLYX upgrade on Polymesh from POLY tokens on Ethereum
+       * Confirmation of POLYX upgrade on Polymesh from POLY tokens on Ethereum.
        **/
       Bridged: AugmentedEvent<ApiType, [IdentityId, BridgeTx]>;
       /**
-       * Bridge limit has been updated
+       * Bridge limit has been updated.
        **/
       BridgeLimitUpdated: AugmentedEvent<ApiType, [IdentityId, Balance, BlockNumber]>;
       /**
-       * Bridge Tx Scheduled
+       * Bridge Tx Scheduled.
        **/
       BridgeTxScheduled: AugmentedEvent<ApiType, [IdentityId, BridgeTx, BlockNumber]>;
+      /**
+       * Failed to schedule Bridge Tx.
+       **/
+      BridgeTxScheduleFailed: AugmentedEvent<ApiType, [IdentityId, BridgeTx, Bytes]>;
       /**
        * Confirmation of a signer set change.
        **/
@@ -208,6 +212,14 @@ declare module '@polkadot/api/types/events' {
        * Exemption status of an identity has been updated.
        **/
       ExemptedUpdated: AugmentedEvent<ApiType, [IdentityId, IdentityId, bool]>;
+      /**
+       * A new freeze admin has been added.
+       **/
+      FreezeAdminAdded: AugmentedEvent<ApiType, [IdentityId, AccountId]>;
+      /**
+       * A freeze admin has been removed.
+       **/
+      FreezeAdminRemoved: AugmentedEvent<ApiType, [IdentityId, AccountId]>;
       /**
        * Notification of freezing the bridge.
        **/
@@ -1039,6 +1051,16 @@ declare module '@polkadot/api/types/events' {
        * (Caller DID, User Key, Paying Key, POLYX limit, old remaining POLYX)
        **/
       UpdatedPolyxLimit: AugmentedEvent<ApiType, [EventDid, AccountId, AccountId, Balance, Balance]>;
+      /**
+       * Generic event
+       **/
+      [key: string]: AugmentedEvent<ApiType>;
+    };
+    rewards: {
+      /**
+       * Itn reward was claimed.
+       **/
+      ItnRewardClaimed: AugmentedEvent<ApiType, [AccountId, Balance]>;
       /**
        * Generic event
        **/
