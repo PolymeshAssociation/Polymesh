@@ -69,7 +69,6 @@ impl SubstrateCli for Cli {
             "mainnet-dev" => Box::new(chain_spec::mainnet::develop_config()),
             "mainnet-local" => Box::new(chain_spec::mainnet::local_config()),
             "mainnet-bootstrap" => Box::new(chain_spec::mainnet::bootstrap_config()),
-            //TODO mainnet raw
             "ITN" | "itn" => Box::new(chain_spec::polymesh_itn::ChainSpec::from_json_bytes(
                 &include_bytes!("./chain_specs/itn_raw.json")[..],
             )?),

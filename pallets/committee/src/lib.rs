@@ -81,16 +81,9 @@ use polymesh_primitives::{storage_migration_ver, IdentityId};
 use sp_runtime::traits::Hash;
 use sp_std::{prelude::*, vec};
 
-/// The maximum number of members in a committee defined for the sake of weight computation.  This
-/// is not defined as a trait parameter but rather as a plain constant because this value has to be
-/// the same for all instances.
-// TODO: ensure this bound when adding members.
-pub const COMMITTEE_MEMBERS_MAX: u32 = 500;
-
 /// The maximum number of concurrently active proposals defined for the sake of weight computation.
 /// This is not defined as a trait parameter but rather as a plain constant because this value has
 /// to be the same for all instances.
-// TODO: ensure this bound when adding proposals.
 pub const PROPOSALS_MAX: u32 = 500;
 
 pub trait WeightInfo {
@@ -280,6 +273,8 @@ decl_error! {
         /// All proposals are motions to execute something as "GC majority".
         /// To reject e.g., a PIP, a motion to reject should be *approved*.
         FirstVoteReject,
+        /// Maximum number of proposals has been reached.
+        ProposalsLimitReached,
     }
 }
 
@@ -604,6 +599,9 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
     ) -> DispatchResult {
         // 1. Ensure `origin` is a committee member.
         let did = Self::ensure_is_member(origin)?;
+
+        // 1.1 Ensure proposal limit has not been reached.
+        ensure!(Self::proposal_count() < PROPOSALS_MAX, Error::<T, I>::ProposalsLimitReached);
 
         // 2. Get hash & reject duplicate proposals.
         let proposal_hash = T::Hashing::hash_of(&proposal);
