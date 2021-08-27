@@ -17,7 +17,7 @@ jobs:
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
-      - RUSTFLAGS: -D warnings
+      - RUSTC_WORKSPACE_WRAPPER: ./scripts/rustc.sh
     steps:
       - checkout
       - run:
@@ -42,7 +42,7 @@ jobs:
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
-      - RUSTFLAGS: -D warnings
+      - RUSTC_WORKSPACE_WRAPPER: ./scripts/rustc.sh
     steps:
       - checkout
       - run:
@@ -84,7 +84,7 @@ jobs:
     resource_class: large
     environment:
       - VERBOSE: "1"
-      - RUSTFLAGS: -D warnings
+      - RUSTC_WORKSPACE_WRAPPER: ./scripts/rustc.sh
       - BUILD_DUMMY_WASM_BINARY: "1"
     steps:
       - checkout
@@ -110,7 +110,7 @@ jobs:
     resource_class: large
     environment:
       - VERBOSE: "1"
-      - RUSTFLAGS: -D warnings
+      - RUSTC_WORKSPACE_WRAPPER: ./scripts/rustc.sh
     steps:
       - checkout
       - run:
@@ -145,7 +145,7 @@ jobs:
     resource_class: large
     environment:
       - VERBOSE: "1"
-      - RUSTFLAGS: -D warnings
+      - RUSTC_WORKSPACE_WRAPPER: ./scripts/rustc.sh
     steps:
       - checkout
       - run:
