@@ -25,13 +25,13 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v4-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v5-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Build release
           command: cargo build --release
           no_output_timeout: 1h
       - save_cache:
-          key: v4-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v5-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
             - "~/.cargo"
@@ -153,7 +153,7 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v4-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v5-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Install dependencies
           command: rustup component add llvm-tools-preview && cargo install rustfilt cargo-binutils
@@ -162,7 +162,7 @@ jobs:
           command: bash ./scripts/coverage.sh
           no_output_timeout: 1h
       - save_cache:
-          key: v4-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v5-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
             - "~/.cargo"
@@ -219,13 +219,13 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v4-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v5-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: run clippy
           command: cargo clippy
           no_output_timeout: 1h
       - save_cache:
-          key: v4-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v5-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
             - "~/.cargo"
