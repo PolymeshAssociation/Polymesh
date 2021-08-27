@@ -29,11 +29,19 @@ export async function acceptPayingKey(signer: KeyringPair, authId: number) {
  * @description removes the `paying_key` from a `user_key`.
  */
 export async function removePayingKey(
-	signer: KeyringPair,
-	userKey: string | Uint8Array | AccountId
+	payingKey: KeyringPair,
+	userKey: KeyringPair,
+    keyType: "userKey" | "payingKey"
 ) {
 	const api = await ApiSingleton.getInstance();
-	const transaction = api.tx.relayer.removePayingKey(userKey, signer.publicKey);
+    let signer = userKey;
+		if (keyType === "payingKey") {
+			signer = payingKey;
+		}
+		const transaction = api.tx.relayer.removePayingKey(
+			userKey.publicKey,
+			payingKey.publicKey
+		);
 	await sendTx(signer, transaction);
 }
 

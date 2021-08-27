@@ -28,7 +28,7 @@ async function main(): Promise<void> {
 	console.log("Decrease POLYX Limit");
 	await relayer.decreasePolyxLimit(alice, bob.publicKey, 30000);
 	console.log("Remove Paying Key");
-	await relayer.removePayingKey(alice, bob.publicKey);
+	await relayer.removePayingKey(alice, bob, "userKey");
 }
 
 main()
