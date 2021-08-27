@@ -1,10 +1,5 @@
-import {
-	initMain,
-	generateRandomEntity,
-	transferAmount,
-	ApiSingleton,
-} from "../util/init";
-import { createIdentities } from "../helpers/identity_helper";
+import { initMain, generateRandomEntity, transferAmount } from "../util/init";
+import { createIdentities, getAuthId } from "../helpers/identity_helper";
 import { distributePoly } from "../helpers/poly_helper";
 import * as relayer from "../helpers/relayer_helper";
 import PrettyError from "pretty-error";
@@ -17,8 +12,7 @@ async function main(): Promise<void> {
 	await distributePoly(alice, bob, transferAmount);
 	console.log("Set Paying Key");
 	await relayer.setPayingKey(alice, bob.publicKey, 100000);
-	const api = await ApiSingleton.getInstance();
-	const authId = await api.query.identity.multiPurposeNonce();
+	const authId = await getAuthId();
 	console.log("Accept Paying Key");
 	await relayer.acceptPayingKey(bob, authId.toNumber());
 	console.log("Update POLYX Limit");
