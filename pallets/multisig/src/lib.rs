@@ -412,7 +412,7 @@ decl_module! {
         /// Accepts a multisig signer authorization given to signer's identity.
         ///
         /// # Arguments
-        /// * `proposal_id` - Auth id of the authorization.
+        /// * `auth_id` - Auth id of the authorization.
         #[weight = <T as Config>::WeightInfo::accept_multisig_signer_as_identity()]
         pub fn accept_multisig_signer_as_identity(origin, auth_id: u64) -> DispatchResult {
             let signer = Self::ensure_signed_did(origin)?;
@@ -422,7 +422,7 @@ decl_module! {
         /// Accepts a multisig signer authorization given to signer's key (AccountId).
         ///
         /// # Arguments
-        /// * `proposal_id` - Auth id of the authorization.
+        /// * `auth_id` - Auth id of the authorization.
         #[weight = <T as Config>::WeightInfo::accept_multisig_signer_as_key()]
         pub fn accept_multisig_signer_as_key(origin, auth_id: u64) -> DispatchResult {
             let signer = Self::ensure_signed_acc(origin)?;
