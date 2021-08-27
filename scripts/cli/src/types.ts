@@ -1,5 +1,6 @@
 import type { AccountId } from "@polkadot/types/interfaces/runtime";
 import type { IdentityId, CountryCode } from "../src/interfaces";
+import type { AnyNumber } from "@polkadot/types/types";
 //import { Option } from "fp-ts/lib/Option";
 //import type { Option, Vec } from '@polkadot/types/codec';
 
@@ -65,17 +66,26 @@ export interface ClaimType {
 }
 
 export interface AuthorizationData {
-  AttestPrimaryKeyRotation?: IdentityId;
-  RotatePrimaryKey?: IdentityId;
-  TransferTicker?: Ticker;
-  TransferPrimaryIssuanceAgent?: Ticker;
-  AddMultiSigSigner?: AccountId;
-  TransferAssetOwnership?: Ticker;
-  JoinIdentity?: Permissions;
-  PortfolioCustody?: PortfolioId;
-  Custom?: Ticker;
-  NoData?: string;
-  TransferCorporateActionAgent?: Ticker;
+	AttestPrimaryKeyRotation?: IdentityId;
+	RotatePrimaryKey?: IdentityId;
+	TransferTicker?: Ticker;
+	TransferPrimaryIssuanceAgent?: Ticker;
+	AddMultiSigSigner?: AccountId;
+	TransferAssetOwnership?: Ticker;
+	JoinIdentity?: Permissions;
+	PortfolioCustody?: PortfolioId;
+	Custom?: Ticker;
+	NoData?: string;
+	TransferCorporateActionAgent?: Ticker;
+	BecomeAgent?: (string | AgentGroup)[];
+}
+
+export interface AgentGroup {
+	Full?: string;
+	Custom?: number;
+	ExceptMeta?: string;
+	PolymeshV1CAA?: string;
+	PolymeshV1PIA?: string;
 }
 
 export interface ConditionType {
@@ -98,7 +108,7 @@ export type ScopeId = string;
 export type CddId = string;
 export type PalletName = string;
 export type DispatchableName = string;
-export type Expiry = string | Uint8Array | null;
+export type Expiry = string | object | Uint8Array | null;
 export type DocumentName = string;
 export type DocumentUri = string;
 export type Signatory = { Identity: IdentityId } | { Account: AccountId };
