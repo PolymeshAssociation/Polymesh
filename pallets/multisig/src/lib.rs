@@ -54,7 +54,9 @@
 //! account key.
 //! - `add_multisig_signer` - Adds a signer to the multisig.
 //! - `remove_multisig_signer` - Removes a signer from the multisig.
-//! - `add_multisig_signers_via_creator` - Adds a signer to the multisig with the signed being the
+//! - `add_multisig_signers_via_creator` - Adds a signer to the multisig when called by the
+//! creator of the multisig.
+//! - `remove_multisig_signers_via_creator` - Removes a signer from the multisig when called by the
 //! creator of the multisig.
 //! - `change_sigs_required` - Changes the number of signatures required to execute a transaction.
 //! - `make_multisig_signer` - Adds a multisig as a signer of the current DID if the current DID is
