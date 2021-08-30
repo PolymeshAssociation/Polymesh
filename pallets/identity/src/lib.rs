@@ -1058,7 +1058,7 @@ impl<T: Config> Module<T> {
         Self::accept_auth_with(&signer, rotation_auth_id, |data, auth_by| {
             let rotation_for_did = match data {
                 AuthorizationData::RotatePrimaryKey(r) => r,
-                _ => fail!(Error::<T>::UnknownAuthorization),
+                _ => fail!(Error::<T>::Unauthorized),
             };
             Self::ensure_auth_by(auth_by, rotation_for_did)?;
             Self::unsafe_primary_key_rotation(sender, rotation_for_did, optional_cdd_auth_id)
