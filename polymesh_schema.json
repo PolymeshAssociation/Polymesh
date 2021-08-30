@@ -896,8 +896,8 @@
         "PortfolioCustody": "",
         "Custom": "",
         "NoData": "",
-				"BecomeAgent": "",
-				"AddRelayerPayingKey": ""
+        "BecomeAgent": "",
+        "AddRelayerPayingKey": ""
       }
     },
     "ProposalDetails": {
