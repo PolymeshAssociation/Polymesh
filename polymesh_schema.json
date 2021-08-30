@@ -895,7 +895,8 @@
         "JoinIdentity": "",
         "PortfolioCustody": "",
         "Custom": "",
-        "NoData": ""
+        "NoData": "",
+        "AddRelayerPayingKey": ""
       }
     },
     "ProposalDetails": {
