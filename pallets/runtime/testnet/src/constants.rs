@@ -4,7 +4,7 @@ use sp_arithmetic::Perbill;
 pub mod time {
     use polymesh_primitives::{BlockNumber, Moment};
 
-    pub const MILLISECS_PER_BLOCK: Moment = 6000;
+    pub const MILLISECS_PER_BLOCK: Moment = 500;
     pub const SLOT_DURATION: Moment = MILLISECS_PER_BLOCK;
     pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 1 * HOURS;
     pub const EPOCH_DURATION_IN_SLOTS: u64 = {

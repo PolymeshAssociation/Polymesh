@@ -6,7 +6,7 @@ module.exports = {
       name: "pmesh-primary-node",
       script: "../../target/release/polymesh",
       args:
-        "-d /tmp/pmesh-primary-node --pool-limit 100000 --ws-port 9944 --rpc-cors all --alice --validator --chain " +
+        "-d /tmp/pmesh-primary-node --pruning=archive --rpc-methods=unsafe --rpc-external --ws-external --pool-limit 100000 --ws-port 9944 --rpc-cors all --alice --validator --chain " +
         chain +
         " --force-authoring",
       env: {
