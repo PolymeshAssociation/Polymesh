@@ -1308,20 +1308,12 @@ impl<T: Config> Module<T> {
         Ok(record)
     }
 
-    /// It checks if `key` is the primary key or secondary key of any IdentityId.
-    /// Please note that _frozen secondary keys_ are not lined to the frozen identity temporary.
-    ///
-    /// # Return
-    ///
-    /// An Option object containing the `IdentityId` that belongs to the key.
+    /// Returns the DID associated with `key`, if any,
+    /// assuming it is either the primary key or isn't frozen.
     pub fn get_identity(key: &T::AccountId) -> Option<IdentityId> {
-        if <KeyToIdentityIds<T>>::contains_key(key) {
-            let did = <KeyToIdentityIds<T>>::get(key);
-            if !Self::is_did_frozen(did) || Self::is_primary_key(&did, key) {
-                return Some(did);
-            }
-        }
-        None
+        <KeyToIdentityIds<T>>::try_get(key)
+            .ok()
+            .filter(|did| !Self::is_did_frozen(did) || Self::is_primary_key(&did, key))
     }
 
     /// It freezes/unfreezes the target `did` identity.
