@@ -484,7 +484,6 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         // If a custodian is assigned, only they are allowed.
         // Else, only the portfolio owner is allowed
-        // TODO: support portfolio permissions
         ensure!(
             Self::portfolio_custodian(portfolio).unwrap_or(portfolio.did) == custodian,
             Error::<T>::UnauthorizedCustodian
