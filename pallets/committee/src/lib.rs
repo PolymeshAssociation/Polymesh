@@ -601,7 +601,10 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
         let did = Self::ensure_is_member(origin)?;
 
         // 1.1 Ensure proposal limit has not been reached.
-        ensure!(Self::proposal_count() < PROPOSALS_MAX, Error::<T, I>::ProposalsLimitReached);
+        ensure!(
+            Self::proposal_count() < PROPOSALS_MAX,
+            Error::<T, I>::ProposalsLimitReached
+        );
 
         // 2. Get hash & reject duplicate proposals.
         let proposal_hash = T::Hashing::hash_of(&proposal);
