@@ -63,6 +63,15 @@ async function main(): Promise<void> {
       null
     )
   );
+
+  await sendTx(
+    issuerKeys2[0],
+    api.tx.identity.addClaim(
+      claimeeDids[0],
+      { Affiliate: { Ticker: ticker } },
+      Date.now() as any
+    )
+  );
 }
 
 main()
