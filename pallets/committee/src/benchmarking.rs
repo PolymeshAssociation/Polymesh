@@ -24,6 +24,7 @@ use polymesh_common_utilities::{
     benchs::{user, AccountIdOf, User},
     MaybeBlock, TestUtilsFn,
 };
+use polymesh_primitives::committee::COMMITTEE_MEMBERS_MAX;
 use sp_std::prelude::*;
 
 const PROPOSAL_PADDING_WORDS: usize = 1_000;

@@ -82,7 +82,7 @@ pub use polymesh_common_utilities::{
     group::{Config, GroupTrait, InactiveMember, MemberCount, RawEvent, WeightInfo},
     Context, GC_DID,
 };
-use polymesh_primitives::IdentityId;
+use polymesh_primitives::{committee::COMMITTEE_MEMBERS_MAX, IdentityId};
 
 use frame_support::{
     decl_error, decl_module, decl_storage,
@@ -132,10 +132,11 @@ decl_module! {
         /// Change this group's limit for how many concurrent active members they may be.
         ///
         /// # Arguments
-        /// * `limit` - the numer of active members there may be concurrently.
+        /// * `limit` - the number of active members there may be concurrently.
         #[weight = <T as Config<I>>::WeightInfo::set_active_members_limit()]
         pub fn set_active_members_limit(origin, limit: MemberCount) {
             T::LimitOrigin::ensure_origin(origin)?;
+            ensure!(limit <= COMMITTEE_MEMBERS_MAX, Error::<T, I>::ActiveMembersLimitOverflow);
             let old = <ActiveMembersLimit<I>>::mutate(|slot| core::mem::replace(slot, limit));
             Self::deposit_event(RawEvent::ActiveLimitChanged(GC_DID, limit, old));
         }
@@ -296,6 +297,8 @@ decl_error! {
         MissingCurrentIdentity,
         /// The limit for the number of concurrent active members for this group has been exceeded.
         ActiveMembersLimitExceeded,
+        /// Active member limit was greater than maximum committee members limit.
+        ActiveMembersLimitOverflow,
     }
 }
 
