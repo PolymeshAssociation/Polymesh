@@ -2,6 +2,7 @@ use super::{
     storage::{TestStorage, User},
     ExtBuilder,
 };
+use crate::make_account_without_cdd;
 use codec::Encode;
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
@@ -36,6 +37,10 @@ fn basic_itn_claim_ext() {
 fn basic_itn_claim() {
     let alice = User::new(AccountKeyring::Alice);
     let bob = User::new(AccountKeyring::Bob);
+    let charlie = {
+        make_account_without_cdd(AccountKeyring::Charlie.to_account_id()).unwrap();
+        User::existing(AccountKeyring::Charlie)
+    };
     let alice_init_balance = Balances::free_balance(alice.acc());
     let bob_init_balance = Balances::free_balance(bob.acc());
 
@@ -110,6 +115,12 @@ fn basic_itn_claim() {
     assert_noop!(
         claim_itn_reward_custom_sig(None, &alice, &bob, sig.into()),
         Error::InvalidSignature
+    );
+
+    // Check that reward user must have a cdd claim fails.
+    assert_noop!(
+        claim_itn_reward_basic(None, &charlie, &bob, None),
+        pallet_balances::Error::<TestStorage>::ReceiverCddMissing,
     );
 
     // Check balances have not changed.
