@@ -80,7 +80,7 @@ parameter_types! {
     /// Most read will be cached and writes will be buffered in production.
     /// We are taking a number slightly higher than what cached suggest to allow for some extra breathing room.
     pub const RocksDbWeight: RuntimeDbWeight = RuntimeDbWeight {
-        read: 50 * WEIGHT_PER_MICROS,   // ~100 µs @ 100,000 items
+        read: 50 * WEIGHT_PER_MICROS,   // ~50 µs @ 100,000 items
         write: 200 * WEIGHT_PER_MICROS, // ~200 µs @ 100,000 items
     };
     /// This implies a 100 POLYX fee per MB of transaction length
