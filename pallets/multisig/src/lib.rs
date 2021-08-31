@@ -686,8 +686,7 @@ impl<T: Config> Module<T> {
     }
 
     fn ensure_signed_did(origin: T::Origin) -> Result<Signatory<T::AccountId>, DispatchError> {
-        let sender = ensure_signed(origin)?;
-        Context::current_identity_or::<Identity<T>>(&sender).map(Signatory::from)
+        Identity::<T>::ensure_did(origin).map(|(_, d)| d.into())
     }
 
     fn ensure_primary_key(did: &IdentityId, sender: &T::AccountId) -> DispatchResult {
@@ -702,8 +701,7 @@ impl<T: Config> Module<T> {
         origin: T::Origin,
         multisig: &T::AccountId,
     ) -> Result<IdentityId, DispatchError> {
-        let sender = ensure_signed(origin)?;
-        let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+        let (sender, did) = Identity::<T>::ensure_did(origin)?;
         Self::verify_sender_is_creator(did, multisig)?;
         Self::ensure_primary_key(&did, &sender)?;
         Ok(did)

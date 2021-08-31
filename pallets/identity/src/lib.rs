@@ -420,14 +420,14 @@ decl_module! {
         /// Leave the secondary key's identity.
         #[weight = <T as Config>::WeightInfo::leave_identity_as_key()]
         pub fn leave_identity_as_key(origin) -> DispatchResult {
-            let data = Self::ensure_origin_call_permissions(origin)?;
-            Self::leave_identity(Signatory::Account(data.sender), data.primary_did)
+            let (sender, did) = Self::ensure_did(origin)?;
+            Self::leave_identity(Signatory::Account(sender), did)
         }
 
         /// Leave an identity as a secondary identity.
         #[weight = <T as Config>::WeightInfo::leave_identity_as_identity()]
         pub fn leave_identity_as_identity(origin, did: IdentityId) -> DispatchResult {
-            let sender_did = Self::ensure_perms(origin)?;
+            let (_, sender_did) = Self::ensure_did(origin)?;
             Self::leave_identity(Signatory::from(sender_did), did)
         }
 
@@ -1921,6 +1921,13 @@ impl<T: Config> Module<T> {
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default()
+    }
+
+    /// Ensures that `origin`'s key is linked to a DID and returns both.
+    pub fn ensure_did(origin: T::Origin) -> Result<(T::AccountId, IdentityId), DispatchError> {
+        let sender = ensure_signed(origin)?;
+        let did = Context::current_identity_or::<Self>(&sender)?;
+        Ok((sender, did))
     }
 
     /// Checks call permissions and, if successful, returns the caller's account, primary and secondary identities.

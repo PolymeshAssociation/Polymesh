@@ -2204,8 +2204,7 @@ decl_module! {
         /// #</weight>
         #[weight = 1_000_000_000]
         pub fn validate_cdd_expiry_nominators(origin, targets: Vec<T::AccountId>) {
-            let caller = ensure_signed(origin)?;
-            let caller_id = Context::current_identity_or::<T::IdentityFn>(&caller)?;
+            let (caller, caller_id) = Identity::<T>::ensure_did(origin)?;
 
             let mut expired_nominators = Vec::new();
             ensure!(!targets.is_empty(), "targets cannot be empty");
