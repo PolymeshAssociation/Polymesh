@@ -314,8 +314,6 @@ pub trait WeightInfo {
 
     // Some multiple paths based extrinsic.
     // TODO: Will be removed once we get the worst case weight.
-    fn set_venue_filtering_disallow() -> Weight;
-    fn withdraw_affirmation_with_receipt(u: u32) -> Weight;
     fn add_instruction_with_settle_on_block_type(u: u32) -> Weight;
     fn add_and_affirm_instruction_with_settle_on_block_type(u: u32) -> Weight;
 }
