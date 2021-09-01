@@ -64,11 +64,6 @@ impl pallet_settlement::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(7 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
-    fn set_venue_filtering_disallow() -> Weight {
-        (137_218_000 as Weight)
-            .saturating_add(DbWeight::get().reads(7 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
-    }
     fn allow_venues(v: u32) -> Weight {
         (124_638_000 as Weight)
             .saturating_add((6_071_000 as Weight).saturating_mul(v as Weight))
@@ -86,14 +81,6 @@ impl pallet_settlement::WeightInfo for WeightInfo {
             .saturating_add((104_539_000 as Weight).saturating_mul(l as Weight))
             .saturating_add(DbWeight::get().reads(10 as Weight))
             .saturating_add(DbWeight::get().reads((5 as Weight).saturating_mul(l as Weight)))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
-            .saturating_add(DbWeight::get().writes((4 as Weight).saturating_mul(l as Weight)))
-    }
-    fn withdraw_affirmation_with_receipt(l: u32) -> Weight {
-        (170_136_000 as Weight)
-            .saturating_add((103_898_000 as Weight).saturating_mul(l as Weight))
-            .saturating_add(DbWeight::get().reads(10 as Weight))
-            .saturating_add(DbWeight::get().reads((4 as Weight).saturating_mul(l as Weight)))
             .saturating_add(DbWeight::get().writes(1 as Weight))
             .saturating_add(DbWeight::get().writes((4 as Weight).saturating_mul(l as Weight)))
     }
