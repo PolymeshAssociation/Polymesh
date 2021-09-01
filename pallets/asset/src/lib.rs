@@ -342,13 +342,13 @@ decl_storage! {
         /// A map of a ticker name and asset identifiers.
         pub Identifiers get(fn identifiers): map hasher(blake2_128_concat) Ticker => Vec<AssetIdentifier>;
 
-        /// The next `AgentType::Custom` ID in the sequence.
+        /// The next `AssetType::Custom` ID in the sequence.
         ///
         /// Numbers in the sequence start from 1 rather than 0.
         pub CustomTypeIdSequence get(fn custom_type_id_seq): CustomAssetTypeId;
-        /// Maps custom agent type ids to the registered string contents.
+        /// Maps custom asset type ids to the registered string contents.
         pub CustomTypes get(fn custom_types): map hasher(twox_64_concat) CustomAssetTypeId => Vec<u8>;
-        /// Inverse map of `CustomTypes`, from registered string contents to custom agent type ids.
+        /// Inverse map of `CustomTypes`, from registered string contents to custom asset type ids.
         pub CustomTypesInverse get(fn custom_types_inverse): map hasher(blake2_128_concat) Vec<u8> => CustomAssetTypeId;
 
         /// The name of the current funding round.
@@ -1807,7 +1807,7 @@ impl<T: Config> Module<T> {
         // have InvestorUniqueness claim. This also applies when issuing assets.
         AssetOwnershipRelations::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
         Self::deposit_event(RawEvent::AssetCreated(
-            did, ticker, divisible, asset_type, did,
+            did, ticker, divisible, asset_type, did, disable_iu,
         ));
 
         // Add funding round name.

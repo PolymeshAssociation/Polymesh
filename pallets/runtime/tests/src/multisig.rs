@@ -513,7 +513,7 @@ fn make_multisig_signer() {
         ));
         let permissions =
             Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
-                b"multisig".as_ref().into(),
+                multisig::NAME.into(),
             )]);
         // The desired secondary key record.
         let musig_secondary = SecondaryKey::new(Signatory::Account(multisig.clone()), permissions);

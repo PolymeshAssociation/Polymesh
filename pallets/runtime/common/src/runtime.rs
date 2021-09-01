@@ -158,7 +158,6 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_timestamp::WeightInfo;
         }
 
-        // TODO: substrate#2986 implement this properly
         impl pallet_authorship::Config for Runtime {
             type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
             type UncleGenerations = UncleGenerations;
