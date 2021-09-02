@@ -106,11 +106,6 @@ fn set_instruction_leg_status_to_pending<T: Config>(instruction_id: u64, leg_id:
     <InstructionLegStatus<T>>::insert(instruction_id, leg_id, LegStatus::ExecutionPending);
 }
 
-/// Set user affirmation without any sanity checks.
-fn set_user_affirmations(instruction_id: u64, portfolio: PortfolioId, affirm: AffirmationStatus) {
-    UserAffirmations::insert(portfolio, instruction_id, affirm);
-}
-
 // create asset
 pub fn create_asset_<T: Config>(owner: &User<T>) -> Ticker {
     make_asset::<T>(owner, Some(&Ticker::generate(8u64)))
@@ -635,16 +630,6 @@ benchmarks! {
     }
 
 
-    set_venue_filtering_disallow {
-        // Constant time function. It is only for disallowing venue filtering.
-        let user = creator::<T>();
-        let ticker = create_asset_::<T>(&user);
-    }: set_venue_filtering(user.origin, ticker, false)
-    verify {
-        assert!(!Module::<T>::venue_filtering(ticker), "Fail: set_venue_filtering failed");
-    }
-
-
     allow_venues {
         // Count of venue is variant for this dispatchable.
         let v in 0 .. MAX_VENUE_ALLOWED;
@@ -695,32 +680,6 @@ benchmarks! {
         Module::<T>::unsafe_affirm_instruction(did, instruction_id, portfolios_set, l.into(), None).unwrap();
 
     }: _(origin, instruction_id, portfolios, l.into())
-    verify {
-        for (idx, leg) in legs.iter().enumerate() {
-            assert!(matches!(Module::<T>::instruction_leg_status(instruction_id, u64::try_from(idx).unwrap_or_default()), LegStatus::PendingTokenLock), "Fail: withdraw affirmation dispatch");
-        }
-    }
-
-
-    withdraw_affirmation_with_receipt {
-        // Below setup is for the receipt based affirmation
-
-        let l in 0 .. MAX_LEGS_IN_INSTRUCTION;
-        // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(l, true).unwrap();
-        // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone()).unwrap();
-        let instruction_id: u64 = 1;
-        // Affirm an instruction
-        portfolios.clone().into_iter().for_each(|p| {
-            set_user_affirmations(instruction_id, p, AffirmationStatus::Affirmed);
-        });
-        for (idx, _) in legs.clone().iter().enumerate() {
-            let leg_id = u64::try_from(idx).unwrap_or_default();
-            // use leg_id for the receipt_uid as well.
-            set_instruction_leg_status_to_skipped::<T>(instruction_id, leg_id, account_id.clone(), leg_id);
-        }
-    }: withdraw_affirmation(origin, instruction_id, portfolios, l.into())
     verify {
         for (idx, leg) in legs.iter().enumerate() {
             assert!(matches!(Module::<T>::instruction_leg_status(instruction_id, u64::try_from(idx).unwrap_or_default()), LegStatus::PendingTokenLock), "Fail: withdraw affirmation dispatch");

@@ -134,6 +134,7 @@ members = [
     "pallets/runtime/common",
     "pallets/runtime/develop",
     "pallets/runtime/itn",
+    "pallets/runtime/mainnet",
     "pallets/runtime/testnet",
     "pallets/runtime/tests",
     "pallets/settlement",
@@ -185,6 +186,7 @@ polymesh-node-rpc = { path = "node-rpc" }
 # Runtimes
 polymesh-runtime-develop = { path = "pallets/runtime/develop" }
 polymesh-runtime-itn = { path = "pallets/runtime/itn" }
+polymesh-runtime-mainnet = { path = "pallets/runtime/mainnet" }
 polymesh-runtime-testnet = { path = "pallets/runtime/testnet" }
 
 # General

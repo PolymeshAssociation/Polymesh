@@ -20,7 +20,7 @@ use confidential_identity_v1::mocked::make_investor_uid as make_investor_uid_v1;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 use polymesh_common_utilities::{
-    benchs::{AccountIdOf, User, UserBuilder},
+    benchs::{cdd_provider, user, AccountIdOf, User, UserBuilder},
     traits::{identity::TargetIdAuthorization, TestUtilsFn},
 };
 use polymesh_primitives::{
@@ -28,6 +28,7 @@ use polymesh_primitives::{
     AuthorizationData, Claim, CountryCode, IdentityId, Permissions, Scope, ScopeId, SecondaryKey,
     Signatory,
 };
+use sp_core::H512;
 use sp_std::prelude::*;
 
 const SEED: u32 = 0;
@@ -48,7 +49,7 @@ where
     PF: Fn(&IdentityId, &InvestorUid, &Ticker) -> P,
     IUF: Fn(Scope, ScopeId, CddId) -> Claim,
 {
-    let user = UserBuilder::<T>::default().generate_did().build(name);
+    let user = user::<T>(name, 0);
 
     // Create CDD and add it to `user`.
     let did = user.did();
@@ -95,10 +96,15 @@ where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
 {
     #[cfg(feature = "std")]
-    let make_proof = v1::InvestorZKProofData::new;
+    let make_proof = |did: &IdentityId, investor: &InvestorUid, ticker: &Ticker| {
+        let proof = v1::InvestorZKProofData::new(did, investor, ticker);
+        // NOTE: Use this to update the hard-coded proof for `no_std`.
+        eprintln!("make_proof() = {:?}", hex::encode(proof.encode()));
+        proof
+    };
     #[cfg(not(feature = "std"))]
     let make_proof = |_: &IdentityId, _: &InvestorUid, _: &Ticker| {
-        let proof_encoded = hex::decode("0e0e257ad7cce3bd73462a28824134fff972df3379a9be9f0205d37fbde3212e51edd0a96a3b76df4a1c35b0d07394cad263d361c108d3ffa8efa10350410380").unwrap();
+        let proof_encoded = hex::decode("ae7f1762f494b8685ad6a3d92bce88e933e8d34dfe0acfc55f3bc11f655fe3500cc6973575c100dab793ffc949b5f90f81cc268cc5ba637ccfc99cac2223e089").unwrap();
         <v1::InvestorZKProofData>::decode(&mut &proof_encoded[..]).expect("Invalid encoded proof")
     };
 
@@ -142,7 +148,7 @@ benchmarks! {
         // Number of secondary items.
         let i in 0 .. MAX_SECONDARY_KEYS;
 
-        let cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd");
+        let cdd = cdd_provider::<T>("cdd", 0);
         let target: T::AccountId = account("target", SEED, SEED);
         let secondary_keys = generate_secondary_keys::<T>(i as usize);
     }: _(cdd.origin, target, secondary_keys)
@@ -152,7 +158,7 @@ benchmarks! {
         // Therefore, it's unbounded in complexity. However, this can only be called by governance.
         // Hence, the weight is for best case scenario
 
-        let cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd");
+        let cdd = cdd_provider::<T>("cdd", 0);
 
     }: _(RawOrigin::Root, cdd.did(), 0u32.into(), None)
 
@@ -160,7 +166,7 @@ benchmarks! {
         // Number of secondary items.
         let i in 0 .. MAX_SECONDARY_KEYS;
 
-        let target = UserBuilder::<T>::default().generate_did().build("target");
+        let target = user::<T>("target", 0);
 
         let mut signatories = Vec::with_capacity(i as usize);
         for x in 0..i {
@@ -171,8 +177,8 @@ benchmarks! {
     }: _(target.origin, signatories.clone())
 
     accept_primary_key {
-        let cdd = UserBuilder::<T>::default().generate_did().become_cdd_provider().build("cdd");
-        let target = UserBuilder::<T>::default().generate_did().build("target");
+        let cdd = cdd_provider::<T>("cdd", 0);
+        let target = user::<T>("target", 0);
         let new_key = UserBuilder::<T>::default().build("key");
         let signatory = Signatory::Account(new_key.account());
 
@@ -207,7 +213,7 @@ benchmarks! {
     }
 
     join_identity_as_key {
-        let target = UserBuilder::<T>::default().generate_did().build("target");
+        let target = user::<T>("target", 0);
         let new_key = UserBuilder::<T>::default().build("key");
 
         let auth_id =  Module::<T>::add_auth(
@@ -219,8 +225,8 @@ benchmarks! {
     }: _(new_key.origin, auth_id)
 
     join_identity_as_identity {
-        let target = UserBuilder::<T>::default().generate_did().build("target");
-        let new_user = UserBuilder::<T>::default().generate_did().build("key");
+        let target = user::<T>("target", 0);
+        let new_user = user::<T>("key", 0);
 
         let auth_id =  Module::<T>::add_auth(
             target.did(),
@@ -231,7 +237,7 @@ benchmarks! {
     }: _(new_user.origin, auth_id)
 
     leave_identity_as_key {
-        let target = UserBuilder::<T>::default().generate_did().build("target");
+        let target = user::<T>("target", 0);
         let key = UserBuilder::<T>::default().build("key");
         let signatory = Signatory::Account(key.account());
 
@@ -253,8 +259,8 @@ benchmarks! {
     }
 
     leave_identity_as_identity {
-        let target = UserBuilder::<T>::default().generate_did().build("target");
-        let new_user = UserBuilder::<T>::default().generate_did().build("key");
+        let target = user::<T>("target", 0);
+        let new_user = user::<T>("key", 0);
         let signatory = Signatory::Identity(new_user.did());
 
         Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), &signatory);
@@ -262,8 +268,8 @@ benchmarks! {
     }: _(new_user.origin, target.did())
 
     add_claim {
-        let caller = UserBuilder::<T>::default().generate_did().build("caller");
-        let target = UserBuilder::<T>::default().generate_did().build("target");
+        let caller = user::<T>("caller", 0);
+        let target = user::<T>("target", 0);
         let scope = Scope::Identity(caller.did());
         let claim = Claim::Jurisdiction(CountryCode::BB, scope);
     }: _(caller.origin, target.did(), claim, Some(666u32.into()))
@@ -280,7 +286,7 @@ benchmarks! {
     }: _(caller.origin, caller.did(), claim_type, Some(scope))
 
     set_permission_to_signer {
-        let target = UserBuilder::<T>::default().generate_did().build("target");
+        let target = user::<T>("target", 0);
         let key = UserBuilder::<T>::default().build("key");
         let signatory = Signatory::Account(key.account);
 
@@ -288,22 +294,22 @@ benchmarks! {
     }: _(target.origin, signatory, Permissions::default().into())
 
     freeze_secondary_keys {
-        let caller = UserBuilder::<T>::default().generate_did().build("caller");
+        let caller = user::<T>("caller", 0);
     }: _(caller.origin)
 
     unfreeze_secondary_keys {
-        let caller = UserBuilder::<T>::default().generate_did().build("caller");
+        let caller = user::<T>("caller", 0);
         Module::<T>::freeze_secondary_keys(caller.origin.clone().into()).unwrap();
     }: _(caller.origin)
 
     add_authorization {
-        let caller = UserBuilder::<T>::default().generate_did().build("caller");
+        let caller = user::<T>("caller", 0);
         let signatory = Signatory::Identity(caller.did());
         let auth_data = AuthorizationData::JoinIdentity(Permissions::default());
     }: _(caller.origin, signatory, auth_data, Some(666u32.into()))
 
     remove_authorization {
-        let caller = UserBuilder::<T>::default().generate_did().build("caller");
+        let caller = user::<T>("caller", 0);
         let signatory = Signatory::Identity(caller.did());
         let auth_id =  Module::<T>::add_auth(
             caller.did(),
@@ -313,49 +319,31 @@ benchmarks! {
         );
     }: _(caller.origin, signatory, auth_id, true)
 
-    // TODO: fix this.
-    // Account keyring is not available in no_std so it's not possible to sign data directly.
-    // However, substrate injects the required functions as host functions in WASM.
-    // We need to setup some helper functions to access those.
-    // A defensive weight has been hardcoded for now.
-    // add_secondary_keys_with_authorization {
-    //     // Number of keys.
-    //     let n in 0 .. 8;
+    add_secondary_keys_with_authorization {
+        // Number of keys.
+        let i in 0 .. MAX_SECONDARY_KEYS;
 
-    //     let (_, origin, did) = make_account::<T>("caller", SEED);
+        let caller = user::<T>("caller", SEED);
 
-    //     let expires_at = 600u64;
-    //     let authorization = TargetIdAuthorization::<u64> {
-    //         target_id: did.clone(),
-    //         nonce: Module::<T>::offchain_authorization_nonce(did),
-    //         expires_at,
-    //     };
-    //     let auth_encoded = authorization.encode();
+        let expires_at: T::Moment = 600u32.into();
+        let authorization = TargetIdAuthorization::<T::Moment> {
+            target_id: caller.did(),
+            nonce: Module::<T>::offchain_authorization_nonce(caller.did()),
+            expires_at,
+        };
+        let auth_encoded = authorization.encode();
 
-    //     let accounts = [
-    //         AccountKeyring::Alice,
-    //         AccountKeyring::Bob,
-    //         AccountKeyring::Charlie,
-    //         AccountKeyring::Dave,
-    //         AccountKeyring::Eve,
-    //         AccountKeyring::Ferdie,
-    //         AccountKeyring::One,
-    //         AccountKeyring::Two
-    //     ];
-
-    //     let secondary_keys_with_auth = accounts.into_iter().enumerate().take(n as usize).map(|(i, acc)| {
-    //         let (_, _, key_did) = make_account::<T>("key", i as u32);
-    //         let sig = H512::from(acc.sign(&auth_encoded));
-    //         SecondaryKeyWithAuth {
-    //             secondary_key: SecondaryKey::from(key_did).into(),
-    //             auth_signature: sig,
-    //         }
-    //     }).collect::<Vec<_>>();
-
-    // }: _(origin, secondary_keys_with_auth, expires_at)
+        let secondary_keys_with_auth = (0..i).map(|x| {
+            let user = user::<T>("key", x);
+            SecondaryKeyWithAuth {
+                secondary_key: SecondaryKey::from(user.did()).into(),
+                auth_signature: H512::from(user.sign(&auth_encoded).unwrap()),
+            }
+        }).collect::<Vec<_>>();
+    }: _(caller.origin, secondary_keys_with_auth, expires_at)
 
     revoke_offchain_authorization {
-        let caller = UserBuilder::<T>::default().generate_did().build("caller");
+        let caller = user::<T>("caller", 0);
         let nonce = Module::<T>::offchain_authorization_nonce(caller.did());
 
         let authorization = TargetIdAuthorization::<T::Moment> {
