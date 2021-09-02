@@ -720,7 +720,7 @@ declare module '@polkadot/api/types/submittable' {
        * Change this group's limit for how many concurrent active members they may be.
        * 
        * # Arguments
-       * * `limit` - the numer of active members there may be concurrently.
+       * * `limit` - the number of active members there may be concurrently.
        **/
       setActiveMembersLimit: AugmentedSubmittable<(limit: MemberCount | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [MemberCount]>;
       /**
@@ -876,7 +876,7 @@ declare module '@polkadot/api/types/submittable' {
        * Change this group's limit for how many concurrent active members they may be.
        * 
        * # Arguments
-       * * `limit` - the numer of active members there may be concurrently.
+       * * `limit` - the number of active members there may be concurrently.
        **/
       setActiveMembersLimit: AugmentedSubmittable<(limit: MemberCount | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [MemberCount]>;
       /**
@@ -1482,8 +1482,6 @@ declare module '@polkadot/api/types/submittable' {
        * Failure
        * - It can only called by primary key owner.
        * - Keys should be able to linked to any identity.
-       * 
-       * NB: The current weight is a defensive approximation.
        **/
       addSecondaryKeysWithAuthorization: AugmentedSubmittable<(additionalKeys: Vec<SecondaryKeyWithAuth> | (SecondaryKeyWithAuth | { secondary_key?: any; auth_signature?: any } | string | Uint8Array)[], expiresAt: Moment | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Vec<SecondaryKeyWithAuth>, Moment]>;
       /**
@@ -1738,14 +1736,14 @@ declare module '@polkadot/api/types/submittable' {
        * Accepts a multisig signer authorization given to signer's identity.
        * 
        * # Arguments
-       * * `proposal_id` - Auth id of the authorization.
+       * * `auth_id` - Auth id of the authorization.
        **/
       acceptMultisigSignerAsIdentity: AugmentedSubmittable<(authId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64]>;
       /**
        * Accepts a multisig signer authorization given to signer's key (AccountId).
        * 
        * # Arguments
-       * * `proposal_id` - Auth id of the authorization.
+       * * `auth_id` - Auth id of the authorization.
        **/
       acceptMultisigSignerAsKey: AugmentedSubmittable<(authId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64]>;
       /**
@@ -3651,7 +3649,7 @@ declare module '@polkadot/api/types/submittable' {
        * Change this group's limit for how many concurrent active members they may be.
        * 
        * # Arguments
-       * * `limit` - the numer of active members there may be concurrently.
+       * * `limit` - the number of active members there may be concurrently.
        **/
       setActiveMembersLimit: AugmentedSubmittable<(limit: MemberCount | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [MemberCount]>;
       /**
@@ -3889,7 +3887,7 @@ declare module '@polkadot/api/types/submittable' {
        * Change this group's limit for how many concurrent active members they may be.
        * 
        * # Arguments
-       * * `limit` - the numer of active members there may be concurrently.
+       * * `limit` - the number of active members there may be concurrently.
        **/
       setActiveMembersLimit: AugmentedSubmittable<(limit: MemberCount | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [MemberCount]>;
       /**

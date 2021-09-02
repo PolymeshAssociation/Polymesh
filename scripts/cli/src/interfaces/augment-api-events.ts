@@ -22,9 +22,9 @@ declare module '@polkadot/api/types/events' {
     asset: {
       /**
        * Event for creation of the asset.
-       * caller DID/ owner DID, ticker, divisibility, asset type, beneficiary DID
+       * caller DID/ owner DID, ticker, divisibility, asset type, beneficiary DID, disable investor uniqueness
        **/
-      AssetCreated: AugmentedEvent<ApiType, [IdentityId, Ticker, bool, AssetType, IdentityId]>;
+      AssetCreated: AugmentedEvent<ApiType, [IdentityId, Ticker, bool, AssetType, IdentityId, bool]>;
       /**
        * An event emitted when an asset is frozen.
        * Parameter: caller DID, ticker.

@@ -65,17 +65,17 @@ declare module '@polkadot/api/types/storage' {
        **/
       classicTickers: AugmentedQuery<ApiType, (arg: Ticker | string | Uint8Array) => Observable<Option<ClassicTickerRegistration>>, [Ticker]> & QueryableStorageEntry<ApiType, [Ticker]>;
       /**
-       * The next `AgentType::Custom` ID in the sequence.
+       * The next `AssetType::Custom` ID in the sequence.
        * 
        * Numbers in the sequence start from 1 rather than 0.
        **/
       customTypeIdSequence: AugmentedQuery<ApiType, () => Observable<CustomAssetTypeId>, []> & QueryableStorageEntry<ApiType, []>;
       /**
-       * Maps custom agent type ids to the registered string contents.
+       * Maps custom asset type ids to the registered string contents.
        **/
       customTypes: AugmentedQuery<ApiType, (arg: CustomAssetTypeId | AnyNumber | Uint8Array) => Observable<Bytes>, [CustomAssetTypeId]> & QueryableStorageEntry<ApiType, [CustomAssetTypeId]>;
       /**
-       * Inverse map of `CustomTypes`, from registered string contents to custom agent type ids.
+       * Inverse map of `CustomTypes`, from registered string contents to custom asset type ids.
        **/
       customTypesInverse: AugmentedQuery<ApiType, (arg: Bytes | string | Uint8Array) => Observable<CustomAssetTypeId>, [Bytes]> & QueryableStorageEntry<ApiType, [Bytes]>;
       /**

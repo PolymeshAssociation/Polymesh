@@ -121,7 +121,6 @@ export interface AuthorizationData extends Enum {
   readonly isAttestPrimaryKeyRotation: boolean;
   readonly asAttestPrimaryKeyRotation: IdentityId;
   readonly isRotatePrimaryKey: boolean;
-  readonly asRotatePrimaryKey: IdentityId;
   readonly isTransferTicker: boolean;
   readonly asTransferTicker: Ticker;
   readonly isTransferPrimaryIssuanceAgent: boolean;
@@ -159,6 +158,8 @@ export interface AuthorizationType extends Enum {
   readonly isPortfolioCustody: boolean;
   readonly isCustom: boolean;
   readonly isNoData: boolean;
+  readonly isBecomeAgent: boolean;
+  readonly isAddRelayerPayingKey: boolean;
 }
 
 /** @name BallotMeta */
