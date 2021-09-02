@@ -27,4 +27,4 @@ sp-std = {version = "3.0.0", default_features = false }
 sp-api = {version = "3.0.0", default_features = false }
 
 [dev-dependencies]
-substrate-test-runtime-client = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymath-3.0.0"}
+substrate-test-runtime-client = { git = "https://github.com/PolymathNetwork/substrate", branch = "MESH-1680-libsecp256k1"}
