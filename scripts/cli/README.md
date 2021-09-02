@@ -53,7 +53,7 @@ The test scripts include those named below, and most make up `npm test`:
 
  To run a single script:
  ```shell
-$ npm run 0_create_dentities
+$ npm run 0_create_identities
 ```
 ## Updating types:
 1. Build latest version `cargo build --release`
