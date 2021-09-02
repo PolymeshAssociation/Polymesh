@@ -76,7 +76,7 @@ pub fn eth_check(
 
 /// Returns a signature for `prefix` combined with `data` as a message,
 /// signed by the given `secret` key.
-pub fn eth_msg(data: impl Encode, prefix: &[u8], secret: &secp256k1::SecretKey) -> EcdsaSignature {
+pub fn eth_msg(data: impl Encode, prefix: &[u8], secret: &libsecp256k1::SecretKey) -> EcdsaSignature {
     sig(secret, prefix, &data.encode(), &[])
 }
 
@@ -132,20 +132,20 @@ fn acc_from_data(data: &[u8]) -> EthereumAddress {
 }
 
 /// Returns the public key derived from the given `secret` key.
-fn public(secret: &secp256k1::SecretKey) -> secp256k1::PublicKey {
-    secp256k1::PublicKey::from_secret_key(secret)
+fn public(secret: &libsecp256k1::SecretKey) -> libsecp256k1::PublicKey {
+    libsecp256k1::PublicKey::from_secret_key(secret)
 }
 
 /// Derive the Ethereum address from the `secret` key.
-pub fn address(secret: &secp256k1::SecretKey) -> EthereumAddress {
+pub fn address(secret: &libsecp256k1::SecretKey) -> EthereumAddress {
     acc_from_data(&public(secret).serialize()[1..65])
 }
 
 /// Signs the message `prefix ++ what ++ extra` using the `secret` key.
-fn sig(secret: &secp256k1::SecretKey, prefix: &[u8], what: &[u8], extra: &[u8]) -> EcdsaSignature {
+fn sig(secret: &libsecp256k1::SecretKey, prefix: &[u8], what: &[u8], extra: &[u8]) -> EcdsaSignature {
     let msg = ethereum_signable_message(prefix, &to_ascii_hex(what), extra);
     let msg = keccak_256(&msg);
-    let (sig, recovery_id) = secp256k1::sign(&secp256k1::Message::parse(&msg), secret);
+    let (sig, recovery_id) = libsecp256k1::sign(&libsecp256k1::Message::parse(&msg), secret);
     let mut r = [0u8; 65];
     r[0..64].copy_from_slice(&sig.serialize());
     r[64] = recovery_id.serialize();

@@ -2503,6 +2503,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "hmac-drbg"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17ea0a1394df5b6574da6e0c1ade9e78868c9fb0a4e5ef4428e32da4676b85b1"
+dependencies = [
+ "digest 0.9.0",
+ "generic-array 0.14.4",
+ "hmac 0.8.1",
+]
+
+[[package]]
 name = "html5ever"
 version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3159,7 +3170,7 @@ dependencies = [
  "futures 0.3.15",
  "futures-timer 3.0.2",
  "lazy_static",
- "libsecp256k1",
+ "libsecp256k1 0.3.5",
  "log",
  "multihash",
  "multistream-select",
@@ -3535,11 +3546,59 @@ dependencies = [
  "arrayref",
  "crunchy",
  "digest 0.8.1",
- "hmac-drbg",
+ "hmac-drbg 0.2.0",
  "rand 0.7.3",
  "sha2 0.8.2",
  "subtle 2.4.0",
  "typenum",
+]
+
+[[package]]
+name = "libsecp256k1"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9d220bc1feda2ac231cb78c3d26f27676b8cf82c96971f7aeef3d0cf2797c73"
+dependencies = [
+ "arrayref",
+ "base64 0.12.3",
+ "digest 0.9.0",
+ "hmac-drbg 0.3.0",
+ "libsecp256k1-core",
+ "libsecp256k1-gen-ecmult",
+ "libsecp256k1-gen-genmult",
+ "rand 0.7.3",
+ "serde",
+ "sha2 0.9.5",
+ "typenum",
+]
+
+[[package]]
+name = "libsecp256k1-core"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d0f6ab710cec28cef759c5f18671a27dae2a5f952cdaaee1d8e2908cb2478a80"
+dependencies = [
+ "crunchy",
+ "digest 0.9.0",
+ "subtle 2.4.0",
+]
+
+[[package]]
+name = "libsecp256k1-gen-ecmult"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ccab96b584d38fac86a83f07e659f0deafd0253dc096dab5a36d53efe653c5c3"
+dependencies = [
+ "libsecp256k1-core",
+]
+
+[[package]]
+name = "libsecp256k1-gen-genmult"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67abfe149395e3aa1c48a2beb32b068e2334402df8181f818d3aee2b304c4f5d"
+dependencies = [
+ "libsecp256k1-core",
 ]
 
 [[package]]
@@ -4352,7 +4411,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal 0.2.1",
- "libsecp256k1",
+ "libsecp256k1 0.6.0",
  "pallet-balances 0.1.0",
  "pallet-base",
  "pallet-external-agents",
@@ -4571,7 +4630,6 @@ dependencies = [
  "frame-benchmarking 3.1.0",
  "frame-support",
  "frame-system",
- "libsecp256k1",
  "pallet-asset",
  "pallet-balances 0.1.0",
  "pallet-base",
@@ -5986,7 +6044,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex",
- "libsecp256k1",
+ "libsecp256k1 0.6.0",
  "parity-scale-codec 2.1.3",
  "polymesh-primitives-derive",
  "rand 0.7.3",
@@ -6373,7 +6431,7 @@ dependencies = [
  "hex-literal 0.3.1",
  "ink_primitives",
  "lazy_static",
- "libsecp256k1",
+ "libsecp256k1 0.6.0",
  "node-rpc-runtime-api",
  "pallet-asset",
  "pallet-authority-discovery",
@@ -7520,7 +7578,7 @@ source = "git+https://github.com/PolymathNetwork/substrate?branch=polymath-3.0.0
 dependencies = [
  "derive_more",
  "lazy_static",
- "libsecp256k1",
+ "libsecp256k1 0.3.5",
  "log",
  "parity-scale-codec 2.1.3",
  "parity-wasm 0.41.0",
@@ -8825,7 +8883,7 @@ dependencies = [
  "hex",
  "impl-serde",
  "lazy_static",
- "libsecp256k1",
+ "libsecp256k1 0.3.5",
  "log",
  "merlin",
  "num-traits",
@@ -8919,7 +8977,7 @@ source = "git+https://github.com/PolymathNetwork/substrate?branch=polymath-3.0.0
 dependencies = [
  "futures 0.3.15",
  "hash-db",
- "libsecp256k1",
+ "libsecp256k1 0.3.5",
  "log",
  "parity-scale-codec 2.1.3",
  "parking_lot 0.11.1",
