@@ -160,8 +160,8 @@ decl_event! {
         /// caller DID, ticker,  from DID, value
         Redeemed(IdentityId, Ticker, IdentityId, Balance),
         /// Event for creation of the asset.
-        /// caller DID/ owner DID, ticker, divisibility, asset type, beneficiary DID
-        AssetCreated(IdentityId, Ticker, bool, AssetType, IdentityId),
+        /// caller DID/ owner DID, ticker, divisibility, asset type, beneficiary DID, disable investor uniqueness
+        AssetCreated(IdentityId, Ticker, bool, AssetType, IdentityId, bool),
         /// Event emitted when any token identifiers are updated.
         /// caller DID, ticker, a vector of (identifier type, identifier value)
         IdentifiersUpdated(IdentityId, Ticker, Vec<AssetIdentifier>),

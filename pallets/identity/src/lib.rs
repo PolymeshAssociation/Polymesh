@@ -581,13 +581,7 @@ decl_module! {
         /// Failure
         ///     - It can only called by primary key owner.
         ///     - Keys should be able to linked to any identity.
-        ///
-        /// NB: The current weight is a defensive approximation.
-        #[weight =
-            (1_500_000_000 as Weight)
-                .saturating_add(T::DbWeight::get().reads(10 as Weight))
-                .saturating_add(T::DbWeight::get().writes(5 as Weight))
-        ]
+        #[weight = <T as Config>::WeightInfo::add_secondary_keys_with_authorization(additional_keys.len() as u32)]
         pub fn add_secondary_keys_with_authorization(
             origin,
             additional_keys: Vec<SecondaryKeyWithAuth<T::AccountId>>,
