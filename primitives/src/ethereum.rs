@@ -76,7 +76,11 @@ pub fn eth_check(
 
 /// Returns a signature for `prefix` combined with `data` as a message,
 /// signed by the given `secret` key.
-pub fn eth_msg(data: impl Encode, prefix: &[u8], secret: &libsecp256k1::SecretKey) -> EcdsaSignature {
+pub fn eth_msg(
+    data: impl Encode,
+    prefix: &[u8],
+    secret: &libsecp256k1::SecretKey,
+) -> EcdsaSignature {
     sig(secret, prefix, &data.encode(), &[])
 }
 
@@ -142,7 +146,12 @@ pub fn address(secret: &libsecp256k1::SecretKey) -> EthereumAddress {
 }
 
 /// Signs the message `prefix ++ what ++ extra` using the `secret` key.
-fn sig(secret: &libsecp256k1::SecretKey, prefix: &[u8], what: &[u8], extra: &[u8]) -> EcdsaSignature {
+fn sig(
+    secret: &libsecp256k1::SecretKey,
+    prefix: &[u8],
+    what: &[u8],
+    extra: &[u8],
+) -> EcdsaSignature {
     let msg = ethereum_signable_message(prefix, &to_ascii_hex(what), extra);
     let msg = keccak_256(&msg);
     let (sig, recovery_id) = libsecp256k1::sign(&libsecp256k1::Message::parse(&msg), secret);
