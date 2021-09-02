@@ -233,7 +233,7 @@ decl_error! {
 }
 
 decl_storage! {
-    trait Store for Module<T: Config> as StoCapped {
+    trait Store for Module<T: Config> as Sto {
         /// All fundraisers that are currently running.
         /// (ticker, fundraiser_id) -> Fundraiser
         Fundraisers get(fn fundraisers): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) u64 => Option<Fundraiser<T::Moment>>;
