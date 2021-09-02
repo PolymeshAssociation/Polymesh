@@ -11,60 +11,103 @@ import PrettyError from "pretty-error";
 import {
   changeDefaultTargetIdentitites,
   changeWithholdingTax,
+  claimDistribution,
+  createDistribution,
   initiateCorporateAction,
-  linkCaToDoc,
-  recordDateChange,
-  removeCa,
 } from "../helpers/corporate_actions_helper";
-import { addAuthorization, createIdentities } from "../helpers/identity_helper";
-import { addDocuments, issueTokenToDid } from "../helpers/asset_helper";
-import { distributePoly, distributePolyBatch } from "../helpers/poly_helper";
 import {
-  acceptBecomeAgent,
-  createGroup,
-  nextAgId,
-  setGroupPermissions,
-} from "../helpers/external_agent_helper";
-import { Document, ExtrinsicPermissions } from "../types";
-import { setDoc } from "../helpers/permission_helper";
+  authorizeJoinToIdentities,
+  createIdentities,
+} from "../helpers/identity_helper";
+import { issueTokenToDid } from "../helpers/asset_helper";
+import { distributePolyBatch } from "../helpers/poly_helper";
+import { addSecondaryKeys } from "../helpers/key_management_helper";
+import { addComplianceRequirement } from "../helpers/compliance_manager_helper";
+import {
+  addInstruction,
+  affirmInstruction,
+  createVenue,
+} from "../helpers/settlement_helper";
 
-let documents: Document[] = [];
 async function main(): Promise<void> {
   const testEntities = await initMain();
   const alice = testEntities[0];
   const aliceDid = await keyToIdentityIds(alice.publicKey);
   const bob = await generateRandomEntity();
   const bobDid = (await createIdentities(alice, [bob]))[0];
-  console.log("Identities Created");
+  const primaryDevSeed = generateRandomKey();
+  const secondaryDevSeed = generateRandomKey();
+  const primaryKeys = await generateKeys(1, primaryDevSeed);
+  const secondaryKeys = await generateKeys(1, secondaryDevSeed);
+  await createIdentities(alice, primaryKeys);
 
-  let extrinsics: ExtrinsicPermissions = { These: [] };
-  await distributePoly(alice, bob, transferAmount);
   const ticker = generateRandomTicker();
-  await issueTokenToDid(alice, ticker, 1000000, null);
+  const earnedTicker = generateRandomTicker();
 
-  await changeDefaultTargetIdentitites(alice, ticker, [bob], "exclude");
-  await changeWithholdingTax(alice, ticker, 15);
+  await distributePolyBatch(alice, [primaryKeys[0]], transferAmount);
+  await addSecondaryKeys(primaryKeys, secondaryKeys);
+  await authorizeJoinToIdentities(secondaryKeys, primaryKeys);
+  await distributePolyBatch(alice, [secondaryKeys[0], bob], transferAmount);
+
+  console.log("Distributing tokens");
+  await Promise.all([
+    issueTokenToDid(alice, ticker, 1000000, null),
+    issueTokenToDid(alice, earnedTicker, 200000, null),
+  ]);
+
+  console.log("adding compliance requirement");
+  await Promise.all([
+    addComplianceRequirement(alice, ticker),
+    addComplianceRequirement(alice, earnedTicker),
+  ]);
+
+  console.log("transfering token to Bob");
+  let venueCounter = await createVenue(alice);
+  let intructionCounterAB = await addInstruction(
+    alice,
+    venueCounter,
+    aliceDid,
+    bobDid,
+    ticker,
+    100
+  );
+  console.log("affirming transfer");
+  await Promise.all([
+    affirmInstruction(alice, intructionCounterAB, aliceDid, 1),
+    affirmInstruction(bob, intructionCounterAB, bobDid, 0),
+  ]);
+
+  console.log("changing default target and taxes for corporate action");
+  await Promise.all([
+    changeDefaultTargetIdentitites(alice, ticker, [bob], "include"),
+    changeWithholdingTax(alice, ticker, 15),
+  ]);
+
   await initiateCorporateAction(
     alice,
     ticker,
     "PredictableBenefit",
     "100",
-    null,
+    { existing: 1 },
     "Regular dividend",
     null,
     null,
     null
   );
-  // const doc = {
-  //   uri: "https://example.com",
-  //   content_hash: "H512",
-  //   name: "Example Doc",
-  // };
-  setDoc(documents, "www.google.com", { None: "" }, "google");
-  await addDocuments(alice, ticker, documents);
-  await linkCaToDoc(alice, ticker, 0, []); // we probably want to link real docs
-  await recordDateChange(alice, ticker, "0", null);
-  await removeCa(alice, ticker, 0);
+
+  console.log("creating distribution");
+  await createDistribution(
+    alice,
+    ticker,
+    "0",
+    null,
+    earnedTicker,
+    100,
+    100000,
+    null
+  );
+
+  await claimDistribution(bob, ticker, 0);
 }
 
 main()
