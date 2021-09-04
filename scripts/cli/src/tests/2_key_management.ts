@@ -9,12 +9,12 @@ import PrettyError from "pretty-error";
 
 async function main(): Promise<void> {
   const testEntities = await init.initMain();
-  const primaryDevSeed = init.generateRandomKey();
-  const secondaryDevSeed = init.generateRandomKey();
+  const primaryDevSeed = "2_primary";
+  const secondaryDevSeed = "2_secondary";
   const alice = testEntities[0];
-  const bob = await init.generateRandomEntity();
-  const charlie = await init.generateRandomEntity();
-  const dave = await init.generateRandomEntity();
+  const bob = await init.generateEntityFromUri("2_bob");
+  const charlie = await init.generateEntityFromUri("2_charlie");
+  const dave = await init.generateEntityFromUri("2_dave");
   const primaryKeys = await init.generateKeys(2, primaryDevSeed);
   const secondaryKeys = await init.generateKeys(2, secondaryDevSeed);
   const bobSignatory = await init.signatory(alice, bob);

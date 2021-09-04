@@ -147,20 +147,9 @@ export async function generateEntityFromUri(uri: string): Promise<KeyringPair> {
   nonces.set(entity.address, account_nonce);
   return entity;
 }
-
-export async function generateRandomEntity() {
-  let entity = await generateEntityFromUri(cryptoRandomString({ length: 10 }));
-  return entity;
-}
-
-export function generateRandomTicker() {
-  let ticker = cryptoRandomString({ length: 12, type: "distinguishable" });
-  return ticker;
-}
-
-export function generateRandomKey() {
-  let ticker = cryptoRandomString({ length: 12, type: "alphanumeric" });
-  return ticker;
+const NULL_12 = "\0".repeat(12);
+export function padTicker(ticker: string) {
+  return (ticker + NULL_12).substring(0, 12);
 }
 
 export async function blockTillPoolEmpty() {

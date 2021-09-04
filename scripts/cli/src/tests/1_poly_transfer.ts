@@ -1,9 +1,4 @@
-import {
-  initMain,
-  generateRandomKey,
-  generateKeys,
-  transferAmount,
-} from "../util/init";
+import { initMain, generateKeys, transferAmount } from "../util/init";
 import { createIdentities } from "../helpers/identity_helper";
 import { distributePolyBatch } from "../helpers/poly_helper";
 import PrettyError from "pretty-error";
@@ -11,7 +6,7 @@ import PrettyError from "pretty-error";
 async function main(): Promise<void> {
   const testEntities = await initMain();
   const alice = testEntities[0];
-  const primaryDevSeed = generateRandomKey();
+  const primaryDevSeed = "1_primary";
   const keys = await generateKeys(2, primaryDevSeed);
   await createIdentities(alice, keys);
   await distributePolyBatch(alice, keys, transferAmount);

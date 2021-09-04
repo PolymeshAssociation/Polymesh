@@ -2,10 +2,9 @@ import {
   generateKeys,
   transferAmount,
   initMain,
-  generateRandomKey,
-  generateRandomTicker,
   keyToIdentityIds,
-  generateRandomEntity,
+  generateEntityFromUri,
+  padTicker,
 } from "../util/init";
 import PrettyError from "pretty-error";
 import {
@@ -33,16 +32,16 @@ async function main(): Promise<void> {
   const testEntities = await initMain();
   const alice = testEntities[0];
   const aliceDid = await keyToIdentityIds(alice.publicKey);
-  const bob = await generateRandomEntity();
+  const bob = await generateEntityFromUri("13_bob");
   const bobDid = (await createIdentities(alice, [bob]))[0];
-  const primaryDevSeed = generateRandomKey();
-  const secondaryDevSeed = generateRandomKey();
+  const primaryDevSeed = "13_primary";
+  const secondaryDevSeed = "13_secondary";
   const primaryKeys = await generateKeys(1, primaryDevSeed);
   const secondaryKeys = await generateKeys(1, secondaryDevSeed);
   await createIdentities(alice, primaryKeys);
 
-  const ticker = generateRandomTicker();
-  const earnedTicker = generateRandomTicker();
+  const ticker = padTicker("13TICKER");
+  const earnedTicker = padTicker("13EARNED");
 
   await distributePolyBatch(alice, [primaryKeys[0]], transferAmount);
   await addSecondaryKeys(primaryKeys, secondaryKeys);

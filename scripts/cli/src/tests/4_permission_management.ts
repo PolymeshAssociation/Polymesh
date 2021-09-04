@@ -30,15 +30,15 @@ import { assert } from "chai";
 import PrettyError from "pretty-error";
 
 async function main(): Promise<void> {
-  const ticker = init.generateRandomTicker();
-  const portfolioName = init.generateRandomTicker();
+  const ticker = init.padTicker("4TICKER");
+  const portfolioName = "4_portfolio";
   const testEntities = await init.initMain();
   const alice = testEntities[0];
-  const primaryDevSeed = init.generateRandomKey();
-  const secondaryDevSeed = init.generateRandomKey();
+  const primaryDevSeed = "4_primary";
+  const secondaryDevSeed = "4_secondary";
   const primaryKeys = await init.generateKeys(1, primaryDevSeed);
   const secondaryKeys = await init.generateKeys(1, secondaryDevSeed);
-  const dids = await createIdentities(alice, primaryKeys);
+  await createIdentities(alice, primaryKeys);
   let extrinsics: ExtrinsicPermissions = { These: [] };
   let portfolios: PortfolioPermissions = { These: [] };
   let assets: AssetPermissions = { These: [] };

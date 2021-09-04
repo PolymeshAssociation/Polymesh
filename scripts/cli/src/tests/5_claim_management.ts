@@ -1,11 +1,10 @@
 import {
   initMain,
-  generateRandomKey,
   generateKeys,
   transferAmount,
   ApiSingleton,
   sendTx,
-  generateRandomTicker,
+  padTicker,
 } from "../util/init";
 import { createIdentities, addClaimsToDids } from "../helpers/identity_helper";
 import { distributePolyBatch } from "../helpers/poly_helper";
@@ -17,9 +16,9 @@ async function main(): Promise<void> {
   const testEntities = await initMain();
   const alice = testEntities[0];
 
-  const issuerSeed1 = "fooIssuer";
-  const issuerSeed2 = "barIssuer";
-  const claimeeSeed = "theClaimee";
+  const issuerSeed1 = "5_issuer_1";
+  const issuerSeed2 = "5_issuer_2";
+  const claimeeSeed = "5_claimee";
 
   const issuerKeys1 = await generateKeys(2, issuerSeed1);
   const issuerKeys2 = await generateKeys(2, issuerSeed2);
@@ -29,7 +28,7 @@ async function main(): Promise<void> {
   await createIdentities(alice, issuerKeys2);
   const claimeeDids = await createIdentities(alice, claimeeKeys);
 
-  const ticker = "FOOBARTICKER";
+  const ticker = padTicker("5TICKER");
 
   await distributePolyBatch(
     alice,

@@ -1,4 +1,4 @@
-import { initMain, generateRandomEntity, transferAmount } from "../util/init";
+import { generateEntityFromUri, initMain, transferAmount } from "../util/init";
 import { createIdentities } from "../helpers/identity_helper";
 import { distributePolyBatch } from "../helpers/poly_helper";
 import * as staking from "../helpers/staking_helper";
@@ -12,8 +12,8 @@ async function main(): Promise<void> {
   const alice = testEntities[0];
   const govCommittee1 = testEntities[2];
   const govCommittee2 = testEntities[3];
-  const bob = await generateRandomEntity();
-  const dave = await generateRandomEntity();
+  const bob = await generateEntityFromUri("10_bob");
+  const dave = await generateEntityFromUri("10_dave");
   await pips.setDefaultEnactmentPeriod(alice, 10);
   await createIdentities(alice, [bob, dave]);
 
