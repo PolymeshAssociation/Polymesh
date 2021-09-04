@@ -18,7 +18,7 @@ import {
   authorizeJoinToIdentities,
   createIdentities,
 } from "../helpers/identity_helper";
-import { issueTokenToDid } from "../helpers/asset_helper";
+import { assetBalance, issueTokenToDid } from "../helpers/asset_helper";
 import { distributePolyBatch } from "../helpers/poly_helper";
 import { addSecondaryKeys } from "../helpers/key_management_helper";
 import { addComplianceRequirement } from "../helpers/compliance_manager_helper";
@@ -68,7 +68,7 @@ async function main(): Promise<void> {
     aliceDid,
     bobDid,
     ticker,
-    100
+    1000
   );
   console.log("affirming transfer");
   await Promise.all([
@@ -101,7 +101,7 @@ async function main(): Promise<void> {
     "0",
     null,
     earnedTicker,
-    100,
+    100000,
     100000,
     null
   );

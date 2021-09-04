@@ -73,6 +73,13 @@ export class ApiSingleton {
 export async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+export async function waitNextBlock() {
+  const api = await ApiSingleton.getInstance();
+  const oldBlock = await api.rpc.chain.getFinalizedHead();
+  while ((await api.rpc.chain.getFinalizedHead()) === oldBlock) {
+    await sleep(500);
+  }
+}
 
 interface TestEntities {
   polymath_1: KeyringPair;
@@ -150,6 +157,17 @@ export async function generateEntityFromUri(uri: string): Promise<KeyringPair> {
 const NULL_12 = "\0".repeat(12);
 export function padTicker(ticker: string) {
   return (ticker + NULL_12).substring(0, 12);
+}
+export async function throws(fn: () => any, error?: any) {
+  try {
+    await fn();
+  } catch (e) {
+    if (error && error != e) {
+      throw new Error(`error ${e} != ${error}`);
+    }
+    return;
+  }
+  throw new Error("The function didn't throw");
 }
 
 export async function blockTillPoolEmpty() {

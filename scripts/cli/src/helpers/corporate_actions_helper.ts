@@ -138,7 +138,7 @@ export async function createDistribution(
   const payAt = currentBlockTime.toNumber();
 
   const transaction = api.tx.capitalDistribution.distribute(
-    { ticker },
+    { ticker, local_id: caId },
     portfolio,
     currency,
     perShare,
