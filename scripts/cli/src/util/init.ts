@@ -80,6 +80,16 @@ export async function waitNextBlock() {
     await sleep(500);
   }
 }
+const getEra = async () =>
+  (await (await ApiSingleton.getInstance()).query.staking.activeEra())
+    .unwrap()
+    .index.toJSON();
+export async function waitNextEra() {
+  const era = await getEra();
+  while ((await getEra()) === era) {
+    await waitNextBlock();
+  }
+}
 
 interface TestEntities {
   polymath_1: KeyringPair;

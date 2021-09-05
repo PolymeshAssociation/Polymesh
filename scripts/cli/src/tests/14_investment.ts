@@ -115,6 +115,6 @@ main()
     process.exit(1);
   })
   .finally(() => {
-    console.log("Completed: EXTERNAL AGENTS");
+    console.log("Completed: INVESTMENTS");
     process.exit();
   });

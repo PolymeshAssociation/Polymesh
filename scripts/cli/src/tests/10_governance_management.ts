@@ -1,4 +1,10 @@
-import { generateEntityFromUri, initMain, transferAmount } from "../util/init";
+import {
+  ApiSingleton,
+  generateEntityFromUri,
+  initMain,
+  sendTx,
+  transferAmount,
+} from "../util/init";
 import { createIdentities } from "../helpers/identity_helper";
 import { distributePolyBatch } from "../helpers/poly_helper";
 import * as staking from "../helpers/staking_helper";
@@ -28,6 +34,10 @@ async function main(): Promise<void> {
 
   const secondPipCount = await pips.pipIdSequence();
   await pips.propose(bob, setLimit, 10_000_000_000, "google.com", "second");
+  await sendTx(
+    dave,
+    (await ApiSingleton.getInstance()).tx.pips.vote(1, true, 10)
+  );
 
   // GC needs some funds to use.
   await distributePolyBatch(
