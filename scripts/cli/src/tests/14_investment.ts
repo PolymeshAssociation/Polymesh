@@ -34,67 +34,47 @@ async function main(): Promise<void> {
   const testEntities = await initMain();
   const alice = testEntities[0];
   const aliceDid = await keyToIdentityIds(alice.publicKey);
-  const bob = await generateEntityFromUri("12_bob");
-  const dave = await generateEntityFromUri("12_dave");
+  const bob = await generateEntityFromUri("14_bob");
+  const dave = await generateEntityFromUri("14_dave");
   const [bobDid, daveDid] = await createIdentities(alice, [bob, dave]);
-  let extrinsics: ExtrinsicPermissions = { These: [] };
+
   console.log("Identities Created");
   await distributePolyBatch(alice, [bob, dave], transferAmount * 10);
-  const ticker = padTicker("12TICKER");
-  const raisingTicker = padTicker("12TICKERRAIS");
+  const ticker = padTicker("14TICKER");
+  const raisingTicker = padTicker("14TICKERRAIS");
   await issueTokenToDid(alice, ticker, 1000000, null);
-  console.log("EA: Group");
-  await createGroup(alice, ticker, extrinsics);
+  await issueTokenToDid(dave, raisingTicker, 1000000, null);
 
-  let agId = await nextAgId(ticker);
-  console.log("EA: Group Permissions");
-  await setGroupPermissions(alice, ticker, agId, extrinsics);
-  console.log("EA: Become Agent");
-  await acceptBecomeAgent(bob, bobDid, alice, ticker, { Full: "" });
-  await acceptBecomeAgent(dave, daveDid, alice, ticker, { Full: "" });
   await addComplianceRequirement(alice, ticker);
+  await addComplianceRequirement(dave, raisingTicker);
 
-  await abdicate(alice, ticker);
-
-  console.log("EA: Accept Agent");
-  await acceptBecomeAgent(alice, aliceDid, bob, ticker, { Full: "" });
-  await removeAgent(alice, ticker, bobDid);
-  console.log("EA: Group");
-  await createGroup(alice, ticker, extrinsics);
-  agId = await nextAgId(ticker);
-  await setGroupPermissions(alice, ticker, agId, extrinsics);
-  console.log("EA: Change Group");
-  await changeGroup(alice, ticker, aliceDid, { Full: "" });
-
-  // External agent authorized extrinsics
-
-  let venueCounter = await createVenue(alice);
+  let venueCounter = await createVenue(dave);
   let intructionCounterAB = await addInstruction(
-    alice,
+    dave,
     venueCounter,
-    aliceDid,
     daveDid,
-    ticker,
+    bobDid,
+    raisingTicker,
     1000
   );
 
-  await affirmInstruction(alice, intructionCounterAB, aliceDid, 1);
-  await affirmInstruction(dave, intructionCounterAB, daveDid, 0);
+  await affirmInstruction(dave, intructionCounterAB, daveDid, 1);
+  await affirmInstruction(bob, intructionCounterAB, bobDid, 0);
   await waitNextBlock();
 
   await sendTx(
-    dave,
-    api.tx.settlement.createVenue("", [dave.publicKey], "Sto")
+    alice,
+    api.tx.settlement.createVenue("", [alice.publicKey], "Sto")
   );
   venueCounter++;
   await sendTx(
-    dave,
+    alice,
     api.tx.sto.createFundraiser(
-      { did: daveDid, kind: { Default: null } },
+      { did: aliceDid, kind: { Default: null } },
       ticker,
-      { did: daveDid, kind: { Default: null } },
+      { did: aliceDid, kind: { Default: null } },
       raisingTicker,
-      [{ total: 3, price: 4 }],
+      [{ total: 3000, price: 4 }],
       venueCounter,
       null,
       null,
@@ -102,13 +82,30 @@ async function main(): Promise<void> {
       "mySto"
     )
   );
-  await sendTx(dave, api.tx.sto.freezeFundraiser(ticker, 0));
-  await sendTx(dave, api.tx.sto.unfreezeFundraiser(ticker, 0));
   await sendTx(
     dave,
-    api.tx.sto.modifyFundraiserWindow(ticker, 0, Date.now() as any, null)
+    api.tx.sto.invest(
+      { did: daveDid, kind: { Default: null } },
+      { did: daveDid, kind: { Default: null } },
+      ticker,
+      0,
+      40,
+      null,
+      null
+    )
   );
-  await sendTx(dave, api.tx.sto.stop(ticker, 0));
+  await sendTx(
+    bob,
+    api.tx.sto.invest(
+      { did: bobDid, kind: { Default: null } },
+      { did: bobDid, kind: { Default: null } },
+      ticker,
+      0,
+      10,
+      null,
+      null
+    )
+  );
 }
 
 main()
