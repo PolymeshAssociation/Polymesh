@@ -13,7 +13,7 @@ async function main(): Promise<void> {
   const primaryKey = (await init.generateKeys(1, primaryDevSeed))[0];
   let issuerDid = await createIdentities(alice, [primaryKey]);
   await distributePoly(alice, primaryKey, init.transferAmount);
-  await issueTokenToDid(primaryKey, ticker, 1000000, null);
+  await issueTokenToDid(primaryKey, ticker, 1000000, "first");
   await addClaimsToDids(
     primaryKey,
     issuerDid[0],
