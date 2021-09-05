@@ -50,8 +50,8 @@ async function main(): Promise<void> {
 
   console.log("Distributing tokens");
   await Promise.all([
-    issueTokenToDid(alice, ticker, 1000000, null),
-    issueTokenToDid(alice, earnedTicker, 200000, null),
+    issueTokenToDid(alice, ticker, 1000000000, null),
+    issueTokenToDid(alice, earnedTicker, 20000000000, null),
   ]);
 
   console.log("adding compliance requirement");
@@ -68,7 +68,7 @@ async function main(): Promise<void> {
     aliceDid,
     bobDid,
     ticker,
-    1000
+    100000000
   );
   console.log("affirming transfer");
   await Promise.all([
@@ -101,8 +101,8 @@ async function main(): Promise<void> {
     "0",
     null,
     earnedTicker,
-    100000,
-    100000,
+    1000000,
+    2000000000,
     null
   );
 
