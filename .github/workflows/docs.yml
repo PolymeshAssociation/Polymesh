@@ -12,8 +12,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Use rust nightly 2021-05-19 for building docs.
-      run: echo "nightly-2021-05-19" > ./rust-toolchain
+    - name: Use rust nightly 2021-08-24 for building docs.
+      run: echo "nightly-2021-08-24" > ./rust-toolchain
     - name: Install rust toolchain
       uses: actions-rs/toolchain@v1
       with:
