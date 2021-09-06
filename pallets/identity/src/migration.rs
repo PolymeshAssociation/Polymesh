@@ -67,23 +67,22 @@ pub fn migrate_auth_v1<AccountId, Moment>(
         }
         AuthDataV1::RotatePrimaryKey(_) => AuthorizationData::RotatePrimaryKey,
         AuthDataV1::TransferTicker(ticker) => AuthorizationData::TransferTicker(ticker),
-        AuthDataV1::TransferPrimaryIssuanceAgent(ticker) => {
-            AuthorizationData::TransferPrimaryIssuanceAgent(ticker)
-        }
         AuthDataV1::AddMultiSigSigner(acc) => AuthorizationData::AddMultiSigSigner(acc),
         AuthDataV1::TransferAssetOwnership(ticker) => {
             AuthorizationData::TransferAssetOwnership(ticker)
         }
         AuthDataV1::JoinIdentity(perms) => AuthorizationData::JoinIdentity(perms),
         AuthDataV1::PortfolioCustody(portfolio) => AuthorizationData::PortfolioCustody(portfolio),
-        AuthDataV1::Custom(ticker) => AuthorizationData::Custom(ticker),
-        AuthDataV1::NoData => AuthorizationData::NoData,
-        AuthDataV1::TransferCorporateActionAgent(ticker) => {
-            AuthorizationData::TransferCorporateActionAgent(ticker)
-        }
         AuthDataV1::BecomeAgent(ticker, group) => AuthorizationData::BecomeAgent(ticker, group),
         AuthDataV1::AddRelayerPayingKey(user, payer, limit) => {
             AuthorizationData::AddRelayerPayingKey(user, payer, limit)
+        }
+        AuthDataV1::Custom(_)
+        | AuthDataV1::NoData
+        | AuthDataV1::TransferPrimaryIssuanceAgent(_)
+        | AuthDataV1::TransferCorporateActionAgent(_) => {
+            // Unused authorization types.
+            return None;
         }
     };
 
