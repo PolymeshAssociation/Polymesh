@@ -1264,12 +1264,12 @@ fn default_reg_config() -> TickerRegistrationConfig<u64> {
     }
 }
 
-fn alice_secret_key() -> secp256k1::SecretKey {
-    secp256k1::SecretKey::parse(&keccak_256(b"Alice")).unwrap()
+fn alice_secret_key() -> libsecp256k1::SecretKey {
+    libsecp256k1::SecretKey::parse(&keccak_256(b"Alice")).unwrap()
 }
 
-fn bob_secret_key() -> secp256k1::SecretKey {
-    secp256k1::SecretKey::parse(&keccak_256(b"Bob")).unwrap()
+fn bob_secret_key() -> libsecp256k1::SecretKey {
+    libsecp256k1::SecretKey::parse(&keccak_256(b"Bob")).unwrap()
 }
 
 fn sorted<K: Ord + Clone, V>(iter: impl IntoIterator<Item = (K, V)>) -> Vec<(K, V)> {
