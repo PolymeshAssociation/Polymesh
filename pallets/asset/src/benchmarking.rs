@@ -400,7 +400,7 @@ benchmarks! {
     claim_classic_ticker {
         let owner = owner::<T>();
         let did = owner.did();
-        let owner_eth_sk = secp256k1::SecretKey::parse(&keccak_256(b"owner")).unwrap();
+        let owner_eth_sk = libsecp256k1::SecretKey::parse(&keccak_256(b"owner")).unwrap();
         let owner_eth_pk = ethereum::address(&owner_eth_sk);
 
         let ticker: Ticker = b"USDX1"[..].try_into().unwrap();
