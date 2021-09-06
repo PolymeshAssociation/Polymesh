@@ -7,8 +7,7 @@ use pallet_staking::StakerStatus;
 use polymesh_common_utilities::{
     constants::{currency::POLY, REWARDS_MODULE_ID, TREASURY_MODULE_ID},
     protocol_fee::ProtocolOp,
-    SystematicIssuers,
-    MaybeBlock,
+    MaybeBlock, SystematicIssuers,
 };
 use polymesh_primitives::{
     identity_id::GenesisIdentityRecord, AccountId, Balance, HexAccountId, IdentityId, Moment,
@@ -298,7 +297,7 @@ fn genesis_processed_data(
         .issuers
         .push(SystematicIssuers::CDDProvider.as_id());
 
-        // Accumulate bridge transactions
+    // Accumulate bridge transactions
     let mut complete_txs: Vec<_> = key_bridge_locks
         .iter()
         .cloned()
@@ -1036,7 +1035,11 @@ pub mod mainnet {
                 stakers,
                 PerThing::from_rational_approximation(1u64, 10u64)
             )),
-            pallet_pips: Some(pips!(time::DAYS * 30, MaybeBlock::Some(time::DAYS * 90), 1000)),
+            pallet_pips: Some(pips!(
+                time::DAYS * 30,
+                MaybeBlock::Some(time::DAYS * 90),
+                1000
+            )),
             pallet_im_online: Some(Default::default()),
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
