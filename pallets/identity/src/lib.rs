@@ -154,7 +154,7 @@ type CallPermissions<T> = pallet_permissions::Module<T>;
 storage_migration_ver!(4);
 
 decl_storage! {
-    trait Store for Module<T: Config> as identity {
+    trait Store for Module<T: Config> as Identity {
 
         /// DID -> identity info
         pub DidRecords get(fn did_records) config(): map hasher(twox_64_concat) IdentityId => DidRecord<T::AccountId>;

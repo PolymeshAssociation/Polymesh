@@ -92,7 +92,7 @@ decl_event!(
 );
 
 decl_storage! {
-    trait Store for Module<T: Config> as testnet {
+    trait Store for Module<T: Config> as TestUtils {
     }
 }
 decl_error! {
