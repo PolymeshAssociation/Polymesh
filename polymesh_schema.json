@@ -687,14 +687,10 @@
         "AttestPrimaryKeyRotation": "IdentityId",
         "RotatePrimaryKey": "",
         "TransferTicker": "Ticker",
-        "TransferPrimaryIssuanceAgent": "Ticker",
         "AddMultiSigSigner": "AccountId",
         "TransferAssetOwnership": "Ticker",
         "JoinIdentity": "Permissions",
         "PortfolioCustody": "PortfolioId",
-        "Custom": "Ticker",
-        "NoData": "",
-        "TransferCorporateActionAgent": "Ticker",
         "BecomeAgent": "(Ticker, AgentGroup)",
         "AddRelayerPayingKey": "(AccountId, AccountId, Balance)"
       }
@@ -894,8 +890,6 @@
         "TransferAssetOwnership": "",
         "JoinIdentity": "",
         "PortfolioCustody": "",
-        "Custom": "",
-        "NoData": "",
         "BecomeAgent": "",
         "AddRelayerPayingKey": ""
       }
