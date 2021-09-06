@@ -1,5 +1,5 @@
 // PM2 config file
-let chain = "mainnet-bootstrap";
+let chain = "testnet-dev";
 module.exports = {
   apps: [
     {
