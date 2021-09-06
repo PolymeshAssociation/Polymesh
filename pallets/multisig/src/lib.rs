@@ -54,7 +54,9 @@
 //! account key.
 //! - `add_multisig_signer` - Adds a signer to the multisig.
 //! - `remove_multisig_signer` - Removes a signer from the multisig.
-//! - `add_multisig_signers_via_creator` - Adds a signer to the multisig with the signed being the
+//! - `add_multisig_signers_via_creator` - Adds a signer to the multisig when called by the
+//! creator of the multisig.
+//! - `remove_multisig_signers_via_creator` - Removes a signer from the multisig when called by the
 //! creator of the multisig.
 //! - `change_sigs_required` - Changes the number of signatures required to execute a transaction.
 //! - `make_multisig_signer` - Adds a multisig as a signer of the current DID if the current DID is
@@ -112,6 +114,8 @@ use sp_runtime::traits::{Dispatchable, Hash, One};
 use sp_std::{convert::TryFrom, iter, prelude::*};
 
 type Identity<T> = identity::Module<T>;
+
+pub const NAME: &[u8] = b"MultiSig";
 
 /// Either the ID of a successfully created multisig account or an error.
 pub type CreateMultisigAccountResult<T> =
@@ -248,7 +252,7 @@ decl_module! {
             if last_version < current_version {
                 TransactionVersion::set(current_version);
                 for item in &["Proposals", "ProposalIds", "ProposalDetail", "Votes"] {
-                    kill_item(b"MultiSig", item.as_bytes())
+                    kill_item(NAME, item.as_bytes())
                 }
             }
 
@@ -408,7 +412,7 @@ decl_module! {
         /// Accepts a multisig signer authorization given to signer's identity.
         ///
         /// # Arguments
-        /// * `proposal_id` - Auth id of the authorization.
+        /// * `auth_id` - Auth id of the authorization.
         #[weight = <T as Config>::WeightInfo::accept_multisig_signer_as_identity()]
         pub fn accept_multisig_signer_as_identity(origin, auth_id: u64) -> DispatchResult {
             let signer = Self::ensure_signed_did(origin)?;
@@ -418,7 +422,7 @@ decl_module! {
         /// Accepts a multisig signer authorization given to signer's key (AccountId).
         ///
         /// # Arguments
-        /// * `proposal_id` - Auth id of the authorization.
+        /// * `auth_id` - Auth id of the authorization.
         #[weight = <T as Config>::WeightInfo::accept_multisig_signer_as_key()]
         pub fn accept_multisig_signer_as_key(origin, auth_id: u64) -> DispatchResult {
             let signer = Self::ensure_signed_acc(origin)?;
@@ -539,9 +543,7 @@ decl_module! {
             <Identity<T>>::unsafe_join_identity(
                 did,
                 Permissions::from_pallet_permissions(
-                    // TODO: Check if there is a variable for the pallet name and, if there is, use
-                    // it instead of b"_".
-                    iter::once(PalletPermissions::entire_pallet(b"multisig".as_ref().into()))
+                    iter::once(PalletPermissions::entire_pallet(NAME.into()))
                 ),
                 &Signatory::Account(multisig),
             );

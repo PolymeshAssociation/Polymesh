@@ -42,6 +42,7 @@
     "11_A_settlement": "node ./dist/tests/11_A_settlement.js",
     "11_B_settlement": "node ./dist/tests/11_B_settlement.js",
     "12_external_agents": "node ./dist/tests/12_external_agents.js",
+    "13_relayer": "node ./dist/tests/13_relayer.js",
     "schema_test": "./util/schema_test.sh",
     "offchain_worker_test": "node ./dist/util/offchain_worker_test.js",
     "polyx_balances": "node ./util/userBalancePOLYX.js",
@@ -68,7 +69,7 @@
     "minimist": "1.2.5",
     "nodejs-fs-utils": "1.2.5",
     "path": "0.12.7",
-    "pm2": "^5.1.0",
+    "pm2": "^5.1.1",
     "readline-sync": "1.4.10"
   },
   "devDependencies": {

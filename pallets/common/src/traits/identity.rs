@@ -92,6 +92,7 @@ pub trait WeightInfo {
     fn unfreeze_secondary_keys() -> Weight;
     fn add_authorization() -> Weight;
     fn remove_authorization() -> Weight;
+    fn add_secondary_keys_with_authorization(n: u32) -> Weight;
     fn revoke_offchain_authorization() -> Weight;
     fn add_investor_uniqueness_claim() -> Weight;
     fn add_investor_uniqueness_claim_v2() -> Weight;
