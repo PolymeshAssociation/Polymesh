@@ -5,8 +5,8 @@ authors = ["Polymath"]
 edition = "2018"
 
 [dependencies]
-confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "b2.2.3-2" }
-cryptography_core = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "b2.2.3-2" }
+confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "b2.2.3-3" }
+cryptography_core = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "b2.2.3-3" }
 node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = false }
 pallet-asset = { path = "../../asset", default-features = false }
 pallet-balances = { path = "../../balances", default-features = false }
