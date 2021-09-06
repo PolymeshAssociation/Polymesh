@@ -1774,7 +1774,7 @@ fn enact_snapshot_results_works() {
         assert_last_event!(
             Event::SnapshotResultsEnacted(_, None, a, b, c),
             a.is_empty() && b.is_empty() && c.is_empty()
-        )
+        );
     });
 }
 

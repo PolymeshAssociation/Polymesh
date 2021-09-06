@@ -99,6 +99,9 @@ substrate-test-utils = { git = "https://github.com/PolymathNetwork/substrate", b
 substrate-test-utils-derive = { git = "https://github.com/PolymathNetwork/substrate", branch = "MESH-1680-libsecp256k1" }
 substrate-wasm-builder = { git = "https://github.com/PolymathNetwork/substrate", branch = "MESH-1680-libsecp256k1" }
 
+blake2 = { git = "https://github.com/PolymathNetwork/hashes", branch = "master" }
+schnorrkel = { git = "https://github.com/PolymathNetwork/schnorrkel", branch = "rebase-head" }
+
 [workspace]
 members = [
     "bin/bench",
