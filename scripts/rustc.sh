@@ -1,0 +1,2 @@
+shift
+rustc $@ -D warnings
