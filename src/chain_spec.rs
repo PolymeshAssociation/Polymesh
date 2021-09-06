@@ -117,7 +117,7 @@ macro_rules! asset {
             ticker_registration_config: ticker_registration_config(),
             classic_migration_tconfig: TickerRegistrationConfig {
                 max_ticker_length: 12,
-                // Reservations will expire at end of 2021
+                // Reservations will expire at end of March 2022
                 registration_length: Some(1648771199999),
             },
             /*
