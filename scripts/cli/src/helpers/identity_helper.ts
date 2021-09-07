@@ -75,11 +75,15 @@ export async function authorizeJoinToIdentities(
     });
 
     let last_auth_id: AnyNumber = 0;
-    for (let j in auths) {
-      if (auths[j][1].auth_id > last_auth_id) {
-        last_auth_id = auths[j][1].auth_id;
-      }
-    }
+    auths
+      .map(([key, value]) => value)
+      .filter((value) => value.isSome)
+      .forEach((value) => {
+        const auth = value.unwrap();
+        if (auth.auth_id > last_auth_id) {
+          last_auth_id = auth.auth_id;
+        }
+      });
     const transaction = api.tx.identity.joinIdentityAsKey(last_auth_id);
     await sendTx(signers[i], transaction);
   }
