@@ -173,7 +173,7 @@ decl_module! {
         /// - The sum of the weights of the `calls`.
         /// - One event.
         ///
-        /// This will return `Ok` in all circumstances. To determine the success of the batch, an
+        /// This will return `Ok` in all circumstances except an unsigned origin. To determine the success of the batch, an
         /// event is deposited. If a call failed and the batch was interrupted, then the
         /// `BatchInterrupted` event is deposited, along with the number of successful calls made
         /// and the error of the failed call. If all were successful, then the `BatchCompleted`
@@ -201,7 +201,7 @@ decl_module! {
         /// - The sum of the weights of the `calls`.
         /// - One event.
         ///
-        /// This will return `Ok` in all circumstances.
+        /// This will return `Ok` in all circumstances except an unsigned origin.
         /// To determine the success of the batch, an event is deposited.
         /// If any call failed, then `BatchInterrupted` is deposited.
         /// If all were successful, then the `BatchCompleted` event is deposited.
@@ -240,7 +240,7 @@ decl_module! {
         /// - The sum of the weights of the `calls`.
         /// - One event.
         ///
-        /// This will return `Ok` in all circumstances.
+        /// This will return `Ok` in all circumstances except an unsigned origin.
         /// To determine the success of the batch, an event is deposited.
         /// If any call failed, then `BatchOptimisticFailed` is deposited,
         /// with a vector of event counts for each call as well as a vector
