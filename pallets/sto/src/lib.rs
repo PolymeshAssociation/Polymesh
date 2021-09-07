@@ -238,7 +238,7 @@ decl_storage! {
         /// (ticker, fundraiser_id) -> Fundraiser
         Fundraisers get(fn fundraisers): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) u64 => Option<Fundraiser<T::Moment>>;
         /// Total fundraisers created for a token.
-        FundraiserCount get(fn fundraiser_count): map hasher(twox_64_concat) Ticker => u64;
+        FundraiserCount get(fn fundraiser_count): map hasher(blake2_128_concat) Ticker => u64;
         /// Name for the Fundraiser. It is only used offchain.
         /// (ticker, fundraiser_id) -> Fundraiser name
         FundraiserNames get(fn fundraiser_name): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) u64 => FundraiserName;
