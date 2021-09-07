@@ -19,7 +19,7 @@
 
 use crate::{
     Call, CompactAssignments, Config, ElectionSize, Module, NominatorIndex, Nominators,
-    OffchainAccuracy, ValidatorIndex, WeightInfo,
+    OffchainAccuracy, ValidatorIndex,
 };
 use codec::Decode;
 use frame_support::{traits::Get, weights::Weight, IterableStorageMap};
