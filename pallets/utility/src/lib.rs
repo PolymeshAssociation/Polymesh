@@ -180,7 +180,7 @@ decl_module! {
         /// event is deposited.
         #[weight = <T as Config>::WeightInfo::batch(&calls)]
         pub fn batch(origin, calls: Vec<<T as Config>::Call>) {
-            let is_root = Self::ensure_root_or_signed(origin.clone()).is_ok();
+            let is_root = Self::ensure_root_or_signed(origin.clone())?;
 
             // Run batch
             Self::deposit_event(Self::run_batch(origin.clone(), is_root, calls, true));
