@@ -397,16 +397,16 @@ pub fn prepare_submission<T: Config>(
     // );
 
     // crate::log!(debug, "💸 Maximum weight = {:?} // current weight = {:?} // maximum voters = {:?} // current votes = {:?}",
-	// 	maximum_weight,
-	// 	<T as Config>::WeightInfo::submit_solution_better(
-	// 			size.validators.into(),
-	// 			size.nominators.into(),
-	// 			compact.voter_count() as u32,
-	// 			winners.len() as u32,
-	// 	),
-	// 	maximum_allowed_voters,
-	// 	compact.voter_count(),
-	// );
+    // 	maximum_weight,
+    // 	<T as Config>::WeightInfo::submit_solution_better(
+    // 			size.validators.into(),
+    // 			size.nominators.into(),
+    // 			compact.voter_count() as u32,
+    // 			winners.len() as u32,
+    // 	),
+    // 	maximum_allowed_voters,
+    // 	compact.voter_count(),
+    // );
 
     // TODO: Move to new Phragman approach from Substrate 4
     // let compact = trim_to_weight::<T, _>(maximum_allowed_voters, compact, &nominator_index)?;
