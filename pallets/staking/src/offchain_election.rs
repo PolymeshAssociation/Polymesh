@@ -320,7 +320,7 @@ pub fn prepare_submission<T: Config>(
     assignments: Vec<Assignment<T::AccountId, OffchainAccuracy>>,
     winners: Vec<(T::AccountId, ExtendedBalance)>,
     do_reduce: bool,
-    maximum_weight: Weight,
+    _maximum_weight: Weight,
 ) -> Result<
     (
         Vec<ValidatorIndex>,
