@@ -164,7 +164,7 @@ decl_module! {
         ///
         /// This will execute until the first one fails and then stop.
         ///
-        /// May be called from any origin.
+        /// May be called from root or a signed origin.
         ///
         ///# Parameters
         /// - `calls`: The calls to be dispatched from the same origin.
@@ -192,7 +192,7 @@ decl_module! {
         /// in which case the state changes are rolled back.
         /// On failure, an event `BatchInterrupted(failure_idx, error)` is deposited.
         ///
-        /// May be called from any origin.
+        /// May be called from root or a signed origin.
         ///
         ///# Parameters
         /// - `calls`: The calls to be dispatched from the same origin.
@@ -230,7 +230,7 @@ decl_module! {
         /// This will execute all calls, in order, irrespective of failures.
         /// Any failures will be available in a `BatchOptimisticFailed` event.
         ///
-        /// May be called from any origin.
+        /// May be called from root or a signed origin.
         ///
         ///# Parameters
         /// - `calls`: The calls to be dispatched from the same origin.
