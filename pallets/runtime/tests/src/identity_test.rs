@@ -2148,6 +2148,7 @@ fn ext_join_identity_as_identity() {
         setup_join_identity(&alice, &bob);
     });
 }
+
 #[test]
 fn ext_leave_identity_as_identity() {
     ExtBuilder::default().build().execute_with(|| {
@@ -2163,5 +2164,24 @@ fn ext_leave_identity_as_identity() {
         // Try to leave a identity that has no signers
         assert_noop!(leave(charlie), Error::NotASigner);
         assert_ok!(leave(bob));
+    });
+}
+
+#[test]
+fn ext_leave_identity_as_identity_secondary_key_perms() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let charlie = User::new_with(bob.did, AccountKeyring::Charlie);
+        let dave = User::new_with(bob.did, AccountKeyring::Dave);
+
+        // Keys of Charlie and Dave are sks of Bob and Bob's DID is sk of Alice.
+        add_secondary_key_with_perms(bob.did, charlie.signatory_acc(), Permissions::empty());
+        add_secondary_key_with_perms(bob.did, dave.signatory_acc(), Permissions::default());
+        add_secondary_key(alice.did, bob.signatory_did());
+
+        let leave = |u: User| Identity::leave_identity_as_identity(u.origin(), alice.did);
+        assert_noop!(leave(charlie), PError::UnauthorizedCaller);
+        assert_ok!(leave(dave));
     });
 }

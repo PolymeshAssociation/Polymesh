@@ -427,7 +427,10 @@ decl_module! {
         /// Leave an identity as a secondary identity.
         #[weight = <T as Config>::WeightInfo::leave_identity_as_identity()]
         pub fn leave_identity_as_identity(origin, did: IdentityId) -> DispatchResult {
-            let (_, sender_did) = Self::ensure_did(origin)?;
+            let (sender, sender_did) = Self::ensure_did(origin)?;
+            if sender != DidRecords::<T>::get(sender_did).primary_key {
+                CallPermissions::<T>::ensure_call_permissions(&sender)?;
+            }
             Self::leave_identity(Signatory::from(sender_did), did)
         }
 
