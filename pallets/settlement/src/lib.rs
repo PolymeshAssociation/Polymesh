@@ -927,7 +927,7 @@ impl<T: Config> Module<T> {
         // Ensure venue exists & sender is its creator.
         Self::venue_for_management(venue_id, did)?;
 
-        // Prepare data to store in storage
+        // Prepare data to store in storage.
         let mut counter_parties = BTreeSet::new();
         let mut tickers = BTreeSet::new();
         // This is done to create a list of unique CP and tickers involved in the instruction.
@@ -938,7 +938,7 @@ impl<T: Config> Module<T> {
             tickers.insert(leg.asset);
         }
 
-        // Check if the venue has required permissions from token owners
+        // Check if the venue has required permissions from token owners.
         for ticker in &tickers {
             if Self::venue_filtering(ticker) {
                 ensure!(
@@ -948,7 +948,7 @@ impl<T: Config> Module<T> {
             }
         }
 
-        // NB Instruction counter starts from 1
+        // NB Instruction counter starts from 1.
         let instruction_counter = Self::instruction_counter();
         let instruction = Instruction {
             instruction_id: instruction_counter,
@@ -960,7 +960,7 @@ impl<T: Config> Module<T> {
             value_date,
         };
 
-        // write data to storage
+        // Write data to storage.
         for counter_party in &counter_parties {
             UserAffirmations::insert(
                 counter_party,
