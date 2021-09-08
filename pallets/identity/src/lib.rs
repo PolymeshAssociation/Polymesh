@@ -809,8 +809,6 @@ decl_error! {
         CDDIdNotUniqueForIdentity,
         /// Non systematic CDD providers can not create default cdd_id claims.
         InvalidCDDId,
-        /// Do not allow forwarded call to be called recursively
-        RecursionNotAllowed,
         /// Claim and Proof versions are different.
         ClaimAndProofVersionsDoNotMatch,
         /// The account key is being used, it can't be unlinked.
@@ -2121,6 +2119,7 @@ impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Module<T> {
 
         // NB: Doing this check here since `get_sk_data` moves `target_did_record`
         let is_direct_call = target_did == key_did;
+        assert!(is_direct_call);
         if is_direct_call && who == &target_did_record.primary_key {
             // It is a direct call and `who` is the primary key.
             return Some(AccountCallPermissionsData {
