@@ -43,6 +43,7 @@
     "11_B_settlement": "node ./dist/tests/11_B_settlement.js",
     "12_external_agents": "node ./dist/tests/12_external_agents.js",
     "13_relayer": "node ./dist/tests/13_relayer.js",
+    "14_itn_rewards": "node ./dist/tests/14_itn_rewards.js",
     "schema_test": "./util/schema_test.sh",
     "offchain_worker_test": "node ./dist/util/offchain_worker_test.js",
     "polyx_balances": "node ./util/userBalancePOLYX.js",

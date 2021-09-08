@@ -101,6 +101,9 @@ export interface TrustedFor {
   Specific?: ClaimType[];
 }
 
+export type ItnRewardStatus = { Unclaimed: number } | { Claimed: "" };
+
+
 export type Ticker = string;
 export type NonceObject = { nonce: string };
 export type PortfolioNumber = number;
