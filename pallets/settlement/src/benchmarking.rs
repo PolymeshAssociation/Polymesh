@@ -836,8 +836,8 @@ benchmarks! {
     }
 
     reschedule_instruction {
-        let l in 1 .. MAX_LEGS_IN_INSTRUCTION;
 
+        let l = MAX_LEGS_IN_INSTRUCTION;
         let (portfolios_to, from, to, tickers, _) = setup_affirm_instruction::<T>(l);
         let instruction_id = 1; // It will always be `1` as we know there is no other instruction in the storage yet.
         let to_portfolios = portfolios_to.clone();
