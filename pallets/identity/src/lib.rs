@@ -2102,9 +2102,9 @@ impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Module<T> {
     ) -> Option<AccountCallPermissionsData<T::AccountId>> {
         // `who` is the original origin (signer) of the original extrinsic.
         // `context::current_identity` (CI) is the target DID for which the calling key must have permissions.
-        // If `who`'s identity does not match CI we have a forwarded call.
-        // In this case, the key for which we check permissions is `who`'s DID rather than `who`.
-        // This assumes that recursive forwarded calls, are not allowed, as enforced in `forwarded_call`.
+        // Right now, we don't have any tests where CI != `who`'s DID, but there might be cases where this applies.
+        // In such cases, the key for which we check permissions is `who`'s DID rather than `who`.
+        // TODO(Centril): Investigate the cases.
 
         let key_did = <KeyToIdentityIds<T>>::try_get(who).ok()?;
 
@@ -2119,7 +2119,6 @@ impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Module<T> {
 
         // NB: Doing this check here since `get_sk_data` moves `target_did_record`
         let is_direct_call = target_did == key_did;
-        assert!(is_direct_call);
         if is_direct_call && who == &target_did_record.primary_key {
             // It is a direct call and `who` is the primary key.
             return Some(AccountCallPermissionsData {
@@ -2135,7 +2134,7 @@ impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Module<T> {
         }
 
         let who_sk = if is_direct_call {
-            // Direct call. We'll check the permissions of `who`'s key in `target_did`.
+            // Direct call. We'll check the permissions of `who` in `target_did`.
             Signatory::Account(who.clone())
         } else {
             // Forwarded call. We'll check the permissions of `who`'s DID in `target_did`.
