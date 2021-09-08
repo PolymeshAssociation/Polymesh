@@ -659,7 +659,7 @@ declare module '@polkadot/api/types/storage' {
       /**
        * All authorizations that an identity/key has
        **/
-      authorizations: AugmentedQuery<ApiType, (arg1: Signatory | { Identity: any } | { Account: any } | string | Uint8Array, arg2: u64 | AnyNumber | Uint8Array) => Observable<Authorization>, [Signatory, u64]> & QueryableStorageEntry<ApiType, [Signatory, u64]>;
+      authorizations: AugmentedQuery<ApiType, (arg1: Signatory | { Identity: any } | { Account: any } | string | Uint8Array, arg2: u64 | AnyNumber | Uint8Array) => Observable<Option<Authorization>>, [Signatory, u64]> & QueryableStorageEntry<ApiType, [Signatory, u64]>;
       /**
        * All authorizations that an identity has given. (Authorizer, auth_id -> authorized)
        **/

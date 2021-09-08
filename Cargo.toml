@@ -1,6 +1,6 @@
 [package]
 name = "polymesh"
-version = "3.0.1"
+version = "4.0.0"
 authors = ["Polymath"]
 build = "build.rs"
 edition = "2018"
@@ -98,6 +98,9 @@ substrate-test-runtime-client = { git = "https://github.com/PolymathNetwork/subs
 substrate-test-utils = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymath-3.0.0" }
 substrate-test-utils-derive = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymath-3.0.0" }
 substrate-wasm-builder = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymath-3.0.0" }
+
+blake2 = { git = "https://github.com/PolymathNetwork/hashes", branch = "master" }
+schnorrkel = { git = "https://github.com/PolymathNetwork/schnorrkel", branch = "rebase-head" }
 
 [workspace]
 members = [

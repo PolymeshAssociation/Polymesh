@@ -96,9 +96,7 @@ pub fn make_token<T: Config>(owner: &User<T>, name: Vec<u8>) -> Ticker {
 /// This struct helps to simplify the parameter copy/pass during the benchmarks.
 struct ComplianceRequirementInfo<T: Config> {
     pub owner: User<T>,
-    pub buyer: User<T>,
     pub ticker: Ticker,
-    pub issuers: Vec<TrustedIssuer>,
     pub sender_conditions: Vec<Condition>,
     pub receiver_conditions: Vec<Condition>,
 }
@@ -129,7 +127,6 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> ComplianceRequirementBuilder<T> {
     ) -> Self {
         // Create accounts and token.
         let owner = UserBuilder::<T>::default().generate_did().build("OWNER");
-        let buyer = UserBuilder::<T>::default().generate_did().build("BUYER");
         let ticker = make_token::<T>(&owner, b"1".to_vec());
 
         // Create issuers (i) and conditions(s & r).
@@ -139,9 +136,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> ComplianceRequirementBuilder<T> {
 
         let info = ComplianceRequirementInfo {
             owner,
-            buyer,
             ticker,
-            issuers,
             sender_conditions,
             receiver_conditions,
         };

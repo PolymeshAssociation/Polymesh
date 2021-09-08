@@ -85,7 +85,7 @@ frame-system = { version = "3.0.0", default-features = false }
 frame-support = { version = "3.0.0", default-features = false }
 
 # Crypto
-cryptography_core = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "b2.2.3-2" }
+cryptography_core = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "b2.2.3-3" }
 
 # RPC
 frame-system-rpc-runtime-api = { version = "3.0.0", default-features = false }

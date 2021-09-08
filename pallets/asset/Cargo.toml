@@ -42,7 +42,7 @@ frame-system = { version = "3.0.0", default-features = false }
 frame-support = { version = "3.0.0", default-features = false }
 pallet-timestamp = { version = "3.0.0", default-features = false }
 pallet-session = { version = "3.0.0", default-features = false }
-libsecp256k1 = { version = "0.3.5", default-features = false, features = ["hmac"] }
+libsecp256k1 = { version = "0.6", default-features = false, features = ["hmac"] }
 
 # Only in STD
 frame-benchmarking = { version = "3.0.0", default-features = false, optional = true }
