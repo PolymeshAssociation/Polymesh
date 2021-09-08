@@ -7,7 +7,7 @@ use pallet_staking::StakerStatus;
 use polymesh_common_utilities::{
     constants::{currency::POLY, REWARDS_MODULE_ID, TREASURY_MODULE_ID},
     protocol_fee::ProtocolOp,
-    SystematicIssuers,
+    MaybeBlock, SystematicIssuers,
 };
 use polymesh_primitives::{
     identity_id::GenesisIdentityRecord, AccountId, Balance, HexAccountId, IdentityId, Moment,
@@ -117,8 +117,8 @@ macro_rules! asset {
             ticker_registration_config: ticker_registration_config(),
             classic_migration_tconfig: TickerRegistrationConfig {
                 max_ticker_length: 12,
-                // Reservations will expire at end of 2021
-                registration_length: Some(1640995199999),
+                // Reservations will expire at end of March 2022
+                registration_length: Some(1648771199999),
             },
             /*
             versions: vec![
@@ -245,9 +245,9 @@ fn genesis_processed_data(
     Vec<BridgeTx<AccountId>>,
 ) {
     // Identities and their roles
-    // 1 = GC + UC
-    // 2 = GC
-    // 3 = GC + TC
+    // 1 = [Polymath] GenesisCouncil (1 of 3) + UpgradeCommittee (1 of 1) + TechnicalCommittee (1 of 1) + GCReleaseCoordinator
+    // 2 = GenesisCouncil (2 of 3)
+    // 3 = GenesisCouncil (3 of 3)
     // 4 = Operator
     // 5 = Bridge + Sudo
     let mut identities = Vec::with_capacity(5);
@@ -287,8 +287,13 @@ fn genesis_processed_data(
         push_key(controller);
     }
 
-    // Give CDD issuer to operator since it won't receive CDD from the group automatically
+    // Give CDD issuer to operator and bridge admin / sudo since it won't receive CDD from the group automatically
     identities[3]
+        .issuers
+        .push(SystematicIssuers::CDDProvider.as_id());
+
+    // Give CDD issuer to operator and bridge admin / sudo since it won't receive CDD from the group automatically
+    identities[4]
         .issuers
         .push(SystematicIssuers::CDDProvider.as_id());
 
@@ -424,26 +429,26 @@ macro_rules! staking {
     ($auths:expr, $stakers:expr, $cap:expr) => {
         pallet_staking::GenesisConfig {
             minimum_validator_count: 1,
-            validator_count: 20,
+            validator_count: 40,
             validator_commission_cap: $cap,
             stakers: $stakers,
             invulnerables: vec![],
             slash_reward_fraction: sp_runtime::Perbill::from_percent(10),
-            min_bond_threshold: 0,
+            min_bond_threshold: 0, // Will be updated to 50,000 POLYX once network has stabalised, before external operators join
             ..Default::default()
         }
     };
 }
 
 macro_rules! pips {
-    ($period:expr, $limit: expr) => {
+    ($period:expr, $expiry:expr, $limit:expr) => {
         pallet_pips::GenesisConfig {
             prune_historical_pips: false,
-            min_proposal_deposit: 0,
+            min_proposal_deposit: 2_000_000_000,
             default_enactment_period: $period,
             max_pip_skip_count: 2,
             active_pip_limit: $limit,
-            pending_pip_expiry: <_>::default(),
+            pending_pip_expiry: $expiry,
         }
     };
 }
@@ -567,7 +572,7 @@ pub mod general {
                 stakers,
                 PerThing::from_rational_approximation(1u64, 4u64)
             )),
-            pallet_pips: Some(pips!(time::MINUTES, 25)),
+            pallet_pips: Some(pips!(time::MINUTES, MaybeBlock::None, 25)),
             pallet_im_online: Some(Default::default()),
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
@@ -708,7 +713,7 @@ pub mod testnet {
             pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
             pallet_session: Some(session!(initial_authorities, session_keys)),
             pallet_staking: Some(staking!(initial_authorities, stakers, PerThing::zero())),
-            pallet_pips: Some(pips!(time::DAYS * 7, 1000)),
+            pallet_pips: Some(pips!(time::DAYS * 7, MaybeBlock::None, 1000)),
             pallet_im_online: Some(Default::default()),
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
@@ -846,7 +851,7 @@ pub mod polymesh_itn {
                 stakers,
                 PerThing::from_rational_approximation(1u64, 10u64)
             )),
-            pallet_pips: Some(pips!(time::DAYS * 30, 1000)),
+            pallet_pips: Some(pips!(time::DAYS * 30, MaybeBlock::None, 1000)),
             pallet_im_online: Some(Default::default()),
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
@@ -1018,8 +1023,8 @@ pub mod mainnet {
                 creator: root_key.clone(),
                 signatures_required: 3,
                 signers: bridge_signers(),
-                timelock: time::MINUTES * 15,
-                bridge_limit: (100_000_000_000, 365 * time::DAYS),
+                timelock: time::HOURS * 24,
+                bridge_limit: (1_000_000_000_000_000, 365 * time::DAYS),
                 complete_txs,
             }),
             pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
@@ -1030,7 +1035,11 @@ pub mod mainnet {
                 stakers,
                 PerThing::from_rational_approximation(1u64, 10u64)
             )),
-            pallet_pips: Some(pips!(time::DAYS * 30, 1000)),
+            pallet_pips: Some(pips!(
+                time::DAYS * 30,
+                MaybeBlock::Some(time::DAYS * 90),
+                1000
+            )),
             pallet_im_online: Some(Default::default()),
             pallet_authority_discovery: Some(Default::default()),
             pallet_babe: Some(Default::default()),
@@ -1049,11 +1058,11 @@ pub mod mainnet {
             // CDD providers
             pallet_group_Instance2: Some(Default::default()), // No CDD provider
             // Technical Committee:
-            pallet_group_Instance3: Some(group_membership!(3, 4, 5)), // One GC member + genesis operator + Bridge Multisig
-            pallet_committee_Instance3: Some(committee!(3)),          // RC = 3, 1/2 votes required
+            pallet_group_Instance3: Some(group_membership!(1)), // One GC member
+            pallet_committee_Instance3: Some(committee!(1)),    // 1/2 votes required
             // Upgrade Committee:
             pallet_group_Instance4: Some(group_membership!(1)), // One GC member
-            pallet_committee_Instance4: Some(committee!(1)),    // RC = 1, 1/2 votes required
+            pallet_committee_Instance4: Some(committee!(1)),    // 1/2 votes required
             pallet_protocol_fee: Some(protocol_fee!()),
             pallet_settlement: Some(Default::default()),
             pallet_multisig: Some(pallet_multisig::GenesisConfig {
