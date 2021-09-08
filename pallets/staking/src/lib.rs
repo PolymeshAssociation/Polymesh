@@ -2560,12 +2560,7 @@ decl_module! {
         ///   - Initial solution is almost the same.
         ///   - Worse solution is retraced in pre-dispatch-checks which sets its own weight.
         /// # </weight>
-        #[weight = <T as Config>::WeightInfo::submit_solution_better(
-            size.validators.into(),
-            size.nominators.into(),
-            compact.voter_count() as u32,
-            winners.len() as u32,
-        )]
+        #[weight = (T::OffchainSolutionWeightLimit::get(), Operational)]
         pub fn submit_election_solution(
             origin,
             winners: Vec<ValidatorIndex>,
@@ -2594,12 +2589,7 @@ decl_module! {
         /// # <weight>
         /// See [`submit_election_solution`].
         /// # </weight>
-        #[weight = <T as Config>::WeightInfo::submit_solution_better(
-            size.validators.into(),
-            size.nominators.into(),
-            compact.voter_count() as u32,
-            winners.len() as u32,
-        )]
+        #[weight = (T::OffchainSolutionWeightLimit::get(), Operational)]
         pub fn submit_election_solution_unsigned(
             origin,
             winners: Vec<ValidatorIndex>,
