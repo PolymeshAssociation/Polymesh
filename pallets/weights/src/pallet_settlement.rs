@@ -128,4 +128,9 @@ impl pallet_settlement::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().writes(4 as Weight))
             .saturating_add(DbWeight::get().writes((14 as Weight).saturating_mul(l as Weight)))
     }
+    fn reschedule_instruction() -> Weight {
+        (14_229_094_000 as Weight)
+            .saturating_add(DbWeight::get().reads(35 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
 }

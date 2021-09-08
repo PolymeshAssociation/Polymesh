@@ -308,9 +308,10 @@ pub trait WeightInfo {
     fn set_venue_filtering() -> Weight;
     fn allow_venues(u: u32) -> Weight;
     fn disallow_venues(u: u32) -> Weight;
-    fn execute_scheduled_instruction(l: u32) -> Weight;
     fn reject_instruction() -> Weight;
     fn change_receipt_validity() -> Weight;
+    fn execute_scheduled_instruction(l: u32) -> Weight;
+    fn reschedule_instruction() -> Weight;
 
     // Some multiple paths based extrinsic.
     // TODO: Will be removed once we get the worst case weight.
@@ -846,7 +847,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
-        #[weight = <T as Config>::WeightInfo::change_receipt_validity()]
+        #[weight = <T as Config>::WeightInfo::reschedule_instruction()]
         pub fn reschedule_instruction(origin, instruction_id: u64) {
             let did = Identity::<T>::ensure_perms(origin)?;
 
