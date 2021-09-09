@@ -57,10 +57,10 @@ use core::mem;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    ensure, storage,
+    ensure,
     traits::schedule::{DispatchTime, Named as ScheduleNamed},
     weights::Weight,
-    IterableStorageDoubleMap, StorageHasher, Twox128,
+    IterableStorageDoubleMap,
 };
 use frame_system::{self as system, ensure_root, RawOrigin};
 use pallet_base::ensure_string_limited;
@@ -77,8 +77,7 @@ use polymesh_common_utilities::{
     SystematicIssuers::Settlement as SettlementDID,
 };
 use polymesh_primitives::{
-    storage_migrate_on, storage_migration_ver, Balance, IdentityId, PortfolioId, SecondaryKey,
-    Ticker,
+    storage_migration_ver, Balance, IdentityId, PortfolioId, SecondaryKey, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{One, Verify};
@@ -241,21 +240,6 @@ pub struct Venue {
     pub creator: IdentityId,
     /// Specifies type of the venue (Only needed for the UI)
     pub venue_type: VenueType,
-}
-
-mod migrate {
-    use super::*;
-    #[derive(Encode, Decode)]
-    pub struct VenueOld {
-        /// Identity of the venue's creator
-        pub creator: IdentityId,
-        /// instructions under this venue (Only needed for the UI)
-        pub instructions: Vec<u64>,
-        /// Additional details about this venue (Only needed for the UI)
-        pub details: VenueDetails,
-        /// Specifies type of the venue (Only needed for the UI)
-        pub venue_type: VenueType,
-    }
 }
 
 /// Details about an offchain transaction receipt
@@ -430,9 +414,7 @@ decl_error! {
     }
 }
 
-// A value placed in storage that represents the current version of the this storage. This value
-// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-storage_migration_ver!(2);
+storage_migration_ver!(0);
 
 decl_storage! {
     trait Store for Module<T: Config> as Settlement {
@@ -481,7 +463,7 @@ decl_storage! {
         /// Number of instructions in the system (It's one more than the actual number)
         InstructionCounter get(fn instruction_counter) build(|_| 1u64): u64;
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(2).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
     }
 }
 
@@ -490,40 +472,6 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
-
-        fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion::get(), 1, {
-                // Delete all settlement data that were stored at a wrong prefix.
-                let prefix = Twox128::hash(b"StoCapped");
-                storage::unhashed::kill_prefix(&prefix);
-
-                // Set venue counter and instruction counter to 1 so that the id(s) start from 1 instead of 0
-                VenueCounter::put(1);
-                InstructionCounter::put(1);
-            });
-
-            storage_migrate_on!(StorageVersion::get(), 2, {
-                use polymesh_primitives::migrate::migrate_map_keys_and_value;
-                use frame_support::Twox64Concat;
-                use migrate::*;
-
-                migrate_map_keys_and_value::<_, _, Twox64Concat, _, _, _>(
-                    b"Settlement",
-                    b"VenueInfo",
-                    b"VenueInfo",
-                    |venue_id: u64, old: VenueOld| {
-                        for instruction_id in old.instructions {
-                            VenueInstructions::insert(venue_id, instruction_id, ());
-                        }
-                        Details::insert(venue_id, old.details);
-                        let venue = Venue { creator: old.creator, venue_type: old.venue_type };
-                        Some((venue_id, venue))
-                    }
-                )
-            });
-
-            1_000
-        }
 
         /// Registers a new venue.
         ///
