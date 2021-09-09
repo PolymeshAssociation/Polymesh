@@ -1196,7 +1196,8 @@ impl<T: Config> Module<T> {
 
     fn prune_instruction(instruction_id: u64) {
         let legs = InstructionLegs::drain_prefix(instruction_id).collect::<Vec<_>>();
-        <InstructionDetails<T>>::remove(instruction_id);
+        let details = <InstructionDetails<T>>::take(instruction_id);
+        VenueInstructions::remove(details.venue_id, instruction_id);
         <InstructionLegStatus<T>>::remove_prefix(instruction_id);
         InstructionAffirmsPending::remove(instruction_id);
         AffirmsReceived::remove_prefix(instruction_id);
