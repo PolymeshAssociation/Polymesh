@@ -1655,14 +1655,6 @@ impl<T: Config> Module<T> {
         })
     }
 
-    /// Returns identity of a signatory
-    pub fn get_identity_of_signatory(signer: &Signatory<T::AccountId>) -> Option<IdentityId> {
-        match signer {
-            Signatory::Account(key) => Self::get_identity(&key),
-            Signatory::Identity(did) => Some(*did),
-        }
-    }
-
     fn leave_identity(origin: T::Origin) -> DispatchResult {
         let (key, did) = Self::ensure_did(origin)?;
         let signer = Signatory::Account(key.clone());
