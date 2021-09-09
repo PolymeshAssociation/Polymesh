@@ -1857,26 +1857,6 @@ impl<T: Config> Module<T> {
         Self::deposit_event(RawEvent::DidCreated(id, primary_key, vec![]));
     }
 
-    /// It returns the list of flatten identities of the given identity.
-    /// It runs recursively over all secondary items.
-    pub fn flatten_identities(id: IdentityId, max_depth: u8) -> Vec<IdentityId> {
-        Self::identity_record_of(id)
-            .map(|identity| {
-                identity
-                    .secondary_keys
-                    .into_iter()
-                    .flat_map(|si| match si.signer {
-                        Signatory::Identity(sub_id) if max_depth > 0 => {
-                            Self::flatten_identities(sub_id, max_depth - 1)
-                        }
-                        _ => vec![],
-                    })
-                    .chain(core::iter::once(id))
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default()
-    }
-
     /// Ensures that `origin`'s key is linked to a DID and returns both.
     pub fn ensure_did(origin: T::Origin) -> Result<(T::AccountId, IdentityId), DispatchError> {
         let sender = ensure_signed(origin)?;
