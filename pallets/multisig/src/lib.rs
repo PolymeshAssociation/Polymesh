@@ -539,13 +539,10 @@ decl_module! {
             <Identity<T>>::ensure_key_did_unlinked(&multisig)?;
 
             <Identity<T>>::link_account_key_to_did(&multisig, did);
-            <Identity<T>>::unsafe_join_identity(
-                did,
-                Permissions::from_pallet_permissions(
-                    iter::once(PalletPermissions::entire_pallet(NAME.into()))
-                ),
-                &Signatory::Account(multisig),
+            let perms = Permissions::from_pallet_permissions(
+                iter::once(PalletPermissions::entire_pallet(NAME.into()))
             );
+            <Identity<T>>::unsafe_join_identity(did, perms, multisig);
         }
 
         /// Adds a multisig as the primary key of the current did if the current DID is the creator

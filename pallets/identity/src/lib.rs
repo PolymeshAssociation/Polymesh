@@ -859,7 +859,7 @@ impl<T: Config> Module<T> {
 
             Self::link_account_key_to_did(&key, target_did);
 
-            Self::unsafe_join_identity(target_did, permissions, &signer);
+            Self::unsafe_join_identity(target_did, permissions, key);
             Ok(())
         })
     }
@@ -873,14 +873,14 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Joins an identity as signer
+    /// Joins a DID as an account based secondary key.
     pub fn unsafe_join_identity(
         target_did: IdentityId,
         permissions: Permissions,
-        signer: &Signatory<T::AccountId>,
+        key: T::AccountId,
     ) {
         // Link the secondary key.
-        let sk = SecondaryKey::new(signer.clone(), permissions);
+        let sk = SecondaryKey::new(Signatory::Account(key), permissions);
         <DidRecords<T>>::mutate(target_did, |identity| {
             identity.add_secondary_keys(iter::once(sk.clone()));
         });
