@@ -81,7 +81,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
-#![feature(const_option, bool_to_option)]
+#![feature(const_option, bool_to_option, option_result_contains)]
 
 pub mod types;
 pub use types::{
@@ -406,15 +406,13 @@ decl_module! {
         /// Join an identity as a secondary key.
         #[weight = <T as Config>::WeightInfo::join_identity_as_key()]
         pub fn join_identity_as_key(origin, auth_id: u64) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            Self::join_identity(Signatory::Account(sender), auth_id)
+            Self::join_identity(origin, auth_id)
         }
 
         /// Leave the secondary key's identity.
         #[weight = <T as Config>::WeightInfo::leave_identity_as_key()]
         pub fn leave_identity_as_key(origin) -> DispatchResult {
-            let (sender, did) = Self::ensure_did(origin)?;
-            Self::leave_identity(Signatory::Account(sender), did)
+            Self::leave_identity(origin)
         }
 
         /// Adds a new claim record or edits an existing one. Only called by did_issuer's secondary key.
@@ -840,41 +838,26 @@ impl<T: Config> Module<T> {
     }
 
     /// Accepts an auth to join an identity as a signer
-    pub fn join_identity(signer: Signatory<T::AccountId>, auth_id: u64) -> DispatchResult {
+    pub fn join_identity(origin: T::Origin, auth_id: u64) -> DispatchResult {
+        let key = ensure_signed(origin)?;
+        let signer = Signatory::Account(key.clone());
         Self::accept_auth_with(&signer, auth_id, |data, target_did| {
             let permissions = extract_auth!(data, JoinIdentity(p));
             // Not really needed unless we allow identities to be deleted.
             Self::ensure_id_record_exists(target_did)?;
 
-            let charge_fee = || {
-                T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddSecondaryKeysWithAuthorization)
-            };
-
             // Link the secondary key.
-            match &signer {
-                Signatory::Account(key) => {
-                    Self::ensure_key_did_unlinked(key)?;
-                    // Check that the new Identity has a valid CDD claim.
-                    ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
-                    // Charge the protocol fee after all checks.
-                    charge_fee()?;
-                    // Update current did of the transaction to the newly joined did.
-                    // This comes handy when someone uses a batch transaction to leave their identity,
-                    // join another identity, and then do something as the new identity.
-                    T::CddHandler::set_current_identity(&target_did);
+            Self::ensure_key_did_unlinked(&key)?;
+            // Check that the new Identity has a valid CDD claim.
+            ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
+            // Charge the protocol fee after all checks.
+            T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddSecondaryKeysWithAuthorization)?;
+            // Update current did of the transaction to the newly joined did.
+            // This comes handy when someone uses a batch transaction to leave their identity,
+            // join another identity, and then do something as the new identity.
+            T::CddHandler::set_current_identity(&target_did);
 
-                    Self::link_account_key_to_did(key, target_did);
-                }
-                Signatory::Identity(_) => {
-                    // Check if secondary keys already contains this signer.
-                    ensure!(
-                        !<DidRecords<T>>::get(target_did).contains_secondary_key(&signer),
-                        Error::<T>::AlreadyLinked
-                    );
-                    // Charge the protocol fee after all checks.
-                    charge_fee()?;
-                }
-            }
+            Self::link_account_key_to_did(&key, target_did);
 
             Self::unsafe_join_identity(target_did, permissions, &signer);
             Ok(())
@@ -1097,23 +1080,17 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// It checks if `signer` is a secondary key of `did` identity.
+    /// It checks if `key` is a secondary key of `did` identity.
     /// # IMPORTANT
     /// If secondary keys are frozen this function always returns false.
-    /// Primary key cannot be frozen.
-    pub fn is_signer_authorized(did: IdentityId, signer: &Signatory<T::AccountId>) -> bool {
+    /// A primary key cannot be frozen.
+    pub fn is_key_authorized(did: IdentityId, key: &T::AccountId) -> bool {
         let record = <DidRecords<T>>::get(did);
 
-        // Check primary id or key
-        match signer {
-            Signatory::Account(ref signer_key) if record.primary_key == *signer_key => true,
-            Signatory::Identity(ref signer_id) if did == *signer_id => true,
-            _ => {
-                // Check secondary items if DID is not frozen.
-                !Self::is_did_frozen(did)
-                    && record.secondary_keys.iter().any(|si| si.signer == *signer)
-            }
-        }
+        // Check primary id or key.
+        &record.primary_key == key
+            // Check secondary items if DID is not frozen.
+            || !Self::is_did_frozen(did) && record.secondary_keys.iter().any(|si| si.signer.as_account().contains(&key))
     }
 
     /// It checks if `key` is a secondary key of `did` identity.
@@ -1686,24 +1663,25 @@ impl<T: Config> Module<T> {
         }
     }
 
-    fn leave_identity(signer: Signatory<T::AccountId>, did: IdentityId) -> DispatchResult {
+    fn leave_identity(origin: T::Origin) -> DispatchResult {
+        let (key, did) = Self::ensure_did(origin)?;
+        let signer = Signatory::Account(key.clone());
         ensure!(Self::is_signer(did, &signer), Error::<T>::NotASigner);
 
-        if let Signatory::Account(key) = &signer {
-            // Ensure that it is safe to unlink the account key from the did.
-            Self::ensure_key_unlinkable_from_did(&key)?;
+        // Ensure that it is safe to unlink the account key from the did.
+        Self::ensure_key_unlinkable_from_did(&key)?;
 
-            // Unlink multisig signers.
-            if T::MultiSig::is_multisig(key) {
-                ensure!(
-                    T::Balances::total_balance(key).is_zero(),
-                    Error::<T>::MultiSigHasBalance
-                );
-                // Unlink multisig signers from the identity.
-                Self::unlink_multisig_signers_from_did(T::MultiSig::get_key_signers(key), did);
-            }
-            Self::unlink_account_key_from_did(key, did);
+        // Unlink multisig signers.
+        if T::MultiSig::is_multisig(&key) {
+            ensure!(
+                T::Balances::total_balance(&key).is_zero(),
+                Error::<T>::MultiSigHasBalance
+            );
+            // Unlink multisig signers from the identity.
+            Self::unlink_multisig_signers_from_did(T::MultiSig::get_key_signers(&key), did);
         }
+        Self::unlink_account_key_from_did(&key, did);
+
         // Update secondary keys at Identity.
         <DidRecords<T>>::mutate(did, |record| {
             record.remove_secondary_keys(&[signer.clone()]);
@@ -2022,8 +2000,8 @@ impl<T: Config> IdentityFnTrait<T::AccountId> for Module<T> {
     }
 
     /// Checks if the signer is authorized.
-    fn is_signer_authorized(did: IdentityId, signer: &Signatory<T::AccountId>) -> bool {
-        Self::is_signer_authorized(did, signer)
+    fn is_key_authorized(did: IdentityId, key: &T::AccountId) -> bool {
+        Self::is_key_authorized(did, key)
     }
 
     /// Checks if the keys is the primary key of the identity.

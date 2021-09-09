@@ -700,21 +700,21 @@ pub fn register_keyring_account_without_cdd(
 
 pub fn add_secondary_key_with_perms(
     did: IdentityId,
-    signer: Signatory<AccountId>,
+    acc: AccountId,
     perms: AuthPermissions,
 ) {
     let _primary_key = Identity::did_records(&did).primary_key;
     let auth_id = Identity::add_auth(
         did.clone(),
-        signer.clone(),
+        Signatory::Account(acc.clone()),
         AuthorizationData::JoinIdentity(perms),
         None,
     );
-    assert_ok!(Identity::join_identity(signer, auth_id));
+    assert_ok!(Identity::join_identity(Origin::signed(acc), auth_id));
 }
 
-pub fn add_secondary_key(did: IdentityId, signer: Signatory<AccountId>) {
-    add_secondary_key_with_perms(did, signer, <_>::default())
+pub fn add_secondary_key(did: IdentityId, acc: AccountId) {
+    add_secondary_key_with_perms(did, acc, <_>::default())
 }
 
 pub fn account_from(id: u64) -> AccountId {
