@@ -410,28 +410,11 @@ decl_module! {
             Self::join_identity(Signatory::Account(sender), auth_id)
         }
 
-        /// Join an identity as a secondary identity.
-        #[weight = <T as Config>::WeightInfo::join_identity_as_identity()]
-        pub fn join_identity_as_identity(origin, auth_id: u64) -> DispatchResult {
-            let sender_did = Self::ensure_perms(origin)?;
-            Self::join_identity(Signatory::from(sender_did), auth_id)
-        }
-
         /// Leave the secondary key's identity.
         #[weight = <T as Config>::WeightInfo::leave_identity_as_key()]
         pub fn leave_identity_as_key(origin) -> DispatchResult {
             let (sender, did) = Self::ensure_did(origin)?;
             Self::leave_identity(Signatory::Account(sender), did)
-        }
-
-        /// Leave an identity as a secondary identity.
-        #[weight = <T as Config>::WeightInfo::leave_identity_as_identity()]
-        pub fn leave_identity_as_identity(origin, did: IdentityId) -> DispatchResult {
-            let (sender, sender_did) = Self::ensure_did(origin)?;
-            if sender != DidRecords::<T>::get(sender_did).primary_key {
-                CallPermissions::<T>::ensure_call_permissions(&sender)?;
-            }
-            Self::leave_identity(Signatory::from(sender_did), did)
         }
 
         /// Adds a new claim record or edits an existing one. Only called by did_issuer's secondary key.

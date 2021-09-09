@@ -31,11 +31,10 @@ use polymesh_common_utilities::{
     SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    investor_zkproof_data::v2, AccountId, AssetPermissions, AuthorizationData, AuthorizationError,
-    AuthorizationType, CddId, Claim, ClaimType, DispatchableName, ExtrinsicPermissions,
-    IdentityClaim, IdentityId, InvestorUid, PalletName, PalletPermissions, Permissions,
-    PortfolioId, PortfolioNumber, Scope, SecondaryKey, Signatory, SubsetRestriction, Ticker,
-    TransactionError,
+    investor_zkproof_data::v2, AccountId, AssetPermissions, AuthorizationData, AuthorizationType,
+    CddId, Claim, ClaimType, DispatchableName, ExtrinsicPermissions, IdentityClaim, IdentityId,
+    InvestorUid, PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope,
+    SecondaryKey, Signatory, SubsetRestriction, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
 use sp_core::H512;
@@ -618,29 +617,6 @@ fn do_add_secondary_keys_with_ident_signer_test() {
 }
 
 #[test]
-fn join_identity_as_identity_with_perm_test() {
-    ExtBuilder::default()
-        .monied(true)
-        .build()
-        .execute_with(&do_join_identity_as_identity_with_perm_test);
-}
-
-fn do_join_identity_as_identity_with_perm_test() {
-    let bob = User::new(AccountKeyring::Bob);
-
-    // Use `add_auth` and `join_identity_as_identity` to add a secondary key.
-    run_add_secondary_key_with_perm_test(move |alice, perms| {
-        let auth_id = Identity::add_auth(
-            alice.did,
-            Signatory::Identity(bob.did),
-            AuthorizationData::JoinIdentity(perms),
-            None,
-        );
-        Identity::join_identity_as_identity(bob.origin(), auth_id)
-    })
-}
-
-#[test]
 fn join_identity_as_key_with_perm_test() {
     ExtBuilder::default()
         .monied(true)
@@ -962,20 +938,6 @@ fn leave_identity_test_with_externalities() {
     let did_rec = Identity::did_records(alice.did);
     assert_eq!(did_rec.secondary_keys, vec![charlie_sk]);
     assert_eq!(Identity::get_identity(&bob.acc()), None);
-
-    // Charlie leaves
-    TestStorage::set_current_identity(&charlie.did);
-    assert_ok!(Identity::leave_identity_as_identity(
-        charlie.origin(),
-        alice.did
-    ));
-
-    // Check DidRecord.
-    let did_rec = Identity::did_records(alice.did);
-    assert_eq!(did_rec.secondary_keys.len(), 0);
-    assert_eq!(Identity::get_identity(&bob.acc()), None);
-
-    // Check DidRecord.
     assert_eq!(Identity::get_identity(&dave_key), None);
     assert_eq!(Identity::get_identity(&musig_address), None);
 
@@ -1557,8 +1519,7 @@ fn cdd_register_did_test_we() {
     let charlie = AccountKeyring::Charlie.to_account_id();
     let dave = AccountKeyring::Dave.to_account_id();
     let dave_si = SecondaryKey::from_account_id(dave.clone());
-    let alice_si = SecondaryKey::from(alice_id);
-    let secondary_keys = vec![dave_si.clone().into(), alice_si.clone().into()];
+    let secondary_keys = vec![dave_si.clone().into()];
     assert_ok!(Identity::cdd_register_did(
         cdd1.clone(),
         charlie.clone(),
@@ -1583,18 +1544,6 @@ fn cdd_register_did_test_we() {
     assert_eq!(
         Identity::did_records(charlie_id).secondary_keys,
         vec![dave_si.clone()]
-    );
-
-    let alice_auth_id = get_last_auth_id(&alice_si.signer);
-
-    TestStorage::set_current_identity(&alice_id);
-    assert_ok!(Identity::join_identity_as_identity(
-        Origin::signed(alice),
-        alice_auth_id
-    ));
-    assert_eq!(
-        Identity::did_records(charlie_id).secondary_keys,
-        vec![dave_si, alice_si]
     );
 }
 
@@ -2116,72 +2065,4 @@ fn setup_join_identity(source: &User, target: &User) {
     ));
     let auth_id = get_last_auth_id(&target.did.into());
     assert_ok!(Identity::join_identity(target.did.into(), auth_id));
-}
-
-#[test]
-fn ext_join_identity_as_identity() {
-    ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
-
-        // Check non-exist authorization
-        assert_noop!(
-            Identity::join_identity_as_identity(bob.origin(), 0),
-            "Authorization does not exist"
-        );
-
-        // Add add authorization to later accept
-        assert_ok!(Identity::add_authorization(
-            alice.origin(),
-            bob.did.into(),
-            AuthorizationData::RotatePrimaryKey,
-            None
-        ));
-
-        // Try joining with wrong authorization type
-        let auth_id = get_last_auth_id(&bob.did.into());
-        assert_noop!(
-            Identity::join_identity_as_identity(bob.origin(), auth_id),
-            AuthorizationError::BadType
-        );
-
-        setup_join_identity(&alice, &bob);
-    });
-}
-
-#[test]
-fn ext_leave_identity_as_identity() {
-    ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
-        let charlie = User::new(AccountKeyring::Charlie);
-
-        setup_join_identity(&alice, &bob);
-
-        let leave = |u: User| Identity::leave_identity_as_identity(u.origin(), alice.did);
-        // Try to leave own identity
-        assert_noop!(leave(alice), Error::NotASigner);
-        // Try to leave a identity that has no signers
-        assert_noop!(leave(charlie), Error::NotASigner);
-        assert_ok!(leave(bob));
-    });
-}
-
-#[test]
-fn ext_leave_identity_as_identity_secondary_key_perms() {
-    ExtBuilder::default().build().execute_with(|| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
-        let charlie = User::new_with(bob.did, AccountKeyring::Charlie);
-        let dave = User::new_with(bob.did, AccountKeyring::Dave);
-
-        // Keys of Charlie and Dave are sks of Bob and Bob's DID is sk of Alice.
-        add_secondary_key_with_perms(bob.did, charlie.signatory_acc(), Permissions::empty());
-        add_secondary_key_with_perms(bob.did, dave.signatory_acc(), Permissions::default());
-        add_secondary_key(alice.did, bob.signatory_did());
-
-        let leave = |u: User| Identity::leave_identity_as_identity(u.origin(), alice.did);
-        assert_noop!(leave(charlie), PError::UnauthorizedCaller);
-        assert_ok!(leave(dave));
-    });
 }
