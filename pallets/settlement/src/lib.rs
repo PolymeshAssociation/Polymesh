@@ -957,6 +957,7 @@ impl<T: Config> Module<T> {
 
         // Check if the venue has required permissions from token owners.
         for ticker in &tickers {
+            // TODO: Merge with above for loop.
             if Self::venue_filtering(ticker) {
                 ensure!(
                     Self::venue_allow_list(ticker, venue_id),
@@ -1049,7 +1050,7 @@ impl<T: Config> Module<T> {
                     ));
                 }
                 LegStatus::ExecutionPending => {
-                    // Tokens are unlocked, need to be unlocked
+                    // Tokens are locked, need to be unlocked.
                     Self::unlock_via_leg(&leg_details)?;
                 }
                 LegStatus::PendingTokenLock => {
@@ -1059,7 +1060,7 @@ impl<T: Config> Module<T> {
             <InstructionLegStatus<T>>::insert(instruction_id, leg_id, LegStatus::PendingTokenLock);
         }
 
-        // Updates storage
+        // Updates storage.
         for portfolio in &portfolios {
             UserAffirmations::insert(portfolio, instruction_id, AffirmationStatus::Pending);
             AffirmsReceived::remove(instruction_id, portfolio);
@@ -1201,6 +1202,7 @@ impl<T: Config> Module<T> {
         AffirmsReceived::remove_prefix(instruction_id);
 
         // We remove duplicates in memory before triggering storage actions
+        // TODO: Use BTreeSet instead to avoid sort/dedup.
         let mut counter_parties = Vec::with_capacity(legs.len() * 2);
         for (_, leg) in &legs {
             counter_parties.push(leg.from);
