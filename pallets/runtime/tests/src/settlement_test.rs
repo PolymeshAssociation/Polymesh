@@ -2621,6 +2621,20 @@ fn multiple_portfolio_settlement() {
             amount
         );
 
+        // Alice tries to withdraw affirmation from multiple portfolios where only one has been affirmed.
+        assert_noop!(
+            Settlement::withdraw_affirmation(
+                alice.origin(),
+                instruction_counter,
+                vec![
+                    PortfolioId::default_portfolio(alice.did),
+                    PortfolioId::user_portfolio(alice.did, alice_num)
+                ],
+                2
+            ),
+            Error::UnexpectedAffirmationStatus
+        );
+
         // Alice fails to approve the instruction from her user specified portfolio due to lack of funds
         assert_noop!(
             Settlement::affirm_instruction(
