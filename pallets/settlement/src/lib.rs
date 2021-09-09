@@ -681,17 +681,34 @@ decl_module! {
         ///
         /// # Arguments
         /// * `instruction_id` - Instruction id to reject.
+        ///
+        /// # Permissions
+        /// * Portfolio
         #[weight = <T as Config>::WeightInfo::reject_instruction()]
         pub fn reject_instruction(origin, instruction_id: u64) {
             let PermissionedCallOriginData {
                 primary_did,
+                secondary_key,
                 ..
             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
             ensure!(
                 Self::instruction_details(instruction_id).status != InstructionStatus::Unknown,
                 Error::<T>::UnknownInstruction
             );
+
             let legs = InstructionLegs::iter_prefix(instruction_id).collect::<Vec<_>>();
+
+            // Ensure that the sender is a party of this instruction.
+            let mut is_party = false;
+            for (_, leg) in &legs {
+                if Self::is_leg_party(leg, primary_did, secondary_key.as_ref()) {
+                    is_party = true;
+                    // Only need to find one leg that the sender is a part of.
+                    break;
+                }
+            }
+            ensure!(is_party, Error::<T>::UnauthorizedSigner);
+
             Self::unsafe_unclaim_receipts(instruction_id, &legs);
             Self::unchecked_release_locks(instruction_id, &legs);
             let _ = T::Scheduler::cancel_named((SETTLEMENT_INSTRUCTION_EXECUTION, instruction_id).encode());
@@ -1675,5 +1692,17 @@ impl<T: Config> Module<T> {
             Error::<T>::LegCountTooSmall
         );
         Ok((legs_count, filtered_legs))
+    }
+
+    /// Check if the sender is a party (owner/custodian) of the leg.
+    fn is_leg_party(
+        leg: &Leg,
+        did: IdentityId,
+        secondary_key: Option<&SecondaryKey<T::AccountId>>,
+    ) -> bool {
+        // Check both from/to portoflios.
+        T::Portfolio::ensure_portfolio_custody_and_permission(leg.from, did, secondary_key).is_ok()
+            || T::Portfolio::ensure_portfolio_custody_and_permission(leg.to, did, secondary_key)
+                .is_ok()
     }
 }

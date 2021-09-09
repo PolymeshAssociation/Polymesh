@@ -2934,6 +2934,7 @@ fn reject_instruction() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
+        let charlie = User::new(AccountKeyring::Charlie);
 
         let (ticker, venue_counter) = ticker_init(alice, b"ACME");
         let amount = 100u128;
@@ -2960,6 +2961,12 @@ fn reject_instruction() {
             instruction_counter,
             AffirmationStatus::Affirmed,
             AffirmationStatus::Pending,
+        );
+        next_block();
+        // Try rejecting the instruction from a non-party account.
+        assert_noop!(
+            Settlement::reject_instruction(charlie.origin(), instruction_counter),
+            Error::UnauthorizedSigner
         );
         next_block();
         assert_ok!(Settlement::reject_instruction(
