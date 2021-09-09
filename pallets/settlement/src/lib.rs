@@ -178,6 +178,7 @@ pub enum AffirmationStatus {
     /// Affirmed by the user
     Affirmed,
     /// Rejected by the user
+    /// TODO: Unused, remove.
     Rejected,
 }
 
