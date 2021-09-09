@@ -21,7 +21,6 @@ use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
 use polymesh_primitives::asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName};
 use polymesh_primitives::ethereum::EthereumAddress;
-use polymesh_primitives::migrate::MigrationError;
 use polymesh_primitives::{
     AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, ScopeId, Ticker,
 };
@@ -137,13 +136,6 @@ pub trait Config:
     //type ContractsFn: ContractsFn<Self::AccountId, Self::Balance>;
 }
 
-/// Errors of migration on this pallet.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
-pub enum AssetMigrationError {
-    /// Migration of document fails on the given ticker and document id.
-    AssetDocumentFail(Ticker, DocumentId),
-}
-
 decl_event! {
     pub enum Event<T>
     where
@@ -215,8 +207,6 @@ decl_event! {
         ExtensionRemoved(IdentityId, Ticker, AccountId),
         /// A Polymath Classic token was claimed and transferred to a non-systematic DID.
         ClassicTickerClaimed(IdentityId, Ticker, EthereumAddress),
-        /// Migration error event.
-        MigrationFailure(MigrationError<AssetMigrationError>),
         /// Event for when a forced transfer takes place.
         /// caller DID/ controller DID, ticker, Portfolio of token holder, value.
         ControllerTransfer(IdentityId, Ticker, PortfolioId, Balance),

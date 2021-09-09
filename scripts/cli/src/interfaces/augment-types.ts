@@ -58,7 +58,7 @@ import type { ClassDetails, ClassId, ClassMetadata, DepositBalance, DepositBalan
 import type { Multisig, Timepoint } from '@polkadot/types/interfaces/utility';
 import type { VestingInfo } from '@polkadot/types/interfaces/vesting';
 import type { AccountId32Junction, AccountIndex64Junction, AccountKey20Junction, AssetInstance, BodyId, BodyPart, BodyPartAtLeastProportion, BodyPartFraction, BodyPartMoreThanProportion, DoubleEncodedCall, InboundStatus, Junction, MultiAsset, MultiAssetAbstractFungible, MultiAssetAbstractNonFungible, MultiAssetConcreteFungible, MultiAssetConcreteNonFungible, MultiLocation, NetworkId, OutboundStatus, Outcome, PluralityJunction, QueueConfigData, VersionedMultiAsset, VersionedMultiLocation, VersionedXcm, Xcm, XcmAssetEffects, XcmError, XcmHrmpChannelAccepted, XcmHrmpChannelClosing, XcmHrmpNewChannelOpenRequest, XcmOrder, XcmOrderBuyExecution, XcmOrderDepositAsset, XcmOrderDepositReserveAsset, XcmOrderExchangeAsset, XcmOrderInitiateReserveWithdraw, XcmOrderInitiateTeleport, XcmOrderQueryHolding, XcmOrigin, XcmOriginKind, XcmQueryResponse, XcmRelayedFrom, XcmReserveAssetDeposit, XcmResponse, XcmTeleportAsset, XcmTransact, XcmTransferAsset, XcmTransferReserveAsset, XcmWithdrawAsset, XcmpMessageFormat } from '@polkadot/types/interfaces/xcm';
-import type { AGId, AffirmationStatus, AgentGroup, AssetCompliance, AssetComplianceResult, AssetDidResult, AssetIdentifier, AssetMigrationError, AssetName, AssetOwnershipRelation, AssetPermissions, AssetType, Authorization, AuthorizationData, AuthorizationNonce, AuthorizationType, BallotMeta, BallotTimeRange, BallotTitle, BallotVote, BatchAddClaimItem, BatchRevokeClaimItem, Beneficiary, BridgeTx, BridgeTxDetail, BridgeTxStatus, CACheckpoint, CADetails, CAId, CAKind, CalendarPeriod, CalendarUnit, CanTransferResult, CappedFee, CddId, CddStatus, CheckpointId, CheckpointSchedule, ChoiceTitle, Claim, Claim1stKey, Claim2ndKey, ClaimType, ClassicTickerImport, ClassicTickerRegistration, Committee, ComplianceRequirement, ComplianceRequirementResult, Condition, ConditionResult, ConditionType, CorporateAction, Counter, CountryCode, CustomAssetTypeId, DepositInfo, DidRecord, DidRecords, DidRecordsSuccess, DidStatus, DispatchableName, DispatchableNames, Distribution, Document, DocumentHash, DocumentId, DocumentName, DocumentType, DocumentUri, ErrorAt, EventCounts, EventDid, ExtVersion, ExtensionAttributes, ExtrinsicPermissions, FeeOf, FundingRoundName, Fundraiser, FundraiserName, FundraiserStatus, FundraiserTier, GranularCanTransferResult, HandledTxStatus, IdentityClaim, IdentityClaimKey, IdentityId, IdentityRole, InactiveMember, Instruction, InstructionStatus, InvestorUid, InvestorZKProofData, IssueRecipient, ItnRewardStatus, KeyIdentityData, Leg, LegStatus, LegacyPalletPermissions, LegacyPermissions, LocalCAId, MaybeBlock, Memo, MetaDescription, MetaUrl, MetaVersion, MigrationError, Motion, MotionInfoLink, MotionTitle, MovePortfolioItem, OffChainSignature, PalletName, PalletPermissions, Payload, PendingTx, Percentage, PermissionedIdentityPrefs, Permissions, Pip, PipDescription, PipId, PipsMetadata, PolymeshVotes, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, PortfolioPermissions, PortfolioValidityResult, PosRatio, PreAuthorizedKeyInfo, PriceTier, ProportionMatch, ProposalData, ProposalDetails, ProposalState, ProposalStatus, Proposer, ProtocolOp, ProverTickerKey, Receipt, ReceiptDetails, ReceiptMetadata, RecordDate, RecordDateSpec, RestrictionResult, RistrettoPoint, Scalar, ScheduleId, ScheduleSpec, Scope, ScopeClaimProof, ScopeId, SecondaryKey, SecondaryKeyWithAuth, SecurityToken, SettlementType, Signatory, SimpleTokenRecord, SkippedCount, SlashingSwitch, SmartExtension, SmartExtensionName, SmartExtensionType, SnapshotId, SnapshotMetadata, SnapshotResult, SnapshottedPip, StoredSchedule, Subsidy, TargetIdAuthorization, TargetIdentities, TargetIdentity, TargetTreatment, Tax, TemplateDetails, TemplateMetadata, Ticker, TickerRangeProof, TickerRegistration, TickerRegistrationConfig, TickerTransferApproval, TransferManager, TransferManagerResult, TrustedFor, TrustedIssuer, UniqueCall, Url, Venue, VenueDetails, VenueType, Version, VoteByPip, VoteCount, VoteCountProposalFound, VotingResult, ZkProofData } from 'polymesh-typegen/interfaces/default';
+import type { AGId, AffirmationStatus, AgentGroup, AssetCompliance, AssetComplianceResult, AssetDidResult, AssetIdentifier, AssetName, AssetOwnershipRelation, AssetPermissions, AssetType, Authorization, AuthorizationData, AuthorizationNonce, AuthorizationType, BallotMeta, BallotTimeRange, BallotTitle, BallotVote, BatchAddClaimItem, BatchRevokeClaimItem, Beneficiary, BridgeTx, BridgeTxDetail, BridgeTxStatus, CACheckpoint, CADetails, CAId, CAKind, CalendarPeriod, CalendarUnit, CanTransferResult, CappedFee, CddId, CddStatus, CheckpointId, CheckpointSchedule, ChoiceTitle, Claim, Claim1stKey, Claim2ndKey, ClaimType, ClassicTickerImport, ClassicTickerRegistration, Committee, ComplianceRequirement, ComplianceRequirementResult, Condition, ConditionResult, ConditionType, CorporateAction, Counter, CountryCode, CustomAssetTypeId, DepositInfo, DidRecord, DidRecords, DidRecordsSuccess, DidStatus, DispatchableName, DispatchableNames, Distribution, Document, DocumentHash, DocumentId, DocumentName, DocumentType, DocumentUri, ErrorAt, EventCounts, EventDid, ExtVersion, ExtensionAttributes, ExtrinsicPermissions, FeeOf, FundingRoundName, Fundraiser, FundraiserName, FundraiserStatus, FundraiserTier, GranularCanTransferResult, HandledTxStatus, IdentityClaim, IdentityClaimKey, IdentityId, IdentityRole, InactiveMember, Instruction, InstructionStatus, InvestorUid, InvestorZKProofData, IssueRecipient, ItnRewardStatus, KeyIdentityData, Leg, LegStatus, LegacyPalletPermissions, LegacyPermissions, LocalCAId, MaybeBlock, Memo, MetaDescription, MetaUrl, MetaVersion, Motion, MotionInfoLink, MotionTitle, MovePortfolioItem, OffChainSignature, PalletName, PalletPermissions, Payload, PendingTx, Percentage, PermissionedIdentityPrefs, Permissions, Pip, PipDescription, PipId, PipsMetadata, PolymeshVotes, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, PortfolioPermissions, PortfolioValidityResult, PosRatio, PreAuthorizedKeyInfo, PriceTier, ProportionMatch, ProposalData, ProposalDetails, ProposalState, ProposalStatus, Proposer, ProtocolOp, ProverTickerKey, Receipt, ReceiptDetails, ReceiptMetadata, RecordDate, RecordDateSpec, RestrictionResult, RistrettoPoint, Scalar, ScheduleId, ScheduleSpec, Scope, ScopeClaimProof, ScopeId, SecondaryKey, SecondaryKeyWithAuth, SecurityToken, SettlementType, Signatory, SimpleTokenRecord, SkippedCount, SlashingSwitch, SmartExtension, SmartExtensionName, SmartExtensionType, SnapshotId, SnapshotMetadata, SnapshotResult, SnapshottedPip, StoredSchedule, Subsidy, TargetIdAuthorization, TargetIdentities, TargetIdentity, TargetTreatment, Tax, TemplateDetails, TemplateMetadata, Ticker, TickerRangeProof, TickerRegistration, TickerRegistrationConfig, TickerTransferApproval, TransferManager, TransferManagerResult, TrustedFor, TrustedIssuer, UniqueCall, Url, Venue, VenueDetails, VenueType, Version, VoteByPip, VoteCount, VoteCountProposalFound, VotingResult, ZkProofData } from 'polymesh-typegen/interfaces/default';
 
 declare module '@polkadot/types/types/registry' {
   export interface InterfaceTypes {
@@ -227,7 +227,6 @@ declare module '@polkadot/types/types/registry' {
     'Option<AssetIdentifier>': Option<AssetIdentifier>;
     'Option<AssetInstance>': Option<AssetInstance>;
     'Option<AssetMetadata>': Option<AssetMetadata>;
-    'Option<AssetMigrationError>': Option<AssetMigrationError>;
     'Option<AssetName>': Option<AssetName>;
     'Option<AssetOptions>': Option<AssetOptions>;
     'Option<AssetOwnershipRelation>': Option<AssetOwnershipRelation>;
@@ -741,7 +740,6 @@ declare module '@polkadot/types/types/registry' {
     'Option<MetaDescription>': Option<MetaDescription>;
     'Option<MetaUrl>': Option<MetaUrl>;
     'Option<MetaVersion>': Option<MetaVersion>;
-    'Option<MigrationError>': Option<MigrationError>;
     'Option<MmrLeafProof>': Option<MmrLeafProof>;
     'Option<MmrRootHash>': Option<MmrRootHash>;
     'Option<ModuleConstantMetadataLatest>': Option<ModuleConstantMetadataLatest>;
@@ -1307,7 +1305,6 @@ declare module '@polkadot/types/types/registry' {
     'Vec<AssetIdentifier>': Vec<AssetIdentifier>;
     'Vec<AssetInstance>': Vec<AssetInstance>;
     'Vec<AssetMetadata>': Vec<AssetMetadata>;
-    'Vec<AssetMigrationError>': Vec<AssetMigrationError>;
     'Vec<AssetName>': Vec<AssetName>;
     'Vec<AssetOptions>': Vec<AssetOptions>;
     'Vec<AssetOwnershipRelation>': Vec<AssetOwnershipRelation>;
@@ -1821,7 +1818,6 @@ declare module '@polkadot/types/types/registry' {
     'Vec<MetaDescription>': Vec<MetaDescription>;
     'Vec<MetaUrl>': Vec<MetaUrl>;
     'Vec<MetaVersion>': Vec<MetaVersion>;
-    'Vec<MigrationError>': Vec<MigrationError>;
     'Vec<MmrLeafProof>': Vec<MmrLeafProof>;
     'Vec<MmrRootHash>': Vec<MmrRootHash>;
     'Vec<ModuleConstantMetadataLatest>': Vec<ModuleConstantMetadataLatest>;
@@ -2387,7 +2383,6 @@ declare module '@polkadot/types/types/registry' {
     AssetIdentifier: AssetIdentifier;
     AssetInstance: AssetInstance;
     AssetMetadata: AssetMetadata;
-    AssetMigrationError: AssetMigrationError;
     AssetName: AssetName;
     AssetOptions: AssetOptions;
     AssetOwnershipRelation: AssetOwnershipRelation;
@@ -2901,7 +2896,6 @@ declare module '@polkadot/types/types/registry' {
     MetaDescription: MetaDescription;
     MetaUrl: MetaUrl;
     MetaVersion: MetaVersion;
-    MigrationError: MigrationError;
     MmrLeafProof: MmrLeafProof;
     MmrRootHash: MmrRootHash;
     ModuleConstantMetadataLatest: ModuleConstantMetadataLatest;
