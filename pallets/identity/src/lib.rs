@@ -177,10 +177,6 @@ decl_storage! {
         /// Authorization nonce per Identity. Initially is 0.
         pub OffChainAuthorizationNonce get(fn offchain_authorization_nonce): map hasher(identity) IdentityId => AuthorizationNonce;
 
-        /// Inmediate revoke of any off-chain authorization.
-        pub RevokeOffChainAuthorization get(fn is_offchain_authorization_revoked):
-            map hasher(blake2_128_concat) (Signatory<T::AccountId>, TargetIdAuthorization<T::Moment>) => bool;
-
         /// All authorizations that an identity/key has
         pub Authorizations get(fn authorizations): double_map hasher(blake2_128_concat)
             Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Option<Authorization<T::AccountId, T::Moment>>;
@@ -580,30 +576,13 @@ decl_module! {
 
                 Self::ensure_perms_length_limited(&si.permissions)?;
 
-                // Get account_id from signer
-                let account_id = match si.signer {
-                    Signatory::Account(ref key) => Some(key.clone()),
-                    Signatory::Identity(id) => Self::identity_record_of(id).map(|r| r.primary_key),
-                }.ok_or(Error::<T>::InvalidAccountKey)?;
+                // Get account_id from signer.
+                let account_id = si.signer.as_account().ok_or(Error::<T>::InvalidAccountKey)?;
 
-                ensure!(match si.signer {
-                    Signatory::Account(ref key) => {
-                        // 1.1. Constraint 1-to-1 account to DID.
-                        Self::can_link_account_key_to_did(key)
-                    },
-                    Signatory::Identity(_) => {
-                        // 1.1. Check if identity is already a secondary key.
-                        !record.contains_secondary_key(&si.signer)
-                    }
-                }, Error::<T>::AlreadyLinked);
+                // 1.1. Constraint 1-to-1 account to DID.
+                ensure!(Self::can_link_account_key_to_did(account_id), Error::<T>::AlreadyLinked);
 
-                // 1.2. Offchain authorization is not revoked explicitly.
-                let si_signer_authorization = &(si.signer.clone(), authorization.clone());
-                ensure!(
-                    !Self::is_offchain_authorization_revoked(si_signer_authorization),
-                    Error::<T>::AuthorizationHasBeenRevoked
-                );
-                // 1.3. Verify the signature.
+                // 1.2. Verify the signature.
                 let signature = AnySignature::from(Signature::from_h512(si_with_auth.auth_signature));
                 let signer: <<AnySignature as Verify>::Signer as IdentifyAccount>::AccountId =
                     Decode::decode(&mut &account_id.encode()[..]).map_err(|_| {
@@ -638,35 +617,6 @@ decl_module! {
             });
 
             Self::deposit_event(RawEvent::SecondaryKeysAdded(did, additional_keys_si));
-        }
-
-        /// It revokes the `auth` off-chain authorization of `signer`. It only takes effect if
-        /// the authorized transaction is not yet executed.
-        #[weight = <T as Config>::WeightInfo::revoke_offchain_authorization()]
-        pub fn revoke_offchain_authorization(
-            origin,
-            signer: Signatory<T::AccountId>,
-            auth: TargetIdAuthorization<T::Moment>
-        ) {
-            let sender = ensure_signed(origin)?;
-            CallPermissions::<T>::ensure_call_permissions(&sender)?;
-
-            match &signer {
-                Signatory::Account(key) => {
-                    ensure!(&sender == key, Error::<T>::KeyNotAllowed);
-                }
-                Signatory::Identity(id) => {
-                    ensure!(Self::is_primary_key(id, &sender), Error::<T>::NotPrimaryKey);
-                }
-            }
-
-            Self::deposit_event(
-                RawEvent::OffChainAuthorizationRevoked(
-                    auth.target_id,
-                    signer.clone()
-                )
-            );
-            <RevokeOffChainAuthorization<T>>::insert((signer, auth), true);
         }
 
         /// Add `Claim::InvestorUniqueness` claim for a given target identity.

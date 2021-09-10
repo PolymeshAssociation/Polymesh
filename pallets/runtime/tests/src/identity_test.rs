@@ -546,35 +546,6 @@ fn run_add_secondary_key_with_perm_test(
 }
 
 #[test]
-fn add_secondary_keys_with_ident_signer_test() {
-    ExtBuilder::default()
-        .monied(true)
-        .build()
-        .execute_with(&do_add_secondary_keys_with_ident_signer_test);
-}
-
-fn do_add_secondary_keys_with_ident_signer_test() {
-    let bob = User::new(AccountKeyring::Bob);
-
-    // Try adding the same `secondary_key` using `add_secondary_keys_with_authorization`.
-    run_add_secondary_key_with_perm_test(move |alice, perms| {
-        let (authorization, expires_at) = target_id_auth(alice);
-        let auth_encoded = authorization.encode();
-        let auth_signature = H512::from(bob.ring.sign(&auth_encoded));
-
-        let key_with_auth = SecondaryKeyWithAuth {
-            auth_signature,
-            secondary_key: SecondaryKey::new(bob.signatory_did(), perms).into(),
-        };
-        Identity::add_secondary_keys_with_authorization(
-            alice.origin(),
-            vec![key_with_auth],
-            expires_at,
-        )
-    })
-}
-
-#[test]
 fn join_identity_as_key_with_perm_test() {
     ExtBuilder::default()
         .monied(true)
@@ -971,16 +942,14 @@ fn enforce_uniqueness_keys_in_identity() {
 }
 
 fn secondary_keys_with_auth(
-    keys: &[AccountKeyring],
-    ids: &[IdentityId],
+    users: &[User],
     auth_encoded: &[u8],
 ) -> Vec<SecondaryKeyWithAuth<AccountId>> {
-    keys.iter()
-        .map(|acc| H512::from(acc.sign(&auth_encoded)))
-        .zip(ids.iter().map(|&id| SecondaryKey::from(id).into()))
-        .map(|(auth_signature, secondary_key)| SecondaryKeyWithAuth {
-            auth_signature,
-            secondary_key,
+    users
+        .iter()
+        .map(|user| SecondaryKeyWithAuth {
+            auth_signature: H512::from(user.ring.sign(&auth_encoded)),
+            secondary_key: SecondaryKey::from_account_id(user.acc()).into(),
         })
         .collect()
 }
@@ -1003,9 +972,8 @@ fn one_step_join_id_with_ext() {
         AccountKeyring::Charlie,
         AccountKeyring::Dave,
     ];
-    let users @ [b, c, _] = keys.map(User::new);
-    let secondary_keys_with_auth =
-        secondary_keys_with_auth(&keys, &users.map(|u| u.did), &auth_encoded);
+    let users @ [b, c, _] = keys.map(|r| User::new_with(a.did, r));
+    let secondary_keys_with_auth = secondary_keys_with_auth(&users, &auth_encoded);
 
     let add = |user: User, auth| {
         Identity::add_secondary_keys_with_authorization(user.origin(), auth, expires_at)
@@ -1014,7 +982,11 @@ fn one_step_join_id_with_ext() {
     assert_ok!(add(a, secondary_keys_with_auth[..2].to_owned()));
 
     let secondary_keys = Identity::did_records(a.did).secondary_keys;
-    let contains = |u: User| secondary_keys.iter().find(|si| **si == u.did).is_some();
+    let contains = |u: User| {
+        secondary_keys
+            .iter()
+            .any(|si| si.signer == u.signatory_acc())
+    };
     assert_eq!(contains(b), true);
     assert_eq!(contains(c), true);
 
@@ -1025,26 +997,6 @@ fn one_step_join_id_with_ext() {
     assert_noop!(
         add(a, secondary_keys_with_auth[2..].to_owned()),
         Error::InvalidAuthorizationSignature
-    );
-
-    // Check revoke off-chain authorization.
-    let e = User::new(AccountKeyring::Eve);
-    let (eve_auth, _) = target_id_auth(a);
-    assert_ne!(authorization.nonce, eve_auth.nonce);
-
-    let eve_secondary_key_with_auth = SecondaryKeyWithAuth {
-        secondary_key: SecondaryKey::from(e.did).into(),
-        auth_signature: H512::from(AccountKeyring::Eve.sign(eve_auth.encode().as_slice())),
-    };
-
-    assert_ok!(Identity::revoke_offchain_authorization(
-        e.origin(),
-        e.signatory_did(),
-        eve_auth
-    ));
-    assert_noop!(
-        add(a, vec![eve_secondary_key_with_auth]),
-        Error::AuthorizationHasBeenRevoked
     );
 
     // Check expire
@@ -1152,10 +1104,9 @@ fn add_secondary_keys_with_authorization_too_many_sks() {
 
         // Fail at adding the {MAX + 1}th SK.
         let auth_encoded = auth();
-        let auths = secondary_keys_with_auth(&[bob.ring], &[bob.did], &auth_encoded);
         assert_too_long!(Identity::add_secondary_keys_with_authorization(
             user.origin(),
-            auths,
+            secondary_keys_with_auth(&[bob], &auth_encoded),
             expires_at
         ));
     });
