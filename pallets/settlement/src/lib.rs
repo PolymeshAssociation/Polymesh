@@ -177,9 +177,6 @@ pub enum AffirmationStatus {
     Pending,
     /// Affirmed by the user
     Affirmed,
-    /// Rejected by the user
-    /// TODO: Unused, remove.
-    Rejected,
 }
 
 impl Default for AffirmationStatus {
@@ -945,26 +942,19 @@ impl<T: Config> Module<T> {
         // Ensure venue exists & sender is its creator.
         Self::venue_for_management(venue_id, did)?;
 
-        // Prepare data to store in storage.
+        // Create a list of unique counter parties involved in the instruction.
         let mut counter_parties = BTreeSet::new();
-        let mut tickers = BTreeSet::new();
-        // This is done to create a list of unique CP and tickers involved in the instruction.
         for leg in &legs {
             ensure!(leg.from != leg.to, Error::<T>::SameSenderReceiver);
-            counter_parties.insert(leg.from);
-            counter_parties.insert(leg.to);
-            tickers.insert(leg.asset);
-        }
-
-        // Check if the venue has required permissions from token owners.
-        for ticker in &tickers {
-            // TODO: Merge with above for loop.
-            if Self::venue_filtering(ticker) {
+            // Check if the venue has required permissions from token owners.
+            if Self::venue_filtering(leg.asset) {
                 ensure!(
-                    Self::venue_allow_list(ticker, venue_id),
+                    Self::venue_allow_list(leg.asset, venue_id),
                     Error::<T>::UnauthorizedVenue
                 );
             }
+            counter_parties.insert(leg.from);
+            counter_parties.insert(leg.to);
         }
 
         // NB Instruction counter starts from 1.
@@ -1204,14 +1194,11 @@ impl<T: Config> Module<T> {
         AffirmsReceived::remove_prefix(instruction_id);
 
         // We remove duplicates in memory before triggering storage actions
-        // TODO: Use BTreeSet instead to avoid sort/dedup.
-        let mut counter_parties = Vec::with_capacity(legs.len() * 2);
+        let mut counter_parties = BTreeSet::new();
         for (_, leg) in &legs {
-            counter_parties.push(leg.from);
-            counter_parties.push(leg.to);
+            counter_parties.insert(leg.from);
+            counter_parties.insert(leg.to);
         }
-        counter_parties.sort();
-        counter_parties.dedup();
         for counter_party in counter_parties {
             UserAffirmations::remove(counter_party, instruction_id);
         }
@@ -1230,7 +1217,7 @@ impl<T: Config> Module<T> {
             &portfolios,
             did,
             secondary_key,
-            &[AffirmationStatus::Pending, AffirmationStatus::Rejected],
+            &[AffirmationStatus::Pending],
         )?;
 
         let (total_leg_count, filtered_legs) =
@@ -1429,7 +1416,7 @@ impl<T: Config> Module<T> {
             &portfolios_set,
             did,
             secondary_key.as_ref(),
-            &[AffirmationStatus::Pending, AffirmationStatus::Rejected],
+            &[AffirmationStatus::Pending],
         )?;
 
         // Verify that the receipts are valid
