@@ -117,15 +117,14 @@ use polymesh_common_utilities::{
     },
     with_transaction, CommonConfig, Context, MaybeBlock, GC_DID,
 };
-use polymesh_primitives::IdentityId;
+use polymesh_primitives::{Balance, IdentityId};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use polymesh_runtime_common::PipsEnactSnapshotMaximumWeight;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
-use sp_runtime::traits::{
-    BlakeTwo256, CheckedAdd, CheckedSub, Dispatchable, Hash, One, Saturating, Zero,
-};
+use sp_runtime::traits::{BlakeTwo256, Dispatchable, Hash, One, Saturating, Zero};
+use sp_runtime::DispatchError;
 use sp_std::{convert::From, prelude::*};
 use sp_version::RuntimeVersion;
 
@@ -163,10 +162,6 @@ pub trait WeightInfo {
     fn expire_scheduled_pip() -> Weight;
 }
 
-/// Balance
-type BalanceOf<T> =
-    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
 /// A wrapper for a proposal url.
 #[derive(
     Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
@@ -196,7 +191,7 @@ pub struct Pip<T: Config> {
 /// A result of execution of get_votes.
 #[derive(Eq, PartialEq, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-pub enum VoteCount<Balance> {
+pub enum VoteCount {
     /// Proposal was found and has the following votes.
     ProposalFound {
         /// Stake for
@@ -265,7 +260,7 @@ pub struct PipsMetadata<T: Config> {
 /// For keeping track of proposal being voted on.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct VotingResult<Balance> {
+pub struct VotingResult {
     /// The current set of voters that approved with their stake.
     pub ayes_count: u32,
     pub ayes_stake: Balance,
@@ -277,7 +272,7 @@ pub struct VotingResult<Balance> {
 /// A "vote" or "signal" on a PIP to move it up or down the review queue.
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-pub struct Vote<Balance>(
+pub struct Vote(
     /// `true` if there's agreement.
     pub bool,
     /// How strongly do they feel about it?
@@ -317,7 +312,7 @@ impl Default for ProposalState {
 /// Information about deposit.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct DepositInfo<AccountId, Balance> {
+pub struct DepositInfo<AccountId> {
     /// Owner of the deposit.
     pub owner: AccountId,
     /// Amount deposited.
@@ -343,7 +338,7 @@ pub struct SnapshotMetadata<T: Config> {
 /// A PIP in the snapshot's priority queue for consideration by the GC.
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct SnapshottedPip<Balance> {
+pub struct SnapshottedPip {
     /// Identifies the PIP this refers to.
     pub id: PipId,
     /// Weight of the proposal in the snapshot's priority queue.
@@ -354,9 +349,9 @@ pub struct SnapshottedPip<Balance> {
 
 /// Defines sorting order for PIP priority queues, with highest priority *last*.
 /// Having higher prio last allows efficient tail popping, so we have a LIFO structure.
-fn compare_spip<B: Ord + Copy>(l: &SnapshottedPip<B>, r: &SnapshottedPip<B>) -> Ordering {
-    let (l_dir, l_stake): (bool, B) = l.weight;
-    let (r_dir, r_stake): (bool, B) = r.weight;
+fn compare_spip(l: &SnapshottedPip, r: &SnapshottedPip) -> Ordering {
+    let (l_dir, l_stake) = l.weight;
+    let (r_dir, r_stake) = r.weight;
     l_dir
         .cmp(&r_dir) // Negative has lower prio.
         .then_with(|| match l_dir {
@@ -387,6 +382,7 @@ pub enum SnapshotResult {
 pub type SkippedCount = u8;
 
 type Identity<T> = identity::Module<T>;
+type CallPermissions<T> = pallet_permissions::Module<T>;
 
 /// The module's configuration trait.
 pub trait Config:
@@ -435,7 +431,7 @@ decl_storage! {
         pub PruneHistoricalPips get(fn prune_historical_pips) config(): bool;
 
         /// The minimum amount to be used as a deposit for community PIP creation.
-        pub MinimumProposalDeposit get(fn min_proposal_deposit) config(): BalanceOf<T>;
+        pub MinimumProposalDeposit get(fn min_proposal_deposit) config(): Balance;
 
         /// Default enactment period that will be use after a proposal is accepted by GC.
         pub DefaultEnactmentPeriod get(fn default_enactment_period) config(): T::BlockNumber;
@@ -465,7 +461,7 @@ decl_storage! {
 
         /// Those who have locked a deposit.
         /// proposal (id, proposer) -> deposit
-        pub Deposits get(fn deposits): double_map hasher(twox_64_concat) PipId, hasher(twox_64_concat) T::AccountId => DepositInfo<T::AccountId, BalanceOf<T>>;
+        pub Deposits get(fn deposits): double_map hasher(twox_64_concat) PipId, hasher(twox_64_concat) T::AccountId => DepositInfo<T::AccountId>;
 
         /// Actual proposal for a given id, if it's current.
         /// proposal id -> proposal
@@ -473,11 +469,11 @@ decl_storage! {
 
         /// PolymeshVotes on a given proposal, if it is ongoing.
         /// proposal id -> vote count
-        pub ProposalResult get(fn proposal_result): map hasher(twox_64_concat) PipId => VotingResult<BalanceOf<T>>;
+        pub ProposalResult get(fn proposal_result): map hasher(twox_64_concat) PipId => VotingResult;
 
         /// Votes per Proposal and account. Used to avoid double vote issue.
         /// (proposal id, account) -> Vote
-        pub ProposalVotes get(fn proposal_vote): double_map hasher(twox_64_concat) PipId, hasher(twox_64_concat) T::AccountId => Option<Vote<BalanceOf<T>>>;
+        pub ProposalVotes get(fn proposal_vote): double_map hasher(twox_64_concat) PipId, hasher(twox_64_concat) T::AccountId => Option<Vote>;
 
         /// Maps PIPs to the block at which they will be executed, if any.
         pub PipToSchedule get(fn pip_to_schedule): map hasher(twox_64_concat) PipId => Option<T::BlockNumber>;
@@ -488,14 +484,14 @@ decl_storage! {
         ///
         /// Unlike `SnapshotQueue`, this queue is live, getting updated with each vote cast.
         /// The snapshot is therefore essentially a point-in-time clone of this queue.
-        pub LiveQueue get(fn live_queue): Vec<SnapshottedPip<BalanceOf<T>>>;
+        pub LiveQueue get(fn live_queue): Vec<SnapshottedPip>;
 
         /// The priority queue (lowest priority at index 0) of PIPs at the point of snapshotting.
         /// Priority is defined by the `weight` in the `SnapshottedPip`.
         ///
         /// A queued PIP can be skipped. Doing so bumps the `pip_skip_count`.
         /// Once a (configurable) threshhold is exceeded, a PIP cannot be skipped again.
-        pub SnapshotQueue get(fn snapshot_queue): Vec<SnapshottedPip<BalanceOf<T>>>;
+        pub SnapshotQueue get(fn snapshot_queue): Vec<SnapshottedPip>;
 
         /// The metadata of the snapshot, if there is one.
         pub SnapshotMeta get(fn snapshot_metadata): Option<SnapshotMetadata<T>>;
@@ -513,7 +509,6 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        Balance = BalanceOf<T>,
         <T as frame_system::Config>::AccountId,
         <T as frame_system::Config>::BlockNumber,
     {
@@ -563,7 +558,7 @@ decl_event!(
         /// The snapshot was cleared.
         SnapshotCleared(IdentityId, SnapshotId),
         /// A new snapshot was taken.
-        SnapshotTaken(IdentityId, SnapshotId, Vec<SnapshottedPip<Balance>>),
+        SnapshotTaken(IdentityId, SnapshotId, Vec<SnapshottedPip>),
         /// A PIP in the snapshot queue was skipped.
         /// (gc_did, pip_id, new_skip_count)
         PipSkipped(IdentityId, PipId, SkippedCount),
@@ -636,7 +631,7 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
 
             // Recompute the live queue.
-            <LiveQueue<T>>::set(Self::compute_live_queue());
+            LiveQueue::set(Self::compute_live_queue());
 
             // Done; we've cleared all V1 storage needed; V2 can now be filled in.
             // As for the weight, clearing costs much more than this, but let's pretend.
@@ -659,8 +654,8 @@ decl_module! {
         /// # Arguments
         /// * `deposit` the new min deposit required to start a proposal
         #[weight = (<T as Config>::WeightInfo::set_min_proposal_deposit(), Operational)]
-        pub fn set_min_proposal_deposit(origin, deposit: BalanceOf<T>) {
-            Self::config::<MinimumProposalDeposit<T>, _, _>(origin, deposit, RawEvent::MinimumProposalDepositChanged)?;
+        pub fn set_min_proposal_deposit(origin, deposit: Balance) {
+            Self::config::<MinimumProposalDeposit, _, _>(origin, deposit, RawEvent::MinimumProposalDepositChanged)?;
         }
 
         /// Change the default enactment period.
@@ -717,14 +712,12 @@ decl_module! {
         pub fn propose(
             origin,
             proposal: Box<T::Proposal>,
-            deposit: BalanceOf<T>,
+            deposit: Balance,
             url: Option<Url>,
             description: Option<PipDescription>,
         ) {
             // Infer the proposer from `origin`.
-            let proposer = Self::ensure_infer_proposer(origin)?;
-
-            let did = Self::current_did_or_missing()?;
+            let (proposer, did) = Self::ensure_infer_proposer(origin)?;
 
             // Ensure strings are limited in length.
             ensure_opt_string_limited::<T>(url.as_deref())?;
@@ -805,7 +798,7 @@ decl_module! {
             }
 
             // Emit the event.
-            Self::deposit_event(RawEvent::ProposalCreated(
+            Self::deposit_event(Event::<T>::ProposalCreated(
                 did,
                 proposer,
                 id,
@@ -836,8 +829,13 @@ decl_module! {
         /// * `IncorrectProposalState` if PIP isn't pending.
         /// * `InsufficientDeposit` if `origin` cannot reserve `deposit - old_deposit`.
         #[weight = <T as Config>::WeightInfo::vote()]
-        pub fn vote(origin, id: PipId, aye_or_nay: bool, deposit: BalanceOf<T>) {
-            let voter = ensure_signed(origin)?;
+        pub fn vote(origin, id: PipId, aye_or_nay: bool, deposit: Balance) {
+            let PermissionedCallOriginData {
+                sender: voter,
+                primary_did,
+                ..
+             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+
             let pip = Self::proposals(id).ok_or(Error::<T>::NoSuchProposal)?;
 
             // Proposal must be from the community.
@@ -854,8 +852,6 @@ decl_module! {
 
             // Proposal must be pending.
             Self::is_proposal_state(id, ProposalState::Pending)?;
-
-            let current_did = Self::current_did_or_missing()?;
 
             let old_res = Self::aggregate_result(id);
 
@@ -880,7 +876,7 @@ decl_module! {
             });
 
             // Emit event.
-            Self::deposit_event(RawEvent::Voted(current_did, voter, id, aye_or_nay, deposit));
+            Self::deposit_event(RawEvent::Voted(primary_did, voter, id, aye_or_nay, deposit));
         }
 
         /// Approves the pending committee PIP given by the `id`.
@@ -989,7 +985,7 @@ decl_module! {
             if let Some(meta) = <SnapshotMeta<T>>::get() {
                 // 2. Clear the snapshot.
                 <SnapshotMeta<T>>::kill();
-                <SnapshotQueue<T>>::kill();
+                SnapshotQueue::kill();
 
                 // 3. Emit event.
                 Self::deposit_event(RawEvent::SnapshotCleared(did, meta.id));
@@ -1015,8 +1011,8 @@ decl_module! {
             let id = SnapshotIdSequence::mutate(|id| mem::replace(id, *id + 1));
             let created_at = <system::Module<T>>::block_number();
             <SnapshotMeta<T>>::set(Some(SnapshotMetadata { created_at, made_by, id }));
-            let queue = <LiveQueue<T>>::get();
-            <SnapshotQueue<T>>::set(queue.clone());
+            let queue = LiveQueue::get();
+            SnapshotQueue::set(queue.clone());
 
             // Emit event.
             Self::deposit_event(RawEvent::SnapshotTaken(did, id, queue));
@@ -1045,7 +1041,7 @@ decl_module! {
 
             let max_pip_skip_count = Self::max_pip_skip_count();
 
-            <SnapshotQueue<T>>::try_mutate(|queue| {
+            SnapshotQueue::try_mutate(|queue| {
                 let mut to_bump_skipped = Vec::new();
                 // Default after-first-push capacity is 4, we bump this slightly.
                 // Rationale: GC are humans sitting together and reaching conensus.
@@ -1085,7 +1081,7 @@ decl_module! {
                 }
 
                 // Adjust the live queue, removing scheduled and rejected PIPs.
-                <LiveQueue<T>>::mutate(|live| {
+                LiveQueue::mutate(|live| {
                     live.retain(|e| !(to_reject.contains(&e.id) || to_approve.contains(&e.id)));
                 });
 
@@ -1142,30 +1138,33 @@ impl<T: Config> Module<T> {
 
     /// Ensure that `origin` represents one of:
     /// - a signed extrinsic (i.e. transaction), and infer the account id, as a community proposer.
+    ///   In this case, permissions are also checked
     /// - a committee, where the committee is also inferred.
     ///
-    /// Returns the inferred proposer.
+    /// Returns the inferred proposer and its DID.
     ///
     /// # Errors
     /// * `BadOrigin` if not a signed extrinsic.
     fn ensure_infer_proposer(
         origin: T::Origin,
-    ) -> Result<Proposer<T::AccountId>, sp_runtime::traits::BadOrigin> {
-        ensure_signed(origin.clone())
-            .map(Proposer::Community)
-            .or_else(|_| {
-                T::TechnicalCommitteeVMO::ensure_origin(origin.clone())
+    ) -> Result<(Proposer<T::AccountId>, IdentityId), DispatchError> {
+        match ensure_signed(origin.clone()) {
+            Ok(sender) => {
+                let did = CallPermissions::<T>::ensure_call_permissions(&sender)?.primary_did;
+                Ok((Proposer::Community(sender), did))
+            }
+            Err(_) => {
+                let proposer = T::TechnicalCommitteeVMO::ensure_origin(origin.clone())
                     .map(|_| Committee::Technical)
                     .or_else(|_| {
                         T::UpgradeCommitteeVMO::ensure_origin(origin).map(|_| Committee::Upgrade)
                     })
-                    .map(Proposer::Committee)
-            })
-    }
-
-    /// Returns the current identity or emits `MissingCurrentIdentity`.
-    fn current_did_or_missing() -> Result<IdentityId, Error<T>> {
-        Context::current_identity::<Identity<T>>().ok_or_else(|| Error::<T>::MissingCurrentIdentity)
+                    .map(Proposer::Committee)?;
+                let did = Context::current_identity::<Identity<T>>()
+                    .ok_or_else(|| Error::<T>::MissingCurrentIdentity)?;
+                Ok((proposer, did))
+            }
+        }
     }
 
     /// Rejects the given `id`, refunding the deposit, and possibly pruning the proposal's data.
@@ -1206,13 +1205,13 @@ impl<T: Config> Module<T> {
     fn maybe_unsnapshot_pip(id: PipId, state: ProposalState) {
         if let ProposalState::Pending = state {
             // Pending so therefore in live queue; evict `id`.
-            <LiveQueue<T>>::mutate(|queue| queue.retain(|i| i.id != id));
+            LiveQueue::mutate(|queue| queue.retain(|i| i.id != id));
 
             if <SnapshotMeta<T>>::get().is_some() {
                 // Proposal is pending and wasn't when snapshot was made.
                 // Hence, it is in the snapshot and filtering it out will have an effect.
                 // Note: These checks are not strictly necessary, but are done to avoid work.
-                <SnapshotQueue<T>>::mutate(|queue| queue.retain(|i| i.id != id));
+                SnapshotQueue::mutate(|queue| queue.retain(|i| i.id != id));
             }
         }
     }
@@ -1225,8 +1224,8 @@ impl<T: Config> Module<T> {
         Self::refund_proposal(did, id);
         Self::decrement_count_if_active(state);
         if prune {
-            <ProposalResult<T>>::remove(id);
-            <ProposalVotes<T>>::remove_prefix(id);
+            ProposalResult::remove(id);
+            ProposalVotes::<T>::remove_prefix(id);
             <ProposalMetadata<T>>::remove(id);
             if let Some(Proposer::Committee(_)) = Self::proposals(id).map(|p| p.proposer) {
                 CommitteePips::mutate(|list| list.retain(|&i| i != id));
@@ -1302,8 +1301,7 @@ impl<T: Config> Module<T> {
         let res = proposal.proposal.dispatch(system::RawOrigin::Root.into());
         let weight = res.unwrap_or_else(|e| e.post_info).actual_weight;
         let new_state = res.map_or(ProposalState::Failed, |_| ProposalState::Executed);
-        let did = Context::current_identity::<Identity<T>>().unwrap_or_default();
-        Self::maybe_prune(did, id, new_state);
+        Self::maybe_prune(GC_DID, id, new_state);
         Ok(Some(weight.unwrap_or(0)).into())
     }
 
@@ -1368,7 +1366,7 @@ impl<T: Config> Module<T> {
 impl<T: Config> Module<T> {
     /// Increase `acc`'s locked deposit for all PIPs by `amount`,
     /// or fail if there's not enough free balance after adding `amount` to lock.
-    fn increase_lock(acc: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+    fn increase_lock(acc: &T::AccountId, amount: Balance) -> DispatchResult {
         <T as Config>::Currency::increase_lock(
             PIPS_LOCK_ID,
             acc,
@@ -1376,7 +1374,7 @@ impl<T: Config> Module<T> {
             WithdrawReasons::all(),
             |sum| {
                 <T as Config>::Currency::free_balance(acc)
-                    .checked_sub(&sum)
+                    .checked_sub(sum)
                     .ok_or(Error::<T>::InsufficientDeposit.into())
                     .map(drop)
             },
@@ -1385,17 +1383,16 @@ impl<T: Config> Module<T> {
 
     /// Reduce `acc`'s locked deposit for all PIPs by `amount`,
     /// or fail if `amount` hasn't been locked for PIPs.
-    fn reduce_lock(acc: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+    fn reduce_lock(acc: &T::AccountId, amount: Balance) -> DispatchResult {
         <T as Config>::Currency::reduce_lock(PIPS_LOCK_ID, acc, amount)
     }
 
     /// Retrieve votes for a proposal represented by PipId `id`.
-    pub fn get_votes(id: PipId) -> VoteCount<BalanceOf<T>>
+    pub fn get_votes(id: PipId) -> VoteCount
     where
         T: Send + Sync,
-        BalanceOf<T>: Send + Sync,
     {
-        if !<ProposalResult<T>>::contains_key(id) {
+        if !ProposalResult::contains_key(id) {
             return VoteCount::ProposalNotFound;
         }
 
@@ -1428,11 +1425,11 @@ impl<T: Config> Module<T> {
     }
 
     /// Changes the vote of `voter` to `vote`, if any.
-    fn unsafe_vote(id: PipId, voter: T::AccountId, vote: Vote<BalanceOf<T>>) -> DispatchResult {
+    fn unsafe_vote(id: PipId, voter: T::AccountId, vote: Vote) -> DispatchResult {
         let mut stats = Self::proposal_result(id);
 
         // Update the vote and get the old one, if any, in which case also remove it from stats.
-        if let Some(Vote(direction, deposit)) = <ProposalVotes<T>>::get(id, voter.clone()) {
+        if let Some(Vote(direction, deposit)) = ProposalVotes::<T>::get(id, voter.clone()) {
             let (count, stake) = match direction {
                 true => (&mut stats.ayes_count, &mut stats.ayes_stake),
                 false => (&mut stats.nays_count, &mut stats.nays_stake),
@@ -1451,24 +1448,24 @@ impl<T: Config> Module<T> {
             .checked_add(1)
             .ok_or(Error::<T>::NumberOfVotesExceeded)?;
         *stake = stake
-            .checked_add(&deposit)
+            .checked_add(deposit)
             .ok_or(Error::<T>::StakeAmountOfVotesExceeded)?;
 
         // Commit all changes.
-        <ProposalResult<T>>::insert(id, stats);
-        <ProposalVotes<T>>::insert(id, voter, vote);
+        ProposalResult::insert(id, stats);
+        ProposalVotes::<T>::insert(id, voter, vote);
 
         Ok(())
     }
 
     /// Construct a `SnapshottedPip` from a `PipId`.
     /// `true` denotes a positive sign.
-    fn aggregate_result(id: PipId) -> SnapshottedPip<BalanceOf<T>> {
+    fn aggregate_result(id: PipId) -> SnapshottedPip {
         let VotingResult {
             ayes_stake,
             nays_stake,
             ..
-        } = <ProposalResult<T>>::get(id);
+        } = ProposalResult::get(id);
         let weight = if ayes_stake >= nays_stake {
             (true, ayes_stake - nays_stake)
         } else {
@@ -1478,9 +1475,9 @@ impl<T: Config> Module<T> {
     }
 
     /// Adjust the live queue under the assumption that `id` should be moved up or down the queue.
-    fn adjust_live_queue(id: PipId, old: SnapshottedPip<BalanceOf<T>>) {
+    fn adjust_live_queue(id: PipId, old: SnapshottedPip) {
         let new = Self::aggregate_result(id);
-        <LiveQueue<T>>::mutate(|queue| {
+        LiveQueue::mutate(|queue| {
             // Remove the old element.
             //
             // Under normal conditions, we can assume its in the list and findable,
@@ -1503,7 +1500,7 @@ impl<T: Config> Module<T> {
     /// Panics if it did.
     fn insert_live_queue(id: PipId) {
         let new = Self::aggregate_result(id);
-        <LiveQueue<T>>::mutate(|queue| {
+        LiveQueue::mutate(|queue| {
             // Inserting a new PIP entails that `id` is nowhere to be found.
             // It follows that binary search will return `Err(_)`.
             let pos = queue
@@ -1514,7 +1511,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Recompute the live queue from all existing PIPs.
-    pub fn compute_live_queue() -> Vec<SnapshottedPip<BalanceOf<T>>> {
+    pub fn compute_live_queue() -> Vec<SnapshottedPip> {
         // Fetch intersection of pending && aggregate their votes.
         let mut queue = <Proposals<T>>::iter_values()
             // Only keep pending community PIPs.

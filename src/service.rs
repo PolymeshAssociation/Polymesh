@@ -95,14 +95,14 @@ pub trait RuntimeApiCollection<Extrinsic: RuntimeExtrinsic>:
     + grandpa::GrandpaApi<Block>
     + sp_block_builder::BlockBuilder<Block>
     + frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>
-    + node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<Block, Balance, Extrinsic>
+    + node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<Block, Extrinsic>
     + sp_api::Metadata<Block>
     + sp_offchain::OffchainWorkerApi<Block>
     + sp_session::SessionKeys<Block>
     + sp_authority_discovery::AuthorityDiscoveryApi<Block>
     //+ pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, BlockNumber>
     + pallet_staking_rpc_runtime_api::StakingApi<Block>
-    + node_rpc_runtime_api::pips::PipsApi<Block, AccountId, Balance>
+    + node_rpc_runtime_api::pips::PipsApi<Block, AccountId>
     + node_rpc_runtime_api::identity::IdentityApi<
         Block,
         IdentityId,
@@ -114,7 +114,7 @@ pub trait RuntimeApiCollection<Extrinsic: RuntimeExtrinsic>:
     > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
     + node_rpc_runtime_api::asset::AssetApi<Block, AccountId>
     + pallet_group_rpc_runtime_api::GroupApi<Block>
-    + node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, AccountId, Balance>
+    + node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, AccountId>
 where
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
@@ -129,14 +129,14 @@ where
         + grandpa::GrandpaApi<Block>
         + sp_block_builder::BlockBuilder<Block>
         + frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>
-        + node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<Block, Balance, Extrinsic>
+        + node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<Block, Extrinsic>
         + sp_api::Metadata<Block>
         + sp_offchain::OffchainWorkerApi<Block>
         + sp_session::SessionKeys<Block>
         + sp_authority_discovery::AuthorityDiscoveryApi<Block>
         //+ pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, BlockNumber>
         + pallet_staking_rpc_runtime_api::StakingApi<Block>
-        + node_rpc_runtime_api::pips::PipsApi<Block, AccountId, Balance>
+        + node_rpc_runtime_api::pips::PipsApi<Block, AccountId>
         + node_rpc_runtime_api::identity::IdentityApi<
             Block,
             IdentityId,
@@ -148,7 +148,7 @@ where
         > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
         + node_rpc_runtime_api::asset::AssetApi<Block, AccountId>
         + pallet_group_rpc_runtime_api::GroupApi<Block>
-        + node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, AccountId, Balance>,
+        + node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, AccountId>,
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
 }

@@ -7,24 +7,26 @@
     "polymesh-cli": "./dist/polymesh_cli.js"
   },
   "resolutions": {
-    "@polkadot/keyring": "5.5.1",
-    "@polkadot/util-crypto": "5.5.1",
-    "@polkadot/util": "5.5.1"
+    "@polkadot/keyring": "6.9.1",
+    "@polkadot/util-crypto": "6.9.1",
+    "@polkadot/util": "6.9.1"
   },
   "scripts": {
-    "start": "yarn build",
-    "create": "yarn build && yarn test",
-    "build": "yarn clean:some && tsc -p .",
-    "build:types": "yarn generate:defs && yarn generate:meta",
+    "start": "npm run build",
+    "create": "npm run build && npm run test",
+    "build": "npm run clean:some && tsc -p .",
+    "build:types": "npm run generate:polymesh-types && npm run generate:polymesh-meta && npm run generate:defs && npm run generate:meta",
     "generate:defs": "ts-node --skip-project node_modules/.bin/polkadot-types-from-defs --package polymesh-typegen/interfaces --input ./src/interfaces",
-    "generate:meta": "ts-node --skip-project node_modules/.bin/polkadot-types-from-chain --package polymesh-typegen/interfaces --endpoint ./alcyone-polymesh.json --output ./src/interfaces",
+    "generate:meta": "ts-node --skip-project node_modules/.bin/polkadot-types-from-chain --package polymesh-typegen/interfaces --endpoint ./polymesh-meta.json --output ./src/interfaces",
+    "generate:polymesh-meta": "./chain_metadata.sh",
+    "generate:polymesh-types": "node ./util/updateTypes.js",
     "lint": "tsc --noEmit --pretty",
     "clean:some": "rm -rf ./dist ./docs",
-    "clean:all": "rm -rf ./node_modules ./yarn.lock ./dist ./docs",
+    "clean:all": "rm -rf ./node_modules package-lock.json ./dist ./docs",
     "tscov": "type-coverage --at-least 95",
     "tscov:d": "type-coverage --detail",
-    "refresh": "yarn clean:all && yarn install",
-    "publish-package": "yarn build && yarn publish",
+    "refresh": "npm run clean:all && npm run install",
+    "publish-package": "npm run build && npm run publish",
     "docs": "typedoc src/tests src/helpers src/util --out dist/docs ",
     "0_create_identities": "node ./dist/tests/0_create_identities.js",
     "1_poly_transfer": "node ./dist/tests/1_poly_transfer.js",
@@ -39,6 +41,7 @@
     "10_governance_management": "node ./dist/tests/10_governance_management.js",
     "11_A_settlement": "node ./dist/tests/11_A_settlement.js",
     "11_B_settlement": "node ./dist/tests/11_B_settlement.js",
+    "12_external_agents": "node ./dist/tests/12_external_agents.js",
     "schema_test": "./util/schema_test.sh",
     "offchain_worker_test": "node ./dist/util/offchain_worker_test.js",
     "polyx_balances": "node ./util/userBalancePOLYX.js",
@@ -47,9 +50,9 @@
   "author": "Polymath Network",
   "license": "UNLICENSED",
   "dependencies": {
-    "@polkadot/api": "4.14.1",
-    "@polkadot/util": "6.9.1",
-    "@polkadot/util-crypto": "6.9.1",
+    "@polkadot/api": "5.0.1",
+    "@polkadot/util": "^7.0.3",
+    "@polkadot/util-crypto": "^7.0.3",
     "chai": "4.2.0",
     "chalk": "4.1.0",
     "clear": "0.1.0",
@@ -65,11 +68,11 @@
     "minimist": "1.2.5",
     "nodejs-fs-utils": "1.2.5",
     "path": "0.12.7",
-    "pm2": "^4.5.4",
+    "pm2": "^5.1.0",
     "readline-sync": "1.4.10"
   },
   "devDependencies": {
-    "@polkadot/typegen": "4.14.1",
+    "@polkadot/typegen": "5.0.1",
     "@types/chai": "4.2.15",
     "@types/clear": "0.1.1",
     "@types/figlet": "1.2.1",
@@ -80,7 +83,6 @@
     "ts-node": "9.1.1",
     "type-coverage": "2.16.3",
     "typedoc": "0.20.28",
-    "typescript": "4.1.3",
-    "yarn-deduplicate": "3.1.0"
+    "typescript": "^4.3.5"
   }
 }

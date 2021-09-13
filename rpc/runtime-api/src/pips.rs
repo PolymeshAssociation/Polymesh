@@ -25,7 +25,7 @@ pub mod capped {
     use pallet_pips::{Vote as CoreVote, VoteCount as CoreVoteCount};
 
     use codec::{Decode, Encode};
-    use sp_runtime::traits::{SaturatedConversion, UniqueSaturatedInto};
+    use sp_runtime::traits::SaturatedConversion;
 
     #[cfg(feature = "std")]
     use serde::{Deserialize, Serialize};
@@ -45,11 +45,8 @@ pub mod capped {
         ProposalNotFound,
     }
 
-    impl<Balance> From<CoreVoteCount<Balance>> for VoteCount
-    where
-        Balance: UniqueSaturatedInto<u64>,
-    {
-        fn from(vote_count: CoreVoteCount<Balance>) -> Self {
+    impl From<CoreVoteCount> for VoteCount {
+        fn from(vote_count: CoreVoteCount) -> Self {
             match vote_count {
                 CoreVoteCount::ProposalFound { ayes, nays } => VoteCount::ProposalFound {
                     ayes: ayes.saturated_into(),
@@ -68,11 +65,8 @@ pub mod capped {
         No(u64),
     }
 
-    impl<Balance> From<CoreVote<Balance>> for Vote
-    where
-        Balance: UniqueSaturatedInto<u64>,
-    {
-        fn from(core_vote: CoreVote<Balance>) -> Self {
+    impl From<CoreVote> for Vote {
+        fn from(core_vote: CoreVote) -> Self {
             match core_vote {
                 CoreVote(true, amount) => Vote::Yes(amount.saturated_into()),
                 CoreVote(false, amount) => Vote::No(amount.saturated_into()),
@@ -83,13 +77,12 @@ pub mod capped {
 
 sp_api::decl_runtime_apis! {
     /// The API to interact with Pips governance.
-    pub trait PipsApi<AccountId, Balance>
+    pub trait PipsApi<AccountId>
     where
         AccountId: Codec,
-        Balance: Codec
     {
         /// Retrieve votes for a proposal for a given `pips_index`.
-        fn get_votes(pips_index: u32) -> VoteCount<Balance>;
+        fn get_votes(pips_index: u32) -> VoteCount;
 
         /// Retrieve proposals started by `address`.
         fn proposed_by(address: AccountId) -> Vec<u32>;
@@ -106,8 +99,8 @@ mod tests {
     #[test]
     fn should_serialize_pips_votes() {
         let votes = VoteCount::ProposalFound {
-            ayes: 3141u64,
-            nays: 5926u64,
+            ayes: 3141,
+            nays: 5926,
         };
 
         assert_eq!(

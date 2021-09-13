@@ -100,8 +100,8 @@ use polymesh_primitives::{
     compliance_manager::{
         AssetCompliance, AssetComplianceResult, ComplianceRequirement, ConditionResult,
     },
-    proposition, storage_migrate_on, storage_migration_ver, Claim, Condition, ConditionType,
-    Context, IdentityId, Ticker, TrustedFor, TrustedIssuer,
+    proposition, storage_migrate_on, storage_migration_ver, Balance, Claim, Condition,
+    ConditionType, Context, IdentityId, Ticker, TrustedFor, TrustedIssuer,
 };
 use sp_std::{
     convert::{From, TryFrom},
@@ -119,7 +119,7 @@ pub trait Config:
     type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
 
     /// Asset module
-    type Asset: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;
+    type Asset: AssetFnTrait<Self::AccountId, Self::Origin>;
 
     /// Weight details of all extrinsic
     type WeightInfo: WeightInfo;
@@ -629,13 +629,13 @@ impl<T: Config> Module<T> {
     }
 }
 
-impl<T: Config> ComplianceManagerConfig<T::Balance> for Module<T> {
+impl<T: Config> ComplianceManagerConfig for Module<T> {
     ///  Sender restriction verification
     fn verify_restriction(
         ticker: &Ticker,
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
-        _: T::Balance,
+        _: Balance,
     ) -> Result<u8, DispatchError> {
         // Transfer is valid if ALL receiver AND sender conditions of ANY asset conditions are valid.
         let asset_compliance = Self::asset_compliance(ticker);

@@ -68,11 +68,6 @@ pub trait Config: frame_system::Config + BalancesConfig {
     type WeightInfo: WeightInfo;
 }
 
-pub trait TreasuryTrait<Balance> {
-    fn disbursement(target: IdentityId, amount: Balance);
-    fn balance() -> Balance;
-}
-
 pub trait WeightInfo {
     fn reimbursement() -> Weight;
     fn disbursement(beneficiary_count: u32) -> Weight;
@@ -155,11 +150,11 @@ impl<T: Config> Module<T> {
     ///
     /// This actually does computation. If you need to keep using it, then make sure you cache the
     /// value and only call this once.
-    pub fn account_id() -> T::AccountId {
+    fn account_id() -> T::AccountId {
         TREASURY_MODULE_ID.into_account()
     }
 
-    pub fn unsafe_disbursement(target: IdentityId, amount: BalanceOf<T>) {
+    fn unsafe_disbursement(target: IdentityId, amount: BalanceOf<T>) {
         let _ = T::Currency::withdraw(
             &Self::account_id(),
             amount,
@@ -168,24 +163,12 @@ impl<T: Config> Module<T> {
         );
         let primary_key = Identity::<T>::did_records(target).primary_key;
         let _ = T::Currency::deposit_into_existing(&primary_key, amount);
-        let current_did = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
-        Self::deposit_event(RawEvent::TreasuryDisbursement(current_did, target, amount));
+        Self::deposit_event(RawEvent::TreasuryDisbursement(GC_DID, target, amount));
     }
 
-    fn balance() -> BalanceOf<T> {
+    /// Returns the current balance of the treasury.
+    pub fn balance() -> BalanceOf<T> {
         T::Currency::free_balance(&Self::account_id())
-    }
-}
-
-impl<T: Config> TreasuryTrait<BalanceOf<T>> for Module<T> {
-    #[inline]
-    fn disbursement(target: IdentityId, amount: BalanceOf<T>) {
-        Self::unsafe_disbursement(target, amount);
-    }
-
-    #[inline]
-    fn balance() -> BalanceOf<T> {
-        Self::balance()
     }
 }
 

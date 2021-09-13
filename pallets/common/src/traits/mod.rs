@@ -13,47 +13,15 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use codec::{Codec, Decode, Encode};
-use frame_support::{
-    dispatch::DispatchResult,
-    traits::{LockIdentifier, WithdrawReasons},
-    Parameter,
-};
+use frame_support::dispatch::DispatchResult;
 use polymesh_primitives::{
     secondary_key::api::SecondaryKey, traits::BlockRewardsReserveCurrency, InvestorUid,
 };
-use sp_arithmetic::traits::{AtLeast32BitUnsigned, CheckedSub, Saturating, Unsigned};
-use sp_runtime::traits::{MaybeSerializeDeserialize, Member};
-use sp_std::fmt::Debug;
-
-#[derive(Encode, Decode, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct BalanceLock<Balance, BlockNumber> {
-    pub id: LockIdentifier,
-    pub amount: Balance,
-    pub until: BlockNumber,
-    pub reasons: WithdrawReasons,
-}
 
 pub trait CommonConfig: frame_system::Config + permissions::Config {
-    /// The balance of an account.
-    type Balance: Parameter
-        + Member
-        + AtLeast32BitUnsigned
-        + CheckedSub
-        + Codec
-        + Default
-        + Copy
-        + MaybeSerializeDeserialize
-        + Saturating
-        + Debug
-        + Unsigned
-        + From<u128>
-        + From<Self::BlockNumber>;
+    type AssetSubTraitTarget: asset::AssetSubTrait;
 
-    type AssetSubTraitTarget: asset::AssetSubTrait<Self::Balance>;
-
-    type BlockRewardsReserve: BlockRewardsReserveCurrency<Self::Balance, NegativeImbalance<Self>>;
+    type BlockRewardsReserve: BlockRewardsReserveCurrency<NegativeImbalance<Self>>;
 }
 
 pub mod imbalances;
@@ -78,6 +46,7 @@ pub mod transaction_payment;
 pub use transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 pub mod permissions;
 pub use permissions::{AccountCallPermissionsData, CheckAccountCallPermissions};
+pub mod relayer;
 pub mod statistics;
 
 pub trait TestUtilsFn<AccountId> {

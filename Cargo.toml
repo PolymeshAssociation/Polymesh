@@ -1,6 +1,6 @@
 [package]
 name = "polymesh"
-version = "3.2.0"
+version = "3.3.0"
 authors = ["Polymath"]
 build = "build.rs"
 edition = "2018"
@@ -124,8 +124,10 @@ members = [
     "pallets/multisig",
     "pallets/pips",
     "pallets/protocol-fee",
+    "pallets/rewards",
     "pallets/protocol-fee/rpc",
     "pallets/protocol-fee/rpc/runtime-api",
+    "pallets/relayer",
     "pallets/runtime/common",
     "pallets/runtime/develop",
     "pallets/runtime/itn",
@@ -162,6 +164,7 @@ pallet-pips = { path = "pallets/pips", default-features = false }
 pallet-protocol-fee = { path = "pallets/protocol-fee", default-features = false }
 pallet-staking = { path = "pallets/staking", default-features = false }
 pallet-sudo = { path = "pallets/sudo", default-features = false }
+pallet-rewards = { path = "pallets/rewards", default-features = false }
 polymesh-common-utilities = { path = "pallets/common", default-features = false }
 polymesh-primitives = { path = "primitives", default-features = false }
 polymesh-runtime-common = { path = "pallets/runtime/common", default-features = false }

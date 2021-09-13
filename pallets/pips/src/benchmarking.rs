@@ -190,7 +190,7 @@ benchmarks! {
         let deposit = 42u32.into();
     }: _(origin, deposit)
     verify {
-        assert_eq!(deposit, MinimumProposalDeposit::<T>::get(), "incorrect MinimumProposalDeposit");
+        assert_eq!(deposit, MinimumProposalDeposit::get(), "incorrect MinimumProposalDeposit");
     }
 
     set_default_enactment_period {

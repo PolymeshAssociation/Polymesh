@@ -35,7 +35,7 @@ macro_rules! misc_pallet_impls {
             /// This replaces the "ss58Format" property declared in the chain spec. Reason is
             /// that the runtime should know about the prefix in order to make use of it as
             /// an identifier of the chain.
-            type SS58Prefix = polymesh_runtime_common::SS58Prefix;
+            type SS58Prefix = SS58Prefix;
             /// The identifier used to distinguish between accounts.
             type AccountId = polymesh_primitives::AccountId;
             /// The aggregated dispatch type that is available for extrinsics.
@@ -72,9 +72,7 @@ macro_rules! misc_pallet_impls {
             /// What to do if an account is fully reaped from the system.
             type OnKilledAccount = ();
             /// The data to be stored in an account.
-            type AccountData = polymesh_common_utilities::traits::balances::AccountData<
-                polymesh_primitives::Balance,
-            >;
+            type AccountData = polymesh_common_utilities::traits::balances::AccountData;
             type SystemWeightInfo = polymesh_weights::frame_system::WeightInfo;
         }
 
@@ -124,13 +122,13 @@ macro_rules! misc_pallet_impls {
             type WeightToFee = polymesh_runtime_common::WeightToFee;
             type FeeMultiplierUpdate = ();
             type CddHandler = CddHandler;
+            type Subsidiser = Relayer;
             type GovernanceCommittee = PolymeshCommittee;
             type CddProviders = CddServiceProviders;
             type Identity = Identity;
         }
 
         impl polymesh_common_utilities::traits::CommonConfig for Runtime {
-            type Balance = polymesh_primitives::Balance;
             type AssetSubTraitTarget = Asset;
             type BlockRewardsReserve = pallet_balances::Module<Runtime>;
         }
@@ -150,6 +148,7 @@ macro_rules! misc_pallet_impls {
             type Currency = Balances;
             type OnProtocolFeePayment = DealWithFees;
             type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
+            type Subsidiser = Relayer;
         }
 
         impl pallet_timestamp::Config for Runtime {
@@ -264,6 +263,16 @@ macro_rules! misc_pallet_impls {
         impl pallet_external_agents::Config for Runtime {
             type Event = Event;
             type WeightInfo = polymesh_weights::pallet_external_agents::WeightInfo;
+        }
+
+        impl pallet_relayer::Config for Runtime {
+            type Event = Event;
+            type WeightInfo = polymesh_weights::pallet_relayer::WeightInfo<Runtime>;
+        }
+
+        impl pallet_rewards::Config for Runtime {
+            type Event = Event;
+            type WeightInfo = polymesh_weights::pallet_rewards::WeightInfo<Runtime>;
         }
 
         impl pallet_asset::Config for Runtime {
@@ -704,7 +713,6 @@ macro_rules! runtime_apis {
 
             impl node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<
                 Block,
-                Balance,
                 UncheckedExtrinsic,
             > for Runtime {
                 fn query_info(uxt: UncheckedExtrinsic, len: u32) -> RuntimeDispatchInfo<Balance> {
@@ -730,11 +738,11 @@ macro_rules! runtime_apis {
                 }
             }
 
-            impl node_rpc_runtime_api::pips::PipsApi<Block, polymesh_primitives::AccountId, Balance>
+            impl node_rpc_runtime_api::pips::PipsApi<Block, polymesh_primitives::AccountId>
             for Runtime
             {
                 /// Get vote count for a given proposal index
-                fn get_votes(index: u32) -> VoteCount<Balance> {
+                fn get_votes(index: u32) -> VoteCount {
                     Pips::get_votes(index)
                 }
 
@@ -833,7 +841,7 @@ macro_rules! runtime_apis {
                 }
             }
 
-            impl node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, polymesh_primitives::AccountId, Balance>
+            impl node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, polymesh_primitives::AccountId>
                 for Runtime
             {
                 #[inline]

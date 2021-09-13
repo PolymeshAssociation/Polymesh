@@ -26,24 +26,12 @@ use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
 use frame_support::weights::Weight;
 use polymesh_primitives::{
-    IdentityId, PortfolioId, PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
+    Balance, IdentityId, PortfolioId, PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
 };
 use sp_std::vec::Vec;
 
 /// This trait is used to accept custody of a portfolio
-pub trait PortfolioSubTrait<Balance, AccountId: Encode + Decode> {
-    /// Accepts custody of a portfolio
-    ///
-    /// # Arguments
-    /// * `to` - DID of the new custodian
-    /// * `from` - Sender of the authorization
-    /// * `pid` - The old portfolio ID
-    fn accept_portfolio_custody(
-        to: IdentityId,
-        from: IdentityId,
-        pid: PortfolioId,
-    ) -> DispatchResult;
-
+pub trait PortfolioSubTrait<AccountId: Encode + Decode> {
     /// Checks that the custodian is authorized for the portfolio
     ///
     /// # Arguments
@@ -58,7 +46,7 @@ pub trait PortfolioSubTrait<Balance, AccountId: Encode + Decode> {
     /// * `ticker` - Ticker of the token to lock
     /// * `amount` - Amount of tokens to lock
 
-    fn lock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult;
+    fn lock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: Balance) -> DispatchResult;
 
     /// Unlocks some tokens of a portfolio
     ///
@@ -66,7 +54,7 @@ pub trait PortfolioSubTrait<Balance, AccountId: Encode + Decode> {
     /// * `portfolio` - Portfolio to unlock tokens
     /// * `ticker` - Ticker of the token to unlock
     /// * `amount` - Amount of tokens to unlock
-    fn unlock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: &Balance) -> DispatchResult;
+    fn unlock_tokens(portfolio: &PortfolioId, ticker: &Ticker, amount: Balance) -> DispatchResult;
 
     /// Ensures that the portfolio's custody is with the provided identity
     /// And the secondary key has the relevant portfolio permission
@@ -88,17 +76,16 @@ pub trait WeightInfo {
     fn move_portfolio_funds(i: u32) -> Weight;
     fn rename_portfolio(i: u32) -> Weight;
     fn quit_portfolio_custody() -> Weight;
+    fn accept_portfolio_custody() -> Weight;
 }
 
 pub trait Config: CommonConfig + identity::Config + base::Config {
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
     type WeightInfo: WeightInfo;
 }
 
 decl_event! {
-    pub enum Event<T> where
-        Balance = <T as CommonConfig>::Balance,
-    {
+    pub enum Event {
         /// The portfolio has been successfully created.
         ///
         /// # Parameters

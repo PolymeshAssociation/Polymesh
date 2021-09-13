@@ -59,7 +59,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 2024,
+    spec_version: 2025,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 7,
@@ -74,6 +74,7 @@ parameter_types! {
     // Frame:
     pub const EpochDuration: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
     pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
+    pub const SS58Prefix: u8 = 42;
 
     // Base:
     pub const MaxLen: u32 = ENSURED_MAX_LEN;
@@ -211,7 +212,6 @@ impl polymesh_common_utilities::traits::identity::Config for Runtime {
     type ProtocolFee = pallet_protocol_fee::Module<Runtime>;
     type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
-    type ExternalAgents = ExternalAgents;
     type IdentityFn = pallet_identity::Module<Runtime>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
@@ -380,19 +380,21 @@ construct_runtime!(
         Settlement: pallet_settlement::{Module, Call, Storage, Event<T>, Config} = 36,
         Sto: pallet_sto::{Module, Call, Storage, Event<T>} = 37,
         Statistics: pallet_statistics::{Module, Call, Storage, Event} = 39,
-        ProtocolFee: pallet_protocol_fee::{Module, Call, Storage, Event<T>, Config<T>} = 40,
+        ProtocolFee: pallet_protocol_fee::{Module, Call, Storage, Event<T>, Config} = 40,
         Utility: pallet_utility::{Module, Call, Storage, Event} = 41,
-        Portfolio: pallet_portfolio::{Module, Call, Storage, Event<T>} = 42,
+        Portfolio: pallet_portfolio::{Module, Call, Storage, Event} = 42,
         // Removed pallet Confidential = 43,
         Permissions: pallet_permissions::{Module, Storage} = 44,
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>} = 45,
         CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event, Config} = 46,
-        CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event<T>} = 47,
-        CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>} = 48,
-        Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event<T>, Config} = 49,
+        CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event} = 47,
+        CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event} = 48,
+        Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event, Config} = 49,
         TestUtils: pallet_test_utils::{Module, Call, Storage, Event<T> } = 50,
         Base: pallet_base::{Module, Call, Event} = 51,
         ExternalAgents: pallet_external_agents::{Module, Call, Storage, Event} = 52,
+        Relayer: pallet_relayer::{Module, Call, Storage, Event<T>} = 53,
+        Rewards: pallet_rewards::{Module, Call, Storage, Event<T>, Config<T>, ValidateUnsigned} = 54,
     }
 );
 
@@ -444,6 +446,8 @@ polymesh_runtime_common::runtime_apis! {
             add_benchmark!(params, batches, pallet_corporate_ballot, CorporateBallot);
             add_benchmark!(params, batches, pallet_capital_distribution, CapitalDistribution);
             add_benchmark!(params, batches, pallet_external_agents, ExternalAgents);
+            add_benchmark!(params, batches, pallet_relayer, Relayer);
+            add_benchmark!(params, batches, pallet_rewards, Rewards);
             //add_benchmark!(params, batches, polymesh_contracts, Contracts);
             add_benchmark!(params, batches, pallet_committee, PolymeshCommittee);
             add_benchmark!(params, batches, pallet_utility, Utility);

@@ -23,7 +23,7 @@ use frame_support::{
 pub use polymesh_common_utilities::traits::statistics::{Config, Event, WeightInfo};
 use polymesh_primitives::{
     statistics::{Counter, Percentage, TransferManager, TransferManagerResult},
-    ScopeId, Ticker,
+    Balance, ScopeId, Ticker,
 };
 use sp_std::vec::Vec;
 
@@ -162,9 +162,9 @@ impl<T: Config> Module<T> {
     ///
     pub fn update_transfer_stats(
         ticker: &Ticker,
-        updated_from_balance: Option<T::Balance>,
-        updated_to_balance: Option<T::Balance>,
-        amount: T::Balance,
+        updated_from_balance: Option<Balance>,
+        updated_to_balance: Option<Balance>,
+        amount: Balance,
     ) {
         // 1. Unique investor count per asset.
         if amount != 0u128.into() {
@@ -195,10 +195,10 @@ impl<T: Config> Module<T> {
         ticker: &Ticker,
         sender: ScopeId,
         receiver: ScopeId,
-        value: T::Balance,
-        sender_balance: T::Balance,
-        receiver_balance: T::Balance,
-        total_supply: T::Balance,
+        value: Balance,
+        sender_balance: Balance,
+        receiver_balance: Balance,
+        total_supply: Balance,
     ) -> DispatchResult {
         Self::transfer_managers(ticker)
             .into_iter()
@@ -226,10 +226,10 @@ impl<T: Config> Module<T> {
         ticker: &Ticker,
         sender: ScopeId,
         receiver: ScopeId,
-        value: T::Balance,
-        sender_balance: T::Balance,
-        receiver_balance: T::Balance,
-        total_supply: T::Balance,
+        value: Balance,
+        sender_balance: Balance,
+        receiver_balance: Balance,
+        total_supply: Balance,
     ) -> Vec<TransferManagerResult> {
         Self::transfer_managers(ticker)
             .into_iter()
@@ -262,9 +262,9 @@ impl<T: Config> Module<T> {
     fn ensure_ctm(
         ticker: &Ticker,
         sender: ScopeId,
-        value: T::Balance,
-        sender_balance: T::Balance,
-        receiver_balance: T::Balance,
+        value: Balance,
+        sender_balance: Balance,
+        receiver_balance: Balance,
         max_count: Counter,
     ) -> DispatchResult {
         let current_count = Self::investor_count(ticker);
@@ -284,9 +284,9 @@ impl<T: Config> Module<T> {
     fn ensure_ptm(
         ticker: &Ticker,
         receiver: ScopeId,
-        value: T::Balance,
-        receiver_balance: T::Balance,
-        total_supply: T::Balance,
+        value: Balance,
+        receiver_balance: Balance,
+        total_supply: Balance,
         max_percentage: Percentage,
     ) -> DispatchResult {
         let new_percentage = sp_arithmetic::Permill::from_rational_approximation(

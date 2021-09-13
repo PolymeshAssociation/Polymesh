@@ -14,14 +14,13 @@ use frame_support::{
     IterableStorageDoubleMap, StorageDoubleMap, StorageMap,
 };
 use pallet_corporate_actions::{
-    ballot::{self, BallotMeta, BallotTimeRange, BallotVote, Motion},
+    ballot::{BallotMeta, BallotTimeRange, BallotVote, Motion, Votes},
     distribution::{self, Distribution, PER_SHARE_PRECISION},
     CACheckpoint, CADetails, CAId, CAIdSequence, CAKind, CorporateAction, CorporateActions,
-    LocalCAId, RecordDate, RecordDateSpec, TargetIdentities, TargetTreatment,
+    Details, LocalCAId, RecordDate, RecordDateSpec, TargetIdentities, TargetTreatment,
     TargetTreatment::{Exclude, Include},
     Tax,
 };
-use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::traits::checkpoint::{ScheduleId, StoredSchedule};
 use polymesh_primitives::{
     agent::AgentGroup,
@@ -43,16 +42,15 @@ type Identity = pallet_identity::Module<TestStorage>;
 type Authorizations = pallet_identity::Authorizations<TestStorage>;
 type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
 type CA = pallet_corporate_actions::Module<TestStorage>;
-type Ballot = ballot::Module<TestStorage>;
+type Ballot = pallet_corporate_actions::ballot::Module<TestStorage>;
 type Dist = distribution::Module<TestStorage>;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
 type Error = pallet_corporate_actions::Error<TestStorage>;
-type BallotError = ballot::Error<TestStorage>;
+type BallotError = pallet_corporate_actions::ballot::Error<TestStorage>;
 type DistError = distribution::Error<TestStorage>;
 type PError = pallet_portfolio::Error<TestStorage>;
 type CPError = pallet_asset::checkpoint::Error<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;
-type Votes = ballot::Votes<TestStorage>;
 type Custodian = pallet_portfolio::PortfolioCustodian;
 
 const CDDP: AccountKeyring = AccountKeyring::Eve;
@@ -128,7 +126,7 @@ fn add_caa_auth(ticker: Ticker, from: User, to: User) -> u64 {
 
 fn transfer_caa(ticker: Ticker, from: User, to: User) -> DispatchResult {
     let auth_id = add_caa_auth(ticker, from, to);
-    Identity::accept_authorization(to.origin(), auth_id)?;
+    ExternalAgents::accept_become_agent(to.origin(), auth_id)?;
     ExternalAgents::abdicate(from.origin(), ticker)?;
     Ok(())
 }
@@ -216,7 +214,7 @@ struct BallotData {
     choices: Vec<u16>,
     rcv: bool,
     results: Vec<Balance>,
-    votes: Vec<(IdentityId, Vec<BallotVote<Balance>>)>,
+    votes: Vec<(IdentityId, Vec<BallotVote>)>,
 }
 
 fn ballot_data(id: CAId) -> BallotData {
@@ -332,7 +330,7 @@ fn only_owner_caa_invite() {
     test(|ticker, [_, caa, other]| {
         let auth_id = add_caa_auth(ticker, other, caa);
         assert_noop!(
-            Identity::accept_authorization(caa.origin(), auth_id),
+            ExternalAgents::accept_become_agent(caa.origin(), auth_id),
             EAError::UnauthorizedAgent
         );
     });
@@ -484,7 +482,8 @@ fn initiate_corporate_action_details() {
     test(|ticker, [owner, ..]| {
         assert_ok!(CA::set_max_details_length(root(), 2));
         let init_ca = |details: &str| -> DispatchResult {
-            let ca = init_ca(
+            let id = next_ca_id(ticker);
+            init_ca(
                 owner,
                 ticker,
                 CAKind::Other,
@@ -494,7 +493,7 @@ fn initiate_corporate_action_details() {
                 None,
                 None,
             )?;
-            assert_eq!(details.as_bytes(), ca.details.as_slice());
+            assert_eq!(details.as_bytes(), Details::get(id).as_slice());
             Ok(())
         };
         assert_ok!(init_ca("f"));
@@ -1527,14 +1526,14 @@ fn vote_wrong_count() {
     });
 }
 
-fn fallbacks(fs: &[Option<u16>]) -> Vec<BallotVote<Balance>> {
+fn fallbacks(fs: &[Option<u16>]) -> Vec<BallotVote> {
     fs.iter()
         .copied()
         .map(|fallback| BallotVote { power: 0, fallback })
         .collect()
 }
 
-fn votes(vs: &[Balance]) -> Vec<BallotVote<Balance>> {
+fn votes(vs: &[Balance]) -> Vec<BallotVote> {
     vs.iter()
         .copied()
         .map(|power| BallotVote {
@@ -1624,7 +1623,7 @@ fn vote_works() {
         // Total asset balance voter == 500.
         transfer(&ticker, owner, voter);
         transfer(&ticker, owner, other);
-        assert_eq!(Asset::balance(&ticker, voter.did), 500);
+        assert_eq!(Asset::balance_of(&ticker, voter.did), 500);
 
         let id = notice_ca(owner, ticker, Some(1)).unwrap();
         assert_ok!(attach(owner, id, false));
@@ -1894,7 +1893,7 @@ fn dist_remove_works() {
 
 #[test]
 fn dist_reclaim_works() {
-    test(|ticker, [owner, other, _]| {
+    test(|ticker, [owner, other, charlie]| {
         set_schedule_complexity();
 
         let currency = create_asset(b"BETA", owner);
@@ -1907,6 +1906,7 @@ fn dist_reclaim_works() {
 
         // Dist creator different from CAA.
         transfer(&currency, owner, other);
+        transfer(&currency, owner, charlie);
         let id = dist_ca(owner, ticker, Some(1)).unwrap();
         assert_ok!(transfer_caa(ticker, owner, other));
         assert_ok!(Dist::distribute(
@@ -1919,18 +1919,30 @@ fn dist_reclaim_works() {
             5,
             Some(6)
         ));
-        assert_ok!(transfer_caa(ticker, other, owner));
-        assert_noop!(reclaim(id, owner), DistError::NotDistributionCreator);
 
         // Not expired yet.
         Timestamp::set_timestamp(5);
         assert_noop!(reclaim(id, other), DistError::NotExpired);
 
         // Test successful behavior.
-        assert_ok!(transfer_caa(ticker, owner, other));
         Timestamp::set_timestamp(6);
         let pid = PortfolioId::default_portfolio(other.did);
-        let ensure = |x| Portfolio::ensure_sufficient_balance(&pid, &currency, &x);
+
+        // No custody over portfolio.
+        let custody =
+            |who: User| Custodian::insert(PortfolioId::default_portfolio(other.did), who.did);
+        custody(owner);
+        assert_noop!(reclaim(id, other), PError::UnauthorizedCustodian);
+
+        custody(charlie);
+        assert_noop!(reclaim(id, charlie), EAError::UnauthorizedAgent);
+        custody(owner);
+        assert_ok!(transfer_caa(ticker, other, charlie));
+        assert_noop!(reclaim(id, charlie), PError::UnauthorizedCustodian);
+        assert_ok!(transfer_caa(ticker, charlie, other));
+        custody(other);
+
+        let ensure = |x| Portfolio::ensure_sufficient_balance(&pid, &currency, x);
         assert_noop!(ensure(1), PError::InsufficientPortfolioBalance);
         let dist = Dist::distributions(id).unwrap();
         assert_ok!(reclaim(id, other));
@@ -2064,7 +2076,7 @@ fn dist_claim_works() {
         already(foo);
         let benefit_foo = 500 * per_share / PER_SHARE_PRECISION;
         let post_tax_foo = benefit_foo - benefit_foo * 1 / 4;
-        assert_eq!(Asset::balance(&currency, foo.did), post_tax_foo);
+        assert_eq!(Asset::balance_of(&currency, foo.did), post_tax_foo);
         let assert_rem =
             |removed| assert_eq!(Dist::distributions(id).unwrap().remaining, amount - removed);
         assert_rem(benefit_foo);
@@ -2074,16 +2086,16 @@ fn dist_claim_works() {
         already(bar);
         let benefit_bar = 1_000 * per_share / PER_SHARE_PRECISION;
         let post_tax_bar = benefit_bar * 2 / 3; // Using 1/3 tax to test rounding.
-        assert_eq!(Asset::balance(&currency, bar.did), post_tax_bar);
+        assert_eq!(Asset::balance_of(&currency, bar.did), post_tax_bar);
         assert_rem(benefit_foo + benefit_bar);
 
         // Owner should have some free currency balance due to withheld taxes.
         let pid = PortfolioId::default_portfolio(owner.did);
         let wht = benefit_foo - post_tax_foo + benefit_bar - post_tax_bar;
         let rem = Asset::total_supply(ticker) - amount + wht;
-        assert_ok!(Portfolio::ensure_sufficient_balance(&pid, &currency, &rem));
+        assert_ok!(Portfolio::ensure_sufficient_balance(&pid, &currency, rem));
         assert_noop!(
-            Portfolio::ensure_sufficient_balance(&pid, &currency, &(rem + 1)),
+            Portfolio::ensure_sufficient_balance(&pid, &currency, rem + 1),
             PError::InsufficientPortfolioBalance,
         );
 
@@ -2167,10 +2179,10 @@ fn dist_claim_cp_test(mk_ca: impl FnOnce(Ticker, User) -> CAId) {
 
         // Check the balances; tax is 0%.
         assert_eq!(
-            Asset::balance(&currency, claimant.did),
+            Asset::balance_of(&currency, claimant.did),
             500 * per_share / PER_SHARE_PRECISION
         );
-        assert_eq!(Asset::balance(&currency, other.did), 0);
+        assert_eq!(Asset::balance_of(&currency, other.did), 0);
     });
 }
 

@@ -121,4 +121,11 @@ impl pallet_asset::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(19 as Weight))
             .saturating_add(DbWeight::get().writes(8 as Weight))
     }
+    fn register_custom_asset_type(n: u32) -> Weight {
+        (73_110_000 as Weight)
+            // Standard Error: 0
+            .saturating_add((12_000 as Weight).saturating_mul(n as Weight))
+            .saturating_add(DbWeight::get().reads(8 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
 }

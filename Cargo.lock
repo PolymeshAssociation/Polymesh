@@ -4347,7 +4347,7 @@ dependencies = [
 name = "pallet-asset"
 version = "0.1.0"
 dependencies = [
- "arrayvec 0.5.2",
+ "arrayvec 0.7.1",
  "frame-benchmarking 3.1.0",
  "frame-support",
  "frame-system",
@@ -4816,6 +4816,7 @@ dependencies = [
  "pallet-committee",
  "pallet-group",
  "pallet-identity",
+ "pallet-permissions",
  "pallet-timestamp",
  "pallet-treasury 0.1.0",
  "parity-scale-codec 2.1.3",
@@ -4910,6 +4911,39 @@ dependencies = [
  "frame-system",
  "parity-scale-codec 2.1.3",
  "safe-mix",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-relayer"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking 3.1.0",
+ "frame-support",
+ "frame-system",
+ "pallet-identity",
+ "parity-scale-codec 2.1.3",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-rewards"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking 3.1.0",
+ "frame-support",
+ "frame-system",
+ "pallet-identity",
+ "pallet-staking",
+ "parity-scale-codec 2.1.3",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "serde",
+ "sp-core",
  "sp-runtime",
  "sp-std",
 ]
@@ -5809,6 +5843,7 @@ dependencies = [
  "pallet-protocol-fee",
  "pallet-protocol-fee-rpc",
  "pallet-protocol-fee-rpc-runtime-api",
+ "pallet-rewards",
  "pallet-session",
  "pallet-staking",
  "pallet-staking-rpc-runtime-api",
@@ -6045,6 +6080,8 @@ dependencies = [
  "pallet-protocol-fee",
  "pallet-protocol-fee-rpc-runtime-api",
  "pallet-randomness-collective-flip",
+ "pallet-relayer",
+ "pallet-rewards",
  "pallet-scheduler",
  "pallet-session",
  "pallet-settlement",
@@ -6120,6 +6157,8 @@ dependencies = [
  "pallet-protocol-fee",
  "pallet-protocol-fee-rpc-runtime-api",
  "pallet-randomness-collective-flip",
+ "pallet-relayer",
+ "pallet-rewards",
  "pallet-scheduler",
  "pallet-session",
  "pallet-settlement",
@@ -6196,6 +6235,8 @@ dependencies = [
  "pallet-protocol-fee",
  "pallet-protocol-fee-rpc-runtime-api",
  "pallet-randomness-collective-flip",
+ "pallet-relayer",
+ "pallet-rewards",
  "pallet-scheduler",
  "pallet-session",
  "pallet-settlement",
@@ -6280,6 +6321,8 @@ dependencies = [
  "pallet-protocol-fee",
  "pallet-protocol-fee-rpc-runtime-api",
  "pallet-randomness-collective-flip",
+ "pallet-relayer",
+ "pallet-rewards",
  "pallet-scheduler",
  "pallet-session",
  "pallet-settlement",
@@ -6350,6 +6393,8 @@ dependencies = [
  "pallet-pips",
  "pallet-portfolio",
  "pallet-protocol-fee",
+ "pallet-relayer",
+ "pallet-rewards",
  "pallet-scheduler",
  "pallet-session",
  "pallet-settlement",
@@ -6361,6 +6406,7 @@ dependencies = [
  "pallet-treasury 0.1.0",
  "pallet-utility",
  "polymesh-runtime-common",
+ "sp-std",
 ]
 
 [[package]]

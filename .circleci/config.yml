@@ -2,7 +2,7 @@ version: 2
 jobs:
   lint:
     docker:
-      - image: polymathnet/rust:debian-nightly-2021-05-10
+      - image: polymathnet/rust:debian-nightly-2021-05-12
     resource_class: medium
     environment:
       VERBOSE: "1"
@@ -13,7 +13,7 @@ jobs:
           command: ./scripts/rustfmt.sh
   build:
     docker:
-      - image: polymathnet/rust:debian-nightly-2021-05-10
+      - image: polymathnet/rust:debian-nightly-2021-05-12
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -38,7 +38,7 @@ jobs:
             - "./target"
   benchmark-build:
     docker:
-      - image: polymathnet/rust:debian-nightly-2021-05-10
+      - image: polymathnet/rust:debian-nightly-2021-05-12
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -80,7 +80,7 @@ jobs:
           no_output_timeout: 1h
   migration-tests:
     docker:
-      - image: polymathnet/rust:debian-nightly-2021-05-10
+      - image: polymathnet/rust:debian-nightly-2021-05-12
     resource_class: large
     environment:
       - VERBOSE: "1"
@@ -106,7 +106,7 @@ jobs:
             - "./target"
   test:
     docker:
-      - image: polymathnet/rust:debian-nightly-2021-05-10
+      - image: polymathnet/rust:debian-nightly-2021-05-12
     resource_class: large
     environment:
       - VERBOSE: "1"
@@ -141,7 +141,7 @@ jobs:
             - "./target"
   coverage:
     docker:
-      - image: polymathnet/rust:debian-nightly-2021-05-10
+      - image: polymathnet/rust:debian-nightly-2021-05-12
     resource_class: large
     environment:
       - VERBOSE: "1"
@@ -169,7 +169,7 @@ jobs:
             - "./target"
   cli:
     docker:
-      - image: polymathnet/rust:debian-nightly-2021-05-10
+      - image: polymathnet/rust:debian-nightly-2021-05-12
     resource_class: xlarge
     environment:
       VERBOSE: "1"
@@ -208,7 +208,7 @@ jobs:
             - "./scripts/cli/node_modules"
   clippy:
     docker:
-      - image: polymathnet/rust:debian-nightly-2021-05-10
+      - image: polymathnet/rust:debian-nightly-2021-05-12
     resource_class: large
     environment:
       VERBOSE: "1"

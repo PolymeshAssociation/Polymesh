@@ -14,43 +14,21 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::traits::{checkpoint, compliance_manager, external_agents, portfolio, statistics};
-use crate::CommonConfig;
 use codec::{Decode, Encode};
 use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
-use polymesh_primitives::asset::{AssetName, AssetType, FundingRoundName};
+use polymesh_primitives::asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName};
 use polymesh_primitives::ethereum::EthereumAddress;
 use polymesh_primitives::migrate::MigrationError;
 use polymesh_primitives::{
-    AssetIdentifier, Document, DocumentId, IdentityId, PortfolioId, ScopeId, SmartExtensionName,
-    SmartExtensionType, Ticker,
+    AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, ScopeId, Ticker,
 };
 use sp_std::prelude::Vec;
 
 /// This trait is used by the `identity` pallet to interact with the `pallet-asset`.
-pub trait AssetSubTrait<Balance> {
-    /// Accept and process a ticker transfer
-    ///
-    /// # Arguments
-    /// * `to` did of the receiver.
-    /// * `from` sender of the authorization.
-    /// * `ticker` that is being transferred.
-    fn accept_ticker_transfer(to: IdentityId, from: IdentityId, ticker: Ticker) -> DispatchResult;
-
-    /// Accept and process a token ownership transfer
-    ///
-    /// # Arguments
-    /// * `to` did of the receiver.
-    /// * `from` sender of the authorization.
-    /// * `ticker` that is being transferred.
-    fn accept_asset_ownership_transfer(
-        to: IdentityId,
-        from: IdentityId,
-        ticker: Ticker,
-    ) -> DispatchResult;
-
+pub trait AssetSubTrait {
     /// Update the `ticker` balance of `target_did` under `scope_id`. Clean up the balances related
     /// to any previous valid `old_scope_ids`.
     ///
@@ -68,10 +46,10 @@ pub trait AssetSubTrait<Balance> {
     fn balance_of_at_scope(scope_id: &ScopeId, target: &IdentityId) -> Balance;
 
     /// Returns the `ScopeId` for a given `ticker` and `did`.
-    fn scope_id_of(ticker: &Ticker, did: &IdentityId) -> ScopeId;
+    fn scope_id(ticker: &Ticker, did: &IdentityId) -> ScopeId;
 }
 
-pub trait AssetFnTrait<Balance, Account, Origin> {
+pub trait AssetFnTrait<Account, Origin> {
     fn balance(ticker: &Ticker, did: IdentityId) -> Balance;
 
     fn create_asset(
@@ -82,17 +60,7 @@ pub trait AssetFnTrait<Balance, Account, Origin> {
         asset_type: AssetType,
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
-    ) -> DispatchResult;
-
-    fn create_asset_and_mint(
-        origin: Origin,
-        name: AssetName,
-        ticker: Ticker,
-        total_supply: Balance,
-        divisible: bool,
-        asset_type: AssetType,
-        identifiers: Vec<AssetIdentifier>,
-        funding_round: Option<FundingRoundName>,
+        disable_iu: bool,
     ) -> DispatchResult;
 
     fn register_ticker(origin: Origin, ticker: Ticker) -> DispatchResult;
@@ -126,6 +94,7 @@ pub trait WeightInfo {
     fn archive_extension() -> Weight;
     fn unarchive_extension() -> Weight;
     fn controller_transfer() -> Weight;
+    fn register_custom_asset_type(n: u32) -> Weight;
 }
 
 /// The module's configuration trait.
@@ -139,12 +108,12 @@ pub trait Config:
 {
     /// The overarching event type.
     type Event: From<Event<Self>>
-        + From<checkpoint::Event<Self>>
+        + From<checkpoint::Event>
         + Into<<Self as frame_system::Config>::Event>;
 
     type Currency: Currency<Self::AccountId>;
 
-    type ComplianceManager: compliance_manager::Config<Self::Balance>;
+    type ComplianceManager: compliance_manager::Config;
 
     /// Maximum number of smart extensions can attach to an asset.
     /// This hard limit is set to avoid the cases where an asset transfer
@@ -160,7 +129,7 @@ pub trait Config:
     /// Max length of the funding round name.
     type FundingRoundNameMaxLength: Get<u32>;
 
-    type AssetFn: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;
+    type AssetFn: AssetFnTrait<Self::AccountId, Self::Origin>;
 
     type WeightInfo: WeightInfo;
     type CPWeightInfo: crate::traits::checkpoint::WeightInfo;
@@ -178,7 +147,6 @@ pub enum AssetMigrationError {
 decl_event! {
     pub enum Event<T>
     where
-        Balance = <T as CommonConfig>::Balance,
         Moment = <T as pallet_timestamp::Config>::Moment,
         AccountId = <T as frame_system::Config>::AccountId,
     {
@@ -227,6 +195,7 @@ decl_event! {
         /// An event carrying the name of the current funding round of a ticker.
         /// Parameters: caller DID, ticker, funding round name.
         FundingRoundSet(IdentityId, Ticker, FundingRoundName),
+        /*
         /// Emitted when extension is added successfully.
         /// caller DID, ticker, extension AccountId, extension name, type of smart Extension
         ExtensionAdded(IdentityId, Ticker, AccountId, SmartExtensionName, SmartExtensionType),
@@ -236,6 +205,7 @@ decl_event! {
         /// Emitted when extension get archived.
         /// caller DID, ticker, AccountId
         ExtensionUnArchived(IdentityId, Ticker, AccountId),
+        */
         /// A new document attached to an asset
         DocumentAdded(IdentityId, Ticker, DocumentId, Document),
         /// A document removed from an asset
@@ -250,5 +220,11 @@ decl_event! {
         /// Event for when a forced transfer takes place.
         /// caller DID/ controller DID, ticker, Portfolio of token holder, value.
         ControllerTransfer(IdentityId, Ticker, PortfolioId, Balance),
+        /// A custom asset type already exists on-chain.
+        /// caller DID, the ID of the custom asset type, the string contents registered.
+        CustomAssetTypeExists(IdentityId, CustomAssetTypeId, Vec<u8>),
+        /// A custom asset type was registered on-chain.
+        /// caller DID, the ID of the custom asset type, the string contents registered.
+        CustomAssetTypeRegistered(IdentityId, CustomAssetTypeId, Vec<u8>),
     }
 }

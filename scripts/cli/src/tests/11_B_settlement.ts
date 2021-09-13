@@ -1,4 +1,5 @@
 import * as init from "../util/init";
+
 import { createIdentities } from "../helpers/identity_helper";
 import { distributePolyBatch } from "../helpers/poly_helper";
 import {
@@ -24,24 +25,26 @@ async function main(): Promise<void> {
   const charlieDid = (await createIdentities(alice, [charlie]))[0];
   const daveDid = (await createIdentities(alice, [dave]))[0];
   const eveDid = (await createIdentities(alice, [eve]))[0];
-
+  console.log("DIDs Created");
   await distributePolyBatch(
     alice,
     [bob, charlie, dave, eve],
     init.transferAmount
   );
+  console.log("POLY Distributed");
   await issueTokenToDid(alice, ticker, 1000000, null);
   await issueTokenToDid(bob, ticker2, 1000000, null);
+  console.log("Assets Created");
   await addComplianceRequirement(alice, ticker);
   await addComplianceRequirement(bob, ticker2);
-  await mintingAsset(alice, ticker);
-  await mintingAsset(bob, ticker2);
+  console.log("Compliance Rules Added");
 
   let aliceBalance = await assetBalance(ticker, aliceDid);
   let bobBalance = await assetBalance(ticker, bobDid);
   let charlieBalance = await assetBalance(ticker, charlieDid);
   let daveBalance = await assetBalance(ticker, daveDid);
   let eveBalance = await assetBalance(ticker, eveDid);
+  console.log("Asset balances generated");
 
   console.log("Balance for Alice Asset (Before)");
   console.log(`alice asset balance -------->  ${aliceBalance}`);
@@ -87,6 +90,9 @@ async function main(): Promise<void> {
   //await settlement.rejectInstruction(eve, instructionCounter);
   await settlement.affirmInstruction(eve, instructionCounter, eveDid, 0);
 
+  // Wait for settlement to be executed - happens in the next block
+  await init.sleep(15000);
+
   aliceBalance = await assetBalance(ticker, aliceDid);
   bobBalance = await assetBalance(ticker, bobDid);
   charlieBalance = await assetBalance(ticker, charlieDid);
@@ -121,4 +127,7 @@ main()
     console.error(pe.render(err));
     process.exit(1);
   })
-  .finally(() => process.exit());
+  .finally(() => {
+    console.log("Completed: SETTLEMENT B");
+    process.exit();
+  });
