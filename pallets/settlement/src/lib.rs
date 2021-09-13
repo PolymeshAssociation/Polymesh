@@ -944,10 +944,12 @@ impl<T: Config> Module<T> {
 
         // Create a list of unique counter parties involved in the instruction.
         let mut counter_parties = BTreeSet::new();
+        let mut tickers = BTreeSet::new();
         for leg in &legs {
             ensure!(leg.from != leg.to, Error::<T>::SameSenderReceiver);
             // Check if the venue has required permissions from token owners.
-            if Self::venue_filtering(leg.asset) {
+            // Only check each ticker once.
+            if tickers.insert(leg.asset) && Self::venue_filtering(leg.asset) {
                 ensure!(
                     Self::venue_allow_list(leg.asset, venue_id),
                     Error::<T>::UnauthorizedVenue
@@ -1211,7 +1213,7 @@ impl<T: Config> Module<T> {
         max_legs_count: u32,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
     ) -> Result<u32, DispatchError> {
-        // checks portfolio's custodian and if it is a counter party with a pending or rejected affirmation
+        // Checks portfolio's custodian and if it is a counter party with a pending affirmation.
         Self::ensure_portfolios_and_affirmation_status(
             instruction_id,
             &portfolios,
@@ -1410,7 +1412,7 @@ impl<T: Config> Module<T> {
             Error::<T>::ReceiptAlreadyClaimed
         );
 
-        // verify portfolio custodianship and check if it is a counter party with a pending or rejected affirmation
+        // Verify portfolio custodianship and check if it is a counter party with a pending affirmation.
         Self::ensure_portfolios_and_affirmation_status(
             instruction_id,
             &portfolios_set,
