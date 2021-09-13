@@ -177,8 +177,6 @@ pub enum AffirmationStatus {
     Pending,
     /// Affirmed by the user
     Affirmed,
-    /// Rejected by the user
-    Rejected,
 }
 
 impl Default for AffirmationStatus {
@@ -681,17 +679,26 @@ decl_module! {
         ///
         /// # Arguments
         /// * `instruction_id` - Instruction id to reject.
+        ///
+        /// # Permissions
+        /// * Portfolio
         #[weight = <T as Config>::WeightInfo::reject_instruction()]
         pub fn reject_instruction(origin, instruction_id: u64) {
             let PermissionedCallOriginData {
                 primary_did,
+                secondary_key,
                 ..
             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
             ensure!(
                 Self::instruction_details(instruction_id).status != InstructionStatus::Unknown,
                 Error::<T>::UnknownInstruction
             );
+
             let legs = InstructionLegs::iter_prefix(instruction_id).collect::<Vec<_>>();
+
+            // Ensure that the sender is a party of this instruction.
+            ensure!(legs.iter().any(|(_, leg)| Self::is_leg_party(leg, primary_did, secondary_key.as_ref())), Error::<T>::UnauthorizedSigner);
+
             Self::unsafe_unclaim_receipts(instruction_id, &legs);
             Self::unchecked_release_locks(instruction_id, &legs);
             let _ = T::Scheduler::cancel_named((SETTLEMENT_INSTRUCTION_EXECUTION, instruction_id).encode());
@@ -927,25 +934,21 @@ impl<T: Config> Module<T> {
         // Ensure venue exists & sender is its creator.
         Self::venue_for_management(venue_id, did)?;
 
-        // Prepare data to store in storage.
+        // Create a list of unique counter parties involved in the instruction.
         let mut counter_parties = BTreeSet::new();
         let mut tickers = BTreeSet::new();
-        // This is done to create a list of unique CP and tickers involved in the instruction.
         for leg in &legs {
             ensure!(leg.from != leg.to, Error::<T>::SameSenderReceiver);
-            counter_parties.insert(leg.from);
-            counter_parties.insert(leg.to);
-            tickers.insert(leg.asset);
-        }
-
-        // Check if the venue has required permissions from token owners.
-        for ticker in &tickers {
-            if Self::venue_filtering(ticker) {
+            // Check if the venue has required permissions from token owners.
+            // Only check each ticker once.
+            if tickers.insert(leg.asset) && Self::venue_filtering(leg.asset) {
                 ensure!(
-                    Self::venue_allow_list(ticker, venue_id),
+                    Self::venue_allow_list(leg.asset, venue_id),
                     Error::<T>::UnauthorizedVenue
                 );
             }
+            counter_parties.insert(leg.from);
+            counter_parties.insert(leg.to);
         }
 
         // NB Instruction counter starts from 1.
@@ -1032,7 +1035,7 @@ impl<T: Config> Module<T> {
                     ));
                 }
                 LegStatus::ExecutionPending => {
-                    // Tokens are unlocked, need to be unlocked
+                    // Tokens are locked, need to be unlocked.
                     Self::unlock_via_leg(&leg_details)?;
                 }
                 LegStatus::PendingTokenLock => {
@@ -1042,7 +1045,7 @@ impl<T: Config> Module<T> {
             <InstructionLegStatus<T>>::insert(instruction_id, leg_id, LegStatus::PendingTokenLock);
         }
 
-        // Updates storage
+        // Updates storage.
         for portfolio in &portfolios {
             UserAffirmations::insert(portfolio, instruction_id, AffirmationStatus::Pending);
             AffirmsReceived::remove(instruction_id, portfolio);
@@ -1178,19 +1181,18 @@ impl<T: Config> Module<T> {
 
     fn prune_instruction(instruction_id: u64) {
         let legs = InstructionLegs::drain_prefix(instruction_id).collect::<Vec<_>>();
-        <InstructionDetails<T>>::remove(instruction_id);
+        let details = <InstructionDetails<T>>::take(instruction_id);
+        VenueInstructions::remove(details.venue_id, instruction_id);
         <InstructionLegStatus<T>>::remove_prefix(instruction_id);
         InstructionAffirmsPending::remove(instruction_id);
         AffirmsReceived::remove_prefix(instruction_id);
 
         // We remove duplicates in memory before triggering storage actions
-        let mut counter_parties = Vec::with_capacity(legs.len() * 2);
+        let mut counter_parties = BTreeSet::new();
         for (_, leg) in &legs {
-            counter_parties.push(leg.from);
-            counter_parties.push(leg.to);
+            counter_parties.insert(leg.from);
+            counter_parties.insert(leg.to);
         }
-        counter_parties.sort();
-        counter_parties.dedup();
         for counter_party in counter_parties {
             UserAffirmations::remove(counter_party, instruction_id);
         }
@@ -1203,13 +1205,13 @@ impl<T: Config> Module<T> {
         max_legs_count: u32,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
     ) -> Result<u32, DispatchError> {
-        // checks portfolio's custodian and if it is a counter party with a pending or rejected affirmation
+        // Checks portfolio's custodian and if it is a counter party with a pending affirmation.
         Self::ensure_portfolios_and_affirmation_status(
             instruction_id,
             &portfolios,
             did,
             secondary_key,
-            &[AffirmationStatus::Pending, AffirmationStatus::Rejected],
+            &[AffirmationStatus::Pending],
         )?;
 
         let (total_leg_count, filtered_legs) =
@@ -1402,13 +1404,13 @@ impl<T: Config> Module<T> {
             Error::<T>::ReceiptAlreadyClaimed
         );
 
-        // verify portfolio custodianship and check if it is a counter party with a pending or rejected affirmation
+        // Verify portfolio custodianship and check if it is a counter party with a pending affirmation.
         Self::ensure_portfolios_and_affirmation_status(
             instruction_id,
             &portfolios_set,
             did,
             secondary_key.as_ref(),
-            &[AffirmationStatus::Pending, AffirmationStatus::Rejected],
+            &[AffirmationStatus::Pending],
         )?;
 
         // Verify that the receipts are valid
@@ -1675,5 +1677,17 @@ impl<T: Config> Module<T> {
             Error::<T>::LegCountTooSmall
         );
         Ok((legs_count, filtered_legs))
+    }
+
+    /// Check if the sender is a party (owner/custodian) of the leg.
+    fn is_leg_party(
+        leg: &Leg,
+        did: IdentityId,
+        secondary_key: Option<&SecondaryKey<T::AccountId>>,
+    ) -> bool {
+        // Check both from/to portoflios.
+        T::Portfolio::ensure_portfolio_custody_and_permission(leg.from, did, secondary_key).is_ok()
+            || T::Portfolio::ensure_portfolio_custody_and_permission(leg.to, did, secondary_key)
+                .is_ok()
     }
 }
