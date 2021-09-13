@@ -263,8 +263,6 @@ pub struct CorporateAction {
     pub decl_date: Moment,
     /// Date at which any impact, if any, should be calculated.
     pub record_date: Option<RecordDate>,
-    /// UNUSED! Data moved to `Details` storage map.
-    pub details: (),
     /// The identities this CA is relevant to.
     pub targets: TargetIdentities,
     /// The default withholding tax at the time of CA creation.
@@ -623,7 +621,6 @@ decl_module! {
                 kind,
                 decl_date,
                 record_date,
-                details: (),
                 targets,
                 default_withholding_tax,
                 withholding_tax,

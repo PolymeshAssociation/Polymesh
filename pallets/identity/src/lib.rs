@@ -124,7 +124,6 @@ use polymesh_common_utilities::{
     },
     Context, SystematicIssuers, GC_DID, SYSTEMATIC_ISSUERS,
 };
-use polymesh_primitives::identity_id::GenesisIdentityRecord;
 use polymesh_primitives::{
     extract_auth,
     investor_zkproof_data::{v1::InvestorZKProofData, InvestorZKProofData as InvestorZKProof},
@@ -213,7 +212,7 @@ decl_storage! {
     }
     add_extra_genesis {
         // Identities at genesis.
-        config(identities): Vec<GenesisIdentityRecord<T::AccountId>>;
+        config(identities): Vec<polymesh_primitives::identity_id::GenesisIdentityRecord<T::AccountId>>;
         // Secondary keys of identities at genesis. `identities` have to be initialised.
         config(secondary_keys): Vec<(T::AccountId, IdentityId)>;
         build(|config: &GenesisConfig<T>| {
