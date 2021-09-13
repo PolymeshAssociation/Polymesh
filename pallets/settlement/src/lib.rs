@@ -308,14 +308,13 @@ pub trait WeightInfo {
     fn set_venue_filtering() -> Weight;
     fn allow_venues(u: u32) -> Weight;
     fn disallow_venues(u: u32) -> Weight;
-    fn execute_scheduled_instruction(l: u32) -> Weight;
     fn reject_instruction() -> Weight;
     fn change_receipt_validity() -> Weight;
+    fn execute_scheduled_instruction(l: u32) -> Weight;
+    fn reschedule_instruction() -> Weight;
 
     // Some multiple paths based extrinsic.
     // TODO: Will be removed once we get the worst case weight.
-    fn set_venue_filtering_disallow() -> Weight;
-    fn withdraw_affirmation_with_receipt(u: u32) -> Weight;
     fn add_instruction_with_settle_on_block_type(u: u32) -> Weight;
     fn add_and_affirm_instruction_with_settle_on_block_type(u: u32) -> Weight;
 }
@@ -848,7 +847,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
-        #[weight = <T as Config>::WeightInfo::change_receipt_validity()]
+        #[weight = <T as Config>::WeightInfo::reschedule_instruction()]
         pub fn reschedule_instruction(origin, instruction_id: u64) {
             let did = Identity::<T>::ensure_perms(origin)?;
 
@@ -928,7 +927,7 @@ impl<T: Config> Module<T> {
         // Ensure venue exists & sender is its creator.
         Self::venue_for_management(venue_id, did)?;
 
-        // Prepare data to store in storage
+        // Prepare data to store in storage.
         let mut counter_parties = BTreeSet::new();
         let mut tickers = BTreeSet::new();
         // This is done to create a list of unique CP and tickers involved in the instruction.
@@ -939,7 +938,7 @@ impl<T: Config> Module<T> {
             tickers.insert(leg.asset);
         }
 
-        // Check if the venue has required permissions from token owners
+        // Check if the venue has required permissions from token owners.
         for ticker in &tickers {
             if Self::venue_filtering(ticker) {
                 ensure!(
@@ -949,7 +948,7 @@ impl<T: Config> Module<T> {
             }
         }
 
-        // NB Instruction counter starts from 1
+        // NB Instruction counter starts from 1.
         let instruction_counter = Self::instruction_counter();
         let instruction = Instruction {
             instruction_id: instruction_counter,
@@ -961,7 +960,7 @@ impl<T: Config> Module<T> {
             value_date,
         };
 
-        // write data to storage
+        // Write data to storage.
         for counter_party in &counter_parties {
             UserAffirmations::insert(
                 counter_party,

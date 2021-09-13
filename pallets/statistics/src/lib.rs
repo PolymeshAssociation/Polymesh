@@ -30,7 +30,7 @@ use sp_std::vec::Vec;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 
 decl_storage! {
-    trait Store for Module<T: Config> as statistics {
+    trait Store for Module<T: Config> as Statistics {
         /// Transfer managers currently enabled for an Asset.
         pub ActiveTransferManagers get(fn transfer_managers): map hasher(blake2_128_concat) Ticker => Vec<TransferManager>;
         /// Number of current investors in an asset.

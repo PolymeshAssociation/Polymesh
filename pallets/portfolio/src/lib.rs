@@ -84,19 +84,19 @@ decl_storage! {
     trait Store for Module<T: Config> as Portfolio {
         /// The next portfolio sequence number of an identity.
         pub NextPortfolioNumber get(fn next_portfolio_number):
-            map hasher(twox_64_concat) IdentityId => PortfolioNumber;
+            map hasher(identity) IdentityId => PortfolioNumber;
 
         /// The set of existing portfolios with their names. If a certain pair of a DID and
         /// portfolio number maps to `None` then such a portfolio doesn't exist. Conversely, if a
         /// pair maps to `Some(name)` then such a portfolio exists and is called `name`.
         pub Portfolios get(fn portfolios):
-            double_map hasher(twox_64_concat) IdentityId, hasher(twox_64_concat) PortfolioNumber =>
+            double_map hasher(identity) IdentityId, hasher(twox_64_concat) PortfolioNumber =>
                 PortfolioName;
 
         /// Inverse map of `Portfolios` used to ensure bijectivitiy,
         /// and uniqueness of names in `Portfolios`.
         pub NameToNumber get(fn name_to_number):
-            double_map hasher(twox_64_concat) IdentityId, hasher(blake2_128_concat) PortfolioName =>
+            double_map hasher(identity) IdentityId, hasher(blake2_128_concat) PortfolioName =>
                 PortfolioNumber;
 
         /// How many assets with non-zero balance this portfolio contains.
@@ -120,7 +120,7 @@ decl_storage! {
         /// When `true` is stored as the value for a given `(did, pid)`, it means that `pid` is in custody of `did`.
         /// `false` values are never explicitly stored in the map, and are instead inferred by the absence of a key.
         pub PortfoliosInCustody get(fn portfolios_in_custody):
-            double_map hasher(twox_64_concat) IdentityId, hasher(twox_64_concat) PortfolioId => bool;
+            double_map hasher(identity) IdentityId, hasher(twox_64_concat) PortfolioId => bool;
 
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(2).unwrap()): Version;
@@ -484,7 +484,6 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         // If a custodian is assigned, only they are allowed.
         // Else, only the portfolio owner is allowed
-        // TODO: support portfolio permissions
         ensure!(
             Self::portfolio_custodian(portfolio).unwrap_or(portfolio.did) == custodian,
             Error::<T>::UnauthorizedCustodian

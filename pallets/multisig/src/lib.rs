@@ -54,7 +54,9 @@
 //! account key.
 //! - `add_multisig_signer` - Adds a signer to the multisig.
 //! - `remove_multisig_signer` - Removes a signer from the multisig.
-//! - `add_multisig_signers_via_creator` - Adds a signer to the multisig with the signed being the
+//! - `add_multisig_signers_via_creator` - Adds a signer to the multisig when called by the
+//! creator of the multisig.
+//! - `remove_multisig_signers_via_creator` - Removes a signer from the multisig when called by the
 //! creator of the multisig.
 //! - `change_sigs_required` - Changes the number of signatures required to execute a transaction.
 //! - `make_multisig_signer` - Adds a multisig as a signer of the current DID if the current DID is
@@ -112,6 +114,8 @@ use sp_runtime::traits::{Dispatchable, Hash, One};
 use sp_std::{convert::TryFrom, iter, prelude::*};
 
 type Identity<T> = identity::Module<T>;
+
+pub const NAME: &[u8] = b"MultiSig";
 
 /// Either the ID of a successfully created multisig account or an error.
 pub type CreateMultisigAccountResult<T> =
@@ -206,24 +210,24 @@ decl_storage! {
         /// Nonce to ensure unique MultiSig addresses are generated; starts from 1.
         pub MultiSigNonce get(fn ms_nonce) build(|_| 1u64): u64;
         /// Signers of a multisig. (multisig, signer) => signer.
-        pub MultiSigSigners: double_map hasher(twox_64_concat) T::AccountId, hasher(blake2_128_concat) Signatory<T::AccountId> => Signatory<T::AccountId>;
+        pub MultiSigSigners: double_map hasher(identity) T::AccountId, hasher(twox_64_concat) Signatory<T::AccountId> => Signatory<T::AccountId>;
         /// Number of approved/accepted signers of a multisig.
-        pub NumberOfSigners get(fn number_of_signers): map hasher(twox_64_concat) T::AccountId => u64;
+        pub NumberOfSigners get(fn number_of_signers): map hasher(identity) T::AccountId => u64;
         /// Confirmations required before processing a multisig tx.
-        pub MultiSigSignsRequired get(fn ms_signs_required): map hasher(twox_64_concat) T::AccountId => u64;
+        pub MultiSigSignsRequired get(fn ms_signs_required): map hasher(identity) T::AccountId => u64;
         /// Number of transactions proposed in a multisig. Used as tx id; starts from 0.
-        pub MultiSigTxDone get(fn ms_tx_done): map hasher(twox_64_concat) T::AccountId => u64;
+        pub MultiSigTxDone get(fn ms_tx_done): map hasher(identity) T::AccountId => u64;
         /// Proposals presented for voting to a multisig (multisig, proposal id) => Option<T::Proposal>.
         pub Proposals get(fn proposals): map hasher(twox_64_concat) (T::AccountId, u64) => Option<T::Proposal>;
         /// A mapping of proposals to their IDs.
         pub ProposalIds get(fn proposal_ids):
-            double_map hasher(twox_64_concat) T::AccountId, hasher(opaque_blake2_256) T::Proposal => Option<u64>;
+            double_map hasher(identity) T::AccountId, hasher(blake2_128_concat) T::Proposal => Option<u64>;
         /// Individual multisig signer votes. (multi sig, signer, proposal) => vote.
-        pub Votes get(fn votes): map hasher(blake2_128_concat) (T::AccountId, Signatory<T::AccountId>, u64) => bool;
+        pub Votes get(fn votes): map hasher(twox_64_concat) (T::AccountId, Signatory<T::AccountId>, u64) => bool;
         /// Maps a multisig secondary key to a multisig address.
-        pub KeyToMultiSig get(fn key_to_ms): map hasher(blake2_128_concat) T::AccountId => T::AccountId;
+        pub KeyToMultiSig get(fn key_to_ms): map hasher(twox_64_concat) T::AccountId => T::AccountId;
         /// Maps a multisig account to its identity.
-        pub MultiSigToIdentity get(fn ms_to_identity): map hasher(blake2_128_concat) T::AccountId => IdentityId;
+        pub MultiSigToIdentity get(fn ms_to_identity): map hasher(identity) T::AccountId => IdentityId;
         /// Details of a multisig proposal
         pub ProposalDetail get(fn proposal_detail): map hasher(twox_64_concat) (T::AccountId, u64) => ProposalDetails<T::Moment>;
         /// The last transaction version, used for `on_runtime_upgrade`.
@@ -248,7 +252,7 @@ decl_module! {
             if last_version < current_version {
                 TransactionVersion::set(current_version);
                 for item in &["Proposals", "ProposalIds", "ProposalDetail", "Votes"] {
-                    kill_item(b"MultiSig", item.as_bytes())
+                    kill_item(NAME, item.as_bytes())
                 }
             }
 
@@ -408,7 +412,7 @@ decl_module! {
         /// Accepts a multisig signer authorization given to signer's identity.
         ///
         /// # Arguments
-        /// * `proposal_id` - Auth id of the authorization.
+        /// * `auth_id` - Auth id of the authorization.
         #[weight = <T as Config>::WeightInfo::accept_multisig_signer_as_identity()]
         pub fn accept_multisig_signer_as_identity(origin, auth_id: u64) -> DispatchResult {
             let signer = Self::ensure_signed_did(origin)?;
@@ -418,7 +422,7 @@ decl_module! {
         /// Accepts a multisig signer authorization given to signer's key (AccountId).
         ///
         /// # Arguments
-        /// * `proposal_id` - Auth id of the authorization.
+        /// * `auth_id` - Auth id of the authorization.
         #[weight = <T as Config>::WeightInfo::accept_multisig_signer_as_key()]
         pub fn accept_multisig_signer_as_key(origin, auth_id: u64) -> DispatchResult {
             let signer = Self::ensure_signed_acc(origin)?;
@@ -539,9 +543,7 @@ decl_module! {
             <Identity<T>>::unsafe_join_identity(
                 did,
                 Permissions::from_pallet_permissions(
-                    // TODO: Check if there is a variable for the pallet name and, if there is, use
-                    // it instead of b"_".
-                    iter::once(PalletPermissions::entire_pallet(b"multisig".as_ref().into()))
+                    iter::once(PalletPermissions::entire_pallet(NAME.into()))
                 ),
                 &Signatory::Account(multisig),
             );

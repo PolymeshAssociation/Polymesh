@@ -71,7 +71,7 @@ type Identity<T> = pallet_identity::Module<T>;
 type Permissions<T> = pallet_permissions::Module<T>;
 
 decl_storage! {
-    trait Store for Module<T: Config> as ExternalAgent {
+    trait Store for Module<T: Config> as ExternalAgents {
         /// The next per-`Ticker` AG ID in the sequence.
         ///
         /// The full ID is defined as a combination of `Ticker` and a number in this sequence,

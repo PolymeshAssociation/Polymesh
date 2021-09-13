@@ -36,9 +36,7 @@ frame-support = { version = "3.0.0", default-features = false }
 frame-benchmarking = { version = "3.0.0", default-features = false, optional = true }
 pallet-timestamp = { version = "3.0.0", default-features = false }
 pallet-session = { version = "3.0.0", default-features = false }
-libsecp256k1 = { version = "0.3.5", default-features = false, features = ["hmac"] }
 
-confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "b2.2.3-2", optional = true }
 pallet-compliance-manager = { path = "../compliance-manager", default-features = false, optional = true }
 
 [features]
@@ -64,6 +62,5 @@ std = [
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
-    "confidential_identity",
     "pallet-compliance-manager"
 ]

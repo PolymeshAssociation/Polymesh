@@ -178,7 +178,7 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
     pub const SessionsPerEra: sp_staking::SessionIndex = 3;
     pub const BondingDuration: pallet_staking::EraIndex = 7;
-    pub const SlashDeferDuration: pallet_staking::EraIndex = 4; // 1/4 the bonding duration.
+    pub const SlashDeferDuration: pallet_staking::EraIndex = 4;
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const MaxNominatorRewardedPerValidator: u32 = 2048;
     pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
@@ -405,10 +405,11 @@ polymesh_runtime_common::runtime_apis! {
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
-            //use frame_system_benchmarking::Module as SystemBench;
-            use crate::benchmarks::pallet_session::Module as SessionBench;
 
+            type SystemBench = frame_system_benchmarking::Module<Runtime>;
             impl frame_system_benchmarking::Config for Runtime {}
+
+            type SessionBench = crate::benchmarks::pallet_session::Module<Runtime>;
             impl crate::benchmarks::pallet_session::Config for Runtime {}
 
             let whitelist: Vec<TrackedStorageKey> = vec![
@@ -436,8 +437,8 @@ polymesh_runtime_common::runtime_apis! {
             add_benchmark!(params, batches, pallet_multisig, MultiSig);
             add_benchmark!(params, batches, pallet_portfolio, Portfolio);
             add_benchmark!(params, batches, pallet_protocol_fee, ProtocolFee);
-            //add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
-            //add_benchmark!(params, batches, pallet_timestamp, Timestamp);
+            add_benchmark!(params, batches, frame_system, SystemBench);
+            add_benchmark!(params, batches, pallet_timestamp, Timestamp);
             add_benchmark!(params, batches, pallet_settlement, Settlement);
             add_benchmark!(params, batches, pallet_sto, Sto);
             add_benchmark!(params, batches, pallet_checkpoint, Checkpoint);
@@ -452,15 +453,15 @@ polymesh_runtime_common::runtime_apis! {
             add_benchmark!(params, batches, pallet_committee, PolymeshCommittee);
             add_benchmark!(params, batches, pallet_utility, Utility);
             add_benchmark!(params, batches, pallet_treasury, Treasury);
-            //add_benchmark!(params, batches, pallet_im_online, ImOnline);
+            add_benchmark!(params, batches, pallet_im_online, ImOnline);
             add_benchmark!(params, batches, pallet_group, CddServiceProviders);
             add_benchmark!(params, batches, pallet_statistics, Statistics);
             add_benchmark!(params, batches, pallet_permissions, Permissions);
-            //add_benchmark!(params, batches, pallet_babe, Babe);
-            //add_benchmark!(params, batches, pallet_indices, Indices);
-            add_benchmark!(params, batches, pallet_session, SessionBench::<Runtime>);
-            //add_benchmark!(params, batches, pallet_grandpa, Grandpa);
-            //add_benchmark!(params, batches, pallet_scheduler, <Scheduler as Benchmarking>);
+            add_benchmark!(params, batches, pallet_babe, Babe);
+            add_benchmark!(params, batches, pallet_indices, Indices);
+            add_benchmark!(params, batches, pallet_session, SessionBench);
+            add_benchmark!(params, batches, pallet_grandpa, Grandpa);
+            add_benchmark!(params, batches, pallet_scheduler, Scheduler);
             add_benchmark!(params, batches, pallet_staking, Staking);
             add_benchmark!(params, batches, pallet_test_utils, TestUtils);
 

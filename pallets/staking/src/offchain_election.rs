@@ -19,7 +19,7 @@
 
 use crate::{
     Call, CompactAssignments, Config, ElectionSize, Module, NominatorIndex, Nominators,
-    OffchainAccuracy, ValidatorIndex, WeightInfo,
+    OffchainAccuracy, ValidatorIndex,
 };
 use codec::Decode;
 use frame_support::{traits::Get, weights::Weight, IterableStorageMap};
@@ -320,7 +320,7 @@ pub fn prepare_submission<T: Config>(
     assignments: Vec<Assignment<T::AccountId, OffchainAccuracy>>,
     winners: Vec<(T::AccountId, ExtendedBalance)>,
     do_reduce: bool,
-    maximum_weight: Weight,
+    _maximum_weight: Weight,
 ) -> Result<
     (
         Vec<ValidatorIndex>,
@@ -390,25 +390,26 @@ pub fn prepare_submission<T: Config>(
     .map_err(|e| OffchainElectionError::from(e))?;
 
     // potentially reduce the size of the compact to fit weight.
-    let maximum_allowed_voters = maximum_compact_len::<<T as Config>::WeightInfo>(
-        winners.len() as u32,
-        size,
-        maximum_weight,
-    );
+    // let maximum_allowed_voters = maximum_compact_len::<<T as Config>::WeightInfo>(
+    //     winners.len() as u32,
+    //     size,
+    //     maximum_weight,
+    // );
 
-    crate::log!(debug, "💸 Maximum weight = {:?} // current weight = {:?} // maximum voters = {:?} // current votes = {:?}",
-		maximum_weight,
-		<T as Config>::WeightInfo::submit_solution_better(
-				size.validators.into(),
-				size.nominators.into(),
-				compact.voter_count() as u32,
-				winners.len() as u32,
-		),
-		maximum_allowed_voters,
-		compact.voter_count(),
-	);
+    // crate::log!(debug, "💸 Maximum weight = {:?} // current weight = {:?} // maximum voters = {:?} // current votes = {:?}",
+    // 	maximum_weight,
+    // 	<T as Config>::WeightInfo::submit_solution_better(
+    // 			size.validators.into(),
+    // 			size.nominators.into(),
+    // 			compact.voter_count() as u32,
+    // 			winners.len() as u32,
+    // 	),
+    // 	maximum_allowed_voters,
+    // 	compact.voter_count(),
+    // );
 
-    let compact = trim_to_weight::<T, _>(maximum_allowed_voters, compact, &nominator_index)?;
+    // TODO: Move to new Phragman approach from Substrate 4
+    // let compact = trim_to_weight::<T, _>(maximum_allowed_voters, compact, &nominator_index)?;
 
     // re-compute the score. We re-create what the chain will do. This is a bit verbose and wastes
     // CPU time, but it is necessary to ensure that the score that we claim is the same as the one

@@ -28,7 +28,7 @@ sp-std = { version = "3.0.0", default-features = false }
 
 # Benchmarks
 frame-benchmarking = { version = "3.0.0", default-features = false, optional = true }
-schnorrkel = { git = "https://github.com/PolymathNetwork/schnorrkel.git", branch = "fix-simd-issue", default-features = false, optional = true }
+schnorrkel = { version = "0.10.1", default-features = false, optional = true }
 
 [dev-dependencies]
 lazy_static = { version = "1.4.0", default-features = false }

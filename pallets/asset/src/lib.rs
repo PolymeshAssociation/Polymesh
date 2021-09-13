@@ -338,17 +338,18 @@ decl_storage! {
         pub AssetNames get(fn asset_names): map hasher(blake2_128_concat) Ticker => AssetName;
         /// The total asset ticker balance per identity.
         /// (ticker, DID) -> Balance
-        pub BalanceOf get(fn balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) IdentityId => Balance;
+        // NB: It is safe to use `identity` hasher here because assets can not be distributed to non-existent identities.
+        pub BalanceOf get(fn balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) IdentityId => Balance;
         /// A map of a ticker name and asset identifiers.
         pub Identifiers get(fn identifiers): map hasher(blake2_128_concat) Ticker => Vec<AssetIdentifier>;
 
-        /// The next `AgentType::Custom` ID in the sequence.
+        /// The next `AssetType::Custom` ID in the sequence.
         ///
         /// Numbers in the sequence start from 1 rather than 0.
         pub CustomTypeIdSequence get(fn custom_type_id_seq): CustomAssetTypeId;
-        /// Maps custom agent type ids to the registered string contents.
+        /// Maps custom asset type ids to the registered string contents.
         pub CustomTypes get(fn custom_types): map hasher(twox_64_concat) CustomAssetTypeId => Vec<u8>;
-        /// Inverse map of `CustomTypes`, from registered string contents to custom agent type ids.
+        /// Inverse map of `CustomTypes`, from registered string contents to custom asset type ids.
         pub CustomTypesInverse get(fn custom_types_inverse): map hasher(blake2_128_concat) Vec<u8> => CustomAssetTypeId;
 
         /// The name of the current funding round.
@@ -371,11 +372,11 @@ decl_storage! {
         /// Tickers and token owned by a user
         /// (user, ticker) -> AssetOwnership
         pub AssetOwnershipRelations get(fn asset_ownership_relation):
-            double_map hasher(twox_64_concat) IdentityId, hasher(blake2_128_concat) Ticker => AssetOwnershipRelation;
+            double_map hasher(identity) IdentityId, hasher(blake2_128_concat) Ticker => AssetOwnershipRelation;
         /// Documents attached to an Asset
         /// (ticker, doc_id) -> document
         pub AssetDocuments get(fn asset_documents):
-            double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) DocumentId => Document;
+            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) DocumentId => Document;
         /// Per-ticker document ID counter.
         /// (ticker) -> doc_id
         pub AssetDocumentsIdSequence get(fn asset_documents_id_sequence): map hasher(blake2_128_concat) Ticker => DocumentId;

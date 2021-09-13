@@ -3,9 +3,6 @@
     "Address": "MultiAddress",
     "LookupSource": "MultiAddress",
     "AccountInfo": "AccountInfoWithDualRefCount",
-    "ValidatorPrefsWithBlocked": {
-      "commission": "Compact<Perbill>"
-    },
     "IdentityId": "[u8; 32]",
     "EventDid": "IdentityId",
     "EventCounts": "Vec<u32>",
@@ -687,14 +684,10 @@
         "AttestPrimaryKeyRotation": "IdentityId",
         "RotatePrimaryKey": "",
         "TransferTicker": "Ticker",
-        "TransferPrimaryIssuanceAgent": "Ticker",
         "AddMultiSigSigner": "AccountId",
         "TransferAssetOwnership": "Ticker",
         "JoinIdentity": "Permissions",
         "PortfolioCustody": "PortfolioId",
-        "Custom": "Ticker",
-        "NoData": "",
-        "TransferCorporateActionAgent": "Ticker",
         "BecomeAgent": "(Ticker, AgentGroup)",
         "AddRelayerPayingKey": "(AccountId, AccountId, Balance)"
       }
@@ -894,8 +887,6 @@
         "TransferAssetOwnership": "",
         "JoinIdentity": "",
         "PortfolioCustody": "",
-        "Custom": "",
-        "NoData": "",
         "BecomeAgent": "",
         "AddRelayerPayingKey": ""
       }

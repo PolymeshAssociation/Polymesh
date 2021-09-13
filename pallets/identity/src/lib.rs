@@ -154,13 +154,13 @@ type CallPermissions<T> = pallet_permissions::Module<T>;
 storage_migration_ver!(4);
 
 decl_storage! {
-    trait Store for Module<T: Config> as identity {
+    trait Store for Module<T: Config> as Identity {
 
         /// DID -> identity info
-        pub DidRecords get(fn did_records) config(): map hasher(twox_64_concat) IdentityId => DidRecord<T::AccountId>;
+        pub DidRecords get(fn did_records) config(): map hasher(identity) IdentityId => DidRecord<T::AccountId>;
 
         /// DID -> bool that indicates if secondary keys are frozen.
-        pub IsDidFrozen get(fn is_did_frozen): map hasher(twox_64_concat) IdentityId => bool;
+        pub IsDidFrozen get(fn is_did_frozen): map hasher(identity) IdentityId => bool;
 
         /// It stores the current identity for current transaction.
         pub CurrentDid: Option<IdentityId>;
@@ -169,18 +169,18 @@ decl_storage! {
         pub CurrentPayer: Option<T::AccountId>;
 
         /// (Target ID, claim type) (issuer,scope) -> Associated claims
-        pub Claims: double_map hasher(blake2_128_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => IdentityClaim;
+        pub Claims: double_map hasher(twox_64_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => IdentityClaim;
 
         // A map from AccountId primary or secondary keys to DIDs.
         // Account keys map to at most one identity.
         pub KeyToIdentityIds get(fn key_to_identity_dids) config():
-            map hasher(blake2_128_concat) T::AccountId => IdentityId;
+            map hasher(twox_64_concat) T::AccountId => IdentityId;
 
         /// Nonce to ensure unique actions. starts from 1.
         pub MultiPurposeNonce get(fn multi_purpose_nonce) build(|_| 1u64): u64;
 
         /// Authorization nonce per Identity. Initially is 0.
-        pub OffChainAuthorizationNonce get(fn offchain_authorization_nonce): map hasher(twox_64_concat) IdentityId => AuthorizationNonce;
+        pub OffChainAuthorizationNonce get(fn offchain_authorization_nonce): map hasher(identity) IdentityId => AuthorizationNonce;
 
         /// Inmediate revoke of any off-chain authorization.
         pub RevokeOffChainAuthorization get(fn is_offchain_authorization_revoked):
@@ -188,10 +188,10 @@ decl_storage! {
 
         /// All authorizations that an identity/key has
         pub Authorizations get(fn authorizations): double_map hasher(blake2_128_concat)
-            Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Authorization<T::AccountId, T::Moment>;
+            Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Option<Authorization<T::AccountId, T::Moment>>;
 
         /// All authorizations that an identity has given. (Authorizer, auth_id -> authorized)
-        pub AuthorizationsGiven: double_map hasher(blake2_128_concat)
+        pub AuthorizationsGiven: double_map hasher(identity)
             IdentityId, hasher(twox_64_concat) u64 => Signatory<T::AccountId>;
 
         /// Obsoleted storage variable superceded by `CddAuthForPrimaryKeyRotation`. It is kept here
@@ -581,13 +581,7 @@ decl_module! {
         /// Failure
         ///     - It can only called by primary key owner.
         ///     - Keys should be able to linked to any identity.
-        ///
-        /// NB: The current weight is a defensive approximation.
-        #[weight =
-            (1_500_000_000 as Weight)
-                .saturating_add(T::DbWeight::get().reads(10 as Weight))
-                .saturating_add(T::DbWeight::get().writes(5 as Weight))
-        ]
+        #[weight = <T as Config>::WeightInfo::add_secondary_keys_with_authorization(additional_keys.len() as u32)]
         pub fn add_secondary_keys_with_authorization(
             origin,
             additional_keys: Vec<SecondaryKeyWithAuth<T::AccountId>>,
@@ -1040,16 +1034,7 @@ impl<T: Config> Module<T> {
         target: &Signatory<T::AccountId>,
         auth_id: u64,
     ) -> Result<Authorization<T::AccountId, T::Moment>, DispatchError> {
-        Self::maybe_authorization(target, auth_id).ok_or_else(|| AuthorizationError::Invalid.into())
-    }
-
-    /// Returns the authorization `auth_id` for `target`, if any.
-    fn maybe_authorization(
-        target: &Signatory<T::AccountId>,
-        auth_id: u64,
-    ) -> Option<Authorization<T::AccountId, T::Moment>> {
-        <Authorizations<T>>::contains_key(target, auth_id)
-            .then(|| <Authorizations<T>>::get(target, auth_id))
+        Self::authorizations(target, auth_id).ok_or_else(|| AuthorizationError::Invalid.into())
     }
 
     /// Accepts a primary key rotation.
@@ -1730,7 +1715,7 @@ impl<T: Config> Module<T> {
         target: &Signatory<T::AccountId>,
         auth_id: &u64,
     ) -> Option<Authorization<T::AccountId, T::Moment>> {
-        Self::maybe_authorization(target, *auth_id).filter(|auth| {
+        Self::authorizations(target, *auth_id).filter(|auth| {
             auth.expiry
                 .filter(|&expiry| <pallet_timestamp::Module<T>>::get() > expiry)
                 .is_none()
