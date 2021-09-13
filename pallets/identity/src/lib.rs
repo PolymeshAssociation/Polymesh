@@ -65,7 +65,6 @@
 //! - `accept_primary_key` - Accept authorization to become the new primary key of an identity.
 //! - `change_cdd_requirement_for_mk_rotation` - Sets if CDD authorization is required for updating primary key of an identity.
 //! - `join_identity_as_key` - Join an identity as a secondary key.
-//! - `join_identity_as_identity` - Join an identity as a secondary identity.
 //! - `add_claim` - Adds a new claim record or edits an existing one.
 //! - `revoke_claim` - Marks the specified claim as revoked.
 //! - `revoke_claim_by_index` - Revoke a claim identified by its index.
