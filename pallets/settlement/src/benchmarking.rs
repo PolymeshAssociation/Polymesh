@@ -705,8 +705,10 @@ benchmarks! {
 
 
     reject_instruction {
+        // Use worse-case, since we don't have a leg count.
+        let l = MAX_LEGS_IN_INSTRUCTION;
         // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(MAX_LEGS_IN_INSTRUCTION, true).unwrap();
+        let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(l, true).unwrap();
         // Add and affirm instruction.
         Module::<T>::add_and_affirm_instruction((origin.clone()).into(), venue_id, SettlementType::SettleOnAffirmation, None, None, legs, portfolios.clone()).expect("Unable to add and affirm the instruction");
         let instruction_id: u64 = 1;
@@ -836,8 +838,8 @@ benchmarks! {
     }
 
     reschedule_instruction {
-
         let l = MAX_LEGS_IN_INSTRUCTION;
+
         let (portfolios_to, from, to, tickers, _) = setup_affirm_instruction::<T>(l);
         let instruction_id = 1; // It will always be `1` as we know there is no other instruction in the storage yet.
         let to_portfolios = portfolios_to.clone();
