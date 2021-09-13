@@ -697,15 +697,7 @@ decl_module! {
             let legs = InstructionLegs::iter_prefix(instruction_id).collect::<Vec<_>>();
 
             // Ensure that the sender is a party of this instruction.
-            let mut is_party = false;
-            for (_, leg) in &legs {
-                if Self::is_leg_party(leg, primary_did, secondary_key.as_ref()) {
-                    is_party = true;
-                    // Only need to find one leg that the sender is a part of.
-                    break;
-                }
-            }
-            ensure!(is_party, Error::<T>::UnauthorizedSigner);
+            ensure!(legs.iter().any(|(_, leg)| Self::is_leg_party(leg, primary_did, secondary_key.as_ref())), Error::<T>::UnauthorizedSigner);
 
             Self::unsafe_unclaim_receipts(instruction_id, &legs);
             Self::unchecked_release_locks(instruction_id, &legs);
