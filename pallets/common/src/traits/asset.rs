@@ -14,7 +14,6 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::traits::{checkpoint, compliance_manager, external_agents, portfolio, statistics};
-use codec::{Decode, Encode};
 use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Currency, Get, UnixTime};
