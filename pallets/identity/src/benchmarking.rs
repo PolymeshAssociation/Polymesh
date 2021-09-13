@@ -170,9 +170,9 @@ benchmarks! {
 
         let mut signatories = Vec::with_capacity(i as usize);
         for x in 0..i {
-            let signer = Signatory::Account(account("key", x, SEED));
-            signatories.push(signer.clone());
-            Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), &signer);
+            let key: T::AccountId = account("key", x, SEED);
+            signatories.push(Signatory::Account(key.clone()));
+            Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), key);
         }
     }: _(target.origin, signatories.clone())
 
@@ -267,9 +267,9 @@ benchmarks! {
     set_permission_to_signer {
         let target = user::<T>("target", 0);
         let key = UserBuilder::<T>::default().build("key");
-        let signatory = Signatory::Account(key.account);
+        let signatory = Signatory::Account(key.account());
 
-        Module::<T>::unsafe_join_identity(target.did(), Permissions::empty(), &signatory);
+        Module::<T>::unsafe_join_identity(target.did(), Permissions::empty(), key.account());
     }: _(target.origin, signatory, Permissions::default().into())
 
     freeze_secondary_keys {
