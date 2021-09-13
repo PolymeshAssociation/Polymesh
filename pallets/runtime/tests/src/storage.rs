@@ -34,7 +34,6 @@ use polymesh_common_utilities::{
     traits::{
         group::GroupTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
-        CommonConfig,
     },
     Context,
 };
@@ -218,19 +217,21 @@ frame_support::construct_runtime!(
         Settlement: pallet_settlement::{Module, Call, Storage, Event<T>, Config} = 36,
         Sto: pallet_sto::{Module, Call, Storage, Event<T>} = 37,
         Statistics: pallet_statistics::{Module, Call, Storage, Event} = 39,
-        ProtocolFee: pallet_protocol_fee::{Module, Call, Storage, Event<T>, Config<T>} = 40,
+        ProtocolFee: pallet_protocol_fee::{Module, Call, Storage, Event<T>, Config} = 40,
         Utility: pallet_utility::{Module, Call, Storage, Event} = 41,
-        Portfolio: pallet_portfolio::{Module, Call, Storage, Event<T>} = 42,
+        Portfolio: pallet_portfolio::{Module, Call, Storage, Event} = 42,
         // Removed pallet Confidential = 43,
         Permissions: pallet_permissions::{Module, Storage} = 44,
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>} = 45,
         CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event, Config} = 46,
-        CorporateBallot: corporate_ballots::{Module, Call, Storage, Event<T>} = 47,
-        CapitalDistribution: capital_distributions::{Module, Call, Storage, Event<T>} = 48,
-        Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event<T>, Config} = 49,
+        CorporateBallot: corporate_ballots::{Module, Call, Storage, Event} = 47,
+        CapitalDistribution: capital_distributions::{Module, Call, Storage, Event} = 48,
+        Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event, Config} = 49,
         TestUtils: pallet_test_utils::{Module, Call, Storage, Event<T> } = 50,
         Base: pallet_base::{Module, Call, Event} = 51,
         ExternalAgents: pallet_external_agents::{Module, Call, Storage, Event} = 52,
+        Relayer: pallet_relayer::{Module, Call, Storage, Event<T>} = 53,
+        Rewards: pallet_rewards::{Module, Call, Storage, Event<T>, Config<T>} = 54,
     }
 );
 
@@ -327,6 +328,7 @@ impl OnUnbalanced<NegativeImbalance<TestStorage>> for DealWithFees {
 }
 
 parameter_types! {
+    pub const SS58Prefix: u8 = 12;
     pub const ExistentialDeposit: u64 = 0;
     pub const MaxLocks: u32 = 50;
     pub const MaxLen: u32 = 256;
@@ -501,7 +503,6 @@ impl polymesh_common_utilities::traits::identity::Config for TestStorage {
     type ProtocolFee = protocol_fee::Module<TestStorage>;
     type GCVotingMajorityOrigin = VMO<committee::Instance1>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
-    type ExternalAgents = ExternalAgents;
     type IdentityFn = identity::Module<TestStorage>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
@@ -578,16 +579,10 @@ pub fn make_account(
     make_account_with_uid(id, uid)
 }
 
-pub fn make_account_with_portfolio(
-    id: AccountId,
-) -> (
-    <TestStorage as frame_system::Config>::Origin,
-    IdentityId,
-    PortfolioId,
-) {
-    let (origin, did) = make_account(id).unwrap();
-    let portfolio = PortfolioId::default_portfolio(did);
-    (origin, did, portfolio)
+pub fn make_account_with_portfolio(ring: AccountKeyring) -> (User, PortfolioId) {
+    let user = User::new(ring);
+    let portfolio = PortfolioId::default_portfolio(user.did);
+    (user, portfolio)
 }
 
 pub fn make_account_with_scope(
@@ -619,7 +614,7 @@ pub fn make_account_with_uid(
 pub fn make_account_with_balance(
     id: AccountId,
     uid: InvestorUid,
-    balance: <TestStorage as CommonConfig>::Balance,
+    balance: Balance,
 ) -> Result<(<TestStorage as frame_system::Config>::Origin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, balance);
@@ -665,7 +660,7 @@ pub fn register_keyring_account(acc: AccountKeyring) -> Result<IdentityId, &'sta
 
 pub fn register_keyring_account_with_balance(
     acc: AccountKeyring,
-    balance: <TestStorage as CommonConfig>::Balance,
+    balance: Balance,
 ) -> Result<IdentityId, &'static str> {
     let acc_id = acc.to_account_id();
     let uid = create_investor_uid(acc_id.clone());
@@ -829,6 +824,10 @@ pub fn create_cdd_id_and_investor_uid(identity_id: IdentityId) -> (CddId, Invest
 
 pub fn make_remark_proposal() -> Call {
     Call::System(frame_system::Call::remark(vec![b'X'; 100])).into()
+}
+
+crate fn set_curr_did(did: Option<IdentityId>) {
+    Context::set_current_identity::<Identity>(did);
 }
 
 #[macro_export]

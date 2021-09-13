@@ -1,6 +1,6 @@
 use super::{
     fast_forward_blocks, next_block,
-    storage::{Call, TestStorage},
+    storage::{Call, TestStorage, User},
     ExtBuilder,
 };
 
@@ -23,8 +23,8 @@ type Origin = <TestStorage as frame_system::Config>::Origin;
 type System = frame_system::Module<TestStorage>;
 type Scheduler = pallet_scheduler::Module<TestStorage>;
 
-type BridgeTx = GBridgeTx<AccountId, u128>;
-type BridgeTxDetail = GBridgeTxDetail<u128, u32>;
+type BridgeTx = GBridgeTx<AccountId>;
+type BridgeTxDetail = GBridgeTxDetail<u32>;
 
 const AMOUNT: u128 = 1_000_000_000;
 const AMOUNT_OVER_LIMIT: u128 = 1_000_000_000_000_000_000_000;
@@ -73,18 +73,12 @@ fn alice_bridge_tx(amount: u128) -> BridgeTx {
     make_bridge_tx(Alice.to_account_id(), amount)
 }
 
-fn bob_bridge_tx(amount: u128) -> BridgeTx {
-    make_bridge_tx(Bob.to_account_id(), amount)
+fn bridge_tx_to_proposal(tx: &BridgeTx) -> Call {
+    Call::Bridge(bridge::Call::handle_bridge_tx(tx.clone()))
 }
 
-fn proposal_tx(recipient: AccountId, amount: u128) -> (BridgeTx, Box<Call>) {
-    let tx = make_bridge_tx(recipient, amount);
-    let call = bridge::Call::handle_bridge_tx(tx.clone());
-    (tx, Box::new(Call::Bridge(call)))
-}
-
-fn alice_proposal_tx(amount: u128) -> Box<Call> {
-    proposal_tx(Alice.to_account_id(), amount).1
+fn alice_make_bridge_tx(amount: u128) -> BridgeTx {
+    make_bridge_tx(Alice.to_account_id(), amount)
 }
 
 fn alice_balance() -> u128 {
@@ -95,40 +89,35 @@ fn alice_tx_details(tx_id: u32) -> BridgeTxDetail {
     Bridge::bridge_tx_details(Alice.to_account_id(), tx_id)
 }
 
-fn proposals(amount: u128) -> [(BridgeTx, Box<Call>); 3] {
-    [Alice, Eve, Ferdie].map(|acc| proposal_tx(acc.to_account_id(), amount))
+fn make_bridge_txs(amount: u128) -> [BridgeTx; 3] {
+    [Alice, Eve, Ferdie].map(|acc| make_bridge_tx(acc.to_account_id(), amount))
 }
 
-fn signers_approve_proposal(proposal: Call, signers: &[AccountId]) -> BridgeTx {
+fn signers_approve_bridge_tx(tx: BridgeTx, signers: &[AccountId]) -> BridgeTx {
     let controller = Bridge::controller();
-    match proposal {
-        Call::Bridge(bridge::Call::handle_bridge_tx(ref tx)) => {
-            let mut proposal_id = None;
+    let proposal = bridge_tx_to_proposal(&tx);
+    let mut proposal_id = None;
 
-            // Use minimun number of signs to approve it.
-            for i in 0..(MIN_SIGNS_REQUIRED as usize) {
-                assert_ok!(Bridge::propose_bridge_tx(
-                    Origin::signed(signers[i].clone()),
-                    tx.clone()
-                ));
+    // Use minimun number of signs to approve it.
+    for i in 0..(MIN_SIGNS_REQUIRED as usize) {
+        assert_ok!(Bridge::propose_bridge_tx(
+            Origin::signed(signers[i].clone()),
+            tx.clone()
+        ));
 
-                // Verify approvals.
-                // Fetch proposal ID if unknown.
-                let p_id = proposal_id
-                    .get_or_insert_with(|| {
-                        MultiSig::proposal_ids(&controller.clone(), proposal.clone())
-                            .unwrap_or_default()
-                    })
-                    .clone();
-                assert_eq!(
-                    MultiSig::proposal_detail(&(controller.clone(), p_id)).approvals,
-                    (i + 1) as u64
-                );
-            }
-            return tx.clone();
-        }
-        _ => panic!("Invalid call"),
+        // Verify approvals.
+        // Fetch proposal ID if unknown.
+        let p_id = proposal_id
+            .get_or_insert_with(|| {
+                MultiSig::proposal_ids(&controller.clone(), proposal.clone()).unwrap_or_default()
+            })
+            .clone();
+        assert_eq!(
+            MultiSig::proposal_detail(&(controller.clone(), p_id)).approvals,
+            (i + 1) as u64
+        );
     }
+    tx
 }
 
 fn advance_block_and_verify_alice_balance(offset: u32, expected_balance: u128) -> Weight {
@@ -153,10 +142,10 @@ fn ensure_tx_status(recipient: AccountId, nonce: u32, expected_status: BridgeTxS
 #[test]
 fn can_issue_to_identity() {
     test_with_controller(&|signers| {
-        let proposal = alice_proposal_tx(AMOUNT);
-        let tx = signers_approve_proposal(*proposal, signers);
+        let tx = alice_make_bridge_tx(AMOUNT);
+        let tx = signers_approve_bridge_tx(tx, signers);
 
-        // Wait for timelock, and proposal should be handled.
+        // Wait for timelock, and transaction should be handled.
         fast_forward_blocks(Bridge::timelock() + 1);
         assert_eq!(alice_tx_details(1).status, BridgeTxStatus::Handled);
 
@@ -216,14 +205,14 @@ fn cannot_call_bridge_callback_extrinsics() {
 }
 
 #[test]
-fn can_freeze_and_unfreeze_bridge() {
-    test_with_controller(&do_freeze_and_unfreeze_bridge)
+fn can_admin_freeze_and_unfreeze_bridge() {
+    test_with_controller(&do_admin_freeze_and_unfreeze_bridge)
 }
 
-fn do_freeze_and_unfreeze_bridge(signers: &[AccountId]) {
+fn do_admin_freeze_and_unfreeze_bridge(signers: &[AccountId]) {
     let alice = Alice.to_account_id();
     let admin = signed_admin();
-    let proposal = alice_proposal_tx(AMOUNT);
+    let tx = alice_make_bridge_tx(AMOUNT);
     let timelock = Bridge::timelock();
 
     // Freeze the bridge with the transaction still in flight.
@@ -231,12 +220,12 @@ fn do_freeze_and_unfreeze_bridge(signers: &[AccountId]) {
     assert!(Bridge::frozen());
 
     let starting_alices_balance = alice_balance();
-    signers_approve_proposal(*proposal, signers);
+    signers_approve_bridge_tx(tx, signers);
 
     ensure_tx_status(alice.clone(), 1, BridgeTxStatus::Absent);
     fast_forward_blocks(timelock);
 
-    // Weight calculation when bridge is freezed
+    // Weight calculation when bridge is freezed.
     ensure_tx_status(alice.clone(), 1, BridgeTxStatus::Timelocked);
     assert_eq!(next_block(), WEIGHT_EXPECTED);
 
@@ -260,7 +249,90 @@ fn do_freeze_and_unfreeze_bridge(signers: &[AccountId]) {
 
     // Now the tokens are issued.
     assert_eq!(alice_balance(), starting_alices_balance + AMOUNT);
-    let _ = ensure_tx_status(alice, 1, BridgeTxStatus::Handled);
+    ensure_tx_status(alice, 1, BridgeTxStatus::Handled);
+}
+
+#[test]
+fn test_freeze_admins() {
+    test_with_controller(&do_test_freeze_admins)
+}
+
+fn do_test_freeze_admins(_signers: &[AccountId]) {
+    let eve = User::existing(Eve);
+    let ferdie = User::existing(Ferdie);
+    let admin = signed_admin();
+
+    let test_freeze = |user: User, can_freeze: bool| {
+        // Make sure we start with the bridge unfrozen.
+        assert!(!Bridge::frozen());
+
+        if can_freeze {
+            // User is allowed to freeze the bridge.
+            assert_ok!(Bridge::freeze(user.origin()));
+            assert!(Bridge::frozen());
+        } else {
+            // User is not allowed to freeze the bridge.
+            assert_noop!(Bridge::freeze(user.origin()), Error::BadAdmin);
+            assert!(!Bridge::frozen());
+
+            // Use admin to freeze the bridge.
+            assert_ok!(Bridge::freeze(admin.clone()));
+            assert!(Bridge::frozen());
+        }
+
+        // User is not allowed to unfreeze the bridge.
+        assert_noop!(Bridge::unfreeze(user.origin()), Error::BadAdmin);
+        assert!(Bridge::frozen());
+
+        // Use admin to unfreeze the bridge.
+        assert_ok!(Bridge::unfreeze(admin.clone()));
+        assert!(!Bridge::frozen());
+    };
+    let add_freeze_admin = |user: User| {
+        // Use admin to add a freeze admin.
+        assert_ok!(Bridge::add_freeze_admin(admin.clone(), user.acc()));
+        assert!(Bridge::freeze_admins(user.acc()));
+
+        // Check that they can freeze/unfreeze the bridge.
+        test_freeze(user, true);
+    };
+    let remove_freeze_admin = |user: User| {
+        // Use admin to remove a freeze admin.
+        assert_ok!(Bridge::remove_freeze_admin(admin.clone(), user.acc()));
+        assert!(!Bridge::freeze_admins(user.acc()));
+
+        // Check that they cannot freeze/unfreeze the bridge.
+        test_freeze(user, false);
+    };
+
+    // Eve and Ferdie are not freeze admins.
+    test_freeze(eve, false);
+    test_freeze(ferdie, false);
+
+    // Add Eve as a freeze admin.
+    add_freeze_admin(eve);
+
+    // Ferdie is still denied.
+    test_freeze(ferdie, false);
+
+    // Add Ferdie as a freeze admin.
+    add_freeze_admin(ferdie);
+
+    // Test that Eve can still freeze/unfreeze the bridge.
+    test_freeze(eve, true);
+
+    // Remove Eve from freeze admins.
+    remove_freeze_admin(eve);
+
+    // Test that Ferdie can still freeze/unfreeze the bridge.
+    test_freeze(ferdie, true);
+
+    // Remove Ferdie from freeze admins.
+    remove_freeze_admin(ferdie);
+
+    // Both Eve and Ferdie are no longer freeze admins.
+    test_freeze(eve, false);
+    test_freeze(ferdie, false);
 }
 
 #[test]
@@ -270,19 +342,19 @@ fn can_timelock_txs() {
 
 fn do_timelock_txs(signers: &[AccountId]) {
     let alice = Alice.to_account_id();
-    let proposal = alice_proposal_tx(AMOUNT);
+    let tx = alice_make_bridge_tx(AMOUNT);
     let starting_alices_balance = alice_balance();
 
-    // Approves the `proposal` by `signers`.
-    signers_approve_proposal(*proposal, signers);
+    // Approve the transaction by `signers`.
+    signers_approve_bridge_tx(tx, signers);
     next_block();
     let unlock_block_number = next_unlock_block_number();
 
-    // Tx should be timelocked
+    // Tx should be timelocked.
     let execution_block = ensure_tx_status(alice.clone(), 1, BridgeTxStatus::Timelocked);
     assert_eq!(execution_block, unlock_block_number);
 
-    // Alice's banlance should not change until `unlock_block_number`.
+    // Alice's balance should not change until `unlock_block_number`.
     advance_block_and_verify_alice_balance(Bridge::timelock(), starting_alices_balance);
     assert_eq!(alice_balance(), starting_alices_balance + AMOUNT);
 
@@ -300,21 +372,21 @@ fn do_rate_limit(signers: &[AccountId]) {
     let rate_limit = 1_000_000_000;
     let alice = Alice.to_account_id();
     let admin = signed_admin();
-    let proposal = alice_proposal_tx(AMOUNT_OVER_LIMIT);
+    let tx = alice_make_bridge_tx(AMOUNT_OVER_LIMIT);
     let starting_alices_balance = alice_balance();
 
     // Set up limit and timeclock.
     assert_ok!(Bridge::change_bridge_limit(admin.clone(), rate_limit, 1));
 
-    // Send the proposal... and it should not issue due to the current rate_limit.
-    signers_approve_proposal(*proposal, signers);
+    // Propose the transaction... and it should not issue due to the current rate_limit.
+    signers_approve_bridge_tx(tx, signers);
     advance_block_and_verify_alice_balance(Bridge::timelock(), starting_alices_balance);
 
-    // Still no issue, rate limit reached
+    // Still no issue, rate limit reached.
     assert_eq!(alice_balance(), starting_alices_balance);
     assert_ok!(Bridge::change_bridge_limit(admin, AMOUNT_OVER_LIMIT + 1, 1));
 
-    // Mint successful after limit is increased
+    // Mint successful after limit is increased.
     next_block();
     assert_eq!(alice_balance(), starting_alices_balance + AMOUNT_OVER_LIMIT);
     ensure_tx_status(alice, 1, BridgeTxStatus::Handled);
@@ -328,11 +400,11 @@ fn is_exempted() {
 fn do_exempted(signers: &[AccountId]) {
     let alice = Alice.to_account_id();
     let alice_did = Identity::key_to_identity_dids(alice.clone());
-    let proposal = alice_proposal_tx(AMOUNT_OVER_LIMIT);
+    let tx = alice_make_bridge_tx(AMOUNT_OVER_LIMIT);
     let starting_alices_balance = alice_balance();
 
-    // Send and approve the proposal.
-    signers_approve_proposal(*proposal, signers);
+    // Send and approve the transaction.
+    signers_approve_bridge_tx(tx, signers);
     next_block();
 
     let execution_block = ensure_tx_status(alice.clone(), 1, BridgeTxStatus::Timelocked);
@@ -340,7 +412,7 @@ fn do_exempted(signers: &[AccountId]) {
 
     advance_block_and_verify_alice_balance(Bridge::timelock(), starting_alices_balance);
 
-    // Still no issue, rate limit reached
+    // Still no issue, rate limit reached.
     assert_eq!(alice_balance(), starting_alices_balance);
     assert_ok!(Bridge::change_bridge_exempted(
         signed_admin(),
@@ -348,7 +420,7 @@ fn do_exempted(signers: &[AccountId]) {
     ));
     next_block();
 
-    // Mint successful after exemption
+    // Mint successful after exemption.
     advance_block_and_verify_alice_balance(Bridge::timelock(), starting_alices_balance);
     ensure_tx_status(alice, 1, BridgeTxStatus::Handled);
     assert_eq!(alice_balance(), starting_alices_balance + AMOUNT_OVER_LIMIT);
@@ -361,11 +433,11 @@ fn can_force_mint() {
 
 fn do_force_mint(signers: &[AccountId]) {
     let alice = Alice.to_account_id();
-    let proposal = alice_proposal_tx(AMOUNT_OVER_LIMIT);
+    let tx = alice_make_bridge_tx(AMOUNT_OVER_LIMIT);
     let starting_alices_balance = alice_balance();
     let timelock = Bridge::timelock();
 
-    let tx = signers_approve_proposal(*proposal, signers);
+    let tx = signers_approve_bridge_tx(tx, signers);
     next_block();
     let unlock_block_number = next_unlock_block_number();
 
@@ -374,11 +446,11 @@ fn do_force_mint(signers: &[AccountId]) {
 
     advance_block_and_verify_alice_balance(timelock, starting_alices_balance);
 
-    // Still no issue, rate limit reached
+    // Still no issue, rate limit reached.
     assert_eq!(alice_balance(), starting_alices_balance);
     assert_ok!(Bridge::force_handle_bridge_tx(signed_admin(), tx));
 
-    // Mint successful after force handle
+    // Mint successful after force handle.
     assert_eq!(alice_balance(), starting_alices_balance + AMOUNT_OVER_LIMIT);
     let execution_block = ensure_tx_status(alice, 1, BridgeTxStatus::Handled);
     assert_eq!(execution_block, unlock_block_number);
@@ -423,7 +495,7 @@ fn do_freeze_txs(signers: &[AccountId]) {
     let no_admin = Origin::signed(signers[0].clone());
 
     // Create some txs and register the recipients' balance.
-    let txs = proposals(AMOUNT).map(|(_, p)| signers_approve_proposal(*p, signers));
+    let txs = make_bridge_txs(AMOUNT).map(|tx| signers_approve_bridge_tx(tx, signers));
     let init_balances = txs
         .iter()
         .map(|tx| Balances::total_balance(&tx.recipient))
@@ -446,10 +518,10 @@ fn do_freeze_txs(signers: &[AccountId]) {
     ensure_tx_status(tx.recipient.clone(), tx.nonce, BridgeTxStatus::Handled);
 
     frozen_txs.iter().for_each(|tx| {
-        let _ = ensure_tx_status(tx.recipient.clone(), tx.nonce, BridgeTxStatus::Frozen);
+        ensure_tx_status(tx.recipient.clone(), tx.nonce, BridgeTxStatus::Frozen);
     });
 
-    // Unfreeze frozen TXs
+    // Unfreeze frozen TXs.
     assert_noop!(
         Bridge::unfreeze_txs(no_admin, frozen_txs.clone()),
         Error::BadAdmin
@@ -475,27 +547,26 @@ fn batch_propose_bridge_tx() {
 
 fn do_batch_propose_bridge_tx(signers: &[AccountId]) {
     let alice = Origin::signed(Alice.to_account_id());
-    let (txs, proposals): (Vec<BridgeTx>, Vec<Box<Call>>) =
-        proposals(AMOUNT).to_vec().into_iter().unzip();
+    let txs = make_bridge_txs(AMOUNT).to_vec();
     let ensure_txs_status = |txs: &[BridgeTx], status: BridgeTxStatus| {
         txs.iter().for_each(|tx| {
-            let _ = ensure_tx_status(tx.recipient.clone(), tx.nonce, status);
+            ensure_tx_status(tx.recipient.clone(), tx.nonce, status);
         });
     };
 
     assert_ok!(Bridge::batch_propose_bridge_tx(alice, txs.clone()));
 
-    // Proposals should be `Absent`.
+    // Transactions should be `Absent`.
     ensure_txs_status(&txs, BridgeTxStatus::Absent);
-    proposals.into_iter().for_each(|p| {
-        let _ = signers_approve_proposal(*p, signers);
+    txs.iter().for_each(|tx| {
+        signers_approve_bridge_tx(tx.clone(), signers);
     });
 
     // Advance block
     fast_forward_blocks(Bridge::timelock());
     ensure_txs_status(&txs, BridgeTxStatus::Timelocked);
 
-    // Now proposals should be `Handled`.
+    // Now transactions should be `Handled`.
     let last_block = txs
         .iter()
         .map(|tx| Bridge::bridge_tx_details(tx.recipient.clone(), tx.nonce).execution_block)

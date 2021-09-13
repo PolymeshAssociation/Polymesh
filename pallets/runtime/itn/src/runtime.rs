@@ -55,7 +55,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 2024,
+    spec_version: 2025,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 7,
@@ -70,6 +70,7 @@ parameter_types! {
     // Frame:
     pub const EpochDuration: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
     pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
+    pub const SS58Prefix: u8 = 12;
 
     // Base:
     pub const MaxLen: u32 = 2048;
@@ -212,7 +213,6 @@ impl polymesh_common_utilities::traits::identity::Config for Runtime {
     type ProtocolFee = pallet_protocol_fee::Module<Runtime>;
     type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
     type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
-    type ExternalAgents = ExternalAgents;
     type IdentityFn = pallet_identity::Module<Runtime>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
@@ -353,15 +353,15 @@ construct_runtime!(
 
         // Asset: Genesis config deps: Timestamp,
         Asset: pallet_asset::{Module, Call, Storage, Config<T>, Event<T>} = 29,
-        CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event<T>} = 30,
-        Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event<T>, Config} = 31,
+        CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event} = 30,
+        Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event, Config} = 31,
         ComplianceManager: pallet_compliance_manager::{Module, Call, Storage, Event} = 32,
         CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event, Config} = 33,
-        CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event<T>} = 34,
+        CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event} = 34,
         Permissions: pallet_permissions::{Module} = 35,
         Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>} = 36,
-        Portfolio: pallet_portfolio::{Module, Call, Storage, Event<T>} = 37,
-        ProtocolFee: pallet_protocol_fee::{Module, Call, Storage, Event<T>, Config<T>} = 38,
+        Portfolio: pallet_portfolio::{Module, Call, Storage, Event} = 37,
+        ProtocolFee: pallet_protocol_fee::{Module, Call, Storage, Event<T>, Config} = 38,
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>} = 39,
         Settlement: pallet_settlement::{Module, Call, Storage, Event<T>, Config} = 40,
         Statistics: pallet_statistics::{Module, Call, Storage, Event} = 41,
@@ -370,6 +370,8 @@ construct_runtime!(
         Utility: pallet_utility::{Module, Call, Storage, Event} = 44,
         Base: pallet_base::{Module, Call, Event} = 45,
         ExternalAgents: pallet_external_agents::{Module, Call, Storage, Event} = 46,
+        Relayer: pallet_relayer::{Module, Call, Storage, Event<T>} = 47,
+        Rewards: pallet_rewards::{Module, Call, Storage, Event<T>, Config<T>, ValidateUnsigned} = 48,
     }
 );
 

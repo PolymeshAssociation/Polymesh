@@ -14,7 +14,7 @@ import type { TaskAddress } from '@polkadot/types/interfaces/scheduler';
 import type { IdentificationTuple, SessionIndex } from '@polkadot/types/interfaces/session';
 import type { ElectionCompute, EraIndex } from '@polkadot/types/interfaces/staking';
 import type { DispatchError, DispatchInfo, DispatchResult } from '@polkadot/types/interfaces/system';
-import type { AGId, AgentGroup, AssetIdentifier, AssetName, AssetType, AuthorizationData, BallotMeta, BallotTimeRange, BallotVote, BridgeTx, CAId, CheckpointId, ComplianceRequirement, CorporateAction, DispatchableName, Distribution, Document, DocumentId, ErrorAt, EventCounts, EventDid, ExtrinsicPermissions, FundingRoundName, Fundraiser, FundraiserName, HandledTxStatus, IdentityClaim, IdentityId, InvestorUid, Leg, MaybeBlock, Memo, MigrationError, PalletName, Permissions, PipDescription, PipId, PortfolioId, PortfolioName, PortfolioNumber, PosRatio, ProposalData, ProposalState, Proposer, ReceiptMetadata, ScopeId, SecondaryKey, SettlementType, Signatory, SkippedCount, SlashingSwitch, SmartExtensionName, SmartExtensionType, SnapshotId, SnapshottedPip, StoredSchedule, TargetIdentities, Tax, Ticker, TransferManager, TrustedIssuer, Url, VenueDetails, VenueType } from 'polymesh-typegen/interfaces/default';
+import type { AGId, AgentGroup, AssetIdentifier, AssetName, AssetType, AuthorizationData, BallotMeta, BallotTimeRange, BallotVote, BridgeTx, CADetails, CAId, CheckpointId, ComplianceRequirement, CorporateAction, CustomAssetTypeId, DispatchableName, Distribution, Document, DocumentId, ErrorAt, EventCounts, EventDid, ExtrinsicPermissions, FundingRoundName, Fundraiser, FundraiserName, HandledTxStatus, IdentityClaim, IdentityId, InvestorUid, Leg, MaybeBlock, Memo, MigrationError, PalletName, Permissions, PipDescription, PipId, PortfolioId, PortfolioName, PortfolioNumber, PosRatio, ProposalData, ProposalState, Proposer, ReceiptMetadata, ScopeId, SecondaryKey, SettlementType, Signatory, SkippedCount, SlashingSwitch, SnapshotId, SnapshottedPip, StoredSchedule, TargetIdentities, Tax, Ticker, TransferManager, TrustedIssuer, Url, VenueDetails, VenueType } from 'polymesh-typegen/interfaces/default';
 import type { ApiTypes } from '@polkadot/api/types';
 
 declare module '@polkadot/api/types/events' {
@@ -55,6 +55,16 @@ declare module '@polkadot/api/types/events' {
        **/
       ControllerTransfer: AugmentedEvent<ApiType, [IdentityId, Ticker, PortfolioId, Balance]>;
       /**
+       * A custom asset type already exists on-chain.
+       * caller DID, the ID of the custom asset type, the string contents registered.
+       **/
+      CustomAssetTypeExists: AugmentedEvent<ApiType, [IdentityId, CustomAssetTypeId, Bytes]>;
+      /**
+       * A custom asset type was registered on-chain.
+       * caller DID, the ID of the custom asset type, the string contents registered.
+       **/
+      CustomAssetTypeRegistered: AugmentedEvent<ApiType, [IdentityId, CustomAssetTypeId, Bytes]>;
+      /**
        * Event for change in divisibility.
        * caller DID, ticker, divisibility
        **/
@@ -68,25 +78,10 @@ declare module '@polkadot/api/types/events' {
        **/
       DocumentRemoved: AugmentedEvent<ApiType, [IdentityId, Ticker, DocumentId]>;
       /**
-       * Emitted when extension is added successfully.
-       * caller DID, ticker, extension AccountId, extension name, type of smart Extension
-       **/
-      ExtensionAdded: AugmentedEvent<ApiType, [IdentityId, Ticker, AccountId, SmartExtensionName, SmartExtensionType]>;
-      /**
-       * Emitted when extension get archived.
-       * caller DID, ticker, AccountId
-       **/
-      ExtensionArchived: AugmentedEvent<ApiType, [IdentityId, Ticker, AccountId]>;
-      /**
        * A extension got removed.
        * caller DID, ticker, AccountId
        **/
       ExtensionRemoved: AugmentedEvent<ApiType, [IdentityId, Ticker, AccountId]>;
-      /**
-       * Emitted when extension get archived.
-       * caller DID, ticker, AccountId
-       **/
-      ExtensionUnArchived: AugmentedEvent<ApiType, [IdentityId, Ticker, AccountId]>;
       /**
        * An event carrying the name of the current funding round of a ticker.
        * Parameters: caller DID, ticker, funding round name.
@@ -194,17 +189,21 @@ declare module '@polkadot/api/types/events' {
        **/
       AdminChanged: AugmentedEvent<ApiType, [IdentityId, AccountId]>;
       /**
-       * Confirmation of POLYX upgrade on Polymesh from POLY tokens on Ethereum
+       * Confirmation of POLYX upgrade on Polymesh from POLY tokens on Ethereum.
        **/
       Bridged: AugmentedEvent<ApiType, [IdentityId, BridgeTx]>;
       /**
-       * Bridge limit has been updated
+       * Bridge limit has been updated.
        **/
       BridgeLimitUpdated: AugmentedEvent<ApiType, [IdentityId, Balance, BlockNumber]>;
       /**
-       * Bridge Tx Scheduled
+       * Bridge Tx Scheduled.
        **/
       BridgeTxScheduled: AugmentedEvent<ApiType, [IdentityId, BridgeTx, BlockNumber]>;
+      /**
+       * Failed to schedule Bridge Tx.
+       **/
+      BridgeTxScheduleFailed: AugmentedEvent<ApiType, [IdentityId, BridgeTx, Bytes]>;
       /**
        * Confirmation of a signer set change.
        **/
@@ -213,6 +212,14 @@ declare module '@polkadot/api/types/events' {
        * Exemption status of an identity has been updated.
        **/
       ExemptedUpdated: AugmentedEvent<ApiType, [IdentityId, IdentityId, bool]>;
+      /**
+       * A new freeze admin has been added.
+       **/
+      FreezeAdminAdded: AugmentedEvent<ApiType, [IdentityId, AccountId]>;
+      /**
+       * A freeze admin has been removed.
+       **/
+      FreezeAdminRemoved: AugmentedEvent<ApiType, [IdentityId, AccountId]>;
       /**
        * Notification of freezing the bridge.
        **/
@@ -441,9 +448,9 @@ declare module '@polkadot/api/types/events' {
       CAATransferred: AugmentedEvent<ApiType, [IdentityId, Ticker, IdentityId]>;
       /**
        * A CA was initiated.
-       * (CAA DID, CA id, the CA)
+       * (CAA DID, CA id, the CA, the CA details)
        **/
-      CAInitiated: AugmentedEvent<ApiType, [EventDid, CAId, CorporateAction]>;
+      CAInitiated: AugmentedEvent<ApiType, [EventDid, CAId, CorporateAction, CADetails]>;
       /**
        * A CA was linked to a set of docs.
        * (CAA, CA Id, List of doc identifiers)
@@ -1019,6 +1026,46 @@ declare module '@polkadot/api/types/events' {
        **/
       [key: string]: AugmentedEvent<ApiType>;
     };
+    relayer: {
+      /**
+       * Accepted paying key.
+       * 
+       * (Caller DID, User Key, Paying Key)
+       **/
+      AcceptedPayingKey: AugmentedEvent<ApiType, [EventDid, AccountId, AccountId]>;
+      /**
+       * Authorization given for `paying_key` to `user_key`.
+       * 
+       * (Caller DID, User Key, Paying Key, Initial POLYX limit, Auth ID)
+       **/
+      AuthorizedPayingKey: AugmentedEvent<ApiType, [EventDid, AccountId, AccountId, Balance, u64]>;
+      /**
+       * Removed paying key.
+       * 
+       * (Caller DID, User Key, Paying Key)
+       **/
+      RemovedPayingKey: AugmentedEvent<ApiType, [EventDid, AccountId, AccountId]>;
+      /**
+       * Updated polyx limit.
+       * 
+       * (Caller DID, User Key, Paying Key, POLYX limit, old remaining POLYX)
+       **/
+      UpdatedPolyxLimit: AugmentedEvent<ApiType, [EventDid, AccountId, AccountId, Balance, Balance]>;
+      /**
+       * Generic event
+       **/
+      [key: string]: AugmentedEvent<ApiType>;
+    };
+    rewards: {
+      /**
+       * Itn reward was claimed.
+       **/
+      ItnRewardClaimed: AugmentedEvent<ApiType, [AccountId, Balance]>;
+      /**
+       * Generic event
+       **/
+      [key: string]: AugmentedEvent<ApiType>;
+    };
     scheduler: {
       /**
        * Canceled some task. \[when, index\]
@@ -1104,6 +1151,10 @@ declare module '@polkadot/api/types/events' {
        **/
       VenueCreated: AugmentedEvent<ApiType, [IdentityId, u64, VenueDetails, VenueType]>;
       /**
+       * An existing venue's details has been updated (did, venue_id, details)
+       **/
+      VenueDetailsUpdated: AugmentedEvent<ApiType, [IdentityId, u64, VenueDetails]>;
+      /**
        * Venue filtering has been enabled or disabled for a ticker (did, ticker, filtering_enabled)
        **/
       VenueFiltering: AugmentedEvent<ApiType, [IdentityId, Ticker, bool]>;
@@ -1116,13 +1167,13 @@ declare module '@polkadot/api/types/events' {
        **/
       VenuesBlocked: AugmentedEvent<ApiType, [IdentityId, Ticker, Vec<u64>]>;
       /**
+       * An existing venue's type has been updated (did, venue_id, type)
+       **/
+      VenueTypeUpdated: AugmentedEvent<ApiType, [IdentityId, u64, VenueType]>;
+      /**
        * Venue unauthorized by ticker owner (did, Ticker, venue_id)
        **/
       VenueUnauthorized: AugmentedEvent<ApiType, [IdentityId, Ticker, u64]>;
-      /**
-       * An existing venue has been updated (did, venue_id, details, type)
-       **/
-      VenueUpdated: AugmentedEvent<ApiType, [IdentityId, u64, VenueDetails, VenueType]>;
       /**
        * Generic event
        **/

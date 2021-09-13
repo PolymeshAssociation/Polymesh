@@ -13,8 +13,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use crate::Balance;
+
 /// A currency that has a block rewards reserve.
-pub trait BlockRewardsReserveCurrency<Balance, NegativeImbalance> {
+pub trait BlockRewardsReserveCurrency<NegativeImbalance> {
     /// An instance of `Drop` for positive imbalance.
     fn drop_positive_imbalance(amount: Balance);
     /// An instance of `Drop` for negative imbalance.

@@ -63,26 +63,32 @@ pub fn make_conditions(s: u32, issuers: &Vec<TrustedIssuer>) -> Vec<Condition> {
 /// The new token is a _divisible_ one with 1_000_000 units.
 pub fn make_token<T: Config>(owner: &User<T>, name: Vec<u8>) -> Ticker {
     let token = SecurityToken {
-        name: name.into(),
         owner_did: owner.did.clone().unwrap(),
         total_supply: 1_000_000,
         divisible: true,
         asset_type: AssetType::default(),
         ..Default::default()
     };
-    let ticker = Ticker::try_from(token.name.0.as_slice()).unwrap();
+    let ticker = Ticker::try_from(&*name).unwrap();
 
-    T::Asset::create_asset_and_mint(
+    T::Asset::create_asset(
         owner.origin.clone().into(),
-        token.name.clone(),
-        ticker.clone(),
-        u128::try_from(token.total_supply).unwrap().into(),
+        name.into(),
+        ticker,
         true,
         token.asset_type.clone(),
         vec![],
         None,
+        false,
     )
     .expect("Cannot create an asset");
+
+    T::Asset::issue(
+        owner.origin.clone().into(),
+        ticker,
+        u128::try_from(token.total_supply).unwrap().into(),
+    )
+    .expect("Cannot mint for asset");
 
     ticker
 }

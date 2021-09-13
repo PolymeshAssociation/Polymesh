@@ -22,23 +22,29 @@ type ComplianceManager = compliance_manager::Module<TestStorage>;
 type Error = statistics::Error<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 
-fn create_token(token_name: &[u8], ticker: Ticker, keyring: AccountId) {
-    assert_ok!(Asset::base_create_asset_and_mint(
-        Origin::signed(keyring.clone()),
-        token_name.into(),
-        ticker,
-        1_000_000,
-        true,
-        AssetType::default(),
-        vec![],
-        None,
-    ));
+pub fn allow_all_transfers(origin: Origin, ticker: Ticker) {
     assert_ok!(ComplianceManager::add_compliance_requirement(
-        Origin::signed(keyring),
+        origin,
         ticker,
         vec![],
         vec![]
     ));
+}
+
+fn create_token(token_name: &[u8], ticker: Ticker, keyring: AccountId) {
+    let origin = Origin::signed(keyring);
+    assert_ok!(Asset::create_asset(
+        origin.clone(),
+        token_name.into(),
+        ticker,
+        true,
+        AssetType::default(),
+        vec![],
+        None,
+        false,
+    ));
+    assert_ok!(Asset::issue(origin.clone(), ticker, 1_000_000));
+    allow_all_transfers(origin, ticker);
 }
 
 #[track_caller]
@@ -78,8 +84,8 @@ fn investor_count_with_ext() {
     let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
     // 1. Alice create an asset.
+    let name = &[0x01];
     let token = SecurityToken {
-        name: vec![0x01].into(),
         owner_did: alice_did,
         total_supply: 1_000_000,
         divisible: true,
@@ -87,25 +93,22 @@ fn investor_count_with_ext() {
     };
 
     let identifiers = Vec::new();
-    let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-    assert_ok!(Asset::base_create_asset_and_mint(
+    let ticker = Ticker::try_from(name.as_ref()).unwrap();
+    assert_ok!(Asset::create_asset(
         alice_signed.clone(),
-        token.name.clone(),
+        name.into(),
         ticker,
-        1_000_000, // Total supply over the limit
         true,
         token.asset_type.clone(),
         identifiers.clone(),
         None,
+        false,
     ));
+    // Total supply over the limit.
+    assert_ok!(Asset::issue(alice_signed.clone(), ticker, 1_000_000));
 
-    let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-    assert_ok!(ComplianceManager::add_compliance_requirement(
-        alice_signed.clone(),
-        ticker,
-        vec![],
-        vec![]
-    ));
+    let ticker = Ticker::try_from(name.as_ref()).unwrap();
+    allow_all_transfers(alice_signed.clone(), ticker);
 
     let unsafe_transfer = |from, to, value| {
         assert_ok!(Asset::unsafe_transfer(

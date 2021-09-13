@@ -26,7 +26,7 @@ The latest release for Polymesh can be found at:
 
 Generally you should be able to run the latest release for both Alcyone and the ITN, although the on-chain version of each network might differ during upgrade cycles.
 
-Below are simple instructions for running a non-operating node (i.e. a node that does not produce blocks or validate consensus). For more details on monitoring infrastructure for nodes and running an operator node, see the https://github.com/PolymathNetwork/polymesh-tools repository.
+Below are simple instructions for running a non-operating node (i.e. a node that does not produce blocks or vote on the correctness of other blocks). For more details on monitoring infrastructure for nodes and running an operator node, see the https://github.com/PolymathNetwork/polymesh-tools repository.
 
 ## Polymesh Incentivised Testnet (ITN)
 
@@ -175,7 +175,7 @@ node run test
 
 See [README](https://github.com/PolymathNetwork/Polymesh/tree/develop/scripts/cli) for details.
 
-# Benchmark
+# Benchmarks
 
 Polymesh runtime benchmarks can be run with a command that specifies the pallet and the name of the
 extrinsic to be benchmarked, for example:
@@ -247,7 +247,7 @@ Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
 
 # Substrate Framework
 
-Polymesh is built on [Substrate](https://www.parity.io/what-is-substrate/).
+Polymesh is built using the [Substrate Framework](https://www.parity.io/what-is-substrate/).
 
 # Polymath
 

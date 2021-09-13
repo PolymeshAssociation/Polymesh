@@ -17,3 +17,7 @@ Items should be added to the `changelog` using bulletpoints.
 ### modified logic
 
 - [modified behaviour, bug fixes]
+
+### modified agent functionality
+
+- [the addition or removal of any extrinsics or events emitted by those extrinsics, that relate to permissioned agents]

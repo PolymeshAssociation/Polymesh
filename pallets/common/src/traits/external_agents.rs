@@ -9,6 +9,7 @@ pub trait WeightInfo {
     fn abdicate() -> Weight;
     fn change_group_builtin() -> Weight;
     fn change_group_custom() -> Weight;
+    fn accept_become_agent() -> Weight;
 }
 
 pub trait Config: frame_system::Config + crate::balances::Config {

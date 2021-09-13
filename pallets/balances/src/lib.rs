@@ -188,14 +188,12 @@ use polymesh_common_utilities::{
     Context, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::traits::BlockRewardsReserveCurrency;
+use polymesh_primitives::Balance;
 use sp_runtime::{
-    traits::{
-        AccountIdConversion, Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize,
-        Saturating, StaticLookup, StoredMapError, Zero,
-    },
+    traits::{AccountIdConversion, StaticLookup, StoredMapError, Zero},
     DispatchError, DispatchResult, RuntimeDebug,
 };
-use sp_std::{cmp, fmt::Debug, mem, prelude::*, result};
+use sp_std::{cmp, mem, prelude::*, result};
 
 pub use polymesh_common_utilities::traits::balances::{Config, LockableCurrencyExt};
 
@@ -233,22 +231,22 @@ decl_storage! {
     trait Store for Module<T: Config> as Balances {
         /// The total units issued in the system.
         pub TotalIssuance get(fn total_issuance) build(|config: &GenesisConfig<T>| {
-            let f = |u: T::Balance, &v| u + v;
+            let f = |u: Balance, &v| u + v;
             config.balances
                 .iter()
                 .map(|(_, v)| v)
                 .fold(Zero::zero(), f)
-        }): T::Balance;
+        }): Balance;
 
 
         /// Any liquidity locks on some account balances.
         /// NOTE: Should only be accessed when setting, changing and freeing a lock.
-        pub Locks get(fn locks): map hasher(blake2_128_concat) T::AccountId => Vec<BalanceLock<T::Balance>>;
+        pub Locks get(fn locks): map hasher(blake2_128_concat) T::AccountId => Vec<BalanceLock<Balance>>;
 
     }
     add_extra_genesis {
         /// Account balances at genesis.
-        config(balances): Vec<(T::AccountId, T::Balance)>;
+        config(balances): Vec<(T::AccountId, Balance)>;
         build(|config: &GenesisConfig<T>| {
             for (who, free) in &config.balances {
                 T::AccountStore::insert(who, AccountData { free: *free, .. Default::default() }).unwrap();
@@ -264,7 +262,7 @@ decl_module! {
         // Polymesh modified code. Existential Deposit requirements are zero in Polymesh.
         // This is no longer needed but kept for compatibility reasons
         /// The minimum amount required to keep an account open.
-        const ExistentialDeposit: T::Balance = 0u32.into();
+        const ExistentialDeposit: Balance = 0u32.into();
 
         fn deposit_event() = default;
 
@@ -294,7 +292,7 @@ decl_module! {
         pub fn transfer(
             origin,
             dest: <T::Lookup as StaticLookup>::Source,
-            #[compact] value: T::Balance
+            #[compact] value: Balance
         ) {
             let transactor = ensure_signed(origin)?;
             let dest = T::Lookup::lookup(dest)?;
@@ -315,7 +313,7 @@ decl_module! {
         pub fn transfer_with_memo(
             origin,
             dest: <T::Lookup as StaticLookup>::Source,
-            #[compact] value: T::Balance,
+            #[compact] value: Balance,
             memo: Option<Memo>
         ) {
             let transactor = ensure_signed(origin)?;
@@ -328,7 +326,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::deposit_block_reward_reserve_balance()]
         pub fn deposit_block_reward_reserve_balance(
             origin,
-            #[compact] value: T::Balance
+            #[compact] value: Balance
         ) {
             let transactor = ensure_signed(origin)?;
             CallPermissions::<T>::ensure_call_permissions(&transactor)?;
@@ -346,8 +344,8 @@ decl_module! {
         fn set_balance(
             origin,
             who: <T::Lookup as StaticLookup>::Source,
-            #[compact] new_free: T::Balance,
-            #[compact] new_reserved: T::Balance
+            #[compact] new_free: Balance,
+            #[compact] new_reserved: Balance
         ) {
             ensure_root(origin)?;
             let who = T::Lookup::lookup(who)?;
@@ -387,7 +385,7 @@ decl_module! {
             origin,
             source: <T::Lookup as StaticLookup>::Source,
             dest: <T::Lookup as StaticLookup>::Source,
-            #[compact] value: T::Balance
+            #[compact] value: Balance
         ) {
             ensure_root(origin)?;
             let source = T::Lookup::lookup(source)?;
@@ -398,7 +396,7 @@ decl_module! {
         // Polymesh modified code. New dispatchable function that anyone can call to burn their balance.
         /// Burns the given amount of tokens from the caller's free, unlocked balance.
         #[weight = <T as Config>::WeightInfo::burn_account_balance()]
-        pub fn burn_account_balance(origin, amount: T::Balance) -> DispatchResult {
+        pub fn burn_account_balance(origin, amount: Balance) -> DispatchResult {
             let who = ensure_signed(origin)?;
             CallPermissions::<T>::ensure_call_permissions(&who)?;
             let caller_id = Context::current_identity_or::<T::IdentityFn>(&who)?;
@@ -421,24 +419,24 @@ impl<T: Config> Module<T> {
     // PRIVATE MUTABLES
 
     /// Get the free balance of an account.
-    pub fn free_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+    pub fn free_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> Balance {
         Self::account(who.borrow()).free
     }
 
     /// Get the balance of an account that can be used for transfers, reservations, or any other
     /// non-locking, non-transaction-fee activity. Will be at most `free_balance`.
-    pub fn usable_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+    pub fn usable_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> Balance {
         Self::account(who.borrow()).usable(Reasons::Misc)
     }
 
     /// Get the balance of an account that can be used for paying transaction fees (not tipping,
     /// or any other kind of fees, though). Will be at most `free_balance`.
-    pub fn usable_balance_for_fees(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+    pub fn usable_balance_for_fees(who: impl sp_std::borrow::Borrow<T::AccountId>) -> Balance {
         Self::account(who.borrow()).usable(Reasons::Fee)
     }
 
     /// Get the reserved balance of an account.
-    pub fn reserved_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+    pub fn reserved_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> Balance {
         Self::account(who.borrow()).reserved
     }
 
@@ -449,7 +447,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Get both the free and reserved balances of an account.
-    fn account(who: &T::AccountId) -> AccountData<T::Balance> {
+    fn account(who: &T::AccountId) -> AccountData {
         T::AccountStore::get(&who)
     }
 
@@ -459,10 +457,7 @@ impl<T: Config> Module<T> {
     ///
     /// Returns the final free balance, iff the account was previously of total balance zero, known
     /// as its "endowment".
-    fn post_mutation(
-        _who: &T::AccountId,
-        new: AccountData<T::Balance>,
-    ) -> Option<AccountData<T::Balance>> {
+    fn post_mutation(_who: &T::AccountId, new: AccountData) -> Option<AccountData> {
         // Polymesh modified code. Removed Existential Deposit logic
         Some(new)
     }
@@ -474,10 +469,7 @@ impl<T: Config> Module<T> {
     ///
     /// NOTE: LOW-LEVEL: This will not attempt to maintain total issuance. It is expected that
     /// the caller will do this.
-    pub fn mutate_account<R>(
-        who: &T::AccountId,
-        f: impl FnOnce(&mut AccountData<T::Balance>) -> R,
-    ) -> R {
+    pub fn mutate_account<R>(who: &T::AccountId, f: impl FnOnce(&mut AccountData) -> R) -> R {
         Self::try_mutate_account(who, |a, _| -> Result<R, StoredMapError> { Ok(f(a)) })
             .expect("Error is infallible; qed")
     }
@@ -492,7 +484,7 @@ impl<T: Config> Module<T> {
     /// the caller will do this.
     fn try_mutate_account<R, E: From<StoredMapError>>(
         who: &T::AccountId,
-        f: impl FnOnce(&mut AccountData<T::Balance>, bool) -> Result<R, E>,
+        f: impl FnOnce(&mut AccountData, bool) -> Result<R, E>,
     ) -> Result<R, E> {
         T::AccountStore::try_mutate_exists(who, |maybe_account| {
             let is_new = maybe_account.is_none();
@@ -515,7 +507,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Update the account entry for `who`, given the locks.
-    fn update_locks(who: &T::AccountId, locks: &[BalanceLock<T::Balance>]) {
+    fn update_locks(who: &T::AccountId, locks: &[BalanceLock<Balance>]) {
         if locks.len() as u32 > T::MaxLocks::get() {
             frame_support::debug::warn!(
                 "Warning: A user has more currency locks than expected. \
@@ -557,7 +549,7 @@ impl<T: Config> Module<T> {
     fn safe_transfer_core(
         transactor: &T::AccountId,
         dest: &T::AccountId,
-        value: T::Balance,
+        value: Balance,
         memo: Option<Memo>,
         existence_requirement: ExistenceRequirement,
     ) -> DispatchResult {
@@ -579,7 +571,7 @@ impl<T: Config> Module<T> {
     fn transfer_core(
         transactor: &T::AccountId,
         dest: &T::AccountId,
-        value: T::Balance,
+        value: Balance,
         memo: Option<Memo>,
         _existence_requirement: ExistenceRequirement,
     ) -> DispatchResult {
@@ -591,14 +583,14 @@ impl<T: Config> Module<T> {
             Self::try_mutate_account(transactor, |from_account, _| -> DispatchResult {
                 from_account.free = from_account
                     .free
-                    .checked_sub(&value)
+                    .checked_sub(value)
                     .ok_or(Error::<T>::InsufficientBalance)?;
 
                 // NOTE: total stake being stored in the same type means that this could never overflow
                 // but better to be safe than sorry.
                 to_account.free = to_account
                     .free
-                    .checked_add(&value)
+                    .checked_add(value)
                     .ok_or(Error::<T>::Overflow)?;
 
                 Self::ensure_can_withdraw(
@@ -628,13 +620,13 @@ impl<T: Config> Module<T> {
     }
 }
 
-impl<T> BalancesTrait<T::AccountId, T::Balance, NegativeImbalance<T>> for Module<T>
+impl<T> BalancesTrait<T::AccountId, NegativeImbalance<T>> for Module<T>
 where
     T: Config,
 {
     fn withdraw(
         who: &T::AccountId,
-        value: T::Balance,
+        value: Balance,
         reasons: WithdrawReasons,
         liveness: ExistenceRequirement,
     ) -> sp_std::result::Result<NegativeImbalance<T>, DispatchError> {
@@ -643,9 +635,9 @@ where
 }
 
 // Polymesh modified code. Managed BRR related functions.
-impl<T: Config> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> for Module<T> {
+impl<T: Config> BlockRewardsReserveCurrency<NegativeImbalance<T>> for Module<T> {
     // Polymesh modified code. Drop behavious modified to reduce BRR balance instead of inflating total supply.
-    fn drop_positive_imbalance(mut amount: T::Balance) {
+    fn drop_positive_imbalance(mut amount: Balance) {
         if amount.is_zero() {
             return;
         }
@@ -659,18 +651,18 @@ impl<T: Config> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> fo
                 // eg. amount = 100 and the account.free = 60 then `amount_to_mint` = 40
                 amount -= old_brr_free_balance - new_brr_free_balance;
             }
-            <TotalIssuance<T>>::mutate(|v| *v = v.saturating_add(amount));
+            TotalIssuance::mutate(|v| *v = v.saturating_add(amount));
             Ok(())
         });
     }
 
-    fn drop_negative_imbalance(amount: T::Balance) {
-        <TotalIssuance<T>>::mutate(|v| *v = v.saturating_sub(amount));
+    fn drop_negative_imbalance(amount: Balance) {
+        TotalIssuance::mutate(|v| *v = v.saturating_sub(amount));
     }
 
     // Polymesh modified code. Instead of minting new tokens, this function tries to transfer tokens from BRR to the beneficiary.
     // If BRR does not have enough free funds, new tokens are issued.
-    fn issue_using_block_rewards_reserve(mut amount: T::Balance) -> NegativeImbalance<T> {
+    fn issue_using_block_rewards_reserve(mut amount: Balance) -> NegativeImbalance<T> {
         if amount.is_zero() {
             return NegativeImbalance::zero();
         }
@@ -688,10 +680,10 @@ impl<T: Config> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> fo
                 } else {
                     amount
                 };
-                <TotalIssuance<T>>::mutate(|issued| {
-                    *issued = issued.checked_add(&amount_to_mint).unwrap_or_else(|| {
-                        amount = T::Balance::max_value() - *issued;
-                        T::Balance::max_value()
+                TotalIssuance::mutate(|issued| {
+                    *issued = issued.checked_add(amount_to_mint).unwrap_or_else(|| {
+                        amount = Balance::max_value() - *issued;
+                        Balance::max_value()
                     })
                 });
                 Ok(NegativeImbalance::new(amount))
@@ -701,17 +693,14 @@ impl<T: Config> BlockRewardsReserveCurrency<T::Balance, NegativeImbalance<T>> fo
     }
 
     // Polymesh modified code. Returns balance of BRR
-    fn block_rewards_reserve_balance() -> T::Balance {
+    fn block_rewards_reserve_balance() -> Balance {
         let brr = Self::block_rewards_reserve();
         <Self as Currency<T::AccountId>>::free_balance(&brr)
     }
 }
 
-impl<T: Config> Currency<T::AccountId> for Module<T>
-where
-    T::Balance: MaybeSerializeDeserialize + Debug,
-{
-    type Balance = T::Balance;
+impl<T: Config> Currency<T::AccountId> for Module<T> {
+    type Balance = Balance;
     type PositiveImbalance = PositiveImbalance<T>;
     type NegativeImbalance = NegativeImbalance<T>;
 
@@ -728,7 +717,7 @@ where
     }
 
     fn total_issuance() -> Self::Balance {
-        <TotalIssuance<T>>::get()
+        TotalIssuance::get()
     }
 
     fn minimum_balance() -> Self::Balance {
@@ -745,8 +734,8 @@ where
         if amount.is_zero() {
             return PositiveImbalance::zero();
         }
-        <TotalIssuance<T>>::mutate(|issued| {
-            *issued = issued.checked_sub(&amount).unwrap_or_else(|| {
+        TotalIssuance::mutate(|issued| {
+            *issued = issued.checked_sub(amount).unwrap_or_else(|| {
                 amount = *issued;
                 Zero::zero()
             });
@@ -761,8 +750,8 @@ where
         if amount.is_zero() {
             return NegativeImbalance::zero();
         }
-        <TotalIssuance<T>>::mutate(|issued| {
-            *issued = issued.checked_add(&amount).unwrap_or_else(|| {
+        TotalIssuance::mutate(|issued| {
+            *issued = issued.checked_add(amount).unwrap_or_else(|| {
                 amount = Self::Balance::max_value() - *issued;
                 Self::Balance::max_value()
             })
@@ -780,9 +769,9 @@ where
     // # </weight>
     fn ensure_can_withdraw(
         who: &T::AccountId,
-        amount: T::Balance,
+        amount: Balance,
         reasons: WithdrawReasons,
-        new_balance: T::Balance,
+        new_balance: Balance,
     ) -> DispatchResult {
         if amount.is_zero() {
             return Ok(());
@@ -804,9 +793,7 @@ where
         value: Self::Balance,
         existence_requirement: ExistenceRequirement,
     ) -> DispatchResult {
-        // Calling `transfer_core()` instead of the `safe_transfer_core()` to support the
-        // transfer to the smart extensions using the pallet-contracts.
-        Self::transfer_core(transactor, dest, value, None, existence_requirement)?;
+        Self::safe_transfer_core(transactor, dest, value, None, existence_requirement)?;
         Ok(())
     }
 
@@ -861,7 +848,7 @@ where
 
                 account.free = account
                     .free
-                    .checked_add(&value)
+                    .checked_add(value)
                     .ok_or(Error::<T>::Overflow)?;
                 Ok(PositiveImbalance::new(value))
             },
@@ -883,7 +870,7 @@ where
             |account, _| -> Result<Self::PositiveImbalance, DispatchError> {
                 // Polymesh modified code. Removed existential deposit requirements.
                 // This function is now logically equivalent to `deposit_into_existing`.
-                account.free = match account.free.checked_add(&value) {
+                account.free = match account.free.checked_add(value) {
                     Some(x) => x,
                     None => return Ok(Self::PositiveImbalance::zero()),
                 };
@@ -912,7 +899,7 @@ where
             |account, _| -> Result<Self::NegativeImbalance, DispatchError> {
                 let new_free_account = account
                     .free
-                    .checked_sub(&value)
+                    .checked_sub(value)
                     .ok_or(Error::<T>::InsufficientBalance)?;
 
                 // Polymesh modified code. Removed existential deposit requirements.
@@ -949,10 +936,7 @@ where
     }
 }
 
-impl<T: Config> ReservableCurrency<T::AccountId> for Module<T>
-where
-    T::Balance: MaybeSerializeDeserialize + Debug,
-{
+impl<T: Config> ReservableCurrency<T::AccountId> for Module<T> {
     /// Check if `who` can reserve `value` from their free balance.
     ///
     /// Always `true` if value to be reserved is zero.
@@ -962,7 +946,7 @@ where
         }
         Self::account(who)
             .free
-            .checked_sub(&value)
+            .checked_sub(value)
             .map_or(false, |new_balance| {
                 Self::ensure_can_withdraw(who, value, WithdrawReasons::RESERVE, new_balance).is_ok()
             })
@@ -983,11 +967,11 @@ where
         Self::try_mutate_account(who, |account, _| -> DispatchResult {
             account.free = account
                 .free
-                .checked_sub(&value)
+                .checked_sub(value)
                 .ok_or(Error::<T>::InsufficientBalance)?;
             account.reserved = account
                 .reserved
-                .checked_add(&value)
+                .checked_add(value)
                 .ok_or(Error::<T>::Overflow)?;
             Self::ensure_can_withdraw(who, value, WithdrawReasons::RESERVE, account.free)
         })?;
@@ -1070,13 +1054,13 @@ where
                             Status::Free => {
                                 to_account.free = to_account
                                     .free
-                                    .checked_add(&actual)
+                                    .checked_add(actual)
                                     .ok_or(Error::<T>::Overflow)?
                             }
                             Status::Reserved => {
                                 to_account.reserved = to_account
                                     .reserved
-                                    .checked_add(&actual)
+                                    .checked_add(actual)
                                     .ok_or(Error::<T>::Overflow)?
                             }
                         }
@@ -1096,10 +1080,7 @@ where
     }
 }
 
-impl<T: Config> LockableCurrency<T::AccountId> for Module<T>
-where
-    T::Balance: MaybeSerializeDeserialize + Debug,
-{
+impl<T: Config> LockableCurrency<T::AccountId> for Module<T> {
     type Moment = T::BlockNumber;
 
     type MaxLocks = T::MaxLocks;
@@ -1109,12 +1090,7 @@ where
 
     // Set a lock on the balance of `who`.
     // Is a no-op if lock amount is zero or `reasons` `is_empty()`.
-    fn set_lock(
-        id: LockIdentifier,
-        who: &T::AccountId,
-        amount: T::Balance,
-        reasons: WithdrawReasons,
-    ) {
+    fn set_lock(id: LockIdentifier, who: &T::AccountId, amount: Balance, reasons: WithdrawReasons) {
         if amount.is_zero() || reasons.is_empty() {
             return;
         }
@@ -1137,7 +1113,7 @@ where
     fn extend_lock(
         id: LockIdentifier,
         who: &T::AccountId,
-        amount: T::Balance,
+        amount: Balance,
         reasons: WithdrawReasons,
     ) {
         if amount.is_zero() || reasons.is_empty() {
@@ -1166,11 +1142,8 @@ where
     }
 }
 
-impl<T: Config> LockableCurrencyExt<T::AccountId> for Module<T>
-where
-    T::Balance: MaybeSerializeDeserialize + Debug,
-{
-    fn reduce_lock(id: LockIdentifier, who: &T::AccountId, amount: T::Balance) -> DispatchResult {
+impl<T: Config> LockableCurrencyExt<T::AccountId> for Module<T> {
+    fn reduce_lock(id: LockIdentifier, who: &T::AccountId, amount: Balance) -> DispatchResult {
         if amount.is_zero() {
             return Ok(());
         }
@@ -1180,7 +1153,7 @@ where
             .position(|l| l.id == id)
             .and_then(|p| {
                 let slot = &mut locks[p].amount;
-                let new = slot.checked_sub(&amount).map(|n| *slot = n);
+                let new = slot.checked_sub(amount).map(|n| *slot = n);
                 if slot.is_zero() {
                     locks.swap_remove(p);
                 }
@@ -1194,9 +1167,9 @@ where
     fn increase_lock(
         id: LockIdentifier,
         who: &T::AccountId,
-        amount: T::Balance,
+        amount: Balance,
         reasons: WithdrawReasons,
-        check_sum: impl FnOnce(T::Balance) -> DispatchResult,
+        check_sum: impl FnOnce(Balance) -> DispatchResult,
     ) -> DispatchResult {
         if amount.is_zero() || reasons.is_empty() {
             return Ok(());
@@ -1207,7 +1180,7 @@ where
             let slot = &mut locks[pos];
             slot.amount = slot
                 .amount
-                .checked_add(&amount)
+                .checked_add(amount)
                 .ok_or(Error::<T>::Overflow)?;
             slot.reasons = slot.reasons | reasons;
             slot.amount
