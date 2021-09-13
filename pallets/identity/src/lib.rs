@@ -75,7 +75,6 @@
 //! - `add_authorization` - Adds an authorization.
 //! - `remove_authorization` - Removes an authorization.
 //! - `add_secondary_keys_with_authorization` - Adds secondary keys to target identity `id`.
-//! - `revoke_offchain_authorization` - Revokes the `auth` off-chain authorization of `signer`.
 //! - `add_investor_uniqueness_claim` - Adds InvestorUniqueness claim for a given target identity.
 //! - `add_investor_uniqueness_claim_v2` - Adds InvestorUniqueness claim V2 for a given target identity.
 

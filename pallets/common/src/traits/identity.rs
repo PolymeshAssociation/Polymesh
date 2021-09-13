@@ -82,9 +82,7 @@ pub trait WeightInfo {
     fn accept_primary_key() -> Weight;
     fn change_cdd_requirement_for_mk_rotation() -> Weight;
     fn join_identity_as_key() -> Weight;
-    fn join_identity_as_identity() -> Weight;
     fn leave_identity_as_key() -> Weight;
-    fn leave_identity_as_identity() -> Weight;
     fn add_claim() -> Weight;
     fn revoke_claim() -> Weight;
     fn set_permission_to_signer() -> Weight;
@@ -93,7 +91,6 @@ pub trait WeightInfo {
     fn add_authorization() -> Weight;
     fn remove_authorization() -> Weight;
     fn add_secondary_keys_with_authorization(n: u32) -> Weight;
-    fn revoke_offchain_authorization() -> Weight;
     fn add_investor_uniqueness_claim() -> Weight;
     fn add_investor_uniqueness_claim_v2() -> Weight;
     fn revoke_claim_by_index() -> Weight;

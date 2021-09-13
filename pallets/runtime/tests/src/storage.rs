@@ -698,11 +698,7 @@ pub fn register_keyring_account_without_cdd(
     make_account_without_cdd(acc.to_account_id()).map(|(_, id)| id)
 }
 
-pub fn add_secondary_key_with_perms(
-    did: IdentityId,
-    acc: AccountId,
-    perms: AuthPermissions,
-) {
+pub fn add_secondary_key_with_perms(did: IdentityId, acc: AccountId, perms: AuthPermissions) {
     let _primary_key = Identity::did_records(&did).primary_key;
     let auth_id = Identity::add_auth(
         did.clone(),

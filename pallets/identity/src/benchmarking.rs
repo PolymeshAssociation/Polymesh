@@ -224,18 +224,6 @@ benchmarks! {
         );
     }: _(new_key.origin, auth_id)
 
-    join_identity_as_identity {
-        let target = user::<T>("target", 0);
-        let new_user = user::<T>("key", 0);
-
-        let auth_id =  Module::<T>::add_auth(
-            target.did(),
-            Signatory::Identity(new_user.did()),
-            AuthorizationData::JoinIdentity(Permissions::default()),
-            None,
-        );
-    }: _(new_user.origin, auth_id)
-
     leave_identity_as_key {
         let target = user::<T>("target", 0);
         let key = UserBuilder::<T>::default().build("key");
@@ -257,15 +245,6 @@ benchmarks! {
             "Key was not removed from its identity"
         );
     }
-
-    leave_identity_as_identity {
-        let target = user::<T>("target", 0);
-        let new_user = user::<T>("key", 0);
-        let signatory = Signatory::Identity(new_user.did());
-
-        Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), &signatory);
-
-    }: _(new_user.origin, target.did())
 
     add_claim {
         let caller = user::<T>("caller", 0);
@@ -341,17 +320,6 @@ benchmarks! {
             }
         }).collect::<Vec<_>>();
     }: _(caller.origin, secondary_keys_with_auth, expires_at)
-
-    revoke_offchain_authorization {
-        let caller = user::<T>("caller", 0);
-        let nonce = Module::<T>::offchain_authorization_nonce(caller.did());
-
-        let authorization = TargetIdAuthorization::<T::Moment> {
-            target_id: caller.did(),
-            nonce,
-            expires_at: 600u32.into(),
-        };
-    }: _(caller.origin, Signatory::Identity(caller.did()), authorization)
 
     add_investor_uniqueness_claim {
         let (caller, _, claim, proof) = setup_investor_uniqueness_claim_v1::<T>("caller");

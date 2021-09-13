@@ -40,20 +40,10 @@ impl pallet_identity::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(11 as Weight))
             .saturating_add(DbWeight::get().writes(5 as Weight))
     }
-    fn join_identity_as_identity() -> Weight {
-        (198_296_000 as Weight)
-            .saturating_add(DbWeight::get().reads(7 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
-    }
     fn leave_identity_as_key() -> Weight {
         (163_285_000 as Weight)
             .saturating_add(DbWeight::get().reads(7 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
-    }
-    fn leave_identity_as_identity() -> Weight {
-        (112_937_000 as Weight)
-            .saturating_add(DbWeight::get().reads(7 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
     }
     fn add_claim() -> Weight {
         (171_882_000 as Weight)
@@ -101,11 +91,6 @@ impl pallet_identity::WeightInfo for WeightInfo {
             .saturating_add((108_801_000 as Weight).saturating_mul(i as Weight))
             .saturating_add(DbWeight::get().reads(12 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
-    }
-    fn revoke_offchain_authorization() -> Weight {
-        (119_376_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
     }
     fn add_investor_uniqueness_claim() -> Weight {
         (2_301_277_000 as Weight)
