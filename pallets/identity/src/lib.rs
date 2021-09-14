@@ -1434,8 +1434,7 @@ impl<T: Config> Module<T> {
         };
         <DidRecords<T>>::insert(&did, record);
 
-        // 2.3. Give 100k POLYX to the primary key for testing.
-        // TODO: Remove before mainnet.
+        // 2.3. Give `InitialPOLYX` to the primary key for testing.
         T::Balances::deposit_creating(&sender, T::InitialPOLYX::get().into());
 
         Self::deposit_event(RawEvent::DidCreated(
