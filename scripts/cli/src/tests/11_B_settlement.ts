@@ -91,7 +91,7 @@ async function main(): Promise<void> {
   await settlement.affirmInstruction(eve, instructionCounter, eveDid, 0);
 
   // Wait for settlement to be executed - happens in the next block
-  await init.sleep(1500);
+  await init.waitBlocks(2);
 
   aliceBalance = await assetBalance(ticker, aliceDid);
   bobBalance = await assetBalance(ticker, bobDid);
