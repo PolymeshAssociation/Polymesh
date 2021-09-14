@@ -14,9 +14,9 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 //! Document type
-use crate::{self as polymesh_primitives, DocumentHash, DocumentHashOld, Moment};
+use crate::{DocumentHash, Moment};
 use codec::{Decode, Encode};
-use polymesh_primitives_derive::{Migrate, VecU8StrongTyped};
+use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_std::prelude::Vec;
 
 #[cfg(feature = "std")]
@@ -49,13 +49,13 @@ pub struct DocumentUri(pub Vec<u8>);
 pub struct DocumentType(pub Vec<u8>);
 
 /// Represents a document associated with an asset
-#[derive(Decode, Encode, Clone, Debug, Default, PartialEq, Eq, Migrate)]
+#[derive(Decode, Encode, Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Document {
-    /// Document URI
+    /// An URI where more details can be discovered.
+    /// For example, this might link to an external `.pdf`.
     pub uri: DocumentUri,
-    /// Document hash
-    #[migrate]
+    /// Hash of the document.
     pub content_hash: DocumentHash,
     /// The document's name.
     /// Need not be unique among a ticker's documents.

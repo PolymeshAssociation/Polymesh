@@ -82,8 +82,8 @@ use polymesh_common_utilities::{
     with_transaction,
 };
 use polymesh_primitives::{
-    storage_migrate_on, storage_migration_ver, Balance, EventDid, IdentityId, Moment, PortfolioId,
-    PortfolioNumber, Ticker,
+    storage_migration_ver, Balance, EventDid, IdentityId, Moment, PortfolioId, PortfolioNumber,
+    Ticker,
 };
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -151,31 +151,17 @@ decl_storage! {
         HolderPaid get(fn holder_paid): map hasher(blake2_128_concat) (CAId, IdentityId) => bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
     }
 }
 
-storage_migration_ver!(1);
+storage_migration_ver!(0);
 
 decl_module! {
     pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
-
-        fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion::get(), 1, {
-                use polymesh_primitives::migrate::kill_item;
-                for item in &[
-                    b"Distributions" as &[_],
-                    b"HolderPaid" as &[_],
-                ] {
-                    kill_item(b"CapitalDistribution", item);
-                }
-            });
-
-            0
-        }
 
         /// Start and attach a capital distribution, to the CA identified by `ca_id`,
         /// with `amount` funds in `currency` withdrawn from `portfolio` belonging to `origin`'s DID.
