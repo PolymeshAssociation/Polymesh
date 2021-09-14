@@ -77,6 +77,7 @@ use frame_support::{
 use pallet_asset::{self as asset, checkpoint};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
+    constants::currency::ONE_UNIT,
     portfolio::PortfolioSubTrait,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     with_transaction,
@@ -168,6 +169,13 @@ decl_module! {
         ///
         /// The distribution will commence at `payment_at` and expire at `expires_at`,
         /// if provided, or if `None`, then there's no expiry.
+        ///
+        /// However, the funds will be locked in `portfolio` when `distribute` is called,
+        /// and not when `payment_at` is due.
+        /// So when there's no expiry, some funds may be locked indefinitely in `portfolio`,
+        /// due to claimants not withdrawing.
+        /// This cannot as a result of dust from rounding down indivisible currency amounts,
+        /// as any rounding happens after unlocking.
         ///
         /// ## Arguments
         /// - `origin` which must be a signer for a CAA of `ca_id`.
@@ -493,6 +501,13 @@ impl<T: Config> Module<T> {
         // Compute withholding tax + gain.
         let tax = ca.tax_of(&holder);
         let gain = benefit - tax * benefit;
+
+        // Round down to unit multiple if indivisible.
+        let gain = if Asset::<T>::is_divisible(&dist.currency) {
+            gain
+        } else {
+            gain / ONE_UNIT * ONE_UNIT
+        };
 
         with_transaction(|| {
             // Unlock `benefit` of `currency` from CAAs portfolio.
