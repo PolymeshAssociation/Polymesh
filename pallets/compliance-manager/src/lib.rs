@@ -100,8 +100,8 @@ use polymesh_primitives::{
     compliance_manager::{
         AssetCompliance, AssetComplianceResult, ComplianceRequirement, ConditionResult,
     },
-    proposition, storage_migrate_on, storage_migration_ver, Balance, Claim, Condition,
-    ConditionType, Context, IdentityId, Ticker, TrustedFor, TrustedIssuer,
+    proposition, storage_migration_ver, Balance, Claim, Condition, ConditionType, Context,
+    IdentityId, Ticker, TrustedFor, TrustedIssuer,
 };
 use sp_std::{
     convert::{From, TryFrom},
@@ -140,9 +140,7 @@ pub mod weight_for {
     }
 }
 
-// A value placed in storage that represents the current version of the this storage. This value
-// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-storage_migration_ver!(1);
+storage_migration_ver!(0);
 
 decl_storage! {
     trait Store for Module<T: Config> as ComplianceManager {
@@ -151,7 +149,7 @@ decl_storage! {
         /// List of trusted claim issuer Ticker -> Issuer Identity
         pub TrustedClaimIssuer get(fn trusted_claim_issuer): map hasher(blake2_128_concat) Ticker => Vec<TrustedIssuer>;
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
     }
 }
 
@@ -180,18 +178,6 @@ decl_module! {
         fn deposit_event() = default;
 
         const MaxConditionComplexity: u32 = T::MaxConditionComplexity::get();
-
-        fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            use polymesh_primitives::{migrate::{Empty, migrate_map}, condition::TrustedIssuerOld};
-
-            let storage_ver = StorageVersion::get();
-
-            storage_migrate_on!(storage_ver, 1, {
-                migrate_map::<Vec<TrustedIssuerOld>, _>(b"ComplianceManager", b"TrustedClaimIssuer", |_| Empty);
-            });
-
-            1_000
-        }
 
         /// Adds a compliance requirement to an asset's compliance by ticker.
         /// If the compliance requirement is a duplicate, it does nothing.
