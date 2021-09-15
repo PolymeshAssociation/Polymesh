@@ -1354,14 +1354,16 @@ impl<T: Config> Module<T> {
     }
 
     fn check_granularity(ticker: &Ticker, value: Balance) -> bool {
-        // Read the token details
-        let token = Self::token_details(ticker);
-        token.divisible || Self::is_unit_multiple(value)
+        Self::is_divisible(ticker) || Self::is_unit_multiple(value)
     }
 
     /// Is `value` a multiple of "one unit"?
     fn is_unit_multiple(value: Balance) -> bool {
         value % ONE_UNIT == 0
+    }
+
+    pub fn is_divisible(ticker: &Ticker) -> bool {
+        Self::token_details(ticker).divisible
     }
 
     /// Accepts and executes the ticker transfer.
