@@ -33,8 +33,8 @@ use frame_support::{
     Parameter,
 };
 use polymesh_primitives::{
-    secondary_key::api::SecondaryKey, AuthorizationData, DispatchableName, IdentityClaim,
-    IdentityId, InvestorUid, PalletName, Permissions, Signatory, Ticker,
+    secondary_key::api::SecondaryKey, AuthorizationData, IdentityClaim, IdentityId, InvestorUid,
+    Permissions, Signatory, Ticker,
 };
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
@@ -82,9 +82,7 @@ pub trait WeightInfo {
     fn accept_primary_key() -> Weight;
     fn change_cdd_requirement_for_mk_rotation() -> Weight;
     fn join_identity_as_key() -> Weight;
-    fn join_identity_as_identity() -> Weight;
     fn leave_identity_as_key() -> Weight;
-    fn leave_identity_as_identity() -> Weight;
     fn add_claim() -> Weight;
     fn revoke_claim() -> Weight;
     fn set_permission_to_signer() -> Weight;
@@ -93,7 +91,6 @@ pub trait WeightInfo {
     fn add_authorization() -> Weight;
     fn remove_authorization() -> Weight;
     fn add_secondary_keys_with_authorization(n: u32) -> Weight;
-    fn revoke_offchain_authorization() -> Weight;
     fn add_investor_uniqueness_claim() -> Weight;
     fn add_investor_uniqueness_claim_v2() -> Weight;
     fn revoke_claim_by_index() -> Weight;
@@ -222,9 +219,6 @@ decl_event!(
 
         /// Mocked InvestorUid created.
         MockInvestorUIDCreated(IdentityId, InvestorUid),
-
-        /// Forwarded Call - (calling DID, target DID, pallet name, function name)
-        ForwardedCall(IdentityId, IdentityId, PalletName, DispatchableName),
     }
 );
 
@@ -235,7 +229,7 @@ pub trait IdentityFnTrait<AccountId> {
     fn current_payer() -> Option<AccountId>;
     fn set_current_payer(payer: Option<AccountId>);
 
-    fn is_signer_authorized(did: IdentityId, signer: &Signatory<AccountId>) -> bool;
+    fn is_key_authorized(did: IdentityId, key: &AccountId) -> bool;
     fn is_primary_key(did: &IdentityId, key: &AccountId) -> bool;
 
     /// It adds a systematic CDD claim for each `target` identity.

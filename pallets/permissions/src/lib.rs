@@ -62,7 +62,6 @@ decl_error! {
     pub enum Error for Module<T: Config> {
         /// The caller is not authorized to call the current extrinsic.
         UnauthorizedCaller,
-        RecursionNotAllowed,
     }
 }
 

@@ -629,10 +629,6 @@ declare module '@polkadot/api/types/events' {
        **/
       DidCreated: AugmentedEvent<ApiType, [IdentityId, AccountId, Vec<SecondaryKey>]>;
       /**
-       * Forwarded Call - (calling DID, target DID, pallet name, function name)
-       **/
-      ForwardedCall: AugmentedEvent<ApiType, [IdentityId, IdentityId, PalletName, DispatchableName]>;
-      /**
        * Mocked InvestorUid created.
        **/
       MockInvestorUIDCreated: AugmentedEvent<ApiType, [IdentityId, InvestorUid]>;
