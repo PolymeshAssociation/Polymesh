@@ -170,12 +170,14 @@ decl_module! {
         /// The distribution will commence at `payment_at` and expire at `expires_at`,
         /// if provided, or if `None`, then there's no expiry.
         ///
-        /// However, the funds will be locked in `portfolio` when `distribute` is called,
-        /// and not when `payment_at` is due.
-        /// So when there's no expiry, some funds may be locked indefinitely in `portfolio`,
-        /// due to claimants not withdrawing.
-        /// This cannot as a result of dust from rounding down indivisible currency amounts,
-        /// as any rounding happens after unlocking.
+        /// The funds will be locked in `portfolio` from when `distribute` is called.
+        /// When there's no expiry, some funds may be locked indefinitely in `portfolio`,
+        /// due to claimants not withdrawing or no benefits being pushed to them.
+        /// For indivisible currencies, unlocked amounts, of less than one whole unit,
+        /// will not be transferable from `portfolio`.
+        /// However, if we imagine that users `Alice` and `Bob` both are entitled to 1.5 units,
+        /// and only receive `1` units each, then `0.5 + 0.5 = 1` units are left in `portfolio`,
+        /// which is now transferrable.
         ///
         /// ## Arguments
         /// - `origin` which must be a signer for a CAA of `ca_id`.
@@ -276,7 +278,9 @@ decl_module! {
         /// Taxes are withheld as specified by the CA.
         /// Post-tax earnings are then transferred to the default portfolio of the `origin`'s DID.
         ///
-        /// All benefits are rounded by truncation (down to first integer below).
+        /// All benefits are rounded by truncation, down to first integer below.
+        /// Moreover, before post-tax earnings, in indivisible currencies are transferred,
+        /// they are rounded down to a whole unit.
         ///
         /// ## Arguments
         /// - `origin` which must be a holder of for a CAA of `ca_id`.
@@ -303,7 +307,9 @@ decl_module! {
         /// Taxes are withheld as specified by the CA.
         /// Post-tax earnings are then transferred to the default portfolio of the `origin`'s DID.
         ///
-        /// All benefits are rounded by truncation (down to first integer below).
+        /// All benefits are rounded by truncation, down to first integer below.
+        /// Moreover, before post-tax earnings, in indivisible currencies are transferred,
+        /// they are rounded down to a whole unit.
         ///
         /// ## Arguments
         /// - `origin` which must be a holder of for a CAA of `ca_id`.
