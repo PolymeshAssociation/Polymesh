@@ -239,31 +239,56 @@ polymesh_runtime_common::runtime_apis! {}
 
 #[derive(Copy, Clone)]
 pub struct User {
+    /// The `ring` of the `User` used to derive account related data,
+    /// e.g., origins, keys, and balances.
     pub ring: AccountKeyring,
+    /// The DID of the `User`.
+    /// The `ring` need not be the primary key of this DID.
     pub did: IdentityId,
 }
 
 impl User {
-    pub fn new(ring: AccountKeyring) -> Self {
-        let did = register_keyring_account(ring).unwrap();
-        Self { ring, did }
-    }
-
-    pub fn existing(ring: AccountKeyring) -> Self {
-        let did = get_identity_id(ring).unwrap();
+    /// Creates a `User` provided a `did` and a `ring`.
+    ///
+    /// The function is useful when `ring` refers to a secondary key.
+    /// At the time of calling, nothing is asserted about `did`'s registration.
+    pub const fn new_with(did: IdentityId, ring: AccountKeyring) -> Self {
         User { ring, did }
     }
 
+    /// Creates and registers a `User` for the given `ring` which will act as the primary key.
+    pub fn new(ring: AccountKeyring) -> Self {
+        Self::new_with(register_keyring_account(ring).unwrap(), ring)
+    }
+
+    /// Creates a `User` for an already registered DID with `ring` as its primary key.
+    pub fn existing(ring: AccountKeyring) -> Self {
+        Self::new_with(get_identity_id(ring).unwrap(), ring)
+    }
+
+    /// Returns the current balance of `self`'s account.
     pub fn balance(self, balance: u128) -> Self {
         use frame_support::traits::Currency as _;
         Balances::make_free_balance_be(&self.acc(), balance);
         self
     }
 
+    /// Returns `self`'s `AccountId`. This is based on the `ring`.
     pub fn acc(&self) -> AccountId {
         self.ring.to_account_id()
     }
 
+    /// Returns an account based signatory for `self`.
+    pub fn signatory_acc(&self) -> Signatory<AccountId> {
+        Signatory::Account(self.acc())
+    }
+
+    /// Returns an account based signatory for `self`.
+    pub const fn signatory_did(&self) -> Signatory<AccountId> {
+        Signatory::Identity(self.did)
+    }
+
+    /// Returns an `Origin` that can be used to execute extrinsics.
     pub fn origin(&self) -> Origin {
         Origin::signed(self.acc())
     }
@@ -673,15 +698,19 @@ pub fn register_keyring_account_without_cdd(
     make_account_without_cdd(acc.to_account_id()).map(|(_, id)| id)
 }
 
-pub fn add_secondary_key(did: IdentityId, signer: Signatory<AccountId>) {
+pub fn add_secondary_key_with_perms(did: IdentityId, acc: AccountId, perms: AuthPermissions) {
     let _primary_key = Identity::did_records(&did).primary_key;
     let auth_id = Identity::add_auth(
         did.clone(),
-        signer.clone(),
-        AuthorizationData::JoinIdentity(AuthPermissions::default()),
+        Signatory::Account(acc.clone()),
+        AuthorizationData::JoinIdentity(perms),
         None,
     );
-    assert_ok!(Identity::join_identity(signer, auth_id));
+    assert_ok!(Identity::join_identity(Origin::signed(acc), auth_id));
+}
+
+pub fn add_secondary_key(did: IdentityId, acc: AccountId) {
+    add_secondary_key_with_perms(did, acc, <_>::default())
 }
 
 pub fn account_from(id: u64) -> AccountId {
