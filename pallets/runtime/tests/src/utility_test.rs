@@ -15,8 +15,7 @@ use pallet_portfolio::Call as PortfolioCall;
 use pallet_utility::{self as utility, Event, UniqueCall};
 use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
 use polymesh_primitives::{
-    AccountId, PalletPermissions, Permissions, PortfolioName, PortfolioNumber, Signatory,
-    SubsetRestriction,
+    AccountId, PalletPermissions, Permissions, PortfolioName, PortfolioNumber, SubsetRestriction,
 };
 use sp_core::sr25519::Signature;
 use test_client::AccountKeyring;
@@ -251,18 +250,16 @@ fn batch_secondary_with_permissions_works() {
 fn batch_secondary_with_permissions() {
     System::set_block_number(1);
     let alice = User::new(AccountKeyring::Alice).balance(1_000);
-    let bob_key = AccountKeyring::Bob.to_account_id();
-    let bob_origin = Origin::signed(bob_key.clone());
-    let bob_signer = Signatory::Account(bob_key);
+    let bob = User::new_with(alice.did, AccountKeyring::Bob);
     let check_name = |name| {
         assert_eq!(Portfolio::portfolios(&alice.did, &PortfolioNumber(1)), name);
     };
 
     // Add Bob.
-    add_secondary_key(alice.did, bob_signer.clone());
+    add_secondary_key(alice.did, bob.acc());
     let low_risk_name: PortfolioName = b"low risk".into();
     assert_ok!(Portfolio::create_portfolio(
-        bob_origin.clone(),
+        bob.origin(),
         low_risk_name.clone()
     ));
     assert_last_event!(EventTest::pallet_portfolio(
@@ -287,7 +284,7 @@ fn batch_secondary_with_permissions() {
     };
     assert_ok!(Identity::set_permission_to_signer(
         alice.origin(),
-        bob_signer,
+        bob.signatory_acc(),
         bob_permissions,
     ));
     let bob_secondary_key = &Identity::did_records(&alice.did).secondary_keys[0];
@@ -303,7 +300,7 @@ fn batch_secondary_with_permissions() {
     // Call a disallowed extrinsic.
     let high_risk_name: PortfolioName = b"high risk".into();
     assert_noop!(
-        Portfolio::create_portfolio(bob_origin.clone(), high_risk_name.clone()),
+        Portfolio::create_portfolio(bob.origin(), high_risk_name.clone()),
         pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
     );
 
@@ -315,7 +312,7 @@ fn batch_secondary_with_permissions() {
             high_risk_name.clone(),
         )),
     ];
-    assert_ok!(Utility::batch(bob_origin.clone(), calls.clone()));
+    assert_ok!(Utility::batch(bob.origin(), calls.clone()));
     assert_event_doesnt_exist!(EventTest::pallet_utility(Event::BatchCompleted(_)));
     assert_event_exists!(
         EventTest::pallet_utility(Event::BatchInterrupted(events, err)),
@@ -324,7 +321,7 @@ fn batch_secondary_with_permissions() {
     check_name(low_risk_name);
 
     // Call the same extrinsics optimistically.
-    assert_ok!(Utility::batch_optimistic(bob_origin, calls));
+    assert_ok!(Utility::batch_optimistic(bob.origin(), calls));
     assert_event_exists!(
         EventTest::pallet_utility(Event::BatchOptimisticFailed(events, errors)),
         events == &[0, 1] && errors.len() == 1 && errors[0].0 == 0

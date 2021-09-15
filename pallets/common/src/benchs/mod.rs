@@ -34,6 +34,13 @@ pub fn user<T: Config + TestUtilsFn<<T as SysTrait>::AccountId>>(
         .build(prefix)
 }
 
+pub fn user_without_did<T: Config + TestUtilsFn<<T as SysTrait>::AccountId>>(
+    prefix: &'static str,
+    u: u32,
+) -> User<T> {
+    UserBuilder::<T>::default().seed(u).build(prefix)
+}
+
 pub fn cdd_provider<T: Config + TestUtilsFn<<T as SysTrait>::AccountId>>(
     prefix: &'static str,
     u: u32,

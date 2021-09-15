@@ -538,14 +538,10 @@ decl_module! {
             Self::verify_sender_is_creator(did, &multisig)?;
             <Identity<T>>::ensure_key_did_unlinked(&multisig)?;
 
-            <Identity<T>>::link_account_key_to_did(&multisig, did);
-            <Identity<T>>::unsafe_join_identity(
-                did,
-                Permissions::from_pallet_permissions(
-                    iter::once(PalletPermissions::entire_pallet(NAME.into()))
-                ),
-                &Signatory::Account(multisig),
+            let perms = Permissions::from_pallet_permissions(
+                iter::once(PalletPermissions::entire_pallet(NAME.into()))
             );
+            <Identity<T>>::unsafe_join_identity(did, perms, multisig);
         }
 
         /// Adds a multisig as the primary key of the current did if the current DID is the creator
@@ -686,8 +682,7 @@ impl<T: Config> Module<T> {
     }
 
     fn ensure_signed_did(origin: T::Origin) -> Result<Signatory<T::AccountId>, DispatchError> {
-        let sender = ensure_signed(origin)?;
-        Context::current_identity_or::<Identity<T>>(&sender).map(Signatory::from)
+        Identity::<T>::ensure_did(origin).map(|(_, d)| d.into())
     }
 
     fn ensure_primary_key(did: &IdentityId, sender: &T::AccountId) -> DispatchResult {
@@ -702,8 +697,7 @@ impl<T: Config> Module<T> {
         origin: T::Origin,
         multisig: &T::AccountId,
     ) -> Result<IdentityId, DispatchError> {
-        let sender = ensure_signed(origin)?;
-        let did = Context::current_identity_or::<Identity<T>>(&sender)?;
+        let (sender, did) = Identity::<T>::ensure_did(origin)?;
         Self::verify_sender_is_creator(did, multisig)?;
         Self::ensure_primary_key(&did, &sender)?;
         Ok(did)
