@@ -96,7 +96,7 @@ use pallet_base::{ensure_opt_string_limited, ensure_string_limited};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 pub use polymesh_common_utilities::traits::asset::{Config, Event, RawEvent, WeightInfo};
 use polymesh_common_utilities::{
-    asset::{AssetFnTrait, AssetMigrationError, AssetSubTrait},
+    asset::{AssetFnTrait, AssetSubTrait},
     compliance_manager::Config as ComplianceManagerConfig,
     constants::*,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
@@ -111,8 +111,8 @@ use polymesh_primitives::{
     ethereum::{self, EcdsaSignature, EthereumAddress},
     extract_auth,
     statistics::TransferManagerResult,
-    storage_migrate_on, storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId,
-    IdentityId, PortfolioId, ScopeId, Ticker,
+    storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId,
+    ScopeId, Ticker,
 };
 use sp_runtime::traits::Zero;
 #[cfg(feature = "std")]
@@ -145,115 +145,6 @@ pub struct SecurityToken {
     pub owner_did: IdentityId,
     pub divisible: bool,
     pub asset_type: AssetType,
-}
-
-mod migrate {
-    use super::*;
-    use polymesh_primitives::migrate::{Empty, Migrate};
-
-    /// struct to store the token details.
-    #[derive(Encode, Decode, Clone, PartialEq, Debug)]
-    pub struct SecurityTokenOld1 {
-        pub name: AssetName,
-        pub total_supply: Balance,
-        pub owner_did: IdentityId,
-        pub divisible: bool,
-        pub asset_type: AssetTypeOld,
-        pub primary_issuance_agent: Option<IdentityId>,
-    }
-
-    impl Migrate for SecurityTokenOld1 {
-        type Context = Empty;
-        type Into = SecurityTokenOld2;
-        fn migrate(self, _: Self::Context) -> Option<Self::Into> {
-            let Self {
-                name,
-                total_supply,
-                owner_did,
-                divisible,
-                asset_type,
-                primary_issuance_agent: _,
-            } = self;
-            Some(Self::Into {
-                name,
-                total_supply,
-                owner_did,
-                divisible,
-                asset_type,
-            })
-        }
-    }
-
-    /// struct to store the token details.
-    #[derive(Encode, Decode, Clone, PartialEq, Debug)]
-    pub struct SecurityTokenOld2 {
-        pub name: AssetName,
-        pub total_supply: Balance,
-        pub owner_did: IdentityId,
-        pub divisible: bool,
-        pub asset_type: AssetTypeOld,
-    }
-
-    /// The type of security represented by a token.
-    #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
-    pub enum AssetTypeOld {
-        EquityCommon,
-        EquityPreferred,
-        Commodity,
-        FixedIncome,
-        REIT,
-        Fund,
-        RevenueShareAgreement,
-        StructuredProduct,
-        Derivative,
-        Custom(Vec<u8>),
-        StableCoin,
-    }
-
-    impl Migrate for SecurityTokenOld2 {
-        type Context = Empty;
-        type Into = SecurityToken;
-        fn migrate(self, _: Self::Context) -> Option<Self::Into> {
-            let Self {
-                name: _,
-                total_supply,
-                owner_did,
-                divisible,
-                asset_type,
-            } = self;
-
-            let asset_type = match asset_type {
-                AssetTypeOld::EquityCommon => AssetType::EquityCommon,
-                AssetTypeOld::EquityPreferred => AssetType::EquityPreferred,
-                AssetTypeOld::Commodity => AssetType::Commodity,
-                AssetTypeOld::FixedIncome => AssetType::FixedIncome,
-                AssetTypeOld::REIT => AssetType::REIT,
-                AssetTypeOld::Fund => AssetType::Fund,
-                AssetTypeOld::RevenueShareAgreement => AssetType::RevenueShareAgreement,
-                AssetTypeOld::StructuredProduct => AssetType::StructuredProduct,
-                AssetTypeOld::Derivative => AssetType::Derivative,
-                AssetTypeOld::StableCoin => AssetType::StableCoin,
-                AssetTypeOld::Custom(string) => {
-                    let id = CustomTypesInverse::try_get(&string).unwrap_or_else(|_| {
-                        CustomTypeIdSequence::mutate(|id| {
-                            id.0 += 1;
-                            CustomTypesInverse::insert(&string, *id);
-                            CustomTypes::insert(*id, string);
-                            *id
-                        })
-                    });
-                    AssetType::Custom(id)
-                }
-            };
-
-            Some(Self::Into {
-                total_supply,
-                owner_did,
-                divisible,
-                asset_type,
-            })
-        }
-    }
 }
 
 /// struct to store the ticker registration details.
@@ -318,9 +209,7 @@ pub struct ClassicTickerRegistration {
     pub is_created: bool,
 }
 
-// A value placed in storage that represents the current version of this storage. This value
-// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-storage_migration_ver!(4);
+storage_migration_ver!(0);
 
 decl_storage! {
     trait Store for Module<T: Config> as Asset {
@@ -404,7 +293,7 @@ decl_storage! {
         pub DisableInvestorUniqueness get(fn disable_iu): map hasher(blake2_128_concat) Ticker => bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(4).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
     }
     add_extra_genesis {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
@@ -459,54 +348,6 @@ decl_module! {
         const MaxNumberOfTMExtensionForAsset: u32 = T::MaxNumberOfTMExtensionForAsset::get();
         const AssetNameMaxLength: u32 = T::AssetNameMaxLength::get();
         const FundingRoundNameMaxLength: u32 = T::FundingRoundNameMaxLength::get();
-
-        fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            // Migrate `AssetDocuments`.
-            use frame_support::{Blake2_128Concat, Twox64Concat};
-            use polymesh_primitives::{ migrate::{migrate_double_map_only_values, Migrate, Empty}, document::DocumentOld};
-
-            storage_migrate_on!(StorageVersion::get(), 2, {
-                migrate_double_map_only_values::<_, _, Blake2_128Concat, _, Twox64Concat, _, _, _>(
-                    b"Asset", b"AssetDocuments",
-                    |t: Ticker, id: DocumentId, doc: DocumentOld|
-                        doc.migrate(Empty).ok_or_else(|| AssetMigrationError::AssetDocumentFail(t, id)))
-                .for_each(|doc_migrate_status| {
-                    if let Err(migrate_err) = doc_migrate_status {
-                        Self::deposit_event( RawEvent::MigrationFailure(migrate_err));
-                    }
-                })
-            });
-
-            storage_migrate_on!(StorageVersion::get(), 3, {
-                use crate::migrate::SecurityTokenOld1;
-                use polymesh_primitives::migrate::migrate_map_keys_and_value;
-                migrate_map_keys_and_value::<_, _, Blake2_128Concat, _, _, _>(
-                    b"Asset", b"Tokens", b"Tokens",
-                    |ticker: Ticker, token: SecurityTokenOld1| {
-                        ExternalAgents::<T>::add_agent_if_not(ticker, token.owner_did, AgentGroup::Full).unwrap();
-
-                        if let Some(pia) = token.primary_issuance_agent {
-                            ExternalAgents::<T>::add_agent_if_not(ticker, pia, AgentGroup::PolymeshV1PIA).unwrap();
-                        }
-                        token.migrate(Empty).map(|t| (ticker, t))
-                    },
-                );
-            });
-
-            storage_migrate_on!(StorageVersion::get(), 4, {
-                use crate::migrate::SecurityTokenOld2;
-                use polymesh_primitives::migrate::migrate_map_keys_and_value;
-                migrate_map_keys_and_value::<_, _, Blake2_128Concat, _, _, _>(
-                    b"Asset", b"Tokens", b"Tokens",
-                    |ticker: Ticker, token: SecurityTokenOld2| {
-                        AssetNames::insert(ticker, token.name.clone());
-                        token.migrate(Empty).map(|t| (ticker, t))
-                    },
-                );
-            });
-
-            1_000
-        }
 
         /// Registers a new ticker or extends validity of an existing ticker.
         /// NB: Ticker validity does not get carry forward when renewing ticker.
@@ -1513,14 +1354,16 @@ impl<T: Config> Module<T> {
     }
 
     fn check_granularity(ticker: &Ticker, value: Balance) -> bool {
-        // Read the token details
-        let token = Self::token_details(ticker);
-        token.divisible || Self::is_unit_multiple(value)
+        Self::is_divisible(ticker) || Self::is_unit_multiple(value)
     }
 
     /// Is `value` a multiple of "one unit"?
     fn is_unit_multiple(value: Balance) -> bool {
         value % ONE_UNIT == 0
+    }
+
+    pub fn is_divisible(ticker: &Ticker) -> bool {
+        Self::token_details(ticker).divisible
     }
 
     /// Accepts and executes the ticker transfer.

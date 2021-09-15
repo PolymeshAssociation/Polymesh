@@ -15,7 +15,7 @@ import BN from "bn.js";
 import fs from "fs";
 import path from "path";
 import cryptoRandomString from "crypto-random-string";
-import type { AccountId } from "@polkadot/types/interfaces/runtime";
+import type { AccountId, BlockNumber } from "@polkadot/types/interfaces/runtime";
 import type { SubmittableExtrinsic } from "@polkadot/api/types";
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { DispatchError } from "@polkadot/types/interfaces";
@@ -89,6 +89,22 @@ export async function waitNextEra() {
   while ((await getEra()) === era) {
     await waitNextBlock();
   }
+}
+
+export async function currentBlock() {
+  const api = await ApiSingleton.getInstance();
+  return (await api.query.system.number()).toNumber();
+}
+
+export async function waitBlocks(blocks: number) {
+  let end_block = (await currentBlock()) + blocks;
+  while ((await currentBlock()) < end_block) {
+    await sleep(100);
+  }
+}
+
+export async function waitNextBlock() {
+  await waitBlocks(1);
 }
 
 interface TestEntities {

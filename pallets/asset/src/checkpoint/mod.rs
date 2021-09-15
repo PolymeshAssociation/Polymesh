@@ -49,20 +49,17 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::UnixTime,
-    weights::Weight,
 };
 use frame_system::ensure_root;
 pub use polymesh_common_utilities::traits::checkpoint::{Event, WeightInfo};
-use polymesh_common_utilities::traits::checkpoint::{
-    ScheduleId, StoredSchedule, StoredScheduleOld,
-};
+use polymesh_common_utilities::traits::checkpoint::{ScheduleId, StoredSchedule};
 use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     GC_DID,
 };
 use polymesh_primitives::{
     calendar::{CalendarPeriod, CheckpointId, CheckpointSchedule},
-    storage_migrate_on, storage_migration_ver, EventDid, IdentityId, Moment, Ticker,
+    storage_migration_ver, EventDid, IdentityId, Moment, Ticker,
 };
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -102,7 +99,7 @@ impl From<Moment> for ScheduleSpec {
     }
 }
 
-storage_migration_ver!(2);
+storage_migration_ver!(0);
 
 decl_storage! {
     trait Store for Module<T: Config> as Checkpoint {
@@ -179,7 +176,7 @@ decl_storage! {
             double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) ScheduleId => Vec<CheckpointId>;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(2).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
     }
 }
 
@@ -188,42 +185,6 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
-
-        fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion::get(), 1, {
-                use polymesh_primitives::migrate::{migrate_map, Empty};
-                use frame_support::migration::{StorageIterator, put_storage_value};
-
-                StorageIterator::<bool>::new(b"Checkpoint", b"ScheduleRemovable")
-                    .drain()
-                    .for_each(|(key, removable)| put_storage_value(
-                        b"Checkpoint", b"ScheduleRefCount", &key,
-                        if removable { 1 } else { 0 }
-                    ));
-
-                migrate_map::<StoredScheduleOld, _>(b"Checkpoint", b"Schedules", |_| Empty);
-            });
-
-            storage_migrate_on!(StorageVersion::get(), 2, {
-                // We're making it into a double map due to a bug, nuke storage.
-                use polymesh_primitives::migrate::kill_item;
-                for item in &[
-                    b"TotalSupply" as &[_],
-                    b"Balance" as &[_],
-                    b"CheckpointIdSequence" as &[_],
-                    b"BalanceUpdates" as &[_],
-                    b"Timestamps" as &[_],
-                    b"ScheduleIdSequence" as &[_],
-                    b"Schedules" as &[_],
-                    b"ScheduleRefCount" as &[_],
-                    b"SchedulePoints" as &[_],
-                ] {
-                    kill_item(b"Checkpoint", item);
-                }
-            });
-
-            0
-        }
 
         /// Creates a single checkpoint at the current time.
         ///

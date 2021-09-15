@@ -40,7 +40,7 @@ async function main(): Promise<void> {
   await settlement.affirmInstruction(bob, intructionCounterAB, bobDid, 0);
 
   // Wait for settlement to be executed - happens in the next block
-  await init.sleep(15000);
+  await init.waitBlocks(2);
 
   //await rejectInstruction(bob, intructionCounter);
   //await unathorizeInstruction(alice, instructionCounter);

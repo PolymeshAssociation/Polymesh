@@ -48,10 +48,7 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use core::{iter, mem};
-use frame_support::{
-    decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, storage::StorageValue,
-    weights::Weight, IterableStorageDoubleMap,
-};
+use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::traits::balances::Memo;
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
@@ -61,10 +58,7 @@ use polymesh_primitives::{
     PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
 };
 use sp_arithmetic::traits::Zero;
-use sp_std::collections::btree_map::BTreeMap;
 use sp_std::prelude::Vec;
-
-storage_migration_ver!(2);
 
 type Identity<T> = identity::Module<T>;
 
@@ -123,9 +117,11 @@ decl_storage! {
             double_map hasher(identity) IdentityId, hasher(twox_64_concat) PortfolioId => bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(2).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
     }
 }
+
+storage_migration_ver!(0);
 
 decl_error! {
     pub enum Error for Module<T: Config> {
@@ -156,37 +152,6 @@ decl_module! {
 
         /// The event logger.
         fn deposit_event() = default;
-
-        fn on_runtime_upgrade() -> Weight {
-            use polymesh_primitives::{storage_migrate_on, migrate::move_map_rename_module};
-
-            storage_migrate_on!(StorageVersion::get(), 1, {
-                move_map_rename_module::<PortfolioName>(b"Session", b"Portfolio", b"Portfolios");
-                move_map_rename_module::<Balance>(b"Session", b"Portfolio", b"PortfolioAssetBalances");
-                move_map_rename_module::<PortfolioNumber>(b"Session", b"Portfolio", b"NextPortfolioNumber");
-                move_map_rename_module::<Option<IdentityId>>(b"Session", b"Portfolio", b"PortfolioCustodian");
-                move_map_rename_module::<Balance>(b"Session", b"Portfolio", b"PortfolioLockedAssets");
-                move_map_rename_module::<bool>(b"Session", b"Portfolio", b"PortfoliosInCustody");
-            });
-
-            storage_migrate_on!(StorageVersion::get(), 2, {
-                // Cache asset counts in portfolios.
-                let mut counts = BTreeMap::new();
-                for (pid, ..) in PortfolioAssetBalances::iter().filter(|(.., b)| !b.is_zero()) {
-                    *counts.entry(pid).or_insert(0) += 1;
-                }
-                for (pid, count) in counts {
-                    PortfolioAssetCount::insert(pid, count);
-                }
-
-                // Create `NameToNumber` caches.
-                for (did, num, name) in Portfolios::iter() {
-                    NameToNumber::insert(did, name, num);
-                }
-            });
-
-            0
-        }
 
         /// Creates a portfolio with the given `name`.
         #[weight = <T as Config>::WeightInfo::create_portfolio()]

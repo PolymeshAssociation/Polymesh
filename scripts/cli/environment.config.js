@@ -1,5 +1,5 @@
 // PM2 config file
-let chain = "testnet-dev";
+let chain = "ci-dev";
 module.exports = {
   apps: [
     {

@@ -13,13 +13,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate as polymesh_primitives;
-use crate::{
-    migrate::{Empty, Migrate},
-    Claim, ClaimType, IdentityId,
-};
+use crate::{Claim, ClaimType, IdentityId};
 use codec::{Decode, Encode};
-use polymesh_primitives_derive::Migrate;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
@@ -116,27 +111,13 @@ impl From<IdentityId> for TrustedIssuer {
     }
 }
 
-/// Old version of `TrustedClaimIssuer`.
-#[derive(Decode)]
-#[repr(transparent)]
-pub struct TrustedIssuerOld(IdentityId);
-
-impl Migrate for TrustedIssuerOld {
-    type Into = TrustedIssuer;
-    type Context = Empty;
-    fn migrate(self, _: Self::Context) -> Option<Self::Into> {
-        Some(self.0.into())
-    }
-}
-
 /// Type of claim requirements that a condition can have
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Migrate, Hash)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Condition {
     /// Type of condition.
     pub condition_type: ConditionType,
     /// Trusted issuers.
-    #[migrate(TrustedIssuer)]
     pub issuers: Vec<TrustedIssuer>,
 }
 

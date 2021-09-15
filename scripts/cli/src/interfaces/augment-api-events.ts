@@ -14,7 +14,7 @@ import type { TaskAddress } from '@polkadot/types/interfaces/scheduler';
 import type { IdentificationTuple, SessionIndex } from '@polkadot/types/interfaces/session';
 import type { ElectionCompute, EraIndex } from '@polkadot/types/interfaces/staking';
 import type { DispatchError, DispatchInfo, DispatchResult } from '@polkadot/types/interfaces/system';
-import type { AGId, AgentGroup, AssetIdentifier, AssetName, AssetType, AuthorizationData, BallotMeta, BallotTimeRange, BallotVote, BridgeTx, CADetails, CAId, CheckpointId, ComplianceRequirement, CorporateAction, CustomAssetTypeId, DispatchableName, Distribution, Document, DocumentId, ErrorAt, EventCounts, EventDid, ExtrinsicPermissions, FundingRoundName, Fundraiser, FundraiserName, HandledTxStatus, IdentityClaim, IdentityId, InvestorUid, Leg, MaybeBlock, Memo, MigrationError, PalletName, Permissions, PipDescription, PipId, PortfolioId, PortfolioName, PortfolioNumber, PosRatio, ProposalData, ProposalState, Proposer, ReceiptMetadata, ScopeId, SecondaryKey, SettlementType, Signatory, SkippedCount, SlashingSwitch, SnapshotId, SnapshottedPip, StoredSchedule, TargetIdentities, Tax, Ticker, TransferManager, TrustedIssuer, Url, VenueDetails, VenueType } from 'polymesh-typegen/interfaces/default';
+import type { AGId, AgentGroup, AssetIdentifier, AssetName, AssetType, AuthorizationData, BallotMeta, BallotTimeRange, BallotVote, BridgeTx, CADetails, CAId, CheckpointId, ComplianceRequirement, CorporateAction, CustomAssetTypeId, DispatchableName, Distribution, Document, DocumentId, ErrorAt, EventCounts, EventDid, ExtrinsicPermissions, FundingRoundName, Fundraiser, FundraiserName, HandledTxStatus, IdentityClaim, IdentityId, InvestorUid, Leg, MaybeBlock, Memo, PalletName, Permissions, PipDescription, PipId, PortfolioId, PortfolioName, PortfolioNumber, PosRatio, ProposalData, ProposalState, Proposer, ReceiptMetadata, ScopeId, SecondaryKey, SettlementType, Signatory, SkippedCount, SlashingSwitch, SnapshotId, SnapshottedPip, StoredSchedule, TargetIdentities, Tax, Ticker, TransferManager, TrustedIssuer, Url, VenueDetails, VenueType } from 'polymesh-typegen/interfaces/default';
 import type { ApiTypes } from '@polkadot/api/types';
 
 declare module '@polkadot/api/types/events' {
@@ -102,10 +102,6 @@ declare module '@polkadot/api/types/events' {
        * caller DID, ticker, beneficiary DID, value, funding round, total issued in this funding round
        **/
       Issued: AugmentedEvent<ApiType, [IdentityId, Ticker, IdentityId, Balance, FundingRoundName, Balance]>;
-      /**
-       * Migration error event.
-       **/
-      MigrationFailure: AugmentedEvent<ApiType, [MigrationError]>;
       /**
        * Emit when tokens get redeemed.
        * caller DID, ticker,  from DID, value
@@ -253,26 +249,26 @@ declare module '@polkadot/api/types/events' {
     capitalDistribution: {
       /**
        * A token holder's benefit of a capital distribution for the given `CAId` was claimed.
-       * 
+       *
        * (Caller DID, Holder/Claimant DID, CA's ID, updated distribution details, DID's benefit, DID's tax %)
        **/
       BenefitClaimed: AugmentedEvent<ApiType, [EventDid, EventDid, CAId, Distribution, Balance, Tax]>;
       /**
        * A capital distribution, with details included,
        * was created by the DID (the CAA) for the CA specified by the `CAId`.
-       * 
+       *
        * (CAA of CAId's ticker, CA's ID, distribution details)
        **/
       Created: AugmentedEvent<ApiType, [EventDid, CAId, Distribution]>;
       /**
        * Stats from `push_benefit` was emitted.
-       * 
+       *
        * (CAA/owner of CA's ticker, CA's ID, max requested DIDs, processed DIDs, failed DIDs)
        **/
       Reclaimed: AugmentedEvent<ApiType, [EventDid, CAId, Balance]>;
       /**
        * A capital distribution was removed.
-       * 
+       *
        * (Ticker's CAA, CA's ID)
        **/
       Removed: AugmentedEvent<ApiType, [EventDid, CAId]>;
@@ -323,25 +319,25 @@ declare module '@polkadot/api/types/events' {
     checkpoint: {
       /**
        * A checkpoint was created.
-       * 
+       *
        * (caller DID, ticker, checkpoint ID, total supply, checkpoint timestamp)
        **/
       CheckpointCreated: AugmentedEvent<ApiType, [Option<EventDid>, Ticker, CheckpointId, Balance, Moment]>;
       /**
        * The maximum complexity for an arbitrary ticker's schedule set was changed.
-       * 
+       *
        * (GC DID, the new maximum)
        **/
       MaximumSchedulesComplexityChanged: AugmentedEvent<ApiType, [IdentityId, u64]>;
       /**
        * A checkpoint schedule was created.
-       * 
+       *
        * (caller DID, ticker, schedule)
        **/
       ScheduleCreated: AugmentedEvent<ApiType, [EventDid, Ticker, StoredSchedule]>;
       /**
        * A checkpoint schedule was removed.
-       * 
+       *
        * (caller DID, ticker, schedule)
        **/
       ScheduleRemoved: AugmentedEvent<ApiType, [IdentityId, Ticker, StoredSchedule]>;
@@ -493,37 +489,37 @@ declare module '@polkadot/api/types/events' {
     corporateBallot: {
       /**
        * A corporate ballot was created.
-       * 
+       *
        * (Ticker's CAA, CA's ID, Voting start/end, Ballot metadata, RCV enabled?)
        **/
       Created: AugmentedEvent<ApiType, [IdentityId, CAId, BallotTimeRange, BallotMeta, bool]>;
       /**
        * A corporate ballot changed its metadata.
-       * 
+       *
        * (Ticker's CAA, CA's ID, New metadata)
        **/
       MetaChanged: AugmentedEvent<ApiType, [IdentityId, CAId, BallotMeta]>;
       /**
        * A corporate ballot changed its start/end date range.
-       * 
+       *
        * (Ticker's CAA, CA's ID, Voting start/end)
        **/
       RangeChanged: AugmentedEvent<ApiType, [IdentityId, CAId, BallotTimeRange]>;
       /**
        * A corporate ballot changed its RCV support.
-       * 
+       *
        * (Ticker's CAA, CA's ID, New support)
        **/
       RCVChanged: AugmentedEvent<ApiType, [IdentityId, CAId, bool]>;
       /**
        * A corporate ballot was removed.
-       * 
+       *
        * (Ticker's CAA, CA's ID)
        **/
       Removed: AugmentedEvent<ApiType, [EventDid, CAId]>;
       /**
        * A vote was cast in a corporate ballot.
-       * 
+       *
        * (voter DID, CAId, Votes)
        **/
       VoteCast: AugmentedEvent<ApiType, [IdentityId, CAId, Vec<BallotVote>]>;
@@ -535,31 +531,31 @@ declare module '@polkadot/api/types/events' {
     externalAgents: {
       /**
        * An agent was added.
-       * 
+       *
        * (Caller/Agent DID, Agent's ticker, Agent's group)
        **/
       AgentAdded: AugmentedEvent<ApiType, [EventDid, Ticker, AgentGroup]>;
       /**
        * An agent was removed.
-       * 
+       *
        * (Caller DID, Agent's ticker, Agent's DID)
        **/
       AgentRemoved: AugmentedEvent<ApiType, [EventDid, Ticker, IdentityId]>;
       /**
        * An agent's group was changed.
-       * 
+       *
        * (Caller DID, Agent's ticker, Agent's DID, The new group of the agent)
        **/
       GroupChanged: AugmentedEvent<ApiType, [EventDid, Ticker, IdentityId, AgentGroup]>;
       /**
        * An Agent Group was created.
-       * 
+       *
        * (Caller DID, AG's ticker, AG's ID, AG's permissions)
        **/
       GroupCreated: AugmentedEvent<ApiType, [EventDid, Ticker, AGId, ExtrinsicPermissions]>;
       /**
        * An Agent Group's permissions was updated.
-       * 
+       *
        * (Caller DID, AG's ticker, AG's ID, AG's new permissions)
        **/
       GroupPermissionsUpdated: AugmentedEvent<ApiType, [EventDid, Ticker, AGId, ExtrinsicPermissions]>;
@@ -852,9 +848,9 @@ declare module '@polkadot/api/types/events' {
       PipSkipped: AugmentedEvent<ApiType, [IdentityId, PipId, SkippedCount]>;
       /**
        * A PIP was made with a `Balance` stake.
-       * 
+       *
        * # Parameters:
-       * 
+       *
        * Caller DID, Proposer, PIP ID, deposit, URL, description, expiry time, proposal data.
        **/
       ProposalCreated: AugmentedEvent<ApiType, [IdentityId, Proposer, PipId, Balance, Option<Url>, Option<PipDescription>, MaybeBlock, ProposalData]>;
@@ -951,7 +947,7 @@ declare module '@polkadot/api/types/events' {
     portfolio: {
       /**
        * A token amount has been moved from one portfolio to another.
-       * 
+       *
        * # Parameters
        * * origin DID
        * * source portfolio
@@ -962,7 +958,7 @@ declare module '@polkadot/api/types/events' {
       MovedBetweenPortfolios: AugmentedEvent<ApiType, [IdentityId, PortfolioId, PortfolioId, Ticker, Balance, Option<Memo>]>;
       /**
        * The portfolio has been successfully created.
-       * 
+       *
        * # Parameters
        * * origin DID
        * * portfolio number
@@ -971,7 +967,7 @@ declare module '@polkadot/api/types/events' {
       PortfolioCreated: AugmentedEvent<ApiType, [IdentityId, PortfolioNumber, PortfolioName]>;
       /**
        * Custody of a portfolio has been given to a different identity
-       * 
+       *
        * # Parameters
        * * origin DID
        * * portfolio id
@@ -980,7 +976,7 @@ declare module '@polkadot/api/types/events' {
       PortfolioCustodianChanged: AugmentedEvent<ApiType, [IdentityId, PortfolioId, IdentityId]>;
       /**
        * The portfolio has been successfully removed.
-       * 
+       *
        * # Parameters
        * * origin DID
        * * portfolio number
@@ -988,7 +984,7 @@ declare module '@polkadot/api/types/events' {
       PortfolioDeleted: AugmentedEvent<ApiType, [IdentityId, PortfolioNumber]>;
       /**
        * The portfolio identified with `num` has been renamed to `name`.
-       * 
+       *
        * # Parameters
        * * origin DID
        * * portfolio number
@@ -997,7 +993,7 @@ declare module '@polkadot/api/types/events' {
       PortfolioRenamed: AugmentedEvent<ApiType, [IdentityId, PortfolioNumber, PortfolioName]>;
       /**
        * All non-default portfolio numbers and names of a DID.
-       * 
+       *
        * # Parameters
        * * origin DID
        * * vector of number-name pairs
@@ -1029,25 +1025,25 @@ declare module '@polkadot/api/types/events' {
     relayer: {
       /**
        * Accepted paying key.
-       * 
+       *
        * (Caller DID, User Key, Paying Key)
        **/
       AcceptedPayingKey: AugmentedEvent<ApiType, [EventDid, AccountId, AccountId]>;
       /**
        * Authorization given for `paying_key` to `user_key`.
-       * 
+       *
        * (Caller DID, User Key, Paying Key, Initial POLYX limit, Auth ID)
        **/
       AuthorizedPayingKey: AugmentedEvent<ApiType, [EventDid, AccountId, AccountId, Balance, u64]>;
       /**
        * Removed paying key.
-       * 
+       *
        * (Caller DID, User Key, Paying Key)
        **/
       RemovedPayingKey: AugmentedEvent<ApiType, [EventDid, AccountId, AccountId]>;
       /**
        * Updated polyx limit.
-       * 
+       *
        * (Caller DID, User Key, Paying Key, POLYX limit, old remaining POLYX)
        **/
       UpdatedPolyxLimit: AugmentedEvent<ApiType, [EventDid, AccountId, AccountId, Balance, Balance]>;
@@ -1182,7 +1178,7 @@ declare module '@polkadot/api/types/events' {
     staking: {
       /**
        * An account has bonded this amount. \[did, stash, amount\]
-       * 
+       *
        * NOTE: This event is only emitted when funds are bonded via a dispatchable. Notably,
        * it will not be emitted for staking rewards when they are added to stake.
        **/
