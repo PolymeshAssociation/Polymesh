@@ -14,8 +14,7 @@ import {
 import BN from "bn.js";
 import fs from "fs";
 import path from "path";
-import cryptoRandomString from "crypto-random-string";
-import type { AccountId, BlockNumber } from "@polkadot/types/interfaces/runtime";
+import type { AccountId } from "@polkadot/types/interfaces/runtime";
 import type { SubmittableExtrinsic } from "@polkadot/api/types";
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { DispatchError } from "@polkadot/types/interfaces";
@@ -73,13 +72,6 @@ export class ApiSingleton {
 export async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-export async function waitNextBlock() {
-  const api = await ApiSingleton.getInstance();
-  const oldBlock = await api.rpc.chain.getFinalizedHead();
-  while ((await api.rpc.chain.getFinalizedHead()) === oldBlock) {
-    await sleep(500);
-  }
-}
 const getEra = async () =>
   (await (await ApiSingleton.getInstance()).query.staking.activeEra())
     .unwrap()
@@ -105,13 +97,6 @@ export async function waitBlocks(blocks: number) {
 
 export async function waitNextBlock() {
   await waitBlocks(1);
-}
-
-interface TestEntities {
-  polymath_1: KeyringPair;
-  polymath_2: KeyringPair;
-  polymath_3: KeyringPair;
-  polymath_4: KeyringPair;
 }
 
 // Initialization Main is used to generate all entities e.g (Alice, Bob, Dave)
