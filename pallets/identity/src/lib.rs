@@ -805,8 +805,6 @@ impl<T: Config> Module<T> {
             // join another identity, and then do something as the new identity.
             T::CddHandler::set_current_identity(&target_did);
 
-            Self::link_account_key_to_did(&key, target_did);
-
             Self::unsafe_join_identity(target_did, permissions, key);
             Ok(())
         })
@@ -827,6 +825,8 @@ impl<T: Config> Module<T> {
         permissions: Permissions,
         key: T::AccountId,
     ) {
+        Self::link_account_key_to_did(&key, target_did);
+
         // Link the secondary key.
         let sk = SecondaryKey::new(Signatory::Account(key), permissions);
         <DidRecords<T>>::mutate(target_did, |identity| {

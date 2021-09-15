@@ -538,7 +538,6 @@ decl_module! {
             Self::verify_sender_is_creator(did, &multisig)?;
             <Identity<T>>::ensure_key_did_unlinked(&multisig)?;
 
-            <Identity<T>>::link_account_key_to_did(&multisig, did);
             let perms = Permissions::from_pallet_permissions(
                 iter::once(PalletPermissions::entire_pallet(NAME.into()))
             );

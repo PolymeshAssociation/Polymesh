@@ -20,7 +20,7 @@ use confidential_identity_v1::mocked::make_investor_uid as make_investor_uid_v1;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 use polymesh_common_utilities::{
-    benchs::{cdd_provider, user, AccountIdOf, User, UserBuilder},
+    benchs::{cdd_provider, user, user_without_did, AccountIdOf, User, UserBuilder},
     traits::{identity::TargetIdAuthorization, TestUtilsFn},
 };
 use polymesh_primitives::{
@@ -313,9 +313,9 @@ benchmarks! {
         let auth_encoded = authorization.encode();
 
         let secondary_keys_with_auth = (0..i).map(|x| {
-            let user = user::<T>("key", x);
+            let user = user_without_did::<T>("key", x);
             SecondaryKeyWithAuth {
-                secondary_key: SecondaryKey::from(user.did()).into(),
+                secondary_key: SecondaryKey::from_account_id(user.account()).into(),
                 auth_signature: H512::from(user.sign(&auth_encoded).unwrap()),
             }
         }).collect::<Vec<_>>();
