@@ -61,7 +61,7 @@ async function main(): Promise<void> {
     await api.query.identity.authorizations.entries({
       Account: dave2.publicKey,
     })
-  )[0][1].auth_id;
+  )[0][1].unwrap().auth_id;
   await sendTx(dave2, api.tx.identity.joinIdentityAsKey(authorization));
 
   // TrustedDefaultClaimIssuerAdded
