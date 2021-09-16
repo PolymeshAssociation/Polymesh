@@ -26,21 +26,17 @@ use sp_runtime::{Deserialize, Serialize};
 pub enum ProtocolOp {
     AssetRegisterTicker,
     AssetIssue,
-    AssetAddDocument,
+    AssetAddDocuments,
     AssetCreateAsset,
-    AssetCreateCheckpointSchedule,
-    DividendNew,
+    CheckpointCreateSchedule,
     ComplianceManagerAddComplianceRequirement,
-    IdentityRegisterDid,
     IdentityCddRegisterDid,
     IdentityAddClaim,
-    IdentitySetPrimaryKey,
     IdentityAddSecondaryKeysWithAuthorization,
     PipsPropose,
-    VotingAddBallot,
     ContractsPutCode,
-    BallotAttachBallot,
-    DistributionDistribute,
+    CorporateBallotAttachBallot,
+    CapitalDistributionDistribute,
 }
 
 /// Common interface to protocol fees for runtime modules.
