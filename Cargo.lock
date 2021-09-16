@@ -917,53 +917,13 @@ dependencies = [
 
 [[package]]
 name = "confidential_identity"
-version = "1.0.0"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=b2.2.3-3#bfb4829e28b55e0a25efc321830579415aa9ff7a"
-dependencies = [
- "blake2",
- "byteorder",
- "curve25519-dalek 3.2.0",
- "failure",
- "lazy_static",
- "merlin 2.0.1",
- "rand 0.7.3",
- "rand_core 0.5.1",
- "schnorrkel 0.10.1",
- "sha3",
- "sp-io",
- "sp-std",
- "zeroize",
-]
-
-[[package]]
-name = "confidential_identity"
 version = "1.1.2"
 source = "git+https://github.com/PolymathNetwork/cryptography.git?tag=confidential-identity-v2.0.0#de6627508a9d7aa6818730b98215574eeec427bf"
 dependencies = [
  "blake2",
  "byteorder",
- "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=confidential-identity-v2.0.0)",
- "curve25519-dalek 3.2.0",
- "failure",
- "parity-scale-codec 2.2.0",
- "rand 0.7.3",
- "rand_core 0.5.1",
- "serde_bytes",
- "sha3",
- "sp-io",
- "sp-std",
- "zeroize",
-]
-
-[[package]]
-name = "confidential_identity"
-version = "1.1.2"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=confidential-identity-b1.1.3#de6627508a9d7aa6818730b98215574eeec427bf"
-dependencies = [
- "blake2",
- "byteorder",
  "criterion",
- "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=confidential-identity-b1.1.3)",
+ "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=confidential-identity-v2.0.0)",
  "curve25519-dalek 3.2.0",
  "failure",
  "parity-scale-codec 2.2.0",
@@ -1271,7 +1231,7 @@ checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
 name = "crypto-cli"
 version = "1.0.0"
 dependencies = [
- "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=confidential-identity-v1.1.3)",
+ "confidential_identity 1.0.0",
  "hex",
  "parity-scale-codec 2.2.0",
  "polymesh-primitives",
@@ -1321,25 +1281,6 @@ dependencies = [
 name = "cryptography_core"
 version = "1.0.0"
 source = "git+https://github.com/PolymathNetwork/cryptography.git?tag=confidential-identity-v2.0.0#de6627508a9d7aa6818730b98215574eeec427bf"
-dependencies = [
- "blake2",
- "bulletproofs",
- "byteorder",
- "curve25519-dalek 3.2.0",
- "failure",
- "merlin 2.0.1",
- "parity-scale-codec 2.2.0",
- "rand 0.7.3",
- "rand_core 0.5.1",
- "sha3",
- "sp-std",
- "zeroize",
-]
-
-[[package]]
-name = "cryptography_core"
-version = "1.0.0"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=confidential-identity-b1.1.3#de6627508a9d7aa6818730b98215574eeec427bf"
 dependencies = [
  "blake2",
  "bulletproofs",
@@ -4768,8 +4709,8 @@ dependencies = [
 name = "pallet-identity"
 version = "0.1.0"
 dependencies = [
- "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=b2.2.3-3)",
- "confidential_identity 1.1.2 (git+https://github.com/PolymathNetwork/cryptography.git?branch=confidential-identity-b1.1.3)",
+ "confidential_identity 1.0.0",
+ "confidential_identity 1.1.2",
  "either",
  "frame-benchmarking",
  "frame-support",
@@ -5231,7 +5172,7 @@ dependencies = [
 name = "pallet-test-utils"
 version = "0.1.0"
 dependencies = [
- "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=confidential-identity-v1.1.3)",
+ "confidential_identity 1.0.0",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -6044,8 +5985,8 @@ version = "2.0.0"
 dependencies = [
  "blake2",
  "chrono",
- "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=confidential-identity-v1.1.3)",
- "confidential_identity 1.1.2 (git+https://github.com/PolymathNetwork/cryptography.git?tag=confidential-identity-v2.0.0)",
+ "confidential_identity 1.0.0",
+ "confidential_identity 1.1.2",
  "frame-support",
  "frame-system",
  "hex",
@@ -6504,7 +6445,7 @@ name = "polymesh-runtime-tests"
 version = "1.0.0"
 dependencies = [
  "chrono",
- "confidential_identity 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=confidential-identity-v1.1.3)",
+ "confidential_identity 1.0.0",
  "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?tag=confidential-identity-v1.1.3)",
  "env_logger",
  "frame-benchmarking",
