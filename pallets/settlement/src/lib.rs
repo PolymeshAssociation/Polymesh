@@ -58,7 +58,10 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    traits::schedule::{DispatchTime, Named as ScheduleNamed},
+    traits::{
+        schedule::{DispatchTime, Named as ScheduleNamed},
+        Get,
+    },
     weights::Weight,
     IterableStorageDoubleMap,
 };
@@ -104,6 +107,8 @@ pub trait Config:
         <Self as frame_system::Config>::Call,
         Self::SchedulerOrigin,
     >;
+    /// Maximum legs that can be in a single instruction.
+    type MaxLegsInInstruction: Get<u32>;
     /// Weight information for extrinsic of the settlement pallet.
     type WeightInfo: WeightInfo;
 }
@@ -290,7 +295,7 @@ pub trait WeightInfo {
     fn set_venue_filtering() -> Weight;
     fn allow_venues(u: u32) -> Weight;
     fn disallow_venues(u: u32) -> Weight;
-    fn reject_instruction() -> Weight;
+    fn reject_instruction(u: u32) -> Weight;
     fn change_receipt_validity() -> Weight;
     fn execute_scheduled_instruction(l: u32) -> Weight;
     fn reschedule_instruction() -> Weight;
@@ -410,6 +415,8 @@ decl_error! {
         LegCountTooSmall,
         /// Instruction status is unknown
         UnknownInstruction,
+        /// Maximum legs that can be in a single instruction.
+        InstructionHasTooManyLegs,
     }
 }
 
@@ -630,8 +637,8 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::reject_instruction()]
-        pub fn reject_instruction(origin, instruction_id: u64) {
+        #[weight = <T as Config>::WeightInfo::reject_instruction(*max_legs_count)]
+        pub fn reject_instruction(origin, instruction_id: u64, portfolio: PortfolioId, max_legs_count: u32) {
             let PermissionedCallOriginData {
                 primary_did,
                 secondary_key,
@@ -645,7 +652,11 @@ decl_module! {
             let legs = InstructionLegs::iter_prefix(instruction_id).collect::<Vec<_>>();
 
             // Ensure that the sender is a party of this instruction.
-            ensure!(legs.iter().any(|(_, leg)| Self::is_leg_party(leg, primary_did, secondary_key.as_ref())), Error::<T>::UnauthorizedSigner);
+            T::Portfolio::ensure_portfolio_custody_and_permission(portfolio, primary_did, secondary_key.as_ref())?;
+            ensure!(
+                legs.iter().take(max_legs_count as usize).any(|(_, leg)| leg.from == portfolio || leg.to == portfolio),
+                Error::<T>::UnauthorizedSigner
+            );
 
             Self::unsafe_unclaim_receipts(instruction_id, &legs);
             Self::unchecked_release_locks(instruction_id, &legs);
@@ -870,6 +881,12 @@ impl<T: Config> Module<T> {
         value_date: Option<T::Moment>,
         legs: Vec<Leg>,
     ) -> Result<u64, DispatchError> {
+        // Ensure instruction does not have too many legs.
+        ensure!(
+            (legs.len() as u32) <= T::MaxLegsInInstruction::get(),
+            Error::<T>::InstructionHasTooManyLegs
+        );
+
         // Ensure that the scheduled block number is in the future so that `T::Scheduler::schedule_named`
         // doesn't fail.
         if let SettlementType::SettleOnBlock(block_number) = &settlement_type {
@@ -987,7 +1004,7 @@ impl<T: Config> Module<T> {
                     Self::unlock_via_leg(&leg_details)?;
                 }
                 LegStatus::PendingTokenLock => {
-                    return Err(Error::<T>::InstructionNotAffirmed.into())
+                    return Err(Error::<T>::InstructionNotAffirmed.into());
                 }
             };
             <InstructionLegStatus<T>>::insert(instruction_id, leg_id, LegStatus::PendingTokenLock);
@@ -1625,17 +1642,5 @@ impl<T: Config> Module<T> {
             Error::<T>::LegCountTooSmall
         );
         Ok((legs_count, filtered_legs))
-    }
-
-    /// Check if the sender is a party (owner/custodian) of the leg.
-    fn is_leg_party(
-        leg: &Leg,
-        did: IdentityId,
-        secondary_key: Option<&SecondaryKey<T::AccountId>>,
-    ) -> bool {
-        // Check both from/to portoflios.
-        T::Portfolio::ensure_portfolio_custody_and_permission(leg.from, did, secondary_key).is_ok()
-            || T::Portfolio::ensure_portfolio_custody_and_permission(leg.to, did, secondary_key)
-                .is_ok()
     }
 }

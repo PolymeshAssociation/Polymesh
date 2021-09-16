@@ -407,6 +407,7 @@ macro_rules! misc_pallet_impls {
             type Event = Event;
             type Scheduler = Scheduler;
             type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
+            type MaxLegsInInstruction = MaxLegsInInstruction;
         }
 
         impl pallet_sto::Config for Runtime {

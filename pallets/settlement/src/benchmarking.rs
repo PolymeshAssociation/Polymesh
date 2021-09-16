@@ -43,7 +43,6 @@ use sp_runtime::MultiSignature;
 const MAX_VENUE_DETAILS_LENGTH: u32 = ENSURED_MAX_LEN;
 const MAX_SIGNERS_ALLOWED: u32 = 50;
 const MAX_VENUE_ALLOWED: u32 = 100;
-const MAX_LEGS_IN_INSTRUCTION: u32 = 25;
 
 type Portfolio<T> = pallet_portfolio::Module<T>;
 
@@ -566,7 +565,7 @@ benchmarks! {
 
     add_instruction {
 
-        let l in 1 .. MAX_LEGS_IN_INSTRUCTION; // Variation for the MAX leg count.
+        let l in 1 .. T::MaxLegsInInstruction::get(); // Variation for the MAX leg count.
         // Define settlement type
         let settlement_type = SettlementType::SettleOnAffirmation;
         // Emulate the add instruction and get all the necessary arguments.
@@ -579,7 +578,7 @@ benchmarks! {
 
 
     add_instruction_with_settle_on_block_type {
-        let l in 1 .. MAX_LEGS_IN_INSTRUCTION; // Variation for the MAX leg count.
+        let l in 1 .. T::MaxLegsInInstruction::get(); // Variation for the MAX leg count.
         // Define settlement type
         let settlement_type = SettlementType::SettleOnBlock(100u32.into());
         set_block_number::<T>(50);
@@ -594,7 +593,7 @@ benchmarks! {
 
 
     add_and_affirm_instruction {
-        let l in 1 .. MAX_LEGS_IN_INSTRUCTION;
+        let l in 1 .. T::MaxLegsInInstruction::get();
         // Define settlement type
         let settlement_type = SettlementType::SettleOnAffirmation;
         // Emulate the add instruction and get all the necessary arguments.
@@ -607,7 +606,7 @@ benchmarks! {
 
 
     add_and_affirm_instruction_with_settle_on_block_type {
-        let l in 1 .. MAX_LEGS_IN_INSTRUCTION;
+        let l in 1 .. T::MaxLegsInInstruction::get();
         // Define settlement type.
         let settlement_type = SettlementType::SettleOnBlock(100u32.into());
         set_block_number::<T>(50);
@@ -669,7 +668,7 @@ benchmarks! {
     withdraw_affirmation {
         // Below setup is for the onchain affirmation.
 
-        let l in 0 .. MAX_LEGS_IN_INSTRUCTION;
+        let l in 0 .. T::MaxLegsInInstruction::get();
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true).unwrap();
         // Add instruction
@@ -705,21 +704,20 @@ benchmarks! {
 
 
     reject_instruction {
-        // Use worse-case, since we don't have a leg count.
-        let l = MAX_LEGS_IN_INSTRUCTION;
+        let l in 1 .. T::MaxLegsInInstruction::get() as u32;
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(l, true).unwrap();
         // Add and affirm instruction.
         Module::<T>::add_and_affirm_instruction((origin.clone()).into(), venue_id, SettlementType::SettleOnAffirmation, None, None, legs, portfolios.clone()).expect("Unable to add and affirm the instruction");
         let instruction_id: u64 = 1;
-    }: _(origin, instruction_id)
+    }: _(origin, instruction_id, portfolios[0], l)
     verify {
         assert_eq!(Module::<T>::instruction_details(instruction_id).status, InstructionStatus::Unknown, "Settlement: Failed to reject instruction");
     }
 
 
     affirm_instruction {
-        let l in 0 .. MAX_LEGS_IN_INSTRUCTION; // At least 2 legs needed to achieve worst case.
+        let l in 0 .. T::MaxLegsInInstruction::get() as u32; // At least 2 legs needed to achieve worst case.
         let (portfolios_to, _, to, _, _) = setup_affirm_instruction::<T>(l);
         let instruction_id = 1; // It will always be `1` as we know there is no other instruction in the storage yet.
         let to_portfolios = portfolios_to.clone();
@@ -758,7 +756,7 @@ benchmarks! {
 
     affirm_with_receipts {
         // Catalyst here is the length of receipts vector.
-        let r in 1 .. MAX_LEGS_IN_INSTRUCTION;
+        let r in 1 .. T::MaxLegsInInstruction::get() as u32;
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , s_portfolios, r_portfolios, account_id) = emulate_add_instruction::<T>(r, true).unwrap();
         // Add instruction
@@ -794,7 +792,7 @@ benchmarks! {
         // 2. Assets have maximum compliance restriction complexity.
         // 3. Assets have maximum no. of TMs.
 
-        let l in 0 .. MAX_LEGS_IN_INSTRUCTION;
+        let l in 0 .. T::MaxLegsInInstruction::get() as u32;
         let s = T::MaxTransferManagersPerAsset::get() as u32;
         let c = T::MaxConditionComplexity::get() as u32;
 
@@ -838,7 +836,7 @@ benchmarks! {
     }
 
     reschedule_instruction {
-        let l = MAX_LEGS_IN_INSTRUCTION;
+        let l = T::MaxLegsInInstruction::get() as u32;
 
         let (portfolios_to, from, to, tickers, _) = setup_affirm_instruction::<T>(l);
         let instruction_id = 1; // It will always be `1` as we know there is no other instruction in the storage yet.

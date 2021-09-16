@@ -136,6 +136,9 @@ parameter_types! {
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
 
+    // Settlement:
+    pub const MaxLegsInInstruction: u32 = 10;
+
     // Identity:
     pub const InitialPOLYX: Balance = 0;
 
