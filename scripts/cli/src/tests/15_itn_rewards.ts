@@ -64,7 +64,7 @@ async function main(): Promise<void> {
   )[0][1].unwrap().auth_id;
   await sendTx(dave2, api.tx.identity.joinIdentityAsKey(authorization));
 
-  // TrustedDefaultClaimIssuerAdded
+  console.log("ItnRewards: TrustedDefaultClaimIssuerAdded");
   const ticker = padTicker("15TICKER");
   issueTokenToDid(dave, ticker, 100000, null);
   await addComplianceRequirement(dave, ticker);
@@ -76,22 +76,22 @@ async function main(): Promise<void> {
     })
   );
 
-  // ClaimAdded
+  console.log("ItnRewards: ClaimAdded");
   await sendTx(
     bob,
     api.tx.identity.addClaim(daveDid, { Accredited: { Ticker: ticker } }, null)
   );
 
-  // ConfigureAdvancedTokenRules
+  console.log("ItnRewards: ConfigureAdvancedTokenRules");
   await sendTx(
     dave,
     api.tx.statistics.addTransferManager(ticker, { CountTransferManager: 10 })
   );
 
-  // PortfolioCreated
+  console.log("ItnRewards: PortfolioCreated");
   await sendTx(dave, api.tx.portfolio.createPortfolio("foobar"));
 
-  // AddAssetToAPortfolio
+  console.log("ItnRewards: AddAssetToAPortfolio");
   const portfolioId = await api.query.portfolio.nameToNumber(daveDid, "foobar");
 
   await sendTx(
@@ -105,10 +105,10 @@ async function main(): Promise<void> {
 
   // AddAPortfolioManager is not possible because of old permission format
 
-  // StopStakingAPortion
+  console.log("ItnRewards: StopStakingAPortion");
   await sendTx(dave, api.tx.staking.unbond(100));
 
-  // StartStakingANewOperator
+  console.log("ItnRewards: StartStakingANewOperator");
   await sendTx(dave, api.tx.staking.nominate([alice.publicKey]));
 }
 

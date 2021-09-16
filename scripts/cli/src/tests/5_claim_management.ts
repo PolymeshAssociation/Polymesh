@@ -36,6 +36,7 @@ async function main(): Promise<void> {
     transferAmount
   );
 
+  console.log("Adding Exempted claim");
   await sendTx(
     issuerKeys1[0],
     api.tx.identity.addClaim(
@@ -45,6 +46,7 @@ async function main(): Promise<void> {
     )
   );
 
+  console.log("Adding SellLockup claim");
   await sendTx(
     issuerKeys1[0],
     api.tx.identity.addClaim(
@@ -54,6 +56,7 @@ async function main(): Promise<void> {
     )
   );
 
+  console.log("Adding Accredited claim");
   await sendTx(
     issuerKeys2[0],
     api.tx.identity.addClaim(
@@ -63,6 +66,7 @@ async function main(): Promise<void> {
     )
   );
 
+  console.log("Adding Affiliate claim");
   await sendTx(
     issuerKeys2[0],
     api.tx.identity.addClaim(
