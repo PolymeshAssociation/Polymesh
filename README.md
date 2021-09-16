@@ -5,7 +5,7 @@
 
 # Polymesh Blockchain - By Polymath
 
-Polymesh is a blockchain for regulated securities and open finance.
+Polymesh is a blockchain for regulated securities, identity, compliance and open finance.
 
 # Whitepaper
 
