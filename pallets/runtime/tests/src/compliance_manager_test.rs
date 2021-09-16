@@ -801,7 +801,7 @@ fn scope_asset_compliance_we() {
     );
 
     // 2. Set up compliance requirements for Asset transfer.
-    let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
+    let scope = Scope::Ticker(ticker);
     let receiver_conditions = vec![Condition::from_dids(
         ConditionType::IsPresent(Claim::Affiliate(scope.clone())),
         &[cdd.did],
@@ -841,7 +841,7 @@ fn cm_test_case_9_we() {
     // 1. Create a token.
     let (ticker, _) = create_token(owner);
     // 2. Set up compliance requirements for Asset transfer.
-    let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
+    let scope = Scope::Ticker(ticker);
     let receiver_conditions = vec![Condition::from_dids(
         ConditionType::IsAnyOf(vec![
             Claim::KnowYourCustomer(scope.clone()),
@@ -921,7 +921,7 @@ fn cm_test_case_11_we() {
     // 1. Create a token.
     let (ticker, _) = create_token(owner);
     // 2. Set up compliance requirements for Asset transfer.
-    let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
+    let scope = Scope::Ticker(ticker);
     let receiver_conditions = vec![
         Condition::from_dids(
             ConditionType::IsAnyOf(vec![
@@ -1036,7 +1036,7 @@ fn cm_test_case_13_we() {
     // 1. Create a token.
     let (ticker, _) = create_token(owner);
     // 2. Set up compliance requirements for Asset transfer.
-    let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
+    let scope = Scope::Ticker(ticker);
     let receiver_conditions = vec![
         Condition::from_dids(
             ConditionType::IsPresent(Claim::KnowYourCustomer(scope.clone())),
@@ -1237,7 +1237,7 @@ fn should_limit_compliance_requirements_complexity_we() {
     // 1. Create & mint token
     let (ticker, _) = create_token(owner);
 
-    let scope = Scope::Identity(Identity::get_token_did(&ticker).unwrap());
+    let scope = Scope::Ticker(ticker);
     Balances::make_free_balance_be(&owner.acc(), 1_000_000);
 
     let ty = ConditionType::IsPresent(Claim::KnowYourCustomer(scope.clone()));
