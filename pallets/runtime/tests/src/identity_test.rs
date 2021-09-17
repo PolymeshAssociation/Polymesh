@@ -1840,7 +1840,7 @@ fn add_investor_uniqueness_claim_v2() {
             assert_ok!(Identity::_register_did(
                 user_no_cdd_id.clone(),
                 vec![],
-                Some(ProtocolOp::IdentityRegisterDid)
+                Some(ProtocolOp::IdentityCddRegisterDid)
             ));
 
             // Load test cases and run them.
@@ -1915,4 +1915,18 @@ fn add_investor_uniqueness_claim_v2_data(
             Err(Error::ClaimAndProofVersionsDoNotMatch.into()),
         ),
     ]
+}
+
+#[test]
+fn ensure_custom_scopes_limited() {
+    ExtBuilder::default().build().execute_with(|| {
+        let user = User::new(AccountKeyring::Alice);
+        let data = |n| Scope::Custom([b'1'].repeat(n));
+        let add = |n| Identity::add_claim(user.origin(), user.did, Claim::Affiliate(data(n)), None);
+        // Check <= 32.
+        assert_ok!(add(31));
+        assert_ok!(add(32));
+        // Check 33.
+        assert_noop!(add(33), Error::CustomScopeTooLong);
+    });
 }

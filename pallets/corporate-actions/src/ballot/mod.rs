@@ -339,7 +339,7 @@ decl_module! {
             Self::ensure_meta_lengths_limited(&meta)?;
 
             // Charge protocol fee.
-            T::ProtocolFee::charge_fee(ProtocolOp::BallotAttachBallot)?;
+            T::ProtocolFee::charge_fee(ProtocolOp::CorporateBallotAttachBallot)?;
 
             // Commit to storage.
             MotionNumChoices::insert(ca_id, choices);

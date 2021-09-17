@@ -15,6 +15,8 @@
 
 use crate::{Claim, ClaimType, IdentityId};
 use codec::{Decode, Encode};
+use core::iter;
+use either::Either;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
@@ -52,9 +54,7 @@ impl ConditionType {
             ConditionType::IsIdentity(..)
             | ConditionType::IsPresent(..)
             | ConditionType::IsAbsent(..) => 1,
-            ConditionType::IsNoneOf(ref claims) | ConditionType::IsAnyOf(ref claims) => {
-                claims.len()
-            }
+            ConditionType::IsNoneOf(claims) | ConditionType::IsAnyOf(claims) => claims.len(),
         }
     }
 }
@@ -138,9 +138,18 @@ impl Condition {
         )
     }
 
-    /// Returns worst case complexity of a condition
+    /// Returns worst case complexity of a condition.
     pub fn complexity(&self) -> (usize, usize) {
         (self.condition_type.complexity(), self.issuers.len())
+    }
+
+    /// Returns all the claims in the condition.
+    pub fn claims(&self) -> impl Iterator<Item = &Claim> {
+        match &self.condition_type {
+            ConditionType::IsPresent(c) | ConditionType::IsAbsent(c) => Either::Left(iter::once(c)),
+            ConditionType::IsAnyOf(cs) | ConditionType::IsNoneOf(cs) => Either::Right(cs.iter()),
+            ConditionType::IsIdentity(_) => Either::Right([].iter()),
+        }
     }
 }
 

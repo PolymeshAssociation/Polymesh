@@ -28,6 +28,7 @@ use sp_std::prelude::*;
 use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
+type IdError = identity::Error<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
 type Asset = pallet_asset::Module<TestStorage>;
@@ -823,6 +824,75 @@ fn scope_asset_compliance_we() {
         None
     ));
     assert_valid_transfer!(ticker, owner.did, user.did, 10);
+}
+
+#[test]
+fn ensure_custom_scopes_limited() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Alice);
+        let (ticker, _) = create_token(owner);
+
+        let fill = Condition::from_dids(
+            ConditionType::IsIdentity(TargetIdentity::ExternalAgent),
+            &[],
+        );
+        let data = |n| [b'1'].repeat(n);
+        let cond = |data| {
+            let scope = Scope::Custom(data);
+            let ct = ConditionType::IsPresent(Claim::Affiliate(scope));
+            Condition::from_dids(ct, &[])
+        };
+        let conds = |n| vec![fill.clone(), fill.clone(), cond(data(n)), fill.clone()];
+        let req_s = |n| ComplianceRequirement {
+            sender_conditions: conds(n),
+            receiver_conditions: vec![],
+            id: 0,
+        };
+        let req_r = |n| ComplianceRequirement {
+            sender_conditions: vec![],
+            receiver_conditions: conds(n),
+            id: 0,
+        };
+
+        let add =
+            |s, r| ComplianceManager::add_compliance_requirement(owner.origin(), ticker, s, r);
+
+        let replace =
+            |cr| ComplianceManager::replace_asset_compliance(owner.origin(), ticker, vec![cr]);
+
+        let change =
+            |cr| ComplianceManager::change_compliance_requirement(owner.origin(), ticker, cr);
+
+        // Adding:
+        // Check <= 32.
+        assert_ok!(add(conds(31), vec![]));
+        assert_ok!(add(vec![], conds(31)));
+        assert_ok!(add(conds(32), vec![]));
+        assert_ok!(add(vec![], conds(32)));
+        // Check 33.
+        assert_noop!(add(conds(33), vec![]), IdError::CustomScopeTooLong);
+        assert_noop!(add(vec![], conds(33)), IdError::CustomScopeTooLong);
+
+        // Replacing:
+        // Check <= 32.
+        assert_ok!(replace(req_s(31)));
+        assert_ok!(replace(req_r(31)));
+        assert_ok!(replace(req_s(32)));
+        assert_ok!(replace(req_r(32)));
+        // Check 33.
+        assert_noop!(replace(req_s(33)), IdError::CustomScopeTooLong);
+        assert_noop!(replace(req_r(33)), IdError::CustomScopeTooLong);
+
+        // Changing:
+        // Check <= 32.
+        assert_ok!(change(req_s(31)));
+        assert_ok!(change(req_r(31)));
+        assert_ok!(change(req_s(32)));
+        assert_ok!(change(req_r(32)));
+        // Check 33.
+        assert_noop!(change(req_s(33)), IdError::CustomScopeTooLong);
+        assert_noop!(change(req_r(33)), IdError::CustomScopeTooLong);
+    });
 }
 
 #[test]

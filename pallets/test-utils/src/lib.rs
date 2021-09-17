@@ -124,7 +124,7 @@ decl_module! {
             secondary_keys: Vec<SecondaryKey<T::AccountId>>,
         ) {
             let sender = ensure_signed(origin)?;
-            Identity::<T>::_register_did(sender.clone(), secondary_keys, Some(ProtocolOp::IdentityRegisterDid))?;
+            Identity::<T>::_register_did(sender.clone(), secondary_keys, Some(ProtocolOp::IdentityCddRegisterDid))?;
 
             // Add CDD claim
             let did = Identity::<T>::get_identity(&sender).ok_or("DID Self-register failed")?;
