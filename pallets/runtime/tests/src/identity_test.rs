@@ -1840,7 +1840,7 @@ fn add_investor_uniqueness_claim_v2() {
             assert_ok!(Identity::_register_did(
                 user_no_cdd_id.clone(),
                 vec![],
-                Some(ProtocolOp::IdentityRegisterDid)
+                Some(ProtocolOp::IdentityCddRegisterDid)
             ));
 
             // Load test cases and run them.
