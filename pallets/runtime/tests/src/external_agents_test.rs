@@ -348,3 +348,46 @@ fn agent_of_mapping_works() {
         empty(dave);
     });
 }
+
+#[test]
+fn atredis_multi_group_perms() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Alice);
+        let other = User::new(AccountKeyring::Bob);
+        let ticker = an_asset(owner, false);
+
+        // Helpers for creating and setting permissions.
+        let perms = make_perms("pallet_external_agent");
+        let create = || {
+            assert_ok!(ExternalAgents::create_group(
+                owner.origin(),
+                ticker,
+                perms.clone()
+            ));
+            AGIdSequence::get(ticker)
+        };
+        let set =
+            |g| ExternalAgents::set_group_permissions(other.origin(), ticker, g, perms.clone());
+
+        // Create two groups for `ticker`.
+        let a = create();
+        let b = create();
+
+        // Add `other` to group `a`.
+        assert_ok!(ExternalAgents::unchecked_add_agent(
+            ticker,
+            other.did,
+            AgentGroup::Custom(a)
+        ));
+
+        // Confirm that `other` has access to `set_group_permissions`.
+        set_extrinsic("set_group_permissions");
+        assert_ok!(ExternalAgents::ensure_agent_permissioned(ticker, other.did));
+        assert_ok!(set(a));
+
+        // Although `other` isn't part of the second group,
+        // they are an agent with permissions for `set_group_permissions`,
+        // and may therefore call it for the second group.
+        assert_ok!(set(b));
+    });
+}
