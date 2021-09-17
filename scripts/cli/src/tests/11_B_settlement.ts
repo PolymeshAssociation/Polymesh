@@ -12,14 +12,14 @@ import * as settlement from "../helpers/settlement_helper";
 import PrettyError from "pretty-error";
 
 async function main(): Promise<void> {
-  const ticker = init.generateRandomTicker();
-  const ticker2 = init.generateRandomTicker();
+  const ticker = init.padTicker("11BTICKER1");
+  const ticker2 = init.padTicker("11BTICKER2");
   const testEntities = await init.initMain();
   const alice = testEntities[0];
-  const bob = await init.generateRandomEntity();
-  const charlie = await init.generateRandomEntity();
-  const dave = await init.generateRandomEntity();
-  const eve = await init.generateRandomEntity();
+  const bob = await init.generateEntityFromUri("11B_bob");
+  const charlie = await init.generateEntityFromUri("11B_charlie");
+  const dave = await init.generateEntityFromUri("11B_dave");
+  const eve = await init.generateEntityFromUri("11B_eve");
   const aliceDid = await init.keyToIdentityIds(alice.publicKey);
   const bobDid = (await createIdentities(alice, [bob]))[0];
   const charlieDid = (await createIdentities(alice, [charlie]))[0];

@@ -1776,7 +1776,7 @@ impl<T: Config> Module<T> {
 
         // Charge fee.
         let len = docs.len();
-        T::ProtocolFee::batch_charge_fee(ProtocolOp::AssetAddDocument, len)?;
+        T::ProtocolFee::batch_charge_fee(ProtocolOp::AssetAddDocuments, len)?;
 
         // Add the documents & emit events.
         AssetDocumentsIdSequence::mutate(ticker, |DocumentId(ref mut id)| {

@@ -6,10 +6,10 @@ import { createClaimCompliance } from "../helpers/compliance_manager_helper";
 import PrettyError from "pretty-error";
 
 async function main(): Promise<void> {
-  const ticker = init.generateRandomTicker();
+  const ticker = init.padTicker("7TICKER");
   const testEntities = await init.initMain();
   const alice = testEntities[0];
-  const primaryDevSeed = init.generateRandomKey();
+  const primaryDevSeed = "7_primary";
   const primaryKeys = await init.generateKeys(1, primaryDevSeed);
   let issuerDid = await createIdentities(alice, primaryKeys);
   await distributePolyBatch(alice, primaryKeys, init.transferAmount);
