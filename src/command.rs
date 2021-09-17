@@ -18,8 +18,8 @@
 use crate::chain_spec;
 use crate::cli::{Cli, Subcommand};
 use crate::service::{
-    self, general_chain_ops, itn_chain_ops, testnet_chain_ops, GeneralExecutor, ITNExecutor,
-    IsNetwork, Network, NewChainOps, TestnetExecutor,
+    self, ci_chain_ops, general_chain_ops, itn_chain_ops, testnet_chain_ops, CIExecutor,
+    GeneralExecutor, ITNExecutor, IsNetwork, Network, NewChainOps, TestnetExecutor,
 };
 use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
 use sc_service::{config::Role, Configuration, TaskManager};
@@ -63,6 +63,8 @@ impl SubstrateCli for Cli {
             "local" => Box::new(chain_spec::general::local_config()),
             "testnet-dev" => Box::new(chain_spec::testnet::develop_config()),
             "testnet-local" => Box::new(chain_spec::testnet::local_config()),
+            "ci-dev" => Box::new(chain_spec::ci::develop_config()),
+            "ci-local" => Box::new(chain_spec::ci::local_config()),
             "itn-dev" => Box::new(chain_spec::polymesh_itn::develop_config()),
             "itn-local" => Box::new(chain_spec::polymesh_itn::local_config()),
             "itn-bootstrap" => Box::new(chain_spec::polymesh_itn::bootstrap_config()),
@@ -94,6 +96,7 @@ impl SubstrateCli for Cli {
             Network::ITN => &polymesh_runtime_itn::runtime::VERSION,
             Network::Testnet => &polymesh_runtime_testnet::runtime::VERSION,
             Network::Other => &polymesh_runtime_develop::runtime::VERSION,
+            Network::CI => &polymesh_runtime_ci::runtime::VERSION,
         }
     }
 }
@@ -123,6 +126,8 @@ pub fn run() -> Result<()> {
                     (Network::Testnet, _) => service::testnet_new_full(config),
                     (Network::Other, Role::Light) => service::general_new_light(config),
                     (Network::Other, _) => service::general_new_full(config),
+                    (Network::CI, Role::Light) => service::ci_new_light(config),
+                    (Network::CI, _) => service::ci_new_full(config),
                 }
                 .map_err(sc_cli::Error::Service)
             })
@@ -137,10 +142,12 @@ pub fn run() -> Result<()> {
             |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
             |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
             |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
+            |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
         ),
         Some(Subcommand::ExportBlocks(cmd)) => async_run(
             &cli,
             cmd,
+            |(c, .., tm), config| Ok((cmd.run(c, config.database), tm)),
             |(c, .., tm), config| Ok((cmd.run(c, config.database), tm)),
             |(c, .., tm), config| Ok((cmd.run(c, config.database), tm)),
             |(c, .., tm), config| Ok((cmd.run(c, config.database), tm)),
@@ -151,10 +158,12 @@ pub fn run() -> Result<()> {
             |(c, .., tm), config| Ok((cmd.run(c, config.chain_spec), tm)),
             |(c, .., tm), config| Ok((cmd.run(c, config.chain_spec), tm)),
             |(c, .., tm), config| Ok((cmd.run(c, config.chain_spec), tm)),
+            |(c, .., tm), config| Ok((cmd.run(c, config.chain_spec), tm)),
         ),
         Some(Subcommand::ImportBlocks(cmd)) => async_run(
             &cli,
             cmd,
+            |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
             |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
             |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
             |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
@@ -166,6 +175,7 @@ pub fn run() -> Result<()> {
         Some(Subcommand::Revert(cmd)) => async_run(
             &cli,
             cmd,
+            |(c, b, _, tm), _| Ok((cmd.run(c, b), tm)),
             |(c, b, _, tm), _| Ok((cmd.run(c, b), tm)),
             |(c, b, _, tm), _| Ok((cmd.run(c, b), tm)),
             |(c, b, _, tm), _| Ok((cmd.run(c, b), tm)),
@@ -185,6 +195,9 @@ pub fn run() -> Result<()> {
                     Network::Other => {
                         runner.sync_run(|config| cmd.run::<Block, service::GeneralExecutor>(config))
                     }
+                    Network::CI => {
+                        runner.sync_run(|config| cmd.run::<Block, service::CIExecutor>(config))
+                    }
                 }
             } else {
                 Err("Benchmarking wasn't enabled when building the node. \
@@ -195,7 +208,7 @@ pub fn run() -> Result<()> {
     }
 }
 
-fn async_run<F, G, H>(
+fn async_run<F, G, H, I>(
     cli: &impl sc_cli::SubstrateCli,
     cmd: &impl sc_cli::CliConfiguration,
     itn: impl FnOnce(
@@ -210,11 +223,16 @@ fn async_run<F, G, H>(
         NewChainOps<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>,
         Configuration,
     ) -> sc_cli::Result<(H, TaskManager)>,
+    ci: impl FnOnce(
+        NewChainOps<polymesh_runtime_ci::RuntimeApi, CIExecutor>,
+        Configuration,
+    ) -> sc_cli::Result<(I, TaskManager)>,
 ) -> sc_service::Result<(), sc_cli::Error>
 where
     F: Future<Output = sc_cli::Result<()>>,
     G: Future<Output = sc_cli::Result<()>>,
     H: Future<Output = sc_cli::Result<()>>,
+    I: Future<Output = sc_cli::Result<()>>,
 {
     let runner = cli.create_runner(cmd)?;
     match runner.config().chain_spec.network() {
@@ -225,5 +243,6 @@ where
         Network::Other => {
             runner.async_run(|mut config| general(general_chain_ops(&mut config)?, config))
         }
+        Network::CI => runner.async_run(|mut config| ci(ci_chain_ops(&mut config)?, config)),
     }
 }

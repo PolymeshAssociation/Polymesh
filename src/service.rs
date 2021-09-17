@@ -11,6 +11,7 @@ pub use polymesh_primitives::{
     crypto::native_schnorrkel, host_functions::native_rng::native_rng, AccountId, Balance, Block,
     BlockNumber, Hash, IdentityId, Index as Nonce, Moment, SecondaryKey, Signatory, Ticker,
 };
+pub use polymesh_runtime_ci;
 pub use polymesh_runtime_develop;
 pub use polymesh_runtime_testnet;
 use prometheus_endpoint::Registry;
@@ -37,6 +38,7 @@ use std::sync::Arc;
 
 /// Known networks based on name.
 pub enum Network {
+    CI,
     ITN,
     Testnet,
     Other,
@@ -56,6 +58,8 @@ impl IsNetwork for dyn ChainSpec {
             || name.starts_with("Polymesh Buffron")
         {
             Network::Testnet
+        } else if name.starts_with("Polymesh CI") {
+            Network::CI
         } else {
             Network::Other
         }
@@ -84,6 +88,13 @@ native_executor_instance!(
     polymesh_runtime_develop::api::dispatch,
     polymesh_runtime_develop::native_version,
     (frame_benchmarking::benchmarking::HostFunctions, native_rng::HostFunctions, native_schnorrkel::HostFunctions)
+);
+
+native_executor_instance!(
+    pub CIExecutor,
+    polymesh_runtime_ci::api::dispatch,
+    polymesh_runtime_ci::native_version,
+    (frame_benchmarking::benchmarking::HostFunctions, native_rng::HostFunctions)
 );
 
 /// A set of APIs that polkadot-like runtimes must implement.
@@ -556,6 +567,12 @@ pub fn general_new_full(config: Configuration) -> TaskResult {
         .map(|data| data.task_manager)
 }
 
+/// Create a new CI service for a full node.
+pub fn ci_new_full(config: Configuration) -> TaskResult {
+    new_full_base::<polymesh_runtime_ci::RuntimeApi, CIExecutor, _, _>(config, |_, _| ())
+        .map(|data| data.task_manager)
+}
+
 pub type NewChainOps<R, D> = (
     Arc<FullClient<R, D>>,
     Arc<FullBackend>,
@@ -598,6 +615,12 @@ pub fn general_chain_ops(
     config: &mut Configuration,
 ) -> Result<NewChainOps<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>, ServiceError> {
     chain_ops::<_, _, polymesh_runtime_develop::UncheckedExtrinsic>(config)
+}
+
+pub fn ci_chain_ops(
+    config: &mut Configuration,
+) -> Result<NewChainOps<polymesh_runtime_ci::RuntimeApi, CIExecutor>, ServiceError> {
+    chain_ops::<_, _, polymesh_runtime_ci::UncheckedExtrinsic>(config)
 }
 
 type LightStorage = sc_client_db::light::LightStorage<Block>;
@@ -743,6 +766,11 @@ pub fn itn_new_light(config: Configuration) -> TaskResult {
 /// Create a new Polymesh service for a light client.
 pub fn testnet_new_light(config: Configuration) -> TaskResult {
     new_light_base::<polymesh_runtime_testnet::RuntimeApi, TestnetExecutor, _>(config)
+        .map(|(task_manager, _, _, _, _, _)| task_manager)
+}
+
+pub fn ci_new_light(config: Configuration) -> TaskResult {
+    new_light_base::<polymesh_runtime_ci::RuntimeApi, CIExecutor, _>(config)
         .map(|(task_manager, _, _, _, _, _)| task_manager)
 }
 

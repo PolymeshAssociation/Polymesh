@@ -188,6 +188,7 @@ polymesh-runtime-develop = { path = "pallets/runtime/develop" }
 polymesh-runtime-itn = { path = "pallets/runtime/itn" }
 polymesh-runtime-mainnet = { path = "pallets/runtime/mainnet" }
 polymesh-runtime-testnet = { path = "pallets/runtime/testnet" }
+polymesh-runtime-ci = { path = "pallets/runtime/ci" }
 
 # General
 chrono = "0.4.11"

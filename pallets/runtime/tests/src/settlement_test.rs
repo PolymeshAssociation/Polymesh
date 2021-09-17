@@ -2621,6 +2621,20 @@ fn multiple_portfolio_settlement() {
             amount
         );
 
+        // Alice tries to withdraw affirmation from multiple portfolios where only one has been affirmed.
+        assert_noop!(
+            Settlement::withdraw_affirmation(
+                alice.origin(),
+                instruction_counter,
+                vec![
+                    PortfolioId::default_portfolio(alice.did),
+                    PortfolioId::user_portfolio(alice.did, alice_num)
+                ],
+                2
+            ),
+            Error::UnexpectedAffirmationStatus
+        );
+
         // Alice fails to approve the instruction from her user specified portfolio due to lack of funds
         assert_noop!(
             Settlement::affirm_instruction(
@@ -2934,6 +2948,7 @@ fn reject_instruction() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
+        let charlie = User::new(AccountKeyring::Charlie);
 
         let (ticker, venue_counter) = ticker_init(alice, b"ACME");
         let amount = 100u128;
@@ -2960,6 +2975,12 @@ fn reject_instruction() {
             instruction_counter,
             AffirmationStatus::Affirmed,
             AffirmationStatus::Pending,
+        );
+        next_block();
+        // Try rejecting the instruction from a non-party account.
+        assert_noop!(
+            Settlement::reject_instruction(charlie.origin(), instruction_counter),
+            Error::UnauthorizedSigner
         );
         next_block();
         assert_ok!(Settlement::reject_instruction(
