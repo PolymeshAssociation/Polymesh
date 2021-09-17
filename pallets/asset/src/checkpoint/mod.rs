@@ -521,7 +521,7 @@ impl<T: Config> Module<T> {
         // Charge the fee for checkpoint creation.
         // N.B. this operation bundles verification + a storage change.
         // Thus, it must be last, and only storage changes follow.
-        T::ProtocolFee::charge_fee(ProtocolOp::AssetCreateCheckpointSchedule)?;
+        T::ProtocolFee::charge_fee(ProtocolOp::CheckpointCreateSchedule)?;
 
         // (1) Start is now, so create the checkpoint.
         if let Some(cp_id) = cp_id {

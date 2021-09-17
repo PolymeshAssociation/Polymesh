@@ -1107,7 +1107,7 @@ pub mod mainnet {
                 TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
                     .expect("Mainnet bootstrap telemetry url is valid; qed"),
             ),
-            Some(&*"/polymath/mainnet"),
+            Some(&*"/polymesh/mainnet"),
             Some(polymath_props(12)),
             Default::default(),
         )

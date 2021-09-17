@@ -48,18 +48,17 @@ impl Default for MockProtocolBaseFees {
         let ops = vec![
             ProtocolOp::AssetRegisterTicker,
             ProtocolOp::AssetIssue,
-            ProtocolOp::AssetAddDocument,
+            ProtocolOp::AssetAddDocuments,
             ProtocolOp::AssetCreateAsset,
-            ProtocolOp::DividendNew,
+            ProtocolOp::CheckpointCreateSchedule,
             ProtocolOp::ComplianceManagerAddComplianceRequirement,
-            ProtocolOp::IdentityRegisterDid,
             ProtocolOp::IdentityCddRegisterDid,
             ProtocolOp::IdentityAddClaim,
-            ProtocolOp::IdentitySetPrimaryKey,
             ProtocolOp::IdentityAddSecondaryKeysWithAuthorization,
             ProtocolOp::PipsPropose,
-            ProtocolOp::VotingAddBallot,
             ProtocolOp::ContractsPutCode,
+            ProtocolOp::CorporateBallotAttachBallot,
+            ProtocolOp::CapitalDistributionDistribute,
         ];
         let fees = ops
             .into_iter()

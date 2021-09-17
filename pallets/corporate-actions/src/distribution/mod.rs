@@ -251,7 +251,7 @@ decl_module! {
             <Portfolio<T>>::ensure_sufficient_balance(&from, &currency, amount)?;
 
             // Charge the protocol fee. Last check; we are in commit phase after this.
-            T::ProtocolFee::charge_fee(ProtocolOp::DistributionDistribute)?;
+            T::ProtocolFee::charge_fee(ProtocolOp::CapitalDistributionDistribute)?;
 
             // (1) Lock `amount` in `from`.
             <Portfolio<T>>::unchecked_lock_tokens(&from, &currency, amount);
