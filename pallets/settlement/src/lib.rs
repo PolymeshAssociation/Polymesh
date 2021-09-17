@@ -653,16 +653,16 @@ decl_module! {
 
             let legs = InstructionLegs::iter_prefix(instruction_id).collect::<Vec<_>>();
 
-            // Ensure num_of_legs if correct.
+            // Ensure num_of_legs is correct.
             ensure!(
-                legs.len() as u32 <= num_of_legs,
+                legs.len() <= num_of_legs as usize,
                 Error::<T>::LegCountTooSmall
             );
 
             // Ensure that the sender is a party of this instruction.
             T::Portfolio::ensure_portfolio_custody_and_permission(portfolio, primary_did, secondary_key.as_ref())?;
             ensure!(
-                legs.iter().any(|(_, leg)| leg.from == portfolio || leg.to == portfolio),
+                legs.iter().any(|(_, leg)| [leg.from, leg.to].contains(&portfolio)),
                 Error::<T>::UnauthorizedSigner
             );
 
@@ -891,7 +891,7 @@ impl<T: Config> Module<T> {
     ) -> Result<u64, DispatchError> {
         // Ensure instruction does not have too many legs.
         ensure!(
-            (legs.len() as u32) <= T::MaxLegsInInstruction::get(),
+            legs.len() <= T::MaxLegsInInstruction::get() as usize,
             Error::<T>::InstructionHasTooManyLegs
         );
 
