@@ -1669,7 +1669,6 @@ fn basic_fuzzing() {
         let mut legs = Vec::with_capacity(100);
         let mut receipts = Vec::with_capacity(100);
         let mut receipt_legs = HashMap::with_capacity(100);
-        let mut legs_count: HashMap<IdentityId, u32> = HashMap::with_capacity(100);
         let mut locked_assets = HashMap::with_capacity(100);
         for ticker_id in 0..10 {
             for user_id in 0..4 {
@@ -1725,7 +1724,6 @@ fn basic_fuzzing() {
                             asset: tickers[ticker_id * 4 + user_id],
                             amount: 1,
                         });
-                        *legs_count.entry(users[user_id].did).or_insert(0) += 1;
                         if legs.len() >= 100 {
                             break;
                         }
@@ -1759,24 +1757,28 @@ fn basic_fuzzing() {
 
         // Authorize instructions and do a few authorize/deny in between
         for (_, user) in users.clone().iter().enumerate() {
-            let leg_count = *legs_count.get(&user.did).unwrap_or(&0);
             for _ in 0..2 {
                 if random() {
                     assert_affirm_instruction!(
                         user.origin(),
                         instruction_counter,
                         user.did,
-                        leg_count
+                        legs.len() as u32
                     );
                     assert_ok!(Settlement::withdraw_affirmation(
                         user.origin(),
                         instruction_counter,
                         default_portfolio_vec(user.did),
-                        leg_count
+                        legs.len() as u32
                     ));
                 }
             }
-            assert_affirm_instruction!(user.origin(), instruction_counter, user.did, leg_count);
+            assert_affirm_instruction!(
+                user.origin(),
+                instruction_counter,
+                user.did,
+                legs.len() as u32
+            );
         }
 
         // Claim receipts and do a few claim/unclaims in between
@@ -1854,7 +1856,7 @@ fn basic_fuzzing() {
                 users[failed_user].origin(),
                 instruction_counter,
                 default_portfolio_vec(users[failed_user].did),
-                *legs_count.get(&users[failed_user].did).unwrap_or(&0)
+                legs.len() as u32
             ));
             locked_assets.retain(|(did, _), _| *did != users[failed_user].did);
         }
@@ -1905,7 +1907,9 @@ fn basic_fuzzing() {
         if fail {
             assert_ok!(Settlement::reject_instruction(
                 users[0].origin(),
-                instruction_counter
+                instruction_counter,
+                PortfolioId::default_portfolio(users[0].did),
+                legs.len() as u32,
             ));
             assert_eq!(
                 Settlement::instruction_details(instruction_counter).status,
@@ -2121,156 +2125,47 @@ fn claim_multiple_receipts_during_authorization() {
 }
 
 #[test]
-fn overload_settle_on_block() {
+fn overload_instruction() {
     test_with_cdd_provider(|eve| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
+        let leg_limit =
+            <TestStorage as pallet_settlement::Config>::MaxLegsInInstruction::get() as usize;
         let (ticker, venue_counter) = ticker_init(alice, b"ACME");
-        let instruction_counter = Settlement::instruction_counter();
-        let alice_init_balance = Asset::balance_of(&ticker, alice.did);
-        let bob_init_balance = Asset::balance_of(&ticker, bob.did);
-        let block_number = System::block_number() + 1;
 
-        let legs = vec![
+        let mut legs = vec![
             Leg {
                 from: PortfolioId::default_portfolio(alice.did),
                 to: PortfolioId::default_portfolio(bob.did),
                 asset: ticker,
                 amount: 1u128,
             };
-            500
+            leg_limit + 1
         ];
 
         // Provide scope claim to multiple parties of the transaction.
         provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], ticker, eve);
 
-        for _ in 0..2 {
-            assert_ok!(Settlement::add_instruction(
-                alice.origin(),
-                venue_counter,
-                SettlementType::SettleOnBlock(block_number),
-                None,
-                None,
-                legs.clone()
-            ));
-            assert_ok!(Settlement::add_instruction(
-                alice.origin(),
-                venue_counter,
-                SettlementType::SettleOnBlock(block_number + 1),
-                None,
-                None,
-                legs.clone()
-            ));
-        }
-
-        for i in &[0u64, 1, 3] {
-            assert_affirm_instruction!(alice.origin(), instruction_counter + i, alice.did, 500);
-            assert_affirm_instruction_with_zero_leg!(
-                bob.origin(),
-                instruction_counter + i,
-                bob.did
-            );
-        }
-
-        assert_eq!(Asset::balance_of(&ticker, alice.did), alice_init_balance);
-        assert_eq!(Asset::balance_of(&ticker, bob.did), bob_init_balance);
-
-        assert_eq!(2, scheduler::Agenda::<TestStorage>::get(block_number).len());
-        assert_eq!(
-            2,
-            scheduler::Agenda::<TestStorage>::get(block_number + 1).len()
-        );
-        assert_eq!(
-            0,
-            scheduler::Agenda::<TestStorage>::get(block_number + 2).len()
-        );
-
-        next_block();
-        // First Instruction should've settled
-        assert_eq!(
-            Asset::balance_of(&ticker, alice.did),
-            alice_init_balance - 500
-        );
-        assert_eq!(Asset::balance_of(&ticker, bob.did), bob_init_balance + 500);
-        assert_eq!(0, scheduler::Agenda::<TestStorage>::get(block_number).len());
-        assert_eq!(
-            3,
-            scheduler::Agenda::<TestStorage>::get(block_number + 1).len()
-        );
-        assert_eq!(
-            0,
-            scheduler::Agenda::<TestStorage>::get(block_number + 2).len()
-        );
-
-        next_block();
-        // Second instruction should've settled
-        assert_eq!(
-            Asset::balance_of(&ticker, alice.did),
-            alice_init_balance - 1000
-        );
-        assert_eq!(Asset::balance_of(&ticker, bob.did), bob_init_balance + 1000);
-        assert_eq!(
-            0,
-            scheduler::Agenda::<TestStorage>::get(block_number + 1).len()
-        );
-        assert_eq!(
-            2,
-            scheduler::Agenda::<TestStorage>::get(block_number + 2).len()
-        );
-        assert_eq!(
-            0,
-            scheduler::Agenda::<TestStorage>::get(block_number + 3).len()
-        );
-
-        next_block();
-        // Fourth instruction should've settled
-        assert_eq!(
-            Asset::balance_of(&ticker, alice.did),
-            alice_init_balance - 1500
-        );
-        assert_eq!(Asset::balance_of(&ticker, bob.did), bob_init_balance + 1500);
-        assert_eq!(
-            0,
-            scheduler::Agenda::<TestStorage>::get(block_number + 2).len()
-        );
-        assert_eq!(
-            1,
-            scheduler::Agenda::<TestStorage>::get(block_number + 3).len()
-        );
-        assert_eq!(
-            0,
-            scheduler::Agenda::<TestStorage>::get(block_number + 4).len()
-        );
-
         assert_noop!(
-            Settlement::affirm_instruction(
+            Settlement::add_instruction(
                 alice.origin(),
-                instruction_counter + 2,
-                default_portfolio_vec(alice.did),
-                1
+                venue_counter,
+                SettlementType::SettleOnAffirmation,
+                None,
+                None,
+                legs.clone()
             ),
-            Error::InstructionSettleBlockPassed
+            Error::InstructionHasTooManyLegs
         );
-
-        next_block();
-        // Third instruction should've settled (Failed due to missing auth)
-        assert_eq!(
-            Asset::balance_of(&ticker, alice.did),
-            alice_init_balance - 1500
-        );
-        assert_eq!(Asset::balance_of(&ticker, bob.did), bob_init_balance + 1500);
-        assert_eq!(
-            0,
-            scheduler::Agenda::<TestStorage>::get(block_number + 3).len()
-        );
-        assert_eq!(
-            0,
-            scheduler::Agenda::<TestStorage>::get(block_number + 4).len()
-        );
-        assert_eq!(
-            0,
-            scheduler::Agenda::<TestStorage>::get(block_number + 5).len()
-        );
+        legs.truncate(leg_limit);
+        assert_ok!(Settlement::add_instruction(
+            alice.origin(),
+            venue_counter,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs
+        ));
     });
 }
 
@@ -2953,7 +2848,16 @@ fn reject_instruction() {
         let (ticker, venue_counter) = ticker_init(alice, b"ACME");
         let amount = 100u128;
 
-        let assert_user_affirmatons = |instruction_id, alice_status, bob_status| {
+        let reject_instruction = |user: &User, instruction_counter| {
+            Settlement::reject_instruction(
+                user.origin(),
+                instruction_counter,
+                PortfolioId::default_portfolio(user.did),
+                1,
+            )
+        };
+
+        let assert_user_affirmations = |instruction_id, alice_status, bob_status| {
             assert_eq!(
                 Settlement::user_affirmations(
                     PortfolioId::default_portfolio(alice.did),
@@ -2971,7 +2875,7 @@ fn reject_instruction() {
         };
 
         let instruction_counter = create_instruction(&alice, &bob, venue_counter, ticker, amount);
-        assert_user_affirmatons(
+        assert_user_affirmations(
             instruction_counter,
             AffirmationStatus::Affirmed,
             AffirmationStatus::Pending,
@@ -2979,17 +2883,14 @@ fn reject_instruction() {
         next_block();
         // Try rejecting the instruction from a non-party account.
         assert_noop!(
-            Settlement::reject_instruction(charlie.origin(), instruction_counter),
+            reject_instruction(&charlie, instruction_counter),
             Error::UnauthorizedSigner
         );
         next_block();
-        assert_ok!(Settlement::reject_instruction(
-            alice.origin(),
-            instruction_counter,
-        ));
+        assert_ok!(reject_instruction(&alice, instruction_counter,));
         next_block();
         // Instruction should've been deleted
-        assert_user_affirmatons(
+        assert_user_affirmations(
             instruction_counter,
             AffirmationStatus::Unknown,
             AffirmationStatus::Unknown,
@@ -2998,13 +2899,10 @@ fn reject_instruction() {
         // Test that the receiver can also reject the instruction
         let instruction_counter2 = create_instruction(&alice, &bob, venue_counter, ticker, amount);
 
-        assert_ok!(Settlement::reject_instruction(
-            bob.origin(),
-            instruction_counter2,
-        ));
+        assert_ok!(reject_instruction(&bob, instruction_counter2,));
         next_block();
         // Instruction should've been deleted
-        assert_user_affirmatons(
+        assert_user_affirmations(
             instruction_counter2,
             AffirmationStatus::Unknown,
             AffirmationStatus::Unknown,
@@ -3111,6 +3009,8 @@ fn reject_failed_instruction() {
         assert_ok!(Settlement::reject_instruction(
             bob.origin(),
             instruction_counter,
+            PortfolioId::default_portfolio(bob.did),
+            1
         ));
 
         // Go to next block to have the scheduled execution run and ensure it has pruned the instruction.

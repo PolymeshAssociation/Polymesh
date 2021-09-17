@@ -133,6 +133,7 @@ parameter_types! {
     pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
     pub const FixedYearlyReward: Balance = 140_000_000 * POLY;
     pub const MinimumBond: Balance = 1 * POLY;
+    pub const MaxLegsInInstruction: u32 = 100;
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
     pub const SessionDuration: BlockNumber = EPOCH_DURATION_IN_SLOTS as _;
     pub const ReportLongevity: u64 =

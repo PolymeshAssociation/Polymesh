@@ -710,7 +710,8 @@ benchmarks! {
         // Add and affirm instruction.
         Module::<T>::add_and_affirm_instruction((origin.clone()).into(), venue_id, SettlementType::SettleOnAffirmation, None, None, legs, portfolios.clone()).expect("Unable to add and affirm the instruction");
         let instruction_id: u64 = 1;
-    }: _(origin, instruction_id, portfolios[0], l)
+        let portfolio_id = (l - 1) as usize;
+    }: _(origin, instruction_id, portfolios[portfolio_id], l)
     verify {
         assert_eq!(Module::<T>::instruction_details(instruction_id).status, InstructionStatus::Unknown, "Settlement: Failed to reject instruction");
     }
