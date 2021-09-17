@@ -1,9 +1,4 @@
-import {
-  initMain,
-  generateRandomKey,
-  generateKeys,
-  transferAmount,
-} from "../util/init";
+import { initMain, generateKeys, transferAmount } from "../util/init";
 import {
   createIdentities,
   authorizeJoinToIdentities,
@@ -15,8 +10,8 @@ import PrettyError from "pretty-error";
 async function main(): Promise<void> {
   const testEntities = await initMain();
   const alice = testEntities[0];
-  const primaryDevSeed = generateRandomKey();
-  const secondaryDevSeed = generateRandomKey();
+  const primaryDevSeed = "3_primary";
+  const secondaryDevSeed = "3_secondary";
   const primaryKeys = await generateKeys(2, primaryDevSeed);
   const secondaryKeys = await generateKeys(2, secondaryDevSeed);
   await createIdentities(alice, primaryKeys);
