@@ -639,7 +639,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::reject_instruction(*leg_count)]
+        #[weight = <T as Config>::WeightInfo::reject_instruction(*num_of_legs)]
         pub fn reject_instruction(origin, instruction_id: u64, portfolio: PortfolioId, num_of_legs: u32) {
             let PermissionedCallOriginData {
                 primary_did,
