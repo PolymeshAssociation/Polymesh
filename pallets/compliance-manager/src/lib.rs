@@ -100,8 +100,8 @@ use polymesh_primitives::{
     compliance_manager::{
         AssetCompliance, AssetComplianceResult, ComplianceRequirement, ConditionResult,
     },
-    proposition, storage_migrate_on, storage_migration_ver, Balance, Claim, Condition,
-    ConditionType, Context, IdentityId, Ticker, TrustedFor, TrustedIssuer,
+    proposition, storage_migration_ver, Balance, Claim, Condition, ConditionType, Context,
+    IdentityId, Ticker, TrustedFor, TrustedIssuer,
 };
 use sp_std::{
     convert::{From, TryFrom},
@@ -140,9 +140,7 @@ pub mod weight_for {
     }
 }
 
-// A value placed in storage that represents the current version of the this storage. This value
-// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-storage_migration_ver!(1);
+storage_migration_ver!(0);
 
 decl_storage! {
     trait Store for Module<T: Config> as ComplianceManager {
@@ -151,7 +149,7 @@ decl_storage! {
         /// List of trusted claim issuer Ticker -> Issuer Identity
         pub TrustedClaimIssuer get(fn trusted_claim_issuer): map hasher(blake2_128_concat) Ticker => Vec<TrustedIssuer>;
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
     }
 }
 
@@ -181,18 +179,6 @@ decl_module! {
 
         const MaxConditionComplexity: u32 = T::MaxConditionComplexity::get();
 
-        fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            use polymesh_primitives::{migrate::{Empty, migrate_map}, condition::TrustedIssuerOld};
-
-            let storage_ver = StorageVersion::get();
-
-            storage_migrate_on!(storage_ver, 1, {
-                migrate_map::<Vec<TrustedIssuerOld>, _>(b"ComplianceManager", b"TrustedClaimIssuer", |_| Empty);
-            });
-
-            1_000
-        }
-
         /// Adds a compliance requirement to an asset's compliance by ticker.
         /// If the compliance requirement is a duplicate, it does nothing.
         ///
@@ -207,6 +193,10 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::add_compliance_requirement(sender_conditions.len() as u32, receiver_conditions.len() as u32)]
         pub fn add_compliance_requirement(origin, ticker: Ticker, sender_conditions: Vec<Condition>, receiver_conditions: Vec<Condition>) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+
+            // Ensure `Scope::Custom(..)`s are limited.
+            Self::ensure_custom_scopes_limited(sender_conditions.iter())?;
+            Self::ensure_custom_scopes_limited(receiver_conditions.iter())?;
 
             // Bundle as a requirement.
             let id = Self::get_latest_requirement_id(ticker) + 1u32;
@@ -268,6 +258,9 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::replace_asset_compliance(asset_compliance.len() as u32)]
         pub fn replace_asset_compliance(origin, ticker: Ticker, asset_compliance: Vec<ComplianceRequirement>) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+
+            // Ensure `Scope::Custom(..)`s are limited.
+            Self::ensure_custom_scopes_limited(asset_compliance.iter().flat_map(|c| c.conditions()))?;
 
             // Ensure there are no duplicate requirement ids.
             let mut asset_compliance = asset_compliance;
@@ -403,6 +396,10 @@ decl_module! {
         )]
         pub fn change_compliance_requirement(origin, ticker: Ticker, new_req: ComplianceRequirement) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+
+            // Ensure `Scope::Custom(..)`s are limited.
+            Self::ensure_custom_scopes_limited(new_req.conditions())?;
+
             ensure!(Self::get_latest_requirement_id(ticker) >= new_req.id, Error::<T>::InvalidComplianceRequirementId);
 
             let mut asset_compliance = AssetCompliances::get(ticker);
@@ -610,6 +607,14 @@ impl<T: Config> Module<T> {
             }
         }
         Err(Error::<T>::ComplianceRequirementTooComplex.into())
+    }
+
+    fn ensure_custom_scopes_limited<'a>(
+        condition: impl Iterator<Item = &'a Condition>,
+    ) -> DispatchResult {
+        condition
+            .flat_map(|c| c.claims())
+            .try_for_each(Identity::<T>::ensure_custom_scopes_limited)
     }
 
     fn ensure_issuers_in_req_limited(req: &ComplianceRequirement) -> DispatchResult {

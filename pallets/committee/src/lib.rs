@@ -145,45 +145,7 @@ pub struct PolymeshVotes<BlockNumber> {
     pub expiry: MaybeBlock<BlockNumber>,
 }
 
-mod migrate {
-    use super::*;
-    use polymesh_primitives::migrate::{Empty, Migrate};
-    #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
-    /// Info for keeping track of a motion being voted on.
-    pub struct PolymeshVotesOld<BlockNumber> {
-        /// The proposal's unique index.
-        pub index: ProposalIndex,
-        /// The current set of committee members that approved it.
-        pub ayes: Vec<IdentityId>,
-        /// The current set of committee members that rejected it.
-        pub nays: Vec<IdentityId>,
-        /// The hard end time of this vote.
-        pub end: BlockNumber,
-        /// The time **at** which the proposal is expired.
-        pub expiry: MaybeBlock<BlockNumber>,
-    }
-    impl<BlockNumber: Encode + Decode> Migrate for PolymeshVotesOld<BlockNumber> {
-        type Context = Empty;
-        type Into = PolymeshVotes<BlockNumber>;
-        fn migrate(self, _: Self::Context) -> Option<Self::Into> {
-            let Self {
-                index,
-                ayes,
-                nays,
-                end: _,
-                expiry,
-            } = self;
-            Some(Self::Into {
-                index,
-                ayes,
-                nays,
-                expiry,
-            })
-        }
-    }
-}
-
-storage_migration_ver!(1);
+storage_migration_ver!(0);
 
 decl_storage! {
     trait Store for Module<T: Config<I>, I: Instance=DefaultInstance> as Committee {
@@ -204,7 +166,7 @@ decl_storage! {
         /// Time after which a proposal will expire.
         pub ExpiresAfter get(fn expires_after) config(): MaybeBlock<T::BlockNumber>;
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
     }
     add_extra_genesis {
         config(phantom): PhantomData<(T, I)>;
@@ -286,18 +248,6 @@ decl_module! {
         type Error = Error<T, I>;
 
         fn deposit_event() = default;
-
-        fn on_runtime_upgrade() -> Weight {
-            use polymesh_primitives::{storage_migrate_on, migrate::{migrate_map, Empty}};
-
-            storage_migrate_on!(Self::storage_version(), 1, [I] {
-                migrate_map::<migrate::PolymeshVotesOld<T::BlockNumber>, _>(
-                    b"Committee", b"Voting", |_| Empty
-                );
-            });
-
-            0
-        }
 
         /// Change the vote threshold the determines the winning proposal.
         /// For e.g., for a simple majority use (1, 2) which represents the in-equation ">= 1/2".

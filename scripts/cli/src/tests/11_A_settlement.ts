@@ -7,10 +7,10 @@ import * as settlement from "../helpers/settlement_helper";
 import PrettyError from "pretty-error";
 
 async function main(): Promise<void> {
-  const ticker = init.generateRandomTicker();
+  const ticker = init.padTicker("11ATICKER");
   const testEntities = await init.initMain();
   const alice = testEntities[0];
-  const bob = await init.generateRandomEntity();
+  const bob = await init.generateEntityFromUri("11A_bob");
   const bobDid = (await createIdentities(alice, [bob]))[0];
   const aliceDid = await init.keyToIdentityIds(alice.publicKey);
   await distributePoly(alice, bob, init.transferAmount);
@@ -40,7 +40,7 @@ async function main(): Promise<void> {
   await settlement.affirmInstruction(bob, intructionCounterAB, bobDid, 0);
 
   // Wait for settlement to be executed - happens in the next block
-  await init.sleep(1500);
+  await init.waitBlocks(2);
 
   //await rejectInstruction(bob, intructionCounter);
   //await unathorizeInstruction(alice, instructionCounter);

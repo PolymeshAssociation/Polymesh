@@ -57,10 +57,13 @@ use core::mem;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    ensure, storage,
-    traits::schedule::{DispatchTime, Named as ScheduleNamed},
+    ensure,
+    traits::{
+        schedule::{DispatchTime, Named as ScheduleNamed},
+        Get,
+    },
     weights::Weight,
-    IterableStorageDoubleMap, StorageHasher, Twox128,
+    IterableStorageDoubleMap,
 };
 use frame_system::{self as system, ensure_root, RawOrigin};
 use pallet_base::ensure_string_limited;
@@ -77,8 +80,7 @@ use polymesh_common_utilities::{
     SystematicIssuers::Settlement as SettlementDID,
 };
 use polymesh_primitives::{
-    storage_migrate_on, storage_migration_ver, Balance, IdentityId, PortfolioId, SecondaryKey,
-    Ticker,
+    storage_migration_ver, Balance, IdentityId, PortfolioId, SecondaryKey, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_runtime::traits::{One, Verify};
@@ -105,6 +107,8 @@ pub trait Config:
         <Self as frame_system::Config>::Call,
         Self::SchedulerOrigin,
     >;
+    /// Maximum legs that can be in a single instruction.
+    type MaxLegsInInstruction: Get<u32>;
     /// Weight information for extrinsic of the settlement pallet.
     type WeightInfo: WeightInfo;
 }
@@ -241,21 +245,6 @@ pub struct Venue {
     pub venue_type: VenueType,
 }
 
-mod migrate {
-    use super::*;
-    #[derive(Encode, Decode)]
-    pub struct VenueOld {
-        /// Identity of the venue's creator
-        pub creator: IdentityId,
-        /// instructions under this venue (Only needed for the UI)
-        pub instructions: Vec<u64>,
-        /// Additional details about this venue (Only needed for the UI)
-        pub details: VenueDetails,
-        /// Specifies type of the venue (Only needed for the UI)
-        pub venue_type: VenueType,
-    }
-}
-
 /// Details about an offchain transaction receipt
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct Receipt<Balance> {
@@ -306,7 +295,7 @@ pub trait WeightInfo {
     fn set_venue_filtering() -> Weight;
     fn allow_venues(u: u32) -> Weight;
     fn disallow_venues(u: u32) -> Weight;
-    fn reject_instruction() -> Weight;
+    fn reject_instruction(u: u32) -> Weight;
     fn change_receipt_validity() -> Weight;
     fn execute_scheduled_instruction(l: u32) -> Weight;
     fn reschedule_instruction() -> Weight;
@@ -426,12 +415,12 @@ decl_error! {
         LegCountTooSmall,
         /// Instruction status is unknown
         UnknownInstruction,
+        /// Maximum legs that can be in a single instruction.
+        InstructionHasTooManyLegs,
     }
 }
 
-// A value placed in storage that represents the current version of the this storage. This value
-// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-storage_migration_ver!(2);
+storage_migration_ver!(0);
 
 decl_storage! {
     trait Store for Module<T: Config> as Settlement {
@@ -480,7 +469,7 @@ decl_storage! {
         /// Number of instructions in the system (It's one more than the actual number)
         InstructionCounter get(fn instruction_counter) build(|_| 1u64): u64;
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(2).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
     }
 }
 
@@ -489,40 +478,6 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
-
-        fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion::get(), 1, {
-                // Delete all settlement data that were stored at a wrong prefix.
-                let prefix = Twox128::hash(b"StoCapped");
-                storage::unhashed::kill_prefix(&prefix);
-
-                // Set venue counter and instruction counter to 1 so that the id(s) start from 1 instead of 0
-                VenueCounter::put(1);
-                InstructionCounter::put(1);
-            });
-
-            storage_migrate_on!(StorageVersion::get(), 2, {
-                use polymesh_primitives::migrate::migrate_map_keys_and_value;
-                use frame_support::Twox64Concat;
-                use migrate::*;
-
-                migrate_map_keys_and_value::<_, _, Twox64Concat, _, _, _>(
-                    b"Settlement",
-                    b"VenueInfo",
-                    b"VenueInfo",
-                    |venue_id: u64, old: VenueOld| {
-                        for instruction_id in old.instructions {
-                            VenueInstructions::insert(venue_id, instruction_id, ());
-                        }
-                        Details::insert(venue_id, old.details);
-                        let venue = Venue { creator: old.creator, venue_type: old.venue_type };
-                        Some((venue_id, venue))
-                    }
-                )
-            });
-
-            1_000
-        }
 
         /// Registers a new venue.
         ///
@@ -679,11 +634,13 @@ decl_module! {
         ///
         /// # Arguments
         /// * `instruction_id` - Instruction id to reject.
+        /// * `portfolio` - Portfolio to reject the instruction.
+        /// * `num_of_legs` - Number of legs in the instruction.
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::reject_instruction()]
-        pub fn reject_instruction(origin, instruction_id: u64) {
+        #[weight = <T as Config>::WeightInfo::reject_instruction(*num_of_legs)]
+        pub fn reject_instruction(origin, instruction_id: u64, portfolio: PortfolioId, num_of_legs: u32) {
             let PermissionedCallOriginData {
                 primary_did,
                 secondary_key,
@@ -696,8 +653,18 @@ decl_module! {
 
             let legs = InstructionLegs::iter_prefix(instruction_id).collect::<Vec<_>>();
 
+            // Ensure num_of_legs is correct.
+            ensure!(
+                legs.len() <= num_of_legs as usize,
+                Error::<T>::LegCountTooSmall
+            );
+
             // Ensure that the sender is a party of this instruction.
-            ensure!(legs.iter().any(|(_, leg)| Self::is_leg_party(leg, primary_did, secondary_key.as_ref())), Error::<T>::UnauthorizedSigner);
+            T::Portfolio::ensure_portfolio_custody_and_permission(portfolio, primary_did, secondary_key.as_ref())?;
+            ensure!(
+                legs.iter().any(|(_, leg)| [leg.from, leg.to].contains(&portfolio)),
+                Error::<T>::UnauthorizedSigner
+            );
 
             Self::unsafe_unclaim_receipts(instruction_id, &legs);
             Self::unchecked_release_locks(instruction_id, &legs);
@@ -922,6 +889,12 @@ impl<T: Config> Module<T> {
         value_date: Option<T::Moment>,
         legs: Vec<Leg>,
     ) -> Result<u64, DispatchError> {
+        // Ensure instruction does not have too many legs.
+        ensure!(
+            legs.len() <= T::MaxLegsInInstruction::get() as usize,
+            Error::<T>::InstructionHasTooManyLegs
+        );
+
         // Ensure that the scheduled block number is in the future so that `T::Scheduler::schedule_named`
         // doesn't fail.
         if let SettlementType::SettleOnBlock(block_number) = &settlement_type {
@@ -1039,7 +1012,7 @@ impl<T: Config> Module<T> {
                     Self::unlock_via_leg(&leg_details)?;
                 }
                 LegStatus::PendingTokenLock => {
-                    return Err(Error::<T>::InstructionNotAffirmed.into())
+                    return Err(Error::<T>::InstructionNotAffirmed.into());
                 }
             };
             <InstructionLegStatus<T>>::insert(instruction_id, leg_id, LegStatus::PendingTokenLock);
@@ -1677,17 +1650,5 @@ impl<T: Config> Module<T> {
             Error::<T>::LegCountTooSmall
         );
         Ok((legs_count, filtered_legs))
-    }
-
-    /// Check if the sender is a party (owner/custodian) of the leg.
-    fn is_leg_party(
-        leg: &Leg,
-        did: IdentityId,
-        secondary_key: Option<&SecondaryKey<T::AccountId>>,
-    ) -> bool {
-        // Check both from/to portoflios.
-        T::Portfolio::ensure_portfolio_custody_and_permission(leg.from, did, secondary_key).is_ok()
-            || T::Portfolio::ensure_portfolio_custody_and_permission(leg.to, did, secondary_key)
-                .is_ok()
     }
 }

@@ -2,7 +2,7 @@ use crate::{BridgeTxDetail, BridgeTxStatus, Config, GenesisConfig};
 
 use frame_support::{debug, storage::StorageDoubleMap};
 use polymesh_common_utilities::{balances::CheckCdd, constants::currency::POLY, Context};
-use polymesh_primitives::{Permissions, Signatory};
+use polymesh_primitives::Permissions;
 use sp_runtime::traits::Zero;
 use sp_std::convert::TryFrom;
 
@@ -39,11 +39,7 @@ pub(crate) fn controller<T: Config>(config: &GenesisConfig<T>) -> T::AccountId {
     let creator_did = Context::current_identity_or::<Identity<T>>(&config.creator)
         .expect("bridge creator account has no identity");
 
-    Identity::<T>::unsafe_join_identity(
-        creator_did,
-        Permissions::default(),
-        &Signatory::Account(multisig_id.clone()),
-    );
+    Identity::<T>::unsafe_join_identity(creator_did, Permissions::default(), multisig_id.clone());
     debug::info!("Joined identity {} as signer {}", creator_did, multisig_id);
 
     multisig_id

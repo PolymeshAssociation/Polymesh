@@ -67,12 +67,6 @@ export interface AssetIdentifier extends Enum {
   readonly asLei: U8aFixed;
 }
 
-/** @name AssetMigrationError */
-export interface AssetMigrationError extends Enum {
-  readonly isAssetDocumentFail: boolean;
-  readonly asAssetDocumentFail: ITuple<[Ticker, DocumentId]>;
-}
-
 /** @name AssetName */
 export interface AssetName extends Text {}
 
@@ -1015,14 +1009,6 @@ export interface MetaUrl extends Text {}
 
 /** @name MetaVersion */
 export interface MetaVersion extends u32 {}
-
-/** @name MigrationError */
-export interface MigrationError extends Enum {
-  readonly isDecodeKey: boolean;
-  readonly asDecodeKey: Bytes;
-  readonly isMap: boolean;
-  readonly asMap: AssetMigrationError;
-}
 
 /** @name Moment */
 export interface Moment extends u64 {}

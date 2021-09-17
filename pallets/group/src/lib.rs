@@ -91,7 +91,6 @@ use frame_support::{
     traits::{ChangeMembers, EnsureOrigin},
     StorageValue,
 };
-use frame_system::ensure_signed;
 use sp_std::prelude::*;
 
 pub type Event<T, I> = polymesh_common_utilities::group::Event<T, I>;
@@ -259,8 +258,7 @@ decl_module! {
         /// * Last member of a group cannot abdicate.
         #[weight = <T as Config<I>>::WeightInfo::abdicate_membership()]
         pub fn abdicate_membership(origin) {
-            let who = ensure_signed(origin)?;
-            let remove_id = Context::current_identity_or::<Identity<T>>(&who)?;
+            let (who, remove_id) = Identity::<T>::ensure_did(origin)?;
 
             ensure!(
                 <Identity<T>>::is_primary_key(&remove_id, &who),

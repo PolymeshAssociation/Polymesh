@@ -101,10 +101,8 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    migration::StorageKeyIterator,
     traits::Get,
     weights::Weight,
-    Blake2_128Concat,
 };
 use frame_system::ensure_root;
 use pallet_asset::checkpoint::{self, SchedulePoints, ScheduleRefCount};
@@ -113,10 +111,10 @@ use polymesh_common_utilities::{
     traits::checkpoint::ScheduleId, with_transaction, GC_DID,
 };
 use polymesh_primitives::{
-    agent::AgentGroup, calendar::CheckpointId, storage_migrate_on, storage_migration_ver, Balance,
-    DocumentId, EventDid, IdentityId, Moment, Ticker,
+    calendar::CheckpointId, storage_migration_ver, Balance, DocumentId, EventDid, IdentityId,
+    Moment, Ticker,
 };
-use polymesh_primitives_derive::{Migrate, VecU8StrongTyped};
+use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_arithmetic::Permill;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -257,7 +255,7 @@ pub enum RecordDateSpec {
 /// Details of a generic CA.
 /// The `(Ticker, ID)` denoting a unique identifier for the CA is stored as a key outside.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, Migrate)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
 pub struct CorporateAction {
     /// The kind of CA that this is.
     pub kind: CAKind,
@@ -265,10 +263,6 @@ pub struct CorporateAction {
     pub decl_date: Moment,
     /// Date at which any impact, if any, should be calculated.
     pub record_date: Option<RecordDate>,
-    /// UNUSED! Data moved to `Details` storage map.
-    #[migrate_from(CADetails)]
-    #[migrate_with(())]
-    pub details: (),
     /// The identities this CA is relevant to.
     pub targets: TargetIdentities,
     /// The default withholding tax at the time of CA creation.
@@ -408,11 +402,11 @@ decl_storage! {
         pub Details get(fn details): map hasher(blake2_128_concat) CAId => CADetails;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(3).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
     }
 }
 
-storage_migration_ver!(3);
+storage_migration_ver!(0);
 
 // Public interface for this runtime module.
 decl_module! {
@@ -424,33 +418,6 @@ decl_module! {
 
         const MaxTargetIds: u32 = T::MaxTargetIds::get();
         const MaxDidWhts: u32 = T::MaxDidWhts::get();
-
-        fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion::get(), 2, {
-                StorageKeyIterator::<Ticker, IdentityId, Blake2_128Concat>::new(b"CorporateActions", b"Agent")
-                    .drain()
-                    .for_each(|(ticker, agent)| {
-                        ExternalAgents::<T>::add_agent_if_not(ticker, agent, AgentGroup::PolymeshV1CAA).unwrap();
-                    });
-            });
-
-            storage_migrate_on!(StorageVersion::get(), 3, {
-                use core::mem;
-                use polymesh_primitives::migrate::{Empty, Migrate, migrate_double_map_only_values};
-                migrate_double_map_only_values::<_, _, Blake2_128Concat, _, Blake2_128Concat, _, _, ()>(
-                    b"CorporateAction",
-                    b"CorporateActions",
-                    |ticker: Ticker, local_id: LocalCAId, mut old: CorporateActionOld| {
-                        let id = CAId { ticker, local_id };
-                        Details::insert(id, mem::take(&mut old.details));
-                        old.migrate(Empty).ok_or(())
-                    }
-                )
-                .for_each(drop);
-            });
-
-            0
-        }
 
         /// Set the max `length` of `details` in terms of bytes.
         /// May only be called via a PIP.
@@ -654,7 +621,6 @@ decl_module! {
                 kind,
                 decl_date,
                 record_date,
-                details: (),
                 targets,
                 default_withholding_tax,
                 withholding_tax,

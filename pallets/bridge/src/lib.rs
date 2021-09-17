@@ -100,8 +100,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(const_option)]
 
-mod migration;
-
 #[cfg(feature = "std")]
 mod genesis;
 
@@ -115,7 +113,7 @@ use frame_support::{
         schedule::{Anon as ScheduleAnon, DispatchTime, LOWEST_PRIORITY},
         Currency,
     },
-    weights::{DispatchClass, Pays, Weight},
+    weights::{DispatchClass, Pays},
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use pallet_balances as balances;
@@ -249,9 +247,7 @@ decl_error! {
     }
 }
 
-// A value placed in storage that represents the current version of the this storage. This value
-// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-storage_migration_ver!(1);
+storage_migration_ver!(0);
 
 decl_storage! {
     trait Store for Module<T: Config> as Bridge {
@@ -293,7 +289,7 @@ decl_storage! {
         BridgeLimitExempted get(fn bridge_exempted): map hasher(twox_64_concat) IdentityId => bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
     }
     add_extra_genesis {
         /// AccountId of the multisig creator.
@@ -352,10 +348,6 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
-
-        fn on_runtime_upgrade() -> Weight {
-            migration::on_runtime_upgrade::<T>()
-        }
 
         /// Changes the controller account as admin.
         ///

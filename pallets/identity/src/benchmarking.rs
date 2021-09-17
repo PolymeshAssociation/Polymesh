@@ -20,7 +20,7 @@ use confidential_identity_v1::mocked::make_investor_uid as make_investor_uid_v1;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 use polymesh_common_utilities::{
-    benchs::{cdd_provider, user, AccountIdOf, User, UserBuilder},
+    benchs::{cdd_provider, user, user_without_did, AccountIdOf, User, UserBuilder},
     traits::{identity::TargetIdAuthorization, TestUtilsFn},
 };
 use polymesh_primitives::{
@@ -170,9 +170,9 @@ benchmarks! {
 
         let mut signatories = Vec::with_capacity(i as usize);
         for x in 0..i {
-            let signer = Signatory::Account(account("key", x, SEED));
-            signatories.push(signer.clone());
-            Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), &signer);
+            let key: T::AccountId = account("key", x, SEED);
+            signatories.push(Signatory::Account(key.clone()));
+            Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), key);
         }
     }: _(target.origin, signatories.clone())
 
@@ -224,18 +224,6 @@ benchmarks! {
         );
     }: _(new_key.origin, auth_id)
 
-    join_identity_as_identity {
-        let target = user::<T>("target", 0);
-        let new_user = user::<T>("key", 0);
-
-        let auth_id =  Module::<T>::add_auth(
-            target.did(),
-            Signatory::Identity(new_user.did()),
-            AuthorizationData::JoinIdentity(Permissions::default()),
-            None,
-        );
-    }: _(new_user.origin, auth_id)
-
     leave_identity_as_key {
         let target = user::<T>("target", 0);
         let key = UserBuilder::<T>::default().build("key");
@@ -258,15 +246,6 @@ benchmarks! {
         );
     }
 
-    leave_identity_as_identity {
-        let target = user::<T>("target", 0);
-        let new_user = user::<T>("key", 0);
-        let signatory = Signatory::Identity(new_user.did());
-
-        Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), &signatory);
-
-    }: _(new_user.origin, target.did())
-
     add_claim {
         let caller = user::<T>("caller", 0);
         let target = user::<T>("target", 0);
@@ -288,9 +267,9 @@ benchmarks! {
     set_permission_to_signer {
         let target = user::<T>("target", 0);
         let key = UserBuilder::<T>::default().build("key");
-        let signatory = Signatory::Account(key.account);
+        let signatory = Signatory::Account(key.account());
 
-        Module::<T>::unsafe_join_identity(target.did(), Permissions::empty(), &signatory);
+        Module::<T>::unsafe_join_identity(target.did(), Permissions::empty(), key.account());
     }: _(target.origin, signatory, Permissions::default().into())
 
     freeze_secondary_keys {
@@ -334,24 +313,13 @@ benchmarks! {
         let auth_encoded = authorization.encode();
 
         let secondary_keys_with_auth = (0..i).map(|x| {
-            let user = user::<T>("key", x);
+            let user = user_without_did::<T>("key", x);
             SecondaryKeyWithAuth {
-                secondary_key: SecondaryKey::from(user.did()).into(),
+                secondary_key: SecondaryKey::from_account_id(user.account()).into(),
                 auth_signature: H512::from(user.sign(&auth_encoded).unwrap()),
             }
         }).collect::<Vec<_>>();
     }: _(caller.origin, secondary_keys_with_auth, expires_at)
-
-    revoke_offchain_authorization {
-        let caller = user::<T>("caller", 0);
-        let nonce = Module::<T>::offchain_authorization_nonce(caller.did());
-
-        let authorization = TargetIdAuthorization::<T::Moment> {
-            target_id: caller.did(),
-            nonce,
-            expires_at: 600u32.into(),
-        };
-    }: _(caller.origin, Signatory::Identity(caller.did()), authorization)
 
     add_investor_uniqueness_claim {
         let (caller, _, claim, proof) = setup_investor_uniqueness_claim_v1::<T>("caller");

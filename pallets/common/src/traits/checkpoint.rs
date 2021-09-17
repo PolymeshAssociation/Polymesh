@@ -3,7 +3,6 @@ use frame_support::decl_event;
 use frame_support::weights::Weight;
 use polymesh_primitives::calendar::{CheckpointId, CheckpointSchedule};
 use polymesh_primitives::{Balance, EventDid, IdentityId, Moment, Ticker};
-use polymesh_primitives_derive::Migrate;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 
@@ -14,7 +13,7 @@ pub struct ScheduleId(pub u64);
 
 /// One or more scheduled checkpoints in the future.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq, Migrate)]
+#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct StoredSchedule {
     /// A series of checkpoints in the future defined by the schedule.
     pub schedule: CheckpointSchedule,
@@ -28,7 +27,6 @@ pub struct StoredSchedule {
     /// before it is evicted from the schedule set.
     ///
     /// The value `0` is special cased to mean infinity.
-    #[migrate_with(0)]
     pub remaining: u32,
 }
 

@@ -628,16 +628,6 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        fn on_runtime_upgrade() -> Weight {
-
-            // Recompute the live queue.
-            LiveQueue::set(Self::compute_live_queue());
-
-            // Done; we've cleared all V1 storage needed; V2 can now be filled in.
-            // As for the weight, clearing costs much more than this, but let's pretend.
-            0
-        }
-
         /// Change whether completed PIPs are pruned.
         /// Can only be called by root.
         ///
@@ -1508,25 +1498,6 @@ impl<T: Config> Module<T> {
                 .unwrap_err();
             queue.insert(pos, new);
         });
-    }
-
-    /// Recompute the live queue from all existing PIPs.
-    pub fn compute_live_queue() -> Vec<SnapshottedPip> {
-        // Fetch intersection of pending && aggregate their votes.
-        let mut queue = <Proposals<T>>::iter_values()
-            // Only keep pending community PIPs.
-            .filter(|pip| matches!(pip.state, ProposalState::Pending))
-            .filter(|pip| matches!(pip.proposer, Proposer::Community(_)))
-            .map(|pip| pip.id)
-            // Aggregate the votes; `true` denotes a positive sign.
-            .map(Self::aggregate_result)
-            .collect::<Vec<_>>();
-
-        // Sort pips into priority queue, with highest priority *last*.
-        // Having higher prio last allows efficient tail popping, so we have a LIFO structure.
-        queue.sort_unstable_by(compare_spip);
-
-        queue
     }
 
     /// Returns a reportable representation of a proposal,

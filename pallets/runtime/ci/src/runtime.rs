@@ -59,7 +59,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 2018,
+    spec_version: 2026,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 7,
@@ -110,6 +110,9 @@ parameter_types! {
     /// Reward that is received by the party whose touch has led
     /// to removal of a contract.
     pub const SurchargeReward: Balance = 150 * DOLLARS;
+
+    // Settlement:
+    pub const MaxLegsInInstruction: u32 = 10;
 
     // Offences:
     pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) * MaximumBlockWeight::get();

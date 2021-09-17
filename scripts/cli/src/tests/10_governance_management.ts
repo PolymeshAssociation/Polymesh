@@ -1,4 +1,10 @@
-import { initMain, generateRandomEntity, transferAmount } from "../util/init";
+import {
+  ApiSingleton,
+  generateEntityFromUri,
+  initMain,
+  sendTx,
+  transferAmount,
+} from "../util/init";
 import { createIdentities } from "../helpers/identity_helper";
 import { distributePolyBatch } from "../helpers/poly_helper";
 import * as staking from "../helpers/staking_helper";
@@ -12,8 +18,8 @@ async function main(): Promise<void> {
   const alice = testEntities[0];
   const govCommittee1 = testEntities[2];
   const govCommittee2 = testEntities[3];
-  const bob = await generateRandomEntity();
-  const dave = await generateRandomEntity();
+  const bob = await generateEntityFromUri("10_bob");
+  const dave = await generateEntityFromUri("10_dave");
   await pips.setDefaultEnactmentPeriod(alice, 10);
   await createIdentities(alice, [bob, dave]);
 
@@ -28,6 +34,10 @@ async function main(): Promise<void> {
 
   const secondPipCount = await pips.pipIdSequence();
   await pips.propose(bob, setLimit, 10_000_000_000, "google.com", "second");
+  await sendTx(
+    dave,
+    (await ApiSingleton.getInstance()).tx.pips.vote(1, true, 10)
+  );
 
   // GC needs some funds to use.
   await distributePolyBatch(

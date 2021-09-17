@@ -1077,25 +1077,24 @@ fn frozen_secondary_keys_create_asset() {
 
 fn frozen_secondary_keys_create_asset_we() {
     // 0. Create identities.
-    let alice = AccountKeyring::Alice.to_account_id();
-    let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new_with(alice.did, AccountKeyring::Bob);
     let _charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
-    let bob = AccountKeyring::Bob.to_account_id();
 
     // 1. Add Bob as signatory to Alice ID.
-    let bob_signatory = Signatory::Account(AccountKeyring::Bob.to_account_id());
-    add_secondary_key(alice_id, bob_signatory);
+    add_secondary_key(alice.did, bob.acc());
+
     assert_ok!(Balances::transfer_with_memo(
-        Origin::signed(alice.clone()),
-        bob.clone().into(),
+        alice.origin(),
+        bob.acc().into(),
         1_000,
         Some(Memo::from("Bob funding"))
     ));
 
     // 2. Bob can create token
-    let (ticker_1, token_1) = a_token(alice_id);
+    let (ticker_1, token_1) = a_token(alice.did);
     assert_ok!(Asset::create_asset(
-        Origin::signed(bob.clone()),
+        bob.origin(),
         ticker_1.as_ref().into(),
         ticker_1,
         true,
@@ -1104,18 +1103,14 @@ fn frozen_secondary_keys_create_asset_we() {
         None,
         false,
     ));
-    assert_ok!(Asset::issue(
-        Origin::signed(bob),
-        ticker_1,
-        token_1.total_supply
-    ));
+    assert_ok!(Asset::issue(bob.origin(), ticker_1, token_1.total_supply));
     assert_eq!(Asset::token_details(ticker_1), token_1);
 
     // 3. Alice freezes her secondary keys.
-    assert_ok!(Identity::freeze_secondary_keys(Origin::signed(alice)));
+    assert_ok!(Identity::freeze_secondary_keys(alice.origin()));
 
     // 4. Bob cannot create a token.
-    let (_ticker_2, _token_2) = a_token(alice_id);
+    let (_ticker_2, _token_2) = a_token(alice.did);
     // commenting this because `default_identity` feature is not allowing to access None identity.
     // let create_token_result = Asset::create_asset(
     //     Origin::signed(bob),

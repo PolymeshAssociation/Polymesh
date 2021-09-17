@@ -796,21 +796,17 @@
       "_enum": [
         "AssetRegisterTicker",
         "AssetIssue",
-        "AssetAddDocument",
+        "AssetAddDocuments",
         "AssetCreateAsset",
-        "AssetCreateCheckpointSchedule",
-        "DividendNew",
+        "CheckpointCreateSchedule",
         "ComplianceManagerAddComplianceRequirement",
-        "IdentityRegisterDid",
         "IdentityCddRegisterDid",
         "IdentityAddClaim",
-        "IdentitySetPrimaryKey",
         "IdentityAddSecondaryKeysWithAuthorization",
         "PipsPropose",
-        "VotingAddBallot",
         "ContractsPutCode",
-        "BallotAttachBallot",
-        "DistributionDistribute"
+        "CorporateBallotAttachBallot",
+        "CapitalDistributionDistribute"
       ]
     },
     "CddStatus": {
@@ -1141,17 +1137,6 @@
     "PriceTier": {
       "total": "Balance",
       "price": "Balance"
-    },
-    "AssetMigrationError": {
-      "_enum": {
-        "AssetDocumentFail": "(Ticker, DocumentId)"
-      }
-    },
-    "MigrationError": {
-      "_enum": {
-        "DecodeKey": "Vec<u8>",
-        "Map": "AssetMigrationError"
-      }
     },
     "PermissionedIdentityPrefs": {
       "intended_count": "u32",

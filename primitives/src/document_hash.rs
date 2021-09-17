@@ -13,34 +13,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::migrate::{Empty, Migrate};
-
 use codec::{Decode, Encode};
-use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_std::{
     convert::{TryFrom, TryInto},
     ops::Deref,
     vec::Vec,
 };
-
-/// Previous version of `DocumentHash`.
-/// It is only used during the migration.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct DocumentHashOld(pub Vec<u8>);
-
-impl Migrate for DocumentHashOld {
-    type Into = DocumentHash;
-    type Context = Empty;
-
-    fn migrate(self, _: Self::Context) -> Option<Self::Into> {
-        DocumentHash::try_from(self.0.as_slice())
-            .ok()
-            .or_else(|| Some(DocumentHash::None))
-    }
-}
 
 /// A wrapper for a document hash.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Encode, Decode)]
