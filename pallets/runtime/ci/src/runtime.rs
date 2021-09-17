@@ -111,6 +111,9 @@ parameter_types! {
     /// to removal of a contract.
     pub const SurchargeReward: Balance = 150 * DOLLARS;
 
+    // Settlement:
+    pub const MaxLegsInInstruction: u32 = 10;
+
     // Offences:
     pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) * MaximumBlockWeight::get();
 
