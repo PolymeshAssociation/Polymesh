@@ -14,8 +14,7 @@ import {
 import BN from "bn.js";
 import fs from "fs";
 import path from "path";
-import cryptoRandomString from "crypto-random-string";
-import type { AccountId, BlockNumber } from "@polkadot/types/interfaces/runtime";
+import type { AccountId } from "@polkadot/types/interfaces/runtime";
 import type { SubmittableExtrinsic } from "@polkadot/api/types";
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { DispatchError } from "@polkadot/types/interfaces";
@@ -73,6 +72,16 @@ export class ApiSingleton {
 export async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+const getEra = async () =>
+  (await (await ApiSingleton.getInstance()).query.staking.activeEra())
+    .unwrap()
+    .index.toJSON();
+export async function waitNextEra() {
+  const era = await getEra();
+  while ((await getEra()) === era) {
+    await waitNextBlock();
+  }
+}
 
 export async function currentBlock() {
   const api = await ApiSingleton.getInstance();
@@ -88,13 +97,6 @@ export async function waitBlocks(blocks: number) {
 
 export async function waitNextBlock() {
   await waitBlocks(1);
-}
-
-interface TestEntities {
-  polymath_1: KeyringPair;
-  polymath_2: KeyringPair;
-  polymath_3: KeyringPair;
-  polymath_4: KeyringPair;
 }
 
 // Initialization Main is used to generate all entities e.g (Alice, Bob, Dave)
@@ -163,20 +165,20 @@ export async function generateEntityFromUri(uri: string): Promise<KeyringPair> {
   nonces.set(entity.address, account_nonce);
   return entity;
 }
-
-export async function generateRandomEntity() {
-  let entity = await generateEntityFromUri(cryptoRandomString({ length: 10 }));
-  return entity;
+const NULL_12 = "\0".repeat(12);
+export function padTicker(ticker: string) {
+  return (ticker + NULL_12).substring(0, 12);
 }
-
-export function generateRandomTicker() {
-  let ticker = cryptoRandomString({ length: 12, type: "distinguishable" });
-  return ticker;
-}
-
-export function generateRandomKey() {
-  let ticker = cryptoRandomString({ length: 12, type: "alphanumeric" });
-  return ticker;
+export async function throws(fn: () => any, error?: any) {
+  try {
+    await fn();
+  } catch (e) {
+    if (error && error != e) {
+      throw new Error(`error ${e} != ${error}`);
+    }
+    return;
+  }
+  throw new Error("The function didn't throw");
 }
 
 export async function blockTillPoolEmpty() {

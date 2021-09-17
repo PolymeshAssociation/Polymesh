@@ -9,10 +9,11 @@ import type {
   AssetPermissions,
   Signatory,
   AuthorizationData,
-  AgentGroup
+  AgentGroup,
+  CddId,
 } from "../types";
 import { sendTx, keyToIdentityIds, ApiSingleton } from "../util/init";
-import type { IdentityId } from "../interfaces";
+import type { IdentityId, Moment } from "../interfaces";
 
 /**
  * @description Adds a Claim to an Identity
@@ -153,22 +154,38 @@ async function addCddClaim(
   }
 }
 
-export async function addAuthorization(
-	signer: KeyringPair,
-	receiver: Signatory,
-	auth_data: any,
-	expiry: Expiry
+export async function invalidateCddClaims(
+  signer: KeyringPair,
+  cdd: CddId,
+  disable_from: Date,
+  expiry: Expiry
 ) {
-	const api = await ApiSingleton.getInstance();
-	const transaction = api.tx.identity.addAuthorization(
-		receiver,
-		auth_data,
-		expiry
-	);
-	await sendTx(signer, transaction);
+  const api = await ApiSingleton.getInstance();
+
+  const transaction = api.tx.identity.invalidateCddClaims(
+    cdd,
+    Number(disable_from),
+    expiry
+  );
+  await sendTx(signer, transaction);
+}
+
+export async function addAuthorization(
+  signer: KeyringPair,
+  receiver: Signatory,
+  auth_data: any,
+  expiry: Expiry
+) {
+  const api = await ApiSingleton.getInstance();
+  const transaction = api.tx.identity.addAuthorization(
+    receiver,
+    auth_data,
+    expiry
+  );
+  await sendTx(signer, transaction);
 }
 
 export async function getAuthId() {
-	const api = await ApiSingleton.getInstance();
-	return api.query.identity.multiPurposeNonce();
+  const api = await ApiSingleton.getInstance();
+  return api.query.identity.multiPurposeNonce();
 }

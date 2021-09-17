@@ -1,11 +1,11 @@
-import { initMain, generateRandomKey, generateKeys } from "../util/init";
+import { initMain, generateKeys } from "../util/init";
 import { createIdentities } from "../helpers/identity_helper";
 import PrettyError from "pretty-error";
 
 async function main(): Promise<void> {
   const testEntities = await initMain();
   const alice = testEntities[0];
-  const primaryDevSeed = generateRandomKey();
+  const primaryDevSeed = "0_primary";
   const keys = await generateKeys(2, primaryDevSeed);
   await createIdentities(alice, keys);
 }
