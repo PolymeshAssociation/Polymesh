@@ -409,7 +409,9 @@ decl_module! {
             Self::leave_identity(origin)
         }
 
-        /// Adds a new claim record or edits an existing one. Only called by did_issuer's secondary key.
+        /// Adds a new claim record or edits an existing one.
+        ///
+        /// Only called by did_issuer's secondary key.
         #[weight = <T as Config>::WeightInfo::add_claim()]
         pub fn add_claim(
             origin,
@@ -423,6 +425,7 @@ decl_module! {
                 Claim::CustomerDueDiligence(..) => Self::base_add_cdd_claim(target, claim, issuer, expiry),
                 Claim::InvestorUniqueness(..) | Claim::InvestorUniquenessV2(..) => Err(Error::<T>::ClaimVariantNotAllowed.into()),
                 _ => {
+                    Self::ensure_custom_scopes_limited(&claim)?;
                     T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddClaim)?;
                     Self::base_add_claim(target, claim, issuer, expiry);
                     Ok(())
@@ -744,7 +747,10 @@ decl_error! {
         /// Claim and Proof versions are different.
         ClaimAndProofVersionsDoNotMatch,
         /// The account key is being used, it can't be unlinked.
-        AccountKeyIsBeingUsed
+        AccountKeyIsBeingUsed,
+        /// A custom scope is too long.
+        /// It can at most be `32` characters long.
+        CustomScopeTooLong,
     }
 }
 
@@ -1050,6 +1056,14 @@ impl<T: Config> Module<T> {
     /// Use `did` as reference.
     pub fn is_primary_key(did: &IdentityId, key: &T::AccountId) -> bool {
         key == &<DidRecords<T>>::get(did).primary_key
+    }
+
+    /// Ensure that any `Scope::Custom(data)` is limited to 32 characters.
+    pub fn ensure_custom_scopes_limited(claim: &Claim) -> DispatchResult {
+        if let Some(Scope::Custom(data)) = claim.as_scope() {
+            ensure!(data.len() <= 32, Error::<T>::CustomScopeTooLong);
+        }
+        Ok(())
     }
 
     /// It returns true if `id_claim` is not expired at `moment`.
@@ -1509,6 +1523,8 @@ impl<T: Config> Module<T> {
         proof: InvestorZKProof,
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
+        Self::ensure_custom_scopes_limited(&claim)?;
+
         // Decode needed fields and ensures `claim` is `InvestorUniqueness*`.
         let (scope, scope_id, cdd_id) =
             Self::decode_investor_uniqueness_claim(&claim, &proof, scope_opt.as_ref())?;
