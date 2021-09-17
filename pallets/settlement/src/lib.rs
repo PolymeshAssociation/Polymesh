@@ -634,11 +634,13 @@ decl_module! {
         ///
         /// # Arguments
         /// * `instruction_id` - Instruction id to reject.
+        /// * `portfolio` - Portfolio to reject the instruction.
+        /// * `num_of_legs` - Number of legs in the instruction.
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::reject_instruction(*max_legs_count)]
-        pub fn reject_instruction(origin, instruction_id: u64, portfolio: PortfolioId, max_legs_count: u32) {
+        #[weight = <T as Config>::WeightInfo::reject_instruction(*leg_count)]
+        pub fn reject_instruction(origin, instruction_id: u64, portfolio: PortfolioId, num_of_legs: u32) {
             let PermissionedCallOriginData {
                 primary_did,
                 secondary_key,
@@ -651,10 +653,16 @@ decl_module! {
 
             let legs = InstructionLegs::iter_prefix(instruction_id).collect::<Vec<_>>();
 
+            // Ensure num_of_legs if correct.
+            ensure!(
+                legs.len() as u32 <= num_of_legs,
+                Error::<T>::LegCountTooSmall
+            );
+
             // Ensure that the sender is a party of this instruction.
             T::Portfolio::ensure_portfolio_custody_and_permission(portfolio, primary_did, secondary_key.as_ref())?;
             ensure!(
-                legs.iter().take(max_legs_count as usize).any(|(_, leg)| leg.from == portfolio || leg.to == portfolio),
+                legs.iter().any(|(_, leg)| leg.from == portfolio || leg.to == portfolio),
                 Error::<T>::UnauthorizedSigner
             );
 

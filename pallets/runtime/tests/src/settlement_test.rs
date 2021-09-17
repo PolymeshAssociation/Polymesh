@@ -1669,6 +1669,7 @@ fn basic_fuzzing() {
         let mut legs = Vec::with_capacity(100);
         let mut receipts = Vec::with_capacity(100);
         let mut receipt_legs = HashMap::with_capacity(100);
+        let mut legs_count: HashMap<IdentityId, u32> = HashMap::with_capacity(100);
         let mut locked_assets = HashMap::with_capacity(100);
         for ticker_id in 0..10 {
             for user_id in 0..4 {
@@ -1724,6 +1725,7 @@ fn basic_fuzzing() {
                             asset: tickers[ticker_id * 4 + user_id],
                             amount: 1,
                         });
+                        *legs_count.entry(users[user_id].did).or_insert(0) += 1;
                         if legs.len() >= 100 {
                             break;
                         }
@@ -1757,28 +1759,24 @@ fn basic_fuzzing() {
 
         // Authorize instructions and do a few authorize/deny in between
         for (_, user) in users.clone().iter().enumerate() {
+            let leg_count = *legs_count.get(&user.did).unwrap_or(&0);
             for _ in 0..2 {
                 if random() {
                     assert_affirm_instruction!(
                         user.origin(),
                         instruction_counter,
                         user.did,
-                        legs.len() as u32
+                        leg_count
                     );
                     assert_ok!(Settlement::withdraw_affirmation(
                         user.origin(),
                         instruction_counter,
                         default_portfolio_vec(user.did),
-                        legs.len() as u32
+                        leg_count
                     ));
                 }
             }
-            assert_affirm_instruction!(
-                user.origin(),
-                instruction_counter,
-                user.did,
-                legs.len() as u32
-            );
+            assert_affirm_instruction!(user.origin(), instruction_counter, user.did, leg_count);
         }
 
         // Claim receipts and do a few claim/unclaims in between
@@ -1856,7 +1854,7 @@ fn basic_fuzzing() {
                 users[failed_user].origin(),
                 instruction_counter,
                 default_portfolio_vec(users[failed_user].did),
-                legs.len() as u32
+                *legs_count.get(&users[failed_user].did).unwrap_or(&0)
             ));
             locked_assets.retain(|(did, _), _| *did != users[failed_user].did);
         }
