@@ -316,13 +316,10 @@ pub fn setup_conditions<T: Config>(
     count: u32,
     trusted_issuer: TrustedIssuer,
     dids: Vec<IdentityId>,
-    ticker: Ticker,
 ) -> Vec<Condition> {
-    let encoded_ticker = ticker.encode();
     (0..count)
         .map(|i| {
-            let scope =
-                Scope::Custom((encoded_ticker.clone(), vec![1; i.try_into().unwrap()]).encode());
+            let scope = Scope::Custom((vec![i]).encode());
             let claim = Claim::Jurisdiction(CountryCode::AF, scope);
             for did in &dids {
                 identity::Module::<T>::base_add_claim(
@@ -356,12 +353,8 @@ pub fn compliance_setup<T: Config>(
     // Add trusted issuer.
     add_trusted_issuer::<T>(origin.clone(), ticker, trusted_issuer.clone());
 
-    let conditions = setup_conditions::<T>(
-        max_complexity / 2,
-        trusted_issuer,
-        vec![from_did, to_did],
-        ticker,
-    );
+    let conditions =
+        setup_conditions::<T>(max_complexity / 2, trusted_issuer, vec![from_did, to_did]);
     pallet_compliance_manager::Module::<T>::add_compliance_requirement(
         origin.clone().into(),
         ticker,
