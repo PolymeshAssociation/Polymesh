@@ -600,7 +600,7 @@ decl_module! {
         /// # Arguments
         /// * `instruction_id` - Instruction id to affirm.
         /// * `portfolios` - Portfolios that the sender controls and wants to affirm this instruction.
-        /// * `legs` - List of legs needs to affirmed.
+        /// * `max_legs_count` - Number of legs that need to be  affirmed.
         ///
         /// # Permissions
         /// * Portfolio
@@ -614,6 +614,7 @@ decl_module! {
         /// # Arguments
         /// * `instruction_id` - Instruction id for that affirmation get withdrawn.
         /// * `portfolios` - Portfolios that the sender controls and wants to withdraw affirmation.
+        /// * `max_legs_count` - Number of legs that need to be un-affirmed.
         ///
         /// # Permissions
         /// * Portfolio
