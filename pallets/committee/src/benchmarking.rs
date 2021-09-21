@@ -60,7 +60,8 @@ where
         users.len() > 0,
         "make_proposals_and_vote requires non-empty users"
     );
-    for i in 0..PROPOSALS_MAX {
+    // Leave space for one additional proposal to be created
+    for i in 0..(PROPOSALS_MAX - 1) {
         let index = Module::<T, I>::proposal_count();
         let proposal = make_proposal::<T, I>(i).0;
         identity::CurrentDid::put(users[0].did());

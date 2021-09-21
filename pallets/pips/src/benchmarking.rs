@@ -232,6 +232,7 @@ benchmarks! {
         let some_url = Some(url.clone());
         let some_desc = Some(description.clone());
         let origin = user.origin();
+        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0u32.into()).unwrap();
     }: propose(origin, proposal, 42u32.into(), some_url, some_desc)
     verify {
         propose_verify::<T>(url, description).unwrap();
@@ -258,6 +259,7 @@ benchmarks! {
         let proposer = user::<T>("proposer", 0);
         identity::CurrentDid::put(proposer.did());
         let (proposal, url, description) = make_proposal::<T>();
+        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0u32.into()).unwrap();
         Module::<T>::propose(
             proposer.origin().into(),
             proposal,
@@ -303,6 +305,7 @@ benchmarks! {
         Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true).unwrap();
         let user = user::<T>("proposer", 0);
         identity::CurrentDid::put(user.did());
+        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0u32.into()).unwrap();
         let (proposal, url, description) = make_proposal::<T>();
         let deposit = 42u32.into();
         Module::<T>::propose(
@@ -326,6 +329,7 @@ benchmarks! {
         Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), false).unwrap();
         let user = user::<T>("proposer", 0);
         identity::CurrentDid::put(user.did());
+        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0u32.into()).unwrap();
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::propose(
             user.origin().into(),
@@ -349,6 +353,7 @@ benchmarks! {
     reschedule_execution {
         let user = user::<T>("proposer", 0);
         identity::CurrentDid::put(user.did());
+        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0u32.into()).unwrap();
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::propose(
             user.origin().into(),
@@ -372,6 +377,7 @@ benchmarks! {
     clear_snapshot {
         let user = user::<T>("proposer", 0);
         identity::CurrentDid::put(user.did());
+        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0u32.into()).unwrap();
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::propose(
             user.origin().into(),
