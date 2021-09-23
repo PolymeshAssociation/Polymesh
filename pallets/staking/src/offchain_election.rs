@@ -489,8 +489,6 @@ mod test {
         unimplemented_weight_fn!(payout_stakers_alive_controller, u32);
         unimplemented_weight_fn!(payout_all, u32, u32);
         unimplemented_weight_fn!(new_era, u32, u32);
-        unimplemented_weight_fn!(submit_solution_initial, u32, u32, u32);
-        unimplemented_weight_fn!(submit_solution_weaker, u32);
         unimplemented_weight_fn!(change_slashing_allowed_for);
         unimplemented_weight_fn!(update_permissioned_validator_intended_count);
         unimplemented_weight_fn!(scale_validator_count);
