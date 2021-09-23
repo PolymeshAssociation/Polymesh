@@ -48,28 +48,18 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
-use sp_std::marker::PhantomData;
+use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight as DbWeight}};
 
-/// Weight functions needed for pallet_corporate_ballot.
-pub trait WeightInfo {
-	fn attach_ballot(c: u32, ) -> Weight;
-	fn vote(c: u32, t: u32, ) -> Weight;
-	fn change_end() -> Weight;
-	fn change_meta(c: u32, ) -> Weight;
-	fn change_rcv() -> Weight;
-	fn remove_ballot() -> Weight;
-}
 
 /// Weights for pallet_corporate_ballot using the Substrate node and recommended hardware.
-pub struct SubstrateWeight<T>(PhantomData<T>);
-impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+pub struct WeightInfo;
+impl pallet_corporate_actions::ballot::WeightInfo for WeightInfo {
 	fn attach_ballot(c: u32, ) -> Weight {
 		(113_617_000 as Weight)
 			// Standard Error: 2_000
 			.saturating_add((34_000 as Weight).saturating_mul(c as Weight))
-			.saturating_add(T::DbWeight::get().reads(10 as Weight))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
+			.saturating_add(DbWeight::get().reads(10 as Weight))
+			.saturating_add(DbWeight::get().writes(4 as Weight))
 	}
 	fn vote(c: u32, t: u32, ) -> Weight {
 		(148_608_000 as Weight)
@@ -77,71 +67,29 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add((183_000 as Weight).saturating_mul(c as Weight))
 			// Standard Error: 4_000
 			.saturating_add((308_000 as Weight).saturating_mul(t as Weight))
-			.saturating_add(T::DbWeight::get().reads(13 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+			.saturating_add(DbWeight::get().reads(13 as Weight))
+			.saturating_add(DbWeight::get().writes(2 as Weight))
 	}
 	fn change_end() -> Weight {
 		(71_409_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().reads(7 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	fn change_meta(c: u32, ) -> Weight {
 		(78_480_000 as Weight)
 			// Standard Error: 1_000
 			.saturating_add((52_000 as Weight).saturating_mul(c as Weight))
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+			.saturating_add(DbWeight::get().reads(7 as Weight))
+			.saturating_add(DbWeight::get().writes(2 as Weight))
 	}
 	fn change_rcv() -> Weight {
 		(75_100_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().reads(7 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	fn remove_ballot() -> Weight {
 		(86_433_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
-	}
-}
-
-// For backwards compatibility and tests
-impl WeightInfo for () {
-	fn attach_ballot(c: u32, ) -> Weight {
-		(113_617_000 as Weight)
-			// Standard Error: 2_000
-			.saturating_add((34_000 as Weight).saturating_mul(c as Weight))
-			.saturating_add(RocksDbWeight::get().reads(10 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(4 as Weight))
-	}
-	fn vote(c: u32, t: u32, ) -> Weight {
-		(148_608_000 as Weight)
-			// Standard Error: 4_000
-			.saturating_add((183_000 as Weight).saturating_mul(c as Weight))
-			// Standard Error: 4_000
-			.saturating_add((308_000 as Weight).saturating_mul(t as Weight))
-			.saturating_add(RocksDbWeight::get().reads(13 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
-	}
-	fn change_end() -> Weight {
-		(71_409_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-	fn change_meta(c: u32, ) -> Weight {
-		(78_480_000 as Weight)
-			// Standard Error: 1_000
-			.saturating_add((52_000 as Weight).saturating_mul(c as Weight))
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
-	}
-	fn change_rcv() -> Weight {
-		(75_100_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-	fn remove_ballot() -> Weight {
-		(86_433_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(4 as Weight))
+			.saturating_add(DbWeight::get().reads(7 as Weight))
+			.saturating_add(DbWeight::get().writes(4 as Weight))
 	}
 }

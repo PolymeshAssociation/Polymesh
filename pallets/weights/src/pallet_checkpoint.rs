@@ -48,68 +48,33 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
-use sp_std::marker::PhantomData;
+use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight as DbWeight}};
 
-/// Weight functions needed for pallet_checkpoint.
-pub trait WeightInfo {
-	fn set_schedules_max_complexity() -> Weight;
-	fn create_checkpoint() -> Weight;
-	fn create_schedule(s: u32, ) -> Weight;
-	fn remove_schedule(s: u32, ) -> Weight;
-}
 
 /// Weights for pallet_checkpoint using the Substrate node and recommended hardware.
-pub struct SubstrateWeight<T>(PhantomData<T>);
-impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+pub struct WeightInfo;
+impl pallet_asset::checkpoint::WeightInfo for WeightInfo {
 	fn set_schedules_max_complexity() -> Weight {
 		(19_682_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	fn create_checkpoint() -> Weight {
 		(101_688_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(8 as Weight))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
+			.saturating_add(DbWeight::get().reads(8 as Weight))
+			.saturating_add(DbWeight::get().writes(3 as Weight))
 	}
 	fn create_schedule(s: u32, ) -> Weight {
 		(142_868_000 as Weight)
 			// Standard Error: 74_000
 			.saturating_add((745_000 as Weight).saturating_mul(s as Weight))
-			.saturating_add(T::DbWeight::get().reads(14 as Weight))
-			.saturating_add(T::DbWeight::get().writes(7 as Weight))
+			.saturating_add(DbWeight::get().reads(14 as Weight))
+			.saturating_add(DbWeight::get().writes(7 as Weight))
 	}
 	fn remove_schedule(s: u32, ) -> Weight {
 		(88_930_000 as Weight)
 			// Standard Error: 42_000
 			.saturating_add((172_000 as Weight).saturating_mul(s as Weight))
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
-	}
-}
-
-// For backwards compatibility and tests
-impl WeightInfo for () {
-	fn set_schedules_max_complexity() -> Weight {
-		(19_682_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-	fn create_checkpoint() -> Weight {
-		(101_688_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(8 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
-	}
-	fn create_schedule(s: u32, ) -> Weight {
-		(142_868_000 as Weight)
-			// Standard Error: 74_000
-			.saturating_add((745_000 as Weight).saturating_mul(s as Weight))
-			.saturating_add(RocksDbWeight::get().reads(14 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(7 as Weight))
-	}
-	fn remove_schedule(s: u32, ) -> Weight {
-		(88_930_000 as Weight)
-			// Standard Error: 42_000
-			.saturating_add((172_000 as Weight).saturating_mul(s as Weight))
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+			.saturating_add(DbWeight::get().reads(7 as Weight))
+			.saturating_add(DbWeight::get().writes(2 as Weight))
 	}
 }

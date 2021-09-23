@@ -48,48 +48,26 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
-use sp_std::marker::PhantomData;
+use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight as DbWeight}};
 
-/// Weight functions needed for pallet_asset.
-pub trait WeightInfo {
-	fn register_ticker() -> Weight;
-	fn accept_ticker_transfer() -> Weight;
-	fn accept_asset_ownership_transfer() -> Weight;
-	fn create_asset(n: u32, i: u32, f: u32, ) -> Weight;
-	fn freeze() -> Weight;
-	fn unfreeze() -> Weight;
-	fn rename_asset(n: u32, ) -> Weight;
-	fn issue() -> Weight;
-	fn redeem() -> Weight;
-	fn make_divisible() -> Weight;
-	fn add_documents(d: u32, ) -> Weight;
-	fn remove_documents(d: u32, ) -> Weight;
-	fn set_funding_round(f: u32, ) -> Weight;
-	fn update_identifiers(i: u32, ) -> Weight;
-	fn claim_classic_ticker() -> Weight;
-	fn reserve_classic_ticker() -> Weight;
-	fn controller_transfer() -> Weight;
-	fn register_custom_asset_type(n: u32, ) -> Weight;
-}
 
 /// Weights for pallet_asset using the Substrate node and recommended hardware.
-pub struct SubstrateWeight<T>(PhantomData<T>);
-impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+pub struct WeightInfo;
+impl pallet_asset::WeightInfo for WeightInfo {
 	fn register_ticker() -> Weight {
 		(99_696_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(11 as Weight))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
+			.saturating_add(DbWeight::get().reads(11 as Weight))
+			.saturating_add(DbWeight::get().writes(3 as Weight))
 	}
 	fn accept_ticker_transfer() -> Weight {
 		(106_697_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes(6 as Weight))
+			.saturating_add(DbWeight::get().reads(7 as Weight))
+			.saturating_add(DbWeight::get().writes(6 as Weight))
 	}
 	fn accept_asset_ownership_transfer() -> Weight {
 		(127_635_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(8 as Weight))
-			.saturating_add(T::DbWeight::get().writes(6 as Weight))
+			.saturating_add(DbWeight::get().reads(8 as Weight))
+			.saturating_add(DbWeight::get().writes(6 as Weight))
 	}
 	fn create_asset(n: u32, i: u32, f: u32, ) -> Weight {
 		(171_969_000 as Weight)
@@ -99,199 +77,108 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add((90_000 as Weight).saturating_mul(i as Weight))
 			// Standard Error: 2_000
 			.saturating_add((8_000 as Weight).saturating_mul(f as Weight))
-			.saturating_add(T::DbWeight::get().reads(14 as Weight))
-			.saturating_add(T::DbWeight::get().writes(12 as Weight))
+			.saturating_add(DbWeight::get().reads(14 as Weight))
+			.saturating_add(DbWeight::get().writes(12 as Weight))
 	}
 	fn freeze() -> Weight {
 		(87_281_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().reads(7 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	fn unfreeze() -> Weight {
 		(86_023_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().reads(7 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	fn rename_asset(_n: u32, ) -> Weight {
 		(74_046_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(6 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().reads(6 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	fn issue() -> Weight {
 		(161_993_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(17 as Weight))
-			.saturating_add(T::DbWeight::get().writes(5 as Weight))
+			.saturating_add(DbWeight::get().reads(17 as Weight))
+			.saturating_add(DbWeight::get().writes(5 as Weight))
 	}
 	fn redeem() -> Weight {
 		(183_830_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(16 as Weight))
-			.saturating_add(T::DbWeight::get().writes(6 as Weight))
+			.saturating_add(DbWeight::get().reads(16 as Weight))
+			.saturating_add(DbWeight::get().writes(6 as Weight))
 	}
 	fn make_divisible() -> Weight {
 		(64_897_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(6 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().reads(6 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	fn add_documents(d: u32, ) -> Weight {
 		(72_005_000 as Weight)
 			// Standard Error: 262_000
 			.saturating_add((31_037_000 as Weight).saturating_mul(d as Weight))
-			.saturating_add(T::DbWeight::get().reads(8 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes((1 as Weight).saturating_mul(d as Weight)))
+			.saturating_add(DbWeight::get().reads(8 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(d as Weight)))
 	}
 	fn remove_documents(d: u32, ) -> Weight {
 		(32_789_000 as Weight)
 			// Standard Error: 122_000
 			.saturating_add((12_749_000 as Weight).saturating_mul(d as Weight))
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
-			.saturating_add(T::DbWeight::get().writes((1 as Weight).saturating_mul(d as Weight)))
+			.saturating_add(DbWeight::get().reads(5 as Weight))
+			.saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(d as Weight)))
 	}
 	fn set_funding_round(f: u32, ) -> Weight {
 		(66_635_000 as Weight)
 			// Standard Error: 0
 			.saturating_add((1_000 as Weight).saturating_mul(f as Weight))
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().reads(5 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	fn update_identifiers(i: u32, ) -> Weight {
 		(66_661_000 as Weight)
 			// Standard Error: 3_000
 			.saturating_add((82_000 as Weight).saturating_mul(i as Weight))
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().reads(5 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
+	}
+	fn add_extension() -> Weight {
+		(179_296_000 as Weight)
+			.saturating_add(DbWeight::get().reads(11 as Weight))
+			.saturating_add(DbWeight::get().writes(2 as Weight))
+	}
+	fn archive_extension() -> Weight {
+		(155_844_000 as Weight)
+			.saturating_add(DbWeight::get().reads(8 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
+	}
+	fn unarchive_extension() -> Weight {
+		(165_872_000 as Weight)
+			.saturating_add(DbWeight::get().reads(8 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
+	}
+	fn remove_smart_extension() -> Weight {
+		(163_610_000 as Weight)
+			.saturating_add(DbWeight::get().reads(9 as Weight))
+			.saturating_add(DbWeight::get().writes(2 as Weight))
 	}
 	fn claim_classic_ticker() -> Weight {
 		(271_133_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
+			.saturating_add(DbWeight::get().reads(7 as Weight))
+			.saturating_add(DbWeight::get().writes(3 as Weight))
 	}
 	fn reserve_classic_ticker() -> Weight {
 		(54_049_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(3 as Weight))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
+			.saturating_add(DbWeight::get().reads(3 as Weight))
+			.saturating_add(DbWeight::get().writes(3 as Weight))
 	}
 	fn controller_transfer() -> Weight {
 		(201_389_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(20 as Weight))
-			.saturating_add(T::DbWeight::get().writes(9 as Weight))
+			.saturating_add(DbWeight::get().reads(20 as Weight))
+			.saturating_add(DbWeight::get().writes(9 as Weight))
 	}
 	fn register_custom_asset_type(n: u32, ) -> Weight {
 		(61_861_000 as Weight)
 			// Standard Error: 0
 			.saturating_add((12_000 as Weight).saturating_mul(n as Weight))
-			.saturating_add(T::DbWeight::get().reads(6 as Weight))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
-	}
-}
-
-// For backwards compatibility and tests
-impl WeightInfo for () {
-	fn register_ticker() -> Weight {
-		(99_696_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(11 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
-	}
-	fn accept_ticker_transfer() -> Weight {
-		(106_697_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(6 as Weight))
-	}
-	fn accept_asset_ownership_transfer() -> Weight {
-		(127_635_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(8 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(6 as Weight))
-	}
-	fn create_asset(n: u32, i: u32, f: u32, ) -> Weight {
-		(171_969_000 as Weight)
-			// Standard Error: 2_000
-			.saturating_add((3_000 as Weight).saturating_mul(n as Weight))
-			// Standard Error: 4_000
-			.saturating_add((90_000 as Weight).saturating_mul(i as Weight))
-			// Standard Error: 2_000
-			.saturating_add((8_000 as Weight).saturating_mul(f as Weight))
-			.saturating_add(RocksDbWeight::get().reads(14 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(12 as Weight))
-	}
-	fn freeze() -> Weight {
-		(87_281_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-	fn unfreeze() -> Weight {
-		(86_023_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-	fn rename_asset(_n: u32, ) -> Weight {
-		(74_046_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(6 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-	fn issue() -> Weight {
-		(161_993_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(17 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(5 as Weight))
-	}
-	fn redeem() -> Weight {
-		(183_830_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(16 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(6 as Weight))
-	}
-	fn make_divisible() -> Weight {
-		(64_897_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(6 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-	fn add_documents(d: u32, ) -> Weight {
-		(72_005_000 as Weight)
-			// Standard Error: 262_000
-			.saturating_add((31_037_000 as Weight).saturating_mul(d as Weight))
-			.saturating_add(RocksDbWeight::get().reads(8 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-			.saturating_add(RocksDbWeight::get().writes((1 as Weight).saturating_mul(d as Weight)))
-	}
-	fn remove_documents(d: u32, ) -> Weight {
-		(32_789_000 as Weight)
-			// Standard Error: 122_000
-			.saturating_add((12_749_000 as Weight).saturating_mul(d as Weight))
-			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
-			.saturating_add(RocksDbWeight::get().writes((1 as Weight).saturating_mul(d as Weight)))
-	}
-	fn set_funding_round(f: u32, ) -> Weight {
-		(66_635_000 as Weight)
-			// Standard Error: 0
-			.saturating_add((1_000 as Weight).saturating_mul(f as Weight))
-			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-	fn update_identifiers(i: u32, ) -> Weight {
-		(66_661_000 as Weight)
-			// Standard Error: 3_000
-			.saturating_add((82_000 as Weight).saturating_mul(i as Weight))
-			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-	fn claim_classic_ticker() -> Weight {
-		(271_133_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
-	}
-	fn reserve_classic_ticker() -> Weight {
-		(54_049_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(3 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
-	}
-	fn controller_transfer() -> Weight {
-		(201_389_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(20 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(9 as Weight))
-	}
-	fn register_custom_asset_type(n: u32, ) -> Weight {
-		(61_861_000 as Weight)
-			// Standard Error: 0
-			.saturating_add((12_000 as Weight).saturating_mul(n as Weight))
-			.saturating_add(RocksDbWeight::get().reads(6 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
+			.saturating_add(DbWeight::get().reads(6 as Weight))
+			.saturating_add(DbWeight::get().writes(3 as Weight))
 	}
 }

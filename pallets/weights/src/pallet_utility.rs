@@ -48,130 +48,42 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
-use sp_std::marker::PhantomData;
+use polymesh_runtime_common::GetDispatchInfo;
+use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight as DbWeight}};
 
-/// Weight functions needed for pallet_utility.
-pub trait WeightInfo {
-	fn batch(c: u32, ) -> Weight;
-	fn batch_transfer(c: u32, ) -> Weight;
-	fn batch_atomic(c: u32, ) -> Weight;
-	fn batch_atomic_transfer(c: u32, ) -> Weight;
-	fn batch_optimistic(c: u32, ) -> Weight;
-	fn batch_optimistic_transfer(c: u32, ) -> Weight;
-	fn relay_tx() -> Weight;
-	fn relay_tx_transfer() -> Weight;
+
+fn sum_weights(calls: &[impl GetDispatchInfo]) -> Weight {
+    calls
+        .iter()
+        .map(|call| call.get_dispatch_info().weight)
+        .fold(0 as Weight, |a: Weight, n| a.saturating_add(n))
 }
 
 /// Weights for pallet_utility using the Substrate node and recommended hardware.
-pub struct SubstrateWeight<T>(PhantomData<T>);
-impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	fn batch(c: u32, ) -> Weight {
+pub struct WeightInfo;
+impl pallet_utility::WeightInfo for WeightInfo {
+	fn batch(calls: &[impl GetDispatchInfo]) -> Weight {
 		(40_168_000 as Weight)
-			// Standard Error: 312_000
-			.saturating_add((20_667_000 as Weight).saturating_mul(c as Weight))
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+			.saturating_add(sum_weights(calls))
+			.saturating_add(DbWeight::get().reads(2 as Weight))
+			.saturating_add(DbWeight::get().writes(2 as Weight))
 	}
-	fn batch_transfer(c: u32, ) -> Weight {
-		(104_351_000 as Weight)
-			// Standard Error: 917_000
-			.saturating_add((89_645_000 as Weight).saturating_mul(c as Weight))
-			.saturating_add(T::DbWeight::get().reads(11 as Weight))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
-	}
-	fn batch_atomic(c: u32, ) -> Weight {
+	fn batch_atomic(calls: &[impl GetDispatchInfo]) -> Weight {
 		(34_179_000 as Weight)
-			// Standard Error: 278_000
-			.saturating_add((21_605_000 as Weight).saturating_mul(c as Weight))
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+			.saturating_add(sum_weights(calls))
+			.saturating_add(DbWeight::get().reads(2 as Weight))
+			.saturating_add(DbWeight::get().writes(2 as Weight))
 	}
-	fn batch_atomic_transfer(c: u32, ) -> Weight {
-		(83_149_000 as Weight)
-			// Standard Error: 860_000
-			.saturating_add((89_011_000 as Weight).saturating_mul(c as Weight))
-			.saturating_add(T::DbWeight::get().reads(11 as Weight))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
-	}
-	fn batch_optimistic(c: u32, ) -> Weight {
+	fn batch_optimistic(calls: &[impl GetDispatchInfo]) -> Weight {
 		(32_963_000 as Weight)
-			// Standard Error: 298_000
-			.saturating_add((20_585_000 as Weight).saturating_mul(c as Weight))
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+			.saturating_add(sum_weights(calls))
+			.saturating_add(DbWeight::get().reads(2 as Weight))
+			.saturating_add(DbWeight::get().writes(2 as Weight))
 	}
-	fn batch_optimistic_transfer(c: u32, ) -> Weight {
-		(74_763_000 as Weight)
-			// Standard Error: 905_000
-			.saturating_add((89_964_000 as Weight).saturating_mul(c as Weight))
-			.saturating_add(T::DbWeight::get().reads(11 as Weight))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
-	}
-	fn relay_tx() -> Weight {
+	fn relay_tx(call: &impl GetDispatchInfo) -> Weight {
 		(191_811_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(12 as Weight))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
-	}
-	fn relay_tx_transfer() -> Weight {
-		(297_223_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(17 as Weight))
-			.saturating_add(T::DbWeight::get().writes(5 as Weight))
-	}
-}
-
-// For backwards compatibility and tests
-impl WeightInfo for () {
-	fn batch(c: u32, ) -> Weight {
-		(40_168_000 as Weight)
-			// Standard Error: 312_000
-			.saturating_add((20_667_000 as Weight).saturating_mul(c as Weight))
-			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
-	}
-	fn batch_transfer(c: u32, ) -> Weight {
-		(104_351_000 as Weight)
-			// Standard Error: 917_000
-			.saturating_add((89_645_000 as Weight).saturating_mul(c as Weight))
-			.saturating_add(RocksDbWeight::get().reads(11 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(4 as Weight))
-	}
-	fn batch_atomic(c: u32, ) -> Weight {
-		(34_179_000 as Weight)
-			// Standard Error: 278_000
-			.saturating_add((21_605_000 as Weight).saturating_mul(c as Weight))
-			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
-	}
-	fn batch_atomic_transfer(c: u32, ) -> Weight {
-		(83_149_000 as Weight)
-			// Standard Error: 860_000
-			.saturating_add((89_011_000 as Weight).saturating_mul(c as Weight))
-			.saturating_add(RocksDbWeight::get().reads(11 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(4 as Weight))
-	}
-	fn batch_optimistic(c: u32, ) -> Weight {
-		(32_963_000 as Weight)
-			// Standard Error: 298_000
-			.saturating_add((20_585_000 as Weight).saturating_mul(c as Weight))
-			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
-	}
-	fn batch_optimistic_transfer(c: u32, ) -> Weight {
-		(74_763_000 as Weight)
-			// Standard Error: 905_000
-			.saturating_add((89_964_000 as Weight).saturating_mul(c as Weight))
-			.saturating_add(RocksDbWeight::get().reads(11 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(4 as Weight))
-	}
-	fn relay_tx() -> Weight {
-		(191_811_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(12 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
-	}
-	fn relay_tx_transfer() -> Weight {
-		(297_223_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(17 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(5 as Weight))
+			.saturating_add(call.get_dispatch_info().weight)
+			.saturating_add(DbWeight::get().reads(12 as Weight))
+			.saturating_add(DbWeight::get().writes(3 as Weight))
 	}
 }

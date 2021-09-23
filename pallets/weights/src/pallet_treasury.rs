@@ -48,48 +48,24 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
-use sp_std::marker::PhantomData;
+use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight as DbWeight}};
 
-/// Weight functions needed for pallet_treasury.
-pub trait WeightInfo {
-	fn disbursement(b: u32, ) -> Weight;
-	fn reimbursement() -> Weight;
-}
 
 /// Weights for pallet_treasury using the Substrate node and recommended hardware.
-pub struct SubstrateWeight<T>(PhantomData<T>);
-impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+pub struct WeightInfo;
+impl pallet_treasury::WeightInfo for WeightInfo {
 	fn disbursement(b: u32, ) -> Weight {
 		(8_142_000 as Weight)
 			// Standard Error: 360_000
 			.saturating_add((79_071_000 as Weight).saturating_mul(b as Weight))
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().reads((2 as Weight).saturating_mul(b as Weight)))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes((1 as Weight).saturating_mul(b as Weight)))
+			.saturating_add(DbWeight::get().reads(4 as Weight))
+			.saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(b as Weight)))
+			.saturating_add(DbWeight::get().writes(2 as Weight))
+			.saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(b as Weight)))
 	}
 	fn reimbursement() -> Weight {
 		(175_965_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(14 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
-	}
-}
-
-// For backwards compatibility and tests
-impl WeightInfo for () {
-	fn disbursement(b: u32, ) -> Weight {
-		(8_142_000 as Weight)
-			// Standard Error: 360_000
-			.saturating_add((79_071_000 as Weight).saturating_mul(b as Weight))
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().reads((2 as Weight).saturating_mul(b as Weight)))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes((1 as Weight).saturating_mul(b as Weight)))
-	}
-	fn reimbursement() -> Weight {
-		(175_965_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(14 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+			.saturating_add(DbWeight::get().reads(14 as Weight))
+			.saturating_add(DbWeight::get().writes(2 as Weight))
 	}
 }

@@ -48,56 +48,43 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
-use sp_std::marker::PhantomData;
+use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight as DbWeight}};
 
-/// Weight functions needed for pallet_compliance_manager.
-pub trait WeightInfo {
-	fn add_compliance_requirement(s: u32, r: u32, ) -> Weight;
-	fn remove_compliance_requirement() -> Weight;
-	fn pause_asset_compliance() -> Weight;
-	fn resume_asset_compliance() -> Weight;
-	fn add_default_trusted_claim_issuer() -> Weight;
-	fn remove_default_trusted_claim_issuer() -> Weight;
-	fn change_compliance_requirement(s: u32, r: u32, ) -> Weight;
-	fn replace_asset_compliance(c: u32, ) -> Weight;
-	fn reset_asset_compliance() -> Weight;
-}
 
 /// Weights for pallet_compliance_manager using the Substrate node and recommended hardware.
-pub struct SubstrateWeight<T>(PhantomData<T>);
-impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+pub struct WeightInfo;
+impl pallet_compliance_manager::WeightInfo for WeightInfo {
 	fn add_compliance_requirement(_s: u32, r: u32, ) -> Weight {
 		(109_703_000 as Weight)
 			// Standard Error: 999_000
 			.saturating_add((1_982_000 as Weight).saturating_mul(r as Weight))
-			.saturating_add(T::DbWeight::get().reads(9 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().reads(9 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	fn remove_compliance_requirement() -> Weight {
 		(85_600_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(6 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().reads(6 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	fn pause_asset_compliance() -> Weight {
 		(86_216_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(6 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().reads(6 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	fn resume_asset_compliance() -> Weight {
 		(89_879_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(6 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().reads(6 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	fn add_default_trusted_claim_issuer() -> Weight {
 		(100_935_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(8 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().reads(8 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	fn remove_default_trusted_claim_issuer() -> Weight {
 		(83_610_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(6 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().reads(6 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	fn change_compliance_requirement(s: u32, r: u32, ) -> Weight {
 		(85_508_000 as Weight)
@@ -105,76 +92,19 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add((6_414_000 as Weight).saturating_mul(s as Weight))
 			// Standard Error: 2_801_000
 			.saturating_add((2_747_000 as Weight).saturating_mul(r as Weight))
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().reads(7 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	fn replace_asset_compliance(c: u32, ) -> Weight {
 		(93_524_000 as Weight)
 			// Standard Error: 11_131_000
 			.saturating_add((34_883_000 as Weight).saturating_mul(c as Weight))
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().reads(7 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	fn reset_asset_compliance() -> Weight {
 		(69_586_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
-	}
-}
-
-// For backwards compatibility and tests
-impl WeightInfo for () {
-	fn add_compliance_requirement(_s: u32, r: u32, ) -> Weight {
-		(109_703_000 as Weight)
-			// Standard Error: 999_000
-			.saturating_add((1_982_000 as Weight).saturating_mul(r as Weight))
-			.saturating_add(RocksDbWeight::get().reads(9 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-	fn remove_compliance_requirement() -> Weight {
-		(85_600_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(6 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-	fn pause_asset_compliance() -> Weight {
-		(86_216_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(6 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-	fn resume_asset_compliance() -> Weight {
-		(89_879_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(6 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-	fn add_default_trusted_claim_issuer() -> Weight {
-		(100_935_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(8 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-	fn remove_default_trusted_claim_issuer() -> Weight {
-		(83_610_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(6 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-	fn change_compliance_requirement(s: u32, r: u32, ) -> Weight {
-		(85_508_000 as Weight)
-			// Standard Error: 2_801_000
-			.saturating_add((6_414_000 as Weight).saturating_mul(s as Weight))
-			// Standard Error: 2_801_000
-			.saturating_add((2_747_000 as Weight).saturating_mul(r as Weight))
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-	fn replace_asset_compliance(c: u32, ) -> Weight {
-		(93_524_000 as Weight)
-			// Standard Error: 11_131_000
-			.saturating_add((34_883_000 as Weight).saturating_mul(c as Weight))
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-	fn reset_asset_compliance() -> Weight {
-		(69_586_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().reads(5 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 }

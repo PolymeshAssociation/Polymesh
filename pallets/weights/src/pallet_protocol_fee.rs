@@ -48,36 +48,18 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
-use sp_std::marker::PhantomData;
+use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight as DbWeight}};
 
-/// Weight functions needed for pallet_protocol_fee.
-pub trait WeightInfo {
-	fn change_coefficient(n: u32, d: u32, ) -> Weight;
-	fn change_base_fee(b: u32, ) -> Weight;
-}
 
 /// Weights for pallet_protocol_fee using the Substrate node and recommended hardware.
-pub struct SubstrateWeight<T>(PhantomData<T>);
-impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	fn change_coefficient(_n: u32, _d: u32, ) -> Weight {
+pub struct WeightInfo;
+impl pallet_protocol_fee::WeightInfo for WeightInfo {
+	fn change_coefficient() -> Weight {
 		(19_934_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
-	fn change_base_fee(_b: u32, ) -> Weight {
+	fn change_base_fee() -> Weight {
 		(21_511_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
-	}
-}
-
-// For backwards compatibility and tests
-impl WeightInfo for () {
-	fn change_coefficient(_n: u32, _d: u32, ) -> Weight {
-		(19_934_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-	fn change_base_fee(_b: u32, ) -> Weight {
-		(21_511_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 }

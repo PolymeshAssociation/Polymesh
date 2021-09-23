@@ -48,247 +48,115 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
-use sp_std::marker::PhantomData;
+use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight as DbWeight}};
 
-/// Weight functions needed for pallet_multisig.
-pub trait WeightInfo {
-	fn create_multisig(i: u32, ) -> Weight;
-	fn create_or_approve_proposal_as_identity() -> Weight;
-	fn create_or_approve_proposal_as_key() -> Weight;
-	fn create_proposal_as_identity() -> Weight;
-	fn create_proposal_as_key() -> Weight;
-	fn approve_as_identity() -> Weight;
-	fn approve_as_key() -> Weight;
-	fn reject_as_identity() -> Weight;
-	fn reject_as_key() -> Weight;
-	fn accept_multisig_signer_as_identity() -> Weight;
-	fn accept_multisig_signer_as_key() -> Weight;
-	fn add_multisig_signer() -> Weight;
-	fn remove_multisig_signer() -> Weight;
-	fn add_multisig_signers_via_creator(i: u32, ) -> Weight;
-	fn remove_multisig_signers_via_creator(i: u32, ) -> Weight;
-	fn change_sigs_required() -> Weight;
-	fn make_multisig_signer() -> Weight;
-	fn make_multisig_primary() -> Weight;
-	fn execute_scheduled_proposal() -> Weight;
-}
 
 /// Weights for pallet_multisig using the Substrate node and recommended hardware.
-pub struct SubstrateWeight<T>(PhantomData<T>);
-impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+pub struct WeightInfo;
+impl pallet_multisig::WeightInfo for WeightInfo {
 	fn create_multisig(i: u32, ) -> Weight {
 		(68_504_000 as Weight)
 			// Standard Error: 96_000
 			.saturating_add((21_358_000 as Weight).saturating_mul(i as Weight))
-			.saturating_add(T::DbWeight::get().reads(8 as Weight))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
+			.saturating_add(DbWeight::get().reads(8 as Weight))
+			.saturating_add(DbWeight::get().writes(4 as Weight))
+			.saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
 	}
 	fn create_or_approve_proposal_as_identity() -> Weight {
 		(175_931_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(12 as Weight))
-			.saturating_add(T::DbWeight::get().writes(7 as Weight))
+			.saturating_add(DbWeight::get().reads(12 as Weight))
+			.saturating_add(DbWeight::get().writes(7 as Weight))
 	}
 	fn create_or_approve_proposal_as_key() -> Weight {
 		(166_479_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(11 as Weight))
-			.saturating_add(T::DbWeight::get().writes(7 as Weight))
+			.saturating_add(DbWeight::get().reads(11 as Weight))
+			.saturating_add(DbWeight::get().writes(7 as Weight))
 	}
 	fn create_proposal_as_identity() -> Weight {
 		(159_753_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(11 as Weight))
-			.saturating_add(T::DbWeight::get().writes(7 as Weight))
+			.saturating_add(DbWeight::get().reads(11 as Weight))
+			.saturating_add(DbWeight::get().writes(7 as Weight))
 	}
 	fn create_proposal_as_key() -> Weight {
 		(159_402_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(10 as Weight))
-			.saturating_add(T::DbWeight::get().writes(7 as Weight))
+			.saturating_add(DbWeight::get().reads(10 as Weight))
+			.saturating_add(DbWeight::get().writes(7 as Weight))
 	}
 	fn approve_as_identity() -> Weight {
 		(135_081_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(11 as Weight))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
+			.saturating_add(DbWeight::get().reads(11 as Weight))
+			.saturating_add(DbWeight::get().writes(4 as Weight))
 	}
 	fn approve_as_key() -> Weight {
 		(116_833_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(8 as Weight))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
+			.saturating_add(DbWeight::get().reads(8 as Weight))
+			.saturating_add(DbWeight::get().writes(4 as Weight))
 	}
 	fn reject_as_identity() -> Weight {
 		(96_650_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(8 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+			.saturating_add(DbWeight::get().reads(8 as Weight))
+			.saturating_add(DbWeight::get().writes(2 as Weight))
 	}
 	fn reject_as_key() -> Weight {
 		(83_560_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(6 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+			.saturating_add(DbWeight::get().reads(6 as Weight))
+			.saturating_add(DbWeight::get().writes(2 as Weight))
 	}
 	fn accept_multisig_signer_as_identity() -> Weight {
 		(99_648_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(8 as Weight))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
+			.saturating_add(DbWeight::get().reads(8 as Weight))
+			.saturating_add(DbWeight::get().writes(4 as Weight))
 	}
 	fn accept_multisig_signer_as_key() -> Weight {
 		(97_168_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes(5 as Weight))
+			.saturating_add(DbWeight::get().reads(7 as Weight))
+			.saturating_add(DbWeight::get().writes(5 as Weight))
 	}
 	fn add_multisig_signer() -> Weight {
 		(60_918_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
+			.saturating_add(DbWeight::get().reads(2 as Weight))
+			.saturating_add(DbWeight::get().writes(3 as Weight))
 	}
 	fn remove_multisig_signer() -> Weight {
 		(63_994_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(6 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+			.saturating_add(DbWeight::get().reads(6 as Weight))
+			.saturating_add(DbWeight::get().writes(2 as Weight))
 	}
 	fn add_multisig_signers_via_creator(i: u32, ) -> Weight {
 		(38_363_000 as Weight)
 			// Standard Error: 130_000
 			.saturating_add((30_270_000 as Weight).saturating_mul(i as Weight))
-			.saturating_add(T::DbWeight::get().reads(6 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
+			.saturating_add(DbWeight::get().reads(6 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
 	}
 	fn remove_multisig_signers_via_creator(i: u32, ) -> Weight {
 		(54_496_000 as Weight)
 			// Standard Error: 106_000
 			.saturating_add((24_356_000 as Weight).saturating_mul(i as Weight))
-			.saturating_add(T::DbWeight::get().reads(8 as Weight))
-			.saturating_add(T::DbWeight::get().reads((1 as Weight).saturating_mul(i as Weight)))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
+			.saturating_add(DbWeight::get().reads(8 as Weight))
+			.saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(i as Weight)))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
 	}
 	fn change_sigs_required() -> Weight {
 		(48_413_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(DbWeight::get().reads(4 as Weight))
+			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	fn make_multisig_signer() -> Weight {
 		(81_025_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+			.saturating_add(DbWeight::get().reads(7 as Weight))
+			.saturating_add(DbWeight::get().writes(2 as Weight))
 	}
 	fn make_multisig_primary() -> Weight {
 		(98_846_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(9 as Weight))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
+			.saturating_add(DbWeight::get().reads(9 as Weight))
+			.saturating_add(DbWeight::get().writes(3 as Weight))
 	}
 	fn execute_scheduled_proposal() -> Weight {
 		(101_310_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(9 as Weight))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
-	}
-}
-
-// For backwards compatibility and tests
-impl WeightInfo for () {
-	fn create_multisig(i: u32, ) -> Weight {
-		(68_504_000 as Weight)
-			// Standard Error: 96_000
-			.saturating_add((21_358_000 as Weight).saturating_mul(i as Weight))
-			.saturating_add(RocksDbWeight::get().reads(8 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
-	}
-	fn create_or_approve_proposal_as_identity() -> Weight {
-		(175_931_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(12 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(7 as Weight))
-	}
-	fn create_or_approve_proposal_as_key() -> Weight {
-		(166_479_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(11 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(7 as Weight))
-	}
-	fn create_proposal_as_identity() -> Weight {
-		(159_753_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(11 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(7 as Weight))
-	}
-	fn create_proposal_as_key() -> Weight {
-		(159_402_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(10 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(7 as Weight))
-	}
-	fn approve_as_identity() -> Weight {
-		(135_081_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(11 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(4 as Weight))
-	}
-	fn approve_as_key() -> Weight {
-		(116_833_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(8 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(4 as Weight))
-	}
-	fn reject_as_identity() -> Weight {
-		(96_650_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(8 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
-	}
-	fn reject_as_key() -> Weight {
-		(83_560_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(6 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
-	}
-	fn accept_multisig_signer_as_identity() -> Weight {
-		(99_648_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(8 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(4 as Weight))
-	}
-	fn accept_multisig_signer_as_key() -> Weight {
-		(97_168_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(5 as Weight))
-	}
-	fn add_multisig_signer() -> Weight {
-		(60_918_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
-	}
-	fn remove_multisig_signer() -> Weight {
-		(63_994_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(6 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
-	}
-	fn add_multisig_signers_via_creator(i: u32, ) -> Weight {
-		(38_363_000 as Weight)
-			// Standard Error: 130_000
-			.saturating_add((30_270_000 as Weight).saturating_mul(i as Weight))
-			.saturating_add(RocksDbWeight::get().reads(6 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-			.saturating_add(RocksDbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
-	}
-	fn remove_multisig_signers_via_creator(i: u32, ) -> Weight {
-		(54_496_000 as Weight)
-			// Standard Error: 106_000
-			.saturating_add((24_356_000 as Weight).saturating_mul(i as Weight))
-			.saturating_add(RocksDbWeight::get().reads(8 as Weight))
-			.saturating_add(RocksDbWeight::get().reads((1 as Weight).saturating_mul(i as Weight)))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-			.saturating_add(RocksDbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
-	}
-	fn change_sigs_required() -> Weight {
-		(48_413_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-	fn make_multisig_signer() -> Weight {
-		(81_025_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
-	}
-	fn make_multisig_primary() -> Weight {
-		(98_846_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(9 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
-	}
-	fn execute_scheduled_proposal() -> Weight {
-		(101_310_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(9 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(4 as Weight))
+			.saturating_add(DbWeight::get().reads(9 as Weight))
+			.saturating_add(DbWeight::get().writes(4 as Weight))
 	}
 }

@@ -51,15 +51,9 @@
 use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
 use sp_std::marker::PhantomData;
 
-/// Weight functions needed for pallet_rewards.
-pub trait WeightInfo {
-	fn claim_itn_reward() -> Weight;
-	fn set_itn_reward_status() -> Weight;
-}
-
 /// Weights for pallet_rewards using the Substrate node and recommended hardware.
-pub struct SubstrateWeight<T>(PhantomData<T>);
-impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+pub struct WeightInfo<T>(PhantomData<T>);
+impl<T: frame_system::Config> pallet_rewards::WeightInfo for WeightInfo<T> {
 	fn claim_itn_reward() -> Weight {
 		(292_995_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(18 as Weight))
@@ -68,18 +62,5 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn set_itn_reward_status() -> Weight {
 		(7_044_000 as Weight)
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
-	}
-}
-
-// For backwards compatibility and tests
-impl WeightInfo for () {
-	fn claim_itn_reward() -> Weight {
-		(292_995_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(18 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(7 as Weight))
-	}
-	fn set_itn_reward_status() -> Weight {
-		(7_044_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
 }
