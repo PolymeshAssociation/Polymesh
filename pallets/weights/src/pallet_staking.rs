@@ -44,235 +44,230 @@
 // ./.maintain/frame-weight-template.hbs
 // --raw
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight as DbWeight}};
+use frame_support::{
+    traits::Get,
+    weights::{constants::RocksDbWeight as DbWeight, Weight},
+};
 
 pub struct WeightInfo;
 impl pallet_staking::WeightInfo for WeightInfo {
-
-	fn bond() -> Weight {
-		(134_030_000 as Weight)
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().writes(4 as Weight))
-	}
-	fn bond_extra() -> Weight {
-		(111_458_000 as Weight)
-			.saturating_add(DbWeight::get().reads(5 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn unbond() -> Weight {
-		(102_173_000 as Weight)
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
-	fn withdraw_unbonded_update(s: u32, ) -> Weight {
-		(96_219_000 as Weight)
-			// Standard Error: 3_000
-			.saturating_add((36_000 as Weight).saturating_mul(s as Weight))
-			.saturating_add(DbWeight::get().reads(5 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
-	fn withdraw_unbonded_kill(s: u32, ) -> Weight {
-		(148_384_000 as Weight)
-			// Standard Error: 9_000
-			.saturating_add((4_068_000 as Weight).saturating_mul(s as Weight))
-			.saturating_add(DbWeight::get().reads(7 as Weight))
-			.saturating_add(DbWeight::get().writes(8 as Weight))
-			.saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(s as Weight)))
-	}
-	fn validate() -> Weight {
-		(85_105_000 as Weight)
-			.saturating_add(DbWeight::get().reads(8 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
-	fn set_min_bond_threshold() -> Weight {
-		(25_177_000 as Weight)
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn add_permissioned_validator() -> Weight {
-		(88_319_000 as Weight)
-			.saturating_add(DbWeight::get().reads(7 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn remove_permissioned_validator() -> Weight {
-		(46_349_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn set_commission_cap(m: u32, ) -> Weight {
-		(44_929_000 as Weight)
-			// Standard Error: 206_000
-			.saturating_add((21_475_000 as Weight).saturating_mul(m as Weight))
-			.saturating_add(DbWeight::get().reads(3 as Weight))
-			.saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(m as Weight)))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-			.saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(m as Weight)))
-	}
-	fn nominate(n: u32, ) -> Weight {
-		(138_833_000 as Weight)
-			// Standard Error: 150_000
-			.saturating_add((1_184_000 as Weight).saturating_mul(n as Weight))
-			.saturating_add(DbWeight::get().reads(11 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn chill() -> Weight {
-		(41_298_000 as Weight)
-			.saturating_add(DbWeight::get().reads(3 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn set_payee() -> Weight {
-		(24_372_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn set_controller() -> Weight {
-		(50_385_000 as Weight)
-			.saturating_add(DbWeight::get().reads(3 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
-	fn set_validator_count() -> Weight {
-		(3_323_000 as Weight)
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn force_no_eras() -> Weight {
-		(3_673_000 as Weight)
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn force_new_era() -> Weight {
-		(3_621_000 as Weight)
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn force_new_era_always() -> Weight {
-		(3_747_000 as Weight)
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn set_invulnerables(v: u32, ) -> Weight {
-		(3_681_000 as Weight)
-			// Standard Error: 0
-			.saturating_add((10_000 as Weight).saturating_mul(v as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn force_unstake(s: u32, ) -> Weight {
-		(57_044_000 as Weight)
-			// Standard Error: 134_000
-			.saturating_add((5_682_000 as Weight).saturating_mul(s as Weight))
-			.saturating_add(DbWeight::get().reads(4 as Weight))
-			.saturating_add(DbWeight::get().writes(8 as Weight))
-			.saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(s as Weight)))
-	}
-	fn cancel_deferred_slash(s: u32, ) -> Weight {
-		(12_960_405_000 as Weight)
-			// Standard Error: 2_350_000
-			.saturating_add((50_116_000 as Weight).saturating_mul(s as Weight))
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn payout_stakers(n: u32, ) -> Weight {
-		(382_331_000 as Weight)
-			// Standard Error: 1_464_000
-			.saturating_add((168_372_000 as Weight).saturating_mul(n as Weight))
-			.saturating_add(DbWeight::get().reads(17 as Weight))
-			.saturating_add(DbWeight::get().reads((6 as Weight).saturating_mul(n as Weight)))
-			.saturating_add(DbWeight::get().writes(4 as Weight))
-			.saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(n as Weight)))
-	}
-	fn payout_stakers_alive_controller(n: u32, ) -> Weight {
-		(497_854_000 as Weight)
-			// Standard Error: 1_306_000
-			.saturating_add((180_576_000 as Weight).saturating_mul(n as Weight))
-			.saturating_add(DbWeight::get().reads(17 as Weight))
-			.saturating_add(DbWeight::get().reads((7 as Weight).saturating_mul(n as Weight)))
-			.saturating_add(DbWeight::get().writes(4 as Weight))
-			.saturating_add(DbWeight::get().writes((3 as Weight).saturating_mul(n as Weight)))
-	}
-	fn rebond(l: u32, ) -> Weight {
-		(66_370_000 as Weight)
-			// Standard Error: 9_000
-			.saturating_add((87_000 as Weight).saturating_mul(l as Weight))
-			.saturating_add(DbWeight::get().reads(4 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
-	fn set_history_depth(e: u32, ) -> Weight {
-		(0 as Weight)
-			// Standard Error: 258_000
-			.saturating_add((50_175_000 as Weight).saturating_mul(e as Weight))
-			.saturating_add(DbWeight::get().reads(2 as Weight))
-			.saturating_add(DbWeight::get().writes(4 as Weight))
-			.saturating_add(DbWeight::get().writes((7 as Weight).saturating_mul(e as Weight)))
-	}
-	fn reap_stash(s: u32, ) -> Weight {
-		(110_825_000 as Weight)
-			// Standard Error: 57_000
-			.saturating_add((4_254_000 as Weight).saturating_mul(s as Weight))
-			.saturating_add(DbWeight::get().reads(4 as Weight))
-			.saturating_add(DbWeight::get().writes(8 as Weight))
-			.saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(s as Weight)))
-	}
-	fn new_era(v: u32, n: u32, ) -> Weight {
-		(0 as Weight)
-			// Standard Error: 52_374_000
-			.saturating_add((942_782_000 as Weight).saturating_mul(v as Weight))
-			// Standard Error: 2_631_000
-			.saturating_add((171_002_000 as Weight).saturating_mul(n as Weight))
-			.saturating_add(DbWeight::get().reads(11 as Weight))
-			.saturating_add(DbWeight::get().reads((9 as Weight).saturating_mul(v as Weight)))
-			.saturating_add(DbWeight::get().reads((7 as Weight).saturating_mul(n as Weight)))
-			.saturating_add(DbWeight::get().writes(8 as Weight))
-			.saturating_add(DbWeight::get().writes((3 as Weight).saturating_mul(v as Weight)))
-	}
-	fn payout_all(v: u32, n: u32, ) -> Weight {
-		(0 as Weight)
-			// Standard Error: 668_383_000
-			.saturating_add((6_186_372_000 as Weight).saturating_mul(v as Weight))
-			// Standard Error: 33_582_000
-			.saturating_add((935_122_000 as Weight).saturating_mul(n as Weight))
-			.saturating_add(DbWeight::get().reads(8 as Weight))
-			.saturating_add(DbWeight::get().reads((9 as Weight).saturating_mul(v as Weight)))
-			.saturating_add(DbWeight::get().reads((7 as Weight).saturating_mul(n as Weight)))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-			.saturating_add(DbWeight::get().writes((3 as Weight).saturating_mul(v as Weight)))
-			.saturating_add(DbWeight::get().writes((3 as Weight).saturating_mul(n as Weight)))
-	}
-	fn do_slash(l: u32, ) -> Weight {
-		(112_675_000 as Weight)
-			// Standard Error: 10_000
-			.saturating_add((167_000 as Weight).saturating_mul(l as Weight))
-			.saturating_add(DbWeight::get().reads(4 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
-	fn submit_solution_better(_v: u32, n: u32, a: u32, w: u32, ) -> Weight {
-		(0 as Weight)
-			// Standard Error: 486_000
-			.saturating_add((965_000 as Weight).saturating_mul(n as Weight))
-			// Standard Error: 1_622_000
-			.saturating_add((121_950_000 as Weight).saturating_mul(a as Weight))
-			// Standard Error: 6_089_000
-			.saturating_add((15_447_000 as Weight).saturating_mul(w as Weight))
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().reads((4 as Weight).saturating_mul(a as Weight)))
-			.saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(w as Weight)))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn change_slashing_allowed_for() -> Weight {
-		(25_129_000 as Weight)
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn update_permissioned_validator_intended_count() -> Weight {
-		(27_887_000 as Weight)
-			.saturating_add(DbWeight::get().reads(2 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn increase_validator_count() -> Weight {
-		(9_852_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn scale_validator_count() -> Weight {
-		(9_492_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
+    fn bond() -> Weight {
+        (134_030_000 as Weight)
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(4 as Weight))
+    }
+    fn bond_extra() -> Weight {
+        (111_458_000 as Weight)
+            .saturating_add(DbWeight::get().reads(5 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn unbond() -> Weight {
+        (102_173_000 as Weight)
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    fn withdraw_unbonded_update(s: u32) -> Weight {
+        (96_219_000 as Weight)
+            // Standard Error: 3_000
+            .saturating_add((36_000 as Weight).saturating_mul(s as Weight))
+            .saturating_add(DbWeight::get().reads(5 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    fn withdraw_unbonded_kill(s: u32) -> Weight {
+        (148_384_000 as Weight)
+            // Standard Error: 9_000
+            .saturating_add((4_068_000 as Weight).saturating_mul(s as Weight))
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().writes(8 as Weight))
+            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(s as Weight)))
+    }
+    fn validate() -> Weight {
+        (85_105_000 as Weight)
+            .saturating_add(DbWeight::get().reads(8 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    fn set_min_bond_threshold() -> Weight {
+        (25_177_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn add_permissioned_validator() -> Weight {
+        (88_319_000 as Weight)
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn remove_permissioned_validator() -> Weight {
+        (46_349_000 as Weight)
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn set_commission_cap(m: u32) -> Weight {
+        (44_929_000 as Weight)
+            // Standard Error: 206_000
+            .saturating_add((21_475_000 as Weight).saturating_mul(m as Weight))
+            .saturating_add(DbWeight::get().reads(3 as Weight))
+            .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(m as Weight)))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(m as Weight)))
+    }
+    fn nominate(n: u32) -> Weight {
+        (138_833_000 as Weight)
+            // Standard Error: 150_000
+            .saturating_add((1_184_000 as Weight).saturating_mul(n as Weight))
+            .saturating_add(DbWeight::get().reads(11 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn chill() -> Weight {
+        (41_298_000 as Weight)
+            .saturating_add(DbWeight::get().reads(3 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn set_payee() -> Weight {
+        (24_372_000 as Weight)
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn set_controller() -> Weight {
+        (50_385_000 as Weight)
+            .saturating_add(DbWeight::get().reads(3 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    fn set_validator_count() -> Weight {
+        (3_323_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn force_no_eras() -> Weight {
+        (3_673_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn force_new_era() -> Weight {
+        (3_621_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn force_new_era_always() -> Weight {
+        (3_747_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn set_invulnerables(v: u32) -> Weight {
+        (3_681_000 as Weight)
+            // Standard Error: 0
+            .saturating_add((10_000 as Weight).saturating_mul(v as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn force_unstake(s: u32) -> Weight {
+        (57_044_000 as Weight)
+            // Standard Error: 134_000
+            .saturating_add((5_682_000 as Weight).saturating_mul(s as Weight))
+            .saturating_add(DbWeight::get().reads(4 as Weight))
+            .saturating_add(DbWeight::get().writes(8 as Weight))
+            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(s as Weight)))
+    }
+    fn cancel_deferred_slash(s: u32) -> Weight {
+        (12_960_405_000 as Weight)
+            // Standard Error: 2_350_000
+            .saturating_add((50_116_000 as Weight).saturating_mul(s as Weight))
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn payout_stakers(n: u32) -> Weight {
+        (382_331_000 as Weight)
+            // Standard Error: 1_464_000
+            .saturating_add((168_372_000 as Weight).saturating_mul(n as Weight))
+            .saturating_add(DbWeight::get().reads(17 as Weight))
+            .saturating_add(DbWeight::get().reads((6 as Weight).saturating_mul(n as Weight)))
+            .saturating_add(DbWeight::get().writes(4 as Weight))
+            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(n as Weight)))
+    }
+    fn payout_stakers_alive_controller(n: u32) -> Weight {
+        (497_854_000 as Weight)
+            // Standard Error: 1_306_000
+            .saturating_add((180_576_000 as Weight).saturating_mul(n as Weight))
+            .saturating_add(DbWeight::get().reads(17 as Weight))
+            .saturating_add(DbWeight::get().reads((7 as Weight).saturating_mul(n as Weight)))
+            .saturating_add(DbWeight::get().writes(4 as Weight))
+            .saturating_add(DbWeight::get().writes((3 as Weight).saturating_mul(n as Weight)))
+    }
+    fn rebond(l: u32) -> Weight {
+        (66_370_000 as Weight)
+            // Standard Error: 9_000
+            .saturating_add((87_000 as Weight).saturating_mul(l as Weight))
+            .saturating_add(DbWeight::get().reads(4 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    fn set_history_depth(e: u32) -> Weight {
+        (0 as Weight)
+            // Standard Error: 258_000
+            .saturating_add((50_175_000 as Weight).saturating_mul(e as Weight))
+            .saturating_add(DbWeight::get().reads(2 as Weight))
+            .saturating_add(DbWeight::get().writes(4 as Weight))
+            .saturating_add(DbWeight::get().writes((7 as Weight).saturating_mul(e as Weight)))
+    }
+    fn reap_stash(s: u32) -> Weight {
+        (110_825_000 as Weight)
+            // Standard Error: 57_000
+            .saturating_add((4_254_000 as Weight).saturating_mul(s as Weight))
+            .saturating_add(DbWeight::get().reads(4 as Weight))
+            .saturating_add(DbWeight::get().writes(8 as Weight))
+            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(s as Weight)))
+    }
+    fn new_era(v: u32, n: u32) -> Weight {
+        (0 as Weight)
+            // Standard Error: 52_374_000
+            .saturating_add((942_782_000 as Weight).saturating_mul(v as Weight))
+            // Standard Error: 2_631_000
+            .saturating_add((171_002_000 as Weight).saturating_mul(n as Weight))
+            .saturating_add(DbWeight::get().reads(11 as Weight))
+            .saturating_add(DbWeight::get().reads((9 as Weight).saturating_mul(v as Weight)))
+            .saturating_add(DbWeight::get().reads((7 as Weight).saturating_mul(n as Weight)))
+            .saturating_add(DbWeight::get().writes(8 as Weight))
+            .saturating_add(DbWeight::get().writes((3 as Weight).saturating_mul(v as Weight)))
+    }
+    fn payout_all(v: u32, n: u32) -> Weight {
+        (0 as Weight)
+            // Standard Error: 668_383_000
+            .saturating_add((6_186_372_000 as Weight).saturating_mul(v as Weight))
+            // Standard Error: 33_582_000
+            .saturating_add((935_122_000 as Weight).saturating_mul(n as Weight))
+            .saturating_add(DbWeight::get().reads(8 as Weight))
+            .saturating_add(DbWeight::get().reads((9 as Weight).saturating_mul(v as Weight)))
+            .saturating_add(DbWeight::get().reads((7 as Weight).saturating_mul(n as Weight)))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+            .saturating_add(DbWeight::get().writes((3 as Weight).saturating_mul(v as Weight)))
+            .saturating_add(DbWeight::get().writes((3 as Weight).saturating_mul(n as Weight)))
+    }
+    fn do_slash(l: u32) -> Weight {
+        (112_675_000 as Weight)
+            // Standard Error: 10_000
+            .saturating_add((167_000 as Weight).saturating_mul(l as Weight))
+            .saturating_add(DbWeight::get().reads(4 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    fn submit_solution_better(_v: u32, n: u32, a: u32, w: u32) -> Weight {
+        (0 as Weight)
+            // Standard Error: 486_000
+            .saturating_add((965_000 as Weight).saturating_mul(n as Weight))
+            // Standard Error: 1_622_000
+            .saturating_add((121_950_000 as Weight).saturating_mul(a as Weight))
+            // Standard Error: 6_089_000
+            .saturating_add((15_447_000 as Weight).saturating_mul(w as Weight))
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().reads((4 as Weight).saturating_mul(a as Weight)))
+            .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(w as Weight)))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn change_slashing_allowed_for() -> Weight {
+        (25_129_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn update_permissioned_validator_intended_count() -> Weight {
+        (27_887_000 as Weight)
+            .saturating_add(DbWeight::get().reads(2 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn increase_validator_count() -> Weight {
+        (9_852_000 as Weight)
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn scale_validator_count() -> Weight {
+        (9_492_000 as Weight)
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
 }
