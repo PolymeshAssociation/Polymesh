@@ -44,47 +44,46 @@
 // ./.maintain/frame-weight-template.hbs
 // --raw
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight as DbWeight}};
-
+use frame_support::{
+    traits::Get,
+    weights::{constants::RocksDbWeight as DbWeight, Weight},
+};
 
 /// Weights for pallet_committee using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_committee::WeightInfo for WeightInfo {
-	fn set_vote_threshold() -> Weight {
-		(20_179_000 as Weight)
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn set_release_coordinator() -> Weight {
-		(168_641_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn set_expires_after() -> Weight {
-		(20_226_000 as Weight)
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn vote_or_propose_new_proposal() -> Weight {
-		(448_933_000 as Weight)
-			.saturating_add(DbWeight::get().reads(10 as Weight))
-			.saturating_add(DbWeight::get().writes(4 as Weight))
-	}
-	fn vote_or_propose_existing_proposal() -> Weight {
-		(465_207_000 as Weight)
-			.saturating_add(DbWeight::get().reads(7 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn vote_aye() -> Weight {
-		(857_198_000 as Weight)
-			.saturating_add(DbWeight::get().reads(10 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
-	fn vote_nay() -> Weight {
-		(462_767_000 as Weight)
-			.saturating_add(DbWeight::get().reads(7 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
+    fn set_vote_threshold() -> Weight {
+        (20_179_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn set_release_coordinator() -> Weight {
+        (168_641_000 as Weight)
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn set_expires_after() -> Weight {
+        (20_226_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn vote_or_propose_new_proposal() -> Weight {
+        (448_933_000 as Weight)
+            .saturating_add(DbWeight::get().reads(10 as Weight))
+            .saturating_add(DbWeight::get().writes(4 as Weight))
+    }
+    fn vote_or_propose_existing_proposal() -> Weight {
+        (465_207_000 as Weight)
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn vote_aye() -> Weight {
+        (857_198_000 as Weight)
+            .saturating_add(DbWeight::get().reads(10 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    fn vote_nay() -> Weight {
+        (462_767_000 as Weight)
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
 }

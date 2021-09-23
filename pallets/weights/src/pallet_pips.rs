@@ -44,116 +44,117 @@
 // ./.maintain/frame-weight-template.hbs
 // --raw
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight as DbWeight}};
-
+use frame_support::{
+    traits::Get,
+    weights::{constants::RocksDbWeight as DbWeight, Weight},
+};
 
 /// Weights for pallet_pips using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_pips::WeightInfo for WeightInfo {
-	fn set_prune_historical_pips() -> Weight {
-		(25_623_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn set_min_proposal_deposit() -> Weight {
-		(23_993_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn set_default_enactment_period() -> Weight {
-		(22_628_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn set_pending_pip_expiry() -> Weight {
-		(23_243_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn set_max_pip_skip_count() -> Weight {
-		(22_268_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn set_active_pip_limit() -> Weight {
-		(23_826_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn propose_from_community() -> Weight {
-		(209_536_000 as Weight)
-			.saturating_add(DbWeight::get().reads(16 as Weight))
-			.saturating_add(DbWeight::get().writes(10 as Weight))
-	}
-	fn propose_from_committee() -> Weight {
-		(117_058_000 as Weight)
-			.saturating_add(DbWeight::get().reads(7 as Weight))
-			.saturating_add(DbWeight::get().writes(5 as Weight))
-	}
-	fn vote() -> Weight {
-		(203_763_000 as Weight)
-			.saturating_add(DbWeight::get().reads(9 as Weight))
-			.saturating_add(DbWeight::get().writes(4 as Weight))
-	}
-	fn approve_committee_proposal() -> Weight {
-		(168_425_000 as Weight)
-			.saturating_add(DbWeight::get().reads(4 as Weight))
-			.saturating_add(DbWeight::get().writes(4 as Weight))
-	}
-	fn reject_proposal() -> Weight {
-		(290_065_000 as Weight)
-			.saturating_add(DbWeight::get().reads(9 as Weight))
-			.saturating_add(DbWeight::get().writes(10 as Weight))
-	}
-	fn prune_proposal() -> Weight {
-		(131_168_000 as Weight)
-			.saturating_add(DbWeight::get().reads(2 as Weight))
-			.saturating_add(DbWeight::get().writes(5 as Weight))
-	}
-	fn reschedule_execution() -> Weight {
-		(212_786_000 as Weight)
-			.saturating_add(DbWeight::get().reads(10 as Weight))
-			.saturating_add(DbWeight::get().writes(6 as Weight))
-	}
-	fn clear_snapshot() -> Weight {
-		(60_874_000 as Weight)
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn snapshot() -> Weight {
-		(1_109_592_000 as Weight)
-			.saturating_add(DbWeight::get().reads(7 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
-	fn enact_snapshot_results(a: u32, r: u32, s: u32, ) -> Weight {
-		(0 as Weight)
-			// Standard Error: 86_488_000
-			.saturating_add((69_546_000 as Weight).saturating_mul(a as Weight))
-			// Standard Error: 86_488_000
-			.saturating_add((16_423_208_000 as Weight).saturating_mul(r as Weight))
-			// Standard Error: 86_488_000
-			.saturating_add((167_583_000 as Weight).saturating_mul(s as Weight))
-			.saturating_add(DbWeight::get().reads(689 as Weight))
-			.saturating_add(DbWeight::get().reads((3 as Weight).saturating_mul(a as Weight)))
-			.saturating_add(DbWeight::get().reads((405 as Weight).saturating_mul(r as Weight)))
-			.saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(s as Weight)))
-			.saturating_add(DbWeight::get().writes(685 as Weight))
-			.saturating_add(DbWeight::get().writes((4 as Weight).saturating_mul(a as Weight)))
-			.saturating_add(DbWeight::get().writes((404 as Weight).saturating_mul(r as Weight)))
-			.saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(s as Weight)))
-	}
-	fn execute_scheduled_pip() -> Weight {
-		(21_543_350_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1204 as Weight))
-			.saturating_add(DbWeight::get().writes(1606 as Weight))
-	}
-	fn expire_scheduled_pip() -> Weight {
-		(20_932_739_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1207 as Weight))
-			.saturating_add(DbWeight::get().writes(1607 as Weight))
-	}
+    fn set_prune_historical_pips() -> Weight {
+        (25_623_000 as Weight)
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn set_min_proposal_deposit() -> Weight {
+        (23_993_000 as Weight)
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn set_default_enactment_period() -> Weight {
+        (22_628_000 as Weight)
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn set_pending_pip_expiry() -> Weight {
+        (23_243_000 as Weight)
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn set_max_pip_skip_count() -> Weight {
+        (22_268_000 as Weight)
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn set_active_pip_limit() -> Weight {
+        (23_826_000 as Weight)
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn propose_from_community() -> Weight {
+        (209_536_000 as Weight)
+            .saturating_add(DbWeight::get().reads(16 as Weight))
+            .saturating_add(DbWeight::get().writes(10 as Weight))
+    }
+    fn propose_from_committee() -> Weight {
+        (117_058_000 as Weight)
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().writes(5 as Weight))
+    }
+    fn vote() -> Weight {
+        (203_763_000 as Weight)
+            .saturating_add(DbWeight::get().reads(9 as Weight))
+            .saturating_add(DbWeight::get().writes(4 as Weight))
+    }
+    fn approve_committee_proposal() -> Weight {
+        (168_425_000 as Weight)
+            .saturating_add(DbWeight::get().reads(4 as Weight))
+            .saturating_add(DbWeight::get().writes(4 as Weight))
+    }
+    fn reject_proposal() -> Weight {
+        (290_065_000 as Weight)
+            .saturating_add(DbWeight::get().reads(9 as Weight))
+            .saturating_add(DbWeight::get().writes(10 as Weight))
+    }
+    fn prune_proposal() -> Weight {
+        (131_168_000 as Weight)
+            .saturating_add(DbWeight::get().reads(2 as Weight))
+            .saturating_add(DbWeight::get().writes(5 as Weight))
+    }
+    fn reschedule_execution() -> Weight {
+        (212_786_000 as Weight)
+            .saturating_add(DbWeight::get().reads(10 as Weight))
+            .saturating_add(DbWeight::get().writes(6 as Weight))
+    }
+    fn clear_snapshot() -> Weight {
+        (60_874_000 as Weight)
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn snapshot() -> Weight {
+        (1_109_592_000 as Weight)
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    fn enact_snapshot_results(a: u32, r: u32, s: u32) -> Weight {
+        (0 as Weight)
+            // Standard Error: 86_488_000
+            .saturating_add((69_546_000 as Weight).saturating_mul(a as Weight))
+            // Standard Error: 86_488_000
+            .saturating_add((16_423_208_000 as Weight).saturating_mul(r as Weight))
+            // Standard Error: 86_488_000
+            .saturating_add((167_583_000 as Weight).saturating_mul(s as Weight))
+            .saturating_add(DbWeight::get().reads(689 as Weight))
+            .saturating_add(DbWeight::get().reads((3 as Weight).saturating_mul(a as Weight)))
+            .saturating_add(DbWeight::get().reads((405 as Weight).saturating_mul(r as Weight)))
+            .saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(s as Weight)))
+            .saturating_add(DbWeight::get().writes(685 as Weight))
+            .saturating_add(DbWeight::get().writes((4 as Weight).saturating_mul(a as Weight)))
+            .saturating_add(DbWeight::get().writes((404 as Weight).saturating_mul(r as Weight)))
+            .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(s as Weight)))
+    }
+    fn execute_scheduled_pip() -> Weight {
+        (21_543_350_000 as Weight)
+            .saturating_add(DbWeight::get().reads(1204 as Weight))
+            .saturating_add(DbWeight::get().writes(1606 as Weight))
+    }
+    fn expire_scheduled_pip() -> Weight {
+        (20_932_739_000 as Weight)
+            .saturating_add(DbWeight::get().reads(1207 as Weight))
+            .saturating_add(DbWeight::get().writes(1607 as Weight))
+    }
 }

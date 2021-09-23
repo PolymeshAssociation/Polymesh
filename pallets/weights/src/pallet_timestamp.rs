@@ -44,22 +44,23 @@
 // ./.maintain/frame-weight-template.hbs
 // --raw
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight as DbWeight}};
-
+use frame_support::{
+    traits::Get,
+    weights::{constants::RocksDbWeight as DbWeight, Weight},
+};
 
 /// Weights for pallet_timestamp using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_timestamp::WeightInfo for WeightInfo {
-	fn set() -> Weight {
-		(10_162_000 as Weight)
-			.saturating_add(DbWeight::get().reads(2 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn on_finalize() -> Weight {
-		(6_101_000 as Weight)
-	}
+    fn set() -> Weight {
+        (10_162_000 as Weight)
+            .saturating_add(DbWeight::get().reads(2 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn on_finalize() -> Weight {
+        (6_101_000 as Weight)
+    }
 }

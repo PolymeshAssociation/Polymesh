@@ -44,13 +44,14 @@
 // ./.maintain/frame-weight-template.hbs
 // --raw
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
+use frame_support::{
+    traits::Get,
+    weights::{constants::RocksDbWeight as DbWeight, Weight},
+};
 use polymesh_runtime_common::GetDispatchInfo;
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight as DbWeight}};
-
 
 fn sum_weights(calls: &[impl GetDispatchInfo]) -> Weight {
     calls
@@ -62,28 +63,28 @@ fn sum_weights(calls: &[impl GetDispatchInfo]) -> Weight {
 /// Weights for pallet_utility using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_utility::WeightInfo for WeightInfo {
-	fn batch(calls: &[impl GetDispatchInfo]) -> Weight {
-		(40_168_000 as Weight)
-			.saturating_add(sum_weights(calls))
-			.saturating_add(DbWeight::get().reads(2 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn batch_atomic(calls: &[impl GetDispatchInfo]) -> Weight {
-		(34_179_000 as Weight)
-			.saturating_add(sum_weights(calls))
-			.saturating_add(DbWeight::get().reads(2 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn batch_optimistic(calls: &[impl GetDispatchInfo]) -> Weight {
-		(32_963_000 as Weight)
-			.saturating_add(sum_weights(calls))
-			.saturating_add(DbWeight::get().reads(2 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn relay_tx(call: &impl GetDispatchInfo) -> Weight {
-		(191_811_000 as Weight)
-			.saturating_add(call.get_dispatch_info().weight)
-			.saturating_add(DbWeight::get().reads(12 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
+    fn batch(calls: &[impl GetDispatchInfo]) -> Weight {
+        (40_168_000 as Weight)
+            .saturating_add(sum_weights(calls))
+            .saturating_add(DbWeight::get().reads(2 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn batch_atomic(calls: &[impl GetDispatchInfo]) -> Weight {
+        (34_179_000 as Weight)
+            .saturating_add(sum_weights(calls))
+            .saturating_add(DbWeight::get().reads(2 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn batch_optimistic(calls: &[impl GetDispatchInfo]) -> Weight {
+        (32_963_000 as Weight)
+            .saturating_add(sum_weights(calls))
+            .saturating_add(DbWeight::get().reads(2 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn relay_tx(call: &impl GetDispatchInfo) -> Weight {
+        (191_811_000 as Weight)
+            .saturating_add(call.get_dispatch_info().weight)
+            .saturating_add(DbWeight::get().reads(12 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
 }

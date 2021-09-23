@@ -44,50 +44,51 @@
 // ./.maintain/frame-weight-template.hbs
 // --raw
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight as DbWeight}};
-
+use frame_support::{
+    traits::Get,
+    weights::{constants::RocksDbWeight as DbWeight, Weight},
+};
 
 /// Weights for pallet_portfolio using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_portfolio::WeightInfo for WeightInfo {
-	fn create_portfolio() -> Weight {
-		(71_683_000 as Weight)
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
-	fn delete_portfolio() -> Weight {
-		(91_165_000 as Weight)
-			.saturating_add(DbWeight::get().reads(7 as Weight))
-			.saturating_add(DbWeight::get().writes(4 as Weight))
-	}
-	fn move_portfolio_funds(a: u32, ) -> Weight {
-		(152_021_000 as Weight)
-			// Standard Error: 208_000
-			.saturating_add((47_912_000 as Weight).saturating_mul(a as Weight))
-			.saturating_add(DbWeight::get().reads(8 as Weight))
-			.saturating_add(DbWeight::get().reads((3 as Weight).saturating_mul(a as Weight)))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-			.saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(a as Weight)))
-	}
-	fn rename_portfolio(i: u32, ) -> Weight {
-		(68_545_000 as Weight)
-			// Standard Error: 2_000
-			.saturating_add((31_000 as Weight).saturating_mul(i as Weight))
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn quit_portfolio_custody() -> Weight {
-		(73_294_000 as Weight)
-			.saturating_add(DbWeight::get().reads(5 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn accept_portfolio_custody() -> Weight {
-		(107_872_000 as Weight)
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().writes(5 as Weight))
-	}
+    fn create_portfolio() -> Weight {
+        (71_683_000 as Weight)
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    fn delete_portfolio() -> Weight {
+        (91_165_000 as Weight)
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().writes(4 as Weight))
+    }
+    fn move_portfolio_funds(a: u32) -> Weight {
+        (152_021_000 as Weight)
+            // Standard Error: 208_000
+            .saturating_add((47_912_000 as Weight).saturating_mul(a as Weight))
+            .saturating_add(DbWeight::get().reads(8 as Weight))
+            .saturating_add(DbWeight::get().reads((3 as Weight).saturating_mul(a as Weight)))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+            .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(a as Weight)))
+    }
+    fn rename_portfolio(i: u32) -> Weight {
+        (68_545_000 as Weight)
+            // Standard Error: 2_000
+            .saturating_add((31_000 as Weight).saturating_mul(i as Weight))
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn quit_portfolio_custody() -> Weight {
+        (73_294_000 as Weight)
+            .saturating_add(DbWeight::get().reads(5 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn accept_portfolio_custody() -> Weight {
+        (107_872_000 as Weight)
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(5 as Weight))
+    }
 }

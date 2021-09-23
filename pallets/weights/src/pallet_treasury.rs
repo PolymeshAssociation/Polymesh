@@ -44,28 +44,29 @@
 // ./.maintain/frame-weight-template.hbs
 // --raw
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight as DbWeight}};
-
+use frame_support::{
+    traits::Get,
+    weights::{constants::RocksDbWeight as DbWeight, Weight},
+};
 
 /// Weights for pallet_treasury using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_treasury::WeightInfo for WeightInfo {
-	fn disbursement(b: u32, ) -> Weight {
-		(8_142_000 as Weight)
-			// Standard Error: 360_000
-			.saturating_add((79_071_000 as Weight).saturating_mul(b as Weight))
-			.saturating_add(DbWeight::get().reads(4 as Weight))
-			.saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(b as Weight)))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-			.saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(b as Weight)))
-	}
-	fn reimbursement() -> Weight {
-		(175_965_000 as Weight)
-			.saturating_add(DbWeight::get().reads(14 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
+    fn disbursement(b: u32) -> Weight {
+        (8_142_000 as Weight)
+            // Standard Error: 360_000
+            .saturating_add((79_071_000 as Weight).saturating_mul(b as Weight))
+            .saturating_add(DbWeight::get().reads(4 as Weight))
+            .saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(b as Weight)))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(b as Weight)))
+    }
+    fn reimbursement() -> Weight {
+        (175_965_000 as Weight)
+            .saturating_add(DbWeight::get().reads(14 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
 }

@@ -44,36 +44,35 @@
 // ./.maintain/frame-weight-template.hbs
 // --raw
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight as DbWeight}};
-
+use frame_support::{
+    traits::Get,
+    weights::{constants::RocksDbWeight as DbWeight, Weight},
+};
 
 /// Weights for pallet_test_utils using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_test_utils::WeightInfo for WeightInfo {
-	fn register_did(i: u32, ) -> Weight {
-		(1_090_122_000 as Weight)
-			// Standard Error: 263_000
-			.saturating_add((32_018_000 as Weight).saturating_mul(i as Weight))
-			.saturating_add(DbWeight::get().reads(11 as Weight))
-			.saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(i as Weight)))
-			.saturating_add(DbWeight::get().writes(4 as Weight))
-			.saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
-	}
-	fn mock_cdd_register_did() -> Weight {
-		(1_055_173_000 as Weight)
-			.saturating_add(DbWeight::get().reads(15 as Weight))
-			.saturating_add(DbWeight::get().writes(4 as Weight))
-	}
-	fn get_my_did() -> Weight {
-		(42_151_000 as Weight)
-			.saturating_add(DbWeight::get().reads(4 as Weight))
-	}
-	fn get_cdd_of() -> Weight {
-		(85_419_000 as Weight)
-			.saturating_add(DbWeight::get().reads(10 as Weight))
-	}
+    fn register_did(i: u32) -> Weight {
+        (1_090_122_000 as Weight)
+            // Standard Error: 263_000
+            .saturating_add((32_018_000 as Weight).saturating_mul(i as Weight))
+            .saturating_add(DbWeight::get().reads(11 as Weight))
+            .saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(i as Weight)))
+            .saturating_add(DbWeight::get().writes(4 as Weight))
+            .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
+    }
+    fn mock_cdd_register_did() -> Weight {
+        (1_055_173_000 as Weight)
+            .saturating_add(DbWeight::get().reads(15 as Weight))
+            .saturating_add(DbWeight::get().writes(4 as Weight))
+    }
+    fn get_my_did() -> Weight {
+        (42_151_000 as Weight).saturating_add(DbWeight::get().reads(4 as Weight))
+    }
+    fn get_cdd_of() -> Weight {
+        (85_419_000 as Weight).saturating_add(DbWeight::get().reads(10 as Weight))
+    }
 }

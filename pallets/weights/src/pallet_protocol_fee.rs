@@ -44,22 +44,21 @@
 // ./.maintain/frame-weight-template.hbs
 // --raw
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight as DbWeight}};
-
+use frame_support::{
+    traits::Get,
+    weights::{constants::RocksDbWeight as DbWeight, Weight},
+};
 
 /// Weights for pallet_protocol_fee using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_protocol_fee::WeightInfo for WeightInfo {
-	fn change_coefficient() -> Weight {
-		(19_934_000 as Weight)
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn change_base_fee() -> Weight {
-		(21_511_000 as Weight)
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
+    fn change_coefficient() -> Weight {
+        (19_934_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn change_base_fee() -> Weight {
+        (21_511_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+    }
 }

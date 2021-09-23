@@ -44,44 +44,45 @@
 // ./.maintain/frame-weight-template.hbs
 // --raw
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight as DbWeight}};
-
+use frame_support::{
+    traits::Get,
+    weights::{constants::RocksDbWeight as DbWeight, Weight},
+};
 
 /// Weights for pallet_balances using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_balances::WeightInfo for WeightInfo {
-	fn transfer() -> Weight {
-		(145_419_000 as Weight)
-			.saturating_add(DbWeight::get().reads(11 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn transfer_with_memo() -> Weight {
-		(138_907_000 as Weight)
-			.saturating_add(DbWeight::get().reads(11 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn deposit_block_reward_reserve_balance() -> Weight {
-		(109_679_000 as Weight)
-			.saturating_add(DbWeight::get().reads(9 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn set_balance() -> Weight {
-		(130_307_000 as Weight)
-			.saturating_add(DbWeight::get().reads(7 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn force_transfer() -> Weight {
-		(77_561_000 as Weight)
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn burn_account_balance() -> Weight {
-		(77_802_000 as Weight)
-			.saturating_add(DbWeight::get().reads(7 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
+    fn transfer() -> Weight {
+        (145_419_000 as Weight)
+            .saturating_add(DbWeight::get().reads(11 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn transfer_with_memo() -> Weight {
+        (138_907_000 as Weight)
+            .saturating_add(DbWeight::get().reads(11 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn deposit_block_reward_reserve_balance() -> Weight {
+        (109_679_000 as Weight)
+            .saturating_add(DbWeight::get().reads(9 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn set_balance() -> Weight {
+        (130_307_000 as Weight)
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn force_transfer() -> Weight {
+        (77_561_000 as Weight)
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn burn_account_balance() -> Weight {
+        (77_802_000 as Weight)
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
 }

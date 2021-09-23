@@ -53,7 +53,6 @@ impl pallet_grandpa::WeightInfo for WeightInfo {
     }
 
     fn note_stalled() -> Weight {
-        (3_506_000 as Weight)
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        (3_506_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
 }

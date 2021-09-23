@@ -44,83 +44,83 @@
 // ./.maintain/frame-weight-template.hbs
 // --raw
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight as DbWeight}};
-
+use frame_support::{
+    traits::Get,
+    weights::{constants::RocksDbWeight as DbWeight, Weight},
+};
 
 /// Weights for pallet_corporate_actions using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_corporate_actions::WeightInfo for WeightInfo {
-	fn set_max_details_length() -> Weight {
-		(19_892_000 as Weight)
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn set_default_targets(t: u32, ) -> Weight {
-		(87_605_000 as Weight)
-			// Standard Error: 5_000
-			.saturating_add((516_000 as Weight).saturating_mul(t as Weight))
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn set_default_withholding_tax() -> Weight {
-		(65_777_000 as Weight)
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn set_did_withholding_tax(w: u32, ) -> Weight {
-		(106_758_000 as Weight)
-			// Standard Error: 2_000
-			.saturating_add((229_000 as Weight).saturating_mul(w as Weight))
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn initiate_corporate_action_use_defaults(w: u32, t: u32, ) -> Weight {
-		(252_814_000 as Weight)
-			// Standard Error: 4_000
-			.saturating_add((316_000 as Weight).saturating_mul(w as Weight))
-			// Standard Error: 9_000
-			.saturating_add((225_000 as Weight).saturating_mul(t as Weight))
-			.saturating_add(DbWeight::get().reads(16 as Weight))
-			.saturating_add(DbWeight::get().writes(6 as Weight))
-	}
-	fn initiate_corporate_action_provided(w: u32, t: u32, ) -> Weight {
-		(241_961_000 as Weight)
-			// Standard Error: 5_000
-			.saturating_add((358_000 as Weight).saturating_mul(w as Weight))
-			// Standard Error: 10_000
-			.saturating_add((385_000 as Weight).saturating_mul(t as Weight))
-			.saturating_add(DbWeight::get().reads(13 as Weight))
-			.saturating_add(DbWeight::get().writes(6 as Weight))
-	}
-	fn link_ca_doc(d: u32, ) -> Weight {
-		(0 as Weight)
-			// Standard Error: 47_000
-			.saturating_add((8_611_000 as Weight).saturating_mul(d as Weight))
-			.saturating_add(DbWeight::get().reads(7 as Weight))
-			.saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(d as Weight)))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn remove_ca_with_ballot() -> Weight {
-		(113_214_000 as Weight)
-			.saturating_add(DbWeight::get().reads(9 as Weight))
-			.saturating_add(DbWeight::get().writes(8 as Weight))
-	}
-	fn remove_ca_with_dist() -> Weight {
-		(126_477_000 as Weight)
-			.saturating_add(DbWeight::get().reads(10 as Weight))
-			.saturating_add(DbWeight::get().writes(6 as Weight))
-	}
-	fn change_record_date_with_ballot() -> Weight {
-		(147_925_000 as Weight)
-			.saturating_add(DbWeight::get().reads(14 as Weight))
-			.saturating_add(DbWeight::get().writes(5 as Weight))
-	}
-	fn change_record_date_with_dist() -> Weight {
-		(149_236_000 as Weight)
-			.saturating_add(DbWeight::get().reads(14 as Weight))
-			.saturating_add(DbWeight::get().writes(5 as Weight))
-	}
+    fn set_max_details_length() -> Weight {
+        (19_892_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn set_default_targets(t: u32) -> Weight {
+        (87_605_000 as Weight)
+            // Standard Error: 5_000
+            .saturating_add((516_000 as Weight).saturating_mul(t as Weight))
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn set_default_withholding_tax() -> Weight {
+        (65_777_000 as Weight)
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn set_did_withholding_tax(w: u32) -> Weight {
+        (106_758_000 as Weight)
+            // Standard Error: 2_000
+            .saturating_add((229_000 as Weight).saturating_mul(w as Weight))
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn initiate_corporate_action_use_defaults(w: u32, t: u32) -> Weight {
+        (252_814_000 as Weight)
+            // Standard Error: 4_000
+            .saturating_add((316_000 as Weight).saturating_mul(w as Weight))
+            // Standard Error: 9_000
+            .saturating_add((225_000 as Weight).saturating_mul(t as Weight))
+            .saturating_add(DbWeight::get().reads(16 as Weight))
+            .saturating_add(DbWeight::get().writes(6 as Weight))
+    }
+    fn initiate_corporate_action_provided(w: u32, t: u32) -> Weight {
+        (241_961_000 as Weight)
+            // Standard Error: 5_000
+            .saturating_add((358_000 as Weight).saturating_mul(w as Weight))
+            // Standard Error: 10_000
+            .saturating_add((385_000 as Weight).saturating_mul(t as Weight))
+            .saturating_add(DbWeight::get().reads(13 as Weight))
+            .saturating_add(DbWeight::get().writes(6 as Weight))
+    }
+    fn link_ca_doc(d: u32) -> Weight {
+        (0 as Weight)
+            // Standard Error: 47_000
+            .saturating_add((8_611_000 as Weight).saturating_mul(d as Weight))
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(d as Weight)))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn remove_ca_with_ballot() -> Weight {
+        (113_214_000 as Weight)
+            .saturating_add(DbWeight::get().reads(9 as Weight))
+            .saturating_add(DbWeight::get().writes(8 as Weight))
+    }
+    fn remove_ca_with_dist() -> Weight {
+        (126_477_000 as Weight)
+            .saturating_add(DbWeight::get().reads(10 as Weight))
+            .saturating_add(DbWeight::get().writes(6 as Weight))
+    }
+    fn change_record_date_with_ballot() -> Weight {
+        (147_925_000 as Weight)
+            .saturating_add(DbWeight::get().reads(14 as Weight))
+            .saturating_add(DbWeight::get().writes(5 as Weight))
+    }
+    fn change_record_date_with_dist() -> Weight {
+        (149_236_000 as Weight)
+            .saturating_add(DbWeight::get().reads(14 as Weight))
+            .saturating_add(DbWeight::get().writes(5 as Weight))
+    }
 }

@@ -44,156 +44,157 @@
 // ./.maintain/frame-weight-template.hbs
 // --raw
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight as DbWeight}};
-
+use frame_support::{
+    traits::Get,
+    weights::{constants::RocksDbWeight as DbWeight, Weight},
+};
 
 /// Weights for pallet_settlement using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_settlement::WeightInfo for WeightInfo {
-	fn create_venue(d: u32, s: u32, ) -> Weight {
-		(91_112_000 as Weight)
-			// Standard Error: 1_000
-			.saturating_add((2_000 as Weight).saturating_mul(d as Weight))
-			// Standard Error: 76_000
-			.saturating_add((3_924_000 as Weight).saturating_mul(s as Weight))
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().writes(4 as Weight))
-			.saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(s as Weight)))
-	}
-	fn update_venue_details(d: u32, ) -> Weight {
-		(61_790_000 as Weight)
-			// Standard Error: 0
-			.saturating_add((4_000 as Weight).saturating_mul(d as Weight))
-			.saturating_add(DbWeight::get().reads(5 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn update_venue_type() -> Weight {
-		(55_498_000 as Weight)
-			.saturating_add(DbWeight::get().reads(5 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn add_instruction(l: u32, ) -> Weight {
-		(52_527_000 as Weight)
-			// Standard Error: 876_000
-			.saturating_add((24_260_000 as Weight).saturating_mul(l as Weight))
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(l as Weight)))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-			.saturating_add(DbWeight::get().writes((3 as Weight).saturating_mul(l as Weight)))
-	}
-	fn add_instruction_with_settle_on_block_type(l: u32, ) -> Weight {
-		(100_668_000 as Weight)
-			// Standard Error: 699_000
-			.saturating_add((21_816_000 as Weight).saturating_mul(l as Weight))
-			.saturating_add(DbWeight::get().reads(8 as Weight))
-			.saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(l as Weight)))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-			.saturating_add(DbWeight::get().writes((3 as Weight).saturating_mul(l as Weight)))
-	}
-	fn add_and_affirm_instruction(l: u32, ) -> Weight {
-		(135_882_000 as Weight)
-			// Standard Error: 1_254_000
-			.saturating_add((79_895_000 as Weight).saturating_mul(l as Weight))
-			.saturating_add(DbWeight::get().reads(8 as Weight))
-			.saturating_add(DbWeight::get().reads((5 as Weight).saturating_mul(l as Weight)))
-			.saturating_add(DbWeight::get().writes(4 as Weight))
-			.saturating_add(DbWeight::get().writes((6 as Weight).saturating_mul(l as Weight)))
-	}
-	fn add_and_affirm_instruction_with_settle_on_block_type(l: u32, ) -> Weight {
-		(179_262_000 as Weight)
-			// Standard Error: 1_798_000
-			.saturating_add((80_113_000 as Weight).saturating_mul(l as Weight))
-			.saturating_add(DbWeight::get().reads(10 as Weight))
-			.saturating_add(DbWeight::get().reads((5 as Weight).saturating_mul(l as Weight)))
-			.saturating_add(DbWeight::get().writes(6 as Weight))
-			.saturating_add(DbWeight::get().writes((6 as Weight).saturating_mul(l as Weight)))
-	}
-	fn set_venue_filtering() -> Weight {
-		(65_795_000 as Weight)
-			.saturating_add(DbWeight::get().reads(5 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn allow_venues(v: u32, ) -> Weight {
-		(63_769_000 as Weight)
-			// Standard Error: 38_000
-			.saturating_add((3_885_000 as Weight).saturating_mul(v as Weight))
-			.saturating_add(DbWeight::get().reads(5 as Weight))
-			.saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(v as Weight)))
-	}
-	fn disallow_venues(v: u32, ) -> Weight {
-		(64_116_000 as Weight)
-			// Standard Error: 50_000
-			.saturating_add((3_843_000 as Weight).saturating_mul(v as Weight))
-			.saturating_add(DbWeight::get().reads(5 as Weight))
-			.saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(v as Weight)))
-	}
-	fn withdraw_affirmation(l: u32, ) -> Weight {
-		(84_006_000 as Weight)
-			// Standard Error: 1_020_000
-			.saturating_add((65_489_000 as Weight).saturating_mul(l as Weight))
-			.saturating_add(DbWeight::get().reads(8 as Weight))
-			.saturating_add(DbWeight::get().reads((5 as Weight).saturating_mul(l as Weight)))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-			.saturating_add(DbWeight::get().writes((4 as Weight).saturating_mul(l as Weight)))
-	}
-	fn unclaim_receipt() -> Weight {
-		(124_357_000 as Weight)
-			.saturating_add(DbWeight::get().reads(10 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
-	fn reject_instruction(l: u32, ) -> Weight {
-		(131_459_000 as Weight)
-			// Standard Error: 2_205_000
-			.saturating_add((54_210_000 as Weight).saturating_mul(l as Weight))
-			.saturating_add(DbWeight::get().reads(8 as Weight))
-			.saturating_add(DbWeight::get().reads((3 as Weight).saturating_mul(l as Weight)))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-			.saturating_add(DbWeight::get().writes((6 as Weight).saturating_mul(l as Weight)))
-	}
-	fn affirm_instruction(l: u32, ) -> Weight {
-		(107_230_000 as Weight)
-			// Standard Error: 1_175_000
-			.saturating_add((44_568_000 as Weight).saturating_mul(l as Weight))
-			.saturating_add(DbWeight::get().reads(9 as Weight))
-			.saturating_add(DbWeight::get().reads((3 as Weight).saturating_mul(l as Weight)))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-			.saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(l as Weight)))
-	}
-	fn claim_receipt() -> Weight {
-		(196_347_000 as Weight)
-			.saturating_add(DbWeight::get().reads(11 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
-	fn affirm_with_receipts(r: u32, ) -> Weight {
-		(90_487_000 as Weight)
-			// Standard Error: 3_700_000
-			.saturating_add((155_201_000 as Weight).saturating_mul(r as Weight))
-			.saturating_add(DbWeight::get().reads(8 as Weight))
-			.saturating_add(DbWeight::get().reads((4 as Weight).saturating_mul(r as Weight)))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-			.saturating_add(DbWeight::get().writes((4 as Weight).saturating_mul(r as Weight)))
-	}
-	fn change_receipt_validity() -> Weight {
-		(53_603_000 as Weight)
-			.saturating_add(DbWeight::get().reads(4 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn execute_scheduled_instruction(l: u32, ) -> Weight {
-		(201_656_000 as Weight)
-			// Standard Error: 8_108_000
-			.saturating_add((1_166_394_000 as Weight).saturating_mul(l as Weight))
-			.saturating_add(DbWeight::get().reads(38 as Weight))
-			.saturating_add(DbWeight::get().reads((31 as Weight).saturating_mul(l as Weight)))
-			.saturating_add(DbWeight::get().writes(4 as Weight))
-			.saturating_add(DbWeight::get().writes((16 as Weight).saturating_mul(l as Weight)))
-	}
-	fn reschedule_instruction() -> Weight {
-		(229_782_000 as Weight)
-			.saturating_add(DbWeight::get().reads(18 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
+    fn create_venue(d: u32, s: u32) -> Weight {
+        (91_112_000 as Weight)
+            // Standard Error: 1_000
+            .saturating_add((2_000 as Weight).saturating_mul(d as Weight))
+            // Standard Error: 76_000
+            .saturating_add((3_924_000 as Weight).saturating_mul(s as Weight))
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(4 as Weight))
+            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(s as Weight)))
+    }
+    fn update_venue_details(d: u32) -> Weight {
+        (61_790_000 as Weight)
+            // Standard Error: 0
+            .saturating_add((4_000 as Weight).saturating_mul(d as Weight))
+            .saturating_add(DbWeight::get().reads(5 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn update_venue_type() -> Weight {
+        (55_498_000 as Weight)
+            .saturating_add(DbWeight::get().reads(5 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn add_instruction(l: u32) -> Weight {
+        (52_527_000 as Weight)
+            // Standard Error: 876_000
+            .saturating_add((24_260_000 as Weight).saturating_mul(l as Weight))
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(l as Weight)))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+            .saturating_add(DbWeight::get().writes((3 as Weight).saturating_mul(l as Weight)))
+    }
+    fn add_instruction_with_settle_on_block_type(l: u32) -> Weight {
+        (100_668_000 as Weight)
+            // Standard Error: 699_000
+            .saturating_add((21_816_000 as Weight).saturating_mul(l as Weight))
+            .saturating_add(DbWeight::get().reads(8 as Weight))
+            .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(l as Weight)))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+            .saturating_add(DbWeight::get().writes((3 as Weight).saturating_mul(l as Weight)))
+    }
+    fn add_and_affirm_instruction(l: u32) -> Weight {
+        (135_882_000 as Weight)
+            // Standard Error: 1_254_000
+            .saturating_add((79_895_000 as Weight).saturating_mul(l as Weight))
+            .saturating_add(DbWeight::get().reads(8 as Weight))
+            .saturating_add(DbWeight::get().reads((5 as Weight).saturating_mul(l as Weight)))
+            .saturating_add(DbWeight::get().writes(4 as Weight))
+            .saturating_add(DbWeight::get().writes((6 as Weight).saturating_mul(l as Weight)))
+    }
+    fn add_and_affirm_instruction_with_settle_on_block_type(l: u32) -> Weight {
+        (179_262_000 as Weight)
+            // Standard Error: 1_798_000
+            .saturating_add((80_113_000 as Weight).saturating_mul(l as Weight))
+            .saturating_add(DbWeight::get().reads(10 as Weight))
+            .saturating_add(DbWeight::get().reads((5 as Weight).saturating_mul(l as Weight)))
+            .saturating_add(DbWeight::get().writes(6 as Weight))
+            .saturating_add(DbWeight::get().writes((6 as Weight).saturating_mul(l as Weight)))
+    }
+    fn set_venue_filtering() -> Weight {
+        (65_795_000 as Weight)
+            .saturating_add(DbWeight::get().reads(5 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn allow_venues(v: u32) -> Weight {
+        (63_769_000 as Weight)
+            // Standard Error: 38_000
+            .saturating_add((3_885_000 as Weight).saturating_mul(v as Weight))
+            .saturating_add(DbWeight::get().reads(5 as Weight))
+            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(v as Weight)))
+    }
+    fn disallow_venues(v: u32) -> Weight {
+        (64_116_000 as Weight)
+            // Standard Error: 50_000
+            .saturating_add((3_843_000 as Weight).saturating_mul(v as Weight))
+            .saturating_add(DbWeight::get().reads(5 as Weight))
+            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(v as Weight)))
+    }
+    fn withdraw_affirmation(l: u32) -> Weight {
+        (84_006_000 as Weight)
+            // Standard Error: 1_020_000
+            .saturating_add((65_489_000 as Weight).saturating_mul(l as Weight))
+            .saturating_add(DbWeight::get().reads(8 as Weight))
+            .saturating_add(DbWeight::get().reads((5 as Weight).saturating_mul(l as Weight)))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+            .saturating_add(DbWeight::get().writes((4 as Weight).saturating_mul(l as Weight)))
+    }
+    fn unclaim_receipt() -> Weight {
+        (124_357_000 as Weight)
+            .saturating_add(DbWeight::get().reads(10 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    fn reject_instruction(l: u32) -> Weight {
+        (131_459_000 as Weight)
+            // Standard Error: 2_205_000
+            .saturating_add((54_210_000 as Weight).saturating_mul(l as Weight))
+            .saturating_add(DbWeight::get().reads(8 as Weight))
+            .saturating_add(DbWeight::get().reads((3 as Weight).saturating_mul(l as Weight)))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+            .saturating_add(DbWeight::get().writes((6 as Weight).saturating_mul(l as Weight)))
+    }
+    fn affirm_instruction(l: u32) -> Weight {
+        (107_230_000 as Weight)
+            // Standard Error: 1_175_000
+            .saturating_add((44_568_000 as Weight).saturating_mul(l as Weight))
+            .saturating_add(DbWeight::get().reads(9 as Weight))
+            .saturating_add(DbWeight::get().reads((3 as Weight).saturating_mul(l as Weight)))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+            .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(l as Weight)))
+    }
+    fn claim_receipt() -> Weight {
+        (196_347_000 as Weight)
+            .saturating_add(DbWeight::get().reads(11 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    fn affirm_with_receipts(r: u32) -> Weight {
+        (90_487_000 as Weight)
+            // Standard Error: 3_700_000
+            .saturating_add((155_201_000 as Weight).saturating_mul(r as Weight))
+            .saturating_add(DbWeight::get().reads(8 as Weight))
+            .saturating_add(DbWeight::get().reads((4 as Weight).saturating_mul(r as Weight)))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+            .saturating_add(DbWeight::get().writes((4 as Weight).saturating_mul(r as Weight)))
+    }
+    fn change_receipt_validity() -> Weight {
+        (53_603_000 as Weight)
+            .saturating_add(DbWeight::get().reads(4 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn execute_scheduled_instruction(l: u32) -> Weight {
+        (201_656_000 as Weight)
+            // Standard Error: 8_108_000
+            .saturating_add((1_166_394_000 as Weight).saturating_mul(l as Weight))
+            .saturating_add(DbWeight::get().reads(38 as Weight))
+            .saturating_add(DbWeight::get().reads((31 as Weight).saturating_mul(l as Weight)))
+            .saturating_add(DbWeight::get().writes(4 as Weight))
+            .saturating_add(DbWeight::get().writes((16 as Weight).saturating_mul(l as Weight)))
+    }
+    fn reschedule_instruction() -> Weight {
+        (229_782_000 as Weight)
+            .saturating_add(DbWeight::get().reads(18 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
 }

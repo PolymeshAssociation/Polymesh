@@ -44,23 +44,24 @@
 // ./.maintain/frame-weight-template.hbs
 // --raw
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight as DbWeight}};
-
+use frame_support::{
+    traits::Get,
+    weights::{constants::RocksDbWeight as DbWeight, Weight},
+};
 
 /// Weights for pallet_im_online using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_im_online::WeightInfo for WeightInfo {
-	fn validate_unsigned_and_then_heartbeat(k: u32, e: u32, ) -> Weight {
-		(158_065_000 as Weight)
-			// Standard Error: 3_000
-			.saturating_add((267_000 as Weight).saturating_mul(k as Weight))
-			// Standard Error: 39_000
-			.saturating_add((541_000 as Weight).saturating_mul(e as Weight))
-			.saturating_add(DbWeight::get().reads(4 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
+    fn validate_unsigned_and_then_heartbeat(k: u32, e: u32) -> Weight {
+        (158_065_000 as Weight)
+            // Standard Error: 3_000
+            .saturating_add((267_000 as Weight).saturating_mul(k as Weight))
+            // Standard Error: 39_000
+            .saturating_add((541_000 as Weight).saturating_mul(e as Weight))
+            .saturating_add(DbWeight::get().reads(4 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
 }
