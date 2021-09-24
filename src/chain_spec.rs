@@ -829,9 +829,9 @@ pub mod testnet {
     fn bootstrap_genesis() -> rt::runtime::GenesisConfig {
         genesis(
             vec![
-                get_authority_keys_from_seed("operator_1", false),
-                get_authority_keys_from_seed("operator_2", false),
-                get_authority_keys_from_seed("operator_3", false),
+                get_authority_keys_from_seed("Alice", false),
+                get_authority_keys_from_seed("Bob", false),
+                get_authority_keys_from_seed("Charles", false),
             ],
             seeded_acc_id("polymath_5"),
             false,
@@ -1025,9 +1025,9 @@ pub mod mainnet {
     fn bootstrap_genesis() -> rt::runtime::GenesisConfig {
         genesis(
             vec![
-                get_authority_keys_from_seed("operator_1", false),
-                get_authority_keys_from_seed("operator_2", false),
-                get_authority_keys_from_seed("operator_3", false),
+                get_authority_keys_from_seed("Alice", false),
+                get_authority_keys_from_seed("Bob", false),
+                get_authority_keys_from_seed("Charles", false),
             ],
             seeded_acc_id("polymath_5"),
             false,
