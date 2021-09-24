@@ -718,140 +718,6 @@ pub mod testnet {
             }),
             pallet_balances: Some(Default::default()),
             pallet_bridge: Some(pallet_bridge::GenesisConfig {
-                admin: seeded_acc_id("polymath_1"),
-                creator: seeded_acc_id("polymath_1"),
-                signatures_required: 3,
-                signers: bridge_signers(),
-                timelock: time::MINUTES * 15,
-                bridge_limit: (30_000_000_000, time::DAYS),
-                complete_txs,
-            }),
-            pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
-            pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
-            pallet_session: Some(session!(initial_authorities, session_keys)),
-            pallet_staking: Some(staking!(initial_authorities, stakers, PerThing::zero())),
-            pallet_pips: Some(pips!(time::DAYS * 7, MaybeBlock::None, 1000)),
-            pallet_im_online: Some(Default::default()),
-            pallet_authority_discovery: Some(Default::default()),
-            pallet_babe: Some(Default::default()),
-            pallet_grandpa: Some(Default::default()),
-            /*
-            pallet_contracts: Some(pallet_contracts::GenesisConfig {
-                current_schedule: pallet_contracts::Schedule {
-                    enable_println, // this should only be enabled on development chains
-                    ..Default::default()
-                },
-            }),
-            */
-            // Governing council
-            pallet_group_Instance1: Some(group_membership!(1, 2, 3, 5)),
-            pallet_committee_Instance1: Some(committee!(1, (2, 4))),
-            // CDD providers
-            pallet_group_Instance2: Some(group_membership!(1, 2, 3, 5)),
-            // Technical Committee:
-            pallet_group_Instance3: Some(group_membership!(3, 5)),
-            pallet_committee_Instance3: Some(committee!(5)),
-            // Upgrade Committee:
-            pallet_group_Instance4: Some(group_membership!(1, 5)),
-            pallet_committee_Instance4: Some(committee!(5)),
-            pallet_protocol_fee: Some(protocol_fee!()),
-            pallet_settlement: Some(Default::default()),
-            pallet_multisig: Some(pallet_multisig::GenesisConfig {
-                transaction_version: 1,
-            }),
-            pallet_corporate_actions: Some(corporate_actions!()),
-            pallet_rewards: Some(rewards!()),
-        }
-    }
-
-    fn develop_genesis() -> rt::runtime::GenesisConfig {
-        genesis(
-            vec![get_authority_keys_from_seed("Bob", false)],
-            seeded_acc_id("Alice"),
-            true,
-            BridgeLockId::new(1, BRIDGE_LOCK_HASH),
-            BridgeLockId::generate_bridge_locks(20),
-        )
-    }
-
-    pub fn develop_config() -> ChainSpec {
-        // provide boot nodes
-        let boot_nodes = vec![];
-        ChainSpec::from_genesis(
-            "Polymesh Testnet Develop",
-            "dev_testnet",
-            ChainType::Development,
-            develop_genesis,
-            boot_nodes,
-            None,
-            None,
-            Some(polymath_props(42)),
-            Default::default(),
-        )
-    }
-
-    fn local_genesis() -> rt::runtime::GenesisConfig {
-        genesis(
-            vec![
-                get_authority_keys_from_seed("Alice", false),
-                get_authority_keys_from_seed("Bob", false),
-            ],
-            seeded_acc_id("Alice"),
-            true,
-            BridgeLockId::new(1, BRIDGE_LOCK_HASH),
-            BridgeLockId::generate_bridge_locks(20),
-        )
-    }
-
-    pub fn local_config() -> ChainSpec {
-        // provide boot nodes
-        let boot_nodes = vec![];
-        ChainSpec::from_genesis(
-            "Polymesh Testnet Local",
-            "local_testnet",
-            ChainType::Local,
-            local_genesis,
-            boot_nodes,
-            None,
-            None,
-            Some(polymath_props(42)),
-            Default::default(),
-        )
-    }
-}
-
-pub mod polymesh_itn {
-    use super::*;
-    use polymesh_runtime_itn::{self as rt, constants::time};
-
-    pub type ChainSpec = sc_service::GenericChainSpec<rt::runtime::GenesisConfig>;
-
-    session_keys!();
-
-    fn genesis(
-        initial_authorities: Vec<InitialAuth>,
-        root_key: AccountId,
-        _enable_println: bool,
-        treasury_bridge_lock: BridgeLockId,
-        key_bridge_locks: Vec<BridgeLockId>,
-    ) -> rt::runtime::GenesisConfig {
-        let (identities, stakers, complete_txs) = genesis_processed_data(
-            &initial_authorities,
-            root_key.clone(),
-            treasury_bridge_lock,
-            key_bridge_locks,
-        );
-
-        rt::runtime::GenesisConfig {
-            frame_system: Some(frame(rt::WASM_BINARY)),
-            pallet_asset: Some(asset!()),
-            pallet_checkpoint: Some(checkpoint!()),
-            pallet_identity: Some(pallet_identity::GenesisConfig {
-                identities,
-                ..Default::default()
-            }),
-            pallet_balances: Some(Default::default()),
-            pallet_bridge: Some(pallet_bridge::GenesisConfig {
                 admin: root_key.clone(),
                 creator: root_key.clone(),
                 signatures_required: 3,
@@ -922,22 +788,22 @@ pub mod polymesh_itn {
     pub fn bootstrap_config() -> ChainSpec {
         // provide boot nodes
         let boot_nodes = vec![
-            "/dns4/itn-bootnode-1.polymesh.live/tcp/30333/p2p/12D3KooWAKwaVWS7BUypNyCDwCEeqSgn4vPUtJyMJesbrdkTnuBE".parse().expect("Unable to parse bootnode"),
-            "/dns4/itn-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWGqNUAnt1uRNjM5EP49wGN8eb6VnBUfpRLr1Ln8LMQjDe".parse().expect("Unable to parse bootnode"),
-            "/dns4/itn-bootnode-3.polymesh.live/tcp/30333/p2p/12D3KooWFYsTF3oVu8jywC13hMFwzf9n8MFr2pBWRdyDYyWKiGnq".parse().expect("Unable to parse bootnode"),
+            "/dns4/testnet-bootnode-1.polymesh.live/tcp/30333/p2p/12D3KooWAKwaVWS7BUypNyCDwCEeqSgn4vPUtJyMJesbrdkTnuBE".parse().expect("Unable to parse bootnode"),
+            "/dns4/testnet-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWGqNUAnt1uRNjM5EP49wGN8eb6VnBUfpRLr1Ln8LMQjDe".parse().expect("Unable to parse bootnode"),
+            "/dns4/testnet-bootnode-3.polymesh.live/tcp/30333/p2p/12D3KooWFYsTF3oVu8jywC13hMFwzf9n8MFr2pBWRdyDYyWKiGnq".parse().expect("Unable to parse bootnode"),
         ];
         ChainSpec::from_genesis(
-            "Polymesh ITN",
-            "itn",
+            "Polymesh Testnet",
+            "testnet",
             ChainType::Live,
             bootstrap_genesis,
             boot_nodes,
             Some(
                 TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
-                    .expect("ITN bootstrap telemetry url is valid; qed"),
+                    .expect("Testnet bootstrap telemetry url is valid; qed"),
             ),
-            Some(&*"/polymath/itn"),
-            Some(polymath_props(12)),
+            Some(&*"/polymath/testnet"),
+            Some(polymath_props(42)),
             Default::default(),
         )
     }
@@ -959,8 +825,8 @@ pub mod polymesh_itn {
         // provide boot nodes
         let boot_nodes = vec![];
         ChainSpec::from_genesis(
-            "Polymesh ITN Develop",
-            "dev_itn",
+            "Polymesh Testnet Develop",
+            "dev_testnet",
             ChainType::Development,
             develop_genesis,
             boot_nodes,
@@ -991,8 +857,8 @@ pub mod polymesh_itn {
         // provide boot nodes
         let boot_nodes = vec![];
         ChainSpec::from_genesis(
-            "Polymesh ITN Local",
-            "local_itn",
+            "Polymesh Testnet Local",
+            "local_testnet",
             ChainType::Local,
             local_genesis,
             boot_nodes,
