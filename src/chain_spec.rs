@@ -30,9 +30,22 @@ use std::convert::TryInto;
 
 // The URL for the telemetry server.
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
-const BRIDGE_LOCK_HASH: &str = "0x1000000000000000000000000000000000000000000000000000000000000001";
+
+// Genesis POLYX distribution via bridge
+const TREASURY_LOCK_HASH: &str =
+    "0x1000000000000000000000000000000000000000000000000000000000000001";
 const REWARDS_LOCK_HASH: &str =
     "0x1000000000000000000000000000000000000000000000000000000000000002";
+const KEY_LOCK_HASH: &str =
+    "0x1000000000000000000000000000000000000000000000000000000000000003";
+
+const BOOTSTRAP_KEYS: u128 = 2000 * POLY;
+const BOOTSTRAP_TREASURY: u128 = 17_500_000 * POLY;
+
+const DEV_KEYS: u128 = 30_000_000 * POLY;
+const DEV_TREASURY: u128 = 50_000_000 * POLY;
+
+const INITIAL_BOND: u128 = 500 * POLY;
 
 /// Generate a crypto pair from seed.
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -196,19 +209,15 @@ fn adjust_last<'a>(bytes: &'a mut [u8], n: u8) -> &'a str {
     core::str::from_utf8(bytes).unwrap()
 }
 
-const BOOTSTRAP_STASH: u128 = 500 * POLY;
-const BOOTSTRAP_TREASURY: u128 = 30_000_000 * POLY;
-// Needed for integration tests
-const BOOTSTRAP_BIG: u128 = 1_000 * POLY;
-
 #[derive(Clone)]
 struct BridgeLockId {
     nonce: u32,
+    amount: u128,
     tx_hash: H256,
 }
 
 impl BridgeLockId {
-    fn new(nonce: u32, hash: &'static str) -> Self {
+    fn new(nonce: u32, amount: u128, hash: &'static str) -> Self {
         let offset = if hash.starts_with("0x") { 2 } else { 0 };
         let stripped_hash = &hash[offset..];
         let hash_vec: Vec<u8> = rustc_hex::FromHex::from_hex(stripped_hash)
@@ -218,13 +227,13 @@ impl BridgeLockId {
             .expect("Failed to decode transaction hash (Invalid hash length)");
         Self {
             nonce,
+            amount,
             tx_hash: hash_array.into(),
         }
     }
 
-    fn generate_bridge_locks(count: u32) -> Vec<Self> {
-        const HASH: &str = "0x000000000000000000000000000000000000000000000000000000000000dead";
-        (0..count).map(|x| Self::new(x + 100, HASH)).collect()
+    fn generate_bridge_locks(count: u32, amount: u128, hash: &'static str) -> Vec<Self> {
+        (0..count).map(|x| Self::new(x, amount, hash)).collect()
     }
 }
 
@@ -232,6 +241,7 @@ fn genesis_processed_data(
     initial_authorities: &Vec<InitialAuth>, //Alice, Bob, Charles
     root_key: AccountId,                    //polymath_5
     treasury_bridge_lock: BridgeLockId,
+    rewards_bridge_lock: BridgeLockId,
     key_bridge_locks: Vec<BridgeLockId>,
 ) -> (
     Vec<GenesisIdentityRecord<AccountId>>,
@@ -290,7 +300,7 @@ fn genesis_processed_data(
             IdentityId::from(4), // All operators have the same Identity
             stash.clone(),
             controller.clone(),
-            BOOTSTRAP_STASH,
+            INITIAL_BOND,
             pallet_staking::StakerStatus::Validator,
         ));
         // Make stash and controller 4th Identity's secondary keys.
@@ -319,24 +329,34 @@ fn genesis_processed_data(
         .iter()
         .cloned()
         .zip(keys.iter().cloned())
-        .map(|(BridgeLockId { nonce, tx_hash }, recipient)| BridgeTx {
+        .map(|(BridgeLockId { nonce, amount, tx_hash }, recipient)| BridgeTx {
             nonce,
             recipient,
-            amount: BOOTSTRAP_BIG,
+            amount,
             tx_hash,
         })
         .collect();
-    complete_txs.push(BridgeTx {
-        nonce: treasury_bridge_lock.nonce,
-        recipient: TREASURY_MODULE_ID.into_account(),
-        amount: BOOTSTRAP_TREASURY,
-        tx_hash: treasury_bridge_lock.tx_hash,
-    });
+
+        complete_txs.push(BridgeTx {
+            nonce: treasury_bridge_lock.nonce,
+            recipient: TREASURY_MODULE_ID.into_account(),
+            amount: treasury_bridge_lock.amount,
+            tx_hash: treasury_bridge_lock.tx_hash,
+        });
+    
+        complete_txs.push(BridgeTx {
+            nonce: rewards_bridge_lock.nonce,
+            recipient: REWARDS_MODULE_ID.into_account(),
+            amount: rewards_bridge_lock.amount,
+            tx_hash: rewards_bridge_lock.tx_hash,
+        });
+
     (identities, stakers, complete_txs)
 }
 
 fn dev_genesis_processed_data(
     initial_authorities: &Vec<InitialAuth>,
+    treasury_bridge_lock: BridgeLockId,
     rewards_bridge_lock: BridgeLockId,
     key_bridge_locks: Vec<BridgeLockId>,
     other_funded_accounts: Vec<AccountId>,
@@ -367,7 +387,7 @@ fn dev_genesis_processed_data(
             IdentityId::from(1),
             stash.clone(),
             controller.clone(),
-            BOOTSTRAP_STASH,
+            INITIAL_BOND,
             pallet_staking::StakerStatus::Validator,
         ));
         add_sk(stash.clone());
@@ -388,14 +408,21 @@ fn dev_genesis_processed_data(
                 .iter()
                 .map(|sk| sk.signer.as_account().unwrap().clone()),
         )
-        .map(|(BridgeLockId { nonce, tx_hash }, recipient)| BridgeTx {
+        .map(|(BridgeLockId { nonce, amount, tx_hash }, recipient)| BridgeTx {
             nonce,
             recipient,
-            amount: BOOTSTRAP_TREASURY,
+            amount,
             tx_hash,
         })
         .collect();
 
+    complete_txs.push(BridgeTx {
+        nonce: treasury_bridge_lock.nonce,
+        recipient: TREASURY_MODULE_ID.into_account(),
+        amount: BOOTSTRAP_TREASURY,
+        tx_hash: treasury_bridge_lock.tx_hash,
+    });
+    
     complete_txs.push(BridgeTx {
         nonce: rewards_bridge_lock.nonce,
         recipient: REWARDS_MODULE_ID.into_account(),
@@ -552,12 +579,14 @@ pub mod general {
         initial_authorities: Vec<InitialAuth>,
         root_key: AccountId,
         _enable_println: bool,
+        treasury_bridge_lock: BridgeLockId,
         rewards_bridge_lock: BridgeLockId,
         key_bridge_locks: Vec<BridgeLockId>,
         other_funded_accounts: Vec<AccountId>,
     ) -> rt::runtime::GenesisConfig {
         let (identity, stakers, complete_txs) = dev_genesis_processed_data(
             &initial_authorities,
+            treasury_bridge_lock,
             rewards_bridge_lock,
             key_bridge_locks,
             other_funded_accounts,
@@ -628,8 +657,9 @@ pub mod general {
             vec![get_authority_keys_from_seed("Alice", false)],
             seeded_acc_id("Alice"),
             true,
-            BridgeLockId::new(2, REWARDS_LOCK_HASH),
-            BridgeLockId::generate_bridge_locks(20),
+            BridgeLockId::new(0, DEV_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(0, itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(), REWARDS_LOCK_HASH),
+            BridgeLockId::generate_bridge_locks(20, DEV_KEYS, KEY_LOCK_HASH),
             vec![
                 seeded_acc_id("Bob"),
                 seeded_acc_id("Charlie"),
@@ -666,8 +696,9 @@ pub mod general {
             ],
             seeded_acc_id("Alice"),
             true,
-            BridgeLockId::new(2, REWARDS_LOCK_HASH),
-            BridgeLockId::generate_bridge_locks(20),
+            BridgeLockId::new(0, DEV_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(0, itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(), REWARDS_LOCK_HASH),
+            BridgeLockId::generate_bridge_locks(20, DEV_KEYS, KEY_LOCK_HASH),
             vec![
                 seeded_acc_id("Charlie"),
                 seeded_acc_id("Dave"),
@@ -699,12 +730,14 @@ pub mod testnet {
         root_key: AccountId,
         _enable_println: bool,
         treasury_bridge_lock: BridgeLockId,
+        rewards_bridge_lock: BridgeLockId,
         key_bridge_locks: Vec<BridgeLockId>,
     ) -> rt::runtime::GenesisConfig {
         let (identities, stakers, complete_txs) = genesis_processed_data(
             &initial_authorities,
             root_key.clone(),
             treasury_bridge_lock,
+            rewards_bridge_lock,
             key_bridge_locks,
         );
 
@@ -771,17 +804,15 @@ pub mod testnet {
     fn bootstrap_genesis() -> rt::runtime::GenesisConfig {
         genesis(
             vec![
-                get_authority_keys_from_seed("Alice", false),
-                get_authority_keys_from_seed("Bob", false),
-                get_authority_keys_from_seed("Charlie", false),
+                get_authority_keys_from_seed("operator_1", false),
+                get_authority_keys_from_seed("operator_2", false),
+                get_authority_keys_from_seed("operator_3", false),
             ],
             seeded_acc_id("polymath_5"),
             false,
-            BridgeLockId::new(
-                1,
-                "0x000000000000000000000000000000000000000000000000000000000f0b41ae",
-            ),
-            BridgeLockId::generate_bridge_locks(20),
+            BridgeLockId::new(0, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(0, itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(), REWARDS_LOCK_HASH),
+            BridgeLockId::generate_bridge_locks(20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
 
@@ -813,11 +844,9 @@ pub mod testnet {
             vec![get_authority_keys_from_seed("Alice", false)],
             seeded_acc_id("Eve"),
             true,
-            BridgeLockId::new(
-                1,
-                "0x000000000000000000000000000000000000000000000000000000000f0b41ae",
-            ),
-            BridgeLockId::generate_bridge_locks(20),
+            BridgeLockId::new(0, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(0, itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(), REWARDS_LOCK_HASH),
+            BridgeLockId::generate_bridge_locks(20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
 
@@ -845,11 +874,9 @@ pub mod testnet {
             ],
             seeded_acc_id("Eve"),
             true,
-            BridgeLockId::new(
-                1,
-                "0x000000000000000000000000000000000000000000000000000000000f0b41ae",
-            ),
-            BridgeLockId::generate_bridge_locks(20),
+            BridgeLockId::new(0, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(0, itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(), REWARDS_LOCK_HASH),
+            BridgeLockId::generate_bridge_locks(20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
 
@@ -883,12 +910,14 @@ pub mod mainnet {
         root_key: AccountId,
         _enable_println: bool,
         treasury_bridge_lock: BridgeLockId,
+        reward_bridge_lock: BridgeLockId,
         key_bridge_locks: Vec<BridgeLockId>,
     ) -> rt::runtime::GenesisConfig {
         let (identities, stakers, complete_txs) = genesis_processed_data(
             &initial_authorities,
             root_key.clone(),
             treasury_bridge_lock,
+            reward_bridge_lock,
             key_bridge_locks,
         );
 
@@ -965,11 +994,9 @@ pub mod mainnet {
             ],
             seeded_acc_id("polymath_5"),
             false,
-            BridgeLockId::new(
-                1,
-                "0x000000000000000000000000000000000000000000000000000000000f0b41ae",
-            ),
-            BridgeLockId::generate_bridge_locks(20),
+            BridgeLockId::new(0, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(0, itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(), REWARDS_LOCK_HASH),
+            BridgeLockId::generate_bridge_locks(20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
 
@@ -1005,11 +1032,9 @@ pub mod mainnet {
             vec![get_authority_keys_from_seed("Alice", false)],
             seeded_acc_id("Eve"),
             true,
-            BridgeLockId::new(
-                1,
-                "0x000000000000000000000000000000000000000000000000000000000f0b41ae",
-            ),
-            BridgeLockId::generate_bridge_locks(20),
+            BridgeLockId::new(0, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(0, itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(), REWARDS_LOCK_HASH),
+            BridgeLockId::generate_bridge_locks(20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
 
@@ -1037,11 +1062,9 @@ pub mod mainnet {
             ],
             seeded_acc_id("Eve"),
             true,
-            BridgeLockId::new(
-                1,
-                "0x000000000000000000000000000000000000000000000000000000000f0b41ae",
-            ),
-            BridgeLockId::generate_bridge_locks(20),
+            BridgeLockId::new(0, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(0, itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(), REWARDS_LOCK_HASH),
+            BridgeLockId::generate_bridge_locks(20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
 
@@ -1075,12 +1098,14 @@ pub mod ci {
         root_key: AccountId,
         _enable_println: bool,
         treasury_bridge_lock: BridgeLockId,
+        reward_bridge_lock: BridgeLockId,
         key_bridge_locks: Vec<BridgeLockId>,
     ) -> rt::runtime::GenesisConfig {
         let (identities, stakers, complete_txs) = genesis_processed_data(
             &initial_authorities,
             root_key.clone(),
             treasury_bridge_lock,
+            reward_bridge_lock,
             key_bridge_locks,
         );
 
@@ -1145,8 +1170,9 @@ pub mod ci {
             vec![get_authority_keys_from_seed("Bob", false)],
             seeded_acc_id("Alice"),
             true,
-            BridgeLockId::new(1, BRIDGE_LOCK_HASH),
-            BridgeLockId::generate_bridge_locks(20),
+            BridgeLockId::new(0, DEV_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(0, itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(), REWARDS_LOCK_HASH),
+            BridgeLockId::generate_bridge_locks(20, DEV_KEYS, KEY_LOCK_HASH),
         )
     }
 
@@ -1174,8 +1200,9 @@ pub mod ci {
             ],
             seeded_acc_id("Alice"),
             true,
-            BridgeLockId::new(1, BRIDGE_LOCK_HASH),
-            BridgeLockId::generate_bridge_locks(20),
+            BridgeLockId::new(0, DEV_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(0, itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(), REWARDS_LOCK_HASH),
+            BridgeLockId::generate_bridge_locks(20, DEV_KEYS, KEY_LOCK_HASH),
         )
     }
 
