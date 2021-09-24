@@ -229,8 +229,8 @@ impl BridgeLockId {
 }
 
 fn genesis_processed_data(
-    initial_authorities: &Vec<InitialAuth>,
-    root_key: AccountId,
+    initial_authorities: &Vec<InitialAuth>, //Alice, Bob, Charles
+    root_key: AccountId,                    //polymath_5
     treasury_bridge_lock: BridgeLockId,
     key_bridge_locks: Vec<BridgeLockId>,
 ) -> (
@@ -250,8 +250,25 @@ fn genesis_processed_data(
     // 3 = GenesisCouncil (3 of 3)
     // 4 = Operator
     // 5 = Bridge + Sudo
+
+    // Identity_01
+    // Primary Key: polymath_1
+
+    // Identity_02
+    // Primary Key: polymath_2
+
+    // Identity_03
+    // Primary Key: polymath_3
+
+    // Identity_04
+    // Primary Key: polymath_4
+    // Secondary Keys: Alice, Alice//stash, Bob, Bob//stash, Charles, Charles//stash
+
+    // Identity_05
+    // Primary Key: polymath_5
+
     let mut identities = Vec::with_capacity(5);
-    let mut keys = Vec::with_capacity(5 + 2 * initial_authorities.len());
+    let mut keys = Vec::with_capacity(5 + 2 * initial_authorities.len()); //11
 
     let mut create_id = |nonce: u8, primary_key: AccountId| {
         keys.push(primary_key.clone());
@@ -911,7 +928,7 @@ pub mod polymesh_itn {
         ];
         ChainSpec::from_genesis(
             "Polymesh ITN",
-            "polymesh_itn",
+            "itn",
             ChainType::Live,
             bootstrap_genesis,
             boot_nodes,
@@ -996,8 +1013,8 @@ pub mod mainnet {
     session_keys!();
 
     fn genesis(
-        initial_authorities: Vec<InitialAuth>,
-        root_key: AccountId,
+        initial_authorities: Vec<InitialAuth>, //Alice, Bob, Charles
+        root_key: AccountId,                   //polymath_5
         _enable_println: bool,
         treasury_bridge_lock: BridgeLockId,
         key_bridge_locks: Vec<BridgeLockId>,
@@ -1093,13 +1110,13 @@ pub mod mainnet {
     pub fn bootstrap_config() -> ChainSpec {
         // provide boot nodes
         let boot_nodes = vec![
-            "/dns4/mainnet-bootnode-1.polymesh.live/tcp/30333/p2p/12D3KooWAKwaVWS7BUypNyCDwCEeqSgn4vPUtJyMJesbrdkTnuBE".parse().expect("Unable to parse bootnode"),
-            "/dns4/mainnet-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWGqNUAnt1uRNjM5EP49wGN8eb6VnBUfpRLr1Ln8LMQjDe".parse().expect("Unable to parse bootnode"),
-            "/dns4/mainnet-bootnode-3.polymesh.live/tcp/30333/p2p/12D3KooWFYsTF3oVu8jywC13hMFwzf9n8MFr2pBWRdyDYyWKiGnq".parse().expect("Unable to parse bootnode"),
+            "/dns4/bootnode-1.polymesh.network/tcp/30333/p2p/12D3KooWDiaRBvzjt1p95mTqJETxJw3nz1E6fF2Yf62ojimEGJS7".parse().expect("Unable to parse bootnode"),
+            "/dns4/bootnode-2.polymesh.network/tcp/30333/p2p/12D3KooWN9E6gtgybnXwDVNMUGwSA82pzBj72ibGYfZuomyEDQTU".parse().expect("Unable to parse bootnode"),
+            "/dns4/bootnode-3.polymesh.network/tcp/30333/p2p/12D3KooWQ3K8jGadCQSVhihLEsJfSz3TJGgBHMU3vTtK3jd2Wq5E".parse().expect("Unable to parse bootnode"),
         ];
         ChainSpec::from_genesis(
             "Polymesh Mainnet",
-            "polymesh_mainnet",
+            "mainnet",
             ChainType::Live,
             bootstrap_genesis,
             boot_nodes,

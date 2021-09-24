@@ -13,6 +13,7 @@ pub use polymesh_primitives::{
 };
 pub use polymesh_runtime_ci;
 pub use polymesh_runtime_develop;
+pub use polymesh_runtime_mainnet;
 pub use polymesh_runtime_testnet;
 use prometheus_endpoint::Registry;
 use sc_client_api::ExecutorProvider;
@@ -38,6 +39,7 @@ use std::sync::Arc;
 
 /// Known networks based on name.
 pub enum Network {
+    Mainnet,
     CI,
     ITN,
     Testnet,
@@ -51,7 +53,9 @@ pub trait IsNetwork {
 impl IsNetwork for dyn ChainSpec {
     fn network(&self) -> Network {
         let name = self.name();
-        if name.starts_with("Polymesh ITN") {
+        if name.starts_with("Polymesh Mainnet") {
+            Network::Mainnet
+        } else if name.starts_with("Polymesh ITN") {
             Network::ITN
         } else if name.starts_with("Polymesh Testnet")
             || name.starts_with("Polymesh Alcyone")
@@ -94,6 +98,13 @@ native_executor_instance!(
     pub CIExecutor,
     polymesh_runtime_ci::api::dispatch,
     polymesh_runtime_ci::native_version,
+    (frame_benchmarking::benchmarking::HostFunctions, native_rng::HostFunctions)
+);
+
+native_executor_instance!(
+    pub MainnetExecutor,
+    polymesh_runtime_mainnet::api::dispatch,
+    polymesh_runtime_mainnet::native_version,
     (frame_benchmarking::benchmarking::HostFunctions, native_rng::HostFunctions)
 );
 
@@ -573,6 +584,12 @@ pub fn ci_new_full(config: Configuration) -> TaskResult {
         .map(|data| data.task_manager)
 }
 
+/// Create a new Mainnet service for a full node.
+pub fn mainnet_new_full(config: Configuration) -> TaskResult {
+    new_full_base::<polymesh_runtime_mainnet::RuntimeApi, MainnetExecutor, _, _>(config, |_, _| ())
+        .map(|data| data.task_manager)
+}
+
 pub type NewChainOps<R, D> = (
     Arc<FullClient<R, D>>,
     Arc<FullBackend>,
@@ -621,6 +638,12 @@ pub fn ci_chain_ops(
     config: &mut Configuration,
 ) -> Result<NewChainOps<polymesh_runtime_ci::RuntimeApi, CIExecutor>, ServiceError> {
     chain_ops::<_, _, polymesh_runtime_ci::UncheckedExtrinsic>(config)
+}
+
+pub fn mainnet_chain_ops(
+    config: &mut Configuration,
+) -> Result<NewChainOps<polymesh_runtime_mainnet::RuntimeApi, MainnetExecutor>, ServiceError> {
+    chain_ops::<_, _, polymesh_runtime_mainnet::UncheckedExtrinsic>(config)
 }
 
 type LightStorage = sc_client_db::light::LightStorage<Block>;
@@ -777,5 +800,11 @@ pub fn ci_new_light(config: Configuration) -> TaskResult {
 /// Create a new Polymesh service for a light client.
 pub fn general_new_light(config: Configuration) -> TaskResult {
     new_light_base::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor, _>(config)
+        .map(|(task_manager, ..)| task_manager)
+}
+
+/// Create a new Polymesh service for a light client.
+pub fn mainnet_new_light(config: Configuration) -> TaskResult {
+    new_light_base::<polymesh_runtime_mainnet::RuntimeApi, MainnetExecutor, _>(config)
         .map(|(task_manager, ..)| task_manager)
 }

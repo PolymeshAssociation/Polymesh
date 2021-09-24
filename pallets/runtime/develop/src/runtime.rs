@@ -52,8 +52,8 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 /// Runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-    spec_name: create_runtime_str!("polymesh"),
-    impl_name: create_runtime_str!("polymath-polymesh"),
+    spec_name: create_runtime_str!("polymesh_dev"),
+    impl_name: create_runtime_str!("polymesh_dev"),
     authoring_version: 1,
     // Per convention: if the runtime behavior changes, increment spec_version
     // and set impl_version to 0. If only runtime
@@ -119,8 +119,8 @@ parameter_types! {
 
     // Assets:
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
-    pub const AssetNameMaxLength: u32 = 1024;
-    pub const FundingRoundNameMaxLength: u32 = 1024;
+    pub const AssetNameMaxLength: u32 = 128;
+    pub const FundingRoundNameMaxLength: u32 = 128;
 
     // Compliance manager:
     pub const MaxConditionComplexity: u32 = 50;

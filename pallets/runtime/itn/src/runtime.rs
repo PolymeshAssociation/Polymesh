@@ -48,8 +48,8 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 /// Runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-    spec_name: create_runtime_str!("polymesh"),
-    impl_name: create_runtime_str!("polymath-polymesh"),
+    spec_name: create_runtime_str!("polymesh_itn"),
+    impl_name: create_runtime_str!("polymesh_itn"),
     authoring_version: 1,
     // Per convention: if the runtime behavior changes, increment spec_version
     // and set impl_version to 0. If only runtime
