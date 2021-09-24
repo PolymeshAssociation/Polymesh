@@ -36,8 +36,7 @@ const TREASURY_LOCK_HASH: &str =
     "0x1000000000000000000000000000000000000000000000000000000000000001";
 const REWARDS_LOCK_HASH: &str =
     "0x1000000000000000000000000000000000000000000000000000000000000002";
-const KEY_LOCK_HASH: &str =
-    "0x1000000000000000000000000000000000000000000000000000000000000003";
+const KEY_LOCK_HASH: &str = "0x1000000000000000000000000000000000000000000000000000000000000003";
 
 const BOOTSTRAP_KEYS: u128 = 2000 * POLY;
 const BOOTSTRAP_TREASURY: u128 = 17_500_000 * POLY;
@@ -329,27 +328,36 @@ fn genesis_processed_data(
         .iter()
         .cloned()
         .zip(keys.iter().cloned())
-        .map(|(BridgeLockId { nonce, amount, tx_hash }, recipient)| BridgeTx {
-            nonce,
-            recipient,
-            amount,
-            tx_hash,
-        })
+        .map(
+            |(
+                BridgeLockId {
+                    nonce,
+                    amount,
+                    tx_hash,
+                },
+                recipient,
+            )| BridgeTx {
+                nonce,
+                recipient,
+                amount,
+                tx_hash,
+            },
+        )
         .collect();
 
-        complete_txs.push(BridgeTx {
-            nonce: treasury_bridge_lock.nonce,
-            recipient: TREASURY_MODULE_ID.into_account(),
-            amount: treasury_bridge_lock.amount,
-            tx_hash: treasury_bridge_lock.tx_hash,
-        });
-    
-        complete_txs.push(BridgeTx {
-            nonce: rewards_bridge_lock.nonce,
-            recipient: REWARDS_MODULE_ID.into_account(),
-            amount: rewards_bridge_lock.amount,
-            tx_hash: rewards_bridge_lock.tx_hash,
-        });
+    complete_txs.push(BridgeTx {
+        nonce: treasury_bridge_lock.nonce,
+        recipient: TREASURY_MODULE_ID.into_account(),
+        amount: treasury_bridge_lock.amount,
+        tx_hash: treasury_bridge_lock.tx_hash,
+    });
+
+    complete_txs.push(BridgeTx {
+        nonce: rewards_bridge_lock.nonce,
+        recipient: REWARDS_MODULE_ID.into_account(),
+        amount: rewards_bridge_lock.amount,
+        tx_hash: rewards_bridge_lock.tx_hash,
+    });
 
     (identities, stakers, complete_txs)
 }
@@ -408,12 +416,21 @@ fn dev_genesis_processed_data(
                 .iter()
                 .map(|sk| sk.signer.as_account().unwrap().clone()),
         )
-        .map(|(BridgeLockId { nonce, amount, tx_hash }, recipient)| BridgeTx {
-            nonce,
-            recipient,
-            amount,
-            tx_hash,
-        })
+        .map(
+            |(
+                BridgeLockId {
+                    nonce,
+                    amount,
+                    tx_hash,
+                },
+                recipient,
+            )| BridgeTx {
+                nonce,
+                recipient,
+                amount,
+                tx_hash,
+            },
+        )
         .collect();
 
     complete_txs.push(BridgeTx {
@@ -422,7 +439,7 @@ fn dev_genesis_processed_data(
         amount: BOOTSTRAP_TREASURY,
         tx_hash: treasury_bridge_lock.tx_hash,
     });
-    
+
     complete_txs.push(BridgeTx {
         nonce: rewards_bridge_lock.nonce,
         recipient: REWARDS_MODULE_ID.into_account(),
@@ -658,7 +675,11 @@ pub mod general {
             seeded_acc_id("Alice"),
             true,
             BridgeLockId::new(0, DEV_TREASURY, TREASURY_LOCK_HASH),
-            BridgeLockId::new(0, itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(), REWARDS_LOCK_HASH),
+            BridgeLockId::new(
+                0,
+                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                REWARDS_LOCK_HASH,
+            ),
             BridgeLockId::generate_bridge_locks(20, DEV_KEYS, KEY_LOCK_HASH),
             vec![
                 seeded_acc_id("Bob"),
@@ -697,7 +718,11 @@ pub mod general {
             seeded_acc_id("Alice"),
             true,
             BridgeLockId::new(0, DEV_TREASURY, TREASURY_LOCK_HASH),
-            BridgeLockId::new(0, itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(), REWARDS_LOCK_HASH),
+            BridgeLockId::new(
+                0,
+                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                REWARDS_LOCK_HASH,
+            ),
             BridgeLockId::generate_bridge_locks(20, DEV_KEYS, KEY_LOCK_HASH),
             vec![
                 seeded_acc_id("Charlie"),
@@ -811,7 +836,11 @@ pub mod testnet {
             seeded_acc_id("polymath_5"),
             false,
             BridgeLockId::new(0, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
-            BridgeLockId::new(0, itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(), REWARDS_LOCK_HASH),
+            BridgeLockId::new(
+                0,
+                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                REWARDS_LOCK_HASH,
+            ),
             BridgeLockId::generate_bridge_locks(20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
@@ -845,7 +874,11 @@ pub mod testnet {
             seeded_acc_id("Eve"),
             true,
             BridgeLockId::new(0, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
-            BridgeLockId::new(0, itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(), REWARDS_LOCK_HASH),
+            BridgeLockId::new(
+                0,
+                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                REWARDS_LOCK_HASH,
+            ),
             BridgeLockId::generate_bridge_locks(20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
@@ -875,7 +908,11 @@ pub mod testnet {
             seeded_acc_id("Eve"),
             true,
             BridgeLockId::new(0, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
-            BridgeLockId::new(0, itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(), REWARDS_LOCK_HASH),
+            BridgeLockId::new(
+                0,
+                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                REWARDS_LOCK_HASH,
+            ),
             BridgeLockId::generate_bridge_locks(20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
@@ -995,7 +1032,11 @@ pub mod mainnet {
             seeded_acc_id("polymath_5"),
             false,
             BridgeLockId::new(0, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
-            BridgeLockId::new(0, itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(), REWARDS_LOCK_HASH),
+            BridgeLockId::new(
+                0,
+                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                REWARDS_LOCK_HASH,
+            ),
             BridgeLockId::generate_bridge_locks(20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
@@ -1033,7 +1074,11 @@ pub mod mainnet {
             seeded_acc_id("Eve"),
             true,
             BridgeLockId::new(0, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
-            BridgeLockId::new(0, itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(), REWARDS_LOCK_HASH),
+            BridgeLockId::new(
+                0,
+                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                REWARDS_LOCK_HASH,
+            ),
             BridgeLockId::generate_bridge_locks(20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
@@ -1063,7 +1108,11 @@ pub mod mainnet {
             seeded_acc_id("Eve"),
             true,
             BridgeLockId::new(0, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
-            BridgeLockId::new(0, itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(), REWARDS_LOCK_HASH),
+            BridgeLockId::new(
+                0,
+                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                REWARDS_LOCK_HASH,
+            ),
             BridgeLockId::generate_bridge_locks(20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
@@ -1171,7 +1220,11 @@ pub mod ci {
             seeded_acc_id("Alice"),
             true,
             BridgeLockId::new(0, DEV_TREASURY, TREASURY_LOCK_HASH),
-            BridgeLockId::new(0, itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(), REWARDS_LOCK_HASH),
+            BridgeLockId::new(
+                0,
+                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                REWARDS_LOCK_HASH,
+            ),
             BridgeLockId::generate_bridge_locks(20, DEV_KEYS, KEY_LOCK_HASH),
         )
     }
@@ -1201,7 +1254,11 @@ pub mod ci {
             seeded_acc_id("Alice"),
             true,
             BridgeLockId::new(0, DEV_TREASURY, TREASURY_LOCK_HASH),
-            BridgeLockId::new(0, itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(), REWARDS_LOCK_HASH),
+            BridgeLockId::new(
+                0,
+                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                REWARDS_LOCK_HASH,
+            ),
             BridgeLockId::generate_bridge_locks(20, DEV_KEYS, KEY_LOCK_HASH),
         )
     }
