@@ -196,10 +196,10 @@ fn adjust_last<'a>(bytes: &'a mut [u8], n: u8) -> &'a str {
     core::str::from_utf8(bytes).unwrap()
 }
 
-const BOOTSTRAP_STASH: u128 = 10_000 * POLY;
+const BOOTSTRAP_STASH: u128 = 500 * POLY;
 const BOOTSTRAP_TREASURY: u128 = 30_000_000 * POLY;
 // Needed for integration tests
-const BOOTSTRAP_BIG: u128 = 30_000_000 * POLY;
+const BOOTSTRAP_BIG: u128 = 1_000 * POLY;
 
 #[derive(Clone)]
 struct BridgeLockId {
@@ -252,20 +252,20 @@ fn genesis_processed_data(
     // 5 = Bridge + Sudo
 
     // Identity_01
-    // Primary Key: polymath_1
+    // Primary Key: polymath_1 - 1,000 POLYX
 
     // Identity_02
-    // Primary Key: polymath_2
+    // Primary Key: polymath_2 - 1,000 POLYX
 
     // Identity_03
-    // Primary Key: polymath_3
+    // Primary Key: polymath_3 - 1,000 POLYX
 
     // Identity_04
-    // Primary Key: polymath_4
-    // Secondary Keys: Alice, Alice//stash, Bob, Bob//stash, Charles, Charles//stash
+    // Primary Key: polymath_4 - 1,000 POLYX
+    // Secondary Keys: operator_1, operator_1//stash, operator_2, operator_2//stash, operator_3, operator_3//stash - 1,000 POLYX each
 
     // Identity_05
-    // Primary Key: polymath_5
+    // Primary Key: polymath_5 - 1,000 POLYX
 
     let mut identities = Vec::with_capacity(5);
     let mut keys = Vec::with_capacity(5 + 2 * initial_authorities.len()); //11
@@ -290,7 +290,7 @@ fn genesis_processed_data(
             IdentityId::from(4), // All operators have the same Identity
             stash.clone(),
             controller.clone(),
-            BOOTSTRAP_STASH / 2,
+            BOOTSTRAP_STASH,
             pallet_staking::StakerStatus::Validator,
         ));
         // Make stash and controller 4th Identity's secondary keys.
@@ -367,7 +367,7 @@ fn dev_genesis_processed_data(
             IdentityId::from(1),
             stash.clone(),
             controller.clone(),
-            BOOTSTRAP_STASH / 2,
+            BOOTSTRAP_STASH,
             pallet_staking::StakerStatus::Validator,
         ));
         add_sk(stash.clone());
@@ -788,9 +788,9 @@ pub mod testnet {
     pub fn bootstrap_config() -> ChainSpec {
         // provide boot nodes
         let boot_nodes = vec![
-            "/dns4/testnet-bootnode-1.polymesh.live/tcp/30333/p2p/12D3KooWAKwaVWS7BUypNyCDwCEeqSgn4vPUtJyMJesbrdkTnuBE".parse().expect("Unable to parse bootnode"),
-            "/dns4/testnet-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWGqNUAnt1uRNjM5EP49wGN8eb6VnBUfpRLr1Ln8LMQjDe".parse().expect("Unable to parse bootnode"),
-            "/dns4/testnet-bootnode-3.polymesh.live/tcp/30333/p2p/12D3KooWFYsTF3oVu8jywC13hMFwzf9n8MFr2pBWRdyDYyWKiGnq".parse().expect("Unable to parse bootnode"),
+            "/dns4/testnet-bootnode-001.polymesh.live/tcp/30333/p2p/12D3KooWNG4hedmYixq3Vx4crj5VFxHLFWjqYfbAZwFekHJ8Y7du".parse().expect("Unable to parse bootnode"),
+            "/dns4/testnet-bootnode-002.polymesh.live/tcp/30333/p2p/12D3KooW9uY8zFnHB5UKyLuwUpZLpPUSJYT2tYfFvpfNCd2K1ceZ".parse().expect("Unable to parse bootnode"),
+            "/dns4/testnet-bootnode-003.polymesh.live/tcp/30333/p2p/12D3KooWB7AyqsmerKTmcMoyMJJw6ddwWUJ7nFBDGw2viNGN2DBX".parse().expect("Unable to parse bootnode"),
         ];
         ChainSpec::from_genesis(
             "Polymesh Testnet",
@@ -879,8 +879,8 @@ pub mod mainnet {
     session_keys!();
 
     fn genesis(
-        initial_authorities: Vec<InitialAuth>, //Alice, Bob, Charles
-        root_key: AccountId,                   //polymath_5
+        initial_authorities: Vec<InitialAuth>,
+        root_key: AccountId,
         _enable_println: bool,
         treasury_bridge_lock: BridgeLockId,
         key_bridge_locks: Vec<BridgeLockId>,
@@ -904,7 +904,7 @@ pub mod mainnet {
             pallet_bridge: Some(pallet_bridge::GenesisConfig {
                 admin: root_key.clone(),
                 creator: root_key.clone(),
-                signatures_required: 3,
+                signatures_required: 4,
                 signers: bridge_signers(),
                 timelock: time::HOURS * 24,
                 bridge_limit: (1_000_000_000_000_000, 365 * time::DAYS),
@@ -959,9 +959,9 @@ pub mod mainnet {
     fn bootstrap_genesis() -> rt::runtime::GenesisConfig {
         genesis(
             vec![
-                get_authority_keys_from_seed("Alice", false),
-                get_authority_keys_from_seed("Bob", false),
-                get_authority_keys_from_seed("Charlie", false),
+                get_authority_keys_from_seed("operator_1", false),
+                get_authority_keys_from_seed("operator_2", false),
+                get_authority_keys_from_seed("operator_3", false),
             ],
             seeded_acc_id("polymath_5"),
             false,
@@ -976,9 +976,13 @@ pub mod mainnet {
     pub fn bootstrap_config() -> ChainSpec {
         // provide boot nodes
         let boot_nodes = vec![
-            "/dns4/bootnode-1.polymesh.network/tcp/30333/p2p/12D3KooWDiaRBvzjt1p95mTqJETxJw3nz1E6fF2Yf62ojimEGJS7".parse().expect("Unable to parse bootnode"),
-            "/dns4/bootnode-2.polymesh.network/tcp/30333/p2p/12D3KooWN9E6gtgybnXwDVNMUGwSA82pzBj72ibGYfZuomyEDQTU".parse().expect("Unable to parse bootnode"),
-            "/dns4/bootnode-3.polymesh.network/tcp/30333/p2p/12D3KooWQ3K8jGadCQSVhihLEsJfSz3TJGgBHMU3vTtK3jd2Wq5E".parse().expect("Unable to parse bootnode"),
+            "/dns4/mainnet-bootnode-001.polymesh.network/tcp/30333/p2p/12D3KooWDiaRBvzjt1p95mTqJETxJw3nz1E6fF2Yf62ojimEGJS7".parse().expect("Unable to parse bootnode"),
+            "/dns4/mainnet-bootnode-002.polymesh.network/tcp/30333/p2p/12D3KooWN9E6gtgybnXwDVNMUGwSA82pzBj72ibGYfZuomyEDQTU".parse().expect("Unable to parse bootnode"),
+            "/dns4/mainnet-bootnode-003.polymesh.network/tcp/30333/p2p/12D3KooWQ3K8jGadCQSVhihLEsJfSz3TJGgBHMU3vTtK3jd2Wq5E".parse().expect("Unable to parse bootnode"),
+            "/dns4/mainnet-bootnode-004.polymesh.network/tcp/30333/p2p/12D3KooWAjLb7S2FKk1Bxyw3vkaqgcSpjfxHwpGvqcXACFYSK8Xq".parse().expect("Unable to parse bootnode"),
+            "/dns4/mainnet-bootnode-005.polymesh.network/tcp/30333/p2p/12D3KooWKvXCP5b5PW4tHFAYyFVk3kRhwF3qXJbnVcPSGHP6Zmjg".parse().expect("Unable to parse bootnode"),
+            "/dns4/mainnet-bootnode-006.polymesh.network/tcp/30333/p2p/12D3KooWBQhDAjfo13dM4nsogXD39F5TcN9iTVzjXgPqFn9Yaccz".parse().expect("Unable to parse bootnode"),
+            "/dns4/mainnet-bootnode-007.polymesh.network/tcp/30333/p2p/12D3KooWMwFdYC53MqdyR9WYvJiPfxfYXh65NfY9QSuZeyKa53fg".parse().expect("Unable to parse bootnode"),
         ];
         ChainSpec::from_genesis(
             "Polymesh Mainnet",
