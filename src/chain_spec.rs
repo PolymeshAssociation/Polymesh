@@ -237,7 +237,7 @@ impl BridgeLockId {
 }
 
 fn genesis_processed_data(
-    initial_authorities: &Vec<InitialAuth>, //Alice, Bob, Charles
+    initial_authorities: &Vec<InitialAuth>, //Alice, Bob, Charlie
     root_key: AccountId,                    //polymath_5
     treasury_bridge_lock: BridgeLockId,
     rewards_bridge_lock: BridgeLockId,
@@ -831,7 +831,7 @@ pub mod testnet {
             vec![
                 get_authority_keys_from_seed("Alice", false),
                 get_authority_keys_from_seed("Bob", false),
-                get_authority_keys_from_seed("Charles", false),
+                get_authority_keys_from_seed("Charlie", false),
             ],
             seeded_acc_id("polymath_5"),
             false,
@@ -1027,7 +1027,7 @@ pub mod mainnet {
             vec![
                 get_authority_keys_from_seed("Alice", false),
                 get_authority_keys_from_seed("Bob", false),
-                get_authority_keys_from_seed("Charles", false),
+                get_authority_keys_from_seed("Charlie", false),
             ],
             seeded_acc_id("polymath_5"),
             false,
