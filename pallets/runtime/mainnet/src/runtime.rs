@@ -119,7 +119,7 @@ parameter_types! {
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
 
     // Assets:
-    pub const MaxNumberOfTMExtensionForAsset: u32 = 10;
+    pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
     pub const AssetNameMaxLength: u32 = 128;
     pub const FundingRoundNameMaxLength: u32 = 128;
 
@@ -313,15 +313,21 @@ construct_runtime!(
         Identity: pallet_identity::{Module, Call, Storage, Event<T>, Config<T>},
 
         // Polymesh Committees
-        // CddServiceProviders: Genesis config deps: Identity
+
+        // CddServiceProviders (group only): Genesis config deps: Identity
         CddServiceProviders: pallet_group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
 
+        // Governance Council (committee)
         PolymeshCommittee: pallet_committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         // CommitteeMembership: Genesis config deps: PolymeshCommittee, Identity.
         CommitteeMembership: pallet_group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
+
+        // Technical Committee
         TechnicalCommittee: pallet_committee::<Instance3>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         // TechnicalCommitteeMembership: Genesis config deps: TechnicalCommittee, Identity
         TechnicalCommitteeMembership: pallet_group::<Instance3>::{Module, Call, Storage, Event<T>, Config<T>},
+
+        // Upgrade Committee
         UpgradeCommittee: pallet_committee::<Instance4>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         // UpgradeCommitteeMembership: Genesis config deps: UpgradeCommittee, Identity
         UpgradeCommitteeMembership: pallet_group::<Instance4>::{Module, Call, Storage, Event<T>, Config<T>},
