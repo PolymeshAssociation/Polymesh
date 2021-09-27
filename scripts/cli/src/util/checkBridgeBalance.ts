@@ -5,25 +5,31 @@ import express from "express";
 
 /// Express
 const app = express();
-const port = 5556;
+const port = 8888;
 
 async function main(): Promise<void> {
-	type user = {
-		recipient: string;
+	type userInfo = {
 		polyx: number;
 		lastTimeBridged: number;
-	}[];
+	};
 	prom.injectMetricsRoute(app);
 	prom.startCollection();
 	console.log(
 		`Starting events monitor watching endpoint: ${process.env.WS_PROVIDER}`
 	);
+	app.listen(port, () =>
+		console.log(`Offences monitor running on port ${port}`)
+	);
 	const api = await ApiSingleton.getInstance();
 	const BRIDGE_LIMIT = 500_000_000;
 	const BRIDGE_POLY_TOTAL = 1_000_000_000;
-	const BRIDGE_TIME_PERIOD = hoursToSeconds(2); //e.g 4 * 3600
-	let count = 0;
-	let userArray: user = [];
+	const BRIDGE_TIME_PERIOD = await blocksToSeconds();
+	let userArray: Map<string, userInfo> = new Map();
+
+	async function blocksToSeconds() {
+		const timelock = await api.query.bridge.timelock();
+		return timelock.toNumber() * 6;
+	}
 
 	function currentTimeToSeconds() {
 		const currentDateTime = new Date();
@@ -37,41 +43,62 @@ async function main(): Promise<void> {
 	}
 
 	function checksUser(
-		userArray: user,
+		userMap: Map<string, userInfo>,
 		newPolyx: any,
 		offenderAddress: any,
 		blockNumber: number
 	) {
-		userArray.forEach((user, index) => {
-			if (user.recipient === offenderAddress) {
-				const timeDifference =
-					currentTimeToSeconds() - userArray[index].lastTimeBridged;
+		const user = userMap.get(offenderAddress)!;
+		const timeDifference = currentTimeToSeconds() - user.lastTimeBridged;
 
-				//check timeDifference to make sure its not less than 16mins
-				// if it is then no modifications should be done as
-				// seperate events have the same information
-				if (timeDifference > hoursToSeconds(0.25)) {
-					const newBalance = userArray[index].polyx + newPolyx;
-					if (
-						newBalance > BRIDGE_POLY_TOTAL &&
-						timeDifference <= BRIDGE_TIME_PERIOD
-					) {
-						console.log(`Error: Total POLYX Bridge limit exceeded.`);
-						console.log(
-							"Polyx Total Bridge Limit Equivocation: ",
-							offenderAddress,
-							blockNumber
-						);
-						prom.polyxTotalBridgeLimitEquivocations.inc({ offenderAddress });
-						if (index > -1) userArray.splice(index, 1);
-					} else {
-						console.log("Updates user data.");
-						userArray[index].polyx = newBalance;
-						userArray[index].lastTimeBridged = currentTimeToSeconds();
-					}
-				}
+		//check timeDifference to make sure its not less than 16mins
+		// if it is then no modifications should be done as
+		// seperate events have the same information
+		if (timeDifference > hoursToSeconds(0.25)) {
+			const newBalance = user.polyx + newPolyx;
+
+			checkPolyxLimit(newPolyx, offenderAddress, blockNumber);
+
+			if (
+				newBalance > BRIDGE_POLY_TOTAL &&
+				timeDifference <= BRIDGE_TIME_PERIOD
+			) {
+				console.log(`Error: Total POLYX Bridge limit exceeded.`);
+				console.log(
+					"Polyx Total Bridge Limit Equivocation: ",
+					offenderAddress,
+					blockNumber
+				);
+				prom.polyxTotalBridgeLimitEquivocations.inc({ offenderAddress });
+				// resets polyx to zero to check for new errors that break polyx limit
+				userMap.set(offenderAddress, {
+					polyx: 0,
+					lastTimeBridged: currentTimeToSeconds(),
+				});
+			} else {
+				console.log("Updates user data.");
+				userMap.set(offenderAddress, {
+					polyx: newBalance,
+					lastTimeBridged: currentTimeToSeconds(),
+				});
 			}
-		});
+		}
+	}
+
+	function checkPolyxLimit(
+		newPolyx: number,
+		offenderAddress: string,
+		blockNumber: number
+	) {
+		if (newPolyx > BRIDGE_LIMIT) {
+			console.log(`Error: Transaction POLYX limit exceeded.`);
+			console.log(
+				"Polyx Bridge Limit Equivocation: ",
+				offenderAddress,
+				blockNumber
+			);
+			prom.polyxBridgeLimitEquivocations.inc({ offenderAddress });
+		}
 	}
 
 	// Subscribe to the new headers on-chain. The callback is fired when new headers
@@ -102,9 +129,7 @@ async function main(): Promise<void> {
 							const txData = JSON.parse(data.toString());
 							const newPolyx = txData.value;
 							const offenderAddress = txData.recipient;
-							const userExist = userArray.some(
-								(user) => user.recipient === offenderAddress
-							);
+							const userExist = userArray.get(offenderAddress);
 
 							if (userExist) {
 								console.log("User exists.");
@@ -116,28 +141,19 @@ async function main(): Promise<void> {
 								);
 							} else {
 								console.log("User hasn't been added to array yet.");
-								userArray.push({
-									recipient: offenderAddress,
+								checkPolyxLimit(
+									newPolyx,
+									offenderAddress,
+									header.number.toNumber()
+								);
+								userArray.set(offenderAddress, {
 									polyx: newPolyx,
 									lastTimeBridged: currentTimeToSeconds(),
 								});
 							}
-							if (newPolyx > BRIDGE_LIMIT) {
-								console.log(`Error: Transaction POLYX limit exceeded.`);
-								console.log(
-									"Polyx Bridge Limit Equivocation: ",
-									offenderAddress,
-									header.number
-								);
-								prom.polyxBridgeLimitEquivocations.inc({ offenderAddress });
-							}
 						});
 				});
 		});
-
-		app.listen(port, () =>
-			console.log(`Offences monitor running on port ${port}`)
-		);
 	});
 }
 

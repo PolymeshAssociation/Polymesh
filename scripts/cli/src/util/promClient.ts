@@ -9,9 +9,9 @@ export const startCollection = () => {
 };
 
 export const injectMetricsRoute = (app: any) => {
-	app.get("/metrics", (_: any, res: any) => {
+	app.get("/metrics", async (_: any, res: any) => {
 		res.set("Content-Type", register.contentType);
-		res.end(register.metrics());
+		res.end(await register.metrics());
 	});
 };
 
