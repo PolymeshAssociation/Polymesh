@@ -47,10 +47,8 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
+use frame_support::traits::Get;
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
-use frame_support::{
-    traits::Get,
-};
 use sp_std::marker::PhantomData;
 
 /// Weights for pallet_rewards using the Substrate node and recommended hardware.

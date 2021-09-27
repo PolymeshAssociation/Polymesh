@@ -231,8 +231,15 @@ impl BridgeLockId {
         }
     }
 
-    fn generate_bridge_locks(starting_nonce: u32, count: u32, amount: u128, hash: &'static str) -> Vec<Self> {
-        (0..count).map(|x| Self::new(starting_nonce + x, amount, hash)).collect()
+    fn generate_bridge_locks(
+        starting_nonce: u32,
+        count: u32,
+        amount: u128,
+        hash: &'static str,
+    ) -> Vec<Self> {
+        (0..count)
+            .map(|x| Self::new(starting_nonce + x, amount, hash))
+            .collect()
     }
 }
 
