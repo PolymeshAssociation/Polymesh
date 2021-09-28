@@ -17,38 +17,23 @@ See the `audit` folder for details of audits undertaken on the Polymesh code bas
 
 # Public Testnets
 
-There are two public testnets being run for Polymesh - the Alcyone testnet, and the Incentivised Testnet. These are entirely distinct networks (different block numbers, different operators), although both based on the same codebase and versioning.
-
 We provide linux binaries for each testnet release.
 
 The latest release for Polymesh can be found at:  
 <https://github.com/PolymathNetwork/Polymesh/releases>
 
-Generally you should be able to run the latest release for both Alcyone and the ITN, although the on-chain version of each network might differ during upgrade cycles.
+Generally you should be able to run the latest release for Alcyone, although the on-chain version of the network might differ during upgrade cycles.
 
 Below are simple instructions for running a non-operating node (i.e. a node that does not produce blocks or vote on the correctness of other blocks). For more details on monitoring infrastructure for nodes and running an operator node, see the https://github.com/PolymathNetwork/polymesh-tools repository.
 
-## Polymesh Incentivised Testnet (ITN)
-
-The ITN is designed for testing Polymesh functionality at scale, in a production like setting. Users can earn rewards by exercising different aspects of the Polymesh functionality.
-
-For more details on the approach and possible rewards, please see:  
-https://info.polymath.network/blog/running-with-the-bulls-on-the-polymesh-incentivized-testnet
-
-To run a node on the Polymesh Testnet you can grab the latest release from the link above, and then execute:
-
-```bash
-./target/release/polymesh --chain testnet
-```
-
 ## Polymesh Alcyone Public Testnet
 
-The Alcyone public testnet is similar to the ITN, but does not offer incentives to users to participate and test with it. It also has a simpler onboarding process (no-KYC required) and a bridge allowing test KOVAN based POLY to be bridged to testnet POLYX.
+The Alcyone public testnet does not offer incentives to users to participate and test with it. It also has a simple onboarding process (no-KYC required) and a bridge allowing test KOVAN based POLY to be bridged to testnet POLYX.
 
-Specifying no chain at the command line defaults to the Polymesh Alcyone Public Testnet (e.g. `--chain alcyone`), so to run a node which connects to the Alcyone Public Testnet, you can start your node with:
+To run a node which connects to the Alcyone Public Testnet, you can start your node with:
 
 ```bash
-./target/release/polymesh
+./target/release/polymesh --chain alcyone
 ```
 
 # Operators
