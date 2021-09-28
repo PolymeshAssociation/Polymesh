@@ -302,7 +302,7 @@ fn create_and_affirm_instruction() {
         assert_eq!(balance_of(bob.did), bob_init_balance);
 
         assert_eq!(user_affirmations(alice.did), AffirmationStatus::Affirmed);
-        assert_eq!(user_affirmations(alice.did), AffirmationStatus::Pending);
+        assert_eq!(user_affirmations(bob.did), AffirmationStatus::Pending);
         set_current_block_number(5);
 
         assert_affirm_instruction_with_zero_leg!(bob.origin(), instruction_counter, bob.did);
