@@ -13,7 +13,7 @@ use pallet_corporate_actions::ballot as pallet_corporate_ballot;
 use pallet_corporate_actions::distribution as pallet_capital_distribution;
 use pallet_session::historical as pallet_session_historical;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
-use polymesh_common_utilities::{constants::currency::*, protocol_fee::ProtocolOp};
+use polymesh_common_utilities::{constants::currency::*, constants::ENSURED_MAX_LEN, protocol_fee::ProtocolOp};
 use polymesh_primitives::{Balance, BlockNumber, Moment};
 use polymesh_runtime_common::{
     impls::Author,
@@ -73,7 +73,7 @@ parameter_types! {
     pub const SS58Prefix: u8 = 12;
 
     // Base:
-    pub const MaxLen: u32 = 2048;
+    pub const MaxLen: u32 = ENSURED_MAX_LEN;
 
     // Indices:
     pub const IndexDeposit: Balance = DOLLARS;
