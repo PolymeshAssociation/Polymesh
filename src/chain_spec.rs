@@ -788,7 +788,7 @@ pub mod testnet {
                 signatures_required: 3,
                 signers: bridge_signers(),
                 timelock: time::MINUTES * 15,
-                bridge_limit: (100_000_000_000, 365 * time::DAYS),
+                bridge_limit: (30_000 * POLY, 1 * time::DAYS),
                 complete_txs,
             }),
             pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
@@ -816,7 +816,7 @@ pub mod testnet {
             pallet_group_Instance1: Some(group_membership!(1, 2, 3)), // 3 GC members
             pallet_committee_Instance1: Some(committee!(1, (2, 3))),  // RC = 1, 2/3 votes required
             // CDD providers
-            pallet_group_Instance2: Some(Default::default()), // No CDD provider
+            pallet_group_Instance2: Some(group_membership!(1)),
             // Technical Committee:
             pallet_group_Instance3: Some(group_membership!(3, 4, 5)), // One GC member + genesis operator + Bridge Multisig
             pallet_committee_Instance3: Some(committee!(3)),          // RC = 3, 1/2 votes required
@@ -869,7 +869,7 @@ pub mod testnet {
                 TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
                     .expect("Testnet bootstrap telemetry url is valid; qed"),
             ),
-            Some(&*"/polymath/testnet"),
+            Some(&*"/polymesh/testnet"),
             Some(polymath_props(42)),
             Default::default(),
         )
@@ -900,8 +900,8 @@ pub mod testnet {
             develop_genesis,
             boot_nodes,
             None,
-            Some(&*"/polymath/develop/1"),
-            Some(polymath_props(12)),
+            None,
+            Some(polymath_props(42)),
             Default::default(),
         )
     }
@@ -935,7 +935,7 @@ pub mod testnet {
             boot_nodes,
             None,
             None,
-            Some(polymath_props(12)),
+            Some(polymath_props(42)),
             Default::default(),
         )
     }
@@ -980,7 +980,7 @@ pub mod mainnet {
                 signatures_required: 4,
                 signers: bridge_signers(),
                 timelock: time::HOURS * 24,
-                bridge_limit: (1_000_000_000_000_000, 365 * time::DAYS),
+                bridge_limit: (1_000_000_000 * POLY, 365 * time::DAYS),
                 complete_txs,
             }),
             pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
@@ -1012,7 +1012,7 @@ pub mod mainnet {
             pallet_group_Instance1: Some(group_membership!(1, 2, 3)), // 3 GC members
             pallet_committee_Instance1: Some(committee!(1, (2, 3))),  // RC = 1, 2/3 votes required
             // CDD providers
-            pallet_group_Instance2: Some(group_membership!(1)), // No CDD provider
+            pallet_group_Instance2: Some(group_membership!(1)), // GC_1 is also a CDD provider
             // Technical Committee:
             pallet_group_Instance3: Some(group_membership!(1)), // One GC member
             pallet_committee_Instance3: Some(committee!(1)),    // 1/2 votes required
@@ -1100,7 +1100,7 @@ pub mod mainnet {
             develop_genesis,
             boot_nodes,
             None,
-            Some(&*"/polymath/develop/1"),
+            None,
             Some(polymath_props(12)),
             Default::default(),
         )
