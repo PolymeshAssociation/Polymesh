@@ -681,13 +681,13 @@ pub mod general {
             vec![get_authority_keys_from_seed("Alice", false)],
             seeded_acc_id("Alice"),
             true,
-            BridgeLockId::new(0, DEV_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(1, DEV_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
-                1,
+                2,
                 itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
                 REWARDS_LOCK_HASH,
             ),
-            BridgeLockId::generate_bridge_locks(2, 20, DEV_KEYS, KEY_LOCK_HASH),
+            BridgeLockId::generate_bridge_locks(3, 20, DEV_KEYS, KEY_LOCK_HASH),
             vec![
                 seeded_acc_id("Bob"),
                 seeded_acc_id("Charlie"),
@@ -724,13 +724,13 @@ pub mod general {
             ],
             seeded_acc_id("Alice"),
             true,
-            BridgeLockId::new(0, DEV_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(1, DEV_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
-                1,
+                2,
                 itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
                 REWARDS_LOCK_HASH,
             ),
-            BridgeLockId::generate_bridge_locks(2, 20, DEV_KEYS, KEY_LOCK_HASH),
+            BridgeLockId::generate_bridge_locks(3, 20, DEV_KEYS, KEY_LOCK_HASH),
             vec![
                 seeded_acc_id("Charlie"),
                 seeded_acc_id("Dave"),
@@ -842,13 +842,13 @@ pub mod testnet {
             ],
             seeded_acc_id("polymath_5"),
             false,
-            BridgeLockId::new(0, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
-                1,
+                2,
                 itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
                 REWARDS_LOCK_HASH,
             ),
-            BridgeLockId::generate_bridge_locks(2, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
+            BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
 
@@ -880,13 +880,13 @@ pub mod testnet {
             vec![get_authority_keys_from_seed("Alice", false)],
             seeded_acc_id("Eve"),
             true,
-            BridgeLockId::new(0, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
-                1,
+                2,
                 itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
                 REWARDS_LOCK_HASH,
             ),
-            BridgeLockId::generate_bridge_locks(2, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
+            BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
 
@@ -914,13 +914,13 @@ pub mod testnet {
             ],
             seeded_acc_id("Eve"),
             true,
-            BridgeLockId::new(0, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
-                1,
+                2,
                 itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
                 REWARDS_LOCK_HASH,
             ),
-            BridgeLockId::generate_bridge_locks(2, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
+            BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
 
@@ -1038,13 +1038,13 @@ pub mod mainnet {
             ],
             seeded_acc_id("polymath_5"),
             false,
-            BridgeLockId::new(0, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
-                1,
+                2,
                 itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
                 REWARDS_LOCK_HASH,
             ),
-            BridgeLockId::generate_bridge_locks(2, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
+            BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
 
@@ -1080,13 +1080,13 @@ pub mod mainnet {
             vec![get_authority_keys_from_seed("Alice", false)],
             seeded_acc_id("Eve"),
             true,
-            BridgeLockId::new(0, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
-                1,
+                2,
                 itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
                 REWARDS_LOCK_HASH,
             ),
-            BridgeLockId::generate_bridge_locks(2, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
+            BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
 
@@ -1114,13 +1114,13 @@ pub mod mainnet {
             ],
             seeded_acc_id("Eve"),
             true,
-            BridgeLockId::new(0, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
-                1,
+                2,
                 itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
                 REWARDS_LOCK_HASH,
             ),
-            BridgeLockId::generate_bridge_locks(2, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
+            BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
 
@@ -1226,13 +1226,13 @@ pub mod ci {
             vec![get_authority_keys_from_seed("Bob", false)],
             seeded_acc_id("Alice"),
             true,
-            BridgeLockId::new(0, DEV_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(1, DEV_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
-                1,
+                2,
                 itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
                 REWARDS_LOCK_HASH,
             ),
-            BridgeLockId::generate_bridge_locks(2, 20, DEV_KEYS, KEY_LOCK_HASH),
+            BridgeLockId::generate_bridge_locks(3, 20, DEV_KEYS, KEY_LOCK_HASH),
         )
     }
 
@@ -1260,13 +1260,13 @@ pub mod ci {
             ],
             seeded_acc_id("Alice"),
             true,
-            BridgeLockId::new(0, DEV_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(1, DEV_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
-                1,
+                2,
                 itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
                 REWARDS_LOCK_HASH,
             ),
-            BridgeLockId::generate_bridge_locks(2, 20, DEV_KEYS, KEY_LOCK_HASH),
+            BridgeLockId::generate_bridge_locks(3, 20, DEV_KEYS, KEY_LOCK_HASH),
         )
     }
 
