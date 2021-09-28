@@ -7,7 +7,8 @@ use pallet_asset as asset;
 use pallet_compliance_manager as compliance_manager;
 use pallet_settlement::{self as settlement, VenueDetails, VenueType};
 use pallet_sto::{
-    self as sto, Fundraiser, FundraiserName, FundraiserStatus, FundraiserTier, PriceTier, MAX_TIERS,
+    Fundraiser, FundraiserId, FundraiserName, FundraiserStatus, FundraiserTier, PriceTier,
+    MAX_TIERS,
 };
 use polymesh_primitives::{asset::AssetType, PortfolioId, Ticker};
 
@@ -19,8 +20,8 @@ use test_client::AccountKeyring;
 
 type Origin = <TestStorage as frame_system::Config>::Origin;
 type Asset = asset::Module<TestStorage>;
-type STO = sto::Module<TestStorage>;
-type Error = sto::Error<TestStorage>;
+type STO = pallet_sto::Module<TestStorage>;
+type Error = pallet_sto::Error<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
@@ -543,7 +544,7 @@ fn invalid_fundraiser() {
     );
 }
 
-fn basic_fundraiser() -> (u64, RaiseContext) {
+fn basic_fundraiser() -> (FundraiserId, RaiseContext) {
     let context = init_raise_context(1_000_000, Some(1_000_000));
 
     let venue_counter = Settlement::venue_counter();
@@ -646,7 +647,7 @@ fn modifying_fundraiser_window() {
         STO::modify_fundraiser_window(
             alice.origin(),
             offering_ticker,
-            u64::MAX,
+            FundraiserId(u64::MAX),
             Timestamp::get(),
             None
         ),
@@ -692,7 +693,7 @@ fn freeze_unfreeze_fundraiser() {
 
     // Bad fundraiser id
     assert_noop!(
-        STO::freeze_fundraiser(alice.origin(), offering_ticker, u64::MAX,),
+        STO::freeze_fundraiser(alice.origin(), offering_ticker, FundraiserId(u64::MAX)),
         Error::FundraiserNotFound
     );
 
@@ -729,7 +730,7 @@ fn stop_fundraiser() {
 
     // Bad fundraiser id
     assert_noop!(
-        STO::stop(alice.origin(), offering_ticker, u64::MAX),
+        STO::stop(alice.origin(), offering_ticker, FundraiserId(u64::MAX)),
         Error::FundraiserNotFound
     );
 
