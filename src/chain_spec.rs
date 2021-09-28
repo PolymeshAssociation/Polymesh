@@ -30,9 +30,21 @@ use std::convert::TryInto;
 
 // The URL for the telemetry server.
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
-const BRIDGE_LOCK_HASH: &str = "0x1000000000000000000000000000000000000000000000000000000000000001";
+
+// Genesis POLYX distribution via bridge
+const TREASURY_LOCK_HASH: &str =
+    "0x1000000000000000000000000000000000000000000000000000000000000001";
 const REWARDS_LOCK_HASH: &str =
     "0x1000000000000000000000000000000000000000000000000000000000000002";
+const KEY_LOCK_HASH: &str = "0x1000000000000000000000000000000000000000000000000000000000000003";
+
+const BOOTSTRAP_KEYS: u128 = 6_000 * POLY;
+const BOOTSTRAP_TREASURY: u128 = 17_500_000 * POLY;
+
+const DEV_KEYS: u128 = 30_000_000 * POLY;
+const DEV_TREASURY: u128 = 50_000_000 * POLY;
+
+const INITIAL_BOND: u128 = 500 * POLY;
 
 /// Generate a crypto pair from seed.
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -196,19 +208,15 @@ fn adjust_last<'a>(bytes: &'a mut [u8], n: u8) -> &'a str {
     core::str::from_utf8(bytes).unwrap()
 }
 
-const BOOTSTRAP_STASH: u128 = 10_000 * POLY;
-const BOOTSTRAP_TREASURY: u128 = 30_000_000 * POLY;
-// Needed for integration tests
-const BOOTSTRAP_BIG: u128 = 30_000_000 * POLY;
-
 #[derive(Clone)]
 struct BridgeLockId {
     nonce: u32,
+    amount: u128,
     tx_hash: H256,
 }
 
 impl BridgeLockId {
-    fn new(nonce: u32, hash: &'static str) -> Self {
+    fn new(nonce: u32, amount: u128, hash: &'static str) -> Self {
         let offset = if hash.starts_with("0x") { 2 } else { 0 };
         let stripped_hash = &hash[offset..];
         let hash_vec: Vec<u8> = rustc_hex::FromHex::from_hex(stripped_hash)
@@ -218,20 +226,28 @@ impl BridgeLockId {
             .expect("Failed to decode transaction hash (Invalid hash length)");
         Self {
             nonce,
+            amount,
             tx_hash: hash_array.into(),
         }
     }
 
-    fn generate_bridge_locks(count: u32) -> Vec<Self> {
-        const HASH: &str = "0x000000000000000000000000000000000000000000000000000000000000dead";
-        (0..count).map(|x| Self::new(x + 100, HASH)).collect()
+    fn generate_bridge_locks(
+        starting_nonce: u32,
+        count: u32,
+        amount: u128,
+        hash: &'static str,
+    ) -> Vec<Self> {
+        (0..count)
+            .map(|x| Self::new(starting_nonce + x, amount, hash))
+            .collect()
     }
 }
 
 fn genesis_processed_data(
-    initial_authorities: &Vec<InitialAuth>,
-    root_key: AccountId,
+    initial_authorities: &Vec<InitialAuth>, //Alice, Bob, Charlie
+    root_key: AccountId,                    //polymath_5
     treasury_bridge_lock: BridgeLockId,
+    rewards_bridge_lock: BridgeLockId,
     key_bridge_locks: Vec<BridgeLockId>,
 ) -> (
     Vec<GenesisIdentityRecord<AccountId>>,
@@ -250,8 +266,25 @@ fn genesis_processed_data(
     // 3 = GenesisCouncil (3 of 3)
     // 4 = Operator
     // 5 = Bridge + Sudo
+
+    // Identity_01
+    // Primary Key: polymath_1
+
+    // Identity_02
+    // Primary Key: polymath_2
+
+    // Identity_03
+    // Primary Key: polymath_3
+
+    // Identity_04
+    // Primary Key: polymath_4
+    // Secondary Keys: Alice, Alice//stash, Bob, Bob//stash, Charlie, Charlie//stash
+
+    // Identity_05
+    // Primary Key: polymath_5
+
     let mut identities = Vec::with_capacity(5);
-    let mut keys = Vec::with_capacity(5 + 2 * initial_authorities.len());
+    let mut keys = Vec::with_capacity(5 + 2 * initial_authorities.len()); //11
 
     let mut create_id = |nonce: u8, primary_key: AccountId| {
         keys.push(primary_key.clone());
@@ -273,7 +306,7 @@ fn genesis_processed_data(
             IdentityId::from(4), // All operators have the same Identity
             stash.clone(),
             controller.clone(),
-            BOOTSTRAP_STASH / 2,
+            INITIAL_BOND,
             pallet_staking::StakerStatus::Validator,
         ));
         // Make stash and controller 4th Identity's secondary keys.
@@ -302,24 +335,43 @@ fn genesis_processed_data(
         .iter()
         .cloned()
         .zip(keys.iter().cloned())
-        .map(|(BridgeLockId { nonce, tx_hash }, recipient)| BridgeTx {
-            nonce,
-            recipient,
-            amount: BOOTSTRAP_BIG,
-            tx_hash,
-        })
+        .map(
+            |(
+                BridgeLockId {
+                    nonce,
+                    amount,
+                    tx_hash,
+                },
+                recipient,
+            )| BridgeTx {
+                nonce,
+                recipient,
+                amount,
+                tx_hash,
+            },
+        )
         .collect();
+
     complete_txs.push(BridgeTx {
         nonce: treasury_bridge_lock.nonce,
         recipient: TREASURY_MODULE_ID.into_account(),
-        amount: BOOTSTRAP_TREASURY,
+        amount: treasury_bridge_lock.amount,
         tx_hash: treasury_bridge_lock.tx_hash,
     });
+
+    complete_txs.push(BridgeTx {
+        nonce: rewards_bridge_lock.nonce,
+        recipient: REWARDS_MODULE_ID.into_account(),
+        amount: rewards_bridge_lock.amount,
+        tx_hash: rewards_bridge_lock.tx_hash,
+    });
+
     (identities, stakers, complete_txs)
 }
 
 fn dev_genesis_processed_data(
     initial_authorities: &Vec<InitialAuth>,
+    treasury_bridge_lock: BridgeLockId,
     rewards_bridge_lock: BridgeLockId,
     key_bridge_locks: Vec<BridgeLockId>,
     other_funded_accounts: Vec<AccountId>,
@@ -350,7 +402,7 @@ fn dev_genesis_processed_data(
             IdentityId::from(1),
             stash.clone(),
             controller.clone(),
-            BOOTSTRAP_STASH / 2,
+            INITIAL_BOND,
             pallet_staking::StakerStatus::Validator,
         ));
         add_sk(stash.clone());
@@ -371,13 +423,29 @@ fn dev_genesis_processed_data(
                 .iter()
                 .map(|sk| sk.signer.as_account().unwrap().clone()),
         )
-        .map(|(BridgeLockId { nonce, tx_hash }, recipient)| BridgeTx {
-            nonce,
-            recipient,
-            amount: BOOTSTRAP_TREASURY,
-            tx_hash,
-        })
+        .map(
+            |(
+                BridgeLockId {
+                    nonce,
+                    amount,
+                    tx_hash,
+                },
+                recipient,
+            )| BridgeTx {
+                nonce,
+                recipient,
+                amount,
+                tx_hash,
+            },
+        )
         .collect();
+
+    complete_txs.push(BridgeTx {
+        nonce: treasury_bridge_lock.nonce,
+        recipient: TREASURY_MODULE_ID.into_account(),
+        amount: BOOTSTRAP_TREASURY,
+        tx_hash: treasury_bridge_lock.tx_hash,
+    });
 
     complete_txs.push(BridgeTx {
         nonce: rewards_bridge_lock.nonce,
@@ -535,12 +603,14 @@ pub mod general {
         initial_authorities: Vec<InitialAuth>,
         root_key: AccountId,
         _enable_println: bool,
+        treasury_bridge_lock: BridgeLockId,
         rewards_bridge_lock: BridgeLockId,
         key_bridge_locks: Vec<BridgeLockId>,
         other_funded_accounts: Vec<AccountId>,
     ) -> rt::runtime::GenesisConfig {
         let (identity, stakers, complete_txs) = dev_genesis_processed_data(
             &initial_authorities,
+            treasury_bridge_lock,
             rewards_bridge_lock,
             key_bridge_locks,
             other_funded_accounts,
@@ -611,8 +681,13 @@ pub mod general {
             vec![get_authority_keys_from_seed("Alice", false)],
             seeded_acc_id("Alice"),
             true,
-            BridgeLockId::new(2, REWARDS_LOCK_HASH),
-            BridgeLockId::generate_bridge_locks(20),
+            BridgeLockId::new(1, DEV_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(
+                2,
+                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                REWARDS_LOCK_HASH,
+            ),
+            BridgeLockId::generate_bridge_locks(3, 20, DEV_KEYS, KEY_LOCK_HASH),
             vec![
                 seeded_acc_id("Bob"),
                 seeded_acc_id("Charlie"),
@@ -649,8 +724,13 @@ pub mod general {
             ],
             seeded_acc_id("Alice"),
             true,
-            BridgeLockId::new(2, REWARDS_LOCK_HASH),
-            BridgeLockId::generate_bridge_locks(20),
+            BridgeLockId::new(1, DEV_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(
+                2,
+                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                REWARDS_LOCK_HASH,
+            ),
+            BridgeLockId::generate_bridge_locks(3, 20, DEV_KEYS, KEY_LOCK_HASH),
             vec![
                 seeded_acc_id("Charlie"),
                 seeded_acc_id("Dave"),
@@ -682,146 +762,14 @@ pub mod testnet {
         root_key: AccountId,
         _enable_println: bool,
         treasury_bridge_lock: BridgeLockId,
+        rewards_bridge_lock: BridgeLockId,
         key_bridge_locks: Vec<BridgeLockId>,
     ) -> rt::runtime::GenesisConfig {
         let (identities, stakers, complete_txs) = genesis_processed_data(
             &initial_authorities,
             root_key.clone(),
             treasury_bridge_lock,
-            key_bridge_locks,
-        );
-
-        rt::runtime::GenesisConfig {
-            frame_system: Some(frame(rt::WASM_BINARY)),
-            pallet_asset: Some(asset!()),
-            pallet_checkpoint: Some(checkpoint!()),
-            pallet_identity: Some(pallet_identity::GenesisConfig {
-                identities,
-                ..Default::default()
-            }),
-            pallet_balances: Some(Default::default()),
-            pallet_bridge: Some(pallet_bridge::GenesisConfig {
-                admin: seeded_acc_id("polymath_1"),
-                creator: seeded_acc_id("polymath_1"),
-                signatures_required: 3,
-                signers: bridge_signers(),
-                timelock: time::MINUTES * 15,
-                bridge_limit: (30_000_000_000, time::DAYS),
-                complete_txs,
-            }),
-            pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
-            pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
-            pallet_session: Some(session!(initial_authorities, session_keys)),
-            pallet_staking: Some(staking!(initial_authorities, stakers, PerThing::zero())),
-            pallet_pips: Some(pips!(time::DAYS * 7, MaybeBlock::None, 1000)),
-            pallet_im_online: Some(Default::default()),
-            pallet_authority_discovery: Some(Default::default()),
-            pallet_babe: Some(Default::default()),
-            pallet_grandpa: Some(Default::default()),
-            /*
-            pallet_contracts: Some(pallet_contracts::GenesisConfig {
-                current_schedule: pallet_contracts::Schedule {
-                    enable_println, // this should only be enabled on development chains
-                    ..Default::default()
-                },
-            }),
-            */
-            // Governing council
-            pallet_group_Instance1: Some(group_membership!(1, 2, 3, 5)),
-            pallet_committee_Instance1: Some(committee!(1, (2, 4))),
-            // CDD providers
-            pallet_group_Instance2: Some(group_membership!(1, 2, 3, 5)),
-            // Technical Committee:
-            pallet_group_Instance3: Some(group_membership!(3, 5)),
-            pallet_committee_Instance3: Some(committee!(5)),
-            // Upgrade Committee:
-            pallet_group_Instance4: Some(group_membership!(1, 5)),
-            pallet_committee_Instance4: Some(committee!(5)),
-            pallet_protocol_fee: Some(protocol_fee!()),
-            pallet_settlement: Some(Default::default()),
-            pallet_multisig: Some(pallet_multisig::GenesisConfig {
-                transaction_version: 1,
-            }),
-            pallet_corporate_actions: Some(corporate_actions!()),
-            pallet_rewards: Some(rewards!()),
-        }
-    }
-
-    fn develop_genesis() -> rt::runtime::GenesisConfig {
-        genesis(
-            vec![get_authority_keys_from_seed("Bob", false)],
-            seeded_acc_id("Alice"),
-            true,
-            BridgeLockId::new(1, BRIDGE_LOCK_HASH),
-            BridgeLockId::generate_bridge_locks(20),
-        )
-    }
-
-    pub fn develop_config() -> ChainSpec {
-        // provide boot nodes
-        let boot_nodes = vec![];
-        ChainSpec::from_genesis(
-            "Polymesh Testnet Develop",
-            "dev_testnet",
-            ChainType::Development,
-            develop_genesis,
-            boot_nodes,
-            None,
-            None,
-            Some(polymath_props(42)),
-            Default::default(),
-        )
-    }
-
-    fn local_genesis() -> rt::runtime::GenesisConfig {
-        genesis(
-            vec![
-                get_authority_keys_from_seed("Alice", false),
-                get_authority_keys_from_seed("Bob", false),
-            ],
-            seeded_acc_id("Alice"),
-            true,
-            BridgeLockId::new(1, BRIDGE_LOCK_HASH),
-            BridgeLockId::generate_bridge_locks(20),
-        )
-    }
-
-    pub fn local_config() -> ChainSpec {
-        // provide boot nodes
-        let boot_nodes = vec![];
-        ChainSpec::from_genesis(
-            "Polymesh Testnet Local",
-            "local_testnet",
-            ChainType::Local,
-            local_genesis,
-            boot_nodes,
-            None,
-            None,
-            Some(polymath_props(42)),
-            Default::default(),
-        )
-    }
-}
-
-pub mod polymesh_itn {
-    use super::*;
-    use polymesh_runtime_itn::{self as rt, constants::time};
-
-    pub type ChainSpec = sc_service::GenericChainSpec<rt::runtime::GenesisConfig>;
-
-    session_keys!();
-
-    fn genesis(
-        initial_authorities: Vec<InitialAuth>,
-        root_key: AccountId,
-        _enable_println: bool,
-        treasury_bridge_lock: BridgeLockId,
-        key_bridge_locks: Vec<BridgeLockId>,
-    ) -> rt::runtime::GenesisConfig {
-        let (identities, stakers, complete_txs) = genesis_processed_data(
-            &initial_authorities,
-            root_key.clone(),
-            treasury_bridge_lock,
+            rewards_bridge_lock,
             key_bridge_locks,
         );
 
@@ -840,7 +788,7 @@ pub mod polymesh_itn {
                 signatures_required: 3,
                 signers: bridge_signers(),
                 timelock: time::MINUTES * 15,
-                bridge_limit: (100_000_000_000, 365 * time::DAYS),
+                bridge_limit: (30_000 * POLY, 1 * time::DAYS),
                 complete_txs,
             }),
             pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
@@ -868,7 +816,7 @@ pub mod polymesh_itn {
             pallet_group_Instance1: Some(group_membership!(1, 2, 3)), // 3 GC members
             pallet_committee_Instance1: Some(committee!(1, (2, 3))),  // RC = 1, 2/3 votes required
             // CDD providers
-            pallet_group_Instance2: Some(Default::default()), // No CDD provider
+            pallet_group_Instance2: Some(group_membership!(1)),
             // Technical Committee:
             pallet_group_Instance3: Some(group_membership!(3, 4, 5)), // One GC member + genesis operator + Bridge Multisig
             pallet_committee_Instance3: Some(committee!(3)),          // RC = 3, 1/2 votes required
@@ -894,33 +842,35 @@ pub mod polymesh_itn {
             ],
             seeded_acc_id("polymath_5"),
             false,
+            BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
-                1,
-                "0x000000000000000000000000000000000000000000000000000000000f0b41ae",
+                2,
+                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                REWARDS_LOCK_HASH,
             ),
-            BridgeLockId::generate_bridge_locks(20),
+            BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
 
     pub fn bootstrap_config() -> ChainSpec {
         // provide boot nodes
         let boot_nodes = vec![
-            "/dns4/itn-bootnode-1.polymesh.live/tcp/30333/p2p/12D3KooWAKwaVWS7BUypNyCDwCEeqSgn4vPUtJyMJesbrdkTnuBE".parse().expect("Unable to parse bootnode"),
-            "/dns4/itn-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWGqNUAnt1uRNjM5EP49wGN8eb6VnBUfpRLr1Ln8LMQjDe".parse().expect("Unable to parse bootnode"),
-            "/dns4/itn-bootnode-3.polymesh.live/tcp/30333/p2p/12D3KooWFYsTF3oVu8jywC13hMFwzf9n8MFr2pBWRdyDYyWKiGnq".parse().expect("Unable to parse bootnode"),
+            "/dns4/testnet-bootnode-001.polymesh.live/tcp/30333/p2p/12D3KooWNG4hedmYixq3Vx4crj5VFxHLFWjqYfbAZwFekHJ8Y7du".parse().expect("Unable to parse bootnode"),
+            "/dns4/testnet-bootnode-002.polymesh.live/tcp/30333/p2p/12D3KooW9uY8zFnHB5UKyLuwUpZLpPUSJYT2tYfFvpfNCd2K1ceZ".parse().expect("Unable to parse bootnode"),
+            "/dns4/testnet-bootnode-003.polymesh.live/tcp/30333/p2p/12D3KooWB7AyqsmerKTmcMoyMJJw6ddwWUJ7nFBDGw2viNGN2DBX".parse().expect("Unable to parse bootnode"),
         ];
         ChainSpec::from_genesis(
-            "Polymesh ITN",
-            "polymesh_itn",
+            "Polymesh Testnet",
+            "testnet",
             ChainType::Live,
             bootstrap_genesis,
             boot_nodes,
             Some(
                 TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
-                    .expect("ITN bootstrap telemetry url is valid; qed"),
+                    .expect("Testnet bootstrap telemetry url is valid; qed"),
             ),
-            Some(&*"/polymath/itn"),
-            Some(polymath_props(12)),
+            Some(&*"/polymesh/testnet"),
+            Some(polymath_props(42)),
             Default::default(),
         )
     }
@@ -930,11 +880,13 @@ pub mod polymesh_itn {
             vec![get_authority_keys_from_seed("Alice", false)],
             seeded_acc_id("Eve"),
             true,
+            BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
-                1,
-                "0x000000000000000000000000000000000000000000000000000000000f0b41ae",
+                2,
+                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                REWARDS_LOCK_HASH,
             ),
-            BridgeLockId::generate_bridge_locks(20),
+            BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
 
@@ -942,14 +894,14 @@ pub mod polymesh_itn {
         // provide boot nodes
         let boot_nodes = vec![];
         ChainSpec::from_genesis(
-            "Polymesh ITN Develop",
-            "dev_itn",
+            "Polymesh Testnet Develop",
+            "dev_testnet",
             ChainType::Development,
             develop_genesis,
             boot_nodes,
             None,
-            Some(&*"/polymath/develop/1"),
-            Some(polymath_props(12)),
+            None,
+            Some(polymath_props(42)),
             Default::default(),
         )
     }
@@ -962,11 +914,13 @@ pub mod polymesh_itn {
             ],
             seeded_acc_id("Eve"),
             true,
+            BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
-                1,
-                "0x000000000000000000000000000000000000000000000000000000000f0b41ae",
+                2,
+                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                REWARDS_LOCK_HASH,
             ),
-            BridgeLockId::generate_bridge_locks(20),
+            BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
 
@@ -974,14 +928,14 @@ pub mod polymesh_itn {
         // provide boot nodes
         let boot_nodes = vec![];
         ChainSpec::from_genesis(
-            "Polymesh ITN Local",
-            "local_itn",
+            "Polymesh Testnet Local",
+            "local_testnet",
             ChainType::Local,
             local_genesis,
             boot_nodes,
             None,
             None,
-            Some(polymath_props(12)),
+            Some(polymath_props(42)),
             Default::default(),
         )
     }
@@ -1000,12 +954,14 @@ pub mod mainnet {
         root_key: AccountId,
         _enable_println: bool,
         treasury_bridge_lock: BridgeLockId,
+        reward_bridge_lock: BridgeLockId,
         key_bridge_locks: Vec<BridgeLockId>,
     ) -> rt::runtime::GenesisConfig {
         let (identities, stakers, complete_txs) = genesis_processed_data(
             &initial_authorities,
             root_key.clone(),
             treasury_bridge_lock,
+            reward_bridge_lock,
             key_bridge_locks,
         );
 
@@ -1021,10 +977,10 @@ pub mod mainnet {
             pallet_bridge: Some(pallet_bridge::GenesisConfig {
                 admin: root_key.clone(),
                 creator: root_key.clone(),
-                signatures_required: 3,
+                signatures_required: 4,
                 signers: bridge_signers(),
                 timelock: time::HOURS * 24,
-                bridge_limit: (1_000_000_000_000_000, 365 * time::DAYS),
+                bridge_limit: (1_000_000_000 * POLY, 365 * time::DAYS),
                 complete_txs,
             }),
             pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
@@ -1056,7 +1012,7 @@ pub mod mainnet {
             pallet_group_Instance1: Some(group_membership!(1, 2, 3)), // 3 GC members
             pallet_committee_Instance1: Some(committee!(1, (2, 3))),  // RC = 1, 2/3 votes required
             // CDD providers
-            pallet_group_Instance2: Some(Default::default()), // No CDD provider
+            pallet_group_Instance2: Some(group_membership!(1)), // GC_1 is also a CDD provider
             // Technical Committee:
             pallet_group_Instance3: Some(group_membership!(1)), // One GC member
             pallet_committee_Instance3: Some(committee!(1)),    // 1/2 votes required
@@ -1082,24 +1038,30 @@ pub mod mainnet {
             ],
             seeded_acc_id("polymath_5"),
             false,
+            BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
-                1,
-                "0x000000000000000000000000000000000000000000000000000000000f0b41ae",
+                2,
+                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                REWARDS_LOCK_HASH,
             ),
-            BridgeLockId::generate_bridge_locks(20),
+            BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
 
     pub fn bootstrap_config() -> ChainSpec {
         // provide boot nodes
         let boot_nodes = vec![
-            "/dns4/mainnet-bootnode-1.polymesh.live/tcp/30333/p2p/12D3KooWAKwaVWS7BUypNyCDwCEeqSgn4vPUtJyMJesbrdkTnuBE".parse().expect("Unable to parse bootnode"),
-            "/dns4/mainnet-bootnode-2.polymesh.live/tcp/30333/p2p/12D3KooWGqNUAnt1uRNjM5EP49wGN8eb6VnBUfpRLr1Ln8LMQjDe".parse().expect("Unable to parse bootnode"),
-            "/dns4/mainnet-bootnode-3.polymesh.live/tcp/30333/p2p/12D3KooWFYsTF3oVu8jywC13hMFwzf9n8MFr2pBWRdyDYyWKiGnq".parse().expect("Unable to parse bootnode"),
+            "/dns4/mainnet-bootnode-001.polymesh.network/tcp/30333/p2p/12D3KooWDiaRBvzjt1p95mTqJETxJw3nz1E6fF2Yf62ojimEGJS7".parse().expect("Unable to parse bootnode"),
+            "/dns4/mainnet-bootnode-002.polymesh.network/tcp/30333/p2p/12D3KooWN9E6gtgybnXwDVNMUGwSA82pzBj72ibGYfZuomyEDQTU".parse().expect("Unable to parse bootnode"),
+            "/dns4/mainnet-bootnode-003.polymesh.network/tcp/30333/p2p/12D3KooWQ3K8jGadCQSVhihLEsJfSz3TJGgBHMU3vTtK3jd2Wq5E".parse().expect("Unable to parse bootnode"),
+            "/dns4/mainnet-bootnode-004.polymesh.network/tcp/30333/p2p/12D3KooWAjLb7S2FKk1Bxyw3vkaqgcSpjfxHwpGvqcXACFYSK8Xq".parse().expect("Unable to parse bootnode"),
+            "/dns4/mainnet-bootnode-005.polymesh.network/tcp/30333/p2p/12D3KooWKvXCP5b5PW4tHFAYyFVk3kRhwF3qXJbnVcPSGHP6Zmjg".parse().expect("Unable to parse bootnode"),
+            "/dns4/mainnet-bootnode-006.polymesh.network/tcp/30333/p2p/12D3KooWBQhDAjfo13dM4nsogXD39F5TcN9iTVzjXgPqFn9Yaccz".parse().expect("Unable to parse bootnode"),
+            "/dns4/mainnet-bootnode-007.polymesh.network/tcp/30333/p2p/12D3KooWMwFdYC53MqdyR9WYvJiPfxfYXh65NfY9QSuZeyKa53fg".parse().expect("Unable to parse bootnode"),
         ];
         ChainSpec::from_genesis(
             "Polymesh Mainnet",
-            "polymesh_mainnet",
+            "mainnet",
             ChainType::Live,
             bootstrap_genesis,
             boot_nodes,
@@ -1118,11 +1080,13 @@ pub mod mainnet {
             vec![get_authority_keys_from_seed("Alice", false)],
             seeded_acc_id("Eve"),
             true,
+            BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
-                1,
-                "0x000000000000000000000000000000000000000000000000000000000f0b41ae",
+                2,
+                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                REWARDS_LOCK_HASH,
             ),
-            BridgeLockId::generate_bridge_locks(20),
+            BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
 
@@ -1136,7 +1100,7 @@ pub mod mainnet {
             develop_genesis,
             boot_nodes,
             None,
-            Some(&*"/polymath/develop/1"),
+            None,
             Some(polymath_props(12)),
             Default::default(),
         )
@@ -1150,11 +1114,13 @@ pub mod mainnet {
             ],
             seeded_acc_id("Eve"),
             true,
+            BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
-                1,
-                "0x000000000000000000000000000000000000000000000000000000000f0b41ae",
+                2,
+                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                REWARDS_LOCK_HASH,
             ),
-            BridgeLockId::generate_bridge_locks(20),
+            BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
         )
     }
 
@@ -1188,12 +1154,14 @@ pub mod ci {
         root_key: AccountId,
         _enable_println: bool,
         treasury_bridge_lock: BridgeLockId,
+        reward_bridge_lock: BridgeLockId,
         key_bridge_locks: Vec<BridgeLockId>,
     ) -> rt::runtime::GenesisConfig {
         let (identities, stakers, complete_txs) = genesis_processed_data(
             &initial_authorities,
             root_key.clone(),
             treasury_bridge_lock,
+            reward_bridge_lock,
             key_bridge_locks,
         );
 
@@ -1258,8 +1226,13 @@ pub mod ci {
             vec![get_authority_keys_from_seed("Bob", false)],
             seeded_acc_id("Alice"),
             true,
-            BridgeLockId::new(1, BRIDGE_LOCK_HASH),
-            BridgeLockId::generate_bridge_locks(20),
+            BridgeLockId::new(1, DEV_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(
+                2,
+                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                REWARDS_LOCK_HASH,
+            ),
+            BridgeLockId::generate_bridge_locks(3, 20, DEV_KEYS, KEY_LOCK_HASH),
         )
     }
 
@@ -1287,8 +1260,13 @@ pub mod ci {
             ],
             seeded_acc_id("Alice"),
             true,
-            BridgeLockId::new(1, BRIDGE_LOCK_HASH),
-            BridgeLockId::generate_bridge_locks(20),
+            BridgeLockId::new(1, DEV_TREASURY, TREASURY_LOCK_HASH),
+            BridgeLockId::new(
+                2,
+                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                REWARDS_LOCK_HASH,
+            ),
+            BridgeLockId::generate_bridge_locks(3, 20, DEV_KEYS, KEY_LOCK_HASH),
         )
     }
 

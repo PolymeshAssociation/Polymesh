@@ -35,10 +35,10 @@ The ITN is designed for testing Polymesh functionality at scale, in a production
 For more details on the approach and possible rewards, please see:  
 https://info.polymath.network/blog/running-with-the-bulls-on-the-polymesh-incentivized-testnet
 
-To run a node on the Polymesh ITN you can grab the latest release from the link above, and then execute:
+To run a node on the Polymesh Testnet you can grab the latest release from the link above, and then execute:
 
 ```bash
-./target/release/polymesh --chain itn
+./target/release/polymesh --chain testnet
 ```
 
 ## Polymesh Alcyone Public Testnet

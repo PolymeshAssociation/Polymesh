@@ -52,8 +52,8 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 /// Runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-    spec_name: create_runtime_str!("polymesh"),
-    impl_name: create_runtime_str!("polymath-polymesh"),
+    spec_name: create_runtime_str!("polymesh_dev"),
+    impl_name: create_runtime_str!("polymesh_dev"),
     authoring_version: 1,
     // Per convention: if the runtime behavior changes, increment spec_version
     // and set impl_version to 0. If only runtime
@@ -109,6 +109,8 @@ parameter_types! {
     /// Reward that is received by the party whose touch has led
     /// to removal of a contract.
     pub const SurchargeReward: Balance = 150 * DOLLARS;
+    // Settlement:
+    pub const MaxLegsInInstruction: u32 = 10;
 
     // Offences:
     pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) * MaximumBlockWeight::get();
@@ -119,8 +121,8 @@ parameter_types! {
 
     // Assets:
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
-    pub const AssetNameMaxLength: u32 = 1024;
-    pub const FundingRoundNameMaxLength: u32 = 1024;
+    pub const AssetNameMaxLength: u32 = 128;
+    pub const FundingRoundNameMaxLength: u32 = 128;
 
     // Compliance manager:
     pub const MaxConditionComplexity: u32 = 50;
@@ -136,11 +138,8 @@ parameter_types! {
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
 
-    // Settlement:
-    pub const MaxLegsInInstruction: u32 = 10;
-
     // Identity:
-    pub const InitialPOLYX: Balance = 0;
+    pub const InitialPOLYX: Balance = 0 * POLY;
 
     /*
     /// The fraction of the deposit that should be used as rent per block.
@@ -285,10 +284,10 @@ impl pallet_group::Config<pallet_group::Instance2> for Runtime {
     type Event = Event;
     // Cannot alter its own active membership limit.
     type LimitOrigin = polymesh_primitives::EnsureRoot;
-    type AddOrigin = Self::LimitOrigin;
-    type RemoveOrigin = Self::LimitOrigin;
-    type SwapOrigin = Self::LimitOrigin;
-    type ResetOrigin = Self::LimitOrigin;
+    type AddOrigin = polymesh_primitives::EnsureRoot;
+    type RemoveOrigin = polymesh_primitives::EnsureRoot;
+    type SwapOrigin = polymesh_primitives::EnsureRoot;
+    type ResetOrigin = polymesh_primitives::EnsureRoot;
     type MembershipInitialized = Identity;
     type MembershipChanged = Identity;
     type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
@@ -316,88 +315,88 @@ construct_runtime!(
         NodeBlock = polymesh_primitives::Block,
         UncheckedExtrinsic = UncheckedExtrinsic
     {
-        System: frame_system::{Module, Call, Config, Storage, Event<T>} = 0,
-        Babe: pallet_babe::{Module, Call, Storage, Config, ValidateUnsigned} = 1,
-        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent} = 2,
-        Indices: pallet_indices::{Module, Call, Storage, Config<T>, Event<T>} = 3,
-        Authorship: pallet_authorship::{Module, Call, Storage, Inherent} = 7,
+        System: frame_system::{Module, Call, Config, Storage, Event<T>},
+        Babe: pallet_babe::{Module, Call, Storage, Config, ValidateUnsigned},
+        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
+        Indices: pallet_indices::{Module, Call, Storage, Config<T>, Event<T>},
+        Authorship: pallet_authorship::{Module, Call, Storage, Inherent},
 
         // Balance: Genesis config dependencies: System.
-        Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>} = 4,
+        Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
 
         // TransactionPayment: Genesis config dependencies: Balance.
-        TransactionPayment: pallet_transaction_payment::{Module, Storage} = 5,
+        TransactionPayment: pallet_transaction_payment::{Module, Storage},
 
         // Identity: Genesis config deps: Timestamp.
-        Identity: pallet_identity::{Module, Call, Storage, Event<T>, Config<T>} = 6,
-        MultiSig: pallet_multisig::{Module, Call, Config, Storage, Event<T>} = 18,
+        Identity: pallet_identity::{Module, Call, Storage, Event<T>, Config<T>},
 
-        // CddServiceProviders: Genesis config deps: Identity
-        CddServiceProviders: pallet_group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>} = 38,
+        // Polymesh Committees
 
-        // Bridge: Genesis config deps: Multisig, Identity
-        Bridge: pallet_bridge::{Module, Call, Storage, Config<T>, Event<T>} = 31,
+        // CddServiceProviders (group only): Genesis config deps: Identity
+        CddServiceProviders: pallet_group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
 
-        // Staking: Genesis config deps: Balances, Bridge, Indices, Identity, Babe, Timestamp, CddServiceProviders.
-        Staking: pallet_staking::{Module, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 8,
-        Offences: pallet_offences::{Module, Call, Storage, Event} = 9,
+        // Governance Council (committee)
+        PolymeshCommittee: pallet_committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        // CommitteeMembership: Genesis config deps: PolymeshCommittee, Identity.
+        CommitteeMembership: pallet_group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
+
+        // Technical Committee
+        TechnicalCommittee: pallet_committee::<Instance3>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        // TechnicalCommitteeMembership: Genesis config deps: TechnicalCommittee, Identity
+        TechnicalCommitteeMembership: pallet_group::<Instance3>::{Module, Call, Storage, Event<T>, Config<T>},
+
+        // Upgrade Committee
+        UpgradeCommittee: pallet_committee::<Instance4>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        // UpgradeCommitteeMembership: Genesis config deps: UpgradeCommittee, Identity
+        UpgradeCommitteeMembership: pallet_group::<Instance4>::{Module, Call, Storage, Event<T>, Config<T>},
+
+        MultiSig: pallet_multisig::{Module, Call, Config, Storage, Event<T>},
+        // Bridge: Genesis config deps: Multisig, Identity, Committees
+        Bridge: pallet_bridge::{Module, Call, Storage, Config<T>, Event<T>},
+
+        // Staking: Genesis config deps: Bridge, Balances, Indices, Identity, Babe, Timestamp, Committees
+        Staking: pallet_staking::{Module, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
+        Offences: pallet_offences::{Module, Call, Storage, Event},
 
         // Session: Genesis config deps: System.
-        Session: pallet_session::{Module, Call, Storage, Event, Config<T>} = 10,
-        Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event} = 12,
-        ImOnline: pallet_im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 13,
-        AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config} = 14,
-        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage} = 15,
-        Historical: pallet_session_historical::{Module} = 16,
+        Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
+        AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config},
+        Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event},
+        Historical: pallet_session_historical::{Module},
+        ImOnline: pallet_im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>},
+        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
 
         // Sudo. Usable initially.
-        // RELEASE: remove this for release build.
-        Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>} = 17,
+        Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
 
         /*
         // Contracts
-        BaseContracts: pallet_contracts::{Module, Config<T>, Storage, Event<T>} = 19,
-        Contracts: polymesh_contracts::{Module, Call, Storage, Event<T>} = 20,
+        BaseContracts: pallet_contracts::{Module, Config<T>, Storage, Event<T>},
+        Contracts: polymesh_contracts::{Module, Call, Storage, Event<T>},
         */
 
-        // Polymesh Governance Committees
-        Treasury: pallet_treasury::{Module, Call, Event<T>} = 21,
-        PolymeshCommittee: pallet_committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 22,
-
-        // CommitteeMembership: Genesis config deps: PolymeshCommittee, Identity.
-        CommitteeMembership: pallet_group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>} = 23,
-        Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>} = 24,
-        TechnicalCommittee: pallet_committee::<Instance3>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 25,
-
-        // TechnicalCommitteeMembership: Genesis config deps: TechnicalCommittee, Identity
-        TechnicalCommitteeMembership: pallet_group::<Instance3>::{Module, Call, Storage, Event<T>, Config<T>} = 26,
-        UpgradeCommittee: pallet_committee::<Instance4>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 27,
-
-        // UpgradeCommitteeMembership: Genesis config deps: UpgradeCommittee
-        UpgradeCommitteeMembership: pallet_group::<Instance4>::{Module, Call, Storage, Event<T>, Config<T>} = 28,
-
         // Asset: Genesis config deps: Timestamp,
-        Asset: pallet_asset::{Module, Call, Storage, Config<T>, Event<T>} = 29,
-
-        ComplianceManager: pallet_compliance_manager::{Module, Call, Storage, Event} = 32,
-        Settlement: pallet_settlement::{Module, Call, Storage, Event<T>, Config} = 36,
-        Sto: pallet_sto::{Module, Call, Storage, Event<T>} = 37,
-        Statistics: pallet_statistics::{Module, Call, Storage, Event} = 39,
-        ProtocolFee: pallet_protocol_fee::{Module, Call, Storage, Event<T>, Config} = 40,
-        Utility: pallet_utility::{Module, Call, Storage, Event} = 41,
-        Portfolio: pallet_portfolio::{Module, Call, Storage, Event} = 42,
-        // Removed pallet Confidential = 43,
-        Permissions: pallet_permissions::{Module, Storage} = 44,
-        Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>} = 45,
-        CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event, Config} = 46,
-        CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event} = 47,
-        CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event} = 48,
-        Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event, Config} = 49,
+        Asset: pallet_asset::{Module, Call, Storage, Config<T>, Event<T>},
+        CapitalDistribution: pallet_capital_distribution::{Module, Call, Storage, Event},
+        Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event, Config},
+        ComplianceManager: pallet_compliance_manager::{Module, Call, Storage, Event},
+        CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event, Config},
+        CorporateBallot: pallet_corporate_ballot::{Module, Call, Storage, Event},
+        Permissions: pallet_permissions::{Module},
+        Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>},
+        Portfolio: pallet_portfolio::{Module, Call, Storage, Event},
+        ProtocolFee: pallet_protocol_fee::{Module, Call, Storage, Event<T>, Config},
+        Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
+        Settlement: pallet_settlement::{Module, Call, Storage, Event<T>, Config},
+        Statistics: pallet_statistics::{Module, Call, Storage, Event},
+        Sto: pallet_sto::{Module, Call, Storage, Event<T>},
+        Treasury: pallet_treasury::{Module, Call, Event<T>},
+        Utility: pallet_utility::{Module, Call, Storage, Event},
+        Base: pallet_base::{Module, Call, Event},
+        ExternalAgents: pallet_external_agents::{Module, Call, Storage, Event},
+        Relayer: pallet_relayer::{Module, Call, Storage, Event<T>},
+        Rewards: pallet_rewards::{Module, Call, Storage, Event<T>, Config<T>, ValidateUnsigned},
         TestUtils: pallet_test_utils::{Module, Call, Storage, Event<T> } = 50,
-        Base: pallet_base::{Module, Call, Event} = 51,
-        ExternalAgents: pallet_external_agents::{Module, Call, Storage, Event} = 52,
-        Relayer: pallet_relayer::{Module, Call, Storage, Event<T>} = 53,
-        Rewards: pallet_rewards::{Module, Call, Storage, Event<T>, Config<T>, ValidateUnsigned} = 54,
     }
 );
 

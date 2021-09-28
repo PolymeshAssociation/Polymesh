@@ -133,7 +133,6 @@ members = [
     "pallets/relayer",
     "pallets/runtime/common",
     "pallets/runtime/develop",
-    "pallets/runtime/itn",
     "pallets/runtime/mainnet",
     "pallets/runtime/testnet",
     "pallets/runtime/tests",
@@ -185,7 +184,6 @@ polymesh-node-rpc = { path = "node-rpc" }
 
 # Runtimes
 polymesh-runtime-develop = { path = "pallets/runtime/develop" }
-polymesh-runtime-itn = { path = "pallets/runtime/itn" }
 polymesh-runtime-mainnet = { path = "pallets/runtime/mainnet" }
 polymesh-runtime-testnet = { path = "pallets/runtime/testnet" }
 polymesh-runtime-ci = { path = "pallets/runtime/ci" }

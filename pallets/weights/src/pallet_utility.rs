@@ -47,11 +47,8 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{
-    traits::Get,
-    weights::{constants::RocksDbWeight as DbWeight, Weight},
-};
 use polymesh_runtime_common::GetDispatchInfo;
+use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 fn sum_weights(calls: &[impl GetDispatchInfo]) -> Weight {
     calls
