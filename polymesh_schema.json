@@ -483,10 +483,6 @@
       "expiry": "Option<Moment>",
       "claim": "Claim"
     },
-    "IdentityClaimKey": {
-      "id": "IdentityId",
-      "claim_type": "ClaimType"
-    },
     "ComplianceRequirement": {
       "sender_conditions": "Vec<Condition>",
       "receiver_conditions": "Vec<Condition>",
@@ -525,12 +521,6 @@
       "condition": "Condition",
       "result": "bool"
     },
-    "SimpleTokenRecord": {
-      "ticker": "Ticker",
-      "total_supply": "Balance",
-      "owner_did": "IdentityId"
-    },
-    "FeeOf": "Balance",
     "TargetIdAuthorization": {
       "target_id": "IdentityId",
       "nonce": "u64",
@@ -635,7 +625,6 @@
       "index": "u32",
       "ayes": "Vec<(IdentityId, Balance)>",
       "nays": "Vec<(IdentityId, Balance)>",
-      "end": "BlockNumber",
       "expiry": "MaybeBlock"
     },
     "PipId": "u32",
@@ -660,11 +649,6 @@
         "Hash": "Hash",
         "Proposal": "Vec<u8>"
       }
-    },
-    "TickerTransferApproval": {
-      "authorized_by": "IdentityId",
-      "next_ticker": "Option<Ticker>",
-      "previous_ticker": "Option<Ticker>"
     },
     "OffChainSignature": {
       "_enum": {
@@ -748,12 +732,8 @@
     "BridgeTx": {
       "nonce": "u32",
       "recipient": "AccountId",
-      "value": "Balance",
+      "amount": "Balance",
       "tx_hash": "H256"
-    },
-    "PendingTx": {
-      "did": "IdentityId",
-      "bridge_tx": "BridgeTx"
     },
     "AssetCompliance": {
       "is_paused": "bool",
