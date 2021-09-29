@@ -1144,13 +1144,13 @@
           },
           {
             "name": "from_did",
-            "type": "Option<IdentityId>",
-            "isOptional": false
+            "type": "IdentityId",
+            "isOptional": true
           },
           {
             "name": "to_did",
-            "type": "Option<IdentityId>",
-            "isOptional": false
+            "type": "IdentityId",
+            "isOptional": true
           },
           {
             "name": "blockHash",
@@ -1366,8 +1366,8 @@
           },
           {
             "name": "from_custodian",
-            "type": "Option<IdentityId>",
-            "isOptional": false
+            "type": "IdentityId",
+            "isOptional": true
           },
           {
             "name": "from_portfolio",
@@ -1376,8 +1376,8 @@
           },
           {
             "name": "to_custodian",
-            "type": "Option<IdentityId>",
-            "isOptional": false
+            "type": "IdentityId",
+            "isOptional": true
           },
           {
             "name": "to_portfolio",
@@ -1407,8 +1407,8 @@
         "params": [
           {
             "name": "from_custodian",
-            "type": "Option<IdentityId>",
-            "isOptional": false
+            "type": "IdentityId",
+            "isOptional": true
           },
           {
             "name": "from_portfolio",
@@ -1417,8 +1417,8 @@
           },
           {
             "name": "to_custodian",
-            "type": "Option<IdentityId>",
-            "isOptional": false
+            "type": "IdentityId",
+            "isOptional": true
           },
           {
             "name": "to_portfolio",
