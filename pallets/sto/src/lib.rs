@@ -32,9 +32,7 @@ use frame_support::{
 };
 use pallet_base::try_next_id_post;
 use pallet_identity::PermissionedCallOriginData;
-use pallet_settlement::{
-    self as settlement, Leg, ReceiptDetails, SettlementType, VenueInfo, VenueType,
-};
+use pallet_settlement::{Leg, ReceiptDetails, SettlementType, VenueId, VenueInfo, VenueType};
 use polymesh_common_utilities::{
     portfolio::PortfolioSubTrait,
     traits::{identity, portfolio},
@@ -53,7 +51,7 @@ pub const MAX_TIERS: usize = 10;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 type Identity<T> = pallet_identity::Module<T>;
 type Portfolio<T> = pallet_portfolio::Module<T>;
-type Settlement<T> = settlement::Module<T>;
+type Settlement<T> = pallet_settlement::Module<T>;
 type Timestamp<T> = pallet_timestamp::Module<T>;
 
 /// The per-ticker ID of a fundraiser.
@@ -99,7 +97,7 @@ pub struct Fundraiser<Moment> {
     /// The sum of the tiers is the total amount available in this fundraiser.
     pub tiers: Vec<FundraiserTier>,
     /// Id of the venue to use for this fundraise.
-    pub venue_id: u64,
+    pub venue_id: VenueId,
     /// Start time of the fundraiser.
     pub start: Moment,
     /// End time of the fundraiser.
@@ -166,7 +164,7 @@ pub trait WeightInfo {
 pub trait Config:
     frame_system::Config
     + identity::Config
-    + settlement::Config
+    + pallet_settlement::Config
     + portfolio::Config
     + pallet_base::Config
 {
@@ -294,7 +292,7 @@ decl_module! {
             raising_portfolio: PortfolioId,
             raising_asset: Ticker,
             tiers: Vec<PriceTier>,
-            venue_id: u64,
+            venue_id: VenueId,
             start: Option<T::Moment>,
             end: Option<T::Moment>,
             minimum_investment: Balance,

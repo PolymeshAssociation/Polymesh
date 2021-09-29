@@ -17,7 +17,7 @@ use pallet_portfolio::MovePortfolioItem;
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
     AffirmationStatus, Instruction, InstructionId, InstructionLegs, InstructionStatus, Leg,
-    LegStatus, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails,
+    LegStatus, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails, VenueId,
     VenueInstructions, VenueType,
 };
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
@@ -83,7 +83,7 @@ macro_rules! assert_affirm_instruction_with_zero_leg {
     };
 }
 
-fn init(token_name: &[u8], ticker: Ticker, user: User) -> u64 {
+fn init(token_name: &[u8], ticker: Ticker, user: User) -> VenueId {
     create_token(token_name, ticker, user);
     let venue_counter = Settlement::venue_counter();
     assert_ok!(Settlement::create_venue(
@@ -110,7 +110,7 @@ fn create_token(token_name: &[u8], ticker: Ticker, user: User) {
     allow_all_transfers(ticker, user);
 }
 
-fn ticker_init(user: User, name: &[u8]) -> (Ticker, u64) {
+fn ticker_init(user: User, name: &[u8]) -> (Ticker, VenueId) {
     let ticker = Ticker::try_from(name).unwrap();
     let venue_counter = init(name, ticker, user);
     (ticker, venue_counter)
@@ -134,7 +134,7 @@ fn venue_details_length_limited() {
     });
 }
 
-fn venue_instructions(id: u64) -> Vec<InstructionId> {
+fn venue_instructions(id: VenueId) -> Vec<InstructionId> {
     VenueInstructions::iter_prefix(id).map(|(i, _)| i).collect()
 }
 
@@ -153,7 +153,10 @@ fn venue_registration() {
             VenueType::Exchange
         ));
         let venue_info = Settlement::venue_info(venue_counter).unwrap();
-        assert_eq!(Settlement::venue_counter(), venue_counter + 1);
+        assert_eq!(
+            Settlement::venue_counter(),
+            venue_counter.checked_inc().unwrap()
+        );
         assert_eq!(Settlement::user_venues(alice.did), [venue_counter]);
         assert_eq!(venue_info.creator, alice.did);
         assert_eq!(venue_instructions(venue_counter).len(), 0);
@@ -178,7 +181,7 @@ fn venue_registration() {
         ));
         assert_eq!(
             Settlement::user_venues(alice.did),
-            [venue_counter, venue_counter + 1]
+            [venue_counter, venue_counter.checked_inc().unwrap()]
         );
 
         // Editing venue details
@@ -3022,7 +3025,7 @@ fn reject_failed_instruction() {
 fn create_instruction(
     alice: &User,
     bob: &User,
-    venue_counter: u64,
+    venue_counter: VenueId,
     ticker: Ticker,
     amount: u128,
 ) -> InstructionId {

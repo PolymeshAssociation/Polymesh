@@ -53,7 +53,6 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
-use core::mem;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -112,6 +111,11 @@ pub trait Config:
     /// Weight information for extrinsic of the settlement pallet.
     type WeightInfo: WeightInfo;
 }
+
+/// A global and unique venue ID.
+#[derive(Copy, Clone, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+pub struct VenueId(pub u64);
+impl_checked_inc!(VenueId);
 
 /// A wrapper for VenueDetails
 #[derive(
@@ -215,7 +219,7 @@ pub struct Instruction<Moment, BlockNumber> {
     /// Unique instruction id. It is an auto incrementing number
     pub instruction_id: InstructionId,
     /// Id of the venue this instruction belongs to
-    pub venue_id: u64,
+    pub venue_id: VenueId,
     /// Status of the instruction
     pub status: InstructionStatus,
     /// Type of settlement used for this instruction
@@ -319,16 +323,16 @@ decl_event!(
         AccountId = <T as frame_system::Config>::AccountId,
     {
         /// A new venue has been created (did, venue_id, details, type)
-        VenueCreated(IdentityId, u64, VenueDetails, VenueType),
+        VenueCreated(IdentityId, VenueId, VenueDetails, VenueType),
         /// An existing venue's details has been updated (did, venue_id, details)
-        VenueDetailsUpdated(IdentityId, u64, VenueDetails),
+        VenueDetailsUpdated(IdentityId, VenueId, VenueDetails),
         /// An existing venue's type has been updated (did, venue_id, type)
-        VenueTypeUpdated(IdentityId, u64, VenueType),
+        VenueTypeUpdated(IdentityId, VenueId, VenueType),
         /// A new instruction has been created
         /// (did, venue_id, instruction_id, settlement_type, trade_date, value_date, legs)
         InstructionCreated(
             IdentityId,
-            u64,
+            VenueId,
             InstructionId,
             SettlementType<BlockNumber>,
             Option<Moment>,
@@ -357,9 +361,9 @@ decl_event!(
         /// Venue filtering has been enabled or disabled for a ticker (did, ticker, filtering_enabled)
         VenueFiltering(IdentityId, Ticker, bool),
         /// Venues added to allow list (did, ticker, vec<venue_id>)
-        VenuesAllowed(IdentityId, Ticker, Vec<u64>),
+        VenuesAllowed(IdentityId, Ticker, Vec<VenueId>),
         /// Venues added to block list (did, ticker, vec<venue_id>)
-        VenuesBlocked(IdentityId, Ticker, Vec<u64>),
+        VenuesBlocked(IdentityId, Ticker, Vec<VenueId>),
         /// Execution of a leg failed (did, instruction_id, leg_id)
         LegFailedExecution(IdentityId, InstructionId, u64),
         /// Instruction failed execution (did, instruction_id)
@@ -367,7 +371,7 @@ decl_event!(
         /// Instruction executed successfully(did, instruction_id)
         InstructionExecuted(IdentityId, InstructionId),
         /// Venue unauthorized by ticker owner (did, Ticker, venue_id)
-        VenueUnauthorized(IdentityId, Ticker, u64),
+        VenueUnauthorized(IdentityId, Ticker, VenueId),
         /// Scheduling of instruction fails.
         SchedulingFailed(DispatchError),
         /// Instruction is rescheduled.
@@ -437,25 +441,28 @@ storage_migration_ver!(0);
 decl_storage! {
     trait Store for Module<T: Config> as Settlement {
         /// Info about a venue. venue_id -> venue
-        pub VenueInfo get(fn venue_info): map hasher(twox_64_concat) u64 => Option<Venue>;
+        pub VenueInfo get(fn venue_info): map hasher(twox_64_concat) VenueId => Option<Venue>;
 
         /// Free-form text about a venue. venue_id -> `VenueDetails`
         /// Only needed for the UI.
-        pub Details get(fn details): map hasher(twox_64_concat) u64 => VenueDetails;
+        pub Details get(fn details): map hasher(twox_64_concat) VenueId => VenueDetails;
 
         /// Instructions under a venue.
         /// Only needed for the UI.
         ///
         /// venue_id -> instruction_id -> ()
         pub VenueInstructions get(fn venue_instructions):
-            double_map hasher(twox_64_concat) u64,
+            double_map hasher(twox_64_concat) VenueId,
                        hasher(twox_64_concat) InstructionId
                     => ();
 
         /// Signers allowed by the venue. (venue_id, signer) -> bool
-        VenueSigners get(fn venue_signers): double_map hasher(twox_64_concat) u64, hasher(twox_64_concat) T::AccountId => bool;
+        VenueSigners get(fn venue_signers):
+            double_map hasher(twox_64_concat) VenueId,
+                       hasher(twox_64_concat) T::AccountId
+                    => bool;
         /// Array of venues created by an identity. Only needed for the UI. IdentityId -> Vec<venue_id>
-        UserVenues get(fn user_venues): map hasher(twox_64_concat) IdentityId => Vec<u64>;
+        UserVenues get(fn user_venues): map hasher(twox_64_concat) IdentityId => Vec<VenueId>;
         /// Details about an instruction. instruction_id -> instruction_details
         InstructionDetails get(fn instruction_details):
             map hasher(twox_64_concat) InstructionId => Instruction<T::Moment, T::BlockNumber>;
@@ -479,9 +486,9 @@ decl_storage! {
         VenueFiltering get(fn venue_filtering): map hasher(blake2_128_concat) Ticker => bool;
         /// Venues that are allowed to create instructions involving a particular ticker. Oly used if filtering is enabled.
         /// (ticker, venue_id) -> allowed
-        VenueAllowList get(fn venue_allow_list): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) u64 => bool;
+        VenueAllowList get(fn venue_allow_list): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) VenueId => bool;
         /// Number of venues in the system (It's one more than the actual number)
-        VenueCounter get(fn venue_counter) build(|_| 1u64): u64;
+        VenueCounter get(fn venue_counter) build(|_| VenueId(1u64)): VenueId;
         /// Number of instructions in the system (It's one more than the actual number)
         InstructionCounter get(fn instruction_counter) build(|_| InstructionId(1u64)): InstructionId;
         /// Storage version.
@@ -504,9 +511,9 @@ decl_module! {
         pub fn create_venue(origin, details: VenueDetails, signers: Vec<T::AccountId>, typ: VenueType) {
             let did = Identity::<T>::ensure_perms(origin)?;
             ensure_string_limited::<T>(&details)?;
+            let id = VenueCounter::try_mutate(try_next_id_post::<T, _>)?;
             let venue = Venue { creator: did, venue_type: typ };
             // NB: Venue counter starts with 1.
-            let id = VenueCounter::mutate(|c| mem::replace(c, *c + 1));
             VenueInfo::insert(id, venue.clone());
             Details::insert(id, details.clone());
             for signer in signers {
@@ -521,7 +528,7 @@ decl_module! {
         /// * `id` specifies the ID of the venue to edit.
         /// * `details` specifies the updated venue details.
         #[weight = <T as Config>::WeightInfo::update_venue_details(details.len() as u32)]
-        pub fn update_venue_details(origin, id: u64, details: VenueDetails) -> DispatchResult {
+        pub fn update_venue_details(origin, id: VenueId, details: VenueDetails) -> DispatchResult {
             ensure_string_limited::<T>(&details)?;
             let did = Identity::<T>::ensure_perms(origin)?;
             Self::venue_for_management(id, did)?;
@@ -537,7 +544,7 @@ decl_module! {
         /// * `id` specifies the ID of the venue to edit.
         /// * `type` specifies the new type of the venue.
         #[weight = <T as Config>::WeightInfo::update_venue_type()]
-        pub fn update_venue_type(origin, id: u64, typ: VenueType) -> DispatchResult {
+        pub fn update_venue_type(origin, id: VenueId, typ: VenueType) -> DispatchResult {
             let did = Identity::<T>::ensure_perms(origin)?;
 
             let mut venue = Self::venue_for_management(id, did)?;
@@ -566,7 +573,7 @@ decl_module! {
         )]
         pub fn add_instruction(
             origin,
-            venue_id: u64,
+            venue_id: VenueId,
             settlement_type: SettlementType<T::BlockNumber>,
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
@@ -595,7 +602,7 @@ decl_module! {
         )]
         pub fn add_and_affirm_instruction(
             origin,
-            venue_id: u64,
+            venue_id: VenueId,
             settlement_type: SettlementType<T::BlockNumber>,
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
@@ -781,7 +788,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::allow_venues(venues.len() as u32)]
-        pub fn allow_venues(origin, ticker: Ticker, venues: Vec<u64>) {
+        pub fn allow_venues(origin, ticker: Ticker, venues: Vec<VenueId>) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             for venue in &venues {
                 VenueAllowList::insert(&ticker, venue, true);
@@ -797,7 +804,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::disallow_venues(venues.len() as u32)]
-        pub fn disallow_venues(origin, ticker: Ticker, venues: Vec<u64>) {
+        pub fn disallow_venues(origin, ticker: Ticker, venues: Vec<VenueId>) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             for venue in &venues {
                 VenueAllowList::remove(&ticker, venue);
@@ -891,7 +898,7 @@ impl<T: Config> Module<T> {
     }
 
     // Extract `Venue` with `id`, assuming it was created by `did`, or error.
-    fn venue_for_management(id: u64, did: IdentityId) -> Result<Venue, DispatchError> {
+    fn venue_for_management(id: VenueId, did: IdentityId) -> Result<Venue, DispatchError> {
         // Ensure venue exists & that DID created it.
         let venue = Self::venue_info(id).ok_or(Error::<T>::InvalidVenue)?;
         ensure!(venue.creator == did, Error::<T>::Unauthorized);
@@ -900,7 +907,7 @@ impl<T: Config> Module<T> {
 
     pub fn base_add_instruction(
         did: IdentityId,
-        venue_id: u64,
+        venue_id: VenueId,
         settlement_type: SettlementType<T::BlockNumber>,
         trade_date: Option<T::Moment>,
         value_date: Option<T::Moment>,
