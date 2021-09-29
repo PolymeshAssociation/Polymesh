@@ -707,9 +707,6 @@
       "owner": "IdentityId",
       "frozen": "bool"
     },
-    "ProportionMatch": {
-      "_enum": ["AtLeast", "MoreThan"]
-    },
     "AuthorizationNonce": "u64",
     "Counter": "u64",
     "Percentage": "Permill",
@@ -723,12 +720,6 @@
       "_enum": ["Valid", "Invalid", "ForceValid"]
     },
     "Memo": "[u8;32]",
-    "IssueRecipient": {
-      "_enum": {
-        "Account": "AccountId",
-        "Identity": "IdentityId"
-      }
-    },
     "BridgeTx": {
       "nonce": "u32",
       "recipient": "AccountId",
@@ -736,7 +727,7 @@
       "tx_hash": "H256"
     },
     "AssetCompliance": {
-      "is_paused": "bool",
+      "paused": "bool",
       "requirements": "Vec<ComplianceRequirement>"
     },
     "AssetComplianceResult": {
@@ -751,15 +742,6 @@
     "Claim2ndKey": {
       "issuer": "IdentityId",
       "scope": "Option<Scope>"
-    },
-    "BatchAddClaimItem": {
-      "target": "IdentityId",
-      "claim": "Claim",
-      "expiry": "Option<Moment>"
-    },
-    "BatchRevokeClaimItem": {
-      "target": "IdentityId",
-      "claim": "Claim"
     },
     "InactiveMember": {
       "id": "IdentityId",
@@ -803,7 +785,7 @@
     },
     "DidRecordsSuccess": {
       "primary_key": "AccountId",
-      "secondary_key": "Vec<SecondaryKey>"
+      "secondary_keys": "Vec<SecondaryKey>"
     },
     "DidRecords": {
       "_enum": {
@@ -818,7 +800,7 @@
     "VoteCount": {
       "_enum": {
         "ProposalFound": "VoteCountProposalFound",
-        "ProposalNotFound": "Vec<u8>"
+        "ProposalNotFound": ""
       }
     },
     "Vote": "(bool, Balance)",
@@ -902,15 +884,6 @@
       "did": "IdentityId",
       "kind": "PortfolioKind"
     },
-    "ProverTickerKey": {
-      "prover": "IdentityId",
-      "ticker": "Ticker"
-    },
-    "TickerRangeProof": {
-      "initial_message": "[u8; 32]",
-      "final_response": "Vec<u8>",
-      "max_two_exp": "u32"
-    },
     "Moment": "u64",
     "CalendarUnit": {
       "_enum": ["Second", "Minute", "Hour", "Day", "Week", "Month", "Year"]
@@ -954,8 +927,7 @@
       "_enum": {
         "Unknown": "",
         "Pending": "",
-        "Affirmed": "",
-        "Rejected": ""
+        "Affirmed": ""
       }
     },
     "SettlementType": {
@@ -1043,11 +1015,6 @@
     },
     "VenueType": {
       "_enum": ["Other", "Distribution", "Sto", "Exchange"]
-    },
-    "Payload": {
-      "block_number": "BlockNumber",
-      "nominators": "Vec<AccountId>",
-      "public": "H256"
     },
     "ExtensionAttributes": {
       "usage_fee": "Balance",
