@@ -354,7 +354,7 @@ decl_module! {
                 minimum_investment
             };
 
-            FundraiserCount::insert(offering_asset, id);
+            FundraiserCount::insert(offering_asset, seq);
             Fundraisers::<T>::insert(offering_asset, id, fundraiser.clone());
             FundraiserNames::insert(offering_asset, id, fundraiser_name.clone());
 

@@ -16,13 +16,14 @@ use pallet_identity as identity;
 use pallet_portfolio::MovePortfolioItem;
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
-    self as settlement, AffirmationStatus, Instruction, InstructionStatus, Leg, LegStatus, Receipt,
-    ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails, VenueInstructions, VenueType,
+    AffirmationStatus, Instruction, InstructionId, InstructionLegs, InstructionStatus, Leg,
+    LegStatus, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails,
+    VenueInstructions, VenueType,
 };
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    asset::AssetType, AccountId, AuthorizationData, Claim, Condition, ConditionType, IdentityId,
-    PortfolioId, PortfolioName, Signatory, Ticker,
+    asset::AssetType, checked_inc::CheckedInc, AccountId, AuthorizationData, Claim, Condition,
+    ConditionType, IdentityId, PortfolioId, PortfolioName, Signatory, Ticker,
 };
 use rand::{prelude::*, thread_rng};
 use sp_runtime::AnySignature;
@@ -41,9 +42,9 @@ type AssetError = asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
 type Origin = <TestStorage as frame_system::Config>::Origin;
 type DidRecords = identity::DidRecords<TestStorage>;
-type Settlement = settlement::Module<TestStorage>;
+type Settlement = pallet_settlement::Module<TestStorage>;
 type System = frame_system::Module<TestStorage>;
-type Error = settlement::Error<TestStorage>;
+type Error = pallet_settlement::Error<TestStorage>;
 type Scheduler = scheduler::Module<TestStorage>;
 
 macro_rules! assert_add_claim {
@@ -133,7 +134,7 @@ fn venue_details_length_limited() {
     });
 }
 
-fn venue_instructions(id: u64) -> Vec<u64> {
+fn venue_instructions(id: u64) -> Vec<InstructionId> {
     VenueInstructions::iter_prefix(id).map(|(i, _)| i).collect()
 }
 
@@ -1585,7 +1586,11 @@ fn venue_filtering() {
 
         assert_affirm_instruction_with_one_leg!(alice.origin(), instruction_counter, alice.did);
         assert_affirm_instruction_with_zero_leg!(bob.origin(), instruction_counter, bob.did);
-        assert_affirm_instruction_with_zero_leg!(bob.origin(), instruction_counter + 1, bob.did);
+        assert_affirm_instruction_with_zero_leg!(
+            bob.origin(),
+            instruction_counter.checked_inc().unwrap(),
+            bob.did
+        );
 
         next_block();
         assert_eq!(Asset::balance_of(&ticker, bob.did), 10);
@@ -2964,10 +2969,7 @@ fn dirty_storage_with_tx() {
             0
         );
         next_block();
-        assert_eq!(
-            settlement::InstructionLegs::iter_prefix(instruction_counter).count(),
-            0
-        );
+        assert_eq!(InstructionLegs::iter_prefix(instruction_counter).count(), 0);
 
         // Ensure proper balance transfers
         assert_eq!(
@@ -3023,7 +3025,7 @@ fn create_instruction(
     venue_counter: u64,
     ticker: Ticker,
     amount: u128,
-) -> u64 {
+) -> InstructionId {
     let instruction_id = Settlement::instruction_counter();
     set_current_block_number(10);
     assert_ok!(Settlement::add_and_affirm_instruction(
@@ -3043,9 +3045,6 @@ fn create_instruction(
     instruction_id
 }
 
-fn ensure_instruction_status(instruction_id: u64, status: InstructionStatus) {
-    assert_eq!(
-        Settlement::instruction_details(instruction_id).status,
-        status
-    );
+fn ensure_instruction_status(id: InstructionId, status: InstructionStatus) {
+    assert_eq!(Settlement::instruction_details(id).status, status);
 }

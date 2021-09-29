@@ -936,8 +936,9 @@
         "SettleOnBlock": "BlockNumber"
       }
     },
+    "InstructionId": "u64",
     "Instruction": {
-      "instruction_id": "u64",
+      "instruction_id": "InstructionId",
       "venue_id": "u64",
       "status": "InstructionStatus",
       "settlement_type": "SettlementType",
