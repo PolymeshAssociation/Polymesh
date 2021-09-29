@@ -936,6 +936,7 @@
         "SettleOnBlock": "BlockNumber"
       }
     },
+    "LegId": "u64",
     "InstructionId": "u64",
     "Instruction": {
       "instruction_id": "InstructionId",
@@ -966,7 +967,7 @@
     "ReceiptMetadata": "Text",
     "ReceiptDetails": {
       "receipt_uid": "u64",
-      "leg_id": "u64",
+      "leg_id": "LegId",
       "signer": "AccountId",
       "signature": "OffChainSignature",
       "metadata": "ReceiptMetadata"

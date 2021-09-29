@@ -208,6 +208,11 @@ impl<BlockNumber> Default for SettlementType<BlockNumber> {
     }
 }
 
+/// A per-Instruction leg ID.
+#[derive(Copy, Clone, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+pub struct LegId(pub u64);
+impl_checked_inc!(LegId);
+
 /// A global and unique instruction ID.
 #[derive(Copy, Clone, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct InstructionId(pub u64);
@@ -281,7 +286,7 @@ pub struct ReceiptDetails<AccountId, OffChainSignature> {
     /// Unique receipt number set by the signer for their receipts
     pub receipt_uid: u64,
     /// Target leg id
-    pub leg_id: u64,
+    pub leg_id: LegId,
     /// Signer for this receipt
     pub signer: AccountId,
     /// signature confirming the receipt details
@@ -349,7 +354,7 @@ decl_event!(
         ReceiptClaimed(
             IdentityId,
             InstructionId,
-            u64,
+            LegId,
             u64,
             AccountId,
             ReceiptMetadata,
@@ -357,7 +362,7 @@ decl_event!(
         /// A receipt has been invalidated (did, signer, receipt_uid, validity)
         ReceiptValidityChanged(IdentityId, AccountId, u64, bool),
         /// A receipt has been unclaimed (did, instruction_id, leg_id, receipt_uid, signer)
-        ReceiptUnclaimed(IdentityId, InstructionId, u64, u64, AccountId),
+        ReceiptUnclaimed(IdentityId, InstructionId, LegId, u64, AccountId),
         /// Venue filtering has been enabled or disabled for a ticker (did, ticker, filtering_enabled)
         VenueFiltering(IdentityId, Ticker, bool),
         /// Venues added to allow list (did, ticker, vec<venue_id>)
@@ -365,7 +370,7 @@ decl_event!(
         /// Venues added to block list (did, ticker, vec<venue_id>)
         VenuesBlocked(IdentityId, Ticker, Vec<VenueId>),
         /// Execution of a leg failed (did, instruction_id, leg_id)
-        LegFailedExecution(IdentityId, InstructionId, u64),
+        LegFailedExecution(IdentityId, InstructionId, LegId),
         /// Instruction failed execution (did, instruction_id)
         InstructionFailed(IdentityId, InstructionId),
         /// Instruction executed successfully(did, instruction_id)
@@ -468,10 +473,10 @@ decl_storage! {
             map hasher(twox_64_concat) InstructionId => Instruction<T::Moment, T::BlockNumber>;
         /// Legs under an instruction. (instruction_id, leg_id) -> Leg
         pub InstructionLegs get(fn instruction_legs):
-            double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) u64 => Leg;
+            double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => Leg;
         /// Status of a leg under an instruction. (instruction_id, leg_id) -> LegStatus
         InstructionLegStatus get(fn instruction_leg_status):
-            double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) u64 => LegStatus<T::AccountId>;
+            double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => LegStatus<T::AccountId>;
         /// Number of affirmations pending before instruction is executed. instruction_id -> affirm_pending
         InstructionAffirmsPending get(fn instruction_affirms_pending): map hasher(twox_64_concat) InstructionId => u64;
         /// Tracks affirmations received for an instruction. (instruction_id, counter_party) -> AffirmationStatus
@@ -745,7 +750,7 @@ decl_module! {
         /// # Permissions
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::unclaim_receipt()]
-        pub fn unclaim_receipt(origin, instruction_id: InstructionId, leg_id: u64) {
+        pub fn unclaim_receipt(origin, instruction_id: InstructionId, leg_id: LegId) {
             let (did, secondary_key, _) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
 
             let (signer, receipt_uid) = match Self::instruction_leg_status(instruction_id, leg_id) {
@@ -969,7 +974,7 @@ impl<T: Config> Module<T> {
         for (i, leg) in legs.iter().enumerate() {
             InstructionLegs::insert(
                 instruction_id,
-                u64::try_from(i).unwrap_or_default(),
+                u64::try_from(i).map(LegId).unwrap_or_default(),
                 leg.clone(),
             );
         }
@@ -1290,8 +1295,8 @@ impl<T: Config> Module<T> {
 
     // Unclaims all receipts for an instruction
     // Should only be used if user is unclaiming, or instruction has failed
-    fn unsafe_unclaim_receipts(id: InstructionId, legs: &Vec<(u64, Leg)>) {
-        for (leg_id, _) in legs.iter() {
+    fn unsafe_unclaim_receipts(id: InstructionId, legs: &[(LegId, Leg)]) {
+        for (leg_id, _) in legs {
             match Self::instruction_leg_status(id, leg_id) {
                 LegStatus::ExecutionToBeSkipped(signer, receipt_uid) => {
                     <ReceiptsUsed<T>>::insert(&signer, receipt_uid, false);
@@ -1308,7 +1313,7 @@ impl<T: Config> Module<T> {
         }
     }
 
-    fn unchecked_release_locks(id: InstructionId, legs: &Vec<(u64, Leg)>) {
+    fn unchecked_release_locks(id: InstructionId, legs: &[(LegId, Leg)]) {
         for (leg_id, leg_details) in legs.iter() {
             match Self::instruction_leg_status(id, leg_id) {
                 LegStatus::ExecutionPending => {
@@ -1607,7 +1612,7 @@ impl<T: Config> Module<T> {
         id: InstructionId,
         portfolios: &BTreeSet<PortfolioId>,
         max_filtered_legs: u32,
-    ) -> Result<(u32, Vec<(u64, Leg)>), DispatchError> {
+    ) -> Result<(u32, Vec<(LegId, Leg)>), DispatchError> {
         let mut legs_count = 0;
         let filtered_legs = InstructionLegs::iter_prefix(id)
             .into_iter()
@@ -1616,7 +1621,7 @@ impl<T: Config> Module<T> {
             .collect::<Vec<_>>();
         // Ensure leg count is under the limit
         ensure!(
-            filtered_legs.len() as u32 <= max_filtered_legs,
+            filtered_legs.len() <= max_filtered_legs as usize,
             Error::<T>::LegCountTooSmall
         );
         Ok((legs_count, filtered_legs))
