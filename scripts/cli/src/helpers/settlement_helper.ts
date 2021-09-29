@@ -1,5 +1,5 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
-import type { Ticker } from "../types";
+import type { PortfolioId, Ticker } from "../types";
 import { sendTx, getDefaultPortfolio, ApiSingleton } from "../util/init";
 import type { IdentityId } from "../interfaces";
 
@@ -90,13 +90,15 @@ export async function withdrawInstruction(
 /**
  * @description Rejects a Instruction
  */
-export async function rejectInstruction(
+ export async function rejectInstruction(
   signer: KeyringPair,
   instructionCounter: number,
+  portfolioId: PortfolioId,
+  numOfLegs: number,
   did: IdentityId
 ): Promise<void> {
   const api = await ApiSingleton.getInstance();
-  const transaction = api.tx.settlement.rejectInstruction(instructionCounter);
+  const transaction = api.tx.settlement.rejectInstruction(instructionCounter, portfolioId, numOfLegs);
   await sendTx(signer, transaction);
 }
 

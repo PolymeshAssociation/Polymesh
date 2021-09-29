@@ -330,6 +330,10 @@ declare module '@polkadot/api/types/errors' {
        **/
       ActiveMembersLimitExceeded: AugmentedError<ApiType>;
       /**
+       * Active member limit was greater than maximum committee members limit.
+       **/
+      ActiveMembersLimitOverflow: AugmentedError<ApiType>;
+      /**
        * Group member was added already.
        **/
       DuplicateMember: AugmentedError<ApiType>;
@@ -395,6 +399,10 @@ declare module '@polkadot/api/types/errors' {
        * The limit for the number of concurrent active members for this group has been exceeded.
        **/
       ActiveMembersLimitExceeded: AugmentedError<ApiType>;
+      /**
+       * Active member limit was greater than maximum committee members limit.
+       **/
+      ActiveMembersLimitOverflow: AugmentedError<ApiType>;
       /**
        * Group member was added already.
        **/
@@ -696,6 +704,11 @@ declare module '@polkadot/api/types/errors' {
        * Current identity cannot be forwarded, it is not a secondary key of target identity.
        **/
       CurrentIdentityCannotBeForwarded: AugmentedError<ApiType>;
+      /**
+       * A custom scope is too long.
+       * It can at most be `32` characters long.
+       **/
+      CustomScopeTooLong: AugmentedError<ApiType>;
       /**
        * The DID already exists.
        **/
@@ -1025,6 +1038,10 @@ declare module '@polkadot/api/types/errors' {
        **/
       ProposalExpired: AugmentedError<ApiType>;
       /**
+       * Maximum number of proposals has been reached.
+       **/
+      ProposalsLimitReached: AugmentedError<ApiType>;
+      /**
        * Generic error
        **/
       [key: string]: AugmentedError<ApiType>;
@@ -1210,6 +1227,10 @@ declare module '@polkadot/api/types/errors' {
        * Instruction failed to execute.
        **/
       InstructionFailed: AugmentedError<ApiType>;
+      /**
+       * Maximum legs that can be in a single instruction.
+       **/
+      InstructionHasTooManyLegs: AugmentedError<ApiType>;
       /**
        * Instruction has not been affirmed.
        **/
@@ -1545,7 +1566,7 @@ declare module '@polkadot/api/types/errors' {
     system: {
       /**
        * Failed to extract the runtime version from the new runtime.
-       *
+       * 
        * Either calling `Core_version` or decoding `RuntimeVersion` failed.
        **/
       FailedToExtractRuntimeVersion: AugmentedError<ApiType>;
@@ -1609,6 +1630,10 @@ declare module '@polkadot/api/types/errors' {
        **/
       ProposalExpired: AugmentedError<ApiType>;
       /**
+       * Maximum number of proposals has been reached.
+       **/
+      ProposalsLimitReached: AugmentedError<ApiType>;
+      /**
        * Generic error
        **/
       [key: string]: AugmentedError<ApiType>;
@@ -1618,6 +1643,10 @@ declare module '@polkadot/api/types/errors' {
        * The limit for the number of concurrent active members for this group has been exceeded.
        **/
       ActiveMembersLimitExceeded: AugmentedError<ApiType>;
+      /**
+       * Active member limit was greater than maximum committee members limit.
+       **/
+      ActiveMembersLimitOverflow: AugmentedError<ApiType>;
       /**
        * Group member was added already.
        **/
@@ -1690,6 +1719,10 @@ declare module '@polkadot/api/types/errors' {
        **/
       ProposalExpired: AugmentedError<ApiType>;
       /**
+       * Maximum number of proposals has been reached.
+       **/
+      ProposalsLimitReached: AugmentedError<ApiType>;
+      /**
        * Generic error
        **/
       [key: string]: AugmentedError<ApiType>;
@@ -1699,6 +1732,10 @@ declare module '@polkadot/api/types/errors' {
        * The limit for the number of concurrent active members for this group has been exceeded.
        **/
       ActiveMembersLimitExceeded: AugmentedError<ApiType>;
+      /**
+       * Active member limit was greater than maximum committee members limit.
+       **/
+      ActiveMembersLimitOverflow: AugmentedError<ApiType>;
       /**
        * Group member was added already.
        **/

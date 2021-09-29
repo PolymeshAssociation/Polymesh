@@ -18,7 +18,7 @@ import type { Keys, SessionIndex } from '@polkadot/types/interfaces/session';
 import type { ActiveEraInfo, ElectionResult, ElectionScore, ElectionStatus, EraIndex, EraRewardPoints, Exposure, Forcing, Nominations, RewardDestination, SlashingSpans, SpanIndex, SpanRecord, StakingLedger, UnappliedSlash, ValidatorPrefs } from '@polkadot/types/interfaces/staking';
 import type { AccountInfo, ConsumedWeight, DigestOf, EventIndex, EventRecord, LastRuntimeUpgradeInfo, Phase } from '@polkadot/types/interfaces/system';
 import type { Multiplier } from '@polkadot/types/interfaces/txpayment';
-import type { AGId, AffirmationStatus, AgentGroup, AssetCompliance, AssetIdentifier, AssetName, AssetOwnershipRelation, Authorization, AuthorizationNonce, BallotMeta, BallotTimeRange, BallotVote, BridgeTxDetail, CADetails, CAId, CheckpointId, Claim1stKey, Claim2ndKey, ClassicTickerRegistration, CorporateAction, Counter, CustomAssetTypeId, DepositInfo, DidRecord, Distribution, Document, DocumentId, ExtrinsicPermissions, FundingRoundName, Fundraiser, FundraiserName, IdentityClaim, IdentityId, InactiveMember, Instruction, ItnRewardStatus, Leg, LegStatus, LocalCAId, MaybeBlock, PermissionedIdentityPrefs, Pip, PipId, PipsMetadata, PolymeshVotes, PortfolioId, PortfolioName, PortfolioNumber, PosRatio, ProposalDetails, ProtocolOp, ScheduleId, ScopeId, SecurityToken, Signatory, SkippedCount, SlashingSwitch, SnapshotMetadata, SnapshottedPip, StoredSchedule, Subsidy, TargetIdAuthorization, TargetIdentities, Tax, Ticker, TickerRegistration, TickerRegistrationConfig, TransferManager, TrustedIssuer, Venue, VenueDetails, Version, VotingResult } from 'polymesh-typegen/interfaces/default';
+import type { AGId, AffirmationStatus, AgentGroup, AssetCompliance, AssetIdentifier, AssetName, AssetOwnershipRelation, Authorization, AuthorizationNonce, BallotMeta, BallotTimeRange, BallotVote, BridgeTxDetail, CADetails, CAId, CheckpointId, Claim1stKey, Claim2ndKey, ClassicTickerRegistration, CorporateAction, Counter, CustomAssetTypeId, DepositInfo, DidRecord, Distribution, Document, DocumentId, ExtrinsicPermissions, FundingRoundName, Fundraiser, FundraiserName, IdentityClaim, IdentityId, InactiveMember, Instruction, ItnRewardStatus, Leg, LegStatus, LocalCAId, MaybeBlock, PermissionedIdentityPrefs, Pip, PipId, PipsMetadata, PolymeshVotes, PortfolioId, PortfolioName, PortfolioNumber, PosRatio, ProposalDetails, ProtocolOp, ScheduleId, ScopeId, SecurityToken, Signatory, SkippedCount, SlashingSwitch, SnapshotMetadata, SnapshottedPip, StoredSchedule, Subsidy, TargetIdentities, Tax, Ticker, TickerRegistration, TickerRegistrationConfig, TransferManager, TrustedIssuer, Venue, VenueDetails, Version, VotingResult } from 'polymesh-typegen/interfaces/default';
 import type { ApiTypes } from '@polkadot/api/types';
 
 declare module '@polkadot/api/types/storage' {
@@ -65,17 +65,17 @@ declare module '@polkadot/api/types/storage' {
        **/
       classicTickers: AugmentedQuery<ApiType, (arg: Ticker | string | Uint8Array) => Observable<Option<ClassicTickerRegistration>>, [Ticker]> & QueryableStorageEntry<ApiType, [Ticker]>;
       /**
-       * The next `AgentType::Custom` ID in the sequence.
+       * The next `AssetType::Custom` ID in the sequence.
        * 
        * Numbers in the sequence start from 1 rather than 0.
        **/
       customTypeIdSequence: AugmentedQuery<ApiType, () => Observable<CustomAssetTypeId>, []> & QueryableStorageEntry<ApiType, []>;
       /**
-       * Maps custom agent type ids to the registered string contents.
+       * Maps custom asset type ids to the registered string contents.
        **/
       customTypes: AugmentedQuery<ApiType, (arg: CustomAssetTypeId | AnyNumber | Uint8Array) => Observable<Bytes>, [CustomAssetTypeId]> & QueryableStorageEntry<ApiType, [CustomAssetTypeId]>;
       /**
-       * Inverse map of `CustomTypes`, from registered string contents to custom agent type ids.
+       * Inverse map of `CustomTypes`, from registered string contents to custom asset type ids.
        **/
       customTypesInverse: AugmentedQuery<ApiType, (arg: Bytes | string | Uint8Array) => Observable<CustomAssetTypeId>, [Bytes]> & QueryableStorageEntry<ApiType, [Bytes]>;
       /**
@@ -704,10 +704,6 @@ declare module '@polkadot/api/types/storage' {
        **/
       offChainAuthorizationNonce: AugmentedQuery<ApiType, (arg: IdentityId | string | Uint8Array) => Observable<AuthorizationNonce>, [IdentityId]> & QueryableStorageEntry<ApiType, [IdentityId]>;
       /**
-       * Inmediate revoke of any off-chain authorization.
-       **/
-      revokeOffChainAuthorization: AugmentedQuery<ApiType, (arg: ITuple<[Signatory, TargetIdAuthorization]> | [Signatory | { Identity: any } | { Account: any } | string | Uint8Array, TargetIdAuthorization | { target_id?: any; nonce?: any; expires_at?: any } | string | Uint8Array]) => Observable<bool>, [ITuple<[Signatory, TargetIdAuthorization]>]> & QueryableStorageEntry<ApiType, [ITuple<[Signatory, TargetIdAuthorization]>]>;
-      /**
        * Storage version.
        **/
       storageVersion: AugmentedQuery<ApiType, () => Observable<Version>, []> & QueryableStorageEntry<ApiType, []>;
@@ -1034,7 +1030,7 @@ declare module '@polkadot/api/types/storage' {
       /**
        * The mapping of operation names to the base fees of those operations.
        **/
-      baseFees: AugmentedQuery<ApiType, (arg: ProtocolOp | 'AssetRegisterTicker' | 'AssetIssue' | 'AssetAddDocument' | 'AssetCreateAsset' | 'AssetCreateCheckpointSchedule' | 'DividendNew' | 'ComplianceManagerAddComplianceRequirement' | 'IdentityRegisterDid' | 'IdentityCddRegisterDid' | 'IdentityAddClaim' | 'IdentitySetPrimaryKey' | 'IdentityAddSecondaryKeysWithAuthorization' | 'PipsPropose' | 'VotingAddBallot' | 'ContractsPutCode' | 'BallotAttachBallot' | 'DistributionDistribute' | number | Uint8Array) => Observable<Balance>, [ProtocolOp]> & QueryableStorageEntry<ApiType, [ProtocolOp]>;
+      baseFees: AugmentedQuery<ApiType, (arg: ProtocolOp | 'AssetRegisterTicker' | 'AssetIssue' | 'AssetAddDocuments' | 'AssetCreateAsset' | 'CheckpointCreateSchedule' | 'ComplianceManagerAddComplianceRequirement' | 'IdentityCddRegisterDid' | 'IdentityAddClaim' | 'IdentityAddSecondaryKeysWithAuthorization' | 'PipsPropose' | 'ContractsPutCode' | 'CorporateBallotAttachBallot' | 'CapitalDistributionDistribute' | number | Uint8Array) => Observable<Balance>, [ProtocolOp]> & QueryableStorageEntry<ApiType, [ProtocolOp]>;
       /**
        * The fee coefficient as a positive rational (numerator, denominator).
        **/
