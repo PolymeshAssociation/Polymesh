@@ -189,11 +189,7 @@ benchmarks! {
     unfreeze_fundraiser {
         let id = FundraiserId(0);
         let (alice, _) = setup_fundraiser::<T>(0, 1, 0).unwrap();
-        <Sto<T>>::freeze_fundraiser(
-            alice.user.origin().into(),
-            OFFERING_TICKER,
-            FundraiserId(0),
-        ).unwrap();
+        <Sto<T>>::freeze_fundraiser(alice.user.origin().into(), OFFERING_TICKER, id).unwrap();
     }: _(alice.user.origin(), OFFERING_TICKER, id)
     verify {
         assert_eq!(<Fundraisers<T>>::get(OFFERING_TICKER, id).unwrap().status, FundraiserStatus::Live, "unfreeze_fundraiser");

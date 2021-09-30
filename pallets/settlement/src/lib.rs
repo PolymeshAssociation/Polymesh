@@ -489,7 +489,7 @@ decl_storage! {
         ReceiptsUsed get(fn receipts_used): double_map hasher(twox_64_concat) T::AccountId, hasher(blake2_128_concat) u64 => bool;
         /// Tracks if a token has enabled filtering venues that can create instructions involving their token. Ticker -> filtering_enabled
         VenueFiltering get(fn venue_filtering): map hasher(blake2_128_concat) Ticker => bool;
-        /// Venues that are allowed to create instructions involving a particular ticker. Oly used if filtering is enabled.
+        /// Venues that are allowed to create instructions involving a particular ticker. Only used if filtering is enabled.
         /// (ticker, venue_id) -> allowed
         VenueAllowList get(fn venue_allow_list): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) VenueId => bool;
         /// Number of venues in the system (It's one more than the actual number)
@@ -514,11 +514,16 @@ decl_module! {
         /// * `typ` - Type of venue being created
         #[weight = <T as Config>::WeightInfo::create_venue(details.len() as u32, signers.len() as u32)]
         pub fn create_venue(origin, details: VenueDetails, signers: Vec<T::AccountId>, typ: VenueType) {
+            // Ensure permissions and details limit.
             let did = Identity::<T>::ensure_perms(origin)?;
             ensure_string_limited::<T>(&details)?;
-            let id = VenueCounter::try_mutate(try_next_id_post::<T, _>)?;
-            let venue = Venue { creator: did, venue_type: typ };
+
+            // Advance venue counter.
             // NB: Venue counter starts with 1.
+            let id = VenueCounter::try_mutate(try_next_id_post::<T, _>)?;
+
+            // Other commits to storage + emit event.
+            let venue = Venue { creator: did, venue_type: typ };
             VenueInfo::insert(id, venue.clone());
             Details::insert(id, details.clone());
             for signer in signers {

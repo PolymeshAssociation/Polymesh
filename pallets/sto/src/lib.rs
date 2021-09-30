@@ -526,7 +526,7 @@ decl_module! {
         /// Modify the time window a fundraiser is active
         ///
         /// * `offering_asset` - Asset to modify.
-        /// * `fundraiser_id` - ID of the fundraiser to modify.
+        /// * `id` - ID of the fundraiser to modify.
         /// * `start` - New start of the fundraiser.
         /// * `end` - New end of the fundraiser to modify.
         ///
@@ -561,7 +561,7 @@ decl_module! {
         /// Stop a fundraiser.
         ///
         /// * `offering_asset` - Asset to stop.
-        /// * `fundraiser_id` - ID of the fundraiser to stop.
+        /// * `id` - ID of the fundraiser to stop.
         ///
         /// # Permissions
         /// * Asset
