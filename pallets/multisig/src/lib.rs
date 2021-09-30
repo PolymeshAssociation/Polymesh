@@ -224,7 +224,7 @@ decl_storage! {
             double_map hasher(identity) T::AccountId, hasher(blake2_128_concat) T::Proposal => Option<u64>;
         /// Individual multisig signer votes. (multi sig, signer, proposal) => vote.
         pub Votes get(fn votes): map hasher(twox_64_concat) (T::AccountId, Signatory<T::AccountId>, u64) => bool;
-        /// Maps a multisig secondary key to a multisig address.
+        /// Maps a multisig signer key to a multisig address.
         pub KeyToMultiSig get(fn key_to_ms): map hasher(twox_64_concat) T::AccountId => T::AccountId;
         /// Maps a multisig account to its identity.
         pub MultiSigToIdentity get(fn ms_to_identity): map hasher(identity) T::AccountId => IdentityId;

@@ -282,6 +282,7 @@ fn genesis_processed_data(
 
     // Identity_05
     // Primary Key: polymath_5
+    // Secondary Keys: bridge multisig (controller)
 
     let mut identities = Vec::with_capacity(5);
     let mut keys = Vec::with_capacity(5 + 2 * initial_authorities.len()); //11
