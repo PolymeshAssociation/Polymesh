@@ -2258,7 +2258,7 @@ decl_module! {
             Self::deposit_event(RawEvent::CommissionCapUpdated(GC_DID, old_cap, new_cap));
         }
 
-        /// Changes min bond value to be used in bond(). Only Governance
+        /// Changes min bond value to be used in validate(). Only Governance
         /// committee is allowed to change this value.
         ///
         /// # Arguments
