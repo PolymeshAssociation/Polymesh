@@ -550,10 +550,11 @@ async function withdrawInstruction(api, sender, instructionCounter, did) {
   await sendTx(sender, transaction);
 }
 
-async function rejectInstruction(api, sender, instructionCounter, did) {
+async function rejectInstruction(api, sender, instructionCounter, did, numOfLegs) {
   const transaction = await api.tx.settlement.rejectInstruction(
     instructionCounter,
-    [getDefaultPortfolio(did)]
+    [getDefaultPortfolio(did)],
+    numOfLegs
   );
 
   await sendTx(sender, transaction);
