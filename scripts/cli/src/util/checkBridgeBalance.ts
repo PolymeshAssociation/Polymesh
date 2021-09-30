@@ -21,14 +21,14 @@ async function main(): Promise<void> {
 		console.log(`Offences monitor running on port ${port}`)
 	);
 	const api = await ApiSingleton.getInstance();
+	const bridgeData = await api.query.bridge.bridgeLimit();
 	const BRIDGE_LIMIT = 500_000_000;
-	const BRIDGE_POLY_TOTAL = 1_000_000_000;
-	const BRIDGE_TIME_PERIOD = await blocksToSeconds();
-	let userArray: Map<string, userInfo> = new Map();
+	const BRIDGE_POLY_TOTAL = bridgeData[0].toNumber();
+	const BRIDGE_TIME_PERIOD = await blocksToSeconds(bridgeData[1].toNumber());
+	let userTxs: Map<string, userInfo[]> = new Map();
 
-	async function blocksToSeconds() {
-		const timelock = await api.query.bridge.timelock();
-		return timelock.toNumber() * 6;
+	async function blocksToSeconds(numberOfBlocks: number) {
+		return numberOfBlocks * 6;
 	}
 
 	function currentTimeToSeconds() {
@@ -43,46 +43,48 @@ async function main(): Promise<void> {
 	}
 
 	function checksUser(
-		userMap: Map<string, userInfo>,
+		userMap: Map<string, userInfo[]>,
 		newPolyx: any,
 		offenderAddress: any,
 		blockNumber: number
 	) {
 		const user = userMap.get(offenderAddress)!;
-		const timeDifference = currentTimeToSeconds() - user.lastTimeBridged;
+		// removes all transactions over BRIDGE_TIME_PERIOD
+		removeOldTx(offenderAddress, user, userMap);
+		let userPolyxSum = 0;
+		user.forEach((data) => (userPolyxSum += data.polyx));
+		userPolyxSum + newPolyx;
 
-		//check timeDifference to make sure its not less than 16mins
-		// if it is then no modifications should be done as
-		// seperate events have the same information
-		if (timeDifference > hoursToSeconds(0.25)) {
-			const newBalance = user.polyx + newPolyx;
+		checkPolyxLimit(newPolyx, offenderAddress, blockNumber);
 
-			checkPolyxLimit(newPolyx, offenderAddress, blockNumber);
-
-			if (
-				newBalance > BRIDGE_POLY_TOTAL &&
-				timeDifference <= BRIDGE_TIME_PERIOD
-			) {
-				console.log(`Error: Total POLYX Bridge limit exceeded.`);
-				console.log(
-					"Polyx Total Bridge Limit Equivocation: ",
-					offenderAddress,
-					blockNumber
-				);
-				prom.polyxTotalBridgeLimitEquivocations.inc({ offenderAddress });
-				// resets polyx to zero to check for new errors that break polyx limit
-				userMap.set(offenderAddress, {
-					polyx: 0,
-					lastTimeBridged: currentTimeToSeconds(),
-				});
-			} else {
-				console.log("Updates user data.");
-				userMap.set(offenderAddress, {
-					polyx: newBalance,
-					lastTimeBridged: currentTimeToSeconds(),
-				});
-			}
+		if (userPolyxSum > BRIDGE_POLY_TOTAL) {
+			console.log(`Error: Total POLYX Bridge limit exceeded.`);
+			console.log(
+				"Polyx Total Bridge Limit Equivocation: ",
+				offenderAddress,
+				blockNumber
+			);
+			prom.polyxTotalBridgeLimitEquivocations.inc({ offenderAddress });
+		} else {
+			console.log("Updates user data.");
+			user.push({
+				polyx: newPolyx,
+				lastTimeBridged: currentTimeToSeconds(),
+			});
+			userMap.set(offenderAddress, user);
 		}
+	}
+
+	function removeOldTx(
+		offenderAddress: string,
+		user: userInfo[],
+		userMap: Map<string, userInfo[]>
+	) {
+		const validTxArray = user.filter((data) => {
+			const timeDifference = currentTimeToSeconds() - data.lastTimeBridged;
+			return timeDifference < BRIDGE_TIME_PERIOD;
+		});
+		userMap.set(offenderAddress, validTxArray);
 	}
 
 	function checkPolyxLimit(
@@ -129,12 +131,12 @@ async function main(): Promise<void> {
 							const txData = JSON.parse(data.toString());
 							const newPolyx = txData.value;
 							const offenderAddress = txData.recipient;
-							const userExist = userArray.get(offenderAddress);
+							const userExist = userTxs.get(offenderAddress);
 
 							if (userExist) {
 								console.log("User exists.");
 								checksUser(
-									userArray,
+									userTxs,
 									newPolyx,
 									offenderAddress,
 									header.number.toNumber()
@@ -146,10 +148,13 @@ async function main(): Promise<void> {
 									offenderAddress,
 									header.number.toNumber()
 								);
-								userArray.set(offenderAddress, {
-									polyx: newPolyx,
-									lastTimeBridged: currentTimeToSeconds(),
-								});
+
+								userTxs.set(offenderAddress, [
+									{
+										polyx: newPolyx,
+										lastTimeBridged: currentTimeToSeconds(),
+									},
+								]);
 							}
 						});
 				});
