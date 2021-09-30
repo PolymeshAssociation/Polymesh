@@ -30,7 +30,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
-use pallet_base::try_next_id_post;
+use pallet_base::try_next_post;
 use pallet_identity::PermissionedCallOriginData;
 use pallet_settlement::{Leg, ReceiptDetails, SettlementType, VenueId, VenueInfo, VenueType};
 use polymesh_common_utilities::{
@@ -334,7 +334,7 @@ decl_module! {
 
             // Get the next fundraiser ID.
             let mut seq = FundraiserCount::get(&offering_asset);
-            let id = try_next_id_post::<T, _>(&mut seq)?;
+            let id = try_next_post::<T, _>(&mut seq)?;
 
             <Portfolio<T>>::lock_tokens(&offering_portfolio, &offering_asset, offering_amount)?;
 
