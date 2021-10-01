@@ -47,10 +47,7 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{
-    traits::Get,
-    weights::{constants::RocksDbWeight as DbWeight, Weight},
-};
+use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_compliance_manager using the Substrate node and recommended hardware.
 pub struct WeightInfo;
