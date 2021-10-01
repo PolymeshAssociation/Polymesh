@@ -65,14 +65,13 @@ async function main(): Promise<void> {
 				blockNumber
 			);
 			prom.polyxTotalBridgeLimitEquivocations.inc({ offenderAddress });
-		} else {
-			console.log("Updates user data.");
-			user.push({
-				polyx: newPolyx,
-				lastTimeBridged: currentTimeToSeconds(),
-			});
-			userMap.set(offenderAddress, user);
 		}
+		console.log("Updates user data.");
+		user.push({
+			polyx: newPolyx,
+			lastTimeBridged: currentTimeToSeconds(),
+		});
+		userMap.set(offenderAddress, user);
 	}
 
 	function removeOldTx(
@@ -133,29 +132,16 @@ async function main(): Promise<void> {
 							const offenderAddress = txData.recipient;
 							const userExist = userTxs.get(offenderAddress);
 
-							if (userExist) {
-								console.log("User exists.");
-								checksUser(
-									userTxs,
-									newPolyx,
-									offenderAddress,
-									header.number.toNumber()
-								);
-							} else {
-								console.log("User hasn't been added to array yet.");
-								checkPolyxLimit(
-									newPolyx,
-									offenderAddress,
-									header.number.toNumber()
-								);
-
-								userTxs.set(offenderAddress, [
-									{
-										polyx: newPolyx,
-										lastTimeBridged: currentTimeToSeconds(),
-									},
-								]);
+							if (!userTxs.has(offenderAddress)) {
+								// New user.
+								userTxs.set(offenderAddress, []);
 							}
+							checksUser(
+								userTxs,
+								newPolyx,
+								offenderAddress,
+								header.number.toNumber()
+							);
 						});
 				});
 		});
