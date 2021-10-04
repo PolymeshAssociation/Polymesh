@@ -20,7 +20,8 @@
 //! ## Overview
 //!
 //! The settlement module provides functionality to settle onchain as well as offchain trades between multiple parties.
-//! All trades are settled under venues. A token issuer can allow/block certain venues from settling trades that involve their tokens.
+//! All trades are settled under venues. A token issuer (or an appropriately permissioned external agent)
+//! can allow/block certain venues from settling trades that involve their tokens.
 //! An atomic settlement is called an Instruction. An instruction can contain multiple legs. Legs are essentially simple one to one transfers.
 //! When an instruction is settled, either all legs are executed successfully or none are. In other words, if one of the leg fails due to
 //! compliance failure, all other legs will also fail.
@@ -354,7 +355,7 @@ decl_event!(
         InstructionFailed(IdentityId, u64),
         /// Instruction executed successfully(did, instruction_id)
         InstructionExecuted(IdentityId, u64),
-        /// Venue unauthorized by ticker owner (did, Ticker, venue_id)
+        /// Venue not part of the token's allow list (did, Ticker, venue_id)
         VenueUnauthorized(IdentityId, Ticker, u64),
         /// Scheduling of instruction fails.
         SchedulingFailed(DispatchError),
@@ -913,7 +914,7 @@ impl<T: Config> Module<T> {
         let mut tickers = BTreeSet::new();
         for leg in &legs {
             ensure!(leg.from != leg.to, Error::<T>::SameSenderReceiver);
-            // Check if the venue has required permissions from token owners.
+            // Check if the venue is part of the token's list of allowed venues.
             // Only check each ticker once.
             if tickers.insert(leg.asset) && Self::venue_filtering(leg.asset) {
                 ensure!(
