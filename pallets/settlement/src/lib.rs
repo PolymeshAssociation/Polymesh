@@ -20,7 +20,7 @@
 //! ## Overview
 //!
 //! The settlement module provides functionality to settle onchain as well as offchain trades between multiple parties.
-//! All trades are settled under venues. A token issuer (or an appropriately permissioned external agent)
+//! All trades are settled under venues. An appropriately permissioned external agent
 //! can allow/block certain venues from settling trades that involve their tokens.
 //! An atomic settlement is called an Instruction. An instruction can contain multiple legs. Legs are essentially simple one to one transfers.
 //! When an instruction is settled, either all legs are executed successfully or none are. In other words, if one of the leg fails due to
