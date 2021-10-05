@@ -487,7 +487,7 @@ decl_module! {
         }
 
         /// Issue, or mint, new tokens to the caller,
-        /// which must be an authorized external agent
+        /// which must be an authorized external agent.
         ///
         /// # Arguments
         /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
