@@ -540,7 +540,7 @@ decl_module! {
         /// Remove the ballot of the CA identified by `ca_id`.
         ///
         /// ## Arguments
-        /// - `origin` is a signer that has permissions to act as an agent of `ticker`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.ticker`.
         /// - `ca_id` identifies the attached ballot's CA.
         ///
         /// # Errors
