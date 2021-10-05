@@ -180,7 +180,7 @@ decl_module! {
         /// which is now transferrable.
         ///
         /// ## Arguments
-        /// - `origin` is a signer that has permissions to act as an agent of `ticker`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.ticker`.
         /// - `ca_id` identifies the CA to start a capital distribution for.
         /// - `portfolio` specifies the portfolio number of the agent to distribute `amount` from.
         /// - `currency` to withdraw and distribute from the `portfolio`.
