@@ -305,7 +305,7 @@ decl_module! {
         /// See the `BallotMeta` for more.
         ///
         /// ## Arguments
-        /// - `origin` is a signer that has permissions to act as an agent of `ticker`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.ticker`.
         /// - `ca_id` identifies the CA to attach the ballot to.
         /// - `range` specifies when voting starts and ends.
         /// - `meta` specifies the ballot's metadata as aforementioned.
