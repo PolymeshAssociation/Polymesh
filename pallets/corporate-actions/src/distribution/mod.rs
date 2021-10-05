@@ -312,7 +312,7 @@ decl_module! {
         /// they are rounded down to a whole unit.
         ///
         /// ## Arguments
-        /// - `origin` is a signer that has permissions to act as an agent of `ticker`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.ticker`.
         /// - `ca_id` identifies the CA with a capital distributions to push benefits for.
         /// - `holder` to push benefits to.
         ///
