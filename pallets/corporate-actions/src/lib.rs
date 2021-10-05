@@ -672,7 +672,7 @@ decl_module! {
         /// `strong_ref_count(schedule_id)` decremented.
         ///
         /// ## Arguments
-        /// - `origin` which must be an external agent of `ticker` with relevant permissions.
+        /// - `origin` which must be an external agent of `ca_id.ticker` with relevant permissions.
         /// - `ca_id` of the CA to remove.
         ///
         /// # Errors
