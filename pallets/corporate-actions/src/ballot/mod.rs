@@ -489,7 +489,7 @@ decl_module! {
         /// Amend the metadata (title, motions, etc.) of the ballot of the CA identified by `ca_id`.
         ///
         /// ## Arguments
-        /// - `origin` is a signer that has permissions to act as an agent of `ticker`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.ticker`.
         /// - `ca_id` identifies the attached ballot's CA.
         /// - `meta` specifies the new metadata.
         ///
