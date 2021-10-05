@@ -714,7 +714,7 @@ decl_module! {
         /// Changes the record date of the CA identified by `ca_id`.
         ///
         /// ## Arguments
-        /// - `origin` which must be an external agent of `ticker` with relevant permissions.
+        /// - `origin` which must be an external agent of `ca_id.ticker` with relevant permissions.
         /// - `ca_id` of the CA to alter.
         /// - `record_date`, if any, to calculate the impact of the CA.
         ///    If provided, this results in a scheduled balance snapshot ("checkpoint") at the date.
