@@ -638,7 +638,7 @@ decl_module! {
         /// Once both exist, they can now be linked together.
         ///
         /// ## Arguments
-        /// - `origin` which must be an external agent of `ticker` with relevant permissions.
+        /// - `origin` which must be an external agent of `id.ticker` with relevant permissions.
         /// - `id` of the CA to associate with `docs`.
         /// - `docs` to associate with the CA with `id`.
         ///
