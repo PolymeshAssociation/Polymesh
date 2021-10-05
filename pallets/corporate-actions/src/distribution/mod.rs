@@ -372,7 +372,7 @@ decl_module! {
         /// unlocking the full amount in the distributor portfolio.
         ///
         /// ## Arguments
-        /// - `origin` is a signer that has permissions to act as an agent of `ticker`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.ticker`.
         /// - `ca_id` identifies the CA with a not-yet-started capital distribution to remove.
         ///
         /// # Errors
