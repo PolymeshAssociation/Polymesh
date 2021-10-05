@@ -461,7 +461,7 @@ decl_module! {
         /// Amend the end date of the ballot of the CA identified by `ca_id`.
         ///
         /// ## Arguments
-        /// - `origin` is a signer that has permissions to act as an agent of `ticker`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.ticker`.
         /// - `ca_id` identifies the attached ballot's CA.
         /// - `end` specifies the new end date of the ballot.
         ///
