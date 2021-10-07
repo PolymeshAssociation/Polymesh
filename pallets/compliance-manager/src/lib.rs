@@ -244,6 +244,9 @@ decl_module! {
 
         /// Replaces an asset's compliance by ticker with a new compliance.
         ///
+        /// Compliance requirements will be sorted (ascending by id) before
+        /// replacing the current requirements.
+        ///
         /// # Arguments
         /// * `ticker` - the asset ticker,
         /// * `asset_compliance - the new asset compliance.
