@@ -274,7 +274,7 @@ decl_module! {
             // Dedup `ClaimType`s and ensure issuers are limited in length.
             asset_compliance.iter_mut().try_for_each(Self::dedup_and_ensure_requirement_limited)?;
 
-            // Ensure limit the complexity.
+            // Ensure the complexity is limited.
             Self::verify_compliance_complexity(&asset_compliance, ticker, 0)?;
 
             // Commit changes to storage + emit event.
@@ -406,15 +406,15 @@ decl_module! {
             let reqs = &mut asset_compliance.requirements;
 
             // If the compliance requirement is not found, throw an error.
-            let req = reqs.iter_mut().find(|req| req.id == new_req.id)
-                .ok_or(Error::<T>::InvalidComplianceRequirementId)?;
+            let pos = reqs.binary_search_by_key(&new_req.id, |req| req.id)
+                .map_err(|_| Error::<T>::InvalidComplianceRequirementId)?;
 
             // Dedup `ClaimType`s and ensure issuers are limited in length.
             let mut new_req = new_req;
             Self::dedup_and_ensure_requirement_limited(&mut new_req)?;
 
             // Update asset compliance and verify complexity is limited.
-            *req = new_req.clone();
+            reqs[pos] = new_req.clone();
             Self::verify_compliance_complexity(&reqs, ticker, 0)?;
 
             // Store updated asset compliance.
