@@ -7,7 +7,7 @@ use super::{
     ExtBuilder,
 };
 use chrono::prelude::Utc;
-use frame_support::{assert_noop, assert_ok, traits::Currency, StorageMap};
+use frame_support::{assert_noop, assert_ok, traits::Currency};
 use pallet_balances as balances;
 use pallet_compliance_manager::{self as compliance_manager, Error as CMError};
 use pallet_group as group;
@@ -74,7 +74,7 @@ macro_rules! assert_add_claim {
 }
 
 fn get_latest_requirement_id(ticker: Ticker) -> u32 {
-    compliance_manager::AssetCompliances::get(ticker)
+    ComplianceManager::asset_compliance(ticker)
         .requirements
         .last()
         .map(|r| r.id)
@@ -332,6 +332,53 @@ fn should_replace_asset_compliance_we() {
 
     let asset_compliance = ComplianceManager::asset_compliance(ticker);
     assert_eq!(asset_compliance.requirements, new_asset_compliance);
+}
+
+#[test]
+fn test_dedup_replace_asset_compliance() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(test_dedup_replace_asset_compliance_we);
+}
+
+fn test_dedup_replace_asset_compliance_we() {
+    let owner = User::new(AccountKeyring::Alice);
+
+    // Create & mint token
+    let (ticker, _) = create_token(owner);
+
+    Balances::make_free_balance_be(&owner.acc(), 1_000_000);
+
+    allow_all_transfers(ticker, owner);
+
+    let asset_compliance = ComplianceManager::asset_compliance(ticker);
+    assert_eq!(asset_compliance.requirements.len(), 1);
+
+    let make_req = |id: u32| ComplianceRequirement {
+        sender_conditions: vec![],
+        receiver_conditions: vec![],
+        id,
+    };
+
+    // Replace should throw an error if there are duplicate requirement ids.
+    assert_noop!(
+        ComplianceManager::replace_asset_compliance(
+            owner.origin(),
+            ticker,
+            vec![make_req(1), make_req(2), make_req(2),],
+        ),
+        CMError::<TestStorage>::DuplicateComplianceRequirements
+    );
+
+    // Test with mixed duplicate ids.  To test sorting.
+    assert_noop!(
+        ComplianceManager::replace_asset_compliance(
+            owner.origin(),
+            ticker,
+            vec![make_req(2), make_req(1), make_req(2),],
+        ),
+        CMError::<TestStorage>::DuplicateComplianceRequirements
+    );
 }
 
 #[test]
