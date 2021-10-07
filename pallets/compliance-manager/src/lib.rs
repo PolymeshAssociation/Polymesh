@@ -202,7 +202,7 @@ decl_module! {
             let id = Self::get_latest_requirement_id(ticker) + 1u32;
             let mut new_req = ComplianceRequirement { sender_conditions, receiver_conditions, id };
 
-            // Dedup and ensure issuers are limited in length.
+            // Dedup `ClaimType`s and ensure issuers are limited in length.
             Self::dedup_and_ensure_requirement_limited(&mut new_req)?;
 
             // Add to existing requirements, and place a limit on the total complexity.
@@ -264,10 +264,11 @@ decl_module! {
             // Ensure there are no duplicate requirement ids.
             let mut asset_compliance = asset_compliance;
             let start_len = asset_compliance.len();
+            asset_compliance.sort_by_key(|r| r.id);
             asset_compliance.dedup_by_key(|r| r.id);
             ensure!(start_len == asset_compliance.len(), Error::<T>::DuplicateComplianceRequirements);
 
-            // Dedup and ensure issuers are limited in length.
+            // Dedup `ClaimType`s and ensure issuers are limited in length.
             asset_compliance.iter_mut().try_for_each(Self::dedup_and_ensure_requirement_limited)?;
 
             // Ensure limit the complexity.
@@ -405,7 +406,7 @@ decl_module! {
             let req = reqs.iter_mut().find(|req| req.id == new_req.id)
                 .ok_or(Error::<T>::InvalidComplianceRequirementId)?;
 
-            // Dedup and ensure issuers are limited in length.
+            // Dedup `ClaimType`s and ensure issuers are limited in length.
             let mut new_req = new_req;
             Self::dedup_and_ensure_requirement_limited(&mut new_req)?;
 
