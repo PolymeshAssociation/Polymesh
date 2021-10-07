@@ -400,19 +400,20 @@ decl_module! {
             // Ensure `Scope::Custom(..)`s are limited.
             Self::ensure_custom_scopes_limited(new_req.conditions())?;
 
-            ensure!(Self::get_latest_requirement_id(ticker) >= new_req.id, Error::<T>::InvalidComplianceRequirementId);
-
             let mut asset_compliance = AssetCompliances::get(ticker);
             let reqs = &mut asset_compliance.requirements;
-            if let Some(req) = reqs.iter_mut().find(|req| req.id == new_req.id) {
-                let mut new_req = new_req;
-                new_req.dedup();
 
-                *req = new_req.clone();
-                Self::verify_compliance_complexity(&reqs, ticker, 0)?;
-                AssetCompliances::insert(&ticker, asset_compliance);
-                Self::deposit_event(Event::ComplianceRequirementChanged(did, ticker, new_req));
-            }
+            // If the compliance requirement is not found, throw an error.
+            let req = reqs.iter_mut().find(|req| req.id == new_req.id)
+                .ok_or(Error::<T>::InvalidComplianceRequirementId)?;
+
+            let mut new_req = new_req;
+            new_req.dedup();
+
+            *req = new_req.clone();
+            Self::verify_compliance_complexity(&reqs, ticker, 0)?;
+            AssetCompliances::insert(&ticker, asset_compliance);
+            Self::deposit_event(Event::ComplianceRequirementChanged(did, ticker, new_req));
         }
     }
 }
