@@ -7,7 +7,7 @@ use super::{
     ExtBuilder,
 };
 use chrono::prelude::Utc;
-use frame_support::{assert_noop, assert_ok, traits::Currency};
+use frame_support::{assert_noop, assert_ok, traits::Currency, StorageMap};
 use pallet_balances as balances;
 use pallet_compliance_manager::{self as compliance_manager, Error as CMError};
 use pallet_group as group;
@@ -71,6 +71,14 @@ macro_rules! assert_add_claim {
     ($signer:expr, $target:expr, $claim:expr, $expiry:expr) => {
         assert_ok!(Identity::add_claim($signer, $target, $claim, $expiry));
     };
+}
+
+fn get_latest_requirement_id(ticker: Ticker) -> u32 {
+    compliance_manager::AssetCompliances::get(ticker)
+        .requirements
+        .last()
+        .map(|r| r.id)
+        .unwrap_or(0)
 }
 
 #[test]
@@ -244,19 +252,35 @@ fn should_add_and_verify_compliance_requirement_we() {
         receiver_condition2
     );
 
+    let comp_req = ComplianceRequirement {
+        sender_conditions: vec![sender_condition.clone()],
+        receiver_conditions: vec![receiver_condition1.clone(), receiver_condition2.clone()],
+        id: 1,
+    };
+
+    // Add two more compliance requirements.
     for _ in 0..2 {
         assert_ok!(ComplianceManager::add_compliance_requirement(
             owner.origin(),
             ticker,
-            vec![sender_condition.clone()],
-            vec![receiver_condition1.clone(), receiver_condition2.clone()],
+            comp_req.sender_conditions.clone(),
+            comp_req.receiver_conditions.clone(),
         ));
     }
+    assert_eq!(get_latest_requirement_id(ticker), 3);
     assert_ok!(ComplianceManager::remove_compliance_requirement(
         owner.origin(),
         ticker,
         1
     )); // OK; latest == 3
+    assert_eq!(get_latest_requirement_id(ticker), 3);
+
+    // Try changing the removed compliance requirement.
+    assert_noop!(
+        ComplianceManager::change_compliance_requirement(owner.origin(), ticker, comp_req),
+        CMError::<TestStorage>::InvalidComplianceRequirementId
+    ); // BAD OK; latest == 3, but 1 was just removed.
+
     assert_noop!(
         ComplianceManager::remove_compliance_requirement(owner.origin(), ticker, 1),
         CMError::<TestStorage>::InvalidComplianceRequirementId
@@ -265,6 +289,7 @@ fn should_add_and_verify_compliance_requirement_we() {
         ComplianceManager::remove_compliance_requirement(owner.origin(), ticker, 1),
         CMError::<TestStorage>::InvalidComplianceRequirementId
     );
+    assert_eq!(get_latest_requirement_id(ticker), 3);
 }
 
 #[test]
