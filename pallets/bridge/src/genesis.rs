@@ -62,11 +62,11 @@ pub(crate) fn bridge_tx_details<T: Config>(
             let recipient_did = T::CddChecker::get_key_cdd_did(&recipient);
 
             debug::info!(
-            "Credited Genesis bridge transaction to {:?}(did={:?}) with nonce {} for {:?} POLYX",
-            recipient,
-            recipient_did,
-            tx.nonce,
-            tx.amount / POLY
+                "Credited Genesis bridge transaction to {:?}(did={:?}) with nonce {} for {:?} POLYX",
+                recipient,
+                recipient_did,
+                tx.nonce,
+                tx.amount / POLY
             );
 
             crate::Module::<T>::issue(&recipient, &tx.amount, recipient_did)

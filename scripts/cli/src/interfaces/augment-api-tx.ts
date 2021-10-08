@@ -14,7 +14,7 @@ import type { Period, Priority } from '@polkadot/types/interfaces/scheduler';
 import type { Keys } from '@polkadot/types/interfaces/session';
 import type { CompactAssignments, ElectionScore, ElectionSize, EraIndex, RewardDestination, ValidatorIndex, ValidatorPrefs } from '@polkadot/types/interfaces/staking';
 import type { Key } from '@polkadot/types/interfaces/system';
-import type { AGId, AgentGroup, AssetIdentifier, AssetName, AssetType, AuthorizationData, BallotMeta, BallotTimeRange, BallotVote, Beneficiary, BridgeTx, CADetails, CAId, CAKind, Claim, ClaimType, ClassicTickerImport, ComplianceRequirement, Condition, Document, DocumentId, ExtrinsicPermissions, FundingRoundName, FundraiserName, IdentityId, InvestorUid, InvestorZKProofData, ItnRewardStatus, Leg, LegacyPermissions, MaybeBlock, Memo, MovePortfolioItem, OffChainSignature, Permissions, PipDescription, PipId, PortfolioId, PortfolioName, PortfolioNumber, PosRatio, PriceTier, ProtocolOp, ReceiptDetails, RecordDateSpec, ScheduleId, ScheduleSpec, Scope, ScopeClaimProof, ScopeId, SecondaryKey, SecondaryKeyWithAuth, SettlementType, Signatory, SkippedCount, SlashingSwitch, SnapshotResult, TargetIdAuthorization, TargetIdentities, Tax, Ticker, TickerRegistrationConfig, TransferManager, TrustedIssuer, UniqueCall, Url, VenueDetails, VenueType } from 'polymesh-typegen/interfaces/default';
+import type { AGId, AgentGroup, AssetIdentifier, AssetName, AssetType, AuthorizationData, BallotMeta, BallotTimeRange, BallotVote, Beneficiary, BridgeTx, CADetails, CAId, CAKind, Claim, ClaimType, ClassicTickerImport, ComplianceRequirement, Condition, Document, DocumentId, ExtrinsicPermissions, FundingRoundName, FundraiserName, IdentityId, InvestorUid, InvestorZKProofData, ItnRewardStatus, Leg, LegacyPermissions, MaybeBlock, Memo, MovePortfolioItem, OffChainSignature, Permissions, PipDescription, PipId, PortfolioId, PortfolioName, PortfolioNumber, PosRatio, PriceTier, ProtocolOp, ReceiptDetails, RecordDateSpec, ScheduleId, ScheduleSpec, Scope, ScopeClaimProof, ScopeId, SecondaryKey, SecondaryKeyWithAuth, SettlementType, Signatory, SkippedCount, SlashingSwitch, SnapshotResult, TargetIdentities, Tax, Ticker, TickerRegistrationConfig, TransferManager, TrustedIssuer, UniqueCall, Url, VenueDetails, VenueType } from 'polymesh-typegen/interfaces/default';
 import type { ApiTypes, SubmittableExtrinsic } from '@polkadot/api/types';
 
 declare module '@polkadot/api/types/submittable' {
@@ -414,7 +414,7 @@ declare module '@polkadot/api/types/submittable' {
        * # Weight
        * `500_000_000 + 7_000_000 * bridge_txs.len()`
        **/
-      batchProposeBridgeTx: AugmentedSubmittable<(bridgeTxs: Vec<BridgeTx> | (BridgeTx | { nonce?: any; recipient?: any; value?: any; tx_hash?: any } | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [Vec<BridgeTx>]>;
+      batchProposeBridgeTx: AugmentedSubmittable<(bridgeTxs: Vec<BridgeTx> | (BridgeTx | { nonce?: any; recipient?: any; amount?: any; tx_hash?: any } | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [Vec<BridgeTx>]>;
       /**
        * Changes the bridge admin key.
        * 
@@ -458,7 +458,7 @@ declare module '@polkadot/api/types/submittable' {
        * - `BadAdmin` if `origin` is not `Self::admin()` account.
        * - `NoValidCdd` if `bridge_tx.recipient` does not have a valid CDD claim.
        **/
-      forceHandleBridgeTx: AugmentedSubmittable<(bridgeTx: BridgeTx | { nonce?: any; recipient?: any; value?: any; tx_hash?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [BridgeTx]>;
+      forceHandleBridgeTx: AugmentedSubmittable<(bridgeTx: BridgeTx | { nonce?: any; recipient?: any; amount?: any; tx_hash?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [BridgeTx]>;
       /**
        * Freezes transaction handling in the bridge module if it is not already frozen. When the
        * bridge is frozen, attempted transactions get postponed instead of getting handled.
@@ -477,7 +477,7 @@ declare module '@polkadot/api/types/submittable' {
        * # Weight
        * `400_000_000 + 2_000_000 * bridge_txs.len()`
        **/
-      freezeTxs: AugmentedSubmittable<(bridgeTxs: Vec<BridgeTx> | (BridgeTx | { nonce?: any; recipient?: any; value?: any; tx_hash?: any } | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [Vec<BridgeTx>]>;
+      freezeTxs: AugmentedSubmittable<(bridgeTxs: Vec<BridgeTx> | (BridgeTx | { nonce?: any; recipient?: any; amount?: any; tx_hash?: any } | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [Vec<BridgeTx>]>;
       /**
        * Handles an approved bridge transaction proposal.
        * 
@@ -486,7 +486,7 @@ declare module '@polkadot/api/types/submittable' {
        * - `TimelockedTx` if the transaction status is `Timelocked`.
        * - `ProposalAlreadyHandled` if the transaction status is `Handled`.
        **/
-      handleBridgeTx: AugmentedSubmittable<(bridgeTx: BridgeTx | { nonce?: any; recipient?: any; value?: any; tx_hash?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [BridgeTx]>;
+      handleBridgeTx: AugmentedSubmittable<(bridgeTx: BridgeTx | { nonce?: any; recipient?: any; amount?: any; tx_hash?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [BridgeTx]>;
       /**
        * Root callable extrinsic, used as an internal call to handle a scheduled timelocked bridge transaction.
        * 
@@ -495,7 +495,7 @@ declare module '@polkadot/api/types/submittable' {
        * - `ProposalAlreadyHandled` if transaction status is `Handled`.
        * - `FrozenTx` if transaction status is `Frozen`.
        **/
-      handleScheduledBridgeTx: AugmentedSubmittable<(bridgeTx: BridgeTx | { nonce?: any; recipient?: any; value?: any; tx_hash?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [BridgeTx]>;
+      handleScheduledBridgeTx: AugmentedSubmittable<(bridgeTx: BridgeTx | { nonce?: any; recipient?: any; amount?: any; tx_hash?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [BridgeTx]>;
       /**
        * Proposes a bridge transaction, which amounts to making a multisig proposal for the
        * bridge transaction if the transaction is new or approving an existing proposal if the
@@ -504,7 +504,7 @@ declare module '@polkadot/api/types/submittable' {
        * ## Errors
        * - `ControllerNotSet` if `Controllers` was not set.
        **/
-      proposeBridgeTx: AugmentedSubmittable<(bridgeTx: BridgeTx | { nonce?: any; recipient?: any; value?: any; tx_hash?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [BridgeTx]>;
+      proposeBridgeTx: AugmentedSubmittable<(bridgeTx: BridgeTx | { nonce?: any; recipient?: any; amount?: any; tx_hash?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [BridgeTx]>;
       /**
        * Remove a freeze admin.
        * 
@@ -529,7 +529,7 @@ declare module '@polkadot/api/types/submittable' {
        * # Weight
        * `400_000_000 + 7_000_000 * bridge_txs.len()`
        **/
-      unfreezeTxs: AugmentedSubmittable<(bridgeTxs: Vec<BridgeTx> | (BridgeTx | { nonce?: any; recipient?: any; value?: any; tx_hash?: any } | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [Vec<BridgeTx>]>;
+      unfreezeTxs: AugmentedSubmittable<(bridgeTxs: Vec<BridgeTx> | (BridgeTx | { nonce?: any; recipient?: any; amount?: any; tx_hash?: any } | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [Vec<BridgeTx>]>;
       /**
        * Generic tx
        **/
@@ -542,7 +542,9 @@ declare module '@polkadot/api/types/submittable' {
        * Taxes are withheld as specified by the CA.
        * Post-tax earnings are then transferred to the default portfolio of the `origin`'s DID.
        * 
-       * All benefits are rounded by truncation (down to first integer below).
+       * All benefits are rounded by truncation, down to first integer below.
+       * Moreover, before post-tax earnings, in indivisible currencies are transferred,
+       * they are rounded down to a whole unit.
        * 
        * ## Arguments
        * - `origin` which must be a holder of for a CAA of `ca_id`.
@@ -566,6 +568,15 @@ declare module '@polkadot/api/types/submittable' {
        * 
        * The distribution will commence at `payment_at` and expire at `expires_at`,
        * if provided, or if `None`, then there's no expiry.
+       * 
+       * The funds will be locked in `portfolio` from when `distribute` is called.
+       * When there's no expiry, some funds may be locked indefinitely in `portfolio`,
+       * due to claimants not withdrawing or no benefits being pushed to them.
+       * For indivisible currencies, unlocked amounts, of less than one whole unit,
+       * will not be transferable from `portfolio`.
+       * However, if we imagine that users `Alice` and `Bob` both are entitled to 1.5 units,
+       * and only receive `1` units each, then `0.5 + 0.5 = 1` units are left in `portfolio`,
+       * which is now transferrable.
        * 
        * ## Arguments
        * - `origin` which must be a signer for a CAA of `ca_id`.
@@ -601,7 +612,9 @@ declare module '@polkadot/api/types/submittable' {
        * Taxes are withheld as specified by the CA.
        * Post-tax earnings are then transferred to the default portfolio of the `origin`'s DID.
        * 
-       * All benefits are rounded by truncation (down to first integer below).
+       * All benefits are rounded by truncation, down to first integer below.
+       * Moreover, before post-tax earnings, in indivisible currencies are transferred,
+       * they are rounded down to a whole unit.
        * 
        * ## Arguments
        * - `origin` which must be a holder of for a CAA of `ca_id`.
@@ -720,7 +733,7 @@ declare module '@polkadot/api/types/submittable' {
        * Change this group's limit for how many concurrent active members they may be.
        * 
        * # Arguments
-       * * `limit` - the numer of active members there may be concurrently.
+       * * `limit` - the number of active members there may be concurrently.
        **/
       setActiveMembersLimit: AugmentedSubmittable<(limit: MemberCount | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [MemberCount]>;
       /**
@@ -876,7 +889,7 @@ declare module '@polkadot/api/types/submittable' {
        * Change this group's limit for how many concurrent active members they may be.
        * 
        * # Arguments
-       * * `limit` - the numer of active members there may be concurrently.
+       * * `limit` - the number of active members there may be concurrently.
        **/
       setActiveMembersLimit: AugmentedSubmittable<(limit: MemberCount | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [MemberCount]>;
       /**
@@ -1443,7 +1456,9 @@ declare module '@polkadot/api/types/submittable' {
        **/
       addAuthorization: AugmentedSubmittable<(target: Signatory | { Identity: any } | { Account: any } | string | Uint8Array, authorizationData: AuthorizationData | { AttestPrimaryKeyRotation: any } | { RotatePrimaryKey: any } | { TransferTicker: any } | { AddMultiSigSigner: any } | { TransferAssetOwnership: any } | { JoinIdentity: any } | { PortfolioCustody: any } | { BecomeAgent: any } | { AddRelayerPayingKey: any } | string | Uint8Array, expiry: Option<Moment> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Signatory, AuthorizationData, Option<Moment>]>;
       /**
-       * Adds a new claim record or edits an existing one. Only called by did_issuer's secondary key.
+       * Adds a new claim record or edits an existing one.
+       * 
+       * Only called by did_issuer's secondary key.
        **/
       addClaim: AugmentedSubmittable<(target: IdentityId | string | Uint8Array, claim: Claim | { Accredited: any } | { Affiliate: any } | { BuyLockup: any } | { SellLockup: any } | { CustomerDueDiligence: any } | { KnowYourCustomer: any } | { Jurisdiction: any } | { Exempted: any } | { Blocked: any } | { InvestorUniqueness: any } | { NoData: any } | { InvestorUniquenessV2: any } | string | Uint8Array, expiry: Option<Moment> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [IdentityId, Claim, Option<Moment>]>;
       /**
@@ -1482,8 +1497,6 @@ declare module '@polkadot/api/types/submittable' {
        * Failure
        * - It can only called by primary key owner.
        * - Keys should be able to linked to any identity.
-       * 
-       * NB: The current weight is a defensive approximation.
        **/
       addSecondaryKeysWithAuthorization: AugmentedSubmittable<(additionalKeys: Vec<SecondaryKeyWithAuth> | (SecondaryKeyWithAuth | { secondary_key?: any; auth_signature?: any } | string | Uint8Array)[], expiresAt: Moment | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [Vec<SecondaryKeyWithAuth>, Moment]>;
       /**
@@ -1530,17 +1543,9 @@ declare module '@polkadot/api/types/submittable' {
        **/
       invalidateCddClaims: AugmentedSubmittable<(cdd: IdentityId | string | Uint8Array, disableFrom: Moment | AnyNumber | Uint8Array, expiry: Option<Moment> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [IdentityId, Moment, Option<Moment>]>;
       /**
-       * Join an identity as a secondary identity.
-       **/
-      joinIdentityAsIdentity: AugmentedSubmittable<(authId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64]>;
-      /**
        * Join an identity as a secondary key.
        **/
       joinIdentityAsKey: AugmentedSubmittable<(authId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64]>;
-      /**
-       * Leave an identity as a secondary identity.
-       **/
-      leaveIdentityAsIdentity: AugmentedSubmittable<(did: IdentityId | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [IdentityId]>;
       /**
        * Leave the secondary key's identity.
        **/
@@ -1581,11 +1586,6 @@ declare module '@polkadot/api/types/submittable' {
        * claim, and `target` identity still have any balance on the given `scope`.
        **/
       revokeClaimByIndex: AugmentedSubmittable<(target: IdentityId | string | Uint8Array, claimType: ClaimType | 'Accredited' | 'Affiliate' | 'BuyLockup' | 'SellLockup' | 'CustomerDueDiligence' | 'KnowYourCustomer' | 'Jurisdiction' | 'Exempted' | 'Blocked' | 'InvestorUniqueness' | 'NoData' | 'InvestorUniquenessV2' | number | Uint8Array, scope: Option<Scope> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [IdentityId, ClaimType, Option<Scope>]>;
-      /**
-       * It revokes the `auth` off-chain authorization of `signer`. It only takes effect if
-       * the authorized transaction is not yet executed.
-       **/
-      revokeOffchainAuthorization: AugmentedSubmittable<(signer: Signatory | { Identity: any } | { Account: any } | string | Uint8Array, auth: TargetIdAuthorization | { target_id?: any; nonce?: any; expires_at?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Signatory, TargetIdAuthorization]>;
       /**
        * It sets permissions for an specific `target_key` key.
        * Only the primary key of an identity is able to set secondary key permissions.
@@ -1738,14 +1738,14 @@ declare module '@polkadot/api/types/submittable' {
        * Accepts a multisig signer authorization given to signer's identity.
        * 
        * # Arguments
-       * * `proposal_id` - Auth id of the authorization.
+       * * `auth_id` - Auth id of the authorization.
        **/
       acceptMultisigSignerAsIdentity: AugmentedSubmittable<(authId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64]>;
       /**
        * Accepts a multisig signer authorization given to signer's key (AccountId).
        * 
        * # Arguments
-       * * `proposal_id` - Auth id of the authorization.
+       * * `auth_id` - Auth id of the authorization.
        **/
       acceptMultisigSignerAsKey: AugmentedSubmittable<(authId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64]>;
       /**
@@ -2216,7 +2216,7 @@ declare module '@polkadot/api/types/submittable' {
        * # Errors
        * * `BadOrigin` - Only root allowed.
        **/
-      changeBaseFee: AugmentedSubmittable<(op: ProtocolOp | 'AssetRegisterTicker' | 'AssetIssue' | 'AssetAddDocument' | 'AssetCreateAsset' | 'AssetCreateCheckpointSchedule' | 'DividendNew' | 'ComplianceManagerAddComplianceRequirement' | 'IdentityRegisterDid' | 'IdentityCddRegisterDid' | 'IdentityAddClaim' | 'IdentitySetPrimaryKey' | 'IdentityAddSecondaryKeysWithAuthorization' | 'PipsPropose' | 'VotingAddBallot' | 'ContractsPutCode' | 'BallotAttachBallot' | 'DistributionDistribute' | number | Uint8Array, baseFee: Balance | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [ProtocolOp, Balance]>;
+      changeBaseFee: AugmentedSubmittable<(op: ProtocolOp | 'AssetRegisterTicker' | 'AssetIssue' | 'AssetAddDocuments' | 'AssetCreateAsset' | 'CheckpointCreateSchedule' | 'ComplianceManagerAddComplianceRequirement' | 'IdentityCddRegisterDid' | 'IdentityAddClaim' | 'IdentityAddSecondaryKeysWithAuthorization' | 'PipsPropose' | 'ContractsPutCode' | 'CorporateBallotAttachBallot' | 'CapitalDistributionDistribute' | number | Uint8Array, baseFee: Balance | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [ProtocolOp, Balance]>;
       /**
        * Changes the fee coefficient for the root origin.
        * 
@@ -2491,7 +2491,7 @@ declare module '@polkadot/api/types/submittable' {
        * # Arguments
        * * `instruction_id` - Instruction id to affirm.
        * * `portfolios` - Portfolios that the sender controls and wants to affirm this instruction.
-       * * `legs` - List of legs needs to affirmed.
+       * * `max_legs_count` - Number of legs that need to be  affirmed.
        * 
        * # Permissions
        * * Portfolio
@@ -2571,8 +2571,13 @@ declare module '@polkadot/api/types/submittable' {
        * 
        * # Arguments
        * * `instruction_id` - Instruction id to reject.
+       * * `portfolio` - Portfolio to reject the instruction.
+       * * `num_of_legs` - Number of legs in the instruction.
+       * 
+       * # Permissions
+       * * Portfolio
        **/
-      rejectInstruction: AugmentedSubmittable<(instructionId: u64 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64]>;
+      rejectInstruction: AugmentedSubmittable<(instructionId: u64 | AnyNumber | Uint8Array, portfolio: PortfolioId | { did?: any; kind?: any } | string | Uint8Array, numOfLegs: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64, PortfolioId, u32]>;
       /**
        * Reschedules a failed instruction.
        * 
@@ -2628,6 +2633,7 @@ declare module '@polkadot/api/types/submittable' {
        * # Arguments
        * * `instruction_id` - Instruction id for that affirmation get withdrawn.
        * * `portfolios` - Portfolios that the sender controls and wants to withdraw affirmation.
+       * * `max_legs_count` - Number of legs that need to be un-affirmed.
        * 
        * # Permissions
        * * Portfolio
@@ -3153,7 +3159,7 @@ declare module '@polkadot/api/types/submittable' {
        * - Write: Nominators, Validators
        * # </weight>
        **/
-      validate: AugmentedSubmittable<(prefs: ValidatorPrefs | { commission?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [ValidatorPrefs]>;
+      validate: AugmentedSubmittable<(prefs: ValidatorPrefs | { commission?: any; blocked?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [ValidatorPrefs]>;
       /**
        * Validate the nominators CDD expiry time.
        * 
@@ -3651,7 +3657,7 @@ declare module '@polkadot/api/types/submittable' {
        * Change this group's limit for how many concurrent active members they may be.
        * 
        * # Arguments
-       * * `limit` - the numer of active members there may be concurrently.
+       * * `limit` - the number of active members there may be concurrently.
        **/
       setActiveMembersLimit: AugmentedSubmittable<(limit: MemberCount | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [MemberCount]>;
       /**
@@ -3889,7 +3895,7 @@ declare module '@polkadot/api/types/submittable' {
        * Change this group's limit for how many concurrent active members they may be.
        * 
        * # Arguments
-       * * `limit` - the numer of active members there may be concurrently.
+       * * `limit` - the number of active members there may be concurrently.
        **/
       setActiveMembersLimit: AugmentedSubmittable<(limit: MemberCount | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [MemberCount]>;
       /**
@@ -3914,7 +3920,7 @@ declare module '@polkadot/api/types/submittable' {
        * 
        * This will execute until the first one fails and then stop.
        * 
-       * May be called from any origin.
+       * May be called from root or a signed origin.
        * 
        * # Parameters
        * - `calls`: The calls to be dispatched from the same origin.
@@ -3923,7 +3929,7 @@ declare module '@polkadot/api/types/submittable' {
        * - The sum of the weights of the `calls`.
        * - One event.
        * 
-       * This will return `Ok` in all circumstances. To determine the success of the batch, an
+       * This will return `Ok` in all circumstances except an unsigned origin. To determine the success of the batch, an
        * event is deposited. If a call failed and the batch was interrupted, then the
        * `BatchInterrupted` event is deposited, along with the number of successful calls made
        * and the error of the failed call. If all were successful, then the `BatchCompleted`
@@ -3937,7 +3943,7 @@ declare module '@polkadot/api/types/submittable' {
        * in which case the state changes are rolled back.
        * On failure, an event `BatchInterrupted(failure_idx, error)` is deposited.
        * 
-       * May be called from any origin.
+       * May be called from root or a signed origin.
        * 
        * # Parameters
        * - `calls`: The calls to be dispatched from the same origin.
@@ -3946,7 +3952,7 @@ declare module '@polkadot/api/types/submittable' {
        * - The sum of the weights of the `calls`.
        * - One event.
        * 
-       * This will return `Ok` in all circumstances.
+       * This will return `Ok` in all circumstances except an unsigned origin.
        * To determine the success of the batch, an event is deposited.
        * If any call failed, then `BatchInterrupted` is deposited.
        * If all were successful, then the `BatchCompleted` event is deposited.
@@ -3958,7 +3964,7 @@ declare module '@polkadot/api/types/submittable' {
        * This will execute all calls, in order, irrespective of failures.
        * Any failures will be available in a `BatchOptimisticFailed` event.
        * 
-       * May be called from any origin.
+       * May be called from root or a signed origin.
        * 
        * # Parameters
        * - `calls`: The calls to be dispatched from the same origin.
@@ -3968,7 +3974,7 @@ declare module '@polkadot/api/types/submittable' {
        * - The sum of the weights of the `calls`.
        * - One event.
        * 
-       * This will return `Ok` in all circumstances.
+       * This will return `Ok` in all circumstances except an unsigned origin.
        * To determine the success of the batch, an event is deposited.
        * If any call failed, then `BatchOptimisticFailed` is deposited,
        * with a vector of event counts for each call as well as a vector

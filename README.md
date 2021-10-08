@@ -15,43 +15,52 @@ Polymesh is a blockchain for regulated securities and open finance.
 
 See the `audit` folder for details of audits undertaken on the Polymesh code base.
 
-# Public Testnets
+Independent audits were completed by:  
+https://www.srlabs.de/  
+https://www.atredis.com/
 
-There are two public testnets being run for Polymesh - the Alcyone testnet, and the Incentivised Testnet. These are entirely distinct networks (different block numbers, different operators), although both based on the same codebase and versioning.
+# Networks
 
-We provide linux binaries for each testnet release.
+We run two public networks, the mainnet and the testnet.
+
+Generally these two networks will be at the same version of Polymesh, although they may differ briefly during an upgrade cycle.
+
+We provide linux binaries for each release.
 
 The latest release for Polymesh can be found at:  
 <https://github.com/PolymathNetwork/Polymesh/releases>
 
-Generally you should be able to run the latest release for both Alcyone and the ITN, although the on-chain version of each network might differ during upgrade cycles.
+Generally you should be able to run the latest release for both networks, although the on-chain version of the network might differ during upgrade cycles.
 
-Below are simple instructions for running a non-operating node (i.e. a node that does not produce blocks or vote on the correctness of other blocks). For more details on monitoring infrastructure for nodes and running an operator node, see the https://github.com/PolymathNetwork/polymesh-tools repository.
+Below are simple instructions for running a non-operating node (i.e. a node that does not produce blocks or vote on the correctness of other blocks).
 
-## Polymesh Incentivised Testnet (ITN)
+For more details on monitoring infrastructure for nodes and running an operator node, see the https://github.com/PolymathNetwork/polymesh-tools repository.
 
-The ITN is designed for testing Polymesh functionality at scale, in a production like setting. Users can earn rewards by exercising different aspects of the Polymesh functionality.
+## Polymesh Testnet
 
-For more details on the approach and possible rewards, please see:  
-https://info.polymath.network/blog/running-with-the-bulls-on-the-polymesh-incentivized-testnet
+The Testnet does not offer incentives to users to participate and test with it. It has a simple onboarding process (no-KYC required) and a bridge allowing test KOVAN based POLY to be bridged to testnet POLYX.
 
-To run a node on the Polymesh ITN you can grab the latest release from the link above, and then execute:
+The testnet also includes the `testUtils` pallet that allows easier onboarding for testing, and in addition each new account will receive 100,000 POLYX for testing purposes.
 
-```bash
-./target/release/polymesh --chain itn
-```
-
-## Polymesh Alcyone Public Testnet
-
-The Alcyone public testnet is similar to the ITN, but does not offer incentives to users to participate and test with it. It also has a simpler onboarding process (no-KYC required) and a bridge allowing test KOVAN based POLY to be bridged to testnet POLYX.
-
-Specifying no chain at the command line defaults to the Polymesh Alcyone Public Testnet (e.g. `--chain alcyone`), so to run a node which connects to the Alcyone Public Testnet, you can start your node with:
+To run a node which connects to the Testnet, you can start your node with:
 
 ```bash
-./target/release/polymesh
+./target/release/polymesh --chain testnet
 ```
 
-# Operators
+## Polymesh Mainnet
+
+The public mainnet is the official Polymesh blockchain. Onboarding requires users to go through a simple KYC process (called Customer Due Diligence or CDD) in order to access the network.
+
+ERC20 POLY can be bridged from Ethereum to the Polymesh Mainnet.
+
+To run a node which connects to the Mainnet, you can start your node with:
+
+```bash
+./target/release/polymesh --chain mainnet
+```
+
+# Operators (aka Validators)
 
 A guide to running an operator node can be found at:
 
@@ -95,10 +104,11 @@ Run unit tests:
 
 # Branches
 
+- The `mainnet` branch tracks code deployed to the Polymesh Public Mainnet.
+- The `testnet` branch tracks code deployed to the Polymesh Public Testnet.
+- The `staging` branch tracks mainnet except during a release cycle where it is upgraded ahead of mainnet.
+- The `tooling` branch tracks the next candidate release for mainnet.
 - The `develop` branch is the working branch with the latest code changes.
-- The `alcyone` branch tracks code deployed to the Polymesh Alcyone Public Testnet.
-- The `staging` branch tracks Alcyone except during a release cycle where it is upgraded ahead of Alcyone.
-- The `tooling` branch tracks the next candidate release for Alcyone.
 
 # Development
 
@@ -123,7 +133,7 @@ To access the Polymesh Chain using the [Web Interface] do the following:
    > The [Web Interface] uses `https`, but your `polymesh` instance does not, so you'll need `ws://` as opposed to `wss://`. You'll also need to use `http://httpapp.polymesh.live/` instead of [Web Interface]. Otherwise, you'll have problems with mixed-content blocking (https vs. http).
    > Finally, add `--rpc-external --ws-external --rpc-cors all` to the `polymesh` invocation above.
 
-2. If you have [custom types definitions](https://github.com/PolymathNetwork/Polymesh/blob/alcyone/polymesh_schema.json) that differ from the Polymesh Alcyone Public Testnet, you can update these in [Settings](https://app.polymesh.live/#/settings) tab under the `Developer` section.
+2. If you have [custom types definitions](https://github.com/PolymathNetwork/Polymesh/blob/develop/polymesh_schema.json) that differ from the Polymesh Testnet, you can update these in [Settings](https://app.polymesh.live/#/settings) tab under the `Developer` section.
 
 3. Reload the page.
 

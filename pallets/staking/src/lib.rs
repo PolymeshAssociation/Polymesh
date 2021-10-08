@@ -878,9 +878,7 @@ pub trait WeightInfo {
     fn new_era(v: u32, n: u32) -> Weight;
     fn do_slash(l: u32) -> Weight;
     fn payout_all(v: u32, n: u32) -> Weight;
-    fn submit_solution_initial(v: u32, a: u32, w: u32) -> Weight;
     fn submit_solution_better(v: u32, n: u32, a: u32, w: u32) -> Weight;
-    fn submit_solution_weaker(n: u32) -> Weight;
     fn change_slashing_allowed_for() -> Weight;
     fn update_permissioned_validator_intended_count() -> Weight;
     fn increase_validator_count() -> Weight;
@@ -2260,7 +2258,7 @@ decl_module! {
             Self::deposit_event(RawEvent::CommissionCapUpdated(GC_DID, old_cap, new_cap));
         }
 
-        /// Changes min bond value to be used in bond(). Only Governance
+        /// Changes min bond value to be used in validate(). Only Governance
         /// committee is allowed to change this value.
         ///
         /// # Arguments

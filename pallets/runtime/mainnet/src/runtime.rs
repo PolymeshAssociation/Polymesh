@@ -13,7 +13,9 @@ use pallet_corporate_actions::ballot as pallet_corporate_ballot;
 use pallet_corporate_actions::distribution as pallet_capital_distribution;
 use pallet_session::historical as pallet_session_historical;
 pub use pallet_transaction_payment::{Multiplier, RuntimeDispatchInfo, TargetedFeeAdjustment};
-use polymesh_common_utilities::{constants::currency::*, protocol_fee::ProtocolOp};
+use polymesh_common_utilities::{
+    constants::currency::*, constants::ENSURED_MAX_LEN, protocol_fee::ProtocolOp,
+};
 use polymesh_primitives::{Balance, BlockNumber, Moment};
 use polymesh_runtime_common::{
     impls::Author,
@@ -48,8 +50,8 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 /// Runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-    spec_name: create_runtime_str!("polymesh"),
-    impl_name: create_runtime_str!("polymath-polymesh"),
+    spec_name: create_runtime_str!("polymesh_mainnet"),
+    impl_name: create_runtime_str!("polymesh_mainnet"),
     authoring_version: 1,
     // Per convention: if the runtime behavior changes, increment spec_version
     // and set impl_version to 0. If only runtime
@@ -73,7 +75,7 @@ parameter_types! {
     pub const SS58Prefix: u8 = 12;
 
     // Base:
-    pub const MaxLen: u32 = 2048;
+    pub const MaxLen: u32 = ENSURED_MAX_LEN;
 
     // Indices:
     pub const IndexDeposit: Balance = DOLLARS;
@@ -313,15 +315,21 @@ construct_runtime!(
         Identity: pallet_identity::{Module, Call, Storage, Event<T>, Config<T>},
 
         // Polymesh Committees
-        // CddServiceProviders: Genesis config deps: Identity
+
+        // CddServiceProviders (group only): Genesis config deps: Identity
         CddServiceProviders: pallet_group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
 
+        // Governance Council (committee)
         PolymeshCommittee: pallet_committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         // CommitteeMembership: Genesis config deps: PolymeshCommittee, Identity.
         CommitteeMembership: pallet_group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
+
+        // Technical Committee
         TechnicalCommittee: pallet_committee::<Instance3>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         // TechnicalCommitteeMembership: Genesis config deps: TechnicalCommittee, Identity
         TechnicalCommitteeMembership: pallet_group::<Instance3>::{Module, Call, Storage, Event<T>, Config<T>},
+
+        // Upgrade Committee
         UpgradeCommittee: pallet_committee::<Instance4>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         // UpgradeCommitteeMembership: Genesis config deps: UpgradeCommittee, Identity
         UpgradeCommitteeMembership: pallet_group::<Instance4>::{Module, Call, Storage, Event<T>, Config<T>},
