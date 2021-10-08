@@ -13,8 +13,8 @@ use frame_system::{EventRecord, Phase};
 use pallet_committee::{self as committee, PolymeshVotes, RawEvent as CommitteeRawEvent};
 use pallet_group as group;
 use pallet_identity as identity;
-use pallet_pips::{self as pips, ProposalState, SnapshotResult};
-use polymesh_common_utilities::{traits::pip::PipId, MaybeBlock};
+use pallet_pips::{PipId, ProposalState, SnapshotResult};
+use polymesh_common_utilities::MaybeBlock;
 use polymesh_primitives::IdentityId;
 use sp_core::H256;
 use sp_runtime::traits::Hash;
@@ -25,7 +25,7 @@ type Committee = committee::Module<TestStorage, committee::Instance1>;
 type CommitteeGroup = group::Module<TestStorage, group::Instance1>;
 type System = frame_system::Module<TestStorage>;
 type Identity = identity::Module<TestStorage>;
-type Pips = pips::Module<TestStorage>;
+type Pips = pallet_pips::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::Origin;
 
 #[test]
@@ -57,7 +57,7 @@ fn make_proposal(value: u64) -> Call {
     Call::Identity(identity::Call::accept_primary_key(value, Some(value)))
 }
 
-const APPROVE_0: &[(PipId, SnapshotResult)] = &[(0, SnapshotResult::Approve)];
+const APPROVE_0: &[(PipId, SnapshotResult)] = &[(PipId(0), SnapshotResult::Approve)];
 
 pub fn set_members(ids: Vec<IdentityId>) {
     CommitteeGroup::reset_members(root(), ids).unwrap();
@@ -135,7 +135,7 @@ fn single_member_committee_works_we() {
     assert_eq!(Committee::proposals(), vec![]);
 
     assert_ok!(vote(&alice_signer, true));
-    check_scheduled(0);
+    check_scheduled(PipId(0));
     let hash = hash_enact_snapshot_results();
     let expected_event = EventRecord {
         phase: Phase::Initialization,
@@ -166,7 +166,7 @@ fn preventing_motions_from_non_members_works_we() {
     prepare_proposal(alice_ring);
     assert_noop!(
         Pips::snapshot(alice_signer.clone()),
-        pips::Error::<TestStorage>::NotACommitteeMember
+        pallet_pips::Error::<TestStorage>::NotACommitteeMember
     );
     assert_eq!(Committee::proposals(), vec![]);
     assert_noop!(
@@ -428,7 +428,7 @@ fn rage_quit_we() {
     assert_mem(alice_did, true);
 
     // By quitting, only alice remains, so threshold passes, and therefore proposal is executed.
-    check_scheduled(0);
+    check_scheduled(PipId(0));
     let hash = hash_enact_snapshot_results();
     let did = IdentityId::default();
     let expected_event = EventRecord {
@@ -572,7 +572,7 @@ fn enact_we() {
         committee::Error::<TestStorage, committee::Instance1>::NotAMember,
     );
     assert_ok!(vote(&Origin::signed(bob), true));
-    check_scheduled(0);
+    check_scheduled(PipId(0));
 }
 
 #[test]

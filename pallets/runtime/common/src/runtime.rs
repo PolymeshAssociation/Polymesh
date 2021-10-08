@@ -741,18 +741,18 @@ macro_rules! runtime_apis {
             impl node_rpc_runtime_api::pips::PipsApi<Block, polymesh_primitives::AccountId>
             for Runtime
             {
-                /// Get vote count for a given proposal index
-                fn get_votes(index: u32) -> VoteCount {
-                    Pips::get_votes(index)
+                /// Vote count for the PIP identified by `id`.
+                fn get_votes(id: pallet_pips::PipId) -> VoteCount {
+                    Pips::get_votes(id)
                 }
 
-                /// Proposals voted by `address`
-                fn proposed_by(address: polymesh_primitives::AccountId) -> Vec<u32> {
+                /// PIPs voted on by `address`.
+                fn proposed_by(address: polymesh_primitives::AccountId) -> Vec<pallet_pips::PipId> {
                     Pips::proposed_by(pallet_pips::Proposer::Community(address))
                 }
 
-                /// Proposals `address` voted on
-                fn voted_on(address: polymesh_primitives::AccountId) -> Vec<u32> {
+                /// PIPs `address` voted on.
+                fn voted_on(address: polymesh_primitives::AccountId) -> Vec<pallet_pips::PipId> {
                     Pips::voted_on(address)
                 }
             }

@@ -93,7 +93,7 @@ pub mod benchmarking;
 use codec::{Decode, Encode, FullCodec};
 use core::{cmp::Ordering, mem};
 use frame_support::{
-    debug, decl_error, decl_event, decl_module, decl_storage,
+    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchResult, DispatchResultWithPostInfo},
     ensure,
     storage::IterableStorageMap,
@@ -113,7 +113,6 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{
         balances::LockableCurrencyExt, governance_group::GovernanceGroupTrait, group::GroupTrait,
-        pip::PipId,
     },
     with_transaction, CommonConfig, Context, MaybeBlock, GC_DID,
 };
@@ -173,6 +172,11 @@ pub struct Url(pub Vec<u8>);
     Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
 )]
 pub struct PipDescription(pub Vec<u8>);
+
+/// The global and unique identitifer of a Polymesh Improvement Proposal (PIP).
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct PipId(pub u32);
 
 /// Represents a proposal
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
@@ -448,7 +452,7 @@ decl_storage! {
         pub ActivePipLimit get(fn active_pip_limit) config(): u32;
 
         /// Proposals so far. id can be used to keep track of PIPs off-chain.
-        PipIdSequence get(fn pip_id_sequence): u32;
+        PipIdSequence get(fn pip_id_sequence): PipId;
 
         /// Snapshots so far. id can be used to keep track of snapshots off-chain.
         SnapshotIdSequence get(fn snapshot_id_sequence): u32;
@@ -775,11 +779,7 @@ decl_module! {
 
                 // Add vote and update voting counter.
                 // INTERNAL: It is impossible to overflow counters in the first vote.
-                Self::unsafe_vote(id, proposer.clone(), Vote(true, deposit))
-                    .map_err(|vote_error| {
-                        debug::error!("The counters of voting (id={}) have an overflow during the 1st vote", id);
-                        vote_error
-                    })?;
+                Self::unsafe_vote(id, proposer.clone(), Vote(true, deposit))?;
 
                 // Adjust live queue.
                 Self::insert_live_queue(id);
@@ -1410,8 +1410,8 @@ impl<T: Config> Module<T> {
 
     /// Returns the id to use for the next PIP to be made.
     /// Invariant: `next_pip_id() == next_pip_id() + 1`.
-    fn next_pip_id() -> u32 {
-        <PipIdSequence>::mutate(|id| mem::replace(id, *id + 1))
+    fn next_pip_id() -> PipId {
+        PipId(PipIdSequence::mutate(|PipId(id)| mem::replace(id, *id + 1)))
     }
 
     /// Changes the vote of `voter` to `vote`, if any.

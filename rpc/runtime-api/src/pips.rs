@@ -15,7 +15,7 @@
 
 //! Runtime API definition for pips module.
 use codec::Codec;
-use pallet_pips::VoteCount;
+use pallet_pips::{PipId, VoteCount};
 use sp_std::vec::Vec;
 
 /// This module contains some types which require transformations to avoid serde issues with
@@ -81,14 +81,14 @@ sp_api::decl_runtime_apis! {
     where
         AccountId: Codec,
     {
-        /// Retrieve votes for a proposal for a given `pips_index`.
-        fn get_votes(pips_index: u32) -> VoteCount;
+        /// Retrieve votes for a proposal for a given `id`.
+        fn get_votes(id: PipId) -> VoteCount;
 
         /// Retrieve proposals started by `address`.
-        fn proposed_by(address: AccountId) -> Vec<u32>;
+        fn proposed_by(address: AccountId) -> Vec<PipId>;
 
         /// Retrieve proposals `address` voted on.
-        fn voted_on(address: AccountId) -> Vec<u32>;
+        fn voted_on(address: AccountId) -> Vec<PipId>;
     }
 }
 
