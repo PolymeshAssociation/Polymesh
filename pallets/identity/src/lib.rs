@@ -87,6 +87,7 @@
 )]
 
 mod auth;
+mod keys;
 
 pub mod types;
 pub use types::{
@@ -624,25 +625,6 @@ impl<T: Config> Module<T> {
 
     pub fn ensure_no_id_record(id: IdentityId) -> DispatchResult {
         ensure!(!Self::is_identity_exists(&id), Error::<T>::DidAlreadyExists);
-        Ok(())
-    }
-
-    /// Increment the reference counter for `key`.
-    pub fn add_account_key_ref_count(key: &T::AccountId) {
-        <AccountKeyRefCount<T>>::mutate(key, |n| *n = n.saturating_add(1_u64));
-    }
-
-    /// Decrement the reference counter for `key`.
-    pub fn remove_account_key_ref_count(key: &T::AccountId) {
-        <AccountKeyRefCount<T>>::mutate(key, |n| *n = n.saturating_sub(1_u64));
-    }
-
-    /// Ensure that the account key is safe to unlink from it's identity.
-    fn ensure_key_unlinkable_from_did(key: &T::AccountId) -> DispatchResult {
-        ensure!(
-            <AccountKeyRefCount<T>>::get(key) == 0,
-            Error::<T>::AccountKeyIsBeingUsed
-        );
         Ok(())
     }
 
