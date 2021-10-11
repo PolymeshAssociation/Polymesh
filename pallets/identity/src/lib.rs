@@ -478,73 +478,7 @@ decl_module! {
             additional_keys: Vec<SecondaryKeyWithAuth<T::AccountId>>,
             expires_at: T::Moment
         ) {
-            let PermissionedCallOriginData {
-                sender,
-                primary_did: did,
-                ..
-            } = Self::ensure_origin_call_permissions(origin)?;
-            let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
-
-            // 0. Check expiration
-            let now = <pallet_timestamp::Module<T>>::get();
-            ensure!(now < expires_at, Error::<T>::AuthorizationExpired);
-            let authorization = TargetIdAuthorization {
-                target_id: did,
-                nonce: Self::offchain_authorization_nonce(did),
-                expires_at
-            };
-            let auth_encoded = authorization.encode();
-
-            let mut record = <DidRecords<T>>::get(did);
-
-            // Ensure we won't have too many keys.
-            ensure_length_ok::<T>(record.secondary_keys.len().saturating_add(additional_keys.len()))?;
-
-            // 1. Verify signatures.
-            for si_with_auth in additional_keys.iter() {
-                let si: SecondaryKey<T::AccountId> = si_with_auth.secondary_key.clone().into();
-
-                Self::ensure_perms_length_limited(&si.permissions)?;
-
-                // Get account_id from signer.
-                let account_id = si.signer.as_account().ok_or(Error::<T>::InvalidAccountKey)?;
-
-                // 1.1. Constraint 1-to-1 account to DID.
-                ensure!(Self::can_link_account_key_to_did(account_id), Error::<T>::AlreadyLinked);
-
-                // 1.2. Verify the signature.
-                let signature = AnySignature::from(Signature::from_h512(si_with_auth.auth_signature));
-                let signer: <<AnySignature as Verify>::Signer as IdentifyAccount>::AccountId =
-                    Decode::decode(&mut &account_id.encode()[..]).map_err(|_| {
-                        Error::<T>::CannotDecodeSignerAccountId
-                    })?;
-                ensure!(
-                    signature.verify(auth_encoded.as_slice(), &signer),
-                    Error::<T>::InvalidAuthorizationSignature
-                );
-            }
-            // 1.999. Charge the fee.
-            T::ProtocolFee::batch_charge_fee(
-                ProtocolOp::IdentityAddSecondaryKeysWithAuthorization,
-                additional_keys.len()
-            )?;
-            // 2.1. Link keys to identity
-            let additional_keys_si: Vec<_> =
-                additional_keys.into_iter()
-                .map(|si_with_auth| si_with_auth.secondary_key)
-                .collect();
-
-            additional_keys_si.iter().for_each(|sk| {
-                if let Signatory::Account(key) = &sk.signer {
-                    Self::link_account_key_to_did(key, did);
-                }
-            });
-            // 2.2. Update that identity information and its offchain authorization nonce.
-            record.add_secondary_keys(additional_keys_si.iter().map(|sk| sk.clone().into()));
-            <DidRecords<T>>::insert(did, record);
-            OffChainAuthorizationNonce::mutate(did, |nonce| *nonce = authorization.nonce + 1);
-
-            Self::deposit_event(RawEvent::SecondaryKeysAdded(did, additional_keys_si));
+            Self::base_add_secondary_keys_with_authorization(origin, additional_keys, expires_at)?;
         }
 
         /// Add `Claim::InvestorUniqueness` claim for a given target identity.
@@ -822,6 +756,88 @@ impl<T: Config> Module<T> {
         });
 
         Self::deposit_event(RawEvent::SecondaryKeysRemoved(did, signers));
+        Ok(())
+    }
+
+    /// Adds secondary keys to target identity `id`.
+    /// Keys are directly added to identity because each of them has an authorization.
+    fn base_add_secondary_keys_with_authorization(
+        origin: T::Origin,
+        keys: Vec<SecondaryKeyWithAuth<T::AccountId>>,
+        expires_at: T::Moment,
+    ) -> DispatchResult {
+        let PermissionedCallOriginData {
+            sender,
+            primary_did: did,
+            ..
+        } = Self::ensure_origin_call_permissions(origin)?;
+        let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
+
+        // 0. Check expiration
+        let now = <pallet_timestamp::Module<T>>::get();
+        ensure!(now < expires_at, Error::<T>::AuthorizationExpired);
+        let authorization = TargetIdAuthorization {
+            target_id: did,
+            nonce: Self::offchain_authorization_nonce(did),
+            expires_at,
+        };
+        let auth_encoded = authorization.encode();
+
+        let mut record = <DidRecords<T>>::get(did);
+
+        // Ensure we won't have too many keys.
+        ensure_length_ok::<T>(record.secondary_keys.len().saturating_add(keys.len()))?;
+
+        // 1. Verify signatures.
+        for si_with_auth in keys.iter() {
+            let si: SecondaryKey<T::AccountId> = si_with_auth.secondary_key.clone().into();
+
+            Self::ensure_perms_length_limited(&si.permissions)?;
+
+            // Get account_id from signer.
+            let account_id = si
+                .signer
+                .as_account()
+                .ok_or(Error::<T>::InvalidAccountKey)?;
+
+            // 1.1. Constraint 1-to-1 account to DID.
+            ensure!(
+                Self::can_link_account_key_to_did(account_id),
+                Error::<T>::AlreadyLinked
+            );
+
+            // 1.2. Verify the signature.
+            let signature = AnySignature::from(Signature::from_h512(si_with_auth.auth_signature));
+            let signer: <<AnySignature as Verify>::Signer as IdentifyAccount>::AccountId =
+                Decode::decode(&mut &account_id.encode()[..])
+                    .map_err(|_| Error::<T>::CannotDecodeSignerAccountId)?;
+            ensure!(
+                signature.verify(auth_encoded.as_slice(), &signer),
+                Error::<T>::InvalidAuthorizationSignature
+            );
+        }
+        // 1.999. Charge the fee.
+        T::ProtocolFee::batch_charge_fee(
+            ProtocolOp::IdentityAddSecondaryKeysWithAuthorization,
+            keys.len(),
+        )?;
+        // 2.1. Link keys to identity
+        let additional_keys_si: Vec<_> = keys
+            .into_iter()
+            .map(|si_with_auth| si_with_auth.secondary_key)
+            .collect();
+
+        additional_keys_si.iter().for_each(|sk| {
+            if let Signatory::Account(key) = &sk.signer {
+                Self::link_account_key_to_did(key, did);
+            }
+        });
+        // 2.2. Update that identity information and its offchain authorization nonce.
+        record.add_secondary_keys(additional_keys_si.iter().map(|sk| sk.clone().into()));
+        <DidRecords<T>>::insert(did, record);
+        OffChainAuthorizationNonce::mutate(did, |nonce| *nonce = authorization.nonce + 1);
+
+        Self::deposit_event(RawEvent::SecondaryKeysAdded(did, additional_keys_si));
         Ok(())
     }
 
