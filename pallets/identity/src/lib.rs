@@ -659,15 +659,6 @@ impl<T: Config> Module<T> {
         })
     }
 
-    /// Ensure `key` isn't linked to a DID.
-    pub fn ensure_key_did_unlinked(key: &T::AccountId) -> DispatchResult {
-        ensure!(
-            Self::can_link_account_key_to_did(key),
-            Error::<T>::AlreadyLinked
-        );
-        Ok(())
-    }
-
     /// Joins a DID as an account based secondary key.
     pub fn unsafe_join_identity(
         target_did: IdentityId,
@@ -918,30 +909,6 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// It checks if `key` is a secondary key of `did` identity.
-    /// # IMPORTANT
-    /// If secondary keys are frozen this function always returns false.
-    /// A primary key cannot be frozen.
-    pub fn is_key_authorized(did: IdentityId, key: &T::AccountId) -> bool {
-        let record = <DidRecords<T>>::get(did);
-
-        // Check primary id or key.
-        &record.primary_key == key
-            // Check secondary items if DID is not frozen.
-            || !Self::is_did_frozen(did) && record.secondary_keys.iter().any(|si| si.signer.as_account().contains(&key))
-    }
-
-    /// It checks if `key` is a secondary key of `did` identity.
-    pub fn is_signer(did: IdentityId, signer: &Signatory<T::AccountId>) -> bool {
-        let record = <DidRecords<T>>::get(did);
-        record.secondary_keys.iter().any(|si| si.signer == *signer)
-    }
-
-    /// Use `did` as reference.
-    pub fn is_primary_key(did: &IdentityId, key: &T::AccountId) -> bool {
-        key == &<DidRecords<T>>::get(did).primary_key
-    }
-
     /// Ensure that any `Scope::Custom(data)` is limited to 32 characters.
     pub fn ensure_custom_scopes_limited(claim: &Claim) -> DispatchResult {
         if let Some(Scope::Custom(data)) = claim.as_scope() {
@@ -1141,29 +1108,6 @@ impl<T: Config> Module<T> {
         };
         Self::deposit_event(event(did));
         Ok(())
-    }
-
-    /// Checks that a key is not linked to any identity or multisig.
-    pub fn can_link_account_key_to_did(key: &T::AccountId) -> bool {
-        !<KeyToIdentityIds<T>>::contains_key(key) && !T::MultiSig::is_signer(key)
-    }
-
-    /// Links a primary or secondary `AccountId` key `key` to an identity `did`.
-    ///
-    /// This function applies the change if `can_link_account_key_to_did` returns `true`.
-    /// Otherwise, it does nothing.
-    pub fn link_account_key_to_did(key: &T::AccountId, did: IdentityId) {
-        if !<KeyToIdentityIds<T>>::contains_key(key) {
-            // `key` is not yet linked to any identity, so no constraints.
-            <KeyToIdentityIds<T>>::insert(key, did);
-        }
-    }
-
-    /// Unlinks an `AccountId` key `key` from an identity `did`.
-    fn unlink_account_key_from_did(key: &T::AccountId, did: IdentityId) {
-        if <KeyToIdentityIds<T>>::contains_key(key) && <KeyToIdentityIds<T>>::get(key) == did {
-            <KeyToIdentityIds<T>>::remove(key)
-        }
     }
 
     /// IMPORTANT: No state change is allowed in this function
