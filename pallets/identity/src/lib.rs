@@ -134,9 +134,9 @@ use polymesh_primitives::{
     investor_zkproof_data::{v1::InvestorZKProofData, InvestorZKProofData as InvestorZKProof},
     secondary_key::{self, api::LegacyPermissions},
     storage_migration_ver, valid_proof_of_investor, Authorization, AuthorizationData,
-    AuthorizationType, CddId, Claim, ClaimType, DispatchableName,
-    ExtrinsicPermissions, Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid,
-    PalletName, Permissions, Scope, ScopeId, SecondaryKey, Signatory, Ticker,
+    AuthorizationType, CddId, Claim, ClaimType, DispatchableName, ExtrinsicPermissions,
+    Identity as DidRecord, IdentityClaim, IdentityId, InvestorUid, PalletName, Permissions, Scope,
+    ScopeId, SecondaryKey, Signatory, Ticker,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -598,9 +598,7 @@ decl_module! {
             // 2.2. Update that identity information and its offchain authorization nonce.
             record.add_secondary_keys(additional_keys_si.iter().map(|sk| sk.clone().into()));
             <DidRecords<T>>::insert(did, record);
-            OffChainAuthorizationNonce::mutate(did, |offchain_nonce| {
-                *offchain_nonce = authorization.nonce + 1;
-            });
+            OffChainAuthorizationNonce::mutate(did, |nonce| *nonce = authorization.nonce + 1);
 
             Self::deposit_event(RawEvent::SecondaryKeysAdded(did, additional_keys_si));
         }
