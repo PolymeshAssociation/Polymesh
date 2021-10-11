@@ -1784,16 +1784,6 @@ impl<T: Config> IdentityFnTrait<T::AccountId> for Module<T> {
         }
     }
 
-    /// Checks if the signer is authorized.
-    fn is_key_authorized(did: IdentityId, key: &T::AccountId) -> bool {
-        Self::is_key_authorized(did, key)
-    }
-
-    /// Checks if the keys is the primary key of the identity.
-    fn is_primary_key(did: &IdentityId, key: &T::AccountId) -> bool {
-        Self::is_primary_key(did, key)
-    }
-
     /// Adds systematic CDD claims.
     fn add_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
         for new_member in targets {
