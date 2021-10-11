@@ -305,7 +305,7 @@ decl_module! {
             disable_from: T::Moment,
             expiry: Option<T::Moment>,
         ) {
-            Self::base_invalidate_cdd_claims(origin, cdd, disable_from, expiry)
+            Self::base_invalidate_cdd_claims(origin, cdd, disable_from, expiry)?;
         }
 
         /// Removes specified secondary keys of a DID if present.
@@ -317,55 +317,7 @@ decl_module! {
         /// `950_000_000 + 60_000 * signers_to_remove.len()`
         #[weight = <T as Config>::WeightInfo::remove_secondary_keys(signers_to_remove.len() as u32)]
         pub fn remove_secondary_keys(origin, signers_to_remove: Vec<Signatory<T::AccountId>>) {
-            let PermissionedCallOriginData {
-                sender,
-                primary_did: did,
-                ..
-            } = Self::ensure_origin_call_permissions(origin)?;
-            let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
-
-            // Ensure that it is safe to unlink the secondary keys from the did.
-            for signer in &signers_to_remove {
-                if let Signatory::Account(key) = &signer {
-                    Self::ensure_key_unlinkable_from_did(key)?;
-                }
-            }
-
-            // Remove links and get all authorization IDs per signer.
-            signers_to_remove
-                .iter()
-                .flat_map(|signer| {
-                    use either::Either::{Left, Right};
-
-                    // Unlink each of the given secondary keys from `did`.
-                    if let Signatory::Account(key) = &signer {
-                        // Unlink multisig signers.
-                        if T::MultiSig::is_multisig(key) {
-                            if !T::Balances::total_balance(key).is_zero() {
-                                return Left(iter::empty());
-                            }
-                            // Unlink multisig signers from the identity.
-                            Self::unlink_multisig_signers_from_did(
-                                T::MultiSig::get_key_signers(key),
-                                did
-                            );
-                        }
-                        // Unlink the secondary account key.
-                        Self::unlink_account_key_from_did(key, did);
-                    }
-
-                    // All `auth_id`s for `signer` authorized by `did`.
-                    Right(Self::auths_of(signer, did))
-                })
-                // Remove authorizations.
-                .for_each(|(signer, auth_id)| Self::unsafe_remove_auth(signer, auth_id, &did, true));
-
-            // Update secondary keys at Identity.
-            <DidRecords<T>>::mutate(did, |record| {
-                record.remove_secondary_keys(&signers_to_remove);
-            });
-
-            Self::deposit_event(RawEvent::SecondaryKeysRemoved(did, signers_to_remove));
+            Self::base_remove_secondary_keys(origin, signers_to_remove)?;
         }
 
         /// Call this with the new primary key. By invoking this method, caller accepts authorization
@@ -814,6 +766,63 @@ impl<T: Config> Module<T> {
             identity.add_secondary_keys(iter::once(sk.clone()));
         });
         Self::deposit_event(RawEvent::SecondaryKeysAdded(target_did, vec![sk.into()]));
+    }
+
+    /// Removes specified secondary keys of a DID if present.
+    fn base_remove_secondary_keys(
+        origin: T::Origin,
+        signers: Vec<Signatory<T::AccountId>>,
+    ) -> DispatchResult {
+        let PermissionedCallOriginData {
+            sender,
+            primary_did: did,
+            ..
+        } = Self::ensure_origin_call_permissions(origin)?;
+        let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
+
+        // Ensure that it is safe to unlink the secondary keys from the did.
+        for signer in &signers {
+            if let Signatory::Account(key) = &signer {
+                Self::ensure_key_unlinkable_from_did(key)?;
+            }
+        }
+
+        // Remove links and get all authorization IDs per signer.
+        signers
+            .iter()
+            .flat_map(|signer| {
+                use either::Either::{Left, Right};
+
+                // Unlink each of the given secondary keys from `did`.
+                if let Signatory::Account(key) = &signer {
+                    // Unlink multisig signers.
+                    if T::MultiSig::is_multisig(key) {
+                        if !T::Balances::total_balance(key).is_zero() {
+                            return Left(iter::empty());
+                        }
+                        // Unlink multisig signers from the identity.
+                        Self::unlink_multisig_signers_from_did(
+                            T::MultiSig::get_key_signers(key),
+                            did,
+                        );
+                    }
+                    // Unlink the secondary account key.
+                    Self::unlink_account_key_from_did(key, did);
+                }
+
+                // All `auth_id`s for `signer` authorized by `did`.
+                Right(Self::auths_of(signer, did))
+            })
+            // Remove authorizations.
+            .for_each(|(signer, auth_id)| Self::unsafe_remove_auth(signer, auth_id, &did, true));
+
+        // Update secondary keys at Identity.
+        <DidRecords<T>>::mutate(did, |record| {
+            record.remove_secondary_keys(&signers);
+        });
+
+        Self::deposit_event(RawEvent::SecondaryKeysRemoved(did, signers));
+        Ok(())
     }
 
     /// Accepts a primary key rotation.
@@ -1730,7 +1739,7 @@ impl<T: Config> Module<T> {
         cdd: IdentityId,
         disable_from: T::Moment,
         expiry: Option<T::Moment>,
-    ) {
+    ) -> DispatchResult {
         ensure_root(origin)?;
 
         let now = <pallet_timestamp::Module<T>>::get();
@@ -1741,6 +1750,7 @@ impl<T: Config> Module<T> {
 
         T::CddServiceProviders::disable_member(cdd, expiry, Some(disable_from))?;
         Self::deposit_event(RawEvent::CddClaimsInvalidated(cdd, disable_from));
+        Ok(())
     }
 
     #[cfg(feature = "runtime-benchmarks")]
