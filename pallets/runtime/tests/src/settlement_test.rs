@@ -104,12 +104,14 @@ impl UserWithBalance {
         }
     }
 
+    #[track_caller]
     fn ensure_all_balances_unchanged(&self) {
         for (t, balance) in &self.init_balances {
             ensure_balance(t, &self.user, *balance);
         }
     }
 
+    #[track_caller]
     fn ensure_balance_unchanged(&self, ticker: &Ticker) {
         for (t, balance) in &self.init_balances {
             if t == ticker {
@@ -118,6 +120,7 @@ impl UserWithBalance {
         }
     }
 
+    #[track_caller]
     fn ensure_balance_increased(&self, ticker: &Ticker, amount: Balance) {
         for (t, balance) in &self.init_balances {
             if t == ticker {
@@ -126,6 +129,7 @@ impl UserWithBalance {
         }
     }
 
+    #[track_caller]
     fn ensure_balance_decreased(&self, ticker: &Ticker, amount: Balance) {
         for (t, balance) in &self.init_balances {
             if t == ticker {
@@ -150,6 +154,7 @@ impl UserWithBalance {
         );
     }
 
+    #[track_caller]
     fn ensure_default_portfolio_bal_unchanged(&self) {
         for (t, balance) in &self.init_balances {
             if t == &TICKER {
@@ -158,6 +163,7 @@ impl UserWithBalance {
         }
     }
 
+    #[track_caller]
     fn ensure_default_portfolio_bal_decreased(&self, amount: Balance) {
         for (t, balance) in &self.init_balances {
             if t == &TICKER {
@@ -166,6 +172,7 @@ impl UserWithBalance {
         }
     }
 
+    #[track_caller]
     fn ensure_default_portfolio_bal_increased(&self, amount: Balance) {
         for (t, balance) in &self.init_balances {
             if t == &TICKER {
@@ -184,7 +191,7 @@ impl Deref for UserWithBalance {
 }
 
 fn create_token_and_venue(ticker: Ticker, user: User) -> u64 {
-    create_token(ticker.as_slice(), ticker, user);
+    create_token(ticker, user);
     let venue_counter = Settlement::venue_counter();
     assert_ok!(Settlement::create_venue(
         user.origin(),
@@ -195,10 +202,10 @@ fn create_token_and_venue(ticker: Ticker, user: User) -> u64 {
     venue_counter
 }
 
-fn create_token(token_name: &[u8], ticker: Ticker, user: User) {
+fn create_token(ticker: Ticker, user: User) {
     assert_ok!(Asset::create_asset(
         user.origin(),
-        token_name.into(),
+        ticker.as_slice().into(),
         ticker,
         true,
         AssetType::default(),
@@ -444,6 +451,7 @@ fn token_swap() {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
+        create_token(TICKER2, bob.user);
         let instruction_counter = Settlement::instruction_counter();
         let amount = 100u128;
         alice.refresh_init_balances();
@@ -570,6 +578,7 @@ fn claiming_receipt() {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
+        create_token(TICKER2, bob.user);
         let instruction_counter = Settlement::instruction_counter();
         alice.refresh_init_balances();
         bob.refresh_init_balances();
@@ -797,6 +806,7 @@ fn settle_on_block() {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
+        create_token(TICKER2, bob.user);
         let instruction_counter = Settlement::instruction_counter();
         let block_number = System::block_number() + 1;
         let amount = 100u128;
@@ -886,7 +896,7 @@ fn settle_on_block() {
         ensure_leg_status(instruction_counter, 0, LegStatus::ExecutionPending);
         ensure_leg_status(instruction_counter, 1, LegStatus::ExecutionPending);
         ensure_locked_assets(&TICKER, &alice, amount);
-        ensure_locked_assets(&TICKER, &bob, amount);
+        ensure_locked_assets(&TICKER2, &bob, amount);
 
         alice.ensure_all_balances_unchanged();
         bob.ensure_all_balances_unchanged();
@@ -900,25 +910,28 @@ fn settle_on_block() {
 
         alice.ensure_balance_decreased(&TICKER, amount);
         bob.ensure_balance_increased(&TICKER, amount);
-        alice.ensure_balance_increased(&TICKER, amount);
-        bob.ensure_balance_decreased(&TICKER, amount);
+        alice.ensure_balance_increased(&TICKER2, amount);
+        bob.ensure_balance_decreased(&TICKER2, amount);
     });
 }
 
 #[test]
 fn failed_execution() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
+        create_token(TICKER2, bob.user);
         let instruction_counter = Settlement::instruction_counter();
         assert_ok!(ComplianceManager::reset_asset_compliance(
             Origin::signed(AccountKeyring::Bob.to_account_id()),
             TICKER2,
         ));
         let block_number = System::block_number() + 1;
-
         let amount = 100u128;
+        alice.refresh_init_balances();
+        bob.refresh_init_balances();
+
         let legs = vec![
             Leg {
                 from: PortfolioId::default_portfolio(alice.did),
@@ -1009,7 +1022,7 @@ fn failed_execution() {
 
         // Check that tokens are locked for settlement execution.
         ensure_locked_assets(&TICKER, &alice, amount);
-        ensure_locked_assets(&TICKER, &bob, amount);
+        ensure_locked_assets(&TICKER2, &bob, amount);
 
         // Ensure balances have not changed.
         alice.ensure_all_balances_unchanged();
@@ -1025,7 +1038,7 @@ fn failed_execution() {
 
         // Check that tokens stay locked after settlement execution failure.
         ensure_locked_assets(&TICKER, &alice, amount);
-        ensure_locked_assets(&TICKER, &bob, amount);
+        ensure_locked_assets(&TICKER2, &bob, amount);
 
         // Ensure balances have not changed.
         alice.ensure_all_balances_unchanged();
@@ -1140,7 +1153,7 @@ fn basic_fuzzing() {
             let mut create = |x: usize, user: User| {
                 let tn = [b'!' + u8::try_from(ticker_id * 4 + x).unwrap()];
                 tickers.push(Ticker::try_from(&tn[..]).unwrap());
-                create_token(&tn, tickers[ticker_id * 4 + x], user);
+                create_token(tickers[ticker_id * 4 + x], user);
             };
             create(0, alice);
             create(1, bob);
