@@ -21,6 +21,7 @@ pub use node_rpc_runtime_api::pips::{
     capped::{Vote, VoteCount},
     PipsApi as PipsRuntimeApi,
 };
+use pallet_pips::PipId;
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
@@ -30,18 +31,18 @@ use std::sync::Arc;
 /// Pips RPC methods.
 #[rpc]
 pub trait PipsApi<BlockHash, AccountId> {
-    /// Summary of votes of a proposal given by `index`
+    /// Summary of votes of the proposal given by `id`.
     #[rpc(name = "pips_getVotes")]
-    fn get_votes(&self, index: u32, at: Option<BlockHash>) -> Result<VoteCount>;
+    fn get_votes(&self, id: PipId, at: Option<BlockHash>) -> Result<VoteCount>;
 
-    /// Retrieves proposal indices started by `address`
+    /// Retrieves proposal indices started by `address`.
     #[rpc(name = "pips_proposedBy")]
-    fn proposed_by(&self, address: AccountId, at: Option<BlockHash>) -> Result<Vec<u32>>;
+    fn proposed_by(&self, address: AccountId, at: Option<BlockHash>) -> Result<Vec<PipId>>;
 
     /// Retrieves proposal `address` indices voted on
 
     #[rpc(name = "pips_votedOn")]
-    fn voted_on(&self, address: AccountId, at: Option<BlockHash>) -> Result<Vec<u32>>;
+    fn voted_on(&self, address: AccountId, at: Option<BlockHash>) -> Result<Vec<PipId>>;
 }
 
 /// An implementation of pips specific RPC methods.
@@ -69,11 +70,11 @@ where
     C::Api: PipsRuntimeApi<Block, AccountId>,
     AccountId: Codec,
 {
-    fn get_votes(&self, index: u32, at: Option<<Block as BlockT>::Hash>) -> Result<VoteCount> {
+    fn get_votes(&self, id: PipId, at: Option<<Block as BlockT>::Hash>) -> Result<VoteCount> {
         rpc_forward_call!(
             self,
             at,
-            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api.get_votes(at, index),
+            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api.get_votes(at, id),
             "Unable to query `get_votes`."
         )
         .map(VoteCount::from)
@@ -83,7 +84,7 @@ where
         &self,
         address: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Vec<u32>> {
+    ) -> Result<Vec<PipId>> {
         rpc_forward_call!(
             self,
             at,
@@ -96,7 +97,7 @@ where
         &self,
         address: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Vec<u32>> {
+    ) -> Result<Vec<PipId>> {
         rpc_forward_call!(
             self,
             at,

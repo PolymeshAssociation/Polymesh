@@ -201,10 +201,9 @@ decl_module! {
             // Bundle as a requirement.
             let id = Self::get_latest_requirement_id(ticker) + 1u32;
             let mut new_req = ComplianceRequirement { sender_conditions, receiver_conditions, id };
-            new_req.dedup();
 
-            // Ensure issuers are limited in length.
-            Self::ensure_issuers_in_req_limited(&new_req)?;
+            // Dedup `ClaimType`s and ensure issuers are limited in length.
+            Self::dedup_and_ensure_requirement_limited(&mut new_req)?;
 
             // Add to existing requirements, and place a limit on the total complexity.
             let mut asset_compliance = AssetCompliances::get(ticker);
@@ -245,6 +244,9 @@ decl_module! {
 
         /// Replaces an asset's compliance by ticker with a new compliance.
         ///
+        /// Compliance requirements will be sorted (ascending by id) before
+        /// replacing the current requirements.
+        ///
         /// # Arguments
         /// * `ticker` - the asset ticker,
         /// * `asset_compliance - the new asset compliance.
@@ -265,14 +267,14 @@ decl_module! {
             // Ensure there are no duplicate requirement ids.
             let mut asset_compliance = asset_compliance;
             let start_len = asset_compliance.len();
+            asset_compliance.sort_by_key(|r| r.id);
             asset_compliance.dedup_by_key(|r| r.id);
             ensure!(start_len == asset_compliance.len(), Error::<T>::DuplicateComplianceRequirements);
 
-            // Dedup `ClaimType`s in `TrustedFor::Specific`.
-            asset_compliance.iter_mut().for_each(|r| r.dedup());
+            // Dedup `ClaimType`s and ensure issuers are limited in length.
+            asset_compliance.iter_mut().try_for_each(Self::dedup_and_ensure_requirement_limited)?;
 
-            // Ensure issuers are limited in length + limit the complexity.
-            asset_compliance.iter().try_for_each(Self::ensure_issuers_in_req_limited)?;
+            // Ensure the complexity is limited.
             Self::verify_compliance_complexity(&asset_compliance, ticker, 0)?;
 
             // Commit changes to storage + emit event.
@@ -400,19 +402,24 @@ decl_module! {
             // Ensure `Scope::Custom(..)`s are limited.
             Self::ensure_custom_scopes_limited(new_req.conditions())?;
 
-            ensure!(Self::get_latest_requirement_id(ticker) >= new_req.id, Error::<T>::InvalidComplianceRequirementId);
-
             let mut asset_compliance = AssetCompliances::get(ticker);
             let reqs = &mut asset_compliance.requirements;
-            if let Some(req) = reqs.iter_mut().find(|req| req.id == new_req.id) {
-                let mut new_req = new_req;
-                new_req.dedup();
 
-                *req = new_req.clone();
-                Self::verify_compliance_complexity(&reqs, ticker, 0)?;
-                AssetCompliances::insert(&ticker, asset_compliance);
-                Self::deposit_event(Event::ComplianceRequirementChanged(did, ticker, new_req));
-            }
+            // If the compliance requirement is not found, throw an error.
+            let pos = reqs.binary_search_by_key(&new_req.id, |req| req.id)
+                .map_err(|_| Error::<T>::InvalidComplianceRequirementId)?;
+
+            // Dedup `ClaimType`s and ensure issuers are limited in length.
+            let mut new_req = new_req;
+            Self::dedup_and_ensure_requirement_limited(&mut new_req)?;
+
+            // Update asset compliance and verify complexity is limited.
+            reqs[pos] = new_req.clone();
+            Self::verify_compliance_complexity(&reqs, ticker, 0)?;
+
+            // Store updated asset compliance.
+            AssetCompliances::insert(&ticker, asset_compliance);
+            Self::deposit_event(Event::ComplianceRequirementChanged(did, ticker, new_req));
         }
     }
 }
@@ -615,6 +622,14 @@ impl<T: Config> Module<T> {
         condition
             .flat_map(|c| c.claims())
             .try_for_each(Identity::<T>::ensure_custom_scopes_limited)
+    }
+
+    fn dedup_and_ensure_requirement_limited(req: &mut ComplianceRequirement) -> DispatchResult {
+        // Dedup `ClaimType`s in `TrustedFor::Specific`.
+        req.dedup();
+
+        // Ensure issuers are limited in length.
+        Self::ensure_issuers_in_req_limited(req)
     }
 
     fn ensure_issuers_in_req_limited(req: &ComplianceRequirement) -> DispatchResult {

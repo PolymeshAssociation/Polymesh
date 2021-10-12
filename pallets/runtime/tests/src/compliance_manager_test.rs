@@ -73,6 +73,14 @@ macro_rules! assert_add_claim {
     };
 }
 
+fn get_latest_requirement_id(ticker: Ticker) -> u32 {
+    ComplianceManager::asset_compliance(ticker)
+        .requirements
+        .last()
+        .map(|r| r.id)
+        .unwrap_or(0)
+}
+
 #[test]
 fn should_add_and_verify_compliance_requirement() {
     ExtBuilder::default()
@@ -244,19 +252,35 @@ fn should_add_and_verify_compliance_requirement_we() {
         receiver_condition2
     );
 
+    let comp_req = ComplianceRequirement {
+        sender_conditions: vec![sender_condition.clone()],
+        receiver_conditions: vec![receiver_condition1.clone(), receiver_condition2.clone()],
+        id: 1,
+    };
+
+    // Add two more compliance requirements.
     for _ in 0..2 {
         assert_ok!(ComplianceManager::add_compliance_requirement(
             owner.origin(),
             ticker,
-            vec![sender_condition.clone()],
-            vec![receiver_condition1.clone(), receiver_condition2.clone()],
+            comp_req.sender_conditions.clone(),
+            comp_req.receiver_conditions.clone(),
         ));
     }
+    assert_eq!(get_latest_requirement_id(ticker), 3);
     assert_ok!(ComplianceManager::remove_compliance_requirement(
         owner.origin(),
         ticker,
         1
     )); // OK; latest == 3
+    assert_eq!(get_latest_requirement_id(ticker), 3);
+
+    // Try changing the removed compliance requirement.
+    assert_noop!(
+        ComplianceManager::change_compliance_requirement(owner.origin(), ticker, comp_req),
+        CMError::<TestStorage>::InvalidComplianceRequirementId
+    ); // BAD OK; latest == 3, but 1 was just removed.
+
     assert_noop!(
         ComplianceManager::remove_compliance_requirement(owner.origin(), ticker, 1),
         CMError::<TestStorage>::InvalidComplianceRequirementId
@@ -265,6 +289,7 @@ fn should_add_and_verify_compliance_requirement_we() {
         ComplianceManager::remove_compliance_requirement(owner.origin(), ticker, 1),
         CMError::<TestStorage>::InvalidComplianceRequirementId
     );
+    assert_eq!(get_latest_requirement_id(ticker), 3);
 }
 
 #[test]
@@ -307,6 +332,53 @@ fn should_replace_asset_compliance_we() {
 
     let asset_compliance = ComplianceManager::asset_compliance(ticker);
     assert_eq!(asset_compliance.requirements, new_asset_compliance);
+}
+
+#[test]
+fn test_dedup_replace_asset_compliance() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(test_dedup_replace_asset_compliance_we);
+}
+
+fn test_dedup_replace_asset_compliance_we() {
+    let owner = User::new(AccountKeyring::Alice);
+
+    // Create & mint token
+    let (ticker, _) = create_token(owner);
+
+    Balances::make_free_balance_be(&owner.acc(), 1_000_000);
+
+    allow_all_transfers(ticker, owner);
+
+    let asset_compliance = ComplianceManager::asset_compliance(ticker);
+    assert_eq!(asset_compliance.requirements.len(), 1);
+
+    let make_req = |id: u32| ComplianceRequirement {
+        sender_conditions: vec![],
+        receiver_conditions: vec![],
+        id,
+    };
+
+    // Replace should throw an error if there are duplicate requirement ids.
+    assert_noop!(
+        ComplianceManager::replace_asset_compliance(
+            owner.origin(),
+            ticker,
+            vec![make_req(1), make_req(2), make_req(2),],
+        ),
+        CMError::<TestStorage>::DuplicateComplianceRequirements
+    );
+
+    // Test with mixed duplicate ids.  To test sorting.
+    assert_noop!(
+        ComplianceManager::replace_asset_compliance(
+            owner.origin(),
+            ticker,
+            vec![make_req(2), make_req(1), make_req(2),],
+        ),
+        CMError::<TestStorage>::DuplicateComplianceRequirements
+    );
 }
 
 #[test]
