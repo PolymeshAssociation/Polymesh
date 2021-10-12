@@ -21,7 +21,7 @@ use crate::{
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
         CommonConfig,
     },
-    ChargeProtocolFee, SystematicIssuers,
+    ChargeProtocolFee,
 };
 
 use codec::{Decode, Encode};
@@ -228,16 +228,6 @@ pub trait IdentityFnTrait<AccountId> {
     fn set_current_identity(id: Option<IdentityId>);
     fn current_payer() -> Option<AccountId>;
     fn set_current_payer(payer: Option<AccountId>);
-
-    /// It adds a systematic CDD claim for each `target` identity.
-    ///
-    /// It is used when we add a new member to CDD providers or Governance Committee.
-    fn add_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers);
-
-    /// It removes the systematic CDD claim for each `target` identity.
-    ///
-    /// It is used when we remove a member from CDD providers or Governance Committee.
-    fn revoke_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers);
 
     /// Provides the DID status for the given DID
     fn has_valid_cdd(target_did: IdentityId) -> bool;

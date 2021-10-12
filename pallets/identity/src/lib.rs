@@ -1058,6 +1058,26 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    /// Adds systematic CDD claims.
+    pub fn add_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
+        for new_member in targets {
+            let cdd_id = CddId::new_v1(new_member.clone(), InvestorUid::from(new_member.as_ref()));
+            let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
+            Self::base_add_claim(*new_member, cdd_claim, issuer.as_id(), None);
+        }
+    }
+
+    /// Removes systematic CDD claims.
+    pub fn revoke_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
+        targets.iter().for_each(|removed_member| {
+            let _ = Self::base_revoke_claim(
+                *removed_member,
+                ClaimType::CustomerDueDiligence,
+                issuer.as_id(),
+                None,
+            );
+        });
+    }
 }
 
 impl<T: Config> Module<T> {
@@ -1143,27 +1163,6 @@ impl<T: Config> IdentityFnTrait<T::AccountId> for Module<T> {
         } else {
             <CurrentPayer<T>>::kill();
         }
-    }
-
-    /// Adds systematic CDD claims.
-    fn add_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
-        for new_member in targets {
-            let cdd_id = CddId::new_v1(new_member.clone(), InvestorUid::from(new_member.as_ref()));
-            let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
-            Self::base_add_claim(*new_member, cdd_claim, issuer.as_id(), None);
-        }
-    }
-
-    /// Removes systematic CDD claims.
-    fn revoke_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
-        targets.iter().for_each(|removed_member| {
-            let _ = Self::base_revoke_claim(
-                *removed_member,
-                ClaimType::CustomerDueDiligence,
-                issuer.as_id(),
-                None,
-            );
-        });
     }
 
     /// Provides the DID status for the given DID
