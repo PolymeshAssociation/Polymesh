@@ -390,24 +390,12 @@ decl_module! {
             Self::base_revoke_claim(target, claim_type, issuer, scope)
         }
 
-        /// It sets permissions for an specific `target_key` key.
+        /// Sets permissions for an specific `target_key` key.
+        ///
         /// Only the primary key of an identity is able to set secondary key permissions.
         #[weight = <T as Config>::WeightInfo::set_permission_to_signer()]
-        pub fn set_permission_to_signer(
-            origin,
-            signer: Signatory<T::AccountId>,
-            permissions: Permissions
-        ) -> DispatchResult {
-            let PermissionedCallOriginData {
-                sender,
-                primary_did: did,
-                ..
-            } = Self::ensure_origin_call_permissions(origin)?;
-            let record = Self::grant_check_only_primary_key(&sender, did)?;
-
-            // Ensure that the signer is a secondary key of the caller's Identity
-            ensure!(record.secondary_keys.iter().any(|si| si.signer == signer), Error::<T>::NotASigner);
-            Self::update_secondary_key_permissions(did, &signer, permissions)
+        pub fn set_permission_to_signer(origin, signer: Signatory<T::AccountId>, perms: Permissions) {
+            Self::base_set_permission_to_signer(origin, signer, perms)?;
         }
 
         /// This function is a workaround for https://github.com/polkadot-js/apps/issues/3632
@@ -1068,20 +1056,6 @@ impl<T: Config> Module<T> {
         Claims::contains_key(&pk, &sk).then(|| Claims::get(&pk, &sk))
     }
 
-    /// It checks that `sender` is the primary key of `did` Identifier and that
-    /// did exists.
-    /// # Return
-    /// A result object containing the `DidRecord` of `did`.
-    pub fn grant_check_only_primary_key(
-        sender: &T::AccountId,
-        did: IdentityId,
-    ) -> Result<DidRecord<T::AccountId>, DispatchError> {
-        Self::ensure_id_record_exists(did)?;
-        let record = <DidRecords<T>>::get(did);
-        ensure!(*sender == record.primary_key, Error::<T>::KeyNotAllowed);
-        Ok(record)
-    }
-
     /// Returns the DID associated with `key`, if any,
     /// assuming it is either the primary key or isn't frozen.
     pub fn get_identity(key: &T::AccountId) -> Option<IdentityId> {
@@ -1505,24 +1479,6 @@ impl<T: Config> Module<T> {
 }
 
 impl<T: Config> Module<T> {
-    /// RPC call to fetch some aggregate account data for fewer round trips.
-    pub fn get_key_identity_data(acc: T::AccountId) -> Option<types::KeyIdentityData<IdentityId>> {
-        let identity = Self::get_identity(&acc)?;
-        let record = <DidRecords<T>>::get(identity);
-        let permissions = if acc == record.primary_key {
-            None
-        } else {
-            Some(record.secondary_keys.into_iter().find_map(|sk| {
-                sk.signer.as_account().filter(|&a| a == &acc)?;
-                Some(sk.permissions)
-            })?)
-        };
-        Some(types::KeyIdentityData {
-            identity,
-            permissions,
-        })
-    }
-
     /// RPC call to know whether the given did has valid cdd claim or not
     pub fn is_identity_has_valid_cdd(
         target: IdentityId,
@@ -1534,20 +1490,6 @@ impl<T: Config> Module<T> {
     /// RPC call to query the given ticker did
     pub fn get_asset_did(ticker: Ticker) -> Result<IdentityId, &'static str> {
         Self::get_token_did(&ticker)
-    }
-
-    /// Retrieve DidRecords for `did`
-    pub fn get_did_records(
-        did: IdentityId,
-    ) -> RpcDidRecords<T::AccountId, SecondaryKey<T::AccountId>> {
-        if let Some(record) = Self::identity_record_of(did) {
-            RpcDidRecords::Success {
-                primary_key: record.primary_key,
-                secondary_keys: record.secondary_keys,
-            }
-        } else {
-            RpcDidRecords::IdNotFound
-        }
     }
 
     pub fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
