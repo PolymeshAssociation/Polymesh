@@ -720,7 +720,7 @@ decl_module! {
             Self::base_reserve_classic_ticker(origin, classic_ticker_import, contract_did, config)
         }
 
-        /// Forces a transfer of token from `from_portfolio` to the caller's default portfolio.        
+        /// Forces a transfer of token from `from_portfolio` to the caller's default portfolio.
         ///
         /// # Arguments
         /// * `origin` Must be an external agent with appropriate permissions for a given ticker.
