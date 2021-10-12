@@ -588,12 +588,6 @@ decl_error! {
 }
 
 impl<T: Config> Module<T> {
-    /// Only used by `create_asset` since `AssetDidRegistered` is defined here instead of there.
-    pub fn commit_token_did(did: IdentityId, ticker: Ticker) {
-        <DidRecords<T>>::insert(did, DidRecord::default());
-        Self::deposit_event(RawEvent::AssetDidRegistered(did, ticker));
-    }
-
     /// Ensure that any `Scope::Custom(data)` is limited to 32 characters.
     pub fn ensure_custom_scopes_limited(claim: &Claim) -> DispatchResult {
         if let Some(Scope::Custom(data)) = claim.as_scope() {
@@ -751,15 +745,6 @@ impl<T: Config> Module<T> {
         let pk = Claim1stKey { target, claim_type };
         let sk = Claim2ndKey { issuer, scope };
         Claims::contains_key(&pk, &sk).then(|| Claims::get(&pk, &sk))
-    }
-
-    /// IMPORTANT: No state change is allowed in this function
-    /// because this function is used within the RPC calls
-    /// It is a helper function that can be used to get did for any asset
-    pub fn get_token_did(ticker: &Ticker) -> Result<IdentityId, &'static str> {
-        let mut buf = SECURITY_TOKEN.encode();
-        buf.append(&mut ticker.encode());
-        IdentityId::try_from(T::Hashing::hash(&buf[..]).as_ref())
     }
 
     /// It adds a new claim without any previous security check.
@@ -1006,37 +991,13 @@ impl<T: Config> Module<T> {
         Self::fetch_claim(did, ClaimType::InvestorUniqueness, did, scope.clone()).is_some()
             || Self::fetch_claim(did, ClaimType::InvestorUniquenessV2, did, scope).is_some()
     }
-}
 
-impl<T: Config> Module<T> {
     /// RPC call to know whether the given did has valid cdd claim or not
     pub fn is_identity_has_valid_cdd(
         target: IdentityId,
         leeway: Option<T::Moment>,
     ) -> Option<IdentityId> {
         Self::fetch_cdd(target, leeway.unwrap_or_default())
-    }
-
-    /// RPC call to query the given ticker did
-    pub fn get_asset_did(ticker: Ticker) -> Result<IdentityId, &'static str> {
-        Self::get_token_did(&ticker)
-    }
-
-    pub fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
-        dids.into_iter()
-            .map(|did| {
-                // Does DID exist in the ecosystem?
-                if !<DidRecords<T>>::contains_key(did) {
-                    DidStatus::Unknown
-                }
-                // DID exists, but does it have a valid CDD?
-                else if Self::has_valid_cdd(did) {
-                    DidStatus::CddVerified
-                } else {
-                    DidStatus::Exists
-                }
-            })
-            .collect()
     }
 
     /// Ensures that the did is an active CDD Provider.
@@ -1095,6 +1056,41 @@ impl<T: Config> Module<T> {
         T::CddServiceProviders::disable_member(cdd, expiry, Some(disable_from))?;
         Self::deposit_event(RawEvent::CddClaimsInvalidated(cdd, disable_from));
         Ok(())
+    }
+
+}
+
+impl<T: Config> Module<T> {
+    /// Only used by `create_asset` since `AssetDidRegistered` is defined here instead of there.
+    pub fn commit_token_did(did: IdentityId, ticker: Ticker) {
+        <DidRecords<T>>::insert(did, DidRecord::default());
+        Self::deposit_event(RawEvent::AssetDidRegistered(did, ticker));
+    }
+
+    /// IMPORTANT: No state change is allowed in this function
+    /// because this function is used within the RPC calls
+    /// It is a helper function that can be used to get did for any asset
+    pub fn get_token_did(ticker: &Ticker) -> Result<IdentityId, &'static str> {
+        let mut buf = SECURITY_TOKEN.encode();
+        buf.append(&mut ticker.encode());
+        IdentityId::try_from(T::Hashing::hash(&buf[..]).as_ref())
+    }
+
+    pub fn get_did_status(dids: Vec<IdentityId>) -> Vec<DidStatus> {
+        dids.into_iter()
+            .map(|did| {
+                // Does DID exist in the ecosystem?
+                if !<DidRecords<T>>::contains_key(did) {
+                    DidStatus::Unknown
+                }
+                // DID exists, but does it have a valid CDD?
+                else if Self::has_valid_cdd(did) {
+                    DidStatus::CddVerified
+                } else {
+                    DidStatus::Exists
+                }
+            })
+            .collect()
     }
 
     #[cfg(feature = "runtime-benchmarks")]
