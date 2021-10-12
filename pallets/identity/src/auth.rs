@@ -14,8 +14,8 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    AuthorizationType, Authorizations, AuthorizationsGiven, CallPermissions, Config, Error,
-    KeyToIdentityIds, Module, MultiPurposeNonce, RawEvent,
+    AuthorizationType, Authorizations, AuthorizationsGiven, Config, Error, KeyToIdentityIds,
+    Module, MultiPurposeNonce, RawEvent,
 };
 use frame_support::dispatch::DispatchResult;
 use frame_support::{ensure, StorageDoubleMap, StorageMap, StorageValue};
@@ -84,7 +84,7 @@ impl<T: Config> Module<T> {
         let sender = ensure_signed(origin)?;
         let from_did = if <KeyToIdentityIds<T>>::contains_key(&sender) {
             // If the sender is linked to an identity, ensure that it has relevant permissions
-            CallPermissions::<T>::ensure_call_permissions(&sender)?.primary_did
+            pallet_permissions::Module::<T>::ensure_call_permissions(&sender)?.primary_did
         } else {
             Context::current_identity_or::<Self>(&sender)?
         };
