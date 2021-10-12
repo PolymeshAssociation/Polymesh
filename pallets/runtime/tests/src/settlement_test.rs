@@ -8,7 +8,6 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use frame_benchmarking::BenchmarkParameter::b;
 use frame_support::{assert_noop, assert_ok, IterableStorageDoubleMap, StorageMap};
 use pallet_asset as asset;
 use pallet_balances as balances;
@@ -22,13 +21,13 @@ use pallet_settlement::{
 };
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    asset::AssetType, AccountId, AuthorizationData, Claim, Condition, ConditionType, IdentityId,
-    PortfolioId, PortfolioName, Signatory, Ticker,
+    asset::AssetType, AccountId, AuthorizationData, Balance, Claim, Condition, ConditionType,
+    IdentityId, PortfolioId, PortfolioName, PortfolioNumber, Signatory, Ticker,
 };
 use rand::{prelude::*, thread_rng};
 use sp_runtime::AnySignature;
 use std::collections::HashMap;
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 use std::ops::Deref;
 use test_client::AccountKeyring;
 
@@ -42,8 +41,7 @@ type ComplianceManager = compliance_manager::Module<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
 type Origin = <TestStorage as frame_system::Config>::Origin;
-type Balance = <TestStorage as Trait>::Balance;
-type Moment = <TestStorage as Trait>::Moment;
+type Moment = <TestStorage as pallet_timestamp::Config>::Moment;
 type BlockNumber = <TestStorage as frame_system::Config>::BlockNumber;
 type DidRecords = identity::DidRecords<TestStorage>;
 type Settlement = settlement::Module<TestStorage>;
@@ -51,8 +49,8 @@ type System = frame_system::Module<TestStorage>;
 type Error = settlement::Error<TestStorage>;
 type Scheduler = scheduler::Module<TestStorage>;
 
-const TICKER: Ticker = Ticker::new_unchecked([b'A'; 12]);
-const TICKER2: Ticker = Ticker::new_unchecked([b'B'; 12]);
+const TICKER: Ticker = Ticker::new_unchecked([b'A', b'C', b'M', b'E', 0, 0, 0, 0, 0, 0, 0, 0]);
+const TICKER2: Ticker = Ticker::new_unchecked([b'A', b'C', b'M', b'E', b'2', 0, 0, 0, 0, 0, 0, 0]);
 
 macro_rules! assert_add_claim {
     ($signer:expr, $target:expr, $claim:expr) => {
@@ -89,7 +87,7 @@ struct UserWithBalance {
 }
 
 impl UserWithBalance {
-    pub fn new(acc: AccountKeyring, tickers: &[Ticker]) -> Self {
+    fn new(acc: AccountKeyring, tickers: &[Ticker]) -> Self {
         let user = User::new(acc);
         Self {
             init_balances: tickers
@@ -100,35 +98,44 @@ impl UserWithBalance {
         }
     }
 
+    fn refresh_init_balances(&mut self) {
+        for (ticker, balance) in &mut self.init_balances {
+            *balance = Asset::balance_of(ticker, self.user.did);
+        }
+    }
+
     fn ensure_all_balances_unchanged(&self) {
-        self.init_balances
-            .iter()
-            .for_each(|(t, b)| ensure_balance(t, &self.user, b));
+        for (t, balance) in &self.init_balances {
+            ensure_balance(t, &self.user, *balance);
+        }
     }
 
     fn ensure_balance_unchanged(&self, ticker: &Ticker) {
-        self.init_balances
-            .iter()
-            .filter(|(t, _)| t == ticker)
-            .for_each(|(t, b)| ensure_balance(t, &self.user, b));
+        for (t, balance) in &self.init_balances {
+            if t == ticker {
+                ensure_balance(ticker, &self.user, *balance);
+            }
+        }
     }
 
     fn ensure_balance_increased(&self, ticker: &Ticker, amount: Balance) {
-        self.init_balances
-            .iter()
-            .filter(|(t, _)| t == ticker)
-            .for_each(|(t, b)| ensure_balance(t, &self.user, b + amount));
+        for (t, balance) in &self.init_balances {
+            if t == ticker {
+                ensure_balance(ticker, &self.user, balance + amount);
+            }
+        }
     }
 
     fn ensure_balance_decreased(&self, ticker: &Ticker, amount: Balance) {
-        self.init_balances
-            .iter()
-            .filter(|(t, _)| t == ticker)
-            .for_each(|(t, b)| ensure_balance(t, &self.user, b - amount));
+        for (t, balance) in &self.init_balances {
+            if t == ticker {
+                ensure_balance(ticker, &self.user, balance - amount);
+            }
+        }
     }
 
     #[track_caller]
-    fn ensure_portfolio_bal(&self, num: u64, balance: Balance) {
+    fn ensure_portfolio_bal(&self, num: PortfolioNumber, balance: Balance) {
         assert_eq!(
             Portfolio::user_portfolio_balance(self.user.did, num, &TICKER),
             balance,
@@ -143,20 +150,28 @@ impl UserWithBalance {
         );
     }
 
-    #[track_caller]
     fn ensure_default_portfolio_bal_unchanged(&self) {
-        self.init_balances
-            .iter()
-            .filter(|(t, _)| t == TICKER)
-            .for_each(|(_, b)| self.ensure_default_portfolio_bal(b));
+        for (t, balance) in &self.init_balances {
+            if t == &TICKER {
+                self.ensure_default_portfolio_bal(*balance);
+            }
+        }
     }
 
-    #[track_caller]
-    fn ensure_default_portfolio_bal_decreased(&self, balance: Balance) {
-        self.init_balances
-            .iter()
-            .filter(|(t, _)| t == TICKER)
-            .for_each(|(_, b)| self.ensure_default_portfolio_bal(b - balance));
+    fn ensure_default_portfolio_bal_decreased(&self, amount: Balance) {
+        for (t, balance) in &self.init_balances {
+            if t == &TICKER {
+                self.ensure_default_portfolio_bal(balance - amount);
+            }
+        }
+    }
+
+    fn ensure_default_portfolio_bal_increased(&self, amount: Balance) {
+        for (t, balance) in &self.init_balances {
+            if t == &TICKER {
+                self.ensure_default_portfolio_bal(balance + amount);
+            }
+        }
     }
 }
 
@@ -285,11 +300,13 @@ fn test_with_cdd_provider(test: impl FnOnce(AccountId)) {
 #[test]
 fn basic_settlement() {
     test_with_cdd_provider(|eve| {
-        let alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
         let instruction_counter = Settlement::instruction_counter();
         let amount = 100u128;
+        alice.refresh_init_balances();
+        bob.refresh_init_balances();
 
         // Provide scope claim to sender and receiver of the transaction.
         provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
@@ -328,11 +345,13 @@ fn basic_settlement() {
 #[test]
 fn create_and_affirm_instruction() {
     test_with_cdd_provider(|eve| {
-        let alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
         let instruction_counter = Settlement::instruction_counter();
         let amount = 100u128;
+        alice.refresh_init_balances();
+        bob.refresh_init_balances();
 
         // Provide scope claim to both the parties of the transaction.
         provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
@@ -382,11 +401,13 @@ fn create_and_affirm_instruction() {
 #[test]
 fn overdraft_failure() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
         let instruction_counter = Settlement::instruction_counter();
         let amount = 100_000_000u128;
+        alice.refresh_init_balances();
+        bob.refresh_init_balances();
 
         assert_ok!(Settlement::add_instruction(
             alice.origin(),
@@ -412,18 +433,21 @@ fn overdraft_failure() {
             ),
             Error::FailedToLockTokens
         );
-        ensure_balance_unchanged();
+        alice.ensure_all_balances_unchanged();
+        bob.ensure_all_balances_unchanged();
     });
 }
 
 #[test]
 fn token_swap() {
     test_with_cdd_provider(|eve| {
-        let alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
         let instruction_counter = Settlement::instruction_counter();
         let amount = 100u128;
+        alice.refresh_init_balances();
+        bob.refresh_init_balances();
 
         let legs = vec![
             Leg {
@@ -471,11 +495,7 @@ fn token_swap() {
             trade_date: None,
             value_date: None,
         };
-        ensure_instruction_status(instruction_counter, instruction_details);
-        assert_eq!(
-            Settlement::instruction_details(instruction_counter),
-            instruction_details
-        );
+        ensure_instruction_details(instruction_counter, instruction_details);
 
         ensure_affirms_pending(instruction_counter, 2);
         assert_eq!(venue_instructions(venue_counter), vec![instruction_counter]);
@@ -527,7 +547,8 @@ fn token_swap() {
 
         ensure_locked_assets(&TICKER, &alice, amount);
 
-        ensure_balance_unchanged();
+        alice.ensure_all_balances_unchanged();
+        bob.ensure_all_balances_unchanged();
         set_current_block_number(500);
 
         assert_affirm_instruction_with_one_leg!(bob.origin(), instruction_counter, bob.did);
@@ -546,10 +567,12 @@ fn token_swap() {
 #[test]
 fn claiming_receipt() {
     test_with_cdd_provider(|eve| {
-        let alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
         let instruction_counter = Settlement::instruction_counter();
+        alice.refresh_init_balances();
+        bob.refresh_init_balances();
 
         // Provide scope claims to multiple parties of a transactions.
         provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve.clone());
@@ -610,7 +633,8 @@ fn claiming_receipt() {
         ensure_affirms_pending(instruction_counter, 2);
         assert_eq!(venue_instructions(venue_counter), vec![instruction_counter]);
 
-        ensure_balance_unchanged();
+        alice.ensure_all_balances_unchanged();
+        bob.ensure_all_balances_unchanged();
 
         let msg = Receipt {
             receipt_uid: 0,
@@ -762,21 +786,23 @@ fn claiming_receipt() {
         ensure_locked_assets(&TICKER, &alice, 0);
         alice.ensure_balance_unchanged(&TICKER);
         bob.ensure_balance_unchanged(&TICKER);
-        alice.ensure_balance_increased(&TICKER2, &alice, amount);
-        bob.ensure_balance_decreased(&TICKER2, &bob, amount);
+        alice.ensure_balance_increased(&TICKER2, amount);
+        bob.ensure_balance_decreased(&TICKER2, amount);
     });
 }
 
 #[test]
 fn settle_on_block() {
     test_with_cdd_provider(|eve| {
-        let alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
         let instruction_counter = Settlement::instruction_counter();
         let block_number = System::block_number() + 1;
-
         let amount = 100u128;
+        alice.refresh_init_balances();
+        bob.refresh_init_balances();
+
         let legs = vec![
             Leg {
                 from: PortfolioId::default_portfolio(alice.did),
@@ -949,7 +975,8 @@ fn failed_execution() {
         assert_eq!(venue_instructions(venue_counter), vec![instruction_counter]);
 
         // Ensure balances have not changed.
-        ensure_balance_unchanged();
+        alice.ensure_all_balances_unchanged();
+        bob.ensure_all_balances_unchanged();
 
         assert_affirm_instruction_with_one_leg!(alice.origin(), instruction_counter, alice.did);
 
@@ -1021,7 +1048,7 @@ fn venue_filtering() {
     test_with_cdd_provider(|eve| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
-        let venue_counter = create_token_and_venue(TICKER, alice.user);
+        let venue_counter = create_token_and_venue(TICKER, alice);
         let block_number = System::block_number() + 1;
         let instruction_counter = Settlement::instruction_counter();
 
@@ -1419,12 +1446,14 @@ fn basic_fuzzing() {
 #[test]
 fn claim_multiple_receipts_during_authorization() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
         let instruction_counter = Settlement::instruction_counter();
-
         let amount = 100u128;
+        alice.refresh_init_balances();
+        bob.refresh_init_balances();
+
         let legs = vec![
             Leg {
                 from: PortfolioId::default_portfolio(alice.did),
@@ -1449,7 +1478,8 @@ fn claim_multiple_receipts_during_authorization() {
             legs.clone()
         ));
 
-        ensure_balance_unchanged();
+        alice.ensure_all_balances_unchanged();
+        bob.ensure_all_balances_unchanged();
 
         let msg1 = Receipt {
             receipt_uid: 0,
@@ -1559,7 +1589,7 @@ fn overload_instruction() {
     test_with_cdd_provider(|eve| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
-        let venue_counter = create_token_and_venue(TICKER, alice.user);
+        let venue_counter = create_token_and_venue(TICKER, alice);
         let leg_limit =
             <TestStorage as pallet_settlement::Config>::MaxLegsInInstruction::get() as usize;
 
@@ -1752,14 +1782,16 @@ fn test_weights_for_settlement_transaction() {
 #[test]
 fn cross_portfolio_settlement() {
     test_with_cdd_provider(|eve| {
-        let alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
         let name = PortfolioName::from([42u8].to_vec());
         let num = Portfolio::next_portfolio_number(&bob.did);
         assert_ok!(Portfolio::create_portfolio(bob.origin(), name.clone()));
         let instruction_counter = Settlement::instruction_counter();
         let amount = 100u128;
+        alice.refresh_init_balances();
+        bob.refresh_init_balances();
 
         // Provide scope claim to sender and receiver of the transaction.
         provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
@@ -1828,21 +1860,21 @@ fn cross_portfolio_settlement() {
 #[test]
 fn multiple_portfolio_settlement() {
     test_with_cdd_provider(|eve| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let name = PortfolioName::from([42u8].to_vec());
         let alice_num = Portfolio::next_portfolio_number(&alice.did);
         let bob_num = Portfolio::next_portfolio_number(&bob.did);
         assert_ok!(Portfolio::create_portfolio(bob.origin(), name.clone()));
         assert_ok!(Portfolio::create_portfolio(alice.origin(), name.clone()));
-        let (ticker, venue_counter) = ticker_init(alice, b"ACME");
+        let venue_counter = create_token_and_venue(TICKER, alice.user);
         let instruction_counter = Settlement::instruction_counter();
-        let alice_init_balance = Asset::balance_of(&ticker, alice.did);
-        let bob_init_balance = Asset::balance_of(&ticker, bob.did);
         let amount = 100u128;
+        alice.refresh_init_balances();
+        bob.refresh_init_balances();
 
         // Provide scope claim to sender and receiver of the transaction.
-        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], ticker, eve);
+        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
 
         // An instruction is created with multiple legs referencing multiple portfolios
         assert_ok!(Settlement::add_instruction(
@@ -1855,57 +1887,33 @@ fn multiple_portfolio_settlement() {
                 Leg {
                     from: PortfolioId::user_portfolio(alice.did, alice_num),
                     to: PortfolioId::default_portfolio(bob.did),
-                    asset: ticker,
+                    asset: TICKER,
                     amount: amount
                 },
                 Leg {
                     from: PortfolioId::default_portfolio(alice.did),
                     to: PortfolioId::user_portfolio(bob.did, bob_num),
-                    asset: ticker,
+                    asset: TICKER,
                     amount: amount
                 }
             ]
         ));
-        assert_eq!(Asset::balance_of(&ticker, alice.did), alice_init_balance);
-        assert_eq!(Asset::balance_of(&ticker, bob.did), bob_init_balance);
-        assert_eq!(
-            Portfolio::default_portfolio_balance(alice.did, &ticker),
-            alice_init_balance,
-        );
-        assert_eq!(
-            Portfolio::default_portfolio_balance(bob.did, &ticker),
-            bob_init_balance,
-        );
-        assert_eq!(
-            Portfolio::user_portfolio_balance(bob.did, bob_num, &ticker),
-            0,
-        );
-        assert_eq!(
-            Portfolio::locked_assets(PortfolioId::default_portfolio(alice.did), &ticker),
-            0
-        );
+        alice.ensure_all_balances_unchanged();
+        bob.ensure_all_balances_unchanged();
+        alice.ensure_default_portfolio_bal_unchanged();
+        bob.ensure_default_portfolio_bal_unchanged();
+        bob.ensure_portfolio_bal(bob_num, 0);
+        ensure_locked_assets(&TICKER, &alice, 0);
 
         // Alice approves the instruction from her default portfolio
         assert_affirm_instruction_with_one_leg!(alice.origin(), instruction_counter, alice.did);
 
-        assert_eq!(Asset::balance_of(&ticker, alice.did), alice_init_balance);
-        assert_eq!(Asset::balance_of(&ticker, bob.did), bob_init_balance);
-        assert_eq!(
-            Portfolio::default_portfolio_balance(alice.did, &ticker),
-            alice_init_balance,
-        );
-        assert_eq!(
-            Portfolio::default_portfolio_balance(bob.did, &ticker),
-            bob_init_balance,
-        );
-        assert_eq!(
-            Portfolio::user_portfolio_balance(bob.did, bob_num, &ticker),
-            0
-        );
-        assert_eq!(
-            Portfolio::locked_assets(PortfolioId::default_portfolio(alice.did), &ticker),
-            amount
-        );
+        alice.ensure_all_balances_unchanged();
+        bob.ensure_all_balances_unchanged();
+        alice.ensure_default_portfolio_bal_unchanged();
+        bob.ensure_default_portfolio_bal_unchanged();
+        bob.ensure_portfolio_bal(bob_num, 0);
+        ensure_locked_assets(&TICKER, &alice, amount);
 
         // Alice tries to withdraw affirmation from multiple portfolios where only one has been affirmed.
         assert_noop!(
@@ -1938,7 +1946,7 @@ fn multiple_portfolio_settlement() {
             PortfolioId::default_portfolio(alice.did),
             PortfolioId::user_portfolio(alice.did, alice_num),
             vec![MovePortfolioItem {
-                ticker,
+                ticker: TICKER,
                 amount,
                 memo: None
             }]
@@ -1951,30 +1959,15 @@ fn multiple_portfolio_settlement() {
             user_portfolio_vec(alice.did, alice_num),
             1
         ));
-        assert_eq!(Asset::balance_of(&ticker, alice.did), alice_init_balance);
-        assert_eq!(Asset::balance_of(&ticker, bob.did), bob_init_balance);
+        alice.ensure_all_balances_unchanged();
+        bob.ensure_all_balances_unchanged();
+        alice.ensure_default_portfolio_bal_decreased(amount);
+        alice.ensure_portfolio_bal(alice_num, amount);
+        bob.ensure_default_portfolio_bal_unchanged();
+        bob.ensure_portfolio_bal(bob_num, 0);
+        ensure_locked_assets(&TICKER, &alice, amount);
         assert_eq!(
-            Portfolio::default_portfolio_balance(alice.did, &ticker),
-            alice_init_balance - amount,
-        );
-        assert_eq!(
-            Portfolio::user_portfolio_balance(alice.did, alice_num, &ticker),
-            amount,
-        );
-        assert_eq!(
-            Portfolio::default_portfolio_balance(bob.did, &ticker),
-            bob_init_balance,
-        );
-        assert_eq!(
-            Portfolio::user_portfolio_balance(bob.did, bob_num, &ticker),
-            0
-        );
-        assert_eq!(
-            Portfolio::locked_assets(PortfolioId::default_portfolio(alice.did), &ticker),
-            amount
-        );
-        assert_eq!(
-            Portfolio::locked_assets(PortfolioId::user_portfolio(alice.did, alice_num), &ticker),
+            Portfolio::locked_assets(PortfolioId::user_portfolio(alice.did, alice_num), &TICKER),
             amount
         );
 
@@ -1993,39 +1986,21 @@ fn multiple_portfolio_settlement() {
         ));
 
         // Instruction should've settled
-        assert_instruction_execution!(
-            assert_eq,
-            Asset::balance_of(&ticker, alice.did),
-            alice_init_balance - amount * 2
-        );
-        assert_eq!(
-            Asset::balance_of(&ticker, bob.did),
-            bob_init_balance + amount * 2
-        );
-        assert_eq!(
-            Portfolio::default_portfolio_balance(alice.did, &ticker),
-            alice_init_balance - amount * 2,
-        );
-        assert_eq!(
-            Portfolio::default_portfolio_balance(bob.did, &ticker),
-            bob_init_balance + amount,
-        );
-        assert_eq!(
-            Portfolio::user_portfolio_balance(bob.did, bob_num, &ticker),
-            amount,
-        );
-        assert_eq!(
-            Portfolio::locked_assets(PortfolioId::default_portfolio(alice.did), &ticker),
-            0
-        );
+        next_block();
+        alice.ensure_balance_decreased(&TICKER, amount * 2);
+        bob.ensure_balance_increased(&TICKER, amount * 2);
+        alice.ensure_default_portfolio_bal_decreased(amount * 2);
+        bob.ensure_default_portfolio_bal_increased(amount);
+        bob.ensure_portfolio_bal(bob_num, amount);
+        ensure_locked_assets(&TICKER, &alice, 0);
     });
 }
 
 #[test]
 fn multiple_custodian_settlement() {
     test_with_cdd_provider(|eve| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
 
         // Create portfolios
         let name = PortfolioName::from([42u8].to_vec());
@@ -2044,21 +2019,21 @@ fn multiple_custodian_settlement() {
         assert_ok!(Portfolio::accept_portfolio_custody(alice.origin(), auth_id));
 
         // Create a token
-        let (ticker, venue_counter) = ticker_init(alice, b"ACME");
+        let venue_counter = create_token_and_venue(TICKER, alice.user);
         let instruction_counter = Settlement::instruction_counter();
-        let alice_init_balance = Asset::balance_of(&ticker, alice.did);
-        let bob_init_balance = Asset::balance_of(&ticker, bob.did);
         let amount = 100u128;
+        alice.refresh_init_balances();
+        bob.refresh_init_balances();
 
         // Provide scope claim to sender and receiver of the transaction.
-        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], ticker, eve);
+        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
 
         assert_ok!(Portfolio::move_portfolio_funds(
             alice.origin(),
             PortfolioId::default_portfolio(alice.did),
             PortfolioId::user_portfolio(alice.did, alice_num),
             vec![MovePortfolioItem {
-                ticker,
+                ticker: TICKER,
                 amount,
                 memo: None
             }]
@@ -2075,35 +2050,23 @@ fn multiple_custodian_settlement() {
                 Leg {
                     from: PortfolioId::user_portfolio(alice.did, alice_num),
                     to: PortfolioId::default_portfolio(bob.did),
-                    asset: ticker,
+                    asset: TICKER,
                     amount: amount
                 },
                 Leg {
                     from: PortfolioId::default_portfolio(alice.did),
                     to: PortfolioId::user_portfolio(bob.did, bob_num),
-                    asset: ticker,
+                    asset: TICKER,
                     amount: amount
                 }
             ]
         ));
-        assert_eq!(Asset::balance_of(&ticker, alice.did), alice_init_balance);
-        assert_eq!(Asset::balance_of(&ticker, bob.did), bob_init_balance);
-        assert_eq!(
-            Portfolio::default_portfolio_balance(alice.did, &ticker),
-            alice_init_balance - amount,
-        );
-        assert_eq!(
-            Portfolio::default_portfolio_balance(bob.did, &ticker),
-            bob_init_balance,
-        );
-        assert_eq!(
-            Portfolio::user_portfolio_balance(bob.did, bob_num, &ticker),
-            0,
-        );
-        assert_eq!(
-            Portfolio::locked_assets(PortfolioId::default_portfolio(alice.did), &ticker),
-            0
-        );
+        alice.ensure_all_balances_unchanged();
+        bob.ensure_all_balances_unchanged();
+        alice.ensure_default_portfolio_bal_decreased(amount);
+        bob.ensure_default_portfolio_bal_unchanged();
+        bob.ensure_portfolio_bal(bob_num, 0);
+        ensure_locked_assets(&TICKER, &alice, 0);
 
         // Alice approves the instruction from both of her portfolios
         let portfolios_vec = vec![
@@ -2117,26 +2080,14 @@ fn multiple_custodian_settlement() {
             portfolios_vec.clone(),
             2
         ));
-        assert_eq!(Asset::balance_of(&ticker, alice.did), alice_init_balance);
-        assert_eq!(Asset::balance_of(&ticker, bob.did), bob_init_balance);
+        alice.ensure_all_balances_unchanged();
+        bob.ensure_all_balances_unchanged();
+        alice.ensure_default_portfolio_bal_decreased(amount);
+        bob.ensure_default_portfolio_bal_unchanged();
+        bob.ensure_portfolio_bal(bob_num, 0);
+        ensure_locked_assets(&TICKER, &alice, amount);
         assert_eq!(
-            Portfolio::default_portfolio_balance(alice.did, &ticker),
-            alice_init_balance - amount,
-        );
-        assert_eq!(
-            Portfolio::default_portfolio_balance(bob.did, &ticker),
-            bob_init_balance,
-        );
-        assert_eq!(
-            Portfolio::user_portfolio_balance(bob.did, bob_num, &ticker),
-            0
-        );
-        assert_eq!(
-            Portfolio::locked_assets(PortfolioId::default_portfolio(alice.did), &ticker),
-            amount
-        );
-        assert_eq!(
-            Portfolio::locked_assets(PortfolioId::user_portfolio(alice.did, alice_num), &ticker),
+            Portfolio::locked_assets(PortfolioId::user_portfolio(alice.did, alice_num), &TICKER),
             amount
         );
 
@@ -2164,8 +2115,8 @@ fn multiple_custodian_settlement() {
         assert_affirm_instruction_with_zero_leg!(bob.origin(), instruction_counter, bob.did);
 
         // Alice fails to deny the instruction from both her portfolios since she doesn't have the custody
-        assert_instruction_execution!(
-            assert_noop,
+        next_block();
+        assert_noop!(
             Settlement::withdraw_affirmation(
                 alice.origin(),
                 instruction_counter,
@@ -2182,10 +2133,7 @@ fn multiple_custodian_settlement() {
             default_portfolio_vec(alice.did),
             1
         ));
-        assert_eq!(
-            Portfolio::locked_assets(PortfolioId::default_portfolio(alice.did), &ticker),
-            0
-        );
+        ensure_locked_assets(&TICKER, &alice, 0);
 
         // Alice can authorize instruction from remaining portfolios since she has the custody
         let portfolios_final = vec![
@@ -2201,31 +2149,13 @@ fn multiple_custodian_settlement() {
         ));
 
         // Instruction should've settled
-        assert_instruction_execution!(
-            assert_eq,
-            Asset::balance_of(&ticker, alice.did),
-            alice_init_balance - amount * 2
-        );
-        assert_eq!(
-            Asset::balance_of(&ticker, bob.did),
-            bob_init_balance + amount * 2
-        );
-        assert_eq!(
-            Portfolio::default_portfolio_balance(alice.did, &ticker),
-            alice_init_balance - amount * 2,
-        );
-        assert_eq!(
-            Portfolio::default_portfolio_balance(bob.did, &ticker),
-            bob_init_balance + amount,
-        );
-        assert_eq!(
-            Portfolio::user_portfolio_balance(bob.did, bob_num, &ticker),
-            amount,
-        );
-        assert_eq!(
-            Portfolio::locked_assets(PortfolioId::default_portfolio(alice.did), &ticker),
-            0
-        );
+        next_block();
+        alice.ensure_balance_decreased(&TICKER, amount * 2);
+        bob.ensure_balance_increased(&TICKER, amount * 2);
+        alice.ensure_default_portfolio_bal_decreased(amount * 2);
+        bob.ensure_default_portfolio_bal_increased(amount);
+        bob.ensure_portfolio_bal(bob_num, amount);
+        ensure_locked_assets(&TICKER, &alice, 0);
     });
 }
 
@@ -2236,7 +2166,7 @@ fn reject_instruction() {
         let bob = User::new(AccountKeyring::Bob);
         let charlie = User::new(AccountKeyring::Charlie);
 
-        let venue_counter = create_token_and_venue(TICKER,alice);
+        let venue_counter = create_token_and_venue(TICKER, alice);
         let amount = 100u128;
 
         let reject_instruction = |user: &User, instruction_counter| {
@@ -2304,14 +2234,14 @@ fn reject_instruction() {
 #[test]
 fn dirty_storage_with_tx() {
     test_with_cdd_provider(|eve| {
-        let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
-        let venue_counter = create_token_and_venue(TICKER,alice);
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let venue_counter = create_token_and_venue(TICKER, alice.user);
         let instruction_counter = Settlement::instruction_counter();
-        let alice_init_balance = Asset::balance_of(&TICKER, alice.did);
-        let bob_init_balance = Asset::balance_of(&TICKER, bob.did);
         let amount1 = 100u128;
         let amount2 = 50u128;
+        alice.refresh_init_balances();
+        bob.refresh_init_balances();
 
         // Provide scope claim to sender and receiver of the transaction.
         provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
@@ -2345,8 +2275,8 @@ fn dirty_storage_with_tx() {
         ));
 
         assert_affirm_instruction!(alice.origin(), instruction_counter, alice.did, 2);
-        assert_eq!(Asset::balance_of(&TICKER, alice.did), alice_init_balance);
-        assert_eq!(Asset::balance_of(&TICKER, bob.did), bob_init_balance);
+        alice.ensure_all_balances_unchanged();
+        bob.ensure_all_balances_unchanged();
         set_current_block_number(5);
         assert_affirm_instruction_with_one_leg!(bob.origin(), instruction_counter, bob.did);
 
@@ -2363,14 +2293,8 @@ fn dirty_storage_with_tx() {
         );
 
         // Ensure proper balance transfers
-        assert_eq!(
-            Asset::balance_of(&TICKER, alice.did),
-            alice_init_balance - total_amount
-        );
-        assert_eq!(
-            Asset::balance_of(&TICKER, bob.did),
-            bob_init_balance + total_amount
-        );
+        alice.ensure_balance_decreased(&TICKER, total_amount);
+        bob.ensure_balance_increased(&TICKER, total_amount);
     });
 }
 
@@ -2380,7 +2304,7 @@ fn reject_failed_instruction() {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
 
-        let venue_counter = create_token_and_venue(TICKER,alice);
+        let venue_counter = create_token_and_venue(TICKER, alice);
         let amount = 100u128;
 
         let instruction_counter = create_instruction(&alice, &bob, venue_counter, TICKER, amount);
