@@ -105,7 +105,7 @@ use frame_support::{
     StorageValue,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
-use pallet_base::ensure_opt_string_limited;
+use pallet_base::{ensure_opt_string_limited, try_next_id_post};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     constants::{schedule_name_prefix::*, PIP_MAX_REPORTING_SIZE},
@@ -116,7 +116,7 @@ use polymesh_common_utilities::{
     },
     with_transaction, CommonConfig, Context, MaybeBlock, GC_DID,
 };
-use polymesh_primitives::{Balance, IdentityId};
+use polymesh_primitives::{impl_checked_inc, Balance, IdentityId};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use polymesh_runtime_common::PipsEnactSnapshotMaximumWeight;
 #[cfg(feature = "std")]
@@ -177,6 +177,7 @@ pub struct PipDescription(pub Vec<u8>);
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PipId(pub u32);
+impl_checked_inc!(PipId);
 
 /// Represents a proposal
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
@@ -324,7 +325,10 @@ pub struct DepositInfo<AccountId> {
 }
 
 /// ID of the taken snapshot in a sequence.
-pub type SnapshotId = u32;
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct SnapshotId(pub u32);
+impl_checked_inc!(SnapshotId);
 
 /// A snapshot's metadata, containing when it was created and who triggered it.
 /// The priority queue is stored separately (see `SnapshottedPip`).
@@ -455,7 +459,7 @@ decl_storage! {
         PipIdSequence get(fn pip_id_sequence): PipId;
 
         /// Snapshots so far. id can be used to keep track of snapshots off-chain.
-        SnapshotIdSequence get(fn snapshot_id_sequence): u32;
+        SnapshotIdSequence get(fn snapshot_id_sequence): SnapshotId;
 
         /// Total count of current pending or scheduled PIPs.
         ActivePipCount get(fn active_pip_count): u32;
@@ -717,6 +721,10 @@ decl_module! {
             ensure_opt_string_limited::<T>(url.as_deref())?;
             ensure_opt_string_limited::<T>(description.as_deref())?;
 
+            // Ensure we can advance the ID counter and get next one.
+            let mut seq = PipIdSequence::get();
+            let id = try_next_id_post::<T, _>(&mut seq)?;
+
             let charge = || T::ProtocolFee::charge_fee(ProtocolOp::PipsPropose);
 
             // Add a deposit for community PIPs.
@@ -744,7 +752,6 @@ decl_module! {
             }
 
             // Construct and add PIP to storage.
-            let id = Self::next_pip_id();
             let created_at = <system::Module<T>>::block_number();
             let expiry = Self::pending_pip_expiry() + created_at;
             let transaction_version = <T::Version as Get<RuntimeVersion>>::get().transaction_version;
@@ -763,6 +770,7 @@ decl_module! {
                 state: ProposalState::Pending,
                 proposer: proposer.clone(),
             });
+            PipIdSequence::put(seq);
             ActivePipCount::mutate(|count| *count += 1);
 
             // Schedule for expiry, as long as `Pending`, at block with number `expiring_at`.
@@ -998,7 +1006,7 @@ decl_module! {
             ensure!(T::GovernanceCommittee::is_member(&did), Error::<T>::NotACommitteeMember);
 
             // Commit the new snapshot.
-            let id = SnapshotIdSequence::mutate(|id| mem::replace(id, *id + 1));
+            let id = SnapshotIdSequence::try_mutate(try_next_id_post::<T, _>)?;
             let created_at = <system::Module<T>>::block_number();
             <SnapshotMeta<T>>::set(Some(SnapshotMetadata { created_at, made_by, id }));
             let queue = LiveQueue::get();
@@ -1406,12 +1414,6 @@ impl<T: Config> Module<T> {
         <Proposals<T>>::iter()
             .filter_map(|(_, pip)| Self::proposal_vote(pip.id, &address).map(|_| pip.id))
             .collect::<Vec<_>>()
-    }
-
-    /// Returns the id to use for the next PIP to be made.
-    /// Invariant: `next_pip_id() == next_pip_id() + 1`.
-    fn next_pip_id() -> PipId {
-        PipId(PipIdSequence::mutate(|PipId(id)| mem::replace(id, *id + 1)))
     }
 
     /// Changes the vote of `voter` to `vote`, if any.
