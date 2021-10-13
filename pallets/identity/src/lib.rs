@@ -630,7 +630,7 @@ impl<T: Config> Module<T> {
     #[cfg(feature = "runtime-benchmarks")]
     /// Sets the current did in the context
     pub fn set_context_did(did: Option<IdentityId>) {
-        Context::set_current_identity::<Self>(did);
+        polymesh_common_utilities::Context::set_current_identity::<Self>(did);
     }
 }
 
