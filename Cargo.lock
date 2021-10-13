@@ -4620,6 +4620,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "pallet-base",
  "pallet-identity",
  "pallet-permissions",
  "parity-scale-codec 2.2.0",

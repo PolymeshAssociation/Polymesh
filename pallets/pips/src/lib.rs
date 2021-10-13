@@ -105,7 +105,7 @@ use frame_support::{
     StorageValue,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
-use pallet_base::{ensure_opt_string_limited, try_next_id_post};
+use pallet_base::{ensure_opt_string_limited, try_next_post};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     constants::{schedule_name_prefix::*, PIP_MAX_REPORTING_SIZE},
@@ -723,7 +723,7 @@ decl_module! {
 
             // Ensure we can advance the ID counter and get next one.
             let mut seq = PipIdSequence::get();
-            let id = try_next_id_post::<T, _>(&mut seq)?;
+            let id = try_next_post::<T, _>(&mut seq)?;
 
             let charge = || T::ProtocolFee::charge_fee(ProtocolOp::PipsPropose);
 
@@ -1006,7 +1006,7 @@ decl_module! {
             ensure!(T::GovernanceCommittee::is_member(&did), Error::<T>::NotACommitteeMember);
 
             // Commit the new snapshot.
-            let id = SnapshotIdSequence::try_mutate(try_next_id_post::<T, _>)?;
+            let id = SnapshotIdSequence::try_mutate(try_next_post::<T, _>)?;
             let created_at = <system::Module<T>>::block_number();
             <SnapshotMeta<T>>::set(Some(SnapshotMetadata { created_at, made_by, id }));
             let queue = LiveQueue::get();

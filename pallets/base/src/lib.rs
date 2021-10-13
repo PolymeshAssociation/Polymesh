@@ -50,13 +50,13 @@ decl_error! {
         /// Exceeded a generic length limit.
         /// The limit could be for any sort of lists of things, including a string.
         TooLong,
-        /// The sequence counter for a set of identifiers overflowed.
+        /// The sequence counter for something overflowed.
         ///
-        /// When this happens depends on the capacity of the identifier type.
+        /// When this happens depends on e.g., the capacity of the identifier type.
         /// For example, we might have `pub struct PipId(u32);`, with `u32::MAX` capacity.
         /// In practice, these errors will never happen but no code path should result in a panic,
         /// so these corner cases need to be covered with an error variant.
-        IdSeqOverflow,
+        CounterOverflow,
     }
 }
 
@@ -79,18 +79,18 @@ pub fn ensure_opt_string_limited<T: Config>(s: Option<&[u8]>) -> DispatchResult 
     }
 }
 
-/// Try to pre-increment the counter `seq` and return the next ID to use.
-pub fn try_next_id_pre<T: Config, I: CheckedInc + Clone>(seq: &mut I) -> Result<I, DispatchError> {
-    let id = seq.checked_inc().ok_or(Error::<T>::IdSeqOverflow)?;
+/// Try to pre-increment the counter `seq` and return the next number/ID to use.
+pub fn try_next_pre<T: Config, I: CheckedInc + Clone>(seq: &mut I) -> Result<I, DispatchError> {
+    let id = seq.checked_inc().ok_or(Error::<T>::CounterOverflow)?;
     *seq = id.clone();
     Ok(id)
 }
 
-/// Try to post-increment the counter `seq` and return the next ID to use.
-pub fn try_next_id_post<T: Config, I: CheckedInc>(seq: &mut I) -> Result<I, DispatchError> {
+/// Try to post-increment the counter `seq` and return the next number/ID to use.
+pub fn try_next_post<T: Config, I: CheckedInc>(seq: &mut I) -> Result<I, DispatchError> {
     seq.checked_inc()
         .map(|x| mem::replace(seq, x))
-        .ok_or_else(|| Error::<T>::IdSeqOverflow.into())
+        .ok_or_else(|| Error::<T>::CounterOverflow.into())
 }
 
 impl<T: Config> frame_support::traits::IntegrityTest for Module<T> {}

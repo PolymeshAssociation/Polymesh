@@ -65,7 +65,7 @@ use frame_support::{
     IterableStorageDoubleMap,
 };
 use frame_system::{self as system, ensure_root, RawOrigin};
-use pallet_base::{ensure_string_limited, try_next_id_post};
+use pallet_base::{ensure_string_limited, try_next_post};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
     constants::{
@@ -520,7 +520,7 @@ decl_module! {
 
             // Advance venue counter.
             // NB: Venue counter starts with 1.
-            let id = VenueCounter::try_mutate(try_next_id_post::<T, _>)?;
+            let id = VenueCounter::try_mutate(try_next_post::<T, _>)?;
 
             // Other commits to storage + emit event.
             let venue = Venue { creator: did, venue_type: typ };
@@ -959,7 +959,7 @@ impl<T: Config> Module<T> {
         }
 
         // Advance and get next `instruction_id`.
-        let instruction_id = InstructionCounter::try_mutate(try_next_id_post::<T, _>)?;
+        let instruction_id = InstructionCounter::try_mutate(try_next_post::<T, _>)?;
 
         let instruction = Instruction {
             instruction_id,

@@ -2,7 +2,7 @@ use codec::{Decode, Encode};
 use frame_support::decl_event;
 use frame_support::weights::Weight;
 use polymesh_primitives::calendar::{CheckpointId, CheckpointSchedule};
-use polymesh_primitives::{Balance, EventDid, IdentityId, Moment, Ticker};
+use polymesh_primitives::{impl_checked_inc, Balance, EventDid, IdentityId, Moment, Ticker};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 
@@ -10,6 +10,7 @@ use sp_runtime::{Deserialize, Serialize};
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct ScheduleId(pub u64);
+impl_checked_inc!(ScheduleId);
 
 /// One or more scheduled checkpoints in the future.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]

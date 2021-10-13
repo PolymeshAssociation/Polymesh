@@ -21,13 +21,25 @@ pub trait CheckedInc: Sized {
     fn checked_inc(&self) -> Option<Self>;
 }
 
+impl CheckedInc for u32 {
+    fn checked_inc(&self) -> Option<Self> {
+        self.checked_add(1)
+    }
+}
+
+impl CheckedInc for u64 {
+    fn checked_inc(&self) -> Option<Self> {
+        self.checked_add(1)
+    }
+}
+
 /// Implement `CheckedInc` for the passed type.
 #[macro_export]
 macro_rules! impl_checked_inc {
     ($typ:ty) => {
         impl $crate::checked_inc::CheckedInc for $typ {
             fn checked_inc(&self) -> Option<Self> {
-                self.0.checked_add(1).map(Self)
+                self.0.checked_inc().map(Self)
             }
         }
     };
