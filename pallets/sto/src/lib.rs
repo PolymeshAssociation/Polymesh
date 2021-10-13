@@ -27,23 +27,23 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
-use core::mem;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
+use pallet_base::try_next_id_post;
 use pallet_identity::PermissionedCallOriginData;
-use pallet_settlement::{
-    self as settlement, Leg, ReceiptDetails, SettlementType, VenueInfo, VenueType,
-};
+use pallet_settlement::{Leg, ReceiptDetails, SettlementType, VenueId, VenueInfo, VenueType};
 use polymesh_common_utilities::{
     portfolio::PortfolioSubTrait,
     traits::{identity, portfolio},
     with_transaction,
 };
+use polymesh_primitives::impl_checked_inc;
 use polymesh_primitives_derive::VecU8StrongTyped;
 
 use frame_support::weights::Weight;
 use polymesh_primitives::{Balance, EventDid, IdentityId, PortfolioId, Ticker};
+use sp_runtime::DispatchError;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 pub const MAX_TIERS: usize = 10;
@@ -51,8 +51,13 @@ pub const MAX_TIERS: usize = 10;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 type Identity<T> = pallet_identity::Module<T>;
 type Portfolio<T> = pallet_portfolio::Module<T>;
-type Settlement<T> = settlement::Module<T>;
+type Settlement<T> = pallet_settlement::Module<T>;
 type Timestamp<T> = pallet_timestamp::Module<T>;
+
+/// The per-ticker ID of a fundraiser.
+#[derive(Copy, Clone, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+pub struct FundraiserId(pub u64);
+impl_checked_inc!(FundraiserId);
 
 /// Status of a Fundraiser.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, PartialOrd, Ord, Debug)]
@@ -92,7 +97,7 @@ pub struct Fundraiser<Moment> {
     /// The sum of the tiers is the total amount available in this fundraiser.
     pub tiers: Vec<FundraiserTier>,
     /// Id of the venue to use for this fundraise.
-    pub venue_id: u64,
+    pub venue_id: VenueId,
     /// Start time of the fundraiser.
     pub start: Moment,
     /// End time of the fundraiser.
@@ -159,7 +164,7 @@ pub trait WeightInfo {
 pub trait Config:
     frame_system::Config
     + identity::Config
-    + settlement::Config
+    + pallet_settlement::Config
     + portfolio::Config
     + pallet_base::Config
 {
@@ -176,21 +181,21 @@ decl_event!(
     {
         /// A new fundraiser has been created.
         /// (primary issuance agent, fundraiser id, fundraiser name, fundraiser details)
-        FundraiserCreated(IdentityId, u64, FundraiserName, Fundraiser<Moment>),
+        FundraiserCreated(IdentityId, FundraiserId, FundraiserName, Fundraiser<Moment>),
         /// An investor invested in the fundraiser.
         /// (Investor, fundraiser_id, offering token, raise token, offering_token_amount, raise_token_amount)
-        Invested(IdentityId, u64, Ticker, Ticker, Balance, Balance),
+        Invested(IdentityId, FundraiserId, Ticker, Ticker, Balance, Balance),
         /// A fundraiser has been frozen.
         /// (primary issuance agent, fundraiser id)
-        FundraiserFrozen(IdentityId, u64),
+        FundraiserFrozen(IdentityId, FundraiserId),
         /// A fundraiser has been unfrozen.
         /// (primary issuance agent, fundraiser id)
-        FundraiserUnfrozen(IdentityId, u64),
+        FundraiserUnfrozen(IdentityId, FundraiserId),
         /// A fundraiser window has been modified.
         /// (primary issuance agent, fundraiser id, old_start, old_end, new_start, new_end)
         FundraiserWindowModified(
             EventDid,
-            u64,
+            FundraiserId,
             Moment,
             Option<Moment>,
             Moment,
@@ -198,7 +203,7 @@ decl_event!(
         ),
         /// A fundraiser has been stopped.
         /// (primary issuance agent, fundraiser id)
-        FundraiserClosed(IdentityId, u64),
+        FundraiserClosed(IdentityId, FundraiserId),
     }
 );
 
@@ -236,12 +241,24 @@ decl_storage! {
     trait Store for Module<T: Config> as Sto {
         /// All fundraisers that are currently running.
         /// (ticker, fundraiser_id) -> Fundraiser
-        Fundraisers get(fn fundraisers): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) u64 => Option<Fundraiser<T::Moment>>;
+        Fundraisers get(fn fundraisers):
+            double_map
+                hasher(blake2_128_concat) Ticker,
+                hasher(twox_64_concat) FundraiserId
+                => Option<Fundraiser<T::Moment>>;
+
         /// Total fundraisers created for a token.
-        FundraiserCount get(fn fundraiser_count): map hasher(blake2_128_concat) Ticker => u64;
-        /// Name for the Fundraiser. It is only used offchain.
+        FundraiserCount get(fn fundraiser_count):
+            map hasher(blake2_128_concat) Ticker
+                => FundraiserId;
+
+        /// Name for the Fundraiser. Only used offchain.
         /// (ticker, fundraiser_id) -> Fundraiser name
-        FundraiserNames get(fn fundraiser_name): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) u64 => FundraiserName;
+        FundraiserNames get(fn fundraiser_name):
+            double_map
+                hasher(blake2_128_concat) Ticker,
+                hasher(twox_64_concat) FundraiserId
+                => FundraiserName;
     }
 }
 
@@ -275,7 +292,7 @@ decl_module! {
             raising_portfolio: PortfolioId,
             raising_asset: Ticker,
             tiers: Vec<PriceTier>,
-            venue_id: u64,
+            venue_id: VenueId,
             start: Option<T::Moment>,
             end: Option<T::Moment>,
             minimum_investment: Balance,
@@ -315,6 +332,10 @@ decl_module! {
                 ensure!(start < end, Error::<T>::InvalidOfferingWindow);
             }
 
+            // Get the next fundraiser ID.
+            let mut seq = FundraiserCount::get(&offering_asset);
+            let id = try_next_id_post::<T, _>(&mut seq)?;
+
             <Portfolio<T>>::lock_tokens(&offering_portfolio, &offering_asset, offering_amount)?;
 
             let fundraiser = Fundraiser {
@@ -331,8 +352,8 @@ decl_module! {
                 minimum_investment
             };
 
-            let id = FundraiserCount::mutate(offering_asset, |id| mem::replace(id, *id + 1));
-            <Fundraisers<T>>::insert(offering_asset, id, fundraiser.clone());
+            FundraiserCount::insert(offering_asset, seq);
+            Fundraisers::<T>::insert(offering_asset, id, fundraiser.clone());
             FundraiserNames::insert(offering_asset, id, fundraiser_name.clone());
 
             Self::deposit_event(RawEvent::FundraiserCreated(did, id, fundraiser_name, fundraiser));
@@ -343,7 +364,7 @@ decl_module! {
         /// * `investment_portfolio` - Portfolio that `offering_asset` will be deposited in.
         /// * `funding_portfolio` - Portfolio that will fund the investment.
         /// * `offering_asset` - Asset to invest in.
-        /// * `fundraiser_id` - ID of the fundraiser to invest in.
+        /// * `id` - ID of the fundraiser to invest in.
         /// * `purchase_amount` - Amount of `offering_asset` to purchase.
         /// * `max_price` - Maximum price to pay per unit of `offering_asset`, If `None`there are no constraints on price.
         /// * `receipt` - Off-chain receipt to use instead of on-chain balance in `funding_portfolio`.
@@ -356,7 +377,7 @@ decl_module! {
             investment_portfolio: PortfolioId,
             funding_portfolio: PortfolioId,
             offering_asset: Ticker,
-            fundraiser_id: u64,
+            id: FundraiserId,
             purchase_amount: Balance,
             max_price: Option<Balance>,
             receipt: Option<ReceiptDetails<T::AccountId, T::OffChainSignature>>
@@ -370,7 +391,7 @@ decl_module! {
             <Portfolio<T>>::ensure_portfolio_custody_and_permission(investment_portfolio, did, secondary_key.as_ref())?;
             <Portfolio<T>>::ensure_portfolio_custody_and_permission(funding_portfolio, did, secondary_key.as_ref())?;
 
-            let mut fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id).ok_or(Error::<T>::FundraiserNotFound)?;
+            let mut fundraiser = Self::ensure_fundraiser(offering_asset, id)?;
 
             ensure!(fundraiser.status == FundraiserStatus::Live, Error::<T>::FundraiserNotLive);
 
@@ -474,48 +495,54 @@ decl_module! {
                 fundraiser.tiers[id].remaining -= amount;
             }
 
-            Self::deposit_event(RawEvent::Invested(did, fundraiser_id, offering_asset, fundraiser.raising_asset, purchase_amount, cost));
-            <Fundraisers<T>>::insert(offering_asset, fundraiser_id, fundraiser);
+            Self::deposit_event(RawEvent::Invested(did, id, offering_asset, fundraiser.raising_asset, purchase_amount, cost));
+            <Fundraisers<T>>::insert(offering_asset, id, fundraiser);
         }
 
         /// Freeze a fundraiser.
         ///
         /// * `offering_asset` - Asset to freeze.
-        /// * `fundraiser_id` - ID of the fundraiser to freeze.
+        /// * `id` - ID of the fundraiser to freeze.
         ///
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::freeze_fundraiser()]
-        pub fn freeze_fundraiser(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
-            Self::set_frozen(origin, offering_asset, fundraiser_id, true)
+        pub fn freeze_fundraiser(origin, offering_asset: Ticker, id: FundraiserId) -> DispatchResult {
+            Self::set_frozen(origin, offering_asset, id, true)
         }
 
         /// Unfreeze a fundraiser.
         ///
         /// * `offering_asset` - Asset to unfreeze.
-        /// * `fundraiser_id` - ID of the fundraiser to unfreeze.
+        /// * `id` - ID of the fundraiser to unfreeze.
         ///
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::unfreeze_fundraiser()]
-        pub fn unfreeze_fundraiser(origin, offering_asset: Ticker, fundraiser_id: u64) -> DispatchResult {
-            Self::set_frozen(origin, offering_asset, fundraiser_id, false)
+        pub fn unfreeze_fundraiser(origin, offering_asset: Ticker, id: FundraiserId) -> DispatchResult {
+            Self::set_frozen(origin, offering_asset, id, false)
         }
 
         /// Modify the time window a fundraiser is active
         ///
         /// * `offering_asset` - Asset to modify.
-        /// * `fundraiser_id` - ID of the fundraiser to modify.
+        /// * `id` - ID of the fundraiser to modify.
         /// * `start` - New start of the fundraiser.
         /// * `end` - New end of the fundraiser to modify.
         ///
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::modify_fundraiser_window()]
-        pub fn modify_fundraiser_window(origin, offering_asset: Ticker, fundraiser_id: u64, start: T::Moment, end: Option<T::Moment>) -> DispatchResult {
+        pub fn modify_fundraiser_window(
+            origin,
+            offering_asset: Ticker,
+            id: FundraiserId,
+            start: T::Moment,
+            end: Option<T::Moment>,
+        ) -> DispatchResult {
             let did = <ExternalAgents<T>>::ensure_perms(origin, offering_asset)?.for_event();
 
-            <Fundraisers<T>>::try_mutate(offering_asset, fundraiser_id, |fundraiser| {
+            <Fundraisers<T>>::try_mutate(offering_asset, id, |fundraiser| {
                 let fundraiser = fundraiser.as_mut().ok_or(Error::<T>::FundraiserNotFound)?;
                 ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
                 if let Some(end) = fundraiser.end {
@@ -524,7 +551,7 @@ decl_module! {
                 if let Some(end) = end {
                     ensure!(start < end, Error::<T>::InvalidOfferingWindow);
                 }
-                Self::deposit_event(RawEvent::FundraiserWindowModified(did, fundraiser_id, fundraiser.start, fundraiser.end, start, end));
+                Self::deposit_event(RawEvent::FundraiserWindowModified(did, id, fundraiser.start, fundraiser.end, start, end));
                 fundraiser.start = start;
                 fundraiser.end = end;
                 Ok(())
@@ -534,14 +561,13 @@ decl_module! {
         /// Stop a fundraiser.
         ///
         /// * `offering_asset` - Asset to stop.
-        /// * `fundraiser_id` - ID of the fundraiser to stop.
+        /// * `id` - ID of the fundraiser to stop.
         ///
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::stop()]
-        pub fn stop(origin, offering_asset: Ticker, fundraiser_id: u64) {
-            let mut fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id)
-                .ok_or(Error::<T>::FundraiserNotFound)?;
+        pub fn stop(origin, offering_asset: Ticker, id: FundraiserId) {
+            let mut fundraiser = Self::ensure_fundraiser(offering_asset, id)?;
 
             let did = <ExternalAgents<T>>::ensure_asset_perms(origin, &offering_asset)?.primary_did;
             if fundraiser.creator != did {
@@ -560,8 +586,8 @@ decl_module! {
                 Some(end) if end > Timestamp::<T>::get() => FundraiserStatus::ClosedEarly,
                 _ => FundraiserStatus::Closed,
             };
-            <Fundraisers<T>>::insert(offering_asset, fundraiser_id, fundraiser);
-            Self::deposit_event(RawEvent::FundraiserClosed(did, fundraiser_id));
+            <Fundraisers<T>>::insert(offering_asset, id, fundraiser);
+            Self::deposit_event(RawEvent::FundraiserClosed(did, id));
         }
     }
 }
@@ -570,21 +596,27 @@ impl<T: Config> Module<T> {
     fn set_frozen(
         origin: T::Origin,
         offering_asset: Ticker,
-        fundraiser_id: u64,
+        id: FundraiserId,
         frozen: bool,
     ) -> DispatchResult {
         let did = <ExternalAgents<T>>::ensure_perms(origin, offering_asset)?;
-        let mut fundraiser = <Fundraisers<T>>::get(offering_asset, fundraiser_id)
-            .ok_or(Error::<T>::FundraiserNotFound)?;
+        let mut fundraiser = Self::ensure_fundraiser(offering_asset, id)?;
         ensure!(!fundraiser.is_closed(), Error::<T>::FundraiserClosed);
         if frozen {
             fundraiser.status = FundraiserStatus::Frozen;
-            Self::deposit_event(RawEvent::FundraiserFrozen(did, fundraiser_id));
+            Self::deposit_event(RawEvent::FundraiserFrozen(did, id));
         } else {
             fundraiser.status = FundraiserStatus::Live;
-            Self::deposit_event(RawEvent::FundraiserUnfrozen(did, fundraiser_id));
+            Self::deposit_event(RawEvent::FundraiserUnfrozen(did, id));
         }
-        <Fundraisers<T>>::insert(offering_asset, fundraiser_id, fundraiser);
+        <Fundraisers<T>>::insert(offering_asset, id, fundraiser);
         Ok(())
+    }
+
+    fn ensure_fundraiser(
+        ticker: Ticker,
+        id: FundraiserId,
+    ) -> Result<Fundraiser<T::Moment>, DispatchError> {
+        Fundraisers::<T>::get(ticker, id).ok_or_else(|| Error::<T>::FundraiserNotFound.into())
     }
 }

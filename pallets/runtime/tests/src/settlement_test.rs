@@ -16,13 +16,14 @@ use pallet_identity as identity;
 use pallet_portfolio::MovePortfolioItem;
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
-    self as settlement, AffirmationStatus, Instruction, InstructionStatus, Leg, LegStatus, Receipt,
-    ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails, VenueInstructions, VenueType,
+    AffirmationStatus, Instruction, InstructionId, InstructionLegs, InstructionStatus, Leg, LegId,
+    LegStatus, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails, VenueId,
+    VenueInstructions, VenueType,
 };
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    asset::AssetType, AccountId, AuthorizationData, Claim, Condition, ConditionType, IdentityId,
-    PortfolioId, PortfolioName, Signatory, Ticker,
+    asset::AssetType, checked_inc::CheckedInc, AccountId, AuthorizationData, Claim, Condition,
+    ConditionType, IdentityId, PortfolioId, PortfolioName, Signatory, Ticker,
 };
 use rand::{prelude::*, thread_rng};
 use sp_runtime::AnySignature;
@@ -41,9 +42,9 @@ type AssetError = asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
 type Origin = <TestStorage as frame_system::Config>::Origin;
 type DidRecords = identity::DidRecords<TestStorage>;
-type Settlement = settlement::Module<TestStorage>;
+type Settlement = pallet_settlement::Module<TestStorage>;
 type System = frame_system::Module<TestStorage>;
-type Error = settlement::Error<TestStorage>;
+type Error = pallet_settlement::Error<TestStorage>;
 type Scheduler = scheduler::Module<TestStorage>;
 
 macro_rules! assert_add_claim {
@@ -82,7 +83,7 @@ macro_rules! assert_affirm_instruction_with_zero_leg {
     };
 }
 
-fn init(token_name: &[u8], ticker: Ticker, user: User) -> u64 {
+fn init(token_name: &[u8], ticker: Ticker, user: User) -> VenueId {
     create_token(token_name, ticker, user);
     let venue_counter = Settlement::venue_counter();
     assert_ok!(Settlement::create_venue(
@@ -109,7 +110,7 @@ fn create_token(token_name: &[u8], ticker: Ticker, user: User) {
     allow_all_transfers(ticker, user);
 }
 
-fn ticker_init(user: User, name: &[u8]) -> (Ticker, u64) {
+fn ticker_init(user: User, name: &[u8]) -> (Ticker, VenueId) {
     let ticker = Ticker::try_from(name).unwrap();
     let venue_counter = init(name, ticker, user);
     (ticker, venue_counter)
@@ -133,7 +134,7 @@ fn venue_details_length_limited() {
     });
 }
 
-fn venue_instructions(id: u64) -> Vec<u64> {
+fn venue_instructions(id: VenueId) -> Vec<InstructionId> {
     VenueInstructions::iter_prefix(id).map(|(i, _)| i).collect()
 }
 
@@ -152,7 +153,10 @@ fn venue_registration() {
             VenueType::Exchange
         ));
         let venue_info = Settlement::venue_info(venue_counter).unwrap();
-        assert_eq!(Settlement::venue_counter(), venue_counter + 1);
+        assert_eq!(
+            Settlement::venue_counter(),
+            venue_counter.checked_inc().unwrap()
+        );
         assert_eq!(Settlement::user_venues(alice.did), [venue_counter]);
         assert_eq!(venue_info.creator, alice.did);
         assert_eq!(venue_instructions(venue_counter).len(), 0);
@@ -177,7 +181,7 @@ fn venue_registration() {
         ));
         assert_eq!(
             Settlement::user_venues(alice.did),
-            [venue_counter, venue_counter + 1]
+            [venue_counter, venue_counter.checked_inc().unwrap()]
         );
 
         // Editing venue details
@@ -427,7 +431,7 @@ fn token_swap() {
             assert_eq!(
                 Settlement::instruction_legs(
                     instruction_counter,
-                    u64::try_from(i).unwrap_or_default()
+                    u64::try_from(i).map(LegId).unwrap_or_default()
                 ),
                 legs[i]
             );
@@ -496,11 +500,11 @@ fn token_swap() {
             AffirmationStatus::Unknown
         );
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 0),
+            Settlement::instruction_leg_status(instruction_counter, LegId(0)),
             LegStatus::ExecutionPending
         );
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 1),
+            Settlement::instruction_leg_status(instruction_counter, LegId(1)),
             LegStatus::PendingTokenLock
         );
         assert_eq!(
@@ -553,11 +557,11 @@ fn token_swap() {
             AffirmationStatus::Unknown
         );
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 0),
+            Settlement::instruction_leg_status(instruction_counter, LegId(0)),
             LegStatus::PendingTokenLock
         );
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 1),
+            Settlement::instruction_leg_status(instruction_counter, LegId(1)),
             LegStatus::PendingTokenLock
         );
         assert_eq!(
@@ -599,11 +603,11 @@ fn token_swap() {
             AffirmationStatus::Unknown
         );
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 0),
+            Settlement::instruction_leg_status(instruction_counter, LegId(0)),
             LegStatus::ExecutionPending
         );
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 1),
+            Settlement::instruction_leg_status(instruction_counter, LegId(1)),
             LegStatus::PendingTokenLock
         );
         assert_eq!(
@@ -719,7 +723,7 @@ fn claiming_receipt() {
             assert_eq!(
                 Settlement::instruction_legs(
                     instruction_counter,
-                    u64::try_from(i).unwrap_or_default()
+                    u64::try_from(i).map(LegId).unwrap_or_default()
                 ),
                 legs[i]
             );
@@ -764,7 +768,7 @@ fn claiming_receipt() {
                 instruction_counter,
                 ReceiptDetails {
                     receipt_uid: 0,
-                    leg_id: 0,
+                    leg_id: LegId(0),
                     signer: AccountKeyring::Alice.to_account_id(),
                     signature,
                     metadata,
@@ -813,11 +817,11 @@ fn claiming_receipt() {
             AffirmationStatus::Unknown
         );
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 0),
+            Settlement::instruction_leg_status(instruction_counter, LegId(0)),
             LegStatus::ExecutionPending
         );
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 1),
+            Settlement::instruction_leg_status(instruction_counter, LegId(1)),
             LegStatus::PendingTokenLock
         );
         assert_eq!(
@@ -901,11 +905,11 @@ fn claiming_receipt() {
             AffirmationStatus::Unknown
         );
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 0),
+            Settlement::instruction_leg_status(instruction_counter, LegId(0)),
             LegStatus::ExecutionToBeSkipped(AccountKeyring::Alice.to_account_id(), 0)
         );
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 1),
+            Settlement::instruction_leg_status(instruction_counter, LegId(1)),
             LegStatus::PendingTokenLock
         );
         assert_eq!(
@@ -921,7 +925,7 @@ fn claiming_receipt() {
         assert_ok!(Settlement::unclaim_receipt(
             alice.origin(),
             instruction_counter,
-            0
+            LegId(0)
         ));
 
         assert_eq!(
@@ -957,11 +961,11 @@ fn claiming_receipt() {
             AffirmationStatus::Unknown
         );
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 0),
+            Settlement::instruction_leg_status(instruction_counter, LegId(0)),
             LegStatus::ExecutionPending
         );
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 1),
+            Settlement::instruction_leg_status(instruction_counter, LegId(1)),
             LegStatus::PendingTokenLock
         );
         assert_eq!(
@@ -979,7 +983,7 @@ fn claiming_receipt() {
             instruction_counter,
             ReceiptDetails {
                 receipt_uid: 0,
-                leg_id: 0,
+                leg_id: LegId(0),
                 signer: AccountKeyring::Alice.to_account_id(),
                 signature: AccountKeyring::Alice.sign(&msg.encode()).into(),
                 metadata: ReceiptMetadata::default()
@@ -1023,11 +1027,11 @@ fn claiming_receipt() {
             AffirmationStatus::Unknown
         );
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 0),
+            Settlement::instruction_leg_status(instruction_counter, LegId(0)),
             LegStatus::ExecutionToBeSkipped(AccountKeyring::Alice.to_account_id(), 0)
         );
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 1),
+            Settlement::instruction_leg_status(instruction_counter, LegId(1)),
             LegStatus::PendingTokenLock
         );
         assert_eq!(
@@ -1137,7 +1141,7 @@ fn settle_on_block() {
             assert_eq!(
                 Settlement::instruction_legs(
                     instruction_counter,
-                    u64::try_from(i).unwrap_or_default()
+                    u64::try_from(i).map(LegId).unwrap_or_default()
                 ),
                 legs[i]
             );
@@ -1206,11 +1210,11 @@ fn settle_on_block() {
             AffirmationStatus::Unknown
         );
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 0),
+            Settlement::instruction_leg_status(instruction_counter, LegId(0)),
             LegStatus::ExecutionPending
         );
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 1),
+            Settlement::instruction_leg_status(instruction_counter, LegId(1)),
             LegStatus::PendingTokenLock
         );
         assert_eq!(
@@ -1258,11 +1262,11 @@ fn settle_on_block() {
             AffirmationStatus::Affirmed
         );
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 0),
+            Settlement::instruction_leg_status(instruction_counter, LegId(0)),
             LegStatus::ExecutionPending
         );
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 1),
+            Settlement::instruction_leg_status(instruction_counter, LegId(1)),
             LegStatus::ExecutionPending
         );
         assert_eq!(
@@ -1403,7 +1407,7 @@ fn failed_execution() {
             assert_eq!(
                 Settlement::instruction_legs(
                     instruction_counter,
-                    u64::try_from(i).unwrap_or_default()
+                    u64::try_from(i).map(LegId).unwrap_or_default()
                 ),
                 legs[i]
             );
@@ -1443,11 +1447,11 @@ fn failed_execution() {
 
         // Ensure legs are in a correct state.
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 0),
+            Settlement::instruction_leg_status(instruction_counter, LegId(0)),
             LegStatus::ExecutionPending
         );
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 1),
+            Settlement::instruction_leg_status(instruction_counter, LegId(1)),
             LegStatus::PendingTokenLock
         );
 
@@ -1472,11 +1476,11 @@ fn failed_execution() {
 
         // Ensure legs are in a pending state.
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 0),
+            Settlement::instruction_leg_status(instruction_counter, LegId(0)),
             LegStatus::ExecutionPending
         );
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 1),
+            Settlement::instruction_leg_status(instruction_counter, LegId(1)),
             LegStatus::ExecutionPending
         );
 
@@ -1585,7 +1589,11 @@ fn venue_filtering() {
 
         assert_affirm_instruction_with_one_leg!(alice.origin(), instruction_counter, alice.did);
         assert_affirm_instruction_with_zero_leg!(bob.origin(), instruction_counter, bob.did);
-        assert_affirm_instruction_with_zero_leg!(bob.origin(), instruction_counter + 1, bob.did);
+        assert_affirm_instruction_with_zero_leg!(
+            bob.origin(),
+            instruction_counter.checked_inc().unwrap(),
+            bob.did
+        );
 
         next_block();
         assert_eq!(Asset::balance_of(&ticker, bob.did), 10);
@@ -1794,7 +1802,7 @@ fn basic_fuzzing() {
                         instruction_counter,
                         ReceiptDetails {
                             receipt_uid: receipt.receipt_uid,
-                            leg_id: leg_num,
+                            leg_id: LegId(leg_num),
                             signer: AccountKeyring::Alice.to_account_id(),
                             signature: AccountKeyring::Alice.sign(&receipt.encode()).into(),
                             metadata: ReceiptMetadata::default()
@@ -1803,7 +1811,7 @@ fn basic_fuzzing() {
                     assert_ok!(Settlement::unclaim_receipt(
                         user.origin(),
                         instruction_counter,
-                        leg_num
+                        LegId(leg_num)
                     ));
                 }
             }
@@ -1812,7 +1820,7 @@ fn basic_fuzzing() {
                 instruction_counter,
                 ReceiptDetails {
                     receipt_uid: receipt.receipt_uid,
-                    leg_id: leg_num,
+                    leg_id: LegId(leg_num),
                     signer: AccountKeyring::Alice.to_account_id(),
                     signature: AccountKeyring::Alice.sign(&receipt.encode()).into(),
                     metadata: ReceiptMetadata::default()
@@ -1999,14 +2007,14 @@ fn claim_multiple_receipts_during_authorization() {
                 vec![
                     ReceiptDetails {
                         receipt_uid: 0,
-                        leg_id: 0,
+                        leg_id: LegId(0),
                         signer: AccountKeyring::Alice.to_account_id(),
                         signature: AccountKeyring::Alice.sign(&msg1.encode()).into(),
                         metadata: ReceiptMetadata::default()
                     },
                     ReceiptDetails {
                         receipt_uid: 0,
-                        leg_id: 0,
+                        leg_id: LegId(0),
                         signer: AccountKeyring::Alice.to_account_id(),
                         signature: AccountKeyring::Alice.sign(&msg2.encode()).into(),
                         metadata: ReceiptMetadata::default()
@@ -2024,14 +2032,14 @@ fn claim_multiple_receipts_during_authorization() {
             vec![
                 ReceiptDetails {
                     receipt_uid: 0,
-                    leg_id: 0,
+                    leg_id: LegId(0),
                     signer: AccountKeyring::Alice.to_account_id(),
                     signature: AccountKeyring::Alice.sign(&msg1.encode()).into(),
                     metadata: ReceiptMetadata::default()
                 },
                 ReceiptDetails {
                     receipt_uid: 1,
-                    leg_id: 1,
+                    leg_id: LegId(1),
                     signer: AccountKeyring::Alice.to_account_id(),
                     signature: AccountKeyring::Alice.sign(&msg3.encode()).into(),
                     metadata: ReceiptMetadata::default()
@@ -2074,11 +2082,11 @@ fn claim_multiple_receipts_during_authorization() {
             AffirmationStatus::Unknown
         );
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 0),
+            Settlement::instruction_leg_status(instruction_counter, LegId(0)),
             LegStatus::ExecutionToBeSkipped(AccountKeyring::Alice.to_account_id(), 0)
         );
         assert_eq!(
-            Settlement::instruction_leg_status(instruction_counter, 1),
+            Settlement::instruction_leg_status(instruction_counter, LegId(1)),
             LegStatus::ExecutionToBeSkipped(AccountKeyring::Alice.to_account_id(), 1)
         );
         assert_eq!(
@@ -2964,10 +2972,7 @@ fn dirty_storage_with_tx() {
             0
         );
         next_block();
-        assert_eq!(
-            settlement::InstructionLegs::iter_prefix(instruction_counter).count(),
-            0
-        );
+        assert_eq!(InstructionLegs::iter_prefix(instruction_counter).count(), 0);
 
         // Ensure proper balance transfers
         assert_eq!(
@@ -3020,10 +3025,10 @@ fn reject_failed_instruction() {
 fn create_instruction(
     alice: &User,
     bob: &User,
-    venue_counter: u64,
+    venue_counter: VenueId,
     ticker: Ticker,
     amount: u128,
-) -> u64 {
+) -> InstructionId {
     let instruction_id = Settlement::instruction_counter();
     set_current_block_number(10);
     assert_ok!(Settlement::add_and_affirm_instruction(
@@ -3043,9 +3048,6 @@ fn create_instruction(
     instruction_id
 }
 
-fn ensure_instruction_status(instruction_id: u64, status: InstructionStatus) {
-    assert_eq!(
-        Settlement::instruction_details(instruction_id).status,
-        status
-    );
+fn ensure_instruction_status(id: InstructionId, status: InstructionStatus) {
+    assert_eq!(Settlement::instruction_details(id).status, status);
 }
