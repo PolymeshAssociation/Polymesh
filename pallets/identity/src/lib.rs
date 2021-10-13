@@ -103,8 +103,7 @@ use confidential_identity::ScopeClaimProof;
 use core::convert::From;
 use frame_support::{
     decl_error, decl_module, decl_storage,
-    dispatch::{DispatchResult},
-
+    dispatch::DispatchResult,
     traits::{ChangeMembers, Currency, EnsureOrigin, Get, InitializeMembers},
     weights::{
         DispatchClass::{Normal, Operational},
@@ -116,19 +115,18 @@ pub use polymesh_common_utilities::traits::identity::WeightInfo;
 use polymesh_common_utilities::{
     constants::did::SECURITY_TOKEN,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    traits::{
-        identity::{AuthorizationNonce, Config, IdentityFnTrait, RawEvent, SecondaryKeyWithAuth},
+    traits::identity::{
+        AuthorizationNonce, Config, IdentityFnTrait, RawEvent, SecondaryKeyWithAuth,
     },
     SystematicIssuers, GC_DID, SYSTEMATIC_ISSUERS,
 };
 use polymesh_primitives::{
-    investor_zkproof_data::{v1::InvestorZKProofData},
-    secondary_key::api::LegacyPermissions,
-    storage_migration_ver, Authorization, AuthorizationData,
-    AuthorizationType, CddId, Claim, ClaimType, Identity as DidRecord, IdentityClaim, IdentityId,
-    Permissions, Scope, SecondaryKey, Signatory, Ticker,
+    investor_zkproof_data::v1::InvestorZKProofData, secondary_key::api::LegacyPermissions,
+    storage_migration_ver, Authorization, AuthorizationData, AuthorizationType, CddId, Claim,
+    ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, Permissions, Scope, SecondaryKey,
+    Signatory, Ticker,
 };
-use sp_runtime::traits::{Hash};
+use sp_runtime::traits::Hash;
 use sp_std::{convert::TryFrom, iter, prelude::*, vec};
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;

@@ -26,9 +26,9 @@ use frame_support::{debug, ensure, StorageMap as _, StorageValue as _};
 use frame_system::ensure_signed;
 use pallet_base::{ensure_length_ok, ensure_string_limited};
 use polymesh_common_utilities::constants::did::USER;
+use polymesh_common_utilities::group::GroupTrait;
 use polymesh_common_utilities::identity::{SecondaryKeyWithAuth, TargetIdAuthorization};
 use polymesh_common_utilities::multisig::MultiSigSubTrait as _;
-use polymesh_common_utilities::group::GroupTrait;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee as _, ProtocolOp};
 use polymesh_common_utilities::traits::{
     AccountCallPermissionsData, CddAndFeeDetails, CheckAccountCallPermissions,
