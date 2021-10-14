@@ -16,7 +16,7 @@ use pallet_identity as identity;
 use pallet_portfolio::MovePortfolioItem;
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
-    self as settlement, AffirmationStatus, Instruction, InstructionId, InstructionStatus, Leg,
+    AffirmationStatus, Instruction, InstructionId, InstructionStatus, Leg,
     LegId, LegStatus, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails,
     VenueId, VenueInstructions, VenueType,
 };
@@ -46,9 +46,9 @@ type Origin = <TestStorage as frame_system::Config>::Origin;
 type Moment = <TestStorage as pallet_timestamp::Config>::Moment;
 type BlockNumber = <TestStorage as frame_system::Config>::BlockNumber;
 type DidRecords = identity::DidRecords<TestStorage>;
-type Settlement = settlement::Module<TestStorage>;
+type Settlement = pallet_settlement::Module<TestStorage>;
 type System = frame_system::Module<TestStorage>;
-type Error = settlement::Error<TestStorage>;
+type Error = pallet_settlement::Error<TestStorage>;
 type Scheduler = scheduler::Module<TestStorage>;
 
 const TICKER: Ticker = Ticker::new_unchecked([b'A', b'C', b'M', b'E', 0, 0, 0, 0, 0, 0, 0, 0]);
@@ -108,8 +108,7 @@ impl UserWithBalance {
 
     #[track_caller]
     fn init_balance(&self, ticker: &Ticker) -> Balance {
-        *self.init_balances.iter().find(|bs| bs.0 == ticker).unwrap().1
-        panic!("Ticker {:?} not tracked!", ticker);
+        self.init_balances.iter().find(|bs| bs.0 == *ticker).unwrap().1
     }
 
     #[track_caller]
@@ -905,8 +904,8 @@ fn settle_on_block() {
 #[test]
 fn failed_execution() {
     ExtBuilder::default().build().execute_with(|| {
-        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER, TICKER2]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER, TICKER2]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
         create_token(TICKER2, bob.user);
         let instruction_id = Settlement::instruction_counter();
@@ -2277,7 +2276,7 @@ fn dirty_storage_with_tx() {
         assert_eq!(Settlement::instruction_affirms_pending(instruction_id), 0);
         next_block();
         assert_eq!(
-            settlement::InstructionLegs::iter_prefix(instruction_id).count(),
+            pallet_settlement::InstructionLegs::iter_prefix(instruction_id).count(),
             0
         );
 
