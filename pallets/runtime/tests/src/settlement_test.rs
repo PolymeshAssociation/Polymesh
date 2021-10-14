@@ -108,11 +108,7 @@ impl UserWithBalance {
 
     #[track_caller]
     fn init_balance(&self, ticker: &Ticker) -> Balance {
-        for (t, balance) in &self.init_balances {
-            if t == ticker {
-                return *balance;
-            }
-        }
+        *self.init_balances.iter().find(|bs| bs.0 == ticker).unwrap().1
         panic!("Ticker {:?} not tracked!", ticker);
     }
 
