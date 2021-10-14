@@ -105,41 +105,39 @@ impl UserWithBalance {
     }
 
     #[track_caller]
-    fn ensure_all_balances_unchanged(&self) {
-        for (t, balance) in &self.init_balances {
-            ensure_balance(t, &self.user, *balance);
-        }
-    }
-
-    #[track_caller]
-    fn ensure_balance_unchanged(&self, ticker: &Ticker) {
+    fn init_balance(&self, ticker: &Ticker) -> Balance {
         for (t, balance) in &self.init_balances {
             if t == ticker {
-                ensure_balance(ticker, &self.user, *balance);
+                return *balance;
             }
         }
+        panic!("Ticker {:?} not tracked!", ticker);
     }
 
     #[track_caller]
-    fn ensure_balance_increased(&self, ticker: &Ticker, amount: Balance) {
+    fn assert_all_balances_unchanged(&self) {
         for (t, balance) in &self.init_balances {
-            if t == ticker {
-                ensure_balance(ticker, &self.user, balance + amount);
-            }
+            assert_balance(t, &self.user, *balance);
         }
     }
 
     #[track_caller]
-    fn ensure_balance_decreased(&self, ticker: &Ticker, amount: Balance) {
-        for (t, balance) in &self.init_balances {
-            if t == ticker {
-                ensure_balance(ticker, &self.user, balance - amount);
-            }
-        }
+    fn assert_balance_unchanged(&self, ticker: &Ticker) {
+        assert_balance(ticker, &self.user, self.init_balance(ticker));
     }
 
     #[track_caller]
-    fn ensure_portfolio_bal(&self, num: PortfolioNumber, balance: Balance) {
+    fn assert_balance_increased(&self, ticker: &Ticker, amount: Balance) {
+        assert_balance(ticker, &self.user, self.init_balance(ticker) + amount);
+    }
+
+    #[track_caller]
+    fn assert_balance_decreased(&self, ticker: &Ticker, amount: Balance) {
+        assert_balance(ticker, &self.user, self.init_balance(ticker) - amount);
+    }
+
+    #[track_caller]
+    fn assert_portfolio_bal(&self, num: PortfolioNumber, balance: Balance) {
         assert_eq!(
             Portfolio::user_portfolio_balance(self.user.did, num, &TICKER),
             balance,
@@ -147,7 +145,7 @@ impl UserWithBalance {
     }
 
     #[track_caller]
-    fn ensure_default_portfolio_bal(&self, balance: Balance) {
+    fn assert_default_portfolio_bal(&self, balance: Balance) {
         assert_eq!(
             Portfolio::default_portfolio_balance(self.user.did, &TICKER),
             balance,
@@ -155,30 +153,18 @@ impl UserWithBalance {
     }
 
     #[track_caller]
-    fn ensure_default_portfolio_bal_unchanged(&self) {
-        for (t, balance) in &self.init_balances {
-            if t == &TICKER {
-                self.ensure_default_portfolio_bal(*balance);
-            }
-        }
+    fn assert_default_portfolio_bal_unchanged(&self) {
+        self.assert_default_portfolio_bal(self.init_balance(&TICKER));
     }
 
     #[track_caller]
-    fn ensure_default_portfolio_bal_decreased(&self, amount: Balance) {
-        for (t, balance) in &self.init_balances {
-            if t == &TICKER {
-                self.ensure_default_portfolio_bal(balance - amount);
-            }
-        }
+    fn assert_default_portfolio_bal_decreased(&self, amount: Balance) {
+        self.assert_default_portfolio_bal(self.init_balance(&TICKER) - amount);
     }
 
     #[track_caller]
-    fn ensure_default_portfolio_bal_increased(&self, amount: Balance) {
-        for (t, balance) in &self.init_balances {
-            if t == &TICKER {
-                self.ensure_default_portfolio_bal(balance + amount);
-            }
-        }
+    fn assert_default_portfolio_bal_increased(&self, amount: Balance) {
+        self.assert_default_portfolio_bal(self.init_balance(&TICKER) + amount);
     }
 }
 
@@ -331,21 +317,21 @@ fn basic_settlement() {
                 amount: amount
             }]
         ));
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
 
         assert_affirm_instruction_with_one_leg!(alice.origin(), instruction_counter, alice.did);
 
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
         set_current_block_number(5);
         // Instruction get scheduled to next block.
         assert_affirm_instruction_with_zero_leg!(bob.origin(), instruction_counter, bob.did);
 
         // Advances the block no. to execute the instruction.
         next_block();
-        alice.ensure_balance_decreased(&TICKER, amount);
-        bob.ensure_balance_increased(&TICKER, amount);
+        alice.assert_balance_decreased(&TICKER, amount);
+        bob.assert_balance_increased(&TICKER, amount);
     });
 }
 
@@ -389,19 +375,19 @@ fn create_and_affirm_instruction() {
 
         assert_ok!(add_and_affirm_tx(default_portfolio_vec(alice.did)));
 
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
 
-        ensure_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
-        ensure_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
+        assert_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
+        assert_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
         set_current_block_number(5);
 
         assert_affirm_instruction_with_zero_leg!(bob.origin(), instruction_counter, bob.did);
 
         // Advances the block no.
         next_block();
-        alice.ensure_balance_decreased(&TICKER, amount);
-        bob.ensure_balance_increased(&TICKER, amount);
+        alice.assert_balance_decreased(&TICKER, amount);
+        bob.assert_balance_increased(&TICKER, amount);
     });
 }
 
@@ -429,8 +415,8 @@ fn overdraft_failure() {
                 amount: amount
             }]
         ));
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
         assert_noop!(
             Settlement::affirm_instruction(
                 alice.origin(),
@@ -440,16 +426,16 @@ fn overdraft_failure() {
             ),
             Error::FailedToLockTokens
         );
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
     });
 }
 
 #[test]
 fn token_swap() {
     test_with_cdd_provider(|eve| {
-        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER, TICKER2]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER, TICKER2]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
         create_token(TICKER2, bob.user);
         let instruction_counter = Settlement::instruction_counter();
@@ -481,8 +467,8 @@ fn token_swap() {
             legs.clone()
         ));
 
-        ensure_user_affirms(instruction_counter, &alice, AffirmationStatus::Pending);
-        ensure_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
+        assert_user_affirms(instruction_counter, &alice, AffirmationStatus::Pending);
+        assert_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
 
         for i in 0..legs.len() {
             assert_eq!(
@@ -503,31 +489,31 @@ fn token_swap() {
             trade_date: None,
             value_date: None,
         };
-        ensure_instruction_details(instruction_counter, instruction_details);
+        assert_instruction_details(instruction_counter, instruction_details);
 
-        ensure_affirms_pending(instruction_counter, 2);
+        assert_affirms_pending(instruction_counter, 2);
         assert_eq!(venue_instructions(venue_counter), vec![instruction_counter]);
 
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
 
         // Provide scope claim to parties involved in a instruction.
         provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve.clone());
         provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER2, eve);
 
         assert_affirm_instruction_with_one_leg!(alice.origin(), instruction_counter, alice.did);
-        ensure_affirms_pending(instruction_counter, 1);
+        assert_affirms_pending(instruction_counter, 1);
 
-        ensure_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
-        ensure_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
+        assert_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
+        assert_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
 
-        ensure_leg_status(instruction_counter, 0, LegStatus::ExecutionPending);
-        ensure_leg_status(instruction_counter, 1, LegStatus::PendingTokenLock);
+        assert_leg_status(instruction_counter, 0, LegStatus::ExecutionPending);
+        assert_leg_status(instruction_counter, 1, LegStatus::PendingTokenLock);
 
-        ensure_locked_assets(&TICKER, &alice, amount);
+        assert_locked_assets(&TICKER, &alice, amount);
 
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
 
         assert_ok!(Settlement::withdraw_affirmation(
             alice.origin(),
@@ -536,47 +522,47 @@ fn token_swap() {
             1
         ));
 
-        ensure_affirms_pending(instruction_counter, 2);
-        ensure_user_affirms(instruction_counter, &alice, AffirmationStatus::Pending);
-        ensure_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
+        assert_affirms_pending(instruction_counter, 2);
+        assert_user_affirms(instruction_counter, &alice, AffirmationStatus::Pending);
+        assert_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
 
-        ensure_leg_status(instruction_counter, 0, LegStatus::PendingTokenLock);
-        ensure_leg_status(instruction_counter, 1, LegStatus::PendingTokenLock);
+        assert_leg_status(instruction_counter, 0, LegStatus::PendingTokenLock);
+        assert_leg_status(instruction_counter, 1, LegStatus::PendingTokenLock);
 
-        ensure_locked_assets(&TICKER, &alice, 0);
+        assert_locked_assets(&TICKER, &alice, 0);
         assert_affirm_instruction_with_one_leg!(alice.origin(), instruction_counter, alice.did);
 
-        ensure_affirms_pending(instruction_counter, 1);
-        ensure_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
-        ensure_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
+        assert_affirms_pending(instruction_counter, 1);
+        assert_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
+        assert_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
 
-        ensure_leg_status(instruction_counter, 0, LegStatus::ExecutionPending);
-        ensure_leg_status(instruction_counter, 1, LegStatus::PendingTokenLock);
+        assert_leg_status(instruction_counter, 0, LegStatus::ExecutionPending);
+        assert_leg_status(instruction_counter, 1, LegStatus::PendingTokenLock);
 
-        ensure_locked_assets(&TICKER, &alice, amount);
+        assert_locked_assets(&TICKER, &alice, amount);
 
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
         set_current_block_number(500);
 
         assert_affirm_instruction_with_one_leg!(bob.origin(), instruction_counter, bob.did);
 
         next_block();
-        ensure_user_affirms(instruction_counter, &alice, AffirmationStatus::Unknown);
-        ensure_user_affirms(instruction_counter, &bob, AffirmationStatus::Unknown);
-        ensure_locked_assets(&TICKER, &alice, 0);
-        alice.ensure_balance_decreased(&TICKER, amount);
-        alice.ensure_balance_increased(&TICKER2, amount);
-        bob.ensure_balance_increased(&TICKER, amount);
-        bob.ensure_balance_decreased(&TICKER2, amount);
+        assert_user_affirms(instruction_counter, &alice, AffirmationStatus::Unknown);
+        assert_user_affirms(instruction_counter, &bob, AffirmationStatus::Unknown);
+        assert_locked_assets(&TICKER, &alice, 0);
+        alice.assert_balance_decreased(&TICKER, amount);
+        alice.assert_balance_increased(&TICKER2, amount);
+        bob.assert_balance_increased(&TICKER, amount);
+        bob.assert_balance_decreased(&TICKER2, amount);
     });
 }
 
 #[test]
 fn claiming_receipt() {
     test_with_cdd_provider(|eve| {
-        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER, TICKER2]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER, TICKER2]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
         create_token(TICKER2, bob.user);
         let instruction_counter = Settlement::instruction_counter();
@@ -612,8 +598,8 @@ fn claiming_receipt() {
             legs.clone()
         ));
 
-        ensure_user_affirms(instruction_counter, &alice, AffirmationStatus::Pending);
-        ensure_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
+        assert_user_affirms(instruction_counter, &alice, AffirmationStatus::Pending);
+        assert_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
 
         for i in 0..legs.len() {
             assert_eq!(
@@ -639,11 +625,11 @@ fn claiming_receipt() {
             instruction_details
         );
 
-        ensure_affirms_pending(instruction_counter, 2);
+        assert_affirms_pending(instruction_counter, 2);
         assert_eq!(venue_instructions(venue_counter), vec![instruction_counter]);
 
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
 
         let msg = Receipt {
             receipt_uid: 0,
@@ -676,15 +662,15 @@ fn claiming_receipt() {
 
         assert_affirm_instruction_with_one_leg!(alice.origin(), instruction_counter, alice.did);
 
-        ensure_affirms_pending(instruction_counter, 1);
-        ensure_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
-        ensure_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
-        ensure_leg_status(instruction_counter, 0, LegStatus::ExecutionPending);
-        ensure_leg_status(instruction_counter, 1, LegStatus::PendingTokenLock);
-        ensure_locked_assets(&TICKER, &alice, amount);
+        assert_affirms_pending(instruction_counter, 1);
+        assert_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
+        assert_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
+        assert_leg_status(instruction_counter, 0, LegStatus::ExecutionPending);
+        assert_leg_status(instruction_counter, 1, LegStatus::PendingTokenLock);
+        assert_locked_assets(&TICKER, &alice, amount);
 
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
 
         let msg2 = Receipt {
             receipt_uid: 0,
@@ -724,19 +710,19 @@ fn claiming_receipt() {
             Settlement::receipts_used(AccountKeyring::Alice.to_account_id(), 0),
             true
         );
-        ensure_affirms_pending(instruction_counter, 1);
-        ensure_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
-        ensure_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
-        ensure_leg_status(
+        assert_affirms_pending(instruction_counter, 1);
+        assert_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
+        assert_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
+        assert_leg_status(
             instruction_counter,
             0,
             LegStatus::ExecutionToBeSkipped(AccountKeyring::Alice.to_account_id(), 0),
         );
-        ensure_leg_status(instruction_counter, 1, LegStatus::PendingTokenLock);
-        ensure_locked_assets(&TICKER, &alice, 0);
+        assert_leg_status(instruction_counter, 1, LegStatus::PendingTokenLock);
+        assert_locked_assets(&TICKER, &alice, 0);
 
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
 
         assert_ok!(Settlement::unclaim_receipt(
             alice.origin(),
@@ -744,15 +730,15 @@ fn claiming_receipt() {
             0
         ));
 
-        ensure_affirms_pending(instruction_counter, 1);
-        ensure_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
-        ensure_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
-        ensure_leg_status(instruction_counter, 0, LegStatus::ExecutionPending);
-        ensure_leg_status(instruction_counter, 1, LegStatus::PendingTokenLock);
-        ensure_locked_assets(&TICKER, &alice, amount);
+        assert_affirms_pending(instruction_counter, 1);
+        assert_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
+        assert_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
+        assert_leg_status(instruction_counter, 0, LegStatus::ExecutionPending);
+        assert_leg_status(instruction_counter, 1, LegStatus::PendingTokenLock);
+        assert_locked_assets(&TICKER, &alice, amount);
 
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
 
         assert_ok!(Settlement::claim_receipt(
             alice.origin(),
@@ -770,19 +756,19 @@ fn claiming_receipt() {
             Settlement::receipts_used(AccountKeyring::Alice.to_account_id(), 0),
             true
         );
-        ensure_affirms_pending(instruction_counter, 1);
-        ensure_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
-        ensure_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
-        ensure_leg_status(
+        assert_affirms_pending(instruction_counter, 1);
+        assert_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
+        assert_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
+        assert_leg_status(
             instruction_counter,
             0,
             LegStatus::ExecutionToBeSkipped(AccountKeyring::Alice.to_account_id(), 0),
         );
-        ensure_leg_status(instruction_counter, 1, LegStatus::PendingTokenLock);
-        ensure_locked_assets(&TICKER, &alice, 0);
+        assert_leg_status(instruction_counter, 1, LegStatus::PendingTokenLock);
+        assert_locked_assets(&TICKER, &alice, 0);
 
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
 
         set_current_block_number(10);
 
@@ -790,21 +776,21 @@ fn claiming_receipt() {
 
         // Advances block.
         next_block();
-        ensure_user_affirms(instruction_counter, &alice, AffirmationStatus::Unknown);
-        ensure_user_affirms(instruction_counter, &bob, AffirmationStatus::Unknown);
-        ensure_locked_assets(&TICKER, &alice, 0);
-        alice.ensure_balance_unchanged(&TICKER);
-        bob.ensure_balance_unchanged(&TICKER);
-        alice.ensure_balance_increased(&TICKER2, amount);
-        bob.ensure_balance_decreased(&TICKER2, amount);
+        assert_user_affirms(instruction_counter, &alice, AffirmationStatus::Unknown);
+        assert_user_affirms(instruction_counter, &bob, AffirmationStatus::Unknown);
+        assert_locked_assets(&TICKER, &alice, 0);
+        alice.assert_balance_unchanged(&TICKER);
+        bob.assert_balance_unchanged(&TICKER);
+        alice.assert_balance_increased(&TICKER2, amount);
+        bob.assert_balance_decreased(&TICKER2, amount);
     });
 }
 
 #[test]
 fn settle_on_block() {
     test_with_cdd_provider(|eve| {
-        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER, TICKER2]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER, TICKER2]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
         create_token(TICKER2, bob.user);
         let instruction_counter = Settlement::instruction_counter();
@@ -839,8 +825,8 @@ fn settle_on_block() {
         ));
         assert_eq!(1, scheduler::Agenda::<TestStorage>::get(block_number).len());
 
-        ensure_user_affirms(instruction_counter, &alice, AffirmationStatus::Pending);
-        ensure_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
+        assert_user_affirms(instruction_counter, &alice, AffirmationStatus::Pending);
+        assert_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
 
         for i in 0..legs.len() {
             assert_eq!(
@@ -866,11 +852,11 @@ fn settle_on_block() {
             instruction_details
         );
 
-        ensure_affirms_pending(instruction_counter, 2);
+        assert_affirms_pending(instruction_counter, 2);
         assert_eq!(venue_instructions(venue_counter), vec![instruction_counter]);
 
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
 
         // Before authorization need to provide the scope claim for both the parties of a transaction.
         provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve.clone());
@@ -878,40 +864,40 @@ fn settle_on_block() {
 
         assert_affirm_instruction_with_one_leg!(alice.origin(), instruction_counter, alice.did);
 
-        ensure_affirms_pending(instruction_counter, 1);
-        ensure_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
-        ensure_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
-        ensure_leg_status(instruction_counter, 0, LegStatus::ExecutionPending);
-        ensure_leg_status(instruction_counter, 1, LegStatus::PendingTokenLock);
-        ensure_locked_assets(&TICKER, &alice, amount);
+        assert_affirms_pending(instruction_counter, 1);
+        assert_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
+        assert_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
+        assert_leg_status(instruction_counter, 0, LegStatus::ExecutionPending);
+        assert_leg_status(instruction_counter, 1, LegStatus::PendingTokenLock);
+        assert_locked_assets(&TICKER, &alice, amount);
 
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
 
         assert_affirm_instruction_with_one_leg!(bob.origin(), instruction_counter, bob.did);
 
-        ensure_affirms_pending(instruction_counter, 0);
-        ensure_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
-        ensure_user_affirms(instruction_counter, &bob, AffirmationStatus::Affirmed);
-        ensure_leg_status(instruction_counter, 0, LegStatus::ExecutionPending);
-        ensure_leg_status(instruction_counter, 1, LegStatus::ExecutionPending);
-        ensure_locked_assets(&TICKER, &alice, amount);
-        ensure_locked_assets(&TICKER2, &bob, amount);
+        assert_affirms_pending(instruction_counter, 0);
+        assert_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
+        assert_user_affirms(instruction_counter, &bob, AffirmationStatus::Affirmed);
+        assert_leg_status(instruction_counter, 0, LegStatus::ExecutionPending);
+        assert_leg_status(instruction_counter, 1, LegStatus::ExecutionPending);
+        assert_locked_assets(&TICKER, &alice, amount);
+        assert_locked_assets(&TICKER2, &bob, amount);
 
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
 
         // Instruction should've settled
         next_block();
-        ensure_user_affirms(instruction_counter, &alice, AffirmationStatus::Unknown);
-        ensure_user_affirms(instruction_counter, &bob, AffirmationStatus::Unknown);
-        ensure_locked_assets(&TICKER, &alice, 0);
-        ensure_locked_assets(&TICKER, &bob, 0);
+        assert_user_affirms(instruction_counter, &alice, AffirmationStatus::Unknown);
+        assert_user_affirms(instruction_counter, &bob, AffirmationStatus::Unknown);
+        assert_locked_assets(&TICKER, &alice, 0);
+        assert_locked_assets(&TICKER, &bob, 0);
 
-        alice.ensure_balance_decreased(&TICKER, amount);
-        bob.ensure_balance_increased(&TICKER, amount);
-        alice.ensure_balance_increased(&TICKER2, amount);
-        bob.ensure_balance_decreased(&TICKER2, amount);
+        alice.assert_balance_decreased(&TICKER, amount);
+        bob.assert_balance_increased(&TICKER, amount);
+        alice.assert_balance_increased(&TICKER2, amount);
+        bob.assert_balance_decreased(&TICKER2, amount);
     });
 }
 
@@ -958,8 +944,8 @@ fn failed_execution() {
         ));
         assert_eq!(1, scheduler::Agenda::<TestStorage>::get(block_number).len());
 
-        ensure_user_affirms(instruction_counter, &alice, AffirmationStatus::Pending);
-        ensure_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
+        assert_user_affirms(instruction_counter, &alice, AffirmationStatus::Pending);
+        assert_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
 
         for i in 0..legs.len() {
             assert_eq!(
@@ -984,65 +970,65 @@ fn failed_execution() {
             Settlement::instruction_details(instruction_counter),
             instruction_details
         );
-        ensure_affirms_pending(instruction_counter, 2);
+        assert_affirms_pending(instruction_counter, 2);
         assert_eq!(venue_instructions(venue_counter), vec![instruction_counter]);
 
         // Ensure balances have not changed.
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
 
         assert_affirm_instruction_with_one_leg!(alice.origin(), instruction_counter, alice.did);
 
         // Ensure affirms are in correct state.
-        ensure_affirms_pending(instruction_counter, 1);
-        ensure_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
-        ensure_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
+        assert_affirms_pending(instruction_counter, 1);
+        assert_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
+        assert_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
 
         // Ensure legs are in a correct state.
-        ensure_leg_status(instruction_counter, 0, LegStatus::ExecutionPending);
-        ensure_leg_status(instruction_counter, 1, LegStatus::PendingTokenLock);
+        assert_leg_status(instruction_counter, 0, LegStatus::ExecutionPending);
+        assert_leg_status(instruction_counter, 1, LegStatus::PendingTokenLock);
 
         // Check that tokens are locked for settlement execution.
-        ensure_locked_assets(&TICKER, &alice, amount);
+        assert_locked_assets(&TICKER, &alice, amount);
 
         // Ensure balances have not changed.
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
 
         assert_affirm_instruction_with_one_leg!(bob.origin(), instruction_counter, bob.did);
 
         // Ensure all affirms were successful.
-        ensure_affirms_pending(instruction_counter, 0);
-        ensure_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
-        ensure_user_affirms(instruction_counter, &bob, AffirmationStatus::Affirmed);
+        assert_affirms_pending(instruction_counter, 0);
+        assert_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
+        assert_user_affirms(instruction_counter, &bob, AffirmationStatus::Affirmed);
 
         // Ensure legs are in a pending state.
-        ensure_leg_status(instruction_counter, 0, LegStatus::ExecutionPending);
-        ensure_leg_status(instruction_counter, 1, LegStatus::ExecutionPending);
+        assert_leg_status(instruction_counter, 0, LegStatus::ExecutionPending);
+        assert_leg_status(instruction_counter, 1, LegStatus::ExecutionPending);
 
         // Check that tokens are locked for settlement execution.
-        ensure_locked_assets(&TICKER, &alice, amount);
-        ensure_locked_assets(&TICKER2, &bob, amount);
+        assert_locked_assets(&TICKER, &alice, amount);
+        assert_locked_assets(&TICKER2, &bob, amount);
 
         // Ensure balances have not changed.
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
 
-        ensure_instruction_status(instruction_counter, InstructionStatus::Pending);
+        assert_instruction_status(instruction_counter, InstructionStatus::Pending);
 
         // Instruction should execute on the next block and settlement should fail,
         // since the tokens are still locked for settlement execution.
         next_block();
 
-        ensure_instruction_status(instruction_counter, InstructionStatus::Failed);
+        assert_instruction_status(instruction_counter, InstructionStatus::Failed);
 
         // Check that tokens stay locked after settlement execution failure.
-        ensure_locked_assets(&TICKER, &alice, amount);
-        ensure_locked_assets(&TICKER2, &bob, amount);
+        assert_locked_assets(&TICKER, &alice, amount);
+        assert_locked_assets(&TICKER2, &bob, amount);
 
         // Ensure balances have not changed.
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
 
         // Reschedule instruction and ensure the state is identical to the original state.
         assert_ok!(Settlement::reschedule_instruction(
@@ -1126,7 +1112,7 @@ fn venue_filtering() {
         ));
         next_block();
         // Second instruction fails to settle due to venue being not whitelisted
-        ensure_balance(&TICKER, &bob, 10)
+        assert_balance(&TICKER, &bob, 10)
     });
 }
 
@@ -1491,8 +1477,8 @@ fn claim_multiple_receipts_during_authorization() {
             legs.clone()
         ));
 
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
 
         let msg1 = Receipt {
             receipt_uid: 0,
@@ -1565,23 +1551,23 @@ fn claim_multiple_receipts_during_authorization() {
             10
         ));
 
-        ensure_affirms_pending(instruction_counter, 1);
-        ensure_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
-        ensure_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
-        ensure_leg_status(
+        assert_affirms_pending(instruction_counter, 1);
+        assert_user_affirms(instruction_counter, &alice, AffirmationStatus::Affirmed);
+        assert_user_affirms(instruction_counter, &bob, AffirmationStatus::Pending);
+        assert_leg_status(
             instruction_counter,
             0,
             LegStatus::ExecutionToBeSkipped(AccountKeyring::Alice.to_account_id(), 0),
         );
-        ensure_leg_status(
+        assert_leg_status(
             instruction_counter,
             1,
             LegStatus::ExecutionToBeSkipped(AccountKeyring::Alice.to_account_id(), 1),
         );
-        ensure_locked_assets(&TICKER, &alice, 0);
+        assert_locked_assets(&TICKER, &alice, 0);
 
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
 
         set_current_block_number(1);
 
@@ -1589,11 +1575,11 @@ fn claim_multiple_receipts_during_authorization() {
 
         // Advances block
         next_block();
-        ensure_user_affirms(instruction_counter, &alice, AffirmationStatus::Unknown);
-        ensure_user_affirms(instruction_counter, &bob, AffirmationStatus::Unknown);
-        ensure_locked_assets(&TICKER, &alice, 0);
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        assert_user_affirms(instruction_counter, &alice, AffirmationStatus::Unknown);
+        assert_user_affirms(instruction_counter, &bob, AffirmationStatus::Unknown);
+        assert_locked_assets(&TICKER, &alice, 0);
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
     });
 }
 
@@ -1823,20 +1809,20 @@ fn cross_portfolio_settlement() {
                 amount: amount
             }]
         ));
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
-        alice.ensure_default_portfolio_bal_unchanged();
-        bob.ensure_default_portfolio_bal_unchanged();
-        bob.ensure_portfolio_bal(num, 0);
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
+        alice.assert_default_portfolio_bal_unchanged();
+        bob.assert_default_portfolio_bal_unchanged();
+        bob.assert_portfolio_bal(num, 0);
 
-        ensure_locked_assets(&TICKER, &alice, 0);
+        assert_locked_assets(&TICKER, &alice, 0);
         set_current_block_number(10);
 
         // Approved by Alice
         assert_affirm_instruction_with_one_leg!(alice.origin(), instruction_counter, alice.did);
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
-        ensure_locked_assets(&TICKER, &alice, amount);
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
+        assert_locked_assets(&TICKER, &alice, amount);
         // Bob fails to approve the instruction with a
         // different portfolio than the one specified in the instruction
         next_block();
@@ -1861,12 +1847,12 @@ fn cross_portfolio_settlement() {
 
         // Instruction should've settled
         next_block();
-        alice.ensure_balance_decreased(&TICKER, amount);
-        bob.ensure_balance_increased(&TICKER, amount);
-        alice.ensure_default_portfolio_bal_decreased(amount);
-        bob.ensure_default_portfolio_bal_unchanged();
-        bob.ensure_portfolio_bal(num, amount);
-        ensure_locked_assets(&TICKER, &alice, 0);
+        alice.assert_balance_decreased(&TICKER, amount);
+        bob.assert_balance_increased(&TICKER, amount);
+        alice.assert_default_portfolio_bal_decreased(amount);
+        bob.assert_default_portfolio_bal_unchanged();
+        bob.assert_portfolio_bal(num, amount);
+        assert_locked_assets(&TICKER, &alice, 0);
     });
 }
 
@@ -1911,22 +1897,22 @@ fn multiple_portfolio_settlement() {
                 }
             ]
         ));
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
-        alice.ensure_default_portfolio_bal_unchanged();
-        bob.ensure_default_portfolio_bal_unchanged();
-        bob.ensure_portfolio_bal(bob_num, 0);
-        ensure_locked_assets(&TICKER, &alice, 0);
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
+        alice.assert_default_portfolio_bal_unchanged();
+        bob.assert_default_portfolio_bal_unchanged();
+        bob.assert_portfolio_bal(bob_num, 0);
+        assert_locked_assets(&TICKER, &alice, 0);
 
         // Alice approves the instruction from her default portfolio
         assert_affirm_instruction_with_one_leg!(alice.origin(), instruction_counter, alice.did);
 
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
-        alice.ensure_default_portfolio_bal_unchanged();
-        bob.ensure_default_portfolio_bal_unchanged();
-        bob.ensure_portfolio_bal(bob_num, 0);
-        ensure_locked_assets(&TICKER, &alice, amount);
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
+        alice.assert_default_portfolio_bal_unchanged();
+        bob.assert_default_portfolio_bal_unchanged();
+        bob.assert_portfolio_bal(bob_num, 0);
+        assert_locked_assets(&TICKER, &alice, amount);
 
         // Alice tries to withdraw affirmation from multiple portfolios where only one has been affirmed.
         assert_noop!(
@@ -1972,13 +1958,13 @@ fn multiple_portfolio_settlement() {
             user_portfolio_vec(alice.did, alice_num),
             1
         ));
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
-        alice.ensure_default_portfolio_bal_decreased(amount);
-        alice.ensure_portfolio_bal(alice_num, amount);
-        bob.ensure_default_portfolio_bal_unchanged();
-        bob.ensure_portfolio_bal(bob_num, 0);
-        ensure_locked_assets(&TICKER, &alice, amount);
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
+        alice.assert_default_portfolio_bal_decreased(amount);
+        alice.assert_portfolio_bal(alice_num, amount);
+        bob.assert_default_portfolio_bal_unchanged();
+        bob.assert_portfolio_bal(bob_num, 0);
+        assert_locked_assets(&TICKER, &alice, amount);
         assert_eq!(
             Portfolio::locked_assets(PortfolioId::user_portfolio(alice.did, alice_num), &TICKER),
             amount
@@ -2000,12 +1986,12 @@ fn multiple_portfolio_settlement() {
 
         // Instruction should've settled
         next_block();
-        alice.ensure_balance_decreased(&TICKER, amount * 2);
-        bob.ensure_balance_increased(&TICKER, amount * 2);
-        alice.ensure_default_portfolio_bal_decreased(amount * 2);
-        bob.ensure_default_portfolio_bal_increased(amount);
-        bob.ensure_portfolio_bal(bob_num, amount);
-        ensure_locked_assets(&TICKER, &alice, 0);
+        alice.assert_balance_decreased(&TICKER, amount * 2);
+        bob.assert_balance_increased(&TICKER, amount * 2);
+        alice.assert_default_portfolio_bal_decreased(amount * 2);
+        bob.assert_default_portfolio_bal_increased(amount);
+        bob.assert_portfolio_bal(bob_num, amount);
+        assert_locked_assets(&TICKER, &alice, 0);
     });
 }
 
@@ -2074,12 +2060,12 @@ fn multiple_custodian_settlement() {
                 }
             ]
         ));
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
-        alice.ensure_default_portfolio_bal_decreased(amount);
-        bob.ensure_default_portfolio_bal_unchanged();
-        bob.ensure_portfolio_bal(bob_num, 0);
-        ensure_locked_assets(&TICKER, &alice, 0);
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
+        alice.assert_default_portfolio_bal_decreased(amount);
+        bob.assert_default_portfolio_bal_unchanged();
+        bob.assert_portfolio_bal(bob_num, 0);
+        assert_locked_assets(&TICKER, &alice, 0);
 
         // Alice approves the instruction from both of her portfolios
         let portfolios_vec = vec![
@@ -2093,12 +2079,12 @@ fn multiple_custodian_settlement() {
             portfolios_vec.clone(),
             2
         ));
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
-        alice.ensure_default_portfolio_bal_decreased(amount);
-        bob.ensure_default_portfolio_bal_unchanged();
-        bob.ensure_portfolio_bal(bob_num, 0);
-        ensure_locked_assets(&TICKER, &alice, amount);
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
+        alice.assert_default_portfolio_bal_decreased(amount);
+        bob.assert_default_portfolio_bal_unchanged();
+        bob.assert_portfolio_bal(bob_num, 0);
+        assert_locked_assets(&TICKER, &alice, amount);
         assert_eq!(
             Portfolio::locked_assets(PortfolioId::user_portfolio(alice.did, alice_num), &TICKER),
             amount
@@ -2146,7 +2132,7 @@ fn multiple_custodian_settlement() {
             default_portfolio_vec(alice.did),
             1
         ));
-        ensure_locked_assets(&TICKER, &alice, 0);
+        assert_locked_assets(&TICKER, &alice, 0);
 
         // Alice can authorize instruction from remaining portfolios since she has the custody
         let portfolios_final = vec![
@@ -2163,12 +2149,12 @@ fn multiple_custodian_settlement() {
 
         // Instruction should've settled
         next_block();
-        alice.ensure_balance_decreased(&TICKER, amount * 2);
-        bob.ensure_balance_increased(&TICKER, amount * 2);
-        alice.ensure_default_portfolio_bal_decreased(amount * 2);
-        bob.ensure_default_portfolio_bal_increased(amount);
-        bob.ensure_portfolio_bal(bob_num, amount);
-        ensure_locked_assets(&TICKER, &alice, 0);
+        alice.assert_balance_decreased(&TICKER, amount * 2);
+        bob.assert_balance_increased(&TICKER, amount * 2);
+        alice.assert_default_portfolio_bal_decreased(amount * 2);
+        bob.assert_default_portfolio_bal_increased(amount);
+        bob.assert_portfolio_bal(bob_num, amount);
+        assert_locked_assets(&TICKER, &alice, 0);
     });
 }
 
@@ -2288,8 +2274,8 @@ fn dirty_storage_with_tx() {
         ));
 
         assert_affirm_instruction!(alice.origin(), instruction_counter, alice.did, 2);
-        alice.ensure_all_balances_unchanged();
-        bob.ensure_all_balances_unchanged();
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
         set_current_block_number(5);
         assert_affirm_instruction_with_one_leg!(bob.origin(), instruction_counter, bob.did);
 
@@ -2306,8 +2292,8 @@ fn dirty_storage_with_tx() {
         );
 
         // Ensure proper balance transfers
-        alice.ensure_balance_decreased(&TICKER, total_amount);
-        bob.ensure_balance_increased(&TICKER, total_amount);
+        alice.assert_balance_decreased(&TICKER, total_amount);
+        bob.assert_balance_increased(&TICKER, total_amount);
     });
 }
 
@@ -2331,7 +2317,7 @@ fn reject_failed_instruction() {
 
         // Go to next block to have the scheduled execution run and ensure it has failed.
         next_block();
-        ensure_instruction_status(instruction_counter, InstructionStatus::Failed);
+        assert_instruction_status(instruction_counter, InstructionStatus::Failed);
 
         // Reject instruction so that it is pruned on next execution.
         assert_ok!(Settlement::reject_instruction(
@@ -2343,7 +2329,7 @@ fn reject_failed_instruction() {
 
         // Go to next block to have the scheduled execution run and ensure it has pruned the instruction.
         next_block();
-        ensure_instruction_status(instruction_counter, InstructionStatus::Unknown);
+        assert_instruction_status(instruction_counter, InstructionStatus::Unknown);
     });
 }
 
@@ -2374,12 +2360,12 @@ fn create_instruction(
 }
 
 #[track_caller]
-fn ensure_instruction_details(instruction_id: u64, details: Instruction<Moment, BlockNumber>) {
+fn assert_instruction_details(instruction_id: u64, details: Instruction<Moment, BlockNumber>) {
     assert_eq!(Settlement::instruction_details(instruction_id), details);
 }
 
 #[track_caller]
-fn ensure_instruction_status(instruction_id: u64, status: InstructionStatus) {
+fn assert_instruction_status(instruction_id: u64, status: InstructionStatus) {
     assert_eq!(
         Settlement::instruction_details(instruction_id).status,
         status
@@ -2387,12 +2373,12 @@ fn ensure_instruction_status(instruction_id: u64, status: InstructionStatus) {
 }
 
 #[track_caller]
-fn ensure_balance(ticker: &Ticker, user: &User, balance: Balance) {
+fn assert_balance(ticker: &Ticker, user: &User, balance: Balance) {
     assert_eq!(Asset::balance_of(&ticker, user.did), balance);
 }
 
 #[track_caller]
-fn ensure_user_affirms(instruction_counter: u64, user: &User, status: AffirmationStatus) {
+fn assert_user_affirms(instruction_counter: u64, user: &User, status: AffirmationStatus) {
     assert_eq!(
         Settlement::user_affirmations(
             PortfolioId::default_portfolio(user.did),
@@ -2417,7 +2403,7 @@ fn ensure_user_affirms(instruction_counter: u64, user: &User, status: Affirmatio
 }
 
 #[track_caller]
-fn ensure_leg_status(instruction_counter: u64, leg: u64, status: LegStatus<AccountId>) {
+fn assert_leg_status(instruction_counter: u64, leg: u64, status: LegStatus<AccountId>) {
     assert_eq!(
         Settlement::instruction_leg_status(instruction_counter, leg),
         status
@@ -2425,7 +2411,7 @@ fn ensure_leg_status(instruction_counter: u64, leg: u64, status: LegStatus<Accou
 }
 
 #[track_caller]
-fn ensure_affirms_pending(instruction_counter: u64, pending: u64) {
+fn assert_affirms_pending(instruction_counter: u64, pending: u64) {
     assert_eq!(
         Settlement::instruction_affirms_pending(instruction_counter),
         pending
@@ -2433,7 +2419,7 @@ fn ensure_affirms_pending(instruction_counter: u64, pending: u64) {
 }
 
 #[track_caller]
-fn ensure_locked_assets(ticker: &Ticker, user: &User, num_of_assets: Balance) {
+fn assert_locked_assets(ticker: &Ticker, user: &User, num_of_assets: Balance) {
     assert_eq!(
         Portfolio::locked_assets(PortfolioId::default_portfolio(user.did), ticker),
         num_of_assets
