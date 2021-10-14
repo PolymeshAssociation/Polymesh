@@ -125,17 +125,6 @@ impl<T: Config> Module<T> {
         }
     }
 
-    /// Return the record of `did` and ensure that `sender` is the primary key of it.
-    fn grant_check_only_primary_key(
-        sender: &T::AccountId,
-        did: IdentityId,
-    ) -> Result<DidRecord<T::AccountId>, DispatchError> {
-        Self::ensure_id_record_exists(did)?;
-        let record = <DidRecords<T>>::get(did);
-        ensure!(*sender == record.primary_key, Error::<T>::KeyNotAllowed);
-        Ok(record)
-    }
-
     /// Increment the reference counter for `key`.
     pub fn add_account_key_ref_count(key: &T::AccountId) {
         <AccountKeyRefCount<T>>::mutate(key, |n| *n = n.saturating_add(1_u64));
@@ -260,12 +249,7 @@ impl<T: Config> Module<T> {
         signer: Signatory<T::AccountId>,
         permissions: Permissions,
     ) -> DispatchResult {
-        let PermissionedCallOriginData {
-            sender,
-            primary_did: did,
-            ..
-        } = Self::ensure_origin_call_permissions(origin)?;
-        let record = Self::grant_check_only_primary_key(&sender, did)?;
+        let (_, did, record) = Self::ensure_primary_key(origin)?;
 
         // Ensure that the signer is a secondary key of the caller's Identity
         ensure!(
@@ -276,7 +260,7 @@ impl<T: Config> Module<T> {
         Self::ensure_perms_length_limited(&permissions)?;
 
         <DidRecords<T>>::mutate(did, |record| {
-            if let Some(secondary_key) = (*record)
+            if let Some(secondary_key) = record
                 .secondary_keys
                 .iter_mut()
                 .find(|si| si.signer == signer)
@@ -298,12 +282,7 @@ impl<T: Config> Module<T> {
         origin: T::Origin,
         signers: Vec<Signatory<T::AccountId>>,
     ) -> DispatchResult {
-        let PermissionedCallOriginData {
-            sender,
-            primary_did: did,
-            ..
-        } = Self::ensure_origin_call_permissions(origin)?;
-        let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
+        let (_, did, _) = Self::ensure_primary_key(origin)?;
 
         // Ensure that it is safe to unlink the secondary keys from the did.
         for signer in &signers {
@@ -357,12 +336,7 @@ impl<T: Config> Module<T> {
         keys: Vec<SecondaryKeyWithAuth<T::AccountId>>,
         expires_at: T::Moment,
     ) -> DispatchResult {
-        let PermissionedCallOriginData {
-            sender,
-            primary_did: did,
-            ..
-        } = Self::ensure_origin_call_permissions(origin)?;
-        let _grants_checked = Self::grant_check_only_primary_key(&sender, did)?;
+        let (_, did, _) = Self::ensure_primary_key(origin)?;
 
         // 0. Check expiration
         let now = <pallet_timestamp::Module<T>>::get();
@@ -511,18 +485,14 @@ impl<T: Config> Module<T> {
     /// # Errors
     /// Only primary key can freeze/unfreeze an identity.
     crate fn set_frozen_secondary_key_flags(origin: T::Origin, freeze: bool) -> DispatchResult {
-        let data = Self::ensure_origin_call_permissions(origin)?;
-        let did = data.primary_did;
-        let _ = Self::grant_check_only_primary_key(&data.sender, did)?;
-
-        let event = if freeze {
+        let (_, did, _) = Self::ensure_primary_key(origin)?;
+        if freeze {
             IsDidFrozen::insert(&did, true);
-            RawEvent::SecondaryKeysFrozen
+            Self::deposit_event(RawEvent::SecondaryKeysFrozen(did))
         } else {
             IsDidFrozen::remove(&did);
-            RawEvent::SecondaryKeysUnfrozen
-        };
-        Self::deposit_event(event(did));
+            Self::deposit_event(RawEvent::SecondaryKeysUnfrozen(did));
+        }
         Ok(())
     }
 
@@ -642,6 +612,24 @@ impl<T: Config> Module<T> {
         Self::deposit_event(RawEvent::DidCreated(id, primary_key, vec![]));
     }
 
+    /// Ensures that `origin`'s key is the primary key of a DID.
+    fn ensure_primary_key(
+        origin: T::Origin,
+    ) -> Result<(T::AccountId, IdentityId, DidRecord<T::AccountId>), DispatchError> {
+        let sender = ensure_signed(origin)?;
+        let (did, record) = Self::did_record_of(&sender)
+            .ok_or(pallet_permissions::Error::<T>::UnauthorizedCaller)?;
+        ensure!(sender == record.primary_key, Error::<T>::KeyNotAllowed);
+        Ok((sender, did, record))
+    }
+
+    /// Returns `Some((did, record))` if the DID record is present for the DID of `who`
+    fn did_record_of(who: &T::AccountId) -> Option<(IdentityId, DidRecord<T::AccountId>)> {
+        let did = <KeyToIdentityIds<T>>::try_get(who).ok()?;
+        let record = <DidRecords<T>>::try_get(&did).ok()?;
+        Some((did, record))
+    }
+
     /// Ensures that `origin`'s key is linked to a DID and returns both.
     pub fn ensure_did(origin: T::Origin) -> Result<(T::AccountId, IdentityId), DispatchError> {
         let sender = ensure_signed(origin)?;
@@ -702,33 +690,28 @@ impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Module<T> {
         pallet_name: &PalletName,
         function_name: &DispatchableName,
     ) -> Option<AccountCallPermissionsData<T::AccountId>> {
-        // `who` is the original origin (signer) of the original extrinsic.
-        let primary_did = <KeyToIdentityIds<T>>::try_get(who).ok()?;
-        // The DID record must be present.
-        let primary_did_record = <DidRecords<T>>::try_get(&primary_did).ok()?;
+        let (did, record) = Self::did_record_of(who)?;
+        let data = |secondary_key| AccountCallPermissionsData {
+            primary_did: did,
+            secondary_key,
+        };
 
-        if who == &primary_did_record.primary_key {
+        if who == &record.primary_key {
             // It is a direct call and `who` is the primary key.
-            return Some(AccountCallPermissionsData {
-                primary_did,
-                secondary_key: None,
-            });
+            return Some(data(None));
         }
 
         // DIDs with frozen secondary keys, AKA frozen DIDs, are not permitted to call extrinsics.
-        if Self::is_did_frozen(&primary_did) {
+        if Self::is_did_frozen(&did) {
             return None;
         }
 
         // Find the secondary key matching `who` and ensure it has sufficient permissions.
-        primary_did_record
+        record
             .secondary_keys
             .into_iter()
             .find(|sk| sk.signer.as_account().contains(&who))
             .filter(|sk| sk.has_extrinsic_permission(pallet_name, function_name))
-            .map(|sk| AccountCallPermissionsData {
-                primary_did,
-                secondary_key: Some(sk),
-            })
+            .map(|sk| data(Some(sk)))
     }
 }
