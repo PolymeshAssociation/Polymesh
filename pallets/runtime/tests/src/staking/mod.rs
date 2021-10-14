@@ -5358,6 +5358,7 @@ fn voting_for_pip_overlays_with_staking() {
 #[test]
 fn slashing_leaves_pips_untouched() {
     use crate::staking::mock::Call;
+    use pallet_pips::PipId;
 
     ExtBuilder::default().build_and_execute(|| {
         let acc = 11;
@@ -5381,11 +5382,12 @@ fn slashing_leaves_pips_untouched() {
         let balance_is = |bal| {
             assert_eq!(Balances::free_balance(acc), bal);
         };
+        let id = PipId(0);
         let vote_is = |bal| {
-            Pips::proposals(0).unwrap();
-            assert_eq!(Pips::proposal_vote(0, acc).unwrap().1, bal);
+            Pips::proposals(id).unwrap();
+            assert_eq!(Pips::proposal_vote(id, acc).unwrap().1, bal);
         };
-        let vote = |bal| Pips::vote(Origin::signed(acc), 0, true, bal);
+        let vote = |bal| Pips::vote(Origin::signed(acc), id, true, bal);
 
         // Ensure we start with 1000 balance.
         balance_is(1000);

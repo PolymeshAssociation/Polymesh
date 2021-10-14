@@ -59,6 +59,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
 };
+use pallet_base::{try_next_post, try_next_pre};
 use pallet_identity::PermissionedCallOriginData;
 pub use polymesh_common_utilities::traits::external_agents::{Config, Event, WeightInfo};
 use polymesh_primitives::agent::{AGId, AgentGroup};
@@ -127,7 +128,7 @@ decl_module! {
         /// # Errors
         /// - `UnauthorizedAgent` if `origin` was not authorized as an agent to call this.
         /// - `TooLong` if `perms` had some string or list length that was too long.
-        /// - `LocalAGIdOverflow` if `AGIdSequence::get() + 1` would exceed `u32::MAX`.
+        /// - `CounterOverflow` if `AGIdSequence::get() + 1` would exceed `u32::MAX`.
         ///
         /// # Permissions
         /// * Asset
@@ -241,9 +242,6 @@ decl_module! {
 
 decl_error! {
     pub enum Error for Module<T: Config> {
-        /// There have been too many AGs for this ticker and the ID would overflow.
-        /// This won't occur in practice.
-        LocalAGIdOverflow,
         /// An AG with the given `AGId` did not exist for the `Ticker`.
         NoSuchAG,
         /// The agent is not authorized to call the current extrinsic.
@@ -255,9 +253,6 @@ decl_error! {
         /// This agent is the last full one, and it's being removed,
         /// making the asset orphaned.
         RemovingLastFullAgent,
-        /// The counter for full agents will overflow.
-        /// This should never happen in practice, but is theoretically possible.
-        NumFullAgentsOverflow,
         /// The caller's secondary key does not have the required asset permission.
         SecondaryKeyNotAuthorizedForAsset,
     }
@@ -291,10 +286,7 @@ impl<T: Config> Module<T> {
         <Identity<T>>::ensure_extrinsic_perms_length_limited(&perms)?;
 
         // Fetch the AG id & advance the sequence.
-        let id = AGIdSequence::try_mutate(ticker, |AGId(id)| -> Result<_, DispatchError> {
-            *id = id.checked_add(1).ok_or(Error::<T>::LocalAGIdOverflow)?;
-            Ok(AGId(*id))
-        })?;
+        let id = AGIdSequence::try_mutate(ticker, try_next_pre::<T, _>)?;
 
         // Commit & emit.
         GroupPermissions::insert(ticker, id, perms.clone());
@@ -430,10 +422,7 @@ impl<T: Config> Module<T> {
 
     /// Increment the full agent count, or error on overflow.
     fn inc_full_count(ticker: Ticker) -> DispatchResult {
-        NumFullAgents::try_mutate(ticker, |n| {
-            *n = n.checked_add(1).ok_or(Error::<T>::NumFullAgentsOverflow)?;
-            Ok(())
-        })
+        NumFullAgents::try_mutate(ticker, try_next_post::<T, _>).map(drop)
     }
 
     /// Ensures that `origin` is a permissioned agent for `ticker`.

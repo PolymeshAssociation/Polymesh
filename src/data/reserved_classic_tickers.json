@@ -856,5 +856,539 @@
     "ticker": "0x525544524100000000000000",
     "is_contract": false,
     "is_created": false
-  }
+  },
+  {
+    "eth_owner": "0xAc4BA9E98E97294C7D3E3e2d19C7a936e187B1BF",
+    "ticker": "0x5633444f545a45524f000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x258DE6d045AEB7B16e88eF41E0F9534229bC34D7",
+    "ticker": "0x4d544c535452000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x17ADD87a4582cFA4717914387f24C5aBB06dE44E",
+    "ticker": "0x434f53455241000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x140e270917caa7dc9c968ED87a348545b8238d17",
+    "ticker": "0x424e4b520000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x33A2CFF8182d82AF69EbFC5d3eDF8F699555f146",
+    "ticker": "0x524e544d0000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x2091125bFE4259b2CfA889165Beb6290d0Df5DeA",
+    "ticker": "0x504354464d00000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x97a9dd74581bC80e2c4EdD66795754eE0a24E469",
+    "ticker": "0x434f4e000000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x29bD1Ed897B911CE3CFa9073661f01A8BeEA3CCa",
+    "ticker": "0x445349000000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x3bcF88B72618Bc16727808f1Db908639544BC628",
+    "ticker": "0x393945415354000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xf6a49B7eA12e7ae0224e86c77A897b62Bcf7C583",
+    "ticker": "0x425a424b0000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x1010A253CEF7033f97752Ae290B27ccEAde6eACD",
+    "ticker": "0x534147460000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x80086f51239575C5c39a801f1cf5507E6481C363",
+    "ticker": "0x534354460000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xe55a3bbCAB1596Faa0de59F166C14fA846523fE9",
+    "ticker": "0x534443460000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x89a3046613e8B77552ED80783A4dEaE952cb8727",
+    "ticker": "0x534658460000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x260e30FE5DcB53227847D6b1E01203Fa32CB973d",
+    "ticker": "0x434e45000000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x0A4a7C325093C9AaBbfd5b7226a13Ab592466beF",
+    "ticker": "0x455456000000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xaA711a93f3E0577E0796ed9eC8f55F5B9658f473",
+    "ticker": "0x54434853544f000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xFEe50b6e427634101eA567eD971831283976bA93",
+    "ticker": "0x4544534e0000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x626D20125da6a371aA48023bF9dad94BD66588F7",
+    "ticker": "0x46494e444558580000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x4d23b1b914C321019460ED1BF8b2a2a3169B15eD",
+    "ticker": "0x4749474a0000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x7C577F54B947fB3B7e01c63eD71Cb543bEAb8F04",
+    "ticker": "0x524243424400000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xFEe50b6e427634101eA567eD971831283976bA93",
+    "ticker": "0x4c484f4b0000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xFEe50b6e427634101eA567eD971831283976bA93",
+    "ticker": "0x484c4e4f0000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xFEe50b6e427634101eA567eD971831283976bA93",
+    "ticker": "0x484c4c580000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x6C9f996E90Fe1E17A138687A87a0429Dd6378514",
+    "ticker": "0x565254590000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x7169c4BB112b51e846f296c80077820faE83Ca28",
+    "ticker": "0x5241494e5944414900000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x8d369B18C87EB04bc393FC43077b4Eccd55aFe28",
+    "ticker": "0x465553494f4e450000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x7169c4BB112b51e846f296c80077820faE83Ca28",
+    "ticker": "0x46554e444f46554e44530000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x074f049200AFD3B9f00CabeCFCA8dC4D9A2De63c",
+    "ticker": "0x4253504b2d41000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x7169c4BB112b51e846f296c80077820faE83Ca28",
+    "ticker": "0x414600000000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x406cEA9341657b7D31bfe685B93F5a0Ed4185E24",
+    "ticker": "0x53504f545400000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xb0C205734B6a3742E4fc2FC5B4be1275d3f88D12",
+    "ticker": "0x445045535400000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xfC8Dd18aC1Df94a4c9fD2Eb201b5772689f40a17",
+    "ticker": "0x4b41424e0000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x7169c4BB112b51e846f296c80077820faE83Ca28",
+    "ticker": "0x46554e440000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x1fc4bc93a6e2BAe405e15b6F65CAcB2089220540",
+    "ticker": "0x574144444100000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x454f0384b4D4D519c7E706D0966863Ddcb9c6cd4",
+    "ticker": "0x5452414e5349540000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xFEe50b6e427634101eA567eD971831283976bA93",
+    "ticker": "0x525356410000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xFEe50b6e427634101eA567eD971831283976bA93",
+    "ticker": "0x525343500000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xFEe50b6e427634101eA567eD971831283976bA93",
+    "ticker": "0x434c4e410000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xFEe50b6e427634101eA567eD971831283976bA93",
+    "ticker": "0x434147560000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xFEe50b6e427634101eA567eD971831283976bA93",
+    "ticker": "0x434c4f460000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xFEe50b6e427634101eA567eD971831283976bA93",
+    "ticker": "0x474f43410000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xFEe50b6e427634101eA567eD971831283976bA93",
+    "ticker": "0x313731370000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x33A2CFF8182d82AF69EbFC5d3eDF8F699555f146",
+    "ticker": "0x52454d4f4e00000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xFEe50b6e427634101eA567eD971831283976bA93",
+    "ticker": "0x48454d500000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xFEe50b6e427634101eA567eD971831283976bA93",
+    "ticker": "0x535050520000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x7169c4BB112b51e846f296c80077820faE83Ca28",
+    "ticker": "0x574545440000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x9776D2115657987aB0AE1DA2A20AF8adF40d4Af7",
+    "ticker": "0x4f5247414e49000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x258DE6d045AEB7B16e88eF41E0F9534229bC34D7",
+    "ticker": "0x4d53474c4400000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x406cEA9341657b7D31bfe685B93F5a0Ed4185E24",
+    "ticker": "0x54594e303100000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x9776D2115657987aB0AE1DA2A20AF8adF40d4Af7",
+    "ticker": "0x4f5247414e49430000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x7898eD7BDbEa249a7e147286dc738f2ec6a229b3",
+    "ticker": "0x4f5247414e4943414e4e0000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x529836F6F54d53177af1281b59533e2296F20Bdc",
+    "ticker": "0x493130300000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x32A212b1fDdACeb048BE7575F371749021e2Ca7E",
+    "ticker": "0x524259000000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x32A212b1fDdACeb048BE7575F371749021e2Ca7E",
+    "ticker": "0x574553544f00000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x3b42a40a637bBb2D6Ea861F63D8c7B62218F801B",
+    "ticker": "0x564949494441000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x3b42a40a637bBb2D6Ea861F63D8c7B62218F801B",
+    "ticker": "0x5649494944412d494e560000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x3b42a40a637bBb2D6Ea861F63D8c7B62218F801B",
+    "ticker": "0x5649494944412d424f540000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x3b42a40a637bBb2D6Ea861F63D8c7B62218F801B",
+    "ticker": "0x4d494441532d322e30000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x14D88Ea8b3c9b0D0f48a17e22437EABD0839B8cB",
+    "ticker": "0x5048492d5045500000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x3b42a40a637bBb2D6Ea861F63D8c7B62218F801B",
+    "ticker": "0x4d54492d544f4b454e000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xFEe50b6e427634101eA567eD971831283976bA93",
+    "ticker": "0x545752323700000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xFEe50b6e427634101eA567eD971831283976bA93",
+    "ticker": "0x484c46420000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x00500d3f20d8695F022974eC8A64949a372691c3",
+    "ticker": "0x434244000000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xFEe50b6e427634101eA567eD971831283976bA93",
+    "ticker": "0x474644470000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xFEe50b6e427634101eA567eD971831283976bA93",
+    "ticker": "0x474646430000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x75C1B39bF31c3B4eAF345e6410C20C8a311cAb26",
+    "ticker": "0x5452502d4e00000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xFEe50b6e427634101eA567eD971831283976bA93",
+    "ticker": "0x545653500000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xFEe50b6e427634101eA567eD971831283976bA93",
+    "ticker": "0x484c41420000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xcA95053b654D409d003d3700fcaB9e06Ea056AAb",
+    "ticker": "0x50494f000000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xb8C9F9ea10446989F25609Bc194fdc703633d77a",
+    "ticker": "0x544932320000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xF7b556bf7226C05858E5B80643f672A6fD06A357",
+    "ticker": "0x424148475300000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xFbA6676faCe82d4B35bFbAdEa7FEc78f2AaA3c4D",
+    "ticker": "0x54414e4749424c4500000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xef6bbed2dA875AEe1CCEd806B43A4c3c03fbcA3a",
+    "ticker": "0x505247000000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xE166d4bfDc4b1C876aF7C9c073d3cacD41be6b7E",
+    "ticker": "0x41564d000000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xDFBCc26F5069A31fB9C4f5dD874b4e9D13d1c885",
+    "ticker": "0x434d4d000000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xd3aDE5504eDdBFA5B8Fe61411298061c748B858F",
+    "ticker": "0x554c44000000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x45a5CE798A234E90C930Df31f31b6c765dD77A65",
+    "ticker": "0x424354000000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x9D009CbCdC04dcf935bf232bFFB73C4EB7B1D18A",
+    "ticker": "0x46494e535552450000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x4DD12EbC08303Ddd7F690c05cA8eF3EC33fc43A9",
+    "ticker": "0x414243000000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x2a9ac248Fe567B34e257829B0937c04c0B26d242",
+    "ticker": "0x434354430000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xFEe50b6e427634101eA567eD971831283976bA93",
+    "ticker": "0x41504c4f0000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x4e4d241CA1Ab43FB695BC70b43F4797a4Bbe3235",
+    "ticker": "0x484f52534e41524f574e0000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x45B8c186Db6C4a9429B8038a766bd22edb061E44",
+    "ticker": "0x474458540000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x4d8Fa3045f349e173451E7D055952AD37a371cEE",
+    "ticker": "0x4f5649440000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x89B84DA99000D1143245241fb5Acf78f2bc26DBd",
+    "ticker": "0x444550000000000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x33EAAE35F9267d83f6B27A32c8aBAC521Ef1d2CF",
+    "ticker": "0x42454e582d4b000000000000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0x4A85E0D90Fa47C31F7eA96a6E63ab54AAC971950",
+    "ticker": "0x504150412d53484942410000",
+    "is_contract": false,
+    "is_created": false
+  },
+  {
+    "eth_owner": "0xdd82C199DCe710eb9BdCCf9cAE5afFE180208708",
+    "ticker": "0x464636344841545400000000",
+    "is_contract": false,
+    "is_created": false
+  }  
 ]

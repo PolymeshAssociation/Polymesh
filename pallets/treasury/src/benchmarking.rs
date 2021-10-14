@@ -31,7 +31,7 @@ benchmarks! {
 
     disbursement {
         let b in 1..MAX_BENEFICIARIES;
-
+        let initial_balance = Module::<T>::balance();
         // Refill treasury
         let refiller = UserBuilder::<T>::default().balance(200u32 + REWARD * b).generate_did().build("refiller");
         Module::<T>::reimbursement( refiller.origin().into(), (100 + (REWARD * b)).into())
@@ -51,14 +51,15 @@ benchmarks! {
 
     }: _(RawOrigin::Root, beneficiaries)
     verify {
-        assert_eq!(Module::<T>::balance(), 100u32.into());
+        assert_eq!(Module::<T>::balance(), (initial_balance + 100u32.into()));
     }
 
     reimbursement {
+        let initial_balance = Module::<T>::balance();
         let caller = UserBuilder::<T>::default().balance(1_000u32).generate_did().build("caller");
         let amount = 500u32.into();
     }: _(caller.origin(), amount)
     verify {
-        assert_eq!(Module::<T>::balance(), 500u32.into());
+        assert_eq!(Module::<T>::balance(), (initial_balance + 500u32.into()));
     }
 }
