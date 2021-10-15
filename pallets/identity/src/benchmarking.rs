@@ -25,8 +25,8 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     investor_zkproof_data::{v1, v2},
-    AuthorizationData, Claim, CountryCode, IdentityId, Permissions, Scope, ScopeId, SecondaryKey,
-    Signatory,
+    AuthorizationData, Claim, CountryCode, IdentityId, InvestorUid, Permissions, Scope, ScopeId,
+    SecondaryKey, Signatory,
 };
 use sp_core::H512;
 use sp_std::prelude::*;
