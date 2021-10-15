@@ -16,9 +16,9 @@ use pallet_identity as identity;
 use pallet_portfolio::MovePortfolioItem;
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
-    AffirmationStatus, Instruction, InstructionId, InstructionStatus, Leg,
-    LegId, LegStatus, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails,
-    VenueId, VenueInstructions, VenueType,
+    AffirmationStatus, Instruction, InstructionId, InstructionStatus, Leg, LegId, LegStatus,
+    Receipt, ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails, VenueId,
+    VenueInstructions, VenueType,
 };
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
@@ -108,7 +108,11 @@ impl UserWithBalance {
 
     #[track_caller]
     fn init_balance(&self, ticker: &Ticker) -> Balance {
-        self.init_balances.iter().find(|bs| bs.0 == *ticker).unwrap().1
+        self.init_balances
+            .iter()
+            .find(|bs| bs.0 == *ticker)
+            .unwrap()
+            .1
     }
 
     #[track_caller]
