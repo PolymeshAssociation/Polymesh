@@ -111,12 +111,12 @@ export async function createIdentitiesWithExpiry(
   for (let account of receivers) {
     let account_did = (await keyToIdentityIds(account.publicKey)).toString();
 
-    if (parseInt(account_did) == 0) {
-      console.log(`>>>> [Register CDD Claim] acc: ${account.address}`);
+		if (parseInt(account_did) == 0) {
+      // console.log(`>>>> [Register CDD Claim] acc: ${account.address}`);
       const transaction = api.tx.identity.cddRegisterDid(account.address, []);
       await sendTx(signer, transaction);
     } else {
-      console.log("Identity Already Linked.");
+      // console.log("Identity Already Linked.");
     }
   }
   await setDidsArray(dids, receivers);
@@ -128,8 +128,8 @@ async function setDidsArray(dids: IdentityId[], receivers: KeyringPair[]) {
   for (let i in receivers) {
     const did = await keyToIdentityIds(receivers[i].publicKey);
     dids.push(did);
-    console.log(`>>>> [Get DID ] acc: ${receivers[i].address} did: ${dids[i]}`);
-  }
+		// console.log(`>>>> [Get DID ] acc: ${receivers[i].address} did: ${dids[i]}`);
+	}
 }
 
 async function addCddClaim(
@@ -146,9 +146,9 @@ async function addCddClaim(
     };
     const expiry = expiries.length == 0 ? null : expiries[i];
 
-    console.log(
-      `>>>> [add CDD Claim] did: ${dids[i]}, claim: ${JSON.stringify(claim)}`
-    );
+    // console.log(
+    //   `>>>> [add CDD Claim] did: ${dids[i]}, claim: ${JSON.stringify(claim)}`
+    // );
     const transaction = api.tx.identity.addClaim(dids[i], claim, expiry);
     await sendTx(signer, transaction);
   }
