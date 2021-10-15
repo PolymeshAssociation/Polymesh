@@ -263,15 +263,12 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
     assert_ok!(set(alice, charlie, Permissions::empty()));
 
     // Bob tries to get better permission by himself at `alice` Identity.
-    assert_noop!(
-        set(bob, bob, Permissions::default()),
-        PError::UnauthorizedCaller
-    );
+    assert_noop!(set(bob, bob, Permissions::default()), Error::KeyNotAllowed);
 
     // Bob tries to remove Charlie's permissions at `alice` Identity.
     assert_noop!(
         set(bob, charlie, Permissions::empty()),
-        PError::UnauthorizedCaller
+        Error::KeyNotAllowed
     );
 
     // Alice overwrites some permissions.
