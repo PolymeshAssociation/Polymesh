@@ -5,9 +5,10 @@ use super::{
 };
 use pallet_asset as asset;
 use pallet_compliance_manager as compliance_manager;
-use pallet_settlement::{self as settlement, VenueDetails, VenueType};
+use pallet_settlement::{VenueDetails, VenueId, VenueType};
 use pallet_sto::{
-    self as sto, Fundraiser, FundraiserName, FundraiserStatus, FundraiserTier, PriceTier, MAX_TIERS,
+    Fundraiser, FundraiserId, FundraiserName, FundraiserStatus, FundraiserTier, PriceTier,
+    MAX_TIERS,
 };
 use polymesh_primitives::{asset::AssetType, PortfolioId, Ticker};
 
@@ -19,12 +20,12 @@ use test_client::AccountKeyring;
 
 type Origin = <TestStorage as frame_system::Config>::Origin;
 type Asset = asset::Module<TestStorage>;
-type STO = sto::Module<TestStorage>;
-type Error = sto::Error<TestStorage>;
+type STO = pallet_sto::Module<TestStorage>;
+type Error = pallet_sto::Error<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
-type Settlement = settlement::Module<TestStorage>;
+type Settlement = pallet_settlement::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
 
 #[track_caller]
@@ -325,15 +326,23 @@ fn raise_unhappy_path() {
     };
 
     // Name too long.
-    assert_too_long!(fundraise(default_tiers.clone(), 0, max_len_bytes(1)));
+    assert_too_long!(fundraise(
+        default_tiers.clone(),
+        VenueId(0),
+        max_len_bytes(1)
+    ));
 
     // Offering asset not created
-    check_fundraiser(default_tiers.clone(), 0, EAError::UnauthorizedAgent.into());
+    check_fundraiser(
+        default_tiers.clone(),
+        VenueId(0),
+        EAError::UnauthorizedAgent.into(),
+    );
 
     create_asset(alice.origin(), offering_ticker, 1_000_000);
 
     // Venue does not exist
-    check_venue(0);
+    check_venue(VenueId(0));
 
     let bad_venue = create_venue(bob, VenueType::Other);
 
@@ -543,7 +552,7 @@ fn invalid_fundraiser() {
     );
 }
 
-fn basic_fundraiser() -> (u64, RaiseContext) {
+fn basic_fundraiser() -> (FundraiserId, RaiseContext) {
     let context = init_raise_context(1_000_000, Some(1_000_000));
 
     let venue_counter = Settlement::venue_counter();
@@ -646,7 +655,7 @@ fn modifying_fundraiser_window() {
         STO::modify_fundraiser_window(
             alice.origin(),
             offering_ticker,
-            u64::MAX,
+            FundraiserId(u64::MAX),
             Timestamp::get(),
             None
         ),
@@ -692,7 +701,7 @@ fn freeze_unfreeze_fundraiser() {
 
     // Bad fundraiser id
     assert_noop!(
-        STO::freeze_fundraiser(alice.origin(), offering_ticker, u64::MAX,),
+        STO::freeze_fundraiser(alice.origin(), offering_ticker, FundraiserId(u64::MAX)),
         Error::FundraiserNotFound
     );
 
@@ -729,7 +738,7 @@ fn stop_fundraiser() {
 
     // Bad fundraiser id
     assert_noop!(
-        STO::stop(alice.origin(), offering_ticker, u64::MAX),
+        STO::stop(alice.origin(), offering_ticker, FundraiserId(u64::MAX)),
         Error::FundraiserNotFound
     );
 

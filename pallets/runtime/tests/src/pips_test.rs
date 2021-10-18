@@ -16,8 +16,8 @@ use frame_support::{
 use frame_system::{self, EventRecord};
 use pallet_pips::{
     DepositInfo, LiveQueue, Pip, PipDescription, PipId, PipsMetadata, ProposalState, Proposer,
-    RawEvent as Event, SnapshotMetadata, SnapshotResult, SnapshottedPip, Url, Vote, VoteCount,
-    VotingResult,
+    RawEvent as Event, SnapshotId, SnapshotMetadata, SnapshotResult, SnapshottedPip, Url, Vote,
+    VoteCount, VotingResult,
 };
 use pallet_treasury as treasury;
 use polymesh_common_utilities::{MaybeBlock, GC_DID};
@@ -1645,7 +1645,7 @@ fn snapshot_works() {
                 Some(SnapshotMetadata {
                     created_at: 1,
                     made_by: member.acc(),
-                    id,
+                    id: SnapshotId(id),
                 })
             );
         };
@@ -1784,7 +1784,7 @@ fn enact_snapshot_results_works() {
             vec![(PipId(1), SnapshotResult::Approve)]
         ));
         assert_last_event!(
-            Event::SnapshotResultsEnacted(_, Some(1), a, b, c),
+            Event::SnapshotResultsEnacted(_, Some(SnapshotId(1)), a, b, c),
             a.is_empty() && b.is_empty() && c == &[PipId(1)]
         );
         assert_state(PipId(1), false, ProposalState::Scheduled);

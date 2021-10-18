@@ -784,7 +784,7 @@ macro_rules! runtime_apis {
 
                 /// RPC call to query the given ticker did
                 fn get_asset_did(ticker: Ticker) -> AssetDidResult {
-                    Identity::get_asset_did(ticker)
+                    Identity::get_token_did(&ticker)
                         .map_err(|_| "Error in computing the given ticker error".into())
                 }
 

@@ -1,3 +1,4 @@
+use crate::impl_checked_inc;
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -8,6 +9,7 @@ use sp_runtime::{Deserialize, Serialize};
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, Default, Debug)]
 pub struct AGId(pub u32);
+impl_checked_inc!(AGId);
 
 /// The available set of agent groups.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
