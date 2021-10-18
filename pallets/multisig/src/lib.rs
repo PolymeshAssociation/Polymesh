@@ -183,6 +183,11 @@ impl Default for ProposalStatus {
     }
 }
 
+/// Convert multisig account and proposal id into a scheduler name.
+fn proposal_execution_name<AccountId: Encode>(multisig: &AccountId, proposal_id: u64) -> Vec<u8> {
+    (MULTISIG_PROPOSAL_EXECUTION, multisig, proposal_id).encode()
+}
+
 pub trait WeightInfo {
     fn create_multisig(signers: u32) -> Weight;
     fn create_or_approve_proposal_as_identity() -> Weight;
@@ -896,7 +901,7 @@ impl<T: Config> Module<T> {
                         // Scheduling will fail when it's already scheduled (had enough votes already).
                         // We ignore the failure here.
                         let _ = T::Scheduler::schedule_named(
-                            (MULTISIG_PROPOSAL_EXECUTION, multisig.clone(), proposal_id).encode(),
+                            proposal_execution_name(&multisig, proposal_id),
                             DispatchTime::At(execution_at),
                             None,
                             MULTISIG_PROPOSAL_EXECUTION_PRIORITY,

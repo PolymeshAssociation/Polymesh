@@ -108,7 +108,7 @@ use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use pallet_base::{ensure_opt_string_limited, try_next_post};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
-    constants::{schedule_name_prefix::*, PIP_MAX_REPORTING_SIZE},
+    constants::PIP_MAX_REPORTING_SIZE,
     identity::Config as IdentityConfig,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{
@@ -178,6 +178,20 @@ pub struct PipDescription(pub Vec<u8>);
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PipId(pub u32);
 impl_checked_inc!(PipId);
+
+impl PipId {
+    /// Converts a PIP ID into a name of a PIP scheduled for execution.
+    pub fn execution_name(&self) -> Vec<u8> {
+        use polymesh_common_utilities::constants::schedule_name_prefix::*;
+        (PIP_EXECUTION, self.0).encode()
+    }
+
+    /// Converts a PIP ID into a name of a PIP scheduled for expiry.
+    pub fn expiry_name(&self) -> Vec<u8> {
+        use polymesh_common_utilities::constants::schedule_name_prefix::*;
+        (PIP_EXPIRY, self.0).encode()
+    }
+}
 
 /// Represents a proposal
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
@@ -1194,7 +1208,7 @@ impl<T: Config> Module<T> {
     /// Remove the PIP with `id` from the `ExecutionSchedule` at `block_no`.
     fn unschedule_pip(id: PipId) {
         <PipToSchedule<T>>::remove(id);
-        if let Err(_) = T::Scheduler::cancel_named(Self::pip_execution_name(id)) {
+        if let Err(_) = T::Scheduler::cancel_named(id.execution_name()) {
             Self::deposit_event(RawEvent::ExecutionCancellingFailed(id));
         }
     }
@@ -1257,7 +1271,7 @@ impl<T: Config> Module<T> {
 
         let call = Call::<T>::execute_scheduled_pip(id).into();
         let event = match T::Scheduler::schedule_named(
-            Self::pip_execution_name(id),
+            id.execution_name(),
             DispatchTime::At(at),
             None,
             MAX_NORMAL_PRIORITY,
@@ -1275,7 +1289,7 @@ impl<T: Config> Module<T> {
         let did = GC_DID;
         let call = Call::<T>::expire_scheduled_pip(did, id).into();
         let event = match T::Scheduler::schedule_named(
-            Self::pip_expiry_name(id),
+            id.expiry_name(),
             DispatchTime::At(at),
             None,
             MAX_NORMAL_PRIORITY,
@@ -1340,24 +1354,6 @@ impl<T: Config> Module<T> {
             // The performance impact of a saturating sub is negligible and caution is good.
             ActivePipCount::mutate(|count| *count = count.saturating_sub(1));
         }
-    }
-
-    /// Converts a PIP ID into a name of a PIP scheduled for execution.
-    fn pip_execution_name(id: PipId) -> Vec<u8> {
-        Self::pip_schedule_name(&PIP_EXECUTION[..], id)
-    }
-
-    /// Converts a PIP ID into a name of a PIP scheduled for expiry.
-    fn pip_expiry_name(id: PipId) -> Vec<u8> {
-        Self::pip_schedule_name(&PIP_EXPIRY[..], id)
-    }
-
-    /// Common method to create a unique name for the scheduler for a PIP.
-    fn pip_schedule_name(prefix: &[u8], id: PipId) -> Vec<u8> {
-        let mut name = Vec::with_capacity(prefix.len() + id.size_hint());
-        name.extend_from_slice(prefix);
-        id.encode_to(&mut name);
-        name
     }
 }
 
@@ -1534,10 +1530,38 @@ pub fn enact_snapshot_results<T: Config>(results: &[(PipId, SnapshotResult)]) ->
 
 #[cfg(test)]
 mod test {
+    use super::PipId;
+    use codec::Encode;
+
+    fn old_pip_execution_name(id: PipId) -> Vec<u8> {
+        use polymesh_common_utilities::constants::schedule_name_prefix::*;
+        old_pip_schedule_name(&PIP_EXECUTION[..], id)
+    }
+
+    fn old_pip_expiry_name(id: PipId) -> Vec<u8> {
+        use polymesh_common_utilities::constants::schedule_name_prefix::*;
+        old_pip_schedule_name(&PIP_EXPIRY[..], id)
+    }
+
+    fn old_pip_schedule_name(prefix: &[u8], id: PipId) -> Vec<u8> {
+        let mut name = Vec::with_capacity(prefix.len() + id.size_hint());
+        name.extend_from_slice(prefix);
+        id.encode_to(&mut name);
+        name
+    }
+
+    #[test]
+    // Check that new schedule name code matches old logic.
+    fn check_new_schedule_names() {
+        let id = PipId(1234);
+        assert_eq!(old_pip_execution_name(id), id.execution_name());
+        assert_eq!(old_pip_expiry_name(id), id.expiry_name());
+    }
+
     #[test]
     fn compare_spip_works() {
         let mk = |id, sign, power| super::SnapshottedPip {
-            id,
+            id: PipId(id),
             weight: (sign, power),
         };
         let a = mk(4, true, 50);
