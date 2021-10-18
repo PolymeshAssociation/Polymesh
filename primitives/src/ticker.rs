@@ -78,6 +78,11 @@ impl Decode for Ticker {
 }
 
 impl Ticker {
+    /// Used to make an unchecked ticker.
+    pub const fn new_unchecked(bytes: [u8; TICKER_LEN]) -> Self {
+        Ticker(bytes)
+    }
+
     /// Given a number, this function generates a ticker with
     /// A-Z, least number of characters in Lexicographic order.
     pub fn generate(n: u64) -> Vec<u8> {
