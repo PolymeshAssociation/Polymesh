@@ -623,8 +623,8 @@
     },
     "PolymeshVotes": {
       "index": "u32",
-      "ayes": "Vec<(IdentityId, Balance)>",
-      "nays": "Vec<(IdentityId, Balance)>",
+      "ayes": "Vec<IdentityId>",
+      "nays": "Vec<IdentityId>",
       "expiry": "MaybeBlock"
     },
     "PipId": "u32",
