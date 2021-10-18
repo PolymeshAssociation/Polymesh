@@ -687,8 +687,8 @@ impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Module<T> {
     // For weighting purposes, the function reads 4 storage values.
     fn check_account_call_permissions(
         who: &T::AccountId,
-        pallet_name: &PalletName,
-        function_name: &DispatchableName,
+        pallet_name: impl FnOnce() -> PalletName,
+        function_name: impl FnOnce() -> DispatchableName,
     ) -> Option<AccountCallPermissionsData<T::AccountId>> {
         let (did, record) = Self::did_record_of(who)?;
         let data = |secondary_key| AccountCallPermissionsData {
@@ -711,7 +711,7 @@ impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Module<T> {
             .secondary_keys
             .into_iter()
             .find(|sk| sk.signer.as_account().contains(&who))
-            .filter(|sk| sk.has_extrinsic_permission(pallet_name, function_name))
+            .filter(|sk| sk.has_extrinsic_permission(&pallet_name(), &function_name()))
             .map(|sk| data(Some(sk)))
     }
 }
