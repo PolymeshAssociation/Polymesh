@@ -83,6 +83,7 @@ pub mod checkpoint;
 
 use arrayvec::ArrayVec;
 use codec::{Decode, Encode};
+use core::mem;
 use core::result::Result as StdResult;
 use currency::*;
 use frame_support::{
@@ -92,7 +93,9 @@ use frame_support::{
     traits::Get,
 };
 use frame_system::ensure_root;
-use pallet_base::{ensure_opt_string_limited, ensure_string_limited};
+use pallet_base::{
+    ensure_opt_string_limited, ensure_string_limited, try_next_pre, Error::CounterOverflow,
+};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 pub use polymesh_common_utilities::traits::asset::{Config, Event, RawEvent, WeightInfo};
 use polymesh_common_utilities::{
@@ -813,8 +816,6 @@ decl_error! {
         FundingRoundNameMaxLengthExceeded,
         /// Some `AssetIdentifier` was invalid.
         InvalidAssetIdentifier,
-        /// An overflow while generating the next `CustomAssetTypeId`.
-        CustomAssetTypeIdOverflow,
     }
 }
 
@@ -1774,19 +1775,21 @@ impl<T: Config> Module<T> {
             ensure_opt_string_limited::<T>(doc.doc_type.as_deref())?;
         }
 
+        // Ensure we can advance documents ID sequence by `len`.
+        let pre = AssetDocumentsIdSequence::try_mutate(ticker, |id| {
+            id.0.checked_add(docs.len() as u32)
+                .ok_or(CounterOverflow::<T>)
+                .map(|new| mem::replace(id, DocumentId(new)))
+        })?;
+
         // Charge fee.
-        let len = docs.len();
-        T::ProtocolFee::batch_charge_fee(ProtocolOp::AssetAddDocuments, len)?;
+        T::ProtocolFee::batch_charge_fee(ProtocolOp::AssetAddDocuments, docs.len())?;
 
         // Add the documents & emit events.
-        AssetDocumentsIdSequence::mutate(ticker, |DocumentId(ref mut id)| {
-            for (id, doc) in (*id..).map(DocumentId).zip(docs) {
-                AssetDocuments::insert(ticker, id, doc.clone());
-                Self::deposit_event(RawEvent::DocumentAdded(did, ticker, id, doc));
-            }
-            *id += len as u32;
-        });
-
+        for (id, doc) in (pre.0..).map(DocumentId).zip(docs) {
+            AssetDocuments::insert(ticker, id, doc.clone());
+            Self::deposit_event(RawEvent::DocumentAdded(did, ticker, id, doc));
+        }
         Ok(())
     }
 
@@ -2192,12 +2195,7 @@ impl<T: Config> Module<T> {
         match CustomTypesInverse::try_get(&ty) {
             Ok(id) => Self::deposit_event(Event::<T>::CustomAssetTypeExists(did, id, ty)),
             Err(()) => {
-                let id = CustomTypeIdSequence::try_mutate(|id| -> Result<_, DispatchError> {
-                    id.0 =
-                        id.0.checked_add(1)
-                            .ok_or(Error::<T>::CustomAssetTypeIdOverflow)?;
-                    Ok(*id)
-                })?;
+                let id = CustomTypeIdSequence::try_mutate(try_next_pre::<T, _>)?;
                 CustomTypesInverse::insert(&ty, id);
                 CustomTypes::insert(id, ty.clone());
                 Self::deposit_event(Event::<T>::CustomAssetTypeRegistered(did, id, ty));

@@ -106,13 +106,14 @@ use frame_support::{
 };
 use frame_system::ensure_root;
 use pallet_asset::checkpoint::{self, SchedulePoints, ScheduleRefCount};
+use pallet_base::try_next_post;
 use polymesh_common_utilities::{
     balances::Config as BalancesConfig, identity::Config as IdentityConfig, traits::asset,
     traits::checkpoint::ScheduleId, with_transaction, GC_DID,
 };
 use polymesh_primitives::{
-    calendar::CheckpointId, storage_migration_ver, Balance, DocumentId, EventDid, IdentityId,
-    Moment, Ticker,
+    calendar::CheckpointId, impl_checked_inc, storage_migration_ver, Balance, DocumentId, EventDid,
+    IdentityId, Moment, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_arithmetic::Permill;
@@ -289,6 +290,7 @@ impl CorporateAction {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Default, Debug)]
 pub struct LocalCAId(pub u32);
+impl_checked_inc!(LocalCAId);
 
 /// A unique global identifier for a CA.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -530,7 +532,7 @@ decl_module! {
         /// # Errors
         /// - `DetailsTooLong` if `details.len()` goes beyond `max_details_length`.
         /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
-        /// - `LocalCAIdOverflow` in the unlikely event that so many CAs were created for this `ticker`,
+        /// - `CounterOverflow` in the unlikely event that so many CAs were created for this `ticker`,
         ///   that integer overflow would have occured if instead allowed.
         /// - `TooManyDidTaxes` if `withholding_tax.unwrap().len()` would go over the limit `MaxDidWhts`.
         /// - `DuplicateDidTax` if a DID is included more than once in `wt`.
@@ -572,8 +574,8 @@ decl_module! {
             let caa = <ExternalAgents<T>>::ensure_perms(origin, ticker)?.for_event();
 
             // Ensure that the next local CA ID doesn't overflow.
-            let local_id = CAIdSequence::get(ticker);
-            let next_id = local_id.0.checked_add(1).map(LocalCAId).ok_or(Error::<T>::LocalCAIdOverflow)?;
+            let mut next_id = CAIdSequence::get(ticker);
+            let local_id = try_next_post::<T, _>(&mut next_id)?;
             let id = CAId { ticker, local_id };
 
             // Ensure there are no duplicates in withholding tax overrides
@@ -804,9 +806,6 @@ decl_error! {
         AuthNotCAATransfer,
         /// The `details` of a CA exceeded the max allowed length.
         DetailsTooLong,
-        /// There have been too many CAs for this ticker and the ID would overflow.
-        /// This won't occur in practice.
-        LocalCAIdOverflow,
         /// A withholding tax override for a given DID was specified more than once.
         /// The chain refused to make a choice, and hence there was an error.
         DuplicateDidTax,

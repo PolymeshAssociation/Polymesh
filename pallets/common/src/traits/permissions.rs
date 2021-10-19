@@ -44,7 +44,7 @@ pub trait CheckAccountCallPermissions<AccountId: Encode + Decode> {
     /// - `None` if the call is not allowed.
     fn check_account_call_permissions(
         who: &AccountId,
-        pallet_name: &PalletName,
-        function_name: &DispatchableName,
+        pallet_name: impl FnOnce() -> PalletName,
+        function_name: impl FnOnce() -> DispatchableName,
     ) -> Option<AccountCallPermissionsData<AccountId>>;
 }

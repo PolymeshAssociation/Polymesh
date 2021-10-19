@@ -291,9 +291,9 @@ benchmarks! {
     }
 
     replace_asset_compliance {
-        let c in 0..(MAX_COMPLIANCE_REQUIREMENTS-1);
+        let c in 0..MAX_COMPLIANCE_REQUIREMENTS;
 
-        // Add the compliance requirement.
+        // Always add at least one compliance requirement.
         let d = ComplianceRequirementBuilder::<T>::new(
             MAX_TRUSTED_ISSUER_PER_CONDITION,
             MAX_SENDER_CONDITIONS_PER_COMPLIANCE,
@@ -304,8 +304,8 @@ benchmarks! {
         let sender_conditions = make_conditions(MAX_SENDER_CONDITIONS_PER_COMPLIANCE, &issuers);
         let receiver_conditions = make_conditions(MAX_RECEIVER_CONDITIONS_PER_COMPLIANCE, &issuers);
 
-        // Add new requirements to the asset.
-        (0..c).for_each( |_i| {
+        // Add more requirements to the asset, if `c > 1`.
+        (1..c).for_each( |_i| {
             let _ = Module::<T>::add_compliance_requirement(
                 d.owner.origin.clone().into(),
                 d.ticker.clone(),

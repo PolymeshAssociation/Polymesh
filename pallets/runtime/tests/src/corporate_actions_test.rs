@@ -49,6 +49,7 @@ type CA = pallet_corporate_actions::Module<TestStorage>;
 type Ballot = pallet_corporate_actions::ballot::Module<TestStorage>;
 type Dist = distribution::Module<TestStorage>;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
+type BaseError = pallet_base::Error<TestStorage>;
 type Error = pallet_corporate_actions::Error<TestStorage>;
 type BallotError = pallet_corporate_actions::ballot::Error<TestStorage>;
 type DistError = distribution::Error<TestStorage>;
@@ -520,7 +521,7 @@ fn initiate_corporate_action_local_id_overflow() {
         let init_ca = || dated_ca(owner, ticker, CAKind::Other, None);
         assert_ok!(init_ca()); // -2; OK
         assert_ok!(init_ca()); // -1; OK
-        assert_noop!(init_ca(), Error::LocalCAIdOverflow); // 0; Next overflows, so error already.
+        assert_noop!(init_ca(), BaseError::CounterOverflow); // 0; Next overflows, so error already.
     });
 }
 

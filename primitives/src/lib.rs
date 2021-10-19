@@ -172,6 +172,9 @@ pub use identity_id::{
 pub mod identity;
 pub use identity::Identity;
 
+/// Provides the `CheckedInc` trait.
+pub mod checked_inc;
+
 /// CDD Identity is an ID to link the encrypted investor UID with one Identity ID.
 /// That keeps the privacy of a real investor and its global portfolio split in several Polymesh
 /// Identities.

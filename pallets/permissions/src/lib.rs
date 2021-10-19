@@ -73,8 +73,8 @@ impl<T: Config> Module<T> {
     ) -> Result<AccountCallPermissionsData<T::AccountId>, DispatchError> {
         T::Checker::check_account_call_permissions(
             who,
-            &Self::current_pallet_name(),
-            &Self::current_dispatchable_name(),
+            || Self::current_pallet_name(),
+            || Self::current_dispatchable_name(),
         )
         .ok_or_else(|| Error::<T>::UnauthorizedCaller.into())
     }
