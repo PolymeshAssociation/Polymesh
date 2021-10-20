@@ -111,7 +111,7 @@ export async function createIdentitiesWithExpiry(
   for (let account of receivers) {
     let account_did = (await keyToIdentityIds(account.publicKey)).toString();
 
-		if (parseInt(account_did) == 0) {
+    if (parseInt(account_did) == 0) {
       console.log(`>>>> [Register CDD Claim] acc: ${account.address}`);
       const transaction = api.tx.identity.cddRegisterDid(account.address, []);
       await sendTx(signer, transaction);
@@ -128,8 +128,8 @@ async function setDidsArray(dids: IdentityId[], receivers: KeyringPair[]) {
   for (let i in receivers) {
     const did = await keyToIdentityIds(receivers[i].publicKey);
     dids.push(did);
-		 console.log(`>>>> [Get DID ] acc: ${receivers[i].address} did: ${dids[i]}`);
-	}
+    console.log(`>>>> [Get DID ] acc: ${receivers[i].address} did: ${dids[i]}`);
+  }
 }
 
 async function addCddClaim(
