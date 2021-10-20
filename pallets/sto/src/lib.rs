@@ -6,7 +6,7 @@
 //!
 //! ## Overview
 //!
-//! Primary issuance agent's can create and manage fundraisers of assets.
+//! Sufficiently permissioned external agent's can create and manage fundraisers of assets.
 //! Fundraisers are of fixed supply, with optional expiry and tiered pricing.
 //! Fundraisers allow a single payment asset, known as the raising asset.
 //! Investors can invest through on-chain balance or off-chain receipts.
@@ -82,7 +82,7 @@ impl Default for FundraiserStatus {
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct Fundraiser<Moment> {
-    /// The primary issuance agent that created the `Fundraiser`.
+    /// The permissioned agent that created the `Fundraiser`.
     pub creator: IdentityId,
     /// Portfolio containing the asset being offered.
     pub offering_portfolio: PortfolioId,
@@ -180,19 +180,19 @@ decl_event!(
         Moment = <T as pallet_timestamp::Config>::Moment,
     {
         /// A new fundraiser has been created.
-        /// (primary issuance agent, fundraiser id, fundraiser name, fundraiser details)
+        /// (Agent DID, fundraiser id, fundraiser name, fundraiser details)
         FundraiserCreated(IdentityId, FundraiserId, FundraiserName, Fundraiser<Moment>),
         /// An investor invested in the fundraiser.
         /// (Investor, fundraiser_id, offering token, raise token, offering_token_amount, raise_token_amount)
         Invested(IdentityId, FundraiserId, Ticker, Ticker, Balance, Balance),
         /// A fundraiser has been frozen.
-        /// (primary issuance agent, fundraiser id)
+        /// (Agent DID, fundraiser id)
         FundraiserFrozen(IdentityId, FundraiserId),
         /// A fundraiser has been unfrozen.
-        /// (primary issuance agent, fundraiser id)
+        /// (Agent DID, fundraiser id)
         FundraiserUnfrozen(IdentityId, FundraiserId),
         /// A fundraiser window has been modified.
-        /// (primary issuance agent, fundraiser id, old_start, old_end, new_start, new_end)
+        /// (Agent DID, fundraiser id, old_start, old_end, new_start, new_end)
         FundraiserWindowModified(
             EventDid,
             FundraiserId,
@@ -202,7 +202,7 @@ decl_event!(
             Option<Moment>,
         ),
         /// A fundraiser has been stopped.
-        /// (primary issuance agent, fundraiser id)
+        /// (Agent DID, fundraiser id)
         FundraiserClosed(IdentityId, FundraiserId),
     }
 );
