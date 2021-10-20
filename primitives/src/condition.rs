@@ -44,7 +44,7 @@ pub enum ConditionType {
     IsAnyOf(Vec<Claim>),
     /// Condition to ensure that at none of claims is fetched when filter is applied.
     IsNoneOf(Vec<Claim>),
-    /// Condition to ensure that the sender/receiver is a particular identity or primary issuance agent
+    /// Condition to ensure that the sender/receiver is a particular identity or an external agent.
     IsIdentity(TargetIdentity),
 }
 
