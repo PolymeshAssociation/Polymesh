@@ -69,10 +69,7 @@ use frame_system::{self as system, ensure_root, RawOrigin};
 use pallet_base::{ensure_string_limited, try_next_post};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
-    constants::{
-        queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,
-        schedule_name_prefix::SETTLEMENT_INSTRUCTION_EXECUTION,
-    },
+    constants::queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,
     traits::{
         asset, identity::Config as IdentityConfig, portfolio::PortfolioSubTrait, CommonConfig,
     },
@@ -218,6 +215,13 @@ impl_checked_inc!(LegId);
 #[derive(Copy, Clone, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct InstructionId(pub u64);
 impl_checked_inc!(InstructionId);
+
+impl InstructionId {
+    /// Converts an instruction id into a scheduler name.
+    pub fn execution_name(&self) -> Vec<u8> {
+        (polymesh_common_utilities::constants::schedule_name_prefix::SETTLEMENT_INSTRUCTION_EXECUTION, self.0).encode()
+    }
+}
 
 /// Details about an instruction
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
@@ -661,7 +665,7 @@ decl_module! {
             Self::unsafe_withdraw_instruction_affirmation(did, id, portfolios_set, secondary_key.as_ref(), max_legs_count)?;
             if details.settlement_type == SettlementType::SettleOnAffirmation {
                 // Cancel the scheduled task for the execution of a given instruction.
-                let _ = T::Scheduler::cancel_named((SETTLEMENT_INSTRUCTION_EXECUTION, id).encode());
+                let _ = T::Scheduler::cancel_named(id.execution_name());
             }
         }
 
@@ -703,7 +707,7 @@ decl_module! {
 
             Self::unsafe_unclaim_receipts(id, &legs);
             Self::unchecked_release_locks(id, &legs);
-            let _ = T::Scheduler::cancel_named((SETTLEMENT_INSTRUCTION_EXECUTION, id).encode());
+            let _ = T::Scheduler::cancel_named(id.execution_name());
             Self::prune_instruction(id);
             Self::deposit_event(RawEvent::InstructionRejected(primary_did, id));
         }
@@ -1352,7 +1356,7 @@ impl<T: Config> Module<T> {
     fn schedule_instruction(id: InstructionId, execution_at: T::BlockNumber, legs_count: u32) {
         let call = Call::<T>::execute_scheduled_instruction(id, legs_count).into();
         if let Err(_) = T::Scheduler::schedule_named(
-            (SETTLEMENT_INSTRUCTION_EXECUTION, id).encode(),
+            id.execution_name(),
             DispatchTime::At(execution_at),
             None,
             SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,

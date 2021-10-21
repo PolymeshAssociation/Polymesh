@@ -99,10 +99,7 @@ use frame_support::{
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use pallet_permissions::with_call_metadata;
-use polymesh_common_utilities::constants::{
-    queue_priority::MULTISIG_PROPOSAL_EXECUTION_PRIORITY,
-    schedule_name_prefix::MULTISIG_PROPOSAL_EXECUTION,
-};
+use polymesh_common_utilities::constants::queue_priority::MULTISIG_PROPOSAL_EXECUTION_PRIORITY;
 use polymesh_common_utilities::{
     identity::Config as IdentityConfig, multisig::MultiSigSubTrait,
     transaction_payment::CddAndFeeDetails, Context,
@@ -181,6 +178,12 @@ impl Default for ProposalStatus {
     fn default() -> Self {
         Self::Invalid
     }
+}
+
+/// Convert multisig account and proposal id into a scheduler name.
+fn proposal_execution_name<AccountId: Encode>(multisig: &AccountId, proposal_id: u64) -> Vec<u8> {
+    use polymesh_common_utilities::constants::schedule_name_prefix::*;
+    (MULTISIG_PROPOSAL_EXECUTION, multisig, proposal_id).encode()
 }
 
 pub trait WeightInfo {
@@ -896,7 +899,7 @@ impl<T: Config> Module<T> {
                         // Scheduling will fail when it's already scheduled (had enough votes already).
                         // We ignore the failure here.
                         let _ = T::Scheduler::schedule_named(
-                            (MULTISIG_PROPOSAL_EXECUTION, multisig.clone(), proposal_id).encode(),
+                            proposal_execution_name(&multisig, proposal_id),
                             DispatchTime::At(execution_at),
                             None,
                             MULTISIG_PROPOSAL_EXECUTION_PRIORITY,
