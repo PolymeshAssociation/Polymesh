@@ -190,7 +190,7 @@ decl_module! {
         /// Creates a single checkpoint at the current time.
         ///
         /// # Arguments
-        /// - `origin` is a signer that has permissions to act as owner of `ticker`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ticker`.
         /// - `ticker` to create the checkpoint for.
         ///
         /// # Errors
