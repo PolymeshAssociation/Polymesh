@@ -291,6 +291,7 @@ pub mod testing_utils;
 pub mod inflation;
 pub mod offchain_election;
 pub mod slashing;
+pub mod weights;
 
 use codec::{Decode, Encode, HasCompact};
 use frame_support::{
@@ -350,6 +351,7 @@ use sp_std::{
     prelude::*,
     result,
 };
+pub use weights::WeightInfo;
 
 const STAKING_ID: LockIdentifier = *b"staking ";
 pub const MAX_UNLOCKING_CHUNKS: usize = 32;
@@ -507,6 +509,11 @@ impl Default for ValidatorPrefs {
         }
     }
 }
+
+// Polymesh-note:
+// Our validators are permissioned,
+// and we allow limiting the number of validators an identity can run.
+// -----------------------------------------------------------------------------
 
 /// Preference of an identity regarding validation.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
@@ -847,43 +854,6 @@ where
 }
 
 type Identity<T> = identity::Module<T>;
-
-pub trait WeightInfo {
-    fn bond() -> Weight;
-    fn bond_extra() -> Weight;
-    fn unbond() -> Weight;
-    fn withdraw_unbonded_update(s: u32) -> Weight;
-    fn withdraw_unbonded_kill(s: u32) -> Weight;
-    fn set_min_bond_threshold() -> Weight;
-    fn add_permissioned_validator() -> Weight;
-    fn remove_permissioned_validator() -> Weight;
-    fn set_commission_cap(m: u32) -> Weight;
-    fn validate() -> Weight;
-    fn nominate(n: u32) -> Weight;
-    fn chill() -> Weight;
-    fn set_payee() -> Weight;
-    fn set_controller() -> Weight;
-    fn set_validator_count() -> Weight;
-    fn force_no_eras() -> Weight;
-    fn force_new_era() -> Weight;
-    fn force_new_era_always() -> Weight;
-    fn set_invulnerables(v: u32) -> Weight;
-    fn force_unstake(s: u32) -> Weight;
-    fn cancel_deferred_slash(s: u32) -> Weight;
-    fn payout_stakers(n: u32) -> Weight;
-    fn payout_stakers_alive_controller(n: u32) -> Weight;
-    fn rebond(l: u32) -> Weight;
-    fn set_history_depth(e: u32) -> Weight;
-    fn reap_stash(s: u32) -> Weight;
-    fn new_era(v: u32, n: u32) -> Weight;
-    fn do_slash(l: u32) -> Weight;
-    fn payout_all(v: u32, n: u32) -> Weight;
-    fn submit_solution_better(v: u32, n: u32, a: u32, w: u32) -> Weight;
-    fn change_slashing_allowed_for() -> Weight;
-    fn update_permissioned_validator_intended_count() -> Weight;
-    fn increase_validator_count() -> Weight;
-    fn scale_validator_count() -> Weight;
-}
 
 pub trait Config:
     frame_system::Config + SendTransactionTypes<Call<Self>> + pallet_babe::Config + IdentityConfig
@@ -3948,21 +3918,24 @@ where
             T::AccountId,
             pallet_session::historical::IdentificationTuple<T>,
         >],
-        raw_slash_fraction: &[Perbill],
+        slash_fraction: &[Perbill],
         slash_session: SessionIndex,
     ) -> Result<Weight, ()> {
         if !Self::can_report() {
             return Err(());
         }
 
-        // Polymesh-note: When slashing is off or allowed for none, set slash fraction to zero
+        // Polymesh-note:
+        // When slashing is off or allowed for none, set slash fraction to zero.
+        // ---------------------------------------------------------------------
         let long_living_slash_fraction;
         let slash_fraction = if Self::slashing_allowed_for() == SlashingSwitch::None {
-            long_living_slash_fraction = vec![Perbill::from_parts(0); raw_slash_fraction.len()];
+            long_living_slash_fraction = vec![Perbill::from_parts(0); slash_fraction.len()];
             long_living_slash_fraction.as_slice()
         } else {
-            raw_slash_fraction
+            slash_fraction
         };
+        // ---------------------------------------------------------------------
 
         let reward_proportion = SlashRewardFraction::get();
         let mut consumed_weight: Weight = 0;
