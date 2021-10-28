@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{ClaimType, Ticker};
+use crate::{Claim, ClaimType, IdentityId, Scope, Ticker};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
@@ -79,39 +79,61 @@ pub enum AssetScope {
     /// Ticker scope.
     Ticker(Ticker),
     //TickerGroup(TickerGroupId),
-    //Company(CompanyID),
+    //Company(CompanyId),
+}
+
+impl From<AssetScope> for Scope {
+    fn from(asset: AssetScope) -> Scope {
+        match asset {
+            AssetScope::Ticker(ticker) => Scope::Ticker(ticker),
+        }
+    }
+}
+
+impl AssetScope {
+    /// Get claim scope from asset scope.
+    pub fn claim_scope(&self) -> Scope {
+        match self {
+            AssetScope::Ticker(ticker) => Scope::Ticker(*ticker),
+        }
+    }
+}
+
+/// Stats Operation type.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
+pub enum StatOpType {
+    /// Count - Investor count stats.
+    Count,
+    /// Balance - Balance stat can be used for Percentage rules, since the `total_supply` of an asset can change (burn/mint)
+    Balance,
 }
 
 /// Stats type.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
-pub enum StatType {
-    /// Count(None) - Investor count stats (for maximum investor rule).
-    /// Count(Some(ClaimType::Accredited)) - (non-)Accredited investor count
-    ///    (To limit the number of non-accredited investors).
-    /// Count(Some(ClaimType::Jurisdiction)) - Per-jurisdiction investor count.
-    Count(Option<ClaimType>),
-    /// Balance stat can be used for Percentage rules, since the `total_supply` of an asset can change (burn/mint)
-    /// it is better to store a balance.
-    /// Balance(None) - Total balance per investor.
-    /// Balance(Some(ClaimType::Accredited)) - Total balance for Accredited or non-Accredited investors.
-    /// Balance(Some(ClaimType::Jurisdiction)) - Per-jurisdiction balance (for per-jurisdiction max percentage rules).
-    Balance(Option<ClaimType>),
+pub struct StatType {
+    /// Stats operation type.
+    pub op: StatOpType,
+    /// ClaimType and issuer for this stat type.
+    pub claim_issuer: Option<(ClaimType, IdentityId)>,
 }
 
-impl StatType {
-    /// Get the `ClaimType` from `StatType`.
-    pub fn claim_type(&self) -> Option<ClaimType> {
-        match self {
-            Self::Count(claim_type) => *claim_type,
-            Self::Balance(claim_type) => *claim_type,
-        }
-    }
+/// First stats key in double map.
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
+pub struct Stat1stKey {
+    /// Asset scope.
+    pub asset: AssetScope,
+    /// Stat type.
+    pub stat_type: StatType,
+}
 
-    /// An issuer is needed if the `StatType` has a `ClaimType`.
-    pub fn need_issuer(&self) -> bool {
-        self.claim_type().is_some()
-    }
+/// Second stats key in double map.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+pub struct Stat2ndKey {
+    /// For per-Claim stats (Jurisdiction, Accredited, etc...).
+    /// Non-Accredited stats would be stored with a `None` here.
+    pub claim: Option<Claim>,
 }
 
 // TODO: Maybe make a `ClaimStat` type, since all of the claims should have the same `Scope::Ticker(ticker)` value.

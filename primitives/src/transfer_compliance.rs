@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::statistics::{Percentage, StatType};
+use crate::statistics::Percentage;
 use crate::{Claim, ClaimType, IdentityId, Scope};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
@@ -44,19 +44,9 @@ pub enum TransferConditionType {
 }
 
 impl TransferConditionType {
-    /// Get the `StatType` needed by this transfer condition.
-    pub fn needed_stat_type(&self) -> StatType {
-        match self {
-            Self::MaxInvestorCount(_) => StatType::Count(None),
-            Self::MaxInvestorOwnership(_) => StatType::Balance(None),
-            Self::ClaimCount(claim, _, _) => StatType::Count(Some(claim.claim_type())),
-            Self::ClaimOwnership(claim, _, _) => StatType::Balance(Some(claim.claim_type())),
-        }
-    }
-
     /// Get the `ClaimType` from this transfer condition.
     pub fn claim_type(&self) -> Option<ClaimType> {
-        self.as_claim().and_then(|claim| claim.claim_type())
+        self.as_claim().map(|claim| claim.claim_type())
     }
 
     /// The claim of this transfer condtion.

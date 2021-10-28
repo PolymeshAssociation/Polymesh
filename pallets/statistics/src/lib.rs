@@ -27,32 +27,16 @@ use frame_support::{
 pub use polymesh_common_utilities::traits::statistics::{Config, Event, WeightInfo};
 use polymesh_primitives::{
     statistics::{
-        AssetScope, Counter, Percentage, StatType, TransferManager, TransferManagerResult,
+        AssetScope, Counter, Percentage,
+        Stat1stKey, Stat2ndKey, StatOpType, StatType,
+        TransferManager, TransferManagerResult,
     },
-    Balance, Claim, ClaimType, IdentityId, Scope, ScopeId, Ticker,
+    Balance, Claim, IdentityId, Scope, ScopeId, Ticker,
 };
 use sp_std::vec::Vec;
 
 type Identity<T> = pallet_identity::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
-
-/// First stats key in double map.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
-pub struct Stat1stKey {
-    pub asset: AssetScope,
-    pub stat_type: StatType,
-    /// The trusted issuer for `StatType`.  For `StatType::Count(None)` this is `None`.
-    /// Only the trusted issuer or a permissioned external agent for the asset can init/resync the stats.
-    pub issuer: Option<IdentityId>,
-}
-
-/// Second stats key in double map.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
-pub struct Stat2ndKey {
-    /// For per-Claim stats (Jurisdiction, Accredited, etc...).
-    /// Non-Accredited stats would be stored with a `None` here.
-    pub claim: Option<Claim>,
-}
 
 /// Stats update.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
@@ -78,7 +62,7 @@ decl_storage! {
             =>
                 bool;
         /// Active stats for a ticker/company.  There should be a max limit on the number of active stats for a ticker/company.
-        pub ActiveAssetStats get(fn active_asset_stats): map hasher(blake2_128_concat) AssetScope => Vec<(StatType, Option<IdentityId>)>;
+        pub ActiveAssetStats get(fn active_asset_stats): map hasher(blake2_128_concat) AssetScope => Vec<StatType>;
         /// Asset stats.
         pub AssetStats get(fn asset_stats):
           double_map
@@ -197,7 +181,7 @@ decl_module! {
         /// # Permissions (EA)
         /// * Asset
         #[weight = 0]
-        pub fn set_active_asset_stats(origin, asset: AssetScope, stat_types: Vec<(StatType, Option<IdentityId>)>) {
+        pub fn set_active_asset_stats(origin, asset: AssetScope, stat_types: Vec<StatType>) {
             // TODO: benchmark and weight.
             Self::base_set_active_asset_stats(origin, asset, stat_types)?;
         }
@@ -206,9 +190,9 @@ decl_module! {
         /// # Permissions (EA)
         /// * Asset
         #[weight = 0]
-        pub fn batch_update_asset_stats(origin, asset: AssetScope, stat_type: StatType, issuer: Option<IdentityId>, values: Vec<StatUpdate>) {
+        pub fn batch_update_asset_stats(origin, asset: AssetScope, stat_type: StatType, values: Vec<StatUpdate>) {
             // TODO: benchmark and weight.
-            Self::base_batch_update_asset_stats(origin, asset, stat_type, issuer, values)?;
+            Self::base_batch_update_asset_stats(origin, asset, stat_type, values)?;
         }
     }
 }
@@ -223,14 +207,14 @@ impl<T: Config> Module<T> {
         }
     }
 
-    fn is_asset_stat_active(asset: AssetScope, stat_type: (StatType, Option<IdentityId>)) -> bool {
+    fn is_asset_stat_active(asset: AssetScope, stat_type: StatType) -> bool {
         Self::active_asset_stats(asset).contains(&stat_type)
     }
 
     fn base_set_active_asset_stats(
         origin: T::Origin,
         asset: AssetScope,
-        stat_types: Vec<(StatType, Option<IdentityId>)>,
+        stat_types: Vec<StatType>,
     ) -> DispatchResult {
         // Check EA permissions for asset.
         let _did = Self::ensure_asset_perms(origin, asset)?;
@@ -239,24 +223,12 @@ impl<T: Config> Module<T> {
             stat_types.len() < T::MaxTransferManagersPerAsset::get() as usize,
             Error::<T>::TransferManagersLimitReached
         );
-        // Make sure stats with a `ClaimType` have an issuer.
-        for (stat_type, issuer) in stat_types.iter() {
-            // TODO: Need a better error.
-            ensure!(
-                stat_type.need_issuer() == issuer.is_some(),
-                Error::<T>::TransferManagersLimitReached
-            );
-        }
 
         // Cleanup storage for old types to be removed.
-        for (stat_type, issuer) in Self::active_asset_stats(asset).into_iter() {
-            if !stat_types.contains(&(stat_type, issuer)) {
+        for stat_type in Self::active_asset_stats(asset).into_iter() {
+            if !stat_types.contains(&stat_type) {
                 // Cleanup storage for this stat type, since it is being removed.
-                AssetStats::remove_prefix(Stat1stKey {
-                    asset,
-                    stat_type,
-                    issuer,
-                });
+                AssetStats::remove_prefix(Stat1stKey { asset, stat_type });
             }
         }
         // Save new stat types.
@@ -269,7 +241,6 @@ impl<T: Config> Module<T> {
         origin: T::Origin,
         asset: AssetScope,
         stat_type: StatType,
-        issuer: Option<IdentityId>,
         values: Vec<StatUpdate>,
     ) -> DispatchResult {
         // Check EA permissions for asset.
@@ -278,14 +249,10 @@ impl<T: Config> Module<T> {
         // Check that `stat_type` is active for `asset`.
         // TODO: add error variant.
         ensure!(
-            Self::is_asset_stat_active(asset, (stat_type, issuer)),
+            Self::is_asset_stat_active(asset, stat_type),
             Error::<T>::TransferManagerMissing
         );
-        let key1 = Stat1stKey {
-            asset,
-            stat_type,
-            issuer,
-        };
+        let key1 = Stat1stKey { asset, stat_type };
         // process `values` to update stats.
         values.into_iter().for_each(|StatUpdate { claim, value }| {
             let key2 = Stat2ndKey { claim };
@@ -364,15 +331,11 @@ impl<T: Config> Module<T> {
     }
 
     /// Fetch claims.
-    fn fetch_claim(
-        did: Option<IdentityId>,
-        claim_type: Option<ClaimType>,
-        issuer: Option<IdentityId>,
-        scope: Scope,
-    ) -> Stat2ndKey {
-        let claim = match (claim_type, issuer, did) {
-            (Some(claim_type), Some(issuer), Some(did)) => {
-                Identity::<T>::fetch_claim(did, claim_type, issuer, Some(scope)).map(|c| c.claim)
+    fn fetch_claim(did: Option<IdentityId>, stat_type: &StatType, scope: &Scope) -> Stat2ndKey {
+        let claim = match (stat_type.claim_issuer, did) {
+            (Some((claim_type, issuer)), Some(did)) => {
+                Identity::<T>::fetch_claim(did, claim_type, issuer, Some(scope.clone()))
+                    .map(|c| c.claim)
             }
             _ => None,
         };
@@ -420,29 +383,21 @@ impl<T: Config> Module<T> {
         let count_changes = Self::investor_count_changes(from_balance, to_balance, amount);
 
         let asset = AssetScope::Ticker(*ticker);
-        let scope = Scope::Ticker(*ticker);
+        let scope = asset.into();
         // Update active asset stats.
-        for (stat_type, issuer) in Self::active_asset_stats(asset).into_iter() {
-            let key1 = Stat1stKey {
-                asset,
-                stat_type,
-                issuer,
-            };
-            match stat_type {
-                StatType::Count(claim_type) => {
+        for stat_type in Self::active_asset_stats(asset).into_iter() {
+            let key1 = Stat1stKey { asset, stat_type };
+            match stat_type.op {
+                StatOpType::Count => {
                     if let Some(changes) = count_changes {
-                        let from_key2 =
-                            Self::fetch_claim(from_did, claim_type, issuer, scope.clone());
-                        let to_key2 = Self::fetch_claim(to_did, claim_type, issuer, scope.clone());
+                        let from_key2 = Self::fetch_claim(from_did, &stat_type, &scope);
+                        let to_key2 = Self::fetch_claim(to_did, &stat_type, &scope);
                         Self::update_asset_count_stats(key1, from_key2, to_key2, changes);
                     }
                 }
-                StatType::Balance(None) => {
-                    // No stats updated needed for per-investor balance.
-                }
-                StatType::Balance(claim_type) => {
-                    let from_key2 = Self::fetch_claim(from_did, claim_type, issuer, scope.clone());
-                    let to_key2 = Self::fetch_claim(to_did, claim_type, issuer, scope.clone());
+                StatOpType::Balance => {
+                    let from_key2 = Self::fetch_claim(from_did, &stat_type, &scope);
+                    let to_key2 = Self::fetch_claim(to_did, &stat_type, &scope);
                     Self::update_asset_balance_stats(
                         key1,
                         from_key2,
