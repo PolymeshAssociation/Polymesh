@@ -1439,6 +1439,8 @@ decl_error! {
         InvalidValidatorIdentity,
         /// Validator prefs are not in valid range.
         InvalidValidatorCommission,
+        /// Validator stash identity does not exist.
+        StashIdentityDoesNotExist,
         /// Validator stash identity was not permissioned.
         StashIdentityNotPermissioned,
         /// Running validator count hit the intended count.
@@ -1687,10 +1689,6 @@ decl_module! {
         /// - Read: Bonded, Ledger, [Origin Account], Current Era, History Depth, Locks
         /// - Write: Bonded, Payee, [Origin Account], Locks, Ledger
         /// # </weight>
-        /// # Arguments
-        /// * origin Stash account (signer of the extrinsic).
-        /// * controller Account that controls the operation of stash.
-        /// * payee Destination where reward can be transferred.
         #[weight = <T as Config>::WeightInfo::bond()]
         pub fn bond(origin,
             controller: <T::Lookup as StaticLookup>::Source,
@@ -1698,17 +1696,23 @@ decl_module! {
             payee: RewardDestination<T::AccountId>,
         ) {
             let stash = ensure_signed(origin)?;
-            ensure!(!<Bonded<T>>::contains_key(&stash), Error::<T>::AlreadyBonded);
-            ensure!(value >= T::MinimumBond::get() , Error::<T>::BondTooSmall);
+
+            ensure!(value >= T::MinimumBond::get(), Error::<T>::BondTooSmall);
+
+            if <Bonded<T>>::contains_key(&stash) {
+                Err(Error::<T>::AlreadyBonded)?
+            }
 
             let controller = T::Lookup::lookup(controller)?;
-            ensure!(!<Ledger<T>>::contains_key(&controller), Error::<T>::AlreadyPaired);
 
-            // Reject a bond which is considered to be _dust_.
-            // Not needed this check as we removes the Existential deposit concept
-            // but keeping this to be defensive.
-            let min_balance = <T as Config>::Currency::minimum_balance();
-            ensure!( value >= min_balance, Error::<T>::InsufficientValue);
+            if <Ledger<T>>::contains_key(&controller) {
+                Err(Error::<T>::AlreadyPaired)?
+            }
+
+            // reject a bond which is considered to be _dust_.
+            if value < T::Currency::minimum_balance() {
+                Err(Error::<T>::InsufficientValue)?
+            }
 
             system::Module::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
 
@@ -1756,10 +1760,6 @@ decl_module! {
         /// - Read: Era Election Status, Bonded, Ledger, [Origin Account], Locks
         /// - Write: [Origin Account], Locks, Ledger
         /// # </weight>
-        ///
-        /// # Arguments
-        /// * origin Stash account (signer of the extrinsic).
-        /// * max_additional Extra amount that need to be bonded.
         #[weight = <T as Config>::WeightInfo::bond_extra()]
         pub fn bond_extra(origin, #[compact] max_additional: BalanceOf<T>) {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
@@ -1774,7 +1774,7 @@ decl_module! {
                 ledger.total += extra;
                 ledger.active += extra;
                 // last check: the new active amount of ledger must be more than ED.
-                // ensure!(ledger.active >= T::Currency::minimum_balance(), Error::<T>::InsufficientValue);
+                ensure!(ledger.active >= T::Currency::minimum_balance(), Error::<T>::InsufficientValue);
                 let did = Context::current_identity::<T::IdentityFn>().unwrap_or_default();
                 Self::deposit_event(RawEvent::Bonded(did, stash, extra));
                 Self::update_ledger(&controller, &ledger);
@@ -1813,10 +1813,6 @@ decl_module! {
         /// - Read: EraElectionStatus, Ledger, CurrentEra, Locks, \[Origin Account\]
         /// - Write: Locks, Ledger, \[Origin Account\]
         /// </weight>
-        ///
-        /// # Arguments
-        /// * origin Controller (Signer of the extrinsic).
-        /// * value Balance needs to be unbonded.
         #[weight = <T as Config>::WeightInfo::unbond()]
         pub fn unbond(origin, #[compact] value: BalanceOf<T>) {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
@@ -1868,7 +1864,7 @@ decl_module! {
                 ledger = ledger.consolidate_unlocked(current_era)
             }
 
-            let post_info_weight = if ledger.unlocking.is_empty() && ledger.active.is_zero() {
+            let post_info_weight = if ledger.unlocking.is_empty() && ledger.active <= T::Currency::minimum_balance() {
                 // This account must have called `unbond()` with some value that caused the active
                 // portion to fall below existential deposit + will have no more unlocking chunks
                 // left. We can now safely remove all staking-related information.
@@ -1881,8 +1877,8 @@ decl_module! {
                 // This was the consequence of a partial unbond. just update the ledger and move on.
                 Self::update_ledger(&controller, &ledger);
 
-                // This is only an update, so we use less overall weight
-                Some(50 * WEIGHT_PER_MICROS + T::DbWeight::get().reads_writes(4, 2))
+                // This is only an update, so we use less overall weight.
+                Some(<T as Config>::WeightInfo::withdraw_unbonded_update(num_slashing_spans))
             };
 
             // `old_total` should never be less than the new total because
@@ -1921,24 +1917,23 @@ decl_module! {
             let stash = &ledger.stash;
 
             // Polymesh-Note - Make sure stash has valid permissioned identity.
-            if let Some(id) = <Identity<T>>::get_identity(stash) {
-                // Ensure stash's identity is be permissioned.
-                let mut id_pref = Self::permissioned_identity(id)
-                    .ok_or_else(|| Error::<T>::StashIdentityNotPermissioned)?;
-                ensure!(ledger.active >= <MinimumBondThreshold<T>>::get(), Error::<T>::InsufficientValue);
-                // Ensures that the passed commission is within the cap.
-                ensure!(prefs.commission <= Self::validator_commission_cap(), Error::<T>::InvalidValidatorCommission);
-                // Updates the running count.
-                if !<Validators<T>>::contains_key(stash) {
-                    // Ensure identity doesn't run more validators than the intended count.
-                    ensure!(id_pref.running_count < id_pref.intended_count, Error::<T>::HitIntendedValidatorCount);
-                    id_pref.running_count += 1;
-                }
-                PermissionedIdentity::insert(id, id_pref);
-
-                <Nominators<T>>::remove(stash);
-                <Validators<T>>::insert(stash, prefs);
+            // -----------------------------------------------------------------
+            let id = <Identity<T>>::get_identity(stash).ok_or(Error::<T>::StashIdentityDoesNotExist)?;
+            let mut id_pref = Self::permissioned_identity(id).ok_or(Error::<T>::StashIdentityNotPermissioned)?;
+            ensure!(ledger.active >= <MinimumBondThreshold<T>>::get(), Error::<T>::InsufficientValue);
+            // Ensures that the passed commission is within the cap.
+            ensure!(prefs.commission <= Self::validator_commission_cap(), Error::<T>::InvalidValidatorCommission);
+            // Updates the running count.
+            if !<Validators<T>>::contains_key(stash) {
+                // Ensure identity doesn't run more validators than the intended count.
+                ensure!(id_pref.running_count < id_pref.intended_count, Error::<T>::HitIntendedValidatorCount);
+                id_pref.running_count += 1;
             }
+            PermissionedIdentity::insert(id, id_pref);
+            // -----------------------------------------------------------------
+
+            <Nominators<T>>::remove(stash);
+            <Validators<T>>::insert(stash, prefs);
         }
 
         /// Declare the desire to nominate `targets` for the origin controller.
