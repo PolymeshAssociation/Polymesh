@@ -1281,8 +1281,10 @@ impl<T: Config> Module<T> {
 
         // Update statistic info.
         // Using the aggregate balance to update the unique investor count.
-        Statistics::<T>::update_transfer_stats(
+        Statistics::<T>::update_asset_stats(
             ticker,
+            Some(from_portfolio.did),
+            Some(to_portfolio.did),
             Some(Self::aggregate_balance_of(ticker, &from_scope_id)),
             Some(Self::aggregate_balance_of(ticker, &to_scope_id)),
             value,
@@ -1378,7 +1380,14 @@ impl<T: Config> Module<T> {
             // Using the aggregate balance to update the unique investor count.
             updated_to_balance = Self::aggregate_balance_of(ticker, &scope_id);
         }
-        Statistics::<T>::update_transfer_stats(&ticker, None, Some(updated_to_balance), value);
+        Statistics::<T>::update_asset_stats(
+            &ticker,
+            None,
+            Some(to_did),
+            None,
+            Some(updated_to_balance),
+            value,
+        );
 
         let round = Self::funding_round(ticker);
         let ticker_round = (*ticker, round.clone());
@@ -1796,7 +1805,14 @@ impl<T: Config> Module<T> {
         // Update statistic info.
         // Using the aggregate balance to update the unique investor count.
         let updated_from_balance = Some(Self::aggregate_balance_of(ticker, &scope_id));
-        Statistics::<T>::update_transfer_stats(&ticker, updated_from_balance, None, value);
+        Statistics::<T>::update_asset_stats(
+            &ticker,
+            Some(agent),
+            None,
+            updated_from_balance,
+            None,
+            value,
+        );
 
         Self::deposit_event(RawEvent::Transfer(
             agent,

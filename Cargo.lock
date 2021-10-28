@@ -5030,6 +5030,7 @@ dependencies = [
  "frame-system",
  "lazy_static",
  "pallet-external-agents",
+ "pallet-identity",
  "pallet-session",
  "pallet-timestamp",
  "parity-scale-codec 2.3.1",

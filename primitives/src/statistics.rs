@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use crate::{ClaimType, Ticker};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
@@ -70,3 +71,51 @@ impl DerefMut for HashablePermill {
         &mut self.0
     }
 }
+
+/// Asset scope for stats.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
+pub enum AssetScope {
+    /// Ticker scope.
+    Ticker(Ticker),
+    //TickerGroup(TickerGroupId),
+    //Company(CompanyID),
+}
+
+/// Stats type.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
+pub enum StatType {
+    /// Count(None) - Investor count stats (for maximum investor rule).
+    /// Count(Some(ClaimType::Accredited)) - (non-)Accredited investor count
+    ///    (To limit the number of non-accredited investors).
+    /// Count(Some(ClaimType::Jurisdiction)) - Per-jurisdiction investor count.
+    Count(Option<ClaimType>),
+    /// Balance stat can be used for Percentage rules, since the `total_supply` of an asset can change (burn/mint)
+    /// it is better to store a balance.
+    /// Balance(None) - Total balance per investor.
+    /// Balance(Some(ClaimType::Accredited)) - Total balance for Accredited or non-Accredited investors.
+    /// Balance(Some(ClaimType::Jurisdiction)) - Per-jurisdiction balance (for per-jurisdiction max percentage rules).
+    Balance(Option<ClaimType>),
+}
+
+impl StatType {
+    /// Get the `ClaimType` from `StatType`.
+    pub fn claim_type(&self) -> Option<ClaimType> {
+        match self {
+            Self::Count(claim_type) => *claim_type,
+            Self::Balance(claim_type) => *claim_type,
+        }
+    }
+
+    /// An issuer is needed if the `StatType` has a `ClaimType`.
+    pub fn need_issuer(&self) -> bool {
+        self.claim_type().is_some()
+    }
+}
+
+// TODO: Maybe make a `ClaimStat` type, since all of the claims should have the same `Scope::Ticker(ticker)` value.
+//   so using `Claim` in `Stat2ndKey` and `StatUpdate` would waste a lot of space.
+//pub struct ClaimStat {
+//  .. same variants as `Claim`, but without the `Scope` value.
+//}

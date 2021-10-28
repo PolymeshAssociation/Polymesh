@@ -260,7 +260,10 @@ pub mod statistics;
 /// Compliance manager type definitions.
 pub mod compliance_manager;
 
-/// Compliance manager type definitions.
+/// Transfer compliance type definitions.
+pub mod transfer_compliance;
+
+/// Committee type definitions.
 pub mod committee;
 
 /// Host functions.
