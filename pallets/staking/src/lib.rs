@@ -2831,8 +2831,11 @@ impl<T: Config> Module<T> {
         let dest = Self::payee(stash);
         match dest {
             RewardDestination::Controller => Self::bonded(stash)
-                .map(|controller| T::Currency::deposit_creating(&controller, amount)),
-            RewardDestination::Stash => T::Currency::deposit_into_existing(stash, amount).ok(),
+                .and_then(|controller|
+                    Some(T::Currency::deposit_creating(&controller, amount))
+                ),
+            RewardDestination::Stash =>
+                T::Currency::deposit_into_existing(stash, amount).ok(),
             RewardDestination::Staked => Self::bonded(stash)
                 .and_then(|c| Self::ledger(&c).map(|l| (c, l)))
                 .and_then(|(controller, mut l)| {
@@ -2859,7 +2862,8 @@ impl<T: Config> Module<T> {
                     0
                 });
 
-            let era_length = session_index.saturating_sub(current_era_start_session_index);
+            let era_length = session_index.checked_sub(current_era_start_session_index)
+                .unwrap_or(0); // Must never happen.
 
             match ForceEra::get() {
                 Forcing::ForceNew => ForceEra::kill(),
@@ -2870,12 +2874,12 @@ impl<T: Config> Module<T> {
                     if era_length + 1 == T::SessionsPerEra::get() {
                         IsCurrentSessionFinal::put(true);
                     } else if era_length >= T::SessionsPerEra::get() {
-                        // Should only happen when we are ready to trigger an era but we have
-                        // ForceNone, otherwise previous arm would short circuit.
+                        // Should only happen when we are ready to trigger an era but we have ForceNone,
+                        // otherwise previous arm would short circuit.
                         Self::close_election_window();
                     }
-                    return None;
-                }
+                    return None
+                },
             }
 
             // new era.
@@ -2904,8 +2908,7 @@ impl<T: Config> Module<T> {
         if let Some(current_era) = Self::current_era() {
             ensure!(
                 current_era == era,
-                Error::<T>::OffchainElectionEarlySubmission
-                    .with_weight(T::DbWeight::get().reads(2)),
+                Error::<T>::OffchainElectionEarlySubmission.with_weight(T::DbWeight::get().reads(2)),
             )
         }
 
@@ -2959,10 +2962,7 @@ impl<T: Config> Module<T> {
         // check the winner length only here and when we know the length of the snapshot validators
         // length.
         let desired_winners = Self::validator_count().min(snapshot_validators_length);
-        ensure!(
-            winners.len() as u32 == desired_winners,
-            Error::<T>::OffchainElectionBogusWinnerCount
-        );
+        ensure!(winners.len() as u32 == desired_winners, Error::<T>::OffchainElectionBogusWinnerCount);
 
         let snapshot_nominators_len = <SnapshotNominators<T>>::decode_len()
             .map(|l| l as u32)
@@ -2975,27 +2975,20 @@ impl<T: Config> Module<T> {
         );
 
         // decode snapshot validators.
-        let snapshot_validators =
-            Self::snapshot_validators().ok_or(Error::<T>::SnapshotUnavailable)?;
+        let snapshot_validators = Self::snapshot_validators()
+            .ok_or(Error::<T>::SnapshotUnavailable)?;
 
         // check if all winners were legit; this is rather cheap. Replace with accountId.
-        let winners = winners
-            .into_iter()
-            .map(|widx| {
-                // NOTE: at the moment, since staking is explicitly blocking any offence until
-                // election is closed, we don't check here if the account id at
-                // `snapshot_validators[widx]` is actually a validator. If this ever changes, this
-                // loop needs to also check this.
-                snapshot_validators
-                    .get(widx as usize)
-                    .cloned()
-                    .ok_or(Error::<T>::OffchainElectionBogusWinner)
-            })
-            .collect::<Result<Vec<T::AccountId>, Error<T>>>()?;
+        let winners = winners.into_iter().map(|widx| {
+            // NOTE: at the moment, since staking is explicitly blocking any offence until election
+            // is closed, we don't check here if the account id at `snapshot_validators[widx]` is
+            // actually a validator. If this ever changes, this loop needs to also check this.
+            snapshot_validators.get(widx as usize).cloned().ok_or(Error::<T>::OffchainElectionBogusWinner)
+        }).collect::<Result<Vec<T::AccountId>, Error<T>>>()?;
 
         // decode the rest of the snapshot.
-        let snapshot_nominators =
-            Self::snapshot_nominators().ok_or(Error::<T>::SnapshotUnavailable)?;
+        let snapshot_nominators = Self::snapshot_nominators()
+            .ok_or(Error::<T>::SnapshotUnavailable)?;
 
         // helpers
         let nominator_at = |i: NominatorIndex| -> Option<T::AccountId> {
@@ -3006,12 +2999,14 @@ impl<T: Config> Module<T> {
         };
 
         // un-compact.
-        let assignments =
-            compact_assignments.into_assignment(nominator_at, validator_at).map_err(|e| {
-                // log the error since it is not propagated into the runtime error.
-                log!(warn, "💸 un-compacting solution failed due to {:?}", e);
-                Error::<T>::OffchainElectionBogusCompact
-            })?;
+        let assignments = compact_assignments.into_assignment(
+            nominator_at,
+            validator_at,
+        ).map_err(|e| {
+            // log the error since it is not propagated into the runtime error.
+            log!(warn, "💸 un-compacting solution failed due to {:?}", e);
+            Error::<T>::OffchainElectionBogusCompact
+        })?;
 
         // check all nominators actually including the claimed vote. Also check correct self votes.
         // Note that we assume all validators and nominators in `assignments` are properly bonded,
@@ -3033,7 +3028,7 @@ impl<T: Config> Module<T> {
                 // a normal vote
                 let nomination = maybe_nomination.expect(
                     "exactly one of `maybe_validator` and `maybe_nomination.is_some` is true. \
-                    is_validator is false; maybe_nomination is some; qed",
+                    is_validator is false; maybe_nomination is some; qed"
                 );
 
                 // NOTE: we don't really have to check here if the sum of all edges are the
@@ -3046,9 +3041,10 @@ impl<T: Config> Module<T> {
                         return Err(Error::<T>::OffchainElectionBogusNomination.into());
                     }
 
-                    if <Self as Store>::SlashingSpans::get(&t)
-                        .map_or(false, |spans| nomination.submitted_in < spans.last_nonzero_slash())
-                    {
+                    if <Self as Store>::SlashingSpans::get(&t).map_or(
+                        false,
+                        |spans| nomination.submitted_in < spans.last_nonzero_slash(),
+                    ) {
                         return Err(Error::<T>::OffchainElectionSlashedNomination.into());
                     }
                 }
