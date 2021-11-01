@@ -1451,6 +1451,8 @@ decl_error! {
         BondTooSmall,
         /// Internal state has become somehow corrupted and the operation cannot continue.
         BadState,
+        /// A nomination target was supplied that was blocked or otherwise not a validator.
+        BadTarget,
     }
 }
 
@@ -1962,6 +1964,9 @@ decl_module! {
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
             let stash = &ledger.stash;
             ensure!(!targets.is_empty(), Error::<T>::EmptyTargets);
+
+            let old = Nominators::<T>::get(stash).map_or_else(Vec::new, |x| x.targets);
+
             // A Claim_key can have multiple claim value provided by different claim issuers.
             // So here we iterate every CDD claim provided to the nominator If any claim is greater than
             // the threshold value of timestamp i.e current_timestamp + Bonding duration
@@ -1972,7 +1977,12 @@ decl_module! {
                 if <Identity<T>>::fetch_cdd(nominate_identity, leeway.into()).is_some() {
                     let targets = targets.into_iter()
                         .take(MAX_NOMINATIONS)
-                        .map(T::Lookup::lookup)
+                        .map(|t| T::Lookup::lookup(t).map_err(DispatchError::from))
+                        .map(|n| n.and_then(|n| if old.contains(&n) || !Validators::<T>::get(&n).blocked {
+                            Ok(n)
+                        } else {
+                            Err(Error::<T>::BadTarget.into())
+                        }))
                         .collect::<result::Result<Vec<T::AccountId>, _>>()?;
 
                     let nominations = Nominations {
@@ -3284,7 +3294,9 @@ impl<T: Config> Module<T> {
         }
 
         // Set staking information for new era.
-        Self::select_and_update_validators(current_era)
+        let maybe_new_validators = Self::select_and_update_validators(current_era);
+
+        maybe_new_validators
     }
 
     /// Remove all the storage items associated with the election.
@@ -3444,19 +3456,17 @@ impl<T: Config> Module<T> {
         let weight_of = Self::slashable_balance_of_fn();
         let mut all_nominators: Vec<(T::AccountId, VoteWeight, Vec<T::AccountId>)> = Vec::new();
         let mut all_validators = Vec::new();
-        for (validator, _) in <Validators<T>>::iter() {
-            if Self::is_active_balance_above_min_bond(&validator)
-                && Self::is_validator_compliant(&validator)
-            {
-                // append self vote
-                let self_vote = (
-                    validator.clone(),
-                    weight_of(&validator),
-                    vec![validator.clone()],
-                );
-                all_nominators.push(self_vote);
-                all_validators.push(validator);
-            }
+        for (validator, _) in <Validators<T>>::iter().filter(|(v, _)| {
+            Self::is_active_balance_above_min_bond(&v) && Self::is_validator_compliant(&v)
+        }) {
+            // append self vote
+            let self_vote = (
+                validator.clone(),
+                weight_of(&validator),
+                vec![validator.clone()],
+            );
+            all_nominators.push(self_vote);
+            all_validators.push(validator);
         }
 
         let nominator_votes = <Nominators<T>>::iter()
