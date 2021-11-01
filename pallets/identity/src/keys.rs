@@ -500,6 +500,8 @@ impl<T: Config> Module<T> {
 
     /// Create a new DID out of the current block hash and a `nonce`.
     fn make_did(nonce: u64) -> IdentityId {
+        // TODO: This currently always returns 0x000...000.
+        // See https://polymath.atlassian.net/browse/MESH-1546
         let block_hash = System::<T>::block_hash(System::<T>::block_number());
         IdentityId(blake2_256(&(USER, block_hash, nonce).encode()))
     }
