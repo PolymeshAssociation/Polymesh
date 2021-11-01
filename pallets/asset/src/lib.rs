@@ -1197,7 +1197,7 @@ impl<T: Config> Module<T> {
             return Ok(PORTFOLIO_FAILURE);
         }
 
-        if Self::statistics_failures(&from_portfolio, &to_portfolio, ticker, value) {
+        if Self::statistics_failures(&from_portfolio.did, &to_portfolio.did, ticker, value) {
             return Ok(TRANSFER_MANAGER_FAILURE);
         }
 
@@ -2134,8 +2134,12 @@ impl<T: Config> Module<T> {
             value,
         );
         let asset_frozen = Self::frozen(ticker);
-        let statistics_result =
-            Self::statistics_failures_granular(&from_portfolio, &to_portfolio, ticker, value);
+        let statistics_result = Self::statistics_failures_granular(
+            &from_portfolio.did,
+            &to_portfolio.did,
+            ticker,
+            value,
+        );
         let compliance_result = T::ComplianceManager::verify_restriction_granular(
             ticker,
             Some(from_portfolio.did),
@@ -2214,25 +2218,25 @@ impl<T: Config> Module<T> {
     }
 
     fn setup_statistics_failures(
-        from_portfolio: &PortfolioId,
-        to_portfolio: &PortfolioId,
+        from_did: &IdentityId,
+        to_did: &IdentityId,
         ticker: &Ticker,
     ) -> (ScopeId, ScopeId, SecurityToken) {
         (
-            Self::scope_id(ticker, &from_portfolio.did),
-            Self::scope_id(ticker, &to_portfolio.did),
+            Self::scope_id(ticker, &from_did),
+            Self::scope_id(ticker, &to_did),
             Tokens::get(ticker),
         )
     }
 
     fn statistics_failures(
-        from_portfolio: &PortfolioId,
-        to_portfolio: &PortfolioId,
+        from_did: &IdentityId,
+        to_did: &IdentityId,
         ticker: &Ticker,
         value: Balance,
     ) -> bool {
         let (from_scope_id, to_scope_id, token) =
-            Self::setup_statistics_failures(from_portfolio, to_portfolio, ticker);
+            Self::setup_statistics_failures(from_did, to_did, ticker);
         Statistics::<T>::verify_tm_restrictions(
             ticker,
             from_scope_id,
@@ -2246,13 +2250,13 @@ impl<T: Config> Module<T> {
     }
 
     fn statistics_failures_granular(
-        from_portfolio: &PortfolioId,
-        to_portfolio: &PortfolioId,
+        from_did: &IdentityId,
+        to_did: &IdentityId,
         ticker: &Ticker,
         value: Balance,
     ) -> Vec<TransferManagerResult> {
         let (from_scope_id, to_scope_id, token) =
-            Self::setup_statistics_failures(from_portfolio, to_portfolio, ticker);
+            Self::setup_statistics_failures(from_did, to_did, ticker);
         Statistics::<T>::verify_tm_restrictions_granular(
             ticker,
             from_scope_id,
