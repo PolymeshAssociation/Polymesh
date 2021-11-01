@@ -2913,8 +2913,8 @@ impl<T: Config> Module<T> {
                     if era_length + 1 == T::SessionsPerEra::get() {
                         IsCurrentSessionFinal::put(true);
                     } else if era_length >= T::SessionsPerEra::get() {
-                        // Should only happen when we are ready to trigger an era but we have
-                        // ForceNone, otherwise previous arm would short circuit.
+                        // Should only happen when we are ready to trigger an era but we have ForceNone,
+                        // otherwise previous arm would short circuit.
                         Self::close_election_window();
                     }
                     return None
