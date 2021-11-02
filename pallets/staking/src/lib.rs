@@ -507,7 +507,7 @@ impl Default for ValidatorPrefs {
     }
 }
 
-// Polymesh-note:
+// Polymesh-Note:
 // Our validators are permissioned,
 // and we allow limiting the number of validators an identity can run.
 // -----------------------------------------------------------------------------
@@ -1721,7 +1721,7 @@ decl_module! {
 
             let stash_balance = T::Currency::free_balance(&stash);
             let value = value.min(stash_balance);
-            // Polymesh-note:
+            // Polymesh-Note:
             // Add `stash`'s DID to event.
             // -----------------------------------------------------------------
             let did = Context::current_identity::<T::IdentityFn>().unwrap_or_default();
@@ -1773,7 +1773,7 @@ decl_module! {
                 ledger.active += extra;
                 // last check: the new active amount of ledger must be more than ED.
                 ensure!(ledger.active >= T::Currency::minimum_balance(), Error::<T>::InsufficientValue);
-                // Polymesh-note:
+                // Polymesh-Note:
                 // Add `stash`'s DID to event.
                 // -------------------------------------------------------------
                 let did = Context::current_identity::<T::IdentityFn>().unwrap_or_default();
@@ -1989,19 +1989,23 @@ decl_module! {
                     Err(Error::<T>::BadTarget.into())
                 }))
                 .collect::<result::Result<Vec<T::AccountId>, _>>()?;
+            let targets2 = targets.clone();
 
             let nominations = Nominations {
-                targets: targets.clone(),
+                targets,
                 // initial nominations are considered submitted at era 0. See `Nominations` doc
                 submitted_in: Self::current_era().unwrap_or(0),
                 suppressed: false,
             };
 
-            // Polymesh-note: Decrement the running count by 1.
+            // Polymesh-Note: Decrement the running count by 1 + emit event.
+            // -----------------------------------------------------------------
             Self::release_running_validator(&stash);
+            Self::deposit_event(RawEvent::Nominated(nominate_identity, stash.clone(), targets2));
+            // -----------------------------------------------------------------
+
             <Validators<T>>::remove(stash);
             <Nominators<T>>::insert(stash, &nominations);
-            Self::deposit_event(RawEvent::Nominated(nominate_identity, stash.clone(), targets));
         }
 
         /// Declare no desire to either validate or nominate.
@@ -2597,7 +2601,7 @@ decl_module! {
             Ok(adjustments)
         }
 
-        // Polymesh-note: Change it from `ensure_signed` to `ensure_root` in the favour of reward scheduling.
+        // Polymesh-Note: Change it from `ensure_signed` to `ensure_root` in the favour of reward scheduling.
         /// System version of `payout_stakers()`. Only be called by the root origin.
         #[weight = <T as Config>::WeightInfo::payout_stakers(T::MaxNominatorRewardedPerValidator::get() as u32)]
         pub fn payout_stakers_by_system(origin, validator_stash: T::AccountId, era: EraIndex) -> DispatchResult {
@@ -2788,7 +2792,7 @@ impl<T: Config> Module<T> {
             &ledger.stash,
             validator_staking_payout + validator_commission_payout
         ) {
-            // Polymesh-note: Provide DID of stash account.
+            // Polymesh-Note: Provide DID of stash account.
             // -----------------------------------------------------------------
             let did = <Identity<T>>::get_identity(&ledger.stash).unwrap_or_default();
             Self::deposit_event(RawEvent::Reward(did, ledger.stash, imbalance.peek()));
@@ -2806,7 +2810,7 @@ impl<T: Config> Module<T> {
             let nominator_reward: BalanceOf<T> = nominator_exposure_part * validator_leftover_payout;
             // We can now make nominator payout:
             if let Some(imbalance) = Self::make_payout(&nominator.who, nominator_reward) {
-                // Polymesh-note: Provide DID of nominator account.
+                // Polymesh-Note: Provide DID of nominator account.
                 // -------------------------------------------------------------
                 let did = <Identity<T>>::get_identity(&nominator.who).unwrap_or_default();
                 Self::deposit_event(RawEvent::Reward(did, nominator.who.clone(), imbalance.peek()));
@@ -2835,7 +2839,7 @@ impl<T: Config> Module<T> {
 
     /// Chill a stash account.
     fn chill_stash(stash: &T::AccountId) {
-        // Polymesh-note: Decrement the running count by 1.
+        // Polymesh-Note: Decrement the running count by 1.
         // ---------------------------------------------------------------------
         Self::release_running_validator(stash);
         // ---------------------------------------------------------------------
@@ -2843,7 +2847,7 @@ impl<T: Config> Module<T> {
         <Nominators<T>>::remove(stash);
     }
 
-    // Polymesh-note:
+    // Polymesh-Note:
     // -------------------------------------------------------------------------
     /// Decrease the running count of validators by 1 for the stash identity.
     fn release_running_validator(stash: &T::AccountId) {
@@ -3441,7 +3445,7 @@ impl<T: Config> Module<T> {
         let mut all_nominators: Vec<(T::AccountId, VoteWeight, Vec<T::AccountId>)> = Vec::new();
         let mut all_validators = Vec::new();
         for (validator, _) in <Validators<T>>::iter()
-            // Polymesh-note: Ensure that validator is CDDed + has enough bonded.
+            // Polymesh-Note: Ensure that validator is CDDed + has enough bonded.
             // -----------------------------------------------------------------
             .filter(|(v, _)| {
                 Self::is_active_balance_above_min_bond(&v) && Self::is_validator_compliant(&v)
@@ -3455,7 +3459,7 @@ impl<T: Config> Module<T> {
         }
 
         let nominator_votes = <Nominators<T>>::iter()
-            // Polymesh-note: Ensure that nominator is CDDed.
+            // Polymesh-Note: Ensure that nominator is CDDed.
             // -----------------------------------------------------------------
             .filter(|(nominator, _)| Self::is_nominator_compliant(&nominator))
             // -----------------------------------------------------------------
@@ -3898,7 +3902,7 @@ for Module<T> where
             return Err(())
         }
 
-        // Polymesh-note:
+        // Polymesh-Note:
         // When slashing is off or allowed for none, set slash fraction to zero.
         // ---------------------------------------------------------------------
         let long_living_slash_fraction;
