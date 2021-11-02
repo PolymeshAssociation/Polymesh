@@ -500,7 +500,10 @@ pub struct ValidatorPrefs {
 
 impl Default for ValidatorPrefs {
     fn default() -> Self {
-        ValidatorPrefs { commission: Default::default(), blocked: false }
+        ValidatorPrefs {
+            commission: Default::default(),
+            blocked: false,
+        }
     }
 }
 
@@ -2831,7 +2834,12 @@ impl<T: Config> Module<T> {
         controller: &T::AccountId,
         ledger: &StakingLedger<T::AccountId, BalanceOf<T>>
     ) {
-        T::Currency::set_lock(STAKING_ID, &ledger.stash, ledger.total, WithdrawReasons::all());
+        T::Currency::set_lock(
+            STAKING_ID,
+            &ledger.stash,
+            ledger.total,
+            WithdrawReasons::all(),
+        );
         <Ledger<T>>::insert(controller, ledger);
     }
 
