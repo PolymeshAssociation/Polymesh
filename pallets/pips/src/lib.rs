@@ -1260,8 +1260,8 @@ impl<T: Config> Module<T> {
     // containing `schedule::Named::reschedule_named`.
     fn schedule_pip_for_execution(did: IdentityId, id: PipId, maybe_at: Option<T::BlockNumber>) {
         let at = maybe_at.unwrap_or_else(|| {
-            // The enactment period is at least 1 block. This is de to the fact that it's only
-            // possible to schedule calls for future blocks.
+            // The enactment period is at least 1 block,
+            // as you can only schedule calls for future blocks.
             Self::default_enactment_period()
                 .max(One::one())
                 .saturating_add(<system::Module<T>>::block_number())
