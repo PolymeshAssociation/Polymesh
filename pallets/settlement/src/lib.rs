@@ -1175,7 +1175,7 @@ impl<T: Config> Module<T> {
         Ok(instructions_processed)
     }
 
-    pub fn prune_instruction(id: InstructionId) {
+    fn prune_instruction(id: InstructionId) {
         let legs = InstructionLegs::drain_prefix(id).collect::<Vec<_>>();
         let details = <InstructionDetails<T>>::take(id);
         VenueInstructions::remove(details.venue_id, id);
