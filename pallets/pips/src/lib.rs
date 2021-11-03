@@ -116,7 +116,9 @@ use polymesh_common_utilities::{
     },
     with_transaction, CommonConfig, Context, MaybeBlock, GC_DID,
 };
-use polymesh_primitives::{impl_checked_inc, Balance, IdentityId};
+use polymesh_primitives::{
+    impl_checked_inc, storage_migrate_on, storage_migration_ver, Balance, IdentityId,
+};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use polymesh_runtime_common::PipsEnactSnapshotMaximumWeight;
 #[cfg(feature = "std")]
@@ -442,6 +444,8 @@ pub trait Config:
     type Scheduler: ScheduleNamed<Self::BlockNumber, Self::Call, Self::SchedulerOrigin>;
 }
 
+storage_migration_ver!(1);
+
 // This module's storage items.
 decl_storage! {
     trait Store for Module<T: Config> as Pips {
@@ -521,6 +525,8 @@ decl_storage! {
         /// All existing PIPs where the proposer is a committee.
         /// This list is a cache of all ids in `Proposals` with `Proposer::Committee(_)`.
         pub CommitteePips get(fn committee_pips): Vec<PipId>;
+
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
 }
 
@@ -645,6 +651,18 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion::get(), 1, {
+                // We had a bug in `update_proposal_state`.
+                let count = Proposals::<T>::iter()
+                    .filter(|(_, p)| matches!(p.state, ProposalState::Scheduled | ProposalState::Pending))
+                    .count();
+                ActivePipCount::set(count as u32);
+            });
+
+            0
+        }
 
         /// Change whether completed PIPs are pruned.
         /// Can only be called by root.
