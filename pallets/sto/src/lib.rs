@@ -479,18 +479,13 @@ decl_module! {
                 Settlement::<T>::unsafe_affirm_instruction(fundraiser.creator, instruction_id, portfolios, 1, None)?;
 
                 let portfolios = vec![investment_portfolio, funding_portfolio];
-                let result = match receipt {
-                    Some(receipt) => Settlement::<T>::affirm_with_receipts_and_execute_instruction(
-                        origin,
-                        instruction_id,
-                        vec![receipt],
-                        portfolios,
-                        2
-                    ),
-                    None => Settlement::<T>::affirm_and_execute_instruction(origin, instruction_id, portfolios, 1),
-                };
-                Settlement::<T>::prune_instruction(instruction_id);
-                result
+                Settlement::<T>::affirm_and_execute_instruction(
+                    origin,
+                    instruction_id,
+                    receipt,
+                    portfolios,
+                    2
+                )
             })?;
 
             for (id, amount) in purchases {
