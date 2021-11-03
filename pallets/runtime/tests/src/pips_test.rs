@@ -1486,13 +1486,17 @@ fn reschedule_execution_works() {
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
         // Schedule a proposal and verify that it is.
+        assert_eq!(Pips::active_pip_count(), 0);
         let id = scheduled_proposal(proposer, rc, 0);
+        assert_eq!(Pips::active_pip_count(), 1);
         let scheduled_at = Pips::pip_to_schedule(id).unwrap();
         assert_matches!(&*Agenda::get(scheduled_at), [Some(_)]);
 
         // Reschedule execution for next block.
         let next = System::block_number() + 1;
         assert_ok!(Pips::reschedule_execution(rc.origin(), id, None));
+        // Regression test for <https://polymath.atlassian.net/browse/GTN-2172>.
+        assert_eq!(Pips::active_pip_count(), 1);
         // Rescheduling currently works by cancelling + then scheduling again. Verify this.
         assert_event_exists!(EventTest::pallet_scheduler(
             pallet_scheduler::RawEvent::Canceled(..)
@@ -1503,6 +1507,7 @@ fn reschedule_execution_works() {
 
         // Reschedule execution for 50 blocks ahead.
         assert_ok!(Pips::reschedule_execution(rc.origin(), id, Some(next + 50)));
+        assert_eq!(Pips::active_pip_count(), 1);
         assert_eq!(Pips::pip_to_schedule(id).unwrap(), next + 50);
         assert_eq!(vec![None], Agenda::get(scheduled_at));
         assert_eq!(vec![None], Agenda::get(next));
