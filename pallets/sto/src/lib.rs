@@ -463,7 +463,6 @@ decl_module! {
                 }
             ];
 
-            let mut instruction_to_prune = None;
             with_transaction(|| {
                 <Portfolio<T>>::unlock_tokens(&fundraiser.offering_portfolio, &fundraiser.offering_asset, purchase_amount)?;
 
@@ -475,13 +474,12 @@ decl_module! {
                     None,
                     legs
                 )?;
-                instruction_to_prune = Some(instruction_id);
 
                 let portfolios = [fundraiser.offering_portfolio, fundraiser.raising_portfolio].iter().copied().collect::<BTreeSet<_>>();
                 Settlement::<T>::unsafe_affirm_instruction(fundraiser.creator, instruction_id, portfolios, 1, None)?;
 
                 let portfolios = vec![investment_portfolio, funding_portfolio];
-                match receipt {
+                let result = match receipt {
                     Some(receipt) => Settlement::<T>::affirm_with_receipts_and_execute_instruction(
                         origin,
                         instruction_id,
@@ -490,12 +488,10 @@ decl_module! {
                         2
                     ),
                     None => Settlement::<T>::affirm_and_execute_instruction(origin, instruction_id, portfolios, 1),
-                }
+                };
+                Settlement::<T>::prune_instruction(instruction_id);
+                result
             })?;
-
-            if let Some(id) = instruction_to_prune {
-                Settlement::<T>::prune_instruction(id);
-            }
 
             for (id, amount) in purchases {
                 fundraiser.tiers[id].remaining -= amount;
