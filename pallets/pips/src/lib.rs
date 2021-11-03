@@ -1325,8 +1325,15 @@ impl<T: Config> Module<T> {
     ) -> ProposalState {
         <Proposals<T>>::mutate(id, |proposal| {
             if let Some(ref mut proposal) = proposal {
-                if (proposal.state, new_state) != (ProposalState::Pending, ProposalState::Scheduled)
-                {
+                // Decrement active count,
+                // unless transition is `(Pending | Scheduled) -> Scheduled`.
+                if !matches!(
+                    (proposal.state, new_state),
+                    (
+                        ProposalState::Pending | ProposalState::Scheduled,
+                        ProposalState::Scheduled,
+                    ),
+                ) {
                     Self::decrement_count_if_active(proposal.state);
                 }
                 proposal.state = new_state;
