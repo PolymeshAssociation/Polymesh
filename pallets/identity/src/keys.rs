@@ -44,6 +44,8 @@ use sp_runtime::traits::{AccountIdConversion as _, IdentifyAccount, Verify, Zero
 use sp_runtime::{AnySignature, DispatchError};
 use sp_std::{vec, vec::Vec};
 
+type System<T> = frame_system::Module<T>;
+
 impl<T: Config> Module<T> {
     /// Does the identity given by `did` exist?
     pub fn is_identity_exists(did: &IdentityId) -> bool {
@@ -496,6 +498,14 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    /// Create a new DID out of the current block hash and a `nonce`.
+    fn make_did(nonce: u64) -> IdentityId {
+        // TODO: This currently always returns 0x000...000.
+        // See https://polymath.atlassian.net/browse/MESH-1546
+        let block_hash = System::<T>::block_hash(System::<T>::block_number());
+        IdentityId(blake2_256(&(USER, block_hash, nonce).encode()))
+    }
+
     /// Registers a did without adding a CDD claim for it.
     pub fn _register_did(
         sender: T::AccountId,
@@ -504,9 +514,8 @@ impl<T: Config> Module<T> {
     ) -> Result<IdentityId, DispatchError> {
         // Adding extrensic count to did nonce for some unpredictability
         // NB: this does not guarantee randomness
-        let new_nonce = Self::multi_purpose_nonce()
-            + u64::from(<frame_system::Module<T>>::extrinsic_count())
-            + 7u64;
+        let new_nonce =
+            Self::multi_purpose_nonce() + u64::from(System::<T>::extrinsic_count()) + 7u64;
         // Even if this transaction fails, nonce should be increased for added unpredictability of dids
         MultiPurposeNonce::put(&new_nonce);
 
@@ -521,9 +530,7 @@ impl<T: Config> Module<T> {
             Error::<T>::SecondaryKeysContainPrimaryKey
         );
 
-        let block_hash =
-            <frame_system::Module<T>>::block_hash(<frame_system::Module<T>>::block_number());
-        let did = IdentityId(blake2_256(&(USER, block_hash, new_nonce).encode()));
+        let did = Self::make_did(new_nonce);
 
         // Make sure there's no pre-existing entry for the DID
         // This should never happen but just being defensive here
@@ -574,7 +581,7 @@ impl<T: Config> Module<T> {
     #[allow(dead_code)]
     crate fn register_systematic_id(issuer: SystematicIssuers)
     where
-        <T as frame_system::Config>::AccountId: core::fmt::Display,
+        T::AccountId: core::fmt::Display,
     {
         let acc = issuer.as_module_id().into_account();
         let id = issuer.as_id();
@@ -639,7 +646,7 @@ impl<T: Config> Module<T> {
 
     /// Checks call permissions and, if successful, returns the caller's account, primary and secondary identities.
     pub fn ensure_origin_call_permissions(
-        origin: <T as frame_system::Config>::Origin,
+        origin: T::Origin,
     ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
         let sender = ensure_signed(origin)?;
         let AccountCallPermissionsData {
