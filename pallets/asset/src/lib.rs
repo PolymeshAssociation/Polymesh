@@ -1283,8 +1283,8 @@ impl<T: Config> Module<T> {
         // Using the aggregate balance to update the unique investor count.
         Statistics::<T>::update_asset_stats(
             ticker,
-            Some(from_portfolio.did),
-            Some(to_portfolio.did),
+            Some(&from_portfolio.did),
+            Some(&to_portfolio.did),
             Some(Self::aggregate_balance_of(ticker, &from_scope_id)),
             Some(Self::aggregate_balance_of(ticker, &to_scope_id)),
             value,
@@ -1383,7 +1383,7 @@ impl<T: Config> Module<T> {
         Statistics::<T>::update_asset_stats(
             &ticker,
             None,
-            Some(to_did),
+            Some(&to_did),
             None,
             Some(updated_to_balance),
             value,
@@ -1807,7 +1807,7 @@ impl<T: Config> Module<T> {
         let updated_from_balance = Some(Self::aggregate_balance_of(ticker, &scope_id));
         Statistics::<T>::update_asset_stats(
             &ticker,
-            Some(agent),
+            Some(&agent),
             None,
             updated_from_balance,
             None,
@@ -2237,13 +2237,15 @@ impl<T: Config> Module<T> {
     ) -> bool {
         let (from_scope_id, to_scope_id, token) =
             Self::setup_statistics_failures(from_did, to_did, ticker);
-        Statistics::<T>::verify_tm_restrictions(
+        Statistics::<T>::verify_transfer_restrictions(
             ticker,
             from_scope_id,
             to_scope_id,
-            value,
+            from_did,
+            to_did,
             Self::aggregate_balance_of(ticker, &from_scope_id),
             Self::aggregate_balance_of(ticker, &to_scope_id),
+            value,
             token.total_supply,
         )
         .is_err()

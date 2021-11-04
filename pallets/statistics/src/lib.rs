@@ -27,11 +27,11 @@ use frame_support::{
 pub use polymesh_common_utilities::traits::statistics::{Config, Event, WeightInfo};
 use polymesh_primitives::{
     statistics::{
-        AssetScope, Counter, Percentage,
-        Stat1stKey, Stat2ndKey, StatOpType, StatType,
+        AssetScope, Counter, Percentage, Stat1stKey, Stat2ndKey, StatOpType, StatType,
         TransferManager, TransferManagerResult,
     },
-    Balance, Claim, IdentityId, Scope, ScopeId, Ticker,
+    transfer_compliance::*,
+    Balance, Claim, IdentityId, ScopeId, Ticker,
 };
 use sp_std::vec::Vec;
 
@@ -68,6 +68,8 @@ decl_storage! {
           double_map
             hasher(blake2_128_concat) Stat1stKey,
             hasher(blake2_128_concat) Stat2ndKey => u128;
+        /// Asset transfer compliance for a ticker (AssetScope -> AssetTransferCompliance)
+        pub AssetTransferCompliances get(fn asset_transfer_compliance): map hasher(blake2_128_concat) AssetScope => AssetTransferCompliance;
     }
 }
 
@@ -194,6 +196,13 @@ decl_module! {
             // TODO: benchmark and weight.
             Self::base_batch_update_asset_stats(origin, asset, stat_type, values)?;
         }
+
+        /// TODO: docs, weight.
+        #[weight = 0]
+        pub fn replace_asset_transfer_compliance(origin, ticker: Ticker, transfer_conditions: Vec<TransferCondition>) {
+            // TODO: benchmark and weight.
+            Self::base_replace_asset_transfer_compliance(origin, ticker, transfer_conditions)?;
+        }
     }
 }
 
@@ -269,7 +278,35 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    // Update asset stats.
+    fn base_replace_asset_transfer_compliance(
+        origin: T::Origin,
+        ticker: Ticker,
+        transfer_conditions: Vec<TransferCondition>,
+    ) -> DispatchResult {
+        let _did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+
+        // Ensure `Scope::Custom(..)`s are limited.
+        // TODO:
+        //Self::ensure_custom_scopes_limited(asset_compliance.iter().flat_map(|c| c.conditions()))?;
+
+        // Ensure the complexity is limited.
+        // TODO:
+        //Self::verify_compliance_complexity(&asset_compliance, ticker, 0)?;
+
+        // TODO: Check if required Stats are enabled.
+
+        let asset = AssetScope::Ticker(ticker);
+        // Commit changes to storage + emit event.
+        AssetTransferCompliances::mutate(&asset, |old| {
+            old.requirements = transfer_conditions.clone()
+        });
+        // TODO:
+        //Self::deposit_event(Event::AssetComplianceReplaced(did, ticker, asset_compliance));
+
+        Ok(())
+    }
+
+    /// Update asset stats.
     pub fn update_asset_balance_stats(
         key1: Stat1stKey,
         from_key2: Stat2ndKey,
@@ -298,7 +335,7 @@ impl<T: Config> Module<T> {
         }
     }
 
-    // Update unique investor count per asset per claim.
+    /// Update unique investor count per asset per claim.
     fn update_asset_count_stats(
         key1: Stat1stKey,
         from_key2: Stat2ndKey,
@@ -330,17 +367,27 @@ impl<T: Config> Module<T> {
         }
     }
 
-    /// Fetch claims.
-    fn fetch_claim(did: Option<IdentityId>, stat_type: &StatType, scope: &Scope) -> Stat2ndKey {
-        let claim = match (stat_type.claim_issuer, did) {
-            (Some((claim_type, issuer)), Some(did)) => {
-                Identity::<T>::fetch_claim(did, claim_type, issuer, Some(scope.clone()))
+    /// Fetch a claim for an identity as needed by the stat type.
+    fn fetch_claim(did: Option<&IdentityId>, key1: &Stat1stKey) -> Option<Claim> {
+        did.and_then(|did| {
+            key1.stat_type
+                .claim_issuer
+                .and_then(|(claim_type, issuer)| {
+                    let claim_scope = key1.claim_scope();
+                    Identity::<T>::fetch_claim(
+                        did.clone(),
+                        claim_type,
+                        issuer,
+                        Some(claim_scope.clone()),
+                    )
                     .map(|c| c.claim)
-            }
-            _ => None,
-        };
+                })
+        })
+    }
 
-        Stat2ndKey { claim }
+    /// Check if an identity has a claim.
+    fn has_claim(did: &IdentityId, key1: &Stat1stKey, key2: &Stat2ndKey) -> bool {
+        Self::fetch_claim(Some(did), key1) == key2.claim
     }
 
     fn investor_count_changes(
@@ -365,8 +412,8 @@ impl<T: Config> Module<T> {
     /// Update asset stats.
     pub fn update_asset_stats(
         ticker: &Ticker,
-        from_did: Option<IdentityId>,
-        to_did: Option<IdentityId>,
+        from_did: Option<&IdentityId>,
+        to_did: Option<&IdentityId>,
         from_balance: Option<Balance>,
         to_balance: Option<Balance>,
         amount: Balance,
@@ -379,29 +426,33 @@ impl<T: Config> Module<T> {
         // Update old stats.
         Self::update_transfer_stats(ticker, from_balance, to_balance, amount);
 
-        // Calculate the investor count changes.
+        // Pre-Calculate the investor count changes.
         let count_changes = Self::investor_count_changes(from_balance, to_balance, amount);
 
         let asset = AssetScope::Ticker(*ticker);
-        let scope = asset.into();
         // Update active asset stats.
         for stat_type in Self::active_asset_stats(asset).into_iter() {
             let key1 = Stat1stKey { asset, stat_type };
             match stat_type.op {
                 StatOpType::Count => {
                     if let Some(changes) = count_changes {
-                        let from_key2 = Self::fetch_claim(from_did, &stat_type, &scope);
-                        let to_key2 = Self::fetch_claim(to_did, &stat_type, &scope);
-                        Self::update_asset_count_stats(key1, from_key2, to_key2, changes);
+                        let from_claim = Self::fetch_claim(from_did, &key1);
+                        let to_claim = Self::fetch_claim(to_did, &key1);
+                        Self::update_asset_count_stats(
+                            key1,
+                            from_claim.into(),
+                            to_claim.into(),
+                            changes,
+                        );
                     }
                 }
                 StatOpType::Balance => {
-                    let from_key2 = Self::fetch_claim(from_did, &stat_type, &scope);
-                    let to_key2 = Self::fetch_claim(to_did, &stat_type, &scope);
+                    let from_claim = Self::fetch_claim(from_did, &key1);
+                    let to_claim = Self::fetch_claim(to_did, &key1);
                     Self::update_asset_balance_stats(
                         key1,
-                        from_key2,
-                        to_key2,
+                        from_claim.into(),
+                        to_claim.into(),
                         from_balance,
                         to_balance,
                         amount,
@@ -447,7 +498,236 @@ impl<T: Config> Module<T> {
         }
     }
 
+    /// Verify asset investor count restrictions.
+    fn verify_asset_count_restriction(
+        key1: Stat1stKey,
+        changes: Option<(bool, bool)>,
+        max_count: u128,
+    ) -> bool {
+        match changes {
+            Some((true, true)) => {
+                // Remove one investor and add another.
+                // No count change.
+                true
+            }
+            Some((false, false)) | None => {
+                // No count change.
+                true
+            }
+            Some((true, false)) => {
+                // Remove one investor.
+                // Count is decreasing, no need to check max limit.
+                true
+            }
+            Some((false, true)) => {
+                let current_count = AssetStats::get(key1, Stat2ndKey { claim: None });
+                current_count < max_count
+            }
+        }
+    }
+
+    /// Verify claim count restrictions.
+    fn verify_claim_count_restriction(
+        key1: Stat1stKey,
+        key2: Stat2ndKey,
+        from_did: &IdentityId,
+        to_did: &IdentityId,
+        changes: (bool, bool),
+        min: u128,
+        max: Option<u128>,
+    ) -> bool {
+        let from_has_claim = Self::has_claim(from_did, &key1, &key2);
+        let to_has_claim = Self::has_claim(to_did, &key1, &key2);
+        match changes {
+            (true, true) if from_has_claim == to_has_claim => {
+                // Remove one investor and add another.
+                // No count change.
+            }
+            (false, false) => {
+                // No count change.
+            }
+            (from_change, to_change) => {
+                // Get current investor count.
+                let count = AssetStats::get(key1, key2);
+                // Check minimum count restriction.
+                if min > 0 && from_change && from_has_claim {
+                    if count <= min {
+                        return false;
+                    }
+                }
+                if let Some(max) = max {
+                    if to_change && to_has_claim {
+                        if count >= max {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    /// Verify asset % ownership restrictions.
+    fn verify_ownership_restriction(
+        value: Balance,
+        receiver_balance: Balance,
+        total_supply: Balance,
+        max_percentage: Percentage,
+    ) -> bool {
+        let new_percentage = sp_arithmetic::Permill::from_rational_approximation(
+            receiver_balance + value,
+            total_supply,
+        );
+        new_percentage <= *max_percentage
+    }
+
+    /// Verify claim % ownership restrictions.
+    fn verify_claim_ownership_restriction(
+        key1: Stat1stKey,
+        key2: Stat2ndKey,
+        from_did: &IdentityId,
+        to_did: &IdentityId,
+        value: Balance,
+        total_supply: Balance,
+        min_percentage: Percentage,
+        max_percentage: Percentage,
+    ) -> bool {
+        let from_has_claim = Self::has_claim(from_did, &key1, &key2);
+        let to_has_claim = Self::has_claim(to_did, &key1, &key2);
+        match (from_has_claim, to_has_claim) {
+            (true, true) => {
+                // Both have the claim.  No % ownership change.
+                true
+            }
+            (false, false) => {
+                // Neither have the claim.  No % ownership change.
+                true
+            }
+            (false, true) => {
+                // Only the receiver has the claim.
+                // Increasing the % ownership of the claim.
+
+                // Calculate new claim % ownership.
+                let claim_balance = AssetStats::get(key1, key2);
+                let new_percentage = sp_arithmetic::Permill::from_rational_approximation(
+                    claim_balance.saturating_add(value),
+                    total_supply,
+                );
+                // Check new % ownership is less then maximum.
+                new_percentage <= *max_percentage
+            }
+            (true, false) => {
+                // Only the sender has the claim.
+                // Decreasing the % ownership of the claim.
+
+                // Calculate new claim % ownership.
+                let claim_balance = AssetStats::get(key1, key2);
+                let new_percentage = sp_arithmetic::Permill::from_rational_approximation(
+                    claim_balance.saturating_sub(value),
+                    total_supply,
+                );
+                // Check new % ownership is more then the minimum.
+                new_percentage >= *min_percentage
+            }
+        }
+    }
+
+    /// Verify transfer restrictions for a transfer.
+    pub fn verify_transfer_restrictions(
+        ticker: &Ticker,
+        from: ScopeId,
+        to: ScopeId,
+        from_did: &IdentityId,
+        to_did: &IdentityId,
+        from_balance: Balance,
+        to_balance: Balance,
+        amount: Balance,
+        total_supply: Balance,
+    ) -> DispatchResult {
+        // Call old TMs logic.
+        Self::verify_tm_restrictions(
+            ticker,
+            from,
+            to,
+            amount,
+            from_balance,
+            to_balance,
+            total_supply,
+        )?;
+
+        let asset = AssetScope::Ticker(*ticker);
+        let tm = AssetTransferCompliances::get(&asset);
+        if tm.paused {
+            // Transfer rules are paused.
+            return Ok(());
+        }
+
+        // Pre-Calculate the investor count changes.
+        let count_changes =
+            Self::investor_count_changes(Some(from_balance), Some(to_balance), amount);
+
+        let asset = AssetScope::Ticker(*ticker);
+        for condition in tm.requirements {
+            use TransferCondition::*;
+
+            let stat_type = condition.get_stat_type();
+            let key1 = Stat1stKey { asset, stat_type };
+
+            let passed = match &condition {
+                MaxInvestorCount(max_count) => {
+                    Self::verify_asset_count_restriction(key1, count_changes, *max_count as u128)
+                }
+                MaxInvestorOwnership(max_percentage) => Self::verify_ownership_restriction(
+                    amount,
+                    from_balance,
+                    total_supply,
+                    *max_percentage,
+                ),
+                ClaimCount(claim, _, min, max) => {
+                    if let Some(changes) = count_changes {
+                        Self::verify_claim_count_restriction(
+                            key1,
+                            claim.into(),
+                            from_did,
+                            to_did,
+                            changes,
+                            *min as u128,
+                            max.map(|m| m as u128),
+                        )
+                    } else {
+                        // No changes.  Allow transfer.
+                        true
+                    }
+                }
+                ClaimOwnership(claim, _, min, max) => Self::verify_claim_ownership_restriction(
+                    key1,
+                    claim.into(),
+                    from_did,
+                    to_did,
+                    amount,
+                    total_supply,
+                    *min,
+                    *max,
+                ),
+            };
+            if !passed {
+                // TODO: impl. exempt logic.
+                let _id = match condition {
+                    MaxInvestorCount(_) => from,
+                    MaxInvestorOwnership(_) => to,
+                    ClaimCount(_, _, _, _) => from,
+                    ClaimOwnership(_, _, _, _) => to,
+                };
+                let is_exempt = false;
+                ensure!(is_exempt, Error::<T>::InvalidTransfer);
+            }
+        }
+
+        Ok(())
+    }
+
     /// Verify transfer restrictions for a transfer
+    /// TODO: Migrate old TMs.
     pub fn verify_tm_restrictions(
         ticker: &Ticker,
         sender: ScopeId,

@@ -49,7 +49,7 @@ pub struct TransferManagerResult {
 /// Wrapper around `sp_arithmetic::Permill`
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Decode, Encode, TypeInfo)]
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct HashablePermill(pub sp_arithmetic::Permill);
 
 impl Hash for HashablePermill {
@@ -128,12 +128,39 @@ pub struct Stat1stKey {
     pub stat_type: StatType,
 }
 
+impl Stat1stKey {
+    /// Get claim scope from asset scope.
+    pub fn claim_scope(&self) -> Scope {
+        self.asset.claim_scope()
+    }
+}
+
 /// Second stats key in double map.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 pub struct Stat2ndKey {
     /// For per-Claim stats (Jurisdiction, Accredited, etc...).
     /// Non-Accredited stats would be stored with a `None` here.
     pub claim: Option<Claim>,
+}
+
+impl From<Option<Claim>> for Stat2ndKey {
+    fn from(claim: Option<Claim>) -> Stat2ndKey {
+        Stat2ndKey { claim }
+    }
+}
+
+impl From<Claim> for Stat2ndKey {
+    fn from(claim: Claim) -> Stat2ndKey {
+        Stat2ndKey { claim: Some(claim) }
+    }
+}
+
+impl From<&Claim> for Stat2ndKey {
+    fn from(claim: &Claim) -> Stat2ndKey {
+        Stat2ndKey {
+            claim: Some(claim.clone()),
+        }
+    }
 }
 
 // TODO: Maybe make a `ClaimStat` type, since all of the claims should have the same `Scope::Ticker(ticker)` value.
