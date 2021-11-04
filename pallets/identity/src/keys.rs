@@ -501,6 +501,8 @@ impl<T: Config> Module<T> {
     /// Create a new DID out of the parent block hash and a `nonce`.
     fn make_did(nonce: u64) -> IdentityId {
         // TODO: Look into getting randomness from `pallet_babe`.
+        // NB: We can't get the current block's hash while processing
+        // an extrinsic, so we use parent hash here.
         let parent_hash = System::<T>::parent_hash();
         IdentityId(blake2_256(&(USER, parent_hash, nonce).encode()))
     }
