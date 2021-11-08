@@ -24,9 +24,12 @@ import { createIdentities } from "../helpers/identity_helper";
 import { distributePoly } from "../helpers/poly_helper";
 import type { IdentityId } from "../interfaces";
 import { assert } from "chai";
+import { insertNonce, incrementNonce, getNonce } from "../util/sqlite3";
 
+//let nonces = new Map();
 let block_sizes: Number[] = [];
 let block_times: Number[] = [];
+let genesisEntities: KeyringPair[] = [];
 let synced_block = 0;
 let synced_block_ts = 0;
 
@@ -105,13 +108,16 @@ export async function waitNextBlock() {
 
 // Initialization Main is used to generate all entities e.g (Alice, Bob, Dave)
 export async function initMain(): Promise<KeyringPair[]> {
-  return [
-    await generateEntity("Alice"),
-    await generateEntity("relay_1"),
-    await generateEntity("polymath_1"),
-    await generateEntity("polymath_2"),
-    await generateEntity("Bob"),
-  ];
+  if (genesisEntities.length === 0) {
+    genesisEntities = [
+      await generateEntity("Alice"),
+      await generateEntity("relay_1"),
+      await generateEntity("polymath_1"),
+      await generateEntity("polymath_2"),
+      await generateEntity("Bob"),
+    ];
+  }
+  return genesisEntities;
 }
 
 export async function generateEntities(accounts: string[]) {
@@ -129,6 +135,8 @@ export async function generateEntity(name: string): Promise<KeyringPair> {
   let entity = new Keyring({ type: "sr25519" }).addFromUri(`//${name}`, {
     name: `${name}`,
   });
+
+  insertNonce(entity.address);
 
   return entity;
 }
@@ -149,6 +157,8 @@ export async function generateKeys(
         }
       )
     );
+
+    insertNonce(keys[i].address);
   }
   return keys;
 }
@@ -157,6 +167,8 @@ export async function generateEntityFromUri(uri: string): Promise<KeyringPair> {
   const api = await ApiSingleton.getInstance();
   await cryptoWaitReady();
   let entity = new Keyring({ type: "sr25519" }).addFromUri(uri);
+
+  insertNonce(entity.address);
   return entity;
 }
 const NULL_12 = "\0".repeat(12);
@@ -244,18 +256,31 @@ export async function generateStashKeys(
         name: `${accounts[i] + "_stash"}`,
       })
     );
+
+    insertNonce(keys[i].address);
   }
   return keys;
 }
 
-export function sendTx(
+export async function sendTx(
   signer: KeyringPair,
-  transaction: SubmittableExtrinsic<"promise">
+  tx: SubmittableExtrinsic<"promise">
+) {
+  const nonceObj = { nonce: await getNonce(signer) };
+  incrementNonce(signer.address);
+  const result = await sendTransaction(signer, tx, nonceObj);
+  return result;
+}
+
+export function sendTransaction(
+  signer: KeyringPair,
+  transaction: SubmittableExtrinsic<"promise">,
+  nonceObj: any
 ) {
   return new Promise<ISubmittableResult>((resolve, reject) => {
     const gettingUnsub = transaction.signAndSend(
       signer,
-      { nonce: -1 },
+      nonceObj,
       (receipt) => {
         const { status } = receipt;
 

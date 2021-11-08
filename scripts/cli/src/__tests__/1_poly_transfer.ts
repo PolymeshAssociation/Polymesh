@@ -6,6 +6,11 @@ import {
 } from "../util/init";
 import { createIdentities } from "../helpers/identity_helper";
 import { distributePolyBatch } from "../helpers/poly_helper";
+import { createTable } from "../util/sqlite3";
+
+beforeAll(() => {
+  createTable();
+});
 
 // Disconnects api after all the tests have completed
 afterAll(async () => {
@@ -22,5 +27,5 @@ describe("1 - Poly Unit Test", () => {
     expect(dids).toBeTruthy();
     const tx = distributePolyBatch(alice, keys, transferAmount);
     await expect(tx).resolves.not.toThrow();
-  }, 40000);
+  }, 60000);
 });
