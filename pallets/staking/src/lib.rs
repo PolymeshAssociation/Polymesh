@@ -2137,13 +2137,14 @@ decl_module! {
             ensure!(Self::permissioned_identity(&identity).is_none(), Error::<T>::AlreadyExists);
             // Validate the cdd status of the identity.
             ensure!(<Identity<T>>::has_valid_cdd(identity), Error::<T>::InvalidValidatorIdentity);
-            let pref = intended_count
-                .map(|count| {
+            let pref = match intended_count {
+                Some(count) => {
                     // Maximum allowed validator count is always less than the `MaxValidatorPerIdentity of validator_count()`.
                     ensure!(count < Self::get_allowed_validator_count(), Error::<T>::IntendedCountIsExceedingConsensusLimit);
                     PermissionedIdentityPrefs::new(count)
-                })
-                .unwrap_or_default();
+                }
+                None => PermissionedIdentityPrefs::default(),
+            };
 
             // Change identity status to be Permissioned
             PermissionedIdentity::insert(&identity, pref);
