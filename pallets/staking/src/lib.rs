@@ -349,7 +349,7 @@ use sp_staking::{
 use sp_std::{
     collections::btree_map::BTreeMap,
     convert::{From, TryInto},
-    mem::size_of,
+    mem::{size_of},
     prelude::*,
     result,
 };
@@ -2137,14 +2137,13 @@ decl_module! {
             ensure!(Self::permissioned_identity(&identity).is_none(), Error::<T>::AlreadyExists);
             // Validate the cdd status of the identity.
             ensure!(<Identity<T>>::has_valid_cdd(identity), Error::<T>::InvalidValidatorIdentity);
-            let pref = match intended_count {
-                Some(count) => {
+            let pref = intended_count
+                .map(|count| {
                     // Maximum allowed validator count is always less than the `MaxValidatorPerIdentity of validator_count()`.
                     ensure!(count < Self::get_allowed_validator_count(), Error::<T>::IntendedCountIsExceedingConsensusLimit);
                     PermissionedIdentityPrefs::new(count)
-                },
-                None => PermissionedIdentityPrefs::default()
-            };
+                })
+                .unwrap_or_default();
 
             // Change identity status to be Permissioned
             PermissionedIdentity::insert(&identity, pref);
@@ -2185,34 +2184,33 @@ decl_module! {
             let mut expired_nominators = Vec::new();
             ensure!(!targets.is_empty(), "targets cannot be empty");
             // Iterate provided list of accountIds (These accountIds should be stash type account).
-            for target in targets.iter() {
-                // Check whether given nominator is vouching for someone or not.
+            for target in targets.iter()
+                // Nominator must be vouching for someone.
+                .filter(|target| Self::nominators(target).is_some())
+                // Access the DIDs of the nominators whose CDDs have expired.
+                .filter(|target| {
+                    // Fetch all the claim values provided by the trusted service providers
+                    // There is a possibility that nominator will have more than one claim for the same key,
+                    // So we iterate all of them and if any one of the claim value doesn't expire then nominator posses
+                    // valid CDD otherwise it will be removed from the pool of the nominators.
+                    <Identity<T>>::get_identity(&target)
+                        .filter(|did| !<Identity<T>>::has_valid_cdd(*did))
+                        .is_some()
+                })
+            {
+                // Un-bonding the balance that bonded with the controller account of a Stash account
+                // This unbonded amount only be accessible after completion of the BondingDuration
+                // Controller account need to call the dispatchable function `withdraw_unbond` to withdraw fund.
 
-                if Self::nominators(target).is_some() {
-                    // Access the identity of the nominator
-                    if let Some(nominate_identity) = <Identity<T>>::get_identity(&target) {
-                        // Fetch all the claim values provided by the trusted service providers
-                        // There is a possibility that nominator will have more than one claim for the same key,
-                        // So we iterate all of them and if any one of the claim value doesn't expire then nominator posses
-                        // valid CDD otherwise it will be removed from the pool of the nominators.
-                        let is_cdded = <Identity<T>>::has_valid_cdd(nominate_identity);
-                        if !is_cdded {
-                            // Un-bonding the balance that bonded with the controller account of a Stash account
-                            // This unbonded amount only be accessible after completion of the BondingDuration
-                            // Controller account need to call the dispatchable function `withdraw_unbond` to withdraw fund.
+                let controller = Self::bonded(target).ok_or("not a stash")?;
+                let mut ledger = Self::ledger(&controller).ok_or("not a controller")?;
+                let active_balance = ledger.active;
+                if ledger.unlocking.len() < MAX_UNLOCKING_CHUNKS {
+                    Self::unbond_balance(controller, &mut ledger, active_balance);
 
-                            let controller = Self::bonded(target).ok_or("not a stash")?;
-                            let mut ledger = Self::ledger(&controller).ok_or("not a controller")?;
-                            let active_balance = ledger.active;
-                            if ledger.unlocking.len() < MAX_UNLOCKING_CHUNKS {
-                                Self::unbond_balance(controller, &mut ledger, active_balance);
-
-                                expired_nominators.push(target.clone());
-                                // Free the nominator from the valid nominator list
-                                <Nominators<T>>::remove(target);
-                            }
-                        }
-                    }
+                    expired_nominators.push(target.clone());
+                    // Free the nominator from the valid nominator list
+                    <Nominators<T>>::remove(target);
                 }
             }
             Self::deposit_event(RawEvent::InvalidatedNominators(caller_id, caller, expired_nominators));
@@ -2227,12 +2225,17 @@ decl_module! {
         pub fn set_commission_cap(origin, new_cap: Perbill) {
             T::RequiredCommissionOrigin::ensure_origin(origin.clone())?;
 
-            let old_cap = Self::validator_commission_cap();
-            ensure!(old_cap != new_cap, Error::<T>::NoChange);
-            <ValidatorCommissionCap>::put(new_cap);
-            // Update the validator prefs as per the `new_cap`.
-            // if `prefs.commission` of validator is > `new_cap`, it sets commission = new_cap.
-            Self::update_validator_prefs(new_cap);
+            // Update the cap, assuming it changed, or error.
+            let old_cap = ValidatorCommissionCap::try_mutate(|cap| -> Result<_, DispatchError> {
+                ensure!(*cap != new_cap, Error::<T>::NoChange);
+                Ok(core::mem::replace(cap, new_cap))
+            })?;
+            // Update `commission` in each validator prefs to `min(comission, new_cap)`.
+            <Validators<T>>::translate(|_, mut prefs: ValidatorPrefs| {
+                prefs.commission = prefs.commission.min(new_cap);
+                Some(prefs)
+            });
+
             Self::deposit_event(RawEvent::CommissionCapUpdated(GC_DID, old_cap, new_cap));
         }
 
@@ -3669,24 +3672,9 @@ impl<T: Config> Module<T> {
     }
 
     pub fn get_bonding_duration_period() -> u64 {
-        let total_session = (T::SessionsPerEra::get() as u32) * (T::BondingDuration::get() as u32);
-        let session_length = <T as pallet_babe::Config>::EpochDuration::get();
-        total_session as u64
-            * session_length
-            * (<T as pallet_babe::Config>::ExpectedBlockTime::get()).saturated_into::<u64>()
-    }
-
-    /// Update commision in ValidatorPrefs to given value
-    fn update_validator_prefs(commission: Perbill) {
-        let validators = <Validators<T>>::iter().map(|(who, _)| who).collect::<Vec<T::AccountId>>();
-
-        for v in validators {
-            <Validators<T>>::mutate(v, |prefs| {
-                if prefs.commission > commission {
-                    prefs.commission = commission
-                }
-            });
-        }
+        (T::SessionsPerEra::get()  * T::BondingDuration::get()) as u64 // total session
+            * T::EpochDuration::get() // session length
+            * T::ExpectedBlockTime::get().saturated_into::<u64>()
     }
 
     #[cfg(feature = "runtime-benchmarks")]
