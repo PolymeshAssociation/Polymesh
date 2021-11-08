@@ -24,7 +24,7 @@ import { createIdentities } from "../helpers/identity_helper";
 import { distributePoly } from "../helpers/poly_helper";
 import type { IdentityId } from "../interfaces";
 import { assert } from "chai";
-import { insertNonce, incrementNonce, getNonce } from "../util/sqlite3";
+import { getNonce } from "../util/sqlite3";
 
 //let nonces = new Map();
 let block_sizes: Number[] = [];
@@ -136,8 +136,6 @@ export async function generateEntity(name: string): Promise<KeyringPair> {
     name: `${name}`,
   });
 
-  insertNonce(entity.address);
-
   return entity;
 }
 
@@ -157,8 +155,6 @@ export async function generateKeys(
         }
       )
     );
-
-    insertNonce(keys[i].address);
   }
   return keys;
 }
@@ -167,8 +163,6 @@ export async function generateEntityFromUri(uri: string): Promise<KeyringPair> {
   const api = await ApiSingleton.getInstance();
   await cryptoWaitReady();
   let entity = new Keyring({ type: "sr25519" }).addFromUri(uri);
-
-  insertNonce(entity.address);
   return entity;
 }
 const NULL_12 = "\0".repeat(12);
@@ -256,8 +250,6 @@ export async function generateStashKeys(
         name: `${accounts[i] + "_stash"}`,
       })
     );
-
-    insertNonce(keys[i].address);
   }
   return keys;
 }
@@ -267,7 +259,6 @@ export async function sendTx(
   tx: SubmittableExtrinsic<"promise">
 ) {
   const nonceObj = { nonce: await getNonce(signer) };
-  incrementNonce(signer.address);
   const result = await sendTransaction(signer, tx, nonceObj);
   return result;
 }

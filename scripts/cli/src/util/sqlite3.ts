@@ -11,29 +11,28 @@ export function createTable() {
   );
 }
 
-export function insertNonce(accountAddr: string) {
-  db.run("INSERT OR REPLACE INTO next_nonce(account) VALUES($account)", {
-    $account: accountAddr,
-  });
-}
-
-export function incrementNonce(accountAddr: string) {
-  db.run(
-    "INSERT INTO next_nonce(account) VALUES($account) ON CONFLICT(account) DO UPDATE SET nonce=nonce+1",
-    { $account: accountAddr }
-  );
-}
-
 export async function getNonce(signer: KeyringPair) {
   return new Promise<number>((resolve, reject) => {
-    db.get(
-      "SELECT account, nonce FROM next_nonce WHERE account = $account",
+    db.run(
+      "INSERT INTO next_nonce(account) VALUES($account) ON CONFLICT(account) DO UPDATE SET nonce=nonce+1",
       { $account: signer.address },
-      (err, row) => {
-        if (err) reject(err);
-
-        console.log(`accound: ${row.account} nonce: ${row.nonce}`);
-        resolve(row.nonce);
+      (err) => {
+        if (err) {
+          console.log(err);
+        } else {
+          db.get(
+            "SELECT account, nonce FROM next_nonce WHERE account = $account",
+            { $account: signer.address },
+            (err, row) => {
+              if (err) {
+                reject(err);
+              } else {
+                console.log(`account: ${row.account} nonce: ${row.nonce}`);
+                resolve(row.nonce);
+              }
+            }
+          );
+        }
       }
     );
   });
