@@ -2791,10 +2791,7 @@ fn garbage_collection_after_slashing() {
 
             assert_eq!(Balances::free_balance(11), 256_000 - 25_600);
             assert!(SlashingSpans::<Test>::get(&11).is_some());
-            assert_eq!(
-                SpanSlash::<Test>::get(&(11, 0)).amount_slashed(),
-                &25_600
-            );
+            assert_eq!(SpanSlash::<Test>::get(&(11, 0)).amount_slashed(), &25_600);
 
             on_offence_now(
                 &[OffenceDetails {
