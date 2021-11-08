@@ -204,7 +204,7 @@ fn basic_setup_works() {
 
         // ValidatorPrefs are default
         assert_eq_uvec!(
-            mock::Staking::get_all_validators(),
+            Validators::<Test>::iter().collect::<Vec<_>>(),
             vec![
                 (31, ValidatorPrefs::default()),
                 (21, ValidatorPrefs::default()),
@@ -554,10 +554,10 @@ fn no_candidate_emergency_condition() {
                 commission: Perbill::one(),
                 ..Default::default()
             };
-            mock::Staking::insert_validators(11, prefs.clone());
+            Validators::<Test>::insert(11, prefs.clone());
 
             // set the minimum validator count.
-            mock::Staking::set_minimum_validator_count(10);
+            MinimumValidatorCount::put(10);
 
             // try to chill
             let _ = Staking::chill(Origin::signed(10));
@@ -2790,9 +2790,9 @@ fn garbage_collection_after_slashing() {
             );
 
             assert_eq!(Balances::free_balance(11), 256_000 - 25_600);
-            assert!(mock::Staking::get_slashing_spans(&11).is_some());
+            assert!(SlashingSpans::<Test>::get(&11).is_some());
             assert_eq!(
-                mock::Staking::get_span_slash(&(11, 0)).amount_slashed(),
+                SpanSlash::<Test>::get(&(11, 0)).amount_slashed(),
                 &25_600
             );
 
@@ -2813,7 +2813,7 @@ fn garbage_collection_after_slashing() {
             assert_eq!(Balances::free_balance(11), 0);
             assert_eq!(Balances::total_balance(&11), 0);
 
-            let slashing_spans = mock::Staking::get_slashing_spans(&11).unwrap();
+            let slashing_spans = SlashingSpans::<Test>::get(&11).unwrap();
             assert_eq!(slashing_spans.iter().count(), 2);
 
             // reap_stash respects num_slashing_spans so that weight is accurate
@@ -2823,8 +2823,8 @@ fn garbage_collection_after_slashing() {
             );
             assert_ok!(Staking::reap_stash(Origin::none(), 11, 2));
 
-            assert!(mock::Staking::get_slashing_spans(&11).is_none());
-            assert_eq!(mock::Staking::get_span_slash(&(11, 0)).amount_slashed(), &0);
+            assert!(SlashingSpans::<Test>::get(&11).is_none());
+            assert_eq!(SpanSlash::<Test>::get(&(11, 0)).amount_slashed(), &0);
         })
 }
 
@@ -2855,20 +2855,20 @@ fn garbage_collection_on_window_pruning() {
         // assert_eq!(Balances::free_balance(101), 2000 - (nominated_value / 10));
         assert_eq!(Balances::free_balance(101), 2000);
 
-        assert!(mock::Staking::get_validator_slash_in_era(&now, &11).is_some());
+        assert!(ValidatorSlashInEra::<Test>::get(&now, &11).is_some());
         // Storage will not be updates as nominator didn't get slashed so it will be none.
-        assert!(mock::Staking::get_nominators_slash_in_era(&now, &101).is_none());
+        assert!(NominatorSlashInEra::<Test>::get(&now, &101).is_none());
 
         // + 1 because we have to exit the bonding window.
         for era in (0..(BondingDuration::get() + 1)).map(|offset| offset + now + 1) {
-            assert!(mock::Staking::get_validator_slash_in_era(&now, &11).is_some());
-            assert!(mock::Staking::get_nominators_slash_in_era(&now, &101).is_none());
+            assert!(ValidatorSlashInEra::<Test>::get(&now, &11).is_some());
+            assert!(NominatorSlashInEra::<Test>::get(&now, &101).is_none());
 
             mock::start_active_era(era);
         }
 
-        assert!(mock::Staking::get_validator_slash_in_era(&now, &11).is_none());
-        assert!(mock::Staking::get_nominators_slash_in_era(&now, &101).is_none());
+        assert!(ValidatorSlashInEra::<Test>::get(&now, &11).is_none());
+        assert!(NominatorSlashInEra::<Test>::get(&now, &101).is_none());
     })
 }
 
@@ -2932,7 +2932,7 @@ fn slashing_nominators_by_span_max() {
             },
         ];
 
-        let get_span = |account| mock::Staking::get_slashing_spans(&account).unwrap();
+        let get_span = |account| SlashingSpans::<Test>::get(&account).unwrap();
 
         assert_eq!(get_span(11).iter().collect::<Vec<_>>(), expected_spans,);
 
@@ -3002,7 +3002,7 @@ fn slashes_are_summed_across_spans() {
         assert_eq!(Balances::free_balance(21), 2000);
         assert_eq!(Staking::slashable_balance_of(&21), 1000);
 
-        let get_span = |account| mock::Staking::get_slashing_spans(&account).unwrap();
+        let get_span = |account| SlashingSpans::<Test>::get(&account).unwrap();
 
         on_offence_now(
             &[OffenceDetails {
@@ -3251,7 +3251,7 @@ fn remove_multi_deferred() {
                 &[Perbill::from_percent(25)],
             );
 
-            assert_eq!(mock::Staking::get_unapplied_slashed(&1).len(), 5);
+            assert_eq!(UnappliedSlashes::<Test>::get(&1).len(), 5);
 
             // fails if list is not sorted
             assert_noop!(
@@ -3275,7 +3275,7 @@ fn remove_multi_deferred() {
                 vec![0, 2, 4]
             ));
 
-            let slashes = mock::Staking::get_unapplied_slashed(&1);
+            let slashes = UnappliedSlashes::<Test>::get(&1);
             assert_eq!(slashes.len(), 2);
             assert_eq!(slashes[0].validator, 21);
             assert_eq!(slashes[1].validator, 42);
@@ -4437,15 +4437,15 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 
         // This is the best way to check that the validator was chilled; `get` will
         // return default value.
-        for (stash, _) in mock::Staking::get_all_validators().iter() {
-            assert!(*stash != 11);
+        for (stash, _) in Validators::<Test>::iter() {
+            assert!(stash != 11);
         }
 
         let nominations = mock::Staking::nominators(&101).unwrap();
 
         // and make sure that the vote will be ignored even if the validator
         // re-registers.
-        let last_slash = mock::Staking::get_slashing_spans(&11)
+        let last_slash = SlashingSpans::<Test>::get(&11)
             .unwrap()
             .last_nonzero_slash();
         assert!(nominations.submitted_in < last_slash);
@@ -4571,15 +4571,15 @@ fn zero_slash_keeps_nominators() {
 
         // This is the best way to check that the validator was chilled; `get` will
         // return default value.
-        for (stash, _) in mock::Staking::get_all_validators().iter() {
-            assert!(*stash != 11);
+        for (stash, _) in Validators::<Test>::iter() {
+            assert!(stash != 11);
         }
 
         let nominations = mock::Staking::nominators(&101).unwrap();
 
         // and make sure that the vote will not be ignored, because the slash was
         // zero.
-        let last_slash = mock::Staking::get_slashing_spans(&11)
+        let last_slash = SlashingSpans::<Test>::get(&11)
             .unwrap()
             .last_nonzero_slash();
         assert!(nominations.submitted_in >= last_slash);
@@ -4980,7 +4980,7 @@ fn on_initialize_weight_is_correct() {
     ExtBuilder::default()
         .has_stakers(false)
         .build_and_execute(|| {
-            assert_eq!(mock::Staking::get_all_validators().iter().count(), 0);
+            assert_eq!(Validators::<Test>::iter().count(), 0);
             assert_eq!(Nominators::<Test>::iter().count(), 0);
             // When this pallet has nothing, we do 4 reads each block
             let base_weight = <Test as frame_system::Config>::DbWeight::get().reads(4);
@@ -5000,7 +5000,7 @@ fn on_initialize_weight_is_correct() {
             Timestamp::set_timestamp(System::block_number() * 1000 + INIT_TIMESTAMP);
             Session::on_initialize(System::block_number());
 
-            assert_eq!(mock::Staking::get_all_validators().iter().count(), 4);
+            assert_eq!(Validators::<Test>::iter().count(), 4);
             assert_eq!(Nominators::<Test>::iter().count(), 5);
             // With 4 validators and 5 nominator, we should increase weight by:
             // - (4 + 5) reads

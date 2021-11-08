@@ -954,14 +954,8 @@ pub trait Config:
     /// Required origin for removing a validator (can always be Root).
     type RequiredRemoveOrigin: EnsureOrigin<Self::Origin>;
 
-    /// Required origin for changing compliance status (can always be Root).
-    type RequiredComplianceOrigin: EnsureOrigin<Self::Origin>;
-
     /// Required origin for changing validator commission.
     type RequiredCommissionOrigin: EnsureOrigin<Self::Origin>;
-
-    /// Required origin for changing the history depth.
-    type RequiredChangeHistoryDepthOrigin: EnsureOrigin<Self::Origin>;
 
     /// To schedule the rewards for the stakers after the end of era.
     type RewardScheduler: Anon<Self::BlockNumber, <Self as Config>::Call, Self::PalletsOrigin>;
@@ -1176,21 +1170,21 @@ decl_storage! {
 
         /// All slashing events on validators, mapped by era to the highest slash proportion
         /// and slash value of the era.
-        ValidatorSlashInEra:
+        pub ValidatorSlashInEra:
             double_map hasher(twox_64_concat) EraIndex, hasher(twox_64_concat) T::AccountId
             => Option<(Perbill, BalanceOf<T>)>;
 
         /// All slashing events on nominators, mapped by era to the highest slash value of the era.
-        NominatorSlashInEra:
+        pub NominatorSlashInEra:
             double_map hasher(twox_64_concat) EraIndex, hasher(twox_64_concat) T::AccountId
             => Option<BalanceOf<T>>;
 
         /// Slashing spans for stash accounts.
-        SlashingSpans get(fn slashing_spans): map hasher(twox_64_concat) T::AccountId => Option<slashing::SlashingSpans>;
+        pub SlashingSpans get(fn slashing_spans): map hasher(twox_64_concat) T::AccountId => Option<slashing::SlashingSpans>;
 
         /// Records information about the maximum slash of a stash within a slashing span,
         /// as well as how much reward has been paid out.
-        SpanSlash:
+        pub SpanSlash:
             map hasher(twox_64_concat) (T::AccountId, slashing::SpanIndex)
             => slashing::SpanRecord<BalanceOf<T>>;
 
@@ -2460,7 +2454,7 @@ decl_module! {
             #[compact] new_history_depth: EraIndex,
             #[compact] _era_items_deleted: u32,
         ) {
-            T::RequiredChangeHistoryDepthOrigin::ensure_origin(origin)?;
+            ensure_root(origin)?;
             if let Some(current_era) = Self::current_era() {
                 HistoryDepth::mutate(|history_depth| {
 					let last_kept = current_era.checked_sub(*history_depth).unwrap_or(0);
@@ -2473,9 +2467,9 @@ decl_module! {
             }
         }
 
-        /// Remove all data structure concerning a staker/stash once its balance is zero.
+        /// Remove all data structure concerning a staker/stash once its balance is at the minimum.
         /// This is essentially equivalent to `withdraw_unbonded` except it can be called by anyone
-        /// and the target `stash` must have no funds left.
+        /// and the target `stash` must have no funds left beyond the ED.
         ///
         /// This can be called from any origin.
         ///
@@ -3649,16 +3643,6 @@ impl<T: Config> Module<T> {
         })
     }
 
-    /// Return reward curve points
-    pub fn get_curve() -> Vec<(Perbill, Perbill)> {
-        let curve = &T::RewardCurve::get();
-        let mut points: Vec<(Perbill, Perbill)> = Vec::new();
-        for pair in curve.points {
-            points.push(*pair)
-        }
-        points
-    }
-
     fn unbond_balance(
         controller: T::AccountId,
         ledger: &mut StakingLedger<T::AccountId, BalanceOf<T>>,
@@ -3718,56 +3702,6 @@ impl<T: Config> Module<T> {
     #[cfg(feature = "runtime-benchmarks")]
     pub fn set_slash_reward_fraction(fraction: Perbill) {
         SlashRewardFraction::put(fraction);
-    }
-
-    #[cfg(debug_assertions)]
-    pub fn get_span_slash(
-        idx: &(T::AccountId, slashing::SpanIndex),
-    ) -> slashing::SpanRecord<BalanceOf<T>> {
-        <SpanSlash<T>>::get(idx)
-    }
-
-    #[cfg(debug_assertions)]
-    pub fn get_slashing_spans(acc: &T::AccountId) -> Option<slashing::SlashingSpans> {
-        <SlashingSpans<T>>::get(acc)
-    }
-
-    #[cfg(debug_assertions)]
-    pub fn get_validator_slash_in_era(
-        era_idx: &EraIndex,
-        acc: &T::AccountId,
-    ) -> Option<(Perbill, BalanceOf<T>)> {
-        <ValidatorSlashInEra<T>>::get(era_idx, acc)
-    }
-
-    #[cfg(debug_assertions)]
-    pub fn get_nominators_slash_in_era(
-        era_idx: &EraIndex,
-        acc: &T::AccountId,
-    ) -> Option<BalanceOf<T>> {
-        <NominatorSlashInEra<T>>::get(era_idx, acc)
-    }
-
-    #[cfg(debug_assertions)]
-    pub fn get_unapplied_slashed(
-        era_idx: &EraIndex,
-    ) -> Vec<UnappliedSlash<T::AccountId, BalanceOf<T>>> {
-        <UnappliedSlashes<T>>::get(era_idx)
-    }
-
-    #[cfg(debug_assertions)]
-    pub fn get_all_validators() -> Vec<(T::AccountId, ValidatorPrefs)> {
-        <Validators<T>>::iter().collect::<Vec<_>>()
-    }
-
-    #[cfg(debug_assertions)]
-    pub fn insert_validators(acc: T::AccountId, v: ValidatorPrefs) {
-        <Validators<T>>::insert(acc, v)
-    }
-
-    #[cfg(debug_assertions)]
-    pub fn set_minimum_validator_count(m: u32) {
-        MinimumValidatorCount::put(m)
     }
 }
 
