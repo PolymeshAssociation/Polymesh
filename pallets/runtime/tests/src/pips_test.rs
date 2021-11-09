@@ -7,6 +7,7 @@ use super::{
     },
     ExtBuilder,
 };
+use core::assert_matches::assert_matches;
 use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
@@ -1478,36 +1479,39 @@ fn reschedule_execution_in_the_past() {
 fn reschedule_execution_works() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
+
+        // General setup.
         let rc = init_rc();
         let proposer = User::new(AccountKeyring::Bob);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        let id = scheduled_proposal(proposer, rc, 0);
-        let scheduled_at = Pips::pip_to_schedule(id).unwrap();
-        assert_eq!(1, Agenda::get(scheduled_at).len());
 
+        // Schedule a proposal and verify that it is.
+        assert_eq!(Pips::active_pip_count(), 0);
+        let id = scheduled_proposal(proposer, rc, 0);
+        assert_eq!(Pips::active_pip_count(), 1);
+        let scheduled_at = Pips::pip_to_schedule(id).unwrap();
+        assert_matches!(&*Agenda::get(scheduled_at), [Some(_)]);
+
+        // Reschedule execution for next block.
         let next = System::block_number() + 1;
         assert_ok!(Pips::reschedule_execution(rc.origin(), id, None));
+        // Regression test for <https://polymath.atlassian.net/browse/GTN-2172>.
+        assert_eq!(Pips::active_pip_count(), 1);
+        // Rescheduling currently works by cancelling + then scheduling again. Verify this.
         assert_event_exists!(EventTest::pallet_scheduler(
             pallet_scheduler::RawEvent::Canceled(..)
         ));
         assert_eq!(Pips::pip_to_schedule(id).unwrap(), next);
-        assert_eq!(
-            1, /* the Agenda vec item is None */
-            Agenda::get(scheduled_at).len()
-        );
-        assert_eq!(1, Agenda::get(next).len());
+        assert_eq!(Agenda::get(scheduled_at), vec![None]);
+        assert_matches!(&*Agenda::get(next), [Some(_)]);
 
+        // Reschedule execution for 50 blocks ahead.
         assert_ok!(Pips::reschedule_execution(rc.origin(), id, Some(next + 50)));
+        assert_eq!(Pips::active_pip_count(), 1);
         assert_eq!(Pips::pip_to_schedule(id).unwrap(), next + 50);
-        assert_eq!(
-            1, /* the Agenda vec item is None */
-            Agenda::get(scheduled_at).len()
-        );
-        assert_eq!(
-            1, /* the Agenda vec item is None */
-            Agenda::get(next).len()
-        );
-        assert_eq!(1, Agenda::get(next + 50).len());
+        assert_eq!(vec![None], Agenda::get(scheduled_at));
+        assert_eq!(vec![None], Agenda::get(next));
+        assert_matches!(&*Agenda::get(next + 50), [Some(_)]);
     });
 }
 
