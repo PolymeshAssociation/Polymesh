@@ -1533,49 +1533,35 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Affirm with receipts, executing the instruction when all affirmations have been received.
+    /// Affirm with or without receipts, executing the instruction when all affirmations have been received.
     ///
     /// NB - Use this function only in the STO pallet to support DVP settlements.
     pub fn affirm_and_execute_instruction(
         origin: <T as frame_system::Config>::Origin,
         id: InstructionId,
+        receipt: Option<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
         max_legs_count: u32,
     ) -> DispatchResult {
-        with_transaction(|| {
-            Self::base_affirm_instruction(origin, id, portfolios.into_iter(), max_legs_count)?;
-            Self::execute_settle_on_affirmation_instruction(
-                id,
-                Self::instruction_affirms_pending(id),
-                Self::instruction_details(id).settlement_type,
-            )
-        })
-    }
-
-    /// Affirm with receipts, executing the instruction when all affirmations have been received.
-    ///
-    /// NB - Use this function only in the STO pallet to support DVP settlements.
-    pub fn affirm_with_receipts_and_execute_instruction(
-        origin: <T as frame_system::Config>::Origin,
-        id: InstructionId,
-        receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
-        portfolios: Vec<PortfolioId>,
-        max_legs_count: u32,
-    ) -> DispatchResult {
-        with_transaction(|| {
-            Self::base_affirm_with_receipts(
+        match receipt {
+            Some(receipt) => Self::base_affirm_with_receipts(
                 origin,
                 id,
-                receipt_details,
+                vec![receipt],
                 portfolios,
                 max_legs_count,
-            )?;
-            Self::execute_settle_on_affirmation_instruction(
-                id,
-                Self::instruction_affirms_pending(id),
-                Self::instruction_details(id).settlement_type,
-            )
-        })
+            )?,
+            None => {
+                Self::base_affirm_instruction(origin, id, portfolios.into_iter(), max_legs_count)?
+            }
+        };
+        let result = Self::execute_settle_on_affirmation_instruction(
+            id,
+            Self::instruction_affirms_pending(id),
+            Self::instruction_details(id).settlement_type,
+        );
+        Self::prune_instruction(id);
+        result
     }
 
     fn execute_settle_on_affirmation_instruction(
