@@ -498,12 +498,13 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Create a new DID out of the current block hash and a `nonce`.
+    /// Create a new DID out of the parent block hash and a `nonce`.
     fn make_did(nonce: u64) -> IdentityId {
-        // TODO: This currently always returns 0x000...000.
-        // See https://polymath.atlassian.net/browse/MESH-1546
-        let block_hash = System::<T>::block_hash(System::<T>::block_number());
-        IdentityId(blake2_256(&(USER, block_hash, nonce).encode()))
+        // TODO: Look into getting randomness from `pallet_babe`.
+        // NB: We can't get the current block's hash while processing
+        // an extrinsic, so we use parent hash here.
+        let parent_hash = System::<T>::parent_hash();
+        IdentityId(blake2_256(&(USER, parent_hash, nonce).encode()))
     }
 
     /// Registers a did without adding a CDD claim for it.
@@ -512,10 +513,7 @@ impl<T: Config> Module<T> {
         secondary_keys: Vec<SecondaryKey<T::AccountId>>,
         protocol_fee_data: Option<ProtocolOp>,
     ) -> Result<IdentityId, DispatchError> {
-        // Adding extrensic count to did nonce for some unpredictability
-        // NB: this does not guarantee randomness
-        let new_nonce =
-            Self::multi_purpose_nonce() + u64::from(System::<T>::extrinsic_count()) + 7u64;
+        let new_nonce = Self::multi_purpose_nonce() + 7u64;
         // Even if this transaction fails, nonce should be increased for added unpredictability of dids
         MultiPurposeNonce::put(&new_nonce);
 
