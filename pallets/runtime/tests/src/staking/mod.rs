@@ -811,7 +811,13 @@ fn double_staking_should_fail() {
             Staking::nominate(Origin::signed(1), vec![1]),
             Error::<Test>::NotController
         );
+
         // 2 = controller  => nominating should work.
+        assert_noop!(
+            Staking::nominate(Origin::signed(2), vec![1]),
+            Error::<Test>::StashIdentityDoesNotExist,
+        );
+        provide_did_to_user(1);
         assert_ok!(Staking::nominate(Origin::signed(2), vec![1]));
     });
 }
@@ -4835,6 +4841,7 @@ fn payout_stakers_handles_basic_errors() {
 
             // Create nominators, targeting stash
             for i in 0..100 {
+                provide_did_to_user(1000 + i);
                 bond_nominator(1000 + i, 100 + i, balance + i as Balance, vec![11]);
             }
 
@@ -5038,7 +5045,10 @@ fn add_nominator_with_invalid_expiry() {
             let now = Utc::now();
             Timestamp::set_timestamp(now.timestamp() as u64);
             let validators = vec![10, 20, 30];
-            assert_ok!(Staking::nominate(controller_signed.clone(), validators));
+            assert_noop!(
+                Staking::nominate(controller_signed.clone(), validators),
+                Error::<Test>::StashIdentityNotCDDed,
+            );
             assert!(Staking::nominators(&account_alice).is_none());
         });
 }

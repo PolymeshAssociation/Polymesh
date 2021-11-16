@@ -1423,10 +1423,12 @@ decl_error! {
         InvalidValidatorIdentity,
         /// Validator prefs are not in valid range.
         InvalidValidatorCommission,
-        /// Validator stash identity does not exist.
+        /// Validator or nominator stash identity does not exist.
         StashIdentityDoesNotExist,
         /// Validator stash identity was not permissioned.
         StashIdentityNotPermissioned,
+        /// Nominator stash was not CDDed.
+        StashIdentityNotCDDed,
         /// Running validator count hit the intended count.
         HitIntendedValidatorCount,
         /// When the intended number of validators to run is >= 2/3 of `validator_count`.
@@ -1969,12 +1971,17 @@ decl_module! {
             // the threshold value of timestamp i.e current_timestamp + Bonding duration
             // then nominator is added into the nominator pool.
 
-            let nominate_identity = match <Identity<T>>::get_identity(stash) {
-                Some(ni)
-                    if <Identity<T>>::fetch_cdd(ni, (Self::get_bonding_duration_period() as u32).into()).is_some()
-                    => ni,
-                _ => return Ok(()),
-            };
+            // Fetch the nominator DID.
+            let nominate_identity = <Identity<T>>::get_identity(stash)
+                .ok_or(Error::<T>::StashIdentityDoesNotExist)?;
+
+            // Ensure DID is CDDed.
+            let duration = (Self::get_bonding_duration_period() as u32).into();
+            ensure!(
+                <Identity<T>>::fetch_cdd(nominate_identity, duration).is_some(),
+                Error::<T>::StashIdentityNotCDDed,
+            );
+
             let targets = targets.into_iter()
                 .map(|t| T::Lookup::lookup(t).map_err(DispatchError::from))
                 .map(|n| n.and_then(|n| if old.contains(&n) || !Validators::<T>::get(&n).blocked {
