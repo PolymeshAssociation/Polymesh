@@ -2201,17 +2201,18 @@ decl_module! {
                     // There is a possibility that nominator will have more than one claim for the same key,
                     // So we iterate all of them and if any one of the claim value doesn't expire then nominator posses
                     // valid CDD otherwise it will be removed from the pool of the nominators.
+                    // If the target has no DID, it's also removed.
                     <Identity<T>>::get_identity(&target)
-                        .filter(|did| !<Identity<T>>::has_valid_cdd(*did))
-                        .is_some()
+                        .filter(|did| <Identity<T>>::has_valid_cdd(*did))
+                        .is_none()
                 })
             {
                 // Un-bonding the balance that bonded with the controller account of a Stash account
                 // This unbonded amount only be accessible after completion of the BondingDuration
                 // Controller account need to call the dispatchable function `withdraw_unbond` to withdraw fund.
 
-                let controller = Self::bonded(target).ok_or("not a stash")?;
-                let mut ledger = Self::ledger(&controller).ok_or("not a controller")?;
+                let controller = Self::bonded(target).ok_or(Error::<T>::NotStash)?;
+                let mut ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
                 let active_balance = ledger.active;
                 if ledger.unlocking.len() < MAX_UNLOCKING_CHUNKS {
                     Self::unbond_balance(controller, &mut ledger, active_balance);
