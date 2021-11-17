@@ -108,7 +108,7 @@ use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use pallet_base::{ensure_opt_string_limited, try_next_post};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
-    constants::{schedule_name_prefix::*, PIP_MAX_REPORTING_SIZE},
+    constants::PIP_MAX_REPORTING_SIZE,
     identity::Config as IdentityConfig,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::{
@@ -116,7 +116,9 @@ use polymesh_common_utilities::{
     },
     with_transaction, CommonConfig, Context, MaybeBlock, GC_DID,
 };
-use polymesh_primitives::{impl_checked_inc, Balance, IdentityId};
+use polymesh_primitives::{
+    impl_checked_inc, storage_migrate_on, storage_migration_ver, Balance, IdentityId,
+};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use polymesh_runtime_common::PipsEnactSnapshotMaximumWeight;
 #[cfg(feature = "std")]
@@ -178,6 +180,20 @@ pub struct PipDescription(pub Vec<u8>);
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PipId(pub u32);
 impl_checked_inc!(PipId);
+
+impl PipId {
+    /// Converts a PIP ID into a name of a PIP scheduled for execution.
+    pub fn execution_name(&self) -> Vec<u8> {
+        use polymesh_common_utilities::constants::schedule_name_prefix::*;
+        (PIP_EXECUTION, self.0).encode()
+    }
+
+    /// Converts a PIP ID into a name of a PIP scheduled for expiry.
+    pub fn expiry_name(&self) -> Vec<u8> {
+        use polymesh_common_utilities::constants::schedule_name_prefix::*;
+        (PIP_EXPIRY, self.0).encode()
+    }
+}
 
 /// Represents a proposal
 #[derive(Encode, Decode, Clone, PartialEq, Eq)]
@@ -425,12 +441,10 @@ pub trait Config:
     /// instances, the names of scheduled tasks should be guaranteed to be unique in this
     /// pallet. Names cannot be just PIP IDs because names of executed and expired PIPs should be
     /// different.
-    type Scheduler: ScheduleNamed<
-        Self::BlockNumber,
-        <Self as frame_system::Config>::Call,
-        Self::SchedulerOrigin,
-    >;
+    type Scheduler: ScheduleNamed<Self::BlockNumber, Self::Call, Self::SchedulerOrigin>;
 }
+
+storage_migration_ver!(1);
 
 // This module's storage items.
 decl_storage! {
@@ -511,6 +525,8 @@ decl_storage! {
         /// All existing PIPs where the proposer is a committee.
         /// This list is a cache of all ids in `Proposals` with `Proposer::Committee(_)`.
         pub CommitteePips get(fn committee_pips): Vec<PipId>;
+
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
 }
 
@@ -635,6 +651,18 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion::get(), 1, {
+                // We had a bug in `update_proposal_state`.
+                let count = Proposals::<T>::iter()
+                    .filter(|(_, p)| matches!(p.state, ProposalState::Scheduled | ProposalState::Pending))
+                    .count();
+                ActivePipCount::set(count as u32);
+            });
+
+            0
+        }
 
         /// Change whether completed PIPs are pruned.
         /// Can only be called by root.
@@ -886,18 +914,18 @@ decl_module! {
         /// * `NotByCommittee` if the proposal isn't by a committee.
         #[weight = (<T as Config>::WeightInfo::approve_committee_proposal(), Operational)]
         pub fn approve_committee_proposal(origin, id: PipId) {
-            // 1. Only GC can do this.
+            // Ensure origin is GC.
             T::VotingMajorityOrigin::ensure_origin(origin)?;
 
-            // 2. Proposal must be pending.
+            // Ensure proposal is pending.
             Self::is_proposal_state(id, ProposalState::Pending)?;
 
-            // 3. Proposal must be by committee.
+            // Ensure proposal is by committee.
             let pip = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
             ensure!(matches!(pip.proposer, Proposer::Committee(_)), Error::<T>::NotByCommittee);
 
-            // 4. All is good, schedule PIP for execution.
-            Self::schedule_pip_for_execution(GC_DID, id, None);
+            // All is good, schedule PIP for execution.
+            Self::schedule_pip_for_execution(id);
         }
 
         /// Rejects the PIP given by the `id`, refunding any bonded funds,
@@ -948,26 +976,27 @@ decl_module! {
         pub fn reschedule_execution(origin, id: PipId, until: Option<T::BlockNumber>) {
             let did = Identity::<T>::ensure_perms(origin)?;
 
-            // 1. Only release coordinator
+            // Ensure origin is release coordinator.
             ensure!(
                 Some(did) == T::GovernanceCommittee::release_coordinator(),
                 Error::<T>::RescheduleNotByReleaseCoordinator
             );
 
+            // Ensure proposal is scheduled.
             Self::is_proposal_state(id, ProposalState::Scheduled)?;
 
-            // 2. New value should be valid block number.
+            // Ensure new `until` is a valid block number.
             let next_block = <system::Module<T>>::block_number() + 1u32.into();
             let new_until = until.unwrap_or(next_block);
             ensure!(new_until >= next_block, Error::<T>::InvalidFutureBlockNumber);
 
-            // 3. Update enactment period & reschedule it.
+            // Update enactment period & reschedule it.
             <PipToSchedule<T>>::insert(id, new_until);
-
-            // TODO: When we upgrade Substrate to a release containing `reschedule_named` in
-            // `schedule::Named`, use that instead of discrete unscheduling and scheduling.
-            Self::unschedule_pip(id);
-            Self::schedule_pip_for_execution(GC_DID, id, Some(new_until));
+            let res = T::Scheduler::reschedule_named(
+                id.execution_name(),
+                DispatchTime::At(new_until),
+            );
+            Self::handle_exec_scheduling_result(id, new_until, res);
         }
 
         /// Clears the snapshot and emits the event `SnapshotCleared`.
@@ -1090,7 +1119,7 @@ decl_module! {
 
                 // Approve proposals as instructed.
                 for pip_id in to_approve.iter().copied() {
-                    Self::schedule_pip_for_execution(GC_DID, pip_id, None);
+                    Self::schedule_pip_for_execution(pip_id);
                 }
 
                 let id = Self::snapshot_metadata().map(|m| m.id);
@@ -1194,7 +1223,7 @@ impl<T: Config> Module<T> {
     /// Remove the PIP with `id` from the `ExecutionSchedule` at `block_no`.
     fn unschedule_pip(id: PipId) {
         <PipToSchedule<T>>::remove(id);
-        if let Err(_) = T::Scheduler::cancel_named(Self::pip_execution_name(id)) {
+        if let Err(_) = T::Scheduler::cancel_named(id.execution_name()) {
             Self::deposit_event(RawEvent::ExecutionCancellingFailed(id));
         }
     }
@@ -1241,33 +1270,39 @@ impl<T: Config> Module<T> {
         Self::prune_data(did, id, new_state, Self::prune_historical_pips());
     }
 
-    /// Adds a PIP execution call to the PIP execution schedule.
-    // TODO: the `maybe_at` argument is only required until we upgrade to a version of Substrate
-    // containing `schedule::Named::reschedule_named`.
-    fn schedule_pip_for_execution(did: IdentityId, id: PipId, maybe_at: Option<T::BlockNumber>) {
-        let at = maybe_at.unwrap_or_else(|| {
-            // The enactment period is at least 1 block. This is de to the fact that it's only
-            // possible to schedule calls for future blocks.
-            Self::default_enactment_period()
-                .max(One::one())
-                .saturating_add(<system::Module<T>>::block_number())
-        });
-        Self::update_proposal_state(did, id, ProposalState::Scheduled);
-        <PipToSchedule<T>>::insert(id, at);
+    /// Add a PIP execution call to the PIP execution schedule.
+    fn schedule_pip_for_execution(id: PipId) {
+        // The enactment period is at least 1 block,
+        // as you can only schedule calls for future blocks.
+        let at = Self::default_enactment_period()
+            .max(One::one())
+            .saturating_add(<system::Module<T>>::block_number());
 
+        // Add to schedule.
         let call = Call::<T>::execute_scheduled_pip(id).into();
-        let event = match T::Scheduler::schedule_named(
-            Self::pip_execution_name(id),
+        let res = T::Scheduler::schedule_named(
+            id.execution_name(),
             DispatchTime::At(at),
             None,
             MAX_NORMAL_PRIORITY,
             RawOrigin::Root.into(),
             call,
-        ) {
-            Err(_) => RawEvent::ExecutionSchedulingFailed(did, id, at),
-            Ok(_) => RawEvent::ExecutionScheduled(did, id, at),
-        };
-        Self::deposit_event(event);
+        );
+        Self::handle_exec_scheduling_result(id, at, res);
+
+        // Record that it has been scheduled.
+        <PipToSchedule<T>>::insert(id, at);
+
+        // Set the proposal to scheduled.
+        Self::update_proposal_state(GC_DID, id, ProposalState::Scheduled);
+    }
+
+    /// Emit event based on a `result` from scheduling a PIP for execution.
+    fn handle_exec_scheduling_result<A, B>(id: PipId, at: T::BlockNumber, result: Result<A, B>) {
+        Self::deposit_event(match result {
+            Err(_) => RawEvent::ExecutionSchedulingFailed(GC_DID, id, at),
+            Ok(_) => RawEvent::ExecutionScheduled(GC_DID, id, at),
+        });
     }
 
     /// Adds a PIP expiry call to the PIP expiry schedule.
@@ -1275,7 +1310,7 @@ impl<T: Config> Module<T> {
         let did = GC_DID;
         let call = Call::<T>::expire_scheduled_pip(did, id).into();
         let event = match T::Scheduler::schedule_named(
-            Self::pip_expiry_name(id),
+            id.expiry_name(),
             DispatchTime::At(at),
             None,
             MAX_NORMAL_PRIORITY,
@@ -1311,8 +1346,8 @@ impl<T: Config> Module<T> {
     ) -> ProposalState {
         <Proposals<T>>::mutate(id, |proposal| {
             if let Some(ref mut proposal) = proposal {
-                if (proposal.state, new_state) != (ProposalState::Pending, ProposalState::Scheduled)
-                {
+                // Decrement active count, if the `new_state` is not active.
+                if !Self::is_active(new_state) {
                     Self::decrement_count_if_active(proposal.state);
                 }
                 proposal.state = new_state;
@@ -1340,24 +1375,6 @@ impl<T: Config> Module<T> {
             // The performance impact of a saturating sub is negligible and caution is good.
             ActivePipCount::mutate(|count| *count = count.saturating_sub(1));
         }
-    }
-
-    /// Converts a PIP ID into a name of a PIP scheduled for execution.
-    fn pip_execution_name(id: PipId) -> Vec<u8> {
-        Self::pip_schedule_name(&PIP_EXECUTION[..], id)
-    }
-
-    /// Converts a PIP ID into a name of a PIP scheduled for expiry.
-    fn pip_expiry_name(id: PipId) -> Vec<u8> {
-        Self::pip_schedule_name(&PIP_EXPIRY[..], id)
-    }
-
-    /// Common method to create a unique name for the scheduler for a PIP.
-    fn pip_schedule_name(prefix: &[u8], id: PipId) -> Vec<u8> {
-        let mut name = Vec::with_capacity(prefix.len() + id.size_hint());
-        name.extend_from_slice(prefix);
-        id.encode_to(&mut name);
-        name
     }
 }
 
@@ -1534,10 +1551,38 @@ pub fn enact_snapshot_results<T: Config>(results: &[(PipId, SnapshotResult)]) ->
 
 #[cfg(test)]
 mod test {
+    use super::PipId;
+    use codec::Encode;
+
+    fn old_pip_execution_name(id: PipId) -> Vec<u8> {
+        use polymesh_common_utilities::constants::schedule_name_prefix::*;
+        old_pip_schedule_name(&PIP_EXECUTION[..], id)
+    }
+
+    fn old_pip_expiry_name(id: PipId) -> Vec<u8> {
+        use polymesh_common_utilities::constants::schedule_name_prefix::*;
+        old_pip_schedule_name(&PIP_EXPIRY[..], id)
+    }
+
+    fn old_pip_schedule_name(prefix: &[u8], id: PipId) -> Vec<u8> {
+        let mut name = Vec::with_capacity(prefix.len() + id.size_hint());
+        name.extend_from_slice(prefix);
+        id.encode_to(&mut name);
+        name
+    }
+
+    #[test]
+    // Check that new schedule name code matches old logic.
+    fn check_new_schedule_names() {
+        let id = PipId(1234);
+        assert_eq!(old_pip_execution_name(id), id.execution_name());
+        assert_eq!(old_pip_expiry_name(id), id.expiry_name());
+    }
+
     #[test]
     fn compare_spip_works() {
         let mk = |id, sign, power| super::SnapshottedPip {
-            id,
+            id: PipId(id),
             weight: (sign, power),
         };
         let a = mk(4, true, 50);

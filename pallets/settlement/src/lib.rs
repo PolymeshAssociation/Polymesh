@@ -20,7 +20,8 @@
 //! ## Overview
 //!
 //! The settlement module provides functionality to settle onchain as well as offchain trades between multiple parties.
-//! All trades are settled under venues. A token issuer can allow/block certain venues from settling trades that involve their tokens.
+//! All trades are settled under venues. An appropriately permissioned external agent
+//! can allow/block certain venues from settling trades that involve their tokens.
 //! An atomic settlement is called an Instruction. An instruction can contain multiple legs. Legs are essentially simple one to one transfers.
 //! When an instruction is settled, either all legs are executed successfully or none are. In other words, if one of the leg fails due to
 //! compliance failure, all other legs will also fail.
@@ -68,10 +69,7 @@ use frame_system::{self as system, ensure_root, RawOrigin};
 use pallet_base::{ensure_string_limited, try_next_post};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
-    constants::{
-        queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,
-        schedule_name_prefix::SETTLEMENT_INSTRUCTION_EXECUTION,
-    },
+    constants::queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,
     traits::{
         asset, identity::Config as IdentityConfig, portfolio::PortfolioSubTrait, CommonConfig,
     },
@@ -217,6 +215,13 @@ impl_checked_inc!(LegId);
 #[derive(Copy, Clone, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct InstructionId(pub u64);
 impl_checked_inc!(InstructionId);
+
+impl InstructionId {
+    /// Converts an instruction id into a scheduler name.
+    pub fn execution_name(&self) -> Vec<u8> {
+        (polymesh_common_utilities::constants::schedule_name_prefix::SETTLEMENT_INSTRUCTION_EXECUTION, self.0).encode()
+    }
+}
 
 /// Details about an instruction
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
@@ -375,7 +380,7 @@ decl_event!(
         InstructionFailed(IdentityId, InstructionId),
         /// Instruction executed successfully(did, instruction_id)
         InstructionExecuted(IdentityId, InstructionId),
-        /// Venue unauthorized by ticker owner (did, Ticker, venue_id)
+        /// Venue not part of the token's allow list (did, Ticker, venue_id)
         VenueUnauthorized(IdentityId, Ticker, VenueId),
         /// Scheduling of instruction fails.
         SchedulingFailed(DispatchError),
@@ -660,7 +665,7 @@ decl_module! {
             Self::unsafe_withdraw_instruction_affirmation(did, id, portfolios_set, secondary_key.as_ref(), max_legs_count)?;
             if details.settlement_type == SettlementType::SettleOnAffirmation {
                 // Cancel the scheduled task for the execution of a given instruction.
-                let _ = T::Scheduler::cancel_named((SETTLEMENT_INSTRUCTION_EXECUTION, id).encode());
+                let _ = T::Scheduler::cancel_named(id.execution_name());
             }
         }
 
@@ -702,7 +707,7 @@ decl_module! {
 
             Self::unsafe_unclaim_receipts(id, &legs);
             Self::unchecked_release_locks(id, &legs);
-            let _ = T::Scheduler::cancel_named((SETTLEMENT_INSTRUCTION_EXECUTION, id).encode());
+            let _ = T::Scheduler::cancel_named(id.execution_name());
             Self::prune_instruction(id);
             Self::deposit_event(RawEvent::InstructionRejected(primary_did, id));
         }
@@ -946,7 +951,7 @@ impl<T: Config> Module<T> {
         let mut tickers = BTreeSet::new();
         for leg in &legs {
             ensure!(leg.from != leg.to, Error::<T>::SameSenderReceiver);
-            // Check if the venue has required permissions from token owners.
+            // Check if the venue is part of the token's list of allowed venues.
             // Only check each ticker once.
             if tickers.insert(leg.asset) && Self::venue_filtering(leg.asset) {
                 ensure!(
@@ -1351,7 +1356,7 @@ impl<T: Config> Module<T> {
     fn schedule_instruction(id: InstructionId, execution_at: T::BlockNumber, legs_count: u32) {
         let call = Call::<T>::execute_scheduled_instruction(id, legs_count).into();
         if let Err(_) = T::Scheduler::schedule_named(
-            (SETTLEMENT_INSTRUCTION_EXECUTION, id).encode(),
+            id.execution_name(),
             DispatchTime::At(execution_at),
             None,
             SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,
@@ -1528,49 +1533,35 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Affirm with receipts, executing the instruction when all affirmations have been received.
+    /// Affirm with or without receipts, executing the instruction when all affirmations have been received.
     ///
     /// NB - Use this function only in the STO pallet to support DVP settlements.
     pub fn affirm_and_execute_instruction(
         origin: <T as frame_system::Config>::Origin,
         id: InstructionId,
+        receipt: Option<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
         max_legs_count: u32,
     ) -> DispatchResult {
-        with_transaction(|| {
-            Self::base_affirm_instruction(origin, id, portfolios.into_iter(), max_legs_count)?;
-            Self::execute_settle_on_affirmation_instruction(
-                id,
-                Self::instruction_affirms_pending(id),
-                Self::instruction_details(id).settlement_type,
-            )
-        })
-    }
-
-    /// Affirm with receipts, executing the instruction when all affirmations have been received.
-    ///
-    /// NB - Use this function only in the STO pallet to support DVP settlements.
-    pub fn affirm_with_receipts_and_execute_instruction(
-        origin: <T as frame_system::Config>::Origin,
-        id: InstructionId,
-        receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
-        portfolios: Vec<PortfolioId>,
-        max_legs_count: u32,
-    ) -> DispatchResult {
-        with_transaction(|| {
-            Self::base_affirm_with_receipts(
+        match receipt {
+            Some(receipt) => Self::base_affirm_with_receipts(
                 origin,
                 id,
-                receipt_details,
+                vec![receipt],
                 portfolios,
                 max_legs_count,
-            )?;
-            Self::execute_settle_on_affirmation_instruction(
-                id,
-                Self::instruction_affirms_pending(id),
-                Self::instruction_details(id).settlement_type,
-            )
-        })
+            )?,
+            None => {
+                Self::base_affirm_instruction(origin, id, portfolios.into_iter(), max_legs_count)?
+            }
+        };
+        let result = Self::execute_settle_on_affirmation_instruction(
+            id,
+            Self::instruction_affirms_pending(id),
+            Self::instruction_details(id).settlement_type,
+        );
+        Self::prune_instruction(id);
+        result
     }
 
     fn execute_settle_on_affirmation_instruction(

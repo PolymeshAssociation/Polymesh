@@ -5,12 +5,12 @@ use super::{
 };
 use pallet_asset as asset;
 use pallet_compliance_manager as compliance_manager;
-use pallet_settlement::{VenueDetails, VenueId, VenueType};
+use pallet_settlement::{InstructionStatus, VenueDetails, VenueId, VenueType};
 use pallet_sto::{
     Fundraiser, FundraiserId, FundraiserName, FundraiserStatus, FundraiserTier, PriceTier,
     MAX_TIERS,
 };
-use polymesh_primitives::{asset::AssetType, PortfolioId, Ticker};
+use polymesh_primitives::{asset::AssetType, checked_inc::CheckedInc, PortfolioId, Ticker};
 
 use crate::storage::provide_scope_claim_to_multiple_parties;
 use frame_support::{assert_noop, assert_ok};
@@ -149,6 +149,7 @@ fn raise_happy_path() {
 
     // Register a venue
     let venue_counter = Settlement::venue_counter();
+    let instruction_id = Settlement::instruction_counter();
     assert_ok!(Settlement::create_venue(
         alice.origin(),
         VenueDetails::default(),
@@ -254,6 +255,14 @@ fn raise_happy_path() {
     // Bob invests in Alice's fundraiser
     assert_ok!(sto_invest(amount.into(), Some(1_000_000u128)));
     check_fundraiser(1_000_000u128 - amount);
+    assert_eq!(
+        Some(Settlement::instruction_counter()),
+        instruction_id.checked_inc()
+    );
+    assert_eq!(
+        Settlement::instruction_details(instruction_id).status,
+        InstructionStatus::Unknown
+    );
 
     assert_eq!(
         Asset::balance_of(&offering_ticker, alice.did),
