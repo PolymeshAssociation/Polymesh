@@ -298,6 +298,14 @@ impl User {
         create_investor_uid(self.acc())
     }
 
+    pub fn provide_scope_claim(
+        &self,
+        ticker: Ticker,
+        cdd_provider: &AccountId,
+    ) -> (ScopeId, CddId) {
+        provide_scope_claim(self.did, ticker, self.uid(), cdd_provider.clone(), None)
+    }
+
     /// Create a `Scope::Identity` from a User
     pub fn scope(&self) -> Scope {
         Scope::Identity(self.did)

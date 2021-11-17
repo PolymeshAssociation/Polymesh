@@ -1,9 +1,9 @@
 use super::{
-    storage::{make_account, make_account_with_scope, register_keyring_account, TestStorage},
+    storage::{make_account, make_account_with_scope, TestStorage, User},
     ExtBuilder,
 };
 use frame_support::{assert_noop, assert_ok};
-use pallet_asset::{self as asset, SecurityToken};
+use pallet_asset as asset;
 use pallet_compliance_manager as compliance_manager;
 use pallet_statistics::{self as statistics};
 use polymesh_primitives::{
@@ -73,45 +73,44 @@ fn ensure_invalid_transfer(ticker: Ticker, from: IdentityId, to: IdentityId, amo
 #[test]
 fn investor_count() {
     ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
-        .execute_with(|| investor_count_with_ext);
+        .execute_with(investor_count_with_ext);
 }
 
 fn investor_count_with_ext() {
-    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let alice_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
-    let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let cdd_provider = AccountKeyring::Eve.to_account_id();
+    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new(AccountKeyring::Bob);
+    let charlie = User::new(AccountKeyring::Charlie);
 
     // 1. Alice create an asset.
-    let name = &[0x01];
-    let token = SecurityToken {
-        owner_did: alice_did,
-        total_supply: 1_000_000,
-        divisible: true,
-        ..Default::default()
-    };
-
+    let name = b"ACME";
     let identifiers = Vec::new();
-    let ticker = Ticker::try_from(name.as_ref()).unwrap();
+    let ticker = Ticker::try_from(&name[..]).unwrap();
     assert_ok!(Asset::create_asset(
-        alice_signed.clone(),
+        alice.origin(),
         name.into(),
         ticker,
         true,
-        token.asset_type.clone(),
+        AssetType::default(),
         identifiers.clone(),
         None,
         false,
     ));
     // Total supply over the limit.
-    assert_ok!(Asset::issue(alice_signed.clone(), ticker, 1_000_000));
+    assert_ok!(Asset::issue(alice.origin(), ticker, 1_000_000));
+
+    // Each user needs an investor uniqueness claim.
+    alice.provide_scope_claim(ticker, &cdd_provider);
+    bob.provide_scope_claim(ticker, &cdd_provider);
+    charlie.provide_scope_claim(ticker, &cdd_provider);
 
     let ticker = Ticker::try_from(name.as_ref()).unwrap();
-    allow_all_transfers(alice_signed.clone(), ticker);
+    allow_all_transfers(alice.origin(), ticker);
 
-    let unsafe_transfer = |from, to, value| {
-        assert_ok!(Asset::unsafe_transfer(
+    let base_transfer = |from, to, value| {
+        assert_ok!(Asset::base_transfer(
             PortfolioId::default_portfolio(from),
             PortfolioId::default_portfolio(to),
             &ticker,
@@ -120,15 +119,15 @@ fn investor_count_with_ext() {
     };
 
     // Alice sends some tokens to Bob. Token has only one investor.
-    unsafe_transfer(alice_did, bob_did, 500);
+    base_transfer(alice.did, bob.did, 500);
     assert_eq!(Statistic::investor_count(&ticker), 2);
 
     // Alice sends some tokens to Charlie. Token has now two investors.
-    unsafe_transfer(alice_did, charlie_did, 5000);
+    base_transfer(alice.did, charlie.did, 5000);
     assert_eq!(Statistic::investor_count(&ticker), 3);
 
     // Bob sends all his tokens to Charlie, so now we have one investor again.
-    unsafe_transfer(bob_did, charlie_did, 500);
+    base_transfer(bob.did, charlie.did, 500);
     assert_eq!(Statistic::investor_count(&ticker), 2);
 }
 
