@@ -64,6 +64,8 @@ mod sto_test;
 #[cfg(test)]
 mod transaction_payment_test;
 #[cfg(test)]
+mod transfer_compliance_test;
+#[cfg(test)]
 mod treasury_test;
 #[cfg(test)]
 mod utility_test;

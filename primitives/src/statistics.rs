@@ -76,10 +76,17 @@ impl DerefMut for HashablePermill {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
 pub enum AssetScope {
-    /// Ticker scope.
+    /// Ticker scope.  Used for per-ticker stats.
     Ticker(Ticker),
+    // TODO: Add support for cross-ticker stats.
     //TickerGroup(TickerGroupId),
     //Company(CompanyId),
+}
+
+impl From<Ticker> for AssetScope {
+    fn from(ticker: Ticker) -> AssetScope {
+        AssetScope::Ticker(ticker)
+    }
 }
 
 impl From<AssetScope> for Scope {

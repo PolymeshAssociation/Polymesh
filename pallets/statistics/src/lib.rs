@@ -229,7 +229,7 @@ impl<T: Config> Module<T> {
         let _did = Self::ensure_asset_perms(origin, asset)?;
         // TODO: add `MaxStatsPerAsset` and error variant.
         ensure!(
-            stat_types.len() < T::MaxTransferManagersPerAsset::get() as usize,
+            stat_types.len() < 10,
             Error::<T>::TransferManagersLimitReached
         );
 
