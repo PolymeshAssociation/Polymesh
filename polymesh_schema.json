@@ -744,6 +744,10 @@
     "Stat2ndKey": {
       "claim": "Option<Claim>"
     },
+    "StatUpdate": {
+      "claim": "Option<Claim>",
+      "value": "Option<u128>"
+    },
     "TransferCondition": {
       "_enum": {
         "MaxInvestorCount": "u64",
