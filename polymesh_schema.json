@@ -725,6 +725,37 @@
       "amount": "Balance",
       "tx_hash": "H256"
     },
+    "AssetScope": {
+      "_enum": {
+        "Ticker": "Ticker"
+      }
+    },
+    "StatOpType": {
+      "_enum": ["Count", "Balance"]
+    },
+    "StatType": {
+      "op": "StatOpType",
+			"claim_issuer": "Option<(ClaimType, IdentityId)>"
+    },
+    "Stat1stKey": {
+      "asset": "AssetScope",
+      "stat_type": "StatType"
+    },
+    "Stat2ndKey": {
+      "claim": "Option<Claim>"
+    },
+    "TransferCondition": {
+      "_enum": {
+        "MaxInvestorCount": "u64",
+        "MaxInvestorOwnership": "Percentage",
+        "ClaimCount": "(Claim, IdentityId, u64, Option<u64>)",
+        "ClaimOwnership": "(Claim, IdentityId, Percentage, Percentage)"
+      }
+    },
+    "AssetTransferCompliance": {
+      "paused": "bool",
+      "requirements": "Vec<TransferCondition>"
+    },
     "AssetCompliance": {
       "paused": "bool",
       "requirements": "Vec<ComplianceRequirement>"
