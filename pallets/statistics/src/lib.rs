@@ -315,8 +315,11 @@ impl<T: Config> Module<T> {
         to_balance: Option<Balance>,
         amount: Balance,
     ) {
-        // If 2nd keys are the same, then no change needed.
-        if from_key2 == to_key2 {
+        // If 2nd keys are the same and it is not a mint/burn.
+        if from_key2 == to_key2 && from_balance.is_some() && to_balance.is_some() {
+            // Then the `amount` is transferred between investors
+            // with the same claim/non-claim.
+            // So no change is needed.
             return;
         }
 
@@ -532,10 +535,17 @@ impl<T: Config> Module<T> {
         key2: Stat2ndKey,
         from_did: &IdentityId,
         to_did: &IdentityId,
-        changes: (bool, bool),
+        changes: Option<(bool, bool)>,
         min: u128,
         max: Option<u128>,
     ) -> bool {
+        let changes = match changes {
+            Some(changes) => changes,
+            None => {
+                // No investor count changes, allow the transfer.
+                return true;
+            }
+        };
         let from_has_claim = Self::has_claim(from_did, &key1, &key2);
         let to_has_claim = Self::has_claim(to_did, &key1, &key2);
         match changes {
@@ -663,8 +673,11 @@ impl<T: Config> Module<T> {
         }
 
         // Pre-Calculate the investor count changes.
-        let count_changes =
-            Self::investor_count_changes(Some(from_balance), Some(to_balance), amount);
+        let count_changes = Self::investor_count_changes(
+            Some(from_balance.saturating_sub(amount)),
+            Some(to_balance.saturating_add(amount)),
+            amount,
+        );
 
         let asset = AssetScope::Ticker(*ticker);
         for condition in tm.requirements {
@@ -679,26 +692,19 @@ impl<T: Config> Module<T> {
                 }
                 MaxInvestorOwnership(max_percentage) => Self::verify_ownership_restriction(
                     amount,
-                    from_balance,
+                    to_balance,
                     total_supply,
                     *max_percentage,
                 ),
-                ClaimCount(claim, _, min, max) => {
-                    if let Some(changes) = count_changes {
-                        Self::verify_claim_count_restriction(
-                            key1,
-                            claim.into(),
-                            from_did,
-                            to_did,
-                            changes,
-                            *min as u128,
-                            max.map(|m| m as u128),
-                        )
-                    } else {
-                        // No changes.  Allow transfer.
-                        true
-                    }
-                }
+                ClaimCount(claim, _, min, max) => Self::verify_claim_count_restriction(
+                    key1,
+                    claim.into(),
+                    from_did,
+                    to_did,
+                    count_changes,
+                    *min as u128,
+                    max.map(|m| m as u128),
+                ),
                 ClaimOwnership(claim, _, min, max) => Self::verify_claim_ownership_restriction(
                     key1,
                     claim.into(),
