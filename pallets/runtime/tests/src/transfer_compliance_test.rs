@@ -10,9 +10,9 @@ use frame_support::{
 };
 use polymesh_primitives::{
     asset::AssetType, jurisdiction::CountryCode, statistics::*, transfer_compliance::*, AccountId,
-    Balance, CddId, Claim, ClaimType, IdentityId, InvestorUid, PortfolioId,
-    Scope, ScopeId, Ticker,
+    Balance, CddId, Claim, ClaimType, IdentityId, InvestorUid, PortfolioId, Scope, ScopeId, Ticker,
 };
+use sp_arithmetic::Permill;
 use sp_std::convert::TryFrom;
 use std::collections::{HashMap, HashSet};
 use test_client::AccountKeyring;
@@ -93,9 +93,9 @@ struct IssuerState {
 impl IssuerState {
     pub fn new(issuer: User, trusted_for: &[ClaimType]) -> Self {
         Self {
-          issuer,
-          trusted_for: trusted_for.iter().cloned().collect(),
-          claims: HashSet::new(),
+            issuer,
+            trusted_for: trusted_for.iter().cloned().collect(),
+            claims: HashSet::new(),
         }
     }
 
@@ -108,7 +108,8 @@ impl IssuerState {
     }
 
     pub fn fetch_claims(&self, claim_type: ClaimType) -> Vec<Claim> {
-        self.claims.iter()
+        self.claims
+            .iter()
             .filter(|c| c.claim_type() == claim_type)
             .cloned()
             .collect()
@@ -200,6 +201,15 @@ impl AssetTracker {
         self.active_stats = active_stats;
     }
 
+    pub fn set_transfer_conditions(&mut self, conditions: Vec<TransferCondition>) {
+        assert_ok!(Statistics::replace_asset_transfer_compliance(
+            self.owner_origin(),
+            self.asset,
+            conditions.clone(),
+        ));
+        self.transfer_conditions = conditions;
+    }
+
     pub fn owner(&self) -> &InvestorState {
         self.investors.get(&self.owner_id).expect("Missing owner")
     }
@@ -248,15 +258,22 @@ impl AssetTracker {
             ClaimType::Blocked => Claim::Blocked(scope),
             _ => {
                 panic!("Asset issuers can't create {:?} claims", claim_type);
-            },
+            }
         }
     }
 
-    pub fn add_claim_to_investors(&mut self, ids: &[u64], claim_type: ClaimType, jur: Option<CountryCode>) {
+    pub fn add_claim_to_investors(
+        &mut self,
+        ids: &[u64],
+        claim_type: ClaimType,
+        jur: Option<CountryCode>,
+    ) {
         let claim = self.make_claim(claim_type, jur);
 
         // build list of (issuer, claim) pairs.
-        let claims = self.issuers.values_mut()
+        let claims = self
+            .issuers
+            .values_mut()
             .filter(|issuer| issuer.is_trusted_for(&claim_type))
             .map(|i| {
                 i.add_claim(&claim);
@@ -285,30 +302,26 @@ impl AssetTracker {
     }
 
     pub fn dump_investors(&self) {
-        self.investors
-            .values()
-            .for_each(|i| {
-                eprintln!("investor[{}]: bal={}", i.id, i.balance);
-            })
+        self.investors.values().for_each(|i| {
+            eprintln!("investor[{}]: bal={}", i.id, i.balance);
+        })
     }
 
     /// The number of investors with `balance > 0`.
     pub fn active_investor_count(&self) -> u64 {
-        self.investors
-            .values()
-            .filter(|i| i.balance > 0)
-            .count() as u64
+        self.investors.values().filter(|i| i.balance > 0).count() as u64
     }
 
     /// Count the number of investors with `balance > 0` and the matching claim.
-    pub fn calculate_stat_count(&self, claim_issuer: Option<(ClaimType, IdentityId)>, claim: &Option<Claim>) -> u64 {
+    pub fn calculate_stat_count(
+        &self,
+        claim_issuer: Option<(ClaimType, IdentityId)>,
+        claim: &Option<Claim>,
+    ) -> u64 {
         if let Some(claim_issuer) = claim_issuer {
             self.investors
                 .values()
-                .filter(|i| {
-                    i.balance > 0 &&
-                        i.fetch_claim(&claim_issuer) == claim.as_ref()
-                })
+                .filter(|i| i.balance > 0 && i.fetch_claim(&claim_issuer) == claim.as_ref())
                 .count() as u64
         } else {
             // Special case, count all investors with a balance.
@@ -317,9 +330,14 @@ impl AssetTracker {
     }
 
     /// Calculate the balance of all investors the matching claim.
-    pub fn calculate_stat_balance(&self, claim_issuer: Option<(ClaimType, IdentityId)>, claim: &Option<Claim>) -> Balance {
+    pub fn calculate_stat_balance(
+        &self,
+        claim_issuer: Option<(ClaimType, IdentityId)>,
+        claim: &Option<Claim>,
+    ) -> Balance {
         let claim_issuer = claim_issuer.expect("Need claim issuer for Balance stats.");
-        self.investors.values()
+        self.investors
+            .values()
             .filter(|i| i.fetch_claim(&claim_issuer) == claim.as_ref())
             .map(|i| i.balance)
             .sum()
@@ -330,13 +348,22 @@ impl AssetTracker {
         Batch { ids }
     }
 
-    pub fn make_batches(&mut self, batches: Vec<(u64, Balance, Vec<(ClaimType, Option<CountryCode>)>)>) -> Result<Vec<Batch>, DispatchError> {
-        batches.into_iter()
+    pub fn make_batches(
+        &mut self,
+        batches: Vec<(u64, Balance, Vec<(ClaimType, Option<CountryCode>)>)>,
+    ) -> Result<Vec<Batch>, DispatchError> {
+        batches
+            .into_iter()
             .map(|(size, sto_buy, claims)| self.new_batch(size, sto_buy, claims))
             .collect()
     }
 
-    pub fn new_batch(&mut self, size: u64, sto_buy: Balance, claims: Vec<(ClaimType, Option<CountryCode>)>) -> Result<Batch, DispatchError> {
+    pub fn new_batch(
+        &mut self,
+        size: u64,
+        sto_buy: Balance,
+        claims: Vec<(ClaimType, Option<CountryCode>)>,
+    ) -> Result<Batch, DispatchError> {
         eprintln!("Create batch: {:?}", (size, sto_buy, &claims));
         // Create investors for this batch.
         let batch = self.make_investors(size);
@@ -347,7 +374,11 @@ impl AssetTracker {
         }
 
         // Fake STO.
-        let sto = batch.ids.iter().map(|id| (*id, sto_buy)).collect::<Vec<_>>();
+        let sto = batch
+            .ids
+            .iter()
+            .map(|id| (*id, sto_buy))
+            .collect::<Vec<_>>();
         self.fake_sto(sto.as_slice())?;
 
         Ok(batch)
@@ -430,7 +461,9 @@ impl AssetTracker {
             None => vec![Stat2ndKey { claim: None }],
             Some((claim_type, did)) => {
                 if let Some(issuer) = self.issuers.get(&did) {
-                    issuer.fetch_claims(claim_type).into_iter()
+                    issuer
+                        .fetch_claims(claim_type)
+                        .into_iter()
                         .map(|claim| Stat2ndKey { claim: Some(claim) })
                         .collect()
                 } else {
@@ -440,21 +473,29 @@ impl AssetTracker {
         }
     }
 
-    pub fn get_claim_stats(&self, op: StatOpType, claim_type: ClaimType, jur: Option<CountryCode>) -> Vec<(u128, u128)> {
-        let key2 = Stat2ndKey {
-            claim: Some(self.make_claim(claim_type, jur))
+    pub fn get_claim_stats(
+        &self,
+        op: StatOpType,
+        claim_type: ClaimType,
+        has: bool,
+        jur: Option<CountryCode>,
+    ) -> Vec<(u128, u128)> {
+        let claim = if has {
+            Some(self.make_claim(claim_type, jur))
+        } else {
+            None
         };
+        let key2 = Stat2ndKey { claim };
 
-        self.issuers.values()
+        self.issuers
+            .values()
             .filter(|issuer| issuer.is_trusted_for(&claim_type))
-            .map(|i| {
-                Stat1stKey {
-                    asset: self.asset_scope,
-                    stat_type: StatType {
-                        op,
-                        claim_issuer: Some((claim_type, i.issuer.did)),
-                    }
-                }
+            .map(|i| Stat1stKey {
+                asset: self.asset_scope,
+                stat_type: StatType {
+                    op,
+                    claim_issuer: Some((claim_type, i.issuer.did)),
+                },
             })
             .map(|key1| {
                 let claim_issuer = key1.stat_type.claim_issuer;
@@ -463,9 +504,7 @@ impl AssetTracker {
                     StatOpType::Count => {
                         self.calculate_stat_count(claim_issuer, &key2.claim) as u128
                     }
-                    StatOpType::Balance => {
-                        self.calculate_stat_balance(claim_issuer, &key2.claim)
-                    }
+                    StatOpType::Balance => self.calculate_stat_balance(claim_issuer, &key2.claim),
                 };
                 // Get stat from pallet.
                 let value = Statistics::asset_stats(key1, key2.clone());
@@ -474,32 +513,56 @@ impl AssetTracker {
             .collect()
     }
 
-    pub fn get_claim_count_stats(&self, claim_type: ClaimType, jur: Option<CountryCode>) -> Vec<(u128, u128)> {
-        self.get_claim_stats(StatOpType::Count, claim_type, jur)
+    pub fn get_claim_count_stats(
+        &self,
+        claim_type: ClaimType,
+        has: bool,
+        jur: Option<CountryCode>,
+    ) -> Vec<(u128, u128)> {
+        self.get_claim_stats(StatOpType::Count, claim_type, has, jur)
     }
 
-    pub fn get_claim_balance_stats(&self, claim_type: ClaimType, jur: Option<CountryCode>) -> Vec<(u128, u128)> {
-        self.get_claim_stats(StatOpType::Balance, claim_type, jur)
+    pub fn get_claim_balance_stats(
+        &self,
+        claim_type: ClaimType,
+        has: bool,
+        jur: Option<CountryCode>,
+    ) -> Vec<(u128, u128)> {
+        self.get_claim_stats(StatOpType::Balance, claim_type, has, jur)
     }
 
-    pub fn get_claim_percent_stats(&self, claim_type: ClaimType, jur: Option<CountryCode>) -> Vec<(u128, u128)> {
-        self.get_claim_stats(StatOpType::Balance, claim_type, jur)
+    pub fn get_claim_percent_stats(
+        &self,
+        claim_type: ClaimType,
+        has: bool,
+        jur: Option<CountryCode>,
+    ) -> Vec<(Permill, Permill)> {
+        self.get_claim_stats(StatOpType::Balance, claim_type, has, jur)
             .into_iter()
-            .map(|(cal, value) {
-                (cal, value)
+            .map(|(cal, value)| {
+                (
+                    Permill::from_rational_approximation(cal, self.total_supply),
+                    Permill::from_rational_approximation(value, self.total_supply),
+                )
             })
             .collect()
     }
 
     #[track_caller]
     pub fn ensure_asset_stat(&self, stat_type: &StatType) {
-        let key1 = Stat1stKey { asset: self.asset_scope, stat_type: *stat_type };
+        let key1 = Stat1stKey {
+            asset: self.asset_scope,
+            stat_type: *stat_type,
+        };
         for key2 in self.fetch_stats_key2(stat_type).iter() {
             let value = Statistics::asset_stats(key1, key2);
             match (stat_type.op, stat_type.claim_issuer) {
                 (StatOpType::Count, claim_issuer) => {
                     let cal_value = self.calculate_stat_count(claim_issuer, &key2.claim);
-                    eprintln!("Count[{:?}]: cal={:?}, stat={:?}", key2.claim, cal_value, value);
+                    eprintln!(
+                        "Count[{:?}]: cal={:?}, stat={:?}",
+                        key2.claim, cal_value, value
+                    );
                     assert_eq!(value, cal_value as u128);
                 }
                 (StatOpType::Balance, None) => {
@@ -507,7 +570,10 @@ impl AssetTracker {
                 }
                 (StatOpType::Balance, claim_issuer) => {
                     let cal_value = self.calculate_stat_balance(claim_issuer, &key2.claim);
-                    eprintln!("Balance[{:?}]: cal={:?}, stat={:?}", key2.claim, cal_value, value);
+                    eprintln!(
+                        "Balance[{:?}]: cal={:?}, stat={:?}",
+                        key2.claim, cal_value, value
+                    );
                     assert_eq!(value, cal_value as u128);
                 }
             }
@@ -529,26 +595,44 @@ impl AssetTracker {
 /// Create some batches of investors.
 fn create_batches(tracker: &mut AssetTracker) -> Vec<Batch> {
     // batches
-    tracker.make_batches(vec![
-        // (batch_size, sto_buy, claims: Vec<(ClaimType, Option<CountryCode>>)
-        (1, 100_000u128, vec![
-            (ClaimType::Accredited, None),
-            (ClaimType::Affiliate, None),
-            (ClaimType::Jurisdiction, Some(CountryCode::US))
-        ]),
-        (40, 10_000u128, vec![
-            (ClaimType::Accredited, None),
-            (ClaimType::Jurisdiction, Some(CountryCode::US))
-        ]),
-        (10, 2_000u128, vec![
-            (ClaimType::Accredited, None),
-            (ClaimType::Jurisdiction, Some(CountryCode::GB))
-        ]),
-        (2, 1_000u128, vec![
-            (ClaimType::Accredited, None),
-            (ClaimType::Jurisdiction, Some(CountryCode::CA))
+    tracker
+        .make_batches(vec![
+            // (batch_size, sto_buy, claims: Vec<(ClaimType, Option<CountryCode>>)
+            (
+                1,
+                100_000u128,
+                vec![
+                    (ClaimType::Accredited, None),
+                    (ClaimType::Affiliate, None),
+                    (ClaimType::Jurisdiction, Some(CountryCode::US)),
+                ],
+            ),
+            (
+                40,
+                10_000u128,
+                vec![
+                    (ClaimType::Accredited, None),
+                    (ClaimType::Jurisdiction, Some(CountryCode::US)),
+                ],
+            ),
+            (
+                10,
+                2_000u128,
+                vec![
+                    (ClaimType::Accredited, None),
+                    (ClaimType::Jurisdiction, Some(CountryCode::GB)),
+                ],
+            ),
+            (
+                2,
+                1_000u128,
+                vec![
+                    (ClaimType::Accredited, None),
+                    (ClaimType::Jurisdiction, Some(CountryCode::CA)),
+                ],
+            ),
         ])
-    ]).expect("Failed to create batches")
+        .expect("Failed to create batches")
 }
 
 #[test]
@@ -585,12 +669,16 @@ fn multiple_stats_with_ext() {
     let mut tracker = AssetTracker::new();
 
     let mut stats = vec![
-        StatType { op: StatOpType::Count, claim_issuer: None },
-        StatType { op: StatOpType::Balance, claim_issuer: None },
+        StatType {
+            op: StatOpType::Count,
+            claim_issuer: None,
+        },
+        StatType {
+            op: StatOpType::Balance,
+            claim_issuer: None,
+        },
     ];
-    let issuers = vec![
-        User::new(AccountKeyring::Dave),
-    ];
+    let issuers = vec![User::new(AccountKeyring::Dave)];
     let claim_types = vec![
         ClaimType::Accredited,
         ClaimType::Affiliate,
@@ -601,11 +689,11 @@ fn multiple_stats_with_ext() {
         for claim_type in &claim_types {
             stats.push(StatType {
                 op: StatOpType::Count,
-                claim_issuer: Some((*claim_type, issuer.did))
+                claim_issuer: Some((*claim_type, issuer.did)),
             });
             stats.push(StatType {
                 op: StatOpType::Balance,
-                claim_issuer: Some((*claim_type, issuer.did))
+                claim_issuer: Some((*claim_type, issuer.did)),
             });
         }
         tracker.add_issuer(issuer, &claim_types[..]);
@@ -622,26 +710,361 @@ fn multiple_stats_with_ext() {
     tracker.ensure_asset_stats();
 
     // check some stats.
-    tracker.get_claim_count_stats(ClaimType::Jurisdiction, Some(CountryCode::US))
-        .into_iter().for_each(|(cal, value)| {
+    tracker
+        .get_claim_count_stats(ClaimType::Jurisdiction, true, Some(CountryCode::US))
+        .into_iter()
+        .for_each(|(cal, value)| {
             eprintln!("Jurisdiction::US = ({}, {})", cal, value);
             assert_eq!(cal, value);
         });
-    tracker.get_claim_balance_stats(ClaimType::Jurisdiction, Some(CountryCode::US))
-        .into_iter().for_each(|(cal, value)| {
+    tracker
+        .get_claim_balance_stats(ClaimType::Jurisdiction, true, Some(CountryCode::US))
+        .into_iter()
+        .for_each(|(cal, value)| {
             eprintln!("Jurisdiction::US = ({}, {})", cal, value);
             assert_eq!(cal, value);
         });
     // Check a Jurisdiction with no investors (KP).
-    tracker.get_claim_count_stats(ClaimType::Jurisdiction, Some(CountryCode::KP))
-        .into_iter().for_each(|(cal, value)| {
+    tracker
+        .get_claim_count_stats(ClaimType::Jurisdiction, true, Some(CountryCode::KP))
+        .into_iter()
+        .for_each(|(cal, value)| {
             eprintln!("Jurisdiction::KP = ({}, {})", cal, value);
             assert_eq!(cal, value);
         });
-    tracker.get_claim_balance_stats(ClaimType::Jurisdiction, Some(CountryCode::KP))
-        .into_iter().for_each(|(cal, value)| {
+    tracker
+        .get_claim_balance_stats(ClaimType::Jurisdiction, true, Some(CountryCode::KP))
+        .into_iter()
+        .for_each(|(cal, value)| {
             eprintln!("Jurisdiction::KP = ({}, {})", cal, value);
+            assert_eq!(cal, value);
+        });
+
+    // Check Accredited.
+    tracker
+        .get_claim_count_stats(ClaimType::Accredited, true, None)
+        .into_iter()
+        .for_each(|(cal, value)| {
+            eprintln!("Accredited = ({}, {})", cal, value);
+            assert_eq!(cal, value);
+        });
+    tracker
+        .get_claim_balance_stats(ClaimType::Accredited, true, None)
+        .into_iter()
+        .for_each(|(cal, value)| {
+            eprintln!("Accredited = ({}, {})", cal, value);
+            assert_eq!(cal, value);
+        });
+
+    // Check Affiliate.
+    tracker
+        .get_claim_count_stats(ClaimType::Affiliate, true, None)
+        .into_iter()
+        .for_each(|(cal, value)| {
+            eprintln!("Affiliate = ({}, {})", cal, value);
+            assert_eq!(cal, value);
+        });
+    tracker
+        .get_claim_balance_stats(ClaimType::Affiliate, true, None)
+        .into_iter()
+        .for_each(|(cal, value)| {
+            eprintln!("Affiliate = ({}, {})", cal, value);
+            assert_eq!(cal, value);
+        });
+    // Check non-Affiliate.
+    tracker
+        .get_claim_count_stats(ClaimType::Affiliate, false, None)
+        .into_iter()
+        .for_each(|(cal, value)| {
+            eprintln!("non-Affiliate = ({}, {})", cal, value);
+            assert_eq!(cal, value);
+        });
+    tracker
+        .get_claim_balance_stats(ClaimType::Affiliate, false, None)
+        .into_iter()
+        .for_each(|(cal, value)| {
+            eprintln!("non-Affiliate = ({}, {})", cal, value);
             assert_eq!(cal, value);
         });
 }
 
+#[test]
+fn max_investor_rule() {
+    ExtBuilder::default()
+        .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
+        .build()
+        .execute_with(max_investor_rule_with_ext);
+}
+
+fn max_investor_rule_with_ext() {
+    // Create an asset.
+    let mut tracker = AssetTracker::new();
+
+    let stats = vec![StatType {
+        op: StatOpType::Count,
+        claim_issuer: None,
+    }];
+    // Active stats.
+    tracker.set_active_stats(stats);
+
+    // Mint
+    tracker.mint(100_000_000);
+
+    // Create investor batches.
+    let _batches = create_batches(&mut tracker);
+
+    tracker.ensure_asset_stats();
+
+    // Set max investor count rule to `max == active_investor_count`.
+    let cur_count = tracker.active_investor_count();
+    tracker.set_transfer_conditions(vec![TransferCondition::MaxInvestorCount(cur_count)]);
+
+    // Try adding another investor.
+    let id = tracker.new_investor(); // No balance yet.
+    tracker.ensure_invalid_transfer(tracker.owner_id, id, 1_000);
+
+    tracker.ensure_asset_stats();
+}
+
+#[test]
+fn max_investor_ownership_rule() {
+    ExtBuilder::default()
+        .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
+        .build()
+        .execute_with(max_investor_ownership_rule_with_ext);
+}
+
+fn max_investor_ownership_rule_with_ext() {
+    // Create an asset.
+    let mut tracker = AssetTracker::new();
+
+    let stats = vec![StatType {
+        op: StatOpType::Balance,
+        claim_issuer: None,
+    }];
+    // Active stats.
+    tracker.set_active_stats(stats);
+
+    // Set max ownership to 25%.
+    let p25 = HashablePermill(Permill::from_rational_approximation(25u32, 100u32));
+    tracker.set_transfer_conditions(vec![TransferCondition::MaxInvestorOwnership(p25)]);
+
+    // Mint is not restricted by transfer rules.
+    tracker.mint(100_000);
+
+    tracker.ensure_asset_stats();
+
+    // Add a new investor and transfer less then 25%.
+    let id = tracker.new_investor(); // No balance yet.
+    tracker.do_valid_transfer(tracker.owner_id, id, 10_000); // 10%
+
+    tracker.ensure_asset_stats();
+
+    // Try transfer more so they would have >25%.
+    tracker.ensure_invalid_transfer(tracker.owner_id, id, 16_000);
+
+    tracker.ensure_asset_stats();
+}
+
+#[test]
+fn claim_count_rule() {
+    ExtBuilder::default()
+        .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
+        .build()
+        .execute_with(claim_count_rule_with_ext);
+}
+
+fn claim_count_rule_with_ext() {
+    // Create an asset.
+    let mut tracker = AssetTracker::new();
+
+    let issuer = User::new(AccountKeyring::Dave);
+    let claim_types = vec![ClaimType::Accredited];
+    // Add issuer.
+    tracker.add_issuer(&issuer, &claim_types[..]);
+
+    // Active stats.
+    let stats = vec![StatType {
+        op: StatOpType::Count,
+        claim_issuer: Some((ClaimType::Accredited, issuer.did)),
+    }];
+    tracker.set_active_stats(stats);
+
+    // Set transfer conditions.  max=10 Accredited.
+    let claim = tracker.make_claim(ClaimType::Accredited, None);
+    tracker.set_transfer_conditions(vec![TransferCondition::ClaimCount(
+        claim,
+        issuer.did,
+        0,
+        Some(10),
+    )]);
+
+    // Mint
+    tracker.mint(100_000_000);
+
+    // Create some investor batches.  40 - Non-Accredited and 10 Accredited.
+    tracker
+        .make_batches(vec![
+            // (batch_size, sto_buy, claims: Vec<(ClaimType, Option<CountryCode>>)
+            (
+                40,
+                10_000u128,
+                vec![(ClaimType::Jurisdiction, Some(CountryCode::US))],
+            ),
+            (
+                10,
+                2_000u128,
+                vec![
+                    (ClaimType::Accredited, None),
+                    (ClaimType::Jurisdiction, Some(CountryCode::GB)),
+                ],
+            ),
+        ])
+        .expect("Failed to create batches");
+
+    tracker.ensure_asset_stats();
+
+    // Create a new Accredited investor.
+    let id = tracker.new_investor(); // No balance yet.
+    tracker.add_claim_to_investors(&[id], ClaimType::Accredited, None);
+
+    // Try transfer some tokens to them.  Should fail.
+    tracker.ensure_invalid_transfer(tracker.owner_id, id, 1_000);
+
+    tracker.ensure_asset_stats();
+}
+
+#[test]
+fn jurisdiction_count_rule() {
+    ExtBuilder::default()
+        .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
+        .build()
+        .execute_with(jurisdiction_count_rule_with_ext);
+}
+
+fn jurisdiction_count_rule_with_ext() {
+    // Create an asset.
+    let mut tracker = AssetTracker::new();
+
+    let issuer = User::new(AccountKeyring::Dave);
+    let claim_type = ClaimType::Jurisdiction;
+    // Add issuer.
+    tracker.add_issuer(&issuer, &[claim_type]);
+
+    // Active stats.
+    let stats = vec![StatType {
+        op: StatOpType::Count,
+        claim_issuer: Some((claim_type, issuer.did)),
+    }];
+    tracker.set_active_stats(stats);
+
+    // Set transfer conditions.  max=10 investors in Jurisdiction GB.
+    let claim = tracker.make_claim(claim_type, Some(CountryCode::GB));
+    tracker.set_transfer_conditions(vec![TransferCondition::ClaimCount(
+        claim,
+        issuer.did,
+        0,
+        Some(10),
+    )]);
+
+    // Mint
+    tracker.mint(100_000_000);
+
+    // Create some investor batches.  40 - US and 10 GB.
+    tracker
+        .make_batches(vec![
+            // (batch_size, sto_buy, claims: Vec<(ClaimType, Option<CountryCode>>)
+            (
+                40,
+                10_000u128,
+                vec![(ClaimType::Jurisdiction, Some(CountryCode::US))],
+            ),
+            (
+                10,
+                2_000u128,
+                vec![
+                    (ClaimType::Accredited, None),
+                    (ClaimType::Jurisdiction, Some(CountryCode::GB)),
+                ],
+            ),
+        ])
+        .expect("Failed to create batches");
+
+    tracker.ensure_asset_stats();
+
+    // Create a new GB investor.
+    let id = tracker.new_investor(); // No balance yet.
+    tracker.add_claim_to_investors(&[id], claim_type, Some(CountryCode::GB));
+
+    // Try transfer some tokens to them.  Should fail.
+    tracker.ensure_invalid_transfer(tracker.owner_id, id, 1_000);
+
+    tracker.ensure_asset_stats();
+}
+
+#[test]
+fn jurisdiction_ownership_rule() {
+    ExtBuilder::default()
+        .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
+        .build()
+        .execute_with(jurisdiction_ownership_rule_with_ext);
+}
+
+fn jurisdiction_ownership_rule_with_ext() {
+    // Create an asset.
+    let mut tracker = AssetTracker::new();
+
+    let issuer = User::new(AccountKeyring::Dave);
+    let claim_type = ClaimType::Jurisdiction;
+    // Add issuer.
+    tracker.add_issuer(&issuer, &[claim_type]);
+
+    // Active stats.
+    let stats = vec![StatType {
+        op: StatOpType::Balance,
+        claim_issuer: Some((claim_type, issuer.did)),
+    }];
+    tracker.set_active_stats(stats);
+
+    // Set transfer conditions.  max=10 investors in Jurisdiction GB.
+    let claim = tracker.make_claim(claim_type, Some(CountryCode::GB));
+    let p0 = HashablePermill(Permill::from_rational_approximation(0u32, 100u32));
+    let p25 = HashablePermill(Permill::from_rational_approximation(25u32, 100u32));
+    tracker.set_transfer_conditions(vec![TransferCondition::ClaimOwnership(
+        claim, issuer.did, p0, p25,
+    )]);
+
+    // Mint
+    tracker.mint(1_000_000);
+
+    // Create some investor batches.  40 - US and 10 GB.
+    tracker
+        .make_batches(vec![
+            // (batch_size, sto_buy, claims: Vec<(ClaimType, Option<CountryCode>>)
+            (
+                40,
+                10_000u128,
+                vec![(ClaimType::Jurisdiction, Some(CountryCode::US))],
+            ),
+            (
+                10,
+                2_000u128,
+                vec![
+                    (ClaimType::Accredited, None),
+                    (ClaimType::Jurisdiction, Some(CountryCode::GB)),
+                ],
+            ),
+        ])
+        .expect("Failed to create batches");
+
+    tracker.ensure_asset_stats();
+
+    // Create a new GB investor.
+    let id = tracker.new_investor(); // No balance yet.
+    tracker.add_claim_to_investors(&[id], claim_type, Some(CountryCode::GB));
+
+    // Try transfer more then 25% of the tokens to them.  Should fail.
+    tracker.ensure_invalid_transfer(tracker.owner_id, id, 260_000);
+
+    tracker.ensure_asset_stats();
+}
