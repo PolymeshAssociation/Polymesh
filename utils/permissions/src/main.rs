@@ -74,12 +74,14 @@ fn main() {
     permission_mappings
         .into_iter()
         .for_each(|(pallet, mapping)| {
-            mapping.into_iter().for_each(|(extrinsic, mut permissions)| {
-                if permissions.is_empty() {
-                    permissions.push("None".into());
-                }
-                println!("{},{},{}", pallet, extrinsic, permissions.join(","));
-            })
+            mapping
+                .into_iter()
+                .for_each(|(extrinsic, mut permissions)| {
+                    if permissions.is_empty() {
+                        permissions.push("None".into());
+                    }
+                    println!("{},{},{}", pallet, extrinsic, permissions.join(","));
+                })
         });
 }
 
