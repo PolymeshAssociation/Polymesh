@@ -7,22 +7,22 @@ const db = new sql3.Database("database.db");
 
 export function createTable() {
   db.run(
-    "CREATE TABLE IF NOT EXISTS next_nonce ( account TEXT PRIMARY KEY, nonce INT DEFAULT 0 )"
+    "CREATE TABLE IF NOT EXISTS accounts ( address TEXT PRIMARY KEY, nonce INT DEFAULT 0 )"
   );
 }
 
 export async function getNonce(signer: KeyringPair) {
   return new Promise<number>((resolve, reject) => {
     db.run(
-      "INSERT INTO next_nonce(account) VALUES($account) ON CONFLICT(account) DO UPDATE SET nonce=nonce+1",
-      { $account: signer.address },
+      "INSERT INTO accounts(address) VALUES($address) ON CONFLICT(address) DO UPDATE SET nonce=nonce+1",
+      { $address: signer.address },
       (err) => {
         if (err) {
-          console.log(err);
+          reject("Couldn't get next nonce");
         } else {
           db.get(
-            "SELECT account, nonce FROM next_nonce WHERE account = $account",
-            { $account: signer.address },
+            "SELECT address, nonce FROM accounts WHERE address = $address",
+            { $address: signer.address },
             (err, row) => {
               if (err) {
                 reject(err);
