@@ -97,6 +97,8 @@ use frame_support::{
     StorageDoubleMap, StorageValue,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
+use identity::DidRecords;
+use pallet_base::ensure_length_ok;
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::constants::queue_priority::MULTISIG_PROPOSAL_EXECUTION_PRIORITY;
@@ -544,6 +546,11 @@ decl_module! {
             let perms = Permissions::from_pallet_permissions(
                 iter::once(PalletPermissions::entire_pallet(NAME.into()))
             );
+
+            // Ensure we won't have too many keys.
+            let record = <DidRecords<T>>::get(did);
+            ensure_length_ok::<T>(record.secondary_keys.len().saturating_add(1))?;
+
             <Identity<T>>::unsafe_join_identity(did, perms, multisig);
         }
 
