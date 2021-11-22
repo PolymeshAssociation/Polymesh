@@ -27,5 +27,5 @@ describe("1 - Poly Unit Test", () => {
     expect(dids).toBeTruthy();
     const tx = distributePolyBatch(alice, keys, transferAmount);
     await expect(tx).resolves.not.toThrow();
-  }, 60000);
+  }, 120000);
 });

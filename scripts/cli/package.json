@@ -49,7 +49,7 @@
     "schema_test": "./util/schema_test.sh",
     "offchain_worker_test": "node ./dist/util/offchain_worker_test.js",
     "polyx_balances": "node ./util/userBalancePOLYX.js",
-    "test": "jest --silent"
+    "test": "jest"
   },
   "author": "Polymath Network",
   "license": "UNLICENSED",
