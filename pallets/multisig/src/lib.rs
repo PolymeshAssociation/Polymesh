@@ -541,15 +541,13 @@ decl_module! {
             let did = <Identity<T>>::ensure_perms(origin)?;
             Self::ensure_ms(&multisig)?;
             Self::verify_sender_is_creator(did, &multisig)?;
-            <Identity<T>>::ensure_key_did_unlinked(&multisig)?;
+
+            <Identity<T>>::ensure_secondary_key_can_be_added(&did, &multisig)?;
 
             let perms = Permissions::from_pallet_permissions(
                 iter::once(PalletPermissions::entire_pallet(NAME.into()))
             );
 
-            // Ensure we won't have too many keys.
-            let record = <DidRecords<T>>::get(did);
-            ensure_length_ok::<T>(record.secondary_keys.len().saturating_add(1))?;
 
             <Identity<T>>::unsafe_join_identity(did, perms, multisig);
         }
