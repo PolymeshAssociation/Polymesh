@@ -298,11 +298,7 @@ impl User {
         create_investor_uid(self.acc())
     }
 
-    pub fn provide_scope_claim(
-        &self,
-        ticker: Ticker,
-        cdd_provider: &AccountId,
-    ) -> (ScopeId, CddId) {
+    pub fn make_scope_claim(&self, ticker: Ticker, cdd_provider: &AccountId) -> (ScopeId, CddId) {
         provide_scope_claim(self.did, ticker, self.uid(), cdd_provider.clone(), None)
     }
 
@@ -609,7 +605,7 @@ pub type CorporateActions = corporate_actions::Module<TestStorage>;
 pub fn make_account(
     id: AccountId,
 ) -> Result<(<TestStorage as frame_system::Config>::Origin, IdentityId), &'static str> {
-    let uid = InvestorUid::from(format!("{}", id).as_str());
+    let uid = create_investor_uid(id.clone());
     make_account_with_uid(id, uid)
 }
 
