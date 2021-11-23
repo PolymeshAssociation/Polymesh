@@ -40,6 +40,11 @@ use sp_std::{fmt, marker::PhantomData, result::Result};
 
 pub use polymesh_common_utilities::traits::permissions::Config;
 
+#[cfg(feature = "testing")]
+use core::sync::atomic::{AtomicBool, Ordering::Relaxed};
+#[cfg(feature = "testing")]
+static CALL_PERMS_CHECKED: AtomicBool = AtomicBool::new(false);
+
 decl_storage! {
     trait Store for Module<T: Config> as Permissions {
         /// The name of the current pallet (aka module name).
@@ -71,6 +76,15 @@ impl<T: Config> Module<T> {
     pub fn ensure_call_permissions(
         who: &T::AccountId,
     ) -> Result<AccountCallPermissionsData<T::AccountId>, DispatchError> {
+        #[cfg(feature = "testing")]
+        {
+            if CALL_PERMS_CHECKED.load(Relaxed) {
+                panic!("ensure_call_permissions called twice!",);
+            } else {
+                CALL_PERMS_CHECKED.store(true, Relaxed);
+            }
+        }
+
         T::Checker::check_account_call_permissions(
             who,
             || Self::current_pallet_name(),
@@ -147,6 +161,9 @@ where
         _: &DispatchInfoOf<Self::Call>,
         _: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
+        #[cfg(test)]
+        CALL_PERMS_CHECKED.store(false, Relaxed);
+
         let metadata = call.get_call_metadata();
         Self::set_call_metadata(
             metadata.pallet_name.as_bytes().into(),
