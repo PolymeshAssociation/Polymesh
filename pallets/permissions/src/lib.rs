@@ -161,7 +161,7 @@ where
         _: &DispatchInfoOf<Self::Call>,
         _: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
-        #[cfg(test)]
+        #[cfg(feature = "testing")]
         CALL_PERMS_CHECKED.store(false, Relaxed);
 
         let metadata = call.get_call_metadata();
@@ -209,6 +209,8 @@ pub fn swap_call_metadata(
     pallet_name: PalletName,
     dispatchable_name: DispatchableName,
 ) -> (PalletName, DispatchableName) {
+    #[cfg(feature = "testing")]
+    CALL_PERMS_CHECKED.store(false, Relaxed);
     (
         CurrentPalletName::mutate(|s| mem::replace(s, pallet_name)),
         CurrentDispatchableName::mutate(|s| mem::replace(s, dispatchable_name)),
