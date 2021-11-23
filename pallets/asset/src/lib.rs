@@ -1308,15 +1308,12 @@ impl<T: Config> Module<T> {
         Portfolio::<T>::set_default_portfolio_balance(to_did, ticker, updated_to_def_balance);
         Tokens::insert(ticker, token);
 
-        let updated_to_balance = if ScopeIdOf::contains_key(ticker, &to_did) {
-            let scope_id = Self::scope_id(ticker, &to_did);
-            Self::update_scope_balance(&ticker, value, scope_id, to_did, updated_to_balance, false);
-            // Using the aggregate balance to update the unique investor count.
-            Self::aggregate_balance_of(ticker, &scope_id)
-        } else {
-            // Since the caller does not have a scope claim yet, we assume this is their only identity
-            value
-        };
+        // Update scope balances
+        let scope_id = Self::scope_id(ticker, &to_did);
+        Self::update_scope_balance(&ticker, value, scope_id, to_did, updated_to_balance, false);
+
+        // Using the aggregate balance to update the unique investor count.
+        let updated_to_balance = Self::aggregate_balance_of(ticker, &scope_id);
         Statistics::<T>::update_transfer_stats(&ticker, None, Some(updated_to_balance), value);
 
         let round = Self::funding_round(ticker);

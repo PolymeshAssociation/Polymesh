@@ -132,6 +132,60 @@ fn investor_count_with_ext() {
 }
 
 #[test]
+fn investor_count_disable_iu() {
+    ExtBuilder::default()
+        .build()
+        .execute_with(investor_count_disable_iu_with_ext);
+}
+
+fn investor_count_disable_iu_with_ext() {
+    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new(AccountKeyring::Bob);
+    let charlie = User::new(AccountKeyring::Charlie);
+
+    // 1. Alice create an asset.
+    let name = b"ACME";
+    let identifiers = Vec::new();
+    let ticker = Ticker::try_from(&name[..]).unwrap();
+    assert_ok!(Asset::create_asset(
+        alice.origin(),
+        name.into(),
+        ticker,
+        true,
+        AssetType::default(),
+        identifiers.clone(),
+        None,
+        true, // Disable investor uniqueness.
+    ));
+    // Total supply over the limit.
+    assert_ok!(Asset::issue(alice.origin(), ticker, 1_000_000));
+
+    let ticker = Ticker::try_from(name.as_ref()).unwrap();
+    allow_all_transfers(alice.origin(), ticker);
+
+    let base_transfer = |from, to, value| {
+        assert_ok!(Asset::base_transfer(
+            PortfolioId::default_portfolio(from),
+            PortfolioId::default_portfolio(to),
+            &ticker,
+            value,
+        ));
+    };
+
+    // Alice sends some tokens to Bob. Token has only one investor.
+    base_transfer(alice.did, bob.did, 500);
+    assert_eq!(Statistic::investor_count(&ticker), 2);
+
+    // Alice sends some tokens to Charlie. Token has now two investors.
+    base_transfer(alice.did, charlie.did, 5000);
+    assert_eq!(Statistic::investor_count(&ticker), 3);
+
+    // Bob sends all his tokens to Charlie, so now we have one investor again.
+    base_transfer(bob.did, charlie.did, 500);
+    assert_eq!(Statistic::investor_count(&ticker), 2);
+}
+
+#[test]
 fn should_add_tm() {
     ExtBuilder::default().build().execute_with(|| {
         let (token_owner_signed, _token_owner_did) =
