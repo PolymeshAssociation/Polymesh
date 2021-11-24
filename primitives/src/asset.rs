@@ -19,6 +19,7 @@ use crate::impl_checked_inc;
 use crate::statistics::TransferManagerResult;
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::VecU8StrongTyped;
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::Vec;
@@ -82,7 +83,18 @@ impl Default for AssetType {
 
 /// A wrapper for a funding round name.
 #[derive(
-    Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Default, VecU8StrongTyped,
+    Decode,
+    Encode,
+    TypeInfo,
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Default,
+    VecU8StrongTyped,
 )]
 pub struct FundingRoundName(pub Vec<u8>);
 

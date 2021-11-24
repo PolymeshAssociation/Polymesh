@@ -3,12 +3,13 @@ use chrono::{Datelike, NaiveDate, NaiveDateTime};
 use codec::{Decode, Encode};
 use core::num::NonZeroU64;
 #[cfg(feature = "std")]
+use scale_info::TypeInfo;
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::convert::TryFrom;
 
 /// A per-ticker checkpoint ID.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, Default, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo, Default, Debug)]
 pub struct CheckpointId(pub u64);
 
 /// Calendar units for timing recurring operations.

@@ -26,10 +26,13 @@ use frame_support::{
 };
 use polymesh_primitives::{Balance, IdentityId};
 use polymesh_primitives_derive::SliceU8StrongTyped;
+use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 use sp_std::ops::BitOr;
 
-#[derive(Encode, Default, Decode, Clone, PartialEq, Eq, PartialOrd, Ord, SliceU8StrongTyped)]
+#[derive(
+    Encode, Decode, TypeInfo, Default, Clone, PartialEq, Eq, PartialOrd, Ord, SliceU8StrongTyped,
+)]
 pub struct Memo(pub [u8; 32]);
 
 // POLYMESH-NOTE: Make `AccountData` public to access it from the outside module.

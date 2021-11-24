@@ -29,6 +29,12 @@ use sp_std::{mem, result};
 #[must_use]
 pub struct PositiveImbalance<T: CommonConfig>(Balance, PhantomData<T>);
 
+impl<T: CommonConfig> Default for PositiveImbalance<T> {
+    fn default() -> Self {
+        Self::new(<_>::default())
+    }
+}
+
 impl<T: CommonConfig> PositiveImbalance<T> {
     /// Create a new positive imbalance from a balance.
     pub fn new(amount: Balance) -> Self {
@@ -104,6 +110,12 @@ impl<T: CommonConfig> Drop for PositiveImbalance<T> {
 /// funds have been destroyed without any equal and opposite accounting.
 #[must_use]
 pub struct NegativeImbalance<T: CommonConfig>(Balance, PhantomData<T>);
+
+impl<T: CommonConfig> Default for NegativeImbalance<T> {
+    fn default() -> Self {
+        Self::new(<_>::default())
+    }
+}
 
 impl<T: CommonConfig> NegativeImbalance<T> {
     /// Create a new negative imbalance from a balance.
