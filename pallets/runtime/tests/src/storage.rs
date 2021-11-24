@@ -4,7 +4,9 @@ use super::ext_builder::{
 };
 use codec::Encode;
 use frame_support::{
-    assert_ok, debug, parameter_types,
+    assert_ok, debug,
+    dispatch::DispatchResult,
+    parameter_types,
     traits::{Currency, Imbalance, KeyOwnerProofSystem, OnInitialize, OnUnbalanced, Randomness},
     weights::{
         DispatchInfo, RuntimeDbWeight, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
@@ -803,17 +805,15 @@ pub fn create_investor_uid(acc: AccountId) -> InvestorUid {
     InvestorUid::from(format!("{}", acc).as_str())
 }
 
-pub fn provide_scope_claim(
+pub fn add_cdd_claim(
     claim_to: IdentityId,
     scope: Ticker,
     investor_uid: InvestorUid,
     cdd_provider: AccountId,
     cdd_claim_expiry: Option<u64>,
-) -> (ScopeId, CddId) {
+) -> (ScopeId, CddId, InvestorZKProofData) {
     let (cdd_id, proof) = create_cdd_id(claim_to, scope, investor_uid);
     let scope_id = InvestorZKProofData::make_scope_id(&scope.as_slice(), &investor_uid);
-
-    let signed_claim_to = Origin::signed(Identity::did_records(claim_to).primary_key);
 
     // Add cdd claim first
     assert_ok!(Identity::add_claim(
@@ -822,17 +822,49 @@ pub fn provide_scope_claim(
         Claim::CustomerDueDiligence(cdd_id),
         cdd_claim_expiry,
     ));
+    (scope_id, cdd_id, proof)
+}
+
+pub fn provide_scope_claim(
+    claim_to: IdentityId,
+    scope: Ticker,
+    investor_uid: InvestorUid,
+    cdd_provider: AccountId,
+    cdd_claim_expiry: Option<u64>,
+) -> (ScopeId, CddId) {
+    // Add CDD claim, create scope_id and proof.
+    let (scope_id, cdd_id, proof) = add_cdd_claim(
+        claim_to,
+        scope,
+        investor_uid,
+        cdd_provider,
+        cdd_claim_expiry,
+    );
+
+    // Add the InvestorUniqueness claim.
+    assert_ok!(add_investor_uniqueness_claim(
+        claim_to, scope, scope_id, cdd_id, proof
+    ));
+    (scope_id, cdd_id)
+}
+
+pub fn add_investor_uniqueness_claim(
+    claim_to: IdentityId,
+    scope: Ticker,
+    scope_id: ScopeId,
+    cdd_id: CddId,
+    proof: InvestorZKProofData,
+) -> DispatchResult {
+    let signed_claim_to = Origin::signed(Identity::did_records(claim_to).primary_key);
 
     // Provide the InvestorUniqueness.
-    assert_ok!(Identity::add_investor_uniqueness_claim(
+    Identity::add_investor_uniqueness_claim(
         signed_claim_to,
         claim_to,
         Claim::InvestorUniqueness(Scope::Ticker(scope), scope_id, cdd_id),
         proof,
-        None
-    ));
-
-    (scope_id, cdd_id)
+        None,
+    )
 }
 
 pub fn provide_scope_claim_to_multiple_parties<'a>(

@@ -1,5 +1,5 @@
 use super::{
-    storage::{TestStorage, User},
+    storage::{add_cdd_claim, add_investor_uniqueness_claim, TestStorage, User},
     ExtBuilder,
 };
 use frame_support::{assert_noop, assert_ok};
@@ -106,17 +106,28 @@ fn investor_count_with_ext() {
 #[test]
 fn investor_count_disable_iu() {
     ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(investor_count_disable_iu_with_ext);
 }
 
 fn investor_count_disable_iu_with_ext() {
+    let cdd_provider = AccountKeyring::Eve.to_account_id();
     let alice = User::new(AccountKeyring::Alice);
     let bob = User::new(AccountKeyring::Bob);
     let charlie = User::new(AccountKeyring::Charlie);
 
     // 1. Create an asset with disabled investor uniqueness.
     let ticker = create_token(alice, true);
+
+    // Add CDD claim and create scope_id.
+    let (scope_id, cdd_id, proof) =
+        add_cdd_claim(alice.did, ticker, alice.uid(), cdd_provider, None);
+    // Try adding an investor uniqueness claim.  Should fail.
+    assert_noop!(
+        add_investor_uniqueness_claim(alice.did, ticker, scope_id, cdd_id, proof),
+        AssetError::InvestorUniquenessClaimNotAllowed
+    );
 
     // Alice sends some tokens to Bob. Token has only one investor.
     do_valid_transfer(ticker, alice, bob, 500);
