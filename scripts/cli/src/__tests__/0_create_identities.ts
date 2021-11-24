@@ -24,7 +24,7 @@ describe("0 - Identity Unit Test", () => {
     const keys = await generateKeys(2, primaryDevSeed);
     const dids = await createIdentities(alice, keys);
     expect(dids).toBeTruthy();
-  }, 120000);
+  }, 960_000);
 
   test("Errors when creating identities", async () => {
     const testEntities = await initMain();
@@ -35,5 +35,5 @@ describe("0 - Identity Unit Test", () => {
     await expect(createIdentities(entity, [entity1])).rejects.toThrow(
       "1010: Invalid Transaction: Inability to pay some fees , e.g. account balance too low"
     );
-  }, 120000);
+  }, 960_000);
 });
