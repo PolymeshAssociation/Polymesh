@@ -26,17 +26,17 @@ use sp_std::prelude::Vec;
 
 /// A wrapper for a token name.
 #[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+    Decode, Encode, TypeInfo, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
 )]
 pub struct AssetName(pub Vec<u8>);
 
 /// The ID of a custom asset type.
-#[derive(Encode, Decode, Copy, Clone, Default, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub struct CustomAssetTypeId(pub u32);
 impl_checked_inc!(CustomAssetTypeId);
 
 /// The type of security represented by a token.
-#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum AssetType {
     /// Common stock - a security that represents ownership in a corporation.
     EquityCommon,

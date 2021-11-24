@@ -15,7 +15,7 @@
 
 use crate::traits::CommonConfig;
 use core::marker::PhantomData;
-use frame_support::traits::{Imbalance, TryDrop};
+use frame_support::traits::{Imbalance, TryDrop, SameOrOther};
 use polymesh_primitives::traits::BlockRewardsReserveCurrency;
 use polymesh_primitives::Balance;
 use sp_arithmetic::traits::Zero;
@@ -83,14 +83,16 @@ impl<T: CommonConfig> Imbalance<Balance> for PositiveImbalance<T> {
         mem::forget(other);
     }
 
-    fn offset(self, other: Self::Opposite) -> result::Result<Self, Self::Opposite> {
+    fn offset(self, other: Self::Opposite) -> SameOrOther<Self, Self::Opposite> {
         let (a, b) = (self.0, other.0);
         mem::forget((self, other));
 
-        if a >= b {
-            Ok(Self::new(a - b))
+        if a > b {
+            SameOrOther::Same(Self::new(a - b))
+        } else if b > a {
+            SameOrOther::Other(NegativeImbalance::new(b - a))
         } else {
-            Err(NegativeImbalance::new(b - a))
+            SameOrOther::None
         }
     }
 
@@ -165,14 +167,16 @@ impl<T: CommonConfig> Imbalance<Balance> for NegativeImbalance<T> {
         mem::forget(other);
     }
 
-    fn offset(self, other: Self::Opposite) -> result::Result<Self, Self::Opposite> {
+    fn offset(self, other: Self::Opposite) -> SameOrOther<Self, Self::Opposite> {
         let (a, b) = (self.0, other.0);
         mem::forget((self, other));
 
-        if a >= b {
-            Ok(Self::new(a - b))
+        if a > b {
+            SameOrOther::Same(Self::new(a - b))
+        } else if b > a {
+            SameOrOther::Other(PositiveImbalance::new(b - a))
         } else {
-            Err(PositiveImbalance::new(b - a))
+            SameOrOther::None
         }
     }
 

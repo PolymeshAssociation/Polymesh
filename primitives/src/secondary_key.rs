@@ -15,6 +15,7 @@
 
 use crate::{DispatchableName, IdentityId, PalletName, PortfolioId, SubsetRestriction, Ticker};
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
@@ -53,7 +54,7 @@ pub type DispatchableNames = SubsetRestriction<DispatchableName>;
 
 /// A permission to call a set of functions, as described by `dispatchable_names`,
 /// within a given pallet `pallet_name`.
-#[derive(Decode, Encode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, Encode, TypeInfo, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PalletPermissions {
     /// The name of a pallet.
@@ -130,7 +131,7 @@ pub type PortfolioPermissions = SubsetRestriction<PortfolioId>;
 /// Common cases of permissions:
 /// - `Permissions::empty()`: no permissions,
 /// - `Permissions::default()`: full permissions.
-#[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Permissions {
     /// The subset of assets under management.

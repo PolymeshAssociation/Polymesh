@@ -23,6 +23,7 @@ use blake2::{Blake2b, Digest};
 use confidential_identity_v1::Scalar as ScalarV1;
 use frame_support::weights::Weight;
 use polymesh_primitives_derive::VecU8StrongTyped;
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::Vec;
@@ -293,14 +294,36 @@ pub struct Beneficiary<Balance> {
 
 /// The name of a pallet.
 #[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+    Decode,
+    Encode,
+    TypeInfo,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    VecU8StrongTyped,
 )]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PalletName(pub Vec<u8>);
 
 /// The name of a function within a pallet.
 #[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+    Decode,
+    Encode,
+    TypeInfo,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    VecU8StrongTyped,
 )]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DispatchableName(pub Vec<u8>);

@@ -14,7 +14,8 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(bool_to_option)]
+
+use crate::constants::ModuleId;
 
 pub mod constants;
 
@@ -40,7 +41,7 @@ use frame_support::codec::{Decode, Encode};
 use polymesh_primitives::IdentityId;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_runtime::{DispatchResult, ModuleId};
+use sp_runtime::DispatchResult;
 
 /// It defines the valid issuers for Systematic Claims.
 ///

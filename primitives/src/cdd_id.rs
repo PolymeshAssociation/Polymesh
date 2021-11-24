@@ -6,6 +6,7 @@ use confidential_identity_v1 as ci_v1;
 use polymesh_primitives_derive::SliceU8StrongTyped;
 #[cfg(feature = "std")]
 use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongTyped};
+use scale_info::TypeInfo;
 
 /// The investor UID identifies the legal entity of an investor.
 /// It should be kept encrypted in order to have the investor's portfolio hidden between several
@@ -15,7 +16,17 @@ use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongType
 /// Identifiable Information (PII). That process is driven by the specification of the Polymath
 /// Unique Identity System (PUIS).
 #[derive(
-    Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, SliceU8StrongTyped,
+    Default,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Encode,
+    Decode,
+    TypeInfo,
+    SliceU8StrongTyped,
 )]
 #[cfg_attr(
     feature = "std",
@@ -51,7 +62,7 @@ impl From<[u8; 32]> for InvestorUid {
 /// The main purpose of such a claim is to preserve privacy of the investor using several identities
 /// to handle their portfolio.
 #[derive(
-    Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, SliceU8StrongTyped, Hash,
+    Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo, SliceU8StrongTyped, Hash,
 )]
 #[cfg_attr(
     feature = "std",

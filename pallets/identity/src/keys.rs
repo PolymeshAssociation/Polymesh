@@ -679,7 +679,7 @@ impl<T: Config> Module<T> {
     where
         T::AccountId: core::fmt::Display,
     {
-        let acc = issuer.as_module_id().into_account();
+        let acc = issuer.into_account();
         let id = issuer.as_id();
         debug::info!(
             "Register Systematic id {} with account {} as {}",

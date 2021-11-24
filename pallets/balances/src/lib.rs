@@ -438,9 +438,7 @@ impl<T: Config> Module<T> {
     }
 
     pub fn block_rewards_reserve() -> T::AccountId {
-        SystematicIssuers::BlockRewardReserve
-            .as_module_id()
-            .into_account()
+        SystematicIssuers::BlockRewardReserve.into_account()
     }
 
     /// Get both the free and reserved balances of an account.
