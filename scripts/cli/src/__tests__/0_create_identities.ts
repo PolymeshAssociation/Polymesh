@@ -35,5 +35,5 @@ describe("0 - Identity Unit Test", () => {
     await expect(createIdentities(entity, [entity1])).rejects.toThrow(
       "1010: Invalid Transaction: Inability to pay some fees , e.g. account balance too low"
     );
-  }, 960_000);
+  }, 1_920_000);
 });

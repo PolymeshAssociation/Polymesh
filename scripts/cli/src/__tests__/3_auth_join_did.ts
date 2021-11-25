@@ -40,5 +40,5 @@ describe("3 - Auth Unit Test", () => {
     await expect(
       authorizeJoinToIdentities(secondaryKeys, primaryKeys)
     ).resolves.not.toThrow();
-  }, 960_000);
+  }, 1_920_000);
 });
