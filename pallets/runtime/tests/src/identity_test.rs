@@ -1326,6 +1326,113 @@ fn changing_primary_key_with_cdd_auth_we() {
     // Alice's primary key is now Bob's
     assert_eq!(alice_pk(), AccountKeyring::Bob.to_account_id());
 }
+#[test]
+fn direct_rotating_primary_key() {
+    ExtBuilder::default()
+        .monied(true)
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
+        .build()
+        .execute_with(direct_rotating_primary_key_we);
+}
+
+fn direct_rotating_primary_key_we() {
+    let alice = User::new(AccountKeyring::Alice);
+    let charlie = AccountKeyring::Charlie;
+    let charlie_origin = Origin::signed(charlie.to_account_id());
+
+    // Primary key matches Alice's key
+    let alice_pk = || Identity::did_records(alice.did).primary_key;
+    assert_eq!(alice_pk(), alice.acc());
+
+    let rotate = |from: Origin, auth_id: u64| Identity::rotate_primary_key(from, auth_id, None);
+
+    assert!(rotate(charlie_origin.clone(), 0).is_err());
+
+    let rotate_auth = Identity::add_auth(
+        alice.did,
+        Signatory::Account(charlie.to_account_id()),
+        AuthorizationData::DirectRotatePrimaryKey(Permissions::default()),
+        None,
+    );
+
+    assert_noop!(
+        rotate(charlie_origin.clone(), rotate_auth),
+        Error::NotASigner
+    );
+
+    let join_auth = Identity::add_auth(
+        alice.did,
+        Signatory::Account(charlie.to_account_id()),
+        AuthorizationData::JoinIdentity(Permissions::default()),
+        None,
+    );
+
+    assert_ok!(Identity::join_identity(
+        Origin::signed(charlie.to_account_id()),
+        join_auth
+    ));
+
+    assert_ok!(rotate(charlie_origin, rotate_auth));
+    assert_eq!(alice_pk(), charlie.to_account_id());
+}
+
+#[test]
+fn direct_rotating_primary_key_with_cdd_auth() {
+    ExtBuilder::default()
+        .monied(true)
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
+        .build()
+        .execute_with(|| direct_rotating_primary_key_with_cdd_auth_we());
+}
+
+fn direct_rotating_primary_key_with_cdd_auth_we() {
+    let alice = User::new(AccountKeyring::Alice);
+    let alice_pk = || Identity::did_records(alice.did).primary_key;
+    let charlie = AccountKeyring::Charlie;
+    let charlie_origin = Origin::signed(charlie.to_account_id());
+
+    let rotate = |from: Origin, auth_id: u64, cdd: Option<u64>| {
+        Identity::rotate_primary_key(from, auth_id, cdd)
+    };
+
+    let cdd_did = get_identity_id(AccountKeyring::Eve).unwrap();
+
+    let rotate_auth = Identity::add_auth(
+        alice.did,
+        Signatory::Account(charlie.to_account_id()),
+        AuthorizationData::DirectRotatePrimaryKey(Permissions::default()),
+        None,
+    );
+    let join_auth = Identity::add_auth(
+        alice.did,
+        Signatory::Account(charlie.to_account_id()),
+        AuthorizationData::JoinIdentity(Permissions::default()),
+        None,
+    );
+    assert_ok!(Identity::join_identity(charlie_origin.clone(), join_auth));
+
+    // Primary key matches Alice's key
+    assert_eq!(alice_pk(), alice.acc());
+
+    assert_ok!(Identity::change_cdd_requirement_for_mk_rotation(
+        frame_system::RawOrigin::Root.into(),
+        true
+    ));
+
+    assert!(rotate(charlie_origin.clone(), rotate_auth, None).is_err());
+
+    let cdd_auth_id = Identity::add_auth(
+        cdd_did,
+        Signatory::Account(charlie.to_account_id()),
+        AuthorizationData::AttestPrimaryKeyRotation(alice.did),
+        None,
+    );
+
+    assert_ok!(rotate(charlie_origin, rotate_auth, Some(cdd_auth_id)));
+
+    // Alice's primary key is now Bob's
+    assert_eq!(alice_pk(), charlie.to_account_id());
+}
 
 #[test]
 fn cdd_register_did_test() {

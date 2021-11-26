@@ -312,6 +312,18 @@ decl_module! {
             Self::accept_primary_key_rotation(origin, rotation_auth_id, optional_cdd_auth_id)
         }
 
+        /// Call this with the new primary key. By invoking this method, caller accepts authorization
+        /// with the new primary key. If the caller is a secondary key and a CDD service provider approved this change,
+        ///  primary key of the DID is updated.
+        ///
+        /// # Arguments
+        /// * `owner_auth_id` Authorization from the owner who initiated the change
+        /// * `cdd_auth_id` Authorization from a CDD service provider
+        #[weight = <T as Config>::WeightInfo::rotate_primary_key()]
+        pub fn rotate_primary_key(origin, auth_id:u64, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
+            Self::direct_primary_key_rotation(origin, auth_id, optional_cdd_auth_id)
+        }
+
         /// Set if CDD authorization is required for updating primary key of an identity.
         /// Callable via root (governance)
         ///

@@ -244,6 +244,84 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    /// Accepts a primary key rotation.
+    /// Differs from accept_primary_key_rotation in that it directly swaps a primary key with a secondary key,
+    /// instead of replacing the primary key with an unlinked key, so it requires no authorization.
+    crate fn direct_primary_key_rotation(
+        origin: T::Origin,
+        rotation_auth_id: u64,
+        optional_cdd_auth_id: Option<u64>,
+    ) -> DispatchResult {
+        let new_primary_key = ensure_signed(origin)?;
+        let new_primary_key_signer = Signatory::Account(new_primary_key.clone());
+        Self::accept_auth_with(
+            &new_primary_key_signer,
+            rotation_auth_id,
+            |data, target_did| {
+                let perms = extract_auth!(data, DirectRotatePrimaryKey(p));
+                // Ensure length limits are enforced in `perms`.
+                Self::ensure_perms_length_limited(&perms)?;
+
+                // Accept authorization from CDD service provider.
+                if Self::cdd_auth_for_primary_key_rotation() {
+                    let auth_id = optional_cdd_auth_id
+                        .ok_or_else(|| Error::<T>::InvalidAuthorizationFromCddProvider)?;
+
+                    let signer = Signatory::Account(new_primary_key.clone());
+                    Self::accept_auth_with(&signer, auth_id, |data, auth_by| {
+                        let attestation_for_did = extract_auth!(data, AttestPrimaryKeyRotation(a));
+                        // Attestor must be a CDD service provider.
+                        ensure!(
+                            T::CddServiceProviders::is_member(&auth_by),
+                            Error::<T>::NotCddProviderAttestation
+                        );
+                        // Ensure authorizations are for the same DID.
+                        ensure!(
+                            target_did == attestation_for_did,
+                            Error::<T>::AuthorizationsNotForSameDids
+                        );
+                        Ok(())
+                    })?;
+                }
+
+                DidRecords::<T>::mutate(target_did, |record| {
+                    // Ensure the new primary key is a secondary key.
+                    ensure!(
+                        record
+                            .secondary_keys
+                            .iter()
+                            .any(|si| si.signer == new_primary_key_signer),
+                        Error::<T>::NotASigner
+                    );
+                    let old_primary_key = record.primary_key.clone();
+
+                    // Remove old secondary key
+                    let removed_signers = vec![new_primary_key_signer.clone()];
+                    record.remove_secondary_keys(&removed_signers);
+                    Self::deposit_event(RawEvent::SecondaryKeysRemoved(
+                        target_did,
+                        removed_signers,
+                    ));
+
+                    // Ensure that it is safe to unlink the keys from the did.
+                    Self::ensure_key_unlinkable_from_did(&old_primary_key)?;
+                    Self::ensure_key_unlinkable_from_did(&new_primary_key)?;
+
+                    // Replace primary key of the owner that initiated key rotation.
+                    record.primary_key = new_primary_key.clone();
+                    Self::deposit_event(RawEvent::PrimaryKeyUpdated(
+                        target_did,
+                        old_primary_key.clone(),
+                        new_primary_key,
+                    ));
+
+                    Self::unsafe_join_identity(target_did, perms, old_primary_key);
+                    Ok(())
+                })
+            },
+        )
+    }
+
     /// Set permissions for the specific `target_key`.
     /// Only the primary key of an identity is able to set secondary key permissions.
     crate fn base_set_permission_to_signer(
