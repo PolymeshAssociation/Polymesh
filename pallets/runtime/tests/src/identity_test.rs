@@ -1266,6 +1266,18 @@ fn changing_primary_key_we() {
     let charlie = AccountKeyring::Charlie;
     assert_ok!(accept(charlie, add(charlie)));
     assert_eq!(alice_pk(), charlie.to_account_id());
+
+    // Do it again but now making a secondary key the new primary key.
+    let join_auth = Identity::add_auth(
+        alice.did,
+        Signatory::Account(alice.acc()),
+        AuthorizationData::JoinIdentity(Permissions::default()),
+        None,
+    );
+    assert_ok!(Identity::join_identity(alice.origin(), join_auth));
+
+    assert_ok!(accept(alice.ring, add(alice.ring)));
+    assert_eq!(alice_pk(), alice.acc());
 }
 
 #[test]
@@ -1327,16 +1339,17 @@ fn changing_primary_key_with_cdd_auth_we() {
     assert_eq!(alice_pk(), AccountKeyring::Bob.to_account_id());
 }
 #[test]
-fn direct_rotating_primary_key() {
+fn rotating_primary_key_to_secondary() {
     ExtBuilder::default()
         .monied(true)
         .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
-        .execute_with(direct_rotating_primary_key_we);
+        .execute_with(rotating_primary_key_to_secondary_we);
 }
 
-fn direct_rotating_primary_key_we() {
+fn rotating_primary_key_to_secondary_we() {
     let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new(AccountKeyring::Bob);
     let charlie = AccountKeyring::Charlie;
     let charlie_origin = Origin::signed(charlie.to_account_id());
 
@@ -1344,55 +1357,55 @@ fn direct_rotating_primary_key_we() {
     let alice_pk = || Identity::did_records(alice.did).primary_key;
     assert_eq!(alice_pk(), alice.acc());
 
-    let rotate = |from: Origin, auth_id: u64| Identity::rotate_primary_key(from, auth_id, None);
+    let rotate =
+        |from: Origin, auth_id: u64| Identity::rotate_primary_key_to_secondary(from, auth_id, None);
 
     assert!(rotate(charlie_origin.clone(), 0).is_err());
 
-    let rotate_auth = Identity::add_auth(
+    let bob_rotate_auth = Identity::add_auth(
         alice.did,
-        Signatory::Account(charlie.to_account_id()),
-        AuthorizationData::DirectRotatePrimaryKey(Permissions::default()),
+        bob.signatory_acc(),
+        AuthorizationData::RotatePrimaryKeyToSecondary(Permissions::default()),
         None,
     );
+    assert_noop!(rotate(bob.origin(), bob_rotate_auth), Error::AlreadyLinked);
 
-    assert_noop!(
-        rotate(charlie_origin.clone(), rotate_auth),
-        Error::NotASigner
-    );
-
-    let join_auth = Identity::add_auth(
+    let charlie_rotate_auth = Identity::add_auth(
         alice.did,
         Signatory::Account(charlie.to_account_id()),
-        AuthorizationData::JoinIdentity(Permissions::default()),
+        AuthorizationData::RotatePrimaryKeyToSecondary(Permissions::default()),
         None,
     );
-
-    assert_ok!(Identity::join_identity(
-        Origin::signed(charlie.to_account_id()),
-        join_auth
-    ));
-
-    assert_ok!(rotate(charlie_origin, rotate_auth));
+    assert_ok!(rotate(charlie_origin.clone(), charlie_rotate_auth));
     assert_eq!(alice_pk(), charlie.to_account_id());
+
+    let alice_rotate_auth = Identity::add_auth(
+        alice.did,
+        alice.signatory_acc(),
+        AuthorizationData::RotatePrimaryKeyToSecondary(Permissions::default()),
+        None,
+    );
+    assert_ok!(rotate(alice.origin(), alice_rotate_auth));
+    assert_eq!(alice_pk(), alice.acc());
 }
 
 #[test]
-fn direct_rotating_primary_key_with_cdd_auth() {
+fn rotating_primary_key_to_secondary_with_cdd_auth() {
     ExtBuilder::default()
         .monied(true)
         .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
-        .execute_with(|| direct_rotating_primary_key_with_cdd_auth_we());
+        .execute_with(|| rotating_primary_key_to_secondary_with_cdd_auth_we());
 }
 
-fn direct_rotating_primary_key_with_cdd_auth_we() {
+fn rotating_primary_key_to_secondary_with_cdd_auth_we() {
     let alice = User::new(AccountKeyring::Alice);
     let alice_pk = || Identity::did_records(alice.did).primary_key;
     let charlie = AccountKeyring::Charlie;
     let charlie_origin = Origin::signed(charlie.to_account_id());
 
     let rotate = |from: Origin, auth_id: u64, cdd: Option<u64>| {
-        Identity::rotate_primary_key(from, auth_id, cdd)
+        Identity::rotate_primary_key_to_secondary(from, auth_id, cdd)
     };
 
     let cdd_did = get_identity_id(AccountKeyring::Eve).unwrap();
@@ -1400,7 +1413,7 @@ fn direct_rotating_primary_key_with_cdd_auth_we() {
     let rotate_auth = Identity::add_auth(
         alice.did,
         Signatory::Account(charlie.to_account_id()),
-        AuthorizationData::DirectRotatePrimaryKey(Permissions::default()),
+        AuthorizationData::RotatePrimaryKeyToSecondary(Permissions::default()),
         None,
     );
     let join_auth = Identity::add_auth(

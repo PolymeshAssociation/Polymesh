@@ -154,6 +154,23 @@ impl<T: Config> Module<T> {
         );
         Ok(())
     }
+    /// Ensure `key` is either not linked to a DID or is a secondary key to the provided did.
+    pub fn ensure_key_unlinked_or_secondary_key(
+        key: &T::AccountId,
+        target_did: &IdentityId,
+    ) -> DispatchResult {
+        // Ensure the new primary key is a secondary key or is unlinked.
+        let is_linked_to_different_did = <KeyToIdentityIds<T>>::contains_key(&key)
+            && <KeyToIdentityIds<T>>::get(&key) != *target_did;
+        let is_primary_key = <DidRecords<T>>::get(target_did).primary_key == *key;
+        let is_multisig_signer = T::MultiSig::is_signer(&key);
+
+        ensure!(
+            !is_linked_to_different_did && !is_primary_key && !is_multisig_signer,
+            Error::<T>::AlreadyLinked
+        );
+        Ok(())
+    }
 
     /// Checks that a key is not linked to any identity or multisig.
     pub fn can_link_account_key_to_did(key: &T::AccountId) -> bool {
@@ -221,7 +238,7 @@ impl<T: Config> Module<T> {
             })?;
         }
 
-        Self::ensure_key_did_unlinked(&sender)?;
+        Self::ensure_key_unlinked_or_secondary_key(&sender, &rotation_for_did)?;
 
         // Get the current DidRecord.
         let mut record = Self::did_records(&rotation_for_did);
@@ -245,9 +262,10 @@ impl<T: Config> Module<T> {
     }
 
     /// Accepts a primary key rotation.
-    /// Differs from accept_primary_key_rotation in that it directly swaps a primary key with a secondary key,
-    /// instead of replacing the primary key with an unlinked key, so it requires no authorization.
-    crate fn direct_primary_key_rotation(
+    /// Differs from accept_primary_key_rotation in that it will leave the old primary key as a
+    /// secondary key with the permissions specified in the corresponding DirectRotatePrimaryKey authorization
+    /// instead of unlinking the primary key.
+    crate fn base_rotate_primary_key_to_secondary(
         origin: T::Origin,
         rotation_auth_id: u64,
         optional_cdd_auth_id: Option<u64>,
@@ -258,9 +276,9 @@ impl<T: Config> Module<T> {
             &new_primary_key_signer,
             rotation_auth_id,
             |data, target_did| {
-                let perms = extract_auth!(data, DirectRotatePrimaryKey(p));
-                // Ensure length limits are enforced in `perms`.
-                Self::ensure_perms_length_limited(&perms)?;
+                Self::ensure_key_unlinked_or_secondary_key(&new_primary_key, &target_did)?;
+
+                let perms = extract_auth!(data, RotatePrimaryKeyToSecondary(p));
 
                 // Accept authorization from CDD service provider.
                 if Self::cdd_auth_for_primary_key_rotation() {
@@ -284,40 +302,30 @@ impl<T: Config> Module<T> {
                     })?;
                 }
 
-                DidRecords::<T>::mutate(target_did, |record| {
-                    // Ensure the new primary key is a secondary key.
-                    ensure!(
-                        record
-                            .secondary_keys
-                            .iter()
-                            .any(|si| si.signer == new_primary_key_signer),
-                        Error::<T>::NotASigner
-                    );
-                    let old_primary_key = record.primary_key.clone();
+                let mut record = DidRecords::<T>::get(target_did);
 
-                    // Remove old secondary key
-                    let removed_signers = vec![new_primary_key_signer.clone()];
-                    record.remove_secondary_keys(&removed_signers);
-                    Self::deposit_event(RawEvent::SecondaryKeysRemoved(
-                        target_did,
-                        removed_signers,
-                    ));
+                let old_primary_key = record.primary_key.clone();
 
-                    // Ensure that it is safe to unlink the keys from the did.
-                    Self::ensure_key_unlinkable_from_did(&old_primary_key)?;
-                    Self::ensure_key_unlinkable_from_did(&new_primary_key)?;
+                // Remove old secondary key
+                let removed_signers = vec![new_primary_key_signer.clone()];
+                record.remove_secondary_keys(&removed_signers);
+                Self::deposit_event(RawEvent::SecondaryKeysRemoved(target_did, removed_signers));
 
-                    // Replace primary key of the owner that initiated key rotation.
-                    record.primary_key = new_primary_key.clone();
-                    Self::deposit_event(RawEvent::PrimaryKeyUpdated(
-                        target_did,
-                        old_primary_key.clone(),
-                        new_primary_key,
-                    ));
+                // Replace primary key of the owner that initiated key rotation.
+                record.primary_key = new_primary_key.clone();
+                Self::deposit_event(RawEvent::PrimaryKeyUpdated(
+                    target_did,
+                    old_primary_key.clone(),
+                    new_primary_key,
+                ));
 
-                    Self::unsafe_join_identity(target_did, perms, old_primary_key);
-                    Ok(())
-                })
+                // Link the secondary key.
+                let sk = SecondaryKey::new(Signatory::Account(old_primary_key), perms);
+                record.add_secondary_keys(iter::once(sk.clone()));
+                <DidRecords<T>>::insert(target_did, record);
+                Self::deposit_event(RawEvent::SecondaryKeysAdded(target_did, vec![sk.into()]));
+
+                Ok(())
             },
         )
     }

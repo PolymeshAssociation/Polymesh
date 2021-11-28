@@ -80,7 +80,7 @@ impl pallet_identity::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(9 as Weight))
             .saturating_add(DbWeight::get().writes(7 as Weight))
     }
-    fn rotate_primary_key() -> Weight {
+    fn rotate_primary_key_to_secondary() -> Weight {
         (141_907_000 as Weight)
             .saturating_add(DbWeight::get().reads(9 as Weight))
             .saturating_add(DbWeight::get().writes(7 as Weight))

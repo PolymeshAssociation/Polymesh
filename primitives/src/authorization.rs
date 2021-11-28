@@ -51,8 +51,9 @@ pub enum AuthorizationData<AccountId> {
     /// Must be issued by the paying key.
     /// `AddRelayerPayingKey(user_key, paying_key, polyx_limit)`
     AddRelayerPayingKey(AccountId, AccountId, Balance),
-    /// Authorization to change primary key with an existing secondary key
-    DirectRotatePrimaryKey(Permissions),
+    /// Authorization to change primary key and leave it as a secondary key
+    /// with the given permissions.
+    RotatePrimaryKeyToSecondary(Permissions),
 }
 
 impl<AccountId> AuthorizationData<AccountId> {
@@ -68,7 +69,7 @@ impl<AccountId> AuthorizationData<AccountId> {
             Self::JoinIdentity(..) => AuthorizationType::JoinIdentity,
             Self::PortfolioCustody(..) => AuthorizationType::PortfolioCustody,
             Self::AddRelayerPayingKey(..) => AuthorizationType::AddRelayerPayingKey,
-            Self::DirectRotatePrimaryKey(..) => AuthorizationType::DirectRotatePrimaryKey,
+            Self::RotatePrimaryKeyToSecondary(..) => AuthorizationType::RotatePrimaryKeyToSecondary,
         }
     }
 }
@@ -96,7 +97,7 @@ pub enum AuthorizationType {
     /// Authorization to add a Relayer paying key.
     AddRelayerPayingKey,
     /// Authorization to change primary key with an existing secondary key
-    DirectRotatePrimaryKey,
+    RotatePrimaryKeyToSecondary,
 }
 
 /// Status of an Authorization after consume is called on it.

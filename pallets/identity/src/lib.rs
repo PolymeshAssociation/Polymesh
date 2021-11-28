@@ -304,6 +304,9 @@ decl_module! {
         /// with the new primary key. If a CDD service provider approved this change, primary key of
         /// the DID is updated.
         ///
+        ///  Differs from rotate_primary_key_to_secondary in that it will unlink the old primary key
+        /// instead of leaving it as a secondary key.
+        ///
         /// # Arguments
         /// * `owner_auth_id` Authorization from the owner who initiated the change
         /// * `cdd_auth_id` Authorization from a CDD service provider
@@ -313,15 +316,19 @@ decl_module! {
         }
 
         /// Call this with the new primary key. By invoking this method, caller accepts authorization
-        /// with the new primary key. If the caller is a secondary key and a CDD service provider approved this change,
+        /// with the new primary key. If a CDD service provider approved this change,
         ///  primary key of the DID is updated.
+        ///
+        /// Differs from accept_primary_key in that it will leave the old primary key as a
+        /// secondary key with the permissions specified in the corresponding DirectRotatePrimaryKey authorization
+        /// instead of unlinking the primary key.
         ///
         /// # Arguments
         /// * `owner_auth_id` Authorization from the owner who initiated the change
         /// * `cdd_auth_id` Authorization from a CDD service provider
-        #[weight = <T as Config>::WeightInfo::rotate_primary_key()]
-        pub fn rotate_primary_key(origin, auth_id:u64, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
-            Self::direct_primary_key_rotation(origin, auth_id, optional_cdd_auth_id)
+        #[weight = <T as Config>::WeightInfo::rotate_primary_key_to_secondary()]
+        pub fn rotate_primary_key_to_secondary(origin, auth_id:u64, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
+            Self::base_rotate_primary_key_to_secondary(origin, auth_id, optional_cdd_auth_id)
         }
 
         /// Set if CDD authorization is required for updating primary key of an identity.

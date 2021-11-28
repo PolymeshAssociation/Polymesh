@@ -199,7 +199,7 @@ benchmarks! {
         );
     }: _(new_key.origin, owner_auth_id, Some(cdd_auth_id))
 
-    rotate_primary_key {
+    rotate_primary_key_to_secondary {
         let cdd = cdd_provider::<T>("cdd", 0);
         let target = user::<T>("target", 0);
         let new_key = UserBuilder::<T>::default().build("key");
@@ -210,17 +210,11 @@ benchmarks! {
             AuthorizationData::AttestPrimaryKeyRotation(target.did()),
             None,
         );
-        let join_auth_id =  Module::<T>::add_auth(
-            cdd.did(), signatory.clone(),
-            AuthorizationData::JoinIdentity(Permissions::default()),
-            None,
-        );
         let rotate_auth_id =  Module::<T>::add_auth(
             cdd.did(), signatory.clone(),
-            AuthorizationData::DirectRotatePrimaryKey(Permissions::default()),
+            AuthorizationData::RotatePrimaryKeyToSecondary(Permissions::default()),
             None,
         );
-        Module::<T>::join_identity_as_key(new_key.clone().origin.into(), join_auth_id).unwrap();
         Module::<T>::change_cdd_requirement_for_mk_rotation(
             RawOrigin::Root.into(),
             true
