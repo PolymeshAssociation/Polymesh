@@ -1266,6 +1266,7 @@ fn changing_primary_key_we() {
     let charlie = AccountKeyring::Charlie;
     assert_ok!(accept(charlie, add(charlie)));
     assert_eq!(alice_pk(), charlie.to_account_id());
+    assert_ok!(Identity::ensure_key_did_unlinked(&alice.acc()));
 
     // Add Alice's old primary key as a secondary key to the identity..
     let join_auth = Identity::add_auth(
@@ -1279,6 +1280,7 @@ fn changing_primary_key_we() {
     // Do it again but now making the secondary key the new primary key.
     assert_ok!(accept(alice.ring, add(alice.ring)));
     assert_eq!(alice_pk(), alice.acc());
+    assert_ok!(Identity::ensure_key_did_unlinked(&charlie.to_account_id()));
 }
 
 #[test]
@@ -1379,6 +1381,7 @@ fn rotating_primary_key_to_secondary_we() {
     );
     assert_ok!(rotate(charlie_origin.clone(), charlie_rotate_auth));
     assert_eq!(alice_pk(), charlie.to_account_id());
+    assert!(Identity::is_signer(alice.did, &alice.signatory_acc()));
 
     let alice_rotate_auth = Identity::add_auth(
         alice.did,
@@ -1388,6 +1391,10 @@ fn rotating_primary_key_to_secondary_we() {
     );
     assert_ok!(rotate(alice.origin(), alice_rotate_auth));
     assert_eq!(alice_pk(), alice.acc());
+    assert!(Identity::is_signer(
+        alice.did,
+        &Signatory::Account(charlie.to_account_id())
+    ));
 }
 
 #[test]
