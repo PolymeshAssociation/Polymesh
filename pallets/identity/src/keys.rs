@@ -418,7 +418,7 @@ impl<T: Config> Module<T> {
             Self::ensure_id_record_exists(target_did)?;
 
             // Link the secondary key.
-            Self::ensure_key_did_unlinked(&key)?;
+            Self::ensure_secondary_key_can_be_added(&target_did, &key)?;
             // Check that the new Identity has a valid CDD claim.
             ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
             // Charge the protocol fee after all checks.
@@ -431,6 +431,17 @@ impl<T: Config> Module<T> {
             Self::unsafe_join_identity(target_did, permissions, key);
             Ok(())
         })
+    }
+
+    pub fn ensure_secondary_key_can_be_added(
+        did: &IdentityId,
+        key: &T::AccountId,
+    ) -> DispatchResult {
+        let record = <DidRecords<T>>::get(did);
+        ensure_length_ok::<T>(record.secondary_keys.len().saturating_add(1))?;
+
+        Self::ensure_key_did_unlinked(&key)?;
+        Ok(())
     }
 
     /// Joins a DID as an account based secondary key.
