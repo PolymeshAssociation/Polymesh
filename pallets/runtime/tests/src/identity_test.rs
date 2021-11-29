@@ -1267,7 +1267,7 @@ fn changing_primary_key_we() {
     assert_ok!(accept(charlie, add(charlie)));
     assert_eq!(alice_pk(), charlie.to_account_id());
 
-    // Do it again but now making a secondary key the new primary key.
+    // Add Alice's old primary key as a secondary key to the identity..
     let join_auth = Identity::add_auth(
         alice.did,
         Signatory::Account(alice.acc()),
@@ -1276,6 +1276,7 @@ fn changing_primary_key_we() {
     );
     assert_ok!(Identity::join_identity(alice.origin(), join_auth));
 
+    // Do it again but now making the secondary key the new primary key.
     assert_ok!(accept(alice.ring, add(alice.ring)));
     assert_eq!(alice_pk(), alice.acc());
 }
