@@ -90,21 +90,6 @@ impl<T: Config> Module<T> {
         record.secondary_keys.iter().any(|si| si.signer == *signer)
     }
 
-    pub fn remove_secondary_key_if_necessary(
-        did: IdentityId,
-        signer: &Signatory<T::AccountId>,
-    ) -> DispatchResult {
-        <DidRecords<T>>::mutate(did, |record| {
-            if record.secondary_keys.iter().any(|si| si.signer == *signer) {
-                // Remove old secondary key
-                let removed_signers = vec![signer.clone()];
-                record.remove_secondary_keys(&removed_signers);
-                Self::deposit_event(RawEvent::SecondaryKeysRemoved(did, removed_signers));
-            }
-            Ok(())
-        })
-    }
-
     /// Use `did` as reference.
     pub fn is_primary_key(did: &IdentityId, key: &T::AccountId) -> bool {
         key == &<DidRecords<T>>::get(did).primary_key
@@ -166,23 +151,6 @@ impl<T: Config> Module<T> {
     pub fn ensure_key_did_unlinked(key: &T::AccountId) -> DispatchResult {
         ensure!(
             Self::can_link_account_key_to_did(key),
-            Error::<T>::AlreadyLinked
-        );
-        Ok(())
-    }
-    /// Ensure `key` is either not linked to a DID or is a secondary key to the provided did.
-    pub fn ensure_key_unlinked_or_secondary_key(
-        key: &T::AccountId,
-        target_did: &IdentityId,
-    ) -> DispatchResult {
-        // Ensure the new primary key is a secondary key or is unlinked.
-        let is_linked_to_different_did = <KeyToIdentityIds<T>>::contains_key(&key)
-            && <KeyToIdentityIds<T>>::get(&key) != *target_did;
-        let is_primary_key = <DidRecords<T>>::get(target_did).primary_key == *key;
-        let is_multisig_signer = T::MultiSig::is_signer(&key);
-
-        ensure!(
-            !is_linked_to_different_did && !is_primary_key && !is_multisig_signer,
             Error::<T>::AlreadyLinked
         );
         Ok(())
