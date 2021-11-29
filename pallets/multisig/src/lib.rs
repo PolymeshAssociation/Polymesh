@@ -556,7 +556,7 @@ decl_module! {
         pub fn make_multisig_primary(origin, multisig: T::AccountId, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
             let did = Self::ensure_ms_creator(origin, &multisig)?;
             Self::ensure_ms(&multisig)?;
-            <Identity<T>>::unsafe_primary_key_rotation(
+            <Identity<T>>::rotate_primary_key_and_remove(
                 multisig,
                 did,
                 optional_cdd_auth_id

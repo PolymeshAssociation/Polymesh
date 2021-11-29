@@ -90,6 +90,21 @@ impl<T: Config> Module<T> {
         record.secondary_keys.iter().any(|si| si.signer == *signer)
     }
 
+    pub fn remove_secondary_key_if_necessary(
+        did: IdentityId,
+        signer: &Signatory<T::AccountId>,
+    ) -> DispatchResult {
+        <DidRecords<T>>::mutate(did, |record| {
+            if record.secondary_keys.iter().any(|si| si.signer == *signer) {
+                // Remove old secondary key
+                let removed_signers = vec![signer.clone()];
+                record.remove_secondary_keys(&removed_signers);
+                Self::deposit_event(RawEvent::SecondaryKeysRemoved(did, removed_signers));
+            }
+            Ok(())
+        })
+    }
+
     /// Use `did` as reference.
     pub fn is_primary_key(did: &IdentityId, key: &T::AccountId) -> bool {
         key == &<DidRecords<T>>::get(did).primary_key
@@ -107,6 +122,7 @@ impl<T: Config> Module<T> {
                 Some(sk.permissions)
             })?)
         };
+
         Some(types::KeyIdentityData {
             identity,
             permissions,
@@ -206,22 +222,37 @@ impl<T: Config> Module<T> {
         Self::accept_auth_with(&signer, rotation_auth_id, |data, target_did| {
             // Ensure Authorization is a `RotatePrimaryKey`.
             extract_auth!(data, RotatePrimaryKey);
-            Self::unsafe_primary_key_rotation(sender, target_did, optional_cdd_auth_id)
+            Self::rotate_primary_key_and_remove(sender, target_did, optional_cdd_auth_id)
         })
     }
 
-    /// Processes primary key rotation.
-    pub fn unsafe_primary_key_rotation(
-        sender: T::AccountId,
-        rotation_for_did: IdentityId,
+    // Sets the new primariy key, optionally removes it as a secondary key if it is one,
+    // and optionally checks the cdd auth.
+    fn common_rotate_primary_key(
+        target_did: IdentityId,
+        new_primary_key: T::AccountId,
         optional_cdd_auth_id: Option<u64>,
     ) -> DispatchResult {
+        let mut record = <DidRecords<T>>::get(target_did);
+
+        let is_linked = <KeyToIdentityIds<T>>::contains_key(&new_primary_key);
+        let is_secondary_key =
+            is_linked && <KeyToIdentityIds<T>>::get(&new_primary_key) == target_did;
+        let is_primary_key = record.primary_key == new_primary_key;
+        let is_multisig_signer = T::MultiSig::is_signer(&new_primary_key);
+
+        ensure!(
+            (!is_linked || is_secondary_key) && !is_primary_key && !is_multisig_signer,
+            Error::<T>::AlreadyLinked
+        );
+
+        let signer = Signatory::Account(new_primary_key.clone());
+
         // Accept authorization from CDD service provider.
         if Self::cdd_auth_for_primary_key_rotation() {
             let auth_id = optional_cdd_auth_id
                 .ok_or_else(|| Error::<T>::InvalidAuthorizationFromCddProvider)?;
 
-            let signer = Signatory::Account(sender.clone());
             Self::accept_auth_with(&signer, auth_id, |data, auth_by| {
                 let attestation_for_did = extract_auth!(data, AttestPrimaryKeyRotation(a));
                 // Attestor must be a CDD service provider.
@@ -231,33 +262,46 @@ impl<T: Config> Module<T> {
                 );
                 // Ensure authorizations are for the same DID.
                 ensure!(
-                    rotation_for_did == attestation_for_did,
+                    target_did == attestation_for_did,
                     Error::<T>::AuthorizationsNotForSameDids
                 );
                 Ok(())
             })?;
         }
 
-        Self::ensure_key_unlinked_or_secondary_key(&sender, &rotation_for_did)?;
+        // Remove old secondary key
+        if is_secondary_key {
+            let removed_signers = vec![signer];
+            record.remove_secondary_keys(&removed_signers);
+            Self::deposit_event(RawEvent::SecondaryKeysRemoved(target_did, removed_signers));
+        }
 
-        // Get the current DidRecord.
-        let mut record = Self::did_records(&rotation_for_did);
-        let old_primary_key = record.primary_key;
+        let old_primary_key = record.primary_key.clone();
 
+        // Replace primary key of the owner that initiated key rotation.
+        record.primary_key = new_primary_key.clone();
+        Self::deposit_event(RawEvent::PrimaryKeyUpdated(
+            target_did,
+            old_primary_key.clone(),
+            new_primary_key,
+        ));
+        DidRecords::<T>::insert(target_did, record);
+        Ok(())
+    }
+
+    /// Processes primary key rotation.
+    pub fn rotate_primary_key_and_remove(
+        sender: T::AccountId,
+        rotation_for_did: IdentityId,
+        optional_cdd_auth_id: Option<u64>,
+    ) -> DispatchResult {
+        let old_primary_key = <DidRecords<T>>::get(rotation_for_did).primary_key;
         // Ensure that it is safe to unlink the primary key from the did.
         Self::ensure_key_unlinkable_from_did(&old_primary_key)?;
 
-        // Replace primary key of the owner that initiated key rotation.
-        Self::unlink_account_key_from_did(&old_primary_key, rotation_for_did);
-        record.primary_key = sender.clone();
-        Self::link_account_key_to_did(&sender, rotation_for_did);
-        <DidRecords<T>>::insert(&rotation_for_did, record);
+        Self::common_rotate_primary_key(rotation_for_did, sender, optional_cdd_auth_id)?;
 
-        Self::deposit_event(RawEvent::PrimaryKeyUpdated(
-            rotation_for_did,
-            old_primary_key,
-            sender,
-        ));
+        Self::unlink_account_key_from_did(&old_primary_key, rotation_for_did);
         Ok(())
     }
 
@@ -276,56 +320,19 @@ impl<T: Config> Module<T> {
             &new_primary_key_signer,
             rotation_auth_id,
             |data, target_did| {
-                Self::ensure_key_unlinked_or_secondary_key(&new_primary_key, &target_did)?;
+                let old_primary_key = <DidRecords<T>>::get(target_did).primary_key;
+
+                Self::common_rotate_primary_key(target_did, new_primary_key, optional_cdd_auth_id)?;
 
                 let perms = extract_auth!(data, RotatePrimaryKeyToSecondary(p));
 
-                // Accept authorization from CDD service provider.
-                if Self::cdd_auth_for_primary_key_rotation() {
-                    let auth_id = optional_cdd_auth_id
-                        .ok_or_else(|| Error::<T>::InvalidAuthorizationFromCddProvider)?;
-
-                    let signer = Signatory::Account(new_primary_key.clone());
-                    Self::accept_auth_with(&signer, auth_id, |data, auth_by| {
-                        let attestation_for_did = extract_auth!(data, AttestPrimaryKeyRotation(a));
-                        // Attestor must be a CDD service provider.
-                        ensure!(
-                            T::CddServiceProviders::is_member(&auth_by),
-                            Error::<T>::NotCddProviderAttestation
-                        );
-                        // Ensure authorizations are for the same DID.
-                        ensure!(
-                            target_did == attestation_for_did,
-                            Error::<T>::AuthorizationsNotForSameDids
-                        );
-                        Ok(())
-                    })?;
-                }
-
-                let mut record = DidRecords::<T>::get(target_did);
-
-                let old_primary_key = record.primary_key.clone();
-
-                // Remove old secondary key
-                let removed_signers = vec![new_primary_key_signer.clone()];
-                record.remove_secondary_keys(&removed_signers);
-                Self::deposit_event(RawEvent::SecondaryKeysRemoved(target_did, removed_signers));
-
-                // Replace primary key of the owner that initiated key rotation.
-                record.primary_key = new_primary_key.clone();
-                Self::deposit_event(RawEvent::PrimaryKeyUpdated(
-                    target_did,
-                    old_primary_key.clone(),
-                    new_primary_key,
-                ));
-
                 // Link the secondary key.
-                let sk = SecondaryKey::new(Signatory::Account(old_primary_key), perms);
-                record.add_secondary_keys(iter::once(sk.clone()));
-                <DidRecords<T>>::insert(target_did, record);
-                Self::deposit_event(RawEvent::SecondaryKeysAdded(target_did, vec![sk.into()]));
-
-                Ok(())
+                <DidRecords<T>>::mutate(target_did, |record| {
+                    let sk = SecondaryKey::new(Signatory::Account(old_primary_key), perms);
+                    record.add_secondary_keys(iter::once(sk.clone()));
+                    Self::deposit_event(RawEvent::SecondaryKeysAdded(target_did, vec![sk.into()]));
+                    Ok(())
+                })
             },
         )
     }
