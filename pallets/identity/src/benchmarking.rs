@@ -211,7 +211,7 @@ benchmarks! {
             None,
         );
         let rotate_auth_id =  Module::<T>::add_auth(
-            cdd.did(), signatory.clone(),
+            target.did(), signatory.clone(),
             AuthorizationData::RotatePrimaryKeyToSecondary(Permissions::default()),
             None,
         );
@@ -220,7 +220,7 @@ benchmarks! {
             true
         ).unwrap();
 
-    }: _(target.origin, rotate_auth_id, Some(cdd_auth_id))
+    }: _(new_key.origin, rotate_auth_id, Some(cdd_auth_id))
 
     change_cdd_requirement_for_mk_rotation {
         assert!(
