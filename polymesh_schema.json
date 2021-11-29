@@ -673,7 +673,8 @@
         "JoinIdentity": "Permissions",
         "PortfolioCustody": "PortfolioId",
         "BecomeAgent": "(Ticker, AgentGroup)",
-        "AddRelayerPayingKey": "(AccountId, AccountId, Balance)"
+        "AddRelayerPayingKey": "(AccountId, AccountId, Balance)",
+        "RotatePrimaryKeyToSecondary": "Permissions"
       }
     },
     "SmartExtensionType": {
@@ -846,7 +847,8 @@
         "JoinIdentity": "",
         "PortfolioCustody": "",
         "BecomeAgent": "",
-        "AddRelayerPayingKey": ""
+        "AddRelayerPayingKey": "",
+        "RotatePrimaryKeyToSecondary": ""
       }
     },
     "ProposalDetails": {
