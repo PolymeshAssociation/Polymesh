@@ -304,7 +304,7 @@ decl_module! {
         /// with the new primary key. If a CDD service provider approved this change, primary key of
         /// the DID is updated.
         ///
-        ///  Differs from rotate_primary_key_to_secondary in that it will unlink the old primary key
+        /// Differs from rotate_primary_key_to_secondary in that it will unlink the old primary key
         /// instead of leaving it as a secondary key.
         ///
         /// # Arguments
@@ -317,10 +317,10 @@ decl_module! {
 
         /// Call this with the new primary key. By invoking this method, caller accepts authorization
         /// with the new primary key. If a CDD service provider approved this change,
-        ///  primary key of the DID is updated.
+        /// primary key of the DID is updated.
         ///
         /// Differs from accept_primary_key in that it will leave the old primary key as a
-        /// secondary key with the permissions specified in the corresponding DirectRotatePrimaryKey authorization
+        /// secondary key with the permissions specified in the corresponding RotatePrimaryKeyToSecondary authorization
         /// instead of unlinking the primary key.
         ///
         /// # Arguments

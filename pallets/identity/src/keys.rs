@@ -263,7 +263,7 @@ impl<T: Config> Module<T> {
 
     /// Accepts a primary key rotation.
     /// Differs from accept_primary_key_rotation in that it will leave the old primary key as a
-    /// secondary key with the permissions specified in the corresponding DirectRotatePrimaryKey authorization
+    /// secondary key with the permissions specified in the corresponding RotatePrimaryKeyToSecondary authorization
     /// instead of unlinking the primary key.
     crate fn base_rotate_primary_key_to_secondary(
         origin: T::Origin,
