@@ -297,7 +297,7 @@ decl_module! {
             expiry: Option<T::Moment>,
             auto_close: bool
         ) {
-            let signer = Self::ensure_signed_did(origin)?;
+            let signer = Self::ensure_perms_signed_did(origin)?;
             Self::create_or_approve_proposal(multisig, signer, proposal, expiry, auto_close)?;
         }
 
@@ -337,7 +337,7 @@ decl_module! {
             expiry: Option<T::Moment>,
             auto_close: bool
         ) {
-            let signer = Self::ensure_signed_did(origin)?;
+            let signer = Self::ensure_perms_signed_did(origin)?;
             Self::create_proposal(multisig, signer, proposal, expiry, auto_close)?;
         }
 
@@ -369,7 +369,7 @@ decl_module! {
         /// If quorum is reached, the proposal will be immediately executed.
         #[weight = <T as Config>::WeightInfo::approve_as_identity()]
         pub fn approve_as_identity(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
-            let signer = Self::ensure_signed_did(origin)?;
+            let signer = Self::ensure_perms_signed_did(origin)?;
             Self::unsafe_approve(multisig, signer, proposal_id)
         }
 
@@ -393,7 +393,7 @@ decl_module! {
         /// If quorum is reached, the proposal will be immediately executed.
         #[weight = <T as Config>::WeightInfo::reject_as_identity()]
         pub fn reject_as_identity(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
-            let signer = Self::ensure_signed_did(origin)?;
+            let signer = Self::ensure_perms_signed_did(origin)?;
             Self::unsafe_reject(multisig, signer, proposal_id)
         }
 
@@ -415,7 +415,7 @@ decl_module! {
         /// * `auth_id` - Auth id of the authorization.
         #[weight = <T as Config>::WeightInfo::accept_multisig_signer_as_identity()]
         pub fn accept_multisig_signer_as_identity(origin, auth_id: u64) -> DispatchResult {
-            let signer = Self::ensure_signed_did(origin)?;
+            let signer = Self::ensure_perms_signed_did(origin)?;
             Self::unsafe_accept_multisig_signer(signer, auth_id)
         }
 
@@ -681,8 +681,10 @@ impl<T: Config> Module<T> {
         Ok(Signatory::Account(sender))
     }
 
-    fn ensure_signed_did(origin: T::Origin) -> Result<Signatory<T::AccountId>, DispatchError> {
-        Identity::<T>::ensure_did(origin).map(|(_, d)| d.into())
+    fn ensure_perms_signed_did(
+        origin: T::Origin,
+    ) -> Result<Signatory<T::AccountId>, DispatchError> {
+        <Identity<T>>::ensure_perms(origin).map(|d| d.into())
     }
 
     fn ensure_primary_key(did: &IdentityId, sender: &T::AccountId) -> DispatchResult {
