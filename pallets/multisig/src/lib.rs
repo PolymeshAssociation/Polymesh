@@ -104,11 +104,9 @@ use polymesh_common_utilities::{
     identity::Config as IdentityConfig, multisig::MultiSigSubTrait,
     transaction_payment::CddAndFeeDetails, Context,
 };
-use polymesh_primitives::{
-    extract_auth, AuthorizationData, IdentityId, PalletPermissions, Permissions, Signatory,
-};
+use polymesh_primitives::{extract_auth, AuthorizationData, IdentityId, Permissions, Signatory};
 use sp_runtime::traits::{Dispatchable, Hash, One};
-use sp_std::{convert::TryFrom, iter, prelude::*};
+use sp_std::{convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
 
@@ -542,12 +540,8 @@ decl_module! {
 
             <Identity<T>>::ensure_secondary_key_can_be_added(&did, &multisig)?;
 
-            let perms = Permissions::from_pallet_permissions(
-                iter::once(PalletPermissions::entire_pallet(NAME.into()))
-            );
-
-
-            <Identity<T>>::unsafe_join_identity(did, perms, multisig);
+            // Add the multisig as a secondary key with no permissions.
+            <Identity<T>>::unsafe_join_identity(did, Permissions::empty(), multisig);
         }
 
         /// Adds a multisig as the primary key of the current did if the current DID is the creator
