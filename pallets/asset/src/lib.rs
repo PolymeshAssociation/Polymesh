@@ -815,6 +815,8 @@ decl_error! {
         FundingRoundNameMaxLengthExceeded,
         /// Some `AssetIdentifier` was invalid.
         InvalidAssetIdentifier,
+        /// Investor Uniqueness claims are not allowed for this asset.
+        InvestorUniquenessClaimNotAllowed,
     }
 }
 
@@ -915,6 +917,15 @@ impl<T: Config> AssetSubTrait for Module<T> {
         } else {
             Self::scope_id_of(ticker, did)
         }
+    }
+
+    /// Ensure that Investor Uniqueness is allowed for the ticker.
+    fn ensure_investor_uniqueness_claims_allowed(ticker: &Ticker) -> DispatchResult {
+        ensure!(
+            !DisableInvestorUniqueness::get(ticker),
+            Error::<T>::InvestorUniquenessClaimNotAllowed
+        );
+        Ok(())
     }
 }
 
@@ -1283,7 +1294,7 @@ impl<T: Config> Module<T> {
         let current_to_balance = Self::balance_of(ticker, to_did);
         // No check since the total balance is always <= the total supply. The
         // total supply is already checked above.
-        let updated_to_balance = current_to_balance + value;
+        let mut updated_to_balance = current_to_balance + value;
         // No check since the default portfolio balance is always <= the total
         // supply. The total supply is already checked above.
         let updated_to_def_balance = Portfolio::<T>::portfolio_asset_balances(
@@ -1302,21 +1313,25 @@ impl<T: Config> Module<T> {
             <Checkpoint<T>>::advance_update_balances(ticker, &[(to_did, current_to_balance)])
         })?;
 
-        // Increase total supply
+        // Increase total supply.
         token.total_supply = updated_total_supply;
         BalanceOf::insert(ticker, &to_did, updated_to_balance);
         Portfolio::<T>::set_default_portfolio_balance(to_did, ticker, updated_to_def_balance);
         Tokens::insert(ticker, token);
 
-        let updated_to_balance = if ScopeIdOf::contains_key(ticker, &to_did) {
-            let scope_id = Self::scope_id(ticker, &to_did);
+        // If investor uniqueness is disabled for the ticker,
+        // the `scope_id` will always equal `to_did`.
+        let scope_id = Self::scope_id(ticker, &to_did);
+        if scope_id != ScopeId::default() {
+            // scope_id can only be default if investor uniqueness
+            // is enabled and the issuer doesn't have a claim yet.
+
+            // Update scope balances.
             Self::update_scope_balance(&ticker, value, scope_id, to_did, updated_to_balance, false);
+
             // Using the aggregate balance to update the unique investor count.
-            Self::aggregate_balance_of(ticker, &scope_id)
-        } else {
-            // Since the caller does not have a scope claim yet, we assume this is their only identity
-            value
-        };
+            updated_to_balance = Self::aggregate_balance_of(ticker, &scope_id);
+        }
         Statistics::<T>::update_transfer_stats(&ticker, None, Some(updated_to_balance), value);
 
         let round = Self::funding_round(ticker);
