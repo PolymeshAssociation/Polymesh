@@ -460,6 +460,9 @@ impl AssetSubTrait for Test {
     fn scope_id(_: &Ticker, _: &IdentityId) -> ScopeId {
         ScopeId::from(0u128)
     }
+    fn ensure_investor_uniqueness_claims_allowed(_: &Ticker) -> DispatchResult {
+        Ok(())
+    }
 }
 
 impl MultiSigSubTrait<AccountId> for Test {

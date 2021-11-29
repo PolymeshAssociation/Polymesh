@@ -358,6 +358,9 @@ impl<T: Config> Module<T> {
         );
 
         if let Scope::Ticker(ticker) = scope {
+            // Ensure uniqueness claims are allowed.
+            T::AssetSubTraitTarget::ensure_investor_uniqueness_claims_allowed(ticker)?;
+
             // Update the balance of the IdentityId under the ScopeId provided in claim data.
             T::AssetSubTraitTarget::update_balance_of_scope_id(scope_id, target, *ticker);
         }

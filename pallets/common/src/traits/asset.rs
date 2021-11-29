@@ -45,6 +45,9 @@ pub trait AssetSubTrait {
 
     /// Returns the `ScopeId` for a given `ticker` and `did`.
     fn scope_id(ticker: &Ticker, did: &IdentityId) -> ScopeId;
+
+    /// Ensure that Investor Uniqueness is allowed for the ticker.
+    fn ensure_investor_uniqueness_claims_allowed(ticker: &Ticker) -> DispatchResult;
 }
 
 pub trait AssetFnTrait<Account, Origin> {
