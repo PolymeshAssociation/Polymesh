@@ -1,15 +1,15 @@
 use super::{
-    storage::{make_account, make_account_with_scope, register_keyring_account, TestStorage},
+    storage::{add_cdd_claim, add_investor_uniqueness_claim, TestStorage, User},
     ExtBuilder,
 };
 use frame_support::{assert_noop, assert_ok};
-use pallet_asset::{self as asset, SecurityToken};
+use pallet_asset as asset;
 use pallet_compliance_manager as compliance_manager;
 use pallet_statistics::{self as statistics};
 use polymesh_primitives::{
     asset::AssetType,
     statistics::{HashablePermill, TransferManager},
-    AccountId, IdentityId, PortfolioId, Ticker,
+    PortfolioId, Ticker,
 };
 use sp_arithmetic::Permill;
 use sp_std::convert::TryFrom;
@@ -22,47 +22,45 @@ type ComplianceManager = compliance_manager::Module<TestStorage>;
 type Error = statistics::Error<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 
-pub fn allow_all_transfers(origin: Origin, ticker: Ticker) {
-    assert_ok!(ComplianceManager::add_compliance_requirement(
-        origin,
-        ticker,
-        vec![],
-        vec![]
-    ));
-}
-
-fn create_token(token_name: &[u8], ticker: Ticker, keyring: AccountId) {
-    let origin = Origin::signed(keyring);
+fn create_token(owner: User, disable_iu: bool) -> Ticker {
+    let token_name = b"ACME";
+    let ticker = Ticker::try_from(&token_name[..]).unwrap();
     assert_ok!(Asset::create_asset(
-        origin.clone(),
+        owner.origin(),
         token_name.into(),
         ticker,
         true,
         AssetType::default(),
         vec![],
         None,
-        false,
+        disable_iu,
     ));
-    assert_ok!(Asset::issue(origin.clone(), ticker, 1_000_000));
-    allow_all_transfers(origin, ticker);
+    assert_ok!(Asset::issue(owner.origin(), ticker, 1_000_000));
+    assert_ok!(ComplianceManager::add_compliance_requirement(
+        owner.origin(),
+        ticker,
+        vec![],
+        vec![]
+    ));
+    ticker
 }
 
 #[track_caller]
-fn do_valid_transfer(ticker: Ticker, from: IdentityId, to: IdentityId, amount: u128) {
+fn do_valid_transfer(ticker: Ticker, from: User, to: User, amount: u128) {
     assert_ok!(Asset::base_transfer(
-        PortfolioId::default_portfolio(from),
-        PortfolioId::default_portfolio(to),
+        PortfolioId::default_portfolio(from.did),
+        PortfolioId::default_portfolio(to.did),
         &ticker,
         amount
     ));
 }
 
 #[track_caller]
-fn ensure_invalid_transfer(ticker: Ticker, from: IdentityId, to: IdentityId, amount: u128) {
+fn ensure_invalid_transfer(ticker: Ticker, from: User, to: User, amount: u128) {
     assert_noop!(
         Asset::base_transfer(
-            PortfolioId::default_portfolio(from),
-            PortfolioId::default_portfolio(to),
+            PortfolioId::default_portfolio(from.did),
+            PortfolioId::default_portfolio(to.did),
             &ticker,
             amount
         ),
@@ -73,80 +71,89 @@ fn ensure_invalid_transfer(ticker: Ticker, from: IdentityId, to: IdentityId, amo
 #[test]
 fn investor_count() {
     ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
-        .execute_with(|| investor_count_with_ext);
+        .execute_with(investor_count_with_ext);
 }
 
 fn investor_count_with_ext() {
-    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-    let alice_signed = Origin::signed(AccountKeyring::Alice.to_account_id());
-    let bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
-    let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let cdd_provider = AccountKeyring::Eve.to_account_id();
+    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new(AccountKeyring::Bob);
+    let charlie = User::new(AccountKeyring::Charlie);
 
-    // 1. Alice create an asset.
-    let name = &[0x01];
-    let token = SecurityToken {
-        owner_did: alice_did,
-        total_supply: 1_000_000,
-        divisible: true,
-        ..Default::default()
-    };
+    // 1. Create an asset with investor uniqueness.
+    let ticker = create_token(alice, false);
 
-    let identifiers = Vec::new();
-    let ticker = Ticker::try_from(name.as_ref()).unwrap();
-    assert_ok!(Asset::create_asset(
-        alice_signed.clone(),
-        name.into(),
-        ticker,
-        true,
-        token.asset_type.clone(),
-        identifiers.clone(),
-        None,
-        false,
-    ));
-    // Total supply over the limit.
-    assert_ok!(Asset::issue(alice_signed.clone(), ticker, 1_000_000));
-
-    let ticker = Ticker::try_from(name.as_ref()).unwrap();
-    allow_all_transfers(alice_signed.clone(), ticker);
-
-    let unsafe_transfer = |from, to, value| {
-        assert_ok!(Asset::unsafe_transfer(
-            PortfolioId::default_portfolio(from),
-            PortfolioId::default_portfolio(to),
-            &ticker,
-            value,
-        ));
-    };
+    // Each user needs an investor uniqueness claim.
+    alice.make_scope_claim(ticker, &cdd_provider);
+    bob.make_scope_claim(ticker, &cdd_provider);
+    charlie.make_scope_claim(ticker, &cdd_provider);
 
     // Alice sends some tokens to Bob. Token has only one investor.
-    unsafe_transfer(alice_did, bob_did, 500);
+    do_valid_transfer(ticker, alice, bob, 500);
     assert_eq!(Statistic::investor_count(&ticker), 2);
 
     // Alice sends some tokens to Charlie. Token has now two investors.
-    unsafe_transfer(alice_did, charlie_did, 5000);
+    do_valid_transfer(ticker, alice, charlie, 5000);
     assert_eq!(Statistic::investor_count(&ticker), 3);
 
     // Bob sends all his tokens to Charlie, so now we have one investor again.
-    unsafe_transfer(bob_did, charlie_did, 500);
+    do_valid_transfer(ticker, bob, charlie, 500);
+    assert_eq!(Statistic::investor_count(&ticker), 2);
+}
+
+#[test]
+fn investor_count_disable_iu() {
+    ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
+        .build()
+        .execute_with(investor_count_disable_iu_with_ext);
+}
+
+fn investor_count_disable_iu_with_ext() {
+    let cdd_provider = AccountKeyring::Eve.to_account_id();
+    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new(AccountKeyring::Bob);
+    let charlie = User::new(AccountKeyring::Charlie);
+
+    // 1. Create an asset with disabled investor uniqueness.
+    let ticker = create_token(alice, true);
+
+    // Add CDD claim and create scope_id.
+    let (scope_id, cdd_id, proof) =
+        add_cdd_claim(alice.did, ticker, alice.uid(), cdd_provider, None);
+    // Try adding an investor uniqueness claim.  Should fail.
+    assert_noop!(
+        add_investor_uniqueness_claim(alice.did, ticker, scope_id, cdd_id, proof),
+        AssetError::InvestorUniquenessClaimNotAllowed
+    );
+
+    // Alice sends some tokens to Bob. Token has only one investor.
+    do_valid_transfer(ticker, alice, bob, 500);
+    assert_eq!(Statistic::investor_count(&ticker), 2);
+
+    // Alice sends some tokens to Charlie. Token has now two investors.
+    do_valid_transfer(ticker, alice, charlie, 5000);
+    assert_eq!(Statistic::investor_count(&ticker), 3);
+
+    // Bob sends all his tokens to Charlie, so now we have one investor again.
+    do_valid_transfer(ticker, bob, charlie, 500);
     assert_eq!(Statistic::investor_count(&ticker), 2);
 }
 
 #[test]
 fn should_add_tm() {
     ExtBuilder::default().build().execute_with(|| {
-        let (token_owner_signed, _token_owner_did) =
-            make_account(AccountKeyring::Alice.to_account_id()).unwrap();
+        let alice = User::new(AccountKeyring::Alice);
 
-        let token_name = b"ACME";
-        let ticker = Ticker::try_from(&token_name[..]).unwrap();
-        create_token(token_name, ticker, AccountKeyring::Alice.to_account_id());
+        let ticker = create_token(alice, false);
 
         let tms = (0..3u64)
             .map(TransferManager::CountTransferManager)
             .collect::<Vec<_>>();
 
-        let add_tm = |tm| Statistic::add_transfer_manager(token_owner_signed.clone(), ticker, tm);
+        let add_tm = |tm| Statistic::add_transfer_manager(alice.origin(), ticker, tm);
         assert_ok!(add_tm(tms[0].clone()));
         assert_eq!(Statistic::transfer_managers(ticker), [tms[0].clone()]);
 
@@ -168,19 +175,16 @@ fn should_add_tm() {
 #[test]
 fn should_remove_tm() {
     ExtBuilder::default().build().execute_with(|| {
-        let (token_owner_signed, _token_owner_did) =
-            make_account(AccountKeyring::Alice.to_account_id()).unwrap();
+        let alice = User::new(AccountKeyring::Alice);
 
-        let token_name = b"ACME";
-        let ticker = Ticker::try_from(&token_name[..]).unwrap();
-        create_token(token_name, ticker, AccountKeyring::Alice.to_account_id());
+        let ticker = create_token(alice, false);
 
         let mut tms = Vec::new();
 
         for i in 0..3u64 {
             tms.push(TransferManager::CountTransferManager(i));
             assert_ok!(Statistic::add_transfer_manager(
-                token_owner_signed.clone(),
+                alice.origin(),
                 ticker,
                 tms[i as usize].clone()
             ));
@@ -190,7 +194,7 @@ fn should_remove_tm() {
         for _ in 0..3u64 {
             let tm = tms.pop().unwrap();
             assert_ok!(Statistic::remove_transfer_manager(
-                token_owner_signed.clone(),
+                alice.origin(),
                 ticker,
                 tm
             ));
@@ -202,33 +206,30 @@ fn should_remove_tm() {
 #[test]
 fn should_add_remove_exempted_entities() {
     ExtBuilder::default().build().execute_with(|| {
-        let (token_owner_signed, token_owner_did) =
-            make_account(AccountKeyring::Alice.to_account_id()).unwrap();
+        let alice = User::new(AccountKeyring::Alice);
 
-        let token_name = b"ACME";
-        let ticker = Ticker::try_from(&token_name[..]).unwrap();
-        create_token(token_name, ticker, AccountKeyring::Alice.to_account_id());
+        let ticker = create_token(alice, false);
 
         let tm = TransferManager::CountTransferManager(1000000);
         let assert_exemption = |boolean| {
             assert_eq!(
-                Statistic::entity_exempt((ticker, tm.clone()), token_owner_did),
+                Statistic::entity_exempt((ticker, tm.clone()), alice.did),
                 boolean
             )
         };
         assert_exemption(false);
         assert_ok!(Statistic::add_exempted_entities(
-            token_owner_signed.clone(),
+            alice.origin(),
             ticker,
             tm.clone(),
-            vec![token_owner_did]
+            vec![alice.did]
         ));
         assert_exemption(true);
         assert_ok!(Statistic::remove_exempted_entities(
-            token_owner_signed.clone(),
+            alice.origin(),
             ticker,
             tm.clone(),
-            vec![token_owner_did]
+            vec![alice.did]
         ));
         assert_exemption(false);
     });
@@ -240,40 +241,39 @@ fn should_verify_tms() {
         .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
-            let token_name = b"ACME";
-            let ticker = Ticker::try_from(&token_name[..]).unwrap();
+            let cdd_provider = AccountKeyring::Eve.to_account_id();
+            let ticker = Ticker::try_from(&b"ACME"[..]).unwrap();
             let setup_account = |keyring: AccountKeyring| {
-                make_account_with_scope(
-                    keyring.to_account_id(),
-                    ticker,
-                    AccountKeyring::Eve.to_account_id(),
-                )
-                .unwrap()
+                let user = User::new(keyring);
+                let (scope, _) = user.make_scope_claim(ticker, &cdd_provider);
+                (user, scope)
             };
-            let (alice_signed, alice_did, alice_scope) = setup_account(AccountKeyring::Alice);
-            let (_, bob_did, _) = setup_account(AccountKeyring::Bob);
-            let (_, char_did, char_scope) = setup_account(AccountKeyring::Charlie);
-            let (_, dave_did, dave_scope) = setup_account(AccountKeyring::Dave);
-            create_token(token_name, ticker, AccountKeyring::Alice.to_account_id());
+            let (alice, alice_scope) = setup_account(AccountKeyring::Alice);
+            let (bob, _) = setup_account(AccountKeyring::Bob);
+            let (charlie, charlie_scope) = setup_account(AccountKeyring::Charlie);
+            let (dave, dave_scope) = setup_account(AccountKeyring::Dave);
+
+            let ticker = create_token(alice, false);
+
             assert_eq!(Statistic::investor_count(&ticker), 1);
 
             // No TM attached, transfer should be valid
-            do_valid_transfer(ticker, alice_did, bob_did, 10);
+            do_valid_transfer(ticker, alice, bob, 10);
             assert_eq!(Statistic::investor_count(&ticker), 2);
-            let add_tm = |tm| Statistic::add_transfer_manager(alice_signed.clone(), ticker, tm);
+            let add_tm = |tm| Statistic::add_transfer_manager(alice.origin(), ticker, tm);
             let add_ctm = |limit| {
                 add_tm(TransferManager::CountTransferManager(limit)).expect("Failed to add CTM")
             };
             // Count TM attached with max investors limit reached already
             add_ctm(2);
             // Transfer that increases the investor count beyond the limit should fail
-            ensure_invalid_transfer(ticker, bob_did, char_did, 5);
+            ensure_invalid_transfer(ticker, bob, charlie, 5);
             // Transfer that keeps the investor count the same should succeed
-            do_valid_transfer(ticker, bob_did, alice_did, 1);
+            do_valid_transfer(ticker, bob, alice, 1);
 
             let add_exemption = |tm, scopes| {
                 assert_ok!(Statistic::add_exempted_entities(
-                    alice_signed.clone(),
+                    alice.origin(),
                     ticker,
                     tm,
                     scopes
@@ -286,13 +286,13 @@ fn should_verify_tms() {
                 vec![alice_scope, dave_scope],
             );
             // Transfer should fail when receiver is exempted but not sender for CTM
-            ensure_invalid_transfer(ticker, bob_did, dave_did, 5);
+            ensure_invalid_transfer(ticker, bob, dave, 5);
             // Transfer should succeed since sender is exempted
-            do_valid_transfer(ticker, alice_did, char_did, 5);
+            do_valid_transfer(ticker, alice, charlie, 5);
 
             // Bump CTM to 10
             assert_ok!(Statistic::remove_transfer_manager(
-                alice_signed.clone(),
+                alice.origin(),
                 ticker,
                 TransferManager::CountTransferManager(2)
             ));
@@ -304,26 +304,26 @@ fn should_verify_tms() {
             // Add ptm with max ownership limit of 50%
             assert_ok!(add_tm(ptm25.clone()));
             // Transfer should fail when receiver is breaching the limit
-            ensure_invalid_transfer(ticker, alice_did, dave_did, 250_001);
+            ensure_invalid_transfer(ticker, alice, dave, 250_001);
             // Transfer should succeed when under limit
-            do_valid_transfer(ticker, alice_did, dave_did, 250_000);
+            do_valid_transfer(ticker, alice, dave, 250_000);
             // Transfer should fail when receiver is breaching the limit
-            ensure_invalid_transfer(ticker, alice_did, dave_did, 1);
+            ensure_invalid_transfer(ticker, alice, dave, 1);
 
             // Add charlie to exemption list
-            add_exemption(ptm25, vec![char_scope]);
+            add_exemption(ptm25, vec![charlie_scope]);
             // Transfer should succeed since receiver is exempted
-            do_valid_transfer(ticker, alice_did, char_did, 250_001);
+            do_valid_transfer(ticker, alice, charlie, 250_001);
 
             // Advanced scenario where charlie is limited at 30% but others at 25%
             assert_ok!(add_tm(TransferManager::PercentageTransferManager(
                 HashablePermill(Permill::from_rational_approximation(3u32, 10u32))
             )));
             // Transfer should fail when dave is breaching the default limit
-            ensure_invalid_transfer(ticker, alice_did, dave_did, 1);
+            ensure_invalid_transfer(ticker, alice, dave, 1);
             // Transfer should fail when charlie is breaching the advanced limit
-            ensure_invalid_transfer(ticker, alice_did, char_did, 50_000);
+            ensure_invalid_transfer(ticker, alice, charlie, 50_000);
             // Transfer should succeed when charlie under advanced limit
-            do_valid_transfer(ticker, alice_did, char_did, 25_000);
+            do_valid_transfer(ticker, alice, charlie, 25_000);
         });
 }
