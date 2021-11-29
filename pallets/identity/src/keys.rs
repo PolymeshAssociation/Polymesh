@@ -242,6 +242,8 @@ impl<T: Config> Module<T> {
             let removed_signers = vec![signer];
             record.remove_secondary_keys(&removed_signers);
             Self::deposit_event(RawEvent::SecondaryKeysRemoved(target_did, removed_signers));
+        } else {
+            Self::link_account_key_to_did(&new_primary_key, target_did)
         }
 
         let old_primary_key = record.primary_key.clone();
