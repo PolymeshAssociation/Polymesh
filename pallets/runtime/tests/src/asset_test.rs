@@ -2395,6 +2395,31 @@ fn asset_type_custom_works() {
 }
 
 #[test]
+fn invalid_custom_asset_type_check() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Dave);
+
+        // Create ticker.
+        let (ticker, _) = a_token(owner.did);
+
+        let invalid_id = CustomAssetTypeId(1_000_000);
+        assert_noop!(
+            Asset::create_asset(
+                owner.origin(),
+                ticker.as_ref().into(),
+                ticker,
+                true,
+                AssetType::Custom(invalid_id),
+                vec![],
+                None,
+                false,
+            ),
+            AssetError::InvalidCustomAssetTypeId
+        );
+    });
+}
+
+#[test]
 fn asset_doc_field_too_long() {
     ExtBuilder::default().build().execute_with(|| {
         let owner = User::new(AccountKeyring::Alice);
