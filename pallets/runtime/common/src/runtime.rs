@@ -219,9 +219,7 @@ macro_rules! misc_pallet_impls {
             type UnsignedPriority = StakingUnsignedPriority;
             type RequiredAddOrigin = Self::SlashCancelOrigin;
             type RequiredRemoveOrigin = Self::SlashCancelOrigin;
-            type RequiredComplianceOrigin = Self::SlashCancelOrigin;
             type RequiredCommissionOrigin = Self::SlashCancelOrigin;
-            type RequiredChangeHistoryDepthOrigin = Self::SlashCancelOrigin;
             type RewardScheduler = Scheduler;
             type MaxValidatorPerIdentity = MaxValidatorPerIdentity;
             type MaxVariableInflationTotalIssuance = MaxVariableInflationTotalIssuance;
@@ -734,7 +732,7 @@ macro_rules! runtime_apis {
 
             impl pallet_staking_rpc_runtime_api::StakingApi<Block> for Runtime {
                 fn get_curve() -> Vec<(Perbill, Perbill)> {
-                    Staking::get_curve()
+                    RewardCurve::get().points.to_vec()
                 }
             }
 
