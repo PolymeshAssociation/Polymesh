@@ -5,7 +5,7 @@ use super::{
 };
 use frame_support::{assert_noop, assert_ok};
 use pallet_multisig as multisig;
-use polymesh_primitives::{AccountId, PalletPermissions, Permissions, SecondaryKey, Signatory};
+use polymesh_primitives::{AccountId, Permissions, SecondaryKey, Signatory};
 use test_client::AccountKeyring;
 
 type Balances = pallet_balances::Module<TestStorage>;
@@ -511,12 +511,9 @@ fn make_multisig_signer() {
             vec![Signatory::from(alice.did)],
             1,
         ));
-        let permissions =
-            Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
-                multisig::NAME.into(),
-            )]);
         // The desired secondary key record.
-        let musig_secondary = SecondaryKey::new(Signatory::Account(multisig.clone()), permissions);
+        let musig_secondary =
+            SecondaryKey::new(Signatory::Account(multisig.clone()), Permissions::empty());
 
         let has_ms_sk = || {
             Identity::did_records(alice.did)
