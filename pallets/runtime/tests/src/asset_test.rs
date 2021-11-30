@@ -2400,20 +2400,12 @@ fn invalid_custom_asset_type_check() {
         let owner = User::new(AccountKeyring::Dave);
 
         // Create ticker.
-        let (ticker, _) = a_token(owner.did);
+        let (ticker, mut token) = a_token(owner.did);
 
         let invalid_id = CustomAssetTypeId(1_000_000);
+        token.asset_type = AssetType::Custom(invalid_id);
         assert_noop!(
-            Asset::create_asset(
-                owner.origin(),
-                ticker.as_ref().into(),
-                ticker,
-                true,
-                AssetType::Custom(invalid_id),
-                vec![],
-                None,
-                false,
-            ),
+            basic_asset(owner, ticker, &token),
             AssetError::InvalidCustomAssetTypeId
         );
     });
