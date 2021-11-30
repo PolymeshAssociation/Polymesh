@@ -301,8 +301,14 @@ decl_module! {
         }
 
         /// Call this with the new primary key. By invoking this method, caller accepts authorization
-        /// with the new primary key. If a CDD service provider approved this change, primary key of
-        /// the DID is updated.
+        /// to become the new primary key of the issuing identity. If a CDD service provider approved
+        /// this change (or this is not required), primary key of the DID is updated.
+        ///
+        /// The caller (new primary key) must be either a secondary key of the issuing identity, or
+        /// unlinked to any identity.
+        ///
+        /// Differs from rotate_primary_key_to_secondary in that it will unlink the old primary key
+        /// instead of leaving it as a secondary key.
         ///
         /// # Arguments
         /// * `owner_auth_id` Authorization from the owner who initiated the change
@@ -310,6 +316,25 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::accept_primary_key()]
         pub fn accept_primary_key(origin, rotation_auth_id: u64, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
             Self::accept_primary_key_rotation(origin, rotation_auth_id, optional_cdd_auth_id)
+        }
+
+        /// Call this with the new primary key. By invoking this method, caller accepts authorization
+        /// to become the new primary key of the issuing identity. If a CDD service provider approved
+        /// this change, (or this is not required), primary key of the DID is updated.
+        ///
+        /// The caller (new primary key) must be either a secondary key of the issuing identity, or
+        /// unlinked to any identity.
+        ///
+        /// Differs from accept_primary_key in that it will leave the old primary key as a secondary
+        /// key with the permissions specified in the corresponding RotatePrimaryKeyToSecondary authorization
+        /// instead of unlinking the old primary key.
+        ///
+        /// # Arguments
+        /// * `owner_auth_id` Authorization from the owner who initiated the change
+        /// * `cdd_auth_id` Authorization from a CDD service provider
+        #[weight = <T as Config>::WeightInfo::rotate_primary_key_to_secondary()]
+        pub fn rotate_primary_key_to_secondary(origin, auth_id:u64, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
+            Self::base_rotate_primary_key_to_secondary(origin, auth_id, optional_cdd_auth_id)
         }
 
         /// Set if CDD authorization is required for updating primary key of an identity.
