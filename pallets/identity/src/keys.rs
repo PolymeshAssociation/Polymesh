@@ -194,8 +194,10 @@ impl<T: Config> Module<T> {
         })
     }
 
-    // Sets the new primariy key, optionally removes it as a secondary key if it is one,
-    // and optionally checks the cdd auth.
+    // Sets the new primary key and optionally removes it as a secondary key if it is one.
+    // Checks the cdd auth if this is required.
+    // Old primary key will be added as a secondary key if `new_permissions` is not None
+    // New primary key must either be unlinked, or linked to the `target_did`
     pub fn common_rotate_primary_key(
         target_did: IdentityId,
         new_primary_key: T::AccountId,
