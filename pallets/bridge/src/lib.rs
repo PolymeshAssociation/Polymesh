@@ -543,6 +543,7 @@ decl_module! {
         ///
         /// ## Errors
         /// - `BadAdmin` if `origin` is not `Self::admin()` account.
+        /// - `NotFrozen` if a tx in `bridge_txs` is not frozen.
         #[weight = (
             400_000_000 + 2_000_000 * u64::try_from(bridge_txs.len()).unwrap_or_default(),
             DispatchClass::Operational,
