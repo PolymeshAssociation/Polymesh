@@ -1286,7 +1286,7 @@
         "params": [
           {
             "name": "index",
-            "type": "u32",
+            "type": "PipId",
             "isOptional": false
           },
           {
@@ -1311,7 +1311,7 @@
             "isOptional": true
           }
         ],
-        "type": "Vec<u32>"
+        "type": "Vec<PipId>"
       },
       "votedOn": {
         "description": "Retrieves proposal address indices voted on",
@@ -1327,7 +1327,7 @@
             "isOptional": true
           }
         ],
-        "type": "Vec<u32>"
+        "type": "Vec<PipId>"
       }
     },
     "protocolFee": {
