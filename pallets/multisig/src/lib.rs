@@ -99,19 +99,14 @@ use frame_support::{
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use pallet_permissions::with_call_metadata;
-use polymesh_common_utilities::constants::{
-    queue_priority::MULTISIG_PROPOSAL_EXECUTION_PRIORITY,
-    schedule_name_prefix::MULTISIG_PROPOSAL_EXECUTION,
-};
+use polymesh_common_utilities::constants::queue_priority::MULTISIG_PROPOSAL_EXECUTION_PRIORITY;
 use polymesh_common_utilities::{
     identity::Config as IdentityConfig, multisig::MultiSigSubTrait,
     transaction_payment::CddAndFeeDetails, Context,
 };
-use polymesh_primitives::{
-    extract_auth, AuthorizationData, IdentityId, PalletPermissions, Permissions, Signatory,
-};
+use polymesh_primitives::{extract_auth, AuthorizationData, IdentityId, Permissions, Signatory};
 use sp_runtime::traits::{Dispatchable, Hash, One};
-use sp_std::{convert::TryFrom, iter, prelude::*};
+use sp_std::{convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
 
@@ -181,6 +176,12 @@ impl Default for ProposalStatus {
     fn default() -> Self {
         Self::Invalid
     }
+}
+
+/// Convert multisig account and proposal id into a scheduler name.
+fn proposal_execution_name<AccountId: Encode>(multisig: &AccountId, proposal_id: u64) -> Vec<u8> {
+    use polymesh_common_utilities::constants::schedule_name_prefix::*;
+    (MULTISIG_PROPOSAL_EXECUTION, multisig, proposal_id).encode()
 }
 
 pub trait WeightInfo {
@@ -296,7 +297,7 @@ decl_module! {
             expiry: Option<T::Moment>,
             auto_close: bool
         ) {
-            let signer = Self::ensure_signed_did(origin)?;
+            let signer = Self::ensure_perms_signed_did(origin)?;
             Self::create_or_approve_proposal(multisig, signer, proposal, expiry, auto_close)?;
         }
 
@@ -336,7 +337,7 @@ decl_module! {
             expiry: Option<T::Moment>,
             auto_close: bool
         ) {
-            let signer = Self::ensure_signed_did(origin)?;
+            let signer = Self::ensure_perms_signed_did(origin)?;
             Self::create_proposal(multisig, signer, proposal, expiry, auto_close)?;
         }
 
@@ -368,7 +369,7 @@ decl_module! {
         /// If quorum is reached, the proposal will be immediately executed.
         #[weight = <T as Config>::WeightInfo::approve_as_identity()]
         pub fn approve_as_identity(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
-            let signer = Self::ensure_signed_did(origin)?;
+            let signer = Self::ensure_perms_signed_did(origin)?;
             Self::unsafe_approve(multisig, signer, proposal_id)
         }
 
@@ -392,7 +393,7 @@ decl_module! {
         /// If quorum is reached, the proposal will be immediately executed.
         #[weight = <T as Config>::WeightInfo::reject_as_identity()]
         pub fn reject_as_identity(origin, multisig: T::AccountId, proposal_id: u64) -> DispatchResult {
-            let signer = Self::ensure_signed_did(origin)?;
+            let signer = Self::ensure_perms_signed_did(origin)?;
             Self::unsafe_reject(multisig, signer, proposal_id)
         }
 
@@ -414,7 +415,7 @@ decl_module! {
         /// * `auth_id` - Auth id of the authorization.
         #[weight = <T as Config>::WeightInfo::accept_multisig_signer_as_identity()]
         pub fn accept_multisig_signer_as_identity(origin, auth_id: u64) -> DispatchResult {
-            let signer = Self::ensure_signed_did(origin)?;
+            let signer = Self::ensure_perms_signed_did(origin)?;
             Self::unsafe_accept_multisig_signer(signer, auth_id)
         }
 
@@ -536,12 +537,11 @@ decl_module! {
             let did = <Identity<T>>::ensure_perms(origin)?;
             Self::ensure_ms(&multisig)?;
             Self::verify_sender_is_creator(did, &multisig)?;
-            <Identity<T>>::ensure_key_did_unlinked(&multisig)?;
 
-            let perms = Permissions::from_pallet_permissions(
-                iter::once(PalletPermissions::entire_pallet(NAME.into()))
-            );
-            <Identity<T>>::unsafe_join_identity(did, perms, multisig);
+            <Identity<T>>::ensure_secondary_key_can_be_added(&did, &multisig)?;
+
+            // Add the multisig as a secondary key with no permissions.
+            <Identity<T>>::unsafe_join_identity(did, Permissions::empty(), multisig);
         }
 
         /// Adds a multisig as the primary key of the current did if the current DID is the creator
@@ -553,11 +553,7 @@ decl_module! {
         pub fn make_multisig_primary(origin, multisig: T::AccountId, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
             let did = Self::ensure_ms_creator(origin, &multisig)?;
             Self::ensure_ms(&multisig)?;
-            <Identity<T>>::unsafe_primary_key_rotation(
-                multisig,
-                did,
-                optional_cdd_auth_id
-            )
+            <Identity<T>>::common_rotate_primary_key(did, multisig, None, optional_cdd_auth_id)
         }
 
         /// Root callable extrinsic, used as an internal call for executing scheduled multisig proposal.
@@ -681,8 +677,10 @@ impl<T: Config> Module<T> {
         Ok(Signatory::Account(sender))
     }
 
-    fn ensure_signed_did(origin: T::Origin) -> Result<Signatory<T::AccountId>, DispatchError> {
-        Identity::<T>::ensure_did(origin).map(|(_, d)| d.into())
+    fn ensure_perms_signed_did(
+        origin: T::Origin,
+    ) -> Result<Signatory<T::AccountId>, DispatchError> {
+        <Identity<T>>::ensure_perms(origin).map(|d| d.into())
     }
 
     fn ensure_primary_key(did: &IdentityId, sender: &T::AccountId) -> DispatchResult {
@@ -896,7 +894,7 @@ impl<T: Config> Module<T> {
                         // Scheduling will fail when it's already scheduled (had enough votes already).
                         // We ignore the failure here.
                         let _ = T::Scheduler::schedule_named(
-                            (MULTISIG_PROPOSAL_EXECUTION, multisig.clone(), proposal_id).encode(),
+                            proposal_execution_name(&multisig, proposal_id),
                             DispatchTime::At(execution_at),
                             None,
                             MULTISIG_PROPOSAL_EXECUTION_PRIORITY,

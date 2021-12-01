@@ -57,6 +57,10 @@ use limits::*;
 
 pub const MAX_SKIPPED_COUNT: u8 = 255;
 
+fn zeroize_deposit<T: Config>() {
+    Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0u32.into()).unwrap();
+}
+
 /// Makes a proposal.
 fn make_proposal<T: Config>() -> (Box<T::Proposal>, Url, PipDescription) {
     let content = vec![b'X'; PROPOSAL_PADDING_LEN];
@@ -102,7 +106,7 @@ fn pips_and_votes_setup<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     approve_only: bool,
 ) -> Result<(RawOrigin<T::AccountId>, IdentityId), DispatchError> {
     Module::<T>::set_active_pip_limit(RawOrigin::Root.into(), PROPOSALS_NUM as u32).unwrap();
-    Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0u32.into()).unwrap();
+    zeroize_deposit::<T>();
     let (voters_a_num, voters_b_num) = if approve_only {
         (VOTERS_A_NUM + VOTERS_B_NUM, 0)
     } else {
@@ -129,9 +133,10 @@ fn pips_and_votes_setup<T: Config + TestUtilsFn<AccountIdOf<T>>>(
             Some(description.clone()),
         )
         .unwrap();
+        let id = PipId(i as u32);
         // Alternate aye and nay voters with every iteration unless only approve votes are cast.
-        cast_votes::<T>(i as u32, hi_voters.as_slice(), approve_only || i % 2 == 0).unwrap();
-        cast_votes::<T>(i as u32, bye_voters.as_slice(), i % 2 != 0).unwrap();
+        cast_votes::<T>(id, hi_voters.as_slice(), approve_only || i % 2 == 0).unwrap();
+        cast_votes::<T>(id, bye_voters.as_slice(), i % 2 != 0).unwrap();
     }
     identity::CurrentDid::kill();
     Ok((origin, did))
@@ -157,8 +162,8 @@ fn enact_call<T: Config>(num_approves: usize, num_rejects: usize, num_skips: usi
 }
 
 fn propose_verify<T: Config>(url: Url, description: PipDescription) -> DispatchResult {
-    let meta = Module::<T>::proposal_metadata(0).unwrap();
-    assert_eq!(0, meta.id, "incorrect meta.id");
+    let meta = Module::<T>::proposal_metadata(PipId(0)).unwrap();
+    assert_eq!(PipId(0), meta.id, "incorrect meta.id");
     assert_eq!(Some(url), meta.url, "incorrect meta.url");
     assert_eq!(
         Some(description),
@@ -169,8 +174,13 @@ fn propose_verify<T: Config>(url: Url, description: PipDescription) -> DispatchR
 }
 
 fn execute_verify<T: Config>(state: ProposalState, err: &'static str) -> DispatchResult {
-    if Proposals::<T>::contains_key(&0) {
-        assert_eq!(state, Module::<T>::proposals(&0).unwrap().state, "{}", err);
+    if Proposals::<T>::contains_key(PipId(0)) {
+        assert_eq!(
+            state,
+            Module::<T>::proposals(PipId(0)).unwrap().state,
+            "{}",
+            err
+        );
     }
     Ok(())
 }
@@ -232,7 +242,7 @@ benchmarks! {
         let some_url = Some(url.clone());
         let some_desc = Some(description.clone());
         let origin = user.origin();
-        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0u32.into()).unwrap();
+        zeroize_deposit::<T>();
     }: propose(origin, proposal, 42u32.into(), some_url, some_desc)
     verify {
         propose_verify::<T>(url, description).unwrap();
@@ -244,7 +254,7 @@ benchmarks! {
         identity::CurrentDid::put(user.did());
         let (proposal, url, description) = make_proposal::<T>();
         let origin = T::UpgradeCommitteeVMO::successful_origin();
-        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0u32.into()).unwrap();
+        zeroize_deposit::<T>();
         let some_url = Some(url.clone());
         let some_desc = Some(description.clone());
         let call = Call::<T>::propose(proposal, 0u32.into(), some_url, some_desc);
@@ -259,7 +269,7 @@ benchmarks! {
         let proposer = user::<T>("proposer", 0);
         identity::CurrentDid::put(proposer.did());
         let (proposal, url, description) = make_proposal::<T>();
-        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0u32.into()).unwrap();
+        zeroize_deposit::<T>();
         Module::<T>::propose(
             proposer.origin().into(),
             proposal,
@@ -270,18 +280,19 @@ benchmarks! {
         // Populate vote history.
         let aye_voters = make_voters::<T>(VOTERS_A_NUM, "aye");
         let nay_voters = make_voters::<T>(VOTERS_B_NUM, "nay");
-        cast_votes::<T>(0, aye_voters.as_slice(), true).unwrap();
-        cast_votes::<T>(0, nay_voters.as_slice(), false).unwrap();
+        let id = PipId(0);
+        cast_votes::<T>(id, aye_voters.as_slice(), true).unwrap();
+        cast_votes::<T>(id, nay_voters.as_slice(), false).unwrap();
         // Cast an opposite vote.
         let voter = user::<T>("voter", 0);
         identity::CurrentDid::put(voter.did());
         let voter_deposit = 43u32.into();
         // Cast an opposite vote.
-        Module::<T>::vote(voter.origin().into(), 0, false, voter_deposit).unwrap();
+        Module::<T>::vote(voter.origin().into(), id, false, voter_deposit).unwrap();
         let origin = voter.origin();
-    }: _(origin, 0, true, voter_deposit)
+    }: _(origin, id, true, voter_deposit)
     verify {
-        assert!(voter_deposit == Deposits::<T>::get(0, &voter.account()).amount, "incorrect voter deposit");
+        assert!(voter_deposit == Deposits::<T>::get(id, &voter.account()).amount, "incorrect voter deposit");
     }
 
     approve_committee_proposal {
@@ -289,23 +300,24 @@ benchmarks! {
         let proposer_origin = T::UpgradeCommitteeVMO::successful_origin();
         let proposer_did = SystematicIssuers::Committee.as_id();
         identity::CurrentDid::put(proposer_did);
-        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0u32.into()).unwrap();
+        zeroize_deposit::<T>();
         let propose_call = Call::<T>::propose(proposal, 0u32.into(), Some(url.clone()), Some(description.clone()));
         propose_call.dispatch_bypass_filter(proposer_origin).unwrap();
         let origin = T::VotingMajorityOrigin::successful_origin();
-        let call = Call::<T>::approve_committee_proposal(0);
+        let id = PipId(0);
+        let call = Call::<T>::approve_committee_proposal(id);
     }: {
         call.dispatch_bypass_filter(origin).unwrap();
     }
     verify {
-        assert!(PipToSchedule::<T>::contains_key(&0), "approved committee proposal is not in the schedule");
+        assert!(PipToSchedule::<T>::contains_key(id), "approved committee proposal is not in the schedule");
     }
 
     reject_proposal {
         Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), true).unwrap();
         let user = user::<T>("proposer", 0);
         identity::CurrentDid::put(user.did());
-        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0u32.into()).unwrap();
+        zeroize_deposit::<T>();
         let (proposal, url, description) = make_proposal::<T>();
         let deposit = 42u32.into();
         Module::<T>::propose(
@@ -315,21 +327,22 @@ benchmarks! {
             Some(url),
             Some(description)
         ).unwrap();
-        assert_eq!(deposit, Deposits::<T>::get(&0, &user.account()).amount, "incorrect deposit in reject_proposal");
+        let id = PipId(0);
+        assert_eq!(deposit, Deposits::<T>::get(id, &user.account()).amount, "incorrect deposit in reject_proposal");
         let vmo_origin = T::VotingMajorityOrigin::successful_origin();
-        let call = Call::<T>::reject_proposal(0);
+        let call = Call::<T>::reject_proposal(id);
     }: {
         call.dispatch_bypass_filter(vmo_origin).unwrap();
     }
     verify {
-        assert!(!Deposits::<T>::contains_key(&0, &user.account()), "deposit of the rejected proposal is present");
+        assert!(!Deposits::<T>::contains_key(id, &user.account()), "deposit of the rejected proposal is present");
     }
 
     prune_proposal {
         Module::<T>::set_prune_historical_pips(RawOrigin::Root.into(), false).unwrap();
         let user = user::<T>("proposer", 0);
         identity::CurrentDid::put(user.did());
-        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0u32.into()).unwrap();
+        zeroize_deposit::<T>();
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::propose(
             user.origin().into(),
@@ -338,22 +351,23 @@ benchmarks! {
             Some(url),
             Some(description)
         ).unwrap();
+        let id = PipId(0);
         let vmo_origin = T::VotingMajorityOrigin::successful_origin();
-        let reject_call = Call::<T>::reject_proposal(0);
+        let reject_call = Call::<T>::reject_proposal(id);
         reject_call.dispatch_bypass_filter(vmo_origin.clone()).unwrap();
-        let call = Call::<T>::prune_proposal(0);
+        let call = Call::<T>::prune_proposal(id);
     }: {
         call.dispatch_bypass_filter(vmo_origin).unwrap();
     }
     verify {
-        assert!(!Proposals::<T>::contains_key(&0), "pruned proposal is present");
-        assert!(!ProposalMetadata::<T>::contains_key(&0), "pruned proposal metadata is present");
+        assert!(!Proposals::<T>::contains_key(id), "pruned proposal is present");
+        assert!(!ProposalMetadata::<T>::contains_key(id), "pruned proposal metadata is present");
     }
 
     reschedule_execution {
         let user = user::<T>("proposer", 0);
         identity::CurrentDid::put(user.did());
-        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0u32.into()).unwrap();
+        zeroize_deposit::<T>();
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::propose(
             user.origin().into(),
@@ -362,22 +376,23 @@ benchmarks! {
             Some(url.clone()),
             Some(description.clone())
         ).unwrap();
+        let id = PipId(0);
         T::GovernanceCommittee::bench_set_release_coordinator(user.did());
         Module::<T>::snapshot(user.origin().into()).unwrap();
         let vmo_origin = T::VotingMajorityOrigin::successful_origin();
-        let enact_call = Call::<T>::enact_snapshot_results(vec![(0, SnapshotResult::Approve)]);
+        let enact_call = Call::<T>::enact_snapshot_results(vec![(id, SnapshotResult::Approve)]);
         enact_call.dispatch_bypass_filter(vmo_origin).unwrap();
         let future_block = frame_system::Module::<T>::block_number() + 100u32.into();
         let origin = user.origin();
-    }: _(origin, 0, Some(future_block))
+    }: _(origin, id, Some(future_block))
     verify {
-        assert!(PipToSchedule::<T>::contains_key(&0), "rescheduled proposal is missing in the schedule");
+        assert!(PipToSchedule::<T>::contains_key(id), "rescheduled proposal is missing in the schedule");
     }
 
     clear_snapshot {
         let user = user::<T>("proposer", 0);
         identity::CurrentDid::put(user.did());
-        Module::<T>::set_min_proposal_deposit(RawOrigin::Root.into(), 0u32.into()).unwrap();
+        zeroize_deposit::<T>();
         let (proposal, url, description) = make_proposal::<T>();
         Module::<T>::propose(
             user.origin().into(),
@@ -455,7 +470,7 @@ benchmarks! {
         // execute
         identity::CurrentDid::kill();
         let origin = RawOrigin::Root;
-    }: _(origin, 0)
+    }: _(origin, PipId(0))
     verify {
         execute_verify::<T>(ProposalState::Failed, "incorrect proposal state after execution").unwrap();
     }
@@ -470,12 +485,13 @@ benchmarks! {
         T::GovernanceCommittee::bench_set_release_coordinator(did0);
         Module::<T>::snapshot(origin0.into()).unwrap();
 
+        let id = PipId(0);
         assert_eq!(
-            ProposalState::Pending, Module::<T>::proposals(&0).unwrap().state,
+            ProposalState::Pending, Module::<T>::proposals(id).unwrap().state,
             "incorrect proposal state before expiration"
         );
         let origin = RawOrigin::Root;
-    }: _(origin, GC_DID, 0)
+    }: _(origin, GC_DID, id)
     verify {
         execute_verify::<T>(ProposalState::Expired, "incorrect proposal state after expiration").unwrap();
     }

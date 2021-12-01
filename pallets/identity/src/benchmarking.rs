@@ -25,8 +25,8 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     investor_zkproof_data::{v1, v2},
-    AuthorizationData, Claim, CountryCode, IdentityId, Permissions, Scope, ScopeId, SecondaryKey,
-    Signatory,
+    AuthorizationData, Claim, CountryCode, IdentityId, InvestorUid, Permissions, Scope, ScopeId,
+    SecondaryKey, Signatory,
 };
 use sp_core::H512;
 use sp_std::prelude::*;
@@ -198,6 +198,29 @@ benchmarks! {
             None,
         );
     }: _(new_key.origin, owner_auth_id, Some(cdd_auth_id))
+
+    rotate_primary_key_to_secondary {
+        let cdd = cdd_provider::<T>("cdd", 0);
+        let target = user::<T>("target", 0);
+        let new_key = UserBuilder::<T>::default().build("key");
+        let signatory = Signatory::Account(new_key.account());
+
+        let cdd_auth_id =  Module::<T>::add_auth(
+            cdd.did(), signatory.clone(),
+            AuthorizationData::AttestPrimaryKeyRotation(target.did()),
+            None,
+        );
+        let rotate_auth_id =  Module::<T>::add_auth(
+            target.did(), signatory.clone(),
+            AuthorizationData::RotatePrimaryKeyToSecondary(Permissions::default()),
+            None,
+        );
+        Module::<T>::change_cdd_requirement_for_mk_rotation(
+            RawOrigin::Root.into(),
+            true
+        ).unwrap();
+
+    }: _(new_key.origin, rotate_auth_id, Some(cdd_auth_id))
 
     change_cdd_requirement_for_mk_rotation {
         assert!(

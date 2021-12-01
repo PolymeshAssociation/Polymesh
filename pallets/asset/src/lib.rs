@@ -42,14 +42,14 @@
 //! - `unfreeze` - Unfreezes transfers and minting of a given token.
 //! - `rename_asset` - Renames a given asset.
 //! - `controller_transfer` - Forces a transfer between two DID.
-//! - `issue` - Function is used to issue(or mint) new tokens to the primary issuance agent.
-//! - `redeem` - Redeems tokens from PIA's (Primary Issuance Agent) default portfolio.
-//! - `make_divisible` - Change the divisibility of the token to divisible. Only called by the token owner.
+//! - `issue` - Function is used to issue(or mint) new tokens to the caller.
+//! - `redeem` - Redeems tokens from the caller's default portfolio.
+//! - `make_divisible` - Change the divisibility of the token to divisible.
 //! - `can_transfer` - Checks whether a transaction with given parameters can take place or not.
-//! - `add_documents` - Add documents for a given token, Only be called by the token owner.
-//! - `remove_documents` - Remove documents for a given token, Only be called by the token owner.
+//! - `add_documents` - Add documents for a given token.
+//! - `remove_documents` - Remove documents for a given token.
 //! - `set_funding_round` - Sets the name of the current funding round.
-//! - `update_identifiers` - Updates the asset identifiers. Only called by the token owner.
+//! - `update_identifiers` - Updates the asset identifiers.
 //! - `add_extension` - It is used to permission the Smart-Extension address for a given ticker.
 //! - `archive_extension` - Extension gets archived meaning it is no longer used to verify compliance or any smart logic it possesses.
 //! - `unarchive_extension` - Extension gets unarchived meaning it is used again to verify compliance or any smart logic it possesses.
@@ -83,6 +83,7 @@ pub mod checkpoint;
 
 use arrayvec::ArrayVec;
 use codec::{Decode, Encode};
+use core::mem;
 use core::result::Result as StdResult;
 use currency::*;
 use frame_support::{
@@ -92,7 +93,9 @@ use frame_support::{
     traits::Get,
 };
 use frame_system::ensure_root;
-use pallet_base::{ensure_opt_string_limited, ensure_string_limited};
+use pallet_base::{
+    ensure_opt_string_limited, ensure_string_limited, try_next_pre, Error::CounterOverflow,
+};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 pub use polymesh_common_utilities::traits::asset::{Config, Event, RawEvent, WeightInfo};
 use polymesh_common_utilities::{
@@ -111,8 +114,8 @@ use polymesh_primitives::{
     ethereum::{self, EcdsaSignature, EthereumAddress},
     extract_auth,
     statistics::TransferManagerResult,
-    storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId,
-    ScopeId, Ticker,
+    storage_migrate_on, storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId,
+    IdentityId, PortfolioId, ScopeId, Ticker,
 };
 use sp_runtime::traits::Zero;
 #[cfg(feature = "std")]
@@ -209,7 +212,7 @@ pub struct ClassicTickerRegistration {
     pub is_created: bool,
 }
 
-storage_migration_ver!(0);
+storage_migration_ver!(1);
 
 decl_storage! {
     trait Store for Module<T: Config> as Asset {
@@ -293,7 +296,7 @@ decl_storage! {
         pub DisableInvestorUniqueness get(fn disable_iu): map hasher(blake2_128_concat) Ticker => bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
     add_extra_genesis {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
@@ -348,6 +351,40 @@ decl_module! {
         const MaxNumberOfTMExtensionForAsset: u32 = T::MaxNumberOfTMExtensionForAsset::get();
         const AssetNameMaxLength: u32 = T::AssetNameMaxLength::get();
         const FundingRoundNameMaxLength: u32 = T::FundingRoundNameMaxLength::get();
+
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            use frame_support::weights::constants::WEIGHT_PER_MICROS;
+            // Keep track of upgrade cost.
+            let mut weight = 0u64;
+            storage_migrate_on!(StorageVersion::get(), 1, {
+                let mut total_len = 0u64;
+                // Get list of assets with invalid asset_types.
+                let fix_list = Tokens::iter()
+                    .filter(|(_, token)| {
+                        total_len += 1;
+                        // Check if the asset_type is invalid.
+                        Self::ensure_asset_type_valid(token.asset_type).is_err()
+                    }).map(|(ticker, _)| ticker).collect::<Vec<_>>();
+
+                // Calculate weight based on the number of assets
+                // and how many need to be fixed.
+                // Based on storage read/write cost: read 50 micros, write 200 micros.
+                let fix_len = fix_list.len() as u64;
+                weight = weight
+                    .saturating_add(total_len.saturating_mul(50 * WEIGHT_PER_MICROS))
+                    .saturating_add(fix_len.saturating_mul(50 * WEIGHT_PER_MICROS))
+                    .saturating_add(fix_len.saturating_mul(200 * WEIGHT_PER_MICROS));
+
+                // Replace invalid asset_types with the default AssetType.
+                for ticker in fix_list {
+                    Tokens::mutate(&ticker, |token| {
+                        token.asset_type = AssetType::default();
+                    });
+                }
+            });
+
+            weight
+        }
 
         /// Registers a new ticker or extends validity of an existing ticker.
         /// NB: Ticker validity does not get carry forward when renewing ticker.
@@ -487,10 +524,10 @@ decl_module! {
         }
 
         /// Issue, or mint, new tokens to the caller,
-        /// which must be an authorized agent, e.g., a primary issuance agent.
+        /// which must be an authorized external agent.
         ///
         /// # Arguments
-        /// * `origin` must be the secondary key of token owner.
+        /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
         /// * `ticker` of the token.
         /// * `amount` of tokens that get issued.
         ///
@@ -504,17 +541,17 @@ decl_module! {
             Self::_mint(&ticker, did, amount, Some(ProtocolOp::AssetIssue))
         }
 
-        /// Redeems existing tokens by reducing the balance of the PIA's default portfolio and the total supply of the token
+        /// Redeems existing tokens by reducing the balance of the caller's default portfolio and the total supply of the token
         ///
         /// # Arguments
-        /// * `origin` Secondary key of token owner.
+        /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
         /// * `ticker` Ticker of the token.
         /// * `value` Amount of tokens to redeem.
         ///
         /// # Errors
-        /// - `Unauthorized` If called by someone other than the token owner or the PIA
+        /// - `Unauthorized` If called by someone without the appropriate external agent permissions
         /// - `InvalidGranularity` If the amount is not divisible by 10^6 for non-divisible tokens
-        /// - `InsufficientPortfolioBalance` If the PIA's default portfolio doesn't have enough free balance
+        /// - `InsufficientPortfolioBalance` If the caller's default portfolio doesn't have enough free balance
         ///
         /// # Permissions
         /// * Asset
@@ -524,10 +561,10 @@ decl_module! {
             Self::base_redeem(origin, ticker, value)
         }
 
-        /// Makes an indivisible token divisible. Only called by the token owner.
+        /// Makes an indivisible token divisible.
         ///
         /// # Arguments
-        /// * `origin` Secondary key of the token owner.
+        /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
         /// * `ticker` Ticker of the token.
         ///
         /// ## Errors
@@ -540,10 +577,10 @@ decl_module! {
             Self::base_make_divisible(origin, ticker)
         }
 
-        /// Add documents for a given token. To be called only by the token owner.
+        /// Add documents for a given token.
         ///
         /// # Arguments
-        /// * `origin` Secondary key of the token owner.
+        /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
         /// * `ticker` Ticker of the token.
         /// * `docs` Documents to be attached to `ticker`.
         ///
@@ -554,10 +591,10 @@ decl_module! {
             Self::base_add_documents(origin, docs, ticker)
         }
 
-        /// Remove documents for a given token. To be called only by the token owner.
+        /// Remove documents for a given token.
         ///
         /// # Arguments
-        /// * `origin` Secondary key of the token owner.
+        /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
         /// * `ticker` Ticker of the token.
         /// * `ids` Documents ids to be removed from `ticker`.
         ///
@@ -571,7 +608,7 @@ decl_module! {
         /// Sets the name of the current funding round.
         ///
         /// # Arguments
-        /// * `origin` - the secondary key of the token owner DID.
+        /// * `origin` - a signer that has permissions to act as an agent of `ticker`.
         /// * `ticker` - the ticker of the token.
         /// * `name` - the desired name of the current funding round.
         ///
@@ -586,10 +623,10 @@ decl_module! {
             Self::base_set_funding_round(origin, ticker, name)
         }
 
-        /// Updates the asset identifiers. Can only be called by the token owner.
+        /// Updates the asset identifiers.
         ///
         /// # Arguments
-        /// * `origin` - the secondary key of the token owner.
+        /// * `origin` - a signer that has permissions to act as an agent of `ticker`.
         /// * `ticker` - the ticker of the token.
         /// * `identifiers` - the asset identifiers to be updated in the form of a vector of pairs
         ///    of `IdentifierType` and `AssetIdentifier` value.
@@ -612,7 +649,7 @@ decl_module! {
         /// Permissioning the Smart-Extension address for a given ticker.
         ///
         /// # Arguments
-        /// * `origin` - Signatory who owns to ticker/asset.
+        /// * `origin` - a signer that has permissions to act as an agent of `ticker`.
         /// * `ticker` - ticker for whom extension get added.
         /// * `extension_details` - Details of the smart extension.
         ///
@@ -630,7 +667,7 @@ decl_module! {
         /// Remove the given smart extension id from the list of extension under a given ticker.
         ///
         /// # Arguments
-        /// * `origin` - The asset issuer.
+        /// * `origin` - a signer that has permissions to act as an agent of `ticker`.
         /// * `ticker` - Ticker symbol of the asset.
         ///
         /// ## Errors
@@ -646,7 +683,7 @@ decl_module! {
         /// Archived the extension, which was used to verify compliance according to any smart logic it possesses.
         ///
         /// # Arguments
-        /// * `origin` - Signatory who owns the ticker/asset.
+        /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
         /// * `ticker` - Ticker symbol of the asset.
         /// * `extension_id` - AccountId of the extension that need to be archived.
         ///
@@ -663,7 +700,7 @@ decl_module! {
         /// Unarchived the extension. Extension is used to verify the compliance or any smart logic it possesses.
         ///
         /// # Arguments
-        /// * `origin` - Signatory who owns the ticker/asset.
+        /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
         /// * `ticker` - Ticker symbol of the asset.
         /// * `extension_id` - AccountId of the extension that need to be unarchived.
         ///
@@ -720,11 +757,10 @@ decl_module! {
             Self::base_reserve_classic_ticker(origin, classic_ticker_import, contract_did, config)
         }
 
-        /// Forces a transfer of token from `from_portfolio` to the PIA's default portfolio.
-        /// Only PIA is allowed to execute this.
+        /// Forces a transfer of token from `from_portfolio` to the caller's default portfolio.
         ///
         /// # Arguments
-        /// * `origin` Must be a PIA for a given ticker.
+        /// * `origin` Must be an external agent with appropriate permissions for a given ticker.
         /// * `ticker` Ticker symbol of the asset.
         /// * `value`  Amount of tokens need to force transfer.
         /// * `from_portfolio` From whom portfolio tokens gets transferred.
@@ -773,7 +809,7 @@ decl_error! {
         NoSuchAsset,
         /// The token is already frozen.
         AlreadyFrozen,
-        /// Not an owner of the token.
+        /// Not an owner of the token on Ethereum.
         NotAnOwner,
         /// An overflow while calculating the balance.
         BalanceOverflow,
@@ -813,8 +849,10 @@ decl_error! {
         FundingRoundNameMaxLengthExceeded,
         /// Some `AssetIdentifier` was invalid.
         InvalidAssetIdentifier,
-        /// An overflow while generating the next `CustomAssetTypeId`.
-        CustomAssetTypeIdOverflow,
+        /// Investor Uniqueness claims are not allowed for this asset.
+        InvestorUniquenessClaimNotAllowed,
+        /// Invalid `CustomAssetTypeId`.
+        InvalidCustomAssetTypeId,
     }
 }
 
@@ -916,6 +954,15 @@ impl<T: Config> AssetSubTrait for Module<T> {
             Self::scope_id_of(ticker, did)
         }
     }
+
+    /// Ensure that Investor Uniqueness is allowed for the ticker.
+    fn ensure_investor_uniqueness_claims_allowed(ticker: &Ticker) -> DispatchResult {
+        ensure!(
+            !DisableInvestorUniqueness::get(ticker),
+            Error::<T>::InvestorUniquenessClaimNotAllowed
+        );
+        Ok(())
+    }
 }
 
 /// All functions in the decl_module macro become part of the public interface of the module
@@ -931,6 +978,18 @@ impl<T: Config> Module<T> {
             idents.iter().all(|i| i.is_valid()),
             Error::<T>::InvalidAssetIdentifier
         );
+        Ok(())
+    }
+
+    /// Ensure `AssetType` is valid.
+    /// This checks that the `AssetType::Custom(custom_type_id)` is valid.
+    fn ensure_asset_type_valid(asset_type: AssetType) -> DispatchResult {
+        if let AssetType::Custom(custom_type_id) = asset_type {
+            ensure!(
+                CustomTypes::contains_key(custom_type_id),
+                Error::<T>::InvalidCustomAssetTypeId
+            );
+        }
         Ok(())
     }
 
@@ -960,7 +1019,7 @@ impl<T: Config> Module<T> {
     ) -> Result<IdentityId, DispatchError> {
         let data = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ticker)?;
 
-        // Ensure the PIA has not assigned custody of their default portfolio and that caller is permissioned.
+        // Ensure the caller has not assigned custody of their default portfolio and that they are permissioned.
         let portfolio = PortfolioId::default_portfolio(data.primary_did);
         let skey = data.secondary_key.as_ref();
         Portfolio::<T>::ensure_portfolio_custody_and_permission(portfolio, data.primary_did, skey)?;
@@ -1283,7 +1342,7 @@ impl<T: Config> Module<T> {
         let current_to_balance = Self::balance_of(ticker, to_did);
         // No check since the total balance is always <= the total supply. The
         // total supply is already checked above.
-        let updated_to_balance = current_to_balance + value;
+        let mut updated_to_balance = current_to_balance + value;
         // No check since the default portfolio balance is always <= the total
         // supply. The total supply is already checked above.
         let updated_to_def_balance = Portfolio::<T>::portfolio_asset_balances(
@@ -1302,21 +1361,25 @@ impl<T: Config> Module<T> {
             <Checkpoint<T>>::advance_update_balances(ticker, &[(to_did, current_to_balance)])
         })?;
 
-        // Increase total supply
+        // Increase total supply.
         token.total_supply = updated_total_supply;
         BalanceOf::insert(ticker, &to_did, updated_to_balance);
         Portfolio::<T>::set_default_portfolio_balance(to_did, ticker, updated_to_def_balance);
         Tokens::insert(ticker, token);
 
-        let updated_to_balance = if ScopeIdOf::contains_key(ticker, &to_did) {
-            let scope_id = Self::scope_id(ticker, &to_did);
+        // If investor uniqueness is disabled for the ticker,
+        // the `scope_id` will always equal `to_did`.
+        let scope_id = Self::scope_id(ticker, &to_did);
+        if scope_id != ScopeId::default() {
+            // scope_id can only be default if investor uniqueness
+            // is enabled and the issuer doesn't have a claim yet.
+
+            // Update scope balances.
             Self::update_scope_balance(&ticker, value, scope_id, to_did, updated_to_balance, false);
+
             // Using the aggregate balance to update the unique investor count.
-            Self::aggregate_balance_of(ticker, &scope_id)
-        } else {
-            // Since the PIA does not have a scope claim yet, we assume this is their only identity
-            value
-        };
+            updated_to_balance = Self::aggregate_balance_of(ticker, &scope_id);
+        }
         Statistics::<T>::update_transfer_stats(&ticker, None, Some(updated_to_balance), value);
 
         let round = Self::funding_round(ticker);
@@ -1567,6 +1630,7 @@ impl<T: Config> Module<T> {
             Self::ensure_funding_round_name_bounded(fr)?;
         }
         Self::ensure_asset_idents_valid(&identifiers)?;
+        Self::ensure_asset_type_valid(asset_type)?;
 
         let PermissionedCallOriginData {
             primary_did: did,
@@ -1645,10 +1709,10 @@ impl<T: Config> Module<T> {
         Tokens::insert(&ticker, token);
         AssetNames::insert(&ticker, name);
         DisableInvestorUniqueness::insert(&ticker, disable_iu);
-        // NB - At the time of asset creation it is obvious that asset issuer/ primary issuance agent will not have
+        // NB - At the time of asset creation it is obvious that the asset issuer will not have an
         // `InvestorUniqueness` claim. So we are skipping the scope claim based stats update as
-        // those data points will get added in to the system whenever asset issuer/ primary issuance agent
-        // have InvestorUniqueness claim. This also applies when issuing assets.
+        // those data points will get added in to the system whenever the asset issuer
+        // has an InvestorUniqueness claim. This also applies when issuing assets.
         AssetOwnershipRelations::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
         Self::deposit_event(RawEvent::AssetCreated(
             did, ticker, divisible, asset_type, did, disable_iu,
@@ -1705,31 +1769,31 @@ impl<T: Config> Module<T> {
 
     fn base_redeem(origin: T::Origin, ticker: Ticker, value: Balance) -> DispatchResult {
         // Ensure origin is agent with custody and permissions for default portfolio.
-        let pia = Self::ensure_agent_with_custody_and_perms(origin, ticker)?;
+        let agent = Self::ensure_agent_with_custody_and_perms(origin, ticker)?;
 
         Self::ensure_granular(&ticker, value)?;
 
-        // Reduce PIA's portfolio balance. This makes sure that the PIA has enough unlocked tokens.
+        // Reduce caller's portfolio balance. This makes sure that the caller has enough unlocked tokens.
         // If `advance_update_balances` fails, `reduce_portfolio_balance` shouldn't modify storage.
-        let pia_portfolio = PortfolioId::default_portfolio(pia);
+        let agent_portfolio = PortfolioId::default_portfolio(agent);
         with_transaction(|| {
-            Portfolio::<T>::reduce_portfolio_balance(&pia_portfolio, &ticker, value)?;
+            Portfolio::<T>::reduce_portfolio_balance(&agent_portfolio, &ticker, value)?;
 
             <Checkpoint<T>>::advance_update_balances(
                 &ticker,
-                &[(pia, Self::balance_of(ticker, pia))],
+                &[(agent, Self::balance_of(ticker, agent))],
             )
         })?;
 
-        let updated_balance = Self::balance_of(ticker, pia) - value;
+        let updated_balance = Self::balance_of(ticker, agent) - value;
 
         // Update identity balances and total supply
-        BalanceOf::insert(ticker, &pia, updated_balance);
+        BalanceOf::insert(ticker, &agent, updated_balance);
         Tokens::mutate(ticker, |token| token.total_supply -= value);
 
         // Update scope balances
-        let scope_id = Self::scope_id(&ticker, &pia);
-        Self::update_scope_balance(&ticker, value, scope_id, pia, updated_balance, true);
+        let scope_id = Self::scope_id(&ticker, &agent);
+        Self::update_scope_balance(&ticker, value, scope_id, agent, updated_balance, true);
 
         // Update statistic info.
         // Using the aggregate balance to update the unique investor count.
@@ -1737,13 +1801,13 @@ impl<T: Config> Module<T> {
         Statistics::<T>::update_transfer_stats(&ticker, updated_from_balance, None, value);
 
         Self::deposit_event(RawEvent::Transfer(
-            pia,
+            agent,
             ticker,
-            pia_portfolio,
+            agent_portfolio,
             PortfolioId::default(),
             value,
         ));
-        Self::deposit_event(RawEvent::Redeemed(pia, ticker, pia, value));
+        Self::deposit_event(RawEvent::Redeemed(agent, ticker, agent, value));
 
         Ok(())
     }
@@ -1774,19 +1838,21 @@ impl<T: Config> Module<T> {
             ensure_opt_string_limited::<T>(doc.doc_type.as_deref())?;
         }
 
+        // Ensure we can advance documents ID sequence by `len`.
+        let pre = AssetDocumentsIdSequence::try_mutate(ticker, |id| {
+            id.0.checked_add(docs.len() as u32)
+                .ok_or(CounterOverflow::<T>)
+                .map(|new| mem::replace(id, DocumentId(new)))
+        })?;
+
         // Charge fee.
-        let len = docs.len();
-        T::ProtocolFee::batch_charge_fee(ProtocolOp::AssetAddDocuments, len)?;
+        T::ProtocolFee::batch_charge_fee(ProtocolOp::AssetAddDocuments, docs.len())?;
 
         // Add the documents & emit events.
-        AssetDocumentsIdSequence::mutate(ticker, |DocumentId(ref mut id)| {
-            for (id, doc) in (*id..).map(DocumentId).zip(docs) {
-                AssetDocuments::insert(ticker, id, doc.clone());
-                Self::deposit_event(RawEvent::DocumentAdded(did, ticker, id, doc));
-            }
-            *id += len as u32;
-        });
-
+        for (id, doc) in (pre.0..).map(DocumentId).zip(docs) {
+            AssetDocuments::insert(ticker, id, doc.clone());
+            Self::deposit_event(RawEvent::DocumentAdded(did, ticker, id, doc));
+        }
         Ok(())
     }
 
@@ -2014,13 +2080,13 @@ impl<T: Config> Module<T> {
         from_portfolio: PortfolioId,
     ) -> DispatchResult {
         // Ensure `origin` has perms.
-        let pia = Self::ensure_agent_with_custody_and_perms(origin, ticker)?;
-        let to_portfolio = PortfolioId::default_portfolio(pia);
+        let agent = Self::ensure_agent_with_custody_and_perms(origin, ticker)?;
+        let to_portfolio = PortfolioId::default_portfolio(agent);
 
         // Transfer `value` of ticker tokens from `investor_did` to controller
         Self::unsafe_transfer(from_portfolio, to_portfolio, &ticker, value)?;
         Self::deposit_event(RawEvent::ControllerTransfer(
-            pia,
+            agent,
             ticker,
             from_portfolio,
             value,
@@ -2192,12 +2258,7 @@ impl<T: Config> Module<T> {
         match CustomTypesInverse::try_get(&ty) {
             Ok(id) => Self::deposit_event(Event::<T>::CustomAssetTypeExists(did, id, ty)),
             Err(()) => {
-                let id = CustomTypeIdSequence::try_mutate(|id| -> Result<_, DispatchError> {
-                    id.0 =
-                        id.0.checked_add(1)
-                            .ok_or(Error::<T>::CustomAssetTypeIdOverflow)?;
-                    Ok(*id)
-                })?;
+                let id = CustomTypeIdSequence::try_mutate(try_next_pre::<T, _>)?;
                 CustomTypesInverse::insert(&ty, id);
                 CustomTypes::insert(id, ty.clone());
                 Self::deposit_event(Event::<T>::CustomAssetTypeRegistered(did, id, ty));

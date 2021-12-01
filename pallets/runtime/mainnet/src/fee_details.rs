@@ -71,6 +71,12 @@ where
             Call::Identity(pallet_identity::Call::accept_primary_key(rotation_auth_id, ..)) => {
                 is_auth_valid(caller, rotation_auth_id, CallType::AcceptIdentityPrimary)
             }
+            // Call made by a new Account key to accept invitation to become the primary key
+            // of an existing identity that has a valid CDD. The auth should be valid.
+            Call::Identity(pallet_identity::Call::rotate_primary_key_to_secondary(
+                rotation_auth_id,
+                ..,
+            )) => is_auth_valid(caller, rotation_auth_id, CallType::RotatePrimaryToSecondary),
             // Call made by a new Account key to remove invitation for certain authorizations
             // in an existing identity that has a valid CDD. The auth should be valid.
             Call::Identity(pallet_identity::Call::remove_authorization(_, auth_id, true)) => {
@@ -145,6 +151,7 @@ fn is_auth_valid(acc: &AccountId, auth_id: &u64, call_type: CallType) -> ValidPa
             (AuthorizationData::AddMultiSigSigner(_), CallType::AcceptMultiSigSigner)
             | (AuthorizationData::JoinIdentity(_), CallType::AcceptIdentitySecondary)
             | (AuthorizationData::RotatePrimaryKey, CallType::AcceptIdentityPrimary)
+            | (AuthorizationData::RotatePrimaryKeyToSecondary(_), CallType::RotatePrimaryToSecondary)
             | (AuthorizationData::AddRelayerPayingKey(..), CallType::AcceptRelayerPayingKey)
             | (_, CallType::RemoveAuthorization),
         )) => check_cdd(&by),
