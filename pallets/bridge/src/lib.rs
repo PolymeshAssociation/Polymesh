@@ -340,6 +340,8 @@ decl_event! {
         FreezeAdminAdded(IdentityId, AccountId),
         /// A freeze admin has been removed.
         FreezeAdminRemoved(IdentityId, AccountId),
+        /// Notification of removing a transaction.
+        TxRemoved(IdentityId, BridgeTx<AccountId>),
     }
 }
 
@@ -536,6 +538,20 @@ decl_module! {
         pub fn remove_freeze_admin(origin, freeze_admin: T::AccountId) -> DispatchResult {
             Self::base_remove_freeze_admin(origin, freeze_admin)
         }
+
+        /// Remove given bridge transactions.
+        ///
+        /// ## Errors
+        /// - `BadAdmin` if `origin` is not `Self::admin()` account.
+        /// - `NotFrozen` if a tx in `bridge_txs` is not frozen.
+        #[weight = (
+            400_000_000 + 2_000_000 * u64::try_from(bridge_txs.len()).unwrap_or_default(),
+            DispatchClass::Operational,
+            Pays::Yes
+        )]
+        pub fn remove_txs(origin, bridge_txs: Vec<BridgeTx<T::AccountId>>) -> DispatchResult {
+            Self::base_remove_txs(origin, bridge_txs)
+        }
     }
 }
 
@@ -572,7 +588,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn get_tx_details(tx: &BridgeTx<T::AccountId>) -> BridgeTxDetail<T::BlockNumber> {
+    pub fn get_tx_details(tx: &BridgeTx<T::AccountId>) -> BridgeTxDetail<T::BlockNumber> {
         Self::bridge_tx_details(&tx.recipient, &tx.nonce)
     }
 
@@ -979,6 +995,25 @@ impl<T: Config> Module<T> {
             .collect::<Vec<_>>();
 
         Self::deposit_event(RawEvent::TxsHandled(txs_result));
+        Ok(())
+    }
+
+    fn base_remove_txs(
+        origin: T::Origin,
+        bridge_txs: Vec<BridgeTx<T::AccountId>>,
+    ) -> DispatchResult {
+        let did = Self::ensure_admin_did(origin)?;
+        ensure!(
+            bridge_txs
+                .iter()
+                .map(|tx| Self::get_tx_details(&tx))
+                .all(|tx| tx.status == BridgeTxStatus::Frozen),
+            Error::<T>::NotFrozen
+        );
+        for tx in bridge_txs {
+            <BridgeTxDetails<T>>::remove(&tx.recipient, &tx.nonce);
+            Self::deposit_event(RawEvent::TxRemoved(did, tx));
+        }
         Ok(())
     }
 }
