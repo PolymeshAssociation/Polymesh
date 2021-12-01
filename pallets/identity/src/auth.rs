@@ -36,7 +36,9 @@ impl<T: Config> Module<T> {
         expiry: Option<T::Moment>,
     ) -> Result<u64, DispatchError> {
         let from_did = Self::ensure_perms(origin)?;
-        if let AuthorizationData::JoinIdentity(perms) = &authorization_data {
+        if let AuthorizationData::JoinIdentity(perms)
+        | AuthorizationData::RotatePrimaryKeyToSecondary(perms) = &authorization_data
+        {
             Self::ensure_perms_length_limited(perms)?;
         }
         Ok(Self::add_auth(from_did, target, authorization_data, expiry))
