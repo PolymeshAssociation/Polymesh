@@ -612,9 +612,7 @@ impl Config for Test {
     type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
     type RequiredAddOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredRemoveOrigin = EnsureSignedBy<TwoThousand, Self::AccountId>;
-    type RequiredComplianceOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredCommissionOrigin = frame_system::EnsureRoot<AccountId>;
-    type RequiredChangeHistoryDepthOrigin = frame_system::EnsureRoot<AccountId>;
     type RewardScheduler = Scheduler;
     type PalletsOrigin = OriginCaller;
     type MaxValidatorPerIdentity = MaxValidatorPerIdentity;

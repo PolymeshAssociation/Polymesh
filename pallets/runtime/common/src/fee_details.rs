@@ -8,6 +8,7 @@ pub enum CallType {
     AcceptRelayerPayingKey,
     AcceptIdentitySecondary,
     AcceptIdentityPrimary,
+    RotatePrimaryToSecondary,
     /// Matches any call to `remove_authorization`,
     /// where the authorization is available for `auth.authorized_by` payer redirection.
     RemoveAuthorization,

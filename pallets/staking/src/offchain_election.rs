@@ -134,8 +134,13 @@ pub(crate) fn compute_offchain_election<T: Config>() -> Result<(), OffchainElect
     let current_era = <Module<T>>::current_era().unwrap_or_default();
 
     // send it.
-    let call =
-        Call::submit_election_solution_unsigned(winners, compact, score, current_era, size).into();
+    let call = Call::submit_election_solution_unsigned(
+            winners,
+            compact,
+            score,
+            current_era,
+            size,
+    ).into();
 
     SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call)
         .map_err(|_| OffchainElectionError::PoolSubmissionFailed)
@@ -150,8 +155,7 @@ pub fn get_balancing_iters<T: Config>() -> usize {
         max @ _ => {
             let seed = sp_io::offchain::random_seed();
             let random = <u32>::decode(&mut TrailingZeroInput::new(seed.as_ref()))
-                .expect("input is padded with zeroes; qed")
-                % max.saturating_add(1);
+                .expect("input is padded with zeroes; qed") % max.saturating_add(1);
             random as usize
         }
     }
@@ -192,7 +196,7 @@ pub fn maximum_compact_len<W: crate::WeightInfo>(
                     Some(voters) if voters < max_voters => Ok(voters),
                     _ => Err(()),
                 }
-            }
+            },
             Ordering::Greater => voters.checked_sub(step).ok_or(()),
             Ordering::Equal => Ok(voters),
         }
@@ -206,17 +210,18 @@ pub fn maximum_compact_len<W: crate::WeightInfo>(
             // proceed with the binary search
             Ok(next) if next != voters => {
                 voters = next;
-            }
+            },
             // we are out of bounds, break out of the loop.
             Err(()) => {
                 break;
-            }
+            },
             // we found the right value - early exit the function.
-            Ok(next) => return next,
+            Ok(next) => return next
         }
         step = step / 2;
         current_weight = weight_with(voters);
     }
+
 
     // Time to finish.
     // We might have reduced less than expected due to rounding error. Increase one last time if we
@@ -230,9 +235,7 @@ pub fn maximum_compact_len<W: crate::WeightInfo>(
 
     debug_assert!(
         weight_with(voters.min(size.nominators)) <= max_weight,
-        "weight_with({}) <= {}",
-        voters.min(size.nominators),
-        max_weight,
+        "weight_with({}) <= {}", voters.min(size.nominators), max_weight,
     );
     voters.min(size.nominators)
 }
@@ -260,10 +263,7 @@ pub fn trim_to_weight<T: Config, FN>(
 where
     for<'r> FN: Fn(&'r T::AccountId) -> Option<NominatorIndex>,
 {
-    match compact
-        .voter_count()
-        .checked_sub(maximum_allowed_voters as usize)
-    {
+    match compact.voter_count().checked_sub(maximum_allowed_voters as usize) {
         Some(to_remove) if to_remove > 0 => {
             // grab all voters and sort them by least stake.
             let balance_of = <Module<T>>::slashable_balance_of_fn();
@@ -322,12 +322,7 @@ pub fn prepare_submission<T: Config>(
     do_reduce: bool,
     _maximum_weight: Weight,
 ) -> Result<
-    (
-        Vec<ValidatorIndex>,
-        CompactAssignments,
-        ElectionScore,
-        ElectionSize,
-    ),
+    (Vec<ValidatorIndex>, CompactAssignments, ElectionScore, ElectionSize),
     OffchainElectionError,
 > {
     // make sure that the snapshot is available.
@@ -451,48 +446,106 @@ mod test {
 
     struct Staking;
 
-    macro_rules! unimplemented_weight_fn {
-        ($name:ident $(,$arg_type:tt)*) => {
-            fn $name( $(_:$arg_type,)*) -> Weight {
-                unimplemented!()
-            }
-        };
-    }
-
     impl crate::WeightInfo for Staking {
-        unimplemented_weight_fn!(bond);
-        unimplemented_weight_fn!(bond_extra);
-        unimplemented_weight_fn!(unbond);
-        unimplemented_weight_fn!(validate);
-        unimplemented_weight_fn!(chill);
-        unimplemented_weight_fn!(set_payee);
-        unimplemented_weight_fn!(set_controller);
-        unimplemented_weight_fn!(set_validator_count);
-        unimplemented_weight_fn!(force_no_eras);
-        unimplemented_weight_fn!(force_new_era);
-        unimplemented_weight_fn!(force_new_era_always);
-        unimplemented_weight_fn!(set_min_bond_threshold);
-        unimplemented_weight_fn!(add_permissioned_validator);
-        unimplemented_weight_fn!(remove_permissioned_validator);
-        unimplemented_weight_fn!(set_commission_cap, u32);
-        unimplemented_weight_fn!(do_slash, u32);
-        unimplemented_weight_fn!(withdraw_unbonded_update, u32);
-        unimplemented_weight_fn!(withdraw_unbonded_kill, u32);
-        unimplemented_weight_fn!(nominate, u32);
-        unimplemented_weight_fn!(set_invulnerables, u32);
-        unimplemented_weight_fn!(force_unstake, u32);
-        unimplemented_weight_fn!(cancel_deferred_slash, u32);
-        unimplemented_weight_fn!(rebond, u32);
-        unimplemented_weight_fn!(set_history_depth, u32);
-        unimplemented_weight_fn!(reap_stash, u32);
-        unimplemented_weight_fn!(payout_stakers, u32);
-        unimplemented_weight_fn!(payout_stakers_alive_controller, u32);
-        unimplemented_weight_fn!(payout_all, u32, u32);
-        unimplemented_weight_fn!(new_era, u32, u32);
-        unimplemented_weight_fn!(change_slashing_allowed_for);
-        unimplemented_weight_fn!(update_permissioned_validator_intended_count);
-        unimplemented_weight_fn!(scale_validator_count);
-        unimplemented_weight_fn!(increase_validator_count);
+        fn bond() -> Weight {
+            unimplemented!()
+        }
+        fn bond_extra() -> Weight {
+            unimplemented!()
+        }
+        fn unbond() -> Weight {
+            unimplemented!()
+        }
+		fn withdraw_unbonded_update(s: u32) -> Weight {
+			unimplemented!()
+		}
+		fn withdraw_unbonded_kill(s: u32) -> Weight {
+			unimplemented!()
+		}
+        fn validate() -> Weight {
+            unimplemented!()
+        }
+		fn nominate(n: u32) -> Weight {
+			unimplemented!()
+		}
+        fn chill() -> Weight {
+            unimplemented!()
+        }
+        fn set_payee() -> Weight {
+            unimplemented!()
+        }
+        fn set_controller() -> Weight {
+            unimplemented!()
+        }
+        fn set_validator_count() -> Weight {
+            unimplemented!()
+        }
+        fn force_no_eras() -> Weight {
+            unimplemented!()
+        }
+        fn force_new_era() -> Weight {
+            unimplemented!()
+        }
+        fn force_new_era_always() -> Weight {
+            unimplemented!()
+        }
+		fn set_invulnerables(v: u32) -> Weight {
+			unimplemented!()
+		}
+		fn force_unstake(s: u32) -> Weight {
+			unimplemented!()
+		}
+		fn cancel_deferred_slash(s: u32) -> Weight {
+			unimplemented!()
+		}
+        fn payout_all(_: u32, _: u32) -> Weight {
+            unimplemented!()
+        }
+		fn payout_stakers(n: u32) -> Weight {
+			unimplemented!()
+		}
+		fn payout_stakers_alive_controller(n: u32) -> Weight {
+			unimplemented!()
+		}
+        fn set_min_bond_threshold() -> Weight {
+            unimplemented!()
+        }
+        fn add_permissioned_validator() -> Weight {
+            unimplemented!()
+        }
+        fn remove_permissioned_validator() -> Weight {
+            unimplemented!()
+        }
+        fn set_commission_cap(_: u32) -> Weight {
+            unimplemented!()
+        }
+        fn do_slash(_: u32) -> Weight {
+            unimplemented!()
+        }
+		fn rebond(l: u32) -> Weight {
+			unimplemented!()
+		}
+		fn set_history_depth(e: u32) -> Weight {
+			unimplemented!()
+		}
+		fn reap_stash(s: u32) -> Weight {
+			unimplemented!()
+		}
+        fn new_era(v: u32, n: u32) -> Weight {
+            unimplemented!()
+        }
+        fn change_slashing_allowed_for() -> Weight {
+            unimplemented!()
+        }
+        fn update_permissioned_validator_intended_count() -> Weight {
+            unimplemented!()
+        }
+        fn scale_validator_count() -> Weight {
+            unimplemented!()
+        }
+        fn increase_validator_count() -> Weight {
+            unimplemented!()
+        }
 
         fn submit_solution_better(v: u32, n: u32, a: u32, w: u32) -> Weight {
             (0 * v + 0 * n + 1000 * a + 0 * w) as Weight
