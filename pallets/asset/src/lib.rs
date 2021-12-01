@@ -114,8 +114,8 @@ use polymesh_primitives::{
     ethereum::{self, EcdsaSignature, EthereumAddress},
     extract_auth,
     statistics::TransferManagerResult,
-    storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId,
-    ScopeId, Ticker,
+    storage_migrate_on, storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId,
+    IdentityId, PortfolioId, ScopeId, Ticker,
 };
 use sp_runtime::traits::Zero;
 #[cfg(feature = "std")]
@@ -212,7 +212,7 @@ pub struct ClassicTickerRegistration {
     pub is_created: bool,
 }
 
-storage_migration_ver!(0);
+storage_migration_ver!(1);
 
 decl_storage! {
     trait Store for Module<T: Config> as Asset {
@@ -296,7 +296,7 @@ decl_storage! {
         pub DisableInvestorUniqueness get(fn disable_iu): map hasher(blake2_128_concat) Ticker => bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
     add_extra_genesis {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
@@ -351,6 +351,40 @@ decl_module! {
         const MaxNumberOfTMExtensionForAsset: u32 = T::MaxNumberOfTMExtensionForAsset::get();
         const AssetNameMaxLength: u32 = T::AssetNameMaxLength::get();
         const FundingRoundNameMaxLength: u32 = T::FundingRoundNameMaxLength::get();
+
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            use frame_support::weights::constants::WEIGHT_PER_MICROS;
+            // Keep track of upgrade cost.
+            let mut weight = 0u64;
+            storage_migrate_on!(StorageVersion::get(), 1, {
+                let mut total_len = 0u64;
+                // Get list of assets with invalid asset_types.
+                let fix_list = Tokens::iter()
+                    .filter(|(_, token)| {
+                        total_len += 1;
+                        // Check if the asset_type is invalid.
+                        Self::ensure_asset_type_valid(token.asset_type).is_err()
+                    }).map(|(ticker, _)| ticker).collect::<Vec<_>>();
+
+                // Calculate weight based on the number of assets
+                // and how many need to be fixed.
+                // Based on storage read/write cost: read 50 micros, write 200 micros.
+                let fix_len = fix_list.len() as u64;
+                weight = weight
+                    .saturating_add(total_len.saturating_mul(50 * WEIGHT_PER_MICROS))
+                    .saturating_add(fix_len.saturating_mul(50 * WEIGHT_PER_MICROS))
+                    .saturating_add(fix_len.saturating_mul(200 * WEIGHT_PER_MICROS));
+
+                // Replace invalid asset_types with the default AssetType.
+                for ticker in fix_list {
+                    Tokens::mutate(&ticker, |token| {
+                        token.asset_type = AssetType::default();
+                    });
+                }
+            });
+
+            weight
+        }
 
         /// Registers a new ticker or extends validity of an existing ticker.
         /// NB: Ticker validity does not get carry forward when renewing ticker.
@@ -817,6 +851,8 @@ decl_error! {
         InvalidAssetIdentifier,
         /// Investor Uniqueness claims are not allowed for this asset.
         InvestorUniquenessClaimNotAllowed,
+        /// Invalid `CustomAssetTypeId`.
+        InvalidCustomAssetTypeId,
     }
 }
 
@@ -942,6 +978,18 @@ impl<T: Config> Module<T> {
             idents.iter().all(|i| i.is_valid()),
             Error::<T>::InvalidAssetIdentifier
         );
+        Ok(())
+    }
+
+    /// Ensure `AssetType` is valid.
+    /// This checks that the `AssetType::Custom(custom_type_id)` is valid.
+    fn ensure_asset_type_valid(asset_type: AssetType) -> DispatchResult {
+        if let AssetType::Custom(custom_type_id) = asset_type {
+            ensure!(
+                CustomTypes::contains_key(custom_type_id),
+                Error::<T>::InvalidCustomAssetTypeId
+            );
+        }
         Ok(())
     }
 
@@ -1582,6 +1630,7 @@ impl<T: Config> Module<T> {
             Self::ensure_funding_round_name_bounded(fr)?;
         }
         Self::ensure_asset_idents_valid(&identifiers)?;
+        Self::ensure_asset_type_valid(asset_type)?;
 
         let PermissionedCallOriginData {
             primary_did: did,
