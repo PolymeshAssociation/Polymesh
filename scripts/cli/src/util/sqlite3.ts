@@ -27,7 +27,7 @@ export async function getNonce(signer: KeyringPair) {
               if (err) {
                 reject(err);
               } else {
-                console.log(`account: ${row.account} nonce: ${row.nonce}`);
+                //console.log(`account: ${row.account} nonce: ${row.nonce}`);
                 resolve(row.nonce);
               }
             }

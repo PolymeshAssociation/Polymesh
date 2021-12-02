@@ -38,5 +38,5 @@ describe("7 - Claim Compliance Unit Test", () => {
     await expect(
       createClaimCompliance(primaryKeys[0], issuerDid[0], ticker)
     ).resolves.not.toThrow();
-  }, 1_920_000);
+  });
 });

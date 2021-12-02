@@ -73,7 +73,7 @@ export class ApiSingleton {
 
 export async function disconnect() {
   const api = await ApiSingleton.getInstance();
-  api.disconnect();
+  await api.disconnect();
 }
 
 export async function sleep(ms: number) {

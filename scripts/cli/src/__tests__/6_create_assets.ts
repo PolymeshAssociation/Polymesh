@@ -33,5 +33,5 @@ describe("6 - Create Assets Unit Test", () => {
     await expect(
       issueTokenToDid(primaryKeys[0], ticker, 1000000, null)
     ).resolves.not.toThrow();
-  }, 1_920_000);
+  });
 });

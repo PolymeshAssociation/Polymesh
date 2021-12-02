@@ -141,5 +141,5 @@ describe("4 - Permission Management Unit Test", () => {
     );
     addDocsOutput = await addDocuments(secondaryKeys[0], ticker, documents);
     expect(addDocsOutput).toBeTruthy();
-  }, 1_920_000);
+  });
 });

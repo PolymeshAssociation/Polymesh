@@ -22,22 +22,17 @@ describe("5 - Claim Management Unit Test", () => {
   test("Adding Claims", async () => {
     const testEntities = await initMain();
     const alice = testEntities[0];
-
     const issuerSeed1 = "5_issuer_1";
     const issuerSeed2 = "5_issuer_2";
     const claimeeSeed = "5_claimee";
-
     const issuerKeys1 = await generateKeys(2, issuerSeed1);
     const issuerKeys2 = await generateKeys(2, issuerSeed2);
     const claimeeKeys = await generateKeys(2, claimeeSeed);
-
     await expect(createIdentities(alice, issuerKeys1)).resolves.not.toThrow();
     await expect(createIdentities(alice, issuerKeys2)).resolves.not.toThrow();
     const claimeeDids = await createIdentities(alice, claimeeKeys);
     expect(claimeeDids).toBeTruthy();
-
     const ticker = padTicker("5TICKER");
-
     await expect(
       distributePolyBatch(
         alice,
@@ -45,7 +40,6 @@ describe("5 - Claim Management Unit Test", () => {
         transferAmount
       )
     ).resolves.not.toThrow();
-
     console.log("Adding Exempted claim");
     await expect(
       addClaim(
@@ -55,7 +49,6 @@ describe("5 - Claim Management Unit Test", () => {
         null
       )
     ).resolves.not.toThrow();
-
     console.log("Adding SellLockup claim");
     await expect(
       addClaim(
@@ -65,7 +58,6 @@ describe("5 - Claim Management Unit Test", () => {
         null
       )
     ).resolves.not.toThrow();
-
     console.log("Adding Accredited claim");
     await expect(
       addClaim(
@@ -75,7 +67,6 @@ describe("5 - Claim Management Unit Test", () => {
         null
       )
     ).resolves.not.toThrow();
-
     console.log("Adding Affiliate claim");
     await expect(
       addClaim(
@@ -85,5 +76,5 @@ describe("5 - Claim Management Unit Test", () => {
         Date.now() as any
       )
     ).resolves.not.toThrow();
-  }, 1_920_000);
+  });
 });

@@ -42,5 +42,5 @@ describe("2 - Key Management Unit Test", () => {
     await expect(
       createMultiSig(alice, signatoryArray, 2)
     ).resolves.not.toThrow();
-  }, 1_920_000);
+  });
 });
