@@ -460,6 +460,9 @@ impl AssetSubTrait for Test {
     fn scope_id(_: &Ticker, _: &IdentityId) -> ScopeId {
         ScopeId::from(0u128)
     }
+    fn ensure_investor_uniqueness_claims_allowed(_: &Ticker) -> DispatchResult {
+        Ok(())
+    }
 }
 
 impl MultiSigSubTrait<AccountId> for Test {
@@ -609,9 +612,7 @@ impl Config for Test {
     type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
     type RequiredAddOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredRemoveOrigin = EnsureSignedBy<TwoThousand, Self::AccountId>;
-    type RequiredComplianceOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredCommissionOrigin = frame_system::EnsureRoot<AccountId>;
-    type RequiredChangeHistoryDepthOrigin = frame_system::EnsureRoot<AccountId>;
     type RewardScheduler = Scheduler;
     type PalletsOrigin = OriginCaller;
     type MaxValidatorPerIdentity = MaxValidatorPerIdentity;

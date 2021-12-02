@@ -114,8 +114,8 @@ use polymesh_primitives::{
     ethereum::{self, EcdsaSignature, EthereumAddress},
     extract_auth,
     statistics::TransferManagerResult,
-    storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId,
-    ScopeId, Ticker,
+    storage_migrate_on, storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId,
+    IdentityId, PortfolioId, ScopeId, Ticker,
 };
 use sp_runtime::traits::Zero;
 #[cfg(feature = "std")]
@@ -212,7 +212,7 @@ pub struct ClassicTickerRegistration {
     pub is_created: bool,
 }
 
-storage_migration_ver!(0);
+storage_migration_ver!(1);
 
 decl_storage! {
     trait Store for Module<T: Config> as Asset {
@@ -296,7 +296,7 @@ decl_storage! {
         pub DisableInvestorUniqueness get(fn disable_iu): map hasher(blake2_128_concat) Ticker => bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
     add_extra_genesis {
         config(classic_migration_tickers): Vec<ClassicTickerImport>;
@@ -351,6 +351,40 @@ decl_module! {
         const MaxNumberOfTMExtensionForAsset: u32 = T::MaxNumberOfTMExtensionForAsset::get();
         const AssetNameMaxLength: u32 = T::AssetNameMaxLength::get();
         const FundingRoundNameMaxLength: u32 = T::FundingRoundNameMaxLength::get();
+
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            use frame_support::weights::constants::WEIGHT_PER_MICROS;
+            // Keep track of upgrade cost.
+            let mut weight = 0u64;
+            storage_migrate_on!(StorageVersion::get(), 1, {
+                let mut total_len = 0u64;
+                // Get list of assets with invalid asset_types.
+                let fix_list = Tokens::iter()
+                    .filter(|(_, token)| {
+                        total_len += 1;
+                        // Check if the asset_type is invalid.
+                        Self::ensure_asset_type_valid(token.asset_type).is_err()
+                    }).map(|(ticker, _)| ticker).collect::<Vec<_>>();
+
+                // Calculate weight based on the number of assets
+                // and how many need to be fixed.
+                // Based on storage read/write cost: read 50 micros, write 200 micros.
+                let fix_len = fix_list.len() as u64;
+                weight = weight
+                    .saturating_add(total_len.saturating_mul(50 * WEIGHT_PER_MICROS))
+                    .saturating_add(fix_len.saturating_mul(50 * WEIGHT_PER_MICROS))
+                    .saturating_add(fix_len.saturating_mul(200 * WEIGHT_PER_MICROS));
+
+                // Replace invalid asset_types with the default AssetType.
+                for ticker in fix_list {
+                    Tokens::mutate(&ticker, |token| {
+                        token.asset_type = AssetType::default();
+                    });
+                }
+            });
+
+            weight
+        }
 
         /// Registers a new ticker or extends validity of an existing ticker.
         /// NB: Ticker validity does not get carry forward when renewing ticker.
@@ -815,6 +849,10 @@ decl_error! {
         FundingRoundNameMaxLengthExceeded,
         /// Some `AssetIdentifier` was invalid.
         InvalidAssetIdentifier,
+        /// Investor Uniqueness claims are not allowed for this asset.
+        InvestorUniquenessClaimNotAllowed,
+        /// Invalid `CustomAssetTypeId`.
+        InvalidCustomAssetTypeId,
     }
 }
 
@@ -916,6 +954,15 @@ impl<T: Config> AssetSubTrait for Module<T> {
             Self::scope_id_of(ticker, did)
         }
     }
+
+    /// Ensure that Investor Uniqueness is allowed for the ticker.
+    fn ensure_investor_uniqueness_claims_allowed(ticker: &Ticker) -> DispatchResult {
+        ensure!(
+            !DisableInvestorUniqueness::get(ticker),
+            Error::<T>::InvestorUniquenessClaimNotAllowed
+        );
+        Ok(())
+    }
 }
 
 /// All functions in the decl_module macro become part of the public interface of the module
@@ -931,6 +978,18 @@ impl<T: Config> Module<T> {
             idents.iter().all(|i| i.is_valid()),
             Error::<T>::InvalidAssetIdentifier
         );
+        Ok(())
+    }
+
+    /// Ensure `AssetType` is valid.
+    /// This checks that the `AssetType::Custom(custom_type_id)` is valid.
+    fn ensure_asset_type_valid(asset_type: AssetType) -> DispatchResult {
+        if let AssetType::Custom(custom_type_id) = asset_type {
+            ensure!(
+                CustomTypes::contains_key(custom_type_id),
+                Error::<T>::InvalidCustomAssetTypeId
+            );
+        }
         Ok(())
     }
 
@@ -1283,7 +1342,7 @@ impl<T: Config> Module<T> {
         let current_to_balance = Self::balance_of(ticker, to_did);
         // No check since the total balance is always <= the total supply. The
         // total supply is already checked above.
-        let updated_to_balance = current_to_balance + value;
+        let mut updated_to_balance = current_to_balance + value;
         // No check since the default portfolio balance is always <= the total
         // supply. The total supply is already checked above.
         let updated_to_def_balance = Portfolio::<T>::portfolio_asset_balances(
@@ -1302,21 +1361,25 @@ impl<T: Config> Module<T> {
             <Checkpoint<T>>::advance_update_balances(ticker, &[(to_did, current_to_balance)])
         })?;
 
-        // Increase total supply
+        // Increase total supply.
         token.total_supply = updated_total_supply;
         BalanceOf::insert(ticker, &to_did, updated_to_balance);
         Portfolio::<T>::set_default_portfolio_balance(to_did, ticker, updated_to_def_balance);
         Tokens::insert(ticker, token);
 
-        let updated_to_balance = if ScopeIdOf::contains_key(ticker, &to_did) {
-            let scope_id = Self::scope_id(ticker, &to_did);
+        // If investor uniqueness is disabled for the ticker,
+        // the `scope_id` will always equal `to_did`.
+        let scope_id = Self::scope_id(ticker, &to_did);
+        if scope_id != ScopeId::default() {
+            // scope_id can only be default if investor uniqueness
+            // is enabled and the issuer doesn't have a claim yet.
+
+            // Update scope balances.
             Self::update_scope_balance(&ticker, value, scope_id, to_did, updated_to_balance, false);
+
             // Using the aggregate balance to update the unique investor count.
-            Self::aggregate_balance_of(ticker, &scope_id)
-        } else {
-            // Since the caller does not have a scope claim yet, we assume this is their only identity
-            value
-        };
+            updated_to_balance = Self::aggregate_balance_of(ticker, &scope_id);
+        }
         Statistics::<T>::update_transfer_stats(&ticker, None, Some(updated_to_balance), value);
 
         let round = Self::funding_round(ticker);
@@ -1567,6 +1630,7 @@ impl<T: Config> Module<T> {
             Self::ensure_funding_round_name_bounded(fr)?;
         }
         Self::ensure_asset_idents_valid(&identifiers)?;
+        Self::ensure_asset_type_valid(asset_type)?;
 
         let PermissionedCallOriginData {
             primary_did: did,
