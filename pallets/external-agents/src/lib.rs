@@ -272,7 +272,6 @@ impl<T: Config> Module<T> {
             );
 
             Self::unchecked_add_agent(ticker, to, group)?;
-            Self::deposit_event(Event::AgentAdded(to.for_event(), ticker, group));
             Ok(())
         })
     }
@@ -394,18 +393,7 @@ impl<T: Config> Module<T> {
         }
         GroupOfAgent::insert(ticker, did, group);
         AgentOf::insert(did, ticker, ());
-        Ok(())
-    }
-
-    /// Add `agent` for `ticker` unless it already is.
-    pub fn add_agent_if_not(
-        ticker: Ticker,
-        agent: IdentityId,
-        group: AgentGroup,
-    ) -> DispatchResult {
-        if let None = Self::agents(ticker, agent) {
-            Self::unchecked_add_agent(ticker, agent, group)?;
-        }
+        Self::deposit_event(Event::AgentAdded(did.for_event(), ticker, group));
         Ok(())
     }
 
