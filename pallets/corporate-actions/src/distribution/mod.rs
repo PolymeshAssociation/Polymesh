@@ -201,6 +201,7 @@ decl_module! {
         /// - `UnauthorizedCustodian` if the caller is not the custodian of `portfolio`.
         /// - `InsufficientPortfolioBalance` if `portfolio` has less than `amount` of `currency`.
         /// - `InsufficientBalance` if the protocol fee couldn't be charged.
+        /// - `CANotBenefit` if the CA is not of kind PredictableBenefit/UnpredictableBenefit
         ///
         /// # Permissions
         /// * Asset
@@ -415,7 +416,7 @@ decl_event! {
 
 decl_error! {
     pub enum Error for Module<T: Config> {
-        /// A corporate ballot was made for a non-benefit CA.
+        /// A capital distribution was made for a non-benefit CA.
         CANotBenefit,
         /// A distribution already exists for this CA.
         AlreadyExists,

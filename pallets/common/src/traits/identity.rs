@@ -80,6 +80,7 @@ pub trait WeightInfo {
     fn invalidate_cdd_claims() -> Weight;
     fn remove_secondary_keys(i: u32) -> Weight;
     fn accept_primary_key() -> Weight;
+    fn rotate_primary_key_to_secondary() -> Weight;
     fn change_cdd_requirement_for_mk_rotation() -> Weight;
     fn join_identity_as_key() -> Weight;
     fn leave_identity_as_key() -> Weight;
