@@ -22,7 +22,7 @@ use codec::{Decode, Encode as _};
 use core::{iter, mem};
 use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Currency as _, Get as _};
-use frame_support::{debug, ensure, StorageMap as _, StorageValue as _};
+use frame_support::{ensure, StorageMap as _, StorageValue as _};
 use frame_system::ensure_signed;
 use pallet_base::{ensure_custom_length_ok, ensure_custom_string_limited};
 use polymesh_common_utilities::constants::did::USER;
@@ -409,7 +409,7 @@ impl<T: Config> Module<T> {
         let (_, did, _) = Self::ensure_primary_key(origin)?;
 
         // 0. Check expiration
-        let now = <pallet_timestamp::Module<T>>::get();
+        let now = <pallet_timestamp::Pallet<T>>::get();
         ensure!(now < expires_at, Error::<T>::AuthorizationExpired);
         let authorization = TargetIdAuthorization {
             target_id: did,
@@ -638,7 +638,7 @@ impl<T: Config> Module<T> {
                 Self::ensure_key_did_unlinked(key)?;
             }
         }
-
+z
         // Charge the given fee.
         if let Some(op) = protocol_fee_data {
             T::ProtocolFee::charge_fee(op)?;
@@ -679,9 +679,9 @@ impl<T: Config> Module<T> {
     where
         T::AccountId: core::fmt::Display,
     {
-        let acc = issuer.into_account();
+        let acc = issuer.as_module_id().into_account();
         let id = issuer.as_id();
-        debug::info!(
+        log::info!(
             "Register Systematic id {} with account {} as {}",
             issuer,
             acc,

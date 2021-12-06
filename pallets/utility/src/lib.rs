@@ -60,7 +60,7 @@ use frame_support::{
     weights::{GetDispatchInfo, Weight},
     Parameter,
 };
-use frame_system::{ensure_root, ensure_signed, Module as System, RawOrigin};
+use frame_system::{ensure_root, ensure_signed, Pallet as System, RawOrigin};
 use pallet_balances::{self as balances};
 use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::{
@@ -68,6 +68,7 @@ use polymesh_common_utilities::{
     identity::{AuthorizationNonce, Config as IdentityConfig},
     with_transaction,
 };
+use scale_info::TypeInfo;
 use sp_runtime::{traits::Dispatchable, traits::Verify, DispatchError, RuntimeDebug};
 use sp_std::prelude::*;
 
@@ -138,7 +139,7 @@ decl_event! {
 }
 
 /// Wraps a `Call` and provides uniqueness through a nonce
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct UniqueCall<C> {
     nonce: AuthorizationNonce,
     call: Box<C>,

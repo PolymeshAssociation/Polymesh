@@ -332,7 +332,9 @@ pub struct DispatchableName(pub Vec<u8>);
 #[macro_export]
 macro_rules! storage_migration_ver {
     ($ver:literal) => {
-        #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+        #[derive(
+            Encode, Decode, scale_info::TypeInfo, Clone, Copy, PartialEq, Eq, PartialOrd, Ord,
+        )]
         pub struct Version(u8);
 
         impl Version {

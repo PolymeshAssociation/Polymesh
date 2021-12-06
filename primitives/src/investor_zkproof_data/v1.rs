@@ -4,6 +4,7 @@ use confidential_identity_v1::{
 };
 
 use blake2::{Blake2s, Digest};
+use scale_info::{build::Fields, Path, Type, TypeInfo};
 use schnorrkel::Signature;
 
 use codec::{Decode, Encode, Error as CodecError, Input, Output};
@@ -15,6 +16,31 @@ use sp_runtime::{Deserialize, Serialize};
 #[derive(Clone, PartialEq, Eq, Debug, Copy)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct InvestorZKProofData(pub Signature);
+
+impl TypeInfo for InvestorZKProofData {
+    type Identity = Self;
+    fn type_info() -> Type {
+        // HACK(Centril): We cannot derive for the underlying types as they are in a foreign crate,
+        // so mirror the type structure and derive for those instead.
+        #![allow(non_snake_case, dead_code)]
+
+        #[derive(TypeInfo)]
+        pub struct CompressedRistretto(pub [u8; 32]);
+        #[derive(TypeInfo)]
+        pub struct Scalar {
+            bytes: [u8; 32],
+        }
+        #[derive(TypeInfo)]
+        pub struct Signature {
+            R: CompressedRistretto,
+            s: Scalar,
+        }
+
+        Type::builder()
+            .path(Path::new("InvestorZKProofData", module_path!()))
+            .composite(Fields::unnamed().field(|f| f.ty::<Signature>().type_name("Signature")))
+    }
+}
 
 impl InvestorZKProofData {
     /// Creates the proof.

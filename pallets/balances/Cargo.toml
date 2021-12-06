@@ -10,17 +10,18 @@ pallet-transaction-payment = { path = "../transaction-payment", default-features
 polymesh-common-utilities = { path = "../common", default-features = false }
 polymesh-primitives = { path = "../../primitives", default-features = false }
 
+log = "0.4.8"
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false}
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "1.0", default-features = false, features = ["derive"] }
 sp-core = { version = "4.0.0-dev", default-features = false }
 sp-std = {  version = "4.0.0-dev", default-features = false }
 sp-io = { version = "4.0.0-dev", default-features = false }
 sp-runtime = { version = "4.0.0-dev", default-features = false }
 sp-version = { version = "4.0.0-dev", default-features = false }
 sp-api = { version = "4.0.0-dev", default-features = false }
-
 frame-system = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
 

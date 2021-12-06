@@ -157,7 +157,7 @@ impl Claim {
 
 /// Claim type represent the claim without its data.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
+#[derive(Encode, Decode, TypeInfo, Copy, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
 pub enum ClaimType {
     /// User is Accredited
     Accredited,
