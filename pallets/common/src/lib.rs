@@ -39,6 +39,7 @@ pub mod benchs;
 use core::ops::Add;
 use frame_support::codec::{Decode, Encode};
 use polymesh_primitives::IdentityId;
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::DispatchResult;
@@ -158,7 +159,7 @@ pub fn with_each_transaction<A>(
 }
 
 /// Either a block number, or nothing.
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum MaybeBlock<BlockNumber> {
     Some(BlockNumber),

@@ -313,7 +313,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
     /// Returns the current "active members" and any "valid member" whose revocation time-stamp is
     /// in the future.
     pub fn get_valid_members() -> Vec<IdentityId> {
-        let now = <pallet_timestamp::Module<T>>::get();
+        let now = <pallet_timestamp::Pallet<T>>::get();
         Self::get_valid_members_at(now)
     }
 
@@ -379,7 +379,7 @@ impl<T: Config<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
     /// Returns inactive members who are not expired yet.
     #[inline]
     fn get_inactive_members() -> Vec<InactiveMember<T::Moment>> {
-        let now = <pallet_timestamp::Module<T>>::get();
+        let now = <pallet_timestamp::Pallet<T>>::get();
         Self::inactive_members()
             .into_iter()
             .filter(|member| !Self::is_member_expired(member, now))
@@ -402,7 +402,7 @@ impl<T: Config<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
         Self::base_remove_active_member(who)?;
         let current_did = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
 
-        let deactivated_at = at.unwrap_or_else(<pallet_timestamp::Module<T>>::get);
+        let deactivated_at = at.unwrap_or_else(<pallet_timestamp::Pallet<T>>::get);
         let inactive_member = InactiveMember {
             id: who,
             expiry,
@@ -411,7 +411,7 @@ impl<T: Config<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
 
         <InactiveMembers<T, I>>::mutate(|members| {
             // Remove expired members.
-            let now = <pallet_timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Pallet<T>>::get();
             members.retain(|m| {
                 if !Self::is_member_expired(m, now) {
                     true

@@ -877,13 +877,13 @@ impl<T: Config> Module<T> {
                 // Ensure proposal is not expired
                 if let Some(expiry) = proposal_details.expiry {
                     ensure!(
-                        expiry > <pallet_timestamp::Module<T>>::get(),
+                        expiry > <pallet_timestamp::Pallet<T>>::get(),
                         Error::<T>::ProposalExpired
                     );
                 }
                 if proposal_details.approvals >= Self::ms_signs_required(&multisig) {
                     if let Some(proposal) = Self::proposals((multisig.clone(), proposal_id)) {
-                        let execution_at = system::Module::<T>::block_number() + One::one();
+                        let execution_at = system::Pallet::<T>::block_number() + One::one();
                         let call = Call::<T>::execute_scheduled_proposal(
                             multisig.clone(),
                             proposal_id,
@@ -986,7 +986,7 @@ impl<T: Config> Module<T> {
                 // Ensure proposal is not expired
                 if let Some(expiry) = proposal_details.expiry {
                     ensure!(
-                        expiry > <pallet_timestamp::Module<T>>::get(),
+                        expiry > <pallet_timestamp::Pallet<T>>::get(),
                         Error::<T>::ProposalExpired
                     );
                 }

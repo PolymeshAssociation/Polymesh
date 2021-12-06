@@ -193,8 +193,8 @@ decl_module! {
             // Delete from storage.
             Portfolios::remove(&primary_did, &num);
             PortfolioAssetCount::remove(&pid);
-            PortfolioAssetBalances::remove_prefix(&pid);
-            PortfolioLockedAssets::remove_prefix(&pid);
+            PortfolioAssetBalances::remove_prefix(&pid, None);
+            PortfolioLockedAssets::remove_prefix(&pid, None);
             PortfoliosInCustody::remove(&Self::custodian(&pid), &pid);
             PortfolioCustodian::remove(&pid);
 

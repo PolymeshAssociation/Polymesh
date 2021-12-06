@@ -367,7 +367,7 @@ pub(crate) const LOG_TARGET: &'static str = "staking";
 #[macro_export]
 macro_rules! log {
 	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
-		frame_support::debug::$level!(
+		log::$level!(
 			target: crate::LOG_TARGET,
 			$patter $(, $values)*
 		)
@@ -835,11 +835,11 @@ impl<T: Config> SessionInterface<<T as frame_system::Config>::AccountId> for T w
         Convert<<T as frame_system::Config>::AccountId, Option<<T as frame_system::Config>::AccountId>>,
 {
     fn disable_validator(validator: &<T as frame_system::Config>::AccountId) -> Result<bool, ()> {
-        <pallet_session::Module<T>>::disable(validator)
+        <pallet_session::Pallet<T>>::disable(validator)
     }
 
     fn validators() -> Vec<<T as frame_system::Config>::AccountId> {
-        <pallet_session::Module<T>>::validators()
+        <pallet_session::Pallet<T>>::validators()
     }
 
     fn prune_historical_up_to(up_to: SessionIndex) {
@@ -1704,7 +1704,7 @@ decl_module! {
                 Err(Error::<T>::InsufficientValue)?
             }
 
-            system::Module::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
+            system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
 
             // You're auto-bonded forever, here. We might improve this by only bonding when
             // you actually validate/nominate and remove once you unbond __everything__.
@@ -3238,7 +3238,7 @@ impl<T: Config> Module<T> {
             let rest = max_payout.saturating_sub(validator_payout);
 
             // Schedule Rewards for the validators
-            let next_block_no = <frame_system::Module<T>>::block_number() + 1u32.into();
+            let next_block_no = <frame_system::Pallet<T>>::block_number() + 1u32.into();
             for (index, validator_id) in T::SessionInterface::validators().into_iter().enumerate() {
                 let schedule_block_no = next_block_no + index.saturated_into::<T::BlockNumber>();
                 match T::RewardScheduler::schedule(
@@ -3561,7 +3561,7 @@ impl<T: Config> Module<T> {
         <Validators<T>>::remove(stash);
         <Nominators<T>>::remove(stash);
 
-        system::Module::<T>::dec_consumers(stash);
+        system::Pallet::<T>::dec_consumers(stash);
 
         Ok(())
     }
@@ -3709,7 +3709,7 @@ impl<T: Config> Module<T> {
 /// some session can lag in between the newest session planned and the latest session started.
 impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
     fn new_session(new_index: SessionIndex) -> Option<Vec<T::AccountId>> {
-        frame_support::debug::native::trace!(
+        log::trace!(
             target: LOG_TARGET,
             "[{}] planning new_session({})",
             <frame_system::Module<T>>::block_number(),
@@ -3718,7 +3718,7 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
         Self::new_session(new_index)
     }
     fn start_session(start_index: SessionIndex) {
-        frame_support::debug::native::trace!(
+        log::trace!(
             target: LOG_TARGET,
             "[{}] starting start_session({})",
             <frame_system::Module<T>>::block_number(),
@@ -3727,7 +3727,7 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
         Self::start_session(start_index)
     }
     fn end_session(end_index: SessionIndex) {
-        frame_support::debug::native::trace!(
+        log::trace!(
             target: LOG_TARGET,
             "[{}] ending end_session({})",
             <frame_system::Module<T>>::block_number(),
@@ -3773,7 +3773,7 @@ where
     }
     fn note_uncle(author: T::AccountId, _age: T::BlockNumber) {
         Self::reward_by_ids(vec![
-            (<pallet_authorship::Module<T>>::author(), 2),
+            (<pallet_authorship::Pallet<T>>::author(), 2),
             (author, 1)
         ])
     }
