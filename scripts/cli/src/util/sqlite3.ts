@@ -16,16 +16,16 @@ export async function getNonce(signer: KeyringPair) {
     db.run(
       "INSERT INTO accounts(address) VALUES($address) ON CONFLICT(address) DO UPDATE SET nonce=nonce+1",
       { $address: signer.address },
-      (err) => {
-        if (err) {
+      (runErr) => {
+        if (runErr) {
           reject("Couldn't get next nonce");
         } else {
           db.get(
             "SELECT address, nonce FROM accounts WHERE address = $address",
             { $address: signer.address },
-            (_, row) => {
-              if (err) {
-                reject(err);
+            (getErr, row) => {
+              if (getErr) {
+                reject(getErr);
               } else {
                 resolve(row.nonce);
               }
