@@ -23,11 +23,10 @@ export async function getNonce(signer: KeyringPair) {
           db.get(
             "SELECT address, nonce FROM accounts WHERE address = $address",
             { $address: signer.address },
-            (err, row) => {
+            (_, row) => {
               if (err) {
                 reject(err);
               } else {
-                //console.log(`account: ${row.account} nonce: ${row.nonce}`);
                 resolve(row.nonce);
               }
             }

@@ -19,14 +19,13 @@ import type { SubmittableExtrinsic } from "@polkadot/api/types";
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { DispatchError } from "@polkadot/types/interfaces";
 import type { ISubmittableResult } from "@polkadot/types/types";
-import type { Ticker, NonceObject } from "../types";
+import type { Ticker } from "../types";
 import { createIdentities } from "../helpers/identity_helper";
 import { distributePoly } from "../helpers/poly_helper";
 import type { IdentityId } from "../interfaces";
 import { assert } from "chai";
 import { getNonce } from "../util/sqlite3";
 
-//let nonces = new Map();
 let block_sizes: Number[] = [];
 let block_times: Number[] = [];
 let genesisEntities: KeyringPair[] = [];
@@ -130,20 +129,16 @@ export async function generateEntities(accounts: string[]) {
 }
 
 export async function generateEntity(name: string): Promise<KeyringPair> {
-  const api = await ApiSingleton.getInstance();
   await cryptoWaitReady();
-  let entity = new Keyring({ type: "sr25519" }).addFromUri(`//${name}`, {
+  return new Keyring({ type: "sr25519" }).addFromUri(`//${name}`, {
     name: `${name}`,
   });
-
-  return entity;
 }
 
 export async function generateKeys(
   numberOfKeys: Number,
   keyPrepend: String
 ): Promise<KeyringPair[]> {
-  const api = await ApiSingleton.getInstance();
   let keys = [];
   await cryptoWaitReady();
   for (let i = 0; i < numberOfKeys; i++) {
@@ -160,10 +155,8 @@ export async function generateKeys(
 }
 
 export async function generateEntityFromUri(uri: string): Promise<KeyringPair> {
-  const api = await ApiSingleton.getInstance();
   await cryptoWaitReady();
-  let entity = new Keyring({ type: "sr25519" }).addFromUri(uri);
-  return entity;
+  return new Keyring({ type: "sr25519" }).addFromUri(uri);
 }
 const NULL_12 = "\0".repeat(12);
 export function padTicker(ticker: string) {
@@ -241,13 +234,12 @@ export function tickerToDid(ticker: Ticker) {
 export async function generateStashKeys(
   accounts: string[]
 ): Promise<KeyringPair[]> {
-  const api = await ApiSingleton.getInstance();
   let keys = [];
   await cryptoWaitReady();
-  for (let i = 0; i < accounts.length; i++) {
+  for (let account of accounts) {
     keys.push(
-      new Keyring({ type: "sr25519" }).addFromUri(`//${accounts[i]}//stash`, {
-        name: `${accounts[i] + "_stash"}`,
+      new Keyring({ type: "sr25519" }).addFromUri(`//${account}//stash`, {
+        name: `${account + "_stash"}`,
       })
     );
   }
