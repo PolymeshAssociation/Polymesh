@@ -52,7 +52,7 @@ jobs:
             sudo apt install -y build-essential curl
             export TOOLCHAIN=`cat rust-toolchain`
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs >./rustup_install.sh
-            sudo bash ./rustup_install.sh -y --default-toolchain $TOOLCHAIN
+            bash ./rustup_install.sh -y --default-toolchain $TOOLCHAIN
             source $HOME/.cargo/env
             rustup toolchain install $TOOLCHAIN
             cargo +$TOOLCHAIN install rustfilt cargo-binutils
