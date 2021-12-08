@@ -37,14 +37,26 @@ jobs:
             - "~/.cargo"
             - "./target"
   benchmark-build:
-    docker:
-      - image: polymathnet/rust:debian-nightly-2021-12-08
+    machine:
+      image: ubuntu-2004:202010-01
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
       - RUSTC_WORKSPACE_WRAPPER: ./scripts/rustc.sh
     steps:
       - checkout
+      - run:
+          name: Setup environment.
+          command: |
+            apt update
+            DEBIAN_FRONTEND=noninteractive apt install build-essential rust-all
+            export TOOLCHAIN=`cat rust-toolchain`
+            rustup toolchain install $TOOLCHAIN
+            cargo +$TOOLCHAIN install rustfilt cargo-binutils
+            rustup component add rustfmt clippy llvm-tools-preview --toolchain $TOOLCHAIN
+            rustup target add wasm32-unknown-unknown --toolchain $TOOLCHAIN
+            cargo +$TOOLCHAIN install --git https://github.com/alexcrichton/wasm-gc --force
+
       - run:
           name: Store rust version in an environment var for cache key
           command: rustc --version > rust.version
