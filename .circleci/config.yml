@@ -49,10 +49,11 @@ jobs:
           name: Setup rust-nightly environment.
           command: |
             sudo apt update
-            DEBIAN_FRONTEND=noninteractive sudo apt install build-essential curl
+            sudo apt install -y build-essential curl
             export TOOLCHAIN=`cat rust-toolchain`
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs >./rustup_install.sh
             sudo bash ./rustup_install.sh -y --default-toolchain $TOOLCHAIN
+            source $HOME/.cargo/env
             rustup toolchain install $TOOLCHAIN
             cargo +$TOOLCHAIN install rustfilt cargo-binutils
             rustup component add rustfmt clippy llvm-tools-preview --toolchain $TOOLCHAIN
