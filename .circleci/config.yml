@@ -48,8 +48,8 @@ jobs:
       - run:
           name: Setup environment.
           command: |
-            apt update
-            DEBIAN_FRONTEND=noninteractive apt install build-essential rust-all
+            sudo apt update
+            DEBIAN_FRONTEND=noninteractive sudo apt install build-essential rust-all
             export TOOLCHAIN=`cat rust-toolchain`
             rustup toolchain install $TOOLCHAIN
             cargo +$TOOLCHAIN install rustfilt cargo-binutils
