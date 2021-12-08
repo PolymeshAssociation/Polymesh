@@ -53,7 +53,6 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use core::array::IntoIter;
 use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -465,7 +464,7 @@ impl<T: Config> Module<T> {
         let pallet = |p: &str| PalletPermissions::entire_pallet(p.into());
         let in_pallet = |p: &str, dns| PalletPermissions::new(p.into(), dns);
         fn elems<T: Ord, const N: usize>(elems: [T; N]) -> SubsetRestriction<T> {
-            SubsetRestriction::elems(IntoIter::new(elems))
+            SubsetRestriction::elems(elems)
         }
         match GroupOfAgent::get(ticker, agent) {
             None => ExtrinsicPermissions::empty(),
