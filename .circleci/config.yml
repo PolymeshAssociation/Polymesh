@@ -49,7 +49,7 @@ jobs:
           name: Setup rust-nightly environment.
           command: |
             sudo apt update
-            sudo apt install build-essential
+            sudo apt install build-essential \
               clang cmake \
               gcc jq libclang-dev libssl-dev \
               pkg-config ca-certificates rsync curl \
