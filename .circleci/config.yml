@@ -45,12 +45,6 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Store rust version in an environment var for cache key
-          command: rustc --version > rust.version
-      - restore_cache:
-          keys:
-            - v2-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-      - run:
           shell: /bin/bash
           name: Setup rust-nightly environment.
           command: |
@@ -70,6 +64,12 @@ jobs:
             # Install wasm tools.
             ./scripts/init.sh
 
+      - run:
+          name: Store rust version in an environment var for cache key
+          command: rustc --version > rust.version
+      - restore_cache:
+          keys:
+            - v2-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Build binary with runtime-benchmarks
           environment:
