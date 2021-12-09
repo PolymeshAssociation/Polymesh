@@ -628,3 +628,37 @@ fn check_genesis_txs(txs: impl Iterator<Item = BridgeTx>) {
         txs
     );
 }
+
+#[test]
+fn remove_txs() {
+    test_with_controller(&do_remove_txs);
+}
+
+fn do_remove_txs(signers: &[AccountId]) {
+    let no_admin = Origin::signed(signers[0].clone());
+
+    // Create some txs and register the recipients' balance.
+    let txs = make_bridge_txs(AMOUNT).map(|tx| signers_approve_bridge_tx(tx, signers));
+    fast_forward_blocks(Bridge::timelock());
+
+    // Freeze all txs except the first one.
+    let frozen_txs = txs.iter().skip(1).cloned().collect::<Vec<_>>();
+    assert!(!frozen_txs.is_empty());
+    assert_ok!(Bridge::freeze_txs(signed_admin(), frozen_txs.clone()));
+
+    assert_noop!(
+        Bridge::remove_txs(no_admin, txs.clone().into()),
+        Error::BadAdmin
+    );
+    assert_noop!(
+        Bridge::remove_txs(signed_admin(), txs.clone().into()),
+        Error::NotFrozen
+    );
+
+    assert_ok!(Bridge::remove_txs(signed_admin(), frozen_txs.clone()));
+    assert!(frozen_txs
+        .iter()
+        .map(|tx| Bridge::get_tx_details(&tx))
+        .all(|tx| tx.status == BridgeTxStatus::Absent));
+    assert!(Bridge::get_tx_details(&txs[0]).status == BridgeTxStatus::Timelocked);
+}
