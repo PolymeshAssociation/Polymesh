@@ -1,8 +1,10 @@
 import { initMain, generateKeys } from "../util/init";
 import { createIdentities } from "../helpers/identity_helper";
+import { createTable } from "../util/sqlite3";
 import PrettyError from "pretty-error";
 
 async function main(): Promise<void> {
+  createTable();
   const testEntities = await initMain();
   const alice = testEntities[0];
   const primaryDevSeed = "0_primary";
