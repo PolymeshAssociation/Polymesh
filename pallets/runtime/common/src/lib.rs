@@ -144,7 +144,7 @@ impl WeightToFeePolynomial for WeightToFee {
     fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
         smallvec![WeightToFeeCoefficient {
             degree: 1,
-            coeff_frac: Perbill::from_rational_approximation(
+            coeff_frac: Perbill::from_rational(
                 PolyXBaseFee::get().into(),
                 ExtrinsicBaseWeight::get() as u128
             ),

@@ -50,7 +50,7 @@ impl<'de> Deserialize<'de> for EthereumAddress {
 }
 
 /// A signed message according to the Ethereum protocol.
-#[derive(Encode, Decode, Clone)]
+#[derive(Encode, Decode, TypeInfo, Clone)]
 pub struct EcdsaSignature(pub [u8; 65]);
 
 impl PartialEq for EcdsaSignature {

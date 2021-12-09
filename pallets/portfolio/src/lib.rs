@@ -57,13 +57,14 @@ use polymesh_primitives::{
     extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, IdentityId,
     PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
 };
+use scale_info::TypeInfo;
 use sp_arithmetic::traits::Zero;
 use sp_std::prelude::Vec;
 
 type Identity<T> = identity::Module<T>;
 
 /// The ticker and balance of an asset to be moved from one portfolio to another.
-#[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MovePortfolioItem {
     /// The ticker of the asset to be moved.
     pub ticker: Ticker,

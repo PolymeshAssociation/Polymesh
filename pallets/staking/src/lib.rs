@@ -3712,7 +3712,7 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
         log::trace!(
             target: LOG_TARGET,
             "[{}] planning new_session({})",
-            <frame_system::Module<T>>::block_number(),
+            <frame_system::Pallet<T>>::block_number(),
             new_index
         );
         Self::new_session(new_index)
@@ -3721,7 +3721,7 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
         log::trace!(
             target: LOG_TARGET,
             "[{}] starting start_session({})",
-            <frame_system::Module<T>>::block_number(),
+            <frame_system::Pallet<T>>::block_number(),
             start_index
         );
         Self::start_session(start_index)
@@ -3730,7 +3730,7 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
         log::trace!(
             target: LOG_TARGET,
             "[{}] ending end_session({})",
-            <frame_system::Module<T>>::block_number(),
+            <frame_system::Pallet<T>>::block_number(),
             end_index
         );
         Self::end_session(end_index)

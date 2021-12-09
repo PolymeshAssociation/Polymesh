@@ -289,7 +289,7 @@ impl<T: Config> Module<T> {
         total_supply: Balance,
         max_percentage: Percentage,
     ) -> DispatchResult {
-        let new_percentage = sp_arithmetic::Permill::from_rational_approximation(
+        let new_percentage = sp_arithmetic::Permill::from_rational(
             receiver_balance + value,
             total_supply,
         );

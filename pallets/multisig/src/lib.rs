@@ -105,6 +105,7 @@ use polymesh_common_utilities::{
     transaction_payment::CddAndFeeDetails, Context,
 };
 use polymesh_primitives::{extract_auth, AuthorizationData, IdentityId, Permissions, Signatory};
+use scale_info::TypeInfo;
 use sp_runtime::traits::{Dispatchable, Hash, One};
 use sp_std::{convert::TryFrom, prelude::*};
 
@@ -131,7 +132,7 @@ pub trait Config: frame_system::Config + IdentityConfig {
 }
 
 /// Details of a multisig proposal
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, TypeInfo, Default, Clone, PartialEq, Eq, Debug)]
 pub struct ProposalDetails<T> {
     /// Number of yes votes
     pub approvals: u64,
@@ -157,7 +158,7 @@ impl<T: core::default::Default> ProposalDetails<T> {
     }
 }
 
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
 /// Status of a multisig proposal
 pub enum ProposalStatus {
     /// Proposal does not exist
@@ -884,12 +885,12 @@ impl<T: Config> Module<T> {
                 if proposal_details.approvals >= Self::ms_signs_required(&multisig) {
                     if let Some(proposal) = Self::proposals((multisig.clone(), proposal_id)) {
                         let execution_at = system::Pallet::<T>::block_number() + One::one();
-                        let call = Call::<T>::execute_scheduled_proposal(
-                            multisig.clone(),
+                        let call = Call::<T>::execute_scheduled_proposal {
+                            multisig: multisig.clone(),
                             proposal_id,
                             multisig_did,
-                            proposal.get_dispatch_info().weight,
-                        )
+                            _proposal_weight: proposal.get_dispatch_info().weight,
+                        }
                         .into();
 
                         // Scheduling will fail when it's already scheduled (had enough votes already).
