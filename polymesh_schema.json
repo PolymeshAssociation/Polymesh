@@ -650,13 +650,7 @@
         "Proposal": "Vec<u8>"
       }
     },
-    "OffChainSignature": {
-      "_enum": {
-        "Ed25519": "H512",
-        "Sr25519": "H512",
-        "Ecdsa": "H512"
-      }
-    },
+    "OffChainSignature": "MultiSignature",
     "Authorization": {
       "authorization_data": "AuthorizationData",
       "authorized_by": "IdentityId",
