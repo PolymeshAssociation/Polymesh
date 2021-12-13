@@ -51,6 +51,7 @@ use polymesh_common_utilities::{
     with_transaction,
 };
 use polymesh_primitives::Balance;
+use scale_info::TypeInfo;
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionLongevity};
 use sp_runtime::{
     traits::{AccountIdConversion, StaticLookup, Verify},
@@ -80,7 +81,7 @@ pub trait WeightInfo {
 }
 
 /// Represents an Itn reward's status.
-#[derive(Decode, Encode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, Encode, TypeInfo, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ItnRewardStatus {
     Unclaimed(Balance),
     Claimed,
@@ -278,7 +279,7 @@ impl<T: Config> sp_runtime::traits::ValidateUnsigned for Module<T> {
 
     fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
         const PRIORITY: u64 = 100;
-        if let Call::claim_itn_reward(reward_address, itn_address, signature) = call {
+        if let Call::claim_itn_reward { reward_address, itn_address, signature } = call {
             if Self::valid_claim(reward_address, itn_address, signature) {
                 return Ok(ValidTransaction {
                     priority: PRIORITY,
