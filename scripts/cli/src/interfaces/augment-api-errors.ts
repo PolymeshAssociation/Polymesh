@@ -199,7 +199,7 @@ declare module '@polkadot/api/types/errors' {
       /**
        * The sequence counter for something overflowed.
        * 
-       * When this happens depends on e.g., the capacity of the identifier type.
+       * When this happens depends on the capacity of the identifier type.
        * For example, we might have `pub struct PipId(u32);`, with `u32::MAX` capacity.
        * In practice, these errors will never happen but no code path should result in a panic,
        * so these corner cases need to be covered with an error variant.
