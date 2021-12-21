@@ -89,6 +89,13 @@ async function main(): Promise<void> {
   console.log("ItnRewards: AddAssetToAPortfolio");
   const portfolioId = await api.query.portfolio.nameToNumber(daveDid, "foobar");
 
+  // AddAPortfolioManager is not possible because of old permission format
+  console.log("ItnRewards: StopStakingAPortion");
+  await sendTx(dave, api.tx.staking.unbond(100));
+
+  console.log("ItnRewards: StartStakingANewOperator");
+  await sendTx(dave, api.tx.staking.nominate([alice.publicKey]));
+
   await sendTx(
     dave,
     api.tx.portfolio.movePortfolioFunds(
@@ -98,13 +105,7 @@ async function main(): Promise<void> {
     )
   );
 
-  // AddAPortfolioManager is not possible because of old permission format
-  // To Fix: In ITN Rewards PR
-  // console.log("ItnRewards: StopStakingAPortion");
-  // await sendTx(dave, api.tx.staking.unbond(100));
-
-  console.log("ItnRewards: StartStakingANewOperator");
-  await sendTx(dave, api.tx.staking.nominate([alice.publicKey]));
+  
 }
 
 main()
