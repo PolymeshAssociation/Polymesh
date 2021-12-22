@@ -200,7 +200,7 @@ pub struct BridgeTxDetail<BlockNumber> {
 }
 
 /// The status of a handled transaction for reporting purposes.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum HandledTxStatus {
     /// The transaction has been successfully handled.
     Success,

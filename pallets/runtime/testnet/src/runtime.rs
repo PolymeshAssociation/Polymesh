@@ -95,15 +95,6 @@ parameter_types! {
     // Authorship:
     pub const UncleGenerations: BlockNumber = 0;
 
-    // Session:
-    // NOTE: `SessionHandler` and `SessionKeys` are co-dependent:
-    // One key will be used for each handler.
-    // The number and order of items in `SessionHandler` *MUST* be the same number
-    // and order of keys in `SessionKeys`.
-    // TODO: Introduce some structure to tie these together to make it a bit less of a footgun.
-    // This should be easy, since OneSessionHandler trait provides the `Key` as an associated type. #2858
-    pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(17);
-
     // Contracts:
     pub const NetworkShareInFee: Perbill = Perbill::from_percent(60);
     pub const TombstoneDeposit: Balance = 0;
@@ -116,11 +107,7 @@ parameter_types! {
     // Settlement:
     pub const MaxLegsInInstruction: u32 = 10;
 
-    // Offences:
-    pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) * MaximumBlockWeight::get();
-
     // I'm online:
-    pub const SessionDuration: BlockNumber = EPOCH_DURATION_IN_SLOTS as _;
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
 
     // Assets:
@@ -301,7 +288,7 @@ impl pallet_test_utils::Config for Runtime {
     type WeightInfo = polymesh_weights::pallet_test_utils::WeightInfo;
 }
 
-pub type AllModulesExported = AllModules;
+pub type AllModulesExported = AllPallets;
 
 construct_runtime!(
     pub enum Runtime where
@@ -408,6 +395,6 @@ pub trait DryRunRuntimeUpgrade {
 #[cfg(feature = "migration-dry-run")]
 impl DryRunRuntimeUpgrade for Runtime {
     fn dry_run_runtime_upgrade() -> Weight {
-        <AllModules as OnRuntimeUpgrade>::on_runtime_upgrade()
+        <AllPallets as OnRuntimeUpgrade>::on_runtime_upgrade()
     }
 }

@@ -37,7 +37,7 @@ pub struct Memo(pub [u8; 32]);
 
 // POLYMESH-NOTE: Make `AccountData` public to access it from the outside module.
 /// All balance information for an account.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Default, RuntimeDebug)]
 pub struct AccountData {
     /// Non-reserved part of the balance. There may still be restrictions on this, but it is the
     /// total pool what may in principle be transferred, reserved and used for tipping.

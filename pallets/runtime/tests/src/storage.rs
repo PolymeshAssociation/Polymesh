@@ -137,12 +137,8 @@ parameter_types! {
     pub const MinimumBond: Balance = 1 * POLY;
     pub const MaxLegsInInstruction: u32 = 100;
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
-    pub const SessionDuration: BlockNumber = EPOCH_DURATION_IN_SLOTS as _;
     pub const ReportLongevity: u64 =
         BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
-
-    pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) * MaximumBlockWeight::get();
-
 }
 
 frame_support::construct_runtime!(
@@ -380,8 +376,6 @@ parameter_types! {
     pub const MaxSenderConditionsPerCompliance: usize = 30;
     pub const MaxReceiverConditionsPerCompliance: usize = 30;
     pub const MaxCompliancePerRequirement: usize = 10;
-
-    pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
 
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;

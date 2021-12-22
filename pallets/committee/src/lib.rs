@@ -123,7 +123,7 @@ pub trait Config<I>:
 }
 
 /// Origin for the committee module.
-#[derive(PartialEq, Eq, Clone, Debug, Encode, Decode)]
+#[derive(PartialEq, Eq, Clone, Debug, Encode, Decode, TypeInfo)]
 pub enum RawOrigin<AccountId, I> {
     /// It has been condoned by M of N members of this committee
     /// with `M` and `N` set dynamically in `set_vote_threshold`.
