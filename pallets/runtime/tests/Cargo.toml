@@ -55,6 +55,7 @@ lazy_static = "1.4.0"
 parking_lot = "0.11.1"
 env_logger = "0.7"
 serde_json = '1.0.48'
+log = "0.4.8"
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
@@ -79,6 +80,7 @@ pallet-scheduler = { version = "4.0.0-dev", default-features = false }
 pallet-session = { version = "4.0.0-dev", default-features = false, features = ["historical"] }
 pallet-staking-reward-curve = { version = "4.0.0-dev", default-features = false }
 pallet-timestamp = { version = "4.0.0-dev", default-features = false }
+scale-info = { version = "1.0", default-features = false, features = ["derive"] }
 sp-api = { version = "4.0.0-dev", default-features = false }
 sp-arithmetic = { version = "4.0.0-dev", default-features = false }
 sp-authority-discovery = { version = "4.0.0-dev", default-features = false }

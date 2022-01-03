@@ -407,6 +407,8 @@ generate_solution_type!(
     >(16)
 );
 
+pub const MAX_NOMINATIONS: u32 = <CompactAssignments as sp_npos_elections::NposSolution>::LIMIT as u32;
+
 /// Accuracy used for on-chain election.
 pub type ChainAccuracy = Perbill;
 

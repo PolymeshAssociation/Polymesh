@@ -30,7 +30,7 @@ use test_client::AccountKeyring;
 type Identity = identity::Module<TestStorage>;
 type IdError = identity::Error<TestStorage>;
 type Balances = balances::Module<TestStorage>;
-type Timestamp = pallet_timestamp::Module<TestStorage>;
+type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 type Asset = pallet_asset::Module<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
 type CDDGroup = group::Module<TestStorage, group::Instance2>;

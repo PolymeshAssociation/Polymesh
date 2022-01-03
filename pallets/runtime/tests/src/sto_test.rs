@@ -26,7 +26,7 @@ type EAError = pallet_external_agents::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
 type Settlement = pallet_settlement::Module<TestStorage>;
-type Timestamp = pallet_timestamp::Module<TestStorage>;
+type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 
 #[track_caller]
 fn test(logic: impl FnOnce()) {

@@ -8,7 +8,7 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use frame_support::{assert_noop, assert_ok, IterableStorageDoubleMap, StorageMap};
+use frame_support::{assert_noop, assert_ok, IterableStorageDoubleMap};
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -38,7 +38,7 @@ type Balances = balances::Module<TestStorage>;
 type Asset = asset::Module<TestStorage>;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
-type Timestamp = pallet_timestamp::Module<TestStorage>;
+type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
@@ -47,9 +47,9 @@ type Moment = <TestStorage as pallet_timestamp::Config>::Moment;
 type BlockNumber = <TestStorage as frame_system::Config>::BlockNumber;
 type DidRecords = identity::DidRecords<TestStorage>;
 type Settlement = pallet_settlement::Module<TestStorage>;
-type System = frame_system::Module<TestStorage>;
+type System = frame_system::Pallet<TestStorage>;
 type Error = pallet_settlement::Error<TestStorage>;
-type Scheduler = scheduler::Module<TestStorage>;
+type Scheduler = scheduler::Pallet<TestStorage>;
 
 const TICKER: Ticker = Ticker::new_unchecked([b'A', b'C', b'M', b'E', 0, 0, 0, 0, 0, 0, 0, 0]);
 const TICKER2: Ticker = Ticker::new_unchecked([b'A', b'C', b'M', b'E', b'2', 0, 0, 0, 0, 0, 0, 0]);

@@ -54,8 +54,7 @@ use polymesh_primitives::{
 };
 use sp_core::H256;
 use sp_npos_elections::{
-    reduce, to_support_map, CompactSolution, ElectionScore, EvaluateSupport, ExtendedBalance,
-    StakedAssignment,
+    reduce, to_support_map, CompactSolution, ElectionScore, ExtendedBalance, StakedAssignment,
 };
 use sp_runtime::{
     curve::PiecewiseLinear,
@@ -121,7 +120,7 @@ impl OneSessionHandler<AccountId> for OtherSessionHandler {
         });
     }
 
-    fn on_disabled(validator_index: usize) {
+    fn on_disabled(validator_index: u32) {
         SESSION.with(|d| {
             let mut d = d.borrow_mut();
             let value = d.0[validator_index];
@@ -148,21 +147,21 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        System: frame_system::{Module, Call, Config, Storage, Event<T>},
-        Babe: pallet_babe::{Module, Call, Storage, Config, Inherent, ValidateUnsigned},
-        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
-        Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
-        Staking: staking::{Module, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
-        Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
-        Identity: pallet_identity::{Module, Call, Storage, Event<T>, Config<T>},
-        CddServiceProviders: pallet_group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
-        ProtocolFee: pallet_protocol_fee::{Module, Call, Storage, Event<T>, Config},
-        Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
-        Treasury: pallet_treasury::{Module, Call, Event<T>},
-        PolymeshCommittee: pallet_committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>},
-        TestUtils: pallet_test_utils::{Module, Call, Storage, Event<T>},
-        Base: pallet_base::{Module, Call, Event},
+        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        Babe: pallet_babe::{Pallet, Call, Storage, Config, ValidateUnsigned},
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Staking: staking::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
+        Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
+        Identity: pallet_identity::{Pallet, Call, Storage, Event<T>, Config<T>},
+        CddServiceProviders: pallet_group::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
+        ProtocolFee: pallet_protocol_fee::{Pallet, Call, Storage, Event<T>, Config},
+        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
+        Treasury: pallet_treasury::{Pallet, Call, Event<T>},
+        PolymeshCommittee: pallet_committee::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        Pips: pallet_pips::{Pallet, Call, Storage, Event<T>, Config<T>},
+        TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T>},
+        Base: pallet_base::{Pallet, Call, Event},
     }
 );
 
@@ -196,7 +195,7 @@ parameter_types! {
 }
 
 impl frame_system::Config for Test {
-    type BaseCallFilter = ();
+    type BaseCallFilter = frame_support::traits::Everything;
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = RocksDbWeight;
@@ -579,13 +578,10 @@ parameter_types! {
     pub const FiveThousand: AccountId = 5000;
 }
 
-impl Contains<u64> for TwoThousand {
-    fn sorted_members() -> std::vec::Vec<u64> {
-        [2000, 3000, 4000, 5000].to_vec()
-    }
-}
+impl Contains<u64> for TwoThousand {}
 
 impl Config for Test {
+    const MAX_NOMINATIONS: u32 = pallet_staking::MAX_NOMINATIONS;
     type Currency = Balances;
     type UnixTime = Timestamp;
     type CurrencyToVote = frame_support::traits::SaturatingCurrencyToVote;
@@ -1555,7 +1551,7 @@ pub(crate) fn staking_events() -> Vec<staking::Event<Test>> {
         .into_iter()
         .map(|r| r.event)
         .filter_map(|e| {
-            if let Event::staking(inner) = e {
+            if let Event::Staking(inner) = e {
                 Some(inner)
             } else {
                 None

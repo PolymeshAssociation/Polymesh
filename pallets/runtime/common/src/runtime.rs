@@ -199,6 +199,7 @@ macro_rules! misc_pallet_impls {
         }
 
         impl pallet_staking::Config for Runtime {
+            const MAX_NOMINATIONS: u32 = pallet_staking::MAX_NOMINATIONS;
             type Currency = Balances;
             type UnixTime = Timestamp;
             type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
@@ -637,7 +638,7 @@ macro_rules! runtime_apis {
                         slot_duration: Babe::slot_duration(),
                         epoch_length: EpochDuration::get(),
                         c: PRIMARY_PROBABILITY,
-                        genesis_authorities: Babe::authorities(),
+                        genesis_authorities: Babe::authorities().to_vec(),
                         randomness: Babe::randomness(),
                         allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryPlainSlots,
                     }

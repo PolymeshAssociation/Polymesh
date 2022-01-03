@@ -11,12 +11,12 @@ use test_client::AccountKeyring;
 type Balances = pallet_balances::Module<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
 type MultiSig = pallet_multisig::Module<TestStorage>;
-type Timestamp = pallet_timestamp::Module<TestStorage>;
+type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::Origin;
 type IdError = pallet_identity::Error<TestStorage>;
 type Error = pallet_multisig::Error<TestStorage>;
-type System = frame_system::Module<TestStorage>;
-type Scheduler = pallet_scheduler::Module<TestStorage>;
+type System = frame_system::Pallet<TestStorage>;
+type Scheduler = pallet_scheduler::Pallet<TestStorage>;
 
 #[test]
 fn create_multisig() {
@@ -146,7 +146,9 @@ fn change_multisig_sigs_required() {
             true
         );
 
-        let call = Box::new(Call::MultiSig(multisig::Call::change_sigs_required(1)));
+        let call = Box::new(Call::MultiSig(multisig::Call::change_sigs_required {
+            sigs_required: 1,
+        }));
 
         set_curr_did(Some(alice_did));
         assert_ok!(MultiSig::create_proposal_as_key(
@@ -211,7 +213,9 @@ fn create_or_approve_change_multisig_sigs_required() {
             MultiSig::ms_signers(musig_address.clone(), bob_signer),
             true
         );
-        let call = Box::new(Call::MultiSig(multisig::Call::change_sigs_required(1)));
+        let call = Box::new(Call::MultiSig(multisig::Call::change_sigs_required {
+            sigs_required: 1,
+        }));
         assert_ok!(MultiSig::create_or_approve_proposal_as_key(
             bob.clone(),
             musig_address.clone(),
@@ -290,9 +294,9 @@ fn remove_multisig_signer() {
         // No identity as multisig has not been set as a secondary / primary key
         assert_eq!(Identity::get_identity(&musig_address), None);
 
-        let call = Box::new(Call::MultiSig(multisig::Call::remove_multisig_signer(
-            bob_signer.clone(),
-        )));
+        let call = Box::new(Call::MultiSig(multisig::Call::remove_multisig_signer {
+            signer: bob_signer.clone(),
+        }));
 
         assert_ok!(MultiSig::create_proposal_as_identity(
             alice.clone(),
@@ -323,9 +327,9 @@ fn remove_multisig_signer() {
 
         set_curr_did(None);
 
-        let remove_alice = Box::new(Call::MultiSig(multisig::Call::remove_multisig_signer(
-            alice_signer.clone(),
-        )));
+        let remove_alice = Box::new(Call::MultiSig(multisig::Call::remove_multisig_signer {
+            signer: alice_signer.clone(),
+        }));
 
         assert_ok!(MultiSig::create_proposal_as_identity(
             alice.clone(),
@@ -381,9 +385,9 @@ fn add_multisig_signer() {
             false
         );
 
-        let call = Box::new(Call::MultiSig(multisig::Call::add_multisig_signer(
-            bob_signer.clone(),
-        )));
+        let call = Box::new(Call::MultiSig(multisig::Call::add_multisig_signer {
+            signer: bob_signer.clone(),
+        }));
 
         assert_ok!(MultiSig::create_proposal_as_identity(
             alice.clone(),
@@ -395,9 +399,9 @@ fn add_multisig_signer() {
 
         next_block();
 
-        let call2 = Box::new(Call::MultiSig(multisig::Call::add_multisig_signer(
-            charlie_signer.clone(),
-        )));
+        let call2 = Box::new(Call::MultiSig(multisig::Call::add_multisig_signer {
+            signer: charlie_signer.clone(),
+        }));
 
         assert_ok!(MultiSig::create_proposal_as_identity(
             alice.clone(),
@@ -745,9 +749,9 @@ fn check_for_approval_closure() {
             false
         );
 
-        let call = Box::new(Call::MultiSig(multisig::Call::add_multisig_signer(
-            bob_signer.clone(),
-        )));
+        let call = Box::new(Call::MultiSig(multisig::Call::add_multisig_signer {
+            signer: bob_signer.clone(),
+        }));
         set_curr_did(Some(alice_did));
         assert_ok!(MultiSig::create_proposal_as_identity(
             alice.clone(),
@@ -817,8 +821,12 @@ fn reject_proposals() {
             ],
         );
 
-        let call1 = Box::new(Call::MultiSig(multisig::Call::change_sigs_required(4)));
-        let call2 = Box::new(Call::MultiSig(multisig::Call::change_sigs_required(5)));
+        let call1 = Box::new(Call::MultiSig(multisig::Call::change_sigs_required {
+            sigs_required: 4,
+        }));
+        let call2 = Box::new(Call::MultiSig(multisig::Call::change_sigs_required {
+            sigs_required: 5,
+        }));
         set_curr_did(Some(alice_did));
         assert_ok!(MultiSig::create_proposal_as_identity(
             alice.clone(),
@@ -929,7 +937,9 @@ fn expired_proposals() {
         );
 
         let expires_at = 100u64;
-        let call = Box::new(Call::MultiSig(multisig::Call::change_sigs_required(2)));
+        let call = Box::new(Call::MultiSig(multisig::Call::change_sigs_required {
+            sigs_required: 2,
+        }));
 
         set_curr_did(Some(alice_did));
         assert_ok!(MultiSig::create_proposal_as_identity(

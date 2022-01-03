@@ -6,7 +6,7 @@ use frame_support::{
     construct_runtime,
     dispatch::DispatchResult,
     parameter_types,
-    traits::{KeyOwnerProofSystem, SplitTwoWays},
+    traits::{KeyOwnerProofSystem, tokens::imbalance::SplitTwoWays},
     weights::Weight,
 };
 use pallet_asset::checkpoint as pallet_checkpoint;

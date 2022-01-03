@@ -36,12 +36,12 @@ use sp_arithmetic::Permill;
 use std::convert::TryInto;
 use test_client::AccountKeyring;
 
-type System = frame_system::Module<TestStorage>;
+type System = frame_system::Pallet<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::Origin;
 type Asset = pallet_asset::Module<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
 type ExternalAgents = pallet_external_agents::Module<TestStorage>;
-type Timestamp = pallet_timestamp::Module<TestStorage>;
+type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
 type Authorizations = pallet_identity::Authorizations<TestStorage>;
 type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
@@ -2070,7 +2070,7 @@ fn dist_claim_works() {
         CorporateActions::mutate(ticker, id.local_id, |ca| {
             let ca = ca.as_mut().unwrap();
             ca.default_withholding_tax = P25;
-            ca.withholding_tax = vec![(bar.did, Tax::from_rational_approximation(1u32, 3u32))];
+            ca.withholding_tax = vec![(bar.did, Tax::from_rational(1u32, 3u32))];
         });
 
         // Ensures that holder cannot claim or be pushed to again.
