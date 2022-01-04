@@ -20,6 +20,7 @@ use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
     cmp::{Ord, Ordering, PartialOrd},
     collections::btree_set::BTreeSet,
+    mem::size_of,
     iter,
 };
 
@@ -66,6 +67,17 @@ impl PalletPermissions {
             pallet_name,
             dispatchable_names: SubsetRestriction::Whole,
         }
+    }
+
+    /// Returns the complexity of the pallet permissions.
+    pub fn complexity(&self) -> usize {
+        let mut cost = self.pallet_name.len();
+        if let Some(set) = self.dispatchable_names.inner() {
+            for name in set {
+                cost = cost.saturating_add(name.len());
+            }
+        }
+        cost
     }
 }
 
@@ -141,6 +153,20 @@ impl Permissions {
         self.extrinsic = self.extrinsic.union(&SubsetRestriction::These(
             iter::once(pallet_permissions).collect(),
         ));
+    }
+
+    /// Returns the complexity of the permissions.
+    pub fn complexity(&self) -> usize {
+        // Calculate the pallet/extrinsic permissions complexity cost.
+        let cost = self.extrinsic.inner().map_or(0usize, |set| {
+            set.iter()
+                .fold(0, |cost, pallet| cost.saturating_add(pallet.complexity()))
+        });
+
+        // Asset permissions complexity cost.
+        cost.saturating_add(self.asset.complexity().saturating_mul(size_of::<Ticker>()))
+        // Portfolio permissions complexity cost.
+            .saturating_add(self.portfolio.complexity().saturating_mul(size_of::<PortfolioId>()))
     }
 }
 
@@ -292,6 +318,11 @@ where
     /// Checks if the given key has permission to access all given portfolios.
     pub fn has_portfolio_permission(&self, it: impl IntoIterator<Item = PortfolioId>) -> bool {
         self.permissions.portfolio.ge(&SubsetRestriction::elems(it))
+    }
+
+    /// Returns the complexity of the permissions.
+    pub fn complexity(&self) -> usize {
+        self.permissions.complexity()
     }
 }
 

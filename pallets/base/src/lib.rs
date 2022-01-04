@@ -71,6 +71,17 @@ pub fn ensure_string_limited<T: Config>(s: &[u8]) -> DispatchResult {
     ensure_length_ok::<T>(s.len())
 }
 
+/// Ensure that the `len` provided is within the custom length limit.
+pub fn ensure_custom_length_ok<T: Config>(len: usize, limit: usize) -> DispatchResult {
+    ensure!(len <= limit, Error::<T>::TooLong);
+    Ok(())
+}
+
+/// Ensure that `s.len()` is within the custom length limit.
+pub fn ensure_custom_string_limited<T: Config>(s: &[u8], limit: usize) -> DispatchResult {
+    ensure_custom_length_ok::<T>(s.len(), limit)
+}
+
 /// Ensure that given `Some(s)`, `s.len()` is within the generic length limit.
 pub fn ensure_opt_string_limited<T: Config>(s: Option<&[u8]>) -> DispatchResult {
     match s {
