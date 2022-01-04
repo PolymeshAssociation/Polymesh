@@ -104,7 +104,7 @@ use frame_support::{
     StorageDoubleMap,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
-use pallet_base::{ensure_length_ok, ensure_string_limited};
+use pallet_base::{ensure_custom_length_ok, ensure_custom_string_limited};
 pub use polymesh_common_utilities::traits::identity::WeightInfo;
 use polymesh_common_utilities::{
     constants::did::{SECURITY_TOKEN, USER},
@@ -140,6 +140,13 @@ use sp_runtime::{
     AnySignature,
 };
 use sp_std::{convert::TryFrom, iter, mem::replace, prelude::*, vec};
+
+const MAX_KEYS: usize = 100;
+const MAX_ASSETS: usize = 20;
+const MAX_PORTFOLIOS: usize = 20;
+const MAX_PALLETS: usize = 20;
+const MAX_EXTRINSICS: usize = 10;
+const MAX_NAME_LEN: usize = 50;
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 type CallPermissions<T> = pallet_permissions::Module<T>;
@@ -569,7 +576,7 @@ decl_module! {
             let mut record = <DidRecords<T>>::get(did);
 
             // Ensure we won't have too many keys.
-            ensure_length_ok::<T>(record.secondary_keys.len().saturating_add(additional_keys.len()))?;
+            ensure_custom_length_ok::<T>(record.secondary_keys.len().saturating_add(additional_keys.len()), MAX_KEYS)?;
 
             // 1. Verify signatures.
             for si_with_auth in additional_keys.iter() {
@@ -801,7 +808,7 @@ impl<T: Config> Module<T> {
             Self::ensure_id_record_exists(target_did)?;
 
             // Link the secondary key.
-            Self::ensure_key_did_unlinked(&key)?;
+            Self::ensure_secondary_key_can_be_added(&target_did, &key)?;
             // Check that the new Identity has a valid CDD claim.
             ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
             // Charge the protocol fee after all checks.
@@ -814,6 +821,17 @@ impl<T: Config> Module<T> {
             Self::unsafe_join_identity(target_did, permissions, key);
             Ok(())
         })
+    }
+
+    pub fn ensure_secondary_key_can_be_added(
+        did: &IdentityId,
+        key: &T::AccountId,
+    ) -> DispatchResult {
+        let record = <DidRecords<T>>::get(did);
+        ensure_custom_length_ok::<T>(record.secondary_keys.len().saturating_add(1), MAX_KEYS)?;
+
+        Self::ensure_key_did_unlinked(&key)?;
+        Ok(())
     }
 
     /// Ensure `key` isn't linked to a DID.
@@ -1365,21 +1383,21 @@ impl<T: Config> Module<T> {
 
     /// Ensures length limits are enforced in `perms`.
     fn ensure_perms_length_limited(perms: &Permissions) -> DispatchResult {
-        ensure_length_ok::<T>(perms.asset.complexity())?;
-        ensure_length_ok::<T>(perms.portfolio.complexity())?;
+        ensure_custom_length_ok::<T>(perms.asset.complexity(), MAX_ASSETS)?;
+        ensure_custom_length_ok::<T>(perms.portfolio.complexity(), MAX_PORTFOLIOS)?;
         Self::ensure_extrinsic_perms_length_limited(&perms.extrinsic)
     }
 
     /// Ensures length limits are enforced in `perms`.
     pub fn ensure_extrinsic_perms_length_limited(perms: &ExtrinsicPermissions) -> DispatchResult {
         if let Some(set) = perms.inner() {
-            ensure_length_ok::<T>(set.len())?;
+            ensure_custom_length_ok::<T>(set.len(), MAX_PALLETS)?;
             for elem in set {
-                ensure_string_limited::<T>(&elem.pallet_name)?;
+                ensure_custom_string_limited::<T>(&elem.pallet_name, MAX_NAME_LEN)?;
                 if let Some(set) = elem.dispatchable_names.inner() {
-                    ensure_length_ok::<T>(set.len())?;
+                    ensure_custom_length_ok::<T>(set.len(), MAX_EXTRINSICS)?;
                     for elem in set {
-                        ensure_string_limited::<T>(elem)?;
+                        ensure_custom_string_limited::<T>(elem, MAX_NAME_LEN)?;
                     }
                 }
             }
