@@ -1,5 +1,5 @@
 {
-  "name": "polymesh-cli",
+  "name": "@polymathnetwork/polymesh-cli",
   "version": "1.0.0",
   "description": "CLI for Polymesh",
   "main": "/dist/polymesh_cli.js",
