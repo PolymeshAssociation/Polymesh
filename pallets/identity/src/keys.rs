@@ -439,10 +439,7 @@ impl<T: Config> Module<T> {
                 .ok_or(Error::<T>::InvalidAccountKey)?;
 
             // 1.1. Constraint 1-to-1 account to DID.
-            ensure!(
-                Self::can_link_account_key_to_did(account_id),
-                Error::<T>::AlreadyLinked
-            );
+            Self::ensure_key_did_unlinked(account_id)?;
 
             // 1.2. Verify the signature.
             let signature = AnySignature::from(Signature::from_h512(si_with_auth.auth_signature));
@@ -505,6 +502,8 @@ impl<T: Config> Module<T> {
         })
     }
 
+    /// Ensure that the identity can add a new secondary key
+    /// without going over it's complexity budget.
     pub fn ensure_secondary_key_can_be_added(
         did: &IdentityId,
         key: &T::AccountId,
@@ -517,6 +516,11 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    /// Ensure that multiple secondary keys with `cost` complexity can be
+    /// added to the identitie's `DidRecords` without going over the complexity budget.
+    ///
+    /// `keys` - The number of secondary keys to add.
+    /// `cost` - The complexity cost for the new keys permissions.
     pub fn ensure_secondary_keys_limited(
         record: &DidRecord<T::AccountId>,
         keys: usize,
