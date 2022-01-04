@@ -70,7 +70,7 @@ where
         self
     }
 
-    /// Returns the complexity of the permissions.
+    /// Returns the complexity of the identity's permissions.
     pub fn complexity(&self) -> usize {
         self.secondary_keys
             .iter()

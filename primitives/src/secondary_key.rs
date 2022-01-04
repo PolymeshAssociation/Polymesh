@@ -71,13 +71,10 @@ impl PalletPermissions {
 
     /// Returns the complexity of the pallet permissions.
     pub fn complexity(&self) -> usize {
-        let mut cost = self.pallet_name.len();
-        if let Some(set) = self.dispatchable_names.inner() {
-            for name in set {
-                cost = cost.saturating_add(name.len());
-            }
-        }
-        cost
+        self.dispatchable_names
+            .fold(self.pallet_name.len(), |cost, dispatch_name| {
+                cost.saturating_add(dispatch_name.len())
+            })
     }
 }
 
@@ -158,9 +155,8 @@ impl Permissions {
     /// Returns the complexity of the permissions.
     pub fn complexity(&self) -> usize {
         // Calculate the pallet/extrinsic permissions complexity cost.
-        let cost = self.extrinsic.inner().map_or(0usize, |set| {
-            set.iter()
-                .fold(0, |cost, pallet| cost.saturating_add(pallet.complexity()))
+        let cost = self.extrinsic.fold(0usize, |cost, pallet| {
+            cost.saturating_add(pallet.complexity())
         });
 
         // Asset permissions complexity cost.
@@ -324,7 +320,7 @@ where
         self.permissions.portfolio.ge(&SubsetRestriction::elems(it))
     }
 
-    /// Returns the complexity of the permissions.
+    /// Returns the complexity of the secondary key's permissions.
     pub fn complexity(&self) -> usize {
         self.permissions.complexity()
     }
