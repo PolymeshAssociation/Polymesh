@@ -1647,22 +1647,6 @@ decl_module! {
                     T::BondingDuration::get(),
                 )
             );
-
-            // see the documentation of `Assignment::try_normalize`. Now we can ensure that this
-            // will always return `Ok`.
-            // 1. Maximum sum of Vec<ChainAccuracy> must fit into `UpperOf<ChainAccuracy>`.
-            assert!(
-                T::MAX_NOMINATIONS
-                    .checked_mul(<ChainAccuracy>::one().deconstruct().try_into().unwrap())
-                    .is_some()
-            );
-
-            // 2. Maximum sum of Vec<OffchainAccuracy> must fit into `UpperOf<OffchainAccuracy>`.
-            assert!(
-                T::MAX_NOMINATIONS
-                    .checked_mul(<OffchainAccuracy>::one().deconstruct().try_into().unwrap())
-                    .is_some()
-            );
         }
 
         /// Take the origin account as a stash and lock up `value` of its balance. `controller` will

@@ -353,7 +353,7 @@ impl OnUnbalanced<NegativeImbalance<TestStorage>> for DealWithFees {
     fn on_nonzero_unbalanced(amount: NegativeImbalance<TestStorage>) {
         let target = account_from(5000);
         let positive_imbalance = Balances::deposit_creating(&target, amount.peek());
-        let _ = amount.offset(positive_imbalance).map_err(|_| 4); // random value mapped for error
+        let _ = amount.offset(positive_imbalance).same().map_err(|_| 4); // random value mapped for error
     }
 }
 

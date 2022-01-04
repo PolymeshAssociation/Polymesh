@@ -108,6 +108,7 @@ use pallet_staking::*;
 use sp_npos_elections::ElectionScore;
 use sp_runtime::{
     assert_eq_error_rate,
+    offchain::storage::MutateStorageError::ValueFunctionFailed,
     traits::BadOrigin,
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
     Perbill,
@@ -2302,7 +2303,9 @@ fn reward_from_authorship_event_handler_works() {
     ExtBuilder::default().build_and_execute(|| {
         use pallet_authorship::EventHandler;
 
+        dbg!();
         assert_eq!(<pallet_authorship::Pallet<Test>>::author(), 11);
+        dbg!();
 
         <Module<Test>>::note_author(11);
         <Module<Test>>::note_uncle(21, 1);
@@ -3296,7 +3299,7 @@ mod offchain_phragmen {
     use parking_lot::RwLock;
     use sp_core::offchain::{
         testing::{PoolState, TestOffchainExt, TestTransactionPoolExt},
-        OffchainExt, TransactionPoolExt,
+        OffchainDbExt, TransactionPoolExt,
     };
     use sp_io::TestExternalities;
     use sp_npos_elections::StakedAssignment;
@@ -3338,7 +3341,7 @@ mod offchain_phragmen {
         seed[0..4].copy_from_slice(&iterations.to_le_bytes());
         offchain_state.write().seed = seed;
 
-        ext.register_extension(OffchainExt::new(offchain));
+        ext.register_extension(OffchainDbExt::new(offchain));
         ext.register_extension(TransactionPoolExt::new(pool));
 
         pool_state
@@ -4358,21 +4361,21 @@ mod offchain_phragmen {
             // re-execute after the next. not allowed.
             assert_eq!(
                 offchain_election::set_check_offchain_execution_status::<Test>(13),
-                Err("recently executed."),
+                Err(ValueFunctionFailed("recently executed.")),
             );
 
             // a fork like situation -- re-execute 10, 11, 12. But it won't go through.
             assert_eq!(
                 offchain_election::set_check_offchain_execution_status::<Test>(10),
-                Err("fork."),
+                Err(ValueFunctionFailed("fork.")),
             );
             assert_eq!(
                 offchain_election::set_check_offchain_execution_status::<Test>(11),
-                Err("fork."),
+                Err(ValueFunctionFailed("fork.")),
             );
             assert_eq!(
                 offchain_election::set_check_offchain_execution_status::<Test>(12),
-                Err("recently executed."),
+                Err(ValueFunctionFailed("recently executed.")),
             );
         })
     }

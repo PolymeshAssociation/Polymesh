@@ -12,6 +12,7 @@ use pallet_balances::Call as BalancesCall;
 use pallet_transaction_payment::{ChargeTransactionPayment, Multiplier, RuntimeDispatchInfo};
 use polymesh_primitives::AccountId;
 use polymesh_primitives::TransactionError;
+use sp_arithmetic::traits::One;
 use sp_runtime::{
     testing::TestXt,
     traits::SignedExtension,
