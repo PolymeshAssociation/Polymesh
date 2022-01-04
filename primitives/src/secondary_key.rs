@@ -32,8 +32,8 @@ use sp_std::{
 // minimum complexity only penalizes short names.
 const MIN_NAME_COMPLEXITY: usize = 10;
 fn name_complexity(name: &[u8]) -> usize {
-  // If the name length is lower then the minimum, then return the minimum.
-  usize::max(name.len(), MIN_NAME_COMPLEXITY)
+    // If the name length is lower then the minimum, then return the minimum.
+    usize::max(name.len(), MIN_NAME_COMPLEXITY)
 }
 
 /// Asset permissions.
