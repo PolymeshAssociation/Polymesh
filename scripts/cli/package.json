@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "CLI for Polymesh",
   "main": "/dist/polymesh_cli.js",
+  "private": true,
   "bin": {
     "polymesh-cli": "./dist/polymesh_cli.js"
   },
