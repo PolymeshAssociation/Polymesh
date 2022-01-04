@@ -44,11 +44,11 @@ use sp_runtime::traits::{AccountIdConversion as _, IdentifyAccount, Verify, Zero
 use sp_runtime::{AnySignature, DispatchError};
 use sp_std::{vec, vec::Vec};
 
-const MAX_KEYS: usize = 100;
-const MAX_ASSETS: usize = 20;
-const MAX_PORTFOLIOS: usize = 20;
-const MAX_PALLETS: usize = 20;
-const MAX_EXTRINSICS: usize = 10;
+const MAX_KEYS: usize = 200;
+const MAX_ASSETS: usize = 200;
+const MAX_PORTFOLIOS: usize = 200;
+const MAX_PALLETS: usize = 50;
+const MAX_EXTRINSICS: usize = 40;
 const MAX_NAME_LEN: usize = 50;
 
 // Limit the maximum memory/cpu cost of an identities `DidRecord`.

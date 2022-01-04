@@ -24,6 +24,18 @@ use sp_std::{
     mem::size_of,
 };
 
+// We need to set a minimum complexity for pallet/dispatchable names
+// to limit the total number of memory allocations.  Since each name
+// requires an allocation.
+//
+// The average length of pallet/dispatchable names is 16.  So this
+// minimum complexity only penalizes short names.
+const MIN_NAME_COMPLEXITY: usize = 10;
+fn name_complexity(name: &[u8]) -> usize {
+  // If the name length is lower then the minimum, then return the minimum.
+  usize::max(name.len(), MIN_NAME_COMPLEXITY)
+}
+
 /// Asset permissions.
 pub type AssetPermissions = SubsetRestriction<Ticker>;
 
@@ -72,8 +84,8 @@ impl PalletPermissions {
     /// Returns the complexity of the pallet permissions.
     pub fn complexity(&self) -> usize {
         self.dispatchable_names
-            .fold(self.pallet_name.len(), |cost, dispatch_name| {
-                cost.saturating_add(dispatch_name.len())
+            .fold(name_complexity(&self.pallet_name), |cost, dispatch_name| {
+                cost.saturating_add(name_complexity(&dispatch_name))
             })
     }
 }
