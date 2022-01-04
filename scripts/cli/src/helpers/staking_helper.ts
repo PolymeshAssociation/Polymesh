@@ -23,13 +23,17 @@ export async function addNominator(controller: KeyringPair[], stash: KeyringPair
         const tx = api.tx.staking.bond(controller[i].address, bond_amount, "Controller");
 		await sendTx(stash[i], tx);
     }
-    //await blockTillPoolEmpty();
-    // fund controller keys
-    await distributePolyBatch(from, controller, transfer_amount.toNumber());
-    //await blockTillPoolEmpty();
+  // fund controller keys
+  await distributePolyBatch(from, controller, transfer_amount.toNumber());
 
     for (let i = 0; i < controller.length; i++) {
         const tx = api.tx.staking.nominate(operators);
 		await sendTx(controller[i], tx);
     }
+}
+
+export async function forceNewEra(signer: KeyringPair) {
+  const api = await ApiSingleton.getInstance();
+  const transaction = api.tx.sudo.sudo(api.tx.staking.forceNewEra());
+  await sendTx(signer, transaction);
 }

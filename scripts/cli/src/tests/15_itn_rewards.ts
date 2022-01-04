@@ -6,28 +6,23 @@ import {
   padTicker,
   sendTx,
   ApiSingleton,
-  waitNextBlock,
   waitNextEra,
 } from "../util/init";
-import { createIdentities } from "../helpers/identity_helper";
+import { createIdentities, addClaimsToDids } from "../helpers/identity_helper";
 import { issueTokenToDid } from "../helpers/asset_helper";
 import { distributePolyBatch } from "../helpers/poly_helper";
-import { ExtrinsicPermissions } from "../types";
 import PrettyError from "pretty-error";
-import {
-  addInstruction,
-  affirmInstruction,
-  createVenue,
-} from "../helpers/settlement_helper";
 import { addComplianceRequirement } from "../helpers/compliance_manager_helper";
-import { send } from "process";
+import { createTable } from "../util/sqlite3";
+import { forceNewEra } from "../helpers/staking_helper";
 
 async function main(): Promise<void> {
+  createTable();
   const api = await ApiSingleton.getInstance();
   const testEntities = await initMain();
   const alice = testEntities[0];
   const bob = testEntities[4];
-  const aliceDid = await keyToIdentityIds(alice.publicKey);
+  await keyToIdentityIds(alice.publicKey);
   const bobDid = await keyToIdentityIds(bob.publicKey);
   const dave = await generateEntityFromUri("15_dave");
   const dave2 = await generateEntityFromUri("15_dave2");
@@ -44,7 +39,7 @@ async function main(): Promise<void> {
   await sendTx(dave, api.tx.staking.nominate([bob.publicKey]));
   console.log("Nominated validators");
 
-  await waitNextEra();
+  await forceNewEra(alice);
   console.log("New era, rewards paid out");
 
   // SecondaryKey
@@ -66,7 +61,7 @@ async function main(): Promise<void> {
 
   console.log("ItnRewards: TrustedDefaultClaimIssuerAdded");
   const ticker = padTicker("15TICKER");
-  issueTokenToDid(dave, ticker, 100000, null);
+  await issueTokenToDid(dave, ticker, 100000, null);
   await addComplianceRequirement(dave, ticker);
   await sendTx(
     dave,
@@ -94,6 +89,14 @@ async function main(): Promise<void> {
   console.log("ItnRewards: AddAssetToAPortfolio");
   const portfolioId = await api.query.portfolio.nameToNumber(daveDid, "foobar");
 
+  // To Fix: In ITN Rewards PR
+  // AddAPortfolioManager is not possible because of old permission format
+  // console.log("ItnRewards: StopStakingAPortion");
+  // await sendTx(dave, api.tx.staking.unbond(100));
+
+  // console.log("ItnRewards: StartStakingANewOperator");
+  // await sendTx(dave, api.tx.staking.nominate([alice.publicKey]));
+
   await sendTx(
     dave,
     api.tx.portfolio.movePortfolioFunds(
@@ -103,13 +106,7 @@ async function main(): Promise<void> {
     )
   );
 
-  // AddAPortfolioManager is not possible because of old permission format
-
-  console.log("ItnRewards: StopStakingAPortion");
-  await sendTx(dave, api.tx.staking.unbond(100));
-
-  console.log("ItnRewards: StartStakingANewOperator");
-  await sendTx(dave, api.tx.staking.nominate([alice.publicKey]));
+  
 }
 
 main()

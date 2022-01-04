@@ -19,15 +19,16 @@ import type { SubmittableExtrinsic } from "@polkadot/api/types";
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { DispatchError } from "@polkadot/types/interfaces";
 import type { ISubmittableResult } from "@polkadot/types/types";
-import type { Ticker, NonceObject } from "../types";
+import type { Ticker } from "../types";
 import { createIdentities } from "../helpers/identity_helper";
 import { distributePoly } from "../helpers/poly_helper";
 import type { IdentityId } from "../interfaces";
 import { assert } from "chai";
+import { getNonce } from "../util/sqlite3";
 
-let nonces = new Map();
 let block_sizes: Number[] = [];
 let block_times: Number[] = [];
+let genesisEntities: KeyringPair[] = [];
 let synced_block = 0;
 let synced_block_ts = 0;
 
@@ -69,6 +70,11 @@ export class ApiSingleton {
   }
 }
 
+export async function disconnect() {
+  const api = await ApiSingleton.getInstance();
+  await api.disconnect();
+}
+
 export async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -101,13 +107,16 @@ export async function waitNextBlock() {
 
 // Initialization Main is used to generate all entities e.g (Alice, Bob, Dave)
 export async function initMain(): Promise<KeyringPair[]> {
-  return [
-    await generateEntity("Alice"),
-    await generateEntity("relay_1"),
-    await generateEntity("polymath_1"),
-    await generateEntity("polymath_2"),
-    await generateEntity("Bob"),
-  ];
+  if (genesisEntities.length === 0) {
+    genesisEntities = [
+      await generateEntity("Alice"),
+      await generateEntity("relay_1"),
+      await generateEntity("polymath_1"),
+      await generateEntity("polymath_2"),
+      await generateEntity("Bob"),
+    ];
+  }
+  return genesisEntities;
 }
 
 export async function generateEntities(accounts: string[]) {
@@ -120,23 +129,16 @@ export async function generateEntities(accounts: string[]) {
 }
 
 export async function generateEntity(name: string): Promise<KeyringPair> {
-  const api = await ApiSingleton.getInstance();
   await cryptoWaitReady();
-  let entity = new Keyring({ type: "sr25519" }).addFromUri(`//${name}`, {
+  return new Keyring({ type: "sr25519" }).addFromUri(`//${name}`, {
     name: `${name}`,
   });
-  let entityRawNonce = (await api.query.system.account(entity.address)).nonce;
-  let entity_nonce = new BN(entityRawNonce.toString());
-  nonces.set(entity.address, entity_nonce);
-
-  return entity;
 }
 
 export async function generateKeys(
   numberOfKeys: Number,
   keyPrepend: String
 ): Promise<KeyringPair[]> {
-  const api = await ApiSingleton.getInstance();
   let keys = [];
   await cryptoWaitReady();
   for (let i = 0; i < numberOfKeys; i++) {
@@ -148,22 +150,13 @@ export async function generateKeys(
         }
       )
     );
-    let accountRawNonce = (await api.query.system.account(keys[i].address))
-      .nonce;
-    let account_nonce = new BN(accountRawNonce.toString());
-    nonces.set(keys[i].address, account_nonce);
   }
   return keys;
 }
 
 export async function generateEntityFromUri(uri: string): Promise<KeyringPair> {
-  const api = await ApiSingleton.getInstance();
   await cryptoWaitReady();
-  let entity = new Keyring({ type: "sr25519" }).addFromUri(uri);
-  let accountRawNonce = (await api.query.system.account(entity.address)).nonce;
-  let account_nonce = new BN(accountRawNonce.toString());
-  nonces.set(entity.address, account_nonce);
-  return entity;
+  return new Keyring({ type: "sr25519" }).addFromUri(uri);
 }
 const NULL_12 = "\0".repeat(12);
 export function padTicker(ticker: string) {
@@ -241,27 +234,31 @@ export function tickerToDid(ticker: Ticker) {
 export async function generateStashKeys(
   accounts: string[]
 ): Promise<KeyringPair[]> {
-  const api = await ApiSingleton.getInstance();
   let keys = [];
   await cryptoWaitReady();
-  for (let i = 0; i < accounts.length; i++) {
+  for (let account of accounts) {
     keys.push(
-      new Keyring({ type: "sr25519" }).addFromUri(`//${accounts[i]}//stash`, {
-        name: `${accounts[i] + "_stash"}`,
+      new Keyring({ type: "sr25519" }).addFromUri(`//${account}//stash`, {
+        name: `${account + "_stash"}`,
       })
     );
-    let accountRawNonce = (await api.query.system.account(keys[i].address))
-      .nonce;
-    let account_nonce = new BN(accountRawNonce.toString());
-    nonces.set(keys[i].address, account_nonce);
   }
   return keys;
+}
+
+export async function sendTx(
+  signer: KeyringPair,
+  tx: SubmittableExtrinsic<"promise">
+) {
+  const nonceObj = { nonce: await getNonce(signer) };
+  const result = await sendTransaction(signer, tx, nonceObj);
+  return result;
 }
 
 export function sendTransaction(
   signer: KeyringPair,
   transaction: SubmittableExtrinsic<"promise">,
-  nonceObj: NonceObject
+  nonceObj: any
 ) {
   return new Promise<ISubmittableResult>((resolve, reject) => {
     const gettingUnsub = transaction.signAndSend(
@@ -334,16 +331,6 @@ export async function signatory(signer: KeyringPair, entity: KeyringPair) {
     Identity: entityDid,
   };
   return signatoryObj;
-}
-
-export async function sendTx(
-  signer: KeyringPair,
-  tx: SubmittableExtrinsic<"promise">
-) {
-  let nonceObj = { nonce: nonces.get(signer.address) };
-  nonces.set(signer.address, nonces.get(signer.address).addn(1));
-  const result = await sendTransaction(signer, tx, nonceObj);
-  return result;
 }
 
 export function getDefaultPortfolio(did: IdentityId) {

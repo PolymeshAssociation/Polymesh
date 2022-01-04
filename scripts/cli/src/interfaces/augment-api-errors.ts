@@ -31,10 +31,6 @@ declare module '@polkadot/api/types/errors' {
        **/
       BalanceOverflow: AugmentedError<ApiType>;
       /**
-       * An overflow while generating the next `CustomAssetTypeId`.
-       **/
-      CustomAssetTypeIdOverflow: AugmentedError<ApiType>;
-      /**
        * When extension is already added.
        **/
       ExtensionAlreadyPresent: AugmentedError<ApiType>;
@@ -55,6 +51,10 @@ declare module '@polkadot/api/types/errors' {
        **/
       InvalidAssetIdentifier: AugmentedError<ApiType>;
       /**
+       * Invalid `CustomAssetTypeId`.
+       **/
+      InvalidCustomAssetTypeId: AugmentedError<ApiType>;
+      /**
        * An invalid Ethereum `EcdsaSignature`.
        **/
       InvalidEthereumSignature: AugmentedError<ApiType>;
@@ -66,6 +66,10 @@ declare module '@polkadot/api/types/errors' {
        * Transfer validation check failed.
        **/
       InvalidTransfer: AugmentedError<ApiType>;
+      /**
+       * Investor Uniqueness claims are not allowed for this asset.
+       **/
+      InvestorUniquenessClaimNotAllowed: AugmentedError<ApiType>;
       /**
        * Number of Transfer Manager extensions attached to an asset is equal to MaxNumberOfTMExtensionForAsset.
        **/
@@ -87,7 +91,7 @@ declare module '@polkadot/api/types/errors' {
        **/
       NoSuchDoc: AugmentedError<ApiType>;
       /**
-       * Not an owner of the token.
+       * Not an owner of the token on Ethereum.
        **/
       NotAnOwner: AugmentedError<ApiType>;
       /**
@@ -193,6 +197,15 @@ declare module '@polkadot/api/types/errors' {
     };
     base: {
       /**
+       * The sequence counter for something overflowed.
+       * 
+       * When this happens depends on the capacity of the identifier type.
+       * For example, we might have `pub struct PipId(u32);`, with `u32::MAX` capacity.
+       * In practice, these errors will never happen but no code path should result in a panic,
+       * so these corner cases need to be covered with an error variant.
+       **/
+      CounterOverflow: AugmentedError<ApiType>;
+      /**
        * Exceeded a generic length limit.
        * The limit could be for any sort of lists of things, including a string.
        **/
@@ -282,12 +295,12 @@ declare module '@polkadot/api/types/errors' {
        **/
       CannotClaimBeforeStart: AugmentedError<ApiType>;
       /**
-       * A corporate ballot was made for a non-benefit CA.
+       * A capital distribution was made for a non-benefit CA.
        **/
       CANotBenefit: AugmentedError<ApiType>;
       /**
        * Currency that is distributed is the same as the CA's ticker.
-       * CAA is attempting a form of stock split, which is not what the extrinsic is for.
+       * Calling agent is attempting a form of stock split, which is not what the extrinsic is for.
        **/
       DistributingAsset: AugmentedError<ApiType>;
       /**
@@ -360,10 +373,6 @@ declare module '@polkadot/api/types/errors' {
     };
     checkpoint: {
       /**
-       * An overflow while calculating the checkpoint ID.
-       **/
-      CheckpointOverflow: AugmentedError<ApiType>;
-      /**
        * Failed to compute the next checkpoint.
        * The schedule does not have any upcoming checkpoints.
        **/
@@ -380,10 +389,6 @@ declare module '@polkadot/api/types/errors' {
        * A checkpoint schedule is not removable as `ref_count(schedule_id) > 0`.
        **/
       ScheduleNotRemovable: AugmentedError<ApiType>;
-      /**
-       * An overflow while calculating the checkpoint schedule ID.
-       **/
-      ScheduleOverflow: AugmentedError<ApiType>;
       /**
        * The set of schedules taken together are too complex.
        * For example, they are too many, or they occurs too frequently.
@@ -480,11 +485,6 @@ declare module '@polkadot/api/types/errors' {
        * The chain refused to make a choice, and hence there was an error.
        **/
       DuplicateDidTax: AugmentedError<ApiType>;
-      /**
-       * There have been too many CAs for this ticker and the ID would overflow.
-       * This won't occur in practice.
-       **/
-      LocalCAIdOverflow: AugmentedError<ApiType>;
       /**
        * The CA did not have a record date.
        **/
@@ -588,11 +588,6 @@ declare module '@polkadot/api/types/errors' {
        **/
       AlreadyAnAgent: AugmentedError<ApiType>;
       /**
-       * There have been too many AGs for this ticker and the ID would overflow.
-       * This won't occur in practice.
-       **/
-      LocalAGIdOverflow: AugmentedError<ApiType>;
-      /**
        * An AG with the given `AGId` did not exist for the `Ticker`.
        **/
       NoSuchAG: AugmentedError<ApiType>;
@@ -600,11 +595,6 @@ declare module '@polkadot/api/types/errors' {
        * The provided `agent` is not an agent for the `Ticker`.
        **/
       NotAnAgent: AugmentedError<ApiType>;
-      /**
-       * The counter for full agents will overflow.
-       * This should never happen in practice, but is theoretically possible.
-       **/
-      NumFullAgentsOverflow: AugmentedError<ApiType>;
       /**
        * This agent is the last full one, and it's being removed,
        * making the asset orphaned.
@@ -1338,6 +1328,10 @@ declare module '@polkadot/api/types/errors' {
        **/
       BadState: AugmentedError<ApiType>;
       /**
+       * A nomination target was supplied that was blocked or otherwise not a validator.
+       **/
+      BadTarget: AugmentedError<ApiType>;
+      /**
        * When the amount to be bonded is less than `MinimumBond`
        **/
       BondTooSmall: AugmentedError<ApiType>;
@@ -1469,9 +1463,21 @@ declare module '@polkadot/api/types/errors' {
        **/
       SnapshotUnavailable: AugmentedError<ApiType>;
       /**
+       * Validator or nominator stash identity does not exist.
+       **/
+      StashIdentityDoesNotExist: AugmentedError<ApiType>;
+      /**
+       * Nominator stash was not CDDed.
+       **/
+      StashIdentityNotCDDed: AugmentedError<ApiType>;
+      /**
        * Validator stash identity was not permissioned.
        **/
       StashIdentityNotPermissioned: AugmentedError<ApiType>;
+      /**
+       * Too many nomination targets supplied.
+       **/
+      TooManyTargets: AugmentedError<ApiType>;
       /**
        * Generic error
        **/

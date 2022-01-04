@@ -11,9 +11,21 @@ import type {
   AuthorizationData,
   AgentGroup,
   CddId,
+  Claim,
 } from "../types";
 import { sendTx, keyToIdentityIds, ApiSingleton } from "../util/init";
 import type { IdentityId, Moment } from "../interfaces";
+
+export async function addClaim(
+  signer: KeyringPair,
+  claimeeDid: IdentityId,
+  claim: Claim,
+  expiry: any
+) {
+  const api = await ApiSingleton.getInstance();
+  const transaction = api.tx.identity.addClaim(claimeeDid, claim, expiry);
+  await sendTx(signer, transaction);
+}
 
 /**
  * @description Adds a Claim to an Identity
