@@ -20,8 +20,8 @@ use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
     cmp::{Ord, Ordering, PartialOrd},
     collections::btree_set::BTreeSet,
-    mem::size_of,
     iter,
+    mem::size_of,
 };
 
 /// Asset permissions.
@@ -165,8 +165,12 @@ impl Permissions {
 
         // Asset permissions complexity cost.
         cost.saturating_add(self.asset.complexity().saturating_mul(size_of::<Ticker>()))
-        // Portfolio permissions complexity cost.
-            .saturating_add(self.portfolio.complexity().saturating_mul(size_of::<PortfolioId>()))
+            // Portfolio permissions complexity cost.
+            .saturating_add(
+                self.portfolio
+                    .complexity()
+                    .saturating_mul(size_of::<PortfolioId>()),
+            )
     }
 }
 
