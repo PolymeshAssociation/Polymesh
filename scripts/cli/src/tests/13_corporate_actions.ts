@@ -49,16 +49,12 @@ async function main(): Promise<void> {
   await distributePolyBatch(alice, [secondaryKeys[0], bob], transferAmount);
 
   console.log("Distributing tokens");
-  await Promise.all([
-    issueTokenToDid(alice, ticker, 1000000000, null),
-    issueTokenToDid(alice, earnedTicker, 20000000000, null),
-  ]);
+  await issueTokenToDid(alice, ticker, 1000000000, null);
+  await issueTokenToDid(alice, earnedTicker, 20000000000, null);
 
   console.log("adding compliance requirement");
-  await Promise.all([
-    addComplianceRequirement(alice, ticker),
-    addComplianceRequirement(alice, earnedTicker),
-  ]);
+  await addComplianceRequirement(alice, ticker);
+  await addComplianceRequirement(alice, earnedTicker);
 
   console.log("transfering token to Bob");
   let venueCounter = await createVenue(alice);
@@ -71,16 +67,12 @@ async function main(): Promise<void> {
     100000000
   );
   console.log("affirming transfer");
-  await Promise.all([
-    affirmInstruction(alice, intructionCounterAB, aliceDid, 1),
-    affirmInstruction(bob, intructionCounterAB, bobDid, 0),
-  ]);
+  await affirmInstruction(alice, intructionCounterAB, aliceDid, 1);
+  await affirmInstruction(bob, intructionCounterAB, bobDid, 0);
 
   console.log("changing default target and taxes for corporate action");
-  await Promise.all([
-    changeDefaultTargetIdentitites(alice, ticker, [bob], "include"),
-    changeWithholdingTax(alice, ticker, 15),
-  ]);
+  await changeDefaultTargetIdentitites(alice, ticker, [bob], "include");
+  await changeWithholdingTax(alice, ticker, 15);
 
   await initiateCorporateAction(
     alice,

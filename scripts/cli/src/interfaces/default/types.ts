@@ -128,6 +128,8 @@ export interface AuthorizationData extends Enum {
   readonly asBecomeAgent: ITuple<[Ticker, AgentGroup]>;
   readonly isAddRelayerPayingKey: boolean;
   readonly asAddRelayerPayingKey: ITuple<[AccountId, AccountId, Balance]>;
+  readonly isRotatePrimaryKeyToSecondary: boolean;
+  readonly asRotatePrimaryKeyToSecondary: Permissions;
 }
 
 /** @name AuthorizationNonce */
@@ -144,6 +146,7 @@ export interface AuthorizationType extends Enum {
   readonly isPortfolioCustody: boolean;
   readonly isBecomeAgent: boolean;
   readonly isAddRelayerPayingKey: boolean;
+  readonly isRotatePrimaryKeyToSecondary: boolean;
 }
 
 /** @name BallotMeta */
@@ -805,12 +808,15 @@ export interface Fundraiser extends Struct {
   readonly raising_portfolio: PortfolioId;
   readonly raising_asset: Ticker;
   readonly tiers: Vec<FundraiserTier>;
-  readonly venue_id: u64;
+  readonly venue_id: VenueId;
   readonly start: Moment;
   readonly end: Option<Moment>;
   readonly status: FundraiserStatus;
   readonly minimum_investment: Balance;
 }
+
+/** @name FundraiserId */
+export interface FundraiserId extends u64 {}
 
 /** @name FundraiserName */
 export interface FundraiserName extends Text {}
@@ -889,14 +895,17 @@ export interface InactiveMember extends Struct {
 
 /** @name Instruction */
 export interface Instruction extends Struct {
-  readonly instruction_id: u64;
-  readonly venue_id: u64;
+  readonly instruction_id: InstructionId;
+  readonly venue_id: VenueId;
   readonly status: InstructionStatus;
   readonly settlement_type: SettlementType;
   readonly created_at: Option<Moment>;
   readonly trade_date: Option<Moment>;
   readonly value_date: Option<Moment>;
 }
+
+/** @name InstructionId */
+export interface InstructionId extends u64 {}
 
 /** @name InstructionStatus */
 export interface InstructionStatus extends Enum {
@@ -945,6 +954,9 @@ export interface LegacyPermissions extends Struct {
   readonly extrinsic: Option<Vec<LegacyPalletPermissions>>;
   readonly portfolio: Option<Vec<PortfolioId>>;
 }
+
+/** @name LegId */
+export interface LegId extends u64 {}
 
 /** @name LegStatus */
 export interface LegStatus extends Enum {
@@ -1064,8 +1076,8 @@ export interface PipsMetadata extends Struct {
 /** @name PolymeshVotes */
 export interface PolymeshVotes extends Struct {
   readonly index: u32;
-  readonly ayes: Vec<ITuple<[IdentityId, Balance]>>;
-  readonly nays: Vec<ITuple<[IdentityId, Balance]>>;
+  readonly ayes: Vec<IdentityId>;
+  readonly nays: Vec<IdentityId>;
   readonly expiry: MaybeBlock;
 }
 
@@ -1194,7 +1206,7 @@ export interface Receipt extends Struct {
 /** @name ReceiptDetails */
 export interface ReceiptDetails extends Struct {
   readonly receipt_uid: u64;
-  readonly leg_id: u64;
+  readonly leg_id: LegId;
   readonly signer: AccountId;
   readonly signature: OffChainSignature;
   readonly metadata: ReceiptMetadata;
@@ -1468,6 +1480,9 @@ export interface Venue extends Struct {
 
 /** @name VenueDetails */
 export interface VenueDetails extends Text {}
+
+/** @name VenueId */
+export interface VenueId extends u64 {}
 
 /** @name VenueType */
 export interface VenueType extends Enum {
