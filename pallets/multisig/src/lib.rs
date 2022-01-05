@@ -538,10 +538,11 @@ decl_module! {
             Self::ensure_ms(&multisig)?;
             Self::verify_sender_is_creator(did, &multisig)?;
 
-            <Identity<T>>::ensure_secondary_key_can_be_added(&did, &multisig)?;
+            let perms = Permissions::empty();
+            <Identity<T>>::ensure_secondary_key_can_be_added(&did, &multisig, &perms)?;
 
             // Add the multisig as a secondary key with no permissions.
-            <Identity<T>>::unsafe_join_identity(did, Permissions::empty(), multisig);
+            <Identity<T>>::unsafe_join_identity(did, perms, multisig);
         }
 
         /// Adds a multisig as the primary key of the current did if the current DID is the creator
