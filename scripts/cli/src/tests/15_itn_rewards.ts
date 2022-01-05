@@ -15,6 +15,7 @@ import PrettyError from "pretty-error";
 import { addComplianceRequirement } from "../helpers/compliance_manager_helper";
 import { createTable } from "../util/sqlite3";
 import { forceNewEra } from "../helpers/staking_helper";
+import { claimItnReward, setItnRewardStatus } from "../helpers/rewards_helper";
 
 async function main(): Promise<void> {
   createTable();
@@ -89,13 +90,13 @@ async function main(): Promise<void> {
   console.log("ItnRewards: AddAssetToAPortfolio");
   const portfolioId = await api.query.portfolio.nameToNumber(daveDid, "foobar");
 
-  // To Fix: In ITN Rewards PR
+  
   // AddAPortfolioManager is not possible because of old permission format
-  // console.log("ItnRewards: StopStakingAPortion");
-  // await sendTx(dave, api.tx.staking.unbond(100));
+   console.log("ItnRewards: StopStakingAPortion");
+   await sendTx(dave, api.tx.staking.unbond(100));
 
-  // console.log("ItnRewards: StartStakingANewOperator");
-  // await sendTx(dave, api.tx.staking.nominate([alice.publicKey]));
+   console.log("ItnRewards: StartStakingANewOperator");
+   await sendTx(dave, api.tx.staking.nominate([alice.publicKey]));
 
   await sendTx(
     dave,
@@ -106,7 +107,9 @@ async function main(): Promise<void> {
     )
   );
 
-  
+  console.log("ItnRewards: Dave gets Itn Rewards");
+  await claimItnReward(alice, dave.publicKey);
+
 }
 
 main()
