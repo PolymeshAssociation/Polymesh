@@ -173,6 +173,14 @@ impl<A: Ord> SubsetRestriction<A> {
     pub fn is_unrestricted(&self) -> bool {
         matches!(self, Self::Whole)
     }
+
+    /// Folds every element in the inner sets or return `init` for `Whole`.
+    pub fn fold<B>(&self, init: B, f: impl FnMut(B, &A) -> B) -> B {
+        match self.inner() {
+            Some(set) => set.iter().fold(init, f),
+            None => init,
+        }
+    }
 }
 
 impl<A: Clone + Ord> SubsetRestriction<A> {

@@ -22,7 +22,7 @@ use polymesh_primitives::{AuthorizationData, ExtrinsicPermissions, PalletPermiss
 use sp_std::prelude::*;
 
 pub(crate) const SEED: u32 = 0;
-const MAX_PALLETS: u32 = 1000;
+const MAX_PALLETS: u32 = 19;
 
 fn setup<T: Asset + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, Ticker) {
     let owner = user("owner", SEED);

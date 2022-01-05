@@ -290,7 +290,7 @@ fn do_add_permissions_to_multiple_tokens() {
     add_secondary_key(alice.did, bob.acc());
 
     // Create some tokens.
-    let max_tokens = 30;
+    let max_tokens = 20;
     let tokens: Vec<Ticker> = (0..max_tokens)
         .map(|i| {
             let name = format!("TOKEN_{}", i);
