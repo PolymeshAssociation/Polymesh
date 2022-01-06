@@ -7,6 +7,7 @@ import {
   sendTx,
   ApiSingleton,
   waitNextEra,
+  sleep,
 } from "../util/init";
 import { createIdentities, addClaimsToDids } from "../helpers/identity_helper";
 import { issueTokenToDid } from "../helpers/asset_helper";
@@ -90,14 +91,6 @@ async function main(): Promise<void> {
   console.log("Portfolio: AddAssetToAPortfolio");
   const portfolioId = await api.query.portfolio.nameToNumber(daveDid, "foobar");
 
-  
-  // AddAPortfolioManager is not possible because of old permission format
-   console.log("Portfolio: StopStakingAPortion");
-   await sendTx(dave, api.tx.staking.unbond(100));
-
-   console.log("Portfolio: StartStakingANewOperator");
-   await sendTx(dave, api.tx.staking.nominate([alice.publicKey]));
-
   await sendTx(
     dave,
     api.tx.portfolio.movePortfolioFunds(
@@ -106,6 +99,14 @@ async function main(): Promise<void> {
       [{ amount: 10, ticker }]
     )
   );
+
+  sleep(15_000);
+  // AddAPortfolioManager is not possible because of old permission format
+  console.log("Portfolio: StopStakingAPortion");
+  await sendTx(dave, api.tx.staking.unbond(100));
+
+  console.log("Portfolio: StartStakingANewOperator");
+  await sendTx(dave, api.tx.staking.nominate([alice.publicKey]));
 
 }
 
