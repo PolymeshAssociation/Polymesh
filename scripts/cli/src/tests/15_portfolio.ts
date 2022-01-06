@@ -100,7 +100,7 @@ async function main(): Promise<void> {
     )
   );
 
-  sleep(15_000);
+  await forceNewEra(alice);
   // AddAPortfolioManager is not possible because of old permission format
   console.log("Portfolio: StopStakingAPortion");
   await sendTx(dave, api.tx.staking.unbond(100));
