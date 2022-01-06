@@ -21,7 +21,20 @@ use sp_std::{
     cmp::{Ord, Ordering, PartialOrd},
     collections::btree_set::BTreeSet,
     iter,
+    mem::size_of,
 };
+
+// We need to set a minimum complexity for pallet/dispatchable names
+// to limit the total number of memory allocations.  Since each name
+// requires an allocation.
+//
+// The average length of pallet/dispatchable names is 16.  So this
+// minimum complexity only penalizes short names.
+const MIN_NAME_COMPLEXITY: usize = 10;
+fn name_complexity(name: &[u8]) -> usize {
+    // If the name length is lower then the minimum, then return the minimum.
+    usize::max(name.len(), MIN_NAME_COMPLEXITY)
+}
 
 /// Asset permissions.
 pub type AssetPermissions = SubsetRestriction<Ticker>;
@@ -66,6 +79,14 @@ impl PalletPermissions {
             pallet_name,
             dispatchable_names: SubsetRestriction::Whole,
         }
+    }
+
+    /// Returns the complexity of the pallet permissions.
+    pub fn complexity(&self) -> usize {
+        self.dispatchable_names
+            .fold(name_complexity(&self.pallet_name), |cost, dispatch_name| {
+                cost.saturating_add(name_complexity(&dispatch_name))
+            })
     }
 }
 
@@ -141,6 +162,23 @@ impl Permissions {
         self.extrinsic = self.extrinsic.union(&SubsetRestriction::These(
             iter::once(pallet_permissions).collect(),
         ));
+    }
+
+    /// Returns the complexity of the permissions.
+    pub fn complexity(&self) -> usize {
+        // Calculate the pallet/extrinsic permissions complexity cost.
+        let cost = self.extrinsic.fold(0usize, |cost, pallet| {
+            cost.saturating_add(pallet.complexity())
+        });
+
+        // Asset permissions complexity cost.
+        cost.saturating_add(self.asset.complexity().saturating_mul(size_of::<Ticker>()))
+            // Portfolio permissions complexity cost.
+            .saturating_add(
+                self.portfolio
+                    .complexity()
+                    .saturating_mul(size_of::<PortfolioId>()),
+            )
     }
 }
 
@@ -292,6 +330,11 @@ where
     /// Checks if the given key has permission to access all given portfolios.
     pub fn has_portfolio_permission(&self, it: impl IntoIterator<Item = PortfolioId>) -> bool {
         self.permissions.portfolio.ge(&SubsetRestriction::elems(it))
+    }
+
+    /// Returns the complexity of the secondary key's permissions.
+    pub fn complexity(&self) -> usize {
+        self.permissions.complexity()
     }
 }
 

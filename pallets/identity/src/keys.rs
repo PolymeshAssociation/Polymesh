@@ -24,7 +24,7 @@ use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Currency as _, Get as _};
 use frame_support::{debug, ensure, StorageMap as _, StorageValue as _};
 use frame_system::ensure_signed;
-use pallet_base::{ensure_length_ok, ensure_string_limited};
+use pallet_base::{ensure_custom_length_ok, ensure_custom_string_limited};
 use polymesh_common_utilities::constants::did::USER;
 use polymesh_common_utilities::group::GroupTrait;
 use polymesh_common_utilities::identity::{SecondaryKeyWithAuth, TargetIdAuthorization};
@@ -43,6 +43,16 @@ use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{AccountIdConversion as _, IdentifyAccount, Verify, Zero as _};
 use sp_runtime::{AnySignature, DispatchError};
 use sp_std::{vec, vec::Vec};
+
+const MAX_KEYS: usize = 200;
+const MAX_ASSETS: usize = 200;
+const MAX_PORTFOLIOS: usize = 200;
+const MAX_PALLETS: usize = 50;
+const MAX_EXTRINSICS: usize = 40;
+const MAX_NAME_LEN: usize = 50;
+
+// Limit the maximum memory/cpu cost of an identities `DidRecord`.
+const MAX_DIDRECORD_SIZE: usize = 1_000_000;
 
 type System<T> = frame_system::Module<T>;
 
@@ -411,7 +421,10 @@ impl<T: Config> Module<T> {
         let mut record = <DidRecords<T>>::get(did);
 
         // Ensure we won't have too many keys.
-        ensure_length_ok::<T>(record.secondary_keys.len().saturating_add(keys.len()))?;
+        let cost = keys.iter().fold(0usize, |cost, auth| {
+            cost.saturating_add(auth.secondary_key.permissions.complexity())
+        });
+        Self::ensure_secondary_keys_limited(&record, keys.len(), cost)?;
 
         // 1. Verify signatures.
         for si_with_auth in keys.iter() {
@@ -426,10 +439,7 @@ impl<T: Config> Module<T> {
                 .ok_or(Error::<T>::InvalidAccountKey)?;
 
             // 1.1. Constraint 1-to-1 account to DID.
-            ensure!(
-                Self::can_link_account_key_to_did(account_id),
-                Error::<T>::AlreadyLinked
-            );
+            Self::ensure_key_did_unlinked(account_id)?;
 
             // 1.2. Verify the signature.
             let signature = AnySignature::from(Signature::from_h512(si_with_auth.auth_signature));
@@ -475,8 +485,9 @@ impl<T: Config> Module<T> {
             // Not really needed unless we allow identities to be deleted.
             Self::ensure_id_record_exists(target_did)?;
 
-            // Link the secondary key.
-            Self::ensure_secondary_key_can_be_added(&target_did, &key)?;
+            // Check that the secondary key can be linked.
+            Self::ensure_secondary_key_can_be_added(&target_did, &key, &permissions)?;
+
             // Check that the new Identity has a valid CDD claim.
             ensure!(Self::has_valid_cdd(target_did), Error::<T>::TargetHasNoCdd);
             // Charge the protocol fee after all checks.
@@ -491,14 +502,32 @@ impl<T: Config> Module<T> {
         })
     }
 
+    /// Ensure that the identity can add a new secondary key
+    /// without going over it's complexity budget.
     pub fn ensure_secondary_key_can_be_added(
         did: &IdentityId,
         key: &T::AccountId,
+        perms: &Permissions,
     ) -> DispatchResult {
         let record = <DidRecords<T>>::get(did);
-        ensure_length_ok::<T>(record.secondary_keys.len().saturating_add(1))?;
+        Self::ensure_secondary_keys_limited(&record, 1, perms.complexity())?;
 
         Self::ensure_key_did_unlinked(&key)?;
+        Ok(())
+    }
+
+    /// Ensure that multiple secondary keys with `cost` complexity can be
+    /// added to the identitie's `DidRecords` without going over the complexity budget.
+    ///
+    /// `keys` - The number of secondary keys to add.
+    /// `cost` - The complexity cost for the new keys permissions.
+    pub fn ensure_secondary_keys_limited(
+        record: &DidRecord<T::AccountId>,
+        keys: usize,
+        cost: usize,
+    ) -> DispatchResult {
+        ensure_custom_length_ok::<T>(record.secondary_keys.len().saturating_add(keys), MAX_KEYS)?;
+        ensure_custom_length_ok::<T>(record.complexity().saturating_add(cost), MAX_DIDRECORD_SIZE)?;
         Ok(())
     }
 
@@ -734,21 +763,21 @@ impl<T: Config> Module<T> {
 
     /// Ensures length limits are enforced in `perms`.
     crate fn ensure_perms_length_limited(perms: &Permissions) -> DispatchResult {
-        ensure_length_ok::<T>(perms.asset.complexity())?;
-        ensure_length_ok::<T>(perms.portfolio.complexity())?;
+        ensure_custom_length_ok::<T>(perms.asset.complexity(), MAX_ASSETS)?;
+        ensure_custom_length_ok::<T>(perms.portfolio.complexity(), MAX_PORTFOLIOS)?;
         Self::ensure_extrinsic_perms_length_limited(&perms.extrinsic)
     }
 
     /// Ensures length limits are enforced in `perms`.
     pub fn ensure_extrinsic_perms_length_limited(perms: &ExtrinsicPermissions) -> DispatchResult {
         if let Some(set) = perms.inner() {
-            ensure_length_ok::<T>(set.len())?;
+            ensure_custom_length_ok::<T>(set.len(), MAX_PALLETS)?;
             for elem in set {
-                ensure_string_limited::<T>(&elem.pallet_name)?;
+                ensure_custom_string_limited::<T>(&elem.pallet_name, MAX_NAME_LEN)?;
                 if let Some(set) = elem.dispatchable_names.inner() {
-                    ensure_length_ok::<T>(set.len())?;
+                    ensure_custom_length_ok::<T>(set.len(), MAX_EXTRINSICS)?;
                     for elem in set {
-                        ensure_string_limited::<T>(elem)?;
+                        ensure_custom_string_limited::<T>(elem, MAX_NAME_LEN)?;
                     }
                 }
             }
