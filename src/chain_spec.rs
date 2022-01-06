@@ -734,7 +734,6 @@ pub mod general {
             ),
             BridgeLockId::generate_bridge_locks(3, 20, DEV_KEYS, KEY_LOCK_HASH),
             vec![
-                seeded_acc_id("Charlie"),
                 seeded_acc_id("Dave"),
                 seeded_acc_id("Eve"),
             ],
