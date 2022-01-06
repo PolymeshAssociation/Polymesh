@@ -722,6 +722,7 @@ pub mod general {
             vec![
                 get_authority_keys_from_seed("Alice", false),
                 get_authority_keys_from_seed("Bob", false),
+                get_authority_keys_from_seed("Charlie", false),
             ],
             seeded_acc_id("Alice"),
             true,
@@ -912,6 +913,7 @@ pub mod testnet {
             vec![
                 get_authority_keys_from_seed("Alice", false),
                 get_authority_keys_from_seed("Bob", false),
+                get_authority_keys_from_seed("Charlie", false),
             ],
             seeded_acc_id("Eve"),
             true,
@@ -1112,6 +1114,7 @@ pub mod mainnet {
             vec![
                 get_authority_keys_from_seed("Alice", false),
                 get_authority_keys_from_seed("Bob", false),
+                get_authority_keys_from_seed("Charlie", false),
             ],
             seeded_acc_id("Eve"),
             true,
@@ -1258,6 +1261,7 @@ pub mod ci {
             vec![
                 get_authority_keys_from_seed("Alice", false),
                 get_authority_keys_from_seed("Bob", false),
+                get_authority_keys_from_seed("Charlie", false),
             ],
             seeded_acc_id("Alice"),
             true,
