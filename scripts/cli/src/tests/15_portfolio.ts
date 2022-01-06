@@ -60,7 +60,7 @@ async function main(): Promise<void> {
   )[0][1].unwrap().auth_id;
   await sendTx(dave2, api.tx.identity.joinIdentityAsKey(authorization));
 
-  console.log("ItnRewards: TrustedDefaultClaimIssuerAdded");
+  console.log("Portfolio: TrustedDefaultClaimIssuerAdded");
   const ticker = padTicker("15TICKER");
   await issueTokenToDid(dave, ticker, 100000, null);
   await addComplianceRequirement(dave, ticker);
@@ -72,30 +72,30 @@ async function main(): Promise<void> {
     })
   );
 
-  console.log("ItnRewards: ClaimAdded");
+  console.log("Portfolio: ClaimAdded");
   await sendTx(
     bob,
     api.tx.identity.addClaim(daveDid, { Accredited: { Ticker: ticker } }, null)
   );
 
-  console.log("ItnRewards: ConfigureAdvancedTokenRules");
+  console.log("Portfolio: ConfigureAdvancedTokenRules");
   await sendTx(
     dave,
     api.tx.statistics.addTransferManager(ticker, { CountTransferManager: 10 })
   );
 
-  console.log("ItnRewards: PortfolioCreated");
+  console.log("Portfolio: PortfolioCreated");
   await sendTx(dave, api.tx.portfolio.createPortfolio("foobar"));
 
-  console.log("ItnRewards: AddAssetToAPortfolio");
+  console.log("Portfolio: AddAssetToAPortfolio");
   const portfolioId = await api.query.portfolio.nameToNumber(daveDid, "foobar");
 
   
   // AddAPortfolioManager is not possible because of old permission format
-   console.log("ItnRewards: StopStakingAPortion");
+   console.log("Portfolio: StopStakingAPortion");
    await sendTx(dave, api.tx.staking.unbond(100));
 
-   console.log("ItnRewards: StartStakingANewOperator");
+   console.log("Portfolio: StartStakingANewOperator");
    await sendTx(dave, api.tx.staking.nominate([alice.publicKey]));
 
   await sendTx(
@@ -107,9 +107,6 @@ async function main(): Promise<void> {
     )
   );
 
-  console.log("ItnRewards: Dave gets Itn Rewards");
-  await claimItnReward(alice, dave.publicKey);
-
 }
 
 main()
@@ -119,6 +116,6 @@ main()
     process.exit(1);
   })
   .finally(() => {
-    console.log("Completed: ITN REWARDS");
+    console.log("Completed: Portfolio Test");
     process.exit();
   });
