@@ -1,24 +1,23 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
-import type { AccountId } from "@polkadot/types/interfaces/runtime";
 import { sendTx, ApiSingleton } from "../util/init";
 import { ItnRewardStatus } from "../types";
-import { u8aToHex, numberToU8a } from "@polkadot/util";
+import { u8aToHex } from "@polkadot/util";
 
 /**
  * @description Claim an ITN reward with a valid signature.
  */
 export async function claimItnReward(
-	signer: KeyringPair,
-	itnAddress: string | Uint8Array | AccountId
+	itn: KeyringPair,
+    reward: KeyringPair
 ) {
 	const api = await ApiSingleton.getInstance();
-	const rewardAddress = signer.publicKey;
-	let signature = (u8aToHex(rewardAddress, 512)).toString();
-	signature = signature + "claim_itn_reward";
-	const transaction = api.tx.rewards.claimItnReward(rewardAddress, itnAddress, {
+    let claim_msg_hex = "636c61696d5f69746e5f726577617264"; // "claim_itn_reward" as hex.
+	let msg = (u8aToHex(reward.publicKey, 512)).toString() + claim_msg_hex;
+	let signature = itn.sign(msg);
+	const transaction = api.tx.rewards.claimItnReward(msg, itn.address, {
 		Sr25519: signature,
 	});
-	await sendTx(signer, transaction);
+    await transaction.send();
 }
 
 /**
@@ -27,10 +26,10 @@ export async function claimItnReward(
  */
 export async function setItnRewardStatus(
 	signer: KeyringPair,
-	itnAddress: string | Uint8Array | AccountId,
+	itnAddress: KeyringPair,
 	status: ItnRewardStatus
 ) {
 	const api = await ApiSingleton.getInstance();
-	const transaction = api.tx.rewards.setItnRewardStatus(itnAddress, status);
+    const transaction = api.tx.sudo.sudo(api.tx.rewards.setItnRewardStatus(itnAddress.publicKey, status));
 	await sendTx(signer, transaction);
 }
