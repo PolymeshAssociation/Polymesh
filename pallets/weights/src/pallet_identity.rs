@@ -118,6 +118,17 @@ impl pallet_identity::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(4 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
+    fn permissions_cost(a: u32, p: u32, l: u32, e: u32) -> Weight {
+        (0 as Weight)
+            // Standard Error: 200_000
+            .saturating_add((1_254_000 as Weight).saturating_mul(a as Weight))
+            // Standard Error: 200_000
+            .saturating_add((1_027_000 as Weight).saturating_mul(p as Weight))
+            // Standard Error: 200_000
+            .saturating_add((75_415_000 as Weight).saturating_mul(l as Weight))
+            // Standard Error: 200_000
+            .saturating_add((72_009_000 as Weight).saturating_mul(e as Weight))
+    }
     fn freeze_secondary_keys() -> Weight {
         (56_201_000 as Weight)
             .saturating_add(DbWeight::get().reads(4 as Weight))
