@@ -6,8 +6,6 @@ import {
   padTicker,
   sendTx,
   ApiSingleton,
-  waitNextEra,
-  sleep,
 } from "../util/init";
 import { createIdentities, addClaimsToDids } from "../helpers/identity_helper";
 import { issueTokenToDid } from "../helpers/asset_helper";
@@ -15,8 +13,7 @@ import { distributePolyBatch } from "../helpers/poly_helper";
 import PrettyError from "pretty-error";
 import { addComplianceRequirement } from "../helpers/compliance_manager_helper";
 import { createTable } from "../util/sqlite3";
-import { forceNewEra } from "../helpers/staking_helper";
-import { claimItnReward, setItnRewardStatus } from "../helpers/rewards_helper";
+import { forceNewEra, unbond, nominate, checkEraElectionClosed } from "../helpers/staking_helper";
 
 async function main(): Promise<void> {
   createTable();
@@ -100,13 +97,13 @@ async function main(): Promise<void> {
     )
   );
 
-  await forceNewEra(alice);
+  checkEraElectionClosed();
   // AddAPortfolioManager is not possible because of old permission format
   console.log("Portfolio: StopStakingAPortion");
-  await sendTx(dave, api.tx.staking.unbond(100));
+  await unbond(dave, 100);
 
   console.log("Portfolio: StartStakingANewOperator");
-  await sendTx(dave, api.tx.staking.nominate([alice.publicKey]));
+  await nominate(dave, alice.publicKey);
 
 }
 
