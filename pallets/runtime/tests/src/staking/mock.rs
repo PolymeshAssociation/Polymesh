@@ -1494,8 +1494,11 @@ pub(crate) fn prepare_submission_with(
     }
 
     // convert back to ratio assignment. This takes less space.
+    dbg!();
     let snapshot_validators = Staking::snapshot_validators().expect("snapshot not created.");
+    dbg!();
     let snapshot_nominators = Staking::snapshot_nominators().expect("snapshot not created.");
+    dbg!();
     let nominator_index = |a: &AccountId| -> Option<NominatorIndex> {
         snapshot_nominators.iter().position(|x| x == a).map_or_else(
             || {
