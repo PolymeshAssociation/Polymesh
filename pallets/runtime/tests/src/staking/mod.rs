@@ -4389,7 +4389,6 @@ mod offchain_phragmen {
     }
 
     #[test]
-    #[should_panic]
     fn offence_is_blocked_when_window_open() {
         ExtBuilder::default()
             .offchain_election_ext()
@@ -4402,7 +4401,7 @@ mod offchain_phragmen {
 
                 let offender_expo = Staking::eras_stakers(Staking::active_era().unwrap().index, 10);
 
-                // panic from the impl in mock
+                // won't panic anymore
                 on_offence_now(
                     &[OffenceDetails {
                         offender: (10, offender_expo.clone()),
