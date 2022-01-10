@@ -2303,9 +2303,7 @@ fn reward_from_authorship_event_handler_works() {
     ExtBuilder::default().build_and_execute(|| {
         use pallet_authorship::EventHandler;
 
-        dbg!();
         assert_eq!(<pallet_authorship::Pallet<Test>>::author(), 11);
-        dbg!();
 
         <Module<Test>>::note_author(11);
         <Module<Test>>::note_uncle(21, 1);
@@ -3299,7 +3297,7 @@ mod offchain_phragmen {
     use parking_lot::RwLock;
     use sp_core::offchain::{
         testing::{PoolState, TestOffchainExt, TestTransactionPoolExt},
-        OffchainDbExt, TransactionPoolExt,
+        OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
     };
     use sp_io::TestExternalities;
     use sp_npos_elections::StakedAssignment;
@@ -3341,7 +3339,8 @@ mod offchain_phragmen {
         seed[0..4].copy_from_slice(&iterations.to_le_bytes());
         offchain_state.write().seed = seed;
 
-        ext.register_extension(OffchainDbExt::new(offchain));
+        ext.register_extension(OffchainDbExt::new(offchain.clone()));
+		ext.register_extension(OffchainWorkerExt::new(offchain));
         ext.register_extension(TransactionPoolExt::new(pool));
 
         pool_state
@@ -3804,16 +3803,24 @@ mod offchain_phragmen {
             .validator_count(2)
             .max_offchain_iterations(2)
             .build();
+        dbg!();
         let state = offchainify(&mut ext, 2);
+        dbg!();
         ext.execute_with(|| {
+            dbg!();
             run_to_block(12);
+            dbg!();
 
             // local key 11 is in the elected set.
             assert_eq_uvec!(Session::validators(), vec![11, 21]);
+            dbg!();
             assert_eq!(state.read().transactions.len(), 0);
+            dbg!();
             Staking::offchain_worker(12);
+            dbg!();
             assert_eq!(state.read().transactions.len(), 1);
 
+            dbg!();
             let encoded = state.read().transactions[0].clone();
             let extrinsic: Extrinsic = Decode::decode(&mut &*encoded).unwrap();
 
@@ -3822,6 +3829,7 @@ mod offchain_phragmen {
                 mock::Call::Staking(inner) => inner,
                 _ => panic!(),
             };
+            dbg!();
 
             assert_eq!(
                 <Staking as sp_runtime::traits::ValidateUnsigned>::validate_unsigned(
