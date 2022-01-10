@@ -166,13 +166,35 @@ pub trait WeightInfo {
 
 /// A wrapper for a proposal url.
 #[derive(
-    Decode, Encode, TypeInfo, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+    Decode,
+    Encode,
+    TypeInfo,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    VecU8StrongTyped,
 )]
 pub struct Url(pub Vec<u8>);
 
 /// A wrapper for a proposal description.
 #[derive(
-    Decode, Encode, TypeInfo, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+    Decode,
+    Encode,
+    TypeInfo,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    VecU8StrongTyped,
 )]
 pub struct PipDescription(pub Vec<u8>);
 
@@ -1278,7 +1300,7 @@ impl<T: Config> Module<T> {
         // as you can only schedule calls for future blocks.
         let at = Self::default_enactment_period()
             .max(One::one())
-            .saturating_add(<system::Module<T>>::block_number());
+            .saturating_add(System::<T>::block_number());
 
         // Add to schedule.
         let call = Call::<T>::execute_scheduled_pip { id }.into();

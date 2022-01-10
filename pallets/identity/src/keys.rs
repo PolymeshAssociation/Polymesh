@@ -54,7 +54,7 @@ const MAX_NAME_LEN: usize = 50;
 // Limit the maximum memory/cpu cost of an identities `DidRecord`.
 const MAX_DIDRECORD_SIZE: usize = 1_000_000;
 
-type System<T> = frame_system::Module<T>;
+type System<T> = frame_system::Pallet<T>;
 
 impl<T: Config> Module<T> {
     /// Does the identity given by `did` exist?
@@ -638,7 +638,7 @@ impl<T: Config> Module<T> {
                 Self::ensure_key_did_unlinked(key)?;
             }
         }
-z
+
         // Charge the given fee.
         if let Some(op) = protocol_fee_data {
             T::ProtocolFee::charge_fee(op)?;
