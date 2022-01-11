@@ -305,12 +305,22 @@ benchmarks! {
         Module::<T>::unsafe_join_identity(target.did(), Permissions::empty(), key.account());
     }: _(target.origin, signatory, Permissions::default().into())
 
+    // Benchmark the memory/cpu complexity of Permissions.
     permissions_cost {
         // Number of assets/portfolios/pallets/extrinsics.
         let a in 0 .. MAX_ASSETS; // a=(A)ssets
         let p in 0 .. MAX_PORTFOLIOS; // p=(P)ortfolios
         let l in 0 .. MAX_PALLETS; // l=pa(L)lets
         let e in 0 .. MAX_EXTRINSICS; // e=(E)xtrinsics
+        // When the benchmarks run for parameter `e` (number of extrinsics)
+        // it will use `l == MAX_PALLETS`.  `e` will be the number of
+        // extrinsics per pallet.  So the total number of extrinsics in
+        // the `Permissions` will be `MAX_PALLETS * e`.
+        //
+        // When calculating the weight of a `Permissions` value in a
+        // transaction, we use the total number of extrinsics in the
+        // permissions.  This is to make sure that the worst-case cost
+        // is covered.
 
         let asset = AssetPermissions::elems(
             (0..a as u64).map(Ticker::generate_into)
@@ -339,14 +349,19 @@ benchmarks! {
             extrinsic,
             portfolio
         };
-
-        let orig = permissions.clone();
     }: {
-        let enc = permissions.encode();
-        // Panic the benchmarks if decoding fails.
-        let perm = Permissions::decode(&mut enc.as_slice())
-            .expect("Permissions should decode correctly.");
-        assert_eq!(orig, perm);
+        // For this benchmark we need to do some "work" based on
+        // how complex the permissions object is.
+
+        // 1. Encode the Permissions value.
+        let encoded = permissions.encode();
+        // 2. Decode the Permissions value.
+        let decoded = Permissions::decode(&mut encoded.as_slice())
+            .expect("This shouldn't fail since we just encoded a Permissions value.");
+        // 3. Compare the original and decoded values.  This will touch the full value.
+        if !permissions.eq(&decoded) {
+            panic!("This shouldn't fail.");
+        }
     }
 
     freeze_secondary_keys {

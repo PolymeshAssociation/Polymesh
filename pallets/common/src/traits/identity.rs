@@ -102,13 +102,13 @@ pub trait WeightInfo {
     fn add_investor_uniqueness_claim_v2() -> Weight;
     fn revoke_claim_by_index() -> Weight;
 
-    // Helpers for extrinsics with Permissions.
+    /// Add complexity cost of Permissions to `add_secondary_keys_with_authorization` extrinsic.
     fn add_secondary_keys_full<AccountId>(
         additional_keys: &[SecondaryKeyWithAuth<AccountId>],
     ) -> Weight {
         let perm_cost = additional_keys.iter().fold(0u64, |cost, key_with_auth| {
             let (assets, portfolios, pallets, extrinsics) =
-                key_with_auth.secondary_key.permissions.get_weights();
+                key_with_auth.secondary_key.permissions.counts();
             let perm_cost = Self::permissions_cost(assets, portfolios, pallets, extrinsics);
             cost.saturating_add(perm_cost)
         });
@@ -117,10 +117,11 @@ pub trait WeightInfo {
         ))
     }
 
+    /// Add complexity cost of Permissions to `add_authorization` extrinsic.
     fn add_authorization_full<AccountId>(data: &AuthorizationData<AccountId>) -> Weight {
         let perm_cost = match data {
             AuthorizationData::JoinIdentity(perms) => {
-                let (assets, portfolios, pallets, extrinsics) = perms.get_weights();
+                let (assets, portfolios, pallets, extrinsics) = perms.counts();
                 Self::permissions_cost(assets, portfolios, pallets, extrinsics)
             }
             _ => 0,
@@ -129,13 +130,16 @@ pub trait WeightInfo {
         perm_cost.saturating_add(Self::add_authorization())
     }
 
+    /// Add complexity cost of Permissions to `set_permission_to_signer` extrinsic.
     fn set_permission_to_signer_full(perms: &Permissions) -> Weight {
-        let (assets, portfolios, pallets, extrinsics) = perms.get_weights();
+        let (assets, portfolios, pallets, extrinsics) = perms.counts();
         Self::permissions_cost(assets, portfolios, pallets, extrinsics)
             .saturating_add(Self::set_permission_to_signer())
     }
+
+    /// Add complexity cost of Permissions to `legacy_set_permission_to_signer` extrinsic.
     fn legacy_set_permission_to_signer_full(perms: &LegacyPermissions) -> Weight {
-        let (assets, portfolios, pallets, extrinsics) = perms.get_weights();
+        let (assets, portfolios, pallets, extrinsics) = perms.counts();
         Self::permissions_cost(assets, portfolios, pallets, extrinsics)
             .saturating_add(Self::set_permission_to_signer())
     }
