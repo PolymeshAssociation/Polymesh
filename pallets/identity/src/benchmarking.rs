@@ -312,6 +312,15 @@ benchmarks! {
         let p in 0 .. MAX_PORTFOLIOS; // p=(P)ortfolios
         let l in 0 .. MAX_PALLETS; // l=pa(L)lets
         let e in 0 .. MAX_EXTRINSICS; // e=(E)xtrinsics
+        // When the benchmarks run for parameter `e` (number of extrinsics)
+        // it will use `l == MAX_PALLETS`.  `e` will be the number of
+        // extrinsics per pallet.  So the total number of extrinsics in
+        // the `Permissions` will be `MAX_PALLETS * e`.
+        //
+        // When calculating the weight of a `Permissions` value in a
+        // transaction, we use the total number of extrinsics in the
+        // permissions.  This is to make sure that the worst-case cost
+        // is covered.
 
         let asset = AssetPermissions::elems(
             (0..a as u64).map(Ticker::generate_into)
