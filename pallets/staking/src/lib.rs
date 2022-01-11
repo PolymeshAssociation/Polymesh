@@ -295,6 +295,7 @@ pub mod offchain_election;
 pub mod inflation;
 pub mod weights;
 
+use core::fmt;
 use crate::_npos::{NposSolution, EvaluateSupport};
 use codec::{Decode, Encode, HasCompact};
 use frame_support::{
@@ -2675,7 +2676,6 @@ impl<T: Config> Module<T> {
     /// This data is used to efficiently evaluate election results. returns `true` if the operation
     /// is successful.
     pub fn create_stakers_snapshot() -> (bool, Weight) {
-        dbg!();
         let mut consumed_weight = 0;
         let mut add_db_reads_writes = |reads, writes| {
             consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
@@ -2687,7 +2687,6 @@ impl<T: Config> Module<T> {
         let num_nominators = nominators.len();
         add_db_reads_writes((num_validators + num_nominators) as Weight, 0);
 
-        dbg!();
         if
             num_validators > MAX_VALIDATORS ||
             num_nominators.saturating_add(num_validators) > MAX_NOMINATORS
@@ -2705,7 +2704,6 @@ impl<T: Config> Module<T> {
             // all validators nominate themselves;
             nominators.extend(validators.clone());
 
-            dbg!();
             <SnapshotValidators<T>>::put(validators);
             <SnapshotNominators<T>>::put(nominators);
             add_db_reads_writes(0, 2);
@@ -2715,7 +2713,6 @@ impl<T: Config> Module<T> {
 
     /// Clears both snapshots of stakers.
     pub fn kill_stakers_snapshot() {
-        dbg!();
         <SnapshotValidators<T>>::kill();
         <SnapshotNominators<T>>::kill();
     }
@@ -2897,7 +2894,6 @@ impl<T: Config> Module<T> {
     /// Plan a new session potentially trigger a new era.
     fn new_session(session_index: SessionIndex) -> Option<Vec<T::AccountId>> {
         if let Some(current_era) = Self::current_era() {
-            dbg!();
             // Initial era has been set.
 
             let current_era_start_session_index = Self::eras_start_session_index(current_era)
@@ -2929,7 +2925,6 @@ impl<T: Config> Module<T> {
             // new era.
             Self::new_era(session_index)
         } else {
-            dbg!();
             // Set initial era
             Self::new_era(session_index)
         }
@@ -3278,12 +3273,10 @@ impl<T: Config> Module<T> {
     fn new_era(start_session_index: SessionIndex) -> Option<Vec<T::AccountId>> {
         // Increment or set current era.
         let current_era = CurrentEra::mutate(|s| {
-            dbg!(*s);
             *s = Some(s.map(|s| s + 1).unwrap_or(0));
             s.unwrap()
         });
         ErasStartSessionIndex::insert(&current_era, &start_session_index);
-        dbg!(current_era);
 
         // Clean old era information.
         if let Some(old_era) = current_era.checked_sub(Self::history_depth() + 1) {
@@ -3298,7 +3291,6 @@ impl<T: Config> Module<T> {
 
     /// Remove all the storage items associated with the election.
     fn close_election_window() {
-        dbg!();
         // Close window.
         <EraElectionStatus<T>>::put(ElectionStatus::Closed);
         // Kill snapshots.
@@ -3323,13 +3315,11 @@ impl<T: Config> Module<T> {
     ///
     /// This should only be called at the end of an era.
     fn select_and_update_validators(current_era: EraIndex) -> Option<Vec<T::AccountId>> {
-        dbg!(current_era);
         if let Some(ElectionResult::<T::AccountId, BalanceOf<T>> {
             elected_stashes,
             exposures,
             compute,
         }) = Self::try_do_election() {
-            dbg!();
             // Totally close the election round and data.
             Self::close_election_window();
 
@@ -3703,7 +3693,9 @@ impl<T: Config> Module<T> {
 ///
 /// Once the first new_session is planned, all session must start and then end in order, though
 /// some session can lag in between the newest session planned and the latest session started.
-impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
+impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T>
+where <T as frame_system::Config>::BlockNumber: fmt::Display
+{
     fn new_session(new_index: SessionIndex) -> Option<Vec<T::AccountId>> {
         log::trace!(
             target: LOG_TARGET,
@@ -3733,7 +3725,10 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
     }
 }
 
-impl<T: Config> historical::SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>> for Module<T> {
+impl<T: Config> historical::SessionManager<T::AccountId, Exposure<T::AccountId, BalanceOf<T>>>
+for Module<T>
+where <T as frame_system::Config>::BlockNumber: fmt::Display
+{
     fn new_session(new_index: SessionIndex)
         -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>>
     {

@@ -108,17 +108,23 @@ type ExternalAgents<T> = pallet_external_agents::Module<T>;
 
 /// A wrapper for a motion title.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Hash, Default, Debug, Decode, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(
+    Clone, PartialEq, Eq, Hash, Default, Debug, Decode, Encode, TypeInfo, VecU8StrongTyped,
+)]
 pub struct MotionTitle(pub Vec<u8>);
 
 /// A wrapper for a motion info link.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Hash, Default, Debug, Decode, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(
+    Clone, PartialEq, Eq, Hash, Default, Debug, Decode, Encode, TypeInfo, VecU8StrongTyped,
+)]
 pub struct MotionInfoLink(pub Vec<u8>);
 
 /// A wrapper for a choice's title.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Hash, Default, Debug, Decode, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(
+    Clone, PartialEq, Eq, Hash, Default, Debug, Decode, Encode, TypeInfo, VecU8StrongTyped,
+)]
 pub struct ChoiceTitle(pub Vec<u8>);
 
 /// Details about motions

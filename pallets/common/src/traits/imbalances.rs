@@ -15,7 +15,7 @@
 
 use crate::traits::CommonConfig;
 use core::marker::PhantomData;
-use frame_support::traits::{Imbalance, TryDrop, SameOrOther};
+use frame_support::traits::{Imbalance, SameOrOther, TryDrop};
 use polymesh_primitives::traits::BlockRewardsReserveCurrency;
 use polymesh_primitives::Balance;
 use sp_arithmetic::traits::Zero;

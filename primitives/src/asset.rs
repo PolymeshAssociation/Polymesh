@@ -26,7 +26,18 @@ use sp_std::prelude::Vec;
 
 /// A wrapper for a token name.
 #[derive(
-    Decode, Encode, TypeInfo, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+    Decode,
+    Encode,
+    TypeInfo,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    VecU8StrongTyped,
 )]
 pub struct AssetName(pub Vec<u8>);
 

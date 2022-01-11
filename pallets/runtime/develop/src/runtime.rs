@@ -6,7 +6,7 @@ use frame_support::{
     construct_runtime,
     dispatch::DispatchResult,
     parameter_types,
-    traits::{KeyOwnerProofSystem, tokens::imbalance::SplitTwoWays},
+    traits::{tokens::imbalance::SplitTwoWays, KeyOwnerProofSystem},
     weights::Weight,
 };
 use pallet_asset::checkpoint as pallet_checkpoint;
@@ -106,10 +106,10 @@ parameter_types! {
     // I'm online:
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
 
-	pub const MaxAuthorities: u32 = 100;
-	pub const MaxKeys: u32 = 10_000;
-	pub const MaxPeerInHeartbeats: u32 = 10_000;
-	pub const MaxPeerDataEncodingSize: u32 = 1_000;
+    pub const MaxAuthorities: u32 = 100;
+    pub const MaxKeys: u32 = 10_000;
+    pub const MaxPeerInHeartbeats: u32 = 10_000;
+    pub const MaxPeerDataEncodingSize: u32 = 1_000;
 
     // Assets:
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;

@@ -1,11 +1,11 @@
 use crate::{host_functions::native_rng, IdentityId, InvestorUid, Ticker};
 
+use codec::{Decode, Encode};
 use confidential_identity::{
     claim_proofs::{slice_to_ristretto_point, slice_to_scalar, Investor},
     CddClaimData, InvestorTrait as _, ScopeClaimData, ScopeClaimProof,
 };
 use scale_info::TypeInfo;
-use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 

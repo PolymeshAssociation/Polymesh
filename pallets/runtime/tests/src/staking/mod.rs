@@ -3340,7 +3340,7 @@ mod offchain_phragmen {
         offchain_state.write().seed = seed;
 
         ext.register_extension(OffchainDbExt::new(offchain.clone()));
-		ext.register_extension(OffchainWorkerExt::new(offchain));
+        ext.register_extension(OffchainWorkerExt::new(offchain));
         ext.register_extension(TransactionPoolExt::new(pool));
 
         pool_state
@@ -3803,24 +3803,16 @@ mod offchain_phragmen {
             .validator_count(2)
             .max_offchain_iterations(2)
             .build();
-        dbg!();
         let state = offchainify(&mut ext, 2);
-        dbg!();
         ext.execute_with(|| {
-            dbg!();
             run_to_block(12);
-            dbg!();
 
             // local key 11 is in the elected set.
             assert_eq_uvec!(Session::validators(), vec![11, 21]);
-            dbg!();
             assert_eq!(state.read().transactions.len(), 0);
-            dbg!();
             Staking::offchain_worker(12);
-            dbg!();
             assert_eq!(state.read().transactions.len(), 1);
 
-            dbg!();
             let encoded = state.read().transactions[0].clone();
             let extrinsic: Extrinsic = Decode::decode(&mut &*encoded).unwrap();
 
@@ -3829,7 +3821,6 @@ mod offchain_phragmen {
                 mock::Call::Staking(inner) => inner,
                 _ => panic!(),
             };
-            dbg!();
 
             assert_eq!(
                 <Staking as sp_runtime::traits::ValidateUnsigned>::validate_unsigned(
@@ -4244,23 +4235,18 @@ mod offchain_phragmen {
             .has_stakers(false)
             .build()
             .execute_with(|| {
-                dbg!();
                 build_offchain_phragmen_test_ext();
-                dbg!();
 
                 // finalize the round with fallback. This is needed since all nominator submission
                 // are in era zero and we want this one to pass with no problems.
                 run_to_block(15);
-                dbg!();
 
                 // go to the next session to trigger mock::start_active_era and bump the active era
                 run_to_block(20);
-                dbg!();
 
                 // slash 10. This must happen outside of the election window.
                 let offender_expo = Staking::eras_stakers(Staking::active_era().unwrap().index, 11);
 
-                dbg!();
                 on_offence_now(
                     &[OffenceDetails {
                         offender: (11, offender_expo.clone()),
@@ -4269,25 +4255,22 @@ mod offchain_phragmen {
                     &[Perbill::from_percent(50)],
                 );
 
-                dbg!();
                 // validate 10 again for the next round. But this guy will not have the votes that
                 // it should have had from 1 and 2.
                 assert_ok!(Staking::validate(Origin::signed(10), Default::default()));
 
                 // open the election window and create snapshots.
-                dbg!();
-                run_to_block(32);
+                // FIXME(Centril, Neopallium): We changed this to 32.
+                // We're unsure as to why this was necessary and if it was entirely correct.
+                run_to_block(23);
 
                 // a solution that has been prepared after the slash.
-                dbg!();
                 let (compact, winners, score) = prepare_submission_with(true, false, 0, |a| {
-                    dbg!(&a);
                     // no one is allowed to vote for 10, except for itself.
                     a.into_iter().filter(|s| s.who != 11).for_each(|s| {
                         assert!(s.distribution.iter().find(|(t, _)| *t == 11).is_none())
                     });
                 });
-                dbg!();
 
                 // can be submitted.
                 assert_ok!(submit_solution(Origin::signed(10), winners, compact, score,));

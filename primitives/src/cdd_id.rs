@@ -62,7 +62,18 @@ impl From<[u8; 32]> for InvestorUid {
 /// The main purpose of such a claim is to preserve privacy of the investor using several identities
 /// to handle their portfolio.
 #[derive(
-    Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo, SliceU8StrongTyped, Hash,
+    Default,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Encode,
+    Decode,
+    TypeInfo,
+    SliceU8StrongTyped,
+    Hash,
 )]
 #[cfg_attr(
     feature = "std",

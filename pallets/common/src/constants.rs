@@ -1,5 +1,5 @@
+use codec::{Decode, Encode};
 use sp_core::TypeId;
-use codec::{Encode, Decode};
 
 /// Money matters.
 pub mod currency {
@@ -85,13 +85,12 @@ pub const TRANSFER_MANAGER_FAILURE: u8 = 0xac;
 // PIP pallet constants.
 pub const PIP_MAX_REPORTING_SIZE: usize = 1024;
 
-
 /// A module identifier. These are per module and should be stored in a registry somewhere.
 #[derive(Clone, Copy, Eq, PartialEq, Encode, Decode)]
 pub struct ModuleId(pub [u8; 8]);
 
 impl TypeId for ModuleId {
-	const TYPE_ID: [u8; 4] = *b"modl";
+    const TYPE_ID: [u8; 4] = *b"modl";
 }
 
 /// Module ids, used for deriving sovereign account IDs for modules.

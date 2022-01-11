@@ -153,7 +153,9 @@ impl<T: Config> Module<T> {
     pub fn compute_fee(ops: &[ProtocolOp]) -> Balance {
         let coefficient = Self::coefficient();
         let ratio = Perbill::from_rational(coefficient.0, coefficient.1);
-        let base = ops.iter().fold(Zero::zero(), |a: Balance, e| a + Self::base_fees(e));
+        let base = ops
+            .iter()
+            .fold(Zero::zero(), |a: Balance, e| a + Self::base_fees(e));
         ratio * base
     }
 

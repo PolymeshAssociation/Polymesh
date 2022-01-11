@@ -215,7 +215,18 @@ impl Printable for IdentityId {
 /// A wrapper for a portfolio name. It is used for non-default (aka "user") portfolios only since
 /// default ones are nameless.
 #[derive(
-    Decode, Encode, TypeInfo, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
+    Decode,
+    Encode,
+    TypeInfo,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    VecU8StrongTyped,
 )]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PortfolioName(pub Vec<u8>);

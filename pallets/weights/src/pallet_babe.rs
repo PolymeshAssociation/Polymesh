@@ -24,7 +24,7 @@ use polymesh_runtime_common::{
 
 pub struct WeightInfo;
 impl pallet_babe::WeightInfo for WeightInfo {
-	fn plan_config_change() -> Weight {
+    fn plan_config_change() -> Weight {
         0
     }
 

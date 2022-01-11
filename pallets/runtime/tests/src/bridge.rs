@@ -74,7 +74,9 @@ fn alice_bridge_tx(amount: u128) -> BridgeTx {
 }
 
 fn bridge_tx_to_proposal(tx: &BridgeTx) -> Call {
-    Call::Bridge(bridge::Call::handle_bridge_tx { bridge_tx: tx.clone() })
+    Call::Bridge(bridge::Call::handle_bridge_tx {
+        bridge_tx: tx.clone(),
+    })
 }
 
 fn alice_make_bridge_tx(amount: u128) -> BridgeTx {

@@ -2,8 +2,8 @@
 
 use codec::{Decode, Encode};
 use polymesh_primitives::{ClaimType, IdentityId, Permissions, Scope, SecondaryKey};
-use sp_std::{prelude::*, vec::Vec};
 use scale_info::TypeInfo;
+use sp_std::{prelude::*, vec::Vec};
 
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};

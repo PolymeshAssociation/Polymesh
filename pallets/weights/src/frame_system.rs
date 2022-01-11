@@ -55,7 +55,7 @@ impl frame_system::WeightInfo for WeightInfo {
     fn remark(_b: u32) -> Weight {
         (1_594_000 as Weight)
     }
-	fn remark_with_event(_b: u32) -> Weight {
+    fn remark_with_event(_b: u32) -> Weight {
         (1_787_000 as Weight)
     }
     fn set_heap_pages() -> Weight {
