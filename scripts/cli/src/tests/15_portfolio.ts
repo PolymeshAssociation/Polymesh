@@ -98,7 +98,7 @@ async function main(): Promise<void> {
   );
 
   console.log(`Election Status: ${await api.query.staking.eraElectionStatus()}`);
-  checkEraElectionClosed();
+  await checkEraElectionClosed();
   console.log(`Election Status: ${await api.query.staking.eraElectionStatus()}`);
   // AddAPortfolioManager is not possible because of old permission format
   console.log("Portfolio: StopStakingAPortion");
