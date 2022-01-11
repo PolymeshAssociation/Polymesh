@@ -2,8 +2,8 @@ use crate::Moment;
 use chrono::{Datelike, NaiveDate, NaiveDateTime};
 use codec::{Decode, Encode};
 use core::num::NonZeroU64;
-#[cfg(feature = "std")]
 use scale_info::TypeInfo;
+#[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::convert::TryFrom;
 

@@ -3,8 +3,8 @@
 use ink_lang as ink;
 
 mod custom_types {
-    use scale::{Decode, Encode};
     #[cfg(feature = "std")]
+    use scale::{Decode, Encode};
     use scale_info::TypeInfo;
 
     #[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd, Copy, Hash, Clone, Default)]
