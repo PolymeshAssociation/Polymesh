@@ -33,8 +33,8 @@ use frame_support::{
     Parameter,
 };
 use polymesh_primitives::{
-    secondary_key::api::SecondaryKey, AuthorizationData, IdentityClaim, IdentityId, InvestorUid,
-    Permissions, Signatory, Ticker,
+    secondary_key::api::{LegacyPermissions, SecondaryKey},
+    AuthorizationData, IdentityClaim, IdentityId, InvestorUid, Permissions, Signatory, Ticker,
 };
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
@@ -87,6 +87,12 @@ pub trait WeightInfo {
     fn add_claim() -> Weight;
     fn revoke_claim() -> Weight;
     fn set_permission_to_signer() -> Weight;
+    /// Complexity Parameters:
+    /// `a` = Number of (A)ssets
+    /// `p` = Number of (P)ortfolios
+    /// `l` = Number of pa(L)lets
+    /// `e` = Number of (E)xtrinsics
+    fn permissions_cost(a: u32, p: u32, l: u32, e: u32) -> Weight;
     fn freeze_secondary_keys() -> Weight;
     fn unfreeze_secondary_keys() -> Weight;
     fn add_authorization() -> Weight;
@@ -95,6 +101,44 @@ pub trait WeightInfo {
     fn add_investor_uniqueness_claim() -> Weight;
     fn add_investor_uniqueness_claim_v2() -> Weight;
     fn revoke_claim_by_index() -> Weight;
+
+    // Helpers for extrinsics with Permissions.
+    fn add_secondary_keys_full<AccountId>(
+        additional_keys: &[SecondaryKeyWithAuth<AccountId>],
+    ) -> Weight {
+        let perm_cost = additional_keys.iter().fold(0u64, |cost, key_with_auth| {
+            let (assets, portfolios, pallets, extrinsics) =
+                key_with_auth.secondary_key.permissions.get_weights();
+            let perm_cost = Self::permissions_cost(assets, portfolios, pallets, extrinsics);
+            cost.saturating_add(perm_cost)
+        });
+        perm_cost.saturating_add(Self::add_secondary_keys_with_authorization(
+            additional_keys.len() as u32,
+        ))
+    }
+
+    fn add_authorization_full<AccountId>(data: &AuthorizationData<AccountId>) -> Weight {
+        let perm_cost = match data {
+            AuthorizationData::JoinIdentity(perms) => {
+                let (assets, portfolios, pallets, extrinsics) = perms.get_weights();
+                Self::permissions_cost(assets, portfolios, pallets, extrinsics)
+            }
+            _ => 0,
+        };
+
+        perm_cost.saturating_add(Self::add_authorization())
+    }
+
+    fn set_permission_to_signer_full(perms: &Permissions) -> Weight {
+        let (assets, portfolios, pallets, extrinsics) = perms.get_weights();
+        Self::permissions_cost(assets, portfolios, pallets, extrinsics)
+            .saturating_add(Self::set_permission_to_signer())
+    }
+    fn legacy_set_permission_to_signer_full(perms: &LegacyPermissions) -> Weight {
+        let (assets, portfolios, pallets, extrinsics) = perms.get_weights();
+        Self::permissions_cost(assets, portfolios, pallets, extrinsics)
+            .saturating_add(Self::set_permission_to_signer())
+    }
 }
 
 /// The module's configuration trait.

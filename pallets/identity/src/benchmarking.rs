@@ -25,8 +25,10 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     investor_zkproof_data::{v1, v2},
-    AuthorizationData, Claim, CountryCode, IdentityId, InvestorUid, Permissions, Scope, ScopeId,
-    SecondaryKey, Signatory,
+    secondary_key::DispatchableNames,
+    AssetPermissions, AuthorizationData, Claim, CountryCode, DispatchableName,
+    ExtrinsicPermissions, IdentityId, InvestorUid, PalletName, PalletPermissions, Permissions,
+    PortfolioId, PortfolioNumber, PortfolioPermissions, Scope, ScopeId, SecondaryKey, Signatory,
 };
 use sp_core::H512;
 use sp_std::prelude::*;
@@ -132,11 +134,19 @@ pub fn generate_secondary_keys<T: Config>(n: usize) -> Vec<SecondaryKey<T::Accou
 #[cfg(feature = "running-ci")]
 mod limits {
     pub const MAX_SECONDARY_KEYS: u32 = 2;
+    pub const MAX_ASSETS: u32 = 4;
+    pub const MAX_PORTFOLIOS: u32 = 4;
+    pub const MAX_PALLETS: u32 = 4;
+    pub const MAX_EXTRINSICS: u32 = 4;
 }
 
 #[cfg(not(feature = "running-ci"))]
 mod limits {
     pub const MAX_SECONDARY_KEYS: u32 = 100;
+    pub const MAX_ASSETS: u32 = 100;
+    pub const MAX_PORTFOLIOS: u32 = 100;
+    pub const MAX_PALLETS: u32 = 100;
+    pub const MAX_EXTRINSICS: u32 = 100;
 }
 
 use limits::*;
@@ -294,6 +304,50 @@ benchmarks! {
 
         Module::<T>::unsafe_join_identity(target.did(), Permissions::empty(), key.account());
     }: _(target.origin, signatory, Permissions::default().into())
+
+    permissions_cost {
+        // Number of assets/portfolios/pallets/extrinsics.
+        let a in 0 .. MAX_ASSETS; // a=(A)ssets
+        let p in 0 .. MAX_PORTFOLIOS; // p=(P)ortfolios
+        let l in 0 .. MAX_PALLETS; // l=pa(L)lets
+        let e in 0 .. MAX_EXTRINSICS; // e=(E)xtrinsics
+
+        let asset = AssetPermissions::elems(
+            (0..a as u64).map(Ticker::generate_into)
+        );
+        let portfolio = PortfolioPermissions::elems(
+            (0..p as u128).map(|did| {
+                PortfolioId::user_portfolio(did.into(), PortfolioNumber(0))
+            })
+        );
+        let dispatchable_names = DispatchableNames::elems(
+            (0..e as u64).map(|e| {
+                DispatchableName(Ticker::generate(e))
+            })
+        );
+        let extrinsic = ExtrinsicPermissions::elems(
+            (0..l as u64).map(|p| {
+                PalletPermissions {
+                    pallet_name: PalletName(Ticker::generate(p)),
+                    dispatchable_names: dispatchable_names.clone(),
+                }
+            })
+        );
+
+        let permissions = Permissions {
+            asset,
+            extrinsic,
+            portfolio
+        };
+
+        let orig = permissions.clone();
+    }: {
+        let enc = permissions.encode();
+        // Panic the benchmarks if decoding fails.
+        let perm = Permissions::decode(&mut enc.as_slice())
+            .expect("Permissions should decode correctly.");
+        assert_eq!(orig, perm);
+    }
 
     freeze_secondary_keys {
         let caller = user::<T>("caller", 0);
