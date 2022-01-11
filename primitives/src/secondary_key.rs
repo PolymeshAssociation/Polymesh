@@ -20,6 +20,7 @@ use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
     cmp::{Ord, Ordering, PartialOrd},
     collections::btree_set::BTreeSet,
+    convert::TryInto,
     iter,
     mem::size_of,
 };
@@ -87,6 +88,11 @@ impl PalletPermissions {
             .fold(name_complexity(&self.pallet_name), |cost, dispatch_name| {
                 cost.saturating_add(name_complexity(&dispatch_name))
             })
+    }
+
+    /// Return the number of dispatchable names.
+    pub fn dispatchables_len(&self) -> usize {
+        self.dispatchable_names.complexity()
     }
 }
 
@@ -179,6 +185,28 @@ impl Permissions {
                     .complexity()
                     .saturating_mul(size_of::<PortfolioId>()),
             )
+    }
+
+    /// Return number of assets, portfolios, pallets, and extrinsics.
+    ///
+    /// This is used for weight calculation.
+    pub fn get_weights(&self) -> (u32, u32, u32, u32) {
+        // Count the number of assets.
+        let assets = self.asset.complexity().try_into().unwrap_or(u32::MAX);
+        // Count the number of portfolios.
+        let portfolios = self.portfolio.complexity().try_into().unwrap_or(u32::MAX);
+        // Count the number of pallets.
+        let pallets = self.extrinsic.complexity().try_into().unwrap_or(u32::MAX);
+        // Count the total number of extrinsics.
+        let extrinsics = self
+            .extrinsic
+            .fold(0usize, |count, pallet| {
+                count.saturating_add(pallet.dispatchables_len())
+            })
+            .try_into()
+            .unwrap_or(u32::MAX);
+
+        (assets, portfolios, pallets, extrinsics)
     }
 }
 
@@ -373,6 +401,7 @@ pub mod api {
     use codec::{Decode, Encode};
     #[cfg(feature = "std")]
     use sp_runtime::{Deserialize, Serialize};
+    use sp_std::convert::TryInto;
     use sp_std::vec::Vec;
 
     /// A permission to call functions within a given pallet.
@@ -418,6 +447,34 @@ pub mod api {
                 extrinsic: LegacyExtrinsicPermissions(Some(Vec::new())),
                 portfolio: SubsetRestriction::empty(),
             }
+        }
+
+        /// Return number of assets, portfolios, pallets, and extrinsics.
+        ///
+        /// This is used for weight calculation.
+        pub fn get_weights(&self) -> (u32, u32, u32, u32) {
+            // Count the number of assets.
+            let assets = self.asset.complexity().try_into().unwrap_or(u32::MAX);
+            // Count the number of portfolios.
+            let portfolios = self.portfolio.complexity().try_into().unwrap_or(u32::MAX);
+            // Count the number of pallets and total number of extrinsics.
+            let (pallets, extrinsics) = match &self.extrinsic.0 {
+                Some(pallets) => {
+                    let num_pallets = pallets.len().try_into().unwrap_or(u32::MAX);
+                    // Count all extrinsics.
+                    let extrinsics = pallets
+                        .iter()
+                        .fold(0usize, |count, pallet| {
+                            count.saturating_add(pallet.dispatchable_names.len())
+                        })
+                        .try_into()
+                        .unwrap_or(u32::MAX);
+                    (num_pallets, extrinsics)
+                }
+                None => (0, 0),
+            };
+
+            (assets, portfolios, pallets, extrinsics)
         }
     }
 
