@@ -190,7 +190,7 @@ impl Permissions {
     /// Return number of assets, portfolios, pallets, and extrinsics.
     ///
     /// This is used for weight calculation.
-    pub fn get_weights(&self) -> (u32, u32, u32, u32) {
+    pub fn counts(&self) -> (u32, u32, u32, u32) {
         // Count the number of assets.
         let assets = self.asset.complexity().try_into().unwrap_or(u32::MAX);
         // Count the number of portfolios.
@@ -452,7 +452,7 @@ pub mod api {
         /// Return number of assets, portfolios, pallets, and extrinsics.
         ///
         /// This is used for weight calculation.
-        pub fn get_weights(&self) -> (u32, u32, u32, u32) {
+        pub fn counts(&self) -> (u32, u32, u32, u32) {
             // Count the number of assets.
             let assets = self.asset.complexity().try_into().unwrap_or(u32::MAX);
             // Count the number of portfolios.

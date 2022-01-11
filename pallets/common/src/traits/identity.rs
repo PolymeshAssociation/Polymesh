@@ -108,7 +108,7 @@ pub trait WeightInfo {
     ) -> Weight {
         let perm_cost = additional_keys.iter().fold(0u64, |cost, key_with_auth| {
             let (assets, portfolios, pallets, extrinsics) =
-                key_with_auth.secondary_key.permissions.get_weights();
+                key_with_auth.secondary_key.permissions.counts();
             let perm_cost = Self::permissions_cost(assets, portfolios, pallets, extrinsics);
             cost.saturating_add(perm_cost)
         });
@@ -120,7 +120,7 @@ pub trait WeightInfo {
     fn add_authorization_full<AccountId>(data: &AuthorizationData<AccountId>) -> Weight {
         let perm_cost = match data {
             AuthorizationData::JoinIdentity(perms) => {
-                let (assets, portfolios, pallets, extrinsics) = perms.get_weights();
+                let (assets, portfolios, pallets, extrinsics) = perms.counts();
                 Self::permissions_cost(assets, portfolios, pallets, extrinsics)
             }
             _ => 0,
@@ -130,12 +130,12 @@ pub trait WeightInfo {
     }
 
     fn set_permission_to_signer_full(perms: &Permissions) -> Weight {
-        let (assets, portfolios, pallets, extrinsics) = perms.get_weights();
+        let (assets, portfolios, pallets, extrinsics) = perms.counts();
         Self::permissions_cost(assets, portfolios, pallets, extrinsics)
             .saturating_add(Self::set_permission_to_signer())
     }
     fn legacy_set_permission_to_signer_full(perms: &LegacyPermissions) -> Weight {
-        let (assets, portfolios, pallets, extrinsics) = perms.get_weights();
+        let (assets, portfolios, pallets, extrinsics) = perms.counts();
         Self::permissions_cost(assets, portfolios, pallets, extrinsics)
             .saturating_add(Self::set_permission_to_signer())
     }
