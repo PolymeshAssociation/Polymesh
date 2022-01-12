@@ -11,13 +11,13 @@ export async function claimItnReward(
     reward: KeyringPair
 ) {
 	const api = await ApiSingleton.getInstance();
-    let claim_msg_hex = "636c61696d5f69746e5f726577617264"; // "claim_itn_reward" as hex.
+	let claim_msg_hex = "636c61696d5f69746e5f726577617264"; // "claim_itn_reward" as hex.
 	let msg = (u8aToHex(reward.publicKey, 512)).toString() + claim_msg_hex;
 	let signature = itn.sign(msg);
 	const transaction = api.tx.rewards.claimItnReward(msg, itn.address, {
 		Sr25519: signature,
 	});
-    await transaction.send();
+	return transaction.send();
 }
 
 /**
@@ -31,5 +31,5 @@ export async function setItnRewardStatus(
 ) {
 	const api = await ApiSingleton.getInstance();
     const transaction = api.tx.sudo.sudo(api.tx.rewards.setItnRewardStatus(itnAddress.publicKey, status));
-	await sendTx(signer, transaction);
+	return sendTx(signer, transaction);
 }
