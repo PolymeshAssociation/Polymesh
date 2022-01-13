@@ -59,7 +59,7 @@ export async function modifyFundraiserWindow(
   offeringAsset: Ticker,
   fundraiserId: number,
   start: number,
-  end:string | object | Uint8Array | null,
+  end: string | object | Uint8Array | null
 ) {
   const api = await ApiSingleton.getInstance();
   const transaction = api.tx.sto.modifyFundraiserWindow(
@@ -78,5 +78,29 @@ export async function stop(
 ) {
   const api = await ApiSingleton.getInstance();
   const transaction = api.tx.sto.stop(offeringAsset, fundraiserId);
+  await sendTx(signer, transaction);
+}
+
+export async function invest(
+  signer: KeyringPair,
+  investmentPortfolio: PortfolioId,
+  fundingPortfolio: PortfolioId,
+  offeringAsset: Ticker,
+  fundraiserId: number,
+  purchaseAmount: number,
+  maxPrice: string | object | Uint8Array | null,
+  receipt: string | null
+) {
+  const api = await ApiSingleton.getInstance();
+
+  const transaction = api.tx.sto.invest(
+    investmentPortfolio,
+    fundingPortfolio,
+    offeringAsset,
+    fundraiserId,
+    purchaseAmount,
+    maxPrice,
+    receipt
+  );
   await sendTx(signer, transaction);
 }
