@@ -5702,6 +5702,7 @@ dependencies = [
  "node-rpc",
  "node-rpc-runtime-api",
  "pallet-asset",
+ "pallet-babe",
  "pallet-balances 0.1.0",
  "pallet-bridge",
  "pallet-committee",
