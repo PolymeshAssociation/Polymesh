@@ -56,11 +56,13 @@ cryptography_core = { git = "https://github.com/PolymathNetwork/cryptography.git
 
 # Others
 lazy_static = { version = "1.4.0", default-features = false }
+log = "0.4.8"
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "1.0", default-features = false, features = ["derive"] }
 sp-core = { version = "4.0.0-dev", default-features = false }
 sp-std = { version = "4.0.0-dev", default-features = false }
 sp-io = { version = "4.0.0-dev", default-features = false }

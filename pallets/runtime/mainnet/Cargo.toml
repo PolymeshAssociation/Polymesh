@@ -51,6 +51,7 @@ pallet-protocol-fee-rpc-runtime-api = { package = "pallet-protocol-fee-rpc-runti
 #pallet-contracts-rpc-runtime-api = { version = "4.0.0-dev", default-features = false }
 
 # Others
+log = "0.4.8"
 lazy_static = { version = "1.4.0", default-features = false }
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true }
@@ -76,6 +77,7 @@ pallet-scheduler = { version = "4.0.0-dev", default-features = false }
 pallet-session = { version = "4.0.0-dev", default-features = false }
 pallet-staking-reward-curve = { version = "4.0.0-dev", default-features = false }
 pallet-timestamp = { version = "4.0.0-dev", default-features = false }
+scale-info = { version = "1.0", default-features = false, features = ["derive"] }
 sp-api = { version = "4.0.0-dev", default-features = false }
 sp-arithmetic = { version = "4.0.0-dev", default-features = false }
 sp-authority-discovery = { version = "4.0.0-dev", default-features = false }

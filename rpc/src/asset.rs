@@ -16,11 +16,10 @@
 pub use node_rpc_runtime_api::asset::{AssetApi as AssetRuntimeApi, CanTransferResult};
 use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 
-use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
+use jsonrpc_core::{Error, Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 
 use codec::Codec;
-use jsonrpc_core::Error;
 use polymesh_primitives::asset::GranularCanTransferResult;
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;

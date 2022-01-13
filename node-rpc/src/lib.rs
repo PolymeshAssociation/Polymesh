@@ -40,13 +40,13 @@ use sc_finality_grandpa::{
     FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState,
 };
 use sc_rpc::{DenyUnsafe, SubscriptionTaskExecutor};
+use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus::SelectChain;
 use sp_consensus_babe::BabeApi;
 use sp_keystore::SyncCryptoStorePtr;
-use sp_transaction_pool::TransactionPool;
 use std::sync::Arc;
 
 /// Light client extra dependencies.
@@ -109,7 +109,7 @@ pub type IoHandler = jsonrpc_core::IoHandler<sc_rpc::Metadata>;
 /// Instantiate all Full RPC extensions.
 pub fn create_full<C, P, UE, SC, B>(
     deps: FullDeps<C, P, SC, B>,
-) -> jsonrpc_core::IoHandler<sc_rpc_api::Metadata>
+) -> Result<jsonrpc_core::IoHandler<sc_rpc_api::Metadata>, Box<dyn std::error::Error + Send + Sync>>
 where
     C: ProvideRuntimeApi<Block>
         + HeaderBackend<Block>
@@ -222,7 +222,7 @@ where
             shared_authority_set,
             shared_epoch_changes,
             deny_unsafe,
-        ),
+        )?,
     ));
     io.extend_with(StakingApi::to_delegate(Staking::new(client.clone())));
     io.extend_with(PipsApi::to_delegate(Pips::new(client.clone())));
@@ -236,7 +236,7 @@ where
         client,
     )));
 
-    io
+    Ok(io)
 }
 
 /// Instantiate all Light RPC extensions.

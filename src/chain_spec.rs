@@ -618,15 +618,15 @@ pub mod general {
         );
 
         rt::runtime::GenesisConfig {
-            frame_system: Some(frame(rt::WASM_BINARY)),
-            pallet_asset: Some(asset!()),
-            pallet_checkpoint: Some(checkpoint!()),
-            pallet_identity: Some(pallet_identity::GenesisConfig {
+            system: frame(rt::WASM_BINARY),
+            asset: asset!(),
+            checkpoint: checkpoint!(),
+            identity: pallet_identity::GenesisConfig {
                 identities: vec![identity],
                 ..Default::default()
-            }),
-            pallet_balances: Some(Default::default()),
-            pallet_bridge: Some(pallet_bridge::GenesisConfig {
+            },
+            balances: Default::default(),
+            bridge: pallet_bridge::GenesisConfig {
                 admin: initial_authorities[0].1.clone(),
                 creator: initial_authorities[0].1.clone(),
                 signatures_required: 1,
@@ -634,20 +634,20 @@ pub mod general {
                 timelock: 10,
                 bridge_limit: (100_000_000 * POLY, 1000),
                 complete_txs,
-            }),
-            pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
-            pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
-            pallet_session: Some(session!(initial_authorities, session_keys)),
-            pallet_staking: Some(staking!(
+            },
+            indices: pallet_indices::GenesisConfig { indices: vec![] },
+            sudo: pallet_sudo::GenesisConfig { key: root_key },
+            session: session!(initial_authorities, session_keys),
+            staking: staking!(
                 initial_authorities,
                 stakers,
-                PerThing::from_rational_approximation(1u64, 4u64)
-            )),
-            pallet_pips: Some(pips!(time::MINUTES, MaybeBlock::None, 25)),
-            pallet_im_online: Some(Default::default()),
-            pallet_authority_discovery: Some(Default::default()),
-            pallet_babe: Some(Default::default()),
-            pallet_grandpa: Some(Default::default()),
+                PerThing::from_rational(1u64, 4u64)
+            ),
+            pips: pips!(time::MINUTES, MaybeBlock::None, 25),
+            im_online: Default::default(),
+            authority_discovery: Default::default(),
+            babe: Default::default(),
+            grandpa: Default::default(),
             /*
             pallet_contracts: Some(pallet_contracts::GenesisConfig {
                 current_schedule: pallet_contracts::Schedule {
@@ -657,23 +657,23 @@ pub mod general {
             }),
             */
             // Governance Council:
-            pallet_group_Instance1: Some(group_membership!(1)),
-            pallet_committee_Instance1: Some(committee!(1)),
+            committee_membership: group_membership!(1),
+            polymesh_committee: committee!(1),
             // CDD providers
-            pallet_group_Instance2: Some(group_membership!(1)),
+            cdd_service_providers: group_membership!(1),
             // Technical Committee:
-            pallet_group_Instance3: Some(group_membership!(1)),
-            pallet_committee_Instance3: Some(committee!(1)),
+            technical_committee_membership: group_membership!(1),
+            technical_committee: committee!(1),
             // Upgrade Committee:
-            pallet_group_Instance4: Some(group_membership!(1)),
-            pallet_committee_Instance4: Some(committee!(1)),
-            pallet_protocol_fee: Some(protocol_fee!()),
-            pallet_settlement: Some(Default::default()),
-            pallet_multisig: Some(pallet_multisig::GenesisConfig {
+            upgrade_committee_membership: group_membership!(1),
+            upgrade_committee: committee!(1),
+            protocol_fee: protocol_fee!(),
+            settlement: Default::default(),
+            multi_sig: pallet_multisig::GenesisConfig {
                 transaction_version: 1,
-            }),
-            pallet_corporate_actions: Some(corporate_actions!()),
-            pallet_rewards: Some(rewards!()),
+            },
+            corporate_action: corporate_actions!(),
+            rewards: rewards!(),
         }
     }
 
@@ -772,15 +772,15 @@ pub mod testnet {
         );
 
         rt::runtime::GenesisConfig {
-            frame_system: Some(frame(rt::WASM_BINARY)),
-            pallet_asset: Some(asset!()),
-            pallet_checkpoint: Some(checkpoint!()),
-            pallet_identity: Some(pallet_identity::GenesisConfig {
+            system: frame(rt::WASM_BINARY),
+            asset: asset!(),
+            checkpoint: checkpoint!(),
+            identity: pallet_identity::GenesisConfig {
                 identities,
                 ..Default::default()
-            }),
-            pallet_balances: Some(Default::default()),
-            pallet_bridge: Some(pallet_bridge::GenesisConfig {
+            },
+            balances: Default::default(),
+            bridge: pallet_bridge::GenesisConfig {
                 admin: root_key.clone(),
                 creator: root_key.clone(),
                 signatures_required: 3,
@@ -788,20 +788,20 @@ pub mod testnet {
                 timelock: time::MINUTES * 15,
                 bridge_limit: (30_000 * POLY, 1 * time::DAYS),
                 complete_txs,
-            }),
-            pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
-            pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
-            pallet_session: Some(session!(initial_authorities, session_keys)),
-            pallet_staking: Some(staking!(
+            },
+            indices: pallet_indices::GenesisConfig { indices: vec![] },
+            sudo: pallet_sudo::GenesisConfig { key: root_key },
+            session: session!(initial_authorities, session_keys),
+            staking: staking!(
                 initial_authorities,
                 stakers,
-                PerThing::from_rational_approximation(1u64, 10u64)
-            )),
-            pallet_pips: Some(pips!(time::DAYS * 30, MaybeBlock::None, 1000)),
-            pallet_im_online: Some(Default::default()),
-            pallet_authority_discovery: Some(Default::default()),
-            pallet_babe: Some(Default::default()),
-            pallet_grandpa: Some(Default::default()),
+                PerThing::from_rational(1u64, 10u64)
+            ),
+            pips: pips!(time::DAYS * 30, MaybeBlock::None, 1000),
+            im_online: Default::default(),
+            authority_discovery: Default::default(),
+            babe: Default::default(),
+            grandpa: Default::default(),
             /*
             pallet_contracts: Some(pallet_contracts::GenesisConfig {
                 current_schedule: pallet_contracts::Schedule {
@@ -811,23 +811,23 @@ pub mod testnet {
             }),
             */
             // Governing council
-            pallet_group_Instance1: Some(group_membership!(1, 2, 3)), // 3 GC members
-            pallet_committee_Instance1: Some(committee!(1, (2, 3))),  // RC = 1, 2/3 votes required
+            committee_membership: group_membership!(1, 2, 3), // 3 GC members
+            polymesh_committee: committee!(1, (2, 3)),        // RC = 1, 2/3 votes required
             // CDD providers
-            pallet_group_Instance2: Some(group_membership!(1)),
+            cdd_service_providers: group_membership!(1),
             // Technical Committee:
-            pallet_group_Instance3: Some(group_membership!(3, 4, 5)), // One GC member + genesis operator + Bridge Multisig
-            pallet_committee_Instance3: Some(committee!(3)),          // RC = 3, 1/2 votes required
+            technical_committee_membership: group_membership!(3, 4, 5), // One GC member + genesis operator + Bridge Multisig
+            technical_committee: committee!(3), // RC = 3, 1/2 votes required
             // Upgrade Committee:
-            pallet_group_Instance4: Some(group_membership!(1)), // One GC member
-            pallet_committee_Instance4: Some(committee!(1)),    // RC = 1, 1/2 votes required
-            pallet_protocol_fee: Some(protocol_fee!()),
-            pallet_settlement: Some(Default::default()),
-            pallet_multisig: Some(pallet_multisig::GenesisConfig {
+            upgrade_committee_membership: group_membership!(1), // One GC member
+            upgrade_committee: committee!(1),                   // RC = 1, 1/2 votes required
+            protocol_fee: protocol_fee!(),
+            settlement: Default::default(),
+            multi_sig: pallet_multisig::GenesisConfig {
                 transaction_version: 1,
-            }),
-            pallet_corporate_actions: Some(corporate_actions!()),
-            pallet_rewards: Some(rewards!()),
+            },
+            corporate_action: corporate_actions!(),
+            rewards: rewards!(),
         }
     }
 
@@ -965,15 +965,15 @@ pub mod mainnet {
         );
 
         rt::runtime::GenesisConfig {
-            frame_system: Some(frame(rt::WASM_BINARY)),
-            pallet_asset: Some(asset!()),
-            pallet_checkpoint: Some(checkpoint!()),
-            pallet_identity: Some(pallet_identity::GenesisConfig {
+            system: frame(rt::WASM_BINARY),
+            asset: asset!(),
+            checkpoint: checkpoint!(),
+            identity: pallet_identity::GenesisConfig {
                 identities,
                 ..Default::default()
-            }),
-            pallet_balances: Some(Default::default()),
-            pallet_bridge: Some(pallet_bridge::GenesisConfig {
+            },
+            balances: Default::default(),
+            bridge: pallet_bridge::GenesisConfig {
                 admin: root_key.clone(),
                 creator: root_key.clone(),
                 signatures_required: 4,
@@ -981,24 +981,20 @@ pub mod mainnet {
                 timelock: time::HOURS * 24,
                 bridge_limit: (1_000_000_000 * POLY, 365 * time::DAYS),
                 complete_txs,
-            }),
-            pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
-            pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
-            pallet_session: Some(session!(initial_authorities, session_keys)),
-            pallet_staking: Some(staking!(
+            },
+            indices: pallet_indices::GenesisConfig { indices: vec![] },
+            sudo: pallet_sudo::GenesisConfig { key: root_key },
+            session: session!(initial_authorities, session_keys),
+            staking: staking!(
                 initial_authorities,
                 stakers,
-                PerThing::from_rational_approximation(1u64, 10u64)
-            )),
-            pallet_pips: Some(pips!(
-                time::DAYS * 30,
-                MaybeBlock::Some(time::DAYS * 90),
-                1000
-            )),
-            pallet_im_online: Some(Default::default()),
-            pallet_authority_discovery: Some(Default::default()),
-            pallet_babe: Some(Default::default()),
-            pallet_grandpa: Some(Default::default()),
+                PerThing::from_rational(1u64, 10u64)
+            ),
+            pips: pips!(time::DAYS * 30, MaybeBlock::Some(time::DAYS * 90), 1000),
+            im_online: Default::default(),
+            authority_discovery: Default::default(),
+            babe: Default::default(),
+            grandpa: Default::default(),
             /*
             pallet_contracts: Some(pallet_contracts::GenesisConfig {
                 current_schedule: pallet_contracts::Schedule {
@@ -1008,23 +1004,23 @@ pub mod mainnet {
             }),
             */
             // Governing council
-            pallet_group_Instance1: Some(group_membership!(1, 2, 3)), // 3 GC members
-            pallet_committee_Instance1: Some(committee!(1, (2, 3))),  // RC = 1, 2/3 votes required
+            committee_membership: group_membership!(1, 2, 3), // 3 GC members
+            polymesh_committee: committee!(1, (2, 3)),        // RC = 1, 2/3 votes required
             // CDD providers
-            pallet_group_Instance2: Some(group_membership!(1)), // GC_1 is also a CDD provider
+            cdd_service_providers: group_membership!(1), // GC_1 is also a CDD provider
             // Technical Committee:
-            pallet_group_Instance3: Some(group_membership!(1)), // One GC member
-            pallet_committee_Instance3: Some(committee!(1)),    // 1/2 votes required
+            technical_committee_membership: group_membership!(1), // One GC member
+            technical_committee: committee!(1),                   // 1/2 votes required
             // Upgrade Committee:
-            pallet_group_Instance4: Some(group_membership!(1)), // One GC member
-            pallet_committee_Instance4: Some(committee!(1)),    // 1/2 votes required
-            pallet_protocol_fee: Some(protocol_fee!()),
-            pallet_settlement: Some(Default::default()),
-            pallet_multisig: Some(pallet_multisig::GenesisConfig {
+            upgrade_committee_membership: group_membership!(1), // One GC member
+            upgrade_committee: committee!(1),                   // 1/2 votes required
+            protocol_fee: protocol_fee!(),
+            settlement: Default::default(),
+            multi_sig: pallet_multisig::GenesisConfig {
                 transaction_version: 1,
-            }),
-            pallet_corporate_actions: Some(corporate_actions!()),
-            pallet_rewards: Some(rewards!()),
+            },
+            corporate_action: corporate_actions!(),
+            rewards: rewards!(),
         }
     }
 
@@ -1166,15 +1162,15 @@ pub mod ci {
         );
 
         rt::runtime::GenesisConfig {
-            frame_system: Some(frame(rt::WASM_BINARY)),
-            pallet_asset: Some(asset!()),
-            pallet_checkpoint: Some(checkpoint!()),
-            pallet_identity: Some(pallet_identity::GenesisConfig {
+            system: frame(rt::WASM_BINARY),
+            asset: asset!(),
+            checkpoint: checkpoint!(),
+            identity: pallet_identity::GenesisConfig {
                 identities,
                 ..Default::default()
-            }),
-            pallet_balances: Some(Default::default()),
-            pallet_bridge: Some(pallet_bridge::GenesisConfig {
+            },
+            balances: Default::default(),
+            bridge: pallet_bridge::GenesisConfig {
                 admin: seeded_acc_id("polymath_1"),
                 creator: seeded_acc_id("polymath_1"),
                 signatures_required: 3,
@@ -1182,16 +1178,16 @@ pub mod ci {
                 timelock: time::MINUTES * 15,
                 bridge_limit: (30_000_000_000, time::DAYS),
                 complete_txs,
-            }),
-            pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
-            pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
-            pallet_session: Some(session!(initial_authorities, session_keys)),
-            pallet_staking: Some(staking!(initial_authorities, stakers, PerThing::zero())),
-            pallet_pips: Some(pips!(time::DAYS * 7, MaybeBlock::None, 1000)),
-            pallet_im_online: Some(Default::default()),
-            pallet_authority_discovery: Some(Default::default()),
-            pallet_babe: Some(Default::default()),
-            pallet_grandpa: Some(Default::default()),
+            },
+            indices: pallet_indices::GenesisConfig { indices: vec![] },
+            sudo: pallet_sudo::GenesisConfig { key: root_key },
+            session: session!(initial_authorities, session_keys),
+            staking: staking!(initial_authorities, stakers, PerThing::zero()),
+            pips: pips!(time::DAYS * 7, MaybeBlock::None, 1000),
+            im_online: Default::default(),
+            authority_discovery: Default::default(),
+            babe: Default::default(),
+            grandpa: Default::default(),
             /*
             pallet_contracts: Some(pallet_contracts::GenesisConfig {
                 current_schedule: pallet_contracts::Schedule {
@@ -1201,23 +1197,23 @@ pub mod ci {
             }),
             */
             // Governing council
-            pallet_group_Instance1: Some(group_membership!(1, 2, 3, 5)),
-            pallet_committee_Instance1: Some(committee!(1, (2, 4))),
+            committee_membership: group_membership!(1, 2, 3, 5),
+            polymesh_committee: committee!(1, (2, 4)),
             // CDD providers
-            pallet_group_Instance2: Some(group_membership!(1, 2, 3, 5)),
+            cdd_service_providers: group_membership!(1, 2, 3, 5),
             // Technical Committee:
-            pallet_group_Instance3: Some(group_membership!(3, 5)),
-            pallet_committee_Instance3: Some(committee!(5)),
+            technical_committee_membership: group_membership!(3, 5),
+            technical_committee: committee!(5),
             // Upgrade Committee:
-            pallet_group_Instance4: Some(group_membership!(1, 5)),
-            pallet_committee_Instance4: Some(committee!(5)),
-            pallet_protocol_fee: Some(protocol_fee!()),
-            pallet_settlement: Some(Default::default()),
-            pallet_multisig: Some(pallet_multisig::GenesisConfig {
+            upgrade_committee_membership: group_membership!(1, 5),
+            upgrade_committee: committee!(5),
+            protocol_fee: protocol_fee!(),
+            settlement: Default::default(),
+            multi_sig: pallet_multisig::GenesisConfig {
                 transaction_version: 1,
-            }),
-            pallet_corporate_actions: Some(corporate_actions!()),
-            pallet_rewards: Some(rewards!()),
+            },
+            corporate_action: corporate_actions!(),
+            rewards: rewards!(),
         }
     }
 

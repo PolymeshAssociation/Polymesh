@@ -48,6 +48,7 @@ sc-consensus-babe = { git = "https://github.com/PolymathNetwork/substrate", bran
 sc-consensus-babe-rpc = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sc-consensus-epochs = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sc-consensus-slots = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
+sc-consensus-uncles = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sc-executor = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sc-finality-grandpa = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sc-finality-grandpa-rpc = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
@@ -59,11 +60,13 @@ sc-rpc-api = { git = "https://github.com/PolymathNetwork/substrate", branch = "p
 sc-service = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sc-telemetry = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sc-transaction-pool = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
+sc-transaction-pool-api = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sc-sync-state-rpc = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sp-api = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sp-application-crypto = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sp-arithmetic = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sp-authority-discovery = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
+sp-authorship = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sp-block-builder = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sp-blockchain = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sp-consensus = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
@@ -90,6 +93,7 @@ sp-storage = { git = "https://github.com/PolymathNetwork/substrate", branch = "p
 sp-timestamp = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sp-tracing = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sp-transaction-pool = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
+sp-transaction-storage-proof = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sp-trie = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sp-version = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 substrate-frame-rpc-system = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
@@ -192,7 +196,7 @@ polymesh-runtime-ci = { path = "pallets/runtime/ci" }
 chrono = "0.4.11"
 ed25519-dalek = "1.0.0"
 futures = "0.3.4"
-jsonrpc-core = { version = "15.0", features = ["arbitrary_precision"] }
+jsonrpc-core = { version = "18.0" }
 log = "0.4.8"
 serde = { version = "1.0.104", default-features = false }
 serde_json = { version = "1.0", features = ["arbitrary_precision"] }
@@ -220,6 +224,7 @@ sc-client-db = "0.10.0-dev"
 sc-consensus = "0.10.0-dev"
 sc-consensus-babe = "0.10.0-dev"
 sc-consensus-slots = "0.10.0-dev"
+sc-consensus-uncles = "0.10.0-dev"
 sc-executor = { version = "0.10.0-dev", features = ["wasmtime"] }
 sc-light = "4.0.0-dev"
 sc-network = "0.10.0-dev"
@@ -229,6 +234,7 @@ sc-telemetry = "4.0.0-dev"
 sc-transaction-pool = "4.0.0-dev"
 sp-api = "4.0.0-dev"
 sp-authority-discovery = "4.0.0-dev"
+sp-authorship = "4.0.0-dev"
 sp-block-builder = "4.0.0-dev"
 sp-blockchain = "4.0.0-dev"
 sp-consensus = "0.10.0-dev"
@@ -236,8 +242,10 @@ sp-consensus-babe = "0.10.0-dev"
 sp-consensus-slots = "0.10.0-dev"
 sp-core = "4.0.0-dev"
 sp-inherents = "4.0.0-dev"
+sp-transaction-storage-proof = "4.0.0-dev"
 sp-offchain = "4.0.0-dev"
 sp-runtime = "4.0.0-dev"
+sp-timestamp = "4.0.0-dev"
 sp-session = "4.0.0-dev"
 sp-transaction-pool = { version = "4.0.0-dev" }
 
