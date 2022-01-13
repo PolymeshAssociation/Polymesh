@@ -334,7 +334,7 @@ export async function signatory(signer: KeyringPair, entity: KeyringPair) {
 }
 
 export function getDefaultPortfolio(did: IdentityId) {
-  return { did: did, kind: "Default" };
+  return { did: did, kind: { Default: ""} };
 }
 
 export async function getValidCddProvider(alice: KeyringPair) {
