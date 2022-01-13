@@ -99,6 +99,7 @@ export type DocumentName = string;
 export type DocumentUri = string;
 export type Signatory = { Identity: IdentityId } | { Account: AccountId };
 export type ItnRewardStatus = { Unclaimed: number } | { Claimed: "" };
+export type venueType = "Other" | "Distribution" | "Sto" | "Exchange" | number | Uint8Array;
 
 export type Claim =
   | { Accredited: Scope }
@@ -185,3 +186,8 @@ export type AssetCompliance = {
   is_paused: Boolean;
   requirements: ComplianceRequirement[];
 };
+
+export type PriceTier = {
+  total: number;
+  price: number;
+}

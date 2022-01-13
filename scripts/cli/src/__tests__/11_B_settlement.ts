@@ -81,7 +81,7 @@ describe("11 B - Settlement Unit Test", () => {
     eveBalance = await assetBalance(ticker2, eveDid);
     expect(eveBalance).toEqual(0);
 
-    const venueCounter = await settlement.createVenue(alice);
+    const venueCounter = await settlement.createVenue(alice, "Other");
     expect(venueCounter).toBeTruthy();
     let instructionCounter = await settlement.addGroupInstruction(
       alice,

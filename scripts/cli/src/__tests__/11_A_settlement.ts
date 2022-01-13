@@ -47,7 +47,7 @@ describe("11 A - Settlement Unit Test", () => {
     let bobBalance = await assetBalance(ticker, bobDid);
     expect(bobBalance).toEqual(0);
 
-    let venueCounter = await settlement.createVenue(alice);
+    let venueCounter = await settlement.createVenue(alice, "Other");
     expect(venueCounter).toBeTruthy();
 
     let intructionCounterAB = await settlement.addInstruction(
