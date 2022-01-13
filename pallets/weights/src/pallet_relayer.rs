@@ -44,7 +44,6 @@
 // ./.maintain/frame-weight-template.hbs
 // --raw
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
@@ -55,34 +54,34 @@ use sp_std::marker::PhantomData;
 /// Weights for pallet_relayer using the Substrate node and recommended hardware.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_relayer::WeightInfo for WeightInfo<T> {
-	fn set_paying_key() -> Weight {
-		(67_585_000 as Weight)
-			.saturating_add(DbWeight::get().reads(3 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
-	fn accept_paying_key() -> Weight {
-		(166_613_000 as Weight)
-			.saturating_add(DbWeight::get().reads(15 as Weight))
-			.saturating_add(DbWeight::get().writes(5 as Weight))
-	}
-	fn remove_paying_key() -> Weight {
-		(64_417_000 as Weight)
-			.saturating_add(DbWeight::get().reads(5 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
-	fn update_polyx_limit() -> Weight {
-		(51_208_000 as Weight)
-			.saturating_add(DbWeight::get().reads(3 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn increase_polyx_limit() -> Weight {
-		(51_081_000 as Weight)
-			.saturating_add(DbWeight::get().reads(3 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn decrease_polyx_limit() -> Weight {
-		(51_632_000 as Weight)
-			.saturating_add(DbWeight::get().reads(3 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
+    fn set_paying_key() -> Weight {
+        (67_585_000 as Weight)
+            .saturating_add(DbWeight::get().reads(3 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    fn accept_paying_key() -> Weight {
+        (166_613_000 as Weight)
+            .saturating_add(DbWeight::get().reads(15 as Weight))
+            .saturating_add(DbWeight::get().writes(5 as Weight))
+    }
+    fn remove_paying_key() -> Weight {
+        (64_417_000 as Weight)
+            .saturating_add(DbWeight::get().reads(5 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    fn update_polyx_limit() -> Weight {
+        (51_208_000 as Weight)
+            .saturating_add(DbWeight::get().reads(3 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn increase_polyx_limit() -> Weight {
+        (51_081_000 as Weight)
+            .saturating_add(DbWeight::get().reads(3 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn decrease_polyx_limit() -> Weight {
+        (51_632_000 as Weight)
+            .saturating_add(DbWeight::get().reads(3 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
 }

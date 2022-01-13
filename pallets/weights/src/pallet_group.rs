@@ -44,7 +44,6 @@
 // ./.maintain/frame-weight-template.hbs
 // --raw
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
@@ -53,43 +52,43 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 /// Weights for pallet_group using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_group::WeightInfo for WeightInfo {
-	fn set_active_members_limit() -> Weight {
-		(23_583_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn add_member() -> Weight {
-		(1_304_495_000 as Weight)
-			.saturating_add(DbWeight::get().reads(5 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn remove_member() -> Weight {
-		(299_690_000 as Weight)
-			.saturating_add(DbWeight::get().reads(3 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn disable_member() -> Weight {
-		(294_365_000 as Weight)
-			.saturating_add(DbWeight::get().reads(5 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
-	fn swap_member() -> Weight {
-		(1_311_449_000 as Weight)
-			.saturating_add(DbWeight::get().reads(5 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
-	fn reset_members(m: u32, ) -> Weight {
-		(2_253_951_000 as Weight)
-			// Standard Error: 1_930_000
-			.saturating_add((970_167_000 as Weight).saturating_mul(m as Weight))
-			.saturating_add(DbWeight::get().reads(5 as Weight))
-			.saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(m as Weight)))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-			.saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(m as Weight)))
-	}
-	fn abdicate_membership() -> Weight {
-		(295_012_000 as Weight)
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
+    fn set_active_members_limit() -> Weight {
+        (23_583_000 as Weight)
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn add_member() -> Weight {
+        (1_304_495_000 as Weight)
+            .saturating_add(DbWeight::get().reads(5 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn remove_member() -> Weight {
+        (299_690_000 as Weight)
+            .saturating_add(DbWeight::get().reads(3 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn disable_member() -> Weight {
+        (294_365_000 as Weight)
+            .saturating_add(DbWeight::get().reads(5 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    fn swap_member() -> Weight {
+        (1_311_449_000 as Weight)
+            .saturating_add(DbWeight::get().reads(5 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    fn reset_members(m: u32) -> Weight {
+        (2_253_951_000 as Weight)
+            // Standard Error: 1_930_000
+            .saturating_add((970_167_000 as Weight).saturating_mul(m as Weight))
+            .saturating_add(DbWeight::get().reads(5 as Weight))
+            .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(m as Weight)))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(m as Weight)))
+    }
+    fn abdicate_membership() -> Weight {
+        (295_012_000 as Weight)
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
 }

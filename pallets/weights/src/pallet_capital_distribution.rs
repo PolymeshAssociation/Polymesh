@@ -44,7 +44,6 @@
 // ./.maintain/frame-weight-template.hbs
 // --raw
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
@@ -53,37 +52,37 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 /// Weights for pallet_capital_distribution using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_corporate_actions::distribution::WeightInfo for WeightInfo {
-	fn distribute() -> Weight {
-		(119_677_000 as Weight)
-			.saturating_add(DbWeight::get().reads(13 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn claim(t: u32, w: u32, ) -> Weight {
-		(406_411_000 as Weight)
-			// Standard Error: 4_000
-			.saturating_add((287_000 as Weight).saturating_mul(t as Weight))
-			// Standard Error: 4_000
-			.saturating_add((184_000 as Weight).saturating_mul(w as Weight))
-			.saturating_add(DbWeight::get().reads(27 as Weight))
-			.saturating_add(DbWeight::get().writes(11 as Weight))
-	}
-	fn push_benefit(t: u32, w: u32, ) -> Weight {
-		(449_013_000 as Weight)
-			// Standard Error: 4_000
-			.saturating_add((274_000 as Weight).saturating_mul(t as Weight))
-			// Standard Error: 4_000
-			.saturating_add((157_000 as Weight).saturating_mul(w as Weight))
-			.saturating_add(DbWeight::get().reads(30 as Weight))
-			.saturating_add(DbWeight::get().writes(11 as Weight))
-	}
-	fn reclaim() -> Weight {
-		(96_930_000 as Weight)
-			.saturating_add(DbWeight::get().reads(9 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn remove_distribution() -> Weight {
-		(89_146_000 as Weight)
-			.saturating_add(DbWeight::get().reads(8 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
+    fn distribute() -> Weight {
+        (119_677_000 as Weight)
+            .saturating_add(DbWeight::get().reads(13 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn claim(t: u32, w: u32) -> Weight {
+        (406_411_000 as Weight)
+            // Standard Error: 4_000
+            .saturating_add((287_000 as Weight).saturating_mul(t as Weight))
+            // Standard Error: 4_000
+            .saturating_add((184_000 as Weight).saturating_mul(w as Weight))
+            .saturating_add(DbWeight::get().reads(27 as Weight))
+            .saturating_add(DbWeight::get().writes(11 as Weight))
+    }
+    fn push_benefit(t: u32, w: u32) -> Weight {
+        (449_013_000 as Weight)
+            // Standard Error: 4_000
+            .saturating_add((274_000 as Weight).saturating_mul(t as Weight))
+            // Standard Error: 4_000
+            .saturating_add((157_000 as Weight).saturating_mul(w as Weight))
+            .saturating_add(DbWeight::get().reads(30 as Weight))
+            .saturating_add(DbWeight::get().writes(11 as Weight))
+    }
+    fn reclaim() -> Weight {
+        (96_930_000 as Weight)
+            .saturating_add(DbWeight::get().reads(9 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn remove_distribution() -> Weight {
+        (89_146_000 as Weight)
+            .saturating_add(DbWeight::get().reads(8 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
 }

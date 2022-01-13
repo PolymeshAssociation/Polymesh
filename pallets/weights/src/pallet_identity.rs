@@ -44,7 +44,6 @@
 // ./.maintain/frame-weight-template.hbs
 // --raw
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
@@ -53,119 +52,118 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 /// Weights for pallet_identity using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_identity::WeightInfo for WeightInfo {
-	fn cdd_register_did(i: u32, ) -> Weight {
-		(118_665_000 as Weight)
-			// Standard Error: 185_000
-			.saturating_add((30_460_000 as Weight).saturating_mul(i as Weight))
-			.saturating_add(DbWeight::get().reads(10 as Weight))
-			.saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(i as Weight)))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-			.saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
-	}
-	fn invalidate_cdd_claims() -> Weight {
-		(116_347_000 as Weight)
-			.saturating_add(DbWeight::get().reads(5 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
-	fn remove_secondary_keys(i: u32, ) -> Weight {
-		(14_977_000 as Weight)
-			// Standard Error: 201_000
-			.saturating_add((30_365_000 as Weight).saturating_mul(i as Weight))
-			.saturating_add(DbWeight::get().reads(2 as Weight))
-			.saturating_add(DbWeight::get().reads((4 as Weight).saturating_mul(i as Weight)))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-			.saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(i as Weight)))
-	}
-	fn accept_primary_key() -> Weight {
-		(134_293_000 as Weight)
-			.saturating_add(DbWeight::get().reads(9 as Weight))
-			.saturating_add(DbWeight::get().writes(7 as Weight))
-	}
-	fn rotate_primary_key_to_secondary() -> Weight {
-		(118_693_000 as Weight)
-			.saturating_add(DbWeight::get().reads(7 as Weight))
-			.saturating_add(DbWeight::get().writes(6 as Weight))
-	}
-	fn change_cdd_requirement_for_mk_rotation() -> Weight {
-		(16_749_000 as Weight)
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn join_identity_as_key() -> Weight {
-		(123_523_000 as Weight)
-			.saturating_add(DbWeight::get().reads(11 as Weight))
-			.saturating_add(DbWeight::get().writes(5 as Weight))
-	}
-	fn leave_identity_as_key() -> Weight {
-		(61_454_000 as Weight)
-			.saturating_add(DbWeight::get().reads(5 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn add_claim() -> Weight {
-		(71_326_000 as Weight)
-			.saturating_add(DbWeight::get().reads(7 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn revoke_claim() -> Weight {
-		(67_373_000 as Weight)
-			.saturating_add(DbWeight::get().reads(4 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn revoke_claim_by_index() -> Weight {
-		(72_890_000 as Weight)
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn set_permission_to_signer() -> Weight {
-		(45_961_000 as Weight)
-			.saturating_add(DbWeight::get().reads(2 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn permissions_cost(_a: u32, p: u32, l: u32, e: u32, ) -> Weight {
-		(0 as Weight)
-			// Standard Error: 328_000
-			.saturating_add((408_000 as Weight).saturating_mul(p as Weight))
-			// Standard Error: 328_000
-			.saturating_add((60_354_000 as Weight).saturating_mul(l as Weight))
-			// Standard Error: 328_000
-			.saturating_add((61_522_000 as Weight).saturating_mul(e as Weight))
-	}
-	fn freeze_secondary_keys() -> Weight {
-		(38_385_000 as Weight)
-			.saturating_add(DbWeight::get().reads(2 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn unfreeze_secondary_keys() -> Weight {
-		(36_802_000 as Weight)
-			.saturating_add(DbWeight::get().reads(2 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn add_authorization() -> Weight {
-		(50_917_000 as Weight)
-			.saturating_add(DbWeight::get().reads(3 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
-	fn remove_authorization() -> Weight {
-		(53_795_000 as Weight)
-			.saturating_add(DbWeight::get().reads(3 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn add_secondary_keys_with_authorization(i: u32, ) -> Weight {
-		(91_594_000 as Weight)
-			// Standard Error: 375_000
-			.saturating_add((75_297_000 as Weight).saturating_mul(i as Weight))
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(i as Weight)))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-			.saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(i as Weight)))
-	}
-	fn add_investor_uniqueness_claim() -> Weight {
-		(1_772_784_000 as Weight)
-			.saturating_add(DbWeight::get().reads(13 as Weight))
-			.saturating_add(DbWeight::get().writes(4 as Weight))
-	}
-	fn add_investor_uniqueness_claim_v2() -> Weight {
-		(3_259_536_000 as Weight)
-			.saturating_add(DbWeight::get().reads(13 as Weight))
-			.saturating_add(DbWeight::get().writes(4 as Weight))
-	}
+    fn cdd_register_did(i: u32) -> Weight {
+        (118_665_000 as Weight)
+            // Standard Error: 185_000
+            .saturating_add((30_460_000 as Weight).saturating_mul(i as Weight))
+            .saturating_add(DbWeight::get().reads(10 as Weight))
+            .saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(i as Weight)))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+            .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
+    }
+    fn invalidate_cdd_claims() -> Weight {
+        (116_347_000 as Weight)
+            .saturating_add(DbWeight::get().reads(5 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    fn remove_secondary_keys(i: u32) -> Weight {
+        (14_977_000 as Weight)
+            // Standard Error: 201_000
+            .saturating_add((30_365_000 as Weight).saturating_mul(i as Weight))
+            .saturating_add(DbWeight::get().reads(2 as Weight))
+            .saturating_add(DbWeight::get().reads((4 as Weight).saturating_mul(i as Weight)))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(i as Weight)))
+    }
+    fn accept_primary_key() -> Weight {
+        (134_293_000 as Weight)
+            .saturating_add(DbWeight::get().reads(9 as Weight))
+            .saturating_add(DbWeight::get().writes(7 as Weight))
+    }
+    fn rotate_primary_key_to_secondary() -> Weight {
+        (118_693_000 as Weight)
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().writes(6 as Weight))
+    }
+    fn change_cdd_requirement_for_mk_rotation() -> Weight {
+        (16_749_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn join_identity_as_key() -> Weight {
+        (123_523_000 as Weight)
+            .saturating_add(DbWeight::get().reads(11 as Weight))
+            .saturating_add(DbWeight::get().writes(5 as Weight))
+    }
+    fn leave_identity_as_key() -> Weight {
+        (61_454_000 as Weight)
+            .saturating_add(DbWeight::get().reads(5 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn add_claim() -> Weight {
+        (71_326_000 as Weight)
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn revoke_claim() -> Weight {
+        (67_373_000 as Weight)
+            .saturating_add(DbWeight::get().reads(4 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn revoke_claim_by_index() -> Weight {
+        (72_890_000 as Weight)
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn set_permission_to_signer() -> Weight {
+        (45_961_000 as Weight)
+            .saturating_add(DbWeight::get().reads(2 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn permissions_cost(_a: u32, p: u32, l: u32, e: u32) -> Weight {
+        (0 as Weight)
+            // Standard Error: 328_000
+            .saturating_add((408_000 as Weight).saturating_mul(p as Weight))
+            // Standard Error: 328_000
+            .saturating_add((60_354_000 as Weight).saturating_mul(l as Weight))
+            // Standard Error: 328_000
+            .saturating_add((61_522_000 as Weight).saturating_mul(e as Weight))
+    }
+    fn freeze_secondary_keys() -> Weight {
+        (38_385_000 as Weight)
+            .saturating_add(DbWeight::get().reads(2 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn unfreeze_secondary_keys() -> Weight {
+        (36_802_000 as Weight)
+            .saturating_add(DbWeight::get().reads(2 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn add_authorization() -> Weight {
+        (50_917_000 as Weight)
+            .saturating_add(DbWeight::get().reads(3 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    fn remove_authorization() -> Weight {
+        (53_795_000 as Weight)
+            .saturating_add(DbWeight::get().reads(3 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn add_secondary_keys_with_authorization(i: u32) -> Weight {
+        (91_594_000 as Weight)
+            // Standard Error: 375_000
+            .saturating_add((75_297_000 as Weight).saturating_mul(i as Weight))
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(i as Weight)))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(i as Weight)))
+    }
+    fn add_investor_uniqueness_claim() -> Weight {
+        (1_772_784_000 as Weight)
+            .saturating_add(DbWeight::get().reads(13 as Weight))
+            .saturating_add(DbWeight::get().writes(4 as Weight))
+    }
+    fn add_investor_uniqueness_claim_v2() -> Weight {
+        (3_259_536_000 as Weight)
+            .saturating_add(DbWeight::get().reads(13 as Weight))
+            .saturating_add(DbWeight::get().writes(4 as Weight))
+    }
 }

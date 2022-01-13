@@ -44,7 +44,6 @@
 // ./.maintain/frame-weight-template.hbs
 // --raw
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
@@ -53,12 +52,10 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 /// Weights for pallet_protocol_fee using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_protocol_fee::WeightInfo for WeightInfo {
-	fn change_coefficient() -> Weight {
-		(17_369_000 as Weight)
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn change_base_fee() -> Weight {
-		(20_133_000 as Weight)
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
+    fn change_coefficient() -> Weight {
+        (17_369_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn change_base_fee() -> Weight {
+        (20_133_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+    }
 }

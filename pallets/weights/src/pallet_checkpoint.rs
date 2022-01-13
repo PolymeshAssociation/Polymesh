@@ -44,7 +44,6 @@
 // ./.maintain/frame-weight-template.hbs
 // --raw
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
@@ -53,27 +52,26 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 /// Weights for pallet_checkpoint using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_asset::checkpoint::WeightInfo for WeightInfo {
-	fn set_schedules_max_complexity() -> Weight {
-		(19_472_000 as Weight)
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn create_checkpoint() -> Weight {
-		(79_574_000 as Weight)
-			.saturating_add(DbWeight::get().reads(8 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
-	fn create_schedule(s: u32, ) -> Weight {
-		(133_611_000 as Weight)
-			// Standard Error: 37_000
-			.saturating_add((438_000 as Weight).saturating_mul(s as Weight))
-			.saturating_add(DbWeight::get().reads(14 as Weight))
-			.saturating_add(DbWeight::get().writes(7 as Weight))
-	}
-	fn remove_schedule(s: u32, ) -> Weight {
-		(76_704_000 as Weight)
-			// Standard Error: 16_000
-			.saturating_add((156_000 as Weight).saturating_mul(s as Weight))
-			.saturating_add(DbWeight::get().reads(7 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
+    fn set_schedules_max_complexity() -> Weight {
+        (19_472_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn create_checkpoint() -> Weight {
+        (79_574_000 as Weight)
+            .saturating_add(DbWeight::get().reads(8 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    fn create_schedule(s: u32) -> Weight {
+        (133_611_000 as Weight)
+            // Standard Error: 37_000
+            .saturating_add((438_000 as Weight).saturating_mul(s as Weight))
+            .saturating_add(DbWeight::get().reads(14 as Weight))
+            .saturating_add(DbWeight::get().writes(7 as Weight))
+    }
+    fn remove_schedule(s: u32) -> Weight {
+        (76_704_000 as Weight)
+            // Standard Error: 16_000
+            .saturating_add((156_000 as Weight).saturating_mul(s as Weight))
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
 }

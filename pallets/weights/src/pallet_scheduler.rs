@@ -44,7 +44,6 @@
 // ./.maintain/frame-weight-template.hbs
 // --raw
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
@@ -53,32 +52,32 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 /// Weights for pallet_scheduler using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_scheduler::WeightInfo for WeightInfo {
-	fn schedule(s: u32, ) -> Weight {
-		(30_395_000 as Weight)
-			// Standard Error: 8_000
-			.saturating_add((115_000 as Weight).saturating_mul(s as Weight))
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn cancel(s: u32, ) -> Weight {
-		(26_759_000 as Weight)
-			// Standard Error: 34_000
-			.saturating_add((3_932_000 as Weight).saturating_mul(s as Weight))
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn schedule_named(s: u32, ) -> Weight {
-		(37_013_000 as Weight)
-			// Standard Error: 7_000
-			.saturating_add((154_000 as Weight).saturating_mul(s as Weight))
-			.saturating_add(DbWeight::get().reads(2 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn cancel_named(s: u32, ) -> Weight {
-		(26_064_000 as Weight)
-			// Standard Error: 34_000
-			.saturating_add((4_096_000 as Weight).saturating_mul(s as Weight))
-			.saturating_add(DbWeight::get().reads(2 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
+    fn schedule(s: u32) -> Weight {
+        (30_395_000 as Weight)
+            // Standard Error: 8_000
+            .saturating_add((115_000 as Weight).saturating_mul(s as Weight))
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn cancel(s: u32) -> Weight {
+        (26_759_000 as Weight)
+            // Standard Error: 34_000
+            .saturating_add((3_932_000 as Weight).saturating_mul(s as Weight))
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn schedule_named(s: u32) -> Weight {
+        (37_013_000 as Weight)
+            // Standard Error: 7_000
+            .saturating_add((154_000 as Weight).saturating_mul(s as Weight))
+            .saturating_add(DbWeight::get().reads(2 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn cancel_named(s: u32) -> Weight {
+        (26_064_000 as Weight)
+            // Standard Error: 34_000
+            .saturating_add((4_096_000 as Weight).saturating_mul(s as Weight))
+            .saturating_add(DbWeight::get().reads(2 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
 }

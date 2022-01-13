@@ -44,7 +44,6 @@
 // ./.maintain/frame-weight-template.hbs
 // --raw
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
@@ -53,36 +52,36 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 /// Weights for pallet_sto using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_sto::WeightInfo for WeightInfo {
-	fn create_fundraiser(i: u32, ) -> Weight {
-		(116_312_000 as Weight)
-			// Standard Error: 290_000
-			.saturating_add((331_000 as Weight).saturating_mul(i as Weight))
-			.saturating_add(DbWeight::get().reads(11 as Weight))
-			.saturating_add(DbWeight::get().writes(4 as Weight))
-	}
-	fn invest() -> Weight {
-		(2_546_064_000 as Weight)
-			.saturating_add(DbWeight::get().reads(108 as Weight))
-			.saturating_add(DbWeight::get().writes(31 as Weight))
-	}
-	fn freeze_fundraiser() -> Weight {
-		(78_588_000 as Weight)
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn unfreeze_fundraiser() -> Weight {
-		(90_481_000 as Weight)
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn modify_fundraiser_window() -> Weight {
-		(77_380_000 as Weight)
-			.saturating_add(DbWeight::get().reads(7 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn stop() -> Weight {
-		(79_575_000 as Weight)
-			.saturating_add(DbWeight::get().reads(5 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
+    fn create_fundraiser(i: u32) -> Weight {
+        (116_312_000 as Weight)
+            // Standard Error: 290_000
+            .saturating_add((331_000 as Weight).saturating_mul(i as Weight))
+            .saturating_add(DbWeight::get().reads(11 as Weight))
+            .saturating_add(DbWeight::get().writes(4 as Weight))
+    }
+    fn invest() -> Weight {
+        (2_546_064_000 as Weight)
+            .saturating_add(DbWeight::get().reads(108 as Weight))
+            .saturating_add(DbWeight::get().writes(31 as Weight))
+    }
+    fn freeze_fundraiser() -> Weight {
+        (78_588_000 as Weight)
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn unfreeze_fundraiser() -> Weight {
+        (90_481_000 as Weight)
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn modify_fundraiser_window() -> Weight {
+        (77_380_000 as Weight)
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn stop() -> Weight {
+        (79_575_000 as Weight)
+            .saturating_add(DbWeight::get().reads(5 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
 }

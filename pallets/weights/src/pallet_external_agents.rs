@@ -44,7 +44,6 @@
 // ./.maintain/frame-weight-template.hbs
 // --raw
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
@@ -53,43 +52,43 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 /// Weights for pallet_external_agents using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_external_agents::WeightInfo for WeightInfo {
-	fn create_group(p: u32, ) -> Weight {
-		(65_478_000 as Weight)
-			// Standard Error: 35_000
-			.saturating_add((391_000 as Weight).saturating_mul(p as Weight))
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn set_group_permissions(p: u32, ) -> Weight {
-		(63_756_000 as Weight)
-			// Standard Error: 58_000
-			.saturating_add((674_000 as Weight).saturating_mul(p as Weight))
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn remove_agent() -> Weight {
-		(70_055_000 as Weight)
-			.saturating_add(DbWeight::get().reads(7 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
-	fn abdicate() -> Weight {
-		(58_162_000 as Weight)
-			.saturating_add(DbWeight::get().reads(4 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
-	fn change_group_custom() -> Weight {
-		(74_150_000 as Weight)
-			.saturating_add(DbWeight::get().reads(8 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn change_group_builtin() -> Weight {
-		(67_039_000 as Weight)
-			.saturating_add(DbWeight::get().reads(7 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn accept_become_agent() -> Weight {
-		(99_158_000 as Weight)
-			.saturating_add(DbWeight::get().reads(8 as Weight))
-			.saturating_add(DbWeight::get().writes(5 as Weight))
-	}
+    fn create_group(p: u32) -> Weight {
+        (65_478_000 as Weight)
+            // Standard Error: 35_000
+            .saturating_add((391_000 as Weight).saturating_mul(p as Weight))
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn set_group_permissions(p: u32) -> Weight {
+        (63_756_000 as Weight)
+            // Standard Error: 58_000
+            .saturating_add((674_000 as Weight).saturating_mul(p as Weight))
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn remove_agent() -> Weight {
+        (70_055_000 as Weight)
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    fn abdicate() -> Weight {
+        (58_162_000 as Weight)
+            .saturating_add(DbWeight::get().reads(4 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    fn change_group_custom() -> Weight {
+        (74_150_000 as Weight)
+            .saturating_add(DbWeight::get().reads(8 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn change_group_builtin() -> Weight {
+        (67_039_000 as Weight)
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn accept_become_agent() -> Weight {
+        (99_158_000 as Weight)
+            .saturating_add(DbWeight::get().reads(8 as Weight))
+            .saturating_add(DbWeight::get().writes(5 as Weight))
+    }
 }

@@ -44,7 +44,6 @@
 // ./.maintain/frame-weight-template.hbs
 // --raw
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
@@ -53,29 +52,29 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 /// Weights for pallet_indices using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_indices::WeightInfo for WeightInfo {
-	fn claim() -> Weight {
-		(51_057_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn transfer() -> Weight {
-		(60_165_000 as Weight)
-			.saturating_add(DbWeight::get().reads(2 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn free() -> Weight {
-		(46_920_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	fn force_transfer() -> Weight {
-		(47_953_000 as Weight)
-			.saturating_add(DbWeight::get().reads(2 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
-	}
-	fn freeze() -> Weight {
-		(44_287_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
+    fn claim() -> Weight {
+        (51_057_000 as Weight)
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn transfer() -> Weight {
+        (60_165_000 as Weight)
+            .saturating_add(DbWeight::get().reads(2 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn free() -> Weight {
+        (46_920_000 as Weight)
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn force_transfer() -> Weight {
+        (47_953_000 as Weight)
+            .saturating_add(DbWeight::get().reads(2 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn freeze() -> Weight {
+        (44_287_000 as Weight)
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
 }
