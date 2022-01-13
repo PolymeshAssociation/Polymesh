@@ -5750,6 +5750,7 @@ dependencies = [
  "sc-network",
  "sc-rpc",
  "sc-service",
+ "sc-sync-state-rpc",
  "sc-telemetry",
  "sc-transaction-pool",
  "serde",

@@ -58,6 +58,21 @@ const BABE_GENESIS: pallet_babe::GenesisConfig = pallet_babe::GenesisConfig {
     epoch_config: Some(BABE_GENESIS_EPOCH_CONFIG),
 };
 
+/// Node `ChainSpec` extensions.
+///
+/// Additional parameters for some Substrate core modules,
+/// customizable from the chain spec.
+#[derive(Default, Clone, Serialize, Deserialize, sc_chain_spec::ChainSpecExtension)]
+#[serde(rename_all = "camelCase")]
+pub struct Extensions {
+    /// The light sync state.
+    ///
+    /// This value will be set by the `sync-state rpc` implementation.
+    pub light_sync_state: sc_sync_state_rpc::LightSyncStateExtension,
+}
+
+pub type GenericChainSpec<R> = sc_service::GenericChainSpec<R, Extensions>;
+
 /// Generate a crypto pair from seed.
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
     TPublic::Pair::from_string(&format!("//{}", seed), None)
@@ -608,7 +623,7 @@ pub mod general {
     use super::*;
     use polymesh_runtime_develop::{self as rt, constants::time};
 
-    pub type ChainSpec = sc_service::GenericChainSpec<rt::runtime::GenesisConfig>;
+    pub type ChainSpec = GenericChainSpec<rt::runtime::GenesisConfig>;
 
     session_keys!();
 
@@ -717,7 +732,17 @@ pub mod general {
         genesis: impl 'static + Sync + Send + Fn() -> rt::runtime::GenesisConfig,
     ) -> ChainSpec {
         let props = Some(polymath_props(42));
-        ChainSpec::from_genesis(name, id, ctype, genesis, vec![], None, None, props, None)
+        ChainSpec::from_genesis(
+            name,
+            id,
+            ctype,
+            genesis,
+            vec![],
+            None,
+            None,
+            props,
+            <_>::default(),
+        )
     }
 
     pub fn develop_config() -> ChainSpec {
@@ -763,7 +788,7 @@ pub mod testnet {
     use super::*;
     use polymesh_runtime_testnet::{self as rt, constants::time};
 
-    pub type ChainSpec = sc_service::GenericChainSpec<rt::runtime::GenesisConfig>;
+    pub type ChainSpec = GenericChainSpec<rt::runtime::GenesisConfig>;
 
     session_keys!();
 
@@ -956,7 +981,7 @@ pub mod mainnet {
     use super::*;
     use polymesh_runtime_mainnet::{self as rt, constants::time};
 
-    pub type ChainSpec = sc_service::GenericChainSpec<rt::runtime::GenesisConfig>;
+    pub type ChainSpec = GenericChainSpec<rt::runtime::GenesisConfig>;
 
     session_keys!();
 
@@ -1153,7 +1178,7 @@ pub mod ci {
     use super::*;
     use polymesh_runtime_ci::{self as rt, constants::time};
 
-    pub type ChainSpec = sc_service::GenericChainSpec<rt::runtime::GenesisConfig>;
+    pub type ChainSpec = GenericChainSpec<rt::runtime::GenesisConfig>;
 
     session_keys!();
 

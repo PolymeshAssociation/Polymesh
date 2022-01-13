@@ -233,6 +233,7 @@ sc-rpc = "4.0.0-dev"
 sc-service = { version = "0.10.0-dev", features = ["wasmtime"] }
 sc-telemetry = "4.0.0-dev"
 sc-transaction-pool = "4.0.0-dev"
+sc-sync-state-rpc = { version = "0.10.0-dev" }
 sp-api = "4.0.0-dev"
 sp-authority-discovery = "4.0.0-dev"
 sp-authorship = "4.0.0-dev"
