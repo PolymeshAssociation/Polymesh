@@ -1,5 +1,5 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
-import { sendTx, ApiSingleton } from "../util/init";
+import { sendTx, ApiSingleton, sleep } from "../util/init";
 import { distributePolyBatch } from "../helpers/poly_helper";
 import BN from "bn.js";
 
@@ -36,4 +36,23 @@ export async function forceNewEra(signer: KeyringPair) {
   const api = await ApiSingleton.getInstance();
   const transaction = api.tx.sudo.sudo(api.tx.staking.forceNewEra());
   await sendTx(signer, transaction);
+}
+
+export async function unbond(signer: KeyringPair, amount: number) {
+  const api = await ApiSingleton.getInstance();
+	const transaction = api.tx.staking.unbond(amount);
+	await sendTx(signer, transaction);
+}
+
+export async function nominate(signer: KeyringPair, target: Uint8Array) {
+  const api = await ApiSingleton.getInstance();
+	const transaction = api.tx.staking.nominate([target]);
+	await sendTx(signer, transaction);
+}
+
+export async function checkEraElectionClosed() {
+  const api = await ApiSingleton.getInstance();
+  while((await api.query.staking.eraElectionStatus()).isOpen) {
+    await sleep(1000);
+  }
 }
