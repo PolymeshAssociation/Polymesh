@@ -431,7 +431,7 @@
         "Custom": "Vec<u8>"
       }
     },
-    "InvestorZKProofData": "Signature",
+    "InvestorZKProofData": "[u8; 64]",
     "Scalar": "[u8; 32]",
     "RistrettoPoint": "[u8; 32]",
     "ZkProofData": {
@@ -982,6 +982,12 @@
       "coeffFrac": "Perbill",
       "negative": "bool",
       "degree": "u8"
+    },
+    "WeightPerClass": {
+      "baseExtrinsic": "Weight",
+      "maxExtrinsic": "Option<Weight>",
+      "maxTotal": "Option<Weight>",
+      "reserved": "Option<Weight>"
     },
     "TargetIdentity": {
       "_enum": {
