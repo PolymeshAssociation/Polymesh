@@ -431,7 +431,7 @@
         "Custom": "Vec<u8>"
       }
     },
-    "InvestorZKProofData": "Signature",
+    "InvestorZKProofData": "[u8; 64]",
     "Scalar": "[u8; 32]",
     "RistrettoPoint": "[u8; 32]",
     "ZkProofData": {
