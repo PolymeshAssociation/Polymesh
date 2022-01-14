@@ -14,7 +14,7 @@ use frame_support::{
     },
     StorageDoubleMap,
 };
-use frame_system::EnsureRoot;
+use frame_system::{EnsureRoot, RawOrigin};
 use pallet_asset::checkpoint as pallet_checkpoint;
 use pallet_balances as balances;
 use pallet_committee as committee;
@@ -54,6 +54,7 @@ use sp_core::{
     sr25519::Pair,
     H256,
 };
+use sp_runtime::generic::Era;
 use sp_runtime::{
     create_runtime_str,
     curve::PiecewiseLinear,
@@ -77,6 +78,7 @@ use test_client::AccountKeyring;
 
 // 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
 pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
+const GENESIS_HASH: [u8; 32] = [69u8; 32];
 pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("test-storage"),
     impl_name: create_runtime_str!("test-storage"),
@@ -949,4 +951,74 @@ macro_rules! assert_event_doesnt_exist {
             )
         }));
     };
+}
+
+pub fn exec<C: Into<<TestStorage as frame_system::Config>::Call>>(
+    origin: <TestStorage as frame_system::Config>::Origin,
+    call: C,
+) -> DispatchResult {
+    let origin: Result<
+        RawOrigin<<TestStorage as frame_system::Config>::AccountId>,
+        <TestStorage as frame_system::Config>::Origin,
+    > = origin.into();
+    let signed = match origin.unwrap() {
+        RawOrigin::Signed(acc) => {
+            let info = frame_system::Account::<TestStorage>::get(&acc);
+            Some((acc, signed_extra(info.nonce)))
+        }
+        _ => None,
+    };
+    Executive::apply_extrinsic(sign(CheckedExtrinsic {
+        signed,
+        function: call.into(),
+    }))
+    .unwrap()
+}
+
+/// Sign given `CheckedExtrinsic`.
+fn sign(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
+    match xt.signed {
+        Some((signed, extra)) => {
+            let payload = (
+                xt.function,
+                extra.clone(),
+                VERSION.spec_version,
+                VERSION.transaction_version,
+                GENESIS_HASH,
+                GENESIS_HASH,
+            );
+            let key = AccountKeyring::from_account_id(&signed).unwrap();
+            let signature = payload
+                .using_encoded(|b| {
+                    if b.len() > 256 {
+                        key.sign(&sp_io::hashing::blake2_256(b))
+                    } else {
+                        key.sign(b)
+                    }
+                })
+                .into();
+            UncheckedExtrinsic {
+                signature: Some((Address::Id(signed), signature, extra)),
+                function: payload.0,
+            }
+        }
+        None => UncheckedExtrinsic {
+            signature: None,
+            function: xt.function,
+        },
+    }
+}
+
+/// Returns transaction extra.
+fn signed_extra(nonce: Index) -> SignedExtra {
+    (
+        frame_system::CheckSpecVersion::new(),
+        frame_system::CheckTxVersion::new(),
+        frame_system::CheckGenesis::new(),
+        frame_system::CheckEra::from(Era::mortal(256, 0)),
+        frame_system::CheckNonce::from(nonce),
+        polymesh_extensions::CheckWeight::new(),
+        pallet_transaction_payment::ChargeTransactionPayment::from(0),
+        pallet_permissions::StoreCallMetadata::new(),
+    )
 }

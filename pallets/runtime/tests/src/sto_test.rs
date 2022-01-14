@@ -1,5 +1,6 @@
 use super::{
     asset_test::{allow_all_transfers, max_len_bytes},
+    exec,
     storage::{make_account_with_portfolio, TestStorage, User},
     ExtBuilder,
 };
@@ -21,11 +22,13 @@ use test_client::AccountKeyring;
 type Origin = <TestStorage as frame_system::Config>::Origin;
 type Asset = asset::Module<TestStorage>;
 type STO = pallet_sto::Module<TestStorage>;
+type STOCall = pallet_sto::Call<TestStorage>;
 type Error = pallet_sto::Error<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
 type Settlement = pallet_settlement::Module<TestStorage>;
+type SettlementCall = pallet_settlement::Call<TestStorage>;
 type Timestamp = pallet_timestamp::Module<TestStorage>;
 
 #[track_caller]
@@ -150,11 +153,13 @@ fn raise_happy_path() {
     // Register a venue
     let venue_counter = Settlement::venue_counter();
     let instruction_id = Settlement::instruction_counter();
-    assert_ok!(Settlement::create_venue(
+    assert_ok!(exec(
         alice.origin(),
-        VenueDetails::default(),
-        vec![AccountKeyring::Alice.to_account_id()],
-        VenueType::Sto
+        SettlementCall::create_venue(
+            VenueDetails::default(),
+            vec![AccountKeyring::Alice.to_account_id()],
+            VenueType::Sto
+        )
     ));
 
     let amount = 100u128;
@@ -166,21 +171,23 @@ fn raise_happy_path() {
     // Alice starts a fundraiser
     let fundraiser_id = STO::fundraiser_count(offering_ticker);
     let fundraiser_name: FundraiserName = max_len_bytes(0);
-    assert_ok!(STO::create_fundraiser(
+    assert_ok!(exec(
         alice.origin(),
-        alice_portfolio,
-        offering_ticker,
-        alice_portfolio,
-        raise_ticker,
-        vec![PriceTier {
-            total: 1_000_000u128,
-            price: 1_000_000u128
-        }],
-        venue_counter,
-        None,
-        None,
-        2,
-        fundraiser_name.clone()
+        STOCall::create_fundraiser(
+            alice_portfolio,
+            offering_ticker,
+            alice_portfolio,
+            raise_ticker,
+            vec![PriceTier {
+                total: 1_000_000u128,
+                price: 1_000_000u128,
+            }],
+            venue_counter,
+            None,
+            None,
+            2,
+            fundraiser_name.clone(),
+        ),
     ));
 
     let check_fundraiser = |remaining| {
@@ -226,15 +233,17 @@ fn raise_happy_path() {
         fundraiser_name
     );
     let sto_invest = |purchase_amount, max_price| {
-        STO::invest(
+        exec(
             bob.origin(),
-            bob_portfolio,
-            bob_portfolio,
-            offering_ticker,
-            fundraiser_id,
-            purchase_amount,
-            max_price,
-            None,
+            STOCall::invest(
+                bob_portfolio,
+                bob_portfolio,
+                offering_ticker,
+                fundraiser_id,
+                purchase_amount,
+                max_price,
+                None,
+            ),
         )
     };
     // Investment fails if the minimum investment amount is not met
