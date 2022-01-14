@@ -983,6 +983,12 @@
       "negative": "bool",
       "degree": "u8"
     },
+    "WeightPerClass": {
+      "baseExtrinsic": "Weight",
+      "maxExtrinsic": "Option<Weight>",
+      "maxTotal": "Option<Weight>",
+      "reserved": "Option<Weight>"
+    },
     "TargetIdentity": {
       "_enum": {
         "ExternalAgent": "",
