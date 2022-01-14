@@ -98,6 +98,7 @@ export type Expiry = string | object | Uint8Array | null;
 export type DocumentName = string;
 export type DocumentUri = string;
 export type Signatory = { Identity: IdentityId } | { Account: AccountId };
+export type ItnRewardStatus = { Unclaimed: number } | { Claimed: "" };
 
 export type Claim =
   | { Accredited: Scope }
