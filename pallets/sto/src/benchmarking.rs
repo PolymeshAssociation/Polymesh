@@ -18,7 +18,7 @@ const RAISE_TICKER: Ticker = Ticker::repeating(b'B');
 pub type Asset<T> = pallet_asset::Module<T>;
 pub type ComplianceManager<T> = pallet_compliance_manager::Module<T>;
 pub type Identity<T> = pallet_identity::Module<T>;
-pub type Timestamp<T> = pallet_timestamp::Module<T>;
+pub type Timestamp<T> = pallet_timestamp::Pallet<T>;
 pub type Settlement<T> = pallet_settlement::Module<T>;
 pub type Sto<T> = crate::Module<T>;
 

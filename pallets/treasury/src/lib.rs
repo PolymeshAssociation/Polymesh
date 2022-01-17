@@ -36,6 +36,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+use frame_support::traits::{StorageInfo, StorageInfoTrait};
 use frame_support::{
     decl_error, decl_event, decl_module, ensure,
     traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReasons},
@@ -180,5 +181,11 @@ impl<T: Config> OnUnbalanced<NegativeImbalanceOf<T>> for Module<T> {
         let _ = T::Currency::resolve_creating(&Self::account_id(), amount);
         let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
         Self::deposit_event(RawEvent::TreasuryReimbursement(current_did, numeric_amount));
+    }
+}
+
+impl<T: Config> StorageInfoTrait for Module<T> {
+    fn storage_info() -> Vec<StorageInfo> {
+        Vec::new()
     }
 }

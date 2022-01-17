@@ -23,7 +23,7 @@ use polymesh_common_utilities::{
 
 pub type MultiSig<T> = crate::Module<T>;
 pub type Identity<T> = identity::Module<T>;
-pub type Timestamp<T> = pallet_timestamp::Module<T>;
+pub type Timestamp<T> = pallet_timestamp::Pallet<T>;
 
 fn generate_signers<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     signers: &mut Vec<Signatory<T::AccountId>>,
@@ -134,7 +134,7 @@ fn generate_multisig_and_proposal_for_alice<T: Config + TestUtilsFn<AccountIdOf<
     let (alice, multisig, signers, signer_origin, _) =
         generate_multisig_for_alice::<T>(total_signers, signers_required).unwrap();
     let proposal_id = <MultiSig<T>>::ms_tx_done(multisig.clone());
-    let proposal = Box::new(frame_system::Call::<T>::remark(vec![]).into());
+    let proposal = Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
     Ok((
         alice,
         multisig.clone(),

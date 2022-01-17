@@ -21,13 +21,11 @@
 // Modified by Polymath Inc - 4th January 2021
 // - It uses our Staking pallet.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-
 use core::convert::TryInto;
 use frame_benchmarking::benchmarks;
 use frame_support::traits::{Currency, OnInitialize};
 use frame_system::RawOrigin;
-use pallet_session::{Module as Session, *};
+use pallet_session::{Call, Pallet as Session};
 use pallet_staking::{
     benchmarking::create_validator_with_nominators_with_balance, MAX_NOMINATIONS,
 };
@@ -37,15 +35,15 @@ use sp_std::vec;
 
 use polymesh_common_utilities::constants::currency::POLY;
 
-pub struct Module<T: Config>(pallet_session::Module<T>);
+pub struct Pallet<T: Config>(Session<T>);
 pub trait Config:
     pallet_session::Config + pallet_session::historical::Config + pallet_staking::Config
 {
 }
 
-impl<T: Config> OnInitialize<T::BlockNumber> for Module<T> {
+impl<T: Config> OnInitialize<T::BlockNumber> for Pallet<T> {
     fn on_initialize(n: T::BlockNumber) -> frame_support::weights::Weight {
-        pallet_session::Module::<T>::on_initialize(n)
+        Session::<T>::on_initialize(n)
     }
 }
 
@@ -99,8 +97,10 @@ benchmarks! {
     set_keys {
         let n = MAX_NOMINATIONS as u32;
         let validator = ValidatorInfo::<T>::build(n).unwrap();
+        let proof = validator.proof.clone();
+        let keys = validator.keys.clone();
 
-    }: _(RawOrigin::Signed(validator.controller), validator.keys, validator.proof)
+    }: _(RawOrigin::Signed(validator.controller), keys, proof)
 
     purge_keys {
         let n = MAX_NOMINATIONS as u32;

@@ -400,10 +400,10 @@ polymesh_runtime_common::runtime_apis! {
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
 
-            type SystemBench = frame_system_benchmarking::Module<Runtime>;
-            impl frame_system_benchmarking::Config for Runtime {}
+            type SystemBench = frame_system_benchmarking::Pallet<Runtime>;
+            type SessionBench = crate::benchmarks::pallet_session::Pallet<Runtime>;
 
-            type SessionBench = crate::benchmarks::pallet_session::Module<Runtime>;
+            impl frame_system_benchmarking::Config for Runtime {}
             impl crate::benchmarks::pallet_session::Config for Runtime {}
 
             let whitelist: Vec<TrackedStorageKey> = vec![
@@ -443,7 +443,6 @@ polymesh_runtime_common::runtime_apis! {
             add_benchmark!(params, batches, pallet_external_agents, ExternalAgents);
             add_benchmark!(params, batches, pallet_relayer, Relayer);
             add_benchmark!(params, batches, pallet_rewards, Rewards);
-            //add_benchmark!(params, batches, polymesh_contracts, Contracts);
             add_benchmark!(params, batches, pallet_committee, PolymeshCommittee);
             add_benchmark!(params, batches, pallet_utility, Utility);
             add_benchmark!(params, batches, pallet_treasury, Treasury);
@@ -461,6 +460,113 @@ polymesh_runtime_common::runtime_apis! {
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)
+        }
+
+        fn benchmark_metadata(extra: bool) -> (
+            Vec<frame_benchmarking::BenchmarkList>,
+            Vec<frame_support::traits::StorageInfo>,
+        ) {
+            use frame_support::traits::StorageInfoTrait;
+            use frame_benchmarking::{list_benchmark, Benchmarking, BenchmarkList};
+            type SystemBench = frame_system_benchmarking::Pallet<Runtime>;
+            use crate::benchmarks::pallet_session::Pallet as SessionBench;
+
+            let mut list = Vec::<BenchmarkList>::new();
+
+            list_benchmark!(list, extra, pallet_asset, Asset);
+            list_benchmark!(list, extra, pallet_balances, Balances);
+            list_benchmark!(list, extra, pallet_identity, Identity);
+            list_benchmark!(list, extra, pallet_pips, Pips);
+            list_benchmark!(list, extra, pallet_multisig, MultiSig);
+            list_benchmark!(list, extra, pallet_portfolio, Portfolio);
+            list_benchmark!(list, extra, pallet_protocol_fee, ProtocolFee);
+            list_benchmark!(list, extra, frame_system, SystemBench);
+            list_benchmark!(list, extra, pallet_timestamp, Timestamp);
+            list_benchmark!(list, extra, pallet_settlement, Settlement);
+            list_benchmark!(list, extra, pallet_sto, Sto);
+            list_benchmark!(list, extra, pallet_checkpoint, Checkpoint);
+            list_benchmark!(list, extra, pallet_compliance_manager, ComplianceManager);
+            list_benchmark!(list, extra, pallet_corporate_actions, CorporateAction);
+            list_benchmark!(list, extra, pallet_corporate_ballot, CorporateBallot);
+            list_benchmark!(list, extra, pallet_capital_distribution, CapitalDistribution);
+            list_benchmark!(list, extra, pallet_external_agents, ExternalAgents);
+            list_benchmark!(list, extra, pallet_relayer, Relayer);
+            list_benchmark!(list, extra, pallet_rewards, Rewards);
+            list_benchmark!(list, extra, pallet_committee, PolymeshCommittee);
+            list_benchmark!(list, extra, pallet_utility, Utility);
+            list_benchmark!(list, extra, pallet_treasury, Treasury);
+            list_benchmark!(list, extra, pallet_im_online, ImOnline);
+            list_benchmark!(list, extra, pallet_group, CddServiceProviders);
+            list_benchmark!(list, extra, pallet_statistics, Statistics);
+            list_benchmark!(list, extra, pallet_permissions, Permissions);
+            list_benchmark!(list, extra, pallet_babe, Babe);
+            list_benchmark!(list, extra, pallet_indices, Indices);
+            list_benchmark!(list, extra, pallet_session, SessionBench::<Runtime>);
+            list_benchmark!(list, extra, pallet_grandpa, Grandpa);
+            list_benchmark!(list, extra, pallet_scheduler, Scheduler);
+            list_benchmark!(list, extra, pallet_staking, Staking);
+            list_benchmark!(list, extra, pallet_test_utils, TestUtils);
+
+            let storage_info = AllPalletsWithSystem::storage_info();
+
+            /*
+            let mut storage_info = pallet_rewards::Module::<Runtime>::storage_info();
+
+            storage_info.append(&mut pallet_relayer::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_external_agents::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_base::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_utility::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_treasury::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_sto::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_statistics::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_settlement::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_scheduler::Pallet::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_protocol_fee::Module::<Runtime>::storage_info());
+
+            storage_info.append(&mut pallet_portfolio::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_pips::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_permissions::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_corporate_actions::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_corporate_actions::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_compliance_manager::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_asset::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_corporate_actions::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_asset::Pallet::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_sudo::Module::<Runtime>::storage_info());
+
+            storage_info.append(&mut pallet_randomness_collective_flip::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_im_online::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_session::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_grandpa::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_authority_discovery::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_session::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_offences::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_staking::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_bridge::Pallet::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_multisig::Module::<Runtime>::storage_info());
+
+            storage_info.append(&mut pallet_randomness_collective_flip::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_im_online::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_session::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_grandpa::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_authority_discovery::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_session::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_offences::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_staking::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_bridge::Pallet::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_multisig::Module::<Runtime>::storage_info());
+
+            storage_info.append(&mut pallet_identity::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_transaction_payment::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_balances::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_authorship::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_indices::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_timestamp::Module::<Runtime>::storage_info());
+            storage_info.append(&mut pallet_babe::Module::<Runtime>::storage_info());
+            storage_info.append(&mut frame_system::Module::<Runtime>::storage_info());
+            */
+
+            return (list, storage_info)
         }
     }
 }
