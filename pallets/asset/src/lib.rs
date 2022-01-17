@@ -50,9 +50,6 @@
 //! - `remove_documents` - Remove documents for a given token.
 //! - `set_funding_round` - Sets the name of the current funding round.
 //! - `update_identifiers` - Updates the asset identifiers.
-//! - `add_extension` - It is used to permission the Smart-Extension address for a given ticker.
-//! - `archive_extension` - Extension gets archived meaning it is no longer used to verify compliance or any smart logic it possesses.
-//! - `unarchive_extension` - Extension gets unarchived meaning it is used again to verify compliance or any smart logic it possesses.
 //!
 //! ### Public Functions
 //!
