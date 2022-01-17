@@ -191,7 +191,9 @@ decl_module! {
             Self::ensure_portfolio_custody_and_permission(pid, primary_did, secondary_key.as_ref())?;
 
             // Delete from storage.
+            let portfolio =Portfolios::get(&primary_did,&num);
             Portfolios::remove(&primary_did, &num);
+            NameToNumber::remove(&primary_did, &portfolio);
             PortfolioAssetCount::remove(&pid);
             PortfolioAssetBalances::remove_prefix(&pid);
             PortfolioLockedAssets::remove_prefix(&pid);
