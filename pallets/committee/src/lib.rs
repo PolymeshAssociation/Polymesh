@@ -74,7 +74,7 @@ use pallet_identity as identity;
 use polymesh_common_utilities::{
     governance_group::GovernanceGroupTrait,
     group::{GroupTrait, InactiveMember, MemberCount},
-    identity::{Config as IdentityModuleConfig, IdentityFnTrait},
+    identity::Config as IdentityModuleConfig,
     Context, MaybeBlock, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{storage_migration_ver, IdentityId};

@@ -305,7 +305,7 @@ decl_module! {
         /// See the `BallotMeta` for more.
         ///
         /// ## Arguments
-        /// - `origin` which must be a signer for a CAA of `ca_id`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.ticker`.
         /// - `ca_id` identifies the CA to attach the ballot to.
         /// - `range` specifies when voting starts and ends.
         /// - `meta` specifies the ballot's metadata as aforementioned.
@@ -325,8 +325,8 @@ decl_module! {
         /// - `InsufficientBalance` if the protocol fee couldn't be charged.
         #[weight = <T as Config>::BallotWeightInfo::attach_ballot(meta.saturating_num_choices())]
         pub fn attach_ballot(origin, ca_id: CAId, range: BallotTimeRange, meta: BallotMeta, rcv: bool) {
-            // Ensure origin is CAA, that `ca_id` exists, that its a notice, and the date invariant.
-            let caa = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?;
+            // Ensure origin is a permissioned agent, that `ca_id` exists, that its a notice, and the date invariant.
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?;
             let ca = <CA<T>>::ensure_ca_exists(ca_id)?;
             ensure!(matches!(ca.kind, CAKind::IssuerNotice), Error::<T>::CANotNotice);
             Self::ensure_range_invariant(&ca, range)?;
@@ -348,7 +348,7 @@ decl_module! {
             RCV::insert(ca_id, rcv);
 
             // Emit event.
-            Self::deposit_event(Event::Created(caa, ca_id, range, meta, rcv));
+            Self::deposit_event(Event::Created(agent, ca_id, range, meta, rcv));
         }
 
         /// Cast `votes` in the ballot attached to the CA identified by `ca_id`.
@@ -461,7 +461,7 @@ decl_module! {
         /// Amend the end date of the ballot of the CA identified by `ca_id`.
         ///
         /// ## Arguments
-        /// - `origin` which must be a signer for a CAA of `ca_id`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.ticker`.
         /// - `ca_id` identifies the attached ballot's CA.
         /// - `end` specifies the new end date of the ballot.
         ///
@@ -472,8 +472,8 @@ decl_module! {
         /// - `StartAfterEnd` if `start > end`.
         #[weight = <T as Config>::BallotWeightInfo::change_end()]
         pub fn change_end(origin, ca_id: CAId, end: Moment) {
-            // Ensure origin is CAA, ballot exists, and start is in the future.
-            let caa = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?;
+            // Ensure origin is a permissioned agent, ballot exists, and start is in the future.
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?;
             let mut range = Self::ensure_ballot_exists(ca_id)?;
             Self::ensure_ballot_not_started(range)?;
 
@@ -483,13 +483,13 @@ decl_module! {
 
             // Commit new range to storage + emit event.
             TimeRanges::insert(ca_id, range);
-            Self::deposit_event(Event::RangeChanged(caa, ca_id, range));
+            Self::deposit_event(Event::RangeChanged(agent, ca_id, range));
         }
 
         /// Amend the metadata (title, motions, etc.) of the ballot of the CA identified by `ca_id`.
         ///
         /// ## Arguments
-        /// - `origin` which must be a signer for a CAA of `ca_id`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.ticker`.
         /// - `ca_id` identifies the attached ballot's CA.
         /// - `meta` specifies the new metadata.
         ///
@@ -501,8 +501,8 @@ decl_module! {
         /// - `TooLong` if any of the embedded strings in `meta` are too long.
         #[weight = <T as Config>::BallotWeightInfo::change_meta(meta.saturating_num_choices())]
         pub fn change_meta(origin, ca_id: CAId, meta: BallotMeta) {
-            // Ensure origin is CAA, a ballot exists, start is in the future.
-            let caa = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?;
+            // Ensure origin is a permissioned agent, a ballot exists, start is in the future.
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?;
             Self::ensure_ballot_not_started(Self::ensure_ballot_exists(ca_id)?)?;
 
             // Compute number-of-choices-in-motion cache.
@@ -512,13 +512,13 @@ decl_module! {
             // Commit metadata to storage + emit event.
             MotionNumChoices::insert(ca_id, choices);
             Metas::insert(ca_id, meta.clone());
-            Self::deposit_event(Event::MetaChanged(caa, ca_id, meta));
+            Self::deposit_event(Event::MetaChanged(agent, ca_id, meta));
         }
 
         /// Amend RCV support for the ballot of the CA identified by `ca_id`.
         ///
         /// ## Arguments
-        /// - `origin` which must be a signer for a CAA of `ca_id`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.ticker`.
         /// - `ca_id` identifies the attached ballot's CA.
         /// - `rcv` specifies if RCV is to be supported or not.
         ///
@@ -528,19 +528,19 @@ decl_module! {
         /// - `VotingAlreadyStarted` if `start >= now`, where `now` is the current time.
         #[weight = <T as Config>::BallotWeightInfo::change_rcv()]
         pub fn change_rcv(origin, ca_id: CAId, rcv: bool) {
-            // Ensure origin is CAA, a ballot exists, start is in the future.
-            let caa = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?;
+            // Ensure origin is a permissioned agent, a ballot exists, start is in the future.
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?;
             Self::ensure_ballot_not_started(Self::ensure_ballot_exists(ca_id)?)?;
 
             // Commit to storage + emit event.
             RCV::insert(ca_id, rcv);
-            Self::deposit_event(Event::RCVChanged(caa, ca_id, rcv));
+            Self::deposit_event(Event::RCVChanged(agent, ca_id, rcv));
         }
 
         /// Remove the ballot of the CA identified by `ca_id`.
         ///
         /// ## Arguments
-        /// - `origin` which must be a signer for a CAA of `ca_id`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.ticker`.
         /// - `ca_id` identifies the attached ballot's CA.
         ///
         /// # Errors
@@ -549,9 +549,9 @@ decl_module! {
         /// - `VotingAlreadyStarted` if `start >= now`, where `now` is the current time.
         #[weight = <T as Config>::BallotWeightInfo::remove_ballot()]
         pub fn remove_ballot(origin, ca_id: CAId) {
-            let caa = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
             let range = Self::ensure_ballot_exists(ca_id)?;
-            Self::remove_ballot_base(caa, ca_id, range)?;
+            Self::remove_ballot_base(agent, ca_id, range)?;
         }
     }
 }
@@ -560,7 +560,7 @@ decl_event! {
     pub enum Event {
         /// A corporate ballot was created.
         ///
-        /// (Ticker's CAA, CA's ID, Voting start/end, Ballot metadata, RCV enabled?)
+        /// (Agent DID, CA's ID, Voting start/end, Ballot metadata, RCV enabled?)
         Created(IdentityId, CAId, BallotTimeRange, BallotMeta, bool),
 
         /// A vote was cast in a corporate ballot.
@@ -570,22 +570,22 @@ decl_event! {
 
         /// A corporate ballot changed its start/end date range.
         ///
-        /// (Ticker's CAA, CA's ID, Voting start/end)
+        /// (Agent DID, CA's ID, Voting start/end)
         RangeChanged(IdentityId, CAId, BallotTimeRange),
 
         /// A corporate ballot changed its metadata.
         ///
-        /// (Ticker's CAA, CA's ID, New metadata)
+        /// (Agent DID, CA's ID, New metadata)
         MetaChanged(IdentityId, CAId, BallotMeta),
 
         /// A corporate ballot changed its RCV support.
         ///
-        /// (Ticker's CAA, CA's ID, New support)
+        /// (Agent DID, CA's ID, New support)
         RCVChanged(IdentityId, CAId, bool),
 
         /// A corporate ballot was removed.
         ///
-        /// (Ticker's CAA, CA's ID)
+        /// (Agent DID, CA's ID)
         Removed(EventDid, CAId),
     }
 }
@@ -626,7 +626,7 @@ decl_error! {
 impl<T: Config> Module<T> {
     /// Ensure the ballot hasn't started and remove it.
     crate fn remove_ballot_base(
-        caa: EventDid,
+        agent: EventDid,
         ca_id: CAId,
         range: BallotTimeRange,
     ) -> DispatchResult {
@@ -639,7 +639,7 @@ impl<T: Config> Module<T> {
         RCV::remove(ca_id);
 
         // Emit event.
-        Self::deposit_event(Event::Removed(caa, ca_id));
+        Self::deposit_event(Event::Removed(agent, ca_id));
         Ok(())
     }
 

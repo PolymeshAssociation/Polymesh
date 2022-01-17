@@ -25,14 +25,14 @@
 //! as is the currency and amount of it to withdraw from the portfolio.
 //! Additionally, a date (`payment_at`) is provided at which withdrawals may first happen,
 //! as well as an optional expiry date `expires_at`,
-//! at which benefits are forfeit and may be reclaimed by the CAA.
+//! at which benefits are forfeit and may be reclaimed by a permissioned external agent.
 //!
 //! As aforementioned, once `payment_at` is due, benefits may be withdrawn.
 //! This can be done either through `claim`, which is pull-based. That is, holders withdraw themselves.
-//! The other mechanism is via `push_benefit`, which with the CAA can push to a holder.
+//! The other mechanism is via `push_benefit`, which with a permissioned external agent can push to a holder.
 //! Once `expires_at` is reached, however, the remaining amount to distribute is forfeit,
 //! and cannot be claimed by any holder, or pushed to them.
-//! Instead, that amount can be reclaimed by the CAA.
+//! Instead, that amount can be reclaimed by the agent.
 //!
 //! Before `payment_at` is due, however,
 //! a planned distribution can be cancelled by calling `remove_distribution`.
@@ -49,7 +49,7 @@
 //!
 //! - **Currency:** The ticker being distributed to holders as a benefit, e.g., USDC or some such.
 //! - **Payment-at date:** The date at which benefits may be claimed by or pushed to holders.
-//! - **Expires-at date:** The date at which benefits are forfeit, and may be reclaimed by the CAA.
+//! - **Expires-at date:** The date at which benefits are forfeit, and may be reclaimed by a permissioned external agent.
 //!
 //! ## Interface
 //!
@@ -117,7 +117,7 @@ pub struct Distribution {
     pub amount: Balance,
     /// Amount left to distribute.
     pub remaining: Balance,
-    /// Whether the CAA has claimed remaining funds.
+    /// Whether a permissioned external agent has claimed remaining funds.
     pub reclaimed: bool,
     /// A timestamp of payout start
     pub payment_at: Moment,
@@ -180,9 +180,9 @@ decl_module! {
         /// which is now transferrable.
         ///
         /// ## Arguments
-        /// - `origin` which must be a signer for a CAA of `ca_id`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.ticker`.
         /// - `ca_id` identifies the CA to start a capital distribution for.
-        /// - `portfolio` specifies the portfolio number of the CAA to distribute `amount` from.
+        /// - `portfolio` specifies the portfolio number of the agent to distribute `amount` from.
         /// - `currency` to withdraw and distribute from the `portfolio`.
         /// - `per_share` amount of `currency` to withdraw and distribute.
         ///    Specified as a per-million, i.e. `1 / 10^6`th of one `currency` token.
@@ -198,9 +198,10 @@ decl_module! {
         /// - `NoSuchCA` if `ca_id` does not identify an existing CA.
         /// - `NoRecordDate` if CA has no record date.
         /// - `RecordDateAfterStart` if CA's record date > payment_at.
-        /// - `UnauthorizedCustodian` if CAA is not the custodian of `portfolio`.
+        /// - `UnauthorizedCustodian` if the caller is not the custodian of `portfolio`.
         /// - `InsufficientPortfolioBalance` if `portfolio` has less than `amount` of `currency`.
         /// - `InsufficientBalance` if the protocol fee couldn't be charged.
+        /// - `CANotBenefit` if the CA is not of kind PredictableBenefit/UnpredictableBenefit
         ///
         /// # Permissions
         /// * Asset
@@ -225,19 +226,19 @@ decl_module! {
             // Ensure CA doesn't have a distribution yet.
             ensure!(!Distributions::contains_key(ca_id), Error::<T>::AlreadyExists);
 
-            // Ensure origin is CAA and that they have custody over `from`.
+            // Ensure origin is a permissioned agent and that they have custody over `from`.
             // Also ensure secondary key has perms for `from` + portfolio is valid.
             let PermissionedCallOriginData {
-                primary_did: caa,
+                primary_did: agent,
                 secondary_key,
                 ..
             } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ca_id.ticker)?;
-            let from = PortfolioId { did: caa, kind: portfolio.into() };
-            <Portfolio<T>>::ensure_portfolio_custody_and_permission(from, caa, secondary_key.as_ref())?;
+            let from = PortfolioId { did: agent, kind: portfolio.into() };
+            <Portfolio<T>>::ensure_portfolio_custody_and_permission(from, agent, secondary_key.as_ref())?;
             <Portfolio<T>>::ensure_portfolio_validity(&from)?;
 
             // Ensure that `ca_id` exists, that its a benefit.
-            let caa = caa.for_event();
+            let agent = agent.for_event();
             let ca = <CA<T>>::ensure_ca_exists(ca_id)?;
             ensure!(ca.kind.is_benefit(), Error::<T>::CANotBenefit);
 
@@ -270,7 +271,7 @@ decl_module! {
             Distributions::insert(ca_id, distribution);
 
             // Emit event.
-            Self::deposit_event(Event::Created(caa, ca_id, distribution));
+            Self::deposit_event(Event::Created(agent, ca_id, distribution));
         }
 
         /// Claim a benefit of the capital distribution attached to `ca_id`.
@@ -283,7 +284,7 @@ decl_module! {
         /// they are rounded down to a whole unit.
         ///
         /// ## Arguments
-        /// - `origin` which must be a holder of for a CAA of `ca_id`.
+        /// - `origin` which must be a holder of the asset and eligible for the distribution.
         /// - `ca_id` identifies the CA to start a capital distribution for.
         ///
         /// # Errors
@@ -312,7 +313,7 @@ decl_module! {
         /// they are rounded down to a whole unit.
         ///
         /// ## Arguments
-        /// - `origin` which must be a holder of for a CAA of `ca_id`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.ticker`.
         /// - `ca_id` identifies the CA with a capital distributions to push benefits for.
         /// - `holder` to push benefits to.
         ///
@@ -348,14 +349,14 @@ decl_module! {
             // Ensure distribution is created, they haven't reclaimed, and that expiry has passed.
             // CA must be authorized and be the custodian.
             let PermissionedCallOriginData {
-                primary_did: caa,
+                primary_did: agent,
                 secondary_key,
                 ..
             } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin.clone(), ca_id.ticker)?;
             let dist = Self::ensure_distribution_exists(ca_id)?;
             ensure!(!dist.reclaimed, Error::<T>::AlreadyReclaimed);
             ensure!(expired(dist.expires_at, <Checkpoint<T>>::now_unix()), Error::<T>::NotExpired);
-            <Portfolio<T>>::ensure_portfolio_custody_and_permission(dist.from, caa, secondary_key.as_ref())?;
+            <Portfolio<T>>::ensure_portfolio_custody_and_permission(dist.from, agent, secondary_key.as_ref())?;
 
             // Unlock `remaining` of `currency` from DID's portfolio.
             // This won't fail, as we've already locked the requisite amount prior.
@@ -365,14 +366,14 @@ decl_module! {
             Distributions::insert(ca_id, Distribution { reclaimed: true, remaining:0u32.into(), ..dist });
 
             // Emit event.
-            Self::deposit_event(Event::Reclaimed(caa.for_event(), ca_id, dist.remaining));
+            Self::deposit_event(Event::Reclaimed(agent.for_event(), ca_id, dist.remaining));
         }
 
         /// Removes a distribution that hasn't started yet,
         /// unlocking the full amount in the distributor portfolio.
         ///
         /// ## Arguments
-        /// - `origin` which must be a signer for a CAA of `ca_id`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ca_id.ticker`.
         /// - `ca_id` identifies the CA with a not-yet-started capital distribution to remove.
         ///
         /// # Errors
@@ -381,9 +382,9 @@ decl_module! {
         /// - `DistributionStarted` if `payment_at <= now`.
         #[weight = <T as Config>::DistWeightInfo::remove_distribution()]
         pub fn remove_distribution(origin, ca_id: CAId) {
-            let caa = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
             let dist = Self::ensure_distribution_exists(ca_id)?;
-            Self::remove_distribution_base(caa, ca_id, &dist)?;
+            Self::remove_distribution_base(agent, ca_id, &dist)?;
         }
     }
 }
@@ -391,9 +392,9 @@ decl_module! {
 decl_event! {
     pub enum Event {
         /// A capital distribution, with details included,
-        /// was created by the DID (the CAA) for the CA specified by the `CAId`.
+        /// was created by the DID (permissioned agent) for the CA identified by `CAId`.
         ///
-        /// (CAA of CAId's ticker, CA's ID, distribution details)
+        /// (Agent DID, CA's ID, distribution details)
         Created(EventDid, CAId, Distribution),
 
         /// A token holder's benefit of a capital distribution for the given `CAId` was claimed.
@@ -403,19 +404,19 @@ decl_event! {
 
         /// Stats from `push_benefit` was emitted.
         ///
-        /// (CAA/owner of CA's ticker, CA's ID, max requested DIDs, processed DIDs, failed DIDs)
+        /// (Agent DID, CA's ID, max requested DIDs, processed DIDs, failed DIDs)
         Reclaimed(EventDid, CAId, Balance),
 
         /// A capital distribution was removed.
         ///
-        /// (Ticker's CAA, CA's ID)
+        /// (Agent DID, CA's ID)
         Removed(EventDid, CAId),
     }
 }
 
 decl_error! {
     pub enum Error for Module<T: Config> {
-        /// A corporate ballot was made for a non-benefit CA.
+        /// A capital distribution was made for a non-benefit CA.
         CANotBenefit,
         /// A distribution already exists for this CA.
         AlreadyExists,
@@ -423,7 +424,7 @@ decl_error! {
         /// In other words, everything to distribute would immediately be forfeited.
         ExpiryBeforePayment,
         /// Currency that is distributed is the same as the CA's ticker.
-        /// CAA is attempting a form of stock split, which is not what the extrinsic is for.
+        /// Calling agent is attempting a form of stock split, which is not what the extrinsic is for.
         DistributingAsset,
         /// The token holder has already been paid their benefit.
         HolderAlreadyPaid,
@@ -451,7 +452,7 @@ decl_error! {
 impl<T: Config> Module<T> {
     /// Kill the distribution identified by `ca_id`.
     crate fn remove_distribution_base(
-        caa: EventDid,
+        agent: EventDid,
         ca_id: CAId,
         dist: &Distribution,
     ) -> DispatchResult {
@@ -463,7 +464,7 @@ impl<T: Config> Module<T> {
         Distributions::remove(ca_id);
 
         // Emit event.
-        Self::deposit_event(Event::Removed(caa, ca_id));
+        Self::deposit_event(Event::Removed(agent, ca_id));
         Ok(())
     }
 
@@ -516,7 +517,7 @@ impl<T: Config> Module<T> {
         };
 
         with_transaction(|| {
-            // Unlock `benefit` of `currency` from CAAs portfolio.
+            // Unlock `benefit` of `currency` from the calling agent's portfolio.
             Self::unlock(&dist, benefit)?;
 
             // Transfer remainder (`gain`) to DID.

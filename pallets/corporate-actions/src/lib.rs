@@ -18,8 +18,7 @@
 //! The corporate actions module provides functionality for handling corporate actions (CAs) on-chain.
 //!
 //! Any CA is associated with an asset,
-//! so most module dispatchables must be called by a corporate action agent (CAA).
-//! Who the CAAs are is handled via the external agents system.
+//! so most module dispatchables must be called by an external agent with appropriate corporate actions permissions.
 //!
 //! The starting point of any CA begins with executing `initiate_corporate_action`,
 //! provided with the associated ticker, what sort of CA it is, e.g., a notice or a benefit,
@@ -37,7 +36,7 @@
 //! a default may be specified through `set_default_targets(targets)`.
 //!
 //! Finally, CAs which imply some sort of benefit may have a taxable element, e.g., due to capital gains tax.
-//! Sometimes, the responsibiliy paying such tax falls to the CAA or the asset issuer.
+//! Sometimes, the responsibiliy paying such tax falls to the asset issuer (or external agents),
 //! To handle such circumstances, a portion of the benefits may be withheld.
 //! This governed by specifying a withholding tax % on-chain.
 //! The tax is first and foremost specified for every identity,
@@ -81,7 +80,7 @@
 //!    for CAs associated with `ticker` and specific to `taxed_did` to `tax`,
 //!    or resets the tax of `taxed_did` to the default if `tax` is `None`.
 //! - `initiate_corporate_action(...)` initates a corporate action.
-//! - `link_ca_doc(origin, id, docs)` is called by the CAA to associate `docs` to the CA with `id`.
+//! - `link_ca_doc(origin, id, docs)` is called by external agents to associate `docs` to the CA with `id`.
 //! - `remove_ca(origin, id)` removes the CA identified by `id`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -106,13 +105,14 @@ use frame_support::{
 };
 use frame_system::ensure_root;
 use pallet_asset::checkpoint::{self, SchedulePoints, ScheduleRefCount};
+use pallet_base::try_next_post;
 use polymesh_common_utilities::{
     balances::Config as BalancesConfig, identity::Config as IdentityConfig, traits::asset,
     traits::checkpoint::ScheduleId, with_transaction, GC_DID,
 };
 use polymesh_primitives::{
-    calendar::CheckpointId, storage_migration_ver, Balance, DocumentId, EventDid, IdentityId,
-    Moment, Ticker,
+    calendar::CheckpointId, impl_checked_inc, storage_migration_ver, Balance, DocumentId, EventDid,
+    IdentityId, Moment, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use sp_arithmetic::Permill;
@@ -289,6 +289,7 @@ impl CorporateAction {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Default, Debug)]
 pub struct LocalCAId(pub u32);
+impl_checked_inc!(LocalCAId);
 
 /// A unique global identifier for a CA.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -431,7 +432,7 @@ decl_module! {
         /// Set the default CA `TargetIdentities` to `targets`.
         ///
         /// ## Arguments
-        /// - `origin` which must be a signer for the CAA of `ca_id`.
+        /// - `origin` which must be an external agent of `ticker` with relevant permissions.
         /// - `ticker` for which the default identities are changing.
         /// - `targets` the default target identities for a CA.
         ///
@@ -443,7 +444,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Config>::WeightInfo::set_default_targets(targets.identities.len() as u32)]
         pub fn set_default_targets(origin, ticker: Ticker, targets: TargetIdentities) {
-            let caa = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
             Self::ensure_target_ids_limited(&targets)?;
 
@@ -452,13 +453,13 @@ decl_module! {
 
             // Commit + emit event.
             DefaultTargetIdentities::mutate(ticker, |slot| *slot = new.clone());
-            Self::deposit_event(Event::DefaultTargetIdentitiesChanged(caa, ticker, new));
+            Self::deposit_event(Event::DefaultTargetIdentitiesChanged(agent, ticker, new));
         }
 
         /// Set the default withholding tax for all DIDs and CAs relevant to this `ticker`.
         ///
         /// ## Arguments
-        /// - `origin` which must be a signer for a CAA of `ca_id`.
+        /// - `origin` which must be an external agent of `ticker` with relevant permissions.
         /// - `ticker` that the withholding tax will apply to.
         /// - `tax` that should be withheld when distributing dividends, etc.
         ///
@@ -469,9 +470,9 @@ decl_module! {
         /// * Asset
         #[weight = <T as Config>::WeightInfo::set_default_withholding_tax()]
         pub fn set_default_withholding_tax(origin, ticker: Ticker, tax: Tax) {
-            let caa = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             DefaultWithholdingTax::mutate(ticker, |slot| *slot = tax);
-            Self::deposit_event(Event::DefaultWithholdingTaxChanged(caa, ticker, tax));
+            Self::deposit_event(Event::DefaultWithholdingTaxChanged(agent, ticker, tax));
         }
 
         /// Set the withholding tax of `ticker` for `taxed_did` to `tax`.
@@ -479,7 +480,7 @@ decl_module! {
         /// Otherwise, if `None`, the default withholding tax will be used.
         ///
         /// ## Arguments
-        /// - `origin` which must be a signer for a CAA of `ca_id`.
+        /// - `origin` which must be an external agent of `ticker` with relevant permissions.
         /// - `ticker` that the withholding tax will apply to.
         /// - `taxed_did` that will have its withholding tax updated.
         /// - `tax` that should be withheld when distributing dividends, etc.
@@ -492,7 +493,7 @@ decl_module! {
         /// * Asset
         #[weight = <T as Config>::WeightInfo::set_did_withholding_tax(T::MaxDidWhts::get())]
         pub fn set_did_withholding_tax(origin, ticker: Ticker, taxed_did: IdentityId, tax: Option<Tax>) {
-            let caa = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
             DidWithholdingTax::try_mutate(ticker, |whts| -> DispatchResult {
                 // We maintain sorted order, so we get O(log n) search but O(n) insertion/deletion.
                 // This is maintained to get O(log n) in capital distribution.
@@ -507,13 +508,13 @@ decl_module! {
                 }
                 Ok(())
             })?;
-            Self::deposit_event(Event::DidWithholdingTaxChanged(caa, ticker, taxed_did, tax));
+            Self::deposit_event(Event::DidWithholdingTaxChanged(agent, ticker, taxed_did, tax));
         }
 
         /// Initiates a CA for `ticker` of `kind` with `details` and other provided arguments.
         ///
         /// ## Arguments
-        /// - `origin` which must be a signer for a CAA of `ca_id`.
+        /// - `origin` which must be an external agent of `ticker` with relevant permissions.
         /// - `ticker` that the CA is made for.
         /// - `kind` of CA being initiated.
         /// - `decl_date` of CA bring initialized.
@@ -530,7 +531,7 @@ decl_module! {
         /// # Errors
         /// - `DetailsTooLong` if `details.len()` goes beyond `max_details_length`.
         /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
-        /// - `LocalCAIdOverflow` in the unlikely event that so many CAs were created for this `ticker`,
+        /// - `CounterOverflow` in the unlikely event that so many CAs were created for this `ticker`,
         ///   that integer overflow would have occured if instead allowed.
         /// - `TooManyDidTaxes` if `withholding_tax.unwrap().len()` would go over the limit `MaxDidWhts`.
         /// - `DuplicateDidTax` if a DID is included more than once in `wt`.
@@ -568,12 +569,12 @@ decl_module! {
                 .filter(|&len: &u32| len <= Self::max_details_length())
                 .ok_or(Error::<T>::DetailsTooLong)?;
 
-            // Ensure that CAA is calling.
-            let caa = <ExternalAgents<T>>::ensure_perms(origin, ticker)?.for_event();
+            // Ensure that a permissioned agent is calling.
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, ticker)?.for_event();
 
             // Ensure that the next local CA ID doesn't overflow.
-            let local_id = CAIdSequence::get(ticker);
-            let next_id = local_id.0.checked_add(1).map(LocalCAId).ok_or(Error::<T>::LocalCAIdOverflow)?;
+            let mut next_id = CAIdSequence::get(ticker);
+            let local_id = try_next_post::<T, _>(&mut next_id)?;
             let id = CAId { ticker, local_id };
 
             // Ensure there are no duplicates in withholding tax overrides
@@ -598,7 +599,7 @@ decl_module! {
             // If provided, either use the existing CP ID or schedule one to be made.
             let record_date = record_date
                 .map(|date| with_transaction(|| -> Result<_, DispatchError> {
-                    let rd = Self::handle_record_date(caa, ticker, date)?;
+                    let rd = Self::handle_record_date(agent, ticker, date)?;
                     ensure!(decl_date <= rd.date, Error::<T>::DeclDateAfterRecordDate);
                     Ok(rd)
                 }))
@@ -629,7 +630,7 @@ decl_module! {
             Details::insert(id, details.clone());
 
             // Emit event.
-            Self::deposit_event(Event::CAInitiated(caa, id, ca, details));
+            Self::deposit_event(Event::CAInitiated(agent, id, ca, details));
         }
 
         /// Link the given CA `id` to the given `docs`.
@@ -639,7 +640,7 @@ decl_module! {
         /// Once both exist, they can now be linked together.
         ///
         /// ## Arguments
-        /// - `origin` which must be a signer for a CAA of `ca_id`.
+        /// - `origin` which must be an external agent of `id.ticker` with relevant permissions.
         /// - `id` of the CA to associate with `docs`.
         /// - `docs` to associate with the CA with `id`.
         ///
@@ -652,8 +653,8 @@ decl_module! {
         /// * Asset
         #[weight = <T as Config>::WeightInfo::link_ca_doc(docs.len() as u32)]
         pub fn link_ca_doc(origin, id: CAId, docs: Vec<DocumentId>) {
-            // Ensure that CAA is calling and that CA and the docs exists.
-            let caa = <ExternalAgents<T>>::ensure_perms(origin, id.ticker)?;
+            // Ensure that a permissioned agent is calling and that CA and the docs exists.
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, id.ticker)?;
             Self::ensure_ca_exists(id)?;
             for doc in &docs {
                 <Asset<T>>::ensure_doc_exists(&id.ticker, doc)?;
@@ -661,7 +662,7 @@ decl_module! {
 
             // Add the link and emit event.
             CADocLink::mutate(id, |slot| *slot = docs.clone());
-            Self::deposit_event(Event::CALinkedToDoc(caa, id, docs));
+            Self::deposit_event(Event::CALinkedToDoc(agent, id, docs));
         }
 
         /// Removes the CA identified by `ca_id`.
@@ -673,7 +674,7 @@ decl_module! {
         /// `strong_ref_count(schedule_id)` decremented.
         ///
         /// ## Arguments
-        /// - `origin` which must be a signer for a CAA of `ca_id`.
+        /// - `origin` which must be an external agent of `ca_id.ticker` with relevant permissions.
         /// - `ca_id` of the CA to remove.
         ///
         /// # Errors
@@ -685,8 +686,8 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::remove_ca_with_ballot()
             .max(<T as Config>::WeightInfo::remove_ca_with_dist())]
         pub fn remove_ca(origin, ca_id: CAId) {
-            // Ensure origin is CAA + CA exists.
-            let caa = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
+            // Ensure origin is a permissioned agent + CA exists.
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
             let ca = Self::ensure_ca_exists(ca_id)?;
 
             // Remove associated services.
@@ -694,12 +695,12 @@ decl_module! {
                 CAKind::Other | CAKind::Reorganization => {}
                 CAKind::IssuerNotice => {
                     if let Some(range) = <Ballot<T>>::time_ranges(ca_id) {
-                        <Ballot<T>>::remove_ballot_base(caa, ca_id, range)?;
+                        <Ballot<T>>::remove_ballot_base(agent, ca_id, range)?;
                     }
                 }
                 CAKind::PredictableBenefit | CAKind::UnpredictableBenefit => {
                     if let Some(dist) = <Distribution<T>>::distributions(ca_id) {
-                        <Distribution<T>>::remove_distribution_base(caa, ca_id, &dist)?;
+                        <Distribution<T>>::remove_distribution_base(agent, ca_id, &dist)?;
                     }
                 }
             }
@@ -709,13 +710,13 @@ decl_module! {
             CorporateActions::remove(ca_id.ticker, ca_id.local_id);
             CADocLink::remove(ca_id);
             Details::remove(ca_id);
-            Self::deposit_event(Event::CARemoved(caa, ca_id));
+            Self::deposit_event(Event::CARemoved(agent, ca_id));
         }
 
         /// Changes the record date of the CA identified by `ca_id`.
         ///
         /// ## Arguments
-        /// - `origin` which must be a signer for a CAA of `ca_id`.
+        /// - `origin` which must be an external agent of `ca_id.ticker` with relevant permissions.
         /// - `ca_id` of the CA to alter.
         /// - `record_date`, if any, to calculate the impact of the CA.
         ///    If provided, this results in a scheduled balance snapshot ("checkpoint") at the date.
@@ -730,15 +731,15 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::change_record_date_with_ballot()
             .max(<T as Config>::WeightInfo::change_record_date_with_dist())]
         pub fn change_record_date(origin, ca_id: CAId, record_date: Option<RecordDateSpec>) {
-            // Ensure origin is CAA + CA exists.
-            let caa = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
+            // Ensure origin is a permissioned agent + CA exists.
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
             let mut ca = Self::ensure_ca_exists(ca_id)?;
 
             with_transaction(|| -> DispatchResult {
                 // If provided, either use the existing CP ID or schedule one to be made.
                 Self::dec_strong_ref_count(ca_id, ca.record_date);
                 ca.record_date = record_date
-                    .map(|date| Self::handle_record_date(caa, ca_id.ticker, date))
+                    .map(|date| Self::handle_record_date(agent, ca_id.ticker, date))
                     .transpose()?;
 
                 // Ensure associated services allow changing the date.
@@ -762,7 +763,7 @@ decl_module! {
 
             // Commit changes + emit event.
             CorporateActions::insert(ca_id.ticker, ca_id.local_id, ca.clone());
-            Self::deposit_event(Event::RecordDateChanged(caa, ca_id, ca));
+            Self::deposit_event(Event::RecordDateChanged(agent, ca_id, ca));
         }
     }
 }
@@ -773,25 +774,25 @@ decl_event! {
         /// (GC DID, new length)
         MaxDetailsLengthChanged(IdentityId, u32),
         /// The set of default `TargetIdentities` for a ticker changed.
-        /// (CAA DID, Ticker, New TargetIdentities)
+        /// (Agent DID, Ticker, New TargetIdentities)
         DefaultTargetIdentitiesChanged(IdentityId, Ticker, TargetIdentities),
         /// The default withholding tax for a ticker changed.
-        /// (CAA DID, Ticker, New Tax).
+        /// (Agent DID, Ticker, New Tax).
         DefaultWithholdingTaxChanged(IdentityId, Ticker, Tax),
         /// The withholding tax specific to a DID for a ticker changed.
-        /// (CAA DID, Ticker, Taxed DID, New Tax).
+        /// (Agent DID, Ticker, Taxed DID, New Tax).
         DidWithholdingTaxChanged(IdentityId, Ticker, IdentityId, Option<Tax>),
         /// A new DID was made the CAA.
         /// (New CAA DID, Ticker, New CAA DID).
         CAATransferred(IdentityId, Ticker, IdentityId),
         /// A CA was initiated.
-        /// (CAA DID, CA id, the CA, the CA details)
+        /// (Agent DID, CA id, the CA, the CA details)
         CAInitiated(EventDid, CAId, CorporateAction, CADetails),
         /// A CA was linked to a set of docs.
-        /// (CAA, CA Id, List of doc identifiers)
+        /// (Agent DID, CA Id, List of doc identifiers)
         CALinkedToDoc(IdentityId, CAId, Vec<DocumentId>),
         /// A CA was removed.
-        /// (CAA, CA Id)
+        /// (Agent DID, CA Id)
         CARemoved(EventDid, CAId),
         /// A CA's record date changed.
         RecordDateChanged(EventDid, CAId, CorporateAction),
@@ -804,9 +805,6 @@ decl_error! {
         AuthNotCAATransfer,
         /// The `details` of a CA exceeded the max allowed length.
         DetailsTooLong,
-        /// There have been too many CAs for this ticker and the ID would overflow.
-        /// This won't occur in practice.
-        LocalCAIdOverflow,
         /// A withholding tax override for a given DID was specified more than once.
         /// The chain refused to make a choice, and hence there was an error.
         DuplicateDidTax,
@@ -914,7 +912,7 @@ impl<T: Config> Module<T> {
     /// Translate record date to a format we can store.
     /// In the process, create a checkpoint schedule if needed.
     fn handle_record_date(
-        caa: EventDid,
+        agent: EventDid,
         ticker: Ticker,
         date: RecordDateSpec,
     ) -> Result<RecordDate, DispatchError> {
@@ -923,7 +921,7 @@ impl<T: Config> Module<T> {
                 // Create the schedule and extract the date + id.
                 // We set initial `strong_ref_count(id) <- 1`.
                 let date = date.into();
-                let schedule = <Checkpoint<T>>::create_schedule_base(caa, ticker, date, 1)?;
+                let schedule = <Checkpoint<T>>::create_schedule_base(agent, ticker, date, 1)?;
                 // It might be the case that the CP was instantly created ^--.
                 // Or it might not have. In either case, it will end up at index 0.
                 (schedule.at, CACheckpoint::Scheduled(schedule.id, 0))

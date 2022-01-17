@@ -71,7 +71,7 @@ fn generate_tiers<T: Config>(n: u32) -> Vec<PriceTier> {
     tiers
 }
 
-fn create_venue<T: Config>(user: &User<T>) -> Result<u64, DispatchError> {
+fn create_venue<T: Config>(user: &User<T>) -> Result<VenueId, DispatchError> {
     let venue_id = <Settlement<T>>::venue_counter();
     <Settlement<T>>::create_venue(
         user.origin().into(),
@@ -159,7 +159,7 @@ benchmarks! {
             vec![].into()
         )
     verify {
-        assert!(FundraiserCount::get(OFFERING_TICKER) > 0, "create_fundraiser");
+        assert!(FundraiserCount::get(OFFERING_TICKER) > FundraiserId(0), "create_fundraiser");
     }
 
     invest {
@@ -169,7 +169,7 @@ benchmarks! {
             bob.portfolio,
             bob.portfolio,
             OFFERING_TICKER,
-            0,
+            FundraiserId(0),
             (MAX_TIERS as u128).into(),
             Some(100u32.into()),
             None
@@ -179,35 +179,35 @@ benchmarks! {
     }
 
     freeze_fundraiser {
+        let id = FundraiserId(0);
         let (alice, _) = setup_fundraiser::<T>(0, 1, 0).unwrap();
-    }: _(alice.user.origin(), OFFERING_TICKER, 0)
+    }: _(alice.user.origin(), OFFERING_TICKER, id)
     verify {
-        assert_eq!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().status, FundraiserStatus::Frozen, "freeze_fundraiser");
+        assert_eq!(<Fundraisers<T>>::get(OFFERING_TICKER, id).unwrap().status, FundraiserStatus::Frozen, "freeze_fundraiser");
     }
 
     unfreeze_fundraiser {
+        let id = FundraiserId(0);
         let (alice, _) = setup_fundraiser::<T>(0, 1, 0).unwrap();
-        <Sto<T>>::freeze_fundraiser(
-            alice.user.origin().into(),
-            OFFERING_TICKER,
-            0,
-        ).unwrap();
-    }: _(alice.user.origin(), OFFERING_TICKER, 0)
+        <Sto<T>>::freeze_fundraiser(alice.user.origin().into(), OFFERING_TICKER, id).unwrap();
+    }: _(alice.user.origin(), OFFERING_TICKER, id)
     verify {
-        assert_eq!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().status, FundraiserStatus::Live, "unfreeze_fundraiser");
+        assert_eq!(<Fundraisers<T>>::get(OFFERING_TICKER, id).unwrap().status, FundraiserStatus::Live, "unfreeze_fundraiser");
     }
 
     modify_fundraiser_window {
+        let id = FundraiserId(0);
         let (alice, _) = setup_fundraiser::<T>(0, 1, 0).unwrap();
-    }: _(alice.user.origin(), OFFERING_TICKER, 0, 100u32.into(), Some(101u32.into()))
+    }: _(alice.user.origin(), OFFERING_TICKER, id, 100u32.into(), Some(101u32.into()))
     verify {
-        assert_eq!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().end, Some(101u32.into()), "modify_fundraiser_window");
+        assert_eq!(<Fundraisers<T>>::get(OFFERING_TICKER, id).unwrap().end, Some(101u32.into()), "modify_fundraiser_window");
     }
 
     stop {
+        let id = FundraiserId(0);
         let (alice, _) = setup_fundraiser::<T>(0, 1, 0).unwrap();
-    }: _(alice.user.origin(), OFFERING_TICKER, 0)
+    }: _(alice.user.origin(), OFFERING_TICKER, id)
     verify {
-        assert!(<Fundraisers<T>>::get(OFFERING_TICKER, 0).unwrap().is_closed(), "stop");
+        assert!(<Fundraisers<T>>::get(OFFERING_TICKER, id).unwrap().is_closed(), "stop");
     }
 }

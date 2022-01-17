@@ -74,7 +74,7 @@ pub type MultisigSetupResult<T, AccountId> = (
 
 fn generate_multisig_for_alice_wo_accepting<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     total_signers: u32,
-    singers_required: u32,
+    signers_required: u32,
 ) -> Result<MultisigSetupResult<T, T::AccountId>, DispatchError> {
     let alice = <UserBuilder<T>>::default().generate_did().build("alice");
     let mut signers = vec![Signatory::from(alice.did())];
@@ -82,7 +82,7 @@ fn generate_multisig_for_alice_wo_accepting<T: Config + TestUtilsFn<AccountIdOf<
         &alice,
         &mut signers,
         total_signers - 1,
-        singers_required,
+        signers_required,
     )
     .unwrap();
     let signer_origin = match signers.last().cloned().unwrap() {
@@ -100,10 +100,10 @@ fn generate_multisig_for_alice_wo_accepting<T: Config + TestUtilsFn<AccountIdOf<
 
 fn generate_multisig_for_alice<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     total_signers: u32,
-    singers_required: u32,
+    signers_required: u32,
 ) -> Result<MultisigSetupResult<T, T::AccountId>, DispatchError> {
     let (alice, multisig, signers, signer_origin, multisig_origin) =
-        generate_multisig_for_alice_wo_accepting::<T>(total_signers, singers_required).unwrap();
+        generate_multisig_for_alice_wo_accepting::<T>(total_signers, signers_required).unwrap();
     for signer in &signers {
         let auth_id = get_last_auth_id::<T>(signer);
         <MultiSig<T>>::unsafe_accept_multisig_signer(signer.clone(), auth_id).unwrap();
@@ -129,10 +129,10 @@ pub type ProposalSetupResult<T, AccountId, Proposal> = (
 
 fn generate_multisig_and_proposal_for_alice<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     total_signers: u32,
-    singers_required: u32,
+    signers_required: u32,
 ) -> Result<ProposalSetupResult<T, T::AccountId, T::Proposal>, DispatchError> {
     let (alice, multisig, signers, signer_origin, _) =
-        generate_multisig_for_alice::<T>(total_signers, singers_required).unwrap();
+        generate_multisig_for_alice::<T>(total_signers, signers_required).unwrap();
     let proposal_id = <MultiSig<T>>::ms_tx_done(multisig.clone());
     let proposal = Box::new(frame_system::Call::<T>::remark(vec![]).into());
     Ok((
@@ -148,11 +148,11 @@ fn generate_multisig_and_proposal_for_alice<T: Config + TestUtilsFn<AccountIdOf<
 
 fn generate_multisig_and_create_proposal<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     total_signers: u32,
-    singers_required: u32,
+    signers_required: u32,
     create_as_key: bool,
 ) -> Result<ProposalSetupResult<T, T::AccountId, T::Proposal>, DispatchError> {
     let (alice, multisig, signers, signer_origin, proposal_id, proposal, ephemeral_multisig) =
-        generate_multisig_and_proposal_for_alice::<T>(total_signers, singers_required).unwrap();
+        generate_multisig_and_proposal_for_alice::<T>(total_signers, signers_required).unwrap();
     if create_as_key {
         <MultiSig<T>>::create_proposal_as_key(
             signer_origin.clone().into(),

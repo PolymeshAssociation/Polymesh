@@ -69,6 +69,13 @@ where
         });
         self
     }
+
+    /// Returns the complexity of the identity's permissions.
+    pub fn complexity(&self) -> usize {
+        self.secondary_keys
+            .iter()
+            .fold(0, |cost, key| cost.saturating_add(key.complexity()))
+    }
 }
 
 impl<AccountId> From<Public> for Identity<AccountId>

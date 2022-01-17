@@ -54,6 +54,7 @@ use sp_std::{
 };
 use test_client::AccountKeyring;
 
+type BaseError = pallet_base::Error<TestStorage>;
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 //type Contracts = pallet_contracts::Module<TestStorage>;
@@ -2389,7 +2390,24 @@ fn asset_type_custom_works() {
 
         // Set G to max. Next registration fails.
         CustomTypeIdSequence::put(CustomAssetTypeId(u32::MAX));
-        assert_noop!(register("qux"), AssetError::CustomAssetTypeIdOverflow);
+        assert_noop!(register("qux"), BaseError::CounterOverflow);
+    });
+}
+
+#[test]
+fn invalid_custom_asset_type_check() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Dave);
+
+        // Create ticker.
+        let (ticker, mut token) = a_token(owner.did);
+
+        let invalid_id = CustomAssetTypeId(1_000_000);
+        token.asset_type = AssetType::Custom(invalid_id);
+        assert_noop!(
+            basic_asset(owner, ticker, &token),
+            AssetError::InvalidCustomAssetTypeId
+        );
     });
 }
 
