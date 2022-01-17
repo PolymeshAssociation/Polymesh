@@ -15,6 +15,7 @@
 
 use crate::compliance_manager::AssetComplianceResult;
 use crate::identity_id::PortfolioValidityResult;
+use crate::impl_checked_inc;
 use crate::statistics::TransferManagerResult;
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::VecU8StrongTyped;
@@ -31,6 +32,7 @@ pub struct AssetName(pub Vec<u8>);
 /// The ID of a custom asset type.
 #[derive(Encode, Decode, Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub struct CustomAssetTypeId(pub u32);
+impl_checked_inc!(CustomAssetTypeId);
 
 /// The type of security represented by a token.
 #[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq)]

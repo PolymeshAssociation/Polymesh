@@ -114,10 +114,6 @@ mod test {
             false
         }
 
-        fn is_primary_key(_did: IdentityId, _key: &AccountId) -> bool {
-            false
-        }
-
         fn current_payer() -> Option<Signatory<AccountId>> {
             None
         }

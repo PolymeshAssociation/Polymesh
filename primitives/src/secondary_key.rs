@@ -20,8 +20,22 @@ use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
     cmp::{Ord, Ordering, PartialOrd},
     collections::btree_set::BTreeSet,
+    convert::TryInto,
     iter,
+    mem::size_of,
 };
+
+// We need to set a minimum complexity for pallet/dispatchable names
+// to limit the total number of memory allocations.  Since each name
+// requires an allocation.
+//
+// The average length of pallet/dispatchable names is 16.  So this
+// minimum complexity only penalizes short names.
+const MIN_NAME_COMPLEXITY: usize = 10;
+fn name_complexity(name: &[u8]) -> usize {
+    // If the name length is lower then the minimum, then return the minimum.
+    usize::max(name.len(), MIN_NAME_COMPLEXITY)
+}
 
 /// Asset permissions.
 pub type AssetPermissions = SubsetRestriction<Ticker>;
@@ -66,6 +80,19 @@ impl PalletPermissions {
             pallet_name,
             dispatchable_names: SubsetRestriction::Whole,
         }
+    }
+
+    /// Returns the complexity of the pallet permissions.
+    pub fn complexity(&self) -> usize {
+        self.dispatchable_names
+            .fold(name_complexity(&self.pallet_name), |cost, dispatch_name| {
+                cost.saturating_add(name_complexity(&dispatch_name))
+            })
+    }
+
+    /// Return the number of dispatchable names.
+    pub fn dispatchables_len(&self) -> usize {
+        self.dispatchable_names.complexity()
     }
 }
 
@@ -141,6 +168,45 @@ impl Permissions {
         self.extrinsic = self.extrinsic.union(&SubsetRestriction::These(
             iter::once(pallet_permissions).collect(),
         ));
+    }
+
+    /// Returns the complexity of the permissions.
+    pub fn complexity(&self) -> usize {
+        // Calculate the pallet/extrinsic permissions complexity cost.
+        let cost = self.extrinsic.fold(0usize, |cost, pallet| {
+            cost.saturating_add(pallet.complexity())
+        });
+
+        // Asset permissions complexity cost.
+        cost.saturating_add(self.asset.complexity().saturating_mul(size_of::<Ticker>()))
+            // Portfolio permissions complexity cost.
+            .saturating_add(
+                self.portfolio
+                    .complexity()
+                    .saturating_mul(size_of::<PortfolioId>()),
+            )
+    }
+
+    /// Return number of assets, portfolios, pallets, and extrinsics.
+    ///
+    /// This is used for weight calculation.
+    pub fn counts(&self) -> (u32, u32, u32, u32) {
+        // Count the number of assets.
+        let assets = self.asset.complexity().try_into().unwrap_or(u32::MAX);
+        // Count the number of portfolios.
+        let portfolios = self.portfolio.complexity().try_into().unwrap_or(u32::MAX);
+        // Count the number of pallets.
+        let pallets = self.extrinsic.complexity().try_into().unwrap_or(u32::MAX);
+        // Count the total number of extrinsics.
+        let extrinsics = self
+            .extrinsic
+            .fold(0usize, |count, pallet| {
+                count.saturating_add(pallet.dispatchables_len())
+            })
+            .try_into()
+            .unwrap_or(u32::MAX);
+
+        (assets, portfolios, pallets, extrinsics)
     }
 }
 
@@ -293,6 +359,11 @@ where
     pub fn has_portfolio_permission(&self, it: impl IntoIterator<Item = PortfolioId>) -> bool {
         self.permissions.portfolio.ge(&SubsetRestriction::elems(it))
     }
+
+    /// Returns the complexity of the secondary key's permissions.
+    pub fn complexity(&self) -> usize {
+        self.permissions.complexity()
+    }
 }
 
 impl<AccountId> From<IdentityId> for SecondaryKey<AccountId>
@@ -330,6 +401,7 @@ pub mod api {
     use codec::{Decode, Encode};
     #[cfg(feature = "std")]
     use sp_runtime::{Deserialize, Serialize};
+    use sp_std::convert::TryInto;
     use sp_std::vec::Vec;
 
     /// A permission to call functions within a given pallet.
@@ -375,6 +447,34 @@ pub mod api {
                 extrinsic: LegacyExtrinsicPermissions(Some(Vec::new())),
                 portfolio: SubsetRestriction::empty(),
             }
+        }
+
+        /// Return number of assets, portfolios, pallets, and extrinsics.
+        ///
+        /// This is used for weight calculation.
+        pub fn counts(&self) -> (u32, u32, u32, u32) {
+            // Count the number of assets.
+            let assets = self.asset.complexity().try_into().unwrap_or(u32::MAX);
+            // Count the number of portfolios.
+            let portfolios = self.portfolio.complexity().try_into().unwrap_or(u32::MAX);
+            // Count the number of pallets and total number of extrinsics.
+            let (pallets, extrinsics) = match &self.extrinsic.0 {
+                Some(pallets) => {
+                    let num_pallets = pallets.len().try_into().unwrap_or(u32::MAX);
+                    // Count all extrinsics.
+                    let extrinsics = pallets
+                        .iter()
+                        .fold(0usize, |count, pallet| {
+                            count.saturating_add(pallet.dispatchable_names.len())
+                        })
+                        .try_into()
+                        .unwrap_or(u32::MAX);
+                    (num_pallets, extrinsics)
+                }
+                None => (0, 0),
+            };
+
+            (assets, portfolios, pallets, extrinsics)
         }
     }
 

@@ -18,6 +18,7 @@ use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type ExternalAgents = pallet_external_agents::Module<TestStorage>;
+type BaseError = pallet_base::Error<TestStorage>;
 type Error = pallet_external_agents::Error<TestStorage>;
 type Id = pallet_identity::Module<TestStorage>;
 
@@ -88,7 +89,7 @@ fn create_group_set_perms_works() {
 
         // Manipulate storage so that ID will overflow.
         AGIdSequence::insert(ticker, AGId(u32::MAX));
-        assert_noop!(create(<_>::default()), Error::LocalAGIdOverflow);
+        assert_noop!(create(<_>::default()), BaseError::CounterOverflow);
         AGIdSequence::insert(ticker, AGId::default());
 
         // Add a group successfully.
@@ -274,7 +275,7 @@ fn add_works() {
             owner,
             dave,
             AgentGroup::Full,
-            Err(Error::NumFullAgentsOverflow.into()),
+            Err(BaseError::CounterOverflow.into()),
         )
     });
 }

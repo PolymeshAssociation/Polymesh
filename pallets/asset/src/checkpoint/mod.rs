@@ -51,6 +51,7 @@ use frame_support::{
     traits::UnixTime,
 };
 use frame_system::ensure_root;
+use pallet_base::{try_next_pre, Error::CounterOverflow};
 pub use polymesh_common_utilities::traits::checkpoint::{Event, WeightInfo};
 use polymesh_common_utilities::traits::checkpoint::{ScheduleId, StoredSchedule};
 use polymesh_common_utilities::{
@@ -189,12 +190,12 @@ decl_module! {
         /// Creates a single checkpoint at the current time.
         ///
         /// # Arguments
-        /// - `origin` is a signer that has permissions to act as owner of `ticker`.
+        /// - `origin` is a signer that has permissions to act as an agent of `ticker`.
         /// - `ticker` to create the checkpoint for.
         ///
         /// # Errors
         /// - `UnauthorizedAgent` if the DID of `origin` isn't a permissioned agent for `ticker`.
-        /// - `CheckpointOverflow` if the total checkpoint counter would overflow.
+        /// - `CounterOverflow` if the total checkpoint counter would overflow.
         #[weight = T::CPWeightInfo::create_checkpoint()]
         pub fn create_checkpoint(origin, ticker: Ticker) {
             let owner = <ExternalAgents<T>>::ensure_perms(origin, ticker)?.for_event();
@@ -231,8 +232,7 @@ decl_module! {
         /// - `UnauthorizedAgent` if the DID of `origin` isn't a permissioned agent for `ticker`.
         /// - `ScheduleDurationTooShort` if the schedule duration is too short.
         /// - `InsufficientAccountBalance` if the protocol fee could not be charged.
-        /// - `ScheduleOverflow` if the schedule ID counter would overflow.
-        /// - `CheckpointOverflow` if the total checkpoint counter would overflow.
+        /// - `CounterOverflow` if the schedule ID or total checkpoint counters would overflow.
         /// - `FailedToComputeNextCheckpoint` if the next checkpoint for `schedule` is in the past.
         ///
         /// # Permissions
@@ -288,10 +288,6 @@ decl_module! {
 
 decl_error! {
     pub enum Error for Module<T: Config> {
-        /// An overflow while calculating the checkpoint ID.
-        CheckpointOverflow,
-        /// An overflow while calculating the checkpoint schedule ID.
-        ScheduleOverflow,
         /// A checkpoint schedule does not exist for the asset.
         NoSuchSchedule,
         /// A checkpoint schedule is not removable as `ref_count(schedule_id) > 0`.
@@ -488,8 +484,8 @@ impl<T: Config> Module<T> {
             .filter(|&c| c <= SchedulesMaxComplexity::get())
             .ok_or(Error::<T>::SchedulesTooComplex)?;
 
-        // Compute next schedule ID.
-        let id = Self::next_schedule_id(&ticker)?;
+        // Compute the next checkpoint schedule ID. Will store it later.
+        let id = try_next_pre::<T, _>(&mut ScheduleIdSequence::get(ticker))?;
 
         // If start is now, we'll create the first checkpoint immediately later at (1).
         let infinite = remaining == 0;
@@ -592,19 +588,10 @@ impl<T: Config> Module<T> {
         needed: u64,
     ) -> Result<(CheckpointId, impl Iterator<Item = CheckpointId>), DispatchError> {
         let CheckpointId(id) = CheckpointIdSequence::get(ticker);
-        id.checked_add(needed)
-            .ok_or(Error::<T>::CheckpointOverflow)?;
+        id.checked_add(needed).ok_or(CounterOverflow::<T>)?;
         let end = CheckpointId(id + needed);
         let seq = (0..needed).map(move |offset| CheckpointId(id + 1 + offset));
         Ok((end, seq))
-    }
-
-    /// Compute the next checkpoint schedule ID without changing storage.
-    /// ID of first schedule is 1 rather than 0, which means that no schedules have been made yet.
-    fn next_schedule_id(ticker: &Ticker) -> Result<ScheduleId, DispatchError> {
-        let ScheduleId(id) = ScheduleIdSequence::get(ticker);
-        let id = id.checked_add(1).ok_or(Error::<T>::ScheduleOverflow)?;
-        Ok(ScheduleId(id))
     }
 
     /// Ensure that `id` exists in `schedules` and return `id`'s index.
