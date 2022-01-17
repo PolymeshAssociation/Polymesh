@@ -90,10 +90,6 @@ pub trait WeightInfo {
     fn update_identifiers(i: u32) -> Weight;
     fn claim_classic_ticker() -> Weight;
     fn reserve_classic_ticker() -> Weight;
-    fn add_extension() -> Weight;
-    fn remove_smart_extension() -> Weight;
-    fn archive_extension() -> Weight;
-    fn unarchive_extension() -> Weight;
     fn controller_transfer() -> Weight;
     fn register_custom_asset_type(n: u32) -> Weight;
 }

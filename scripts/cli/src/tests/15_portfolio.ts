@@ -6,7 +6,6 @@ import {
   padTicker,
   sendTx,
   ApiSingleton,
-  waitNextEra,
 } from "../util/init";
 import { createIdentities, addClaimsToDids } from "../helpers/identity_helper";
 import { issueTokenToDid } from "../helpers/asset_helper";
@@ -14,7 +13,7 @@ import { distributePolyBatch } from "../helpers/poly_helper";
 import PrettyError from "pretty-error";
 import { addComplianceRequirement } from "../helpers/compliance_manager_helper";
 import { createTable } from "../util/sqlite3";
-import { forceNewEra } from "../helpers/staking_helper";
+import { forceNewEra, unbond, nominate, checkEraElectionClosed } from "../helpers/staking_helper";
 
 async function main(): Promise<void> {
   createTable();
@@ -59,7 +58,7 @@ async function main(): Promise<void> {
   )[0][1].unwrap().auth_id;
   await sendTx(dave2, api.tx.identity.joinIdentityAsKey(authorization));
 
-  console.log("ItnRewards: TrustedDefaultClaimIssuerAdded");
+  console.log("Portfolio: TrustedDefaultClaimIssuerAdded");
   const ticker = padTicker("15TICKER");
   await issueTokenToDid(dave, ticker, 100000, null);
   await addComplianceRequirement(dave, ticker);
@@ -71,31 +70,23 @@ async function main(): Promise<void> {
     })
   );
 
-  console.log("ItnRewards: ClaimAdded");
+  console.log("Portfolio: ClaimAdded");
   await sendTx(
     bob,
     api.tx.identity.addClaim(daveDid, { Accredited: { Ticker: ticker } }, null)
   );
 
-  console.log("ItnRewards: ConfigureAdvancedTokenRules");
+  console.log("Portfolio: ConfigureAdvancedTokenRules");
   await sendTx(
     dave,
     api.tx.statistics.addTransferManager(ticker, { CountTransferManager: 10 })
   );
 
-  console.log("ItnRewards: PortfolioCreated");
+  console.log("Portfolio: PortfolioCreated");
   await sendTx(dave, api.tx.portfolio.createPortfolio("foobar"));
 
-  console.log("ItnRewards: AddAssetToAPortfolio");
+  console.log("Portfolio: AddAssetToAPortfolio");
   const portfolioId = await api.query.portfolio.nameToNumber(daveDid, "foobar");
-
-  // To Fix: In ITN Rewards PR
-  // AddAPortfolioManager is not possible because of old permission format
-  // console.log("ItnRewards: StopStakingAPortion");
-  // await sendTx(dave, api.tx.staking.unbond(100));
-
-  // console.log("ItnRewards: StartStakingANewOperator");
-  // await sendTx(dave, api.tx.staking.nominate([alice.publicKey]));
 
   await sendTx(
     dave,
@@ -106,7 +97,16 @@ async function main(): Promise<void> {
     )
   );
 
-  
+  console.log(`Election Status: ${await api.query.staking.eraElectionStatus()}`);
+  await checkEraElectionClosed();
+  console.log(`Election Status: ${await api.query.staking.eraElectionStatus()}`);
+  // AddAPortfolioManager is not possible because of old permission format
+  console.log("Portfolio: StopStakingAPortion");
+  await unbond(dave, 100);
+
+  console.log("Portfolio: StartStakingANewOperator");
+  await nominate(dave, alice.publicKey);
+
 }
 
 main()
@@ -116,6 +116,6 @@ main()
     process.exit(1);
   })
   .finally(() => {
-    console.log("Completed: ITN REWARDS");
+    console.log("Completed: Portfolio Test");
     process.exit();
   });

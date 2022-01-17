@@ -722,6 +722,7 @@ pub mod general {
             vec![
                 get_authority_keys_from_seed("Alice", false),
                 get_authority_keys_from_seed("Bob", false),
+                get_authority_keys_from_seed("Charlie", false),
             ],
             seeded_acc_id("Alice"),
             true,
@@ -732,11 +733,7 @@ pub mod general {
                 REWARDS_LOCK_HASH,
             ),
             BridgeLockId::generate_bridge_locks(3, 20, DEV_KEYS, KEY_LOCK_HASH),
-            vec![
-                seeded_acc_id("Charlie"),
-                seeded_acc_id("Dave"),
-                seeded_acc_id("Eve"),
-            ],
+            vec![seeded_acc_id("Dave"), seeded_acc_id("Eve")],
         )
     }
 
@@ -912,6 +909,7 @@ pub mod testnet {
             vec![
                 get_authority_keys_from_seed("Alice", false),
                 get_authority_keys_from_seed("Bob", false),
+                get_authority_keys_from_seed("Charlie", false),
             ],
             seeded_acc_id("Eve"),
             true,
@@ -1112,6 +1110,7 @@ pub mod mainnet {
             vec![
                 get_authority_keys_from_seed("Alice", false),
                 get_authority_keys_from_seed("Bob", false),
+                get_authority_keys_from_seed("Charlie", false),
             ],
             seeded_acc_id("Eve"),
             true,
@@ -1258,6 +1257,7 @@ pub mod ci {
             vec![
                 get_authority_keys_from_seed("Alice", false),
                 get_authority_keys_from_seed("Bob", false),
+                get_authority_keys_from_seed("Charlie", false),
             ],
             seeded_acc_id("Alice"),
             true,
