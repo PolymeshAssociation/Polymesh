@@ -103,10 +103,7 @@ use polymesh_primitives::{
     proposition, storage_migration_ver, Balance, Claim, Condition, ConditionType, Context,
     IdentityId, Ticker, TrustedFor, TrustedIssuer,
 };
-use sp_std::{
-    convert::{From, TryFrom},
-    prelude::*,
-};
+use sp_std::{convert::From, prelude::*};
 
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 type Identity<T> = pallet_identity::Module<T>;
@@ -601,17 +598,12 @@ impl<T: Config> Module<T> {
         let complexity = asset_compliance
             .iter()
             .flat_map(|req| req.conditions())
-            .fold(0usize, |complexity, condition| {
-                let (claims, issuers) = condition.complexity();
-                complexity.saturating_add(claims.saturating_mul(match issuers {
-                    0 => default_issuer_count,
-                    _ => issuers,
-                }))
+            .fold(0u32, |total, condition| {
+                let complexity = condition.complexity(default_issuer_count);
+                total.saturating_add(complexity)
             });
-        if let Ok(complexity_u32) = u32::try_from(complexity) {
-            if complexity_u32 <= T::MaxConditionComplexity::get() {
-                return Ok(());
-            }
+        if complexity <= T::MaxConditionComplexity::get() {
+            return Ok(());
         }
         Err(Error::<T>::ComplianceRequirementTooComplex.into())
     }
