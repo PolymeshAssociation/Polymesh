@@ -509,63 +509,6 @@ polymesh_runtime_common::runtime_apis! {
 
             let storage_info = AllPalletsWithSystem::storage_info();
 
-            /*
-            let mut storage_info = pallet_rewards::Module::<Runtime>::storage_info();
-
-            storage_info.append(&mut pallet_relayer::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_external_agents::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_base::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_utility::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_treasury::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_sto::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_statistics::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_settlement::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_scheduler::Pallet::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_protocol_fee::Module::<Runtime>::storage_info());
-
-            storage_info.append(&mut pallet_portfolio::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_pips::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_permissions::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_corporate_actions::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_corporate_actions::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_compliance_manager::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_asset::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_corporate_actions::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_asset::Pallet::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_sudo::Module::<Runtime>::storage_info());
-
-            storage_info.append(&mut pallet_randomness_collective_flip::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_im_online::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_session::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_grandpa::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_authority_discovery::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_session::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_offences::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_staking::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_bridge::Pallet::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_multisig::Module::<Runtime>::storage_info());
-
-            storage_info.append(&mut pallet_randomness_collective_flip::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_im_online::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_session::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_grandpa::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_authority_discovery::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_session::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_offences::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_staking::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_bridge::Pallet::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_multisig::Module::<Runtime>::storage_info());
-
-            storage_info.append(&mut pallet_identity::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_transaction_payment::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_balances::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_authorship::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_indices::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_timestamp::Module::<Runtime>::storage_info());
-            storage_info.append(&mut pallet_babe::Module::<Runtime>::storage_info());
-            storage_info.append(&mut frame_system::Module::<Runtime>::storage_info());
-            */
-
             return (list, storage_info)
         }
     }
