@@ -108,23 +108,20 @@ type ExternalAgents<T> = pallet_external_agents::Module<T>;
 
 /// A wrapper for a motion title.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(
-    Clone, PartialEq, Eq, Hash, Default, Debug, Decode, Encode, TypeInfo, VecU8StrongTyped,
-)]
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, PartialEq, Eq, Hash, Default, Debug)]
 pub struct MotionTitle(pub Vec<u8>);
 
 /// A wrapper for a motion info link.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(
-    Clone, PartialEq, Eq, Hash, Default, Debug, Decode, Encode, TypeInfo, VecU8StrongTyped,
-)]
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, PartialEq, Eq, Hash, Default, Debug)]
 pub struct MotionInfoLink(pub Vec<u8>);
 
 /// A wrapper for a choice's title.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(
-    Clone, PartialEq, Eq, Hash, Default, Debug, Decode, Encode, TypeInfo, VecU8StrongTyped,
-)]
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, PartialEq, Eq, Hash, Default, Debug)]
 pub struct ChoiceTitle(pub Vec<u8>);
 
 /// Details about motions
@@ -144,9 +141,8 @@ pub struct Motion {
 
 /// A wrapper for a ballot's title.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(
-    Clone, PartialEq, Eq, Hash, Debug, Default, Decode, Encode, TypeInfo, VecU8StrongTyped,
-)]
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Default)]
 pub struct BallotTitle(pub Vec<u8>);
 
 /// Metadata about a ballot.

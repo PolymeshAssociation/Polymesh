@@ -66,7 +66,8 @@ type Identity<T> = pallet_identity::Module<T>;
 ///
 /// This holds the subsidiser's paying key and the remaining POLYX balance
 /// available for subsidising transaction and protocol fees.
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Subsidy<Acc> {
     /// The subsidiser's paying key.
     pub paying_key: Acc,

@@ -74,7 +74,8 @@ impl GenesisIdentityRecord<AccountId> {
 ///  - "did:poly:ab01"
 ///  - "did:poly:1"
 ///  - "DID:poly:..."
-#[derive(Encode, Decode, TypeInfo, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Hash)]
 #[cfg_attr(
     feature = "std",
     derive(SerializeU8StrongTyped, DeserializeU8StrongTyped)
@@ -214,25 +215,14 @@ impl Printable for IdentityId {
 
 /// A wrapper for a portfolio name. It is used for non-default (aka "user") portfolios only since
 /// default ones are nameless.
-#[derive(
-    Decode,
-    Encode,
-    TypeInfo,
-    Clone,
-    Debug,
-    Default,
-    Hash,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    VecU8StrongTyped,
-)]
+#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PortfolioName(pub Vec<u8>);
 
 /// The unique ID of a non-default portfolio.
-#[derive(Decode, Encode, TypeInfo, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PortfolioNumber(pub u64);
 
@@ -249,7 +239,8 @@ impl From<u64> for PortfolioNumber {
 }
 
 /// TBD
-#[derive(Decode, Encode, TypeInfo, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum PortfolioKind {
     /// The default portfolio of a DID.
@@ -273,9 +264,8 @@ impl From<Option<PortfolioNumber>> for PortfolioKind {
 }
 
 /// The ID of a portfolio.
-#[derive(
-    Decode, Encode, TypeInfo, Clone, Copy, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord,
-)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PortfolioId {
     /// The DID of the portfolio.

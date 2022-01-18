@@ -24,63 +24,26 @@ use sp_std::prelude::Vec;
 use serde::{Deserialize, Serialize};
 
 /// The local, per-ticker, ID of an asset documentation.
-#[derive(
-    Decode, Encode, TypeInfo, Copy, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord,
-)]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Copy, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DocumentId(pub u32);
 
 /// A wrapper for a document name.
-#[derive(
-    Decode,
-    Encode,
-    TypeInfo,
-    Clone,
-    Debug,
-    Default,
-    Hash,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    VecU8StrongTyped,
-)]
+#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DocumentName(pub Vec<u8>);
 
 /// A wrapper for a document URI.
-#[derive(
-    Decode,
-    Encode,
-    TypeInfo,
-    Clone,
-    Debug,
-    Default,
-    Hash,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    VecU8StrongTyped,
-)]
+#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DocumentUri(pub Vec<u8>);
 
 /// A wrapper for a document's type.
-#[derive(
-    Decode,
-    Encode,
-    TypeInfo,
-    Clone,
-    Debug,
-    Default,
-    Hash,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    VecU8StrongTyped,
-)]
+#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DocumentType(pub Vec<u8>);
 

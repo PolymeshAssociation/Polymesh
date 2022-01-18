@@ -97,7 +97,8 @@ pub mod report {
 
 /// A positive coefficient: a pair of a numerator and a denominator. Defaults to `(1, 1)`.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, TypeInfo, Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PosRatio(pub u32, pub u32);
 
 impl Default for PosRatio {
@@ -292,38 +293,14 @@ pub struct Beneficiary<Balance> {
 }
 
 /// The name of a pallet.
-#[derive(
-    Decode,
-    Encode,
-    TypeInfo,
-    Clone,
-    Debug,
-    Default,
-    Hash,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    VecU8StrongTyped,
-)]
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PalletName(pub Vec<u8>);
 
 /// The name of a function within a pallet.
-#[derive(
-    Decode,
-    Encode,
-    TypeInfo,
-    Clone,
-    Debug,
-    Default,
-    Hash,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    VecU8StrongTyped,
-)]
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DispatchableName(pub Vec<u8>);
 
@@ -331,9 +308,8 @@ pub struct DispatchableName(pub Vec<u8>);
 #[macro_export]
 macro_rules! storage_migration_ver {
     ($ver:literal) => {
-        #[derive(
-            Encode, Decode, scale_info::TypeInfo, Clone, Copy, PartialEq, Eq, PartialOrd, Ord,
-        )]
+        #[derive(Encode, Decode, scale_info::TypeInfo)]
+        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
         pub struct Version(u8);
 
         impl Version {

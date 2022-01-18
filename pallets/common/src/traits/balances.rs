@@ -30,9 +30,8 @@ use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 use sp_std::ops::BitOr;
 
-#[derive(
-    Encode, Decode, TypeInfo, Default, Clone, PartialEq, Eq, PartialOrd, Ord, SliceU8StrongTyped,
-)]
+#[derive(Encode, Decode, TypeInfo, SliceU8StrongTyped)]
+#[derive(Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Memo(pub [u8; 32]);
 
 // POLYMESH-NOTE: Make `AccountData` public to access it from the outside module.

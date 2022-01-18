@@ -13,7 +13,7 @@ use polymesh_primitives::{
     identity_id::GenesisIdentityRecord, AccountId, Balance, HexAccountId, IdentityId, Moment,
     PosRatio, SecondaryKey, Signatory, Signature, Ticker,
 };
-use sc_chain_spec::ChainType;
+use sc_chain_spec::{ChainSpecExtension, ChainType};
 use sc_service::Properties;
 use sc_telemetry::TelemetryEndpoints;
 use serde_json::json;
@@ -62,7 +62,7 @@ const BABE_GENESIS: pallet_babe::GenesisConfig = pallet_babe::GenesisConfig {
 ///
 /// Additional parameters for some Substrate core modules,
 /// customizable from the chain spec.
-#[derive(Default, Clone, Serialize, Deserialize, sc_chain_spec::ChainSpecExtension)]
+#[derive(Default, Clone, Serialize, Deserialize, ChainSpecExtension)]
 #[serde(rename_all = "camelCase")]
 pub struct Extensions {
     /// The light sync state.

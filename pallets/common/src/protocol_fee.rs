@@ -22,7 +22,8 @@ use sp_runtime::Perbill;
 use sp_runtime::{Deserialize, Serialize};
 
 /// Protocol fee operations.
-#[derive(Decode, Encode, TypeInfo, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum ProtocolOp {
     AssetRegisterTicker,

@@ -9,7 +9,8 @@ use sp_std::convert::TryFrom;
 
 /// A per-ticker checkpoint ID.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo, Default, Debug)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct CheckpointId(pub u64);
 
 /// Calendar units for timing recurring operations.

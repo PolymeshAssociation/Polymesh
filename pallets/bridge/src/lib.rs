@@ -147,7 +147,8 @@ pub trait Config: multisig::Config + BalancesConfig + pallet_base::Config {
 
 /// The status of a bridge transaction.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BridgeTxStatus {
     /// No such transaction in the system.
     Absent,
@@ -172,7 +173,8 @@ impl Default for BridgeTxStatus {
 
 /// A unique lock-and-mint bridge transaction.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct BridgeTx<Account> {
     /// A single transaction hash can have multiple locks. This nonce differentiates between them.
     pub nonce: u32,
@@ -186,7 +188,8 @@ pub struct BridgeTx<Account> {
 }
 
 /// Additional details of a bridge transaction.
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct BridgeTxDetail<BlockNumber> {
     /// Amount of POLYX tokens to credit.
     pub amount: Balance,

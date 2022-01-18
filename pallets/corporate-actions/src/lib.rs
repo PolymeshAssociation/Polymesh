@@ -211,7 +211,8 @@ impl CAKind {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Default, Debug, VecU8StrongTyped)]
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct CADetails(pub Vec<u8>);
 
 /// Defines how to identify a CA's associated checkpoint, if any.

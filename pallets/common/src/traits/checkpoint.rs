@@ -9,7 +9,8 @@ use sp_runtime::{Deserialize, Serialize};
 
 /// ID of a `StoredSchedule`.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, TypeInfo, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct ScheduleId(pub u64);
 impl_checked_inc!(ScheduleId);
 

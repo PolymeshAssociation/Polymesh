@@ -30,7 +30,8 @@ pub const TICKER_LEN: usize = 12;
 /// This type stores fixed-length case-sensitive byte strings. Any value of this type that is
 /// received by a Substrate module call method has to be converted to canonical uppercase
 /// representation using [`Ticker::canonize`].
-#[derive(Encode, TypeInfo, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, TypeInfo)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(
     feature = "std",
     derive(SerializeU8StrongTyped, DeserializeU8StrongTyped)

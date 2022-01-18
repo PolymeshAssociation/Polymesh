@@ -112,24 +112,14 @@ pub trait Config:
 }
 
 /// A global and unique venue ID.
-#[derive(Copy, Clone, Encode, Decode, TypeInfo, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct VenueId(pub u64);
 impl_checked_inc!(VenueId);
 
 /// A wrapper for VenueDetails
-#[derive(
-    Decode,
-    Encode,
-    TypeInfo,
-    Clone,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    VecU8StrongTyped,
-)]
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct VenueDetails(Vec<u8>);
 
 /// Status of an instruction
@@ -150,7 +140,8 @@ impl Default for InstructionStatus {
 }
 
 /// Type of the venue. Used for offchain filtering.
-#[derive(Encode, Decode, TypeInfo, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum VenueType {
     /// Default type - used for mixed and unknown types
     Other,
@@ -203,7 +194,8 @@ impl Default for AffirmationStatus {
 }
 
 /// Type of settlement
-#[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SettlementType<BlockNumber> {
     /// Instruction should be settled in the next block as soon as all affirmations are received.
     SettleOnAffirmation,
@@ -218,12 +210,14 @@ impl<BlockNumber> Default for SettlementType<BlockNumber> {
 }
 
 /// A per-Instruction leg ID.
-#[derive(Copy, Clone, Encode, Decode, TypeInfo, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct LegId(pub u64);
 impl_checked_inc!(LegId);
 
 /// A global and unique instruction ID.
-#[derive(Copy, Clone, Encode, Decode, TypeInfo, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct InstructionId(pub u64);
 impl_checked_inc!(InstructionId);
 
@@ -234,8 +228,9 @@ impl InstructionId {
     }
 }
 
-/// Details about an instruction
-#[derive(Encode, Decode, TypeInfo, Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+/// Details about an instruction.
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct Instruction<Moment, BlockNumber> {
     /// Unique instruction id. It is an auto incrementing number
     pub instruction_id: InstructionId,
@@ -253,8 +248,9 @@ pub struct Instruction<Moment, BlockNumber> {
     pub value_date: Option<Moment>,
 }
 
-/// Details of a leg including the leg id in the instruction
-#[derive(Encode, Decode, TypeInfo, Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+/// Details of a leg including the leg id in the instruction.
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct Leg {
     /// Portfolio of the sender
     pub from: PortfolioId,
@@ -266,8 +262,9 @@ pub struct Leg {
     pub amount: Balance,
 }
 
-/// Details about a venue
-#[derive(Encode, Decode, TypeInfo, Clone, Default, PartialEq, Eq, Debug, PartialOrd, Ord)]
+/// Details about a venue.
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Default, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct Venue {
     /// Identity of the venue's creator
     pub creator: IdentityId,
@@ -291,19 +288,8 @@ pub struct Receipt<Balance> {
 }
 
 /// A wrapper for VenueDetails
-#[derive(
-    Decode,
-    Encode,
-    TypeInfo,
-    Clone,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    VecU8StrongTyped,
-)]
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ReceiptMetadata(Vec<u8>);
 
 /// Details about an offchain transaction receipt that a user must input

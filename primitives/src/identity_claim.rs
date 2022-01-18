@@ -27,7 +27,8 @@ use super::jurisdiction::CountryCode;
 pub type ScopeId = IdentityId;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
 /// Scope: Almost all claim needs a valid scope.
 pub enum Scope {
     /// Scoped to an Identity
@@ -157,7 +158,8 @@ impl Claim {
 
 /// Claim type represent the claim without its data.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, TypeInfo, Copy, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
 pub enum ClaimType {
     /// User is Accredited
     Accredited,

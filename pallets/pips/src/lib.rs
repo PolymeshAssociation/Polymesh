@@ -165,41 +165,18 @@ pub trait WeightInfo {
 }
 
 /// A wrapper for a proposal url.
-#[derive(
-    Decode,
-    Encode,
-    TypeInfo,
-    Clone,
-    Debug,
-    Default,
-    Hash,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    VecU8StrongTyped,
-)]
+#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Url(pub Vec<u8>);
 
 /// A wrapper for a proposal description.
-#[derive(
-    Decode,
-    Encode,
-    TypeInfo,
-    Clone,
-    Debug,
-    Default,
-    Hash,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    VecU8StrongTyped,
-)]
+#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PipDescription(pub Vec<u8>);
 
 /// The global and unique identitifer of a Polymesh Improvement Proposal (PIP).
-#[derive(Encode, Decode, TypeInfo, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PipId(pub u32);
 impl_checked_inc!(PipId);
@@ -249,7 +226,8 @@ pub enum VoteCount {
 
 /// Either the entire proposal encoded as a byte vector or its hash. The latter represents large
 /// proposals.
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ProposalData {
     /// The hash of the proposal.
     Hash(H256),
@@ -364,7 +342,8 @@ pub struct DepositInfo<AccountId> {
 }
 
 /// ID of the taken snapshot in a sequence.
-#[derive(Encode, Decode, TypeInfo, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct SnapshotId(pub u32);
 impl_checked_inc!(SnapshotId);

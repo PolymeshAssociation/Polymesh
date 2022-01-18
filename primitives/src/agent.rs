@@ -8,13 +8,15 @@ use sp_runtime::{Deserialize, Serialize};
 /// By *local*, we mean that the same number might be used for a different `Ticker`
 /// to uniquely identify a different Agent Group.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo, Default, Debug)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct AGId(pub u32);
 impl_checked_inc!(AGId);
 
 /// The available set of agent groups.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo, Debug)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum AgentGroup {
     /// Has all permissions.
     Full,

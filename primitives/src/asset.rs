@@ -25,20 +25,8 @@ use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::Vec;
 
 /// A wrapper for a token name.
-#[derive(
-    Decode,
-    Encode,
-    TypeInfo,
-    Clone,
-    Debug,
-    Default,
-    Hash,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    VecU8StrongTyped,
-)]
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AssetName(pub Vec<u8>);
 
 /// The ID of a custom asset type.
@@ -93,20 +81,8 @@ impl Default for AssetType {
 }
 
 /// A wrapper for a funding round name.
-#[derive(
-    Decode,
-    Encode,
-    TypeInfo,
-    Clone,
-    Debug,
-    Hash,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Default,
-    VecU8StrongTyped,
-)]
+#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct FundingRoundName(pub Vec<u8>);
 
 /// Result of a granular can transfer.

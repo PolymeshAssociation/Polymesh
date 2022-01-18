@@ -23,9 +23,8 @@ use sp_runtime::{Deserialize, Serialize};
 /// A protective newtype around any type,
 /// signalling that the contained element is only for use by events.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(
-    Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Encode, Decode, TypeInfo, Default, Debug,
-)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Debug)]
 pub struct EventOnly<T>(T);
 
 impl<T> EventOnly<T> {

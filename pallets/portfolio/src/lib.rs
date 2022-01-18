@@ -64,7 +64,8 @@ use sp_std::prelude::Vec;
 type Identity<T> = identity::Module<T>;
 
 /// The ticker and balance of an asset to be moved from one portfolio to another.
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MovePortfolioItem {
     /// The ticker of the asset to be moved.
     pub ticker: Ticker,

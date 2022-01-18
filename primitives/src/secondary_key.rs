@@ -54,7 +54,8 @@ pub type DispatchableNames = SubsetRestriction<DispatchableName>;
 
 /// A permission to call a set of functions, as described by `dispatchable_names`,
 /// within a given pallet `pallet_name`.
-#[derive(Decode, Encode, TypeInfo, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PalletPermissions {
     /// The name of a pallet.
@@ -131,7 +132,8 @@ pub type PortfolioPermissions = SubsetRestriction<PortfolioId>;
 /// Common cases of permissions:
 /// - `Permissions::empty()`: no permissions,
 /// - `Permissions::default()`: full permissions.
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Permissions {
     /// The subset of assets under management.
@@ -407,7 +409,8 @@ pub mod api {
     use sp_std::vec::Vec;
 
     /// A permission to call functions within a given pallet.
-    #[derive(Decode, Encode, TypeInfo, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+    #[derive(Decode, Encode, TypeInfo)]
+    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     pub struct LegacyPalletPermissions {
         /// The name of a pallet.
@@ -425,12 +428,14 @@ pub mod api {
     }
 
     /// Extrinsic permissions.
-    #[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+    #[derive(Decode, Encode, TypeInfo)]
+    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     pub struct LegacyExtrinsicPermissions(pub Option<Vec<LegacyPalletPermissions>>);
 
     /// Signing key permissions.
-    #[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+    #[derive(Decode, Encode, TypeInfo)]
+    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     pub struct LegacyPermissions {
         /// The subset of assets under management.
