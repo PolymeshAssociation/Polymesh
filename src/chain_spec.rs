@@ -51,7 +51,7 @@ const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
 const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
     sp_consensus_babe::BabeEpochConfiguration {
         c: PRIMARY_PROBABILITY,
-        allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryVRFSlots,
+        allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryPlainSlots,
     };
 const BABE_GENESIS: pallet_babe::GenesisConfig = pallet_babe::GenesisConfig {
     authorities: vec![],
