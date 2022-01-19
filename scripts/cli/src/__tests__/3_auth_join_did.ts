@@ -10,11 +10,6 @@ import {
 } from "../helpers/identity_helper";
 import { distributePolyBatch } from "../helpers/poly_helper";
 import { addSecondaryKeys } from "../helpers/key_management_helper";
-import { createTable } from "../util/sqlite3";
-
-beforeAll(() => {
-  createTable();
-});
 
 // Disconnects api after all the tests have completed
 afterAll(async () => {

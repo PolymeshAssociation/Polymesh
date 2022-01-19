@@ -5,11 +5,6 @@ import {
   generateEntity,
 } from "../util/init";
 import { createIdentities } from "../helpers/identity_helper";
-import { createTable } from "../util/sqlite3";
-
-beforeAll(() => {
-  createTable();
-});
 
 // Disconnects api after all the tests have completed
 afterAll(async () => {
@@ -32,8 +27,6 @@ describe("0 - Identity Unit Test", () => {
     const entity = await generateEntity("0_entity");
     const entity1 = await generateEntity("1_entity");
     await createIdentities(alice, [entity]);
-    await expect(createIdentities(entity, [entity1])).rejects.toThrow(
-      "1010: Invalid Transaction: Inability to pay some fees , e.g. account balance too low"
-    );
+    await expect(createIdentities(entity1, [entity])).rejects.toThrow();
   });
 });

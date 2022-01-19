@@ -9,11 +9,6 @@ import { createIdentities, addClaimsToDids } from "../helpers/identity_helper";
 import { distributePoly } from "../helpers/poly_helper";
 import { issueTokenToDid, mintingAsset } from "../helpers/asset_helper";
 import { addComplianceRequirement } from "../helpers/compliance_manager_helper";
-import { createTable } from "../util/sqlite3";
-
-beforeAll(() => {
-  createTable();
-});
 
 // Disconnects api after all the tests have completed
 afterAll(async () => {

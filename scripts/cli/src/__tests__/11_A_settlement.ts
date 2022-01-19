@@ -12,11 +12,6 @@ import { distributePoly } from "../helpers/poly_helper";
 import { issueTokenToDid, assetBalance } from "../helpers/asset_helper";
 import { addComplianceRequirement } from "../helpers/compliance_manager_helper";
 import * as settlement from "../helpers/settlement_helper";
-import { createTable } from "../util/sqlite3";
-
-beforeAll(() => {
-  createTable();
-});
 
 // Disconnects api after all the tests have completed
 afterAll(async () => {

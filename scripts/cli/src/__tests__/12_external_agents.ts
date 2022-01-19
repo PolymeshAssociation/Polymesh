@@ -34,11 +34,6 @@ import {
   modifyFundraiserWindow,
   stop,
 } from "../helpers/sto_helper";
-import { createTable } from "../util/sqlite3";
-
-beforeAll(() => {
-  createTable();
-});
 
 // Disconnects api after all the tests have completed
 afterAll(async () => {
