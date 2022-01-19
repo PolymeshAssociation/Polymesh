@@ -8,19 +8,18 @@
     "polymesh-cli": "./dist/polymesh_cli.js"
   },
   "resolutions": {
-    "@polkadot/keyring": "6.9.1",
-    "@polkadot/util-crypto": "6.9.1",
-    "@polkadot/util": "6.9.1"
+    "@polkadot/keyring": "8.0.4",
+    "@polkadot/util-crypto": "8.0.4",
+    "@polkadot/util": "8.0.4"
   },
   "scripts": {
     "start": "npm run build",
     "create": "npm run build && npm run test",
     "build": "npm run clean:some && tsc -p .",
-    "build:types": "npm run generate:polymesh-types && npm run generate:polymesh-meta && npm run generate:defs && npm run generate:meta",
+    "build:types": "npm run generate:polymesh-meta && npm run generate:defs && npm run generate:meta",
     "generate:defs": "ts-node --skip-project node_modules/.bin/polkadot-types-from-defs --package polymesh-typegen/interfaces --input ./src/interfaces",
     "generate:meta": "ts-node --skip-project node_modules/.bin/polkadot-types-from-chain --package polymesh-typegen/interfaces --endpoint ./polymesh-meta.json --output ./src/interfaces",
     "generate:polymesh-meta": "./chain_metadata.sh",
-    "generate:polymesh-types": "node ./util/updateTypes.js",
     "lint": "tsc --noEmit --pretty",
     "clean:some": "rm -rf ./dist ./docs",
     "clean:all": "rm -rf ./node_modules package-lock.json ./dist ./docs",
@@ -57,9 +56,9 @@
   "author": "Polymath Network",
   "license": "UNLICENSED",
   "dependencies": {
-    "@polkadot/api": "5.0.1",
-    "@polkadot/util": "^7.0.3",
-    "@polkadot/util-crypto": "^7.0.3",
+    "@polkadot/api": "6.12.1",
+    "@polkadot/util": "^8.0.4",
+    "@polkadot/util-crypto": "^8.0.4",
     "@types/sqlite3": "^3.1.7",
     "chai": "4.2.0",
     "chalk": "4.1.0",
@@ -82,7 +81,7 @@
   },
   "devDependencies": {
     "@babel/plugin-transform-modules-commonjs": "7.14.5",
-    "@polkadot/typegen": "5.0.1",
+    "@polkadot/typegen": "6.12.1",
     "@types/chai": "4.2.15",
     "@types/clear": "0.1.1",
     "@types/figlet": "1.2.1",
