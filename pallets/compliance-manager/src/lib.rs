@@ -601,7 +601,10 @@ impl<T: Config> Module<T> {
             .fold(0u32, |total, condition| {
                 let complexity = condition.complexity(default_issuer_count);
                 total.saturating_add(complexity)
-            });
+            })
+            // NB: If the compliance requirements are empty (0 complexity),
+            // then use the count of requirements.
+            .max(asset_compliance.len() as u32);
         if complexity <= T::MaxConditionComplexity::get() {
             return Ok(());
         }
