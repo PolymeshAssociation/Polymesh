@@ -48,7 +48,11 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use core::{iter, mem};
-use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_support::{
+    decl_error, decl_module, decl_storage,
+    dispatch::{DispatchResult, Weight},
+    ensure,
+};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::traits::balances::Memo;
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
@@ -117,11 +121,11 @@ decl_storage! {
             double_map hasher(identity) IdentityId, hasher(twox_64_concat) PortfolioId => bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
 }
 
-storage_migration_ver!(0);
+storage_migration_ver!(1);
 
 decl_error! {
     pub enum Error for Module<T: Config> {
@@ -331,6 +335,32 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::accept_portfolio_custody()]
         pub fn accept_portfolio_custody(origin, auth_id: u64) -> DispatchResult {
             Self::base_accept_portfolio_custody(origin, auth_id)
+        }
+
+        fn on_runtime_upgrade() -> Weight {
+            use polymesh_primitives::{ storage_migrate_on };
+
+            // Remove old name to number mappings.
+            // In version 4.0.0 (first mainnet deployment) when a portfolio was removed
+            // the NameToNumber mapping was left out of date, this upgrade removes dangling
+            // NameToNumber mappings.
+            // https://github.com/PolymathNetwork/Polymesh/pull/1200
+            storage_migrate_on!(StorageVersion::get(), 1, {
+
+                let must_remove = NameToNumber::iter().flat_map(|(identity, name, number)|{
+                    if Portfolios::get(identity,number) != name{
+                        Some((identity,name))
+                    }else{
+                        None
+                    }
+                });
+
+                for (identity,name) in must_remove {
+                    NameToNumber::remove(identity,name)
+                }
+            });
+
+            0
         }
     }
 }
