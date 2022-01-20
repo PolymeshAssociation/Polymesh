@@ -104,8 +104,8 @@ impl TrustedIssuer {
 
     /// Count number of claim types this issuers is trusted for.
     ///
-    /// Returns `1` for `TrustedFor::Any`
-    pub fn count(&self) -> usize {
+    /// Returns `1` for `TrustedFor::Any`.
+    fn count(&self) -> usize {
         match &self.trusted_for {
             TrustedFor::Any => 1,
             TrustedFor::Specific(types) => types.len(),
@@ -158,7 +158,7 @@ impl Condition {
         };
         self.condition_type
             .count()
-            // NB: `max(1)` Make sure issuer count is not zero.
+            // NB: `max(1)` makes sure issuer count is not zero.
             .saturating_mul(issuers.max(1))
             .try_into()
             .unwrap_or(u32::MAX)
@@ -167,7 +167,9 @@ impl Condition {
     /// Return number of claims, issuers, and claim_types.
     ///
     /// This is used for weight calculation.
-    pub fn counts(&self) -> (u32, u32, u32) {
+    ///
+    /// Returns: `(claims_count, issuer_count, claim_type_count)`
+    fn counts(&self) -> (u32, u32, u32) {
         // Count the number of claims.
         let claims = self.condition_type.count().try_into().unwrap_or(u32::MAX);
         // Count the number of issuers.
@@ -193,9 +195,11 @@ impl Condition {
     }
 }
 
-/// Return the total number of condtions, claims, issuers, claim_types
+/// Return the total number of condtions, claims, issuers, and claim_types.
 ///
 /// This is used for weight calculation.
+///
+/// Returns: `(condition_count, claims_count, issuer_count, claim_type_count)`
 pub fn conditions_total_counts<'a>(
     conditions: impl IntoIterator<Item = &'a Condition>,
 ) -> (u32, u32, u32, u32) {

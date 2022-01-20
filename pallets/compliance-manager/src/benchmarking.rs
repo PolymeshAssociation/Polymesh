@@ -34,14 +34,8 @@ const MAX_CONDITIONS: u32 = 10;
 const MAX_CONDITION_TYPE_CLAIMS: u32 = 10;
 const MAX_CONDITION_ISSUERS: u32 = 10;
 const MAX_CONDITION_ISSUER_CLAIM_TYPES: u32 = 10;
-/*
-const MIN_CONDITIONS: u32 = 1;
-const MIN_CONDITION_TYPE_CLAIMS: u32 = 1;
-const MIN_CONDITION_ISSUERS: u32 = 1;
-const MIN_CONDITION_ISSUER_CLAIM_TYPES: u32 = 1;
-*/
 
-const CLAIM_TYPES: &'static [ClaimType] = &[
+const CLAIM_TYPES: &[ClaimType] = &[
     ClaimType::Accredited,
     ClaimType::Affiliate,
     ClaimType::BuyLockup,
@@ -59,7 +53,7 @@ const CLAIM_TYPES: &'static [ClaimType] = &[
 /// Create a token issuer trusted for `Any`.
 pub fn make_issuer<T: IdentityConfig + TestUtilsFn<AccountIdOf<T>>>(
     id: u32,
-    clain_type_len: Option<usize>,
+    claim_type_len: Option<usize>,
 ) -> TrustedIssuer {
     let u = UserBuilder::<T>::default()
         .generate_did()
@@ -67,7 +61,7 @@ pub fn make_issuer<T: IdentityConfig + TestUtilsFn<AccountIdOf<T>>>(
         .build("ISSUER");
     TrustedIssuer {
         issuer: IdentityId::from(u.did.unwrap()),
-        trusted_for: match clain_type_len {
+        trusted_for: match claim_type_len {
             None => TrustedFor::Any,
             Some(len) => TrustedFor::Specific(
                 (0..len)
@@ -86,19 +80,15 @@ pub fn make_issuer<T: IdentityConfig + TestUtilsFn<AccountIdOf<T>>>(
 ///   complience requiriments.
 pub fn make_issuers<T: IdentityConfig + TestUtilsFn<AccountIdOf<T>>>(
     s: u32,
-    clain_type_len: Option<usize>,
+    claim_type_len: Option<usize>,
 ) -> Vec<TrustedIssuer> {
     (0..s)
-        .map(|i| make_issuer::<T>(i, clain_type_len))
-        .collect::<Vec<_>>()
+        .map(|i| make_issuer::<T>(i, claim_type_len))
+        .collect()
 }
 
 /// Create simple conditions with a variable number of `issuers`.
-pub fn make_conditions(
-    s: u32,
-    claims: Option<usize>,
-    issuers: &Vec<TrustedIssuer>,
-) -> Vec<Condition> {
+pub fn make_conditions(s: u32, claims: Option<usize>, issuers: &[TrustedIssuer]) -> Vec<Condition> {
     (0..s)
         .map(|_| Condition {
             condition_type: match claims {
@@ -110,7 +100,7 @@ pub fn make_conditions(
                         .collect(),
                 ),
             },
-            issuers: issuers.clone(),
+            issuers: issuers.to_vec(),
         })
         .collect()
 }
@@ -245,40 +235,6 @@ fn conditions_bench(conditions: Vec<Condition>) {
 
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
-
-    /*
-    conditions_cost {
-        let c in 1..MAX_CONDITIONS;
-
-        let conditions = setup_conditions_bench::<T>(c, MIN_CONDITION_TYPE_CLAIMS, MIN_CONDITION_ISSUERS, MIN_CONDITION_ISSUER_CLAIM_TYPES);
-    }: {
-        conditions_bench(conditions);
-    }
-
-    condition_claims_cost {
-        let c in 1..MAX_CONDITION_TYPE_CLAIMS;
-
-        let conditions = setup_conditions_bench::<T>(MIN_CONDITIONS, c, MIN_CONDITION_ISSUERS, MIN_CONDITION_ISSUER_CLAIM_TYPES);
-    }: {
-        conditions_bench(conditions);
-    }
-
-    condition_issuers_cost {
-        let i in 1..MAX_CONDITION_ISSUERS;
-
-        let conditions = setup_conditions_bench::<T>(MIN_CONDITIONS, MIN_CONDITION_TYPE_CLAIMS, i, MIN_CONDITION_ISSUER_CLAIM_TYPES);
-    }: {
-        conditions_bench(conditions);
-    }
-
-    condition_issuer_claim_types_cost {
-        let t in 1..MAX_CONDITION_ISSUER_CLAIM_TYPES;
-
-        let conditions = setup_conditions_bench::<T>(MIN_CONDITIONS, MIN_CONDITION_TYPE_CLAIMS, MIN_CONDITION_ISSUERS, t);
-    }: {
-        conditions_bench(conditions);
-    }
-    */
 
     condition_costs {
         let a in 1..MAX_CONDITIONS;
