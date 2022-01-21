@@ -195,7 +195,7 @@ decl_module! {
             Self::ensure_portfolio_custody_and_permission(pid, primary_did, secondary_key.as_ref())?;
 
             // Delete from storage.
-            let portfolio =Portfolios::get(&primary_did,&num);
+            let portfolio = Portfolios::get(&primary_did, &num);
             Portfolios::remove(&primary_did, &num);
             NameToNumber::remove(&primary_did, &portfolio);
             PortfolioAssetCount::remove(&pid);
@@ -338,7 +338,7 @@ decl_module! {
         }
 
         fn on_runtime_upgrade() -> Weight {
-            use polymesh_primitives::{ storage_migrate_on };
+            use polymesh_primitives::storage_migrate_on;
 
             // Remove old name to number mappings.
             // In version 4.0.0 (first mainnet deployment) when a portfolio was removed
@@ -346,18 +346,9 @@ decl_module! {
             // NameToNumber mappings.
             // https://github.com/PolymathNetwork/Polymesh/pull/1200
             storage_migrate_on!(StorageVersion::get(), 1, {
-
-                let must_remove = NameToNumber::iter().flat_map(|(identity, name, number)|{
-                    if Portfolios::get(identity,number) != name{
-                        Some((identity,name))
-                    }else{
-                        None
-                    }
-                });
-
-                for (identity,name) in must_remove {
-                    NameToNumber::remove(identity,name)
-                }
+                NameToNumber::iter()
+                    .filter(|(identity, name, number)| !Portfolios::contains_key(identity, number))
+                    .for_each(|(identity, name, _)| NameToNumber::remove(identity, name));
             });
 
             0
