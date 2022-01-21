@@ -347,7 +347,7 @@ decl_module! {
             // https://github.com/PolymathNetwork/Polymesh/pull/1200
             storage_migrate_on!(StorageVersion::get(), 1, {
                 NameToNumber::iter()
-                    .filter(|(identity, name, number)| !Portfolios::contains_key(identity, number))
+                    .filter(|(identity, _, number)| !Portfolios::contains_key(identity, number))
                     .for_each(|(identity, name, _)| NameToNumber::remove(identity, name));
             });
 
