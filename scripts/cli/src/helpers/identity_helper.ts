@@ -1,6 +1,7 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { AccountId } from "@polkadot/types/interfaces";
 import type { AnyNumber } from "@polkadot/types/types";
+import { u64 } from '@polkadot/types/primitive';
 import type {
   Permissions,
   Expiry,
@@ -14,7 +15,7 @@ import type {
   Claim,
 } from "../types";
 import { sendTx, keyToIdentityIds, ApiSingleton } from "../util/init";
-import type { IdentityId, Moment } from "../interfaces";
+import type { IdentityId, Moment,} from "../interfaces";
 
 export async function addClaim(
   signer: KeyringPair,
@@ -200,4 +201,10 @@ export async function addAuthorization(
 export async function getAuthId() {
   const api = await ApiSingleton.getInstance();
   return api.query.identity.multiPurposeNonce();
+}
+
+export async function joinIdentityAsKey(signer: KeyringPair, authId: number | u64) {
+  const api = await ApiSingleton.getInstance();
+  const transaction = api.tx.identity.joinIdentityAsKey(authId);
+  await sendTx(signer, transaction);
 }

@@ -55,3 +55,12 @@ export async function addComplianceRequirement(sender: KeyringPair, ticker: Tick
 		console.log("Asset already has compliance.");
 	}
 }
+
+export async function addDefaultTrustedClaimIssuer(signer: KeyringPair, ticker: Ticker, issuer: IdentityId, trusted_for: any) {
+	const api = await ApiSingleton.getInstance();
+	const transaction = api.tx.complianceManager.addDefaultTrustedClaimIssuer(ticker, {
+		issuer,
+		trusted_for,
+	  });
+	await sendTx(signer, transaction);
+}
