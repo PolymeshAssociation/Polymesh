@@ -1,3 +1,4 @@
+import "@polkadot/api/augment";
 import { ApiPromise, WsProvider, Keyring } from "@polkadot/api";
 import {
   cryptoWaitReady,
@@ -287,12 +288,11 @@ export function sendTransaction(
               if (dispatchError.isModule) {
                 // known error
                 const mod = dispatchError.asModule;
-                const { section, name, documentation } =
-                  mod.registry.findMetaError(
-                    new Uint8Array([mod.index.toNumber(), mod.error.toNumber()])
-                  );
+                const { section, name, docs } = mod.registry.findMetaError(
+                  new Uint8Array([mod.index.toNumber(), mod.error.toNumber()])
+                );
 
-                message = `${section}.${name}: ${documentation.join(" ")}`;
+                message = `${section}.${name}: ${docs.join(" ")}`;
               } else if (dispatchError.isBadOrigin) {
                 message = "Bad origin";
               } else if (dispatchError.isCannotLookup) {
