@@ -4381,30 +4381,6 @@ mod offchain_phragmen {
             );
         })
     }
-
-    #[test]
-    fn offence_is_blocked_when_window_open() {
-        ExtBuilder::default()
-            .offchain_election_ext()
-            .validator_count(4)
-            .has_stakers(false)
-            .build()
-            .execute_with(|| {
-                run_to_block(12);
-                assert_eq!(Staking::era_election_status(), ElectionStatus::Open(12));
-
-                let offender_expo = Staking::eras_stakers(Staking::active_era().unwrap().index, 10);
-
-                // won't panic anymore
-                on_offence_now(
-                    &[OffenceDetails {
-                        offender: (10, offender_expo.clone()),
-                        reporters: vec![],
-                    }],
-                    &[Perbill::from_percent(10)],
-                );
-            })
-    }
 }
 
 #[test]
