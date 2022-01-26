@@ -105,6 +105,7 @@ substrate-wasm-builder = { git = "https://github.com/PolymathNetwork/substrate",
 
 blake2 = { git = "https://github.com/PolymathNetwork/hashes", branch = "master" }
 schnorrkel = { git = "https://github.com/PolymathNetwork/schnorrkel", branch = "rebase-head" }
+curve25519-dalek = { git = "https://github.com/PolymathNetwork/curve25519-dalek", branch = "master" }
 
 [workspace]
 members = [
