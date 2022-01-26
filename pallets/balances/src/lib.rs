@@ -440,7 +440,7 @@ impl<T: Config> Module<T> {
 
     pub fn block_rewards_reserve() -> T::AccountId {
         SystematicIssuers::BlockRewardReserve
-            .as_module_id()
+            .as_pallet_id()
             .into_account()
     }
 

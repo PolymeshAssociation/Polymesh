@@ -5,7 +5,7 @@ use pallet_bridge::BridgeTx;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_staking::StakerStatus;
 use polymesh_common_utilities::{
-    constants::{currency::POLY, REWARDS_MODULE_ID, TREASURY_MODULE_ID},
+    constants::{currency::POLY, REWARDS_PALLET_ID, TREASURY_PALLET_ID},
     protocol_fee::ProtocolOp,
     MaybeBlock, SystematicIssuers,
 };
@@ -382,14 +382,14 @@ fn genesis_processed_data(
 
     complete_txs.push(BridgeTx {
         nonce: treasury_bridge_lock.nonce,
-        recipient: TREASURY_MODULE_ID.into_account(),
+        recipient: TREASURY_PALLET_ID.into_account(),
         amount: treasury_bridge_lock.amount,
         tx_hash: treasury_bridge_lock.tx_hash,
     });
 
     complete_txs.push(BridgeTx {
         nonce: rewards_bridge_lock.nonce,
-        recipient: REWARDS_MODULE_ID.into_account(),
+        recipient: REWARDS_PALLET_ID.into_account(),
         amount: rewards_bridge_lock.amount,
         tx_hash: rewards_bridge_lock.tx_hash,
     });
@@ -470,14 +470,14 @@ fn dev_genesis_processed_data(
 
     complete_txs.push(BridgeTx {
         nonce: treasury_bridge_lock.nonce,
-        recipient: TREASURY_MODULE_ID.into_account(),
+        recipient: TREASURY_PALLET_ID.into_account(),
         amount: BOOTSTRAP_TREASURY,
         tx_hash: treasury_bridge_lock.tx_hash,
     });
 
     complete_txs.push(BridgeTx {
         nonce: rewards_bridge_lock.nonce,
-        recipient: REWARDS_MODULE_ID.into_account(),
+        recipient: REWARDS_PALLET_ID.into_account(),
         amount: itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
         tx_hash: rewards_bridge_lock.tx_hash,
     });

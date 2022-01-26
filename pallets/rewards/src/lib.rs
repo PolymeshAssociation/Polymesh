@@ -46,7 +46,7 @@ use frame_support::{
 use frame_system::{ensure_none, ensure_root, RawOrigin};
 use pallet_staking::{self as staking, RewardDestination};
 use polymesh_common_utilities::{
-    constants::{currency::POLY, REWARDS_MODULE_ID},
+    constants::{currency::POLY, REWARDS_PALLET_ID},
     traits::identity::Config as IdentityConfig,
     with_transaction,
 };
@@ -161,7 +161,7 @@ decl_module! {
 impl<T: Config> Module<T> {
     /// The account ID of the rewards pot.
     pub fn account_id() -> T::AccountId {
-        REWARDS_MODULE_ID.into_account()
+        REWARDS_PALLET_ID.into_account()
     }
 
     /// Converts `polymesh_primitive::Balance` balances into (`bonded_amount`, `deposit_amount`).

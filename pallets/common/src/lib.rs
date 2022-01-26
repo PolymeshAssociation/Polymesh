@@ -15,8 +15,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use crate::constants::ModuleId;
-
 pub mod constants;
 
 pub mod traits;
@@ -38,6 +36,7 @@ pub mod benchs;
 
 use core::ops::Add;
 use frame_support::codec::{Decode, Encode};
+use frame_support::PalletId;
 use polymesh_primitives::IdentityId;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
@@ -118,18 +117,18 @@ impl SystematicIssuers {
         IdentityId(*self.as_bytes())
     }
 
-    pub const fn as_module_id(self) -> ModuleId {
+    pub const fn as_pallet_id(self) -> PalletId {
         match self {
-            SystematicIssuers::Committee => constants::GC_MODULE_ID,
-            SystematicIssuers::CDDProvider => constants::CDD_MODULE_ID,
-            SystematicIssuers::Treasury => constants::TREASURY_MODULE_ID,
-            SystematicIssuers::BlockRewardReserve => constants::BRR_MODULE_ID,
-            SystematicIssuers::Settlement => constants::SETTLEMENT_MODULE_ID,
-            SystematicIssuers::ClassicMigration => constants::CLASSIC_MIGRATION_MODULE_ID,
+            SystematicIssuers::Committee => constants::GC_PALLET_ID,
+            SystematicIssuers::CDDProvider => constants::CDD_PALLET_ID,
+            SystematicIssuers::Treasury => constants::TREASURY_PALLET_ID,
+            SystematicIssuers::BlockRewardReserve => constants::BRR_PALLET_ID,
+            SystematicIssuers::Settlement => constants::SETTLEMENT_PALLET_ID,
+            SystematicIssuers::ClassicMigration => constants::CLASSIC_MIGRATION_PALLET_ID,
             SystematicIssuers::FiatTickersReservation => {
-                constants::FIAT_TICKERS_RESERVATION_MODULE_ID
+                constants::FIAT_TICKERS_RESERVATION_PALLET_ID
             }
-            SystematicIssuers::Rewards => constants::REWARDS_MODULE_ID,
+            SystematicIssuers::Rewards => constants::REWARDS_PALLET_ID,
         }
     }
 }

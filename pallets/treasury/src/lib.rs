@@ -45,7 +45,7 @@ use frame_support::{
 use frame_system::ensure_root;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    constants::TREASURY_MODULE_ID, traits::balances::Config as BalancesConfig, Context, GC_DID,
+    constants::TREASURY_PALLET_ID, traits::balances::Config as BalancesConfig, Context, GC_DID,
 };
 use polymesh_primitives::{Beneficiary, IdentityId};
 use sp_runtime::traits::{AccountIdConversion, Saturating};
@@ -152,7 +152,7 @@ impl<T: Config> Module<T> {
     /// This actually does computation. If you need to keep using it, then make sure you cache the
     /// value and only call this once.
     fn account_id() -> T::AccountId {
-        TREASURY_MODULE_ID.into_account()
+        TREASURY_PALLET_ID.into_account()
     }
 
     fn unsafe_disbursement(target: IdentityId, amount: BalanceOf<T>) {
