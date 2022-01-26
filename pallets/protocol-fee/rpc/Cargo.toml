@@ -10,8 +10,8 @@ pallet-protocol-fee-rpc-runtime-api = { path = "./runtime-api" }
 
 # General
 serde = { version = "1.0.104", features = ["derive"] }
-jsonrpc-core = "18.0.0"
-jsonrpc-core-client = "18.0.0"
+jsonrpc-core = { version = "18.0.0", features = ["arbitrary_precision"] }
+jsonrpc-core-client = { version = "18.0.0", features = ["arbitrary_precision"] }
 jsonrpc-derive = "18.0.0"
 
 # Substrate
