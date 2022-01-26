@@ -3,7 +3,6 @@
 use ink_lang as ink;
 
 mod custom_types {
-    #[cfg(feature = "std")]
     use scale::{Decode, Encode};
     use scale_info::TypeInfo;
 

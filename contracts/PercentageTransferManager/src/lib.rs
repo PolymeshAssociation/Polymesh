@@ -5,7 +5,6 @@ use ink_lang as ink;
 mod custom_types {
     use ink_storage::traits::{PackedLayout, SpreadLayout, StorageLayout};
     use scale::{Decode, Encode};
-    #[cfg(feature = "std")]
     use scale_info::TypeInfo;
 
     #[derive(Decode, Encode, TypeInfo, SpreadLayout, PackedLayout)]
