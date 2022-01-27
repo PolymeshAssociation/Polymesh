@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::Condition;
+use crate::condition::{conditions_total_counts, Condition};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -50,6 +50,13 @@ impl ComplianceRequirement {
         self.sender_conditions
             .iter()
             .chain(self.receiver_conditions.iter())
+    }
+
+    /// Return the total number of conditions, claims, issuers, and claim_types.
+    ///
+    /// This is used for weight calculation.
+    pub fn counts(&self) -> (u32, u32, u32, u32) {
+        conditions_total_counts(self.conditions())
     }
 }
 
