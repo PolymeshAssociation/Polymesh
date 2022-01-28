@@ -50,7 +50,8 @@
     "schema_test": "./util/schema_test.sh",
     "offchain_worker_test": "node ./dist/util/offchain_worker_test.js",
     "polyx_balances": "node ./util/userBalancePOLYX.js",
-    "test": "npm run clear_cache && jest --runInBand && ./test.sh",
+    "test": "npm run clear_cache && jest --runInBand --silent && ./test.sh",
+    "test-one": "jest --runInBand",
     "clear_cache": "jest --clearCache"
   },
   "author": "Polymath Network",
