@@ -1,5 +1,6 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { Ticker, ExtrinsicPermissions, AuthorizationData, AgentGroup } from "../types";
+import { u8aToBn } from "@polkadot/util";
 import type { AnyNumber } from "@polkadot/types/types";
 import { sendTx, ApiSingleton, signatory } from "../util/init";
 import { addAuthorization, getAuthId } from "../helpers/identity_helper";
@@ -79,7 +80,8 @@ export async function acceptBecomeAgent(
 }
 
 export async function nextAgId(ticker: Ticker) {
-	const api = await ApiSingleton.getInstance();
-	const agId = await api.query.externalAgents.aGIdSequence(ticker);
-	return agId as unknown as number;
+  const api = await ApiSingleton.getInstance();
+  return u8aToBn(
+    (await api.query.externalAgents.agIdSequence(ticker)).toU8a()
+  ).toNumber();
 }
