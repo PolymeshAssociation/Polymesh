@@ -1,4 +1,6 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
+import { u8aToBn } from "@polkadot/util";
+import { CAKind, Document } from "polymesh-typegen/interfaces";
 import { Ticker } from "../types";
 import { sendTx, ApiSingleton, keyToIdentityIds } from "../util/init";
 
@@ -123,8 +125,8 @@ export async function createDistribution(
   expiresAt: string | null
 ) {
   const api = await ApiSingleton.getInstance();
-  const currentBlockTime = await api.query.timestamp.now();
-  const payAt = currentBlockTime.toNumber();
+  const currentBlockTime = u8aToBn((await api.query.timestamp.now()).toU8a()).toNumber();
+  const payAt = currentBlockTime;
 
   const transaction = api.tx.capitalDistribution.distribute(
     { ticker, localId: caId },

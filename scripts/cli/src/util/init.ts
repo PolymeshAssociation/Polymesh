@@ -11,6 +11,7 @@ import {
   u8aFixLength,
   u8aToHex,
   hexToString,
+  u8aToBn
 } from "@polkadot/util";
 import BN from "bn.js";
 import fs from "fs";
@@ -18,7 +19,7 @@ import path from "path";
 import type { AccountId } from "@polkadot/types/interfaces/runtime";
 import type { SubmittableExtrinsic } from "@polkadot/api/types";
 import type { KeyringPair } from "@polkadot/keyring/types";
-import type { DispatchError } from "@polkadot/types/interfaces";
+import type { DispatchError, EventRecord, AccountInfo, ActiveEraInfo } from "@polkadot/types/interfaces";
 import type { ISubmittableResult } from "@polkadot/types/types";
 import type { Ticker } from "../types";
 import { createIdentities } from "../helpers/identity_helper";
@@ -26,6 +27,7 @@ import { distributePoly } from "../helpers/poly_helper";
 import type { IdentityId } from "../interfaces";
 import { assert } from "chai";
 import { getNonce } from "../util/sqlite3";
+import { Option } from "@polkadot/types-codec";
 
 let block_sizes: Number[] = [];
 let block_times: Number[] = [];
@@ -79,10 +81,12 @@ export async function disconnect() {
 export async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-const getEra = async () =>
-  (await (await ApiSingleton.getInstance()).query.staking.activeEra())
-    .unwrap()
-    .index.toJSON();
+const getEra = async () => {
+  const api = await ApiSingleton.getInstance();
+  const activeEra = <Option<ActiveEraInfo>>(await api.query.staking.activeEra());
+  activeEra.unwrap().index.toJSON();
+}
+
 export async function waitNextEra() {
   const era = await getEra();
   while ((await getEra()) === era) {
@@ -92,7 +96,7 @@ export async function waitNextEra() {
 
 export async function currentBlock() {
   const api = await ApiSingleton.getInstance();
-  return (await api.query.system.number()).toNumber();
+  return u8aToBn((await api.query.system.number()).toU8a()).toNumber();
 }
 
 export async function waitBlocks(blocks: number) {
@@ -216,7 +220,7 @@ export async function keyToIdentityIds(
   accountKey: AccountId | KeyringPair["publicKey"]
 ): Promise<IdentityId> {
   const api = await ApiSingleton.getInstance();
-  let account_did = await api.query.identity.keyToIdentityIds(accountKey);
+  let account_did = <IdentityId>(await api.query.identity.keyToIdentityIds(accountKey));
   return account_did;
 }
 
@@ -365,7 +369,7 @@ export async function getValidCddProvider(alice: KeyringPair) {
   let transfer_amount = new BN(1000).mul(new BN(10).pow(new BN(6)));
   // Fetch the cdd providers key and provide them right fuel to spent for
   // cdd creation
-  let service_providers = await api.query.cddServiceProviders.activeMembers();
+  let service_providers = <IdentityId>(await api.query.cddServiceProviders.activeMembers());
   let service_provider_1_key = await generateEntity("service_provider_1");
 
   // match the identity within the identity pallet
@@ -379,7 +383,7 @@ export async function getValidCddProvider(alice: KeyringPair) {
 
   // fund the service_provider_1 account key to successfully call the `register_did` dispatchable
   let old_balance = (
-    await api.query.system.account(service_provider_1_key.address)
+    <AccountInfo>(await api.query.system.account(service_provider_1_key.address))
   ).data.free;
 
   await distributePoly(alice, service_provider_1_key, transferAmount);
@@ -387,7 +391,7 @@ export async function getValidCddProvider(alice: KeyringPair) {
 
   // check the funds of service_provider_1
   let new_free_balance = (
-    await api.query.system.account(service_provider_1_key.address)
+    <AccountInfo>(await api.query.system.account(service_provider_1_key.address))
   ).data.free;
   assert.equal(
     new_free_balance.toString(),
@@ -398,22 +402,22 @@ export async function getValidCddProvider(alice: KeyringPair) {
 
 export async function getExpiries(length: number) {
   const api = await ApiSingleton.getInstance();
-  let blockTime = api.consts.babe.expectedBlockTime;
-  let bondingDuration = api.consts.staking.bondingDuration;
-  let sessionPerEra = api.consts.staking.sessionsPerEra;
-  let session_length = api.consts.babe.epochDuration;
-  const currentBlockTime = await api.query.timestamp.now();
+  let blockTime = u8aToBn((api.consts.babe.expectedBlockTime).toU8a()).toNumber();
+  let bondingDuration = u8aToBn((api.consts.staking.bondingDuration).toU8a()).toNumber();
+  let sessionPerEra = u8aToBn((api.consts.staking.sessionsPerEra).toU8a()).toNumber();
+  let session_length = u8aToBn((api.consts.babe.epochDuration).toU8a()).toNumber();
+  const currentBlockTime = u8aToBn((await api.query.timestamp.now()).toU8a()).toNumber();
 
   const bondingTime =
-    bondingDuration.toNumber() *
-    sessionPerEra.toNumber() *
-    session_length.toNumber();
-  let expiryTime = currentBlockTime.toNumber() + bondingTime * 1000;
+    bondingDuration *
+    sessionPerEra *
+    session_length;
+  let expiryTime = currentBlockTime + bondingTime * 1000;
 
   let expiries = [];
   for (let i = 1; i <= length; i++) {
     // Providing 15 block as the extra time
-    let temp = expiryTime + i * 5 * blockTime.toNumber();
+    let temp = expiryTime + i * 5 * blockTime;
     expiries.push(temp);
   }
   return expiries;
@@ -425,7 +429,7 @@ export async function subscribeCddOffchainWorker() {
   const unsubscribe = await api.rpc.chain.subscribeNewHeads(async (header) => {
     console.log(`Chain is at block: #${header.number.unwrap()}`);
     let hash = await api.rpc.chain.getBlockHash(header.number.unwrap());
-    let events = await api.query.system.events.at(hash.toString());
+    let events = <EventRecord[]>(await api.query.system.events.at(hash.toString()));
     for (let i = 0; i < Object.keys(events).length - 1; i++) {
       try {
         if (events[i].event.data.section == "CddOffchainWorker") {

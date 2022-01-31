@@ -947,7 +947,7 @@ export interface InstructionStatus extends Enum {
 export interface InvestorUid extends U8aFixed {}
 
 /** @name InvestorZKProofData */
-export interface InvestorZKProofData extends Signature {}
+export interface InvestorZKProofData extends U8aFixed {}
 
 /** @name ItnRewardStatus */
 export interface ItnRewardStatus extends Enum {
@@ -1577,6 +1577,14 @@ export interface VotingResult extends Struct {
   readonly ayes_stake: Balance;
   readonly nays_count: u32;
   readonly nays_stake: Balance;
+}
+
+/** @name WeightPerClass */
+export interface WeightPerClass extends Struct {
+  readonly baseExtrinsic: Weight;
+  readonly maxExtrinsic: Option<Weight>;
+  readonly maxTotal: Option<Weight>;
+  readonly reserved: Option<Weight>;
 }
 
 /** @name WeightToFeeCoefficient */

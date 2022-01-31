@@ -1,5 +1,6 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { PortfolioId, Ticker, venueType } from "../types";
+import { u8aToBn } from "@polkadot/util";
 import { sendTx, getDefaultPortfolio, ApiSingleton } from "../util/init";
 import type { IdentityId } from "../interfaces";
 
@@ -8,7 +9,7 @@ import type { IdentityId } from "../interfaces";
  */
 export async function createVenue(signer: KeyringPair, type: venueType): Promise<number> {
   const api = await ApiSingleton.getInstance();
-  let venueCounter = (await api.query.settlement.venueCounter()).toNumber();
+  let venueCounter = u8aToBn((await api.query.settlement.venueCounter()).toU8a()).toNumber();
   let venueDetails = "created venue";
   const transaction = api.tx.settlement.createVenue(
     venueDetails,
@@ -31,9 +32,9 @@ export async function addInstruction(
   amount: number
 ): Promise<number> {
   const api = await ApiSingleton.getInstance();
-  let instructionCounter = (
+  let instructionCounter = u8aToBn((
     await api.query.settlement.instructionCounter()
-  ).toNumber();
+  ).toU8a()).toNumber();
   let leg = {
     from: getDefaultPortfolio(signerDid),
     to: getDefaultPortfolio(receiverDid),
@@ -114,9 +115,9 @@ export async function addGroupInstruction(
   amount: number
 ): Promise<number> {
   const api = await ApiSingleton.getInstance();
-  let instructionCounter = (
+  let instructionCounter = u8aToBn((
     await api.query.settlement.instructionCounter()
-  ).toNumber();
+  ).toU8a()).toNumber();
   let leg = {
     from: group[1],
     to: group[0],

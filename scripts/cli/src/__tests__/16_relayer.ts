@@ -29,7 +29,7 @@ describe("16 - Relayer Unit Test", () => {
     const authId = await getAuthId();
     console.log("Accept Paying Key");
     await expect(
-      relayer.acceptPayingKey(bob, authId.toNumber())
+      relayer.acceptPayingKey(bob, authId)
     ).resolves.not.toThrow();
     console.log("Update POLYX Limit");
     await expect(

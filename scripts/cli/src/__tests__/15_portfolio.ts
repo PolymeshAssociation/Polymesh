@@ -72,12 +72,12 @@ describe("15 - Portfolio Unit Test", () => {
       )
     ).resolves.not.toThrow();
     console.log("Added JoinIdentity authorization");
-    const authorization = (
+    const authorization: any = (
       await api.query.identity.authorizations.entries({
         Account: dave2.publicKey,
       })
-    )[0][1].unwrap().auth_id;
-    await joinIdentityAsKey(dave2, authorization);
+    )[0][1];
+    await joinIdentityAsKey(dave2, authorization.unwrap().auth_id);
 
     console.log("Portfolio: TrustedDefaultClaimIssuerAdded");
     const ticker = padTicker("15TICKER");

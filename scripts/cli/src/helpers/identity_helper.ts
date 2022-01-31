@@ -1,6 +1,7 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { AccountId } from "@polkadot/types/interfaces";
 import type { AnyNumber } from "@polkadot/types/types";
+import { u8aToBn } from "@polkadot/util";
 import { u64 } from '@polkadot/types/primitive';
 import type {
   Permissions,
@@ -15,7 +16,7 @@ import type {
   Claim,
 } from "../types";
 import { sendTx, keyToIdentityIds, ApiSingleton } from "../util/init";
-import type { IdentityId, Moment,} from "../interfaces";
+import type { IdentityId } from "../interfaces";
 
 export async function addClaim(
   signer: KeyringPair,
@@ -90,9 +91,9 @@ export async function authorizeJoinToIdentities(
 
     let last_auth_id: AnyNumber = 0;
     auths
-      .map(([, value]) => value)
-      .filter((value) => value.isSome)
-      .forEach((value) => {
+      .map(([key, value]) => value)
+      .filter((value: any) => value.isSome)
+      .forEach((value: any) => {
         const auth = value.unwrap();
         if (auth.authId > last_auth_id) {
           last_auth_id = auth.authId;
@@ -200,7 +201,7 @@ export async function addAuthorization(
 
 export async function getAuthId() {
   const api = await ApiSingleton.getInstance();
-  return api.query.identity.multiPurposeNonce();
+  return u8aToBn((await api.query.identity.multiPurposeNonce()).toU8a()).toNumber();
 }
 
 export async function joinIdentityAsKey(signer: KeyringPair, authId: number | u64) {
