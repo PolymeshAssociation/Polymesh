@@ -1,6 +1,5 @@
 use super::{
     asset_test::{allow_all_transfers, max_len_bytes},
-    exec,
     storage::{make_account_with_portfolio, TestStorage, User},
     ExtBuilder,
 };
@@ -15,6 +14,7 @@ use polymesh_primitives::{asset::AssetType, checked_inc::CheckedInc, PortfolioId
 
 use crate::storage::provide_scope_claim_to_multiple_parties;
 use frame_support::{assert_noop, assert_ok};
+use polymesh_exec_macro::exec;
 use sp_runtime::DispatchError;
 use sp_std::convert::TryFrom;
 use test_client::AccountKeyring;
@@ -153,14 +153,13 @@ fn raise_happy_path() {
     // Register a venue
     let venue_counter = Settlement::venue_counter();
     let instruction_id = Settlement::instruction_counter();
-    assert_ok!(exec(
+    exec!(Settlement::create_venue(
         alice.origin(),
-        SettlementCall::create_venue(
-            VenueDetails::default(),
-            vec![AccountKeyring::Alice.to_account_id()],
-            VenueType::Sto
-        )
-    ));
+        VenueDetails::default(),
+        vec![AccountKeyring::Alice.to_account_id()],
+        VenueType::Sto
+    )
+    .ok());
 
     let amount = 100u128;
     let alice_init_offering = Asset::balance_of(&offering_ticker, alice.did);
@@ -171,24 +170,23 @@ fn raise_happy_path() {
     // Alice starts a fundraiser
     let fundraiser_id = STO::fundraiser_count(offering_ticker);
     let fundraiser_name: FundraiserName = max_len_bytes(0);
-    assert_ok!(exec(
+    exec!(Sto::create_fundraiser(
         alice.origin(),
-        STOCall::create_fundraiser(
-            alice_portfolio,
-            offering_ticker,
-            alice_portfolio,
-            raise_ticker,
-            vec![PriceTier {
-                total: 1_000_000u128,
-                price: 1_000_000u128,
-            }],
-            venue_counter,
-            None,
-            None,
-            2,
-            fundraiser_name.clone(),
-        ),
-    ));
+        alice_portfolio,
+        offering_ticker,
+        alice_portfolio,
+        raise_ticker,
+        vec![PriceTier {
+            total: 1_000_000u128,
+            price: 1_000_000u128,
+        }],
+        venue_counter,
+        None,
+        None,
+        2,
+        fundraiser_name.clone(),
+    )
+    .ok());
 
     let check_fundraiser = |remaining| {
         assert_eq!(
@@ -232,37 +230,41 @@ fn raise_happy_path() {
         STO::fundraiser_name(offering_ticker, fundraiser_id),
         fundraiser_name
     );
-    let sto_invest = |purchase_amount, max_price| {
-        exec(
+    let sto_invest = |purchase_amount, max_price, err: Error| {
+        exec!(Sto::invest(
             bob.origin(),
-            STOCall::invest(
-                bob_portfolio,
-                bob_portfolio,
-                offering_ticker,
-                fundraiser_id,
-                purchase_amount,
-                max_price,
-                None,
-            ),
+            bob_portfolio,
+            bob_portfolio,
+            offering_ticker,
+            fundraiser_id,
+            purchase_amount,
+            max_price,
+            None,
         )
+        .err(err));
     };
     // Investment fails if the minimum investment amount is not met
-    assert_noop!(
-        sto_invest(1, Some(1_000_000u128)),
-        Error::InvestmentAmountTooLow
-    );
+    sto_invest(1, Some(1_000_000u128), Error::InvestmentAmountTooLow);
     // Investment fails if the order is not filled
-    assert_noop!(
-        sto_invest(1_000_001u128, Some(1_000_000u128)),
-        Error::InsufficientTokensRemaining
+    sto_invest(
+        1_000_001u128,
+        Some(1_000_000u128),
+        Error::InsufficientTokensRemaining,
     );
     // Investment fails if the maximum price is breached
-    assert_noop!(
-        sto_invest(amount.into(), Some(999_999u128)),
-        Error::MaxPriceExceeded
-    );
+    sto_invest(amount.into(), Some(999_999u128), Error::MaxPriceExceeded);
     // Bob invests in Alice's fundraiser
-    assert_ok!(sto_invest(amount.into(), Some(1_000_000u128)));
+    exec!(Sto::invest(
+        bob.origin(),
+        bob_portfolio,
+        bob_portfolio,
+        offering_ticker,
+        fundraiser_id,
+        amount.into(),
+        Some(1_000_000u128),
+        None,
+    )
+    .ok());
     check_fundraiser(1_000_000u128 - amount);
     assert_eq!(
         Some(Settlement::instruction_counter()),

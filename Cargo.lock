@@ -5933,6 +5933,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "polymesh-exec-macro"
+version = "1.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "polymesh-extensions"
 version = "0.1.0"
 dependencies = [
@@ -6426,6 +6435,7 @@ dependencies = [
  "parity-scale-codec 2.2.0",
  "parking_lot 0.11.1",
  "polymesh-common-utilities",
+ "polymesh-exec-macro",
  "polymesh-extensions",
  "polymesh-primitives",
  "polymesh-runtime-common",

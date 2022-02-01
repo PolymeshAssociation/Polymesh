@@ -953,14 +953,8 @@ macro_rules! assert_event_doesnt_exist {
     };
 }
 
-pub fn exec<C: Into<<TestStorage as frame_system::Config>::Call>>(
-    origin: <TestStorage as frame_system::Config>::Origin,
-    call: C,
-) -> DispatchResult {
-    let origin: Result<
-        RawOrigin<<TestStorage as frame_system::Config>::AccountId>,
-        <TestStorage as frame_system::Config>::Origin,
-    > = origin.into();
+pub fn exec<C: Into<Call>>(origin: Origin, call: C) -> DispatchResult {
+    let origin: Result<RawOrigin<AccountId>, Origin> = origin.into();
     let signed = match origin.unwrap() {
         RawOrigin::Signed(acc) => {
             let info = frame_system::Account::<TestStorage>::get(&acc);
