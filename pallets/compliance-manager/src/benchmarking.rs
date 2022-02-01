@@ -21,7 +21,8 @@ use polymesh_common_utilities::{
     benchs::{AccountIdOf, User, UserBuilder},
     TestUtilsFn,
 };
-use polymesh_primitives::{asset::AssetType, TrustedFor, TrustedIssuer};
+use polymesh_primitives::{asset::AssetType, ClaimType, Scope, TrustedFor, TrustedIssuer};
+use sp_std::convert::TryFrom;
 
 const MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS: u32 = 3;
 const MAX_TRUSTED_ISSUER_PER_CONDITION: u32 = 3;
@@ -29,15 +30,46 @@ const MAX_SENDER_CONDITIONS_PER_COMPLIANCE: u32 = 3;
 const MAX_RECEIVER_CONDITIONS_PER_COMPLIANCE: u32 = 3;
 const MAX_COMPLIANCE_REQUIREMENTS: u32 = 2;
 
+const MAX_CONDITIONS: u32 = 10;
+const MAX_CONDITION_TYPE_CLAIMS: u32 = 10;
+const MAX_CONDITION_ISSUERS: u32 = 10;
+const MAX_CONDITION_ISSUER_CLAIM_TYPES: u32 = 10;
+
+const CLAIM_TYPES: &[ClaimType] = &[
+    ClaimType::Accredited,
+    ClaimType::Affiliate,
+    ClaimType::BuyLockup,
+    ClaimType::SellLockup,
+    ClaimType::CustomerDueDiligence,
+    ClaimType::KnowYourCustomer,
+    ClaimType::Jurisdiction,
+    ClaimType::Exempted,
+    ClaimType::Blocked,
+    ClaimType::InvestorUniqueness,
+    ClaimType::NoType,
+    ClaimType::InvestorUniquenessV2,
+];
+
 /// Create a token issuer trusted for `Any`.
-pub fn make_issuer<T: IdentityConfig + TestUtilsFn<AccountIdOf<T>>>(id: u32) -> TrustedIssuer {
+pub fn make_issuer<T: IdentityConfig + TestUtilsFn<AccountIdOf<T>>>(
+    id: u32,
+    claim_type_len: Option<usize>,
+) -> TrustedIssuer {
     let u = UserBuilder::<T>::default()
         .generate_did()
         .seed(id)
         .build("ISSUER");
     TrustedIssuer {
         issuer: IdentityId::from(u.did.unwrap()),
-        trusted_for: TrustedFor::Any,
+        trusted_for: match claim_type_len {
+            None => TrustedFor::Any,
+            Some(len) => TrustedFor::Specific(
+                (0..len)
+                    .into_iter()
+                    .map(|idx| CLAIM_TYPES[idx % CLAIM_TYPES.len()])
+                    .collect(),
+            ),
+        },
     }
 }
 
@@ -46,16 +78,29 @@ pub fn make_issuer<T: IdentityConfig + TestUtilsFn<AccountIdOf<T>>>(id: u32) -> 
 ///   - It could have more complexity if `TrustedIssuer::trusted_for` is a vector but not on
 ///   benchmarking of add/remove. That could be useful for benchmarking executions/evaluation of
 ///   complience requiriments.
-pub fn make_issuers<T: IdentityConfig + TestUtilsFn<AccountIdOf<T>>>(s: u32) -> Vec<TrustedIssuer> {
-    (0..s).map(|i| make_issuer::<T>(i)).collect::<Vec<_>>()
+pub fn make_issuers<T: IdentityConfig + TestUtilsFn<AccountIdOf<T>>>(
+    s: u32,
+    claim_type_len: Option<usize>,
+) -> Vec<TrustedIssuer> {
+    (0..s)
+        .map(|i| make_issuer::<T>(i, claim_type_len))
+        .collect()
 }
 
 /// Create simple conditions with a variable number of `issuers`.
-pub fn make_conditions(s: u32, issuers: &Vec<TrustedIssuer>) -> Vec<Condition> {
+pub fn make_conditions(s: u32, claims: Option<usize>, issuers: &[TrustedIssuer]) -> Vec<Condition> {
     (0..s)
         .map(|_| Condition {
-            condition_type: ConditionType::IsPresent(Claim::NoData),
-            issuers: issuers.clone(),
+            condition_type: match claims {
+                None => ConditionType::IsPresent(Claim::NoData),
+                Some(len) => ConditionType::IsAnyOf(
+                    (0..len)
+                        .into_iter()
+                        .map(|_| Claim::Blocked(Scope::Custom(vec![0])))
+                        .collect(),
+                ),
+            },
+            issuers: issuers.to_vec(),
         })
         .collect()
 }
@@ -103,7 +148,7 @@ struct ComplianceRequirementInfo<T: Config> {
 
 impl<T: Config + TestUtilsFn<AccountIdOf<T>>> ComplianceRequirementInfo<T> {
     pub fn add_default_trusted_claim_issuer(self: &Self, i: u32) {
-        make_issuers::<T>(i).into_iter().for_each(|issuer| {
+        make_issuers::<T>(i, None).into_iter().for_each(|issuer| {
             Module::<T>::add_default_trusted_claim_issuer(
                 self.owner.origin.clone().into(),
                 self.ticker.clone(),
@@ -130,9 +175,9 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> ComplianceRequirementBuilder<T> {
         let ticker = make_token::<T>(&owner, b"1".to_vec());
 
         // Create issuers (i) and conditions(s & r).
-        let issuers = make_issuers::<T>(trusted_issuer_count);
-        let sender_conditions = make_conditions(sender_conditions_count, &issuers);
-        let receiver_conditions = make_conditions(receiver_conditions_count, &issuers);
+        let issuers = make_issuers::<T>(trusted_issuer_count, None);
+        let sender_conditions = make_conditions(sender_conditions_count, None, &issuers);
+        let receiver_conditions = make_conditions(receiver_conditions_count, None, &issuers);
 
         let info = ComplianceRequirementInfo {
             owner,
@@ -168,8 +213,39 @@ impl<T: Config> ComplianceRequirementBuilder<T> {
     }
 }
 
+fn setup_conditions_bench<T: Config + TestUtilsFn<AccountIdOf<T>>>(
+    conditions: u32,
+    claims: u32,
+    issuers: u32,
+    claim_types: u32,
+) -> Vec<Condition> {
+    let issuers = make_issuers::<T>(issuers, Some(claim_types as usize));
+    let conditions = make_conditions(conditions, Some(claims as usize), &issuers);
+    conditions
+}
+
+fn conditions_bench(conditions: Vec<Condition>) {
+    let encoded = conditions.encode();
+    let decoded = Vec::<Condition>::decode(&mut encoded.as_slice())
+        .expect("This shouldn't fail since we just encoded a `Vec<Condition>` value.");
+    if !conditions.eq(&decoded) {
+        panic!("This shouldn't fail.");
+    }
+}
+
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
+
+    condition_costs {
+        let a in 1..MAX_CONDITIONS;
+        let b in 1..MAX_CONDITION_TYPE_CLAIMS;
+        let c in 1..MAX_CONDITION_ISSUERS;
+        let d in 1..MAX_CONDITION_ISSUER_CLAIM_TYPES;
+
+        let conditions = setup_conditions_bench::<T>(a, b, c, d);
+    }: {
+        conditions_bench(conditions);
+    }
 
     add_compliance_requirement {
         // INTERNAL: This benchmark only evaluate the adding operation. Its execution should be measured in another module.
@@ -237,7 +313,7 @@ benchmarks! {
         d.add_default_trusted_claim_issuer(MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS -1);
 
         // Add one more for benchmarking.
-        let new_issuer = make_issuer::<T>(MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS);
+        let new_issuer = make_issuer::<T>(MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS, None);
     }: _(d.owner.origin, d.ticker, new_issuer.clone())
     verify {
         let trusted_issuers = Module::<T>::trusted_claim_issuer(d.ticker);
@@ -300,9 +376,9 @@ benchmarks! {
             MAX_RECEIVER_CONDITIONS_PER_COMPLIANCE)
             .add_compliance_requirement().build();
 
-        let issuers = make_issuers::<T>(MAX_TRUSTED_ISSUER_PER_CONDITION);
-        let sender_conditions = make_conditions(MAX_SENDER_CONDITIONS_PER_COMPLIANCE, &issuers);
-        let receiver_conditions = make_conditions(MAX_RECEIVER_CONDITIONS_PER_COMPLIANCE, &issuers);
+        let issuers = make_issuers::<T>(MAX_TRUSTED_ISSUER_PER_CONDITION, None);
+        let sender_conditions = make_conditions(MAX_SENDER_CONDITIONS_PER_COMPLIANCE, None, &issuers);
+        let receiver_conditions = make_conditions(MAX_RECEIVER_CONDITIONS_PER_COMPLIANCE, None, &issuers);
 
         // Add more requirements to the asset, if `c > 1`.
         (1..c).for_each( |_i| {
