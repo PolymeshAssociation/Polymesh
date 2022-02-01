@@ -1,8 +1,8 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
-import { u8aToBn } from "@polkadot/util";
 import type { SubmittableExtrinsic } from "@polkadot/api/types";
 import type { ISubmittableResult } from "@polkadot/types/types/extrinsic";
 import { sendTx, ApiSingleton } from "../util/init";
+import { u8aToBn } from "@polkadot/util";
 
 /**
  * @description Sets the default enactment period for a PIP

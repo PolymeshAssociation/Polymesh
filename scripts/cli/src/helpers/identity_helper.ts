@@ -1,8 +1,8 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { AccountId } from "@polkadot/types/interfaces";
 import type { AnyNumber } from "@polkadot/types/types";
-import { u8aToBn } from "@polkadot/util";
-import { u64 } from '@polkadot/types/primitive';
+import type { IdentityId } from "../interfaces";
+import type { u64 } from '@polkadot/types/primitive';
 import type {
   Permissions,
   Expiry,
@@ -10,13 +10,12 @@ import type {
   PortfolioPermissions,
   AssetPermissions,
   Signatory,
-  AuthorizationData,
-  AgentGroup,
   CddId,
   Claim,
 } from "../types";
 import { sendTx, keyToIdentityIds, ApiSingleton } from "../util/init";
-import type { IdentityId } from "../interfaces";
+import { u8aToBn } from "@polkadot/util";
+
 
 export async function addClaim(
   signer: KeyringPair,

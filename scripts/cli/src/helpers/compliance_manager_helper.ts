@@ -1,8 +1,8 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { Ticker, Scope } from "../types";
+import type { AssetCompliance, IdentityId } from "../interfaces";
 import { sendTx, ApiSingleton } from "../util/init";
 import { assert } from "chai";
-import type { AssetCompliance, IdentityId } from "../interfaces";
 
 const senderConditions1 = function (trusted_did: IdentityId, data: Scope) {
 	return {

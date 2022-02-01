@@ -1,10 +1,10 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
-import type { Ticker, ExtrinsicPermissions, AuthorizationData, AgentGroup } from "../types";
-import { u8aToBn } from "@polkadot/util";
+import type { Ticker, ExtrinsicPermissions, AgentGroup } from "../types";
 import type { AnyNumber } from "@polkadot/types/types";
-import { sendTx, ApiSingleton, signatory } from "../util/init";
-import { addAuthorization, getAuthId } from "../helpers/identity_helper";
 import type { IdentityId } from "../interfaces";
+import { sendTx, ApiSingleton } from "../util/init";
+import { addAuthorization, getAuthId } from "../helpers/identity_helper";
+import { u8aToBn } from "@polkadot/util";
 
 /**
  * @description Creates Group
