@@ -4,8 +4,7 @@
 declare module '@polkadot/types/lookup' {
   import type { BTreeMap, Bytes, Compact, Enum, Null, Option, Result, Struct, Text, U8aFixed, Vec, bool, u128, u16, u32, u64, u8 } from '@polkadot/types-codec';
   import type { ITuple } from '@polkadot/types-codec/types';
-  import type { AccountId32, Call, H256, H512, MultiAddress, PerU16, Perbill, Percent, Permill } from '@polkadot/types/interfaces/runtime';
-  import type { Event } from '@polkadot/types/interfaces/system';
+  import type { AccountId32, H256, H512, MultiAddress, PerU16, Perbill, Percent, Permill } from '@polkadot/types/interfaces/runtime';
 
   /** @name FrameSystemAccountInfo (3) */
   export interface FrameSystemAccountInfo extends Struct {
@@ -70,8 +69,91 @@ declare module '@polkadot/types/lookup' {
   /** @name FrameSystemEventRecord (19) */
   export interface FrameSystemEventRecord extends Struct {
     readonly phase: FrameSystemPhase;
-    readonly event: Event;
+    readonly event: PolymeshRuntimeDevelopRuntimeEvent;
     readonly topics: Vec<H256>;
+  }
+
+  /** @name PolymeshRuntimeDevelopRuntimeEvent (20) */
+  export interface PolymeshRuntimeDevelopRuntimeEvent extends Enum {
+    readonly isSystem: boolean;
+    readonly asSystem: FrameSystemEvent;
+    readonly isIndices: boolean;
+    readonly asIndices: PalletIndicesEvent;
+    readonly isBalances: boolean;
+    readonly asBalances: PolymeshCommonUtilitiesBalancesRawEvent;
+    readonly isIdentity: boolean;
+    readonly asIdentity: PolymeshCommonUtilitiesIdentityRawEvent;
+    readonly isCddServiceProviders: boolean;
+    readonly asCddServiceProviders: PolymeshCommonUtilitiesGroupRawEventInstance2;
+    readonly isPolymeshCommittee: boolean;
+    readonly asPolymeshCommittee: PalletCommitteeRawEventInstance1;
+    readonly isCommitteeMembership: boolean;
+    readonly asCommitteeMembership: PolymeshCommonUtilitiesGroupRawEventInstance1;
+    readonly isTechnicalCommittee: boolean;
+    readonly asTechnicalCommittee: PalletCommitteeRawEventInstance3;
+    readonly isTechnicalCommitteeMembership: boolean;
+    readonly asTechnicalCommitteeMembership: PolymeshCommonUtilitiesGroupRawEventInstance3;
+    readonly isUpgradeCommittee: boolean;
+    readonly asUpgradeCommittee: PalletCommitteeRawEventInstance4;
+    readonly isUpgradeCommitteeMembership: boolean;
+    readonly asUpgradeCommitteeMembership: PolymeshCommonUtilitiesGroupRawEventInstance4;
+    readonly isMultiSig: boolean;
+    readonly asMultiSig: PalletMultisigRawEvent;
+    readonly isBridge: boolean;
+    readonly asBridge: PalletBridgeRawEvent;
+    readonly isStaking: boolean;
+    readonly asStaking: PalletStakingRawEvent;
+    readonly isOffences: boolean;
+    readonly asOffences: PalletOffencesEvent;
+    readonly isSession: boolean;
+    readonly asSession: PalletSessionEvent;
+    readonly isGrandpa: boolean;
+    readonly asGrandpa: PalletGrandpaEvent;
+    readonly isImOnline: boolean;
+    readonly asImOnline: PalletImOnlineEvent;
+    readonly isSudo: boolean;
+    readonly asSudo: PalletSudoRawEvent;
+    readonly isAsset: boolean;
+    readonly asAsset: PolymeshCommonUtilitiesAssetRawEvent;
+    readonly isCapitalDistribution: boolean;
+    readonly asCapitalDistribution: PalletCorporateActionsDistributionEvent;
+    readonly isCheckpoint: boolean;
+    readonly asCheckpoint: PolymeshCommonUtilitiesCheckpointEvent;
+    readonly isComplianceManager: boolean;
+    readonly asComplianceManager: PalletComplianceManagerEvent;
+    readonly isCorporateAction: boolean;
+    readonly asCorporateAction: PalletCorporateActionsEvent;
+    readonly isCorporateBallot: boolean;
+    readonly asCorporateBallot: PalletCorporateActionsBallotEvent;
+    readonly isPips: boolean;
+    readonly asPips: PalletPipsRawEvent;
+    readonly isPortfolio: boolean;
+    readonly asPortfolio: PolymeshCommonUtilitiesPortfolioEvent;
+    readonly isProtocolFee: boolean;
+    readonly asProtocolFee: PalletProtocolFeeRawEvent;
+    readonly isScheduler: boolean;
+    readonly asScheduler: PalletSchedulerEvent;
+    readonly isSettlement: boolean;
+    readonly asSettlement: PalletSettlementRawEvent;
+    readonly isStatistics: boolean;
+    readonly asStatistics: PolymeshCommonUtilitiesStatisticsEvent;
+    readonly isSto: boolean;
+    readonly asSto: PalletStoRawEvent;
+    readonly isTreasury: boolean;
+    readonly asTreasury: PalletTreasuryRawEvent;
+    readonly isUtility: boolean;
+    readonly asUtility: PalletUtilityEvent;
+    readonly isBase: boolean;
+    readonly asBase: PolymeshCommonUtilitiesBaseEvent;
+    readonly isExternalAgents: boolean;
+    readonly asExternalAgents: PolymeshCommonUtilitiesExternalAgentsEvent;
+    readonly isRelayer: boolean;
+    readonly asRelayer: PolymeshCommonUtilitiesRelayerRawEvent;
+    readonly isRewards: boolean;
+    readonly asRewards: PalletRewardsRawEvent;
+    readonly isTestUtils: boolean;
+    readonly asTestUtils: PalletTestUtilsRawEvent;
+    readonly type: 'System' | 'Indices' | 'Balances' | 'Identity' | 'CddServiceProviders' | 'PolymeshCommittee' | 'CommitteeMembership' | 'TechnicalCommittee' | 'TechnicalCommitteeMembership' | 'UpgradeCommittee' | 'UpgradeCommitteeMembership' | 'MultiSig' | 'Bridge' | 'Staking' | 'Offences' | 'Session' | 'Grandpa' | 'ImOnline' | 'Sudo' | 'Asset' | 'CapitalDistribution' | 'Checkpoint' | 'ComplianceManager' | 'CorporateAction' | 'CorporateBallot' | 'Pips' | 'Portfolio' | 'ProtocolFee' | 'Scheduler' | 'Settlement' | 'Statistics' | 'Sto' | 'Treasury' | 'Utility' | 'Base' | 'ExternalAgents' | 'Relayer' | 'Rewards' | 'TestUtils';
   }
 
   /** @name FrameSystemEvent (21) */
@@ -2455,6 +2537,92 @@ declare module '@polkadot/types/lookup' {
     readonly type: 'OnlyPrimaryKeyAllowed' | 'DuplicateMember' | 'NoSuchMember' | 'LastMemberCannotQuit' | 'MissingCurrentIdentity' | 'ActiveMembersLimitExceeded' | 'ActiveMembersLimitOverflow';
   }
 
+  /** @name PolymeshRuntimeDevelopRuntimeCall (352) */
+  export interface PolymeshRuntimeDevelopRuntimeCall extends Enum {
+    readonly isSystem: boolean;
+    readonly asSystem: FrameSystemCall;
+    readonly isBabe: boolean;
+    readonly asBabe: PalletBabeCall;
+    readonly isTimestamp: boolean;
+    readonly asTimestamp: PalletTimestampCall;
+    readonly isIndices: boolean;
+    readonly asIndices: PalletIndicesCall;
+    readonly isAuthorship: boolean;
+    readonly asAuthorship: PalletAuthorshipCall;
+    readonly isBalances: boolean;
+    readonly asBalances: PalletBalancesCall;
+    readonly isIdentity: boolean;
+    readonly asIdentity: PalletIdentityCall;
+    readonly isCddServiceProviders: boolean;
+    readonly asCddServiceProviders: PalletGroupCall;
+    readonly isPolymeshCommittee: boolean;
+    readonly asPolymeshCommittee: PalletCommitteeCall;
+    readonly isCommitteeMembership: boolean;
+    readonly asCommitteeMembership: PalletGroupCall;
+    readonly isTechnicalCommittee: boolean;
+    readonly asTechnicalCommittee: PalletCommitteeCall;
+    readonly isTechnicalCommitteeMembership: boolean;
+    readonly asTechnicalCommitteeMembership: PalletGroupCall;
+    readonly isUpgradeCommittee: boolean;
+    readonly asUpgradeCommittee: PalletCommitteeCall;
+    readonly isUpgradeCommitteeMembership: boolean;
+    readonly asUpgradeCommitteeMembership: PalletGroupCall;
+    readonly isMultiSig: boolean;
+    readonly asMultiSig: PalletMultisigCall;
+    readonly isBridge: boolean;
+    readonly asBridge: PalletBridgeCall;
+    readonly isStaking: boolean;
+    readonly asStaking: PalletStakingCall;
+    readonly isSession: boolean;
+    readonly asSession: PalletSessionCall;
+    readonly isGrandpa: boolean;
+    readonly asGrandpa: PalletGrandpaCall;
+    readonly isImOnline: boolean;
+    readonly asImOnline: PalletImOnlineCall;
+    readonly isSudo: boolean;
+    readonly asSudo: PalletSudoCall;
+    readonly isAsset: boolean;
+    readonly asAsset: PalletAssetCall;
+    readonly isCapitalDistribution: boolean;
+    readonly asCapitalDistribution: PalletCorporateActionsDistributionCall;
+    readonly isCheckpoint: boolean;
+    readonly asCheckpoint: PalletAssetCheckpointCall;
+    readonly isComplianceManager: boolean;
+    readonly asComplianceManager: PalletComplianceManagerCall;
+    readonly isCorporateAction: boolean;
+    readonly asCorporateAction: PalletCorporateActionsCall;
+    readonly isCorporateBallot: boolean;
+    readonly asCorporateBallot: PalletCorporateActionsBallotCall;
+    readonly isPips: boolean;
+    readonly asPips: PalletPipsCall;
+    readonly isPortfolio: boolean;
+    readonly asPortfolio: PalletPortfolioCall;
+    readonly isProtocolFee: boolean;
+    readonly asProtocolFee: PalletProtocolFeeCall;
+    readonly isScheduler: boolean;
+    readonly asScheduler: PalletSchedulerCall;
+    readonly isSettlement: boolean;
+    readonly asSettlement: PalletSettlementCall;
+    readonly isStatistics: boolean;
+    readonly asStatistics: PalletStatisticsCall;
+    readonly isSto: boolean;
+    readonly asSto: PalletStoCall;
+    readonly isTreasury: boolean;
+    readonly asTreasury: PalletTreasuryCall;
+    readonly isUtility: boolean;
+    readonly asUtility: PalletUtilityCall;
+    readonly isBase: boolean;
+    readonly isExternalAgents: boolean;
+    readonly asExternalAgents: PalletExternalAgentsCall;
+    readonly isRelayer: boolean;
+    readonly asRelayer: PalletRelayerCall;
+    readonly isRewards: boolean;
+    readonly asRewards: PalletRewardsCall;
+    readonly isTestUtils: boolean;
+    readonly asTestUtils: PalletTestUtilsCall;
+    readonly type: 'System' | 'Babe' | 'Timestamp' | 'Indices' | 'Authorship' | 'Balances' | 'Identity' | 'CddServiceProviders' | 'PolymeshCommittee' | 'CommitteeMembership' | 'TechnicalCommittee' | 'TechnicalCommitteeMembership' | 'UpgradeCommittee' | 'UpgradeCommitteeMembership' | 'MultiSig' | 'Bridge' | 'Staking' | 'Session' | 'Grandpa' | 'ImOnline' | 'Sudo' | 'Asset' | 'CapitalDistribution' | 'Checkpoint' | 'ComplianceManager' | 'CorporateAction' | 'CorporateBallot' | 'Pips' | 'Portfolio' | 'ProtocolFee' | 'Scheduler' | 'Settlement' | 'Statistics' | 'Sto' | 'Treasury' | 'Utility' | 'Base' | 'ExternalAgents' | 'Relayer' | 'Rewards' | 'TestUtils';
+  }
+
   /** @name PalletCommitteeCall (353) */
   export interface PalletCommitteeCall extends Enum {
     readonly isSetVoteThreshold: boolean;
@@ -2473,7 +2641,7 @@ declare module '@polkadot/types/lookup' {
     readonly isVoteOrPropose: boolean;
     readonly asVoteOrPropose: {
       readonly approve: bool;
-      readonly call: Call;
+      readonly call: PolymeshRuntimeDevelopRuntimeCall;
     } & Struct;
     readonly isVote: boolean;
     readonly asVote: {
@@ -2494,28 +2662,28 @@ declare module '@polkadot/types/lookup' {
     readonly isCreateOrApproveProposalAsIdentity: boolean;
     readonly asCreateOrApproveProposalAsIdentity: {
       readonly multisig: AccountId32;
-      readonly proposal: Call;
+      readonly proposal: PolymeshRuntimeDevelopRuntimeCall;
       readonly expiry: Option<u64>;
       readonly autoClose: bool;
     } & Struct;
     readonly isCreateOrApproveProposalAsKey: boolean;
     readonly asCreateOrApproveProposalAsKey: {
       readonly multisig: AccountId32;
-      readonly proposal: Call;
+      readonly proposal: PolymeshRuntimeDevelopRuntimeCall;
       readonly expiry: Option<u64>;
       readonly autoClose: bool;
     } & Struct;
     readonly isCreateProposalAsIdentity: boolean;
     readonly asCreateProposalAsIdentity: {
       readonly multisig: AccountId32;
-      readonly proposal: Call;
+      readonly proposal: PolymeshRuntimeDevelopRuntimeCall;
       readonly expiry: Option<u64>;
       readonly autoClose: bool;
     } & Struct;
     readonly isCreateProposalAsKey: boolean;
     readonly asCreateProposalAsKey: {
       readonly multisig: AccountId32;
-      readonly proposal: Call;
+      readonly proposal: PolymeshRuntimeDevelopRuntimeCall;
       readonly expiry: Option<u64>;
       readonly autoClose: bool;
     } & Struct;
@@ -2963,11 +3131,11 @@ declare module '@polkadot/types/lookup' {
   export interface PalletSudoCall extends Enum {
     readonly isSudo: boolean;
     readonly asSudo: {
-      readonly call: Call;
+      readonly call: PolymeshRuntimeDevelopRuntimeCall;
     } & Struct;
     readonly isSudoUncheckedWeight: boolean;
     readonly asSudoUncheckedWeight: {
-      readonly call: Call;
+      readonly call: PolymeshRuntimeDevelopRuntimeCall;
       readonly weight: u64;
     } & Struct;
     readonly isSetKey: boolean;
@@ -2977,7 +3145,7 @@ declare module '@polkadot/types/lookup' {
     readonly isSudoAs: boolean;
     readonly asSudoAs: {
       readonly who: MultiAddress;
-      readonly call: Call;
+      readonly call: PolymeshRuntimeDevelopRuntimeCall;
     } & Struct;
     readonly type: 'Sudo' | 'SudoUncheckedWeight' | 'SetKey' | 'SudoAs';
   }
@@ -3329,7 +3497,7 @@ declare module '@polkadot/types/lookup' {
     } & Struct;
     readonly isPropose: boolean;
     readonly asPropose: {
-      readonly proposal: Call;
+      readonly proposal: PolymeshRuntimeDevelopRuntimeCall;
       readonly deposit: u128;
       readonly url: Option<Bytes>;
       readonly description: Option<Bytes>;
@@ -3461,7 +3629,7 @@ declare module '@polkadot/types/lookup' {
       readonly when: u32;
       readonly maybePeriodic: Option<ITuple<[u32, u32]>>;
       readonly priority: u8;
-      readonly call: Call;
+      readonly call: PolymeshRuntimeDevelopRuntimeCall;
     } & Struct;
     readonly isCancel: boolean;
     readonly asCancel: {
@@ -3474,7 +3642,7 @@ declare module '@polkadot/types/lookup' {
       readonly when: u32;
       readonly maybePeriodic: Option<ITuple<[u32, u32]>>;
       readonly priority: u8;
-      readonly call: Call;
+      readonly call: PolymeshRuntimeDevelopRuntimeCall;
     } & Struct;
     readonly isCancelNamed: boolean;
     readonly asCancelNamed: {
@@ -3485,7 +3653,7 @@ declare module '@polkadot/types/lookup' {
       readonly after: u32;
       readonly maybePeriodic: Option<ITuple<[u32, u32]>>;
       readonly priority: u8;
-      readonly call: Call;
+      readonly call: PolymeshRuntimeDevelopRuntimeCall;
     } & Struct;
     readonly isScheduleNamedAfter: boolean;
     readonly asScheduleNamedAfter: {
@@ -3493,7 +3661,7 @@ declare module '@polkadot/types/lookup' {
       readonly after: u32;
       readonly maybePeriodic: Option<ITuple<[u32, u32]>>;
       readonly priority: u8;
-      readonly call: Call;
+      readonly call: PolymeshRuntimeDevelopRuntimeCall;
     } & Struct;
     readonly type: 'Schedule' | 'Cancel' | 'ScheduleNamed' | 'CancelNamed' | 'ScheduleAfter' | 'ScheduleNamedAfter';
   }
@@ -3729,15 +3897,15 @@ declare module '@polkadot/types/lookup' {
   export interface PalletUtilityCall extends Enum {
     readonly isBatch: boolean;
     readonly asBatch: {
-      readonly calls: Vec<Call>;
+      readonly calls: Vec<PolymeshRuntimeDevelopRuntimeCall>;
     } & Struct;
     readonly isBatchAtomic: boolean;
     readonly asBatchAtomic: {
-      readonly calls: Vec<Call>;
+      readonly calls: Vec<PolymeshRuntimeDevelopRuntimeCall>;
     } & Struct;
     readonly isBatchOptimistic: boolean;
     readonly asBatchOptimistic: {
-      readonly calls: Vec<Call>;
+      readonly calls: Vec<PolymeshRuntimeDevelopRuntimeCall>;
     } & Struct;
     readonly isRelayTx: boolean;
     readonly asRelayTx: {
@@ -3751,7 +3919,7 @@ declare module '@polkadot/types/lookup' {
   /** @name PalletUtilityUniqueCall (493) */
   export interface PalletUtilityUniqueCall extends Struct {
     readonly nonce: u64;
-    readonly call: Call;
+    readonly call: PolymeshRuntimeDevelopRuntimeCall;
   }
 
   /** @name PalletBaseCall (494) */
@@ -4368,7 +4536,7 @@ declare module '@polkadot/types/lookup' {
   /** @name PalletPipsPip (596) */
   export interface PalletPipsPip extends Struct {
     readonly id: u32;
-    readonly proposal: Call;
+    readonly proposal: PolymeshRuntimeDevelopRuntimeCall;
     readonly state: PalletPipsProposalState;
     readonly proposer: PalletPipsProposer;
   }
@@ -4440,7 +4608,7 @@ declare module '@polkadot/types/lookup' {
   export interface PalletSchedulerScheduledV2 extends Struct {
     readonly maybeId: Option<Bytes>;
     readonly priority: u8;
-    readonly call: Call;
+    readonly call: PolymeshRuntimeDevelopRuntimeCall;
     readonly maybePeriodic: Option<ITuple<[u32, u32]>>;
     readonly origin: PolymeshRuntimeDevelopRuntimeOriginCaller;
   }

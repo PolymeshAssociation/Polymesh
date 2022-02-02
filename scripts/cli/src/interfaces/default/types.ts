@@ -3,8 +3,8 @@
 
 import type { Bytes, Enum, Option, Struct, Text, U8aFixed, Vec, bool, u16, u32, u64, u8 } from '@polkadot/types-codec';
 import type { ITuple } from '@polkadot/types-codec/types';
-import type { Signature } from '@polkadot/types/interfaces/extrinsics';
-import type { AccountId, Balance, BlockNumber, Call, H256, H512, Hash, MultiAddress, Perbill, Permill } from '@polkadot/types/interfaces/runtime';
+import type { MultiSignature, Signature } from '@polkadot/types/interfaces/extrinsics';
+import type { AccountId, Balance, BlockNumber, Call, H256, Hash, MultiAddress, Perbill, Permill, Weight } from '@polkadot/types/interfaces/runtime';
 import type { AccountInfoWithDualRefCount, DispatchError } from '@polkadot/types/interfaces/system';
 
 /** @name AccountInfo */
@@ -1047,15 +1047,7 @@ export interface MovePortfolioItem extends Struct {
 }
 
 /** @name OffChainSignature */
-export interface OffChainSignature extends Enum {
-  readonly isEd25519: boolean;
-  readonly asEd25519: H512;
-  readonly isSr25519: boolean;
-  readonly asSr25519: H512;
-  readonly isEcdsa: boolean;
-  readonly asEcdsa: H512;
-  readonly type: 'Ed25519' | 'Sr25519' | 'Ecdsa';
-}
+export interface OffChainSignature extends MultiSignature {}
 
 /** @name PalletName */
 export interface PalletName extends Text {}

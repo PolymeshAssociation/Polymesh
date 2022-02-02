@@ -4,8 +4,8 @@
 import type { ApiTypes } from '@polkadot/api-base/types';
 import type { Bytes, Null, Option, U8aFixed, Vec, WrapperOpaque, bool, u128, u16, u32, u64, u8 } from '@polkadot/types-codec';
 import type { AnyNumber, ITuple } from '@polkadot/types-codec/types';
-import type { AccountId32, Call, H256, Perbill, Permill } from '@polkadot/types/interfaces/runtime';
-import type { FrameSupportWeightsPerDispatchClassU64, FrameSystemAccountInfo, FrameSystemEventRecord, FrameSystemLastRuntimeUpgradeInfo, FrameSystemPhase, PalletAssetAssetOwnershipRelation, PalletAssetClassicTickerRegistration, PalletAssetSecurityToken, PalletAssetTickerRegistration, PalletAssetTickerRegistrationConfig, PalletAuthorshipUncleEntryItem, PalletBalancesBalanceLock, PalletBridgeBridgeTxDetail, PalletCommitteePolymeshVotes, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCorporateAction, PalletCorporateActionsDistribution, PalletCorporateActionsTargetIdentities, PalletGrandpaStoredPendingChange, PalletGrandpaStoredState, PalletIdentityClaim1stKey, PalletIdentityClaim2ndKey, PalletImOnlineBoundedOpaqueNetworkState, PalletImOnlineSr25519AppSr25519Public, PalletMultisigProposalDetails, PalletPipsDepositInfo, PalletPipsPip, PalletPipsPipsMetadata, PalletPipsSnapshotMetadata, PalletPipsSnapshottedPip, PalletPipsVote, PalletPipsVotingResult, PalletRelayerSubsidy, PalletRewardsItnRewardStatus, PalletSchedulerReleases, PalletSchedulerScheduledV2, PalletSettlementAffirmationStatus, PalletSettlementInstruction, PalletSettlementLeg, PalletSettlementLegStatus, PalletSettlementVenue, PalletStakingActiveEraInfo, PalletStakingElectionResult, PalletStakingElectionStatus, PalletStakingEraRewardPoints, PalletStakingExposure, PalletStakingForcing, PalletStakingNominations, PalletStakingPermissionedIdentityPrefs, PalletStakingReleases, PalletStakingRewardDestination, PalletStakingSlashingSlashingSpans, PalletStakingSlashingSpanRecord, PalletStakingSlashingSwitch, PalletStakingStakingLedger, PalletStakingUnappliedSlash, PalletStakingValidatorPrefs, PalletStoFundraiser, PalletTransactionPaymentReleases, PolymeshCommonUtilitiesCheckpointStoredSchedule, PolymeshCommonUtilitiesGroupInactiveMember, PolymeshCommonUtilitiesMaybeBlock, PolymeshCommonUtilitiesProtocolFeeProtocolOp, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAuthorization, PolymeshPrimitivesComplianceManagerAssetCompliance, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesIdentity, PolymeshPrimitivesIdentityClaim, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKeySignatory, PolymeshPrimitivesStatisticsTransferManager, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions, PolymeshPrimitivesTicker, PolymeshRuntimeDevelopRuntimeSessionKeys, SpConsensusBabeAppPublic, SpConsensusBabeBabeEpochConfiguration, SpConsensusBabeDigestsNextConfigDescriptor, SpCoreCryptoKeyTypeId, SpRuntimeDigest, SpStakingOffenceOffenceDetails } from '@polkadot/types/lookup';
+import type { AccountId32, H256, Perbill, Permill } from '@polkadot/types/interfaces/runtime';
+import type { FrameSupportWeightsPerDispatchClassU64, FrameSystemAccountInfo, FrameSystemEventRecord, FrameSystemLastRuntimeUpgradeInfo, FrameSystemPhase, PalletAssetAssetOwnershipRelation, PalletAssetClassicTickerRegistration, PalletAssetSecurityToken, PalletAssetTickerRegistration, PalletAssetTickerRegistrationConfig, PalletAuthorshipUncleEntryItem, PalletBalancesBalanceLock, PalletBridgeBridgeTxDetail, PalletCommitteePolymeshVotes, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCorporateAction, PalletCorporateActionsDistribution, PalletCorporateActionsTargetIdentities, PalletGrandpaStoredPendingChange, PalletGrandpaStoredState, PalletIdentityClaim1stKey, PalletIdentityClaim2ndKey, PalletImOnlineBoundedOpaqueNetworkState, PalletImOnlineSr25519AppSr25519Public, PalletMultisigProposalDetails, PalletPipsDepositInfo, PalletPipsPip, PalletPipsPipsMetadata, PalletPipsSnapshotMetadata, PalletPipsSnapshottedPip, PalletPipsVote, PalletPipsVotingResult, PalletRelayerSubsidy, PalletRewardsItnRewardStatus, PalletSchedulerReleases, PalletSchedulerScheduledV2, PalletSettlementAffirmationStatus, PalletSettlementInstruction, PalletSettlementLeg, PalletSettlementLegStatus, PalletSettlementVenue, PalletStakingActiveEraInfo, PalletStakingElectionResult, PalletStakingElectionStatus, PalletStakingEraRewardPoints, PalletStakingExposure, PalletStakingForcing, PalletStakingNominations, PalletStakingPermissionedIdentityPrefs, PalletStakingReleases, PalletStakingRewardDestination, PalletStakingSlashingSlashingSpans, PalletStakingSlashingSpanRecord, PalletStakingSlashingSwitch, PalletStakingStakingLedger, PalletStakingUnappliedSlash, PalletStakingValidatorPrefs, PalletStoFundraiser, PalletTransactionPaymentReleases, PolymeshCommonUtilitiesCheckpointStoredSchedule, PolymeshCommonUtilitiesGroupInactiveMember, PolymeshCommonUtilitiesMaybeBlock, PolymeshCommonUtilitiesProtocolFeeProtocolOp, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAuthorization, PolymeshPrimitivesComplianceManagerAssetCompliance, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesIdentity, PolymeshPrimitivesIdentityClaim, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKeySignatory, PolymeshPrimitivesStatisticsTransferManager, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions, PolymeshPrimitivesTicker, PolymeshRuntimeDevelopRuntimeCall, PolymeshRuntimeDevelopRuntimeSessionKeys, SpConsensusBabeAppPublic, SpConsensusBabeBabeEpochConfiguration, SpConsensusBabeDigestsNextConfigDescriptor, SpCoreCryptoKeyTypeId, SpRuntimeDigest, SpStakingOffenceOffenceDetails } from '@polkadot/types/lookup';
 import type { Observable } from '@polkadot/types/types';
 
 declare module '@polkadot/api-base/types/storage' {
@@ -798,11 +798,11 @@ declare module '@polkadot/api-base/types/storage' {
       /**
        * A mapping of proposals to their IDs.
        **/
-      proposalIds: AugmentedQuery<ApiType, (arg1: AccountId32 | string | Uint8Array, arg2: Call | { callIndex?: any; args?: any } | string | Uint8Array) => Observable<Option<u64>>, [AccountId32, Call]> & QueryableStorageEntry<ApiType, [AccountId32, Call]>;
+      proposalIds: AugmentedQuery<ApiType, (arg1: AccountId32 | string | Uint8Array, arg2: PolymeshRuntimeDevelopRuntimeCall | { System: any } | { Babe: any } | { Timestamp: any } | { Indices: any } | { Authorship: any } | { Balances: any } | { Identity: any } | { CddServiceProviders: any } | { PolymeshCommittee: any } | { CommitteeMembership: any } | { TechnicalCommittee: any } | { TechnicalCommitteeMembership: any } | { UpgradeCommittee: any } | { UpgradeCommitteeMembership: any } | { MultiSig: any } | { Bridge: any } | { Staking: any } | { Session: any } | { Grandpa: any } | { ImOnline: any } | { Sudo: any } | { Asset: any } | { CapitalDistribution: any } | { Checkpoint: any } | { ComplianceManager: any } | { CorporateAction: any } | { CorporateBallot: any } | { Pips: any } | { Portfolio: any } | { ProtocolFee: any } | { Scheduler: any } | { Settlement: any } | { Statistics: any } | { Sto: any } | { Treasury: any } | { Utility: any } | { Base: any } | { ExternalAgents: any } | { Relayer: any } | { Rewards: any } | { TestUtils: any } | string | Uint8Array) => Observable<Option<u64>>, [AccountId32, PolymeshRuntimeDevelopRuntimeCall]> & QueryableStorageEntry<ApiType, [AccountId32, PolymeshRuntimeDevelopRuntimeCall]>;
       /**
        * Proposals presented for voting to a multisig (multisig, proposal id) => Option<T::Proposal>.
        **/
-      proposals: AugmentedQuery<ApiType, (arg: ITuple<[AccountId32, u64]> | [AccountId32 | string | Uint8Array, u64 | AnyNumber | Uint8Array]) => Observable<Option<Call>>, [ITuple<[AccountId32, u64]>]> & QueryableStorageEntry<ApiType, [ITuple<[AccountId32, u64]>]>;
+      proposals: AugmentedQuery<ApiType, (arg: ITuple<[AccountId32, u64]> | [AccountId32 | string | Uint8Array, u64 | AnyNumber | Uint8Array]) => Observable<Option<PolymeshRuntimeDevelopRuntimeCall>>, [ITuple<[AccountId32, u64]>]> & QueryableStorageEntry<ApiType, [ITuple<[AccountId32, u64]>]>;
       /**
        * The last transaction version, used for `on_runtime_upgrade`.
        **/
@@ -959,7 +959,7 @@ declare module '@polkadot/api-base/types/storage' {
       /**
        * Actual proposal for a given hash.
        **/
-      proposalOf: AugmentedQuery<ApiType, (arg: H256 | string | Uint8Array) => Observable<Option<Call>>, [H256]> & QueryableStorageEntry<ApiType, [H256]>;
+      proposalOf: AugmentedQuery<ApiType, (arg: H256 | string | Uint8Array) => Observable<Option<PolymeshRuntimeDevelopRuntimeCall>>, [H256]> & QueryableStorageEntry<ApiType, [H256]>;
       /**
        * The hashes of the active proposals.
        **/
@@ -1589,7 +1589,7 @@ declare module '@polkadot/api-base/types/storage' {
       /**
        * Actual proposal for a given hash.
        **/
-      proposalOf: AugmentedQuery<ApiType, (arg: H256 | string | Uint8Array) => Observable<Option<Call>>, [H256]> & QueryableStorageEntry<ApiType, [H256]>;
+      proposalOf: AugmentedQuery<ApiType, (arg: H256 | string | Uint8Array) => Observable<Option<PolymeshRuntimeDevelopRuntimeCall>>, [H256]> & QueryableStorageEntry<ApiType, [H256]>;
       /**
        * The hashes of the active proposals.
        **/
@@ -1677,7 +1677,7 @@ declare module '@polkadot/api-base/types/storage' {
       /**
        * Actual proposal for a given hash.
        **/
-      proposalOf: AugmentedQuery<ApiType, (arg: H256 | string | Uint8Array) => Observable<Option<Call>>, [H256]> & QueryableStorageEntry<ApiType, [H256]>;
+      proposalOf: AugmentedQuery<ApiType, (arg: H256 | string | Uint8Array) => Observable<Option<PolymeshRuntimeDevelopRuntimeCall>>, [H256]> & QueryableStorageEntry<ApiType, [H256]>;
       /**
        * The hashes of the active proposals.
        **/
