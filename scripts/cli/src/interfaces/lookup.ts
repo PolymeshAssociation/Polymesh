@@ -1735,10 +1735,6 @@ export default {
         rotationAuthId: 'u64',
         optionalCddAuthId: 'Option<u64>',
       },
-      rotate_primary_key_to_secondary: {
-        authId: 'u64',
-        optionalCddAuthId: 'Option<u64>',
-      },
       change_cdd_requirement_for_mk_rotation: {
         authRequired: 'bool',
       },
@@ -1801,7 +1797,11 @@ export default {
       revoke_claim_by_index: {
         target: 'PolymeshPrimitivesIdentityId',
         claimType: 'PolymeshPrimitivesIdentityClaimClaimType',
-        scope: 'Option<PolymeshPrimitivesIdentityClaimScope>'
+        scope: 'Option<PolymeshPrimitivesIdentityClaimScope>',
+      },
+      rotate_primary_key_to_secondary: {
+        authId: 'u64',
+        optionalCddAuthId: 'Option<u64>'
       }
     }
   },

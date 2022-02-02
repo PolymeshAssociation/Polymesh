@@ -2205,11 +2205,6 @@ declare module '@polkadot/types/lookup' {
       readonly rotationAuthId: u64;
       readonly optionalCddAuthId: Option<u64>;
     } & Struct;
-    readonly isRotatePrimaryKeyToSecondary: boolean;
-    readonly asRotatePrimaryKeyToSecondary: {
-      readonly authId: u64;
-      readonly optionalCddAuthId: Option<u64>;
-    } & Struct;
     readonly isChangeCddRequirementForMkRotation: boolean;
     readonly asChangeCddRequirementForMkRotation: {
       readonly authRequired: bool;
@@ -2288,7 +2283,12 @@ declare module '@polkadot/types/lookup' {
       readonly claimType: PolymeshPrimitivesIdentityClaimClaimType;
       readonly scope: Option<PolymeshPrimitivesIdentityClaimScope>;
     } & Struct;
-    readonly type: 'CddRegisterDid' | 'InvalidateCddClaims' | 'RemoveSecondaryKeys' | 'AcceptPrimaryKey' | 'RotatePrimaryKeyToSecondary' | 'ChangeCddRequirementForMkRotation' | 'JoinIdentityAsKey' | 'LeaveIdentityAsKey' | 'AddClaim' | 'RevokeClaim' | 'SetPermissionToSigner' | 'LegacySetPermissionToSigner' | 'FreezeSecondaryKeys' | 'UnfreezeSecondaryKeys' | 'AddAuthorization' | 'RemoveAuthorization' | 'AddSecondaryKeysWithAuthorization' | 'AddInvestorUniquenessClaim' | 'GcAddCddClaim' | 'GcRevokeCddClaim' | 'AddInvestorUniquenessClaimV2' | 'RevokeClaimByIndex';
+    readonly isRotatePrimaryKeyToSecondary: boolean;
+    readonly asRotatePrimaryKeyToSecondary: {
+      readonly authId: u64;
+      readonly optionalCddAuthId: Option<u64>;
+    } & Struct;
+    readonly type: 'CddRegisterDid' | 'InvalidateCddClaims' | 'RemoveSecondaryKeys' | 'AcceptPrimaryKey' | 'ChangeCddRequirementForMkRotation' | 'JoinIdentityAsKey' | 'LeaveIdentityAsKey' | 'AddClaim' | 'RevokeClaim' | 'SetPermissionToSigner' | 'LegacySetPermissionToSigner' | 'FreezeSecondaryKeys' | 'UnfreezeSecondaryKeys' | 'AddAuthorization' | 'RemoveAuthorization' | 'AddSecondaryKeysWithAuthorization' | 'AddInvestorUniquenessClaim' | 'GcAddCddClaim' | 'GcRevokeCddClaim' | 'AddInvestorUniquenessClaimV2' | 'RevokeClaimByIndex' | 'RotatePrimaryKeyToSecondary';
   }
 
   /** @name PolymeshPrimitivesSecondaryKeyApiLegacyPermissions (327) */

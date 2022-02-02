@@ -431,7 +431,12 @@
         "Custom": "Vec<u8>"
       }
     },
-    "InvestorZKProofData": "[u8; 64]",
+    "InvestorZKProofData": "Lookup336",
+    "Lookup336": {
+        "r": "CompressedRistretto",
+        "s": "Scalar"
+    },
+    "CompressedRistretto": "[u8; 32]",
     "Scalar": "[u8; 32]",
     "RistrettoPoint": "[u8; 32]",
     "ZkProofData": {
@@ -714,7 +719,7 @@
     "RestrictionResult": {
       "_enum": ["Valid", "Invalid", "ForceValid"]
     },
-    "Memo": "[u8;32]",
+    "Memo": "[u8; 32]",
     "BridgeTx": {
       "nonce": "u32",
       "recipient": "AccountId",
@@ -904,7 +909,7 @@
       "start": "Option<Moment>",
       "period": "CalendarPeriod",
       "remaining": "u32"
-    },
+    },    
     "InstructionStatus": {
       "_enum": {
         "Unknown": "",
