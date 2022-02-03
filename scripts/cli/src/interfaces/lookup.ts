@@ -73,66 +73,8 @@ export default {
    **/
   FrameSystemEventRecord: {
     phase: 'FrameSystemPhase',
-    event: 'PolymeshRuntimeDevelopRuntimeEvent',
+    event: 'Event',
     topics: 'Vec<H256>'
-  },
-  /**
-   * Lookup20: polymesh_runtime_develop::runtime::Event
-   **/
-  PolymeshRuntimeDevelopRuntimeEvent: {
-    _enum: {
-      System: 'FrameSystemEvent',
-      __Unused1: 'Null',
-      __Unused2: 'Null',
-      Indices: 'PalletIndicesEvent',
-      __Unused4: 'Null',
-      Balances: 'PolymeshCommonUtilitiesBalancesRawEvent',
-      __Unused6: 'Null',
-      Identity: 'PolymeshCommonUtilitiesIdentityRawEvent',
-      CddServiceProviders: 'PolymeshCommonUtilitiesGroupRawEventInstance2',
-      PolymeshCommittee: 'PalletCommitteeRawEventInstance1',
-      CommitteeMembership: 'PolymeshCommonUtilitiesGroupRawEventInstance1',
-      TechnicalCommittee: 'PalletCommitteeRawEventInstance3',
-      TechnicalCommitteeMembership: 'PolymeshCommonUtilitiesGroupRawEventInstance3',
-      UpgradeCommittee: 'PalletCommitteeRawEventInstance4',
-      UpgradeCommitteeMembership: 'PolymeshCommonUtilitiesGroupRawEventInstance4',
-      MultiSig: 'PalletMultisigRawEvent',
-      Bridge: 'PalletBridgeRawEvent',
-      Staking: 'PalletStakingRawEvent',
-      Offences: 'PalletOffencesEvent',
-      Session: 'PalletSessionEvent',
-      __Unused20: 'Null',
-      Grandpa: 'PalletGrandpaEvent',
-      __Unused22: 'Null',
-      ImOnline: 'PalletImOnlineEvent',
-      __Unused24: 'Null',
-      Sudo: 'PalletSudoRawEvent',
-      Asset: 'PolymeshCommonUtilitiesAssetRawEvent',
-      CapitalDistribution: 'PalletCorporateActionsDistributionEvent',
-      Checkpoint: 'PolymeshCommonUtilitiesCheckpointEvent',
-      ComplianceManager: 'PalletComplianceManagerEvent',
-      CorporateAction: 'PalletCorporateActionsEvent',
-      CorporateBallot: 'PalletCorporateActionsBallotEvent',
-      __Unused32: 'Null',
-      Pips: 'PalletPipsRawEvent',
-      Portfolio: 'PolymeshCommonUtilitiesPortfolioEvent',
-      ProtocolFee: 'PalletProtocolFeeRawEvent',
-      Scheduler: 'PalletSchedulerEvent',
-      Settlement: 'PalletSettlementRawEvent',
-      Statistics: 'PolymeshCommonUtilitiesStatisticsEvent',
-      Sto: 'PalletStoRawEvent',
-      Treasury: 'PalletTreasuryRawEvent',
-      Utility: 'PalletUtilityEvent',
-      Base: 'PolymeshCommonUtilitiesBaseEvent',
-      ExternalAgents: 'PolymeshCommonUtilitiesExternalAgentsEvent',
-      Relayer: 'PolymeshCommonUtilitiesRelayerRawEvent',
-      Rewards: 'PalletRewardsRawEvent',
-      __Unused46: 'Null',
-      __Unused47: 'Null',
-      __Unused48: 'Null',
-      __Unused49: 'Null',
-      TestUtils: 'PalletTestUtilsRawEvent'
-    }
   },
   /**
    * Lookup21: frame_system::pallet::Event<T>
@@ -2001,64 +1943,6 @@ export default {
     _enum: ['OnlyPrimaryKeyAllowed', 'DuplicateMember', 'NoSuchMember', 'LastMemberCannotQuit', 'MissingCurrentIdentity', 'ActiveMembersLimitExceeded', 'ActiveMembersLimitOverflow']
   },
   /**
-   * Lookup352: polymesh_runtime_develop::runtime::Call
-   **/
-  PolymeshRuntimeDevelopRuntimeCall: {
-    _enum: {
-      System: 'FrameSystemCall',
-      Babe: 'PalletBabeCall',
-      Timestamp: 'PalletTimestampCall',
-      Indices: 'PalletIndicesCall',
-      Authorship: 'PalletAuthorshipCall',
-      Balances: 'PalletBalancesCall',
-      __Unused6: 'Null',
-      Identity: 'PalletIdentityCall',
-      CddServiceProviders: 'PalletGroupCall',
-      PolymeshCommittee: 'PalletCommitteeCall',
-      CommitteeMembership: 'PalletGroupCall',
-      TechnicalCommittee: 'PalletCommitteeCall',
-      TechnicalCommitteeMembership: 'PalletGroupCall',
-      UpgradeCommittee: 'PalletCommitteeCall',
-      UpgradeCommitteeMembership: 'PalletGroupCall',
-      MultiSig: 'PalletMultisigCall',
-      Bridge: 'PalletBridgeCall',
-      Staking: 'PalletStakingCall',
-      __Unused18: 'Null',
-      Session: 'PalletSessionCall',
-      __Unused20: 'Null',
-      Grandpa: 'PalletGrandpaCall',
-      __Unused22: 'Null',
-      ImOnline: 'PalletImOnlineCall',
-      __Unused24: 'Null',
-      Sudo: 'PalletSudoCall',
-      Asset: 'PalletAssetCall',
-      CapitalDistribution: 'PalletCorporateActionsDistributionCall',
-      Checkpoint: 'PalletAssetCheckpointCall',
-      ComplianceManager: 'PalletComplianceManagerCall',
-      CorporateAction: 'PalletCorporateActionsCall',
-      CorporateBallot: 'PalletCorporateActionsBallotCall',
-      __Unused32: 'Null',
-      Pips: 'PalletPipsCall',
-      Portfolio: 'PalletPortfolioCall',
-      ProtocolFee: 'PalletProtocolFeeCall',
-      Scheduler: 'PalletSchedulerCall',
-      Settlement: 'PalletSettlementCall',
-      Statistics: 'PalletStatisticsCall',
-      Sto: 'PalletStoCall',
-      Treasury: 'PalletTreasuryCall',
-      Utility: 'PalletUtilityCall',
-      Base: 'PalletBaseCall',
-      ExternalAgents: 'PalletExternalAgentsCall',
-      Relayer: 'PalletRelayerCall',
-      Rewards: 'PalletRewardsCall',
-      __Unused46: 'Null',
-      __Unused47: 'Null',
-      __Unused48: 'Null',
-      __Unused49: 'Null',
-      TestUtils: 'PalletTestUtilsCall'
-    }
-  },
-  /**
    * Lookup353: pallet_committee::Call<T, I>
    **/
   PalletCommitteeCall: {
@@ -2075,7 +1959,7 @@ export default {
       },
       vote_or_propose: {
         approve: 'bool',
-        call: 'PolymeshRuntimeDevelopRuntimeCall',
+        call: 'Call',
       },
       vote: {
         proposal: 'H256',
@@ -2095,25 +1979,25 @@ export default {
       },
       create_or_approve_proposal_as_identity: {
         multisig: 'AccountId32',
-        proposal: 'PolymeshRuntimeDevelopRuntimeCall',
+        proposal: 'Call',
         expiry: 'Option<u64>',
         autoClose: 'bool',
       },
       create_or_approve_proposal_as_key: {
         multisig: 'AccountId32',
-        proposal: 'PolymeshRuntimeDevelopRuntimeCall',
+        proposal: 'Call',
         expiry: 'Option<u64>',
         autoClose: 'bool',
       },
       create_proposal_as_identity: {
         multisig: 'AccountId32',
-        proposal: 'PolymeshRuntimeDevelopRuntimeCall',
+        proposal: 'Call',
         expiry: 'Option<u64>',
         autoClose: 'bool',
       },
       create_proposal_as_key: {
         multisig: 'AccountId32',
-        proposal: 'PolymeshRuntimeDevelopRuntimeCall',
+        proposal: 'Call',
         expiry: 'Option<u64>',
         autoClose: 'bool',
       },
@@ -2539,10 +2423,10 @@ export default {
   PalletSudoCall: {
     _enum: {
       sudo: {
-        call: 'PolymeshRuntimeDevelopRuntimeCall',
+        call: 'Call',
       },
       sudo_unchecked_weight: {
-        call: 'PolymeshRuntimeDevelopRuntimeCall',
+        call: 'Call',
         weight: 'u64',
       },
       set_key: {
@@ -2553,7 +2437,7 @@ export default {
       },
       sudo_as: {
         who: 'MultiAddress',
-        call: 'PolymeshRuntimeDevelopRuntimeCall'
+        call: 'Call'
       }
     }
   },
@@ -2865,7 +2749,7 @@ export default {
         limit: 'u32',
       },
       propose: {
-        proposal: 'PolymeshRuntimeDevelopRuntimeCall',
+        proposal: 'Call',
         deposit: 'u128',
         url: 'Option<Bytes>',
         description: 'Option<Bytes>',
@@ -2973,7 +2857,7 @@ export default {
         when: 'u32',
         maybePeriodic: 'Option<(u32,u32)>',
         priority: 'u8',
-        call: 'PolymeshRuntimeDevelopRuntimeCall',
+        call: 'Call',
       },
       cancel: {
         when: 'u32',
@@ -2984,7 +2868,7 @@ export default {
         when: 'u32',
         maybePeriodic: 'Option<(u32,u32)>',
         priority: 'u8',
-        call: 'PolymeshRuntimeDevelopRuntimeCall',
+        call: 'Call',
       },
       cancel_named: {
         id: 'Bytes',
@@ -2993,14 +2877,14 @@ export default {
         after: 'u32',
         maybePeriodic: 'Option<(u32,u32)>',
         priority: 'u8',
-        call: 'PolymeshRuntimeDevelopRuntimeCall',
+        call: 'Call',
       },
       schedule_named_after: {
         id: 'Bytes',
         after: 'u32',
         maybePeriodic: 'Option<(u32,u32)>',
         priority: 'u8',
-        call: 'PolymeshRuntimeDevelopRuntimeCall'
+        call: 'Call'
       }
     }
   },
@@ -3219,13 +3103,13 @@ export default {
   PalletUtilityCall: {
     _enum: {
       batch: {
-        calls: 'Vec<PolymeshRuntimeDevelopRuntimeCall>',
+        calls: 'Vec<Call>',
       },
       batch_atomic: {
-        calls: 'Vec<PolymeshRuntimeDevelopRuntimeCall>',
+        calls: 'Vec<Call>',
       },
       batch_optimistic: {
-        calls: 'Vec<PolymeshRuntimeDevelopRuntimeCall>',
+        calls: 'Vec<Call>',
       },
       relay_tx: {
         target: 'AccountId32',
@@ -3239,7 +3123,7 @@ export default {
    **/
   PalletUtilityUniqueCall: {
     nonce: 'u64',
-    call: 'PolymeshRuntimeDevelopRuntimeCall'
+    call: 'Call'
   },
   /**
    * Lookup494: pallet_base::Call<T>
@@ -3689,7 +3573,7 @@ export default {
    **/
   PalletPipsPip: {
     id: 'u32',
-    proposal: 'PolymeshRuntimeDevelopRuntimeCall',
+    proposal: 'Call',
     state: 'PalletPipsProposalState',
     proposer: 'PalletPipsProposer'
   },
@@ -3738,7 +3622,7 @@ export default {
   PalletSchedulerScheduledV2: {
     maybeId: 'Option<Bytes>',
     priority: 'u8',
-    call: 'PolymeshRuntimeDevelopRuntimeCall',
+    call: 'Call',
     maybePeriodic: 'Option<(u32,u32)>',
     origin: 'PolymeshRuntimeDevelopRuntimeOriginCaller'
   },
