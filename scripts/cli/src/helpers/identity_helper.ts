@@ -90,7 +90,7 @@ export async function authorizeJoinToIdentities(
 
     let last_auth_id: AnyNumber = 0;
     auths
-      .map(([key, value]) => value)
+      .map(([, value]) => value)
       .filter((value: any) => value.isSome)
       .forEach((value: any) => {
         const auth = value.unwrap();

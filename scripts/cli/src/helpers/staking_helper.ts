@@ -1,5 +1,4 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
-import type { ElectionStatus } from "@polkadot/types/interfaces";
 import { sendTx, ApiSingleton, sleep } from "../util/init";
 import { distributePolyBatch } from "../helpers/poly_helper";
 import BN from "bn.js";
@@ -53,7 +52,7 @@ export async function nominate(signer: KeyringPair, target: Uint8Array) {
 
 export async function checkEraElectionClosed() {
   const api = await ApiSingleton.getInstance();
-  while((<ElectionStatus>(await api.query.staking.eraElectionStatus())).isOpen) {
+  while ((await api.query.staking.eraElectionStatus()).isOpen) {
     await sleep(1000);
   }
 }

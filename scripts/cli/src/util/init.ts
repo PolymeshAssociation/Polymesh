@@ -369,7 +369,7 @@ export async function getValidCddProvider(alice: KeyringPair) {
   let transfer_amount = new BN(1000).mul(new BN(10).pow(new BN(6)));
   // Fetch the cdd providers key and provide them right fuel to spent for
   // cdd creation
-  let service_providers = <IdentityId>(await api.query.cddServiceProviders.activeMembers());
+  let service_providers = await api.query.cddServiceProviders.activeMembers();
   let service_provider_1_key = await generateEntity("service_provider_1");
 
   // match the identity within the identity pallet

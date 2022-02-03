@@ -45,7 +45,7 @@ export async function createClaimCompliance(signer: KeyringPair, did: IdentityId
  */
 export async function addComplianceRequirement(sender: KeyringPair, ticker: Ticker): Promise<void> {
 	const api = await ApiSingleton.getInstance();
-	let assetCompliance = <AssetCompliance>(await api.query.complianceManager.assetCompliances(ticker));
+	let assetCompliance = await api.query.complianceManager.assetCompliances(ticker);
 
 	if (assetCompliance.requirements.length == 0) {
 		const transaction = api.tx.complianceManager.addComplianceRequirement(ticker, [], []);
@@ -56,11 +56,11 @@ export async function addComplianceRequirement(sender: KeyringPair, ticker: Tick
 	}
 }
 
-export async function addDefaultTrustedClaimIssuer(signer: KeyringPair, ticker: Ticker, issuer: IdentityId, trusted_for: any) {
+export async function addDefaultTrustedClaimIssuer(signer: KeyringPair, ticker: Ticker, issuer: IdentityId, trustedFor: any) {
 	const api = await ApiSingleton.getInstance();
 	const transaction = api.tx.complianceManager.addDefaultTrustedClaimIssuer(ticker, {
 		issuer,
-		trusted_for,
+		trustedFor,
 	  });
 	await sendTx(signer, transaction);
 }
