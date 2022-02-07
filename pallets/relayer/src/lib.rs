@@ -236,14 +236,17 @@ impl<T: Config> Module<T> {
     }
 
     fn base_accept_paying_key(origin: T::Origin, auth_id: u64) -> DispatchResult {
-        let user_key = ensure_signed(origin)?;
+        let caller_key = ensure_signed(origin)?;
         let user_did =
-            <Identity<T>>::get_identity(&user_key).ok_or(Error::<T>::UserKeyCddMissing)?;
-        let signer = Signatory::Account(user_key);
+            <Identity<T>>::get_identity(&caller_key).ok_or(Error::<T>::UserKeyCddMissing)?;
+        let signer = Signatory::Account(caller_key.clone());
 
         <Identity<T>>::accept_auth_with(&signer, auth_id, |data, auth_by| -> DispatchResult {
             let (user_key, paying_key, polyx_limit) =
                 extract_auth!(data, AddRelayerPayingKey(user_key, paying_key, polyx_limit));
+
+            // Allow: `origin == user_key`.
+            ensure!(user_key == caller_key, Error::<T>::NotAuthorizedForUserKey);
 
             Self::auth_accept_paying_key(
                 user_did,
