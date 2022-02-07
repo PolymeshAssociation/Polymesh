@@ -4492,6 +4492,57 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-contracts"
+version = "4.0.0-dev"
+source = "git+https://github.com/PolymathNetwork/substrate?branch=polymesh-develop#5a01e5b77cc9c855541b241748078e2670c42429"
+dependencies = [
+ "bitflags",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "libsecp256k1 0.6.0",
+ "log",
+ "pallet-contracts-primitives",
+ "pallet-contracts-proc-macro",
+ "parity-scale-codec 2.3.1",
+ "pwasm-utils",
+ "rand 0.7.3",
+ "scale-info",
+ "serde",
+ "smallvec",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-sandbox",
+ "sp-std",
+ "wasmi-validation",
+]
+
+[[package]]
+name = "pallet-contracts-primitives"
+version = "4.0.0-dev"
+source = "git+https://github.com/PolymathNetwork/substrate?branch=polymesh-develop#5a01e5b77cc9c855541b241748078e2670c42429"
+dependencies = [
+ "bitflags",
+ "parity-scale-codec 2.3.1",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-contracts-proc-macro"
+version = "4.0.0-dev"
+source = "git+https://github.com/PolymathNetwork/substrate?branch=polymesh-develop#5a01e5b77cc9c855541b241748078e2670c42429"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "pallet-corporate-actions"
 version = "0.1.0"
 dependencies = [
@@ -6055,6 +6106,7 @@ dependencies = [
  "pallet-bridge",
  "pallet-committee",
  "pallet-compliance-manager",
+ "pallet-contracts",
  "pallet-corporate-actions",
  "pallet-external-agents",
  "pallet-grandpa",
@@ -8888,6 +8940,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp-sandbox"
+version = "0.10.0-dev"
+source = "git+https://github.com/PolymathNetwork/substrate?branch=polymesh-develop#5a01e5b77cc9c855541b241748078e2670c42429"
+dependencies = [
+ "log",
+ "parity-scale-codec 2.3.1",
+ "sp-core",
+ "sp-io",
+ "sp-std",
+ "sp-wasm-interface",
+ "wasmi",
+]
+
+[[package]]
 name = "sp-serializer"
 version = "3.0.0"
 source = "git+https://github.com/PolymathNetwork/substrate?branch=polymesh-develop#e20e2391171fbd4ad4e0461d473eb1fbfa4db88b"
@@ -10208,6 +10274,7 @@ dependencies = [
  "downcast-rs",
  "errno",
  "libc",
+ "libm 0.2.1",
  "memory_units",
  "num-rational 0.2.4",
  "num-traits",

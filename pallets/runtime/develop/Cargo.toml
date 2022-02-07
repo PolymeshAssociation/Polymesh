@@ -69,7 +69,7 @@ sp-block-builder = { version = "4.0.0-dev", default-features = false }
 sp-arithmetic = { version = "4.0.0-dev", default-features = false }
 #
 pallet-authorship = { version = "4.0.0-dev", default-features = false }
-#pallet-contracts = { version = "4.0.0-dev", default-features = false }
+pallet-contracts = { version = "4.0.0-dev", default-features = false }
 #pallet-contracts-primitives = { version = "4.0.0-dev", default-features = false }
 pallet-executive = { package = "frame-executive", version = "4.0.0-dev", default-features = false }
 pallet-grandpa = { version = "4.0.0-dev", default-features = false }
@@ -139,7 +139,7 @@ std = [
     "pallet-compliance-manager/std",
     #"pallet-contracts-primitives/std",
     #"pallet-contracts-rpc-runtime-api/std",
-    #"pallet-contracts/std",
+    "pallet-contracts/std",
     "pallet-corporate-actions/std",
     "pallet-executive/std",
     "pallet-external-agents/std",
