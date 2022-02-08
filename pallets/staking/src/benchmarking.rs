@@ -556,7 +556,7 @@ benchmarks! {
         let v in 1 .. 10;
         let n in 1 .. 100;
 
-        create_validators_with_nominators_for_era::<T>(v, n, MAX_NOMINATIONS, false, None).unwrap();
+        create_validators_with_nominators_for_era::<T>(v, n, MAX_NOMINATIONS as usize, false, None).unwrap();
         let session_index = SessionIndex::one();
     }: {
         let validators = Staking::<T>::new_era(session_index).ok_or("`new_era` failed")?;
@@ -566,7 +566,7 @@ benchmarks! {
     payout_all {
         let v in 1 .. 10;
         let n in 1 .. 100;
-        create_validators_with_nominators_for_era::<T>(v, n, MAX_NOMINATIONS, false, None).unwrap();
+        create_validators_with_nominators_for_era::<T>(v, n, MAX_NOMINATIONS as usize, false, None).unwrap();
         // Start a new Era
         let new_validators = Staking::<T>::new_era(SessionIndex::one()).unwrap();
         assert_eq!(new_validators.len(), v as usize);
@@ -641,12 +641,12 @@ benchmarks! {
         // number of winners, also ValidatorCount
         let w in 16 .. 100;
 
-        assert!(w as usize >= MAX_NOMINATIONS, "doesn't support lower value");
+        assert!(w as usize >= MAX_NOMINATIONS as usize, "doesn't support lower value");
 
         let winners = create_validators_with_nominators_for_era::<T>(
             v,
             n,
-            MAX_NOMINATIONS,
+            MAX_NOMINATIONS as usize,
             false,
             Some(w),
         ).unwrap();
@@ -712,12 +712,12 @@ benchmarks! {
         // number of winners, also ValidatorCount.
         let w in 16 .. 100;
 
-        assert!(w as usize >= MAX_NOMINATIONS, "doesn't support lower value");
+        assert!(w as usize >= MAX_NOMINATIONS as usize, "doesn't support lower value");
 
         let winners = create_validators_with_nominators_for_era::<T>(
             v,
             n,
-            MAX_NOMINATIONS,
+            MAX_NOMINATIONS as usize,
             false,
             Some(w),
         ).unwrap();
@@ -801,7 +801,7 @@ benchmarks! {
         // number of nominator intent
         let n in 1000 .. 2000;
 
-        create_validators_with_nominators_for_era::<T>(v, n, MAX_NOMINATIONS, false, None).unwrap();
+        create_validators_with_nominators_for_era::<T>(v, n, MAX_NOMINATIONS as usize, false, None).unwrap();
 
         // needed for the solution to be generates.
         assert!(<Staking<T>>::create_stakers_snapshot().0);

@@ -24,8 +24,8 @@ use frame_support::{
     dispatch::DispatchResult,
     parameter_types,
     traits::{
-        Contains, Currency, FindAuthor, Get, Imbalance, KeyOwnerProofSystem, OnFinalize,
-        OnInitialize, OnUnbalanced, OneSessionHandler,
+        Contains, Currency, FindAuthor, GenesisBuild as _, Get, Imbalance, KeyOwnerProofSystem,
+        OnFinalize, OnInitialize, OnUnbalanced, OneSessionHandler, SortedMembers,
     },
     weights::{constants::RocksDbWeight, DispatchInfo, Weight},
     IterableStorageMap, StorageDoubleMap, StorageMap, StorageValue,
@@ -54,7 +54,7 @@ use polymesh_primitives::{
 };
 use sp_core::H256;
 use sp_npos_elections::{
-    reduce, to_support_map, CompactSolution, ElectionScore, EvaluateSupport, ExtendedBalance,
+    reduce, to_supports, ElectionScore, EvaluateSupport, ExtendedBalance, NposSolution,
     StakedAssignment,
 };
 use sp_runtime::{
@@ -121,10 +121,10 @@ impl OneSessionHandler<AccountId> for OtherSessionHandler {
         });
     }
 
-    fn on_disabled(validator_index: usize) {
+    fn on_disabled(validator_index: u32) {
         SESSION.with(|d| {
             let mut d = d.borrow_mut();
-            let value = d.0[validator_index];
+            let value = d.0[validator_index as usize];
             d.1.insert(value);
         })
     }
@@ -148,21 +148,22 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        System: frame_system::{Module, Call, Config, Storage, Event<T>},
-        Babe: pallet_babe::{Module, Call, Storage, Config, Inherent, ValidateUnsigned},
-        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
-        Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
-        Staking: staking::{Module, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
-        Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
-        Identity: pallet_identity::{Module, Call, Storage, Event<T>, Config<T>},
-        CddServiceProviders: pallet_group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
-        ProtocolFee: pallet_protocol_fee::{Module, Call, Storage, Event<T>, Config},
-        Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
-        Treasury: pallet_treasury::{Module, Call, Event<T>},
-        PolymeshCommittee: pallet_committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>},
-        TestUtils: pallet_test_utils::{Module, Call, Storage, Event<T>},
-        Base: pallet_base::{Module, Call, Event},
+        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        Babe: pallet_babe::{Pallet, Call, Storage, Config, ValidateUnsigned},
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+        Authorship: pallet_authorship::{Pallet, Call, Storage, Inherent},
+        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Staking: staking::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
+        Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
+        Identity: pallet_identity::{Pallet, Call, Storage, Event<T>, Config<T>},
+        CddServiceProviders: pallet_group::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
+        ProtocolFee: pallet_protocol_fee::{Pallet, Call, Storage, Event<T>, Config},
+        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
+        Treasury: pallet_treasury::{Pallet, Call, Event<T>},
+        PolymeshCommittee: pallet_committee::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        Pips: pallet_pips::{Pallet, Call, Storage, Event<T>, Config<T>},
+        TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T>},
+        Base: pallet_base::{Pallet, Call, Event},
     }
 );
 
@@ -196,7 +197,7 @@ parameter_types! {
 }
 
 impl frame_system::Config for Test {
-    type BaseCallFilter = ();
+    type BaseCallFilter = frame_support::traits::Everything;
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = RocksDbWeight;
@@ -217,6 +218,7 @@ impl frame_system::Config for Test {
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
+    type OnSetCode = ();
     type SS58Prefix = ();
 }
 
@@ -242,7 +244,6 @@ impl pallet_balances::Config for Test {
 
 parameter_types! {
     pub const UncleGenerations: u64 = 0;
-    pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(25);
 }
 sp_runtime::impl_opaque_keys! {
     pub struct SessionKeys {
@@ -257,7 +258,6 @@ impl pallet_session::Config for Test {
     type Event = Event;
     type ValidatorId = AccountId;
     type ValidatorIdOf = StashOf<Test>;
-    type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
     type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
     type WeightInfo = ();
 }
@@ -361,6 +361,7 @@ impl pallet_scheduler::Config for Test {
     type ScheduleOrigin = EnsureRoot<AccountId>;
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
     type WeightInfo = ();
+    type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
 }
 
 impl pallet_test_utils::Config for Test {
@@ -516,6 +517,7 @@ impl polymesh_common_utilities::traits::permissions::Config for Test {
 parameter_types! {
     pub const EpochDuration: u64 = 10;
     pub const ExpectedBlockTime: u64 = 1;
+    pub const MaxAuthorities: u32 = 100;
 }
 
 impl pallet_babe::Config for Test {
@@ -523,6 +525,7 @@ impl pallet_babe::Config for Test {
     type EpochDuration = EpochDuration;
     type ExpectedBlockTime = ExpectedBlockTime;
     type EpochChangeTrigger = pallet_babe::ExternalTrigger;
+    type DisabledValidators = Session;
 
     type KeyOwnerProofSystem = ();
     type KeyOwnerProof = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
@@ -535,6 +538,8 @@ impl pallet_babe::Config for Test {
     )>>::IdentificationTuple;
     type HandleEquivocation =
         pallet_babe::EquivocationHandler<Self::KeyOwnerIdentification, (), ()>;
+
+    type MaxAuthorities = MaxAuthorities;
 }
 
 pallet_staking_reward_curve::build! {
@@ -582,12 +587,19 @@ parameter_types! {
 }
 
 impl Contains<u64> for TwoThousand {
-    fn sorted_members() -> std::vec::Vec<u64> {
-        [2000, 3000, 4000, 5000].to_vec()
+    fn contains(t: &u64) -> bool {
+        TwoThousand::get() == *t
+    }
+}
+
+impl SortedMembers<u64> for TwoThousand {
+    fn sorted_members() -> Vec<u64> {
+        vec![TwoThousand::get()]
     }
 }
 
 impl Config for Test {
+    const MAX_NOMINATIONS: u32 = pallet_staking::MAX_NOMINATIONS;
     type Currency = Balances;
     type UnixTime = Timestamp;
     type CurrencyToVote = frame_support::traits::SaturatingCurrencyToVote;
@@ -1289,7 +1301,7 @@ pub(crate) fn on_offence_in_era(
     let bonded_eras = staking::BondedEras::get();
     for &(bonded_era, start_session) in bonded_eras.iter() {
         if bonded_era == era {
-            let _ = Staking::on_offence(offenders, slash_fraction, start_session).unwrap();
+            let _ = Staking::on_offence(offenders, slash_fraction, start_session);
             return;
         } else if bonded_era > era {
             break;
@@ -1301,8 +1313,7 @@ pub(crate) fn on_offence_in_era(
             offenders,
             slash_fraction,
             Staking::eras_start_session_index(era).unwrap(),
-        )
-        .unwrap();
+        );
     } else {
         panic!("cannot slash in era {}", era);
     }
@@ -1405,7 +1416,7 @@ pub(crate) fn horrible_phragmen_with_post_processing(
     let score = {
         let (_, _, better_score) = prepare_submission_with(true, true, 0, |_| {});
 
-        let support = to_support_map::<AccountId>(&winners, &staked_assignment).unwrap();
+        let support = to_supports::<AccountId>(&staked_assignment);
         let score = support.evaluate();
 
         assert!(sp_npos_elections::is_score_better::<Perbill>(
@@ -1443,7 +1454,7 @@ pub(crate) fn horrible_phragmen_with_post_processing(
     >(staked_assignment);
 
     let compact =
-        CompactAssignments::from_assignment(assignments_reduced, nominator_index, validator_index)
+        CompactAssignments::from_assignment(&assignments_reduced, nominator_index, validator_index)
             .unwrap();
 
     // winner ids to index
@@ -1468,7 +1479,7 @@ pub(crate) fn prepare_submission_with(
         winners,
         assignments,
     } = Staking::do_phragmen::<OffchainAccuracy>(iterations).unwrap();
-    let winners = sp_npos_elections::to_without_backing(winners);
+    let winners = winners.into_iter().map(|(who, _)| who).collect::<Vec<_>>();
 
     let mut staked = sp_npos_elections::assignment_ratio_to_staked(
         assignments,
@@ -1513,15 +1524,14 @@ pub(crate) fn prepare_submission_with(
             Staking::slashable_balance_of_fn(),
         );
 
-        let support_map =
-            to_support_map::<AccountId>(winners.as_slice(), staked.as_slice()).unwrap();
+        let support_map = to_supports::<AccountId>(staked.as_slice());
         support_map.evaluate()
     } else {
         Default::default()
     };
 
     let compact =
-        CompactAssignments::from_assignment(assignments_reduced, nominator_index, validator_index)
+        CompactAssignments::from_assignment(&assignments_reduced, nominator_index, validator_index)
             .expect("Failed to create compact");
 
     // winner ids to index
@@ -1557,7 +1567,7 @@ pub(crate) fn staking_events() -> Vec<staking::Event<Test>> {
         .into_iter()
         .map(|r| r.event)
         .filter_map(|e| {
-            if let Event::staking(inner) = e {
+            if let Event::Staking(inner) = e {
                 Some(inner)
             } else {
                 None

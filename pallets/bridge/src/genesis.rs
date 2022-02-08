@@ -1,6 +1,6 @@
 use crate::{BridgeTxDetail, BridgeTxStatus, Config, GenesisConfig};
 
-use frame_support::{debug, storage::StorageDoubleMap};
+use frame_support::storage::StorageDoubleMap;
 use polymesh_common_utilities::{balances::CheckCdd, constants::currency::POLY, Context};
 use polymesh_primitives::Permissions;
 use sp_runtime::traits::Zero;
@@ -24,10 +24,10 @@ pub(crate) fn controller<T: Config>(config: &GenesisConfig<T>) -> T::AccountId {
         config.signatures_required,
     )
     .expect("cannot create the bridge multisig");
-    debug::info!("Created bridge multisig {}", multisig_id);
+    log::info!("Created bridge multisig {}", multisig_id);
 
     for signer in &config.signers {
-        debug::info!("Accepting bridge signer auth for {:?}", signer);
+        log::info!("Accepting bridge signer auth for {:?}", signer);
         let last_auth = <pallet_identity::Authorizations<T>>::iter_prefix_values(signer)
             .next()
             .expect("cannot find bridge signer auth")
@@ -40,7 +40,7 @@ pub(crate) fn controller<T: Config>(config: &GenesisConfig<T>) -> T::AccountId {
         .expect("bridge creator account has no identity");
 
     Identity::<T>::unsafe_join_identity(creator_did, Permissions::default(), multisig_id.clone());
-    debug::info!("Joined identity {} as signer {}", creator_did, multisig_id);
+    log::info!("Joined identity {} as signer {}", creator_did, multisig_id);
 
     multisig_id
 }
@@ -61,7 +61,7 @@ pub(crate) fn bridge_tx_details<T: Config>(
             };
             let recipient_did = T::CddChecker::get_key_cdd_did(&recipient);
 
-            debug::info!(
+            log::info!(
                 "Credited Genesis bridge transaction to {:?}(did={:?}) with nonce {} for {:?} POLYX",
                 recipient,
                 recipient_did,

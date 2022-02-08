@@ -186,8 +186,9 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::traits::BlockRewardsReserveCurrency;
 use polymesh_primitives::Balance;
+use scale_info::TypeInfo;
 use sp_runtime::{
-    traits::{AccountIdConversion, StaticLookup, StoredMapError, Zero},
+    traits::{AccountIdConversion, StaticLookup, Zero},
     DispatchError, DispatchResult, RuntimeDebug,
 };
 use sp_std::{cmp, mem, prelude::*, result};
@@ -214,7 +215,7 @@ decl_error! {
 
 /// A single lock on a balance. There can be many of these on an account and they "overlap", so the
 /// same balance is frozen by multiple locks.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct BalanceLock<Balance> {
     /// An identifier for this lock. Only one lock may be in existence for each identifier.
     pub id: LockIdentifier,
@@ -439,7 +440,7 @@ impl<T: Config> Module<T> {
 
     pub fn block_rewards_reserve() -> T::AccountId {
         SystematicIssuers::BlockRewardReserve
-            .as_module_id()
+            .as_pallet_id()
             .into_account()
     }
 
@@ -467,7 +468,7 @@ impl<T: Config> Module<T> {
     /// NOTE: LOW-LEVEL: This will not attempt to maintain total issuance. It is expected that
     /// the caller will do this.
     pub fn mutate_account<R>(who: &T::AccountId, f: impl FnOnce(&mut AccountData) -> R) -> R {
-        Self::try_mutate_account(who, |a, _| -> Result<R, StoredMapError> { Ok(f(a)) })
+        Self::try_mutate_account(who, |a, _| -> Result<R, DispatchError> { Ok(f(a)) })
             .expect("Error is infallible; qed")
     }
 
@@ -479,7 +480,7 @@ impl<T: Config> Module<T> {
     ///
     /// NOTE: LOW-LEVEL: This will not attempt to maintain total issuance. It is expected that
     /// the caller will do this.
-    fn try_mutate_account<R, E: From<StoredMapError>>(
+    fn try_mutate_account<R, E: From<DispatchError>>(
         who: &T::AccountId,
         f: impl FnOnce(&mut AccountData, bool) -> Result<R, E>,
     ) -> Result<R, E> {
@@ -506,7 +507,7 @@ impl<T: Config> Module<T> {
     /// Update the account entry for `who`, given the locks.
     fn update_locks(who: &T::AccountId, locks: &[BalanceLock<Balance>]) {
         if locks.len() as u32 > T::MaxLocks::get() {
-            frame_support::debug::warn!(
+            log::warn!(
                 "Warning: A user has more currency locks than expected. \
                 A runtime configuration adjustment may be needed."
             );
@@ -531,12 +532,12 @@ impl<T: Config> Module<T> {
             if existed {
                 // TODO: use Locks::<T, I>::hashed_key
                 // https://github.com/paritytech/substrate/issues/4969
-                system::Module::<T>::dec_consumers(who);
+                system::Pallet::<T>::dec_consumers(who);
             }
         } else {
             Locks::<T>::insert(who, locks);
             if !existed {
-                let _ = system::Module::<T>::inc_consumers(who);
+                let _ = system::Pallet::<T>::inc_consumers(who);
             }
         }
     }
@@ -666,7 +667,7 @@ impl<T: Config> BlockRewardsReserveCurrency<NegativeImbalance<T>> for Module<T> 
         let brr = Self::block_rewards_reserve();
         Self::try_mutate_account(
             &brr,
-            |account, _| -> Result<NegativeImbalance<T>, StoredMapError> {
+            |account, _| -> Result<NegativeImbalance<T>, DispatchError> {
                 let amount_to_mint = if account.free > Zero::zero() {
                     let old_brr_free_balance = account.free;
                     let new_brr_free_balance = old_brr_free_balance.saturating_sub(amount);

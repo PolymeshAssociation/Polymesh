@@ -59,7 +59,7 @@ type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 //type Contracts = pallet_contracts::Module<TestStorage>;
 type Asset = asset::Module<TestStorage>;
-type Timestamp = pallet_timestamp::Module<TestStorage>;
+type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
@@ -68,7 +68,7 @@ type Origin = <TestStorage as frame_system::Config>::Origin;
 type DidRecords = identity::DidRecords<TestStorage>;
 type Statistics = statistics::Module<TestStorage>;
 type AssetGenesis = asset::GenesisConfig<TestStorage>;
-type System = frame_system::Module<TestStorage>;
+type System = frame_system::Pallet<TestStorage>;
 type ExternalAgents = pallet_external_agents::Module<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;
 type FeeError = pallet_protocol_fee::Error<TestStorage>;
@@ -1725,7 +1725,7 @@ fn classic_ticker_claim_works() {
                 [
                     ..,
                     frame_system::EventRecord {
-                        event: super::storage::EventTest::pallet_asset(
+                        event: super::storage::EventTest::Asset(
                             pallet_asset::RawEvent::ClassicTickerClaimed(..)
                         ),
                         ..

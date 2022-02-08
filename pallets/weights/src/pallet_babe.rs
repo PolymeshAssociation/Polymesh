@@ -24,6 +24,10 @@ use polymesh_runtime_common::{
 
 pub struct WeightInfo;
 impl pallet_babe::WeightInfo for WeightInfo {
+    fn plan_config_change() -> Weight {
+        0
+    }
+
     // WARNING! Some components were not used: ["x"]
     fn report_equivocation(validator_count: u32) -> Weight {
         // we take the validator set count from the membership proof to

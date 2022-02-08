@@ -2,6 +2,7 @@
 
 use codec::{Decode, Encode};
 use polymesh_primitives::{ClaimType, IdentityId, Permissions, Scope, SecondaryKey};
+use scale_info::TypeInfo;
 use sp_std::{prelude::*, vec::Vec};
 
 #[cfg(feature = "std")]
@@ -58,13 +59,13 @@ pub struct PermissionedCallOriginData<AccountId: Encode + Decode> {
     pub secondary_key: Option<SecondaryKey<AccountId>>,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct Claim1stKey {
     pub target: IdentityId,
     pub claim_type: ClaimType,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct Claim2ndKey {
     pub issuer: IdentityId,
     pub scope: Option<Scope>,

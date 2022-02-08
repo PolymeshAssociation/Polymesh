@@ -4,10 +4,10 @@ use super::ext_builder::{
 };
 use codec::Encode;
 use frame_support::{
-    assert_ok, debug,
+    assert_ok,
     dispatch::DispatchResult,
     parameter_types,
-    traits::{Currency, Imbalance, KeyOwnerProofSystem, OnInitialize, OnUnbalanced, Randomness},
+    traits::{Currency, Imbalance, KeyOwnerProofSystem, OnInitialize, OnUnbalanced},
     weights::{
         DispatchInfo, RuntimeDbWeight, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
         WeightToFeePolynomial,
@@ -45,9 +45,7 @@ use polymesh_primitives::{
     PortfolioNumber, Scope, ScopeId, TrustedFor, TrustedIssuer,
 };
 use polymesh_runtime_common::{merge_active_and_inactive, runtime::VMO};
-use polymesh_runtime_develop::constants::time::{
-    EPOCH_DURATION_IN_BLOCKS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK,
-};
+use polymesh_runtime_develop::constants::time::{EPOCH_DURATION_IN_BLOCKS, MILLISECS_PER_BLOCK};
 use smallvec::smallvec;
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
@@ -126,7 +124,7 @@ parameter_types! {
     pub const SlashDeferDuration: pallet_staking::EraIndex = 4;
     pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
     pub const MaxIterations: u32 = 10;
-    pub MinSolutionScoreBump: Perbill = Perbill::from_rational_approximation(5u32, 10_000);
+    pub MinSolutionScoreBump: Perbill = Perbill::from_rational(5u32, 10_000);
     pub const MaxNominatorRewardedPerValidator: u32 = 2048;
     pub const IndexDeposit: Balance = DOLLARS;
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
@@ -137,12 +135,12 @@ parameter_types! {
     pub const MinimumBond: Balance = 1 * POLY;
     pub const MaxLegsInInstruction: u32 = 100;
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
-    pub const SessionDuration: BlockNumber = EPOCH_DURATION_IN_SLOTS as _;
+    pub const MaxAuthorities: u32 = 100_000;
+    pub const MaxKeys: u32 = 10_000;
+    pub const MaxPeerInHeartbeats: u32 = 10_000;
+    pub const MaxPeerDataEncodingSize: u32 = 1_000;
     pub const ReportLongevity: u64 =
         BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
-
-    pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) * MaximumBlockWeight::get();
-
 }
 
 frame_support::construct_runtime!(
@@ -151,90 +149,90 @@ frame_support::construct_runtime!(
     NodeBlock = polymesh_primitives::Block,
     UncheckedExtrinsic = UncheckedExtrinsic,
 {
-        System: frame_system::{Module, Call, Config, Storage, Event<T>} = 0,
-        Babe: pallet_babe::{Module, Call, Storage, Config, ValidateUnsigned} = 1,
-        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent} = 2,
-        Indices: pallet_indices::{Module, Call, Storage, Config<T>, Event<T>} = 3,
+        System: frame_system::{Pallet, Call, Config, Storage, Event<T>} = 0,
+        Babe: pallet_babe::{Pallet, Call, Storage, Config, ValidateUnsigned} = 1,
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 2,
+        Indices: pallet_indices::{Pallet, Call, Storage, Config<T>, Event<T>} = 3,
 
         // Balance: Genesis config dependencies: System.
-        Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>} = 4,
+        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 4,
 
         // TransactionPayment: Genesis config dependencies: Balance.
-        TransactionPayment: pallet_transaction_payment::{Module, Storage} = 5,
+        TransactionPayment: pallet_transaction_payment::{Pallet, Storage} = 5,
 
         // Identity: Genesis config deps: Timestamp.
-        Identity: pallet_identity::{Module, Call, Storage, Event<T>, Config<T>} = 6,
-        // Authorship: pallet_authorship::{Module, Call, Storage, Inherent} = 7,
+        Identity: pallet_identity::{Pallet, Call, Storage, Event<T>, Config<T>} = 6,
+        // Authorship: pallet_authorship::{Pallet, Call, Storage, Inherent} = 7,
 
         // CddServiceProviders: Genesis config deps: Identity
-        CddServiceProviders: pallet_group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>} = 38,
+        CddServiceProviders: pallet_group::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 38,
 
         // Staking: Genesis config deps: Balances, Indices, Identity, Babe, Timestamp, CddServiceProviders.
-        Staking: pallet_staking::{Module, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 8,
-        Offences: pallet_offences::{Module, Call, Storage, Event} = 9,
+        Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 8,
+        Offences: pallet_offences::{Pallet, Storage, Event} = 9,
 
         // Session: Genesis config deps: System.
-        Session: pallet_session::{Module, Call, Storage, Event, Config<T>} = 10,
-        Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event} = 12,
-        ImOnline: pallet_im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 13,
-        AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config} = 14,
-        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage} = 15,
-        Historical: pallet_session_historical::{Module} = 16,
+        Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 10,
+        Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event} = 12,
+        ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 13,
+        AuthorityDiscovery: pallet_authority_discovery::{Pallet, Config} = 14,
+        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Pallet, Storage} = 15,
+        Historical: pallet_session_historical::{Pallet} = 16,
 
         // Sudo. Usable initially.
         // RELEASE: remove this for release build.
-        Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>} = 17,
-        MultiSig: pallet_multisig::{Module, Call, Config, Storage, Event<T>} = 18,
+        Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>} = 17,
+        MultiSig: pallet_multisig::{Pallet, Call, Config, Storage, Event<T>} = 18,
 
         /*
         // Contracts
-        BaseContracts: pallet_contracts::{Module, Config<T>, Storage, Event<T>} = 19,
-        Contracts: polymesh_contracts::{Module, Call, Storage, Event<T>} = 20,
+        BaseContracts: pallet_contracts::{Pallet, Config<T>, Storage, Event<T>} = 19,
+        Contracts: polymesh_contracts::{Pallet, Call, Storage, Event<T>} = 20,
         */
 
         // Polymesh Governance Committees
-        Treasury: pallet_treasury::{Module, Call, Event<T>} = 21,
-        PolymeshCommittee: pallet_committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 22,
+        Treasury: pallet_treasury::{Pallet, Call, Event<T>} = 21,
+        PolymeshCommittee: pallet_committee::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 22,
 
         // CommitteeMembership: Genesis config deps: PolymeshCommittee, Identity.
-        CommitteeMembership: pallet_group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>} = 23,
-        Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>} = 24,
-        TechnicalCommittee: pallet_committee::<Instance3>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 25,
+        CommitteeMembership: pallet_group::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 23,
+        Pips: pallet_pips::{Pallet, Call, Storage, Event<T>, Config<T>} = 24,
+        TechnicalCommittee: pallet_committee::<Instance3>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 25,
 
         // TechnicalCommitteeMembership: Genesis config deps: TechnicalCommittee, Identity
-        TechnicalCommitteeMembership: pallet_group::<Instance3>::{Module, Call, Storage, Event<T>, Config<T>} = 26,
-        UpgradeCommittee: pallet_committee::<Instance4>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 27,
+        TechnicalCommitteeMembership: pallet_group::<Instance3>::{Pallet, Call, Storage, Event<T>, Config<T>} = 26,
+        UpgradeCommittee: pallet_committee::<Instance4>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 27,
 
         // UpgradeCommitteeMembership: Genesis config deps: UpgradeCommittee
-        UpgradeCommitteeMembership: pallet_group::<Instance4>::{Module, Call, Storage, Event<T>, Config<T>} = 28,
+        UpgradeCommitteeMembership: pallet_group::<Instance4>::{Pallet, Call, Storage, Event<T>, Config<T>} = 28,
 
         //Polymesh
         ////////////
 
         // Asset: Genesis config deps: Timestamp,
-        Asset: pallet_asset::{Module, Call, Storage, Config<T>, Event<T>} = 29,
+        Asset: pallet_asset::{Pallet, Call, Storage, Config<T>, Event<T>} = 29,
 
         // Bridge: Genesis config deps: Multisig, Identity,
-        Bridge: pallet_bridge::{Module, Call, Storage, Config<T>, Event<T>} = 31,
-        ComplianceManager: pallet_compliance_manager::{Module, Call, Storage, Event} = 32,
-        Settlement: pallet_settlement::{Module, Call, Storage, Event<T>, Config} = 36,
-        Sto: pallet_sto::{Module, Call, Storage, Event<T>} = 37,
-        Statistics: pallet_statistics::{Module, Call, Storage, Event} = 39,
-        ProtocolFee: pallet_protocol_fee::{Module, Call, Storage, Event<T>, Config} = 40,
-        Utility: pallet_utility::{Module, Call, Storage, Event} = 41,
-        Portfolio: pallet_portfolio::{Module, Call, Storage, Event} = 42,
+        Bridge: pallet_bridge::{Pallet, Call, Storage, Config<T>, Event<T>} = 31,
+        ComplianceManager: pallet_compliance_manager::{Pallet, Call, Storage, Event} = 32,
+        Settlement: pallet_settlement::{Pallet, Call, Storage, Event<T>, Config} = 36,
+        Sto: pallet_sto::{Pallet, Call, Storage, Event<T>} = 37,
+        Statistics: pallet_statistics::{Pallet, Call, Storage, Event} = 39,
+        ProtocolFee: pallet_protocol_fee::{Pallet, Call, Storage, Event<T>, Config} = 40,
+        Utility: pallet_utility::{Pallet, Call, Storage, Event} = 41,
+        Portfolio: pallet_portfolio::{Pallet, Call, Storage, Event} = 42,
         // Removed pallet Confidential = 43,
-        Permissions: pallet_permissions::{Module, Storage} = 44,
-        Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>} = 45,
-        CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event, Config} = 46,
-        CorporateBallot: corporate_ballots::{Module, Call, Storage, Event} = 47,
-        CapitalDistribution: capital_distributions::{Module, Call, Storage, Event} = 48,
-        Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event, Config} = 49,
-        TestUtils: pallet_test_utils::{Module, Call, Storage, Event<T> } = 50,
-        Base: pallet_base::{Module, Call, Event} = 51,
-        ExternalAgents: pallet_external_agents::{Module, Call, Storage, Event} = 52,
-        Relayer: pallet_relayer::{Module, Call, Storage, Event<T>} = 53,
-        Rewards: pallet_rewards::{Module, Call, Storage, Event<T>, Config<T>} = 54,
+        Permissions: pallet_permissions::{Pallet, Storage} = 44,
+        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 45,
+        CorporateAction: pallet_corporate_actions::{Pallet, Call, Storage, Event, Config} = 46,
+        CorporateBallot: corporate_ballots::{Pallet, Call, Storage, Event} = 47,
+        CapitalDistribution: capital_distributions::{Pallet, Call, Storage, Event} = 48,
+        Checkpoint: pallet_checkpoint::{Pallet, Call, Storage, Event, Config} = 49,
+        TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 50,
+        Base: pallet_base::{Pallet, Call, Event} = 51,
+        ExternalAgents: pallet_external_agents::{Pallet, Call, Storage, Event} = 52,
+        Relayer: pallet_relayer::{Pallet, Call, Storage, Event<T>} = 53,
+        Rewards: pallet_rewards::{Pallet, Call, Storage, Event<T>, Config<T>} = 54,
     }
 );
 
@@ -355,7 +353,7 @@ impl OnUnbalanced<NegativeImbalance<TestStorage>> for DealWithFees {
     fn on_nonzero_unbalanced(amount: NegativeImbalance<TestStorage>) {
         let target = account_from(5000);
         let positive_imbalance = Balances::deposit_creating(&target, amount.peek());
-        let _ = amount.offset(positive_imbalance).map_err(|_| 4); // random value mapped for error
+        let _ = amount.offset(positive_imbalance).same().map_err(|_| 4); // random value mapped for error
     }
 }
 
@@ -380,8 +378,6 @@ parameter_types! {
     pub const MaxSenderConditionsPerCompliance: usize = 30;
     pub const MaxReceiverConditionsPerCompliance: usize = 30;
     pub const MaxCompliancePerRequirement: usize = 10;
-
-    pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
 
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
@@ -551,7 +547,7 @@ impl pallet_session::SessionHandler<AuthorityId> for TestSessionHandler {
     ) {
     }
 
-    fn on_disabled(_validator_index: usize) {}
+    fn on_disabled(_validator_index: u32) {}
 
     fn on_genesis_session<Ks: OpaqueKeys>(_validators: &[(AuthorityId, Ks)]) {}
     fn on_before_session_ending() {}
@@ -741,11 +737,11 @@ pub fn authorizations_to(to: &Signatory<AccountId>) -> Vec<Authorization<Account
 
 /// Advances the system `block_number` and run any scheduled task.
 pub fn next_block() -> Weight {
-    let block_number = frame_system::Module::<TestStorage>::block_number() + 1;
-    frame_system::Module::<TestStorage>::set_block_number(block_number);
+    let block_number = frame_system::Pallet::<TestStorage>::block_number() + 1;
+    frame_system::Pallet::<TestStorage>::set_block_number(block_number);
 
     // Call the timelocked tx handler.
-    pallet_scheduler::Module::<TestStorage>::on_initialize(block_number)
+    pallet_scheduler::Pallet::<TestStorage>::on_initialize(block_number)
 }
 
 pub fn fast_forward_to_block(n: u32) -> Weight {
@@ -889,7 +885,10 @@ pub fn create_cdd_id_and_investor_uid(identity_id: IdentityId) -> (CddId, Invest
 }
 
 pub fn make_remark_proposal() -> Call {
-    Call::System(frame_system::Call::remark(vec![b'X'; 100])).into()
+    Call::System(frame_system::Call::remark {
+        remark: vec![b'X'; 100],
+    })
+    .into()
 }
 
 crate fn set_curr_did(did: Option<IdentityId>) {

@@ -55,6 +55,9 @@ impl frame_system::WeightInfo for WeightInfo {
     fn remark(_b: u32) -> Weight {
         (1_594_000 as Weight)
     }
+    fn remark_with_event(_b: u32) -> Weight {
+        (1_787_000 as Weight)
+    }
     fn set_heap_pages() -> Weight {
         (2_017_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
@@ -80,8 +83,5 @@ impl frame_system::WeightInfo for WeightInfo {
             // Standard Error: 16_000
             .saturating_add((968_000 as Weight).saturating_mul(p as Weight))
             .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(p as Weight)))
-    }
-    fn suicide() -> Weight {
-        (53_564_000 as Weight)
     }
 }

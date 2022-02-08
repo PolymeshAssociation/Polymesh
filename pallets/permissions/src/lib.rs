@@ -32,6 +32,7 @@ use frame_support::{
 };
 use polymesh_common_utilities::traits::{AccountCallPermissionsData, CheckAccountCallPermissions};
 use polymesh_primitives::{DispatchableName, PalletName};
+use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
     transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
@@ -81,7 +82,8 @@ impl<T: Config> Module<T> {
 }
 
 /// A signed extension used in checking call permissions.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Default)]
+#[derive(Encode, Decode, TypeInfo, Clone, Eq, PartialEq, Default)]
+#[scale_info(skip_type_params(T))]
 pub struct StoreCallMetadata<T: Config>(PhantomData<T>);
 
 impl<T: Config> fmt::Debug for StoreCallMetadata<T> {

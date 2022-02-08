@@ -12,7 +12,7 @@ use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
     traits::{LockableCurrency, WithdrawReasons},
-    StorageDoubleMap, StorageMap, StorageValue,
+    StorageDoubleMap, StorageValue,
 };
 use frame_system::{self, EventRecord};
 use pallet_pips::{
@@ -25,7 +25,7 @@ use polymesh_common_utilities::{MaybeBlock, GC_DID};
 use polymesh_primitives::{AccountId, BlockNumber};
 use test_client::AccountKeyring;
 
-type System = frame_system::Module<TestStorage>;
+type System = frame_system::Pallet<TestStorage>;
 type Balances = pallet_balances::Module<TestStorage>;
 type Pips = pallet_pips::Module<TestStorage>;
 type Group = pallet_group::Module<TestStorage, pallet_group::Instance1>;
@@ -34,7 +34,7 @@ type Treasury = treasury::Module<TestStorage>;
 type Error = pallet_pips::Error<TestStorage>;
 type Deposits = pallet_pips::Deposits<TestStorage>;
 type Votes = pallet_pips::ProposalVotes<TestStorage>;
-type Scheduler = pallet_scheduler::Module<TestStorage>;
+type Scheduler = pallet_scheduler::Pallet<TestStorage>;
 type Agenda = pallet_scheduler::Agenda<TestStorage>;
 
 type Origin = <TestStorage as frame_system::Config>::Origin;
@@ -47,7 +47,7 @@ macro_rules! assert_last_event {
         assert!(matches!(
             &*System::events(),
             [.., EventRecord {
-                event: EventTest::pallet_pips($event),
+                event: EventTest::Pips($event),
                 ..
             }]
             if $cond
@@ -81,7 +81,9 @@ fn spip(id: u32, dir: bool, power: u128) -> SnapshottedPip {
 }
 
 fn make_proposal(value: u64) -> Call {
-    Call::Pips(pallet_pips::Call::set_min_proposal_deposit(value.into()))
+    Call::Pips(pallet_pips::Call::set_min_proposal_deposit {
+        deposit: value.into(),
+    })
 }
 
 fn proposal(
@@ -952,12 +954,12 @@ fn only_gc_majority_stuff() {
         assert_ok!(community_proposal(proposer, 0));
         assert_eq!(Pips::pip_id_sequence().0, id.0 + 1);
         assert_eq!(Pips::active_pip_count(), 1);
-        consensus_call(pallet_pips::Call::reject_proposal(id));
+        consensus_call(pallet_pips::Call::reject_proposal { id });
         assert_eq!(Pips::pip_id_sequence().0, id.0 + 1);
         assert_eq!(Pips::active_pip_count(), 0);
         assert_state(id, false, ProposalState::Rejected);
         // And now they seek consensus to and do prune.
-        consensus_call(pallet_pips::Call::prune_proposal(id));
+        consensus_call(pallet_pips::Call::prune_proposal { id });
         assert_eq!(Pips::proposals(id), None);
 
         // Bob & Charlie seek consensus.
@@ -967,11 +969,10 @@ fn only_gc_majority_stuff() {
         let id_snapshot = Pips::pip_id_sequence();
         assert_ok!(community_proposal(proposer, 0));
         assert_ok!(Pips::snapshot(bob.origin()));
-        consensus_call(pallet_pips::Call::approve_committee_proposal(id_committee));
-        consensus_call(pallet_pips::Call::enact_snapshot_results(vec![(
-            id_snapshot,
-            SnapshotResult::Approve,
-        )]));
+        consensus_call(pallet_pips::Call::approve_committee_proposal { id: id_committee });
+        consensus_call(pallet_pips::Call::enact_snapshot_results {
+            results: vec![(id_snapshot, SnapshotResult::Approve)],
+        });
         assert_state(id_committee, false, ProposalState::Scheduled);
         assert_state(id_snapshot, false, ProposalState::Scheduled);
     });
@@ -1003,7 +1004,7 @@ fn scheduled_proposal(proposer: User, member: User, deposit: u128) -> PipId {
         vec![(next_id, SnapshotResult::Approve)]
     ));
     assert_event_exists!(
-        EventTest::pallet_scheduler(pallet_scheduler::RawEvent::Scheduled(b, ..)),
+        EventTest::Scheduler(pallet_scheduler::Event::Scheduled(b, ..)),
         *b == System::block_number() + Pips::default_enactment_period()
     );
     assert_state(next_id, false, ProposalState::Scheduled);
@@ -1028,7 +1029,7 @@ fn failed_community_proposal(proposer: User, member: User, bad_id: PipId) -> Pip
     assert_ok!(proposal(
         &proposer.origin(),
         &Proposer::Community(proposer.acc()),
-        Call::Pips(pallet_pips::Call::reject_proposal(bad_id)),
+        Call::Pips(pallet_pips::Call::reject_proposal { id: bad_id }),
         deposit,
         None,
         None
@@ -1160,7 +1161,7 @@ fn can_prune_states_that_cannot_be_rejected() {
         assert_ok!(proposal(
             &proposer.origin(),
             &Proposer::Community(proposer.acc()),
-            Call::Pips(pallet_pips::Call::reject_proposal(PipId(1337))),
+            Call::Pips(pallet_pips::Call::reject_proposal { id: PipId(1337) }),
             300,
             None,
             None
@@ -1360,7 +1361,7 @@ fn reject_proposal_will_unschedule() {
             assert_ok!(Pips::reject_proposal(gc_vmo(), id));
             assert_eq!(Pips::pip_to_schedule(id), None);
             assert_event_exists!(
-                EventTest::pallet_scheduler(pallet_scheduler::RawEvent::Canceled(when, ..)),
+                EventTest::Scheduler(pallet_scheduler::Event::Canceled(when, ..)),
                 *when == scheduled_at
             );
         };
@@ -1407,7 +1408,7 @@ fn reschedule_execution_only_release_coordinator() {
         let id = scheduled_proposal(alice, alice, 0);
         let scheduled_at = Pips::pip_to_schedule(id);
         consensus_call(
-            pallet_pips::Call::reschedule_execution(id, None),
+            pallet_pips::Call::reschedule_execution { id, until: None },
             &[&alice.origin(), &bob.origin(), &charlie.origin()],
         );
         assert_eq!(scheduled_at, Pips::pip_to_schedule(id));
@@ -1498,9 +1499,7 @@ fn reschedule_execution_works() {
         // Regression test for <https://polymath.atlassian.net/browse/GTN-2172>.
         assert_eq!(Pips::active_pip_count(), 1);
         // Rescheduling currently works by cancelling + then scheduling again. Verify this.
-        assert_event_exists!(EventTest::pallet_scheduler(
-            pallet_scheduler::RawEvent::Canceled(..)
-        ));
+        assert_event_exists!(EventTest::Scheduler(pallet_scheduler::Event::Canceled(..)));
         assert_eq!(Pips::pip_to_schedule(id).unwrap(), next);
         assert_eq!(Agenda::get(scheduled_at), vec![None]);
         assert_matches!(&*Agenda::get(next), [Some(_)]);

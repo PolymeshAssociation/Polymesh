@@ -10,4 +10,8 @@ module.exports = {
   setupFilesAfterEnv: ["<rootDir>/src/__tests__/setup.ts"],
   testPathIgnorePatterns: ["<rootDir>/src/__tests__/setup.ts"],
   testTimeout: 1_000_000,
+  moduleNameMapper: {
+    'polymesh-typegen/(.*)': '<rootDir>/src/interfaces/$1',
+    '@polkadot/api/augment': '<rootDir>/src/interfaces/augment-api.ts',
+  }
 };

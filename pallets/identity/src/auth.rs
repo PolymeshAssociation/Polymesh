@@ -139,7 +139,7 @@ impl<T: Config> Module<T> {
         allow_expired: bool,
         auth_type: Option<AuthorizationType>,
     ) -> Vec<Authorization<T::AccountId, T::Moment>> {
-        let now = <pallet_timestamp::Module<T>>::get();
+        let now = <pallet_timestamp::Pallet<T>>::get();
         let auths = <Authorizations<T>>::iter_prefix_values(signatory)
             .filter(|auth| allow_expired || auth.expiry.filter(|&e| e < now).is_none());
         if let Some(auth_type) = auth_type {
@@ -158,7 +158,7 @@ impl<T: Config> Module<T> {
     ) -> Option<Authorization<T::AccountId, T::Moment>> {
         Self::authorizations(target, *auth_id).filter(|auth| {
             auth.expiry
-                .filter(|&expiry| <pallet_timestamp::Module<T>>::get() > expiry)
+                .filter(|&expiry| <pallet_timestamp::Pallet<T>>::get() > expiry)
                 .is_none()
         })
     }
@@ -182,7 +182,7 @@ impl<T: Config> Module<T> {
 
         // Ensure that `auth.expiry`, if provided, is in the future.
         if let Some(expiry) = auth.expiry {
-            let now = <pallet_timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Pallet<T>>::get();
             ensure!(expiry > now, AuthorizationError::Expired);
         }
 

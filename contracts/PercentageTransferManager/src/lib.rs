@@ -3,29 +3,13 @@
 use ink_lang as ink;
 
 mod custom_types {
-    use ink_storage::traits::{PackedLayout, SpreadLayout};
+    use ink_storage::traits::{PackedLayout, SpreadLayout, StorageLayout};
     use scale::{Decode, Encode};
-    #[cfg(feature = "std")]
     use scale_info::TypeInfo;
 
-    #[derive(
-        Decode,
-        Encode,
-        PartialEq,
-        Ord,
-        Eq,
-        PartialOrd,
-        Copy,
-        Hash,
-        Clone,
-        Default,
-        SpreadLayout,
-        PackedLayout,
-    )]
-    #[cfg_attr(
-        feature = "std",
-        derive(TypeInfo, Debug, ink_storage::traits::StorageLayout)
-    )]
+    #[derive(Decode, Encode, TypeInfo, SpreadLayout, PackedLayout)]
+    #[derive(PartialEq, Ord, Eq, PartialOrd, Copy, Hash, Clone, Default)]
+    #[cfg_attr(feature = "std", derive(Debug, StorageLayout))]
     pub struct IdentityId([u8; 32]);
 
     impl From<u128> for IdentityId {

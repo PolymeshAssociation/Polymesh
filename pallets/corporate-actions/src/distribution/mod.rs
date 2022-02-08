@@ -86,6 +86,7 @@ use polymesh_primitives::{
     storage_migration_ver, Balance, EventDid, IdentityId, Moment, PortfolioId, PortfolioNumber,
     Ticker,
 };
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
@@ -104,7 +105,7 @@ pub const PER_SHARE_PRECISION: Balance = 1_000_000;
 ///
 /// All information contained is used by on-chain logic.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Encode, Decode)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Encode, Decode, TypeInfo)]
 pub struct Distribution {
     /// The portfolio to distribute from.
     pub from: PortfolioId,

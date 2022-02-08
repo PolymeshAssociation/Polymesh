@@ -4,11 +4,11 @@ use ink_lang as ink;
 
 mod custom_types {
     use scale::{Decode, Encode};
-    #[cfg(feature = "std")]
     use scale_info::TypeInfo;
 
-    #[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd, Copy, Hash, Clone, Default)]
-    #[cfg_attr(feature = "std", derive(TypeInfo, Debug))]
+    #[derive(Decode, Encode, TypeInfo)]
+    #[derive(PartialEq, Ord, Eq, PartialOrd, Copy, Hash, Clone, Default)]
+    #[cfg_attr(feature = "std", derive(Debug))]
     pub struct IdentityId([u8; 32]);
 
     impl From<u128> for IdentityId {

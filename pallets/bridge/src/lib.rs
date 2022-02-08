@@ -115,9 +115,8 @@ use frame_support::{
     },
     weights::{DispatchClass, Pays},
 };
-use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
+use frame_system::{ensure_root, ensure_signed, RawOrigin};
 use pallet_balances as balances;
-use pallet_identity as identity;
 use pallet_multisig as multisig;
 use polymesh_common_utilities::traits::balances::Config as BalancesConfig;
 use polymesh_common_utilities::{
@@ -125,13 +124,15 @@ use polymesh_common_utilities::{
     Context, GC_DID,
 };
 use polymesh_primitives::{storage_migration_ver, Balance, IdentityId, Signatory};
+use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_runtime::traits::{Saturating, Zero};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::TryFrom, fmt::Debug, prelude::*};
 
-type Identity<T> = identity::Module<T>;
+type Identity<T> = pallet_identity::Module<T>;
+type System<T> = frame_system::Pallet<T>;
 
 pub trait Config: multisig::Config + BalancesConfig + pallet_base::Config {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -146,7 +147,8 @@ pub trait Config: multisig::Config + BalancesConfig + pallet_base::Config {
 
 /// The status of a bridge transaction.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BridgeTxStatus {
     /// No such transaction in the system.
     Absent,
@@ -171,7 +173,8 @@ impl Default for BridgeTxStatus {
 
 /// A unique lock-and-mint bridge transaction.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct BridgeTx<Account> {
     /// A single transaction hash can have multiple locks. This nonce differentiates between them.
     pub nonce: u32,
@@ -185,7 +188,8 @@ pub struct BridgeTx<Account> {
 }
 
 /// Additional details of a bridge transaction.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct BridgeTxDetail<BlockNumber> {
     /// Amount of POLYX tokens to credit.
     pub amount: Balance,
@@ -199,7 +203,7 @@ pub struct BridgeTxDetail<BlockNumber> {
 }
 
 /// The status of a handled transaction for reporting purposes.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum HandledTxStatus {
     /// The transaction has been successfully handled.
     Success,
@@ -607,7 +611,7 @@ impl<T: Config> Module<T> {
             let (limit, interval_duration) = Self::bridge_limit();
             ensure!(!interval_duration.is_zero(), Error::<T>::DivisionByZero);
 
-            let current_interval = <system::Module<T>>::block_number() / interval_duration;
+            let current_interval = System::<T>::block_number() / interval_duration;
             let (bridged, last_interval) = Self::polyx_bridged(did);
             let total_mint = if last_interval == current_interval {
                 amount.checked_add(bridged).ok_or(Error::<T>::Overflow)?
@@ -618,7 +622,7 @@ impl<T: Config> Module<T> {
             <PolyxBridged<T>>::insert(did, (total_mint, current_interval))
         }
 
-        let _pos_imbalance = <balances::Module<T>>::deposit_creating(&recipient, *amount);
+        let _pos_imbalance = <balances::Pallet<T>>::deposit_creating(&recipient, *amount);
 
         Ok(())
     }
@@ -660,7 +664,7 @@ impl<T: Config> Module<T> {
         match Self::issue(&bridge_tx.recipient, &amount, exempted_did) {
             Ok(_) => {
                 tx_details.status = BridgeTxStatus::Handled;
-                tx_details.execution_block = <system::Module<T>>::block_number();
+                tx_details.execution_block = System::<T>::block_number();
                 <BridgeTxDetails<T>>::insert(&bridge_tx.recipient, &bridge_tx.nonce, tx_details);
                 let current_did =
                     Context::current_identity::<Identity<T>>().unwrap_or_else(|| GC_DID);
@@ -720,7 +724,7 @@ impl<T: Config> Module<T> {
             already_tried = 24;
         }
 
-        let unlock_block_number = <system::Module<T>>::block_number()
+        let unlock_block_number = System::<T>::block_number()
             .saturating_add(timelock)
             .saturating_add(T::BlockNumber::from(2u32.pow(already_tried.into())));
         tx_details.execution_block = unlock_block_number;
@@ -744,8 +748,8 @@ impl<T: Config> Module<T> {
         Self::ensure_controller_set()?;
 
         let sender_signer = Signatory::Account(sender);
-        let propose = |tx| {
-            let proposal = <T as Config>::Proposal::from(Call::<T>::handle_bridge_tx(tx));
+        let propose = |bridge_tx| {
+            let proposal = <T as Config>::Proposal::from(Call::<T>::handle_bridge_tx { bridge_tx });
             let boxed_proposal = Box::new(proposal.into());
             <multisig::Module<T>>::create_or_approve_proposal(
                 Self::controller(),
@@ -839,7 +843,10 @@ impl<T: Config> Module<T> {
         bridge_tx: BridgeTx<T::AccountId>,
     ) -> DispatchResult {
         // Schedule the transaction as a dispatchable call.
-        let call = Call::<T>::handle_scheduled_bridge_tx(bridge_tx.clone()).into();
+        let call = Call::<T>::handle_scheduled_bridge_tx {
+            bridge_tx: bridge_tx.clone(),
+        }
+        .into();
         <T as Config>::Scheduler::schedule(
             DispatchTime::At(block_number),
             None,

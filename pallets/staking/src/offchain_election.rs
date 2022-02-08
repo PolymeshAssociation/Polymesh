@@ -17,6 +17,7 @@
 
 //! Helpers for offchain worker election.
 
+use crate::_npos::{NposSolution, EvaluateSupport};
 use crate::{
     Call, CompactAssignments, Config, ElectionSize, Module, NominatorIndex, Nominators,
     OffchainAccuracy, ValidatorIndex,
@@ -25,10 +26,13 @@ use codec::Decode;
 use frame_support::{traits::Get, weights::Weight, IterableStorageMap};
 use frame_system::offchain::SubmitTransaction;
 use sp_npos_elections::{
-    reduce, to_support_map, Assignment, CompactSolution, ElectionResult, ElectionScore,
-    EvaluateSupport, ExtendedBalance,
+    reduce, to_supports, Assignment, ElectionResult, ElectionScore, ExtendedBalance,
 };
-use sp_runtime::{offchain::storage::StorageValueRef, traits::TrailingZeroInput, RuntimeDebug};
+use sp_runtime::{
+    offchain::storage::{StorageValueRef, MutateStorageError},
+    traits::TrailingZeroInput,
+    RuntimeDebug,
+};
 use sp_std::{convert::TryInto, prelude::*};
 
 /// Error types related to the offchain election machinery.
@@ -71,18 +75,18 @@ pub(crate) const DEFAULT_LONGEVITY: u64 = 25;
 /// Returns `Ok(())` if offchain worker should happen, `Err(reason)` otherwise.
 pub fn set_check_offchain_execution_status<T: Config>(
     now: T::BlockNumber,
-) -> Result<(), &'static str> {
+) -> Result<(), MutateStorageError<<T as frame_system::Config>::BlockNumber, &'static str>> {
     let storage = StorageValueRef::persistent(&OFFCHAIN_HEAD_DB);
     let threshold = T::BlockNumber::from(OFFCHAIN_REPEAT);
 
     let mutate_stat =
-        storage.mutate::<_, &'static str, _>(|maybe_head: Option<Option<T::BlockNumber>>| {
+        storage.mutate::<_, &'static str, _>(|maybe_head| {
             match maybe_head {
-                Some(Some(head)) if now < head => Err("fork."),
-                Some(Some(head)) if now >= head && now <= head + threshold => {
+                Ok(Some(head)) if now < head => Err("fork."),
+                Ok(Some(head)) if now >= head && now <= head + threshold => {
                     Err("recently executed.")
                 }
-                Some(Some(head)) if now > head + threshold => {
+                Ok(Some(head)) if now > head + threshold => {
                     // we can run again now. Write the new head.
                     Ok(now)
                 }
@@ -93,14 +97,7 @@ pub fn set_check_offchain_execution_status<T: Config>(
             }
         });
 
-    match mutate_stat {
-        // all good
-        Ok(Ok(_)) => Ok(()),
-        // failed to write.
-        Ok(Err(_)) => Err("failed to write to offchain db."),
-        // fork etc.
-        Err(why) => Err(why),
-    }
+    mutate_stat.map(drop)
 }
 
 /// The internal logic of the offchain worker of this module. This runs the phragmen election,
@@ -131,16 +128,16 @@ pub(crate) fn compute_offchain_election<T: Config>() -> Result<(), OffchainElect
     );
 
     // defensive-only: current era can never be none except genesis.
-    let current_era = <Module<T>>::current_era().unwrap_or_default();
+    let era = <Module<T>>::current_era().unwrap_or_default();
 
     // send it.
-    let call = Call::submit_election_solution_unsigned(
+    let call = Call::submit_election_solution_unsigned {
             winners,
             compact,
             score,
-            current_era,
+            era,
             size,
-    ).into();
+    }.into();
 
     SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call)
         .map_err(|_| OffchainElectionError::PoolSubmissionFailed)
@@ -359,7 +356,7 @@ pub fn prepare_submission<T: Config>(
     };
 
     // Clean winners.
-    let winners = sp_npos_elections::to_without_backing(winners);
+    let winners = winners.into_iter().map(|(who, _)| who).collect::<Vec<_>>();
 
     // convert into absolute value and to obtain the reduced version.
     let mut staked = sp_npos_elections::assignment_ratio_to_staked(
@@ -378,7 +375,7 @@ pub fn prepare_submission<T: Config>(
 
     // compact encode the assignment.
     let compact = CompactAssignments::from_assignment(
-        low_accuracy_assignment,
+        &low_accuracy_assignment,
         nominator_index,
         validator_index,
     )
@@ -417,8 +414,7 @@ pub fn prepare_submission<T: Config>(
             <Module<T>>::slashable_balance_of_fn(),
         );
 
-        let support_map = to_support_map::<T::AccountId>(&winners, &staked)
-            .map_err(|_| OffchainElectionError::ElectionFailed)?;
+        let support_map = to_supports::<T::AccountId>(&staked);
         support_map.evaluate()
     };
 

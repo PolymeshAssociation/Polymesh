@@ -16,7 +16,7 @@
 //! Defines a trait and implementations for storage migration.
 
 use codec::{Decode, Encode};
-use frame_support::migration::{put_storage_value, StorageIterator, StorageKeyIterator};
+use frame_support::migration::{put_storage_value, storage_iter, storage_key_iter};
 use frame_support::storage::unhashed::kill_prefix;
 use frame_support::{ReversibleStorageHasher, StorageHasher, Twox128};
 use sp_std::vec::Vec;
@@ -101,7 +101,7 @@ pub fn migrate_map_rename<T: Migrate, C: FnMut(&[u8]) -> T::Context>(
     new_item: &[u8],
     mut derive_context: C,
 ) {
-    StorageIterator::<T>::new(module, item)
+    storage_iter::<T>(module, item)
         .drain()
         .filter_map(|(key, old)| {
             let new = old.migrate(derive_context(&key))?;
@@ -126,7 +126,7 @@ pub fn migrate_map_keys_and_value<VO, VN, H, KO, KN, F>(
     KO: Decode,
     KN: Decode + Encode,
 {
-    StorageKeyIterator::<KO, VO, H>::new(module, item)
+    storage_key_iter::<KO, VO, H>(module, item)
         .drain()
         .filter_map(|(key, val)| map(key, val))
         .for_each(|(kn, vn)| {
@@ -188,7 +188,7 @@ pub fn migrate_double_map<V1, V2, H1, K1, H2, K2, KN1, KN2, F>(
     KN1: Encode,
     KN2: Encode,
 {
-    let old_map = StorageIterator::<V1>::new(module, item)
+    let old_map = storage_iter::<V1>(module, item)
         .drain()
         .collect::<Vec<(Vec<u8>, _)>>();
 
@@ -223,7 +223,7 @@ where
     V2: Encode,
     E: Encode + Decode,
 {
-    StorageIterator::<V1>::new(module, item).map(move |(raw_key, value)| {
+    storage_iter::<V1>(module, item).map(move |(raw_key, value)| {
         let (k1, k2) = decode_double_key::<H1, K1, H2, K2>(&raw_key)
             .ok_or_else(|| MigrationError::DecodeKey(raw_key.clone().into()))?;
         let new_value = f(k1, k2, value).map_err(|e| MigrationError::Map(e))?;
@@ -238,7 +238,7 @@ pub fn kill_item(module: &[u8], item: &[u8]) {
     let mut prefix = [0u8; 32];
     prefix[0..16].copy_from_slice(&Twox128::hash(module));
     prefix[16..32].copy_from_slice(&Twox128::hash(item));
-    kill_prefix(&prefix)
+    kill_prefix(&prefix, None);
 }
 
 /// Moves a single or double map storage item under a new module prefix and removes the map from
@@ -250,7 +250,7 @@ pub fn move_map_rename_module<T: Decode + Encode>(
     new_module: &[u8],
     item: &[u8],
 ) {
-    StorageIterator::<T>::new(old_module, item)
+    storage_iter::<T>(old_module, item)
         .drain()
         .filter_map(|(key, val)| Some((key, val)))
         .for_each(|(key, val)| put_storage_value(new_module, item, &key, val));

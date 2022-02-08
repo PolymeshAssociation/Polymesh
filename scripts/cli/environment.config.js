@@ -20,7 +20,7 @@ module.exports = {
       script: polymesh_bin,
       args:
         "-d /tmp/pmesh-primary-node --alice " + primary +
-        " --port 30334 --ws-port 9944 --rpc-port 9934",
+        " --port 30334 --ws-port 9944 --rpc-port 9933",
       env: {
         RUST_BACKTRACE: "1",
       },

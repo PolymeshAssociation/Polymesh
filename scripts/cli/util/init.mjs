@@ -1,20 +1,24 @@
-const { ApiPromise, WsProvider, Keyring } = require("@polkadot/api");
-const {
+import { ApiPromise, WsProvider, Keyring } from '@polkadot/api';
+import {
   cryptoWaitReady,
   blake2AsHex,
   mnemonicGenerate,
-} = require("@polkadot/util-crypto");
-const {
+} from "@polkadot/util-crypto";
+import {
   stringToU8a,
   u8aConcat,
   u8aFixLength,
   u8aToHex,
-} = require("@polkadot/util");
-const BN = require("bn.js");
-const assert = require("assert");
-const fs = require("fs");
-const path = require("path");
-const cryptoRandomString = require('crypto-random-string');
+} from "@polkadot/util";
+import BN from "bn.js";
+import assert from "assert";
+import fs from "fs";
+import path from "path";
+import cryptoRandomString from 'crypto-random-string';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 let nonces = new Map();
 

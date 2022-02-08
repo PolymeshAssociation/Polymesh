@@ -15,6 +15,7 @@
 
 use crate::{DispatchableName, IdentityId, PalletName, PortfolioId, SubsetRestriction, Ticker};
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
@@ -53,7 +54,8 @@ pub type DispatchableNames = SubsetRestriction<DispatchableName>;
 
 /// A permission to call a set of functions, as described by `dispatchable_names`,
 /// within a given pallet `pallet_name`.
-#[derive(Decode, Encode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PalletPermissions {
     /// The name of a pallet.
@@ -130,7 +132,8 @@ pub type PortfolioPermissions = SubsetRestriction<PortfolioId>;
 /// Common cases of permissions:
 /// - `Permissions::empty()`: no permissions,
 /// - `Permissions::default()`: full permissions.
-#[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Permissions {
     /// The subset of assets under management.
@@ -212,7 +215,7 @@ impl Permissions {
 
 /// It supports different elements as a signer.
 #[allow(missing_docs)]
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum Signatory<AccountId> {
     #[cfg_attr(feature = "std", serde(alias = "identity"))]
@@ -300,7 +303,7 @@ where
 }
 
 /// A secondary key is a signatory with defined permissions.
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct SecondaryKey<AccountId: Encode + Decode> {
     /// The account or identity that is the signatory of this key.
@@ -399,13 +402,15 @@ pub mod api {
     };
     use crate::{DispatchableName, PalletName, Signatory, SubsetRestriction};
     use codec::{Decode, Encode};
+    use scale_info::TypeInfo;
     #[cfg(feature = "std")]
     use sp_runtime::{Deserialize, Serialize};
     use sp_std::convert::TryInto;
     use sp_std::vec::Vec;
 
     /// A permission to call functions within a given pallet.
-    #[derive(Decode, Encode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+    #[derive(Decode, Encode, TypeInfo)]
+    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     pub struct LegacyPalletPermissions {
         /// The name of a pallet.
@@ -423,12 +428,14 @@ pub mod api {
     }
 
     /// Extrinsic permissions.
-    #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+    #[derive(Decode, Encode, TypeInfo)]
+    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     pub struct LegacyExtrinsicPermissions(pub Option<Vec<LegacyPalletPermissions>>);
 
     /// Signing key permissions.
-    #[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+    #[derive(Decode, Encode, TypeInfo)]
+    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     pub struct LegacyPermissions {
         /// The subset of assets under management.
@@ -481,7 +488,7 @@ pub mod api {
     /// The same secondary key object without the extra trait constraints.
     /// It is needed because it's not possible to define `decl_event!`
     /// with the required restrictions on `AccountId`
-    #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
+    #[derive(Encode, Decode, TypeInfo, Default, Clone, PartialEq, Eq, Debug)]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     pub struct SecondaryKey<AccountId> {
         /// The account or identity that is the signatory of this key.

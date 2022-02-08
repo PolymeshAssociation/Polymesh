@@ -27,10 +27,11 @@
 
 use core::mem;
 use frame_support::dispatch::{DispatchError, DispatchResult};
-use frame_support::traits::Get;
+use frame_support::traits::{Get, StorageInfo, StorageInfoTrait};
 use frame_support::{decl_error, decl_module, ensure};
 pub use polymesh_common_utilities::traits::base::{Config, Event};
 use polymesh_primitives::checked_inc::CheckedInc;
+use sp_std::vec::Vec;
 
 decl_module! {
     pub struct Module<T: Config> for enum Call where origin: T::Origin {
@@ -105,3 +106,9 @@ pub fn try_next_post<T: Config, I: CheckedInc>(seq: &mut I) -> Result<I, Dispatc
 }
 
 impl<T: Config> frame_support::traits::IntegrityTest for Module<T> {}
+
+impl<T: Config> StorageInfoTrait for Module<T> {
+    fn storage_info() -> Vec<StorageInfo> {
+        Vec::new()
+    }
+}

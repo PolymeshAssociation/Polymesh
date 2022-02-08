@@ -58,50 +58,54 @@ where
         match call {
             // Register did call.
             // all did registration should go through CDD
-            Call::TestUtils(pallet_test_utils::Call::register_did(..)) => Ok(Some(caller.clone())),
+            Call::TestUtils(pallet_test_utils::Call::register_did { .. }) => {
+                Ok(Some(caller.clone()))
+            }
             // Call made by a new Account key to accept invitation to become a secondary key
             // of an existing multisig that has a valid CDD. The auth should be valid.
-            Call::MultiSig(pallet_multisig::Call::accept_multisig_signer_as_key(auth_id)) => {
+            Call::MultiSig(pallet_multisig::Call::accept_multisig_signer_as_key { auth_id }) => {
                 is_auth_valid(caller, auth_id, CallType::AcceptMultiSigSigner)
             }
             // Call made by a new Account key to accept invitation to become a secondary key
             // of an existing identity that has a valid CDD. The auth should be valid.
-            Call::Identity(pallet_identity::Call::join_identity_as_key(auth_id, ..)) => {
+            Call::Identity(pallet_identity::Call::join_identity_as_key { auth_id, .. }) => {
                 is_auth_valid(caller, auth_id, CallType::AcceptIdentitySecondary)
             }
             // Call made by a new Account key to accept invitation to become the primary key
             // of an existing identity that has a valid CDD. The auth should be valid.
-            Call::Identity(pallet_identity::Call::accept_primary_key(rotation_auth_id, ..)) => {
-                is_auth_valid(caller, rotation_auth_id, CallType::AcceptIdentityPrimary)
-            }
+            Call::Identity(pallet_identity::Call::accept_primary_key {
+                rotation_auth_id, ..
+            }) => is_auth_valid(caller, rotation_auth_id, CallType::AcceptIdentityPrimary),
             // Call made by a new Account key to accept invitation to become the primary key
             // of an existing identity that has a valid CDD. The auth should be valid.
-            Call::Identity(pallet_identity::Call::rotate_primary_key_to_secondary(
-                rotation_auth_id,
-                ..,
-            )) => is_auth_valid(caller, rotation_auth_id, CallType::RotatePrimaryToSecondary),
+            Call::Identity(pallet_identity::Call::rotate_primary_key_to_secondary {
+                auth_id,
+                ..
+            }) => is_auth_valid(caller, auth_id, CallType::RotatePrimaryToSecondary),
             // Call made by a new Account key to remove invitation for certain authorizations
             // in an existing identity that has a valid CDD. The auth should be valid.
-            Call::Identity(pallet_identity::Call::remove_authorization(_, auth_id, true)) => {
-                is_auth_valid(caller, auth_id, CallType::RemoveAuthorization)
-            }
+            Call::Identity(pallet_identity::Call::remove_authorization {
+                auth_id,
+                _auth_issuer_pays: true,
+                ..
+            }) => is_auth_valid(caller, auth_id, CallType::RemoveAuthorization),
             // Call made by a user key to accept subsidy from a paying key. The auth should be valid.
-            Call::Relayer(pallet_relayer::Call::accept_paying_key(auth_id)) => {
+            Call::Relayer(pallet_relayer::Call::accept_paying_key { auth_id }) => {
                 is_auth_valid(caller, auth_id, CallType::AcceptRelayerPayingKey)
             }
             // Call made by an Account key to propose, reject or approve a multisig transaction.
             // The multisig must have valid CDD and the caller must be a signer of the multisig.
             Call::MultiSig(
-                pallet_multisig::Call::create_or_approve_proposal_as_key(multisig, ..)
-                | pallet_multisig::Call::create_proposal_as_key(multisig, ..)
-                | pallet_multisig::Call::approve_as_key(multisig, ..)
-                | pallet_multisig::Call::reject_as_key(multisig, ..),
+                pallet_multisig::Call::create_or_approve_proposal_as_key { multisig, .. }
+                | pallet_multisig::Call::create_proposal_as_key { multisig, .. }
+                | pallet_multisig::Call::approve_as_key { multisig, .. }
+                | pallet_multisig::Call::reject_as_key { multisig, .. },
             ) => handle_multisig(multisig, caller),
             // Call made by an Account key to propose or approve a multisig transaction via the bridge helper
             // The multisig must have valid CDD and the caller must be a signer of the multisig.
             Call::Bridge(
-                pallet_bridge::Call::propose_bridge_tx(..)
-                | pallet_bridge::Call::batch_propose_bridge_tx(..),
+                pallet_bridge::Call::propose_bridge_tx { .. }
+                | pallet_bridge::Call::batch_propose_bridge_tx { .. },
             ) => handle_multisig(&Bridge::controller_key(), caller),
             // All other calls.
             //

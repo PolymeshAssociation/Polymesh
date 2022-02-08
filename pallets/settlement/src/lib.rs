@@ -65,7 +65,7 @@ use frame_support::{
     weights::Weight,
     IterableStorageDoubleMap,
 };
-use frame_system::{self as system, ensure_root, RawOrigin};
+use frame_system::{ensure_root, RawOrigin};
 use pallet_base::{ensure_string_limited, try_next_post};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
@@ -80,11 +80,12 @@ use polymesh_primitives::{
     impl_checked_inc, storage_migration_ver, Balance, IdentityId, PortfolioId, SecondaryKey, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
+use scale_info::TypeInfo;
 use sp_runtime::traits::{One, Verify};
 use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
-type System<T> = frame_system::Module<T>;
+type System<T> = frame_system::Pallet<T>;
 type Asset<T> = pallet_asset::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 
@@ -111,18 +112,18 @@ pub trait Config:
 }
 
 /// A global and unique venue ID.
-#[derive(Copy, Clone, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct VenueId(pub u64);
 impl_checked_inc!(VenueId);
 
 /// A wrapper for VenueDetails
-#[derive(
-    Decode, Encode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct VenueDetails(Vec<u8>);
 
 /// Status of an instruction
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum InstructionStatus {
     /// Invalid instruction or details pruned
     Unknown,
@@ -139,7 +140,8 @@ impl Default for InstructionStatus {
 }
 
 /// Type of the venue. Used for offchain filtering.
-#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum VenueType {
     /// Default type - used for mixed and unknown types
     Other,
@@ -158,7 +160,7 @@ impl Default for VenueType {
 }
 
 /// Status of a leg
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LegStatus<AccountId> {
     /// It is waiting for affirmation
     PendingTokenLock,
@@ -175,7 +177,7 @@ impl<AccountId> Default for LegStatus<AccountId> {
 }
 
 /// Status of an affirmation
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AffirmationStatus {
     /// Invalid affirmation
     Unknown,
@@ -192,7 +194,8 @@ impl Default for AffirmationStatus {
 }
 
 /// Type of settlement
-#[derive(Encode, Decode, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SettlementType<BlockNumber> {
     /// Instruction should be settled in the next block as soon as all affirmations are received.
     SettleOnAffirmation,
@@ -207,12 +210,14 @@ impl<BlockNumber> Default for SettlementType<BlockNumber> {
 }
 
 /// A per-Instruction leg ID.
-#[derive(Copy, Clone, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct LegId(pub u64);
 impl_checked_inc!(LegId);
 
 /// A global and unique instruction ID.
-#[derive(Copy, Clone, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct InstructionId(pub u64);
 impl_checked_inc!(InstructionId);
 
@@ -223,8 +228,9 @@ impl InstructionId {
     }
 }
 
-/// Details about an instruction
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+/// Details about an instruction.
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct Instruction<Moment, BlockNumber> {
     /// Unique instruction id. It is an auto incrementing number
     pub instruction_id: InstructionId,
@@ -242,8 +248,9 @@ pub struct Instruction<Moment, BlockNumber> {
     pub value_date: Option<Moment>,
 }
 
-/// Details of a leg including the leg id in the instruction
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+/// Details of a leg including the leg id in the instruction.
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct Leg {
     /// Portfolio of the sender
     pub from: PortfolioId,
@@ -255,8 +262,9 @@ pub struct Leg {
     pub amount: Balance,
 }
 
-/// Details about a venue
-#[derive(Encode, Decode, Clone, Default, PartialEq, Eq, Debug, PartialOrd, Ord)]
+/// Details about a venue.
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Default, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct Venue {
     /// Identity of the venue's creator
     pub creator: IdentityId,
@@ -280,13 +288,12 @@ pub struct Receipt<Balance> {
 }
 
 /// A wrapper for VenueDetails
-#[derive(
-    Decode, Encode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ReceiptMetadata(Vec<u8>);
 
 /// Details about an offchain transaction receipt that a user must input
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct ReceiptDetails<AccountId, OffChainSignature> {
     /// Unique receipt number set by the signer for their receipts
     pub receipt_uid: u64,
@@ -871,7 +878,7 @@ decl_module! {
             })?;
 
             // Schedule instruction to be executed in the next block.
-            let execution_at = system::Module::<T>::block_number() + One::one();
+            let execution_at = System::<T>::block_number() + One::one();
             Self::schedule_instruction(id, execution_at, InstructionLegs::iter_prefix(id).count() as u32);
 
             Self::deposit_event(RawEvent::InstructionRescheduled(did, id));
@@ -971,7 +978,7 @@ impl<T: Config> Module<T> {
             venue_id,
             status: InstructionStatus::Pending,
             settlement_type,
-            created_at: Some(<pallet_timestamp::Module<T>>::get()),
+            created_at: Some(<pallet_timestamp::Pallet<T>>::get()),
             trade_date,
             value_date,
         };
@@ -1083,7 +1090,7 @@ impl<T: Config> Module<T> {
         }
         if let SettlementType::SettleOnBlock(block_number) = details.settlement_type {
             ensure!(
-                block_number > system::Module::<T>::block_number(),
+                block_number > System::<T>::block_number(),
                 Error::<T>::InstructionSettleBlockPassed
             );
         }
@@ -1179,9 +1186,9 @@ impl<T: Config> Module<T> {
         let legs = InstructionLegs::drain_prefix(id).collect::<Vec<_>>();
         let details = <InstructionDetails<T>>::take(id);
         VenueInstructions::remove(details.venue_id, id);
-        <InstructionLegStatus<T>>::remove_prefix(id);
+        <InstructionLegStatus<T>>::remove_prefix(id, None);
         InstructionAffirmsPending::remove(id);
-        AffirmsReceived::remove_prefix(id);
+        AffirmsReceived::remove_prefix(id, None);
 
         // We remove duplicates in memory before triggering storage actions
         let mut counter_parties = BTreeSet::new();
@@ -1343,7 +1350,7 @@ impl<T: Config> Module<T> {
             && Self::instruction_details(id).settlement_type == SettlementType::SettleOnAffirmation
         {
             // Schedule instruction to be executed in the next block.
-            let execution_at = system::Module::<T>::block_number() + One::one();
+            let execution_at = System::<T>::block_number() + One::one();
             Self::schedule_instruction(id, execution_at, legs_count);
         }
     }
@@ -1353,8 +1360,8 @@ impl<T: Config> Module<T> {
     /// NB - It is expected to execute the given instruction into the given block number but
     /// it is not a guaranteed behavior, Scheduler may have other high priority task scheduled
     /// for the given block so there are chances where the instruction execution block no. may drift.
-    fn schedule_instruction(id: InstructionId, execution_at: T::BlockNumber, legs_count: u32) {
-        let call = Call::<T>::execute_scheduled_instruction(id, legs_count).into();
+    fn schedule_instruction(id: InstructionId, execution_at: T::BlockNumber, _legs_count: u32) {
+        let call = Call::<T>::execute_scheduled_instruction { id, _legs_count }.into();
         if let Err(_) = T::Scheduler::schedule_named(
             id.execution_name(),
             DispatchTime::At(execution_at),

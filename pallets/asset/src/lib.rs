@@ -114,6 +114,7 @@ use polymesh_primitives::{
     storage_migrate_on, storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId,
     IdentityId, PortfolioId, ScopeId, Ticker,
 };
+use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -125,7 +126,7 @@ type Portfolio<T> = pallet_portfolio::Module<T>;
 type Statistics<T> = pallet_statistics::Module<T>;
 
 /// Ownership status of a ticker/token.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AssetOwnershipRelation {
     NotOwned,
     TickerOwned,
@@ -139,7 +140,7 @@ impl Default for AssetOwnershipRelation {
 }
 
 /// struct to store the token details.
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, TypeInfo, Default, Clone, PartialEq, Debug)]
 pub struct SecurityToken {
     pub total_supply: Balance,
     pub owner_did: IdentityId,
@@ -148,7 +149,7 @@ pub struct SecurityToken {
 }
 
 /// struct to store the ticker registration details.
-#[derive(Encode, Decode, Clone, Default, PartialEq, Debug)]
+#[derive(Encode, Decode, TypeInfo, Clone, Default, PartialEq, Debug)]
 pub struct TickerRegistration<U> {
     pub owner: IdentityId,
     pub expiry: Option<U>,
@@ -156,7 +157,7 @@ pub struct TickerRegistration<U> {
 
 /// struct to store the ticker registration config.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default, PartialEq, Debug)]
+#[derive(Encode, Decode, TypeInfo, Clone, Default, PartialEq, Debug)]
 pub struct TickerRegistrationConfig<U> {
     pub max_ticker_length: u8,
     pub registration_length: Option<U>,
@@ -187,7 +188,7 @@ impl Default for RestrictionResult {
 /// Data imported from Polymath Classic regarding ticker registration/creation.
 /// Only used at genesis config and not stored on-chain.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ClassicTickerImport {
     /// Owner of the registration.
     pub eth_owner: EthereumAddress,
@@ -201,7 +202,7 @@ pub struct ClassicTickerImport {
 
 /// Data about a ticker registration from Polymath Classic on-genesis importation.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
 pub struct ClassicTickerRegistration {
     /// Owner of the registration.
     pub eth_owner: EthereumAddress,
@@ -1060,7 +1061,7 @@ impl<T: Config> Module<T> {
         if let Some(ticker) = Self::maybe_ticker(ticker) {
             ticker
                 .expiry
-                .filter(|&e| <pallet_timestamp::Module<T>>::get() > e)
+                .filter(|&e| <pallet_timestamp::Pallet<T>>::get() > e)
                 .is_some()
         } else {
             true
@@ -1071,7 +1072,7 @@ impl<T: Config> Module<T> {
     pub fn is_ticker_registry_valid(ticker: &Ticker, did: IdentityId) -> bool {
         // Assumes uppercase ticker
         if let Some(ticker) = Self::maybe_ticker(ticker) {
-            let now = <pallet_timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Pallet<T>>::get();
             ticker.owner == did && ticker.expiry.filter(|&e| now > e).is_none()
         } else {
             false
@@ -1090,7 +1091,7 @@ impl<T: Config> Module<T> {
         match Self::maybe_ticker(ticker) {
             Some(TickerRegistration { expiry, owner }) => match expiry {
                 // Ticker registered to someone but expired and can be registered again.
-                Some(expiry) if <pallet_timestamp::Module<T>>::get() > expiry => {
+                Some(expiry) if <pallet_timestamp::Pallet<T>>::get() > expiry => {
                     TickerRegistrationStatus::Available
                 }
                 // Ticker is already registered to provided did (may or may not expire in future).
@@ -1142,7 +1143,7 @@ impl<T: Config> Module<T> {
 
         Ok(config
             .registration_length
-            .map(|exp| <pallet_timestamp::Module<T>>::get() + exp))
+            .map(|exp| <pallet_timestamp::Pallet<T>>::get() + exp))
     }
 
     /// Registers the given `ticker` to the `owner` identity with an optional expiry time.

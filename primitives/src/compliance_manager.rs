@@ -15,6 +15,7 @@
 
 use crate::condition::{conditions_total_counts, Condition};
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
@@ -22,7 +23,7 @@ use sp_std::prelude::*;
 /// A compliance requirement.
 /// All sender and receiver conditions of the same compliance requirement must be true in order to execute the transfer.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, TypeInfo, Default, Clone, PartialEq, Eq, Debug)]
 pub struct ComplianceRequirement {
     /// List of sender conditions
     pub sender_conditions: Vec<Condition>,
@@ -107,7 +108,7 @@ impl From<Condition> for ConditionResult {
 
 /// List of compliance requirements associated to an asset.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Default, Clone, PartialEq, Eq)]
 pub struct AssetCompliance {
     /// This flag indicates if asset compliance should be enforced
     pub paused: bool,

@@ -7,13 +7,18 @@ import {
   sendTx,
   ApiSingleton,
 } from "../util/init";
-import { createIdentities, addClaimsToDids } from "../helpers/identity_helper";
+import { createIdentities } from "../helpers/identity_helper";
 import { issueTokenToDid } from "../helpers/asset_helper";
 import { distributePolyBatch } from "../helpers/poly_helper";
 import PrettyError from "pretty-error";
 import { addComplianceRequirement } from "../helpers/compliance_manager_helper";
 import { createTable } from "../util/sqlite3";
-import { forceNewEra, unbond, nominate, checkEraElectionClosed } from "../helpers/staking_helper";
+import {
+  forceNewEra,
+  unbond,
+  nominate,
+  checkEraElectionClosed,
+} from "../helpers/staking_helper";
 
 async function main(): Promise<void> {
   createTable();
@@ -55,7 +60,7 @@ async function main(): Promise<void> {
     await api.query.identity.authorizations.entries({
       Account: dave2.publicKey,
     })
-  )[0][1].unwrap().auth_id;
+  )[0][1].unwrap().authId;
   await sendTx(dave2, api.tx.identity.joinIdentityAsKey(authorization));
 
   console.log("Portfolio: TrustedDefaultClaimIssuerAdded");
@@ -66,7 +71,7 @@ async function main(): Promise<void> {
     dave,
     api.tx.complianceManager.addDefaultTrustedClaimIssuer(ticker, {
       issuer: bobDid,
-      trusted_for: { Any: null },
+      trustedFor: { Any: null },
     })
   );
 
@@ -97,16 +102,19 @@ async function main(): Promise<void> {
     )
   );
 
-  console.log(`Election Status: ${await api.query.staking.eraElectionStatus()}`);
+  console.log(
+    `Election Status: ${await api.query.staking.eraElectionStatus()}`
+  );
   await checkEraElectionClosed();
-  console.log(`Election Status: ${await api.query.staking.eraElectionStatus()}`);
+  console.log(
+    `Election Status: ${await api.query.staking.eraElectionStatus()}`
+  );
   // AddAPortfolioManager is not possible because of old permission format
   console.log("Portfolio: StopStakingAPortion");
   await unbond(dave, 100);
 
   console.log("Portfolio: StartStakingANewOperator");
   await nominate(dave, alice.publicKey);
-
 }
 
 main()

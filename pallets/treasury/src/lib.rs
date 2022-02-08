@@ -36,6 +36,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+use frame_support::traits::{StorageInfo, StorageInfoTrait};
 use frame_support::{
     decl_error, decl_event, decl_module, ensure,
     traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReasons},
@@ -44,7 +45,7 @@ use frame_support::{
 use frame_system::ensure_root;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    constants::TREASURY_MODULE_ID, traits::balances::Config as BalancesConfig, Context, GC_DID,
+    constants::TREASURY_PALLET_ID, traits::balances::Config as BalancesConfig, Context, GC_DID,
 };
 use polymesh_primitives::{Beneficiary, IdentityId};
 use sp_runtime::traits::{AccountIdConversion, Saturating};
@@ -151,7 +152,7 @@ impl<T: Config> Module<T> {
     /// This actually does computation. If you need to keep using it, then make sure you cache the
     /// value and only call this once.
     fn account_id() -> T::AccountId {
-        TREASURY_MODULE_ID.into_account()
+        TREASURY_PALLET_ID.into_account()
     }
 
     fn unsafe_disbursement(target: IdentityId, amount: BalanceOf<T>) {
@@ -180,5 +181,11 @@ impl<T: Config> OnUnbalanced<NegativeImbalanceOf<T>> for Module<T> {
         let _ = T::Currency::resolve_creating(&Self::account_id(), amount);
         let current_did = Context::current_identity::<Identity<T>>().unwrap_or_default();
         Self::deposit_event(RawEvent::TreasuryReimbursement(current_did, numeric_amount));
+    }
+}
+
+impl<T: Config> StorageInfoTrait for Module<T> {
+    fn storage_info() -> Vec<StorageInfo> {
+        Vec::new()
     }
 }

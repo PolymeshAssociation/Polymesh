@@ -118,7 +118,7 @@ use polymesh_common_utilities::{
     traits::identity::{
         AuthorizationNonce, Config, IdentityFnTrait, RawEvent, SecondaryKeyWithAuth,
     },
-    SystematicIssuers, GC_DID, SYSTEMATIC_ISSUERS,
+    SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
     investor_zkproof_data::v1::InvestorZKProofData, secondary_key::api::LegacyPermissions,
@@ -127,7 +127,7 @@ use polymesh_primitives::{
     Signatory, Ticker,
 };
 use sp_runtime::traits::Hash;
-use sp_std::{convert::TryFrom, iter, prelude::*, vec};
+use sp_std::{convert::TryFrom, prelude::*};
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 
@@ -197,7 +197,7 @@ decl_storage! {
         // Secondary keys of identities at genesis. `identities` have to be initialised.
         config(secondary_keys): Vec<(T::AccountId, IdentityId)>;
         build(|config: &GenesisConfig<T>| {
-            SYSTEMATIC_ISSUERS
+            polymesh_common_utilities::SYSTEMATIC_ISSUERS
                 .iter()
                 .copied()
                 .for_each(<Module<T>>::register_systematic_id);
@@ -234,7 +234,7 @@ decl_storage! {
                 <Module<T>>::link_account_key_to_did(secondary_account_id, did);
                 let sk = SecondaryKey::from_account_id(secondary_account_id.clone());
                 <DidRecords<T>>::mutate(did, |record| {
-                    (*record).add_secondary_keys(iter::once(sk.clone()));
+                    (*record).add_secondary_keys(core::iter::once(sk.clone()));
                 });
                 <Module<T>>::deposit_event(RawEvent::SecondaryKeysAdded(did, vec![sk.into()]));
             }

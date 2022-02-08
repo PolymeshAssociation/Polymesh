@@ -23,7 +23,7 @@ use test_client::AccountKeyring;
 
 type Committee = committee::Module<TestStorage, committee::Instance1>;
 type CommitteeGroup = group::Module<TestStorage, group::Instance1>;
-type System = frame_system::Module<TestStorage>;
+type System = frame_system::Pallet<TestStorage>;
 type Identity = identity::Module<TestStorage>;
 type Pips = pallet_pips::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::Origin;
@@ -54,7 +54,10 @@ fn motions_basic_environment_works_we() {
 }
 
 fn make_proposal(value: u64) -> Call {
-    Call::Identity(identity::Call::accept_primary_key(value, Some(value)))
+    Call::Identity(identity::Call::accept_primary_key {
+        rotation_auth_id: value,
+        optional_cdd_auth_id: Some(value),
+    })
 }
 
 const APPROVE_0: &[(PipId, SnapshotResult)] = &[(PipId(0), SnapshotResult::Approve)];
@@ -97,7 +100,9 @@ fn check_scheduled(id: PipId) {
 }
 
 fn enact_snapshot_results_call() -> Call {
-    Call::Pips(pallet_pips::Call::enact_snapshot_results(APPROVE_0.into()))
+    Call::Pips(pallet_pips::Call::enact_snapshot_results {
+        results: APPROVE_0.into(),
+    })
 }
 
 fn hash_enact_snapshot_results() -> H256 {
@@ -139,11 +144,7 @@ fn single_member_committee_works_we() {
     let hash = hash_enact_snapshot_results();
     let expected_event = EventRecord {
         phase: Phase::Initialization,
-        event: EventTest::pallet_committee_Instance1(CommitteeRawEvent::Executed(
-            alice_did,
-            hash,
-            Ok(()),
-        )),
+        event: EventTest::PolymeshCommittee(CommitteeRawEvent::Executed(alice_did, hash, Ok(()))),
         topics: vec![],
     };
     assert_eq!(System::events().contains(&expected_event), true);
@@ -301,7 +302,7 @@ fn changing_vote_threshold_works_we() {
     assert_eq!(Committee::vote_threshold(), (1, 1));
 
     let call_svt = Box::new(Call::PolymeshCommittee(
-        pallet_committee::Call::set_vote_threshold(4, 17),
+        pallet_committee::Call::set_vote_threshold { n: 4, d: 17 },
     ));
     assert_ok!(Committee::vote_or_propose(
         alice_signer,
@@ -433,11 +434,7 @@ fn rage_quit_we() {
     let did = IdentityId::default();
     let expected_event = EventRecord {
         phase: Phase::Initialization,
-        event: EventTest::pallet_committee_Instance1(CommitteeRawEvent::Executed(
-            did,
-            hash,
-            Ok(()),
-        )),
+        event: EventTest::PolymeshCommittee(CommitteeRawEvent::Executed(did, hash, Ok(()))),
         topics: vec![],
     };
     assert_eq!(System::events().contains(&expected_event), true);
@@ -515,7 +512,8 @@ fn release_coordinator_majority_we() {
     );
 
     // Vote to change RC => bob.
-    let call = Call::PolymeshCommittee(pallet_committee::Call::set_release_coordinator(bob_id));
+    let call =
+        Call::PolymeshCommittee(pallet_committee::Call::set_release_coordinator { id: bob_id });
     assert_ok!(Committee::vote_or_propose(
         alice.clone(),
         true,

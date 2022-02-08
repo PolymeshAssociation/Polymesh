@@ -65,7 +65,7 @@ impl<T: Config> Module<T> {
         issuer: IdentityId,
         scope: Option<Scope>,
     ) -> Option<IdentityClaim> {
-        let now = <pallet_timestamp::Module<T>>::get();
+        let now = <pallet_timestamp::Pallet<T>>::get();
 
         Self::fetch_base_claim_with_issuer(id, claim_type, issuer, scope)
             .into_iter()
@@ -112,7 +112,7 @@ impl<T: Config> Module<T> {
         leeway: T::Moment,
         filter_cdd_id: Option<CddId>,
     ) -> impl Iterator<Item = IdentityClaim> {
-        let exp_with_leeway = <pallet_timestamp::Module<T>>::get()
+        let exp_with_leeway = <pallet_timestamp::Pallet<T>>::get()
             .checked_add(&leeway)
             .unwrap_or_default();
 
@@ -217,7 +217,7 @@ impl<T: Config> Module<T> {
         expiry: Option<T::Moment>,
     ) {
         let claim_type = claim.claim_type();
-        let last_update_date = <pallet_timestamp::Module<T>>::get().saturated_into::<u64>();
+        let last_update_date = <pallet_timestamp::Pallet<T>>::get().saturated_into::<u64>();
         let issuance_date = Self::fetch_claim(target, claim_type, issuer, scope.clone())
             .map_or(last_update_date, |id_claim| id_claim.issuance_date);
 
@@ -500,7 +500,7 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         ensure_root(origin)?;
 
-        let now = <pallet_timestamp::Module<T>>::get();
+        let now = <pallet_timestamp::Pallet<T>>::get();
         ensure!(
             T::CddServiceProviders::get_valid_members_at(now).contains(&cdd),
             Error::<T>::UnAuthorizedCddProvider

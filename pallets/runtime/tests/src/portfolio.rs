@@ -152,7 +152,7 @@ fn cannot_delete_portfolio_with_asset() {
         ));
         // check MovedBetweenPortfolios event
         assert_last_event!(
-            EventTest::pallet_portfolio(Event::MovedBetweenPortfolios(
+            EventTest::Portfolio(Event::MovedBetweenPortfolios(
                 did, from, to, i_ticker, i_amount, i_memo
             )),
             did == &owner.did
@@ -317,7 +317,7 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
     ));
     // check MovedBetweenPortfolios event
     assert_last_event!(
-        EventTest::pallet_portfolio(Event::MovedBetweenPortfolios(
+        EventTest::Portfolio(Event::MovedBetweenPortfolios(
             did, from, to, i_ticker, i_amount, i_memo
         )),
         did == &owner.did

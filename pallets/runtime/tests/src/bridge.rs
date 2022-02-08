@@ -20,8 +20,8 @@ type Identity = pallet_identity::Module<TestStorage>;
 type Balances = pallet_balances::Module<TestStorage>;
 type MultiSig = pallet_multisig::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::Origin;
-type System = frame_system::Module<TestStorage>;
-type Scheduler = pallet_scheduler::Module<TestStorage>;
+type System = frame_system::Pallet<TestStorage>;
+type Scheduler = pallet_scheduler::Pallet<TestStorage>;
 
 type BridgeTx = GBridgeTx<AccountId>;
 type BridgeTxDetail = GBridgeTxDetail<u32>;
@@ -74,7 +74,9 @@ fn alice_bridge_tx(amount: u128) -> BridgeTx {
 }
 
 fn bridge_tx_to_proposal(tx: &BridgeTx) -> Call {
-    Call::Bridge(bridge::Call::handle_bridge_tx(tx.clone()))
+    Call::Bridge(bridge::Call::handle_bridge_tx {
+        bridge_tx: tx.clone(),
+    })
 }
 
 fn alice_make_bridge_tx(amount: u128) -> BridgeTx {

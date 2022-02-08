@@ -152,8 +152,10 @@ impl<T: Config> Module<T> {
     /// Computes the fee of the operation as `(base_fee * coefficient.0) / coefficient.1`.
     pub fn compute_fee(ops: &[ProtocolOp]) -> Balance {
         let coefficient = Self::coefficient();
-        let ratio = Perbill::from_rational_approximation(coefficient.0, coefficient.1);
-        let base = ops.iter().fold(Zero::zero(), |a, e| a + Self::base_fees(e));
+        let ratio = Perbill::from_rational(coefficient.0, coefficient.1);
+        let base = ops
+            .iter()
+            .fold(Zero::zero(), |a: Balance, e| a + Self::base_fees(e));
         ratio * base
     }
 
@@ -190,6 +192,7 @@ impl<T: Config> Module<T> {
             // It always return the negative imbalance as negative_imbalance always >= positive_imbalance.
             let imbalance = negative_imbalance
                 .offset(positive_imbalance)
+                .same()
                 .map_err(|_| Error::<T>::UnHandledImbalances)?;
             T::OnProtocolFeePayment::on_unbalanced(imbalance);
         }

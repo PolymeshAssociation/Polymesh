@@ -16,6 +16,7 @@
 use crate::{identity_id::IdentityId, CddId, Moment, Ticker};
 
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::From, prelude::*};
@@ -26,7 +27,8 @@ use super::jurisdiction::CountryCode;
 pub type ScopeId = IdentityId;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
 /// Scope: Almost all claim needs a valid scope.
 pub enum Scope {
     /// Scoped to an Identity
@@ -68,7 +70,7 @@ impl Scope {
 
 /// All possible claims in polymesh
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum Claim {
     /// User is Accredited
     Accredited(Scope),
@@ -156,7 +158,8 @@ impl Claim {
 
 /// Claim type represent the claim without its data.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
 pub enum ClaimType {
     /// User is Accredited
     Accredited,
@@ -192,7 +195,7 @@ impl Default for ClaimType {
 
 /// All information of a particular claim
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(Encode, Decode, Clone, Default, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Clone, Default, PartialEq, Eq)]
 pub struct IdentityClaim {
     /// Issuer of the claim
     pub claim_issuer: IdentityId,
