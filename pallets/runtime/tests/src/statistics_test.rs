@@ -299,7 +299,7 @@ fn should_verify_tms() {
             add_ctm(10);
 
             let ptm25 = TransferManager::PercentageTransferManager(HashablePermill(
-                Permill::from_rational_approximation(1u32, 4u32),
+                Permill::from_rational(1u32, 4u32),
             ));
             // Add ptm with max ownership limit of 50%
             assert_ok!(add_tm(ptm25.clone()));
@@ -317,7 +317,7 @@ fn should_verify_tms() {
 
             // Advanced scenario where charlie is limited at 30% but others at 25%
             assert_ok!(add_tm(TransferManager::PercentageTransferManager(
-                HashablePermill(Permill::from_rational_approximation(3u32, 10u32))
+                HashablePermill(Permill::from_rational(3u32, 10u32))
             )));
             // Transfer should fail when dave is breaching the default limit
             ensure_invalid_transfer(ticker, alice, dave, 1);

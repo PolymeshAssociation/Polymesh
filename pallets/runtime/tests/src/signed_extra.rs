@@ -17,7 +17,10 @@ use sp_std::convert::From;
 use test_client::AccountKeyring;
 
 pub fn make_call() -> (<Runtime as frame_system::Config>::Call, usize) {
-    (Call::System(frame_system::Call::remark(vec![])), 10)
+    (
+        Call::System(frame_system::Call::remark { remark: vec![] }),
+        10,
+    )
 }
 
 /// Generate a `SignedExtra` value as it is defined in `Runtime`.

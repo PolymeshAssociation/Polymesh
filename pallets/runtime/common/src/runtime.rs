@@ -25,7 +25,7 @@ macro_rules! misc_pallet_impls {
 
         impl frame_system::Config for Runtime {
             /// The basic call filter to use in dispatchable.
-            type BaseCallFilter = ();
+            type BaseCallFilter = frame_support::traits::Everything;
             /// Block & extrinsics weights: base values and limits.
             type BlockWeights = polymesh_runtime_common::RuntimeBlockWeights;
             /// The maximum length of a block (in bytes).
@@ -74,6 +74,7 @@ macro_rules! misc_pallet_impls {
             /// The data to be stored in an account.
             type AccountData = polymesh_common_utilities::traits::balances::AccountData;
             type SystemWeightInfo = polymesh_weights::frame_system::WeightInfo;
+            type OnSetCode = ();
         }
 
         impl pallet_base::Config for Runtime {
@@ -86,6 +87,7 @@ macro_rules! misc_pallet_impls {
             type EpochDuration = EpochDuration;
             type ExpectedBlockTime = ExpectedBlockTime;
             type EpochChangeTrigger = pallet_babe::ExternalTrigger;
+            type DisabledValidators = Session;
 
             type KeyOwnerProofSystem = Historical;
 
@@ -104,6 +106,7 @@ macro_rules! misc_pallet_impls {
                 Offences,
                 ReportLongevity,
             >;
+            type MaxAuthorities = MaxAuthorities;
         }
 
         impl pallet_indices::Config for Runtime {
@@ -130,7 +133,7 @@ macro_rules! misc_pallet_impls {
 
         impl polymesh_common_utilities::traits::CommonConfig for Runtime {
             type AssetSubTraitTarget = Asset;
-            type BlockRewardsReserve = pallet_balances::Module<Runtime>;
+            type BlockRewardsReserve = pallet_balances::Pallet<Runtime>;
         }
 
         impl pallet_balances::Config for Runtime {
@@ -138,7 +141,7 @@ macro_rules! misc_pallet_impls {
             type DustRemoval = ();
             type Event = Event;
             type ExistentialDeposit = ExistentialDeposit;
-            type AccountStore = frame_system::Module<Runtime>;
+            type AccountStore = frame_system::Pallet<Runtime>;
             type CddChecker = polymesh_runtime_common::cdd_check::CddChecker<Runtime>;
             type WeightInfo = polymesh_weights::pallet_balances::WeightInfo;
         }
@@ -184,7 +187,6 @@ macro_rules! misc_pallet_impls {
             type SessionHandler =
                 <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
             type Keys = SessionKeys;
-            type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
             type WeightInfo = polymesh_weights::pallet_session::WeightInfo;
         }
 
@@ -197,6 +199,7 @@ macro_rules! misc_pallet_impls {
         }
 
         impl pallet_staking::Config for Runtime {
+            const MAX_NOMINATIONS: u32 = pallet_staking::MAX_NOMINATIONS;
             type Currency = Balances;
             type UnixTime = Timestamp;
             type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
@@ -232,7 +235,9 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
         }
 
-        impl pallet_authority_discovery::Config for Runtime {}
+        impl pallet_authority_discovery::Config for Runtime {
+            type MaxAuthorities = MaxAuthorities;
+        }
 
         impl pallet_sudo::Config for Runtime {
             type Event = Event;
@@ -277,7 +282,7 @@ macro_rules! misc_pallet_impls {
             type Currency = Balances;
             type ComplianceManager = pallet_compliance_manager::Module<Runtime>;
             type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
-            type UnixTime = pallet_timestamp::Module<Runtime>;
+            type UnixTime = pallet_timestamp::Pallet<Runtime>;
             type AssetNameMaxLength = AssetNameMaxLength;
             type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
             type AssetFn = Asset;
@@ -354,13 +359,13 @@ macro_rules! misc_pallet_impls {
             type ScheduleOrigin = polymesh_primitives::EnsureRoot;
             type MaxScheduledPerBlock = MaxScheduledPerBlock;
             type WeightInfo = polymesh_weights::pallet_scheduler::WeightInfo;
+            type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
         }
 
         impl pallet_offences::Config for Runtime {
             type Event = Event;
             type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
             type OnOffenceHandler = Staking;
-            type WeightSoftLimit = OffencesWeightSoftLimit;
         }
 
         type GrandpaKey = (sp_core::crypto::KeyTypeId, pallet_grandpa::AuthorityId);
@@ -368,11 +373,14 @@ macro_rules! misc_pallet_impls {
         impl pallet_im_online::Config for Runtime {
             type AuthorityId = pallet_im_online::sr25519::AuthorityId;
             type Event = Event;
+            type NextSessionRotation = Babe;
             type ValidatorSet = Historical;
             type UnsignedPriority = ImOnlineUnsignedPriority;
             type ReportUnresponsiveness = Offences;
-            type SessionDuration = SessionDuration;
             type WeightInfo = polymesh_weights::pallet_im_online::WeightInfo;
+            type MaxKeys = MaxKeys;
+            type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
+            type MaxPeerDataEncodingSize = MaxPeerDataEncodingSize;
         }
 
         impl pallet_grandpa::Config for Runtime {
@@ -393,7 +401,10 @@ macro_rules! misc_pallet_impls {
                 Offences,
                 ReportLongevity,
             >;
+            type MaxAuthorities = MaxAuthorities;
         }
+
+        impl pallet_randomness_collective_flip::Config for Runtime {}
 
         impl pallet_treasury::Config for Runtime {
             type Event = Event;
@@ -452,7 +463,7 @@ macro_rules! misc_pallet_impls {
                 );
                 let raw_payload = SignedPayload::new(call, extra)
                     .map_err(|e| {
-                        debug::warn!("Unable to create signed payload: {:?}", e);
+                        log::warn!("Unable to create signed payload: {:?}", e);
                     })
                     .ok()?;
                 let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
@@ -522,7 +533,7 @@ macro_rules! runtime_apis {
             Block,
             frame_system::ChainContext<Runtime>,
             Runtime,
-            AllModules,
+            AllPallets,
         >;
 
         sp_api::impl_runtime_apis! {
@@ -542,7 +553,7 @@ macro_rules! runtime_apis {
 
             impl sp_api::Metadata<Block> for Runtime {
                 fn metadata() -> sp_core::OpaqueMetadata {
-                    Runtime::metadata().into()
+                    sp_core::OpaqueMetadata::new(Runtime::metadata().into())
                 }
             }
 
@@ -562,18 +573,15 @@ macro_rules! runtime_apis {
                 fn check_inherents(block: Block, data: InherentData) -> CheckInherentsResult {
                     data.check_extrinsics(&block)
                 }
-
-                fn random_seed() -> <Block as BlockT>::Hash {
-                    RandomnessCollectiveFlip::random_seed()
-                }
             }
 
             impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
                 fn validate_transaction(
                     source: sp_runtime::transaction_validity::TransactionSource,
                     tx: <Block as BlockT>::Extrinsic,
+                    block_hash: <Block as BlockT>::Hash,
                 ) -> sp_runtime::transaction_validity::TransactionValidity {
-                    Executive::validate_transaction(source, tx)
+                    Executive::validate_transaction(source, tx, block_hash)
                 }
             }
 
@@ -613,6 +621,10 @@ macro_rules! runtime_apis {
                         .map(|p| p.encode())
                         .map(pallet_grandpa::fg_primitives::OpaqueKeyOwnershipProof::new)
                 }
+
+                fn current_set_id() -> pallet_grandpa::fg_primitives::SetId {
+                    Grandpa::current_set_id()
+                }
             }
 
             impl sp_consensus_babe::BabeApi<Block> for Runtime {
@@ -626,7 +638,7 @@ macro_rules! runtime_apis {
                         slot_duration: Babe::slot_duration(),
                         epoch_length: EpochDuration::get(),
                         c: PRIMARY_PROBABILITY,
-                        genesis_authorities: Babe::authorities(),
+                        genesis_authorities: Babe::authorities().to_vec(),
                         randomness: Babe::randomness(),
                         allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryPlainSlots,
                     }

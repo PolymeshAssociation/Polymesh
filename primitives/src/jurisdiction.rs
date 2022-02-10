@@ -16,6 +16,7 @@
 //! Data types and definitions of jurisdictions.
 
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
@@ -24,7 +25,7 @@ macro_rules! country_codes {
     ( $([$discr:expr,$alpha2:ident, $alpha3:ident, $un:literal, $($extra:expr),*]),* $(,)? ) => {
         /// Existing country codes according to ISO-3166-1.
         #[allow(missing_docs)]
-        #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Decode, Encode, Hash)]
+        #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Decode, Encode, TypeInfo, Hash)]
         #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
         #[repr(u16)] // Could use `u8`, strictly speaking, but leave room for growth!
         pub enum CountryCode {

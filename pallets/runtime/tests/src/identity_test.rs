@@ -47,8 +47,8 @@ type Asset = pallet_asset::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type Identity = identity::Module<TestStorage>;
 type MultiSig = pallet_multisig::Module<TestStorage>;
-type System = frame_system::Module<TestStorage>;
-type Timestamp = pallet_timestamp::Module<TestStorage>;
+type System = frame_system::Pallet<TestStorage>;
+type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 
 type Origin = <TestStorage as frame_system::Config>::Origin;
 type CddServiceProviders = <TestStorage as IdentityConfig>::CddServiceProviders;
@@ -479,11 +479,11 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
     // 4. Bob should NOT transfer any amount. SE is simulated.
     // Balances::transfer_with_memo(Origin::signed(bob), charlie, 1_000, None),
     let payer = CddHandler::get_valid_payer(
-        &Call::Balances(balances::Call::transfer_with_memo(
-            AccountKeyring::Charlie.to_account_id().into(),
-            1_000,
-            None,
-        )),
+        &Call::Balances(balances::Call::transfer_with_memo {
+            dest: AccountKeyring::Charlie.to_account_id().into(),
+            value: 1_000,
+            memo: None,
+        }),
         &AccountKeyring::Bob.to_account_id(),
     );
     assert_noop!(

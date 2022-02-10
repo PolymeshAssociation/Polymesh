@@ -36,6 +36,7 @@ use polymesh_primitives::{
     secondary_key::api::{LegacyPermissions, SecondaryKey},
     AuthorizationData, IdentityClaim, IdentityId, InvestorUid, Permissions, Signatory, Ticker,
 };
+use scale_info::TypeInfo;
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
 use sp_std::vec::Vec;
@@ -67,7 +68,7 @@ pub struct TargetIdAuthorization<Moment> {
 /// # TODO
 ///  - Replace `H512` type by a template type which represents explicitly the relation with
 ///  `TargetIdAuthorization`.
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(codec::Encode, codec::Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
 pub struct SecondaryKeyWithAuth<AccountId> {
     /// Secondary key to be added.
     pub secondary_key: SecondaryKey<AccountId>,
@@ -169,7 +170,7 @@ pub trait Config: CommonConfig + pallet_timestamp::Config + crate::traits::base:
     type CddHandler: CddAndFeeDetails<Self::AccountId, <Self as frame_system::Config>::Call>;
 
     type Public: IdentifyAccount<AccountId = Self::AccountId>;
-    type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode;
+    type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode + TypeInfo;
     type ProtocolFee: ChargeProtocolFee<Self::AccountId>;
 
     /// Origin for Governance Committee voting majority origin.

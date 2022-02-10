@@ -16,12 +16,14 @@
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchResult;
 use polymesh_primitives::Balance;
+use scale_info::TypeInfo;
 use sp_runtime::Perbill;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 
 /// Protocol fee operations.
-#[derive(Decode, Encode, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum ProtocolOp {
     AssetRegisterTicker,

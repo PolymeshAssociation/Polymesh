@@ -57,6 +57,7 @@ pub use polymesh_common_utilities::traits::relayer::{
 use polymesh_primitives::{
     extract_auth, AuthorizationData, Balance, IdentityId, Signatory, TransactionError,
 };
+use scale_info::TypeInfo;
 use sp_runtime::transaction_validity::InvalidTransaction;
 
 type Identity<T> = pallet_identity::Module<T>;
@@ -65,7 +66,8 @@ type Identity<T> = pallet_identity::Module<T>;
 ///
 /// This holds the subsidiser's paying key and the remaining POLYX balance
 /// available for subsidising transaction and protocol fees.
-#[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Subsidy<Acc> {
     /// The subsidiser's paying key.
     pub paying_key: Acc,

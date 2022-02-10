@@ -13,7 +13,7 @@ const MAX_CALLS: u32 = 30;
 
 /// Generate `c` no-op system remark calls.
 fn make_calls<T: Config>(c: u32) -> Vec<<T as Config>::Call> {
-    let call: <T as Config>::Call = frame_system::Call::<T>::remark(vec![]).into();
+    let call: <T as Config>::Call = frame_system::Call::<T>::remark { remark: vec![] }.into();
     vec![call; c as usize]
 }
 
@@ -24,7 +24,11 @@ fn make_transfer_calls<T: Config>(
     amount: u128,
 ) -> Vec<<T as Config>::Call> {
     let idx = <T as frame_system::Config>::Lookup::unlookup(to);
-    let call: <T as Config>::Call = BalancesCall::transfer(idx, amount.into()).into();
+    let call: <T as Config>::Call = BalancesCall::transfer {
+        dest: idx,
+        value: amount.into(),
+    }
+    .into();
     vec![call; c as usize]
 }
 

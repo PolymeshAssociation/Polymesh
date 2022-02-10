@@ -33,9 +33,8 @@ pub type BlockNumber = u64;
 ///
 /// This is a mirror of the `AccountId` type used in the default configuration
 /// of PALLET contracts.
-#[derive(
-    Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Encode, Decode, From, Default,
-)]
+#[derive(Encode, Decode, From)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Default)]
 #[cfg_attr(feature = "std", derive(TypeInfo))]
 pub struct AccountId([u8; 32]);
 
@@ -54,9 +53,8 @@ impl<'a> TryFrom<&'a [u8]> for AccountId {
 ///
 /// This is a mirror of the `Hash` type used in the default configuration
 /// of PALLET contracts.
-#[derive(
-    Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Encode, Decode, From, Default,
-)]
+#[derive(Encode, Decode, From)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Default)]
 #[cfg_attr(feature = "std", derive(TypeInfo))]
 pub struct Hash([u8; 32]);
 
@@ -102,7 +100,8 @@ impl ink_core::env::EnvTypes for PolymeshRuntimeTypes {
 
 const TICKER_LEN: usize = 12;
 
-#[derive(Decode, Encode, PartialEq, Ord, Eq, PartialOrd, Copy, Hash, Clone, Default, Debug)]
+#[derive(Decode, Encode)]
+#[derive(PartialEq, Ord, Eq, PartialOrd, Copy, Hash, Clone, Default, Debug)]
 #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct IdentityId([u8; 32]);
@@ -111,7 +110,8 @@ impl Flush for IdentityId {}
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
-#[derive(Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, Encode)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct JurisdictionName(pub Vec<u8>);
 
 /// Scope: Almost all claim needs a valid scope identity.
@@ -198,7 +198,8 @@ pub struct AssetCompliance {
 /// received by a Substrate module call method has to be converted to canonical uppercase
 /// representation using [`Ticker::canonize`].
 #[cfg_attr(feature = "ink-generate-abi", derive(type_metadata::Metadata))]
-#[derive(Encode, Decode, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Decode, Encode)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Ticker([u8; TICKER_LEN]);
 
 impl Default for Ticker {

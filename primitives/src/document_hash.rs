@@ -14,6 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use sp_std::{
     convert::{TryFrom, TryInto},
     ops::Deref,
@@ -21,7 +22,7 @@ use sp_std::{
 };
 
 /// A wrapper for a document hash.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Encode, Decode)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Encode, Decode, TypeInfo)]
 pub enum DocumentHash {
     /// No hash
     None,

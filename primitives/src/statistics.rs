@@ -14,6 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{hash::Hash, hash::Hasher, ops::Deref, ops::DerefMut, prelude::*};
@@ -25,7 +26,8 @@ pub type Percentage = HashablePermill;
 
 /// Transfer managers that can be attached to a Token for compliance.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TransferManager {
     /// CTM limits the number of active investors in a Token.
     CountTransferManager(Counter),
@@ -45,7 +47,8 @@ pub struct TransferManagerResult {
 
 /// Wrapper around `sp_arithmetic::Permill`
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct HashablePermill(pub sp_arithmetic::Permill);
 
 impl Hash for HashablePermill {

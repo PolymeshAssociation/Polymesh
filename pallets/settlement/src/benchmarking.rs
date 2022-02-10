@@ -63,7 +63,7 @@ impl<T: Config> From<User<T>> for UserData<T> {
 }
 
 fn set_block_number<T: Config>(new_block_no: u64) {
-    system::Module::<T>::set_block_number(new_block_no.saturated_into::<T::BlockNumber>());
+    frame_system::Pallet::<T>::set_block_number(new_block_no.saturated_into::<T::BlockNumber>());
 }
 
 fn creator<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> User<T> {
@@ -854,7 +854,7 @@ benchmarks! {
 
 pub fn next_block<T: Config + pallet_scheduler::Config>() {
     use frame_support::traits::OnInitialize;
-    let block_number = frame_system::Module::<T>::block_number() + 1u32.into();
-    frame_system::Module::<T>::set_block_number(block_number);
-    pallet_scheduler::Module::<T>::on_initialize(block_number);
+    let block_number = frame_system::Pallet::<T>::block_number() + 1u32.into();
+    frame_system::Pallet::<T>::set_block_number(block_number);
+    pallet_scheduler::Pallet::<T>::on_initialize(block_number);
 }

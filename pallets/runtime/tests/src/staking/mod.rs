@@ -108,6 +108,7 @@ use pallet_staking::*;
 use sp_npos_elections::ElectionScore;
 use sp_runtime::{
     assert_eq_error_rate,
+    offchain::storage::MutateStorageError::ValueFunctionFailed,
     traits::BadOrigin,
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
     Perbill,
@@ -337,10 +338,10 @@ fn rewards_should_work() {
                     individual: vec![(11, 100), (21, 50)].into_iter().collect(),
                 }
             );
-            let part_for_10 = Perbill::from_rational_approximation::<u32>(1000, 1125);
-            let part_for_20 = Perbill::from_rational_approximation::<u32>(1000, 1375);
-            let part_for_100_from_10 = Perbill::from_rational_approximation::<u32>(125, 1125);
-            let part_for_100_from_20 = Perbill::from_rational_approximation::<u32>(375, 1375);
+            let part_for_10 = Perbill::from_rational::<u32>(1000, 1125);
+            let part_for_20 = Perbill::from_rational::<u32>(1000, 1375);
+            let part_for_100_from_10 = Perbill::from_rational::<u32>(125, 1125);
+            let part_for_100_from_20 = Perbill::from_rational::<u32>(375, 1375);
 
             start_session(2);
             start_session(3);
@@ -746,9 +747,9 @@ fn nominators_also_get_slashed_pro_rata() {
 
         let slash_amount = slash_percent * exposed_stake;
         let validator_share =
-            Perbill::from_rational_approximation(exposed_validator, exposed_stake) * slash_amount;
+            Perbill::from_rational(exposed_validator, exposed_stake) * slash_amount;
         let nominator_share =
-            Perbill::from_rational_approximation(exposed_nominator, exposed_stake) * slash_amount;
+            Perbill::from_rational(exposed_nominator, exposed_stake) * slash_amount;
 
         // both slash amounts need to be positive for the test to make sense.
         assert!(validator_share > 0);
@@ -2302,7 +2303,7 @@ fn reward_from_authorship_event_handler_works() {
     ExtBuilder::default().build_and_execute(|| {
         use pallet_authorship::EventHandler;
 
-        assert_eq!(<pallet_authorship::Module<Test>>::author(), 11);
+        assert_eq!(<pallet_authorship::Pallet<Test>>::author(), 11);
 
         <Module<Test>>::note_author(11);
         <Module<Test>>::note_uncle(21, 1);
@@ -3296,7 +3297,7 @@ mod offchain_phragmen {
     use parking_lot::RwLock;
     use sp_core::offchain::{
         testing::{PoolState, TestOffchainExt, TestTransactionPoolExt},
-        OffchainExt, TransactionPoolExt,
+        OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
     };
     use sp_io::TestExternalities;
     use sp_npos_elections::StakedAssignment;
@@ -3338,7 +3339,8 @@ mod offchain_phragmen {
         seed[0..4].copy_from_slice(&iterations.to_le_bytes());
         offchain_state.write().seed = seed;
 
-        ext.register_extension(OffchainExt::new(offchain));
+        ext.register_extension(OffchainDbExt::new(offchain.clone()));
+        ext.register_extension(OffchainWorkerExt::new(offchain));
         ext.register_extension(TransactionPoolExt::new(pool));
 
         pool_state
@@ -4244,6 +4246,7 @@ mod offchain_phragmen {
 
                 // slash 10. This must happen outside of the election window.
                 let offender_expo = Staking::eras_stakers(Staking::active_era().unwrap().index, 11);
+
                 on_offence_now(
                     &[OffenceDetails {
                         offender: (11, offender_expo.clone()),
@@ -4257,7 +4260,9 @@ mod offchain_phragmen {
                 assert_ok!(Staking::validate(Origin::signed(10), Default::default()));
 
                 // open the election window and create snapshots.
-                run_to_block(32);
+                // FIXME(Centril, Neopallium): We changed this to 32.
+                // We're unsure as to why this was necessary and if it was entirely correct.
+                run_to_block(23);
 
                 // a solution that has been prepared after the slash.
                 let (compact, winners, score) = prepare_submission_with(true, false, 0, |a| {
@@ -4358,48 +4363,23 @@ mod offchain_phragmen {
             // re-execute after the next. not allowed.
             assert_eq!(
                 offchain_election::set_check_offchain_execution_status::<Test>(13),
-                Err("recently executed."),
+                Err(ValueFunctionFailed("recently executed.")),
             );
 
             // a fork like situation -- re-execute 10, 11, 12. But it won't go through.
             assert_eq!(
                 offchain_election::set_check_offchain_execution_status::<Test>(10),
-                Err("fork."),
+                Err(ValueFunctionFailed("fork.")),
             );
             assert_eq!(
                 offchain_election::set_check_offchain_execution_status::<Test>(11),
-                Err("fork."),
+                Err(ValueFunctionFailed("fork.")),
             );
             assert_eq!(
                 offchain_election::set_check_offchain_execution_status::<Test>(12),
-                Err("recently executed."),
+                Err(ValueFunctionFailed("recently executed.")),
             );
         })
-    }
-
-    #[test]
-    #[should_panic]
-    fn offence_is_blocked_when_window_open() {
-        ExtBuilder::default()
-            .offchain_election_ext()
-            .validator_count(4)
-            .has_stakers(false)
-            .build()
-            .execute_with(|| {
-                run_to_block(12);
-                assert_eq!(Staking::era_election_status(), ElectionStatus::Open(12));
-
-                let offender_expo = Staking::eras_stakers(Staking::active_era().unwrap().index, 10);
-
-                // panic from the impl in mock
-                on_offence_now(
-                    &[OffenceDetails {
-                        offender: (10, offender_expo.clone()),
-                        reporters: vec![],
-                    }],
-                    &[Perbill::from_percent(10)],
-                );
-            })
     }
 }
 
@@ -4480,8 +4460,8 @@ fn claim_reward_at_the_last_era_and_no_double_claim_and_invalid_claim() {
         let init_balance_10 = Balances::total_balance(&10);
         let init_balance_100 = Balances::total_balance(&100);
 
-        let part_for_10 = Perbill::from_rational_approximation::<u32>(1000, 1125);
-        let part_for_100 = Perbill::from_rational_approximation::<u32>(125, 1125);
+        let part_for_10 = Perbill::from_rational::<u32>(1000, 1125);
+        let part_for_100 = Perbill::from_rational::<u32>(125, 1125);
 
         // Check state
         Payee::<Test>::insert(11, RewardDestination::Controller);
@@ -4944,7 +4924,7 @@ fn offences_weight_calculated_correctly() {
     ExtBuilder::default().nominate(true).build_and_execute(|| {
 		// On offence with zero offenders: 4 Reads, 1 Write
 		let zero_offence_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(4, 1);
-		assert_eq!(Staking::on_offence(&[], &[Perbill::from_percent(50)], 0), Ok(zero_offence_weight));
+		assert_eq!(Staking::on_offence(&[], &[Perbill::from_percent(50)], 0), zero_offence_weight);
 
 		// On Offence with N offenders, Unapplied: 4 Reads, 1 Write + 4 Reads, 5 Writes
 		let n_offence_unapplied_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(4, 1)
@@ -4957,7 +4937,7 @@ fn offences_weight_calculated_correctly() {
 					reporters: vec![],
 				}
 			).collect();
-		assert_eq!(Staking::on_offence(&offenders, &[Perbill::from_percent(50)], 0), Ok(n_offence_unapplied_weight));
+		assert_eq!(Staking::on_offence(&offenders, &[Perbill::from_percent(50)], 0), n_offence_unapplied_weight);
 
 		// On Offence with one offenders, Applied
 		let one_offender = [
@@ -4975,7 +4955,7 @@ fn offences_weight_calculated_correctly() {
 			// `reward_cost` * reporters (1)
 			+ <Test as frame_system::Config>::DbWeight::get().reads_writes(2, 2);
 
-		assert_eq!(Staking::on_offence(&one_offender, &[Perbill::from_percent(50)], 0), Ok(one_offence_unapplied_weight));
+		assert_eq!(Staking::on_offence(&one_offender, &[Perbill::from_percent(50)], 0), one_offence_unapplied_weight);
 	});
 }
 
@@ -5342,7 +5322,9 @@ fn voting_for_pip_overlays_with_staking() {
 
         let alice_proposal = |deposit: u128| {
             let signer = Origin::signed(alice_acc);
-            let proposal = Box::new(Call::Pips(pallet_pips::Call::set_min_proposal_deposit(0)));
+            let proposal = Box::new(Call::Pips(pallet_pips::Call::set_min_proposal_deposit {
+                deposit: 0,
+            }));
             Pips::propose(signer, proposal, deposit, None, None)
         };
 
@@ -5371,7 +5353,9 @@ fn slashing_leaves_pips_untouched() {
         let acc = 11;
         let propose = |deposit| {
             let signer = Origin::signed(acc);
-            let proposal = Box::new(Call::Pips(pallet_pips::Call::set_active_pip_limit(0)));
+            let proposal = Box::new(Call::Pips(pallet_pips::Call::set_active_pip_limit {
+                limit: 0,
+            }));
             Pips::propose(signer, proposal, deposit, None, None)
         };
         let slash = |amount| {
@@ -5519,10 +5503,10 @@ fn test_reward_scheduling() {
                     individual: vec![(11, 100), (21, 50)].into_iter().collect(),
                 }
             );
-            let _part_for_10 = Perbill::from_rational_approximation::<u32>(1000, 1125);
-            let _part_for_20 = Perbill::from_rational_approximation::<u32>(1000, 1375);
-            let part_for_100_from_10 = Perbill::from_rational_approximation::<u32>(125, 1125);
-            let part_for_100_from_20 = Perbill::from_rational_approximation::<u32>(375, 1375);
+            let _part_for_10 = Perbill::from_rational::<u32>(1000, 1125);
+            let _part_for_20 = Perbill::from_rational::<u32>(1000, 1375);
+            let part_for_100_from_10 = Perbill::from_rational::<u32>(125, 1125);
+            let part_for_100_from_20 = Perbill::from_rational::<u32>(375, 1375);
 
             start_session(2);
             start_session(3);

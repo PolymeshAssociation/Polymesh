@@ -19,23 +19,23 @@ use crate::impl_checked_inc;
 use crate::statistics::TransferManagerResult;
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::VecU8StrongTyped;
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::Vec;
 
 /// A wrapper for a token name.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AssetName(pub Vec<u8>);
 
 /// The ID of a custom asset type.
-#[derive(Encode, Decode, Copy, Clone, Default, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub struct CustomAssetTypeId(pub u32);
 impl_checked_inc!(CustomAssetTypeId);
 
 /// The type of security represented by a token.
-#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum AssetType {
     /// Common stock - a security that represents ownership in a corporation.
     EquityCommon,
@@ -81,9 +81,8 @@ impl Default for AssetType {
 }
 
 /// A wrapper for a funding round name.
-#[derive(
-    Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Default, VecU8StrongTyped,
-)]
+#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct FundingRoundName(pub Vec<u8>);
 
 /// Result of a granular can transfer.

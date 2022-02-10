@@ -22,7 +22,7 @@ use crate::service::{
     GeneralExecutor, IsNetwork, MainnetExecutor, Network, NewChainOps, TestnetExecutor,
 };
 use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
-use sc_service::{config::Role, Configuration, TaskManager};
+use sc_service::{Configuration, TaskManager};
 
 use core::future::Future;
 use log::info;
@@ -109,15 +109,11 @@ pub fn run() -> Result<()> {
             );
 
             runner.run_node_until_exit(|config| async move {
-                match (network, &config.role) {
-                    (Network::Testnet, Role::Light) => service::testnet_new_light(config),
-                    (Network::Testnet, _) => service::testnet_new_full(config),
-                    (Network::Other, Role::Light) => service::general_new_light(config),
-                    (Network::Other, _) => service::general_new_full(config),
-                    (Network::CI, Role::Light) => service::ci_new_light(config),
-                    (Network::CI, _) => service::ci_new_full(config),
-                    (Network::Mainnet, Role::Light) => service::mainnet_new_light(config),
-                    (Network::Mainnet, _) => service::mainnet_new_full(config),
+                match network {
+                    Network::Testnet => service::testnet_new_full(config),
+                    Network::Other => service::general_new_full(config),
+                    Network::CI => service::ci_new_full(config),
+                    Network::Mainnet => service::mainnet_new_full(config),
                 }
                 .map_err(sc_cli::Error::Service)
             })

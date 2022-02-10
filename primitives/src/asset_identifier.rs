@@ -1,9 +1,10 @@
 use codec::{Decode, Encode};
 use core::convert::TryInto;
+use scale_info::TypeInfo;
 
 /// Implementation of common asset identifiers
 /// https://www.cusip.com/identifiers.html
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
 pub enum AssetIdentifier {
     /// Universally recognized identifier for financial instruments
     /// Example: Amazon.com Inc - Common Stock

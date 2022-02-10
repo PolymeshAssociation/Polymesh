@@ -36,24 +36,25 @@ type Error = pallet_relayer::Error<TestStorage>;
 // =======================================
 
 fn call_balance_transfer(val: Balance) -> <TestStorage as frame_system::Config>::Call {
-    Call::Balances(pallet_balances::Call::transfer(
-        MultiAddress::Id(AccountKeyring::Alice.to_account_id()),
-        val,
-    ))
+    Call::Balances(pallet_balances::Call::transfer {
+        dest: MultiAddress::Id(AccountKeyring::Alice.to_account_id()),
+        value: val,
+    })
 }
 
 fn call_asset_register_ticker(name: &[u8]) -> <TestStorage as frame_system::Config>::Call {
     let ticker = Ticker::try_from(name).unwrap();
-    Call::Asset(pallet_asset::Call::register_ticker(ticker))
+    Call::Asset(pallet_asset::Call::register_ticker { ticker })
 }
 
 fn call_relayer_remove_paying_key(
     user_key: AccountId,
     paying_key: AccountId,
 ) -> <TestStorage as frame_system::Config>::Call {
-    Call::Relayer(pallet_relayer::Call::remove_paying_key(
-        user_key, paying_key,
-    ))
+    Call::Relayer(pallet_relayer::Call::remove_paying_key {
+        user_key,
+        paying_key,
+    })
 }
 
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
@@ -550,12 +551,12 @@ fn do_relayer_accept_cdd_and_fees_test() {
 
     // Alice creates authoration to subsidise for Bob.
     assert_ok!(Relayer::set_paying_key(alice.origin(), bob.acc(), 0u128));
-    let bob_auth_id = get_last_auth_id(&bob_sign);
+    let auth_id = get_last_auth_id(&bob_sign);
 
     // Check that Bob can accept the subsidy with Alice paying for the transaction.
     assert_eq!(
         CddHandler::get_valid_payer(
-            &DevCall::Relayer(pallet_relayer::Call::accept_paying_key(bob_auth_id)),
+            &DevCall::Relayer(pallet_relayer::Call::accept_paying_key { auth_id }),
             &bob.acc()
         ),
         Ok(Some(alice.acc()))

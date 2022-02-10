@@ -118,7 +118,7 @@ use polymesh_common_utilities::{
     traits::identity::{
         AuthorizationNonce, Config, IdentityFnTrait, RawEvent, SecondaryKeyWithAuth,
     },
-    SystematicIssuers, GC_DID, SYSTEMATIC_ISSUERS,
+    SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
     investor_zkproof_data::v1::InvestorZKProofData, secondary_key::api::LegacyPermissions,
@@ -127,7 +127,7 @@ use polymesh_primitives::{
     Signatory, Ticker,
 };
 use sp_runtime::traits::Hash;
-use sp_std::{convert::TryFrom, iter, prelude::*, vec};
+use sp_std::{convert::TryFrom, prelude::*};
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 
@@ -197,7 +197,7 @@ decl_storage! {
         // Secondary keys of identities at genesis. `identities` have to be initialised.
         config(secondary_keys): Vec<(T::AccountId, IdentityId)>;
         build(|config: &GenesisConfig<T>| {
-            SYSTEMATIC_ISSUERS
+            polymesh_common_utilities::SYSTEMATIC_ISSUERS
                 .iter()
                 .copied()
                 .for_each(<Module<T>>::register_systematic_id);
@@ -234,7 +234,7 @@ decl_storage! {
                 <Module<T>>::link_account_key_to_did(secondary_account_id, did);
                 let sk = SecondaryKey::from_account_id(secondary_account_id.clone());
                 <DidRecords<T>>::mutate(did, |record| {
-                    (*record).add_secondary_keys(iter::once(sk.clone()));
+                    (*record).add_secondary_keys(core::iter::once(sk.clone()));
                 });
                 <Module<T>>::deposit_event(RawEvent::SecondaryKeysAdded(did, vec![sk.into()]));
             }
@@ -316,25 +316,6 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::accept_primary_key()]
         pub fn accept_primary_key(origin, rotation_auth_id: u64, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
             Self::accept_primary_key_rotation(origin, rotation_auth_id, optional_cdd_auth_id)
-        }
-
-        /// Call this with the new primary key. By invoking this method, caller accepts authorization
-        /// to become the new primary key of the issuing identity. If a CDD service provider approved
-        /// this change, (or this is not required), primary key of the DID is updated.
-        ///
-        /// The caller (new primary key) must be either a secondary key of the issuing identity, or
-        /// unlinked to any identity.
-        ///
-        /// Differs from accept_primary_key in that it will leave the old primary key as a secondary
-        /// key with the permissions specified in the corresponding RotatePrimaryKeyToSecondary authorization
-        /// instead of unlinking the old primary key.
-        ///
-        /// # Arguments
-        /// * `owner_auth_id` Authorization from the owner who initiated the change
-        /// * `cdd_auth_id` Authorization from a CDD service provider
-        #[weight = <T as Config>::WeightInfo::rotate_primary_key_to_secondary()]
-        pub fn rotate_primary_key_to_secondary(origin, auth_id:u64, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
-            Self::base_rotate_primary_key_to_secondary(origin, auth_id, optional_cdd_auth_id)
         }
 
         /// Set if CDD authorization is required for updating primary key of an identity.
@@ -532,6 +513,25 @@ decl_module! {
         pub fn revoke_claim_by_index(origin, target: IdentityId, claim_type: ClaimType, scope: Option<Scope>) -> DispatchResult {
             let issuer = Self::ensure_perms(origin)?;
             Self::base_revoke_claim(target, claim_type, issuer, scope)
+        }
+
+        /// Call this with the new primary key. By invoking this method, caller accepts authorization
+        /// to become the new primary key of the issuing identity. If a CDD service provider approved
+        /// this change, (or this is not required), primary key of the DID is updated.
+        ///
+        /// The caller (new primary key) must be either a secondary key of the issuing identity, or
+        /// unlinked to any identity.
+        ///
+        /// Differs from accept_primary_key in that it will leave the old primary key as a secondary
+        /// key with the permissions specified in the corresponding RotatePrimaryKeyToSecondary authorization
+        /// instead of unlinking the old primary key.
+        ///
+        /// # Arguments
+        /// * `owner_auth_id` Authorization from the owner who initiated the change
+        /// * `cdd_auth_id` Authorization from a CDD service provider
+        #[weight = <T as Config>::WeightInfo::rotate_primary_key_to_secondary()]
+        pub fn rotate_primary_key_to_secondary(origin, auth_id:u64, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
+            Self::base_rotate_primary_key_to_secondary(origin, auth_id, optional_cdd_auth_id)
         }
     }
 }

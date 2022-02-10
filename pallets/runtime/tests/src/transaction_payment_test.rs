@@ -12,6 +12,7 @@ use pallet_balances::Call as BalancesCall;
 use pallet_transaction_payment::{ChargeTransactionPayment, Multiplier, RuntimeDispatchInfo};
 use polymesh_primitives::AccountId;
 use polymesh_primitives::TransactionError;
+use sp_arithmetic::traits::One;
 use sp_runtime::{
     testing::TestXt,
     traits::SignedExtension,
@@ -21,14 +22,14 @@ use sp_runtime::{
 use test_client::AccountKeyring;
 
 fn call() -> <TestStorage as frame_system::Config>::Call {
-    Call::Balances(BalancesCall::transfer(
-        MultiAddress::Id(AccountKeyring::Alice.to_account_id()),
-        69,
-    ))
+    Call::Balances(BalancesCall::transfer {
+        dest: MultiAddress::Id(AccountKeyring::Alice.to_account_id()),
+        value: 69,
+    })
 }
 
 type Balances = pallet_balances::Module<TestStorage>;
-type System = frame_system::Module<TestStorage>;
+type System = frame_system::Pallet<TestStorage>;
 type TransactionPayment = pallet_transaction_payment::Module<TestStorage>;
 
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.

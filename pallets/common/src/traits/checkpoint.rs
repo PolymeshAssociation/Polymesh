@@ -3,18 +3,20 @@ use frame_support::decl_event;
 use frame_support::weights::Weight;
 use polymesh_primitives::calendar::{CheckpointId, CheckpointSchedule};
 use polymesh_primitives::{impl_checked_inc, Balance, EventDid, IdentityId, Moment, Ticker};
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 
 /// ID of a `StoredSchedule`.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct ScheduleId(pub u64);
 impl_checked_inc!(ScheduleId);
 
 /// One or more scheduled checkpoints in the future.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct StoredSchedule {
     /// A series of checkpoints in the future defined by the schedule.
     pub schedule: CheckpointSchedule,

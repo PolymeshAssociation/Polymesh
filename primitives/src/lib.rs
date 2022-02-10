@@ -20,19 +20,19 @@
 #![feature(bool_to_option)]
 
 use blake2::{Blake2b, Digest};
+use codec::{Decode, Encode};
 use confidential_identity_v1::Scalar as ScalarV1;
 use frame_support::weights::Weight;
 use polymesh_primitives_derive::VecU8StrongTyped;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
-use sp_std::prelude::Vec;
-
-use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use sp_runtime::{
     generic,
     traits::{BlakeTwo256, Verify},
     MultiSignature,
 };
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
+use sp_std::prelude::Vec;
 
 /// An index to a block.
 /// 32-bits will allow for 136 years of blocks assuming 1 block per second.
@@ -97,7 +97,8 @@ pub mod report {
 
 /// A positive coefficient: a pair of a numerator and a denominator. Defaults to `(1, 1)`.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PosRatio(pub u32, pub u32);
 
 impl Default for PosRatio {
@@ -283,7 +284,7 @@ pub enum TransactionError {
 }
 
 /// Represents the target identity and the amount requested by a beneficiary.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
 pub struct Beneficiary<Balance> {
     /// Beneficiary identity.
     pub id: IdentityId,
@@ -292,16 +293,14 @@ pub struct Beneficiary<Balance> {
 }
 
 /// The name of a pallet.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PalletName(pub Vec<u8>);
 
 /// The name of a function within a pallet.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DispatchableName(pub Vec<u8>);
 
@@ -309,7 +308,8 @@ pub struct DispatchableName(pub Vec<u8>);
 #[macro_export]
 macro_rules! storage_migration_ver {
     ($ver:literal) => {
-        #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+        #[derive(Encode, Decode, scale_info::TypeInfo)]
+        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
         pub struct Version(u8);
 
         impl Version {
