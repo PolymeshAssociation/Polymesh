@@ -313,29 +313,23 @@ macro_rules! misc_pallet_impls {
             type NetworkShareInFee = NetworkShareInFee;
             type WeightInfo = polymesh_weights::polymesh_contracts::WeightInfo;
         }
+        */
         impl pallet_contracts::Config for Runtime {
             type Time = Timestamp;
             type Randomness = RandomnessCollectiveFlip;
             type Currency = Balances;
             type Event = Event;
-            type RentPayment = ();
-            type SignedClaimHandicap = polymesh_runtime_common::SignedClaimHandicap;
-            type TombstoneDeposit = TombstoneDeposit;
-            type DepositPerContract = polymesh_runtime_common::DepositPerContract;
-            type DepositPerStorageByte = polymesh_runtime_common::DepositPerStorageByte;
-            type DepositPerStorageItem = polymesh_runtime_common::DepositPerStorageItem;
-            type RentFraction = RentFraction;
-            type SurchargeReward = SurchargeReward;
-            type MaxDepth = polymesh_runtime_common::ContractsMaxDepth;
-            type MaxValueSize = polymesh_runtime_common::ContractsMaxValueSize;
-            type WeightPrice = pallet_transaction_payment::Module<Self>;
+            type Call = Call;
+            type CallFilter = frame_support::traits::Everything;
+            type CallStack = [pallet_contracts::Frame<Self>; 31];
+            type WeightPrice = pallet_transaction_payment::Pallet<Self>;
             type WeightInfo = pallet_contracts::weights::SubstrateWeight<Self>;
             type ChainExtension = ();
+            type Schedule = Schedule;
+            type ContractDeposit = ContractDeposit;
             type DeletionQueueDepth = DeletionQueueDepth;
             type DeletionWeightLimit = DeletionWeightLimit;
-            type MaxCodeSize = polymesh_runtime_common::ContractsMaxCodeSize;
         }
-        */
 
         impl pallet_compliance_manager::Config for Runtime {
             type Event = Event;
