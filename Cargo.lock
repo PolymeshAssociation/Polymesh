@@ -6354,6 +6354,7 @@ dependencies = [
  "pallet-bridge",
  "pallet-committee",
  "pallet-compliance-manager",
+ "pallet-contracts",
  "pallet-corporate-actions",
  "pallet-external-agents",
  "pallet-grandpa",
