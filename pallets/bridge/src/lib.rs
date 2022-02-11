@@ -415,7 +415,11 @@ decl_module! {
         ///
         /// ## Errors
         /// - `BadAdmin` if `origin` is not `Self::admin()` account.
-        #[weight = (500_000_000, DispatchClass::Operational, Pays::Yes)]
+        #[weight =(
+            500_000_000 + 7_000_000 * u64::try_from(exempted.len()).unwrap_or_default(),
+            DispatchClass::Operational,
+            Pays::Yes
+        )]
         pub fn change_bridge_exempted(origin, exempted: Vec<(IdentityId, bool)>) -> DispatchResult {
             Self::base_change_bridge_exempted(origin, exempted)
         }
