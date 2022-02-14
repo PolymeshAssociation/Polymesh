@@ -70,7 +70,7 @@ A guide to running an operator node can be found at:
 
 Further details on Polymesh concepts and networks can be found at:
 
-<https://developers.polymesh.live/>
+<https://developers.polymesh.network/>
 
 Code documentation can be found at:
 
@@ -123,7 +123,7 @@ You can start a development chain with:
 Detailed logs may be shown by running the node with the following environment variables set:
 `RUST_LOG=debug RUST_BACKTRACE=1 ./target/release/polymesh --dev`.
 
-[Web Interface]: https://app.polymesh.live/#/explorer
+[Web Interface]: https://mainnet-app.polymesh.network/#/explorer
 
 To access the Polymesh Chain using the [Web Interface] do the following:
 
