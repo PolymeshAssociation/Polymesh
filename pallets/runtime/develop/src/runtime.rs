@@ -395,7 +395,7 @@ construct_runtime!(
 
         // Contracts
         BaseContracts: pallet_contracts::{Pallet, Storage, Event<T>},
-        //Contracts: polymesh_contracts::{Pallet, Call, Storage, Event<T>},
+        Contracts: polymesh_contracts::{Pallet, Call, Storage, Event},
 
         TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 50,
     }

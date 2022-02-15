@@ -155,7 +155,7 @@ pub trait Config: CommonConfig + pallet_timestamp::Config + crate::traits::base:
     /// Group module
     type CddServiceProviders: GroupTrait<Self::Moment>;
     /// Balances module
-    type Balances: Currency<Self::AccountId>;
+    type Balances: Currency<Self::AccountId, Balance = Balance>;
     /// Charges fee for forwarded call
     type ChargeTxFeeTarget: ChargeTxFee;
     /// Used to check and update CDD

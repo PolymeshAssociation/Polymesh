@@ -268,7 +268,7 @@ frame_support::construct_runtime!(
 
         // Contracts
         BaseContracts: pallet_contracts::{Pallet, Storage, Event<T>} = 19,
-        //Contracts: polymesh_contracts::{Pallet, Call, Storage, Event<T>} = 20,
+        Contracts: polymesh_contracts::{Pallet, Call, Storage, Event} = 20,
     }
 );
 
