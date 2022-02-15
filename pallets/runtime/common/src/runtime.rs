@@ -307,13 +307,10 @@ macro_rules! misc_pallet_impls {
             //type ContractsFn = polymesh_contracts::Module<Runtime>;
         }
 
-        /*
         impl polymesh_contracts::Config for Runtime {
             type Event = Event;
-            type NetworkShareInFee = NetworkShareInFee;
             type WeightInfo = polymesh_weights::polymesh_contracts::WeightInfo;
         }
-        */
         impl pallet_contracts::Config for Runtime {
             type Time = Timestamp;
             type Randomness = RandomnessCollectiveFlip;

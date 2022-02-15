@@ -5860,6 +5860,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "polymesh-contracts"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-base",
+ "pallet-contracts",
+ "pallet-contracts-primitives",
+ "pallet-identity",
+ "parity-scale-codec 2.3.1",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "polymesh-extensions"
 version = "0.1.0"
 dependencies = [
@@ -6121,6 +6142,7 @@ dependencies = [
  "parity-scale-codec 2.3.1",
  "polymesh-build-tool",
  "polymesh-common-utilities",
+ "polymesh-contracts",
  "polymesh-extensions",
  "polymesh-primitives",
  "polymesh-runtime-common",
@@ -6369,6 +6391,7 @@ dependencies = [
  "parity-scale-codec 2.3.1",
  "parking_lot",
  "polymesh-common-utilities",
+ "polymesh-contracts",
  "polymesh-extensions",
  "polymesh-primitives",
  "polymesh-runtime-common",
@@ -6435,6 +6458,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-treasury 0.1.0",
  "pallet-utility",
+ "polymesh-contracts",
  "polymesh-runtime-common",
  "sp-std",
 ]

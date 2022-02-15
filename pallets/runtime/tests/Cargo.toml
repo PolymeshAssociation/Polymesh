@@ -38,7 +38,7 @@ pallet-transaction-payment = { path = "../../transaction-payment", default-featu
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
 polymesh-common-utilities = { path = "../../common", default-features = false }
-#polymesh-contracts = { path = "../../contracts", default-features = false }
+polymesh-contracts = { path = "../../contracts2", default-features = false }
 polymesh-extensions = { path = "../extensions", default-features = false }
 polymesh-primitives = { path = "../../../primitives", default-features = false }
 polymesh-runtime-common = { path = "../common", default-features = false }
@@ -161,7 +161,7 @@ std = [
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "polymesh-runtime-common/std",
-    #"polymesh-contracts/std",
+    "polymesh-contracts/std",
     "polymesh-weights/std",
     "serde/std",
     "sp-arithmetic/std",

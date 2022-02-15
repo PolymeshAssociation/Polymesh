@@ -34,7 +34,8 @@ use frame_support::{
 };
 use polymesh_primitives::{
     secondary_key::api::{LegacyPermissions, SecondaryKey},
-    AuthorizationData, IdentityClaim, IdentityId, InvestorUid, Permissions, Signatory, Ticker,
+    AuthorizationData, Balance, IdentityClaim, IdentityId, InvestorUid, Permissions, Signatory,
+    Ticker,
 };
 use scale_info::TypeInfo;
 use sp_core::H512;
@@ -163,7 +164,7 @@ pub trait Config: CommonConfig + pallet_timestamp::Config + crate::traits::base:
     /// Group module
     type CddServiceProviders: GroupTrait<Self::Moment>;
     /// Balances module
-    type Balances: Currency<Self::AccountId>;
+    type Balances: Currency<Self::AccountId, Balance = Balance>;
     /// Charges fee for forwarded call
     type ChargeTxFeeTarget: ChargeTxFee;
     /// Used to check and update CDD

@@ -151,7 +151,7 @@ decl_storage! {
         /// (Target ID, claim type) (issuer,scope) -> Associated claims
         pub Claims: double_map hasher(twox_64_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => IdentityClaim;
 
-        // A map from AccountId primary or secondary keys to DIDs.
+        /// A map from AccountId primary or secondary keys to DIDs.
         // Account keys map to at most one identity.
         pub KeyToIdentityIds get(fn key_to_identity_dids) config():
             map hasher(twox_64_concat) T::AccountId => IdentityId;
