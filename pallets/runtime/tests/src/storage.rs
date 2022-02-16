@@ -74,6 +74,31 @@ use std::cell::RefCell;
 use std::convert::From;
 use test_client::AccountKeyring;
 
+#[macro_export]
+macro_rules! exec_ok {
+	( $x:expr $(,)? ) => {
+        frame_support::assert_ok!(polymesh_exec_macro::exec!($x))
+	};
+	( $x:expr, $y:expr $(,)? ) => {
+        frame_support::assert_ok!(polymesh_exec_macro::exec!($x), $y)
+	};
+}
+
+#[macro_export]
+macro_rules! exec_noop {
+	(
+		$x:expr,
+		$y:expr $(,)?
+	) => {
+        if cfg!(feature = "integration-test") {
+            frame_support::assert_err!(polymesh_exec_macro::exec!($x), $y);
+        } else {
+            frame_support::assert_noop!(polymesh_exec_macro::exec!($x), $y);
+        }
+	};
+}
+
+
 // 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
 pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
 const GENESIS_HASH: [u8; 32] = [69u8; 32];
