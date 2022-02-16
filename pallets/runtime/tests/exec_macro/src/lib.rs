@@ -42,7 +42,7 @@ impl Parse for Exec {
 #[proc_macro]
 pub fn exec(item: TokenStream) -> TokenStream {
     if !cfg!(feature = "integration-test") {
-        return  item
+        return item;
     }
 
     let Exec {

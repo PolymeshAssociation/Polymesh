@@ -76,17 +76,17 @@ use test_client::AccountKeyring;
 
 #[macro_export]
 macro_rules! exec_ok {
-	( $x:expr $(,)? ) => {
+    ( $x:expr $(,)? ) => {
         frame_support::assert_ok!(polymesh_exec_macro::exec!($x))
-	};
-	( $x:expr, $y:expr $(,)? ) => {
+    };
+    ( $x:expr, $y:expr $(,)? ) => {
         frame_support::assert_ok!(polymesh_exec_macro::exec!($x), $y)
-	};
+    };
 }
 
 #[macro_export]
 macro_rules! exec_noop {
-	(
+    (
 		$x:expr,
 		$y:expr $(,)?
 	) => {
@@ -95,9 +95,8 @@ macro_rules! exec_noop {
         } else {
             frame_support::assert_noop!(polymesh_exec_macro::exec!($x), $y);
         }
-	};
+    };
 }
-
 
 // 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
 pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);

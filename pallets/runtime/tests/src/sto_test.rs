@@ -1,7 +1,8 @@
 use super::{
     asset_test::{allow_all_transfers, max_len_bytes},
+    exec_noop, exec_ok,
     storage::{make_account_with_portfolio, TestStorage, User},
-    ExtBuilder, exec_ok, exec_noop
+    ExtBuilder,
 };
 use pallet_asset as asset;
 use pallet_compliance_manager as compliance_manager;
@@ -226,16 +227,19 @@ fn raise_happy_path() {
         fundraiser_name
     );
     let sto_invest = |purchase_amount, max_price, err: Error| {
-        exec_noop!(Sto::invest(
-            bob.origin(),
-            bob_portfolio,
-            bob_portfolio,
-            offering_ticker,
-            fundraiser_id,
-            purchase_amount,
-            max_price,
-            None,
-        ), err);
+        exec_noop!(
+            Sto::invest(
+                bob.origin(),
+                bob_portfolio,
+                bob_portfolio,
+                offering_ticker,
+                fundraiser_id,
+                purchase_amount,
+                max_price,
+                None,
+            ),
+            err
+        );
     };
     // Investment fails if the minimum investment amount is not met
     sto_invest(1, Some(1_000_000u128), Error::InvestmentAmountTooLow);
