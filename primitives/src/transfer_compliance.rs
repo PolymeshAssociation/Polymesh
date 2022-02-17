@@ -16,13 +16,15 @@
 use crate::statistics::{Percentage, StatOpType, StatType};
 use crate::{Claim, ClaimType, IdentityId, Scope};
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
 /// Transfer condition.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TransferCondition {
     /// Maximum investor count.
     MaxInvestorCount(u64),
@@ -93,8 +95,9 @@ impl TransferCondition {
 }
 
 /// List of transfer compliance requirements associated to an asset.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct AssetTransferCompliance {
     /// This flag indicates if asset transfer compliance should be enforced.
     pub paused: bool,

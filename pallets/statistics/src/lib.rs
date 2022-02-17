@@ -18,6 +18,7 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -39,7 +40,8 @@ type Identity<T> = pallet_identity::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 
 /// Stats update.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StatUpdate {
     pub claim: Option<Claim>,
     /// None - Remove stored value if any.
@@ -237,7 +239,7 @@ impl<T: Config> Module<T> {
         for stat_type in Self::active_asset_stats(asset).into_iter() {
             if !stat_types.contains(&stat_type) {
                 // Cleanup storage for this stat type, since it is being removed.
-                AssetStats::remove_prefix(Stat1stKey { asset, stat_type });
+                AssetStats::remove_prefix(Stat1stKey { asset, stat_type }, None);
             }
         }
         // Save new stat types.
@@ -584,7 +586,7 @@ impl<T: Config> Module<T> {
         total_supply: Balance,
         max_percentage: Percentage,
     ) -> bool {
-        let new_percentage = sp_arithmetic::Permill::from_rational_approximation(
+        let new_percentage = sp_arithmetic::Permill::from_rational(
             receiver_balance + value,
             total_supply,
         );
@@ -619,7 +621,7 @@ impl<T: Config> Module<T> {
 
                 // Calculate new claim % ownership.
                 let claim_balance = AssetStats::get(key1, key2);
-                let new_percentage = sp_arithmetic::Permill::from_rational_approximation(
+                let new_percentage = sp_arithmetic::Permill::from_rational(
                     claim_balance.saturating_add(value),
                     total_supply,
                 );
@@ -632,7 +634,7 @@ impl<T: Config> Module<T> {
 
                 // Calculate new claim % ownership.
                 let claim_balance = AssetStats::get(key1, key2);
-                let new_percentage = sp_arithmetic::Permill::from_rational_approximation(
+                let new_percentage = sp_arithmetic::Permill::from_rational(
                     claim_balance.saturating_sub(value),
                     total_supply,
                 );

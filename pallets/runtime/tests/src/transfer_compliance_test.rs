@@ -541,8 +541,8 @@ impl AssetTracker {
             .into_iter()
             .map(|(cal, value)| {
                 (
-                    Permill::from_rational_approximation(cal, self.total_supply),
-                    Permill::from_rational_approximation(value, self.total_supply),
+                    Permill::from_rational(cal, self.total_supply),
+                    Permill::from_rational(value, self.total_supply),
                 )
             })
             .collect()
@@ -846,7 +846,7 @@ fn max_investor_ownership_rule_with_ext() {
     tracker.set_active_stats(stats);
 
     // Set max ownership to 25%.
-    let p25 = HashablePermill(Permill::from_rational_approximation(25u32, 100u32));
+    let p25 = HashablePermill(Permill::from_rational(25u32, 100u32));
     tracker.set_transfer_conditions(vec![TransferCondition::MaxInvestorOwnership(p25)]);
 
     // Mint is not restricted by transfer rules.
@@ -1028,8 +1028,8 @@ fn jurisdiction_ownership_rule_with_ext() {
 
     // Set transfer conditions.  max=10 investors in Jurisdiction GB.
     let claim = tracker.make_claim(claim_type, Some(CountryCode::GB));
-    let p0 = HashablePermill(Permill::from_rational_approximation(0u32, 100u32));
-    let p25 = HashablePermill(Permill::from_rational_approximation(25u32, 100u32));
+    let p0 = HashablePermill(Permill::from_rational(0u32, 100u32));
+    let p25 = HashablePermill(Permill::from_rational(25u32, 100u32));
     tracker.set_transfer_conditions(vec![TransferCondition::ClaimOwnership(
         claim, issuer.did, p0, p25,
     )]);

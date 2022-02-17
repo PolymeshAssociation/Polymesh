@@ -38,7 +38,8 @@ pub enum TransferManager {
 
 /// Result of a transfer manager check.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TransferManagerResult {
     /// Transfer manager that was checked.
     pub tm: TransferManager,
@@ -74,7 +75,8 @@ impl DerefMut for HashablePermill {
 
 /// Asset scope for stats.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum AssetScope {
     /// Ticker scope.  Used for per-ticker stats.
     Ticker(Ticker),
@@ -108,7 +110,8 @@ impl AssetScope {
 
 /// Stats Operation type.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum StatOpType {
     /// Count - Investor count stats.
     Count,
@@ -118,7 +121,8 @@ pub enum StatOpType {
 
 /// Stats type.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct StatType {
     /// Stats operation type.
     pub op: StatOpType,
@@ -127,7 +131,8 @@ pub struct StatType {
 }
 
 /// First stats key in double map.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Stat1stKey {
     /// Asset scope.
     pub asset: AssetScope,
@@ -143,7 +148,8 @@ impl Stat1stKey {
 }
 
 /// Second stats key in double map.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Stat2ndKey {
     /// For per-Claim stats (Jurisdiction, Accredited, etc...).
     /// Non-Accredited stats would be stored with a `None` here.
