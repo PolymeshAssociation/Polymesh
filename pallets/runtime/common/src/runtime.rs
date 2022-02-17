@@ -117,6 +117,22 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_indices::WeightInfo;
         }
 
+        impl<'a> core::convert::TryFrom<&'a Call>
+            for polymesh_runtime_common::fee_details::Call<'a, Runtime>
+        {
+            type Error = ();
+            fn try_from(call: &'a Call) -> Result<Self, ()> {
+                use polymesh_runtime_common::fee_details::Call::*;
+                Ok(match call {
+                    Call::Identity(x) => Identity(x),
+                    Call::Bridge(x) => Bridge(x),
+                    Call::MultiSig(x) => MultiSig(x),
+                    Call::Relayer(x) => Relayer(x),
+                    _ => return Err(()),
+                })
+            }
+        }
+
         impl pallet_transaction_payment::Config for Runtime {
             type Currency = Balances;
             type OnChargeTransaction =
