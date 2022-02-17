@@ -303,7 +303,7 @@ impl AssetTracker {
 
     pub fn dump_investors(&self) {
         self.investors.values().for_each(|i| {
-            eprintln!("investor[{}]: bal={}", i.id, i.balance);
+            println!("investor[{}]: bal={}", i.id, i.balance);
         })
     }
 
@@ -364,7 +364,7 @@ impl AssetTracker {
         sto_buy: Balance,
         claims: Vec<(ClaimType, Option<CountryCode>)>,
     ) -> Result<Batch, DispatchError> {
-        eprintln!("Create batch: {:?}", (size, sto_buy, &claims));
+        println!("Create batch: {:?}", (size, sto_buy, &claims));
         // Create investors for this batch.
         let batch = self.make_investors(size);
 
@@ -452,7 +452,7 @@ impl AssetTracker {
     pub fn ensure_legacy_investor_count(&self) {
         let cal_count = self.active_investor_count();
         let count = Statistics::investor_count(&self.asset);
-        eprintln!("calculated={}, count={}", cal_count, count);
+        println!("calculated={}, count={}", cal_count, count);
         assert_eq!(cal_count, count);
     }
 
@@ -513,39 +513,33 @@ impl AssetTracker {
             .collect()
     }
 
-    pub fn get_claim_count_stats(
+    #[track_caller]
+    pub fn ensure_claim_stats(
         &self,
+        op: StatOpType,
         claim_type: ClaimType,
         has: bool,
         jur: Option<CountryCode>,
-    ) -> Vec<(u128, u128)> {
-        self.get_claim_stats(StatOpType::Count, claim_type, has, jur)
-    }
-
-    pub fn get_claim_balance_stats(
-        &self,
-        claim_type: ClaimType,
-        has: bool,
-        jur: Option<CountryCode>,
-    ) -> Vec<(u128, u128)> {
-        self.get_claim_stats(StatOpType::Balance, claim_type, has, jur)
-    }
-
-    pub fn get_claim_percent_stats(
-        &self,
-        claim_type: ClaimType,
-        has: bool,
-        jur: Option<CountryCode>,
-    ) -> Vec<(Permill, Permill)> {
-        self.get_claim_stats(StatOpType::Balance, claim_type, has, jur)
+    ) {
+        let claim_name = match (has, claim_type, jur) {
+            (false, ClaimType::Jurisdiction, _) =>
+                "No Jurisdiction".into(),
+            (true, ClaimType::Jurisdiction, Some(cc)) =>
+                format!("Jurisdiction::{:?}", cc),
+            (false, c_type, None) =>
+                format!("non-{:?}", c_type),
+            (true, c_type, None) =>
+                format!("{:?}", c_type),
+            _ => {
+                unimplemented!("Unsupported claim stats: has={}, claim={:?}, jur={:?}", has, claim_type, jur);
+            }
+        };
+        self.get_claim_stats(op, claim_type, has, jur)
             .into_iter()
-            .map(|(cal, value)| {
-                (
-                    Permill::from_rational(cal, self.total_supply),
-                    Permill::from_rational(value, self.total_supply),
-                )
-            })
-            .collect()
+            .for_each(|(cal, value)| {
+                println!("{:?}: {} = ({}, {})", op, claim_name, cal, value);
+                assert_eq!(cal, value);
+            });
     }
 
     #[track_caller]
@@ -559,7 +553,7 @@ impl AssetTracker {
             match (stat_type.op, stat_type.claim_issuer) {
                 (StatOpType::Count, claim_issuer) => {
                     let cal_value = self.calculate_stat_count(claim_issuer, &key2.claim);
-                    eprintln!(
+                    println!(
                         "Count[{:?}]: cal={:?}, stat={:?}",
                         key2.claim, cal_value, value
                     );
@@ -570,7 +564,7 @@ impl AssetTracker {
                 }
                 (StatOpType::Balance, claim_issuer) => {
                     let cal_value = self.calculate_stat_balance(claim_issuer, &key2.claim);
-                    eprintln!(
+                    println!(
                         "Balance[{:?}]: cal={:?}, stat={:?}",
                         key2.claim, cal_value, value
                     );
@@ -584,7 +578,7 @@ impl AssetTracker {
     pub fn ensure_asset_stats(&self) {
         self.ensure_legacy_investor_count();
 
-        eprintln!("active_stats = {}", self.active_stats.len());
+        println!("active_stats = {}", self.active_stats.len());
         // check all active stats.
         for stat_type in &self.active_stats {
             self.ensure_asset_stat(stat_type);
@@ -711,81 +705,31 @@ fn multiple_stats_with_ext() {
 
     // check some stats.
     tracker
-        .get_claim_count_stats(ClaimType::Jurisdiction, true, Some(CountryCode::US))
-        .into_iter()
-        .for_each(|(cal, value)| {
-            eprintln!("Jurisdiction::US = ({}, {})", cal, value);
-            assert_eq!(cal, value);
-        });
+        .ensure_claim_stats(StatOpType::Count, ClaimType::Jurisdiction, true, Some(CountryCode::US));
     tracker
-        .get_claim_balance_stats(ClaimType::Jurisdiction, true, Some(CountryCode::US))
-        .into_iter()
-        .for_each(|(cal, value)| {
-            eprintln!("Jurisdiction::US = ({}, {})", cal, value);
-            assert_eq!(cal, value);
-        });
+        .ensure_claim_stats(StatOpType::Balance, ClaimType::Jurisdiction, true, Some(CountryCode::US));
     // Check a Jurisdiction with no investors (KP).
     tracker
-        .get_claim_count_stats(ClaimType::Jurisdiction, true, Some(CountryCode::KP))
-        .into_iter()
-        .for_each(|(cal, value)| {
-            eprintln!("Jurisdiction::KP = ({}, {})", cal, value);
-            assert_eq!(cal, value);
-        });
+        .ensure_claim_stats(StatOpType::Count, ClaimType::Jurisdiction, true, Some(CountryCode::KP));
     tracker
-        .get_claim_balance_stats(ClaimType::Jurisdiction, true, Some(CountryCode::KP))
-        .into_iter()
-        .for_each(|(cal, value)| {
-            eprintln!("Jurisdiction::KP = ({}, {})", cal, value);
-            assert_eq!(cal, value);
-        });
+        .ensure_claim_stats(StatOpType::Balance, ClaimType::Jurisdiction, true, Some(CountryCode::KP));
 
     // Check Accredited.
     tracker
-        .get_claim_count_stats(ClaimType::Accredited, true, None)
-        .into_iter()
-        .for_each(|(cal, value)| {
-            eprintln!("Accredited = ({}, {})", cal, value);
-            assert_eq!(cal, value);
-        });
+        .ensure_claim_stats(StatOpType::Count, ClaimType::Accredited, true, None);
     tracker
-        .get_claim_balance_stats(ClaimType::Accredited, true, None)
-        .into_iter()
-        .for_each(|(cal, value)| {
-            eprintln!("Accredited = ({}, {})", cal, value);
-            assert_eq!(cal, value);
-        });
+        .ensure_claim_stats(StatOpType::Balance, ClaimType::Accredited, true, None);
 
     // Check Affiliate.
     tracker
-        .get_claim_count_stats(ClaimType::Affiliate, true, None)
-        .into_iter()
-        .for_each(|(cal, value)| {
-            eprintln!("Affiliate = ({}, {})", cal, value);
-            assert_eq!(cal, value);
-        });
+        .ensure_claim_stats(StatOpType::Count, ClaimType::Affiliate, true, None);
     tracker
-        .get_claim_balance_stats(ClaimType::Affiliate, true, None)
-        .into_iter()
-        .for_each(|(cal, value)| {
-            eprintln!("Affiliate = ({}, {})", cal, value);
-            assert_eq!(cal, value);
-        });
+        .ensure_claim_stats(StatOpType::Balance, ClaimType::Affiliate, true, None);
     // Check non-Affiliate.
     tracker
-        .get_claim_count_stats(ClaimType::Affiliate, false, None)
-        .into_iter()
-        .for_each(|(cal, value)| {
-            eprintln!("non-Affiliate = ({}, {})", cal, value);
-            assert_eq!(cal, value);
-        });
+        .ensure_claim_stats(StatOpType::Count, ClaimType::Affiliate, false, None);
     tracker
-        .get_claim_balance_stats(ClaimType::Affiliate, false, None)
-        .into_iter()
-        .for_each(|(cal, value)| {
-            eprintln!("non-Affiliate = ({}, {})", cal, value);
-            assert_eq!(cal, value);
-        });
+        .ensure_claim_stats(StatOpType::Balance, ClaimType::Affiliate, false, None);
 }
 
 #[test]

@@ -80,7 +80,8 @@ impl DerefMut for HashablePermill {
 pub enum AssetScope {
     /// Ticker scope.  Used for per-ticker stats.
     Ticker(Ticker),
-    // TODO: Add support for cross-ticker stats.
+    // TODO: Add support for cross-ticker stats.  Support needs to be
+    // added to the Assets pallet first.
     //TickerGroup(TickerGroupId),
     //Company(CompanyId),
 }
@@ -175,9 +176,3 @@ impl From<&Claim> for Stat2ndKey {
         }
     }
 }
-
-// TODO: Maybe make a `ClaimStat` type, since all of the claims should have the same `Scope::Ticker(ticker)` value.
-//   so using `Claim` in `Stat2ndKey` and `StatUpdate` would waste a lot of space.
-//pub struct ClaimStat {
-//  .. same variants as `Claim`, but without the `Scope` value.
-//}
