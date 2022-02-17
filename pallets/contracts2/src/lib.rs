@@ -41,10 +41,12 @@ use frame_support::{
     dispatch::{DispatchError, DispatchErrorWithPostInfo, DispatchResultWithPostInfo},
     weights::Weight,
 };
+use pallet_contracts::chain_extension as ce;
 use pallet_contracts_primitives::{Code, ContractResult};
 use pallet_identity::PermissionedCallOriginData;
 use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
 use polymesh_common_utilities::with_transaction;
+use polymesh_common_utilities::Context;
 use polymesh_primitives::{Balance, Permissions};
 use sp_core::crypto::UncheckedFrom;
 use sp_core::Bytes;
@@ -269,5 +271,37 @@ impl<T: Config> Module<T> {
             Ok(_) => Ok(post_info),
             Err(error) => Err(DispatchErrorWithPostInfo { post_info, error }),
         }
+    }
+}
+
+/// A chain extension allowing calls to polymesh pallets
+/// and using the contract's DID instead of the caller's DID.
+impl<T: Config> ce::ChainExtension<T> for Module<T> {
+    fn enabled() -> bool {
+        true
+    }
+
+    fn call<E: ce::Ext<T = T>>(
+        _func_id: u32,
+        mut env: ce::Environment<E, ce::InitState>,
+    ) -> ce::Result<ce::RetVal> {
+        let ext = env.ext();
+
+        // Remember the current DID so we can restore later.
+        let old_did = Context::current_identity::<Identity<T>>();
+
+        // Swap current DID to caller's DID.
+        let caller = ext.caller();
+        let caller_did = Identity::<T>::key_to_identity_dids(caller);
+        Context::set_current_identity::<Identity<T>>(Some(caller_did));
+
+        // Execute call requested by contract.
+        // TODO
+
+        // Swap back the current DID.
+        Context::set_current_identity::<Identity<T>>(old_did);
+
+        // Done; continue with smart contract execution when returning.
+        Ok(ce::RetVal::Converging(0))
     }
 }
