@@ -72,6 +72,13 @@ decl_storage! {
             hasher(blake2_128_concat) Stat2ndKey => u128;
         /// Asset transfer compliance for a ticker (AssetScope -> AssetTransferCompliance)
         pub AssetTransferCompliances get(fn asset_transfer_compliance): map hasher(blake2_128_concat) AssetScope => AssetTransferCompliance;
+        /// Entities exempt from a Transfer Compliance rule.
+        pub TransferConditionExemptEntities get(fn transfer_condition_exempt_entities):
+            double_map
+                hasher(blake2_128_concat) TransferConditionExemptKey,
+                hasher(blake2_128_concat) ScopeId
+            =>
+                bool;
     }
 }
 
@@ -201,9 +208,15 @@ decl_module! {
 
         /// TODO: docs, weight.
         #[weight = 0]
-        pub fn replace_asset_transfer_compliance(origin, ticker: Ticker, transfer_conditions: Vec<TransferCondition>) {
+        pub fn set_asset_transfer_compliance(origin, ticker: Ticker, transfer_conditions: Vec<TransferCondition>) {
             // TODO: benchmark and weight.
-            Self::base_replace_asset_transfer_compliance(origin, ticker, transfer_conditions)?;
+            Self::base_set_asset_transfer_compliance(origin, ticker, transfer_conditions)?;
+        }
+
+        /// TODO: docs, weight.
+        #[weight = 0]
+        pub fn set_entities_exempt(origin, is_exempt: bool, exempt_key: TransferConditionExemptKey, entities: Vec<ScopeId>) {
+            Self::base_set_entities_exempt(origin, is_exempt, exempt_key, entities)?;
         }
     }
 }
@@ -280,7 +293,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn base_replace_asset_transfer_compliance(
+    fn base_set_asset_transfer_compliance(
         origin: T::Origin,
         ticker: Ticker,
         transfer_conditions: Vec<TransferCondition>,
@@ -305,6 +318,19 @@ impl<T: Config> Module<T> {
         // TODO:
         //Self::deposit_event(Event::AssetComplianceReplaced(did, ticker, asset_compliance));
 
+        Ok(())
+    }
+
+    fn base_set_entities_exempt(origin: T::Origin, is_exempt: bool, exempt_key: TransferConditionExemptKey, entities: Vec<ScopeId>) -> DispatchResult {
+        let _did = Self::ensure_asset_perms(origin, exempt_key.asset)?;
+        for entity in &entities {
+            if is_exempt {
+                TransferConditionExemptEntities::insert(&exempt_key, entity, true);
+            } else {
+                TransferConditionExemptEntities::remove(&exempt_key, entity);
+            }
+        }
+        // TODO: Events.
         Ok(())
     }
 
@@ -681,7 +707,6 @@ impl<T: Config> Module<T> {
             amount,
         );
 
-        let asset = AssetScope::Ticker(*ticker);
         for condition in tm.requirements {
             use TransferCondition::*;
 
@@ -719,14 +744,14 @@ impl<T: Config> Module<T> {
                 ),
             };
             if !passed {
-                // TODO: impl. exempt logic.
-                let _id = match condition {
-                    MaxInvestorCount(_) => from,
-                    MaxInvestorOwnership(_) => to,
-                    ClaimCount(_, _, _, _) => from,
-                    ClaimOwnership(_, _, _, _) => to,
+                let exempt_key = condition.get_exempt_key(asset);
+                let id = match exempt_key.op {
+                    // Count transfer conditions require the sender to be exempt.
+                    StatOpType::Count => from,
+                    // Percent ownersip transfer conditions require the receiver to be exempt.
+                    StatOpType::Balance => to,
                 };
-                let is_exempt = false;
+                let is_exempt = Self::transfer_condition_exempt_entities(exempt_key, id);
                 ensure!(is_exempt, Error::<T>::InvalidTransfer);
             }
         }

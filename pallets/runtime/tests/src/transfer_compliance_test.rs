@@ -9,6 +9,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
 };
 use polymesh_primitives::{
+    investor_zkproof_data::v1::InvestorZKProofData,
     asset::AssetType, jurisdiction::CountryCode, statistics::*, transfer_compliance::*, AccountId,
     Balance, CddId, Claim, ClaimType, IdentityId, InvestorUid, PortfolioId, Scope, ScopeId, Ticker,
 };
@@ -55,6 +56,10 @@ impl InvestorState {
 
     pub fn uid(&self) -> InvestorUid {
         create_investor_uid(self.acc.clone())
+    }
+
+    pub fn scope_id(&self, ticker: Ticker) -> ScopeId {
+       InvestorZKProofData::make_scope_id(&ticker.as_slice(), &self.uid())
     }
 
     pub fn provide_scope_claim(&self, ticker: Ticker) -> (ScopeId, CddId) {
@@ -202,7 +207,7 @@ impl AssetTracker {
     }
 
     pub fn set_transfer_conditions(&mut self, conditions: Vec<TransferCondition>) {
-        assert_ok!(Statistics::replace_asset_transfer_compliance(
+        assert_ok!(Statistics::set_asset_transfer_compliance(
             self.owner_origin(),
             self.asset,
             conditions.clone(),
@@ -259,6 +264,27 @@ impl AssetTracker {
             _ => {
                 panic!("Asset issuers can't create {:?} claims", claim_type);
             }
+        }
+    }
+
+    pub fn set_investors_exempt(
+        &mut self,
+        ids: &[u64],
+        is_exempt: bool,
+    ) {
+        println!("ids = {:?}", ids);
+        let investors = ids.into_iter()
+            .map(|id| self.investor(*id).scope_id(self.asset)).collect::<Vec<_>>();
+        println!("investors = {:?}", investors);
+        for condition in &self.transfer_conditions {
+            let exempt_key = condition.get_exempt_key(self.asset_scope);
+            println!(" -- exempt={:?}", exempt_key);
+            assert_ok!(Statistics::set_entities_exempt(
+                self.owner_origin(),
+                is_exempt,
+                exempt_key,
+                investors.clone()
+            ));
         }
     }
 
@@ -876,6 +902,24 @@ fn claim_count_rule_with_ext() {
     tracker.ensure_invalid_transfer(tracker.owner_id, id, 1_000);
 
     tracker.ensure_asset_stats();
+
+    // Exempt the receiver from the transfer rules.
+    tracker.set_investors_exempt(&[id], true);
+
+    // Retry transfer.
+    // Should still fail since the sender needs to be exempt for Count rules.
+    tracker.ensure_invalid_transfer(tracker.owner_id, id, 1_000);
+
+    tracker.ensure_asset_stats();
+
+    // Exempt the sender from the transfer rules.
+    tracker.set_investors_exempt(&[tracker.owner_id], true);
+
+    // Retry transfer.
+    // Should pass.
+    tracker.do_valid_transfer(tracker.owner_id, id, 1_000);
+
+    tracker.ensure_asset_stats();
 }
 
 #[test]
@@ -944,6 +988,24 @@ fn jurisdiction_count_rule_with_ext() {
     tracker.ensure_invalid_transfer(tracker.owner_id, id, 1_000);
 
     tracker.ensure_asset_stats();
+
+    // Exempt the receiver from the transfer rules.
+    tracker.set_investors_exempt(&[id], true);
+
+    // Retry transfer.
+    // Should still fail since the sender needs to be exempt for Count rules.
+    tracker.ensure_invalid_transfer(tracker.owner_id, id, 1_000);
+
+    tracker.ensure_asset_stats();
+
+    // Exempt the sender from the transfer rules.
+    tracker.set_investors_exempt(&[tracker.owner_id], true);
+
+    // Retry transfer.
+    // Should pass.
+    tracker.do_valid_transfer(tracker.owner_id, id, 1_000);
+
+    tracker.ensure_asset_stats();
 }
 
 #[test]
@@ -1009,6 +1071,24 @@ fn jurisdiction_ownership_rule_with_ext() {
 
     // Try transfer more then 25% of the tokens to them.  Should fail.
     tracker.ensure_invalid_transfer(tracker.owner_id, id, 260_000);
+
+    tracker.ensure_asset_stats();
+
+    // Exempt the sender from the transfer rules.
+    tracker.set_investors_exempt(&[tracker.owner_id], true);
+
+    // Retry transfer.
+    // Should still fail since the receiver needs to be exempt for Count rules.
+    tracker.ensure_invalid_transfer(tracker.owner_id, id, 260_000);
+
+    tracker.ensure_asset_stats();
+
+    // Exempt the receiver from the transfer rules.
+    tracker.set_investors_exempt(&[id], true);
+
+    // Retry transfer.
+    // Should pass.
+    tracker.do_valid_transfer(tracker.owner_id, id, 260_000);
 
     tracker.ensure_asset_stats();
 }

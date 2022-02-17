@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::statistics::{Percentage, StatOpType, StatType};
+use crate::statistics::{AssetScope, Percentage, StatOpType, StatType, Stat1stKey};
 use crate::{Claim, ClaimType, IdentityId, Scope};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
@@ -92,6 +92,35 @@ impl TransferCondition {
         };
         StatType { op, claim_issuer }
     }
+
+    /// Get TransferConditionExemptKey needed by this transfer condition.
+    pub fn get_exempt_key(&self, asset: AssetScope) -> TransferConditionExemptKey {
+        let (op, claim_type) = match self {
+            Self::MaxInvestorCount(_) => (StatOpType::Count, None),
+            Self::MaxInvestorOwnership(_) => (StatOpType::Balance, None),
+            Self::ClaimCount(claim, _, _, _) => (
+                StatOpType::Count,
+                Some(claim.claim_type()),
+            ),
+            Self::ClaimOwnership(claim, _, _, _) => (
+                StatOpType::Balance,
+                Some(claim.claim_type()),
+            ),
+        };
+        TransferConditionExemptKey { asset, op, claim_type }
+    }
+}
+
+/// Transfer Condition Exempt key.
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct TransferConditionExemptKey {
+    /// Asset scope.
+    pub asset: AssetScope,
+    /// Stats operation type.
+    pub op: StatOpType,
+    /// Claim type.
+    pub claim_type: Option<ClaimType>,
 }
 
 /// List of transfer compliance requirements associated to an asset.
