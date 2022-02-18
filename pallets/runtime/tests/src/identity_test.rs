@@ -36,7 +36,7 @@ use polymesh_primitives::{
     InvestorUid, PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope,
     SecondaryKey, Signatory, SubsetRestriction, Ticker, TransactionError,
 };
-use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
+use polymesh_runtime_develop::runtime::{Call, CddHandler};
 use sp_core::H512;
 use sp_runtime::transaction_validity::InvalidTransaction;
 use std::convert::{From, TryFrom};

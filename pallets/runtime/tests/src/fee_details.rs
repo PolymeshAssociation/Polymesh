@@ -10,7 +10,7 @@ use pallet_test_utils as test_utils;
 use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{InvestorUid, Signatory, TransactionError};
-use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call};
+use polymesh_runtime_develop::runtime::{Call, CddHandler};
 use sp_runtime::transaction_validity::InvalidTransaction;
 use test_client::AccountKeyring;
 

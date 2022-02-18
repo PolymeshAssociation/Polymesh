@@ -13,7 +13,7 @@ use polymesh_common_utilities::{
     traits::transaction_payment::CddAndFeeDetails,
 };
 use polymesh_primitives::{AccountId, Balance, Signatory, Ticker, TransactionError};
-use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call as DevCall};
+use polymesh_runtime_develop::runtime::{Call as DevCall, CddHandler};
 use sp_runtime::{
     traits::{Dispatchable, SignedExtension},
     transaction_validity::{InvalidTransaction, TransactionValidityError},

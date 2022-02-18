@@ -193,7 +193,7 @@ parameter_types! {
 
 polymesh_runtime_common::misc_pallet_impls!();
 
-type CddHandler = polymesh_runtime_common::fee_details::DevCddHandler<Runtime>;
+pub type CddHandler = polymesh_runtime_common::fee_details::DevCddHandler<Runtime>;
 
 impl<'a> TryFrom<&'a Call> for &'a pallet_test_utils::Call<Runtime> {
     type Error = ();
