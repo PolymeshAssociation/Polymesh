@@ -50,6 +50,7 @@ use polymesh_common_utilities::Context;
 use polymesh_primitives::{Balance, Permissions};
 use sp_core::crypto::UncheckedFrom;
 use sp_core::Bytes;
+use sp_std::vec::Vec;
 use sp_runtime::traits::Hash;
 
 type Identity<T> = pallet_identity::Module<T>;
