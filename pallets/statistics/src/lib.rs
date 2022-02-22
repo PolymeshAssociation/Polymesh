@@ -28,7 +28,8 @@ use frame_support::{
 pub use polymesh_common_utilities::traits::statistics::{Config, Event, WeightInfo};
 use polymesh_primitives::{
     statistics::{
-        AssetScope, Counter, Percentage, Stat1stKey, Stat2ndKey, StatOpType, StatType,
+        AssetScope, Counter, Percentage, Stat1stKey, Stat2ndKey,
+        StatClaim, StatOpType, StatType,
         TransferManager, TransferManagerResult,
     },
     transfer_compliance::*,
@@ -43,7 +44,7 @@ type ExternalAgents<T> = pallet_external_agents::Module<T>;
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StatUpdate {
-    pub claim: Option<Claim>,
+    pub claim: Option<StatClaim>,
     /// None - Remove stored value if any.
     pub value: Option<u128>,
 }
@@ -418,7 +419,8 @@ impl<T: Config> Module<T> {
 
     /// Check if an identity has a claim.
     fn has_claim(did: &IdentityId, key1: &Stat1stKey, key2: &Stat2ndKey) -> bool {
-        Self::fetch_claim(Some(did), key1) == key2.claim
+        let claim = Self::fetch_claim(Some(did), key1);
+        key2.match_claim(&claim)
     }
 
     fn investor_count_changes(

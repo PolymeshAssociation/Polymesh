@@ -83,8 +83,9 @@ impl InvestorState {
         self.claims.insert((claim_type, *did), claim.clone());
     }
 
-    pub fn fetch_claim(&self, claim_issuer: &(ClaimType, IdentityId)) -> Option<&Claim> {
+    pub fn fetch_stat_claim(&self, claim_issuer: &(ClaimType, IdentityId)) -> Option<StatClaim> {
         self.claims.get(claim_issuer)
+            .and_then(|c| StatClaim::new_from(c))
     }
 }
 
@@ -267,6 +268,11 @@ impl AssetTracker {
         }
     }
 
+    pub fn make_stat_claim(&self, claim_type: ClaimType, jur: Option<CountryCode>) -> StatClaim {
+        let claim = self.make_claim(claim_type, jur);
+        StatClaim::new_from(&claim).expect("Unsupported ClaimType")
+    }
+
     pub fn set_investors_exempt(
         &mut self,
         ids: &[u64],
@@ -342,12 +348,12 @@ impl AssetTracker {
     pub fn calculate_stat_count(
         &self,
         claim_issuer: Option<(ClaimType, IdentityId)>,
-        claim: &Option<Claim>,
+        claim: &Option<StatClaim>,
     ) -> u64 {
         if let Some(claim_issuer) = claim_issuer {
             self.investors
                 .values()
-                .filter(|i| i.balance > 0 && i.fetch_claim(&claim_issuer) == claim.as_ref())
+                .filter(|i| i.balance > 0 && i.fetch_stat_claim(&claim_issuer) == *claim)
                 .count() as u64
         } else {
             // Special case, count all investors with a balance.
@@ -359,12 +365,12 @@ impl AssetTracker {
     pub fn calculate_stat_balance(
         &self,
         claim_issuer: Option<(ClaimType, IdentityId)>,
-        claim: &Option<Claim>,
+        claim: &Option<StatClaim>,
     ) -> Balance {
         let claim_issuer = claim_issuer.expect("Need claim issuer for Balance stats.");
         self.investors
             .values()
-            .filter(|i| i.fetch_claim(&claim_issuer) == claim.as_ref())
+            .filter(|i| i.fetch_stat_claim(&claim_issuer) == *claim)
             .map(|i| i.balance)
             .sum()
     }
@@ -490,7 +496,7 @@ impl AssetTracker {
                     issuer
                         .fetch_claims(claim_type)
                         .into_iter()
-                        .map(|claim| Stat2ndKey { claim: Some(claim) })
+                        .map(|claim| Stat2ndKey::from(claim))
                         .collect()
                 } else {
                     vec![]
@@ -506,12 +512,11 @@ impl AssetTracker {
         has: bool,
         jur: Option<CountryCode>,
     ) -> Vec<(u128, u128)> {
-        let claim = if has {
-            Some(self.make_claim(claim_type, jur))
+        let key2 = if has {
+            Stat2ndKey::from(self.make_claim(claim_type, jur))
         } else {
-            None
+            Stat2ndKey { claim: None }
         };
-        let key2 = Stat2ndKey { claim };
 
         self.issuers
             .values()
@@ -861,7 +866,7 @@ fn claim_count_rule_with_ext() {
     tracker.set_active_stats(stats);
 
     // Set transfer conditions.  max=10 Accredited.
-    let claim = tracker.make_claim(ClaimType::Accredited, None);
+    let claim = tracker.make_stat_claim(ClaimType::Accredited, None);
     tracker.set_transfer_conditions(vec![TransferCondition::ClaimCount(
         claim,
         issuer.did,
@@ -947,7 +952,7 @@ fn jurisdiction_count_rule_with_ext() {
     tracker.set_active_stats(stats);
 
     // Set transfer conditions.  max=10 investors in Jurisdiction GB.
-    let claim = tracker.make_claim(claim_type, Some(CountryCode::GB));
+    let claim = tracker.make_stat_claim(claim_type, Some(CountryCode::GB));
     tracker.set_transfer_conditions(vec![TransferCondition::ClaimCount(
         claim,
         issuer.did,
@@ -1033,7 +1038,7 @@ fn jurisdiction_ownership_rule_with_ext() {
     tracker.set_active_stats(stats);
 
     // Set transfer conditions.  max=10 investors in Jurisdiction GB.
-    let claim = tracker.make_claim(claim_type, Some(CountryCode::GB));
+    let claim = tracker.make_stat_claim(claim_type, Some(CountryCode::GB));
     let p0 = HashablePermill(Permill::from_rational(0u32, 100u32));
     let p25 = HashablePermill(Permill::from_rational(25u32, 100u32));
     tracker.set_transfer_conditions(vec![TransferCondition::ClaimOwnership(
