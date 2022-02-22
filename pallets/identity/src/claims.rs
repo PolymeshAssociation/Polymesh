@@ -348,7 +348,7 @@ impl<T: Config> Module<T> {
         // Verify the owner of that CDD_ID.
         ensure!(
             Self::base_fetch_cdd(target, T::Moment::zero(), Some(*cdd_id)).is_some(),
-            Error::<T>::ConfidentialScopeClaimNotAllowed
+            Error::<T>::InvalidCDDId
         );
 
         // Verify the confidential claim.
