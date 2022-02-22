@@ -26,7 +26,9 @@ impl Parse for Exec {
 
         let paren_content;
         parenthesized!(paren_content in input);
-        let mut params = paren_content.parse_terminated::<Expr, Token![,]>(Expr::parse)?.into_iter();
+        let mut params = paren_content
+            .parse_terminated::<Expr, Token![,]>(Expr::parse)?
+            .into_iter();
         let origin = params.next().unwrap();
         let params = Punctuated::from_iter(params);
 
@@ -39,6 +41,9 @@ impl Parse for Exec {
     }
 }
 
+/// Convert a direct call to a module to d extrinsic execution.
+/// When `#[integration-test]` is not set, this becomes a noop.
+/// Syntax: `<pallet>::<extrinsic>(<params>,*)`
 #[proc_macro]
 pub fn exec(item: TokenStream) -> TokenStream {
     if !cfg!(feature = "integration-test") {

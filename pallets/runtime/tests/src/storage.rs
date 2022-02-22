@@ -995,10 +995,13 @@ pub fn exec<C: Into<Call>>(origin: Origin, call: C) -> DispatchResult {
 /// Sign given `CheckedExtrinsic` returning an `UncheckedExtrinsic`
 /// usable for execution.
 fn sign(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
-    match xt.signed {
-        Some((signed, extra)) => {
+    let CheckedExtrinsic {
+        signed, function, ..
+    } = xt;
+    UncheckedExtrinsic {
+        signature: signed.map(|(signed, extra)| {
             let payload = (
-                xt.function,
+                &function,
                 extra.clone(),
                 VERSION.spec_version,
                 VERSION.transaction_version,
@@ -1015,15 +1018,9 @@ fn sign(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
                     }
                 })
                 .into();
-            UncheckedExtrinsic {
-                signature: Some((Address::Id(signed), signature, extra)),
-                function: payload.0,
-            }
-        }
-        None => UncheckedExtrinsic {
-            signature: None,
-            function: xt.function,
-        },
+            (Address::Id(signed), signature, extra)
+        }),
+        function,
     }
 }
 
