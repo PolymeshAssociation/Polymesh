@@ -1,11 +1,12 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
-use crate::{constants::time::*, fee_details::CddHandler};
+use crate::constants::time::*;
 use codec::Encode;
 
 #[cfg(feature = "migration-dry-run")]
 use frame_support::traits::OnRuntimeUpgrade;
 
+use core::convert::TryFrom;
 use frame_support::{
     construct_runtime, parameter_types,
     traits::{tokens::imbalance::SplitTwoWays, KeyOwnerProofSystem},
@@ -195,6 +196,18 @@ parameter_types! {
 }
 
 polymesh_runtime_common::misc_pallet_impls!();
+
+type CddHandler = polymesh_runtime_common::fee_details::DevCddHandler<Runtime>;
+
+impl<'a> TryFrom<&'a Call> for &'a pallet_test_utils::Call<Runtime> {
+    type Error = ();
+    fn try_from(call: &'a Call) -> Result<&'a pallet_test_utils::Call<Runtime>, ()> {
+        match call {
+            Call::TestUtils(x) => Ok(x),
+            _ => Err(()),
+        }
+    }
+}
 
 impl polymesh_common_utilities::traits::identity::Config for Runtime {
     type Event = Event;
