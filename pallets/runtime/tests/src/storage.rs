@@ -992,7 +992,8 @@ pub fn exec<C: Into<Call>>(origin: Origin, call: C) -> DispatchResult {
     .unwrap()
 }
 
-/// Sign given `CheckedExtrinsic`.
+/// Sign given `CheckedExtrinsic` returning an `UncheckedExtrinsic`
+/// usable for execution.
 fn sign(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
     match xt.signed {
         Some((signed, extra)) => {
