@@ -1,6 +1,6 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
-use crate::{constants::time::*, fee_details::CddHandler};
+use crate::constants::time::*;
 use codec::Encode;
 use frame_support::{
     construct_runtime,
@@ -11,6 +11,7 @@ use frame_support::{
 };
 use pallet_asset::checkpoint as pallet_checkpoint;
 //use pallet_contracts::weights::WeightInfo;
+use core::convert::TryFrom;
 use pallet_corporate_actions::ballot as pallet_corporate_ballot;
 use pallet_corporate_actions::distribution as pallet_capital_distribution;
 use pallet_session::historical as pallet_session_historical;
@@ -59,7 +60,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 3002,
+    spec_version: 3010,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 2,
@@ -191,6 +192,18 @@ parameter_types! {
 }
 
 polymesh_runtime_common::misc_pallet_impls!();
+
+pub type CddHandler = polymesh_runtime_common::fee_details::DevCddHandler<Runtime>;
+
+impl<'a> TryFrom<&'a Call> for &'a pallet_test_utils::Call<Runtime> {
+    type Error = ();
+    fn try_from(call: &'a Call) -> Result<&'a pallet_test_utils::Call<Runtime>, ()> {
+        match call {
+            Call::TestUtils(x) => Ok(x),
+            _ => Err(()),
+        }
+    }
+}
 
 impl polymesh_common_utilities::traits::identity::Config for Runtime {
     type Event = Event;

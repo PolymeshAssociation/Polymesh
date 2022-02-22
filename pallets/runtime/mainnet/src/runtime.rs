@@ -1,6 +1,6 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
-use crate::{constants::time::*, fee_details::CddHandler};
+use crate::constants::time::*;
 use codec::Encode;
 use frame_support::{
     construct_runtime, parameter_types,
@@ -57,7 +57,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 3002,
+    spec_version: 3010,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 2,
@@ -192,6 +192,11 @@ parameter_types! {
 }
 
 polymesh_runtime_common::misc_pallet_impls!();
+
+type CddHandler = polymesh_runtime_common::fee_details::CddHandler<
+    Runtime,
+    polymesh_runtime_common::fee_details::Noop,
+>;
 
 impl polymesh_common_utilities::traits::identity::Config for Runtime {
     type Event = Event;
