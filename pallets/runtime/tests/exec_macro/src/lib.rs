@@ -26,9 +26,9 @@ impl Parse for Exec {
 
         let paren_content;
         parenthesized!(paren_content in input);
-        let params = paren_content.parse_terminated::<Expr, Token![,]>(Expr::parse)?;
-        let origin = params.iter().next().unwrap().clone();
-        let params = Punctuated::from_iter(params.into_iter().skip(1));
+        let mut params = paren_content.parse_terminated::<Expr, Token![,]>(Expr::parse)?.into_iter();
+        let origin = params.next().unwrap();
+        let params = Punctuated::from_iter(params);
 
         Ok(Exec {
             pallet,
