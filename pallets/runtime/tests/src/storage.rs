@@ -90,6 +90,8 @@ macro_rules! exec_noop {
 		$x:expr,
 		$y:expr $(,)?
 	) => {
+        // Use `assert_err` when running with `#[integration-test]`.
+        // `assert_noop` returns false positives when using full extrinsic execution.
         if cfg!(feature = "integration-test") {
             frame_support::assert_err!(polymesh_exec_macro::exec!($x), $y);
         } else {
