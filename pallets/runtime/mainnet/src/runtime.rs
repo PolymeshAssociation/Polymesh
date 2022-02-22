@@ -1,6 +1,6 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
-use crate::{constants::time::*, fee_details::CddHandler};
+use crate::constants::time::*;
 use codec::Encode;
 use frame_support::{
     construct_runtime, parameter_types,
@@ -192,6 +192,11 @@ parameter_types! {
 }
 
 polymesh_runtime_common::misc_pallet_impls!();
+
+type CddHandler = polymesh_runtime_common::fee_details::CddHandler<
+    Runtime,
+    polymesh_runtime_common::fee_details::Noop,
+>;
 
 impl polymesh_common_utilities::traits::identity::Config for Runtime {
     type Event = Event;
