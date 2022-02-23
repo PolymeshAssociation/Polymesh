@@ -2027,7 +2027,7 @@ fn add_investor_uniqueness_claim_v2_data(
         // Missing CDD id.
         (
             (user_no_cdd_id, scope.clone(), claim.clone(), proof),
-            Err(Error::ConfidentialScopeClaimNotAllowed.into()),
+            Err(Error::InvalidCDDId.into()),
         ),
         // Invalid ZKProof
         (
