@@ -9,9 +9,9 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
 };
 use polymesh_primitives::{
-    investor_zkproof_data::v1::InvestorZKProofData,
-    asset::AssetType, jurisdiction::CountryCode, statistics::*, transfer_compliance::*, AccountId,
-    Balance, CddId, Claim, ClaimType, IdentityId, InvestorUid, PortfolioId, Scope, ScopeId, Ticker,
+    asset::AssetType, investor_zkproof_data::v1::InvestorZKProofData, jurisdiction::CountryCode,
+    statistics::*, transfer_compliance::*, AccountId, Balance, CddId, Claim, ClaimType, IdentityId,
+    InvestorUid, PortfolioId, Scope, ScopeId, Ticker,
 };
 use sp_arithmetic::Permill;
 use sp_std::convert::TryFrom;
@@ -59,7 +59,7 @@ impl InvestorState {
     }
 
     pub fn scope_id(&self, ticker: Ticker) -> ScopeId {
-       InvestorZKProofData::make_scope_id(&ticker.as_slice(), &self.uid())
+        InvestorZKProofData::make_scope_id(&ticker.as_slice(), &self.uid())
     }
 
     pub fn provide_scope_claim(&self, ticker: Ticker) -> (ScopeId, CddId) {
@@ -83,9 +83,9 @@ impl InvestorState {
         self.claims.insert((claim_type, *did), claim.clone());
     }
 
-    pub fn fetch_stat_claim(&self, claim_issuer: &(ClaimType, IdentityId)) -> Option<StatClaim> {
-        self.claims.get(claim_issuer)
-            .and_then(|c| StatClaim::new_from(c))
+    pub fn fetch_stat_claim(&self, claim_issuer: &(ClaimType, IdentityId)) -> Stat2ndKey {
+        let claim = self.claims.get(claim_issuer);
+        Stat2ndKey::new_from(&claim_issuer.0, claim.cloned())
     }
 }
 
@@ -268,19 +268,22 @@ impl AssetTracker {
         }
     }
 
-    pub fn make_stat_claim(&self, claim_type: ClaimType, jur: Option<CountryCode>) -> StatClaim {
+    pub fn make_stat_claim(
+        &self,
+        claim_type: ClaimType,
+        has: bool,
+        jur: Option<CountryCode>,
+    ) -> StatClaim {
         let claim = self.make_claim(claim_type, jur);
-        StatClaim::new_from(&claim).expect("Unsupported ClaimType")
+        StatClaim::new_from(&claim, has).expect("Unsupported ClaimType")
     }
 
-    pub fn set_investors_exempt(
-        &mut self,
-        ids: &[u64],
-        is_exempt: bool,
-    ) {
+    pub fn set_investors_exempt(&mut self, ids: &[u64], is_exempt: bool) {
         println!("ids = {:?}", ids);
-        let investors = ids.into_iter()
-            .map(|id| self.investor(*id).scope_id(self.asset)).collect::<Vec<_>>();
+        let investors = ids
+            .into_iter()
+            .map(|id| self.investor(*id).scope_id(self.asset))
+            .collect::<Vec<_>>();
         println!("investors = {:?}", investors);
         for condition in &self.transfer_conditions {
             let exempt_key = condition.get_exempt_key(self.asset_scope);
@@ -348,12 +351,12 @@ impl AssetTracker {
     pub fn calculate_stat_count(
         &self,
         claim_issuer: Option<(ClaimType, IdentityId)>,
-        claim: &Option<StatClaim>,
+        key2: &Stat2ndKey,
     ) -> u64 {
         if let Some(claim_issuer) = claim_issuer {
             self.investors
                 .values()
-                .filter(|i| i.balance > 0 && i.fetch_stat_claim(&claim_issuer) == *claim)
+                .filter(|i| i.balance > 0 && i.fetch_stat_claim(&claim_issuer) == *key2)
                 .count() as u64
         } else {
             // Special case, count all investors with a balance.
@@ -365,12 +368,12 @@ impl AssetTracker {
     pub fn calculate_stat_balance(
         &self,
         claim_issuer: Option<(ClaimType, IdentityId)>,
-        claim: &Option<StatClaim>,
+        key2: &Stat2ndKey,
     ) -> Balance {
         let claim_issuer = claim_issuer.expect("Need claim issuer for Balance stats.");
         self.investors
             .values()
-            .filter(|i| i.fetch_stat_claim(&claim_issuer) == *claim)
+            .filter(|i| i.fetch_stat_claim(&claim_issuer) == *key2)
             .map(|i| i.balance)
             .sum()
     }
@@ -490,16 +493,17 @@ impl AssetTracker {
 
     pub fn fetch_stats_key2(&self, stat_type: &StatType) -> Vec<Stat2ndKey> {
         match stat_type.claim_issuer {
-            None => vec![Stat2ndKey { claim: None }],
+            None => vec![Stat2ndKey::NoClaimStat],
             Some((claim_type, did)) => {
                 if let Some(issuer) = self.issuers.get(&did) {
                     issuer
                         .fetch_claims(claim_type)
                         .into_iter()
-                        .map(|claim| Stat2ndKey::from(claim))
+                        .map(|claim| Stat2ndKey::new_from(&claim_type, Some(claim)))
+                        .chain(vec![Stat2ndKey::new_from(&claim_type, None)].into_iter())
                         .collect()
                 } else {
-                    vec![]
+                    vec![Stat2ndKey::new_from(&claim_type, None)]
                 }
             }
         }
@@ -515,7 +519,7 @@ impl AssetTracker {
         let key2 = if has {
             Stat2ndKey::from(self.make_claim(claim_type, jur))
         } else {
-            Stat2ndKey { claim: None }
+            Stat2ndKey::new_from(&claim_type, None)
         };
 
         self.issuers
@@ -532,10 +536,8 @@ impl AssetTracker {
                 let claim_issuer = key1.stat_type.claim_issuer;
                 // Calculate the expected value.
                 let cal_value = match op {
-                    StatOpType::Count => {
-                        self.calculate_stat_count(claim_issuer, &key2.claim) as u128
-                    }
-                    StatOpType::Balance => self.calculate_stat_balance(claim_issuer, &key2.claim),
+                    StatOpType::Count => self.calculate_stat_count(claim_issuer, &key2) as u128,
+                    StatOpType::Balance => self.calculate_stat_balance(claim_issuer, &key2),
                 };
                 // Get stat from pallet.
                 let value = Statistics::asset_stats(key1, key2.clone());
@@ -553,16 +555,17 @@ impl AssetTracker {
         jur: Option<CountryCode>,
     ) {
         let claim_name = match (has, claim_type, jur) {
-            (false, ClaimType::Jurisdiction, _) =>
-                "No Jurisdiction".into(),
-            (true, ClaimType::Jurisdiction, Some(cc)) =>
-                format!("Jurisdiction::{:?}", cc),
-            (false, c_type, None) =>
-                format!("non-{:?}", c_type),
-            (true, c_type, None) =>
-                format!("{:?}", c_type),
+            (false, ClaimType::Jurisdiction, _) => "No Jurisdiction".into(),
+            (true, ClaimType::Jurisdiction, Some(cc)) => format!("Jurisdiction::{:?}", cc),
+            (false, c_type, None) => format!("non-{:?}", c_type),
+            (true, c_type, None) => format!("{:?}", c_type),
             _ => {
-                unimplemented!("Unsupported claim stats: has={}, claim={:?}, jur={:?}", has, claim_type, jur);
+                unimplemented!(
+                    "Unsupported claim stats: has={}, claim={:?}, jur={:?}",
+                    has,
+                    claim_type,
+                    jur
+                );
             }
         };
         self.get_claim_stats(op, claim_type, has, jur)
@@ -583,22 +586,16 @@ impl AssetTracker {
             let value = Statistics::asset_stats(key1, key2);
             match (stat_type.op, stat_type.claim_issuer) {
                 (StatOpType::Count, claim_issuer) => {
-                    let cal_value = self.calculate_stat_count(claim_issuer, &key2.claim);
-                    println!(
-                        "Count[{:?}]: cal={:?}, stat={:?}",
-                        key2.claim, cal_value, value
-                    );
+                    let cal_value = self.calculate_stat_count(claim_issuer, &key2);
+                    println!("Count[{:?}]: cal={:?}, stat={:?}", key2, cal_value, value);
                     assert_eq!(value, cal_value as u128);
                 }
                 (StatOpType::Balance, None) => {
                     // Per-investor balances are not stored in the stats.
                 }
                 (StatOpType::Balance, claim_issuer) => {
-                    let cal_value = self.calculate_stat_balance(claim_issuer, &key2.claim);
-                    println!(
-                        "Balance[{:?}]: cal={:?}, stat={:?}",
-                        key2.claim, cal_value, value
-                    );
+                    let cal_value = self.calculate_stat_balance(claim_issuer, &key2);
+                    println!("Balance[{:?}]: cal={:?}, stat={:?}", key2, cal_value, value);
                     assert_eq!(value, cal_value as u128);
                 }
             }
@@ -735,32 +732,42 @@ fn multiple_stats_with_ext() {
     tracker.ensure_asset_stats();
 
     // check some stats.
-    tracker
-        .ensure_claim_stats(StatOpType::Count, ClaimType::Jurisdiction, true, Some(CountryCode::US));
-    tracker
-        .ensure_claim_stats(StatOpType::Balance, ClaimType::Jurisdiction, true, Some(CountryCode::US));
+    tracker.ensure_claim_stats(
+        StatOpType::Count,
+        ClaimType::Jurisdiction,
+        true,
+        Some(CountryCode::US),
+    );
+    tracker.ensure_claim_stats(
+        StatOpType::Balance,
+        ClaimType::Jurisdiction,
+        true,
+        Some(CountryCode::US),
+    );
     // Check a Jurisdiction with no investors (KP).
-    tracker
-        .ensure_claim_stats(StatOpType::Count, ClaimType::Jurisdiction, true, Some(CountryCode::KP));
-    tracker
-        .ensure_claim_stats(StatOpType::Balance, ClaimType::Jurisdiction, true, Some(CountryCode::KP));
+    tracker.ensure_claim_stats(
+        StatOpType::Count,
+        ClaimType::Jurisdiction,
+        true,
+        Some(CountryCode::KP),
+    );
+    tracker.ensure_claim_stats(
+        StatOpType::Balance,
+        ClaimType::Jurisdiction,
+        true,
+        Some(CountryCode::KP),
+    );
 
     // Check Accredited.
-    tracker
-        .ensure_claim_stats(StatOpType::Count, ClaimType::Accredited, true, None);
-    tracker
-        .ensure_claim_stats(StatOpType::Balance, ClaimType::Accredited, true, None);
+    tracker.ensure_claim_stats(StatOpType::Count, ClaimType::Accredited, true, None);
+    tracker.ensure_claim_stats(StatOpType::Balance, ClaimType::Accredited, true, None);
 
     // Check Affiliate.
-    tracker
-        .ensure_claim_stats(StatOpType::Count, ClaimType::Affiliate, true, None);
-    tracker
-        .ensure_claim_stats(StatOpType::Balance, ClaimType::Affiliate, true, None);
+    tracker.ensure_claim_stats(StatOpType::Count, ClaimType::Affiliate, true, None);
+    tracker.ensure_claim_stats(StatOpType::Balance, ClaimType::Affiliate, true, None);
     // Check non-Affiliate.
-    tracker
-        .ensure_claim_stats(StatOpType::Count, ClaimType::Affiliate, false, None);
-    tracker
-        .ensure_claim_stats(StatOpType::Balance, ClaimType::Affiliate, false, None);
+    tracker.ensure_claim_stats(StatOpType::Count, ClaimType::Affiliate, false, None);
+    tracker.ensure_claim_stats(StatOpType::Balance, ClaimType::Affiliate, false, None);
 }
 
 #[test]
@@ -858,6 +865,9 @@ fn claim_count_rule_with_ext() {
     // Add issuer.
     tracker.add_issuer(&issuer, &claim_types[..]);
 
+    // Make the owner Accredited.
+    tracker.add_claim_to_investors(&[tracker.owner_id], ClaimType::Accredited, None);
+
     // Active stats.
     let stats = vec![StatType {
         op: StatOpType::Count,
@@ -865,13 +875,13 @@ fn claim_count_rule_with_ext() {
     }];
     tracker.set_active_stats(stats);
 
-    // Set transfer conditions.  max=10 Accredited.
-    let claim = tracker.make_stat_claim(ClaimType::Accredited, None);
+    // Set transfer conditions.  max=40 Non-Accredited.
+    let no_claim = tracker.make_stat_claim(ClaimType::Accredited, false, None);
     tracker.set_transfer_conditions(vec![TransferCondition::ClaimCount(
-        claim,
+        no_claim,
         issuer.did,
         0,
-        Some(10),
+        Some(40),
     )]);
 
     // Mint
@@ -899,9 +909,8 @@ fn claim_count_rule_with_ext() {
 
     tracker.ensure_asset_stats();
 
-    // Create a new Accredited investor.
+    // Create a new Non-Accredited investor.
     let id = tracker.new_investor(); // No balance yet.
-    tracker.add_claim_to_investors(&[id], ClaimType::Accredited, None);
 
     // Try transfer some tokens to them.  Should fail.
     tracker.ensure_invalid_transfer(tracker.owner_id, id, 1_000);
@@ -952,7 +961,7 @@ fn jurisdiction_count_rule_with_ext() {
     tracker.set_active_stats(stats);
 
     // Set transfer conditions.  max=10 investors in Jurisdiction GB.
-    let claim = tracker.make_stat_claim(claim_type, Some(CountryCode::GB));
+    let claim = tracker.make_stat_claim(claim_type, true, Some(CountryCode::GB));
     tracker.set_transfer_conditions(vec![TransferCondition::ClaimCount(
         claim,
         issuer.did,
@@ -1038,7 +1047,7 @@ fn jurisdiction_ownership_rule_with_ext() {
     tracker.set_active_stats(stats);
 
     // Set transfer conditions.  max=10 investors in Jurisdiction GB.
-    let claim = tracker.make_stat_claim(claim_type, Some(CountryCode::GB));
+    let claim = tracker.make_stat_claim(claim_type, true, Some(CountryCode::GB));
     let p0 = HashablePermill(Permill::from_rational(0u32, 100u32));
     let p25 = HashablePermill(Permill::from_rational(25u32, 100u32));
     tracker.set_transfer_conditions(vec![TransferCondition::ClaimOwnership(

@@ -18,7 +18,6 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
-use scale_info::TypeInfo;
 use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -28,13 +27,13 @@ use frame_support::{
 pub use polymesh_common_utilities::traits::statistics::{Config, Event, WeightInfo};
 use polymesh_primitives::{
     statistics::{
-        AssetScope, Counter, Percentage, Stat1stKey, Stat2ndKey,
-        StatClaim, StatOpType, StatType,
+        AssetScope, Counter, Percentage, Stat1stKey, Stat2ndKey, StatOpType, StatType,
         TransferManager, TransferManagerResult,
     },
     transfer_compliance::*,
-    Balance, Claim, IdentityId, ScopeId, Ticker,
+    Balance, IdentityId, ScopeId, Ticker,
 };
+use scale_info::TypeInfo;
 use sp_std::vec::Vec;
 
 type Identity<T> = pallet_identity::Module<T>;
@@ -44,7 +43,7 @@ type ExternalAgents<T> = pallet_external_agents::Module<T>;
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StatUpdate {
-    pub claim: Option<StatClaim>,
+    pub key2: Stat2ndKey,
     /// None - Remove stored value if any.
     pub value: Option<u128>,
 }
@@ -279,17 +278,16 @@ impl<T: Config> Module<T> {
         );
         let key1 = Stat1stKey { asset, stat_type };
         // process `values` to update stats.
-        values.into_iter().for_each(|StatUpdate { claim, value }| {
-            let key2 = Stat2ndKey { claim };
-            match value {
+        values
+            .into_iter()
+            .for_each(|StatUpdate { key2, value }| match value {
                 Some(value) => {
                     AssetStats::insert(key1, key2, value);
                 }
                 None => {
                     AssetStats::remove(key1, key2);
                 }
-            }
-        });
+            });
         // TODO: emit event.
         Ok(())
     }
@@ -322,7 +320,12 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn base_set_entities_exempt(origin: T::Origin, is_exempt: bool, exempt_key: TransferConditionExemptKey, entities: Vec<ScopeId>) -> DispatchResult {
+    fn base_set_entities_exempt(
+        origin: T::Origin,
+        is_exempt: bool,
+        exempt_key: TransferConditionExemptKey,
+        entities: Vec<ScopeId>,
+    ) -> DispatchResult {
         let _did = Self::ensure_asset_perms(origin, exempt_key.asset)?;
         for entity in &entities {
             if is_exempt {
@@ -400,27 +403,24 @@ impl<T: Config> Module<T> {
     }
 
     /// Fetch a claim for an identity as needed by the stat type.
-    fn fetch_claim(did: Option<&IdentityId>, key1: &Stat1stKey) -> Option<Claim> {
-        did.and_then(|did| {
-            key1.stat_type
-                .claim_issuer
-                .and_then(|(claim_type, issuer)| {
+    fn fetch_claim_as_key(did: Option<&IdentityId>, key1: &Stat1stKey) -> Stat2ndKey {
+        key1.stat_type
+            .claim_issuer
+            .map(|(claim_type, issuer)| {
+                // Get the claim.
+                let did_claim = did.and_then(|did| {
                     let claim_scope = key1.claim_scope();
-                    Identity::<T>::fetch_claim(
-                        did.clone(),
-                        claim_type,
-                        issuer,
-                        Some(claim_scope.clone()),
-                    )
-                    .map(|c| c.claim)
-                })
-        })
+                    Identity::<T>::fetch_claim(*did, claim_type, issuer, Some(claim_scope.clone()))
+                        .map(|c| c.claim)
+                });
+                Stat2ndKey::new_from(&claim_type, did_claim)
+            })
+            .unwrap_or(Stat2ndKey::NoClaimStat)
     }
 
-    /// Check if an identity has a claim.
-    fn has_claim(did: &IdentityId, key1: &Stat1stKey, key2: &Stat2ndKey) -> bool {
-        let claim = Self::fetch_claim(Some(did), key1);
-        key2.match_claim(&claim)
+    /// Check if an identity has a claim matching `key2`.
+    fn has_matching_claim(did: &IdentityId, key1: &Stat1stKey, key2: &Stat2ndKey) -> bool {
+        Self::fetch_claim_as_key(Some(did), key1) == *key2
     }
 
     fn investor_count_changes(
@@ -469,23 +469,18 @@ impl<T: Config> Module<T> {
             match stat_type.op {
                 StatOpType::Count => {
                     if let Some(changes) = count_changes {
-                        let from_claim = Self::fetch_claim(from_did, &key1);
-                        let to_claim = Self::fetch_claim(to_did, &key1);
-                        Self::update_asset_count_stats(
-                            key1,
-                            from_claim.into(),
-                            to_claim.into(),
-                            changes,
-                        );
+                        let from_key2 = Self::fetch_claim_as_key(from_did, &key1);
+                        let to_key2 = Self::fetch_claim_as_key(to_did, &key1);
+                        Self::update_asset_count_stats(key1, from_key2, to_key2, changes);
                     }
                 }
                 StatOpType::Balance => {
-                    let from_claim = Self::fetch_claim(from_did, &key1);
-                    let to_claim = Self::fetch_claim(to_did, &key1);
+                    let from_key2 = Self::fetch_claim_as_key(from_did, &key1);
+                    let to_key2 = Self::fetch_claim_as_key(to_did, &key1);
                     Self::update_asset_balance_stats(
                         key1,
-                        from_claim.into(),
-                        to_claim.into(),
+                        from_key2,
+                        to_key2,
                         from_balance,
                         to_balance,
                         amount,
@@ -553,7 +548,7 @@ impl<T: Config> Module<T> {
                 true
             }
             Some((false, true)) => {
-                let current_count = AssetStats::get(key1, Stat2ndKey { claim: None });
+                let current_count = AssetStats::get(key1, Stat2ndKey::NoClaimStat);
                 current_count < max_count
             }
         }
@@ -576,10 +571,10 @@ impl<T: Config> Module<T> {
                 return true;
             }
         };
-        let from_has_claim = Self::has_claim(from_did, &key1, &key2);
-        let to_has_claim = Self::has_claim(to_did, &key1, &key2);
+        let from_maches = Self::has_matching_claim(from_did, &key1, &key2);
+        let to_maches = Self::has_matching_claim(to_did, &key1, &key2);
         match changes {
-            (true, true) if from_has_claim == to_has_claim => {
+            (true, true) if from_maches == to_maches => {
                 // Remove one investor and add another.
                 // No count change.
             }
@@ -590,13 +585,13 @@ impl<T: Config> Module<T> {
                 // Get current investor count.
                 let count = AssetStats::get(key1, key2);
                 // Check minimum count restriction.
-                if min > 0 && from_change && from_has_claim {
+                if min > 0 && from_change && from_maches {
                     if count <= min {
                         return false;
                     }
                 }
                 if let Some(max) = max {
-                    if to_change && to_has_claim {
+                    if to_change && to_maches {
                         if count >= max {
                             return false;
                         }
@@ -614,10 +609,8 @@ impl<T: Config> Module<T> {
         total_supply: Balance,
         max_percentage: Percentage,
     ) -> bool {
-        let new_percentage = sp_arithmetic::Permill::from_rational(
-            receiver_balance + value,
-            total_supply,
-        );
+        let new_percentage =
+            sp_arithmetic::Permill::from_rational(receiver_balance + value, total_supply);
         new_percentage <= *max_percentage
     }
 
@@ -632,9 +625,9 @@ impl<T: Config> Module<T> {
         min_percentage: Percentage,
         max_percentage: Percentage,
     ) -> bool {
-        let from_has_claim = Self::has_claim(from_did, &key1, &key2);
-        let to_has_claim = Self::has_claim(to_did, &key1, &key2);
-        match (from_has_claim, to_has_claim) {
+        let from_maches = Self::has_matching_claim(from_did, &key1, &key2);
+        let to_maches = Self::has_matching_claim(to_did, &key1, &key2);
+        match (from_maches, to_maches) {
             (true, true) => {
                 // Both have the claim.  No % ownership change.
                 true

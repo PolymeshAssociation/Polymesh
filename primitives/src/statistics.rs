@@ -151,47 +151,65 @@ impl Stat1stKey {
 /// Second stats key in double map.
 #[derive(Decode, Encode, TypeInfo)]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Stat2ndKey {
+pub enum Stat2ndKey {
+    /// For `MaxInvestorCount` and `MaxInvestorOwnership` transfer rules.
+    NoClaimStat,
     /// For per-Claim stats (Jurisdiction, Accredited, etc...).
-    /// Non-Accredited stats would be stored with a `None` here.
-    pub claim: Option<StatClaim>,
+    Claim(StatClaim),
 }
 
 impl Stat2ndKey {
-    /// Check if the claim matches the key's claim.
-    pub fn match_claim(&self, claim: &Option<Claim>) -> bool {
-        match (self.claim, claim) {
-            (None, None) => true,
-            (Some(claim1), Some(claim2)) => claim1.match_claim(claim2),
-            _ => false,
+    /// Create a `Stat2ndKey` from a `ClaimType` and optional `Claim`.
+    pub fn new_from(claim_type: &ClaimType, claim: Option<Claim>) -> Self {
+        match (claim_type, claim) {
+            // No Accredited claim.
+            (ClaimType::Accredited, None) => Self::Claim(StatClaim::Accredited(false)),
+            // No Affiliate claim.
+            (ClaimType::Affiliate, None) => Self::Claim(StatClaim::Affiliate(false)),
+            // Has Accredited claim.
+            (ClaimType::Accredited, Some(Claim::Accredited(..))) => {
+                Self::Claim(StatClaim::Accredited(true))
+            }
+            // Has Affiliate claim.
+            (ClaimType::Affiliate, Some(Claim::Affiliate(..))) => {
+                Self::Claim(StatClaim::Affiliate(true))
+            }
+            // Has Jurisdiction claim.
+            (ClaimType::Jurisdiction, Some(Claim::Jurisdiction(cc, _))) => {
+                Self::Claim(StatClaim::Jurisdiction(Some(cc)))
+            }
+            // No Jurisdiction claim.
+            (ClaimType::Jurisdiction, None) => Self::Claim(StatClaim::Jurisdiction(None)),
+            // Unsupported claim type, just map it to `NoClaimStat` variant.
+            _ => Self::NoClaimStat,
         }
     }
 }
 
 impl From<Option<Claim>> for Stat2ndKey {
     fn from(claim: Option<Claim>) -> Stat2ndKey {
-        let claim = claim.and_then(|c| StatClaim::new_from(&c));
-        Stat2ndKey { claim }
+        claim.and_then(|c| StatClaim::new_from(&c, true)).into()
     }
 }
 
 impl From<Claim> for Stat2ndKey {
     fn from(claim: Claim) -> Stat2ndKey {
-        Stat2ndKey { claim: StatClaim::new_from(&claim) }
+        StatClaim::new_from(&claim, true).into()
     }
 }
 
 impl From<Option<StatClaim>> for Stat2ndKey {
     fn from(claim: Option<StatClaim>) -> Stat2ndKey {
-        Stat2ndKey { claim }
+        match claim {
+            None => Stat2ndKey::NoClaimStat,
+            Some(claim) => Stat2ndKey::Claim(claim),
+        }
     }
 }
 
 impl From<&StatClaim> for Stat2ndKey {
     fn from(claim: &StatClaim) -> Stat2ndKey {
-        Stat2ndKey {
-            claim: Some(*claim),
-        }
+        Stat2ndKey::Claim(*claim)
     }
 }
 
@@ -201,36 +219,22 @@ impl From<&StatClaim> for Stat2ndKey {
 #[derive(Decode, Encode, TypeInfo)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum StatClaim {
-    /// User is Accredited.
-    Accredited,
-    /// User is an Affiliate.
-    Affiliate,
-    /// User has an active BuyLockup (end date defined in claim expiry).
-    BuyLockup,
-    /// User has an active SellLockup (date defined in claim expiry).
-    SellLockup,
-    /// User is KYC'd.
-    KnowYourCustomer,
+    /// User is Accredited or non-Accredited.
+    Accredited(bool),
+    /// User is an Affiliate or non-Affiliate.
+    Affiliate(bool),
     /// This claim contains a string that represents the jurisdiction of the user.
-    Jurisdiction(CountryCode),
-    /// User is Exempted.
-    Exempted,
-    /// User is Blocked.
-    Blocked,
+    Jurisdiction(Option<CountryCode>),
 }
 
 impl StatClaim {
     /// Create a `StatClaim` from a `Claim`.
-    pub fn new_from(claim: &Claim) -> Option<Self> {
-        match claim {
-            Claim::Accredited(..) => Some(StatClaim::Accredited),
-            Claim::Affiliate(..) => Some(StatClaim::Affiliate),
-            Claim::BuyLockup(..) => Some(StatClaim::BuyLockup),
-            Claim::SellLockup(..) => Some(StatClaim::SellLockup),
-            Claim::KnowYourCustomer(..) => Some(StatClaim::KnowYourCustomer),
-            Claim::Jurisdiction(cc, _) => Some(StatClaim::Jurisdiction(*cc)),
-            Claim::Exempted(..) => Some(StatClaim::Exempted),
-            Claim::Blocked(..) => Some(StatClaim::Blocked),
+    pub fn new_from(claim: &Claim, has: bool) -> Option<Self> {
+        match (claim, has) {
+            (Claim::Accredited(..), has) => Some(StatClaim::Accredited(has)),
+            (Claim::Affiliate(..), has) => Some(StatClaim::Affiliate(has)),
+            (Claim::Jurisdiction(cc, _), true) => Some(StatClaim::Jurisdiction(Some(*cc))),
+            (Claim::Jurisdiction(..), false) => Some(StatClaim::Jurisdiction(None)),
             _ => None,
         }
     }
@@ -238,29 +242,9 @@ impl StatClaim {
     /// It returns the claim type.
     pub fn claim_type(&self) -> ClaimType {
         match self {
-            StatClaim::Accredited => ClaimType::Accredited,
-            StatClaim::Affiliate => ClaimType::Affiliate,
-            StatClaim::BuyLockup => ClaimType::BuyLockup,
-            StatClaim::SellLockup => ClaimType::SellLockup,
-            StatClaim::KnowYourCustomer => ClaimType::KnowYourCustomer,
+            StatClaim::Accredited(_) => ClaimType::Accredited,
+            StatClaim::Affiliate(_) => ClaimType::Affiliate,
             StatClaim::Jurisdiction(..) => ClaimType::Jurisdiction,
-            StatClaim::Exempted => ClaimType::Exempted,
-            StatClaim::Blocked => ClaimType::Blocked,
-        }
-    }
-
-    /// Check if the claim has the same type
-    pub fn match_claim(&self, claim: &Claim) -> bool {
-        match (self, claim) {
-            (StatClaim::Accredited, Claim::Accredited(..)) => true,
-            (StatClaim::Affiliate, Claim::Affiliate(..)) => true,
-            (StatClaim::BuyLockup, Claim::BuyLockup(..)) => true,
-            (StatClaim::SellLockup, Claim::SellLockup(..)) => true,
-            (StatClaim::KnowYourCustomer, Claim::KnowYourCustomer(..)) => true,
-            (StatClaim::Jurisdiction(cc1), Claim::Jurisdiction(cc2, _)) => cc1 == cc2,
-            (StatClaim::Exempted, Claim::Exempted(..)) => true,
-            (StatClaim::Blocked, Claim::Blocked(..)) => true,
-            _ => true,
         }
     }
 }
