@@ -19,14 +19,14 @@ const STAT_TYPES: &[(StatOpType, Option<ClaimType>)] = &[
     (StatOpType::Balance, Some(ClaimType::Jurisdiction)),
 ];
 
-fn make_stats(issuer: IdentityId, count: u32) -> BTreeSet<StatType> {
+fn make_stats(count: u32) -> BTreeSet<StatType> {
     (0..count as usize)
         .into_iter()
         .map(|idx| {
             let (op, claim_type) = STAT_TYPES[idx % STAT_TYPES.len()];
             StatType {
                 op,
-                claim_issuer: claim_type.map(|ct| (ct, issuer)),
+                claim_issuer: claim_type.map(|ct| (ct, IdentityId::from(idx as u128))),
             }
         })
         .collect()
@@ -44,54 +44,33 @@ fn make_jur_stat_updates(count: u32, value: Option<u128>) -> BTreeSet<StatUpdate
         .collect()
 }
 
-const TRANSFER_CONDITIONS: &[(StatOpType, Option<StatClaim>)] = &[
-    (StatOpType::Count, None),
-    (StatOpType::Balance, None),
-    (StatOpType::Count, Some(StatClaim::Accredited(true))),
-    (StatOpType::Balance, Some(StatClaim::Accredited(true))),
-    (StatOpType::Count, Some(StatClaim::Accredited(false))),
-    (StatOpType::Balance, Some(StatClaim::Accredited(false))),
-    (StatOpType::Count, Some(StatClaim::Affiliate(true))),
-    (StatOpType::Balance, Some(StatClaim::Affiliate(true))),
-    (StatOpType::Count, Some(StatClaim::Affiliate(false))),
-    (StatOpType::Balance, Some(StatClaim::Affiliate(false))),
-    (StatOpType::Count, Some(StatClaim::Jurisdiction(None))),
-    (StatOpType::Balance, Some(StatClaim::Jurisdiction(None))),
-    (
-        StatOpType::Count,
-        Some(StatClaim::Jurisdiction(Some(CountryCode::CA))),
-    ),
-    (
-        StatOpType::Balance,
-        Some(StatClaim::Jurisdiction(Some(CountryCode::CA))),
-    ),
-    (
-        StatOpType::Count,
-        Some(StatClaim::Jurisdiction(Some(CountryCode::US))),
-    ),
-    (
-        StatOpType::Balance,
-        Some(StatClaim::Jurisdiction(Some(CountryCode::US))),
-    ),
-];
+fn claim_type_to_stat_claim(claim_type: ClaimType) -> Option<StatClaim> {
+    match claim_type {
+        ClaimType::Accredited => Some(StatClaim::Accredited(true)),
+        ClaimType::Affiliate => Some(StatClaim::Affiliate(true)),
+        ClaimType::Jurisdiction => Some(StatClaim::Jurisdiction(None)),
+        _ => None,
+    }
+}
 
-fn make_transfer_conditions(issuer: IdentityId, count: u32) -> BTreeSet<TransferCondition> {
+fn make_transfer_conditions(stats: &BTreeSet<StatType>, count: u32) -> BTreeSet<TransferCondition> {
     let p0 = HashablePermill(sp_arithmetic::Permill::from_rational(0u32, 100u32));
     let p40 = HashablePermill(sp_arithmetic::Permill::from_rational(40u32, 100u32));
     (0..count as usize)
         .into_iter()
-        .map(
-            |idx| match TRANSFER_CONDITIONS[idx % TRANSFER_CONDITIONS.len()] {
-                (StatOpType::Count, None) => TransferCondition::MaxInvestorCount(10),
-                (StatOpType::Balance, None) => TransferCondition::MaxInvestorOwnership(p40),
-                (StatOpType::Count, Some(c)) => {
-                    TransferCondition::ClaimCount(c, issuer, 0, Some(10))
-                }
-                (StatOpType::Balance, Some(c)) => {
-                    TransferCondition::ClaimOwnership(c, issuer, p0, p40)
-                }
-            },
-        )
+        .zip(stats.iter())
+        .map(|(_idx, stat)| match (stat.op, stat.claim_issuer) {
+            (StatOpType::Count, None) => TransferCondition::MaxInvestorCount(10),
+            (StatOpType::Balance, None) => TransferCondition::MaxInvestorOwnership(p40),
+            (StatOpType::Count, Some((claim_type, issuer))) => {
+                let claim = claim_type_to_stat_claim(claim_type).expect("Unsupported ClaimType");
+                TransferCondition::ClaimCount(claim, issuer, 0, Some(10))
+            }
+            (StatOpType::Balance, Some((claim_type, issuer))) => {
+                let claim = claim_type_to_stat_claim(claim_type).expect("Unsupported ClaimType");
+                TransferCondition::ClaimOwnership(claim, issuer, p0, p40)
+            }
+        })
         .collect()
 }
 
@@ -122,9 +101,8 @@ fn init_transfer_conditions<T: Config + Asset + TestUtilsFn<AccountIdOf<T>>>(
     BTreeSet<TransferCondition>,
 ) {
     let (owner, ticker) = init_ticker::<T>();
-    let issuer = owner.did.expect("Owner missing identity");
-    let stats = make_stats(issuer, count_stats);
-    let conditions = make_transfer_conditions(issuer, count_conditions);
+    let stats = make_stats(count_stats);
+    let conditions = make_transfer_conditions(&stats, count_conditions);
     (owner, ticker, stats, conditions)
 }
 
@@ -242,15 +220,16 @@ benchmarks! {
         let max_stats = T::MaxStatsPerAsset::get().saturating_sub(1);
         let (owner, ticker, stats, _) = init_transfer_conditions::<T>(max_stats, 0);
 
+        // Get a Jurisdiction stat type.
+        let stat_type = stats.iter().find(|s| match s.claim_issuer {
+            Some((ClaimType::Jurisdiction, _)) => true,
+            _ => false,
+        }).cloned().unwrap();
+
         // Set active stats.
         Module::<T>::set_active_asset_stats(owner.origin.clone().into(), ticker.into(), stats)?;
 
         // Generate updates.
-        let issuer = owner.did.expect("Owner missing identity");
-        let stat_type = StatType {
-            op: StatOpType::Count,
-            claim_issuer: Some((ClaimType::Jurisdiction, issuer)),
-        };
         let updates = make_jur_stat_updates(i, Some(1000u128));
     }: _(owner.origin, ticker.into(), stat_type, updates)
 
