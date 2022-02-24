@@ -210,7 +210,7 @@ impl AssetTracker {
     pub fn set_transfer_conditions(&mut self, conditions: Vec<TransferCondition>) {
         assert_ok!(Statistics::set_asset_transfer_compliance(
             self.owner_origin(),
-            self.asset,
+            self.asset_scope,
             conditions.clone().into_iter().collect(),
         ));
         self.transfer_conditions = conditions;

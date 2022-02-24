@@ -202,8 +202,8 @@ decl_module! {
         /// # Permissions (EA)
         /// * Asset
         #[weight = <T as Config>::WeightInfo::set_asset_transfer_compliance(transfer_conditions.len() as u32)]
-        pub fn set_asset_transfer_compliance(origin, ticker: Ticker, transfer_conditions: BTreeSet<TransferCondition>) {
-            Self::base_set_asset_transfer_compliance(origin, ticker, transfer_conditions)?;
+        pub fn set_asset_transfer_compliance(origin, asset: AssetScope, transfer_conditions: BTreeSet<TransferCondition>) {
+            Self::base_set_asset_transfer_compliance(origin, asset, transfer_conditions)?;
         }
 
         /// Set/unset entities exempt from an asset's transfer compliance rules.
@@ -297,7 +297,6 @@ impl<T: Config> Module<T> {
         values: BTreeSet<StatUpdate>,
     ) -> DispatchResult {
         // Check EA permissions for asset.
-        // TODO: Also allow trusted issuers to update stats.
         let did = Self::ensure_asset_perms(origin, asset)?;
         // Check that `stat_type` is active for `asset`.
         ensure!(
@@ -328,20 +327,18 @@ impl<T: Config> Module<T> {
 
     fn base_set_asset_transfer_compliance(
         origin: T::Origin,
-        ticker: Ticker,
+        asset: AssetScope,
         transfer_conditions: BTreeSet<TransferCondition>,
     ) -> DispatchResult {
-        let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+        // Check EA permissions for asset.
+        let did = Self::ensure_asset_perms(origin, asset)?;
 
-        // Ensure the complexity is limited.
         // TODO: Use complexity instead of count to limit TransferConditions per asset.
         // Check maximum TransferConditions per Asset limit.
         ensure!(
             transfer_conditions.len() < T::MaxTransferConditionsPerAsset::get() as usize,
             Error::<T>::TransferConditionLimitReached
         );
-
-        let asset = AssetScope::Ticker(ticker);
 
         // Commit changes to storage.
         if transfer_conditions.len() > 0 {
@@ -376,6 +373,7 @@ impl<T: Config> Module<T> {
         exempt_key: TransferConditionExemptKey,
         entities: BTreeSet<ScopeId>,
     ) -> DispatchResult {
+        // Check EA permissions for asset.
         let did = Self::ensure_asset_perms(origin, exempt_key.asset)?;
         if is_exempt {
             for entity in &entities {
