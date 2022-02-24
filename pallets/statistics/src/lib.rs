@@ -90,6 +90,8 @@ decl_module! {
         fn deposit_event() = default;
 
         const MaxTransferManagersPerAsset: u32 = T::MaxTransferManagersPerAsset::get();
+        const MaxStatsPerAsset: u32 = T::MaxStatsPerAsset::get();
+        const MaxTransferConditionsPerAsset: u32 = T::MaxTransferConditionsPerAsset::get();
 
         /// Adds a new transfer manager.
         ///
@@ -189,32 +191,37 @@ decl_module! {
         }
 
         /// Set the active asset stat_types.
+        ///
         /// # Permissions (EA)
         /// * Asset
-        #[weight = 0]
+        #[weight = <T as Config>::WeightInfo::set_active_asset_stats(stat_types.len() as u32)]
         pub fn set_active_asset_stats(origin, asset: AssetScope, stat_types: Vec<StatType>) {
-            // TODO: benchmark and weight.
             Self::base_set_active_asset_stats(origin, asset, stat_types)?;
         }
 
         /// Allow a trusted issuer to init/resync ticker/company stats.
+        ///
         /// # Permissions (EA)
         /// * Asset
-        #[weight = 0]
+        #[weight = <T as Config>::WeightInfo::batch_update_asset_stats(values.len() as u32)]
         pub fn batch_update_asset_stats(origin, asset: AssetScope, stat_type: StatType, values: Vec<StatUpdate>) {
-            // TODO: benchmark and weight.
             Self::base_batch_update_asset_stats(origin, asset, stat_type, values)?;
         }
 
-        /// TODO: docs, weight.
-        #[weight = 0]
+        /// Set asset transfer compliance rules.
+        ///
+        /// # Permissions (EA)
+        /// * Asset
+        #[weight = <T as Config>::WeightInfo::set_asset_transfer_compliance(transfer_conditions.len() as u32)]
         pub fn set_asset_transfer_compliance(origin, ticker: Ticker, transfer_conditions: Vec<TransferCondition>) {
-            // TODO: benchmark and weight.
             Self::base_set_asset_transfer_compliance(origin, ticker, transfer_conditions)?;
         }
 
-        /// TODO: docs, weight.
-        #[weight = 0]
+        /// Set/unset entities exempt from an asset's transfer compliance rules.
+        ///
+        /// # Permissions (EA)
+        /// * Asset
+        #[weight = <T as Config>::WeightInfo::set_entities_exempt(entities.len() as u32)]
         pub fn set_entities_exempt(origin, is_exempt: bool, exempt_key: TransferConditionExemptKey, entities: Vec<ScopeId>) {
             Self::base_set_entities_exempt(origin, is_exempt, exempt_key, entities)?;
         }
@@ -244,7 +251,7 @@ impl<T: Config> Module<T> {
         let _did = Self::ensure_asset_perms(origin, asset)?;
         // TODO: add `MaxStatsPerAsset` and error variant.
         ensure!(
-            stat_types.len() < 10,
+            stat_types.len() < T::MaxStatsPerAsset::get() as usize,
             Error::<T>::TransferManagersLimitReached
         );
 
@@ -311,9 +318,13 @@ impl<T: Config> Module<T> {
 
         let asset = AssetScope::Ticker(ticker);
         // Commit changes to storage + emit event.
-        AssetTransferCompliances::mutate(&asset, |old| {
-            old.requirements = transfer_conditions.clone()
-        });
+        if transfer_conditions.len() > 0 {
+            AssetTransferCompliances::mutate(&asset, |old| {
+                old.requirements = transfer_conditions.clone()
+            });
+        } else {
+            AssetTransferCompliances::remove(&asset);
+        }
         // TODO:
         //Self::deposit_event(Event::AssetComplianceReplaced(did, ticker, asset_compliance));
 

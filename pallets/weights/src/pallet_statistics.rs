@@ -76,4 +76,33 @@ impl pallet_statistics::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(5 as Weight))
             .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(i as Weight)))
     }
+
+    fn set_active_asset_stats(i: u32) -> Weight {
+        (68_035_000 as Weight)
+            // Standard Error: 13_000
+            .saturating_add((130_000 as Weight).saturating_mul(i as Weight))
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn batch_update_asset_stats(i: u32) -> Weight {
+        (283_710_000 as Weight)
+            // Standard Error: 141_000
+            .saturating_add((5_615_000 as Weight).saturating_mul(i as Weight))
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(100 as Weight))
+    }
+    fn set_asset_transfer_compliance(i: u32) -> Weight {
+        (68_464_000 as Weight)
+            // Standard Error: 25_000
+            .saturating_add((192_000 as Weight).saturating_mul(i as Weight))
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn set_entities_exempt(i: u32) -> Weight {
+        (36_114_000 as Weight)
+            // Standard Error: 151_000
+            .saturating_add((5_612_000 as Weight).saturating_mul(i as Weight))
+            .saturating_add(DbWeight::get().reads(5 as Weight))
+            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(i as Weight)))
+    }
 }
