@@ -322,8 +322,8 @@ impl<T: Config> Module<T> {
     /// # Errors
     /// - 'ConfidentialScopeClaimNotAllowed` if :
     ///     - Sender is not the issuer. That claim can be only added by your-self.
-    ///     - You are not the owner of that CDD_ID.
     ///     - If claim is not valid.
+    /// - 'InvalidCDDId' if you are not the owner of that CDD_ID.
     ///
     crate fn base_add_investor_uniqueness_claim(
         origin: T::Origin,
@@ -348,7 +348,7 @@ impl<T: Config> Module<T> {
         // Verify the owner of that CDD_ID.
         ensure!(
             Self::base_fetch_cdd(target, T::Moment::zero(), Some(*cdd_id)).is_some(),
-            Error::<T>::ConfidentialScopeClaimNotAllowed
+            Error::<T>::InvalidCDDId
         );
 
         // Verify the confidential claim.
