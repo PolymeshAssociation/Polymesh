@@ -76,7 +76,7 @@ impl DerefMut for HashablePermill {
 /// Asset scope for stats.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Decode, Encode, TypeInfo)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AssetScope {
     /// Ticker scope.  Used for per-ticker stats.
     Ticker(Ticker),
@@ -112,7 +112,7 @@ impl AssetScope {
 /// Stats Operation type.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Decode, Encode, TypeInfo)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum StatOpType {
     /// Count - Investor count stats.
     Count,
@@ -123,7 +123,7 @@ pub enum StatOpType {
 /// Stats type.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Decode, Encode, TypeInfo)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct StatType {
     /// Stats operation type.
     pub op: StatOpType,
@@ -150,7 +150,7 @@ impl Stat1stKey {
 
 /// Second stats key in double map.
 #[derive(Decode, Encode, TypeInfo)]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Stat2ndKey {
     /// For `MaxInvestorCount` and `MaxInvestorOwnership` transfer rules.
     NoClaimStat,
@@ -217,7 +217,7 @@ impl From<&StatClaim> for Stat2ndKey {
 ///
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Decode, Encode, TypeInfo)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum StatClaim {
     /// User is Accredited or non-Accredited.
     Accredited(bool),

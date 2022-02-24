@@ -19,12 +19,13 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
 
 /// Transfer condition.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Decode, Encode, TypeInfo)]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TransferCondition {
     /// Maximum investor count.
     MaxInvestorCount(u64),
@@ -99,7 +100,7 @@ pub struct AssetTransferCompliance {
     /// This flag indicates if asset transfer compliance should be enforced.
     pub paused: bool,
     /// List of transfer compliance requirements.
-    pub requirements: Vec<TransferCondition>,
+    pub requirements: BTreeSet<TransferCondition>,
 }
 
 impl AssetTransferCompliance {

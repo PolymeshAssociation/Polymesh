@@ -202,7 +202,7 @@ impl AssetTracker {
         assert_ok!(Statistics::set_active_asset_stats(
             self.owner_origin(),
             self.asset_scope,
-            active_stats.clone(),
+            active_stats.clone().into_iter().collect(),
         ));
         self.active_stats = active_stats;
     }
@@ -211,7 +211,7 @@ impl AssetTracker {
         assert_ok!(Statistics::set_asset_transfer_compliance(
             self.owner_origin(),
             self.asset,
-            conditions.clone(),
+            conditions.clone().into_iter().collect(),
         ));
         self.transfer_conditions = conditions;
     }
@@ -292,7 +292,7 @@ impl AssetTracker {
                 self.owner_origin(),
                 is_exempt,
                 exempt_key,
-                investors.clone()
+                investors.clone().into_iter().collect()
             ));
         }
     }

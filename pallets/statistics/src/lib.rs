@@ -34,14 +34,14 @@ use polymesh_primitives::{
     Balance, IdentityId, ScopeId, Ticker,
 };
 use scale_info::TypeInfo;
-use sp_std::vec::Vec;
+use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 
 type Identity<T> = pallet_identity::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 
 /// Stats update.
 #[derive(Encode, Decode, TypeInfo)]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct StatUpdate {
     pub key2: Stat2ndKey,
     /// None - Remove stored value if any.
@@ -64,7 +64,7 @@ decl_storage! {
             =>
                 bool;
         /// Active stats for a ticker/company.  There should be a max limit on the number of active stats for a ticker/company.
-        pub ActiveAssetStats get(fn active_asset_stats): map hasher(blake2_128_concat) AssetScope => Vec<StatType>;
+        pub ActiveAssetStats get(fn active_asset_stats): map hasher(blake2_128_concat) AssetScope => BTreeSet<StatType>;
         /// Asset stats.
         pub AssetStats get(fn asset_stats):
           double_map
@@ -195,7 +195,7 @@ decl_module! {
         /// # Permissions (EA)
         /// * Asset
         #[weight = <T as Config>::WeightInfo::set_active_asset_stats(stat_types.len() as u32)]
-        pub fn set_active_asset_stats(origin, asset: AssetScope, stat_types: Vec<StatType>) {
+        pub fn set_active_asset_stats(origin, asset: AssetScope, stat_types: BTreeSet<StatType>) {
             Self::base_set_active_asset_stats(origin, asset, stat_types)?;
         }
 
@@ -204,7 +204,7 @@ decl_module! {
         /// # Permissions (EA)
         /// * Asset
         #[weight = <T as Config>::WeightInfo::batch_update_asset_stats(values.len() as u32)]
-        pub fn batch_update_asset_stats(origin, asset: AssetScope, stat_type: StatType, values: Vec<StatUpdate>) {
+        pub fn batch_update_asset_stats(origin, asset: AssetScope, stat_type: StatType, values: BTreeSet<StatUpdate>) {
             Self::base_batch_update_asset_stats(origin, asset, stat_type, values)?;
         }
 
@@ -213,7 +213,7 @@ decl_module! {
         /// # Permissions (EA)
         /// * Asset
         #[weight = <T as Config>::WeightInfo::set_asset_transfer_compliance(transfer_conditions.len() as u32)]
-        pub fn set_asset_transfer_compliance(origin, ticker: Ticker, transfer_conditions: Vec<TransferCondition>) {
+        pub fn set_asset_transfer_compliance(origin, ticker: Ticker, transfer_conditions: BTreeSet<TransferCondition>) {
             Self::base_set_asset_transfer_compliance(origin, ticker, transfer_conditions)?;
         }
 
@@ -222,7 +222,7 @@ decl_module! {
         /// # Permissions (EA)
         /// * Asset
         #[weight = <T as Config>::WeightInfo::set_entities_exempt(entities.len() as u32)]
-        pub fn set_entities_exempt(origin, is_exempt: bool, exempt_key: TransferConditionExemptKey, entities: Vec<ScopeId>) {
+        pub fn set_entities_exempt(origin, is_exempt: bool, exempt_key: TransferConditionExemptKey, entities: BTreeSet<ScopeId>) {
             Self::base_set_entities_exempt(origin, is_exempt, exempt_key, entities)?;
         }
     }
@@ -245,7 +245,7 @@ impl<T: Config> Module<T> {
     fn base_set_active_asset_stats(
         origin: T::Origin,
         asset: AssetScope,
-        stat_types: Vec<StatType>,
+        stat_types: BTreeSet<StatType>,
     ) -> DispatchResult {
         // Check EA permissions for asset.
         let _did = Self::ensure_asset_perms(origin, asset)?;
@@ -272,7 +272,7 @@ impl<T: Config> Module<T> {
         origin: T::Origin,
         asset: AssetScope,
         stat_type: StatType,
-        values: Vec<StatUpdate>,
+        values: BTreeSet<StatUpdate>,
     ) -> DispatchResult {
         // Check EA permissions for asset.
         // TODO: Also allow trusted issuers to update stats.
@@ -302,7 +302,7 @@ impl<T: Config> Module<T> {
     fn base_set_asset_transfer_compliance(
         origin: T::Origin,
         ticker: Ticker,
-        transfer_conditions: Vec<TransferCondition>,
+        transfer_conditions: BTreeSet<TransferCondition>,
     ) -> DispatchResult {
         let _did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
@@ -335,7 +335,7 @@ impl<T: Config> Module<T> {
         origin: T::Origin,
         is_exempt: bool,
         exempt_key: TransferConditionExemptKey,
-        entities: Vec<ScopeId>,
+        entities: BTreeSet<ScopeId>,
     ) -> DispatchResult {
         let _did = Self::ensure_asset_perms(origin, exempt_key.asset)?;
         for entity in &entities {
