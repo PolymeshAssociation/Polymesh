@@ -2,8 +2,11 @@ use crate::asset::AssetFnTrait;
 use frame_support::decl_event;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
-use polymesh_primitives::statistics::TransferManager;
-use polymesh_primitives::{IdentityId, ScopeId, Ticker};
+use polymesh_primitives::{
+    statistics::{AssetScope, StatType, StatUpdate, TransferManager},
+    transfer_compliance::{TransferCondition, TransferConditionExemptKey},
+    IdentityId, ScopeId, Ticker,
+};
 use sp_std::vec::Vec;
 
 /// The main trait for statistics module
@@ -47,5 +50,18 @@ decl_event!(
         ExemptionsAdded(IdentityId, Ticker, TransferManager, Vec<ScopeId>),
         /// `ScopeId`s were removed from the exemption list.
         ExemptionsRemoved(IdentityId, Ticker, TransferManager, Vec<ScopeId>),
+
+        /// Stat types added to asset.
+        StatTypesAdded(IdentityId, AssetScope, Vec<StatType>),
+        /// Stat types removed from asset.
+        StatTypesRemoved(IdentityId, AssetScope, Vec<StatType>),
+        /// Asset stats updated.
+        AssetStatsUpdated(IdentityId, AssetScope, StatType, Vec<StatUpdate>),
+        /// Set Transfer compliance rules for asset.
+        SetAssetTransferCompliance(IdentityId, AssetScope, Vec<TransferCondition>),
+        /// Add `ScopeId`s exempt for transfer conditions matching exempt key.
+        TransferConditionExemptionsAdded(IdentityId, TransferConditionExemptKey, Vec<ScopeId>),
+        /// Remove `ScopeId`s exempt for transfer conditions matching exempt key.
+        TransferConditionExemptionsRemoved(IdentityId, TransferConditionExemptKey, Vec<ScopeId>),
     }
 );

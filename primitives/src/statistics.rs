@@ -248,3 +248,13 @@ impl StatClaim {
         }
     }
 }
+
+/// Stats update.
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct StatUpdate {
+    /// Stat key to update.  (Claim or NoClaim)
+    pub key2: Stat2ndKey,
+    /// None - Remove stored value if any.
+    pub value: Option<u128>,
+}

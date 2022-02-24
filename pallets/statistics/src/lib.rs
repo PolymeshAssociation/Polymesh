@@ -17,7 +17,6 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -27,26 +26,16 @@ use frame_support::{
 pub use polymesh_common_utilities::traits::statistics::{Config, Event, WeightInfo};
 use polymesh_primitives::{
     statistics::{
-        AssetScope, Counter, Percentage, Stat1stKey, Stat2ndKey, StatOpType, StatType,
+        AssetScope, Counter, Percentage, Stat1stKey, Stat2ndKey, StatOpType, StatType, StatUpdate,
         TransferManager, TransferManagerResult,
     },
     transfer_compliance::*,
     Balance, IdentityId, ScopeId, Ticker,
 };
-use scale_info::TypeInfo;
 use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 
 type Identity<T> = pallet_identity::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
-
-/// Stats update.
-#[derive(Encode, Decode, TypeInfo)]
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct StatUpdate {
-    pub key2: Stat2ndKey,
-    /// None - Remove stored value if any.
-    pub value: Option<u128>,
-}
 
 decl_storage! {
     trait Store for Module<T: Config> as Statistics {
@@ -248,23 +237,56 @@ impl<T: Config> Module<T> {
         stat_types: BTreeSet<StatType>,
     ) -> DispatchResult {
         // Check EA permissions for asset.
-        let _did = Self::ensure_asset_perms(origin, asset)?;
-        // TODO: add `MaxStatsPerAsset` and error variant.
+        let did = Self::ensure_asset_perms(origin, asset)?;
+
+        // Check StatType per Asset limit.
         ensure!(
             stat_types.len() < T::MaxStatsPerAsset::get() as usize,
-            Error::<T>::TransferManagersLimitReached
+            Error::<T>::StatTypeLimitReached
         );
 
+        // Get list of StatTypes required by current TransferConditions.
+        let required_types = AssetTransferCompliances::get(&asset)
+            .requirements
+            .into_iter()
+            .map(|condition| condition.get_stat_type())
+            .collect::<BTreeSet<_>>();
+
+        // Check if removed StatTypes are needed by TransferConditions.
+        let remove_types = Self::active_asset_stats(asset)
+            .into_iter()
+            .filter(|stat_type| !stat_types.contains(&stat_type))
+            .map(|stat_type| {
+                if required_types.contains(&stat_type) {
+                    Err(Error::<T>::StatTypeLimitReached)
+                } else {
+                    Ok(stat_type)
+                }
+            })
+            .collect::<Result<Vec<_>, Error<T>>>()?;
+
         // Cleanup storage for old types to be removed.
-        for stat_type in Self::active_asset_stats(asset).into_iter() {
-            if !stat_types.contains(&stat_type) {
-                // Cleanup storage for this stat type, since it is being removed.
-                AssetStats::remove_prefix(Stat1stKey { asset, stat_type }, None);
-            }
+        for stat_type in &remove_types {
+            // Cleanup storage for this stat type, since it is being removed.
+            AssetStats::remove_prefix(
+                Stat1stKey {
+                    asset,
+                    stat_type: *stat_type,
+                },
+                None,
+            );
         }
+
         // Save new stat types.
+        let add_types = stat_types.iter().cloned().collect::<Vec<_>>();
         ActiveAssetStats::insert(&asset, stat_types);
-        // TODO: emit event.
+
+        if remove_types.len() > 0 {
+            Self::deposit_event(Event::StatTypesRemoved(did, asset, remove_types));
+        }
+        if add_types.len() > 0 {
+            Self::deposit_event(Event::StatTypesAdded(did, asset, add_types));
+        }
         Ok(())
     }
 
@@ -276,26 +298,31 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         // Check EA permissions for asset.
         // TODO: Also allow trusted issuers to update stats.
-        let _did = Self::ensure_asset_perms(origin, asset)?;
+        let did = Self::ensure_asset_perms(origin, asset)?;
         // Check that `stat_type` is active for `asset`.
-        // TODO: add error variant.
         ensure!(
             Self::is_asset_stat_active(asset, stat_type),
-            Error::<T>::TransferManagerMissing
+            Error::<T>::StatTypeMissing
         );
         let key1 = Stat1stKey { asset, stat_type };
         // process `values` to update stats.
-        values
+        let updates = values
             .into_iter()
-            .for_each(|StatUpdate { key2, value }| match value {
-                Some(value) => {
-                    AssetStats::insert(key1, key2, value);
+            .map(|update| {
+                let key2 = update.key2.clone();
+                match update.value {
+                    Some(value) => {
+                        AssetStats::insert(key1, key2, value);
+                    }
+                    None => {
+                        AssetStats::remove(key1, key2);
+                    }
                 }
-                None => {
-                    AssetStats::remove(key1, key2);
-                }
-            });
-        // TODO: emit event.
+                update
+            })
+            .collect();
+
+        Self::deposit_event(Event::AssetStatsUpdated(did, asset, stat_type, updates));
         Ok(())
     }
 
@@ -304,29 +331,41 @@ impl<T: Config> Module<T> {
         ticker: Ticker,
         transfer_conditions: BTreeSet<TransferCondition>,
     ) -> DispatchResult {
-        let _did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
-
-        // Ensure `Scope::Custom(..)`s are limited.
-        // TODO:
-        //Self::ensure_custom_scopes_limited(asset_compliance.iter().flat_map(|c| c.conditions()))?;
+        let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
         // Ensure the complexity is limited.
-        // TODO:
-        //Self::verify_compliance_complexity(&asset_compliance, ticker, 0)?;
-
-        // TODO: Check if required Stats are enabled.
+        // TODO: Use complexity instead of count to limit TransferConditions per asset.
+        // Check maximum TransferConditions per Asset limit.
+        ensure!(
+            transfer_conditions.len() < T::MaxTransferConditionsPerAsset::get() as usize,
+            Error::<T>::TransferConditionLimitReached
+        );
 
         let asset = AssetScope::Ticker(ticker);
-        // Commit changes to storage + emit event.
+
+        // Commit changes to storage.
         if transfer_conditions.len() > 0 {
+            // Check if required Stats are enabled.
+            for condition in &transfer_conditions {
+                let stat_type = condition.get_stat_type();
+                ensure!(
+                    Self::is_asset_stat_active(asset, stat_type),
+                    Error::<T>::StatTypeMissing
+                );
+            }
+
             AssetTransferCompliances::mutate(&asset, |old| {
                 old.requirements = transfer_conditions.clone()
             });
         } else {
             AssetTransferCompliances::remove(&asset);
         }
-        // TODO:
-        //Self::deposit_event(Event::AssetComplianceReplaced(did, ticker, asset_compliance));
+
+        Self::deposit_event(Event::SetAssetTransferCompliance(
+            did,
+            asset,
+            transfer_conditions.into_iter().collect(),
+        ));
 
         Ok(())
     }
@@ -337,15 +376,26 @@ impl<T: Config> Module<T> {
         exempt_key: TransferConditionExemptKey,
         entities: BTreeSet<ScopeId>,
     ) -> DispatchResult {
-        let _did = Self::ensure_asset_perms(origin, exempt_key.asset)?;
-        for entity in &entities {
-            if is_exempt {
+        let did = Self::ensure_asset_perms(origin, exempt_key.asset)?;
+        if is_exempt {
+            for entity in &entities {
                 TransferConditionExemptEntities::insert(&exempt_key, entity, true);
-            } else {
+            }
+            Self::deposit_event(Event::TransferConditionExemptionsAdded(
+                did,
+                exempt_key,
+                entities.into_iter().collect(),
+            ));
+        } else {
+            for entity in &entities {
                 TransferConditionExemptEntities::remove(&exempt_key, entity);
             }
+            Self::deposit_event(Event::TransferConditionExemptionsRemoved(
+                did,
+                exempt_key,
+                entities.into_iter().collect(),
+            ));
         }
-        // TODO: Events.
         Ok(())
     }
 
@@ -890,13 +940,21 @@ impl<T: Config> Module<T> {
 decl_error! {
     /// Statistics module errors.
     pub enum Error for Module<T: Config> {
-        /// The transfer manager already exists
+        /// The transfer manager already exists.
         DuplicateTransferManager,
-        /// Transfer manager is not enabled
+        /// Transfer manager is not enabled.
         TransferManagerMissing,
-        /// Transfer not allowed
+        /// Transfer not allowed.
         InvalidTransfer,
-        /// The limit of transfer managers allowed for an asset has been reached
-        TransferManagersLimitReached
+        /// The limit of transfer managers allowed for an asset has been reached.
+        TransferManagersLimitReached,
+        /// StatType is not enabled.
+        StatTypeMissing,
+        /// StatType is needed by TransferCondition.
+        StatTypeNeededByTransferCondition,
+        /// The limit of StatTypes allowed for an asset has been reached.
+        StatTypeLimitReached,
+        /// The limit of TransferConditions allowed for an asset has been reached.
+        TransferConditionLimitReached,
     }
 }
