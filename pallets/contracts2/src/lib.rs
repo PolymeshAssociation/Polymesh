@@ -36,9 +36,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(associated_type_bounds)]
 
+use codec::Decode;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchErrorWithPostInfo, DispatchResultWithPostInfo},
+    dispatch::{
+        DispatchError, DispatchErrorWithPostInfo, DispatchResultWithPostInfo, GetDispatchInfo,
+    },
+    ensure,
     weights::Weight,
 };
 use pallet_contracts::chain_extension as ce;
@@ -47,11 +51,11 @@ use pallet_identity::PermissionedCallOriginData;
 use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
 use polymesh_common_utilities::with_transaction;
 use polymesh_common_utilities::Context;
-use polymesh_primitives::{Balance, Permissions};
+use polymesh_primitives::{Balance, IdentityId, Permissions};
 use sp_core::crypto::UncheckedFrom;
 use sp_core::Bytes;
-use sp_std::vec::Vec;
 use sp_runtime::traits::Hash;
+use sp_std::vec::Vec;
 
 type Identity<T> = pallet_identity::Module<T>;
 type BaseContracts<T> = pallet_contracts::Pallet<T>;
@@ -83,7 +87,12 @@ decl_event! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Config> {}
+    pub enum Error for Module<T: Config> {
+        /// The given `func_id: u32` did not translate into a known runtime call.
+        RuntimeCallNotFound,
+        /// Data left in input when decoding arguments of a call.
+        DataLeftAfterDecoding,
+    }
 }
 
 decl_storage! {
@@ -141,6 +150,8 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
+    /// Calls `contract` with `data`, gas limits, etc.
+    /// The call is made as the DID the contract is a key of and not `origin`'s DID.
     fn base_call(
         origin: T::Origin,
         contract: T::AccountId,
@@ -275,29 +286,148 @@ impl<T: Config> Module<T> {
     }
 }
 
+/// The `Call` enums of various pallets that the contracts pallet wants to know about.
+pub enum CommonCall<T>
+where
+    T: Config + pallet_asset::Config,
+{
+    Asset(pallet_asset::Call<T>),
+    Contracts(Call<T>),
+}
+
+/// An encoding of `func_id` into the encoding `0x_S_P_E_V`,
+/// with each letter being a byte.
+struct FuncId {
+    /// Decides the version of the `extrinsic`.
+    version: u8,
+    /// Decides the `extrinsic` within the `pallet`.
+    /// This isn't necessarily the same as the index within the pallet.
+    extrinsic: u8,
+    /// Decides the `pallet` within the runtime.
+    /// This isn't necessarily the same as the index within the runtime.
+    pallet: u8,
+    /// Decides the scheme to use when interpreting `(extrinsic, pallet, version)`.
+    scheme: u8,
+}
+
+/// Splits the `func_id` given from a smart contract into
+/// the encoding `(scheme: u8, pallet: u8, extrinsic: u8, version: u8)`.
+fn split_func_id(func_id: u32) -> FuncId {
+    let extract = |which| (func_id >> which * 8) as u8;
+    FuncId {
+        version: extract(0),
+        extrinsic: extract(1),
+        pallet: extract(2),
+        scheme: extract(3),
+    }
+}
+
+/// Set current DID to that of `key` and returns the old DID.
+fn set_current_did_to_key<T: Config>(key: &T::AccountId) -> Option<IdentityId> {
+    let old_did = Context::current_identity::<Identity<T>>();
+    let caller_did = Identity::<T>::key_to_identity_dids(key);
+    Context::set_current_identity::<Identity<T>>(Some(caller_did));
+    old_did
+}
+
+fn decode<V: Decode, T: Config>(input: &mut &[u8]) -> Result<V, DispatchError> {
+    <_>::decode(input).map_err(|_| pallet_contracts::Error::<T>::DecodingFailed.into())
+}
+
+fn construct_call<T>(func_id: FuncId, input: &mut &[u8]) -> Result<CommonCall<T>, DispatchError>
+where
+    T: Config + pallet_asset::Config,
+{
+    /// Decode type from `input`.
+    macro_rules! decode {
+        () => {
+            decode::<_, T>(input)?
+        };
+    }
+
+    /// Pattern match on functions `0x00_pp_ee_00`.
+    macro_rules! on {
+        ($p:pat, $e:pat) => {
+            FuncId {
+                scheme: 0,
+                pallet: $p,
+                extrinsic: $e,
+                version: 0,
+            }
+        };
+    }
+
+    // TODO(Centril): Should we charge weight depending on branch?
+    // That would require us to benchmark the decoding of each and every call.
+
+    Ok(match func_id {
+        on!(0, 0) => CommonCall::Asset(pallet_asset::Call::register_ticker { ticker: decode!() }),
+        on!(0, 1) => {
+            CommonCall::Asset(pallet_asset::Call::accept_ticker_transfer { auth_id: decode!() })
+        }
+        on!(0, 2) => CommonCall::Asset(pallet_asset::Call::accept_asset_ownership_transfer {
+            auth_id: decode!(),
+        }),
+        on!(0, 3) => CommonCall::Asset(pallet_asset::Call::create_asset {
+            name: decode!(),
+            ticker: decode!(),
+            divisible: decode!(),
+            asset_type: decode!(),
+            identifiers: decode!(),
+            funding_round: decode!(),
+            disable_iu: decode!(),
+        }),
+        _ => return Err(Error::<T>::RuntimeCallNotFound.into()),
+    })
+}
+
 /// A chain extension allowing calls to polymesh pallets
 /// and using the contract's DID instead of the caller's DID.
-impl<T: Config> ce::ChainExtension<T> for Module<T> {
+impl<T> ce::ChainExtension<T> for Module<T>
+where
+    <T as pallet_contracts::Config>::Call: From<CommonCall<T>> + GetDispatchInfo,
+    T: Config + pallet_asset::Config,
+{
     fn enabled() -> bool {
         true
     }
 
     fn call<E: ce::Ext<T = T>>(
-        _func_id: u32,
-        mut env: ce::Environment<E, ce::InitState>,
+        func_id: u32,
+        env: ce::Environment<E, ce::InitState>,
     ) -> ce::Result<ce::RetVal> {
-        let ext = env.ext();
+        let mut env = env.buf_in_buf_out();
 
-        // Remember the current DID so we can restore later.
-        let old_did = Context::current_identity::<Identity<T>>();
+        // TODO(Centril): charge weight + benchmark code in here?
+        // It becomes a bit cyclical,
+        // as charging weight itself becomes part of the computation to charge weight for.
 
         // Swap current DID to caller's DID.
-        let caller = ext.caller();
-        let caller_did = Identity::<T>::key_to_identity_dids(caller);
-        Context::set_current_identity::<Identity<T>>(Some(caller_did));
+        let old_did = set_current_did_to_key::<T>(env.ext().caller());
+
+        // Decide what to call in the runtime.
+        let func_id = split_func_id(func_id);
+        // TODO(Centril): charge weight + benchmark depending on `in_len`.
+        // Also, should we impose a max limit on `in_len`?
+        let input = &mut &*env.read(env.in_len())?;
+        let call: <T as pallet_contracts::Config>::Call =
+            construct_call::<T>(func_id, input)?.into();
+        ensure!(input.is_empty(), Error::<T>::DataLeftAfterDecoding);
+
+        // Charge weight for the call.
+        let di = call.get_dispatch_info();
+        let charged_amount = env.charge_weight(di.weight)?;
 
         // Execute call requested by contract.
-        // TODO
+        let result = env.ext().call_runtime(call);
+
+        // Refund unspent weight.
+        let post_di = result.unwrap_or_else(|e| e.post_info);
+        let actual_weight = post_di.calc_actual_weight(&di);
+        env.adjust_weight(charged_amount, actual_weight);
+
+        // Ensure the call was successful.
+        result.map_err(|e| e.error)?;
 
         // Swap back the current DID.
         Context::set_current_identity::<Identity<T>>(old_did);
