@@ -474,6 +474,7 @@ decl_module! {
         /// * `ClaimVariantNotAllowed` When origin trying to pass claim variant other than `InvestorUniqueness`.
         /// * `ConfidentialScopeClaimNotAllowed` When issuer is different from target or CDD_ID is invalid for given user.
         /// * `InvalidScopeClaim When proof is invalid.
+        /// * `InvalidCDDId` when you are not the owner of that CDD_ID.
         #[weight = <T as Config>::WeightInfo::add_investor_uniqueness_claim()]
         pub fn add_investor_uniqueness_claim(origin, target: IdentityId, claim: Claim, proof: InvestorZKProofData, expiry: Option<T::Moment>) -> DispatchResult {
             Self::base_add_investor_uniqueness_claim(origin, target, claim, None, proof.into(), expiry)
