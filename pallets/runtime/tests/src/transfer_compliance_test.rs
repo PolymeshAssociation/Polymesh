@@ -483,14 +483,6 @@ impl AssetTracker {
         );
     }
 
-    #[track_caller]
-    pub fn ensure_legacy_investor_count(&self) {
-        let cal_count = self.active_investor_count();
-        let count = Statistics::investor_count(&self.asset);
-        println!("calculated={}, count={}", cal_count, count);
-        assert_eq!(cal_count, count);
-    }
-
     pub fn fetch_stats_key2(&self, stat_type: &StatType) -> Vec<Stat2ndKey> {
         match stat_type.claim_issuer {
             None => vec![Stat2ndKey::NoClaimStat],
@@ -604,8 +596,6 @@ impl AssetTracker {
 
     #[track_caller]
     pub fn ensure_asset_stats(&self) {
-        self.ensure_legacy_investor_count();
-
         println!("active_stats = {}", self.active_stats.len());
         // check all active stats.
         for stat_type in &self.active_stats {
@@ -655,27 +645,6 @@ fn create_batches(tracker: &mut AssetTracker) -> Vec<Batch> {
             ),
         ])
         .expect("Failed to create batches")
-}
-
-#[test]
-fn legacy_investor_count() {
-    ExtBuilder::default()
-        .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
-        .build()
-        .execute_with(legacy_investor_count_with_ext);
-}
-
-fn legacy_investor_count_with_ext() {
-    // Create an asset.
-    let mut tracker = AssetTracker::new();
-
-    // Mint
-    tracker.mint(100_000_000);
-
-    // Create investor batches.
-    create_batches(&mut tracker);
-
-    tracker.ensure_asset_stats();
 }
 
 #[test]

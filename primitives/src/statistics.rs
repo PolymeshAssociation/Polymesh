@@ -20,32 +20,8 @@ use scale_info::TypeInfo;
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{hash::Hash, hash::Hasher, ops::Deref, ops::DerefMut, prelude::*};
 
-/// Transfer manager counter
-pub type Counter = u64;
 /// Transfer manager percentage
 pub type Percentage = HashablePermill;
-
-/// Transfer managers that can be attached to a Token for compliance.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, TypeInfo)]
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub enum TransferManager {
-    /// CTM limits the number of active investors in a Token.
-    CountTransferManager(Counter),
-    /// PTM limits the percentage of token owned by a single Identity.
-    PercentageTransferManager(Percentage),
-}
-
-/// Result of a transfer manager check.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, TypeInfo)]
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct TransferManagerResult {
-    /// Transfer manager that was checked.
-    pub tm: TransferManager,
-    /// Final evaluation result.
-    pub result: bool,
-}
 
 /// Wrapper around `sp_arithmetic::Permill`
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -131,6 +107,16 @@ pub struct StatType {
     pub claim_issuer: Option<(ClaimType, IdentityId)>,
 }
 
+impl StatType {
+    /// Investor count.
+    pub fn investor_count() -> Self {
+        Self {
+            op: StatOpType::Count,
+            claim_issuer: None,
+        }
+    }
+}
+
 /// First stats key in double map.
 #[derive(Decode, Encode, TypeInfo)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -142,6 +128,14 @@ pub struct Stat1stKey {
 }
 
 impl Stat1stKey {
+    /// Investor count.
+    pub fn investor_count(ticker: Ticker) -> Self {
+        Self {
+            asset: ticker.into(),
+            stat_type: StatType::investor_count(),
+        }
+    }
+
     /// Get claim scope from asset scope.
     pub fn claim_scope(&self) -> Scope {
         self.asset.claim_scope()

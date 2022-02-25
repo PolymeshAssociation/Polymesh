@@ -5029,6 +5029,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "lazy_static",
+ "log",
  "pallet-external-agents",
  "pallet-identity",
  "pallet-session",

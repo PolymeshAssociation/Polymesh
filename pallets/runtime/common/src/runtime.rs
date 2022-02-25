@@ -365,7 +365,6 @@ macro_rules! misc_pallet_impls {
         impl pallet_statistics::Config for Runtime {
             type Event = Event;
             type Asset = Asset;
-            type MaxTransferManagersPerAsset = MaxTransferManagersPerAsset;
             type MaxStatsPerAsset = MaxStatsPerAsset;
             type MaxTransferConditionsPerAsset = MaxTransferConditionsPerAsset;
             type WeightInfo = polymesh_weights::pallet_statistics::WeightInfo;

@@ -16,7 +16,6 @@
 use crate::compliance_manager::AssetComplianceResult;
 use crate::identity_id::PortfolioValidityResult;
 use crate::impl_checked_inc;
-use crate::statistics::TransferManagerResult;
 use crate::transfer_compliance::TransferConditionResult;
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::VecU8StrongTyped;
@@ -110,8 +109,6 @@ pub struct GranularCanTransferResult {
     pub portfolio_validity_result: PortfolioValidityResult,
     /// Asset is frozen.
     pub asset_frozen: bool,
-    /// Result of statistics check.
-    pub statistics_result: Vec<TransferManagerResult>,
     /// Result of transfer condition check.
     pub transfer_condition_result: Vec<TransferConditionResult>,
     /// Result of compliance check.

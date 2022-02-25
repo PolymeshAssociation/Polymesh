@@ -409,7 +409,6 @@ parameter_types! {
     pub const MinimumPeriod: u64 = 3;
     pub NetworkShareInFee: Perbill = NETWORK_FEE_SHARE.with(|v| *v.borrow());
 
-    pub const MaxTransferManagersPerAsset: u32 = 3 + BENCHMARK_MAX_INCREASE;
     pub const MaxStatsPerAsset: u32 = 10 + BENCHMARK_MAX_INCREASE;
     pub const MaxTransferConditionsPerAsset: u32 = 4 + BENCHMARK_MAX_INCREASE;
 

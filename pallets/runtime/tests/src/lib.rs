@@ -58,8 +58,6 @@ mod signed_extra;
 #[cfg(test)]
 mod staking;
 #[cfg(test)]
-mod statistics_test;
-#[cfg(test)]
 mod sto_test;
 #[cfg(test)]
 mod transaction_payment_test;

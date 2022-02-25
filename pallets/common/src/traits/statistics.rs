@@ -3,9 +3,9 @@ use frame_support::decl_event;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use polymesh_primitives::{
-    statistics::{AssetScope, StatType, StatUpdate, TransferManager},
+    statistics::{AssetScope, StatType, StatUpdate},
     transfer_compliance::{TransferCondition, TransferConditionExemptKey},
-    IdentityId, ScopeId, Ticker,
+    IdentityId, ScopeId,
 };
 use sp_std::vec::Vec;
 
@@ -17,8 +17,6 @@ pub trait Config:
     type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
     /// Asset module.
     type Asset: AssetFnTrait<Self::AccountId, Self::Origin>;
-    /// Maximum transfer managers that can be enabled for an Asset.
-    type MaxTransferManagersPerAsset: Get<u32>;
     /// Maximum stats that can be enabled for an Asset.
     type MaxStatsPerAsset: Get<u32>;
     /// Maximum transfer conditions that can be enabled for an Asset.
@@ -29,11 +27,6 @@ pub trait Config:
 
 /// Weight info for extrinsics
 pub trait WeightInfo {
-    fn add_transfer_manager() -> Weight;
-    fn remove_transfer_manager() -> Weight;
-    fn add_exempted_entities(i: u32) -> Weight;
-    fn remove_exempted_entities(i: u32) -> Weight;
-
     fn set_active_asset_stats(i: u32) -> Weight;
     fn batch_update_asset_stats(i: u32) -> Weight;
     fn set_asset_transfer_compliance(i: u32) -> Weight;
@@ -42,15 +35,6 @@ pub trait WeightInfo {
 
 decl_event!(
     pub enum Event {
-        /// A new transfer manager was added.
-        TransferManagerAdded(IdentityId, Ticker, TransferManager),
-        /// An existing transfer manager was removed.
-        TransferManagerRemoved(IdentityId, Ticker, TransferManager),
-        /// `ScopeId`s were added to the exemption list.
-        ExemptionsAdded(IdentityId, Ticker, TransferManager, Vec<ScopeId>),
-        /// `ScopeId`s were removed from the exemption list.
-        ExemptionsRemoved(IdentityId, Ticker, TransferManager, Vec<ScopeId>),
-
         /// Stat types added to asset.
         StatTypesAdded(IdentityId, AssetScope, Vec<StatType>),
         /// Stat types removed from asset.

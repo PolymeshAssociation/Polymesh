@@ -129,7 +129,6 @@ parameter_types! {
     pub const MaxDidWhts: u32 = 1000;
 
     // Statistics:
-    pub const MaxTransferManagersPerAsset: u32 = 3 + BENCHMARK_MAX_INCREASE;
     pub const MaxStatsPerAsset: u32 = 10 + BENCHMARK_MAX_INCREASE;
     pub const MaxTransferConditionsPerAsset: u32 = 4 + BENCHMARK_MAX_INCREASE;
 

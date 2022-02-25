@@ -707,14 +707,7 @@
       "frozen": "bool"
     },
     "AuthorizationNonce": "u64",
-    "Counter": "u64",
     "Percentage": "Permill",
-    "TransferManager": {
-      "_enum": {
-        "CountTransferManager": "Counter",
-        "PercentageTransferManager": "Percentage"
-      }
-    },
     "RestrictionResult": {
       "_enum": ["Valid", "Invalid", "ForceValid"]
     },
@@ -1160,7 +1153,6 @@
       "sender_insufficient_balance": "bool",
       "portfolio_validity_result": "PortfolioValidityResult",
       "asset_frozen": "bool",
-      "statistics_result": "Vec<TransferManagerResult>",
       "transfer_condition_result": "Vec<TransferConditionResult>",
       "compliance_result": "AssetComplianceResult",
       "result": "bool"
@@ -1174,10 +1166,6 @@
     },
     "TransferConditionResult": {
       "condition": "TransferCondition",
-      "result": "bool"
-    },
-    "TransferManagerResult": {
-      "tm": "TransferManager",
       "result": "bool"
     },
     "AGId": "u32",
