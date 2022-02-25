@@ -111,8 +111,9 @@ use polymesh_primitives::{
     ethereum::{self, EcdsaSignature, EthereumAddress},
     extract_auth,
     statistics::TransferManagerResult,
-    storage_migrate_on, storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId,
-    IdentityId, PortfolioId, ScopeId, Ticker,
+    storage_migrate_on, storage_migration_ver,
+    transfer_compliance::TransferConditionResult,
+    AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, ScopeId, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;
@@ -2140,6 +2141,12 @@ impl<T: Config> Module<T> {
             ticker,
             value,
         );
+        let transfer_condition_result = Self::transfer_condition_failures_granular(
+            &from_portfolio.did,
+            &to_portfolio.did,
+            ticker,
+            value,
+        );
         let compliance_result = T::ComplianceManager::verify_restriction_granular(
             ticker,
             Some(from_portfolio.did),
@@ -2167,8 +2174,10 @@ impl<T: Config> Module<T> {
                 && portfolio_validity_result.result
                 && !asset_frozen
                 && statistics_result.iter().all(|result| result.result)
+                && transfer_condition_result.iter().all(|result| result.result)
                 && compliance_result.result,
             statistics_result,
+            transfer_condition_result,
             compliance_result,
             portfolio_validity_result,
         }
@@ -2266,6 +2275,27 @@ impl<T: Config> Module<T> {
             value,
             Self::aggregate_balance_of(ticker, &from_scope_id),
             Self::aggregate_balance_of(ticker, &to_scope_id),
+            token.total_supply,
+        )
+    }
+
+    fn transfer_condition_failures_granular(
+        from_did: &IdentityId,
+        to_did: &IdentityId,
+        ticker: &Ticker,
+        value: Balance,
+    ) -> Vec<TransferConditionResult> {
+        let (from_scope_id, to_scope_id, token) =
+            Self::setup_statistics_failures(from_did, to_did, ticker);
+        Statistics::<T>::get_transfer_restrictions_results(
+            ticker,
+            from_scope_id,
+            to_scope_id,
+            from_did,
+            to_did,
+            Self::aggregate_balance_of(ticker, &from_scope_id),
+            Self::aggregate_balance_of(ticker, &to_scope_id),
+            value,
             token.total_supply,
         )
     }

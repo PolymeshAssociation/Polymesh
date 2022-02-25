@@ -17,6 +17,7 @@ use crate::compliance_manager::AssetComplianceResult;
 use crate::identity_id::PortfolioValidityResult;
 use crate::impl_checked_inc;
 use crate::statistics::TransferManagerResult;
+use crate::transfer_compliance::TransferConditionResult;
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
@@ -87,7 +88,7 @@ pub struct FundingRoundName(pub Vec<u8>);
 
 /// Result of a granular can transfer.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(Decode, Encode, Clone, Hash, PartialEq, Eq)]
+#[derive(Decode, Encode, Clone, PartialEq, Eq)]
 pub struct GranularCanTransferResult {
     /// Granularity check failed.
     pub invalid_granularity: bool,
@@ -111,6 +112,8 @@ pub struct GranularCanTransferResult {
     pub asset_frozen: bool,
     /// Result of statistics check.
     pub statistics_result: Vec<TransferManagerResult>,
+    /// Result of transfer condition check.
+    pub transfer_condition_result: Vec<TransferConditionResult>,
     /// Result of compliance check.
     pub compliance_result: AssetComplianceResult,
     /// Final evaluation result.

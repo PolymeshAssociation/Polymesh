@@ -80,6 +80,17 @@ impl TransferCondition {
     }
 }
 
+/// Result of a transfer condition check.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct TransferConditionResult {
+    /// Transfer condition that was checked.
+    pub condition: TransferCondition,
+    /// Final evaluation result.
+    pub result: bool,
+}
+
 /// Transfer Condition Exempt key.
 #[derive(Decode, Encode, TypeInfo)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

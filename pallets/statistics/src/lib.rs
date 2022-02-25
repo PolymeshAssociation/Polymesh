@@ -724,6 +724,69 @@ impl<T: Config> Module<T> {
         }
     }
 
+    /// Check transfer condition.
+    fn check_transfer_condition(
+        condition: &TransferCondition,
+        asset: AssetScope,
+        from: ScopeId,
+        to: ScopeId,
+        from_did: &IdentityId,
+        to_did: &IdentityId,
+        to_balance: Balance,
+        amount: Balance,
+        total_supply: Balance,
+        count_changes: Option<(bool, bool)>,
+    ) -> bool {
+        use TransferCondition::*;
+
+        let stat_type = condition.get_stat_type();
+        let key1 = Stat1stKey { asset, stat_type };
+
+        let passed = match &condition {
+            MaxInvestorCount(max_count) => {
+                Self::verify_asset_count_restriction(key1, count_changes, *max_count as u128)
+            }
+            MaxInvestorOwnership(max_percentage) => Self::verify_ownership_restriction(
+                amount,
+                to_balance,
+                total_supply,
+                *max_percentage,
+            ),
+            ClaimCount(claim, _, min, max) => Self::verify_claim_count_restriction(
+                key1,
+                claim.into(),
+                from_did,
+                to_did,
+                count_changes,
+                *min as u128,
+                max.map(|m| m as u128),
+            ),
+            ClaimOwnership(claim, _, min, max) => Self::verify_claim_ownership_restriction(
+                key1,
+                claim.into(),
+                from_did,
+                to_did,
+                amount,
+                total_supply,
+                *min,
+                *max,
+            ),
+        };
+        if passed {
+            true
+        } else {
+            let exempt_key = condition.get_exempt_key(asset);
+            let id = match exempt_key.op {
+                // Count transfer conditions require the sender to be exempt.
+                StatOpType::Count => from,
+                // Percent ownersip transfer conditions require the receiver to be exempt.
+                StatOpType::Balance => to,
+            };
+            let is_exempt = Self::transfer_condition_exempt_entities(exempt_key, id);
+            is_exempt
+        }
+    }
+
     /// Verify transfer restrictions for a transfer.
     pub fn verify_transfer_restrictions(
         ticker: &Ticker,
@@ -762,55 +825,64 @@ impl<T: Config> Module<T> {
         );
 
         for condition in tm.requirements {
-            use TransferCondition::*;
-
-            let stat_type = condition.get_stat_type();
-            let key1 = Stat1stKey { asset, stat_type };
-
-            let passed = match &condition {
-                MaxInvestorCount(max_count) => {
-                    Self::verify_asset_count_restriction(key1, count_changes, *max_count as u128)
-                }
-                MaxInvestorOwnership(max_percentage) => Self::verify_ownership_restriction(
-                    amount,
-                    to_balance,
-                    total_supply,
-                    *max_percentage,
-                ),
-                ClaimCount(claim, _, min, max) => Self::verify_claim_count_restriction(
-                    key1,
-                    claim.into(),
-                    from_did,
-                    to_did,
-                    count_changes,
-                    *min as u128,
-                    max.map(|m| m as u128),
-                ),
-                ClaimOwnership(claim, _, min, max) => Self::verify_claim_ownership_restriction(
-                    key1,
-                    claim.into(),
-                    from_did,
-                    to_did,
-                    amount,
-                    total_supply,
-                    *min,
-                    *max,
-                ),
-            };
-            if !passed {
-                let exempt_key = condition.get_exempt_key(asset);
-                let id = match exempt_key.op {
-                    // Count transfer conditions require the sender to be exempt.
-                    StatOpType::Count => from,
-                    // Percent ownersip transfer conditions require the receiver to be exempt.
-                    StatOpType::Balance => to,
-                };
-                let is_exempt = Self::transfer_condition_exempt_entities(exempt_key, id);
-                ensure!(is_exempt, Error::<T>::InvalidTransfer);
-            }
+            let result = Self::check_transfer_condition(
+                &condition,
+                asset,
+                from,
+                to,
+                from_did,
+                to_did,
+                to_balance,
+                amount,
+                total_supply,
+                count_changes,
+            );
+            ensure!(result, Error::<T>::InvalidTransfer);
         }
 
         Ok(())
+    }
+
+    /// Get the results of all transfer restrictions for a transfer.
+    pub fn get_transfer_restrictions_results(
+        ticker: &Ticker,
+        from: ScopeId,
+        to: ScopeId,
+        from_did: &IdentityId,
+        to_did: &IdentityId,
+        from_balance: Balance,
+        to_balance: Balance,
+        amount: Balance,
+        total_supply: Balance,
+    ) -> Vec<TransferConditionResult> {
+        let asset = AssetScope::Ticker(*ticker);
+        let tm = AssetTransferCompliances::get(&asset);
+
+        // Pre-Calculate the investor count changes.
+        let count_changes = Self::investor_count_changes(
+            Some(from_balance.saturating_sub(amount)),
+            Some(to_balance.saturating_add(amount)),
+            amount,
+        );
+
+        tm.requirements
+            .into_iter()
+            .map(|condition| {
+                let result = Self::check_transfer_condition(
+                    &condition,
+                    asset,
+                    from,
+                    to,
+                    from_did,
+                    to_did,
+                    to_balance,
+                    amount,
+                    total_supply,
+                    count_changes,
+                );
+                TransferConditionResult { condition, result }
+            })
+            .collect()
     }
 
     /// Verify transfer restrictions for a transfer
