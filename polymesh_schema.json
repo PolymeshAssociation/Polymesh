@@ -1161,6 +1161,7 @@
       "portfolio_validity_result": "PortfolioValidityResult",
       "asset_frozen": "bool",
       "statistics_result": "Vec<TransferManagerResult>",
+      "transfer_condition_result": "Vec<TransferConditionResult>",
       "compliance_result": "AssetComplianceResult",
       "result": "bool"
     },
@@ -1169,6 +1170,10 @@
       "sender_portfolio_does_not_exist": "bool",
       "receiver_portfolio_does_not_exist": "bool",
       "sender_insufficient_balance": "bool",
+      "result": "bool"
+    },
+    "TransferConditionResult": {
+      "condition": "TransferCondition",
       "result": "bool"
     },
     "TransferManagerResult": {
