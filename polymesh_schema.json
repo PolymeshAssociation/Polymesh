@@ -735,30 +735,45 @@
     },
     "StatType": {
       "op": "StatOpType",
-			"claim_issuer": "Option<(ClaimType, IdentityId)>"
+      "claim_issuer": "Option<(ClaimType, IdentityId)>"
+    },
+    "StatClaim": {
+      "_enum": {
+        "Accredited": "bool",
+        "Affiliate": "bool",
+        "Jurisdiction": "Option<CountryCode>"
+      }
     },
     "Stat1stKey": {
       "asset": "AssetScope",
       "stat_type": "StatType"
     },
     "Stat2ndKey": {
-      "claim": "Option<Claim>"
+      "_enum": {
+        "NoClaimStat": "",
+        "Claim": "StatClaim"
+      }
     },
     "StatUpdate": {
-      "claim": "Option<Claim>",
+      "key2": "Stat2ndKey",
       "value": "Option<u128>"
     },
     "TransferCondition": {
       "_enum": {
         "MaxInvestorCount": "u64",
         "MaxInvestorOwnership": "Percentage",
-        "ClaimCount": "(Claim, IdentityId, u64, Option<u64>)",
-        "ClaimOwnership": "(Claim, IdentityId, Percentage, Percentage)"
+        "ClaimCount": "(StatClaim, IdentityId, u64, Option<u64>)",
+        "ClaimOwnership": "(StatClaim, IdentityId, Percentage, Percentage)"
       }
     },
     "AssetTransferCompliance": {
       "paused": "bool",
       "requirements": "Vec<TransferCondition>"
+    },
+    "TransferConditionExemptKey": {
+      "asset": "AssetScope",
+      "op": "StatOpType",
+      "claim_type": "Option<ClaimType>"
     },
     "AssetCompliance": {
       "paused": "bool",
