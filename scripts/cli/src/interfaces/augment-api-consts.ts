@@ -210,6 +210,8 @@ declare module '@polkadot/api-base/types/consts' {
       [key: string]: Codec;
     };
     statistics: {
+      maxStatsPerAsset: u32 & AugmentedConst<ApiType>;
+      maxTransferConditionsPerAsset: u32 & AugmentedConst<ApiType>;
       maxTransferManagersPerAsset: u32 & AugmentedConst<ApiType>;
       /**
        * Generic const

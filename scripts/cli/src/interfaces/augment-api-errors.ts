@@ -1529,19 +1529,35 @@ declare module '@polkadot/api-base/types/errors' {
     };
     statistics: {
       /**
-       * The transfer manager already exists
+       * The transfer manager already exists.
        **/
       DuplicateTransferManager: AugmentedError<ApiType>;
       /**
-       * Transfer not allowed
+       * Transfer not allowed.
        **/
       InvalidTransfer: AugmentedError<ApiType>;
       /**
-       * Transfer manager is not enabled
+       * The limit of StatTypes allowed for an asset has been reached.
+       **/
+      StatTypeLimitReached: AugmentedError<ApiType>;
+      /**
+       * StatType is not enabled.
+       **/
+      StatTypeMissing: AugmentedError<ApiType>;
+      /**
+       * StatType is needed by TransferCondition.
+       **/
+      StatTypeNeededByTransferCondition: AugmentedError<ApiType>;
+      /**
+       * The limit of TransferConditions allowed for an asset has been reached.
+       **/
+      TransferConditionLimitReached: AugmentedError<ApiType>;
+      /**
+       * Transfer manager is not enabled.
        **/
       TransferManagerMissing: AugmentedError<ApiType>;
       /**
-       * The limit of transfer managers allowed for an asset has been reached
+       * The limit of transfer managers allowed for an asset has been reached.
        **/
       TransferManagersLimitReached: AugmentedError<ApiType>;
       /**
