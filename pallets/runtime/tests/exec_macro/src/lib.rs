@@ -41,15 +41,10 @@ impl Parse for Exec {
     }
 }
 
-/// Convert a direct call to a module to d extrinsic execution.
-/// When `#[integration-test]` is not set, this becomes a noop.
+/// Convert a direct module call to an extrinsic execution.
 /// Syntax: `<pallet>::<extrinsic>(<params>,*)`
 #[proc_macro]
 pub fn exec(item: TokenStream) -> TokenStream {
-    if !cfg!(feature = "integration-test") {
-        return item;
-    }
-
     let Exec {
         pallet,
         extrinsic,
@@ -63,12 +58,16 @@ pub fn exec(item: TokenStream) -> TokenStream {
     );
 
     let token_stream = quote! {
-        crate::storage::exec(
-            #origin,
-            <crate::storage::#pallet as frame_support::dispatch::Callable<crate::TestStorage>>::Call::#call_variant(
-                #params
+        if *crate::storage::INTEGRATION_TEST {
+            crate::storage::exec(
+                #origin,
+                <crate::storage::#pallet as frame_support::dispatch::Callable<crate::TestStorage>>::Call::#call_variant(
+                    #params
+                )
             )
-        )
+        } else {
+            #pallet::#extrinsic(#origin, #params)
+        }
     };
 
     TokenStream::from(token_stream)

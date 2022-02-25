@@ -15,6 +15,7 @@ use frame_support::{
     StorageDoubleMap,
 };
 use frame_system::{EnsureRoot, RawOrigin};
+use lazy_static::lazy_static;
 use pallet_asset::checkpoint as pallet_checkpoint;
 use pallet_balances as balances;
 use pallet_committee as committee;
@@ -74,6 +75,12 @@ use std::cell::RefCell;
 use std::convert::From;
 use test_client::AccountKeyring;
 
+lazy_static! {
+    pub static ref INTEGRATION_TEST: bool = std::env::var("INTEGRATION_TEST")
+        .map(|var| var.parse().unwrap_or(false))
+        .unwrap_or(false);
+}
+
 #[macro_export]
 macro_rules! exec_ok {
     ( $x:expr $(,)? ) => {
@@ -90,9 +97,9 @@ macro_rules! exec_noop {
 		$x:expr,
 		$y:expr $(,)?
 	) => {
-        // Use `assert_err` when running with `#[integration-test]`.
+        // Use `assert_err` when running with `INTEGRATION_TEST`.
         // `assert_noop` returns false positives when using full extrinsic execution.
-        if cfg!(feature = "integration-test") {
+        if *crate::storage::INTEGRATION_TEST {
             frame_support::assert_err!(polymesh_exec_macro::exec!($x), $y);
         } else {
             frame_support::assert_noop!(polymesh_exec_macro::exec!($x), $y);
