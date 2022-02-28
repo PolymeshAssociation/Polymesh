@@ -105,6 +105,9 @@ parameter_types! {
     /// Max length of (instrumented) contract code in bytes.
     pub const ContractsMaxCodeSize: u32 = 100 * 1024;
 
+    pub const Period: BlockNumber = 600;
+    pub const Offset: BlockNumber = 0;
+
     pub RuntimeBlockLength: BlockLength =
         BlockLength::max_with_normal_ratio(10 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
 

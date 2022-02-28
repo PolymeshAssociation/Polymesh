@@ -316,7 +316,8 @@ construct_runtime!(
     {
 
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-        Babe: pallet_babe::{Pallet, Call, Storage, Config, ValidateUnsigned},
+        //Babe: pallet_babe::{Pallet, Call, Storage, Config, ValidateUnsigned},
+        Aura: pallet_aura::{Pallet, Storage, Config<T>},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
         Indices: pallet_indices::{Pallet, Call, Storage, Config<T>, Event<T>},
         Authorship: pallet_authorship::{Pallet, Call, Storage, Inherent},

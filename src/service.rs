@@ -19,7 +19,11 @@ use prometheus_endpoint::Registry;
 use sc_client_api::ExecutorProvider;
 pub use sc_client_api::{backend::Backend, RemoteBackend};
 pub use sc_consensus::LongestChain;
-use sc_consensus_slots::SlotProportion;
+pub use sp_consensus::SlotData;
+//use sc_consensus_slots::SlotProportion;
+use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
+use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
+use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sc_executor::NativeElseWasmExecutor;
 pub use sc_executor::{NativeExecutionDispatch, RuntimeVersionOf};
 use sc_network::{Event, NetworkService};
@@ -99,7 +103,8 @@ native_executor_instance!(MainnetExecutor, polymesh_runtime_mainnet, EHF);
 pub trait RuntimeApiCollection<Extrinsic: RuntimeExtrinsic>:
     sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
     + sp_api::ApiExt<Block>
-    + sp_consensus_babe::BabeApi<Block>
+    //+ sp_consensus_babe::BabeApi<Block>
+    + sp_consensus_aura::AuraApi<Block, AuraId>
     + grandpa::GrandpaApi<Block>
     + sp_block_builder::BlockBuilder<Block>
     + frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>
@@ -132,7 +137,8 @@ impl<Api, Extrinsic: RuntimeExtrinsic> RuntimeApiCollection<Extrinsic> for Api
 where
     Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
         + sp_api::ApiExt<Block>
-        + sp_consensus_babe::BabeApi<Block>
+        //+ sp_consensus_babe::BabeApi<Block>
+        + sp_consensus_aura::AuraApi<Block, AuraId>
         + grandpa::GrandpaApi<Block>
         + sp_block_builder::BlockBuilder<Block>
         + frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>
@@ -173,7 +179,7 @@ fn set_prometheus_registry(config: &mut Configuration) -> Result<(), ServiceErro
     Ok(())
 }
 
-type BabeLink = sc_consensus_babe::BabeLink<Block>;
+//type BabeLink = sc_consensus_babe::BabeLink<Block>;
 type IoHandler = jsonrpc_core::IoHandler<sc_rpc::Metadata>;
 
 type FullLinkHalf<R, D> = grandpa::LinkHalf<Block, FullClient<R, D>, FullSelectChain>;
@@ -182,24 +188,26 @@ type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 type FullGrandpaBlockImport<R, E> =
     grandpa::GrandpaBlockImport<FullBackend, Block, FullClient<R, E>, FullSelectChain>;
-type FullBabeImportQueue<R, E> = sc_consensus::DefaultImportQueue<Block, FullClient<R, E>>;
+//type FullBabeImportQueue<R, E> = sc_consensus::DefaultImportQueue<Block, FullClient<R, E>>;
 type FullStateBackend = sc_client_api::StateBackendFor<FullBackend, Block>;
 type FullPool<R, E> = sc_transaction_pool::FullPool<Block, FullClient<R, E>>;
 type FullServiceComponents<R, E, F> = sc_service::PartialComponents<
     FullClient<R, E>,
     FullBackend,
     FullSelectChain,
-    FullBabeImportQueue<R, E>,
+    //FullBabeImportQueue<R, E>,
+    sc_consensus::DefaultImportQueue<Block, FullClient<R, E>>,
     FullPool<R, E>,
     (
         F,
-        (FullBabeBlockImport<R, E>, FullLinkHalf<R, E>, BabeLink),
+        //(FullBabeBlockImport<R, E>, FullLinkHalf<R, E>, BabeLink),
+        (FullGrandpaBlockImport<R, E>, FullLinkHalf<R, E>, ()),
         grandpa::SharedVoterState,
         Option<Telemetry>,
     ),
 >;
-type FullBabeBlockImport<R, E> =
-    sc_consensus_babe::BabeBlockImport<Block, FullClient<R, E>, FullGrandpaBlockImport<R, E>>;
+//type FullBabeBlockImport<R, E> =
+//    sc_consensus_babe::BabeBlockImport<Block, FullClient<R, E>, FullGrandpaBlockImport<R, E>>;
 
 pub fn new_partial<R, D, E>(
     config: &mut Configuration,
@@ -267,13 +275,18 @@ where
     )?;
     let justification_import = grandpa_block_import.clone();
 
+    /*
     let (block_import, babe_link) = sc_consensus_babe::block_import(
         sc_consensus_babe::Config::get_or_compute(&*client)?,
         grandpa_block_import,
         client.clone(),
     )?;
+    */
 
-    let slot_duration = babe_link.config().slot_duration();
+    //let slot_duration = babe_link.config().slot_duration();
+    let slot_duration = sc_consensus_aura::slot_duration(&*client)?.slot_duration();
+
+    /*
     let import_queue = sc_consensus_babe::import_queue(
         babe_link.clone(),
         block_import.clone(),
@@ -299,11 +312,38 @@ where
         sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone()),
         telemetry.as_ref().map(|x| x.handle()),
     )?;
+    */
+    let import_queue =
+        sc_consensus_aura::import_queue::<AuraPair, _, _, _, _, _, _>(ImportQueueParams {
+            block_import: grandpa_block_import.clone(),
+            justification_import: Some(Box::new(grandpa_block_import.clone())),
+            client: client.clone(),
+            create_inherent_data_providers: move |_, ()| async move {
+                let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-    let import_setup = (block_import, grandpa_link, babe_link);
+                let slot =
+                    sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_duration(
+                        *timestamp,
+                        slot_duration,
+                    );
+
+                Ok((timestamp, slot))
+            },
+            spawner: &task_manager.spawn_essential_handle(),
+            can_author_with: sp_consensus::CanAuthorWithNativeVersion::new(
+                client.executor().clone(),
+            ),
+            registry: config.prometheus_registry(),
+            check_for_equivocation: Default::default(),
+            telemetry: telemetry.as_ref().map(|x| x.handle()),
+        })?;
+
+    //let import_setup = (block_import, grandpa_link, babe_link);
+    let import_setup = (grandpa_block_import, grandpa_link, ());
 
     let (rpc_extensions_builder, rpc_setup) = {
-        let (_, grandpa_link, babe_link) = &import_setup;
+        //let (_, grandpa_link, babe_link) = &import_setup;
+        let (_, grandpa_link, _) = &import_setup;
 
         let justification_stream = grandpa_link.justification_stream();
         let shared_authority_set = grandpa_link.shared_authority_set().clone();
@@ -318,8 +358,8 @@ where
             Some(shared_authority_set.clone()),
         );
 
-        let babe_config = babe_link.config().clone();
-        let shared_epoch_changes = babe_link.epoch_changes().clone();
+        //let babe_config = babe_link.config().clone();
+        //let shared_epoch_changes = babe_link.epoch_changes().clone();
 
         let client = client.clone();
         let pool = transaction_pool.clone();
@@ -334,11 +374,13 @@ where
                 select_chain: select_chain.clone(),
                 chain_spec: chain_spec.cloned_box(),
                 deny_unsafe,
+                /*
                 babe: node_rpc::BabeDeps {
                     babe_config: babe_config.clone(),
                     shared_epoch_changes: shared_epoch_changes.clone(),
                     keystore: keystore.clone(),
                 },
+                */
                 grandpa: node_rpc::GrandpaDeps {
                     shared_voter_state: shared_voter_state.clone(),
                     shared_authority_set: shared_authority_set.clone(),
@@ -381,12 +423,10 @@ where
 }
 
 /// Creates a full service from the configuration.
-pub fn new_full_base<R, D, E, F>(
+pub fn new_full_base<R, D, E>(
     mut config: Configuration,
-    with_startup_data: F,
 ) -> Result<NewFullBase<R, D, E>, ServiceError>
 where
-    F: FnOnce(&FullBabeBlockImport<R, D>, &BabeLink),
     R: ConstructRuntimeApi<Block, FullClient<R, D>> + Send + Sync + 'static,
     R::RuntimeApi: RuntimeApiCollection<E, StateBackend = FullStateBackend>,
     D: NativeExecutionDispatch + 'static,
@@ -469,12 +509,11 @@ where
         telemetry: telemetry.as_mut(),
     })?;
 
-    let (block_import, grandpa_link, babe_link) = import_setup;
-
-    (with_startup_data)(&block_import, &babe_link);
+    //let (block_import, grandpa_link, babe_link) = import_setup;
+    let (block_import, grandpa_link, _) = import_setup;
 
     if let sc_service::config::Role::Authority { .. } = &role {
-        let proposer = sc_basic_authorship::ProposerFactory::new(
+        let proposer_factory = sc_basic_authorship::ProposerFactory::new(
             task_manager.spawn_handle(),
             client.clone(),
             transaction_pool.clone(),
@@ -485,13 +524,14 @@ where
         let can_author_with =
             sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
+        /*
         let client_clone = client.clone();
         let slot_duration = babe_link.config().slot_duration();
         let babe_config = sc_consensus_babe::BabeParams {
             keystore: keystore_container.sync_keystore(),
             client: client.clone(),
             select_chain,
-            env: proposer,
+            env: proposer_factory,
             block_import,
             sync_oracle: network.clone(),
             justification_sync_link: network.clone(),
@@ -506,10 +546,10 @@ where
                     let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
                     let slot =
-						sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_duration(
-							*timestamp,
-							slot_duration,
-						);
+                        sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_duration(
+                            *timestamp,
+                            slot_duration,
+                        );
 
                     let storage_proof =
                         sp_transaction_storage_proof::registration::new_data_provider(
@@ -533,6 +573,44 @@ where
         task_manager
             .spawn_essential_handle()
             .spawn_blocking("babe-proposer", babe);
+        */
+
+        let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
+        let raw_slot_duration = slot_duration.slot_duration();
+        let aura = sc_consensus_aura::start_aura::<AuraPair, _, _, _, _, _, _, _, _, _, _, _>(
+            StartAuraParams {
+                slot_duration,
+                client: client.clone(),
+                select_chain,
+                block_import,
+                proposer_factory,
+                create_inherent_data_providers: move |_, ()| async move {
+                    let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+
+                    let slot =
+                        sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_duration(
+                            *timestamp,
+                            raw_slot_duration,
+                        );
+
+                    Ok((timestamp, slot))
+                },
+                force_authoring,
+                backoff_authoring_blocks,
+                keystore: keystore_container.sync_keystore(),
+                can_author_with,
+                sync_oracle: network.clone(),
+                justification_sync_link: network.clone(),
+                block_proposal_slot_portion: SlotProportion::new(2f32 / 3f32),
+                max_block_proposal_slot_portion: None,
+                telemetry: telemetry.as_ref().map(|x| x.handle()),
+            },
+        )?;
+        // the AURA authoring task is considered essential, i.e. if it
+        // fails we take down the service with it.
+        task_manager
+            .spawn_essential_handle()
+            .spawn_blocking("aura", aura);
     }
 
     // Spawn authority discovery module.
@@ -624,32 +702,33 @@ type TaskResult = Result<TaskManager, ServiceError>;
 
 /// Create a new Testnet service for a full node.
 pub fn testnet_new_full(config: Configuration) -> TaskResult {
-    new_full_base::<polymesh_runtime_testnet::RuntimeApi, TestnetExecutor, _, _>(config, |_, _| ())
+    new_full_base::<polymesh_runtime_testnet::RuntimeApi, TestnetExecutor, _>(config)
         .map(|data| data.task_manager)
 }
 
 /// Create a new General node service for a full node.
 pub fn general_new_full(config: Configuration) -> TaskResult {
-    new_full_base::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor, _, _>(config, |_, _| ())
+    new_full_base::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor, _>(config)
         .map(|data| data.task_manager)
 }
 
 /// Create a new CI service for a full node.
 pub fn ci_new_full(config: Configuration) -> TaskResult {
-    new_full_base::<polymesh_runtime_ci::RuntimeApi, CIExecutor, _, _>(config, |_, _| ())
+    new_full_base::<polymesh_runtime_ci::RuntimeApi, CIExecutor, _>(config)
         .map(|data| data.task_manager)
 }
 
 /// Create a new Mainnet service for a full node.
 pub fn mainnet_new_full(config: Configuration) -> TaskResult {
-    new_full_base::<polymesh_runtime_mainnet::RuntimeApi, MainnetExecutor, _, _>(config, |_, _| ())
+    new_full_base::<polymesh_runtime_mainnet::RuntimeApi, MainnetExecutor, _>(config)
         .map(|data| data.task_manager)
 }
 
 pub type NewChainOps<R, D> = (
     Arc<FullClient<R, D>>,
     Arc<FullBackend>,
-    FullBabeImportQueue<R, D>,
+    //FullBabeImportQueue<R, D>,
+    sc_consensus::DefaultImportQueue<Block, FullClient<R, D>>,
     TaskManager,
 );
 

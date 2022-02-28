@@ -185,7 +185,8 @@ frame_support::construct_runtime!(
     UncheckedExtrinsic = UncheckedExtrinsic,
 {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>} = 0,
-        Babe: pallet_babe::{Pallet, Call, Storage, Config, ValidateUnsigned} = 1,
+        //Babe: pallet_babe::{Pallet, Call, Storage, Config, ValidateUnsigned} = 1,
+        Aura: pallet_aura::{Pallet, Storage, Config<T>} = 1,
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 2,
         Indices: pallet_indices::{Pallet, Call, Storage, Config<T>, Event<T>} = 3,
 

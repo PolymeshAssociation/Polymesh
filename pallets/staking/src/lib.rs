@@ -858,7 +858,8 @@ impl<T: Config> SessionInterface<<T as frame_system::Config>::AccountId> for T w
 type Identity<T> = identity::Module<T>;
 
 pub trait Config:
-    frame_system::Config + SendTransactionTypes<Call<Self>> + pallet_babe::Config + IdentityConfig
+    frame_system::Config + SendTransactionTypes<Call<Self>> + IdentityConfig
+    //frame_system::Config + SendTransactionTypes<Call<Self>> + pallet_babe::Config + IdentityConfig
 {
     /// The staking balance.
     type Currency: LockableCurrency<Self::AccountId, Moment=Self::BlockNumber>;
@@ -3668,8 +3669,11 @@ impl<T: Config> Module<T> {
 
     pub fn get_bonding_duration_period() -> u64 {
         (T::SessionsPerEra::get()  * T::BondingDuration::get()) as u64 // total session
+            * (60 * 60 * 1000)
+            /*
             * T::EpochDuration::get() // session length
             * T::ExpectedBlockTime::get().saturated_into::<u64>()
+            */
     }
 
     #[cfg(feature = "runtime-benchmarks")]

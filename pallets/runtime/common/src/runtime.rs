@@ -82,6 +82,7 @@ macro_rules! misc_pallet_impls {
             type MaxLen = MaxLen;
         }
 
+        /*
         impl pallet_babe::Config for Runtime {
             type WeightInfo = polymesh_weights::pallet_babe::WeightInfo;
             type EpochDuration = EpochDuration;
@@ -107,6 +108,12 @@ macro_rules! misc_pallet_impls {
                 ReportLongevity,
             >;
             type MaxAuthorities = MaxAuthorities;
+        }
+        */
+        impl pallet_aura::Config for Runtime {
+            type AuthorityId = sp_consensus_aura::sr25519::AuthorityId;
+            type DisabledValidators = ();
+            type MaxAuthorities = frame_support::traits::ConstU32<32>;
         }
 
         impl pallet_indices::Config for Runtime {
@@ -172,13 +179,15 @@ macro_rules! misc_pallet_impls {
 
         impl pallet_timestamp::Config for Runtime {
             type Moment = polymesh_primitives::Moment;
-            type OnTimestampSet = Babe;
+            //type OnTimestampSet = Babe;
+            type OnTimestampSet = Aura;
             type MinimumPeriod = MinimumPeriod;
             type WeightInfo = polymesh_weights::pallet_timestamp::WeightInfo;
         }
 
         impl pallet_authorship::Config for Runtime {
-            type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
+            //type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
+            type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
             type UncleGenerations = UncleGenerations;
             type FilterUncle = ();
             type EventHandler = (Staking, ImOnline);
@@ -187,7 +196,8 @@ macro_rules! misc_pallet_impls {
         impl_opaque_keys! {
             pub struct SessionKeys {
                 pub grandpa: Grandpa,
-                pub babe: Babe,
+                //pub babe: Babe,
+                pub aura: Aura,
                 pub im_online: ImOnline,
                 pub authority_discovery: AuthorityDiscovery,
             }
@@ -197,8 +207,10 @@ macro_rules! misc_pallet_impls {
             type Event = Event;
             type ValidatorId = polymesh_primitives::AccountId;
             type ValidatorIdOf = pallet_staking::StashOf<Self>;
-            type ShouldEndSession = Babe;
-            type NextSessionRotation = Babe;
+            //type ShouldEndSession = Babe;
+            //type NextSessionRotation = Babe;
+            type ShouldEndSession = pallet_session::PeriodicSessions<polymesh_runtime_common::Period, polymesh_runtime_common::Offset>;
+            type NextSessionRotation = pallet_session::PeriodicSessions<polymesh_runtime_common::Period, polymesh_runtime_common::Offset>;
             type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
             type SessionHandler =
                 <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
@@ -389,7 +401,8 @@ macro_rules! misc_pallet_impls {
         impl pallet_im_online::Config for Runtime {
             type AuthorityId = pallet_im_online::sr25519::AuthorityId;
             type Event = Event;
-            type NextSessionRotation = Babe;
+            //type NextSessionRotation = Babe;
+            type NextSessionRotation = ();
             type ValidatorSet = Historical;
             type UnsignedPriority = ImOnlineUnsignedPriority;
             type ReportUnresponsiveness = Offences;
@@ -643,6 +656,7 @@ macro_rules! runtime_apis {
                 }
             }
 
+            /*
             impl sp_consensus_babe::BabeApi<Block> for Runtime {
                 fn configuration() -> sp_consensus_babe::BabeGenesisConfiguration {
                     // The choice of `c` parameter (where `1 - c` represents the
@@ -693,6 +707,17 @@ macro_rules! runtime_apis {
                         equivocation_proof,
                         key_owner_proof,
                     )
+                }
+            }
+            */
+
+            impl sp_consensus_aura::AuraApi<Block, sp_consensus_aura::sr25519::AuthorityId> for Runtime {
+                fn slot_duration() -> sp_consensus_aura::SlotDuration {
+                    sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
+                }
+
+                fn authorities() -> Vec<sp_consensus_aura::sr25519::AuthorityId> {
+                    Aura::authorities().into_inner()
                 }
             }
 

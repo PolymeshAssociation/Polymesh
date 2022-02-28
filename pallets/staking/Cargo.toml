@@ -29,7 +29,7 @@ sp-npos-elections = { version = "4.0.0-dev", default-features = false}
 
 pallet-session = { features = ["historical"], version = "4.0.0-dev", default-features = false }
 pallet-authorship = { version = "4.0.0-dev", default-features = false }
-pallet-babe = { version = "4.0.0-dev", default-features = false }
+#pallet-babe = { version = "4.0.0-dev", default-features = false }
 
 # Optional imports for benchmarking
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }

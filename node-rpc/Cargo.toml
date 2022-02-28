@@ -25,15 +25,17 @@ sp-runtime = { version = "4.0.0-dev" }
 sp-api = { version = "4.0.0-dev" }
 sc-client-api = { version = "4.0.0-dev" }
 sp-consensus = { version = "0.10.0-dev" }
-sp-consensus-babe = { version = "0.10.0-dev" }
+#sp-consensus-babe = { version = "0.10.0-dev", optional = true }
+sp-consensus-aura = { version = "0.10.0-dev", optional = true }
 sp-block-builder = { version = "4.0.0-dev" }
 sp-keystore = { version = "0.10.0-dev" }
 
 sc-rpc = { version = "4.0.0-dev" }
 sc-rpc-api = { version = "0.10.0-dev" }
 sc-chain-spec = { version = "4.0.0-dev" }
-sc-consensus-babe = { version = "0.10.0-dev" }
-sc-consensus-babe-rpc = { version = "0.10.0-dev" }
+#sc-consensus-babe = { version = "0.10.0-dev", optional = true }
+#sc-consensus-babe-rpc = { version = "0.10.0-dev", optional = true }
+sc-consensus-aura = { version = "0.10.0-dev", optional = true }
 sc-consensus-epochs = { version = "0.10.0-dev" }
 sc-finality-grandpa = { version = "0.10.0-dev" }
 sc-finality-grandpa-rpc = { version = "0.10.0-dev" }
@@ -41,3 +43,8 @@ sc-keystore = { version = "4.0.0-dev" }
 sc-sync-state-rpc = { version = "0.10.0-dev" }
 sc-transaction-pool-api = { version = "4.0.0-dev" }
 substrate-frame-rpc-system = { version = "4.0.0-dev" }
+
+[features]
+default = ["aura"]
+
+aura = []

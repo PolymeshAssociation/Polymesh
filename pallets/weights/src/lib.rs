@@ -19,7 +19,7 @@
 
 pub mod frame_system;
 pub mod pallet_asset;
-pub mod pallet_babe;
+//pub mod pallet_babe;
 pub mod pallet_balances;
 pub mod pallet_capital_distribution;
 pub mod pallet_checkpoint;

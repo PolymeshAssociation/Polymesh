@@ -67,7 +67,8 @@ frame-system-rpc-runtime-api = { version = "4.0.0-dev", default-features = false
 ink_primitives = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", default-features = false }
 pallet-authority-discovery = { version = "4.0.0-dev", default-features = false }
 pallet-authorship = { version = "4.0.0-dev", default-features = false }
-pallet-babe = { version = "4.0.0-dev", default-features = false }
+#pallet-babe = { version = "4.0.0-dev", default-features = false }
+pallet-aura = { version = "4.0.0-dev", default-features = false }
 #pallet-contracts = { version = "4.0.0-dev", default-features = false }
 #pallet-contracts-primitives = { version = "4.0.0-dev", default-features = false }
 #pallet-contracts-rpc-runtime-api = { version = "4.0.0-dev", default-features = false }
@@ -86,7 +87,8 @@ sp-api = { version = "4.0.0-dev", default-features = false }
 sp-arithmetic = { version = "4.0.0-dev", default-features = false }
 sp-authority-discovery = { version = "4.0.0-dev", default-features = false }
 sp-block-builder = { version = "4.0.0-dev", default-features = false }
-sp-consensus-babe = { version = "0.10.0-dev", default-features = false }
+#sp-consensus-babe = { version = "0.10.0-dev", default-features = false }
+sp-consensus-aura = { version = "0.10.0-dev", default-features = false }
 sp-core = { version = "4.0.0-dev", default-features = false }
 sp-inherents = { version = "4.0.0-dev", default-features = false }
 sp-io = { version = "4.0.0-dev", default-features = false }
@@ -132,7 +134,8 @@ std = [
     "ink_primitives/std",
     "pallet-asset/std",
     "pallet-authorship/std",
-    "pallet-babe/std",
+		#"pallet-babe/std",
+    "pallet-aura/std",
     "pallet-balances/std",
     "pallet-sto/std",
     "pallet-bridge/std",

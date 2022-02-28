@@ -61,7 +61,8 @@ sp-api = { version = "4.0.0-dev", default-features = false }
 sp-inherents = { version = "4.0.0-dev", default-features = false }
 sp-offchain = { version = "4.0.0-dev", default-features = false }
 sp-staking = { version = "4.0.0-dev", default-features = false }
-sp-consensus-babe = { version = "0.10.0-dev", default-features = false }
+#sp-consensus-babe = { version = "0.10.0-dev", default-features = false }
+sp-consensus-aura = { version = "0.10.0-dev", default-features = false }
 sp-session = { version = "4.0.0-dev", default-features = false }
 sp-authority-discovery = { version = "4.0.0-dev", default-features = false }
 sp-transaction-pool = { version = "4.0.0-dev", default-features = false }
@@ -78,7 +79,8 @@ pallet-indices = { version = "4.0.0-dev", default-features = false }
 pallet-offences = { version = "4.0.0-dev", default-features = false }
 pallet-session = { version = "4.0.0-dev", default-features = false }
 pallet-timestamp = { version = "4.0.0-dev", default-features = false }
-pallet-babe = { version = "4.0.0-dev", default-features = false }
+#pallet-babe = { version = "4.0.0-dev", default-features = false }
+pallet-aura = { version = "4.0.0-dev", default-features = false }
 pallet-authority-discovery = { version = "4.0.0-dev", default-features = false }
 pallet-randomness-collective-flip = { version = "4.0.0-dev", default-features = false }
 pallet-scheduler = { version = "4.0.0-dev", default-features = false }
@@ -131,7 +133,8 @@ std = [
     "pallet-asset/std",
     "pallet-authority-discovery/std",
     "pallet-authorship/std",
-    "pallet-babe/std",
+		#"pallet-babe/std",
+    "pallet-aura/std",
     "pallet-balances/std",
     "pallet-sto/std",
     "pallet-bridge/std",
@@ -180,7 +183,8 @@ std = [
     "sp-arithmetic/std",
     "sp-authority-discovery/std",
     "sp-block-builder/std",
-    "sp-consensus-babe/std",
+		#"sp-consensus-babe/std",
+    "sp-consensus-aura/std",
     "sp-core/std",
     "sp-inherents/std",
     "sp-io/std",
@@ -199,7 +203,7 @@ runtime-benchmarks = [
     "frame-support/runtime-benchmarks",
     "frame-system-benchmarking",
     "frame-system/runtime-benchmarks",
-    "pallet-babe/runtime-benchmarks",
+		#"pallet-babe/runtime-benchmarks",
     "pallet-indices/runtime-benchmarks",
     "pallet-grandpa/runtime-benchmarks",
     "pallet-scheduler/runtime-benchmarks",

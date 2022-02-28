@@ -34,6 +34,7 @@ use polymesh_primitives::{
     AccountId, Block, BlockNumber, Hash, IdentityId, Index, Moment, SecondaryKey, Signatory, Ticker,
 };
 use sc_client_api::AuxStore;
+#[cfg(feature = "babe")]
 use sc_consensus_babe::{Config, Epoch};
 use sc_consensus_epochs::SharedEpochChanges;
 use sc_finality_grandpa::{
@@ -45,6 +46,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus::SelectChain;
+#[cfg(feature = "babe")]
 use sp_consensus_babe::BabeApi;
 use sp_keystore::SyncCryptoStorePtr;
 use std::sync::Arc;
@@ -62,6 +64,7 @@ pub struct LightDeps<C, F, P> {
 }
 
 /// Extra dependencies for BABE.
+#[cfg(feature = "babe")]
 pub struct BabeDeps {
     /// BABE protocol config.
     pub babe_config: Config,
@@ -98,7 +101,7 @@ pub struct FullDeps<C, P, SC, B> {
     /// Whether to deny unsafe calls
     pub deny_unsafe: DenyUnsafe,
     /// BABE specific dependencies.
-    pub babe: BabeDeps,
+    //pub babe: BabeDeps,
     /// GRANDPA specific dependencies.
     pub grandpa: GrandpaDeps<B>,
 }
@@ -136,7 +139,7 @@ where
     C::Api: node_rpc::asset::AssetRuntimeApi<Block, AccountId>,
     C::Api: pallet_group_rpc::GroupRuntimeApi<Block>,
     C::Api: node_rpc::compliance_manager::ComplianceManagerRuntimeApi<Block, AccountId>,
-    C::Api: BabeApi<Block>,
+    //C::Api: BabeApi<Block>,
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + 'static,
     UE: codec::Codec + Send + Sync + 'static,
@@ -155,6 +158,7 @@ where
     use pallet_group_rpc::{Group, GroupApi};
     use pallet_protocol_fee_rpc::{ProtocolFee, ProtocolFeeApi};
     use pallet_staking_rpc::{Staking, StakingApi};
+    #[cfg(feature = "babe")]
     use sc_consensus_babe_rpc::BabeRpcHandler;
     use sc_finality_grandpa_rpc::GrandpaRpcHandler;
     use substrate_frame_rpc_system::{FullSystem, SystemApi};
@@ -166,10 +170,11 @@ where
         select_chain,
         chain_spec,
         deny_unsafe,
-        babe,
+        //babe,
         grandpa,
     } = deps;
 
+    #[cfg(feature = "babe")]
     let BabeDeps {
         keystore,
         babe_config,
@@ -195,6 +200,7 @@ where
     io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(
         client.clone(),
     )));
+    #[cfg(feature = "babe")]
     io.extend_with(sc_consensus_babe_rpc::BabeApi::to_delegate(
         BabeRpcHandler::new(
             client.clone(),
@@ -215,6 +221,7 @@ where
         ),
     ));
 
+    #[cfg(feature = "babe")]
     io.extend_with(sc_sync_state_rpc::SyncStateRpcApi::to_delegate(
         sc_sync_state_rpc::SyncStateRpcHandler::new(
             chain_spec,

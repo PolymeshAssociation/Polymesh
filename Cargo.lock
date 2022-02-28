@@ -4291,6 +4291,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-aura"
+version = "4.0.0-dev"
+source = "git+https://github.com/PolymathNetwork/substrate?branch=polymesh-develop#e20e2391171fbd4ad4e0461d473eb1fbfa4db88b"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-timestamp",
+ "parity-scale-codec 2.3.1",
+ "scale-info",
+ "sp-application-crypto",
+ "sp-consensus-aura",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-authority-discovery"
 version = "4.0.0-dev"
 source = "git+https://github.com/PolymathNetwork/substrate?branch=polymesh-develop#e20e2391171fbd4ad4e0461d473eb1fbfa4db88b"
@@ -4964,7 +4980,6 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-authorship",
- "pallet-babe",
  "pallet-identity",
  "pallet-session",
  "pallet-staking-reward-curve",
@@ -5701,7 +5716,7 @@ dependencies = [
  "node-rpc",
  "node-rpc-runtime-api",
  "pallet-asset",
- "pallet-babe",
+ "pallet-aura",
  "pallet-balances 0.1.0",
  "pallet-bridge",
  "pallet-committee",
@@ -5740,7 +5755,7 @@ dependencies = [
  "sc-client-api",
  "sc-client-db",
  "sc-consensus",
- "sc-consensus-babe",
+ "sc-consensus-aura",
  "sc-consensus-slots",
  "sc-consensus-uncles",
  "sc-executor",
@@ -5760,7 +5775,7 @@ dependencies = [
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
- "sp-consensus-babe",
+ "sp-consensus-aura",
  "sp-consensus-slots",
  "sp-core",
  "sp-inherents",
@@ -5846,8 +5861,7 @@ dependencies = [
  "polymesh-primitives",
  "sc-chain-spec",
  "sc-client-api",
- "sc-consensus-babe",
- "sc-consensus-babe-rpc",
+ "sc-consensus-aura",
  "sc-consensus-epochs",
  "sc-finality-grandpa",
  "sc-finality-grandpa-rpc",
@@ -5860,7 +5874,7 @@ dependencies = [
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
- "sp-consensus-babe",
+ "sp-consensus-aura",
  "sp-keystore",
  "sp-runtime",
  "substrate-frame-rpc-system",
@@ -5920,9 +5934,9 @@ dependencies = [
  "log",
  "node-rpc-runtime-api",
  "pallet-asset",
+ "pallet-aura",
  "pallet-authority-discovery",
  "pallet-authorship",
- "pallet-babe",
  "pallet-balances 0.1.0",
  "pallet-base",
  "pallet-bridge",
@@ -5975,7 +5989,7 @@ dependencies = [
  "sp-arithmetic",
  "sp-authority-discovery",
  "sp-block-builder",
- "sp-consensus-babe",
+ "sp-consensus-aura",
  "sp-core",
  "sp-inherents",
  "sp-io",
@@ -6035,9 +6049,9 @@ dependencies = [
  "log",
  "node-rpc-runtime-api",
  "pallet-asset",
+ "pallet-aura",
  "pallet-authority-discovery",
  "pallet-authorship",
- "pallet-babe",
  "pallet-balances 0.1.0",
  "pallet-base",
  "pallet-bridge",
@@ -6088,7 +6102,7 @@ dependencies = [
  "sp-arithmetic",
  "sp-authority-discovery",
  "sp-block-builder",
- "sp-consensus-babe",
+ "sp-consensus-aura",
  "sp-core",
  "sp-inherents",
  "sp-io",
@@ -6114,9 +6128,9 @@ dependencies = [
  "log",
  "node-rpc-runtime-api",
  "pallet-asset",
+ "pallet-aura",
  "pallet-authority-discovery",
  "pallet-authorship",
- "pallet-babe",
  "pallet-balances 0.1.0",
  "pallet-base",
  "pallet-bridge",
@@ -6168,7 +6182,7 @@ dependencies = [
  "sp-arithmetic",
  "sp-authority-discovery",
  "sp-block-builder",
- "sp-consensus-babe",
+ "sp-consensus-aura",
  "sp-core",
  "sp-inherents",
  "sp-io",
@@ -6194,9 +6208,9 @@ dependencies = [
  "log",
  "node-rpc-runtime-api",
  "pallet-asset",
+ "pallet-aura",
  "pallet-authority-discovery",
  "pallet-authorship",
- "pallet-babe",
  "pallet-balances 0.1.0",
  "pallet-base",
  "pallet-bridge",
@@ -6249,7 +6263,7 @@ dependencies = [
  "sp-arithmetic",
  "sp-authority-discovery",
  "sp-block-builder",
- "sp-consensus-babe",
+ "sp-consensus-aura",
  "sp-core",
  "sp-inherents",
  "sp-io",
@@ -6282,9 +6296,9 @@ dependencies = [
  "log",
  "node-rpc-runtime-api",
  "pallet-asset",
+ "pallet-aura",
  "pallet-authority-discovery",
  "pallet-authorship",
- "pallet-babe",
  "pallet-balances 0.1.0",
  "pallet-base",
  "pallet-bridge",
@@ -6340,7 +6354,7 @@ dependencies = [
  "sp-arithmetic",
  "sp-authority-discovery",
  "sp-block-builder",
- "sp-consensus-babe",
+ "sp-consensus-aura",
  "sp-core",
  "sp-inherents",
  "sp-io",
@@ -6365,7 +6379,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-asset",
- "pallet-babe",
+ "pallet-aura",
  "pallet-balances 0.1.0",
  "pallet-committee",
  "pallet-compliance-manager",
@@ -7234,6 +7248,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "sc-consensus-aura"
+version = "0.10.0-dev"
+source = "git+https://github.com/PolymathNetwork/substrate?branch=polymesh-develop#e20e2391171fbd4ad4e0461d473eb1fbfa4db88b"
+dependencies = [
+ "async-trait",
+ "derive_more",
+ "futures 0.3.19",
+ "log",
+ "parity-scale-codec 2.3.1",
+ "sc-block-builder",
+ "sc-client-api",
+ "sc-consensus",
+ "sc-consensus-slots",
+ "sc-telemetry",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-block-builder",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-consensus-aura",
+ "sp-consensus-slots",
+ "sp-core",
+ "sp-inherents",
+ "sp-keystore",
+ "sp-runtime",
+ "substrate-prometheus-endpoint",
+]
+
+[[package]]
 name = "sc-consensus-babe"
 version = "0.10.0-dev"
 source = "git+https://github.com/PolymathNetwork/substrate?branch=polymesh-develop#e20e2391171fbd4ad4e0461d473eb1fbfa4db88b"
@@ -7274,30 +7317,6 @@ dependencies = [
  "sp-runtime",
  "sp-version",
  "substrate-prometheus-endpoint",
-]
-
-[[package]]
-name = "sc-consensus-babe-rpc"
-version = "0.10.0-dev"
-source = "git+https://github.com/PolymathNetwork/substrate?branch=polymesh-develop#e20e2391171fbd4ad4e0461d473eb1fbfa4db88b"
-dependencies = [
- "derive_more",
- "futures 0.3.19",
- "jsonrpc-core",
- "jsonrpc-core-client",
- "jsonrpc-derive",
- "sc-consensus-babe",
- "sc-consensus-epochs",
- "sc-rpc-api",
- "serde",
- "sp-api",
- "sp-application-crypto",
- "sp-blockchain",
- "sp-consensus",
- "sp-consensus-babe",
- "sp-core",
- "sp-keystore",
- "sp-runtime",
 ]
 
 [[package]]

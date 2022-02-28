@@ -20,7 +20,8 @@ frame-system-benchmarking = { git = "https://github.com/PolymathNetwork/substrat
 frame-system-rpc-runtime-api = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 pallet-authority-discovery = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 pallet-authorship = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
-pallet-babe = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
+#pallet-babe = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
+pallet-aura = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 pallet-balances = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 #pallet-contracts = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 #pallet-contracts-primitives = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
@@ -44,8 +45,9 @@ sc-cli = { git = "https://github.com/PolymathNetwork/substrate", branch = "polym
 sc-client-api = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sc-client-db = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sc-consensus = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
-sc-consensus-babe = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
-sc-consensus-babe-rpc = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
+#sc-consensus-babe = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
+#sc-consensus-babe-rpc = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
+sc-consensus-aura = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sc-consensus-epochs = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sc-consensus-slots = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sc-consensus-uncles = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
@@ -70,7 +72,8 @@ sp-authorship = { git = "https://github.com/PolymathNetwork/substrate", branch =
 sp-block-builder = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sp-blockchain = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sp-consensus = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
-sp-consensus-babe = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
+#sp-consensus-babe = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
+sp-consensus-aura = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sp-consensus-slots = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sp-core = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 sp-externalities = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
@@ -213,7 +216,8 @@ frame-system-rpc-runtime-api = "4.0.0-dev"
 grandpa = { package = "sc-finality-grandpa", version = "0.10.0-dev" }
 #pallet-contracts = "4.0.0-dev"
 #pallet-contracts-rpc-runtime-api = "4.0.0-dev"
-pallet-babe = "4.0.0-dev"
+#pallet-babe = { version = "4.0.0-dev", optional = true }
+pallet-aura = { version = "4.0.0-dev" }
 pallet-im-online = "4.0.0-dev"
 pallet-indices = "4.0.0-dev"
 pallet-session = "4.0.0-dev"
@@ -225,7 +229,8 @@ sc-cli = { version = "0.10.0-dev", features = ["wasmtime"] }
 sc-client-api = "4.0.0-dev"
 sc-client-db = "0.10.0-dev"
 sc-consensus = "0.10.0-dev"
-sc-consensus-babe = "0.10.0-dev"
+#sc-consensus-babe = { version = "0.10.0-dev", optional = true }
+sc-consensus-aura = { version = "0.10.0-dev" }
 sc-consensus-slots = "0.10.0-dev"
 sc-consensus-uncles = "0.10.0-dev"
 sc-executor = { version = "0.10.0-dev", features = ["wasmtime"] }
@@ -242,7 +247,8 @@ sp-authorship = "4.0.0-dev"
 sp-block-builder = "4.0.0-dev"
 sp-blockchain = "4.0.0-dev"
 sp-consensus = "0.10.0-dev"
-sp-consensus-babe = "0.10.0-dev"
+#sp-consensus-babe = { version = "0.10.0-dev", optional = true }
+sp-consensus-aura = { version = "0.10.0-dev" }
 sp-consensus-slots = "0.10.0-dev"
 sp-core = "4.0.0-dev"
 sp-inherents = "4.0.0-dev"
@@ -261,10 +267,12 @@ frame-benchmarking-cli = "4.0.0-dev"
 vergen = "3.1.0"
 
 [features]
-default = ["std"]
+default = ["std", "aura"]
 running-ci = [ "polymesh-runtime-develop/running-ci" ]
 default_identity = [ "polymesh-common-utilities/default_identity" ]
 runtime-benchmarks = [ "polymesh-runtime-develop/runtime-benchmarks" ]
+
+aura = []
 
 std = [
     "polymesh-common-utilities/std",

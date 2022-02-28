@@ -9,7 +9,8 @@ edition = "2018"
 frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
 pallet-timestamp = { version = "4.0.0-dev", default-features = false }
-pallet-babe = { version = "4.0.0-dev", default-features = false }
+#pallet-babe = { version = "4.0.0-dev", default-features = false }
+pallet-aura = { version = "4.0.0-dev", default-features = false }
 pallet-im-online = { version = "4.0.0-dev", default-features = false }
 pallet-indices = { version = "4.0.0-dev", default-features = false }
 pallet-grandpa = { version = "4.0.0-dev", default-features = false }
@@ -49,7 +50,8 @@ std = [
     "sp-std/std",
     "frame-system/std",
     "pallet-asset/std",
-    "pallet-babe/std",
+		#"pallet-babe/std",
+    "pallet-aura/std",
     "pallet-staking/std",
     "pallet-balances/std",
     "pallet-compliance-manager/std",

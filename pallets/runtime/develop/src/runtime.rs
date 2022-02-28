@@ -321,7 +321,8 @@ construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic
     {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-        Babe: pallet_babe::{Pallet, Call, Storage, Config, ValidateUnsigned},
+        //Babe: pallet_babe::{Pallet, Call, Storage, Config, ValidateUnsigned},
+        Aura: pallet_aura::{Pallet, Storage, Config<T>},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
         Indices: pallet_indices::{Pallet, Call, Storage, Config<T>, Event<T>},
         Authorship: pallet_authorship::{Pallet, Call, Storage, Inherent},
@@ -463,7 +464,8 @@ polymesh_runtime_common::runtime_apis! {
             add_benchmark!(params, batches, pallet_group, CddServiceProviders);
             add_benchmark!(params, batches, pallet_statistics, Statistics);
             add_benchmark!(params, batches, pallet_permissions, Permissions);
-            add_benchmark!(params, batches, pallet_babe, Babe);
+            //add_benchmark!(params, batches, pallet_babe, Babe);
+            add_benchmark!(params, batches, pallet_aura, Aura);
             add_benchmark!(params, batches, pallet_indices, Indices);
             add_benchmark!(params, batches, pallet_session, SessionBench);
             add_benchmark!(params, batches, pallet_grandpa, Grandpa);
@@ -512,7 +514,8 @@ polymesh_runtime_common::runtime_apis! {
             list_benchmark!(list, extra, pallet_group, CddServiceProviders);
             list_benchmark!(list, extra, pallet_statistics, Statistics);
             list_benchmark!(list, extra, pallet_permissions, Permissions);
-            list_benchmark!(list, extra, pallet_babe, Babe);
+            //list_benchmark!(list, extra, pallet_babe, Babe);
+            list_benchmark!(list, extra, pallet_aura, Aura);
             list_benchmark!(list, extra, pallet_indices, Indices);
             list_benchmark!(list, extra, pallet_session, SessionBench::<Runtime>);
             list_benchmark!(list, extra, pallet_grandpa, Grandpa);
