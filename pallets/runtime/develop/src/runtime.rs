@@ -465,7 +465,6 @@ polymesh_runtime_common::runtime_apis! {
             add_benchmark!(params, batches, pallet_statistics, Statistics);
             add_benchmark!(params, batches, pallet_permissions, Permissions);
             //add_benchmark!(params, batches, pallet_babe, Babe);
-            add_benchmark!(params, batches, pallet_aura, Aura);
             add_benchmark!(params, batches, pallet_indices, Indices);
             add_benchmark!(params, batches, pallet_session, SessionBench);
             add_benchmark!(params, batches, pallet_grandpa, Grandpa);
@@ -515,7 +514,6 @@ polymesh_runtime_common::runtime_apis! {
             list_benchmark!(list, extra, pallet_statistics, Statistics);
             list_benchmark!(list, extra, pallet_permissions, Permissions);
             //list_benchmark!(list, extra, pallet_babe, Babe);
-            list_benchmark!(list, extra, pallet_aura, Aura);
             list_benchmark!(list, extra, pallet_indices, Indices);
             list_benchmark!(list, extra, pallet_session, SessionBench::<Runtime>);
             list_benchmark!(list, extra, pallet_grandpa, Grandpa);
