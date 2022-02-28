@@ -87,7 +87,7 @@ decl_module! {
 
         /// Set the active asset stat_types.
         ///
-        /// # Permissions (EA)
+        /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::set_active_asset_stats(stat_types.len() as u32)]
         pub fn set_active_asset_stats(origin, asset: AssetScope, stat_types: BTreeSet<StatType>) {
@@ -96,7 +96,7 @@ decl_module! {
 
         /// Allow a trusted issuer to init/resync ticker/company stats.
         ///
-        /// # Permissions (EA)
+        /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::batch_update_asset_stats(values.len() as u32)]
         pub fn batch_update_asset_stats(origin, asset: AssetScope, stat_type: StatType, values: BTreeSet<StatUpdate>) {
@@ -105,7 +105,7 @@ decl_module! {
 
         /// Set asset transfer compliance rules.
         ///
-        /// # Permissions (EA)
+        /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::set_asset_transfer_compliance(transfer_conditions.len() as u32)]
         pub fn set_asset_transfer_compliance(origin, asset: AssetScope, transfer_conditions: BTreeSet<TransferCondition>) {
@@ -114,7 +114,7 @@ decl_module! {
 
         /// Set/unset entities exempt from an asset's transfer compliance rules.
         ///
-        /// # Permissions (EA)
+        /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::set_entities_exempt(entities.len() as u32)]
         pub fn set_entities_exempt(origin, is_exempt: bool, exempt_key: TransferConditionExemptKey, entities: BTreeSet<ScopeId>) {
