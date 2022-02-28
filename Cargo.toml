@@ -141,6 +141,7 @@ members = [
     "pallets/runtime/mainnet",
     "pallets/runtime/testnet",
     "pallets/runtime/tests",
+    "pallets/runtime/tests/exec_macro",
     "pallets/settlement",
     "pallets/staking",
     "pallets/staking/rpc",

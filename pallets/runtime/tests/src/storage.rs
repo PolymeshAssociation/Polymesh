@@ -14,7 +14,8 @@ use frame_support::{
     },
     StorageDoubleMap,
 };
-use frame_system::EnsureRoot;
+use frame_system::{EnsureRoot, RawOrigin};
+use lazy_static::lazy_static;
 use pallet_asset::checkpoint as pallet_checkpoint;
 use pallet_balances as balances;
 use pallet_committee as committee;
@@ -52,6 +53,7 @@ use sp_core::{
     sr25519::Pair,
     H256,
 };
+use sp_runtime::generic::Era;
 use sp_runtime::{
     create_runtime_str,
     curve::PiecewiseLinear,
@@ -73,8 +75,41 @@ use std::cell::RefCell;
 use std::convert::From;
 use test_client::AccountKeyring;
 
+lazy_static! {
+    pub static ref INTEGRATION_TEST: bool = std::env::var("INTEGRATION_TEST")
+        .map(|var| var.parse().unwrap_or(false))
+        .unwrap_or(false);
+}
+
+#[macro_export]
+macro_rules! exec_ok {
+    ( $x:expr $(,)? ) => {
+        frame_support::assert_ok!(polymesh_exec_macro::exec!($x))
+    };
+    ( $x:expr, $y:expr $(,)? ) => {
+        frame_support::assert_ok!(polymesh_exec_macro::exec!($x), $y)
+    };
+}
+
+#[macro_export]
+macro_rules! exec_noop {
+    (
+		$x:expr,
+		$y:expr $(,)?
+	) => {
+        // Use `assert_err` when running with `INTEGRATION_TEST`.
+        // `assert_noop` returns false positives when using full extrinsic execution.
+        if *crate::storage::INTEGRATION_TEST {
+            frame_support::assert_err!(polymesh_exec_macro::exec!($x), $y);
+        } else {
+            frame_support::assert_noop!(polymesh_exec_macro::exec!($x), $y);
+        }
+    };
+}
+
 // 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
 pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
+const GENESIS_HASH: [u8; 32] = [69u8; 32];
 pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("test-storage"),
     impl_name: create_runtime_str!("test-storage"),
@@ -948,4 +983,66 @@ macro_rules! assert_event_doesnt_exist {
             )
         }));
     };
+}
+
+pub fn exec<C: Into<Call>>(origin: Origin, call: C) -> DispatchResult {
+    let origin: Result<RawOrigin<AccountId>, Origin> = origin.into();
+    let signed = match origin.unwrap() {
+        RawOrigin::Signed(acc) => {
+            let info = frame_system::Account::<TestStorage>::get(&acc);
+            Some((acc, signed_extra(info.nonce)))
+        }
+        _ => None,
+    };
+    Executive::apply_extrinsic(sign(CheckedExtrinsic {
+        signed,
+        function: call.into(),
+    }))
+    .unwrap()
+}
+
+/// Sign given `CheckedExtrinsic` returning an `UncheckedExtrinsic`
+/// usable for execution.
+fn sign(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
+    let CheckedExtrinsic {
+        signed, function, ..
+    } = xt;
+    UncheckedExtrinsic {
+        signature: signed.map(|(signed, extra)| {
+            let payload = (
+                &function,
+                extra.clone(),
+                VERSION.spec_version,
+                VERSION.transaction_version,
+                GENESIS_HASH,
+                GENESIS_HASH,
+            );
+            let key = AccountKeyring::from_account_id(&signed).unwrap();
+            let signature = payload
+                .using_encoded(|b| {
+                    if b.len() > 256 {
+                        key.sign(&sp_io::hashing::blake2_256(b))
+                    } else {
+                        key.sign(b)
+                    }
+                })
+                .into();
+            (Address::Id(signed), signature, extra)
+        }),
+        function,
+    }
+}
+
+/// Returns transaction extra.
+fn signed_extra(nonce: Index) -> SignedExtra {
+    (
+        frame_system::CheckSpecVersion::new(),
+        frame_system::CheckTxVersion::new(),
+        frame_system::CheckGenesis::new(),
+        frame_system::CheckEra::from(Era::mortal(256, 0)),
+        frame_system::CheckNonce::from(nonce),
+        polymesh_extensions::CheckWeight::new(),
+        pallet_transaction_payment::ChargeTransactionPayment::from(0),
+        pallet_permissions::StoreCallMetadata::new(),
+    )
 }
