@@ -107,6 +107,10 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     agent::AgentGroup,
     asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName, GranularCanTransferResult},
+    asset_metadata::{
+        AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName,
+        AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
+    },
     calendar::CheckpointId,
     ethereum::{self, EcdsaSignature, EthereumAddress},
     extract_auth,
@@ -292,6 +296,45 @@ decl_storage! {
         ///
         /// Ticker => bool.
         pub DisableInvestorUniqueness get(fn disable_iu): map hasher(blake2_128_concat) Ticker => bool;
+
+        /// Metatdata values for an asset.
+        pub AssetMetadataValues get(fn asset_metadata_values):
+            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) AssetMetadataKey =>
+                Option<AssetMetadataValue>;
+        /// Details for an asset's Metadata values.
+        pub AssetMetadataValueDetails get(fn asset_metadata_value_details):
+            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) AssetMetadataKey =>
+                Option<AssetMetadataValueDetail<T::Moment>>;
+
+        /// Asset Metadata Local Name -> Key.
+        pub AssetMetadataLocalNameToKey get(fn asset_metadata_local_name_to_key):
+            double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) AssetMetadataName =>
+                Option<AssetMetadataLocalKey>;
+        /// Asset Metadata Global Name -> Key.
+        pub AssetMetadataGlobalNameToKey get(fn asset_metadata_global_name_to_key):
+            map hasher(blake2_128_concat) AssetMetadataName => Option<AssetMetadataGlobalKey>;
+
+        /// Asset Metadata Local Key -> Name.
+        pub AssetMetadataLocalKeyToName get(fn asset_metadata_local_key_to_name):
+            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) AssetMetadataLocalKey =>
+                Option<AssetMetadataName>;
+        /// Asset Metadata Global Key -> Name.
+        pub AssetMetadataGlobalKeyToName get(fn asset_metadata_global_key_to_name):
+            map hasher(twox_64_concat) AssetMetadataGlobalKey => Option<AssetMetadataName>;
+
+        /// Asset Metadata Local Key specs.
+        pub AssetMetadataLocalSpecs get(fn asset_metadata_local_specs):
+            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) AssetMetadataLocalKey =>
+                Option<AssetMetadataSpec>;
+        /// Asset Metadata Global Key specs.
+        pub AssetMetadataGlobalSpecs get(fn asset_metadata_global_specs):
+            map hasher(twox_64_concat) AssetMetadataGlobalKey => Option<AssetMetadataSpec>;
+
+        /// Next Asset Metadata Local Key.
+        pub AssetMetadataNextLocalKey get(fn asset_metadata_next_local_key):
+            map hasher(blake2_128_concat) Ticker => AssetMetadataLocalKey;
+        /// Next Asset Metadata Global Key.
+        pub AssetMetadataNextGlobalKey get(fn asset_metadata_next_global_key): AssetMetadataGlobalKey;
 
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
@@ -780,6 +823,30 @@ decl_module! {
         pub fn register_custom_asset_type(origin, ty: Vec<u8>) -> DispatchResult {
             Self::base_register_custom_asset_type(origin, ty)
         }
+
+        /// Set asset metadata value.
+        #[weight = <T as Config>::WeightInfo::set_asset_metadata()]
+        pub fn set_asset_metadata(origin, ticker: Ticker, key: AssetMetadataKey, value: AssetMetadataValue, detail: Option<AssetMetadataValueDetail<T::Moment>>) -> DispatchResult {
+            Self::base_set_asset_metadata(origin, ticker, key, value, detail)
+        }
+
+        /// Set asset metadata value details.
+        #[weight = <T as Config>::WeightInfo::set_asset_metadata_details()]
+        pub fn set_asset_metadata_details(origin, ticker: Ticker, key: AssetMetadataKey, detail: AssetMetadataValueDetail<T::Moment>) -> DispatchResult {
+            Self::base_set_asset_metadata_details(origin, ticker, key, detail)
+        }
+
+        /// Registers asset metadata local type.
+        #[weight = <T as Config>::WeightInfo::register_asset_metadata_local_type()]
+        pub fn register_asset_metadata_local_type(origin, ticker: Ticker, name: AssetMetadataName, spec: AssetMetadataSpec) -> DispatchResult {
+            Self::base_register_asset_metadata_local_type(origin, ticker, name, spec)
+        }
+
+        /// Registers asset metadata global type.
+        #[weight = <T as Config>::WeightInfo::register_asset_metadata_global_type()]
+        pub fn register_asset_metadata_global_type(origin, name: AssetMetadataName, spec: AssetMetadataSpec) -> DispatchResult {
+            Self::base_register_asset_metadata_global_type(origin, name, spec)
+        }
     }
 }
 
@@ -851,6 +918,14 @@ decl_error! {
         InvestorUniquenessClaimNotAllowed,
         /// Invalid `CustomAssetTypeId`.
         InvalidCustomAssetTypeId,
+        /// Asset Metadata key is missing.
+        AssetMetadataKeyIsMissing,
+        /// Asset Metadata value is locked.
+        AssetMetadataValueIsLocked,
+        /// Asset Metadata Local type already exists for asset.
+        AssetMetadataLocalKeyAlreadyExists,
+        /// Asset Metadata Global type already exists.
+        AssetMetadataGlobalKeyAlreadyExists,
     }
 }
 
@@ -1897,6 +1972,152 @@ impl<T: Config> Module<T> {
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
         Self::ensure_asset_idents_valid(&identifiers)?;
         Self::unverified_update_idents(did, ticker, identifiers);
+        Ok(())
+    }
+
+    fn is_asset_metadata_locked(ticker: Ticker, key: AssetMetadataKey) -> bool {
+        let now = <pallet_timestamp::Pallet<T>>::get();
+        match AssetMetadataValueDetails::<T>::get(ticker, key) {
+            Some(details) => details.is_locked(now),
+            None => false,
+        }
+    }
+
+    fn check_asset_metadata_key_exists(ticker: Ticker, key: AssetMetadataKey) -> bool {
+        match key {
+            AssetMetadataKey::Global(key) => {
+                AssetMetadataGlobalKeyToName::contains_key(AssetMetadataGlobalKey(key))
+            }
+            AssetMetadataKey::Local(key) => {
+                AssetMetadataLocalKeyToName::contains_key(ticker, AssetMetadataLocalKey(key))
+            }
+        }
+    }
+
+    fn base_set_asset_metadata(
+        origin: T::Origin,
+        ticker: Ticker,
+        key: AssetMetadataKey,
+        value: AssetMetadataValue,
+        detail: Option<AssetMetadataValueDetail<T::Moment>>,
+    ) -> DispatchResult {
+        // TODO: Ensure value & details limited.
+
+        // Ensure the caller has the correct permissions for this asset.
+        let _did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+
+        // Check key exists.
+        ensure!(
+            Self::check_asset_metadata_key_exists(ticker, key),
+            Error::<T>::AssetMetadataKeyIsMissing
+        );
+
+        // Check if value is currently locked.
+        ensure!(
+            !Self::is_asset_metadata_locked(ticker, key),
+            Error::<T>::AssetMetadataValueIsLocked
+        );
+
+        // Set asset metadata value for asset.
+        AssetMetadataValues::insert(ticker, key, value);
+
+        // Set asset metadata value details.
+        if let Some(detail) = detail {
+            AssetMetadataValueDetails::<T>::insert(ticker, key, detail);
+        }
+
+        // TODO: emit event.
+        Ok(())
+    }
+
+    fn base_set_asset_metadata_details(
+        origin: T::Origin,
+        ticker: Ticker,
+        key: AssetMetadataKey,
+        detail: AssetMetadataValueDetail<T::Moment>,
+    ) -> DispatchResult {
+        // TODO: Ensure details limited.
+
+        // Ensure the caller has the correct permissions for this asset.
+        let _did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+
+        // Check key exists.
+        ensure!(
+            Self::check_asset_metadata_key_exists(ticker, key),
+            Error::<T>::AssetMetadataKeyIsMissing
+        );
+
+        // Check if value is currently locked.
+        ensure!(
+            !Self::is_asset_metadata_locked(ticker, key),
+            Error::<T>::AssetMetadataValueIsLocked
+        );
+
+        // Set asset metadata value details.
+        AssetMetadataValueDetails::<T>::insert(ticker, key, detail);
+
+        // TODO: emit event.
+        Ok(())
+    }
+
+    fn base_register_asset_metadata_local_type(
+        origin: T::Origin,
+        ticker: Ticker,
+        name: AssetMetadataName,
+        spec: AssetMetadataSpec,
+    ) -> DispatchResult {
+        // TODO: Ensure name & specs limited.
+
+        // Ensure the caller has the correct permissions for this asset.
+        let _did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+
+        // Check if key already exists.
+        ensure!(
+            AssetMetadataLocalNameToKey::get(ticker, &name).is_none(),
+            Error::<T>::AssetMetadataLocalKeyAlreadyExists
+        );
+
+        // Next local key for asset.
+        let key = AssetMetadataNextLocalKey::try_mutate(ticker, try_next_pre::<T, _>)?;
+
+        // Store local key <-> name mapping.
+        AssetMetadataLocalNameToKey::insert(ticker, &name, key);
+        AssetMetadataLocalKeyToName::insert(ticker, key, name);
+
+        // Store local specs.
+        AssetMetadataLocalSpecs::insert(ticker, key, spec);
+
+        // TODO: emit event.
+        Ok(())
+    }
+
+    fn base_register_asset_metadata_global_type(
+        origin: T::Origin,
+        name: AssetMetadataName,
+        spec: AssetMetadataSpec,
+    ) -> DispatchResult {
+        // TODO: Ensure name & specs limited.
+
+        // Only allow global metadata types to be registered by root.
+        ensure_root(origin)?;
+
+        // Check if key already exists.
+        ensure!(
+            AssetMetadataGlobalNameToKey::get(&name).is_none(),
+            Error::<T>::AssetMetadataGlobalKeyAlreadyExists
+        );
+
+        // Next global key.
+        let key = AssetMetadataNextGlobalKey::try_mutate(try_next_pre::<T, _>)?;
+
+        // Store global key <-> name mapping.
+        AssetMetadataGlobalNameToKey::insert(&name, key);
+        AssetMetadataGlobalKeyToName::insert(key, name);
+
+        // Store global specs.
+        AssetMetadataGlobalSpecs::insert(key, spec);
+
+        // TODO: emit event.
         Ok(())
     }
 

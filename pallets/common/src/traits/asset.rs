@@ -92,6 +92,11 @@ pub trait WeightInfo {
     fn reserve_classic_ticker() -> Weight;
     fn controller_transfer() -> Weight;
     fn register_custom_asset_type(n: u32) -> Weight;
+
+    fn set_asset_metadata() -> Weight;
+    fn set_asset_metadata_details() -> Weight;
+    fn register_asset_metadata_local_type() -> Weight;
+    fn register_asset_metadata_global_type() -> Weight;
 }
 
 /// The module's configuration trait.

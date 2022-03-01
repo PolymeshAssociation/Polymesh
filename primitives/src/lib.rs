@@ -254,6 +254,9 @@ pub mod crypto;
 /// Asset type definitions.
 pub mod asset;
 
+/// Asset Metadata type definitions.
+pub mod asset_metadata;
+
 /// Statistics type definitions.
 pub mod statistics;
 
