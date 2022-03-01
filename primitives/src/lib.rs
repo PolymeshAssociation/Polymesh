@@ -292,6 +292,11 @@ pub struct Beneficiary<Balance> {
     pub amount: Balance,
 }
 
+/// Url for linking to off-chain resources.
+#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Url(pub Vec<u8>);
+
 /// The name of a pallet.
 #[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
