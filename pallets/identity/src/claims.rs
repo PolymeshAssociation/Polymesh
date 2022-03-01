@@ -481,6 +481,16 @@ impl<T: Config> Module<T> {
         // Sender has to be part of CDDProviders
         Self::ensure_authorized_cdd_provider(cdd_did)?;
 
+        let record = <DidRecords<T>>::get(cdd_did);
+        let cost = secondary_keys.iter().fold(0usize, |cost, auth| {
+            //Check permissions limits
+            Self::ensure_perms_length_limited(&auth.permissions);
+            cost.saturating_add(auth.permissions.complexity())
+        });
+
+        // Check secondary keys limits
+        Self::ensure_secondary_keys_limited(&record, secondary_keys.len(), cost)?;
+
         // Register Identity
         let target_did = Self::_register_did(
             target_account,
