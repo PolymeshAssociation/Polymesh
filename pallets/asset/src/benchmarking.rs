@@ -47,7 +47,7 @@ const MAX_METADATA_NAME: usize = 1024;
 const MAX_METADATA_VALUE: usize = 1024;
 const MAX_METADATA_SPEC_URL: usize = 1024;
 const MAX_METADATA_SPEC_DESC: usize = 1024;
-const MAX_METADATA_SPEC_SCALE_TYPE: usize = 1024;
+const MAX_METADATA_SPEC_TYPE_DEF: usize = 1024;
 
 pub fn make_document() -> Document {
     Document {
@@ -73,7 +73,7 @@ pub fn make_metadata_spec() -> AssetMetadataSpec {
         description: Some(AssetMetadataDescription(
             [b'd'; MAX_METADATA_SPEC_DESC].into(),
         )),
-        scale_type: Some([b'x'; MAX_METADATA_SPEC_SCALE_TYPE].into()),
+        type_def: Some([b'x'; MAX_METADATA_SPEC_TYPE_DEF].into()),
     }
 }
 

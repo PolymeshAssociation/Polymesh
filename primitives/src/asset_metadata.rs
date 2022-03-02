@@ -15,7 +15,7 @@
 
 use crate::impl_checked_inc;
 use crate::Url;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeAll, Encode};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::{PortableRegistry, TypeInfo};
 use sp_std::prelude::Vec;
@@ -119,8 +119,8 @@ pub struct AssetMetadataSpec {
     pub url: Option<Url>,
     /// Description of metadata type.
     pub description: Option<AssetMetadataDescription>,
-    /// Optional SCALE encoded `AssetMetadataScaleType`.
-    pub scale_type: Option<Vec<u8>>,
+    /// Optional SCALE encoded `AssetMetadataTypeDef`.
+    pub type_def: Option<Vec<u8>>,
 }
 
 impl AssetMetadataSpec {
@@ -133,29 +133,83 @@ impl AssetMetadataSpec {
         if self.description.is_some() {
             complexity += 1;
         }
-        if self.scale_type.is_some() {
+        if self.type_def.is_some() {
             complexity += 1;
         }
         complexity
     }
+
+    /// Set the metadata type definition from an `AssetMetadataTypeDef`.
+    ///
+    /// This will encode the `AssetMetadataTypeDef` to a byte array.
+    pub fn set_type_def(&mut self, type_def: AssetMetadataTypeDef) {
+        self.type_def = Some(type_def.encode());
+    }
+
+    /// Decode the metadata type definition from `self.type_def` and return it as an `AssetMetadataTypeDef`.
+    pub fn decode_type_def(&self) -> Result<Option<AssetMetadataTypeDef>, codec::Error> {
+        match &self.type_def {
+            Some(d) => AssetMetadataTypeDef::decode_all(&d[..]).map(|d| Some(d)),
+            None => Ok(None),
+        }
+    }
+
+    /// Get the type definition length.
+    pub fn get_type_def_len(&self) -> usize {
+        self.type_def.as_ref().map(|d| d.len()).unwrap_or_default()
+    }
 }
 
-/// Asset Metadata versioned SCALE type definition.
-///
-/// This allows for future changes to how SCALE type definitions are encoded.
+/// Asset Metadata type definition.
 #[derive(Encode, Decode)]
-#[derive(Clone, PartialEq, Eq)]
-pub enum AssetMetadataScaleType {
-    /// Version 1 SCALE encoded type definition.
-    V1(AssetMetadataScaleTypeV1),
-}
-
-/// Asset Metadata SCALE V1 type definition.
-#[derive(Encode, Decode)]
-#[derive(Clone, PartialEq, Eq)]
-pub struct AssetMetadataScaleTypeV1 {
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AssetMetadataTypeDef {
     /// A registry of type definitions.
     pub types: PortableRegistry,
     /// The top-level type id.
+    #[codec(compact)]
     pub ty: u32,
+}
+
+impl AssetMetadataTypeDef {
+    /// Create metadata type definition from a type implmenting `scale_info::TypeInfo`.
+    pub fn new_from_type<T: scale_info::StaticTypeInfo>() -> Self {
+        let mut reg = scale_info::Registry::new();
+        let ty = reg.register_type(&scale_info::meta_type::<T>()).id();
+        Self {
+            types: reg.into(),
+            ty,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Moment;
+
+    /// Asset Metadata Test Type.
+    ///
+    /// Wrap a few `TypeInfo` types for testing.
+    #[derive(Encode, Decode, TypeInfo)]
+    #[derive(Clone, Debug, Default, PartialEq, Eq)]
+    struct MetadataTestType1 {
+        spec: AssetMetadataSpec,
+        details: AssetMetadataValueDetail<Moment>,
+    }
+
+    #[test]
+    fn encode_decode_metadata_specs_test() {
+        let type_def = AssetMetadataTypeDef::new_from_type::<MetadataTestType1>();
+        let mut spec = AssetMetadataSpec::default();
+        // Encode type definition.
+        spec.set_type_def(type_def.clone());
+        println!("Type definition length: {}", spec.get_type_def_len());
+        // Decode type definition.
+        let type_def2 = spec
+            .decode_type_def()
+            .expect("Failed to decode type def.")
+            .expect("Missing type def.");
+        assert_eq!(type_def, type_def2);
+    }
 }
