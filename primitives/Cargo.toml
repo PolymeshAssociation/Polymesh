@@ -67,6 +67,7 @@ std = [
     # Crypto
     "blake2/simd",
     "blake2/std",
+    "confidential_identity/std",
     "confidential_identity_v1/std",
     "polymesh-primitives-derive/std",
     "schnorrkel/std",
