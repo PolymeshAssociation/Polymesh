@@ -18,9 +18,13 @@ use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
-use polymesh_primitives::asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName};
-use polymesh_primitives::ethereum::EthereumAddress;
 use polymesh_primitives::{
+    asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName},
+    asset_metadata::{
+        AssetMetadataGlobalKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataSpec,
+        AssetMetadataValue, AssetMetadataValueDetail,
+    },
+    ethereum::EthereumAddress,
     AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, ScopeId, Ticker,
 };
 use sp_std::prelude::Vec;
@@ -219,5 +223,17 @@ decl_event! {
         /// A custom asset type was registered on-chain.
         /// caller DID, the ID of the custom asset type, the string contents registered.
         CustomAssetTypeRegistered(IdentityId, CustomAssetTypeId, Vec<u8>),
+        /// Set asset metadata value.
+        /// (Caller DID, ticker, metadata value, optional value details)
+        SetAssetMetadataValue(IdentityId, Ticker, AssetMetadataValue, Option<AssetMetadataValueDetail<Moment>>),
+        /// Set asset metadata value details (expire, lock status).
+        /// (Caller DID, ticker, value details)
+        SetAssetMetadataValueDetails(IdentityId, Ticker, AssetMetadataValueDetail<Moment>),
+        /// Register asset metadata local type.
+        /// (Caller DID, ticker, Local type name, Local type key, type specs)
+        RegisterAssetMetadataLocalType(IdentityId, Ticker, AssetMetadataName, AssetMetadataLocalKey, AssetMetadataSpec),
+        /// Register asset metadata global type.
+        /// (Global type name, Global type key, type specs)
+        RegisterAssetMetadataGlobalType(AssetMetadataName, AssetMetadataGlobalKey, AssetMetadataSpec),
     }
 }

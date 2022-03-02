@@ -2004,7 +2004,7 @@ impl<T: Config> Module<T> {
         // TODO: Ensure value & details limited.
 
         // Ensure the caller has the correct permissions for this asset.
-        let _did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+        let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
         // Check key exists.
         ensure!(
@@ -2019,14 +2019,14 @@ impl<T: Config> Module<T> {
         );
 
         // Set asset metadata value for asset.
-        AssetMetadataValues::insert(ticker, key, value);
+        AssetMetadataValues::insert(ticker, key, &value);
 
         // Set asset metadata value details.
-        if let Some(detail) = detail {
+        if let Some(ref detail) = detail {
             AssetMetadataValueDetails::<T>::insert(ticker, key, detail);
         }
 
-        // TODO: emit event.
+        Self::deposit_event(RawEvent::SetAssetMetadataValue(did, ticker, value, detail));
         Ok(())
     }
 
@@ -2039,7 +2039,7 @@ impl<T: Config> Module<T> {
         // TODO: Ensure details limited.
 
         // Ensure the caller has the correct permissions for this asset.
-        let _did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+        let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
         // Check key exists.
         ensure!(
@@ -2054,9 +2054,9 @@ impl<T: Config> Module<T> {
         );
 
         // Set asset metadata value details.
-        AssetMetadataValueDetails::<T>::insert(ticker, key, detail);
+        AssetMetadataValueDetails::<T>::insert(ticker, key, &detail);
 
-        // TODO: emit event.
+        Self::deposit_event(RawEvent::SetAssetMetadataValueDetails(did, ticker, detail));
         Ok(())
     }
 
@@ -2069,7 +2069,7 @@ impl<T: Config> Module<T> {
         // TODO: Ensure name & specs limited.
 
         // Ensure the caller has the correct permissions for this asset.
-        let _did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+        let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
         // Check if key already exists.
         ensure!(
@@ -2082,12 +2082,14 @@ impl<T: Config> Module<T> {
 
         // Store local key <-> name mapping.
         AssetMetadataLocalNameToKey::insert(ticker, &name, key);
-        AssetMetadataLocalKeyToName::insert(ticker, key, name);
+        AssetMetadataLocalKeyToName::insert(ticker, key, &name);
 
         // Store local specs.
-        AssetMetadataLocalSpecs::insert(ticker, key, spec);
+        AssetMetadataLocalSpecs::insert(ticker, key, &spec);
 
-        // TODO: emit event.
+        Self::deposit_event(RawEvent::RegisterAssetMetadataLocalType(
+            did, ticker, name, key, spec,
+        ));
         Ok(())
     }
 
@@ -2112,12 +2114,12 @@ impl<T: Config> Module<T> {
 
         // Store global key <-> name mapping.
         AssetMetadataGlobalNameToKey::insert(&name, key);
-        AssetMetadataGlobalKeyToName::insert(key, name);
+        AssetMetadataGlobalKeyToName::insert(key, &name);
 
         // Store global specs.
-        AssetMetadataGlobalSpecs::insert(key, spec);
+        AssetMetadataGlobalSpecs::insert(key, &spec);
 
-        // TODO: emit event.
+        Self::deposit_event(RawEvent::RegisterAssetMetadataGlobalType(name, key, spec));
         Ok(())
     }
 
