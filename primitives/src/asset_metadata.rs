@@ -47,6 +47,18 @@ pub enum AssetMetadataKey {
     Local(u64),
 }
 
+impl From<AssetMetadataLocalKey> for AssetMetadataKey {
+    fn from(key: AssetMetadataLocalKey) -> Self {
+        Self::Local(key.0)
+    }
+}
+
+impl From<AssetMetadataGlobalKey> for AssetMetadataKey {
+    fn from(key: AssetMetadataGlobalKey) -> Self {
+        Self::Global(key.0)
+    }
+}
+
 /// Asset Metadata Value.
 #[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -56,16 +68,16 @@ pub struct AssetMetadataValue(pub Vec<u8>);
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct AssetMetadataValueDetail<Moment> {
-    /// Optional expiry date for the value.
-    pub expiry: Option<Moment>,
-    /// Locked status of the metadata value.
-    pub locked_status: AssetMetadataLockStatus<Moment>,
+    /// Optional expire date for the value.
+    pub expire: Option<Moment>,
+    /// Lock status of the metadata value.
+    pub lock_status: AssetMetadataLockStatus<Moment>,
 }
 
 impl<Moment: PartialOrd> AssetMetadataValueDetail<Moment> {
     /// Check if the metadata value has expired.
     pub fn is_expired(&self, now: Moment) -> bool {
-        match &self.expiry {
+        match &self.expire {
             Some(e) => now > *e,
             None => false,
         }
@@ -73,7 +85,7 @@ impl<Moment: PartialOrd> AssetMetadataValueDetail<Moment> {
 
     /// Check if the metadata value is locked.
     pub fn is_locked(&self, now: Moment) -> bool {
-        self.locked_status.is_locked(now)
+        self.lock_status.is_locked(now)
     }
 }
 
