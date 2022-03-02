@@ -43,12 +43,6 @@ const MAX_DOC_NAME: usize = 1024;
 const MAX_DOC_TYPE: usize = 1024;
 const MAX_IDENTIFIERS_PER_ASSET: u32 = 512;
 
-const MAX_METADATA_NAME: usize = 1024;
-const MAX_METADATA_VALUE: usize = 1024;
-const MAX_METADATA_SPEC_URL: usize = 1024;
-const MAX_METADATA_SPEC_DESC: usize = 1024;
-const MAX_METADATA_SPEC_TYPE_DEF: usize = 1024;
-
 pub fn make_document() -> Document {
     Document {
         uri: [b'u'; MAX_DOC_URI].into(),
@@ -59,28 +53,29 @@ pub fn make_document() -> Document {
     }
 }
 
-pub fn make_metadata_name() -> AssetMetadataName {
-    AssetMetadataName([b'n'; MAX_METADATA_NAME].into())
+pub fn make_metadata_name<T: Config>() -> AssetMetadataName {
+    AssetMetadataName(vec![b'n'; T::AssetMetadataNameMaxLength::get() as usize])
 }
 
-pub fn make_metadata_value() -> AssetMetadataValue {
-    AssetMetadataValue([b'v'; MAX_METADATA_VALUE].into())
+pub fn make_metadata_value<T: Config>() -> AssetMetadataValue {
+    AssetMetadataValue(vec![b'v'; T::AssetMetadataValueMaxLength::get() as usize])
 }
 
-pub fn make_metadata_spec() -> AssetMetadataSpec {
+pub fn make_metadata_spec<T: Config>() -> AssetMetadataSpec {
     AssetMetadataSpec {
-        url: Some(Url([b'u'; MAX_METADATA_SPEC_URL].into())),
-        description: Some(AssetMetadataDescription(
-            [b'd'; MAX_METADATA_SPEC_DESC].into(),
-        )),
-        type_def: Some([b'x'; MAX_METADATA_SPEC_TYPE_DEF].into()),
+        url: Some(Url(vec![b'u'; T::MaxLen::get() as usize])),
+        description: Some(AssetMetadataDescription(vec![
+            b'd';
+            T::MaxLen::get() as usize
+        ])),
+        type_def: Some(vec![b'x'; T::AssetMetadataTypeDefMaxLength::get() as usize]),
     }
 }
 
 fn register_metadata_global_name<T: Config>() -> AssetMetadataKey {
     let root = RawOrigin::Root.into();
-    let name = make_metadata_name();
-    let spec = make_metadata_spec();
+    let name = make_metadata_name::<T>();
+    let spec = make_metadata_spec::<T>();
 
     Module::<T>::register_asset_metadata_global_type(root, name, spec)
         .expect("`register_asset_metadata_global_type` failed");
@@ -502,7 +497,7 @@ benchmarks! {
     set_asset_metadata {
         let (owner, ticker) = owned_ticker::<T>();
         let key = register_metadata_global_name::<T>();
-        let value = make_metadata_value();
+        let value = make_metadata_value::<T>();
         let details = Some(AssetMetadataValueDetail::default());
     }: _(owner.origin, ticker, key, value, details)
 
@@ -514,12 +509,12 @@ benchmarks! {
 
     register_asset_metadata_local_type {
         let (owner, ticker) = owned_ticker::<T>();
-        let name = make_metadata_name();
-        let spec = make_metadata_spec();
+        let name = make_metadata_name::<T>();
+        let spec = make_metadata_spec::<T>();
     }: _(owner.origin, ticker, name, spec)
 
     register_asset_metadata_global_type {
-        let name = make_metadata_name();
-        let spec = make_metadata_spec();
+        let name = make_metadata_name::<T>();
+        let spec = make_metadata_spec::<T>();
     }: _(RawOrigin::Root, name, spec)
 }

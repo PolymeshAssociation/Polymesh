@@ -397,6 +397,10 @@ decl_module! {
         const AssetNameMaxLength: u32 = T::AssetNameMaxLength::get();
         const FundingRoundNameMaxLength: u32 = T::FundingRoundNameMaxLength::get();
 
+        const AssetMetadataNameMaxLength: u32 = T::AssetMetadataNameMaxLength::get();
+        const AssetMetadataValueMaxLength: u32 = T::AssetMetadataValueMaxLength::get();
+        const AssetMetadataTypeDefMaxLength: u32 = T::AssetMetadataTypeDefMaxLength::get();
+
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             use frame_support::weights::constants::WEIGHT_PER_MICROS;
             // Keep track of upgrade cost.
@@ -840,6 +844,7 @@ decl_module! {
         /// # Errors
         /// * `AssetMetadataKeyIsMissing` if the metadata type key doesn't exist.
         /// * `AssetMetadataValueIsLocked` if the metadata value for `key` is locked.
+        /// * `AssetMetadataValueMaxLengthExceeded` if the metadata value exceeds the maximum length.
         ///
         /// # Permissions
         /// * Asset
@@ -877,6 +882,8 @@ decl_module! {
         ///
         /// # Errors
         /// * `AssetMetadataLocalKeyAlreadyExists` if a local metadata type with `name` already exists for `ticker`.
+        /// * `AssetMetadataNameMaxLengthExceeded` if the metadata `name` exceeds the maximum length.
+        /// * `AssetMetadataTypeDefMaxLengthExceeded` if the metadata `spec` type definition exceeds the maximum length.
         ///
         /// # Permissions
         /// * Asset
@@ -894,6 +901,8 @@ decl_module! {
         ///
         /// # Errors
         /// * `AssetMetadataGlobalKeyAlreadyExists` if a globa metadata type with `name` already exists.
+        /// * `AssetMetadataNameMaxLengthExceeded` if the metadata `name` exceeds the maximum length.
+        /// * `AssetMetadataTypeDefMaxLengthExceeded` if the metadata `spec` type definition exceeds the maximum length.
         #[weight = <T as Config>::WeightInfo::register_asset_metadata_global_type()]
         pub fn register_asset_metadata_global_type(origin, name: AssetMetadataName, spec: AssetMetadataSpec) -> DispatchResult {
             Self::base_register_asset_metadata_global_type(origin, name, spec)
@@ -969,6 +978,12 @@ decl_error! {
         InvestorUniquenessClaimNotAllowed,
         /// Invalid `CustomAssetTypeId`.
         InvalidCustomAssetTypeId,
+        /// Maximum length of the asset metadata type name has been exceeded.
+        AssetMetadataNameMaxLengthExceeded,
+        /// Maximum length of the asset metadata value has been exceeded.
+        AssetMetadataValueMaxLengthExceeded,
+        /// Maximum length of the asset metadata type definition has been exceeded.
+        AssetMetadataTypeDefMaxLengthExceeded,
         /// Asset Metadata key is missing.
         AssetMetadataKeyIsMissing,
         /// Asset Metadata value is locked.
@@ -2045,6 +2060,37 @@ impl<T: Config> Module<T> {
         }
     }
 
+    /// Ensure asset metadata `value` is within the global limit.
+    fn ensure_asset_metadata_value_limited(value: &AssetMetadataValue) -> DispatchResult {
+        ensure!(
+            value.len() as u32 <= T::AssetMetadataValueMaxLength::get(),
+            Error::<T>::AssetMetadataValueMaxLengthExceeded
+        );
+        Ok(())
+    }
+
+    /// Ensure asset metadata `name` is within the global limit.
+    fn ensure_asset_metadata_name_limited(name: &AssetMetadataName) -> DispatchResult {
+        ensure!(
+            name.len() as u32 <= T::AssetMetadataNameMaxLength::get(),
+            Error::<T>::AssetMetadataNameMaxLengthExceeded
+        );
+        Ok(())
+    }
+
+    /// Ensure asset metadata `spec` is within the global limit.
+    fn ensure_asset_metadata_spec_limited(spec: &AssetMetadataSpec) -> DispatchResult {
+        ensure_opt_string_limited::<T>(spec.url.as_deref())?;
+        ensure_opt_string_limited::<T>(spec.description.as_deref())?;
+        if let Some(ref type_def) = spec.type_def {
+            ensure!(
+                type_def.len() as u32 <= T::AssetMetadataTypeDefMaxLength::get(),
+                Error::<T>::AssetMetadataTypeDefMaxLengthExceeded
+            );
+        }
+        Ok(())
+    }
+
     fn base_set_asset_metadata(
         origin: T::Origin,
         ticker: Ticker,
@@ -2052,7 +2098,7 @@ impl<T: Config> Module<T> {
         value: AssetMetadataValue,
         detail: Option<AssetMetadataValueDetail<T::Moment>>,
     ) -> DispatchResult {
-        // TODO: Ensure value & details limited.
+        Self::ensure_asset_metadata_value_limited(&value)?;
 
         // Ensure the caller has the correct permissions for this asset.
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
@@ -2087,8 +2133,6 @@ impl<T: Config> Module<T> {
         key: AssetMetadataKey,
         detail: AssetMetadataValueDetail<T::Moment>,
     ) -> DispatchResult {
-        // TODO: Ensure details limited.
-
         // Ensure the caller has the correct permissions for this asset.
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
@@ -2117,7 +2161,8 @@ impl<T: Config> Module<T> {
         name: AssetMetadataName,
         spec: AssetMetadataSpec,
     ) -> DispatchResult {
-        // TODO: Ensure name & specs limited.
+        Self::ensure_asset_metadata_name_limited(&name)?;
+        Self::ensure_asset_metadata_spec_limited(&spec)?;
 
         // Ensure the caller has the correct permissions for this asset.
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
@@ -2149,7 +2194,8 @@ impl<T: Config> Module<T> {
         name: AssetMetadataName,
         spec: AssetMetadataSpec,
     ) -> DispatchResult {
-        // TODO: Ensure name & specs limited.
+        Self::ensure_asset_metadata_name_limited(&name)?;
+        Self::ensure_asset_metadata_spec_limited(&spec)?;
 
         // Only allow global metadata types to be registered by root.
         ensure_root(origin)?;

@@ -301,6 +301,9 @@ macro_rules! misc_pallet_impls {
             type UnixTime = pallet_timestamp::Pallet<Runtime>;
             type AssetNameMaxLength = AssetNameMaxLength;
             type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
+            type AssetMetadataNameMaxLength = AssetMetadataNameMaxLength;
+            type AssetMetadataValueMaxLength = AssetMetadataValueMaxLength;
+            type AssetMetadataTypeDefMaxLength = AssetMetadataTypeDefMaxLength;
             type AssetFn = Asset;
             type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
             type CPWeightInfo = polymesh_weights::pallet_checkpoint::WeightInfo;

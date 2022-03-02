@@ -135,6 +135,15 @@ pub trait Config:
     /// Max length of the funding round name.
     type FundingRoundNameMaxLength: Get<u32>;
 
+    /// Max length for the Asset Metadata type name.
+    type AssetMetadataNameMaxLength: Get<u32>;
+
+    /// Max length for the Asset Metadata value.
+    type AssetMetadataValueMaxLength: Get<u32>;
+
+    /// Max length for the Asset Metadata type definition.
+    type AssetMetadataTypeDefMaxLength: Get<u32>;
+
     type AssetFn: AssetFnTrait<Self::AccountId, Self::Origin>;
 
     type WeightInfo: WeightInfo;
