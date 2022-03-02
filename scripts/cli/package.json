@@ -55,7 +55,6 @@
     "@polkadot/api": "7.6.1",
     "@polkadot/util": "^8.3.3",
     "@polkadot/util-crypto": "^8.3.3",
-    "@types/sqlite3": "^3.1.7",
     "chai": "4.2.0",
     "chalk": "4.1.0",
     "clear": "0.1.0",

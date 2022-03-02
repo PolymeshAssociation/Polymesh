@@ -26,7 +26,6 @@ import { createIdentities } from "../helpers/identity_helper";
 import { distributePoly } from "../helpers/poly_helper";
 import type { IdentityId } from "../interfaces";
 import { assert } from "chai";
-import { getNonce } from "../util/sqlite3";
 import { Option } from "@polkadot/types-codec";
 
 let block_sizes: Number[] = [];
