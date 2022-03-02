@@ -50,6 +50,10 @@
 //! - `remove_documents` - Remove documents for a given token.
 //! - `set_funding_round` - Sets the name of the current funding round.
 //! - `update_identifiers` - Updates the asset identifiers.
+//! - `set_asset_metadata` - Set asset metadata value.
+//! - `set_asset_metadata_details` - Set asset metadata value details (expire, lock status).
+//! - `register_asset_metadata_local_type` - Register asset metadata local type.
+//! - `register_asset_metadata_global_type` - Register asset metadata global type.
 //!
 //! ### Public Functions
 //!
@@ -825,24 +829,71 @@ decl_module! {
         }
 
         /// Set asset metadata value.
+        ///
+        /// # Arguments
+        /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
+        /// * `ticker` Ticker of the token.
+        /// * `key` Metadata key.
+        /// * `value` Metadata value.
+        /// * `details` Optional Metadata value detailis (expire, lock status).
+        ///
+        /// # Errors
+        /// * `AssetMetadataKeyIsMissing` if the metadata type key doesn't exist.
+        /// * `AssetMetadataValueIsLocked` if the metadata value for `key` is locked.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Config>::WeightInfo::set_asset_metadata()]
         pub fn set_asset_metadata(origin, ticker: Ticker, key: AssetMetadataKey, value: AssetMetadataValue, detail: Option<AssetMetadataValueDetail<T::Moment>>) -> DispatchResult {
             Self::base_set_asset_metadata(origin, ticker, key, value, detail)
         }
 
-        /// Set asset metadata value details.
+        /// Set asset metadata value details (expire, lock status).
+        ///
+        /// # Arguments
+        /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
+        /// * `ticker` Ticker of the token.
+        /// * `key` Metadata key.
+        /// * `details` Metadata value detailis (expire, lock status).
+        ///
+        /// # Errors
+        /// * `AssetMetadataKeyIsMissing` if the metadata type key doesn't exist.
+        /// * `AssetMetadataValueIsLocked` if the metadata value for `key` is locked.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Config>::WeightInfo::set_asset_metadata_details()]
         pub fn set_asset_metadata_details(origin, ticker: Ticker, key: AssetMetadataKey, detail: AssetMetadataValueDetail<T::Moment>) -> DispatchResult {
             Self::base_set_asset_metadata_details(origin, ticker, key, detail)
         }
 
         /// Registers asset metadata local type.
+        ///
+        /// # Arguments
+        /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
+        /// * `ticker` Ticker of the token.
+        /// * `name` Metadata name.
+        /// * `spec` Metadata type definition.
+        ///
+        /// # Errors
+        /// * `AssetMetadataLocalKeyAlreadyExists` if a local metadata type with `name` already exists for `ticker`.
+        ///
+        /// # Permissions
+        /// * Asset
         #[weight = <T as Config>::WeightInfo::register_asset_metadata_local_type()]
         pub fn register_asset_metadata_local_type(origin, ticker: Ticker, name: AssetMetadataName, spec: AssetMetadataSpec) -> DispatchResult {
             Self::base_register_asset_metadata_local_type(origin, ticker, name, spec)
         }
 
         /// Registers asset metadata global type.
+        ///
+        /// # Arguments
+        /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
+        /// * `name` Metadata name.
+        /// * `spec` Metadata type definition.
+        ///
+        /// # Errors
+        /// * `AssetMetadataGlobalKeyAlreadyExists` if a globa metadata type with `name` already exists.
         #[weight = <T as Config>::WeightInfo::register_asset_metadata_global_type()]
         pub fn register_asset_metadata_global_type(origin, name: AssetMetadataName, spec: AssetMetadataSpec) -> DispatchResult {
             Self::base_register_asset_metadata_global_type(origin, name, spec)
