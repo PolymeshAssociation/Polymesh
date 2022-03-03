@@ -971,20 +971,6 @@ export interface Leg extends Struct {
   readonly amount: Balance;
 }
 
-/** @name LegacyPalletPermissions */
-export interface LegacyPalletPermissions extends Struct {
-  readonly pallet_name: PalletName;
-  readonly total: bool;
-  readonly dispatchable_names: Vec<DispatchableName>;
-}
-
-/** @name LegacyPermissions */
-export interface LegacyPermissions extends Struct {
-  readonly asset: Option<Vec<Ticker>>;
-  readonly extrinsic: Option<Vec<LegacyPalletPermissions>>;
-  readonly portfolio: Option<Vec<PortfolioId>>;
-}
-
 /** @name LegId */
 export interface LegId extends u64 {}
 

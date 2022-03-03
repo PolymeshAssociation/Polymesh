@@ -5,7 +5,6 @@ import type {
   DocumentHash,
   DocumentName,
   Document,
-  LegacyPalletPermissions,
   ExtrinsicPermissions,
   PalletPermissions,
   These,

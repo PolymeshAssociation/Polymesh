@@ -33,8 +33,8 @@ use frame_support::{
     Parameter,
 };
 use polymesh_primitives::{
-    secondary_key::{api::LegacyPermissions, SecondaryKey},
-    AuthorizationData, IdentityClaim, IdentityId, InvestorUid, Permissions, Signatory, Ticker,
+    secondary_key::SecondaryKey, AuthorizationData, IdentityClaim, IdentityId, InvestorUid,
+    Permissions, Signatory, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_core::H512;
@@ -133,13 +133,6 @@ pub trait WeightInfo {
 
     /// Add complexity cost of Permissions to `set_permission_to_signer` extrinsic.
     fn set_permission_to_signer_full(perms: &Permissions) -> Weight {
-        let (assets, portfolios, pallets, extrinsics) = perms.counts();
-        Self::permissions_cost(assets, portfolios, pallets, extrinsics)
-            .saturating_add(Self::set_permission_to_signer())
-    }
-
-    /// Add complexity cost of Permissions to `legacy_set_permission_to_signer` extrinsic.
-    fn legacy_set_permission_to_signer_full(perms: &LegacyPermissions) -> Weight {
         let (assets, portfolios, pallets, extrinsics) = perms.counts();
         Self::permissions_cost(assets, portfolios, pallets, extrinsics)
             .saturating_add(Self::set_permission_to_signer())

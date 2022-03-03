@@ -121,10 +121,9 @@ use polymesh_common_utilities::{
     SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    investor_zkproof_data::v1::InvestorZKProofData, secondary_key::api::LegacyPermissions,
-    storage_migration_ver, Authorization, AuthorizationData, AuthorizationType, CddId, Claim,
-    ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, Permissions, Scope, SecondaryKey,
-    Signatory, Ticker,
+    investor_zkproof_data::v1::InvestorZKProofData, storage_migration_ver, Authorization,
+    AuthorizationData, AuthorizationType, CddId, Claim, ClaimType, Identity as DidRecord,
+    IdentityClaim, IdentityId, Permissions, Scope, SecondaryKey, Signatory, Ticker,
 };
 use sp_runtime::traits::Hash;
 use sp_std::{convert::TryFrom, prelude::*};
@@ -381,18 +380,6 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::set_permission_to_signer_full(&perms)]
         pub fn set_permission_to_signer(origin, signer: Signatory<T::AccountId>, perms: Permissions) {
             Self::base_set_permission_to_signer(origin, signer, perms)?;
-        }
-
-        /// This function is a workaround for https://github.com/polkadot-js/apps/issues/3632
-        /// It sets permissions for an specific `target_key` key.
-        /// Only the primary key of an identity is able to set secondary key permissions.
-        #[weight = <T as Config>::WeightInfo::legacy_set_permission_to_signer_full(&permissions)]
-        pub fn legacy_set_permission_to_signer(
-            origin,
-            signer: Signatory<T::AccountId>,
-            permissions: LegacyPermissions
-        ) -> DispatchResult {
-            Self::set_permission_to_signer(origin, signer, permissions.into())
         }
 
         /// It disables all secondary keys at `did` identity.
