@@ -33,7 +33,7 @@ use frame_support::{
     Parameter,
 };
 use polymesh_primitives::{
-    secondary_key::api::{LegacyPermissions, SecondaryKey},
+    secondary_key::{api::LegacyPermissions, SecondaryKey},
     AuthorizationData, IdentityClaim, IdentityId, InvestorUid, Permissions, Signatory, Ticker,
 };
 use scale_info::TypeInfo;
@@ -52,7 +52,7 @@ pub type AuthorizationNonce = u64;
 /// value of nonce of primary key of `target_id`. See `System::account_nonce`.
 /// In this way, the authorization is delimited to an specific transaction (usually the next one)
 /// of primary key of target identity.
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 pub struct TargetIdAuthorization<Moment> {
     /// Target identity which is authorized to make an operation.
     pub target_id: IdentityId,
@@ -68,8 +68,8 @@ pub struct TargetIdAuthorization<Moment> {
 /// # TODO
 ///  - Replace `H512` type by a template type which represents explicitly the relation with
 ///  `TargetIdAuthorization`.
-#[derive(codec::Encode, codec::Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
-pub struct SecondaryKeyWithAuth<AccountId> {
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
+pub struct SecondaryKeyWithAuth<AccountId: Encode + Decode> {
     /// Secondary key to be added.
     pub secondary_key: SecondaryKey<AccountId>,
     /// Off-chain authorization signature.
@@ -104,7 +104,7 @@ pub trait WeightInfo {
     fn revoke_claim_by_index() -> Weight;
 
     /// Add complexity cost of Permissions to `add_secondary_keys_with_authorization` extrinsic.
-    fn add_secondary_keys_full<AccountId>(
+    fn add_secondary_keys_full<AccountId: Encode + Decode>(
         additional_keys: &[SecondaryKeyWithAuth<AccountId>],
     ) -> Weight {
         let perm_cost = additional_keys.iter().fold(0u64, |cost, key_with_auth| {

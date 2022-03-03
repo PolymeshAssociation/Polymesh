@@ -35,8 +35,8 @@ use polymesh_common_utilities::traits::{
 };
 use polymesh_common_utilities::{Context, SystematicIssuers};
 use polymesh_primitives::{
-    extract_auth, secondary_key, AuthorizationData, DispatchableName, ExtrinsicPermissions,
-    IdentityId, PalletName, Permissions, SecondaryKey, Signatory,
+    extract_auth, AuthorizationData, DispatchableName, ExtrinsicPermissions, IdentityId,
+    PalletName, Permissions, SecondaryKey, Signatory,
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
@@ -642,14 +642,7 @@ impl<T: Config> Module<T> {
         // 2.3. Give `InitialPOLYX` to the primary key for testing.
         T::Balances::deposit_creating(&sender, T::InitialPOLYX::get().into());
 
-        Self::deposit_event(RawEvent::DidCreated(
-            did,
-            sender,
-            secondary_keys
-                .into_iter()
-                .map(secondary_key::api::SecondaryKey::from)
-                .collect(),
-        ));
+        Self::deposit_event(RawEvent::DidCreated(did, sender, secondary_keys));
         Ok(did)
     }
 

@@ -25,15 +25,12 @@ use sp_std::{convert::From, prelude::Vec};
 #[allow(missing_docs)]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct Identity<AccountId: Encode + Decode> {
+pub struct Identity<AccountId> {
     pub primary_key: AccountId,
     pub secondary_keys: Vec<SecondaryKey<AccountId>>,
 }
 
-impl<AccountId> Identity<AccountId>
-where
-    AccountId: Encode + Decode + Clone + Default + Eq + Ord,
-{
+impl<AccountId: Default + Eq> Identity<AccountId> {
     /// Creates an [`Identity`] from an `AccountId`.
     pub fn new(primary_key: AccountId) -> Self {
         Identity {
@@ -79,10 +76,7 @@ where
     }
 }
 
-impl<AccountId> From<Public> for Identity<AccountId>
-where
-    AccountId: Encode + Decode + PublicType,
-{
+impl<AccountId: PublicType> From<Public> for Identity<AccountId> {
     fn from(p: Public) -> Self {
         Identity {
             primary_key: AccountId::from_slice(&p.0[..]),

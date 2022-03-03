@@ -13,9 +13,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchResult;
 use polymesh_primitives::{
-    secondary_key::api::SecondaryKey, traits::BlockRewardsReserveCurrency, InvestorUid,
+    secondary_key::SecondaryKey, traits::BlockRewardsReserveCurrency, InvestorUid,
 };
 
 pub trait CommonConfig: frame_system::Config + permissions::Config {
@@ -48,7 +49,7 @@ pub use permissions::{AccountCallPermissionsData, CheckAccountCallPermissions};
 pub mod relayer;
 pub mod statistics;
 
-pub trait TestUtilsFn<AccountId> {
+pub trait TestUtilsFn<AccountId: Encode + Decode> {
     /// Creates a new did and attaches a CDD claim to it.
     fn register_did(
         target: AccountId,

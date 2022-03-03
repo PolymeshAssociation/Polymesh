@@ -303,19 +303,17 @@ where
 }
 
 /// A secondary key is a signatory with defined permissions.
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, TypeInfo)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct SecondaryKey<AccountId: Encode + Decode> {
+pub struct SecondaryKey<AccountId> {
     /// The account or identity that is the signatory of this key.
     pub signer: Signatory<AccountId>,
     /// The access permissions of the signing key.
     pub permissions: Permissions,
 }
 
-impl<AccountId> SecondaryKey<AccountId>
-where
-    AccountId: Encode + Decode,
-{
+impl<AccountId> SecondaryKey<AccountId> {
     /// Creates a [`SecondaryKey`].
     pub fn new(signer: Signatory<AccountId>, permissions: Permissions) -> Self {
         Self {
@@ -369,10 +367,7 @@ where
     }
 }
 
-impl<AccountId> From<IdentityId> for SecondaryKey<AccountId>
-where
-    AccountId: Encode + Decode,
-{
+impl<AccountId> From<IdentityId> for SecondaryKey<AccountId> {
     fn from(id: IdentityId) -> Self {
         Self {
             signer: Signatory::Identity(id),
@@ -381,10 +376,7 @@ where
     }
 }
 
-impl<AccountId> PartialEq<IdentityId> for SecondaryKey<AccountId>
-where
-    AccountId: Encode + Decode,
-{
+impl<AccountId> PartialEq<IdentityId> for SecondaryKey<AccountId> {
     fn eq(&self, other: &IdentityId) -> bool {
         if let Signatory::Identity(id) = self.signer {
             id == *other
@@ -400,7 +392,7 @@ pub mod api {
         AssetPermissions, ExtrinsicPermissions, PalletPermissions, Permissions,
         PortfolioPermissions,
     };
-    use crate::{DispatchableName, PalletName, Signatory, SubsetRestriction};
+    use crate::{DispatchableName, PalletName, SubsetRestriction};
     use codec::{Decode, Encode};
     use scale_info::TypeInfo;
     #[cfg(feature = "std")]
@@ -485,30 +477,6 @@ pub mod api {
         }
     }
 
-    /// The same secondary key object without the extra trait constraints.
-    /// It is needed because it's not possible to define `decl_event!`
-    /// with the required restrictions on `AccountId`
-    #[derive(Encode, Decode, TypeInfo, Default, Clone, PartialEq, Eq, Debug)]
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    pub struct SecondaryKey<AccountId> {
-        /// The account or identity that is the signatory of this key.
-        pub signer: Signatory<AccountId>,
-        /// The access permissions of the signing key.
-        pub permissions: Permissions,
-    }
-
-    impl<AccountId> From<super::SecondaryKey<AccountId>> for SecondaryKey<AccountId>
-    where
-        AccountId: Encode + Decode,
-    {
-        fn from(k: super::SecondaryKey<AccountId>) -> SecondaryKey<AccountId> {
-            SecondaryKey {
-                signer: k.signer,
-                permissions: k.permissions,
-            }
-        }
-    }
-
     impl From<LegacyPalletPermissions> for PalletPermissions {
         fn from(p: LegacyPalletPermissions) -> PalletPermissions {
             PalletPermissions {
@@ -539,18 +507,6 @@ pub mod api {
                 asset: p.asset.into(),
                 extrinsic: p.extrinsic.into(),
                 portfolio: p.portfolio.into(),
-            }
-        }
-    }
-
-    impl<AccountId> From<SecondaryKey<AccountId>> for super::SecondaryKey<AccountId>
-    where
-        AccountId: Encode + Decode,
-    {
-        fn from(k: SecondaryKey<AccountId>) -> super::SecondaryKey<AccountId> {
-            super::SecondaryKey {
-                signer: k.signer,
-                permissions: k.permissions,
             }
         }
     }
