@@ -431,8 +431,7 @@
         "Custom": "Vec<u8>"
       }
     },
-    "InvestorZKProofData": "Lookup336",
-    "Lookup336": {
+    "InvestorZKProofData": {
         "r": "CompressedRistretto",
         "s": "Scalar"
     },
