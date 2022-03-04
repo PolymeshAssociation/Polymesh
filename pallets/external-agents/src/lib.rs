@@ -63,7 +63,8 @@ use pallet_identity::PermissionedCallOriginData;
 pub use polymesh_common_utilities::traits::external_agents::{Config, Event, WeightInfo};
 use polymesh_primitives::agent::{AGId, AgentGroup};
 use polymesh_primitives::{
-    extract_auth, ExtrinsicPermissions, IdentityId, PalletPermissions, SubsetRestriction, Ticker,
+    extract_auth, AuthorizationData, ExtrinsicPermissions, IdentityId, PalletPermissions,
+    Signatory, SubsetRestriction, Ticker,
 };
 use sp_std::prelude::*;
 
@@ -134,7 +135,23 @@ decl_module! {
         /// * Agent
         #[weight = <T as Config>::WeightInfo::create_group(perms.complexity() as u32)]
         pub fn create_group(origin, ticker: Ticker, perms: ExtrinsicPermissions) -> DispatchResult {
-            Self::base_create_group(origin, ticker, perms)
+            Self::base_create_group(origin, ticker, perms).map(drop)
+        }
+
+        #[weight = <T as Config>::WeightInfo::create_group(perms.complexity() as u32)]
+        pub fn create_group_and_add_auth(origin, ticker: Ticker, perms: ExtrinsicPermissions) -> DispatchResult {
+            let ag_id = Self::base_create_group(origin.clone(), ticker, perms)?;
+            let PermissionedCallOriginData {
+                primary_did,
+                ..
+            } = <Identity<T>>::ensure_origin_call_permissions(origin.clone())?;
+            <Identity<T>>::add_authorization(
+                origin,
+                Signatory::Identity(primary_did),
+                AuthorizationData::BecomeAgent(ticker, AgentGroup::Custom(ag_id)),
+                None
+            )?;
+            Ok(())
         }
 
         /// Updates the permissions of the custom AG identified by `id`, for the given `ticker`.
@@ -279,7 +296,7 @@ impl<T: Config> Module<T> {
         origin: T::Origin,
         ticker: Ticker,
         perms: ExtrinsicPermissions,
-    ) -> DispatchResult {
+    ) -> Result<AGId, DispatchError> {
         let did = Self::ensure_perms(origin, ticker)?.for_event();
         <Identity<T>>::ensure_extrinsic_perms_length_limited(&perms)?;
 
@@ -289,7 +306,7 @@ impl<T: Config> Module<T> {
         // Commit & emit.
         GroupPermissions::insert(ticker, id, perms.clone());
         Self::deposit_event(Event::GroupCreated(did, ticker, id, perms));
-        Ok(())
+        Ok(id)
     }
 
     fn base_set_group_permissions(

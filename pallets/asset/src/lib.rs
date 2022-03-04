@@ -471,6 +471,34 @@ decl_module! {
                 .map(drop)
         }
 
+        #[weight = <T as Config>::WeightInfo::create_asset(
+            name.len() as u32,
+            identifiers.len() as u32,
+            funding_round.as_ref().map_or(0, |name| name.len()) as u32
+        ) + <T as Config>::WeightInfo::register_custom_asset_type(custom_asset_type.len() as u32)]
+        pub fn create_asset_with_custom_type(
+            origin,
+            name: AssetName,
+            ticker: Ticker,
+            divisible: bool,
+            custom_asset_type: Vec<u8>,
+            identifiers: Vec<AssetIdentifier>,
+            funding_round: Option<FundingRoundName>,
+            disable_iu: bool,
+        ) -> DispatchResult {
+            let asset_type_id = Self::base_register_custom_asset_type(origin.clone(), custom_asset_type)?;
+            Self::base_create_asset(
+                origin,
+                name,
+                ticker,
+                divisible,
+                AssetType::Custom(asset_type_id),
+                identifiers,
+                funding_round,
+                disable_iu,
+            ).map(drop)
+        }
+
         /// Freezes transfers and minting of a given token.
         ///
         /// # Arguments
@@ -778,7 +806,7 @@ decl_module! {
         /// * `ty` contains the string representation of the asset type.
         #[weight = <T as Config>::WeightInfo::register_custom_asset_type(ty.len() as u32)]
         pub fn register_custom_asset_type(origin, ty: Vec<u8>) -> DispatchResult {
-            Self::base_register_custom_asset_type(origin, ty)
+            Self::base_register_custom_asset_type(origin, ty).map(drop)
         }
     }
 }
@@ -2248,21 +2276,26 @@ impl<T: Config> Module<T> {
         )
     }
 
-    fn base_register_custom_asset_type(origin: T::Origin, ty: Vec<u8>) -> DispatchResult {
+    fn base_register_custom_asset_type(
+        origin: T::Origin,
+        ty: Vec<u8>,
+    ) -> Result<CustomAssetTypeId, DispatchError> {
         ensure_string_limited::<T>(&ty)?;
 
         let did = Identity::<T>::ensure_perms(origin)?;
 
-        match CustomTypesInverse::try_get(&ty) {
-            Ok(id) => Self::deposit_event(Event::<T>::CustomAssetTypeExists(did, id, ty)),
+        Ok(match CustomTypesInverse::try_get(&ty) {
+            Ok(id) => {
+                Self::deposit_event(Event::<T>::CustomAssetTypeExists(did, id, ty));
+                id
+            }
             Err(()) => {
                 let id = CustomTypeIdSequence::try_mutate(try_next_pre::<T, _>)?;
                 CustomTypesInverse::insert(&ty, id);
                 CustomTypes::insert(id, ty.clone());
                 Self::deposit_event(Event::<T>::CustomAssetTypeRegistered(did, id, ty));
+                id
             }
-        }
-
-        Ok(())
+        })
     }
 }

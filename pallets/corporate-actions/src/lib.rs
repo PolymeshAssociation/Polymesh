@@ -96,6 +96,7 @@ pub mod distribution;
 
 use codec::{Decode, Encode};
 use core::convert::TryInto;
+use distribution::WeightInfo as DistWeightInfoTrait;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -112,7 +113,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     calendar::CheckpointId, impl_checked_inc, storage_migration_ver, Balance, DocumentId, EventDid,
-    IdentityId, Moment, Ticker,
+    IdentityId, Moment, PortfolioNumber, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
@@ -562,77 +563,18 @@ decl_module! {
             targets: Option<TargetIdentities>,
             default_withholding_tax: Option<Tax>,
             withholding_tax: Option<Vec<(IdentityId, Tax)>>,
-        ) {
-            // Ensure that `details` is short enough.
-            details
-                .len()
-                .try_into()
-                .ok()
-                .filter(|&len: &u32| len <= Self::max_details_length())
-                .ok_or(Error::<T>::DetailsTooLong)?;
-
-            // Ensure that a permissioned agent is calling.
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, ticker)?.for_event();
-
-            // Ensure that the next local CA ID doesn't overflow.
-            let mut next_id = CAIdSequence::get(ticker);
-            let local_id = try_next_post::<T, _>(&mut next_id)?;
-            let id = CAId { ticker, local_id };
-
-            // Ensure there are no duplicates in withholding tax overrides
-            // and that we're within the limit.
-            let mut withholding_tax = withholding_tax;
-            if let Some(wt) = &mut withholding_tax {
-                let before = wt.len();
-                Self::ensure_did_whts_limited(before)?;
-                wt.sort_unstable_by_key(|&(did, _)| did);
-                wt.dedup_by_key(|&mut (did, _)| did);
-                ensure!(before == wt.len(), Error::<T>::DuplicateDidTax);
-            }
-
-            // Ensure target ids are limited in number if provided.
-            if let Some(ref targets) = targets {
-                Self::ensure_target_ids_limited(targets)?;
-            }
-
-            // Declaration date must be <= now.
-            ensure!(decl_date <= <Checkpoint<T>>::now_unix(), Error::<T>::DeclDateInFuture);
-
-            // If provided, either use the existing CP ID or schedule one to be made.
-            let record_date = record_date
-                .map(|date| with_transaction(|| -> Result<_, DispatchError> {
-                    let rd = Self::handle_record_date(agent, ticker, date)?;
-                    ensure!(decl_date <= rd.date, Error::<T>::DeclDateAfterRecordDate);
-                    Ok(rd)
-                }))
-                .transpose()?;
-
-            // Commit the next local CA ID.
-            CAIdSequence::insert(ticker, next_id);
-
-            // Use asset level defaults if data not provided here.
-            let targets = targets
-                .map(|t| t.dedup())
-                .unwrap_or_else(|| Self::default_target_identities(ticker));
-            let default_withholding_tax = default_withholding_tax
-                .unwrap_or_else(|| Self::default_withholding_tax(ticker));
-            let withholding_tax = withholding_tax
-                .unwrap_or_else(|| Self::did_withholding_tax(ticker));
-
-            // Commit CA to storage.
-            let ca = CorporateAction {
+        ) -> DispatchResult {
+            Self::base_initiate_corporate_action(
+                origin,
+                ticker,
                 kind,
                 decl_date,
                 record_date,
+                details,
                 targets,
                 default_withholding_tax,
                 withholding_tax,
-            };
-            CorporateActions::insert(ticker, id.local_id, ca.clone());
-            Details::insert(id, details.clone());
-
-            // Emit event.
-            Self::deposit_event(Event::CAInitiated(agent, id, ca, details));
+            ).map(drop)
         }
 
         /// Link the given CA `id` to the given `docs`.
@@ -767,6 +709,55 @@ decl_module! {
             CorporateActions::insert(ca_id.ticker, ca_id.local_id, ca.clone());
             Self::deposit_event(Event::RecordDateChanged(agent, ca_id, ca));
         }
+
+         #[weight = <T as Config>::WeightInfo::initiate_corporate_action_use_defaults(
+                T::MaxDidWhts::get(),
+                T::MaxTargetIds::get(),
+            )
+            .max(<T as Config>::WeightInfo::initiate_corporate_action_provided(
+                withholding_tax.as_ref().map_or(0, |whts| whts.len() as u32),
+                targets.as_ref().map_or(0, |t| t.identities.len() as u32),
+            )) + <T as Config>::DistWeightInfo::distribute()
+        ]
+        pub fn initiate_corporate_action_and_distribute(
+            origin,
+            ticker: Ticker,
+            kind: CAKind,
+            decl_date: Moment,
+            record_date: Option<RecordDateSpec>,
+            details: CADetails,
+            targets: Option<TargetIdentities>,
+            default_withholding_tax: Option<Tax>,
+            withholding_tax: Option<Vec<(IdentityId, Tax)>>,
+            portfolio: Option<PortfolioNumber>,
+            currency: Ticker,
+            per_share: Balance,
+            amount: Balance,
+            payment_at: Moment,
+            expires_at: Option<Moment>,
+        ) -> DispatchResult {
+            let ca_id = Self::base_initiate_corporate_action(
+                origin,
+                ticker,
+                kind,
+                decl_date,
+                record_date,
+                details,
+                targets,
+                default_withholding_tax,
+                withholding_tax
+            )?;
+            <distribution::Module<T>>::distribute(
+                origin,
+                ca_id,
+                portfolio,
+                currency,
+                per_share,
+                amount,
+                payment_at,
+                expires_at,
+            )
+        }
     }
 }
 
@@ -834,6 +825,94 @@ decl_error! {
 }
 
 impl<T: Config> Module<T> {
+    fn base_initiate_corporate_action(
+        origin: T::Origin,
+        ticker: Ticker,
+        kind: CAKind,
+        decl_date: Moment,
+        record_date: Option<RecordDateSpec>,
+        details: CADetails,
+        targets: Option<TargetIdentities>,
+        default_withholding_tax: Option<Tax>,
+        withholding_tax: Option<Vec<(IdentityId, Tax)>>,
+    ) -> Result<CAId, DispatchError> {
+        // Ensure that `details` is short enough.
+        details
+            .len()
+            .try_into()
+            .ok()
+            .filter(|&len: &u32| len <= Self::max_details_length())
+            .ok_or(Error::<T>::DetailsTooLong)?;
+
+        // Ensure that a permissioned agent is calling.
+        let agent = <ExternalAgents<T>>::ensure_perms(origin, ticker)?.for_event();
+
+        // Ensure that the next local CA ID doesn't overflow.
+        let mut next_id = CAIdSequence::get(ticker);
+        let local_id = try_next_post::<T, _>(&mut next_id)?;
+        let id = CAId { ticker, local_id };
+
+        // Ensure there are no duplicates in withholding tax overrides
+        // and that we're within the limit.
+        let mut withholding_tax = withholding_tax;
+        if let Some(wt) = &mut withholding_tax {
+            let before = wt.len();
+            Self::ensure_did_whts_limited(before)?;
+            wt.sort_unstable_by_key(|&(did, _)| did);
+            wt.dedup_by_key(|&mut (did, _)| did);
+            ensure!(before == wt.len(), Error::<T>::DuplicateDidTax);
+        }
+
+        // Ensure target ids are limited in number if provided.
+        if let Some(ref targets) = targets {
+            Self::ensure_target_ids_limited(targets)?;
+        }
+
+        // Declaration date must be <= now.
+        ensure!(
+            decl_date <= <Checkpoint<T>>::now_unix(),
+            Error::<T>::DeclDateInFuture
+        );
+
+        // If provided, either use the existing CP ID or schedule one to be made.
+        let record_date = record_date
+            .map(|date| {
+                with_transaction(|| -> Result<_, DispatchError> {
+                    let rd = Self::handle_record_date(agent, ticker, date)?;
+                    ensure!(decl_date <= rd.date, Error::<T>::DeclDateAfterRecordDate);
+                    Ok(rd)
+                })
+            })
+            .transpose()?;
+
+        // Commit the next local CA ID.
+        CAIdSequence::insert(ticker, next_id);
+
+        // Use asset level defaults if data not provided here.
+        let targets = targets
+            .map(|t| t.dedup())
+            .unwrap_or_else(|| Self::default_target_identities(ticker));
+        let default_withholding_tax =
+            default_withholding_tax.unwrap_or_else(|| Self::default_withholding_tax(ticker));
+        let withholding_tax = withholding_tax.unwrap_or_else(|| Self::did_withholding_tax(ticker));
+
+        // Commit CA to storage.
+        let ca = CorporateAction {
+            kind,
+            decl_date,
+            record_date,
+            targets,
+            default_withholding_tax,
+            withholding_tax,
+        };
+        CorporateActions::insert(ticker, id.local_id, ca.clone());
+        Details::insert(id, details.clone());
+
+        // Emit event.
+        Self::deposit_event(Event::CAInitiated(agent, id, ca, details));
+        Ok(id)
+    }
+
     /// Ensure number of identities in `TargetIdentities` are limited.
     fn ensure_target_ids_limited(targets: &TargetIdentities) -> DispatchResult {
         ensure!(
