@@ -1,4 +1,4 @@
-import { nonces, sendTransaction } from "../util/init";
+import { nonces, sendTransaction, keyToIdentityIds } from "../util/init";
 import { IKeyringPair } from "@polkadot/types/types";
 import { ApiPromise } from "@polkadot/api";
 import { SecondaryKey } from "../../types";
@@ -40,9 +40,7 @@ const createIdentitiesWithExpiry = async function (
   }
 
   for (let i = 0; i < accounts.length; i++) {
-    const d: any = await api.query.identity.keyToIdentityIds(
-      accounts[i].publicKey
-    );
+    const d: any = await keyToIdentityIds(accounts[i].publicKey);
     dids.push(d.toHuman().Unique);
   }
 
