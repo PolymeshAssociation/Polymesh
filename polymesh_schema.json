@@ -772,13 +772,13 @@
         "Err": "Vec<u8>"
       }
     },
-    "DidRecordsSuccess": {
+    "RpcDidRecordsSuccess": {
       "primary_key": "AccountId",
       "secondary_keys": "Vec<SecondaryKey>"
     },
-    "DidRecords": {
+    "RpcDidRecords": {
       "_enum": {
-        "Success": "DidRecordsSuccess",
+        "Success": "RpcDidRecordsSuccess",
         "IdNotFound": "Vec<u8>"
       }
     },
@@ -1213,7 +1213,7 @@
             "isOptional": true
           }
         ],
-        "type": "DidRecords"
+        "type": "RpcDidRecords"
       },
       "getDidStatus": {
         "description": "Retrieve status of the DID",
