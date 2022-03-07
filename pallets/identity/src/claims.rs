@@ -484,7 +484,7 @@ impl<T: Config> Module<T> {
         let record = <DidRecords<T>>::get(cdd_did);
         let cost = secondary_keys.iter().fold(0usize, |cost, auth| {
             //Check permissions limits
-            Self::ensure_perms_length_limited(&auth.permissions);
+            Self::ensure_perms_length_limited(&auth.permissions).unwrap();
             cost.saturating_add(auth.permissions.complexity())
         });
 
