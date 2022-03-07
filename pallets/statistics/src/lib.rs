@@ -161,10 +161,13 @@ impl<T: Config> Module<T> {
         // Check if removed StatTypes are needed by TransferConditions.
         let remove_types = Self::active_asset_stats(asset)
             .into_iter()
+            // Only remove stats that are not in the new `stat_types` set.
             .filter(|stat_type| !stat_types.contains(&stat_type))
             .map(|stat_type| {
                 if required_types.contains(&stat_type) {
-                    Err(Error::<T>::StatTypeLimitReached)
+                    // Throw an error if the user tries to remove a `StatType` required
+                    // by the active `TransferConditions`.
+                    Err(Error::<T>::CannotRemoveStatTypeInUse)
                 } else {
                     Ok(stat_type)
                 }
@@ -328,7 +331,6 @@ impl<T: Config> Module<T> {
         }
         if to_balance.is_some() {
             // Add `amount` to `to_key2`.
-            // Add one investor.
             AssetStats::mutate(key1, to_key2, |balance| {
                 *balance = balance.saturating_add(amount)
             });
@@ -499,10 +501,11 @@ impl<T: Config> Module<T> {
                 return true;
             }
         };
-        let from_maches = Self::has_matching_claim(from_did, &key1, &key2);
-        let to_maches = Self::has_matching_claim(to_did, &key1, &key2);
+        // Check if the investors have the claim.
+        let from_matches = Self::has_matching_claim(from_did, &key1, &key2);
+        let to_matches = Self::has_matching_claim(to_did, &key1, &key2);
         match changes {
-            (true, true) if from_maches == to_maches => {
+            (true, true) if from_matches == to_matches => {
                 // Remove one investor and add another.
                 // No count change.
             }
@@ -513,13 +516,20 @@ impl<T: Config> Module<T> {
                 // Get current investor count.
                 let count = AssetStats::get(key1, key2);
                 // Check minimum count restriction.
-                if min > 0 && from_change && from_maches {
+                if min > 0 && from_change && from_matches {
+                    // The `from` investor has the claim (`from_matches == true`) and
+                    // is transfering the last of their tokens (`from_change == true`)
+                    // so the investor count for the claim is decreasing.
                     if count <= min {
                         return false;
                     }
                 }
+                // Check the maximum count restriction.
                 if let Some(max) = max {
-                    if to_change && to_maches {
+                    if to_change && to_matches {
+                        // The `to` investor has the claim (`to_matches == true`) and
+                        // has a token balance of zero (`to_change == true`)
+                        // so the investor count for the claim is increasing.
                         if count >= max {
                             return false;
                         }
@@ -768,6 +778,8 @@ decl_error! {
         StatTypeMissing,
         /// StatType is needed by TransferCondition.
         StatTypeNeededByTransferCondition,
+        /// A Stattype is in use and can't be removed.
+        CannotRemoveStatTypeInUse,
         /// The limit of StatTypes allowed for an asset has been reached.
         StatTypeLimitReached,
         /// The limit of TransferConditions allowed for an asset has been reached.
