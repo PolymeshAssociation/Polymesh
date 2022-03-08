@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::statistics::{AssetScope, Percentage, StatClaim, StatOpType, StatType};
+use crate::statistics::{v1, AssetScope, Percentage, StatClaim, StatOpType, StatType};
 use crate::{ClaimType, IdentityId};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
@@ -80,6 +80,15 @@ impl TransferCondition {
     }
 }
 
+impl From<v1::TransferManager> for TransferCondition {
+    fn from(old: v1::TransferManager) -> Self {
+        match old {
+            v1::TransferManager::CountTransferManager(max) => Self::MaxInvestorCount(max),
+            v1::TransferManager::PercentageTransferManager(max) => Self::MaxInvestorOwnership(max),
+        }
+    }
+}
+
 /// Result of a transfer condition check.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Decode, Encode, TypeInfo)]
@@ -89,6 +98,15 @@ pub struct TransferConditionResult {
     pub condition: TransferCondition,
     /// Final evaluation result.
     pub result: bool,
+}
+
+impl From<v1::TransferManagerResult> for TransferConditionResult {
+    fn from(old: v1::TransferManagerResult) -> Self {
+        Self {
+            condition: old.tm.into(),
+            result: old.result,
+        }
+    }
 }
 
 /// Transfer Condition Exempt key.

@@ -252,3 +252,32 @@ pub struct StatUpdate {
     /// None - Remove stored value if any.
     pub value: Option<u128>,
 }
+
+pub(crate) mod v1 {
+    use super::*;
+
+    /// Transfer manager counter.
+    pub type Counter = u64;
+
+    /// Transfer managers that can be attached to a Token for compliance.
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    #[derive(Decode, Encode, TypeInfo)]
+    #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+    pub enum TransferManager {
+        /// CTM limits the number of active investors in a Token.
+        CountTransferManager(Counter),
+        /// PTM limits the percentage of token owned by a single Identity.
+        PercentageTransferManager(Percentage),
+    }
+
+    /// Result of a transfer manager check.
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    #[derive(Decode, Encode, TypeInfo)]
+    #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+    pub struct TransferManagerResult {
+        /// Transfer manager that was checked.
+        pub tm: TransferManager,
+        /// Final evaluation result.
+        pub result: bool,
+    }
+}
