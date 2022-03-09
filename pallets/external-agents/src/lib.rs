@@ -138,19 +138,15 @@ decl_module! {
             Self::base_create_group(origin, ticker, perms).map(drop)
         }
 
-        #[weight = <T as Config>::WeightInfo::create_group(perms.complexity() as u32)]
-        pub fn create_group_and_add_auth(origin, ticker: Ticker, perms: ExtrinsicPermissions) -> DispatchResult {
-            let ag_id = Self::base_create_group(origin.clone(), ticker, perms)?;
-            let PermissionedCallOriginData {
-                primary_did,
-                ..
-            } = <Identity<T>>::ensure_origin_call_permissions(origin.clone())?;
-            <Identity<T>>::add_authorization(
-                origin,
-                Signatory::Identity(primary_did),
+        #[weight = <T as Config>::WeightInfo::create_group_and_add_auth(perms.complexity() as u32)]
+        pub fn create_group_and_add_auth(origin, ticker: Ticker, perms: ExtrinsicPermissions, target: Signatory<T::AccountId>) -> DispatchResult {
+            let (did, ag_id) = Self::base_create_group(origin, ticker, perms)?;
+            <Identity<T>>::add_auth(
+                did,
+                target,
                 AuthorizationData::BecomeAgent(ticker, AgentGroup::Custom(ag_id)),
                 None
-            )?;
+            );
             Ok(())
         }
 
@@ -296,17 +292,15 @@ impl<T: Config> Module<T> {
         origin: T::Origin,
         ticker: Ticker,
         perms: ExtrinsicPermissions,
-    ) -> Result<AGId, DispatchError> {
-        let did = Self::ensure_perms(origin, ticker)?.for_event();
+    ) -> Result<(IdentityId, AGId), DispatchError> {
+        let did = Self::ensure_perms(origin, ticker)?;
         <Identity<T>>::ensure_extrinsic_perms_length_limited(&perms)?;
-
         // Fetch the AG id & advance the sequence.
         let id = AGIdSequence::try_mutate(ticker, try_next_pre::<T, _>)?;
-
         // Commit & emit.
         GroupPermissions::insert(ticker, id, perms.clone());
-        Self::deposit_event(Event::GroupCreated(did, ticker, id, perms));
-        Ok(id)
+        Self::deposit_event(Event::GroupCreated(did.for_event(), ticker, id, perms));
+        Ok((did, id))
     }
 
     fn base_set_group_permissions(
