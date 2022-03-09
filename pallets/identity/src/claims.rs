@@ -482,17 +482,17 @@ impl<T: Config> Module<T> {
         Self::ensure_authorized_cdd_provider(cdd_did)?;
 
         let record = <DidRecords<T>>::get(cdd_did);
-        let cost =
-            secondary_keys
-                .iter()
-                .try_fold(0usize, |cost, auth| -> Result<usize, DispatchError> {
-                    //Check permissions limits
-                    Self::ensure_perms_length_limited(&auth.permissions)?;
-                    Ok(cost.saturating_add(auth.permissions.complexity()))
-                });
+        let cost = secondary_keys.iter().try_fold(
+            0usize,
+            |cost, auth| -> Result<usize, DispatchError> {
+                //Check permissions limits
+                Self::ensure_perms_length_limited(&auth.permissions)?;
+                Ok(cost.saturating_add(auth.permissions.complexity()))
+            },
+        )?;
 
         // Check secondary keys limits
-        Self::ensure_secondary_keys_limited(&record, secondary_keys.len(), cost.unwrap())?;
+        Self::ensure_secondary_keys_limited(&record, secondary_keys.len(), cost)?;
 
         // Register Identity
         let target_did = Self::_register_did(
