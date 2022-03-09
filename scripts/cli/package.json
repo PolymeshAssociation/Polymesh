@@ -45,14 +45,14 @@
     "schema_test": "./util/schema_test.sh",
     "offchain_worker_test": "node ./dist/util/offchain_worker_test.js",
     "polyx_balances": "node ./util/userBalancePOLYX.js",
-    "test": "npm run clear_cache && jest --runInBand --silent && ./util/schema_test.sh",
+    "test": "jest --runInBand && ./util/schema_test.sh",
     "clear_cache": "jest --clearCache"
   },
   "author": "Polymath Network",
   "license": "UNLICENSED",
   "dependencies": {
     "@babel/plugin-proposal-class-properties": "^7.16.7",
-    "@polkadot/api": "7.7.1",
+    "@polkadot/api": "7.11.1",
     "@polkadot/util": "^8.3.3",
     "@polkadot/util-crypto": "^8.3.3",
     "chai": "4.2.0",
@@ -75,7 +75,7 @@
   },
   "devDependencies": {
     "@babel/plugin-transform-modules-commonjs": "7.14.5",
-    "@polkadot/typegen": "7.7.1",
+    "@polkadot/typegen": "7.11.1",
     "@types/chai": "4.2.15",
     "@types/clear": "0.1.1",
     "@types/figlet": "1.2.1",
