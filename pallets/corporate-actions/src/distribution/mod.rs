@@ -84,7 +84,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     storage_migration_ver, Balance, EventDid, IdentityId, Moment, PortfolioId, PortfolioNumber,
-    Ticker,
+    SecondaryKey, Ticker,
 };
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
@@ -571,5 +571,82 @@ impl<T: Config> Module<T> {
             Error::<T>::CannotClaimAfterExpiry
         );
         Ok(dist)
+    }
+
+    pub fn unsafe_distribute(
+        agent: IdentityId,
+        secondary_key: Option<SecondaryKey<T::AccountId>>,
+        ca_id: CAId,
+        portfolio: Option<PortfolioNumber>,
+        currency: Ticker,
+        per_share: Balance,
+        amount: Balance,
+        payment_at: Moment,
+        expires_at: Option<Moment>,
+    ) -> DispatchResult {
+        // Ensure CA's asset is distinct from the distributed currency.
+        ensure!(ca_id.ticker != currency, Error::<T>::DistributingAsset);
+
+        // Ensure that any expiry date doesn't come before the payment date.
+        ensure!(
+            !expired(expires_at, payment_at),
+            Error::<T>::ExpiryBeforePayment
+        );
+
+        // Ensure CA doesn't have a distribution yet.
+        ensure!(
+            !Distributions::contains_key(ca_id),
+            Error::<T>::AlreadyExists
+        );
+
+        // Ensure secondary key has perms for `from` + portfolio is valid.
+        let from = PortfolioId {
+            did: agent,
+            kind: portfolio.into(),
+        };
+        <Portfolio<T>>::ensure_portfolio_custody_and_permission(
+            from,
+            agent,
+            secondary_key.as_ref(),
+        )?;
+        <Portfolio<T>>::ensure_portfolio_validity(&from)?;
+
+        // Ensure that `ca_id` exists, that its a benefit.
+        let agent = agent.for_event();
+        let ca = <CA<T>>::ensure_ca_exists(ca_id)?;
+        ensure!(ca.kind.is_benefit(), Error::<T>::CANotBenefit);
+
+        // Ensure CA has a record `date <= payment_at`.
+        // If we cannot, deriving a checkpoint,
+        // used to determine each holder's allotment of the total `amount`,
+        // is not possible.
+        <CA<T>>::ensure_record_date_before_start(&ca, payment_at)?;
+
+        // Ensure `from` has at least `amount` to later lock (1).
+        <Portfolio<T>>::ensure_sufficient_balance(&from, &currency, amount)?;
+
+        // Charge the protocol fee. Last check; we are in commit phase after this.
+        T::ProtocolFee::charge_fee(ProtocolOp::CapitalDistributionDistribute)?;
+
+        // (1) Lock `amount` in `from`.
+        <Portfolio<T>>::unchecked_lock_tokens(&from, &currency, amount);
+
+        // Commit to storage.
+        let distribution = Distribution {
+            from,
+            currency,
+            per_share,
+            amount,
+            remaining: amount,
+            reclaimed: false,
+            payment_at,
+            expires_at,
+        };
+        Distributions::insert(ca_id, distribution);
+
+        // Emit event.
+        Self::deposit_event(Event::Created(agent, ca_id, distribution));
+
+        Ok(())
     }
 }

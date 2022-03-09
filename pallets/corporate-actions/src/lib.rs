@@ -107,6 +107,7 @@ use frame_support::{
 use frame_system::ensure_root;
 use pallet_asset::checkpoint::{self, SchedulePoints, ScheduleRefCount};
 use pallet_base::try_next_post;
+use pallet_identity::PermissionedCallOriginData;
 use polymesh_common_utilities::{
     balances::Config as BalancesConfig, identity::Config as IdentityConfig, traits::asset,
     traits::checkpoint::ScheduleId, with_transaction, GC_DID,
@@ -302,6 +303,19 @@ pub struct CAId {
     pub ticker: Ticker,
     /// The per-`Ticker` local identifier.
     pub local_id: LocalCAId,
+}
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
+pub struct InitiateCorporateActionArgs {
+    ticker: Ticker,
+    kind: CAKind,
+    decl_date: Moment,
+    record_date: Option<RecordDateSpec>,
+    details: CADetails,
+    targets: Option<TargetIdentities>,
+    default_withholding_tax: Option<Tax>,
+    withholding_tax: Option<Vec<(IdentityId, Tax)>>,
 }
 
 /// Weight abstraction for the corporate actions module.
@@ -549,23 +563,27 @@ decl_module! {
                 T::MaxTargetIds::get(),
             )
             .max(<T as Config>::WeightInfo::initiate_corporate_action_provided(
-                withholding_tax.as_ref().map_or(0, |whts| whts.len() as u32),
-                targets.as_ref().map_or(0, |t| t.identities.len() as u32),
+                ca_args.withholding_tax.as_ref().map_or(0, |whts| whts.len() as u32),
+                ca_args.targets.as_ref().map_or(0, |t| t.identities.len() as u32),
             ))
         ]
-        pub fn initiate_corporate_action(
-            origin,
-            ticker: Ticker,
-            kind: CAKind,
-            decl_date: Moment,
-            record_date: Option<RecordDateSpec>,
-            details: CADetails,
-            targets: Option<TargetIdentities>,
-            default_withholding_tax: Option<Tax>,
-            withholding_tax: Option<Vec<(IdentityId, Tax)>>,
-        ) -> DispatchResult {
-            Self::base_initiate_corporate_action(
-                origin,
+        pub fn initiate_corporate_action(origin, ca_args: InitiateCorporateActionArgs) -> DispatchResult {
+            let InitiateCorporateActionArgs {
+                ticker,
+                kind,
+                decl_date,
+                record_date,
+                details,
+                targets,
+                default_withholding_tax,
+                withholding_tax
+            } = ca_args;
+
+            // Ensure that a permissioned agent is calling.
+            let agent = <ExternalAgents<T>>::ensure_perms(origin, ticker)?.for_event();
+
+            Self::unsafe_initiate_corporate_action(
+                agent,
                 ticker,
                 kind,
                 decl_date,
@@ -715,20 +733,13 @@ decl_module! {
                 T::MaxTargetIds::get(),
             )
             .max(<T as Config>::WeightInfo::initiate_corporate_action_provided(
-                withholding_tax.as_ref().map_or(0, |whts| whts.len() as u32),
-                targets.as_ref().map_or(0, |t| t.identities.len() as u32),
+                ca_args.withholding_tax.as_ref().map_or(0, |whts| whts.len() as u32),
+                ca_args.targets.as_ref().map_or(0, |t| t.identities.len() as u32),
             )) + <T as Config>::DistWeightInfo::distribute()
         ]
         pub fn initiate_corporate_action_and_distribute(
             origin,
-            ticker: Ticker,
-            kind: CAKind,
-            decl_date: Moment,
-            record_date: Option<RecordDateSpec>,
-            details: CADetails,
-            targets: Option<TargetIdentities>,
-            default_withholding_tax: Option<Tax>,
-            withholding_tax: Option<Vec<(IdentityId, Tax)>>,
+            ca_args: InitiateCorporateActionArgs,
             portfolio: Option<PortfolioNumber>,
             currency: Ticker,
             per_share: Balance,
@@ -736,8 +747,25 @@ decl_module! {
             payment_at: Moment,
             expires_at: Option<Moment>,
         ) -> DispatchResult {
-            let ca_id = Self::base_initiate_corporate_action(
-                origin,
+            let InitiateCorporateActionArgs {
+                ticker,
+                kind,
+                decl_date,
+                record_date,
+                details,
+                targets,
+                default_withholding_tax,
+                withholding_tax
+            } = ca_args;
+
+            let PermissionedCallOriginData {
+                primary_did: agent,
+                secondary_key,
+                ..
+            } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ticker)?;
+
+            let ca_id = Self::unsafe_initiate_corporate_action(
+                agent.for_event(),
                 ticker,
                 kind,
                 decl_date,
@@ -747,8 +775,10 @@ decl_module! {
                 default_withholding_tax,
                 withholding_tax
             )?;
-            <distribution::Module<T>>::distribute(
-                origin,
+
+            <distribution::Module<T>>::unsafe_distribute(
+                agent,
+                secondary_key,
                 ca_id,
                 portfolio,
                 currency,
@@ -825,8 +855,8 @@ decl_error! {
 }
 
 impl<T: Config> Module<T> {
-    fn base_initiate_corporate_action(
-        origin: T::Origin,
+    fn unsafe_initiate_corporate_action(
+        agent: EventDid,
         ticker: Ticker,
         kind: CAKind,
         decl_date: Moment,
@@ -843,9 +873,6 @@ impl<T: Config> Module<T> {
             .ok()
             .filter(|&len: &u32| len <= Self::max_details_length())
             .ok_or(Error::<T>::DetailsTooLong)?;
-
-        // Ensure that a permissioned agent is calling.
-        let agent = <ExternalAgents<T>>::ensure_perms(origin, ticker)?.for_event();
 
         // Ensure that the next local CA ID doesn't overflow.
         let mut next_id = CAIdSequence::get(ticker);
