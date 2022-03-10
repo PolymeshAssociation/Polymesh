@@ -774,10 +774,13 @@ fn do_remove_secondary_keys_test_with_externalities() {
     assert_eq!(Identity::get_identity(&bob_key), None);
 
     // Try removing multisig while it has funds
-    assert_ok!(Identity::remove_secondary_keys(
-        alice.origin(),
-        vec![Signatory::Account(musig_address.clone())]
-    ));
+    assert_noop!(
+        Identity::remove_secondary_keys(
+            alice.origin(),
+            vec![Signatory::Account(musig_address.clone())]
+        ),
+        Error::MultiSigHasBalance
+    );
 
     // Check DidRecord.
     assert_eq!(Identity::get_identity(&dave_key), None);

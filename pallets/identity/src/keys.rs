@@ -154,6 +154,13 @@ impl<T: Config> Module<T> {
             <AccountKeyRefCount<T>>::get(key) == 0,
             Error::<T>::AccountKeyIsBeingUsed
         );
+        // Do not allow unlinking MultiSig keys with balance.
+        if T::MultiSig::is_multisig(key) {
+            ensure!(
+                T::Balances::total_balance(key).is_zero(),
+                Error::<T>::MultiSigHasBalance
+            );
+        }
         Ok(())
     }
 
@@ -365,22 +372,14 @@ impl<T: Config> Module<T> {
         signers
             .iter()
             .flat_map(|signer| {
-                use either::Either::{Left, Right};
-
                 // Unlink each of the given secondary keys from `did`.
                 if let Signatory::Account(key) = &signer {
-                    // Unlink multisig signers.
-                    if T::MultiSig::is_multisig(key) {
-                        if !T::Balances::total_balance(key).is_zero() {
-                            return Left(iter::empty());
-                        }
-                    }
                     // Unlink the secondary account key.
                     Self::unlink_account_key_from_did(key, did);
                 }
 
                 // All `auth_id`s for `signer` authorized by `did`.
-                Right(Self::auths_of(signer, did))
+                Self::auths_of(signer, did)
             })
             // Remove authorizations.
             .for_each(|(signer, auth_id)| Self::unsafe_remove_auth(signer, auth_id, &did, true));
@@ -550,13 +549,7 @@ impl<T: Config> Module<T> {
         // Ensure that it is safe to unlink the account key from the did.
         Self::ensure_key_unlinkable_from_did(&key)?;
 
-        // Unlink multisig signers.
-        if T::MultiSig::is_multisig(&key) {
-            ensure!(
-                T::Balances::total_balance(&key).is_zero(),
-                Error::<T>::MultiSigHasBalance
-            );
-        }
+        // Unlink key from the identity.
         Self::unlink_account_key_from_did(&key, did);
 
         // Update secondary keys at Identity.
