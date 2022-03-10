@@ -503,7 +503,7 @@ fn make_multisig_primary() {
 }
 
 #[test]
-fn make_multisig_signer() {
+fn make_multisig_secondary_key() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
@@ -526,7 +526,8 @@ fn make_multisig_signer() {
         };
         assert!(!has_ms_sk());
 
-        let mk_ms_signer = |u: User| MultiSig::make_multisig_signer(u.origin(), multisig.clone());
+        let mk_ms_signer =
+            |u: User| MultiSig::make_multisig_secondary(u.origin(), multisig.clone());
         assert_noop!(mk_ms_signer(bob), Error::IdentityNotCreator);
 
         assert_ok!(mk_ms_signer(alice));
