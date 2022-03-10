@@ -45,7 +45,7 @@
     "schema_test": "./util/schema_test.sh",
     "offchain_worker_test": "node ./dist/util/offchain_worker_test.js",
     "polyx_balances": "node ./util/userBalancePOLYX.js",
-    "test": "jest --runInBand && ./util/schema_test.sh",
+    "test": "jest --runInBand --silent && ./util/schema_test.sh",
     "clear_cache": "jest --clearCache"
   },
   "author": "Polymath Network",
