@@ -374,11 +374,6 @@ impl<T: Config> Module<T> {
                         if !T::Balances::total_balance(key).is_zero() {
                             return Left(iter::empty());
                         }
-                        // Unlink multisig signers from the identity.
-                        Self::unlink_multisig_signers_from_did(
-                            T::MultiSig::get_key_signers(key),
-                            did,
-                        );
                     }
                     // Unlink the secondary account key.
                     Self::unlink_account_key_from_did(key, did);
@@ -561,8 +556,6 @@ impl<T: Config> Module<T> {
                 T::Balances::total_balance(&key).is_zero(),
                 Error::<T>::MultiSigHasBalance
             );
-            // Unlink multisig signers from the identity.
-            Self::unlink_multisig_signers_from_did(T::MultiSig::get_key_signers(&key), did);
         }
         Self::unlink_account_key_from_did(&key, did);
 
@@ -572,12 +565,6 @@ impl<T: Config> Module<T> {
         });
         Self::deposit_event(RawEvent::SignerLeft(did, signer));
         Ok(())
-    }
-
-    fn unlink_multisig_signers_from_did(signers: Vec<T::AccountId>, did: IdentityId) {
-        for signer in signers {
-            Self::unlink_account_key_from_did(&signer, did)
-        }
     }
 
     /// Freezes/unfreezes the target `did` identity.
