@@ -5,6 +5,7 @@ use super::{
 };
 use frame_support::{assert_noop, assert_ok};
 use pallet_multisig as multisig;
+use polymesh_common_utilities::constants::currency::POLY;
 use polymesh_primitives::{AccountId, AuthorizationData, Permissions, SecondaryKey, Signatory};
 use test_client::AccountKeyring;
 
@@ -520,7 +521,7 @@ fn rotate_multisig_primary_key_with_balance() {
         assert_ok!(Balances::transfer(
             bob.origin(),
             ms_address.clone().into(),
-            1
+            2 * POLY
         ));
 
         // Add RotatePrimaryKey authorization for charlie_key to become the primary_key for Alice.

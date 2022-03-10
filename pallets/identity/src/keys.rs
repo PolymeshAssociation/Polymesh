@@ -40,7 +40,7 @@ use polymesh_primitives::{
 };
 use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
-use sp_runtime::traits::{AccountIdConversion as _, IdentifyAccount, Verify, Zero as _};
+use sp_runtime::traits::{AccountIdConversion as _, IdentifyAccount, Verify};
 use sp_runtime::{AnySignature, DispatchError};
 use sp_std::{vec, vec::Vec};
 
@@ -154,10 +154,10 @@ impl<T: Config> Module<T> {
             <AccountKeyRefCount<T>>::get(key) == 0,
             Error::<T>::AccountKeyIsBeingUsed
         );
-        // Do not allow unlinking MultiSig keys with balance.
+        // Do not allow unlinking MultiSig keys with balance >= 1 POLYX.
         if T::MultiSig::is_multisig(key) {
             ensure!(
-                T::Balances::total_balance(key).is_zero(),
+                T::Balances::total_balance(key) < T::MultiSigBalanceLimit::get().into(),
                 Error::<T>::MultiSigHasBalance
             );
         }

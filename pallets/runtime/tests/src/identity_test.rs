@@ -22,6 +22,7 @@ use pallet_identity::types::DidRecords as RpcDidRecords;
 use pallet_identity::{self as identity, DidRecords};
 use polymesh_common_utilities::{
     asset::AssetSubTrait,
+    constants::currency::POLY,
     protocol_fee::ProtocolOp,
     traits::{
         group::GroupTrait,
@@ -741,7 +742,7 @@ fn do_remove_secondary_keys_test_with_externalities() {
     assert_ok!(Balances::transfer(
         alice.origin(),
         ms_address.clone().into(),
-        1
+        2 * POLY
     ));
 
     // Check DidRecord.
@@ -797,7 +798,7 @@ fn do_remove_secondary_keys_test_with_externalities() {
     assert_ok!(Balances::transfer(
         Origin::signed(ms_address.clone()),
         alice.acc().into(),
-        1
+        2 * POLY
     ));
 
     // Empty multisig's funds and remove as signer
@@ -872,7 +873,7 @@ fn leave_identity_test_with_externalities() {
     assert_ok!(Balances::transfer(
         alice.origin(),
         ms_address.clone().into(),
-        1
+        2 * POLY
     ));
     // multisig tries leaving identity while it has funds
     assert_noop!(
@@ -894,7 +895,7 @@ fn leave_identity_test_with_externalities() {
     assert_ok!(Balances::transfer(
         Origin::signed(ms_address.clone()),
         alice.acc().into(),
-        1
+        2 * POLY
     ));
 
     // Empty multisig's funds and remove as signer

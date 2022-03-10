@@ -344,6 +344,7 @@ impl polymesh_common_utilities::traits::identity::Config for Test {
     type IdentityFn = identity::Module<Test>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
+    type MultiSigBalanceLimit = polymesh_runtime_common::MultiSigBalanceLimit;
 }
 
 parameter_types! {
