@@ -1121,18 +1121,6 @@ impl<T: Config> Module<T> {
 }
 
 impl<T: Config> MultiSigSubTrait<T::AccountId> for Module<T> {
-    fn get_key_signers(multisig: &T::AccountId) -> Vec<T::AccountId> {
-        <MultiSigSigners<T>>::iter_prefix_values(multisig)
-            .filter_map(|signer| {
-                if let Signatory::Account(key) = signer {
-                    Some(key)
-                } else {
-                    None
-                }
-            })
-            .collect()
-    }
-
     fn is_multisig(account: &T::AccountId) -> bool {
         <MultiSigToIdentity<T>>::contains_key(account)
     }

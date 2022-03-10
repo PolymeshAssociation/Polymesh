@@ -467,9 +467,6 @@ impl AssetSubTrait for Test {
 }
 
 impl MultiSigSubTrait<AccountId> for Test {
-    fn get_key_signers(_multisig: &AccountId) -> Vec<AccountId> {
-        unimplemented!()
-    }
     fn is_multisig(_account: &AccountId) -> bool {
         unimplemented!()
     }
