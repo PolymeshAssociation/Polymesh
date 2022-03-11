@@ -24,7 +24,7 @@ pub struct Date {
 pub struct Time {
     pub hour: u8,
     pub minute: u8,
-    pub seconds: u8,
+    pub second: u8,
 }
 
 /// Simple DateTime.
