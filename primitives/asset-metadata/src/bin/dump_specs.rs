@@ -1,8 +1,8 @@
-use std::io::Write;
 use codec::Encode;
+use std::io::Write;
 
-use polymesh_primitives::asset_metadata::AssetMetadataTypeDef;
 use asset_metadata::*;
+use polymesh_primitives::asset_metadata::AssetMetadataTypeDef;
 
 fn main() {
     let mut args = std::env::args();
@@ -21,6 +21,10 @@ fn main() {
     let type_def_filename = args.next().unwrap_or("type_def.bin".into());
     let data = type_def.encode();
     let mut out = std::fs::File::create(&type_def_filename).expect("Failed to create output file");
-    out.write_all(&data[..]).expect("Failed to write type definition to file.");
-    println!("Wrote type definition for {} to file {}", type_name, type_def_filename);
+    out.write_all(&data[..])
+        .expect("Failed to write type definition to file.");
+    println!(
+        "Wrote type definition for {} to file {}",
+        type_name, type_def_filename
+    );
 }

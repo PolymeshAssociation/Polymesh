@@ -38,11 +38,7 @@ pub struct DateTime {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use polymesh_primitives::{
-        asset_metadata::{
-            AssetMetadataSpec, AssetMetadataTypeDef,
-        },
-    };
+    use polymesh_primitives::asset_metadata::{AssetMetadataSpec, AssetMetadataTypeDef};
 
     /// Asset Metadata Test Type.
     ///
