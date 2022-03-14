@@ -5686,7 +5686,7 @@ dependencies = [
 
 [[package]]
 name = "polymesh"
-version = "4.1.1"
+version = "5.0.0"
 dependencies = [
  "chrono",
  "ed25519-dalek",
