@@ -32,13 +32,13 @@ use frame_support::{
 };
 use pallet_base::try_next_post;
 use pallet_identity::PermissionedCallOriginData;
-use pallet_settlement::{Leg, ReceiptDetails, SettlementType, VenueId, VenueInfo, VenueType};
+use pallet_settlement::{Leg, ReceiptDetails, SettlementType, VenueInfo, VenueType};
 use polymesh_common_utilities::{
     portfolio::PortfolioSubTrait,
     traits::{identity, portfolio},
     with_transaction,
 };
-use polymesh_primitives::impl_checked_inc;
+use polymesh_primitives::{impl_checked_inc, VenueId};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
 

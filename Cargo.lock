@@ -4719,6 +4719,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-order-book"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-asset",
+ "pallet-balances 0.1.0",
+ "pallet-base",
+ "pallet-compliance-manager",
+ "pallet-external-agents",
+ "pallet-identity",
+ "pallet-permissions",
+ "pallet-portfolio",
+ "pallet-settlement",
+ "pallet-timestamp",
+ "parity-scale-codec 2.3.1",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "polymesh-primitives-derive",
+ "scale-info",
+ "serde",
+ "serde_derive",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-version",
+]
+
+[[package]]
 name = "pallet-permissions"
 version = "0.1.0"
 dependencies = [
@@ -5938,6 +5970,7 @@ dependencies = [
  "pallet-indices",
  "pallet-multisig",
  "pallet-offences",
+ "pallet-order-book",
  "pallet-permissions",
  "pallet-pips",
  "pallet-portfolio",
@@ -6053,6 +6086,7 @@ dependencies = [
  "pallet-indices",
  "pallet-multisig",
  "pallet-offences",
+ "pallet-order-book",
  "pallet-permissions",
  "pallet-pips",
  "pallet-portfolio",
@@ -6132,6 +6166,7 @@ dependencies = [
  "pallet-indices",
  "pallet-multisig",
  "pallet-offences",
+ "pallet-order-book",
  "pallet-permissions",
  "pallet-pips",
  "pallet-portfolio",
@@ -6212,6 +6247,7 @@ dependencies = [
  "pallet-indices",
  "pallet-multisig",
  "pallet-offences",
+ "pallet-order-book",
  "pallet-permissions",
  "pallet-pips",
  "pallet-portfolio",
@@ -6300,6 +6336,7 @@ dependencies = [
  "pallet-indices",
  "pallet-multisig",
  "pallet-offences",
+ "pallet-order-book",
  "pallet-permissions",
  "pallet-pips",
  "pallet-portfolio",
@@ -6377,6 +6414,7 @@ dependencies = [
  "pallet-im-online",
  "pallet-indices",
  "pallet-multisig",
+ "pallet-order-book",
  "pallet-pips",
  "pallet-portfolio",
  "pallet-protocol-fee",

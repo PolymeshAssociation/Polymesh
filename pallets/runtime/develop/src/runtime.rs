@@ -398,6 +398,7 @@ construct_runtime!(
         ExternalAgents: pallet_external_agents::{Pallet, Call, Storage, Event},
         Relayer: pallet_relayer::{Pallet, Call, Storage, Event<T>},
         Rewards: pallet_rewards::{Pallet, Call, Storage, Event<T>, Config<T>, ValidateUnsigned},
+        OrderBook: pallet_order_book::{Pallet, Call, Storage, Event<T>},
         TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 50,
     }
 );

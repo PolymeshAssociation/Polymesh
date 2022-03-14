@@ -77,7 +77,8 @@ use polymesh_common_utilities::{
     SystematicIssuers::Settlement as SettlementDID,
 };
 use polymesh_primitives::{
-    impl_checked_inc, storage_migration_ver, Balance, IdentityId, PortfolioId, SecondaryKey, Ticker,
+    impl_checked_inc, storage_migration_ver, Balance, IdentityId, PortfolioId, SecondaryKey,
+    Ticker, VenueId,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
@@ -111,12 +112,6 @@ pub trait Config:
     type WeightInfo: WeightInfo;
 }
 
-/// A global and unique venue ID.
-#[derive(Encode, Decode, TypeInfo)]
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
-pub struct VenueId(pub u64);
-impl_checked_inc!(VenueId);
-
 /// A wrapper for VenueDetails
 #[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
@@ -143,14 +138,16 @@ impl Default for InstructionStatus {
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum VenueType {
-    /// Default type - used for mixed and unknown types
+    /// Default type - used for mixed and unknown types.
     Other,
-    /// Represents a primary distribution
+    /// Represents a primary distribution.
     Distribution,
-    /// Represents an offering/fund raiser
+    /// Represents an offering/fund raiser.
     Sto,
-    /// Represents a match making service
+    /// Represents a match making service.
     Exchange,
+    /// Represents an OrderBook service.
+    OrderBook,
 }
 
 impl Default for VenueType {

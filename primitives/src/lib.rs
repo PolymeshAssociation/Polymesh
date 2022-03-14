@@ -254,6 +254,15 @@ pub mod crypto;
 /// Asset type definitions.
 pub mod asset;
 
+/// A global and unique venue ID.
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+pub struct VenueId(pub u64);
+impl_checked_inc!(VenueId);
+
+/// OrderBook type definitions.
+pub mod order_book;
+
 /// Statistics type definitions.
 pub mod statistics;
 
