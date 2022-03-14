@@ -42,20 +42,20 @@ impl_checked_inc!(AssetMetadataLocalKey);
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum AssetMetadataKey {
     /// Global Metadata Key.
-    Global(u64),
+    Global(AssetMetadataGlobalKey),
     /// Local Metadata Key.
-    Local(u64),
+    Local(AssetMetadataLocalKey),
 }
 
 impl From<AssetMetadataLocalKey> for AssetMetadataKey {
     fn from(key: AssetMetadataLocalKey) -> Self {
-        Self::Local(key.0)
+        Self::Local(key)
     }
 }
 
 impl From<AssetMetadataGlobalKey> for AssetMetadataKey {
     fn from(key: AssetMetadataGlobalKey) -> Self {
-        Self::Global(key.0)
+        Self::Global(key)
     }
 }
 
@@ -160,14 +160,14 @@ impl AssetMetadataSpec {
 
     /// Decode the metadata type definition from `self.type_def` and return it as an `AssetMetadataTypeDef`.
     pub fn decode_type_def(&self) -> Result<Option<AssetMetadataTypeDef>, codec::Error> {
-        match &self.type_def {
-            Some(d) => AssetMetadataTypeDef::decode_all(&d[..]).map(|d| Some(d)),
-            None => Ok(None),
-        }
+        self.type_def
+            .as_ref()
+            .map(|d| AssetMetadataTypeDef::decode_all(&d[..]))
+            .transpose()
     }
 
-    /// Get the type definition length.
-    pub fn get_type_def_len(&self) -> usize {
+    /// Return the type definition length.
+    pub fn type_def_len(&self) -> usize {
         self.type_def.as_ref().map(|d| d.len()).unwrap_or_default()
     }
 }
@@ -216,7 +216,7 @@ mod tests {
         let mut spec = AssetMetadataSpec::default();
         // Encode type definition.
         spec.set_type_def(type_def.clone());
-        println!("Type definition length: {}", spec.get_type_def_len());
+        println!("Type definition length: {}", spec.type_def_len());
         // Decode type definition.
         let type_def2 = spec
             .decode_type_def()

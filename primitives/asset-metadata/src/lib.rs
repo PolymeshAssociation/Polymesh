@@ -58,7 +58,7 @@ mod tests {
         let mut spec = AssetMetadataSpec::default();
         // Encode type definition.
         spec.set_type_def(type_def.clone());
-        println!("Type definition length: {}", spec.get_type_def_len());
+        println!("Type definition length: {}", spec.type_def_len());
         // Decode type definition.
         let type_def2 = spec
             .decode_type_def()

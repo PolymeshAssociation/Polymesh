@@ -839,7 +839,7 @@ decl_module! {
         /// * `ticker` Ticker of the token.
         /// * `key` Metadata key.
         /// * `value` Metadata value.
-        /// * `details` Optional Metadata value detailis (expire, lock status).
+        /// * `details` Optional Metadata value details (expire, lock status).
         ///
         /// # Errors
         /// * `AssetMetadataKeyIsMissing` if the metadata type key doesn't exist.
@@ -859,7 +859,7 @@ decl_module! {
         /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
         /// * `ticker` Ticker of the token.
         /// * `key` Metadata key.
-        /// * `details` Metadata value detailis (expire, lock status).
+        /// * `details` Metadata value details (expire, lock status).
         ///
         /// # Errors
         /// * `AssetMetadataKeyIsMissing` if the metadata type key doesn't exist.
@@ -2042,28 +2042,22 @@ impl<T: Config> Module<T> {
     }
 
     fn is_asset_metadata_locked(ticker: Ticker, key: AssetMetadataKey) -> bool {
-        let now = <pallet_timestamp::Pallet<T>>::get();
-        match AssetMetadataValueDetails::<T>::get(ticker, key) {
-            Some(details) => details.is_locked(now),
-            None => false,
-        }
+        AssetMetadataValueDetails::<T>::get(ticker, key).map_or(false, |details| {
+            details.is_locked(<pallet_timestamp::Pallet<T>>::get())
+        })
     }
 
     fn check_asset_metadata_key_exists(ticker: Ticker, key: AssetMetadataKey) -> bool {
         match key {
-            AssetMetadataKey::Global(key) => {
-                AssetMetadataGlobalKeyToName::contains_key(AssetMetadataGlobalKey(key))
-            }
-            AssetMetadataKey::Local(key) => {
-                AssetMetadataLocalKeyToName::contains_key(ticker, AssetMetadataLocalKey(key))
-            }
+            AssetMetadataKey::Global(key) => AssetMetadataGlobalKeyToName::contains_key(key),
+            AssetMetadataKey::Local(key) => AssetMetadataLocalKeyToName::contains_key(ticker, key),
         }
     }
 
     /// Ensure asset metadata `value` is within the global limit.
     fn ensure_asset_metadata_value_limited(value: &AssetMetadataValue) -> DispatchResult {
         ensure!(
-            value.len() as u32 <= T::AssetMetadataValueMaxLength::get(),
+            value.len() <= T::AssetMetadataValueMaxLength::get() as usize,
             Error::<T>::AssetMetadataValueMaxLengthExceeded
         );
         Ok(())
@@ -2072,7 +2066,7 @@ impl<T: Config> Module<T> {
     /// Ensure asset metadata `name` is within the global limit.
     fn ensure_asset_metadata_name_limited(name: &AssetMetadataName) -> DispatchResult {
         ensure!(
-            name.len() as u32 <= T::AssetMetadataNameMaxLength::get(),
+            name.len() <= T::AssetMetadataNameMaxLength::get() as usize,
             Error::<T>::AssetMetadataNameMaxLengthExceeded
         );
         Ok(())
@@ -2084,7 +2078,7 @@ impl<T: Config> Module<T> {
         ensure_opt_string_limited::<T>(spec.description.as_deref())?;
         if let Some(ref type_def) = spec.type_def {
             ensure!(
-                type_def.len() as u32 <= T::AssetMetadataTypeDefMaxLength::get(),
+                type_def.len() <= T::AssetMetadataTypeDefMaxLength::get() as usize,
                 Error::<T>::AssetMetadataTypeDefMaxLengthExceeded
             );
         }
@@ -2169,7 +2163,7 @@ impl<T: Config> Module<T> {
 
         // Check if key already exists.
         ensure!(
-            AssetMetadataLocalNameToKey::get(ticker, &name).is_none(),
+            !AssetMetadataLocalNameToKey::contains_key(ticker, &name),
             Error::<T>::AssetMetadataLocalKeyAlreadyExists
         );
 
@@ -2202,7 +2196,7 @@ impl<T: Config> Module<T> {
 
         // Check if key already exists.
         ensure!(
-            AssetMetadataGlobalNameToKey::get(&name).is_none(),
+            !AssetMetadataGlobalNameToKey::contains_key(&name),
             Error::<T>::AssetMetadataGlobalKeyAlreadyExists
         );
 

@@ -30,6 +30,7 @@ type BaseError = pallet_base::Error<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
 
+/// Make metadata name & specs using the requested lengths.
 fn make_metadata_type_sizes(
     name_len: u32,
     url_len: u32,
@@ -46,6 +47,7 @@ fn make_metadata_type_sizes(
     (name, spec)
 }
 
+/// Helper for creating metadata value details.
 fn make_metadata_value_details(
     expire: Option<Moment>,
     locked: bool,
@@ -60,6 +62,7 @@ fn make_metadata_value_details(
     }
 }
 
+/// Make metadata name & spec for the given name.
 fn make_metadata_type(name: &str) -> (AssetMetadataName, AssetMetadataSpec) {
     let spec = AssetMetadataSpec {
         url: Some(b"http://example.com/test_specs".into()),
@@ -71,13 +74,9 @@ fn make_metadata_type(name: &str) -> (AssetMetadataName, AssetMetadataSpec) {
     (name, spec)
 }
 
-fn registe_metadata_type(owner: User, ticker: Option<Ticker>, name: &str) -> AssetMetadataKey {
-    let spec = AssetMetadataSpec {
-        url: Some(b"http://example.com/test_specs".into()),
-        description: Some(format!("{} metadata type", name).as_bytes().into()),
-        type_def: Some(vec![]),
-    };
-    let name: AssetMetadataName = name.as_bytes().into();
+/// Helper to register metadata type with the give name.
+fn register_metadata_type(owner: User, ticker: Option<Ticker>, name: &str) -> AssetMetadataKey {
+    let (name, spec) = make_metadata_type(name);
 
     if let Some(ticker) = ticker {
         // Register local metadata type with asset owner.
@@ -115,8 +114,8 @@ fn set_asset_metadata_local_type() {
         // Create asset.
         let (ticker, _) = create_token(owner);
 
-        let global_key = registe_metadata_type(owner, None, "TEST");
-        let local_key = registe_metadata_type(owner, Some(ticker), "TEST");
+        let global_key = register_metadata_type(owner, None, "TEST");
+        let local_key = register_metadata_type(owner, Some(ticker), "TEST");
 
         let value = AssetMetadataValue("cow".as_bytes().into());
         let details = Some(make_metadata_value_details(None, false));
@@ -143,6 +142,34 @@ fn set_asset_metadata_local_type() {
                 details.clone()
             ),
             EAError::UnauthorizedAgent
+        );
+
+        // Make value that exceeds the maximum limit.
+        let value_len = AssetMetadataValueMaxLength::get() + 1;
+        let over_sized_value = AssetMetadataValue(vec![b'v'; value_len as usize]);
+
+        // Try to set a global key with a value that exceeds the maximum limit.
+        exec_noop!(
+            Asset::set_asset_metadata(
+                owner.origin(),
+                ticker,
+                global_key,
+                over_sized_value.clone(),
+                details.clone()
+            ),
+            AssetError::AssetMetadataValueMaxLengthExceeded
+        );
+
+        // Try to set a local key with a value that exceeds the maximum limit.
+        exec_noop!(
+            Asset::set_asset_metadata(
+                owner.origin(),
+                ticker,
+                local_key,
+                over_sized_value.clone(),
+                details.clone()
+            ),
+            AssetError::AssetMetadataValueMaxLengthExceeded
         );
 
         // Set metadata value for global key.

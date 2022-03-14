@@ -53,15 +53,18 @@ pub fn make_document() -> Document {
     }
 }
 
-pub fn make_metadata_name<T: Config>() -> AssetMetadataName {
+/// Make metadata name for benchmarking.
+fn make_metadata_name<T: Config>() -> AssetMetadataName {
     AssetMetadataName(vec![b'n'; T::AssetMetadataNameMaxLength::get() as usize])
 }
 
-pub fn make_metadata_value<T: Config>() -> AssetMetadataValue {
+/// Make metadata value for benchmarking.
+fn make_metadata_value<T: Config>() -> AssetMetadataValue {
     AssetMetadataValue(vec![b'v'; T::AssetMetadataValueMaxLength::get() as usize])
 }
 
-pub fn make_metadata_spec<T: Config>() -> AssetMetadataSpec {
+/// Make metadata spec for benchmarking.
+fn make_metadata_spec<T: Config>() -> AssetMetadataSpec {
     AssetMetadataSpec {
         url: Some(Url(vec![b'u'; T::MaxLen::get() as usize])),
         description: Some(AssetMetadataDescription(vec![
@@ -72,6 +75,7 @@ pub fn make_metadata_spec<T: Config>() -> AssetMetadataSpec {
     }
 }
 
+/// Register a global metadata type for benchmarking.
 fn register_metadata_global_name<T: Config>() -> AssetMetadataKey {
     let root = RawOrigin::Root.into();
     let name = make_metadata_name::<T>();
@@ -81,7 +85,7 @@ fn register_metadata_global_name<T: Config>() -> AssetMetadataKey {
         .expect("`register_asset_metadata_global_type` failed");
 
     let key = Module::<T>::asset_metadata_next_global_key();
-    AssetMetadataKey::Global(key.0)
+    AssetMetadataKey::Global(key)
 }
 
 fn make_default_reg_config<T: Config>() -> TickerRegistrationConfig<T::Moment> {
