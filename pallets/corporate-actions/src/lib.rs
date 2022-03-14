@@ -95,7 +95,6 @@ pub mod ballot;
 pub mod distribution;
 
 use codec::{Decode, Encode};
-use core::convert::TryInto;
 use distribution::WeightInfo as DistWeightInfoTrait;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -563,22 +562,21 @@ decl_module! {
                 T::MaxTargetIds::get(),
             )
             .max(<T as Config>::WeightInfo::initiate_corporate_action_provided(
-                ca_args.withholding_tax.as_ref().map_or(0, |whts| whts.len() as u32),
-                ca_args.targets.as_ref().map_or(0, |t| t.identities.len() as u32),
+                withholding_tax.as_ref().map_or(0, |whts| whts.len() as u32),
+                targets.as_ref().map_or(0, |t| t.identities.len() as u32),
             ))
         ]
-        pub fn initiate_corporate_action(origin, ca_args: InitiateCorporateActionArgs) -> DispatchResult {
-            let InitiateCorporateActionArgs {
-                ticker,
-                kind,
-                decl_date,
-                record_date,
-                details,
-                targets,
-                default_withholding_tax,
-                withholding_tax
-            } = ca_args;
-
+        pub fn initiate_corporate_action(
+            origin,
+            ticker: Ticker,
+            kind: CAKind,
+            decl_date: Moment,
+            record_date: Option<RecordDateSpec>,
+            details: CADetails,
+            targets: Option<TargetIdentities>,
+            default_withholding_tax: Option<Tax>,
+            withholding_tax: Option<Vec<(IdentityId, Tax)>>,
+        ) -> DispatchResult {
             // Ensure that a permissioned agent is calling.
             let agent = <ExternalAgents<T>>::ensure_perms(origin, ticker)?.for_event();
 
@@ -867,7 +865,10 @@ impl<T: Config> Module<T> {
         withholding_tax: Option<Vec<(IdentityId, Tax)>>,
     ) -> Result<CAId, DispatchError> {
         // Ensure that `details` is short enough.
-        ensure!(details.len() <= Self::max_details_length() as usize, Error::<T>::DetailsTooLong);
+        ensure!(
+            details.len() <= Self::max_details_length() as usize,
+            Error::<T>::DetailsTooLong
+        );
 
         // Ensure that the next local CA ID doesn't overflow.
         let mut next_id = CAIdSequence::get(ticker);
