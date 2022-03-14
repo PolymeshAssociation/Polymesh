@@ -735,7 +735,7 @@ decl_module! {
             .max(<T as Config>::WeightInfo::initiate_corporate_action_provided(
                 ca_args.withholding_tax.as_ref().map_or(0, |whts| whts.len() as u32),
                 ca_args.targets.as_ref().map_or(0, |t| t.identities.len() as u32),
-            )) + <T as Config>::DistWeightInfo::distribute()
+            )).saturating_add(<T as Config>::DistWeightInfo::distribute())
         ]
         pub fn initiate_corporate_action_and_distribute(
             origin,
