@@ -867,12 +867,7 @@ impl<T: Config> Module<T> {
         withholding_tax: Option<Vec<(IdentityId, Tax)>>,
     ) -> Result<CAId, DispatchError> {
         // Ensure that `details` is short enough.
-        details
-            .len()
-            .try_into()
-            .ok()
-            .filter(|&len: &u32| len <= Self::max_details_length())
-            .ok_or(Error::<T>::DetailsTooLong)?;
+        ensure!(details.len() <= Self::max_details_length() as usize, Error::<T>::DetailsTooLong);
 
         // Ensure that the next local CA ID doesn't overflow.
         let mut next_id = CAIdSequence::get(ticker);
