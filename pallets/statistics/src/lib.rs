@@ -87,8 +87,19 @@ decl_module! {
 
         /// Set the active asset stat_types.
         ///
+        /// # Arguments
+        /// - `origin` - a signer that has permissions to act as an agent of `asset`.
+        /// - `asset` - the asset to change the active stats on.
+        /// - `stat_types` - the new stat types to replace any existing types.
+        ///
+        /// # Errors
+        /// - `StatTypeLimitReached` - too many stat types enabled for the `asset`.
+        /// - `CannotRemoveStatTypeInUse` - can not remove a stat type that is in use by transfer conditions.
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset`.
+        ///
         /// # Permissions
-        /// * Asset
+        /// - Agent
+        /// - Asset
         #[weight = <T as Config>::WeightInfo::set_active_asset_stats(stat_types.len() as u32)]
         pub fn set_active_asset_stats(origin, asset: AssetScope, stat_types: BTreeSet<StatType>) {
             Self::base_set_active_asset_stats(origin, asset, stat_types)?;
@@ -96,8 +107,19 @@ decl_module! {
 
         /// Allow a trusted issuer to init/resync ticker/company stats.
         ///
+        /// # Arguments
+        /// - `origin` - a signer that has permissions to act as an agent of `asset`.
+        /// - `asset` - the asset to change the active stats on.
+        /// - `stat_type` - stat type to update.
+        /// - `values` - Updated values for `stat_type`.
+        ///
+        /// # Errors
+        /// - `StatTypeMissing` - `stat_type` is not enabled for the `asset`.
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset`.
+        ///
         /// # Permissions
-        /// * Asset
+        /// - Agent
+        /// - Asset
         #[weight = <T as Config>::WeightInfo::batch_update_asset_stats(values.len() as u32)]
         pub fn batch_update_asset_stats(origin, asset: AssetScope, stat_type: StatType, values: BTreeSet<StatUpdate>) {
             Self::base_batch_update_asset_stats(origin, asset, stat_type, values)?;
@@ -105,8 +127,19 @@ decl_module! {
 
         /// Set asset transfer compliance rules.
         ///
+        /// # Arguments
+        /// - `origin` - a signer that has permissions to act as an agent of `asset`.
+        /// - `asset` - the asset to change the active stats on.
+        /// - `transfer_conditions` - the new transfer condition to replace any existing conditions.
+        ///
+        /// # Errors
+        /// - `TransferConditionLimitReached` - too many transfer condititon enabled for `asset`.
+        /// - `StatTypeMissing` - a transfer condition requires a stat type that is not enabled for the `asset`.
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset`.
+        ///
         /// # Permissions
-        /// * Asset
+        /// - Agent
+        /// - Asset
         #[weight = <T as Config>::WeightInfo::set_asset_transfer_compliance(transfer_conditions.len() as u32)]
         pub fn set_asset_transfer_compliance(origin, asset: AssetScope, transfer_conditions: BTreeSet<TransferCondition>) {
             Self::base_set_asset_transfer_compliance(origin, asset, transfer_conditions)?;
@@ -114,8 +147,18 @@ decl_module! {
 
         /// Set/unset entities exempt from an asset's transfer compliance rules.
         ///
+        /// # Arguments
+        /// - `origin` - a signer that has permissions to act as an agent of `exempt_key.asset`.
+        /// - `is_exempt` - enable/disable exemption for `entities`.
+        /// - `exempt_key` - the asset and stat type to exempt the `entities` from.
+        /// - `entities` - the entities to set/unset the exemption for.
+        ///
+        /// # Errors
+        /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset`.
+        ///
         /// # Permissions
-        /// * Asset
+        /// - Agent
+        /// - Asset
         #[weight = <T as Config>::WeightInfo::set_entities_exempt(entities.len() as u32)]
         pub fn set_entities_exempt(origin, is_exempt: bool, exempt_key: TransferConditionExemptKey, entities: BTreeSet<ScopeId>) {
             Self::base_set_entities_exempt(origin, is_exempt, exempt_key, entities)?;

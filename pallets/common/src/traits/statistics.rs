@@ -36,16 +36,28 @@ pub trait WeightInfo {
 decl_event!(
     pub enum Event {
         /// Stat types added to asset.
+        ///
+        /// (Caller DID, Asset, Stat types)
         StatTypesAdded(IdentityId, AssetScope, Vec<StatType>),
         /// Stat types removed from asset.
+        ///
+        /// (Caller DID, Asset, Stat types)
         StatTypesRemoved(IdentityId, AssetScope, Vec<StatType>),
         /// Asset stats updated.
+        ///
+        /// (Caller DID, Asset, Stat type, Updates)
         AssetStatsUpdated(IdentityId, AssetScope, StatType, Vec<StatUpdate>),
         /// Set Transfer compliance rules for asset.
+        ///
+        /// (Caller DID, Asset, Transfer conditions)
         SetAssetTransferCompliance(IdentityId, AssetScope, Vec<TransferCondition>),
         /// Add `ScopeId`s exempt for transfer conditions matching exempt key.
+        ///
+        /// (Caller DID, Exempt key, Entities)
         TransferConditionExemptionsAdded(IdentityId, TransferConditionExemptKey, Vec<ScopeId>),
         /// Remove `ScopeId`s exempt for transfer conditions matching exempt key.
+        ///
+        /// (Caller DID, Exempt key, Entities)
         TransferConditionExemptionsRemoved(IdentityId, TransferConditionExemptKey, Vec<ScopeId>),
     }
 );
