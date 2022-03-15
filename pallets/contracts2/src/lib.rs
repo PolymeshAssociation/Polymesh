@@ -402,9 +402,6 @@ where
         // It becomes a bit cyclical,
         // as charging weight itself becomes part of the computation to charge weight for.
 
-        // Swap current DID to caller's DID.
-        let old_did = set_current_did_to_key::<T>(env.ext().caller());
-
         // Decide what to call in the runtime.
         let func_id = split_func_id(func_id);
         // TODO(Centril): charge weight + benchmark depending on `in_len`.
@@ -418,6 +415,11 @@ where
         let di = call.get_dispatch_info();
         let charged_amount = env.charge_weight(di.weight)?;
 
+        // Swap current DID to caller's DID and on return, swap back.
+        let _reset = drop_guard::guard(set_current_did_to_key::<T>(env.ext().caller()), |did| {
+            Context::set_current_identity::<Identity<T>>(did)
+        });
+
         // Execute call requested by contract.
         let result = env.ext().call_runtime(call);
 
@@ -428,9 +430,6 @@ where
 
         // Ensure the call was successful.
         result.map_err(|e| e.error)?;
-
-        // Swap back the current DID.
-        Context::set_current_identity::<Identity<T>>(old_did);
 
         // Done; continue with smart contract execution when returning.
         Ok(ce::RetVal::Converging(0))
