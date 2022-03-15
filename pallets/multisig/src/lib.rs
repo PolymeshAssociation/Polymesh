@@ -339,7 +339,7 @@ decl_module! {
             auto_close: bool
         ) {
             let signer = Self::ensure_perms_signed_did(origin)?;
-            Self::create_proposal(multisig, signer, proposal, expiry, auto_close)?;
+            Self::create_proposal(multisig, signer, proposal, expiry, auto_close, false)?;
         }
 
         /// Creates a multisig proposal
@@ -359,7 +359,7 @@ decl_module! {
             auto_close: bool
         ) {
             let signer = Self::ensure_signed_acc(origin)?;
-            Self::create_proposal(multisig, signer, proposal, expiry, auto_close)?;
+            Self::create_proposal(multisig, signer, proposal, expiry, auto_close, false)?;
         }
 
         /// Approves a multisig proposal using the caller's identity.
@@ -803,6 +803,7 @@ impl<T: Config> Module<T> {
         proposal: Box<T::Proposal>,
         expiry: Option<T::Moment>,
         auto_close: bool,
+        proposal_to_id: bool,
     ) -> CreateProposalResult {
         Self::ensure_ms_signer(&multisig, &sender_signer)?;
         let caller_did = match sender_signer {
@@ -812,7 +813,10 @@ impl<T: Config> Module<T> {
         };
         let proposal_id = Self::ms_tx_done(multisig.clone());
         <Proposals<T>>::insert((multisig.clone(), proposal_id), proposal.clone());
-        <ProposalIds<T>>::insert(multisig.clone(), *proposal, proposal_id);
+        if proposal_to_id {
+            // Only use the `Proposal` -> id map for `create_or_approve_proposal` calls.
+            <ProposalIds<T>>::insert(multisig.clone(), *proposal, proposal_id);
+        }
         <ProposalDetail<T>>::insert(
             (multisig.clone(), proposal_id),
             ProposalDetails::new(expiry, auto_close),
@@ -842,7 +846,7 @@ impl<T: Config> Module<T> {
             Self::unsafe_approve(multisig, sender_signer, proposal_id)?;
         } else {
             // The proposal is new.
-            Self::create_proposal(multisig, sender_signer, proposal, expiry, auto_close)?;
+            Self::create_proposal(multisig, sender_signer, proposal, expiry, auto_close, true)?;
         }
         Ok(())
     }
