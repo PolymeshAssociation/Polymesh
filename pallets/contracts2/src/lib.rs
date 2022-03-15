@@ -357,9 +357,6 @@ where
         };
     }
 
-    // TODO(Centril): Should we charge weight depending on branch?
-    // That would require us to benchmark the decoding of each and every call.
-
     Ok(match func_id {
         on!(0, 0) => CommonCall::Asset(pallet_asset::Call::register_ticker { ticker: decode!() }),
         on!(0, 1) => {
@@ -397,10 +394,6 @@ where
         env: ce::Environment<E, ce::InitState>,
     ) -> ce::Result<ce::RetVal> {
         let mut env = env.buf_in_buf_out();
-
-        // TODO(Centril): charge weight + benchmark code in here?
-        // It becomes a bit cyclical,
-        // as charging weight itself becomes part of the computation to charge weight for.
 
         // Decide what to call in the runtime.
         let func_id = split_func_id(func_id);
