@@ -56,11 +56,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("polymesh_dev"),
     impl_name: create_runtime_str!("polymesh_dev"),
     authoring_version: 1,
-    // Per convention: if the runtime behavior changes, increment spec_version
-    // and set impl_version to 0. If only runtime
-    // implementation changes and behavior does not, then leave spec_version as
-    // is and increment impl_version.
-    spec_version: 3010,
+    // `spec_version: aaa_bbb_ccc` should match node version v`aaa.bbb.ccc`
+    spec_version: 5_000_000,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 2,
