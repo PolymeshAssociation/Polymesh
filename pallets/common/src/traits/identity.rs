@@ -189,7 +189,7 @@ pub trait Config: CommonConfig + pallet_timestamp::Config + crate::traits::base:
     type InitialPOLYX: Get<<Self::Balances as Currency<Self::AccountId>>::Balance>;
 
     /// Only allow MultiSig primary/secondary keys to be removed from an identity
-    /// if it's POLYX balance is below this limit.
+    /// if its POLYX balance is below this limit.
     type MultiSigBalanceLimit: Get<<Self::Balances as Currency<Self::AccountId>>::Balance>;
 }
 
