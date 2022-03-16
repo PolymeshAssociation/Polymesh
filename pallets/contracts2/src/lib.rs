@@ -392,6 +392,9 @@ where
             funding_round: decode!(),
             disable_iu: decode!(),
         }),
+        on!(0, 17) => {
+            CommonCall::Asset(pallet_asset::Call::register_custom_asset_type { ty: decode!() })
+        }
         _ => return Err(Error::<T>::RuntimeCallNotFound.into()),
     })
 }
