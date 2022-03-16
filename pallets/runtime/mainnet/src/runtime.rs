@@ -124,10 +124,10 @@ parameter_types! {
     pub const InitialPOLYX: Balance = 0;
 
     // Contracts:
-	pub ContractDeposit: Balance = polymesh_runtime_common::deposit(
-		1,
-		<pallet_contracts::Pallet<Runtime>>::contract_info_size(),
-	);
+    pub ContractDeposit: Balance = polymesh_runtime_common::deposit(
+        1,
+        <pallet_contracts::Pallet<Runtime>>::contract_info_size(),
+    );
     pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
     pub DeletionWeightLimit: Weight = 500_000_000_000;
     pub DeletionQueueDepth: u32 = 1024;
