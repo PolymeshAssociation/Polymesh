@@ -441,7 +441,7 @@ where
 
         // Execute call requested by contract, with current DID set to the contract owner.
         let ext = env.ext();
-        let result = with_key_as_current::<T, _, _>(ext.caller(), || ext.call_runtime(call));
+        let result = with_key_as_current::<T, _, _>(ext.address(), || ext.call_runtime(call));
 
         // Refund unspent weight.
         let post_di = result.unwrap_or_else(|e| e.post_info);
