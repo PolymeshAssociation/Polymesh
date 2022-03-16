@@ -334,11 +334,20 @@ macro_rules! misc_pallet_impls {
             type CallStack = [pallet_contracts::Frame<Self>; 31];
             type WeightPrice = pallet_transaction_payment::Pallet<Self>;
             type WeightInfo = pallet_contracts::weights::SubstrateWeight<Self>;
-            type ChainExtension = ();
+            type ChainExtension = polymesh_contracts::Pallet<Runtime>;
             type Schedule = Schedule;
             type ContractDeposit = ContractDeposit;
             type DeletionQueueDepth = DeletionQueueDepth;
             type DeletionWeightLimit = DeletionWeightLimit;
+        }
+        impl From<polymesh_contracts::CommonCall<Runtime>> for Call {
+            fn from(call: polymesh_contracts::CommonCall<Runtime>) -> Self {
+                use polymesh_contracts::CommonCall::*;
+                match call {
+                    Asset(x) => Self::Asset(x),
+                    Contracts(x) => Self::Contracts(x),
+                }
+            }
         }
 
         impl pallet_compliance_manager::Config for Runtime {
