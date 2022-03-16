@@ -51,7 +51,7 @@ use pallet_contracts_primitives::{Code, ContractResult};
 use pallet_identity::PermissionedCallOriginData;
 use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
 use polymesh_common_utilities::{with_transaction, Context};
-use polymesh_primitives::{Balance, IdentityId, Permissions};
+use polymesh_primitives::{Balance, Permissions};
 use sp_core::crypto::UncheckedFrom;
 use sp_core::Bytes;
 use sp_runtime::traits::Hash;
@@ -341,11 +341,13 @@ fn split_func_id(func_id: u32) -> FuncId {
 }
 
 /// Set current DID to that of `key` and returns the old DID.
-fn set_current_did_to_key<T: Config>(key: &T::AccountId) -> Option<IdentityId> {
+fn with_key_as_current<T: Config, W: FnOnce() -> R, R>(key: &T::AccountId, with: W) -> R {
     let old_did = Context::current_identity::<Identity<T>>();
     let caller_did = Identity::<T>::key_to_identity_dids(key);
     Context::set_current_identity::<Identity<T>>(Some(caller_did));
-    old_did
+    let result = with();
+    Context::set_current_identity::<Identity<T>>(old_did);
+    result
 }
 
 fn decode<V: Decode, T: Config>(input: &mut &[u8]) -> Result<V, DispatchError> {
@@ -437,14 +439,9 @@ where
         let di = call.get_dispatch_info();
         let charged_amount = env.charge_weight(di.weight)?;
 
-        // Swap current DID to caller's DID and on return, swap back.
-        let old_did = set_current_did_to_key::<T>(env.ext().caller());
-
-        // Execute call requested by contract.
-        let result = env.ext().call_runtime(call);
-
-        // Swap back to the old DID.
-        Context::set_current_identity::<Identity<T>>(old_did);
+        // Execute call requested by contract, with current DID set to the contract owner.
+        let ext = env.ext();
+        let result = with_key_as_current::<T, _, _>(ext.caller(), || ext.call_runtime(call));
 
         // Refund unspent weight.
         let post_di = result.unwrap_or_else(|e| e.post_info);
