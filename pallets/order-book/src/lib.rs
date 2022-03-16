@@ -126,16 +126,22 @@ decl_error! {
         InvalidOrderBook,
         /// Assets are still locked.
         StillLocked,
+        /// Assets are unlocked and can't be used for orders.
+        AssetsUnlocked,
         /// No assets locked.
         NoLockedAssets,
         /// The matched orders can't be on the same side (buy/sell) as the main order.
         InvalidMatchedOrderSide,
         /// The matched orders must have a `price`.  Only the main order can be a market order.
         MatchedOrderMissingPrice,
+        /// Missing coin portfolio id.
+        MissingCoinPortfolioId,
         /// The order's `amount` is lower then the matched `amount`.
         InsufficientOrderAmount,
         /// Not enough locked assets to cover the order.
         InsufficientLockedAssets,
+        /// Not enough locked coins to cover the order.
+        InsufficientLockedCoins,
         /// Invalid order signature.
         InvalidOrderSignature,
         /// No matched orders.
@@ -420,10 +426,10 @@ impl<T: Config> Module<T> {
                     (OrderSide::Buy, Coin::Asset(coin)) => {
                         let from = main
                             .coin_portfolio
-                            .ok_or(Error::<T>::InsufficientLockedAssets)?;
+                            .ok_or(Error::<T>::MissingCoinPortfolioId)?;
                         let to = order
                             .coin_portfolio
-                            .ok_or(Error::<T>::InsufficientLockedAssets)?;
+                            .ok_or(Error::<T>::MissingCoinPortfolioId)?;
                         portfolios.insert(to);
                         // Buyer sends `price` coins.
                         legs.push(Leg {
@@ -443,10 +449,10 @@ impl<T: Config> Module<T> {
                     (OrderSide::Sell, Coin::Asset(coin)) => {
                         let from = order
                             .coin_portfolio
-                            .ok_or(Error::<T>::InsufficientLockedAssets)?;
+                            .ok_or(Error::<T>::MissingCoinPortfolioId)?;
                         let to = main
                             .coin_portfolio
-                            .ok_or(Error::<T>::InsufficientLockedAssets)?;
+                            .ok_or(Error::<T>::MissingCoinPortfolioId)?;
                         portfolios.insert(from);
                         // Buyer sends `price` coins.
                         legs.push(Leg {
@@ -544,8 +550,7 @@ impl<T: Config> Module<T> {
                 match locked_assets.as_mut() {
                     Some(assets) if !assets.is_locked(block) => {
                         // Assets are unlocked.
-                        // TODO: Use different error.
-                        Err(Error::<T>::InsufficientLockedAssets)?
+                        Err(Error::<T>::AssetsUnlocked)?
                     }
                     Some(mut assets) => {
                         assets.amount = assets
