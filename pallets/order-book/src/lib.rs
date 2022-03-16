@@ -136,8 +136,10 @@ decl_error! {
         MatchedOrderMissingPrice,
         /// Missing coin portfolio id.
         MissingCoinPortfolioId,
-        /// The order's `amount` is lower then the matched `amount`.
+        /// The main order's `amount` is lower then the matched order `amount`.
         InsufficientOrderAmount,
+        /// The main order's `price` can't cover the matched order `price`.
+        InsufficientOrderPrice,
         /// Not enough locked assets to cover the order.
         InsufficientLockedAssets,
         /// Not enough locked coins to cover the order.
@@ -402,7 +404,7 @@ impl<T: Config> Module<T> {
         with_transaction(|| {
             // Validate matched orders.
             let mut total_amount: Balance = 0;
-            let mut total_price: Balance = 0;
+            let mut total_cost: Balance = 0;
             let mut legs = Vec::with_capacity(matched_orders_len * 2);
             let mut portfolios = BTreeSet::new();
             let main = &orders.main_order.order;
@@ -418,7 +420,7 @@ impl<T: Config> Module<T> {
                 total_amount = total_amount
                     .checked_add(amount)
                     .ok_or(Error::<T>::Overflow)?;
-                total_price = total_price.checked_add(price).ok_or(Error::<T>::Overflow)?;
+                total_cost = total_cost.checked_add(price).ok_or(Error::<T>::Overflow)?;
 
                 portfolios.insert(order.asset_portfolio);
                 // Create lets for settlement.
@@ -495,7 +497,7 @@ impl<T: Config> Module<T> {
                 orderbook_id,
                 &orders.main_order,
                 total_amount,
-                total_price,
+                total_cost,
             )?;
 
             let num_legs = legs.len() as u32;
@@ -598,11 +600,11 @@ impl<T: Config> Module<T> {
         match (main_order.side, main_order.price) {
             (OrderSide::Buy, Some(main_price)) => {
                 // The main order's price must be greator then or equal to the matched orders.
-                ensure!(main_price >= price, Error::<T>::InsufficientOrderAmount);
+                ensure!(main_price >= price, Error::<T>::InsufficientOrderPrice);
             }
             (OrderSide::Sell, Some(main_price)) => {
                 // The main order's price must be greator then or equal to the matched orders.
-                ensure!(main_price <= price, Error::<T>::InsufficientOrderAmount);
+                ensure!(main_price <= price, Error::<T>::InsufficientOrderPrice);
             }
             (_, None) => {
                 // The main order is a Market order.
@@ -610,7 +612,7 @@ impl<T: Config> Module<T> {
         }
 
         // Calculate the total price for the matched `amount` of tokens.
-        let total_price = price.checked_mul(amount).ok_or(Error::<T>::Overflow)?;
+        let total_cost = Self::cal_total_cost(amount, price)?;
 
         match order.side {
             OrderSide::Buy => {
@@ -619,13 +621,13 @@ impl<T: Config> Module<T> {
                         // Make sure there is enough locked coins to cover this order.
                         let portfolio = order
                             .coin_portfolio
-                            .ok_or(Error::<T>::InsufficientLockedAssets)?;
+                            .ok_or(Error::<T>::MissingCoinPortfolioId)?;
                         Self::unlock_assets(
                             orderbook_id,
                             &order.account_id,
                             portfolio,
                             coin,
-                            total_price,
+                            total_cost,
                         )?;
                     }
                     Coin::Offchain(_) => {
@@ -645,7 +647,20 @@ impl<T: Config> Module<T> {
             }
         }
 
-        Ok((order, amount, total_price))
+        Ok((order, amount, total_cost))
+    }
+
+    fn cal_total_cost(amount: Balance, price: Balance) -> Result<Balance, DispatchError> {
+        // Price is entered as a multiple of 1_000_000
+        // i.e. a price of 1 unit is 1_000_000
+        // a price of 1.5 units is 1_500_00
+        let price_divisor = Balance::from(1_000_000u32);
+
+        Ok(amount
+            .checked_mul(price)
+            .ok_or(Error::<T>::Overflow)?
+            .checked_div(price_divisor)
+            .ok_or(Error::<T>::Overflow)?)
     }
 
     fn ensure_valid_main_order(
@@ -653,21 +668,19 @@ impl<T: Config> Module<T> {
         orderbook_id: OrderBookId,
         signed_order: &SignedOrder<T::AccountId>,
         total_amount: Balance,
-        total_price: Balance,
+        total_cost: Balance,
     ) -> DispatchResult {
         let order = Self::ensure_signed_order(signed_order)?;
 
         // Main order total price.
-        let main_total_price = match order.price {
+        let main_total_cost = match order.price {
             Some(price) => {
                 // Limit order.
-                price
-                    .checked_mul(total_amount)
-                    .ok_or(Error::<T>::Overflow)?
+                Self::cal_total_cost(total_amount, price)?
             }
             None => {
                 // Market order.
-                total_price
+                total_cost
             }
         };
 
@@ -681,8 +694,8 @@ impl<T: Config> Module<T> {
             OrderSide::Buy => {
                 // The main order's price must be greator then or equal to the matched orders.
                 ensure!(
-                    main_total_price >= total_price,
-                    Error::<T>::InsufficientOrderAmount
+                    main_total_cost >= total_cost,
+                    Error::<T>::InsufficientOrderPrice
                 );
 
                 match orderbook.coin {
@@ -690,13 +703,13 @@ impl<T: Config> Module<T> {
                         // Make sure there is enough locked coins to cover this order.
                         let portfolio = order
                             .coin_portfolio
-                            .ok_or(Error::<T>::InsufficientLockedAssets)?;
+                            .ok_or(Error::<T>::MissingCoinPortfolioId)?;
                         Self::unlock_assets(
                             orderbook_id,
                             &order.account_id,
                             portfolio,
                             coin,
-                            total_price,
+                            total_cost,
                         )?;
                     }
                     Coin::Offchain(_) => {
@@ -707,8 +720,8 @@ impl<T: Config> Module<T> {
             OrderSide::Sell => {
                 // The main order's price must be greator then or equal to the matched orders.
                 ensure!(
-                    main_total_price <= total_price,
-                    Error::<T>::InsufficientOrderAmount
+                    main_total_cost <= total_cost,
+                    Error::<T>::InsufficientOrderPrice
                 );
 
                 // Make sure there is enough locked assets to cover this order.
