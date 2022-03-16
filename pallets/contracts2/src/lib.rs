@@ -104,6 +104,16 @@ decl_module! {
         type Error = Error<T>;
         fn deposit_event() = default;
 
+		fn on_initialize(block: T::BlockNumber) -> Weight {
+            // Does he know what I do and... 🎶
+            pallet_contracts::Pallet::<T>::on_initialize(block)
+		}
+
+		fn on_runtime_upgrade() -> Weight {
+            // 🎶 ...You'll pass this on, won't you and?
+            pallet_contracts::Pallet::<T>::on_runtime_upgrade()
+		}
+
         /// TODO
         #[weight = <T as Config>::WeightInfo::call().saturating_add(*gas_limit)]
         pub fn call(
