@@ -340,7 +340,7 @@ fn split_func_id(func_id: u32) -> FuncId {
     }
 }
 
-/// Set current DID to that of `key` and returns the old DID.
+/// Run `with` while the current DID is temporarily set to that of `key`.
 fn with_key_as_current<T: Config, W: FnOnce() -> R, R>(key: &T::AccountId, with: W) -> R {
     let old_did = Context::current_identity::<Identity<T>>();
     let caller_did = Identity::<T>::key_to_identity_dids(key);
