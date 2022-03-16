@@ -269,7 +269,7 @@ impl<T: Config> Module<T> {
             primary_did: did,
             secondary_key,
             sender,
-        } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, asset)?;
+        } = <ExternalAgents<T>>::ensure_asset_perms(origin, &asset)?;
 
         <Portfolio<T>>::ensure_portfolio_custody_and_permission(
             portfolio,
@@ -314,7 +314,7 @@ impl<T: Config> Module<T> {
             primary_did: did,
             secondary_key,
             sender,
-        } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, asset)?;
+        } = <ExternalAgents<T>>::ensure_asset_perms(origin, &asset)?;
 
         <Portfolio<T>>::ensure_portfolio_custody_and_permission(
             portfolio,
@@ -343,7 +343,7 @@ impl<T: Config> Module<T> {
             primary_did: did,
             secondary_key,
             sender,
-        } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, asset)?;
+        } = <ExternalAgents<T>>::ensure_asset_perms(origin, &asset)?;
 
         <Portfolio<T>>::ensure_portfolio_custody_and_permission(
             portfolio,

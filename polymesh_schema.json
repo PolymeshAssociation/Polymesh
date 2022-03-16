@@ -908,7 +908,7 @@
       "start": "Option<Moment>",
       "period": "CalendarPeriod",
       "remaining": "u32"
-    },    
+    },
     "InstructionStatus": {
       "_enum": {
         "Unknown": "",
@@ -1024,7 +1024,53 @@
     },
     "VenueId": "u64",
     "VenueType": {
-      "_enum": ["Other", "Distribution", "Sto", "Exchange"]
+      "_enum": ["Other", "Distribution", "Sto", "Exchange", "OrderBook"]
+    },
+    "OrderBookId": "u64",
+    "OrderId": "u64",
+    "Coin": {
+      "_enum": {
+        "Asset": "Ticker",
+        "Offchain": "Ticker"
+      }
+    },
+    "OrderBook": {
+      "venue_id": "VenueId",
+      "asset": "Ticker",
+      "coin": "Coin"
+    },
+    "FeeDetails": {
+      "_enum": {
+        "OffChain": "",
+        "Onchain": "(Ticker, Balance)"
+      }
+    },
+    "OrderSide": {
+      "_enum": ["Buy", "Sell"]
+    },
+     "Order<AccountId>": {
+      "side": "OrderSide",
+      "order_book_id": "OrderBookId",
+      "asset_portfolio": "PortfolioId",
+      "amount": "Balance",
+      "coin_portfolio": "Option<PortfolioId>",
+      "price": "Option<Balance>",
+      "fee": "FeeDetails",
+      "account_id": "AccountId",
+      "order_id": "OrderId",
+      "timestamp": "Moment"
+    },
+     "SignedOrder<AccountId>": {
+      "signature": "Signature",
+      "order": "Order<AccountId>"
+    },
+     "MatchedOrder<AccountId>": {
+      "order": "SignedOrder<AccountId>",
+      "amount": "Balance"
+    },
+     "SettleOrders<AccountId>": {
+      "main_order": "SignedOrder<AccountId>",
+      "matched_orders": "Vec<MatchedOrder<AccountId>>"
     },
     "ExtensionAttributes": {
       "usage_fee": "Balance",
