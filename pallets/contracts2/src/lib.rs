@@ -409,17 +409,21 @@ where
         let charged_amount = env.charge_weight(di.weight)?;
 
         // Swap current DID to caller's DID and on return, swap back.
-        let _reset = drop_guard::guard(set_current_did_to_key::<T>(env.ext().caller()), |did| {
-            Context::set_current_identity::<Identity<T>>(did)
-        });
+        let old_did = set_current_did_to_key::<T>(env.ext().caller());
 
         // Execute call requested by contract.
         let result = env.ext().call_runtime(call);
 
+        // Swap back to the old DID.
+        Context::set_current_identity::<Identity<T>>(old_did);
+
         // Refund unspent weight.
         let post_di = result.unwrap_or_else(|e| e.post_info);
-        let actual_weight = post_di.calc_actual_weight(&di);
-        env.adjust_weight(charged_amount, actual_weight);
+        // This check isn't necessary but avoids some work.
+        if post_di.actual_weight.is_some() {
+            let actual_weight = post_di.calc_actual_weight(&di);
+            env.adjust_weight(charged_amount, actual_weight);
+        }
 
         // Ensure the call was successful.
         result.map_err(|e| e.error)?;
