@@ -43,14 +43,14 @@ use frame_support::{
         DispatchError, DispatchErrorWithPostInfo, DispatchResultWithPostInfo, GetDispatchInfo,
     },
     ensure,
+    traits::Get,
     weights::Weight,
 };
 use pallet_contracts::chain_extension as ce;
 use pallet_contracts_primitives::{Code, ContractResult};
 use pallet_identity::PermissionedCallOriginData;
 use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
-use polymesh_common_utilities::with_transaction;
-use polymesh_common_utilities::Context;
+use polymesh_common_utilities::{with_transaction, Context};
 use polymesh_primitives::{Balance, IdentityId, Permissions};
 use sp_core::crypto::UncheckedFrom;
 use sp_core::Bytes;
@@ -65,6 +65,8 @@ pub trait WeightInfo {
     fn call() -> Weight;
     fn instantiate_with_code(code_len: u32, salt_len: u32) -> Weight;
     fn instantiate_with_hash(salt_len: u32) -> Weight;
+
+    fn chain_extension(in_len: u32) -> Weight;
 }
 
 /// The `Config` trait for the smart contracts pallet.
@@ -77,6 +79,10 @@ pub trait Config:
 {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
+
+    /// Max value that `in_len` can take, that is,
+    /// the length of the data sent from a contract when making a runtime call.
+    type MaxInLen: Get<u32>;
 
     /// The weight configuration for the pallet.
     type WeightInfo: WeightInfo;
@@ -92,6 +98,8 @@ decl_error! {
         RuntimeCallNotFound,
         /// Data left in input when decoding arguments of a call.
         DataLeftAfterDecoding,
+        /// Input data that a contract passed when making a runtime call was too large.
+        InLenTooLarge,
     }
 }
 
@@ -104,15 +112,15 @@ decl_module! {
         type Error = Error<T>;
         fn deposit_event() = default;
 
-		fn on_initialize(block: T::BlockNumber) -> Weight {
+        fn on_initialize(block: T::BlockNumber) -> Weight {
             // Does he know what I do and... 🎶
             pallet_contracts::Pallet::<T>::on_initialize(block)
-		}
+        }
 
-		fn on_runtime_upgrade() -> Weight {
+        fn on_runtime_upgrade() -> Weight {
             // 🎶 ...You'll pass this on, won't you and?
             pallet_contracts::Pallet::<T>::on_runtime_upgrade()
-		}
+        }
 
         /// TODO
         #[weight = <T as Config>::WeightInfo::call().saturating_add(*gas_limit)]
@@ -405,11 +413,19 @@ where
     ) -> ce::Result<ce::RetVal> {
         let mut env = env.buf_in_buf_out();
 
+        // Immediately charge weight as a linear function of `in_len`.
+        let in_len = env.in_len();
+        env.charge_weight(<T as Config>::WeightInfo::chain_extension(in_len))?;
+
+        // Then limit `in_len` to a maximum.
+        ensure!(
+            in_len <= <T as Config>::MaxInLen::get(),
+            Error::<T>::InLenTooLarge
+        );
+
         // Decide what to call in the runtime.
         let func_id = split_func_id(func_id);
-        // TODO(Centril): charge weight + benchmark depending on `in_len`.
-        // Also, should we impose a max limit on `in_len`?
-        let input = &mut &*env.read(env.in_len())?;
+        let input = &mut &*env.read(in_len)?;
         let call: <T as pallet_contracts::Config>::Call =
             construct_call::<T>(func_id, input)?.into();
         ensure!(input.is_empty(), Error::<T>::DataLeftAfterDecoding);
