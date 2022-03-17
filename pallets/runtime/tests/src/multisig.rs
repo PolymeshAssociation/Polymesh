@@ -756,12 +756,12 @@ fn check_for_approval_closure() {
         assert_ok!(MultiSig::create_proposal_as_identity(
             alice.clone(),
             musig_address.clone(),
-            call.clone(),
+            call,
             None,
             false
         ));
         next_block();
-        let proposal_id = MultiSig::proposal_ids(musig_address.clone(), call).unwrap();
+        let proposal_id = MultiSig::ms_tx_done(musig_address.clone()) - 1;
         let bob_auth_id = get_last_auth_id(&bob_signer.clone());
         let multi_purpose_nonce = Identity::multi_purpose_nonce();
 
@@ -831,20 +831,19 @@ fn reject_proposals() {
         assert_ok!(MultiSig::create_proposal_as_identity(
             alice.clone(),
             musig_address.clone(),
-            call1.clone(),
+            call1,
             None,
             false
         ));
+        let proposal_id1 = MultiSig::ms_tx_done(musig_address.clone()) - 1;
         assert_ok!(MultiSig::create_proposal_as_identity(
             alice.clone(),
             musig_address.clone(),
-            call2.clone(),
+            call2,
             None,
             true
         ));
-
-        let proposal_id1 = MultiSig::proposal_ids(musig_address.clone(), call1).unwrap();
-        let proposal_id2 = MultiSig::proposal_ids(musig_address.clone(), call2).unwrap();
+        let proposal_id2 = MultiSig::ms_tx_done(musig_address.clone()) - 1;
 
         // Proposal with auto close disabled can be voted on even after rejection.
         set_curr_did(Some(bob_did));
@@ -945,12 +944,12 @@ fn expired_proposals() {
         assert_ok!(MultiSig::create_proposal_as_identity(
             alice.clone(),
             musig_address.clone(),
-            call.clone(),
+            call,
             Some(100u64),
             false
         ));
 
-        let proposal_id = MultiSig::proposal_ids(musig_address.clone(), call).unwrap();
+        let proposal_id = MultiSig::ms_tx_done(musig_address.clone()) - 1;
         let mut proposal_details = MultiSig::proposal_detail(&(musig_address.clone(), proposal_id));
         assert_eq!(proposal_details.approvals, 1);
         assert_eq!(
