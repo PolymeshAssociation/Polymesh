@@ -511,6 +511,14 @@ benchmarks! {
         let details = AssetMetadataValueDetail::default();
     }: _(owner.origin, ticker, key, details)
 
+    register_and_set_local_asset_metadata {
+        let (owner, ticker) = owned_ticker::<T>();
+        let name = make_metadata_name::<T>();
+        let spec = make_metadata_spec::<T>();
+        let value = make_metadata_value::<T>();
+        let details = Some(AssetMetadataValueDetail::default());
+    }: _(owner.origin, ticker, name, spec, value, details)
+
     register_asset_metadata_local_type {
         let (owner, ticker) = owned_ticker::<T>();
         let name = make_metadata_name::<T>();

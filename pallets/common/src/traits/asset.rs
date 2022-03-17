@@ -99,6 +99,7 @@ pub trait WeightInfo {
 
     fn set_asset_metadata() -> Weight;
     fn set_asset_metadata_details() -> Weight;
+    fn register_and_set_local_asset_metadata() -> Weight;
     fn register_asset_metadata_local_type() -> Weight;
     fn register_asset_metadata_global_type() -> Weight;
 }

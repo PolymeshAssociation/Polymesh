@@ -170,6 +170,11 @@ impl pallet_asset::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(8 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
+    fn register_and_set_local_asset_metadata() -> Weight {
+        (232_642_000 as Weight)
+            .saturating_add(DbWeight::get().reads(15 as Weight))
+            .saturating_add(DbWeight::get().writes(6 as Weight))
+    }
     fn register_asset_metadata_local_type() -> Weight {
         (232_642_000 as Weight)
             .saturating_add(DbWeight::get().reads(7 as Weight))

@@ -304,6 +304,57 @@ fn set_asset_metadata_local_type() {
 }
 
 #[test]
+fn register_and_set_local_asset_metadata() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Dave);
+        let other = User::new(AccountKeyring::Alice);
+
+        // Create asset.
+        let (ticker, _) = create_token(owner);
+
+        let (name, spec) = make_metadata_type("TEST");
+        let value = AssetMetadataValue("cow".as_bytes().into());
+        let details = Some(make_metadata_value_details(None, false));
+
+        // Try registering local metadata type with user that doesn't have permissions for this asset.
+        exec_noop!(
+            Asset::register_and_set_local_asset_metadata(
+                other.origin(),
+                ticker,
+                name.clone(),
+                spec.clone(),
+                value.clone(),
+                details.clone(),
+            ),
+            EAError::UnauthorizedAgent
+        );
+
+        // Register and set local metadata type with asset owner.
+        exec_ok!(Asset::register_and_set_local_asset_metadata(
+            owner.origin(),
+            ticker,
+            name.clone(),
+            spec.clone(),
+            value.clone(),
+            details.clone(),
+        ));
+
+        // Try registering and setting metadata with the same name.
+        exec_noop!(
+            Asset::register_and_set_local_asset_metadata(
+                owner.origin(),
+                ticker,
+                name,
+                spec,
+                value,
+                details
+            ),
+            AssetError::AssetMetadataLocalKeyAlreadyExists
+        );
+    });
+}
+
+#[test]
 fn register_asset_metadata_local_type() {
     ExtBuilder::default().build().execute_with(|| {
         let owner = User::new(AccountKeyring::Dave);
