@@ -654,7 +654,7 @@ decl_error! {
         ChangeNotAllowed,
         /// Signer is an account key that is already associated with a multisig.
         SignerAlreadyLinkedToMultisig,
-        /// Signer is an account key that is already associated with a identity.
+        /// Signer is an account key that is already associated with an identity.
         SignerAlreadyLinkedToIdentity,
         /// Current DID is missing
         MissingCurrentIdentity,
