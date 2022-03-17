@@ -138,16 +138,10 @@ decl_module! {
             Self::base_create_group(origin, ticker, perms).map(drop)
         }
 
+        /// Utility extrinsic to batch `create_group` and  `add_auth`.
         #[weight = <T as Config>::WeightInfo::create_group_and_add_auth(perms.complexity() as u32)]
         pub fn create_group_and_add_auth(origin, ticker: Ticker, perms: ExtrinsicPermissions, target: Signatory<T::AccountId>) -> DispatchResult {
-            let (did, ag_id) = Self::base_create_group(origin, ticker, perms)?;
-            <Identity<T>>::add_auth(
-                did,
-                target,
-                AuthorizationData::BecomeAgent(ticker, AgentGroup::Custom(ag_id)),
-                None
-            );
-            Ok(())
+            self::base_create_group_and_add_auth(origin, ticker, perms, target);
         }
 
         /// Updates the permissions of the custom AG identified by `id`, for the given `ticker`.
@@ -301,6 +295,21 @@ impl<T: Config> Module<T> {
         GroupPermissions::insert(ticker, id, perms.clone());
         Self::deposit_event(Event::GroupCreated(did.for_event(), ticker, id, perms));
         Ok((did, id))
+    }
+
+    fn base_create_group_and_add_auth(
+        origin: T::Origin,
+        ticker: Ticker,
+        perms: ExtrinsicPermissions,
+    ) -> DispatchResult {
+        let (did, ag_id) = Self::base_create_group(origin, ticker, perms)?;
+        <Identity<T>>::add_auth(
+            did,
+            target,
+            AuthorizationData::BecomeAgent(ticker, AgentGroup::Custom(ag_id)),
+            None,
+        );
+        Ok(())
     }
 
     fn base_set_group_permissions(

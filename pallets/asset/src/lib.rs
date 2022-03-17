@@ -471,6 +471,7 @@ decl_module! {
                 .map(drop)
         }
 
+        /// Utility extrinsic to batch `create_asset` and `register_custom_asset_type`.
         #[weight = <T as Config>::WeightInfo::create_asset(
             name.len() as u32,
             identifiers.len() as u32,

@@ -557,15 +557,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::initiate_corporate_action_use_defaults(
-                T::MaxDidWhts::get(),
-                T::MaxTargetIds::get(),
-            )
-            .max(<T as Config>::WeightInfo::initiate_corporate_action_provided(
-                withholding_tax.as_ref().map_or(0, |whts| whts.len() as u32),
-                targets.as_ref().map_or(0, |t| t.identities.len() as u32),
-            ))
-        ]
+        #[weight = Self::initiate_corporate_action_weight(targets, withholding_tax)]
         pub fn initiate_corporate_action(
             origin,
             ticker: Ticker,
@@ -726,15 +718,9 @@ decl_module! {
             Self::deposit_event(Event::RecordDateChanged(agent, ca_id, ca));
         }
 
-         #[weight = <T as Config>::WeightInfo::initiate_corporate_action_use_defaults(
-                T::MaxDidWhts::get(),
-                T::MaxTargetIds::get(),
-            )
-            .max(<T as Config>::WeightInfo::initiate_corporate_action_provided(
-                ca_args.withholding_tax.as_ref().map_or(0, |whts| whts.len() as u32),
-                ca_args.targets.as_ref().map_or(0, |t| t.identities.len() as u32),
-            )).saturating_add(<T as Config>::DistWeightInfo::distribute())
-        ]
+        /// Utility extrinsic to batch `initiate_corporate_action` and `distribute`
+         #[weight = Self::initiate_corporate_action_weight(ca_args.targets, ca_args.withholding_tax)
+            .saturating_add(<T as Config>::DistWeightInfo::distribute())]
         pub fn initiate_corporate_action_and_distribute(
             origin,
             ca_args: InitiateCorporateActionArgs,
@@ -1058,5 +1044,21 @@ impl<T: Config> Module<T> {
     /// Ensure that a CA with `id` exists, returning it, and erroring otherwise.
     fn ensure_ca_exists(id: CAId) -> Result<CorporateAction, DispatchError> {
         CorporateActions::get(id.ticker, id.local_id).ok_or_else(|| Error::<T>::NoSuchCA.into())
+    }
+
+    fn initiate_corporate_action_weight(
+        targets: Option<TargetIdentities>,
+        withholding_tax: Option<Vec<(IdentityId, Tax)>>,
+    ) -> Weight {
+        <T as Config>::WeightInfo::initiate_corporate_action_use_defaults(
+            T::MaxDidWhts::get(),
+            T::MaxTargetIds::get(),
+        )
+        .max(
+            <T as Config>::WeightInfo::initiate_corporate_action_provided(
+                withholding_tax.as_ref().map_or(0, |whts| whts.len() as u32),
+                targets.as_ref().map_or(0, |t| t.identities.len() as u32),
+            ),
+        )
     }
 }
