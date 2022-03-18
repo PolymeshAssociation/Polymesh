@@ -1055,10 +1055,10 @@ fn initiate_corporate_action_weight<T: Config>(
         T::MaxDidWhts::get(),
         T::MaxTargetIds::get(),
     )
-        .max(
-            <T as Config>::WeightInfo::initiate_corporate_action_provided(
-                withholding_tax.as_ref().map_or(0, |whts| whts.len() as u32),
-                targets.as_ref().map_or(0, |t| t.identities.len() as u32),
-            ),
-        )
+    .max(
+        <T as Config>::WeightInfo::initiate_corporate_action_provided(
+            withholding_tax.as_ref().map_or(0, |whts| whts.len() as u32),
+            targets.as_ref().map_or(0, |t| t.identities.len() as u32),
+        ),
+    )
 }
