@@ -141,7 +141,7 @@ decl_module! {
         /// Utility extrinsic to batch `create_group` and  `add_auth`.
         #[weight = <T as Config>::WeightInfo::create_group_and_add_auth(perms.complexity() as u32)]
         pub fn create_group_and_add_auth(origin, ticker: Ticker, perms: ExtrinsicPermissions, target: Signatory<T::AccountId>) -> DispatchResult {
-            self::base_create_group_and_add_auth(origin, ticker, perms, target);
+            Self::base_create_group_and_add_auth(origin, ticker, perms, target)
         }
 
         /// Updates the permissions of the custom AG identified by `id`, for the given `ticker`.
@@ -301,6 +301,7 @@ impl<T: Config> Module<T> {
         origin: T::Origin,
         ticker: Ticker,
         perms: ExtrinsicPermissions,
+        target: Signatory<T::AccountId>,
     ) -> DispatchResult {
         let (did, ag_id) = Self::base_create_group(origin, ticker, perms)?;
         <Identity<T>>::add_auth(
