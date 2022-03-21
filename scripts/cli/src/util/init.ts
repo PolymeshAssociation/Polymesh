@@ -254,31 +254,7 @@ export async function sendTx(
   signer: KeyringPair,
   tx: SubmittableExtrinsic<"promise">
 ) {
- try {
-   const result = await sendTransaction(signer, tx, -1);
-   return result;
- } catch (err: any) {
-   const errors = [
-     "Priority is too low",
-     "outdated",
-     "Transaction Aborted",
-     "Unknown error",
-     "settlement.UnexpectedAffirmationStatus",
-     "settlement.UnknownInstruction",
-   ];
-
-   let repeat = false;
-   for (let error of errors) {
-     err.message.includes(error) ? (repeat = true) : "";
-   }
-   
-   if (repeat) {
-     sleep(1250);
-     await sendTx(signer, tx);
-   } else {
-     throw new Error(err);
-   }
- }
+   return sendTransaction(signer, tx, -1);
 }
 
 export function sendTransaction(
