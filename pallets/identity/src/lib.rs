@@ -157,7 +157,7 @@ decl_storage! {
 
         /// Map from AccountId to `KeyRecord` that holds the key's identity and permissions.
         pub KeyRecords get(fn key_records) config():
-            map hasher(twox_64_concat) T::AccountId => Option<KeyRecord>;
+            map hasher(twox_64_concat) T::AccountId => Option<KeyRecord<T::AccountId>>;
 
         /// A reverse double map to allow finding all keys for an identity.
         pub DidKeys get(fn did_keys) config():
@@ -242,8 +242,8 @@ decl_storage! {
                     "Secondary key already linked"
                 );
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
-                <Module<T>>::link_account_key_to_did(secondary_account_id, KeyRecord::new(did, false));
                 let sk = SecondaryKey::from_account_id(secondary_account_id.clone());
+                <Module<T>>::link_account_key_to_did(secondary_account_id, sk.make_key_record(did));
                 // TODO: remove
                 <DidRecords<T>>::mutate(did, |record| {
                     (*record).add_secondary_keys(core::iter::once(sk.clone()));
@@ -655,7 +655,7 @@ impl<T: Config> Module<T> {
         DidRecords::<T>::insert(&did, record);
 
         DidKeys::<T>::insert(&did, &account, true);
-        KeyRecords::<T>::insert(&account, KeyRecord::new_primary_key(did));
+        KeyRecords::<T>::insert(&account, KeyRecord::PrimaryKey(did));
         DidPrimaryKey::<T>::insert(&did, DidRecord::new(account));
     }
 

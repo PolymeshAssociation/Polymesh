@@ -104,7 +104,9 @@ use polymesh_common_utilities::{
     identity::Config as IdentityConfig, multisig::MultiSigSubTrait,
     transaction_payment::CddAndFeeDetails, Context,
 };
-use polymesh_primitives::{extract_auth, AuthorizationData, IdentityId, Permissions, Signatory};
+use polymesh_primitives::{
+    extract_auth, AuthorizationData, IdentityId, KeyRecord, Permissions, Signatory,
+};
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Dispatchable, Hash, One};
 use sp_std::{convert::TryFrom, prelude::*};
@@ -227,6 +229,7 @@ decl_storage! {
         /// Individual multisig signer votes. (multi sig, signer, proposal) => vote.
         pub Votes get(fn votes): map hasher(twox_64_concat) (T::AccountId, Signatory<T::AccountId>, u64) => bool;
         /// Maps a multisig signer key to a multisig address.
+        // TODO: Migration.
         pub KeyToMultiSig get(fn key_to_ms): map hasher(twox_64_concat) T::AccountId => T::AccountId;
         /// Maps a multisig account to its identity.
         pub MultiSigToIdentity get(fn ms_to_identity): map hasher(identity) T::AccountId => IdentityId;
@@ -752,7 +755,7 @@ impl<T: Config> Module<T> {
     /// Removes a signer from the valid signer list for a given multisig.
     fn unsafe_signer_removal(multisig: T::AccountId, signer: Signatory<T::AccountId>) {
         if let Signatory::Account(signer_key) = &signer {
-            <KeyToMultiSig<T>>::remove(signer_key);
+            Identity::<T>::unlink_account_key_from_did(signer_key, None);
         }
         <MultiSigSigners<T>>::remove(&multisig, &signer);
         Self::deposit_event(RawEvent::MultiSigSignerRemoved(
@@ -1045,12 +1048,7 @@ impl<T: Config> Module<T> {
             );
 
             if let Signatory::Account(key) = &signer {
-                // Don't allow a signer key that is already a secondary key on another multisig
-                ensure!(
-                    !<KeyToMultiSig<T>>::contains_key(key),
-                    Error::<T>::SignerAlreadyLinkedToMultisig
-                );
-                // Don't allow a signer key that is already a secondary key on another identity
+                // Don't allow a signer key that is already a primary key, secondary key or signer to another multisig.
                 ensure!(
                     !<identity::KeyRecords<T>>::contains_key(key),
                     Error::<T>::SignerAlreadyLinkedToIdentity
@@ -1067,7 +1065,10 @@ impl<T: Config> Module<T> {
             <NumberOfSigners<T>>::mutate(&multisig, |x| *x += 1u64);
 
             if let Signatory::Account(key) = &signer {
-                <KeyToMultiSig<T>>::insert(key, multisig.clone());
+                Identity::<T>::link_account_key_to_did(
+                    key,
+                    KeyRecord::MultiSigSignerKey(multisig.clone()),
+                );
             }
             Self::deposit_event(RawEvent::MultiSigSignerAdded(
                 ms_identity,
@@ -1129,9 +1130,5 @@ impl<T: Config> Module<T> {
 impl<T: Config> MultiSigSubTrait<T::AccountId> for Module<T> {
     fn is_multisig(account: &T::AccountId) -> bool {
         <MultiSigToIdentity<T>>::contains_key(account)
-    }
-
-    fn is_signer(key: &T::AccountId) -> bool {
-        <KeyToMultiSig<T>>::contains_key(key)
     }
 }

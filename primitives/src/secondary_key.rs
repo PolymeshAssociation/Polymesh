@@ -215,86 +215,40 @@ impl Permissions {
 
 /// Account key record.
 #[derive(Encode, Decode, TypeInfo)]
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct KeyRecord {
-    /// Key's identity.
-    pub did: IdentityId,
-    /// Key's permissions.
-    pub permissions: KeyPermissions,
-}
-
-impl KeyRecord {
-    /// Create new primary/secondary key for `did`.
-    pub fn new(did: IdentityId, is_primary_key: bool) -> Self {
-        Self {
-            did,
-            permissions: KeyPermissions::new(is_primary_key),
-        }
-    }
-
-    /// Create new primary key for `did`.
-    pub fn new_primary_key(did: IdentityId) -> Self {
-        Self::new(did, true)
-    }
-
-    /// Create new secondary key for `did`.
-    pub fn new_secondary_key(did: IdentityId, perms: Permissions) -> Self {
-        Self {
-            did,
-            permissions: KeyPermissions::SecondaryKey(perms),
-        }
-    }
-
-    /// Check if the key is the primary key.
-    pub fn is_primary_key(&self) -> bool {
-        self.permissions.is_primary_key()
-    }
-}
-
-/// Account key permissions.
-#[derive(Encode, Decode, TypeInfo)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum KeyPermissions {
+pub enum KeyRecord<AccountId> {
     /// Key is the primary key and has full permissions.
-    PrimaryKey,
+    ///
+    /// (Key's identity)
+    PrimaryKey(IdentityId),
     /// Key is a secondary key and with permissions.
-    SecondaryKey(Permissions),
+    ///
+    /// (Key's identity, key's permissions)
+    SecondaryKey(IdentityId, Permissions),
+    /// Key is a MuliSig signer key.
+    ///
+    /// (MultiSig account id)
+    MultiSigSignerKey(AccountId),
 }
 
-impl KeyPermissions {
-    /// Create new primary/secondary permissions.
-    pub fn new(is_primary_key: bool) -> Self {
-        if is_primary_key {
-            Self::PrimaryKey
+impl<AccountId> KeyRecord<AccountId> {
+    /// Check if the key is the primary key.
+    pub fn is_primary_key(&self) -> bool {
+        if let Self::PrimaryKey(_did) = self {
+            return true;
         } else {
-            // Default to no permissions.
-            Self::SecondaryKey(Permissions::empty())
+            return false;
         }
     }
 
-    /// Check if the key is the primary key.
-    pub fn is_primary_key(&self) -> bool {
-        *self == Self::PrimaryKey
-    }
-}
-
-impl Default for KeyPermissions {
-    fn default() -> Self {
-        KeyPermissions::SecondaryKey(Permissions::empty())
-    }
-}
-
-impl From<&Permissions> for KeyPermissions {
-    fn from(perms: &Permissions) -> Self {
-        Self::SecondaryKey(perms.clone())
-    }
-}
-
-impl From<Permissions> for KeyPermissions {
-    fn from(perms: Permissions) -> Self {
-        Self::SecondaryKey(perms)
+    /// Get the identity if it is a primary/secondary key.
+    pub fn get_did(&self) -> Option<IdentityId> {
+        match self {
+            Self::PrimaryKey(did) => Some(*did),
+            Self::SecondaryKey(did, _) => Some(*did),
+            _ => None,
+        }
     }
 }
 
@@ -449,6 +403,11 @@ impl<AccountId> SecondaryKey<AccountId> {
     /// Returns the complexity of the secondary key's permissions.
     pub fn complexity(&self) -> usize {
         self.permissions.complexity()
+    }
+
+    /// Make a `KeyRecord` for this SecondaryKey.
+    pub fn make_key_record(&self, did: IdentityId) -> KeyRecord<AccountId> {
+        KeyRecord::SecondaryKey(did, self.permissions.clone())
     }
 }
 

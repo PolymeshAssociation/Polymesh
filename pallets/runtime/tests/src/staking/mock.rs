@@ -471,10 +471,6 @@ impl MultiSigSubTrait<AccountId> for Test {
     fn is_multisig(_account: &AccountId) -> bool {
         unimplemented!()
     }
-    fn is_signer(_key: &AccountId) -> bool {
-        // Allow all keys when mocked
-        false
-    }
 }
 
 impl PortfolioSubTrait<AccountId> for Test {
