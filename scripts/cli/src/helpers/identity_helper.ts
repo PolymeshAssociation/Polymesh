@@ -14,7 +14,7 @@ import type {
   Claim,
 } from "../types";
 import { sendTx, keyToIdentityIds, ApiSingleton } from "../util/init";
-import { u8aToBn } from "@polkadot/util";
+
 
 
 export async function addClaim(

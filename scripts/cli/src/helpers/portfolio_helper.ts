@@ -1,7 +1,6 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { PortfolioId, Ticker, MovePortfolioItem } from "../types";
 import type { IdentityId } from "../interfaces";
-import { u8aToBn } from "@polkadot/util";
 import { sendTx, keyToIdentityIds, ApiSingleton } from "../util/init";
 
 /**
@@ -9,7 +8,7 @@ import { sendTx, keyToIdentityIds, ApiSingleton } from "../util/init";
  */
 export async function nextPortfolioNumber(did: IdentityId): Promise<number> {
   const api = await ApiSingleton.getInstance();
-  return u8aToBn((await api.query.portfolio.nextPortfolioNumber(did)).toU8a()).toNumber();
+  return (await api.query.portfolio.nextPortfolioNumber(did)).toNumber();
 }
 
 /**

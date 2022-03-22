@@ -4,7 +4,6 @@ import type { AnyNumber } from "@polkadot/types/types";
 import type { IdentityId } from "../interfaces";
 import { sendTx, ApiSingleton } from "../util/init";
 import { addAuthorization, getAuthId } from "../helpers/identity_helper";
-import { u8aToBn } from "@polkadot/util";
 
 /**
  * @description Creates Group
@@ -81,7 +80,5 @@ export async function acceptBecomeAgent(
 
 export async function nextAgId(ticker: Ticker) {
   const api = await ApiSingleton.getInstance();
-  return u8aToBn(
-    (await api.query.externalAgents.agIdSequence(ticker)).toU8a()
-  ).toNumber();
+  return (await api.query.externalAgents.agIdSequence(ticker)).toNumber();
 }

@@ -2,7 +2,6 @@ import type { KeyringPair } from "@polkadot/keyring/types";
 import type { SubmittableExtrinsic } from "@polkadot/api/types";
 import type { ISubmittableResult } from "@polkadot/types/types/extrinsic";
 import { sendTx, ApiSingleton } from "../util/init";
-import { u8aToBn } from "@polkadot/util";
 
 /**
  * @description Sets the default enactment period for a PIP
@@ -18,7 +17,7 @@ export async function setDefaultEnactmentPeriod(signer: KeyringPair, duration: n
  */
 export async function pipIdSequence(): Promise<number> {
 	const api = await ApiSingleton.getInstance();
-	return u8aToBn((await api.query.pips.pipIdSequence()).toU8a()).toNumber();
+	return (await api.query.pips.pipIdSequence()).toNumber();
 }
 
 /**

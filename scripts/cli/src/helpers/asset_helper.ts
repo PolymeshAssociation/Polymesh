@@ -1,7 +1,6 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { Ticker, Document } from "../types";
 import type { IdentityId } from "../interfaces";
-import { u8aToBn } from "@polkadot/util";
 import { sendTx, ApiSingleton } from "../util/init";
 import { assert } from "chai";
 
@@ -77,6 +76,6 @@ export async function assetBalance(
   did: IdentityId
 ): Promise<number> {
   const api = await ApiSingleton.getInstance();
-  const balance = u8aToBn((await api.query.asset.balanceOf(ticker, did)).toU8a()).toNumber();
+  const balance = (await api.query.asset.balanceOf(ticker, did)).toNumber();
   return balance;
 }

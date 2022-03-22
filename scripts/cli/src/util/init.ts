@@ -11,7 +11,6 @@ import {
   u8aFixLength,
   u8aToHex,
   hexToString,
-  u8aToBn
 } from "@polkadot/util";
 import BN from "bn.js";
 import fs from "fs";
@@ -95,7 +94,7 @@ export async function waitNextEra() {
 
 export async function currentBlock() {
   const api = await ApiSingleton.getInstance();
-  return u8aToBn((await api.query.system.number()).toU8a()).toNumber();
+  return (await api.query.system.number()).toNumber();
 }
 
 export async function waitBlocks(blocks: number) {
@@ -377,11 +376,11 @@ export async function getValidCddProvider(alice: KeyringPair) {
 
 export async function getExpiries(length: number) {
   const api = await ApiSingleton.getInstance();
-  let blockTime = u8aToBn((api.consts.babe.expectedBlockTime).toU8a()).toNumber();
-  let bondingDuration = u8aToBn((api.consts.staking.bondingDuration).toU8a()).toNumber();
-  let sessionPerEra = u8aToBn((api.consts.staking.sessionsPerEra).toU8a()).toNumber();
-  let session_length = u8aToBn((api.consts.babe.epochDuration).toU8a()).toNumber();
-  const currentBlockTime = u8aToBn((await api.query.timestamp.now()).toU8a()).toNumber();
+  let blockTime = (api.consts.babe.expectedBlockTime).toNumber();
+  let bondingDuration = (api.consts.staking.bondingDuration).toNumber();
+  let sessionPerEra = (api.consts.staking.sessionsPerEra).toNumber();
+  let session_length = (api.consts.babe.epochDuration).toNumber();
+  const currentBlockTime = (await api.query.timestamp.now()).toNumber();
 
   const bondingTime =
     bondingDuration *
