@@ -1892,13 +1892,13 @@ declare module '@polkadot/api-base/types/submittable' {
        **/
       makeMultisigPrimary: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, optionalCddAuthId: Option<u64> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, Option<u64>]>;
       /**
-       * Adds a multisig as a signer of current did if the current did is the creator of the
+       * Adds a multisig as a secondary key of current did if the current did is the creator of the
        * multisig.
        * 
        * # Arguments
        * * `multisig` - multi sig address
        **/
-      makeMultisigSigner: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32]>;
+      makeMultisigSecondary: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32]>;
       /**
        * Rejects a multisig proposal using the caller's identity.
        * 

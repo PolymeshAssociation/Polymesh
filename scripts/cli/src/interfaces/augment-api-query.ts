@@ -697,7 +697,7 @@ declare module '@polkadot/api-base/types/storage' {
        **/
       didKeys: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesIdentityId | string | Uint8Array, arg2: AccountId32 | string | Uint8Array) => Observable<bool>, [PolymeshPrimitivesIdentityId, AccountId32]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesIdentityId, AccountId32]>;
       /**
-       * DID -> primary key.
+       * DID -> identity info
        **/
       didPrimaryKey: AugmentedQuery<ApiType, (arg: PolymeshPrimitivesIdentityId | string | Uint8Array) => Observable<Option<PolymeshPrimitivesIdentityDidRecord>>, [PolymeshPrimitivesIdentityId]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesIdentityId]>;
       /**
