@@ -221,11 +221,11 @@ export async function keyToIdentityIds(
     const rec = opt_rec.unwrap();
     if (rec.isPrimaryKey) {
       return rec.asPrimaryKey;
-    } else if (rec.isPrimaryKey) {
+    } else if (rec.isSecondaryKey) {
       return rec.asSecondaryKey[0];
     }
   }
-  return <IdentityId>{};
+  return <IdentityId>(0 as unknown);
 }
 
 // Returns the asset did
