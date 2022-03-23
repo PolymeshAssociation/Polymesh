@@ -81,7 +81,7 @@ export async function sleep(ms: number) {
 }
 const getEra = async () => {
   const api = await ApiSingleton.getInstance();
-  const activeEra = <Option<ActiveEraInfo>>(await api.query.staking.activeEra());
+  const activeEra = await api.query.staking.activeEra();
   activeEra.unwrap().index.toJSON();
 }
 
@@ -218,7 +218,7 @@ export async function keyToIdentityIds(
   accountKey: AccountId | KeyringPair["publicKey"]
 ): Promise<IdentityId> {
   const api = await ApiSingleton.getInstance();
-  let account_did = <IdentityId>(await api.query.identity.keyToIdentityIds(accountKey));
+  let account_did = await api.query.identity.keyToIdentityIds(accountKey);
   return account_did;
 }
 
@@ -357,7 +357,7 @@ export async function getValidCddProvider(alice: KeyringPair) {
 
   // fund the service_provider_1 account key to successfully call the `register_did` dispatchable
   let old_balance = (
-    <AccountInfo>(await api.query.system.account(service_provider_1_key.address))
+    await api.query.system.account(service_provider_1_key.address)
   ).data.free;
 
   await distributePoly(alice, service_provider_1_key, transferAmount);
@@ -365,7 +365,7 @@ export async function getValidCddProvider(alice: KeyringPair) {
 
   // check the funds of service_provider_1
   let new_free_balance = (
-    <AccountInfo>(await api.query.system.account(service_provider_1_key.address))
+    await api.query.system.account(service_provider_1_key.address)
   ).data.free;
   assert.equal(
     new_free_balance.toString(),
@@ -403,7 +403,7 @@ export async function subscribeCddOffchainWorker() {
   const unsubscribe = await api.rpc.chain.subscribeNewHeads(async (header) => {
     console.log(`Chain is at block: #${header.number.unwrap()}`);
     let hash = await api.rpc.chain.getBlockHash(header.number.unwrap());
-    let events = <EventRecord[]>(await api.query.system.events.at(hash.toString()));
+    let events = await api.query.system.events.at(hash.toString());
     for (let i = 0; i < Object.keys(events).length - 1; i++) {
       try {
         if (events[i].event.data.section == "CddOffchainWorker") {
