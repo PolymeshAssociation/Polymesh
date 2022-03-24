@@ -62,7 +62,10 @@ use pallet_base::{try_next_post, try_next_pre};
 use pallet_identity::PermissionedCallOriginData;
 pub use polymesh_common_utilities::traits::external_agents::{Config, Event, WeightInfo};
 use polymesh_primitives::agent::{AGId, AgentGroup};
-use polymesh_primitives::{extract_auth, AuthorizationData, ExtrinsicPermissions, IdentityId, PalletPermissions, Signatory, SubsetRestriction, Ticker, EventDid};
+use polymesh_primitives::{
+    extract_auth, AuthorizationData, EventDid, ExtrinsicPermissions, IdentityId, PalletPermissions,
+    Signatory, SubsetRestriction, Ticker,
+};
 use sp_std::prelude::*;
 
 type Identity<T> = pallet_identity::Module<T>;
@@ -360,7 +363,7 @@ impl<T: Config> Module<T> {
         perms: ExtrinsicPermissions,
         agent: IdentityId,
     ) -> DispatchResult {
-        let (did, ag_id)  = Self::base_create_group(origin, ticker, perms)?;
+        let (did, ag_id) = Self::base_create_group(origin, ticker, perms)?;
         Self::unsafe_change_group(did.for_event(), ticker, agent, AgentGroup::Custom(ag_id))
     }
 
