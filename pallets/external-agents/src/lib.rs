@@ -62,10 +62,7 @@ use pallet_base::{try_next_post, try_next_pre};
 use pallet_identity::PermissionedCallOriginData;
 pub use polymesh_common_utilities::traits::external_agents::{Config, Event, WeightInfo};
 use polymesh_primitives::agent::{AGId, AgentGroup};
-use polymesh_primitives::{
-    extract_auth, AuthorizationData, ExtrinsicPermissions, IdentityId, PalletPermissions,
-    Signatory, SubsetRestriction, Ticker,
-};
+use polymesh_primitives::{extract_auth, AuthorizationData, ExtrinsicPermissions, IdentityId, PalletPermissions, Signatory, SubsetRestriction, Ticker, EventDid};
 use sp_std::prelude::*;
 
 type Identity<T> = pallet_identity::Module<T>;
@@ -139,9 +136,23 @@ decl_module! {
         }
 
         /// Utility extrinsic to batch `create_group` and  `add_auth`.
+        ///
+        /// # Permissions
+        /// * Asset
+        /// * Agent
         #[weight = <T as Config>::WeightInfo::create_group_and_add_auth(perms.complexity() as u32)]
         pub fn create_group_and_add_auth(origin, ticker: Ticker, perms: ExtrinsicPermissions, target: Signatory<T::AccountId>) -> DispatchResult {
             Self::base_create_group_and_add_auth(origin, ticker, perms, target)
+        }
+
+        /// Utility extrinsic to batch `create_group` and  `change_group` for custom groups only.
+        ///
+        /// # Permissions
+        /// * Asset
+        /// * Agent
+        #[weight = <T as Config>::WeightInfo::create_and_change_custom_group(perms.complexity() as u32)]
+        pub fn create_and_change_custom_group(origin, ticker: Ticker, perms: ExtrinsicPermissions, agent: IdentityId) -> DispatchResult {
+            Self::base_create_and_change_custom_group(origin, ticker, perms, agent)
         }
 
         /// Updates the permissions of the custom AG identified by `id`, for the given `ticker`.
@@ -343,6 +354,16 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    fn base_create_and_change_custom_group(
+        origin: T::Origin,
+        ticker: Ticker,
+        perms: ExtrinsicPermissions,
+        agent: IdentityId,
+    ) -> DispatchResult {
+        let (did, ag_id)  = Self::base_create_group(origin, ticker, perms)?;
+        Self::unsafe_change_group(did.for_event(), ticker, agent, AgentGroup::Custom(ag_id))
+    }
+
     fn base_change_group(
         origin: T::Origin,
         ticker: Ticker,
@@ -350,6 +371,15 @@ impl<T: Config> Module<T> {
         group: AgentGroup,
     ) -> DispatchResult {
         let did = Self::ensure_perms(origin, ticker)?.for_event();
+        Self::unsafe_change_group(did, ticker, agent, group)
+    }
+
+    fn unsafe_change_group(
+        did: EventDid,
+        ticker: Ticker,
+        agent: IdentityId,
+        group: AgentGroup,
+    ) -> DispatchResult {
         Self::ensure_agent_group_valid(ticker, group)?;
         Self::try_mutate_agents_group(ticker, agent, Some(group))?;
         Self::deposit_event(Event::GroupChanged(did, ticker, agent, group));
