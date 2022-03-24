@@ -152,19 +152,20 @@ decl_storage! {
         // TODO: add migration and remove.
         // A map from AccountId primary or secondary keys to DIDs.
         // Account keys map to at most one identity.
-        pub KeyToIdentityIds get(fn key_to_identity_dids) config():
+        pub KeyToIdentityIds get(fn key_to_identity_dids):
             map hasher(twox_64_concat) T::AccountId => IdentityId;
 
         /// Map from AccountId to `KeyRecord` that holds the key's identity and permissions.
-        pub KeyRecords get(fn key_records) config():
+        pub KeyRecords get(fn key_records):
             map hasher(twox_64_concat) T::AccountId => Option<KeyRecord<T::AccountId>>;
 
         /// A reverse double map to allow finding all keys for an identity.
-        pub DidKeys get(fn did_keys) config():
+        pub DidKeys get(fn did_keys):
             double_map hasher(identity) IdentityId, hasher(twox_64_concat) T::AccountId => bool;
 
-        /// DID -> primary key.
-        pub DidPrimaryKey get(fn did_primary_key) config():
+        // TODO: rename to `DidRecords`
+        /// DID -> identity info
+        pub DidPrimaryKey get(fn did_primary_key):
             map hasher(identity) IdentityId => Option<DidRecord<T::AccountId>>;
 
         /// Nonce to ensure unique actions. starts from 1.
