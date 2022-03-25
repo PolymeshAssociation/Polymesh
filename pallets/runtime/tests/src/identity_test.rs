@@ -18,7 +18,7 @@ use frame_support::{
 };
 use pallet_asset::SecurityToken;
 use pallet_balances as balances;
-use pallet_identity::types::DidRecords as RpcDidRecords;
+use pallet_identity::types::RpcDidRecords;
 use pallet_identity::{self as identity, DidRecords};
 use polymesh_common_utilities::{
     asset::AssetSubTrait,
@@ -609,7 +609,7 @@ fn do_add_secondary_keys_with_permissions_test() {
         Error::AlreadyLinked
     );
 
-    // Check KeyToIdentityIds map
+    // Check KeyRecords map
     assert_eq!(Identity::get_identity(&bob.acc()), Some(alice.did));
 
     // Check DidRecords
@@ -649,7 +649,7 @@ fn do_remove_secondary_keys_test() {
 
     let did_of = |u: User| Identity::get_identity(&u.acc());
 
-    // Check KeyToIdentityIds map
+    // Check KeyRecords map
     assert_eq!(did_of(bob), Some(alice.did));
     assert_eq!(did_of(dave), Some(alice.did));
 

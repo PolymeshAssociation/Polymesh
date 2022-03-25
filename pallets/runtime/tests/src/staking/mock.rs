@@ -971,23 +971,23 @@ pub(crate) fn active_era() -> EraIndex {
 }
 
 pub fn provide_did_to_user(account: AccountId) -> bool {
-    if <identity::KeyToIdentityIds<Test>>::contains_key(&account) {
+    if <identity::KeyRecords<Test>>::contains_key(&account) {
         return false;
     }
     let cdd_account_id = 1005;
     let cdd = Origin::signed(cdd_account_id);
     assert!(
-        <identity::KeyToIdentityIds<Test>>::contains_key(&cdd_account_id),
+        <identity::KeyRecords<Test>>::contains_key(&cdd_account_id),
         "CDD provider account not mapped to identity"
     );
-    let cdd_did = <identity::KeyToIdentityIds<Test>>::get(&cdd_account_id);
+    let cdd_did = Identity::get_identity(&cdd_account_id).expect("CDD provider missing identity");
     assert!(
-        <identity::DidRecords<Test>>::contains_key(&cdd_did),
+        <identity::DidPrimaryKey<Test>>::contains_key(&cdd_did),
         "CDD provider identity has no DID record"
     );
-    let cdd_did_record = <identity::DidRecords<Test>>::get(&cdd_did);
+    let cdd_did_record = <identity::DidPrimaryKey<Test>>::get(&cdd_did).unwrap_or_default();
     assert!(
-        cdd_did_record.primary_key == cdd_account_id,
+        cdd_did_record.primary_key == Some(cdd_account_id),
         "CDD identity primary key mismatch"
     );
     assert!(
@@ -1025,7 +1025,7 @@ pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
 }
 
 pub fn get_identity(key: AccountId) -> bool {
-    <identity::KeyToIdentityIds<Test>>::contains_key(&key)
+    <identity::KeyRecords<Test>>::contains_key(&key)
 }
 
 fn check_ledgers() {

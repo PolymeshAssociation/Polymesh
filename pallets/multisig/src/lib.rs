@@ -1052,7 +1052,7 @@ impl<T: Config> Module<T> {
                 );
                 // Don't allow a signer key that is already a secondary key on another identity
                 ensure!(
-                    !<identity::KeyToIdentityIds<T>>::contains_key(key),
+                    !<identity::KeyRecords<T>>::contains_key(key),
                     Error::<T>::SignerAlreadyLinkedToIdentity
                 );
                 // Don't allow a multisig to add itself as a signer to itself

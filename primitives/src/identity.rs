@@ -21,19 +21,41 @@ use sp_core::{crypto::Public as PublicType, sr25519::Public};
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{convert::From, prelude::Vec};
 
+/// Identity record.
+///
+/// Used to check if an `Identity` exists and lookup it's primary key.
+///
+/// Asset Identities don't have a primary key.
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct DidRecord<AccountId> {
+    /// Identity's primary key, if it has one.
+    pub primary_key: Option<AccountId>,
+}
+
+impl<AccountId> DidRecord<AccountId> {
+    /// Creates an `DidRecord` from an `AccountId`.
+    pub fn new(primary_key: AccountId) -> Self {
+        Self {
+            primary_key: Some(primary_key),
+        }
+    }
+}
+
 /// Identity information.
 #[allow(missing_docs)]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct Identity<AccountId> {
+pub struct IdentityRecord<AccountId> {
     pub primary_key: AccountId,
     pub secondary_keys: Vec<SecondaryKey<AccountId>>,
 }
 
-impl<AccountId: Default + Eq> Identity<AccountId> {
+impl<AccountId: Default + Eq> IdentityRecord<AccountId> {
     /// Creates an [`Identity`] from an `AccountId`.
     pub fn new(primary_key: AccountId) -> Self {
-        Identity {
+        Self {
             primary_key,
             ..Default::default()
         }
@@ -76,9 +98,9 @@ impl<AccountId: Default + Eq> Identity<AccountId> {
     }
 }
 
-impl<AccountId: PublicType> From<Public> for Identity<AccountId> {
+impl<AccountId: PublicType> From<Public> for IdentityRecord<AccountId> {
     fn from(p: Public) -> Self {
-        Identity {
+        Self {
             primary_key: AccountId::from_slice(&p.0[..]),
             ..Default::default()
         }

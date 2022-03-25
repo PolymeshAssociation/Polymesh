@@ -1,5 +1,7 @@
 use codec::Codec;
-use pallet_identity::types::{AssetDidResult, CddStatus, DidRecords, DidStatus, KeyIdentityData};
+use pallet_identity::types::{
+    AssetDidResult, CddStatus, DidStatus, KeyIdentityData, RpcDidRecords,
+};
 use polymesh_primitives::{Authorization, AuthorizationType};
 use sp_std::prelude::*;
 
@@ -19,7 +21,7 @@ sp_api::decl_runtime_apis! {
         fn get_asset_did(ticker: Ticker) -> AssetDidResult;
 
         /// Retrieve DidRecord for a given `did`.
-        fn get_did_records(did: IdentityId) -> DidRecords<AccountId, SecondaryKey>;
+        fn get_did_records(did: IdentityId) -> RpcDidRecords<AccountId, SecondaryKey>;
 
         /// Retrieve list of a authorization for a given signatory
         fn get_filtered_authorizations(

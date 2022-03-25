@@ -1,5 +1,5 @@
 pub use pallet_identity::types::{
-    AssetDidResult, CddStatus, DidRecords, DidStatus, KeyIdentityData,
+    AssetDidResult, CddStatus, DidStatus, KeyIdentityData, RpcDidRecords,
 };
 use polymesh_primitives::{Authorization, AuthorizationType};
 
@@ -40,7 +40,7 @@ pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountId, SecondaryKey, Si
         &self,
         did: IdentityId,
         at: Option<BlockHash>,
-    ) -> Result<DidRecords<AccountId, SecondaryKey>>;
+    ) -> Result<RpcDidRecords<AccountId, SecondaryKey>>;
 
     /// Retrieve the list of authorizations for a given signatory.
     #[rpc(name = "identity_getFilteredAuthorizations")]
@@ -160,7 +160,7 @@ where
         &self,
         did: IdentityId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<DidRecords<AccountId, SecondaryKey>> {
+    ) -> Result<RpcDidRecords<AccountId, SecondaryKey>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 

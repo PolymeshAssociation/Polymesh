@@ -11,7 +11,7 @@ use polymesh_common_utilities::{
     constants::currency::POLY, protocol_fee::ProtocolOp, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, AccountId, Identity, IdentityId,
+    cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, AccountId, IdentityId, IdentityRecord,
     PosRatio, Signatory,
 };
 use sp_io::TestExternalities;
@@ -106,7 +106,7 @@ pub struct ExtBuilder {
     governance_committee_members: Vec<AccountId>,
     governance_committee_vote_threshold: BuilderVoteThreshold,
     /// Regular users. Their DID will be generated.
-    regular_users: Vec<Identity<AccountId>>,
+    regular_users: Vec<IdentityRecord<AccountId>>,
 
     protocol_base_fees: MockProtocolBaseFees,
     protocol_coefficient: PosRatio,
@@ -209,7 +209,7 @@ impl ExtBuilder {
     }
 
     /// Adds DID to `users` accounts.
-    pub fn add_regular_users(mut self, users: &[Identity<AccountId>]) -> Self {
+    pub fn add_regular_users(mut self, users: &[IdentityRecord<AccountId>]) -> Self {
         self.regular_users.extend_from_slice(users);
         self
     }
@@ -217,7 +217,7 @@ impl ExtBuilder {
     pub fn add_regular_users_from_accounts(mut self, accounts: &[AccountId]) -> Self {
         let identities = accounts
             .iter()
-            .map(|acc: &AccountId| Identity::new(acc.clone()))
+            .map(|acc: &AccountId| IdentityRecord::new(acc.clone()))
             .collect::<Vec<_>>();
 
         self.regular_users.extend(identities);

@@ -213,6 +213,91 @@ impl Permissions {
     }
 }
 
+/// Account key record.
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct KeyRecord {
+    /// Key's identity.
+    pub did: IdentityId,
+    /// Key's permissions.
+    pub permissions: KeyPermissions,
+}
+
+impl KeyRecord {
+    /// Create new primary/secondary key for `did`.
+    pub fn new(did: IdentityId, is_primary_key: bool) -> Self {
+        Self {
+            did,
+            permissions: KeyPermissions::new(is_primary_key),
+        }
+    }
+
+    /// Create new primary key for `did`.
+    pub fn new_primary_key(did: IdentityId) -> Self {
+        Self::new(did, true)
+    }
+
+    /// Create new secondary key for `did`.
+    pub fn new_secondary_key(did: IdentityId, perms: Permissions) -> Self {
+        Self {
+            did,
+            permissions: KeyPermissions::SecondaryKey(perms),
+        }
+    }
+
+    /// Check if the key is the primary key.
+    pub fn is_primary_key(&self) -> bool {
+        self.permissions.is_primary_key()
+    }
+}
+
+/// Account key permissions.
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum KeyPermissions {
+    /// Key is the primary key and has full permissions.
+    PrimaryKey,
+    /// Key is a secondary key and with permissions.
+    SecondaryKey(Permissions),
+}
+
+impl KeyPermissions {
+    /// Create new primary/secondary permissions.
+    pub fn new(is_primary_key: bool) -> Self {
+        if is_primary_key {
+            Self::PrimaryKey
+        } else {
+            // Default to no permissions.
+            Self::SecondaryKey(Permissions::empty())
+        }
+    }
+
+    /// Check if the key is the primary key.
+    pub fn is_primary_key(&self) -> bool {
+        *self == Self::PrimaryKey
+    }
+}
+
+impl Default for KeyPermissions {
+    fn default() -> Self {
+        KeyPermissions::SecondaryKey(Permissions::empty())
+    }
+}
+
+impl From<&Permissions> for KeyPermissions {
+    fn from(perms: &Permissions) -> Self {
+        Self::SecondaryKey(perms.clone())
+    }
+}
+
+impl From<Permissions> for KeyPermissions {
+    fn from(perms: Permissions) -> Self {
+        Self::SecondaryKey(perms)
+    }
+}
+
 /// It supports different elements as a signer.
 #[allow(missing_docs)]
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo)]

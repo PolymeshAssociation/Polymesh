@@ -91,9 +91,7 @@ mod claims;
 mod keys;
 
 pub mod types;
-pub use types::{
-    Claim1stKey, Claim2ndKey, DidRecords as RpcDidRecords, DidStatus, PermissionedCallOriginData,
-};
+pub use types::{Claim1stKey, Claim2ndKey, DidStatus, PermissionedCallOriginData, RpcDidRecords};
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -122,8 +120,8 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     investor_zkproof_data::v1::InvestorZKProofData, storage_migration_ver, Authorization,
-    AuthorizationData, AuthorizationType, CddId, Claim, ClaimType, Identity as DidRecord,
-    IdentityClaim, IdentityId, Permissions, Scope, SecondaryKey, Signatory, Ticker,
+    AuthorizationData, AuthorizationType, CddId, Claim, ClaimType, DidRecord, IdentityClaim,
+    IdentityId, IdentityRecord, KeyRecord, Permissions, Scope, SecondaryKey, Signatory, Ticker,
 };
 use sp_runtime::traits::Hash;
 use sp_std::{convert::TryFrom, prelude::*};
@@ -135,8 +133,9 @@ storage_migration_ver!(0);
 decl_storage! {
     trait Store for Module<T: Config> as Identity {
 
+        // TODO: add migration and remove.
         /// DID -> identity info
-        pub DidRecords get(fn did_records) config(): map hasher(identity) IdentityId => DidRecord<T::AccountId>;
+        pub DidRecords get(fn did_records) config(): map hasher(identity) IdentityId => IdentityRecord<T::AccountId>;
 
         /// DID -> bool that indicates if secondary keys are frozen.
         pub IsDidFrozen get(fn is_did_frozen): map hasher(identity) IdentityId => bool;
@@ -150,10 +149,23 @@ decl_storage! {
         /// (Target ID, claim type) (issuer,scope) -> Associated claims
         pub Claims: double_map hasher(twox_64_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => IdentityClaim;
 
+        // TODO: add migration and remove.
         // A map from AccountId primary or secondary keys to DIDs.
         // Account keys map to at most one identity.
         pub KeyToIdentityIds get(fn key_to_identity_dids) config():
             map hasher(twox_64_concat) T::AccountId => IdentityId;
+
+        /// Map from AccountId to `KeyRecord` that holds the key's identity and permissions.
+        pub KeyRecords get(fn key_records) config():
+            map hasher(twox_64_concat) T::AccountId => Option<KeyRecord>;
+
+        /// A reverse double map to allow finding all keys for an identity.
+        pub DidKeys get(fn did_keys) config():
+            double_map hasher(identity) IdentityId, hasher(twox_64_concat) T::AccountId => bool;
+
+        /// DID -> primary key.
+        pub DidPrimaryKey get(fn did_primary_key) config():
+            map hasher(identity) IdentityId => Option<DidRecord<T::AccountId>>;
 
         /// Nonce to ensure unique actions. starts from 1.
         pub MultiPurposeNonce get(fn multi_purpose_nonce) build(|_| 1u64): u64;
@@ -230,8 +242,9 @@ decl_storage! {
                     "Secondary key already linked"
                 );
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
-                <Module<T>>::link_account_key_to_did(secondary_account_id, did);
+                <Module<T>>::link_account_key_to_did(secondary_account_id, KeyRecord::new(did, false));
                 let sk = SecondaryKey::from_account_id(secondary_account_id.clone());
+                // TODO: remove
                 <DidRecords<T>>::mutate(did, |record| {
                     (*record).add_secondary_keys(core::iter::once(sk.clone()));
                 });
@@ -599,7 +612,9 @@ decl_error! {
 impl<T: Config> Module<T> {
     /// Only used by `create_asset` since `AssetDidRegistered` is defined here instead of there.
     pub fn commit_token_did(did: IdentityId, ticker: Ticker) {
-        <DidRecords<T>>::insert(did, DidRecord::default());
+        // TODO: remove.
+        <DidRecords<T>>::insert(did, IdentityRecord::default());
+        DidPrimaryKey::<T>::insert(did, DidRecord::default());
         Self::deposit_event(RawEvent::AssetDidRegistered(did, ticker));
     }
 
@@ -616,7 +631,7 @@ impl<T: Config> Module<T> {
         dids.into_iter()
             .map(|did| {
                 // Does DID exist in the ecosystem?
-                if !<DidRecords<T>>::contains_key(did) {
+                if !DidPrimaryKey::<T>::contains_key(did) {
                     DidStatus::Unknown
                 }
                 // DID exists, but does it have a valid CDD?
@@ -632,12 +647,16 @@ impl<T: Config> Module<T> {
     #[cfg(feature = "runtime-benchmarks")]
     /// Links a did with an identity
     pub fn link_did(account: T::AccountId, did: IdentityId) {
-        let record = DidRecord {
+        // TODO: Remove old.
+        let record = IdentityRecord {
             primary_key: account.clone(),
             ..Default::default()
         };
-        KeyToIdentityIds::<T>::insert(&account, did);
         DidRecords::<T>::insert(&did, record);
+
+        DidKeys::<T>::insert(&did, &account, true);
+        KeyRecords::<T>::insert(&account, KeyRecord::new_primary_key(did));
+        DidPrimaryKey::<T>::insert(&did, DidRecord::new(account));
     }
 
     #[cfg(feature = "runtime-benchmarks")]

@@ -198,7 +198,7 @@ const TOTAL_SUPPLY: u128 = 1_000_000_000u128;
 /// Generates a new portfolio for `owner` using the given `name`.
 fn new_portfolio(owner: AccountId, name: &str) -> PortfolioId {
     let portfolio_name = PortfolioName::from(name);
-    let did = Identity::key_to_identity_dids(owner.clone());
+    let did = Identity::get_identity(&owner).expect("User missing identity");
 
     Portfolio::create_portfolio(Origin::signed(owner), portfolio_name.clone())
         .expect("New portfolio cannot be created");
@@ -2196,7 +2196,7 @@ fn secondary_key_not_authorized_for_asset_test() {
         },
     ];
 
-    let owner = polymesh_primitives::Identity {
+    let owner = polymesh_primitives::IdentityRecord {
         primary_key: owner.to_account_id(),
         secondary_keys,
     };

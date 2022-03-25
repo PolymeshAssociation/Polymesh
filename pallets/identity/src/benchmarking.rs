@@ -274,7 +274,7 @@ benchmarks! {
     }: _(key.origin())
     verify {
         assert!(
-            !KeyToIdentityIds::<T>::contains_key(key.account),
+            !KeyRecords::<T>::contains_key(key.account),
             "Key was not removed from its identity"
         );
     }
