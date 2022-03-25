@@ -36,6 +36,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(associated_type_bounds)]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 use codec::Decode;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -66,7 +69,15 @@ pub trait WeightInfo {
     fn instantiate_with_code(code_len: u32, salt_len: u32) -> Weight;
     fn instantiate_with_hash(salt_len: u32) -> Weight;
 
-    fn chain_extension(in_len: u32) -> Weight;
+    fn chain_extension(in_len: u32) -> Weight {
+        Self::chain_extension_full(in_len)
+            .saturating_sub(Self::chain_extension_early_exit())
+            .saturating_sub(Self::basic_runtime_call())
+    }
+
+    fn chain_extension_full(in_len: u32) -> Weight;
+    fn chain_extension_early_exit() -> Weight;
+    fn basic_runtime_call() -> Weight;
 }
 
 /// The `Config` trait for the smart contracts pallet.
@@ -394,7 +405,7 @@ where
             funding_round: decode!(),
             disable_iu: decode!(),
         }),
-        on!(0, 17) => {
+        on!(0, 0x11) => {
             CommonCall::Asset(pallet_asset::Call::register_custom_asset_type { ty: decode!() })
         }
         _ => return Err(Error::<T>::RuntimeCallNotFound.into()),
@@ -416,6 +427,15 @@ where
         func_id: u32,
         env: ce::Environment<E, ce::InitState>,
     ) -> ce::Result<ce::RetVal> {
+        // Used for benchmarking `chain_extension_early_exit`,
+        // so we can remove the cost of the call + overhead of using any chain extension.
+        // That is, we want to subtract costs not directly arising from *this* function body.
+        // Caveat: This `if` imposes a minor cost during benchmarking but we'll live with that.
+        #[cfg(feature = "runtime-benchmarks")]
+        if func_id == 0 {
+            return Ok(ce::RetVal::Converging(0));
+        }
+
         let mut env = env.buf_in_buf_out();
 
         // Immediately charge weight as a linear function of `in_len`.
