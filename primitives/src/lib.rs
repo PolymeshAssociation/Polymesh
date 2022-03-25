@@ -171,7 +171,7 @@ pub use identity_id::{
 /// Identity information.
 /// Each DID is associated with this kind of record.
 pub mod identity;
-pub use identity::{DidRecord, IdentityRecord};
+pub use identity::DidRecord;
 
 /// Provides the `CheckedInc` trait.
 pub mod checked_inc;

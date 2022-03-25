@@ -13,12 +13,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::SecondaryKey;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-use sp_std::prelude::Vec;
 
 /// Identity record.
 ///
@@ -40,13 +38,4 @@ impl<AccountId> DidRecord<AccountId> {
             primary_key: Some(primary_key),
         }
     }
-}
-
-/// Identity information.
-#[allow(missing_docs)]
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct IdentityRecord<AccountId> {
-    pub primary_key: AccountId,
-    pub secondary_keys: Vec<SecondaryKey<AccountId>>,
 }

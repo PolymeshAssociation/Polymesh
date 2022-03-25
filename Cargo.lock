@@ -4687,6 +4687,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-identity",
  "pallet-permissions",
  "pallet-timestamp",

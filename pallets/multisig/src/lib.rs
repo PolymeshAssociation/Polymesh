@@ -79,6 +79,7 @@
 //! multisig.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(const_option)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -105,13 +106,16 @@ use polymesh_common_utilities::{
     transaction_payment::CddAndFeeDetails, Context,
 };
 use polymesh_primitives::{
-    extract_auth, AuthorizationData, IdentityId, KeyRecord, Permissions, Signatory,
+    extract_auth, storage_migrate_on, storage_migration_ver, AuthorizationData, IdentityId,
+    KeyRecord, Permissions, Signatory,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Dispatchable, Hash, One};
 use sp_std::{convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
+
+storage_migration_ver!(1);
 
 pub const NAME: &[u8] = b"MultiSig";
 
@@ -228,15 +232,14 @@ decl_storage! {
             double_map hasher(identity) T::AccountId, hasher(blake2_128_concat) T::Proposal => Option<u64>;
         /// Individual multisig signer votes. (multi sig, signer, proposal) => vote.
         pub Votes get(fn votes): map hasher(twox_64_concat) (T::AccountId, Signatory<T::AccountId>, u64) => bool;
-        /// Maps a multisig signer key to a multisig address.
-        // TODO: Migration.
-        pub KeyToMultiSig get(fn key_to_ms): map hasher(twox_64_concat) T::AccountId => T::AccountId;
         /// Maps a multisig account to its identity.
         pub MultiSigToIdentity get(fn ms_to_identity): map hasher(identity) T::AccountId => IdentityId;
         /// Details of a multisig proposal
         pub ProposalDetail get(fn proposal_detail): map hasher(twox_64_concat) (T::AccountId, u64) => ProposalDetails<T::Moment>;
         /// The last transaction version, used for `on_runtime_upgrade`.
         TransactionVersion get(fn transaction_version) config(): u32;
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
 }
 
@@ -259,6 +262,10 @@ decl_module! {
                     kill_item(NAME, item.as_bytes())
                 }
             }
+
+            storage_migrate_on!(StorageVersion::get(), 1, {
+                migration::migrate_v1::<T>();
+            });
 
             //TODO placeholder weight
             1_000
@@ -1130,5 +1137,38 @@ impl<T: Config> Module<T> {
 impl<T: Config> MultiSigSubTrait<T::AccountId> for Module<T> {
     fn is_multisig(account: &T::AccountId) -> bool {
         <MultiSigToIdentity<T>>::contains_key(account)
+    }
+}
+
+mod migration {
+    use super::*;
+    use pallet_identity::migration::migrate_v1_key;
+
+    mod v1 {
+        use super::*;
+
+        decl_storage! {
+            trait Store for Module<T: Config> as MultiSig {
+                pub KeyToMultiSig get(fn key_to_ms): map hasher(twox_64_concat) T::AccountId => T::AccountId;
+            }
+        }
+
+        decl_module! {
+            pub struct Module<T: Config> for enum Call where origin: T::Origin { }
+        }
+    }
+
+    pub fn migrate_v1<T: Config>() {
+        sp_runtime::runtime_logger::RuntimeLogger::init();
+
+        log::info!(" >>> Updating MultiSig storage. Migrating KeyToMultiSig..");
+        let total_ms_signers =
+            v1::KeyToMultiSig::<T>::drain().fold(0usize, |total_ms_signers, (signer, ms)| {
+                // Migrate MS Signer to `Identity::KeyRecords` storage.
+                migrate_v1_key::<T>(signer, KeyRecord::MultiSigSignerKey(ms));
+
+                total_ms_signers + 1
+            });
+        log::info!(" >>> Migrated {} MultiSig Signers.", total_ms_signers);
     }
 }

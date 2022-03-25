@@ -204,8 +204,10 @@ impl<T: Config> Module<T> {
         if !KeyRecords::<T>::contains_key(key) {
             // `key` is not yet linked to any identity, so no constraints.
             KeyRecords::<T>::insert(key, &record);
+            // For primary/secondary keys add to `DidKeys`.
             if let Some((did, is_primary_key)) = record.get_did_key_type() {
                 DidKeys::<T>::insert(did, key, true);
+                // For primary keys also set the DID record.
                 if is_primary_key {
                     DidPrimaryKey::<T>::insert(did, DidRecord::new(key.clone()));
                 }

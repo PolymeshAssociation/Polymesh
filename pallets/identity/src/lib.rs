@@ -105,7 +105,7 @@ use frame_support::{
     traits::{ChangeMembers, Currency, EnsureOrigin, Get, InitializeMembers},
     weights::{
         DispatchClass::{Normal, Operational},
-        Pays,
+        Pays, Weight,
     },
 };
 use frame_system::ensure_root;
@@ -119,23 +119,24 @@ use polymesh_common_utilities::{
     SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    investor_zkproof_data::v1::InvestorZKProofData, storage_migration_ver, Authorization,
-    AuthorizationData, AuthorizationType, CddId, Claim, ClaimType, DidRecord, IdentityClaim,
-    IdentityId, IdentityRecord, KeyRecord, Permissions, Scope, SecondaryKey, Signatory, Ticker,
+    investor_zkproof_data::v1::InvestorZKProofData, storage_migrate_on, storage_migration_ver,
+    Authorization, AuthorizationData, AuthorizationType, CddId, Claim, ClaimType, DidRecord,
+    IdentityClaim, IdentityId, KeyRecord, Permissions, Scope, SecondaryKey, Signatory, Ticker,
 };
 use sp_runtime::traits::Hash;
 use sp_std::{convert::TryFrom, prelude::*};
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 
-storage_migration_ver!(0);
+storage_migration_ver!(1);
 
 decl_storage! {
     trait Store for Module<T: Config> as Identity {
 
-        // TODO: add migration and remove.
+        // TODO: rename to `DidRecords`
         /// DID -> identity info
-        pub DidRecords get(fn did_records) config(): map hasher(identity) IdentityId => IdentityRecord<T::AccountId>;
+        pub DidPrimaryKey get(fn did_primary_key):
+            map hasher(identity) IdentityId => Option<DidRecord<T::AccountId>>;
 
         /// DID -> bool that indicates if secondary keys are frozen.
         pub IsDidFrozen get(fn is_did_frozen): map hasher(identity) IdentityId => bool;
@@ -149,12 +150,6 @@ decl_storage! {
         /// (Target ID, claim type) (issuer,scope) -> Associated claims
         pub Claims: double_map hasher(twox_64_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => IdentityClaim;
 
-        // TODO: add migration and remove.
-        // A map from AccountId primary or secondary keys to DIDs.
-        // Account keys map to at most one identity.
-        pub KeyToIdentityIds get(fn key_to_identity_dids):
-            map hasher(twox_64_concat) T::AccountId => IdentityId;
-
         /// Map from AccountId to `KeyRecord` that holds the key's identity and permissions.
         pub KeyRecords get(fn key_records):
             map hasher(twox_64_concat) T::AccountId => Option<KeyRecord<T::AccountId>>;
@@ -162,11 +157,6 @@ decl_storage! {
         /// A reverse double map to allow finding all keys for an identity.
         pub DidKeys get(fn did_keys):
             double_map hasher(identity) IdentityId, hasher(twox_64_concat) T::AccountId => bool;
-
-        // TODO: rename to `DidRecords`
-        /// DID -> identity info
-        pub DidPrimaryKey get(fn did_primary_key):
-            map hasher(identity) IdentityId => Option<DidRecord<T::AccountId>>;
 
         /// Nonce to ensure unique actions. starts from 1.
         pub MultiPurposeNonce get(fn multi_purpose_nonce) build(|_| 1u64): u64;
@@ -191,7 +181,7 @@ decl_storage! {
         pub CddAuthForPrimaryKeyRotation get(fn cdd_auth_for_primary_key_rotation): bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
 
         /// How many "strong" references to the account key.
         ///
@@ -262,6 +252,14 @@ decl_module! {
         fn deposit_event() = default;
 
         const InitialPOLYX: <T::Balances as Currency<T::AccountId>>::Balance = T::InitialPOLYX::get().into();
+
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion::get(), 1, {
+                migration::migrate_v1::<T>();
+            });
+
+            0
+        }
 
         /// Register `target_account` with a new Identity.
         ///
@@ -642,9 +640,7 @@ impl<T: Config> Module<T> {
     #[cfg(feature = "runtime-benchmarks")]
     /// Links a did with an identity
     pub fn link_did(account: T::AccountId, did: IdentityId) {
-        DidKeys::<T>::insert(&did, &account, true);
-        KeyRecords::<T>::insert(&account, KeyRecord::PrimaryKey(did));
-        DidPrimaryKey::<T>::insert(&did, DidRecord::new(account));
+        Self::link_account_key_to_did(&account, KeyRecord::PrimaryKey(did));
     }
 
     #[cfg(feature = "runtime-benchmarks")]
@@ -721,5 +717,108 @@ fn revoke_claim_class(claim_type: ClaimType) -> frame_support::weights::Dispatch
     match claim_type {
         ClaimType::CustomerDueDiligence => Operational,
         _ => Normal,
+    }
+}
+
+pub mod migration {
+    use super::*;
+
+    mod v1 {
+        use super::*;
+        use scale_info::TypeInfo;
+
+        /// Old v1 secondary key.
+        #[derive(Encode, Decode, TypeInfo)]
+        #[derive(Clone, Default, PartialEq, Eq)]
+        pub struct SecondaryKey<AccountId> {
+            pub signer: Signatory<AccountId>,
+            pub permissions: Permissions,
+        }
+
+        impl<AccountId> SecondaryKey<AccountId> {
+            pub fn into_key_record(
+                self,
+                did: IdentityId,
+            ) -> Option<(AccountId, KeyRecord<AccountId>)> {
+                if let Signatory::Account(key) = self.signer {
+                    Some((key, KeyRecord::SecondaryKey(did, self.permissions)))
+                } else {
+                    None
+                }
+            }
+        }
+
+        /// Old v1 Identity information.
+        #[derive(Encode, Decode, TypeInfo)]
+        #[derive(Clone, Default, PartialEq)]
+        pub struct IdentityRecord<AccountId> {
+            pub primary_key: AccountId,
+            pub secondary_keys: Vec<SecondaryKey<AccountId>>,
+        }
+
+        decl_storage! {
+            trait Store for Module<T: Config> as Identity {
+                pub DidRecords get(fn did_records): map hasher(identity) IdentityId => IdentityRecord<T::AccountId>;
+                pub KeyToIdentityIds get(fn key_to_identity_dids):
+                    map hasher(twox_64_concat) T::AccountId => IdentityId;
+            }
+        }
+
+        decl_module! {
+            pub struct Module<T: Config> for enum Call where origin: T::Origin { }
+        }
+    }
+
+    pub fn migrate_v1_key<T: Config>(key: T::AccountId, record: KeyRecord<T::AccountId>) {
+        // Add key to record mapping.
+        KeyRecords::<T>::insert(&key, &record);
+        // For primary/secondary keys add to `DidKeys`.
+        if let Some((did, is_primary_key)) = record.get_did_key_type() {
+            DidKeys::<T>::insert(did, &key, true);
+            // For primary keys also set the DID record.
+            if is_primary_key {
+                DidPrimaryKey::<T>::insert(did, DidRecord::new(key));
+            }
+        }
+    }
+
+    pub fn migrate_v1<T: Config>() {
+        sp_runtime::runtime_logger::RuntimeLogger::init();
+
+        log::info!(" >>> Updating Identity storage. Migrating DidRecords...");
+        let (total_dids, total_sks) = v1::DidRecords::<T>::drain().fold(
+            (0usize, 0usize),
+            |(total_dids, total_sks), (did, mut record)| {
+                // Migrate primary key.
+                migrate_v1_key::<T>(record.primary_key, KeyRecord::PrimaryKey(did));
+
+                // Migrate secondary keys.
+                let sk_count = record.secondary_keys.drain(..).fold(0usize, |total, sk| {
+                    if let Some((key, key_record)) = sk.into_key_record(did) {
+                        migrate_v1_key::<T>(key, key_record);
+                    }
+                    total + 1
+                });
+
+                (total_dids + 1, total_sks + sk_count)
+            },
+        );
+        log::info!(
+            " >>> Migrated {} Identities and {} secondary keys.",
+            total_dids,
+            total_sks
+        );
+
+        log::info!(" >>> Removing KeyToIdentityIds...");
+        use frame_support::storage::child::KillStorageResult::*;
+        let (num_removed, all_removed) = match v1::KeyToIdentityIds::<T>::remove_all(None) {
+            AllRemoved(removed) => (removed, true),
+            SomeRemaining(removed) => (removed, false),
+        };
+        log::info!(
+            " >>> Removed {} KeyToIdentityIds, removed all: {}.",
+            num_removed,
+            all_removed
+        );
     }
 }
