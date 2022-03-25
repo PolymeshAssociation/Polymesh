@@ -99,7 +99,7 @@ fn join_multisig() {
         set_curr_did(Some(alice_did));
         assert_noop!(
             MultiSig::accept_multisig_signer_as_key(bob.clone(), bob_auth_id2),
-            Error::SignerAlreadyLinked
+            Error::SignerAlreadyLinkedToMultisig
         );
     });
 }
