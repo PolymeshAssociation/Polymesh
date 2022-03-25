@@ -344,6 +344,7 @@ impl polymesh_common_utilities::traits::identity::Config for Test {
     type IdentityFn = identity::Module<Test>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
+    type MultiSigBalanceLimit = polymesh_runtime_common::MultiSigBalanceLimit;
 }
 
 parameter_types! {
@@ -467,9 +468,6 @@ impl AssetSubTrait for Test {
 }
 
 impl MultiSigSubTrait<AccountId> for Test {
-    fn get_key_signers(_multisig: &AccountId) -> Vec<AccountId> {
-        unimplemented!()
-    }
     fn is_multisig(_account: &AccountId) -> bool {
         unimplemented!()
     }

@@ -342,7 +342,7 @@ benchmarks! {
         assert!(<MultiSigSignsRequired<T>>::get(&multisig) == 1);
     }
 
-    make_multisig_signer {
+    make_multisig_secondary {
         let (alice, multisig, _, _, _) = generate_multisig_for_alice::<T>(1, 1).unwrap();
         let ephemeral_multisig = multisig.clone();
         let ms_signer = Signatory::Account(multisig);
