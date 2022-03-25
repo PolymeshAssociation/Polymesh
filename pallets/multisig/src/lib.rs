@@ -59,7 +59,7 @@
 //! - `remove_multisig_signers_via_creator` - Removes a signer from the multisig when called by the
 //! creator of the multisig.
 //! - `change_sigs_required` - Changes the number of signatures required to execute a transaction.
-//! - `make_multisig_signer` - Adds a multisig as a signer of the current DID if the current DID is
+//! - `make_multisig_secondary` - Adds a multisig as a secondary key of the current DID if the current DID is
 //! the creator of the multisig.
 //! - `make_multisig_primary` - Adds a multisig as the primary key of the current DID if the current DID
 //! is the creator of the multisig.
@@ -202,7 +202,7 @@ pub trait WeightInfo {
     fn add_multisig_signers_via_creator(signers: u32) -> Weight;
     fn remove_multisig_signers_via_creator(signers: u32) -> Weight;
     fn change_sigs_required() -> Weight;
-    fn make_multisig_signer() -> Weight;
+    fn make_multisig_secondary() -> Weight;
     fn make_multisig_primary() -> Weight;
     fn execute_scheduled_proposal() -> Weight;
 }
@@ -528,13 +528,13 @@ decl_module! {
             Self::unsafe_change_sigs_required(sender, sigs_required);
         }
 
-        /// Adds a multisig as a signer of current did if the current did is the creator of the
+        /// Adds a multisig as a secondary key of current did if the current did is the creator of the
         /// multisig.
         ///
         /// # Arguments
         /// * `multisig` - multi sig address
-        #[weight = <T as Config>::WeightInfo::make_multisig_signer()]
-        pub fn make_multisig_signer(origin, multisig: T::AccountId) {
+        #[weight = <T as Config>::WeightInfo::make_multisig_secondary()]
+        pub fn make_multisig_secondary(origin, multisig: T::AccountId) {
             let did = <Identity<T>>::ensure_perms(origin)?;
             Self::ensure_ms(&multisig)?;
             Self::verify_sender_is_creator(did, &multisig)?;
@@ -1125,18 +1125,6 @@ impl<T: Config> Module<T> {
 }
 
 impl<T: Config> MultiSigSubTrait<T::AccountId> for Module<T> {
-    fn get_key_signers(multisig: &T::AccountId) -> Vec<T::AccountId> {
-        <MultiSigSigners<T>>::iter_prefix_values(multisig)
-            .filter_map(|signer| {
-                if let Signatory::Account(key) = signer {
-                    Some(key)
-                } else {
-                    None
-                }
-            })
-            .collect()
-    }
-
     fn is_multisig(account: &T::AccountId) -> bool {
         <MultiSigToIdentity<T>>::contains_key(account)
     }

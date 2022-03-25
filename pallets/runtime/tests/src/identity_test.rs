@@ -22,6 +22,7 @@ use pallet_identity::types::DidRecords as RpcDidRecords;
 use pallet_identity::{self as identity, DidRecords};
 use polymesh_common_utilities::{
     asset::AssetSubTrait,
+    constants::currency::POLY,
     protocol_fee::ProtocolOp,
     traits::{
         group::GroupTrait,
@@ -717,7 +718,7 @@ fn do_remove_secondary_keys_test_with_externalities() {
     let charlie = User::new(AccountKeyring::Charlie);
     let dave_key = AccountKeyring::Dave.to_account_id();
 
-    let musig_address = MultiSig::get_next_multisig_address(alice.acc());
+    let ms_address = MultiSig::get_next_multisig_address(alice.acc());
 
     assert_ok!(MultiSig::create_multisig(
         alice.origin(),
@@ -735,18 +736,18 @@ fn do_remove_secondary_keys_test_with_externalities() {
 
     add_secondary_key(alice.did, bob.acc());
 
-    add_secondary_key(alice.did, musig_address.clone());
+    add_secondary_key(alice.did, ms_address.clone());
 
     // Fund the multisig
     assert_ok!(Balances::transfer(
         alice.origin(),
-        musig_address.clone().into(),
-        1
+        ms_address.clone().into(),
+        2 * POLY
     ));
 
     // Check DidRecord.
     assert_eq!(Identity::get_identity(&dave_key), None);
-    assert_eq!(Identity::get_identity(&musig_address), Some(alice.did));
+    assert_eq!(Identity::get_identity(&ms_address), Some(alice.did));
     assert_eq!(Identity::get_identity(&bob_key), Some(alice.did));
 
     // Try removing bob using charlie
@@ -758,7 +759,7 @@ fn do_remove_secondary_keys_test_with_externalities() {
 
     // Check DidRecord.
     assert_eq!(Identity::get_identity(&dave_key), None);
-    assert_eq!(Identity::get_identity(&musig_address), Some(alice.did));
+    assert_eq!(Identity::get_identity(&ms_address), Some(alice.did));
     assert_eq!(Identity::get_identity(&bob_key), Some(alice.did));
 
     // Try remove bob using alice
@@ -770,47 +771,50 @@ fn do_remove_secondary_keys_test_with_externalities() {
 
     // Check DidRecord.
     assert_eq!(Identity::get_identity(&dave_key), None);
-    assert_eq!(Identity::get_identity(&musig_address), Some(alice.did));
+    assert_eq!(Identity::get_identity(&ms_address), Some(alice.did));
     assert_eq!(Identity::get_identity(&bob_key), None);
 
     // Try removing multisig while it has funds
-    assert_ok!(Identity::remove_secondary_keys(
-        alice.origin(),
-        vec![Signatory::Account(musig_address.clone())]
-    ));
+    assert_noop!(
+        Identity::remove_secondary_keys(
+            alice.origin(),
+            vec![Signatory::Account(ms_address.clone())]
+        ),
+        Error::MultiSigHasBalance
+    );
 
     // Check DidRecord.
     assert_eq!(Identity::get_identity(&dave_key), None);
-    assert_eq!(Identity::get_identity(&musig_address), Some(alice.did));
+    assert_eq!(Identity::get_identity(&ms_address), Some(alice.did));
     assert_eq!(Identity::get_identity(&bob_key), None);
 
     // Check multisig's signer
     assert_eq!(
-        MultiSig::ms_signers(musig_address.clone(), Signatory::Account(dave_key.clone())),
+        MultiSig::ms_signers(ms_address.clone(), Signatory::Account(dave_key.clone())),
         true
     );
 
     // Transfer funds back to Alice
     assert_ok!(Balances::transfer(
-        Origin::signed(musig_address.clone()),
+        Origin::signed(ms_address.clone()),
         alice.acc().into(),
-        1
+        2 * POLY
     ));
 
     // Empty multisig's funds and remove as signer
     assert_ok!(Identity::remove_secondary_keys(
         alice.origin(),
-        vec![Signatory::Account(musig_address.clone())]
+        vec![Signatory::Account(ms_address.clone())]
     ));
 
     // Check DidRecord.
     assert_eq!(Identity::get_identity(&dave_key), None);
-    assert_eq!(Identity::get_identity(&musig_address), None);
+    assert_eq!(Identity::get_identity(&ms_address), None);
     assert_eq!(Identity::get_identity(&bob.acc()), None);
 
     // Check multisig's signer
     assert_eq!(
-        MultiSig::ms_signers(musig_address.clone(), Signatory::Account(dave_key)),
+        MultiSig::ms_signers(ms_address.clone(), Signatory::Account(dave_key)),
         true
     );
 }
@@ -830,7 +834,7 @@ fn leave_identity_test_with_externalities() {
     let bob_sk = SecondaryKey::new(bob.signatory_acc(), Permissions::empty());
     let dave_key = AccountKeyring::Dave.to_account_id();
 
-    let musig_address = MultiSig::get_next_multisig_address(alice.acc());
+    let ms_address = MultiSig::get_next_multisig_address(alice.acc());
 
     assert_ok!(MultiSig::create_multisig(
         alice.origin(),
@@ -862,50 +866,50 @@ fn leave_identity_test_with_externalities() {
     assert_eq!(Identity::did_records(alice.did).secondary_keys.len(), 0);
     assert_eq!(Identity::get_identity(&bob.acc()), None);
     assert_eq!(Identity::get_identity(&dave_key), None);
-    assert_eq!(Identity::get_identity(&musig_address), None);
+    assert_eq!(Identity::get_identity(&ms_address), None);
 
-    add_secondary_key_with_perms(alice.did, musig_address.clone(), Permissions::empty());
+    add_secondary_key_with_perms(alice.did, ms_address.clone(), Permissions::empty());
     // send funds to multisig
     assert_ok!(Balances::transfer(
         alice.origin(),
-        musig_address.clone().into(),
-        1
+        ms_address.clone().into(),
+        2 * POLY
     ));
     // multisig tries leaving identity while it has funds
     assert_noop!(
-        Identity::leave_identity_as_key(Origin::signed(musig_address.clone())),
+        Identity::leave_identity_as_key(Origin::signed(ms_address.clone())),
         Error::MultiSigHasBalance
     );
 
     // Check DidRecord.
     assert_eq!(Identity::get_identity(&dave_key), None);
-    assert_eq!(Identity::get_identity(&musig_address), Some(alice.did));
+    assert_eq!(Identity::get_identity(&ms_address), Some(alice.did));
 
     // Check multisig's signer
     assert_eq!(
-        MultiSig::ms_signers(musig_address.clone(), Signatory::Account(dave_key.clone())),
+        MultiSig::ms_signers(ms_address.clone(), Signatory::Account(dave_key.clone())),
         true
     );
 
     // send funds back to alice from multisig
     assert_ok!(Balances::transfer(
-        Origin::signed(musig_address.clone()),
+        Origin::signed(ms_address.clone()),
         alice.acc().into(),
-        1
+        2 * POLY
     ));
 
     // Empty multisig's funds and remove as signer
     assert_ok!(Identity::leave_identity_as_key(Origin::signed(
-        musig_address.clone()
+        ms_address.clone()
     )));
 
     // Check DidRecord.
     assert_eq!(Identity::get_identity(&dave_key), None);
-    assert_eq!(Identity::get_identity(&musig_address), None);
+    assert_eq!(Identity::get_identity(&ms_address), None);
 
     // Check multisig's signer
     assert_eq!(
-        MultiSig::ms_signers(musig_address.clone(), Signatory::Account(dave_key)),
+        MultiSig::ms_signers(ms_address.clone(), Signatory::Account(dave_key)),
         true
     );
 }
