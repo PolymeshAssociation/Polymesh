@@ -653,7 +653,9 @@ decl_error! {
         /// Changing multisig parameters not allowed since multisig is a primary key.
         ChangeNotAllowed,
         /// Signer is an account key that is already associated with a multisig.
-        SignerAlreadyLinked,
+        SignerAlreadyLinkedToMultisig,
+        /// Signer is an account key that is already associated with an identity.
+        SignerAlreadyLinkedToIdentity,
         /// Current DID is missing
         MissingCurrentIdentity,
         /// The function can only be called by the primary key of the did
@@ -1046,16 +1048,16 @@ impl<T: Config> Module<T> {
                 // Don't allow a signer key that is already a secondary key on another multisig
                 ensure!(
                     !<KeyToMultiSig<T>>::contains_key(key),
-                    Error::<T>::SignerAlreadyLinked
+                    Error::<T>::SignerAlreadyLinkedToMultisig
                 );
                 // Don't allow a signer key that is already a secondary key on another identity
                 ensure!(
                     !<identity::KeyToIdentityIds<T>>::contains_key(key),
-                    Error::<T>::SignerAlreadyLinked
+                    Error::<T>::SignerAlreadyLinkedToIdentity
                 );
                 // Don't allow a multisig to add itself as a signer to itself
                 // NB - you can add a multisig as a signer to a different multisig
-                ensure!(key != &multisig, Error::<T>::SignerAlreadyLinked);
+                ensure!(key != &multisig, Error::<T>::SignerAlreadyLinkedToMultisig);
             }
 
             let ms_identity = <MultiSigToIdentity<T>>::get(&multisig);
