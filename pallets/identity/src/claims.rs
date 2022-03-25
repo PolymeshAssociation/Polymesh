@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Claim1stKey, Claim2ndKey, Claims, DidPrimaryKey, Error, Module};
+use crate::{Claim1stKey, Claim2ndKey, Claims, DidRecords, Error, Module};
 use core::convert::From;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
@@ -417,7 +417,7 @@ impl<T: Config> Module<T> {
     ) -> Result<IdentityId, DispatchError> {
         let primary_did = Self::ensure_perms(origin)?;
         ensure!(
-            DidPrimaryKey::<T>::contains_key(target),
+            DidRecords::<T>::contains_key(target),
             Error::<T>::DidMustAlreadyExist
         );
         Ok(primary_did)

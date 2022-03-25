@@ -14,8 +14,8 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    types, AccountKeyRefCount, Config, DidKeys, DidPrimaryKey, Error, IsDidFrozen, KeyRecords,
-    Module, MultiPurposeNonce, OffChainAuthorizationNonce, PermissionedCallOriginData, RawEvent,
+    types, AccountKeyRefCount, Config, DidKeys, DidRecords, Error, IsDidFrozen, KeyRecords, Module,
+    MultiPurposeNonce, OffChainAuthorizationNonce, PermissionedCallOriginData, RawEvent,
     RpcDidRecords,
 };
 use codec::{Decode, Encode as _};
@@ -61,7 +61,7 @@ type System<T> = frame_system::Pallet<T>;
 impl<T: Config> Module<T> {
     /// Does the identity given by `did` exist?
     pub fn is_identity_exists(did: &IdentityId) -> bool {
-        DidPrimaryKey::<T>::contains_key(did)
+        DidRecords::<T>::contains_key(did)
     }
 
     pub fn ensure_no_id_record(id: IdentityId) -> DispatchResult {
@@ -108,14 +108,14 @@ impl<T: Config> Module<T> {
 
     /// Get the identity's primary key.
     pub fn get_primary_key(did: IdentityId) -> T::AccountId {
-        DidPrimaryKey::<T>::get(did)
+        DidRecords::<T>::get(did)
             .and_then(|d| d.primary_key)
             .unwrap_or_default()
     }
 
     /// Use `did` as reference.
     pub fn is_primary_key(did: &IdentityId, key: &T::AccountId) -> bool {
-        let primary_key = DidPrimaryKey::<T>::get(did).and_then(|d| d.primary_key);
+        let primary_key = DidRecords::<T>::get(did).and_then(|d| d.primary_key);
         primary_key.as_ref() == Some(key)
     }
 
@@ -139,7 +139,7 @@ impl<T: Config> Module<T> {
     pub fn get_did_records(
         did: IdentityId,
     ) -> RpcDidRecords<T::AccountId, SecondaryKey<T::AccountId>> {
-        if let Some(record) = DidPrimaryKey::<T>::get(&did) {
+        if let Some(record) = DidRecords::<T>::get(&did) {
             let secondary_keys = DidKeys::<T>::iter_prefix(&did)
                 .filter_map(|(key, _)| {
                     // Lookup the key's permissions and convert that into a `SecondaryKey` type.
@@ -209,7 +209,7 @@ impl<T: Config> Module<T> {
                 DidKeys::<T>::insert(did, key, true);
                 // For primary keys also set the DID record.
                 if is_primary_key {
-                    DidPrimaryKey::<T>::insert(did, DidRecord::new(key.clone()));
+                    DidRecords::<T>::insert(did, DidRecord::new(key.clone()));
                 }
             }
         }
@@ -220,7 +220,7 @@ impl<T: Config> Module<T> {
     pub fn unlink_account_key_from_did(key: &T::AccountId, did: Option<IdentityId>) {
         let remove_key = match KeyRecords::<T>::get(key) {
             Some(KeyRecord::PrimaryKey(did1)) if Some(did1) == did => {
-                DidPrimaryKey::<T>::mutate(did1, |d| {
+                DidRecords::<T>::mutate(did1, |d| {
                     match d {
                         Some(ref mut d) if d.primary_key.as_ref() == Some(key) => {
                             // Only clear the Identities primary key if it matches.
@@ -269,7 +269,7 @@ impl<T: Config> Module<T> {
         new_permissions: Option<Permissions>,
         optional_cdd_auth_id: Option<u64>,
     ) -> DispatchResult {
-        let old_primary_key = DidPrimaryKey::<T>::get(target_did)
+        let old_primary_key = DidRecords::<T>::get(target_did)
             .and_then(|d| d.primary_key)
             .unwrap_or_default();
 
@@ -326,7 +326,7 @@ impl<T: Config> Module<T> {
         if is_secondary_key {
             // Convert secondary key to primary key.
             KeyRecords::<T>::insert(&new_primary_key, key_record);
-            DidPrimaryKey::<T>::insert(target_did, DidRecord::new(new_primary_key.clone()));
+            DidRecords::<T>::insert(target_did, DidRecord::new(new_primary_key.clone()));
 
             let removed_signers = vec![signer];
             Self::deposit_event(RawEvent::SecondaryKeysRemoved(target_did, removed_signers));

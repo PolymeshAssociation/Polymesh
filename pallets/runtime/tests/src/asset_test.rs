@@ -65,7 +65,7 @@ type Portfolio = pallet_portfolio::Module<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
 type Origin = <TestStorage as frame_system::Config>::Origin;
-type DidPrimaryKey = identity::DidPrimaryKey<TestStorage>;
+type DidRecords = identity::DidRecords<TestStorage>;
 type Statistics = statistics::Module<TestStorage>;
 type AssetGenesis = asset::GenesisConfig<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
@@ -122,7 +122,7 @@ crate fn an_asset(owner: User, divisible: bool) -> Ticker {
 }
 
 fn has_ticker_record(ticker: Ticker) -> bool {
-    DidPrimaryKey::contains_key(Identity::get_token_did(&ticker).unwrap())
+    DidRecords::contains_key(Identity::get_token_did(&ticker).unwrap())
 }
 
 fn asset_with_ids(

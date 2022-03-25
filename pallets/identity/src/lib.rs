@@ -133,9 +133,8 @@ storage_migration_ver!(1);
 decl_storage! {
     trait Store for Module<T: Config> as Identity {
 
-        // TODO: rename to `DidRecords`
         /// DID -> identity info
-        pub DidPrimaryKey get(fn did_primary_key):
+        pub DidRecords get(fn did_records):
             map hasher(identity) IdentityId => Option<DidRecord<T::AccountId>>;
 
         /// DID -> bool that indicates if secondary keys are frozen.
@@ -607,7 +606,7 @@ decl_error! {
 impl<T: Config> Module<T> {
     /// Only used by `create_asset` since `AssetDidRegistered` is defined here instead of there.
     pub fn commit_token_did(did: IdentityId, ticker: Ticker) {
-        DidPrimaryKey::<T>::insert(did, DidRecord::default());
+        DidRecords::<T>::insert(did, DidRecord::default());
         Self::deposit_event(RawEvent::AssetDidRegistered(did, ticker));
     }
 
@@ -624,7 +623,7 @@ impl<T: Config> Module<T> {
         dids.into_iter()
             .map(|did| {
                 // Does DID exist in the ecosystem?
-                if !DidPrimaryKey::<T>::contains_key(did) {
+                if !DidRecords::<T>::contains_key(did) {
                     DidStatus::Unknown
                 }
                 // DID exists, but does it have a valid CDD?
@@ -777,7 +776,7 @@ pub mod migration {
             DidKeys::<T>::insert(did, &key, true);
             // For primary keys also set the DID record.
             if is_primary_key {
-                DidPrimaryKey::<T>::insert(did, DidRecord::new(key));
+                DidRecords::<T>::insert(did, DidRecord::new(key));
             }
         }
     }

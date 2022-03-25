@@ -978,10 +978,10 @@ pub fn provide_did_to_user(account: AccountId) -> bool {
     );
     let cdd_did = Identity::get_identity(&cdd_account_id).expect("CDD provider missing identity");
     assert!(
-        <identity::DidPrimaryKey<Test>>::contains_key(&cdd_did),
+        <identity::DidRecords<Test>>::contains_key(&cdd_did),
         "CDD provider identity has no DID record"
     );
-    let cdd_did_record = <identity::DidPrimaryKey<Test>>::get(&cdd_did).unwrap_or_default();
+    let cdd_did_record = <identity::DidRecords<Test>>::get(&cdd_did).unwrap_or_default();
     assert!(
         cdd_did_record.primary_key == Some(cdd_account_id),
         "CDD identity primary key mismatch"
@@ -1575,7 +1575,7 @@ pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 }
 
 fn get_primary_key(target: IdentityId) -> AccountId {
-    Identity::did_primary_key(target)
+    Identity::did_records(target)
         .and_then(|record| record.primary_key)
         .unwrap_or_default()
 }
