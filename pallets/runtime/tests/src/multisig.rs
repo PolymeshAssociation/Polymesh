@@ -1,6 +1,9 @@
 use super::{
     next_block,
-    storage::{get_last_auth_id, register_keyring_account, set_curr_did, Call, TestStorage, User},
+    storage::{
+        get_last_auth_id, get_primary_key, get_secondary_keys, register_keyring_account,
+        set_curr_did, Call, TestStorage, User,
+    },
     ExtBuilder,
 };
 use frame_support::{assert_noop, assert_ok};
@@ -463,7 +466,7 @@ fn make_multisig_primary() {
         ));
 
         assert_eq!(
-            Identity::did_records(alice_did).primary_key,
+            get_primary_key(alice_did),
             AccountKeyring::Alice.to_account_id()
         );
 
@@ -478,7 +481,7 @@ fn make_multisig_primary() {
             None
         ));
 
-        assert_eq!(Identity::did_records(alice_did).primary_key, ms_address);
+        assert_eq!(get_primary_key(alice_did), ms_address);
     });
 }
 
@@ -499,7 +502,7 @@ fn rotate_multisig_primary_key_with_balance() {
         ));
 
         // Alice's primary key hasn't changed.
-        assert_eq!(Identity::did_records(alice.did).primary_key, alice.acc());
+        assert_eq!(get_primary_key(alice.did), alice.acc());
 
         // Bob can't make the MultiSig account his primary key.
         assert_noop!(
@@ -515,7 +518,7 @@ fn rotate_multisig_primary_key_with_balance() {
         ));
 
         // Alice's primary key is now the MultiSig.
-        assert_eq!(Identity::did_records(alice.did).primary_key, ms_address);
+        assert_eq!(get_primary_key(alice.did), ms_address);
 
         // Fund the MultiSig.
         assert_ok!(Balances::transfer(
@@ -556,11 +559,7 @@ fn make_multisig_secondary_key() {
         let multisig_secondary =
             SecondaryKey::new(Signatory::Account(multisig.clone()), Permissions::empty());
 
-        let has_ms_sk = || {
-            Identity::did_records(alice.did)
-                .secondary_keys
-                .contains(&multisig_secondary)
-        };
+        let has_ms_sk = || get_secondary_keys(alice.did).contains(&multisig_secondary);
         assert!(!has_ms_sk());
 
         let mk_ms_signer =

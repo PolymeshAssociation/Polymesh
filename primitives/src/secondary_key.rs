@@ -233,12 +233,30 @@ pub enum KeyRecord<AccountId> {
 }
 
 impl<AccountId> KeyRecord<AccountId> {
-    /// Check if the key is the primary key.
-    pub fn is_primary_key(&self) -> bool {
-        if let Self::PrimaryKey(_did) = self {
-            return true;
+    /// Check if the key is the primary key and return the identity.
+    pub fn is_primary_key(&self) -> Option<IdentityId> {
+        if let Self::PrimaryKey(did) = self {
+            Some(*did)
         } else {
-            return false;
+            None
+        }
+    }
+
+    /// Check if the key is the secondary key and return the identity.
+    pub fn is_secondary_key(&self) -> Option<IdentityId> {
+        if let Self::SecondaryKey(did, _) = self {
+            Some(*did)
+        } else {
+            None
+        }
+    }
+
+    /// Get the identity and the key type (primary/secondary).
+    pub fn get_did_key_type(&self) -> Option<(IdentityId, bool)> {
+        match self {
+            Self::PrimaryKey(did) => Some((*did, true)),
+            Self::SecondaryKey(did, _) => Some((*did, false)),
+            _ => None,
         }
     }
 
@@ -248,6 +266,18 @@ impl<AccountId> KeyRecord<AccountId> {
             Self::PrimaryKey(did) => Some(*did),
             Self::SecondaryKey(did, _) => Some(*did),
             _ => None,
+        }
+    }
+
+    /// Convert `KeyRecord` into a `SecondaryKey`, if it is a secondary key.
+    pub fn into_secondary_key(self, key: AccountId) -> Option<SecondaryKey<AccountId>> {
+        if let Self::SecondaryKey(_did, permissions) = self {
+            Some(SecondaryKey {
+                signer: Signatory::Account(key),
+                permissions,
+            })
+        } else {
+            None
         }
     }
 }

@@ -1,6 +1,6 @@
 use crate::{
     //contract_test::{create_se_template, flipper},
-    ext_builder::{ExtBuilder, MockProtocolBaseFees},
+    ext_builder::{ExtBuilder, IdentityRecord, MockProtocolBaseFees},
     pips_test::assert_balance,
     storage::{
         add_secondary_key, make_account_without_cdd, provide_scope_claim,
@@ -65,7 +65,7 @@ type Portfolio = pallet_portfolio::Module<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
 type Origin = <TestStorage as frame_system::Config>::Origin;
-type DidRecords = identity::DidRecords<TestStorage>;
+type DidPrimaryKey = identity::DidPrimaryKey<TestStorage>;
 type Statistics = statistics::Module<TestStorage>;
 type AssetGenesis = asset::GenesisConfig<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
@@ -122,7 +122,7 @@ crate fn an_asset(owner: User, divisible: bool) -> Ticker {
 }
 
 fn has_ticker_record(ticker: Ticker) -> bool {
-    DidRecords::contains_key(Identity::get_token_did(&ticker).unwrap())
+    DidPrimaryKey::contains_key(Identity::get_token_did(&ticker).unwrap())
 }
 
 fn asset_with_ids(
@@ -2196,10 +2196,7 @@ fn secondary_key_not_authorized_for_asset_test() {
         },
     ];
 
-    let owner = polymesh_primitives::IdentityRecord {
-        primary_key: owner.to_account_id(),
-        secondary_keys,
-    };
+    let owner = IdentityRecord::new(owner.to_account_id(), secondary_keys);
 
     ExtBuilder::default()
         .add_regular_users(&[owner])

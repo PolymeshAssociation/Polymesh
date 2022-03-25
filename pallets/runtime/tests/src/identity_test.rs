@@ -3,23 +3,20 @@ use super::{
     committee_test::gc_vmo,
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{
-        add_secondary_key, add_secondary_key_with_perms, create_cdd_id_and_investor_uid,
-        get_identity_id, get_last_auth_id, provide_scope_claim, register_keyring_account,
+        account_from, add_secondary_key, add_secondary_key_with_perms,
+        create_cdd_id_and_investor_uid, get_identity_id, get_last_auth_id, get_primary_key,
+        get_secondary_keys, provide_scope_claim, register_keyring_account,
         register_keyring_account_with_balance, GovernanceCommittee, TestStorage, User,
     },
     ExtBuilder,
 };
 use codec::Encode;
 use confidential_identity::mocked::make_investor_uid as make_investor_uid_v2;
-use core::iter;
 use frame_support::{
     assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency, StorageDoubleMap,
-    StorageMap,
 };
 use pallet_asset::SecurityToken;
 use pallet_balances as balances;
-use pallet_identity::types::RpcDidRecords;
-use pallet_identity::{self as identity, DidRecords};
 use polymesh_common_utilities::{
     asset::AssetSubTrait,
     constants::currency::POLY,
@@ -34,8 +31,8 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     investor_zkproof_data::v2, AccountId, AssetPermissions, AuthorizationData, AuthorizationType,
     CddId, Claim, ClaimType, DispatchableName, ExtrinsicPermissions, IdentityClaim, IdentityId,
-    InvestorUid, PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope,
-    SecondaryKey, Signatory, SubsetRestriction, Ticker, TransactionError,
+    InvestorUid, KeyRecord, PalletName, PalletPermissions, Permissions, PortfolioId,
+    PortfolioNumber, Scope, SecondaryKey, Signatory, SubsetRestriction, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::runtime::{Call, CddHandler};
 use sp_core::H512;
@@ -43,10 +40,10 @@ use sp_runtime::transaction_validity::InvalidTransaction;
 use std::convert::{From, TryFrom};
 use test_client::AccountKeyring;
 
-type AuthorizationsGiven = identity::AuthorizationsGiven<TestStorage>;
+type AuthorizationsGiven = pallet_identity::AuthorizationsGiven<TestStorage>;
 type Asset = pallet_asset::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
-type Identity = identity::Module<TestStorage>;
+type Identity = pallet_identity::Module<TestStorage>;
 type MultiSig = pallet_multisig::Module<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
@@ -79,13 +76,6 @@ fn fetch_systematic_cdd(target: IdentityId) -> Option<IdentityClaim> {
         SystematicIssuers::CDDProvider.as_id(),
         None,
     )
-}
-
-fn get_secondary_keys(target: IdentityId) -> Vec<SecondaryKey<AccountId>> {
-    match Identity::get_did_records(target) {
-        RpcDidRecords::Success { secondary_keys, .. } => secondary_keys,
-        _ => vec![],
-    }
 }
 
 fn target_id_auth(user: User) -> (TargetIdAuthorization<u64>, u64) {
@@ -424,7 +414,7 @@ fn remove_frozen_secondary_keys_with_externalities() {
     ));
     // Check DidRecord.
     assert_eq!(
-        Identity::did_records(alice.did).secondary_keys,
+        get_secondary_keys(alice.did),
         vec![SecondaryKey::new(
             charlie.signatory_acc(),
             Permissions::default()
@@ -853,17 +843,14 @@ fn leave_identity_test_with_externalities() {
     add_secondary_key_with_perms(alice.did, bob.acc(), Permissions::empty());
 
     // Check DidRecord.
-    assert_eq!(
-        Identity::did_records(alice.did).secondary_keys,
-        vec![bob_sk]
-    );
+    assert_eq!(get_secondary_keys(alice.did), vec![bob_sk]);
     assert_eq!(Identity::get_identity(&bob.acc()), Some(alice.did));
 
     // Bob leaves
     assert_ok!(Identity::leave_identity_as_key(bob.origin()));
 
     // Check DidRecord.
-    assert_eq!(Identity::did_records(alice.did).secondary_keys.len(), 0);
+    assert_eq!(get_secondary_keys(alice.did).len(), 0);
     assert_eq!(Identity::get_identity(&bob.acc()), None);
     assert_eq!(Identity::get_identity(&dave_key), None);
     assert_eq!(Identity::get_identity(&ms_address), None);
@@ -982,7 +969,7 @@ fn one_step_join_id_with_ext() {
 
     assert_ok!(add(a, secondary_keys_with_auth[..2].to_owned()));
 
-    let secondary_keys = Identity::did_records(a.did).secondary_keys;
+    let secondary_keys = get_secondary_keys(a.did);
     let contains = |u: User| {
         secondary_keys
             .iter()
@@ -1065,7 +1052,7 @@ crate fn test_with_bad_perms(did: IdentityId, test: impl Fn(Permissions)) {
 fn add_secondary_keys_with_authorization_too_many_sks() {
     ExtBuilder::default().build().execute_with(|| {
         let user = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
+        let bob = User::new_with(user.did, AccountKeyring::Bob);
 
         let expires_at = 100;
         let auth = || {
@@ -1078,11 +1065,11 @@ fn add_secondary_keys_with_authorization_too_many_sks() {
         };
 
         // Test various length problems in `Permissions`.
-        test_with_bad_perms(bob.did, |perms| {
+        test_with_bad_perms(user.did, |perms| {
             let auth_encoded = auth();
             let auth_signature = H512::from(bob.ring.sign(&auth_encoded));
 
-            let secondary_key = SecondaryKey::new(bob.did.into(), perms).into();
+            let secondary_key = SecondaryKey::new(bob.signatory_acc(), perms);
             let auths = vec![SecondaryKeyWithAuth {
                 auth_signature,
                 secondary_key,
@@ -1094,18 +1081,16 @@ fn add_secondary_keys_with_authorization_too_many_sks() {
             ));
         });
 
-        // Populate with MAX SKs.
-        DidRecords::<TestStorage>::mutate(user.did, |rec| {
-            let sk = SecondaryKey {
-                signer: Signatory::Account(rec.primary_key.clone()),
-                permissions: Permissions::empty(),
-            };
-            rec.secondary_keys = iter::repeat(sk).take(max_len() as usize).collect();
-        });
+        // Populate with MAX_LEN secondary keys.
+        let key_record = KeyRecord::SecondaryKey(user.did, Permissions::empty());
+        for idx in 0..max_len() {
+            let key = account_from(idx as u64 + 100);
+            Identity::link_account_key_to_did(&key, key_record.clone());
+        }
 
-        // Fail at adding the {MAX + 1}th SK.
+        // No Secondary key limit.
         let auth_encoded = auth();
-        assert_too_long!(Identity::add_secondary_keys_with_authorization(
+        assert_ok!(Identity::add_secondary_keys_with_authorization(
             user.origin(),
             secondary_keys_with_auth(&[bob], &auth_encoded),
             expires_at
@@ -1220,10 +1205,12 @@ fn removing_authorizations() {
             false,
         ));
         assert!(!AuthorizationsGiven::contains_key(alice.did, auth_id));
-        assert!(!<identity::Authorizations<TestStorage>>::contains_key(
-            bob.signatory_did(),
-            auth_id
-        ));
+        assert!(
+            !<pallet_identity::Authorizations<TestStorage>>::contains_key(
+                bob.signatory_did(),
+                auth_id
+            )
+        );
     });
 }
 
@@ -1241,7 +1228,7 @@ fn changing_primary_key_we() {
     let bob = User::new(AccountKeyring::Bob);
 
     // Primary key matches Alice's key
-    let alice_pk = || Identity::did_records(alice.did).primary_key;
+    let alice_pk = || get_primary_key(alice.did);
     assert_eq!(alice_pk(), alice.acc());
 
     let add = |ring: AccountKeyring| {
@@ -1298,7 +1285,7 @@ fn changing_primary_key_with_cdd_auth() {
 
 fn changing_primary_key_with_cdd_auth_we() {
     let alice = User::new(AccountKeyring::Alice);
-    let alice_pk = || Identity::did_records(alice.did).primary_key;
+    let alice_pk = || get_primary_key(alice.did);
     let new = User::new_with(alice.did, AccountKeyring::Bob);
 
     let cdd_did = get_identity_id(AccountKeyring::Eve).unwrap();
@@ -1361,7 +1348,7 @@ fn rotating_primary_key_to_secondary_we() {
     let charlie_origin = Origin::signed(charlie.to_account_id());
 
     // Primary key matches Alice's key
-    let alice_pk = || Identity::did_records(alice.did).primary_key;
+    let alice_pk = || get_primary_key(alice.did);
     assert_eq!(alice_pk(), alice.acc());
 
     let rotate =
@@ -1412,7 +1399,7 @@ fn rotating_primary_key_to_secondary_with_cdd_auth() {
 
 fn rotating_primary_key_to_secondary_with_cdd_auth_we() {
     let alice = User::new(AccountKeyring::Alice);
-    let alice_pk = || Identity::did_records(alice.did).primary_key;
+    let alice_pk = || get_primary_key(alice.did);
     let charlie = AccountKeyring::Charlie;
     let charlie_origin = Origin::signed(charlie.to_account_id());
 
@@ -1523,10 +1510,7 @@ fn cdd_register_did_test_we() {
 
     Balances::make_free_balance_be(&charlie, 10_000_000_000);
     assert_eq!(Identity::has_valid_cdd(charlie_id), true);
-    assert_eq!(
-        Identity::did_records(charlie_id).secondary_keys.is_empty(),
-        true
-    );
+    assert_eq!(get_secondary_keys(charlie_id).is_empty(), true);
 
     let dave_auth_id = get_last_auth_id(&dave_si.signer);
 
@@ -1534,10 +1518,7 @@ fn cdd_register_did_test_we() {
         Origin::signed(dave),
         dave_auth_id
     ));
-    assert_eq!(
-        Identity::did_records(charlie_id).secondary_keys,
-        vec![dave_si.clone()]
-    );
+    assert_eq!(get_secondary_keys(charlie_id), vec![dave_si.clone()]);
 }
 
 #[test]
@@ -1586,8 +1567,8 @@ fn add_identity_signers() {
             Error::AlreadyLinked
         );
 
-        let alice_secondary_keys = Identity::did_records(alice.did).secondary_keys;
-        let charlie_secondary_keys = Identity::did_records(charlie.did).secondary_keys;
+        let alice_secondary_keys = get_secondary_keys(alice.did);
+        let charlie_secondary_keys = get_secondary_keys(charlie.did);
         let mut dave_sk = SecondaryKey::from_account_id(AccountKeyring::Dave.to_account_id());
         // Correct the permissions to ones set by `add_secondary_key`.
         dave_sk.permissions = Permissions::default();
@@ -1885,7 +1866,7 @@ fn add_permission_with_secondary_key() {
             ));
 
             // check for permissions.
-            assert_eq!(Identity::did_records(alice_did).secondary_keys, sks);
+            assert_eq!(get_secondary_keys(alice_did), sks);
         });
 }
 

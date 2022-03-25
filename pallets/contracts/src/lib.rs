@@ -424,7 +424,7 @@ where
     }
 
     fn get_primary_key(id: &IdentityId) -> T::AccountId {
-        Identity::<T>::did_records(id).primary_key
+        Identity::<T>::get_primary_key(*id)
     }
 
     fn ext_details(code_hash: &CodeHash<T>) -> ExtensionAttributes<BalanceOf<T>> {

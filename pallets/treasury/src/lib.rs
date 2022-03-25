@@ -162,7 +162,7 @@ impl<T: Config> Module<T> {
             WithdrawReasons::TRANSFER,
             ExistenceRequirement::AllowDeath,
         );
-        let primary_key = Identity::<T>::did_records(target).primary_key;
+        let primary_key = Identity::<T>::get_primary_key(target);
         let _ = T::Currency::deposit_into_existing(&primary_key, amount);
         Self::deposit_event(RawEvent::TreasuryDisbursement(GC_DID, target, amount));
     }

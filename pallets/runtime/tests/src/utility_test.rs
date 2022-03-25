@@ -2,8 +2,8 @@ use super::{
     assert_event_doesnt_exist, assert_event_exists, assert_last_event,
     pips_test::assert_balance,
     storage::{
-        add_secondary_key, register_keyring_account_with_balance, Call, EventTest, Identity,
-        Origin, Portfolio, System, TestStorage, User, Utility,
+        add_secondary_key, get_secondary_keys, register_keyring_account_with_balance, Call,
+        EventTest, Identity, Origin, Portfolio, System, TestStorage, User, Utility,
     },
     ExtBuilder,
 };
@@ -299,7 +299,7 @@ fn batch_secondary_with_permissions() {
         bob.signatory_acc(),
         bob_permissions,
     ));
-    let bob_secondary_key = &Identity::did_records(&alice.did).secondary_keys[0];
+    let bob_secondary_key = &get_secondary_keys(alice.did)[0];
     let check_permission = |name: &[u8], t| {
         assert_eq!(
             t,

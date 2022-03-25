@@ -344,11 +344,10 @@ benchmarks! {
 
     make_multisig_secondary {
         let (alice, multisig, _, _, _) = generate_multisig_for_alice::<T>(1, 1).unwrap();
-        let ephemeral_multisig = multisig.clone();
-        let ms_signer = Signatory::Account(multisig);
-    }: _(alice.origin(), ephemeral_multisig)
+        let ms_signer = Signatory::Account(multisig.clone());
+    }: _(alice.origin(), multisig)
     verify {
-        assert!(<Identity<T>>::did_records(alice.did()).secondary_keys.iter().any(|sk| sk.signer == ms_signer));
+        assert!(<Identity<T>>::is_signer(alice.did(), &ms_signer));
     }
 
     make_multisig_primary {
@@ -356,7 +355,7 @@ benchmarks! {
         let ephemeral_multisig = multisig.clone();
     }: _(alice.origin(), ephemeral_multisig, None)
     verify {
-        assert!(<Identity<T>>::did_records(alice.did()).primary_key == multisig);
+        assert!(<Identity<T>>::get_primary_key(alice.did()) == multisig);
     }
 
     execute_scheduled_proposal {

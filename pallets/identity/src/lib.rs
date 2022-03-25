@@ -245,10 +245,6 @@ decl_storage! {
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
                 let sk = SecondaryKey::from_account_id(secondary_account_id.clone());
                 <Module<T>>::link_account_key_to_did(secondary_account_id, sk.make_key_record(did));
-                // TODO: remove
-                <DidRecords<T>>::mutate(did, |record| {
-                    (*record).add_secondary_keys(core::iter::once(sk.clone()));
-                });
                 <Module<T>>::deposit_event(RawEvent::SecondaryKeysAdded(did, vec![sk.into()]));
             }
         });
@@ -613,8 +609,6 @@ decl_error! {
 impl<T: Config> Module<T> {
     /// Only used by `create_asset` since `AssetDidRegistered` is defined here instead of there.
     pub fn commit_token_did(did: IdentityId, ticker: Ticker) {
-        // TODO: remove.
-        <DidRecords<T>>::insert(did, IdentityRecord::default());
         DidPrimaryKey::<T>::insert(did, DidRecord::default());
         Self::deposit_event(RawEvent::AssetDidRegistered(did, ticker));
     }
@@ -648,13 +642,6 @@ impl<T: Config> Module<T> {
     #[cfg(feature = "runtime-benchmarks")]
     /// Links a did with an identity
     pub fn link_did(account: T::AccountId, did: IdentityId) {
-        // TODO: Remove old.
-        let record = IdentityRecord {
-            primary_key: account.clone(),
-            ..Default::default()
-        };
-        DidRecords::<T>::insert(&did, record);
-
         DidKeys::<T>::insert(&did, &account, true);
         KeyRecords::<T>::insert(&account, KeyRecord::PrimaryKey(did));
         DidPrimaryKey::<T>::insert(&did, DidRecord::new(account));

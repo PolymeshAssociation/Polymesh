@@ -1574,6 +1574,12 @@ pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
     (Balances::free_balance(who), Balances::reserved_balance(who))
 }
 
+fn get_primary_key(target: IdentityId) -> AccountId {
+    Identity::did_primary_key(target)
+        .and_then(|record| record.primary_key)
+        .unwrap_or_default()
+}
+
 pub fn make_account_with_uid(
     id: AccountId,
 ) -> Result<(<Test as frame_system::Config>::Origin, IdentityId), &'static str> {
@@ -1593,7 +1599,7 @@ pub fn make_account_with_balance(
     let cdd_providers = Group::get_members();
     let did = match cdd_providers.into_iter().nth(0) {
         Some(cdd_provider) => {
-            let cdd_acc = Identity::did_records(&cdd_provider).primary_key;
+            let cdd_acc = get_primary_key(cdd_provider);
             let _ = Identity::cdd_register_did(Origin::signed(cdd_acc), id, vec![])
                 .map_err(|_| "CDD register DID failed")?;
             let did = Identity::get_identity(&id).unwrap();
@@ -1634,7 +1640,7 @@ pub fn add_nominator_claim_with_expiry(
 }
 
 pub fn create_cdd_id_and_investor_uid(identity_id: IdentityId) -> (CddId, InvestorUid) {
-    let uid = create_investor_uid(Identity::did_records(identity_id).primary_key);
+    let uid = create_investor_uid(get_primary_key(identity_id));
     let (cdd_id, _) = create_cdd_id(identity_id, Ticker::default(), uid);
     (cdd_id, uid)
 }

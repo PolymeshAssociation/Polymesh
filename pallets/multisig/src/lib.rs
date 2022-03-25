@@ -542,11 +542,11 @@ decl_module! {
             Self::ensure_ms(&multisig)?;
             Self::verify_sender_is_creator(did, &multisig)?;
 
-            let perms = Permissions::empty();
-            <Identity<T>>::ensure_secondary_key_can_be_added(&did, &multisig, &perms)?;
+            // Ensure the key is unlinked.
+            <Identity<T>>::ensure_key_did_unlinked(&multisig)?;
 
             // Add the multisig as a secondary key with no permissions.
-            <Identity<T>>::unsafe_join_identity(did, perms, multisig);
+            <Identity<T>>::unsafe_join_identity(did, Permissions::empty(), multisig);
         }
 
         /// Adds a multisig as the primary key of the current did if the current DID is the creator
@@ -1105,7 +1105,7 @@ impl<T: Config> Module<T> {
     pub fn is_changing_signers_allowed(multisig: &T::AccountId) -> bool {
         if <Identity<T>>::cdd_auth_for_primary_key_rotation() {
             if let Some(did) = <Identity<T>>::get_identity(multisig) {
-                if multisig == &<Identity<T>>::did_records(&did).primary_key {
+                if <Identity<T>>::is_primary_key(&did, multisig) {
                     return false;
                 }
             }
