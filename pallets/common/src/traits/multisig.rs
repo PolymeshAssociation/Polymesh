@@ -18,16 +18,8 @@
 //! The interface allows to process addition of a multisig signer from modules other than the
 //! multisig module itself.
 
-use sp_std::vec::Vec;
-
 /// This trait is used to add a signer to a multisig and enable unlinking multisig from an identity
 pub trait MultiSigSubTrait<AccountId> {
-    /// Fetches signers of a multisig
-    ///
-    /// # Arguments
-    /// * `multisig` - multisig AccountId
-    fn get_key_signers(multisig: &AccountId) -> Vec<AccountId>;
-
     /// Checks if the account is a multisig
     ///
     /// # Arguments
