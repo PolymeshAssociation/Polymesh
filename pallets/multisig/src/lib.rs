@@ -762,7 +762,7 @@ impl<T: Config> Module<T> {
     /// Removes a signer from the valid signer list for a given multisig.
     fn unsafe_signer_removal(multisig: T::AccountId, signer: Signatory<T::AccountId>) {
         if let Signatory::Account(signer_key) = &signer {
-            Identity::<T>::unlink_account_key_from_did(signer_key, None);
+            Identity::<T>::remove_key_record(signer_key, None);
         }
         <MultiSigSigners<T>>::remove(&multisig, &signer);
         Self::deposit_event(RawEvent::MultiSigSignerRemoved(
@@ -1072,10 +1072,7 @@ impl<T: Config> Module<T> {
             <NumberOfSigners<T>>::mutate(&multisig, |x| *x += 1u64);
 
             if let Signatory::Account(key) = &signer {
-                Identity::<T>::link_account_key_to_did(
-                    key,
-                    KeyRecord::MultiSigSignerKey(multisig.clone()),
-                );
+                Identity::<T>::add_key_record(key, KeyRecord::MultiSigSignerKey(multisig.clone()));
             }
             Self::deposit_event(RawEvent::MultiSigSignerAdded(
                 ms_identity,

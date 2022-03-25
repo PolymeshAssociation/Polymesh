@@ -1085,7 +1085,7 @@ fn add_secondary_keys_with_authorization_too_many_sks() {
         let key_record = KeyRecord::SecondaryKey(user.did, Permissions::empty());
         for idx in 0..max_len() {
             let key = account_from(idx as u64 + 100);
-            Identity::link_account_key_to_did(&key, key_record.clone());
+            Identity::add_key_record(&key, key_record.clone());
         }
 
         // No Secondary key limit.

@@ -228,12 +228,12 @@ decl_storage! {
                 // Direct storage change for attaching some secondary keys to identities
                 <Module<T>>::ensure_id_record_exists(did).unwrap();
                 assert!(
-                    <Module<T>>::can_link_account_key_to_did(secondary_account_id),
+                    <Module<T>>::can_add_key_record(secondary_account_id),
                     "Secondary key already linked"
                 );
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
                 let sk = SecondaryKey::from_account_id(secondary_account_id.clone());
-                <Module<T>>::link_account_key_to_did(secondary_account_id, sk.make_key_record(did));
+                <Module<T>>::add_key_record(secondary_account_id, sk.make_key_record(did));
                 <Module<T>>::deposit_event(RawEvent::SecondaryKeysAdded(did, vec![sk.into()]));
             }
         });
@@ -639,7 +639,7 @@ impl<T: Config> Module<T> {
     #[cfg(feature = "runtime-benchmarks")]
     /// Links a did with an identity
     pub fn link_did(account: T::AccountId, did: IdentityId) {
-        Self::link_account_key_to_did(&account, KeyRecord::PrimaryKey(did));
+        Self::add_key_record(&account, KeyRecord::PrimaryKey(did));
     }
 
     #[cfg(feature = "runtime-benchmarks")]
