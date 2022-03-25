@@ -46,6 +46,9 @@ use sp_runtime::traits::{AccountIdConversion as _, IdentifyAccount, Verify};
 use sp_runtime::{AnySignature, DispatchError};
 use sp_std::{vec, vec::Vec};
 
+// Maximum secondary keys to return from RPC `identity_getDidRecords`.
+const RPC_MAX_KEYS: usize = 200;
+
 // TODO: increase these limits.
 const MAX_ASSETS: usize = 200;
 const MAX_PORTFOLIOS: usize = 200;
@@ -135,13 +138,13 @@ impl<T: Config> Module<T> {
     }
 
     /// Retrieve DidRecords for `did`
-    // TODO: See if we still need this RPC endpoint.
     pub fn get_did_records(
         did: IdentityId,
     ) -> RpcDidRecords<T::AccountId, SecondaryKey<T::AccountId>> {
         if let Some(record) = DidRecords::<T>::get(&did) {
-            let secondary_keys = DidKeys::<T>::iter_prefix(&did)
-                .filter_map(|(key, _)| {
+            let secondary_keys = DidKeys::<T>::iter_key_prefix(&did)
+                .take(RPC_MAX_KEYS)
+                .filter_map(|key| {
                     // Lookup the key's permissions and convert that into a `SecondaryKey` type.
                     KeyRecords::<T>::get(&key).and_then(|r| r.into_secondary_key(key))
                 })
