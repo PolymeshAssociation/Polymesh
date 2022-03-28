@@ -87,7 +87,7 @@ pub trait WeightInfo {
     fn leave_identity_as_key() -> Weight;
     fn add_claim() -> Weight;
     fn revoke_claim() -> Weight;
-    fn set_permission_to_signer() -> Weight;
+    fn set_secondary_key_permissions() -> Weight;
     /// Complexity Parameters:
     /// `a` = Number of (A)ssets
     /// `p` = Number of (P)ortfolios
@@ -131,11 +131,11 @@ pub trait WeightInfo {
         perm_cost.saturating_add(Self::add_authorization())
     }
 
-    /// Add complexity cost of Permissions to `set_permission_to_signer` extrinsic.
-    fn set_permission_to_signer_full(perms: &Permissions) -> Weight {
+    /// Add complexity cost of Permissions to `set_secondary_key_permissions` extrinsic.
+    fn set_secondary_key_permissions_full(perms: &Permissions) -> Weight {
         let (assets, portfolios, pallets, extrinsics) = perms.counts();
         Self::permissions_cost(assets, portfolios, pallets, extrinsics)
-            .saturating_add(Self::set_permission_to_signer())
+            .saturating_add(Self::set_secondary_key_permissions())
     }
 }
 
@@ -199,10 +199,10 @@ decl_event!(
         SecondaryKeysAdded(IdentityId, Vec<SecondaryKey<AccountId>>),
 
         /// DID, the keys that got removed
-        SecondaryKeysRemoved(IdentityId, Vec<Signatory<AccountId>>),
+        SecondaryKeysRemoved(IdentityId, Vec<AccountId>),
 
         /// A signer left their identity. (did, signer)
-        SignerLeft(IdentityId, Signatory<AccountId>),
+        SignerLeft(IdentityId, AccountId),
 
         /// DID, updated secondary key, previous permissions, new permissions
         SecondaryKeyPermissionsUpdated(
@@ -249,6 +249,7 @@ decl_event!(
 
         /// Off-chain Authorization has been revoked.
         /// (Target Identity, Signatory)
+        // TODO: Unused.  Remove?
         OffChainAuthorizationRevoked(IdentityId, Signatory<AccountId>),
 
         /// CDD requirement for updating primary key changed. (new_requirement)

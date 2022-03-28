@@ -556,8 +556,7 @@ fn make_multisig_secondary_key() {
             1,
         ));
         // The desired secondary key record.
-        let multisig_secondary =
-            SecondaryKey::new(Signatory::Account(multisig.clone()), Permissions::empty());
+        let multisig_secondary = SecondaryKey::new(multisig.clone(), Permissions::empty());
 
         let has_ms_sk = || get_secondary_keys(alice.did).contains(&multisig_secondary);
         assert!(!has_ms_sk());

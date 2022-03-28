@@ -68,7 +68,7 @@
 //! - `add_claim` - Adds a new claim record or edits an existing one.
 //! - `revoke_claim` - Marks the specified claim as revoked.
 //! - `revoke_claim_by_index` - Revoke a claim identified by its index.
-//! - `set_permission_to_signer` - Sets permissions for an specific `target_key` key.
+//! - `set_secondary_key_permissions` - Sets permissions for a secondary key.
 //! - `freeze_secondary_keys` - Disables all secondary keys at `did` identity.
 //! - `unfreeze_secondary_keys` - Re-enables all secondary keys of the caller's identity.
 //! - `add_authorization` - Adds an authorization.
@@ -300,10 +300,10 @@ decl_module! {
         /// It can only called by primary key owner.
         ///
         /// # Weight
-        /// `950_000_000 + 60_000 * signers_to_remove.len()`
-        #[weight = <T as Config>::WeightInfo::remove_secondary_keys(signers_to_remove.len() as u32)]
-        pub fn remove_secondary_keys(origin, signers_to_remove: Vec<Signatory<T::AccountId>>) {
-            Self::base_remove_secondary_keys(origin, signers_to_remove)?;
+        /// `950_000_000 + 60_000 * keys_to_remove.len()`
+        #[weight = <T as Config>::WeightInfo::remove_secondary_keys(keys_to_remove.len() as u32)]
+        pub fn remove_secondary_keys(origin, keys_to_remove: Vec<T::AccountId>) {
+            Self::base_remove_secondary_keys(origin, keys_to_remove)?;
         }
 
         /// Call this with the new primary key. By invoking this method, caller accepts authorization
@@ -384,9 +384,9 @@ decl_module! {
         /// Sets permissions for an specific `target_key` key.
         ///
         /// Only the primary key of an identity is able to set secondary key permissions.
-        #[weight = <T as Config>::WeightInfo::set_permission_to_signer_full(&perms)]
-        pub fn set_permission_to_signer(origin, signer: Signatory<T::AccountId>, perms: Permissions) {
-            Self::base_set_permission_to_signer(origin, signer, perms)?;
+        #[weight = <T as Config>::WeightInfo::set_secondary_key_permissions_full(&perms)]
+        pub fn set_secondary_key_permissions(origin, key: T::AccountId, perms: Permissions) {
+            Self::base_set_secondary_key_permissions(origin, key, perms)?;
         }
 
         /// It disables all secondary keys at `did` identity.

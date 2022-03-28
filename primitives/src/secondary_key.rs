@@ -272,10 +272,7 @@ impl<AccountId> KeyRecord<AccountId> {
     /// Convert `KeyRecord` into a `SecondaryKey`, if it is a secondary key.
     pub fn into_secondary_key(self, key: AccountId) -> Option<SecondaryKey<AccountId>> {
         if let Self::SecondaryKey(_did, permissions) = self {
-            Some(SecondaryKey {
-                signer: Signatory::Account(key),
-                permissions,
-            })
+            Some(SecondaryKey { key, permissions })
         } else {
             None
         }
@@ -371,39 +368,36 @@ where
     }
 }
 
-/// A secondary key is a signatory with defined permissions.
+/// A secondary key and it's permissions.
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct SecondaryKey<AccountId> {
-    /// The account or identity that is the signatory of this key.
-    pub signer: Signatory<AccountId>,
-    /// The access permissions of the signing key.
+    /// The account key.
+    pub key: AccountId,
+    /// The access permissions of the `key`.
     pub permissions: Permissions,
 }
 
 impl<AccountId> SecondaryKey<AccountId> {
     /// Creates a [`SecondaryKey`].
-    pub fn new(signer: Signatory<AccountId>, permissions: Permissions) -> Self {
-        Self {
-            signer,
-            permissions,
-        }
+    pub fn new(key: AccountId, permissions: Permissions) -> Self {
+        Self { key, permissions }
     }
 
-    /// Creates a [`SecondaryKey`] from an `AccountId`.
-    pub fn from_account_id(s: AccountId) -> Self {
+    /// Creates a [`SecondaryKey`] with no permissions from an `AccountId`.
+    pub fn from_account_id(key: AccountId) -> Self {
         Self {
-            signer: Signatory::Account(s),
+            key,
             // No permissions.
             permissions: Permissions::empty(),
         }
     }
 
     /// Creates a [`SecondaryKey`] with full permissions from an `AccountId`.
-    pub fn from_account_id_with_full_perms(s: AccountId) -> Self {
+    pub fn from_account_id_with_full_perms(key: AccountId) -> Self {
         Self {
-            signer: Signatory::Account(s),
+            key,
             // Full permissions.
             permissions: Permissions::default(),
         }
@@ -438,25 +432,6 @@ impl<AccountId> SecondaryKey<AccountId> {
     /// Make a `KeyRecord` for this SecondaryKey.
     pub fn make_key_record(&self, did: IdentityId) -> KeyRecord<AccountId> {
         KeyRecord::SecondaryKey(did, self.permissions.clone())
-    }
-}
-
-impl<AccountId> From<IdentityId> for SecondaryKey<AccountId> {
-    fn from(id: IdentityId) -> Self {
-        Self {
-            signer: Signatory::Identity(id),
-            permissions: Permissions::empty(),
-        }
-    }
-}
-
-impl<AccountId> PartialEq<IdentityId> for SecondaryKey<AccountId> {
-    fn eq(&self, other: &IdentityId) -> bool {
-        if let Signatory::Identity(id) = self.signer {
-            id == *other
-        } else {
-            false
-        }
     }
 }
 

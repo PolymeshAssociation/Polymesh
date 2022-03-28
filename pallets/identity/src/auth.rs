@@ -125,9 +125,9 @@ impl<T: Config> Module<T> {
     crate fn auths_of(
         signer: &Signatory<T::AccountId>,
         did: IdentityId,
-    ) -> impl Iterator<Item = (&Signatory<T::AccountId>, u64)> {
+    ) -> impl Iterator<Item = u64> {
         <Authorizations<T>>::iter_prefix_values(signer)
-            .filter_map(move |auth| (auth.authorized_by == did).then_some((signer, auth.auth_id)))
+            .filter_map(move |auth| (auth.authorized_by == did).then_some(auth.auth_id))
     }
 
     /// Use to get the filtered authorization data for a given signatory

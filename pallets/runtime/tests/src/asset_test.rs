@@ -2184,14 +2184,14 @@ fn secondary_key_not_authorized_for_asset_test() {
 
     let secondary_keys = vec![
         SecondaryKey {
-            signer: Signatory::Account(not.to_account_id()),
+            key: not.to_account_id(),
             permissions: Permissions {
                 asset: AssetPermissions::elems(invalid_tickers),
                 ..Default::default()
             },
         },
         SecondaryKey {
-            signer: Signatory::Account(all.to_account_id()),
+            key: all.to_account_id(),
             permissions: Permissions::default(),
         },
     ];

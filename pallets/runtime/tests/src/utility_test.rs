@@ -294,9 +294,9 @@ fn batch_secondary_with_permissions() {
         extrinsic: SubsetRestriction::These(bob_pallet_permissions.into_iter().collect()),
         ..Permissions::default()
     };
-    assert_ok!(Identity::set_permission_to_signer(
+    assert_ok!(Identity::set_secondary_key_permissions(
         alice.origin(),
-        bob.signatory_acc(),
+        bob.acc(),
         bob_permissions,
     ));
     let bob_secondary_key = &get_secondary_keys(alice.did)[0];

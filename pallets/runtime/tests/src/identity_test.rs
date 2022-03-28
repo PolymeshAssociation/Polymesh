@@ -120,15 +120,15 @@ fn only_primary_or_secondary_keys_can_authenticate_as_an_identity() {
         let charlie = User::new_with(bob.did, AccountKeyring::Charlie);
         add_secondary_key(bob.did, charlie.acc());
 
-        // Check primary key.  `Signatory::Account`
+        // Check primary key.
         assert!(Identity::is_key_authorized(alice.did, &alice.acc()));
-        // Check secondary_keys.  `Signatory::Account`
+        // Check secondary_keys.
         assert!(Identity::is_key_authorized(bob.did, &charlie.acc()));
 
         // Remove charlie's key from the secondary keys of bob.
         assert_ok!(Identity::remove_secondary_keys(
             bob.origin(),
-            vec![charlie.signatory_acc()]
+            vec![charlie.acc()]
         ));
 
         // Verify the secondary key was removed.
@@ -246,7 +246,7 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
     add_secondary_key(alice.did, bob.acc());
 
     let set = |by: User, to: User, perms| {
-        Identity::set_permission_to_signer(by.origin(), to.signatory_acc(), perms)
+        Identity::set_secondary_key_permissions(by.origin(), to.acc(), perms)
     };
 
     // Only `alice` is able to update `bob`'s permissions and `charlie`'s permissions.
@@ -291,9 +291,9 @@ fn do_add_permissions_to_multiple_tokens() {
         .collect();
 
     let test_set_perms = |asset| {
-        assert_ok!(Identity::set_permission_to_signer(
+        assert_ok!(Identity::set_secondary_key_permissions(
             alice.origin(),
-            bob.signatory_acc(),
+            bob.acc(),
             Permissions {
                 asset,
                 ..Default::default()
@@ -316,15 +316,15 @@ fn do_add_permissions_to_multiple_tokens() {
 }
 
 #[test]
-fn set_permission_to_signer_with_bad_perms() {
+fn set_secondary_key_permissions_with_bad_perms() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new_with(alice.did, AccountKeyring::Bob);
         add_secondary_key(alice.did, bob.acc());
         test_with_bad_perms(alice.did, |perms| {
-            assert_too_long!(Identity::set_permission_to_signer(
+            assert_too_long!(Identity::set_secondary_key_permissions(
                 alice.origin(),
-                bob.signatory_acc(),
+                bob.acc(),
                 perms,
             ));
         });
@@ -369,9 +369,9 @@ fn freeze_secondary_keys_with_externalities() {
     add_secondary_key(alice.did, dave.acc());
 
     // update permission of frozen keys.
-    assert_ok!(Identity::set_permission_to_signer(
+    assert_ok!(Identity::set_secondary_key_permissions(
         alice.origin(),
-        bob.signatory_acc(),
+        bob.acc(),
         Permissions::default().into(),
     ));
 
@@ -410,15 +410,12 @@ fn remove_frozen_secondary_keys_with_externalities() {
     // Remove Bob's key.
     assert_ok!(Identity::remove_secondary_keys(
         alice.origin(),
-        vec![bob.signatory_acc()]
+        vec![bob.acc()]
     ));
     // Check DidRecord.
     assert_eq!(
         get_secondary_keys(alice.did),
-        vec![SecondaryKey::new(
-            charlie.signatory_acc(),
-            Permissions::default()
-        )]
+        vec![SecondaryKey::new(charlie.acc(), Permissions::default())]
     );
 }
 
@@ -588,7 +585,7 @@ fn do_add_secondary_keys_with_permissions_test() {
 
     let key_with_auth = SecondaryKeyWithAuth {
         auth_signature,
-        secondary_key: SecondaryKey::new(bob.signatory_acc(), permissions).into(),
+        secondary_key: SecondaryKey::new(bob.acc(), permissions).into(),
     };
     assert_noop!(
         Identity::add_secondary_keys_with_authorization(
@@ -610,7 +607,7 @@ fn do_add_secondary_keys_with_permissions_test() {
     TestStorage::set_current_identity(&alice.did);
     assert_ok!(Identity::remove_secondary_keys(
         alice.origin(),
-        vec![bob.signatory_acc()]
+        vec![bob.acc()]
     ));
 
     // Check DidRecord.
@@ -649,15 +646,14 @@ fn do_remove_secondary_keys_test() {
 
     // Try removing bob using alice.
     TestStorage::set_current_identity(&alice.did);
-    let remove_sk =
-        |u: User| Identity::remove_secondary_keys(alice.origin(), vec![u.signatory_acc()]);
+    let remove_sk = |u: User| Identity::remove_secondary_keys(alice.origin(), vec![u.acc()]);
     assert_ok!(remove_sk(bob));
 
     // Try changing the permissions for bob's key.
     // This should fail.
-    let result = Identity::set_permission_to_signer(
+    let result = Identity::set_secondary_key_permissions(
         alice.origin(),
-        bob.signatory_acc(),
+        bob.acc(),
         Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
             b"identity".into(),
         )])
@@ -744,7 +740,7 @@ fn do_remove_secondary_keys_test_with_externalities() {
     TestStorage::set_current_identity(&charlie.did);
     assert_ok!(Identity::remove_secondary_keys(
         charlie.origin(),
-        vec![Signatory::Account(bob.acc())]
+        vec![bob.acc()]
     ));
 
     // Check DidRecord.
@@ -756,7 +752,7 @@ fn do_remove_secondary_keys_test_with_externalities() {
     TestStorage::set_current_identity(&alice.did);
     assert_ok!(Identity::remove_secondary_keys(
         alice.origin(),
-        vec![Signatory::Account(bob.acc())]
+        vec![bob.acc()]
     ));
 
     // Check DidRecord.
@@ -766,10 +762,7 @@ fn do_remove_secondary_keys_test_with_externalities() {
 
     // Try removing multisig while it has funds
     assert_noop!(
-        Identity::remove_secondary_keys(
-            alice.origin(),
-            vec![Signatory::Account(ms_address.clone())]
-        ),
+        Identity::remove_secondary_keys(alice.origin(), vec![ms_address.clone()]),
         Error::MultiSigHasBalance
     );
 
@@ -794,7 +787,7 @@ fn do_remove_secondary_keys_test_with_externalities() {
     // Empty multisig's funds and remove as signer
     assert_ok!(Identity::remove_secondary_keys(
         alice.origin(),
-        vec![Signatory::Account(ms_address.clone())]
+        vec![ms_address.clone()]
     ));
 
     // Check DidRecord.
@@ -821,7 +814,7 @@ fn leave_identity_test_with_externalities() {
     let alice = User::new(AccountKeyring::Alice);
     let bob = User::new_with(alice.did, AccountKeyring::Bob);
 
-    let bob_sk = SecondaryKey::new(bob.signatory_acc(), Permissions::empty());
+    let bob_sk = SecondaryKey::new(bob.acc(), Permissions::empty());
     let dave_key = AccountKeyring::Dave.to_account_id();
 
     let ms_address = MultiSig::get_next_multisig_address(alice.acc());
@@ -970,11 +963,7 @@ fn one_step_join_id_with_ext() {
     assert_ok!(add(a, secondary_keys_with_auth[..2].to_owned()));
 
     let secondary_keys = get_secondary_keys(a.did);
-    let contains = |u: User| {
-        secondary_keys
-            .iter()
-            .any(|si| si.signer == u.signatory_acc())
-    };
+    let contains = |u: User| secondary_keys.iter().any(|si| si.key == u.acc());
     assert_eq!(contains(b), true);
     assert_eq!(contains(c), true);
 
@@ -994,7 +983,7 @@ fn one_step_join_id_with_ext() {
     let f = User::new(AccountKeyring::Ferdie);
     let (ferdie_auth, _) = target_id_auth(a);
     let ferdie_secondary_key_with_auth = SecondaryKeyWithAuth {
-        secondary_key: SecondaryKey::from(f.did).into(),
+        secondary_key: SecondaryKey::from_account_id(f.acc()).into(),
         auth_signature: H512::from(AccountKeyring::Eve.sign(ferdie_auth.encode().as_slice())),
     };
 
@@ -1069,7 +1058,7 @@ fn add_secondary_keys_with_authorization_too_many_sks() {
             let auth_encoded = auth();
             let auth_signature = H512::from(bob.ring.sign(&auth_encoded));
 
-            let secondary_key = SecondaryKey::new(bob.signatory_acc(), perms);
+            let secondary_key = SecondaryKey::new(bob.acc(), perms);
             let auths = vec![SecondaryKeyWithAuth {
                 auth_signature,
                 secondary_key,
@@ -1372,7 +1361,7 @@ fn rotating_primary_key_to_secondary_we() {
     );
     assert_ok!(rotate(charlie_origin.clone(), charlie_rotate_auth));
     assert_eq!(alice_pk(), charlie.to_account_id());
-    assert!(Identity::is_signer(alice.did, &alice.signatory_acc()));
+    assert!(Identity::is_secondary_key(alice.did, &alice.acc()));
 
     let alice_rotate_auth = Identity::add_auth(
         alice.did,
@@ -1382,9 +1371,9 @@ fn rotating_primary_key_to_secondary_we() {
     );
     assert_ok!(rotate(alice.origin(), alice_rotate_auth));
     assert_eq!(alice_pk(), alice.acc());
-    assert!(Identity::is_signer(
+    assert!(Identity::is_secondary_key(
         alice.did,
-        &Signatory::Account(charlie.to_account_id())
+        &charlie.to_account_id()
     ));
 }
 
@@ -1512,7 +1501,7 @@ fn cdd_register_did_test_we() {
     assert_eq!(Identity::has_valid_cdd(charlie_id), true);
     assert_eq!(get_secondary_keys(charlie_id).is_empty(), true);
 
-    let dave_auth_id = get_last_auth_id(&dave_si.signer);
+    let dave_auth_id = get_last_auth_id(&Signatory::Account(dave_si.key.clone()));
 
     assert_ok!(Identity::join_identity_as_key(
         Origin::signed(dave),
@@ -1574,11 +1563,11 @@ fn add_identity_signers() {
         dave_sk.permissions = Permissions::default();
         assert!(alice_secondary_keys
             .iter()
-            .find(|si| si.signer == bob.signatory_acc())
+            .find(|si| si.key == bob.acc())
             .is_some());
         assert!(charlie_secondary_keys
             .iter()
-            .find(|si| si.signer == bob.signatory_acc())
+            .find(|si| si.key == bob.acc())
             .is_none());
         assert!(alice_secondary_keys
             .iter()
@@ -1835,7 +1824,7 @@ fn add_permission_with_secondary_key() {
 
             // Add secondary keys.
             let sk = |acc: &AccountId| SecondaryKey {
-                signer: Signatory::Account(acc.clone()),
+                key: acc.clone(),
                 permissions: Permissions::empty(),
             };
             let sks = vec![sk(&bob_acc), sk(&charlie_acc)];

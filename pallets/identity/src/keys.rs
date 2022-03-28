@@ -102,9 +102,9 @@ impl<T: Config> Module<T> {
     }
 
     /// It checks if `key` is a secondary key of `did` identity.
-    pub fn is_signer(did: IdentityId, signer: &Signatory<T::AccountId>) -> bool {
-        match Self::ensure_signatory_secondary_key(signer) {
-            Ok((_, signer_did)) if signer_did == did => true,
+    pub fn is_secondary_key(did: IdentityId, key: &T::AccountId) -> bool {
+        match Self::ensure_secondary_key(key) {
+            Ok(signer_did) if signer_did == did => true,
             _ => false,
         }
     }
@@ -135,6 +135,18 @@ impl<T: Config> Module<T> {
             identity,
             permissions,
         })
+    }
+
+    /// Check if the key is linked to an identity or MultiSig.
+    /// (linked_to_did, linked_to_multsig)
+    pub fn is_key_linked(acc: &T::AccountId) -> (bool, bool) {
+        match KeyRecords::<T>::get(acc) {
+            // Linked to an identity.
+            Some(KeyRecord::PrimaryKey(_)) | Some(KeyRecord::SecondaryKey(_, _)) => (true, false),
+            // Is a multisig signer.
+            Some(KeyRecord::MultiSigSignerKey(_)) => (false, true),
+            None => (false, false),
+        }
     }
 
     /// Retrieve DidRecords for `did`
@@ -338,8 +350,8 @@ impl<T: Config> Module<T> {
             KeyRecords::<T>::insert(&new_primary_key, key_record);
             DidRecords::<T>::insert(target_did, DidRecord::new(new_primary_key.clone()));
 
-            let removed_signers = vec![signer];
-            Self::deposit_event(RawEvent::SecondaryKeysRemoved(target_did, removed_signers));
+            let removed_keys = vec![new_primary_key.clone()];
+            Self::deposit_event(RawEvent::SecondaryKeysRemoved(target_did, removed_keys));
         } else {
             Self::add_key_record(&new_primary_key, key_record);
         }
@@ -356,7 +368,7 @@ impl<T: Config> Module<T> {
                 KeyRecord::SecondaryKey(target_did, perms.clone()),
             );
 
-            let sk = SecondaryKey::new(Signatory::Account(old_primary_key), perms);
+            let sk = SecondaryKey::new(old_primary_key, perms);
             Self::deposit_event(RawEvent::SecondaryKeysAdded(target_did, vec![sk.into()]));
         } else {
             Self::remove_key_record(&old_primary_key, Some(target_did));
@@ -393,25 +405,25 @@ impl<T: Config> Module<T> {
 
     /// Set permissions for the specific `target_key`.
     /// Only the primary key of an identity is able to set secondary key permissions.
-    crate fn base_set_permission_to_signer(
+    crate fn base_set_secondary_key_permissions(
         origin: T::Origin,
-        signer: Signatory<T::AccountId>,
+        key: T::AccountId,
         permissions: Permissions,
     ) -> DispatchResult {
         let (_, did) = Self::ensure_primary_key(origin)?;
 
         // Ensure that the signer is a secondary key of the caller's Identity
-        let (signer_key, signer_did) = Self::ensure_signatory_secondary_key(&signer)?;
+        let signer_did = Self::ensure_secondary_key(&key)?;
         ensure!(signer_did == did, Error::<T>::NotASigner);
 
         Self::ensure_perms_length_limited(&permissions)?;
 
         // Update secondary key's permissions.
-        KeyRecords::<T>::mutate(&signer_key, |record| {
+        KeyRecords::<T>::mutate(&key, |record| {
             if let Some(KeyRecord::SecondaryKey(_, ref mut perms)) = record {
                 let old_perms = mem::replace(perms, permissions.clone());
                 let secondary_key = SecondaryKey {
-                    signer: Signatory::Account(signer_key.clone()),
+                    key: key.clone(),
                     permissions: permissions.clone(),
                 };
                 Self::deposit_event(RawEvent::SecondaryKeyPermissionsUpdated(
@@ -428,34 +440,29 @@ impl<T: Config> Module<T> {
     /// Removes specified secondary keys of a DID if present.
     crate fn base_remove_secondary_keys(
         origin: T::Origin,
-        signers: Vec<Signatory<T::AccountId>>,
+        keys: Vec<T::AccountId>,
     ) -> DispatchResult {
         let (_, did) = Self::ensure_primary_key(origin)?;
 
         // Ensure that it is safe to unlink the secondary keys from the did.
-        for signer in &signers {
-            if let Signatory::Account(key) = &signer {
-                Self::ensure_key_unlinkable_from_did(key)?;
-            }
+        for key in &keys {
+            Self::ensure_key_unlinkable_from_did(key)?;
         }
 
         // Remove links and get all authorization IDs per signer.
-        signers
-            .iter()
-            .flat_map(|signer| {
-                // Unlink each of the given secondary keys from `did`.
-                if let Signatory::Account(key) = &signer {
-                    // Unlink the secondary account key.
-                    Self::remove_key_record(key, Some(did));
-                }
+        for key in &keys {
+            // Unlink the secondary account key.
+            Self::remove_key_record(key, Some(did));
 
-                // All `auth_id`s for `signer` authorized by `did`.
-                Self::auths_of(signer, did)
-            })
-            // Remove authorizations.
-            .for_each(|(signer, auth_id)| Self::unsafe_remove_auth(signer, auth_id, &did, true));
+            // All `auth_id`s for `signer` authorized by `did`.
+            let signer = Signatory::Account(key.clone());
+            for auth_id in Self::auths_of(&signer, did) {
+                // Remove authorizations.
+                Self::unsafe_remove_auth(&signer, auth_id, &did, true);
+            }
+        }
 
-        Self::deposit_event(RawEvent::SecondaryKeysRemoved(did, signers));
+        Self::deposit_event(RawEvent::SecondaryKeysRemoved(did, keys));
         Ok(())
     }
 
@@ -484,19 +491,13 @@ impl<T: Config> Module<T> {
 
             Self::ensure_perms_length_limited(&si.permissions)?;
 
-            // Get account_id from signer.
-            let account_id = si
-                .signer
-                .as_account()
-                .ok_or(Error::<T>::InvalidAccountKey)?;
-
             // 1.1. Constraint 1-to-1 account to DID.
-            Self::ensure_key_did_unlinked(account_id)?;
+            Self::ensure_key_did_unlinked(&si.key)?;
 
             // 1.2. Verify the signature.
             let signature = AnySignature::from(Signature::from_h512(si_with_auth.auth_signature));
             let signer: <<AnySignature as Verify>::Signer as IdentifyAccount>::AccountId =
-                Decode::decode(&mut &account_id.encode()[..])
+                Decode::decode(&mut &si.key.encode()[..])
                     .map_err(|_| Error::<T>::CannotDecodeSignerAccountId)?;
             ensure!(
                 signature.verify(auth_encoded.as_slice(), &signer),
@@ -515,9 +516,10 @@ impl<T: Config> Module<T> {
             .collect();
 
         additional_keys_si.iter().for_each(|sk| {
-            if let Signatory::Account(key) = &sk.signer {
-                Self::add_key_record(key, KeyRecord::SecondaryKey(did, sk.permissions.clone()));
-            }
+            Self::add_key_record(
+                &sk.key,
+                KeyRecord::SecondaryKey(did, sk.permissions.clone()),
+            );
         });
         // 2.2. Update that identity's offchain authorization nonce.
         OffChainAuthorizationNonce::mutate(did, |nonce| *nonce = authorization.nonce + 1);
@@ -564,17 +566,13 @@ impl<T: Config> Module<T> {
             KeyRecord::SecondaryKey(target_did, permissions.clone()),
         );
 
-        let sk = SecondaryKey {
-            signer: Signatory::Account(key),
-            permissions,
-        };
+        let sk = SecondaryKey { key, permissions };
         Self::deposit_event(RawEvent::SecondaryKeysAdded(target_did, vec![sk]));
     }
 
     crate fn leave_identity(origin: T::Origin) -> DispatchResult {
         let (key, did) = Self::ensure_did(origin)?;
-        let signer = Signatory::Account(key.clone());
-        ensure!(Self::is_signer(did, &signer), Error::<T>::NotASigner);
+        ensure!(Self::is_secondary_key(did, &key), Error::<T>::NotASigner);
 
         // Ensure that it is safe to unlink the account key from the did.
         Self::ensure_key_unlinkable_from_did(&key)?;
@@ -582,7 +580,7 @@ impl<T: Config> Module<T> {
         // Unlink secondary key from the identity.
         Self::remove_key_record(&key, Some(did));
 
-        Self::deposit_event(RawEvent::SignerLeft(did, signer));
+        Self::deposit_event(RawEvent::SignerLeft(did, key));
         Ok(())
     }
 
@@ -626,9 +624,7 @@ impl<T: Config> Module<T> {
         Self::ensure_key_did_unlinked(&sender)?;
         // Primary key is not part of secondary keys.
         ensure!(
-            !secondary_keys
-                .iter()
-                .any(|sk| sk.signer.as_account() == Some(&sender)),
+            !secondary_keys.iter().any(|sk| sk.key == sender),
             Error::<T>::SecondaryKeysContainPrimaryKey
         );
 
@@ -640,9 +636,7 @@ impl<T: Config> Module<T> {
 
         // Secondary keys can be linked to the new identity.
         for sk in &secondary_keys {
-            if let Signatory::Account(ref key) = sk.signer {
-                Self::ensure_key_did_unlinked(key)?;
-            }
+            Self::ensure_key_did_unlinked(&sk.key)?;
         }
 
         // Charge the given fee.
@@ -655,8 +649,9 @@ impl<T: Config> Module<T> {
         Self::add_key_record(&sender, KeyRecord::PrimaryKey(did));
         // 2.2. add pre-authorized secondary keys.
         secondary_keys.iter().for_each(|sk| {
-            let data = AuthorizationData::JoinIdentity(sk.permissions.clone().into());
-            Self::add_auth(did, sk.signer.clone(), data, None);
+            let signer = Signatory::Account(sk.key.clone());
+            let data = AuthorizationData::JoinIdentity(sk.permissions.clone());
+            Self::add_auth(did, signer, data, None);
         });
 
         // 2.3. Give `InitialPOLYX` to the primary key for testing.
@@ -695,35 +690,16 @@ impl<T: Config> Module<T> {
         <Module<T>>::add_key_record(&primary_key, KeyRecord::PrimaryKey(id));
         // Link secondary keys.
         for sk in &secondary_keys {
-            if let Signatory::Account(key) = &sk.signer {
-                Self::add_key_record(&key, KeyRecord::SecondaryKey(id, sk.permissions.clone()));
-            }
+            Self::add_key_record(&sk.key, KeyRecord::SecondaryKey(id, sk.permissions.clone()));
         }
 
         Self::deposit_event(RawEvent::DidCreated(id, primary_key, vec![]));
     }
 
-    /// Helper to convert `Signatory` to `AccountId`.
-    fn ensure_signatory_is_key(
-        signer: &Signatory<T::AccountId>,
-    ) -> Result<T::AccountId, DispatchError> {
-        match signer {
-            Signatory::Identity(_) => Err(Error::<T>::NotASigner)?,
-            Signatory::Account(acc) => Ok(acc.clone()),
-        }
-    }
-
     /// Ensure `Signatory` is a secondary key.
-    fn ensure_signatory_secondary_key(
-        signer: &Signatory<T::AccountId>,
-    ) -> Result<(T::AccountId, IdentityId), DispatchError> {
-        Ok(Self::ensure_signatory_is_key(signer)
-            .ok()
-            .and_then(|key| {
-                Self::key_records(&key)
-                    .and_then(|rec| rec.is_secondary_key())
-                    .map(|did| (key, did))
-            })
+    fn ensure_secondary_key(key: &T::AccountId) -> Result<IdentityId, DispatchError> {
+        Ok(Self::key_records(key)
+            .and_then(|rec| rec.is_secondary_key())
             .ok_or(Error::<T>::NotASigner)?)
     }
 
@@ -809,7 +785,7 @@ impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Module<T> {
             }
             KeyRecord::SecondaryKey(did, permissions) if !Self::is_did_frozen(&did) => {
                 let sk = SecondaryKey {
-                    signer: Signatory::Account(who.clone()),
+                    key: who.clone(),
                     permissions,
                 };
                 if sk.has_extrinsic_permission(&pallet_name(), &function_name()) {

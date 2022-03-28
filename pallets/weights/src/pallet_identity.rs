@@ -113,7 +113,7 @@ impl pallet_identity::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(6 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
-    fn set_permission_to_signer() -> Weight {
+    fn set_secondary_key_permissions() -> Weight {
         (45_961_000 as Weight)
             .saturating_add(DbWeight::get().reads(2 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
