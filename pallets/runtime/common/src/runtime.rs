@@ -514,7 +514,7 @@ macro_rules! runtime_apis {
         use pallet_identity::types::{AssetDidResult, CddStatus, RpcDidRecords, DidStatus, KeyIdentityData};
         use pallet_pips::{Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
-        use polymesh_primitives::{calendar::CheckpointId, compliance_manager::AssetComplianceResult, IdentityId, Index, PortfolioId, SecondaryKey, Signatory, Ticker};
+        use polymesh_primitives::{calendar::CheckpointId, compliance_manager::AssetComplianceResult, IdentityId, Index, PortfolioId, Signatory, Ticker};
 
         /// The address format for describing accounts.
         pub type Address = <Indices as StaticLookup>::Source;
@@ -813,7 +813,7 @@ macro_rules! runtime_apis {
                 }
 
                 /// Retrieve primary key and secondary keys for a given IdentityId
-                fn get_did_records(did: IdentityId) -> RpcDidRecords<polymesh_primitives::AccountId, SecondaryKey<polymesh_primitives::AccountId>> {
+                fn get_did_records(did: IdentityId) -> RpcDidRecords<polymesh_primitives::AccountId> {
                     Identity::get_did_records(did)
                 }
 

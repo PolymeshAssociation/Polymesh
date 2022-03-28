@@ -146,9 +146,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Retrieve DidRecords for `did`
-    pub fn get_did_records(
-        did: IdentityId,
-    ) -> RpcDidRecords<T::AccountId, SecondaryKey<T::AccountId>> {
+    pub fn get_did_records(did: IdentityId) -> RpcDidRecords<T::AccountId> {
         if let Some(record) = DidRecords::<T>::get(&did) {
             let secondary_keys = DidKeys::<T>::iter_key_prefix(&did)
                 .take(RPC_MAX_KEYS)
