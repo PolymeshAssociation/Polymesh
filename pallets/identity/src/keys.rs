@@ -49,12 +49,11 @@ use sp_std::{vec, vec::Vec};
 // Maximum secondary keys to return from RPC `identity_getDidRecords`.
 const RPC_MAX_KEYS: usize = 200;
 
-// TODO: increase these limits.
-const MAX_ASSETS: usize = 200;
-const MAX_PORTFOLIOS: usize = 200;
-const MAX_PALLETS: usize = 50;
-const MAX_EXTRINSICS: usize = 40;
-const MAX_NAME_LEN: usize = 50;
+const MAX_ASSETS: usize = 2000;
+const MAX_PORTFOLIOS: usize = 2000;
+const MAX_PALLETS: usize = 80;
+const MAX_EXTRINSICS: usize = 80;
+const MAX_NAME_LEN: usize = 60;
 
 // Limit the maximum memory/cpu cost of a key's permissions.
 const MAX_PERMISSION_COMPLEXITY: usize = 1_000_000;

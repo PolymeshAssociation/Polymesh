@@ -53,6 +53,9 @@ type CddServiceProviders = <TestStorage as IdentityConfig>::CddServiceProviders;
 type Error = pallet_identity::Error<TestStorage>;
 type PError = pallet_permissions::Error<TestStorage>;
 
+const MAX_ASSETS: u64 = 2000;
+const MAX_PORTFOLIOS: u64 = 2000;
+
 // Identity Test Helper functions
 // =======================================
 
@@ -1019,12 +1022,12 @@ crate fn test_with_bad_ext_perms(test: impl Fn(ExtrinsicPermissions)) {
 
 crate fn test_with_bad_perms(did: IdentityId, test: impl Fn(Permissions)) {
     test(Permissions {
-        asset: SubsetRestriction::elems((0..=max_len() as u64).map(Ticker::generate_into)),
+        asset: SubsetRestriction::elems((0..=MAX_ASSETS).map(Ticker::generate_into)),
         ..<_>::default()
     });
     test(Permissions {
         portfolio: SubsetRestriction::elems(
-            (0..=max_len() as u64)
+            (0..=MAX_PORTFOLIOS)
                 .map(|n| PortfolioId::user_portfolio(did, PortfolioNumber::from(n))),
         ),
         ..<_>::default()
