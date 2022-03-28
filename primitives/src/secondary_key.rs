@@ -445,7 +445,7 @@ mod tests {
     #[test]
     fn build_test() {
         let key = Public::from_raw([b'A'; 32]);
-        let rk1 = SecondaryKey::new(Signatory::Account(key.clone()), Permissions::empty());
+        let rk1 = SecondaryKey::new(key.clone(), Permissions::empty());
         let rk2 = SecondaryKey::from_account_id(key.clone());
         assert_eq!(rk1, rk2);
 
@@ -456,21 +456,12 @@ mod tests {
                 1u128,
             ))),
         };
-        let rk3 = SecondaryKey::new(Signatory::Account(key.clone()), rk3_permissions.clone());
+        let rk3 = SecondaryKey::new(key.clone(), rk3_permissions.clone());
         assert_ne!(rk1, rk3);
 
         let mut rk4 = SecondaryKey::from_account_id(key);
         rk4.permissions = rk3_permissions;
         assert_eq!(rk3, rk4);
-
-        let si1 = SecondaryKey::from(IdentityId::from(1u128));
-        let si2 = SecondaryKey::from(IdentityId::from(1u128));
-        assert_eq!(si1, si2);
-
-        let si3 = SecondaryKey::from(IdentityId::from(2u128));
-        assert_ne!(si1, si3);
-
-        assert_ne!(si1, rk1);
     }
 
     #[test]
@@ -485,8 +476,8 @@ mod tests {
             extrinsic: SubsetRestriction::Whole,
             portfolio: SubsetRestriction::elem(portfolio1),
         };
-        let free_key = SecondaryKey::new(Signatory::Account(key.clone()), Permissions::default());
-        let restricted_key = SecondaryKey::new(Signatory::Account(key), permissions.clone());
+        let free_key = SecondaryKey::new(key.clone(), Permissions::default());
+        let restricted_key = SecondaryKey::new(key, permissions.clone());
         assert!(free_key.has_asset_permission(ticker2));
         assert!(free_key
             .has_extrinsic_permission(&b"pallet".as_ref().into(), &b"function".as_ref().into()));
