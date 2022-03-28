@@ -156,11 +156,11 @@
       "primary_key": "Option<AccountId>"
     },
     "KeyRecord": {
-			"_enum": {
-				"PrimaryKey": "IdentityId",
-				"SecondaryKey": "(IdentityId, Permissions)",
-				"MultiSigSignerKey": "AccountId"
-			}
+      "_enum": {
+        "PrimaryKey": "IdentityId",
+        "SecondaryKey": "(IdentityId, Permissions)",
+        "MultiSigSignerKey": "AccountId"
+      }
     },
     "KeyIdentityData": {
       "identity": "IdentityId",
