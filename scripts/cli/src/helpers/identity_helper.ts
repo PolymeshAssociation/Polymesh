@@ -47,7 +47,7 @@ export async function addClaimsToDids(
 /**
  * @description Sets permission to signer key
  */
-export async function setPermissionToSigner(
+export async function setSecondaryKeyPermissions(
   signers: KeyringPair[],
   receivers: KeyringPair[],
   extrinsic: ExtrinsicPermissions,
@@ -62,11 +62,9 @@ export async function setPermissionToSigner(
   };
 
   for (let i in signers) {
-    let signer = {
-      Account: receivers[i].publicKey as AccountId,
-    };
-    let transaction = api.tx.identity.setPermissionToSigner(
-      signer,
+    let key = receivers[i].publicKey as AccountId;
+    let transaction = api.tx.identity.setSecondaryKeyPermissions(
+      key,
       permissions
     );
     await sendTx(signers[i], transaction);
