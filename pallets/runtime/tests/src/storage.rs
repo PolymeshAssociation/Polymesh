@@ -43,7 +43,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     investor_zkproof_data::v1::InvestorZKProofData, AccountId, Authorization, AuthorizationData,
     BlockNumber, CddId, Claim, InvestorUid, Moment, Permissions as AuthPermissions,
-    PortfolioNumber, Scope, ScopeId, TrustedFor, TrustedIssuer,
+    PortfolioNumber, Scope, ScopeId, SecondaryKey, TrustedFor, TrustedIssuer,
 };
 use polymesh_runtime_common::{merge_active_and_inactive, runtime::VMO};
 use polymesh_runtime_develop::constants::time::{EPOCH_DURATION_IN_BLOCKS, MILLISECS_PER_BLOCK};

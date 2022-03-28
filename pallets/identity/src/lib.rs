@@ -724,35 +724,15 @@ pub mod migration {
 
     mod v1 {
         use super::*;
+        use polymesh_primitives::secondary_key::v1;
         use scale_info::TypeInfo;
-
-        /// Old v1 secondary key.
-        #[derive(Encode, Decode, TypeInfo)]
-        #[derive(Clone, Default, PartialEq, Eq)]
-        pub struct SecondaryKey<AccountId> {
-            pub signer: Signatory<AccountId>,
-            pub permissions: Permissions,
-        }
-
-        impl<AccountId> SecondaryKey<AccountId> {
-            pub fn into_key_record(
-                self,
-                did: IdentityId,
-            ) -> Option<(AccountId, KeyRecord<AccountId>)> {
-                if let Signatory::Account(key) = self.signer {
-                    Some((key, KeyRecord::SecondaryKey(did, self.permissions)))
-                } else {
-                    None
-                }
-            }
-        }
 
         /// Old v1 Identity information.
         #[derive(Encode, Decode, TypeInfo)]
         #[derive(Clone, Default, PartialEq)]
         pub struct IdentityRecord<AccountId> {
             pub primary_key: AccountId,
-            pub secondary_keys: Vec<SecondaryKey<AccountId>>,
+            pub secondary_keys: Vec<v1::SecondaryKey<AccountId>>,
         }
 
         decl_storage! {
