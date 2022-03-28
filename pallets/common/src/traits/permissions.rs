@@ -13,7 +13,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use codec::{Decode, Encode};
 use polymesh_primitives::{DispatchableName, IdentityId, PalletName, SecondaryKey};
 
 /// Permissions module configuration trait.
@@ -23,7 +22,7 @@ pub trait Config: frame_system::Config {
 }
 
 /// Result of `CheckAccountCallPermissions::check_account_call_permissions`.
-pub struct AccountCallPermissionsData<AccountId: Encode + Decode> {
+pub struct AccountCallPermissionsData<AccountId> {
     /// The primary identity of the call.
     pub primary_did: IdentityId,
     /// The secondary key of the call, if it is defined.
@@ -31,7 +30,7 @@ pub struct AccountCallPermissionsData<AccountId: Encode + Decode> {
 }
 
 /// A permission checker for calls from accounts to extrinsics.
-pub trait CheckAccountCallPermissions<AccountId: Encode + Decode> {
+pub trait CheckAccountCallPermissions<AccountId> {
     /// Checks whether `who` can call the current extrinsic represented by `pallet_name` and
     /// `function_name`.
     ///

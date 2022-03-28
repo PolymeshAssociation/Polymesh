@@ -69,7 +69,7 @@ pub struct TargetIdAuthorization<Moment> {
 ///  - Replace `H512` type by a template type which represents explicitly the relation with
 ///  `TargetIdAuthorization`.
 #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
-pub struct SecondaryKeyWithAuth<AccountId: Encode + Decode> {
+pub struct SecondaryKeyWithAuth<AccountId> {
     /// Secondary key to be added.
     pub secondary_key: SecondaryKey<AccountId>,
     /// Off-chain authorization signature.
@@ -104,7 +104,7 @@ pub trait WeightInfo {
     fn revoke_claim_by_index() -> Weight;
 
     /// Add complexity cost of Permissions to `add_secondary_keys_with_authorization` extrinsic.
-    fn add_secondary_keys_full<AccountId: Encode + Decode>(
+    fn add_secondary_keys_full<AccountId>(
         additional_keys: &[SecondaryKeyWithAuth<AccountId>],
     ) -> Weight {
         let perm_cost = additional_keys.iter().fold(0u64, |cost, key_with_auth| {
