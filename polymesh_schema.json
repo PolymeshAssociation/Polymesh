@@ -123,7 +123,7 @@
       }
     },
     "SecondaryKey": {
-      "signer": "Signatory",
+      "key": "AccountId",
       "permissions": "Permissions"
     },
     "SecondaryKeyWithAuth": {
@@ -153,8 +153,14 @@
       "secondary_key": "SecondaryKey"
     },
     "DidRecord": {
-      "primary_key": "AccountId",
-      "secondary_keys": "Vec<SecondaryKey>"
+      "primary_key": "Option<AccountId>"
+    },
+    "KeyRecord": {
+			"_enum": {
+				"PrimaryKey": "IdentityId",
+				"SecondaryKey": "(IdentityId, Permissions)",
+				"MultiSigSignerKey": "AccountId"
+			}
     },
     "KeyIdentityData": {
       "identity": "IdentityId",
