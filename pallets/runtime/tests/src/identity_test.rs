@@ -738,10 +738,10 @@ fn do_remove_secondary_keys_test_with_externalities() {
 
     // Try removing bob using charlie
     TestStorage::set_current_identity(&charlie.did);
-    assert_ok!(Identity::remove_secondary_keys(
-        charlie.origin(),
-        vec![bob.acc()]
-    ));
+    assert_noop!(
+        Identity::remove_secondary_keys(charlie.origin(), vec![bob.acc()]),
+        Error::NotASigner
+    );
 
     // Check DidRecord.
     assert_eq!(Identity::get_identity(&dave_key), None);

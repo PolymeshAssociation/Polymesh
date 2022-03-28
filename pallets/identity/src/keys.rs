@@ -103,10 +103,7 @@ impl<T: Config> Module<T> {
 
     /// It checks if `key` is a secondary key of `did` identity.
     pub fn is_secondary_key(did: IdentityId, key: &T::AccountId) -> bool {
-        match Self::ensure_secondary_key(key) {
-            Ok(signer_did) if signer_did == did => true,
-            _ => false,
-        }
+        Self::ensure_secondary_key(did, key).is_ok()
     }
 
     /// Get the identity's primary key.
@@ -412,9 +409,8 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         let (_, did) = Self::ensure_primary_key(origin)?;
 
-        // Ensure that the signer is a secondary key of the caller's Identity
-        let signer_did = Self::ensure_secondary_key(&key)?;
-        ensure!(signer_did == did, Error::<T>::NotASigner);
+        // Ensure that the `key` is a secondary key of the caller's Identity
+        Self::ensure_secondary_key(did, &key)?;
 
         Self::ensure_perms_length_limited(&permissions)?;
 
@@ -446,6 +442,9 @@ impl<T: Config> Module<T> {
 
         // Ensure that it is safe to unlink the secondary keys from the did.
         for key in &keys {
+            // Ensure that the key is a secondary key.
+            Self::ensure_secondary_key(did, &key)?;
+            // Ensure that the key can be unlinked.
             Self::ensure_key_unlinkable_from_did(key)?;
         }
 
@@ -572,7 +571,9 @@ impl<T: Config> Module<T> {
 
     crate fn leave_identity(origin: T::Origin) -> DispatchResult {
         let (key, did) = Self::ensure_did(origin)?;
-        ensure!(Self::is_secondary_key(did, &key), Error::<T>::NotASigner);
+
+        // Ensure that the caller is a secondary key.
+        Self::ensure_secondary_key(did, &key)?;
 
         // Ensure that it is safe to unlink the account key from the did.
         Self::ensure_key_unlinkable_from_did(&key)?;
@@ -697,10 +698,10 @@ impl<T: Config> Module<T> {
     }
 
     /// Ensure `Signatory` is a secondary key.
-    fn ensure_secondary_key(key: &T::AccountId) -> Result<IdentityId, DispatchError> {
-        Ok(Self::key_records(key)
-            .and_then(|rec| rec.is_secondary_key())
-            .ok_or(Error::<T>::NotASigner)?)
+    fn ensure_secondary_key(did: IdentityId, key: &T::AccountId) -> DispatchResult {
+        let key_did = Self::key_records(key).and_then(|rec| rec.is_secondary_key());
+        ensure!(key_did == Some(did), Error::<T>::NotASigner);
+        Ok(())
     }
 
     /// Ensures that `origin`'s key is the primary key of a DID.
