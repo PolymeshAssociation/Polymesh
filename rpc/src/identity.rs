@@ -1,7 +1,7 @@
 pub use pallet_identity::types::{
     AssetDidResult, CddStatus, DidStatus, KeyIdentityData, RpcDidRecords,
 };
-use polymesh_primitives::{Authorization, AuthorizationType};
+use polymesh_primitives::{Authorization, AuthorizationType, SecondaryKey, Signatory};
 
 pub use node_rpc_runtime_api::identity::IdentityApi as IdentityRuntimeApi;
 
@@ -20,7 +20,7 @@ const MAX_IDENTITIES_ALLOWED_TO_QUERY: u32 = 500;
 
 /// Identity RPC methods
 #[rpc]
-pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountId, SecondaryKey, Signatory, Moment> {
+pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountId, Moment> {
     /// Below function use to tell whether the given did has valid cdd claim or not
     #[rpc(name = "identity_isIdentityHasValidCdd")]
     fn is_identity_has_valid_cdd(
@@ -40,13 +40,13 @@ pub trait IdentityApi<BlockHash, IdentityId, Ticker, AccountId, SecondaryKey, Si
         &self,
         did: IdentityId,
         at: Option<BlockHash>,
-    ) -> Result<RpcDidRecords<AccountId, SecondaryKey>>;
+    ) -> Result<RpcDidRecords<AccountId, SecondaryKey<AccountId>>>;
 
     /// Retrieve the list of authorizations for a given signatory.
     #[rpc(name = "identity_getFilteredAuthorizations")]
     fn get_filtered_authorizations(
         &self,
-        signatory: Signatory,
+        signatory: Signatory<AccountId>,
         allow_expired: bool,
         auth_type: Option<AuthorizationType>,
         at: Option<BlockHash>,
@@ -98,28 +98,18 @@ pub enum Error {
     RuntimeError,
 }
 
-impl<C, Block, IdentityId, Ticker, AccountId, SecondaryKey, Signatory, Moment>
-    IdentityApi<
-        <Block as BlockT>::Hash,
-        IdentityId,
-        Ticker,
-        AccountId,
-        SecondaryKey,
-        Signatory,
-        Moment,
-    > for Identity<C, Block>
+impl<C, Block, IdentityId, Ticker, AccountId, Moment>
+    IdentityApi<<Block as BlockT>::Hash, IdentityId, Ticker, AccountId, Moment>
+    for Identity<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
-    C::Api:
-        IdentityRuntimeApi<Block, IdentityId, Ticker, AccountId, SecondaryKey, Signatory, Moment>,
+    C::Api: IdentityRuntimeApi<Block, IdentityId, Ticker, AccountId, Moment>,
     IdentityId: Codec,
     Ticker: Codec,
     AccountId: Codec,
-    SecondaryKey: Codec,
-    Signatory: Codec,
     Moment: Codec,
 {
     fn is_identity_has_valid_cdd(
@@ -160,7 +150,7 @@ where
         &self,
         did: IdentityId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<RpcDidRecords<AccountId, SecondaryKey>> {
+    ) -> Result<RpcDidRecords<AccountId, SecondaryKey<AccountId>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
@@ -173,7 +163,7 @@ where
 
     fn get_filtered_authorizations(
         &self,
-        signatory: Signatory,
+        signatory: Signatory<AccountId>,
         allow_expired: bool,
         auth_type: Option<AuthorizationType>,
         at: Option<<Block as BlockT>::Hash>,

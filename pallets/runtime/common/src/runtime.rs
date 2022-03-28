@@ -797,8 +797,6 @@ macro_rules! runtime_apis {
                     IdentityId,
                     Ticker,
                     polymesh_primitives::AccountId,
-                    SecondaryKey<polymesh_primitives::AccountId>,
-                    Signatory<polymesh_primitives::AccountId>,
                     Moment
                 > for Runtime
             {

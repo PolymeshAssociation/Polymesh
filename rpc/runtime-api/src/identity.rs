@@ -2,16 +2,14 @@ use codec::Codec;
 use pallet_identity::types::{
     AssetDidResult, CddStatus, DidStatus, KeyIdentityData, RpcDidRecords,
 };
-use polymesh_primitives::{Authorization, AuthorizationType};
+use polymesh_primitives::{Authorization, AuthorizationType, SecondaryKey, Signatory};
 use sp_std::prelude::*;
 
 sp_api::decl_runtime_apis! {
-    pub trait IdentityApi<IdentityId, Ticker, AccountId, SecondaryKey, Signatory, Moment> where
+    pub trait IdentityApi<IdentityId, Ticker, AccountId, Moment> where
         IdentityId: Codec,
         Ticker: Codec,
         AccountId: Codec,
-        SecondaryKey: Codec,
-        Signatory: Codec,
         Moment: Codec
     {
         /// Returns CDD status of an identity
@@ -21,11 +19,11 @@ sp_api::decl_runtime_apis! {
         fn get_asset_did(ticker: Ticker) -> AssetDidResult;
 
         /// Retrieve DidRecord for a given `did`.
-        fn get_did_records(did: IdentityId) -> RpcDidRecords<AccountId, SecondaryKey>;
+        fn get_did_records(did: IdentityId) -> RpcDidRecords<AccountId, SecondaryKey<AccountId>>;
 
         /// Retrieve list of a authorization for a given signatory
         fn get_filtered_authorizations(
-            signatory: Signatory,
+            signatory: Signatory<AccountId>,
             allow_expired: bool,
             auth_type: Option<AuthorizationType>
         ) -> Vec<Authorization<AccountId, Moment>>;
