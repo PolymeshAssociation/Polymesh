@@ -650,7 +650,7 @@ declare module '@polkadot/api-base/types/events' {
       /**
        * DID, the keys that got removed
        **/
-      SecondaryKeysRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, Vec<PolymeshPrimitivesSecondaryKeySignatory>]>;
+      SecondaryKeysRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, Vec<AccountId32>]>;
       /**
        * All Secondary keys of the identity ID are unfrozen.
        **/
@@ -658,7 +658,7 @@ declare module '@polkadot/api-base/types/events' {
       /**
        * A signer left their identity. (did, signer)
        **/
-      SignerLeft: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesSecondaryKeySignatory]>;
+      SignerLeft: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, AccountId32]>;
       /**
        * Generic event
        **/
