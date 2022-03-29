@@ -142,7 +142,7 @@ impl pallet_multisig::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(4 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
-    fn make_multisig_signer() -> Weight {
+    fn make_multisig_secondary() -> Weight {
         (76_564_000 as Weight)
             .saturating_add(DbWeight::get().reads(5 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))

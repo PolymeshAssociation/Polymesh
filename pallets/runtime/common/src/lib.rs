@@ -87,6 +87,8 @@ parameter_types! {
     pub const TransactionByteFee: Balance = 10 * MILLICENTS;
     /// We want the noop transaction to cost 0.03 POLYX
     pub const PolyXBaseFee: Balance = 3 * CENTS;
+    /// MultiSig balance limit: 1 POLYX
+    pub const MultiSigBalanceLimit: Balance = POLY;
     /// The maximum weight of the pips extrinsic `enact_snapshot_results` which equals to
     /// `MaximumBlockWeight * AvailableBlockRatio`.
     pub const PipsEnactSnapshotMaximumWeight: Weight = MAXIMUM_BLOCK_WEIGHT * 75 / 100;

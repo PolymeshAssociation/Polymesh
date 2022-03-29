@@ -59,7 +59,7 @@
 //! - `remove_multisig_signers_via_creator` - Removes a signer from the multisig when called by the
 //! creator of the multisig.
 //! - `change_sigs_required` - Changes the number of signatures required to execute a transaction.
-//! - `make_multisig_signer` - Adds a multisig as a signer of the current DID if the current DID is
+//! - `make_multisig_secondary` - Adds a multisig as a secondary key of the current DID if the current DID is
 //! the creator of the multisig.
 //! - `make_multisig_primary` - Adds a multisig as the primary key of the current DID if the current DID
 //! is the creator of the multisig.
@@ -202,7 +202,7 @@ pub trait WeightInfo {
     fn add_multisig_signers_via_creator(signers: u32) -> Weight;
     fn remove_multisig_signers_via_creator(signers: u32) -> Weight;
     fn change_sigs_required() -> Weight;
-    fn make_multisig_signer() -> Weight;
+    fn make_multisig_secondary() -> Weight;
     fn make_multisig_primary() -> Weight;
     fn execute_scheduled_proposal() -> Weight;
 }
@@ -339,7 +339,7 @@ decl_module! {
             auto_close: bool
         ) {
             let signer = Self::ensure_perms_signed_did(origin)?;
-            Self::create_proposal(multisig, signer, proposal, expiry, auto_close)?;
+            Self::create_proposal(multisig, signer, proposal, expiry, auto_close, false)?;
         }
 
         /// Creates a multisig proposal
@@ -359,7 +359,7 @@ decl_module! {
             auto_close: bool
         ) {
             let signer = Self::ensure_signed_acc(origin)?;
-            Self::create_proposal(multisig, signer, proposal, expiry, auto_close)?;
+            Self::create_proposal(multisig, signer, proposal, expiry, auto_close, false)?;
         }
 
         /// Approves a multisig proposal using the caller's identity.
@@ -528,13 +528,13 @@ decl_module! {
             Self::unsafe_change_sigs_required(sender, sigs_required);
         }
 
-        /// Adds a multisig as a signer of current did if the current did is the creator of the
+        /// Adds a multisig as a secondary key of current did if the current did is the creator of the
         /// multisig.
         ///
         /// # Arguments
         /// * `multisig` - multi sig address
-        #[weight = <T as Config>::WeightInfo::make_multisig_signer()]
-        pub fn make_multisig_signer(origin, multisig: T::AccountId) {
+        #[weight = <T as Config>::WeightInfo::make_multisig_secondary()]
+        pub fn make_multisig_secondary(origin, multisig: T::AccountId) {
             let did = <Identity<T>>::ensure_perms(origin)?;
             Self::ensure_ms(&multisig)?;
             Self::verify_sender_is_creator(did, &multisig)?;
@@ -653,7 +653,9 @@ decl_error! {
         /// Changing multisig parameters not allowed since multisig is a primary key.
         ChangeNotAllowed,
         /// Signer is an account key that is already associated with a multisig.
-        SignerAlreadyLinked,
+        SignerAlreadyLinkedToMultisig,
+        /// Signer is an account key that is already associated with an identity.
+        SignerAlreadyLinkedToIdentity,
         /// Current DID is missing
         MissingCurrentIdentity,
         /// The function can only be called by the primary key of the did
@@ -803,6 +805,7 @@ impl<T: Config> Module<T> {
         proposal: Box<T::Proposal>,
         expiry: Option<T::Moment>,
         auto_close: bool,
+        proposal_to_id: bool,
     ) -> CreateProposalResult {
         Self::ensure_ms_signer(&multisig, &sender_signer)?;
         let caller_did = match sender_signer {
@@ -812,7 +815,10 @@ impl<T: Config> Module<T> {
         };
         let proposal_id = Self::ms_tx_done(multisig.clone());
         <Proposals<T>>::insert((multisig.clone(), proposal_id), proposal.clone());
-        <ProposalIds<T>>::insert(multisig.clone(), *proposal, proposal_id);
+        if proposal_to_id {
+            // Only use the `Proposal` -> id map for `create_or_approve_proposal` calls.
+            <ProposalIds<T>>::insert(multisig.clone(), *proposal, proposal_id);
+        }
         <ProposalDetail<T>>::insert(
             (multisig.clone(), proposal_id),
             ProposalDetails::new(expiry, auto_close),
@@ -842,7 +848,7 @@ impl<T: Config> Module<T> {
             Self::unsafe_approve(multisig, sender_signer, proposal_id)?;
         } else {
             // The proposal is new.
-            Self::create_proposal(multisig, sender_signer, proposal, expiry, auto_close)?;
+            Self::create_proposal(multisig, sender_signer, proposal, expiry, auto_close, true)?;
         }
         Ok(())
     }
@@ -1042,16 +1048,16 @@ impl<T: Config> Module<T> {
                 // Don't allow a signer key that is already a secondary key on another multisig
                 ensure!(
                     !<KeyToMultiSig<T>>::contains_key(key),
-                    Error::<T>::SignerAlreadyLinked
+                    Error::<T>::SignerAlreadyLinkedToMultisig
                 );
                 // Don't allow a signer key that is already a secondary key on another identity
                 ensure!(
                     !<identity::KeyToIdentityIds<T>>::contains_key(key),
-                    Error::<T>::SignerAlreadyLinked
+                    Error::<T>::SignerAlreadyLinkedToIdentity
                 );
                 // Don't allow a multisig to add itself as a signer to itself
                 // NB - you can add a multisig as a signer to a different multisig
-                ensure!(key != &multisig, Error::<T>::SignerAlreadyLinked);
+                ensure!(key != &multisig, Error::<T>::SignerAlreadyLinkedToMultisig);
             }
 
             let ms_identity = <MultiSigToIdentity<T>>::get(&multisig);
@@ -1121,18 +1127,6 @@ impl<T: Config> Module<T> {
 }
 
 impl<T: Config> MultiSigSubTrait<T::AccountId> for Module<T> {
-    fn get_key_signers(multisig: &T::AccountId) -> Vec<T::AccountId> {
-        <MultiSigSigners<T>>::iter_prefix_values(multisig)
-            .filter_map(|signer| {
-                if let Signatory::Account(key) = signer {
-                    Some(key)
-                } else {
-                    None
-                }
-            })
-            .collect()
-    }
-
     fn is_multisig(account: &T::AccountId) -> bool {
         <MultiSigToIdentity<T>>::contains_key(account)
     }
