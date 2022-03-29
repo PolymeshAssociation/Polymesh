@@ -1,6 +1,9 @@
 use super::{
     next_block,
-    storage::{get_last_auth_id, register_keyring_account, set_curr_did, Call, TestStorage, User},
+    storage::{
+        add_secondary_key, get_last_auth_id, register_keyring_account, set_curr_did, Call,
+        TestStorage, User,
+    },
     ExtBuilder,
 };
 use frame_support::{assert_noop, assert_ok};
@@ -46,6 +49,11 @@ fn join_multisig() {
         let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
         let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
         let bob_signer = Signatory::Account(AccountKeyring::Bob.to_account_id());
+        let charlie = User::new(AccountKeyring::Charlie);
+
+        // Add dave's key as a secondary key of charlie.
+        let dave = User::new_with(charlie.did, AccountKeyring::Dave);
+        add_secondary_key(charlie.did, dave.acc());
 
         let ms_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id());
 
@@ -100,6 +108,19 @@ fn join_multisig() {
         assert_noop!(
             MultiSig::accept_multisig_signer_as_key(bob.clone(), bob_auth_id2),
             Error::SignerAlreadyLinkedToMultisig
+        );
+
+        assert_ok!(MultiSig::create_multisig(
+            alice.clone(),
+            vec![Signatory::from(alice_did), dave.signatory_acc()],
+            1,
+        ));
+
+        let dave_auth_id = get_last_auth_id(&dave.signatory_acc());
+        set_curr_did(Some(alice_did));
+        assert_noop!(
+            MultiSig::accept_multisig_signer_as_key(dave.origin(), dave_auth_id),
+            Error::SignerAlreadyLinkedToIdentity
         );
     });
 }
