@@ -20,14 +20,14 @@ use sp_runtime::{Deserialize, Serialize};
 
 /// Identity record.
 ///
-/// Used to check if an `Identity` exists and lookup it's primary key.
+/// Used to check if an identity exists and lookup its primary key.
 ///
 /// Asset Identities don't have a primary key.
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DidRecord<AccountId> {
-    /// Identity's primary key, if it has one.
+    /// The identity's primary key, if it has one.
     pub primary_key: Option<AccountId>,
 }
 

@@ -36,7 +36,7 @@ impl<AccountId> From<v1::RpcDidRecords<AccountId>> for RpcDidRecords<AccountId> 
                 primary_key,
                 secondary_keys: secondary_keys
                     .into_iter()
-                    .filter_map(|sk| SecondaryKey::from_v1(sk))
+                    .filter_map(SecondaryKey::from_v1)
                     .collect(),
             },
             v1::RpcDidRecords::IdNotFound => Self::IdNotFound,

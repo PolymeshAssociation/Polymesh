@@ -222,7 +222,7 @@ pub enum KeyRecord<AccountId> {
     ///
     /// (Key's identity)
     PrimaryKey(IdentityId),
-    /// Key is a secondary key and with permissions.
+    /// Key is a secondary key with the given permissions.
     ///
     /// (Key's identity, key's permissions)
     SecondaryKey(IdentityId, Permissions),
@@ -368,7 +368,7 @@ where
     }
 }
 
-/// A secondary key and it's permissions.
+/// A secondary key and its permissions.
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]

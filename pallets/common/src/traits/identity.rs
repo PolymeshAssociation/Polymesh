@@ -34,7 +34,7 @@ use frame_support::{
 };
 use polymesh_primitives::{
     secondary_key::SecondaryKey, AuthorizationData, IdentityClaim, IdentityId, InvestorUid,
-    Permissions, Signatory, Ticker,
+    Permissions, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_core::H512;
@@ -205,12 +205,7 @@ decl_event!(
         SignerLeft(IdentityId, AccountId),
 
         /// DID, updated secondary key, previous permissions, new permissions
-        SecondaryKeyPermissionsUpdated(
-            IdentityId,
-            SecondaryKey<AccountId>,
-            Permissions,
-            Permissions,
-        ),
+        SecondaryKeyPermissionsUpdated(IdentityId, AccountId, Permissions, Permissions),
 
         /// DID, old primary key account ID, new ID
         PrimaryKeyUpdated(IdentityId, AccountId, AccountId),
@@ -246,11 +241,6 @@ decl_event!(
         /// Authorization consumed.
         /// (authorized_identity, authorized_key, auth_id)
         AuthorizationConsumed(Option<IdentityId>, Option<AccountId>, u64),
-
-        /// Off-chain Authorization has been revoked.
-        /// (Target Identity, Signatory)
-        // TODO: Unused.  Remove?
-        OffChainAuthorizationRevoked(IdentityId, Signatory<AccountId>),
 
         /// CDD requirement for updating primary key changed. (new_requirement)
         CddRequirementForPrimaryKeyUpdated(bool),

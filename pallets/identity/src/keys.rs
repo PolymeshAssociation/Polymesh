@@ -80,12 +80,12 @@ impl<T: Config> Module<T> {
     /// Returns the DID associated with `key`, if any,
     /// assuming it is either the primary key or isn't frozen.
     pub fn get_identity(key: &T::AccountId) -> Option<IdentityId> {
-        KeyRecords::<T>::get(key).and_then(|record| match record {
+        match KeyRecords::<T>::get(key)? {
             KeyRecord::PrimaryKey(did) => Some(did),
             KeyRecord::SecondaryKey(did, _) if !Self::is_did_frozen(did) => Some(did),
             // Is a multisig signer, or frozen secondary key.
             _ => None,
-        })
+        }
     }
 
     /// It checks if `key` is a secondary key of `did` identity.
@@ -120,13 +120,12 @@ impl<T: Config> Module<T> {
 
     /// RPC call to fetch some aggregate account data for fewer round trips.
     pub fn get_key_identity_data(acc: T::AccountId) -> Option<types::KeyIdentityData<IdentityId>> {
-        let (identity, permissions) =
-            KeyRecords::<T>::get(acc).and_then(|record| match record {
-                KeyRecord::PrimaryKey(did) => Some((did, None)),
-                KeyRecord::SecondaryKey(did, perms) => Some((did, Some(perms))),
-                // Is a multisig signer.
-                _ => None,
-            })?;
+        let (identity, permissions) = match KeyRecords::<T>::get(acc)? {
+            KeyRecord::PrimaryKey(did) => Some((did, None)),
+            KeyRecord::SecondaryKey(did, perms) => Some((did, Some(perms))),
+            // Is a multisig signer.
+            _ => None,
+        }?;
         Some(types::KeyIdentityData {
             identity,
             permissions,
@@ -146,6 +145,8 @@ impl<T: Config> Module<T> {
     }
 
     /// Retrieve DidRecords for `did`
+    ///
+    /// Results limited to `RPC_MAX_KEYS` secondary keys.
     pub fn get_did_records(did: IdentityId) -> RpcDidRecords<T::AccountId> {
         if let Some(record) = DidRecords::<T>::get(&did) {
             let secondary_keys = DidKeys::<T>::iter_key_prefix(&did)
@@ -285,9 +286,7 @@ impl<T: Config> Module<T> {
         new_permissions: Option<Permissions>,
         optional_cdd_auth_id: Option<u64>,
     ) -> DispatchResult {
-        let old_primary_key = DidRecords::<T>::get(target_did)
-            .and_then(|d| d.primary_key)
-            .unwrap_or_default();
+        let old_primary_key = Self::get_primary_key(target_did);
 
         let key_record = KeyRecords::<T>::get(&new_primary_key);
         let (is_linked, is_secondary_key) = match key_record {
@@ -397,7 +396,7 @@ impl<T: Config> Module<T> {
         )
     }
 
-    /// Set permissions for the specific `target_key`.
+    /// Set permissions for the specific `key`.
     /// Only the primary key of an identity is able to set secondary key permissions.
     crate fn base_set_secondary_key_permissions(
         origin: T::Origin,
@@ -413,15 +412,11 @@ impl<T: Config> Module<T> {
 
         // Update secondary key's permissions.
         KeyRecords::<T>::mutate(&key, |record| {
-            if let Some(KeyRecord::SecondaryKey(_, ref mut perms)) = record {
+            if let Some(KeyRecord::SecondaryKey(_, perms)) = record {
                 let old_perms = mem::replace(perms, permissions.clone());
-                let secondary_key = SecondaryKey {
-                    key: key.clone(),
-                    permissions: permissions.clone(),
-                };
                 Self::deposit_event(RawEvent::SecondaryKeyPermissionsUpdated(
                     did,
-                    secondary_key,
+                    key.clone(),
                     old_perms,
                     permissions,
                 ));
@@ -691,10 +686,10 @@ impl<T: Config> Module<T> {
             Self::add_key_record(&sk.key, KeyRecord::SecondaryKey(id, sk.permissions.clone()));
         }
 
-        Self::deposit_event(RawEvent::DidCreated(id, primary_key, vec![]));
+        Self::deposit_event(RawEvent::DidCreated(id, primary_key, secondary_keys));
     }
 
-    /// Ensure `Signatory` is a secondary key.
+    /// Ensure the `key` is a secondary key of the identity `did`.
     fn ensure_secondary_key(did: IdentityId, key: &T::AccountId) -> DispatchResult {
         let key_did = Self::key_records(key).and_then(|rec| rec.is_secondary_key());
         ensure!(key_did == Some(did), Error::<T>::NotASigner);

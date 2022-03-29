@@ -481,9 +481,8 @@ impl<T: Config> Module<T> {
         // Sender has to be part of CDDProviders
         Self::ensure_authorized_cdd_provider(cdd_did)?;
 
-        // Calculates the cost complexity of the SK's permissions.
+        // Check limit for the SK's permissions.
         for sk in &secondary_keys {
-            // Check limit for this SK's permissions.
             Self::ensure_perms_length_limited(&sk.permissions)?;
         }
 
