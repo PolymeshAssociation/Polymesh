@@ -138,26 +138,6 @@ decl_module! {
             Self::base_create_group(origin, ticker, perms).map(drop)
         }
 
-        /// Utility extrinsic to batch `create_group` and  `add_auth`.
-        ///
-        /// # Permissions
-        /// * Asset
-        /// * Agent
-        #[weight = <T as Config>::WeightInfo::create_group_and_add_auth(perms.complexity() as u32)]
-        pub fn create_group_and_add_auth(origin, ticker: Ticker, perms: ExtrinsicPermissions, target: Signatory<T::AccountId>) -> DispatchResult {
-            Self::base_create_group_and_add_auth(origin, ticker, perms, target)
-        }
-
-        /// Utility extrinsic to batch `create_group` and  `change_group` for custom groups only.
-        ///
-        /// # Permissions
-        /// * Asset
-        /// * Agent
-        #[weight = <T as Config>::WeightInfo::create_and_change_custom_group(perms.complexity() as u32)]
-        pub fn create_and_change_custom_group(origin, ticker: Ticker, perms: ExtrinsicPermissions, agent: IdentityId) -> DispatchResult {
-            Self::base_create_and_change_custom_group(origin, ticker, perms, agent)
-        }
-
         /// Updates the permissions of the custom AG identified by `id`, for the given `ticker`.
         ///
         /// # Arguments
@@ -256,6 +236,26 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::accept_become_agent()]
         pub fn accept_become_agent(origin, auth_id: u64) -> DispatchResult {
             Self::base_accept_become_agent(origin, auth_id)
+        }
+
+        /// Utility extrinsic to batch `create_group` and  `add_auth`.
+        ///
+        /// # Permissions
+        /// * Asset
+        /// * Agent
+        #[weight = <T as Config>::WeightInfo::create_group_and_add_auth(perms.complexity() as u32)]
+        pub fn create_group_and_add_auth(origin, ticker: Ticker, perms: ExtrinsicPermissions, target: Signatory<T::AccountId>) -> DispatchResult {
+            Self::base_create_group_and_add_auth(origin, ticker, perms, target)
+        }
+
+        /// Utility extrinsic to batch `create_group` and  `change_group` for custom groups only.
+        ///
+        /// # Permissions
+        /// * Asset
+        /// * Agent
+        #[weight = <T as Config>::WeightInfo::create_and_change_custom_group(perms.complexity() as u32)]
+        pub fn create_and_change_custom_group(origin, ticker: Ticker, perms: ExtrinsicPermissions, agent: IdentityId) -> DispatchResult {
+            Self::base_create_and_change_custom_group(origin, ticker, perms, agent)
         }
     }
 }

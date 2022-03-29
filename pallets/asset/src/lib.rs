@@ -471,41 +471,6 @@ decl_module! {
                 .map(drop)
         }
 
-        /// Utility extrinsic to batch `create_asset` and `register_custom_asset_type`.
-        #[weight = <T as Config>::WeightInfo::create_asset(
-            name.len() as u32,
-            identifiers.len() as u32,
-            funding_round.as_ref().map_or(0, |name| name.len()) as u32
-        ) + <T as Config>::WeightInfo::register_custom_asset_type(custom_asset_type.len() as u32)]
-        pub fn create_asset_with_custom_type(
-            origin,
-            name: AssetName,
-            ticker: Ticker,
-            divisible: bool,
-            custom_asset_type: Vec<u8>,
-            identifiers: Vec<AssetIdentifier>,
-            funding_round: Option<FundingRoundName>,
-            disable_iu: bool,
-        ) -> DispatchResult {
-            let PermissionedCallOriginData {
-                primary_did,
-                secondary_key,
-                ..
-            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
-            let asset_type_id = Self::unsafe_register_custom_asset_type(primary_did, custom_asset_type)?;
-            Self::unsafe_create_asset(
-                primary_did,
-                secondary_key,
-                name,
-                ticker,
-                divisible,
-                AssetType::Custom(asset_type_id),
-                identifiers,
-                funding_round,
-                disable_iu,
-            ).map(drop)
-        }
-
         /// Freezes transfers and minting of a given token.
         ///
         /// # Arguments
@@ -814,6 +779,41 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::register_custom_asset_type(ty.len() as u32)]
         pub fn register_custom_asset_type(origin, ty: Vec<u8>) -> DispatchResult {
             Self::base_register_custom_asset_type(origin, ty).map(drop)
+        }
+
+        /// Utility extrinsic to batch `create_asset` and `register_custom_asset_type`.
+        #[weight = <T as Config>::WeightInfo::create_asset(
+            name.len() as u32,
+            identifiers.len() as u32,
+            funding_round.as_ref().map_or(0, |name| name.len()) as u32
+        ) + <T as Config>::WeightInfo::register_custom_asset_type(custom_asset_type.len() as u32)]
+        pub fn create_asset_with_custom_type(
+            origin,
+            name: AssetName,
+            ticker: Ticker,
+            divisible: bool,
+            custom_asset_type: Vec<u8>,
+            identifiers: Vec<AssetIdentifier>,
+            funding_round: Option<FundingRoundName>,
+            disable_iu: bool,
+        ) -> DispatchResult {
+            let PermissionedCallOriginData {
+                primary_did,
+                secondary_key,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+            let asset_type_id = Self::unsafe_register_custom_asset_type(primary_did, custom_asset_type)?;
+            Self::unsafe_create_asset(
+                primary_did,
+                secondary_key,
+                name,
+                ticker,
+                divisible,
+                AssetType::Custom(asset_type_id),
+                identifiers,
+                funding_round,
+                disable_iu,
+            ).map(drop)
         }
     }
 }
