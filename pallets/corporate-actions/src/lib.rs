@@ -748,29 +748,31 @@ decl_module! {
                 ..
             } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ticker)?;
 
-            let ca_id = Self::unsafe_initiate_corporate_action(
-                agent.for_event(),
-                ticker,
-                kind,
-                decl_date,
-                record_date,
-                details,
-                targets,
-                default_withholding_tax,
-                withholding_tax
-            )?;
+            with_transaction(|| {
+                let ca_id = Self::unsafe_initiate_corporate_action(
+                    agent.for_event(),
+                    ticker,
+                    kind,
+                    decl_date,
+                    record_date,
+                    details,
+                    targets,
+                    default_withholding_tax,
+                    withholding_tax
+                )?;
 
-            <distribution::Module<T>>::unsafe_distribute(
-                agent,
-                secondary_key,
-                ca_id,
-                portfolio,
-                currency,
-                per_share,
-                amount,
-                payment_at,
-                expires_at,
-            )
+                <distribution::Module<T>>::unsafe_distribute(
+                    agent,
+                    secondary_key,
+                    ca_id,
+                    portfolio,
+                    currency,
+                    per_share,
+                    amount,
+                    payment_at,
+                    expires_at,
+                )
+            })
         }
     }
 }

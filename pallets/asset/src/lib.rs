@@ -802,18 +802,20 @@ decl_module! {
                 secondary_key,
                 ..
             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
-            let asset_type_id = Self::unsafe_register_custom_asset_type(primary_did, custom_asset_type)?;
-            Self::unsafe_create_asset(
-                primary_did,
-                secondary_key,
-                name,
-                ticker,
-                divisible,
-                AssetType::Custom(asset_type_id),
-                identifiers,
-                funding_round,
-                disable_iu,
-            ).map(drop)
+            with_transaction(|| {
+                let asset_type_id = Self::unsafe_register_custom_asset_type(primary_did, custom_asset_type)?;
+                Self::unsafe_create_asset(
+                    primary_did,
+                    secondary_key,
+                    name,
+                    ticker,
+                    divisible,
+                    AssetType::Custom(asset_type_id),
+                    identifiers,
+                    funding_round,
+                    disable_iu,
+                ).map(drop)
+            })
         }
     }
 }

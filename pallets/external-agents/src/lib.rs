@@ -61,6 +61,7 @@ use frame_support::{
 use pallet_base::{try_next_post, try_next_pre};
 use pallet_identity::PermissionedCallOriginData;
 pub use polymesh_common_utilities::traits::external_agents::{Config, Event, WeightInfo};
+use polymesh_common_utilities::with_transaction;
 use polymesh_primitives::agent::{AGId, AgentGroup};
 use polymesh_primitives::{
     extract_auth, AuthorizationData, EventDid, ExtrinsicPermissions, IdentityId, PalletPermissions,
@@ -255,7 +256,7 @@ decl_module! {
         /// * Agent
         #[weight = <T as Config>::WeightInfo::create_and_change_custom_group(perms.complexity() as u32)]
         pub fn create_and_change_custom_group(origin, ticker: Ticker, perms: ExtrinsicPermissions, agent: IdentityId) -> DispatchResult {
-            Self::base_create_and_change_custom_group(origin, ticker, perms, agent)
+            with_transaction(|| Self::base_create_and_change_custom_group(origin, ticker, perms, agent))
         }
     }
 }
