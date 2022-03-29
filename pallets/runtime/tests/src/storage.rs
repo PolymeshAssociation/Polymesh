@@ -569,6 +569,7 @@ impl polymesh_common_utilities::traits::identity::Config for TestStorage {
     type IdentityFn = identity::Module<TestStorage>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
+    type MultiSigBalanceLimit = polymesh_runtime_common::MultiSigBalanceLimit;
 }
 
 pub struct TestSessionHandler;
