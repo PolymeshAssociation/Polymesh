@@ -4,6 +4,8 @@ use polymesh_primitives::{EventDid, ExtrinsicPermissions, IdentityId, Ticker};
 
 pub trait WeightInfo {
     fn create_group(p: u32) -> Weight;
+    fn create_group_and_add_auth(p: u32) -> Weight;
+    fn create_and_change_custom_group(p: u32) -> Weight;
     fn set_group_permissions(p: u32) -> Weight;
     fn remove_agent() -> Weight;
     fn abdicate() -> Weight;
