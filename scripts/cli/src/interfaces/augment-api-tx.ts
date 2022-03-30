@@ -1500,6 +1500,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * * `ClaimVariantNotAllowed` When origin trying to pass claim variant other than `InvestorUniqueness`.
        * * `ConfidentialScopeClaimNotAllowed` When issuer is different from target or CDD_ID is invalid for given user.
        * * `InvalidScopeClaim When proof is invalid.
+       * * `InvalidCDDId` when you are not the owner of that CDD_ID.
        **/
       addInvestorUniquenessClaim: AugmentedSubmittable<(target: PolymeshPrimitivesIdentityId | string | Uint8Array, claim: PolymeshPrimitivesIdentityClaimClaim | { Accredited: any } | { Affiliate: any } | { BuyLockup: any } | { SellLockup: any } | { CustomerDueDiligence: any } | { KnowYourCustomer: any } | { Jurisdiction: any } | { Exempted: any } | { Blocked: any } | { InvestorUniqueness: any } | { NoData: any } | { InvestorUniquenessV2: any } | string | Uint8Array, proof: PolymeshPrimitivesInvestorZkproofDataV1InvestorZKProofData | { r?: any; s?: any } | string | Uint8Array, expiry: Option<u64> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityClaimClaim, PolymeshPrimitivesInvestorZkproofDataV1InvestorZKProofData, Option<u64>]>;
       addInvestorUniquenessClaimV2: AugmentedSubmittable<(target: PolymeshPrimitivesIdentityId | string | Uint8Array, scope: PolymeshPrimitivesIdentityClaimScope | { Identity: any } | { Ticker: any } | { Custom: any } | string | Uint8Array, claim: PolymeshPrimitivesIdentityClaimClaim | { Accredited: any } | { Affiliate: any } | { BuyLockup: any } | { SellLockup: any } | { CustomerDueDiligence: any } | { KnowYourCustomer: any } | { Jurisdiction: any } | { Exempted: any } | { Blocked: any } | { InvestorUniqueness: any } | { NoData: any } | { InvestorUniquenessV2: any } | string | Uint8Array, proof: ConfidentialIdentityClaimProofsScopeClaimProof | { proofScopeIdWellformed?: any; proofScopeIdCddIdMatch?: any; scopeId?: any } | string | Uint8Array, expiry: Option<u64> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityClaimScope, PolymeshPrimitivesIdentityClaimClaim, ConfidentialIdentityClaimProofsScopeClaimProof, Option<u64>]>;
@@ -2280,7 +2281,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * - `AuthorizationError::Expired` if `auth_id` the authorization has expired.
        * - `AuthorizationError::BadType` if `auth_id` was not a `AddRelayerPayingKey` authorization.
        * - `NotAuthorizedForUserKey` if `origin` is not authorized to accept the authorization for the `user_key`.
-       * - `NotAuthorizedForPayingKey` if the authorization was created by a signer that isn't authorized by the `paying_key`.
+       * - `NotAuthorizedForPayingKey` if the authorization was created an identity different from the `paying_key`'s identity.
        * - `UserKeyCddMissing` if the `user_key` is not attached to a CDD'd identity.
        * - `PayingKeyCddMissing` if the `paying_key` is not attached to a CDD'd identity.
        * - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.

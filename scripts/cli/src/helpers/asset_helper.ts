@@ -1,8 +1,8 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { Ticker, Document } from "../types";
+import type { IdentityId } from "../interfaces";
 import { sendTx, ApiSingleton } from "../util/init";
 import { assert } from "chai";
-import type { IdentityId } from "../interfaces";
 
 /**
  * @description Adds Documents for a given token

@@ -18,14 +18,14 @@ import path from "path";
 import type { AccountId } from "@polkadot/types/interfaces/runtime";
 import type { SubmittableExtrinsic } from "@polkadot/api/types";
 import type { KeyringPair } from "@polkadot/keyring/types";
-import type { DispatchError } from "@polkadot/types/interfaces";
+import type { DispatchError, EventRecord, AccountInfo, ActiveEraInfo } from "@polkadot/types/interfaces";
 import type { ISubmittableResult } from "@polkadot/types/types";
 import type { Ticker } from "../types";
 import { createIdentities } from "../helpers/identity_helper";
 import { distributePoly } from "../helpers/poly_helper";
 import type { IdentityId } from "../interfaces";
 import { assert } from "chai";
-import { getNonce } from "../util/sqlite3";
+import { Option } from "@polkadot/types-codec";
 
 let block_sizes: Number[] = [];
 let block_times: Number[] = [];
@@ -79,10 +79,12 @@ export async function disconnect() {
 export async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-const getEra = async () =>
-  (await (await ApiSingleton.getInstance()).query.staking.activeEra())
-    .unwrap()
-    .index.toJSON();
+const getEra = async () => {
+  const api = await ApiSingleton.getInstance();
+  const activeEra = await api.query.staking.activeEra();
+  activeEra.unwrap().index.toJSON();
+}
+
 export async function waitNextEra() {
   const era = await getEra();
   while ((await getEra()) === era) {
@@ -251,9 +253,7 @@ export async function sendTx(
   signer: KeyringPair,
   tx: SubmittableExtrinsic<"promise">
 ) {
-  const nonceObj = { nonce: await getNonce(signer) };
-  const result = await sendTransaction(signer, tx, nonceObj);
-  return result;
+   return sendTransaction(signer, tx, -1);
 }
 
 export function sendTransaction(
@@ -288,9 +288,10 @@ export function sendTransaction(
               if (dispatchError.isModule) {
                 // known error
                 const mod = dispatchError.asModule;
-                const { section, name, docs } = mod.registry.findMetaError(
-                  new Uint8Array([mod.index.toNumber(), mod.error.toNumber()])
-                );
+                const { section, name, docs } =
+                  mod.registry.findMetaError(
+                    new Uint8Array([mod.index.toNumber(), mod.error.toNumber()])
+                  );
 
                 message = `${section}.${name}: ${docs.join(" ")}`;
               } else if (dispatchError.isBadOrigin) {
@@ -334,7 +335,7 @@ export async function signatory(signer: KeyringPair, entity: KeyringPair) {
 }
 
 export function getDefaultPortfolio(did: IdentityId) {
-  return { did: did, kind: "Default" };
+  return { did: did, kind: { Default: ""} };
 }
 
 export async function getValidCddProvider(alice: KeyringPair) {
@@ -375,22 +376,22 @@ export async function getValidCddProvider(alice: KeyringPair) {
 
 export async function getExpiries(length: number) {
   const api = await ApiSingleton.getInstance();
-  let blockTime = api.consts.babe.expectedBlockTime;
-  let bondingDuration = api.consts.staking.bondingDuration;
-  let sessionPerEra = api.consts.staking.sessionsPerEra;
-  let session_length = api.consts.babe.epochDuration;
-  const currentBlockTime = await api.query.timestamp.now();
+  let blockTime = (api.consts.babe.expectedBlockTime).toNumber();
+  let bondingDuration = (api.consts.staking.bondingDuration).toNumber();
+  let sessionPerEra = (api.consts.staking.sessionsPerEra).toNumber();
+  let session_length = (api.consts.babe.epochDuration).toNumber();
+  const currentBlockTime = (await api.query.timestamp.now()).toNumber();
 
   const bondingTime =
-    bondingDuration.toNumber() *
-    sessionPerEra.toNumber() *
-    session_length.toNumber();
-  let expiryTime = currentBlockTime.toNumber() + bondingTime * 1000;
+    bondingDuration *
+    sessionPerEra *
+    session_length;
+  let expiryTime = currentBlockTime + bondingTime * 1000;
 
   let expiries = [];
   for (let i = 1; i <= length; i++) {
     // Providing 15 block as the extra time
-    let temp = expiryTime + i * 5 * blockTime.toNumber();
+    let temp = expiryTime + i * 5 * blockTime;
     expiries.push(temp);
   }
   return expiries;

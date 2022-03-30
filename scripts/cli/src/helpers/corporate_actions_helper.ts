@@ -1,5 +1,5 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
-import { Ticker } from "../types";
+import type { Ticker } from "../types";
 import { sendTx, ApiSingleton, keyToIdentityIds } from "../util/init";
 
 export async function changeDefaultTargetIdentitites(
@@ -123,8 +123,8 @@ export async function createDistribution(
   expiresAt: string | null
 ) {
   const api = await ApiSingleton.getInstance();
-  const currentBlockTime = await api.query.timestamp.now();
-  const payAt = currentBlockTime.toNumber();
+  const currentBlockTime = (await api.query.timestamp.now()).toNumber();
+  const payAt = currentBlockTime;
 
   const transaction = api.tx.capitalDistribution.distribute(
     { ticker, localId: caId },

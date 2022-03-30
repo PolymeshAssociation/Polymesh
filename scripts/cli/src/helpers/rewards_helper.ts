@@ -1,6 +1,6 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
+import type { ItnRewardStatus } from "../types";
 import { sendTx, ApiSingleton } from "../util/init";
-import { ItnRewardStatus } from "../types";
 import { u8aToHex } from "@polkadot/util";
 
 /**

@@ -5,12 +5,8 @@ import type {
   DocumentHash,
   DocumentName,
   Document,
-  LegacyPalletPermissions,
-  ExtrinsicPermissions,
   PalletPermissions,
   These,
-  Except,
-  PortfolioPermissions,
   DispatchableName,
 } from "../types";
 import { keyToIdentityIds, ApiSingleton } from "../util/init";
