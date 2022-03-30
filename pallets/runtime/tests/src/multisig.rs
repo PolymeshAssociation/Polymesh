@@ -116,6 +116,7 @@ fn join_multisig() {
             1,
         ));
 
+        // Testing signer key that is already a secondary key on another identity.
         let dave_auth_id = get_last_auth_id(&dave.signatory_acc());
         set_curr_did(Some(alice_did));
         assert_noop!(
@@ -130,6 +131,7 @@ fn join_multisig() {
             1,
         ));
 
+        // Testing that a multisig can't add itself as a signer.
         let ms_auth_id = Identity::add_auth(
             alice_did,
             Signatory::Account(ms_address.clone()),

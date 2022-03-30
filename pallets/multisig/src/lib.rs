@@ -656,7 +656,7 @@ decl_error! {
         SignerAlreadyLinkedToMultisig,
         /// Signer is an account key that is already associated with an identity.
         SignerAlreadyLinkedToIdentity,
-        /// Multisig not allowed to add itself as a signer to itself.
+        /// Multisig not allowed to add itself as a signer.
         MultisigNotAllowedToLinkToItself,
         /// Current DID is missing
         MissingCurrentIdentity,
