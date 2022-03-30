@@ -112,7 +112,7 @@ use polymesh_primitives::{
     extract_auth,
     statistics::TransferManagerResult,
     storage_migrate_on, storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId,
-    IdentityId, PortfolioId, ScopeId, Ticker,
+    IdentityId, PortfolioId, ScopeId, SecondaryKey, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;
@@ -778,7 +778,44 @@ decl_module! {
         /// * `ty` contains the string representation of the asset type.
         #[weight = <T as Config>::WeightInfo::register_custom_asset_type(ty.len() as u32)]
         pub fn register_custom_asset_type(origin, ty: Vec<u8>) -> DispatchResult {
-            Self::base_register_custom_asset_type(origin, ty)
+            Self::base_register_custom_asset_type(origin, ty).map(drop)
+        }
+
+        /// Utility extrinsic to batch `create_asset` and `register_custom_asset_type`.
+        #[weight = <T as Config>::WeightInfo::create_asset(
+            name.len() as u32,
+            identifiers.len() as u32,
+            funding_round.as_ref().map_or(0, |name| name.len()) as u32
+        ) + <T as Config>::WeightInfo::register_custom_asset_type(custom_asset_type.len() as u32)]
+        pub fn create_asset_with_custom_type(
+            origin,
+            name: AssetName,
+            ticker: Ticker,
+            divisible: bool,
+            custom_asset_type: Vec<u8>,
+            identifiers: Vec<AssetIdentifier>,
+            funding_round: Option<FundingRoundName>,
+            disable_iu: bool,
+        ) -> DispatchResult {
+            let PermissionedCallOriginData {
+                primary_did,
+                secondary_key,
+                ..
+            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+            with_transaction(|| {
+                let asset_type_id = Self::unsafe_register_custom_asset_type(primary_did, custom_asset_type)?;
+                Self::unsafe_create_asset(
+                    primary_did,
+                    secondary_key,
+                    name,
+                    ticker,
+                    divisible,
+                    AssetType::Custom(asset_type_id),
+                    identifiers,
+                    funding_round,
+                    disable_iu,
+                ).map(drop)
+            })
         }
     }
 }
@@ -1623,18 +1660,41 @@ impl<T: Config> Module<T> {
         funding_round: Option<FundingRoundName>,
         disable_iu: bool,
     ) -> Result<IdentityId, DispatchError> {
+        let PermissionedCallOriginData {
+            primary_did,
+            secondary_key,
+            ..
+        } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+        Self::unsafe_create_asset(
+            primary_did,
+            secondary_key,
+            name,
+            ticker,
+            divisible,
+            asset_type,
+            identifiers,
+            funding_round,
+            disable_iu,
+        )
+    }
+
+    fn unsafe_create_asset(
+        did: IdentityId,
+        secondary_key: Option<SecondaryKey<T::AccountId>>,
+        name: AssetName,
+        ticker: Ticker,
+        divisible: bool,
+        asset_type: AssetType,
+        identifiers: Vec<AssetIdentifier>,
+        funding_round: Option<FundingRoundName>,
+        disable_iu: bool,
+    ) -> Result<IdentityId, DispatchError> {
         Self::ensure_asset_name_bounded(&name)?;
         if let Some(fr) = &funding_round {
             Self::ensure_funding_round_name_bounded(fr)?;
         }
         Self::ensure_asset_idents_valid(&identifiers)?;
         Self::ensure_asset_type_valid(asset_type)?;
-
-        let PermissionedCallOriginData {
-            primary_did: did,
-            secondary_key,
-            ..
-        } = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
         Self::ensure_create_asset_parameters(&ticker)?;
 
@@ -2248,21 +2308,32 @@ impl<T: Config> Module<T> {
         )
     }
 
-    fn base_register_custom_asset_type(origin: T::Origin, ty: Vec<u8>) -> DispatchResult {
+    fn base_register_custom_asset_type(
+        origin: T::Origin,
+        ty: Vec<u8>,
+    ) -> Result<CustomAssetTypeId, DispatchError> {
+        let did = Identity::<T>::ensure_perms(origin)?;
+        Self::unsafe_register_custom_asset_type(did, ty)
+    }
+
+    fn unsafe_register_custom_asset_type(
+        did: IdentityId,
+        ty: Vec<u8>,
+    ) -> Result<CustomAssetTypeId, DispatchError> {
         ensure_string_limited::<T>(&ty)?;
 
-        let did = Identity::<T>::ensure_perms(origin)?;
-
-        match CustomTypesInverse::try_get(&ty) {
-            Ok(id) => Self::deposit_event(Event::<T>::CustomAssetTypeExists(did, id, ty)),
+        Ok(match CustomTypesInverse::try_get(&ty) {
+            Ok(id) => {
+                Self::deposit_event(Event::<T>::CustomAssetTypeExists(did, id, ty));
+                id
+            }
             Err(()) => {
                 let id = CustomTypeIdSequence::try_mutate(try_next_pre::<T, _>)?;
                 CustomTypesInverse::insert(&ty, id);
                 CustomTypes::insert(id, ty.clone());
                 Self::deposit_event(Event::<T>::CustomAssetTypeRegistered(did, id, ty));
+                id
             }
-        }
-
-        Ok(())
+        })
     }
 }
