@@ -1,9 +1,9 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
-import type { Ticker, ExtrinsicPermissions, AuthorizationData, AgentGroup } from "../types";
+import type { Ticker, ExtrinsicPermissions, AgentGroup } from "../types";
 import type { AnyNumber } from "@polkadot/types/types";
-import { sendTx, ApiSingleton, signatory } from "../util/init";
-import { addAuthorization, getAuthId } from "../helpers/identity_helper";
 import type { IdentityId } from "../interfaces";
+import { sendTx, ApiSingleton } from "../util/init";
+import { addAuthorization, getAuthId } from "../helpers/identity_helper";
 
 /**
  * @description Creates Group
@@ -79,7 +79,6 @@ export async function acceptBecomeAgent(
 }
 
 export async function nextAgId(ticker: Ticker) {
-	const api = await ApiSingleton.getInstance();
-	const agId = await api.query.externalAgents.aGIdSequence(ticker);
-	return agId as unknown as number;
+  const api = await ApiSingleton.getInstance();
+  return (await api.query.externalAgents.agIdSequence(ticker)).toNumber();
 }

@@ -1,19 +1,19 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
-import type { PortfolioId, Ticker } from "../types";
-import { sendTx, getDefaultPortfolio, ApiSingleton } from "../util/init";
+import type { PortfolioId, Ticker, venueType } from "../types";
 import type { IdentityId } from "../interfaces";
+import { sendTx, getDefaultPortfolio, ApiSingleton } from "../util/init";
 
 /**
  * @description Creates a Venue
  */
-export async function createVenue(signer: KeyringPair): Promise<number> {
+export async function createVenue(signer: KeyringPair, type: venueType): Promise<number> {
   const api = await ApiSingleton.getInstance();
   let venueCounter = (await api.query.settlement.venueCounter()).toNumber();
   let venueDetails = "created venue";
   const transaction = api.tx.settlement.createVenue(
     venueDetails,
     [signer.address],
-    0
+    type
   );
   await sendTx(signer, transaction);
   return venueCounter;

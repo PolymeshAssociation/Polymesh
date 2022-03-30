@@ -69,6 +69,10 @@ declare module '@polkadot/rpc-core/types/jsonrpc' {
     };
     beefy: {
       /**
+       * Returns hash of the latest BEEFY finalized block as seen by this client.
+       **/
+      getFinalizedHead: AugmentedRpc<() => Observable<H256>>;
+      /**
        * Returns the block most recently finalized by BEEFY, alongside side its justification.
        **/
       subscribeJustifications: AugmentedRpc<() => Observable<BeefySignedCommitment>>;
@@ -329,9 +333,9 @@ declare module '@polkadot/rpc-core/types/jsonrpc' {
     };
     grandpa: {
       /**
-       * Prove finality for the range (begin; end] hash.
+       * Prove finality for the given block number, returning the Justification for the last block in the set.
        **/
-      proveFinality: AugmentedRpc<(begin: BlockHash | string | Uint8Array, end: BlockHash | string | Uint8Array, authoritiesSetId?: u64 | AnyNumber | Uint8Array) => Observable<Option<EncodedFinalityProofs>>>;
+      proveFinality: AugmentedRpc<(blockNumber: BlockNumber | AnyNumber | Uint8Array) => Observable<Option<EncodedFinalityProofs>>>;
       /**
        * Returns the state of the current best round state as well as the ongoing background rounds
        **/
