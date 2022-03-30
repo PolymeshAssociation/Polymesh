@@ -22,13 +22,14 @@ $ ./run.sh
 $ ./node_modules/.bin/pm2 log pmesh-primary-node
 $ ./node_modules/.bin/pm2 log pmesh-peer-node-1
 $ ./node_modules/.bin/pm2 log pmesh-peer-node-2
+# Stop the node
+$ ./stop.sh
 ```
 
 To run the scripts and execute transactions:
 
-1. Build latest types `npm run build:types`
-2. Compile Typescript files `npm run build`
-3. Run integration tests `npm run test`
+1. Compile Typescript files `npm run build`
+2. Run integration tests `npm test`
 
 To stop the node use `./stop.sh`:
 
@@ -50,6 +51,11 @@ The test scripts include those named below, and most make up `npm test`:
  - 11_A_settlement
  - 11_B_settlement
  - 12_external_agents
+ - 13_corporate_actions
+ - 14_investment
+ - 15_portfolio
+ - 16_relayer
+ - 17_itn_rewards
 
  To run a single script:
  ```shell

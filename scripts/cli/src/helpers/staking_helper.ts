@@ -52,7 +52,7 @@ export async function nominate(signer: KeyringPair, target: Uint8Array) {
 
 export async function checkEraElectionClosed() {
   const api = await ApiSingleton.getInstance();
-  while((await api.query.staking.eraElectionStatus()).isOpen) {
+  while ((await api.query.staking.eraElectionStatus()).isOpen) {
     await sleep(1000);
   }
 }
