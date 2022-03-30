@@ -122,6 +122,25 @@ fn join_multisig() {
             MultiSig::accept_multisig_signer_as_key(dave.origin(), dave_auth_id),
             Error::SignerAlreadyLinkedToIdentity
         );
+
+        set_curr_did(None);
+        assert_ok!(MultiSig::create_multisig(
+            alice.clone(),
+            vec![Signatory::Account(ms_address.clone())],
+            1,
+        ));
+
+        let ms_auth_id = Identity::add_auth(
+            alice_did,
+            Signatory::Account(ms_address.clone()),
+            AuthorizationData::AddMultiSigSigner(ms_address.clone()),
+            None,
+        );
+
+        assert_noop!(
+            MultiSig::accept_multisig_signer_as_key(Origin::signed(ms_address.clone()), ms_auth_id),
+            Error::MultisigNotAllowedToLinkToItself
+        );
     });
 }
 
