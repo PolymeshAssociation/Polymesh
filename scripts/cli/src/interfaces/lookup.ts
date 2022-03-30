@@ -2069,7 +2069,7 @@ export default {
       change_sigs_required: {
         sigsRequired: 'u64',
       },
-      make_multisig_secondary: {
+      make_multisig_signer: {
         multisig: 'AccountId32',
       },
       make_multisig_primary: {
