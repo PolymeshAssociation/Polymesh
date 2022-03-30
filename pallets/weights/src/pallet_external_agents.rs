@@ -59,6 +59,20 @@ impl pallet_external_agents::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(6 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
     }
+    fn create_group_and_add_auth(p: u32) -> Weight {
+        (65_478_000 as Weight)
+            // Standard Error: 35_000
+            .saturating_add((391_000 as Weight).saturating_mul(p as Weight))
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn create_and_change_custom_group(p: u32) -> Weight {
+        (65_478_000 as Weight)
+            // Standard Error: 35_000
+            .saturating_add((391_000 as Weight).saturating_mul(p as Weight))
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
     fn set_group_permissions(p: u32) -> Weight {
         (63_756_000 as Weight)
             // Standard Error: 58_000
