@@ -125,4 +125,15 @@ benchmarks! {
     verify {
         assert!(GroupOfAgent::get(ticker, other.did()).is_some());
     }
+
+    create_group_and_add_auth {
+        let p in 0..MAX_PALLETS;
+
+        let perms = perms(p);
+        let (owner, ticker) = setup::<T>();
+        assert_eq!(AGId(0), AGIdSequence::get(ticker));
+    }: _(owner.origin, ticker, perms, Signatory::Identity(owner.did()))
+    verify {
+        assert_eq!(AGId(1), AGIdSequence::get(ticker));
+    }
 }
