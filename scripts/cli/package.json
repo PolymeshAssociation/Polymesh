@@ -67,7 +67,7 @@
     "figlet": "1.5.2",
     "fp-ts": "2.11.7",
     "inquirer": "8.2.0",
-    "minimist": "1.2.5",
+    "minimist": "1.2.6",
     "nodejs-fs-utils": "1.2.6",
     "path": "0.12.7",
     "pm2": "^5.1.2",
