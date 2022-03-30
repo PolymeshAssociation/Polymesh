@@ -15,23 +15,33 @@
 
 //! # Contracts Module
 //!
-//! TODO
+//! The contracts module provides the Layer 2 solution for Polymesh.
+//! These smart contracts are defined using WASM,
+//! and facilitated by the `ink!` DSL provided by Parity.
+//!
+//! With this module, you or Alice can instantiate such a contract,
+//! through `instantiate_with_code` or `instantiate_with_hash`,
+//! attaching its key as a secondary key of the signer's identity.
+//! Anyone can then call this smart contract, e.g., Bob,
+//! which may call back into the runtime to e.g., `create_asset`.
+//! However, during the execution of `create_asset`,
+//! the current identity will be Alice, as opposed to `Bob`.
 //!
 //! ## Overview
 //!
 //! The Contracts module provides functions for:
 //!
-//! TODO
+//! - Instantiating contracts
+//! - Calling contracts
 //!
 //! ## Interface
 //!
 //! ### Dispatchable Functions
 //!
-//! - `todo` - TODO
-//!
-//! ### Public Functions
-//!
-//! - `todo` - TODO
+//! - `instantiate_with_code` instantiates a contract with the code provided.
+//! - `instantiate_with_hash` instantiates a contract by hash,
+//!   assuming that a contract with the same code already was uploaded.
+//! - `call` dispatches to the smart contract code, acting as the identity who made the contract.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(associated_type_bounds)]
@@ -69,15 +79,26 @@ pub trait WeightInfo {
     fn instantiate_with_code(code_len: u32, salt_len: u32) -> Weight;
     fn instantiate_with_hash(salt_len: u32) -> Weight;
 
+    /// Computes the cost just for executing the chain extension,
+    /// subtracting costs for `call` itself and runtime callbacks.
     fn chain_extension(in_len: u32) -> Weight {
         Self::chain_extension_full(in_len)
             .saturating_sub(Self::chain_extension_early_exit())
-            .saturating_sub(Self::basic_runtime_call())
+            .saturating_sub(Self::basic_runtime_call(in_len))
     }
 
+    /// Returns the weight for a full execution of a smart contract `call` that
+    /// calls  `register_custom_asset_type` in the runtime via a chain extension.
+    /// The asset type is `in_len` characters long.
     fn chain_extension_full(in_len: u32) -> Weight;
+
+    /// Returns the weight for a smart contract `call` that enters the chain extension
+    /// but then immediately returns.
     fn chain_extension_early_exit() -> Weight;
-    fn basic_runtime_call() -> Weight;
+
+    /// Returns the weight of executing `Asset::register_custom_asset_type`
+    /// with an asset type that is `in_len` characters long.
+    fn basic_runtime_call(in_len: u32) -> Weight;
 }
 
 /// The `Config` trait for the smart contracts pallet.
@@ -100,7 +121,11 @@ pub trait Config:
 }
 
 decl_event! {
-    pub enum Event {}
+    pub enum Event {
+        // This pallet does not directly define custom events.
+        // See `pallet_contracts` and `pallet_identity`
+        // for events currently emitted by extrinsics of this pallet.
+    }
 }
 
 decl_error! {
@@ -115,7 +140,9 @@ decl_error! {
 }
 
 decl_storage! {
-    trait Store for Module<T: Config> as Contracts {}
+    trait Store for Module<T: Config> as Contracts {
+        // Storage items defined in `pallet_contracts` and `pallet_identity`.
+    }
 }
 
 decl_module! {
@@ -133,7 +160,26 @@ decl_module! {
             pallet_contracts::Pallet::<T>::on_runtime_upgrade()
         }
 
-        /// TODO
+        /// Calls the `contract` through its address with the given `data`.
+        ///
+        /// The contract is endowed with `value` POLYX,
+        /// but note that this is distinct from gas fees which are limited with `gas_limit`.
+        ///
+        /// The contract may optionally call back into the runtime,
+        /// executing extrinsics such as e.g., `create_asset`.
+        /// During such runtime calls, the current identity will be the one that instantiate the `contract`.
+        /// This restriction exists for security purposes.
+        ///
+        /// # Arguments
+        /// - `contract` to call.
+        /// - `value` in POLYX to transfer to the contract.
+        /// - `gas_limit` that limits how much gas execution can consume, erroring above it.
+        /// - `data` to be interpreted by the smart contract call.
+        ///
+        /// # Errors
+        /// - All the errors in `pallet_contracts::Call::call` can also happen here.
+        /// - `ContractNotFound` if `contract` doesn't exist or isn't a contract.
+        /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
         #[weight = <T as Config>::WeightInfo::call().saturating_add(*gas_limit)]
         pub fn call(
             origin,
@@ -145,7 +191,26 @@ decl_module! {
             Self::base_call(origin, contract, value, gas_limit, data)
         }
 
-        /// TODO
+        /// Instantiates a smart contract defining it with the given `code` and `salt`.
+        ///
+        /// The contract will be attached as a secondary key,
+        /// with `perms` as its permissions, to `origin`'s identity.
+        ///
+        /// The contract is transferred `endowment` amount of POLYX.
+        /// This is distinct from the `gas_limit`,
+        /// which controls how much gas the deployment code may at most consume.
+        ///
+        /// # Arguments
+        /// - `endowment` amount of POLYX to transfer to the contract.
+        /// - `gas_limit` for how much gas the `deploy` code in the contract may at most consume.
+        /// - `code` with the WASM binary defining the smart contract.
+        /// - `salt` used for contract address derivation.
+        ///    By varying this, the same `code` can be used under the same identity.
+        ///
+        /// # Errors
+        /// - All the errors in `pallet_contracts::Call::instantiate_with_code` can also happen here.
+        /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
+        /// - Errors that arise when adding a new secondary key can also occur here.
         #[weight = <T as Config>::WeightInfo::instantiate_with_code(
             code.len() as u32,
             salt.len() as u32,
@@ -162,7 +227,29 @@ decl_module! {
             Self::base_instantiate_with_code(origin, endowment, gas_limit, code, data, salt, perms)
         }
 
-        /// TODO
+        /// Instantiates a smart contract defining using the given `code_hash` and `salt`.
+        ///
+        /// Unlike `instantiate_with_code`,
+        /// this assumes that at least one contract with the same WASM code has already been uploaded.
+        ///
+        /// The contract will be attached as a secondary key,
+        /// with `perms` as its permissions, to `origin`'s identity.
+        ///
+        /// The contract is transferred `endowment` amount of POLYX.
+        /// This is distinct from the `gas_limit`,
+        /// which controls how much gas the deployment code may at most consume.
+        ///
+        /// # Arguments
+        /// - `endowment` amount of POLYX to transfer to the contract.
+        /// - `gas_limit` for how much gas the `deploy` code in the contract may at most consume.
+        /// - `code_hash` of an already uploaded WASM binary.
+        /// - `salt` used for contract address derivation.
+        ///    By varying this, the same `code` can be used under the same identity.
+        ///
+        /// # Errors
+        /// - All the errors in `pallet_contracts::Call::instantiate` can also happen here.
+        /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
+        /// - Errors that arise when adding a new secondary key can also occur here.
         #[weight = <T as Config>::WeightInfo::instantiate_with_hash(salt.len() as u32)]
         pub fn instantiate_with_hash(
             origin,
@@ -190,6 +277,12 @@ impl<T: Config> Module<T> {
     ) -> DispatchResultWithPostInfo {
         // Ensure contract caller has perms.
         let sender = Identity::<T>::ensure_origin_call_permissions(origin)?.sender;
+
+        // Prevent pure `value` transfers when `contract` either doesn't exist or isn't a contract.
+        ensure!(
+            pallet_contracts::ContractInfoOf::<T>::contains_key(&contract),
+            pallet_contracts::Error::<T>::ContractNotFound,
+        );
 
         // Execute contract.
         Self::handle_error(

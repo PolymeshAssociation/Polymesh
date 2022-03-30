@@ -56,16 +56,18 @@ impl polymesh_contracts::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(5 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
-    // Storage: Identity KeyToIdentityIds (r:1 w:0)
-    // Storage: Identity DidRecords (r:1 w:0)
-    // Storage: Asset CustomTypesInverse (r:1 w:1)
-    // Storage: Asset CustomTypeIdSequence (r:1 w:1)
-    // Storage: Asset CustomTypes (r:0 w:1)
-    fn basic_runtime_call() -> Weight {
-        (37_551_000 as Weight)
-            .saturating_add(DbWeight::get().reads(4 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
-    }
+	// Storage: Identity KeyToIdentityIds (r:1 w:0)
+	// Storage: Identity DidRecords (r:1 w:0)
+	// Storage: Asset CustomTypesInverse (r:1 w:1)
+	// Storage: Asset CustomTypeIdSequence (r:1 w:1)
+	// Storage: Asset CustomTypes (r:0 w:1)
+	fn basic_runtime_call(n: u32, ) -> Weight {
+		(76_769_000 as Weight)
+			// Standard Error: 0
+			.saturating_add((12_000 as Weight).saturating_mul(n as Weight))
+			.saturating_add(DbWeight::get().reads(4 as Weight))
+			.saturating_add(DbWeight::get().writes(3 as Weight))
+	}
     // Storage: Identity KeyToIdentityIds (r:2 w:0)
     // Storage: Identity DidRecords (r:1 w:0)
     // Storage: BaseContracts ContractInfoOf (r:1 w:1)

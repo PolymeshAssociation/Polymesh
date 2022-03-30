@@ -132,8 +132,10 @@ benchmarks! {
     }: call(user.origin(), callee.clone(), 0, Weight::MAX, vec![])
 
     basic_runtime_call {
+        let n in 1 .. T::MaxLen::get() as u32;
+
         let user = funded_user::<T>();
-        let custom_type = b"X".to_vec();
+        let custom_type = vec![b'A'; n as usize];
         let origin = user.origin().into();
     }: {
         Asset::<T>::register_custom_asset_type(origin, custom_type).unwrap();
