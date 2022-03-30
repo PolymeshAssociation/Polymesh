@@ -1,7 +1,7 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { PortfolioId, Ticker, MovePortfolioItem } from "../types";
-import { sendTx, keyToIdentityIds, ApiSingleton } from "../util/init";
 import type { IdentityId } from "../interfaces";
+import { sendTx, keyToIdentityIds, ApiSingleton } from "../util/init";
 
 /**
  * @description Returns the next portfolio number

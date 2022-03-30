@@ -23,11 +23,6 @@ import {
   ExtrinsicPermissions,
   PortfolioPermissions,
 } from "../types";
-import { createTable } from "../util/sqlite3";
-
-beforeAll(() => {
-  createTable();
-});
 
 // Disconnects api after all the tests have completed
 afterAll(async () => {
@@ -52,7 +47,7 @@ describe("4 - Permission Management Unit Test", () => {
     let documents: Document[] = [];
 
     await expect(
-      distributePolyBatch(alice, [primaryKeys[0]], init.transferAmount)
+      distributePolyBatch(alice, [primaryKeys[0]], init.transferAmount * 2)
     ).resolves.not.toThrow();
     await expect(
       addSecondaryKeys(primaryKeys, secondaryKeys)
@@ -61,7 +56,7 @@ describe("4 - Permission Management Unit Test", () => {
       authorizeJoinToIdentities(secondaryKeys, primaryKeys)
     ).resolves.not.toThrow();
     await expect(
-      distributePolyBatch(alice, [secondaryKeys[0]], init.transferAmount)
+      distributePolyBatch(primaryKeys[0], [secondaryKeys[0]], init.transferAmount)
     ).resolves.not.toThrow();
     await expect(
       issueTokenToDid(primaryKeys[0], ticker, 1000000, null)

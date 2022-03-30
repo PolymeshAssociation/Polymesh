@@ -1,6 +1,8 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { AccountId } from "@polkadot/types/interfaces";
 import type { AnyNumber } from "@polkadot/types/types";
+import type { IdentityId } from "../interfaces";
+import type { u64 } from '@polkadot/types/primitive';
 import type {
   Permissions,
   Expiry,
@@ -8,13 +10,12 @@ import type {
   PortfolioPermissions,
   AssetPermissions,
   Signatory,
-  AuthorizationData,
-  AgentGroup,
   CddId,
   Claim,
 } from "../types";
 import { sendTx, keyToIdentityIds, ApiSingleton } from "../util/init";
-import type { IdentityId, Moment } from "../interfaces";
+
+
 
 export async function addClaim(
   signer: KeyringPair,
@@ -90,8 +91,8 @@ export async function authorizeJoinToIdentities(
     let last_auth_id: AnyNumber = 0;
     auths
       .map(([, value]) => value)
-      .filter((value) => value.isSome)
-      .forEach((value) => {
+      .filter((value: any) => value.isSome)
+      .forEach((value: any) => {
         const auth = value.unwrap();
         if (auth.authId > last_auth_id) {
           last_auth_id = auth.authId;
@@ -121,9 +122,9 @@ export async function createIdentitiesWithExpiry(
   let dids: IdentityId[] = [];
 
   for (let account of receivers) {
-    let account_did = (await keyToIdentityIds(account.publicKey)).toString();
+    let account_did = await keyToIdentityIds(account.publicKey);
 
-    if (parseInt(account_did) == 0) {
+    if (account_did.isEmpty) {
       console.log(`>>>> [Register CDD Claim] acc: ${account.address}`);
       const transaction = api.tx.identity.cddRegisterDid(account.address, []);
       await sendTx(signer, transaction);
@@ -199,5 +200,11 @@ export async function addAuthorization(
 
 export async function getAuthId() {
   const api = await ApiSingleton.getInstance();
-  return api.query.identity.multiPurposeNonce();
+  return (await api.query.identity.multiPurposeNonce()).toNumber();
+}
+
+export async function joinIdentityAsKey(signer: KeyringPair, authId: number | u64) {
+  const api = await ApiSingleton.getInstance();
+  const transaction = api.tx.identity.joinIdentityAsKey(authId);
+  await sendTx(signer, transaction);
 }
