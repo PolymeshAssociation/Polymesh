@@ -120,9 +120,9 @@ export async function createIdentitiesWithExpiry(
   let dids: IdentityId[] = [];
 
   for (let account of receivers) {
-    let account_did = await keyToIdentityIds(account.publicKey);
+    let account_did = (await keyToIdentityIds(account.publicKey)).toString();
 
-    if (account_did.isEmpty) {
+    if (parseInt(account_did) == 0) {
       console.log(`>>>> [Register CDD Claim] acc: ${account.address}`);
       const transaction = api.tx.identity.cddRegisterDid(account.address, []);
       await sendTx(signer, transaction);
