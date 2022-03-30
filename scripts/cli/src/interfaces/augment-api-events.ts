@@ -5,7 +5,7 @@ import type { ApiTypes } from '@polkadot/api-base/types';
 import type { Bytes, Null, Option, Result, U8aFixed, Vec, bool, u128, u32, u64, u8 } from '@polkadot/types-codec';
 import type { ITuple } from '@polkadot/types-codec/types';
 import type { AccountId32, H256, Perbill, Permill } from '@polkadot/types/interfaces/runtime';
-import type { FrameSupportTokensMiscBalanceStatus, FrameSupportWeightsDispatchInfo, PalletBridgeBridgeTx, PalletBridgeHandledTxStatus, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCorporateAction, PalletCorporateActionsDistribution, PalletCorporateActionsTargetIdentities, PalletImOnlineSr25519AppSr25519Public, PalletPipsProposalData, PalletPipsProposalState, PalletPipsProposer, PalletPipsSnapshottedPip, PalletSettlementLeg, PalletSettlementSettlementType, PalletSettlementVenueType, PalletStakingElectionCompute, PalletStakingExposure, PalletStakingSlashingSwitch, PalletStoFundraiser, PolymeshCommonUtilitiesBalancesMemo, PolymeshCommonUtilitiesCheckpointStoredSchedule, PolymeshCommonUtilitiesMaybeBlock, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetAssetType, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAuthorizationAuthorizationData, PolymeshPrimitivesCddIdInvestorUid, PolymeshPrimitivesComplianceManagerComplianceRequirement, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesEthereumEthereumAddress, PolymeshPrimitivesEventOnly, PolymeshPrimitivesIdentityClaim, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKeyApiSecondaryKey, PolymeshPrimitivesSecondaryKeyPermissions, PolymeshPrimitivesSecondaryKeySignatory, PolymeshPrimitivesStatisticsAssetScope, PolymeshPrimitivesStatisticsStatType, PolymeshPrimitivesStatisticsStatUpdate, PolymeshPrimitivesStatisticsTransferManager, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions, PolymeshPrimitivesTicker, PolymeshPrimitivesTransferComplianceTransferCondition, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, SpFinalityGrandpaAppPublic, SpRuntimeDispatchError } from '@polkadot/types/lookup';
+import type { FrameSupportTokensMiscBalanceStatus, FrameSupportWeightsDispatchInfo, PalletBridgeBridgeTx, PalletBridgeHandledTxStatus, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCorporateAction, PalletCorporateActionsDistribution, PalletCorporateActionsTargetIdentities, PalletImOnlineSr25519AppSr25519Public, PalletPipsProposalData, PalletPipsProposalState, PalletPipsProposer, PalletPipsSnapshottedPip, PalletSettlementLeg, PalletSettlementSettlementType, PalletSettlementVenueType, PalletStakingElectionCompute, PalletStakingExposure, PalletStakingSlashingSwitch, PalletStoFundraiser, PolymeshCommonUtilitiesBalancesMemo, PolymeshCommonUtilitiesCheckpointStoredSchedule, PolymeshCommonUtilitiesMaybeBlock, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetAssetType, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAuthorizationAuthorizationData, PolymeshPrimitivesCddIdInvestorUid, PolymeshPrimitivesComplianceManagerComplianceRequirement, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesEthereumEthereumAddress, PolymeshPrimitivesEventOnly, PolymeshPrimitivesIdentityClaim, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKeyApiSecondaryKey, PolymeshPrimitivesSecondaryKeyPermissions, PolymeshPrimitivesSecondaryKeySignatory, PolymeshPrimitivesStatisticsAssetScope, PolymeshPrimitivesStatisticsStatType, PolymeshPrimitivesStatisticsStatUpdate, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions, PolymeshPrimitivesTicker, PolymeshPrimitivesTransferComplianceTransferCondition, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, SpFinalityGrandpaAppPublic, SpRuntimeDispatchError } from '@polkadot/types/lookup';
 
 declare module '@polkadot/api-base/types/events' {
   export interface AugmentedEvents<ApiType extends ApiTypes> {
@@ -1256,14 +1256,6 @@ declare module '@polkadot/api-base/types/events' {
        **/
       AssetStatsUpdated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesStatisticsAssetScope, PolymeshPrimitivesStatisticsStatType, Vec<PolymeshPrimitivesStatisticsStatUpdate>]>;
       /**
-       * `ScopeId`s were added to the exemption list.
-       **/
-      ExemptionsAdded: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, PolymeshPrimitivesStatisticsTransferManager, Vec<PolymeshPrimitivesIdentityId>]>;
-      /**
-       * `ScopeId`s were removed from the exemption list.
-       **/
-      ExemptionsRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, PolymeshPrimitivesStatisticsTransferManager, Vec<PolymeshPrimitivesIdentityId>]>;
-      /**
        * Set Transfer compliance rules for asset.
        **/
       SetAssetTransferCompliance: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesStatisticsAssetScope, Vec<PolymeshPrimitivesTransferComplianceTransferCondition>]>;
@@ -1283,14 +1275,6 @@ declare module '@polkadot/api-base/types/events' {
        * Remove `ScopeId`s exempt for transfer conditions matching exempt key.
        **/
       TransferConditionExemptionsRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, Vec<PolymeshPrimitivesIdentityId>]>;
-      /**
-       * A new transfer manager was added.
-       **/
-      TransferManagerAdded: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, PolymeshPrimitivesStatisticsTransferManager]>;
-      /**
-       * An existing transfer manager was removed.
-       **/
-      TransferManagerRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, PolymeshPrimitivesStatisticsTransferManager]>;
       /**
        * Generic event
        **/
