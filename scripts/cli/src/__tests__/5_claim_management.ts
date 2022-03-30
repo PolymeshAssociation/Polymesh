@@ -7,11 +7,6 @@ import {
 } from "../util/init";
 import { createIdentities, addClaim } from "../helpers/identity_helper";
 import { distributePolyBatch } from "../helpers/poly_helper";
-import { createTable } from "../util/sqlite3";
-
-beforeAll(() => {
-  createTable();
-});
 
 // Disconnects api after all the tests have completed
 afterAll(async () => {
