@@ -56,12 +56,13 @@ use frame_support::{
         DispatchError, DispatchErrorWithPostInfo, DispatchResultWithPostInfo, GetDispatchInfo,
     },
     ensure,
-    traits::Get,
+    traits::{Get, GetCallMetadata},
     weights::Weight,
 };
 use pallet_contracts::chain_extension as ce;
 use pallet_contracts_primitives::{Code, ContractResult};
 use pallet_identity::PermissionedCallOriginData;
+use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
 use polymesh_common_utilities::{with_transaction, Context};
 use polymesh_primitives::{Balance, Permissions};
@@ -119,7 +120,7 @@ pub trait WeightInfo {
 /// The `Config` trait for the smart contracts pallet.
 pub trait Config:
     IdentityConfig
-    + pallet_contracts::Config<Currency = Self::Balances>
+    + pallet_contracts::Config<Currency = Self::Balances, Call: GetCallMetadata>
     + frame_system::Config<
         AccountId: AsRef<[u8]> + UncheckedFrom<<Self as frame_system::Config>::Hash>,
     >
@@ -563,7 +564,9 @@ where
 
         // Execute call requested by contract, with current DID set to the contract owner.
         let ext = env.ext();
-        let result = with_key_as_current::<T, _, _>(ext.address(), || ext.call_runtime(call));
+        let result = with_key_as_current::<T, _, _>(ext.address(), || {
+            with_call_metadata(call.get_call_metadata(), || ext.call_runtime(call))
+        });
 
         // Refund unspent weight.
         let post_di = result.unwrap_or_else(|e| e.post_info);

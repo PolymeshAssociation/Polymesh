@@ -5900,6 +5900,7 @@ dependencies = [
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-identity",
+ "pallet-permissions",
  "parity-scale-codec 2.3.1",
  "polymesh-common-utilities",
  "polymesh-primitives",
