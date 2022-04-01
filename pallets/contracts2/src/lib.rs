@@ -76,8 +76,23 @@ type CodeHash<T> = <T as frame_system::Config>::Hash;
 
 pub trait WeightInfo {
     fn call() -> Weight;
+
+    /// Computes the cost of instantiating where `code_len`
+    /// and `salt_len` are specified in kilobytes.
     fn instantiate_with_code(code_len: u32, salt_len: u32) -> Weight;
+
+    /// Computes the cost of instantiating for `code` and `salt`.
+    fn instantiate_with_code_bytes(code: &[u8], salt: &[u8]) -> Weight {
+        Self::instantiate_with_code(code.len() as u32 / 1024, salt.len() as u32 / 1024)
+    }
+
+    /// Computes the cost of instantiating where `salt_len` is specified in kilobytes.
     fn instantiate_with_hash(salt_len: u32) -> Weight;
+
+    /// Computes the cost of instantiating for `salt`.
+    fn instantiate_with_hash_bytes(salt: &[u8]) -> Weight {
+        Self::instantiate_with_hash((salt.len() / 1024) as u32)
+    }
 
     /// Computes the cost just for executing the chain extension,
     /// subtracting costs for `call` itself and runtime callbacks.
@@ -211,10 +226,7 @@ decl_module! {
         /// - All the errors in `pallet_contracts::Call::instantiate_with_code` can also happen here.
         /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
         /// - Errors that arise when adding a new secondary key can also occur here.
-        #[weight = <T as Config>::WeightInfo::instantiate_with_code(
-            code.len() as u32,
-            salt.len() as u32,
-        )]
+        #[weight = <T as Config>::WeightInfo::instantiate_with_code_bytes(&code, &salt)]
         pub fn instantiate_with_code(
             origin,
             endowment: Balance,
@@ -305,10 +317,7 @@ impl<T: Config> Module<T> {
             origin,
             endowment,
             // Compute the base weight of roughly `base_instantiate`.
-            <T as Config>::WeightInfo::instantiate_with_code(
-                (code.len() / 1024) as u32,
-                (salt.len() / 1024) as u32,
-            ),
+            <T as Config>::WeightInfo::instantiate_with_code_bytes(&code, &salt),
             gas_limit,
             T::Hashing::hash(&code),
             Code::Upload(Bytes(code)),
@@ -332,7 +341,7 @@ impl<T: Config> Module<T> {
             origin,
             endowment,
             // Compute the base weight of roughly `base_instantiate`.
-            <T as Config>::WeightInfo::instantiate_with_hash((salt.len() / 1024) as u32),
+            <T as Config>::WeightInfo::instantiate_with_hash_bytes(&salt),
             gas_limit,
             code_hash,
             Code::Existing(code_hash),
