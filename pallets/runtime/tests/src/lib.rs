@@ -22,6 +22,7 @@ mod bridge;
 mod committee_test;
 mod compliance_manager_test;
 //mod contract_test;
+mod contracts2_test;
 mod corporate_actions_test;
 #[macro_use]
 mod external_agents_test;

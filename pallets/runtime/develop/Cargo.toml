@@ -43,7 +43,7 @@ pallet-transaction-payment = { path = "../../transaction-payment", default-featu
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
 pallet-sudo = { path = "../../sudo", default-features = false }
-polymesh-contracts = { path = "../../contracts2", default-features = false }
+polymesh-contracts = { path = "../../contracts", default-features = false }
 
 # Others
 serde = { version = "1.0.104", default-features = false }
