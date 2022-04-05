@@ -128,7 +128,7 @@
     },
     "SecondaryKeyWithAuth": {
       "secondary_key": "SecondaryKey",
-      "auth_signature": "Signature"
+      "auth_signature": "H512"
     },
     "Subsidy": {
       "paying_key": "AccountId",
