@@ -159,4 +159,30 @@ impl pallet_asset::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(4 as Weight))
             .saturating_add(DbWeight::get().writes(3 as Weight))
     }
+
+    fn set_asset_metadata() -> Weight {
+        (175_547_000 as Weight)
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn set_asset_metadata_details() -> Weight {
+        (140_383_000 as Weight)
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn register_and_set_local_asset_metadata() -> Weight {
+        (279_615_000 as Weight)
+            .saturating_add(DbWeight::get().reads(8 as Weight))
+            .saturating_add(DbWeight::get().writes(6 as Weight))
+    }
+    fn register_asset_metadata_local_type() -> Weight {
+        (223_108_000 as Weight)
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().writes(4 as Weight))
+    }
+    fn register_asset_metadata_global_type() -> Weight {
+        (157_453_000 as Weight)
+            .saturating_add(DbWeight::get().reads(2 as Weight))
+            .saturating_add(DbWeight::get().writes(4 as Weight))
+    }
 }

@@ -50,6 +50,10 @@
 //! - `remove_documents` - Remove documents for a given token.
 //! - `set_funding_round` - Sets the name of the current funding round.
 //! - `update_identifiers` - Updates the asset identifiers.
+//! - `set_asset_metadata` - Set asset metadata value.
+//! - `set_asset_metadata_details` - Set asset metadata value details (expire, lock status).
+//! - `register_asset_metadata_local_type` - Register asset metadata local type.
+//! - `register_asset_metadata_global_type` - Register asset metadata global type.
 //!
 //! ### Public Functions
 //!
@@ -107,6 +111,10 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     agent::AgentGroup,
     asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName, GranularCanTransferResult},
+    asset_metadata::{
+        AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName,
+        AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
+    },
     calendar::CheckpointId,
     ethereum::{self, EcdsaSignature, EthereumAddress},
     extract_auth,
@@ -293,6 +301,45 @@ decl_storage! {
         /// Ticker => bool.
         pub DisableInvestorUniqueness get(fn disable_iu): map hasher(blake2_128_concat) Ticker => bool;
 
+        /// Metatdata values for an asset.
+        pub AssetMetadataValues get(fn asset_metadata_values):
+            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) AssetMetadataKey =>
+                Option<AssetMetadataValue>;
+        /// Details for an asset's Metadata values.
+        pub AssetMetadataValueDetails get(fn asset_metadata_value_details):
+            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) AssetMetadataKey =>
+                Option<AssetMetadataValueDetail<T::Moment>>;
+
+        /// Asset Metadata Local Name -> Key.
+        pub AssetMetadataLocalNameToKey get(fn asset_metadata_local_name_to_key):
+            double_map hasher(blake2_128_concat) Ticker, hasher(blake2_128_concat) AssetMetadataName =>
+                Option<AssetMetadataLocalKey>;
+        /// Asset Metadata Global Name -> Key.
+        pub AssetMetadataGlobalNameToKey get(fn asset_metadata_global_name_to_key):
+            map hasher(blake2_128_concat) AssetMetadataName => Option<AssetMetadataGlobalKey>;
+
+        /// Asset Metadata Local Key -> Name.
+        pub AssetMetadataLocalKeyToName get(fn asset_metadata_local_key_to_name):
+            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) AssetMetadataLocalKey =>
+                Option<AssetMetadataName>;
+        /// Asset Metadata Global Key -> Name.
+        pub AssetMetadataGlobalKeyToName get(fn asset_metadata_global_key_to_name):
+            map hasher(twox_64_concat) AssetMetadataGlobalKey => Option<AssetMetadataName>;
+
+        /// Asset Metadata Local Key specs.
+        pub AssetMetadataLocalSpecs get(fn asset_metadata_local_specs):
+            double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) AssetMetadataLocalKey =>
+                Option<AssetMetadataSpec>;
+        /// Asset Metadata Global Key specs.
+        pub AssetMetadataGlobalSpecs get(fn asset_metadata_global_specs):
+            map hasher(twox_64_concat) AssetMetadataGlobalKey => Option<AssetMetadataSpec>;
+
+        /// Next Asset Metadata Local Key.
+        pub AssetMetadataNextLocalKey get(fn asset_metadata_next_local_key):
+            map hasher(blake2_128_concat) Ticker => AssetMetadataLocalKey;
+        /// Next Asset Metadata Global Key.
+        pub AssetMetadataNextGlobalKey get(fn asset_metadata_next_global_key): AssetMetadataGlobalKey;
+
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
@@ -349,6 +396,10 @@ decl_module! {
         const MaxNumberOfTMExtensionForAsset: u32 = T::MaxNumberOfTMExtensionForAsset::get();
         const AssetNameMaxLength: u32 = T::AssetNameMaxLength::get();
         const FundingRoundNameMaxLength: u32 = T::FundingRoundNameMaxLength::get();
+
+        const AssetMetadataNameMaxLength: u32 = T::AssetMetadataNameMaxLength::get();
+        const AssetMetadataValueMaxLength: u32 = T::AssetMetadataValueMaxLength::get();
+        const AssetMetadataTypeDefMaxLength: u32 = T::AssetMetadataTypeDefMaxLength::get();
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             use frame_support::weights::constants::WEIGHT_PER_MICROS;
@@ -817,6 +868,109 @@ decl_module! {
                 ).map(drop)
             })
         }
+
+        /// Set asset metadata value.
+        ///
+        /// # Arguments
+        /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
+        /// * `ticker` Ticker of the token.
+        /// * `key` Metadata key.
+        /// * `value` Metadata value.
+        /// * `details` Optional Metadata value details (expire, lock status).
+        ///
+        /// # Errors
+        /// * `AssetMetadataKeyIsMissing` if the metadata type key doesn't exist.
+        /// * `AssetMetadataValueIsLocked` if the metadata value for `key` is locked.
+        /// * `AssetMetadataValueMaxLengthExceeded` if the metadata value exceeds the maximum length.
+        ///
+        /// # Permissions
+        /// * Agent
+        /// * Asset
+        #[weight = <T as Config>::WeightInfo::set_asset_metadata()]
+        pub fn set_asset_metadata(origin, ticker: Ticker, key: AssetMetadataKey, value: AssetMetadataValue, detail: Option<AssetMetadataValueDetail<T::Moment>>) -> DispatchResult {
+            Self::base_set_asset_metadata(origin, ticker, key, value, detail)
+        }
+
+        /// Set asset metadata value details (expire, lock status).
+        ///
+        /// # Arguments
+        /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
+        /// * `ticker` Ticker of the token.
+        /// * `key` Metadata key.
+        /// * `details` Metadata value details (expire, lock status).
+        ///
+        /// # Errors
+        /// * `AssetMetadataKeyIsMissing` if the metadata type key doesn't exist.
+        /// * `AssetMetadataValueIsLocked` if the metadata value for `key` is locked.
+        ///
+        /// # Permissions
+        /// * Agent
+        /// * Asset
+        #[weight = <T as Config>::WeightInfo::set_asset_metadata_details()]
+        pub fn set_asset_metadata_details(origin, ticker: Ticker, key: AssetMetadataKey, detail: AssetMetadataValueDetail<T::Moment>) -> DispatchResult {
+            Self::base_set_asset_metadata_details(origin, ticker, key, detail)
+        }
+
+        /// Registers and set local asset metadata.
+        ///
+        /// # Arguments
+        /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
+        /// * `ticker` Ticker of the token.
+        /// * `name` Metadata name.
+        /// * `spec` Metadata type definition.
+        /// * `value` Metadata value.
+        /// * `details` Optional Metadata value details (expire, lock status).
+        ///
+        /// # Errors
+        /// * `AssetMetadataLocalKeyAlreadyExists` if a local metadata type with `name` already exists for `ticker`.
+        /// * `AssetMetadataNameMaxLengthExceeded` if the metadata `name` exceeds the maximum length.
+        /// * `AssetMetadataTypeDefMaxLengthExceeded` if the metadata `spec` type definition exceeds the maximum length.
+        /// * `AssetMetadataValueMaxLengthExceeded` if the metadata value exceeds the maximum length.
+        ///
+        /// # Permissions
+        /// * Agent
+        /// * Asset
+        #[weight = <T as Config>::WeightInfo::register_and_set_local_asset_metadata()]
+        pub fn register_and_set_local_asset_metadata(origin, ticker: Ticker, name: AssetMetadataName, spec: AssetMetadataSpec, value: AssetMetadataValue, detail: Option<AssetMetadataValueDetail<T::Moment>>) -> DispatchResult {
+            Self::base_register_and_set_local_asset_metadata(origin, ticker, name, spec, value, detail)
+        }
+
+        /// Registers asset metadata local type.
+        ///
+        /// # Arguments
+        /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
+        /// * `ticker` Ticker of the token.
+        /// * `name` Metadata name.
+        /// * `spec` Metadata type definition.
+        ///
+        /// # Errors
+        /// * `AssetMetadataLocalKeyAlreadyExists` if a local metadata type with `name` already exists for `ticker`.
+        /// * `AssetMetadataNameMaxLengthExceeded` if the metadata `name` exceeds the maximum length.
+        /// * `AssetMetadataTypeDefMaxLengthExceeded` if the metadata `spec` type definition exceeds the maximum length.
+        ///
+        /// # Permissions
+        /// * Agent
+        /// * Asset
+        #[weight = <T as Config>::WeightInfo::register_asset_metadata_local_type()]
+        pub fn register_asset_metadata_local_type(origin, ticker: Ticker, name: AssetMetadataName, spec: AssetMetadataSpec) -> DispatchResult {
+            Self::base_register_asset_metadata_local_type(origin, ticker, name, spec)
+        }
+
+        /// Registers asset metadata global type.
+        ///
+        /// # Arguments
+        /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
+        /// * `name` Metadata name.
+        /// * `spec` Metadata type definition.
+        ///
+        /// # Errors
+        /// * `AssetMetadataGlobalKeyAlreadyExists` if a globa metadata type with `name` already exists.
+        /// * `AssetMetadataNameMaxLengthExceeded` if the metadata `name` exceeds the maximum length.
+        /// * `AssetMetadataTypeDefMaxLengthExceeded` if the metadata `spec` type definition exceeds the maximum length.
+        #[weight = <T as Config>::WeightInfo::register_asset_metadata_global_type()]
+        pub fn register_asset_metadata_global_type(origin, name: AssetMetadataName, spec: AssetMetadataSpec) -> DispatchResult {
+            Self::base_register_asset_metadata_global_type(origin, name, spec)
+        }
     }
 }
 
@@ -888,6 +1042,20 @@ decl_error! {
         InvestorUniquenessClaimNotAllowed,
         /// Invalid `CustomAssetTypeId`.
         InvalidCustomAssetTypeId,
+        /// Maximum length of the asset metadata type name has been exceeded.
+        AssetMetadataNameMaxLengthExceeded,
+        /// Maximum length of the asset metadata value has been exceeded.
+        AssetMetadataValueMaxLengthExceeded,
+        /// Maximum length of the asset metadata type definition has been exceeded.
+        AssetMetadataTypeDefMaxLengthExceeded,
+        /// Asset Metadata key is missing.
+        AssetMetadataKeyIsMissing,
+        /// Asset Metadata value is locked.
+        AssetMetadataValueIsLocked,
+        /// Asset Metadata Local type already exists for asset.
+        AssetMetadataLocalKeyAlreadyExists,
+        /// Asset Metadata Global type already exists.
+        AssetMetadataGlobalKeyAlreadyExists,
     }
 }
 
@@ -1957,6 +2125,216 @@ impl<T: Config> Module<T> {
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
         Self::ensure_asset_idents_valid(&identifiers)?;
         Self::unverified_update_idents(did, ticker, identifiers);
+        Ok(())
+    }
+
+    fn is_asset_metadata_locked(ticker: Ticker, key: AssetMetadataKey) -> bool {
+        AssetMetadataValueDetails::<T>::get(ticker, key).map_or(false, |details| {
+            details.is_locked(<pallet_timestamp::Pallet<T>>::get())
+        })
+    }
+
+    fn check_asset_metadata_key_exists(ticker: Ticker, key: AssetMetadataKey) -> bool {
+        match key {
+            AssetMetadataKey::Global(key) => AssetMetadataGlobalKeyToName::contains_key(key),
+            AssetMetadataKey::Local(key) => AssetMetadataLocalKeyToName::contains_key(ticker, key),
+        }
+    }
+
+    /// Ensure asset metadata `value` is within the global limit.
+    fn ensure_asset_metadata_value_limited(value: &AssetMetadataValue) -> DispatchResult {
+        ensure!(
+            value.len() <= T::AssetMetadataValueMaxLength::get() as usize,
+            Error::<T>::AssetMetadataValueMaxLengthExceeded
+        );
+        Ok(())
+    }
+
+    /// Ensure asset metadata `name` is within the global limit.
+    fn ensure_asset_metadata_name_limited(name: &AssetMetadataName) -> DispatchResult {
+        ensure!(
+            name.len() <= T::AssetMetadataNameMaxLength::get() as usize,
+            Error::<T>::AssetMetadataNameMaxLengthExceeded
+        );
+        Ok(())
+    }
+
+    /// Ensure asset metadata `spec` is within the global limit.
+    fn ensure_asset_metadata_spec_limited(spec: &AssetMetadataSpec) -> DispatchResult {
+        ensure_opt_string_limited::<T>(spec.url.as_deref())?;
+        ensure_opt_string_limited::<T>(spec.description.as_deref())?;
+        if let Some(ref type_def) = spec.type_def {
+            ensure!(
+                type_def.len() <= T::AssetMetadataTypeDefMaxLength::get() as usize,
+                Error::<T>::AssetMetadataTypeDefMaxLengthExceeded
+            );
+        }
+        Ok(())
+    }
+
+    fn base_set_asset_metadata(
+        origin: T::Origin,
+        ticker: Ticker,
+        key: AssetMetadataKey,
+        value: AssetMetadataValue,
+        detail: Option<AssetMetadataValueDetail<T::Moment>>,
+    ) -> DispatchResult {
+        // Ensure the caller has the correct permissions for this asset.
+        let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+
+        Self::unverified_set_asset_metadata(did, ticker, key, value, detail)
+    }
+
+    fn unverified_set_asset_metadata(
+        did: IdentityId,
+        ticker: Ticker,
+        key: AssetMetadataKey,
+        value: AssetMetadataValue,
+        detail: Option<AssetMetadataValueDetail<T::Moment>>,
+    ) -> DispatchResult {
+        // Check value length limit.
+        Self::ensure_asset_metadata_value_limited(&value)?;
+
+        // Check key exists.
+        ensure!(
+            Self::check_asset_metadata_key_exists(ticker, key),
+            Error::<T>::AssetMetadataKeyIsMissing
+        );
+
+        // Check if value is currently locked.
+        ensure!(
+            !Self::is_asset_metadata_locked(ticker, key),
+            Error::<T>::AssetMetadataValueIsLocked
+        );
+
+        // Set asset metadata value for asset.
+        AssetMetadataValues::insert(ticker, key, &value);
+
+        // Set asset metadata value details.
+        if let Some(ref detail) = detail {
+            AssetMetadataValueDetails::<T>::insert(ticker, key, detail);
+        }
+
+        Self::deposit_event(RawEvent::SetAssetMetadataValue(did, ticker, value, detail));
+        Ok(())
+    }
+
+    fn base_set_asset_metadata_details(
+        origin: T::Origin,
+        ticker: Ticker,
+        key: AssetMetadataKey,
+        detail: AssetMetadataValueDetail<T::Moment>,
+    ) -> DispatchResult {
+        // Ensure the caller has the correct permissions for this asset.
+        let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+
+        // Check key exists.
+        ensure!(
+            Self::check_asset_metadata_key_exists(ticker, key),
+            Error::<T>::AssetMetadataKeyIsMissing
+        );
+
+        // Check if value is currently locked.
+        ensure!(
+            !Self::is_asset_metadata_locked(ticker, key),
+            Error::<T>::AssetMetadataValueIsLocked
+        );
+
+        // Set asset metadata value details.
+        AssetMetadataValueDetails::<T>::insert(ticker, key, &detail);
+
+        Self::deposit_event(RawEvent::SetAssetMetadataValueDetails(did, ticker, detail));
+        Ok(())
+    }
+
+    fn base_register_and_set_local_asset_metadata(
+        origin: T::Origin,
+        ticker: Ticker,
+        name: AssetMetadataName,
+        spec: AssetMetadataSpec,
+        value: AssetMetadataValue,
+        detail: Option<AssetMetadataValueDetail<T::Moment>>,
+    ) -> DispatchResult {
+        // Ensure the caller has the correct permissions for this asset.
+        let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+
+        // Register local metadata type.
+        let key = Self::unverified_register_asset_metadata_local_type(did, ticker, name, spec)?;
+
+        Self::unverified_set_asset_metadata(did, ticker, key, value, detail)
+    }
+
+    fn base_register_asset_metadata_local_type(
+        origin: T::Origin,
+        ticker: Ticker,
+        name: AssetMetadataName,
+        spec: AssetMetadataSpec,
+    ) -> DispatchResult {
+        // Ensure the caller has the correct permissions for this asset.
+        let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+
+        Self::unverified_register_asset_metadata_local_type(did, ticker, name, spec).map(drop)
+    }
+
+    fn unverified_register_asset_metadata_local_type(
+        did: IdentityId,
+        ticker: Ticker,
+        name: AssetMetadataName,
+        spec: AssetMetadataSpec,
+    ) -> Result<AssetMetadataKey, DispatchError> {
+        Self::ensure_asset_metadata_name_limited(&name)?;
+        Self::ensure_asset_metadata_spec_limited(&spec)?;
+
+        // Check if key already exists.
+        ensure!(
+            !AssetMetadataLocalNameToKey::contains_key(ticker, &name),
+            Error::<T>::AssetMetadataLocalKeyAlreadyExists
+        );
+
+        // Next local key for asset.
+        let key = AssetMetadataNextLocalKey::try_mutate(ticker, try_next_pre::<T, _>)?;
+
+        // Store local key <-> name mapping.
+        AssetMetadataLocalNameToKey::insert(ticker, &name, key);
+        AssetMetadataLocalKeyToName::insert(ticker, key, &name);
+
+        // Store local specs.
+        AssetMetadataLocalSpecs::insert(ticker, key, &spec);
+
+        Self::deposit_event(RawEvent::RegisterAssetMetadataLocalType(
+            did, ticker, name, key, spec,
+        ));
+        Ok(key.into())
+    }
+
+    fn base_register_asset_metadata_global_type(
+        origin: T::Origin,
+        name: AssetMetadataName,
+        spec: AssetMetadataSpec,
+    ) -> DispatchResult {
+        Self::ensure_asset_metadata_name_limited(&name)?;
+        Self::ensure_asset_metadata_spec_limited(&spec)?;
+
+        // Only allow global metadata types to be registered by root.
+        ensure_root(origin)?;
+
+        // Check if key already exists.
+        ensure!(
+            !AssetMetadataGlobalNameToKey::contains_key(&name),
+            Error::<T>::AssetMetadataGlobalKeyAlreadyExists
+        );
+
+        // Next global key.
+        let key = AssetMetadataNextGlobalKey::try_mutate(try_next_pre::<T, _>)?;
+
+        // Store global key <-> name mapping.
+        AssetMetadataGlobalNameToKey::insert(&name, key);
+        AssetMetadataGlobalKeyToName::insert(key, &name);
+
+        // Store global specs.
+        AssetMetadataGlobalSpecs::insert(key, &spec);
+
+        Self::deposit_event(RawEvent::RegisterAssetMetadataGlobalType(name, key, spec));
         Ok(())
     }
 

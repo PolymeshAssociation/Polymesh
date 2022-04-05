@@ -1,0 +1,20 @@
+{
+	"Duration": {
+		"secs": "i64",
+		"nanos": "i32"
+	},
+	"Date": {
+		"year": "u16",
+		"month": "u8",
+		"day": "u8"
+	},
+	"Time": {
+		"hour": "u8",
+		"minute": "u8",
+		"second": "u8"
+	},
+	"DateTime": {
+		"date": "Date",
+		"time": "Time"
+	}
+}

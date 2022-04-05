@@ -117,6 +117,9 @@ parameter_types! {
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
     pub const AssetNameMaxLength: u32 = 128;
     pub const FundingRoundNameMaxLength: u32 = 128;
+    pub const AssetMetadataNameMaxLength: u32 = 256;
+    pub const AssetMetadataValueMaxLength: u32 = 8 * 1024;
+    pub const AssetMetadataTypeDefMaxLength: u32 = 8 * 1024;
 
     // Compliance manager:
     pub const MaxConditionComplexity: u32 = 50;
