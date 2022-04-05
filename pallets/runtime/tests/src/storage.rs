@@ -400,6 +400,9 @@ parameter_types! {
     pub MaxNumberOfTMExtensionForAsset: u32 = MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow());
     pub const AssetNameMaxLength: u32 = 128;
     pub const FundingRoundNameMaxLength: u32 = 128;
+    pub const AssetMetadataNameMaxLength: u32 = 256;
+    pub const AssetMetadataValueMaxLength: u32 = 8 * 1024;
+    pub const AssetMetadataTypeDefMaxLength: u32 = 8 * 1024;
     pub const BlockRangeForTimelock: BlockNumber = 1000;
     pub const MaxTargetIds: u32 = 10;
     pub const MaxDidWhts: u32 = 10;
