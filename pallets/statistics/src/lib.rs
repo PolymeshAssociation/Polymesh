@@ -381,6 +381,10 @@ impl<T: Config> Module<T> {
     }
 
     /// Update unique investor count per asset per claim.
+    ///
+    /// * `changes: (from_change, to_change)`
+    /// If the `from` is transfering the total balance (decreasing investor count), then `from_change == true`.
+    /// If the `to` has no tokens before this transfer (increasing investor count), then `to_change == true`.
     fn update_asset_count_stats(
         key1: Stat1stKey,
         from_key2: Stat2ndKey,
