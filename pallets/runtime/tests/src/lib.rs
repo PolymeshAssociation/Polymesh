@@ -17,6 +17,8 @@ pub use ext_builder::ExtBuilder;
 #[macro_use]
 mod asset_test;
 #[cfg(test)]
+mod asset_metadata_test;
+#[cfg(test)]
 mod balances_test;
 #[cfg(test)]
 mod bridge;

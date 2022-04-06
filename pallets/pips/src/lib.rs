@@ -117,7 +117,7 @@ use polymesh_common_utilities::{
     with_transaction, CommonConfig, Context, MaybeBlock, GC_DID,
 };
 use polymesh_primitives::{
-    impl_checked_inc, storage_migrate_on, storage_migration_ver, Balance, IdentityId,
+    impl_checked_inc, storage_migrate_on, storage_migration_ver, Balance, IdentityId, Url,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use polymesh_runtime_common::PipsEnactSnapshotMaximumWeight;
@@ -163,11 +163,6 @@ pub trait WeightInfo {
     fn execute_scheduled_pip() -> Weight;
     fn expire_scheduled_pip() -> Weight;
 }
-
-/// A wrapper for a proposal url.
-#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
-#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Url(pub Vec<u8>);
 
 /// A wrapper for a proposal description.
 #[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]

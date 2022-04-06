@@ -77,6 +77,33 @@
       "divisible": "bool",
       "asset_type": "AssetType"
     },
+    "AssetMetadataName": "Text",
+    "AssetMetadataValue": "Vec<u8>",
+    "AssetMetadataLocalKey": "u64",
+    "AssetMetadataGlobalKey": "u64",
+    "AssetMetadataKey": {
+      "_enum": {
+        "Global": "u64",
+        "Local": "u64"
+      }
+    },
+    "AssetMetadataLockStatus<Moment>": {
+      "_enum": {
+        "Unlocked": "",
+        "Locked": "",
+        "LockedUntil": "Moment"
+      }
+    },
+    "AssetMetadataValueDetail<Moment>": {
+      "expire": "Option<Moment>",
+      "lock_status": "AssetMetadataLockStatus<Moment>"
+    },
+    "AssetMetadataDescription": "Text",
+    "AssetMetadataSpec": {
+      "url": "Option<Url>",
+      "description": "Option<AssetMetadataDescription>",
+      "type_def": "Option<Vec<u8>>"
+    },
     "PalletName": "Text",
     "DispatchableName": "Text",
     "AssetPermissions": {

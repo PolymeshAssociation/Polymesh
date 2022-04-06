@@ -25,7 +25,13 @@ use polymesh_common_utilities::{
 };
 //use polymesh_contracts::ExtensionInfo;
 use polymesh_primitives::{
-    asset::AssetName, ticker::TICKER_LEN, AuthorizationData, Signatory, Ticker,
+    asset::AssetName,
+    asset_metadata::{
+        AssetMetadataDescription, AssetMetadataKey, AssetMetadataName, AssetMetadataSpec,
+        AssetMetadataValue, AssetMetadataValueDetail,
+    },
+    ticker::TICKER_LEN,
+    AuthorizationData, Signatory, Ticker, Url,
 };
 //use polymesh_primitives::{ExtensionAttributes, SmartExtension};
 use sp_io::hashing::keccak_256;
@@ -47,6 +53,41 @@ pub fn make_document() -> Document {
     }
 }
 
+/// Make metadata name for benchmarking.
+fn make_metadata_name<T: Config>() -> AssetMetadataName {
+    AssetMetadataName(vec![b'n'; T::AssetMetadataNameMaxLength::get() as usize])
+}
+
+/// Make metadata value for benchmarking.
+fn make_metadata_value<T: Config>() -> AssetMetadataValue {
+    AssetMetadataValue(vec![b'v'; T::AssetMetadataValueMaxLength::get() as usize])
+}
+
+/// Make metadata spec for benchmarking.
+fn make_metadata_spec<T: Config>() -> AssetMetadataSpec {
+    AssetMetadataSpec {
+        url: Some(Url(vec![b'u'; T::MaxLen::get() as usize])),
+        description: Some(AssetMetadataDescription(vec![
+            b'd';
+            T::MaxLen::get() as usize
+        ])),
+        type_def: Some(vec![b'x'; T::AssetMetadataTypeDefMaxLength::get() as usize]),
+    }
+}
+
+/// Register a global metadata type for benchmarking.
+fn register_metadata_global_name<T: Config>() -> AssetMetadataKey {
+    let root = RawOrigin::Root.into();
+    let name = make_metadata_name::<T>();
+    let spec = make_metadata_spec::<T>();
+
+    Module::<T>::register_asset_metadata_global_type(root, name, spec)
+        .expect("`register_asset_metadata_global_type` failed");
+
+    let key = Module::<T>::asset_metadata_next_global_key();
+    AssetMetadataKey::Global(key)
+}
+
 fn make_default_reg_config<T: Config>() -> TickerRegistrationConfig<T::Moment> {
     TickerRegistrationConfig {
         max_ticker_length: 8,
@@ -62,7 +103,7 @@ fn make_classic_ticker<T: Config>(eth_owner: ethereum::EthereumAddress, ticker: 
         is_contract: false,
     };
     let reg_config = make_default_reg_config::<T>();
-    let root = frame_system::RawOrigin::Root.into();
+    let root = RawOrigin::Root.into();
 
     <Module<T>>::reserve_classic_ticker(root, classic_ticker, 0u128.into(), reg_config)
         .expect("`reserve_classic_ticker` failed");
@@ -456,4 +497,36 @@ benchmarks! {
     verify {
         assert_ne!(id, Module::<T>::custom_type_id_seq());
     }
+
+    set_asset_metadata {
+        let (owner, ticker) = owned_ticker::<T>();
+        let key = register_metadata_global_name::<T>();
+        let value = make_metadata_value::<T>();
+        let details = Some(AssetMetadataValueDetail::default());
+    }: _(owner.origin, ticker, key, value, details)
+
+    set_asset_metadata_details {
+        let (owner, ticker) = owned_ticker::<T>();
+        let key = register_metadata_global_name::<T>();
+        let details = AssetMetadataValueDetail::default();
+    }: _(owner.origin, ticker, key, details)
+
+    register_and_set_local_asset_metadata {
+        let (owner, ticker) = owned_ticker::<T>();
+        let name = make_metadata_name::<T>();
+        let spec = make_metadata_spec::<T>();
+        let value = make_metadata_value::<T>();
+        let details = Some(AssetMetadataValueDetail::default());
+    }: _(owner.origin, ticker, name, spec, value, details)
+
+    register_asset_metadata_local_type {
+        let (owner, ticker) = owned_ticker::<T>();
+        let name = make_metadata_name::<T>();
+        let spec = make_metadata_spec::<T>();
+    }: _(owner.origin, ticker, name, spec)
+
+    register_asset_metadata_global_type {
+        let name = make_metadata_name::<T>();
+        let spec = make_metadata_spec::<T>();
+    }: _(RawOrigin::Root, name, spec)
 }

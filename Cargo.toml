@@ -154,6 +154,7 @@ members = [
     "pallets/test-utils",
     "pallets/weights",
     "primitives",
+    "primitives/asset-metadata",
     "rpc",
     "rpc/runtime-api",
     "utils/permissions",
