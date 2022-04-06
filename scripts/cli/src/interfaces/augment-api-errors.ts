@@ -27,6 +27,34 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       AssetAlreadyDivisible: AugmentedError<ApiType>;
       /**
+       * Asset Metadata Global type already exists.
+       **/
+      AssetMetadataGlobalKeyAlreadyExists: AugmentedError<ApiType>;
+      /**
+       * Asset Metadata key is missing.
+       **/
+      AssetMetadataKeyIsMissing: AugmentedError<ApiType>;
+      /**
+       * Asset Metadata Local type already exists for asset.
+       **/
+      AssetMetadataLocalKeyAlreadyExists: AugmentedError<ApiType>;
+      /**
+       * Maximum length of the asset metadata type name has been exceeded.
+       **/
+      AssetMetadataNameMaxLengthExceeded: AugmentedError<ApiType>;
+      /**
+       * Maximum length of the asset metadata type definition has been exceeded.
+       **/
+      AssetMetadataTypeDefMaxLengthExceeded: AugmentedError<ApiType>;
+      /**
+       * Asset Metadata value is locked.
+       **/
+      AssetMetadataValueIsLocked: AugmentedError<ApiType>;
+      /**
+       * Maximum length of the asset metadata value has been exceeded.
+       **/
+      AssetMetadataValueMaxLengthExceeded: AugmentedError<ApiType>;
+      /**
        * An overflow while calculating the balance.
        **/
       BalanceOverflow: AugmentedError<ApiType>;
@@ -932,9 +960,13 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       RequiredSignaturesOutOfBounds: AugmentedError<ApiType>;
       /**
+       * Signer is an account key that is already associated with an identity.
+       **/
+      SignerAlreadyLinkedToIdentity: AugmentedError<ApiType>;
+      /**
        * Signer is an account key that is already associated with a multisig.
        **/
-      SignerAlreadyLinked: AugmentedError<ApiType>;
+      SignerAlreadyLinkedToMultisig: AugmentedError<ApiType>;
       /**
        * More signers than required.
        **/

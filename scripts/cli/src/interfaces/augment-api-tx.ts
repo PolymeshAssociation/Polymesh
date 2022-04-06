@@ -5,7 +5,7 @@ import type { ApiTypes } from '@polkadot/api-base/types';
 import type { Bytes, Compact, Option, Vec, bool, u128, u16, u32, u64, u8 } from '@polkadot/types-codec';
 import type { AnyNumber, ITuple } from '@polkadot/types-codec/types';
 import type { AccountId32, Call, H256, MultiAddress, Perbill, Percent, Permill } from '@polkadot/types/interfaces/runtime';
-import type { BTreeSetIdentityId, BTreeSetStatType, BTreeSetStatUpdate, BTreeSetTransferCondition, ConfidentialIdentityClaimProofsScopeClaimProof, PalletAssetCheckpointScheduleSpec, PalletAssetClassicTickerImport, PalletAssetTickerRegistrationConfig, PalletBridgeBridgeTx, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCaKind, PalletCorporateActionsRecordDateSpec, PalletCorporateActionsTargetIdentities, PalletImOnlineHeartbeat, PalletImOnlineSr25519AppSr25519Signature, PalletPipsSnapshotResult, PalletPortfolioMovePortfolioItem, PalletRewardsItnRewardStatus, PalletSettlementLeg, PalletSettlementReceiptDetails, PalletSettlementSettlementType, PalletSettlementVenueType, PalletStakingCompactAssignments, PalletStakingElectionSize, PalletStakingRewardDestination, PalletStakingSlashingSwitch, PalletStakingValidatorPrefs, PalletStoPriceTier, PalletUtilityUniqueCall, PolymeshCommonUtilitiesBalancesMemo, PolymeshCommonUtilitiesIdentitySecondaryKeyWithAuth, PolymeshCommonUtilitiesMaybeBlock, PolymeshCommonUtilitiesProtocolFeeProtocolOp, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetAssetType, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAuthorizationAuthorizationData, PolymeshPrimitivesBeneficiary, PolymeshPrimitivesCddIdInvestorUid, PolymeshPrimitivesComplianceManagerComplianceRequirement, PolymeshPrimitivesCondition, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesEthereumEcdsaSignature, PolymeshPrimitivesIdentityClaimClaim, PolymeshPrimitivesIdentityClaimClaimType, PolymeshPrimitivesIdentityClaimScope, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesInvestorZkproofDataV1InvestorZKProofData, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKey, PolymeshPrimitivesSecondaryKeyApiLegacyPermissions, PolymeshPrimitivesSecondaryKeyPermissions, PolymeshPrimitivesSecondaryKeySignatory, PolymeshPrimitivesStatisticsAssetScope, PolymeshPrimitivesStatisticsStatType, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions, PolymeshPrimitivesTicker, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, PolymeshRuntimeDevelopRuntimeSessionKeys, SpConsensusBabeDigestsNextConfigDescriptor, SpConsensusSlotsEquivocationProof, SpCoreChangesTrieChangesTrieConfiguration, SpFinalityGrandpaEquivocationProof, SpRuntimeHeader, SpRuntimeMultiSignature, SpSessionMembershipProof } from '@polkadot/types/lookup';
+import type { BTreeSetIdentityId, BTreeSetStatType, BTreeSetStatUpdate, BTreeSetTransferCondition, ConfidentialIdentityClaimProofsScopeClaimProof, PalletAssetCheckpointScheduleSpec, PalletAssetClassicTickerImport, PalletAssetTickerRegistrationConfig, PalletBridgeBridgeTx, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCaKind, PalletCorporateActionsInitiateCorporateActionArgs, PalletCorporateActionsRecordDateSpec, PalletCorporateActionsTargetIdentities, PalletImOnlineHeartbeat, PalletImOnlineSr25519AppSr25519Signature, PalletPipsSnapshotResult, PalletPortfolioMovePortfolioItem, PalletRewardsItnRewardStatus, PalletSettlementLeg, PalletSettlementReceiptDetails, PalletSettlementSettlementType, PalletSettlementVenueType, PalletStakingCompactAssignments, PalletStakingElectionSize, PalletStakingRewardDestination, PalletStakingSlashingSwitch, PalletStakingValidatorPrefs, PalletStoPriceTier, PalletUtilityUniqueCall, PolymeshCommonUtilitiesBalancesMemo, PolymeshCommonUtilitiesIdentitySecondaryKeyWithAuth, PolymeshCommonUtilitiesMaybeBlock, PolymeshCommonUtilitiesProtocolFeeProtocolOp, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetAssetType, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAssetMetadataAssetMetadataKey, PolymeshPrimitivesAssetMetadataAssetMetadataSpec, PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail, PolymeshPrimitivesAuthorizationAuthorizationData, PolymeshPrimitivesBeneficiary, PolymeshPrimitivesCddIdInvestorUid, PolymeshPrimitivesComplianceManagerComplianceRequirement, PolymeshPrimitivesCondition, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesEthereumEcdsaSignature, PolymeshPrimitivesIdentityClaimClaim, PolymeshPrimitivesIdentityClaimClaimType, PolymeshPrimitivesIdentityClaimScope, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesInvestorZkproofDataV1InvestorZKProofData, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKey, PolymeshPrimitivesSecondaryKeyApiLegacyPermissions, PolymeshPrimitivesSecondaryKeyPermissions, PolymeshPrimitivesSecondaryKeySignatory, PolymeshPrimitivesStatisticsAssetScope, PolymeshPrimitivesStatisticsStatType, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions, PolymeshPrimitivesTicker, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, PolymeshRuntimeDevelopRuntimeSessionKeys, SpConsensusBabeDigestsNextConfigDescriptor, SpConsensusSlotsEquivocationProof, SpCoreChangesTrieChangesTrieConfiguration, SpFinalityGrandpaEquivocationProof, SpRuntimeHeader, SpRuntimeMultiSignature, SpSessionMembershipProof } from '@polkadot/types/lookup';
 
 declare module '@polkadot/api-base/types/submittable' {
   export interface AugmentedSubmittables<ApiType extends ApiTypes> {
@@ -103,6 +103,10 @@ declare module '@polkadot/api-base/types/submittable' {
        **/
       createAsset: AugmentedSubmittable<(name: Bytes | string | Uint8Array, ticker: PolymeshPrimitivesTicker | string | Uint8Array, divisible: bool | boolean | Uint8Array, assetType: PolymeshPrimitivesAssetAssetType | { EquityCommon: any } | { EquityPreferred: any } | { Commodity: any } | { FixedIncome: any } | { REIT: any } | { Fund: any } | { RevenueShareAgreement: any } | { StructuredProduct: any } | { Derivative: any } | { Custom: any } | { StableCoin: any } | string | Uint8Array, identifiers: Vec<PolymeshPrimitivesAssetIdentifier> | (PolymeshPrimitivesAssetIdentifier | { CUSIP: any } | { CINS: any } | { ISIN: any } | { LEI: any } | string | Uint8Array)[], fundingRound: Option<Bytes> | null | object | string | Uint8Array, disableIu: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [Bytes, PolymeshPrimitivesTicker, bool, PolymeshPrimitivesAssetAssetType, Vec<PolymeshPrimitivesAssetIdentifier>, Option<Bytes>, bool]>;
       /**
+       * Utility extrinsic to batch `create_asset` and `register_custom_asset_type`.
+       **/
+      createAssetWithCustomType: AugmentedSubmittable<(name: Bytes | string | Uint8Array, ticker: PolymeshPrimitivesTicker | string | Uint8Array, divisible: bool | boolean | Uint8Array, customAssetType: Bytes | string | Uint8Array, identifiers: Vec<PolymeshPrimitivesAssetIdentifier> | (PolymeshPrimitivesAssetIdentifier | { CUSIP: any } | { CINS: any } | { ISIN: any } | { LEI: any } | string | Uint8Array)[], fundingRound: Option<Bytes> | null | object | string | Uint8Array, disableIu: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [Bytes, PolymeshPrimitivesTicker, bool, Bytes, Vec<PolymeshPrimitivesAssetIdentifier>, Option<Bytes>, bool]>;
+      /**
        * Freezes transfers and minting of a given token.
        * 
        * # Arguments
@@ -162,6 +166,61 @@ declare module '@polkadot/api-base/types/submittable' {
        * * Portfolio
        **/
       redeem: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array, value: u128 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker, u128]>;
+      /**
+       * Registers and set local asset metadata.
+       * 
+       * # Arguments
+       * * `origin` is a signer that has permissions to act as an agent of `ticker`.
+       * * `ticker` Ticker of the token.
+       * * `name` Metadata name.
+       * * `spec` Metadata type definition.
+       * * `value` Metadata value.
+       * * `details` Optional Metadata value details (expire, lock status).
+       * 
+       * # Errors
+       * * `AssetMetadataLocalKeyAlreadyExists` if a local metadata type with `name` already exists for `ticker`.
+       * * `AssetMetadataNameMaxLengthExceeded` if the metadata `name` exceeds the maximum length.
+       * * `AssetMetadataTypeDefMaxLengthExceeded` if the metadata `spec` type definition exceeds the maximum length.
+       * * `AssetMetadataValueMaxLengthExceeded` if the metadata value exceeds the maximum length.
+       * 
+       * # Permissions
+       * * Agent
+       * * Asset
+       **/
+      registerAndSetLocalAssetMetadata: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array, name: Bytes | string | Uint8Array, spec: PolymeshPrimitivesAssetMetadataAssetMetadataSpec | { url?: any; description?: any; typeDef?: any } | string | Uint8Array, value: Bytes | string | Uint8Array, detail: Option<PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker, Bytes, PolymeshPrimitivesAssetMetadataAssetMetadataSpec, Bytes, Option<PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail>]>;
+      /**
+       * Registers asset metadata global type.
+       * 
+       * # Arguments
+       * * `origin` is a signer that has permissions to act as an agent of `ticker`.
+       * * `name` Metadata name.
+       * * `spec` Metadata type definition.
+       * 
+       * # Errors
+       * * `AssetMetadataGlobalKeyAlreadyExists` if a globa metadata type with `name` already exists.
+       * * `AssetMetadataNameMaxLengthExceeded` if the metadata `name` exceeds the maximum length.
+       * * `AssetMetadataTypeDefMaxLengthExceeded` if the metadata `spec` type definition exceeds the maximum length.
+       **/
+      registerAssetMetadataGlobalType: AugmentedSubmittable<(name: Bytes | string | Uint8Array, spec: PolymeshPrimitivesAssetMetadataAssetMetadataSpec | { url?: any; description?: any; typeDef?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Bytes, PolymeshPrimitivesAssetMetadataAssetMetadataSpec]>;
+      /**
+       * Registers asset metadata local type.
+       * 
+       * # Arguments
+       * * `origin` is a signer that has permissions to act as an agent of `ticker`.
+       * * `ticker` Ticker of the token.
+       * * `name` Metadata name.
+       * * `spec` Metadata type definition.
+       * 
+       * # Errors
+       * * `AssetMetadataLocalKeyAlreadyExists` if a local metadata type with `name` already exists for `ticker`.
+       * * `AssetMetadataNameMaxLengthExceeded` if the metadata `name` exceeds the maximum length.
+       * * `AssetMetadataTypeDefMaxLengthExceeded` if the metadata `spec` type definition exceeds the maximum length.
+       * 
+       * # Permissions
+       * * Agent
+       * * Asset
+       **/
+      registerAssetMetadataLocalType: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array, name: Bytes | string | Uint8Array, spec: PolymeshPrimitivesAssetMetadataAssetMetadataSpec | { url?: any; description?: any; typeDef?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker, Bytes, PolymeshPrimitivesAssetMetadataAssetMetadataSpec]>;
       /**
        * Registers a custom asset type.
        * 
@@ -230,6 +289,44 @@ declare module '@polkadot/api-base/types/submittable' {
        * * `TickerAlreadyRegistered` if `classic_ticker_import.ticker` was already registered.
        **/
       reserveClassicTicker: AugmentedSubmittable<(classicTickerImport: PalletAssetClassicTickerImport | { ethOwner?: any; ticker?: any; isContract?: any; isCreated?: any } | string | Uint8Array, contractDid: PolymeshPrimitivesIdentityId | string | Uint8Array, config: PalletAssetTickerRegistrationConfig | { maxTickerLength?: any; registrationLength?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PalletAssetClassicTickerImport, PolymeshPrimitivesIdentityId, PalletAssetTickerRegistrationConfig]>;
+      /**
+       * Set asset metadata value.
+       * 
+       * # Arguments
+       * * `origin` is a signer that has permissions to act as an agent of `ticker`.
+       * * `ticker` Ticker of the token.
+       * * `key` Metadata key.
+       * * `value` Metadata value.
+       * * `details` Optional Metadata value details (expire, lock status).
+       * 
+       * # Errors
+       * * `AssetMetadataKeyIsMissing` if the metadata type key doesn't exist.
+       * * `AssetMetadataValueIsLocked` if the metadata value for `key` is locked.
+       * * `AssetMetadataValueMaxLengthExceeded` if the metadata value exceeds the maximum length.
+       * 
+       * # Permissions
+       * * Agent
+       * * Asset
+       **/
+      setAssetMetadata: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array, key: PolymeshPrimitivesAssetMetadataAssetMetadataKey | { Global: any } | { Local: any } | string | Uint8Array, value: Bytes | string | Uint8Array, detail: Option<PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker, PolymeshPrimitivesAssetMetadataAssetMetadataKey, Bytes, Option<PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail>]>;
+      /**
+       * Set asset metadata value details (expire, lock status).
+       * 
+       * # Arguments
+       * * `origin` is a signer that has permissions to act as an agent of `ticker`.
+       * * `ticker` Ticker of the token.
+       * * `key` Metadata key.
+       * * `details` Metadata value details (expire, lock status).
+       * 
+       * # Errors
+       * * `AssetMetadataKeyIsMissing` if the metadata type key doesn't exist.
+       * * `AssetMetadataValueIsLocked` if the metadata value for `key` is locked.
+       * 
+       * # Permissions
+       * * Agent
+       * * Asset
+       **/
+      setAssetMetadataDetails: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array, key: PolymeshPrimitivesAssetMetadataAssetMetadataKey | { Global: any } | { Local: any } | string | Uint8Array, detail: PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail | { expire?: any; lockStatus?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker, PolymeshPrimitivesAssetMetadataAssetMetadataKey, PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail]>;
       /**
        * Sets the name of the current funding round.
        * 
@@ -1090,6 +1187,10 @@ declare module '@polkadot/api-base/types/submittable' {
        **/
       initiateCorporateAction: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array, kind: PalletCorporateActionsCaKind | 'PredictableBenefit' | 'UnpredictableBenefit' | 'IssuerNotice' | 'Reorganization' | 'Other' | number | Uint8Array, declDate: u64 | AnyNumber | Uint8Array, recordDate: Option<PalletCorporateActionsRecordDateSpec> | null | object | string | Uint8Array, details: Bytes | string | Uint8Array, targets: Option<PalletCorporateActionsTargetIdentities> | null | object | string | Uint8Array, defaultWithholdingTax: Option<Permill> | null | object | string | Uint8Array, withholdingTax: Option<Vec<ITuple<[PolymeshPrimitivesIdentityId, Permill]>>> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker, PalletCorporateActionsCaKind, u64, Option<PalletCorporateActionsRecordDateSpec>, Bytes, Option<PalletCorporateActionsTargetIdentities>, Option<Permill>, Option<Vec<ITuple<[PolymeshPrimitivesIdentityId, Permill]>>>]>;
       /**
+       * Utility extrinsic to batch `initiate_corporate_action` and `distribute`
+       **/
+      initiateCorporateActionAndDistribute: AugmentedSubmittable<(caArgs: PalletCorporateActionsInitiateCorporateActionArgs | { ticker?: any; kind?: any; declDate?: any; recordDate?: any; details?: any; targets?: any; defaultWithholdingTax?: any; withholdingTax?: any } | string | Uint8Array, portfolio: Option<u64> | null | object | string | Uint8Array, currency: PolymeshPrimitivesTicker | string | Uint8Array, perShare: u128 | AnyNumber | Uint8Array, amount: u128 | AnyNumber | Uint8Array, paymentAt: u64 | AnyNumber | Uint8Array, expiresAt: Option<u64> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PalletCorporateActionsInitiateCorporateActionArgs, Option<u64>, PolymeshPrimitivesTicker, u128, u128, u64, Option<u64>]>;
+      /**
        * Link the given CA `id` to the given `docs`.
        * Any previous links for the CA are removed in favor of `docs`.
        * 
@@ -1358,6 +1459,14 @@ declare module '@polkadot/api-base/types/submittable' {
        **/
       changeGroup: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array, agent: PolymeshPrimitivesIdentityId | string | Uint8Array, group: PolymeshPrimitivesAgentAgentGroup | { Full: any } | { Custom: any } | { ExceptMeta: any } | { PolymeshV1CAA: any } | { PolymeshV1PIA: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker, PolymeshPrimitivesIdentityId, PolymeshPrimitivesAgentAgentGroup]>;
       /**
+       * Utility extrinsic to batch `create_group` and  `change_group` for custom groups only.
+       * 
+       * # Permissions
+       * * Asset
+       * * Agent
+       **/
+      createAndChangeCustomGroup: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array, perms: PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions | { Whole: any } | { These: any } | { Except: any } | string | Uint8Array, agent: PolymeshPrimitivesIdentityId | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions, PolymeshPrimitivesIdentityId]>;
+      /**
        * Creates a custom agent group (AG) for the given `ticker`.
        * 
        * The AG will have the permissions as given by `perms`.
@@ -1378,6 +1487,14 @@ declare module '@polkadot/api-base/types/submittable' {
        * * Agent
        **/
       createGroup: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array, perms: PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions | { Whole: any } | { These: any } | { Except: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions]>;
+      /**
+       * Utility extrinsic to batch `create_group` and  `add_auth`.
+       * 
+       * # Permissions
+       * * Asset
+       * * Agent
+       **/
+      createGroupAndAddAuth: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array, perms: PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions | { Whole: any } | { These: any } | { Except: any } | string | Uint8Array, target: PolymeshPrimitivesSecondaryKeySignatory | { Identity: any } | { Account: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions, PolymeshPrimitivesSecondaryKeySignatory]>;
       /**
        * Remove the given `agent` from `ticker`.
        * 
@@ -1898,13 +2015,13 @@ declare module '@polkadot/api-base/types/submittable' {
        **/
       makeMultisigPrimary: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array, optionalCddAuthId: Option<u64> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32, Option<u64>]>;
       /**
-       * Adds a multisig as a signer of current did if the current did is the creator of the
+       * Adds a multisig as a secondary key of current did if the current did is the creator of the
        * multisig.
        * 
        * # Arguments
        * * `multisig` - multi sig address
        **/
-      makeMultisigSigner: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32]>;
+      makeMultisigSecondary: AugmentedSubmittable<(multisig: AccountId32 | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [AccountId32]>;
       /**
        * Rejects a multisig proposal using the caller's identity.
        * 
@@ -3245,29 +3362,72 @@ declare module '@polkadot/api-base/types/submittable' {
       /**
        * Allow a trusted issuer to init/resync ticker/company stats.
        * 
+       * # Arguments
+       * - `origin` - a signer that has permissions to act as an agent of `asset`.
+       * - `asset` - the asset to change the active stats on.
+       * - `stat_type` - stat type to update.
+       * - `values` - Updated values for `stat_type`.
+       * 
+       * # Errors
+       * - `StatTypeMissing` - `stat_type` is not enabled for the `asset`.
+       * - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset`.
+       * 
        * # Permissions
-       * * Asset
+       * - Agent
+       * - Asset
        **/
       batchUpdateAssetStats: AugmentedSubmittable<(asset: PolymeshPrimitivesStatisticsAssetScope | { Ticker: any } | string | Uint8Array, statType: PolymeshPrimitivesStatisticsStatType | { op?: any; claimIssuer?: any } | string | Uint8Array, values: BTreeSetStatUpdate) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesStatisticsAssetScope, PolymeshPrimitivesStatisticsStatType, BTreeSetStatUpdate]>;
       /**
        * Set the active asset stat_types.
        * 
+       * # Arguments
+       * - `origin` - a signer that has permissions to act as an agent of `asset`.
+       * - `asset` - the asset to change the active stats on.
+       * - `stat_types` - the new stat types to replace any existing types.
+       * 
+       * # Errors
+       * - `StatTypeLimitReached` - too many stat types enabled for the `asset`.
+       * - `CannotRemoveStatTypeInUse` - can not remove a stat type that is in use by transfer conditions.
+       * - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset`.
+       * 
        * # Permissions
-       * * Asset
+       * - Agent
+       * - Asset
        **/
       setActiveAssetStats: AugmentedSubmittable<(asset: PolymeshPrimitivesStatisticsAssetScope | { Ticker: any } | string | Uint8Array, statTypes: BTreeSetStatType) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesStatisticsAssetScope, BTreeSetStatType]>;
       /**
        * Set asset transfer compliance rules.
        * 
+       * # Arguments
+       * - `origin` - a signer that has permissions to act as an agent of `asset`.
+       * - `asset` - the asset to change the active stats on.
+       * - `transfer_conditions` - the new transfer condition to replace any existing conditions.
+       * 
+       * # Errors
+       * - `TransferConditionLimitReached` - too many transfer condititon enabled for `asset`.
+       * - `StatTypeMissing` - a transfer condition requires a stat type that is not enabled for the `asset`.
+       * - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset`.
+       * 
        * # Permissions
-       * * Asset
+       * - Agent
+       * - Asset
        **/
       setAssetTransferCompliance: AugmentedSubmittable<(asset: PolymeshPrimitivesStatisticsAssetScope | { Ticker: any } | string | Uint8Array, transferConditions: BTreeSetTransferCondition) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesStatisticsAssetScope, BTreeSetTransferCondition]>;
       /**
        * Set/unset entities exempt from an asset's transfer compliance rules.
        * 
+       * # Arguments
+       * - `origin` - a signer that has permissions to act as an agent of `exempt_key.asset`.
+       * - `is_exempt` - enable/disable exemption for `entities`.
+       * - `exempt_key` - the asset and stat type to exempt the `entities` from.
+       * - `entities` - the entities to set/unset the exemption for.
+       * 
+       * # Errors
+       * - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset`.
+       * 
        * # Permissions
-       * * Asset
+       * - Agent
+       * - Asset
        **/
       setEntitiesExempt: AugmentedSubmittable<(isExempt: bool | boolean | Uint8Array, exemptKey: PolymeshPrimitivesTransferComplianceTransferConditionExemptKey | { asset?: any; op?: any; claimType?: any } | string | Uint8Array, entities: BTreeSetIdentityId) => SubmittableExtrinsic<ApiType>, [bool, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, BTreeSetIdentityId]>;
       /**
