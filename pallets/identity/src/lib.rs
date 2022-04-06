@@ -769,7 +769,12 @@ pub mod migration {
             (0usize, 0usize),
             |(total_dids, total_sks), (did, mut record)| {
                 // Migrate primary key.
-                migrate_v1_key::<T>(record.primary_key, KeyRecord::PrimaryKey(did));
+                if record.primary_key == Default::default() {
+                    // Asset identities don't have primary keys.
+                    DidRecords::<T>::insert(did, DidRecord::default());
+                } else {
+                    migrate_v1_key::<T>(record.primary_key, KeyRecord::PrimaryKey(did));
+                }
 
                 // Migrate secondary keys.
                 let sk_count = record.secondary_keys.drain(..).fold(0usize, |total, sk| {
