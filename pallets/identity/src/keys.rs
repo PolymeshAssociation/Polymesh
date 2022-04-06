@@ -573,7 +573,7 @@ impl<T: Config> Module<T> {
         // Unlink secondary key from the identity.
         Self::remove_key_record(&key, Some(did));
 
-        Self::deposit_event(RawEvent::SignerLeft(did, key));
+        Self::deposit_event(RawEvent::SecondaryKeyLeftIdentity(did, key));
         Ok(())
     }
 
