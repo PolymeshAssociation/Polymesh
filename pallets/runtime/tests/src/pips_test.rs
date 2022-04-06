@@ -17,12 +17,12 @@ use frame_support::{
 use frame_system::{self, EventRecord};
 use pallet_pips::{
     DepositInfo, LiveQueue, Pip, PipDescription, PipId, PipsMetadata, ProposalState, Proposer,
-    RawEvent as Event, SnapshotId, SnapshotMetadata, SnapshotResult, SnapshottedPip, Url, Vote,
+    RawEvent as Event, SnapshotId, SnapshotMetadata, SnapshotResult, SnapshottedPip, Vote,
     VoteCount, VotingResult,
 };
 use pallet_treasury as treasury;
 use polymesh_common_utilities::{MaybeBlock, GC_DID};
-use polymesh_primitives::{AccountId, BlockNumber};
+use polymesh_primitives::{AccountId, BlockNumber, Url};
 use test_client::AccountKeyring;
 
 type System = frame_system::Pallet<TestStorage>;
