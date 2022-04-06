@@ -33,8 +33,7 @@ use frame_support::{
     Parameter,
 };
 use polymesh_primitives::{
-    secondary_key::SecondaryKey, AuthorizationData, IdentityClaim, IdentityId,
-    Permissions, Ticker,
+    secondary_key::SecondaryKey, AuthorizationData, IdentityClaim, IdentityId, Permissions, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_core::H512;
@@ -265,7 +264,7 @@ decl_event!(
         AuthorizationConsumed(Option<IdentityId>, Option<AccountId>, u64),
 
         /// CDD requirement for updating primary key changed.
-        /// 
+        ///
         /// (new_requirement)
         CddRequirementForPrimaryKeyUpdated(bool),
 
