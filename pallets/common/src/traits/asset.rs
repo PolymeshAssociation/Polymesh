@@ -18,9 +18,13 @@ use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
-use polymesh_primitives::asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName};
-use polymesh_primitives::ethereum::EthereumAddress;
 use polymesh_primitives::{
+    asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName},
+    asset_metadata::{
+        AssetMetadataGlobalKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataSpec,
+        AssetMetadataValue, AssetMetadataValueDetail,
+    },
+    ethereum::EthereumAddress,
     AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, ScopeId, Ticker,
 };
 use sp_std::prelude::Vec;
@@ -92,6 +96,12 @@ pub trait WeightInfo {
     fn reserve_classic_ticker() -> Weight;
     fn controller_transfer() -> Weight;
     fn register_custom_asset_type(n: u32) -> Weight;
+
+    fn set_asset_metadata() -> Weight;
+    fn set_asset_metadata_details() -> Weight;
+    fn register_and_set_local_asset_metadata() -> Weight;
+    fn register_asset_metadata_local_type() -> Weight;
+    fn register_asset_metadata_global_type() -> Weight;
 }
 
 /// The module's configuration trait.
@@ -125,6 +135,15 @@ pub trait Config:
 
     /// Max length of the funding round name.
     type FundingRoundNameMaxLength: Get<u32>;
+
+    /// Max length for the Asset Metadata type name.
+    type AssetMetadataNameMaxLength: Get<u32>;
+
+    /// Max length for the Asset Metadata value.
+    type AssetMetadataValueMaxLength: Get<u32>;
+
+    /// Max length for the Asset Metadata type definition.
+    type AssetMetadataTypeDefMaxLength: Get<u32>;
 
     type AssetFn: AssetFnTrait<Self::AccountId, Self::Origin>;
 
@@ -214,5 +233,17 @@ decl_event! {
         /// A custom asset type was registered on-chain.
         /// caller DID, the ID of the custom asset type, the string contents registered.
         CustomAssetTypeRegistered(IdentityId, CustomAssetTypeId, Vec<u8>),
+        /// Set asset metadata value.
+        /// (Caller DID, ticker, metadata value, optional value details)
+        SetAssetMetadataValue(IdentityId, Ticker, AssetMetadataValue, Option<AssetMetadataValueDetail<Moment>>),
+        /// Set asset metadata value details (expire, lock status).
+        /// (Caller DID, ticker, value details)
+        SetAssetMetadataValueDetails(IdentityId, Ticker, AssetMetadataValueDetail<Moment>),
+        /// Register asset metadata local type.
+        /// (Caller DID, ticker, Local type name, Local type key, type specs)
+        RegisterAssetMetadataLocalType(IdentityId, Ticker, AssetMetadataName, AssetMetadataLocalKey, AssetMetadataSpec),
+        /// Register asset metadata global type.
+        /// (Global type name, Global type key, type specs)
+        RegisterAssetMetadataGlobalType(AssetMetadataName, AssetMetadataGlobalKey, AssetMetadataSpec),
     }
 }
