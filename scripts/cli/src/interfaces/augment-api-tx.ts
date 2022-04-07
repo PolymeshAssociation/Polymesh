@@ -5,7 +5,7 @@ import type { ApiTypes } from '@polkadot/api-base/types';
 import type { Bytes, Compact, Option, Vec, bool, u128, u16, u32, u64, u8 } from '@polkadot/types-codec';
 import type { AnyNumber, ITuple } from '@polkadot/types-codec/types';
 import type { AccountId32, Call, H256, MultiAddress, Perbill, Percent, Permill } from '@polkadot/types/interfaces/runtime';
-import type { ConfidentialIdentityClaimProofsScopeClaimProof, PalletAssetCheckpointScheduleSpec, PalletAssetClassicTickerImport, PalletAssetTickerRegistrationConfig, PalletBridgeBridgeTx, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCaKind, PalletCorporateActionsInitiateCorporateActionArgs, PalletCorporateActionsRecordDateSpec, PalletCorporateActionsTargetIdentities, PalletImOnlineHeartbeat, PalletImOnlineSr25519AppSr25519Signature, PalletPipsSnapshotResult, PalletPortfolioMovePortfolioItem, PalletRewardsItnRewardStatus, PalletSettlementLeg, PalletSettlementReceiptDetails, PalletSettlementSettlementType, PalletSettlementVenueType, PalletStakingCompactAssignments, PalletStakingElectionSize, PalletStakingRewardDestination, PalletStakingSlashingSwitch, PalletStakingValidatorPrefs, PalletStoPriceTier, PalletUtilityUniqueCall, PolymeshCommonUtilitiesBalancesMemo, PolymeshCommonUtilitiesIdentitySecondaryKeyWithAuth, PolymeshCommonUtilitiesMaybeBlock, PolymeshCommonUtilitiesProtocolFeeProtocolOp, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetAssetType, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAssetMetadataAssetMetadataKey, PolymeshPrimitivesAssetMetadataAssetMetadataSpec, PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail, PolymeshPrimitivesAuthorizationAuthorizationData, PolymeshPrimitivesBeneficiary, PolymeshPrimitivesCddIdInvestorUid, PolymeshPrimitivesComplianceManagerComplianceRequirement, PolymeshPrimitivesCondition, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesEthereumEcdsaSignature, PolymeshPrimitivesIdentityClaimClaim, PolymeshPrimitivesIdentityClaimClaimType, PolymeshPrimitivesIdentityClaimScope, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesInvestorZkproofDataV1InvestorZKProofData, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKey, PolymeshPrimitivesSecondaryKeyPermissions, PolymeshPrimitivesSecondaryKeySignatory, PolymeshPrimitivesStatisticsTransferManager, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions, PolymeshPrimitivesTicker, PolymeshRuntimeDevelopRuntimeSessionKeys, SpConsensusBabeDigestsNextConfigDescriptor, SpConsensusSlotsEquivocationProof, SpCoreChangesTrieChangesTrieConfiguration, SpFinalityGrandpaEquivocationProof, SpRuntimeHeader, SpRuntimeMultiSignature, SpSessionMembershipProof } from '@polkadot/types/lookup';
+import type { BTreeSetIdentityId, BTreeSetStatType, BTreeSetStatUpdate, BTreeSetTransferCondition, ConfidentialIdentityClaimProofsScopeClaimProof, PalletAssetCheckpointScheduleSpec, PalletAssetClassicTickerImport, PalletAssetTickerRegistrationConfig, PalletBridgeBridgeTx, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCaKind, PalletCorporateActionsInitiateCorporateActionArgs, PalletCorporateActionsRecordDateSpec, PalletCorporateActionsTargetIdentities, PalletImOnlineHeartbeat, PalletImOnlineSr25519AppSr25519Signature, PalletPipsSnapshotResult, PalletPortfolioMovePortfolioItem, PalletRewardsItnRewardStatus, PalletSettlementLeg, PalletSettlementReceiptDetails, PalletSettlementSettlementType, PalletSettlementVenueType, PalletStakingCompactAssignments, PalletStakingElectionSize, PalletStakingRewardDestination, PalletStakingSlashingSwitch, PalletStakingValidatorPrefs, PalletStoPriceTier, PalletUtilityUniqueCall, PolymeshCommonUtilitiesBalancesMemo, PolymeshCommonUtilitiesIdentitySecondaryKeyWithAuth, PolymeshCommonUtilitiesMaybeBlock, PolymeshCommonUtilitiesProtocolFeeProtocolOp, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetAssetType, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAssetMetadataAssetMetadataKey, PolymeshPrimitivesAssetMetadataAssetMetadataSpec, PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail, PolymeshPrimitivesAuthorizationAuthorizationData, PolymeshPrimitivesBeneficiary, PolymeshPrimitivesCddIdInvestorUid, PolymeshPrimitivesComplianceManagerComplianceRequirement, PolymeshPrimitivesCondition, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesEthereumEcdsaSignature, PolymeshPrimitivesIdentityClaimClaim, PolymeshPrimitivesIdentityClaimClaimType, PolymeshPrimitivesIdentityClaimScope, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesInvestorZkproofDataV1InvestorZKProofData, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKey, PolymeshPrimitivesSecondaryKeyPermissions, PolymeshPrimitivesSecondaryKeySignatory, PolymeshPrimitivesStatisticsAssetScope, PolymeshPrimitivesStatisticsStatType, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions, PolymeshPrimitivesTicker, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, PolymeshRuntimeDevelopRuntimeSessionKeys, SpConsensusBabeDigestsNextConfigDescriptor, SpConsensusSlotsEquivocationProof, SpCoreChangesTrieChangesTrieConfiguration, SpFinalityGrandpaEquivocationProof, SpRuntimeHeader, SpRuntimeMultiSignature, SpSessionMembershipProof } from '@polkadot/types/lookup';
 
 declare module '@polkadot/api-base/types/submittable' {
   export interface AugmentedSubmittables<ApiType extends ApiTypes> {
@@ -3354,70 +3354,76 @@ declare module '@polkadot/api-base/types/submittable' {
     };
     statistics: {
       /**
-       * Exempt entities from a transfer manager
+       * Allow a trusted issuer to init/resync ticker/company stats.
        * 
        * # Arguments
-       * * `origin` It contains the secondary key of the caller (i.e who signed the transaction to execute this function).
-       * * `ticker` ticker for which the exemption list is being modified.
-       * * `transfer_manager` Transfer manager for which the exemption list is being modified.
-       * * `exempted_entities` ScopeIds for which the exemption list is being modified.
+       * - `origin` - a signer that has permissions to act as an agent of `asset`.
+       * - `asset` - the asset to change the active stats on.
+       * - `stat_type` - stat type to update.
+       * - `values` - Updated values for `stat_type`.
        * 
        * # Errors
-       * * `Unauthorized` if `origin` is not the owner of the ticker.
+       * - `StatTypeMissing` - `stat_type` is not enabled for the `asset`.
+       * - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset`.
        * 
        * # Permissions
-       * * Asset
+       * - Agent
+       * - Asset
        **/
-      addExemptedEntities: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array, transferManager: PolymeshPrimitivesStatisticsTransferManager | { CountTransferManager: any } | { PercentageTransferManager: any } | string | Uint8Array, exemptedEntities: Vec<PolymeshPrimitivesIdentityId> | (PolymeshPrimitivesIdentityId | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker, PolymeshPrimitivesStatisticsTransferManager, Vec<PolymeshPrimitivesIdentityId>]>;
+      batchUpdateAssetStats: AugmentedSubmittable<(asset: PolymeshPrimitivesStatisticsAssetScope | { Ticker: any } | string | Uint8Array, statType: PolymeshPrimitivesStatisticsStatType | { op?: any; claimIssuer?: any } | string | Uint8Array, values: BTreeSetStatUpdate) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesStatisticsAssetScope, PolymeshPrimitivesStatisticsStatType, BTreeSetStatUpdate]>;
       /**
-       * Adds a new transfer manager.
+       * Set the active asset stat_types.
        * 
        * # Arguments
-       * * `origin` It contains the secondary key of the caller (i.e who signed the transaction to execute this function).
-       * * `ticker` ticker for which the transfer managers are being updated.
-       * * `new_transfer_manager` Transfer manager being added.
+       * - `origin` - a signer that has permissions to act as an agent of `asset`.
+       * - `asset` - the asset to change the active stats on.
+       * - `stat_types` - the new stat types to replace any existing types.
        * 
        * # Errors
-       * * `Unauthorized` if `origin` is not the owner of the ticker.
-       * * `DuplicateTransferManager` if `new_transfer_manager` is already enabled for the ticker.
-       * * `TransferManagersLimitReached` if the `ticker` already has max TMs attached
+       * - `StatTypeLimitReached` - too many stat types enabled for the `asset`.
+       * - `CannotRemoveStatTypeInUse` - can not remove a stat type that is in use by transfer conditions.
+       * - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset`.
        * 
        * # Permissions
-       * * Asset
+       * - Agent
+       * - Asset
        **/
-      addTransferManager: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array, newTransferManager: PolymeshPrimitivesStatisticsTransferManager | { CountTransferManager: any } | { PercentageTransferManager: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker, PolymeshPrimitivesStatisticsTransferManager]>;
+      setActiveAssetStats: AugmentedSubmittable<(asset: PolymeshPrimitivesStatisticsAssetScope | { Ticker: any } | string | Uint8Array, statTypes: BTreeSetStatType) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesStatisticsAssetScope, BTreeSetStatType]>;
       /**
-       * remove entities from exemption list of a transfer manager
+       * Set asset transfer compliance rules.
        * 
        * # Arguments
-       * * `origin` It contains the secondary key of the caller (i.e who signed the transaction to execute this function).
-       * * `ticker` ticker for which the exemption list is being modified.
-       * * `transfer_manager` Transfer manager for which the exemption list is being modified.
-       * * `scope_ids` ScopeIds for which the exemption list is being modified.
+       * - `origin` - a signer that has permissions to act as an agent of `asset`.
+       * - `asset` - the asset to change the active stats on.
+       * - `transfer_conditions` - the new transfer condition to replace any existing conditions.
        * 
        * # Errors
-       * * `Unauthorized` if `origin` is not the owner of the ticker.
+       * - `TransferConditionLimitReached` - too many transfer condititon enabled for `asset`.
+       * - `StatTypeMissing` - a transfer condition requires a stat type that is not enabled for the `asset`.
+       * - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset`.
        * 
        * # Permissions
-       * * Asset
+       * - Agent
+       * - Asset
        **/
-      removeExemptedEntities: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array, transferManager: PolymeshPrimitivesStatisticsTransferManager | { CountTransferManager: any } | { PercentageTransferManager: any } | string | Uint8Array, entities: Vec<PolymeshPrimitivesIdentityId> | (PolymeshPrimitivesIdentityId | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker, PolymeshPrimitivesStatisticsTransferManager, Vec<PolymeshPrimitivesIdentityId>]>;
+      setAssetTransferCompliance: AugmentedSubmittable<(asset: PolymeshPrimitivesStatisticsAssetScope | { Ticker: any } | string | Uint8Array, transferConditions: BTreeSetTransferCondition) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesStatisticsAssetScope, BTreeSetTransferCondition]>;
       /**
-       * Removes a transfer manager.
+       * Set/unset entities exempt from an asset's transfer compliance rules.
        * 
        * # Arguments
-       * * `origin` It contains the secondary key of the caller (i.e who signed the transaction to execute this function).
-       * * `ticker` ticker for which the transfer managers are being updated.
-       * * `transfer_manager` Transfer manager being removed.
+       * - `origin` - a signer that has permissions to act as an agent of `exempt_key.asset`.
+       * - `is_exempt` - enable/disable exemption for `entities`.
+       * - `exempt_key` - the asset and stat type to exempt the `entities` from.
+       * - `entities` - the entities to set/unset the exemption for.
        * 
        * # Errors
-       * * `Unauthorized` if `origin` is not the owner of the ticker.
-       * * `TransferManagerMissing` if `asset_compliance` contains multiple entries with the same `requirement_id`.
+       * - `UnauthorizedAgent` if `origin` is not agent-permissioned for `asset`.
        * 
        * # Permissions
-       * * Asset
+       * - Agent
+       * - Asset
        **/
-      removeTransferManager: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array, transferManager: PolymeshPrimitivesStatisticsTransferManager | { CountTransferManager: any } | { PercentageTransferManager: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker, PolymeshPrimitivesStatisticsTransferManager]>;
+      setEntitiesExempt: AugmentedSubmittable<(isExempt: bool | boolean | Uint8Array, exemptKey: PolymeshPrimitivesTransferComplianceTransferConditionExemptKey | { asset?: any; op?: any; claimType?: any } | string | Uint8Array, entities: BTreeSetIdentityId) => SubmittableExtrinsic<ApiType>, [bool, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, BTreeSetIdentityId]>;
       /**
        * Generic tx
        **/
