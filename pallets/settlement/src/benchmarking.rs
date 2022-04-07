@@ -29,9 +29,11 @@ use polymesh_common_utilities::{
     TestUtilsFn,
 };
 use polymesh_primitives::{
-    checked_inc::CheckedInc, statistics::TransferManager, Claim, Condition, ConditionType,
-    CountryCode, IdentityId, PortfolioId, PortfolioName, PortfolioNumber, Scope, Ticker,
-    TrustedIssuer,
+    checked_inc::CheckedInc,
+    statistics::{Stat2ndKey, StatType, StatUpdate},
+    transfer_compliance::{TransferCondition, TransferConditionExemptKey},
+    Claim, Condition, ConditionType, CountryCode, IdentityId, PortfolioId, PortfolioName,
+    PortfolioNumber, Scope, Ticker, TrustedIssuer,
 };
 //use sp_runtime::traits::Hash;
 use sp_runtime::SaturatedConversion;
@@ -484,31 +486,61 @@ fn create_receipt_details<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     }
 }
 
-pub fn add_transfer_managers<T: Config>(
+pub const MAX_CONDITIONS: u32 = 3;
+
+pub fn add_transfer_conditions<T: Config>(
     ticker: Ticker,
     origin: RawOrigin<T::AccountId>,
     exempted_entity: IdentityId,
-    count: u32,
+    count_conditions: u32,
 ) {
-    for i in 0..count {
-        let tm = TransferManager::CountTransferManager(i.into());
-        // Add Transfer manager
-        <pallet_statistics::Module<T>>::add_transfer_manager(
-            origin.clone().into(),
-            ticker,
-            tm.clone(),
-        )
-        .expect("failed to add transfer manager");
-        // Exempt the user.
-        <pallet_statistics::Module<T>>::add_exempted_entities(
-            origin.clone().into(),
-            ticker,
-            tm,
-            vec![exempted_entity],
-        )
-        .expect("failed to add exempted entities");
-    }
-    <pallet_statistics::Module<T>>::set_investor_count(&ticker, count.into());
+    let stat_type = StatType::investor_count();
+    // Add Investor count stat.
+    <pallet_statistics::Module<T>>::set_active_asset_stats(
+        origin.clone().into(),
+        ticker.into(),
+        [stat_type].iter().cloned().collect(),
+    )
+    .expect("failed to add stats");
+
+    let conditions = (0..count_conditions)
+        .into_iter()
+        .map(|i| TransferCondition::MaxInvestorCount(i.into()))
+        .collect();
+    // Add MaxInvestorCount transfer conditions.
+    <pallet_statistics::Module<T>>::set_asset_transfer_compliance(
+        origin.clone().into(),
+        ticker.into(),
+        conditions,
+    )
+    .expect("failed to add transfer conditions");
+
+    // Exempt the user.
+    let exempt_key = TransferConditionExemptKey {
+        asset: ticker.into(),
+        op: stat_type.op,
+        claim_type: None,
+    };
+    <pallet_statistics::Module<T>>::set_entities_exempt(
+        origin.clone().into(),
+        true,
+        exempt_key,
+        [exempted_entity].iter().cloned().collect(),
+    )
+    .expect("failed to add exempted entities");
+
+    // Update investor count stats.
+    let update = StatUpdate {
+        key2: Stat2ndKey::NoClaimStat,
+        value: Some(count_conditions.into()),
+    };
+    <pallet_statistics::Module<T>>::batch_update_asset_stats(
+        origin.clone().into(),
+        ticker.into(),
+        stat_type,
+        [update].iter().cloned().collect(),
+    )
+    .expect("failed to add exempted entities");
 }
 
 benchmarks! {
@@ -790,7 +822,6 @@ benchmarks! {
         // 3. Assets have maximum no. of TMs.
 
         let l in 0 .. T::MaxLegsInInstruction::get() as u32;
-        let s = T::MaxTransferManagersPerAsset::get() as u32;
         let c = T::MaxConditionComplexity::get() as u32;
 
         // Setup affirm instruction (One party (i.e from) already affirms the instruction)
@@ -814,7 +845,7 @@ benchmarks! {
         // for both assets also add the compliance rules as per the `MaxConditionComplexity`.
         for ticker in tickers {
             compliance_setup::<T>(c, ticker, from_origin.clone(), from.did, to.did, trusted_issuer.clone());
-            add_transfer_managers::<T>(ticker, from_origin.clone(), from.did, s);
+            add_transfer_conditions::<T>(ticker, from_origin.clone(), from.did, MAX_CONDITIONS);
         }
 
         // -------- Commented the smart extension integration ----------------

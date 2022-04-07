@@ -160,7 +160,7 @@ fn emulate_controller_transfer<T: Config>(
         BalanceOfAtScope::insert(s_id, id, bal);
         AggregateBalance::insert(ticker, id, bal);
         ScopeIdOf::insert(ticker, id, s_id);
-        Statistics::<T>::update_transfer_stats(&ticker, None, Some(bal), bal);
+        Statistics::<T>::update_asset_stats(&ticker, None, Some(&id), None, Some(bal), bal);
     };
     mock_storage(investor_did, 1000u32.into());
     mock_storage(pia, 5000u32.into());

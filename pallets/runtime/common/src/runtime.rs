@@ -4,6 +4,15 @@ pub type VMO<Instance> =
 
 pub type GovernanceCommittee = pallet_committee::Instance1;
 
+// Allow benchmarks to run with larger inputs.
+// This is needed for extrinsics that have a `Vec<_>` parameter
+// and need to make sure that the cost function is correct for
+// large inputs.
+#[cfg(feature = "runtime-benchmarks")]
+pub const BENCHMARK_MAX_INCREASE: u32 = 1000;
+#[cfg(not(feature = "runtime-benchmarks"))]
+pub const BENCHMARK_MAX_INCREASE: u32 = 0;
+
 /// Provides miscellaneous and common pallet-`Config` implementations for a `Runtime`.
 #[macro_export]
 macro_rules! misc_pallet_impls {
@@ -359,7 +368,8 @@ macro_rules! misc_pallet_impls {
         impl pallet_statistics::Config for Runtime {
             type Event = Event;
             type Asset = Asset;
-            type MaxTransferManagersPerAsset = MaxTransferManagersPerAsset;
+            type MaxStatsPerAsset = MaxStatsPerAsset;
+            type MaxTransferConditionsPerAsset = MaxTransferConditionsPerAsset;
             type WeightInfo = polymesh_weights::pallet_statistics::WeightInfo;
         }
 

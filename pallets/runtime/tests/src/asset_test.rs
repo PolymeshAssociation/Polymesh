@@ -41,6 +41,7 @@ use polymesh_primitives::{
     calendar::{
         CalendarPeriod, CalendarUnit, CheckpointId, CheckpointSchedule, FixedOrVariableCalendarUnit,
     },
+    statistics::StatType,
     AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document,
     DocumentId, IdentityId, InvestorUid, Moment, Permissions, PortfolioId, PortfolioName,
     SecondaryKey, Signatory, Ticker,
@@ -141,6 +142,7 @@ fn asset_with_ids(
         None,
         false,
     )?;
+    enable_investor_count(ticker, owner);
     Asset::issue(owner.origin(), ticker, token.total_supply)?;
     assert_eq!(Asset::balance_of(&ticker, owner.did), token.total_supply);
     Ok(())
@@ -162,6 +164,14 @@ crate fn allow_all_transfers(ticker: Ticker, owner: User) {
         ticker,
         vec![],
         vec![]
+    ));
+}
+
+fn enable_investor_count(ticker: Ticker, owner: User) {
+    assert_ok!(Statistics::set_active_asset_stats(
+        owner.origin(),
+        ticker.into(),
+        [StatType::investor_count()].iter().cloned().collect(),
     ));
 }
 
@@ -255,6 +265,7 @@ fn issuers_can_create_and_rename_tokens() {
             Some(funding_round_name.clone()),
             false,
         ));
+        enable_investor_count(ticker, owner);
 
         let issue = |supply| Asset::issue(owner.origin(), ticker, supply);
         assert_noop!(
@@ -1833,7 +1844,7 @@ fn check_unique_investor_count() {
             // Verify the balance of the alice and the investor count for the asset.
             assert_eq!(Asset::balance_of(&ticker, alice.did), total_supply); // It should be equal to total supply.
                                                                              // Alice act as the unique investor but not on the basis of ScopeId as alice doesn't posses the claim yet.
-            assert_eq!(Statistics::investor_count(&ticker), 1);
+            assert_eq!(Statistics::investor_count(ticker), 1);
             assert!(!ScopeIdOf::contains_key(&ticker, alice.did));
 
             // 1. Transfer some funds to bob_1.did.
@@ -1878,7 +1889,7 @@ fn check_unique_investor_count() {
             assert_eq!(Asset::aggregate_balance_of(&ticker, &bob_scope_id), 1000);
             assert_eq!(Asset::balance_of_at_scope(&bob_scope_id, &bob_1.did), 1000);
             assert_eq!(Asset::balance_of(&ticker, &bob_1.did), 1000);
-            assert_eq!(Statistics::investor_count(&ticker), 2);
+            assert_eq!(Statistics::investor_count(ticker), 2);
 
             // validate the storage changes for Alice.
             assert_eq!(
@@ -1890,7 +1901,7 @@ fn check_unique_investor_count() {
                 total_supply - 1000
             );
             assert_eq!(Asset::balance_of(&ticker, &alice.did), total_supply - 1000);
-            assert_eq!(Statistics::investor_count(&ticker), 2);
+            assert_eq!(Statistics::investor_count(ticker), 2);
 
             // Provide scope claim to bob_2.did
             provide_scope_claim(bob_2.did, ticker, bob_uid, cdd_provider, None).0;
@@ -1902,7 +1913,7 @@ fn check_unique_investor_count() {
             assert_eq!(Asset::aggregate_balance_of(&ticker, &bob_scope_id), 2000);
             assert_eq!(Asset::balance_of_at_scope(&bob_scope_id, &bob_2.did), 1000);
             assert_eq!(Asset::balance_of(&ticker, &bob_2.did), 1000);
-            assert_eq!(Statistics::investor_count(&ticker), 2);
+            assert_eq!(Statistics::investor_count(ticker), 2);
         });
 }
 

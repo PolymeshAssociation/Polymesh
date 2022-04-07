@@ -117,10 +117,10 @@ use polymesh_primitives::{
     },
     calendar::CheckpointId,
     ethereum::{self, EcdsaSignature, EthereumAddress},
-    extract_auth,
-    statistics::TransferManagerResult,
-    storage_migrate_on, storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId,
-    IdentityId, PortfolioId, ScopeId, SecondaryKey, Ticker,
+    extract_auth, storage_migrate_on, storage_migration_ver,
+    transfer_compliance::TransferConditionResult,
+    AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, ScopeId, SecondaryKey,
+    Ticker,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;
@@ -1402,7 +1402,7 @@ impl<T: Config> Module<T> {
             return Ok(PORTFOLIO_FAILURE);
         }
 
-        if Self::statistics_failures(&from_portfolio, &to_portfolio, ticker, value) {
+        if Self::statistics_failures(&from_portfolio.did, &to_portfolio.did, ticker, value) {
             return Ok(TRANSFER_MANAGER_FAILURE);
         }
 
@@ -1486,8 +1486,10 @@ impl<T: Config> Module<T> {
 
         // Update statistic info.
         // Using the aggregate balance to update the unique investor count.
-        Statistics::<T>::update_transfer_stats(
+        Statistics::<T>::update_asset_stats(
             ticker,
+            Some(&from_portfolio.did),
+            Some(&to_portfolio.did),
             Some(Self::aggregate_balance_of(ticker, &from_scope_id)),
             Some(Self::aggregate_balance_of(ticker, &to_scope_id)),
             value,
@@ -1583,7 +1585,14 @@ impl<T: Config> Module<T> {
             // Using the aggregate balance to update the unique investor count.
             updated_to_balance = Self::aggregate_balance_of(ticker, &scope_id);
         }
-        Statistics::<T>::update_transfer_stats(&ticker, None, Some(updated_to_balance), value);
+        Statistics::<T>::update_asset_stats(
+            &ticker,
+            None,
+            Some(&to_did),
+            None,
+            Some(updated_to_balance),
+            value,
+        );
 
         let round = Self::funding_round(ticker);
         let ticker_round = (*ticker, round.clone());
@@ -2024,7 +2033,14 @@ impl<T: Config> Module<T> {
         // Update statistic info.
         // Using the aggregate balance to update the unique investor count.
         let updated_from_balance = Some(Self::aggregate_balance_of(ticker, &scope_id));
-        Statistics::<T>::update_transfer_stats(&ticker, updated_from_balance, None, value);
+        Statistics::<T>::update_asset_stats(
+            &ticker,
+            Some(&agent),
+            None,
+            updated_from_balance,
+            None,
+            value,
+        );
 
         Self::deposit_event(RawEvent::Transfer(
             agent,
@@ -2556,8 +2572,12 @@ impl<T: Config> Module<T> {
             value,
         );
         let asset_frozen = Self::frozen(ticker);
-        let statistics_result =
-            Self::statistics_failures_granular(&from_portfolio, &to_portfolio, ticker, value);
+        let transfer_condition_result = Self::transfer_condition_failures_granular(
+            &from_portfolio.did,
+            &to_portfolio.did,
+            ticker,
+            value,
+        );
         let compliance_result = T::ComplianceManager::verify_restriction_granular(
             ticker,
             Some(from_portfolio.did),
@@ -2584,9 +2604,9 @@ impl<T: Config> Module<T> {
                 && !sender_insufficient_balance
                 && portfolio_validity_result.result
                 && !asset_frozen
-                && statistics_result.iter().all(|result| result.result)
+                && transfer_condition_result.iter().all(|result| result.result)
                 && compliance_result.result,
-            statistics_result,
+            transfer_condition_result,
             compliance_result,
             portfolio_validity_result,
         }
@@ -2636,52 +2656,56 @@ impl<T: Config> Module<T> {
     }
 
     fn setup_statistics_failures(
-        from_portfolio: &PortfolioId,
-        to_portfolio: &PortfolioId,
+        from_did: &IdentityId,
+        to_did: &IdentityId,
         ticker: &Ticker,
     ) -> (ScopeId, ScopeId, SecurityToken) {
         (
-            Self::scope_id(ticker, &from_portfolio.did),
-            Self::scope_id(ticker, &to_portfolio.did),
+            Self::scope_id(ticker, &from_did),
+            Self::scope_id(ticker, &to_did),
             Tokens::get(ticker),
         )
     }
 
     fn statistics_failures(
-        from_portfolio: &PortfolioId,
-        to_portfolio: &PortfolioId,
+        from_did: &IdentityId,
+        to_did: &IdentityId,
         ticker: &Ticker,
         value: Balance,
     ) -> bool {
         let (from_scope_id, to_scope_id, token) =
-            Self::setup_statistics_failures(from_portfolio, to_portfolio, ticker);
-        Statistics::<T>::verify_tm_restrictions(
+            Self::setup_statistics_failures(from_did, to_did, ticker);
+        Statistics::<T>::verify_transfer_restrictions(
             ticker,
             from_scope_id,
             to_scope_id,
-            value,
+            from_did,
+            to_did,
             Self::aggregate_balance_of(ticker, &from_scope_id),
             Self::aggregate_balance_of(ticker, &to_scope_id),
+            value,
             token.total_supply,
         )
         .is_err()
     }
 
-    fn statistics_failures_granular(
-        from_portfolio: &PortfolioId,
-        to_portfolio: &PortfolioId,
+    fn transfer_condition_failures_granular(
+        from_did: &IdentityId,
+        to_did: &IdentityId,
         ticker: &Ticker,
         value: Balance,
-    ) -> Vec<TransferManagerResult> {
+    ) -> Vec<TransferConditionResult> {
         let (from_scope_id, to_scope_id, token) =
-            Self::setup_statistics_failures(from_portfolio, to_portfolio, ticker);
-        Statistics::<T>::verify_tm_restrictions_granular(
+            Self::setup_statistics_failures(from_did, to_did, ticker);
+        Statistics::<T>::get_transfer_restrictions_results(
             ticker,
             from_scope_id,
             to_scope_id,
-            value,
+            from_did,
+            to_did,
             Self::aggregate_balance_of(ticker, &from_scope_id),
             Self::aggregate_balance_of(ticker, &to_scope_id),
+            value,
             token.total_supply,
         )
     }
