@@ -21,7 +21,7 @@ use jsonrpc_derive::rpc;
 
 use codec::Codec;
 use polymesh_primitives::asset::GranularCanTransferResult;
-use sp_api::{ApiRef, ProvideRuntimeApi};
+use sp_api::{ApiExt, ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_rpc::number;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
@@ -131,19 +131,52 @@ where
             message: format!("{:?} doesn't fit in 64 bit unsigned value", value),
             data: None,
         })?;
-        rpc_forward_call!(
-            self,
-            at,
-            |api: ApiRef<<C as ProvideRuntimeApi<Block>>::Api>, at| api.can_transfer_granular(
-                at,
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let api_version = api
+            .api_version::<dyn AssetRuntimeApi<Block, AccountId>>(&at)
+            .map_err(|e| RpcError {
+                code: ErrorCode::ServerError(crate::Error::RuntimeError as i64),
+                message: "Unable to check transfer".into(),
+                data: Some(format!("{:?}", e).into()),
+            })?;
+
+        match api_version {
+            Some(version) if version >= 2 => api.can_transfer_granular(
+                &at,
                 from_custodian,
                 from_portfolio,
                 to_custodian,
                 to_portfolio,
                 &ticker,
-                value.into()
+                value.into(),
             ),
-            "Unable to check transfer"
-        )
+            Some(1) =>
+            {
+                #[allow(deprecated)]
+                api.can_transfer_granular_before_version_2(
+                    &at,
+                    from_custodian,
+                    from_portfolio,
+                    to_custodian,
+                    to_portfolio,
+                    &ticker,
+                    value.into(),
+                )
+                .map(|res| res.into())
+            }
+            _ => {
+                return Err(Error {
+                    code: ErrorCode::MethodNotFound,
+                    message: format!("Cannot find `AssetApi` for block {:?}", at),
+                    data: None,
+                });
+            }
+        }
+        .map_err(|e| RpcError {
+            code: ErrorCode::ServerError(crate::Error::RuntimeError as i64),
+            message: "Unable to check transfer".into(),
+            data: Some(format!("{:?}", e).into()),
+        })
     }
 }

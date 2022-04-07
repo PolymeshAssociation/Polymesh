@@ -25,11 +25,9 @@ use confidential_identity_v1::Scalar as ScalarV1;
 use frame_support::weights::Weight;
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
-use sp_runtime::{
-    generic,
-    traits::{BlakeTwo256, Verify},
-    MultiSignature,
-};
+#[cfg(feature = "std")]
+use sp_runtime::traits::Verify;
+use sp_runtime::{generic, traits::BlakeTwo256, MultiSignature};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::Vec;
@@ -263,7 +261,10 @@ pub mod statistics;
 /// Compliance manager type definitions.
 pub mod compliance_manager;
 
-/// Compliance manager type definitions.
+/// Transfer compliance type definitions.
+pub mod transfer_compliance;
+
+/// Committee type definitions.
 pub mod committee;
 
 /// Host functions.
