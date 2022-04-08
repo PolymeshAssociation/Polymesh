@@ -4,6 +4,7 @@ function run_tests() {
     RUSTFLAGS="-Zinstrument-coverage -Clink-dead-code" \
     LLVM_PROFILE_FILE="json5format-%m.profraw" \
     SKIP_WASM_BUILD=1 RUST_BACKTRACE=1 \
+    INTEGRATION_TEST=1 \
     cargo test --tests \
         --package pallet-staking \
         --package pallet-group \
