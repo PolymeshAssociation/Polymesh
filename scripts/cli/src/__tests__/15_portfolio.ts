@@ -30,7 +30,7 @@ import {
   checkEraElectionClosed,
   bond,
 } from "../helpers/staking_helper";
-import { addTransferManager } from "../helpers/statistics_helper";
+import { setActiveAssetStats, setAssetTransferCompliance } from "../helpers/statistics_helper";
 
 // Disconnects api after all the tests have completed
 afterAll(async () => {
@@ -94,9 +94,12 @@ describe("15 - Portfolio Unit Test", () => {
       addClaim(bob, daveDid, { Accredited: { Ticker: ticker } }, null)
     ).resolves.not.toThrow();
 
-    console.log("Portfolio: ConfigureAdvancedTokenRules");
+    console.log("Portfolio: Setup investor count stats and MaxInvestorCount transfer conditions.");
     await expect(
-      addTransferManager(dave, ticker, { CountTransferManager: 10 })
+      setActiveAssetStats(dave, ticker, [{ op: { Count: null }, claim_issuer: null }])
+    ).resolves.not.toThrow();
+    await expect(
+      setAssetTransferCompliance(dave, ticker, [{ MaxInvestorCount: 10 }])
     ).resolves.not.toThrow();
 
     console.log("Portfolio: PortfolioCreated");

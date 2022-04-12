@@ -734,14 +734,7 @@
       "frozen": "bool"
     },
     "AuthorizationNonce": "u64",
-    "Counter": "u64",
     "Percentage": "Permill",
-    "TransferManager": {
-      "_enum": {
-        "CountTransferManager": "Counter",
-        "PercentageTransferManager": "Percentage"
-      }
-    },
     "RestrictionResult": {
       "_enum": ["Valid", "Invalid", "ForceValid"]
     },
@@ -751,6 +744,56 @@
       "recipient": "AccountId",
       "amount": "Balance",
       "tx_hash": "H256"
+    },
+    "AssetScope": {
+      "_enum": {
+        "Ticker": "Ticker"
+      }
+    },
+    "StatOpType": {
+      "_enum": ["Count", "Balance"]
+    },
+    "StatType": {
+      "op": "StatOpType",
+      "claim_issuer": "Option<(ClaimType, IdentityId)>"
+    },
+    "StatClaim": {
+      "_enum": {
+        "Accredited": "bool",
+        "Affiliate": "bool",
+        "Jurisdiction": "Option<CountryCode>"
+      }
+    },
+    "Stat1stKey": {
+      "asset": "AssetScope",
+      "stat_type": "StatType"
+    },
+    "Stat2ndKey": {
+      "_enum": {
+        "NoClaimStat": "",
+        "Claim": "StatClaim"
+      }
+    },
+    "StatUpdate": {
+      "key2": "Stat2ndKey",
+      "value": "Option<u128>"
+    },
+    "TransferCondition": {
+      "_enum": {
+        "MaxInvestorCount": "u64",
+        "MaxInvestorOwnership": "Percentage",
+        "ClaimCount": "(StatClaim, IdentityId, u64, Option<u64>)",
+        "ClaimOwnership": "(StatClaim, IdentityId, Percentage, Percentage)"
+      }
+    },
+    "AssetTransferCompliance": {
+      "paused": "bool",
+      "requirements": "Vec<TransferCondition>"
+    },
+    "TransferConditionExemptKey": {
+      "asset": "AssetScope",
+      "op": "StatOpType",
+      "claim_type": "Option<ClaimType>"
     },
     "AssetCompliance": {
       "paused": "bool",
@@ -1137,7 +1180,7 @@
       "sender_insufficient_balance": "bool",
       "portfolio_validity_result": "PortfolioValidityResult",
       "asset_frozen": "bool",
-      "statistics_result": "Vec<TransferManagerResult>",
+      "transfer_condition_result": "Vec<TransferConditionResult>",
       "compliance_result": "AssetComplianceResult",
       "result": "bool"
     },
@@ -1148,8 +1191,8 @@
       "sender_insufficient_balance": "bool",
       "result": "bool"
     },
-    "TransferManagerResult": {
-      "tm": "TransferManager",
+    "TransferConditionResult": {
+      "condition": "TransferCondition",
       "result": "bool"
     },
     "AGId": "u32",

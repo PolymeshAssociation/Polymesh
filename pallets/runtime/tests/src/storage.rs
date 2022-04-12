@@ -45,7 +45,10 @@ use polymesh_primitives::{
     BlockNumber, CddId, Claim, InvestorUid, Moment, Permissions as AuthPermissions,
     PortfolioNumber, Scope, ScopeId, TrustedFor, TrustedIssuer,
 };
-use polymesh_runtime_common::{merge_active_and_inactive, runtime::VMO};
+use polymesh_runtime_common::{
+    merge_active_and_inactive,
+    runtime::{BENCHMARK_MAX_INCREASE, VMO},
+};
 use polymesh_runtime_develop::constants::time::{EPOCH_DURATION_IN_BLOCKS, MILLISECS_PER_BLOCK};
 use smallvec::smallvec;
 use sp_core::{
@@ -409,7 +412,9 @@ parameter_types! {
     pub const MinimumPeriod: u64 = 3;
     pub NetworkShareInFee: Perbill = NETWORK_FEE_SHARE.with(|v| *v.borrow());
 
-    pub const MaxTransferManagersPerAsset: u32 = 3;
+    pub const MaxStatsPerAsset: u32 = 10 + BENCHMARK_MAX_INCREASE;
+    pub const MaxTransferConditionsPerAsset: u32 = 4 + BENCHMARK_MAX_INCREASE;
+
     pub const MaxConditionComplexity: u32 = 50;
     pub const MaxDefaultTrustedClaimIssuers: usize = 10;
     pub const MaxTrustedIssuerPerCondition: usize = 10;

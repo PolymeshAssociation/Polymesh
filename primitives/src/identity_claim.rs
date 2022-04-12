@@ -72,23 +72,23 @@ impl Scope {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum Claim {
-    /// User is Accredited
+    /// User is Accredited.
     Accredited(Scope),
-    /// User is Accredited
+    /// User is an Affiliate.
     Affiliate(Scope),
-    /// User has an active BuyLockup (end date defined in claim expiry)
+    /// User has an active BuyLockup (end date defined in claim expiry).
     BuyLockup(Scope),
-    /// User has an active SellLockup (date defined in claim expiry)
+    /// User has an active SellLockup (date defined in claim expiry).
     SellLockup(Scope),
-    /// User has passed CDD
+    /// User has passed CDD.
     CustomerDueDiligence(CddId),
-    /// User is KYC'd
+    /// User is KYC'd.
     KnowYourCustomer(Scope),
-    /// This claim contains a string that represents the jurisdiction of the user
+    /// This claim contains a string that represents the jurisdiction of the user.
     Jurisdiction(CountryCode, Scope),
-    /// User is exempted
+    /// User is exempted.
     Exempted(Scope),
-    /// User is Blocked
+    /// User is Blocked.
     Blocked(Scope),
     /// Confidential claim that will allow an investor to justify that it's identity can be
     /// a potential asset holder of given `scope`.
@@ -97,7 +97,7 @@ pub enum Claim {
     /// on the `ScopeId` instead of the investor's `IdentityId`, as `ScopeId` is unique at the
     /// investor entity level for a given scope (will always be a `Ticker`).
     InvestorUniqueness(Scope, ScopeId, CddId),
-    /// Empty claim
+    /// Empty claim.
     NoData,
     /// Confidential claim using latest version from cryptography library.
     ///
@@ -161,27 +161,27 @@ impl Claim {
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Copy, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
 pub enum ClaimType {
-    /// User is Accredited
+    /// User is Accredited.
     Accredited,
-    /// User is Accredited
+    /// User is an Affiliate.
     Affiliate,
-    /// User has an active BuyLockup (end date defined in claim expiry)
+    /// User has an active BuyLockup (end date defined in claim expiry).
     BuyLockup,
-    /// User has an active SellLockup (date defined in claim expiry)
+    /// User has an active SellLockup (date defined in claim expiry).
     SellLockup,
-    /// User has passed CDD
+    /// User has passed CDD.
     CustomerDueDiligence,
-    /// User is KYC'd
+    /// User is KYC'd.
     KnowYourCustomer,
-    /// This claim contains a string that represents the jurisdiction of the user
+    /// This claim contains a string that represents the jurisdiction of the user.
     Jurisdiction,
-    /// User is exempted
+    /// User is exempted.
     Exempted,
     /// User is Blocked.
     Blocked,
     /// User identity can be bounded under a `ScopeId`.
     InvestorUniqueness,
-    /// Empty type
+    /// Empty type.
     NoType,
     /// New Investor uniqueness claim.
     InvestorUniquenessV2,

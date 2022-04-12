@@ -20,7 +20,7 @@ use polymesh_primitives::{Balance, BlockNumber, Moment};
 use polymesh_runtime_common::{
     impls::Author,
     merge_active_and_inactive,
-    runtime::{GovernanceCommittee, VMO},
+    runtime::{GovernanceCommittee, BENCHMARK_MAX_INCREASE, VMO},
     AvailableBlockRatio, MaximumBlockWeight, NegativeImbalance,
 };
 use sp_core::u32_trait::{_1, _4};
@@ -125,7 +125,8 @@ parameter_types! {
     pub const MaxDidWhts: u32 = 1000;
 
     // Statistics:
-    pub const MaxTransferManagersPerAsset: u32 = 3;
+    pub const MaxStatsPerAsset: u32 = 10 + BENCHMARK_MAX_INCREASE;
+    pub const MaxTransferConditionsPerAsset: u32 = 4 + BENCHMARK_MAX_INCREASE;
 
     // Scheduler:
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();

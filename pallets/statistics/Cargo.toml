@@ -8,8 +8,10 @@ edition = "2018"
 polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-common-utilities = { path = "../common", default-features = false }
 pallet-external-agents = { path = "../external-agents", default-features = false }
+pallet-identity = { path = "../identity", default-features = false }
 
 # Other
+log = "0.4.8"
 serde = { version = "1.0.112", default-features = false }
 serde_derive = { version = "1.0.112", optional = true, default-features = false}
 
