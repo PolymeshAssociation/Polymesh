@@ -341,6 +341,63 @@ fn set_permission_to_signer_with_bad_perms() {
     });
 }
 
+#[test]
+fn ensure_perms_limited() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob_acc = AccountKeyring::Bob.to_account_id();
+
+        // Add bob with default permissions.
+        add_secondary_key(alice.did, bob_acc.clone());
+
+        let max_tokens = 202;
+        let tokens: Vec<Ticker> = (0..max_tokens)
+            .map(|i| {
+                let name = format!("TOK_{}", i);
+                let (ticker, _) = create_new_token(name.as_bytes(), alice);
+                ticker
+            })
+            .collect();
+
+        // Set secondary key permissions
+        let test_set_perms = |asset| {
+            assert_ok!(Identity::set_permission_to_signer(
+                alice.origin(),
+                Signatory::Account(bob_acc.clone()),
+                Permissions {
+                    asset,
+                    ..Default::default()
+                },
+            ));
+        };
+
+        // Set max secondary key permissions
+        let test_max_perms = |asset| {
+            assert_noop!(
+                Identity::set_permission_to_signer(
+                    alice.origin(),
+                    Signatory::Account(bob_acc.clone()),
+                    Permissions {
+                        asset,
+                        ..Default::default()
+                    },
+                ),
+                pallet_base::Error::<TestStorage>::TooLong
+            );
+        };
+
+        // bulk add.
+        test_set_perms(AssetPermissions::elems(
+            tokens[0..max_tokens - 2].into_iter().cloned(),
+        ));
+
+        // test going over 200 tokens
+        test_max_perms(AssetPermissions::elems(
+            tokens[0..max_tokens].into_iter().cloned(),
+        ));
+    });
+}
+
 /// It verifies that frozen keys are recovered after `unfreeze` call.
 #[test]
 fn freeze_secondary_keys_test() {
