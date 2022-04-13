@@ -1,10 +1,10 @@
 use super::{
-    storage::{root, set_curr_did, TestStorage, User},
+    storage::{root, TestStorage, User},
+    exec_ok, exec_noop,
     ExtBuilder,
 };
 
-use frame_support::{assert_noop, assert_ok};
-use polymesh_primitives::Beneficiary;
+use polymesh_primitives::{AccountId, Beneficiary, IdentityId};
 use sp_runtime::DispatchError;
 use test_client::AccountKeyring;
 
@@ -29,12 +29,12 @@ fn reimbursement_and_disbursement_we() {
 
     // Verify reimbursement.
     assert_eq!(Treasury::balance(), 0);
-    assert_ok!(Treasury::reimbursement(alice.origin(), 1_000));
+    exec_ok!(Treasury::reimbursement(alice.origin(), 1_000));
     assert_eq!(Treasury::balance(), 1_000);
     assert_eq!(total_issuance, Balances::total_issuance());
 
     // Disbursement: Only root can do that.
-    assert_noop!(
+    exec_noop!(
         Treasury::disbursement(alice.origin(), vec![]),
         DispatchError::BadOrigin
     );
@@ -45,8 +45,7 @@ fn reimbursement_and_disbursement_we() {
     // Providing a random DID to Root, In an ideal world root will have a valid DID
     let before_alice_balance = Balances::free_balance(&alice.acc());
     let before_bob_balance = Balances::free_balance(&bob.acc());
-    assert_ok!(Treasury::disbursement(root(), beneficiaries));
-    set_curr_did(None);
+    exec_ok!(Treasury::disbursement(root(), beneficiaries));
     assert_eq!(Treasury::balance(), 400);
     assert_eq!(
         Balances::free_balance(&alice.acc()),
@@ -56,9 +55,63 @@ fn reimbursement_and_disbursement_we() {
     assert_eq!(total_issuance, Balances::total_issuance());
 
     // Alice cannot make a disbursement to herself.
-    assert_noop!(
+    exec_noop!(
         Treasury::disbursement(alice.origin(), vec![beneficiary(alice, 500)]),
         DispatchError::BadOrigin
     );
+    assert_eq!(total_issuance, Balances::total_issuance());
+}
+
+#[test]
+fn bad_disbursement_did() {
+    ExtBuilder::default()
+        .balance_factor(10)
+        .build()
+        .execute_with(bad_disbursement_did_we);
+}
+
+fn bad_disbursement_did_we() {
+    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new(AccountKeyring::Bob);
+    let default_key = AccountId::default();
+
+    let total_issuance = Balances::total_issuance();
+    let treasury_balance = 10_000;
+
+    // Give the Treasury some POLYX.
+    assert_eq!(Treasury::balance(), 0);
+    exec_ok!(Treasury::reimbursement(alice.origin(), treasury_balance));
+    assert_eq!(Treasury::balance(), treasury_balance);
+    assert_eq!(total_issuance, Balances::total_issuance());
+
+    let beneficiary = |id: IdentityId, amount| Beneficiary { id, amount };
+    let beneficiaries = vec![
+        // Valid identities.
+        beneficiary(alice.did, 100), beneficiary(bob.did, 500),
+        // Invalid identities.
+        beneficiary(0x00001u128.into(), 100),
+        beneficiary(0x00002u128.into(), 200),
+        beneficiary(0x00003u128.into(), 300),
+    ];
+    let total_disbursement = beneficiaries.iter().fold(0u128, |total, b| total + b.amount);
+
+    // Save balances before disbursement.
+    let before_alice_balance = Balances::free_balance(&alice.acc());
+    let before_bob_balance = Balances::free_balance(&bob.acc());
+    let before_default_key_balance = Balances::free_balance(&default_key);
+
+    // Try disbursement.
+    exec_ok!(Treasury::disbursement(root(), beneficiaries));
+
+    // Check balances after disbursement.
+    assert_eq!(Treasury::balance(), treasury_balance - total_disbursement);
+    assert_eq!(
+        Balances::free_balance(&alice.acc()),
+        before_alice_balance + 100
+    );
+    assert_eq!(Balances::free_balance(&bob.acc()), before_bob_balance + 500);
+    assert_eq!(Balances::free_balance(&default_key), before_default_key_balance + 600);
+
+    // Make sure total POLYX issuance hasn't changed.
     assert_eq!(total_issuance, Balances::total_issuance());
 }
