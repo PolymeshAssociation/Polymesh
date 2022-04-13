@@ -43,10 +43,14 @@ fn reimbursement_and_disbursement_we() {
     let beneficiary = |u: User, amount| Beneficiary { id: u.did, amount };
     let beneficiaries = vec![beneficiary(alice, 100), beneficiary(bob, 500)];
 
-    // Providing a random DID to Root, In an ideal world root will have a valid DID
+    // Save balances before disbursement.
     let before_alice_balance = Balances::free_balance(&alice.acc());
     let before_bob_balance = Balances::free_balance(&bob.acc());
-    exec_ok!(Treasury::disbursement(root(), beneficiaries));
+
+    // Try disbursement.
+    exec_ok!(Treasury::disbursement(root(), beneficiaries.clone()));
+
+    // Check balances after disbursement.
     assert_eq!(Treasury::balance(), 400);
     assert_eq!(
         Balances::free_balance(&alice.acc()),
@@ -61,6 +65,12 @@ fn reimbursement_and_disbursement_we() {
         DispatchError::BadOrigin
     );
     assert_eq!(total_issuance, Balances::total_issuance());
+
+    // Repeat disbursement.  This time there is not enough POLYX in the treasury.
+    exec_noop!(
+        Treasury::disbursement(root(), beneficiaries),
+        TreasuryError::InsufficientBalance,
+    );
 }
 
 #[test]
