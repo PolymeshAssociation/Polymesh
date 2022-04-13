@@ -39,7 +39,7 @@ pub mod benchmarking;
 use frame_support::traits::{StorageInfo, StorageInfoTrait};
 use frame_support::{
     decl_error, decl_event, decl_module,
-    dispatch::DispatchError,
+    dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReasons},
     weights::Weight,
@@ -115,27 +115,7 @@ decl_module! {
         /// * `InvalidIdentity`: If one of the beneficiaries has an invalid identity.
         #[weight = <T as Config>::WeightInfo::disbursement(beneficiaries.len() as u32)]
         pub fn disbursement(origin, beneficiaries: Vec<Beneficiary<BalanceOf<T>>>) {
-            ensure_root(origin)?;
-
-            // Get the primary key for each Beneficiary.
-            let mut total_amount: BalanceOf<T> = 0u32.into();
-            let beneficiaries = beneficiaries.iter().map(|b| -> Result<_, DispatchError> {
-                total_amount = total_amount.saturating_add(b.amount);
-                // Ensure the identity exists and get it's primary key.
-                let primary_key = Identity::<T>::get_primary_key(b.id).ok_or(Error::<T>::InvalidIdentity)?;
-                Ok((primary_key, b.id, b.amount))
-            }).collect::<Result<Vec<_>, DispatchError>>()?;
-
-            // Ensure treasury has enough balance.
-            ensure!(
-                Self::balance() >= total_amount,
-                Error::<T>::InsufficientBalance
-            );
-
-            // Do disbursement.
-            for (primary_key, id, amount) in beneficiaries {
-                Self::unsafe_disbursement(primary_key, id, amount);
-            }
+            Self::base_disbursement(origin, beneficiaries)?;
         }
 
         /// It transfers the specific `amount` from `origin` account into treasury.
@@ -143,27 +123,59 @@ decl_module! {
         /// Only accounts which are associated to an identity can make a donation to treasury.
         #[weight = <T as Config>::WeightInfo::reimbursement()]
         pub fn reimbursement(origin, amount: BalanceOf<T>) {
-            let identity::PermissionedCallOriginData {
-                sender,
-                primary_did,
-                ..
-            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
-
-            // Not checking the cdd for the treasury account as it is assumed
-            // that treasury account posses a valid CDD check during the genesis phase
-            T::Currency::transfer(
-                &sender,
-                &Self::account_id(),
-                amount,
-                ExistenceRequirement::AllowDeath,
-            )?;
-
-            Self::deposit_event(RawEvent::TreasuryReimbursement(primary_did, amount));
+            Self::base_reimbursement(origin, amount)?;
         }
     }
 }
 
 impl<T: Config> Module<T> {
+    fn base_disbursement(origin: T::Origin, beneficiaries: Vec<Beneficiary<BalanceOf<T>>>) -> DispatchResult {
+        ensure_root(origin)?;
+
+        // Get the primary key for each Beneficiary.
+        let mut total_amount: BalanceOf<T> = 0u32.into();
+        let beneficiaries = beneficiaries.iter().map(|b| -> Result<_, DispatchError> {
+            total_amount = total_amount.saturating_add(b.amount);
+            // Ensure the identity exists and get it's primary key.
+            let primary_key = Identity::<T>::get_primary_key(b.id).ok_or(Error::<T>::InvalidIdentity)?;
+            Ok((primary_key, b.id, b.amount))
+        }).collect::<Result<Vec<_>, DispatchError>>()?;
+
+        // Ensure treasury has enough balance.
+        ensure!(
+            Self::balance() >= total_amount,
+            Error::<T>::InsufficientBalance
+        );
+
+        // Do disbursement.
+        for (primary_key, id, amount) in beneficiaries {
+            Self::unsafe_disbursement(primary_key, id, amount);
+        }
+
+        Ok(())
+    }
+
+    fn base_reimbursement(origin: T::Origin, amount: BalanceOf<T>) -> DispatchResult {
+        let identity::PermissionedCallOriginData {
+            sender,
+            primary_did,
+            ..
+        } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+
+        // Not checking the cdd for the treasury account as it is assumed
+        // that treasury account posses a valid CDD check during the genesis phase
+        T::Currency::transfer(
+            &sender,
+            &Self::account_id(),
+            amount,
+            ExistenceRequirement::AllowDeath,
+        )?;
+
+        Self::deposit_event(RawEvent::TreasuryReimbursement(primary_did, amount));
+
+        Ok(())
+    }
+
     /// The account ID of the treasury pot.
     ///
     /// This actually does computation. If you need to keep using it, then make sure you cache the
