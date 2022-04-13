@@ -10,6 +10,7 @@ use test_client::AccountKeyring;
 
 pub type Balances = pallet_balances::Module<TestStorage>;
 pub type Treasury = pallet_treasury::Module<TestStorage>;
+type TreasuryError = pallet_treasury::Error<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::Origin;
 
@@ -93,7 +94,6 @@ fn bad_disbursement_did_we() {
         beneficiary(0x00002u128.into(), 200),
         beneficiary(0x00003u128.into(), 300),
     ];
-    let total_disbursement = beneficiaries.iter().fold(0u128, |total, b| total + b.amount);
 
     // Save balances before disbursement.
     let before_alice_balance = Balances::free_balance(&alice.acc());
@@ -101,16 +101,16 @@ fn bad_disbursement_did_we() {
     let before_default_key_balance = Balances::free_balance(&default_key);
 
     // Try disbursement.
-    exec_ok!(Treasury::disbursement(root(), beneficiaries));
+    exec_noop!(
+        Treasury::disbursement(root(), beneficiaries),
+        TreasuryError::InvalidIdentity,
+    );
 
     // Check balances after disbursement.
-    assert_eq!(Treasury::balance(), treasury_balance - total_disbursement);
-    assert_eq!(
-        Balances::free_balance(&alice.acc()),
-        before_alice_balance + 100
-    );
-    assert_eq!(Balances::free_balance(&bob.acc()), before_bob_balance + 500);
-    assert_eq!(Balances::free_balance(&default_key), before_default_key_balance + 600);
+    assert_eq!(Treasury::balance(), treasury_balance);
+    assert_eq!(Balances::free_balance(&alice.acc()), before_alice_balance);
+    assert_eq!(Balances::free_balance(&bob.acc()), before_bob_balance);
+    assert_eq!(Balances::free_balance(&default_key), before_default_key_balance);
 
     // Make sure total POLYX issuance hasn't changed.
     assert_eq!(total_issuance, Balances::total_issuance());
