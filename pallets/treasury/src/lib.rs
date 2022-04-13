@@ -38,7 +38,9 @@ pub mod benchmarking;
 
 use frame_support::traits::{StorageInfo, StorageInfoTrait};
 use frame_support::{
-    decl_error, decl_event, decl_module, ensure,
+    decl_error, decl_event, decl_module,
+    dispatch::DispatchError,
+    ensure,
     traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReasons},
     weights::Weight,
 };
@@ -93,6 +95,8 @@ decl_error! {
     pub enum Error for Module<T: Config> {
         /// Proposer's balance is too low.
         InsufficientBalance,
+        /// Invalid identity for disbursement.
+        InvalidIdentity,
     }
 }
 
@@ -108,17 +112,30 @@ decl_module! {
         /// # Error
         /// * `BadOrigin`: Only root can execute transaction.
         /// * `InsufficientBalance`: If treasury balances is not enough to cover all beneficiaries.
-        #[weight = <T as Config>::WeightInfo::disbursement( beneficiaries.len() as u32)]
+        /// * `InvalidIdentity`: If one of the beneficiaries has an invalid identity.
+        #[weight = <T as Config>::WeightInfo::disbursement(beneficiaries.len() as u32)]
         pub fn disbursement(origin, beneficiaries: Vec<Beneficiary<BalanceOf<T>>>) {
             ensure_root(origin)?;
 
+            // Get the primary key for each Beneficiary.
+            let mut total_amount: BalanceOf<T> = 0u32.into();
+            let beneficiaries = beneficiaries.iter().map(|b| -> Result<_, DispatchError> {
+                total_amount = total_amount.saturating_add(b.amount);
+                // Ensure the identity exists and get it's primary key.
+                let primary_key = Identity::<T>::get_primary_key(b.id).ok_or(Error::<T>::InvalidIdentity)?;
+                Ok((primary_key, b.id, b.amount))
+            }).collect::<Result<Vec<_>, DispatchError>>()?;
+
             // Ensure treasury has enough balance.
-            let total_amount = beneficiaries.iter().fold(0u32.into(), |acc,b| b.amount.saturating_add(acc));
             ensure!(
                 Self::balance() >= total_amount,
                 Error::<T>::InsufficientBalance
             );
-            beneficiaries.into_iter().for_each(|b| Self::unsafe_disbursement(b.id, b.amount));
+
+            // Do disbursement.
+            for (primary_key, id, amount) in beneficiaries {
+                Self::unsafe_disbursement(primary_key, id, amount);
+            }
         }
 
         /// It transfers the specific `amount` from `origin` account into treasury.
@@ -155,14 +172,13 @@ impl<T: Config> Module<T> {
         TREASURY_PALLET_ID.into_account()
     }
 
-    fn unsafe_disbursement(target: IdentityId, amount: BalanceOf<T>) {
+    fn unsafe_disbursement(primary_key: T::AccountId, target: IdentityId, amount: BalanceOf<T>) {
         let _ = T::Currency::withdraw(
             &Self::account_id(),
             amount,
             WithdrawReasons::TRANSFER,
             ExistenceRequirement::AllowDeath,
         );
-        let primary_key = Identity::<T>::did_records(target).primary_key;
         let _ = T::Currency::deposit_into_existing(&primary_key, amount);
         Self::deposit_event(RawEvent::TreasuryDisbursement(GC_DID, target, amount));
     }

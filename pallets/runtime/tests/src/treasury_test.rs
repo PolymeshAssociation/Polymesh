@@ -1,6 +1,6 @@
 use super::{
+    exec_noop, exec_ok,
     storage::{root, TestStorage, User},
-    exec_ok, exec_noop,
     ExtBuilder,
 };
 
@@ -88,7 +88,8 @@ fn bad_disbursement_did_we() {
     let beneficiary = |id: IdentityId, amount| Beneficiary { id, amount };
     let beneficiaries = vec![
         // Valid identities.
-        beneficiary(alice.did, 100), beneficiary(bob.did, 500),
+        beneficiary(alice.did, 100),
+        beneficiary(bob.did, 500),
         // Invalid identities.
         beneficiary(0x00001u128.into(), 100),
         beneficiary(0x00002u128.into(), 200),
@@ -110,7 +111,10 @@ fn bad_disbursement_did_we() {
     assert_eq!(Treasury::balance(), treasury_balance);
     assert_eq!(Balances::free_balance(&alice.acc()), before_alice_balance);
     assert_eq!(Balances::free_balance(&bob.acc()), before_bob_balance);
-    assert_eq!(Balances::free_balance(&default_key), before_default_key_balance);
+    assert_eq!(
+        Balances::free_balance(&default_key),
+        before_default_key_balance
+    );
 
     // Make sure total POLYX issuance hasn't changed.
     assert_eq!(total_issuance, Balances::total_issuance());
