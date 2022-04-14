@@ -41,7 +41,7 @@ use frame_support::{
     decl_error, decl_event, decl_module,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReasons},
+    traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced},
     weights::Weight,
 };
 use frame_system::ensure_root;
@@ -80,12 +80,21 @@ decl_event!(
     pub enum Event<T>
     where
         Balance = BalanceOf<T>,
+        AccountId = <T as frame_system::Config>::AccountId,
     {
         /// Disbursement to a target Identity.
-        /// (target identity, amount)
-        TreasuryDisbursement(IdentityId, IdentityId, Balance),
+        ///
+        /// (treasury identity, target identity, target primary key, amount)
+        TreasuryDisbursement(IdentityId, IdentityId, AccountId, Balance),
+
+        /// Disbursement to a target Identity failed.
+        ///
+        /// (treasury identity, target identity, target primary key, amount)
+        TreasuryDisbursementFailed(IdentityId, IdentityId, AccountId, Balance),
 
         /// Treasury reimbursement.
+        ///
+        /// (source identity, amount)
         TreasuryReimbursement(IdentityId, Balance),
     }
 );
@@ -192,14 +201,26 @@ impl<T: Config> Module<T> {
     }
 
     fn unsafe_disbursement(primary_key: T::AccountId, target: IdentityId, amount: BalanceOf<T>) {
-        let _ = T::Currency::withdraw(
+        // The transfer failure cases are:
+        // 1. `target` not having a valid CDD.
+        // 2. The Treasury not having enough POLYX.  This shouldn't happen here,
+        //   since the balance is check before the disbursement.
+        // 3. `primary_key` balance overflow.
+        // 4. The Treasury's balance is frozen (staking).
+        let res = T::Currency::transfer(
             &Self::account_id(),
+            &primary_key,
             amount,
-            WithdrawReasons::TRANSFER,
             ExistenceRequirement::AllowDeath,
         );
-        let _ = T::Currency::deposit_into_existing(&primary_key, amount);
-        Self::deposit_event(RawEvent::TreasuryDisbursement(GC_DID, target, amount));
+
+        // Emit event based on transfer results.
+        let event = if res.is_ok() {
+            RawEvent::TreasuryDisbursement
+        } else {
+            RawEvent::TreasuryDisbursementFailed
+        };
+        Self::deposit_event(event(GC_DID, target, primary_key, amount));
     }
 
     /// Returns the current balance of the treasury.

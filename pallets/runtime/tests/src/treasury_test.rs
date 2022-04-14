@@ -1,6 +1,6 @@
 use super::{
     exec_noop, exec_ok,
-    storage::{root, TestStorage, User},
+    storage::{make_account_without_cdd, root, TestStorage, User},
     ExtBuilder,
 };
 
@@ -14,6 +14,10 @@ type TreasuryError = pallet_treasury::Error<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::Origin;
 
+fn beneficiary<Balance>(id: IdentityId, amount: Balance) -> Beneficiary<Balance> {
+    Beneficiary { id, amount }
+}
+
 #[test]
 fn reimbursement_and_disbursement() {
     ExtBuilder::default()
@@ -25,6 +29,8 @@ fn reimbursement_and_disbursement() {
 fn reimbursement_and_disbursement_we() {
     let alice = User::new(AccountKeyring::Alice);
     let bob = User::new(AccountKeyring::Bob);
+    let charlie_acc = AccountKeyring::Charlie.to_account_id();
+    let (_, charlie_did) = make_account_without_cdd(charlie_acc.clone()).unwrap();
 
     let total_issuance = Balances::total_issuance();
 
@@ -40,12 +46,18 @@ fn reimbursement_and_disbursement_we() {
         DispatchError::BadOrigin
     );
 
-    let beneficiary = |u: User, amount| Beneficiary { id: u.did, amount };
-    let beneficiaries = vec![beneficiary(alice, 100), beneficiary(bob, 500)];
+    let beneficiaries = vec![
+        // Valid identities.
+        beneficiary(alice.did, 100),
+        beneficiary(bob.did, 500),
+        // no-CDD identitiy.
+        beneficiary(charlie_did, 100),
+    ];
 
     // Save balances before disbursement.
     let before_alice_balance = Balances::free_balance(&alice.acc());
     let before_bob_balance = Balances::free_balance(&bob.acc());
+    let before_charlie_balance = Balances::free_balance(&charlie_acc);
 
     // Try disbursement.
     exec_ok!(Treasury::disbursement(root(), beneficiaries.clone()));
@@ -57,11 +69,12 @@ fn reimbursement_and_disbursement_we() {
         before_alice_balance + 100
     );
     assert_eq!(Balances::free_balance(&bob.acc()), before_bob_balance + 500);
+    assert_eq!(Balances::free_balance(&charlie_acc), before_charlie_balance);
     assert_eq!(total_issuance, Balances::total_issuance());
 
     // Alice cannot make a disbursement to herself.
     exec_noop!(
-        Treasury::disbursement(alice.origin(), vec![beneficiary(alice, 500)]),
+        Treasury::disbursement(alice.origin(), vec![beneficiary(alice.did, 500)]),
         DispatchError::BadOrigin
     );
     assert_eq!(total_issuance, Balances::total_issuance());
@@ -95,7 +108,6 @@ fn bad_disbursement_did_we() {
     assert_eq!(Treasury::balance(), treasury_balance);
     assert_eq!(total_issuance, Balances::total_issuance());
 
-    let beneficiary = |id: IdentityId, amount| Beneficiary { id, amount };
     let beneficiaries = vec![
         // Valid identities.
         beneficiary(alice.did, 100),
