@@ -129,17 +129,24 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
-    fn base_disbursement(origin: T::Origin, beneficiaries: Vec<Beneficiary<BalanceOf<T>>>) -> DispatchResult {
+    fn base_disbursement(
+        origin: T::Origin,
+        beneficiaries: Vec<Beneficiary<BalanceOf<T>>>,
+    ) -> DispatchResult {
         ensure_root(origin)?;
 
         // Get the primary key for each Beneficiary.
         let mut total_amount: BalanceOf<T> = 0u32.into();
-        let beneficiaries = beneficiaries.iter().map(|b| -> Result<_, DispatchError> {
-            total_amount = total_amount.saturating_add(b.amount);
-            // Ensure the identity exists and get it's primary key.
-            let primary_key = Identity::<T>::get_primary_key(b.id).ok_or(Error::<T>::InvalidIdentity)?;
-            Ok((primary_key, b.id, b.amount))
-        }).collect::<Result<Vec<_>, DispatchError>>()?;
+        let beneficiaries = beneficiaries
+            .iter()
+            .map(|b| -> Result<_, DispatchError> {
+                total_amount = total_amount.saturating_add(b.amount);
+                // Ensure the identity exists and get it's primary key.
+                let primary_key =
+                    Identity::<T>::get_primary_key(b.id).ok_or(Error::<T>::InvalidIdentity)?;
+                Ok((primary_key, b.id, b.amount))
+            })
+            .collect::<Result<Vec<_>, DispatchError>>()?;
 
         // Ensure treasury has enough balance.
         ensure!(
