@@ -175,15 +175,17 @@ fn lei_checksum(bytes: [u8; 18]) -> u8 {
 }
 
 fn validate_figi(bytes: &[u8; 12]) -> bool {
-    const DISALLOWED_PREFIXES: [[u8; 2]; 7] =
-        [*b"BS", *b"BM", *b"GG", *b"GB", *b"GH", *b"KY", *b"VG"];
-
-    let prefix = bytes[..2].try_into().expect("slice with incorrect length");
-    if DISALLOWED_PREFIXES.contains(&prefix) || bytes[2] != b'G' {
+    // G for Global.
+    if bytes[2] != b'G' {
         return false;
     }
-
-    cusip_checksum(&bytes[..11]) == bytes[11] - b'0'
+    
+    match <[u8; 2]>::try_from(&bytes[..2]).as_ref() {
+        // Disallowed prefixes.
+        Err(_) | Ok(b"BS" | b"BM" | b"GG" | b"GB" | b"GH" | b"KY" | b"VG") => false,
+        // Validate checksum.
+        Ok(_) => cusip_checksum(&bytes[..11]) == bytes[11] - b'0',
+    }
 }
 
 fn byte_value(b: u8) -> u8 {
