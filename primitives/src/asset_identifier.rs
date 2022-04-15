@@ -1,5 +1,5 @@
 use codec::{Decode, Encode};
-use core::convert::TryInto;
+use core::convert::{TryFrom, TryInto};
 use scale_info::TypeInfo;
 
 /// Implementation of common asset identifiers.
@@ -26,7 +26,7 @@ pub enum AssetIdentifier {
     /// LOU PREFIX ENTITY INDENTIFIER VERIFICATION ID LEI
     /// 5493       00SAMIRN1R27UP     42              549300SAMIRN1R27UP42
     LEI([u8; 20]),
-    /// Financial Instrument Global Identifier.
+    /// Financial Instrument Global Identifier https://www.omg.org/figi/index.htm.
     /// Example: Alphabet Inc - Common Stock
     /// BBG013V1S0T3
     FIGI([u8; 12]),
@@ -179,7 +179,7 @@ fn validate_figi(bytes: &[u8; 12]) -> bool {
     if bytes[2] != b'G' {
         return false;
     }
-    
+
     match <[u8; 2]>::try_from(&bytes[..2]).as_ref() {
         // Disallowed prefixes.
         Err(_) | Ok(b"BS" | b"BM" | b"GG" | b"GB" | b"GH" | b"KY" | b"VG") => false,
@@ -303,8 +303,14 @@ mod tests {
             Some(AssetIdentifier::FIGI(*b"BBG00094DJF9"))
         );
         assert_eq!(
-            AssetIdentifier::figi(*b"BBG00024DJF9"),
-            None
+            AssetIdentifier::figi(*b"BBG016V71XT0"),
+            Some(AssetIdentifier::FIGI(*b"BBG016V71XT0"))
         );
+        // Bad check digit.
+        assert_eq!(AssetIdentifier::figi(*b"BBG00024DJF9"), None);
+        // Disallowed prefix.
+        assert_eq!(AssetIdentifier::figi(*b"BSG00024DJF9"), None);
+        // 3rd char not G.
+        assert_eq!(AssetIdentifier::figi(*b"BBB00024DJF9"), None);
     }
 }
