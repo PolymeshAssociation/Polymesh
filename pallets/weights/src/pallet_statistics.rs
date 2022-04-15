@@ -52,27 +52,31 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 /// Weights for pallet_statistics using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_statistics::WeightInfo for WeightInfo {
-    fn add_transfer_manager() -> Weight {
-        (63_842_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
+    fn set_active_asset_stats(i: u32) -> Weight {
+        (133_150_000 as Weight)
+            // Standard Error: 21_000
+            .saturating_add((202_000 as Weight).saturating_mul(i as Weight))
+            .saturating_add(DbWeight::get().reads(7 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
-    fn remove_transfer_manager() -> Weight {
-        (61_562_000 as Weight)
+    fn batch_update_asset_stats(i: u32) -> Weight {
+        (281_755_000 as Weight)
+            // Standard Error: 142_000
+            .saturating_add((6_192_000 as Weight).saturating_mul(i as Weight))
             .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
-    }
-    fn add_exempted_entities(i: u32) -> Weight {
-        (79_926_000 as Weight)
-            // Standard Error: 17_000
-            .saturating_add((4_260_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add(DbWeight::get().reads(5 as Weight))
             .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(i as Weight)))
     }
-    fn remove_exempted_entities(i: u32) -> Weight {
-        (65_490_000 as Weight)
-            // Standard Error: 15_000
-            .saturating_add((4_348_000 as Weight).saturating_mul(i as Weight))
+    fn set_asset_transfer_compliance(i: u32) -> Weight {
+        (8_316_761_000 as Weight)
+            // Standard Error: 11_125_000
+            .saturating_add((132_573_000 as Weight).saturating_mul(i as Weight))
+            .saturating_add(DbWeight::get().reads(7 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn set_entities_exempt(i: u32) -> Weight {
+        (133_340_000 as Weight)
+            // Standard Error: 87_000
+            .saturating_add((5_514_000 as Weight).saturating_mul(i as Weight))
             .saturating_add(DbWeight::get().reads(5 as Weight))
             .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(i as Weight)))
     }

@@ -1,6 +1,6 @@
 [package]
 name = "polymesh"
-version = "4.1.1"
+version = "5.0.0"
 authors = ["Polymath"]
 build = "build.rs"
 edition = "2018"
@@ -154,6 +154,7 @@ members = [
     "pallets/test-utils",
     "pallets/weights",
     "primitives",
+    "primitives/asset-metadata",
     "rpc",
     "rpc/runtime-api",
     "utils/permissions",

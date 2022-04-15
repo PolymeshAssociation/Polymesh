@@ -45,7 +45,10 @@ use polymesh_primitives::{
     BlockNumber, CddId, Claim, InvestorUid, Moment, Permissions as AuthPermissions,
     PortfolioNumber, Scope, ScopeId, TrustedFor, TrustedIssuer,
 };
-use polymesh_runtime_common::{merge_active_and_inactive, runtime::VMO};
+use polymesh_runtime_common::{
+    merge_active_and_inactive,
+    runtime::{BENCHMARK_MAX_INCREASE, VMO},
+};
 use polymesh_runtime_develop::constants::time::{EPOCH_DURATION_IN_BLOCKS, MILLISECS_PER_BLOCK};
 use smallvec::smallvec;
 use sp_core::{
@@ -400,13 +403,18 @@ parameter_types! {
     pub MaxNumberOfTMExtensionForAsset: u32 = MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow());
     pub const AssetNameMaxLength: u32 = 128;
     pub const FundingRoundNameMaxLength: u32 = 128;
+    pub const AssetMetadataNameMaxLength: u32 = 256;
+    pub const AssetMetadataValueMaxLength: u32 = 8 * 1024;
+    pub const AssetMetadataTypeDefMaxLength: u32 = 8 * 1024;
     pub const BlockRangeForTimelock: BlockNumber = 1000;
     pub const MaxTargetIds: u32 = 10;
     pub const MaxDidWhts: u32 = 10;
     pub const MinimumPeriod: u64 = 3;
     pub NetworkShareInFee: Perbill = NETWORK_FEE_SHARE.with(|v| *v.borrow());
 
-    pub const MaxTransferManagersPerAsset: u32 = 3;
+    pub const MaxStatsPerAsset: u32 = 10 + BENCHMARK_MAX_INCREASE;
+    pub const MaxTransferConditionsPerAsset: u32 = 4 + BENCHMARK_MAX_INCREASE;
+
     pub const MaxConditionComplexity: u32 = 50;
     pub const MaxDefaultTrustedClaimIssuers: usize = 10;
     pub const MaxTrustedIssuerPerCondition: usize = 10;
@@ -569,6 +577,7 @@ impl polymesh_common_utilities::traits::identity::Config for TestStorage {
     type IdentityFn = identity::Module<TestStorage>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
+    type MultiSigBalanceLimit = polymesh_runtime_common::MultiSigBalanceLimit;
 }
 
 pub struct TestSessionHandler;

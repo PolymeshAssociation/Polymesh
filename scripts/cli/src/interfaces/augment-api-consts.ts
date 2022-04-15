@@ -10,6 +10,9 @@ import type { FrameSupportWeightsRuntimeDbWeight, FrameSupportWeightsWeightToFee
 declare module '@polkadot/api-base/types/consts' {
   export interface AugmentedConsts<ApiType extends ApiTypes> {
     asset: {
+      assetMetadataNameMaxLength: u32 & AugmentedConst<ApiType>;
+      assetMetadataTypeDefMaxLength: u32 & AugmentedConst<ApiType>;
+      assetMetadataValueMaxLength: u32 & AugmentedConst<ApiType>;
       assetNameMaxLength: u32 & AugmentedConst<ApiType>;
       fundingRoundNameMaxLength: u32 & AugmentedConst<ApiType>;
       maxNumberOfTMExtensionForAsset: u32 & AugmentedConst<ApiType>;
@@ -210,7 +213,8 @@ declare module '@polkadot/api-base/types/consts' {
       [key: string]: Codec;
     };
     statistics: {
-      maxTransferManagersPerAsset: u32 & AugmentedConst<ApiType>;
+      maxStatsPerAsset: u32 & AugmentedConst<ApiType>;
+      maxTransferConditionsPerAsset: u32 & AugmentedConst<ApiType>;
       /**
        * Generic const
        **/

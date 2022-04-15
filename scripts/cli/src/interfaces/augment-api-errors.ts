@@ -27,6 +27,34 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       AssetAlreadyDivisible: AugmentedError<ApiType>;
       /**
+       * Asset Metadata Global type already exists.
+       **/
+      AssetMetadataGlobalKeyAlreadyExists: AugmentedError<ApiType>;
+      /**
+       * Asset Metadata key is missing.
+       **/
+      AssetMetadataKeyIsMissing: AugmentedError<ApiType>;
+      /**
+       * Asset Metadata Local type already exists for asset.
+       **/
+      AssetMetadataLocalKeyAlreadyExists: AugmentedError<ApiType>;
+      /**
+       * Maximum length of the asset metadata type name has been exceeded.
+       **/
+      AssetMetadataNameMaxLengthExceeded: AugmentedError<ApiType>;
+      /**
+       * Maximum length of the asset metadata type definition has been exceeded.
+       **/
+      AssetMetadataTypeDefMaxLengthExceeded: AugmentedError<ApiType>;
+      /**
+       * Asset Metadata value is locked.
+       **/
+      AssetMetadataValueIsLocked: AugmentedError<ApiType>;
+      /**
+       * Maximum length of the asset metadata value has been exceeded.
+       **/
+      AssetMetadataValueMaxLengthExceeded: AugmentedError<ApiType>;
+      /**
        * An overflow while calculating the balance.
        **/
       BalanceOverflow: AugmentedError<ApiType>;
@@ -932,9 +960,13 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       RequiredSignaturesOutOfBounds: AugmentedError<ApiType>;
       /**
+       * Signer is an account key that is already associated with an identity.
+       **/
+      SignerAlreadyLinkedToIdentity: AugmentedError<ApiType>;
+      /**
        * Signer is an account key that is already associated with a multisig.
        **/
-      SignerAlreadyLinked: AugmentedError<ApiType>;
+      SignerAlreadyLinkedToMultisig: AugmentedError<ApiType>;
       /**
        * More signers than required.
        **/
@@ -1529,21 +1561,29 @@ declare module '@polkadot/api-base/types/errors' {
     };
     statistics: {
       /**
-       * The transfer manager already exists
+       * A Stattype is in use and can't be removed.
        **/
-      DuplicateTransferManager: AugmentedError<ApiType>;
+      CannotRemoveStatTypeInUse: AugmentedError<ApiType>;
       /**
-       * Transfer not allowed
+       * Transfer not allowed.
        **/
       InvalidTransfer: AugmentedError<ApiType>;
       /**
-       * Transfer manager is not enabled
+       * The limit of StatTypes allowed for an asset has been reached.
        **/
-      TransferManagerMissing: AugmentedError<ApiType>;
+      StatTypeLimitReached: AugmentedError<ApiType>;
       /**
-       * The limit of transfer managers allowed for an asset has been reached
+       * StatType is not enabled.
        **/
-      TransferManagersLimitReached: AugmentedError<ApiType>;
+      StatTypeMissing: AugmentedError<ApiType>;
+      /**
+       * StatType is needed by TransferCondition.
+       **/
+      StatTypeNeededByTransferCondition: AugmentedError<ApiType>;
+      /**
+       * The limit of TransferConditions allowed for an asset has been reached.
+       **/
+      TransferConditionLimitReached: AugmentedError<ApiType>;
       /**
        * Generic error
        **/

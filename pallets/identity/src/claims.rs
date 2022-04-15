@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Claim1stKey, Claim2ndKey, Claims, DidRecords, Error, Module};
+use crate::{Claim1stKey, Claim2ndKey, Claims, DidRecord, DidRecords, Error, Module};
 use core::convert::From;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
@@ -480,6 +480,23 @@ impl<T: Config> Module<T> {
 
         // Sender has to be part of CDDProviders
         Self::ensure_authorized_cdd_provider(cdd_did)?;
+
+        let record = DidRecord {
+            ..Default::default()
+        };
+
+        // Calculates the cost complexity of the SK's permissions.
+        let cost =
+            secondary_keys
+                .iter()
+                .try_fold(0, |cost, auth| -> Result<usize, DispatchError> {
+                    // Check limit for this SK's permissions.
+                    Self::ensure_perms_length_limited(&auth.permissions)?;
+                    Ok(cost.saturating_add(auth.permissions.complexity()))
+                })?;
+
+        // Check secondary key limits.
+        Self::ensure_secondary_keys_limited(&record, secondary_keys.len(), cost)?;
 
         // Register Identity
         let target_did = Self::_register_did(

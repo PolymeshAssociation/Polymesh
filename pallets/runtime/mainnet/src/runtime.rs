@@ -20,7 +20,7 @@ use polymesh_primitives::{Balance, BlockNumber, Moment};
 use polymesh_runtime_common::{
     impls::Author,
     merge_active_and_inactive,
-    runtime::{GovernanceCommittee, VMO},
+    runtime::{GovernanceCommittee, BENCHMARK_MAX_INCREASE, VMO},
     AvailableBlockRatio, MaximumBlockWeight, NegativeImbalance,
 };
 use sp_core::u32_trait::{_1, _4};
@@ -53,11 +53,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("polymesh_mainnet"),
     impl_name: create_runtime_str!("polymesh_mainnet"),
     authoring_version: 1,
-    // Per convention: if the runtime behavior changes, increment spec_version
-    // and set impl_version to 0. If only runtime
-    // implementation changes and behavior does not, then leave spec_version as
-    // is and increment impl_version.
-    spec_version: 3010,
+    // `spec_version: aaa_bbb_ccc` should match node version v`aaa.bbb.ccc`
+    spec_version: 5_000_000,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 2,
@@ -116,6 +113,9 @@ parameter_types! {
     pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
     pub const AssetNameMaxLength: u32 = 128;
     pub const FundingRoundNameMaxLength: u32 = 128;
+    pub const AssetMetadataNameMaxLength: u32 = 256;
+    pub const AssetMetadataValueMaxLength: u32 = 8 * 1024;
+    pub const AssetMetadataTypeDefMaxLength: u32 = 8 * 1024;
 
     // Compliance manager:
     pub const MaxConditionComplexity: u32 = 50;
@@ -125,7 +125,8 @@ parameter_types! {
     pub const MaxDidWhts: u32 = 1000;
 
     // Statistics:
-    pub const MaxTransferManagersPerAsset: u32 = 3;
+    pub const MaxStatsPerAsset: u32 = 10 + BENCHMARK_MAX_INCREASE;
+    pub const MaxTransferConditionsPerAsset: u32 = 4 + BENCHMARK_MAX_INCREASE;
 
     // Scheduler:
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
@@ -215,6 +216,7 @@ impl polymesh_common_utilities::traits::identity::Config for Runtime {
     type IdentityFn = pallet_identity::Module<Runtime>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
+    type MultiSigBalanceLimit = polymesh_runtime_common::MultiSigBalanceLimit;
 }
 
 impl pallet_committee::Config<GovernanceCommittee> for Runtime {
