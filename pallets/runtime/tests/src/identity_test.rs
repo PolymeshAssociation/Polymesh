@@ -1114,6 +1114,35 @@ fn add_secondary_keys_with_authorization_too_many_sks() {
 }
 
 #[test]
+fn secondary_key_with_bad_permissions() {
+    ExtBuilder::default()
+        .balance_factor(1_000)
+        .monied(true)
+        .cdd_providers(vec![
+            AccountKeyring::Eve.to_account_id(),
+            AccountKeyring::Ferdie.to_account_id(),
+        ])
+        .build()
+        .execute_with(|| {
+            let cdd1 = AccountKeyring::Eve.to_account_id();
+            let alice = User::new(AccountKeyring::Alice);
+            let bob = User::new_with(alice.did, AccountKeyring::Bob);
+
+            test_with_bad_perms(bob.did, |perms| {
+                let bob_sk = SecondaryKey::new(bob.signatory_acc(), perms);
+                assert_noop!(
+                    Identity::cdd_register_did(
+                        Origin::signed(cdd1.clone()),
+                        alice.acc(),
+                        vec![bob_sk]
+                    ),
+                    pallet_base::Error::<TestStorage>::TooLong
+                );
+            });
+        });
+}
+
+#[test]
 fn adding_authorizations_bad_perms() {
     ExtBuilder::default().build().execute_with(|| {
         let user = User::new(AccountKeyring::Alice);
