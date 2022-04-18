@@ -1106,7 +1106,7 @@ fn secondary_key_with_bad_permissions() {
             let bob = User::new_with(alice.did, AccountKeyring::Bob);
 
             test_with_bad_perms(bob.did, |perms| {
-                let bob_sk = SecondaryKey::new(bob.signatory_acc(), perms);
+                let bob_sk = SecondaryKey::new(bob.acc(), perms);
                 assert_noop!(
                     Identity::cdd_register_did(
                         Origin::signed(cdd1.clone()),
