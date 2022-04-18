@@ -1,8 +1,8 @@
 use super::{
     next_block,
     storage::{
-        get_last_auth_id, get_primary_key, get_secondary_keys, register_keyring_account,
-        set_curr_did, Call, TestStorage, User,
+        add_secondary_key, get_last_auth_id, get_primary_key, get_secondary_keys,
+        register_keyring_account, set_curr_did, Call, TestStorage, User,
     },
     ExtBuilder,
 };
@@ -49,6 +49,11 @@ fn join_multisig() {
         let alice = Origin::signed(AccountKeyring::Alice.to_account_id());
         let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
         let bob_signer = Signatory::Account(AccountKeyring::Bob.to_account_id());
+        let charlie = User::new(AccountKeyring::Charlie);
+
+        // Add dave's key as a secondary key of charlie.
+        let dave = User::new_with(charlie.did, AccountKeyring::Dave);
+        add_secondary_key(charlie.did, dave.acc());
 
         let ms_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id());
 
@@ -103,6 +108,40 @@ fn join_multisig() {
         assert_noop!(
             MultiSig::accept_multisig_signer_as_key(bob.clone(), bob_auth_id2),
             Error::SignerAlreadyLinkedToMultisig
+        );
+
+        assert_ok!(MultiSig::create_multisig(
+            alice.clone(),
+            vec![Signatory::from(alice_did), dave.signatory_acc()],
+            1,
+        ));
+
+        // Testing signer key that is already a secondary key on another identity.
+        let dave_auth_id = get_last_auth_id(&dave.signatory_acc());
+        set_curr_did(Some(alice_did));
+        assert_noop!(
+            MultiSig::accept_multisig_signer_as_key(dave.origin(), dave_auth_id),
+            Error::SignerAlreadyLinkedToIdentity
+        );
+
+        set_curr_did(None);
+        assert_ok!(MultiSig::create_multisig(
+            alice.clone(),
+            vec![Signatory::Account(ms_address.clone())],
+            1,
+        ));
+
+        // Testing that a multisig can't add itself as a signer.
+        let ms_auth_id = Identity::add_auth(
+            alice_did,
+            Signatory::Account(ms_address.clone()),
+            AuthorizationData::AddMultiSigSigner(ms_address.clone()),
+            None,
+        );
+
+        assert_noop!(
+            MultiSig::accept_multisig_signer_as_key(Origin::signed(ms_address.clone()), ms_auth_id),
+            Error::MultisigNotAllowedToLinkToItself
         );
     });
 }
