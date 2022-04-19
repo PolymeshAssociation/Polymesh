@@ -150,7 +150,7 @@ impl<T: Config> Module<T> {
             .iter()
             .map(|b| -> Result<_, DispatchError> {
                 total_amount = total_amount.saturating_add(b.amount);
-                // Ensure the identity exists and get it's primary key.
+                // Ensure the identity exists and get its primary key.
                 let primary_key =
                     Identity::<T>::get_primary_key(b.id).ok_or(Error::<T>::InvalidIdentity)?;
                 Ok((primary_key, b.id, b.amount))
