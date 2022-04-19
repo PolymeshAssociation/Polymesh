@@ -68,6 +68,11 @@ impl polymesh_contracts::WeightInfo for WeightInfo {
 			.saturating_add(DbWeight::get().reads(4 as Weight))
 			.saturating_add(DbWeight::get().writes(3 as Weight))
 	}
+
+    fn prepare_instantiate_full(_in_len: u32) -> Weight {
+		0
+	}
+
 	// Storage: Identity KeyToIdentityIds (r:2 w:0)
 	// Storage: Identity DidRecords (r:1 w:0)
 	// Storage: BaseContracts ContractInfoOf (r:1 w:1)

@@ -28,7 +28,7 @@ use polymesh_common_utilities::{
     constants::currency::POLY,
     TestUtilsFn,
 };
-use polymesh_primitives::Balance;
+use polymesh_primitives::{Balance, Permissions};
 use pwasm_utils::parity_wasm::elements::{Instruction, ValueType};
 use sp_runtime::Perbill;
 use sp_std::prelude::*;
@@ -98,8 +98,36 @@ fn chain_extension_module_def(func_id: i32, in_ptr: i32, in_len: i32) -> ModuleD
     }
 }
 
+/// Make the `prepare_instantiate` input.
+fn prepare_input(n: u32) -> Vec<u8> {
+    // For simplicity, we assume the salt is `n` long and the rest is 0 long.
+    let hash = Vec::<u8>::new();
+    let salt = vec![b'A'; n as usize];
+    let perms = Permissions::default();
+    (hash, salt, perms).encode()
+}
+
 benchmarks! {
     where_clause { where T: pallet_asset::Config, T: TestUtilsFn<AccountIdOf<T>> }
+
+    prepare_instantiate_full {
+        let n in 1 .. T::MaxLen::get().saturating_sub(prepare_input(0).len() as u32);
+
+        // Construct a user doing everything.
+        let user = funded_user::<T>();
+
+        // Construct our contract.
+        let input = prepare_input(n);
+        let def = chain_extension_module_def(0x_00_00_00_00u32 as i32, 0, input.len() as i32);
+        let wasm = WasmModule::<T>::from(ModuleDefinition {
+            memory: Some(ImportedMemory::max::<T>()),
+            data_segments: vec![DataSegment { offset: 0, value: input }],
+            ..def
+        });
+
+        // Instantiate the contract.
+        let callee = instantiate::<T>(&user, wasm, salt());
+    }: call(user.origin(), callee.clone(), 0, Weight::MAX, vec![])
 
     chain_extension_full {
         let n in 1 .. T::MaxLen::get() as u32;
@@ -109,7 +137,7 @@ benchmarks! {
 
         // Construct our contract.
         let input = vec![b'A'; n as usize].encode();
-        let def = chain_extension_module_def(0x_00_00_11_00, 0, input.len() as i32);
+        let def = chain_extension_module_def(0x_00_01_11_00, 0, input.len() as i32);
         let wasm = WasmModule::<T>::from(ModuleDefinition {
             memory: Some(ImportedMemory::max::<T>()),
             data_segments: vec![DataSegment { offset: 0, value: input }],

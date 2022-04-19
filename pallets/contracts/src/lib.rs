@@ -53,19 +53,21 @@ use codec::Decode;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{
-        DispatchError, DispatchErrorWithPostInfo, DispatchResultWithPostInfo, GetDispatchInfo,
+        DispatchError, DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo,
+        GetDispatchInfo,
     },
     ensure,
     traits::{Get, GetCallMetadata},
     weights::Weight,
 };
 use pallet_contracts::chain_extension as ce;
+use pallet_contracts::Config as BConfig;
 use pallet_contracts_primitives::{Code, ContractResult};
 use pallet_identity::PermissionedCallOriginData;
 use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
 use polymesh_common_utilities::{with_transaction, Context};
-use polymesh_primitives::{Balance, Permissions};
+use polymesh_primitives::{Balance, IdentityId, Permissions};
 use sp_core::crypto::UncheckedFrom;
 use sp_core::Bytes;
 use sp_runtime::traits::Hash;
@@ -115,12 +117,23 @@ pub trait WeightInfo {
     /// Returns the weight of executing `Asset::register_custom_asset_type`
     /// with an asset type that is `in_len` characters long.
     fn basic_runtime_call(in_len: u32) -> Weight;
+
+    /// Computes the cost of executing the special `prepare_instantiate` func_id
+    /// with `in_len` as the length in bytes of the code hash, salt, and permissions taken together.
+    fn prepare_instantiate(in_len: u32) -> Weight {
+        Self::prepare_instantiate_full(in_len).saturating_sub(Self::chain_extension_early_exit())
+    }
+
+    /// Returns the weight for a full execution of a smart contract `call`
+    /// that uses the special `prepare_instantiate` func_id with `in_len`
+    /// as the length in bytes of the code hash, salt, and permissions taken together.
+    fn prepare_instantiate_full(in_len: u32) -> Weight;
 }
 
 /// The `Config` trait for the smart contracts pallet.
 pub trait Config:
     IdentityConfig
-    + pallet_contracts::Config<Currency = Self::Balances, Call: GetCallMetadata>
+    + BConfig<Currency = Self::Balances, Call: GetCallMetadata>
     + frame_system::Config<
         AccountId: AsRef<[u8]> + UncheckedFrom<<Self as frame_system::Config>::Hash>,
     >
@@ -377,16 +390,9 @@ impl<T: Config> Module<T> {
             ..
         } = Identity::<T>::ensure_origin_call_permissions(origin)?;
 
-        // Pre-compute what contract's key will be...
-        let contract_key = BaseContracts::<T>::contract_address(&sender, &code_hash, &salt);
-
-        // ...and ensure that key can be a secondary-key of DID...
-        Identity::<T>::ensure_secondary_key_can_be_added(&did, &contract_key, &perms)?;
-
         with_transaction(|| {
-            // Roll back `join_identity` if contract was not instantiated.
-            // ...so that the CDD due to `endowment` passes.
-            Identity::<T>::unsafe_join_identity(did, perms, contract_key);
+            // Roll back `prepare_instantiate` if contract was not instantiated.
+            Self::prepare_instantiate(did, &sender, &code_hash, &salt, perms)?;
 
             // Now we can finally instantiate the contract.
             Self::handle_error(
@@ -402,6 +408,25 @@ impl<T: Config> Module<T> {
                 ),
             )
         })
+    }
+
+    /// Prepare instantiation of a contract by trying to add it as a secondary key.
+    fn prepare_instantiate(
+        did: IdentityId,
+        sender: &T::AccountId,
+        code_hash: &T::Hash,
+        salt: &[u8],
+        perms: Permissions,
+    ) -> DispatchResult {
+        // Pre-compute what contract's key will be...
+        let contract_key = BaseContracts::<T>::contract_address(sender, code_hash, salt);
+
+        // ...and ensure that key can be a secondary-key of DID...
+        Identity::<T>::ensure_secondary_key_can_be_added(&did, &contract_key, &perms)?;
+
+        // ...so that the CDD due to `endowment` passes.
+        Identity::<T>::unsafe_join_identity(did, perms, contract_key);
+        Ok(())
     }
 
     /// Enriches `result` of executing a smart contract with actual weight,
@@ -455,7 +480,7 @@ fn split_func_id(func_id: u32) -> FuncId {
 }
 
 /// Run `with` while the current DID is temporarily set to that of `key`.
-fn with_key_as_current<T: Config, W: FnOnce() -> R, R>(key: &T::AccountId, with: W) -> R {
+fn with_key_as_current<T: Config, W: FnOnce() -> R, R>(key: T::AccountId, with: W) -> R {
     let old_did = Context::current_identity::<Identity<T>>();
     let caller_did = Identity::<T>::key_to_identity_dids(key);
     Context::set_current_identity::<Identity<T>>(Some(caller_did));
@@ -464,10 +489,18 @@ fn with_key_as_current<T: Config, W: FnOnce() -> R, R>(key: &T::AccountId, with:
     result
 }
 
+/// Ensure that `input.is_empty()` or error.
+fn ensure_consumed<T: Config>(input: &[u8]) -> DispatchResult {
+    ensure!(input.is_empty(), Error::<T>::DataLeftAfterDecoding);
+    Ok(())
+}
+
+/// Advance `input` and decode a `V` from it, or error.
 fn decode<V: Decode, T: Config>(input: &mut &[u8]) -> Result<V, DispatchError> {
     <_>::decode(input).map_err(|_| pallet_contracts::Error::<T>::DecodingFailed.into())
 }
 
+/// Constructs a call description from a `func_id` and associated `input`.
 fn construct_call<T>(func_id: FuncId, input: &mut &[u8]) -> Result<CommonCall<T>, DispatchError>
 where
     T: Config + pallet_asset::Config,
@@ -492,14 +525,36 @@ where
     }
 
     Ok(match func_id {
-        on!(0, 0) => CommonCall::Asset(pallet_asset::Call::register_ticker { ticker: decode!() }),
-        on!(0, 1) => {
+        on!(0, 0) => CommonCall::Contracts(Call::call {
+            contract: decode!(),
+            value: decode!(),
+            gas_limit: decode!(),
+            data: decode!(),
+        }),
+        on!(0, 1) => CommonCall::Contracts(Call::instantiate_with_code {
+            endowment: decode!(),
+            gas_limit: decode!(),
+            code: decode!(),
+            data: decode!(),
+            salt: decode!(),
+            perms: decode!(),
+        }),
+        on!(0, 2) => CommonCall::Contracts(Call::instantiate_with_hash {
+            endowment: decode!(),
+            gas_limit: decode!(),
+            code_hash: decode!(),
+            data: decode!(),
+            salt: decode!(),
+            perms: decode!(),
+        }),
+        on!(1, 0) => CommonCall::Asset(pallet_asset::Call::register_ticker { ticker: decode!() }),
+        on!(1, 1) => {
             CommonCall::Asset(pallet_asset::Call::accept_ticker_transfer { auth_id: decode!() })
         }
-        on!(0, 2) => CommonCall::Asset(pallet_asset::Call::accept_asset_ownership_transfer {
+        on!(1, 2) => CommonCall::Asset(pallet_asset::Call::accept_asset_ownership_transfer {
             auth_id: decode!(),
         }),
-        on!(0, 3) => CommonCall::Asset(pallet_asset::Call::create_asset {
+        on!(1, 3) => CommonCall::Asset(pallet_asset::Call::create_asset {
             name: decode!(),
             ticker: decode!(),
             divisible: decode!(),
@@ -508,18 +563,41 @@ where
             funding_round: decode!(),
             disable_iu: decode!(),
         }),
-        on!(0, 0x11) => {
+        on!(1, 0x11) => {
             CommonCall::Asset(pallet_asset::Call::register_custom_asset_type { ty: decode!() })
         }
         _ => return Err(Error::<T>::RuntimeCallNotFound.into()),
     })
 }
 
+/// Prepare for the instantiation of a contract as a chain extension.
+///
+/// The `sender` is expected to be the smart contract's address,
+/// from which the DID-to-attach-to is derived.
+/// The `input` contains all the data needed for instantiation.
+fn prepare_instantiate_ce<T: Config>(
+    input: &mut &[u8],
+    sender: T::AccountId,
+) -> ce::Result<ce::RetVal> {
+    // Decode the hash, salt, and permissions.
+    let (code_hash, salt, perms): (T::Hash, Vec<u8>, Permissions) = decode::<_, T>(input)?;
+    ensure_consumed::<T>(input)?;
+
+    // The DID is that of `sender`.
+    let did = pallet_identity::KeyToIdentityIds::<T>::get(&sender);
+
+    // Now that we've got all the data we need, instantiate!
+    Module::<T>::prepare_instantiate(did, &sender, &code_hash, &salt, perms)?;
+
+    // Done; continue with smart contract execution when returning.
+    Ok(ce::RetVal::Converging(0))
+}
+
 /// A chain extension allowing calls to polymesh pallets
 /// and using the contract's DID instead of the caller's DID.
 impl<T> ce::ChainExtension<T> for Module<T>
 where
-    <T as pallet_contracts::Config>::Call: From<CommonCall<T>> + GetDispatchInfo,
+    <T as BConfig>::Call: From<CommonCall<T>> + GetDispatchInfo,
     T: Config + pallet_asset::Config,
 {
     fn enabled() -> bool {
@@ -541,31 +619,46 @@ where
 
         let mut env = env.buf_in_buf_out();
 
-        // Immediately charge weight as a linear function of `in_len`.
+        // Limit `in_len` to a maximum.
         let in_len = env.in_len();
-        env.charge_weight(<T as Config>::WeightInfo::chain_extension(in_len))?;
-
-        // Then limit `in_len` to a maximum.
         ensure!(
             in_len <= <T as Config>::MaxInLen::get(),
             Error::<T>::InLenTooLarge
         );
 
-        // Decide what to call in the runtime.
+        // Special case: we provide a "prepare_instantiate" "runtime function"
+        // that will add a secondary key with the address of the contract
+        // to the running contract's identity.
         let func_id = split_func_id(func_id);
+        let addr = env.ext().address().clone();
+        if let FuncId {
+            scheme: 0xFF,
+            version: 0,
+            pallet: 0,
+            extrinsic: 0,
+        } = func_id
+        {
+            // Charge weight, read input, and run the logic to add a
+            env.charge_weight(<T as Config>::WeightInfo::prepare_instantiate(in_len))?;
+            let input = &mut &*env.read(in_len)?;
+            return prepare_instantiate_ce::<T>(input, addr);
+        }
+
+        // Charge weight as a linear function of `in_len`.
+        env.charge_weight(<T as Config>::WeightInfo::chain_extension(in_len))?;
+
+        // Decide what to call in the runtime.
         let input = &mut &*env.read(in_len)?;
-        let call: <T as pallet_contracts::Config>::Call =
-            construct_call::<T>(func_id, input)?.into();
-        ensure!(input.is_empty(), Error::<T>::DataLeftAfterDecoding);
+        let call: <T as BConfig>::Call = construct_call::<T>(func_id, input)?.into();
+        ensure_consumed::<T>(input)?;
 
         // Charge weight for the call.
         let di = call.get_dispatch_info();
         let charged_amount = env.charge_weight(di.weight)?;
 
         // Execute call requested by contract, with current DID set to the contract owner.
-        let ext = env.ext();
-        let result = with_key_as_current::<T, _, _>(ext.address(), || {
-            with_call_metadata(call.get_call_metadata(), || ext.call_runtime(call))
+        let result = with_key_as_current::<T, _, _>(addr, || {
+            with_call_metadata(call.get_call_metadata(), || env.ext().call_runtime(call))
         });
 
         // Refund unspent weight.
