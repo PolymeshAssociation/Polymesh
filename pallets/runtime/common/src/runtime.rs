@@ -330,7 +330,7 @@ macro_rules! misc_pallet_impls {
             type Currency = Balances;
             type Event = Event;
             type Call = Call;
-            type CallFilter = frame_support::traits::Everything;
+            type CallFilter = frame_support::traits::Nothing;
             type CallStack = [pallet_contracts::Frame<Self>; 31];
             type WeightPrice = pallet_transaction_payment::Pallet<Self>;
             type WeightInfo = pallet_contracts::weights::SubstrateWeight<Self>;
