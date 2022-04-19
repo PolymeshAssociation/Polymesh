@@ -73,6 +73,16 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    /// Get the primary key for an identity if it exists.
+    ///
+    /// Returns `None` if the identity doesn't exist or it doesn't have a primary key.
+    pub fn get_primary_key(did: IdentityId) -> Option<T::AccountId> {
+        <DidRecords<T>>::try_get(did)
+            .ok()
+            .map(|record| record.primary_key)
+            .filter(|key| key != &T::AccountId::default())
+    }
+
     /// Returns the DID associated with `key`, if any,
     /// assuming it is either the primary key or isn't frozen.
     pub fn get_identity(key: &T::AccountId) -> Option<IdentityId> {
