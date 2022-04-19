@@ -739,12 +739,6 @@ pub fn register_keyring_account_with_balance(
     make_account_with_balance(acc_id, uid, balance).map(|(_, id)| id)
 }
 
-pub fn register_keyring_account_without_cdd(
-    acc: AccountKeyring,
-) -> Result<IdentityId, &'static str> {
-    make_account_without_cdd(acc.to_account_id()).map(|(_, id)| id)
-}
-
 pub fn add_secondary_key_with_perms(did: IdentityId, acc: AccountId, perms: AuthPermissions) {
     let _primary_key = Identity::did_records(&did).primary_key;
     let auth_id = Identity::add_auth(

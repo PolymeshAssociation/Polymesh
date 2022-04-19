@@ -7,7 +7,7 @@ pub mod storage;
 pub use storage::{
     account_from, add_secondary_key, fast_forward_blocks, fast_forward_to_block, get_identity_id,
     make_account, make_account_with_balance, make_account_without_cdd, next_block,
-    register_keyring_account_with_balance, register_keyring_account_without_cdd, TestStorage,
+    register_keyring_account_with_balance, TestStorage,
 };
 
 pub mod ext_builder;
