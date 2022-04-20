@@ -1575,7 +1575,7 @@ pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 }
 
 fn get_primary_key(target: IdentityId) -> AccountId {
-    Identity::get_primary_key(target)
+    Identity::get_primary_key(target).unwrap_or_default()
 }
 
 pub fn make_account_with_uid(

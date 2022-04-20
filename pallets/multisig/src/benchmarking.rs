@@ -353,7 +353,7 @@ benchmarks! {
         let (alice, multisig, _, _, _) = generate_multisig_for_alice::<T>(1, 1).unwrap();
     }: _(alice.origin(), multisig.clone(), None)
     verify {
-        assert!(<Identity<T>>::get_primary_key(alice.did()) == multisig);
+        assert!(<Identity<T>>::get_primary_key(alice.did()) == Some(multisig));
     }
 
     execute_scheduled_proposal {

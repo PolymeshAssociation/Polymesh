@@ -106,10 +106,9 @@ impl<T: Config> Module<T> {
     }
 
     /// Get the identity's primary key.
-    pub fn get_primary_key(did: IdentityId) -> T::AccountId {
+    pub fn get_primary_key(did: IdentityId) -> Option<T::AccountId> {
         DidRecords::<T>::get(did)
             .and_then(|d| d.primary_key)
-            .unwrap_or_default()
     }
 
     /// Use `did` as reference.
@@ -286,7 +285,7 @@ impl<T: Config> Module<T> {
         new_permissions: Option<Permissions>,
         optional_cdd_auth_id: Option<u64>,
     ) -> DispatchResult {
-        let old_primary_key = Self::get_primary_key(target_did);
+        let old_primary_key = Self::get_primary_key(target_did).unwrap_or_default();
 
         let key_record = KeyRecords::<T>::get(&new_primary_key);
         let (is_linked, is_secondary_key) = match key_record {

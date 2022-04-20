@@ -739,14 +739,8 @@ pub fn register_keyring_account_with_balance(
     make_account_with_balance(acc_id, uid, balance).map(|(_, id)| id)
 }
 
-pub fn register_keyring_account_without_cdd(
-    acc: AccountKeyring,
-) -> Result<IdentityId, &'static str> {
-    make_account_without_cdd(acc.to_account_id()).map(|(_, id)| id)
-}
-
 pub fn get_primary_key(target: IdentityId) -> AccountId {
-    Identity::get_primary_key(target)
+    Identity::get_primary_key(target).unwrap_or_default()
 }
 
 pub fn get_secondary_keys(target: IdentityId) -> Vec<SecondaryKey<AccountId>> {
