@@ -107,8 +107,7 @@ impl<T: Config> Module<T> {
 
     /// Get the identity's primary key.
     pub fn get_primary_key(did: IdentityId) -> Option<T::AccountId> {
-        DidRecords::<T>::get(did)
-            .and_then(|d| d.primary_key)
+        DidRecords::<T>::get(did).and_then(|d| d.primary_key)
     }
 
     /// Use `did` as reference.
