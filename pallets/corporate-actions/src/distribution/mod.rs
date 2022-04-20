@@ -546,9 +546,6 @@ impl<T: Config> Module<T> {
         payment_at: Moment,
         expires_at: Option<Moment>,
     ) -> DispatchResult {
-        // Ensure CA's asset is distinct from the distributed currency.
-        ensure!(ca_id.ticker != currency, Error::<T>::DistributingAsset);
-
         // Ensure that any expiry date doesn't come before the payment date.
         ensure!(
             !expired(expires_at, payment_at),
