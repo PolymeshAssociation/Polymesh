@@ -294,15 +294,15 @@ decl_module! {
             Self::base_invalidate_cdd_claims(origin, cdd, disable_from, expiry)?;
         }
 
-        /// Removes specified secondary keys of a DID if present.
-        ///
-        /// # Failure
-        /// It can only called by primary key owner.
-        ///
-        /// # Weight
-        /// `950_000_000 + 60_000 * keys_to_remove.len()`
+        /// Deprecated.  Please use `remove_secondary_keys` instead.
         #[weight = <T as Config>::WeightInfo::remove_secondary_keys(keys_to_remove.len() as u32)]
-        pub fn remove_secondary_keys(origin, keys_to_remove: Vec<T::AccountId>) {
+        pub fn remove_secondary_keys_old(origin, keys_to_remove: Vec<Signatory<T::AccountId>>) {
+            let keys_to_remove = keys_to_remove.into_iter()
+                .map(|key| match key {
+                    Signatory::Account(key) => Ok(key),
+                    _ => Err(Error::<T>::NotASigner),
+                })
+                .collect::<Result<Vec<_>, _>>()?;
             Self::base_remove_secondary_keys(origin, keys_to_remove)?;
         }
 
@@ -381,12 +381,18 @@ decl_module! {
             Self::base_revoke_claim(target, claim_type, issuer, scope)
         }
 
-        /// Sets permissions for an specific `target_key` key.
-        ///
-        /// Only the primary key of an identity is able to set secondary key permissions.
+        /// Deprecated.  Please use `set_secondary_key_permissions` instead.
         #[weight = <T as Config>::WeightInfo::set_secondary_key_permissions_full(&perms)]
-        pub fn set_secondary_key_permissions(origin, key: T::AccountId, perms: Permissions) {
-            Self::base_set_secondary_key_permissions(origin, key, perms)?;
+        pub fn set_permission_to_signer(origin, key: Signatory<T::AccountId>, perms: Permissions) {
+            match key {
+                Signatory::Account(key) => Self::base_set_secondary_key_permissions(origin, key, perms)?,
+                _ => Err(Error::<T>::NotASigner)?,
+            }
+        }
+
+        /// Placeholder for removed `legacy_set_permission_to_signer`.
+        #[weight = 1_000]
+        pub fn placeholder_legacy_set_permission_to_signer(_origin) {
         }
 
         /// It disables all secondary keys at `did` identity.
@@ -527,6 +533,23 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::rotate_primary_key_to_secondary()]
         pub fn rotate_primary_key_to_secondary(origin, auth_id:u64, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
             Self::base_rotate_primary_key_to_secondary(origin, auth_id, optional_cdd_auth_id)
+        }
+
+        /// Sets permissions for an specific `target_key` key.
+        ///
+        /// Only the primary key of an identity is able to set secondary key permissions.
+        #[weight = <T as Config>::WeightInfo::set_secondary_key_permissions_full(&perms)]
+        pub fn set_secondary_key_permissions(origin, key: T::AccountId, perms: Permissions) {
+            Self::base_set_secondary_key_permissions(origin, key, perms)?;
+        }
+
+        /// Removes specified secondary keys of a DID if present.
+        ///
+        /// # Failure
+        /// It can only called by primary key owner.
+        #[weight = <T as Config>::WeightInfo::remove_secondary_keys(keys_to_remove.len() as u32)]
+        pub fn remove_secondary_keys(origin, keys_to_remove: Vec<T::AccountId>) {
+            Self::base_remove_secondary_keys(origin, keys_to_remove)?;
         }
     }
 }
