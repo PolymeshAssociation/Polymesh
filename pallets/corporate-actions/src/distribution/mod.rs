@@ -405,7 +405,7 @@ impl<T: Config> Module<T> {
             ..
         } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ca_id.ticker)?;
 
-        Self::unsafe_distribute(
+        Self::unverified_distribute(
             agent,
             secondary_key,
             ca_id,
@@ -602,7 +602,10 @@ impl<T: Config> Module<T> {
         Ok(dist)
     }
 
-    pub fn unsafe_distribute(
+    /// Create a capital distribution.
+    ///
+    /// Unlike `base_distribute`, this won't check permissions.
+    crate fn unverified_distribute(
         agent: IdentityId,
         secondary_key: Option<SecondaryKey<T::AccountId>>,
         ca_id: CAId,

@@ -761,7 +761,7 @@ decl_module! {
                     withholding_tax
                 )?;
 
-                <distribution::Module<T>>::unsafe_distribute(
+                <distribution::Module<T>>::unverified_distribute(
                     agent,
                     secondary_key,
                     ca_id,
