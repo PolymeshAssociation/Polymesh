@@ -87,6 +87,7 @@ use polymesh_primitives::{
     SecondaryKey, Ticker,
 };
 use scale_info::TypeInfo;
+use sp_runtime::traits::Zero;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
@@ -378,6 +379,10 @@ decl_error! {
         DistributionStarted,
         /// A distribution has insufficient remaining amount of currency to distribute.
         InsufficientRemainingAmount,
+        /// Distribution `amount` cannot be zero.
+        DistributionAmountIsZero,
+        /// Distribution `per_share` cannot be zero.
+        DistributionPerShareIsZero,
     }
 }
 
@@ -606,6 +611,10 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         // Ensure CA's asset is distinct from the distributed currency.
         ensure!(ca_id.ticker != currency, Error::<T>::DistributingAsset);
+
+        // Ensure valid `amount` and `per_share`.
+        ensure!(!amount.is_zero(), Error::<T>::DistributionAmountIsZero);
+        ensure!(!per_share.is_zero(), Error::<T>::DistributionPerShareIsZero);
 
         // Ensure that any expiry date doesn't come before the payment date.
         ensure!(
