@@ -213,6 +213,72 @@ impl Permissions {
     }
 }
 
+/// Account key record.
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum KeyRecord<AccountId> {
+    /// Key is the primary key and has full permissions.
+    ///
+    /// (Key's identity)
+    PrimaryKey(IdentityId),
+    /// Key is a secondary key with the given permissions.
+    ///
+    /// (Key's identity, key's permissions)
+    SecondaryKey(IdentityId, Permissions),
+    /// Key is a MuliSig signer key.
+    ///
+    /// (MultiSig account id)
+    MultiSigSignerKey(AccountId),
+}
+
+impl<AccountId> KeyRecord<AccountId> {
+    /// Check if the key is the primary key and return the identity.
+    pub fn is_primary_key(&self) -> Option<IdentityId> {
+        if let Self::PrimaryKey(did) = self {
+            Some(*did)
+        } else {
+            None
+        }
+    }
+
+    /// Check if the key is the secondary key and return the identity.
+    pub fn is_secondary_key(&self) -> Option<IdentityId> {
+        if let Self::SecondaryKey(did, _) = self {
+            Some(*did)
+        } else {
+            None
+        }
+    }
+
+    /// Get the identity and the key type (primary/secondary).
+    pub fn get_did_key_type(&self) -> Option<(IdentityId, bool)> {
+        match self {
+            Self::PrimaryKey(did) => Some((*did, true)),
+            Self::SecondaryKey(did, _) => Some((*did, false)),
+            _ => None,
+        }
+    }
+
+    /// Get the identity if it is a primary/secondary key.
+    pub fn get_did(&self) -> Option<IdentityId> {
+        match self {
+            Self::PrimaryKey(did) => Some(*did),
+            Self::SecondaryKey(did, _) => Some(*did),
+            _ => None,
+        }
+    }
+
+    /// Convert `KeyRecord` into a `SecondaryKey`, if it is a secondary key.
+    pub fn into_secondary_key(self, key: AccountId) -> Option<SecondaryKey<AccountId>> {
+        if let Self::SecondaryKey(_did, permissions) = self {
+            Some(SecondaryKey { key, permissions })
+        } else {
+            None
+        }
+    }
+}
+
 /// It supports different elements as a signer.
 #[allow(missing_docs)]
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo)]
@@ -302,41 +368,47 @@ where
     }
 }
 
-/// A secondary key is a signatory with defined permissions.
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, TypeInfo)]
+/// A secondary key and its permissions.
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct SecondaryKey<AccountId: Encode + Decode> {
-    /// The account or identity that is the signatory of this key.
-    pub signer: Signatory<AccountId>,
-    /// The access permissions of the signing key.
+pub struct SecondaryKey<AccountId> {
+    /// The account key.
+    pub key: AccountId,
+    /// The access permissions of the `key`.
     pub permissions: Permissions,
 }
 
-impl<AccountId> SecondaryKey<AccountId>
-where
-    AccountId: Encode + Decode,
-{
+impl<AccountId> SecondaryKey<AccountId> {
     /// Creates a [`SecondaryKey`].
-    pub fn new(signer: Signatory<AccountId>, permissions: Permissions) -> Self {
-        Self {
-            signer,
-            permissions,
+    pub fn new(key: AccountId, permissions: Permissions) -> Self {
+        Self { key, permissions }
+    }
+
+    /// Convert from v1 `SecondaryKey`.
+    pub fn from_v1(old: v1::SecondaryKey<AccountId>) -> Option<Self> {
+        match old.signer {
+            Signatory::Account(key) => Some(Self {
+                key,
+                permissions: old.permissions,
+            }),
+            _ => None,
         }
     }
 
-    /// Creates a [`SecondaryKey`] from an `AccountId`.
-    pub fn from_account_id(s: AccountId) -> Self {
+    /// Creates a [`SecondaryKey`] with no permissions from an `AccountId`.
+    pub fn from_account_id(key: AccountId) -> Self {
         Self {
-            signer: Signatory::Account(s),
+            key,
             // No permissions.
             permissions: Permissions::empty(),
         }
     }
 
     /// Creates a [`SecondaryKey`] with full permissions from an `AccountId`.
-    pub fn from_account_id_with_full_perms(s: AccountId) -> Self {
+    pub fn from_account_id_with_full_perms(key: AccountId) -> Self {
         Self {
-            signer: Signatory::Account(s),
+            key,
             // Full permissions.
             permissions: Permissions::default(),
         }
@@ -367,190 +439,35 @@ where
     pub fn complexity(&self) -> usize {
         self.permissions.complexity()
     }
-}
 
-impl<AccountId> From<IdentityId> for SecondaryKey<AccountId>
-where
-    AccountId: Encode + Decode,
-{
-    fn from(id: IdentityId) -> Self {
-        Self {
-            signer: Signatory::Identity(id),
-            permissions: Permissions::empty(),
-        }
+    /// Make a `KeyRecord` for this SecondaryKey.
+    pub fn make_key_record(&self, did: IdentityId) -> KeyRecord<AccountId> {
+        KeyRecord::SecondaryKey(did, self.permissions.clone())
     }
 }
 
-impl<AccountId> PartialEq<IdentityId> for SecondaryKey<AccountId>
-where
-    AccountId: Encode + Decode,
-{
-    fn eq(&self, other: &IdentityId) -> bool {
-        if let Signatory::Identity(id) = self.signer {
-            id == *other
-        } else {
-            false
-        }
-    }
-}
+/// Old v1 `SecondaryKey` type.
+pub mod v1 {
+    use super::*;
 
-/// Hacks to workaround substrate and Polkadot.js restrictions/bugs.
-pub mod api {
-    use super::{
-        AssetPermissions, ExtrinsicPermissions, PalletPermissions, Permissions,
-        PortfolioPermissions,
-    };
-    use crate::{DispatchableName, PalletName, Signatory, SubsetRestriction};
-    use codec::{Decode, Encode};
-    use scale_info::TypeInfo;
-    #[cfg(feature = "std")]
-    use sp_runtime::{Deserialize, Serialize};
-    use sp_std::convert::TryInto;
-    use sp_std::vec::Vec;
-
-    /// A permission to call functions within a given pallet.
-    #[derive(Decode, Encode, TypeInfo)]
-    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    pub struct LegacyPalletPermissions {
-        /// The name of a pallet.
-        pub pallet_name: PalletName,
-        /// A workaround for https://github.com/polkadot-js/apps/issues/3632.
-        ///
-        /// - `total == false` - only the functions listed in `dispatchable_names` are allowed to be
-        /// called.
-        ///
-        /// - `total == true` - `dispatchable_names` is ignored. Such permissions allow any function in
-        /// `pallet_name` to be called.
-        pub total: bool,
-        /// A subset of function names within the pallet taken into account when `total == false`.
-        pub dispatchable_names: Vec<DispatchableName>,
-    }
-
-    /// Extrinsic permissions.
-    #[derive(Decode, Encode, TypeInfo)]
-    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    pub struct LegacyExtrinsicPermissions(pub Option<Vec<LegacyPalletPermissions>>);
-
-    /// Signing key permissions.
-    #[derive(Decode, Encode, TypeInfo)]
-    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    pub struct LegacyPermissions {
-        /// The subset of assets under management.
-        pub asset: AssetPermissions,
-        /// The subset of callable extrinsics.
-        pub extrinsic: LegacyExtrinsicPermissions,
-        /// The subset of portfolios management.
-        pub portfolio: PortfolioPermissions,
-    }
-
-    impl LegacyPermissions {
-        /// The empty permissions.
-        pub fn empty() -> Self {
-            Self {
-                asset: SubsetRestriction::empty(),
-                extrinsic: LegacyExtrinsicPermissions(Some(Vec::new())),
-                portfolio: SubsetRestriction::empty(),
-            }
-        }
-
-        /// Return number of assets, portfolios, pallets, and extrinsics.
-        ///
-        /// This is used for weight calculation.
-        pub fn counts(&self) -> (u32, u32, u32, u32) {
-            // Count the number of assets.
-            let assets = self.asset.complexity().try_into().unwrap_or(u32::MAX);
-            // Count the number of portfolios.
-            let portfolios = self.portfolio.complexity().try_into().unwrap_or(u32::MAX);
-            // Count the number of pallets and total number of extrinsics.
-            let (pallets, extrinsics) = match &self.extrinsic.0 {
-                Some(pallets) => {
-                    let num_pallets = pallets.len().try_into().unwrap_or(u32::MAX);
-                    // Count all extrinsics.
-                    let extrinsics = pallets
-                        .iter()
-                        .fold(0usize, |count, pallet| {
-                            count.saturating_add(pallet.dispatchable_names.len())
-                        })
-                        .try_into()
-                        .unwrap_or(u32::MAX);
-                    (num_pallets, extrinsics)
-                }
-                None => (0, 0),
-            };
-
-            (assets, portfolios, pallets, extrinsics)
-        }
-    }
-
-    /// The same secondary key object without the extra trait constraints.
-    /// It is needed because it's not possible to define `decl_event!`
-    /// with the required restrictions on `AccountId`
-    #[derive(Encode, Decode, TypeInfo, Default, Clone, PartialEq, Eq, Debug)]
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    /// Old v1 secondary key.
+    #[derive(Encode, Decode, TypeInfo)]
+    #[derive(Clone, Default, PartialEq, Eq)]
+    #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
     pub struct SecondaryKey<AccountId> {
-        /// The account or identity that is the signatory of this key.
+        /// Signer.
         pub signer: Signatory<AccountId>,
-        /// The access permissions of the signing key.
+        /// Permissions.
         pub permissions: Permissions,
     }
 
-    impl<AccountId> From<super::SecondaryKey<AccountId>> for SecondaryKey<AccountId>
-    where
-        AccountId: Encode + Decode,
-    {
-        fn from(k: super::SecondaryKey<AccountId>) -> SecondaryKey<AccountId> {
-            SecondaryKey {
-                signer: k.signer,
-                permissions: k.permissions,
-            }
-        }
-    }
-
-    impl From<LegacyPalletPermissions> for PalletPermissions {
-        fn from(p: LegacyPalletPermissions) -> PalletPermissions {
-            PalletPermissions {
-                pallet_name: p.pallet_name,
-                dispatchable_names: if p.total {
-                    SubsetRestriction::Whole
-                } else {
-                    SubsetRestriction::These(p.dispatchable_names.into_iter().collect())
-                },
-            }
-        }
-    }
-
-    impl From<LegacyExtrinsicPermissions> for ExtrinsicPermissions {
-        fn from(p: LegacyExtrinsicPermissions) -> ExtrinsicPermissions {
-            match p.0 {
-                Some(elems) => {
-                    SubsetRestriction::These(elems.into_iter().map(|e| e.into()).collect())
-                }
-                None => SubsetRestriction::Whole,
-            }
-        }
-    }
-
-    impl From<LegacyPermissions> for Permissions {
-        fn from(p: LegacyPermissions) -> Permissions {
-            Permissions {
-                asset: p.asset.into(),
-                extrinsic: p.extrinsic.into(),
-                portfolio: p.portfolio.into(),
-            }
-        }
-    }
-
-    impl<AccountId> From<SecondaryKey<AccountId>> for super::SecondaryKey<AccountId>
-    where
-        AccountId: Encode + Decode,
-    {
-        fn from(k: SecondaryKey<AccountId>) -> super::SecondaryKey<AccountId> {
-            super::SecondaryKey {
-                signer: k.signer,
-                permissions: k.permissions,
+    impl<AccountId> SecondaryKey<AccountId> {
+        /// Convert old `SecondaryKey` into `KeyRecord`.
+        pub fn into_key_record(self, did: IdentityId) -> Option<(AccountId, KeyRecord<AccountId>)> {
+            if let Signatory::Account(key) = self.signer {
+                Some((key, KeyRecord::SecondaryKey(did, self.permissions)))
+            } else {
+                None
             }
         }
     }
@@ -566,7 +483,7 @@ mod tests {
     #[test]
     fn build_test() {
         let key = Public::from_raw([b'A'; 32]);
-        let rk1 = SecondaryKey::new(Signatory::Account(key.clone()), Permissions::empty());
+        let rk1 = SecondaryKey::new(key.clone(), Permissions::empty());
         let rk2 = SecondaryKey::from_account_id(key.clone());
         assert_eq!(rk1, rk2);
 
@@ -577,21 +494,12 @@ mod tests {
                 1u128,
             ))),
         };
-        let rk3 = SecondaryKey::new(Signatory::Account(key.clone()), rk3_permissions.clone());
+        let rk3 = SecondaryKey::new(key.clone(), rk3_permissions.clone());
         assert_ne!(rk1, rk3);
 
         let mut rk4 = SecondaryKey::from_account_id(key);
         rk4.permissions = rk3_permissions;
         assert_eq!(rk3, rk4);
-
-        let si1 = SecondaryKey::from(IdentityId::from(1u128));
-        let si2 = SecondaryKey::from(IdentityId::from(1u128));
-        assert_eq!(si1, si2);
-
-        let si3 = SecondaryKey::from(IdentityId::from(2u128));
-        assert_ne!(si1, si3);
-
-        assert_ne!(si1, rk1);
     }
 
     #[test]
@@ -606,8 +514,8 @@ mod tests {
             extrinsic: SubsetRestriction::Whole,
             portfolio: SubsetRestriction::elem(portfolio1),
         };
-        let free_key = SecondaryKey::new(Signatory::Account(key.clone()), Permissions::default());
-        let restricted_key = SecondaryKey::new(Signatory::Account(key), permissions.clone());
+        let free_key = SecondaryKey::new(key.clone(), Permissions::default());
+        let restricted_key = SecondaryKey::new(key, permissions.clone());
         assert!(free_key.has_asset_permission(ticker2));
         assert!(free_key
             .has_extrinsic_permission(&b"pallet".as_ref().into(), &b"function".as_ref().into()));

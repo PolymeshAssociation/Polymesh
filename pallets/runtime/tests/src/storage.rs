@@ -43,7 +43,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     investor_zkproof_data::v1::InvestorZKProofData, AccountId, Authorization, AuthorizationData,
     BlockNumber, CddId, Claim, InvestorUid, Moment, Permissions as AuthPermissions,
-    PortfolioNumber, Scope, ScopeId, TrustedFor, TrustedIssuer,
+    PortfolioNumber, Scope, ScopeId, SecondaryKey, TrustedFor, TrustedIssuer,
 };
 use polymesh_runtime_common::{
     merge_active_and_inactive,
@@ -695,7 +695,7 @@ pub fn make_account_with_balance(
     let cdd_providers = CddServiceProvider::get_members();
     let did = match cdd_providers.into_iter().nth(0) {
         Some(cdd_provider) => {
-            let cdd_acc = Identity::did_records(&cdd_provider).primary_key;
+            let cdd_acc = get_primary_key(cdd_provider);
             let _ = Identity::cdd_register_did(Origin::signed(cdd_acc.clone()), id.clone(), vec![])
                 .map_err(|_| "CDD register DID failed")?;
 
@@ -739,8 +739,19 @@ pub fn register_keyring_account_with_balance(
     make_account_with_balance(acc_id, uid, balance).map(|(_, id)| id)
 }
 
+pub fn get_primary_key(target: IdentityId) -> AccountId {
+    Identity::get_primary_key(target).unwrap_or_default()
+}
+
+pub fn get_secondary_keys(target: IdentityId) -> Vec<SecondaryKey<AccountId>> {
+    match Identity::get_did_records(target) {
+        RpcDidRecords::Success { secondary_keys, .. } => secondary_keys,
+        _ => vec![],
+    }
+}
+
 pub fn add_secondary_key_with_perms(did: IdentityId, acc: AccountId, perms: AuthPermissions) {
-    let _primary_key = Identity::did_records(&did).primary_key;
+    let _primary_key = get_primary_key(did);
     let auth_id = Identity::add_auth(
         did.clone(),
         Signatory::Account(acc.clone()),
@@ -889,7 +900,7 @@ pub fn add_investor_uniqueness_claim(
     cdd_id: CddId,
     proof: InvestorZKProofData,
 ) -> DispatchResult {
-    let signed_claim_to = Origin::signed(Identity::did_records(claim_to).primary_key);
+    let signed_claim_to = Origin::signed(get_primary_key(claim_to));
 
     // Provide the InvestorUniqueness.
     Identity::add_investor_uniqueness_claim(
@@ -907,7 +918,7 @@ pub fn provide_scope_claim_to_multiple_parties<'a>(
     cdd_provider: AccountId,
 ) {
     parties.into_iter().for_each(|id| {
-        let uid = create_investor_uid(Identity::did_records(id).primary_key);
+        let uid = create_investor_uid(get_primary_key(*id));
         provide_scope_claim(*id, ticker, uid, cdd_provider.clone(), None).0;
     });
 }
@@ -917,7 +928,7 @@ pub fn root() -> Origin {
 }
 
 pub fn create_cdd_id_and_investor_uid(identity_id: IdentityId) -> (CddId, InvestorUid) {
-    let uid = create_investor_uid(Identity::did_records(identity_id).primary_key);
+    let uid = create_investor_uid(get_primary_key(identity_id));
     let (cdd_id, _) = create_cdd_id(identity_id, Ticker::default(), uid);
     (cdd_id, uid)
 }

@@ -79,6 +79,7 @@
 //! multisig.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(const_option)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -104,12 +105,17 @@ use polymesh_common_utilities::{
     identity::Config as IdentityConfig, multisig::MultiSigSubTrait,
     transaction_payment::CddAndFeeDetails, Context,
 };
-use polymesh_primitives::{extract_auth, AuthorizationData, IdentityId, Permissions, Signatory};
+use polymesh_primitives::{
+    extract_auth, storage_migrate_on, storage_migration_ver, AuthorizationData, IdentityId,
+    KeyRecord, Permissions, Signatory,
+};
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Dispatchable, Hash, One};
 use sp_std::{convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
+
+storage_migration_ver!(1);
 
 pub const NAME: &[u8] = b"MultiSig";
 
@@ -226,14 +232,14 @@ decl_storage! {
             double_map hasher(identity) T::AccountId, hasher(blake2_128_concat) T::Proposal => Option<u64>;
         /// Individual multisig signer votes. (multi sig, signer, proposal) => vote.
         pub Votes get(fn votes): map hasher(twox_64_concat) (T::AccountId, Signatory<T::AccountId>, u64) => bool;
-        /// Maps a multisig signer key to a multisig address.
-        pub KeyToMultiSig get(fn key_to_ms): map hasher(twox_64_concat) T::AccountId => T::AccountId;
         /// Maps a multisig account to its identity.
         pub MultiSigToIdentity get(fn ms_to_identity): map hasher(identity) T::AccountId => IdentityId;
         /// Details of a multisig proposal
         pub ProposalDetail get(fn proposal_detail): map hasher(twox_64_concat) (T::AccountId, u64) => ProposalDetails<T::Moment>;
         /// The last transaction version, used for `on_runtime_upgrade`.
         TransactionVersion get(fn transaction_version) config(): u32;
+        /// Storage version.
+        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
 }
 
@@ -256,6 +262,10 @@ decl_module! {
                     kill_item(NAME, item.as_bytes())
                 }
             }
+
+            storage_migrate_on!(StorageVersion::get(), 1, {
+                migration::migrate_v1::<T>();
+            });
 
             //TODO placeholder weight
             1_000
@@ -539,11 +549,11 @@ decl_module! {
             Self::ensure_ms(&multisig)?;
             Self::verify_sender_is_creator(did, &multisig)?;
 
-            let perms = Permissions::empty();
-            <Identity<T>>::ensure_secondary_key_can_be_added(&did, &multisig, &perms)?;
+            // Ensure the key is unlinked.
+            <Identity<T>>::ensure_key_did_unlinked(&multisig)?;
 
             // Add the multisig as a secondary key with no permissions.
-            <Identity<T>>::unsafe_join_identity(did, perms, multisig);
+            <Identity<T>>::unsafe_join_identity(did, Permissions::empty(), multisig);
         }
 
         /// Adds a multisig as the primary key of the current did if the current DID is the creator
@@ -754,7 +764,7 @@ impl<T: Config> Module<T> {
     /// Removes a signer from the valid signer list for a given multisig.
     fn unsafe_signer_removal(multisig: T::AccountId, signer: Signatory<T::AccountId>) {
         if let Signatory::Account(signer_key) = &signer {
-            <KeyToMultiSig<T>>::remove(signer_key);
+            Identity::<T>::remove_key_record(signer_key, None);
         }
         <MultiSigSigners<T>>::remove(&multisig, &signer);
         Self::deposit_event(RawEvent::MultiSigSignerRemoved(
@@ -1047,16 +1057,11 @@ impl<T: Config> Module<T> {
             );
 
             if let Signatory::Account(key) = &signer {
-                // Don't allow a signer key that is already a secondary key on another multisig
-                ensure!(
-                    !<KeyToMultiSig<T>>::contains_key(key),
-                    Error::<T>::SignerAlreadyLinkedToMultisig
-                );
-                // Don't allow a signer key that is already a secondary key on another identity
-                ensure!(
-                    !<identity::KeyToIdentityIds<T>>::contains_key(key),
-                    Error::<T>::SignerAlreadyLinkedToIdentity
-                );
+                let (to_identity, to_multisig) = Identity::<T>::is_key_linked(key);
+                // Don't allow a signer key that is a primary key, secondary key.
+                ensure!(!to_identity, Error::<T>::SignerAlreadyLinkedToIdentity);
+                // Don't allow a signer key that is already a signer to another multisig.
+                ensure!(!to_multisig, Error::<T>::SignerAlreadyLinkedToMultisig);
                 // Don't allow a multisig to add itself as a signer to itself
                 // NB - you can add a multisig as a signer to a different multisig
                 ensure!(
@@ -1072,7 +1077,7 @@ impl<T: Config> Module<T> {
             <NumberOfSigners<T>>::mutate(&multisig, |x| *x += 1u64);
 
             if let Signatory::Account(key) = &signer {
-                <KeyToMultiSig<T>>::insert(key, multisig.clone());
+                Identity::<T>::add_key_record(key, KeyRecord::MultiSigSignerKey(multisig.clone()));
             }
             Self::deposit_event(RawEvent::MultiSigSignerAdded(
                 ms_identity,
@@ -1109,7 +1114,7 @@ impl<T: Config> Module<T> {
     pub fn is_changing_signers_allowed(multisig: &T::AccountId) -> bool {
         if <Identity<T>>::cdd_auth_for_primary_key_rotation() {
             if let Some(did) = <Identity<T>>::get_identity(multisig) {
-                if multisig == &<Identity<T>>::did_records(&did).primary_key {
+                if <Identity<T>>::is_primary_key(&did, multisig) {
                     return false;
                 }
             }
@@ -1135,8 +1140,37 @@ impl<T: Config> MultiSigSubTrait<T::AccountId> for Module<T> {
     fn is_multisig(account: &T::AccountId) -> bool {
         <MultiSigToIdentity<T>>::contains_key(account)
     }
+}
 
-    fn is_signer(key: &T::AccountId) -> bool {
-        <KeyToMultiSig<T>>::contains_key(key)
+mod migration {
+    use super::*;
+    use pallet_identity::migration::migrate_v1_key;
+
+    mod v1 {
+        use super::*;
+
+        decl_storage! {
+            trait Store for Module<T: Config> as MultiSig {
+                pub KeyToMultiSig get(fn key_to_ms): map hasher(twox_64_concat) T::AccountId => T::AccountId;
+            }
+        }
+
+        decl_module! {
+            pub struct Module<T: Config> for enum Call where origin: T::Origin { }
+        }
+    }
+
+    pub fn migrate_v1<T: Config>() {
+        sp_runtime::runtime_logger::RuntimeLogger::init();
+
+        log::info!(" >>> Updating MultiSig storage. Migrating KeyToMultiSig..");
+        let total_ms_signers =
+            v1::KeyToMultiSig::<T>::drain().fold(0usize, |total_ms_signers, (signer, ms)| {
+                // Migrate MS Signer to `Identity::KeyRecords` storage.
+                migrate_v1_key::<T>(signer, KeyRecord::MultiSigSignerKey(ms));
+
+                total_ms_signers + 1
+            });
+        log::info!(" >>> Migrated {} MultiSig Signers.", total_ms_signers);
     }
 }

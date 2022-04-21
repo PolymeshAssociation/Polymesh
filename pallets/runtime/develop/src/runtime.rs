@@ -310,7 +310,7 @@ impl TestUtilsFn<AccountId> for Runtime {
     fn register_did(
         target: AccountId,
         investor: InvestorUid,
-        secondary_keys: Vec<polymesh_primitives::secondary_key::api::SecondaryKey<AccountId>>,
+        secondary_keys: Vec<polymesh_primitives::secondary_key::SecondaryKey<AccountId>>,
     ) -> DispatchResult {
         <TestUtils as TestUtilsFn<AccountId>>::register_did(target, investor, secondary_keys)
     }

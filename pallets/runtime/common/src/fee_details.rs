@@ -85,7 +85,7 @@ where
         let check_cdd = |did: &IdentityId| {
             if Module::<A>::has_valid_cdd(*did) {
                 Context::set_current_identity::<Module<A>>(Some(*did));
-                Ok(Some(Module::<A>::did_records(&did).primary_key))
+                Ok(Module::<A>::get_primary_key(*did))
             } else {
                 CDD_REQUIRED
             }

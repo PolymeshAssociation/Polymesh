@@ -401,7 +401,7 @@ fn is_exempted() {
 
 fn do_exempted(signers: &[AccountId]) {
     let alice = Alice.to_account_id();
-    let alice_did = Identity::key_to_identity_dids(alice.clone());
+    let alice_did = Identity::get_identity(&alice).expect("Alice missing identity");
     let tx = alice_make_bridge_tx(AMOUNT_OVER_LIMIT);
     let starting_alices_balance = alice_balance();
 

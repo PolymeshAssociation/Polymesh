@@ -48,7 +48,7 @@ export async function addClaimsToDids(
 /**
  * @description Sets permission to signer key
  */
-export async function setPermissionToSigner(
+export async function setSecondaryKeyPermissions(
   signers: KeyringPair[],
   receivers: KeyringPair[],
   extrinsic: ExtrinsicPermissions,
@@ -63,11 +63,9 @@ export async function setPermissionToSigner(
   };
 
   for (let i in signers) {
-    let signer = {
-      Account: receivers[i].publicKey as AccountId,
-    };
-    let transaction = api.tx.identity.setPermissionToSigner(
-      signer,
+    let key = receivers[i].publicKey as AccountId;
+    let transaction = api.tx.identity.setSecondaryKeyPermissions(
+      key,
       permissions
     );
     await sendTx(signers[i], transaction);
@@ -122,9 +120,9 @@ export async function createIdentitiesWithExpiry(
   let dids: IdentityId[] = [];
 
   for (let account of receivers) {
-    let account_did = await keyToIdentityIds(account.publicKey);
+    let account_did = (await keyToIdentityIds(account.publicKey)).toString();
 
-    if (account_did.isEmpty) {
+    if (parseInt(account_did) == 0) {
       console.log(`>>>> [Register CDD Claim] acc: ${account.address}`);
       const transaction = api.tx.identity.cddRegisterDid(account.address, []);
       await sendTx(signer, transaction);
