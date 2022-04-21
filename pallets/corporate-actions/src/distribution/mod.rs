@@ -204,6 +204,8 @@ decl_module! {
         /// - `InsufficientPortfolioBalance` if `portfolio` has less than `amount` of `currency`.
         /// - `InsufficientBalance` if the protocol fee couldn't be charged.
         /// - `CANotBenefit` if the CA is not of kind PredictableBenefit/UnpredictableBenefit
+        /// - `DistributionAmountIsZero` if the `amount` is zero.
+        /// - `DistributionPerShareIsZero` if the `per_share` is zero.
         ///
         /// # Permissions
         /// * Asset
