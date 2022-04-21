@@ -25,10 +25,4 @@ pub trait MultiSigSubTrait<AccountId> {
     /// # Arguments
     /// * `account` - AccountId to check
     fn is_multisig(account: &AccountId) -> bool;
-
-    /// Checks if the account is a multisig signer
-    ///
-    /// # Arguments
-    /// * `account` - AccountId to check
-    fn is_signer(key: &AccountId) -> bool;
 }

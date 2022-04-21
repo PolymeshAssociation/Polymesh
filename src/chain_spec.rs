@@ -445,12 +445,7 @@ fn dev_genesis_processed_data(
     let mut complete_txs: Vec<_> = key_bridge_locks
         .iter()
         .cloned()
-        .zip(
-            identity
-                .secondary_keys
-                .iter()
-                .map(|sk| sk.signer.as_account().unwrap().clone()),
-        )
+        .zip(identity.secondary_keys.iter().map(|sk| sk.key.clone()))
         .map(
             |(
                 BridgeLockId {

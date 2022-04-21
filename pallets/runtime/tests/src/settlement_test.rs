@@ -45,7 +45,6 @@ type OffChainSignature = AnySignature;
 type Origin = <TestStorage as frame_system::Config>::Origin;
 type Moment = <TestStorage as pallet_timestamp::Config>::Moment;
 type BlockNumber = <TestStorage as frame_system::Config>::BlockNumber;
-type DidRecords = identity::DidRecords<TestStorage>;
 type Settlement = pallet_settlement::Module<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 type Error = pallet_settlement::Error<TestStorage>;

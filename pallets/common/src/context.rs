@@ -70,8 +70,7 @@ impl<AccountId> Context<AccountId> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::SystematicIssuers;
-    use polymesh_primitives::{AccountId, IdentityId, Permission, Signatory};
+    use polymesh_primitives::{AccountId, IdentityId};
 
     use lazy_static::lazy_static;
     use std::{collections::BTreeMap, convert::From, sync::RwLock, thread};
@@ -110,11 +109,7 @@ mod test {
             *w = id;
         }
 
-        fn is_signer_authorized(_did: IdentityId, _signer: &Signatory<AccountId>) -> bool {
-            false
-        }
-
-        fn current_payer() -> Option<Signatory<AccountId>> {
+        fn current_payer() -> Option<AccountId> {
             None
         }
 
@@ -122,13 +117,6 @@ mod test {
 
         fn has_valid_cdd(_target_did: IdentityId) -> bool {
             true
-        }
-
-        fn unsafe_add_systematic_cdd_claims(_targets: &[IdentityId], _issuer: SystematicIssuers) {}
-        fn unsafe_revoke_systematic_cdd_claims(
-            _targets: &[IdentityId],
-            _issuer: SystematicIssuers,
-        ) {
         }
     }
 

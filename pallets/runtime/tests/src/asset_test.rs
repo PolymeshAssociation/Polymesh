@@ -1,6 +1,6 @@
 use crate::{
     //contract_test::{create_se_template, flipper},
-    ext_builder::{ExtBuilder, MockProtocolBaseFees},
+    ext_builder::{ExtBuilder, IdentityRecord, MockProtocolBaseFees},
     pips_test::assert_balance,
     storage::{
         add_secondary_key, make_account_without_cdd, provide_scope_claim,
@@ -208,7 +208,7 @@ const TOTAL_SUPPLY: u128 = 1_000_000_000u128;
 /// Generates a new portfolio for `owner` using the given `name`.
 fn new_portfolio(owner: AccountId, name: &str) -> PortfolioId {
     let portfolio_name = PortfolioName::from(name);
-    let did = Identity::key_to_identity_dids(owner.clone());
+    let did = Identity::get_identity(&owner).expect("User missing identity");
 
     Portfolio::create_portfolio(Origin::signed(owner), portfolio_name.clone())
         .expect("New portfolio cannot be created");
@@ -2195,22 +2195,19 @@ fn secondary_key_not_authorized_for_asset_test() {
 
     let secondary_keys = vec![
         SecondaryKey {
-            signer: Signatory::Account(not.to_account_id()),
+            key: not.to_account_id(),
             permissions: Permissions {
                 asset: AssetPermissions::elems(invalid_tickers),
                 ..Default::default()
             },
         },
         SecondaryKey {
-            signer: Signatory::Account(all.to_account_id()),
+            key: all.to_account_id(),
             permissions: Permissions::default(),
         },
     ];
 
-    let owner = polymesh_primitives::Identity {
-        primary_key: owner.to_account_id(),
-        secondary_keys,
-    };
+    let owner = IdentityRecord::new(owner.to_account_id(), secondary_keys);
 
     ExtBuilder::default()
         .add_regular_users(&[owner])

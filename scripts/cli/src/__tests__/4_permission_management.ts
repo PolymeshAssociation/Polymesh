@@ -2,7 +2,7 @@ import * as init from "../util/init";
 import {
   createIdentities,
   authorizeJoinToIdentities,
-  setPermissionToSigner,
+  setSecondaryKeyPermissions,
 } from "../helpers/identity_helper";
 import { distributePolyBatch } from "../helpers/poly_helper";
 import { addSecondaryKeys } from "../helpers/key_management_helper";
@@ -69,7 +69,7 @@ describe("4 - Permission Management Unit Test", () => {
     expect(portfolioOutput).toBeFalsy();
 
     setExtrinsic(extrinsics, "Portfolio", "create_portfolio");
-    await setPermissionToSigner(
+    await setSecondaryKeyPermissions(
       primaryKeys,
       secondaryKeys,
       extrinsics,
@@ -80,7 +80,7 @@ describe("4 - Permission Management Unit Test", () => {
     expect(portfolioOutput).toBeTruthy();
 
     setExtrinsic(extrinsics, "Portfolio", "move_portfolio_funds");
-    await setPermissionToSigner(
+    await setSecondaryKeyPermissions(
       primaryKeys,
       secondaryKeys,
       extrinsics,
@@ -97,7 +97,7 @@ describe("4 - Permission Management Unit Test", () => {
 
     await setPortfolio(portfolios, primaryKeys[0], "Default");
     await setPortfolio(portfolios, secondaryKeys[0], "User");
-    await setPermissionToSigner(
+    await setSecondaryKeyPermissions(
       primaryKeys,
       secondaryKeys,
       extrinsics,
@@ -114,7 +114,7 @@ describe("4 - Permission Management Unit Test", () => {
     expect(portfolioFundsOutput).toBeTruthy();
 
     setExtrinsic(extrinsics, "Asset", "add_documents");
-    await setPermissionToSigner(
+    await setSecondaryKeyPermissions(
       primaryKeys,
       secondaryKeys,
       extrinsics,
@@ -127,7 +127,7 @@ describe("4 - Permission Management Unit Test", () => {
     console.log("after docs");
 
     setAsset(ticker, assets);
-    await setPermissionToSigner(
+    await setSecondaryKeyPermissions(
       primaryKeys,
       secondaryKeys,
       extrinsics,
