@@ -479,6 +479,8 @@ impl<T: Config> Module<T> {
     }
 
     /// Kill the distribution identified by `ca_id`.
+    ///
+    /// Unlike `base_remove_distribution`, this won't check permissions and that the dist exists.
     crate fn unverified_remove_distribution(
         agent: EventDid,
         ca_id: CAId,
