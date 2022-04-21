@@ -218,15 +218,8 @@ decl_module! {
             payment_at: Moment,
             expires_at: Option<Moment>,
         ) -> DispatchResult {
-            let PermissionedCallOriginData {
-                primary_did: agent,
-                secondary_key,
-                ..
-            } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ca_id.ticker)?;
-
-            Self::unsafe_distribute(
-                agent,
-                secondary_key,
+            Self::base_distribute(
+                origin,
                 ca_id,
                 portfolio,
                 currency,
@@ -262,8 +255,7 @@ decl_module! {
         /// - Other errors can occur if the compliance manager rejects the transfer.
         #[weight = <T as Config>::DistWeightInfo::claim(T::MaxTargetIds::get(), T::MaxDidWhts::get())]
         pub fn claim(origin, ca_id: CAId) {
-            let did = <Identity<T>>::ensure_perms(origin)?;
-            Self::transfer_benefit(did.for_event(), did, ca_id)?;
+            Self::base_claim(origin, ca_id)?;
         }
 
         /// Push benefit of an ongoing distribution to the given `holder`.
@@ -292,8 +284,7 @@ decl_module! {
         /// - Other errors can occur if the compliance manager rejects the transfer.
         #[weight = <T as Config>::DistWeightInfo::push_benefit(T::MaxTargetIds::get(), T::MaxDidWhts::get())]
         pub fn push_benefit(origin, ca_id: CAId, holder: IdentityId) {
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
-            Self::transfer_benefit(agent, holder, ca_id)?;
+            Self::base_push_benefit(origin, ca_id, holder)?;
         }
 
         /// Assuming a distribution has expired,
@@ -309,27 +300,7 @@ decl_module! {
         /// - `NotExpired` if `now < expiry`.
         #[weight = <T as Config>::DistWeightInfo::reclaim()]
         pub fn reclaim(origin, ca_id: CAId) {
-            // Ensure distribution is created, they haven't reclaimed, and that expiry has passed.
-            // CA must be authorized and be the custodian.
-            let PermissionedCallOriginData {
-                primary_did: agent,
-                secondary_key,
-                ..
-            } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin.clone(), ca_id.ticker)?;
-            let dist = Self::ensure_distribution_exists(ca_id)?;
-            ensure!(!dist.reclaimed, Error::<T>::AlreadyReclaimed);
-            ensure!(expired(dist.expires_at, <Checkpoint<T>>::now_unix()), Error::<T>::NotExpired);
-            <Portfolio<T>>::ensure_portfolio_custody_and_permission(dist.from, agent, secondary_key.as_ref())?;
-
-            // Unlock `remaining` of `currency` from DID's portfolio.
-            // This won't fail, as we've already locked the requisite amount prior.
-            Self::unlock(&dist, dist.remaining)?;
-
-            // Zero `remaining` + note that we've reclaimed.
-            Distributions::insert(ca_id, Distribution { reclaimed: true, remaining:0u32.into(), ..dist });
-
-            // Emit event.
-            Self::deposit_event(Event::Reclaimed(agent.for_event(), ca_id, dist.remaining));
+            Self::base_reclaim(origin, ca_id)?;
         }
 
         /// Removes a distribution that hasn't started yet,
@@ -345,9 +316,7 @@ decl_module! {
         /// - `DistributionStarted` if `payment_at <= now`.
         #[weight = <T as Config>::DistWeightInfo::remove_distribution()]
         pub fn remove_distribution(origin, ca_id: CAId) {
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
-            let dist = Self::ensure_distribution_exists(ca_id)?;
-            Self::remove_distribution_base(agent, ca_id, &dist)?;
+            Self::base_remove_distribution(origin, ca_id)?;
         }
     }
 }
@@ -413,8 +382,97 @@ decl_error! {
 }
 
 impl<T: Config> Module<T> {
+    fn base_distribute(
+        origin: T::Origin,
+        ca_id: CAId,
+        portfolio: Option<PortfolioNumber>,
+        currency: Ticker,
+        per_share: Balance,
+        amount: Balance,
+        payment_at: Moment,
+        expires_at: Option<Moment>,
+    ) -> DispatchResult {
+        let PermissionedCallOriginData {
+            primary_did: agent,
+            secondary_key,
+            ..
+        } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ca_id.ticker)?;
+
+        Self::unsafe_distribute(
+            agent,
+            secondary_key,
+            ca_id,
+            portfolio,
+            currency,
+            per_share,
+            amount,
+            payment_at,
+            expires_at,
+        )
+    }
+
+    fn base_claim(origin: T::Origin, ca_id: CAId) -> DispatchResult {
+        let did = <Identity<T>>::ensure_perms(origin)?;
+        Self::transfer_benefit(did.for_event(), did, ca_id)?;
+        Ok(())
+    }
+
+    fn base_push_benefit(origin: T::Origin, ca_id: CAId, holder: IdentityId) -> DispatchResult {
+        let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
+        Self::transfer_benefit(agent, holder, ca_id)?;
+        Ok(())
+    }
+
+    fn base_reclaim(origin: T::Origin, ca_id: CAId) -> DispatchResult {
+        // Ensure distribution is created, they haven't reclaimed, and that expiry has passed.
+        // CA must be authorized and be the custodian.
+        let PermissionedCallOriginData {
+            primary_did: agent,
+            secondary_key,
+            ..
+        } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin.clone(), ca_id.ticker)?;
+        let dist = Self::ensure_distribution_exists(ca_id)?;
+        ensure!(!dist.reclaimed, Error::<T>::AlreadyReclaimed);
+        ensure!(
+            expired(dist.expires_at, <Checkpoint<T>>::now_unix()),
+            Error::<T>::NotExpired
+        );
+        <Portfolio<T>>::ensure_portfolio_custody_and_permission(
+            dist.from,
+            agent,
+            secondary_key.as_ref(),
+        )?;
+
+        // Unlock `remaining` of `currency` from DID's portfolio.
+        // This won't fail, as we've already locked the requisite amount prior.
+        Self::unlock(&dist, dist.remaining)?;
+
+        // Zero `remaining` + note that we've reclaimed.
+        Distributions::insert(
+            ca_id,
+            Distribution {
+                reclaimed: true,
+                remaining: 0u32.into(),
+                ..dist
+            },
+        );
+
+        // Emit event.
+        Self::deposit_event(Event::Reclaimed(agent.for_event(), ca_id, dist.remaining));
+
+        Ok(())
+    }
+
+    fn base_remove_distribution(origin: T::Origin, ca_id: CAId) -> DispatchResult {
+        let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
+        let dist = Self::ensure_distribution_exists(ca_id)?;
+        Self::unverified_remove_distribution(agent, ca_id, &dist)?;
+
+        Ok(())
+    }
+
     /// Kill the distribution identified by `ca_id`.
-    crate fn remove_distribution_base(
+    crate fn unverified_remove_distribution(
         agent: EventDid,
         ca_id: CAId,
         dist: &Distribution,

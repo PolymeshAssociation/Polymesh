@@ -652,7 +652,7 @@ decl_module! {
                 }
                 CAKind::PredictableBenefit | CAKind::UnpredictableBenefit => {
                     if let Some(dist) = <Distribution<T>>::distributions(ca_id) {
-                        <Distribution<T>>::remove_distribution_base(agent, ca_id, &dist)?;
+                        <Distribution<T>>::unverified_remove_distribution(agent, ca_id, &dist)?;
                     }
                 }
             }
