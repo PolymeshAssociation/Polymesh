@@ -115,6 +115,7 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::identity::{
         AuthorizationNonce, Config, IdentityFnTrait, RawEvent, SecondaryKeyWithAuth,
+        SecondaryKeyWithAuthV1,
     },
     SystematicIssuers, GC_DID,
 };
@@ -434,24 +435,16 @@ decl_module! {
             Self::base_remove_authorization(origin, target, auth_id)?;
         }
 
-        /// It adds secondary keys to target identity `id`.
-        /// Keys are directly added to identity because each of them has an authorization.
-        ///
-        /// Arguments:
-        ///     - `origin` Primary key of `id` identity.
-        ///     - `id` Identity where new secondary keys will be added.
-        ///     - `additional_keys` New secondary items (and their authorization data) to add to target
-        ///     identity.
-        ///
-        /// Failure
-        ///     - It can only called by primary key owner.
-        ///     - Keys should be able to linked to any identity.
-        #[weight = <T as Config>::WeightInfo::add_secondary_keys_full::<T::AccountId>(&additional_keys)]
-        pub fn add_secondary_keys_with_authorization(
+        /// Deprecated.  Please use `add_secondary_keys_with_authorization` instead.
+        #[weight = <T as Config>::WeightInfo::add_secondary_keys_full_v1::<T::AccountId>(&additional_keys)]
+        pub fn add_secondary_keys_with_authorization_old(
             origin,
-            additional_keys: Vec<SecondaryKeyWithAuth<T::AccountId>>,
+            additional_keys: Vec<SecondaryKeyWithAuthV1<T::AccountId>>,
             expires_at: T::Moment
         ) {
+            let additional_keys = additional_keys.into_iter()
+                .map(SecondaryKeyWithAuth::<T::AccountId>::try_from)
+                .collect::<Result<Vec<_>, _>>().map_err(|_| Error::<T>::NotASigner)?;
             Self::base_add_secondary_keys_with_authorization(origin, additional_keys, expires_at)?;
         }
 
@@ -533,6 +526,27 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::rotate_primary_key_to_secondary()]
         pub fn rotate_primary_key_to_secondary(origin, auth_id:u64, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
             Self::base_rotate_primary_key_to_secondary(origin, auth_id, optional_cdd_auth_id)
+        }
+
+        /// It adds secondary keys to target identity `id`.
+        /// Keys are directly added to identity because each of them has an authorization.
+        ///
+        /// Arguments:
+        ///     - `origin` Primary key of `id` identity.
+        ///     - `id` Identity where new secondary keys will be added.
+        ///     - `additional_keys` New secondary items (and their authorization data) to add to target
+        ///     identity.
+        ///
+        /// Failure
+        ///     - It can only called by primary key owner.
+        ///     - Keys should be able to linked to any identity.
+        #[weight = <T as Config>::WeightInfo::add_secondary_keys_full::<T::AccountId>(&additional_keys)]
+        pub fn add_secondary_keys_with_authorization(
+            origin,
+            additional_keys: Vec<SecondaryKeyWithAuth<T::AccountId>>,
+            expires_at: T::Moment
+        ) {
+            Self::base_add_secondary_keys_with_authorization(origin, additional_keys, expires_at)?;
         }
 
         /// Sets permissions for an specific `target_key` key.

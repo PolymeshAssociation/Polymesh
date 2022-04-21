@@ -33,11 +33,13 @@ use frame_support::{
     Parameter,
 };
 use polymesh_primitives::{
-    secondary_key::SecondaryKey, AuthorizationData, IdentityClaim, IdentityId, Permissions, Ticker,
+    secondary_key::SecondaryKey, AuthorizationData, IdentityClaim, IdentityId, Permissions,
+    Signatory, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
+use sp_std::convert::TryFrom;
 use sp_std::vec::Vec;
 
 pub type AuthorizationNonce = u64;
@@ -75,6 +77,28 @@ pub struct SecondaryKeyWithAuth<AccountId> {
     pub auth_signature: H512,
 }
 
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
+pub struct SecondaryKeyWithAuthV1<AccountId>(SecondaryKeyWithAuth<Signatory<AccountId>>);
+
+impl<AccountId> TryFrom<SecondaryKeyWithAuthV1<AccountId>> for SecondaryKeyWithAuth<AccountId> {
+    type Error = ();
+    fn try_from(auth: SecondaryKeyWithAuthV1<AccountId>) -> Result<Self, Self::Error> {
+        match auth.0.secondary_key.key {
+            Signatory::Account(key) => Ok(Self {
+                secondary_key: SecondaryKey {
+                    key,
+                    permissions: auth.0.secondary_key.permissions,
+                },
+                auth_signature: auth.0.auth_signature,
+            }),
+            _ => {
+                // Unsupported `Signatory::Identity`.
+                Err(())
+            }
+        }
+    }
+}
+
 pub trait WeightInfo {
     fn cdd_register_did(i: u32) -> Weight;
     fn invalidate_cdd_claims() -> Weight;
@@ -103,18 +127,35 @@ pub trait WeightInfo {
     fn revoke_claim_by_index() -> Weight;
 
     /// Add complexity cost of Permissions to `add_secondary_keys_with_authorization` extrinsic.
+    fn add_secondary_keys_full_v1<AccountId>(
+        additional_keys: &[SecondaryKeyWithAuthV1<AccountId>],
+    ) -> Weight {
+        Self::add_secondary_keys_perms_cost(
+            additional_keys
+                .iter()
+                .map(|auth| &auth.0.secondary_key.permissions),
+        )
+    }
+
+    /// Add complexity cost of Permissions to `add_secondary_keys_with_authorization` extrinsic.
     fn add_secondary_keys_full<AccountId>(
         additional_keys: &[SecondaryKeyWithAuth<AccountId>],
     ) -> Weight {
-        let perm_cost = additional_keys.iter().fold(0u64, |cost, key_with_auth| {
-            let (assets, portfolios, pallets, extrinsics) =
-                key_with_auth.secondary_key.permissions.counts();
+        Self::add_secondary_keys_perms_cost(
+            additional_keys
+                .iter()
+                .map(|auth| &auth.secondary_key.permissions),
+        )
+    }
+
+    /// Add complexity cost of Permissions to `add_secondary_keys_with_authorization` extrinsic.
+    fn add_secondary_keys_perms_cost<'a>(perms: impl Iterator<Item = &'a Permissions>) -> Weight {
+        let (perm_cost, len) = perms.fold((0u64, 0u32), |(cost, len), perm| {
+            let (assets, portfolios, pallets, extrinsics) = perm.counts();
             let perm_cost = Self::permissions_cost(assets, portfolios, pallets, extrinsics);
-            cost.saturating_add(perm_cost)
+            (cost.saturating_add(perm_cost), len + 1)
         });
-        perm_cost.saturating_add(Self::add_secondary_keys_with_authorization(
-            additional_keys.len() as u32,
-        ))
+        perm_cost.saturating_add(Self::add_secondary_keys_with_authorization(len))
     }
 
     /// Add complexity cost of Permissions to `add_authorization` extrinsic.
