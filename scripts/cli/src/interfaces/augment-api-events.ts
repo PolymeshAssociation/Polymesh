@@ -1540,11 +1540,20 @@ declare module '@polkadot/api-base/types/events' {
     treasury: {
       /**
        * Disbursement to a target Identity.
-       * (target identity, amount)
+       * 
+       * (treasury identity, target identity, target primary key, amount)
        **/
-      TreasuryDisbursement: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityId, u128]>;
+      TreasuryDisbursement: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityId, AccountId32, u128]>;
+      /**
+       * Disbursement to a target Identity failed.
+       * 
+       * (treasury identity, target identity, target primary key, amount)
+       **/
+      TreasuryDisbursementFailed: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityId, AccountId32, u128]>;
       /**
        * Treasury reimbursement.
+       * 
+       * (source identity, amount)
        **/
       TreasuryReimbursement: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, u128]>;
       /**
