@@ -33,8 +33,7 @@ use frame_support::{
     Parameter,
 };
 use polymesh_primitives::{
-    secondary_key::api::{LegacyPermissions, SecondaryKey},
-    AuthorizationData, IdentityClaim, IdentityId, InvestorUid, Permissions, Signatory, Ticker,
+    secondary_key::SecondaryKey, AuthorizationData, IdentityClaim, IdentityId, Permissions, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_core::H512;
@@ -52,7 +51,7 @@ pub type AuthorizationNonce = u64;
 /// value of nonce of primary key of `target_id`. See `System::account_nonce`.
 /// In this way, the authorization is delimited to an specific transaction (usually the next one)
 /// of primary key of target identity.
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 pub struct TargetIdAuthorization<Moment> {
     /// Target identity which is authorized to make an operation.
     pub target_id: IdentityId,
@@ -68,7 +67,7 @@ pub struct TargetIdAuthorization<Moment> {
 /// # TODO
 ///  - Replace `H512` type by a template type which represents explicitly the relation with
 ///  `TargetIdAuthorization`.
-#[derive(codec::Encode, codec::Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
 pub struct SecondaryKeyWithAuth<AccountId> {
     /// Secondary key to be added.
     pub secondary_key: SecondaryKey<AccountId>,
@@ -87,7 +86,7 @@ pub trait WeightInfo {
     fn leave_identity_as_key() -> Weight;
     fn add_claim() -> Weight;
     fn revoke_claim() -> Weight;
-    fn set_permission_to_signer() -> Weight;
+    fn set_secondary_key_permissions() -> Weight;
     /// Complexity Parameters:
     /// `a` = Number of (A)ssets
     /// `p` = Number of (P)ortfolios
@@ -131,18 +130,11 @@ pub trait WeightInfo {
         perm_cost.saturating_add(Self::add_authorization())
     }
 
-    /// Add complexity cost of Permissions to `set_permission_to_signer` extrinsic.
-    fn set_permission_to_signer_full(perms: &Permissions) -> Weight {
+    /// Add complexity cost of Permissions to `set_secondary_key_permissions` extrinsic.
+    fn set_secondary_key_permissions_full(perms: &Permissions) -> Weight {
         let (assets, portfolios, pallets, extrinsics) = perms.counts();
         Self::permissions_cost(assets, portfolios, pallets, extrinsics)
-            .saturating_add(Self::set_permission_to_signer())
-    }
-
-    /// Add complexity cost of Permissions to `legacy_set_permission_to_signer` extrinsic.
-    fn legacy_set_permission_to_signer_full(perms: &LegacyPermissions) -> Weight {
-        let (assets, portfolios, pallets, extrinsics) = perms.counts();
-        Self::permissions_cost(assets, portfolios, pallets, extrinsics)
-            .saturating_add(Self::set_permission_to_signer())
+            .saturating_add(Self::set_secondary_key_permissions())
     }
 }
 
@@ -199,39 +191,53 @@ decl_event!(
         AccountId = <T as frame_system::Config>::AccountId,
         Moment = <T as pallet_timestamp::Config>::Moment,
     {
-        /// DID, primary key account ID, secondary keys
+        /// Identity created.
+        ///
+        /// (DID, primary key, secondary keys)
         DidCreated(IdentityId, AccountId, Vec<SecondaryKey<AccountId>>),
 
-        /// DID, new keys
+        /// Secondary keys added to identity.
+        ///
+        /// (DID, new keys)
         SecondaryKeysAdded(IdentityId, Vec<SecondaryKey<AccountId>>),
 
-        /// DID, the keys that got removed
-        SecondaryKeysRemoved(IdentityId, Vec<Signatory<AccountId>>),
+        /// Secondary keys removed from identity.
+        ///
+        /// (DID, the keys that got removed)
+        SecondaryKeysRemoved(IdentityId, Vec<AccountId>),
 
-        /// A signer left their identity. (did, signer)
-        SignerLeft(IdentityId, Signatory<AccountId>),
+        /// A secondary key left their identity.
+        ///
+        /// (DID, secondary key)
+        SecondaryKeyLeftIdentity(IdentityId, AccountId),
 
-        /// DID, updated secondary key, previous permissions, new permissions
-        SecondaryKeyPermissionsUpdated(
-            IdentityId,
-            SecondaryKey<AccountId>,
-            Permissions,
-            Permissions,
-        ),
+        /// Secondary key permissions updated.
+        ///
+        /// (DID, updated secondary key, previous permissions, new permissions)
+        SecondaryKeyPermissionsUpdated(IdentityId, AccountId, Permissions, Permissions),
 
-        /// DID, old primary key account ID, new ID
+        /// Primary key of identity changed.
+        ///
+        /// (DID, old primary key account ID, new ID)
         PrimaryKeyUpdated(IdentityId, AccountId, AccountId),
 
-        /// DID, claims
+        /// Claim added to identity.
+        ///
+        /// (DID, claim)
         ClaimAdded(IdentityId, IdentityClaim),
 
-        /// DID, ClaimType, Claim Issuer
+        /// Claim revoked from identity.
+        ///
+        /// (DID, claim)
         ClaimRevoked(IdentityId, IdentityClaim),
 
-        /// Asset DID
+        /// Asset's identity registered.
+        ///
+        /// (Asset DID, ticker)
         AssetDidRegistered(IdentityId, Ticker),
 
         /// New authorization added.
+        ///
         /// (authorised_by, target_did, target_key, auth_id, authorization_data, expiry)
         AuthorizationAdded(
             IdentityId,
@@ -243,36 +249,40 @@ decl_event!(
         ),
 
         /// Authorization revoked by the authorizer.
+        ///
         /// (authorized_identity, authorized_key, auth_id)
         AuthorizationRevoked(Option<IdentityId>, Option<AccountId>, u64),
 
         /// Authorization rejected by the user who was authorized.
+        ///
         /// (authorized_identity, authorized_key, auth_id)
         AuthorizationRejected(Option<IdentityId>, Option<AccountId>, u64),
 
         /// Authorization consumed.
+        ///
         /// (authorized_identity, authorized_key, auth_id)
         AuthorizationConsumed(Option<IdentityId>, Option<AccountId>, u64),
 
-        /// Off-chain Authorization has been revoked.
-        /// (Target Identity, Signatory)
-        OffChainAuthorizationRevoked(IdentityId, Signatory<AccountId>),
-
-        /// CDD requirement for updating primary key changed. (new_requirement)
+        /// CDD requirement for updating primary key changed.
+        ///
+        /// (new_requirement)
         CddRequirementForPrimaryKeyUpdated(bool),
 
         /// CDD claims generated by `IdentityId` (a CDD Provider) have been invalidated from
         /// `Moment`.
+        ///
+        /// (CDD provider DID, disable from date)
         CddClaimsInvalidated(IdentityId, Moment),
 
         /// All Secondary keys of the identity ID are frozen.
+        ///
+        /// (DID)
         SecondaryKeysFrozen(IdentityId),
 
         /// All Secondary keys of the identity ID are unfrozen.
+        ///
+        /// (DID)
         SecondaryKeysUnfrozen(IdentityId),
-
-        /// Mocked InvestorUid created.
-        MockInvestorUIDCreated(IdentityId, InvestorUid),
     }
 );
 

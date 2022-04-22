@@ -169,7 +169,7 @@ pub use identity_id::{
 /// Identity information.
 /// Each DID is associated with this kind of record.
 pub mod identity;
-pub use identity::Identity;
+pub use identity::DidRecord;
 
 /// Provides the `CheckedInc` trait.
 pub mod checked_inc;
@@ -199,8 +199,8 @@ pub mod migrate;
 /// This module contains entities related with secondary keys.
 pub mod secondary_key;
 pub use secondary_key::{
-    AssetPermissions, ExtrinsicPermissions, PalletPermissions, Permissions, PortfolioPermissions,
-    SecondaryKey, Signatory,
+    AssetPermissions, ExtrinsicPermissions, KeyRecord, PalletPermissions, Permissions,
+    PortfolioPermissions, SecondaryKey, Signatory,
 };
 
 /// Subset type.

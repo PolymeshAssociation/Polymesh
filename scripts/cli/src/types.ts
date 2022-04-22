@@ -143,12 +143,6 @@ export type PalletPermissions = {
   dispatchable_names: SubsetRestriction<DispatchableName>;
 };
 
-export type LegacyPalletPermissions = {
-  pallet_name: PalletName;
-  total: Boolean;
-  dispatchable_names: DispatchableName[];
-};
-
 export type PortfolioId = {
   did: IdentityId;
   kind: PortfolioKind;

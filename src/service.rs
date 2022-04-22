@@ -9,7 +9,7 @@ use futures::stream::StreamExt;
 use polymesh_node_rpc as node_rpc;
 pub use polymesh_primitives::{
     crypto::native_schnorrkel, host_functions::native_rng::native_rng, AccountId, Balance, Block,
-    BlockNumber, Hash, IdentityId, Index as Nonce, Moment, SecondaryKey, Signatory, Ticker,
+    BlockNumber, Hash, IdentityId, Index as Nonce, Moment, Ticker,
 };
 pub use polymesh_runtime_ci;
 pub use polymesh_runtime_develop;
@@ -116,8 +116,6 @@ pub trait RuntimeApiCollection<Extrinsic: RuntimeExtrinsic>:
         IdentityId,
         Ticker,
         AccountId,
-        SecondaryKey<AccountId>,
-        Signatory<AccountId>,
         Moment,
     > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
     + node_rpc_runtime_api::asset::AssetApi<Block, AccountId>
@@ -144,15 +142,8 @@ where
         //+ pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, BlockNumber>
         + pallet_staking_rpc_runtime_api::StakingApi<Block>
         + node_rpc_runtime_api::pips::PipsApi<Block, AccountId>
-        + node_rpc_runtime_api::identity::IdentityApi<
-            Block,
-            IdentityId,
-            Ticker,
-            AccountId,
-            SecondaryKey<AccountId>,
-            Signatory<AccountId>,
-            Moment,
-        > + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
+        + node_rpc_runtime_api::identity::IdentityApi<Block, IdentityId, Ticker, AccountId, Moment>
+        + pallet_protocol_fee_rpc_runtime_api::ProtocolFeeApi<Block>
         + node_rpc_runtime_api::asset::AssetApi<Block, AccountId>
         + pallet_group_rpc_runtime_api::GroupApi<Block>
         + node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, AccountId>,

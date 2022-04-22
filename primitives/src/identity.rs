@@ -13,80 +13,29 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{SecondaryKey, Signatory};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_core::{crypto::Public as PublicType, sr25519::Public};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-use sp_std::{convert::From, prelude::Vec};
 
-/// Identity information.
-#[allow(missing_docs)]
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, TypeInfo)]
+/// Identity record.
+///
+/// Used to check if an identity exists and lookup its primary key.
+///
+/// Asset Identities don't have a primary key.
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct Identity<AccountId: Encode + Decode> {
-    pub primary_key: AccountId,
-    pub secondary_keys: Vec<SecondaryKey<AccountId>>,
+pub struct DidRecord<AccountId> {
+    /// The identity's primary key, if it has one.
+    pub primary_key: Option<AccountId>,
 }
 
-impl<AccountId> Identity<AccountId>
-where
-    AccountId: Encode + Decode + Clone + Default + Eq + Ord,
-{
-    /// Creates an [`Identity`] from an `AccountId`.
+impl<AccountId> DidRecord<AccountId> {
+    /// Creates an `DidRecord` from an `AccountId`.
     pub fn new(primary_key: AccountId) -> Self {
-        Identity {
-            primary_key,
-            ..Default::default()
-        }
-    }
-
-    /// Check if `signer` is already a secondary key.
-    pub fn contains_secondary_key(&self, signer: &Signatory<AccountId>) -> bool {
-        self.secondary_keys.iter().any(|sk| sk.signer == *signer)
-    }
-
-    /// It adds `new_secondary_keys` to `self`.
-    pub fn add_secondary_keys(
-        &mut self,
-        new_secondary_keys: impl IntoIterator<Item = SecondaryKey<AccountId>>,
-    ) -> &mut Self {
-        self.secondary_keys.extend(new_secondary_keys);
-
-        self
-    }
-
-    /// It removes `keys_to_remove` from secondary keys.
-    pub fn remove_secondary_keys(
-        &mut self,
-        signers_to_remove: &[Signatory<AccountId>],
-    ) -> &mut Self {
-        self.secondary_keys.retain(|curr_si| {
-            signers_to_remove
-                .iter()
-                .find(|&signer| curr_si.signer == *signer)
-                .is_none()
-        });
-        self
-    }
-
-    /// Returns the complexity of the identity's permissions.
-    pub fn complexity(&self) -> usize {
-        self.secondary_keys
-            .iter()
-            .fold(0, |cost, key| cost.saturating_add(key.complexity()))
-    }
-}
-
-impl<AccountId> From<Public> for Identity<AccountId>
-where
-    AccountId: Encode + Decode + PublicType,
-{
-    fn from(p: Public) -> Self {
-        Identity {
-            primary_key: AccountId::from_slice(&p.0[..]),
-            ..Default::default()
+        Self {
+            primary_key: Some(primary_key),
         }
     }
 }

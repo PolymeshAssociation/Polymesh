@@ -218,8 +218,16 @@ export async function keyToIdentityIds(
   accountKey: AccountId | KeyringPair["publicKey"]
 ): Promise<IdentityId> {
   const api = await ApiSingleton.getInstance();
-  let account_did = await api.query.identity.keyToIdentityIds(accountKey);
-  return account_did;
+  let opt_rec = await api.query.identity.keyRecords(accountKey);
+  if (opt_rec.isSome) {
+    const rec = opt_rec.unwrap();
+    if (rec.isPrimaryKey) {
+      return rec.asPrimaryKey;
+    } else if (rec.isSecondaryKey) {
+      return rec.asSecondaryKey[0];
+    }
+  }
+  return <IdentityId>(0 as unknown);
 }
 
 // Returns the asset did

@@ -30,9 +30,7 @@
 
 #![warn(missing_docs)]
 
-use polymesh_primitives::{
-    AccountId, Block, BlockNumber, Hash, IdentityId, Index, Moment, SecondaryKey, Signatory, Ticker,
-};
+use polymesh_primitives::{AccountId, Block, BlockNumber, Hash, IdentityId, Index, Moment, Ticker};
 use sc_client_api::AuxStore;
 use sc_consensus_babe::{Config, Epoch};
 use sc_consensus_epochs::SharedEpochChanges;
@@ -123,15 +121,7 @@ where
     C::Api: node_rpc::transaction_payment::TransactionPaymentRuntimeApi<Block, UE>,
     C::Api: pallet_staking_rpc::StakingRuntimeApi<Block>,
     C::Api: node_rpc::pips::PipsRuntimeApi<Block, AccountId>,
-    C::Api: node_rpc::identity::IdentityRuntimeApi<
-        Block,
-        IdentityId,
-        Ticker,
-        AccountId,
-        SecondaryKey<AccountId>,
-        Signatory<AccountId>,
-        Moment,
-    >,
+    C::Api: node_rpc::identity::IdentityRuntimeApi<Block, IdentityId, Ticker, AccountId, Moment>,
     C::Api: pallet_protocol_fee_rpc::ProtocolFeeRuntimeApi<Block>,
     C::Api: node_rpc::asset::AssetRuntimeApi<Block, AccountId>,
     C::Api: pallet_group_rpc::GroupRuntimeApi<Block>,

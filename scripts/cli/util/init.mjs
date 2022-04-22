@@ -237,8 +237,16 @@ const createIdentitiesWithExpiry = async function (
 
 // Fetches DID that belongs to the Account Key
 async function keyToIdentityIds(api, accountKey) {
-  let account_did = await api.query.identity.keyToIdentityIds(accountKey);
-  return account_did.toHuman();
+  let opt_rec = await api.query.identity.keyRecords(accountKey);
+  if (opt_rec.isSome) {
+    const rec = opt_rec.unwrap();
+    if (rec.isPrimaryKey) {
+      return rec.asPrimaryKey.toHuman();
+    } else if (rec.isPrimaryKey) {
+      return rec.asSecondaryKey[0].toHuman();
+    }
+  }
+  return "";
 }
 
 // Sends transfer_amount to accounts[] from alice

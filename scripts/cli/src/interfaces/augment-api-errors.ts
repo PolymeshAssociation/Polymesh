@@ -968,6 +968,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       SignerAlreadyLinkedToMultisig: AugmentedError<ApiType>;
       /**
+       * Signer is the multisig.  The multisig account can't be a signer to itself.
+       **/
+      SignerSameAsMultisig: AugmentedError<ApiType>;
+      /**
        * More signers than required.
        **/
       TooManySigners: AugmentedError<ApiType>;

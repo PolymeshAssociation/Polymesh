@@ -15,7 +15,7 @@
 
 use frame_support::dispatch::DispatchResult;
 use polymesh_primitives::{
-    secondary_key::api::SecondaryKey, traits::BlockRewardsReserveCurrency, InvestorUid,
+    secondary_key::SecondaryKey, traits::BlockRewardsReserveCurrency, InvestorUid,
 };
 
 pub trait CommonConfig: frame_system::Config + permissions::Config {
