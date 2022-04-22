@@ -88,8 +88,8 @@ export interface AssetMetadataKey extends Enum {
 /** @name AssetMetadataLocalKey */
 export interface AssetMetadataLocalKey extends u64 {}
 
-/** @name AssetMetadataLockStatus<Moment> */
-export interface AssetMetadataLockStatus<Moment> extends Enum {
+/** @name AssetMetadataLockStatus */
+export interface AssetMetadataLockStatus extends Enum {
   readonly isUnlocked: boolean;
   readonly isLocked: boolean;
   readonly isLockedUntil: boolean;
@@ -110,8 +110,8 @@ export interface AssetMetadataSpec extends Struct {
 /** @name AssetMetadataValue */
 export interface AssetMetadataValue extends Bytes {}
 
-/** @name AssetMetadataValueDetail<Moment> */
-export interface AssetMetadataValueDetail<Moment> extends Struct {
+/** @name AssetMetadataValueDetail */
+export interface AssetMetadataValueDetail extends Struct {
   readonly expire: Option<Moment>;
   readonly lock_status: AssetMetadataLockStatus;
 }
