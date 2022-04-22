@@ -1764,7 +1764,16 @@ fn dist_distribute_works() {
 
         Timestamp::set_timestamp(2);
         let id2 = dist_ca(owner, ticker, Some(2)).unwrap();
-
+        assert_ok!(Dist::distribute(
+            owner.origin(),
+            id2,
+            None,
+            ticker,
+            0,
+            0,
+            0,
+            None
+        ));
         // Test expiry.
         for &(pay, expiry) in &[(5, 5), (6, 5)] {
             assert_noop!(
