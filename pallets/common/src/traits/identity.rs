@@ -33,8 +33,8 @@ use frame_support::{
     Parameter,
 };
 use polymesh_primitives::{
-    secondary_key::SecondaryKey, AuthorizationData, IdentityClaim, IdentityId, Permissions,
-    Signatory, Ticker,
+    secondary_key::{v1, SecondaryKey},
+    AuthorizationData, IdentityClaim, IdentityId, Permissions, Signatory, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_core::H512;
@@ -77,19 +77,23 @@ pub struct SecondaryKeyWithAuth<AccountId> {
     pub auth_signature: H512,
 }
 
-#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
-pub struct SecondaryKeyWithAuthV1<AccountId>(SecondaryKeyWithAuth<Signatory<AccountId>>);
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct SecondaryKeyWithAuthV1<AccountId> {
+    secondary_key: v1::SecondaryKey<AccountId>,
+    auth_signature: H512,
+}
 
 impl<AccountId> TryFrom<SecondaryKeyWithAuthV1<AccountId>> for SecondaryKeyWithAuth<AccountId> {
     type Error = ();
     fn try_from(auth: SecondaryKeyWithAuthV1<AccountId>) -> Result<Self, Self::Error> {
-        match auth.0.secondary_key.key {
+        match auth.secondary_key.signer {
             Signatory::Account(key) => Ok(Self {
                 secondary_key: SecondaryKey {
                     key,
-                    permissions: auth.0.secondary_key.permissions,
+                    permissions: auth.secondary_key.permissions,
                 },
-                auth_signature: auth.0.auth_signature,
+                auth_signature: auth.auth_signature,
             }),
             _ => {
                 // Unsupported `Signatory::Identity`.
@@ -133,7 +137,7 @@ pub trait WeightInfo {
         Self::add_secondary_keys_perms_cost(
             additional_keys
                 .iter()
-                .map(|auth| &auth.0.secondary_key.permissions),
+                .map(|auth| &auth.secondary_key.permissions),
         )
     }
 
