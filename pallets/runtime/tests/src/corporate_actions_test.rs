@@ -1764,14 +1764,15 @@ fn dist_distribute_works() {
 
         Timestamp::set_timestamp(2);
         let id2 = dist_ca(owner, ticker, Some(2)).unwrap();
+        let id3 = dist_ca(owner, ticker, Some(2)).unwrap();
         assert_ok!(Dist::distribute(
             owner.origin(),
-            id2,
+            id3,
             None,
             ticker,
             0,
             0,
-            0,
+            5,
             None
         ));
         // Test expiry.
