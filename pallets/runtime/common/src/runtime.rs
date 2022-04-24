@@ -330,6 +330,10 @@ macro_rules! misc_pallet_impls {
             type Currency = Balances;
             type Event = Event;
             type Call = Call;
+            // The `CallFilter` ends up being used in `ext.call_runtime()`,
+            // via the `seal_call_runtime` feature,
+            // which won't swap the current identity,
+            // so we need `Nothing` to basically disable that feature.
             type CallFilter = frame_support::traits::Nothing;
             type CallStack = [pallet_contracts::Frame<Self>; 31];
             type WeightPrice = pallet_transaction_payment::Pallet<Self>;

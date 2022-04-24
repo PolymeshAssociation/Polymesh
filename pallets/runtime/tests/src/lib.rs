@@ -2,7 +2,6 @@
 #![feature(crate_visibility_modifier)]
 #![feature(bool_to_option)]
 #![feature(assert_matches)]
-
 #![cfg(test)]
 
 pub mod storage;

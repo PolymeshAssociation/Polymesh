@@ -54,12 +54,13 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{
         DispatchError, DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo,
-        GetDispatchInfo,
+        Dispatchable, GetDispatchInfo,
     },
     ensure,
     traits::{Get, GetCallMetadata},
     weights::Weight,
 };
+use frame_system::RawOrigin;
 use pallet_contracts::chain_extension as ce;
 use pallet_contracts::Config as BConfig;
 use pallet_contracts_primitives::{Code, ContractResult};
@@ -454,6 +455,7 @@ where
 
 /// An encoding of `func_id` into the encoding `0x_S_P_E_V`,
 /// with each letter being a byte.
+#[derive(Clone, Copy, Debug)]
 struct FuncId {
     /// Decides the version of the `extrinsic`.
     version: u8,
@@ -480,7 +482,7 @@ fn split_func_id(func_id: u32) -> FuncId {
 }
 
 /// Run `with` while the current DID is temporarily set to that of `key`.
-fn with_key_as_current<T: Config, W: FnOnce() -> R, R>(key: T::AccountId, with: W) -> R {
+fn with_key_as_current<T: Config, W: FnOnce() -> R, R>(key: &T::AccountId, with: W) -> R {
     let old_did = Context::current_identity::<Identity<T>>();
     let caller_did = Identity::<T>::key_to_identity_dids(key);
     Context::set_current_identity::<Identity<T>>(Some(caller_did));
@@ -580,7 +582,7 @@ fn prepare_instantiate_ce<T: Config>(
     sender: T::AccountId,
 ) -> ce::Result<ce::RetVal> {
     // Decode the hash, salt, and permissions.
-    let (code_hash, salt, perms): (T::Hash, Vec<u8>, Permissions) = decode::<_, T>(input)?;
+    let (code_hash, salt, perms): (_, Vec<u8>, _) = decode::<_, T>(input)?;
     ensure_consumed::<T>(input)?;
 
     // The DID is that of `sender`.
@@ -657,8 +659,12 @@ where
         let charged_amount = env.charge_weight(di.weight)?;
 
         // Execute call requested by contract, with current DID set to the contract owner.
-        let result = with_key_as_current::<T, _, _>(addr, || {
-            with_call_metadata(call.get_call_metadata(), || env.ext().call_runtime(call))
+        let result = with_key_as_current::<T, _, _>(&addr.clone(), || {
+            with_call_metadata(call.get_call_metadata(), || {
+                // Dispatch the call, avoiding use of `ext.call_runtime()`,
+                // as that uses `CallFilter = Nothing`, which would case a problem for us.
+                call.dispatch(RawOrigin::Signed(addr).into())
+            })
         });
 
         // Refund unspent weight.
