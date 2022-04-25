@@ -652,7 +652,7 @@ decl_module! {
                 }
                 CAKind::PredictableBenefit | CAKind::UnpredictableBenefit => {
                     if let Some(dist) = <Distribution<T>>::distributions(ca_id) {
-                        <Distribution<T>>::remove_distribution_base(agent, ca_id, &dist)?;
+                        <Distribution<T>>::unverified_remove_distribution(agent, ca_id, &dist)?;
                     }
                 }
             }
@@ -761,7 +761,7 @@ decl_module! {
                     withholding_tax
                 )?;
 
-                <distribution::Module<T>>::unsafe_distribute(
+                <distribution::Module<T>>::unverified_distribute(
                     agent,
                     secondary_key,
                     ca_id,
