@@ -194,7 +194,6 @@ decl_module! {
         ///
         /// # Errors
         /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
-        /// - `DistributingAsset` if `ca_id.ticker == currency`.
         /// - `ExpiryBeforePayment` if `expires_at.unwrap() <= payment_at`.
         /// - `NoSuchCA` if `ca_id` does not identify an existing CA.
         /// - `NoRecordDate` if CA has no record date.
@@ -386,9 +385,6 @@ decl_error! {
         /// A distributions provided expiry date was strictly before its payment date.
         /// In other words, everything to distribute would immediately be forfeited.
         ExpiryBeforePayment,
-        /// Currency that is distributed is the same as the CA's ticker.
-        /// Calling agent is attempting a form of stock split, which is not what the extrinsic is for.
-        DistributingAsset,
         /// The token holder has already been paid their benefit.
         HolderAlreadyPaid,
         /// A capital distribution doesn't exist for this CA.
@@ -546,9 +542,6 @@ impl<T: Config> Module<T> {
         payment_at: Moment,
         expires_at: Option<Moment>,
     ) -> DispatchResult {
-        // Ensure CA's asset is distinct from the distributed currency.
-        ensure!(ca_id.ticker != currency, Error::<T>::DistributingAsset);
-
         // Ensure that any expiry date doesn't come before the payment date.
         ensure!(
             !expired(expires_at, payment_at),
