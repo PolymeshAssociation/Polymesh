@@ -166,6 +166,9 @@ decl_error! {
         DataLeftAfterDecoding,
         /// Input data that a contract passed when making a runtime call was too large.
         InLenTooLarge,
+        /// A contract was attempted to be instantiated,
+        /// but no identity was given to associate the new contract's key with.
+        InstantiatorWithNoIdentity,
     }
 }
 
@@ -423,7 +426,8 @@ impl<T: Config> Module<T> {
         let contract_key = BaseContracts::<T>::contract_address(sender, code_hash, salt);
 
         // ...and ensure that key can be a secondary-key of DID...
-        Identity::<T>::ensure_secondary_key_can_be_added(&did, &contract_key, &perms)?;
+        Identity::<T>::ensure_perms_length_limited(&perms)?;
+        Identity::<T>::ensure_key_did_unlinked(&contract_key)?;
 
         // ...so that the CDD due to `endowment` passes.
         Identity::<T>::unsafe_join_identity(did, perms, contract_key);
@@ -481,11 +485,16 @@ fn split_func_id(func_id: u32) -> FuncId {
     }
 }
 
-/// Run `with` while the current DID is temporarily set to that of `key`.
-fn with_key_as_current<T: Config, W: FnOnce() -> R, R>(key: &T::AccountId, with: W) -> R {
+/// Returns the `contract`'s DID or errors.
+fn contract_did<T: Config>(contract: &T::AccountId) -> Result<IdentityId, DispatchError> {
+    // N.B. it might be the case that the contract is a primary key due to rotation.
+    Ok(Identity::<T>::get_identity(&contract).ok_or(Error::<T>::InstantiatorWithNoIdentity)?)
+}
+
+/// Run `with` while the current DID is temporarily set to the given one.
+fn with_did_as_current<T: Config, W: FnOnce() -> R, R>(did: IdentityId, with: W) -> R {
     let old_did = Context::current_identity::<Identity<T>>();
-    let caller_did = Identity::<T>::key_to_identity_dids(key);
-    Context::set_current_identity::<Identity<T>>(Some(caller_did));
+    Context::set_current_identity::<Identity<T>>(Some(did));
     let result = with();
     Context::set_current_identity::<Identity<T>>(old_did);
     result
@@ -586,7 +595,7 @@ fn prepare_instantiate_ce<T: Config>(
     ensure_consumed::<T>(input)?;
 
     // The DID is that of `sender`.
-    let did = pallet_identity::KeyToIdentityIds::<T>::get(&sender);
+    let did = contract_did::<T>(&sender)?;
 
     // Now that we've got all the data we need, instantiate!
     Module::<T>::prepare_instantiate(did, &sender, &code_hash, &salt, perms)?;
@@ -659,7 +668,7 @@ where
         let charged_amount = env.charge_weight(di.weight)?;
 
         // Execute call requested by contract, with current DID set to the contract owner.
-        let result = with_key_as_current::<T, _, _>(&addr.clone(), || {
+        let result = with_did_as_current::<T, _, _>(contract_did::<T>(&addr)?, || {
             with_call_metadata(call.get_call_metadata(), || {
                 // Dispatch the call, avoiding use of `ext.call_runtime()`,
                 // as that uses `CallFilter = Nothing`, which would case a problem for us.

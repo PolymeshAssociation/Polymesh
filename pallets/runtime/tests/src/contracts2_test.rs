@@ -5,7 +5,7 @@ use crate::{
 use codec::Encode;
 use frame_support::{assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop};
 use polymesh_common_utilities::constants::currency::POLY;
-use polymesh_primitives::{AccountId, Gas, Permissions, PortfolioPermissions, Signatory, Ticker};
+use polymesh_primitives::{AccountId, Gas, Permissions, PortfolioPermissions, Ticker};
 use polymesh_runtime_common::Currency;
 use sp_runtime::traits::Hash;
 use std::convert::TryFrom;
@@ -78,12 +78,9 @@ fn misc_polymesh_extensions() {
             let derive_key = |key, salt| BaseContracts::contract_address(&key, &hash, salt);
             let call = |key, data| Contracts::call(user.origin(), key, 0, GAS_LIMIT, data);
             let assert_has_secondary_key = |key: AccountId| {
-                assert!(Identity::did_records(owner.did)
-                    .secondary_keys
-                    .iter()
-                    .any(|sk| sk.permissions == perms
-                        && sk.signer == Signatory::Account(key.clone())));
-                assert!(Identity::is_key_authorized(owner.did, &key));
+                let data = Identity::get_key_identity_data(key).unwrap();
+                assert_eq!(data.identity, owner.did);
+                assert_eq!(data.permissions.unwrap(), perms);
             };
 
             // Instantiate contract.
@@ -136,9 +133,9 @@ fn misc_polymesh_extensions() {
             ));
 
             // Grant permissions to `key_first_contract`, and so registration should go through.
-            assert_ok!(Identity::set_permission_to_signer(
+            assert_ok!(Identity::set_secondary_key_permissions(
                 owner.origin(),
-                Signatory::Account(key_first_contract.clone()),
+                key_first_contract.clone(),
                 Permissions::default(),
             ));
 

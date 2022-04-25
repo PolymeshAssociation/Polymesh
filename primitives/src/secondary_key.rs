@@ -260,11 +260,10 @@ impl<AccountId> KeyRecord<AccountId> {
         }
     }
 
-    /// Get the identity if it is a primary/secondary key.
-    pub fn get_did(&self) -> Option<IdentityId> {
+    /// Extract the identity if it is a primary/secondary key.
+    pub fn as_did(&self) -> Option<IdentityId> {
         match self {
-            Self::PrimaryKey(did) => Some(*did),
-            Self::SecondaryKey(did, _) => Some(*did),
+            Self::PrimaryKey(did) | Self::SecondaryKey(did, _) => Some(*did),
             _ => None,
         }
     }
