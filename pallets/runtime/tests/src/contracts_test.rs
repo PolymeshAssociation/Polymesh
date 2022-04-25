@@ -19,7 +19,7 @@ use test_client::AccountKeyring;
 const GAS_LIMIT: Gas = 10_000_000_000;
 
 type Asset = pallet_asset::Module<TestStorage>;
-type BaseContracts = pallet_contracts::Pallet<TestStorage>;
+type FrameContracts = pallet_contracts::Pallet<TestStorage>;
 type BaseContractsError = pallet_contracts::Error<TestStorage>;
 type CodeHash = <Hashing as Hash>::Output;
 type Hashing = <TestStorage as frame_system::Config>::Hashing;
@@ -67,7 +67,7 @@ fn misc_polymesh_extensions() {
             let instantiate = || {
                 Contracts::instantiate_with_code(
                     owner.origin(),
-                    BaseContracts::subsistence_threshold(),
+                    FrameContracts::subsistence_threshold(),
                     GAS_LIMIT,
                     code.clone(),
                     vec![],
@@ -75,7 +75,7 @@ fn misc_polymesh_extensions() {
                     perms.clone(),
                 )
             };
-            let derive_key = |key, salt| BaseContracts::contract_address(&key, &hash, salt);
+            let derive_key = |key, salt| FrameContracts::contract_address(&key, &hash, salt);
             let call = |key, data| Contracts::call(user.origin(), key, 0, GAS_LIMIT, data);
             let assert_has_secondary_key = |key: AccountId| {
                 let data = Identity::get_key_identity_data(key).unwrap();

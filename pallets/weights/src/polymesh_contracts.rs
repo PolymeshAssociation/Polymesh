@@ -28,8 +28,8 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 pub struct WeightInfo;
 impl polymesh_contracts::WeightInfo for WeightInfo {
 	// Storage: Identity KeyRecords (r:1 w:0)
-	// Storage: BaseContracts ContractInfoOf (r:1 w:1)
-	// Storage: BaseContracts CodeStorage (r:1 w:0)
+	// Storage: Contracts ContractInfoOf (r:1 w:1)
+	// Storage: Contracts CodeStorage (r:1 w:0)
 	// Storage: Timestamp Now (r:1 w:0)
 	fn prepare_instantiate_full(n: u32, ) -> Weight {
 		(273_154_000 as Weight)
@@ -39,8 +39,8 @@ impl polymesh_contracts::WeightInfo for WeightInfo {
 			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
 	// Storage: Identity KeyRecords (r:2 w:0)
-	// Storage: BaseContracts ContractInfoOf (r:1 w:1)
-	// Storage: BaseContracts CodeStorage (r:1 w:0)
+	// Storage: Contracts ContractInfoOf (r:1 w:1)
+	// Storage: Contracts CodeStorage (r:1 w:0)
 	// Storage: Timestamp Now (r:1 w:0)
 	// Storage: Identity IsDidFrozen (r:1 w:0)
 	// Storage: Identity CurrentDid (r:1 w:1)
@@ -57,8 +57,8 @@ impl polymesh_contracts::WeightInfo for WeightInfo {
 			.saturating_add(DbWeight::get().writes(7 as Weight))
 	}
 	// Storage: Identity KeyRecords (r:1 w:0)
-	// Storage: BaseContracts ContractInfoOf (r:1 w:1)
-	// Storage: BaseContracts CodeStorage (r:1 w:0)
+	// Storage: Contracts ContractInfoOf (r:1 w:1)
+	// Storage: Contracts CodeStorage (r:1 w:0)
 	// Storage: Timestamp Now (r:1 w:0)
 	fn chain_extension_early_exit() -> Weight {
 		(155_987_000 as Weight)
@@ -77,8 +77,8 @@ impl polymesh_contracts::WeightInfo for WeightInfo {
 			.saturating_add(DbWeight::get().writes(3 as Weight))
 	}
 	// Storage: Identity KeyRecords (r:2 w:0)
-	// Storage: BaseContracts ContractInfoOf (r:1 w:1)
-	// Storage: BaseContracts CodeStorage (r:1 w:0)
+	// Storage: Contracts ContractInfoOf (r:1 w:1)
+	// Storage: Contracts CodeStorage (r:1 w:0)
 	// Storage: Timestamp Now (r:1 w:0)
 	// Storage: Identity IsDidFrozen (r:1 w:0)
 	// Storage: Instance2Group ActiveMembers (r:1 w:0)
@@ -91,9 +91,9 @@ impl polymesh_contracts::WeightInfo for WeightInfo {
 			.saturating_add(DbWeight::get().writes(3 as Weight))
 	}
 	// Storage: Identity KeyRecords (r:2 w:1)
-	// Storage: BaseContracts CodeStorage (r:1 w:1)
-	// Storage: BaseContracts AccountCounter (r:1 w:1)
-	// Storage: BaseContracts ContractInfoOf (r:1 w:1)
+	// Storage: Contracts CodeStorage (r:1 w:1)
+	// Storage: Contracts AccountCounter (r:1 w:1)
+	// Storage: Contracts ContractInfoOf (r:1 w:1)
 	// Storage: Timestamp Now (r:1 w:0)
 	// Storage: Identity IsDidFrozen (r:1 w:0)
 	// Storage: Instance2Group ActiveMembers (r:1 w:0)
@@ -109,16 +109,16 @@ impl polymesh_contracts::WeightInfo for WeightInfo {
 			.saturating_add(DbWeight::get().writes(7 as Weight))
 	}
 	// Storage: Identity KeyRecords (r:2 w:1)
-	// Storage: BaseContracts AccountCounter (r:1 w:1)
-	// Storage: BaseContracts ContractInfoOf (r:1 w:1)
+	// Storage: Contracts AccountCounter (r:1 w:1)
+	// Storage: Contracts ContractInfoOf (r:1 w:1)
 	// Storage: Timestamp Now (r:1 w:0)
 	// Storage: Identity IsDidFrozen (r:1 w:0)
 	// Storage: Instance2Group ActiveMembers (r:1 w:0)
 	// Storage: Instance2Group InactiveMembers (r:1 w:0)
 	// Storage: Identity Claims (r:2 w:0)
 	// Storage: System Account (r:2 w:2)
-	// Storage: BaseContracts CodeStorage (r:1 w:1)
-	// Storage: BaseContracts PristineCode (r:0 w:1)
+	// Storage: Contracts CodeStorage (r:1 w:1)
+	// Storage: Contracts PristineCode (r:0 w:1)
 	// Storage: Identity DidKeys (r:0 w:1)
 	fn instantiate_with_code(c: u32, s: u32, ) -> Weight {
 		(338_327_000 as Weight)

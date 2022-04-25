@@ -75,7 +75,7 @@ use sp_runtime::traits::Hash;
 use sp_std::vec::Vec;
 
 type Identity<T> = pallet_identity::Module<T>;
-type BaseContracts<T> = pallet_contracts::Pallet<T>;
+type FrameContracts<T> = pallet_contracts::Pallet<T>;
 type CodeHash<T> = <T as frame_system::Config>::Hash;
 
 pub trait WeightInfo {
@@ -317,7 +317,7 @@ impl<T: Config> Module<T> {
         // Execute contract.
         Self::handle_error(
             <T as Config>::WeightInfo::call(),
-            BaseContracts::<T>::bare_call(sender, contract, value, gas_limit, data, false),
+            FrameContracts::<T>::bare_call(sender, contract, value, gas_limit, data, false),
         )
     }
 
@@ -401,7 +401,7 @@ impl<T: Config> Module<T> {
             // Now we can finally instantiate the contract.
             Self::handle_error(
                 base_weight,
-                BaseContracts::<T>::bare_instantiate(
+                FrameContracts::<T>::bare_instantiate(
                     sender.clone(),
                     endowment,
                     gas_limit,
@@ -423,7 +423,7 @@ impl<T: Config> Module<T> {
         perms: Permissions,
     ) -> DispatchResult {
         // Pre-compute what contract's key will be...
-        let contract_key = BaseContracts::<T>::contract_address(sender, code_hash, salt);
+        let contract_key = FrameContracts::<T>::contract_address(sender, code_hash, salt);
 
         // ...and ensure that key can be a secondary-key of DID...
         Identity::<T>::ensure_perms_length_limited(&perms)?;

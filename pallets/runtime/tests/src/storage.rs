@@ -267,8 +267,8 @@ frame_support::construct_runtime!(
         Rewards: pallet_rewards::{Pallet, Call, Storage, Event<T>, Config<T>} = 54,
 
         // Contracts
-        BaseContracts: pallet_contracts::{Pallet, Storage, Event<T>} = 19,
-        Contracts: polymesh_contracts::{Pallet, Call, Storage, Event} = 20,
+        Contracts: pallet_contracts::{Pallet, Storage, Event<T>},
+        PolymeshContracts: polymesh_contracts::{Pallet, Call, Storage, Event},
     }
 );
 

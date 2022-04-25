@@ -389,8 +389,8 @@ construct_runtime!(
         Rewards: pallet_rewards::{Pallet, Call, Storage, Event<T>, Config<T>, ValidateUnsigned},
 
         // Contracts
-        BaseContracts: pallet_contracts::{Pallet, Storage, Event<T>},
-        Contracts: polymesh_contracts::{Pallet, Call, Storage, Event},
+        Contracts: pallet_contracts::{Pallet, Storage, Event<T>},
+        PolymeshContracts: polymesh_contracts::{Pallet, Call, Storage, Event},
 
         TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 50,
     }
