@@ -315,7 +315,6 @@
       "CANotBenefit",
       "AlreadyExists",
       "ExpiryBeforePayment",
-      "DistributingAsset",
       "HolderAlreadyPaid",
       "NoSuchDistribution",
       "CannotClaimBeforeStart",
