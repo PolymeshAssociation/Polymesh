@@ -27,106 +27,106 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 /// Weight functions for `polymesh_contracts`.
 pub struct WeightInfo;
 impl polymesh_contracts::WeightInfo for WeightInfo {
-	// Storage: Identity KeyRecords (r:1 w:0)
-	// Storage: Contracts ContractInfoOf (r:1 w:1)
-	// Storage: Contracts CodeStorage (r:1 w:0)
-	// Storage: Timestamp Now (r:1 w:0)
-	fn prepare_instantiate_full(n: u32, ) -> Weight {
-		(273_154_000 as Weight)
-			// Standard Error: 0
-			.saturating_add((2_000 as Weight).saturating_mul(n as Weight))
-			.saturating_add(DbWeight::get().reads(4 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	// Storage: Identity KeyRecords (r:2 w:0)
-	// Storage: Contracts ContractInfoOf (r:1 w:1)
-	// Storage: Contracts CodeStorage (r:1 w:0)
-	// Storage: Timestamp Now (r:1 w:0)
-	// Storage: Identity IsDidFrozen (r:1 w:0)
-	// Storage: Identity CurrentDid (r:1 w:1)
-	// Storage: Permissions CurrentPalletName (r:1 w:1)
-	// Storage: Permissions CurrentDispatchableName (r:1 w:1)
-	// Storage: Asset CustomTypesInverse (r:1 w:1)
-	// Storage: Asset CustomTypeIdSequence (r:1 w:1)
-	// Storage: Asset CustomTypes (r:0 w:1)
-	fn chain_extension_full(n: u32, ) -> Weight {
-		(338_423_000 as Weight)
-			// Standard Error: 0
-			.saturating_add((12_000 as Weight).saturating_mul(n as Weight))
-			.saturating_add(DbWeight::get().reads(11 as Weight))
-			.saturating_add(DbWeight::get().writes(7 as Weight))
-	}
-	// Storage: Identity KeyRecords (r:1 w:0)
-	// Storage: Contracts ContractInfoOf (r:1 w:1)
-	// Storage: Contracts CodeStorage (r:1 w:0)
-	// Storage: Timestamp Now (r:1 w:0)
-	fn chain_extension_early_exit() -> Weight {
-		(155_987_000 as Weight)
-			.saturating_add(DbWeight::get().reads(4 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-	}
-	// Storage: Identity KeyRecords (r:1 w:0)
-	// Storage: Asset CustomTypesInverse (r:1 w:1)
-	// Storage: Asset CustomTypeIdSequence (r:1 w:1)
-	// Storage: Asset CustomTypes (r:0 w:1)
-	fn basic_runtime_call(n: u32, ) -> Weight {
-		(34_352_000 as Weight)
-			// Standard Error: 0
-			.saturating_add((6_000 as Weight).saturating_mul(n as Weight))
-			.saturating_add(DbWeight::get().reads(3 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
-	// Storage: Identity KeyRecords (r:2 w:0)
-	// Storage: Contracts ContractInfoOf (r:1 w:1)
-	// Storage: Contracts CodeStorage (r:1 w:0)
-	// Storage: Timestamp Now (r:1 w:0)
-	// Storage: Identity IsDidFrozen (r:1 w:0)
-	// Storage: Instance2Group ActiveMembers (r:1 w:0)
-	// Storage: Instance2Group InactiveMembers (r:1 w:0)
-	// Storage: Identity Claims (r:2 w:0)
-	// Storage: System Account (r:2 w:2)
-	fn call() -> Weight {
-		(196_050_000 as Weight)
-			.saturating_add(DbWeight::get().reads(12 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-	}
-	// Storage: Identity KeyRecords (r:2 w:1)
-	// Storage: Contracts CodeStorage (r:1 w:1)
-	// Storage: Contracts AccountCounter (r:1 w:1)
-	// Storage: Contracts ContractInfoOf (r:1 w:1)
-	// Storage: Timestamp Now (r:1 w:0)
-	// Storage: Identity IsDidFrozen (r:1 w:0)
-	// Storage: Instance2Group ActiveMembers (r:1 w:0)
-	// Storage: Instance2Group InactiveMembers (r:1 w:0)
-	// Storage: Identity Claims (r:2 w:0)
-	// Storage: System Account (r:2 w:2)
-	// Storage: Identity DidKeys (r:0 w:1)
-	fn instantiate_with_hash(s: u32, ) -> Weight {
-		(264_925_000 as Weight)
-			// Standard Error: 0
-			.saturating_add((3_000 as Weight).saturating_mul(s as Weight))
-			.saturating_add(DbWeight::get().reads(13 as Weight))
-			.saturating_add(DbWeight::get().writes(7 as Weight))
-	}
-	// Storage: Identity KeyRecords (r:2 w:1)
-	// Storage: Contracts AccountCounter (r:1 w:1)
-	// Storage: Contracts ContractInfoOf (r:1 w:1)
-	// Storage: Timestamp Now (r:1 w:0)
-	// Storage: Identity IsDidFrozen (r:1 w:0)
-	// Storage: Instance2Group ActiveMembers (r:1 w:0)
-	// Storage: Instance2Group InactiveMembers (r:1 w:0)
-	// Storage: Identity Claims (r:2 w:0)
-	// Storage: System Account (r:2 w:2)
-	// Storage: Contracts CodeStorage (r:1 w:1)
-	// Storage: Contracts PristineCode (r:0 w:1)
-	// Storage: Identity DidKeys (r:0 w:1)
-	fn instantiate_with_code(c: u32, s: u32, ) -> Weight {
-		(338_327_000 as Weight)
-			// Standard Error: 0
-			.saturating_add((185_000 as Weight).saturating_mul(c as Weight))
-			// Standard Error: 0
-			.saturating_add((3_000 as Weight).saturating_mul(s as Weight))
-			.saturating_add(DbWeight::get().reads(13 as Weight))
-			.saturating_add(DbWeight::get().writes(8 as Weight))
-	}
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Storage: Contracts ContractInfoOf (r:1 w:1)
+    // Storage: Contracts CodeStorage (r:1 w:0)
+    // Storage: Timestamp Now (r:1 w:0)
+    fn prepare_instantiate_full(n: u32) -> Weight {
+        (273_154_000 as Weight)
+            // Standard Error: 0
+            .saturating_add((2_000 as Weight).saturating_mul(n as Weight))
+            .saturating_add(DbWeight::get().reads(4 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    // Storage: Identity KeyRecords (r:2 w:0)
+    // Storage: Contracts ContractInfoOf (r:1 w:1)
+    // Storage: Contracts CodeStorage (r:1 w:0)
+    // Storage: Timestamp Now (r:1 w:0)
+    // Storage: Identity IsDidFrozen (r:1 w:0)
+    // Storage: Identity CurrentDid (r:1 w:1)
+    // Storage: Permissions CurrentPalletName (r:1 w:1)
+    // Storage: Permissions CurrentDispatchableName (r:1 w:1)
+    // Storage: Asset CustomTypesInverse (r:1 w:1)
+    // Storage: Asset CustomTypeIdSequence (r:1 w:1)
+    // Storage: Asset CustomTypes (r:0 w:1)
+    fn chain_extension_full(n: u32) -> Weight {
+        (338_423_000 as Weight)
+            // Standard Error: 0
+            .saturating_add((12_000 as Weight).saturating_mul(n as Weight))
+            .saturating_add(DbWeight::get().reads(11 as Weight))
+            .saturating_add(DbWeight::get().writes(7 as Weight))
+    }
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Storage: Contracts ContractInfoOf (r:1 w:1)
+    // Storage: Contracts CodeStorage (r:1 w:0)
+    // Storage: Timestamp Now (r:1 w:0)
+    fn chain_extension_early_exit() -> Weight {
+        (155_987_000 as Weight)
+            .saturating_add(DbWeight::get().reads(4 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Storage: Asset CustomTypesInverse (r:1 w:1)
+    // Storage: Asset CustomTypeIdSequence (r:1 w:1)
+    // Storage: Asset CustomTypes (r:0 w:1)
+    fn basic_runtime_call(n: u32) -> Weight {
+        (34_352_000 as Weight)
+            // Standard Error: 0
+            .saturating_add((6_000 as Weight).saturating_mul(n as Weight))
+            .saturating_add(DbWeight::get().reads(3 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    // Storage: Identity KeyRecords (r:2 w:0)
+    // Storage: Contracts ContractInfoOf (r:1 w:1)
+    // Storage: Contracts CodeStorage (r:1 w:0)
+    // Storage: Timestamp Now (r:1 w:0)
+    // Storage: Identity IsDidFrozen (r:1 w:0)
+    // Storage: Instance2Group ActiveMembers (r:1 w:0)
+    // Storage: Instance2Group InactiveMembers (r:1 w:0)
+    // Storage: Identity Claims (r:2 w:0)
+    // Storage: System Account (r:2 w:2)
+    fn call() -> Weight {
+        (196_050_000 as Weight)
+            .saturating_add(DbWeight::get().reads(12 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    // Storage: Identity KeyRecords (r:2 w:1)
+    // Storage: Contracts CodeStorage (r:1 w:1)
+    // Storage: Contracts AccountCounter (r:1 w:1)
+    // Storage: Contracts ContractInfoOf (r:1 w:1)
+    // Storage: Timestamp Now (r:1 w:0)
+    // Storage: Identity IsDidFrozen (r:1 w:0)
+    // Storage: Instance2Group ActiveMembers (r:1 w:0)
+    // Storage: Instance2Group InactiveMembers (r:1 w:0)
+    // Storage: Identity Claims (r:2 w:0)
+    // Storage: System Account (r:2 w:2)
+    // Storage: Identity DidKeys (r:0 w:1)
+    fn instantiate_with_hash(s: u32) -> Weight {
+        (264_925_000 as Weight)
+            // Standard Error: 0
+            .saturating_add((3_000 as Weight).saturating_mul(s as Weight))
+            .saturating_add(DbWeight::get().reads(13 as Weight))
+            .saturating_add(DbWeight::get().writes(7 as Weight))
+    }
+    // Storage: Identity KeyRecords (r:2 w:1)
+    // Storage: Contracts AccountCounter (r:1 w:1)
+    // Storage: Contracts ContractInfoOf (r:1 w:1)
+    // Storage: Timestamp Now (r:1 w:0)
+    // Storage: Identity IsDidFrozen (r:1 w:0)
+    // Storage: Instance2Group ActiveMembers (r:1 w:0)
+    // Storage: Instance2Group InactiveMembers (r:1 w:0)
+    // Storage: Identity Claims (r:2 w:0)
+    // Storage: System Account (r:2 w:2)
+    // Storage: Contracts CodeStorage (r:1 w:1)
+    // Storage: Contracts PristineCode (r:0 w:1)
+    // Storage: Identity DidKeys (r:0 w:1)
+    fn instantiate_with_code(c: u32, s: u32) -> Weight {
+        (338_327_000 as Weight)
+            // Standard Error: 0
+            .saturating_add((185_000 as Weight).saturating_mul(c as Weight))
+            // Standard Error: 0
+            .saturating_add((3_000 as Weight).saturating_mul(s as Weight))
+            .saturating_add(DbWeight::get().reads(13 as Weight))
+            .saturating_add(DbWeight::get().writes(8 as Weight))
+    }
 }
