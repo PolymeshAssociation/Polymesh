@@ -93,10 +93,10 @@ fn misc_polymesh_extensions() {
             assert_has_secondary_key(key_first_contract.clone());
 
             // Ensure a call different non-existent instantiation results in "contract not found".
-            assert_noop!(
+            assert_storage_noop!(assert_err_ignore_postinfo!(
                 call(derive_key(owner.acc(), &[0x00]), vec![]),
                 BaseContractsError::ContractNotFound,
-            );
+            ));
 
             // Execute a chain extension with too long data.
             let call = |data| call(key_first_contract.clone(), data);

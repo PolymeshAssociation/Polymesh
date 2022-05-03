@@ -65,6 +65,7 @@ use pallet_contracts::chain_extension as ce;
 use pallet_contracts::Config as BConfig;
 use pallet_contracts_primitives::{Code, ContractResult};
 use pallet_identity::PermissionedCallOriginData;
+use pallet_identity::WeightInfo as _;
 use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
 use polymesh_common_utilities::{with_transaction, Context};
@@ -86,6 +87,8 @@ pub trait WeightInfo {
     fn instantiate_with_code(code_len: u32, salt_len: u32) -> Weight;
 
     /// Computes the cost of instantiating for `code` and `salt`.
+    ///
+    /// Permissions are not accounted for here.
     fn instantiate_with_code_bytes(code: &[u8], salt: &[u8]) -> Weight {
         Self::instantiate_with_code(code.len() as u32 / 1024, salt.len() as u32 / 1024)
     }
@@ -94,6 +97,8 @@ pub trait WeightInfo {
     fn instantiate_with_hash(salt_len: u32) -> Weight;
 
     /// Computes the cost of instantiating for `salt`.
+    ///
+    /// Permissions are not accounted for here.
     fn instantiate_with_hash_bytes(salt: &[u8]) -> Weight {
         Self::instantiate_with_hash((salt.len() / 1024) as u32)
     }
@@ -244,7 +249,7 @@ decl_module! {
         /// - All the errors in `pallet_contracts::Call::instantiate_with_code` can also happen here.
         /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
         /// - Errors that arise when adding a new secondary key can also occur here.
-        #[weight = <T as Config>::WeightInfo::instantiate_with_code_bytes(&code, &salt)]
+        #[weight = Module::<T>::weight_instantiate_with_code(&code, &salt, &perms)]
         pub fn instantiate_with_code(
             origin,
             endowment: Balance,
@@ -280,7 +285,7 @@ decl_module! {
         /// - All the errors in `pallet_contracts::Call::instantiate` can also happen here.
         /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
         /// - Errors that arise when adding a new secondary key can also occur here.
-        #[weight = <T as Config>::WeightInfo::instantiate_with_hash(salt.len() as u32)]
+        #[weight = Module::<T>::weight_instantiate_with_hash(&salt, &perms)]
         pub fn instantiate_with_hash(
             origin,
             endowment: Balance,
@@ -308,12 +313,6 @@ impl<T: Config> Module<T> {
         // Ensure contract caller has perms.
         let sender = Identity::<T>::ensure_origin_call_permissions(origin)?.sender;
 
-        // Prevent pure `value` transfers when `contract` either doesn't exist or isn't a contract.
-        ensure!(
-            pallet_contracts::ContractInfoOf::<T>::contains_key(&contract),
-            pallet_contracts::Error::<T>::ContractNotFound,
-        );
-
         // Execute contract.
         Self::handle_error(
             <T as Config>::WeightInfo::call(),
@@ -335,13 +334,20 @@ impl<T: Config> Module<T> {
             origin,
             endowment,
             // Compute the base weight of roughly `base_instantiate`.
-            <T as Config>::WeightInfo::instantiate_with_code_bytes(&code, &salt),
+            Self::weight_instantiate_with_code(&code, &salt, &perms),
             gas_limit,
             T::Hashing::hash(&code),
             Code::Upload(Bytes(code)),
             inst_data,
             salt,
             perms,
+        )
+    }
+
+    /// Computes weight of `instantiate_with_code(code, salt, perms)`.
+    fn weight_instantiate_with_code(code: &[u8], salt: &[u8], perms: &Permissions) -> Weight {
+        <T as Config>::WeightInfo::instantiate_with_code_bytes(&code, &salt).saturating_add(
+            <T as IdentityConfig>::WeightInfo::permissions_cost_perms(perms),
         )
     }
 
@@ -359,13 +365,20 @@ impl<T: Config> Module<T> {
             origin,
             endowment,
             // Compute the base weight of roughly `base_instantiate`.
-            <T as Config>::WeightInfo::instantiate_with_hash_bytes(&salt),
+            Self::weight_instantiate_with_hash(&salt, &perms),
             gas_limit,
             code_hash,
             Code::Existing(code_hash),
             inst_data,
             salt,
             perms,
+        )
+    }
+
+    /// Computes weight of `instantiate_with_hash(code, salt, perms)`.
+    fn weight_instantiate_with_hash(salt: &[u8], perms: &Permissions) -> Weight {
+        <T as Config>::WeightInfo::instantiate_with_hash_bytes(&salt).saturating_add(
+            <T as IdentityConfig>::WeightInfo::permissions_cost_perms(perms),
         )
     }
 
@@ -649,7 +662,7 @@ where
             extrinsic: 0,
         } = func_id
         {
-            // Charge weight, read input, and run the logic to add a
+            // Charge weight, read input, and run the logic to add a secondary key.
             env.charge_weight(<T as Config>::WeightInfo::prepare_instantiate(in_len))?;
             let input = &mut &*env.read(in_len)?;
             return prepare_instantiate_ce::<T>(input, addr);
