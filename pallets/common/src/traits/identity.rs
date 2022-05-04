@@ -33,7 +33,8 @@ use frame_support::{
     Parameter,
 };
 use polymesh_primitives::{
-    secondary_key::SecondaryKey, AuthorizationData, IdentityClaim, IdentityId, Permissions, Ticker,
+    secondary_key::SecondaryKey, AuthorizationData, Balance, IdentityClaim, IdentityId,
+    Permissions, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_core::H512;
@@ -93,6 +94,12 @@ pub trait WeightInfo {
     /// `l` = Number of pa(L)lets
     /// `e` = Number of (E)xtrinsics
     fn permissions_cost(a: u32, p: u32, l: u32, e: u32) -> Weight;
+
+    fn permissions_cost_perms(perms: &Permissions) -> Weight {
+        let (assets, portfolios, pallets, extrinsics) = perms.counts();
+        Self::permissions_cost(assets, portfolios, pallets, extrinsics)
+    }
+
     fn freeze_secondary_keys() -> Weight;
     fn unfreeze_secondary_keys() -> Weight;
     fn add_authorization() -> Weight;
@@ -106,11 +113,8 @@ pub trait WeightInfo {
     fn add_secondary_keys_full<AccountId>(
         additional_keys: &[SecondaryKeyWithAuth<AccountId>],
     ) -> Weight {
-        let perm_cost = additional_keys.iter().fold(0u64, |cost, key_with_auth| {
-            let (assets, portfolios, pallets, extrinsics) =
-                key_with_auth.secondary_key.permissions.counts();
-            let perm_cost = Self::permissions_cost(assets, portfolios, pallets, extrinsics);
-            cost.saturating_add(perm_cost)
+        let perm_cost = additional_keys.iter().fold(0u64, |cost, key| {
+            cost.saturating_add(Self::permissions_cost_perms(&key.secondary_key.permissions))
         });
         perm_cost.saturating_add(Self::add_secondary_keys_with_authorization(
             additional_keys.len() as u32,
@@ -120,21 +124,15 @@ pub trait WeightInfo {
     /// Add complexity cost of Permissions to `add_authorization` extrinsic.
     fn add_authorization_full<AccountId>(data: &AuthorizationData<AccountId>) -> Weight {
         let perm_cost = match data {
-            AuthorizationData::JoinIdentity(perms) => {
-                let (assets, portfolios, pallets, extrinsics) = perms.counts();
-                Self::permissions_cost(assets, portfolios, pallets, extrinsics)
-            }
+            AuthorizationData::JoinIdentity(perms) => Self::permissions_cost_perms(perms),
             _ => 0,
         };
-
         perm_cost.saturating_add(Self::add_authorization())
     }
 
     /// Add complexity cost of Permissions to `set_secondary_key_permissions` extrinsic.
     fn set_secondary_key_permissions_full(perms: &Permissions) -> Weight {
-        let (assets, portfolios, pallets, extrinsics) = perms.counts();
-        Self::permissions_cost(assets, portfolios, pallets, extrinsics)
-            .saturating_add(Self::set_secondary_key_permissions())
+        Self::permissions_cost_perms(perms).saturating_add(Self::set_secondary_key_permissions())
     }
 }
 
@@ -155,7 +153,7 @@ pub trait Config: CommonConfig + pallet_timestamp::Config + crate::traits::base:
     /// Group module
     type CddServiceProviders: GroupTrait<Self::Moment>;
     /// Balances module
-    type Balances: Currency<Self::AccountId>;
+    type Balances: Currency<Self::AccountId, Balance = Balance>;
     /// Charges fee for forwarded call
     type ChargeTxFeeTarget: ChargeTxFee;
     /// Used to check and update CDD

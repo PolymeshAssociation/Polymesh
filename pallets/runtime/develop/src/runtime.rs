@@ -135,19 +135,15 @@ parameter_types! {
     // Identity:
     pub const InitialPOLYX: Balance = 0 * POLY;
 
-    /*
-    /// The fraction of the deposit that should be used as rent per block.
-    pub RentFraction: Perbill = Perbill::from_rational_approximation(1u32, 30 * DAYS);
-    // The lazy deletion runs inside on_initialize.
-    pub DeletionWeightLimit: Weight = AVERAGE_ON_INITIALIZE_RATIO *
-        RuntimeBlockWeights::get().max_block;
-    // The weight needed for decoding the queue should be less or equal than a fifth
-    // of the overall weight dedicated to the lazy deletion.
-    pub DeletionQueueDepth: u32 = ((DeletionWeightLimit::get() / (
-                <Runtime as pallet_contracts::Config>::WeightInfo::on_initialize_per_queue_item(1) -
-                <Runtime as pallet_contracts::Config>::WeightInfo::on_initialize_per_queue_item(0)
-                )) / 5) as u32;
-    */
+    // Contracts:
+    pub ContractDeposit: Balance = polymesh_runtime_common::deposit(
+        1,
+        <pallet_contracts::Pallet<Runtime>>::contract_info_size(),
+    );
+    pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
+    pub DeletionWeightLimit: Weight = 500_000_000_000;
+    pub DeletionQueueDepth: u32 = 1024;
+    pub MaxInLen: u32 = 8 * 1024;
 }
 
 /// Splits fees 80/20 between treasury and block author.
@@ -376,12 +372,6 @@ construct_runtime!(
         // Sudo. Usable initially.
         Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>},
 
-        /*
-        // Contracts
-        BaseContracts: pallet_contracts::{Pallet, Config<T>, Storage, Event<T>},
-        Contracts: polymesh_contracts::{Pallet, Call, Storage, Event<T>},
-        */
-
         // Asset: Genesis config deps: Timestamp,
         Asset: pallet_asset::{Pallet, Call, Storage, Config<T>, Event<T>},
         CapitalDistribution: pallet_capital_distribution::{Pallet, Call, Storage, Event},
@@ -403,6 +393,11 @@ construct_runtime!(
         ExternalAgents: pallet_external_agents::{Pallet, Call, Storage, Event},
         Relayer: pallet_relayer::{Pallet, Call, Storage, Event<T>},
         Rewards: pallet_rewards::{Pallet, Call, Storage, Event<T>, Config<T>, ValidateUnsigned},
+
+        // Contracts
+        Contracts: pallet_contracts::{Pallet, Storage, Event<T>},
+        PolymeshContracts: polymesh_contracts::{Pallet, Call, Storage, Event},
+
         TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 50,
     }
 );
@@ -472,6 +467,7 @@ polymesh_runtime_common::runtime_apis! {
             add_benchmark!(params, batches, pallet_scheduler, Scheduler);
             add_benchmark!(params, batches, pallet_staking, Staking);
             add_benchmark!(params, batches, pallet_test_utils, TestUtils);
+            add_benchmark!(params, batches, polymesh_contracts, PolymeshContracts);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)
@@ -521,6 +517,7 @@ polymesh_runtime_common::runtime_apis! {
             list_benchmark!(list, extra, pallet_scheduler, Scheduler);
             list_benchmark!(list, extra, pallet_staking, Staking);
             list_benchmark!(list, extra, pallet_test_utils, TestUtils);
+            list_benchmark!(list, extra, polymesh_contracts, PolymeshContracts);
 
             let storage_info = AllPalletsWithSystem::storage_info();
 

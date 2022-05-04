@@ -732,7 +732,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Ensures length limits are enforced in `perms`.
-    crate fn ensure_perms_length_limited(perms: &Permissions) -> DispatchResult {
+    pub fn ensure_perms_length_limited(perms: &Permissions) -> DispatchResult {
         ensure_custom_length_ok::<T>(perms.complexity(), MAX_PERMISSION_COMPLEXITY)?;
         ensure_custom_length_ok::<T>(perms.asset.complexity(), MAX_ASSETS)?;
         ensure_custom_length_ok::<T>(perms.portfolio.complexity(), MAX_PORTFOLIOS)?;
@@ -769,25 +769,20 @@ impl<T: Config> CheckAccountCallPermissions<T::AccountId> for Module<T> {
             secondary_key,
         };
 
-        KeyRecords::<T>::get(who).and_then(|record| match record {
-            KeyRecord::PrimaryKey(did) => {
-                // Primary key.
-                Some(data(did, None))
-            }
+        match KeyRecords::<T>::get(who)? {
+            // Primary keys do not have / require further permission checks.
+            KeyRecord::PrimaryKey(did) => Some(data(did, None)),
+            // Secondary Key. Ensure DID isn't frozen + key has sufficient permissions.
             KeyRecord::SecondaryKey(did, permissions) if !Self::is_did_frozen(&did) => {
                 let sk = SecondaryKey {
                     key: who.clone(),
                     permissions,
                 };
-                if sk.has_extrinsic_permission(&pallet_name(), &function_name()) {
-                    Some(data(did, Some(sk)))
-                } else {
-                    // Secondary key doesn't have permissions to make this call.
-                    None
-                }
+                sk.has_extrinsic_permission(&pallet_name(), &function_name())
+                    .then(|| data(did, Some(sk)))
             }
             // DIDs with frozen secondary keys, AKA frozen DIDs, are not permitted to call extrinsics.
             _ => None,
-        })
+        }
     }
 }

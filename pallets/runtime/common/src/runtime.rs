@@ -319,10 +319,9 @@ macro_rules! misc_pallet_impls {
             //type ContractsFn = polymesh_contracts::Module<Runtime>;
         }
 
-        /*
         impl polymesh_contracts::Config for Runtime {
             type Event = Event;
-            type NetworkShareInFee = NetworkShareInFee;
+            type MaxInLen = MaxInLen;
             type WeightInfo = polymesh_weights::polymesh_contracts::WeightInfo;
         }
         impl pallet_contracts::Config for Runtime {
@@ -330,24 +329,30 @@ macro_rules! misc_pallet_impls {
             type Randomness = RandomnessCollectiveFlip;
             type Currency = Balances;
             type Event = Event;
-            type RentPayment = ();
-            type SignedClaimHandicap = polymesh_runtime_common::SignedClaimHandicap;
-            type TombstoneDeposit = TombstoneDeposit;
-            type DepositPerContract = polymesh_runtime_common::DepositPerContract;
-            type DepositPerStorageByte = polymesh_runtime_common::DepositPerStorageByte;
-            type DepositPerStorageItem = polymesh_runtime_common::DepositPerStorageItem;
-            type RentFraction = RentFraction;
-            type SurchargeReward = SurchargeReward;
-            type MaxDepth = polymesh_runtime_common::ContractsMaxDepth;
-            type MaxValueSize = polymesh_runtime_common::ContractsMaxValueSize;
-            type WeightPrice = pallet_transaction_payment::Module<Self>;
+            type Call = Call;
+            // The `CallFilter` ends up being used in `ext.call_runtime()`,
+            // via the `seal_call_runtime` feature,
+            // which won't swap the current identity,
+            // so we need `Nothing` to basically disable that feature.
+            type CallFilter = frame_support::traits::Nothing;
+            type CallStack = [pallet_contracts::Frame<Self>; 31];
+            type WeightPrice = pallet_transaction_payment::Pallet<Self>;
             type WeightInfo = pallet_contracts::weights::SubstrateWeight<Self>;
-            type ChainExtension = ();
+            type ChainExtension = polymesh_contracts::Pallet<Runtime>;
+            type Schedule = Schedule;
+            type ContractDeposit = ContractDeposit;
             type DeletionQueueDepth = DeletionQueueDepth;
             type DeletionWeightLimit = DeletionWeightLimit;
-            type MaxCodeSize = polymesh_runtime_common::ContractsMaxCodeSize;
         }
-        */
+        impl From<polymesh_contracts::CommonCall<Runtime>> for Call {
+            fn from(call: polymesh_contracts::CommonCall<Runtime>) -> Self {
+                use polymesh_contracts::CommonCall::*;
+                match call {
+                    Asset(x) => Self::Asset(x),
+                    Contracts(x) => Self::PolymeshContracts(x),
+                }
+            }
+        }
 
         impl pallet_compliance_manager::Config for Runtime {
             type Event = Event;

@@ -41,9 +41,9 @@ pallet-statistics = { path = "../../statistics", default-features = false }
 pallet-transaction-payment = { path = "../../transaction-payment", default-features = false }
 pallet-treasury = { path = "../../treasury", default-features = false }
 pallet-utility = { path = "../../utility", default-features = false }
-#polymesh-contracts = { path = "../../contracts", default-features = false }
 pallet-sudo = { path = "../../sudo", default-features = false }
 pallet-test-utils = { path = "../../test-utils", default-features = false }
+polymesh-contracts = { path = "../../contracts", default-features = false }
 
 # RPC
 node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = false }
@@ -80,7 +80,7 @@ sp-block-builder = { version = "4.0.0-dev", default-features = false }
 sp-arithmetic = { version = "4.0.0-dev", default-features = false }
 
 pallet-authorship = { version = "4.0.0-dev", default-features = false }
-#pallet-contracts = { version = "4.0.0-dev", default-features = false }
+pallet-contracts = { version = "4.0.0-dev", default-features = false }
 #pallet-contracts-primitives = { version = "4.0.0-dev", default-features = false}
 pallet-executive = { package = "frame-executive", version = "4.0.0-dev", default-features = false }
 pallet-grandpa = { version = "4.0.0-dev", default-features = false }
@@ -131,7 +131,7 @@ std = [
     "pallet-compliance-manager/std",
     #"pallet-contracts-primitives/std",
     #"pallet-contracts-rpc-runtime-api/std",
-    #"pallet-contracts/std",
+    "pallet-contracts/std",
     "pallet-executive/std",
     "pallet-external-agents/std",
     "pallet-grandpa/std",
@@ -182,7 +182,7 @@ std = [
     "sp-std/std",
     "sp-transaction-pool/std",
     "sp-version/std",
-    #"polymesh-contracts/std"
+    "polymesh-contracts/std"
 ]
 
 runtime-benchmarks = [

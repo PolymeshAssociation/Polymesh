@@ -2,6 +2,7 @@
 #![feature(crate_visibility_modifier)]
 #![feature(bool_to_option)]
 #![feature(assert_matches)]
+#![cfg(test)]
 
 pub mod storage;
 pub use storage::{
@@ -13,59 +14,32 @@ pub use storage::{
 pub mod ext_builder;
 pub use ext_builder::ExtBuilder;
 
-#[cfg(test)]
 #[macro_use]
 mod asset_test;
-#[cfg(test)]
 mod asset_metadata_test;
-#[cfg(test)]
 mod balances_test;
-#[cfg(test)]
 mod bridge;
-#[cfg(test)]
 mod committee_test;
-#[cfg(test)]
 mod compliance_manager_test;
-/*
-#[cfg(test)]
-mod contract_test;
-*/
-#[cfg(test)]
+//mod contract_test;
+mod contracts_test;
 mod corporate_actions_test;
-#[cfg(test)]
 #[macro_use]
 mod external_agents_test;
-#[cfg(test)]
 mod fee_details;
-#[cfg(test)]
 mod group_test;
-#[cfg(test)]
 mod identity_test;
-#[cfg(test)]
 mod multisig;
-#[cfg(test)]
 mod pips_test;
-#[cfg(test)]
 mod portfolio;
-#[cfg(test)]
 mod protocol_fee;
-#[cfg(test)]
 mod relayer_test;
-#[cfg(test)]
 mod rewards_test;
-#[cfg(test)]
 mod settlement_test;
-#[cfg(test)]
 mod signed_extra;
-#[cfg(test)]
 mod staking;
-#[cfg(test)]
 mod sto_test;
-#[cfg(test)]
 mod transaction_payment_test;
-#[cfg(test)]
 mod transfer_compliance_test;
-#[cfg(test)]
 mod treasury_test;
-#[cfg(test)]
 mod utility_test;
