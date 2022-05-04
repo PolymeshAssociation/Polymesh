@@ -295,7 +295,7 @@ decl_module! {
             Self::base_invalidate_cdd_claims(origin, cdd, disable_from, expiry)?;
         }
 
-        /// Deprecated.  Please use `remove_secondary_keys` instead.
+        /// Deprecated. Use `remove_secondary_keys` instead.
         #[weight = <T as Config>::WeightInfo::remove_secondary_keys(keys_to_remove.len() as u32)]
         pub fn remove_secondary_keys_old(origin, keys_to_remove: Vec<Signatory<T::AccountId>>) {
             let keys_to_remove = keys_to_remove.into_iter()
@@ -382,7 +382,7 @@ decl_module! {
             Self::base_revoke_claim(target, claim_type, issuer, scope)
         }
 
-        /// Deprecated.  Please use `set_secondary_key_permissions` instead.
+        /// Deprecated. Use `set_secondary_key_permissions` instead.
         #[weight = <T as Config>::WeightInfo::set_secondary_key_permissions_full(&perms)]
         pub fn set_permission_to_signer(origin, key: Signatory<T::AccountId>, perms: Permissions) {
             match key {
@@ -435,7 +435,7 @@ decl_module! {
             Self::base_remove_authorization(origin, target, auth_id)?;
         }
 
-        /// Deprecated.  Please use `add_secondary_keys_with_authorization` instead.
+        /// Deprecated. Use `add_secondary_keys_with_authorization` instead.
         #[weight = <T as Config>::WeightInfo::add_secondary_keys_full_v1::<T::AccountId>(&additional_keys)]
         pub fn add_secondary_keys_with_authorization_old(
             origin,
@@ -444,7 +444,8 @@ decl_module! {
         ) {
             let additional_keys = additional_keys.into_iter()
                 .map(SecondaryKeyWithAuth::<T::AccountId>::try_from)
-                .collect::<Result<Vec<_>, _>>().map_err(|_| Error::<T>::NotASigner)?;
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|_| Error::<T>::NotASigner)?;
             Self::base_add_secondary_keys_with_authorization(origin, additional_keys, expires_at)?;
         }
 
@@ -528,17 +529,18 @@ decl_module! {
             Self::base_rotate_primary_key_to_secondary(origin, auth_id, optional_cdd_auth_id)
         }
 
-        /// It adds secondary keys to target identity `id`.
+        /// Adds secondary keys to target identity `id`.
+        ///
         /// Keys are directly added to identity because each of them has an authorization.
         ///
-        /// Arguments:
-        ///     - `origin` Primary key of `id` identity.
-        ///     - `id` Identity where new secondary keys will be added.
-        ///     - `additional_keys` New secondary items (and their authorization data) to add to target
-        ///     identity.
+        /// # Arguments:
+        ///     - `origin` which must be the primary key of the identity `id`.
+        ///     - `id` to which new secondary keys will be added.
+        ///     - `additional_keys` which includes secondary keys,
+        ///        coupled with authorization data, to add to target identity.
         ///
-        /// Failure
-        ///     - It can only called by primary key owner.
+        /// # Errors
+        ///     - Can only called by primary key owner.
         ///     - Keys should be able to linked to any identity.
         #[weight = <T as Config>::WeightInfo::add_secondary_keys_full::<T::AccountId>(&additional_keys)]
         pub fn add_secondary_keys_with_authorization(
@@ -559,8 +561,9 @@ decl_module! {
 
         /// Removes specified secondary keys of a DID if present.
         ///
-        /// # Failure
-        /// It can only called by primary key owner.
+        /// # Errors
+        ///
+        /// The extrinsic can only called by primary key owner.
         #[weight = <T as Config>::WeightInfo::remove_secondary_keys(keys_to_remove.len() as u32)]
         pub fn remove_secondary_keys(origin, keys_to_remove: Vec<T::AccountId>) {
             Self::base_remove_secondary_keys(origin, keys_to_remove)?;
