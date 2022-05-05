@@ -2,7 +2,7 @@
 name = "polymesh-primitives"
 version = "2.0.0"
 authors = ["Polymath"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 chrono = {version = "0.4.18", default-features = false }
@@ -23,18 +23,18 @@ schnorrkel = { version = "0.10.1", default-features = false }
 
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
-scale-info = { version = "1.0", default-features = false, features = ["derive", "decode"] }
-sp-application-crypto = { version = "4.0.0-dev", default-features = false, optional = true }
-sp-arithmetic = { version = "4.0.0-dev", default-features = false }
-sp-core = { version = "4.0.0-dev", default-features = false }
-sp-io = { version = "4.0.0-dev", default-features = false }
-sp-runtime = { version = "4.0.0-dev", default-features = false }
-sp-runtime-interface = { version = "4.0.0-dev", default-features = false }
-sp-std = { version = "4.0.0-dev", default-features = false }
-sp-version = { version = "4.0.0-dev", default-features = false }
+scale-info = { version = "2.0", default-features = false, features = ["derive", "decode"] }
+sp-application-crypto = { version = "6.0.0", default-features = false, optional = true }
+sp-arithmetic = { version = "5.0.0", default-features = false }
+sp-core = { version = "6.0.0", default-features = false }
+sp-io = { version = "6.0.0", default-features = false }
+sp-runtime = { version = "6.0.0", default-features = false }
+sp-runtime-interface = { version = "6.0.0", default-features = false }
+sp-std = { version = "4.0.0", default-features = false }
+sp-version = { version = "5.0.0", default-features = false }
 libsecp256k1 = { version = "0.6", default-features = false, features = ["hmac", "static-context"] }
 
 [dev-dependencies]

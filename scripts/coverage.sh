@@ -16,7 +16,7 @@ function run_tests() {
         --package polymesh-runtime-tests \
         --package pallet-balances:0.1.0 \
         --package asset-metadata \
-        --features default_identity $*
+        --features polymesh-common-utilities/default_identity $*
 }
 
 function get_tests_filenames() {

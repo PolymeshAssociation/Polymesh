@@ -84,6 +84,7 @@ macro_rules! misc_pallet_impls {
             type AccountData = polymesh_common_utilities::traits::balances::AccountData;
             type SystemWeightInfo = polymesh_weights::frame_system::WeightInfo;
             type OnSetCode = ();
+            type MaxConsumers = frame_support::traits::ConstU32<16>;
         }
 
         impl pallet_base::Config for Runtime {

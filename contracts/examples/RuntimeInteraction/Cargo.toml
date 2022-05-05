@@ -2,7 +2,7 @@
 name = "RuntimeInteraction"
 version = "0.1.0"
 authors = ["Polymath Inc."]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 ink_abi = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", package = "ink_abi", default-features = false, features = ["derive"], optional = true }

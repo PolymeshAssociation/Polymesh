@@ -8,8 +8,8 @@ edition = "2021"
 polymesh-primitives = { path = "../", default-features = false }
 
 # SCALE
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-scale-info = { version = "1.0", default-features = false, features = ["derive", "decode"] }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.0", default-features = false, features = ["derive", "decode"] }
 
 [features]
 default = ["std"]

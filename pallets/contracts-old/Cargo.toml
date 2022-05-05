@@ -2,20 +2,20 @@
 name = "polymesh-contracts"
 version = "0.1.0"
 authors = ["Polymath Inc."]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 
 # Substrate specific
 serde = { version = "1.0.104", default-features = false }
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 frame-system = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
 pallet-contracts = { version = "4.0.0-dev", default-features = false }
-sp-core = { version = "4.0.0-dev", default-features = false }
-sp-io = { version = "4.0.0-dev", default-features = false }
-sp-runtime = { version = "4.0.0-dev", default-features = false }
-sp-std = { version = "4.0.0-dev", default-features = false }
+sp-core = { version = "6.0.0", default-features = false }
+sp-io = { version = "6.0.0", default-features = false }
+sp-runtime = { version = "6.0.0", default-features = false }
+sp-std = { version = "4.0.0", default-features = false }
 wat = { version = "1.0", optional = true, default-features = false }
 parity-wasm = { version = "0.41.0", default-features = false }
 

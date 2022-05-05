@@ -2,7 +2,7 @@
 name = "custom-ink-env-types"
 version = "0.1.0"
 authors = ["Polymath Inc."]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 ink_core = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", package = "ink_core", default-features = false }

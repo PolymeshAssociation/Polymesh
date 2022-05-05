@@ -2,21 +2,21 @@
 name = "polymesh-contracts"
 version = "0.1.0"
 authors = ["Polymath Inc."]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 serde = { version = "1.0.104", default-features = false }
 
 pwasm-utils = { version = "0.18.2", default-features = false }
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 frame-system = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
 pallet-contracts = { version = "4.0.0-dev", default-features = false }
-pallet-contracts-primitives = { version = "4.0.0-dev", default-features = false }
-scale-info = { version = "1.0", default-features = false, features = ["derive"] }
-sp-core = { version = "4.0.0-dev", default-features = false }
-sp-runtime = { version = "4.0.0-dev", default-features = false }
-sp-std = { version = "4.0.0-dev", default-features = false }
+pallet-contracts-primitives = { version = "6.0.0", default-features = false }
+scale-info = { version = "2.0", default-features = false, features = ["derive"] }
+sp-core = { version = "6.0.0", default-features = false }
+sp-runtime = { version = "6.0.0", default-features = false }
+sp-std = { version = "4.0.0", default-features = false }
 
 # Polymesh specific
 pallet-asset = { path = "../asset", default-features = false }

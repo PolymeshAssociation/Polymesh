@@ -2,7 +2,7 @@
 name = "percentage_transfer_manager"
 version = "0.1.0"
 authors = ["Polymath Inc <satyam@polymath.network>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 ink_metadata = {  git = "https://github.com/paritytech/ink", default-features = false, features = ["derive"], optional = true, tag = "v3.0.0-rc2" }

@@ -2,7 +2,7 @@
 name = "CountTransferManager"
 version = "0.1.0"
 authors = ["Polymath Inc."]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 ink_metadata = {  git = "https://github.com/paritytech/ink", default-features = false, features = ["derive"], optional = true, tag = "v3.0.0-rc2" }
