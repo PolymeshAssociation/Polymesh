@@ -162,7 +162,7 @@ impl AssetMetadataSpec {
     pub fn decode_type_def(&self) -> Result<Option<AssetMetadataTypeDef>, codec::Error> {
         self.type_def
             .as_ref()
-            .map(|d| AssetMetadataTypeDef::decode_all(&d[..]))
+            .map(|d| AssetMetadataTypeDef::decode_all(&mut &d[..]))
             .transpose()
     }
 

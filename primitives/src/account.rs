@@ -1,10 +1,30 @@
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
+use core::fmt::{Display, Formatter};
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 /// Alias to an sr25519 or ed25519 key.
-pub type AccountId = <<super::Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+type InnerAccountId = <<super::Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+
+/// AccountId.
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
+pub struct AccountId(InnerAccountId);
+
+impl Default for AccountId {
+    fn default() -> Self {
+        Self(InnerAccountId::new(Default::default()))
+    }
+}
+
+#[cfg(feature = "std")]
+impl Display for AccountId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 /// Wrapper to serialize `AccountId` to a 0x-prefixed hex representation.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Default, Debug)]
