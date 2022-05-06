@@ -15,6 +15,7 @@ frame-benchmarking = { git = "https://github.com/PolymathNetwork/substrate", bra
 frame-benchmarking-cli = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-monthly-2022-05" }
 frame-executive = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-monthly-2022-05" }
 frame-support = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-monthly-2022-05" }
+frame-election-provider-support = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-monthly-2022-05" }
 frame-system = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-monthly-2022-05" }
 frame-system-benchmarking = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-monthly-2022-05" }
 frame-system-rpc-runtime-api = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-monthly-2022-05" }
@@ -30,6 +31,7 @@ pallet-grandpa = { git = "https://github.com/PolymathNetwork/substrate", branch 
 pallet-im-online = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-monthly-2022-05" }
 pallet-indices = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-monthly-2022-05" }
 pallet-offences = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-monthly-2022-05" }
+pallet-preimage = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-monthly-2022-05" }
 pallet-randomness-collective-flip = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-monthly-2022-05" }
 pallet-scheduler = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-monthly-2022-05" }
 pallet-session = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-monthly-2022-05" }

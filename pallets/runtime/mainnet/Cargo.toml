@@ -72,6 +72,7 @@ pallet-grandpa = { version = "4.0.0-dev", default-features = false }
 pallet-im-online = { version = "4.0.0-dev", default-features = false }
 pallet-indices = { version = "4.0.0-dev", default-features = false }
 pallet-offences = { version = "4.0.0-dev", default-features = false }
+pallet-preimage = { version = "4.0.0-dev", default-features = false }
 pallet-randomness-collective-flip = { version = "4.0.0-dev", default-features = false }
 pallet-scheduler = { version = "4.0.0-dev", default-features = false }
 pallet-session = { version = "4.0.0-dev", default-features = false }
@@ -142,6 +143,7 @@ std = [
     "pallet-multisig/std",
     "pallet-offences/std",
     "pallet-permissions/std",
+    "pallet-preimage/std",
     "pallet-pips/std",
     "pallet-portfolio/std",
     "pallet-protocol-fee-rpc-runtime-api/std",

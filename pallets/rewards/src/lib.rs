@@ -58,7 +58,7 @@ use sp_runtime::{
     transaction_validity::ValidTransaction,
     DispatchError,
 };
-use sp_std::{convert::TryInto, prelude::*};
+use sp_std::{convert::TryInto, prelude::*, vec};
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;

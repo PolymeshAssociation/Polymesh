@@ -25,7 +25,6 @@ use confidential_identity_v1::Scalar as ScalarV1;
 use frame_support::weights::Weight;
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
 use sp_runtime::{generic, traits::BlakeTwo256, MultiSignature};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};

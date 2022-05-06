@@ -125,6 +125,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 7,
+    state_version: 1,
 };
 
 impl_opaque_keys! {
@@ -269,6 +270,9 @@ frame_support::construct_runtime!(
         // Contracts
         Contracts: pallet_contracts::{Pallet, Storage, Event<T>} = 19,
         PolymeshContracts: polymesh_contracts::{Pallet, Call, Storage, Event} = 20,
+
+        // Preimage register.  Used by `pallet_scheduler`.
+        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 55,
     }
 );
 
@@ -422,6 +426,7 @@ parameter_types! {
 
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
+    pub const NoPreimagePostponement: Option<u32> = Some(10);
 
     pub const InitialPOLYX: Balance = 41;
     pub const SignedClaimHandicap: u64 = 2;
@@ -433,10 +438,6 @@ parameter_types! {
     pub const MaxDepth: u32 = 100;
     pub const MaxValueSize: u32 = 16_384;
 
-    pub ContractDeposit: Balance = polymesh_runtime_common::deposit(
-        1,
-        <pallet_contracts::Pallet<Runtime>>::contract_info_size(),
-    );
     pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
     pub DeletionWeightLimit: Weight = 500_000_000_000;
     pub DeletionQueueDepth: u32 = 1024;

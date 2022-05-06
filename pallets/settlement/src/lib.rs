@@ -1143,26 +1143,29 @@ impl<T: Config> Module<T> {
             }
         }
 
-        match with_transaction(|| {
-            Self::unchecked_release_locks(id, &legs);
+        use frame_support::storage::{with_transaction, TransactionOutcome};
+        match with_transaction(
+            || -> TransactionOutcome<Result<Result<(), LegId>, DispatchError>> {
+                Self::unchecked_release_locks(id, &legs);
 
-            for (leg_id, leg_details) in legs.iter().filter(|(leg_id, _)| {
-                let status = Self::instruction_leg_status(id, leg_id);
-                status == LegStatus::ExecutionPending
-            }) {
-                if <Asset<T>>::base_transfer(
-                    leg_details.from,
-                    leg_details.to,
-                    &leg_details.asset,
-                    leg_details.amount,
-                )
-                .is_err()
-                {
-                    return Err(leg_id);
+                for (leg_id, leg_details) in legs.iter().filter(|(leg_id, _)| {
+                    let status = Self::instruction_leg_status(id, leg_id);
+                    status == LegStatus::ExecutionPending
+                }) {
+                    if <Asset<T>>::base_transfer(
+                        leg_details.from,
+                        leg_details.to,
+                        &leg_details.asset,
+                        leg_details.amount,
+                    )
+                    .is_err()
+                    {
+                        return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
+                    }
                 }
-            }
-            Ok(())
-        }) {
+                TransactionOutcome::Commit(Ok(Ok(())))
+            },
+        )? {
             Ok(_) => {
                 Self::deposit_event(RawEvent::InstructionExecuted(SettlementDID.as_id(), id));
             }

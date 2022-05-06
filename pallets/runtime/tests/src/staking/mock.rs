@@ -31,6 +31,7 @@ use frame_support::{
     IterableStorageMap, StorageDoubleMap, StorageMap, StorageValue,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
+use frame_election_provider_support::NposSolution;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_protocol_fee as protocol_fee;
@@ -54,8 +55,7 @@ use polymesh_primitives::{
 };
 use sp_core::H256;
 use sp_npos_elections::{
-    reduce, to_supports, ElectionScore, EvaluateSupport, ExtendedBalance, NposSolution,
-    StakedAssignment,
+    reduce, to_supports, ElectionScore, EvaluateSupport, ExtendedBalance, StakedAssignment,
 };
 use sp_runtime::{
     curve::PiecewiseLinear,
@@ -65,7 +65,7 @@ use sp_runtime::{
     KeyTypeId, Perbill, Permill,
 };
 use sp_staking::{
-    offence::{OffenceDetails, OnOffenceHandler},
+    offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
     SessionIndex,
 };
 use std::{
@@ -158,6 +158,7 @@ frame_support::construct_runtime!(
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>, Config<T>},
         CddServiceProviders: pallet_group::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
         ProtocolFee: pallet_protocol_fee::{Pallet, Call, Storage, Event<T>, Config},
+        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
         Treasury: pallet_treasury::{Pallet, Call, Event<T>},
         PolymeshCommittee: pallet_committee::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
@@ -352,6 +353,7 @@ parameter_types! {
     pub const InitialPOLYX: Balance = 0;
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
+    pub const NoPreimagePostponement: Option<u64> = Some(10);
 }
 
 impl pallet_scheduler::Config for Test {
@@ -364,6 +366,24 @@ impl pallet_scheduler::Config for Test {
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
     type WeightInfo = ();
     type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
+    type PreimageProvider = Preimage;
+    type NoPreimagePostponement = NoPreimagePostponement;
+}
+
+parameter_types! {
+    pub const PreimageMaxSize: u32 = 4096 * 1024;
+    pub const PreimageBaseDeposit: Balance = polymesh_runtime_common::deposit(2, 64);
+    pub const PreimageByteDeposit: Balance = polymesh_runtime_common::deposit(0, 1);
+}
+
+impl pallet_preimage::Config for Test {
+    type WeightInfo = polymesh_weights::pallet_preimage::WeightInfo;
+    type Event = Event;
+    type Currency = Balances;
+    type ManagerOrigin = EnsureRoot<AccountId>;
+    type MaxSize = PreimageMaxSize;
+    type BaseDeposit = PreimageBaseDeposit;
+    type ByteDeposit = PreimageByteDeposit;
 }
 
 impl pallet_test_utils::Config for Test {
@@ -1296,7 +1316,7 @@ pub(crate) fn on_offence_in_era(
     let bonded_eras = staking::BondedEras::get();
     for &(bonded_era, start_session) in bonded_eras.iter() {
         if bonded_era == era {
-            let _ = Staking::on_offence(offenders, slash_fraction, start_session);
+            let _ = Staking::on_offence(offenders, slash_fraction, start_session, DisableStrategy::WhenSlashed);
             return;
         } else if bonded_era > era {
             break;
@@ -1308,6 +1328,7 @@ pub(crate) fn on_offence_in_era(
             offenders,
             slash_fraction,
             Staking::eras_start_session_index(era).unwrap(),
+            DisableStrategy::WhenSlashed,
         );
     } else {
         panic!("cannot slash in era {}", era);
@@ -1414,11 +1435,7 @@ pub(crate) fn horrible_phragmen_with_post_processing(
         let support = to_supports::<AccountId>(&staked_assignment);
         let score = support.evaluate();
 
-        assert!(sp_npos_elections::is_score_better::<Perbill>(
-            better_score,
-            score,
-            MinSolutionScoreBump::get(),
-        ));
+        assert!(better_score.strict_threshold_better(score, MinSolutionScoreBump::get()));
 
         score
     };

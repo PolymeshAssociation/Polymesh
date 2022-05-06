@@ -29,11 +29,11 @@ fn transfer(to: AccountId, amount: u128) -> Call {
     })
 }
 
-const ERROR: DispatchError = DispatchError::Module {
+const ERROR: DispatchError = DispatchError::Module(sp_runtime::ModuleError {
     index: 4,
-    error: 2,
+    error: [2, 2, 2, 2],
     message: None,
-};
+});
 
 fn assert_event(event: Event) {
     assert_eq!(

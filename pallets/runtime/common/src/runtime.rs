@@ -336,14 +336,16 @@ macro_rules! misc_pallet_impls {
             // which won't swap the current identity,
             // so we need `Nothing` to basically disable that feature.
             type CallFilter = frame_support::traits::Nothing;
+            type DepositPerItem = polymesh_runtime_common::DepositPerItem;
+            type DepositPerByte = polymesh_runtime_common::DepositPerByte;
             type CallStack = [pallet_contracts::Frame<Self>; 31];
             type WeightPrice = pallet_transaction_payment::Pallet<Self>;
             type WeightInfo = pallet_contracts::weights::SubstrateWeight<Self>;
             type ChainExtension = polymesh_contracts::Pallet<Runtime>;
             type Schedule = Schedule;
-            type ContractDeposit = ContractDeposit;
             type DeletionQueueDepth = DeletionQueueDepth;
             type DeletionWeightLimit = DeletionWeightLimit;
+            type AddressGenerator = pallet_contracts::DefaultAddressGenerator;
         }
         impl From<polymesh_contracts::CommonCall<Runtime>> for Call {
             fn from(call: polymesh_contracts::CommonCall<Runtime>) -> Self {
@@ -395,6 +397,24 @@ macro_rules! misc_pallet_impls {
             type MaxScheduledPerBlock = MaxScheduledPerBlock;
             type WeightInfo = polymesh_weights::pallet_scheduler::WeightInfo;
             type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
+            type PreimageProvider = Preimage;
+            type NoPreimagePostponement = NoPreimagePostponement;
+        }
+
+        parameter_types! {
+            pub const PreimageMaxSize: u32 = 4096 * 1024;
+            pub const PreimageBaseDeposit: Balance = polymesh_runtime_common::deposit(2, 64);
+            pub const PreimageByteDeposit: Balance = polymesh_runtime_common::deposit(0, 1);
+        }
+
+        impl pallet_preimage::Config for Runtime {
+            type WeightInfo = polymesh_weights::pallet_preimage::WeightInfo;
+            type Event = Event;
+            type Currency = Balances;
+            type ManagerOrigin = polymesh_primitives::EnsureRoot;
+            type MaxSize = PreimageMaxSize;
+            type BaseDeposit = PreimageBaseDeposit;
+            type ByteDeposit = PreimageByteDeposit;
         }
 
         impl pallet_offences::Config for Runtime {
@@ -568,8 +588,28 @@ macro_rules! runtime_apis {
             Block,
             frame_system::ChainContext<Runtime>,
             Runtime,
-            AllPallets,
+            AllPalletsWithoutSystemReversed,
+            (SchedulerMigrationV3),
         >;
+
+        // Migration for scheduler pallet to move from a plain Call to a CallOrHash.
+        pub struct SchedulerMigrationV3;
+        
+        impl frame_support::traits::OnRuntimeUpgrade for SchedulerMigrationV3 {
+        	fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        		Scheduler::migrate_v2_to_v3()
+        	}
+        
+        	#[cfg(feature = "try-runtime")]
+        	fn pre_upgrade() -> Result<(), &'static str> {
+        		Scheduler::pre_migrate_to_v3()
+        	}
+        
+        	#[cfg(feature = "try-runtime")]
+        	fn post_upgrade() -> Result<(), &'static str> {
+        		Scheduler::post_migrate_to_v3()
+        	}
+        }
 
         sp_api::impl_runtime_apis! {
             impl sp_api::Core<Block> for Runtime {

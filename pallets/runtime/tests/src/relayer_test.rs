@@ -434,7 +434,7 @@ fn do_user_remove_paying_key_transaction_fee_test() {
 
     // 3. Call `post_dispatch`.
     assert!(ChargeTransactionPayment::post_dispatch(
-        pre,
+        Some(pre),
         &call_info,
         &post_info_from_weight(5),
         len,
@@ -524,7 +524,7 @@ fn do_relayer_transaction_and_protocol_fees_test() {
 
     // 3. Call `post_dispatch`.
     assert!(ChargeTransactionPayment::post_dispatch(
-        pre,
+        Some(pre),
         &call_info,
         &post_info_from_weight(50),
         len,

@@ -17,7 +17,7 @@ pub use polymesh_runtime_mainnet;
 pub use polymesh_runtime_testnet;
 use prometheus_endpoint::Registry;
 use sc_client_api::ExecutorProvider;
-pub use sc_client_api::{backend::Backend, RemoteBackend};
+pub use sc_client_api::backend::Backend;
 pub use sc_consensus::LongestChain;
 use sc_consensus_slots::SlotProportion;
 use sc_executor::NativeElseWasmExecutor;
@@ -225,6 +225,7 @@ where
         config.wasm_method,
         config.default_heap_pages,
         config.max_runtime_instances,
+        config.runtime_cache_size,
     );
 
     let (client, backend, keystore_container, task_manager) =
@@ -236,7 +237,7 @@ where
     let client = Arc::new(client);
 
     let telemetry = telemetry.map(|(worker, telemetry)| {
-        task_manager.spawn_handle().spawn("telemetry", worker.run());
+        task_manager.spawn_handle().spawn("telemetry", None, worker.run());
         telemetry
     });
 
@@ -423,7 +424,6 @@ where
             transaction_pool: transaction_pool.clone(),
             spawn_handle: task_manager.spawn_handle(),
             import_queue,
-            on_demand: None,
             block_announce_validator_builder: None,
             warp_sync: Some(warp_sync),
         })?;
@@ -454,8 +454,6 @@ where
         rpc_extensions_builder: Box::new(rpc_extensions_builder),
         transaction_pool: transaction_pool.clone(),
         task_manager: &mut task_manager,
-        on_demand: None,
-        remote_blockchain: None,
         system_rpc_tx,
         telemetry: telemetry.as_mut(),
     })?;
