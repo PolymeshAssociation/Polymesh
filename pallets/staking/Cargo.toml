@@ -25,6 +25,7 @@ sp-arithmetic = { version = "5.0.0", default-features = false }
 sp-staking = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
+frame-election-provider-support = { version = "4.0.0-dev", default-features = false }
 sp-npos-elections = { version = "4.0.0-dev", default-features = false}
 
 pallet-session = { features = ["historical"], version = "4.0.0-dev", default-features = false }
@@ -51,6 +52,7 @@ std = [
 	"sp-npos-elections/std",
 	"sp-io/std",
 	"frame-support/std",
+	"frame-election-provider-support/std",
 	"sp-runtime/std",
 	"sp-staking/std",
 	"pallet-session/std",

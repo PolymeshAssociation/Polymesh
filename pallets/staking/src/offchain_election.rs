@@ -17,7 +17,7 @@
 
 //! Helpers for offchain worker election.
 
-use crate::_npos::{NposSolution, EvaluateSupport};
+use crate::_feps::NposSolution;
 use crate::{
     Call, CompactAssignments, Config, ElectionSize, Module, NominatorIndex, Nominators,
     OffchainAccuracy, ValidatorIndex,
@@ -26,6 +26,7 @@ use codec::Decode;
 use frame_support::{traits::Get, weights::Weight, IterableStorageMap};
 use frame_system::offchain::SubmitTransaction;
 use sp_npos_elections::{
+    EvaluateSupport,
     reduce, to_supports, Assignment, ElectionResult, ElectionScore, ExtendedBalance,
 };
 use sp_runtime::{
