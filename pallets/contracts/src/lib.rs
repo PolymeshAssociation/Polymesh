@@ -224,9 +224,10 @@ decl_module! {
             contract: T::AccountId,
             value: Balance,
             gas_limit: Weight,
+            storage_deposit_limit: Option<Balance>,
             data: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
-            Self::base_call(origin, contract, value, gas_limit, data)
+            Self::base_call(origin, contract, value, gas_limit, storage_deposit_limit, data)
         }
 
         /// Instantiates a smart contract defining it with the given `code` and `salt`.
@@ -254,12 +255,13 @@ decl_module! {
             origin,
             endowment: Balance,
             gas_limit: Weight,
+            storage_deposit_limit: Option<Balance>,
             code: Vec<u8>,
             data: Vec<u8>,
             salt: Vec<u8>,
             perms: Permissions
         ) -> DispatchResultWithPostInfo {
-            Self::base_instantiate_with_code(origin, endowment, gas_limit, code, data, salt, perms)
+            Self::base_instantiate_with_code(origin, endowment, gas_limit, storage_deposit_limit, code, data, salt, perms)
         }
 
         /// Instantiates a smart contract defining using the given `code_hash` and `salt`.
@@ -290,12 +292,13 @@ decl_module! {
             origin,
             endowment: Balance,
             gas_limit: Weight,
+            storage_deposit_limit: Option<Balance>,
             code_hash: CodeHash<T>,
             data: Vec<u8>,
             salt: Vec<u8>,
             perms: Permissions
         ) -> DispatchResultWithPostInfo {
-            Self::base_instantiate_with_hash(origin, endowment, gas_limit, code_hash, data, salt, perms)
+            Self::base_instantiate_with_hash(origin, endowment, gas_limit, storage_deposit_limit, code_hash, data, salt, perms)
         }
     }
 }
@@ -308,6 +311,7 @@ impl<T: Config> Module<T> {
         contract: T::AccountId,
         value: Balance,
         gas_limit: Weight,
+        storage_deposit_limit: Option<Balance>,
         data: Vec<u8>,
     ) -> DispatchResultWithPostInfo {
         // Ensure contract caller has perms.
@@ -316,7 +320,15 @@ impl<T: Config> Module<T> {
         // Execute contract.
         Self::handle_error(
             <T as Config>::WeightInfo::call(),
-            FrameContracts::<T>::bare_call(sender, contract, value, gas_limit, data, false),
+            FrameContracts::<T>::bare_call(
+                sender,
+                contract,
+                value,
+                gas_limit,
+                storage_deposit_limit,
+                data,
+                false,
+            ),
         )
     }
 
@@ -325,6 +337,7 @@ impl<T: Config> Module<T> {
         origin: T::Origin,
         endowment: Balance,
         gas_limit: Weight,
+        storage_deposit_limit: Option<Balance>,
         code: Vec<u8>,
         inst_data: Vec<u8>,
         salt: Vec<u8>,
@@ -336,6 +349,7 @@ impl<T: Config> Module<T> {
             // Compute the base weight of roughly `base_instantiate`.
             Self::weight_instantiate_with_code(&code, &salt, &perms),
             gas_limit,
+            storage_deposit_limit,
             T::Hashing::hash(&code),
             Code::Upload(Bytes(code)),
             inst_data,
@@ -356,6 +370,7 @@ impl<T: Config> Module<T> {
         origin: T::Origin,
         endowment: Balance,
         gas_limit: Weight,
+        storage_deposit_limit: Option<Balance>,
         code_hash: CodeHash<T>,
         inst_data: Vec<u8>,
         salt: Vec<u8>,
@@ -367,6 +382,7 @@ impl<T: Config> Module<T> {
             // Compute the base weight of roughly `base_instantiate`.
             Self::weight_instantiate_with_hash(&salt, &perms),
             gas_limit,
+            storage_deposit_limit,
             code_hash,
             Code::Existing(code_hash),
             inst_data,
@@ -394,6 +410,7 @@ impl<T: Config> Module<T> {
         endowment: Balance,
         base_weight: Weight,
         gas_limit: Weight,
+        storage_deposit_limit: Option<Balance>,
         code_hash: CodeHash<T>,
         code: Code<CodeHash<T>>,
         inst_data: Vec<u8>,
@@ -418,6 +435,7 @@ impl<T: Config> Module<T> {
                     sender.clone(),
                     endowment,
                     gas_limit,
+                    storage_deposit_limit,
                     code,
                     inst_data,
                     salt,
@@ -451,7 +469,7 @@ impl<T: Config> Module<T> {
     /// accounting for the consumed gas.
     fn handle_error<A>(
         base_weight: Weight,
-        result: ContractResult<Result<A, DispatchError>>,
+        result: ContractResult<Result<A, DispatchError>, Balance>,
     ) -> DispatchResultWithPostInfo {
         let post_info = Some(result.gas_consumed.saturating_add(base_weight)).into();
         match result.result {
@@ -553,11 +571,13 @@ where
             contract: decode!(),
             value: decode!(),
             gas_limit: decode!(),
+            storage_deposit_limit: decode!(),
             data: decode!(),
         }),
         on!(0, 1) => CommonCall::Contracts(Call::instantiate_with_code {
             endowment: decode!(),
             gas_limit: decode!(),
+            storage_deposit_limit: decode!(),
             code: decode!(),
             data: decode!(),
             salt: decode!(),
@@ -566,6 +586,7 @@ where
         on!(0, 2) => CommonCall::Contracts(Call::instantiate_with_hash {
             endowment: decode!(),
             gas_limit: decode!(),
+            storage_deposit_limit: decode!(),
             code_hash: decode!(),
             data: decode!(),
             salt: decode!(),
