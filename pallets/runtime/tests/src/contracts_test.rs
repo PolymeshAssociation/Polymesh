@@ -65,7 +65,7 @@ fn misc_polymesh_extensions() {
                 ..Permissions::empty()
             };
             let instantiate = || {
-                Contracts::instantiate_with_code(
+                Contracts::instantiate_with_code_perms(
                     owner.origin(),
                     FrameContracts::subsistence_threshold(),
                     GAS_LIMIT,
