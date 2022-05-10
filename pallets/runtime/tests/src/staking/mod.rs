@@ -456,6 +456,7 @@ fn staking_should_work() {
                 Origin::signed(4),
                 ValidatorPrefs::default()
             ));
+            assert_ok!(Session::set_keys(Origin::signed(4), SessionKeys { other: 4.into() }, vec![]));
 
             // No effects will be seen so far.
             assert_eq_uvec!(validator_controllers(), vec![20, 10]);
@@ -1966,6 +1967,7 @@ fn switching_roles() {
             Origin::signed(6),
             ValidatorPrefs::default()
         ));
+        assert_ok!(Session::set_keys(Origin::signed(6), SessionKeys { other: 6.into() }, vec![]));
 
         mock::start_active_era(1);
 
@@ -1978,6 +1980,7 @@ fn switching_roles() {
             Origin::signed(2),
             ValidatorPrefs::default()
         ));
+        assert_ok!(Session::set_keys(Origin::signed(2), SessionKeys { other: 2.into() }, vec![]));
         // new stakes:
         // 10: 1000 self vote
         // 20: 1000 self vote + 250 vote
@@ -2120,6 +2123,11 @@ fn bond_with_little_staked_value_bounded() {
             assert_ok!(Staking::validate(
                 Origin::signed(2),
                 ValidatorPrefs::default()
+            ));
+            assert_ok!(Session::set_keys(
+              Origin::signed(2),
+              SessionKeys { other: 2.into() },
+              vec![]
             ));
 
             // 1 era worth of reward. BUT, we set the timestamp after on_initialize, so outdated by
