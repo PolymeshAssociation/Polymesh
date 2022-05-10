@@ -636,7 +636,6 @@ const CODE_TRANSFER: &str = r#"
 )
 "#;
 
-
 #[test]
 fn wasm_big_block_import_fails() {
     let mut t = new_test_ext(compact_code_unwrap(), false);

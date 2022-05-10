@@ -148,7 +148,6 @@ pub trait Config:
 
     type WeightInfo: WeightInfo;
     type CPWeightInfo: crate::traits::checkpoint::WeightInfo;
-
 }
 
 decl_event! {

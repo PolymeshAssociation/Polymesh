@@ -417,8 +417,6 @@ fn setup_affirm_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     (portfolios_to, from_data, to_data, tickers, legs)
 }
 
-
-
 fn create_receipt_details<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     index: u32,
     leg: Leg,

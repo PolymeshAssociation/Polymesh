@@ -834,8 +834,6 @@ fn adding_removing_documents() {
     });
 }
 
-
-
 #[test]
 fn freeze_unfreeze_asset() {
     ExtBuilder::default().build().execute_with(|| {

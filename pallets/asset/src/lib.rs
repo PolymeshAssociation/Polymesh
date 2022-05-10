@@ -104,8 +104,7 @@ use polymesh_common_utilities::{
     compliance_manager::Config as ComplianceManagerConfig,
     constants::*,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    with_transaction,
-    SystematicIssuers,
+    with_transaction, SystematicIssuers,
 };
 use polymesh_primitives::{
     agent::AgentGroup,
@@ -1784,7 +1783,6 @@ impl<T: Config> Module<T> {
         );
         Ok(())
     }
-
 
     fn base_create_asset(
         origin: T::Origin,
