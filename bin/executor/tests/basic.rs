@@ -22,7 +22,6 @@ use frame_support::{
     StorageMap, StorageValue,
 };
 use frame_system::{self, EventRecord, Phase};
-//use pallet_contracts::ContractAddressFor;
 use sp_core::{storage::well_known_keys, traits::Externalities, NeverNativeValue};
 use sp_runtime::{
     traits::Hash as HashT, transaction_validity::InvalidTransaction, ApplyExtrinsicResult,
@@ -637,74 +636,6 @@ const CODE_TRANSFER: &str = r#"
 )
 "#;
 
-/*
-#[test]
-fn deploying_wasm_contract_should_work() {
-    let transfer_code = wabt::wat2wasm(CODE_TRANSFER).unwrap();
-    let transfer_ch = <Runtime as frame_system::Config>::Hashing::hash(&transfer_code);
-
-    let addr = <Runtime as pallet_contracts::Config>::DetermineContractAddress::contract_address_for(
-        &transfer_ch,
-        &[],
-        &charlie(),
-    );
-
-    let subsistence = pallet_contracts::Config::<Runtime>::subsistence_threshold_uncached();
-
-    let b = construct_block(
-        &mut new_test_ext(compact_code_unwrap(), false),
-        1,
-        GENESIS_HASH.into(),
-        vec![
-            CheckedExtrinsic {
-                signed: None,
-                function: Call::Timestamp(pallet_timestamp::Call::set(42 * 1000)),
-            },
-            CheckedExtrinsic {
-                signed: Some((charlie(), signed_extra(0, 0))),
-                function: Call::Contracts(pallet_contracts::Call::put_code::<Runtime>(
-                    transfer_code,
-                )),
-            },
-            CheckedExtrinsic {
-                signed: Some((charlie(), signed_extra(1, 0))),
-                function: Call::Contracts(pallet_contracts::Call::instantiate::<Runtime>(
-                    1 * DOLLARS + subsistence,
-                    500_000_000,
-                    transfer_ch,
-                    Vec::new(),
-                )),
-            },
-            CheckedExtrinsic {
-                signed: Some((charlie(), signed_extra(2, 0))),
-                function: Call::Contracts(pallet_contracts::Call::call::<Runtime>(
-                    pallet_indices::address::Address::Id(addr.clone()),
-                    10,
-                    500_000_000,
-                    vec![0x00, 0x01, 0x02, 0x03],
-                )),
-            },
-        ],
-    );
-
-    let mut t = new_test_ext(compact_code_unwrap(), false);
-
-    executor_call::<NeverNativeValue, fn() -> _>(&mut t, "Core_execute_block", &b.0, false, None)
-        .0
-        .unwrap();
-
-    t.execute_with(|| {
-        // Verify that the contract constructor worked well and code of TRANSFER contract is actually deployed.
-        assert_eq!(
-            &pallet_contracts::ContractInfoOf::<Runtime>::get(addr)
-                .and_then(|c| c.get_alive())
-                .unwrap()
-                .code_hash,
-            &transfer_ch
-        );
-    });
-}
-*/
 
 #[test]
 fn wasm_big_block_import_fails() {
