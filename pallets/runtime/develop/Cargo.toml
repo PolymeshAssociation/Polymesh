@@ -129,7 +129,6 @@ std = [
     "frame-support/std",
     "frame-system-rpc-runtime-api/std",
     "frame-system/std",
-    "frame-system-benchmarking/std",
     "node-rpc-runtime-api/std",
     "cryptography_core/std",
     "pallet-asset/std",
