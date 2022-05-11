@@ -20,7 +20,8 @@ use frame_benchmarking::benchmarks;
 use frame_support::traits::tokens::currency::Currency;
 use pallet_asset::Pallet as Asset;
 use pallet_contracts::benchmarking::code::{
-    body, max_pages, DataSegment, ImportedFunction, ImportedMemory, Location, ModuleDefinition, WasmModule,
+    body, max_pages, DataSegment, ImportedFunction, ImportedMemory, Location, ModuleDefinition,
+    WasmModule,
 };
 use pallet_contracts::Pallet as Base;
 use polymesh_common_utilities::{
@@ -62,8 +63,8 @@ fn instantiate<T: Config>(user: &User<T>, wasm: WasmModule<T>, salt: Vec<u8>) ->
     let callee = Base::<T>::contract_address(&user.account(), &wasm.hash, &salt);
     Pallet::<T>::instantiate_with_code(
         user.origin().into(),
-        ENDOWMENT, // endowment
-        Weight::MAX,                        // gas limit
+        ENDOWMENT,   // endowment
+        Weight::MAX, // gas limit
         None,
         wasm.code,
         vec![], // data

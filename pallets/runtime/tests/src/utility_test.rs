@@ -242,12 +242,7 @@ fn _relay_unhappy_cases() {
     );
 
     assert_noop!(
-        Utility::relay_tx(
-            origin.clone(),
-            bob,
-            Signature([0; 64]).into(),
-            transaction
-        ),
+        Utility::relay_tx(origin.clone(), bob, Signature([0; 64]).into(), transaction),
         Error::InvalidNonce
     );
 }

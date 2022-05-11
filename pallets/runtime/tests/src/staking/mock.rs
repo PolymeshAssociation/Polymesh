@@ -19,6 +19,7 @@
 
 use crate::storage::create_cdd_id;
 use chrono::prelude::Utc;
+use frame_election_provider_support::NposSolution;
 use frame_support::{
     assert_ok,
     dispatch::DispatchResult,
@@ -31,7 +32,6 @@ use frame_support::{
     IterableStorageMap, StorageDoubleMap, StorageMap, StorageValue,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use frame_election_provider_support::NposSolution;
 use pallet_group as group;
 use pallet_identity as identity;
 use pallet_protocol_fee as protocol_fee;
@@ -68,10 +68,7 @@ use sp_staking::{
     offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
     SessionIndex,
 };
-use std::{
-    cell::RefCell,
-    collections::BTreeMap,
-};
+use std::{cell::RefCell, collections::BTreeMap};
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
 pub const BLOCK_TIME: u64 = 1000;
@@ -111,8 +108,8 @@ impl sp_runtime::BoundToRuntimeAppPublic for OtherSessionHandler {
 pub fn is_disabled(controller: AccountId) -> bool {
     let stash = Staking::ledger(&controller).unwrap().stash;
     let validator_index = match Session::validators().iter().position(|v| *v == stash) {
-      Some(index) => index as u32,
-      None => return false,
+        Some(index) => index as u32,
+        None => return false,
     };
 
     Session::disabled_validators().contains(&validator_index)
@@ -922,9 +919,9 @@ impl ExtBuilder {
             } else {
                 // set some dummy validators in genesis.
                 validators
-                  .into_iter()
-                  .map(|id| (id, id, SessionKeys { other: id.into() }))
-                  .collect()
+                    .into_iter()
+                    .map(|id| (id, id, SessionKeys { other: id.into() }))
+                    .collect()
             },
         }
         .assimilate_storage(&mut storage);
@@ -1128,7 +1125,11 @@ pub fn bond_validator_with_intended_count(
         Origin::signed(ctrl),
         ValidatorPrefs::default()
     ));
-    assert_ok!(Session::set_keys(Origin::signed(ctrl), SessionKeys { other: ctrl.into() }, vec![]));
+    assert_ok!(Session::set_keys(
+        Origin::signed(ctrl),
+        SessionKeys { other: ctrl.into() },
+        vec![]
+    ));
 }
 
 pub fn bond(stash: AccountId, ctrl: AccountId, val: Balance) {
@@ -1294,7 +1295,12 @@ pub(crate) fn on_offence_in_era(
     let bonded_eras = staking::BondedEras::get();
     for &(bonded_era, start_session) in bonded_eras.iter() {
         if bonded_era == era {
-            let _ = Staking::on_offence(offenders, slash_fraction, start_session, DisableStrategy::WhenSlashed);
+            let _ = Staking::on_offence(
+                offenders,
+                slash_fraction,
+                start_session,
+                DisableStrategy::WhenSlashed,
+            );
             return;
         } else if bonded_era > era {
             break;
