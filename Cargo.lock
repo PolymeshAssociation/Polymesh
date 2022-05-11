@@ -4580,6 +4580,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-contracts-rpc"
+version = "4.0.0-dev"
+source = "git+https://github.com/PolymathNetwork/substrate?branch=polymesh-develop#c430d99d1c8fb601e3e0838821ad19c71b2402c6"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "pallet-contracts-primitives",
+ "pallet-contracts-rpc-runtime-api",
+ "parity-scale-codec 2.3.1",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-core",
+ "sp-rpc",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-contracts-rpc-runtime-api"
+version = "4.0.0-dev"
+source = "git+https://github.com/PolymathNetwork/substrate?branch=polymesh-develop#c430d99d1c8fb601e3e0838821ad19c71b2402c6"
+dependencies = [
+ "pallet-contracts-primitives",
+ "parity-scale-codec 2.3.1",
+ "scale-info",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-corporate-actions"
 version = "0.1.0"
 dependencies = [
@@ -5847,6 +5879,7 @@ dependencies = [
  "pallet-balances 0.1.0",
  "pallet-bridge",
  "pallet-committee",
+ "pallet-contracts-rpc-runtime-api",
  "pallet-corporate-actions",
  "pallet-external-agents",
  "pallet-group",
@@ -6005,6 +6038,7 @@ version = "0.1.0"
 dependencies = [
  "jsonrpc-core",
  "node-rpc",
+ "pallet-contracts-rpc",
  "pallet-group-rpc",
  "pallet-protocol-fee-rpc",
  "pallet-staking-rpc",
@@ -6095,6 +6129,8 @@ dependencies = [
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-contracts",
+ "pallet-contracts-primitives",
+ "pallet-contracts-rpc-runtime-api",
  "pallet-corporate-actions",
  "pallet-external-agents",
  "pallet-grandpa",
@@ -6212,6 +6248,8 @@ dependencies = [
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-contracts",
+ "pallet-contracts-primitives",
+ "pallet-contracts-rpc-runtime-api",
  "pallet-corporate-actions",
  "pallet-external-agents",
  "pallet-grandpa",
@@ -6293,6 +6331,8 @@ dependencies = [
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-contracts",
+ "pallet-contracts-primitives",
+ "pallet-contracts-rpc-runtime-api",
  "pallet-corporate-actions",
  "pallet-external-agents",
  "pallet-grandpa",
@@ -6375,6 +6415,8 @@ dependencies = [
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-contracts",
+ "pallet-contracts-primitives",
+ "pallet-contracts-rpc-runtime-api",
  "pallet-corporate-actions",
  "pallet-external-agents",
  "pallet-grandpa",
@@ -6465,6 +6507,8 @@ dependencies = [
  "pallet-committee",
  "pallet-compliance-manager",
  "pallet-contracts",
+ "pallet-contracts-primitives",
+ "pallet-contracts-rpc-runtime-api",
  "pallet-corporate-actions",
  "pallet-external-agents",
  "pallet-grandpa",
