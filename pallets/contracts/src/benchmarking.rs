@@ -20,7 +20,7 @@ use frame_benchmarking::benchmarks;
 use frame_support::traits::tokens::currency::Currency;
 use pallet_asset::Pallet as Asset;
 use pallet_contracts::benchmarking::code::{
-    body, max_pages, DataSegment, ImportedFunction, ImportedMemory, ModuleDefinition, WasmModule,
+    body, max_pages, DataSegment, ImportedFunction, ImportedMemory, Location, ModuleDefinition, WasmModule,
 };
 use pallet_contracts::Pallet as Base;
 use polymesh_common_utilities::{
@@ -62,8 +62,9 @@ fn instantiate<T: Config>(user: &User<T>, wasm: WasmModule<T>, salt: Vec<u8>) ->
     let callee = Base::<T>::contract_address(&user.account(), &wasm.hash, &salt);
     Pallet::<T>::instantiate_with_code(
         user.origin().into(),
-        Base::<T>::subsistence_threshold(), // endowment
+        ENDOWMENT, // endowment
         Weight::MAX,                        // gas limit
+        None,
         wasm.code,
         vec![], // data
         salt,
@@ -127,7 +128,7 @@ benchmarks! {
 
         // Instantiate the contract.
         let callee = instantiate::<T>(&user, wasm, salt());
-    }: call(user.origin(), callee.clone(), 0, Weight::MAX, vec![])
+    }: call(user.origin(), callee.clone(), 0, Weight::MAX, None, vec![])
 
     chain_extension_full {
         let n in 1 .. T::MaxLen::get() as u32;
@@ -146,7 +147,7 @@ benchmarks! {
 
         // Instantiate the contract.
         let callee = instantiate::<T>(&user, wasm, salt());
-    }: call(user.origin(), callee.clone(), 0, Weight::MAX, vec![])
+    }: call(user.origin(), callee.clone(), 0, Weight::MAX, None, vec![])
 
     chain_extension_early_exit {
         // Construct a user doing everything.
@@ -157,7 +158,7 @@ benchmarks! {
 
         // Instantiate the contract.
         let callee = instantiate::<T>(&user, wasm, salt());
-    }: call(user.origin(), callee.clone(), 0, Weight::MAX, vec![])
+    }: call(user.origin(), callee.clone(), 0, Weight::MAX, None, vec![])
 
     basic_runtime_call {
         let n in 1 .. T::MaxLen::get() as u32;
@@ -179,7 +180,7 @@ benchmarks! {
 
         // Arguments to pass to contract call.
         let data = vec![42u8; 1024];
-    }: _(user.origin(), callee.clone(), ENDOWMENT, Weight::MAX, data)
+    }: _(user.origin(), callee.clone(), ENDOWMENT, Weight::MAX, None, data)
     verify {
         // Contract should have received the value.
         assert_eq!(free_balance::<T>(&callee), before + ENDOWMENT);
@@ -201,7 +202,7 @@ benchmarks! {
 
         // Pre-instantiate a contract so that one with the hash exists.
         let _ = instantiate::<T>(&user, wasm, salt());
-    }: _(user.origin(), ENDOWMENT, Weight::MAX, hash, vec![], other_salt, Permissions::empty())
+    }: _(user.origin(), ENDOWMENT, Weight::MAX, None, hash, vec![], other_salt, Permissions::empty())
     verify {
         // Ensure contract has the full value.
         assert_eq!(free_balance::<T>(&addr), ENDOWMENT);
@@ -230,9 +231,9 @@ benchmarks! {
         let user = funded_user::<T>();
 
         // Construct the contract code + get addr.
-        let wasm = WasmModule::<T>::sized(c);
+        let wasm = WasmModule::<T>::sized(c, Location::Deploy);
         let addr = Base::<T>::contract_address(&user.account(), &wasm.hash, &salt);
-    }: _(user.origin(), ENDOWMENT, Weight::MAX, wasm.code, vec![], salt, Permissions::empty())
+    }: _(user.origin(), ENDOWMENT, Weight::MAX, None, wasm.code, vec![], salt, Permissions::empty())
     verify {
         // Ensure contract has the full value.
         assert_eq!(free_balance::<T>(&addr), ENDOWMENT);
