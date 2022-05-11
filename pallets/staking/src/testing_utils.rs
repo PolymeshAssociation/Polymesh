@@ -404,7 +404,11 @@ pub fn get_single_winner_solution<T: Config>(
         votes1: vec![(nom_index, val_index)],
         ..Default::default()
     };
-    let score = [stake, stake, stake * stake];
+    let score = ElectionScore {
+      minimal_stake: stake,
+      sum_stake: stake,
+      sum_stake_squared: stake * stake
+    };
     let size = ElectionSize {
         validators: snapshot_validators.len() as ValidatorIndex,
         nominators: snapshot_nominators.len() as NominatorIndex,
