@@ -204,7 +204,7 @@ jsonrpc-core = { version = "18.0", features = ["arbitrary_precision"] }
 log = "0.4.8"
 serde = { version = "1.0.104", default-features = false }
 serde_json = { version = "1.0", features = ["arbitrary_precision"] }
-structopt = "0.3.15"
+clap = { version = "3.1.6", features = ["derive"] }
 rustc-hex = "2.1.0"
 
 # Substrate
@@ -219,7 +219,7 @@ pallet-babe = "4.0.0-dev"
 pallet-im-online = "4.0.0-dev"
 pallet-indices = "4.0.0-dev"
 pallet-session = "4.0.0-dev"
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", version = "0.9.0" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", version = "0.10.0-dev" }
 sc-authority-discovery = "0.10.0-dev"
 sc-basic-authorship = "0.10.0-dev"
 sc-chain-spec = "4.0.0-dev"
@@ -245,6 +245,7 @@ sp-blockchain = "4.0.0-dev"
 sp-consensus = "0.10.0-dev"
 sp-consensus-babe = "0.10.0-dev"
 sp-consensus-slots = "0.10.0-dev"
+sp-keyring = { version = "6.0.0" }
 sp-core = "6.0.0"
 sp-inherents = "4.0.0-dev"
 sp-transaction-storage-proof = "4.0.0-dev"

@@ -104,7 +104,7 @@ frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, o
 hex-literal = { version = "0.3.1", optional = true }
 
 # Import 'getrandom' here to enable feature `getrandom/js` for wasm builds.
-getrandom = { versin = "0.2.6", default-fatures = false, optional = true }
+getrandom = { version = "0.2.6", default-features = false, optional = true }
 
 [build-dependencies]
 polymesh-build-tool = { path = "../build_tool", default-features = false }

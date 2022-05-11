@@ -696,12 +696,6 @@ dependencies = [
 
 [[package]]
 name = "bytes"
-version = "0.5.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e4cec68f03f32e44924783795810fa50a7035d8c8ebe78580ad7e6c703fba38"
-
-[[package]]
-name = "bytes"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4872d67bab6358e59559027aa3b9157c53d9358c51423c17554809a8858e0f8"
@@ -868,13 +862,9 @@ version = "2.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a0610544180c38b88101fecf2dd634b174a62eef6946f84dfc6a7127512b381c"
 dependencies = [
- "ansi_term",
- "atty",
  "bitflags",
- "strsim 0.8.0",
  "textwrap 0.11.0",
  "unicode-width",
- "vec_map",
 ]
 
 [[package]]
@@ -889,7 +879,7 @@ dependencies = [
  "clap_lex",
  "indexmap",
  "lazy_static",
- "strsim 0.10.0",
+ "strsim",
  "termcolor",
  "textwrap 0.15.0",
 ]
@@ -2491,26 +2481,6 @@ dependencies = [
 
 [[package]]
 name = "h2"
-version = "0.2.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e4728fd124914ad25e99e3d15a9361a879f6620f63cb56bbb08f95abb97a535"
-dependencies = [
- "bytes 0.5.6",
- "fnv",
- "futures-core",
- "futures-sink",
- "futures-util",
- "http",
- "indexmap",
- "slab",
- "tokio 0.2.25",
- "tokio-util 0.3.1",
- "tracing",
- "tracing-futures",
-]
-
-[[package]]
-name = "h2"
 version = "0.3.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37a82c6d637fc9515a4694bbf1cb2457b79d81ce52b3108bdeea58b07dd34a57"
@@ -2523,7 +2493,7 @@ dependencies = [
  "http",
  "indexmap",
  "slab",
- "tokio 1.18.2",
+ "tokio",
  "tokio-util 0.7.1",
  "tracing",
 ]
@@ -2711,16 +2681,6 @@ dependencies = [
 
 [[package]]
 name = "http-body"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13d5ff830006f7646652e057693569bfe0d51760c0085a071769d142a205111b"
-dependencies = [
- "bytes 0.5.6",
- "http",
-]
-
-[[package]]
-name = "http-body"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ff4f84919677303da5f147645dbea6b1881f368d03ac84e1dc09031ebd7b2c6"
@@ -2735,12 +2695,6 @@ name = "httparse"
 version = "1.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "496ce29bb5a52785b44e0f7ca2847ae0bb839c9bd28f69acac9b99d461c0c04c"
-
-[[package]]
-name = "httpdate"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "494b4d60369511e7dea41cf646832512a94e542f68bb9c49e54518e0f468eb47"
 
 [[package]]
 name = "httpdate"
@@ -2765,29 +2719,6 @@ checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "hyper"
-version = "0.13.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a6f157065790a3ed2f88679250419b5cdd96e714a0d65f7797fd337186e96bb"
-dependencies = [
- "bytes 0.5.6",
- "futures-channel",
- "futures-core",
- "futures-util",
- "h2 0.2.7",
- "http",
- "http-body 0.3.1",
- "httparse",
- "httpdate 0.3.2",
- "itoa 0.4.8",
- "pin-project 1.0.10",
- "tokio 0.2.25",
- "tower-service",
- "tracing",
- "want",
-]
-
-[[package]]
-name = "hyper"
 version = "0.14.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b26ae0a80afebe130861d90abf98e3814a4f28a4c6ffeb5ab8ebb2be311e0ef2"
@@ -2796,15 +2727,15 @@ dependencies = [
  "futures-channel",
  "futures-core",
  "futures-util",
- "h2 0.3.13",
+ "h2",
  "http",
- "http-body 0.4.4",
+ "http-body",
  "httparse",
- "httpdate 1.0.2",
+ "httpdate",
  "itoa 1.0.1",
  "pin-project-lite 0.2.9",
  "socket2",
- "tokio 1.18.2",
+ "tokio",
  "tower-service",
  "tracing",
  "want",
@@ -2818,11 +2749,11 @@ checksum = "5f9f7a97316d44c0af9b0301e65010573a853a9fc97046d7331d7f6bc0fd5a64"
 dependencies = [
  "ct-logs",
  "futures-util",
- "hyper 0.14.18",
+ "hyper",
  "log",
  "rustls 0.19.1",
  "rustls-native-certs",
- "tokio 1.18.2",
+ "tokio",
  "tokio-rustls",
  "webpki 0.21.4",
 ]
@@ -3092,7 +3023,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1dea6e07251d9ce6a552abfb5d7ad6bc290a4596c8dcc3d795fae2bbdc1f3ff"
 dependencies = [
  "futures 0.3.21",
- "hyper 0.14.18",
+ "hyper",
  "jsonrpc-core",
  "jsonrpc-server-utils",
  "log",
@@ -3143,7 +3074,7 @@ dependencies = [
  "jsonrpc-core",
  "lazy_static",
  "log",
- "tokio 1.18.2",
+ "tokio",
  "tokio-stream",
  "tokio-util 0.6.9",
  "unicase",
@@ -4440,7 +4371,7 @@ dependencies = [
  "log",
  "netlink-packet-core",
  "netlink-sys",
- "tokio 1.18.2",
+ "tokio",
 ]
 
 [[package]]
@@ -4479,6 +4410,7 @@ dependencies = [
 name = "node-bench"
 version = "0.9.0"
 dependencies = [
+ "clap 3.1.18",
  "derive_more",
  "fs_extra",
  "futures 0.3.21",
@@ -4509,7 +4441,6 @@ dependencies = [
  "sp-tracing",
  "sp-transaction-pool",
  "sp-trie",
- "structopt",
  "tempfile",
 ]
 
@@ -5951,7 +5882,7 @@ dependencies = [
  "libc",
  "log",
  "rand 0.7.3",
- "tokio 1.18.2",
+ "tokio",
  "winapi 0.3.9",
 ]
 
@@ -6367,6 +6298,7 @@ name = "polymesh"
 version = "5.0.0"
 dependencies = [
  "chrono",
+ "clap 3.1.18",
  "ed25519-dalek",
  "frame-benchmarking",
  "frame-benchmarking-cli",
@@ -6441,14 +6373,14 @@ dependencies = [
  "sp-consensus-slots",
  "sp-core",
  "sp-inherents",
+ "sp-keyring",
  "sp-offchain",
  "sp-runtime",
  "sp-session",
  "sp-timestamp",
  "sp-transaction-pool",
  "sp-transaction-storage-proof",
- "structopt",
- "substrate-prometheus-endpoint 0.9.0",
+ "substrate-prometheus-endpoint",
  "vergen",
 ]
 
@@ -7227,20 +7159,6 @@ dependencies = [
 
 [[package]]
 name = "prometheus"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8425533e7122f0c3cc7a37e6244b16ad3a2cc32ae7ac6276e2a75da0d9c200d"
-dependencies = [
- "cfg-if 1.0.0",
- "fnv",
- "lazy_static",
- "parking_lot 0.11.2",
- "regex",
- "thiserror",
-]
-
-[[package]]
-name = "prometheus"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b7f64969ffd5dd8f39bd57a68ac53c163a095ed9d0fb707146da1b27025a3504"
@@ -7898,7 +7816,7 @@ dependencies = [
  "sp-core",
  "sp-keystore",
  "sp-runtime",
- "substrate-prometheus-endpoint 0.10.0-dev",
+ "substrate-prometheus-endpoint",
  "thiserror",
 ]
 
@@ -7922,7 +7840,7 @@ dependencies = [
  "sp-core",
  "sp-inherents",
  "sp-runtime",
- "substrate-prometheus-endpoint 0.10.0-dev",
+ "substrate-prometheus-endpoint",
 ]
 
 [[package]]
@@ -8005,7 +7923,7 @@ dependencies = [
  "sp-version",
  "thiserror",
  "tiny-bip39",
- "tokio 1.18.2",
+ "tokio",
 ]
 
 [[package]]
@@ -8033,7 +7951,7 @@ dependencies = [
  "sp-state-machine",
  "sp-storage",
  "sp-trie",
- "substrate-prometheus-endpoint 0.10.0-dev",
+ "substrate-prometheus-endpoint",
 ]
 
 [[package]]
@@ -8081,7 +7999,7 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-state-machine",
- "substrate-prometheus-endpoint 0.10.0-dev",
+ "substrate-prometheus-endpoint",
  "thiserror",
 ]
 
@@ -8124,7 +8042,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-version",
- "substrate-prometheus-endpoint 0.10.0-dev",
+ "substrate-prometheus-endpoint",
  "thiserror",
 ]
 
@@ -8314,7 +8232,7 @@ dependencies = [
  "sp-finality-grandpa",
  "sp-keystore",
  "sp-runtime",
- "substrate-prometheus-endpoint 0.10.0-dev",
+ "substrate-prometheus-endpoint",
  "thiserror",
 ]
 
@@ -8416,7 +8334,7 @@ dependencies = [
  "sp-core",
  "sp-finality-grandpa",
  "sp-runtime",
- "substrate-prometheus-endpoint 0.10.0-dev",
+ "substrate-prometheus-endpoint",
  "thiserror",
  "unsigned-varint 0.6.0",
  "void",
@@ -8436,7 +8354,7 @@ dependencies = [
  "lru",
  "sc-network",
  "sp-runtime",
- "substrate-prometheus-endpoint 0.10.0-dev",
+ "substrate-prometheus-endpoint",
  "tracing",
 ]
 
@@ -8450,7 +8368,7 @@ dependencies = [
  "futures 0.3.21",
  "futures-timer",
  "hex",
- "hyper 0.14.18",
+ "hyper",
  "hyper-rustls",
  "num_cpus",
  "once_cell",
@@ -8487,7 +8405,7 @@ version = "0.10.0-dev"
 source = "git+https://github.com/PolymathNetwork/substrate?branch=polymesh-monthly-2022-05#b945faee0e9d86916cc5799b3c377905e17379ab"
 dependencies = [
  "log",
- "substrate-prometheus-endpoint 0.10.0-dev",
+ "substrate-prometheus-endpoint",
 ]
 
 [[package]]
@@ -8560,8 +8478,8 @@ dependencies = [
  "jsonrpc-ws-server",
  "log",
  "serde_json",
- "substrate-prometheus-endpoint 0.10.0-dev",
- "tokio 1.18.2",
+ "substrate-prometheus-endpoint",
+ "tokio",
 ]
 
 [[package]]
@@ -8621,10 +8539,10 @@ dependencies = [
  "sp-transaction-storage-proof",
  "sp-trie",
  "sp-version",
- "substrate-prometheus-endpoint 0.10.0-dev",
+ "substrate-prometheus-endpoint",
  "tempfile",
  "thiserror",
- "tokio 1.18.2",
+ "tokio",
  "tracing",
  "tracing-futures",
 ]
@@ -8766,7 +8684,7 @@ dependencies = [
  "sp-runtime",
  "sp-tracing",
  "sp-transaction-pool",
- "substrate-prometheus-endpoint 0.10.0-dev",
+ "substrate-prometheus-endpoint",
  "thiserror",
 ]
 
@@ -8793,7 +8711,7 @@ dependencies = [
  "lazy_static",
  "log",
  "parking_lot 0.12.0",
- "prometheus 0.13.0",
+ "prometheus",
 ]
 
 [[package]]
@@ -10074,39 +9992,9 @@ dependencies = [
 
 [[package]]
 name = "strsim"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
-
-[[package]]
-name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
-
-[[package]]
-name = "structopt"
-version = "0.3.26"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c6b5c64445ba8094a6ab0c3cd2ad323e07171012d9c98b0b15651daf1787a10"
-dependencies = [
- "clap 2.34.0",
- "lazy_static",
- "structopt-derive",
-]
-
-[[package]]
-name = "structopt-derive"
-version = "0.4.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcb5ae327f9cc13b68763b5749770cb9e048a99bd9dfdfa58d0cf05d5f64afe0"
-dependencies = [
- "heck 0.3.3",
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn",
-]
 
 [[package]]
 name = "strum"
@@ -10167,30 +10055,15 @@ dependencies = [
 
 [[package]]
 name = "substrate-prometheus-endpoint"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2eb561c19a121e1c89daa79dbfa67a55080f813caa47fd231833a0669696d508"
-dependencies = [
- "async-std",
- "derive_more",
- "futures-util",
- "hyper 0.13.10",
- "log",
- "prometheus 0.11.0",
- "tokio 0.2.25",
-]
-
-[[package]]
-name = "substrate-prometheus-endpoint"
 version = "0.10.0-dev"
 source = "git+https://github.com/PolymathNetwork/substrate?branch=polymesh-monthly-2022-05#b945faee0e9d86916cc5799b3c377905e17379ab"
 dependencies = [
  "futures-util",
- "hyper 0.14.18",
+ "hyper",
  "log",
- "prometheus 0.13.0",
+ "prometheus",
  "thiserror",
- "tokio 1.18.2",
+ "tokio",
 ]
 
 [[package]]
@@ -10288,7 +10161,7 @@ source = "git+https://github.com/PolymathNetwork/substrate?branch=polymesh-month
 dependencies = [
  "futures 0.3.21",
  "substrate-test-utils-derive",
- "tokio 1.18.2",
+ "tokio",
 ]
 
 [[package]]
@@ -10567,19 +10440,6 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "0.2.25"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6703a273949a90131b290be1fe7b039d0fc884aa1935860dfcbe056f28cd8092"
-dependencies = [
- "bytes 0.5.6",
- "fnv",
- "futures-core",
- "memchr",
- "pin-project-lite 0.1.12",
-]
-
-[[package]]
-name = "tokio"
 version = "1.18.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4903bf0427cf68dddd5aa6a93220756f8be0c34fcfa9f5e6191e103e15a31395"
@@ -10616,7 +10476,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc6844de72e57df1980054b38be3a9f4702aba4858be64dd700181a8a6d0e1b6"
 dependencies = [
  "rustls 0.19.1",
- "tokio 1.18.2",
+ "tokio",
  "webpki 0.21.4",
 ]
 
@@ -10628,21 +10488,7 @@ checksum = "50145484efff8818b5ccd256697f36863f587da82cf8b409c53adf1e840798e3"
 dependencies = [
  "futures-core",
  "pin-project-lite 0.2.9",
- "tokio 1.18.2",
-]
-
-[[package]]
-name = "tokio-util"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be8242891f2b6cbef26a2d7e8605133c2c554cd35b3e4948ea892d6d68436499"
-dependencies = [
- "bytes 0.5.6",
- "futures-core",
- "futures-sink",
- "log",
- "pin-project-lite 0.1.12",
- "tokio 0.2.25",
+ "tokio",
 ]
 
 [[package]]
@@ -10656,7 +10502,7 @@ dependencies = [
  "futures-sink",
  "log",
  "pin-project-lite 0.2.9",
- "tokio 1.18.2",
+ "tokio",
 ]
 
 [[package]]
@@ -10669,7 +10515,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "pin-project-lite 0.2.9",
- "tokio 1.18.2",
+ "tokio",
  "tracing",
 ]
 
@@ -10695,7 +10541,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d0ecdcb44a79f0fe9844f0c4f33a342cbcbb5117de8001e6ba0dc2351327d09"
 dependencies = [
  "cfg-if 1.0.0",
- "log",
  "pin-project-lite 0.2.9",
  "tracing-attributes",
  "tracing-core",
@@ -11058,12 +10903,6 @@ name = "vcpkg"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
-
-[[package]]
-name = "vec_map"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1bddf1187be692e79c5ffeab891132dfb0f236ed36a43c7ed39f1165ee20191"
 
 [[package]]
 name = "vergen"

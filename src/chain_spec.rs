@@ -498,7 +498,6 @@ fn bridge_signers() -> Vec<Signatory<AccountId>> {
 fn frame(wasm_binary: Option<&[u8]>) -> frame_system::GenesisConfig {
     frame_system::GenesisConfig {
         code: wasm_binary.expect("WASM binary was not generated").to_vec(),
-        changes_trie_config: Default::default(),
     }
 }
 
@@ -735,6 +734,7 @@ pub mod general {
             vec![],
             None,
             None,
+            None,
             props,
             <_>::default(),
         )
@@ -900,6 +900,7 @@ pub mod testnet {
                     .expect("Testnet bootstrap telemetry url is valid; qed"),
             ),
             Some(&*"/polymesh/testnet"),
+            None,
             Some(polymath_props(42)),
             Default::default(),
         )
@@ -929,6 +930,7 @@ pub mod testnet {
             ChainType::Development,
             develop_genesis,
             boot_nodes,
+            None,
             None,
             None,
             Some(polymath_props(42)),
@@ -964,6 +966,7 @@ pub mod testnet {
             ChainType::Local,
             local_genesis,
             boot_nodes,
+            None,
             None,
             None,
             Some(polymath_props(42)),
@@ -1097,6 +1100,7 @@ pub mod mainnet {
                     .expect("Mainnet bootstrap telemetry url is valid; qed"),
             ),
             Some(&*"/polymesh/mainnet"),
+            None,
             Some(polymath_props(12)),
             Default::default(),
         )
@@ -1126,6 +1130,7 @@ pub mod mainnet {
             ChainType::Development,
             develop_genesis,
             boot_nodes,
+            None,
             None,
             None,
             Some(polymath_props(12)),
@@ -1161,6 +1166,7 @@ pub mod mainnet {
             ChainType::Local,
             local_genesis,
             boot_nodes,
+            None,
             None,
             None,
             Some(polymath_props(12)),
@@ -1275,6 +1281,7 @@ pub mod ci {
             boot_nodes,
             None,
             None,
+            None,
             Some(polymath_props(42)),
             Default::default(),
         )
@@ -1308,6 +1315,7 @@ pub mod ci {
             ChainType::Local,
             local_genesis,
             boot_nodes,
+            None,
             None,
             None,
             Some(polymath_props(42)),

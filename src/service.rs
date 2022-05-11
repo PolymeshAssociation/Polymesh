@@ -16,7 +16,7 @@ pub use polymesh_runtime_develop;
 pub use polymesh_runtime_mainnet;
 pub use polymesh_runtime_testnet;
 use prometheus_endpoint::Registry;
-use sc_client_api::ExecutorProvider;
+use sc_client_api::{BlockBackend, ExecutorProvider};
 pub use sc_client_api::backend::Backend;
 pub use sc_consensus::LongestChain;
 use sc_consensus_slots::SlotProportion;
@@ -168,7 +168,7 @@ type BabeLink = sc_consensus_babe::BabeLink<Block>;
 type IoHandler = jsonrpc_core::IoHandler<sc_rpc::Metadata>;
 
 type FullLinkHalf<R, D> = grandpa::LinkHalf<Block, FullClient<R, D>, FullSelectChain>;
-type FullClient<R, E> = sc_service::TFullClient<Block, R, NativeElseWasmExecutor<E>>;
+pub type FullClient<R, E> = sc_service::TFullClient<Block, R, NativeElseWasmExecutor<E>>;
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 type FullGrandpaBlockImport<R, E> =
@@ -176,7 +176,7 @@ type FullGrandpaBlockImport<R, E> =
 type FullBabeImportQueue<R, E> = sc_consensus::DefaultImportQueue<Block, FullClient<R, E>>;
 type FullStateBackend = sc_client_api::StateBackendFor<FullBackend, Block>;
 type FullPool<R, E> = sc_transaction_pool::FullPool<Block, FullClient<R, E>>;
-type FullServiceComponents<R, E, F> = sc_service::PartialComponents<
+pub type FullServiceComponents<R, E, F> = sc_service::PartialComponents<
     FullClient<R, E>,
     FullBackend,
     FullSelectChain,
@@ -260,7 +260,7 @@ where
     let justification_import = grandpa_block_import.clone();
 
     let (block_import, babe_link) = sc_consensus_babe::block_import(
-        sc_consensus_babe::Config::get_or_compute(&*client)?,
+        sc_consensus_babe::Config::get(&*client)?,
         grandpa_block_import,
         client.clone(),
     )?;
@@ -276,7 +276,7 @@ where
             let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
             let slot =
-                sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_duration(
+                sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
                     *timestamp,
                     slot_duration,
                 );
@@ -397,11 +397,15 @@ where
 
     let shared_voter_state = rpc_setup;
     let auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
+    let grandpa_protocol_name = grandpa::protocol_standard_name(
+        &client.block_hash(0).ok().flatten().expect("Genesis block exists; qed"),
+        &config.chain_spec,
+    );
 
     config
         .network
         .extra_sets
-        .push(grandpa::grandpa_peers_set_config());
+        .push(grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone()));
     let warp_sync = Arc::new(grandpa::warp_proof::NetworkProvider::new(
         backend.clone(),
         import_setup.1.shared_authority_set().clone(),
@@ -495,7 +499,7 @@ where
                     let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
                     let slot =
-						sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_duration(
+						sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
 							*timestamp,
 							slot_duration,
 						);
@@ -521,7 +525,7 @@ where
         let babe = sc_consensus_babe::start_babe(babe_config)?;
         task_manager
             .spawn_essential_handle()
-            .spawn_blocking("babe-proposer", babe);
+            .spawn_blocking("babe-proposer", Some("block-authoring"), babe);
     }
 
     // Spawn authority discovery module.
@@ -552,6 +556,7 @@ where
 
         task_manager.spawn_handle().spawn(
             "authority-discovery-worker",
+            Some("networking"),
             authority_discovery_worker.run(),
         );
     }
@@ -573,6 +578,7 @@ where
         keystore,
         local_role: role,
         telemetry: telemetry.as_ref().map(|x| x.handle()),
+        protocol_name: grandpa_protocol_name,
     };
 
     if enable_grandpa {
@@ -596,7 +602,7 @@ where
         // if it fails we take down the service with it.
         task_manager
             .spawn_essential_handle()
-            .spawn_blocking("grandpa-voter", grandpa::run_grandpa_voter(grandpa_config)?);
+            .spawn_blocking("grandpa-voter", None, grandpa::run_grandpa_voter(grandpa_config)?);
     }
 
     network_starter.start_network();
