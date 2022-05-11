@@ -15,7 +15,7 @@ pallet-committee = { path = "../../committee", default-features = false }
 pallet-compliance-manager = { path = "../../compliance-manager", default-features = false }
 #pallet-contracts = { version = "4.0.0-dev", default-features = false }
 pallet-identity = { path = "../../identity", default-features = false  }
-pallet-multisig = { path = "../../multisig", default-features = false}
+pallet-multisig = { path = "../../multisig", default-features = false }
 pallet-portfolio = { path = "../../portfolio", default-features = false  }
 pallet-relayer = { path = "../../relayer", default-features = false }
 pallet-test-utils = { path = "../../test-utils", default-features = false }

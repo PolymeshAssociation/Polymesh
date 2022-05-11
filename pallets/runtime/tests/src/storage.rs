@@ -222,12 +222,6 @@ frame_support::construct_runtime!(
         Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>} = 17,
         MultiSig: pallet_multisig::{Pallet, Call, Config, Storage, Event<T>} = 18,
 
-        /*
-        // Contracts
-        BaseContracts: pallet_contracts::{Pallet, Config<T>, Storage, Event<T>} = 19,
-        Contracts: polymesh_contracts::{Pallet, Call, Storage, Event<T>} = 20,
-        */
-
         // Polymesh Governance Committees
         Treasury: pallet_treasury::{Pallet, Call, Event<T>} = 21,
         PolymeshCommittee: pallet_committee::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 22,
@@ -271,6 +265,10 @@ frame_support::construct_runtime!(
         ExternalAgents: pallet_external_agents::{Pallet, Call, Storage, Event} = 52,
         Relayer: pallet_relayer::{Pallet, Call, Storage, Event<T>} = 53,
         Rewards: pallet_rewards::{Pallet, Call, Storage, Event<T>, Config<T>} = 54,
+
+        // Contracts
+        Contracts: pallet_contracts::{Pallet, Storage, Event<T>} = 19,
+        PolymeshContracts: polymesh_contracts::{Pallet, Call, Storage, Event} = 20,
     }
 );
 
@@ -434,6 +432,15 @@ parameter_types! {
     pub const SurchargeReward: Balance = 1500;
     pub const MaxDepth: u32 = 100;
     pub const MaxValueSize: u32 = 16_384;
+
+    pub ContractDeposit: Balance = polymesh_runtime_common::deposit(
+        1,
+        <pallet_contracts::Pallet<Runtime>>::contract_info_size(),
+    );
+    pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
+    pub DeletionWeightLimit: Weight = 500_000_000_000;
+    pub DeletionQueueDepth: u32 = 1024;
+    pub MaxInLen: u32 = 8 * 1024;
 }
 
 thread_local! {

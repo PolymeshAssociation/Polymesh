@@ -2244,10 +2244,9 @@ fn invalid_ticker_registry_test() {
             (&b"YOUR"[..], false),
         ]
         .iter()
-        .map(|(name, exp)| (Ticker::try_from(name.as_ref()).unwrap(), exp))
+        .map(|(name, exp)| ((*name).try_into().unwrap(), exp))
         .for_each(|(ticker, exp)| {
-            let valid = Asset::is_ticker_registry_valid(&ticker, owner.did);
-            assert_eq!(*exp, valid)
+            assert_eq!(*exp, Asset::is_ticker_registry_valid(&ticker, owner.did))
         });
     });
 }
