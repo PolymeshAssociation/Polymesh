@@ -17,7 +17,6 @@
 
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(bool_to_option)]
 
 use blake2::{Blake2b, Digest};
 use codec::{Decode, Encode};

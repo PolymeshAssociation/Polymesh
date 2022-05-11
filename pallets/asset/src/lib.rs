@@ -76,7 +76,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
-#![feature(bool_to_option, const_option)]
+#![feature(const_option)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;

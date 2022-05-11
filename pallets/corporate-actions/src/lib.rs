@@ -84,7 +84,6 @@
 //! - `remove_ca(origin, id)` removes the CA identified by `id`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(bool_to_option)]
 #![feature(crate_visibility_modifier)]
 #![feature(const_option)]
 

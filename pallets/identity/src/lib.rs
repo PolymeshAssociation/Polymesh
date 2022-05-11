@@ -81,7 +81,6 @@
 #![recursion_limit = "256"]
 #![feature(
     const_option,
-    bool_to_option,
     option_result_contains,
     crate_visibility_modifier
 )]
