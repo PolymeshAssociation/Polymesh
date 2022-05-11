@@ -128,7 +128,6 @@ std = [
     "avx2_backend",
     "cryptography_core/std",
     "confidential_identity/std",
-    "frame-benchmarking/std",
     "frame-support/std",
     "frame-system/std",
     "frame-election-provider-support/std",
@@ -180,5 +179,5 @@ std = [
     "test_client",
 ]
 runtime-benchmarks = [
-    "frame-benchmarking",
+    "frame-benchmarking/runtime-benchmarks",
 ]

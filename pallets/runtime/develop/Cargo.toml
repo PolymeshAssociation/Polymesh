@@ -103,6 +103,9 @@ frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional
 frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
 hex-literal = { version = "0.3.1", optional = true }
 
+# Import 'getrandom' here to enable feature `getrandom/js` for wasm builds.
+getrandom = { versin = "0.2.6", default-fatures = false, optional = true }
+
 [build-dependencies]
 polymesh-build-tool = { path = "../build_tool", default-features = false }
 
@@ -126,6 +129,7 @@ std = [
     "frame-support/std",
     "frame-system-rpc-runtime-api/std",
     "frame-system/std",
+    "frame-system-benchmarking/std",
     "node-rpc-runtime-api/std",
     "cryptography_core/std",
     "pallet-asset/std",
@@ -196,9 +200,10 @@ std = [
     "polymesh-extensions/std",
 ]
 runtime-benchmarks = [
-    "frame-benchmarking",
+		"getrandom/js",
+    "frame-benchmarking/runtime-benchmarks",
     "frame-support/runtime-benchmarks",
-    "frame-system-benchmarking/std",
+    "frame-system-benchmarking",
     "frame-system/runtime-benchmarks",
     "pallet-babe/runtime-benchmarks",
     "pallet-indices/runtime-benchmarks",
