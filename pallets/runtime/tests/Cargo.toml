@@ -112,6 +112,8 @@ sp-tracing = { version = "5.0.0", default-features = false }
 [features]
 default = ["std", "equalize"]
 
+default_identity = [ "polymesh-common-utilities/default_identity" ]
+
 equalize = []
 only-staking = []
 
