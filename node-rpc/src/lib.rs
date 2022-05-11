@@ -117,6 +117,7 @@ where
         + Send
         + 'static,
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
+    //C::Api: pallet_contracts_rpc::ContractsRuntimeApi<Block, AccountId, Balance, BlockNumber>,
     C::Api: node_rpc::transaction_payment::TransactionPaymentRuntimeApi<Block, UE>,
     C::Api: pallet_staking_rpc::StakingRuntimeApi<Block>,
     C::Api: node_rpc::pips::PipsRuntimeApi<Block, AccountId>,
@@ -140,6 +141,7 @@ where
         pips::{Pips, PipsApi},
         transaction_payment::{TransactionPayment, TransactionPaymentApi},
     };
+    //use pallet_contracts_rpc::{Contracts, ContractsApi};
     use pallet_group_rpc::{Group, GroupApi};
     use pallet_protocol_fee_rpc::{ProtocolFee, ProtocolFeeApi};
     use pallet_staking_rpc::{Staking, StakingApi};
