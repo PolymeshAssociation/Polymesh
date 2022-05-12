@@ -410,7 +410,7 @@ generate_solution_type!(
         VoterIndex = NominatorIndex,
         TargetIndex = ValidatorIndex,
         Accuracy = OffchainAccuracy,
-        MaxVoters = frame_support::traits::ConstU32::<2_000>
+        MaxVoters = frame_support::traits::ConstU32::<10_000>
     >(16)
 );
 
