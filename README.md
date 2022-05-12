@@ -166,7 +166,7 @@ and to display log files you can use:
 Unit tests are packaged with the Rust code. To run these, you can execute:
 
 ```bash
-cargo test --package polymesh-runtime-tests  --features polymesh-common-utilities/default_identity
+cargo test --package polymesh-runtime-tests  --features default_identity
 cargo test --package pallet-staking
 cargo test --package pallet-balances
 cargo test --package polymesh-primitives
@@ -192,7 +192,7 @@ extrinsic to be benchmarked, for example:
 
 ```bash
 cargo run --release --features runtime-benchmarks -- \
-    benchmark -p="*" -e="*"
+    benchmark pallet -p="*" -e="*"
 ```
 
 Note that the CLI binary should be built in release mode and that the feature flag
