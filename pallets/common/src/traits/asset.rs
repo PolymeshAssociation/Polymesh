@@ -110,7 +110,6 @@ pub trait Config:
     + external_agents::Config
     + pallet_session::Config
     + statistics::Config
-    //+ contracts::Trait
     + portfolio::Config
 {
     /// The overarching event type.
@@ -149,8 +148,6 @@ pub trait Config:
 
     type WeightInfo: WeightInfo;
     type CPWeightInfo: crate::traits::checkpoint::WeightInfo;
-
-    //type ContractsFn: ContractsFn<Self::AccountId, Self::Balance>;
 }
 
 decl_event! {
