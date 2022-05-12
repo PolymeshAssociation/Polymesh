@@ -104,9 +104,7 @@ use polymesh_common_utilities::{
     compliance_manager::Config as ComplianceManagerConfig,
     constants::*,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    //traits::contracts::ContractsFn,
-    with_transaction,
-    SystematicIssuers,
+    with_transaction, SystematicIssuers,
 };
 use polymesh_primitives::{
     agent::AgentGroup,
@@ -1786,47 +1784,6 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /*
-    // Return bool to know whether the given extension is compatible with the supported version of asset.
-    fn is_ext_compatible(ext_type: &SmartExtensionType, extension_id: T::AccountId) -> bool {
-        // Access version.
-        let ext_version = T::ContractsFn::extension_info(extension_id).version;
-        Self::compatible_extension_version(ext_type) == ext_version
-    }
-
-    /// Ensure the number of attached transfer manager extension should be < `MaxNumberOfTMExtensionForAsset`.
-    fn ensure_max_limit_for_tm_extension(
-        ext_type: &SmartExtensionType,
-        ticker: &Ticker,
-    ) -> DispatchResult {
-        if *ext_type == SmartExtensionType::TransferManager {
-            let no_of_ext = u32::try_from(
-                <Extensions<T>>::get((ticker, SmartExtensionType::TransferManager)).len(),
-            )
-            .unwrap_or_default();
-            ensure!(
-                no_of_ext < T::MaxNumberOfTMExtensionForAsset::get(),
-                Error::<T>::MaximumTMExtensionLimitReached
-            );
-        }
-        Ok(())
-    }
-
-    /// Ensure the extrinsic is signed and have valid extension id.
-    fn ensure_signed_and_validate_extension_id(
-        origin: T::Origin,
-        ticker: &Ticker,
-        id: &T::AccountId,
-    ) -> Result<IdentityId, DispatchError> {
-        let did = <ExternalAgents<T>>::ensure_perms(origin, *ticker)?;
-        ensure!(
-            <ExtensionDetails<T>>::contains_key((ticker, id)),
-            Error::<T>::NoSuchSmartExtension
-        );
-        Ok(did)
-    }
-    */
-
     fn base_create_asset(
         origin: T::Origin,
         name: AssetName,
@@ -2353,102 +2310,6 @@ impl<T: Config> Module<T> {
         Self::deposit_event(RawEvent::RegisterAssetMetadataGlobalType(name, key, spec));
         Ok(())
     }
-
-    /*
-    fn base_add_extension(
-        origin: T::Origin,
-        ticker: Ticker,
-        details: SmartExtension<T::AccountId>,
-    ) -> DispatchResult {
-        let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
-
-        // Enforce length limits.
-        ensure_string_limited::<T>(&details.extension_name)?;
-        if let SmartExtensionType::Custom(ty) = &details.extension_type {
-            ensure_string_limited::<T>(ty)?;
-        }
-
-        // Verify the details of smart extension & store it.
-        ensure!(
-            !<ExtensionDetails<T>>::contains_key((ticker, &details.extension_id)),
-            Error::<T>::ExtensionAlreadyPresent
-        );
-        // Ensure the version compatibility with the asset.
-        ensure!(
-            Self::is_ext_compatible(&details.extension_type, details.extension_id.clone()),
-            Error::<T>::IncompatibleExtensionVersion
-        );
-        // Ensure the hard limit on the count of maximum transfer manager an asset can have.
-        Self::ensure_max_limit_for_tm_extension(&details.extension_type, &ticker)?;
-
-        // Update the storage.
-        let id = details.extension_id.clone();
-        let name = details.extension_name.clone();
-        let ty = details.extension_type.clone();
-        <Extensions<T>>::append((ticker, &ty), id.clone());
-        <ExtensionDetails<T>>::insert((ticker, &id), details);
-        Self::deposit_event(Event::<T>::ExtensionAdded(did, ticker, id, name, ty));
-
-        Ok(())
-    }
-
-    fn base_remove_smart_extension(
-        origin: T::Origin,
-        ticker: Ticker,
-        extension_id: T::AccountId,
-    ) -> DispatchResult {
-        // Ensure the extrinsic is signed and have valid extension id.
-        let did = Self::ensure_signed_and_validate_extension_id(origin, &ticker, &extension_id)?;
-        let extension_detail_key = (ticker, extension_id.clone());
-        ensure!(
-            <ExtensionDetails<T>>::contains_key(&extension_detail_key),
-            Error::<T>::NoSuchSmartExtension
-        );
-
-        let extension_type = Self::extension_details(&extension_detail_key).extension_type;
-
-        // Remove the storage reference for the given extension_id.
-        // The order of SEs do not matter, so `swap_remove` is OK.
-        <Extensions<T>>::mutate(&(ticker, extension_type), |extension_list| {
-            if let Some(pos) = extension_list.iter().position(|ext| ext == &extension_id) {
-                extension_list.swap_remove(pos);
-            }
-        });
-        <ExtensionDetails<T>>::remove(extension_detail_key);
-
-        Self::deposit_event(RawEvent::ExtensionRemoved(did, ticker, extension_id));
-        Ok(())
-    }
-
-    fn set_archive_on_extension(
-        origin: T::Origin,
-        ticker: Ticker,
-        extension_id: T::AccountId,
-        archive: bool,
-    ) -> DispatchResult {
-        // Ensure the extrinsic is signed and have valid extension id.
-        let did = Self::ensure_signed_and_validate_extension_id(origin, &ticker, &extension_id)?;
-
-        // Mutate the extension details
-        <ExtensionDetails<T>>::try_mutate((ticker, &extension_id), |details| {
-            ensure!(
-                details.is_archive != archive,
-                archive
-                    .then_some(Error::<T>::AlreadyArchived)
-                    .unwrap_or(Error::<T>::AlreadyUnArchived)
-            );
-            details.is_archive = archive;
-
-            let event = match archive {
-                true => RawEvent::ExtensionArchived(did, ticker, extension_id.clone()),
-                false => RawEvent::ExtensionUnArchived(did, ticker, extension_id.clone()),
-            };
-
-            Self::deposit_event(event);
-            Ok(())
-        })
-    }
-    */
 
     fn base_claim_classic_ticker(
         origin: T::Origin,

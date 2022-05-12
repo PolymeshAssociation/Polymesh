@@ -1,5 +1,4 @@
 use crate::{
-    //contract_test::{create_se_template, flipper},
     ext_builder::{ExtBuilder, IdentityRecord, MockProtocolBaseFees},
     pips_test::assert_balance,
     storage::{
@@ -58,7 +57,6 @@ use test_client::AccountKeyring;
 type BaseError = pallet_base::Error<TestStorage>;
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
-//type Contracts = pallet_contracts::Module<TestStorage>;
 type Asset = asset::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
@@ -174,19 +172,6 @@ fn enable_investor_count(ticker: Ticker, owner: User) {
         [StatType::investor_count()].iter().cloned().collect(),
     ));
 }
-
-/*
-fn setup_se_template(creator: User, create_instance: bool) -> AccountId {
-    let (code_hash, wasm) = flipper();
-
-    // Create SE template and instantiate with empty salt.
-    if create_instance {
-        create_se_template(creator.acc(), creator.did, 0, code_hash, wasm);
-    }
-
-    Contracts::contract_address(&creator.acc(), &code_hash, &[])
-}
-*/
 
 crate fn transfer(ticker: Ticker, from: User, to: User, amount: u128) -> DispatchResult {
     Asset::base_transfer(
@@ -848,182 +833,6 @@ fn adding_removing_documents() {
         assert_eq!(asset::AssetDocuments::iter_prefix_values(ticker).count(), 0);
     });
 }
-
-/*
-fn add_smart_ext(
-    owner: User,
-    ticker: Ticker,
-    ty: SmartExtensionType,
-) -> (AccountId, SmartExtension<AccountId>) {
-    let id = setup_se_template(owner, true);
-    let details = SmartExtension {
-        extension_type: ty.clone(),
-        extension_name: b"EXT".into(),
-        extension_id: id.clone(),
-        is_archive: false,
-    };
-    assert_ok!(Asset::add_extension(
-        owner.origin(),
-        ticker,
-        details.clone(),
-    ));
-    assert_eq!(Asset::extension_details((ticker, id.clone())), details);
-    assert_eq!(Asset::extensions((ticker, ty)), [id.clone()]);
-    (id, details)
-}
-
-#[track_caller]
-fn smart_ext_test(logic: impl FnOnce(User, Ticker)) {
-    ExtBuilder::default()
-        .set_max_tms_allowed(10)
-        .set_contracts_put_code(true)
-        .build()
-        .execute_with(|| {
-            let owner = User::new(AccountKeyring::Dave);
-            let (ticker, token) = a_token(owner.did);
-            assert!(!has_ticker_record(ticker));
-            assert_ok!(asset_with_ids(owner, ticker, &token, vec![cusip()]));
-            logic(owner, ticker)
-        });
-}
-
-#[test]
-fn add_extension_limited() {
-    smart_ext_test(|owner, ticker| {
-        let id = setup_se_template(owner, true);
-        let add_ext = |ty: &Vec<u8>, name: &Vec<u8>| {
-            let details = SmartExtension {
-                extension_type: SmartExtensionType::Custom(ty.clone().into()),
-                extension_name: name.clone().into(),
-                extension_id: id.clone().into(),
-                is_archive: false,
-            };
-            Asset::add_extension(owner.origin(), ticker.clone(), details)
-        };
-        let id: Vec<u8> = max_len_bytes(0);
-        let invalid_id: Vec<u8> = max_len_bytes(1);
-
-        assert_too_long!(add_ext(&invalid_id, &id));
-        assert_too_long!(add_ext(&id, &invalid_id));
-        pallet_asset::CompatibleSmartExtVersion::insert(
-            SmartExtensionType::Custom(id.clone().into()),
-            5000,
-        );
-        assert_ok!(add_ext(&id, &id));
-    });
-}
-
-#[test]
-fn add_extension_successfully() {
-    smart_ext_test(|owner, ticker| {
-        add_smart_ext(owner, ticker, SmartExtensionType::TransferManager);
-    });
-}
-
-#[test]
-fn add_same_extension_should_fail() {
-    smart_ext_test(|owner, ticker| {
-        // Add it.
-        let (_, details) = add_smart_ext(owner, ticker, SmartExtensionType::TransferManager);
-
-        // And again, unsuccessfully.
-        assert_noop!(
-            Asset::add_extension(owner.origin(), ticker, details),
-            AssetError::ExtensionAlreadyPresent
-        );
-    });
-}
-
-#[test]
-fn should_successfully_archive_extension() {
-    smart_ext_test(|owner, ticker| {
-        // Add it.
-        let (id, _) = add_smart_ext(owner, ticker, SmartExtensionType::Offerings);
-
-        // Archive it.
-        assert_ok!(Asset::archive_extension(owner.origin(), ticker, id.clone()));
-        assert_eq!(Asset::extension_details((ticker, id)).is_archive, true);
-    });
-}
-
-#[test]
-fn should_fail_to_archive_an_already_archived_extension() {
-    smart_ext_test(|owner, ticker| {
-        // Add it.
-        let (id, _) = add_smart_ext(owner, ticker, SmartExtensionType::Offerings);
-
-        // Archive it.
-        let archive = || Asset::archive_extension(owner.origin(), ticker, id.clone());
-        assert_ok!(archive());
-        assert_eq!(
-            Asset::extension_details((ticker, id.clone())).is_archive,
-            true
-        );
-
-        // And again, unsuccessfully.
-        assert_noop!(archive(), AssetError::AlreadyArchived);
-    });
-}
-
-#[test]
-fn should_fail_to_archive_a_non_existent_extension() {
-    smart_ext_test(|owner, ticker| {
-        // Archive that which doesn't exist.
-        assert_noop!(
-            Asset::archive_extension(owner.origin(), ticker, AccountKeyring::Bob.to_account_id()),
-            AssetError::NoSuchSmartExtension
-        );
-    });
-}
-
-#[test]
-fn should_successfully_unarchive_an_extension() {
-    smart_ext_test(|owner, ticker| {
-        // Add it.
-        let (id, _) = add_smart_ext(owner, ticker, SmartExtensionType::Offerings);
-
-        // Archive it.
-        let is_archive = || Asset::extension_details((ticker, id.clone())).is_archive;
-        let archive = || {
-            assert_ok!(Asset::archive_extension(owner.origin(), ticker, id.clone()));
-            assert_eq!(is_archive(), true);
-        };
-        archive();
-
-        // Unarchive it.
-        assert_ok!(Asset::unarchive_extension(
-            owner.origin(),
-            ticker,
-            id.clone()
-        ));
-        assert_eq!(is_archive(), false);
-
-        // Roundtrip.
-        archive();
-    });
-}
-
-#[test]
-fn should_fail_to_unarchive_an_already_unarchived_extension() {
-    smart_ext_test(|owner, ticker| {
-        // Add it.
-        let (id, _) = add_smart_ext(owner, ticker, SmartExtensionType::Offerings);
-
-        // Archive it.
-        assert_ok!(Asset::archive_extension(owner.origin(), ticker, id.clone()));
-        let is_archive = || Asset::extension_details((ticker, id.clone())).is_archive;
-        assert_eq!(is_archive(), true);
-
-        // Unarchive it.
-        let unarchive = || Asset::unarchive_extension(owner.origin(), ticker, id.clone());
-        assert_ok!(unarchive());
-        assert_eq!(is_archive(), false);
-
-        // And again, unsuccessfully.
-        assert_noop!(unarchive(), AssetError::AlreadyUnArchived);
-    });
-}
-*/
 
 #[test]
 fn freeze_unfreeze_asset() {

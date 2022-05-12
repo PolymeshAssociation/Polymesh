@@ -7,7 +7,6 @@ use frame_support::{
     traits::{tokens::imbalance::SplitTwoWays, KeyOwnerProofSystem},
     weights::Weight,
 };
-//use pallet_contracts::weights::WeightInfo;
 use pallet_asset::checkpoint as pallet_checkpoint;
 use pallet_corporate_actions::ballot as pallet_corporate_ballot;
 use pallet_corporate_actions::distribution as pallet_capital_distribution;
