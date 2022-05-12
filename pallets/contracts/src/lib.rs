@@ -90,7 +90,7 @@ pub trait WeightInfo {
     ///
     /// Permissions are not accounted for here.
     fn instantiate_with_code_bytes(code: &[u8], salt: &[u8]) -> Weight {
-        Self::instantiate_with_code(code.len() as u32 / 1024, salt.len() as u32 / 1024)
+        Self::instantiate_with_code(code.len() as u32, salt.len() as u32)
     }
 
     /// Computes the cost of instantiating where `salt_len` is specified in kilobytes.
@@ -100,7 +100,7 @@ pub trait WeightInfo {
     ///
     /// Permissions are not accounted for here.
     fn instantiate_with_hash_bytes(salt: &[u8]) -> Weight {
-        Self::instantiate_with_hash((salt.len() / 1024) as u32)
+        Self::instantiate_with_hash((salt.len()) as u32)
     }
 
     /// Computes the cost just for executing the chain extension,
