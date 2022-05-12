@@ -18,7 +18,6 @@ use crate::*;
 pub use frame_benchmarking::{account, benchmarks};
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
-//use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_common_utilities::{
@@ -417,39 +416,6 @@ fn setup_affirm_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
 
     (portfolios_to, from_data, to_data, tickers, legs)
 }
-
-/*
-#[allow(dead_code)]
-fn add_smart_extension_to_ticker<T: Config>(
-    code_hash: <T::Hashing as Hash>::Output,
-    origin: RawOrigin<T::AccountId>,
-    account: T::AccountId,
-    ticker: Ticker,
-) {
-    let data = vec![
-        209, 131, 81, 43, 160, 134, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-    ]; // Allow 100% as percentage ownership and allow primary issuance.
-    <polymesh_contracts::Module<T>>::instantiate(
-        origin.clone().into(),
-        0u32.into(),
-        Weight::max_value(),
-        code_hash,
-        data.clone(),
-        0u32.into(),
-    )
-    .expect("Settlement: Failed to instantiate the contract");
-    let extension_id =
-        T::DetermineContractAddress::contract_address_for(&code_hash, &data, &account);
-    let extension_details = SmartExtension {
-        extension_type: SmartExtensionType::TransferManager,
-        extension_name: b"PTM".into(),
-        extension_id: extension_id.clone(),
-        is_archive: false,
-    };
-    <pallet_asset::Module<T>>::add_extension(origin.into(), ticker, extension_details)
-        .expect("Settlement: Fail to add the smart extension to a given asset");
-}
-*/
 
 fn create_receipt_details<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     index: u32,

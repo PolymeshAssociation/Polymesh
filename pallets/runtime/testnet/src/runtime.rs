@@ -13,7 +13,6 @@ use frame_support::{
     weights::Weight,
 };
 use pallet_asset::checkpoint as pallet_checkpoint;
-//use pallet_contracts::weights::WeightInfo;
 use pallet_corporate_actions::ballot as pallet_corporate_ballot;
 use pallet_corporate_actions::distribution as pallet_capital_distribution;
 use pallet_session::historical as pallet_session_historical;
