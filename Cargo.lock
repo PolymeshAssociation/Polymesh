@@ -484,8 +484,9 @@ dependencies = [
 
 [[package]]
 name = "blake2"
-version = "0.9.1"
-source = "git+https://github.com/PolymathNetwork/hashes?branch=master#237feb84842994875159500f9e5e62d6a511d030"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0a4e37d16930f5459780f5621038b6382b9bb37c19016f39fb6b5808d831f174"
 dependencies = [
  "crypto-mac 0.8.0",
  "digest 0.9.0",
@@ -929,7 +930,7 @@ name = "confidential_identity"
 version = "1.0.0"
 source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=confidential-identity-v1#813e82374e951d04560df04472ebf1be7fbac313"
 dependencies = [
- "blake2 0.9.1",
+ "blake2 0.9.2",
  "byteorder",
  "criterion",
  "curve25519-dalek 3.2.0",
@@ -950,9 +951,9 @@ dependencies = [
 [[package]]
 name = "confidential_identity"
 version = "1.1.2"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=confidential-identity-v2#83c17b8da692d5ce1dfa236357c4aa0d2b827795"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=confidential-identity-v2#d2d978ba023fb142ade19d4474385dcfc8b3d6fd"
 dependencies = [
- "blake2 0.9.1",
+ "blake2 0.10.4",
  "byteorder",
  "criterion",
  "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=confidential-identity-v2)",
@@ -1292,9 +1293,9 @@ dependencies = [
 [[package]]
 name = "cryptography_core"
 version = "1.0.0"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=confidential-identity-v2#83c17b8da692d5ce1dfa236357c4aa0d2b827795"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=confidential-identity-v2#d2d978ba023fb142ade19d4474385dcfc8b3d6fd"
 dependencies = [
- "blake2 0.9.1",
+ "blake2 0.10.4",
  "bulletproofs",
  "byteorder",
  "criterion",
@@ -6503,7 +6504,7 @@ dependencies = [
 name = "polymesh-primitives"
 version = "2.0.0"
 dependencies = [
- "blake2 0.9.1",
+ "blake2 0.10.4",
  "chrono",
  "confidential_identity 1.0.0",
  "confidential_identity 1.1.2",
@@ -11585,18 +11586,18 @@ dependencies = [
 
 [[package]]
 name = "zstd"
-version = "0.10.0+zstd.1.5.2"
+version = "0.10.2+zstd.1.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b1365becbe415f3f0fcd024e2f7b45bacfb5bdd055f0dc113571394114e7bdd"
+checksum = "5f4a6bd64f22b5e3e94b4e238669ff9f10815c27a5180108b849d24174a83847"
 dependencies = [
  "zstd-safe",
 ]
 
 [[package]]
 name = "zstd-safe"
-version = "4.1.4+zstd.1.5.2"
+version = "4.1.6+zstd.1.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f7cd17c9af1a4d6c24beb1cc54b17e2ef7b593dc92f19e9d9acad8b182bbaee"
+checksum = "94b61c51bb270702d6167b8ce67340d2754b088d0c091b06e593aa772c3ee9bb"
 dependencies = [
  "libc",
  "zstd-sys",

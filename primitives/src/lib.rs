@@ -78,13 +78,10 @@ impl From<(u32, u32)> for PosRatio {
 
 /// It creates a scalar from the blake2_512 hash of `data` parameter.
 pub fn scalar_blake2_from_bytes(data: impl AsRef<[u8]>) -> ScalarV1 {
-    let mut hash = [0u8; 64];
-    hash.copy_from_slice(
-        Blake2b::default()
-            .chain(data.as_ref())
-            .finalize()
-            .as_slice(),
-    );
+    let hash = Blake2b::default()
+        .chain_update(data.as_ref())
+        .finalize()
+        .into();
     ScalarV1::from_bytes_mod_order_wide(&hash)
 }
 
