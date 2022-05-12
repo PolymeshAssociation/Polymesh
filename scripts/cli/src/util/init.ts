@@ -274,8 +274,6 @@ export function sendTransaction(
       signer,
       nonceObj,
       (receipt) => {
-        const { status } = receipt;
-
         if (receipt.isCompleted) {
           /*
            * isCompleted === isFinalized || isError, which means
@@ -297,9 +295,7 @@ export function sendTransaction(
                 // known error
                 const mod = dispatchError.asModule;
                 const { section, name, docs } =
-                  mod.registry.findMetaError(
-                    new Uint8Array([mod.index.toNumber(), mod.error.toNumber()])
-                  );
+                  mod.registry.findMetaError(mod);
 
                 message = `${section}.${name}: ${docs.join(" ")}`;
               } else if (dispatchError.isBadOrigin) {
