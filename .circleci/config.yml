@@ -162,7 +162,7 @@ jobs:
   coverage:
     docker:
       - image: cimg/rust:1.60.0
-    resource_class: large
+    resource_class: xlarge
     environment:
       - VERBOSE: "1"
     steps:
