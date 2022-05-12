@@ -159,14 +159,13 @@ pub trait WeightInfo {
     }
 
     /// Add complexity cost of Permissions to `add_secondary_keys_with_authorization` extrinsic.
-    fn add_secondary_keys_perms_cost<'a>(perms: impl Iterator<Item = &'a Permissions>) -> Weight {
-        let (perm_cost, len) = perms.fold((0u64, 0u32), |(cost, len), key| {
-            (
-                cost.saturating_add(Self::permissions_cost_perms(key)),
-                len + 1,
-            )
-        });
-        perm_cost.saturating_add(Self::add_secondary_keys_with_authorization(len))
+    fn add_secondary_keys_perms_cost<'a>(
+        perms: impl ExactSizeIterator<Item = &'a Permissions>,
+    ) -> Weight {
+        let len_cost = Self::add_secondary_keys_with_authorization(perms.len() as u32);
+        perms.fold(len_cost, |cost, key| {
+            cost.saturating_add(Self::permissions_cost_perms(key))
+        })
     }
 
     /// Add complexity cost of Permissions to `add_authorization` extrinsic.
