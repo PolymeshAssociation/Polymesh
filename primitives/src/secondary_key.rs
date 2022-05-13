@@ -451,8 +451,8 @@ pub mod v1 {
 
     /// Old v1 secondary key.
     #[derive(Encode, Decode, TypeInfo)]
-    #[derive(Clone, Default, PartialEq, Eq)]
-    #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+    #[derive(Clone, Debug, Default, PartialEq, Eq)]
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     pub struct SecondaryKey<AccountId> {
         /// Signer.
         pub signer: Signatory<AccountId>,

@@ -87,16 +87,16 @@
         "Local": "u64"
       }
     },
-    "AssetMetadataLockStatus<Moment>": {
+    "AssetMetadataLockStatus": {
       "_enum": {
         "Unlocked": "",
         "Locked": "",
         "LockedUntil": "Moment"
       }
     },
-    "AssetMetadataValueDetail<Moment>": {
+    "AssetMetadataValueDetail": {
       "expire": "Option<Moment>",
-      "lock_status": "AssetMetadataLockStatus<Moment>"
+      "lock_status": "AssetMetadataLockStatus"
     },
     "AssetMetadataDescription": "Text",
     "AssetMetadataSpec": {
