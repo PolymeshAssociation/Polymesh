@@ -916,6 +916,10 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       MultisigMissingIdentity: AugmentedError<ApiType>;
       /**
+       * Multisig not allowed to add itself as a signer.
+       **/
+      MultisigNotAllowedToLinkToItself: AugmentedError<ApiType>;
+      /**
        * A nonce overflow.
        **/
       NonceOverflow: AugmentedError<ApiType>;
@@ -967,10 +971,6 @@ declare module '@polkadot/api-base/types/errors' {
        * Signer is an account key that is already associated with a multisig.
        **/
       SignerAlreadyLinkedToMultisig: AugmentedError<ApiType>;
-      /**
-       * Signer is the multisig.  The multisig account can't be a signer to itself.
-       **/
-      SignerSameAsMultisig: AugmentedError<ApiType>;
       /**
        * More signers than required.
        **/
@@ -1777,6 +1777,10 @@ declare module '@polkadot/api-base/types/errors' {
        * Proposer's balance is too low.
        **/
       InsufficientBalance: AugmentedError<ApiType>;
+      /**
+       * Invalid identity for disbursement.
+       **/
+      InvalidIdentity: AugmentedError<ApiType>;
       /**
        * Generic error
        **/
