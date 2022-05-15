@@ -587,27 +587,29 @@ macro_rules! runtime_apis {
             Block,
             frame_system::ChainContext<Runtime>,
             Runtime,
-            AllPalletsWithoutSystemReversed,
-            (SchedulerMigrationV3),
+            AllPalletsWithSystem,
+            MigrationV4toV5,
         >;
 
-        // Migration for scheduler pallet to move from a plain Call to a CallOrHash.
-        pub struct SchedulerMigrationV3;
+        // Trait needed for frame-system migration.
+        impl frame_system::migrations::V2ToV3 for Runtime {
+            type Pallet = frame_system::Pallet<Runtime>;
+            type AccountId = polymesh_primitives::AccountId;
+            type Index = polymesh_primitives::Index;
+            type AccountData = polymesh_common_utilities::traits::balances::AccountData;
+        }
 
-        impl frame_support::traits::OnRuntimeUpgrade for SchedulerMigrationV3 {
-        	fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        		Scheduler::migrate_v2_to_v3()
-        	}
-
-        	#[cfg(feature = "try-runtime")]
-        	fn pre_upgrade() -> Result<(), &'static str> {
-        		Scheduler::pre_migrate_to_v3()
-        	}
-
-        	#[cfg(feature = "try-runtime")]
-        	fn post_upgrade() -> Result<(), &'static str> {
-        		Scheduler::post_migrate_to_v3()
-        	}
+        // Polymesh V4 -> V5 runtime migrations.
+        pub struct MigrationV4toV5;
+        impl frame_support::traits::OnRuntimeUpgrade for MigrationV4toV5 {
+            fn on_runtime_upgrade() -> Weight {
+                // System migration.
+                frame_system::migrations::migrate_from_dual_to_triple_ref_count::<Runtime>()
+                // Scheduler migration.
+                    .saturating_add(Scheduler::migrate_v2_to_v3())
+                // Contracts migration.
+                    .saturating_add(pallet_contracts::migration::migrate::<Runtime>())
+            }
         }
 
         sp_api::impl_runtime_apis! {
