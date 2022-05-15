@@ -607,8 +607,6 @@ macro_rules! runtime_apis {
                 frame_system::migrations::migrate_from_dual_to_triple_ref_count::<Runtime>()
                 // Scheduler migration.
                     .saturating_add(Scheduler::migrate_v2_to_v3())
-                // Contracts migration.
-                    .saturating_add(pallet_contracts::migration::migrate::<Runtime>())
             }
         }
 
