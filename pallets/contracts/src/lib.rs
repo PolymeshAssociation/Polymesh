@@ -63,7 +63,7 @@ use frame_support::{
 use frame_system::RawOrigin;
 use pallet_contracts::chain_extension as ce;
 use pallet_contracts::Config as BConfig;
-use pallet_contracts_primitives::{Code, ContractResult};
+use pallet_contracts_primitives::{Code, ContractInstantiateResult, ContractResult};
 use pallet_identity::PermissionedCallOriginData;
 use pallet_identity::WeightInfo as _;
 use pallet_permissions::with_call_metadata;
@@ -73,6 +73,7 @@ use polymesh_primitives::{Balance, IdentityId, Permissions};
 use sp_core::crypto::UncheckedFrom;
 use sp_core::Bytes;
 use sp_runtime::traits::Hash;
+use sp_std::borrow::Cow;
 use sp_std::vec::Vec;
 
 type Identity<T> = pallet_identity::Module<T>;
@@ -405,7 +406,6 @@ impl<T: Config> Module<T> {
             // Compute the base weight of roughly `base_instantiate`.
             Self::weight_instantiate_with_code(&code, &salt, &perms),
             gas_limit,
-            T::Hashing::hash(&code),
             Code::Upload(Bytes(code)),
             inst_data,
             salt,
@@ -436,7 +436,6 @@ impl<T: Config> Module<T> {
             // Compute the base weight of roughly `base_instantiate`.
             Self::weight_instantiate_with_hash(&salt, &perms),
             gas_limit,
-            code_hash,
             Code::Existing(code_hash),
             inst_data,
             salt,
@@ -463,7 +462,6 @@ impl<T: Config> Module<T> {
         endowment: Balance,
         base_weight: Weight,
         gas_limit: Weight,
-        code_hash: CodeHash<T>,
         code: Code<CodeHash<T>>,
         inst_data: Vec<u8>,
         salt: Vec<u8>,
@@ -478,7 +476,7 @@ impl<T: Config> Module<T> {
 
         with_transaction(|| {
             // Roll back `prepare_instantiate` if contract was not instantiated.
-            Self::prepare_instantiate(did, &sender, &code_hash, &salt, perms)?;
+            Self::prepare_instantiate(did, &sender, &Self::code_hash(&code), &salt, perms)?;
 
             // Now we can finally instantiate the contract.
             Self::handle_error(
@@ -494,6 +492,50 @@ impl<T: Config> Module<T> {
                 ),
             )
         })
+    }
+
+    /// Logic used by RPC to instantiate a contract `code`.
+    ///
+    /// N.B. on pre-instantiation errors, required and consumed gases will be zeroed.
+    pub fn rpc_instantiate(
+        sender: T::AccountId,
+        endowment: Balance,
+        gas_limit: u64,
+        code: Code<CodeHash<T>>,
+        data: Vec<u8>,
+        salt: Vec<u8>,
+    ) -> ContractInstantiateResult<T::AccountId> {
+        match (|| {
+            // Ensure we have perms + we'll need DID.
+            let did =
+                pallet_permissions::Module::<T>::ensure_call_permissions(&sender)?.primary_did;
+
+            // Roll back `prepare_instantiate` if contract was not instantiated.
+            let code_hash = Self::code_hash(&code);
+            Self::prepare_instantiate(did, &sender, &code_hash, &salt, Permissions::empty())?;
+
+            Ok(FrameContracts::<T>::bare_instantiate(
+                sender, endowment, gas_limit, code, data, salt, false,
+            ))
+        })() {
+            Ok(r) => r,
+            Err(e) => ContractResult {
+                debug_message: Vec::new(),
+                result: Err(e),
+                // Never entered contract execution,
+                // so no gas related to the limit has yet been consumed.
+                gas_consumed: 0,
+                gas_required: 0,
+            },
+        }
+    }
+
+    /// Computes the code hash of `code`.
+    fn code_hash(code: &Code<CodeHash<T>>) -> Cow<'_, CodeHash<T>> {
+        match &code {
+            Code::Existing(h) => Cow::Borrowed(h),
+            Code::Upload(c) => Cow::Owned(T::Hashing::hash(c)),
+        }
     }
 
     /// Prepare instantiation of a contract by trying to add it as a secondary key.

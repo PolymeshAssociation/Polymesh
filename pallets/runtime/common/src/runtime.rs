@@ -743,14 +743,14 @@ macro_rules! runtime_apis {
                 }
 
                 fn instantiate(
-                    origin: polymesh_primitives::AccountId,
+                    sender: polymesh_primitives::AccountId,
                     endowment: Balance,
                     gas_limit: u64,
                     code: pallet_contracts_primitives::Code<polymesh_primitives::Hash>,
                     data: Vec<u8>,
                     salt: Vec<u8>,
                 ) -> pallet_contracts_primitives::ContractInstantiateResult<polymesh_primitives::AccountId> {
-                    Contracts::bare_instantiate(origin, endowment, gas_limit, code, data, salt, false)
+                    PolymeshContracts::rpc_instantiate(sender, endowment, gas_limit, code, data, salt)
                 }
 
                 fn get_storage(
