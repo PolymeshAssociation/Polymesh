@@ -69,8 +69,8 @@ pallet-authority-discovery = { version = "4.0.0-dev", default-features = false }
 pallet-authorship = { version = "4.0.0-dev", default-features = false }
 pallet-babe = { version = "4.0.0-dev", default-features = false }
 pallet-contracts = { version = "4.0.0-dev", default-features = false }
-#pallet-contracts-primitives = { version = "4.0.0-dev", default-features = false }
-#pallet-contracts-rpc-runtime-api = { version = "4.0.0-dev", default-features = false }
+pallet-contracts-primitives = { version = "4.0.0-dev", default-features = false }
+pallet-contracts-rpc-runtime-api = { version = "4.0.0-dev", default-features = false }
 pallet-executive = { package = "frame-executive", version = "4.0.0-dev", default-features = false }
 pallet-grandpa = { version = "4.0.0-dev", default-features = false }
 pallet-im-online = { version = "4.0.0-dev", default-features = false }

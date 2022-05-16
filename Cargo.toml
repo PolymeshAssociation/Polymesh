@@ -24,8 +24,8 @@ pallet-babe = { git = "https://github.com/PolymathNetwork/substrate", branch = "
 pallet-balances = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 pallet-contracts = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 pallet-contracts-primitives = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
-#pallet-contracts-rpc = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
-#pallet-contracts-rpc-runtime-api = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
+pallet-contracts-rpc = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
+pallet-contracts-rpc-runtime-api = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 pallet-grandpa = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 pallet-im-online = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
 pallet-indices = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop" }
@@ -122,7 +122,7 @@ members = [
     "pallets/committee",
     "pallets/common",
     "pallets/compliance-manager",
-    #"pallets/contracts",
+    "pallets/contracts",
     "pallets/corporate-actions",
     "pallets/external-agents",
     "pallets/group",
@@ -212,8 +212,7 @@ frame-support = "4.0.0-dev"
 frame-system = "4.0.0-dev"
 frame-system-rpc-runtime-api = "4.0.0-dev"
 grandpa = { package = "sc-finality-grandpa", version = "0.10.0-dev" }
-#pallet-contracts = "4.0.0-dev"
-#pallet-contracts-rpc-runtime-api = "4.0.0-dev"
+pallet-contracts-rpc-runtime-api = "4.0.0-dev"
 pallet-babe = "4.0.0-dev"
 pallet-im-online = "4.0.0-dev"
 pallet-indices = "4.0.0-dev"

@@ -725,34 +725,41 @@ macro_rules! runtime_apis {
                 }
             }
 
-            /*
-            impl pallet_contracts_rpc_runtime_api::ContractsApi<Block, polymesh_primitives::AccountId, Balance, BlockNumber>
-                for Runtime
-            {
+            impl pallet_contracts_rpc_runtime_api::ContractsApi<
+                Block,
+                polymesh_primitives::AccountId,
+                Balance,
+                BlockNumber,
+                polymesh_primitives::Hash,
+            > for Runtime {
                 fn call(
                     origin: polymesh_primitives::AccountId,
                     dest: polymesh_primitives::AccountId,
                     value: Balance,
                     gas_limit: u64,
                     input_data: Vec<u8>,
-                ) -> ContractExecResult {
-                    BaseContracts::bare_call(origin, dest.into(), value, gas_limit, input_data)
+                ) -> pallet_contracts_primitives::ContractExecResult {
+                    Contracts::bare_call(origin, dest, value, gas_limit, input_data, false)
+                }
+
+                fn instantiate(
+                    sender: polymesh_primitives::AccountId,
+                    endowment: Balance,
+                    gas_limit: u64,
+                    code: pallet_contracts_primitives::Code<polymesh_primitives::Hash>,
+                    data: Vec<u8>,
+                    salt: Vec<u8>,
+                ) -> pallet_contracts_primitives::ContractInstantiateResult<polymesh_primitives::AccountId> {
+                    PolymeshContracts::rpc_instantiate(sender, endowment, gas_limit, code, data, salt)
                 }
 
                 fn get_storage(
                     address: polymesh_primitives::AccountId,
                     key: [u8; 32],
                 ) -> pallet_contracts_primitives::GetStorageResult {
-                    BaseContracts::get_storage(address, key)
-                }
-
-                fn rent_projection(
-                    address: polymesh_primitives::AccountId,
-                ) -> pallet_contracts_primitives::RentProjectionResult<BlockNumber> {
-                    BaseContracts::rent_projection(address)
+                    Contracts::get_storage(address, key)
                 }
             }
-            */
 
             impl node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<
                 Block,
