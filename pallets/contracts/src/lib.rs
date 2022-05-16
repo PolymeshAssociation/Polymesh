@@ -510,7 +510,7 @@ impl<T: Config> Module<T> {
             let did =
                 pallet_permissions::Module::<T>::ensure_call_permissions(&sender)?.primary_did;
 
-            // Roll back `prepare_instantiate` if contract was not instantiated.
+            // Add a secondary key. Deployment contract code might need this.
             let code_hash = Self::code_hash(&code);
             Self::prepare_instantiate(did, &sender, &code_hash, &salt, Permissions::empty())?;
 
