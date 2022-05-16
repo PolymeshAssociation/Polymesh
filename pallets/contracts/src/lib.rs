@@ -256,7 +256,7 @@ decl_module! {
         /// - All the errors in `pallet_contracts::Call::instantiate_with_code` can also happen here.
         /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
         /// - Errors that arise when adding a new secondary key can also occur here.
-        #[weight = Module::<T>::weight_instantiate_with_code(&code, &salt, &Permissions::empty())]
+        #[weight = Module::<T>::weight_instantiate_with_code(&code, &salt, &Permissions::empty()).saturating_add(*gas_limit)]
         pub fn instantiate_with_code(
             origin,
             endowment: Balance,
@@ -295,7 +295,7 @@ decl_module! {
         /// - All the errors in `pallet_contracts::Call::instantiate` can also happen here.
         /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
         /// - Errors that arise when adding a new secondary key can also occur here.
-        #[weight = Module::<T>::weight_instantiate_with_hash(&salt, &Permissions::empty())]
+        #[weight = Module::<T>::weight_instantiate_with_hash(&salt, &Permissions::empty()).saturating_add(*gas_limit)]
         pub fn instantiate(
             origin,
             endowment: Balance,
@@ -332,7 +332,7 @@ decl_module! {
         /// - All the errors in `pallet_contracts::Call::instantiate_with_code` can also happen here.
         /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
         /// - Errors that arise when adding a new secondary key can also occur here.
-        #[weight = Module::<T>::weight_instantiate_with_code(&code, &salt, &perms)]
+        #[weight = Module::<T>::weight_instantiate_with_code(&code, &salt, &perms).saturating_add(*gas_limit)]
         pub fn instantiate_with_code_perms(
             origin,
             endowment: Balance,
@@ -373,7 +373,7 @@ decl_module! {
         /// - All the errors in `pallet_contracts::Call::instantiate` can also happen here.
         /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
         /// - Errors that arise when adding a new secondary key can also occur here.
-        #[weight = Module::<T>::weight_instantiate_with_hash(&salt, &perms)]
+        #[weight = Module::<T>::weight_instantiate_with_hash(&salt, &perms).saturating_add(*gas_limit)]
         pub fn instantiate_with_hash_perms(
             origin,
             endowment: Balance,
