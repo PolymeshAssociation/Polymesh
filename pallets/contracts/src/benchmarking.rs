@@ -61,7 +61,7 @@ fn free_balance<T: Config>(acc: &T::AccountId) -> Balance {
 /// Returns the address of the new contract.
 fn instantiate<T: Config>(user: &User<T>, wasm: WasmModule<T>, salt: Vec<u8>) -> T::AccountId {
     let callee = Base::<T>::contract_address(&user.account(), &wasm.hash, &salt);
-    Pallet::<T>::instantiate_with_code(
+    Pallet::<T>::instantiate_with_code_perms(
         user.origin().into(),
         ENDOWMENT,   // endowment
         Weight::MAX, // gas limit
@@ -203,7 +203,7 @@ benchmarks! {
 
         // Pre-instantiate a contract so that one with the hash exists.
         let _ = instantiate::<T>(&user, wasm, salt());
-    }: _(user.origin(), ENDOWMENT, Weight::MAX, None, hash, vec![], other_salt, Permissions::empty())
+    }: instantiate(user.origin(), ENDOWMENT, Weight::MAX, None, hash, vec![], other_salt)
     verify {
         // Ensure contract has the full value.
         assert_eq!(free_balance::<T>(&addr), ENDOWMENT);
@@ -234,7 +234,7 @@ benchmarks! {
         // Construct the contract code + get addr.
         let wasm = WasmModule::<T>::sized(c, Location::Deploy);
         let addr = Base::<T>::contract_address(&user.account(), &wasm.hash, &salt);
-    }: _(user.origin(), ENDOWMENT, Weight::MAX, None, wasm.code, vec![], salt, Permissions::empty())
+    }: _(user.origin(), ENDOWMENT, Weight::MAX, None, wasm.code, vec![], salt)
     verify {
         // Ensure contract has the full value.
         assert_eq!(free_balance::<T>(&addr), ENDOWMENT);
