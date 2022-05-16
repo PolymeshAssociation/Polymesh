@@ -82,6 +82,8 @@ type CodeHash<T> = <T as frame_system::Config>::Hash;
 
 pub trait WeightInfo {
     fn call() -> Weight;
+    fn upload_code(code_len: u32) -> Weight;
+    fn remove_code() -> Weight;
 
     /// Computes the cost of instantiating where `code_len`
     /// and `salt_len` are specified in kilobytes.
@@ -308,6 +310,43 @@ decl_module! {
             Self::base_instantiate_with_hash(origin, endowment, gas_limit, storage_deposit_limit, code_hash, data, salt, Permissions::empty())
         }
 
+        /// Upload new `code` without instantiating a contract from it.
+        ///
+        /// If the code does not already exist a deposit is reserved from the caller
+        /// and unreserved only when [`Self::remove_code`] is called. The size of the reserve
+        /// depends on the instrumented size of the the supplied `code`.
+        ///
+        /// If the code already exists in storage it will still return `Ok` and upgrades
+        /// the in storage version to the current
+        /// [`InstructionWeights::version`](InstructionWeights).
+        ///
+        /// # Note
+        ///
+        /// Anyone can instantiate a contract from any uploaded code and thus prevent its removal.
+        /// To avoid this situation a constructor could employ access control so that it can
+        /// only be instantiated by permissioned entities. The same is true when uploading
+        /// through [`Self::instantiate_with_code`].
+        #[weight = <T as Config>::WeightInfo::upload_code(code.len() as u32)]
+        pub fn upload_code(
+            origin,
+            code: Vec<u8>,
+            storage_deposit_limit: Option<Balance>,
+        ) -> DispatchResult {
+            Self::base_upload_code(origin, code, storage_deposit_limit)
+        }
+
+        /// Remove the code stored under `code_hash` and refund the deposit to its owner.
+        ///
+        /// A code can only be removed by its original uploader (its owner) and only if it is
+        /// not used by any contract.
+        #[weight = <T as Config>::WeightInfo::remove_code()]
+        pub fn remove_code(
+            origin,
+            code_hash: CodeHash<T>,
+        ) -> DispatchResultWithPostInfo {
+            Self::base_remove_code(origin, code_hash)
+        }
+
         /// Instantiates a smart contract defining it with the given `code` and `salt`.
         ///
         /// The contract will be attached as a secondary key,
@@ -480,6 +519,26 @@ impl<T: Config> Module<T> {
         <T as Config>::WeightInfo::instantiate_with_hash_bytes(&salt).saturating_add(
             <T as IdentityConfig>::WeightInfo::permissions_cost_perms(perms),
         )
+    }
+
+    /// Upload new code without instantiating a contract from it.
+    fn base_upload_code(
+        origin: T::Origin,
+        code: Vec<u8>,
+        storage_deposit_limit: Option<Balance>,
+    ) -> DispatchResult {
+        // Ensure contract caller has perms.
+        let sender = Identity::<T>::ensure_origin_call_permissions(origin)?.sender;
+        FrameContracts::<T>::bare_upload_code(sender, code, storage_deposit_limit.map(Into::into))
+            .map(|_| ())
+    }
+
+    /// Remove the code stored under `code_hash` and refund the deposit to its owner.
+    fn base_remove_code(origin: T::Origin, code_hash: CodeHash<T>) -> DispatchResultWithPostInfo {
+        // Ensure contract caller has perms.
+        Identity::<T>::ensure_origin_call_permissions(origin.clone())?;
+        // Remove the contract code if the caller is the owner and the code is unused.
+        FrameContracts::<T>::remove_code(origin, code_hash)
     }
 
     /// General logic for contract instantiation both when the code or code hash is given.

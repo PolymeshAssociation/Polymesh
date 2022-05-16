@@ -90,6 +90,24 @@ impl polymesh_contracts::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(12 as Weight))
             .saturating_add(DbWeight::get().writes(3 as Weight))
     }
+    // Storage: Contracts CodeStorage (r:1 w:1)
+    // Storage: Contracts PristineCode (r:0 w:1)
+    // Storage: Contracts OwnerInfoOf (r:0 w:1)
+    fn upload_code(c: u32) -> Weight {
+        (42_493_000 as Weight)
+            // Standard Error: 0
+            .saturating_add((49_000 as Weight).saturating_mul(c as Weight))
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
+    // Storage: Contracts OwnerInfoOf (r:1 w:1)
+    // Storage: Contracts CodeStorage (r:0 w:1)
+    // Storage: Contracts PristineCode (r:0 w:1)
+    fn remove_code() -> Weight {
+        (24_533_000 as Weight)
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
+    }
     // Storage: Identity KeyRecords (r:2 w:1)
     // Storage: Contracts CodeStorage (r:1 w:1)
     // Storage: Contracts AccountCounter (r:1 w:1)
