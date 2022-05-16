@@ -548,7 +548,6 @@ macro_rules! runtime_apis {
     ($($extra:item)*) => {
         use node_rpc_runtime_api::asset as rpc_api_asset;
         use sp_inherents::{CheckInherentsResult, InherentData};
-        //use pallet_contracts_primitives::ContractExecResult;
         use pallet_identity::types::{AssetDidResult, CddStatus, RpcDidRecords, DidStatus, KeyIdentityData};
         use pallet_pips::{Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
@@ -778,20 +777,30 @@ macro_rules! runtime_apis {
                     dest: polymesh_primitives::AccountId,
                     value: Balance,
                     gas_limit: u64,
+                    storage_deposit_limit: Option<Balance>,
                     input_data: Vec<u8>,
-                ) -> pallet_contracts_primitives::ContractExecResult {
-                    Contracts::bare_call(origin, dest, value, gas_limit, input_data, false)
+                ) -> pallet_contracts_primitives::ContractExecResult<Balance> {
+                    Contracts::bare_call(origin, dest, value, gas_limit, storage_deposit_limit, input_data, false)
                 }
 
                 fn instantiate(
-                    sender: polymesh_primitives::AccountId,
-                    endowment: Balance,
+                    origin: polymesh_primitives::AccountId,
+                    value: Balance,
                     gas_limit: u64,
+                    storage_deposit_limit: Option<Balance>,
                     code: pallet_contracts_primitives::Code<polymesh_primitives::Hash>,
                     data: Vec<u8>,
                     salt: Vec<u8>,
-                ) -> pallet_contracts_primitives::ContractInstantiateResult<polymesh_primitives::AccountId> {
-                    PolymeshContracts::rpc_instantiate(sender, endowment, gas_limit, code, data, salt)
+                ) -> pallet_contracts_primitives::ContractInstantiateResult<polymesh_primitives::AccountId, Balance> {
+                    PolymeshContracts::rpc_instantiate(origin, value, gas_limit, storage_deposit_limit, code, data, salt)
+                }
+
+                fn upload_code(
+                    origin: polymesh_primitives::AccountId,
+                    code: Vec<u8>,
+                    storage_deposit_limit: Option<Balance>,
+                ) -> pallet_contracts_primitives::CodeUploadResult<polymesh_primitives::Hash, Balance> {
+                    Contracts::bare_upload_code(origin, code, storage_deposit_limit)
                 }
 
                 fn get_storage(

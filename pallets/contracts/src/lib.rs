@@ -539,7 +539,7 @@ impl<T: Config> Module<T> {
         code: Code<CodeHash<T>>,
         data: Vec<u8>,
         salt: Vec<u8>,
-    ) -> ContractInstantiateResult<T::AccountId> {
+    ) -> ContractInstantiateResult<T::AccountId, Balance> {
         match (|| {
             // Ensure we have perms + we'll need DID.
             let did =
@@ -550,7 +550,14 @@ impl<T: Config> Module<T> {
             Self::prepare_instantiate(did, &sender, &code_hash, &salt, Permissions::empty())?;
 
             Ok(FrameContracts::<T>::bare_instantiate(
-                sender, endowment, gas_limit, storage_deposit_limit, code, data, salt, false,
+                sender,
+                endowment,
+                gas_limit,
+                storage_deposit_limit,
+                code,
+                data,
+                salt,
+                false,
             ))
         })() {
             Ok(r) => r,
@@ -561,6 +568,7 @@ impl<T: Config> Module<T> {
                 // so no gas related to the limit has yet been consumed.
                 gas_consumed: 0,
                 gas_required: 0,
+                storage_deposit: Default::default(),
             },
         }
     }
