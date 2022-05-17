@@ -2,7 +2,7 @@
 name = "polymesh-runtime-develop"
 version = "0.1.0"
 authors = ["Polymath Inc."]
-edition = "2018"
+edition = "2021"
 build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -50,13 +50,13 @@ serde = { version = "1.0.104", default-features = false }
 log = "0.4.8"
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-scale-info = { version = "1.0", default-features = false, features = ["derive"] }
-sp-core = { version = "4.0.0-dev", default-features = false }
-sp-std = { version = "4.0.0-dev", default-features = false }
-sp-io = { version = "4.0.0-dev", default-features = false }
-sp-runtime = { version = "4.0.0-dev", default-features = false }
-sp-version = { version = "4.0.0-dev", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.0", default-features = false, features = ["derive"] }
+sp-core = { version = "6.0.0", default-features = false }
+sp-std = { version = "4.0.0", default-features = false }
+sp-io = { version = "6.0.0", default-features = false }
+sp-runtime = { version = "6.0.0", default-features = false }
+sp-version = { version = "5.0.0", default-features = false }
 sp-api = { version = "4.0.0-dev", default-features = false }
 sp-inherents = { version = "4.0.0-dev", default-features = false }
 sp-offchain = { version = "4.0.0-dev", default-features = false }
@@ -66,16 +66,17 @@ sp-session = { version = "4.0.0-dev", default-features = false }
 sp-authority-discovery = { version = "4.0.0-dev", default-features = false }
 sp-transaction-pool = { version = "4.0.0-dev", default-features = false }
 sp-block-builder = { version = "4.0.0-dev", default-features = false }
-sp-arithmetic = { version = "4.0.0-dev", default-features = false }
+sp-arithmetic = { version = "5.0.0", default-features = false }
 #
 pallet-authorship = { version = "4.0.0-dev", default-features = false }
 pallet-contracts = { version = "4.0.0-dev", default-features = false }
-pallet-contracts-primitives = { version = "4.0.0-dev", default-features = false }
+pallet-contracts-primitives = { version = "6.0.0", default-features = false }
 pallet-executive = { package = "frame-executive", version = "4.0.0-dev", default-features = false }
 pallet-grandpa = { version = "4.0.0-dev", default-features = false }
 pallet-im-online = { version = "4.0.0-dev", default-features = false }
 pallet-indices = { version = "4.0.0-dev", default-features = false }
 pallet-offences = { version = "4.0.0-dev", default-features = false }
+pallet-preimage = { version = "4.0.0-dev", default-features = false }
 pallet-session = { version = "4.0.0-dev", default-features = false }
 pallet-timestamp = { version = "4.0.0-dev", default-features = false }
 pallet-babe = { version = "4.0.0-dev", default-features = false }
@@ -102,6 +103,9 @@ frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional
 frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
 hex-literal = { version = "0.3.1", optional = true }
 
+# Import 'getrandom' here to enable feature `getrandom/js` for wasm builds.
+getrandom = { version = "0.2.6", default-features = false, optional = true }
+
 [build-dependencies]
 polymesh-build-tool = { path = "../build_tool", default-features = false }
 
@@ -123,7 +127,6 @@ std = [
     "codec/std",
     "frame-benchmarking/std",
     "frame-support/std",
-    "frame-system-benchmarking/std",
     "frame-system-rpc-runtime-api/std",
     "frame-system/std",
     "node-rpc-runtime-api/std",
@@ -151,6 +154,7 @@ std = [
     "pallet-multisig/std",
     "pallet-offences/std",
     "pallet-permissions/std",
+    "pallet-preimage/std",
     "pallet-pips/std",
     "pallet-portfolio/std",
     "pallet-protocol-fee-rpc-runtime-api/std",
@@ -194,13 +198,15 @@ std = [
     "polymesh-extensions/std",
 ]
 runtime-benchmarks = [
-    "frame-benchmarking",
+		"getrandom/js",
+    "frame-benchmarking/runtime-benchmarks",
     "frame-support/runtime-benchmarks",
     "frame-system-benchmarking",
     "frame-system/runtime-benchmarks",
     "pallet-babe/runtime-benchmarks",
     "pallet-indices/runtime-benchmarks",
     "pallet-grandpa/runtime-benchmarks",
+    "pallet-preimage/runtime-benchmarks",
     "pallet-scheduler/runtime-benchmarks",
     "hex-literal",
     "pallet-asset/runtime-benchmarks",

@@ -158,7 +158,7 @@ where
     }
 
     fn post_dispatch(
-        _: Self::Pre,
+        _: Option<Self::Pre>,
         _: &DispatchInfoOf<Self::Call>,
         _: &PostDispatchInfoOf<Self::Call>,
         _: usize,

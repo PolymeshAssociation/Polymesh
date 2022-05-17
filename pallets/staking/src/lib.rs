@@ -296,7 +296,7 @@ pub mod inflation;
 pub mod weights;
 
 use core::fmt;
-use crate::_npos::{NposSolution, EvaluateSupport};
+use crate::_feps::NposSolution;
 use codec::{Decode, Encode, HasCompact};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -326,10 +326,14 @@ use pallet_session::historical;
 use polymesh_common_utilities::{identity::Config as IdentityConfig, Context, GC_DID};
 use polymesh_primitives::IdentityId;
 use scale_info::TypeInfo;
+use frame_election_provider_support::{
+    generate_solution_type,
+};
 use sp_npos_elections::{
-    generate_solution_type, is_score_better, seq_phragmen, to_support_map,
+    seq_phragmen, to_support_map,
     Assignment, ElectionResult as PrimitiveElectionResult, ElectionScore,
-    ExtendedBalance, PerThing128, Supports, SupportMap, VoteWeight,
+    EvaluateSupport, ExtendedBalance,
+    PerThing128, Supports, SupportMap, VoteWeight,
 };
 use sp_runtime::{
     curve::PiecewiseLinear,
@@ -341,12 +345,13 @@ use sp_runtime::{
         InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
         TransactionValidityError, ValidTransaction,
     },
+    ModuleError,
     DispatchError, PerU16, Perbill, Percent, Permill, RuntimeDebug,
 };
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_staking::{
-    offence::{Offence, OffenceDetails, OffenceError, OnOffenceHandler, ReportOffence},
+    offence::{DisableStrategy, Offence, OffenceDetails, OffenceError, OnOffenceHandler, ReportOffence},
     SessionIndex,
 };
 use sp_std::{
@@ -404,11 +409,12 @@ generate_solution_type!(
     pub struct CompactAssignments::<
         VoterIndex = NominatorIndex,
         TargetIndex = ValidatorIndex,
-        Accuracy = OffchainAccuracy
+        Accuracy = OffchainAccuracy,
+        MaxVoters = frame_support::traits::ConstU32::<10_000>
     >(16)
 );
 
-pub const MAX_NOMINATIONS: u32 = <CompactAssignments as sp_npos_elections::NposSolution>::LIMIT as u32;
+pub const MAX_NOMINATIONS: u32 = <CompactAssignments as NposSolution>::LIMIT as u32;
 
 /// Accuracy used for on-chain election.
 pub type ChainAccuracy = Perbill;
@@ -851,7 +857,7 @@ impl<T: Config> SessionInterface<<T as frame_system::Config>::AccountId> for T w
     }
 
     fn prune_historical_up_to(up_to: SessionIndex) {
-        <pallet_session::historical::Module<T>>::prune_up_to(up_to);
+        <pallet_session::historical::Pallet<T>>::prune_up_to(up_to);
     }
 }
 
@@ -2955,7 +2961,7 @@ impl<T: Config> Module<T> {
         // assume the given score is valid. Is it better than what we have on-chain, if we have any?
         if let Some(queued_score) = Self::queued_score() {
             ensure!(
-                is_score_better(score, queued_score, T::MinSolutionScoreBump::get()),
+                score.strict_threshold_better(queued_score, T::MinSolutionScoreBump::get()),
                 Error::<T>::OffchainElectionWeakSubmission.with_weight(T::DbWeight::get().reads(3)),
             )
         }
@@ -3483,7 +3489,7 @@ impl<T: Config> Module<T> {
             );
             None
         } else {
-            seq_phragmen::<_, Accuracy>(
+            seq_phragmen(
                 Self::validator_count() as usize,
                 all_validators,
                 all_nominators,
@@ -3762,11 +3768,13 @@ where
     fn note_author(author: T::AccountId) {
         Self::reward_by_ids(vec![(author, 20)])
     }
-    fn note_uncle(author: T::AccountId, _age: T::BlockNumber) {
-        Self::reward_by_ids(vec![
-            (<pallet_authorship::Pallet<T>>::author(), 2),
-            (author, 1)
-        ])
+    fn note_uncle(uncle_author: T::AccountId, _age: T::BlockNumber) {
+        // defensive-only: block author must exist.
+        if let Some(block_author) =<pallet_authorship::Pallet<T>>::author() {
+            Self::reward_by_ids(vec![(block_author, 2), (uncle_author, 1)])
+        } else {
+            crate::log!(warn, "block author not set, this should never happen");
+        }
     }
 }
 
@@ -3819,6 +3827,7 @@ for Module<T> where
         offenders: &[OffenceDetails<T::AccountId, pallet_session::historical::IdentificationTuple<T>>],
         slash_fraction: &[Perbill],
         slash_session: SessionIndex,
+        _disable_strategy: DisableStrategy,
     ) -> u64 {
         // Polymesh-Note:
         // When slashing is off or allowed for none, set slash fraction to zero.
@@ -4001,7 +4010,7 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 
             ValidTransaction::with_tag_prefix("StakingOffchain")
                 // The higher the score[0], the better a solution is.
-                .priority(T::UnsignedPriority::get().saturating_add(score[0].saturated_into()))
+                .priority(T::UnsignedPriority::get().saturating_add(score.minimal_stake.saturated_into()))
                 // Defensive only. A single solution can exist in the pool per era. Each validator
                 // will run OCW at most once per era, hence there should never exist more than one
                 // transaction anyhow.
@@ -4051,7 +4060,7 @@ fn is_sorted_and_unique(list: &[u32]) -> bool {
 fn to_invalid(error_with_post_info: DispatchErrorWithPostInfo) -> InvalidTransaction {
     let error = error_with_post_info.error;
     let error_number = match error {
-        DispatchError::Module { error, ..} => error,
+        DispatchError::Module(ModuleError { error, .. }) => error[0],
         _ => 0,
     };
     InvalidTransaction::Custom(error_number)

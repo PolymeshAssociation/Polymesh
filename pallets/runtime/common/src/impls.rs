@@ -50,7 +50,9 @@ where
     <R as system::Config>::AccountId: Into<polymesh_primitives::AccountId>,
 {
     fn on_nonzero_unbalanced(amount: NegativeImbalance<R>) {
-        <balances::Module<R>>::resolve_creating(&<authorship::Pallet<R>>::author(), amount);
+        if let Some(author) = authorship::Pallet::<R>::author() {
+            <balances::Module<R>>::resolve_creating(&author, amount);
+        }
     }
 }
 

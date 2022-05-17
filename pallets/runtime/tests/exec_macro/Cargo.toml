@@ -2,7 +2,7 @@
 name = "polymesh-exec-macro"
 version = "1.0.0"
 authors = ["Polymath"]
-edition = "2018"
+edition = "2021"
 
 [lib]
 proc-macro = true

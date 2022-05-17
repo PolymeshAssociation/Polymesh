@@ -17,12 +17,13 @@ use crate::*;
 
 use codec::Encode;
 use frame_benchmarking::benchmarks;
-use frame_support::traits::tokens::currency::Currency;
+use frame_support::traits::{tokens::currency::Currency, ReservableCurrency};
 use pallet_asset::Pallet as Asset;
 use pallet_contracts::benchmarking::code::{
-    body, max_pages, DataSegment, ImportedFunction, ImportedMemory, ModuleDefinition, WasmModule,
+    body, max_pages, DataSegment, ImportedFunction, ImportedMemory, Location, ModuleDefinition,
+    WasmModule,
 };
-use pallet_contracts::Pallet as Base;
+use pallet_contracts::Pallet as FrameContracts;
 use polymesh_common_utilities::{
     benchs::{user, AccountIdOf, User},
     constants::currency::POLY,
@@ -56,14 +57,23 @@ fn free_balance<T: Config>(acc: &T::AccountId) -> Balance {
     T::Currency::free_balance(&acc)
 }
 
+/// Returns the reserved balance of `acc`.
+fn reserved_balance<T: Config>(acc: &T::AccountId) -> Balance
+where
+    T::Currency: ReservableCurrency<T::AccountId>,
+{
+    T::Currency::reserved_balance(&acc)
+}
+
 /// The `user` instantiates `wasm.code` as the contract with `salt`.
 /// Returns the address of the new contract.
 fn instantiate<T: Config>(user: &User<T>, wasm: WasmModule<T>, salt: Vec<u8>) -> T::AccountId {
-    let callee = Base::<T>::contract_address(&user.account(), &wasm.hash, &salt);
+    let callee = FrameContracts::<T>::contract_address(&user.account(), &wasm.hash, &salt);
     Pallet::<T>::instantiate_with_code_perms(
         user.origin().into(),
-        Base::<T>::subsistence_threshold(), // endowment
-        Weight::MAX,                        // gas limit
+        ENDOWMENT,   // endowment
+        Weight::MAX, // gas limit
+        None,
         wasm.code,
         vec![], // data
         salt,
@@ -108,7 +118,11 @@ fn prepare_input(n: u32) -> Vec<u8> {
 }
 
 benchmarks! {
-    where_clause { where T: pallet_asset::Config, T: TestUtilsFn<AccountIdOf<T>> }
+    where_clause { where
+        T: pallet_asset::Config,
+        <T as pallet_contracts::Config>::Currency: ReservableCurrency<T::AccountId>,
+        T: TestUtilsFn<AccountIdOf<T>>,
+    }
 
     prepare_instantiate_full {
         let n in 1 .. T::MaxLen::get().saturating_sub(prepare_input(0).len() as u32);
@@ -127,7 +141,7 @@ benchmarks! {
 
         // Instantiate the contract.
         let callee = instantiate::<T>(&user, wasm, salt());
-    }: call(user.origin(), callee.clone(), 0, Weight::MAX, vec![])
+    }: call(user.origin(), callee.clone(), 0, Weight::MAX, None, vec![])
 
     chain_extension_full {
         let n in 1 .. T::MaxLen::get() as u32;
@@ -146,7 +160,7 @@ benchmarks! {
 
         // Instantiate the contract.
         let callee = instantiate::<T>(&user, wasm, salt());
-    }: call(user.origin(), callee.clone(), 0, Weight::MAX, vec![])
+    }: call(user.origin(), callee.clone(), 0, Weight::MAX, None, vec![])
 
     chain_extension_early_exit {
         // Construct a user doing everything.
@@ -157,7 +171,7 @@ benchmarks! {
 
         // Instantiate the contract.
         let callee = instantiate::<T>(&user, wasm, salt());
-    }: call(user.origin(), callee.clone(), 0, Weight::MAX, vec![])
+    }: call(user.origin(), callee.clone(), 0, Weight::MAX, None, vec![])
 
     basic_runtime_call {
         let n in 1 .. T::MaxLen::get() as u32;
@@ -179,7 +193,7 @@ benchmarks! {
 
         // Arguments to pass to contract call.
         let data = vec![42u8; 1024];
-    }: _(user.origin(), callee.clone(), ENDOWMENT, Weight::MAX, data)
+    }: _(user.origin(), callee.clone(), ENDOWMENT, Weight::MAX, None, data)
     verify {
         // Contract should have received the value.
         assert_eq!(free_balance::<T>(&callee), before + ENDOWMENT);
@@ -197,11 +211,11 @@ benchmarks! {
         // Have the user instantiate a dummy contract.
         let wasm = WasmModule::<T>::dummy();
         let hash = wasm.hash.clone();
-        let addr = Base::<T>::contract_address(&user.account(), &hash, &other_salt);
+        let addr = FrameContracts::<T>::contract_address(&user.account(), &hash, &other_salt);
 
         // Pre-instantiate a contract so that one with the hash exists.
         let _ = instantiate::<T>(&user, wasm, salt());
-    }: instantiate(user.origin(), ENDOWMENT, Weight::MAX, hash, vec![], other_salt)
+    }: instantiate(user.origin(), ENDOWMENT, Weight::MAX, None, hash, vec![], other_salt)
     verify {
         // Ensure contract has the full value.
         assert_eq!(free_balance::<T>(&addr), ENDOWMENT);
@@ -230,11 +244,41 @@ benchmarks! {
         let user = funded_user::<T>();
 
         // Construct the contract code + get addr.
-        let wasm = WasmModule::<T>::sized(c);
-        let addr = Base::<T>::contract_address(&user.account(), &wasm.hash, &salt);
-    }: _(user.origin(), ENDOWMENT, Weight::MAX, wasm.code, vec![], salt)
+        let wasm = WasmModule::<T>::sized(c, Location::Deploy);
+        let addr = FrameContracts::<T>::contract_address(&user.account(), &wasm.hash, &salt);
+    }: _(user.origin(), ENDOWMENT, Weight::MAX, None, wasm.code, vec![], salt)
     verify {
         // Ensure contract has the full value.
         assert_eq!(free_balance::<T>(&addr), ENDOWMENT);
+    }
+
+    upload_code {
+        let c in 0 .. Perbill::from_percent(50).mul_ceil(T::Schedule::get().limits.code_len);
+        // Construct a user doing everything.
+        let user = funded_user::<T>();
+
+        let WasmModule { code, hash, .. } = WasmModule::<T>::sized(c, Location::Call);
+    }: _(user.origin(), code, None)
+    verify {
+        // Uploading code reserves some balance in the callers account.
+        assert!(reserved_balance::<T>(&user.account) > 0u32.into());
+        //assert!(<FrameContracts<T>>::code_exists(&hash));
+    }
+
+    remove_code {
+        // Construct a user doing everything.
+        let user = funded_user::<T>();
+
+        // Upload a dummy contract.
+        let WasmModule { code, hash, .. } = WasmModule::<T>::dummy();
+        let uploaded = <FrameContracts<T>>::bare_upload_code(user.account(), code, None)?;
+        assert_eq!(uploaded.code_hash, hash);
+        assert_eq!(uploaded.deposit, reserved_balance::<T>(&user.account()));
+        //assert!(<FrameContracts<T>>::code_exists(&hash));
+    }: _(user.origin(), hash)
+    verify {
+        // Removing the code should have unreserved the deposit.
+        assert_eq!(reserved_balance::<T>(&user.account), 0u32.into());
+        //assert!(<FrameContracts<T>>::code_removed(&hash));
     }
 }

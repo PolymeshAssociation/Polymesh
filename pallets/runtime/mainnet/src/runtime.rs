@@ -22,7 +22,6 @@ use polymesh_runtime_common::{
     runtime::{GovernanceCommittee, BENCHMARK_MAX_INCREASE, VMO},
     AvailableBlockRatio, MaximumBlockWeight, NegativeImbalance,
 };
-use sp_core::u32_trait::{_1, _4};
 use sp_runtime::transaction_validity::TransactionPriority;
 use sp_runtime::{
     create_runtime_str,
@@ -57,6 +56,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 3,
+    state_version: 1,
 };
 
 parameter_types! {
@@ -119,15 +119,12 @@ parameter_types! {
     // Scheduler:
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
+    pub const NoPreimagePostponement: Option<u32> = Some(10);
 
     // Identity:
     pub const InitialPOLYX: Balance = 0;
 
     // Contracts:
-    pub ContractDeposit: Balance = polymesh_runtime_common::deposit(
-        1,
-        <pallet_contracts::Pallet<Runtime>>::contract_info_size(),
-    );
     pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
     pub DeletionWeightLimit: Weight = 500_000_000_000;
     pub DeletionQueueDepth: u32 = 1024;
@@ -138,10 +135,10 @@ parameter_types! {
 pub type DealWithFees = SplitTwoWays<
     Balance,
     NegativeImbalance<Runtime>,
-    _4,
-    Treasury, // 4 parts (80%) goes to the treasury.
-    _1,
+    Treasury,        // 4 parts (80%) goes to the treasury.
     Author<Runtime>, // 1 part (20%) goes to the block author.
+    4,
+    1,
 >;
 
 // Staking:
@@ -361,6 +358,9 @@ construct_runtime!(
         // Contracts
         Contracts: pallet_contracts::{Pallet, Storage, Event<T>},
         PolymeshContracts: polymesh_contracts::{Pallet, Call, Storage, Event},
+
+        // Preimage register.  Used by `pallet_scheduler`.
+        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
     }
 );
 

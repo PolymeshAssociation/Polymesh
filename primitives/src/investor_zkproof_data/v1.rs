@@ -57,8 +57,8 @@ impl InvestorZKProofData {
     /// Returns the message used for testing the proof.
     pub fn make_message(investor_did: &IdentityId, scope: &[u8]) -> [u8; 32] {
         Blake2s::default()
-            .chain(investor_did)
-            .chain(scope)
+            .chain_update(investor_did)
+            .chain_update(scope)
             .finalize()
             .into()
     }

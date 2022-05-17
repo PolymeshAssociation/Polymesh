@@ -120,6 +120,7 @@ impl frame_system::Config for Test {
     type SystemWeightInfo = ();
     type OnSetCode = ();
     type SS58Prefix = ();
+    type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 impl sudo::Config for Test {

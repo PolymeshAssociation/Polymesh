@@ -1,6 +1,6 @@
 use codec::Codec;
 use pallet_identity::types::{
-    v1, AssetDidResult, CddStatus, DidStatus, KeyIdentityData, RpcDidRecords,
+    AssetDidResult, CddStatus, DidStatus, KeyIdentityData, RpcDidRecords,
 };
 use polymesh_primitives::{Authorization, AuthorizationType, Signatory};
 use sp_std::prelude::*;
@@ -28,7 +28,7 @@ sp_api::decl_runtime_apis! {
         ///
         /// Old v1 call for `Signatory` based secondary keys.
         #[changed_in(2)]
-        fn get_did_records(did: IdentityId) -> v1::RpcDidRecords<AccountId>;
+        fn get_did_records(did: IdentityId) -> pallet_identity::types::v1::RpcDidRecords<AccountId>;
 
         /// Retrieve list of a authorization for a given signatory
         fn get_filtered_authorizations(

@@ -2,7 +2,7 @@
 name = "permissions"
 version = "0.1.0"
 authors = ["Polymath"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 scraper = "0.12"

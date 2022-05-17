@@ -320,7 +320,7 @@ decl_module! {
             use sp_std::convert::TryInto;
             assert!(
                 <Multiplier as sp_runtime::traits::Bounded>::max_value() >=
-                Multiplier::checked_from_integer(
+                Multiplier::checked_from_integer::<u64>(
                     T::BlockWeights::get().max_block.try_into().unwrap()
                 ).unwrap(),
             );
@@ -685,13 +685,16 @@ where
     }
 
     fn post_dispatch(
-        pre: Self::Pre,
+        pre: Option<Self::Pre>,
         info: &DispatchInfoOf<Self::Call>,
         post_info: &PostDispatchInfoOf<Self::Call>,
         len: usize,
         _result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
-        let (tip, who, imbalance, subsidiser) = pre;
+        let (tip, who, imbalance, subsidiser) = match pre {
+            Some(pre) => pre,
+            None => return Ok(()),
+        };
         let actual_fee = Module::<T>::compute_actual_fee(len as u32, info, post_info, tip);
 
         // Fee returned to original payer.

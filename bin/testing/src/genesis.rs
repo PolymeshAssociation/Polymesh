@@ -30,8 +30,8 @@ use sp_runtime::{
     Perbill,
 };
 /// Create genesis runtime configuration for tests.
-pub fn config(support_changes_trie: bool) -> GenesisConfig {
-    config_endowed(support_changes_trie, Default::default())
+pub fn config() -> GenesisConfig {
+    config_endowed(Default::default())
 }
 
 type AccountPublic = <Signature as Verify>::Signer;
@@ -51,7 +51,7 @@ where
 
 /// Create genesis runtime configuration for tests with some extra
 /// endowed accounts.
-pub fn config_endowed(support_changes_trie: bool, extra_endowed: Vec<AccountId>) -> GenesisConfig {
+pub fn config_endowed(extra_endowed: Vec<AccountId>) -> GenesisConfig {
     let mut endowed = vec![
         (alice(), 111 * DOLLARS),
         (bob(), 100 * DOLLARS),
@@ -69,14 +69,6 @@ pub fn config_endowed(support_changes_trie: bool, extra_endowed: Vec<AccountId>)
 
     GenesisConfig {
         frame_system: Some(SystemConfig {
-            changes_trie_config: if support_changes_trie {
-                Some(ChangesTrieConfiguration {
-                    digest_interval: 2,
-                    digest_levels: 2,
-                })
-            } else {
-                None
-            },
             code: node_runtime::WASM_BINARY.to_vec(),
         }),
         pallet_indices: Some(IndicesConfig { indices: vec![] }),
