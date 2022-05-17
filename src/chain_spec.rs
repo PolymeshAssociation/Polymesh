@@ -29,7 +29,7 @@ use sp_runtime::{Deserialize, Serialize};
 use std::convert::TryInto;
 
 // The URL for the telemetry server.
-const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
+const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.network/submit/";
 
 // Genesis POLYX distribution via bridge
 const TREASURY_LOCK_HASH: &str =
