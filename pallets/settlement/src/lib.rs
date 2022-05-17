@@ -1567,7 +1567,9 @@ impl<T: Config> Module<T> {
             Self::instruction_affirms_pending(id),
             Self::instruction_details(id).settlement_type,
         );
-        Self::prune_instruction(id);
+        if result.is_ok() {
+            Self::prune_instruction(id);
+        }
         result
     }
 
