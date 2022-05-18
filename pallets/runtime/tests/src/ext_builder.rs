@@ -11,13 +11,30 @@ use polymesh_common_utilities::{
     constants::currency::POLY, protocol_fee::ProtocolOp, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, AccountId, Identity, IdentityId,
-    PosRatio, Signatory,
+    cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, AccountId, IdentityId, PosRatio,
+    SecondaryKey, Signatory,
 };
 use sp_io::TestExternalities;
 use sp_runtime::{Perbill, Storage};
+use sp_std::prelude::Vec;
 use sp_std::{cell::RefCell, convert::From, iter};
 use test_client::AccountKeyring;
+
+/// Identity information.
+#[derive(Default, Clone, PartialEq, Debug)]
+pub struct IdentityRecord {
+    primary_key: AccountId,
+    secondary_keys: Vec<SecondaryKey<AccountId>>,
+}
+
+impl IdentityRecord {
+    pub fn new(primary_key: AccountId, secondary_keys: Vec<SecondaryKey<AccountId>>) -> Self {
+        Self {
+            primary_key,
+            secondary_keys,
+        }
+    }
+}
 
 /// A prime number fee to test the split between multiple recipients.
 pub const PROTOCOL_OP_BASE_FEE: u128 = 41;
@@ -106,7 +123,7 @@ pub struct ExtBuilder {
     governance_committee_members: Vec<AccountId>,
     governance_committee_vote_threshold: BuilderVoteThreshold,
     /// Regular users. Their DID will be generated.
-    regular_users: Vec<Identity<AccountId>>,
+    regular_users: Vec<IdentityRecord>,
 
     protocol_base_fees: MockProtocolBaseFees,
     protocol_coefficient: PosRatio,
@@ -209,7 +226,7 @@ impl ExtBuilder {
     }
 
     /// Adds DID to `users` accounts.
-    pub fn add_regular_users(mut self, users: &[Identity<AccountId>]) -> Self {
+    pub fn add_regular_users(mut self, users: &[IdentityRecord]) -> Self {
         self.regular_users.extend_from_slice(users);
         self
     }
@@ -217,7 +234,10 @@ impl ExtBuilder {
     pub fn add_regular_users_from_accounts(mut self, accounts: &[AccountId]) -> Self {
         let identities = accounts
             .iter()
-            .map(|acc: &AccountId| Identity::new(acc.clone()))
+            .map(|acc: &AccountId| IdentityRecord {
+                primary_key: acc.clone(),
+                ..Default::default()
+            })
             .collect::<Vec<_>>();
 
         self.regular_users.extend(identities);

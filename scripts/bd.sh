@@ -12,4 +12,4 @@ if [[ -z "${extrinsic}" ]]; then
 fi
 
 cargo build --release --features=runtime-benchmarks,running-ci && \
-./target/release/polymesh benchmark -p=${pallet} -e=${extrinsic} -r=1 -s=1
+./target/release/polymesh benchmark pallet -p=${pallet} -e=${extrinsic} -r=1 -s=1

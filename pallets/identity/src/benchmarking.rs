@@ -124,7 +124,7 @@ pub fn generate_secondary_keys<T: Config>(n: usize) -> Vec<SecondaryKey<T::Accou
     let mut secondary_keys = Vec::with_capacity(n);
     for x in 0..n {
         secondary_keys.push(SecondaryKey {
-            signer: Signatory::Account(account("key", x as u32, SEED)),
+            key: account("key", x as u32, SEED),
             ..Default::default()
         });
     }
@@ -181,7 +181,7 @@ benchmarks! {
         let mut signatories = Vec::with_capacity(i as usize);
         for x in 0..i {
             let key: T::AccountId = account("key", x, SEED);
-            signatories.push(Signatory::Account(key.clone()));
+            signatories.push(key.clone());
             Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), key);
         }
     }: _(target.origin, signatories.clone())
@@ -274,7 +274,7 @@ benchmarks! {
     }: _(key.origin())
     verify {
         assert!(
-            !KeyToIdentityIds::<T>::contains_key(key.account),
+            !KeyRecords::<T>::contains_key(key.account),
             "Key was not removed from its identity"
         );
     }
@@ -297,13 +297,13 @@ benchmarks! {
         Module::<T>::add_investor_uniqueness_claim_v2(caller.origin.clone().into(), caller.did(), scope.clone(), claim, proof.0, Some(666u32.into())).unwrap();
     }: _(caller.origin, caller.did(), claim_type, Some(scope))
 
-    set_permission_to_signer {
+    set_secondary_key_permissions {
         let target = user::<T>("target", 0);
         let key = UserBuilder::<T>::default().build("key");
-        let signatory = Signatory::Account(key.account());
+        let account_id = key.account();
 
-        Module::<T>::unsafe_join_identity(target.did(), Permissions::empty(), key.account());
-    }: _(target.origin, signatory, Permissions::default().into())
+        Module::<T>::unsafe_join_identity(target.did(), Permissions::empty(), account_id.clone());
+    }: _(target.origin, account_id, Permissions::default().into())
 
     // Benchmark the memory/cpu complexity of Permissions.
     permissions_cost {

@@ -2,53 +2,49 @@
 name = "polymesh-contracts"
 version = "0.1.0"
 authors = ["Polymath Inc."]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-
-# Substrate specific
 serde = { version = "1.0.104", default-features = false }
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-frame-system = { version = "3.0.0", default-features = false }
-frame-support = { version = "3.0.0", default-features = false }
-pallet-contracts = { version = "3.0.0", default-features = false }
-sp-core = { version = "3.0.0", default-features = false }
-sp-io = { version = "3.0.0", default-features = false }
-sp-runtime = { version = "3.0.0", default-features = false }
-sp-std = { version = "3.0.0", default-features = false }
-wat = { version = "1.0", optional = true, default-features = false }
-parity-wasm = { version = "0.41.0", default-features = false }
+
+pwasm-utils = { version = "0.18.2", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+frame-system = { version = "4.0.0-dev", default-features = false }
+frame-support = { version = "4.0.0-dev", default-features = false }
+pallet-contracts = { version = "4.0.0-dev", default-features = false }
+pallet-contracts-primitives = { version = "6.0.0", default-features = false }
+scale-info = { version = "2.0", default-features = false, features = ["derive"] }
+sp-core = { version = "6.0.0", default-features = false }
+sp-runtime = { version = "6.0.0", default-features = false }
+sp-std = { version = "4.0.0", default-features = false }
 
 # Polymesh specific
+pallet-asset = { path = "../asset", default-features = false }
 pallet-base = { path = "../base", default-features = false }
 pallet-identity = { path = "../identity", default-features = false }
+pallet-permissions = { path = "../permissions", default-features = false }
 polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-common-utilities = { path = "../common", default-features = false }
-pallet-protocol-fee = { path = "../protocol-fee", default-features = false }
 
-# Only in STD env
-frame-benchmarking = { version = "3.0.0", default-features = false, optional = true }
+frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
 
 [features]
 default = ["std"]
 no_std = []
 std = [
     "serde/std",
-    "sp-io/std",
     "codec/std",
     "sp-std/std",
     "sp-core/std",
-    "parity-wasm/std",
-    "sp-runtime/std",
     "frame-system/std",
     "frame-support/std",
     "pallet-identity/std",
     "pallet-contracts/std",
     "polymesh-primitives/std",
-    "pallet-protocol-fee/std",
     "polymesh-common-utilities/std",
+	"pwasm-utils/std",
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
-    "wat"
+    "pallet-contracts/runtime-benchmarks",
 ]

@@ -4,7 +4,7 @@ name = "node-bench"
 version = "0.9.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 description = "Substrate node integration benchmarks."
-edition = "2018"
+edition = "2021"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -13,32 +13,32 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 node-primitives = { package = "polymesh-primitives", path = "../../primitives" }
 node-runtime = { package = "polymesh-runtime-testnet", path = "../../pallets/runtime/testnet" }
 node-testing = { path = "../testing" }
-sc-cli = { version = "0.9.0", features = ["wasmtime"] }
-sc-client-api = { version = "3.0.0" }
-sp-runtime = { version = "3.0.0" }
-sp-state-machine = { version = "0.9.0" }
+sc-cli = { version = "0.10.0-dev", features = ["wasmtime"] }
+sc-client-api = { version = "4.0.0-dev" }
+sp-runtime = { version = "6.0.0" }
+sp-state-machine = { version = "0.12.0" }
 log = "0.4.8"
 serde = "1.0.101"
 serde_json = "1.0.41"
-structopt = "0.3"
+clap = { version = "3.1.6", features = ["derive"] }
 derive_more = "0.99.2"
-kvdb = "0.9"
-kvdb-rocksdb = "0.11.1"
-sp-trie = { version = "3.0.0" }
-sp-core = { version = "3.0.0" }
-sp-consensus = { version = "0.9.0" }
-sp-transaction-pool = { version = "3.0.0" }
-sc-basic-authorship = { version = "0.9.0" }
-sp-inherents = { version = "3.0.0" }
-sp-timestamp = { version = "3.0.0" }
-sp-tracing = { version = "3.0.0" }
+kvdb = "0.11"
+kvdb-rocksdb = "0.15.0"
+sp-trie = { version = "6.0.0" }
+sp-core = { version = "6.0.0" }
+sp-consensus = { version = "0.10.0-dev" }
+sp-transaction-pool = { version = "4.0.0-dev" }
+sc-basic-authorship = { version = "0.10.0-dev" }
+sp-inherents = { version = "4.0.0-dev" }
+sp-timestamp = { version = "4.0.0-dev" }
+sp-tracing = { version = "5.0.0" }
 hash-db = "0.15.2"
 tempfile = "3.1.0"
 fs_extra = "1"
 hex = "0.4.0"
 rand = { version = "0.7.2", features = ["small_rng"] }
 lazy_static = "1.4.0"
-parity-util-mem = { version = "0.9.0", default-features = false, features = ["primitive-types"] }
+parity-util-mem = { version = "0.11.0", default-features = false, features = ["primitive-types"] }
 parity-db = { version = "0.2.4" }
-sc-transaction-pool = { version = "3.0.0" }
+sc-transaction-pool = { version = "4.0.0-dev" }
 futures = { version = "0.3.4", features = ["thread-pool"] }

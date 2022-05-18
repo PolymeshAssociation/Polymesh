@@ -21,6 +21,7 @@
 use codec::{Decode, Encode};
 use frame_support::weights::{DispatchClass, DispatchInfo, PostDispatchInfo};
 use frame_system::{CheckWeight as CW, Config};
+use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
     transaction_validity::{InvalidTransaction, TransactionValidity, TransactionValidityError},
@@ -28,7 +29,8 @@ use sp_runtime::{
 };
 
 /// Block resource (weight) limit check.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Default)]
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Default, TypeInfo)]
+#[scale_info(skip_type_params(T))]
 pub struct CheckWeight<T: Config + Send + Sync>(CW<T>);
 
 impl<T: Config + Send + Sync> CheckWeight<T>
@@ -105,7 +107,7 @@ where
     }
 
     fn post_dispatch(
-        pre: Self::Pre,
+        pre: Option<Self::Pre>,
         info: &DispatchInfoOf<Self::Call>,
         post_info: &PostDispatchInfoOf<Self::Call>,
         len: usize,

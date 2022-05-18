@@ -64,7 +64,7 @@ fn zeroize_deposit<T: Config>() {
 /// Makes a proposal.
 fn make_proposal<T: Config>() -> (Box<T::Proposal>, Url, PipDescription) {
     let content = vec![b'X'; PROPOSAL_PADDING_LEN];
-    let proposal = Box::new(frame_system::Call::<T>::remark(content).into());
+    let proposal = Box::new(frame_system::Call::<T>::remark { remark: content }.into());
     let url = Url::try_from(vec![b'X'; URL_LEN].as_slice()).unwrap();
     let description = PipDescription::try_from(vec![b'X'; DESCRIPTION_LEN].as_slice()).unwrap();
     (proposal, url, description)
@@ -151,14 +151,13 @@ fn enact_call<T: Config>(num_approves: usize, num_rejects: usize, num_skips: usi
         .chain(iter::repeat(SnapshotResult::Skip).take(num_skips))
         .collect();
     snapshot_results.shuffle(&mut rng);
-    Call::<T>::enact_snapshot_results(
-        Module::<T>::snapshot_queue()
-            .iter()
-            .rev()
-            .map(|s| s.id)
-            .zip(snapshot_results.into_iter())
-            .collect(),
-    )
+    let results = Module::<T>::snapshot_queue()
+        .iter()
+        .rev()
+        .map(|s| s.id)
+        .zip(snapshot_results.into_iter())
+        .collect();
+    Call::<T>::enact_snapshot_results { results }
 }
 
 fn propose_verify<T: Config>(url: Url, description: PipDescription) -> DispatchResult {
@@ -257,7 +256,7 @@ benchmarks! {
         zeroize_deposit::<T>();
         let some_url = Some(url.clone());
         let some_desc = Some(description.clone());
-        let call = Call::<T>::propose(proposal, 0u32.into(), some_url, some_desc);
+        let call = Call::<T>::propose { proposal, deposit: 0u32.into(), url: some_url, description: some_desc };
     }: {
         call.dispatch_bypass_filter(origin).unwrap();
     }
@@ -301,11 +300,16 @@ benchmarks! {
         let proposer_did = SystematicIssuers::Committee.as_id();
         identity::CurrentDid::put(proposer_did);
         zeroize_deposit::<T>();
-        let propose_call = Call::<T>::propose(proposal, 0u32.into(), Some(url.clone()), Some(description.clone()));
+        let propose_call = Call::<T>::propose {
+            proposal,
+            deposit: 0u32.into(),
+            url: Some(url.clone()),
+            description: Some(description.clone())
+        };
         propose_call.dispatch_bypass_filter(proposer_origin).unwrap();
         let origin = T::VotingMajorityOrigin::successful_origin();
         let id = PipId(0);
-        let call = Call::<T>::approve_committee_proposal(id);
+        let call = Call::<T>::approve_committee_proposal { id };
     }: {
         call.dispatch_bypass_filter(origin).unwrap();
     }
@@ -330,7 +334,7 @@ benchmarks! {
         let id = PipId(0);
         assert_eq!(deposit, Deposits::<T>::get(id, &user.account()).amount, "incorrect deposit in reject_proposal");
         let vmo_origin = T::VotingMajorityOrigin::successful_origin();
-        let call = Call::<T>::reject_proposal(id);
+        let call = Call::<T>::reject_proposal { id };
     }: {
         call.dispatch_bypass_filter(vmo_origin).unwrap();
     }
@@ -353,9 +357,9 @@ benchmarks! {
         ).unwrap();
         let id = PipId(0);
         let vmo_origin = T::VotingMajorityOrigin::successful_origin();
-        let reject_call = Call::<T>::reject_proposal(id);
+        let reject_call = Call::<T>::reject_proposal { id };
         reject_call.dispatch_bypass_filter(vmo_origin.clone()).unwrap();
-        let call = Call::<T>::prune_proposal(id);
+        let call = Call::<T>::prune_proposal { id };
     }: {
         call.dispatch_bypass_filter(vmo_origin).unwrap();
     }
@@ -380,9 +384,9 @@ benchmarks! {
         T::GovernanceCommittee::bench_set_release_coordinator(user.did());
         Module::<T>::snapshot(user.origin().into()).unwrap();
         let vmo_origin = T::VotingMajorityOrigin::successful_origin();
-        let enact_call = Call::<T>::enact_snapshot_results(vec![(id, SnapshotResult::Approve)]);
+        let enact_call = Call::<T>::enact_snapshot_results { results: vec![(id, SnapshotResult::Approve)] };
         enact_call.dispatch_bypass_filter(vmo_origin).unwrap();
-        let future_block = frame_system::Module::<T>::block_number() + 100u32.into();
+        let future_block = frame_system::Pallet::<T>::block_number() + 100u32.into();
         let origin = user.origin();
     }: _(origin, id, Some(future_block))
     verify {

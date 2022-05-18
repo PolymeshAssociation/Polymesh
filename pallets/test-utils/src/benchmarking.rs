@@ -22,7 +22,6 @@ use polymesh_common_utilities::{
 };
 
 use frame_benchmarking::{account, benchmarks};
-use sp_std::prelude::*;
 
 const SEED: u32 = 0;
 #[cfg(feature = "running-ci")]
@@ -70,5 +69,5 @@ benchmarks! {
 
         Module::<T>::mock_cdd_register_did(cdd.origin().into(), user.account())
             .expect("CDD provider cannot generate a DID for that user");
-    }: _(user.origin, user.account)
+    }: _(user.origin(), user.account())
 }

@@ -20,15 +20,16 @@ type Identity = pallet_identity::Module<TestStorage>;
 type Balances = pallet_balances::Module<TestStorage>;
 type MultiSig = pallet_multisig::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::Origin;
-type System = frame_system::Module<TestStorage>;
-type Scheduler = pallet_scheduler::Module<TestStorage>;
+type System = frame_system::Pallet<TestStorage>;
+type Scheduler = pallet_scheduler::Pallet<TestStorage>;
 
 type BridgeTx = GBridgeTx<AccountId>;
 type BridgeTxDetail = GBridgeTxDetail<u32>;
 
 const AMOUNT: u128 = 1_000_000_000;
 const AMOUNT_OVER_LIMIT: u128 = 1_000_000_000_000_000_000_000;
-const WEIGHT_EXPECTED: u64 = 950000000;
+const WEIGHT_EXPECTED_1: u64 = 766606000;
+const WEIGHT_EXPECTED_2: u64 = 1556059000;
 const MIN_SIGNS_REQUIRED: u64 = 2;
 
 fn test_with_controller(test: &dyn Fn(&[AccountId])) {
@@ -74,7 +75,9 @@ fn alice_bridge_tx(amount: u128) -> BridgeTx {
 }
 
 fn bridge_tx_to_proposal(tx: &BridgeTx) -> Call {
-    Call::Bridge(bridge::Call::handle_bridge_tx(tx.clone()))
+    Call::Bridge(bridge::Call::handle_bridge_tx {
+        bridge_tx: tx.clone(),
+    })
 }
 
 fn alice_make_bridge_tx(amount: u128) -> BridgeTx {
@@ -227,7 +230,7 @@ fn do_admin_freeze_and_unfreeze_bridge(signers: &[AccountId]) {
 
     // Weight calculation when bridge is freezed.
     ensure_tx_status(alice.clone(), 1, BridgeTxStatus::Timelocked);
-    assert_eq!(next_block(), WEIGHT_EXPECTED);
+    assert_eq!(next_block(), WEIGHT_EXPECTED_1);
 
     // Unfreeze the bridge.
     assert_ok!(Bridge::unfreeze(admin));
@@ -244,7 +247,7 @@ fn do_admin_freeze_and_unfreeze_bridge(signers: &[AccountId]) {
             execution_block - System::block_number() - 1,
             starting_alices_balance
         ),
-        WEIGHT_EXPECTED
+        WEIGHT_EXPECTED_2
     );
 
     // Now the tokens are issued.
@@ -399,7 +402,7 @@ fn is_exempted() {
 
 fn do_exempted(signers: &[AccountId]) {
     let alice = Alice.to_account_id();
-    let alice_did = Identity::key_to_identity_dids(alice.clone());
+    let alice_did = Identity::get_identity(&alice).expect("Alice missing identity");
     let tx = alice_make_bridge_tx(AMOUNT_OVER_LIMIT);
     let starting_alices_balance = alice_balance();
 

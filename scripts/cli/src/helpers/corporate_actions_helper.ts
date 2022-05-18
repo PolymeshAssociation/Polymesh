@@ -1,13 +1,6 @@
-import { Keyring } from "@polkadot/api";
 import type { KeyringPair } from "@polkadot/keyring/types";
-import { CAKind, Document } from "polymesh-typegen/interfaces";
-import { Ticker } from "../types";
-import {
-  sendTx,
-  ApiSingleton,
-  keyToIdentityIds,
-  transferAmount,
-} from "../util/init";
+import type { Ticker } from "../types";
+import { sendTx, ApiSingleton, keyToIdentityIds } from "../util/init";
 
 export async function changeDefaultTargetIdentitites(
   signer: KeyringPair,
@@ -85,7 +78,7 @@ export async function linkCaToDoc(
   const transaction = api.tx.corporateAction.linkCaDoc(
     {
       ticker,
-      local_id: caId,
+      localId: caId,
     },
     docIds
   );
@@ -100,13 +93,9 @@ export async function removeCa(
   const api = await ApiSingleton.getInstance();
   const transaction = api.tx.corporateAction.removeCa({
     ticker: ticker,
-    local_id: caId,
+    localId: caId,
   });
   await sendTx(signer, transaction);
-}
-
-async function toIdentity(keyPair: KeyringPair) {
-  return (await keyToIdentityIds(keyPair.publicKey)).toString();
 }
 
 export async function recordDateChange(
@@ -134,11 +123,11 @@ export async function createDistribution(
   expiresAt: string | null
 ) {
   const api = await ApiSingleton.getInstance();
-  const currentBlockTime = await api.query.timestamp.now();
-  const payAt = currentBlockTime.toNumber();
+  const currentBlockTime = (await api.query.timestamp.now()).toNumber();
+  const payAt = currentBlockTime;
 
   const transaction = api.tx.capitalDistribution.distribute(
-    { ticker, local_id: caId },
+    { ticker, localId: caId },
     portfolio,
     currency,
     perShare,
@@ -165,7 +154,7 @@ export async function claimDistribution(
 
   const transaction = api.tx.capitalDistribution.claim({
     ticker,
-    local_id: caId,
+    localId: caId,
   });
   console.log("claiming distribution");
   await sendTx(signer, transaction);

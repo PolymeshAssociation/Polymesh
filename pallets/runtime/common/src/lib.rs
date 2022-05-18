@@ -87,6 +87,8 @@ parameter_types! {
     pub const TransactionByteFee: Balance = 10 * MILLICENTS;
     /// We want the noop transaction to cost 0.03 POLYX
     pub const PolyXBaseFee: Balance = 3 * CENTS;
+    /// MultiSig balance limit: 1 POLYX
+    pub const MultiSigBalanceLimit: Balance = POLY;
     /// The maximum weight of the pips extrinsic `enact_snapshot_results` which equals to
     /// `MaximumBlockWeight * AvailableBlockRatio`.
     pub const PipsEnactSnapshotMaximumWeight: Weight = MAXIMUM_BLOCK_WEIGHT * 75 / 100;
@@ -94,10 +96,10 @@ parameter_types! {
     pub const SignedClaimHandicap: u32 = 2;
     /// The balance every contract needs to deposit to stay alive indefinitely.
     pub const DepositPerContract: u128 = 10 * CENTS;
-    /// The balance a contract needs to deposit per storage byte to stay alive indefinitely.
-    pub const DepositPerStorageByte: u128 = deposit(0, 1);
     /// The balance a contract needs to deposit per storage item to stay alive indefinitely.
-    pub const DepositPerStorageItem: u128 = deposit(1, 0);
+    pub const DepositPerItem: u128 = deposit(1, 0);
+    /// The balance a contract needs to deposit per storage byte to stay alive indefinitely.
+    pub const DepositPerByte: u128 = deposit(0, 1);
     /// The maximum nesting level of a call/instantiate stack.
     pub const ContractsMaxDepth: u32 = 32;
     /// The maximum size of a storage value and event payload in bytes.
@@ -144,7 +146,7 @@ impl WeightToFeePolynomial for WeightToFee {
     fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
         smallvec![WeightToFeeCoefficient {
             degree: 1,
-            coeff_frac: Perbill::from_rational_approximation(
+            coeff_frac: Perbill::from_rational(
                 PolyXBaseFee::get().into(),
                 ExtrinsicBaseWeight::get() as u128
             ),

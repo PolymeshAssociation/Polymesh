@@ -68,6 +68,7 @@ use polymesh_common_utilities::traits::{
     transaction_payment::{CddAndFeeDetails, ChargeTxFee},
 };
 use polymesh_primitives::TransactionError;
+use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{
         Convert, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SaturatedConversion, Saturating,
@@ -199,7 +200,7 @@ where
             .get(DispatchClass::Normal)
             .max_total
             .unwrap_or_else(|| weights.max_block);
-        let current_block_weight = <frame_system::Module<T>>::block_weight();
+        let current_block_weight = <frame_system::Pallet<T>>::block_weight();
         let normal_block_weight = *current_block_weight
             .get(DispatchClass::Normal)
             .min(&normal_max_weight);
@@ -240,7 +241,7 @@ where
 }
 
 /// Storage releases of the module.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 enum Releases {
     /// Original version of the module.
     V1Ancient,
@@ -319,7 +320,7 @@ decl_module! {
             use sp_std::convert::TryInto;
             assert!(
                 <Multiplier as sp_runtime::traits::Bounded>::max_value() >=
-                Multiplier::checked_from_integer(
+                Multiplier::checked_from_integer::<u64>(
                     T::BlockWeights::get().max_block.try_into().unwrap()
                 ).unwrap(),
             );
@@ -344,7 +345,7 @@ decl_module! {
             target += addition;
 
             sp_io::TestExternalities::new_empty().execute_with(|| {
-                <frame_system::Module<T>>::set_block_consumed_resources(target, 0);
+                <frame_system::Pallet<T>>::set_block_consumed_resources(target, 0);
                 let next = T::FeeMultiplierUpdate::convert(min_value);
                 assert!(next > min_value, "The minimum bound of the multiplier is too low. When \
                     block saturation is more than target by 1% and multiplier is minimal then \
@@ -527,7 +528,8 @@ where
 
 /// Require the transactor pay for themselves and maybe include a tip to gain additional priority
 /// in the queue.
-#[derive(Encode, Decode, Clone, Eq, PartialEq)]
+#[derive(Encode, Decode, TypeInfo, Clone, Eq, PartialEq)]
+#[scale_info(skip_type_params(T))]
 pub struct ChargeTransactionPayment<T: Config>(#[codec(compact)] BalanceOf<T>);
 
 impl<T: Config> ChargeTransactionPayment<T>
@@ -683,13 +685,16 @@ where
     }
 
     fn post_dispatch(
-        pre: Self::Pre,
+        pre: Option<Self::Pre>,
         info: &DispatchInfoOf<Self::Call>,
         post_info: &PostDispatchInfoOf<Self::Call>,
         len: usize,
         _result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
-        let (tip, who, imbalance, subsidiser) = pre;
+        let (tip, who, imbalance, subsidiser) = match pre {
+            Some(pre) => pre,
+            None => return Ok(()),
+        };
         let actual_fee = Module::<T>::compute_actual_fee(len as u32, info, post_info, tip);
 
         // Fee returned to original payer.

@@ -95,3 +95,14 @@ export async function voteResult(
 		await sendTx(signer, vote);
 	}
 }
+
+export async function vote(
+  signer: KeyringPair,
+  pipId: number,
+  vote: boolean,
+  deposit: number
+): Promise<void> {
+  const api = await ApiSingleton.getInstance();
+  const transaction = api.tx.pips.vote(pipId, vote, deposit);
+  await sendTx(signer, transaction);
+}

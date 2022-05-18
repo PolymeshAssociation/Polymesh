@@ -113,6 +113,22 @@ fn can_create_rename_delete_portfolio() {
 }
 
 #[test]
+fn can_delete_recreate_portfolio() {
+    ExtBuilder::default().build().execute_with(|| {
+        let (owner, num) = create_portfolio();
+
+        let name = || Portfolio::portfolios(owner.did, num);
+        let num_of = |name| Portfolio::name_to_number(owner.did, name);
+
+        let first_name = name();
+        assert_eq!(num_of(&first_name), num);
+
+        assert_ok!(Portfolio::delete_portfolio(owner.origin(), num));
+        assert_ok!(Portfolio::create_portfolio(owner.origin(), first_name));
+    });
+}
+
+#[test]
 fn cannot_delete_portfolio_with_asset() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1); // This is needed to enable events.
@@ -136,7 +152,7 @@ fn cannot_delete_portfolio_with_asset() {
         ));
         // check MovedBetweenPortfolios event
         assert_last_event!(
-            EventTest::pallet_portfolio(Event::MovedBetweenPortfolios(
+            EventTest::Portfolio(Event::MovedBetweenPortfolios(
                 did, from, to, i_ticker, i_amount, i_memo
             )),
             did == &owner.did
@@ -301,7 +317,7 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
     ));
     // check MovedBetweenPortfolios event
     assert_last_event!(
-        EventTest::pallet_portfolio(Event::MovedBetweenPortfolios(
+        EventTest::Portfolio(Event::MovedBetweenPortfolios(
             did, from, to, i_ticker, i_amount, i_memo
         )),
         did == &owner.did

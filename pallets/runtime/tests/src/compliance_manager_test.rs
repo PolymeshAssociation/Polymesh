@@ -1,8 +1,8 @@
 use super::{
     asset_test::{allow_all_transfers, create_token},
     storage::{
-        create_cdd_id, create_investor_uid, provide_scope_claim_to_multiple_parties, set_curr_did,
-        TestStorage, User,
+        create_cdd_id, create_investor_uid, get_primary_key,
+        provide_scope_claim_to_multiple_parties, set_curr_did, TestStorage, User,
     },
     ExtBuilder,
 };
@@ -30,7 +30,7 @@ use test_client::AccountKeyring;
 type Identity = identity::Module<TestStorage>;
 type IdError = identity::Error<TestStorage>;
 type Balances = balances::Module<TestStorage>;
-type Timestamp = pallet_timestamp::Module<TestStorage>;
+type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 type Asset = pallet_asset::Module<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
 type CDDGroup = group::Module<TestStorage, group::Instance2>;
@@ -544,7 +544,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
     let (cdd_id, _) = create_cdd_id(
         receiver.did,
         Ticker::default(),
-        create_investor_uid(Identity::did_records(receiver.did).primary_key),
+        create_investor_uid(get_primary_key(receiver.did)),
     );
     assert_ok!(Identity::add_claim(
         trusted_issuer.origin(),

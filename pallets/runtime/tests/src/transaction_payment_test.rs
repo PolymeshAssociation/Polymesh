@@ -12,6 +12,7 @@ use pallet_balances::Call as BalancesCall;
 use pallet_transaction_payment::{ChargeTransactionPayment, Multiplier, RuntimeDispatchInfo};
 use polymesh_primitives::AccountId;
 use polymesh_primitives::TransactionError;
+use sp_arithmetic::traits::One;
 use sp_runtime::{
     testing::TestXt,
     traits::SignedExtension,
@@ -21,14 +22,14 @@ use sp_runtime::{
 use test_client::AccountKeyring;
 
 fn call() -> <TestStorage as frame_system::Config>::Call {
-    Call::Balances(BalancesCall::transfer(
-        MultiAddress::Id(AccountKeyring::Alice.to_account_id()),
-        69,
-    ))
+    Call::Balances(BalancesCall::transfer {
+        dest: MultiAddress::Id(AccountKeyring::Alice.to_account_id()),
+        value: 69,
+    })
 }
 
 type Balances = pallet_balances::Module<TestStorage>;
-type System = frame_system::Module<TestStorage>;
+type System = frame_system::Pallet<TestStorage>;
 type TransactionPayment = pallet_transaction_payment::Module<TestStorage>;
 
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
@@ -83,7 +84,7 @@ fn signed_extension_transaction_payment_work() {
             assert_eq!(Balances::free_balance(&bob), 1999969001);
 
             assert!(ChargeTransactionPayment::<TestStorage>::post_dispatch(
-                pre,
+                Some(pre),
                 &info_from_weight(5),
                 &default_post_info(),
                 len,
@@ -98,7 +99,7 @@ fn signed_extension_transaction_payment_work() {
             assert_eq!(Balances::free_balance(&alice), 999969001);
 
             assert!(ChargeTransactionPayment::<TestStorage>::post_dispatch(
-                pre,
+                Some(pre),
                 &info_from_weight(100),
                 &post_info_from_weight(50),
                 len,
@@ -127,7 +128,7 @@ fn signed_extension_transaction_payment_multiplied_refund_works() {
             assert_eq!(Balances::free_balance(&user), 999969001);
 
             assert!(ChargeTransactionPayment::<TestStorage>::post_dispatch(
-                pre,
+                Some(pre),
                 &info_from_weight(100),
                 &post_info_from_weight(50),
                 len,
@@ -397,7 +398,7 @@ fn actual_weight_higher_than_max_refunds_nothing() {
             assert_eq!(Balances::free_balance(&user), 999969001);
 
             ChargeTransactionPayment::<TestStorage>::post_dispatch(
-                pre,
+                Some(pre),
                 &info_from_weight(100),
                 &post_info_from_weight(101),
                 len,
@@ -430,7 +431,7 @@ fn zero_transfer_on_free_transaction() {
                 .unwrap();
             assert_eq!(Balances::total_balance(&user), bal_init);
             assert!(ChargeTransactionPayment::<TestStorage>::post_dispatch(
-                pre,
+                Some(pre),
                 &dispatch_info,
                 &default_post_info(),
                 len,
@@ -464,7 +465,7 @@ fn refund_consistent_with_actual_weight() {
                 .unwrap();
 
             ChargeTransactionPayment::<TestStorage>::post_dispatch(
-                pre,
+                Some(pre),
                 &info,
                 &post_info,
                 len,

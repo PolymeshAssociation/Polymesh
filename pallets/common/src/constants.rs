@@ -1,4 +1,5 @@
-use sp_runtime::ModuleId;
+use frame_support::PalletId;
+
 /// Money matters.
 pub mod currency {
     use polymesh_primitives::Balance;
@@ -84,14 +85,14 @@ pub const TRANSFER_MANAGER_FAILURE: u8 = 0xac;
 pub const PIP_MAX_REPORTING_SIZE: usize = 1024;
 
 /// Module ids, used for deriving sovereign account IDs for modules.
-pub const TREASURY_MODULE_ID: ModuleId = ModuleId(*b"pm/trsry");
-pub const BRR_MODULE_ID: ModuleId = ModuleId(*b"pm/blrwr");
-pub const GC_MODULE_ID: ModuleId = ModuleId(*b"pm/govcm");
-pub const CDD_MODULE_ID: ModuleId = ModuleId(*b"pm/cusdd");
-pub const SETTLEMENT_MODULE_ID: ModuleId = ModuleId(*b"pm/setmn");
-pub const CLASSIC_MIGRATION_MODULE_ID: ModuleId = ModuleId(*b"pm/ehmig");
-pub const FIAT_TICKERS_RESERVATION_MODULE_ID: ModuleId = ModuleId(*b"pm/ftres");
-pub const REWARDS_MODULE_ID: ModuleId = ModuleId(*b"pm/rewrd");
+pub const TREASURY_PALLET_ID: PalletId = PalletId(*b"pm/trsry");
+pub const BRR_PALLET_ID: PalletId = PalletId(*b"pm/blrwr");
+pub const GC_PALLET_ID: PalletId = PalletId(*b"pm/govcm");
+pub const CDD_PALLET_ID: PalletId = PalletId(*b"pm/cusdd");
+pub const SETTLEMENT_PALLET_ID: PalletId = PalletId(*b"pm/setmn");
+pub const CLASSIC_MIGRATION_PALLET_ID: PalletId = PalletId(*b"pm/ehmig");
+pub const FIAT_TICKERS_RESERVATION_PALLET_ID: PalletId = PalletId(*b"pm/ftres");
+pub const REWARDS_PALLET_ID: PalletId = PalletId(*b"pm/rewrd");
 
 /// Base module constants
 pub const ENSURED_MAX_LEN: u32 = 2048;

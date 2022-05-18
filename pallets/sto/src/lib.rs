@@ -40,6 +40,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::impl_checked_inc;
 use polymesh_primitives_derive::VecU8StrongTyped;
+use scale_info::TypeInfo;
 
 use frame_support::weights::Weight;
 use polymesh_primitives::{Balance, EventDid, IdentityId, PortfolioId, Ticker};
@@ -52,15 +53,16 @@ type ExternalAgents<T> = pallet_external_agents::Module<T>;
 type Identity<T> = pallet_identity::Module<T>;
 type Portfolio<T> = pallet_portfolio::Module<T>;
 type Settlement<T> = pallet_settlement::Module<T>;
-type Timestamp<T> = pallet_timestamp::Module<T>;
+type Timestamp<T> = pallet_timestamp::Pallet<T>;
 
 /// The per-ticker ID of a fundraiser.
-#[derive(Copy, Clone, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct FundraiserId(pub u64);
 impl_checked_inc!(FundraiserId);
 
 /// Status of a Fundraiser.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, PartialOrd, Ord, Debug)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, TypeInfo, PartialOrd, Ord, Debug)]
 pub enum FundraiserStatus {
     /// Fundraiser is open for investments if start_time <= current_time < end_time.
     Live,
@@ -79,7 +81,8 @@ impl Default for FundraiserStatus {
 }
 
 /// Details about the Fundraiser.
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct Fundraiser<Moment> {
     /// The permissioned agent that created the `Fundraiser`.
@@ -115,7 +118,8 @@ impl<Moment> Fundraiser<Moment> {
 }
 
 /// Single tier of a tiered pricing model.
-#[derive(Encode, Decode, Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PriceTier {
     /// Total amount available.
     pub total: Balance,
@@ -125,7 +129,8 @@ pub struct PriceTier {
 
 /// Single price tier of a `Fundraiser`.
 /// Similar to a `PriceTier` but with an extra field `remaining` for tracking the amount available for purchase in a tier.
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct FundraiserTier {
     /// Total amount available.
@@ -146,10 +151,9 @@ impl Into<FundraiserTier> for PriceTier {
     }
 }
 
-/// Wrapper type for Fundraiser name
-#[derive(
-    Decode, Encode, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
+/// Wrapper type for Fundraiser name.
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FundraiserName(Vec<u8>);
 
 pub trait WeightInfo {

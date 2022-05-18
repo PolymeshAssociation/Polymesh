@@ -25,7 +25,8 @@ pub trait OnChargeTransaction<T: Config> {
         + Copy
         + MaybeSerializeDeserialize
         + Debug
-        + Default;
+        + Default
+        + scale_info::TypeInfo;
     type LiquidityInfo: Default;
 
     /// Before the transaction is executed the payment of the transaction fees
@@ -156,10 +157,11 @@ where
             // merge the imbalance caused by paying the fees and refunding parts of it again.
             let adjusted_paid = paid
                 .offset(refund_imbalance)
+                .same()
                 .map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
             // Call someone else to handle the imbalance (fee and tip separately)
-            let imbalances = adjusted_paid.split(tip);
-            OU::on_unbalanceds(Some(imbalances.0).into_iter().chain(Some(imbalances.1)));
+            let (tip, fee) = adjusted_paid.split(tip);
+            OU::on_unbalanceds(Some(fee).into_iter().chain(Some(tip)));
         }
         Ok(())
     }

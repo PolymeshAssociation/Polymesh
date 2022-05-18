@@ -1,51 +1,60 @@
 use codec::{Decode, Encode};
-use core::convert::TryInto;
+use core::convert::{TryFrom, TryInto};
+use scale_info::TypeInfo;
 
-/// Implementation of common asset identifiers
-/// https://www.cusip.com/identifiers.html
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+/// Implementation of common asset identifiers.
+/// https://www.cusip.com/identifiers.html.
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
 pub enum AssetIdentifier {
-    /// Universally recognized identifier for financial instruments
+    /// Universally recognized identifier for financial instruments.
     /// Example: Amazon.com Inc - Common Stock
     /// ISSUER ISSUE CHECK CUSIP
     /// 023135 10    6     023135106
     CUSIP([u8; 9]),
-    /// The CUSIP International Numbering System
+    /// The CUSIP International Numbering System.
     /// Example: Abingdon Capital PLC - Shares
     /// COUNTRY CODE ISSUER ISSUE CHECK CINS
     /// G            0052B  10    5     G0052B105
     CINS([u8; 9]),
-    /// The International Securities Identification Number
+    /// The International Securities Identification Number.
     /// Example:
     /// COUNTRY CODE LOCAL IDENTIFIER CHECK ISIN
     /// CA           008911703        4     CA0089117034
     ISIN([u8; 12]),
-    /// The Legal Entity Identifier
+    /// The Legal Entity Identifier.
     /// Example: Philadelphia Cheesesteak Company
     /// LOU PREFIX ENTITY INDENTIFIER VERIFICATION ID LEI
     /// 5493       00SAMIRN1R27UP     42              549300SAMIRN1R27UP42
     LEI([u8; 20]),
+    /// Financial Instrument Global Identifier https://www.omg.org/figi/index.htm.
+    /// Example: Alphabet Inc - Common Stock
+    /// BBG013V1S0T3
+    FIGI([u8; 12]),
 }
 
 impl AssetIdentifier {
-    /// Validate `bytes` is a valid CUSIP identifier, returns an instance of `Identifier` if successful
+    /// Validate `bytes` is a valid CUSIP identifier, returns an instance of `Identifier` if successful.
     pub fn cusip(bytes: [u8; 9]) -> Option<AssetIdentifier> {
         validate_cusip(&bytes).then_some(AssetIdentifier::CUSIP(bytes))
     }
 
-    /// Validate `bytes` is a valid CINS identifier, returns an instance of `Identifier` if successful
+    /// Validate `bytes` is a valid CINS identifier, returns an instance of `Identifier` if successful.
     pub fn cins(bytes: [u8; 9]) -> Option<AssetIdentifier> {
         validate_cusip(&bytes).then_some(AssetIdentifier::CINS(bytes))
     }
 
-    /// Validate `bytes` is a valid ISIN identifier, returns an instance of `Identifier` if successful
+    /// Validate `bytes` is a valid ISIN identifier, returns an instance of `Identifier` if successful.
     pub fn isin(bytes: [u8; 12]) -> Option<AssetIdentifier> {
         validate_isin(&bytes).then_some(AssetIdentifier::ISIN(bytes))
     }
 
-    /// Validate `bytes` is a valid LEI identifier, returns an instance of `Identifier` if successful
+    /// Validate `bytes` is a valid LEI identifier, returns an instance of `Identifier` if successful.
     pub fn lei(bytes: [u8; 20]) -> Option<AssetIdentifier> {
         validate_lei(&bytes).then_some(AssetIdentifier::LEI(bytes))
+    }
+    /// Validate `bytes` is a valid FIGI identifier, returns an instance of `Identifier` if successful.
+    pub fn figi(bytes: [u8; 12]) -> Option<AssetIdentifier> {
+        validate_figi(&bytes).then_some(AssetIdentifier::FIGI(bytes))
     }
 
     /// Returns `true` iff the identifier is valid.
@@ -56,6 +65,7 @@ impl AssetIdentifier {
             AssetIdentifier::CUSIP(bs) | AssetIdentifier::CINS(bs) => validate_cusip(bs),
             AssetIdentifier::ISIN(bs) => validate_isin(bs),
             AssetIdentifier::LEI(bs) => validate_lei(bs),
+            AssetIdentifier::FIGI(bs) => validate_figi(bs),
         }
     }
 }
@@ -164,6 +174,20 @@ fn lei_checksum(bytes: [u8; 18]) -> u8 {
     (98 - (total.wrapping_mul(100) % 97)) as u8
 }
 
+fn validate_figi(bytes: &[u8; 12]) -> bool {
+    // G for Global.
+    if bytes[2] != b'G' {
+        return false;
+    }
+
+    match <[u8; 2]>::try_from(&bytes[..2]).as_ref() {
+        // Disallowed prefixes.
+        Err(_) | Ok(b"BS" | b"BM" | b"GG" | b"GB" | b"GH" | b"KY" | b"VG") => false,
+        // Validate checksum.
+        Ok(_) => cusip_checksum(&bytes[..11]) == bytes[11] - b'0',
+    }
+}
+
 fn byte_value(b: u8) -> u8 {
     match b {
         b'*' => 36,
@@ -254,5 +278,39 @@ mod tests {
             Some(AssetIdentifier::LEI(*b"549300GFX6WN7JDUSN34"))
         );
         assert_eq!(AssetIdentifier::lei(*b"549300GFXDSN7JDUSN34"), None);
+    }
+
+    #[test]
+    fn figi() {
+        assert_eq!(
+            AssetIdentifier::figi(*b"BBG000BLNQ16"),
+            Some(AssetIdentifier::FIGI(*b"BBG000BLNQ16"))
+        );
+        assert_eq!(
+            AssetIdentifier::figi(*b"NRG92C84SB39"),
+            Some(AssetIdentifier::FIGI(*b"NRG92C84SB39"))
+        );
+        assert_eq!(
+            AssetIdentifier::figi(*b"BBG0013YWBF3"),
+            Some(AssetIdentifier::FIGI(*b"BBG0013YWBF3"))
+        );
+        assert_eq!(
+            AssetIdentifier::figi(*b"BBG00H9NR574"),
+            Some(AssetIdentifier::FIGI(*b"BBG00H9NR574"))
+        );
+        assert_eq!(
+            AssetIdentifier::figi(*b"BBG00094DJF9"),
+            Some(AssetIdentifier::FIGI(*b"BBG00094DJF9"))
+        );
+        assert_eq!(
+            AssetIdentifier::figi(*b"BBG016V71XT0"),
+            Some(AssetIdentifier::FIGI(*b"BBG016V71XT0"))
+        );
+        // Bad check digit.
+        assert_eq!(AssetIdentifier::figi(*b"BBG00024DJF9"), None);
+        // Disallowed prefix.
+        assert_eq!(AssetIdentifier::figi(*b"BSG00024DJF9"), None);
+        // 3rd char not G.
+        assert_eq!(AssetIdentifier::figi(*b"BBB00024DJF9"), None);
     }
 }

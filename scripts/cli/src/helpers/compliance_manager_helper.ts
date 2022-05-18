@@ -1,8 +1,8 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { Ticker, Scope } from "../types";
+import type { AssetCompliance, IdentityId } from "../interfaces";
 import { sendTx, ApiSingleton } from "../util/init";
 import { assert } from "chai";
-import type { IdentityId } from "../interfaces";
 
 const senderConditions1 = function (trusted_did: IdentityId, data: Scope) {
 	return {
@@ -54,4 +54,13 @@ export async function addComplianceRequirement(sender: KeyringPair, ticker: Tick
 	} else {
 		console.log("Asset already has compliance.");
 	}
+}
+
+export async function addDefaultTrustedClaimIssuer(signer: KeyringPair, ticker: Ticker, issuer: IdentityId, trustedFor: any) {
+	const api = await ApiSingleton.getInstance();
+	const transaction = api.tx.complianceManager.addDefaultTrustedClaimIssuer(ticker, {
+		issuer,
+		trustedFor,
+	  });
+	await sendTx(signer, transaction);
 }
