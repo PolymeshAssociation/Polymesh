@@ -2,7 +2,7 @@
 name = "node-rpc"
 version = "0.1.0"
 authors = ["Polymath"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 node-rpc-runtime-api = { path = "./runtime-api", default-features = false }
@@ -16,20 +16,20 @@ pallet-identity = { path = "../pallets/identity", default-features = false }
 pallet-transaction-payment = { path = "../pallets/transaction-payment", default-features = false }
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "2.0.0" }
-sp-core = {version = "3.0.0", default_features = false }
-sp-std = {version = "3.0.0", default_features = false }
-sp-runtime = { version = "3.0.0", default-features = false }
-sp-api = { version = "3.0.0", default-features = false }
-sp-blockchain = { version = "3.0.0" }
-sp-rpc = { version = "3.0.0" }
-frame-support = { version = "3.0.0", default-features = false }
-frame-system = { version = "3.0.0", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.0.0" }
+sp-core = {version = "6.0.0", default_features = false }
+sp-std = {version = "4.0.0", default_features = false }
+sp-runtime = { version = "6.0.0", default-features = false }
+sp-api = { version = "4.0.0-dev", default-features = false }
+sp-blockchain = { version = "4.0.0-dev" }
+sp-rpc = { version = "6.0.0" }
+frame-support = { version = "4.0.0-dev", default-features = false }
+frame-system = { version = "4.0.0-dev", default-features = false }
 
 # Others
-jsonrpc-core = { version = "15.0", features = ["arbitrary_precision"] }
-jsonrpc-core-client = "15.0.0"
-jsonrpc-derive = "15.0.0"
+jsonrpc-core = { version = "18.0.0", features = ["arbitrary_precision"] }
+jsonrpc-core-client = { version = "18.0.0", features = ["arbitrary_precision"] }
+jsonrpc-derive = "18.0.0"
 serde = { version = "1.0.104", optional = true, features = ["derive"] }
 
 [features]

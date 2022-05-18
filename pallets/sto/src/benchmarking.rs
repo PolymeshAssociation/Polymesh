@@ -3,7 +3,7 @@ use frame_benchmarking::benchmarks;
 use frame_support::dispatch::DispatchError;
 use frame_support::traits::Get;
 use pallet_settlement::{
-    benchmarking::{add_transfer_managers, compliance_setup},
+    benchmarking::{add_transfer_conditions, compliance_setup, MAX_CONDITIONS},
     VenueDetails,
 };
 use polymesh_common_utilities::{
@@ -18,7 +18,7 @@ const RAISE_TICKER: Ticker = Ticker::repeating(b'B');
 pub type Asset<T> = pallet_asset::Module<T>;
 pub type ComplianceManager<T> = pallet_compliance_manager::Module<T>;
 pub type Identity<T> = pallet_identity::Module<T>;
-pub type Timestamp<T> = pallet_timestamp::Module<T>;
+pub type Timestamp<T> = pallet_timestamp::Pallet<T>;
 pub type Settlement<T> = pallet_settlement::Module<T>;
 pub type Sto<T> = crate::Module<T>;
 
@@ -28,18 +28,13 @@ fn create_assets_and_compliance<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     offering_ticker: Ticker,
     raise_ticker: Ticker,
     complexity: u32,
-    transfer_managers: u32,
+    transfer_conditions: u32,
 ) -> DispatchResult {
     let t_issuer = UserBuilder::<T>::default()
         .generate_did()
         .build("TrustedClaimIssuer");
     let trusted_issuer = TrustedIssuer::from(t_issuer.did());
-    let setup = |a: &User<T>,
-                 b: &User<T>,
-                 ticker: Ticker,
-                 complexity: u32,
-                 transfer_managers: u32|
-     -> DispatchResult {
+    let setup = |a: &User<T>, b: &User<T>, ticker: Ticker, complexity: u32| -> DispatchResult {
         make_asset::<T>(a, Some(ticker.as_slice()));
         compliance_setup::<T>(
             complexity,
@@ -49,12 +44,12 @@ fn create_assets_and_compliance<T: Config + TestUtilsFn<AccountIdOf<T>>>(
             b.did(),
             trusted_issuer.clone(),
         );
-        add_transfer_managers::<T>(ticker, a.origin(), a.did(), transfer_managers);
+        add_transfer_conditions::<T>(ticker, a.origin(), a.did(), transfer_conditions);
         Ok(())
     };
 
-    setup(from, to, offering_ticker, complexity, transfer_managers).unwrap();
-    setup(to, from, raise_ticker, complexity, transfer_managers).unwrap();
+    setup(from, to, offering_ticker, complexity).unwrap();
+    setup(to, from, raise_ticker, complexity).unwrap();
 
     Ok(())
 }
@@ -91,7 +86,7 @@ struct UserWithPortfolio<T: Config> {
 fn setup_fundraiser<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     complexity: u32,
     tiers: u32,
-    transfer_managers: u32,
+    transfer_conditions: u32,
 ) -> Result<(UserWithPortfolio<T>, UserWithPortfolio<T>), DispatchError> {
     let alice = user::<T>("alice");
     let bob = user::<T>("bob");
@@ -102,7 +97,7 @@ fn setup_fundraiser<T: Config + TestUtilsFn<AccountIdOf<T>>>(
         OFFERING_TICKER,
         RAISE_TICKER,
         complexity,
-        transfer_managers,
+        transfer_conditions,
     )
     .unwrap();
 
@@ -163,7 +158,7 @@ benchmarks! {
     }
 
     invest {
-        let (alice, bob) = setup_fundraiser::<T>(T::MaxConditionComplexity::get() as u32, MAX_TIERS as u32, T::MaxTransferManagersPerAsset::get() as u32).unwrap();
+        let (alice, bob) = setup_fundraiser::<T>(T::MaxConditionComplexity::get() as u32, MAX_TIERS as u32, MAX_CONDITIONS as u32).unwrap();
     }: _(
             bob.user.origin(),
             bob.portfolio,

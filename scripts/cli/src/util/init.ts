@@ -1,3 +1,4 @@
+import "@polkadot/api/augment";
 import { ApiPromise, WsProvider, Keyring } from "@polkadot/api";
 import {
   cryptoWaitReady,
@@ -17,17 +18,18 @@ import path from "path";
 import type { AccountId } from "@polkadot/types/interfaces/runtime";
 import type { SubmittableExtrinsic } from "@polkadot/api/types";
 import type { KeyringPair } from "@polkadot/keyring/types";
-import type { DispatchError } from "@polkadot/types/interfaces";
+import type { DispatchError, EventRecord, AccountInfo, ActiveEraInfo } from "@polkadot/types/interfaces";
 import type { ISubmittableResult } from "@polkadot/types/types";
-import type { Ticker, NonceObject } from "../types";
+import type { Ticker } from "../types";
 import { createIdentities } from "../helpers/identity_helper";
 import { distributePoly } from "../helpers/poly_helper";
 import type { IdentityId } from "../interfaces";
 import { assert } from "chai";
+import { Option } from "@polkadot/types-codec";
 
-let nonces = new Map();
 let block_sizes: Number[] = [];
 let block_times: Number[] = [];
+let genesisEntities: KeyringPair[] = [];
 let synced_block = 0;
 let synced_block_ts = 0;
 
@@ -69,13 +71,20 @@ export class ApiSingleton {
   }
 }
 
+export async function disconnect() {
+  const api = await ApiSingleton.getInstance();
+  await api.disconnect();
+}
+
 export async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-const getEra = async () =>
-  (await (await ApiSingleton.getInstance()).query.staking.activeEra())
-    .unwrap()
-    .index.toJSON();
+const getEra = async () => {
+  const api = await ApiSingleton.getInstance();
+  const activeEra = await api.query.staking.activeEra();
+  activeEra.unwrap().index.toJSON();
+}
+
 export async function waitNextEra() {
   const era = await getEra();
   while ((await getEra()) === era) {
@@ -101,13 +110,16 @@ export async function waitNextBlock() {
 
 // Initialization Main is used to generate all entities e.g (Alice, Bob, Dave)
 export async function initMain(): Promise<KeyringPair[]> {
-  return [
-    await generateEntity("Alice"),
-    await generateEntity("relay_1"),
-    await generateEntity("polymath_1"),
-    await generateEntity("polymath_2"),
-    await generateEntity("Bob"),
-  ];
+  if (genesisEntities.length === 0) {
+    genesisEntities = [
+      await generateEntity("Alice"),
+      await generateEntity("relay_1"),
+      await generateEntity("polymath_1"),
+      await generateEntity("polymath_2"),
+      await generateEntity("Bob"),
+    ];
+  }
+  return genesisEntities;
 }
 
 export async function generateEntities(accounts: string[]) {
@@ -120,23 +132,16 @@ export async function generateEntities(accounts: string[]) {
 }
 
 export async function generateEntity(name: string): Promise<KeyringPair> {
-  const api = await ApiSingleton.getInstance();
   await cryptoWaitReady();
-  let entity = new Keyring({ type: "sr25519" }).addFromUri(`//${name}`, {
+  return new Keyring({ type: "sr25519" }).addFromUri(`//${name}`, {
     name: `${name}`,
   });
-  let entityRawNonce = (await api.query.system.account(entity.address)).nonce;
-  let entity_nonce = new BN(entityRawNonce.toString());
-  nonces.set(entity.address, entity_nonce);
-
-  return entity;
 }
 
 export async function generateKeys(
   numberOfKeys: Number,
   keyPrepend: String
 ): Promise<KeyringPair[]> {
-  const api = await ApiSingleton.getInstance();
   let keys = [];
   await cryptoWaitReady();
   for (let i = 0; i < numberOfKeys; i++) {
@@ -148,22 +153,13 @@ export async function generateKeys(
         }
       )
     );
-    let accountRawNonce = (await api.query.system.account(keys[i].address))
-      .nonce;
-    let account_nonce = new BN(accountRawNonce.toString());
-    nonces.set(keys[i].address, account_nonce);
   }
   return keys;
 }
 
 export async function generateEntityFromUri(uri: string): Promise<KeyringPair> {
-  const api = await ApiSingleton.getInstance();
   await cryptoWaitReady();
-  let entity = new Keyring({ type: "sr25519" }).addFromUri(uri);
-  let accountRawNonce = (await api.query.system.account(entity.address)).nonce;
-  let account_nonce = new BN(accountRawNonce.toString());
-  nonces.set(entity.address, account_nonce);
-  return entity;
+  return new Keyring({ type: "sr25519" }).addFromUri(uri);
 }
 const NULL_12 = "\0".repeat(12);
 export function padTicker(ticker: string) {
@@ -222,8 +218,16 @@ export async function keyToIdentityIds(
   accountKey: AccountId | KeyringPair["publicKey"]
 ): Promise<IdentityId> {
   const api = await ApiSingleton.getInstance();
-  let account_did = await api.query.identity.keyToIdentityIds(accountKey);
-  return account_did;
+  let opt_rec = await api.query.identity.keyRecords(accountKey);
+  if (opt_rec.isSome) {
+    const rec = opt_rec.unwrap();
+    if (rec.isPrimaryKey) {
+      return rec.asPrimaryKey;
+    } else if (rec.isSecondaryKey) {
+      return rec.asSecondaryKey[0];
+    }
+  }
+  return <IdentityId>(0 as unknown);
 }
 
 // Returns the asset did
@@ -241,35 +245,35 @@ export function tickerToDid(ticker: Ticker) {
 export async function generateStashKeys(
   accounts: string[]
 ): Promise<KeyringPair[]> {
-  const api = await ApiSingleton.getInstance();
   let keys = [];
   await cryptoWaitReady();
-  for (let i = 0; i < accounts.length; i++) {
+  for (let account of accounts) {
     keys.push(
-      new Keyring({ type: "sr25519" }).addFromUri(`//${accounts[i]}//stash`, {
-        name: `${accounts[i] + "_stash"}`,
+      new Keyring({ type: "sr25519" }).addFromUri(`//${account}//stash`, {
+        name: `${account + "_stash"}`,
       })
     );
-    let accountRawNonce = (await api.query.system.account(keys[i].address))
-      .nonce;
-    let account_nonce = new BN(accountRawNonce.toString());
-    nonces.set(keys[i].address, account_nonce);
   }
   return keys;
+}
+
+export async function sendTx(
+  signer: KeyringPair,
+  tx: SubmittableExtrinsic<"promise">
+) {
+   return sendTransaction(signer, tx, -1);
 }
 
 export function sendTransaction(
   signer: KeyringPair,
   transaction: SubmittableExtrinsic<"promise">,
-  nonceObj: NonceObject
+  nonceObj: any
 ) {
   return new Promise<ISubmittableResult>((resolve, reject) => {
     const gettingUnsub = transaction.signAndSend(
       signer,
       nonceObj,
       (receipt) => {
-        const { status } = receipt;
-
         if (receipt.isCompleted) {
           /*
            * isCompleted === isFinalized || isError, which means
@@ -290,12 +294,10 @@ export function sendTransaction(
               if (dispatchError.isModule) {
                 // known error
                 const mod = dispatchError.asModule;
-                const { section, name, documentation } =
-                  mod.registry.findMetaError(
-                    new Uint8Array([mod.index.toNumber(), mod.error.toNumber()])
-                  );
+                const { section, name, docs } =
+                  mod.registry.findMetaError(mod);
 
-                message = `${section}.${name}: ${documentation.join(" ")}`;
+                message = `${section}.${name}: ${docs.join(" ")}`;
               } else if (dispatchError.isBadOrigin) {
                 message = "Bad origin";
               } else if (dispatchError.isCannotLookup) {
@@ -336,18 +338,8 @@ export async function signatory(signer: KeyringPair, entity: KeyringPair) {
   return signatoryObj;
 }
 
-export async function sendTx(
-  signer: KeyringPair,
-  tx: SubmittableExtrinsic<"promise">
-) {
-  let nonceObj = { nonce: nonces.get(signer.address) };
-  nonces.set(signer.address, nonces.get(signer.address).addn(1));
-  const result = await sendTransaction(signer, tx, nonceObj);
-  return result;
-}
-
 export function getDefaultPortfolio(did: IdentityId) {
-  return { did: did, kind: "Default" };
+  return { did: did, kind: { Default: ""} };
 }
 
 export async function getValidCddProvider(alice: KeyringPair) {
@@ -388,22 +380,22 @@ export async function getValidCddProvider(alice: KeyringPair) {
 
 export async function getExpiries(length: number) {
   const api = await ApiSingleton.getInstance();
-  let blockTime = api.consts.babe.expectedBlockTime;
-  let bondingDuration = api.consts.staking.bondingDuration;
-  let sessionPerEra = api.consts.staking.sessionsPerEra;
-  let session_length = api.consts.babe.epochDuration;
-  const currentBlockTime = await api.query.timestamp.now();
+  let blockTime = (api.consts.babe.expectedBlockTime).toNumber();
+  let bondingDuration = (api.consts.staking.bondingDuration).toNumber();
+  let sessionPerEra = (api.consts.staking.sessionsPerEra).toNumber();
+  let session_length = (api.consts.babe.epochDuration).toNumber();
+  const currentBlockTime = (await api.query.timestamp.now()).toNumber();
 
   const bondingTime =
-    bondingDuration.toNumber() *
-    sessionPerEra.toNumber() *
-    session_length.toNumber();
-  let expiryTime = currentBlockTime.toNumber() + bondingTime * 1000;
+    bondingDuration *
+    sessionPerEra *
+    session_length;
+  let expiryTime = currentBlockTime + bondingTime * 1000;
 
   let expiries = [];
   for (let i = 1; i <= length; i++) {
     // Providing 15 block as the extra time
-    let temp = expiryTime + i * 5 * blockTime.toNumber();
+    let temp = expiryTime + i * 5 * blockTime;
     expiries.push(temp);
   }
   return expiries;

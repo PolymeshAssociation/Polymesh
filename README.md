@@ -192,7 +192,7 @@ extrinsic to be benchmarked, for example:
 
 ```bash
 cargo run --release --features runtime-benchmarks -- \
-    benchmark -p="*" -e="*"
+    benchmark pallet -p="*" -e="*"
 ```
 
 Note that the CLI binary should be built in release mode and that the feature flag

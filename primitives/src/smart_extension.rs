@@ -38,9 +38,8 @@ impl Default for SmartExtensionType {
 }
 
 /// A wrapper for a smart extension name.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
+#[derive(Decode, Encode, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SmartExtensionName(pub Vec<u8>);
 
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]

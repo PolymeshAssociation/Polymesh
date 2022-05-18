@@ -17,12 +17,8 @@
 
 //! Test utilities
 
-use super::*;
 use crate as sudo;
-use frame_support::traits::Filter;
-use frame_support::{
-    impl_outer_dispatch, impl_outer_event, impl_outer_origin, parameter_types, weights::Weight,
-};
+use frame_support::{parameter_types, weights::Weight};
 use sp_core::H256;
 use sp_io;
 use sp_runtime::{
@@ -33,15 +29,15 @@ use sp_runtime::{
 
 // Logger module to track execution.
 pub mod logger {
-    use super::*;
-    use frame_system::ensure_root;
+    use frame_support::{decl_event, decl_module, decl_storage, weights::Weight};
+    use frame_system::{ensure_root, ensure_signed};
 
-    pub trait Trait: frame_system::Config {
+    pub trait Config: frame_system::Config {
         type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     }
 
     decl_storage! {
-        trait Store for Module<T: Trait> as Logger {
+        trait Store for Module<T: Config> as Logger {
             AccountLog get(fn account_log): Vec<T::AccountId>;
             I32Log get(fn i32_log): Vec<i32>;
         }
@@ -55,7 +51,7 @@ pub mod logger {
     }
 
     decl_module! {
-        pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Config>::Origin {
+        pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::Origin {
             fn deposit_event() = default;
 
             #[weight = *weight]
@@ -78,34 +74,20 @@ pub mod logger {
     }
 }
 
-impl_outer_origin! {
-    pub enum Origin for Test where system = frame_system {}
-}
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+type Block = frame_system::mocking::MockBlock<Test>;
 
-mod test_events {
-    pub use crate::Event;
-}
-
-impl_outer_event! {
-    pub enum TestEvent for Test {
-        frame_system<T>,
-        sudo<T>,
-        logger<T>,
+frame_support::construct_runtime!(
+    pub enum Test where
+        Block = Block,
+        NodeBlock = Block,
+        UncheckedExtrinsic = UncheckedExtrinsic,
+    {
+        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        Sudo: sudo::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Logger: logger::{Pallet, Call, Storage, Event<T>},
     }
-}
-
-impl_outer_dispatch! {
-    pub enum Call for Test where origin: Origin {
-        sudo::Sudo,
-        logger::Logger,
-    }
-}
-
-// For testing the pallet, we construct most of a mock runtime. This means
-// first constructing a configuration type (`Test`) which `impl`s each of the
-// configuration traits of pallets we want to use.
-#[derive(Clone, Eq, PartialEq)]
-pub struct Test;
+);
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -114,15 +96,10 @@ parameter_types! {
     pub const AvailableBlockRatio: Perbill = Perbill::one();
 }
 
-pub struct BlockEverything;
-impl Filter<Call> for BlockEverything {
-    fn filter(_: &Call) -> bool {
-        false
-    }
-}
-
 impl frame_system::Config for Test {
-    type BaseCallFilter = BlockEverything;
+    type BaseCallFilter = frame_support::traits::Everything;
+    type BlockWeights = ();
+    type BlockLength = ();
     type Origin = Origin;
     type Call = Call;
     type Index = u64;
@@ -132,38 +109,28 @@ impl frame_system::Config for Test {
     type AccountId = u64;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = TestEvent;
+    type Event = Event;
     type BlockHashCount = BlockHashCount;
-    type MaximumBlockWeight = MaximumBlockWeight;
     type DbWeight = ();
-    type BlockExecutionWeight = ();
-    type ExtrinsicBaseWeight = ();
-    type MaximumExtrinsicWeight = MaximumBlockWeight;
-    type MaximumBlockLength = MaximumBlockLength;
-    type AvailableBlockRatio = AvailableBlockRatio;
     type Version = ();
     type PalletInfo = PalletInfo;
     type AccountData = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
+    type OnSetCode = ();
+    type SS58Prefix = ();
+    type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-// Implement the logger module's `Trait` on the Test runtime.
-impl logger::Trait for Test {
-    type Event = TestEvent;
-}
-
-// Implement the sudo module's `Trait` on the Test runtime.
-impl Trait for Test {
-    type Event = TestEvent;
+impl sudo::Config for Test {
+    type Event = Event;
     type Call = Call;
 }
 
-// Assign back to type variables in order to make dispatched calls of these modules later.
-pub type Sudo = Module<Test>;
-pub type Logger = logger::Module<Test>;
-pub type System = frame_system::Module<Test>;
+impl logger::Config for Test {
+    type Event = Event;
+}
 
 // New types for dispatchable functions.
 pub type SudoCall = sudo::Call<Test>;
@@ -174,7 +141,7 @@ pub fn new_test_ext(root_key: u64) -> sp_io::TestExternalities {
     let mut t = frame_system::GenesisConfig::default()
         .build_storage::<Test>()
         .unwrap();
-    GenesisConfig::<Test> { key: root_key }
+    sudo::GenesisConfig::<Test> { key: root_key }
         .assimilate_storage(&mut t)
         .unwrap();
     t.into()

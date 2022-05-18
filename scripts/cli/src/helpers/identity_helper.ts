@@ -1,6 +1,8 @@
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { AccountId } from "@polkadot/types/interfaces";
 import type { AnyNumber } from "@polkadot/types/types";
+import type { IdentityId } from "../interfaces";
+import type { u64 } from '@polkadot/types/primitive';
 import type {
   Permissions,
   Expiry,
@@ -8,12 +10,23 @@ import type {
   PortfolioPermissions,
   AssetPermissions,
   Signatory,
-  AuthorizationData,
-  AgentGroup,
   CddId,
+  Claim,
 } from "../types";
 import { sendTx, keyToIdentityIds, ApiSingleton } from "../util/init";
-import type { IdentityId, Moment } from "../interfaces";
+
+
+
+export async function addClaim(
+  signer: KeyringPair,
+  claimeeDid: IdentityId,
+  claim: Claim,
+  expiry: any
+) {
+  const api = await ApiSingleton.getInstance();
+  const transaction = api.tx.identity.addClaim(claimeeDid, claim, expiry);
+  await sendTx(signer, transaction);
+}
 
 /**
  * @description Adds a Claim to an Identity
@@ -35,7 +48,7 @@ export async function addClaimsToDids(
 /**
  * @description Sets permission to signer key
  */
-export async function setPermissionToSigner(
+export async function setSecondaryKeyPermissions(
   signers: KeyringPair[],
   receivers: KeyringPair[],
   extrinsic: ExtrinsicPermissions,
@@ -50,11 +63,9 @@ export async function setPermissionToSigner(
   };
 
   for (let i in signers) {
-    let signer = {
-      Account: receivers[i].publicKey as AccountId,
-    };
-    let transaction = api.tx.identity.setPermissionToSigner(
-      signer,
+    let key = receivers[i].publicKey as AccountId;
+    let transaction = api.tx.identity.setSecondaryKeyPermissions(
+      key,
       permissions
     );
     await sendTx(signers[i], transaction);
@@ -77,12 +88,12 @@ export async function authorizeJoinToIdentities(
 
     let last_auth_id: AnyNumber = 0;
     auths
-      .map(([key, value]) => value)
-      .filter((value) => value.isSome)
-      .forEach((value) => {
+      .map(([, value]) => value)
+      .filter((value: any) => value.isSome)
+      .forEach((value: any) => {
         const auth = value.unwrap();
-        if (auth.auth_id > last_auth_id) {
-          last_auth_id = auth.auth_id;
+        if (auth.authId > last_auth_id) {
+          last_auth_id = auth.authId;
         }
       });
     const transaction = api.tx.identity.joinIdentityAsKey(last_auth_id);
@@ -187,5 +198,11 @@ export async function addAuthorization(
 
 export async function getAuthId() {
   const api = await ApiSingleton.getInstance();
-  return api.query.identity.multiPurposeNonce();
+  return (await api.query.identity.multiPurposeNonce()).toNumber();
+}
+
+export async function joinIdentityAsKey(signer: KeyringPair, authId: number | u64) {
+  const api = await ApiSingleton.getInstance();
+  const transaction = api.tx.identity.joinIdentityAsKey(authId);
+  await sendTx(signer, transaction);
 }

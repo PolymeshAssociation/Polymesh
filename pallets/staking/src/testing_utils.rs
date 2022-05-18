@@ -39,8 +39,8 @@ const SEED: u32 = 0;
 
 /// This function removes all validators and nominators from storage.
 pub fn clear_validators_and_nominators<T: Config>() {
-    Validators::<T>::remove_all();
-    Nominators::<T>::remove_all();
+    Validators::<T>::remove_all(None);
+    Nominators::<T>::remove_all(None);
 }
 
 /// Grab a funded user with the given balance.
@@ -309,14 +309,13 @@ pub fn get_weak_solution<T: Config>(
             <Module<T>>::slashable_balance_of_fn(),
         );
 
-        let support_map =
-            to_support_map::<T::AccountId>(winners.as_slice(), staked.as_slice()).unwrap();
+        let support_map = to_supports::<T::AccountId>(staked.as_slice());
         support_map.evaluate()
     };
 
     // compact encode the assignment.
     let compact = CompactAssignments::from_assignment(
-        low_accuracy_assignment,
+        &low_accuracy_assignment,
         nominator_index,
         validator_index,
     )
@@ -405,7 +404,11 @@ pub fn get_single_winner_solution<T: Config>(
         votes1: vec![(nom_index, val_index)],
         ..Default::default()
     };
-    let score = [stake, stake, stake * stake];
+    let score = ElectionScore {
+      minimal_stake: stake,
+      sum_stake: stake,
+      sum_stake_squared: stake * stake
+    };
     let size = ElectionSize {
         validators: snapshot_validators.len() as ValidatorIndex,
         nominators: snapshot_nominators.len() as NominatorIndex,
@@ -439,7 +442,7 @@ pub fn create_assignments_for_offchain<T: Config>(
     ),
     &'static str,
 > {
-    let ratio = OffchainAccuracy::from_rational_approximation(1, MAX_NOMINATIONS);
+    let ratio = OffchainAccuracy::from_rational(1, MAX_NOMINATIONS);
     let assignments: Vec<Assignment<T::AccountId, OffchainAccuracy>> = <Nominators<T>>::iter()
         .take(num_assignments as usize)
         .map(|(n, t)| Assignment {

@@ -20,7 +20,6 @@ use polymesh_common_utilities::{
     benchs::{user, AccountIdOf, User},
     traits::{relayer::Config, TestUtilsFn},
 };
-use sp_std::prelude::*;
 
 type Relayer<T> = crate::Module<T>;
 

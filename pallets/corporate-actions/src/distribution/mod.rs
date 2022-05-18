@@ -84,8 +84,10 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     storage_migration_ver, Balance, EventDid, IdentityId, Moment, PortfolioId, PortfolioNumber,
-    Ticker,
+    SecondaryKey, Ticker,
 };
+use scale_info::TypeInfo;
+use sp_runtime::traits::Zero;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
@@ -104,7 +106,7 @@ pub const PER_SHARE_PRECISION: Balance = 1_000_000;
 ///
 /// All information contained is used by on-chain logic.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Encode, Decode)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Encode, Decode, TypeInfo)]
 pub struct Distribution {
     /// The portfolio to distribute from.
     pub from: PortfolioId,
@@ -193,7 +195,6 @@ decl_module! {
         ///
         /// # Errors
         /// - `UnauthorizedAgent` if `origin` is not agent-permissioned for `ticker`.
-        /// - `DistributingAsset` if `ca_id.ticker == currency`.
         /// - `ExpiryBeforePayment` if `expires_at.unwrap() <= payment_at`.
         /// - `NoSuchCA` if `ca_id` does not identify an existing CA.
         /// - `NoRecordDate` if CA has no record date.
@@ -202,6 +203,8 @@ decl_module! {
         /// - `InsufficientPortfolioBalance` if `portfolio` has less than `amount` of `currency`.
         /// - `InsufficientBalance` if the protocol fee couldn't be charged.
         /// - `CANotBenefit` if the CA is not of kind PredictableBenefit/UnpredictableBenefit
+        /// - `DistributionAmountIsZero` if the `amount` is zero.
+        /// - `DistributionPerShareIsZero` if the `per_share` is zero.
         ///
         /// # Permissions
         /// * Asset
@@ -216,62 +219,17 @@ decl_module! {
             amount: Balance,
             payment_at: Moment,
             expires_at: Option<Moment>,
-        ) {
-            // Ensure CA's asset is distinct from the distributed currency.
-            ensure!(ca_id.ticker != currency, Error::<T>::DistributingAsset);
-
-            // Ensure that any expiry date doesn't come before the payment date.
-            ensure!(!expired(expires_at, payment_at), Error::<T>::ExpiryBeforePayment);
-
-            // Ensure CA doesn't have a distribution yet.
-            ensure!(!Distributions::contains_key(ca_id), Error::<T>::AlreadyExists);
-
-            // Ensure origin is a permissioned agent and that they have custody over `from`.
-            // Also ensure secondary key has perms for `from` + portfolio is valid.
-            let PermissionedCallOriginData {
-                primary_did: agent,
-                secondary_key,
-                ..
-            } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ca_id.ticker)?;
-            let from = PortfolioId { did: agent, kind: portfolio.into() };
-            <Portfolio<T>>::ensure_portfolio_custody_and_permission(from, agent, secondary_key.as_ref())?;
-            <Portfolio<T>>::ensure_portfolio_validity(&from)?;
-
-            // Ensure that `ca_id` exists, that its a benefit.
-            let agent = agent.for_event();
-            let ca = <CA<T>>::ensure_ca_exists(ca_id)?;
-            ensure!(ca.kind.is_benefit(), Error::<T>::CANotBenefit);
-
-            // Ensure CA has a record `date <= payment_at`.
-            // If we cannot, deriving a checkpoint,
-            // used to determine each holder's allotment of the total `amount`,
-            // is not possible.
-            <CA<T>>::ensure_record_date_before_start(&ca, payment_at)?;
-
-            // Ensure `from` has at least `amount` to later lock (1).
-            <Portfolio<T>>::ensure_sufficient_balance(&from, &currency, amount)?;
-
-            // Charge the protocol fee. Last check; we are in commit phase after this.
-            T::ProtocolFee::charge_fee(ProtocolOp::CapitalDistributionDistribute)?;
-
-            // (1) Lock `amount` in `from`.
-            <Portfolio<T>>::unchecked_lock_tokens(&from, &currency, amount);
-
-            // Commit to storage.
-            let distribution = Distribution {
-                from,
+        ) -> DispatchResult {
+            Self::base_distribute(
+                origin,
+                ca_id,
+                portfolio,
                 currency,
                 per_share,
                 amount,
-                remaining: amount,
-                reclaimed: false,
                 payment_at,
                 expires_at,
-            };
-            Distributions::insert(ca_id, distribution);
-
-            // Emit event.
-            Self::deposit_event(Event::Created(agent, ca_id, distribution));
+            )
         }
 
         /// Claim a benefit of the capital distribution attached to `ca_id`.
@@ -299,8 +257,7 @@ decl_module! {
         /// - Other errors can occur if the compliance manager rejects the transfer.
         #[weight = <T as Config>::DistWeightInfo::claim(T::MaxTargetIds::get(), T::MaxDidWhts::get())]
         pub fn claim(origin, ca_id: CAId) {
-            let did = <Identity<T>>::ensure_perms(origin)?;
-            Self::transfer_benefit(did.for_event(), did, ca_id)?;
+            Self::base_claim(origin, ca_id)?;
         }
 
         /// Push benefit of an ongoing distribution to the given `holder`.
@@ -329,8 +286,7 @@ decl_module! {
         /// - Other errors can occur if the compliance manager rejects the transfer.
         #[weight = <T as Config>::DistWeightInfo::push_benefit(T::MaxTargetIds::get(), T::MaxDidWhts::get())]
         pub fn push_benefit(origin, ca_id: CAId, holder: IdentityId) {
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
-            Self::transfer_benefit(agent, holder, ca_id)?;
+            Self::base_push_benefit(origin, ca_id, holder)?;
         }
 
         /// Assuming a distribution has expired,
@@ -346,27 +302,7 @@ decl_module! {
         /// - `NotExpired` if `now < expiry`.
         #[weight = <T as Config>::DistWeightInfo::reclaim()]
         pub fn reclaim(origin, ca_id: CAId) {
-            // Ensure distribution is created, they haven't reclaimed, and that expiry has passed.
-            // CA must be authorized and be the custodian.
-            let PermissionedCallOriginData {
-                primary_did: agent,
-                secondary_key,
-                ..
-            } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin.clone(), ca_id.ticker)?;
-            let dist = Self::ensure_distribution_exists(ca_id)?;
-            ensure!(!dist.reclaimed, Error::<T>::AlreadyReclaimed);
-            ensure!(expired(dist.expires_at, <Checkpoint<T>>::now_unix()), Error::<T>::NotExpired);
-            <Portfolio<T>>::ensure_portfolio_custody_and_permission(dist.from, agent, secondary_key.as_ref())?;
-
-            // Unlock `remaining` of `currency` from DID's portfolio.
-            // This won't fail, as we've already locked the requisite amount prior.
-            Self::unlock(&dist, dist.remaining)?;
-
-            // Zero `remaining` + note that we've reclaimed.
-            Distributions::insert(ca_id, Distribution { reclaimed: true, remaining:0u32.into(), ..dist });
-
-            // Emit event.
-            Self::deposit_event(Event::Reclaimed(agent.for_event(), ca_id, dist.remaining));
+            Self::base_reclaim(origin, ca_id)?;
         }
 
         /// Removes a distribution that hasn't started yet,
@@ -382,9 +318,7 @@ decl_module! {
         /// - `DistributionStarted` if `payment_at <= now`.
         #[weight = <T as Config>::DistWeightInfo::remove_distribution()]
         pub fn remove_distribution(origin, ca_id: CAId) {
-            let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
-            let dist = Self::ensure_distribution_exists(ca_id)?;
-            Self::remove_distribution_base(agent, ca_id, &dist)?;
+            Self::base_remove_distribution(origin, ca_id)?;
         }
     }
 }
@@ -423,9 +357,6 @@ decl_error! {
         /// A distributions provided expiry date was strictly before its payment date.
         /// In other words, everything to distribute would immediately be forfeited.
         ExpiryBeforePayment,
-        /// Currency that is distributed is the same as the CA's ticker.
-        /// Calling agent is attempting a form of stock split, which is not what the extrinsic is for.
-        DistributingAsset,
         /// The token holder has already been paid their benefit.
         HolderAlreadyPaid,
         /// A capital distribution doesn't exist for this CA.
@@ -446,12 +377,107 @@ decl_error! {
         DistributionStarted,
         /// A distribution has insufficient remaining amount of currency to distribute.
         InsufficientRemainingAmount,
+        /// Distribution `amount` cannot be zero.
+        DistributionAmountIsZero,
+        /// Distribution `per_share` cannot be zero.
+        DistributionPerShareIsZero,
     }
 }
 
 impl<T: Config> Module<T> {
+    fn base_distribute(
+        origin: T::Origin,
+        ca_id: CAId,
+        portfolio: Option<PortfolioNumber>,
+        currency: Ticker,
+        per_share: Balance,
+        amount: Balance,
+        payment_at: Moment,
+        expires_at: Option<Moment>,
+    ) -> DispatchResult {
+        let PermissionedCallOriginData {
+            primary_did: agent,
+            secondary_key,
+            ..
+        } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ca_id.ticker)?;
+
+        Self::unverified_distribute(
+            agent,
+            secondary_key,
+            ca_id,
+            portfolio,
+            currency,
+            per_share,
+            amount,
+            payment_at,
+            expires_at,
+        )
+    }
+
+    fn base_claim(origin: T::Origin, ca_id: CAId) -> DispatchResult {
+        let did = <Identity<T>>::ensure_perms(origin)?;
+        Self::transfer_benefit(did.for_event(), did, ca_id)?;
+        Ok(())
+    }
+
+    fn base_push_benefit(origin: T::Origin, ca_id: CAId, holder: IdentityId) -> DispatchResult {
+        let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
+        Self::transfer_benefit(agent, holder, ca_id)?;
+        Ok(())
+    }
+
+    fn base_reclaim(origin: T::Origin, ca_id: CAId) -> DispatchResult {
+        // Ensure distribution is created, they haven't reclaimed, and that expiry has passed.
+        // CA must be authorized and be the custodian.
+        let PermissionedCallOriginData {
+            primary_did: agent,
+            secondary_key,
+            ..
+        } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin.clone(), ca_id.ticker)?;
+        let dist = Self::ensure_distribution_exists(ca_id)?;
+        ensure!(!dist.reclaimed, Error::<T>::AlreadyReclaimed);
+        ensure!(
+            expired(dist.expires_at, <Checkpoint<T>>::now_unix()),
+            Error::<T>::NotExpired
+        );
+        <Portfolio<T>>::ensure_portfolio_custody_and_permission(
+            dist.from,
+            agent,
+            secondary_key.as_ref(),
+        )?;
+
+        // Unlock `remaining` of `currency` from DID's portfolio.
+        // This won't fail, as we've already locked the requisite amount prior.
+        Self::unlock(&dist, dist.remaining)?;
+
+        // Zero `remaining` + note that we've reclaimed.
+        Distributions::insert(
+            ca_id,
+            Distribution {
+                reclaimed: true,
+                remaining: 0u32.into(),
+                ..dist
+            },
+        );
+
+        // Emit event.
+        Self::deposit_event(Event::Reclaimed(agent.for_event(), ca_id, dist.remaining));
+
+        Ok(())
+    }
+
+    fn base_remove_distribution(origin: T::Origin, ca_id: CAId) -> DispatchResult {
+        let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
+        let dist = Self::ensure_distribution_exists(ca_id)?;
+        Self::unverified_remove_distribution(agent, ca_id, &dist)?;
+
+        Ok(())
+    }
+
     /// Kill the distribution identified by `ca_id`.
-    crate fn remove_distribution_base(
+    ///
+    /// Unlike `base_remove_distribution`, this won't check permissions and that the dist exists.
+    crate fn unverified_remove_distribution(
         agent: EventDid,
         ca_id: CAId,
         dist: &Distribution,
@@ -570,5 +596,86 @@ impl<T: Config> Module<T> {
             Error::<T>::CannotClaimAfterExpiry
         );
         Ok(dist)
+    }
+
+    /// Create a capital distribution.
+    ///
+    /// Unlike `base_distribute`, this won't check permissions.
+    crate fn unverified_distribute(
+        agent: IdentityId,
+        secondary_key: Option<SecondaryKey<T::AccountId>>,
+        ca_id: CAId,
+        portfolio: Option<PortfolioNumber>,
+        currency: Ticker,
+        per_share: Balance,
+        amount: Balance,
+        payment_at: Moment,
+        expires_at: Option<Moment>,
+    ) -> DispatchResult {
+        // Ensure valid `amount` and `per_share`.
+        ensure!(!amount.is_zero(), Error::<T>::DistributionAmountIsZero);
+        ensure!(!per_share.is_zero(), Error::<T>::DistributionPerShareIsZero);
+
+        // Ensure that any expiry date doesn't come before the payment date.
+        ensure!(
+            !expired(expires_at, payment_at),
+            Error::<T>::ExpiryBeforePayment
+        );
+
+        // Ensure CA doesn't have a distribution yet.
+        ensure!(
+            !Distributions::contains_key(ca_id),
+            Error::<T>::AlreadyExists
+        );
+
+        // Ensure secondary key has perms for `from` + portfolio is valid.
+        let from = PortfolioId {
+            did: agent,
+            kind: portfolio.into(),
+        };
+        <Portfolio<T>>::ensure_portfolio_custody_and_permission(
+            from,
+            agent,
+            secondary_key.as_ref(),
+        )?;
+        <Portfolio<T>>::ensure_portfolio_validity(&from)?;
+
+        // Ensure that `ca_id` exists, that its a benefit.
+        let agent = agent.for_event();
+        let ca = <CA<T>>::ensure_ca_exists(ca_id)?;
+        ensure!(ca.kind.is_benefit(), Error::<T>::CANotBenefit);
+
+        // Ensure CA has a record `date <= payment_at`.
+        // If we cannot, deriving a checkpoint,
+        // used to determine each holder's allotment of the total `amount`,
+        // is not possible.
+        <CA<T>>::ensure_record_date_before_start(&ca, payment_at)?;
+
+        // Ensure `from` has at least `amount` to later lock (1).
+        <Portfolio<T>>::ensure_sufficient_balance(&from, &currency, amount)?;
+
+        // Charge the protocol fee. Last check; we are in commit phase after this.
+        T::ProtocolFee::charge_fee(ProtocolOp::CapitalDistributionDistribute)?;
+
+        // (1) Lock `amount` in `from`.
+        <Portfolio<T>>::unchecked_lock_tokens(&from, &currency, amount);
+
+        // Commit to storage.
+        let distribution = Distribution {
+            from,
+            currency,
+            per_share,
+            amount,
+            remaining: amount,
+            reclaimed: false,
+            payment_at,
+            expires_at,
+        };
+        Distributions::insert(ca_id, distribution);
+
+        // Emit event.
+        Self::deposit_event(Event::Created(agent, ca_id, distribution));
+
+        Ok(())
     }
 }

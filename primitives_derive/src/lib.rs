@@ -1,5 +1,3 @@
-#![feature(bool_to_option)]
-
 extern crate proc_macro;
 extern crate syn;
 

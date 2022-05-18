@@ -84,7 +84,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(const_option)]
-#![feature(bool_to_option)]
 #![feature(associated_type_bounds)]
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -117,10 +116,11 @@ use polymesh_common_utilities::{
     with_transaction, CommonConfig, Context, MaybeBlock, GC_DID,
 };
 use polymesh_primitives::{
-    impl_checked_inc, storage_migrate_on, storage_migration_ver, Balance, IdentityId,
+    impl_checked_inc, storage_migrate_on, storage_migration_ver, Balance, IdentityId, Url,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use polymesh_runtime_common::PipsEnactSnapshotMaximumWeight;
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
@@ -163,20 +163,14 @@ pub trait WeightInfo {
     fn expire_scheduled_pip() -> Weight;
 }
 
-/// A wrapper for a proposal url.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
-pub struct Url(pub Vec<u8>);
-
 /// A wrapper for a proposal description.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
+#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PipDescription(pub Vec<u8>);
 
 /// The global and unique identitifer of a Polymesh Improvement Proposal (PIP).
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PipId(pub u32);
 impl_checked_inc!(PipId);
@@ -196,17 +190,17 @@ impl PipId {
 }
 
 /// Represents a proposal
-#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Pip<T: Config> {
+pub struct Pip<Proposal, AccountId> {
     /// The proposal's unique id.
     pub id: PipId,
     /// The proposal being voted on.
-    pub proposal: T::Proposal,
+    pub proposal: Proposal,
     /// The latest state
     pub state: ProposalState,
     /// The issuer of `propose`.
-    pub proposer: Proposer<T::AccountId>,
+    pub proposer: Proposer<AccountId>,
 }
 
 /// A result of execution of get_votes.
@@ -226,7 +220,8 @@ pub enum VoteCount {
 
 /// Either the entire proposal encoded as a byte vector or its hash. The latter represents large
 /// proposals.
-#[derive(Encode, Decode, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ProposalData {
     /// The hash of the proposal.
     Hash(H256),
@@ -235,7 +230,7 @@ pub enum ProposalData {
 }
 
 /// The various sorts of committees that can make a PIP.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
 pub enum Committee {
     /// The technical committee.
     Technical,
@@ -244,7 +239,7 @@ pub enum Committee {
 }
 
 /// The proposer of a certain PIP.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
 pub enum Proposer<AccountId> {
     /// The proposer is of the community.
     Community(AccountId),
@@ -253,9 +248,9 @@ pub enum Proposer<AccountId> {
 }
 
 /// Represents a proposal metadata
-#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct PipsMetadata<T: Config> {
+pub struct PipsMetadata<BlockNumber> {
     /// The proposal's unique id.
     pub id: PipId,
     /// The proposal url for proposal discussion.
@@ -263,7 +258,7 @@ pub struct PipsMetadata<T: Config> {
     /// The proposal description.
     pub description: Option<PipDescription>,
     /// The block when the PIP was made.
-    pub created_at: T::BlockNumber,
+    pub created_at: BlockNumber,
     /// Assuming the runtime has a given `rv: RuntimeVersion` at the point of `Pips::propose`,
     /// then this field contains `rv.transaction_version`.
     ///
@@ -275,11 +270,11 @@ pub struct PipsMetadata<T: Config> {
     ///
     /// This field has no operational on-chain effect and is provided for UI purposes only.
     /// On-chain effects are instead handled via scheduling.
-    pub expiry: MaybeBlock<T::BlockNumber>,
+    pub expiry: MaybeBlock<BlockNumber>,
 }
 
 /// For keeping track of proposal being voted on.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Default)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct VotingResult {
     /// The current set of voters that approved with their stake.
@@ -291,7 +286,7 @@ pub struct VotingResult {
 }
 
 /// A "vote" or "signal" on a PIP to move it up or down the review queue.
-#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode)]
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub struct Vote(
     /// `true` if there's agreement.
@@ -308,7 +303,7 @@ pub struct VoteByPip<VoteType> {
 }
 
 /// The state a PIP is in.
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Encode, Decode, TypeInfo, Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ProposalState {
     /// Initial state. Proposal is open to voting.
     Pending,
@@ -331,7 +326,7 @@ impl Default for ProposalState {
 }
 
 /// Information about deposit.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Default)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct DepositInfo<AccountId> {
     /// Owner of the deposit.
@@ -341,26 +336,27 @@ pub struct DepositInfo<AccountId> {
 }
 
 /// ID of the taken snapshot in a sequence.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct SnapshotId(pub u32);
 impl_checked_inc!(SnapshotId);
 
 /// A snapshot's metadata, containing when it was created and who triggered it.
 /// The priority queue is stored separately (see `SnapshottedPip`).
-#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct SnapshotMetadata<T: Config> {
+pub struct SnapshotMetadata<BlockNumber, AccountId> {
     /// The block when the snapshot was made.
-    pub created_at: T::BlockNumber,
+    pub created_at: BlockNumber,
     /// Who triggered this snapshot? Should refer to someone in the GC.
-    pub made_by: T::AccountId,
+    pub made_by: AccountId,
     /// Unique ID of this snapshot.
     pub id: SnapshotId,
 }
 
 /// A PIP in the snapshot's priority queue for consideration by the GC.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Copy, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct SnapshottedPip {
     /// Identifies the PIP this refers to.
@@ -391,7 +387,7 @@ fn compare_spip(l: &SnapshottedPip, r: &SnapshottedPip) -> Ordering {
 
 /// A result to enact for one or many PIPs in the snapshot queue.
 // This type is only here due to `enact_snapshot_results`.
-#[derive(codec::Encode, codec::Decode, Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, TypeInfo, Copy, Clone, PartialEq, Eq, Debug)]
 pub enum SnapshotResult {
     /// Approve the PIP and move it to the execution queue.
     Approve,
@@ -407,6 +403,7 @@ pub type SkippedCount = u8;
 
 type Identity<T> = identity::Module<T>;
 type CallPermissions<T> = pallet_permissions::Module<T>;
+type System<T> = frame_system::Pallet<T>;
 
 /// The module's configuration trait.
 pub trait Config:
@@ -479,7 +476,7 @@ decl_storage! {
         ActivePipCount get(fn active_pip_count): u32;
 
         /// The metadata of the active proposals.
-        pub ProposalMetadata get(fn proposal_metadata): map hasher(twox_64_concat) PipId => Option<PipsMetadata<T>>;
+        pub ProposalMetadata get(fn proposal_metadata): map hasher(twox_64_concat) PipId => Option<PipsMetadata<T::BlockNumber>>;
 
         /// Those who have locked a deposit.
         /// proposal (id, proposer) -> deposit
@@ -487,7 +484,7 @@ decl_storage! {
 
         /// Actual proposal for a given id, if it's current.
         /// proposal id -> proposal
-        pub Proposals get(fn proposals): map hasher(twox_64_concat) PipId => Option<Pip<T>>;
+        pub Proposals get(fn proposals): map hasher(twox_64_concat) PipId => Option<Pip<T::Proposal, T::AccountId>>;
 
         /// PolymeshVotes on a given proposal, if it is ongoing.
         /// proposal id -> vote count
@@ -516,7 +513,7 @@ decl_storage! {
         pub SnapshotQueue get(fn snapshot_queue): Vec<SnapshottedPip>;
 
         /// The metadata of the snapshot, if there is one.
-        pub SnapshotMeta get(fn snapshot_metadata): Option<SnapshotMetadata<T>>;
+        pub SnapshotMeta get(fn snapshot_metadata): Option<SnapshotMetadata<T::BlockNumber, T::AccountId>>;
 
         /// The number of times a certain PIP has been skipped.
         /// Once a (configurable) threshhold is exceeded, a PIP cannot be skipped again.
@@ -780,7 +777,7 @@ decl_module! {
             }
 
             // Construct and add PIP to storage.
-            let created_at = <system::Module<T>>::block_number();
+            let created_at = System::<T>::block_number();
             let expiry = Self::pending_pip_expiry() + created_at;
             let transaction_version = <T::Version as Get<RuntimeVersion>>::get().transaction_version;
             let proposal_data = Self::reportable_proposal_data(&*proposal);
@@ -986,7 +983,7 @@ decl_module! {
             Self::is_proposal_state(id, ProposalState::Scheduled)?;
 
             // Ensure new `until` is a valid block number.
-            let next_block = <system::Module<T>>::block_number() + 1u32.into();
+            let next_block = System::<T>::block_number() + 1u32.into();
             let new_until = until.unwrap_or(next_block);
             ensure!(new_until >= next_block, Error::<T>::InvalidFutureBlockNumber);
 
@@ -1036,7 +1033,7 @@ decl_module! {
 
             // Commit the new snapshot.
             let id = SnapshotIdSequence::try_mutate(try_next_post::<T, _>)?;
-            let created_at = <system::Module<T>>::block_number();
+            let created_at = System::<T>::block_number();
             <SnapshotMeta<T>>::set(Some(SnapshotMetadata { created_at, made_by, id }));
             let queue = LiveQueue::get();
             SnapshotQueue::set(queue.clone());
@@ -1209,7 +1206,7 @@ impl<T: Config> Module<T> {
                 Self::reduce_lock(&depo_info.owner, depo_info.amount).unwrap();
                 depo_info.amount.saturating_add(acc)
             });
-        <Deposits<T>>::remove_prefix(id);
+        <Deposits<T>>::remove_prefix(id, None);
         Self::deposit_event(RawEvent::ProposalRefund(did, id, total_refund));
     }
 
@@ -1252,7 +1249,7 @@ impl<T: Config> Module<T> {
         Self::decrement_count_if_active(state);
         if prune {
             ProposalResult::remove(id);
-            ProposalVotes::<T>::remove_prefix(id);
+            ProposalVotes::<T>::remove_prefix(id, None);
             <ProposalMetadata<T>>::remove(id);
             if let Some(Proposer::Committee(_)) = Self::proposals(id).map(|p| p.proposer) {
                 CommitteePips::mutate(|list| list.retain(|&i| i != id));
@@ -1276,10 +1273,10 @@ impl<T: Config> Module<T> {
         // as you can only schedule calls for future blocks.
         let at = Self::default_enactment_period()
             .max(One::one())
-            .saturating_add(<system::Module<T>>::block_number());
+            .saturating_add(System::<T>::block_number());
 
         // Add to schedule.
-        let call = Call::<T>::execute_scheduled_pip(id).into();
+        let call = Call::<T>::execute_scheduled_pip { id }.into();
         let res = T::Scheduler::schedule_named(
             id.execution_name(),
             DispatchTime::At(at),
@@ -1308,7 +1305,7 @@ impl<T: Config> Module<T> {
     /// Adds a PIP expiry call to the PIP expiry schedule.
     fn schedule_pip_for_expiry(id: PipId, at: T::BlockNumber) {
         let did = GC_DID;
-        let call = Call::<T>::expire_scheduled_pip(did, id).into();
+        let call = Call::<T>::expire_scheduled_pip { did, id }.into();
         let event = match T::Scheduler::schedule_named(
             id.expiry_name(),
             DispatchTime::At(at),

@@ -43,7 +43,7 @@ where
     // Milliseconds per year for the Julian year (365.25 days).
     const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 
-    let portion = Perbill::from_rational_approximation(era_duration as u64, MILLISECONDS_PER_YEAR);
+    let portion = Perbill::from_rational(era_duration as u64, MILLISECONDS_PER_YEAR);
     // Have fixed rewards kicked in?
     if total_tokens >= max_inflated_issuance {
         let payout = portion * non_inflated_yearly_reward;

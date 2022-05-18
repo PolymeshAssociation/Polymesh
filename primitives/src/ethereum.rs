@@ -4,6 +4,7 @@
 // https://github.com/paritytech/polkadot/blob/013c4a8041e6f1739cc5b785a2874061919c5db9/runtime/common/src/claims.rs#L248-L251
 
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
 use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
@@ -12,7 +13,7 @@ use sp_std::vec::Vec;
 /// An Ethereum address (i.e. 20 bytes, used to represent an Ethereum account).
 ///
 /// This gets serialized to the 0x-prefixed hex representation.
-#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, Default, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo, Default, Debug)]
 pub struct EthereumAddress(pub [u8; 20]);
 
 #[cfg(feature = "std")]
@@ -49,7 +50,7 @@ impl<'de> Deserialize<'de> for EthereumAddress {
 }
 
 /// A signed message according to the Ethereum protocol.
-#[derive(Encode, Decode, Clone)]
+#[derive(Encode, Decode, TypeInfo, Clone)]
 pub struct EcdsaSignature(pub [u8; 65]);
 
 impl PartialEq for EcdsaSignature {

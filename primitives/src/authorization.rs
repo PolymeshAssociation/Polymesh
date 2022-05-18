@@ -19,12 +19,13 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchError;
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
 /// Authorization data for two step processes.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum AuthorizationData<AccountId> {
     /// CDD provider's attestation to change primary key
@@ -130,7 +131,7 @@ impl From<AuthorizationError> for DispatchError {
 }
 
 /// Authorization struct
-#[derive(Encode, Decode, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Authorization<AccountId, Moment> {
     /// Enum that contains authorization type and data

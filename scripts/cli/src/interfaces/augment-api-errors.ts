@@ -1,10 +1,10 @@
 // Auto-generated via `yarn polkadot-types-from-chain`, do not edit
 /* eslint-disable */
 
-import type { ApiTypes } from '@polkadot/api/types';
+import type { ApiTypes } from '@polkadot/api-base/types';
 
-declare module '@polkadot/api/types/errors' {
-  export interface AugmentedErrors<ApiType> {
+declare module '@polkadot/api-base/types/errors' {
+  export interface AugmentedErrors<ApiType extends ApiTypes> {
     asset: {
       /**
        * When extension already archived.
@@ -27,13 +27,37 @@ declare module '@polkadot/api/types/errors' {
        **/
       AssetAlreadyDivisible: AugmentedError<ApiType>;
       /**
+       * Asset Metadata Global type already exists.
+       **/
+      AssetMetadataGlobalKeyAlreadyExists: AugmentedError<ApiType>;
+      /**
+       * Asset Metadata key is missing.
+       **/
+      AssetMetadataKeyIsMissing: AugmentedError<ApiType>;
+      /**
+       * Asset Metadata Local type already exists for asset.
+       **/
+      AssetMetadataLocalKeyAlreadyExists: AugmentedError<ApiType>;
+      /**
+       * Maximum length of the asset metadata type name has been exceeded.
+       **/
+      AssetMetadataNameMaxLengthExceeded: AugmentedError<ApiType>;
+      /**
+       * Maximum length of the asset metadata type definition has been exceeded.
+       **/
+      AssetMetadataTypeDefMaxLengthExceeded: AugmentedError<ApiType>;
+      /**
+       * Asset Metadata value is locked.
+       **/
+      AssetMetadataValueIsLocked: AugmentedError<ApiType>;
+      /**
+       * Maximum length of the asset metadata value has been exceeded.
+       **/
+      AssetMetadataValueMaxLengthExceeded: AugmentedError<ApiType>;
+      /**
        * An overflow while calculating the balance.
        **/
       BalanceOverflow: AugmentedError<ApiType>;
-      /**
-       * An overflow while generating the next `CustomAssetTypeId`.
-       **/
-      CustomAssetTypeIdOverflow: AugmentedError<ApiType>;
       /**
        * When extension is already added.
        **/
@@ -55,6 +79,10 @@ declare module '@polkadot/api/types/errors' {
        **/
       InvalidAssetIdentifier: AugmentedError<ApiType>;
       /**
+       * Invalid `CustomAssetTypeId`.
+       **/
+      InvalidCustomAssetTypeId: AugmentedError<ApiType>;
+      /**
        * An invalid Ethereum `EcdsaSignature`.
        **/
       InvalidEthereumSignature: AugmentedError<ApiType>;
@@ -66,6 +94,10 @@ declare module '@polkadot/api/types/errors' {
        * Transfer validation check failed.
        **/
       InvalidTransfer: AugmentedError<ApiType>;
+      /**
+       * Investor Uniqueness claims are not allowed for this asset.
+       **/
+      InvestorUniquenessClaimNotAllowed: AugmentedError<ApiType>;
       /**
        * Number of Transfer Manager extensions attached to an asset is equal to MaxNumberOfTMExtensionForAsset.
        **/
@@ -87,7 +119,7 @@ declare module '@polkadot/api/types/errors' {
        **/
       NoSuchDoc: AugmentedError<ApiType>;
       /**
-       * Not an owner of the token.
+       * Not an owner of the token on Ethereum.
        **/
       NotAnOwner: AugmentedError<ApiType>;
       /**
@@ -165,6 +197,24 @@ declare module '@polkadot/api/types/errors' {
        **/
       [key: string]: AugmentedError<ApiType>;
     };
+    babe: {
+      /**
+       * A given equivocation report is valid but already previously reported.
+       **/
+      DuplicateOffenceReport: AugmentedError<ApiType>;
+      /**
+       * An equivocation proof provided as part of an equivocation report is invalid.
+       **/
+      InvalidEquivocationProof: AugmentedError<ApiType>;
+      /**
+       * A key ownership proof provided as part of an equivocation report is invalid.
+       **/
+      InvalidKeyOwnershipProof: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
+    };
     balances: {
       /**
        * Value too low to create account due to existential deposit
@@ -192,6 +242,15 @@ declare module '@polkadot/api/types/errors' {
       [key: string]: AugmentedError<ApiType>;
     };
     base: {
+      /**
+       * The sequence counter for something overflowed.
+       * 
+       * When this happens depends on e.g., the capacity of the identifier type.
+       * For example, we might have `pub struct PipId(u32);`, with `u32::MAX` capacity.
+       * In practice, these errors will never happen but no code path should result in a panic,
+       * so these corner cases need to be covered with an error variant.
+       **/
+      CounterOverflow: AugmentedError<ApiType>;
       /**
        * Exceeded a generic length limit.
        * The limit could be for any sort of lists of things, including a string.
@@ -282,14 +341,17 @@ declare module '@polkadot/api/types/errors' {
        **/
       CannotClaimBeforeStart: AugmentedError<ApiType>;
       /**
-       * A corporate ballot was made for a non-benefit CA.
+       * A capital distribution was made for a non-benefit CA.
        **/
       CANotBenefit: AugmentedError<ApiType>;
       /**
-       * Currency that is distributed is the same as the CA's ticker.
-       * CAA is attempting a form of stock split, which is not what the extrinsic is for.
+       * Distribution `amount` cannot be zero.
        **/
-      DistributingAsset: AugmentedError<ApiType>;
+      DistributionAmountIsZero: AugmentedError<ApiType>;
+      /**
+       * Distribution `per_share` cannot be zero.
+       **/
+      DistributionPerShareIsZero: AugmentedError<ApiType>;
       /**
        * A distribution has been activated, as `payment_at <= now` holds.
        **/
@@ -360,10 +422,6 @@ declare module '@polkadot/api/types/errors' {
     };
     checkpoint: {
       /**
-       * An overflow while calculating the checkpoint ID.
-       **/
-      CheckpointOverflow: AugmentedError<ApiType>;
-      /**
        * Failed to compute the next checkpoint.
        * The schedule does not have any upcoming checkpoints.
        **/
@@ -380,10 +438,6 @@ declare module '@polkadot/api/types/errors' {
        * A checkpoint schedule is not removable as `ref_count(schedule_id) > 0`.
        **/
       ScheduleNotRemovable: AugmentedError<ApiType>;
-      /**
-       * An overflow while calculating the checkpoint schedule ID.
-       **/
-      ScheduleOverflow: AugmentedError<ApiType>;
       /**
        * The set of schedules taken together are too complex.
        * For example, they are too many, or they occurs too frequently.
@@ -458,6 +512,145 @@ declare module '@polkadot/api/types/errors' {
        **/
       [key: string]: AugmentedError<ApiType>;
     };
+    contracts: {
+      /**
+       * Code removal was denied because the code is still in use by at least one contract.
+       **/
+      CodeInUse: AugmentedError<ApiType>;
+      /**
+       * No code could be found at the supplied code hash.
+       **/
+      CodeNotFound: AugmentedError<ApiType>;
+      /**
+       * The contract's code was found to be invalid during validation or instrumentation.
+       * A more detailed error can be found on the node console if debug messages are enabled
+       * or in the debug buffer which is returned to RPC clients.
+       **/
+      CodeRejected: AugmentedError<ApiType>;
+      /**
+       * The code supplied to `instantiate_with_code` exceeds the limit specified in the
+       * current schedule.
+       **/
+      CodeTooLarge: AugmentedError<ApiType>;
+      /**
+       * No contract was found at the specified address.
+       **/
+      ContractNotFound: AugmentedError<ApiType>;
+      /**
+       * The contract ran to completion but decided to revert its storage changes.
+       * Please note that this error is only returned from extrinsics. When called directly
+       * or via RPC an `Ok` will be returned. In this case the caller needs to inspect the flags
+       * to determine whether a reversion has taken place.
+       **/
+      ContractReverted: AugmentedError<ApiType>;
+      /**
+       * Contract trapped during execution.
+       **/
+      ContractTrapped: AugmentedError<ApiType>;
+      /**
+       * The debug message specified to `seal_debug_message` does contain invalid UTF-8.
+       **/
+      DebugMessageInvalidUTF8: AugmentedError<ApiType>;
+      /**
+       * Input passed to a contract API function failed to decode as expected type.
+       **/
+      DecodingFailed: AugmentedError<ApiType>;
+      /**
+       * Removal of a contract failed because the deletion queue is full.
+       * 
+       * This can happen when calling `seal_terminate`.
+       * The queue is filled by deleting contracts and emptied by a fixed amount each block.
+       * Trying again during another block is the only way to resolve this issue.
+       **/
+      DeletionQueueFull: AugmentedError<ApiType>;
+      /**
+       * A contract with the same AccountId already exists.
+       **/
+      DuplicateContract: AugmentedError<ApiType>;
+      /**
+       * The topics passed to `seal_deposit_events` contains at least one duplicate.
+       **/
+      DuplicateTopics: AugmentedError<ApiType>;
+      /**
+       * `seal_call` forwarded this contracts input. It therefore is no longer available.
+       **/
+      InputForwarded: AugmentedError<ApiType>;
+      /**
+       * Invalid combination of flags supplied to `seal_call` or `seal_delegate_call`.
+       **/
+      InvalidCallFlags: AugmentedError<ApiType>;
+      /**
+       * A new schedule must have a greater version than the current one.
+       **/
+      InvalidScheduleVersion: AugmentedError<ApiType>;
+      /**
+       * Performing a call was denied because the calling depth reached the limit
+       * of what is specified in the schedule.
+       **/
+      MaxCallDepthReached: AugmentedError<ApiType>;
+      /**
+       * The chain does not provide a chain extension. Calling the chain extension results
+       * in this error. Note that this usually  shouldn't happen as deploying such contracts
+       * is rejected.
+       **/
+      NoChainExtension: AugmentedError<ApiType>;
+      /**
+       * A buffer outside of sandbox memory was passed to a contract API function.
+       **/
+      OutOfBounds: AugmentedError<ApiType>;
+      /**
+       * The executed contract exhausted its gas limit.
+       **/
+      OutOfGas: AugmentedError<ApiType>;
+      /**
+       * The output buffer supplied to a contract API call was too small.
+       **/
+      OutputBufferTooSmall: AugmentedError<ApiType>;
+      /**
+       * The subject passed to `seal_random` exceeds the limit.
+       **/
+      RandomSubjectTooLong: AugmentedError<ApiType>;
+      /**
+       * A call tried to invoke a contract that is flagged as non-reentrant.
+       **/
+      ReentranceDenied: AugmentedError<ApiType>;
+      /**
+       * More storage was created than allowed by the storage deposit limit.
+       **/
+      StorageDepositLimitExhausted: AugmentedError<ApiType>;
+      /**
+       * Origin doesn't have enough balance to pay the required storage deposits.
+       **/
+      StorageDepositNotEnoughFunds: AugmentedError<ApiType>;
+      /**
+       * A contract self destructed in its constructor.
+       * 
+       * This can be triggered by a call to `seal_terminate`.
+       **/
+      TerminatedInConstructor: AugmentedError<ApiType>;
+      /**
+       * Termination of a contract is not allowed while the contract is already
+       * on the call stack. Can be triggered by `seal_terminate`.
+       **/
+      TerminatedWhileReentrant: AugmentedError<ApiType>;
+      /**
+       * The amount of topics passed to `seal_deposit_events` exceeds the limit.
+       **/
+      TooManyTopics: AugmentedError<ApiType>;
+      /**
+       * Performing the requested transfer failed. Probably because there isn't enough
+       * free balance in the sender's account.
+       **/
+      TransferFailed: AugmentedError<ApiType>;
+      /**
+       * The size defined in `T::MaxValueSize` was exceeded.
+       **/
+      ValueTooLarge: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
+    };
     corporateAction: {
       /**
        * The authorization type is not to transfer the CAA to another DID.
@@ -480,11 +673,6 @@ declare module '@polkadot/api/types/errors' {
        * The chain refused to make a choice, and hence there was an error.
        **/
       DuplicateDidTax: AugmentedError<ApiType>;
-      /**
-       * There have been too many CAs for this ticker and the ID would overflow.
-       * This won't occur in practice.
-       **/
-      LocalCAIdOverflow: AugmentedError<ApiType>;
       /**
        * The CA did not have a record date.
        **/
@@ -588,11 +776,6 @@ declare module '@polkadot/api/types/errors' {
        **/
       AlreadyAnAgent: AugmentedError<ApiType>;
       /**
-       * There have been too many AGs for this ticker and the ID would overflow.
-       * This won't occur in practice.
-       **/
-      LocalAGIdOverflow: AugmentedError<ApiType>;
-      /**
        * An AG with the given `AGId` did not exist for the `Ticker`.
        **/
       NoSuchAG: AugmentedError<ApiType>;
@@ -600,11 +783,6 @@ declare module '@polkadot/api/types/errors' {
        * The provided `agent` is not an agent for the `Ticker`.
        **/
       NotAnAgent: AugmentedError<ApiType>;
-      /**
-       * The counter for full agents will overflow.
-       * This should never happen in practice, but is theoretically possible.
-       **/
-      NumFullAgentsOverflow: AugmentedError<ApiType>;
       /**
        * This agent is the last full one, and it's being removed,
        * making the asset orphaned.
@@ -812,6 +990,32 @@ declare module '@polkadot/api/types/errors' {
        **/
       [key: string]: AugmentedError<ApiType>;
     };
+    indices: {
+      /**
+       * The index was not available.
+       **/
+      InUse: AugmentedError<ApiType>;
+      /**
+       * The index was not already assigned.
+       **/
+      NotAssigned: AugmentedError<ApiType>;
+      /**
+       * The index is assigned to another account.
+       **/
+      NotOwner: AugmentedError<ApiType>;
+      /**
+       * The source and destination accounts are identical.
+       **/
+      NotTransfer: AugmentedError<ApiType>;
+      /**
+       * The index is permanent and may not be freed/changed.
+       **/
+      Permanent: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
+    };
     multiSig: {
       /**
        * Already a signer.
@@ -853,6 +1057,10 @@ declare module '@polkadot/api/types/errors' {
        * Multisig is not attached to an identity
        **/
       MultisigMissingIdentity: AugmentedError<ApiType>;
+      /**
+       * Multisig not allowed to add itself as a signer.
+       **/
+      MultisigNotAllowedToLinkToItself: AugmentedError<ApiType>;
       /**
        * A nonce overflow.
        **/
@@ -898,9 +1106,13 @@ declare module '@polkadot/api/types/errors' {
        **/
       RequiredSignaturesOutOfBounds: AugmentedError<ApiType>;
       /**
+       * Signer is an account key that is already associated with an identity.
+       **/
+      SignerAlreadyLinkedToIdentity: AugmentedError<ApiType>;
+      /**
        * Signer is an account key that is already associated with a multisig.
        **/
-      SignerAlreadyLinked: AugmentedError<ApiType>;
+      SignerAlreadyLinkedToMultisig: AugmentedError<ApiType>;
       /**
        * More signers than required.
        **/
@@ -1046,6 +1258,29 @@ declare module '@polkadot/api/types/errors' {
        **/
       [key: string]: AugmentedError<ApiType>;
     };
+    polymeshContracts: {
+      /**
+       * Data left in input when decoding arguments of a call.
+       **/
+      DataLeftAfterDecoding: AugmentedError<ApiType>;
+      /**
+       * Input data that a contract passed when making a runtime call was too large.
+       **/
+      InLenTooLarge: AugmentedError<ApiType>;
+      /**
+       * A contract was attempted to be instantiated,
+       * but no identity was given to associate the new contract's key with.
+       **/
+      InstantiatorWithNoIdentity: AugmentedError<ApiType>;
+      /**
+       * The given `func_id: u32` did not translate into a known runtime call.
+       **/
+      RuntimeCallNotFound: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
+    };
     portfolio: {
       /**
        * The source and destination portfolios should be different.
@@ -1083,6 +1318,36 @@ declare module '@polkadot/api/types/errors' {
        * The porfolio's custody is with someone other than the caller.
        **/
       UnauthorizedCustodian: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
+    };
+    preimage: {
+      /**
+       * Preimage has already been noted on-chain.
+       **/
+      AlreadyNoted: AugmentedError<ApiType>;
+      /**
+       * The user is not authorized to perform this action.
+       **/
+      NotAuthorized: AugmentedError<ApiType>;
+      /**
+       * The preimage cannot be removed since it has not yet been noted.
+       **/
+      NotNoted: AugmentedError<ApiType>;
+      /**
+       * The preimage request cannot be removed since no outstanding requests exist.
+       **/
+      NotRequested: AugmentedError<ApiType>;
+      /**
+       * A preimage may not be removed when there are outstanding requests.
+       **/
+      Requested: AugmentedError<ApiType>;
+      /**
+       * Preimage is too large to store on-chain.
+       **/
+      TooLarge: AugmentedError<ApiType>;
       /**
        * Generic error
        **/
@@ -1338,6 +1603,10 @@ declare module '@polkadot/api/types/errors' {
        **/
       BadState: AugmentedError<ApiType>;
       /**
+       * A nomination target was supplied that was blocked or otherwise not a validator.
+       **/
+      BadTarget: AugmentedError<ApiType>;
+      /**
        * When the amount to be bonded is less than `MinimumBond`
        **/
       BondTooSmall: AugmentedError<ApiType>;
@@ -1469,9 +1738,21 @@ declare module '@polkadot/api/types/errors' {
        **/
       SnapshotUnavailable: AugmentedError<ApiType>;
       /**
+       * Validator or nominator stash identity does not exist.
+       **/
+      StashIdentityDoesNotExist: AugmentedError<ApiType>;
+      /**
+       * Nominator stash was not CDDed.
+       **/
+      StashIdentityNotCDDed: AugmentedError<ApiType>;
+      /**
        * Validator stash identity was not permissioned.
        **/
       StashIdentityNotPermissioned: AugmentedError<ApiType>;
+      /**
+       * Too many nomination targets supplied.
+       **/
+      TooManyTargets: AugmentedError<ApiType>;
       /**
        * Generic error
        **/
@@ -1479,21 +1760,29 @@ declare module '@polkadot/api/types/errors' {
     };
     statistics: {
       /**
-       * The transfer manager already exists
+       * A Stattype is in use and can't be removed.
        **/
-      DuplicateTransferManager: AugmentedError<ApiType>;
+      CannotRemoveStatTypeInUse: AugmentedError<ApiType>;
       /**
-       * Transfer not allowed
+       * Transfer not allowed.
        **/
       InvalidTransfer: AugmentedError<ApiType>;
       /**
-       * Transfer manager is not enabled
+       * The limit of StatTypes allowed for an asset has been reached.
        **/
-      TransferManagerMissing: AugmentedError<ApiType>;
+      StatTypeLimitReached: AugmentedError<ApiType>;
       /**
-       * The limit of transfer managers allowed for an asset has been reached
+       * StatType is not enabled.
        **/
-      TransferManagersLimitReached: AugmentedError<ApiType>;
+      StatTypeMissing: AugmentedError<ApiType>;
+      /**
+       * StatType is needed by TransferCondition.
+       **/
+      StatTypeNeededByTransferCondition: AugmentedError<ApiType>;
+      /**
+       * The limit of TransferConditions allowed for an asset has been reached.
+       **/
+      TransferConditionLimitReached: AugmentedError<ApiType>;
       /**
        * Generic error
        **/
@@ -1564,6 +1853,10 @@ declare module '@polkadot/api/types/errors' {
       [key: string]: AugmentedError<ApiType>;
     };
     system: {
+      /**
+       * The origin filter prevent the call to be dispatched.
+       **/
+      CallFiltered: AugmentedError<ApiType>;
       /**
        * Failed to extract the runtime version from the new runtime.
        * 
@@ -1672,11 +1965,21 @@ declare module '@polkadot/api/types/errors' {
        **/
       [key: string]: AugmentedError<ApiType>;
     };
+    testUtils: {
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
+    };
     treasury: {
       /**
        * Proposer's balance is too low.
        **/
       InsufficientBalance: AugmentedError<ApiType>;
+      /**
+       * Invalid identity for disbursement.
+       **/
+      InvalidIdentity: AugmentedError<ApiType>;
       /**
        * Generic error
        **/
@@ -1781,9 +2084,5 @@ declare module '@polkadot/api/types/errors' {
        **/
       [key: string]: AugmentedError<ApiType>;
     };
-  }
-
-  export interface DecoratedErrors<ApiType extends ApiTypes> extends AugmentedErrors<ApiType> {
-    [key: string]: ModuleErrors<ApiType>;
-  }
-}
+  } // AugmentedErrors
+} // declare module

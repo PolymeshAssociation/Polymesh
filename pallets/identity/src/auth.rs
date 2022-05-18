@@ -14,8 +14,8 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    AuthorizationType, Authorizations, AuthorizationsGiven, Config, Error, KeyToIdentityIds,
-    Module, MultiPurposeNonce, RawEvent,
+    AuthorizationType, Authorizations, AuthorizationsGiven, Config, Error, KeyRecords, Module,
+    MultiPurposeNonce, RawEvent,
 };
 use frame_support::dispatch::DispatchResult;
 use frame_support::{ensure, StorageDoubleMap, StorageMap, StorageValue};
@@ -84,7 +84,7 @@ impl<T: Config> Module<T> {
         auth_id: u64,
     ) -> DispatchResult {
         let sender = ensure_signed(origin)?;
-        let from_did = if <KeyToIdentityIds<T>>::contains_key(&sender) {
+        let from_did = if <KeyRecords<T>>::contains_key(&sender) {
             // If the sender is linked to an identity, ensure that it has relevant permissions
             pallet_permissions::Module::<T>::ensure_call_permissions(&sender)?.primary_did
         } else {
@@ -125,9 +125,9 @@ impl<T: Config> Module<T> {
     crate fn auths_of(
         signer: &Signatory<T::AccountId>,
         did: IdentityId,
-    ) -> impl Iterator<Item = (&Signatory<T::AccountId>, u64)> {
+    ) -> impl Iterator<Item = u64> {
         <Authorizations<T>>::iter_prefix_values(signer)
-            .filter_map(move |auth| (auth.authorized_by == did).then_some((signer, auth.auth_id)))
+            .filter_map(move |auth| (auth.authorized_by == did).then_some(auth.auth_id))
     }
 
     /// Use to get the filtered authorization data for a given signatory
@@ -139,7 +139,7 @@ impl<T: Config> Module<T> {
         allow_expired: bool,
         auth_type: Option<AuthorizationType>,
     ) -> Vec<Authorization<T::AccountId, T::Moment>> {
-        let now = <pallet_timestamp::Module<T>>::get();
+        let now = <pallet_timestamp::Pallet<T>>::get();
         let auths = <Authorizations<T>>::iter_prefix_values(signatory)
             .filter(|auth| allow_expired || auth.expiry.filter(|&e| e < now).is_none());
         if let Some(auth_type) = auth_type {
@@ -158,7 +158,7 @@ impl<T: Config> Module<T> {
     ) -> Option<Authorization<T::AccountId, T::Moment>> {
         Self::authorizations(target, *auth_id).filter(|auth| {
             auth.expiry
-                .filter(|&expiry| <pallet_timestamp::Module<T>>::get() > expiry)
+                .filter(|&expiry| <pallet_timestamp::Pallet<T>>::get() > expiry)
                 .is_none()
         })
     }
@@ -182,7 +182,7 @@ impl<T: Config> Module<T> {
 
         // Ensure that `auth.expiry`, if provided, is in the future.
         if let Some(expiry) = auth.expiry {
-            let now = <pallet_timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Pallet<T>>::get();
             ensure!(expiry > now, AuthorizationError::Expired);
         }
 
