@@ -385,7 +385,7 @@ construct_runtime!(
         Rewards: pallet_rewards::{Pallet, Call, Storage, Event<T>, Config<T>, ValidateUnsigned},
 
         // Contracts
-        Contracts: pallet_contracts::{Pallet, Storage, Event<T>},
+        Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>},
         PolymeshContracts: polymesh_contracts::{Pallet, Call, Storage, Event},
 
         // Preimage register.  Used by `pallet_scheduler`.

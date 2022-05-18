@@ -80,6 +80,27 @@ type Identity<T> = pallet_identity::Module<T>;
 type FrameContracts<T> = pallet_contracts::Pallet<T>;
 type CodeHash<T> = <T as frame_system::Config>::Hash;
 
+pub struct ContractPolymeshHooks;
+
+impl<T: Config> pallet_contracts::PolymeshHooks<T> for ContractPolymeshHooks {
+    fn check_call_permissions(caller: &T::AccountId) -> DispatchResult {
+        pallet_permissions::Module::<T>::ensure_call_permissions(caller)?;
+        Ok(())
+    }
+
+    fn on_instantiate_transfer(caller: &T::AccountId, contract: &T::AccountId) -> DispatchResult {
+        // Get the caller's identity.
+        let did =
+            Identity::<T>::get_identity(&caller).ok_or(Error::<T>::InstantiatorWithNoIdentity)?;
+        // Make sure the contract's address is not already linked.
+        if Identity::<T>::ensure_key_did_unlinked(contract).is_ok() {
+            // ...so that the CDD due to `endowment` passes.
+            Identity::<T>::unsafe_join_identity(did, Permissions::empty(), contract.clone());
+        }
+        Ok(())
+    }
+}
+
 pub trait WeightInfo {
     fn call() -> Weight;
     fn upload_code(code_len: u32) -> Weight;
