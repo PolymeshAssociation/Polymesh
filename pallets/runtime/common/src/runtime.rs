@@ -781,7 +781,7 @@ macro_rules! runtime_apis {
                     storage_deposit_limit: Option<Balance>,
                     input_data: Vec<u8>,
                 ) -> pallet_contracts_primitives::ContractExecResult<Balance> {
-                    Contracts::bare_call(origin, dest, value, gas_limit, storage_deposit_limit, input_data, false)
+                    Contracts::bare_call(origin, dest, value, gas_limit, storage_deposit_limit, input_data, true)
                 }
 
                 fn instantiate(
@@ -793,7 +793,7 @@ macro_rules! runtime_apis {
                     data: Vec<u8>,
                     salt: Vec<u8>,
                 ) -> pallet_contracts_primitives::ContractInstantiateResult<polymesh_primitives::AccountId, Balance> {
-                    PolymeshContracts::rpc_instantiate(origin, value, gas_limit, storage_deposit_limit, code, data, salt)
+                    Contracts::bare_instantiate(origin, value, gas_limit, storage_deposit_limit, code, data, salt, true)
                 }
 
                 fn upload_code(
