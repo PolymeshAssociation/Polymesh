@@ -77,7 +77,7 @@ fn misc_polymesh_extensions() {
                 )
             };
             let derive_key = |key, salt| FrameContracts::contract_address(&key, &hash, salt);
-            let call = |key, data| Contracts::call(user.origin(), key, 0, GAS_LIMIT, None, data);
+            let call = |key, data| FrameContracts::call(user.origin(), key, 0, GAS_LIMIT, None, data);
             let assert_has_secondary_key = |key: AccountId| {
                 let data = Identity::get_key_identity_data(key).unwrap();
                 assert_eq!(data.identity, owner.did);

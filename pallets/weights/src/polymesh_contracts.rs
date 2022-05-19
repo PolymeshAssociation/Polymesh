@@ -62,23 +62,6 @@ impl polymesh_contracts::WeightInfo for WeightInfo {
     // Storage: Instance2Group ActiveMembers (r:1 w:0)
     // Storage: Instance2Group InactiveMembers (r:1 w:0)
     // Storage: Identity Claims (r:2 w:0)
-    fn prepare_instantiate_full(n: u32) -> Weight {
-        (546_824_000 as Weight)
-            // Standard Error: 4_000
-            .saturating_add((107_000 as Weight).saturating_mul(n as Weight))
-            .saturating_add(DbWeight::get().reads(12 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
-    }
-    // Storage: Identity KeyRecords (r:2 w:0)
-    // Storage: System Account (r:1 w:0)
-    // Storage: Contracts ContractInfoOf (r:1 w:1)
-    // Storage: Contracts CodeStorage (r:1 w:0)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Storage: unknown [0x3a7472616e73616374696f6e5f6c6576656c3a] (r:1 w:1)
-    // Storage: Identity IsDidFrozen (r:1 w:0)
-    // Storage: Instance2Group ActiveMembers (r:1 w:0)
-    // Storage: Instance2Group InactiveMembers (r:1 w:0)
-    // Storage: Identity Claims (r:2 w:0)
     // Storage: Identity CurrentDid (r:1 w:1)
     // Storage: Permissions CurrentPalletName (r:1 w:1)
     // Storage: Permissions CurrentDispatchableName (r:1 w:1)
@@ -118,21 +101,6 @@ impl polymesh_contracts::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(3 as Weight))
             .saturating_add(DbWeight::get().writes(3 as Weight))
     }
-    // Storage: Identity KeyRecords (r:2 w:0)
-    // Storage: System Account (r:2 w:2)
-    // Storage: Contracts ContractInfoOf (r:1 w:1)
-    // Storage: Contracts CodeStorage (r:1 w:0)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Storage: unknown [0x3a7472616e73616374696f6e5f6c6576656c3a] (r:1 w:1)
-    // Storage: Identity IsDidFrozen (r:1 w:0)
-    // Storage: Instance2Group ActiveMembers (r:1 w:0)
-    // Storage: Instance2Group InactiveMembers (r:1 w:0)
-    // Storage: Identity Claims (r:2 w:0)
-    fn call() -> Weight {
-        (552_614_000 as Weight)
-            .saturating_add(DbWeight::get().reads(13 as Weight))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
-    }
     // Storage: Identity KeyRecords (r:2 w:1)
     // Storage: unknown [0x3a7472616e73616374696f6e5f6c6576656c3a] (r:1 w:1)
     // Storage: Contracts CodeStorage (r:1 w:1)
@@ -146,7 +114,7 @@ impl polymesh_contracts::WeightInfo for WeightInfo {
     // Storage: Identity Claims (r:2 w:0)
     // Storage: Contracts OwnerInfoOf (r:1 w:1)
     // Storage: Identity DidKeys (r:0 w:1)
-    fn instantiate_with_hash(s: u32) -> Weight {
+    fn instantiate_with_hash_perms(s: u32) -> Weight {
         (851_926_000 as Weight)
             // Standard Error: 0
             .saturating_add((6_000 as Weight).saturating_mul(s as Weight))
@@ -167,7 +135,7 @@ impl polymesh_contracts::WeightInfo for WeightInfo {
     // Storage: Identity DidKeys (r:0 w:1)
     // Storage: Contracts PristineCode (r:0 w:1)
     // Storage: Contracts OwnerInfoOf (r:0 w:1)
-    fn instantiate_with_code(c: u32, s: u32) -> Weight {
+    fn instantiate_with_code_perms(c: u32, s: u32) -> Weight {
         (1_161_103_000 as Weight)
             // Standard Error: 0
             .saturating_add((406_000 as Weight).saturating_mul(c as Weight))
@@ -175,27 +143,5 @@ impl polymesh_contracts::WeightInfo for WeightInfo {
             .saturating_add((6_000 as Weight).saturating_mul(s as Weight))
             .saturating_add(DbWeight::get().reads(14 as Weight))
             .saturating_add(DbWeight::get().writes(10 as Weight))
-    }
-    // Storage: Identity KeyRecords (r:1 w:0)
-    // Storage: Contracts CodeStorage (r:1 w:1)
-    // Storage: System Account (r:1 w:1)
-    // Storage: Contracts PristineCode (r:0 w:1)
-    // Storage: Contracts OwnerInfoOf (r:0 w:1)
-    fn upload_code(c: u32) -> Weight {
-        (184_633_000 as Weight)
-            // Standard Error: 0
-            .saturating_add((142_000 as Weight).saturating_mul(c as Weight))
-            .saturating_add(DbWeight::get().reads(3 as Weight))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
-    }
-    // Storage: Identity KeyRecords (r:1 w:0)
-    // Storage: Contracts OwnerInfoOf (r:1 w:1)
-    // Storage: System Account (r:1 w:1)
-    // Storage: Contracts CodeStorage (r:0 w:1)
-    // Storage: Contracts PristineCode (r:0 w:1)
-    fn remove_code() -> Weight {
-        (106_681_000 as Weight)
-            .saturating_add(DbWeight::get().reads(3 as Weight))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
     }
 }

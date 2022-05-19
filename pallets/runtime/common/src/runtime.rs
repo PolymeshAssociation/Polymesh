@@ -352,7 +352,7 @@ macro_rules! misc_pallet_impls {
                 use polymesh_contracts::CommonCall::*;
                 match call {
                     Asset(x) => Self::Asset(x),
-                    Contracts(x) => Self::PolymeshContracts(x),
+                    PolymeshContracts(x) => Self::PolymeshContracts(x),
                 }
             }
         }
