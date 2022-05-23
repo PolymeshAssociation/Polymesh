@@ -2,7 +2,7 @@
 name = "pallet-external-agents"
 version = "0.1.0"
 authors = ["Polymath"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 # Common
@@ -20,11 +20,11 @@ serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false }
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 frame-system = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
-scale-info = { version = "1.0", default-features = false, features = ["derive"] }
-sp-std = { version = "4.0.0-dev", default-features = false }
+scale-info = { version = "2.0", default-features = false, features = ["derive"] }
+sp-std = { version = "4.0.0", default-features = false }
 
 # Only in STD
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }

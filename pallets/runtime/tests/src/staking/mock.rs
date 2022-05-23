@@ -19,6 +19,7 @@
 
 use crate::storage::create_cdd_id;
 use chrono::prelude::Utc;
+use frame_election_provider_support::NposSolution;
 use frame_support::{
     assert_ok,
     dispatch::DispatchResult,
@@ -54,24 +55,20 @@ use polymesh_primitives::{
 };
 use sp_core::H256;
 use sp_npos_elections::{
-    reduce, to_supports, ElectionScore, EvaluateSupport, ExtendedBalance, NposSolution,
-    StakedAssignment,
+    reduce, to_supports, ElectionScore, EvaluateSupport, ExtendedBalance, StakedAssignment,
 };
 use sp_runtime::{
     curve::PiecewiseLinear,
     testing::{Header, TestSignature, TestXt, UintAuthorityId},
-    traits::{Convert, IdentityLookup, SaturatedConversion, Zero},
+    traits::{IdentityLookup, Zero},
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
     KeyTypeId, Perbill, Permill,
 };
 use sp_staking::{
-    offence::{OffenceDetails, OnOffenceHandler},
+    offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
     SessionIndex,
 };
-use std::{
-    cell::RefCell,
-    collections::{BTreeMap, HashSet},
-};
+use std::{cell::RefCell, collections::BTreeMap};
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
 pub const BLOCK_TIME: u64 = 1000;
@@ -81,23 +78,6 @@ pub(crate) type AccountId = u64;
 pub(crate) type AccountIndex = u64;
 pub(crate) type BlockNumber = u64;
 pub(crate) type Balance = u128;
-
-/// Simple structure that exposes how u64 currency can be represented as... u64.
-pub struct CurrencyToVoteHandler;
-impl Convert<Balance, u64> for CurrencyToVoteHandler {
-    fn convert(x: Balance) -> u64 {
-        x.saturated_into()
-    }
-}
-impl Convert<u128, Balance> for CurrencyToVoteHandler {
-    fn convert(x: u128) -> Balance {
-        x
-    }
-}
-
-thread_local! {
-    static SESSION: RefCell<(Vec<AccountId>, HashSet<AccountId>)> = RefCell::new(Default::default());
-}
 
 /// Another session handler struct to test on_disabled.
 pub struct OtherSessionHandler;
@@ -111,23 +91,14 @@ impl OneSessionHandler<AccountId> for OtherSessionHandler {
     {
     }
 
-    fn on_new_session<'a, I: 'a>(_: bool, validators: I, _: I)
+    fn on_new_session<'a, I: 'a>(_: bool, _: I, _: I)
     where
         I: Iterator<Item = (&'a AccountId, Self::Key)>,
         AccountId: 'a,
     {
-        SESSION.with(|x| {
-            *x.borrow_mut() = (validators.map(|x| x.0.clone()).collect(), HashSet::new())
-        });
     }
 
-    fn on_disabled(validator_index: u32) {
-        SESSION.with(|d| {
-            let mut d = d.borrow_mut();
-            let value = d.0[validator_index as usize];
-            d.1.insert(value);
-        })
-    }
+    fn on_disabled(_validator_index: u32) {}
 }
 
 impl sp_runtime::BoundToRuntimeAppPublic for OtherSessionHandler {
@@ -136,7 +107,12 @@ impl sp_runtime::BoundToRuntimeAppPublic for OtherSessionHandler {
 
 pub fn is_disabled(controller: AccountId) -> bool {
     let stash = Staking::ledger(&controller).unwrap().stash;
-    SESSION.with(|d| d.borrow().1.contains(&stash))
+    let validator_index = match Session::validators().iter().position(|v| *v == stash) {
+        Some(index) => index as u32,
+        None => return false,
+    };
+
+    Session::disabled_validators().contains(&validator_index)
 }
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -155,9 +131,11 @@ frame_support::construct_runtime!(
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
         Staking: staking::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
+        Historical: pallet_session::historical::{Pallet},
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>, Config<T>},
         CddServiceProviders: pallet_group::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
         ProtocolFee: pallet_protocol_fee::{Pallet, Call, Storage, Event<T>, Config},
+        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
         Treasury: pallet_treasury::{Pallet, Call, Event<T>},
         PolymeshCommittee: pallet_committee::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
@@ -220,6 +198,7 @@ impl frame_system::Config for Test {
     type SystemWeightInfo = ();
     type OnSetCode = ();
     type SS58Prefix = ();
+    type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 impl pallet_base::Config for Test {
@@ -351,6 +330,7 @@ parameter_types! {
     pub const InitialPOLYX: Balance = 0;
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
+    pub const NoPreimagePostponement: Option<u64> = Some(10);
 }
 
 impl pallet_scheduler::Config for Test {
@@ -363,6 +343,24 @@ impl pallet_scheduler::Config for Test {
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
     type WeightInfo = ();
     type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
+    type PreimageProvider = Preimage;
+    type NoPreimagePostponement = NoPreimagePostponement;
+}
+
+parameter_types! {
+    pub const PreimageMaxSize: u32 = 4096 * 1024;
+    pub const PreimageBaseDeposit: Balance = polymesh_runtime_common::deposit(2, 64);
+    pub const PreimageByteDeposit: Balance = polymesh_runtime_common::deposit(0, 1);
+}
+
+impl pallet_preimage::Config for Test {
+    type WeightInfo = polymesh_weights::pallet_preimage::WeightInfo;
+    type Event = Event;
+    type Currency = Balances;
+    type ManagerOrigin = EnsureRoot<AccountId>;
+    type MaxSize = PreimageMaxSize;
+    type BaseDeposit = PreimageBaseDeposit;
+    type ByteDeposit = PreimageByteDeposit;
 }
 
 impl pallet_test_utils::Config for Test {
@@ -901,7 +899,7 @@ impl ExtBuilder {
             ];
         }
         let _ = pallet_staking::GenesisConfig::<Test> {
-            stakers,
+            stakers: stakers.clone(),
             validator_count: self.validator_count,
             minimum_validator_count: self.minimum_validator_count,
             invulnerables: self.invulnerables,
@@ -912,26 +910,23 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage);
 
         let _ = pallet_session::GenesisConfig::<Test> {
-            keys: validators
-                .iter()
-                .map(|x| {
-                    (
-                        *x,
-                        *x,
-                        SessionKeys {
-                            other: UintAuthorityId(*x as u64),
-                        },
-                    )
-                })
-                .collect(),
+            keys: if self.has_stakers {
+                // set the keys for the first session.
+                stakers
+                    .into_iter()
+                    .map(|(_, id, ..)| (id, id, SessionKeys { other: id.into() }))
+                    .collect()
+            } else {
+                // set some dummy validators in genesis.
+                validators
+                    .into_iter()
+                    .map(|id| (id, id, SessionKeys { other: id.into() }))
+                    .collect()
+            },
         }
         .assimilate_storage(&mut storage);
 
         let mut ext = sp_io::TestExternalities::from(storage);
-        ext.execute_with(|| {
-            let validators = Session::validators();
-            SESSION.with(|x| *x.borrow_mut() = (validators.clone(), HashSet::new()));
-        });
 
         if self.initialize_first_session {
             // We consider all test to start after timestamp is initialized This must be ensured by
@@ -1130,6 +1125,11 @@ pub fn bond_validator_with_intended_count(
         Origin::signed(ctrl),
         ValidatorPrefs::default()
     ));
+    assert_ok!(Session::set_keys(
+        Origin::signed(ctrl),
+        SessionKeys { other: ctrl.into() },
+        vec![]
+    ));
 }
 
 pub fn bond(stash: AccountId, ctrl: AccountId, val: Balance) {
@@ -1295,7 +1295,12 @@ pub(crate) fn on_offence_in_era(
     let bonded_eras = staking::BondedEras::get();
     for &(bonded_era, start_session) in bonded_eras.iter() {
         if bonded_era == era {
-            let _ = Staking::on_offence(offenders, slash_fraction, start_session);
+            let _ = Staking::on_offence(
+                offenders,
+                slash_fraction,
+                start_session,
+                DisableStrategy::WhenSlashed,
+            );
             return;
         } else if bonded_era > era {
             break;
@@ -1307,6 +1312,7 @@ pub(crate) fn on_offence_in_era(
             offenders,
             slash_fraction,
             Staking::eras_start_session_index(era).unwrap(),
+            DisableStrategy::WhenSlashed,
         );
     } else {
         panic!("cannot slash in era {}", era);
@@ -1413,11 +1419,7 @@ pub(crate) fn horrible_phragmen_with_post_processing(
         let support = to_supports::<AccountId>(&staked_assignment);
         let score = support.evaluate();
 
-        assert!(sp_npos_elections::is_score_better::<Perbill>(
-            better_score,
-            score,
-            MinSolutionScoreBump::get(),
-        ));
+        assert!(better_score.strict_threshold_better(score, MinSolutionScoreBump::get()));
 
         score
     };

@@ -17,7 +17,6 @@
 
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(bool_to_option)]
 
 use blake2::{Blake2b, Digest};
 use codec::{Decode, Encode};
@@ -25,8 +24,6 @@ use confidential_identity_v1::Scalar as ScalarV1;
 use frame_support::weights::Weight;
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
-use sp_runtime::traits::Verify;
 use sp_runtime::{generic, traits::BlakeTwo256, MultiSignature};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -61,38 +58,6 @@ pub type Index = u32;
 /// Alias for Gas.
 pub type Gas = Weight;
 
-/// App-specific crypto used for reporting equivocation/misbehavior in BABE and
-/// GRANDPA. Any rewards for misbehavior reporting will be paid out to this
-/// account.
-#[cfg(feature = "std")]
-pub mod report {
-    use super::{Signature, Verify};
-    use frame_system::offchain::AppCrypto;
-    use sp_core::crypto::{key_types, KeyTypeId};
-
-    /// Key type for the reporting module. Used for reporting BABE and GRANDPA
-    /// equivocations.
-    pub const KEY_TYPE: KeyTypeId = key_types::REPORTING;
-
-    mod app {
-        use sp_application_crypto::{app_crypto, sr25519};
-        app_crypto!(sr25519, super::KEY_TYPE);
-    }
-
-    /// Identity of the equivocation/misbehavior reporter.
-    pub type ReporterId = app::Public;
-
-    /// An `AppCrypto` type to allow submitting signed transactions using the reporting
-    /// application key as signer.
-    pub struct ReporterAppCrypto;
-
-    impl AppCrypto<<Signature as Verify>::Signer, Signature> for ReporterAppCrypto {
-        type RuntimeAppPublic = ReporterId;
-        type GenericSignature = sp_core::sr25519::Signature;
-        type GenericPublic = sp_core::sr25519::Public;
-    }
-}
-
 /// A positive coefficient: a pair of a numerator and a denominator. Defaults to `(1, 1)`.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, TypeInfo)]
@@ -113,13 +78,10 @@ impl From<(u32, u32)> for PosRatio {
 
 /// It creates a scalar from the blake2_512 hash of `data` parameter.
 pub fn scalar_blake2_from_bytes(data: impl AsRef<[u8]>) -> ScalarV1 {
-    let mut hash = [0u8; 64];
-    hash.copy_from_slice(
-        Blake2b::default()
-            .chain(data.as_ref())
-            .finalize()
-            .as_slice(),
-    );
+    let hash = Blake2b::default()
+        .chain_update(data.as_ref())
+        .finalize()
+        .into();
     ScalarV1::from_bytes_mod_order_wide(&hash)
 }
 

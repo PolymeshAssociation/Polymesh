@@ -84,6 +84,7 @@ macro_rules! misc_pallet_impls {
             type AccountData = polymesh_common_utilities::traits::balances::AccountData;
             type SystemWeightInfo = polymesh_weights::frame_system::WeightInfo;
             type OnSetCode = ();
+            type MaxConsumers = frame_support::traits::ConstU32<16>;
         }
 
         impl pallet_base::Config for Runtime {
@@ -334,14 +335,16 @@ macro_rules! misc_pallet_impls {
             // which won't swap the current identity,
             // so we need `Nothing` to basically disable that feature.
             type CallFilter = frame_support::traits::Nothing;
+            type DepositPerItem = polymesh_runtime_common::DepositPerItem;
+            type DepositPerByte = polymesh_runtime_common::DepositPerByte;
             type CallStack = [pallet_contracts::Frame<Self>; 31];
             type WeightPrice = pallet_transaction_payment::Pallet<Self>;
             type WeightInfo = pallet_contracts::weights::SubstrateWeight<Self>;
             type ChainExtension = polymesh_contracts::Pallet<Runtime>;
             type Schedule = Schedule;
-            type ContractDeposit = ContractDeposit;
             type DeletionQueueDepth = DeletionQueueDepth;
             type DeletionWeightLimit = DeletionWeightLimit;
+            type AddressGenerator = pallet_contracts::DefaultAddressGenerator;
         }
         impl From<polymesh_contracts::CommonCall<Runtime>> for Call {
             fn from(call: polymesh_contracts::CommonCall<Runtime>) -> Self {
@@ -393,6 +396,24 @@ macro_rules! misc_pallet_impls {
             type MaxScheduledPerBlock = MaxScheduledPerBlock;
             type WeightInfo = polymesh_weights::pallet_scheduler::WeightInfo;
             type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
+            type PreimageProvider = Preimage;
+            type NoPreimagePostponement = NoPreimagePostponement;
+        }
+
+        parameter_types! {
+            pub const PreimageMaxSize: u32 = 4096 * 1024;
+            pub const PreimageBaseDeposit: Balance = polymesh_runtime_common::deposit(2, 64);
+            pub const PreimageByteDeposit: Balance = polymesh_runtime_common::deposit(0, 1);
+        }
+
+        impl pallet_preimage::Config for Runtime {
+            type WeightInfo = polymesh_weights::pallet_preimage::WeightInfo;
+            type Event = Event;
+            type Currency = Balances;
+            type ManagerOrigin = polymesh_primitives::EnsureRoot;
+            type MaxSize = PreimageMaxSize;
+            type BaseDeposit = PreimageBaseDeposit;
+            type ByteDeposit = PreimageByteDeposit;
         }
 
         impl pallet_offences::Config for Runtime {
@@ -527,7 +548,6 @@ macro_rules! runtime_apis {
     ($($extra:item)*) => {
         use node_rpc_runtime_api::asset as rpc_api_asset;
         use sp_inherents::{CheckInherentsResult, InherentData};
-        //use pallet_contracts_primitives::ContractExecResult;
         use pallet_identity::types::{AssetDidResult, CddStatus, RpcDidRecords, DidStatus, KeyIdentityData};
         use pallet_pips::{Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
@@ -566,8 +586,28 @@ macro_rules! runtime_apis {
             Block,
             frame_system::ChainContext<Runtime>,
             Runtime,
-            AllPallets,
+            AllPalletsWithSystem,
+            MigrationV4toV5,
         >;
+
+        // Trait needed for frame-system migration.
+        impl frame_system::migrations::V2ToV3 for Runtime {
+            type Pallet = frame_system::Pallet<Runtime>;
+            type AccountId = polymesh_primitives::AccountId;
+            type Index = polymesh_primitives::Index;
+            type AccountData = polymesh_common_utilities::traits::balances::AccountData;
+        }
+
+        // Polymesh V4 -> V5 runtime migrations.
+        pub struct MigrationV4toV5;
+        impl frame_support::traits::OnRuntimeUpgrade for MigrationV4toV5 {
+            fn on_runtime_upgrade() -> Weight {
+                // System migration.
+                frame_system::migrations::migrate_from_dual_to_triple_ref_count::<Runtime>()
+                // Scheduler migration.
+                    .saturating_add(Scheduler::migrate_v2_to_v3())
+            }
+        }
 
         sp_api::impl_runtime_apis! {
             impl sp_api::Core<Block> for Runtime {
@@ -737,20 +777,30 @@ macro_rules! runtime_apis {
                     dest: polymesh_primitives::AccountId,
                     value: Balance,
                     gas_limit: u64,
+                    storage_deposit_limit: Option<Balance>,
                     input_data: Vec<u8>,
-                ) -> pallet_contracts_primitives::ContractExecResult {
-                    Contracts::bare_call(origin, dest, value, gas_limit, input_data, false)
+                ) -> pallet_contracts_primitives::ContractExecResult<Balance> {
+                    Contracts::bare_call(origin, dest, value, gas_limit, storage_deposit_limit, input_data, false)
                 }
 
                 fn instantiate(
-                    sender: polymesh_primitives::AccountId,
-                    endowment: Balance,
+                    origin: polymesh_primitives::AccountId,
+                    value: Balance,
                     gas_limit: u64,
+                    storage_deposit_limit: Option<Balance>,
                     code: pallet_contracts_primitives::Code<polymesh_primitives::Hash>,
                     data: Vec<u8>,
                     salt: Vec<u8>,
-                ) -> pallet_contracts_primitives::ContractInstantiateResult<polymesh_primitives::AccountId> {
-                    PolymeshContracts::rpc_instantiate(sender, endowment, gas_limit, code, data, salt)
+                ) -> pallet_contracts_primitives::ContractInstantiateResult<polymesh_primitives::AccountId, Balance> {
+                    PolymeshContracts::rpc_instantiate(origin, value, gas_limit, storage_deposit_limit, code, data, salt)
+                }
+
+                fn upload_code(
+                    origin: polymesh_primitives::AccountId,
+                    code: Vec<u8>,
+                    storage_deposit_limit: Option<Balance>,
+                ) -> pallet_contracts_primitives::CodeUploadResult<polymesh_primitives::Hash, Balance> {
+                    Contracts::bare_upload_code(origin, code, storage_deposit_limit)
                 }
 
                 fn get_storage(

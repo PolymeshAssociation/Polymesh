@@ -114,7 +114,7 @@ use sp_runtime::{
     Perbill,
 };
 use sp_staking::{
-    offence::{OffenceDetails, OnOffenceHandler},
+    offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
     SessionIndex,
 };
 
@@ -455,6 +455,11 @@ fn staking_should_work() {
             assert_ok!(Staking::validate(
                 Origin::signed(4),
                 ValidatorPrefs::default()
+            ));
+            assert_ok!(Session::set_keys(
+                Origin::signed(4),
+                SessionKeys { other: 4.into() },
+                vec![]
             ));
 
             // No effects will be seen so far.
@@ -1966,6 +1971,11 @@ fn switching_roles() {
             Origin::signed(6),
             ValidatorPrefs::default()
         ));
+        assert_ok!(Session::set_keys(
+            Origin::signed(6),
+            SessionKeys { other: 6.into() },
+            vec![]
+        ));
 
         mock::start_active_era(1);
 
@@ -1977,6 +1987,11 @@ fn switching_roles() {
         assert_ok!(Staking::validate(
             Origin::signed(2),
             ValidatorPrefs::default()
+        ));
+        assert_ok!(Session::set_keys(
+            Origin::signed(2),
+            SessionKeys { other: 2.into() },
+            vec![]
         ));
         // new stakes:
         // 10: 1000 self vote
@@ -2120,6 +2135,11 @@ fn bond_with_little_staked_value_bounded() {
             assert_ok!(Staking::validate(
                 Origin::signed(2),
                 ValidatorPrefs::default()
+            ));
+            assert_ok!(Session::set_keys(
+                Origin::signed(2),
+                SessionKeys { other: 2.into() },
+                vec![]
             ));
 
             // 1 era worth of reward. BUT, we set the timestamp after on_initialize, so outdated by
@@ -2303,7 +2323,7 @@ fn reward_from_authorship_event_handler_works() {
     ExtBuilder::default().build_and_execute(|| {
         use pallet_authorship::EventHandler;
 
-        assert_eq!(<pallet_authorship::Pallet<Test>>::author(), 11);
+        assert_eq!(<pallet_authorship::Pallet<Test>>::author(), Some(11));
 
         <Module<Test>>::note_author(11);
         <Module<Test>>::note_uncle(21, 1);
@@ -4305,7 +4325,7 @@ mod offchain_phragmen {
                 run_to_block(12);
 
                 let (compact, winners, mut score) = prepare_submission_with(true, true, 2, |_| {});
-                score[0] += 1;
+                score.minimal_stake += 1;
 
                 assert_noop!(
                     submit_solution(Origin::signed(10), winners, compact, score,),
@@ -4924,7 +4944,7 @@ fn offences_weight_calculated_correctly() {
     ExtBuilder::default().nominate(true).build_and_execute(|| {
 		// On offence with zero offenders: 4 Reads, 1 Write
 		let zero_offence_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(4, 1);
-		assert_eq!(Staking::on_offence(&[], &[Perbill::from_percent(50)], 0), zero_offence_weight);
+		assert_eq!(Staking::on_offence(&[], &[Perbill::from_percent(50)], 0, DisableStrategy::WhenSlashed), zero_offence_weight);
 
 		// On Offence with N offenders, Unapplied: 4 Reads, 1 Write + 4 Reads, 5 Writes
 		let n_offence_unapplied_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(4, 1)
@@ -4937,7 +4957,7 @@ fn offences_weight_calculated_correctly() {
 					reporters: vec![],
 				}
 			).collect();
-		assert_eq!(Staking::on_offence(&offenders, &[Perbill::from_percent(50)], 0), n_offence_unapplied_weight);
+		assert_eq!(Staking::on_offence(&offenders, &[Perbill::from_percent(50)], 0, DisableStrategy::WhenSlashed), n_offence_unapplied_weight);
 
 		// On Offence with one offenders, Applied
 		let one_offender = [
@@ -4955,7 +4975,7 @@ fn offences_weight_calculated_correctly() {
 			// `reward_cost` * reporters (1)
 			+ <Test as frame_system::Config>::DbWeight::get().reads_writes(2, 2);
 
-		assert_eq!(Staking::on_offence(&one_offender, &[Perbill::from_percent(50)], 0), one_offence_unapplied_weight);
+		assert_eq!(Staking::on_offence(&one_offender, &[Perbill::from_percent(50)], 0, DisableStrategy::WhenSlashed), one_offence_unapplied_weight);
 	});
 }
 

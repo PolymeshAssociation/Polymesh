@@ -29,11 +29,11 @@ fn transfer(to: AccountId, amount: u128) -> Call {
     })
 }
 
-const ERROR: DispatchError = DispatchError::Module {
+const ERROR: DispatchError = DispatchError::Module(sp_runtime::ModuleError {
     index: 4,
-    error: 2,
+    error: [2, 0, 0, 0],
     message: None,
-};
+});
 
 fn assert_event(event: Event) {
     assert_eq!(
@@ -215,7 +215,7 @@ fn _relay_unhappy_cases() {
         Utility::relay_tx(
             origin.clone(),
             bob.clone(),
-            Signature::default().into(),
+            Signature([0; 64]).into(),
             transaction.clone()
         ),
         Error::InvalidSignature
@@ -242,12 +242,7 @@ fn _relay_unhappy_cases() {
     );
 
     assert_noop!(
-        Utility::relay_tx(
-            origin.clone(),
-            bob,
-            Signature::default().into(),
-            transaction
-        ),
+        Utility::relay_tx(origin.clone(), bob, Signature([0; 64]).into(), transaction),
         Error::InvalidNonce
     );
 }

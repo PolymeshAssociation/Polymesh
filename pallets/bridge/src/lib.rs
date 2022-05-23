@@ -129,7 +129,7 @@ use sp_core::H256;
 use sp_runtime::traits::{Saturating, Zero};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-use sp_std::{convert::TryFrom, fmt::Debug, prelude::*};
+use sp_std::{convert::TryFrom, fmt::Debug, prelude::*, vec};
 
 type Identity<T> = pallet_identity::Module<T>;
 type System<T> = frame_system::Pallet<T>;

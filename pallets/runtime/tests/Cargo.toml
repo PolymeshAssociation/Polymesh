@@ -2,7 +2,7 @@
 name = "polymesh-runtime-tests"
 version = "1.0.0"
 authors = ["Polymath"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "confidential-identity-v1" }
@@ -53,62 +53,66 @@ chrono = "0.4"
 hex-literal = "0.3.0"
 smallvec = "1.4.1"
 lazy_static = "1.4.0"
-parking_lot = "0.11.1"
+parking_lot = "0.12.0"
 env_logger = "0.7"
 serde_json = '1.0.48'
 log = "0.4.8"
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 frame-benchmarking = { version = "4.0.0-dev", optional = true }
 frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
 frame-system-rpc-runtime-api = { version = "4.0.0-dev", default-features = false }
+frame-election-provider-support = { version = "4.0.0-dev", default-features = false }
 ink_primitives = { git = "https://github.com/paritytech/ink", tag = "v2.1.0", default-features = false }
 pallet-authority-discovery = { version = "4.0.0-dev", default-features = false }
 pallet-authorship = { version = "4.0.0-dev", default-features = false }
 pallet-babe = { version = "4.0.0-dev", default-features = false }
 pallet-contracts = { version = "4.0.0-dev", default-features = false }
-pallet-contracts-primitives = { version = "4.0.0-dev", default-features = false }
+pallet-contracts-primitives = { version = "6.0.0", default-features = false }
 pallet-contracts-rpc-runtime-api = { version = "4.0.0-dev", default-features = false }
 pallet-executive = { package = "frame-executive", version = "4.0.0-dev", default-features = false }
 pallet-grandpa = { version = "4.0.0-dev", default-features = false }
 pallet-im-online = { version = "4.0.0-dev", default-features = false }
 pallet-indices = { version = "4.0.0-dev", default-features = false }
 pallet-offences = { version = "4.0.0-dev", default-features = false }
+pallet-preimage = { version = "4.0.0-dev", default-features = false }
 pallet-randomness-collective-flip = { version = "4.0.0-dev", default-features = false }
 pallet-scheduler = { version = "4.0.0-dev", default-features = false }
 pallet-session = { version = "4.0.0-dev", default-features = false, features = ["historical"] }
 pallet-staking-reward-curve = { version = "4.0.0-dev", default-features = false }
 pallet-timestamp = { version = "4.0.0-dev", default-features = false }
-scale-info = { version = "1.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.0", default-features = false, features = ["derive"] }
 sp-api = { version = "4.0.0-dev", default-features = false }
-sp-arithmetic = { version = "4.0.0-dev", default-features = false }
+sp-arithmetic = { version = "5.0.0", default-features = false }
 sp-authority-discovery = { version = "4.0.0-dev", default-features = false }
 sp-block-builder = { version = "4.0.0-dev", default-features = false }
 sp-consensus-babe = { version = "0.10.0-dev", default-features = false }
-sp-core = { version = "4.0.0-dev", default-features = false }
+sp-core = { version = "6.0.0", default-features = false }
 sp-inherents = { version = "4.0.0-dev", default-features = false }
-sp-io = { version = "4.0.0-dev", default-features = false }
+sp-io = { version = "6.0.0", default-features = false }
 sp-npos-elections = { version = "4.0.0-dev", default-features = false }
 sp-offchain = { version = "4.0.0-dev", default-features = false }
-sp-runtime = { version = "4.0.0-dev", default-features = false }
+sp-runtime = { version = "6.0.0", default-features = false }
 sp-session = { version = "4.0.0-dev", default-features = false }
 sp-staking = { version = "4.0.0-dev", default-features = false }
-sp-std = { version = "4.0.0-dev", default-features = false }
+sp-std = { version = "4.0.0", default-features = false }
 sp-transaction-pool = { version = "4.0.0-dev", default-features = false }
-sp-version = { version = "4.0.0-dev", default-features = false }
+sp-version = { version = "5.0.0", default-features = false }
 
-test_client = { package = "substrate-test-runtime-client", git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop", optional = true }
+test_client = { package = "substrate-test-runtime-client", git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-monthly-2022-05", optional = true }
 substrate-test-utils = { version = "4.0.0-dev", optional = true }
 
 [dev-dependencies]
 libsecp256k1 = { version = "0.6", default-features = false }
 wat = "1.0"
-sp-tracing = { version = "4.0.0-dev", default-features = false }
+sp-tracing = { version = "5.0.0", default-features = false }
 
 [features]
 default = ["std", "equalize"]
+
+default_identity = [ "polymesh-common-utilities/default_identity" ]
 
 equalize = []
 only-staking = []
@@ -126,9 +130,9 @@ std = [
     "avx2_backend",
     "cryptography_core/std",
     "confidential_identity/std",
-    "frame-benchmarking/std",
     "frame-support/std",
     "frame-system/std",
+    "frame-election-provider-support/std",
     "ink_primitives/std",
     "pallet-asset/std",
     "pallet-authorship/std",
@@ -147,6 +151,7 @@ std = [
     "pallet-identity/std",
     "pallet-multisig/std",
     "pallet-permissions/std",
+    "pallet-preimage/std",
     "pallet-pips/std",
     "pallet-portfolio/std",
     "pallet-relayer/std",
@@ -176,5 +181,5 @@ std = [
     "test_client",
 ]
 runtime-benchmarks = [
-    "frame-benchmarking",
+    "frame-benchmarking/runtime-benchmarks",
 ]
