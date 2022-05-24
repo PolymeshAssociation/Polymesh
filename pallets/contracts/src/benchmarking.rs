@@ -17,7 +17,7 @@ use crate::*;
 
 use codec::Encode;
 use frame_benchmarking::benchmarks;
-use frame_support::traits::{tokens::currency::Currency, ReservableCurrency};
+use frame_support::traits::tokens::currency::Currency;
 use pallet_asset::Pallet as Asset;
 use pallet_contracts::benchmarking::code::{
     body, max_pages, DataSegment, ImportedFunction, ImportedMemory, Location, ModuleDefinition,
@@ -31,6 +31,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{Balance, Permissions};
 use pwasm_utils::parity_wasm::elements::{Instruction, ValueType};
+use sp_runtime::traits::StaticLookup;
 use sp_runtime::Perbill;
 use sp_std::prelude::*;
 
@@ -55,14 +56,6 @@ fn funded_user<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> User<T> {
 /// Returns the free balance of `acc`.
 fn free_balance<T: Config>(acc: &T::AccountId) -> Balance {
     T::Currency::free_balance(&acc)
-}
-
-/// Returns the reserved balance of `acc`.
-fn reserved_balance<T: Config>(acc: &T::AccountId) -> Balance
-where
-    T::Currency: ReservableCurrency<T::AccountId>,
-{
-    T::Currency::reserved_balance(&acc)
 }
 
 /// The `user` instantiates `wasm.code` as the contract with `salt`.
@@ -108,40 +101,11 @@ fn chain_extension_module_def(func_id: i32, in_ptr: i32, in_len: i32) -> ModuleD
     }
 }
 
-/// Make the `prepare_instantiate` input.
-fn prepare_input(n: u32) -> Vec<u8> {
-    // For simplicity, we assume the salt is `n` long and the rest is 0 long.
-    let hash = Vec::<u8>::new();
-    let salt = vec![b'A'; n as usize];
-    let perms = Permissions::default();
-    (hash, salt, perms).encode()
-}
-
 benchmarks! {
     where_clause { where
         T: pallet_asset::Config,
-        <T as pallet_contracts::Config>::Currency: ReservableCurrency<T::AccountId>,
         T: TestUtilsFn<AccountIdOf<T>>,
     }
-
-    prepare_instantiate_full {
-        let n in 1 .. T::MaxLen::get().saturating_sub(prepare_input(0).len() as u32);
-
-        // Construct a user doing everything.
-        let user = funded_user::<T>();
-
-        // Construct our contract.
-        let input = prepare_input(n);
-        let def = chain_extension_module_def(0x_00_00_00_00u32 as i32, 0, input.len() as i32);
-        let wasm = WasmModule::<T>::from(ModuleDefinition {
-            memory: Some(ImportedMemory::max::<T>()),
-            data_segments: vec![DataSegment { offset: 0, value: input }],
-            ..def
-        });
-
-        // Instantiate the contract.
-        let callee = instantiate::<T>(&user, wasm, salt());
-    }: call(user.origin(), callee.clone(), 0, Weight::MAX, None, vec![])
 
     chain_extension_full {
         let n in 1 .. T::MaxLen::get() as u32;
@@ -151,7 +115,7 @@ benchmarks! {
 
         // Construct our contract.
         let input = vec![b'A'; n as usize].encode();
-        let def = chain_extension_module_def(0x_00_01_11_00, 0, input.len() as i32);
+        let def = chain_extension_module_def(0x_00_1A_11_00, 0, input.len() as i32);
         let wasm = WasmModule::<T>::from(ModuleDefinition {
             memory: Some(ImportedMemory::max::<T>()),
             data_segments: vec![DataSegment { offset: 0, value: input }],
@@ -159,8 +123,10 @@ benchmarks! {
         });
 
         // Instantiate the contract.
-        let callee = instantiate::<T>(&user, wasm, salt());
-    }: call(user.origin(), callee.clone(), 0, Weight::MAX, None, vec![])
+        let callee = T::Lookup::unlookup(instantiate::<T>(&user, wasm, salt()));
+    }: {
+        FrameContracts::<T>::call(user.origin().into(), callee, 0, Weight::MAX, None, vec![]).unwrap();
+    }
 
     chain_extension_early_exit {
         // Construct a user doing everything.
@@ -170,8 +136,10 @@ benchmarks! {
         let wasm = WasmModule::<T>::from(chain_extension_module_def(0, 0, 0));
 
         // Instantiate the contract.
-        let callee = instantiate::<T>(&user, wasm, salt());
-    }: call(user.origin(), callee.clone(), 0, Weight::MAX, None, vec![])
+        let callee = T::Lookup::unlookup(instantiate::<T>(&user, wasm, salt()));
+    }: {
+        FrameContracts::<T>::call(user.origin().into(), callee, 0, Weight::MAX, None, vec![]).unwrap();
+    }
 
     basic_runtime_call {
         let n in 1 .. T::MaxLen::get() as u32;
@@ -183,25 +151,9 @@ benchmarks! {
         Asset::<T>::register_custom_asset_type(origin, custom_type).unwrap();
     }
 
-    call {
-        // Construct a user doing everything.
-        let user = funded_user::<T>();
-
-        // Instantiate a dummy contract.
-        let callee = instantiate::<T>(&user, WasmModule::<T>::dummy(), salt());
-        let before = free_balance::<T>(&callee);
-
-        // Arguments to pass to contract call.
-        let data = vec![42u8; 1024];
-    }: _(user.origin(), callee.clone(), ENDOWMENT, Weight::MAX, None, data)
-    verify {
-        // Contract should have received the value.
-        assert_eq!(free_balance::<T>(&callee), before + ENDOWMENT);
-    }
-
     // Use a dummy contract constructor to measure the overhead.
     // `s`: Size of the salt in kilobytes.
-    instantiate_with_hash {
+    instantiate_with_hash_perms {
         let s in 0 .. max_pages::<T>() * 64 * 1024;
         let other_salt = vec![42u8; s as usize];
 
@@ -215,7 +167,7 @@ benchmarks! {
 
         // Pre-instantiate a contract so that one with the hash exists.
         let _ = instantiate::<T>(&user, wasm, salt());
-    }: instantiate(user.origin(), ENDOWMENT, Weight::MAX, None, hash, vec![], other_salt)
+    }: _(user.origin(), ENDOWMENT, Weight::MAX, None, hash, vec![], other_salt, Permissions::default())
     verify {
         // Ensure contract has the full value.
         assert_eq!(free_balance::<T>(&addr), ENDOWMENT);
@@ -235,7 +187,7 @@ benchmarks! {
     //
     // We cannot let `c` grow to the maximum code size because the code is not allowed
     // to be larger than the maximum size **after instrumentation**.
-    instantiate_with_code {
+    instantiate_with_code_perms {
         let c in 0 .. Perbill::from_percent(50).mul_ceil(T::Schedule::get().limits.code_len);
         let s in 0 .. max_pages::<T>() * 64 * 1024;
         let salt = vec![42u8; s as usize];
@@ -246,39 +198,9 @@ benchmarks! {
         // Construct the contract code + get addr.
         let wasm = WasmModule::<T>::sized(c, Location::Deploy);
         let addr = FrameContracts::<T>::contract_address(&user.account(), &wasm.hash, &salt);
-    }: _(user.origin(), ENDOWMENT, Weight::MAX, None, wasm.code, vec![], salt)
+    }: _(user.origin(), ENDOWMENT, Weight::MAX, None, wasm.code, vec![], salt, Permissions::default())
     verify {
         // Ensure contract has the full value.
         assert_eq!(free_balance::<T>(&addr), ENDOWMENT);
-    }
-
-    upload_code {
-        let c in 0 .. Perbill::from_percent(50).mul_ceil(T::Schedule::get().limits.code_len);
-        // Construct a user doing everything.
-        let user = funded_user::<T>();
-
-        let WasmModule { code, hash, .. } = WasmModule::<T>::sized(c, Location::Call);
-    }: _(user.origin(), code, None)
-    verify {
-        // Uploading code reserves some balance in the callers account.
-        assert!(reserved_balance::<T>(&user.account) > 0u32.into());
-        //assert!(<FrameContracts<T>>::code_exists(&hash));
-    }
-
-    remove_code {
-        // Construct a user doing everything.
-        let user = funded_user::<T>();
-
-        // Upload a dummy contract.
-        let WasmModule { code, hash, .. } = WasmModule::<T>::dummy();
-        let uploaded = <FrameContracts<T>>::bare_upload_code(user.account(), code, None)?;
-        assert_eq!(uploaded.code_hash, hash);
-        assert_eq!(uploaded.deposit, reserved_balance::<T>(&user.account()));
-        //assert!(<FrameContracts<T>>::code_exists(&hash));
-    }: _(user.origin(), hash)
-    verify {
-        // Removing the code should have unreserved the deposit.
-        assert_eq!(reserved_balance::<T>(&user.account), 0u32.into());
-        //assert!(<FrameContracts<T>>::code_removed(&hash));
     }
 }
