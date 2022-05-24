@@ -104,9 +104,6 @@ substrate-test-utils = { git = "https://github.com/PolymathNetwork/substrate", b
 substrate-test-utils-derive = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-monthly-2022-05" }
 substrate-wasm-builder = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-monthly-2022-05" }
 
-schnorrkel = { git = "https://github.com/PolymathNetwork/schnorrkel", branch = "rebase-head" }
-curve25519-dalek = { git = "https://github.com/PolymathNetwork/curve25519-dalek", branch = "master" }
-
 [workspace]
 members = [
     "bin/bench",
