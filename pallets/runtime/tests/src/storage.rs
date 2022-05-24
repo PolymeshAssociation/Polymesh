@@ -268,7 +268,7 @@ frame_support::construct_runtime!(
         Rewards: pallet_rewards::{Pallet, Call, Storage, Event<T>, Config<T>} = 54,
 
         // Contracts
-        Contracts: pallet_contracts::{Pallet, Storage, Event<T>} = 19,
+        Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>} = 19,
         PolymeshContracts: polymesh_contracts::{Pallet, Call, Storage, Event} = 20,
 
         // Preimage register.  Used by `pallet_scheduler`.
