@@ -68,6 +68,7 @@ impl TypeInfo for InvestorZKProofData {
     type Identity = Self;
 
     fn type_info() -> Type {
+        // The `Signature` is encoded as a fixed 64 bytes.
         <[u8; 64]>::type_info()
     }
 }
