@@ -59,7 +59,7 @@ impl<T: Config> Module<T> {
             authorized_by: from,
             expiry,
             auth_id: new_nonce,
-            count: 50
+            count: 50,
         };
 
         <Authorizations<T>>::insert(target.clone(), new_nonce, auth);
