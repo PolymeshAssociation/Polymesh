@@ -2,7 +2,7 @@
 name = "pallet-group-rpc"
 version = "2.0.0"
 authors = ["Anonymous"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 # Common
@@ -20,11 +20,11 @@ jsonrpc-core-client = { version = "18.0.0", features = ["arbitrary_precision"] }
 jsonrpc-derive = "18.0.0"
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "2.0.0" }
-sp-runtime = { version = "4.0.0-dev", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.0.0" }
+sp-runtime = { version = "6.0.0", default-features = false }
 sp-blockchain = { version = "4.0.0-dev", default_features = false}
-sp-std = {version = "4.0.0-dev", default_features = false }
+sp-std = {version = "4.0.0", default_features = false }
 sp-api = {version = "4.0.0-dev", default_features = false }
 
 [dev-dependencies]
-substrate-test-runtime-client = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-develop"}
+substrate-test-runtime-client = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-monthly-2022-05"}

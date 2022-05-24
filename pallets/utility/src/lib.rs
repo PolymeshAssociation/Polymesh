@@ -52,6 +52,7 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
+use frame_support::storage::{with_transaction, TransactionOutcome};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, PostDispatchInfo},
@@ -66,7 +67,6 @@ use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::{
     balances::{CheckCdd, Config as BalancesConfig},
     identity::{AuthorizationNonce, Config as IdentityConfig},
-    with_transaction,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Dispatchable, traits::Verify, DispatchError, RuntimeDebug};
@@ -211,19 +211,16 @@ decl_module! {
             let is_root = Self::ensure_root_or_signed(origin.clone())?;
 
             // Run batch inside a transaction
-            Self::deposit_event(match with_transaction(|| {
-                // Run batch
+            Self::deposit_event(with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
+                // Run batch.
                 match Self::run_batch(origin.clone(), is_root, calls, true) {
-                    Event::BatchCompleted(counts) => Ok(Event::BatchCompleted(counts)),
+                    ev @ Event::BatchCompleted(_) => TransactionOutcome::Commit(Ok(ev)),
                     ev => {
-                        // Batch didn't complete.  Abort transaction
-                        Err(ev)
+                        // Batch didn't complete.  Rollback transaction.
+                        TransactionOutcome::Rollback(Ok(ev))
                     }
                 }
-            }) {
-                Ok(ev) => ev,
-                Err(ev) => ev
-            });
+            })?);
         }
 
         /// Dispatch multiple calls from the sender's origin.

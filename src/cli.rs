@@ -1,30 +1,28 @@
-use structopt::StructOpt;
-
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::Parser)]
 pub struct Cli {
     /// Possible subcommand with parameters.
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     pub subcommand: Option<Subcommand>,
     #[allow(missing_docs)]
-    #[structopt(flatten)]
+    #[clap(flatten)]
     pub run: RunCmd,
 }
 
 #[allow(missing_docs)]
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::Parser)]
 pub struct RunCmd {
     #[allow(missing_docs)]
-    #[structopt(flatten)]
+    #[clap(flatten)]
     pub base: sc_cli::RunCmd,
     /// Enable validator mode.
     ///
     /// It is an alias of the `--validator` flag. User has the choice to use either `--validator` or `--operator` flag both works same.
-    #[structopt(long)]
+    #[clap(long)]
     pub operator: bool,
 }
 
 /// Possible subcommands of the main binary.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::Subcommand)]
 pub enum Subcommand {
     /// Build a chain specification.
     BuildSpec(sc_cli::BuildSpecCmd),
@@ -48,6 +46,7 @@ pub enum Subcommand {
     Revert(sc_cli::RevertCmd),
 
     /// The custom benchmark subcommmand benchmarking runtime pallets.
-    #[structopt(name = "benchmark", about = "Benchmark runtime pallets.")]
+    #[clap(name = "benchmark", about = "Benchmark runtime pallets.")]
+    #[clap(subcommand)]
     Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 }

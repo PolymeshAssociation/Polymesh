@@ -84,7 +84,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(const_option)]
-#![feature(bool_to_option)]
 #![feature(associated_type_bounds)]
 
 #[cfg(feature = "runtime-benchmarks")]

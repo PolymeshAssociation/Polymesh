@@ -82,6 +82,8 @@ type CodeHash<T> = <T as frame_system::Config>::Hash;
 
 pub trait WeightInfo {
     fn call() -> Weight;
+    fn upload_code(code_len: u32) -> Weight;
+    fn remove_code() -> Weight;
 
     /// Computes the cost of instantiating where `code_len`
     /// and `salt_len` are specified in kilobytes.
@@ -91,7 +93,7 @@ pub trait WeightInfo {
     ///
     /// Permissions are not accounted for here.
     fn instantiate_with_code_bytes(code: &[u8], salt: &[u8]) -> Weight {
-        Self::instantiate_with_code(code.len() as u32 / 1024, salt.len() as u32 / 1024)
+        Self::instantiate_with_code(code.len() as u32, salt.len() as u32)
     }
 
     /// Computes the cost of instantiating where `salt_len` is specified in kilobytes.
@@ -101,7 +103,7 @@ pub trait WeightInfo {
     ///
     /// Permissions are not accounted for here.
     fn instantiate_with_hash_bytes(salt: &[u8]) -> Weight {
-        Self::instantiate_with_hash((salt.len() / 1024) as u32)
+        Self::instantiate_with_hash((salt.len()) as u32)
     }
 
     /// Computes the cost just for executing the chain extension,
@@ -213,7 +215,9 @@ decl_module! {
         /// - `contract` to call.
         /// - `value` in POLYX to transfer to the contract.
         /// - `gas_limit` that limits how much gas execution can consume, erroring above it.
-        /// - `data` to be interpreted by the smart contract call.
+        /// - `storage_deposit_limit` The maximum amount of balance that can be charged from the
+        ///   caller to pay for the storage consumed.
+        /// - `data` The input data to pass to the contract.
         ///
         /// # Errors
         /// - All the errors in `pallet_contracts::Call::call` can also happen here.
@@ -225,9 +229,10 @@ decl_module! {
             contract: T::AccountId,
             value: Balance,
             gas_limit: Weight,
+            storage_deposit_limit: Option<Balance>,
             data: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
-            Self::base_call(origin, contract, value, gas_limit, data)
+            Self::base_call(origin, contract, value, gas_limit, storage_deposit_limit, data)
         }
 
         /// Instantiates a smart contract defining it with the given `code` and `salt`.
@@ -242,7 +247,10 @@ decl_module! {
         /// # Arguments
         /// - `endowment` amount of POLYX to transfer to the contract.
         /// - `gas_limit` for how much gas the `deploy` code in the contract may at most consume.
+        /// - `storage_deposit_limit` The maximum amount of balance that can be charged/reserved
+        ///   from the caller to pay for the storage consumed.
         /// - `code` with the WASM binary defining the smart contract.
+        /// - `data` The input data to pass to the contract constructor.
         /// - `salt` used for contract address derivation.
         ///    By varying this, the same `code` can be used under the same identity.
         ///
@@ -250,50 +258,17 @@ decl_module! {
         /// - All the errors in `pallet_contracts::Call::instantiate_with_code` can also happen here.
         /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
         /// - Errors that arise when adding a new secondary key can also occur here.
-        #[weight = Module::<T>::weight_instantiate_with_code(&code, &salt, &Permissions::empty())]
+        #[weight = Module::<T>::weight_instantiate_with_code(&code, &salt, &Permissions::empty()).saturating_add(*gas_limit)]
         pub fn instantiate_with_code(
             origin,
             endowment: Balance,
             gas_limit: Weight,
+            storage_deposit_limit: Option<Balance>,
             code: Vec<u8>,
             data: Vec<u8>,
             salt: Vec<u8>
         ) -> DispatchResultWithPostInfo {
-            Self::base_instantiate_with_code(origin, endowment, gas_limit, code, data, salt, Permissions::empty())
-        }
-
-        /// Instantiates a smart contract defining it with the given `code` and `salt`.
-        ///
-        /// The contract will be attached as a secondary key,
-        /// with `perms` as its permissions, to `origin`'s identity.
-        ///
-        /// The contract is transferred `endowment` amount of POLYX.
-        /// This is distinct from the `gas_limit`,
-        /// which controls how much gas the deployment code may at most consume.
-        ///
-        /// # Arguments
-        /// - `endowment` amount of POLYX to transfer to the contract.
-        /// - `gas_limit` for how much gas the `deploy` code in the contract may at most consume.
-        /// - `code` with the WASM binary defining the smart contract.
-        /// - `salt` used for contract address derivation.
-        ///    By varying this, the same `code` can be used under the same identity.
-        /// - `perms` that the new secondary key will have.
-        ///
-        /// # Errors
-        /// - All the errors in `pallet_contracts::Call::instantiate_with_code` can also happen here.
-        /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
-        /// - Errors that arise when adding a new secondary key can also occur here.
-        #[weight = Module::<T>::weight_instantiate_with_code(&code, &salt, &perms)]
-        pub fn instantiate_with_code_perms(
-            origin,
-            endowment: Balance,
-            gas_limit: Weight,
-            code: Vec<u8>,
-            data: Vec<u8>,
-            salt: Vec<u8>,
-            perms: Permissions
-        ) -> DispatchResultWithPostInfo {
-            Self::base_instantiate_with_code(origin, endowment, gas_limit, code, data, salt, perms)
+            Self::base_instantiate_with_code(origin, endowment, gas_limit, storage_deposit_limit, code, data, salt, Permissions::empty())
         }
 
         /// Instantiates a smart contract defining using the given `code_hash` and `salt`.
@@ -311,7 +286,10 @@ decl_module! {
         /// # Arguments
         /// - `endowment` amount of POLYX to transfer to the contract.
         /// - `gas_limit` for how much gas the `deploy` code in the contract may at most consume.
+        /// - `storage_deposit_limit` The maximum amount of balance that can be charged/reserved
+        ///   from the caller to pay for the storage consumed.
         /// - `code_hash` of an already uploaded WASM binary.
+        /// - `data` The input data to pass to the contract constructor.
         /// - `salt` used for contract address derivation.
         ///    By varying this, the same `code` can be used under the same identity.
         ///
@@ -319,16 +297,92 @@ decl_module! {
         /// - All the errors in `pallet_contracts::Call::instantiate` can also happen here.
         /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
         /// - Errors that arise when adding a new secondary key can also occur here.
-        #[weight = Module::<T>::weight_instantiate_with_hash(&salt, &Permissions::empty())]
+        #[weight = Module::<T>::weight_instantiate_with_hash(&salt, &Permissions::empty()).saturating_add(*gas_limit)]
         pub fn instantiate(
             origin,
             endowment: Balance,
             gas_limit: Weight,
+            storage_deposit_limit: Option<Balance>,
             code_hash: CodeHash<T>,
             data: Vec<u8>,
             salt: Vec<u8>
         ) -> DispatchResultWithPostInfo {
-            Self::base_instantiate_with_hash(origin, endowment, gas_limit, code_hash, data, salt, Permissions::empty())
+            Self::base_instantiate_with_hash(origin, endowment, gas_limit, storage_deposit_limit, code_hash, data, salt, Permissions::empty())
+        }
+
+        /// Upload new `code` without instantiating a contract from it.
+        ///
+        /// If the code does not already exist a deposit is reserved from the caller
+        /// and unreserved only when [`Self::remove_code`] is called. The size of the reserve
+        /// depends on the instrumented size of the the supplied `code`.
+        ///
+        /// If the code already exists in storage it will still return `Ok` and upgrades
+        /// the in storage version to the current
+        /// [`InstructionWeights::version`](InstructionWeights).
+        ///
+        /// # Note
+        ///
+        /// Anyone can instantiate a contract from any uploaded code and thus prevent its removal.
+        /// To avoid this situation a constructor could employ access control so that it can
+        /// only be instantiated by permissioned entities. The same is true when uploading
+        /// through [`Self::instantiate_with_code`].
+        #[weight = <T as Config>::WeightInfo::upload_code(code.len() as u32)]
+        pub fn upload_code(
+            origin,
+            code: Vec<u8>,
+            storage_deposit_limit: Option<Balance>,
+        ) -> DispatchResult {
+            Self::base_upload_code(origin, code, storage_deposit_limit)
+        }
+
+        /// Remove the code stored under `code_hash` and refund the deposit to its owner.
+        ///
+        /// A code can only be removed by its original uploader (its owner) and only if it is
+        /// not used by any contract.
+        #[weight = <T as Config>::WeightInfo::remove_code()]
+        pub fn remove_code(
+            origin,
+            code_hash: CodeHash<T>,
+        ) -> DispatchResultWithPostInfo {
+            Self::base_remove_code(origin, code_hash)
+        }
+
+        /// Instantiates a smart contract defining it with the given `code` and `salt`.
+        ///
+        /// The contract will be attached as a secondary key,
+        /// with `perms` as its permissions, to `origin`'s identity.
+        ///
+        /// The contract is transferred `endowment` amount of POLYX.
+        /// This is distinct from the `gas_limit`,
+        /// which controls how much gas the deployment code may at most consume.
+        ///
+        /// # Arguments
+        /// - `endowment` amount of POLYX to transfer to the contract.
+        /// - `gas_limit` for how much gas the `deploy` code in the contract may at most consume.
+        /// - `storage_deposit_limit` The maximum amount of balance that can be charged/reserved
+        ///   from the caller to pay for the storage consumed.
+        /// - `code` with the WASM binary defining the smart contract.
+        /// - `data` The input data to pass to the contract constructor.
+        /// - `salt` used for contract address derivation.
+        ///    By varying this, the same `code` can be used under the same identity.
+        /// - `perms` that the new secondary key will have.
+        ///
+        /// # Errors
+        /// - All the errors in `pallet_contracts::Call::instantiate_with_code` can also happen here.
+        /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
+        /// - Errors that arise when adding a new secondary key can also occur here.
+        #[weight = Module::<T>::weight_instantiate_with_code(&code, &salt, &perms).saturating_add(*gas_limit)]
+        pub fn instantiate_with_code_perms(
+            origin,
+            endowment: Balance,
+            gas_limit: Weight,
+            storage_deposit_limit: Option<Balance>,
+            code: Vec<u8>,
+            data: Vec<u8>,
+            salt: Vec<u8>,
+            perms: Permissions
+        ) -> DispatchResultWithPostInfo {
+            Self::base_instantiate_with_code(origin, endowment, gas_limit, storage_deposit_limit, code, data, salt, perms)
         }
 
         /// Instantiates a smart contract defining using the given `code_hash` and `salt`.
@@ -346,7 +400,10 @@ decl_module! {
         /// # Arguments
         /// - `endowment` amount of POLYX to transfer to the contract.
         /// - `gas_limit` for how much gas the `deploy` code in the contract may at most consume.
+        /// - `storage_deposit_limit` The maximum amount of balance that can be charged/reserved
+        ///   from the caller to pay for the storage consumed.
         /// - `code_hash` of an already uploaded WASM binary.
+        /// - `data` The input data to pass to the contract constructor.
         /// - `salt` used for contract address derivation.
         ///    By varying this, the same `code` can be used under the same identity.
         /// - `perms` that the new secondary key will have.
@@ -355,17 +412,18 @@ decl_module! {
         /// - All the errors in `pallet_contracts::Call::instantiate` can also happen here.
         /// - CDD/Permissions are checked, unlike in `pallet_contracts`.
         /// - Errors that arise when adding a new secondary key can also occur here.
-        #[weight = Module::<T>::weight_instantiate_with_hash(&salt, &perms)]
+        #[weight = Module::<T>::weight_instantiate_with_hash(&salt, &perms).saturating_add(*gas_limit)]
         pub fn instantiate_with_hash_perms(
             origin,
             endowment: Balance,
             gas_limit: Weight,
+            storage_deposit_limit: Option<Balance>,
             code_hash: CodeHash<T>,
             data: Vec<u8>,
             salt: Vec<u8>,
             perms: Permissions
         ) -> DispatchResultWithPostInfo {
-            Self::base_instantiate_with_hash(origin, endowment, gas_limit, code_hash, data, salt, perms)
+            Self::base_instantiate_with_hash(origin, endowment, gas_limit, storage_deposit_limit, code_hash, data, salt, perms)
         }
     }
 }
@@ -378,6 +436,7 @@ impl<T: Config> Module<T> {
         contract: T::AccountId,
         value: Balance,
         gas_limit: Weight,
+        storage_deposit_limit: Option<Balance>,
         data: Vec<u8>,
     ) -> DispatchResultWithPostInfo {
         // Ensure contract caller has perms.
@@ -386,7 +445,15 @@ impl<T: Config> Module<T> {
         // Execute contract.
         Self::handle_error(
             <T as Config>::WeightInfo::call(),
-            FrameContracts::<T>::bare_call(sender, contract, value, gas_limit, data, false),
+            FrameContracts::<T>::bare_call(
+                sender,
+                contract,
+                value,
+                gas_limit,
+                storage_deposit_limit,
+                data,
+                false,
+            ),
         )
     }
 
@@ -395,6 +462,7 @@ impl<T: Config> Module<T> {
         origin: T::Origin,
         endowment: Balance,
         gas_limit: Weight,
+        storage_deposit_limit: Option<Balance>,
         code: Vec<u8>,
         inst_data: Vec<u8>,
         salt: Vec<u8>,
@@ -406,6 +474,7 @@ impl<T: Config> Module<T> {
             // Compute the base weight of roughly `base_instantiate`.
             Self::weight_instantiate_with_code(&code, &salt, &perms),
             gas_limit,
+            storage_deposit_limit,
             Code::Upload(Bytes(code)),
             inst_data,
             salt,
@@ -425,6 +494,7 @@ impl<T: Config> Module<T> {
         origin: T::Origin,
         endowment: Balance,
         gas_limit: Weight,
+        storage_deposit_limit: Option<Balance>,
         code_hash: CodeHash<T>,
         inst_data: Vec<u8>,
         salt: Vec<u8>,
@@ -436,6 +506,7 @@ impl<T: Config> Module<T> {
             // Compute the base weight of roughly `base_instantiate`.
             Self::weight_instantiate_with_hash(&salt, &perms),
             gas_limit,
+            storage_deposit_limit,
             Code::Existing(code_hash),
             inst_data,
             salt,
@@ -450,6 +521,26 @@ impl<T: Config> Module<T> {
         )
     }
 
+    /// Upload new code without instantiating a contract from it.
+    fn base_upload_code(
+        origin: T::Origin,
+        code: Vec<u8>,
+        storage_deposit_limit: Option<Balance>,
+    ) -> DispatchResult {
+        // Ensure contract caller has perms.
+        let sender = Identity::<T>::ensure_origin_call_permissions(origin)?.sender;
+        FrameContracts::<T>::bare_upload_code(sender, code, storage_deposit_limit.map(Into::into))
+            .map(|_| ())
+    }
+
+    /// Remove the code stored under `code_hash` and refund the deposit to its owner.
+    fn base_remove_code(origin: T::Origin, code_hash: CodeHash<T>) -> DispatchResultWithPostInfo {
+        // Ensure contract caller has perms.
+        Identity::<T>::ensure_origin_call_permissions(origin.clone())?;
+        // Remove the contract code if the caller is the owner and the code is unused.
+        FrameContracts::<T>::remove_code(origin, code_hash)
+    }
+
     /// General logic for contract instantiation both when the code or code hash is given.
     ///
     /// The interesting parameters here are:
@@ -462,6 +553,7 @@ impl<T: Config> Module<T> {
         endowment: Balance,
         base_weight: Weight,
         gas_limit: Weight,
+        storage_deposit_limit: Option<Balance>,
         code: Code<CodeHash<T>>,
         inst_data: Vec<u8>,
         salt: Vec<u8>,
@@ -485,6 +577,7 @@ impl<T: Config> Module<T> {
                     sender.clone(),
                     endowment,
                     gas_limit,
+                    storage_deposit_limit,
                     code,
                     inst_data,
                     salt,
@@ -501,10 +594,11 @@ impl<T: Config> Module<T> {
         sender: T::AccountId,
         endowment: Balance,
         gas_limit: u64,
+        storage_deposit_limit: Option<Balance>,
         code: Code<CodeHash<T>>,
         data: Vec<u8>,
         salt: Vec<u8>,
-    ) -> ContractInstantiateResult<T::AccountId> {
+    ) -> ContractInstantiateResult<T::AccountId, Balance> {
         match (|| {
             // Ensure we have perms + we'll need DID.
             let did =
@@ -515,7 +609,14 @@ impl<T: Config> Module<T> {
             Self::prepare_instantiate(did, &sender, &code_hash, &salt, Permissions::empty())?;
 
             Ok(FrameContracts::<T>::bare_instantiate(
-                sender, endowment, gas_limit, code, data, salt, false,
+                sender,
+                endowment,
+                gas_limit,
+                storage_deposit_limit,
+                code,
+                data,
+                salt,
+                false,
             ))
         })() {
             Ok(r) => r,
@@ -526,6 +627,7 @@ impl<T: Config> Module<T> {
                 // so no gas related to the limit has yet been consumed.
                 gas_consumed: 0,
                 gas_required: 0,
+                storage_deposit: Default::default(),
             },
         }
     }
@@ -562,7 +664,7 @@ impl<T: Config> Module<T> {
     /// accounting for the consumed gas.
     fn handle_error<A>(
         base_weight: Weight,
-        result: ContractResult<Result<A, DispatchError>>,
+        result: ContractResult<Result<A, DispatchError>, Balance>,
     ) -> DispatchResultWithPostInfo {
         let post_info = Some(result.gas_consumed.saturating_add(base_weight)).into();
         match result.result {
@@ -664,11 +766,13 @@ where
             contract: decode!(),
             value: decode!(),
             gas_limit: decode!(),
+            storage_deposit_limit: decode!(),
             data: decode!(),
         }),
         on!(0, 1) => CommonCall::Contracts(Call::instantiate_with_code {
             endowment: decode!(),
             gas_limit: decode!(),
+            storage_deposit_limit: decode!(),
             code: decode!(),
             data: decode!(),
             salt: decode!(),
@@ -676,6 +780,7 @@ where
         on!(0, 2) => CommonCall::Contracts(Call::instantiate_with_code_perms {
             endowment: decode!(),
             gas_limit: decode!(),
+            storage_deposit_limit: decode!(),
             code: decode!(),
             data: decode!(),
             salt: decode!(),
@@ -684,6 +789,7 @@ where
         on!(0, 3) => CommonCall::Contracts(Call::instantiate {
             endowment: decode!(),
             gas_limit: decode!(),
+            storage_deposit_limit: decode!(),
             code_hash: decode!(),
             data: decode!(),
             salt: decode!(),
@@ -691,6 +797,7 @@ where
         on!(0, 4) => CommonCall::Contracts(Call::instantiate_with_hash_perms {
             endowment: decode!(),
             gas_limit: decode!(),
+            storage_deposit_limit: decode!(),
             code_hash: decode!(),
             data: decode!(),
             salt: decode!(),

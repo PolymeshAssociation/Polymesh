@@ -1004,8 +1004,8 @@ fn scheduled_proposal(proposer: User, member: User, deposit: u128) -> PipId {
         vec![(next_id, SnapshotResult::Approve)]
     ));
     assert_event_exists!(
-        EventTest::Scheduler(pallet_scheduler::Event::Scheduled(b, ..)),
-        *b == System::block_number() + Pips::default_enactment_period()
+        EventTest::Scheduler(pallet_scheduler::Event::Scheduled { when, .. }),
+        *when == System::block_number() + Pips::default_enactment_period()
     );
     assert_state(next_id, false, ProposalState::Scheduled);
     assert_eq!(Pips::active_pip_count(), active);
@@ -1361,7 +1361,7 @@ fn reject_proposal_will_unschedule() {
             assert_ok!(Pips::reject_proposal(gc_vmo(), id));
             assert_eq!(Pips::pip_to_schedule(id), None);
             assert_event_exists!(
-                EventTest::Scheduler(pallet_scheduler::Event::Canceled(when, ..)),
+                EventTest::Scheduler(pallet_scheduler::Event::Canceled { when, .. }),
                 *when == scheduled_at
             );
         };
@@ -1499,7 +1499,9 @@ fn reschedule_execution_works() {
         // Regression test for <https://polymath.atlassian.net/browse/GTN-2172>.
         assert_eq!(Pips::active_pip_count(), 1);
         // Rescheduling currently works by cancelling + then scheduling again. Verify this.
-        assert_event_exists!(EventTest::Scheduler(pallet_scheduler::Event::Canceled(..)));
+        assert_event_exists!(EventTest::Scheduler(
+            pallet_scheduler::Event::Canceled { .. }
+        ));
         assert_eq!(Pips::pip_to_schedule(id).unwrap(), next);
         assert_eq!(Agenda::get(scheduled_at), vec![None]);
         assert_matches!(&*Agenda::get(next), [Some(_)]);

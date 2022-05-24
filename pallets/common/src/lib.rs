@@ -41,7 +41,7 @@ use polymesh_primitives::IdentityId;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_runtime::DispatchResult;
+use sp_runtime::{DispatchError, DispatchResult};
 
 /// It defines the valid issuers for Systematic Claims.
 ///
@@ -139,7 +139,9 @@ pub const GC_DID: IdentityId = SystematicIssuers::Committee.as_id();
 /// committing on `Ok(_)` and rolling back on `Err(_)`, returning the result.
 ///
 /// Transactions can be arbitrarily nested with commits happening to the parent.
-pub fn with_transaction<T, E>(tx: impl FnOnce() -> Result<T, E>) -> Result<T, E> {
+pub fn with_transaction<T, E: From<DispatchError>>(
+    tx: impl FnOnce() -> Result<T, E>,
+) -> Result<T, E> {
     use frame_support::storage::{with_transaction, TransactionOutcome};
     with_transaction(|| match tx() {
         r @ Ok(_) => TransactionOutcome::Commit(r),

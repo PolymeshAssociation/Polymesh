@@ -61,11 +61,6 @@ impl frame_system::WeightInfo for WeightInfo {
     fn set_heap_pages() -> Weight {
         (2_017_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
-    fn set_changes_trie_config() -> Weight {
-        (12_502_000 as Weight)
-            .saturating_add(DbWeight::get().reads(1 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
-    }
     fn set_storage(i: u32) -> Weight {
         (4_121_000 as Weight)
             // Standard Error: 2_000
