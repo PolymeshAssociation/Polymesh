@@ -77,7 +77,9 @@ fn misc_polymesh_extensions() {
                 )
             };
             let derive_key = |key, salt| FrameContracts::contract_address(&key, &hash, salt);
-            let call = |key, data| Contracts::call(user.origin(), key, 0, GAS_LIMIT, None, data);
+            let call = |key: AccountId, data| {
+                FrameContracts::call(user.origin(), key.into(), 0, GAS_LIMIT, None, data)
+            };
             let assert_has_secondary_key = |key: AccountId| {
                 let data = Identity::get_key_identity_data(key).unwrap();
                 assert_eq!(data.identity, owner.did);
@@ -116,7 +118,7 @@ fn misc_polymesh_extensions() {
 
             // Input for registering ticker AAAAAAAAAAAA.
             let ticker = Ticker::try_from(b"A" as &[u8]).unwrap();
-            let mut register_ticker_data = 0x00_01_00_00.encode();
+            let mut register_ticker_data = 0x00_1A_00_00.encode();
             register_ticker_data.extend(ticker.encode());
 
             // Leave too much data left in the input.
@@ -144,19 +146,5 @@ fn misc_polymesh_extensions() {
             // ensuring that it was Alice who registered it.
             assert_ok!(call(register_ticker_data));
             assert_ok!(Asset::ensure_owner(&ticker, owner.did));
-
-            // Prepare instantiation with a different salt.
-            // Make sure that fails with additional 'X' and then succeeds.
-            let mut prepare_instantiate_data = 0xFF_00_00_00u32.encode();
-            let salt = vec![0xEEu8];
-            prepare_instantiate_data.extend((hash, salt.clone(), perms.clone()).encode());
-            prepare_instantiate_data.extend(b"X");
-            assert_storage_noop!(assert_err_ignore_postinfo!(
-                call(prepare_instantiate_data.clone()),
-                ContractsError::DataLeftAfterDecoding,
-            ));
-            prepare_instantiate_data.pop().unwrap();
-            assert_ok!(call(prepare_instantiate_data));
-            assert_has_secondary_key(derive_key(key_first_contract, &salt));
         })
 }
