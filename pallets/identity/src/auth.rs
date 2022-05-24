@@ -59,6 +59,7 @@ impl<T: Config> Module<T> {
             authorized_by: from,
             expiry,
             auth_id: new_nonce,
+            count: 50
         };
 
         <Authorizations<T>>::insert(target.clone(), new_nonce, auth);
@@ -184,6 +185,11 @@ impl<T: Config> Module<T> {
         if let Some(expiry) = auth.expiry {
             let now = <pallet_timestamp::Pallet<T>>::get();
             ensure!(expiry > now, AuthorizationError::Expired);
+        }
+
+        if auth.count == 0 {
+            <Authorizations<T>>::remove(&target, auth_id);
+            <AuthorizationsGiven<T>>::remove(auth.authorized_by, auth_id);
         }
 
         // Run custom per-type validation and updates.
