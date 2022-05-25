@@ -187,7 +187,7 @@ jobs:
       - run:
           name: run Polymesh ci-dev chain node for integration tests
           command: >-
-            ./target/release/polymesh --alice --chain ci-dev
+            ./target/release/polymesh --bob --chain ci-dev
               --no-prometheus --no-telemetry --tmp
               --wasm-execution compiled
               --pool-limit 100000
