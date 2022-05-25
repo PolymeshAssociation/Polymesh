@@ -1,2 +1,3 @@
-shift
-rustc $@ -D warnings
+#!/bin/sh
+
+"$@" -D warnings
