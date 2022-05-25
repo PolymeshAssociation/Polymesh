@@ -115,6 +115,8 @@ jobs:
     environment:
       - VERBOSE: "1"
       - RUSTC_WORKSPACE_WRAPPER: ./scripts/rustc.sh
+      - SKIP_WASM_BUILD: "1"
+      - RUST_BACKTRACE: "1"
     steps:
       - checkout
       - run:
@@ -127,14 +129,16 @@ jobs:
           name: Tests
           command: >-
             cargo test
-            --package polymesh-runtime-tests
             --package pallet-staking
             --package pallet-group
             --package pallet-sudo
+            --package pallet-pips
             --package polymesh-primitives
             --package node-rpc-runtime-api
             --package pallet-transaction-payment
             --package polymesh-runtime-tests
+            --package pallet-balances:0.1.0
+            --package asset-metadata
             --features default_identity
           no_output_timeout: 1h
       - save_cache:
@@ -170,7 +174,7 @@ jobs:
           key: v6-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "~/.cargo"
-  cli:
+  integration-test:
     docker:
       - image: polymathnet/node:v16
     resource_class: large
@@ -181,16 +185,20 @@ jobs:
       - attach_workspace:
           at: ./target/release
       - run:
-          name: cli node instance
-          command: ./target/release/polymesh --chain ci-dev --pool-limit 100000 -d /tmp/pmesh-primary-node
+          name: run Polymesh ci-dev chain node for integration tests
+          command: >-
+            ./target/release/polymesh --alice --chain ci-dev
+              --no-prometheus --no-telemetry --tmp
+              --wasm-execution compiled
+              --pool-limit 100000
           background: true
       - run:
-          name: cli scripts install and build
+          name: install and build integration tests
           command: yarn install && yarn build
           working_directory: ./scripts/cli
           no_output_timeout: 1h
       - run:
-          name: cli scripts test
+          name: run integration tests
           command: yarn test
           working_directory: ./scripts/cli
           no_output_timeout: 10m
@@ -227,7 +235,7 @@ workflows:
       - build
       - benchmark-build
       - coverage
-      - cli:
+      - integration-test:
           requires:
             - build
       - benchmark:
