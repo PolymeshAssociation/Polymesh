@@ -1,10 +1,10 @@
 #!/bin/sh
-SCCACHE=`which sccache`
 
-if [ ! -f "$SCCACHE" ]; then
+if [ ! -f "$(which sccache)" ]; then
+	echo "install sccache"
 	cargo install sccache
 else
-	echo "sccache installed"
+	echo "sccache already installed"
 fi
 
-$SCCACHE -s
+sccache -s

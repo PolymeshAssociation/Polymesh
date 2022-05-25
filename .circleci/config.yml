@@ -37,6 +37,7 @@ jobs:
       - save_cache:
           key: v5-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
+            - "/usr/local/cargo"
             - "~/.cargo"
             - "./target"
   benchmark-build:
@@ -46,6 +47,7 @@ jobs:
     environment:
       - VERBOSE: "1"
       - RUSTC_WORKSPACE_WRAPPER: ./scripts/rustc.sh
+      - RUSTC_WRAPPER: /usr/local/cargo/bin/sccache
     steps:
       - checkout
       - run:
@@ -74,6 +76,7 @@ jobs:
       - save_cache:
           key: v3-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
+            - "/usr/local/cargo"
             - "~/.cargo"
             - "~/.cache/sccache"
   benchmark:
@@ -112,6 +115,7 @@ jobs:
       - save_cache:
           key: v1-migration-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
+            - "/usr/local/cargo"
             - "~/.cargo"
             - "./target"
   test:
@@ -121,6 +125,7 @@ jobs:
     environment:
       - VERBOSE: "1"
       - RUSTC_WORKSPACE_WRAPPER: ./scripts/rustc.sh
+      - RUSTC_WRAPPER: /usr/local/cargo/bin/sccache
       - SKIP_WASM_BUILD: "1"
       - RUST_BACKTRACE: "1"
     steps:
@@ -156,6 +161,7 @@ jobs:
       - save_cache:
           key: v12-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
+            - "/usr/local/cargo"
             - "~/.cargo"
             - "~/.cache/sccache"
   coverage:
@@ -185,6 +191,7 @@ jobs:
       - save_cache:
           key: v6-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
+            - "/usr/local/cargo"
             - "~/.cargo"
   integration-test:
     docker:
@@ -235,6 +242,7 @@ jobs:
       - save_cache:
           key: v5-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
+            - "/usr/local/cargo"
             - "~/.cargo"
             - "./target"
 workflows:
