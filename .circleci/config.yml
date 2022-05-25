@@ -172,8 +172,8 @@ jobs:
             - "~/.cargo"
   cli:
     docker:
-      - image: polymathnet/rust:debian-nightly-2022-05-10
-    resource_class: xlarge
+      - image: polymathnet/node:v16
+    resource_class: large
     environment:
       VERBOSE: "1"
     steps:
@@ -197,7 +197,7 @@ jobs:
   clippy:
     docker:
       - image: polymathnet/rust:debian-nightly-2022-05-10
-    resource_class: large
+    resource_class: xlarge
     environment:
       VERBOSE: "1"
     steps:
