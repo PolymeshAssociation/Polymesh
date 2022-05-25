@@ -1,0 +1,144 @@
+version: 2
+jobs:
+  lint:
+    docker:
+      - image: maxsam4/rust
+    environment:
+      VERBOSE: "1"
+    steps:
+      - checkout
+      - run:
+          name: Check formatting
+          command: ./scripts/rustfmt.sh
+  build:
+    docker:
+      - image: maxsam4/rust
+    environment:
+      VERBOSE: "1"
+    steps:
+      - checkout
+      - run:
+          name: Store rust version in an environment var for cache key
+          command: rustc --version > rust.version
+      - restore_cache:
+          keys:
+            - v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v2-release-cache-{{ checksum "./rust.version" }}
+            - v2-cli-cache-{{ checksum "./rust.version" }}
+      - run:
+          name: Build release
+          command: cargo build --release || cargo build -j 1 --release
+          no_output_timeout: 4h
+      - save_cache:
+          key: v2-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          paths:
+            - "~/.cargo"
+            - "./target"
+  test:
+    docker:
+      - image: maxsam4/rust
+    environment:
+      VERBOSE: "1"
+    steps:
+      - checkout
+      - run:
+          name: Store rust version in a file for cache key
+          command: rustc --version > rust.version
+      - restore_cache:
+          keys:
+            - v7-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v7-test-cache-{{ checksum "./rust.version" }}
+      - run:
+          name: Tests
+          command: >-
+            cargo test
+            --package polymesh-runtime-common
+            --package pallet-staking
+            --package pallet-group
+            --package polymesh-primitives
+            --package node-rpc-runtime-api
+            --package pallet-transaction-payment
+            --package pallet-cdd-offchain-worker
+            --features default_identity ||
+            cargo test -j 1
+            --package polymesh-runtime-common
+            --package pallet-staking
+            --package pallet-group
+            --package polymesh-primitives
+            --package node-rpc-runtime-api
+            --package pallet-transaction-payment
+            --package pallet-cdd-offchain-worker
+            --features default_identity
+          no_output_timeout: 30m
+      - save_cache:
+          key: v7-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          paths:
+            - "~/.cargo"
+            - "./target"
+  cli:
+    docker:
+      - image: maxsam4/rust
+    environment:
+      VERBOSE: "1"
+    steps:
+      - checkout
+      - run:
+          name: Store rust version in a file for cache key
+          command: rustc --version > rust.version
+      - restore_cache:
+          keys:
+            - v5-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+      - run:
+          name: Build release
+          command: cargo build --release || cargo build -j 1 --release
+          no_output_timeout: 4h
+      - run:
+          name: cli node instance
+          command: ./target/release/polymesh --dev --pool-limit 100000 -d /tmp/pmesh-primary-node
+          background: true
+      - run:
+          name: cli scripts install
+          command: npm install
+          working_directory: ./scripts/cli
+          no_output_timeout: 30m
+      - run:
+          name: cli scripts test
+          command: npm test
+          working_directory: ./scripts/cli
+          no_output_timeout: 10m
+      - save_cache:
+          key: v5-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          paths:
+            - "~/.cargo"
+            - "./target"
+            - "./scripts/cli/node_modules"
+  clippy:
+    docker:
+      - image: maxsam4/rust
+    environment:
+      VERBOSE: "1"
+    steps:
+      - checkout
+      - run:
+          name: Store rust version in a file for cache key
+          command: rustc +nightly --version > rust.version
+      - restore_cache:
+          keys:
+            - v3-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v3-clippy-cache-{{ checksum "./rust.version" }}
+      - run:
+          name: run clippy
+          command: cargo +nightly clippy -j 1
+          no_output_timeout: 60m
+      - save_cache:
+          key: v3-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          paths:
+            - "~/.cargo"
+            - "./target"
+workflows:
+  version: 2
+  commit:
+    jobs:
+      - lint
+      - cli
+      - test
