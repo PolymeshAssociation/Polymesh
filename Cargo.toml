@@ -160,7 +160,7 @@ members = [
     "utils/permissions",
 ]
 exclude = [
-		"contracts",
+    "contracts",
 ]
 
 [dependencies]
