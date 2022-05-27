@@ -158,6 +158,8 @@ impl<T: Config> Module<T> {
         auth_id: &u64,
     ) -> Option<Authorization<T::AccountId, T::Moment>> {
         Self::authorizations(target, *auth_id).filter(|auth| {
+            // check if count is zero
+            auth.count.eq(&0u32);
             auth.expiry
                 .filter(|&expiry| <pallet_timestamp::Pallet<T>>::get() > expiry)
                 .is_none()
@@ -193,7 +195,16 @@ impl<T: Config> Module<T> {
         }
 
         // Run custom per-type validation and updates.
-        accepter(auth.authorization_data, auth.authorized_by)?;
+        let res = accepter(auth.authorization_data, auth.authorized_by);
+
+        if res.is_err() {
+            // decrement and  update authorization
+            <Authorizations<T>>::mutate(&target, auth_id, |auth| {
+                auth.as_mut().unwrap().count -= 1;
+            });
+            // return error
+            return res;
+        }
 
         // Remove authorization from storage and emit event.
         <Authorizations<T>>::remove(&target, auth_id);
