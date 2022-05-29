@@ -159,10 +159,16 @@ impl<T: Config> Module<T> {
     ) -> Option<Authorization<T::AccountId, T::Moment>> {
         Self::authorizations(target, *auth_id).filter(|auth| {
             // check if count is zero
-            auth.count.eq(&0u32);
-            auth.expiry
+            let count_result = auth.count.eq(&0u32);
+            let auth_result = auth
+                .expiry
                 .filter(|&expiry| <pallet_timestamp::Pallet<T>>::get() > expiry)
-                .is_none()
+                .is_none();
+
+            if count_result == true || auth_result == true {
+                return true;
+            }
+            return false;
         })
     }
 
@@ -189,19 +195,22 @@ impl<T: Config> Module<T> {
             ensure!(expiry > now, AuthorizationError::Expired);
         }
 
-        if auth.count == 0 {
-            <Authorizations<T>>::remove(&target, auth_id);
-            <AuthorizationsGiven<T>>::remove(auth.authorized_by, auth_id);
-        }
-
         // Run custom per-type validation and updates.
         let res = accepter(auth.authorization_data, auth.authorized_by);
 
         if res.is_err() {
-            // decrement and  update authorization
-            <Authorizations<T>>::mutate(&target, auth_id, |auth| {
-                auth.as_mut().unwrap().count -= 1;
-            });
+            let mut updated_auth = Self::ensure_authorization(target, auth_id)?;
+            // decrement
+            updated_auth.count -= 1;
+
+            // check if count is zero
+            if updated_auth.count == 0 {
+                <Authorizations<T>>::remove(&target, auth_id);
+                <AuthorizationsGiven<T>>::remove(updated_auth.authorized_by, auth_id);
+            }
+
+            // update authorization
+            <Authorizations<T>>::insert(&target, auth_id, updated_auth);
             // return error
             return res;
         }
