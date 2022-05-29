@@ -117,11 +117,13 @@ describe("15 - Portfolio Unit Test", () => {
     console.log(
       `Election Status: ${await api.query.staking.eraElectionStatus()}`
     );
-    // AddAPortfolioManager is not possible because of old permission format
+    // Bound some POLYX.
     console.log("Portfolio: StopStakingAPortion");
     await expect(unbond(dave, 100)).resolves.not.toThrow();
 
+    // Nominate Alice.
     console.log("Portfolio: StartStakingANewOperator");
+    await checkEraElectionClosed();
     await expect(nominate(dave, alice.publicKey)).resolves.not.toThrow();
   });
 });
