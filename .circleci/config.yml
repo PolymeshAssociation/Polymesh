@@ -255,8 +255,6 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker
-      - attach_workspace:
-        at: /var/lib
       - run: |
           TAG=test.@CIRCLE_BUILD_NUM
           docker build -f Dockerfile.debian --tag "test" .
