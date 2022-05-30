@@ -248,12 +248,20 @@ jobs:
     working_directory: /.docker
     docker:
       - image: docker:stable-git
-    resource_class: small
+        auth:
+          username: ${DOCKERHUB_USERNAME}
+          password: ${DOCKERHUB_PASS}
+    resource_class: xlarge
     steps:
       - checkout
       - setup_remote_docker
       - attach_workspace:
         at: /var/lib
+      - run: |
+          TAG=test.@CIRCLE_BUILD_NUM
+          docker build -f Dockerfile.debian --tag "test" .
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker push "test"  
 
 workflows:
   version: 2
