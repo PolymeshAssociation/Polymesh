@@ -244,6 +244,25 @@ jobs:
           key: v6-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
+  build-docker-debian:
+    working_directory: /.docker
+    docker:
+      - image: docker:stable-git
+    resource_class: small
+    steps:
+      - checkout
+      - setup_remote_docker
+      - attach_workspace:
+        at: /var/lib
+      - run:
+          name: Build Docker image
+          command: docker build -f Dockerfile.debian --tag "test" .
+      - run:
+          name: Publish Docker image
+          command: |
+            echo "${DOCKERHUB_PASS}" | docker login --username "${DOCKERHUB_USERNAME}" --password-stdin
+            docker push "test"          
+
 workflows:
   version: 2
   commit:
@@ -260,3 +279,6 @@ workflows:
       - benchmark:
           requires:
             - benchmark-build
+      - build-docker-debian:
+          requires:
+            - build
