@@ -245,7 +245,6 @@ jobs:
           paths:
             - "/usr/local/cargo"
   build-docker-debian:
-    working_directory: /.docker
     docker:
       - image: docker:stable-git
         auth:
@@ -259,7 +258,7 @@ jobs:
           at: /var/lib
       - run: |
           TAG=test.@CIRCLE_BUILD_NUM
-          docker build -f Dockerfile.debian --tag "test" .
+          docker build -f ./.docker/Dockerfile.debian --tag "test" .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
           docker push "test"  
 
