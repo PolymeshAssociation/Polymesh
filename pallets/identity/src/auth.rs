@@ -159,16 +159,12 @@ impl<T: Config> Module<T> {
     ) -> Option<Authorization<T::AccountId, T::Moment>> {
         Self::authorizations(target, *auth_id).filter(|auth| {
             // check if count is zero
-            let count_result = auth.count.eq(&0u32);
-            let auth_result = auth
-                .expiry
-                .filter(|&expiry| <pallet_timestamp::Pallet<T>>::get() > expiry)
-                .is_none();
-
-            if count_result == true || auth_result == true {
+            if auth.count == 0u32 {
                 return true;
             }
-            return false;
+            auth.expiry
+                .filter(|&expiry| <pallet_timestamp::Pallet<T>>::get() > expiry)
+                .is_none()
         })
     }
 
@@ -201,16 +197,17 @@ impl<T: Config> Module<T> {
         if res.is_err() {
             let mut updated_auth = Self::ensure_authorization(target, auth_id)?;
             // decrement
-            updated_auth.count -= 1;
+            updated_auth.count = updated_auth.count.saturating_sub(1);
 
             // check if count is zero
             if updated_auth.count == 0 {
                 <Authorizations<T>>::remove(&target, auth_id);
                 <AuthorizationsGiven<T>>::remove(updated_auth.authorized_by, auth_id);
+            } else {
+                // update authorization
+                <Authorizations<T>>::insert(&target, auth_id, updated_auth);
             }
 
-            // update authorization
-            <Authorizations<T>>::insert(&target, auth_id, updated_auth);
             // return error
             return res;
         }
