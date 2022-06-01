@@ -503,9 +503,9 @@ fn can_take_custody_of_portfolios() {
         };
 
         let auth_id = add_auth(bob, bob);
-        assert_noop!(
+        assert_eq!(
             Portfolio::accept_portfolio_custody(bob.origin(), auth_id),
-            AuthorizationError::Unauthorized
+            Err(AuthorizationError::Unauthorized.into())
         );
 
         // Can not accept an invalid auth
@@ -542,9 +542,9 @@ fn can_take_custody_of_portfolios() {
 
         // Owner can not issue authorization for custody transfer of a portfolio they don't have custody of
         let auth_id = add_auth(owner, owner);
-        assert_noop!(
+        assert_eq!(
             Portfolio::accept_portfolio_custody(owner.origin(), auth_id),
-            AuthorizationError::Unauthorized
+            Err(AuthorizationError::Unauthorized.into())
         );
 
         // Bob transfers portfolio custody back to Alice.
