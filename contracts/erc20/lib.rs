@@ -210,7 +210,13 @@ mod erc20 {
                 return Err(Error::InsufficientBalance)
             }
 
-            self.balances.insert(from, &(from_balance - value));
+            let new_from_balance = from_balance - value;
+            if new_from_balance > 0 {
+              self.balances.insert(from, &new_from_balance);
+            } else {
+              // Cleanup storage, don't save zeros.  Refunds storage fee to caller.
+              self.balances.remove(from);
+            }
             let to_balance = self.balance_of_impl(to);
             self.balances.insert(to, &(to_balance + value));
             self.env().emit_event(Transfer {
