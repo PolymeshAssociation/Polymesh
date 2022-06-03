@@ -245,8 +245,8 @@ decl_module! {
         /// * Asset
         /// * Agent
         #[weight = <T as Config>::WeightInfo::create_group_and_add_auth(perms.complexity() as u32)]
-        pub fn create_group_and_add_auth(origin, ticker: Ticker, perms: ExtrinsicPermissions, target: Signatory<T::AccountId>) -> DispatchResult {
-            Self::base_create_group_and_add_auth(origin, ticker, perms, target)
+        pub fn create_group_and_add_auth(origin, ticker: Ticker, perms: ExtrinsicPermissions, target: IdentityId, expiry: Option<T::Moment>) -> DispatchResult {
+            Self::base_create_group_and_add_auth(origin, ticker, perms, target, expiry)
         }
 
         /// Utility extrinsic to batch `create_group` and  `change_group` for custom groups only.
@@ -316,14 +316,15 @@ impl<T: Config> Module<T> {
         origin: T::Origin,
         ticker: Ticker,
         perms: ExtrinsicPermissions,
-        target: Signatory<T::AccountId>,
+        target: IdentityId,
+        expiry: Option<T::Moment>,
     ) -> DispatchResult {
         let (did, ag_id) = Self::base_create_group(origin, ticker, perms)?;
         <Identity<T>>::add_auth(
             did,
-            target,
+            Signatory::Identity(target),
             AuthorizationData::BecomeAgent(ticker, AgentGroup::Custom(ag_id)),
-            None,
+            expiry,
         );
         Ok(())
     }
