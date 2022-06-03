@@ -96,14 +96,43 @@ mod runtime_tester {
     #[ink(storage)]
     pub struct RuntimeTester {}
 
+    /// The contract error types.
+    #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+    pub enum Error {
+        /// Caller needs to pay the contract for the protocol fee.
+        /// (Amount needed)
+        InsufficientTransferValue(Balance),
+        /// Polymesh runtime error.
+        PolymeshError(PolymeshRuntimeErr),
+    }
+
+    // hard-code protocol fees.
+    pub const POLYX: Balance = 1_000_000u128;
+    pub const CREATE_ASSET_FEE: Balance = (500 * POLYX) + (2_500 * POLYX);
+
+    /// The contract result type.
+    pub type Result<T> = core::result::Result<T, Error>;
+
     impl RuntimeTester {
         /// Creates a new contract.
         #[ink(constructor)]
         pub fn new() -> Self { Self {} }
 
         #[ink(message)]
-        pub fn create_asset(&mut self, name: AssetName, ticker: Ticker, asset_type: AssetType) -> Result<(), PolymeshRuntimeErr> {
+        pub fn create_asset(&mut self, name: AssetName, ticker: Ticker, asset_type: AssetType) -> Result<()> {
             Self::env().extension().create_asset(name, ticker, true, asset_type, vec![], None, true)
+              .map_err(|err| Error::PolymeshError(err))
+        }
+
+        #[ink(message, payable)]
+        pub fn payable_create_asset(&mut self, name: AssetName, ticker: Ticker, asset_type: AssetType) -> Result<()> {
+            let transferred = Self::env().transferred_value();
+            if transferred < CREATE_ASSET_FEE {
+              return Err(Error::InsufficientTransferValue(CREATE_ASSET_FEE));
+            }
+            Self::env().extension().create_asset(name, ticker, true, asset_type, vec![], None, true)
+              .map_err(|err| Error::PolymeshError(err))
         }
     }
 }
