@@ -247,6 +247,7 @@ jobs:
   build-docker-debian:
     environment:
       IMAGE_NAME: polymeshassociation/polymesh
+      VERSION: 5.0.0
     docker:
       - image: docker:stable-git
         auth:
@@ -259,9 +260,9 @@ jobs:
       - attach_workspace:
           at: .
       - run: |
-          docker build -f ./.docker/Dockerfile.debian --tag $IMAGE_NAME:develop .
+          docker build -f ./.docker/Dockerfile.debian --tag $IMAGE_NAME:$CIRCLE_BRANCH --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
-          docker push $IMAGE_NAME:develop
+          docker push $IMAGE_NAME
 
 workflows:
   version: 2
@@ -282,3 +283,11 @@ workflows:
       - build-docker-debian:
           requires:
             - build
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
+                - develop // tag as 5.0.0:develop and develop
+                - ci_test
