@@ -1663,7 +1663,6 @@ fn encode_receipt() {
 fn test_weights_for_settlement_transaction() {
     ExtBuilder::default()
         .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
-        .set_max_tms_allowed(4) // set maximum no. of tms an asset can have.
         .build()
         .execute_with(|| {
             let alice = AccountKeyring::Alice.to_account_id();

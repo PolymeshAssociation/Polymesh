@@ -1,6 +1,4 @@
-use super::ext_builder::{
-    EXTRINSIC_BASE_WEIGHT, MAX_NO_OF_TM_ALLOWED, TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE,
-};
+use super::ext_builder::{EXTRINSIC_BASE_WEIGHT, TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE};
 use codec::Encode;
 use frame_support::{
     assert_ok,

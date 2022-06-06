@@ -15,7 +15,7 @@ use polymesh_primitives::{
     SecondaryKey, Signatory,
 };
 use sp_io::TestExternalities;
-use sp_runtime::{Perbill, Storage};
+use sp_runtime::Storage;
 use sp_std::prelude::Vec;
 use sp_std::{cell::RefCell, convert::From, iter};
 use test_client::AccountKeyring;
@@ -127,8 +127,6 @@ pub struct ExtBuilder {
 
     protocol_base_fees: MockProtocolBaseFees,
     protocol_coefficient: PosRatio,
-    /// Maximum number of transfer manager an asset can have.
-    max_no_of_tm_allowed: u32,
     /// The minimum duration for a checkpoint period, in seconds.
     min_checkpoint_duration: u64,
     adjust: Option<Box<dyn FnOnce(&mut Storage)>>,
@@ -140,7 +138,6 @@ thread_local! {
     pub static EXTRINSIC_BASE_WEIGHT: RefCell<u64> = RefCell::new(0);
     pub static TRANSACTION_BYTE_FEE: RefCell<u128> = RefCell::new(0);
     pub static WEIGHT_TO_FEE: RefCell<u128> = RefCell::new(0);
-    pub static MAX_NO_OF_TM_ALLOWED: RefCell<u32> = RefCell::new(0);
 }
 
 impl ExtBuilder {
@@ -236,12 +233,6 @@ impl ExtBuilder {
         self
     }
 
-    /// Set maximum of tms allowed for an asset
-    pub fn set_max_tms_allowed(mut self, tm_count: u32) -> Self {
-        self.max_no_of_tm_allowed = tm_count;
-        self
-    }
-
     pub fn set_protocol_base_fees(mut self, fees: MockProtocolBaseFees) -> Self {
         self.protocol_base_fees = fees;
         self
@@ -293,7 +284,6 @@ impl ExtBuilder {
         EXTRINSIC_BASE_WEIGHT.with(|v| *v.borrow_mut() = self.extrinsic_base_weight);
         TRANSACTION_BYTE_FEE.with(|v| *v.borrow_mut() = self.transaction_byte_fee);
         WEIGHT_TO_FEE.with(|v| *v.borrow_mut() = self.weight_to_fee);
-        MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow_mut() = self.max_no_of_tm_allowed);
     }
 
     fn make_balances(&self) -> Vec<(AccountId, u128)> {

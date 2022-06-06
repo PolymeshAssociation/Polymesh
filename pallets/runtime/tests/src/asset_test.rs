@@ -1608,7 +1608,6 @@ fn generate_uid(entity_name: String) -> InvestorUid {
 fn check_unique_investor_count() {
     let cdd_provider = AccountKeyring::Charlie.to_account_id();
     ExtBuilder::default()
-        .set_max_tms_allowed(5)
         .cdd_providers(vec![cdd_provider.clone()])
         .build()
         .execute_with(|| {
