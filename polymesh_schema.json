@@ -454,11 +454,7 @@
         "Custom": "Vec<u8>"
       }
     },
-    "InvestorZKProofData": {
-        "r": "CompressedRistretto",
-        "s": "Scalar"
-    },
-    "CompressedRistretto": "[u8; 32]",
+    "InvestorZKProofData": "[u8; 64]",
     "Scalar": "[u8; 32]",
     "RistrettoPoint": "[u8; 32]",
     "ZkProofData": {
