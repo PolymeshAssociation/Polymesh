@@ -27,21 +27,27 @@
 //! However, during the execution of `create_asset`,
 //! the current identity will be Alice, as opposed to `Bob`.
 //!
+//! Transaction fees for calling into the runtime are charged to the gas meter
+//! of the contract.  Protocol fees are charged to the contract's address, the contract
+//! can require the caller to pay these fees by making the call payable and require
+//! enough POLYX is transferred to cover the protocol fees.
+//!
 //! ## Overview
 //!
 //! The Contracts module provides functions for:
 //!
-//! - Instantiating contracts
-//! - Calling contracts
+//! - Instantiating contracts with custom permissions.
 //!
-//! ## Interface
+//! Use the standard Substrate `pallet_contracts` to instantiate, call, upload_code, or remove_code.
+//! That interface is compatible with the Polkadot.js Contracts UI.
 //!
 //! ### Dispatchable Functions
 //!
-//! - `instantiate_with_code` instantiates a contract with the code provided.
-//! - `instantiate_with_hash` instantiates a contract by hash,
+//! - `instantiate_with_code_perms` instantiates a contract with the code provided.
+//!   The contract's address will be added as a secondary key with the provided permissions.
+//! - `instantiate_with_hash_perms` instantiates a contract by hash,
 //!   assuming that a contract with the same code already was uploaded.
-//! - `call` dispatches to the smart contract code, acting as the identity who made the contract.
+//!   The contract's address will be added as a secondary key with the provided permissions.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(associated_type_bounds)]
