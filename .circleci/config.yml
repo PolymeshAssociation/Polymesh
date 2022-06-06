@@ -249,10 +249,7 @@ jobs:
       IMAGE_NAME: polymeshassociation/polymesh
     docker:
       - image: docker:stable-git
-        auth:
-          username: ${DOCKERHUB_USERNAME}
-          password: ${DOCKERHUB_PASS}
-    resource_class: xlarge
+    resource_class: small
     steps:
       - checkout
       - setup_remote_docker
