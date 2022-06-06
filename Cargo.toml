@@ -159,6 +159,9 @@ members = [
     "rpc/runtime-api",
     "utils/permissions",
 ]
+exclude = [
+    "contracts",
+]
 
 [dependencies]
 pallet-asset = { path = "pallets/asset" }
