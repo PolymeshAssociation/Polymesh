@@ -289,5 +289,5 @@ workflows:
                 - mainnet
                 - testnet
                 - staging
-                - develop // tag as 5.0.0:develop and develop
+                - develop
                 - ci_test
