@@ -1,6 +1,5 @@
 use crate::{IdentityId, InvestorUid, Ticker};
 
-use codec::{Decode, Encode};
 use confidential_identity::ScopeClaimProof;
 use schnorrkel::Signature;
 #[cfg(feature = "std")]
@@ -13,7 +12,7 @@ pub mod v1;
 pub mod v2;
 
 /// Manages ZKProofs generated with different versions of PIUS.
-#[derive(Debug, Encode, Decode, Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum InvestorZKProofData {
     /// Investor ZKProof generated using PIUS v1.
