@@ -484,11 +484,18 @@ fn contract_did<T: Config>(contract: &T::AccountId) -> Result<IdentityId, Dispat
     Ok(Identity::<T>::get_identity(&contract).ok_or(Error::<T>::InstantiatorWithNoIdentity)?)
 }
 
-/// Run `with` while the current DID is temporarily set to the given one.
-fn with_did_as_current<T: Config, W: FnOnce() -> R, R>(did: IdentityId, with: W) -> R {
+/// Run `with` while the current DID and Payer is temporarily set to the given one.
+fn with_did_and_payer<T: Config, W: FnOnce() -> R, R>(
+    did: IdentityId,
+    payer: T::AccountId,
+    with: W,
+) -> R {
+    let old_payer = Context::current_payer::<Identity<T>>();
     let old_did = Context::current_identity::<Identity<T>>();
+    Context::set_current_payer::<Identity<T>>(Some(payer));
     Context::set_current_identity::<Identity<T>>(Some(did));
     let result = with();
+    Context::set_current_payer::<Identity<T>>(old_payer);
     Context::set_current_identity::<Identity<T>>(old_did);
     result
 }
@@ -610,7 +617,7 @@ where
 
         // Execute call requested by contract, with current DID set to the contract owner.
         let addr = env.ext().address().clone();
-        let result = with_did_as_current::<T, _, _>(contract_did::<T>(&addr)?, || {
+        let result = with_did_and_payer::<T, _, _>(contract_did::<T>(&addr)?, addr.clone(), || {
             with_call_metadata(call.get_call_metadata(), || {
                 // Dispatch the call, avoiding use of `ext.call_runtime()`,
                 // as that uses `CallFilter = Nothing`, which would case a problem for us.
