@@ -247,7 +247,6 @@ jobs:
   build-docker-debian:
     environment:
       IMAGE_NAME: polymeshassociation/polymesh
-      VERSION: 5.0.0
     docker:
       - image: docker:stable-git
         auth:
@@ -260,6 +259,7 @@ jobs:
       - attach_workspace:
           at: .
       - run: |
+          sed -i -e "s/^version = .*$/version = \"$VERSION\"/" Cargo.toml
           docker build -f ./.docker/Dockerfile.debian --tag $IMAGE_NAME:$CIRCLE_BRANCH --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
           docker push $IMAGE_NAME
