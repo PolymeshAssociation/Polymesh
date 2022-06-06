@@ -259,7 +259,7 @@ jobs:
       - attach_workspace:
           at: .
       - run: |
-          sed -i -e "s/^version = .*$/version = \"$VERSION\"/" Cargo.toml
+          export VERSION=`grep ^version ./Cargo.toml | head -1 | cut -d"=" -f2 | sed 's/[^a-zA-Z0-9\.]//g'`
           docker build -f ./.docker/Dockerfile.debian --tag $IMAGE_NAME:$CIRCLE_BRANCH --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
           docker push $IMAGE_NAME
