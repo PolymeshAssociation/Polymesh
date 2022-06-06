@@ -1,7 +1,7 @@
 FROM gcr.io/distroless/cc
 
 
-COPY --chown=4001:4001 . /
+COPY --chown=4001:4001 ./polymesh /
 USER 4001:4001
 
 ENTRYPOINT ["/usr/local/bin/polymesh"]
