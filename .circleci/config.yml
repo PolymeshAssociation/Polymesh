@@ -287,4 +287,3 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - ci_test
