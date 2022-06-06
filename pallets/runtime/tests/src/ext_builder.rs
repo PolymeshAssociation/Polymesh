@@ -127,18 +127,11 @@ pub struct ExtBuilder {
 
     protocol_base_fees: MockProtocolBaseFees,
     protocol_coefficient: PosRatio,
-    /// Percentage fee share of a network (treasury + validators) in instantiation fee
-    /// of a smart extension.
-    network_fee_share: Perbill,
     /// Maximum number of transfer manager an asset can have.
     max_no_of_tm_allowed: u32,
     /// The minimum duration for a checkpoint period, in seconds.
     min_checkpoint_duration: u64,
     adjust: Option<Box<dyn FnOnce(&mut Storage)>>,
-    /*
-    /// Enable `put_code` in contracts pallet
-    enable_contracts_put_code: bool,
-    */
     /// Bridge configuration
     bridge: BridgeConfig,
 }
@@ -147,7 +140,6 @@ thread_local! {
     pub static EXTRINSIC_BASE_WEIGHT: RefCell<u64> = RefCell::new(0);
     pub static TRANSACTION_BYTE_FEE: RefCell<u128> = RefCell::new(0);
     pub static WEIGHT_TO_FEE: RefCell<u128> = RefCell::new(0);
-    pub static NETWORK_FEE_SHARE: RefCell<Perbill> = RefCell::new(Perbill::from_percent(0));
     pub static MAX_NO_OF_TM_ALLOWED: RefCell<u32> = RefCell::new(0);
 }
 
@@ -260,26 +252,11 @@ impl ExtBuilder {
         self
     }
 
-    /// Assigning the fee share in the instantiation fee
-    pub fn network_fee_share(mut self, share: Perbill) -> Self {
-        self.network_fee_share = share;
-        self
-    }
-
     /// Provide a closure `with` to run on the storage for final adjustments.
     pub fn adjust(mut self, with: Box<dyn FnOnce(&mut Storage)>) -> Self {
         self.adjust = Some(with);
         self
     }
-
-    /*
-    /// Enables `contracts::put_code` at genesis if `enable` is `true`.
-    /// By default, it is disabled.
-    pub fn set_contracts_put_code(mut self, enable: bool) -> Self {
-        self.enable_contracts_put_code = enable;
-        self
-    }
-    */
 
     pub fn set_bridge_complete_tx(mut self, txs: Vec<BridgeTx<AccountId>>) -> Self {
         self.bridge.complete_txs = txs;
@@ -316,7 +293,6 @@ impl ExtBuilder {
         EXTRINSIC_BASE_WEIGHT.with(|v| *v.borrow_mut() = self.extrinsic_base_weight);
         TRANSACTION_BYTE_FEE.with(|v| *v.borrow_mut() = self.transaction_byte_fee);
         WEIGHT_TO_FEE.with(|v| *v.borrow_mut() = self.weight_to_fee);
-        NETWORK_FEE_SHARE.with(|v| *v.borrow_mut() = self.network_fee_share);
         MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow_mut() = self.max_no_of_tm_allowed);
     }
 
@@ -432,13 +408,6 @@ impl ExtBuilder {
             registration_length: Some(10000),
         };
         asset::GenesisConfig::<TestStorage> {
-            /*
-            versions: vec![
-                (SmartExtensionType::TransferManager, 5000),
-                (SmartExtensionType::Offerings, 5000),
-                (SmartExtensionType::SmartWallet, 5000),
-            ],
-            */
             classic_migration_tickers: vec![],
             classic_migration_contract_did: IdentityId::from(1),
             classic_migration_tconfig: ticker_registration_config.clone(),
@@ -527,17 +496,6 @@ impl ExtBuilder {
         .assimilate_storage(storage)
         .unwrap();
     }
-
-    /*
-    fn build_contracts_genesis(&self, storage: &mut Storage) {
-        polymesh_contracts::GenesisConfig {
-            enable_put_code: self.enable_contracts_put_code,
-            ..Default::default()
-        }
-        .assimilate_storage(storage)
-        .unwrap();
-    }
-    */
 
     fn build_bridge_genesis(&self, storage: &mut Storage) {
         pallet_bridge::GenesisConfig::<TestStorage> {

@@ -1041,25 +1041,6 @@ fn test_can_transfer_rpc() {
         })
 }
 
-/*
-#[test]
-fn check_functionality_of_remove_extension() {
-    smart_ext_test(|owner, ticker| {
-        // Add it.
-        let ty = SmartExtensionType::TransferManager;
-        let (id, _) = add_smart_ext(owner, ticker, ty.clone());
-
-        // Remove it
-        let remove = || Asset::remove_smart_extension(owner.origin(), ticker, id.clone());
-        assert_ok!(remove());
-        assert_eq!(Asset::extensions((ticker, ty)), vec![]);
-
-        // Remove it again => error.
-        assert_noop!(remove(), AssetError::NoSuchSmartExtension);
-    });
-}
-*/
-
 // Classic token tests:
 
 fn ticker(name: &str) -> Ticker {
