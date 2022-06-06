@@ -245,6 +245,8 @@ jobs:
           paths:
             - "/usr/local/cargo"
   build-docker-debian:
+    environment:
+      IMAGE_NAME: polymeshassociation/polymesh
     docker:
       - image: docker:stable-git
         auth:
@@ -259,10 +261,10 @@ jobs:
       - run: |
           ls -ltra
           pwd
-          TAG=test.@CIRCLE_BUILD_NUM
-          docker build -f ./.docker/Dockerfile.debian --tag "test" .
+          TAG=develop.@CIRCLE_BUILD_NUM
+          docker build -f ./.docker/Dockerfile.debian --tag $IMAGE_NAME:develop .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
-          docker push "test"  
+          docker push $IMAGE_NAME:develop
 
 workflows:
   version: 2
