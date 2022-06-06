@@ -1,7 +1,7 @@
 FROM debian:stable-slim
 
 
-COPY --chown=4001:4001 usr/local/bin/polymesh /usr/local/bin/polymesh
+COPY --chown=4001:4001 ./polymesh /usr/local/bin/polymesh
 RUN mkdir /var/lib/polymesh && \
     chown 4001:4401 /var/lib/polymesh
 

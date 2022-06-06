@@ -255,8 +255,10 @@ jobs:
       - checkout
       - setup_remote_docker
       - attach_workspace:
-          at: /var/lib
+          at: .
       - run: |
+          ls -ltra
+          pwd
           TAG=test.@CIRCLE_BUILD_NUM
           docker build -f ./.docker/Dockerfile.debian --tag "test" .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
