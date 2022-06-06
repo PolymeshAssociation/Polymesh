@@ -628,10 +628,10 @@ dependencies = [
 [[package]]
 name = "bulletproofs"
 version = "2.0.1"
-source = "git+https://github.com/PolymathNetwork/bulletproofs.git?branch=bump-dalek#a8651f673610f1dc9122db4d8b7d0a451bab1608"
+source = "git+https://github.com/PolymathNetwork/bulletproofs.git?branch=bump-dalek#dbf5215c1c7c8b30b37e979018340d73678cad29"
 dependencies = [
  "byteorder",
- "curve25519-dalek 3.2.0",
+ "curve25519-dalek-ng",
  "digest 0.9.0",
  "merlin 3.0.0",
  "rand 0.8.5",
@@ -639,7 +639,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "sha3 0.9.1",
- "subtle",
+ "subtle-ng",
  "thiserror",
  "zeroize",
 ]
@@ -917,18 +917,18 @@ dependencies = [
 [[package]]
 name = "confidential_identity"
 version = "1.0.0"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=confidential-identity-v1#6e6ca687cabb8d1203893a294d605e4ea2c15be5"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=confidential-identity-v1#4a3dec9d75b5ae0ad9a362cb1d422cd0352967c3"
 dependencies = [
  "blake2",
  "byteorder",
  "criterion",
- "curve25519-dalek 3.2.0",
+ "curve25519-dalek-ng",
  "failure",
  "lazy_static",
  "merlin 3.0.0",
  "rand 0.8.5",
  "rand_core 0.6.3",
- "schnorrkel 0.10.1",
+ "schnorrkel 0.10.2",
  "serde",
  "serde_json",
  "sha3 0.9.1",
@@ -940,13 +940,13 @@ dependencies = [
 [[package]]
 name = "confidential_identity"
 version = "1.1.2"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=confidential-identity-v2#d2d978ba023fb142ade19d4474385dcfc8b3d6fd"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=confidential-identity-v2#045fba026112b4385819c877acf51d595ba88428"
 dependencies = [
  "blake2",
  "byteorder",
  "criterion",
  "cryptography_core 1.0.0 (git+https://github.com/PolymathNetwork/cryptography.git?branch=confidential-identity-v2)",
- "curve25519-dalek 3.2.0",
+ "curve25519-dalek-ng",
  "failure",
  "parity-scale-codec 3.1.2",
  "rand 0.8.5",
@@ -1262,12 +1262,12 @@ dependencies = [
 [[package]]
 name = "cryptography_core"
 version = "1.0.0"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=confidential-identity-v1#6e6ca687cabb8d1203893a294d605e4ea2c15be5"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=confidential-identity-v1#4a3dec9d75b5ae0ad9a362cb1d422cd0352967c3"
 dependencies = [
  "bulletproofs",
  "byteorder",
  "criterion",
- "curve25519-dalek 3.2.0",
+ "curve25519-dalek-ng",
  "failure",
  "merlin 3.0.0",
  "parity-scale-codec 3.1.2",
@@ -1282,13 +1282,13 @@ dependencies = [
 [[package]]
 name = "cryptography_core"
 version = "1.0.0"
-source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=confidential-identity-v2#d2d978ba023fb142ade19d4474385dcfc8b3d6fd"
+source = "git+https://github.com/PolymathNetwork/cryptography.git?branch=confidential-identity-v2#045fba026112b4385819c877acf51d595ba88428"
 dependencies = [
  "blake2",
  "bulletproofs",
  "byteorder",
  "criterion",
- "curve25519-dalek 3.2.0",
+ "curve25519-dalek-ng",
  "failure",
  "merlin 3.0.0",
  "parity-scale-codec 3.1.2",
@@ -1404,14 +1404,12 @@ dependencies = [
 [[package]]
 name = "curve25519-dalek"
 version = "3.2.0"
-source = "git+https://github.com/PolymathNetwork/curve25519-dalek?branch=master#bc3078e882261caf31b73a0d735078f930a1c4df"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b9fdf9972b2bd6af2d913799d9ebc165ea4d2e65878e329d9c6b372c4491b61"
 dependencies = [
  "byteorder",
  "digest 0.9.0",
- "packed_simd_2",
- "rand_core 0.6.3",
- "scale-info",
- "serde",
+ "rand_core 0.5.1",
  "subtle",
  "zeroize",
 ]
@@ -1426,6 +1424,21 @@ dependencies = [
  "digest 0.9.0",
  "rand_core 0.6.3",
  "subtle",
+ "zeroize",
+]
+
+[[package]]
+name = "curve25519-dalek-ng"
+version = "4.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c359b7249347e46fb28804470d071c921156ad62b3eef5d34e2ba867533dec8"
+dependencies = [
+ "byteorder",
+ "digest 0.9.0",
+ "packed_simd_2",
+ "rand_core 0.6.3",
+ "serde",
+ "subtle-ng",
  "zeroize",
 ]
 
@@ -5201,7 +5214,7 @@ dependencies = [
  "polymesh-common-utilities",
  "polymesh-primitives",
  "scale-info",
- "schnorrkel 0.10.1",
+ "schnorrkel 0.10.2",
  "serde",
  "serde_derive",
  "sp-api",
@@ -6428,7 +6441,7 @@ dependencies = [
  "polymesh-primitives",
  "polymesh-primitives-derive",
  "scale-info",
- "schnorrkel 0.10.1",
+ "schnorrkel 0.10.2",
  "serde",
  "serde_derive",
  "sp-api",
@@ -6542,7 +6555,7 @@ dependencies = [
  "rand_core 0.6.3",
  "rustc-hex",
  "scale-info",
- "schnorrkel 0.10.1",
+ "schnorrkel 0.10.2",
  "serde",
  "serde_json",
  "sp-application-crypto",
@@ -8798,20 +8811,20 @@ dependencies = [
 
 [[package]]
 name = "schnorrkel"
-version = "0.10.1"
-source = "git+https://github.com/PolymathNetwork/schnorrkel?branch=rebase-head#8badbc3657ea40d33ef4d9b7d75e41c460cf6146"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "844b7645371e6ecdf61ff246ba1958c29e802881a749ae3fb1993675d210d28d"
 dependencies = [
  "arrayref",
- "arrayvec 0.5.2",
+ "arrayvec 0.7.2",
  "cfg-if 1.0.0",
- "curve25519-dalek 3.2.0",
+ "curve25519-dalek-ng",
  "merlin 3.0.0",
  "rand_core 0.6.3",
- "scale-info",
  "serde",
  "serde_bytes",
  "sha2 0.9.9",
- "subtle",
+ "subtle-ng",
  "zeroize",
 ]
 
@@ -10226,6 +10239,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6bdef32e8150c2a081110b42772ffe7d7c9032b606bc226c8260fd97e0976601"
 
 [[package]]
+name = "subtle-ng"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "734676eb262c623cec13c3155096e08d1f8f29adce39ba17948b18dad1e54142"
+
+[[package]]
 name = "syn"
 version = "1.0.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10743,7 +10762,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if 0.1.10",
  "digest 0.10.3",
  "rand 0.8.5",
  "static_assertions",
@@ -10946,7 +10965,7 @@ checksum = "e7141e445af09c8919f1d5f8a20dae0b20c3b57a45dee0d5823c6ed5d237f15a"
 dependencies = [
  "bitflags",
  "chrono",
- "rustc_version 0.4.0",
+ "rustc_version 0.2.3",
 ]
 
 [[package]]
