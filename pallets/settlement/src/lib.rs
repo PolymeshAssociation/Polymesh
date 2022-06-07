@@ -1565,13 +1565,13 @@ impl<T: Config> Module<T> {
                 Self::base_affirm_instruction(origin, id, portfolios.into_iter(), max_legs_count)?
             }
         };
-        let result = Self::execute_settle_on_affirmation_instruction(
+        Self::execute_settle_on_affirmation_instruction(
             id,
             Self::instruction_affirms_pending(id),
             Self::instruction_details(id).settlement_type,
-        );
+        )?;
         Self::prune_instruction(id);
-        result
+        Ok(())
     }
 
     fn execute_settle_on_affirmation_instruction(
