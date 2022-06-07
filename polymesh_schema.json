@@ -694,37 +694,6 @@
         "RotatePrimaryKeyToSecondary": "Permissions"
       }
     },
-    "SmartExtensionType": {
-      "_enum": {
-        "TransferManager": "",
-        "Offerings": "",
-        "SmartWallet": "",
-        "Custom": "Vec<u8>"
-      }
-    },
-    "SmartExtensionName": "Text",
-    "SmartExtension": {
-      "extension_type": "SmartExtensionType",
-      "extension_name": "SmartExtensionName",
-      "extension_id": "AccountId",
-      "is_archive": "bool"
-    },
-    "MetaUrl": "Text",
-    "MetaDescription": "Text",
-    "MetaVersion": "u32",
-    "ExtVersion": "u32",
-    "TemplateMetadata": {
-      "url": "Option<MetaUrl>",
-      "se_type": "SmartExtensionType",
-      "usage_fee": "Balance",
-      "description": "MetaDescription",
-      "version": "MetaVersion"
-    },
-    "TemplateDetails": {
-      "instantiation_fee": "Balance",
-      "owner": "IdentityId",
-      "frozen": "bool"
-    },
     "AuthorizationNonce": "u64",
     "Percentage": "Permill",
     "RestrictionResult": {
