@@ -121,11 +121,6 @@ pub trait Config:
 
     type ComplianceManager: compliance_manager::Config;
 
-    /// Maximum number of smart extensions can attach to an asset.
-    /// This hard limit is set to avoid the cases where an asset transfer
-    /// gas usage go beyond the block gas limit.
-    type MaxNumberOfTMExtensionForAsset: Get<u32>;
-
     /// Time used in computation of checkpoints.
     type UnixTime: UnixTime;
 
@@ -201,17 +196,6 @@ decl_event! {
         /// An event carrying the name of the current funding round of a ticker.
         /// Parameters: caller DID, ticker, funding round name.
         FundingRoundSet(IdentityId, Ticker, FundingRoundName),
-        /*
-        /// Emitted when extension is added successfully.
-        /// caller DID, ticker, extension AccountId, extension name, type of smart Extension
-        ExtensionAdded(IdentityId, Ticker, AccountId, SmartExtensionName, SmartExtensionType),
-        /// Emitted when extension get archived.
-        /// caller DID, ticker, AccountId
-        ExtensionArchived(IdentityId, Ticker, AccountId),
-        /// Emitted when extension get archived.
-        /// caller DID, ticker, AccountId
-        ExtensionUnArchived(IdentityId, Ticker, AccountId),
-        */
         /// A new document attached to an asset
         DocumentAdded(IdentityId, Ticker, DocumentId, Document),
         /// A document removed from an asset

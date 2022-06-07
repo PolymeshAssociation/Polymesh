@@ -1,7 +1,4 @@
-use super::ext_builder::{
-    EXTRINSIC_BASE_WEIGHT, MAX_NO_OF_TM_ALLOWED, NETWORK_FEE_SHARE, TRANSACTION_BYTE_FEE,
-    WEIGHT_TO_FEE,
-};
+use super::ext_builder::{EXTRINSIC_BASE_WEIGHT, TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE};
 use codec::Encode;
 use frame_support::{
     assert_ok,
@@ -402,7 +399,6 @@ parameter_types! {
     pub const ExistentialDeposit: u64 = 0;
     pub const MaxLocks: u32 = 50;
     pub const MaxLen: u32 = 256;
-    pub MaxNumberOfTMExtensionForAsset: u32 = MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow());
     pub const AssetNameMaxLength: u32 = 128;
     pub const FundingRoundNameMaxLength: u32 = 128;
     pub const AssetMetadataNameMaxLength: u32 = 256;
@@ -412,7 +408,6 @@ parameter_types! {
     pub const MaxTargetIds: u32 = 10;
     pub const MaxDidWhts: u32 = 10;
     pub const MinimumPeriod: u64 = 3;
-    pub NetworkShareInFee: Perbill = NETWORK_FEE_SHARE.with(|v| *v.borrow());
 
     pub const MaxStatsPerAsset: u32 = 10 + BENCHMARK_MAX_INCREASE;
     pub const MaxTransferConditionsPerAsset: u32 = 4 + BENCHMARK_MAX_INCREASE;
@@ -431,10 +426,6 @@ parameter_types! {
     pub const InitialPOLYX: Balance = 41;
     pub const SignedClaimHandicap: u64 = 2;
     pub const StorageSizeOffset: u32 = 8;
-    pub const TombstoneDeposit: Balance = 16;
-    pub const RentByteFee: Balance = 100;
-    pub const RentDepositOffset: Balance = 100000;
-    pub const SurchargeReward: Balance = 1500;
     pub const MaxDepth: u32 = 100;
     pub const MaxValueSize: u32 = 16_384;
 

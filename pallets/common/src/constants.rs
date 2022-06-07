@@ -70,7 +70,6 @@ pub const ERC1400_INVALID_OPERATOR: u8 = 0x58;
 pub const INVALID_SENDER_DID: u8 = 0xa0;
 pub const INVALID_RECEIVER_DID: u8 = 0xa1;
 pub const COMPLIANCE_MANAGER_FAILURE: u8 = 0xa2;
-pub const SMART_EXTENSION_FAILURE: u8 = 0xa3;
 pub const INVALID_GRANULARITY: u8 = 0xa4;
 pub const APP_TX_VOLUME_LIMIT_REACHED: u8 = 0xa5;
 pub const APP_BLOCKED_TX: u8 = 0xa6;
