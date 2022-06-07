@@ -89,14 +89,6 @@ parameter_types! {
     // Authorship:
     pub const UncleGenerations: BlockNumber = 0;
 
-    // Contracts:
-    pub const NetworkShareInFee: Perbill = Perbill::from_percent(60);
-    pub const TombstoneDeposit: Balance = 0;
-    pub const RentByteFee: Balance = 0; // Assigning zero to switch off the rent logic in the contracts;
-    pub const RentDepositOffset: Balance = 300 * DOLLARS;
-    /// Reward that is received by the party whose touch has led
-    /// to removal of a contract.
-    pub const SurchargeReward: Balance = 150 * DOLLARS;
     // Settlement:
     pub const MaxLegsInInstruction: u32 = 10;
 
@@ -109,7 +101,6 @@ parameter_types! {
     pub const MaxPeerDataEncodingSize: u32 = 1_000;
 
     // Assets:
-    pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
     pub const AssetNameMaxLength: u32 = 128;
     pub const FundingRoundNameMaxLength: u32 = 128;
     pub const AssetMetadataNameMaxLength: u32 = 256;
