@@ -303,7 +303,6 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - ci_test
       - build-docker-distroless:
           requires:
             - build
@@ -314,4 +313,3 @@ workflows:
                 - testnet
                 - staging
                 - develop
-                - ci_test                
