@@ -98,7 +98,6 @@ parameter_types! {
     pub const MaxPeerDataEncodingSize: u32 = 1_000;
 
     // Assets:
-    pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
     pub const AssetNameMaxLength: u32 = 128;
     pub const FundingRoundNameMaxLength: u32 = 128;
     pub const AssetMetadataNameMaxLength: u32 = 256;
