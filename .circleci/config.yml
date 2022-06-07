@@ -244,6 +244,39 @@ jobs:
           key: v6-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
+  build-docker-debian:
+    environment:
+      IMAGE_NAME: polymeshassociation/polymesh
+    docker:
+      - image: docker:stable-git
+    resource_class: small
+    steps:
+      - checkout
+      - setup_remote_docker
+      - attach_workspace:
+          at: .
+      - run: |
+          export VERSION=`grep ^version ./Cargo.toml | head -1 | cut -d"=" -f2 | sed 's/[^a-zA-Z0-9\.]//g'`
+          docker build -f ./.docker/Dockerfile.debian --tag $IMAGE_NAME:$CIRCLE_BRANCH-debian --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian .
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker push $IMAGE_NAME
+  build-docker-distroless:
+    environment:
+      IMAGE_NAME: polymeshassociation/polymesh
+    docker:
+      - image: docker:stable-git
+    resource_class: small
+    steps:
+      - checkout
+      - setup_remote_docker
+      - attach_workspace:
+          at: .
+      - run: |
+          export VERSION=`grep ^version ./Cargo.toml | head -1 | cut -d"=" -f2 | sed 's/[^a-zA-Z0-9\.]//g'`
+          docker build -f ./.docker/Dockerfile.distroless --tag $IMAGE_NAME:$CIRCLE_BRANCH-distroless --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-distroless .
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker push $IMAGE_NAME
+
 workflows:
   version: 2
   commit:
@@ -260,3 +293,23 @@ workflows:
       - benchmark:
           requires:
             - benchmark-build
+      - build-docker-debian:
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
+                - develop
+      - build-docker-distroless:
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
+                - develop

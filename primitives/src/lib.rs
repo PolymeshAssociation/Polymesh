@@ -179,13 +179,6 @@ pub mod traits;
 pub mod ticker;
 pub use ticker::Ticker;
 
-/// This module defines types used by smart extensions
-pub mod smart_extension;
-pub use smart_extension::{
-    ExtensionAttributes, MetaDescription, MetaUrl, MetaVersion, SmartExtension, SmartExtensionName,
-    SmartExtensionType, TemplateDetails, TemplateMetadata,
-};
-
 /// Document hash
 pub mod document_hash;
 pub use document_hash::DocumentHash;
