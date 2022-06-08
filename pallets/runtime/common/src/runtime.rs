@@ -307,7 +307,6 @@ macro_rules! misc_pallet_impls {
             type Event = Event;
             type Currency = Balances;
             type ComplianceManager = pallet_compliance_manager::Module<Runtime>;
-            type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
             type UnixTime = pallet_timestamp::Pallet<Runtime>;
             type AssetNameMaxLength = AssetNameMaxLength;
             type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
