@@ -101,7 +101,7 @@ decl_module! {
         /// - Agent
         /// - Asset
         #[weight = <T as Config>::WeightInfo::set_active_asset_stats(stat_types.len() as u32)]
-        pub fn set_active_asset_stats(origin, asset: AssetScope, stat_types: BTreeSet<StatType>) {
+        pub fn set_active_asset_stats(origin, asset: AssetScope, stat_types: Vec<StatType>) {
             Self::base_set_active_asset_stats(origin, asset, stat_types)?;
         }
 
@@ -121,7 +121,7 @@ decl_module! {
         /// - Agent
         /// - Asset
         #[weight = <T as Config>::WeightInfo::batch_update_asset_stats(values.len() as u32)]
-        pub fn batch_update_asset_stats(origin, asset: AssetScope, stat_type: StatType, values: BTreeSet<StatUpdate>) {
+        pub fn batch_update_asset_stats(origin, asset: AssetScope, stat_type: StatType, values: Vec<StatUpdate>) {
             Self::base_batch_update_asset_stats(origin, asset, stat_type, values)?;
         }
 
@@ -141,7 +141,7 @@ decl_module! {
         /// - Agent
         /// - Asset
         #[weight = <T as Config>::WeightInfo::set_asset_transfer_compliance(transfer_conditions.len() as u32)]
-        pub fn set_asset_transfer_compliance(origin, asset: AssetScope, transfer_conditions: BTreeSet<TransferCondition>) {
+        pub fn set_asset_transfer_compliance(origin, asset: AssetScope, transfer_conditions: Vec<TransferCondition>) {
             Self::base_set_asset_transfer_compliance(origin, asset, transfer_conditions)?;
         }
 
@@ -160,7 +160,7 @@ decl_module! {
         /// - Agent
         /// - Asset
         #[weight = <T as Config>::WeightInfo::set_entities_exempt(entities.len() as u32)]
-        pub fn set_entities_exempt(origin, is_exempt: bool, exempt_key: TransferConditionExemptKey, entities: BTreeSet<ScopeId>) {
+        pub fn set_entities_exempt(origin, is_exempt: bool, exempt_key: TransferConditionExemptKey, entities: Vec<ScopeId>) {
             Self::base_set_entities_exempt(origin, is_exempt, exempt_key, entities)?;
         }
     }
@@ -183,14 +183,17 @@ impl<T: Config> Module<T> {
     fn base_set_active_asset_stats(
         origin: T::Origin,
         asset: AssetScope,
-        stat_types: BTreeSet<StatType>,
+        stat_types: Vec<StatType>,
     ) -> DispatchResult {
         // Check EA permissions for asset.
         let did = Self::ensure_asset_perms(origin, asset)?;
 
+        // Convert Vec -> BTreeSet.  This will also dedup the stat_types.
+        let stat_types = stat_types.iter().cloned().collect::<BTreeSet<_>>();
+
         // Check StatType per Asset limit.
         ensure!(
-            stat_types.len() < T::MaxStatsPerAsset::get() as usize,
+            stat_types.len() <= T::MaxStatsPerAsset::get() as usize,
             Error::<T>::StatTypeLimitReached
         );
 
@@ -246,7 +249,7 @@ impl<T: Config> Module<T> {
         origin: T::Origin,
         asset: AssetScope,
         stat_type: StatType,
-        values: BTreeSet<StatUpdate>,
+        values: Vec<StatUpdate>,
     ) -> DispatchResult {
         // Check EA permissions for asset.
         let did = Self::ensure_asset_perms(origin, asset)?;
@@ -280,15 +283,18 @@ impl<T: Config> Module<T> {
     fn base_set_asset_transfer_compliance(
         origin: T::Origin,
         asset: AssetScope,
-        transfer_conditions: BTreeSet<TransferCondition>,
+        transfer_conditions: Vec<TransferCondition>,
     ) -> DispatchResult {
         // Check EA permissions for asset.
         let did = Self::ensure_asset_perms(origin, asset)?;
 
+        // Convert Vec -> BTreeSet.  This will also dedup the transfer_conditions.
+        let transfer_conditions = transfer_conditions.iter().cloned().collect::<BTreeSet<_>>();
+
         // TODO: Use complexity instead of count to limit TransferConditions per asset.
         // Check maximum TransferConditions per Asset limit.
         ensure!(
-            transfer_conditions.len() < T::MaxTransferConditionsPerAsset::get() as usize,
+            transfer_conditions.len() <= T::MaxTransferConditionsPerAsset::get() as usize,
             Error::<T>::TransferConditionLimitReached
         );
 
@@ -304,7 +310,7 @@ impl<T: Config> Module<T> {
             }
 
             AssetTransferCompliances::mutate(&asset, |old| {
-                old.requirements = transfer_conditions.clone()
+                old.requirements = transfer_conditions.clone();
             });
         } else {
             AssetTransferCompliances::remove(&asset);
@@ -323,7 +329,7 @@ impl<T: Config> Module<T> {
         origin: T::Origin,
         is_exempt: bool,
         exempt_key: TransferConditionExemptKey,
-        entities: BTreeSet<ScopeId>,
+        entities: Vec<ScopeId>,
     ) -> DispatchResult {
         // Check EA permissions for asset.
         let did = Self::ensure_asset_perms(origin, exempt_key.asset)?;

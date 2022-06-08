@@ -5,8 +5,8 @@ use polymesh_common_utilities::{
     traits::{asset::Config as Asset, TestUtilsFn},
 };
 use polymesh_primitives::{jurisdiction::*, statistics::*, ClaimType};
-use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
+use sp_std::vec::Vec;
 
 const STAT_TYPES: &[(StatOpType, Option<ClaimType>)] = &[
     (StatOpType::Count, None),
@@ -19,7 +19,7 @@ const STAT_TYPES: &[(StatOpType, Option<ClaimType>)] = &[
     (StatOpType::Balance, Some(ClaimType::Jurisdiction)),
 ];
 
-fn make_stats(count: u32) -> BTreeSet<StatType> {
+fn make_stats(count: u32) -> Vec<StatType> {
     (0..count as usize)
         .into_iter()
         .map(|idx| {
@@ -32,7 +32,7 @@ fn make_stats(count: u32) -> BTreeSet<StatType> {
         .collect()
 }
 
-fn make_jur_stat_updates(count: u32, value: Option<u128>) -> BTreeSet<StatUpdate> {
+fn make_jur_stat_updates(count: u32, value: Option<u128>) -> Vec<StatUpdate> {
     (0..count as usize)
         .into_iter()
         .map(|idx| StatUpdate {
@@ -53,7 +53,7 @@ fn claim_type_to_stat_claim(claim_type: ClaimType) -> Option<StatClaim> {
     }
 }
 
-fn make_transfer_conditions(stats: &BTreeSet<StatType>, count: u32) -> BTreeSet<TransferCondition> {
+fn make_transfer_conditions(stats: &Vec<StatType>, count: u32) -> Vec<TransferCondition> {
     let p0 = HashablePermill(sp_arithmetic::Permill::from_rational(0u32, 100u32));
     let p40 = HashablePermill(sp_arithmetic::Permill::from_rational(40u32, 100u32));
     (0..count as usize)
@@ -83,12 +83,7 @@ fn init_ticker<T: Asset + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, Ticker) {
 fn init_transfer_conditions<T: Config + Asset + TestUtilsFn<AccountIdOf<T>>>(
     count_stats: u32,
     count_conditions: u32,
-) -> (
-    User<T>,
-    Ticker,
-    BTreeSet<StatType>,
-    BTreeSet<TransferCondition>,
-) {
+) -> (User<T>, Ticker, Vec<StatType>, Vec<TransferCondition>) {
     let (owner, ticker) = init_ticker::<T>();
     let stats = make_stats(count_stats);
     let conditions = make_transfer_conditions(&stats, count_conditions);
@@ -97,7 +92,7 @@ fn init_transfer_conditions<T: Config + Asset + TestUtilsFn<AccountIdOf<T>>>(
 
 fn init_exempts<T: Config + Asset + TestUtilsFn<AccountIdOf<T>>>(
     count: u32,
-) -> (User<T>, TransferConditionExemptKey, BTreeSet<ScopeId>) {
+) -> (User<T>, TransferConditionExemptKey, Vec<ScopeId>) {
     let (owner, ticker) = init_ticker::<T>();
     let scope_ids = (0..count as u128).map(IdentityId::from).collect();
     let exempt_key = TransferConditionExemptKey {
