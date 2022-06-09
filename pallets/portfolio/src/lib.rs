@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 //
 // This program is free software: you can redistribute it and/or modify
@@ -346,7 +346,7 @@ decl_module! {
             // In version 4.0.0 (first mainnet deployment) when a portfolio was removed
             // the NameToNumber mapping was left out of date, this upgrade removes dangling
             // NameToNumber mappings.
-            // https://github.com/PolymathNetwork/Polymesh/pull/1200
+            // https://github.com/PolymeshAssociation/Polymesh/pull/1200
             storage_migrate_on!(StorageVersion::get(), 1, {
                 NameToNumber::iter()
                     .filter(|(identity, _, number)| !Portfolios::contains_key(identity, number))
