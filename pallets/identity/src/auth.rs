@@ -158,10 +158,6 @@ impl<T: Config> Module<T> {
         auth_id: &u64,
     ) -> Option<Authorization<T::AccountId, T::Moment>> {
         Self::authorizations(target, *auth_id).filter(|auth| {
-            // check if count is zero
-            if auth.count == 0u32 {
-                return true;
-            }
             auth.expiry
                 .filter(|&expiry| <pallet_timestamp::Pallet<T>>::get() > expiry)
                 .is_none()
@@ -204,6 +200,11 @@ impl<T: Config> Module<T> {
             if auth.count == 0 {
                 <Authorizations<T>>::remove(&target, auth_id);
                 <AuthorizationsGiven<T>>::remove(auth.authorized_by.clone(), auth_id);
+                Self::deposit_event(RawEvent::AuthorizationRetryLimitReached(
+                    target.as_identity().cloned(),
+                    target.as_account().cloned(),
+                    auth_id,
+                ));
             } else {
                 // update authorization
                 <Authorizations<T>>::insert(&target, auth_id, auth);
