@@ -49,7 +49,7 @@ impl SubstrateCli for Cli {
     }
 
     fn support_url() -> String {
-        "https://github.com/PolymathNetwork/polymesh/issues/new".into()
+        "https://github.com/PolymeshAssociation/Polymesh/issues/new".into()
     }
 
     fn copyright_start_year() -> i32 {

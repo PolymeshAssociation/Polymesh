@@ -7,7 +7,7 @@ description = "Test utilities for Substrate node."
 edition = "2021"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage = "https://substrate.dev"
-repository = "https://github.com/PolymathNetwork/substrate/"
+repository = "https://github.com/PolymeshAssociation/substrate/"
 publish = true
 
 [package.metadata.docs.rs]
@@ -39,7 +39,7 @@ sp-runtime = { version = "6.0.0" }
 sc-executor = { version = "0.10.0-dev", features = ["wasmtime"] }
 sp-consensus = { version = "0.10.0-dev" }
 frame-system = { version = "4.0.0-dev" }
-substrate-test-client = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymesh-monthly-2022-05" }
+substrate-test-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05" }
 pallet-timestamp = { version = "4.0.0-dev" }
 pallet-treasury = { version = "4.0.0-dev" }
 wabt = "0.10.0"

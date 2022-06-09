@@ -5,7 +5,7 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 license = "Apache-2.0"
 homepage = "https://substrate.dev"
-repository = "https://github.com/PolymathNetwork/substrate/"
+repository = "https://github.com/PolymeshAssociation/substrate/"
 description = "FRAME pallet for sudo"
 readme = "README.md"
 

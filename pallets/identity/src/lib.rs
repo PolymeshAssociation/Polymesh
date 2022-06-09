@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -812,7 +812,7 @@ pub mod migration {
                 /// All authorizations that an identity/key has
                 pub Authorizations get(fn authorizations): double_map hasher(blake2_128_concat)
                 Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Option<Authorization<T::AccountId, T::Moment>>;
-                    }
+            }
         }
 
         decl_module! {
