@@ -18,8 +18,8 @@ serde_derive = { version = "1.0.104", optional = true, default-features = false 
 either = { version = "1.6.1", default-features = false }
 
 # Cryptography
-confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "confidential-identity-v2" }
-confidential_identity_v1 = { package = "confidential_identity", git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, branch = "confidential-identity-v1" }
+confidential_identity = { git = "https://github.com/PolymeshAssociation/cryptography.git", default-features = false, branch = "confidential-identity-v2" }
+confidential_identity_v1 = { package = "confidential_identity", git = "https://github.com/PolymeshAssociation/cryptography.git", default-features = false, branch = "confidential-identity-v1" }
 schnorrkel = { version = "0.10.1", default-features = false, optional = true }
 
 # Substrate
