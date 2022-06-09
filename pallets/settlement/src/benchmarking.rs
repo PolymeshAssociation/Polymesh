@@ -813,13 +813,6 @@ benchmarks! {
             compliance_setup::<T>(c, ticker, from_origin.clone(), from.did, to.did, trusted_issuer.clone());
             add_transfer_conditions::<T>(ticker, from_origin.clone(), from.did, MAX_CONDITIONS);
         }
-
-        // -------- Commented the smart extension integration ----------------
-        // let code_hash = emulate_blueprint_in_storage::<T>(0, from_origin.clone(), "ptm").unwrap();
-        // for i in 0 .. s {
-        //     add_smart_extension_to_ticker::<T>(code_hash, from_origin.clone(), from.account.clone(), from_ticker);
-        //     add_smart_extension_to_ticker::<T>(code_hash, to_origin.clone(), to.account.clone(), to_ticker);
-        // }
     }: _(origin, instruction_id, l)
     verify {
         // Assert that any one leg processed through that give sufficient evidence of successful execution of instruction.

@@ -27,21 +27,27 @@
 //! However, during the execution of `create_asset`,
 //! the current identity will be Alice, as opposed to `Bob`.
 //!
+//! Transaction fees for calling into the runtime are charged to the gas meter
+//! of the contract.  Protocol fees are charged to the contract's address, the contract
+//! can require the caller to pay these fees by making the call payable and require
+//! enough POLYX is transferred to cover the protocol fees.
+//!
 //! ## Overview
 //!
 //! The Contracts module provides functions for:
 //!
-//! - Instantiating contracts
-//! - Calling contracts
+//! - Instantiating contracts with custom permissions.
 //!
-//! ## Interface
+//! Use the standard Substrate `pallet_contracts` to instantiate, call, upload_code, or remove_code.
+//! That interface is compatible with the Polkadot.js Contracts UI.
 //!
 //! ### Dispatchable Functions
 //!
-//! - `instantiate_with_code` instantiates a contract with the code provided.
-//! - `instantiate_with_hash` instantiates a contract by hash,
+//! - `instantiate_with_code_perms` instantiates a contract with the code provided.
+//!   The contract's address will be added as a secondary key with the provided permissions.
+//! - `instantiate_with_hash_perms` instantiates a contract by hash,
 //!   assuming that a contract with the same code already was uploaded.
-//! - `call` dispatches to the smart contract code, acting as the identity who made the contract.
+//!   The contract's address will be added as a secondary key with the provided permissions.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(associated_type_bounds)]
@@ -484,11 +490,18 @@ fn contract_did<T: Config>(contract: &T::AccountId) -> Result<IdentityId, Dispat
     Ok(Identity::<T>::get_identity(&contract).ok_or(Error::<T>::InstantiatorWithNoIdentity)?)
 }
 
-/// Run `with` while the current DID is temporarily set to the given one.
-fn with_did_as_current<T: Config, W: FnOnce() -> R, R>(did: IdentityId, with: W) -> R {
+/// Run `with` while the current DID and Payer is temporarily set to the given one.
+fn with_did_and_payer<T: Config, W: FnOnce() -> R, R>(
+    did: IdentityId,
+    payer: T::AccountId,
+    with: W,
+) -> R {
+    let old_payer = Context::current_payer::<Identity<T>>();
     let old_did = Context::current_identity::<Identity<T>>();
+    Context::set_current_payer::<Identity<T>>(Some(payer));
     Context::set_current_identity::<Identity<T>>(Some(did));
     let result = with();
+    Context::set_current_payer::<Identity<T>>(old_payer);
     Context::set_current_identity::<Identity<T>>(old_did);
     result
 }
@@ -610,7 +623,7 @@ where
 
         // Execute call requested by contract, with current DID set to the contract owner.
         let addr = env.ext().address().clone();
-        let result = with_did_as_current::<T, _, _>(contract_did::<T>(&addr)?, || {
+        let result = with_did_and_payer::<T, _, _>(contract_did::<T>(&addr)?, addr.clone(), || {
             with_call_metadata(call.get_call_metadata(), || {
                 // Dispatch the call, avoiding use of `ext.call_runtime()`,
                 // as that uses `CallFilter = Nothing`, which would case a problem for us.
