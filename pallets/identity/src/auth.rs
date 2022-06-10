@@ -171,7 +171,6 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-
     /// Accepts an authorization `auth_id` as `target`,
     /// executing `accepter` for case-specific additional validation and storage changes.
     pub fn accept_auth_with(
