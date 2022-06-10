@@ -171,7 +171,6 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    //assert_eq!(ss, Err(Error::stuff));
 
     /// Accepts an authorization `auth_id` as `target`,
     /// executing `accepter` for case-specific additional validation and storage changes.
