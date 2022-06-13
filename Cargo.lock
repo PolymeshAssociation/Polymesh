@@ -917,16 +917,16 @@ dependencies = [
 [[package]]
 name = "confidential_identity"
 version = "1.0.0"
-source = "git+https://github.com/PolymeshAssociation/cryptography.git?branch=confidential-identity-v1#7485147c0765c6a0048f561f360c1649b0d78429"
+source = "git+https://github.com/PolymeshAssociation/cryptography.git?branch=confidential-identity-v1#e89cd8eb49141597b412790cfe8f30d0adac4711"
 dependencies = [
  "blake2",
  "byteorder",
  "criterion",
  "curve25519-dalek-ng",
- "failure",
  "lazy_static",
  "merlin 3.0.0",
  "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "rand_core 0.6.3",
  "schnorrkel 0.10.2",
  "serde",
@@ -940,14 +940,13 @@ dependencies = [
 [[package]]
 name = "confidential_identity"
 version = "1.1.2"
-source = "git+https://github.com/PolymeshAssociation/cryptography.git?branch=confidential-identity-v2#a01e852dee0b24b450294d92d0833786ac173149"
+source = "git+https://github.com/PolymeshAssociation/cryptography.git?branch=confidential-identity-v2#c5468bf6ed9a04b87af0e24c08006438bb641831"
 dependencies = [
  "blake2",
  "byteorder",
  "criterion",
  "cryptography_core 1.0.0 (git+https://github.com/PolymeshAssociation/cryptography.git?branch=confidential-identity-v2)",
  "curve25519-dalek-ng",
- "failure",
  "parity-scale-codec 3.1.2",
  "rand 0.8.5",
  "rand_core 0.6.3",
@@ -1262,13 +1261,12 @@ dependencies = [
 [[package]]
 name = "cryptography_core"
 version = "1.0.0"
-source = "git+https://github.com/PolymeshAssociation/cryptography.git?branch=confidential-identity-v1#7485147c0765c6a0048f561f360c1649b0d78429"
+source = "git+https://github.com/PolymeshAssociation/cryptography.git?branch=confidential-identity-v1#e89cd8eb49141597b412790cfe8f30d0adac4711"
 dependencies = [
  "bulletproofs",
  "byteorder",
  "criterion",
  "curve25519-dalek-ng",
- "failure",
  "merlin 3.0.0",
  "parity-scale-codec 3.1.2",
  "rand 0.8.5",
@@ -1282,14 +1280,13 @@ dependencies = [
 [[package]]
 name = "cryptography_core"
 version = "1.0.0"
-source = "git+https://github.com/PolymeshAssociation/cryptography.git?branch=confidential-identity-v2#a01e852dee0b24b450294d92d0833786ac173149"
+source = "git+https://github.com/PolymeshAssociation/cryptography.git?branch=confidential-identity-v2#c5468bf6ed9a04b87af0e24c08006438bb641831"
 dependencies = [
  "blake2",
  "bulletproofs",
  "byteorder",
  "criterion",
  "curve25519-dalek-ng",
- "failure",
  "merlin 3.0.0",
  "parity-scale-codec 3.1.2",
  "rand 0.8.5",
@@ -1784,28 +1781,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e43f2f1833d64e33f15592464d6fdd70f349dda7b1a53088eb83cd94014008c5"
 dependencies = [
  "futures 0.3.21",
-]
-
-[[package]]
-name = "failure"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d32e9bd16cc02eae7db7ef620b392808b89f6a5e16bb3497d159c6b92a0f4f86"
-dependencies = [
- "backtrace",
- "failure_derive",
-]
-
-[[package]]
-name = "failure_derive"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa4da3c766cd7a0db8242e326e9e4e081edd567072893ed320008189715366a4"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
- "synstructure",
 ]
 
 [[package]]
