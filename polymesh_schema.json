@@ -1105,6 +1105,16 @@
       "default_withholding_tax": "Tax",
       "withholding_tax": "Vec<(IdentityId, Tax)>"
     },
+    "InitiateCorporateActionArgs": {
+      "ticker": "Ticker",
+      "kind": "CAKind",
+      "decl_date": "Moment",
+      "record_date": "Option<RecordDateSpec>",
+      "details": "CADetails",
+      "targets": "Option<TargetIdentities>",
+      "default_withholding_tax": "Option<Tax>",
+      "withholding_tax": "Option<Vec<(IdentityId, Tax)>>"
+    },
     "LocalCAId": "u32",
     "CAId": {
       "ticker": "Ticker",
