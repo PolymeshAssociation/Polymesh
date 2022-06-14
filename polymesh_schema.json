@@ -58,7 +58,8 @@
         "CUSIP": "[u8; 9]",
         "CINS": "[u8; 9]",
         "ISIN": "[u8; 12]",
-        "LEI": "[u8; 20]"
+        "LEI": "[u8; 20]",
+        "FIGI": "[u8; 12]"
       }
     },
     "AssetOwnershipRelation": {
@@ -1103,6 +1104,16 @@
       "targets": "TargetIdentities",
       "default_withholding_tax": "Tax",
       "withholding_tax": "Vec<(IdentityId, Tax)>"
+    },
+    "InitiateCorporateActionArgs": {
+      "ticker": "Ticker",
+      "kind": "CAKind",
+      "decl_date": "Moment",
+      "record_date": "Option<RecordDateSpec>",
+      "details": "CADetails",
+      "targets": "Option<TargetIdentities>",
+      "default_withholding_tax": "Option<Tax>",
+      "withholding_tax": "Option<Vec<(IdentityId, Tax)>>"
     },
     "LocalCAId": "u32",
     "CAId": {
