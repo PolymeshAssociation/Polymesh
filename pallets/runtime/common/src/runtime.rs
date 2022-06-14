@@ -547,6 +547,7 @@ macro_rules! misc_pallet_impls {
 macro_rules! runtime_apis {
     ($($extra:item)*) => {
         use node_rpc_runtime_api::asset as rpc_api_asset;
+        use frame_support::dispatch::GetStorageVersion;
         use sp_inherents::{CheckInherentsResult, InherentData};
         use pallet_identity::types::{AssetDidResult, CddStatus, RpcDidRecords, DidStatus, KeyIdentityData};
         use pallet_pips::{Vote, VoteCount};
@@ -598,14 +599,30 @@ macro_rules! runtime_apis {
             type AccountData = polymesh_common_utilities::traits::balances::AccountData;
         }
 
+        // This is needed because `UpgradedToTripleRefCount` is private.
+        frame_support::generate_storage_alias!(
+                System, UpgradedToTripleRefCount => Value<
+                        bool,
+                        frame_support::pallet_prelude::ValueQuery
+                >
+        );
+
         // Polymesh V4 -> V5 runtime migrations.
         pub struct MigrationV4toV5;
         impl frame_support::traits::OnRuntimeUpgrade for MigrationV4toV5 {
             fn on_runtime_upgrade() -> Weight {
+                let mut weight = 0;
                 // System migration.
-                frame_system::migrations::migrate_from_dual_to_triple_ref_count::<Runtime>()
+                if !UpgradedToTripleRefCount::get() {
+                    weight = weight.saturating_add(frame_system::migrations::migrate_from_dual_to_triple_ref_count::<Runtime>());
+                }
+
                 // Scheduler migration.
-                    .saturating_add(Scheduler::migrate_v2_to_v3())
+                if Scheduler::current_storage_version() < 3 {
+                    weight = weight.saturating_add(Scheduler::migrate_v2_to_v3());
+                }
+
+                weight
             }
         }
 
