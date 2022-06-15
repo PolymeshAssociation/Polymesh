@@ -48,7 +48,10 @@ fn add_become_agent(
             assert_ok!(ExternalAgents::accept_become_agent(to.origin(), auth));
         }
         Err(e) => {
-            assert_noop!(ExternalAgents::accept_become_agent(to.origin(), auth), e);
+            assert_eq!(
+                ExternalAgents::accept_become_agent(to.origin(), auth),
+                Err(e.into())
+            );
         }
     };
 }

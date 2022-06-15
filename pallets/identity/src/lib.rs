@@ -124,7 +124,7 @@ use sp_std::{convert::TryFrom, prelude::*};
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 
-storage_migration_ver!(1);
+storage_migration_ver!(2);
 
 decl_storage! {
     trait Store for Module<T: Config> as Identity {
@@ -176,7 +176,7 @@ decl_storage! {
         pub CddAuthForPrimaryKeyRotation get(fn cdd_auth_for_primary_key_rotation): bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2).unwrap()): Version;
 
         /// How many "strong" references to the account key.
         ///
@@ -251,6 +251,10 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
             storage_migrate_on!(StorageVersion::get(), 1, {
                 migration::migrate_v1::<T>();
+            });
+
+            storage_migrate_on!(StorageVersion::get(), 2, {
+                migration::migrate_v2::<T>();
             });
 
             0
@@ -783,6 +787,39 @@ pub mod migration {
         }
     }
 
+    mod v2 {
+        use super::*;
+        use scale_info::TypeInfo;
+
+        // Authorization struct
+        #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Debug)]
+        pub struct Authorization<AccountId, Moment> {
+            /// Enum that contains authorization type and data
+            pub authorization_data: AuthorizationData<AccountId>,
+
+            /// Identity of the organization/individual that added this authorization
+            pub authorized_by: IdentityId,
+
+            /// time when this authorization expires. optional.
+            pub expiry: Option<Moment>,
+
+            /// Authorization id of this authorization
+            pub auth_id: u64,
+        }
+
+        decl_storage! {
+            trait Store for Module<T: Config> as Identity {
+                /// All authorizations that an identity/key has
+                pub Authorizations get(fn authorizations): double_map hasher(blake2_128_concat)
+                Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Option<Authorization<T::AccountId, T::Moment>>;
+            }
+        }
+
+        decl_module! {
+            pub struct Module<T: Config> for enum Call where origin: T::Origin { }
+        }
+    }
+
     pub fn migrate_v1_key<T: Config>(key: T::AccountId, record: KeyRecord<T::AccountId>) {
         // Add key to record mapping.
         KeyRecords::<T>::insert(&key, &record);
@@ -839,5 +876,31 @@ pub mod migration {
             num_removed,
             all_removed
         );
+    }
+
+    pub fn migrate_v2<T: Config>() {
+        sp_runtime::runtime_logger::RuntimeLogger::init();
+
+        log::info!(" >>> Updating Identity storage. Migrating Authorizations...");
+        let total_auths = v2::Authorizations::<T>::drain().fold(
+            0usize,
+            |total_auths, (did, auth_id, authorizations)| {
+                // Migrate authorizations.
+
+                let auth = Authorization {
+                    authorization_data: authorizations.authorization_data,
+                    authorized_by: authorizations.authorized_by,
+                    expiry: authorizations.expiry,
+                    auth_id,
+                    count: 50,
+                };
+                // Asset identities don't have primary keys.
+                Authorizations::<T>::insert(did, auth_id, auth);
+
+                total_auths + 1
+            },
+        );
+
+        log::info!(" >>> Migrated {} Authorizations.", total_auths);
     }
 }

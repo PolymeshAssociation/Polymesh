@@ -308,6 +308,11 @@ decl_event!(
         /// (authorized_identity, authorized_key, auth_id)
         AuthorizationConsumed(Option<IdentityId>, Option<AccountId>, u64),
 
+        /// Accepting Authorization retry limit reached.
+        ///
+        /// (authorized_identity, authorized_key, auth_id)
+        AuthorizationRetryLimitReached(Option<IdentityId>, Option<AccountId>, u64),
+
         /// CDD requirement for updating primary key changed.
         ///
         /// (new_requirement)
