@@ -145,6 +145,9 @@ pub struct Authorization<AccountId, Moment> {
 
     /// Authorization id of this authorization
     pub auth_id: u64,
+
+    /// Current count for how many times an authorization can fail. optional.
+    pub count: u32,
 }
 
 /// Extract the authoriation variant's data, or bail.

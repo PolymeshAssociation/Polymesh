@@ -357,9 +357,9 @@ fn do_relayer_user_key_missing_cdd_test() {
     // Bob tries to accept the paying key, without having a CDD.
     TestStorage::set_current_identity(&bob_did);
     let auth_id = get_last_auth_id(&Signatory::Account(bob_acc.clone()));
-    assert_noop!(
+    assert_eq!(
         Relayer::accept_paying_key(bob_sign, auth_id),
-        Error::UserKeyCddMissing
+        Err(Error::UserKeyCddMissing.into()),
     );
 }
 
@@ -382,9 +382,9 @@ fn do_relayer_paying_key_missing_cdd_test() {
     // is without a CDD.
     TestStorage::set_current_identity(&alice.did);
     let auth_id = get_last_auth_id(&Signatory::Account(alice.acc()));
-    assert_noop!(
+    assert_eq!(
         Relayer::accept_paying_key(alice.origin(), auth_id),
-        Error::PayingKeyCddMissing
+        Err(Error::PayingKeyCddMissing.into()),
     );
 }
 
