@@ -77,7 +77,9 @@ fn misc_polymesh_extensions() {
                 )
             };
             let derive_key = |key, salt| FrameContracts::contract_address(&key, &hash, salt);
-            let call = |key, data| Contracts::call(user.origin(), key, 0, GAS_LIMIT, None, data);
+            let call = |key: AccountId, value, data| {
+                FrameContracts::call(user.origin(), key.into(), value, GAS_LIMIT, None, data)
+            };
             let assert_has_secondary_key = |key: AccountId| {
                 let data = Identity::get_key_identity_data(key).unwrap();
                 assert_eq!(data.identity, owner.did);
@@ -95,41 +97,41 @@ fn misc_polymesh_extensions() {
 
             // Ensure a call different non-existent instantiation results in "contract not found".
             assert_storage_noop!(assert_err_ignore_postinfo!(
-                call(derive_key(owner.acc(), &[0x00]), vec![]),
+                call(derive_key(owner.acc(), &[0x00]), 0, vec![]),
                 BaseContractsError::ContractNotFound,
             ));
 
             // Execute a chain extension with too long data.
-            let call = |data| call(key_first_contract.clone(), data);
+            let call = |value, data| call(key_first_contract.clone(), value, data);
             let mut too_long_data = 0x00_00_00_00.encode();
             too_long_data.extend(vec![b'X'; MaxInLen::get() as usize + 1]);
             assert_storage_noop!(assert_err_ignore_postinfo!(
-                call(too_long_data),
+                call(0, too_long_data),
                 ContractsError::InLenTooLarge,
             ));
 
             // Execute a func_id that isn't recognized.
             assert_storage_noop!(assert_err_ignore_postinfo!(
-                call(0x04_00_00_00.encode()),
+                call(0, 0x04_00_00_00.encode()),
                 ContractsError::RuntimeCallNotFound,
             ));
 
             // Input for registering ticker AAAAAAAAAAAA.
             let ticker = Ticker::try_from(b"A" as &[u8]).unwrap();
-            let mut register_ticker_data = 0x00_01_00_00.encode();
+            let mut register_ticker_data = 0x00_1A_00_00.encode();
             register_ticker_data.extend(ticker.encode());
 
             // Leave too much data left in the input.
             let mut register_ticker_extra_data = register_ticker_data.clone();
             register_ticker_extra_data.extend(b"X"); // Adding this leaves too much data.
             assert_storage_noop!(assert_err_ignore_postinfo!(
-                call(register_ticker_extra_data),
+                call(0, register_ticker_extra_data),
                 ContractsError::DataLeftAfterDecoding,
             ));
 
             // Execute `register_ticker` but fail due to lacking permissions.
             assert_storage_noop!(assert_err_ignore_postinfo!(
-                call(register_ticker_data.clone()),
+                call(0, register_ticker_data.clone()),
                 pallet_permissions::Error::<TestStorage>::UnauthorizedCaller,
             ));
 
@@ -140,23 +142,15 @@ fn misc_polymesh_extensions() {
                 Permissions::default(),
             ));
 
+            // The contract doesn't have enough POLYX to cover the protocol fee.
+            assert_storage_noop!(assert_err_ignore_postinfo!(
+                call(0, register_ticker_data.clone()),
+                pallet_protocol_fee::Error::<TestStorage>::InsufficientAccountBalance,
+            ));
+
             // Successfully execute `register_ticker`,
             // ensuring that it was Alice who registered it.
-            assert_ok!(call(register_ticker_data));
+            assert_ok!(call(2500, register_ticker_data));
             assert_ok!(Asset::ensure_owner(&ticker, owner.did));
-
-            // Prepare instantiation with a different salt.
-            // Make sure that fails with additional 'X' and then succeeds.
-            let mut prepare_instantiate_data = 0xFF_00_00_00u32.encode();
-            let salt = vec![0xEEu8];
-            prepare_instantiate_data.extend((hash, salt.clone(), perms.clone()).encode());
-            prepare_instantiate_data.extend(b"X");
-            assert_storage_noop!(assert_err_ignore_postinfo!(
-                call(prepare_instantiate_data.clone()),
-                ContractsError::DataLeftAfterDecoding,
-            ));
-            prepare_instantiate_data.pop().unwrap();
-            assert_ok!(call(prepare_instantiate_data));
-            assert_has_secondary_key(derive_key(key_first_contract, &salt));
         })
 }

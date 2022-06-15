@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -59,6 +59,7 @@ impl<T: Config> Module<T> {
             authorized_by: from,
             expiry,
             auth_id: new_nonce,
+            count: 50,
         };
 
         <Authorizations<T>>::insert(target.clone(), new_nonce, auth);
@@ -178,7 +179,7 @@ impl<T: Config> Module<T> {
         accepter: impl FnOnce(AuthorizationData<T::AccountId>, IdentityId) -> DispatchResult,
     ) -> DispatchResult {
         // Extract authorization.
-        let auth = Self::ensure_authorization(target, auth_id)?;
+        let mut auth = Self::ensure_authorization(target, auth_id)?;
 
         // Ensure that `auth.expiry`, if provided, is in the future.
         if let Some(expiry) = auth.expiry {
@@ -187,7 +188,29 @@ impl<T: Config> Module<T> {
         }
 
         // Run custom per-type validation and updates.
-        accepter(auth.authorization_data, auth.authorized_by)?;
+        let res = accepter(auth.authorization_data.clone(), auth.authorized_by.clone());
+
+        if res.is_err() {
+            // decrement
+            auth.count = auth.count.saturating_sub(1);
+
+            // check if count is zero
+            if auth.count == 0 {
+                <Authorizations<T>>::remove(&target, auth_id);
+                <AuthorizationsGiven<T>>::remove(auth.authorized_by.clone(), auth_id);
+                Self::deposit_event(RawEvent::AuthorizationRetryLimitReached(
+                    target.as_identity().cloned(),
+                    target.as_account().cloned(),
+                    auth_id,
+                ));
+            } else {
+                // update authorization
+                <Authorizations<T>>::insert(&target, auth_id, auth);
+            }
+
+            // return error
+            return res;
+        }
 
         // Remove authorization from storage and emit event.
         <Authorizations<T>>::remove(&target, auth_id);

@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -23,7 +23,6 @@ use polymesh_common_utilities::{
     constants::currency::POLY,
     TestUtilsFn,
 };
-//use polymesh_contracts::ExtensionInfo;
 use polymesh_primitives::{
     asset::AssetName,
     asset_metadata::{
@@ -33,7 +32,6 @@ use polymesh_primitives::{
     ticker::TICKER_LEN,
     AuthorizationData, Signatory, Ticker, Url,
 };
-//use polymesh_primitives::{ExtensionAttributes, SmartExtension};
 use sp_io::hashing::keccak_256;
 use sp_std::{convert::TryInto, iter, prelude::*};
 
@@ -108,45 +106,6 @@ fn make_classic_ticker<T: Config>(eth_owner: ethereum::EthereumAddress, ticker: 
     <Module<T>>::reserve_classic_ticker(root, classic_ticker, 0u128.into(), reg_config)
         .expect("`reserve_classic_ticker` failed");
 }
-
-/*
-fn make_extension<T: Config + TestUtilsFn<AccountIdOf<T>>>(
-    is_archive: bool,
-) -> SmartExtension<T::AccountId> {
-    // Simulate that extension was added.
-    let extension_id = UserBuilder::<T>::default().build("extension").account;
-    let extension_details = SmartExtension {
-        extension_type: SmartExtensionType::TransferManager,
-        extension_name: b"PTM".into(),
-        extension_id: extension_id.clone(),
-        is_archive,
-    };
-
-    // Add extension info into contracts wrapper.
-    let version = 1u32;
-    CompatibleSmartExtVersion::insert(&extension_details.extension_type, version);
-
-    let attr = ExtensionAttributes {
-        version,
-        ..Default::default()
-    };
-    ExtensionInfo::<T>::insert(extension_id, attr);
-
-    extension_details
-}
-
-fn add_ext<T: Config + TestUtilsFn<AccountIdOf<T>>>(
-    is_archive: bool,
-) -> (User<T>, Ticker, T::AccountId) {
-    let owner = owner::<T>();
-    let ticker = make_asset::<T>(&owner, None);
-    let ext_details = make_extension::<T>(is_archive);
-    let ext_id = ext_details.extension_id.clone();
-    Module::<T>::add_extension(owner.origin().into(), ticker, ext_details)
-        .expect("Extension cannot be added");
-    (owner, ticker, ext_id)
-}
-*/
 
 fn emulate_controller_transfer<T: Config>(
     ticker: Ticker,
@@ -402,41 +361,6 @@ benchmarks! {
     verify {
         assert_eq!(Module::<T>::identifiers(ticker), identifiers2);
     }
-
-    /*
-    add_extension {
-        let (owner, ticker) = owned_ticker::<T>();
-        let details = make_extension::<T>(false);
-        let details2 = details.clone();
-    }: _(owner.origin, ticker, details)
-    verify {
-        assert_eq!(details2, Module::<T>::extension_details((ticker, details2.extension_id.clone())));
-    }
-
-    archive_extension {
-        let (owner, ticker, ext_id) = add_ext::<T>(false);
-        let ext_id2 = ext_id.clone();
-    }: _(owner.origin, ticker, ext_id)
-    verify {
-        assert_eq!(Module::<T>::extension_details((ticker, ext_id2)).is_archive, true);
-    }
-
-    unarchive_extension {
-        let (owner, ticker, ext_id) = add_ext::<T>(true);
-        let ext_id2 = ext_id.clone();
-    }: _(owner.origin, ticker, ext_id)
-    verify {
-        assert_eq!(Module::<T>::extension_details((ticker, ext_id2)).is_archive, false);
-    }
-
-    remove_smart_extension {
-        let (owner, ticker, ext_id) = add_ext::<T>(false);
-        let ext_id2 = ext_id.clone();
-    }: _(owner.origin, ticker, ext_id)
-    verify {
-        assert_eq!(<ExtensionDetails<T>>::contains_key((ticker, ext_id2)), false);
-    }
-    */
 
     claim_classic_ticker {
         let owner = owner::<T>();

@@ -3,7 +3,7 @@ jobs:
   lint:
     docker:
       - image: polymathnet/rust:debian-nightly-2022-05-10
-    resource_class: medium
+    resource_class: small
     environment:
       VERBOSE: "1"
     steps:
@@ -17,7 +17,8 @@ jobs:
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
-      - RUSTC_WORKSPACE_WRAPPER: ./scripts/rustc.sh
+      - RUSTFLAGS: -D warnings
+      - RUSTC_WRAPPER: /usr/local/cargo/bin/sccache
     steps:
       - checkout
       - run:
@@ -25,70 +26,68 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v5-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v6-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+      - run:
+          name: Setup sccache.
+          command: ./scripts/install_sccache.sh
       - run:
           name: Build release
           command: cargo build --release
-          no_output_timeout: 1h
-      - save_cache:
-          key: v5-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-          paths:
-            - "/usr/local/cargo"
-            - "~/.cargo"
-            - "./target"
-  benchmark-build:
-    machine:
-      image: ubuntu-2004:202010-01
-    resource_class: xlarge
-    environment:
-      - VERBOSE: "1"
-    steps:
-      - checkout
-      - run:
-          shell: /bin/bash
-          name: Setup rust-nightly environment.
-          command: |
-            sudo apt update
-            sudo apt install build-essential \
-              clang cmake \
-              gcc jq libclang-dev libssl-dev \
-              pkg-config ca-certificates rsync curl \
-              -y --no-install-recommends
-            export TOOLCHAIN=`cat rust-toolchain`
-            # Download rustup installer.
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs >./rustup_install.sh
-            # Run rustup installer.
-            bash ./rustup_install.sh -y --default-toolchain $TOOLCHAIN
-            # Add rustup to PATH.
-            source $HOME/.cargo/env
-            # Install wasm tools.
-            ./scripts/init.sh
-
-      - run:
-          name: Store rust version in an environment var for cache key
-          command: rustc --version > rust.version
-      - restore_cache:
-          keys:
-            - v2-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-      - run:
-          name: Build binary with runtime-benchmarks
-          environment:
-            - RUSTC_WORKSPACE_WRAPPER: ./scripts/rustc.sh
-          command: cargo build --release --features=runtime-benchmarks,running-ci
           no_output_timeout: 1h
       - persist_to_workspace:
           root: ./target/release
           paths:
             - polymesh
+      - run:
+          name: sccache stats
+          command: ./scripts/install_sccache.sh
       - save_cache:
-          key: v2-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v6-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
-            - "~/.cargo"
-            - "./target"
+            - "/usr/local/cargo"
+            - "~/.cache/sccache"
+  benchmark-build:
+    docker:
+      - image: polymathnet/rust:debian-nightly-2022-05-10
+    resource_class: xlarge
+    environment:
+      - VERBOSE: "1"
+      - RUSTFLAGS: -D warnings
+      - RUSTC_WRAPPER: /usr/local/cargo/bin/sccache
+    steps:
+      - checkout
+      - run:
+          name: Store rust version in an environment var for cache key
+          command: rustc --version > rust.version
+      - restore_cache:
+          keys:
+            - v3-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+      - run:
+          name: Setup sccache.
+          command: ./scripts/install_sccache.sh
+      - run:
+          name: Build binary with runtime-benchmarks
+          command: cargo build --release --features=runtime-benchmarks,running-ci
+          no_output_timeout: 1h
+      - run:
+          name: Rename the benchmarks binary.
+          command: mv ./target/release/polymesh ./polymesh-benchmarks
+      - run:
+          name: sccache stats
+          command: ./scripts/install_sccache.sh
+      - persist_to_workspace:
+          root: ./
+          paths:
+            - polymesh-benchmarks
+      - save_cache:
+          key: v3-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          paths:
+            - "/usr/local/cargo"
+            - "~/.cache/sccache"
   benchmark:
     docker:
       - image: debian:stable
-    resource_class: medium
+    resource_class: small
     environment:
       - VERBOSE: "1"
     steps:
@@ -96,7 +95,7 @@ jobs:
           at: .
       - run:
           name: Run benchmarks
-          command: ./polymesh benchmark pallet -p=* -e=* -r 1 -s 1 --execution native --db-cache 512 --heap-pages=2048
+          command: ./polymesh-benchmarks benchmark pallet -p=* -e=* -r 1 -s 1 --execution native --db-cache 512 --heap-pages=2048
           no_output_timeout: 1h
   migration-tests:
     docker:
@@ -104,7 +103,7 @@ jobs:
     resource_class: large
     environment:
       - VERBOSE: "1"
-      - RUSTC_WORKSPACE_WRAPPER: ./scripts/rustc.sh
+      - RUSTFLAGS: -D warnings
       - BUILD_DUMMY_WASM_BINARY: "1"
     steps:
       - checkout
@@ -113,24 +112,25 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v1-migration-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v2-migration-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Run migration tests
           command:  cargo test -p migration-tests --lib -- --nocapture
           no_output_timeout: 1h
       - save_cache:
-          key: v1-migration-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v2-migration-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
-            - "~/.cargo"
-            - "./target"
   test:
     docker:
       - image: polymathnet/rust:debian-nightly-2022-05-10
     resource_class: large
     environment:
       - VERBOSE: "1"
-      - RUSTC_WORKSPACE_WRAPPER: ./scripts/rustc.sh
+      - RUSTFLAGS: -D warnings
+      - RUSTC_WRAPPER: /usr/local/cargo/bin/sccache
+      - SKIP_WASM_BUILD: "1"
+      - RUST_BACKTRACE: "1"
     steps:
       - checkout
       - run:
@@ -138,27 +138,34 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v11-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v12-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+      - run:
+          name: Setup sccache.
+          command: ./scripts/install_sccache.sh
       - run:
           name: Tests
           command: >-
             cargo test
-            --package polymesh-runtime-tests
             --package pallet-staking
             --package pallet-group
             --package pallet-sudo
+            --package pallet-pips
             --package polymesh-primitives
             --package node-rpc-runtime-api
             --package pallet-transaction-payment
             --package polymesh-runtime-tests
+            --package pallet-balances:0.1.0
+            --package asset-metadata
             --features default_identity
           no_output_timeout: 1h
+      - run:
+          name: sccache stats
+          command: ./scripts/install_sccache.sh
       - save_cache:
-          key: v11-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v12-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
-            - "~/.cargo"
-            - "./target"
+            - "~/.cache/sccache"
   coverage:
     docker:
       - image: cimg/rust:1.60.0
@@ -175,7 +182,7 @@ jobs:
           command: rustc --version | tee rust.version
       - restore_cache:
           keys:
-            - v6-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v7-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Install dependencies
           command: rustup component add llvm-tools-preview && cargo install rustfilt cargo-binutils
@@ -184,10 +191,38 @@ jobs:
           command: bash ./scripts/coverage.sh
           no_output_timeout: 1h
       - save_cache:
-          key: v6-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v7-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
-            - "~/.cargo"
-  cli:
+            - "/usr/local/cargo"
+  integration-test:
+    docker:
+      - image: polymathnet/node:v16
+    resource_class: medium+
+    environment:
+      VERBOSE: "1"
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ./target/release
+      - run:
+          name: run Polymesh ci-dev chain node for integration tests
+          command: >-
+            ./target/release/polymesh --bob --chain ci-dev
+              --no-prometheus --no-telemetry --tmp
+              --wasm-execution compiled
+              --pool-limit 100000
+          background: true
+      - run:
+          name: install and build integration tests
+          command: yarn install && yarn build
+          working_directory: ./scripts/cli
+          no_output_timeout: 1h
+      - run:
+          name: run integration tests
+          command: yarn test
+          working_directory: ./scripts/cli
+          no_output_timeout: 10m
+  clippy:
     docker:
       - image: polymathnet/rust:debian-nightly-2022-05-10
     resource_class: xlarge
@@ -200,62 +235,81 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v6-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-      - run:
-          name: Build release
-          command: cargo build --release
-          no_output_timeout: 4h
-      - run:
-          name: cli node instance
-          command: ./target/release/polymesh --dev --pool-limit 100000 -d /tmp/pmesh-primary-node
-          background: true
-      - run:
-          name: cli scripts install and build
-          command: yarn install && yarn build
-          working_directory: ./scripts/cli
-          no_output_timeout: 1h
-      - run:
-          name: cli scripts test
-          command: yarn test
-          working_directory: ./scripts/cli
-          no_output_timeout: 10m
-      - save_cache:
-          key: v6-cli-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-          paths:
-            - "/usr/local/cargo"
-            - "~/.cargo"
-            - "./target"
-            - "./scripts/cli/node_modules"
-  clippy:
-    docker:
-      - image: polymathnet/rust:debian-nightly-2022-05-10
-    resource_class: large
-    environment:
-      VERBOSE: "1"
-    steps:
-      - checkout
-      - run:
-          name: Store rust version in a file for cache key
-          command: rustc --version > rust.version
-      - restore_cache:
-          keys:
-            - v5-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v6-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: run clippy
-          command: cargo clippy
+          command: cargo clippy -- -A clippy::all -W clippy::complexity -W clippy::perf
           no_output_timeout: 1h
       - save_cache:
-          key: v5-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v6-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
-            - "~/.cargo"
-            - "./target"
+  build-docker-debian:
+    environment:
+      IMAGE_NAME: polymeshassociation/polymesh
+    docker:
+      - image: docker:stable-git
+    resource_class: small
+    steps:
+      - checkout
+      - setup_remote_docker
+      - attach_workspace:
+          at: .
+      - run: |
+          export VERSION=`grep ^version ./Cargo.toml | head -1 | cut -d"=" -f2 | sed 's/[^a-zA-Z0-9\.]//g'`
+          docker build -f ./.docker/Dockerfile.debian --tag $IMAGE_NAME:$CIRCLE_BRANCH-debian --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian .
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker push $IMAGE_NAME
+  build-docker-distroless:
+    environment:
+      IMAGE_NAME: polymeshassociation/polymesh
+    docker:
+      - image: docker:stable-git
+    resource_class: small
+    steps:
+      - checkout
+      - setup_remote_docker
+      - attach_workspace:
+          at: .
+      - run: |
+          export VERSION=`grep ^version ./Cargo.toml | head -1 | cut -d"=" -f2 | sed 's/[^a-zA-Z0-9\.]//g'`
+          docker build -f ./.docker/Dockerfile.distroless --tag $IMAGE_NAME:$CIRCLE_BRANCH-distroless --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-distroless .
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker push $IMAGE_NAME
+
 workflows:
   version: 2
   commit:
     jobs:
+      - lint
+      - clippy
+      - test
+      - build
       - benchmark-build
       - coverage
+      - integration-test:
+          requires:
+            - build
       - benchmark:
           requires:
             - benchmark-build
+      - build-docker-debian:
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
+                - develop
+      - build-docker-distroless:
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
+                - develop

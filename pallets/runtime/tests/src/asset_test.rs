@@ -549,9 +549,9 @@ fn transfer_ticker() {
             AssetOwnershipRelation::TickerOwned
         );
 
-        assert_noop!(
+        assert_eq!(
             Asset::accept_ticker_transfer(bob.origin(), auth_id_bob),
-            "Illegal use of Authorization"
+            Err("Illegal use of Authorization".into()),
         );
 
         let add_auth = |auth, expiry| {
@@ -568,9 +568,9 @@ fn transfer_ticker() {
         // Try accepting the wrong authorization type.
         let auth_id = add_auth(AuthorizationData::RotatePrimaryKey, now() + 100);
 
-        assert_noop!(
+        assert_eq!(
             Asset::accept_ticker_transfer(bob.origin(), auth_id),
-            AuthorizationError::BadType
+            Err(AuthorizationError::BadType.into()),
         );
 
         let auth_id = add_auth(AuthorizationData::TransferTicker(ticker), now() + 100);
@@ -689,9 +689,9 @@ fn transfer_token_ownership() {
             AgentGroup::Full
         ));
         assert_ok!(ExternalAgents::abdicate(owner.origin(), ticker));
-        assert_noop!(
+        assert_eq!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id_bob),
-            EAError::UnauthorizedAgent
+            Err(EAError::UnauthorizedAgent.into())
         );
 
         let mut auth_id = Identity::add_auth(
@@ -714,9 +714,9 @@ fn transfer_token_ownership() {
             Some(now() + 100),
         );
 
-        assert_noop!(
+        assert_eq!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id),
-            AuthorizationError::BadType
+            Err(AuthorizationError::BadType.into())
         );
 
         auth_id = Identity::add_auth(
@@ -726,9 +726,9 @@ fn transfer_token_ownership() {
             Some(now() + 100),
         );
 
-        assert_noop!(
+        assert_eq!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id),
-            AssetError::NoSuchAsset
+            Err(AssetError::NoSuchAsset.into())
         );
 
         auth_id = Identity::add_auth(
@@ -1040,25 +1040,6 @@ fn test_can_transfer_rpc() {
             );
         })
 }
-
-/*
-#[test]
-fn check_functionality_of_remove_extension() {
-    smart_ext_test(|owner, ticker| {
-        // Add it.
-        let ty = SmartExtensionType::TransferManager;
-        let (id, _) = add_smart_ext(owner, ticker, ty.clone());
-
-        // Remove it
-        let remove = || Asset::remove_smart_extension(owner.origin(), ticker, id.clone());
-        assert_ok!(remove());
-        assert_eq!(Asset::extensions((ticker, ty)), vec![]);
-
-        // Remove it again => error.
-        assert_noop!(remove(), AssetError::NoSuchSmartExtension);
-    });
-}
-*/
 
 // Classic token tests:
 
@@ -1627,7 +1608,6 @@ fn generate_uid(entity_name: String) -> InvestorUid {
 fn check_unique_investor_count() {
     let cdd_provider = AccountKeyring::Charlie.to_account_id();
     ExtBuilder::default()
-        .set_max_tms_allowed(5)
         .cdd_providers(vec![cdd_provider.clone()])
         .build()
         .execute_with(|| {

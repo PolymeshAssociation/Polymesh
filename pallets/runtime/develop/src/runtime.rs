@@ -55,7 +55,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     impl_name: create_runtime_str!("polymesh_dev"),
     authoring_version: 1,
     // `spec_version: aaa_bbb_ccc` should match node version v`aaa.bbb.ccc`
-    spec_version: 5_000_000,
+    spec_version: 5_000_001,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 3,
@@ -89,14 +89,6 @@ parameter_types! {
     // Authorship:
     pub const UncleGenerations: BlockNumber = 0;
 
-    // Contracts:
-    pub const NetworkShareInFee: Perbill = Perbill::from_percent(60);
-    pub const TombstoneDeposit: Balance = 0;
-    pub const RentByteFee: Balance = 0; // Assigning zero to switch off the rent logic in the contracts;
-    pub const RentDepositOffset: Balance = 300 * DOLLARS;
-    /// Reward that is received by the party whose touch has led
-    /// to removal of a contract.
-    pub const SurchargeReward: Balance = 150 * DOLLARS;
     // Settlement:
     pub const MaxLegsInInstruction: u32 = 10;
 
@@ -109,7 +101,6 @@ parameter_types! {
     pub const MaxPeerDataEncodingSize: u32 = 1_000;
 
     // Assets:
-    pub const MaxNumberOfTMExtensionForAsset: u32 = 5;
     pub const AssetNameMaxLength: u32 = 128;
     pub const FundingRoundNameMaxLength: u32 = 128;
     pub const AssetMetadataNameMaxLength: u32 = 256;
@@ -391,7 +382,7 @@ construct_runtime!(
         Rewards: pallet_rewards::{Pallet, Call, Storage, Event<T>, Config<T>, ValidateUnsigned},
 
         // Contracts
-        Contracts: pallet_contracts::{Pallet, Storage, Event<T>},
+        Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>},
         PolymeshContracts: polymesh_contracts::{Pallet, Call, Storage, Event},
 
         // Preimage register.  Used by `pallet_scheduler`.

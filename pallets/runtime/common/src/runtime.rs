@@ -307,7 +307,6 @@ macro_rules! misc_pallet_impls {
             type Event = Event;
             type Currency = Balances;
             type ComplianceManager = pallet_compliance_manager::Module<Runtime>;
-            type MaxNumberOfTMExtensionForAsset = MaxNumberOfTMExtensionForAsset;
             type UnixTime = pallet_timestamp::Pallet<Runtime>;
             type AssetNameMaxLength = AssetNameMaxLength;
             type FundingRoundNameMaxLength = FundingRoundNameMaxLength;
@@ -345,13 +344,14 @@ macro_rules! misc_pallet_impls {
             type DeletionQueueDepth = DeletionQueueDepth;
             type DeletionWeightLimit = DeletionWeightLimit;
             type AddressGenerator = pallet_contracts::DefaultAddressGenerator;
+            type PolymeshHooks = polymesh_contracts::ContractPolymeshHooks;
         }
         impl From<polymesh_contracts::CommonCall<Runtime>> for Call {
             fn from(call: polymesh_contracts::CommonCall<Runtime>) -> Self {
                 use polymesh_contracts::CommonCall::*;
                 match call {
                     Asset(x) => Self::Asset(x),
-                    Contracts(x) => Self::PolymeshContracts(x),
+                    PolymeshContracts(x) => Self::PolymeshContracts(x),
                 }
             }
         }
@@ -547,6 +547,7 @@ macro_rules! misc_pallet_impls {
 macro_rules! runtime_apis {
     ($($extra:item)*) => {
         use node_rpc_runtime_api::asset as rpc_api_asset;
+        use frame_support::dispatch::GetStorageVersion;
         use sp_inherents::{CheckInherentsResult, InherentData};
         use pallet_identity::types::{AssetDidResult, CddStatus, RpcDidRecords, DidStatus, KeyIdentityData};
         use pallet_pips::{Vote, VoteCount};
@@ -598,14 +599,30 @@ macro_rules! runtime_apis {
             type AccountData = polymesh_common_utilities::traits::balances::AccountData;
         }
 
+        // This is needed because `UpgradedToTripleRefCount` is private.
+        frame_support::generate_storage_alias!(
+                System, UpgradedToTripleRefCount => Value<
+                        bool,
+                        frame_support::pallet_prelude::ValueQuery
+                >
+        );
+
         // Polymesh V4 -> V5 runtime migrations.
         pub struct MigrationV4toV5;
         impl frame_support::traits::OnRuntimeUpgrade for MigrationV4toV5 {
             fn on_runtime_upgrade() -> Weight {
+                let mut weight = 0;
                 // System migration.
-                frame_system::migrations::migrate_from_dual_to_triple_ref_count::<Runtime>()
+                if !UpgradedToTripleRefCount::get() {
+                    weight = weight.saturating_add(frame_system::migrations::migrate_from_dual_to_triple_ref_count::<Runtime>());
+                }
+
                 // Scheduler migration.
-                    .saturating_add(Scheduler::migrate_v2_to_v3())
+                if Scheduler::current_storage_version() < 3 {
+                    weight = weight.saturating_add(Scheduler::migrate_v2_to_v3());
+                }
+
+                weight
             }
         }
 
@@ -780,7 +797,7 @@ macro_rules! runtime_apis {
                     storage_deposit_limit: Option<Balance>,
                     input_data: Vec<u8>,
                 ) -> pallet_contracts_primitives::ContractExecResult<Balance> {
-                    Contracts::bare_call(origin, dest, value, gas_limit, storage_deposit_limit, input_data, false)
+                    Contracts::bare_call(origin, dest, value, gas_limit, storage_deposit_limit, input_data, true)
                 }
 
                 fn instantiate(
@@ -792,7 +809,7 @@ macro_rules! runtime_apis {
                     data: Vec<u8>,
                     salt: Vec<u8>,
                 ) -> pallet_contracts_primitives::ContractInstantiateResult<polymesh_primitives::AccountId, Balance> {
-                    PolymeshContracts::rpc_instantiate(origin, value, gas_limit, storage_deposit_limit, code, data, salt)
+                    Contracts::bare_instantiate(origin, value, gas_limit, storage_deposit_limit, code, data, salt, true)
                 }
 
                 fn upload_code(

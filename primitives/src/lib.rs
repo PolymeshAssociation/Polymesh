@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -178,13 +178,6 @@ pub mod traits;
 
 pub mod ticker;
 pub use ticker::Ticker;
-
-/// This module defines types used by smart extensions
-pub mod smart_extension;
-pub use smart_extension::{
-    ExtensionAttributes, MetaDescription, MetaUrl, MetaVersion, SmartExtension, SmartExtensionName,
-    SmartExtensionType, TemplateDetails, TemplateMetadata,
-};
 
 /// Document hash
 pub mod document_hash;

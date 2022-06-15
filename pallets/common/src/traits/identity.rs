@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -307,6 +307,11 @@ decl_event!(
         ///
         /// (authorized_identity, authorized_key, auth_id)
         AuthorizationConsumed(Option<IdentityId>, Option<AccountId>, u64),
+
+        /// Accepting Authorization retry limit reached.
+        ///
+        /// (authorized_identity, authorized_key, auth_id)
+        AuthorizationRetryLimitReached(Option<IdentityId>, Option<AccountId>, u64),
 
         /// CDD requirement for updating primary key changed.
         ///

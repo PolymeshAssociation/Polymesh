@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -132,7 +132,7 @@ benchmarks! {
         let perms = perms(p);
         let (owner, ticker) = setup::<T>();
         assert_eq!(AGId(0), AGIdSequence::get(ticker));
-    }: _(owner.origin, ticker, perms, Signatory::Identity(owner.did()))
+    }: _(owner.origin, ticker, perms, owner.did(), None)
     verify {
         assert_eq!(AGId(1), AGIdSequence::get(ticker));
     }

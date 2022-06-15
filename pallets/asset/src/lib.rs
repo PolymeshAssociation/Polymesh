@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -72,7 +72,6 @@
 //! - `is_ticker_available_or_registered_to` - It provides the status of a given ticker.
 //! - `total_supply` - It provides the total supply of a ticker.
 //! - `get_balance_at` - It provides the balance of a DID at a certain checkpoint.
-//! - `call_extension` - A helper function that is used to call the smart extension function.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
@@ -254,14 +253,6 @@ decl_storage! {
         /// The total balances of tokens issued in all recorded funding rounds.
         /// (ticker, funding round) -> balance
         IssuedInFundingRound get(fn issued_in_funding_round): map hasher(blake2_128_concat) (Ticker, FundingRoundName) => Balance;
-        /*
-        /// List of Smart extension added for the given tokens.
-        /// ticker, AccountId (SE address) -> SmartExtension detail
-        pub ExtensionDetails get(fn extension_details): map hasher(blake2_128_concat) (Ticker, T::AccountId) => SmartExtension<T::AccountId>;
-        /// List of Smart extension added for the given tokens and for the given type.
-        /// ticker, type of SE -> address/AccountId of SE
-        pub Extensions get(fn extensions): map hasher(blake2_128_concat) (Ticker, SmartExtensionType) => Vec<T::AccountId>;
-        */
         /// The set of frozen assets implemented as a membership map.
         /// ticker -> bool
         pub Frozen get(fn frozen): map hasher(blake2_128_concat) Ticker => bool;
@@ -278,10 +269,6 @@ decl_storage! {
         pub AssetDocumentsIdSequence get(fn asset_documents_id_sequence): map hasher(blake2_128_concat) Ticker => DocumentId;
         /// Ticker registration details on Polymath Classic / Ethereum.
         pub ClassicTickers get(fn classic_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<ClassicTickerRegistration>;
-        /*
-        /// Supported extension version.
-        pub CompatibleSmartExtVersion get(fn compatible_extension_version): map hasher(blake2_128_concat) SmartExtensionType => ExtVersion;
-        */
         /// Balances get stored on the basis of the `ScopeId`.
         /// Right now it is only helpful for the UI purposes but in future it can be used to do miracles on-chain.
         /// (ScopeId, IdentityId) => Balance.
@@ -346,10 +333,6 @@ decl_storage! {
         config(classic_migration_tconfig): TickerRegistrationConfig<T::Moment>;
         config(classic_migration_contract_did): IdentityId;
         config(reserved_country_currency_codes): Vec<Ticker>;
-        /*
-        /// Smart Extension supported version at genesis.
-        config(versions): Vec<(SmartExtensionType, ExtVersion)>;
-        */
         build(|config: &GenesisConfig<T>| {
             use frame_system::RawOrigin;
 
@@ -367,15 +350,6 @@ decl_storage! {
             for currency_ticker in &config.reserved_country_currency_codes {
                 <Module<T>>::unverified_register_ticker(&currency_ticker, fiat_tickers_reservation_did, None);
             }
-
-            /*
-            config.versions
-                .iter()
-                .filter(|(t, _)| !<CompatibleSmartExtVersion>::contains_key(&t))
-                .for_each(|(se_type, ver)| {
-                    CompatibleSmartExtVersion::insert(se_type, ver);
-            });
-            */
         });
     }
 }
@@ -391,7 +365,6 @@ decl_module! {
         /// initialize the default event for this module
         fn deposit_event() = default;
 
-        const MaxNumberOfTMExtensionForAsset: u32 = T::MaxNumberOfTMExtensionForAsset::get();
         const AssetNameMaxLength: u32 = T::AssetNameMaxLength::get();
         const FundingRoundNameMaxLength: u32 = T::FundingRoundNameMaxLength::get();
 
@@ -692,76 +665,6 @@ decl_module! {
             Self::base_update_identifiers(origin, ticker, identifiers)
         }
 
-        /*
-        /// Permissioning the Smart-Extension address for a given ticker.
-        ///
-        /// # Arguments
-        /// * `origin` - a signer that has permissions to act as an agent of `ticker`.
-        /// * `ticker` - ticker for whom extension get added.
-        /// * `extension_details` - Details of the smart extension.
-        ///
-        /// ## Errors
-        /// - `ExtensionAlreadyPresent` if `extension_details` is already linked to `ticker`.
-        /// - `IncompatibleExtensionVersion` if `extension_details` is not compatible.
-        ///
-        /// # Permissions
-        /// * Asset
-        #[weight = <T as Config>::WeightInfo::add_extension()]
-        pub fn add_extension(origin, ticker: Ticker, extension_details: SmartExtension<T::AccountId>) -> DispatchResult {
-            Self::base_add_extension(origin, ticker, extension_details)
-        }
-
-        /// Remove the given smart extension id from the list of extension under a given ticker.
-        ///
-        /// # Arguments
-        /// * `origin` - a signer that has permissions to act as an agent of `ticker`.
-        /// * `ticker` - Ticker symbol of the asset.
-        ///
-        /// ## Errors
-        /// - `MissingExtensionDetails` if `ticker` is not linked to `extension_id`.
-        ///
-        /// # Permissions
-        /// * Asset
-        #[weight = <T as Config>::WeightInfo::remove_smart_extension()]
-        pub fn remove_smart_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
-            Self::base_remove_smart_extension(origin, ticker, extension_id)
-        }
-
-        /// Archived the extension, which was used to verify compliance according to any smart logic it possesses.
-        ///
-        /// # Arguments
-        /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
-        /// * `ticker` - Ticker symbol of the asset.
-        /// * `extension_id` - AccountId of the extension that need to be archived.
-        ///
-        /// ## Errors
-        /// -  `AlreadyArchived` if `extension_id` of `ticker` is already archived.
-        ///
-        /// # Permissions
-        /// * Asset
-        #[weight = <T as Config>::WeightInfo::archive_extension()]
-        pub fn archive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
-            Self::set_archive_on_extension(origin, ticker, extension_id, true)
-        }
-
-        /// Unarchived the extension. Extension is used to verify the compliance or any smart logic it possesses.
-        ///
-        /// # Arguments
-        /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
-        /// * `ticker` - Ticker symbol of the asset.
-        /// * `extension_id` - AccountId of the extension that need to be unarchived.
-        ///
-        /// ## Errors
-        /// -  `AlreadyArchived` if `extension_id` of `ticker` is already archived.
-        ///
-        /// # Permissions
-        /// * Asset
-        #[weight = <T as Config>::WeightInfo::unarchive_extension()]
-        pub fn unarchive_extension(origin, ticker: Ticker, extension_id: T::AccountId) -> DispatchResult {
-            Self::set_archive_on_extension(origin, ticker, extension_id, false)
-        }
-        */
-
         /// Claim a systematically reserved Polymath Classic (PMC) `ticker`
         /// and transfer it to the `origin`'s identity.
         ///
@@ -976,12 +879,6 @@ decl_error! {
     pub enum Error for Module<T: Config> {
         /// The user is not authorized.
         Unauthorized,
-        /// When extension already archived.
-        AlreadyArchived,
-        /// When extension already un-archived.
-        AlreadyUnArchived,
-        /// When extension is already added.
-        ExtensionAlreadyPresent,
         /// The token has already been created.
         AssetAlreadyCreated,
         /// The ticker length is over the limit.
@@ -1006,20 +903,12 @@ decl_error! {
         InvalidGranularity,
         /// The asset must be frozen.
         NotFrozen,
-        /*
-        /// No such smart extension.
-        NoSuchSmartExtension,
-        */
         /// Transfer validation check failed.
         InvalidTransfer,
         /// The sender balance is not sufficient.
         InsufficientBalance,
         /// The token is already divisible.
         AssetAlreadyDivisible,
-        /// Number of Transfer Manager extensions attached to an asset is equal to MaxNumberOfTMExtensionForAsset.
-        MaximumTMExtensionLimitReached,
-        /// Given smart extension is not compatible with the asset.
-        IncompatibleExtensionVersion,
         /// An invalid Ethereum `EcdsaSignature`.
         InvalidEthereumSignature,
         /// The given ticker is not a classic one.

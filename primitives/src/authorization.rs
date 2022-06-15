@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -145,6 +145,9 @@ pub struct Authorization<AccountId, Moment> {
 
     /// Authorization id of this authorization
     pub auth_id: u64,
+
+    /// Current count for how many times an authorization can fail. optional.
+    pub count: u32,
 }
 
 /// Extract the authoriation variant's data, or bail.
