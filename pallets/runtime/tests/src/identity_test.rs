@@ -11,7 +11,7 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use confidential_identity::mocked::make_investor_uid as make_investor_uid_v2;
+use confidential_identity_v1::mocked::make_investor_uid;
 use frame_support::{
     assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency, StorageDoubleMap,
 };
@@ -2005,7 +2005,7 @@ fn add_investor_uniqueness_claim_v2_data(
 )> {
     let ticker = Ticker::default();
     let did = Identity::get_identity(&user).unwrap();
-    let investor: InvestorUid = make_investor_uid_v2(did.as_bytes()).into();
+    let investor: InvestorUid = make_investor_uid(did.as_bytes()).into();
     let cdd_id = CddId::new_v2(did, investor.clone());
     let proof = v2::InvestorZKProofData::new(&did, &investor, &ticker);
     let claim = Claim::InvestorUniquenessV2(cdd_id);

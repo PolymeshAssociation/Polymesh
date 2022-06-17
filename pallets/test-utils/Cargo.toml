@@ -16,7 +16,7 @@ serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
 
 # Crypto
-confidential_identity = { git = "https://github.com/PolymeshAssociation/cryptography.git", default-features = false, branch = "confidential-identity-v1" }
+confidential_identity_v1 = { version = "1.0.0", default-features = false }
 
 # Substrate
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
@@ -30,10 +30,10 @@ frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional
 [features]
 default = ["std"]
 running-ci = []
-no_std = ["confidential_identity/no_std"]
+no_std = ["confidential_identity_v1/no_std"]
 std = [
     "codec/std",
-    "confidential_identity/std",
+    "confidential_identity_v1/std",
     "serde/std",
     "serde_derive",
     "sp-std/std",
