@@ -107,7 +107,7 @@ impl<Moment: PartialOrd> AssetMetadataLockStatus<Moment> {
         match self {
             Self::Unlocked => false,
             Self::Locked => true,
-            Self::LockedUntil(until) => now > *until,
+            Self::LockedUntil(until) => now < *until,
         }
     }
 }
