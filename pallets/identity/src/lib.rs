@@ -116,8 +116,9 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     investor_zkproof_data::v1::InvestorZKProofData, storage_migrate_on, storage_migration_ver,
-    Authorization, AuthorizationData, AuthorizationType, CddId, Claim, ClaimType, DidRecord,
-    IdentityClaim, IdentityId, KeyRecord, Permissions, Scope, SecondaryKey, Signatory, Ticker,
+    Authorization, AuthorizationData, AuthorizationType, CddId, Claim, ClaimType, CustomClaimTypeId,
+    DidRecord, IdentityClaim, IdentityId, KeyRecord, Permissions, Scope, SecondaryKey, Signatory,
+    Ticker,
 };
 use sp_runtime::traits::Hash;
 use sp_std::{convert::TryFrom, prelude::*};
@@ -144,6 +145,12 @@ decl_storage! {
 
         /// (Target ID, claim type) (issuer,scope) -> Associated claims
         pub Claims: double_map hasher(twox_64_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => IdentityClaim;
+        /// CustomClaimTypeId -> String constant
+        pub CustomClaims: map hasher(twox_64_concat) CustomClaimTypeId => Vec<u8>;
+        /// String constant -> CustomClaimTypeId
+        pub CustomClaimsInverse: map hasher(blake2_128_concat) Vec<u8> => CustomClaimTypeId;
+        /// The next `CustomClaimTypeId`.
+        pub CustomClaimIdSequence get(fn custom_claim_id_seq): CustomClaimTypeId;
 
         /// Map from AccountId to `KeyRecord` that holds the key's identity and permissions.
         pub KeyRecords get(fn key_records):
@@ -635,6 +642,8 @@ decl_error! {
         /// A custom scope is too long.
         /// It can at most be `32` characters long.
         CustomScopeTooLong,
+        /// The custom claim type trying to be registered already exists.
+        CustomClaimTypeAlreadyExists
     }
 }
 

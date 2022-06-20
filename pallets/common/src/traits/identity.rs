@@ -34,7 +34,8 @@ use frame_support::{
 };
 use polymesh_primitives::{
     secondary_key::{v1, SecondaryKey},
-    AuthorizationData, Balance, IdentityClaim, IdentityId, Permissions, Signatory, Ticker,
+    AuthorizationData, Balance, CustomClaimTypeId, IdentityClaim, IdentityId, Permissions,
+    Signatory, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_core::H512;
@@ -328,6 +329,11 @@ decl_event!(
         ///
         /// (DID)
         SecondaryKeysUnfrozen(IdentityId),
+
+        /// All Secondary keys of the identity ID are unfrozen.
+        ///
+        /// (DID, id, Type)
+        CustomClaimTypeAdded(IdentityId, CustomClaimTypeId, Vec<u8>),
     }
 );
 

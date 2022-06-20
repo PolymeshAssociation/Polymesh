@@ -13,13 +13,17 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Claim1stKey, Claim2ndKey, Claims, DidRecords, Error, Module};
+use crate::{
+    Claim1stKey, Claim2ndKey, Claims, CustomClaimIdSequence, CustomClaims, CustomClaimsInverse,
+    DidRecords, Error, Event, Module,
+};
 use core::convert::From;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    ensure, fail, StorageDoubleMap, StorageMap,
+    ensure, fail, StorageDoubleMap, StorageMap, StorageValue,
 };
 use frame_system::ensure_root;
+use pallet_base::{ensure_string_limited, try_next_pre};
 pub use polymesh_common_utilities::traits::identity::WeightInfo;
 use polymesh_common_utilities::{
     protocol_fee::ProtocolOp,
@@ -30,6 +34,7 @@ use polymesh_common_utilities::{
     },
     SystematicIssuers, SYSTEMATIC_ISSUERS,
 };
+use polymesh_primitives::identity_claim::CustomClaimTypeId;
 use polymesh_primitives::{
     investor_zkproof_data::InvestorZKProofData as InvestorZKProof, valid_proof_of_investor, CddId,
     Claim, ClaimType, IdentityClaim, IdentityId, InvestorUid, Scope, ScopeId, SecondaryKey, Ticker,
@@ -231,6 +236,8 @@ impl<T: Config> Module<T> {
             claim,
         };
 
+        //todo(CJP10): We should check if a claim with a custom claim type is being added with a
+        // non-valid id.
         Claims::insert(&pk, &sk, id_claim.clone());
         Self::deposit_event(RawEvent::ClaimAdded(target, id_claim));
     }
@@ -535,5 +542,25 @@ impl<T: Config> Module<T> {
                 None,
             );
         });
+    }
+
+    fn base_register_custom_claim_type(origin: T::Origin, ty: Vec<u8>) -> DispatchResult {
+        let did = Self::ensure_perms(origin)?;
+        let id = Self::unsafe_register_custom_claim_type(ty.clone())?;
+        Event::<T>::CustomClaimTypeAdded(did, id, ty);
+        Ok(())
+    }
+
+    fn unsafe_register_custom_claim_type(ty: Vec<u8>) -> Result<CustomClaimTypeId, DispatchError> {
+        ensure_string_limited::<T>(&ty)?;
+        ensure!(
+            !CustomClaimsInverse::contains_key(&ty),
+            Error::<T>::CustomClaimTypeAlreadyExists
+        );
+
+        let id = CustomClaimIdSequence::try_mutate(try_next_pre::<T, _>)?;
+        CustomClaimsInverse::insert(&ty, id);
+        CustomClaims::insert(id, ty);
+        Ok(id)
     }
 }
