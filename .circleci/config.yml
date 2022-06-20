@@ -285,9 +285,10 @@ jobs:
     resource_class: small
     steps:
       - checkout
-      - setup_remote_docker
+      - setup_remote_docker:
+          version: 20.10.14
       - run: |
-          export NIGHTLY="nightly-2022-05-10"
+          export NIGHTLY=`date "+nightly-%Y-%m-%d"`
           docker build -f ./.docker/rust-nightly/Dockerfile.debian \
             --build-arg rustbase=$RUST_BASE \
             --build-arg toolchainversion=$NIGHTLY \
@@ -305,9 +306,10 @@ jobs:
     resource_class: small
     steps:
       - checkout
-      - setup_remote_docker
+      - setup_remote_docker:
+          version: 20.10.14
       - run: |
-          export NIGHTLY="nightly-2022-05-10"
+          export NIGHTLY=`date "+nightly-%Y-%m-%d"`
           docker build -f ./.docker/rust-nightly/Dockerfile.alpine \
             --build-arg rustbase=$RUST_BASE \
             --build-arg toolchainversion=$NIGHTLY \
