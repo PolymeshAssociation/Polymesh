@@ -330,7 +330,7 @@ decl_event!(
         /// (DID)
         SecondaryKeysUnfrozen(IdentityId),
 
-        /// All Secondary keys of the identity ID are unfrozen.
+        /// A new CustomClaimType was added.
         ///
         /// (DID, id, Type)
         CustomClaimTypeAdded(IdentityId, CustomClaimTypeId, Vec<u8>),
