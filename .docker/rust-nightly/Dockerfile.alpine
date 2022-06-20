@@ -6,7 +6,6 @@ ENV TOOLCHAIN="${toolchainversion}"
 
 RUN apk add --no-cache \
         bash \
-        perl \
         ca-certificates \
         clang \
         clang-dev \
@@ -16,13 +15,9 @@ RUN apk add --no-cache \
         jq \
         libressl-dev \
         openssl-dev \
-        libssh2-dev \
         make \
         pkgconfig \
         rsync
 RUN rustup toolchain install $TOOLCHAIN && \
-        cargo +$TOOLCHAIN install rustfilt cargo-binutils && \
-        rustup component add rustfmt clippy llvm-tools-preview --toolchain $TOOLCHAIN && \
-        rustup target add wasm32-unknown-unknown --toolchain $TOOLCHAIN && \
-        cargo install sccache cargo-sonar cargo-audit cargo-deny cargo-outdated
+        rustup target add wasm32-unknown-unknown --toolchain $TOOLCHAIN
 
