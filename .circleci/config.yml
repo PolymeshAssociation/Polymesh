@@ -292,10 +292,10 @@ jobs:
             --build-arg rustbase=$RUST_BASE \
             --build-arg toolchainversion=$NIGHTLY \
             --tag $IMAGE_NAME:latest \
-            --tag $IMAGE_NAME:debian \
+            --tag $IMAGE_NAME:debian --tag $IMAGE_NAME:debian-latest \
             --tag $IMAGE_NAME:debian-$NIGHTLY .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
-          docker push $IMAGE_NAME:debian-latest
+          docker push $IMAGE_NAME
   build-docker-rust-alpine:
     environment:
       RUST_BASE: 1.61.0
@@ -311,10 +311,10 @@ jobs:
           docker build -f ./.docker/rust-nightly/Dockerfile.alpine \
             --build-arg rustbase=$RUST_BASE \
             --build-arg toolchainversion=$NIGHTLY \
-            --tag $IMAGE_NAME:alpine \
+            --tag $IMAGE_NAME:alpine --tag $IMAGE_NAME:alpine-latest \
             --tag $IMAGE_NAME:alpine-$NIGHTLY .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
-          docker push $IMAGE_NAME:alpine-latest
+          docker push $IMAGE_NAME
 
 workflows:
   version: 2
