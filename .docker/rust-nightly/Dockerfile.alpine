@@ -6,6 +6,7 @@ ENV TOOLCHAIN="${toolchainversion}"
 
 RUN apk add --no-cache \
         bash \
+        perl \
         ca-certificates \
         clang \
         clang-dev \
