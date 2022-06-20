@@ -1,0 +1,25 @@
+ARG rustbase=1.61.0
+FROM rust:${rustbase}-alpine
+
+ARG toolchainversion=nightly-2022-05-10
+ENV TOOLCHAIN="${toolchainversion}"
+
+RUN apk add --no-cache \
+        bash \
+        ca-certificates \
+        clang \
+        clang-dev \
+        cmake \
+        g++ \
+        gcc \
+        jq \
+        libressl-dev \
+        make \
+        pkgconfig \
+        rsync
+RUN rustup toolchain install $TOOLCHAIN && \
+        cargo +$TOOLCHAIN install rustfilt cargo-binutils && \
+        rustup component add rustfmt clippy llvm-tools-preview --toolchain $TOOLCHAIN && \
+        rustup target add wasm32-unknown-unknown --toolchain $TOOLCHAIN && \
+        cargo install sccache cargo-sonar cargo-audit cargo-deny cargo-outdated
+
