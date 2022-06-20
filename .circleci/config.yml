@@ -320,10 +320,19 @@ jobs:
 
 workflows:
   version: 2
-  commit:
+  nightly:
+    triggers:
+      - schedule:
+        cron: "0 0 * * *"
+        filters:
+          branches:
+            only:
+              - develop
     jobs:
       - build-docker-rust-debian
       - build-docker-rust-alpine
+  commit:
+    jobs:
       - lint
       - clippy
       - test
