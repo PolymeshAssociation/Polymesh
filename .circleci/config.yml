@@ -172,7 +172,7 @@ jobs:
             - "/usr/local/cargo"
   integration-test:
     docker:
-      - image: polymathnet/node:v16
+      - image: node:16-bullseye
     resource_class: medium+
     environment:
       VERBOSE: "1"
