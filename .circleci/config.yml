@@ -282,7 +282,7 @@ jobs:
       IMAGE_NAME: polymeshassociation/rust
     docker:
       - image: docker:stable-git
-    resource_class: small
+    resource_class: medium+
     steps:
       - checkout
       - setup_remote_docker
@@ -300,7 +300,7 @@ jobs:
       IMAGE_NAME: polymeshassociation/rust
     docker:
       - image: docker:stable-git
-    resource_class: small
+    resource_class: medium+
     steps:
       - checkout
       - setup_remote_docker
