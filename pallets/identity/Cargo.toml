@@ -18,8 +18,7 @@ serde_derive = { version = "1.0.104", optional = true, default-features = false 
 either = { version = "1.6.1", default-features = false }
 
 # Cryptography
-confidential_identity = { git = "https://github.com/PolymeshAssociation/cryptography.git", default-features = false, branch = "confidential-identity-v2" }
-confidential_identity_v1 = { package = "confidential_identity", git = "https://github.com/PolymeshAssociation/cryptography.git", default-features = false, branch = "confidential-identity-v1" }
+confidential_identity_v2 = { version = "2.0.0", default-features = false }
 schnorrkel = { version = "0.10.1", default-features = false, optional = true }
 
 # Substrate
@@ -44,12 +43,15 @@ equalize = []
 default = ["std", "equalize"]
 no_cdd = []
 running-ci = []
-no_std = [ "confidential_identity/u64_backend", ]
+no_std = [
+  "confidential_identity_v2/no_std",
+	"confidential_identity_v2/u64_backend",
+]
 only-staking = []
 std = [
     "codec/std",
-    "confidential_identity/std",
-    "confidential_identity/u64_backend",
+    "confidential_identity_v2/std",
+    "confidential_identity_v2/u64_backend",
     "frame-support/std",
     "frame-system/std",
     "pallet-balances/std",

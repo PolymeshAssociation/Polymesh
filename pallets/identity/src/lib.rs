@@ -92,7 +92,7 @@ pub use types::{Claim1stKey, Claim2ndKey, DidStatus, PermissionedCallOriginData,
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
-use confidential_identity::ScopeClaimProof;
+use confidential_identity_v2::ScopeClaimProof;
 use core::convert::From;
 use frame_support::{
     decl_error, decl_module, decl_storage,
