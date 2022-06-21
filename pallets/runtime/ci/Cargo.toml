@@ -52,7 +52,7 @@ pallet-protocol-fee-rpc-runtime-api = { package = "pallet-protocol-fee-rpc-runti
 pallet-contracts-rpc-runtime-api = { version = "4.0.0-dev", default-features = false }
 
 # Crypto
-cryptography_core = { git = "https://github.com/PolymeshAssociation/cryptography.git", default-features = false, branch = "confidential-identity-v1" }
+confidential_identity_core = { version = "1.0.0", default-features = false }
 
 # Others
 lazy_static = { version = "1.4.0", default-features = false }
@@ -109,8 +109,8 @@ default = ["std", "equalize"]
 equalize = []
 
 # Backends
-u64_backend = ["cryptography_core/u64_backend"]
-avx2_backend = ["cryptography_core/avx2_backend"]
+u64_backend = ["confidential_identity_core/u64_backend"]
+avx2_backend = ["confidential_identity_core/avx2_backend"]
 
 migration-dry-run = []
 no_std = ["u64_backend"]

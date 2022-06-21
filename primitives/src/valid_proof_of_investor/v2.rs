@@ -1,8 +1,8 @@
 use crate::{investor_zkproof_data::v2::InvestorZKProofData, CddId, Claim, IdentityId, Scope};
 
-use confidential_identity::{
+use confidential_identity_v2::{
     claim_proofs::{slice_to_scalar, Verifier},
-    cryptography_core::cdd_claim::CddId as CryptoCddId,
+    confidential_identity_core::cdd_claim::CddId as CryptoCddId,
     CompressedRistretto, VerifierTrait as _,
 };
 
