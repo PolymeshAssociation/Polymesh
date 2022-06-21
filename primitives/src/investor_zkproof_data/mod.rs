@@ -1,6 +1,6 @@
 use crate::{IdentityId, InvestorUid, Ticker};
 
-use confidential_identity::ScopeClaimProof;
+use confidential_identity_v2::ScopeClaimProof;
 use schnorrkel::Signature;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};

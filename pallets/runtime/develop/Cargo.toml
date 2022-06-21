@@ -88,7 +88,7 @@ frame-system = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
 
 # Crypto
-cryptography_core = { git = "https://github.com/PolymeshAssociation/cryptography.git", default-features = false, branch = "confidential-identity-v1" }
+confidential_identity_core = { version = "1.0.0", default-features = false }
 
 # RPC
 frame-system-rpc-runtime-api = { version = "4.0.0-dev", default-features = false }
@@ -114,11 +114,11 @@ default = ["std", "equalize"]
 equalize = []
 
 # Backends
-u64_backend = ["cryptography_core/u64_backend"]
-avx2_backend = ["cryptography_core/avx2_backend"]
+u64_backend = ["confidential_identity_core/u64_backend"]
+avx2_backend = ["confidential_identity_core/avx2_backend"]
 
 no_std = [
-    "cryptography_core/no_std",
+    "confidential_identity_core/no_std",
     "u64_backend"
 ]
 
@@ -130,7 +130,7 @@ std = [
     "frame-system-rpc-runtime-api/std",
     "frame-system/std",
     "node-rpc-runtime-api/std",
-    "cryptography_core/std",
+    "confidential_identity_core/std",
     "pallet-asset/std",
     "pallet-authority-discovery/std",
     "pallet-authorship/std",

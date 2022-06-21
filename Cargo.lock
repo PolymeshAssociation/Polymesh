@@ -627,10 +627,11 @@ dependencies = [
 
 [[package]]
 name = "bulletproofs"
-version = "2.0.1"
-source = "git+https://github.com/PolymathNetwork/bulletproofs.git?branch=bump-dalek#dbf5215c1c7c8b30b37e979018340d73678cad29"
+version = "4.0.0"
+source = "git+https://github.com/PolymeshAssociation/bulletproofs?branch=polymesh#def499bb056771bf4986034f8d09d7dc91078563"
 dependencies = [
  "byteorder",
+ "clear_on_drop",
  "curve25519-dalek-ng",
  "digest 0.9.0",
  "merlin 3.0.0",
@@ -641,7 +642,6 @@ dependencies = [
  "sha3 0.9.1",
  "subtle-ng",
  "thiserror",
- "zeroize",
 ]
 
 [[package]]
@@ -897,6 +897,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "clear_on_drop"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38508a63f4979f0048febc9966fadbd48e5dab31fd0ec6a3f151bbf4a74f7423"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "cmake"
 version = "0.1.48"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -915,18 +924,40 @@ dependencies = [
 ]
 
 [[package]]
-name = "confidential_identity"
+name = "confidential_identity_core"
 version = "1.0.0"
-source = "git+https://github.com/PolymeshAssociation/cryptography.git?branch=confidential-identity-v1#7485147c0765c6a0048f561f360c1649b0d78429"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf3c20971d45d23a2eb5909e2dedce60e4736b0223bada9e0b5747c43a78f621"
+dependencies = [
+ "blake2",
+ "bulletproofs",
+ "byteorder",
+ "criterion",
+ "curve25519-dalek-ng",
+ "merlin 3.0.0",
+ "parity-scale-codec 3.1.2",
+ "rand 0.8.5",
+ "rand_core 0.6.3",
+ "serde",
+ "sha3 0.9.1",
+ "sp-std",
+ "zeroize",
+]
+
+[[package]]
+name = "confidential_identity_v1"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a140dd3425471b44b3fc0ab89c6eb8e72c484de0aa80e138ea41b706dbff00f"
 dependencies = [
  "blake2",
  "byteorder",
  "criterion",
  "curve25519-dalek-ng",
- "failure",
  "lazy_static",
  "merlin 3.0.0",
  "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "rand_core 0.6.3",
  "schnorrkel 0.10.2",
  "serde",
@@ -938,16 +969,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "confidential_identity"
-version = "1.1.2"
-source = "git+https://github.com/PolymeshAssociation/cryptography.git?branch=confidential-identity-v2#a01e852dee0b24b450294d92d0833786ac173149"
+name = "confidential_identity_v2"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05b9cef2c3d5d42769ce099822dbea11959f6a38fe4eb9ef2a431eaeaf24a24b"
 dependencies = [
  "blake2",
  "byteorder",
+ "confidential_identity_core",
  "criterion",
- "cryptography_core 1.0.0 (git+https://github.com/PolymeshAssociation/cryptography.git?branch=confidential-identity-v2)",
  "curve25519-dalek-ng",
- "failure",
  "parity-scale-codec 3.1.2",
  "rand 0.8.5",
  "rand_core 0.6.3",
@@ -1223,7 +1254,7 @@ dependencies = [
 name = "crypto-cli"
 version = "1.0.0"
 dependencies = [
- "confidential_identity 1.0.0",
+ "confidential_identity_v1",
  "hex",
  "parity-scale-codec 3.1.2",
  "polymesh-primitives",
@@ -1257,47 +1288,6 @@ checksum = "b1d1a86f49236c215f271d40892d5fc950490551400b02ef360692c29815c714"
 dependencies = [
  "generic-array 0.14.5",
  "subtle",
-]
-
-[[package]]
-name = "cryptography_core"
-version = "1.0.0"
-source = "git+https://github.com/PolymeshAssociation/cryptography.git?branch=confidential-identity-v1#7485147c0765c6a0048f561f360c1649b0d78429"
-dependencies = [
- "bulletproofs",
- "byteorder",
- "criterion",
- "curve25519-dalek-ng",
- "failure",
- "merlin 3.0.0",
- "parity-scale-codec 3.1.2",
- "rand 0.8.5",
- "rand_core 0.6.3",
- "serde",
- "sha3 0.9.1",
- "sp-std",
- "zeroize",
-]
-
-[[package]]
-name = "cryptography_core"
-version = "1.0.0"
-source = "git+https://github.com/PolymeshAssociation/cryptography.git?branch=confidential-identity-v2#a01e852dee0b24b450294d92d0833786ac173149"
-dependencies = [
- "blake2",
- "bulletproofs",
- "byteorder",
- "criterion",
- "curve25519-dalek-ng",
- "failure",
- "merlin 3.0.0",
- "parity-scale-codec 3.1.2",
- "rand 0.8.5",
- "rand_core 0.6.3",
- "serde",
- "sha3 0.9.1",
- "sp-std",
- "zeroize",
 ]
 
 [[package]]
@@ -1784,28 +1774,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e43f2f1833d64e33f15592464d6fdd70f349dda7b1a53088eb83cd94014008c5"
 dependencies = [
  "futures 0.3.21",
-]
-
-[[package]]
-name = "failure"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d32e9bd16cc02eae7db7ef620b392808b89f6a5e16bb3497d159c6b92a0f4f86"
-dependencies = [
- "backtrace",
- "failure_derive",
-]
-
-[[package]]
-name = "failure_derive"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa4da3c766cd7a0db8242e326e9e4e081edd567072893ed320008189715366a4"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
- "synstructure",
 ]
 
 [[package]]
@@ -5198,8 +5166,7 @@ dependencies = [
 name = "pallet-identity"
 version = "0.1.0"
 dependencies = [
- "confidential_identity 1.0.0",
- "confidential_identity 1.1.2",
+ "confidential_identity_v2",
  "either",
  "frame-benchmarking",
  "frame-support",
@@ -5700,7 +5667,7 @@ dependencies = [
 name = "pallet-test-utils"
 version = "0.1.0"
 dependencies = [
- "confidential_identity 1.0.0",
+ "confidential_identity_v1",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -6542,8 +6509,8 @@ version = "2.0.0"
 dependencies = [
  "blake2",
  "chrono",
- "confidential_identity 1.0.0",
- "confidential_identity 1.1.2",
+ "confidential_identity_v1",
+ "confidential_identity_v2",
  "either",
  "frame-support",
  "frame-system",
@@ -6581,7 +6548,7 @@ dependencies = [
 name = "polymesh-runtime-ci"
 version = "0.1.0"
 dependencies = [
- "cryptography_core 1.0.0 (git+https://github.com/PolymeshAssociation/cryptography.git?branch=confidential-identity-v1)",
+ "confidential_identity_core",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -6699,7 +6666,7 @@ dependencies = [
 name = "polymesh-runtime-develop"
 version = "0.1.0"
 dependencies = [
- "cryptography_core 1.0.0 (git+https://github.com/PolymeshAssociation/cryptography.git?branch=confidential-identity-v1)",
+ "confidential_identity_core",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -6786,7 +6753,7 @@ dependencies = [
 name = "polymesh-runtime-mainnet"
 version = "0.1.0"
 dependencies = [
- "cryptography_core 1.0.0 (git+https://github.com/PolymeshAssociation/cryptography.git?branch=confidential-identity-v1)",
+ "confidential_identity_core",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -6871,7 +6838,7 @@ dependencies = [
 name = "polymesh-runtime-testnet"
 version = "0.1.0"
 dependencies = [
- "cryptography_core 1.0.0 (git+https://github.com/PolymeshAssociation/cryptography.git?branch=confidential-identity-v1)",
+ "confidential_identity_core",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -6958,8 +6925,8 @@ name = "polymesh-runtime-tests"
 version = "1.0.0"
 dependencies = [
  "chrono",
- "confidential_identity 1.0.0",
- "cryptography_core 1.0.0 (git+https://github.com/PolymeshAssociation/cryptography.git?branch=confidential-identity-v1)",
+ "confidential_identity_core",
+ "confidential_identity_v1",
  "env_logger 0.7.1",
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -10762,7 +10729,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "digest 0.10.3",
  "rand 0.8.5",
  "static_assertions",
@@ -10965,7 +10932,7 @@ checksum = "e7141e445af09c8919f1d5f8a20dae0b20c3b57a45dee0d5823c6ed5d237f15a"
 dependencies = [
  "bitflags",
  "chrono",
- "rustc_version 0.2.3",
+ "rustc_version 0.4.0",
 ]
 
 [[package]]
