@@ -38,10 +38,10 @@ benchmarks! {
         let itn_acc = itn.account();
 
         // Endow rewards pot with sufficient balance to withdraw from.
-        let _ = T::Currency::deposit_into_existing(&<Rewards<T>>::account_id(), (2 * POLY).try_into().ok().unwrap());
+        let _ = T::Currency::deposit_into_existing(&<Rewards<T>>::account_id(), (2 * ONE_POLY).try_into().ok().unwrap());
 
         // Register a reward for the ITN account.
-        <ItnRewards<T>>::insert(&itn_acc, ItnRewardStatus::Unclaimed(1 * POLY));
+        <ItnRewards<T>>::insert(&itn_acc, ItnRewardStatus::Unclaimed(ONE_POLY));
 
         // Create the signature needed to claim the reward.
         let mut msg = [0u8; 48];
