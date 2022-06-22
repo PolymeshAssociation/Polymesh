@@ -1387,7 +1387,7 @@ impl<T: Config> Module<T> {
             |sum| {
                 <T as Config>::Currency::free_balance(acc)
                     .checked_sub(sum)
-                    .ok_or(Error::<T>::InsufficientDeposit.into())
+                    .ok_or_else(|| Error::<T>::InsufficientDeposit.into())
                     .map(drop)
             },
         )

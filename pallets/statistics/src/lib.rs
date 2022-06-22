@@ -424,7 +424,7 @@ impl<T: Config> Module<T> {
                 // Get the claim.
                 let did_claim = did.and_then(|did| {
                     let claim_scope = key1.claim_scope();
-                    Identity::<T>::fetch_claim(*did, claim_type, issuer, Some(claim_scope.clone()))
+                    Identity::<T>::fetch_claim(*did, claim_type, issuer, Some(claim_scope))
                         .map(|c| c.claim)
                 });
                 Stat2ndKey::new_from(&claim_type, did_claim)
@@ -466,7 +466,7 @@ impl<T: Config> Module<T> {
         amount: Balance,
     ) {
         // No updates needed if the transfer amount is zero.
-        if amount == 0u128.into() {
+        if amount == 0u128 {
             return;
         }
 
