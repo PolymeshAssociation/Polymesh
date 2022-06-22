@@ -50,6 +50,12 @@ impl DocumentHash {
     pub fn len(&self) -> usize {
         self.as_ref().len()
     }
+
+    /// Returns `true` if the hash is `None`.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        matches!(self, Self::None)
+    }
 }
 impl Default for DocumentHash {
     fn default() -> Self {

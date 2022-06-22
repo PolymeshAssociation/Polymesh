@@ -52,14 +52,12 @@ impl TransferCondition {
         let (op, claim_issuer) = match self {
             Self::MaxInvestorCount(_) => (StatOpType::Count, None),
             Self::MaxInvestorOwnership(_) => (StatOpType::Balance, None),
-            Self::ClaimCount(claim, issuer, _, _) => (
-                StatOpType::Count,
-                Some((claim.claim_type(), issuer.clone())),
-            ),
-            Self::ClaimOwnership(claim, issuer, _, _) => (
-                StatOpType::Balance,
-                Some((claim.claim_type(), issuer.clone())),
-            ),
+            Self::ClaimCount(claim, issuer, _, _) => {
+                (StatOpType::Count, Some((claim.claim_type(), *issuer)))
+            }
+            Self::ClaimOwnership(claim, issuer, _, _) => {
+                (StatOpType::Balance, Some((claim.claim_type(), *issuer)))
+            }
         };
         StatType { op, claim_issuer }
     }

@@ -55,7 +55,7 @@ pub struct EcdsaSignature(pub [u8; 65]);
 
 impl PartialEq for EcdsaSignature {
     fn eq(&self, other: &Self) -> bool {
-        &self.0[..] == &other.0[..]
+        self.0[..] == other.0[..]
     }
 }
 
@@ -72,7 +72,7 @@ pub fn eth_check(
     ecdsa_sig: &EcdsaSignature,
 ) -> Option<EthereumAddress> {
     let data = data.using_encoded(to_ascii_hex);
-    eth_recover(&ecdsa_sig, prefix, &data, &[])
+    eth_recover(ecdsa_sig, prefix, &data, &[])
 }
 
 /// Returns a signature for `prefix` combined with `data` as a message,
@@ -105,14 +105,14 @@ fn ethereum_signable_message(prefix: &[u8], what: &[u8], extra: &[u8]) -> Vec<u8
         l /= 10;
     }
     let head = b"\x19Ethereum Signed Message:\n";
-    let len = [head, &rev as &[u8], &prefix, what, extra]
+    let len = [head, &rev as &[u8], prefix, what, extra]
         .iter()
         .map(|p| p.len())
         .sum();
     let mut v = Vec::with_capacity(len);
     v.extend_from_slice(head);
     v.extend(rev.into_iter().rev());
-    v.extend_from_slice(&prefix[..]);
+    v.extend_from_slice(prefix);
     v.extend_from_slice(what);
     v.extend_from_slice(extra);
     v
