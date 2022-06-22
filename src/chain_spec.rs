@@ -230,7 +230,14 @@ type InitialAuth = (
     AuthorityDiscoveryId,
 );
 
-fn adjust_last<'a>(bytes: &'a mut [u8], n: u8) -> &'a str {
+// alias type to make clippy happy.
+type GenesisProcessedData = (
+    Vec<GenesisIdentityRecord<AccountId>>,
+    Vec<(IdentityId, AccountId, AccountId, u128, StakerStatus<AccountId>)>,
+    Vec<BridgeTx<AccountId>>,
+);
+
+fn adjust_last(bytes: &mut [u8], n: u8) -> &str {
     bytes[bytes.len() - 1] = n + b'0';
     core::str::from_utf8(bytes).unwrap()
 }
@@ -276,17 +283,7 @@ fn genesis_processed_data(
     treasury_bridge_lock: BridgeLockId,
     rewards_bridge_lock: BridgeLockId,
     key_bridge_locks: Vec<BridgeLockId>,
-) -> (
-    Vec<GenesisIdentityRecord<AccountId>>,
-    Vec<(
-        IdentityId,
-        AccountId,
-        AccountId,
-        u128,
-        StakerStatus<AccountId>,
-    )>,
-    Vec<BridgeTx<AccountId>>,
-) {
+) -> GenesisProcessedData {
     // Identities and their roles
     // 1 = [Polymath] GenesisCouncil (1 of 3) + UpgradeCommittee (1 of 1) + TechnicalCommittee (1 of 1) + GCReleaseCoordinator
     // 2 = GenesisCouncil (2 of 3)
@@ -403,17 +400,7 @@ fn dev_genesis_processed_data(
     rewards_bridge_lock: BridgeLockId,
     key_bridge_locks: Vec<BridgeLockId>,
     other_funded_accounts: Vec<AccountId>,
-) -> (
-    GenesisIdentityRecord<AccountId>,
-    Vec<(
-        IdentityId,
-        AccountId,
-        AccountId,
-        u128,
-        StakerStatus<AccountId>,
-    )>,
-    Vec<BridgeTx<AccountId>>,
-) {
+) -> GenesisProcessedData {
     let mut identity = GenesisIdentityRecord::new(1u8, initial_authorities[0].0.clone());
 
     let mut stakers = Vec::with_capacity(initial_authorities.len());
@@ -480,7 +467,7 @@ fn dev_genesis_processed_data(
     // The 0th key is the primary key
     identity.secondary_keys.remove(0);
 
-    (identity, stakers, complete_txs)
+    (vec![identity], stakers, complete_txs)
 }
 
 fn bridge_signers() -> Vec<Signatory<AccountId>> {
@@ -630,7 +617,7 @@ pub mod general {
         key_bridge_locks: Vec<BridgeLockId>,
         other_funded_accounts: Vec<AccountId>,
     ) -> rt::runtime::GenesisConfig {
-        let (identity, stakers, complete_txs) = dev_genesis_processed_data(
+        let (identities, stakers, complete_txs) = dev_genesis_processed_data(
             &initial_authorities,
             treasury_bridge_lock,
             rewards_bridge_lock,
@@ -643,7 +630,7 @@ pub mod general {
             asset: asset!(),
             checkpoint: checkpoint!(),
             identity: pallet_identity::GenesisConfig {
-                identities: vec![identity],
+                identities,
                 ..Default::default()
             },
             balances: Default::default(),
@@ -818,7 +805,7 @@ pub mod testnet {
                 signatures_required: 3,
                 signers: bridge_signers(),
                 timelock: time::MINUTES * 15,
-                bridge_limit: (30_000 * ONE_POLY, 1 * time::DAYS),
+                bridge_limit: (30_000 * ONE_POLY, time::DAYS),
                 complete_txs,
             },
             indices: pallet_indices::GenesisConfig { indices: vec![] },
