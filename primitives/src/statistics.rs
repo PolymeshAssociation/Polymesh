@@ -239,12 +239,19 @@ pub mod v1 {
     /// Wrapper around `sp_arithmetic::Permill`
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
     #[derive(Decode, Encode, TypeInfo)]
-    #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
+    #[derive(Copy, Clone, Debug, Eq, PartialOrd, Ord, Default)]
     pub struct HashablePermill(pub sp_arithmetic::Permill);
 
     impl Hash for HashablePermill {
         fn hash<H: Hasher>(&self, state: &mut H) {
             state.write(&self.0.deconstruct().to_le_bytes())
+        }
+    }
+
+    // Keep clippy happy.
+    impl PartialEq for HashablePermill {
+        fn eq(&self, other: &Self) -> bool {
+            self.0.eq(&other.0)
         }
     }
 
