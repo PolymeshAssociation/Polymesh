@@ -11,6 +11,12 @@ pub(crate) fn impl_slice_u8_strong_typed(ast: &syn::DeriveInput) -> TokenStream 
                 self.0.len()
             }
 
+            /// Returns `true` if there are no elements.
+            #[inline]
+            pub fn is_empty(&self) -> bool {
+                self.0.is_empty()
+            }
+
             /// Extracts a slice containing the entire content.
             #[inline]
             pub fn as_slice(&self) -> &[u8] {
