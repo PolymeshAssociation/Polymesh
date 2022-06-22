@@ -82,7 +82,7 @@ impl From<v1::TransferManager> for TransferCondition {
     fn from(old: v1::TransferManager) -> Self {
         match old {
             v1::TransferManager::CountTransferManager(max) => Self::MaxInvestorCount(max),
-            v1::TransferManager::PercentageTransferManager(max) => Self::MaxInvestorOwnership(max),
+            v1::TransferManager::PercentageTransferManager(max) => Self::MaxInvestorOwnership(max.0),
         }
     }
 }

@@ -596,7 +596,7 @@ impl<T: Config> Module<T> {
     ) -> bool {
         let new_percentage =
             sp_arithmetic::Permill::from_rational(receiver_balance + value, total_supply);
-        new_percentage <= *max_percentage
+        new_percentage <= max_percentage
     }
 
     /// Verify claim % ownership restrictions.
@@ -632,7 +632,7 @@ impl<T: Config> Module<T> {
                     total_supply,
                 );
                 // Check new % ownership is less then maximum.
-                new_percentage <= *max_percentage
+                new_percentage <= max_percentage
             }
             (true, false) => {
                 // Only the sender has the claim.
@@ -645,7 +645,7 @@ impl<T: Config> Module<T> {
                     total_supply,
                 );
                 // Check new % ownership is more then the minimum.
-                new_percentage >= *min_percentage
+                new_percentage >= min_percentage
             }
         }
     }
@@ -839,16 +839,7 @@ mod migration {
 
     mod v1 {
         use super::*;
-        use scale_info::TypeInfo;
-
-        pub type Counter = u64;
-
-        #[derive(Decode, Encode, TypeInfo)]
-        #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-        pub enum TransferManager {
-            CountTransferManager(Counter),
-            PercentageTransferManager(Percentage),
-        }
+        pub use polymesh_primitives::statistics::v1::*;
 
         decl_storage! {
             trait Store for Module<T: Config> as Statistics {
@@ -886,7 +877,7 @@ mod migration {
                                 TransferCondition::MaxInvestorCount(max)
                             }
                             v1::TransferManager::PercentageTransferManager(max) => {
-                                TransferCondition::MaxInvestorOwnership(max)
+                                TransferCondition::MaxInvestorOwnership(max.0)
                             }
                         };
 
