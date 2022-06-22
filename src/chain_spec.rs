@@ -233,7 +233,13 @@ type InitialAuth = (
 // alias type to make clippy happy.
 type GenesisProcessedData = (
     Vec<GenesisIdentityRecord<AccountId>>,
-    Vec<(IdentityId, AccountId, AccountId, u128, StakerStatus<AccountId>)>,
+    Vec<(
+        IdentityId,
+        AccountId,
+        AccountId,
+        u128,
+        StakerStatus<AccountId>,
+    )>,
     Vec<BridgeTx<AccountId>>,
 );
 

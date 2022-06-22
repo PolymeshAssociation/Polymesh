@@ -332,8 +332,14 @@ pub trait WeightInfo {
     fn add_and_affirm_instruction_with_settle_on_block_type(u: u32) -> Weight;
 }
 
-type EnsureValidInstructionResult<AccountId, Moment, BlockNumber> =
-    Result<(IdentityId, Option<SecondaryKey<AccountId>>, Instruction<Moment, BlockNumber>), DispatchError>;
+type EnsureValidInstructionResult<AccountId, Moment, BlockNumber> = Result<
+    (
+        IdentityId,
+        Option<SecondaryKey<AccountId>>,
+        Instruction<Moment, BlockNumber>,
+    ),
+    DispatchError,
+>;
 
 decl_event!(
     pub enum Event<T>

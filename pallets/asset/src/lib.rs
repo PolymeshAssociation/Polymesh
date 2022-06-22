@@ -1654,10 +1654,7 @@ impl<T: Config> Module<T> {
 
     /// Ensure `supply <= MAX_SUPPLY`.
     fn ensure_within_max_supply(supply: Balance) -> DispatchResult {
-        ensure!(
-            supply <= MAX_SUPPLY,
-            Error::<T>::TotalSupplyAboveLimit
-        );
+        ensure!(supply <= MAX_SUPPLY, Error::<T>::TotalSupplyAboveLimit);
         Ok(())
     }
 
