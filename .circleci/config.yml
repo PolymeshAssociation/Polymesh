@@ -252,9 +252,61 @@ jobs:
           docker build -f ./.docker/Dockerfile.distroless --tag $IMAGE_NAME:$CIRCLE_BRANCH-distroless --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-distroless .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
           docker push $IMAGE_NAME
+  build-docker-rust-debian:
+    environment:
+      RUST_BASE: 1.61.0
+      IMAGE_NAME: polymeshassociation/rust
+    docker:
+      - image: docker:stable-git
+    resource_class: small
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 20.10.14
+      - run: |
+          export NIGHTLY=`date "+nightly-%Y-%m-%d"`
+          docker build -f ./.docker/rust-nightly/Dockerfile.debian \
+            --build-arg rustbase=$RUST_BASE \
+            --build-arg toolchainversion=$NIGHTLY \
+            --tag $IMAGE_NAME:latest \
+            --tag $IMAGE_NAME:debian --tag $IMAGE_NAME:debian-latest \
+            --tag $IMAGE_NAME:debian-$NIGHTLY .
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker push $IMAGE_NAME
+  build-docker-rust-alpine:
+    environment:
+      RUST_BASE: 1.61.0
+      IMAGE_NAME: polymeshassociation/rust
+    docker:
+      - image: docker:stable-git
+    resource_class: small
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 20.10.14
+      - run: |
+          export NIGHTLY=`date "+nightly-%Y-%m-%d"`
+          docker build -f ./.docker/rust-nightly/Dockerfile.alpine \
+            --build-arg rustbase=$RUST_BASE \
+            --build-arg toolchainversion=$NIGHTLY \
+            --tag $IMAGE_NAME:alpine --tag $IMAGE_NAME:alpine-latest \
+            --tag $IMAGE_NAME:alpine-$NIGHTLY .
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker push $IMAGE_NAME
 
 workflows:
   version: 2
+  nightly:
+    triggers:
+      - schedule:
+          cron: "0 0 * * *"
+          filters:
+            branches:
+              only:
+                - develop
+    jobs:
+      - build-docker-rust-debian
+      - build-docker-rust-alpine
   commit:
     jobs:
       - lint
