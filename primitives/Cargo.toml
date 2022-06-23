@@ -23,6 +23,7 @@ blake2 = { version = "0.10.2", default-features = false }
 confidential_identity_v1 = { version = "1.0.0", default-features = false }
 confidential_identity_v2 = { version = "2.0.0", default-features = false }
 schnorrkel = { version = "0.10.1", default-features = false }
+clear_on_drop = { version = "0.2.5", default-features = false }
 
 
 # Substrate
@@ -53,6 +54,7 @@ u64_backend = [ "confidential_identity_v1/u64_backend", "schnorrkel/u64_backend"
 avx2_backend = [ "confidential_identity_v1/avx2_backend", "schnorrkel/avx2_backend"]
 
 no_std = [
+	"clear_on_drop/no_cc",
 	"confidential_identity_v1/no_std",
 	"confidential_identity_v2/no_std"
 ]
