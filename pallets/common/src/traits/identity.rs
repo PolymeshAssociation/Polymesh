@@ -136,6 +136,7 @@ pub trait WeightInfo {
     fn add_investor_uniqueness_claim() -> Weight;
     fn add_investor_uniqueness_claim_v2() -> Weight;
     fn revoke_claim_by_index() -> Weight;
+    fn register_custom_claim_type(n: u32) -> Weight;
 
     /// Add complexity cost of Permissions to `add_secondary_keys_with_authorization` extrinsic.
     fn add_secondary_keys_full_v1<AccountId>(

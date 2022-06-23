@@ -208,7 +208,7 @@ impl<T: Config> Module<T> {
         claim: Claim,
         issuer: IdentityId,
         expiry: Option<T::Moment>,
-    ) {
+    ) -> DispatchResult{
         let inner_scope = claim.as_scope().cloned();
         Self::base_add_claim_with_scope(target, claim, inner_scope, issuer, expiry)
     }
@@ -220,8 +220,15 @@ impl<T: Config> Module<T> {
         scope: Option<Scope>,
         issuer: IdentityId,
         expiry: Option<T::Moment>,
-    ) {
+    ) -> DispatchResult {
         let claim_type = claim.claim_type();
+        if let ClaimType::Custom(id) = claim_type {
+            ensure!(
+                CustomClaims::contains_key(id),
+                Error::<T>::CustomClaimTypeDoesNotExist
+            );
+        }
+
         let last_update_date = <pallet_timestamp::Pallet<T>>::get().saturated_into::<u64>();
         let issuance_date = Self::fetch_claim(target, claim_type, issuer, scope.clone())
             .map_or(last_update_date, |id_claim| id_claim.issuance_date);
@@ -236,10 +243,9 @@ impl<T: Config> Module<T> {
             claim,
         };
 
-        //todo(CJP10): We should check if a claim with a custom claim type is being added with a
-        // non-valid id.
         Claims::insert(&pk, &sk, id_claim.clone());
         Self::deposit_event(RawEvent::ClaimAdded(target, id_claim));
+        Ok(())
     }
 
     /// Returns claim keys.
@@ -268,8 +274,7 @@ impl<T: Config> Module<T> {
         // Ensure cdd_id uniqueness for a given target DID.
         Self::ensure_cdd_id_validness(&claim, target)?;
 
-        Self::base_add_claim(target, claim, issuer, expiry);
-        Ok(())
+        Self::base_add_claim(target, claim, issuer, expiry)
     }
 
     /// Enforce CDD_ID uniqueness for a given target DID.
@@ -544,10 +549,10 @@ impl<T: Config> Module<T> {
         });
     }
 
-    fn base_register_custom_claim_type(origin: T::Origin, ty: Vec<u8>) -> DispatchResult {
+    pub fn base_register_custom_claim_type(origin: T::Origin, ty: Vec<u8>) -> DispatchResult {
         let did = Self::ensure_perms(origin)?;
         let id = Self::unsafe_register_custom_claim_type(ty.clone())?;
-        Event::<T>::CustomClaimTypeAdded(did, id, ty);
+        Self::deposit_event(Event::<T>::CustomClaimTypeAdded(did, id, ty));
         Ok(())
     }
 

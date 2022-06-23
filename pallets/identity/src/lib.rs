@@ -570,6 +570,17 @@ decl_module! {
         pub fn remove_secondary_keys(origin, keys_to_remove: Vec<T::AccountId>) {
             Self::base_remove_secondary_keys(origin, keys_to_remove)?;
         }
+
+        /// Register custom claim type.
+        ///
+        /// # Errors
+        /// * `CustomClaimTypeAlreadyExists` The type that is being registered already exists.
+        /// * `CounterOverflow` CustomClaimTypeId has overflowed.
+        /// * `TooLong` The type being registered is too lang.
+        #[weight = <T as Config>::WeightInfo::register_custom_claim_type(ty.len() as u32)]
+        pub fn register_custom_claim_type(origin, ty: Vec<u8>) {
+            Self::base_register_custom_claim_type(origin, ty)?;
+        }
     }
 }
 
@@ -643,7 +654,9 @@ decl_error! {
         /// It can at most be `32` characters long.
         CustomScopeTooLong,
         /// The custom claim type trying to be registered already exists.
-        CustomClaimTypeAlreadyExists
+        CustomClaimTypeAlreadyExists,
+       /// The custom claim type does not exist.
+        CustomClaimTypeDoesNotExist,
     }
 }
 

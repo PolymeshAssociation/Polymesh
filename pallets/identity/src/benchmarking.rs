@@ -420,4 +420,16 @@ benchmarks! {
     add_investor_uniqueness_claim_v2 {
         let (caller, scope, claim, proof) = setup_investor_uniqueness_claim_v2::<T>("caller");
     }: _(caller.origin, caller.did(), scope, claim, proof.0, Some(666u32.into()))
+
+    register_custom_claim_type {
+        let n in 1 .. T::MaxLen::get() as u32;
+
+        let id = Module::<T>::custom_type_id_seq();
+        let caller = user::<T>("caller", 0);
+        let ty = vec![b'X'; n as usize];
+    }: _(caller.origin, ty)
+    verify {
+        assert_ne!(id, Module::<T>::custom_claim_id_seq());
+    }
+
 }
