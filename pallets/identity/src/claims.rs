@@ -378,8 +378,7 @@ impl<T: Config> Module<T> {
         }
 
         let scope = Some(scope.clone());
-        Self::base_add_claim_with_scope(target, claim, scope, issuer, expiry);
-        Ok(())
+        Self::base_add_claim_with_scope(target, claim, scope, issuer, expiry)
     }
 
     /// It removes a claim from `target` which was issued by `issuer` without any security check.
@@ -533,7 +532,7 @@ impl<T: Config> Module<T> {
         for new_member in targets {
             let cdd_id = CddId::new_v1(new_member.clone(), InvestorUid::from(new_member.as_ref()));
             let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
-            Self::base_add_claim(*new_member, cdd_claim, issuer.as_id(), None);
+            let _ = Self::base_add_claim(*new_member, cdd_claim, issuer.as_id(), None);
         }
     }
 

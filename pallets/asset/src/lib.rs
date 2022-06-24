@@ -991,7 +991,7 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::Origin> for Module<T> {
             ),
             did,
             None,
-        );
+        ).unwrap();
         let current_balance = Self::balance_of(ticker, did);
         AggregateBalance::insert(ticker, &did, current_balance);
         BalanceOfAtScope::insert(did, did, current_balance);

@@ -58,7 +58,7 @@ where
     let investor_uid = make_investor_uid(did.as_bytes());
     let cdd_id = make_cdd_id(did, investor_uid.clone());
     let cdd_claim = Claim::CustomerDueDiligence(cdd_id.clone());
-    Module::<T>::base_add_claim(did, cdd_claim, GC_DID, None);
+    Module::<T>::base_add_claim(did, cdd_claim, GC_DID, None).unwrap();
 
     // Create the scope.
     let ticker = Ticker::default();
@@ -424,7 +424,7 @@ benchmarks! {
     register_custom_claim_type {
         let n in 1 .. T::MaxLen::get() as u32;
 
-        let id = Module::<T>::custom_type_id_seq();
+        let id = Module::<T>::custom_claim_id_seq();
         let caller = user::<T>("caller", 0);
         let ty = vec![b'X'; n as usize];
     }: _(caller.origin, ty)
