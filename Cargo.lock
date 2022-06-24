@@ -6497,6 +6497,7 @@ version = "5.0.0"
 dependencies = [
  "blake2",
  "chrono",
+ "clear_on_drop",
  "confidential_identity_v1",
  "confidential_identity_v2",
  "either",
