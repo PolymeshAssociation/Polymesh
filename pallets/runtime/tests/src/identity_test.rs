@@ -13,13 +13,12 @@ use super::{
 use codec::Encode;
 use confidential_identity::mocked::make_investor_uid as make_investor_uid_v2;
 use frame_support::{
-    assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency, StorageDoubleMap, StorageValue, StorageMap
+    assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency, StorageDoubleMap,
+    StorageMap, StorageValue,
 };
 use pallet_asset::SecurityToken;
 use pallet_balances as balances;
-use pallet_identity::{
-    CustomClaimIdSequence, CustomClaims, CustomClaimsInverse,
-};
+use pallet_identity::{CustomClaimIdSequence, CustomClaims, CustomClaimsInverse};
 use polymesh_common_utilities::{
     asset::AssetSubTrait,
     constants::currency::POLY,

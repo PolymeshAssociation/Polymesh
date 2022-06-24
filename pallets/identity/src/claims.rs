@@ -208,7 +208,7 @@ impl<T: Config> Module<T> {
         claim: Claim,
         issuer: IdentityId,
         expiry: Option<T::Moment>,
-    ) -> DispatchResult{
+    ) -> DispatchResult {
         let inner_scope = claim.as_scope().cloned();
         Self::base_add_claim_with_scope(target, claim, inner_scope, issuer, expiry)
     }

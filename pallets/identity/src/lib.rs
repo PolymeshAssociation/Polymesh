@@ -116,9 +116,9 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     investor_zkproof_data::v1::InvestorZKProofData, storage_migrate_on, storage_migration_ver,
-    Authorization, AuthorizationData, AuthorizationType, CddId, Claim, ClaimType, CustomClaimTypeId,
-    DidRecord, IdentityClaim, IdentityId, KeyRecord, Permissions, Scope, SecondaryKey, Signatory,
-    Ticker,
+    Authorization, AuthorizationData, AuthorizationType, CddId, Claim, ClaimType,
+    CustomClaimTypeId, DidRecord, IdentityClaim, IdentityId, KeyRecord, Permissions, Scope,
+    SecondaryKey, Signatory, Ticker,
 };
 use sp_runtime::traits::Hash;
 use sp_std::{convert::TryFrom, prelude::*};
