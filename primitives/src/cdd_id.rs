@@ -1,8 +1,8 @@
 use crate::{investor_zkproof_data::v1, IdentityId};
 
 use codec::{Decode, Encode};
-use confidential_identity as v2;
 use confidential_identity_v1 as ci_v1;
+use confidential_identity_v2 as v2;
 use polymesh_primitives_derive::SliceU8StrongTyped;
 #[cfg(feature = "std")]
 use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongTyped};

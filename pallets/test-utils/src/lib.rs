@@ -147,7 +147,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::mock_cdd_register_did()]
         pub fn mock_cdd_register_did(origin, target_account: T::AccountId) {
             let (cdd_did, target_did) = Identity::<T>::base_cdd_register_did(origin, target_account, vec![])?;
-            let target_uid = confidential_identity::mocked::make_investor_uid(target_did.as_bytes());
+            let target_uid = confidential_identity_v1::mocked::make_investor_uid(target_did.as_bytes());
 
             // Add CDD claim for the target
             let cdd_claim = Claim::CustomerDueDiligence(CddId::new_v1(target_did, target_uid.clone().into()));

@@ -11,7 +11,7 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use confidential_identity::mocked::make_investor_uid as make_investor_uid_v2;
+use confidential_identity_v1::mocked::make_investor_uid;
 use frame_support::{
     assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency, StorageDoubleMap,
     StorageMap, StorageValue,
@@ -580,9 +580,9 @@ fn do_add_secondary_keys_with_permissions_test() {
         AuthorizationData::JoinIdentity(permissions.clone()),
         None,
     );
-    assert_noop!(
+    assert_eq!(
         Identity::join_identity(bob.origin(), auth_id),
-        Error::AlreadyLinked
+        Err(Error::AlreadyLinked.into()),
     );
 
     // Try addind the same secondary_key using `add_secondary_keys_with_authorization`
@@ -923,9 +923,9 @@ fn enforce_uniqueness_keys_in_identity() {
         AuthorizationData::JoinIdentity(Permissions::empty()),
         None,
     );
-    assert_noop!(
+    assert_eq!(
         Identity::join_identity(bob.origin(), auth_id),
-        Error::AlreadyLinked
+        Err(Error::AlreadyLinked.into()),
     );
 }
 
@@ -1270,12 +1270,12 @@ fn changing_primary_key_we() {
 
     // In the case of a key belong to key DID for which we're rotating, we don't allow rotation.
     let auth = add(alice.ring);
-    assert_noop!(accept(alice.ring, auth), Error::AlreadyLinked);
+    assert_eq!(accept(alice.ring, auth), Err(Error::AlreadyLinked.into()));
 
     // Add and accept auth with new key to become new primary key.
     // Unfortunately, the new key is still linked to Bob's DID.
     let auth = add(bob.ring);
-    assert_noop!(accept(bob.ring, auth), Error::AlreadyLinked);
+    assert_eq!(accept(bob.ring, auth), Err(Error::AlreadyLinked.into()));
 
     // Do it again, but for Charlie, who isn't attached to a DID.
     // Alice's primary key will be Charlie's.'
@@ -1387,7 +1387,10 @@ fn rotating_primary_key_to_secondary_we() {
         AuthorizationData::RotatePrimaryKeyToSecondary(Permissions::default()),
         None,
     );
-    assert_noop!(rotate(bob.origin(), bob_rotate_auth), Error::AlreadyLinked);
+    assert_eq!(
+        rotate(bob.origin(), bob_rotate_auth),
+        Err(Error::AlreadyLinked.into())
+    );
 
     let charlie_rotate_auth = Identity::add_auth(
         alice.did,
@@ -1573,9 +1576,9 @@ fn add_identity_signers() {
         );
         assert_eq!(authorizations.len(), 1);
 
-        assert_noop!(
+        assert_eq!(
             Identity::join_identity(bob.origin(), auth_id_for_acc2_to_id),
-            Error::AlreadyLinked
+            Err(Error::AlreadyLinked.into()),
         );
 
         let auth_id_for_acc1_to_acc = add_auth(alice, dave.signatory_acc());
@@ -1587,9 +1590,9 @@ fn add_identity_signers() {
 
         let auth_id_for_acc2_to_acc = add_auth(charlie, dave.signatory_acc());
 
-        assert_noop!(
+        assert_eq!(
             Identity::join_identity(dave.origin(), auth_id_for_acc2_to_acc),
-            Error::AlreadyLinked
+            Err(Error::AlreadyLinked.into()),
         );
 
         let alice_secondary_keys = get_secondary_keys(alice.did);
@@ -2006,7 +2009,7 @@ fn add_investor_uniqueness_claim_v2_data(
 )> {
     let ticker = Ticker::default();
     let did = Identity::get_identity(&user).unwrap();
-    let investor: InvestorUid = make_investor_uid_v2(did.as_bytes()).into();
+    let investor: InvestorUid = make_investor_uid(did.as_bytes()).into();
     let cdd_id = CddId::new_v2(did, investor.clone());
     let proof = v2::InvestorZKProofData::new(&did, &investor, &ticker);
     let claim = Claim::InvestorUniquenessV2(cdd_id);

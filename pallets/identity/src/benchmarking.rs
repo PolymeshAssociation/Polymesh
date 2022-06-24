@@ -15,8 +15,7 @@
 
 use crate::*;
 
-use confidential_identity::mocked::make_investor_uid as make_investor_uid_v2;
-use confidential_identity_v1::mocked::make_investor_uid as make_investor_uid_v1;
+use confidential_identity_v2::mocked::make_investor_uid;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 use polymesh_common_utilities::{
@@ -78,7 +77,7 @@ where
 {
     setup_investor_uniqueness_claim_common::<T, _, _, _, _, _, _>(
         name,
-        |raw_did| make_investor_uid_v2(raw_did).into(),
+        |raw_did| make_investor_uid(raw_did).into(),
         CddId::new_v2,
         v2::InvestorZKProofData::make_scope_id,
         |_scope, _scope_id, cdd_id| Claim::InvestorUniquenessV2(cdd_id),
@@ -112,7 +111,7 @@ where
 
     setup_investor_uniqueness_claim_common::<T, _, _, _, _, _, _>(
         name,
-        |raw_did| make_investor_uid_v1(raw_did).into(),
+        |raw_did| make_investor_uid(raw_did).into(),
         CddId::new_v1,
         v1::InvestorZKProofData::make_scope_id,
         |scope, scope_id, cdd_id| Claim::InvestorUniqueness(scope, scope_id, cdd_id),
