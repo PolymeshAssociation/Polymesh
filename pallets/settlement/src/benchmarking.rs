@@ -330,7 +330,8 @@ pub fn setup_conditions<T: Config>(
                     claim.clone(),
                     trusted_issuer.issuer,
                     None,
-                ).unwrap();
+                )
+                .unwrap();
             }
             Condition::new(
                 ConditionType::IsPresent(claim),
