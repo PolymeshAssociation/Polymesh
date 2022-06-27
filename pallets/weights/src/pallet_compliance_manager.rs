@@ -71,10 +71,10 @@ impl pallet_compliance_manager::WeightInfo for WeightInfo {
     // Storage: ComplianceManager TrustedClaimIssuer (r:1 w:0)
     // Storage: ProtocolFee Coefficient (r:1 w:0)
     // Storage: ProtocolFee BaseFees (r:1 w:0)
-    fn add_compliance_requirement(s: u32, _r: u32) -> Weight {
+    fn add_compliance_requirement(c: u32) -> Weight {
         (123_897_000 as Weight)
             // Standard Error: 2_535_000
-            .saturating_add((563_000 as Weight).saturating_mul(s as Weight))
+            .saturating_add((563_000 as Weight).saturating_mul(c as Weight))
             .saturating_add(DbWeight::get().reads(8 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
@@ -136,10 +136,10 @@ impl pallet_compliance_manager::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: ComplianceManager AssetCompliances (r:1 w:1)
     // Storage: ComplianceManager TrustedClaimIssuer (r:1 w:0)
-    fn change_compliance_requirement(s: u32, _r: u32) -> Weight {
+    fn change_compliance_requirement(c: u32) -> Weight {
         (108_265_000 as Weight)
             // Standard Error: 1_527_000
-            .saturating_add((788_000 as Weight).saturating_mul(s as Weight))
+            .saturating_add((788_000 as Weight).saturating_mul(c as Weight))
             .saturating_add(DbWeight::get().reads(6 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
