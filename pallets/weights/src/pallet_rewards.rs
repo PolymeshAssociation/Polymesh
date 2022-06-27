@@ -48,10 +48,11 @@
 #![allow(unused_imports)]
 
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
+use sp_std::marker::PhantomData;
 
 /// Weights for pallet_rewards using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_rewards::WeightInfo for WeightInfo {
+pub struct WeightInfo<T>(PhantomData<T>);
+impl<T: frame_system::Config> pallet_rewards::WeightInfo for WeightInfo<T> {
     // Storage: Rewards ItnRewards (r:1 w:1)
     // Storage: unknown [0x3a7472616e73616374696f6e5f6c6576656c3a] (r:1 w:1)
     // Storage: Identity KeyRecords (r:2 w:0)

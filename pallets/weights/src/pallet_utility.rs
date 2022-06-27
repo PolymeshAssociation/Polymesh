@@ -47,85 +47,47 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
+use polymesh_runtime_common::GetDispatchInfo;
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
+
+fn sum_weights(calls: &[impl GetDispatchInfo]) -> Weight {
+    calls
+        .iter()
+        .map(|call| call.get_dispatch_info().weight)
+        .fold(0 as Weight, |a: Weight, n| a.saturating_add(n))
+}
 
 /// Weights for pallet_utility using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_utility::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentPalletName (r:1 w:1)
     // Storage: Permissions CurrentDispatchableName (r:1 w:1)
-    fn batch(c: u32, ) -> Weight {
+    fn batch(calls: &[impl GetDispatchInfo]) -> Weight {
         (38_672_000 as Weight)
             // Standard Error: 438_000
-            .saturating_add((13_845_000 as Weight).saturating_mul(c as Weight))
+            .saturating_add(sum_weights(calls))
             .saturating_add(DbWeight::get().reads(2 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
-    }
-    // Storage: Permissions CurrentPalletName (r:1 w:1)
-    // Storage: Permissions CurrentDispatchableName (r:1 w:1)
-    // Storage: Identity KeyRecords (r:2 w:0)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Storage: Instance2Group ActiveMembers (r:1 w:0)
-    // Storage: Instance2Group InactiveMembers (r:1 w:0)
-    // Storage: Identity Claims (r:2 w:0)
-    // Storage: System Account (r:2 w:2)
-    fn batch_transfer(c: u32, ) -> Weight {
-        (113_827_000 as Weight)
-            // Standard Error: 477_000
-            .saturating_add((55_476_000 as Weight).saturating_mul(c as Weight))
-            .saturating_add(DbWeight::get().reads(10 as Weight))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
     }
     // Storage: unknown [0x3a7472616e73616374696f6e5f6c6576656c3a] (r:1 w:1)
     // Storage: Permissions CurrentPalletName (r:1 w:1)
     // Storage: Permissions CurrentDispatchableName (r:1 w:1)
-    fn batch_atomic(c: u32, ) -> Weight {
+    fn batch_atomic(calls: &[impl GetDispatchInfo]) -> Weight {
         (49_113_000 as Weight)
             // Standard Error: 165_000
-            .saturating_add((13_565_000 as Weight).saturating_mul(c as Weight))
+            .saturating_add(sum_weights(calls))
             .saturating_add(DbWeight::get().reads(3 as Weight))
             .saturating_add(DbWeight::get().writes(3 as Weight))
     }
-    // Storage: unknown [0x3a7472616e73616374696f6e5f6c6576656c3a] (r:1 w:1)
     // Storage: Permissions CurrentPalletName (r:1 w:1)
     // Storage: Permissions CurrentDispatchableName (r:1 w:1)
-    // Storage: Identity KeyRecords (r:2 w:0)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Storage: Instance2Group ActiveMembers (r:1 w:0)
-    // Storage: Instance2Group InactiveMembers (r:1 w:0)
-    // Storage: Identity Claims (r:2 w:0)
-    // Storage: System Account (r:2 w:2)
-    fn batch_atomic_transfer(c: u32, ) -> Weight {
-        (83_189_000 as Weight)
-            // Standard Error: 706_000
-            .saturating_add((59_212_000 as Weight).saturating_mul(c as Weight))
-            .saturating_add(DbWeight::get().reads(11 as Weight))
-            .saturating_add(DbWeight::get().writes(5 as Weight))
-    }
-    // Storage: Permissions CurrentPalletName (r:1 w:1)
-    // Storage: Permissions CurrentDispatchableName (r:1 w:1)
-    fn batch_optimistic(c: u32, ) -> Weight {
+    fn batch_optimistic(calls: &[impl GetDispatchInfo]) -> Weight {
         (27_520_000 as Weight)
             // Standard Error: 546_000
-            .saturating_add((14_868_000 as Weight).saturating_mul(c as Weight))
+            .saturating_add(sum_weights(calls))
             .saturating_add(DbWeight::get().reads(2 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
     }
-    // Storage: Permissions CurrentPalletName (r:1 w:1)
-    // Storage: Permissions CurrentDispatchableName (r:1 w:1)
-    // Storage: Identity KeyRecords (r:2 w:0)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Storage: Instance2Group ActiveMembers (r:1 w:0)
-    // Storage: Instance2Group InactiveMembers (r:1 w:0)
-    // Storage: Identity Claims (r:2 w:0)
-    // Storage: System Account (r:2 w:2)
-    fn batch_optimistic_transfer(c: u32, ) -> Weight {
-        (149_521_000 as Weight)
-            // Standard Error: 1_178_000
-            .saturating_add((54_967_000 as Weight).saturating_mul(c as Weight))
-            .saturating_add(DbWeight::get().reads(10 as Weight))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
-    }
     // Storage: Identity KeyRecords (r:2 w:0)
     // Storage: Utility Nonces (r:1 w:1)
     // Storage: Timestamp Now (r:1 w:0)
@@ -134,23 +96,10 @@ impl pallet_utility::WeightInfo for WeightInfo {
     // Storage: Identity Claims (r:2 w:0)
     // Storage: Permissions CurrentPalletName (r:1 w:1)
     // Storage: Permissions CurrentDispatchableName (r:1 w:1)
-    fn relay_tx() -> Weight {
+    fn relay_tx(call: &impl GetDispatchInfo) -> Weight {
         (167_964_000 as Weight)
+            .saturating_add(call.get_dispatch_info().weight)
             .saturating_add(DbWeight::get().reads(10 as Weight))
             .saturating_add(DbWeight::get().writes(3 as Weight))
-    }
-    // Storage: Identity KeyRecords (r:2 w:0)
-    // Storage: Utility Nonces (r:1 w:1)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Storage: Instance2Group ActiveMembers (r:1 w:0)
-    // Storage: Instance2Group InactiveMembers (r:1 w:0)
-    // Storage: Identity Claims (r:4 w:0)
-    // Storage: Permissions CurrentPalletName (r:1 w:1)
-    // Storage: Permissions CurrentDispatchableName (r:1 w:1)
-    // Storage: System Account (r:2 w:2)
-    fn relay_tx_transfer() -> Weight {
-        (254_659_000 as Weight)
-            .saturating_add(DbWeight::get().reads(14 as Weight))
-            .saturating_add(DbWeight::get().writes(5 as Weight))
     }
 }

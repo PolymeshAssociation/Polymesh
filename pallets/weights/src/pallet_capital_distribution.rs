@@ -51,7 +51,7 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_capital_distribution using the Substrate node and recommended hardware.
 pub struct WeightInfo;
-impl pallet_capital_distribution::WeightInfo for WeightInfo {
+impl pallet_corporate_actions::distribution::WeightInfo for WeightInfo {
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
     // Storage: Permissions CurrentPalletName (r:1 w:0)

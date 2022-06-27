@@ -306,7 +306,7 @@ impl pallet_staking::WeightInfo for WeightInfo {
     // Storage: Staking Ledger (r:1 w:1)
     // Storage: Balances Locks (r:1 w:1)
     // Storage: System Account (r:1 w:1)
-    fn rebond(u: u32, _l: u32, ) -> Weight {
+    fn rebond(u: u32, ) -> Weight {
         (78_101_000 as Weight)
             // Standard Error: 2_000
             .saturating_add((1_000 as Weight).saturating_mul(u as Weight))
@@ -435,33 +435,6 @@ impl pallet_staking::WeightInfo for WeightInfo {
     // Storage: Staking Bonded (r:500 w:0)
     // Storage: Staking Ledger (r:500 w:0)
     // Storage: Staking QueuedElected (r:0 w:1)
-    fn submit_solution_initial(v: u32, n: u32, a: u32, w: u32, ) -> Weight {
-        (0 as Weight)
-            // Standard Error: 397_000
-            .saturating_add((1_598_000 as Weight).saturating_mul(v as Weight))
-            // Standard Error: 397_000
-            .saturating_add((364_000 as Weight).saturating_mul(n as Weight))
-            // Standard Error: 1_325_000
-            .saturating_add((88_718_000 as Weight).saturating_mul(a as Weight))
-            // Standard Error: 4_977_000
-            .saturating_add((38_070_000 as Weight).saturating_mul(w as Weight))
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().reads((4 as Weight).saturating_mul(a as Weight)))
-            .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(w as Weight)))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
-    }
-    // Storage: Staking EraElectionStatus (r:1 w:0)
-    // Storage: Staking CurrentEra (r:1 w:0)
-    // Storage: Staking QueuedScore (r:1 w:1)
-    // Storage: Staking SnapshotValidators (r:1 w:0)
-    // Storage: Staking ValidatorCount (r:1 w:0)
-    // Storage: Staking SnapshotNominators (r:1 w:0)
-    // Storage: Staking Validators (r:500 w:0)
-    // Storage: Staking Nominators (r:500 w:0)
-    // Storage: Staking SlashingSpans (r:100 w:0)
-    // Storage: Staking Bonded (r:500 w:0)
-    // Storage: Staking Ledger (r:500 w:0)
-    // Storage: Staking QueuedElected (r:0 w:1)
     fn submit_solution_better(v: u32, n: u32, a: u32, w: u32, ) -> Weight {
         (0 as Weight)
             // Standard Error: 315_000
@@ -476,15 +449,6 @@ impl pallet_staking::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads((4 as Weight).saturating_mul(a as Weight)))
             .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(w as Weight)))
             .saturating_add(DbWeight::get().writes(2 as Weight))
-    }
-    // Storage: Staking EraElectionStatus (r:1 w:0)
-    // Storage: Staking CurrentEra (r:1 w:0)
-    // Storage: Staking QueuedScore (r:1 w:0)
-    fn submit_solution_weaker(_v: u32, n: u32, ) -> Weight {
-        (83_040_000 as Weight)
-            // Standard Error: 2_000
-            .saturating_add((7_000 as Weight).saturating_mul(n as Weight))
-            .saturating_add(DbWeight::get().reads(3 as Weight))
     }
     // Storage: Staking SlashingAllowedFor (r:0 w:1)
     fn change_slashing_allowed_for() -> Weight {

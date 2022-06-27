@@ -47,11 +47,13 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
+use frame_support::traits::Get;
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
+use sp_std::marker::PhantomData;
 
 /// Weights for pallet_relayer using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_relayer::WeightInfo for WeightInfo {
+pub struct WeightInfo<T>(PhantomData<T>);
+impl<T: frame_system::Config> pallet_relayer::WeightInfo for WeightInfo<T> {
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity MultiPurposeNonce (r:1 w:1)
     // Storage: Identity AuthorizationsGiven (r:0 w:1)

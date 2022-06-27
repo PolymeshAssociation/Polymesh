@@ -109,19 +109,6 @@ benchmarks! {
         // The following cases use `balances::transfer` to be able to verify their outputs.
     }
 
-    batch_transfer {
-        let c in 0..MAX_CALLS;
-
-        let sender = UserBuilder::<T>::default().balance(1_000_000u32).generate_did().build("SENDER");
-        let receiver = UserBuilder::<T>::default().balance(1_000_000u32).generate_did().build("RECEIVER");
-
-        let transfer_calls = make_transfer_calls::<T>(c, receiver.account(), 500);
-    }: batch(sender.origin, transfer_calls)
-    verify {
-        verify_free_balance::<T>( &sender.account, (1_000_000 - (500 * c)) as u128);
-        verify_free_balance::<T>( &receiver.account, (1_000_000 + (500 * c)) as u128);
-    }
-
     batch_atomic {
         let c in 0..MAX_CALLS;
 
@@ -130,19 +117,6 @@ benchmarks! {
     }: _(alice.origin, calls)
     verify {
         // NB see comment at `batch` verify section.
-    }
-
-    batch_atomic_transfer {
-        let c in 0..MAX_CALLS;
-
-        let alice = UserBuilder::<T>::default().balance(1_000_000u32).generate_did().build("ALICE");
-        let bob = UserBuilder::<T>::default().balance(1_000_000u32).generate_did().build("BOB");
-        let calls = make_transfer_calls::<T>(c, bob.account(), 100);
-
-    }: batch_atomic(alice.origin, calls)
-    verify {
-        verify_free_balance::<T>( &alice.account, (1_000_000 - (100 * c)) as u128);
-        verify_free_balance::<T>( &bob.account, (1_000_000 + (100 * c)) as u128);
     }
 
     batch_optimistic {
@@ -154,19 +128,6 @@ benchmarks! {
     }: _(alice.origin, calls)
     verify {
         // NB see comment at `batch` verify section.
-    }
-
-    batch_optimistic_transfer {
-        let c in 0..MAX_CALLS;
-
-        let alice = UserBuilder::<T>::default().balance(1_000_000u32).generate_did().build("ALICE");
-        let bob = UserBuilder::<T>::default().balance(1_000_000u32).generate_did().build("BOB");
-        let calls = make_transfer_calls::<T>(c, bob.account(), 100);
-
-    }: batch_optimistic(alice.origin, calls)
-    verify {
-        verify_free_balance::<T>( &alice.account, (1_000_000 - (100 * c)) as u128);
-        verify_free_balance::<T>( &bob.account, (1_000_000 + (100 * c)) as u128);
     }
 
     relay_tx {
@@ -182,16 +143,4 @@ benchmarks! {
         // NB see comment at `batch` verify section.
     }
 
-    relay_tx_transfer {
-        let (caller, target) = make_relay_tx_users::<T>();
-        let (call, encoded) = transfer_call_builder( &target, caller.account());
-
-        // Rebuild signature from `encoded`.
-        let signature = T::OffChainSignature::decode(&mut &encoded[..])
-            .expect("OffChainSignature cannot be decoded from a MultiSignature");
-    }: relay_tx(caller.origin.clone(), target.account(), signature, call)
-    verify {
-        verify_free_balance::<T>( &caller.account, 1_000_001u128);
-        verify_free_balance::<T>( &target.account, 999_999u128);
-    }
 }

@@ -47,15 +47,34 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
-
+use polymesh_runtime_common::{
+    RocksDbWeight as DbWeight, Weight, WEIGHT_PER_MICROS, WEIGHT_PER_NANOS,
+};
 /// Weights for pallet_grandpa using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_grandpa::WeightInfo for WeightInfo {
-    fn check_equivocation_proof(x: u32, ) -> Weight {
-        (150_361_000 as Weight)
-            // Standard Error: 332_000
-            .saturating_add((195_000 as Weight).saturating_mul(x as Weight))
+    fn report_equivocation(validator_count: u32) -> Weight {
+        // we take the validator set count from the membership proof to
+        // calculate the weight but we set a floor of 100 validators.
+        let validator_count = validator_count.max(100) as u64;
+
+        // worst case we are considering is that the given offender
+        // is backed by 200 nominators
+        const MAX_NOMINATORS: u64 = 200;
+
+        // checking membership proof
+        (35 * WEIGHT_PER_MICROS)
+            .saturating_add((175 * WEIGHT_PER_NANOS).saturating_mul(validator_count))
+            .saturating_add(DbWeight::get().reads(5))
+            // check equivocation proof
+            .saturating_add(95 * WEIGHT_PER_MICROS)
+            // report offence
+            .saturating_add(110 * WEIGHT_PER_MICROS)
+            .saturating_add(25 * WEIGHT_PER_MICROS * MAX_NOMINATORS)
+            .saturating_add(DbWeight::get().reads(14 + 3 * MAX_NOMINATORS))
+            .saturating_add(DbWeight::get().writes(10 + 3 * MAX_NOMINATORS))
+            // fetching set id -> session index mappings
+            .saturating_add(DbWeight::get().reads(2))
     }
     // Storage: Grandpa Stalled (r:0 w:1)
     fn note_stalled() -> Weight {

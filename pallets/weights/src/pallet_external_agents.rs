@@ -148,4 +148,13 @@ impl pallet_external_agents::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(6 as Weight))
             .saturating_add(DbWeight::get().writes(5 as Weight))
     }
+
+    // Manually added - sum of create group and change custom group
+    fn create_and_change_custom_group(p: u32, ) -> Weight {
+        (154_335_000 as Weight)
+            // Standard Error: 285_000
+            .saturating_add((631_000 as Weight).saturating_mul(p as Weight))
+            .saturating_add(DbWeight::get().reads(12 as Weight))
+            .saturating_add(DbWeight::get().writes(4 as Weight))
+    }    
 }

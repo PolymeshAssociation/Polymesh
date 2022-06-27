@@ -53,12 +53,12 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 pub struct WeightInfo;
 impl pallet_protocol_fee::WeightInfo for WeightInfo {
     // Storage: ProtocolFee Coefficient (r:0 w:1)
-    fn change_coefficient(_n: u32, _d: u32, ) -> Weight {
+    fn change_coefficient() -> Weight {
         (27_515_000 as Weight)
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
     // Storage: ProtocolFee BaseFees (r:0 w:1)
-    fn change_base_fee(_b: u32, ) -> Weight {
+    fn change_base_fee() -> Weight {
         (29_524_000 as Weight)
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
