@@ -59,7 +59,7 @@ impl pallet_treasury::WeightInfo for WeightInfo {
     // Storage: Instance2Group ActiveMembers (r:1 w:0)
     // Storage: Instance2Group InactiveMembers (r:1 w:0)
     // Storage: Identity Claims (r:2 w:0)
-    fn disbursement(b: u32, ) -> Weight {
+    fn disbursement(b: u32) -> Weight {
         (76_508_000 as Weight)
             // Standard Error: 651_000
             .saturating_add((80_111_000 as Weight).saturating_mul(b as Weight))

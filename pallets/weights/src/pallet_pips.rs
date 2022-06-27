@@ -220,7 +220,7 @@ impl pallet_pips::WeightInfo for WeightInfo {
     // Storage: Scheduler Lookup (r:1 w:1)
     // Storage: Scheduler Agenda (r:1 w:1)
     // Storage: Pips PipToSchedule (r:0 w:1)
-    fn enact_snapshot_results(a: u32, r: u32, s: u32, ) -> Weight {
+    fn enact_snapshot_results(a: u32, r: u32, s: u32) -> Weight {
         (0 as Weight)
             // Standard Error: 120_040_000
             .saturating_add((431_560_000 as Weight).saturating_mul(a as Weight))

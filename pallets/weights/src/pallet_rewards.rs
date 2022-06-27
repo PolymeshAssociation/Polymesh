@@ -75,7 +75,6 @@ impl<T: frame_system::Config> pallet_rewards::WeightInfo for WeightInfo<T> {
     }
     // Storage: Rewards ItnRewards (r:0 w:1)
     fn set_itn_reward_status() -> Weight {
-        (6_318_000 as Weight)
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        (6_318_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
 }

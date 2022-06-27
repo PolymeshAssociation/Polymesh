@@ -58,7 +58,7 @@ impl pallet_settlement::WeightInfo for WeightInfo {
     // Storage: Settlement VenueInfo (r:0 w:1)
     // Storage: Settlement Details (r:0 w:1)
     // Storage: Settlement VenueSigners (r:0 w:50)
-    fn create_venue(d: u32, s: u32, ) -> Weight {
+    fn create_venue(d: u32, s: u32) -> Weight {
         (58_414_000 as Weight)
             // Standard Error: 1_000
             .saturating_add((13_000 as Weight).saturating_mul(d as Weight))
@@ -71,7 +71,7 @@ impl pallet_settlement::WeightInfo for WeightInfo {
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Settlement VenueInfo (r:1 w:0)
     // Storage: Settlement Details (r:0 w:1)
-    fn update_venue_details(d: u32, ) -> Weight {
+    fn update_venue_details(d: u32) -> Weight {
         (49_957_000 as Weight)
             // Standard Error: 1_000
             .saturating_add((4_000 as Weight).saturating_mul(d as Weight))
@@ -95,7 +95,7 @@ impl pallet_settlement::WeightInfo for WeightInfo {
     // Storage: Settlement VenueFiltering (r:1 w:0)
     // Storage: Settlement InstructionLegs (r:0 w:1)
     // Storage: Settlement UserAffirmations (r:0 w:2)
-    fn add_instruction(l: u32, ) -> Weight {
+    fn add_instruction(l: u32) -> Weight {
         (76_131_000 as Weight)
             // Standard Error: 1_647_000
             .saturating_add((17_712_000 as Weight).saturating_mul(l as Weight))
@@ -116,7 +116,7 @@ impl pallet_settlement::WeightInfo for WeightInfo {
     // Storage: Settlement VenueFiltering (r:1 w:0)
     // Storage: Settlement InstructionLegs (r:0 w:1)
     // Storage: Settlement UserAffirmations (r:0 w:2)
-    fn add_instruction_with_settle_on_block_type(l: u32, ) -> Weight {
+    fn add_instruction_with_settle_on_block_type(l: u32) -> Weight {
         (141_490_000 as Weight)
             // Standard Error: 2_662_000
             .saturating_add((14_169_000 as Weight).saturating_mul(l as Weight))
@@ -141,7 +141,7 @@ impl pallet_settlement::WeightInfo for WeightInfo {
     // Storage: Settlement VenueInstructions (r:0 w:1)
     // Storage: Settlement AffirmsReceived (r:0 w:1)
     // Storage: Settlement InstructionLegStatus (r:0 w:1)
-    fn add_and_affirm_instruction(l: u32, ) -> Weight {
+    fn add_and_affirm_instruction(l: u32) -> Weight {
         (113_407_000 as Weight)
             // Standard Error: 3_107_000
             .saturating_add((74_336_000 as Weight).saturating_mul(l as Weight))
@@ -168,7 +168,7 @@ impl pallet_settlement::WeightInfo for WeightInfo {
     // Storage: Settlement VenueInstructions (r:0 w:1)
     // Storage: Settlement AffirmsReceived (r:0 w:1)
     // Storage: Settlement InstructionLegStatus (r:0 w:1)
-    fn add_and_affirm_instruction_with_settle_on_block_type(l: u32, ) -> Weight {
+    fn add_and_affirm_instruction_with_settle_on_block_type(l: u32) -> Weight {
         (165_224_000 as Weight)
             // Standard Error: 1_879_000
             .saturating_add((69_521_000 as Weight).saturating_mul(l as Weight))
@@ -192,7 +192,7 @@ impl pallet_settlement::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentPalletName (r:1 w:0)
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: Settlement VenueAllowList (r:0 w:1)
-    fn allow_venues(v: u32, ) -> Weight {
+    fn allow_venues(v: u32) -> Weight {
         (61_220_000 as Weight)
             // Standard Error: 76_000
             .saturating_add((2_847_000 as Weight).saturating_mul(v as Weight))
@@ -204,7 +204,7 @@ impl pallet_settlement::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentPalletName (r:1 w:0)
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: Settlement VenueAllowList (r:0 w:1)
-    fn disallow_venues(v: u32, ) -> Weight {
+    fn disallow_venues(v: u32) -> Weight {
         (57_240_000 as Weight)
             // Standard Error: 61_000
             .saturating_add((2_769_000 as Weight).saturating_mul(v as Weight))
@@ -221,7 +221,7 @@ impl pallet_settlement::WeightInfo for WeightInfo {
     // Storage: Settlement InstructionLegStatus (r:1 w:1)
     // Storage: Portfolio PortfolioLockedAssets (r:1 w:1)
     // Storage: Settlement AffirmsReceived (r:0 w:1)
-    fn withdraw_affirmation(l: u32, ) -> Weight {
+    fn withdraw_affirmation(l: u32) -> Weight {
         (72_919_000 as Weight)
             // Standard Error: 1_952_000
             .saturating_add((63_198_000 as Weight).saturating_mul(l as Weight))
@@ -254,7 +254,7 @@ impl pallet_settlement::WeightInfo for WeightInfo {
     // Storage: Settlement InstructionAffirmsPending (r:0 w:1)
     // Storage: Settlement VenueInstructions (r:0 w:1)
     // Storage: Settlement AffirmsReceived (r:0 w:1)
-    fn reject_instruction(l: u32, ) -> Weight {
+    fn reject_instruction(l: u32) -> Weight {
         (118_608_000 as Weight)
             // Standard Error: 1_149_000
             .saturating_add((48_590_000 as Weight).saturating_mul(l as Weight))
@@ -273,7 +273,7 @@ impl pallet_settlement::WeightInfo for WeightInfo {
     // Storage: Settlement UserAffirmations (r:1 w:1)
     // Storage: Scheduler Agenda (r:1 w:1)
     // Storage: Settlement AffirmsReceived (r:0 w:1)
-    fn affirm_instruction(l: u32, ) -> Weight {
+    fn affirm_instruction(l: u32) -> Weight {
         (102_322_000 as Weight)
             // Standard Error: 760_000
             .saturating_add((40_582_000 as Weight).saturating_mul(l as Weight))
@@ -306,7 +306,7 @@ impl pallet_settlement::WeightInfo for WeightInfo {
     // Storage: Settlement InstructionAffirmsPending (r:1 w:1)
     // Storage: Settlement AffirmsReceived (r:0 w:1)
     // Storage: Settlement InstructionLegStatus (r:0 w:1)
-    fn affirm_with_receipts(r: u32, ) -> Weight {
+    fn affirm_with_receipts(r: u32) -> Weight {
         (158_888_000 as Weight)
             // Standard Error: 2_345_000
             .saturating_add((144_616_000 as Weight).saturating_mul(r as Weight))
@@ -351,7 +351,7 @@ impl pallet_settlement::WeightInfo for WeightInfo {
     // Storage: Settlement UserAffirmations (r:0 w:2)
     // Storage: Settlement AffirmsReceived (r:0 w:2)
     // Storage: Asset BalanceOfAtScope (r:0 w:2)
-    fn execute_scheduled_instruction(l: u32, ) -> Weight {
+    fn execute_scheduled_instruction(l: u32) -> Weight {
         (362_069_000 as Weight)
             // Standard Error: 6_743_000
             .saturating_add((839_685_000 as Weight).saturating_mul(l as Weight))

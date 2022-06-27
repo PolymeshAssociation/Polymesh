@@ -111,7 +111,7 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Asset Identifiers (r:0 w:1)
     // Storage: ExternalAgents AgentOf (r:0 w:1)
     // Storage: ExternalAgents GroupOfAgent (r:0 w:1)
-    fn create_asset(_n: u32, i: u32, f: u32, ) -> Weight {
+    fn create_asset(_n: u32, i: u32, f: u32) -> Weight {
         (207_235_000 as Weight)
             // Standard Error: 10_000
             .saturating_add((66_000 as Weight).saturating_mul(i as Weight))
@@ -148,7 +148,7 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentPalletName (r:1 w:0)
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: Asset AssetNames (r:0 w:1)
-    fn rename_asset(n: u32, ) -> Weight {
+    fn rename_asset(n: u32) -> Weight {
         (73_085_000 as Weight)
             // Standard Error: 19_000
             .saturating_add((17_000 as Weight).saturating_mul(n as Weight))
@@ -218,7 +218,7 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: ProtocolFee Coefficient (r:1 w:0)
     // Storage: ProtocolFee BaseFees (r:1 w:0)
     // Storage: Asset AssetDocuments (r:0 w:1)
-    fn add_documents(d: u32, ) -> Weight {
+    fn add_documents(d: u32) -> Weight {
         (118_263_000 as Weight)
             // Standard Error: 485_000
             .saturating_add((21_058_000 as Weight).saturating_mul(d as Weight))
@@ -231,7 +231,7 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentPalletName (r:1 w:0)
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: Asset AssetDocuments (r:0 w:1)
-    fn remove_documents(d: u32, ) -> Weight {
+    fn remove_documents(d: u32) -> Weight {
         (58_929_000 as Weight)
             // Standard Error: 295_000
             .saturating_add((9_941_000 as Weight).saturating_mul(d as Weight))
@@ -243,7 +243,7 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentPalletName (r:1 w:0)
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: Asset FundingRound (r:0 w:1)
-    fn set_funding_round(f: u32, ) -> Weight {
+    fn set_funding_round(f: u32) -> Weight {
         (67_184_000 as Weight)
             // Standard Error: 16_000
             .saturating_add((3_000 as Weight).saturating_mul(f as Weight))
@@ -255,7 +255,7 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentPalletName (r:1 w:0)
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: Asset Identifiers (r:0 w:1)
-    fn update_identifiers(i: u32, ) -> Weight {
+    fn update_identifiers(i: u32) -> Weight {
         (74_457_000 as Weight)
             // Standard Error: 7_000
             .saturating_add((94_000 as Weight).saturating_mul(i as Weight))
@@ -307,7 +307,7 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Asset CustomTypesInverse (r:1 w:1)
     // Storage: Asset CustomTypeIdSequence (r:1 w:1)
     // Storage: Asset CustomTypes (r:0 w:1)
-    fn register_custom_asset_type(n: u32, ) -> Weight {
+    fn register_custom_asset_type(n: u32) -> Weight {
         (71_836_000 as Weight)
             // Standard Error: 1_000
             .saturating_add((6_000 as Weight).saturating_mul(n as Weight))

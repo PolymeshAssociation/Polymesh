@@ -52,7 +52,7 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 /// Weights for pallet_compliance_manager using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_compliance_manager::WeightInfo for WeightInfo {
-    fn condition_costs(a: u32, b: u32, c: u32, d: u32, ) -> Weight {
+    fn condition_costs(a: u32, b: u32, c: u32, d: u32) -> Weight {
         (0 as Weight)
             // Standard Error: 607_000
             .saturating_add((8_573_000 as Weight).saturating_mul(a as Weight))
@@ -71,7 +71,7 @@ impl pallet_compliance_manager::WeightInfo for WeightInfo {
     // Storage: ComplianceManager TrustedClaimIssuer (r:1 w:0)
     // Storage: ProtocolFee Coefficient (r:1 w:0)
     // Storage: ProtocolFee BaseFees (r:1 w:0)
-    fn add_compliance_requirement(s: u32, _r: u32, ) -> Weight {
+    fn add_compliance_requirement(s: u32, _r: u32) -> Weight {
         (123_897_000 as Weight)
             // Standard Error: 2_535_000
             .saturating_add((563_000 as Weight).saturating_mul(s as Weight))
@@ -136,7 +136,7 @@ impl pallet_compliance_manager::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: ComplianceManager AssetCompliances (r:1 w:1)
     // Storage: ComplianceManager TrustedClaimIssuer (r:1 w:0)
-    fn change_compliance_requirement(s: u32, _r: u32, ) -> Weight {
+    fn change_compliance_requirement(s: u32, _r: u32) -> Weight {
         (108_265_000 as Weight)
             // Standard Error: 1_527_000
             .saturating_add((788_000 as Weight).saturating_mul(s as Weight))
@@ -149,7 +149,7 @@ impl pallet_compliance_manager::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: ComplianceManager TrustedClaimIssuer (r:1 w:0)
     // Storage: ComplianceManager AssetCompliances (r:1 w:1)
-    fn replace_asset_compliance(c: u32, ) -> Weight {
+    fn replace_asset_compliance(c: u32) -> Weight {
         (98_766_000 as Weight)
             // Standard Error: 1_188_000
             .saturating_add((12_636_000 as Weight).saturating_mul(c as Weight))

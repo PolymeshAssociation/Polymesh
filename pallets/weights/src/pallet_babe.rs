@@ -47,7 +47,9 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight, WEIGHT_PER_MICROS, WEIGHT_PER_NANOS,};
+use polymesh_runtime_common::{
+    RocksDbWeight as DbWeight, Weight, WEIGHT_PER_MICROS, WEIGHT_PER_NANOS,
+};
 
 /// Weights for pallet_babe using the Substrate node and recommended hardware.
 pub struct WeightInfo;

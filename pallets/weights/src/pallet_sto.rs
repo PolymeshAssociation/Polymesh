@@ -64,7 +64,7 @@ impl pallet_sto::WeightInfo for WeightInfo {
     // Storage: Portfolio PortfolioLockedAssets (r:1 w:1)
     // Storage: Sto FundraiserNames (r:0 w:1)
     // Storage: Sto Fundraisers (r:0 w:1)
-    fn create_fundraiser(i: u32, ) -> Weight {
+    fn create_fundraiser(i: u32) -> Weight {
         (122_668_000 as Weight)
             // Standard Error: 1_610_000
             .saturating_add((4_429_000 as Weight).saturating_mul(i as Weight))

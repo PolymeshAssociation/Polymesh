@@ -52,12 +52,12 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 /// Weights for frame_system using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl frame_system::WeightInfo for WeightInfo {
-    fn remark(b: u32, ) -> Weight {
+    fn remark(b: u32) -> Weight {
         (0 as Weight)
             // Standard Error: 0
             .saturating_add((1_000 as Weight).saturating_mul(b as Weight))
     }
-    fn remark_with_event(b: u32, ) -> Weight {
+    fn remark_with_event(b: u32) -> Weight {
         (0 as Weight)
             // Standard Error: 0
             .saturating_add((3_000 as Weight).saturating_mul(b as Weight))
@@ -70,21 +70,21 @@ impl frame_system::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().writes(2 as Weight))
     }
     // Storage: Skipped Metadata (r:0 w:0)
-    fn set_storage(i: u32, ) -> Weight {
+    fn set_storage(i: u32) -> Weight {
         (0 as Weight)
             // Standard Error: 22_000
             .saturating_add((1_224_000 as Weight).saturating_mul(i as Weight))
             .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(i as Weight)))
     }
     // Storage: Skipped Metadata (r:0 w:0)
-    fn kill_storage(i: u32, ) -> Weight {
+    fn kill_storage(i: u32) -> Weight {
         (0 as Weight)
             // Standard Error: 16_000
             .saturating_add((790_000 as Weight).saturating_mul(i as Weight))
             .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(i as Weight)))
     }
     // Storage: Skipped Metadata (r:0 w:0)
-    fn kill_prefix(p: u32, ) -> Weight {
+    fn kill_prefix(p: u32) -> Weight {
         (0 as Weight)
             // Standard Error: 23_000
             .saturating_add((1_696_000 as Weight).saturating_mul(p as Weight))

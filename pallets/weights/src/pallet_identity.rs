@@ -62,7 +62,7 @@ impl pallet_identity::WeightInfo for WeightInfo {
     // Storage: Identity DidKeys (r:0 w:1)
     // Storage: Identity AuthorizationsGiven (r:0 w:1)
     // Storage: Identity Authorizations (r:0 w:1)
-    fn cdd_register_did(i: u32, ) -> Weight {
+    fn cdd_register_did(i: u32) -> Weight {
         (44_608_000 as Weight)
             // Standard Error: 336_000
             .saturating_add((23_335_000 as Weight).saturating_mul(i as Weight))
@@ -86,7 +86,7 @@ impl pallet_identity::WeightInfo for WeightInfo {
     // Storage: MultiSig MultiSigToIdentity (r:1 w:0)
     // Storage: Identity Authorizations (r:1 w:0)
     // Storage: Identity DidKeys (r:0 w:1)
-    fn remove_secondary_keys(i: u32, ) -> Weight {
+    fn remove_secondary_keys(i: u32) -> Weight {
         (63_050_000 as Weight)
             // Standard Error: 656_000
             .saturating_add((34_668_000 as Weight).saturating_mul(i as Weight))
@@ -122,8 +122,7 @@ impl pallet_identity::WeightInfo for WeightInfo {
     }
     // Storage: Identity CddAuthForPrimaryKeyRotation (r:0 w:1)
     fn change_cdd_requirement_for_mk_rotation() -> Weight {
-        (24_655_000 as Weight)
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        (24_655_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
     // Storage: Identity Authorizations (r:1 w:1)
     // Storage: Identity DidRecords (r:1 w:0)
@@ -187,7 +186,7 @@ impl pallet_identity::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(2 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
-    fn permissions_cost(_a: u32, _p: u32, l: u32, e: u32, ) -> Weight {
+    fn permissions_cost(_a: u32, _p: u32, l: u32, e: u32) -> Weight {
         (0 as Weight)
             // Standard Error: 597_000
             .saturating_add((35_080_000 as Weight).saturating_mul(l as Weight))
@@ -231,7 +230,7 @@ impl pallet_identity::WeightInfo for WeightInfo {
     // Storage: ProtocolFee Coefficient (r:1 w:0)
     // Storage: ProtocolFee BaseFees (r:1 w:0)
     // Storage: Identity DidKeys (r:0 w:1)
-    fn add_secondary_keys_with_authorization(i: u32, ) -> Weight {
+    fn add_secondary_keys_with_authorization(i: u32) -> Weight {
         (181_660_000 as Weight)
             // Standard Error: 1_254_000
             .saturating_add((95_411_000 as Weight).saturating_mul(i as Weight))

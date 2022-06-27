@@ -58,7 +58,7 @@ impl pallet_external_agents::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: ExternalAgents AGIdSequence (r:1 w:1)
     // Storage: ExternalAgents GroupPermissions (r:0 w:1)
-    fn create_group(p: u32, ) -> Weight {
+    fn create_group(p: u32) -> Weight {
         (75_988_000 as Weight)
             // Standard Error: 285_000
             .saturating_add((631_000 as Weight).saturating_mul(p as Weight))
@@ -71,7 +71,7 @@ impl pallet_external_agents::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: ExternalAgents AGIdSequence (r:1 w:0)
     // Storage: ExternalAgents GroupPermissions (r:0 w:1)
-    fn set_group_permissions(p: u32, ) -> Weight {
+    fn set_group_permissions(p: u32) -> Weight {
         (66_758_000 as Weight)
             // Standard Error: 157_000
             .saturating_add((1_041_000 as Weight).saturating_mul(p as Weight))
@@ -141,7 +141,7 @@ impl pallet_external_agents::WeightInfo for WeightInfo {
     // Storage: Identity AuthorizationsGiven (r:0 w:1)
     // Storage: Identity Authorizations (r:0 w:1)
     // Storage: ExternalAgents GroupPermissions (r:0 w:1)
-    fn create_group_and_add_auth(p: u32, ) -> Weight {
+    fn create_group_and_add_auth(p: u32) -> Weight {
         (88_904_000 as Weight)
             // Standard Error: 287_000
             .saturating_add((1_828_000 as Weight).saturating_mul(p as Weight))
@@ -150,11 +150,11 @@ impl pallet_external_agents::WeightInfo for WeightInfo {
     }
 
     // Manually added - sum of create group and change custom group
-    fn create_and_change_custom_group(p: u32, ) -> Weight {
+    fn create_and_change_custom_group(p: u32) -> Weight {
         (154_335_000 as Weight)
             // Standard Error: 285_000
             .saturating_add((631_000 as Weight).saturating_mul(p as Weight))
             .saturating_add(DbWeight::get().reads(12 as Weight))
             .saturating_add(DbWeight::get().writes(4 as Weight))
-    }    
+    }
 }

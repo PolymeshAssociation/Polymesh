@@ -57,7 +57,7 @@ impl pallet_im_online::WeightInfo for WeightInfo {
     // Storage: ImOnline ReceivedHeartbeats (r:1 w:1)
     // Storage: ImOnline AuthoredBlocks (r:1 w:0)
     // Storage: ImOnline Keys (r:1 w:0)
-    fn validate_unsigned_and_then_heartbeat(k: u32, e: u32, ) -> Weight {
+    fn validate_unsigned_and_then_heartbeat(k: u32, e: u32) -> Weight {
         (177_041_000 as Weight)
             // Standard Error: 6_000
             .saturating_add((98_000 as Weight).saturating_mul(k as Weight))

@@ -144,7 +144,7 @@ benchmarks! {
         assert_eq!(AGId(0), AGIdSequence::get(ticker));
     }: _(owner.origin, ticker, perms, other.did())
     verify {
-        assert_eq!(AGId(1), AGIdSequence::get(ticker));        
+        assert_eq!(AGId(1), AGIdSequence::get(ticker));
     }
 
 }
