@@ -105,9 +105,9 @@ fn join_multisig() {
 
         let bob_auth_id2 = get_last_auth_id(&bob_signer);
         set_curr_did(Some(alice_did));
-        assert_noop!(
+        assert_eq!(
             MultiSig::accept_multisig_signer_as_key(bob.clone(), bob_auth_id2),
-            Error::SignerAlreadyLinkedToMultisig
+            Err(Error::SignerAlreadyLinkedToMultisig.into()),
         );
 
         assert_ok!(MultiSig::create_multisig(
@@ -119,9 +119,9 @@ fn join_multisig() {
         // Testing signer key that is already a secondary key on another identity.
         let dave_auth_id = get_last_auth_id(&dave.signatory_acc());
         set_curr_did(Some(alice_did));
-        assert_noop!(
+        assert_eq!(
             MultiSig::accept_multisig_signer_as_key(dave.origin(), dave_auth_id),
-            Error::SignerAlreadyLinkedToIdentity
+            Err(Error::SignerAlreadyLinkedToIdentity.into()),
         );
 
         set_curr_did(None);
@@ -139,9 +139,9 @@ fn join_multisig() {
             None,
         );
 
-        assert_noop!(
+        assert_eq!(
             MultiSig::accept_multisig_signer_as_key(Origin::signed(ms_address.clone()), ms_auth_id),
-            Error::MultisigNotAllowedToLinkToItself
+            Err(Error::MultisigNotAllowedToLinkToItself.into()),
         );
     });
 }
@@ -472,9 +472,9 @@ fn add_multisig_signer() {
         assert!(Identity::change_cdd_requirement_for_mk_rotation(root.clone(), true).is_ok());
 
         set_curr_did(Some(alice_did));
-        assert_noop!(
+        assert_eq!(
             MultiSig::accept_multisig_signer_as_key(bob.clone(), bob_auth_id),
-            Error::ChangeNotAllowed
+            Err(Error::ChangeNotAllowed.into()),
         );
         assert!(Identity::change_cdd_requirement_for_mk_rotation(root.clone(), false).is_ok());
 
@@ -574,9 +574,9 @@ fn rotate_multisig_primary_key_with_balance() {
             None,
         );
         // Fails because the current MultiSig primary_key has a balance.
-        assert_noop!(
+        assert_eq!(
             Identity::accept_primary_key(Origin::signed(charlie_key.clone()), auth_id, None),
-            IdError::MultiSigHasBalance
+            Err(IdError::MultiSigHasBalance.into()),
         );
     });
 }

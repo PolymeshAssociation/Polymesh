@@ -341,9 +341,9 @@ fn only_caa_authorized() {
 fn only_owner_caa_invite() {
     test(|ticker, [_, caa, other]| {
         let auth_id = add_caa_auth(ticker, other, caa);
-        assert_noop!(
+        assert_eq!(
             ExternalAgents::accept_become_agent(caa.origin(), auth_id),
-            EAError::UnauthorizedAgent
+            Err(EAError::UnauthorizedAgent.into())
         );
     });
 }

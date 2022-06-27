@@ -549,9 +549,9 @@ fn transfer_ticker() {
             AssetOwnershipRelation::TickerOwned
         );
 
-        assert_noop!(
+        assert_eq!(
             Asset::accept_ticker_transfer(bob.origin(), auth_id_bob),
-            "Illegal use of Authorization"
+            Err("Illegal use of Authorization".into()),
         );
 
         let add_auth = |auth, expiry| {
@@ -568,9 +568,9 @@ fn transfer_ticker() {
         // Try accepting the wrong authorization type.
         let auth_id = add_auth(AuthorizationData::RotatePrimaryKey, now() + 100);
 
-        assert_noop!(
+        assert_eq!(
             Asset::accept_ticker_transfer(bob.origin(), auth_id),
-            AuthorizationError::BadType
+            Err(AuthorizationError::BadType.into()),
         );
 
         let auth_id = add_auth(AuthorizationData::TransferTicker(ticker), now() + 100);
@@ -689,9 +689,9 @@ fn transfer_token_ownership() {
             AgentGroup::Full
         ));
         assert_ok!(ExternalAgents::abdicate(owner.origin(), ticker));
-        assert_noop!(
+        assert_eq!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id_bob),
-            EAError::UnauthorizedAgent
+            Err(EAError::UnauthorizedAgent.into())
         );
 
         let mut auth_id = Identity::add_auth(
@@ -714,9 +714,9 @@ fn transfer_token_ownership() {
             Some(now() + 100),
         );
 
-        assert_noop!(
+        assert_eq!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id),
-            AuthorizationError::BadType
+            Err(AuthorizationError::BadType.into())
         );
 
         auth_id = Identity::add_auth(
@@ -726,9 +726,9 @@ fn transfer_token_ownership() {
             Some(now() + 100),
         );
 
-        assert_noop!(
+        assert_eq!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id),
-            AssetError::NoSuchAsset
+            Err(AssetError::NoSuchAsset.into())
         );
 
         auth_id = Identity::add_auth(
