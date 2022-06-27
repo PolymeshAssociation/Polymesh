@@ -1,12 +1,10 @@
 use crate::*;
 use frame_benchmarking::benchmarks;
-use pallet_balances::{self as balances, Call as BalancesCall};
 use polymesh_common_utilities::{
     benchs::{AccountIdOf, User, UserBuilder},
     traits::TestUtilsFn,
 };
 use sp_core::sr25519::Signature;
-use sp_runtime::traits::StaticLookup;
 use sp_runtime::MultiSignature;
 
 const MAX_CALLS: u32 = 30;
@@ -15,27 +13,6 @@ const MAX_CALLS: u32 = 30;
 fn make_calls<T: Config>(c: u32) -> Vec<<T as Config>::Call> {
     let call: <T as Config>::Call = frame_system::Call::<T>::remark { remark: vec![] }.into();
     vec![call; c as usize]
-}
-
-/// Generate `c` transfers calls to `to` account of `amount` poly.
-fn make_transfer_calls<T: Config>(
-    c: u32,
-    to: T::AccountId,
-    amount: u128,
-) -> Vec<<T as Config>::Call> {
-    let idx = <T as frame_system::Config>::Lookup::unlookup(to);
-    let call: <T as Config>::Call = BalancesCall::transfer {
-        dest: idx,
-        value: amount.into(),
-    }
-    .into();
-    vec![call; c as usize]
-}
-
-/// Double-check that free balance of `account` account is the expected value.
-fn verify_free_balance<T: Config>(account: &T::AccountId, expected_balance: u128) {
-    let acc_balance = balances::Module::<T>::free_balance(account);
-    assert_eq!(acc_balance, expected_balance.into())
 }
 
 fn make_relay_tx_users<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, User<T>) {
@@ -56,26 +33,6 @@ fn remark_call_builder<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     _: T::AccountId,
 ) -> (UniqueCall<<T as Config>::Call>, Vec<u8>) {
     let call = make_calls::<T>(1).pop().unwrap();
-    let nonce: AuthorizationNonce = Module::<T>::nonce(signer.account());
-    let call = UniqueCall::new(nonce, call);
-
-    // Signer signs the relay call.
-    // NB: Decode as T::OffChainSignature because there is not type constraints in
-    // `T::OffChainSignature` to limit it.
-    let raw_signature: [u8; 64] = signer
-        .sign(&call.encode())
-        .expect("Data cannot be signed")
-        .0;
-    let encoded = MultiSignature::from(Signature::from_raw(raw_signature)).encode();
-
-    (call, encoded)
-}
-
-fn transfer_call_builder<T: Config + TestUtilsFn<AccountIdOf<T>>>(
-    signer: &User<T>,
-    target: T::AccountId,
-) -> (UniqueCall<<T as Config>::Call>, Vec<u8>) {
-    let call = make_transfer_calls::<T>(1, target, 1).pop().unwrap();
     let nonce: AuthorizationNonce = Module::<T>::nonce(signer.account());
     let call = UniqueCall::new(nonce, call);
 
