@@ -57,7 +57,7 @@ where
     let investor_uid = make_investor_uid(did.as_bytes());
     let cdd_id = make_cdd_id(did, investor_uid.clone());
     let cdd_claim = Claim::CustomerDueDiligence(cdd_id.clone());
-    Module::<T>::base_add_claim(did, cdd_claim, GC_DID, None).unwrap();
+    Module::<T>::unverified_add_claim_with_scope(did, cdd_claim, None, GC_DID, None).unwrap();
 
     // Create the scope.
     let ticker = Ticker::default();

@@ -223,7 +223,7 @@ decl_storage! {
                 let expiry = gen_id.cdd_claim_expiry.iter().map(|m| T::Moment::from(*m as u32)).next();
                 <Module<T>>::do_register_id(gen_id.primary_key.clone(), gen_id.did, gen_id.secondary_keys.clone());
                 for issuer in &gen_id.issuers {
-                    <Module<T>>::base_add_claim(gen_id.did, cdd_claim.clone(), issuer.clone(), expiry).unwrap();
+                    <Module<T>>::unverified_add_claim_with_scope(gen_id.did, cdd_claim.clone(), None, issuer.clone(), expiry);
                 }
             }
 

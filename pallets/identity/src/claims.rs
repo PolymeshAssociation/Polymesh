@@ -210,25 +210,25 @@ impl<T: Config> Module<T> {
         expiry: Option<T::Moment>,
     ) -> DispatchResult {
         let inner_scope = claim.as_scope().cloned();
-        Self::base_add_claim_with_scope(target, claim, inner_scope, issuer, expiry)
-    }
-
-    /// Adds claims with no inner scope.
-    fn base_add_claim_with_scope(
-        target: IdentityId,
-        claim: Claim,
-        scope: Option<Scope>,
-        issuer: IdentityId,
-        expiry: Option<T::Moment>,
-    ) -> DispatchResult {
-        let claim_type = claim.claim_type();
-        if let ClaimType::Custom(id) = claim_type {
+        if let ClaimType::Custom(id) = claim.claim_type() {
             ensure!(
                 CustomClaims::contains_key(id),
                 Error::<T>::CustomClaimTypeDoesNotExist
             );
         }
+        Self::unverified_add_claim_with_scope(target, claim, inner_scope, issuer, expiry);
+        Ok(())
+    }
 
+    /// Adds claims with no inner scope.
+    pub fn unverified_add_claim_with_scope(
+        target: IdentityId,
+        claim: Claim,
+        scope: Option<Scope>,
+        issuer: IdentityId,
+        expiry: Option<T::Moment>,
+    ) {
+        let claim_type = claim.claim_type();
         let last_update_date = <pallet_timestamp::Pallet<T>>::get().saturated_into::<u64>();
         let issuance_date = Self::fetch_claim(target, claim_type, issuer, scope.clone())
             .map_or(last_update_date, |id_claim| id_claim.issuance_date);
@@ -245,7 +245,6 @@ impl<T: Config> Module<T> {
 
         Claims::insert(&pk, &sk, id_claim.clone());
         Self::deposit_event(RawEvent::ClaimAdded(target, id_claim));
-        Ok(())
     }
 
     /// Returns claim keys.
@@ -378,7 +377,8 @@ impl<T: Config> Module<T> {
         }
 
         let scope = Some(scope.clone());
-        Self::base_add_claim_with_scope(target, claim, scope, issuer, expiry)
+        Self::unverified_add_claim_with_scope(target, claim, scope, issuer, expiry);
+        Ok(())
     }
 
     /// It removes a claim from `target` which was issued by `issuer` without any security check.

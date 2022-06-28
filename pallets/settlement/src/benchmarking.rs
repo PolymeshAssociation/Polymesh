@@ -325,13 +325,13 @@ pub fn setup_conditions<T: Config>(
             let scope = Scope::Custom((vec![i]).encode());
             let claim = Claim::Jurisdiction(CountryCode::AF, scope);
             for did in &dids {
-                identity::Module::<T>::base_add_claim(
+                identity::Module::<T>::unverified_add_claim_with_scope(
                     did.clone(),
                     claim.clone(),
+                    None,
                     trusted_issuer.issuer,
                     None,
-                )
-                .unwrap();
+                );
             }
             Condition::new(
                 ConditionType::IsPresent(claim),
