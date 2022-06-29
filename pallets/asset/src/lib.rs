@@ -1788,7 +1788,7 @@ impl<T: Config> Module<T> {
             asset_type: asset_type.clone(),
         };
         Tokens::insert(&ticker, token);
-        AssetNames::insert(&ticker, name.clone());
+        AssetNames::insert(&ticker, &name);
         DisableInvestorUniqueness::insert(&ticker, disable_iu);
         // NB - At the time of asset creation it is obvious that the asset issuer will not have an
         // `InvestorUniqueness` claim. So we are skipping the scope claim based stats update as
