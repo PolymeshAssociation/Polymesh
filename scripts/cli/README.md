@@ -37,16 +37,16 @@ To stop the node use `./stop.sh`:
 The test scripts include those named below, and most make up `npm test`:
 
 
- - 0_create_identities
- - 1_poly_transfer
- - 2_key_management
- - 3_auth_join_did
- - 4_permission_management
- - 5_claim_management
- - 6_create_assets
- - 7_create_claim_compliance
- - 8_asset_minting
- - 9_bridge_transfer
+ - 00_create_identities
+ - 01_poly_transfer
+ - 02_key_management
+ - 03_auth_join_did
+ - 04_permission_management
+ - 05_claim_management
+ - 06_create_assets
+ - 07_create_claim_compliance
+ - 08_asset_minting
+ - 09_bridge_transfer
  - 10_governance_management
  - 11_A_settlement
  - 11_B_settlement
