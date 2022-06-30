@@ -2097,7 +2097,7 @@ decl_module! {
         /// Weight: O(1)
         /// Write: Validator Count
         /// # </weight>
-        #[weight = <T as Config>::WeightInfo::set_validator_count()]
+        #[weight = <T as Config>::WeightInfo::set_validator_count(*new)]
         fn set_validator_count(origin, #[compact] new: u32) {
             ensure_root(origin)?;
             ValidatorCount::put(new);
