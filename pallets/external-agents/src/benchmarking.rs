@@ -136,4 +136,15 @@ benchmarks! {
     verify {
         assert_eq!(AGId(1), AGIdSequence::get(ticker));
     }
+
+    create_and_change_custom_group {
+        let p in 0..MAX_PALLETS;
+        let perms = perms(p);
+        let (owner, other, ticker) = setup_removal::<T>();
+        assert_eq!(AGId(0), AGIdSequence::get(ticker));
+    }: _(owner.origin, ticker, perms, other.did())
+    verify {
+        assert_eq!(AGId(1), AGIdSequence::get(ticker));
+    }
+
 }
