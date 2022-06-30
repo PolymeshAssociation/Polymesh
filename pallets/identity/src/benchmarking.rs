@@ -141,9 +141,9 @@ mod limits {
 
 #[cfg(not(feature = "running-ci"))]
 mod limits {
-    pub const MAX_SECONDARY_KEYS: u32 = 100;
-    pub const MAX_ASSETS: u32 = 100;
-    pub const MAX_PORTFOLIOS: u32 = 100;
+    pub const MAX_SECONDARY_KEYS: u32 = 200;
+    pub const MAX_ASSETS: u32 = 1000;
+    pub const MAX_PORTFOLIOS: u32 = 1000;
     pub const MAX_PALLETS: u32 = 100;
     pub const MAX_EXTRINSICS: u32 = 100;
 }

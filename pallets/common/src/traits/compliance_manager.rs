@@ -37,32 +37,37 @@ pub trait Config {
 }
 
 pub trait WeightInfo {
-    fn add_compliance_requirement(s: u32, r: u32) -> Weight;
+    fn add_compliance_requirement(c: u32) -> Weight;
     fn remove_compliance_requirement() -> Weight;
     fn pause_asset_compliance() -> Weight;
     fn resume_asset_compliance() -> Weight;
     fn add_default_trusted_claim_issuer() -> Weight;
     fn remove_default_trusted_claim_issuer() -> Weight;
-    fn change_compliance_requirement(s: u32, r: u32) -> Weight;
+    fn change_compliance_requirement(c: u32) -> Weight;
     fn replace_asset_compliance(c: u32) -> Weight;
     fn reset_asset_compliance() -> Weight;
 
     fn condition_costs(conditions: u32, claims: u32, issuers: u32, claim_types: u32) -> Weight;
 
     fn add_compliance_requirement_full(sender: &[Condition], receiver: &[Condition]) -> Weight {
-        let (_, claims, issuers, claim_types) =
+        let (condtions, claims, issuers, claim_types) =
             conditions_total_counts(sender.iter().chain(receiver.iter()));
-        Self::add_compliance_requirement(sender.len() as u32, receiver.len() as u32)
-            .saturating_add(Self::condition_costs(0, claims, issuers, claim_types))
+        Self::add_compliance_requirement(condtions).saturating_add(Self::condition_costs(
+            0,
+            claims,
+            issuers,
+            claim_types,
+        ))
     }
 
     fn change_compliance_requirement_full(req: &ComplianceRequirement) -> Weight {
-        let (_, claims, issuers, claim_types) = req.counts();
-        Self::change_compliance_requirement(
-            req.sender_conditions.len() as u32,
-            req.receiver_conditions.len() as u32,
-        )
-        .saturating_add(Self::condition_costs(0, claims, issuers, claim_types))
+        let (conditions, claims, issuers, claim_types) = req.counts();
+        Self::change_compliance_requirement(conditions).saturating_add(Self::condition_costs(
+            0,
+            claims,
+            issuers,
+            claim_types,
+        ))
     }
 
     fn replace_asset_compliance_full(reqs: &[ComplianceRequirement]) -> Weight {
