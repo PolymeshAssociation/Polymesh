@@ -52,7 +52,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     impl_name: create_runtime_str!("polymesh_mainnet"),
     authoring_version: 1,
     // `spec_version: aaa_bbb_ccc` should match node version v`aaa.bbb.ccc`
-    spec_version: 5_000_001,
+    spec_version: 5_000_002,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 3,
