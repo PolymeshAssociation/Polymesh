@@ -246,7 +246,7 @@ fn next_checkpoint_secs(
                     };
                     let next_period_day = u32::min(day_start, max_month_days);
                     NaiveDate::from_ymd(
-                        i32::try_from(next_period_year).ok()?,
+                        next_period_year,
                         // Convert months back to calendar numbering.
                         next_period_month + 1,
                         next_period_day,

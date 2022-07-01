@@ -475,7 +475,7 @@ struct FuncId {
 /// Splits the `func_id` given from a smart contract into
 /// the encoding `(scheme: u8, pallet: u8, extrinsic: u8, version: u8)`.
 fn split_func_id(func_id: u32) -> FuncId {
-    let extract = |which| (func_id >> which * 8) as u8;
+    let extract = |which| (func_id >> (which * 8)) as u8;
     FuncId {
         version: extract(0),
         extrinsic: extract(1),

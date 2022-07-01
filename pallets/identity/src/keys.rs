@@ -182,7 +182,7 @@ impl<T: Config> Module<T> {
         // Do not allow unlinking MultiSig keys with balance >= 1 POLYX.
         if T::MultiSig::is_multisig(key) {
             ensure!(
-                T::Balances::total_balance(key) < T::MultiSigBalanceLimit::get().into(),
+                T::Balances::total_balance(key) < T::MultiSigBalanceLimit::get(),
                 Error::<T>::MultiSigHasBalance
             );
         }
@@ -360,7 +360,7 @@ impl<T: Config> Module<T> {
             );
 
             let sk = SecondaryKey::new(old_primary_key, perms);
-            Self::deposit_event(RawEvent::SecondaryKeysAdded(target_did, vec![sk.into()]));
+            Self::deposit_event(RawEvent::SecondaryKeysAdded(target_did, vec![sk]));
         } else {
             Self::remove_key_record(&old_primary_key, Some(target_did));
         }
@@ -476,7 +476,7 @@ impl<T: Config> Module<T> {
 
         // 1. Verify signatures.
         for si_with_auth in keys.iter() {
-            let si: SecondaryKey<T::AccountId> = si_with_auth.secondary_key.clone().into();
+            let si: SecondaryKey<T::AccountId> = si_with_auth.secondary_key.clone();
 
             Self::ensure_perms_length_limited(&si.permissions)?;
 
@@ -646,7 +646,7 @@ impl<T: Config> Module<T> {
         });
 
         // 2.3. Give `InitialPOLYX` to the primary key for testing.
-        T::Balances::deposit_creating(&sender, T::InitialPOLYX::get().into());
+        T::Balances::deposit_creating(&sender, T::InitialPOLYX::get());
 
         Self::deposit_event(RawEvent::DidCreated(did, sender, secondary_keys));
         Ok(did)
