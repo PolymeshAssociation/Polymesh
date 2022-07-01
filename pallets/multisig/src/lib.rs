@@ -821,9 +821,9 @@ impl<T: Config> Module<T> {
     ) -> CreateProposalResult {
         Self::ensure_ms_signer(&multisig, &sender_signer)?;
         let caller_did = match sender_signer {
-            Signatory::Identity(ref did) => did.clone(),
+            Signatory::Identity(ref did) => *did,
             Signatory::Account(ref key) => Context::current_identity_or::<Identity<T>>(key)
-                .unwrap_or(<MultiSigToIdentity<T>>::get(&multisig)),
+                .unwrap_or_else(|_| <MultiSigToIdentity<T>>::get(&multisig)),
         };
         let proposal_id = Self::ms_tx_done(multisig.clone());
         <Proposals<T>>::insert((multisig.clone(), proposal_id), proposal.clone());

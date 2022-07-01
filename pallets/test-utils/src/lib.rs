@@ -150,7 +150,7 @@ decl_module! {
             let target_uid = confidential_identity_v1::mocked::make_investor_uid(target_did.as_bytes());
 
             // Add CDD claim for the target
-            let cdd_claim = Claim::CustomerDueDiligence(CddId::new_v1(target_did, target_uid.clone().into()));
+            let cdd_claim = Claim::CustomerDueDiligence(CddId::new_v1(target_did, target_uid.into()));
             Identity::<T>::base_add_claim(target_did, cdd_claim, cdd_did, None);
 
             Self::deposit_event(RawEvent::MockInvestorUIDCreated(target_did, target_uid.into()));

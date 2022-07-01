@@ -147,7 +147,7 @@ impl WeightToFeePolynomial for WeightToFee {
         smallvec![WeightToFeeCoefficient {
             degree: 1,
             coeff_frac: Perbill::from_rational(
-                PolyXBaseFee::get().into(),
+                PolyXBaseFee::get(),
                 ExtrinsicBaseWeight::get() as u128
             ),
             coeff_integer: 0u128, // Coefficient is zero.

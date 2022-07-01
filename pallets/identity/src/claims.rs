@@ -303,7 +303,7 @@ impl<T: Config> Module<T> {
                     matches!(proof, InvestorZKProof::V1(..)),
                     Error::<T>::ClaimAndProofVersionsDoNotMatch
                 );
-                (scope, scope_id.clone(), cdd_id)
+                (scope, *scope_id, cdd_id)
             }
             Claim::InvestorUniquenessV2(cdd_id) => match proof {
                 InvestorZKProof::V2(inner_proof) => (
@@ -519,7 +519,7 @@ impl<T: Config> Module<T> {
     /// Adds systematic CDD claims.
     pub fn add_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
         for new_member in targets {
-            let cdd_id = CddId::new_v1(new_member.clone(), InvestorUid::from(new_member.as_ref()));
+            let cdd_id = CddId::new_v1(*new_member, InvestorUid::from(new_member.as_ref()));
             let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
             Self::base_add_claim(*new_member, cdd_claim, issuer.as_id(), None);
         }

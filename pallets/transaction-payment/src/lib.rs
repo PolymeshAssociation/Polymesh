@@ -317,11 +317,10 @@ decl_module! {
             // given weight == u64, we build multipliers from `diff` of two weight values, which can
             // at most be maximum block weight. Make sure that this can fit in a multiplier without
             // loss.
-            use sp_std::convert::TryInto;
             assert!(
                 <Multiplier as sp_runtime::traits::Bounded>::max_value() >=
                 Multiplier::checked_from_integer::<u64>(
-                    T::BlockWeights::get().max_block.try_into().unwrap()
+                    T::BlockWeights::get().max_block
                 ).unwrap(),
             );
 
@@ -526,6 +525,12 @@ where
     }
 }
 
+pub type WithdrawFeeInfo<T, AccountId> = (
+    BalanceOf<T>,
+    <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
+    Option<AccountId>,
+);
+
 /// Require the transactor pay for themselves and maybe include a tip to gain additional priority
 /// in the queue.
 #[derive(Encode, Decode, TypeInfo, Clone, Eq, PartialEq)]
@@ -548,14 +553,7 @@ where
         call: &T::Call,
         info: &DispatchInfoOf<T::Call>,
         len: usize,
-    ) -> Result<
-        (
-            BalanceOf<T>,
-            <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
-            Option<T::AccountId>,
-        ),
-        TransactionValidityError,
-    > {
+    ) -> Result<WithdrawFeeInfo<T, T::AccountId>, TransactionValidityError> {
         let tip = self.0;
         let fee = Module::<T>::compute_fee(len as u32, info, tip);
 
