@@ -797,7 +797,7 @@ fn max_investor_ownership_rule_with_ext() {
     tracker.set_active_stats(stats);
 
     // Set max ownership to 25%.
-    let p25 = HashablePermill(Permill::from_rational(25u32, 100u32));
+    let p25 = Permill::from_rational(25u32, 100u32);
     tracker.set_transfer_conditions(vec![TransferCondition::MaxInvestorOwnership(p25)]);
 
     // Mint is not restricted by transfer rules.
@@ -1017,8 +1017,8 @@ fn jurisdiction_ownership_rule_with_ext() {
 
     // Set transfer conditions.  max=10 investors in Jurisdiction GB.
     let claim = tracker.make_stat_claim(claim_type, true, Some(CountryCode::GB));
-    let p0 = HashablePermill(Permill::from_rational(0u32, 100u32));
-    let p25 = HashablePermill(Permill::from_rational(25u32, 100u32));
+    let p0 = Permill::from_rational(0u32, 100u32);
+    let p25 = Permill::from_rational(25u32, 100u32);
     tracker.set_transfer_conditions(vec![TransferCondition::ClaimOwnership(
         claim, issuer.did, p0, p25,
     )]);

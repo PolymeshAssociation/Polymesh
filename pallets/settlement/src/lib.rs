@@ -332,6 +332,15 @@ pub trait WeightInfo {
     fn add_and_affirm_instruction_with_settle_on_block_type(u: u32) -> Weight;
 }
 
+type EnsureValidInstructionResult<AccountId, Moment, BlockNumber> = Result<
+    (
+        IdentityId,
+        Option<SecondaryKey<AccountId>>,
+        Instruction<Moment, BlockNumber>,
+    ),
+    DispatchError,
+>;
+
 decl_event!(
     pub enum Event<T>
     where
@@ -536,7 +545,7 @@ decl_module! {
 
             // Other commits to storage + emit event.
             let venue = Venue { creator: did, venue_type: typ };
-            VenueInfo::insert(id, venue.clone());
+            VenueInfo::insert(id, venue);
             Details::insert(id, details.clone());
             for signer in signers {
                 <VenueSigners<T>>::insert(id, signer, true);
@@ -899,14 +908,7 @@ impl<T: Config> Module<T> {
     fn ensure_origin_perm_and_instruction_validity(
         origin: <T as frame_system::Config>::Origin,
         id: InstructionId,
-    ) -> Result<
-        (
-            IdentityId,
-            Option<SecondaryKey<T::AccountId>>,
-            Instruction<T::Moment, T::BlockNumber>,
-        ),
-        DispatchError,
-    > {
+    ) -> EnsureValidInstructionResult<T::AccountId, T::Moment, T::BlockNumber> {
         let PermissionedCallOriginData {
             primary_did,
             secondary_key,
@@ -1173,7 +1175,7 @@ impl<T: Config> Module<T> {
                 Self::deposit_event(RawEvent::LegFailedExecution(
                     SettlementDID.as_id(),
                     id,
-                    leg_id.clone(),
+                    leg_id,
                 ));
                 Self::deposit_event(RawEvent::InstructionFailed(SettlementDID.as_id(), id));
                 // We need to unclaim receipts for the failed transaction so that they can be reused

@@ -81,6 +81,7 @@ impl AccountData {
 
 /// Simplified reasons for withdrawing balance.
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[allow(clippy::unnecessary_cast)]
 pub enum Reasons {
     /// Paying system transaction fees.
     Fee = 0,

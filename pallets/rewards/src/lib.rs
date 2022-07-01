@@ -46,7 +46,7 @@ use frame_support::{
 use frame_system::{ensure_none, ensure_root, RawOrigin};
 use pallet_staking::{self as staking, RewardDestination};
 use polymesh_common_utilities::{
-    constants::{currency::POLY, REWARDS_PALLET_ID},
+    constants::{currency::ONE_POLY, REWARDS_PALLET_ID},
     traits::identity::Config as IdentityConfig,
     with_transaction,
 };
@@ -174,7 +174,7 @@ impl<T: Config> Module<T> {
             raw_balance
                 .try_into()
                 .map_err(|_| Error::<T>::UnableToCovertBalance)?,
-            (raw_balance.saturating_add(1 * POLY))
+            (raw_balance.saturating_add(ONE_POLY))
                 .try_into()
                 .map_err(|_| Error::<T>::UnableToCovertBalance)?,
         ))

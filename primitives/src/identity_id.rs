@@ -183,7 +183,7 @@ impl TryFrom<&[u8]> for IdentityId {
         if did.len() <= UUID_LEN {
             // case where a 256 bit hash is being converted
             let mut fixed = [0; 32];
-            fixed[(UUID_LEN - did.len())..].copy_from_slice(&did);
+            fixed[(UUID_LEN - did.len())..].copy_from_slice(did);
             Ok(Self(fixed))
         } else {
             // case where a string represented as u8 is being converted
