@@ -124,7 +124,7 @@ parameter_types! {
     pub const NoPreimagePostponement: Option<u32> = Some(10);
 
     // Identity:
-    pub const InitialPOLYX: Balance = 0 * POLY;
+    pub const InitialPOLYX: Balance = 0;
 
     // Contracts:
     pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
@@ -165,9 +165,9 @@ parameter_types! {
     pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
     // 0.05%. The higher the value, the more strict solution acceptance becomes.
     pub MinSolutionScoreBump: Perbill = Perbill::from_rational(5u32, 10_000);
-    pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
-    pub const FixedYearlyReward: Balance = 140_000_000 * POLY;
-    pub const MinimumBond: Balance = 1 * POLY;
+    pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * ONE_POLY;
+    pub const FixedYearlyReward: Balance = 140_000_000 * ONE_POLY;
+    pub const MinimumBond: Balance = ONE_POLY;
     /// We prioritize im-online heartbeats over election solution submission.
     pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
 

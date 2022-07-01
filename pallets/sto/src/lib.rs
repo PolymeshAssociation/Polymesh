@@ -144,7 +144,7 @@ pub struct FundraiserTier {
 impl Into<FundraiserTier> for PriceTier {
     fn into(self) -> FundraiserTier {
         FundraiserTier {
-            total: self.total.clone(),
+            total: self.total,
             price: self.price,
             remaining: self.total,
         }

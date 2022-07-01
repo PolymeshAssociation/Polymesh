@@ -88,7 +88,7 @@ impl PalletPermissions {
     pub fn complexity(&self) -> usize {
         self.dispatchable_names
             .fold(name_complexity(&self.pallet_name), |cost, dispatch_name| {
-                cost.saturating_add(name_complexity(&dispatch_name))
+                cost.saturating_add(name_complexity(dispatch_name))
             })
     }
 

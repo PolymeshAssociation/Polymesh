@@ -188,7 +188,7 @@ impl<T: Config> Module<T> {
         }
 
         // Run custom per-type validation and updates.
-        let res = accepter(auth.authorization_data.clone(), auth.authorized_by.clone());
+        let res = accepter(auth.authorization_data.clone(), auth.authorized_by);
 
         if res.is_err() {
             // decrement
@@ -197,7 +197,7 @@ impl<T: Config> Module<T> {
             // check if count is zero
             if auth.count == 0 {
                 <Authorizations<T>>::remove(&target, auth_id);
-                <AuthorizationsGiven<T>>::remove(auth.authorized_by.clone(), auth_id);
+                <AuthorizationsGiven<T>>::remove(auth.authorized_by, auth_id);
                 Self::deposit_event(RawEvent::AuthorizationRetryLimitReached(
                     target.as_identity().cloned(),
                     target.as_account().cloned(),
