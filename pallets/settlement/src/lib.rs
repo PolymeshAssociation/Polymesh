@@ -311,6 +311,7 @@ pub trait WeightInfo {
     fn create_venue(d: u32, u: u32) -> Weight;
     fn update_venue_details(d: u32) -> Weight;
     fn update_venue_type() -> Weight;
+    fn update_venue_signers() -> Weight;
     fn add_instruction(u: u32) -> Weight;
     fn add_and_affirm_instruction(u: u32) -> Weight;
     fn affirm_instruction(l: u32) -> Weight;
@@ -354,6 +355,8 @@ decl_event!(
         VenueDetailsUpdated(IdentityId, VenueId, VenueDetails),
         /// An existing venue's type has been updated (did, venue_id, type)
         VenueTypeUpdated(IdentityId, VenueId, VenueType),
+        /// An existing venue's signers has been updated (did, venue_id, signers)
+        VenueSignersUpdated(IdentityId, VenueId, Vec<AccountId>),
         /// A new instruction has been created
         /// (did, venue_id, instruction_id, settlement_type, trade_date, value_date, legs)
         InstructionCreated(
@@ -583,6 +586,27 @@ decl_module! {
             VenueInfo::insert(id, venue);
 
             Self::deposit_event(RawEvent::VenueTypeUpdated(did, id, typ));
+            Ok(())
+        }
+
+        /// Edit a venue's signers.
+        /// * `id` specifies the ID of the venue to edit.
+        /// * `signers` specifies the signers to add/remove.
+        /// * `update_type` specifies the update type add/remove of venue.
+        #[weight = <T as Config>::WeightInfo::update_venue_signers()]
+        pub fn update_venue_signers(origin, id: VenueId, signers: Vec<T::AccountId>, update_type: bool) -> DispatchResult {
+            let did = Identity::<T>::ensure_perms(origin)?;
+
+
+            for signer in &signers {
+                if update_type {
+                    <VenueSigners<T>>::insert(&id, &signer, true);
+                } else {
+                    <VenueSigners<T>>::remove(&id, &signer);
+                }
+            }
+
+            Self::deposit_event(RawEvent::VenueSignersUpdated(did, id, signers));
             Ok(())
         }
 

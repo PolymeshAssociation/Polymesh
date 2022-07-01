@@ -86,6 +86,11 @@ impl pallet_settlement::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
+    // Storage: Settlement VenueSigners (r:0 w:50)
+    fn update_venue_signers() -> Weight {
+        todo!()
+    }
+    // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Settlement VenueInfo (r:1 w:0)
     // Storage: Settlement InstructionCounter (r:1 w:1)
     // Storage: Timestamp Now (r:1 w:0)
