@@ -989,7 +989,7 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::Origin> for Module<T> {
                 did,
                 CddId::new_v1(did, InvestorUid::from(did.to_bytes())),
             ),
-            Scope::Ticker(ticker),
+            Some(Scope::Ticker(ticker)),
             did,
             None,
         );
