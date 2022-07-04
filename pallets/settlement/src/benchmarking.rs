@@ -328,7 +328,7 @@ pub fn setup_conditions<T: Config>(
                 identity::Module::<T>::unverified_add_claim_with_scope(
                     did.clone(),
                     claim.clone(),
-                    None,
+                    scope.clone(),
                     trusted_issuer.issuer,
                     None,
                 );
