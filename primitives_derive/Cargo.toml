@@ -1,7 +1,10 @@
 [package]
 name = "polymesh-primitives-derive"
 version = "0.1.0"
-authors = ["Polymath"]
+authors = [ "Polymesh Association" ]
+license-file = "../LICENSE"
+repository = "https://github.com/PolymeshAssociation/Polymesh"
+description = "Derive impls for Polymesh Primitives"
 edition = "2021"
 
 [lib]

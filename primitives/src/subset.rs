@@ -189,12 +189,12 @@ impl<A: Clone + Ord> SubsetRestriction<A> {
     pub fn union(&self, other: &Self) -> Self {
         match (self, other) {
             (Self::Whole, _) | (_, Self::Whole) => Self::Whole,
-            (Self::These(l), Self::These(r)) => Self::These(l.union(&r).cloned().collect()),
+            (Self::These(l), Self::These(r)) => Self::These(l.union(r).cloned().collect()),
             (Self::Except(l), Self::Except(r)) => {
-                Self::Except(l.intersection(&r).cloned().collect())
+                Self::Except(l.intersection(r).cloned().collect())
             }
             (Self::These(l), Self::Except(r)) | (Self::Except(r), Self::These(l)) => {
-                Self::Except(r.sub(&l))
+                Self::Except(r.sub(l))
             }
         }
     }

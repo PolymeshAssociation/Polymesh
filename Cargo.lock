@@ -6285,7 +6285,7 @@ dependencies = [
 
 [[package]]
 name = "polymesh"
-version = "5.0.1"
+version = "5.0.2"
 dependencies = [
  "chrono",
  "clap 3.2.6",
@@ -6493,10 +6493,11 @@ dependencies = [
 
 [[package]]
 name = "polymesh-primitives"
-version = "2.0.0"
+version = "5.0.0"
 dependencies = [
  "blake2",
  "chrono",
+ "clear_on_drop",
  "confidential_identity_v1",
  "confidential_identity_v2",
  "either",
