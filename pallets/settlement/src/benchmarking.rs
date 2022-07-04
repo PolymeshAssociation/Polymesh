@@ -323,12 +323,12 @@ pub fn setup_conditions<T: Config>(
     (0..count)
         .map(|i| {
             let scope = Scope::Custom((vec![i]).encode());
-            let claim = Claim::Jurisdiction(CountryCode::AF, scope);
+            let claim = Claim::Jurisdiction(CountryCode::AF, scope.clone());
             for did in &dids {
                 identity::Module::<T>::unverified_add_claim_with_scope(
                     did.clone(),
                     claim.clone(),
-                    scope.clone(),
+                    Some(scope.clone()),
                     trusted_issuer.issuer,
                     None,
                 );
