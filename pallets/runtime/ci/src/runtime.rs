@@ -57,7 +57,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     impl_name: create_runtime_str!("polymesh_ci"),
     authoring_version: 1,
     // `spec_version: aaa_bbb_ccc` should match node version v`aaa.bbb.ccc`
-    spec_version: 5_000_001,
+    spec_version: 5_000_002,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 3,
@@ -168,9 +168,9 @@ parameter_types! {
     pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
     // 0.05%. The higher the value, the more strict solution acceptance becomes.
     pub MinSolutionScoreBump: Perbill = Perbill::from_rational(5u32, 10_000);
-    pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
-    pub const FixedYearlyReward: Balance = 140_000_000 * POLY;
-    pub const MinimumBond: Balance = 1 * POLY;
+    pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * ONE_POLY;
+    pub const FixedYearlyReward: Balance = 140_000_000 * ONE_POLY;
+    pub const MinimumBond: Balance = ONE_POLY;
     /// We prioritize im-online heartbeats over election solution submission.
     pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
 

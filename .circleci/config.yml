@@ -2,7 +2,7 @@ version: 2
 jobs:
   lint:
     docker:
-      - image: polymathnet/rust:debian-nightly-2022-05-10
+      - image: polymeshassociation/rust:debian-nightly-2022-05-10
     resource_class: small
     environment:
       VERBOSE: "1"
@@ -13,7 +13,7 @@ jobs:
           command: ./scripts/rustfmt.sh
   build:
     docker:
-      - image: polymathnet/rust:debian-nightly-2022-05-10
+      - image: polymeshassociation/rust:debian-nightly-2022-05-10
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -28,9 +28,6 @@ jobs:
           keys:
             - v6-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
-          name: Setup sccache.
-          command: ./scripts/install_sccache.sh
-      - run:
           name: Build release
           command: cargo build --release
           no_output_timeout: 1h
@@ -38,9 +35,6 @@ jobs:
           root: ./target/release
           paths:
             - polymesh
-      - run:
-          name: sccache stats
-          command: ./scripts/install_sccache.sh
       - save_cache:
           key: v6-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
@@ -48,7 +42,7 @@ jobs:
             - "~/.cache/sccache"
   benchmark-build:
     docker:
-      - image: polymathnet/rust:debian-nightly-2022-05-10
+      - image: polymeshassociation/rust:debian-nightly-2022-05-10
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -63,18 +57,12 @@ jobs:
           keys:
             - v3-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
-          name: Setup sccache.
-          command: ./scripts/install_sccache.sh
-      - run:
           name: Build binary with runtime-benchmarks
           command: cargo build --release --features=runtime-benchmarks,running-ci
           no_output_timeout: 1h
       - run:
           name: Rename the benchmarks binary.
           command: mv ./target/release/polymesh ./polymesh-benchmarks
-      - run:
-          name: sccache stats
-          command: ./scripts/install_sccache.sh
       - persist_to_workspace:
           root: ./
           paths:
@@ -99,7 +87,7 @@ jobs:
           no_output_timeout: 1h
   migration-tests:
     docker:
-      - image: polymathnet/rust:debian-nightly-2022-05-10
+      - image: polymeshassociation/rust:debian-nightly-2022-05-10
     resource_class: large
     environment:
       - VERBOSE: "1"
@@ -123,7 +111,7 @@ jobs:
             - "/usr/local/cargo"
   test:
     docker:
-      - image: polymathnet/rust:debian-nightly-2022-05-10
+      - image: polymeshassociation/rust:debian-nightly-2022-05-10
     resource_class: large
     environment:
       - VERBOSE: "1"
@@ -140,9 +128,6 @@ jobs:
           keys:
             - v12-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
-          name: Setup sccache.
-          command: ./scripts/install_sccache.sh
-      - run:
           name: Tests
           command: >-
             cargo test
@@ -158,9 +143,6 @@ jobs:
             --package asset-metadata
             --features default_identity
           no_output_timeout: 1h
-      - run:
-          name: sccache stats
-          command: ./scripts/install_sccache.sh
       - save_cache:
           key: v12-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
@@ -168,14 +150,11 @@ jobs:
             - "~/.cache/sccache"
   coverage:
     docker:
-      - image: cimg/rust:1.60.0
+      - image: polymeshassociation/rust:debian-nightly-2022-05-10
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
     steps:
-      - run:
-          name: Install libclang
-          command: sudo apt-get update && sudo apt-get install libclang-dev
       - checkout
       - run:
           name: Store rust version in a file for cache key
@@ -183,9 +162,6 @@ jobs:
       - restore_cache:
           keys:
             - v7-coverage-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
-      - run:
-          name: Install dependencies
-          command: rustup component add llvm-tools-preview && cargo install rustfilt cargo-binutils
       - run:
           name: Coverage
           command: bash ./scripts/coverage.sh
@@ -196,7 +172,7 @@ jobs:
             - "/usr/local/cargo"
   integration-test:
     docker:
-      - image: polymathnet/node:v16
+      - image: node:16-bullseye
     resource_class: medium+
     environment:
       VERBOSE: "1"
@@ -224,7 +200,7 @@ jobs:
           no_output_timeout: 10m
   clippy:
     docker:
-      - image: polymathnet/rust:debian-nightly-2022-05-10
+      - image: polymeshassociation/rust:debian-nightly-2022-05-10
     resource_class: xlarge
     environment:
       VERBOSE: "1"
@@ -276,9 +252,61 @@ jobs:
           docker build -f ./.docker/Dockerfile.distroless --tag $IMAGE_NAME:$CIRCLE_BRANCH-distroless --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-distroless .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
           docker push $IMAGE_NAME
+  build-docker-rust-debian:
+    environment:
+      RUST_BASE: 1.61.0
+      IMAGE_NAME: polymeshassociation/rust
+    docker:
+      - image: docker:stable-git
+    resource_class: small
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 20.10.14
+      - run: |
+          export NIGHTLY=`date "+nightly-%Y-%m-%d"`
+          docker build -f ./.docker/rust-nightly/Dockerfile.debian \
+            --build-arg rustbase=$RUST_BASE \
+            --build-arg toolchainversion=$NIGHTLY \
+            --tag $IMAGE_NAME:latest \
+            --tag $IMAGE_NAME:debian --tag $IMAGE_NAME:debian-latest \
+            --tag $IMAGE_NAME:debian-$NIGHTLY .
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker push $IMAGE_NAME
+  build-docker-rust-alpine:
+    environment:
+      RUST_BASE: 1.61.0
+      IMAGE_NAME: polymeshassociation/rust
+    docker:
+      - image: docker:stable-git
+    resource_class: small
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 20.10.14
+      - run: |
+          export NIGHTLY=`date "+nightly-%Y-%m-%d"`
+          docker build -f ./.docker/rust-nightly/Dockerfile.alpine \
+            --build-arg rustbase=$RUST_BASE \
+            --build-arg toolchainversion=$NIGHTLY \
+            --tag $IMAGE_NAME:alpine --tag $IMAGE_NAME:alpine-latest \
+            --tag $IMAGE_NAME:alpine-$NIGHTLY .
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker push $IMAGE_NAME
 
 workflows:
   version: 2
+  nightly:
+    triggers:
+      - schedule:
+          cron: "0 23 * * *"
+          filters:
+            branches:
+              only:
+                - develop
+    jobs:
+      - build-docker-rust-debian
+      - build-docker-rust-alpine
   commit:
     jobs:
       - lint

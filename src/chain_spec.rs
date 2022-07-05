@@ -5,7 +5,7 @@ use pallet_bridge::BridgeTx;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_staking::StakerStatus;
 use polymesh_common_utilities::{
-    constants::{currency::POLY, REWARDS_PALLET_ID, TREASURY_PALLET_ID},
+    constants::{currency::ONE_POLY, REWARDS_PALLET_ID, TREASURY_PALLET_ID},
     protocol_fee::ProtocolOp,
     MaybeBlock, SystematicIssuers,
 };
@@ -38,13 +38,13 @@ const REWARDS_LOCK_HASH: &str =
     "0x1000000000000000000000000000000000000000000000000000000000000002";
 const KEY_LOCK_HASH: &str = "0x1000000000000000000000000000000000000000000000000000000000000003";
 
-const BOOTSTRAP_KEYS: u128 = 6_000 * POLY;
-const BOOTSTRAP_TREASURY: u128 = 17_500_000 * POLY;
+const BOOTSTRAP_KEYS: u128 = 6_000 * ONE_POLY;
+const BOOTSTRAP_TREASURY: u128 = 17_500_000 * ONE_POLY;
 
-const DEV_KEYS: u128 = 30_000_000 * POLY;
-const DEV_TREASURY: u128 = 50_000_000 * POLY;
+const DEV_KEYS: u128 = 30_000_000 * ONE_POLY;
+const DEV_TREASURY: u128 = 50_000_000 * ONE_POLY;
 
-const INITIAL_BOND: u128 = 500 * POLY;
+const INITIAL_BOND: u128 = 500 * ONE_POLY;
 
 // 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
 const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
@@ -230,7 +230,20 @@ type InitialAuth = (
     AuthorityDiscoveryId,
 );
 
-fn adjust_last<'a>(bytes: &'a mut [u8], n: u8) -> &'a str {
+// alias type to make clippy happy.
+type GenesisProcessedData = (
+    Vec<GenesisIdentityRecord<AccountId>>,
+    Vec<(
+        IdentityId,
+        AccountId,
+        AccountId,
+        u128,
+        StakerStatus<AccountId>,
+    )>,
+    Vec<BridgeTx<AccountId>>,
+);
+
+fn adjust_last(bytes: &mut [u8], n: u8) -> &str {
     bytes[bytes.len() - 1] = n + b'0';
     core::str::from_utf8(bytes).unwrap()
 }
@@ -276,17 +289,7 @@ fn genesis_processed_data(
     treasury_bridge_lock: BridgeLockId,
     rewards_bridge_lock: BridgeLockId,
     key_bridge_locks: Vec<BridgeLockId>,
-) -> (
-    Vec<GenesisIdentityRecord<AccountId>>,
-    Vec<(
-        IdentityId,
-        AccountId,
-        AccountId,
-        u128,
-        StakerStatus<AccountId>,
-    )>,
-    Vec<BridgeTx<AccountId>>,
-) {
+) -> GenesisProcessedData {
     // Identities and their roles
     // 1 = [Polymath] GenesisCouncil (1 of 3) + UpgradeCommittee (1 of 1) + TechnicalCommittee (1 of 1) + GCReleaseCoordinator
     // 2 = GenesisCouncil (2 of 3)
@@ -403,17 +406,7 @@ fn dev_genesis_processed_data(
     rewards_bridge_lock: BridgeLockId,
     key_bridge_locks: Vec<BridgeLockId>,
     other_funded_accounts: Vec<AccountId>,
-) -> (
-    GenesisIdentityRecord<AccountId>,
-    Vec<(
-        IdentityId,
-        AccountId,
-        AccountId,
-        u128,
-        StakerStatus<AccountId>,
-    )>,
-    Vec<BridgeTx<AccountId>>,
-) {
+) -> GenesisProcessedData {
     let mut identity = GenesisIdentityRecord::new(1u8, initial_authorities[0].0.clone());
 
     let mut stakers = Vec::with_capacity(initial_authorities.len());
@@ -473,14 +466,14 @@ fn dev_genesis_processed_data(
     complete_txs.push(BridgeTx {
         nonce: rewards_bridge_lock.nonce,
         recipient: REWARDS_PALLET_ID.into_account(),
-        amount: itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+        amount: itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
         tx_hash: rewards_bridge_lock.tx_hash,
     });
 
     // The 0th key is the primary key
     identity.secondary_keys.remove(0);
 
-    (identity, stakers, complete_txs)
+    (vec![identity], stakers, complete_txs)
 }
 
 fn bridge_signers() -> Vec<Signatory<AccountId>> {
@@ -630,7 +623,7 @@ pub mod general {
         key_bridge_locks: Vec<BridgeLockId>,
         other_funded_accounts: Vec<AccountId>,
     ) -> rt::runtime::GenesisConfig {
-        let (identity, stakers, complete_txs) = dev_genesis_processed_data(
+        let (identities, stakers, complete_txs) = dev_genesis_processed_data(
             &initial_authorities,
             treasury_bridge_lock,
             rewards_bridge_lock,
@@ -643,7 +636,7 @@ pub mod general {
             asset: asset!(),
             checkpoint: checkpoint!(),
             identity: pallet_identity::GenesisConfig {
-                identities: vec![identity],
+                identities,
                 ..Default::default()
             },
             balances: Default::default(),
@@ -653,7 +646,7 @@ pub mod general {
                 signatures_required: 1,
                 signers: bridge_signers(),
                 timelock: 10,
-                bridge_limit: (100_000_000 * POLY, 1000),
+                bridge_limit: (100_000_000 * ONE_POLY, 1000),
                 complete_txs,
             },
             indices: pallet_indices::GenesisConfig { indices: vec![] },
@@ -706,7 +699,7 @@ pub mod general {
             BridgeLockId::new(1, DEV_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
                 2,
-                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
                 REWARDS_LOCK_HASH,
             ),
             BridgeLockId::generate_bridge_locks(3, 20, DEV_KEYS, KEY_LOCK_HASH),
@@ -761,7 +754,7 @@ pub mod general {
             BridgeLockId::new(1, DEV_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
                 2,
-                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
                 REWARDS_LOCK_HASH,
             ),
             BridgeLockId::generate_bridge_locks(3, 20, DEV_KEYS, KEY_LOCK_HASH),
@@ -818,7 +811,7 @@ pub mod testnet {
                 signatures_required: 3,
                 signers: bridge_signers(),
                 timelock: time::MINUTES * 15,
-                bridge_limit: (30_000 * POLY, 1 * time::DAYS),
+                bridge_limit: (30_000 * ONE_POLY, time::DAYS),
                 complete_txs,
             },
             indices: pallet_indices::GenesisConfig { indices: vec![] },
@@ -875,7 +868,7 @@ pub mod testnet {
             BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
                 2,
-                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
                 REWARDS_LOCK_HASH,
             ),
             BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
@@ -914,7 +907,7 @@ pub mod testnet {
             BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
                 2,
-                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
                 REWARDS_LOCK_HASH,
             ),
             BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
@@ -950,7 +943,7 @@ pub mod testnet {
             BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
                 2,
-                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
                 REWARDS_LOCK_HASH,
             ),
             BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
@@ -1014,7 +1007,7 @@ pub mod mainnet {
                 signatures_required: 4,
                 signers: bridge_signers(),
                 timelock: time::HOURS * 24,
-                bridge_limit: (1_000_000_000 * POLY, 365 * time::DAYS),
+                bridge_limit: (1_000_000_000 * ONE_POLY, 365 * time::DAYS),
                 complete_txs,
             },
             indices: pallet_indices::GenesisConfig { indices: vec![] },
@@ -1071,7 +1064,7 @@ pub mod mainnet {
             BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
                 2,
-                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
                 REWARDS_LOCK_HASH,
             ),
             BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
@@ -1114,7 +1107,7 @@ pub mod mainnet {
             BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
                 2,
-                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
                 REWARDS_LOCK_HASH,
             ),
             BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
@@ -1150,7 +1143,7 @@ pub mod mainnet {
             BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
                 2,
-                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
                 REWARDS_LOCK_HASH,
             ),
             BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
@@ -1263,7 +1256,7 @@ pub mod ci {
             BridgeLockId::new(1, DEV_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
                 2,
-                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
                 REWARDS_LOCK_HASH,
             ),
             BridgeLockId::generate_bridge_locks(3, 20, DEV_KEYS, KEY_LOCK_HASH),
@@ -1299,7 +1292,7 @@ pub mod ci {
             BridgeLockId::new(1, DEV_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
                 2,
-                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
                 REWARDS_LOCK_HASH,
             ),
             BridgeLockId::generate_bridge_locks(3, 20, DEV_KEYS, KEY_LOCK_HASH),
