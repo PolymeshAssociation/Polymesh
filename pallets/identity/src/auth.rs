@@ -185,6 +185,10 @@ impl<T: Config> Module<T> {
         if let Some(expiry) = auth.expiry {
             let now = <pallet_timestamp::Pallet<T>>::get();
             ensure!(expiry > now, AuthorizationError::Expired);
+            if expiry < now {
+                <Authorizations<T>>::remove(target, auth_id);
+                <AuthorizationsGiven<T>>::remove(auth.authorized_by, auth_id);
+            }
         }
 
         // Run custom per-type validation and updates.
