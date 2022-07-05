@@ -92,7 +92,7 @@ pub use types::{Claim1stKey, Claim2ndKey, DidStatus, PermissionedCallOriginData,
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
-use confidential_identity::ScopeClaimProof;
+use confidential_identity_v2::ScopeClaimProof;
 use core::convert::From;
 use frame_support::{
     decl_error, decl_module, decl_storage,
@@ -216,7 +216,7 @@ decl_storage! {
                 let expiry = gen_id.cdd_claim_expiry.iter().map(|m| T::Moment::from(*m as u32)).next();
                 <Module<T>>::do_register_id(gen_id.primary_key.clone(), gen_id.did, gen_id.secondary_keys.clone());
                 for issuer in &gen_id.issuers {
-                    <Module<T>>::base_add_claim(gen_id.did, cdd_claim.clone(), issuer.clone(), expiry);
+                    <Module<T>>::base_add_claim(gen_id.did, cdd_claim.clone(), *issuer, expiry);
                 }
             }
 
@@ -230,7 +230,7 @@ decl_storage! {
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
                 let sk = SecondaryKey::from_account_id(secondary_account_id.clone());
                 <Module<T>>::add_key_record(secondary_account_id, sk.make_key_record(did));
-                <Module<T>>::deposit_event(RawEvent::SecondaryKeysAdded(did, vec![sk.into()]));
+                <Module<T>>::deposit_event(RawEvent::SecondaryKeysAdded(did, vec![sk]));
             }
         });
     }
@@ -246,7 +246,7 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
-        const InitialPOLYX: <T::Balances as Currency<T::AccountId>>::Balance = T::InitialPOLYX::get().into();
+        const InitialPOLYX: <T::Balances as Currency<T::AccountId>>::Balance = T::InitialPOLYX::get();
 
         fn on_runtime_upgrade() -> Weight {
             storage_migrate_on!(StorageVersion::get(), 1, {

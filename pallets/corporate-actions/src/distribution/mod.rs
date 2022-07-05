@@ -433,7 +433,7 @@ impl<T: Config> Module<T> {
             primary_did: agent,
             secondary_key,
             ..
-        } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin.clone(), ca_id.ticker)?;
+        } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ca_id.ticker)?;
         let dist = Self::ensure_distribution_exists(ca_id)?;
         ensure!(!dist.reclaimed, Error::<T>::AlreadyReclaimed);
         ensure!(
@@ -576,7 +576,7 @@ impl<T: Config> Module<T> {
         balance
             .checked_mul(per_share)
             // `per_share` was entered as a multiple of 1_000_000.
-            .map(|v| v / Balance::from(PER_SHARE_PRECISION))
+            .map(|v| v / PER_SHARE_PRECISION)
             .ok_or_else(|| Error::<T>::BalancePerShareProductOverflowed.into())
     }
 

@@ -15,7 +15,7 @@ pub trait WeightInfo {
     fn chill() -> Weight;
     fn set_payee() -> Weight;
     fn set_controller() -> Weight;
-    fn set_validator_count() -> Weight;
+    fn set_validator_count(c: u32) -> Weight;
     fn force_no_eras() -> Weight;
     fn force_new_era() -> Weight;
     fn force_new_era_always() -> Weight;

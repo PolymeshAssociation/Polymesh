@@ -21,33 +21,7 @@ use sp_runtime::{Deserialize, Serialize};
 use sp_std::{hash::Hash, hash::Hasher, ops::Deref, ops::DerefMut, prelude::*};
 
 /// Transfer manager percentage
-pub type Percentage = HashablePermill;
-
-/// Wrapper around `sp_arithmetic::Permill`
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, TypeInfo)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
-pub struct HashablePermill(pub sp_arithmetic::Permill);
-
-impl Hash for HashablePermill {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write(&self.0.deconstruct().to_le_bytes())
-    }
-}
-
-impl Deref for HashablePermill {
-    type Target = sp_arithmetic::Permill;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for HashablePermill {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
+pub type Percentage = sp_arithmetic::Permill;
 
 /// Asset scope for stats.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -253,11 +227,47 @@ pub struct StatUpdate {
     pub value: Option<u128>,
 }
 
-pub(crate) mod v1 {
+/// Older v1 Transfer Managers.
+pub mod v1 {
     use super::*;
 
     /// Transfer manager counter.
     pub type Counter = u64;
+    /// Transfer manager percentage.
+    pub type Percentage = HashablePermill;
+
+    /// Wrapper around `sp_arithmetic::Permill`
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    #[derive(Decode, Encode, TypeInfo)]
+    #[derive(Copy, Clone, Debug, Eq, PartialOrd, Ord, Default)]
+    pub struct HashablePermill(pub sp_arithmetic::Permill);
+
+    impl Hash for HashablePermill {
+        fn hash<H: Hasher>(&self, state: &mut H) {
+            state.write(&self.0.deconstruct().to_le_bytes())
+        }
+    }
+
+    // Keep clippy happy.
+    impl PartialEq for HashablePermill {
+        fn eq(&self, other: &Self) -> bool {
+            self.0.eq(&other.0)
+        }
+    }
+
+    impl Deref for HashablePermill {
+        type Target = sp_arithmetic::Permill;
+
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
+    impl DerefMut for HashablePermill {
+        fn deref_mut(&mut self) -> &mut Self::Target {
+            &mut self.0
+        }
+    }
 
     /// Transfer managers that can be attached to a Token for compliance.
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]

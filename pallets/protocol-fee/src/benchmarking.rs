@@ -21,18 +21,12 @@ use polymesh_primitives::PosRatio;
 
 benchmarks! {
     change_coefficient {
-        let n in 0 .. u32::MAX;
-        let d in 0 .. u32::MAX;
-
         let origin = RawOrigin::Root;
-        let coefficient = PosRatio::from((n, d));
+        let coefficient = PosRatio::from((0, 0));
     }: _(origin, coefficient)
 
     change_base_fee {
-        let b in 0 .. u32::MAX;
-
         let origin = RawOrigin::Root;
         let op = ProtocolOp::AssetRegisterTicker;
-        let base_fee = b.into();
-    }: _(origin, op, base_fee)
+    }: _(origin, op, 0)
 }

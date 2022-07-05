@@ -1,6 +1,6 @@
 use crate::{host_functions::native_rng, IdentityId, InvestorUid, Ticker};
 
-use confidential_identity::{
+use confidential_identity_v2::{
     claim_proofs::{slice_to_ristretto_point, slice_to_scalar, Investor},
     CddClaimData, InvestorTrait as _, ScopeClaimData, ScopeClaimProof,
 };

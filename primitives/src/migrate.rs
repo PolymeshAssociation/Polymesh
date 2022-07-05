@@ -73,10 +73,7 @@ impl<T: Migrate> Migrate for Option<T> {
     type Context = T::Context;
 
     fn migrate(self, context: Self::Context) -> Option<Self::Into> {
-        match self {
-            None => None,
-            Some(val) => Some(val.migrate(context)),
-        }
+        self.map(|val| val.migrate(context))
     }
 }
 
@@ -132,7 +129,7 @@ pub fn migrate_map_keys_and_value<VO, VN, H, KO, KN, F>(
         .for_each(|(kn, vn)| {
             let kn = kn.using_encoded(H::hash);
             let kn = kn.as_ref();
-            put_storage_value(module, new_item, &kn, vn);
+            put_storage_value(module, new_item, kn, vn);
         })
 }
 
@@ -146,7 +143,7 @@ pub fn decode_double_key<
 >(
     raw: &[u8],
 ) -> Option<(K1, K2)> {
-    let mut unhashed_key = H1::reverse(&raw);
+    let mut unhashed_key = H1::reverse(raw);
     let k1 = K1::decode(&mut unhashed_key).ok()?;
     let mut raw_k2 = H2::reverse(unhashed_key);
     let k2 = K2::decode(&mut raw_k2).ok()?;
@@ -188,15 +185,15 @@ pub fn migrate_double_map<V1, V2, H1, K1, H2, K2, KN1, KN2, F>(
     KN1: Encode,
     KN2: Encode,
 {
-    let old_map = storage_iter::<V1>(module, item)
+    let old_key_values = storage_iter::<V1>(module, item)
         .drain()
-        .collect::<Vec<(Vec<u8>, _)>>();
+        .filter_map(|(raw_key, value)| {
+            let (k1, k2) = decode_double_key::<H1, _, H2, _>(&raw_key)?;
+            let (kn1, kn2, value) = map(k1, k2, value)?;
+            Some((encode_double_key::<H1, _, H2, _>(kn1, kn2), value))
+        });
 
-    for (key, value) in old_map.into_iter().filter_map(|(raw_key, value)| {
-        let (k1, k2) = decode_double_key::<H1, _, H2, _>(&raw_key)?;
-        let (kn1, kn2, value) = map(k1, k2, value)?;
-        Some((encode_double_key::<H1, _, H2, _>(kn1, kn2), value))
-    }) {
+    for (key, value) in old_key_values {
         put_storage_value(module, item, &key, value);
     }
 }
@@ -225,7 +222,7 @@ where
 {
     storage_iter::<V1>(module, item).map(move |(raw_key, value)| {
         let (k1, k2) = decode_double_key::<H1, K1, H2, K2>(&raw_key)
-            .ok_or_else(|| MigrationError::DecodeKey(raw_key.clone().into()))?;
+            .ok_or_else(|| MigrationError::DecodeKey(raw_key.clone()))?;
         let new_value = f(k1, k2, value).map_err(|e| MigrationError::Map(e))?;
         put_storage_value(module, item, &raw_key, new_value);
 
@@ -252,6 +249,5 @@ pub fn move_map_rename_module<T: Decode + Encode>(
 ) {
     storage_iter::<T>(old_module, item)
         .drain()
-        .filter_map(|(key, val)| Some((key, val)))
         .for_each(|(key, val)| put_storage_value(new_module, item, &key, val));
 }

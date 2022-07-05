@@ -184,7 +184,7 @@ decl_module! {
             let is_root = Self::ensure_root_or_signed(origin.clone())?;
 
             // Run batch
-            Self::deposit_event(Self::run_batch(origin.clone(), is_root, calls, true));
+            Self::deposit_event(Self::run_batch(origin, is_root, calls, true));
         }
 
         /// Dispatch multiple calls from the sender's origin.
@@ -213,7 +213,7 @@ decl_module! {
             // Run batch inside a transaction
             Self::deposit_event(with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
                 // Run batch.
-                match Self::run_batch(origin.clone(), is_root, calls, true) {
+                match Self::run_batch(origin, is_root, calls, true) {
                     ev @ Event::BatchCompleted(_) => TransactionOutcome::Commit(Ok(ev)),
                     ev => {
                         // Batch didn't complete.  Rollback transaction.
@@ -249,7 +249,7 @@ decl_module! {
             let is_root = Self::ensure_root_or_signed(origin.clone())?;
 
             // Optimistically (hey, it's in the function name, :wink:) assume no errors.
-            Self::deposit_event(Self::run_batch(origin.clone(), is_root, calls, false));
+            Self::deposit_event(Self::run_batch(origin, is_root, calls, false));
         }
 
         /// Relay a call for a target from an origin

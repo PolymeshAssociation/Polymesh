@@ -16,6 +16,7 @@ use test_client::AccountKeyring;
 
 type Origin = <TestStorage as frame_system::Config>::Origin;
 type Moment = <TestStorage as pallet_timestamp::Config>::Moment;
+type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 
 type MaxLen = <TestStorage as pallet_base::Config>::MaxLen;
 type AssetMetadataNameMaxLength = <TestStorage as pallet_asset::Config>::AssetMetadataNameMaxLength;
@@ -501,5 +502,109 @@ fn register_asset_metadata_global_type_limits() {
             AssetMetadataTypeDefMaxLength::get() + 1,
             AssetError::AssetMetadataTypeDefMaxLengthExceeded.into(),
         );
+    });
+}
+
+#[test]
+fn check_locked_until() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Dave);
+
+        // Create asset.
+        let (ticker, _) = create_token(owner);
+
+        let global_key = register_metadata_type(owner, None, "TEST");
+        let local_key = register_metadata_type(owner, Some(ticker), "TEST");
+
+        let value = AssetMetadataValue("cow".as_bytes().into());
+        let details = Some(make_metadata_value_details(None, false));
+
+        // Set metadata value for global key.
+        exec_ok!(Asset::set_asset_metadata(
+            owner.origin(),
+            ticker,
+            global_key,
+            value.clone(),
+            details.clone()
+        ));
+
+        // Set metadata value for local key.
+        exec_ok!(Asset::set_asset_metadata(
+            owner.origin(),
+            ticker,
+            local_key,
+            value.clone(),
+            details.clone()
+        ));
+
+        let unlock_timestamp = Timestamp::now() + 1_000_000_000;
+        let details_locked_until = AssetMetadataValueDetail {
+            expire: None,
+            lock_status: AssetMetadataLockStatus::LockedUntil(unlock_timestamp),
+        };
+
+        // Lock metadata value for global key until `unlock_timestamp`.
+        exec_ok!(Asset::set_asset_metadata_details(
+            owner.origin(),
+            ticker,
+            global_key,
+            details_locked_until.clone(),
+        ));
+
+        // Lock metadata value for local key until `unlock_timestamp`.
+        exec_ok!(Asset::set_asset_metadata_details(
+            owner.origin(),
+            ticker,
+            local_key,
+            details_locked_until.clone(),
+        ));
+
+        let value2 = AssetMetadataValue("deadbeef".as_bytes().into());
+        let details2 = Some(make_metadata_value_details(None, false));
+
+        // Try updating locked metadata value for global key.
+        exec_noop!(
+            Asset::set_asset_metadata(
+                owner.origin(),
+                ticker,
+                global_key,
+                value2.clone(),
+                details2.clone(),
+            ),
+            AssetError::AssetMetadataValueIsLocked
+        );
+
+        // Try updating locked metadata value for local key.
+        exec_noop!(
+            Asset::set_asset_metadata(
+                owner.origin(),
+                ticker,
+                local_key,
+                value2.clone(),
+                details2.clone(),
+            ),
+            AssetError::AssetMetadataValueIsLocked
+        );
+
+        // Move time forward until after `unlock_timestamp`.
+        Timestamp::set_timestamp(unlock_timestamp + 1_000);
+
+        // Updated unlocked metadata value for global key.
+        exec_ok!(Asset::set_asset_metadata(
+            owner.origin(),
+            ticker,
+            global_key,
+            value2.clone(),
+            details2.clone()
+        ));
+
+        // Updated unlocked metadata value for local key.
+        exec_ok!(Asset::set_asset_metadata(
+            owner.origin(),
+            ticker,
+            local_key,
+            value2.clone(),
+            details2.clone()
+        ));
     });
 }

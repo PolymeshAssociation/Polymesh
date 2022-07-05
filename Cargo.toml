@@ -1,6 +1,6 @@
 [package]
 name = "polymesh"
-version = "5.0.1"
+version = "5.0.2"
 authors = ["Polymath"]
 build = "build.rs"
 edition = "2021"
@@ -103,6 +103,8 @@ substrate-test-runtime-client = { git = "https://github.com/PolymeshAssociation/
 substrate-test-utils = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05" }
 substrate-test-utils-derive = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05" }
 substrate-wasm-builder = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05" }
+
+bulletproofs = { version = "4.0.0", git = "https://github.com/PolymeshAssociation/bulletproofs", branch = "polymesh" }
 
 [workspace]
 members = [

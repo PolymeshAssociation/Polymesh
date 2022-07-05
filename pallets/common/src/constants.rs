@@ -3,8 +3,8 @@ use frame_support::PalletId;
 /// Money matters.
 pub mod currency {
     use polymesh_primitives::Balance;
-    // TODO: Define proper units. These are placeholders.
     pub const POLY: Balance = 1_000_000;
+    pub const ONE_POLY: Balance = POLY;
     pub const DOLLARS: Balance = POLY;
     pub const CENTS: Balance = DOLLARS / 100;
     pub const MILLICENTS: Balance = CENTS / 1_000;

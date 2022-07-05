@@ -1,5 +1,5 @@
 use codec::Encode;
-use confidential_identity::{compute_cdd_id, compute_scope_id, mocked};
+use confidential_identity_v1::{compute_cdd_id, compute_scope_id, mocked};
 use polymesh_primitives::{IdentityId, InvestorUid, InvestorZKProofData, Ticker};
 use std::convert::TryFrom;
 

@@ -26,11 +26,11 @@ use codec::Decode;
 use frame_support::{traits::Get, weights::Weight, IterableStorageMap};
 use frame_system::offchain::SubmitTransaction;
 use sp_npos_elections::{
-    EvaluateSupport,
-    reduce, to_supports, Assignment, ElectionResult, ElectionScore, ExtendedBalance,
+    reduce, to_supports, Assignment, ElectionResult, ElectionScore, EvaluateSupport,
+    ExtendedBalance,
 };
 use sp_runtime::{
-    offchain::storage::{StorageValueRef, MutateStorageError},
+    offchain::storage::{MutateStorageError, StorageValueRef},
     traits::TrailingZeroInput,
     RuntimeDebug,
 };
@@ -80,23 +80,20 @@ pub fn set_check_offchain_execution_status<T: Config>(
     let storage = StorageValueRef::persistent(&OFFCHAIN_HEAD_DB);
     let threshold = T::BlockNumber::from(OFFCHAIN_REPEAT);
 
-    let mutate_stat =
-        storage.mutate::<_, &'static str, _>(|maybe_head| {
-            match maybe_head {
-                Ok(Some(head)) if now < head => Err("fork."),
-                Ok(Some(head)) if now >= head && now <= head + threshold => {
-                    Err("recently executed.")
-                }
-                Ok(Some(head)) if now > head + threshold => {
-                    // we can run again now. Write the new head.
-                    Ok(now)
-                }
-                _ => {
-                    // value doesn't exists. Probably this node just booted up. Write, and run
-                    Ok(now)
-                }
+    let mutate_stat = storage.mutate::<_, &'static str, _>(|maybe_head| {
+        match maybe_head {
+            Ok(Some(head)) if now < head => Err("fork."),
+            Ok(Some(head)) if now >= head && now <= head + threshold => Err("recently executed."),
+            Ok(Some(head)) if now > head + threshold => {
+                // we can run again now. Write the new head.
+                Ok(now)
             }
-        });
+            _ => {
+                // value doesn't exists. Probably this node just booted up. Write, and run
+                Ok(now)
+            }
+        }
+    });
 
     mutate_stat.map(drop)
 }
@@ -133,12 +130,13 @@ pub(crate) fn compute_offchain_election<T: Config>() -> Result<(), OffchainElect
 
     // send it.
     let call = Call::submit_election_solution_unsigned {
-            winners,
-            compact,
-            score,
-            era,
-            size,
-    }.into();
+        winners,
+        compact,
+        score,
+        era,
+        size,
+    }
+    .into();
 
     SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call)
         .map_err(|_| OffchainElectionError::PoolSubmissionFailed)
@@ -153,7 +151,8 @@ pub fn get_balancing_iters<T: Config>() -> usize {
         max @ _ => {
             let seed = sp_io::offchain::random_seed();
             let random = <u32>::decode(&mut TrailingZeroInput::new(seed.as_ref()))
-                .expect("input is padded with zeroes; qed") % max.saturating_add(1);
+                .expect("input is padded with zeroes; qed")
+                % max.saturating_add(1);
             random as usize
         }
     }
@@ -194,7 +193,7 @@ pub fn maximum_compact_len<W: crate::WeightInfo>(
                     Some(voters) if voters < max_voters => Ok(voters),
                     _ => Err(()),
                 }
-            },
+            }
             Ordering::Greater => voters.checked_sub(step).ok_or(()),
             Ordering::Equal => Ok(voters),
         }
@@ -208,18 +207,17 @@ pub fn maximum_compact_len<W: crate::WeightInfo>(
             // proceed with the binary search
             Ok(next) if next != voters => {
                 voters = next;
-            },
+            }
             // we are out of bounds, break out of the loop.
             Err(()) => {
                 break;
-            },
+            }
             // we found the right value - early exit the function.
-            Ok(next) => return next
+            Ok(next) => return next,
         }
         step = step / 2;
         current_weight = weight_with(voters);
     }
-
 
     // Time to finish.
     // We might have reduced less than expected due to rounding error. Increase one last time if we
@@ -233,7 +231,9 @@ pub fn maximum_compact_len<W: crate::WeightInfo>(
 
     debug_assert!(
         weight_with(voters.min(size.nominators)) <= max_weight,
-        "weight_with({}) <= {}", voters.min(size.nominators), max_weight,
+        "weight_with({}) <= {}",
+        voters.min(size.nominators),
+        max_weight,
     );
     voters.min(size.nominators)
 }
@@ -261,7 +261,10 @@ pub fn trim_to_weight<T: Config, FN>(
 where
     for<'r> FN: Fn(&'r T::AccountId) -> Option<NominatorIndex>,
 {
-    match compact.voter_count().checked_sub(maximum_allowed_voters as usize) {
+    match compact
+        .voter_count()
+        .checked_sub(maximum_allowed_voters as usize)
+    {
         Some(to_remove) if to_remove > 0 => {
             // grab all voters and sort them by least stake.
             let balance_of = <Module<T>>::slashable_balance_of_fn();
@@ -320,7 +323,12 @@ pub fn prepare_submission<T: Config>(
     do_reduce: bool,
     _maximum_weight: Weight,
 ) -> Result<
-    (Vec<ValidatorIndex>, CompactAssignments, ElectionScore, ElectionSize),
+    (
+        Vec<ValidatorIndex>,
+        CompactAssignments,
+        ElectionScore,
+        ElectionSize,
+    ),
     OffchainElectionError,
 > {
     // make sure that the snapshot is available.
@@ -453,18 +461,18 @@ mod test {
         fn unbond() -> Weight {
             unimplemented!()
         }
-		fn withdraw_unbonded_update(s: u32) -> Weight {
-			unimplemented!()
-		}
-		fn withdraw_unbonded_kill(s: u32) -> Weight {
-			unimplemented!()
-		}
+        fn withdraw_unbonded_update(s: u32) -> Weight {
+            unimplemented!()
+        }
+        fn withdraw_unbonded_kill(s: u32) -> Weight {
+            unimplemented!()
+        }
         fn validate() -> Weight {
             unimplemented!()
         }
-		fn nominate(n: u32) -> Weight {
-			unimplemented!()
-		}
+        fn nominate(n: u32) -> Weight {
+            unimplemented!()
+        }
         fn chill() -> Weight {
             unimplemented!()
         }
@@ -474,7 +482,7 @@ mod test {
         fn set_controller() -> Weight {
             unimplemented!()
         }
-        fn set_validator_count() -> Weight {
+        fn set_validator_count(_c: u32) -> Weight {
             unimplemented!()
         }
         fn force_no_eras() -> Weight {
@@ -486,24 +494,24 @@ mod test {
         fn force_new_era_always() -> Weight {
             unimplemented!()
         }
-		fn set_invulnerables(v: u32) -> Weight {
-			unimplemented!()
-		}
-		fn force_unstake(s: u32) -> Weight {
-			unimplemented!()
-		}
-		fn cancel_deferred_slash(s: u32) -> Weight {
-			unimplemented!()
-		}
+        fn set_invulnerables(v: u32) -> Weight {
+            unimplemented!()
+        }
+        fn force_unstake(s: u32) -> Weight {
+            unimplemented!()
+        }
+        fn cancel_deferred_slash(s: u32) -> Weight {
+            unimplemented!()
+        }
         fn payout_all(_: u32, _: u32) -> Weight {
             unimplemented!()
         }
-		fn payout_stakers(n: u32) -> Weight {
-			unimplemented!()
-		}
-		fn payout_stakers_alive_controller(n: u32) -> Weight {
-			unimplemented!()
-		}
+        fn payout_stakers(n: u32) -> Weight {
+            unimplemented!()
+        }
+        fn payout_stakers_alive_controller(n: u32) -> Weight {
+            unimplemented!()
+        }
         fn set_min_bond_threshold() -> Weight {
             unimplemented!()
         }
@@ -519,15 +527,15 @@ mod test {
         fn do_slash(_: u32) -> Weight {
             unimplemented!()
         }
-		fn rebond(l: u32) -> Weight {
-			unimplemented!()
-		}
-		fn set_history_depth(e: u32) -> Weight {
-			unimplemented!()
-		}
-		fn reap_stash(s: u32) -> Weight {
-			unimplemented!()
-		}
+        fn rebond(l: u32) -> Weight {
+            unimplemented!()
+        }
+        fn set_history_depth(e: u32) -> Weight {
+            unimplemented!()
+        }
+        fn reap_stash(s: u32) -> Weight {
+            unimplemented!()
+        }
         fn new_era(v: u32, n: u32) -> Weight {
             unimplemented!()
         }

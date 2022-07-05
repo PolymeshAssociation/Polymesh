@@ -1654,10 +1654,7 @@ impl<T: Config> Module<T> {
 
     /// Ensure `supply <= MAX_SUPPLY`.
     fn ensure_within_max_supply(supply: Balance) -> DispatchResult {
-        ensure!(
-            supply <= MAX_SUPPLY.into(),
-            Error::<T>::TotalSupplyAboveLimit
-        );
+        ensure!(supply <= MAX_SUPPLY, Error::<T>::TotalSupplyAboveLimit);
         Ok(())
     }
 
@@ -1785,7 +1782,7 @@ impl<T: Config> Module<T> {
             total_supply: Zero::zero(),
             owner_did: did,
             divisible,
-            asset_type: asset_type.clone(),
+            asset_type,
         };
         Tokens::insert(&ticker, token);
         AssetNames::insert(&ticker, name);
