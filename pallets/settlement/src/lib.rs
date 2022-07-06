@@ -355,8 +355,8 @@ decl_event!(
         VenueDetailsUpdated(IdentityId, VenueId, VenueDetails),
         /// An existing venue's type has been updated (did, venue_id, type)
         VenueTypeUpdated(IdentityId, VenueId, VenueType),
-        /// An existing venue's signers has been updated (did, venue_id, signers)
-        VenueSignersUpdated(IdentityId, VenueId, Vec<AccountId>),
+        /// An existing venue's signers has been updated (did, venue_id, signers, update_type)
+        VenueSignersUpdated(IdentityId, VenueId, Vec<AccountId>, bool),
         /// A new instruction has been created
         /// (did, venue_id, instruction_id, settlement_type, trade_date, value_date, legs)
         InstructionCreated(
@@ -606,7 +606,7 @@ decl_module! {
                 }
             }
 
-            Self::deposit_event(RawEvent::VenueSignersUpdated(did, id, signers));
+            Self::deposit_event(RawEvent::VenueSignersUpdated(did, id, signers, update_type));
             Ok(())
         }
 
