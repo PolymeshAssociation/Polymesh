@@ -311,7 +311,7 @@ pub trait WeightInfo {
     fn create_venue(d: u32, u: u32) -> Weight;
     fn update_venue_details(d: u32) -> Weight;
     fn update_venue_type() -> Weight;
-    fn update_venue_signers() -> Weight;
+    fn update_venue_signers(u: u32) -> Weight;
     fn add_instruction(u: u32) -> Weight;
     fn add_and_affirm_instruction(u: u32) -> Weight;
     fn affirm_instruction(l: u32) -> Weight;
@@ -593,7 +593,7 @@ decl_module! {
         /// * `id` specifies the ID of the venue to edit.
         /// * `signers` specifies the signers to add/remove.
         /// * `update_type` specifies the update type add/remove of venue.
-        #[weight = <T as Config>::WeightInfo::update_venue_signers()]
+        #[weight = <T as Config>::WeightInfo::update_venue_signers(signers.len() as u32)]
         pub fn update_venue_signers(origin, id: VenueId, signers: Vec<T::AccountId>, update_type: bool) -> DispatchResult {
             let did = Identity::<T>::ensure_perms(origin)?;
 
