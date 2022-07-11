@@ -355,8 +355,6 @@ decl_event!(
         VenueDetailsUpdated(IdentityId, VenueId, VenueDetails),
         /// An existing venue's type has been updated (did, venue_id, type)
         VenueTypeUpdated(IdentityId, VenueId, VenueType),
-        /// An existing venue's signers has been updated (did, venue_id, signers, update_type)
-        VenueSignersUpdated(IdentityId, VenueId, Vec<AccountId>, bool),
         /// A new instruction has been created
         /// (did, venue_id, instruction_id, settlement_type, trade_date, value_date, legs)
         InstructionCreated(
@@ -406,6 +404,8 @@ decl_event!(
         /// Instruction is rescheduled.
         /// (caller DID, instruction_id)
         InstructionRescheduled(IdentityId, InstructionId),
+        /// An existing venue's signers has been updated (did, venue_id, signers, update_type)
+        VenueSignersUpdated(IdentityId, VenueId, Vec<AccountId>, bool),
     }
 );
 
@@ -462,6 +462,10 @@ decl_error! {
         UnknownInstruction,
         /// Maximum legs that can be in a single instruction.
         InstructionHasTooManyLegs,
+        /// Signer is already added to venue.
+        SignerAlreadyAddedToVenue,
+        /// Signer is not added to venue.
+        SignerNotAddedToVenue,
     }
 }
 
@@ -1649,7 +1653,7 @@ impl<T: Config> Module<T> {
         Ok((legs_count, filtered_legs))
     }
 
-    pub fn base_update_venue_signers(
+    fn base_update_venue_signers(
         did: IdentityId,
         id: VenueId,
         signers: Vec<T::AccountId>,
@@ -1660,8 +1664,16 @@ impl<T: Config> Module<T> {
 
         for signer in &signers {
             if update_type {
+                ensure!(
+                    !(Self::venue_signers(&id, &signer)),
+                    Error::<T>::SignerAlreadyAddedToVenue
+                );
                 <VenueSigners<T>>::insert(&id, &signer, true);
             } else {
+                ensure!(
+                    Self::venue_signers(&id, &signer),
+                    Error::<T>::SignerNotAddedToVenue
+                );
                 <VenueSigners<T>>::remove(&id, &signer);
             }
         }

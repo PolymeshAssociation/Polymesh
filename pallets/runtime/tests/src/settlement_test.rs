@@ -2324,6 +2324,85 @@ fn reject_failed_instruction() {
     });
 }
 
+#[test]
+fn modify_venue_signers() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let charlie = User::new(AccountKeyring::Charlie);
+        let venue_counter = Settlement::venue_counter();
+
+        assert_ok!(Settlement::create_venue(
+            alice.origin(),
+            VenueDetails::default(),
+            vec![
+                AccountKeyring::Alice.to_account_id(),
+                AccountKeyring::Bob.to_account_id()
+            ],
+            VenueType::Exchange
+        ));
+
+        // Charlie fails to add dave to signer list
+        assert_noop!(
+            Settlement::update_venue_signers(
+                charlie.origin(),
+                venue_counter,
+                vec![AccountKeyring::Dave.to_account_id(),],
+                true
+            ),
+            Error::Unauthorized
+        );
+
+        // Alice adds charlie to signer list
+        assert_ok!(Settlement::update_venue_signers(
+            alice.origin(),
+            venue_counter,
+            vec![AccountKeyring::Charlie.to_account_id(),],
+            true
+        ));
+
+        // Alice fails to remove dave from signer list
+        assert_noop!(
+            Settlement::update_venue_signers(
+                alice.origin(),
+                venue_counter,
+                vec![AccountKeyring::Dave.to_account_id(),],
+                false
+            ),
+            Error::SignerNotAddedToVenue
+        );
+
+        // Alice fails to add charlie to the signer list
+        assert_noop!(
+            Settlement::update_venue_signers(
+                alice.origin(),
+                venue_counter,
+                vec![AccountKeyring::Charlie.to_account_id(),],
+                true
+            ),
+            Error::SignerAlreadyAddedToVenue
+        );
+
+        // Alice removes charlie from signer list
+        assert_ok!(Settlement::update_venue_signers(
+            alice.origin(),
+            venue_counter,
+            vec![AccountKeyring::Charlie.to_account_id(),],
+            false
+        ));
+
+        // this checks if the signer is already in the signer list
+        assert_eq!(Settlement::venue_signers(venue_counter, alice.acc()), true);
+        assert_eq!(
+            Settlement::venue_signers(venue_counter, AccountKeyring::Bob.to_account_id()),
+            true
+        );
+        assert_eq!(
+            Settlement::venue_signers(venue_counter, AccountKeyring::Charlie.to_account_id()),
+            false
+        );
+    });
+}
+
 fn create_instruction(
     alice: &User,
     bob: &User,

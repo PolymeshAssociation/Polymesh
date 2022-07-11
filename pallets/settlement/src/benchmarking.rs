@@ -565,9 +565,11 @@ benchmarks! {
         for signer in 0 .. s {
             signers.push(UserBuilder::<T>::default().generate_did().seed(signer).build("signers").account());
         }
-    }: _(origin, venue_id, signers, true)
+    }: _(origin, venue_id, signers.clone(), true)
     verify {
-        assert_eq!(Module::<T>::venue_signers(venue_id, account), true, "Incorrect venue signer");
+        for signer in signers.iter() {
+            assert_eq!(Module::<T>::venue_signers(venue_id, signer), true, "Incorrect venue signer");
+        }
     }
 
 
