@@ -1785,7 +1785,7 @@ impl<T: Config> Module<T> {
             asset_type,
         };
         Tokens::insert(&ticker, token);
-        AssetNames::insert(&ticker, name);
+        AssetNames::insert(&ticker, &name);
         DisableInvestorUniqueness::insert(&ticker, disable_iu);
         // NB - At the time of asset creation it is obvious that the asset issuer will not have an
         // `InvestorUniqueness` claim. So we are skipping the scope claim based stats update as
@@ -1793,7 +1793,15 @@ impl<T: Config> Module<T> {
         // has an InvestorUniqueness claim. This also applies when issuing assets.
         AssetOwnershipRelations::insert(did, ticker, AssetOwnershipRelation::AssetOwned);
         Self::deposit_event(RawEvent::AssetCreated(
-            did, ticker, divisible, asset_type, did, disable_iu,
+            did,
+            ticker,
+            divisible,
+            asset_type,
+            did,
+            disable_iu,
+            name,
+            identifiers.clone(),
+            funding_round.clone(),
         ));
 
         // Add funding round name.
