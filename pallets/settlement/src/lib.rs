@@ -463,9 +463,9 @@ decl_error! {
         /// Maximum legs that can be in a single instruction.
         InstructionHasTooManyLegs,
         /// Signer is already added to venue.
-        SignerAlreadyAddedToVenue,
+        SignerAlreadyExists,
         /// Signer is not added to venue.
-        SignerNotAddedToVenue,
+        SignerDoesNotExist,
     }
 }
 
@@ -1657,28 +1657,34 @@ impl<T: Config> Module<T> {
         did: IdentityId,
         id: VenueId,
         signers: Vec<T::AccountId>,
-        update_type: bool,
+        add_signers: bool,
     ) -> DispatchResult {
         // Ensure venue exists & sender is its creator.
         Self::venue_for_management(id, did)?;
 
-        for signer in &signers {
-            if update_type {
+        if add_signers {
+            for signer in &signers {
                 ensure!(
                     !(Self::venue_signers(&id, &signer)),
-                    Error::<T>::SignerAlreadyAddedToVenue
+                    Error::<T>::SignerAlreadyExists
                 );
+            }
+            for signer in &signers {
                 <VenueSigners<T>>::insert(&id, &signer, true);
-            } else {
+            }
+        } else {
+            for signer in &signers {
                 ensure!(
                     Self::venue_signers(&id, &signer),
-                    Error::<T>::SignerNotAddedToVenue
+                    Error::<T>::SignerDoesNotExist
                 );
+            }
+            for signer in &signers {
                 <VenueSigners<T>>::remove(&id, &signer);
             }
         }
 
-        Self::deposit_event(RawEvent::VenueSignersUpdated(did, id, signers, update_type));
+        Self::deposit_event(RawEvent::VenueSignersUpdated(did, id, signers, add_signers));
         Ok(())
     }
 }

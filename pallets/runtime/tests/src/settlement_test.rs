@@ -2368,7 +2368,7 @@ fn modify_venue_signers() {
                 vec![AccountKeyring::Dave.to_account_id(),],
                 false
             ),
-            Error::SignerNotAddedToVenue
+            Error::SignerDoesNotExist
         );
 
         // Alice fails to add charlie to the signer list
@@ -2379,7 +2379,7 @@ fn modify_venue_signers() {
                 vec![AccountKeyring::Charlie.to_account_id(),],
                 true
             ),
-            Error::SignerAlreadyAddedToVenue
+            Error::SignerAlreadyExists
         );
 
         // Alice removes charlie from signer list
@@ -2400,6 +2400,37 @@ fn modify_venue_signers() {
             Settlement::venue_signers(venue_counter, AccountKeyring::Charlie.to_account_id()),
             false
         );
+
+        // Alice adds charlie, dave and eve
+        assert_ok!(Settlement::update_venue_signers(
+            alice.origin(),
+            venue_counter,
+            vec![
+                AccountKeyring::Charlie.to_account_id(),
+                AccountKeyring::Dave.to_account_id(),
+                AccountKeyring::Eve.to_account_id(),
+            ],
+            true
+        ));
+
+        // Alice removes charlie, dave and eve
+        assert_ok!(Settlement::update_venue_signers(
+            alice.origin(),
+            venue_counter,
+            vec![
+                AccountKeyring::Charlie.to_account_id(),
+                AccountKeyring::Dave.to_account_id(),
+                AccountKeyring::Eve.to_account_id(),
+            ],
+            false
+        ));
+
+        assert_ok!(Settlement::update_venue_signers(
+            alice.origin(),
+            venue_counter,
+            vec![AccountKeyring::Alice.to_account_id(),],
+            false
+        ));
     });
 }
 
