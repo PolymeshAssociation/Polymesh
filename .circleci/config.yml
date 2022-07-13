@@ -49,6 +49,8 @@ jobs:
           command: ls -ltra
       - persist_to_workspace:
           root: ./assets
+          paths:
+              - .
       - save_cache:
           key: v6-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
