@@ -311,7 +311,7 @@ jobs:
           docker push $IMAGE_NAME
   publish-github-release:
     docker:
-      - image: circleci/golang:1.8
+      - image: circleci/golang:1.16
     steps:
       - attach_workspace:
           at: ./assets
