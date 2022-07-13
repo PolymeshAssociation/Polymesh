@@ -44,6 +44,9 @@ jobs:
       - run:
           name: Copy wasm to assets
           command: cp ./target/release/wbuild/polymesh*/*wasm ./assets/
+      - run:
+          name: List files
+          command: ls -ltra
       - persist_to_workspace:
           root: ./assets
       - save_cache:
