@@ -319,11 +319,12 @@ jobs:
           name: "Publish Release on GitHub"
           command: |
             go get github.com/tcnksm/ghr
-            VERSION=$(./assets/polymesh --version | cut -d" " -f2)
-            mv ./assets/polymesh ./assets/polymesh-${VERSION}
-            zip -rm ./assets/polymesh-${VERSION}.zip ./assets/polymesh-${VERSION}
-            zip -rm ./assets/polymesh-${VERSION}-wasm.zip ./assets/*.wasm
-            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./assets/
+            cd assets
+            VERSION=$(./polymesh --version | cut -d" " -f2)
+            mv ./polymesh ./polymesh-${VERSION}
+            zip -rm ./polymesh-${VERSION}.zip ./polymesh-${VERSION}
+            zip -rm ./polymesh-${VERSION}-wasm.zip ./*.wasm
+            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./
 
 workflows:
   version: 2
