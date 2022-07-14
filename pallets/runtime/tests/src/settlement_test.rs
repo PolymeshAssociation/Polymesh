@@ -2425,12 +2425,39 @@ fn modify_venue_signers() {
             false
         ));
 
-        assert_ok!(Settlement::update_venue_signers(
-            alice.origin(),
-            venue_counter,
-            vec![AccountKeyring::Alice.to_account_id(),],
+        // Alice fails to adds charlie, dave, eve and bob
+        assert_noop!(
+            Settlement::update_venue_signers(
+                alice.origin(),
+                venue_counter,
+                vec![
+                    AccountKeyring::Charlie.to_account_id(),
+                    AccountKeyring::Dave.to_account_id(),
+                    AccountKeyring::Eve.to_account_id(),
+                    AccountKeyring::Bob.to_account_id()
+                ],
+                true
+            ),
+            Error::SignerAlreadyExists
+        );
+
+        assert_eq!(Settlement::venue_signers(venue_counter, alice.acc()), true);
+        assert_eq!(
+            Settlement::venue_signers(venue_counter, AccountKeyring::Bob.to_account_id()),
+            true
+        );
+        assert_eq!(
+            Settlement::venue_signers(venue_counter, AccountKeyring::Charlie.to_account_id()),
             false
-        ));
+        );
+        assert_eq!(
+            Settlement::venue_signers(venue_counter, AccountKeyring::Dave.to_account_id()),
+            false
+        );
+        assert_eq!(
+            Settlement::venue_signers(venue_counter, AccountKeyring::Eve.to_account_id()),
+            false
+        );
     });
 }
 

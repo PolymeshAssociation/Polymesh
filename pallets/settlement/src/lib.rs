@@ -1665,7 +1665,7 @@ impl<T: Config> Module<T> {
         if add_signers {
             for signer in &signers {
                 ensure!(
-                    !(Self::venue_signers(&id, &signer)),
+                    !Self::venue_signers(&id, &signer),
                     Error::<T>::SignerAlreadyExists
                 );
             }
