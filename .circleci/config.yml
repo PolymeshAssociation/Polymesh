@@ -320,6 +320,8 @@ jobs:
           command: |
             go get github.com/tcnksm/ghr
             VERSION=$(./assets/polymesh --version | cut -d" " -f2)
+            mv ./assets/polymesh ./assets/polymesh-${VERSION}
+            zip -r polymesh-${VERSION}-wasm.zip ./assets/*.wasm 
             ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./assets/
 
 workflows:
