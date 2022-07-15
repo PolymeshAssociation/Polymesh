@@ -35,6 +35,22 @@ jobs:
           root: ./target/release
           paths:
             - polymesh
+      - run:
+          name: Create assets directory for releases
+          command: mkdir ./assets
+      - run:
+          name: Copy binary to assets
+          command: cp ./target/release/polymesh ./assets/polymesh
+      - run:
+          name: Copy wasm to assets
+          command: cp ./target/release/wbuild/polymesh*/*wasm ./assets/
+      - run:
+          name: List files
+          command: ls -ltra
+      - persist_to_workspace:
+          root: ./assets
+          paths:
+              - .
       - save_cache:
           key: v6-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
@@ -293,6 +309,22 @@ jobs:
             --tag $IMAGE_NAME:alpine-$NIGHTLY .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
           docker push $IMAGE_NAME
+  publish-github-release:
+    docker:
+      - image: circleci/golang:1.16
+    steps:
+      - attach_workspace:
+          at: ./assets
+      - run:
+          name: "Publish Release on GitHub"
+          command: |
+            go get github.com/tcnksm/ghr
+            cd assets
+            VERSION=$(./polymesh --version | cut -d" " -f2)
+            mv ./polymesh ./polymesh-${VERSION}
+            zip -rm ./polymesh-${VERSION}.zip ./polymesh-${VERSION}
+            zip -rm ./polymesh-${VERSION}-wasm.zip ./*.wasm
+            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -prerelease -delete ${VERSION} ./
 
 workflows:
   version: 2
@@ -341,3 +373,12 @@ workflows:
                 - testnet
                 - staging
                 - develop
+      - publish-github-release:
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
