@@ -379,5 +379,4 @@ workflows:
           filters:
             branches:
               only:
-                - mainnet
-                - testnet
+                - add_releases_circleci
