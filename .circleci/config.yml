@@ -324,7 +324,7 @@ jobs:
             mv ./polymesh ./polymesh-${VERSION}
             zip -rm ./polymesh-${VERSION}.zip ./polymesh-${VERSION}
             zip -rm ./polymesh-${VERSION}-wasm.zip ./*.wasm
-            ghr -prerelease-t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r -${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -prerelease -delete ${VERSION} ./
+            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r -${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -prerelease -delete ${VERSION} ./
 
 workflows:
   version: 2
@@ -379,4 +379,5 @@ workflows:
           filters:
             branches:
               only:
-                - add_releases_circleci
+                - mainnet
+                - testnet
