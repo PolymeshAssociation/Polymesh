@@ -555,6 +555,23 @@ benchmarks! {
         assert_eq!(Module::<T>::venue_info(VenueId(1)).unwrap().venue_type, ty, "Incorrect venue type value");
     }
 
+    update_venue_signers {
+        // Variations for the no. of signers allowed.
+        let s in 0 .. MAX_SIGNERS_ALLOWED;
+        let mut signers = Vec::with_capacity(s as usize);
+        let User {account, origin, did, .. } = creator::<T>();
+        let venue_id = create_venue_::<T>(did.unwrap(), vec![account.clone()]);
+        // Create signers vector.
+        for signer in 0 .. s {
+            signers.push(UserBuilder::<T>::default().generate_did().seed(signer).build("signers").account());
+        }
+    }: _(origin, venue_id, signers.clone(), true)
+    verify {
+        for signer in signers.iter() {
+            assert_eq!(Module::<T>::venue_signers(venue_id, signer), true, "Incorrect venue signer");
+        }
+    }
+
 
     add_instruction {
 

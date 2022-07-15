@@ -311,6 +311,7 @@ pub trait WeightInfo {
     fn create_venue(d: u32, u: u32) -> Weight;
     fn update_venue_details(d: u32) -> Weight;
     fn update_venue_type() -> Weight;
+    fn update_venue_signers(u: u32) -> Weight;
     fn add_instruction(u: u32) -> Weight;
     fn add_and_affirm_instruction(u: u32) -> Weight;
     fn affirm_instruction(l: u32) -> Weight;
@@ -403,6 +404,8 @@ decl_event!(
         /// Instruction is rescheduled.
         /// (caller DID, instruction_id)
         InstructionRescheduled(IdentityId, InstructionId),
+        /// An existing venue's signers has been updated (did, venue_id, signers, update_type)
+        VenueSignersUpdated(IdentityId, VenueId, Vec<AccountId>, bool),
     }
 );
 
@@ -459,6 +462,10 @@ decl_error! {
         UnknownInstruction,
         /// Maximum legs that can be in a single instruction.
         InstructionHasTooManyLegs,
+        /// Signer is already added to venue.
+        SignerAlreadyExists,
+        /// Signer is not added to venue.
+        SignerDoesNotExist,
     }
 }
 
@@ -891,6 +898,17 @@ decl_module! {
             Self::schedule_instruction(id, execution_at, InstructionLegs::iter_prefix(id).count() as u32);
 
             Self::deposit_event(RawEvent::InstructionRescheduled(did, id));
+        }
+
+        /// Edit a venue's signers.
+        /// * `id` specifies the ID of the venue to edit.
+        /// * `signers` specifies the signers to add/remove.
+        /// * `add_signers` specifies the update type add/remove of venue where add is true and remove is false.
+        #[weight = <T as Config>::WeightInfo::update_venue_signers(signers.len() as u32)]
+        pub fn update_venue_signers(origin, id: VenueId, signers: Vec<T::AccountId>, add_signers: bool) {
+            let did = Identity::<T>::ensure_perms(origin)?;
+
+            Self::base_update_venue_signers(did, id, signers, add_signers)?;
         }
     }
 }
@@ -1633,5 +1651,40 @@ impl<T: Config> Module<T> {
             Error::<T>::LegCountTooSmall
         );
         Ok((legs_count, filtered_legs))
+    }
+
+    fn base_update_venue_signers(
+        did: IdentityId,
+        id: VenueId,
+        signers: Vec<T::AccountId>,
+        add_signers: bool,
+    ) -> DispatchResult {
+        // Ensure venue exists & sender is its creator.
+        Self::venue_for_management(id, did)?;
+
+        if add_signers {
+            for signer in &signers {
+                ensure!(
+                    !Self::venue_signers(&id, &signer),
+                    Error::<T>::SignerAlreadyExists
+                );
+            }
+            for signer in &signers {
+                <VenueSigners<T>>::insert(&id, &signer, true);
+            }
+        } else {
+            for signer in &signers {
+                ensure!(
+                    Self::venue_signers(&id, &signer),
+                    Error::<T>::SignerDoesNotExist
+                );
+            }
+            for signer in &signers {
+                <VenueSigners<T>>::remove(&id, &signer);
+            }
+        }
+
+        Self::deposit_event(RawEvent::VenueSignersUpdated(did, id, signers, add_signers));
+        Ok(())
     }
 }
