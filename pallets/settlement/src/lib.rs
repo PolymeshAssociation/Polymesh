@@ -903,12 +903,12 @@ decl_module! {
         /// Edit a venue's signers.
         /// * `id` specifies the ID of the venue to edit.
         /// * `signers` specifies the signers to add/remove.
-        /// * `update_type` specifies the update type add/remove of venue.
+        /// * `add_signers` specifies the update type add/remove of venue where add is true and remove is false.
         #[weight = <T as Config>::WeightInfo::update_venue_signers(signers.len() as u32)]
-        pub fn update_venue_signers(origin, id: VenueId, signers: Vec<T::AccountId>, update_type: bool) {
+        pub fn update_venue_signers(origin, id: VenueId, signers: Vec<T::AccountId>, add_signers: bool) {
             let did = Identity::<T>::ensure_perms(origin)?;
 
-            Self::base_update_venue_signers(did, id, signers, update_type)?;
+            Self::base_update_venue_signers(did, id, signers, add_signers)?;
         }
     }
 }
