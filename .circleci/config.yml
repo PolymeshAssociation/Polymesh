@@ -381,3 +381,4 @@ workflows:
               only:
                 - mainnet
                 - testnet
+                - staging
