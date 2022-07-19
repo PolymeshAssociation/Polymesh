@@ -63,7 +63,7 @@ use frame_support::{
         Get,
     },
     weights::Weight,
-    IterableStorageDoubleMap,
+    BoundedVec, IterableStorageDoubleMap,
 };
 use frame_system::{ensure_root, RawOrigin};
 use pallet_base::{ensure_string_limited, try_next_post};
@@ -228,6 +228,11 @@ impl InstructionId {
     }
 }
 
+/// A wrapper for InstructionMemo
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct InstructionMemo(Vec<u8>);
+
 /// Details about an instruction.
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
@@ -246,6 +251,8 @@ pub struct Instruction<Moment, BlockNumber> {
     pub trade_date: Option<Moment>,
     /// Date after which the instruction should be settled (not enforced)
     pub value_date: Option<Moment>,
+    /// Memo of the instruction
+    pub instruction_memo: Option<InstructionMemo>,
 }
 
 /// Details of a leg including the leg id in the instruction.
@@ -406,6 +413,18 @@ decl_event!(
         InstructionRescheduled(IdentityId, InstructionId),
         /// An existing venue's signers has been updated (did, venue_id, signers, update_type)
         VenueSignersUpdated(IdentityId, VenueId, Vec<AccountId>, bool),
+        /// A new instruction with memo field has been created
+        /// (did, venue_id, instruction_id, settlement_type, trade_date, value_date, legs, memo)
+        InstructionCreatedWithMemo(
+            IdentityId,
+            VenueId,
+            InstructionId,
+            SettlementType<BlockNumber>,
+            Option<Moment>,
+            Option<Moment>,
+            Vec<Leg>,
+            Option<InstructionMemo>,
+        ),
     }
 );
 
@@ -526,6 +545,8 @@ decl_storage! {
         InstructionCounter get(fn instruction_counter) build(|_| InstructionId(1u64)): InstructionId;
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
+        /// Instruction memo
+        InstructionMemos get(fn memo): map hasher(twox_64_concat) InstructionId => Option<InstructionMemo>;
     }
 }
 
@@ -910,6 +931,36 @@ decl_module! {
 
             Self::base_update_venue_signers(did, id, signers, add_signers)?;
         }
+
+        /// Adds a new instruction with memo.
+        ///
+        /// # Arguments
+        /// * `venue_id` - ID of the venue this instruction belongs to.
+        /// * `settlement_type` - Defines if the instruction should be settled
+        ///    in the next block after receiving all affirmations or waiting till a specific block.
+        /// * `trade_date` - Optional date from which people can interact with this instruction.
+        /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
+        /// * `legs` - Legs included in this instruction.
+        /// * `memo` - Optional memo field for this instruction.
+        ///
+        /// # Weight
+        /// `950_000_000 + 1_000_000 * legs.len()`
+        #[weight = <T as Config>::WeightInfo::add_instruction_with_settle_on_block_type(legs.len() as u32)
+        .saturating_add(
+            <T as Config>::WeightInfo::execute_scheduled_instruction(legs.len() as u32)
+        )]
+        pub fn add_instruction_with_memo(
+            origin,
+            venue_id: VenueId,
+            settlement_type: SettlementType<T::BlockNumber>,
+            trade_date: Option<T::Moment>,
+            value_date: Option<T::Moment>,
+            legs: Vec<Leg>,
+            memo: Option<InstructionMemo>
+        ) {
+            let did = Identity::<T>::ensure_perms(origin)?;
+            Self::base_add_instruction_with_memo(did, venue_id, settlement_type, trade_date, value_date, legs, memo)?;
+        }
     }
 }
 
@@ -1001,6 +1052,7 @@ impl<T: Config> Module<T> {
             created_at: Some(<pallet_timestamp::Pallet<T>>::get()),
             trade_date,
             value_date,
+            instruction_memo: None,
         };
 
         // Write data to storage.
@@ -1686,5 +1738,100 @@ impl<T: Config> Module<T> {
 
         Self::deposit_event(RawEvent::VenueSignersUpdated(did, id, signers, add_signers));
         Ok(())
+    }
+
+    fn base_add_instruction_with_memo(
+        did: IdentityId,
+        venue_id: VenueId,
+        settlement_type: SettlementType<T::BlockNumber>,
+        trade_date: Option<T::Moment>,
+        value_date: Option<T::Moment>,
+        legs: Vec<Leg>,
+        memo: Option<InstructionMemo>,
+    ) -> Result<InstructionId, DispatchError> {
+        // Ensure instruction does not have too many legs.
+        ensure!(
+            legs.len() <= T::MaxLegsInInstruction::get() as usize,
+            Error::<T>::InstructionHasTooManyLegs
+        );
+
+        // Ensure that the scheduled block number is in the future so that `T::Scheduler::schedule_named`
+        // doesn't fail.
+        if let SettlementType::SettleOnBlock(block_number) = &settlement_type {
+            ensure!(
+                *block_number > System::<T>::block_number(),
+                Error::<T>::SettleOnPastBlock
+            );
+        }
+
+        // Ensure venue exists & sender is its creator.
+        Self::venue_for_management(venue_id, did)?;
+
+        // Create a list of unique counter parties involved in the instruction.
+        let mut counter_parties = BTreeSet::new();
+        let mut tickers = BTreeSet::new();
+        for leg in &legs {
+            ensure!(leg.from != leg.to, Error::<T>::SameSenderReceiver);
+            // Check if the venue is part of the token's list of allowed venues.
+            // Only check each ticker once.
+            if tickers.insert(leg.asset) && Self::venue_filtering(leg.asset) {
+                ensure!(
+                    Self::venue_allow_list(leg.asset, venue_id),
+                    Error::<T>::UnauthorizedVenue
+                );
+            }
+            counter_parties.insert(leg.from);
+            counter_parties.insert(leg.to);
+        }
+
+        // Advance and get next `instruction_id`.
+        let instruction_id = InstructionCounter::try_mutate(try_next_post::<T, _>)?;
+
+        let instruction = Instruction {
+            instruction_id,
+            venue_id,
+            status: InstructionStatus::Pending,
+            settlement_type,
+            created_at: Some(<pallet_timestamp::Pallet<T>>::get()),
+            trade_date,
+            value_date,
+            instruction_memo: memo,
+        };
+
+        // Write data to storage.
+        for counter_party in &counter_parties {
+            UserAffirmations::insert(counter_party, instruction_id, AffirmationStatus::Pending);
+        }
+
+        for (i, leg) in legs.iter().enumerate() {
+            InstructionLegs::insert(
+                instruction_id,
+                u64::try_from(i).map(LegId).unwrap_or_default(),
+                leg.clone(),
+            );
+        }
+
+        if let SettlementType::SettleOnBlock(block_number) = settlement_type {
+            Self::schedule_instruction(instruction_id, block_number, legs.len() as u32);
+        }
+
+        <InstructionDetails<T>>::insert(instruction_id, instruction);
+        InstructionMemos::insert(instruction_id, Some(&memo));
+        InstructionAffirmsPending::insert(
+            instruction_id,
+            u64::try_from(counter_parties.len()).unwrap_or_default(),
+        );
+        VenueInstructions::insert(venue_id, instruction_id, ());
+        Self::deposit_event(RawEvent::InstructionCreatedWithMemo(
+            did,
+            venue_id,
+            instruction_id,
+            settlement_type,
+            trade_date,
+            value_date,
+            legs,
+            memo,
+        ));
+        Ok(instruction_id)
     }
 }
