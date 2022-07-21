@@ -318,7 +318,8 @@ fn basic_settlement() {
                 to: PortfolioId::default_portfolio(bob.did),
                 asset: TICKER,
                 amount: amount
-            }]
+            }],
+            None,
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -366,6 +367,7 @@ fn create_and_affirm_instruction() {
                     amount,
                 }],
                 affirm_from_portfolio,
+                None,
             )
         };
 
@@ -416,7 +418,8 @@ fn overdraft_failure() {
                 to: PortfolioId::default_portfolio(bob.did),
                 asset: TICKER,
                 amount: amount
-            }]
+            }],
+            None,
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -467,7 +470,8 @@ fn token_swap() {
             SettlementType::SettleOnAffirmation,
             None,
             None,
-            legs.clone()
+            legs.clone(),
+            None,
         ));
 
         assert_user_affirms(instruction_id, &alice, AffirmationStatus::Pending);
@@ -598,7 +602,8 @@ fn claiming_receipt() {
             SettlementType::SettleOnAffirmation,
             None,
             None,
-            legs.clone()
+            legs.clone(),
+            None,
         ));
 
         assert_user_affirms(instruction_id, &alice, AffirmationStatus::Pending);
@@ -824,7 +829,8 @@ fn settle_on_block() {
             SettlementType::SettleOnBlock(block_number),
             None,
             None,
-            legs.clone()
+            legs.clone(),
+            None,
         ));
         assert_eq!(1, scheduler::Agenda::<TestStorage>::get(block_number).len());
 
@@ -943,7 +949,8 @@ fn failed_execution() {
             SettlementType::SettleOnBlock(block_number),
             None,
             None,
-            legs.clone()
+            legs.clone(),
+            None,
         ));
         assert_eq!(1, scheduler::Agenda::<TestStorage>::get(block_number).len());
 
@@ -1069,7 +1076,8 @@ fn venue_filtering() {
             SettlementType::SettleOnBlock(block_number),
             None,
             None,
-            legs.clone()
+            legs.clone(),
+            None,
         ));
         assert_ok!(Settlement::set_venue_filtering(
             alice.origin(),
@@ -1083,7 +1091,8 @@ fn venue_filtering() {
                 SettlementType::SettleOnBlock(block_number),
                 None,
                 None,
-                legs.clone()
+                legs.clone(),
+                None,
             ),
             Error::UnauthorizedVenue
         );
@@ -1099,7 +1108,8 @@ fn venue_filtering() {
             None,
             None,
             legs.clone(),
-            default_portfolio_vec(alice.did)
+            default_portfolio_vec(alice.did),
+            None,
         ));
 
         assert_affirm_instruction_with_one_leg!(alice.origin(), instruction_id, alice.did);
@@ -1277,7 +1287,8 @@ fn basic_fuzzing() {
             SettlementType::SettleOnBlock(block_number),
             None,
             None,
-            legs.clone()
+            legs.clone(),
+            None,
         ));
 
         // Authorize instructions and do a few authorize/deny in between
@@ -1478,7 +1489,8 @@ fn claim_multiple_receipts_during_authorization() {
             SettlementType::SettleOnAffirmation,
             None,
             None,
-            legs.clone()
+            legs.clone(),
+            None,
         ));
 
         alice.assert_all_balances_unchanged();
@@ -1616,7 +1628,8 @@ fn overload_instruction() {
                 SettlementType::SettleOnAffirmation,
                 None,
                 None,
-                legs.clone()
+                legs.clone(),
+                None,
             ),
             Error::InstructionHasTooManyLegs
         );
@@ -1627,7 +1640,8 @@ fn overload_instruction() {
             SettlementType::SettleOnAffirmation,
             None,
             None,
-            legs
+            legs,
+            None,
         ));
     });
 }
@@ -1754,7 +1768,8 @@ fn test_weights_for_settlement_transaction() {
                 SettlementType::SettleOnAffirmation,
                 None,
                 None,
-                legs.clone()
+                legs.clone(),
+                None,
             ));
 
             assert_affirm_instruction_with_one_leg!(
@@ -1806,7 +1821,8 @@ fn cross_portfolio_settlement() {
                 to: PortfolioId::user_portfolio(bob.did, num),
                 asset: TICKER,
                 amount: amount
-            }]
+            }],
+            None,
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -1894,7 +1910,8 @@ fn multiple_portfolio_settlement() {
                     asset: TICKER,
                     amount: amount
                 }
-            ]
+            ],
+            None,
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -2057,7 +2074,8 @@ fn multiple_custodian_settlement() {
                     asset: TICKER,
                     amount: amount
                 }
-            ]
+            ],
+            None,
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -2264,7 +2282,8 @@ fn dirty_storage_with_tx() {
                     asset: TICKER,
                     amount: amount2
                 }
-            ]
+            ],
+            None,
         ));
 
         assert_affirm_instruction!(alice.origin(), instruction_id, alice.did, 2);
@@ -2482,7 +2501,8 @@ fn create_instruction(
             asset: ticker,
             amount
         }],
-        default_portfolio_vec(alice.did)
+        default_portfolio_vec(alice.did),
+        None,
     ));
     instruction_id
 }

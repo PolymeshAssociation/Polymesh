@@ -476,7 +476,8 @@ decl_module! {
                     SettlementType::SettleOnAffirmation,
                     None,
                     None,
-                    legs
+                    legs,
+                    None
                 )?;
 
                 let portfolios = [fundraiser.offering_portfolio, fundraiser.raising_portfolio].iter().copied().collect::<BTreeSet<_>>();
