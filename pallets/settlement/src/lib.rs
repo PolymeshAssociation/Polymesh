@@ -1068,6 +1068,7 @@ impl<T: Config> Module<T> {
             u64::try_from(counter_parties.len()).unwrap_or_default(),
         );
         VenueInstructions::insert(venue_id, instruction_id, ());
+        InstructionMemos::insert(instruction_id, &memo);
 
         Self::deposit_event(RawEvent::InstructionCreated(
             did,
