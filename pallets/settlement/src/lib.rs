@@ -1068,7 +1068,7 @@ impl<T: Config> Module<T> {
             u64::try_from(counter_parties.len()).unwrap_or_default(),
         );
         VenueInstructions::insert(venue_id, instruction_id, ());
-        if let Some(memo) = memo {
+        if let Some(ref memo) = memo {
             InstructionMemos::insert(instruction_id, &memo);
         }
 
