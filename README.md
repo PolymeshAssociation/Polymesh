@@ -78,17 +78,7 @@ Code documentation can be found at:
 
 # Build
 
-Install Rust:
-
-```bash
-curl https://sh.rustup.rs -sSf | sh
-```
-
-Install required tools:
-
-```bash
-./scripts/init.sh
-```
+To prepare your development environment with the required compiler and tools refer to https://docs.substrate.io/main-docs/install/ for instructions applicable to your operating system.
 
 Build Wasm and native code:
 
