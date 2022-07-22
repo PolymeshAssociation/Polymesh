@@ -63,7 +63,7 @@ use frame_support::{
         Get,
     },
     weights::Weight,
-    BoundedVec, IterableStorageDoubleMap,
+    IterableStorageDoubleMap,
 };
 use frame_system::{ensure_root, RawOrigin};
 use pallet_base::{ensure_string_limited, try_next_post};
