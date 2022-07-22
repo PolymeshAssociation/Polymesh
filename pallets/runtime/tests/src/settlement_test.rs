@@ -16,8 +16,8 @@ use pallet_identity as identity;
 use pallet_portfolio::MovePortfolioItem;
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
-    AffirmationStatus, Instruction, InstructionId, InstructionStatus, Leg, LegId, LegStatus,
-    Receipt, ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails, VenueId,
+    AffirmationStatus, Instruction, InstructionId, InstructionMemo, InstructionStatus, Leg, LegId,
+    LegStatus, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails, VenueId,
     VenueInstructions, VenueType,
 };
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
@@ -319,7 +319,6 @@ fn basic_settlement() {
                 asset: TICKER,
                 amount: amount
             }],
-            None,
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -367,7 +366,6 @@ fn create_and_affirm_instruction() {
                     amount,
                 }],
                 affirm_from_portfolio,
-                None,
             )
         };
 
@@ -419,7 +417,6 @@ fn overdraft_failure() {
                 asset: TICKER,
                 amount: amount
             }],
-            None,
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -471,7 +468,6 @@ fn token_swap() {
             None,
             None,
             legs.clone(),
-            None,
         ));
 
         assert_user_affirms(instruction_id, &alice, AffirmationStatus::Pending);
@@ -603,7 +599,6 @@ fn claiming_receipt() {
             None,
             None,
             legs.clone(),
-            None,
         ));
 
         assert_user_affirms(instruction_id, &alice, AffirmationStatus::Pending);
@@ -830,7 +825,6 @@ fn settle_on_block() {
             None,
             None,
             legs.clone(),
-            None,
         ));
         assert_eq!(1, scheduler::Agenda::<TestStorage>::get(block_number).len());
 
@@ -950,7 +944,6 @@ fn failed_execution() {
             None,
             None,
             legs.clone(),
-            None,
         ));
         assert_eq!(1, scheduler::Agenda::<TestStorage>::get(block_number).len());
 
@@ -1077,7 +1070,6 @@ fn venue_filtering() {
             None,
             None,
             legs.clone(),
-            None,
         ));
         assert_ok!(Settlement::set_venue_filtering(
             alice.origin(),
@@ -1092,7 +1084,6 @@ fn venue_filtering() {
                 None,
                 None,
                 legs.clone(),
-                None,
             ),
             Error::UnauthorizedVenue
         );
@@ -1109,7 +1100,6 @@ fn venue_filtering() {
             None,
             legs.clone(),
             default_portfolio_vec(alice.did),
-            None,
         ));
 
         assert_affirm_instruction_with_one_leg!(alice.origin(), instruction_id, alice.did);
@@ -1288,7 +1278,6 @@ fn basic_fuzzing() {
             None,
             None,
             legs.clone(),
-            None,
         ));
 
         // Authorize instructions and do a few authorize/deny in between
@@ -1490,7 +1479,6 @@ fn claim_multiple_receipts_during_authorization() {
             None,
             None,
             legs.clone(),
-            None,
         ));
 
         alice.assert_all_balances_unchanged();
@@ -1629,7 +1617,6 @@ fn overload_instruction() {
                 None,
                 None,
                 legs.clone(),
-                None,
             ),
             Error::InstructionHasTooManyLegs
         );
@@ -1641,7 +1628,6 @@ fn overload_instruction() {
             None,
             None,
             legs,
-            None,
         ));
     });
 }
@@ -1769,7 +1755,6 @@ fn test_weights_for_settlement_transaction() {
                 None,
                 None,
                 legs.clone(),
-                None,
             ));
 
             assert_affirm_instruction_with_one_leg!(
@@ -1822,7 +1807,6 @@ fn cross_portfolio_settlement() {
                 asset: TICKER,
                 amount: amount
             }],
-            None,
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -1911,7 +1895,6 @@ fn multiple_portfolio_settlement() {
                     amount: amount
                 }
             ],
-            None,
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -2075,7 +2058,6 @@ fn multiple_custodian_settlement() {
                     amount: amount
                 }
             ],
-            None,
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -2283,7 +2265,6 @@ fn dirty_storage_with_tx() {
                     amount: amount2
                 }
             ],
-            None,
         ));
 
         assert_affirm_instruction!(alice.origin(), instruction_id, alice.did, 2);
@@ -2480,6 +2461,58 @@ fn modify_venue_signers() {
     });
 }
 
+#[test]
+fn basic_settlement_with_memo() {
+    test_with_cdd_provider(|eve| {
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let venue_counter = create_token_and_venue(TICKER, alice.user);
+        let instruction_id = Settlement::instruction_counter();
+        let amount = 100u128;
+        alice.refresh_init_balances();
+        bob.refresh_init_balances();
+
+        // Provide scope claim to sender and receiver of the transaction.
+        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
+
+        assert_ok!(Settlement::add_instruction_with_memo(
+            alice.origin(),
+            venue_counter,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            vec![Leg {
+                from: PortfolioId::default_portfolio(alice.did),
+                to: PortfolioId::default_portfolio(bob.did),
+                asset: TICKER,
+                amount: amount
+            }],
+            InstructionMemo::default(),
+        ));
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
+
+        // check that the memo was stored correctly
+        assert_eq!(
+            Settlement::memo(instruction_id).unwrap(),
+            InstructionMemo::default()
+        );
+
+        assert_affirm_instruction_with_one_leg!(alice.origin(), instruction_id, alice.did);
+
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
+        set_current_block_number(5);
+        // Instruction get scheduled to next block.
+        assert_affirm_instruction_with_zero_leg!(bob.origin(), instruction_id, bob.did);
+
+        // Advances the block no. to execute the instruction.
+        next_block();
+        alice.assert_balance_decreased(&TICKER, amount);
+        bob.assert_balance_increased(&TICKER, amount);
+    });
+}
+
 fn create_instruction(
     alice: &User,
     bob: &User,
@@ -2502,7 +2535,6 @@ fn create_instruction(
             amount
         }],
         default_portfolio_vec(alice.did),
-        None,
     ));
     instruction_id
 }
