@@ -371,6 +371,7 @@ decl_event!(
             Option<Moment>,
             Option<Moment>,
             Vec<Leg>,
+            Option<InstructionMemo>,
         ),
         /// An instruction has been affirmed (did, portfolio, instruction_id)
         InstructionAffirmed(IdentityId, PortfolioId, InstructionId),
@@ -412,9 +413,6 @@ decl_event!(
         InstructionRescheduled(IdentityId, InstructionId),
         /// An existing venue's signers has been updated (did, venue_id, signers, update_type)
         VenueSignersUpdated(IdentityId, VenueId, Vec<AccountId>, bool),
-        /// A new instruction with memo has been created
-        /// (did, venue_id, instruction_id, memo)
-        InstructionCreatedWithMemo(IdentityId, VenueId, InstructionId, InstructionMemo),
     }
 );
 
@@ -613,7 +611,6 @@ decl_module! {
         /// * `trade_date` - Optional date from which people can interact with this instruction.
         /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
         /// * `legs` - Legs included in this instruction.
-        /// * `memo` - Optional memo field for this instruction.
         ///
         /// # Weight
         /// `950_000_000 + 1_000_000 * legs.len()`
@@ -1072,25 +1069,16 @@ impl<T: Config> Module<T> {
         );
         VenueInstructions::insert(venue_id, instruction_id, ());
 
-        if let Some(memo) = memo {
-            InstructionMemos::insert(instruction_id, &memo);
-            Self::deposit_event(RawEvent::InstructionCreatedWithMemo(
-                did,
-                venue_id,
-                instruction_id,
-                memo,
-            ));
-        } else {
-            Self::deposit_event(RawEvent::InstructionCreated(
-                did,
-                venue_id,
-                instruction_id,
-                settlement_type,
-                trade_date,
-                value_date,
-                legs,
-            ));
-        }
+        Self::deposit_event(RawEvent::InstructionCreated(
+            did,
+            venue_id,
+            instruction_id,
+            settlement_type,
+            trade_date,
+            value_date,
+            legs,
+            memo,
+        ));
 
         Ok(instruction_id)
     }
