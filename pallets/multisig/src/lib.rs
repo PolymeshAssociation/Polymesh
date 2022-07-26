@@ -217,8 +217,8 @@ decl_storage! {
     trait Store for Module<T: Config> as MultiSig {
         /// Nonce to ensure unique MultiSig addresses are generated; starts from 1.
         pub MultiSigNonce get(fn ms_nonce) build(|_| 1u64): u64;
-        /// Signers of a multisig. (multisig, signer) => signer.
-        pub MultiSigSigners: double_map hasher(identity) T::AccountId, hasher(twox_64_concat) Signatory<T::AccountId> => Signatory<T::AccountId>;
+        /// Signers of a multisig. (multisig, signer) => bool.
+        pub MultiSigSigners: double_map hasher(identity) T::AccountId, hasher(twox_64_concat) Signatory<T::AccountId> => bool;
         /// Number of approved/accepted signers of a multisig.
         pub NumberOfSigners get(fn number_of_signers): map hasher(identity) T::AccountId => u64;
         /// Confirmations required before processing a multisig tx.
@@ -1073,7 +1073,7 @@ impl<T: Config> Module<T> {
             let ms_identity = <MultiSigToIdentity<T>>::get(&multisig);
             <Identity<T>>::ensure_auth_by(ms_identity, auth_by)?;
 
-            <MultiSigSigners<T>>::insert(&multisig, &signer, signer.clone());
+            <MultiSigSigners<T>>::insert(&multisig, &signer, true);
             <NumberOfSigners<T>>::mutate(&multisig, |x| *x += 1u64);
 
             if let Signatory::Account(key) = &signer {
