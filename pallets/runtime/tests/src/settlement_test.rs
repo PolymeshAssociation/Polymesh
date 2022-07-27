@@ -2225,70 +2225,6 @@ fn reject_instruction() {
 }
 
 #[test]
-fn dirty_storage_with_tx() {
-    test_with_cdd_provider(|eve| {
-        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
-        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
-        let venue_counter = create_token_and_venue(TICKER, alice.user);
-        let instruction_id = Settlement::instruction_counter();
-        let amount1 = 100u128;
-        let amount2 = 50u128;
-        alice.refresh_init_balances();
-        bob.refresh_init_balances();
-
-        // Provide scope claim to sender and receiver of the transaction.
-        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
-
-        assert_ok!(Settlement::add_instruction(
-            alice.origin(),
-            venue_counter,
-            SettlementType::SettleOnAffirmation,
-            None,
-            None,
-            vec![
-                Leg {
-                    from: PortfolioId::default_portfolio(alice.did),
-                    to: PortfolioId::default_portfolio(bob.did),
-                    asset: TICKER,
-                    amount: amount1
-                },
-                Leg {
-                    from: PortfolioId::default_portfolio(bob.did),
-                    to: PortfolioId::default_portfolio(alice.did),
-                    asset: TICKER,
-                    amount: 0
-                },
-                Leg {
-                    from: PortfolioId::default_portfolio(alice.did),
-                    to: PortfolioId::default_portfolio(bob.did),
-                    asset: TICKER,
-                    amount: amount2
-                }
-            ]
-        ));
-
-        assert_affirm_instruction!(alice.origin(), instruction_id, alice.did, 2);
-        alice.assert_all_balances_unchanged();
-        bob.assert_all_balances_unchanged();
-        set_current_block_number(5);
-        assert_affirm_instruction_with_one_leg!(bob.origin(), instruction_id, bob.did);
-
-        // Advances the block no. to execute the instruction.
-        let total_amount = amount1 + amount2;
-        assert_eq!(Settlement::instruction_affirms_pending(instruction_id), 0);
-        next_block();
-        assert_eq!(
-            pallet_settlement::InstructionLegs::iter_prefix(instruction_id).count(),
-            0
-        );
-
-        // Ensure proper balance transfers
-        alice.assert_balance_decreased(&TICKER, total_amount);
-        bob.assert_balance_increased(&TICKER, total_amount);
-    });
-}
-
-#[test]
 fn reject_failed_instruction() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
@@ -2458,6 +2394,41 @@ fn modify_venue_signers() {
             Settlement::venue_signers(venue_counter, AccountKeyring::Eve.to_account_id()),
             false
         );
+    });
+}
+
+#[test]
+fn reject_instruction_with_zero_amount() {
+    test_with_cdd_provider(|eve| {
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let venue_counter = create_token_and_venue(TICKER, alice.user);
+        let _instruction_id = Settlement::instruction_counter();
+        let amount = 0u128;
+        alice.refresh_init_balances();
+        bob.refresh_init_balances();
+
+        // Provide scope claim to sender and receiver of the transaction.
+        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
+
+        assert_noop!(
+            Settlement::add_instruction(
+                alice.origin(),
+                venue_counter,
+                SettlementType::SettleOnAffirmation,
+                None,
+                None,
+                vec![Leg {
+                    from: PortfolioId::default_portfolio(alice.did),
+                    to: PortfolioId::default_portfolio(bob.did),
+                    asset: TICKER,
+                    amount: amount
+                }]
+            ),
+            Error::InsufficientAmount
+        );
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
     });
 }
 

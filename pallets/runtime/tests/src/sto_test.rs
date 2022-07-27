@@ -47,11 +47,6 @@ fn raise_unhappy_path_ext() {
 }
 
 #[test]
-fn zero_price_sto_ext() {
-    test(zero_price_sto);
-}
-
-#[test]
 fn invalid_fundraiser_ext() {
     test(fundraiser_expired);
 }
@@ -426,77 +421,6 @@ fn raise_unhappy_path() {
             FundraiserName::default()
         ),
         Error::InvalidOfferingWindow
-    );
-}
-
-fn zero_price_sto() {
-    let RaiseContext {
-        alice,
-        alice_portfolio,
-        bob,
-        bob_portfolio,
-        offering_ticker,
-        ..
-    } = init_raise_context(1_000_000, None);
-    let ticker = offering_ticker;
-
-    allow_all_transfers(ticker, alice);
-
-    // Register a venue
-    let venue_counter = Settlement::venue_counter();
-    assert_ok!(Settlement::create_venue(
-        alice.origin(),
-        VenueDetails::default(),
-        vec![],
-        VenueType::Sto
-    ));
-
-    let amount = 100u128;
-    let alice_init_balance = Asset::balance_of(&ticker, alice.did);
-    let bob_init_balance = Asset::balance_of(&ticker, bob.did);
-
-    // Alice starts a fundraiser
-    let fundraiser_id = Sto::fundraiser_count(ticker);
-    let fundraiser_name = FundraiserName::from(vec![1]);
-    assert_ok!(Sto::create_fundraiser(
-        alice.origin(),
-        alice_portfolio,
-        ticker,
-        alice_portfolio,
-        ticker,
-        vec![PriceTier {
-            total: 1_000_000u128,
-            price: 0u128
-        }],
-        venue_counter,
-        None,
-        None,
-        0,
-        fundraiser_name.clone()
-    ));
-
-    assert_eq!(Asset::balance_of(&ticker, alice.did), alice_init_balance);
-    assert_eq!(Asset::balance_of(&ticker, bob.did), bob_init_balance);
-
-    // Bob invests in Alice's zero price sto
-    assert_ok!(Sto::invest(
-        bob.origin(),
-        bob_portfolio,
-        bob_portfolio,
-        ticker,
-        fundraiser_id,
-        amount.into(),
-        Some(0),
-        None
-    ));
-
-    assert_eq!(
-        Asset::balance_of(&ticker, alice.did),
-        alice_init_balance - amount
-    );
-    assert_eq!(
-        Asset::balance_of(&ticker, bob.did),
-        bob_init_balance + amount
     );
 }
 
