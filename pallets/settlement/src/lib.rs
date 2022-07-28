@@ -467,7 +467,7 @@ decl_error! {
         /// Signer is not added to venue.
         SignerDoesNotExist,
         /// Instruction leg amount can't be zero
-        InsufficientAmount,
+        ZeroAmount,
     }
 }
 
@@ -989,7 +989,7 @@ impl<T: Config> Module<T> {
                 );
             }
 
-            ensure!(leg.amount != 0, Error::<T>::InsufficientAmount);
+            ensure!(leg.amount != 0, Error::<T>::ZeroAmount);
             counter_parties.insert(leg.from);
             counter_parties.insert(leg.to);
         }
