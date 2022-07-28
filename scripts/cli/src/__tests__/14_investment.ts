@@ -49,7 +49,7 @@ describe("14 - Investment Unit Test", () => {
       daveDid,
       bobDid,
       raisingTicker,
-      1000
+      100000
     );
 
     await affirmInstruction(dave, intructionCounterAB, daveDid, 1);
@@ -64,11 +64,11 @@ describe("14 - Investment Unit Test", () => {
       ticker,
       { did: aliceDid, kind: { Default: "" } },
       raisingTicker,
-      [{ total: 3000, price: 4 }],
+      [{ total: 300000, price: 40000 }],
       aliceVenueCounter,
       null,
       null,
-      0,
+      100,
       "mySto"
     );
 
@@ -78,8 +78,8 @@ describe("14 - Investment Unit Test", () => {
       { did: daveDid, kind: { Default: "" } },
       ticker,
       0,
-      40,
-      null,
+      30000,
+      '80000',
       null
     );
 
@@ -89,8 +89,8 @@ describe("14 - Investment Unit Test", () => {
       { did: bobDid, kind: { Default: "" } },
       ticker,
       0,
-      10,
-      null,
+      10000,
+      '80000',
       null
     );
   });
