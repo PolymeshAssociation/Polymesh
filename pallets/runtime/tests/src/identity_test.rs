@@ -14,9 +14,11 @@ use codec::Encode;
 use confidential_identity_v1::mocked::make_investor_uid;
 use frame_support::{
     assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency, StorageDoubleMap,
+    StorageMap, StorageValue,
 };
 use pallet_asset::SecurityToken;
 use pallet_balances as balances;
+use pallet_identity::{CustomClaimIdSequence, CustomClaims, CustomClaimsInverse};
 use polymesh_common_utilities::{
     asset::AssetSubTrait,
     constants::currency::POLY,
@@ -30,9 +32,10 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     investor_zkproof_data::v2, AccountId, AssetPermissions, AuthorizationData, AuthorizationType,
-    CddId, Claim, ClaimType, DispatchableName, ExtrinsicPermissions, IdentityClaim, IdentityId,
-    InvestorUid, KeyRecord, PalletName, PalletPermissions, Permissions, PortfolioId,
-    PortfolioNumber, Scope, SecondaryKey, Signatory, SubsetRestriction, Ticker, TransactionError,
+    CddId, Claim, ClaimType, CustomClaimTypeId, DispatchableName, ExtrinsicPermissions,
+    IdentityClaim, IdentityId, InvestorUid, KeyRecord, PalletName, PalletPermissions, Permissions,
+    PortfolioId, PortfolioNumber, Scope, SecondaryKey, Signatory, SubsetRestriction, Ticker,
+    TransactionError,
 };
 use polymesh_runtime_develop::runtime::{Call, CddHandler};
 use sp_core::H512;
@@ -43,6 +46,7 @@ use test_client::AccountKeyring;
 type AuthorizationsGiven = pallet_identity::AuthorizationsGiven<TestStorage>;
 type Asset = pallet_asset::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
+type BaseError = pallet_base::Error<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
 type MultiSig = pallet_multisig::Module<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
@@ -2062,5 +2066,76 @@ fn ensure_custom_scopes_limited() {
         assert_ok!(add(32));
         // Check 33.
         assert_noop!(add(33), Error::CustomScopeTooLong);
+    });
+}
+
+#[test]
+fn custom_claim_type_too_long() {
+    ExtBuilder::default().build().execute_with(|| {
+        let user = User::new(AccountKeyring::Alice);
+        let case = |add| Identity::register_custom_claim_type(user.origin(), max_len_bytes(add));
+        assert_too_long!(case(1));
+        assert_ok!(case(0));
+    });
+}
+
+#[test]
+fn custom_claim_type_works() {
+    ExtBuilder::default().build().execute_with(|| {
+        let user = User::new(AccountKeyring::Alice);
+        let register = |ty: &str| Identity::register_custom_claim_type(user.origin(), ty.into());
+        let seq_is = |num| {
+            assert_eq!(CustomClaimIdSequence::get().0, num);
+        };
+        let slot_has = |id, data: &str| {
+            seq_is(id);
+            let id = CustomClaimTypeId(id);
+            let data = data.as_bytes();
+            assert_eq!(CustomClaims::get(id), data);
+            assert_eq!(CustomClaimsInverse::get(data), id);
+        };
+
+        // Nothing so far. Generator (G) at 0.
+        seq_is(0);
+
+        // Register first type. G -> 1.
+        assert_ok!(register("foo"));
+        slot_has(1, "foo");
+
+        // Register same type. G unmoved.
+        assert_noop!(register("foo"), Error::CustomClaimTypeAlreadyExists);
+        slot_has(1, "foo");
+
+        // Register different type. G -> 2.
+        assert_ok!(register("bar"));
+        slot_has(2, "bar");
+
+        // Register same type. G unmoved.
+        assert_noop!(register("bar"), Error::CustomClaimTypeAlreadyExists);
+        slot_has(2, "bar");
+
+        // Register different type. G -> 3.
+        assert_ok!(register("foobar"));
+        slot_has(3, "foobar");
+
+        // Set G to max. Next registration fails.
+        CustomClaimIdSequence::put(CustomClaimTypeId(u32::MAX));
+        assert_noop!(register("qux"), BaseError::CounterOverflow);
+    });
+}
+
+#[test]
+fn invalid_custom_claim_type() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        assert_noop!(
+            Identity::base_add_claim(
+                alice.did,
+                Claim::Custom(CustomClaimTypeId(1_000_000), None),
+                alice.did,
+                None
+            ),
+            Error::CustomClaimTypeDoesNotExist
+        );
     });
 }

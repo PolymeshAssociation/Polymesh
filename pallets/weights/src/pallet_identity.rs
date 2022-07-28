@@ -275,4 +275,8 @@ impl pallet_identity::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(13 as Weight))
             .saturating_add(DbWeight::get().writes(4 as Weight))
     }
+
+    fn register_custom_claim_type(n: u32) -> Weight {
+        n as Weight
+    }
 }
