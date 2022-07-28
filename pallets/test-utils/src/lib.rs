@@ -129,7 +129,7 @@ decl_module! {
             // Add CDD claim
             let did = Identity::<T>::get_identity(&sender).ok_or("DID Self-register failed")?;
             let cdd_claim = Claim::CustomerDueDiligence(CddId::new_v1(did, uid));
-            Identity::<T>::base_add_claim(did, cdd_claim, did, None);
+            Identity::<T>::base_add_claim(did, cdd_claim, did, None)?;
         }
 
         /// Registers a new Identity for the `target_account` and issues a CDD claim to it.
@@ -151,7 +151,7 @@ decl_module! {
 
             // Add CDD claim for the target
             let cdd_claim = Claim::CustomerDueDiligence(CddId::new_v1(target_did, target_uid.into()));
-            Identity::<T>::base_add_claim(target_did, cdd_claim, cdd_did, None);
+            Identity::<T>::base_add_claim(target_did, cdd_claim, cdd_did, None)?;
 
             Self::deposit_event(RawEvent::MockInvestorUIDCreated(target_did, target_uid.into()));
         }

@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{identity_id::IdentityId, CddId, Moment, Ticker};
+use crate::{identity_id::IdentityId, impl_checked_inc, CddId, Moment, Ticker};
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
@@ -25,6 +25,13 @@ use super::jurisdiction::CountryCode;
 
 /// It is the asset Id.
 pub type ScopeId = IdentityId;
+
+/// The ID of a custom claim type.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
+pub struct CustomClaimTypeId(pub u32);
+impl_checked_inc!(CustomClaimTypeId);
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, TypeInfo)]
@@ -105,6 +112,8 @@ pub enum Claim {
     /// on the `ScopeId` instead of the investor's `IdentityId`, as `ScopeId` is unique at the
     /// investor entity level for a given scope (will always be a `Ticker`).
     InvestorUniquenessV2(CddId),
+    /// Custom claim with an optional scope.
+    Custom(CustomClaimTypeId, Option<Scope>),
 }
 
 impl Default for Claim {
@@ -128,6 +137,7 @@ impl Claim {
             Claim::Blocked(..) => ClaimType::Blocked,
             Claim::InvestorUniqueness(..) => ClaimType::InvestorUniqueness,
             Claim::InvestorUniquenessV2(..) => ClaimType::InvestorUniquenessV2,
+            Claim::Custom(cc_id, _) => ClaimType::Custom(*cc_id),
             Claim::NoData => ClaimType::NoType,
         }
     }
@@ -144,6 +154,7 @@ impl Claim {
             | Claim::Exempted(scope)
             | Claim::Blocked(scope)
             | Claim::InvestorUniqueness(scope, ..) => Some(scope),
+            Claim::Custom(_, scope) => scope.as_ref(),
             Claim::CustomerDueDiligence(..) | Claim::InvestorUniquenessV2(..) | Claim::NoData => {
                 None
             }
@@ -185,6 +196,8 @@ pub enum ClaimType {
     NoType,
     /// New Investor uniqueness claim.
     InvestorUniquenessV2,
+    /// Custom claim referenced by Id.
+    Custom(CustomClaimTypeId),
 }
 
 impl Default for ClaimType {

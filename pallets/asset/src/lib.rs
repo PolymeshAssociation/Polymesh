@@ -982,13 +982,14 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::Origin> for Module<T> {
     /// Adds an artificial IU claim for benchmarks
     fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker) {
         use polymesh_primitives::{CddId, Claim, InvestorUid, Scope};
-        Identity::<T>::base_add_claim(
+        Identity::<T>::unverified_add_claim_with_scope(
             did,
             Claim::InvestorUniqueness(
                 Scope::Ticker(ticker),
                 did,
                 CddId::new_v1(did, InvestorUid::from(did.to_bytes())),
             ),
+            Some(Scope::Ticker(ticker)),
             did,
             None,
         );
