@@ -229,9 +229,9 @@ impl InstructionId {
 }
 
 /// A wrapper for InstructionMemo
-#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Encode, Decode, TypeInfo)]
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct InstructionMemo(Vec<u8>);
+pub struct InstructionMemo(pub [u8; 32]);
 
 /// Details about an instruction.
 #[derive(Encode, Decode, TypeInfo)]
@@ -337,6 +337,7 @@ pub trait WeightInfo {
     fn add_instruction_with_settle_on_block_type(u: u32) -> Weight;
     fn add_and_affirm_instruction_with_settle_on_block_type(u: u32) -> Weight;
     fn add_instruction_with_memo_and_settle_on_block_type(u: u32) -> Weight;
+    fn add_and_affirm_instruction_with_memo_and_settle_on_block_type(u: u32) -> Weight;
 }
 
 type EnsureValidInstructionResult<AccountId, Moment, BlockNumber> = Result<
@@ -602,6 +603,7 @@ decl_module! {
             Ok(())
         }
 
+        /// Deprecated. Use `add_instruction_with_memo` instead.
         /// Adds a new instruction.
         ///
         /// # Arguments
@@ -630,6 +632,7 @@ decl_module! {
             Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, None)?;
         }
 
+        /// Deprecated. Use `add_and_affirm_instruction_with_memo` instead.
         /// Adds and affirms a new instruction.
         ///
         /// # Arguments
@@ -948,6 +951,43 @@ decl_module! {
         ) {
             let did = Identity::<T>::ensure_perms(origin)?;
             Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, Some(instruction_memo))?;
+        }
+
+        /// Adds and affirms a new instruction.
+        ///
+        /// # Arguments
+        /// * `venue_id` - ID of the venue this instruction belongs to.
+        /// * `settlement_type` - Defines if the instruction should be settled
+        ///    in the next block after receiving all affirmations or waiting till a specific block.
+        /// * `trade_date` - Optional date from which people can interact with this instruction.
+        /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
+        /// * `legs` - Legs included in this instruction.
+        /// * `portfolios` - Portfolios that the sender controls and wants to use in this affirmations.
+        /// * `memo` - Memo field for this instruction.
+        ///
+        /// # Permissions
+        /// * Portfolio
+        #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_with_memo_and_settle_on_block_type(legs.len() as u32)
+        .saturating_add(
+            <T as Config>::WeightInfo::execute_scheduled_instruction(legs.len() as u32)
+        )]
+        pub fn add_and_affirm_instruction_with_memo(
+            origin,
+            venue_id: VenueId,
+            settlement_type: SettlementType<T::BlockNumber>,
+            trade_date: Option<T::Moment>,
+            value_date: Option<T::Moment>,
+            legs: Vec<Leg>,
+            portfolios: Vec<PortfolioId>,
+            instruction_memo: InstructionMemo,
+        ) -> DispatchResult {
+            let did = Identity::<T>::ensure_perms(origin.clone())?;
+            with_transaction(|| {
+                let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
+                let legs_count = legs.iter().filter(|l| portfolios_set.contains(&l.from)).count() as u32;
+                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, Some(instruction_memo))?;
+                Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios_set.into_iter(), legs_count)
+            })
         }
 
     }
