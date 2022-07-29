@@ -420,7 +420,7 @@ impl pallet_settlement::WeightInfo for WeightInfo {
     // Storage: Settlement VenueInstructions (r:0 w:1)
     // Storage: Settlement AffirmsReceived (r:0 w:1)
     // Storage: Settlement InstructionLegStatus (r:0 w:1)
-    fn add_and_affirm_instruction_with_memo_and_settle_on_block_type(l: u32, ) -> Weight {
+    fn add_and_affirm_instruction_with_memo_and_settle_on_block_type(l: u32) -> Weight {
         (0 as Weight)
             // Standard Error: 197_504_000
             .saturating_add((434_485_000 as Weight).saturating_mul(l as Weight))
