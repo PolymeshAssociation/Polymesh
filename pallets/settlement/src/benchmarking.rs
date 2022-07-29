@@ -872,6 +872,21 @@ benchmarks! {
     verify {
         assert_eq!(Module::<T>::memo(instruction_id).unwrap(), InstructionMemo::default());
     }
+
+    add_and_affirm_instruction_with_memo_and_settle_on_block_type {
+        let l in 1 .. T::MaxLegsInInstruction::get();
+        // Define settlement type.
+        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
+        let instruction_id = InstructionId(1);
+        set_block_number::<T>(50);
+        // Emulate the add instruction and get all the necessary arguments.
+        let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true).unwrap();
+        let s_portfolios = portfolios.clone();
+    }: add_and_affirm_instruction_with_memo(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs, s_portfolios, InstructionMemo::default())
+    verify {
+        verify_add_and_affirm_instruction::<T>(venue_id, settlement_type, portfolios).unwrap();
+        assert_eq!(Module::<T>::memo(instruction_id).unwrap(), InstructionMemo::default());
+    }
 }
 
 pub fn next_block<T: Config + pallet_scheduler::Config>() {
