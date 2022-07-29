@@ -13,13 +13,17 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Claim1stKey, Claim2ndKey, Claims, DidRecords, Error, Module};
+use crate::{
+    Claim1stKey, Claim2ndKey, Claims, CustomClaimIdSequence, CustomClaims, CustomClaimsInverse,
+    DidRecords, Error, Event, Module,
+};
 use core::convert::From;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    ensure, fail, StorageDoubleMap, StorageMap,
+    ensure, fail, StorageDoubleMap, StorageMap, StorageValue,
 };
 use frame_system::ensure_root;
+use pallet_base::{ensure_string_limited, try_next_pre};
 pub use polymesh_common_utilities::traits::identity::WeightInfo;
 use polymesh_common_utilities::{
     protocol_fee::ProtocolOp,
@@ -30,6 +34,7 @@ use polymesh_common_utilities::{
     },
     SystematicIssuers, SYSTEMATIC_ISSUERS,
 };
+use polymesh_primitives::identity_claim::CustomClaimTypeId;
 use polymesh_primitives::{
     investor_zkproof_data::InvestorZKProofData as InvestorZKProof, valid_proof_of_investor, CddId,
     Claim, ClaimType, IdentityClaim, IdentityId, InvestorUid, Scope, ScopeId, SecondaryKey, Ticker,
@@ -203,13 +208,20 @@ impl<T: Config> Module<T> {
         claim: Claim,
         issuer: IdentityId,
         expiry: Option<T::Moment>,
-    ) {
+    ) -> DispatchResult {
         let inner_scope = claim.as_scope().cloned();
-        Self::base_add_claim_with_scope(target, claim, inner_scope, issuer, expiry)
+        if let ClaimType::Custom(id) = claim.claim_type() {
+            ensure!(
+                CustomClaims::contains_key(id),
+                Error::<T>::CustomClaimTypeDoesNotExist
+            );
+        }
+        Self::unverified_add_claim_with_scope(target, claim, inner_scope, issuer, expiry);
+        Ok(())
     }
 
     /// Adds claims with no inner scope.
-    fn base_add_claim_with_scope(
+    pub fn unverified_add_claim_with_scope(
         target: IdentityId,
         claim: Claim,
         scope: Option<Scope>,
@@ -261,8 +273,7 @@ impl<T: Config> Module<T> {
         // Ensure cdd_id uniqueness for a given target DID.
         Self::ensure_cdd_id_validness(&claim, target)?;
 
-        Self::base_add_claim(target, claim, issuer, expiry);
-        Ok(())
+        Self::base_add_claim(target, claim, issuer, expiry)
     }
 
     /// Enforce CDD_ID uniqueness for a given target DID.
@@ -366,7 +377,7 @@ impl<T: Config> Module<T> {
         }
 
         let scope = Some(scope.clone());
-        Self::base_add_claim_with_scope(target, claim, scope, issuer, expiry);
+        Self::unverified_add_claim_with_scope(target, claim, scope, issuer, expiry);
         Ok(())
     }
 
@@ -521,7 +532,7 @@ impl<T: Config> Module<T> {
         for new_member in targets {
             let cdd_id = CddId::new_v1(*new_member, InvestorUid::from(new_member.as_ref()));
             let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
-            Self::base_add_claim(*new_member, cdd_claim, issuer.as_id(), None);
+            let _ = Self::base_add_claim(*new_member, cdd_claim, issuer.as_id(), None);
         }
     }
 
@@ -535,5 +546,25 @@ impl<T: Config> Module<T> {
                 None,
             );
         });
+    }
+
+    pub fn base_register_custom_claim_type(origin: T::Origin, ty: Vec<u8>) -> DispatchResult {
+        let did = Self::ensure_perms(origin)?;
+        let id = Self::unsafe_register_custom_claim_type(ty.clone())?;
+        Self::deposit_event(Event::<T>::CustomClaimTypeAdded(did, id, ty));
+        Ok(())
+    }
+
+    fn unsafe_register_custom_claim_type(ty: Vec<u8>) -> Result<CustomClaimTypeId, DispatchError> {
+        ensure_string_limited::<T>(&ty)?;
+        ensure!(
+            !CustomClaimsInverse::contains_key(&ty),
+            Error::<T>::CustomClaimTypeAlreadyExists
+        );
+
+        let id = CustomClaimIdSequence::try_mutate(try_next_pre::<T, _>)?;
+        CustomClaimsInverse::insert(&ty, id);
+        CustomClaims::insert(id, ty);
+        Ok(id)
     }
 }

@@ -116,8 +116,9 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     investor_zkproof_data::v1::InvestorZKProofData, storage_migrate_on, storage_migration_ver,
-    Authorization, AuthorizationData, AuthorizationType, CddId, Claim, ClaimType, DidRecord,
-    IdentityClaim, IdentityId, KeyRecord, Permissions, Scope, SecondaryKey, Signatory, Ticker,
+    Authorization, AuthorizationData, AuthorizationType, CddId, Claim, ClaimType,
+    CustomClaimTypeId, DidRecord, IdentityClaim, IdentityId, KeyRecord, Permissions, Scope,
+    SecondaryKey, Signatory, Ticker,
 };
 use sp_runtime::traits::Hash;
 use sp_std::{convert::TryFrom, prelude::*};
@@ -144,6 +145,12 @@ decl_storage! {
 
         /// (Target ID, claim type) (issuer,scope) -> Associated claims
         pub Claims: double_map hasher(twox_64_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => IdentityClaim;
+        /// CustomClaimTypeId -> String constant
+        pub CustomClaims: map hasher(twox_64_concat) CustomClaimTypeId => Vec<u8>;
+        /// String constant -> CustomClaimTypeId
+        pub CustomClaimsInverse: map hasher(blake2_128_concat) Vec<u8> => CustomClaimTypeId;
+        /// The next `CustomClaimTypeId`.
+        pub CustomClaimIdSequence get(fn custom_claim_id_seq): CustomClaimTypeId;
 
         /// Map from AccountId to `KeyRecord` that holds the key's identity and permissions.
         pub KeyRecords get(fn key_records):
@@ -216,7 +223,7 @@ decl_storage! {
                 let expiry = gen_id.cdd_claim_expiry.iter().map(|m| T::Moment::from(*m as u32)).next();
                 <Module<T>>::do_register_id(gen_id.primary_key.clone(), gen_id.did, gen_id.secondary_keys.clone());
                 for issuer in &gen_id.issuers {
-                    <Module<T>>::base_add_claim(gen_id.did, cdd_claim.clone(), *issuer, expiry);
+                    <Module<T>>::unverified_add_claim_with_scope(gen_id.did, cdd_claim.clone(), None, *issuer, expiry);
                 }
             }
 
@@ -366,8 +373,7 @@ decl_module! {
                 _ => {
                     Self::ensure_custom_scopes_limited(&claim)?;
                     T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddClaim)?;
-                    Self::base_add_claim(target, claim, issuer, expiry);
-                    Ok(())
+                    Self::base_add_claim(target, claim, issuer, expiry)
                 }
             }
         }
@@ -567,6 +573,17 @@ decl_module! {
         pub fn remove_secondary_keys(origin, keys_to_remove: Vec<T::AccountId>) {
             Self::base_remove_secondary_keys(origin, keys_to_remove)?;
         }
+
+        /// Register custom claim type.
+        ///
+        /// # Errors
+        /// * `CustomClaimTypeAlreadyExists` The type that is being registered already exists.
+        /// * `CounterOverflow` CustomClaimTypeId has overflowed.
+        /// * `TooLong` The type being registered is too lang.
+        #[weight = <T as Config>::WeightInfo::register_custom_claim_type(ty.len() as u32)]
+        pub fn register_custom_claim_type(origin, ty: Vec<u8>) {
+            Self::base_register_custom_claim_type(origin, ty)?;
+        }
     }
 }
 
@@ -639,6 +656,10 @@ decl_error! {
         /// A custom scope is too long.
         /// It can at most be `32` characters long.
         CustomScopeTooLong,
+        /// The custom claim type trying to be registered already exists.
+        CustomClaimTypeAlreadyExists,
+       /// The custom claim type does not exist.
+        CustomClaimTypeDoesNotExist,
     }
 }
 
