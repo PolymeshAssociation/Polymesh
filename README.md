@@ -1,6 +1,7 @@
-[![Telegram](https://img.shields.io/badge/50k+-telegram-blue.svg)](https://t.me/polymathnetwork)
+[![Discord](https://img.shields.io/badge/Discord-Join_our_server-blue.svg?style=social&logo=discord)](https://discord.com/invite/ud2deWAnyt) 
+![Twitter Follow](https://img.shields.io/twitter/follow/PolymeshNetwork?style=social)
 
-![Polymath logo](Polymath.png)
+<img src="Polymesh-logo.svg" width="70%" alt="Polymesh"/>
 
 # Polymesh Blockchain
 
@@ -8,7 +9,7 @@ Polymesh is a blockchain for regulated securities and open finance.
 
 # Whitepaper
 
-<https://polymath.network/polymesh-whitepaper>
+<https://info.polymesh.network/hubfs/Files/Polymesh-Whitepaper.pdf>
 
 # Audit
 
@@ -77,17 +78,7 @@ Code documentation can be found at:
 
 # Build
 
-Install Rust:
-
-```bash
-curl https://sh.rustup.rs -sSf | sh
-```
-
-Install required tools:
-
-```bash
-./scripts/init.sh
-```
+To prepare your development environment with the required compiler and tools refer to https://docs.substrate.io/main-docs/install/ for instructions applicable to your operating system.
 
 Build Wasm and native code:
 
@@ -258,6 +249,6 @@ Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
 
 Polymesh is built using the [Substrate Framework](https://www.parity.io/what-is-substrate/).
 
-# Polymath
+# Polymesh
 
-[Polymath Website](https://polymath.network)
+[Polymesh Website](https://polymesh.network)
