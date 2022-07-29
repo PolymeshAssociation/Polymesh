@@ -1198,7 +1198,7 @@ mod migration {
 
         log::info!(" >>> Updating MultiSig storage. Migrating MultiSigSigners..");
         let total_ms_signers =
-            v2::MultiSigSigners::<T>::drain().fold(0usize, |total_ms_signers, (signer, ms, _)| {
+            v2::MultiSigSigners::<T>::drain().fold(0usize, |total_ms_signers, (ms, signer, _)| {
                 // Migrate MultiSigSigner.
                 <MultiSigSigners<T>>::insert(&ms, &signer, true);
 
