@@ -1200,7 +1200,7 @@ mod migration {
         let total_ms_signers =
             v2::MultiSigSigners::<T>::drain().fold(0usize, |total_ms_signers, (signer, ms, _)| {
                 // Migrate MultiSigSigner.
-                <MultiSigSigners<T>>::insert(&signer, &ms, true);
+                <MultiSigSigners<T>>::insert(&ms, &signer, true);
 
                 total_ms_signers + 1
             });
