@@ -115,7 +115,7 @@ use sp_std::{convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
 
-storage_migration_ver!(1);
+storage_migration_ver!(2);
 
 pub const NAME: &[u8] = b"MultiSig";
 
@@ -217,8 +217,8 @@ decl_storage! {
     trait Store for Module<T: Config> as MultiSig {
         /// Nonce to ensure unique MultiSig addresses are generated; starts from 1.
         pub MultiSigNonce get(fn ms_nonce) build(|_| 1u64): u64;
-        /// Signers of a multisig. (multisig, signer) => signer.
-        pub MultiSigSigners: double_map hasher(identity) T::AccountId, hasher(twox_64_concat) Signatory<T::AccountId> => Signatory<T::AccountId>;
+        /// Signers of a multisig. (multisig, signer) => bool.
+        pub MultiSigSigners: double_map hasher(identity) T::AccountId, hasher(twox_64_concat) Signatory<T::AccountId> => bool;
         /// Number of approved/accepted signers of a multisig.
         pub NumberOfSigners get(fn number_of_signers): map hasher(identity) T::AccountId => u64;
         /// Confirmations required before processing a multisig tx.
@@ -265,6 +265,10 @@ decl_module! {
 
             storage_migrate_on!(StorageVersion::get(), 1, {
                 migration::migrate_v1::<T>();
+            });
+
+            storage_migrate_on!(StorageVersion::get(), 2, {
+                migration::migrate_v2::<T>();
             });
 
             //TODO placeholder weight
@@ -727,7 +731,7 @@ impl<T: Config> Module<T> {
 
     fn ensure_ms_signer(ms: &T::AccountId, signer: &Signatory<T::AccountId>) -> DispatchResult {
         ensure!(
-            <MultiSigSigners<T>>::contains_key(ms, signer),
+            <MultiSigSigners<T>>::get(ms, signer),
             Error::<T>::NotASigner
         );
         Ok(())
@@ -1052,7 +1056,7 @@ impl<T: Config> Module<T> {
             );
 
             ensure!(
-                !<MultiSigSigners<T>>::contains_key(&multisig, &signer),
+                !<MultiSigSigners<T>>::get(&multisig, &signer),
                 Error::<T>::AlreadyASigner
             );
 
@@ -1073,7 +1077,7 @@ impl<T: Config> Module<T> {
             let ms_identity = <MultiSigToIdentity<T>>::get(&multisig);
             <Identity<T>>::ensure_auth_by(ms_identity, auth_by)?;
 
-            <MultiSigSigners<T>>::insert(&multisig, &signer, signer.clone());
+            <MultiSigSigners<T>>::insert(&multisig, &signer, true);
             <NumberOfSigners<T>>::mutate(&multisig, |x| *x += 1u64);
 
             if let Signatory::Account(key) = &signer {
@@ -1107,7 +1111,7 @@ impl<T: Config> Module<T> {
 
     /// Helper function that checks if someone is an authorized signer of a multisig or not.
     pub fn ms_signers(multi_sig: T::AccountId, signer: Signatory<T::AccountId>) -> bool {
-        <MultiSigSigners<T>>::contains_key(multi_sig, signer)
+        <MultiSigSigners<T>>::get(multi_sig, signer)
     }
 
     /// Checks whether changing the list of signers is allowed in a multisig.
@@ -1160,6 +1164,21 @@ mod migration {
         }
     }
 
+    mod v2 {
+        use super::*;
+
+        decl_storage! {
+            trait Store for Module<T: Config> as MultiSig {
+                /// Signers of a multisig. (multisig, signer) => signer.
+        pub MultiSigSigners: double_map hasher(identity) T::AccountId, hasher(twox_64_concat) Signatory<T::AccountId> => Signatory<T::AccountId>;
+            }
+        }
+
+        decl_module! {
+            pub struct Module<T: Config> for enum Call where origin: T::Origin { }
+        }
+    }
+
     pub fn migrate_v1<T: Config>() {
         sp_runtime::runtime_logger::RuntimeLogger::init();
 
@@ -1172,5 +1191,19 @@ mod migration {
                 total_ms_signers + 1
             });
         log::info!(" >>> Migrated {} MultiSig Signers.", total_ms_signers);
+    }
+
+    pub fn migrate_v2<T: Config>() {
+        sp_runtime::runtime_logger::RuntimeLogger::init();
+
+        log::info!(" >>> Updating MultiSig storage. Migrating MultiSigSigners..");
+        let total_ms_signers =
+            v2::MultiSigSigners::<T>::drain().fold(0usize, |total_ms_signers, (ms, signer, _)| {
+                // Migrate MultiSigSigner.
+                <MultiSigSigners<T>>::insert(&ms, &signer, true);
+
+                total_ms_signers + 1
+            });
+        log::info!(" >>> Migrated {} MultiSigSigners.", total_ms_signers);
     }
 }
