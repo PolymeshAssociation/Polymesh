@@ -2487,7 +2487,7 @@ fn basic_settlement_with_memo() {
                 asset: TICKER,
                 amount: amount
             }],
-            InstructionMemo::default(),
+            Some(InstructionMemo::default()),
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();

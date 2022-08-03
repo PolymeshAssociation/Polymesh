@@ -869,7 +869,7 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , _, _, _ ) = emulate_add_instruction::<T>(l, false).unwrap();
 
-    }: add_instruction_with_memo(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs, InstructionMemo::default())
+    }: add_instruction_with_memo(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs, Some(InstructionMemo::default()))
     verify {
         assert_eq!(Module::<T>::memo(instruction_id).unwrap(), InstructionMemo::default());
     }
@@ -883,7 +883,7 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true).unwrap();
         let s_portfolios = portfolios.clone();
-    }: add_and_affirm_instruction_with_memo(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs, s_portfolios, InstructionMemo::default())
+    }: add_and_affirm_instruction_with_memo(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs, s_portfolios, Some(InstructionMemo::default()))
     verify {
         verify_add_and_affirm_instruction::<T>(venue_id, settlement_type, portfolios).unwrap();
         assert_eq!(Module::<T>::memo(instruction_id).unwrap(), InstructionMemo::default());

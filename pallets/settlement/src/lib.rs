@@ -947,10 +947,10 @@ decl_module! {
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
             legs: Vec<Leg>,
-            instruction_memo: InstructionMemo,
+            instruction_memo: Option<InstructionMemo>,
         ) {
             let did = Identity::<T>::ensure_perms(origin)?;
-            Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, Some(instruction_memo))?;
+            Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo)?;
         }
 
         /// Adds and affirms a new instruction.
@@ -979,13 +979,13 @@ decl_module! {
             value_date: Option<T::Moment>,
             legs: Vec<Leg>,
             portfolios: Vec<PortfolioId>,
-            instruction_memo: InstructionMemo,
+            instruction_memo: Option<InstructionMemo>,
         ) -> DispatchResult {
             let did = Identity::<T>::ensure_perms(origin.clone())?;
             with_transaction(|| {
                 let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
                 let legs_count = legs.iter().filter(|l| portfolios_set.contains(&l.from)).count() as u32;
-                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, Some(instruction_memo))?;
+                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo)?;
                 Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios_set.into_iter(), legs_count)
             })
         }
