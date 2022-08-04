@@ -2492,43 +2492,55 @@ fn reject_instruction_with_zero_amount() {
         bob.assert_all_balances_unchanged();
     });
 }
-    
+
 fn basic_settlement_with_memo() {
-    assert_ok!(Settlement::add_instruction_with_memo(
-        alice.origin(),
-        venue_counter,
-        SettlementType::SettleOnAffirmation,
-        None,
-        None,
-        vec![Leg {
-            from: PortfolioId::default_portfolio(alice.did),
-            to: PortfolioId::default_portfolio(bob.did),
-            asset: TICKER,
-            amount: amount
-        }],
-        Some(InstructionMemo::default()),
-    ));
-    alice.assert_all_balances_unchanged();
-    bob.assert_all_balances_unchanged();
+    test_with_cdd_provider(|eve| {
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let venue_counter = create_token_and_venue(TICKER, alice.user);
+        let instruction_id = Settlement::instruction_counter();
+        let amount = 100u128;
+        alice.refresh_init_balances();
+        bob.refresh_init_balances();
 
-    // check that the memo was stored correctly
-    assert_eq!(
-        Settlement::memo(instruction_id).unwrap(),
-        InstructionMemo::default()
-    );
+        // Provide scope claim to sender and receiver of the transaction.
+        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
+        assert_ok!(Settlement::add_instruction_with_memo(
+            alice.origin(),
+            venue_counter,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            vec![Leg {
+                from: PortfolioId::default_portfolio(alice.did),
+                to: PortfolioId::default_portfolio(bob.did),
+                asset: TICKER,
+                amount: amount
+            }],
+            Some(InstructionMemo::default()),
+        ));
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
 
-    assert_affirm_instruction_with_one_leg!(alice.origin(), instruction_id, alice.did);
+        // check that the memo was stored correctly
+        assert_eq!(
+            Settlement::memo(instruction_id).unwrap(),
+            InstructionMemo::default()
+        );
 
-    alice.assert_all_balances_unchanged();
-    bob.assert_all_balances_unchanged();
-    set_current_block_number(5);
-    // Instruction get scheduled to next block.
-    assert_affirm_instruction_with_zero_leg!(bob.origin(), instruction_id, bob.did);
+        assert_affirm_instruction_with_one_leg!(alice.origin(), instruction_id, alice.did);
 
-    // Advances the block no. to execute the instruction.
-    next_block();
-    alice.assert_balance_decreased(&TICKER, amount);
-    bob.assert_balance_increased(&TICKER, amount);
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
+        set_current_block_number(5);
+        // Instruction get scheduled to next block.
+        assert_affirm_instruction_with_zero_leg!(bob.origin(), instruction_id, bob.did);
+
+        // Advances the block no. to execute the instruction.
+        next_block();
+        alice.assert_balance_decreased(&TICKER, amount);
+        bob.assert_balance_increased(&TICKER, amount);
+    });
 }
 
 fn create_instruction(
