@@ -2462,7 +2462,7 @@ fn reject_instruction_with_zero_amount() {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
-        let amount = 100u128;
+        let amount = 0u128;
 
         alice.refresh_init_balances();
         bob.refresh_init_balances();
