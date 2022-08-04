@@ -2462,8 +2462,6 @@ fn reject_instruction_with_zero_amount() {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
-
-        let instruction_id = Settlement::instruction_counter();
         let amount = 100u128;
 
         alice.refresh_init_balances();
