@@ -354,12 +354,10 @@ decl_module! {
                     .for_each(|(identity, name, _)| NameToNumber::remove(identity, name));
             });
             storage_migrate_on!(StorageVersion::get(), 2, {
-                NameToNumber::iter()
-                    .filter(|(identity, _, number)| !Portfolios::contains_key(identity, number))
-                    .for_each(|(identity, name, number)| {
-                        if !(Self::name_to_number(identity, name.clone()) == number) {
+                Portfolios::iter()
+                    .filter(|(identity, _, number)| !NameToNumber::contains_key(identity, number))
+                    .for_each(|(identity, number, name)| {
                             NameToNumber::insert(identity, name, number);
-                        }
                     }
                 );
             });
