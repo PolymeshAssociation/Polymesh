@@ -355,7 +355,7 @@ decl_module! {
             });
             storage_migrate_on!(StorageVersion::get(), 2, {
                 Portfolios::iter()
-                    .filter(|(identity, _, number)| !NameToNumber::contains_key(identity, number))
+                    .filter(|(identity, number, name)| number == &Self::name_to_number(identity, name))
                     .for_each(|(identity, number, name)| {
                             NameToNumber::insert(identity, name, number);
                     }
