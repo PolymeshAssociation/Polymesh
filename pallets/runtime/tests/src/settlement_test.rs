@@ -2253,12 +2253,6 @@ fn dirty_storage_with_tx() {
                     amount: amount1
                 },
                 Leg {
-                    from: PortfolioId::default_portfolio(bob.did),
-                    to: PortfolioId::default_portfolio(alice.did),
-                    asset: TICKER,
-                    amount: 0
-                },
-                Leg {
                     from: PortfolioId::default_portfolio(alice.did),
                     to: PortfolioId::default_portfolio(bob.did),
                     asset: TICKER,
@@ -2462,6 +2456,41 @@ fn modify_venue_signers() {
 }
 
 #[test]
+
+fn reject_instruction_with_zero_amount() {
+    test_with_cdd_provider(|eve| {
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let venue_counter = create_token_and_venue(TICKER, alice.user);
+        let amount = 0u128;
+
+        alice.refresh_init_balances();
+        bob.refresh_init_balances();
+
+        // Provide scope claim to sender and receiver of the transaction.
+        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
+
+        assert_noop!(
+            Settlement::add_instruction(
+                alice.origin(),
+                venue_counter,
+                SettlementType::SettleOnAffirmation,
+                None,
+                None,
+                vec![Leg {
+                    from: PortfolioId::default_portfolio(alice.did),
+                    to: PortfolioId::default_portfolio(bob.did),
+                    asset: TICKER,
+                    amount: amount
+                }]
+            ),
+            Error::ZeroAmount
+        );
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
+    });
+}
+
 fn basic_settlement_with_memo() {
     test_with_cdd_provider(|eve| {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
@@ -2474,7 +2503,6 @@ fn basic_settlement_with_memo() {
 
         // Provide scope claim to sender and receiver of the transaction.
         provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
-
         assert_ok!(Settlement::add_instruction_with_memo(
             alice.origin(),
             venue_counter,

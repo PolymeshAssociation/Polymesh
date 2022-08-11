@@ -474,6 +474,8 @@ decl_error! {
         SignerAlreadyExists,
         /// Signer is not added to venue.
         SignerDoesNotExist,
+        /// Instruction leg amount can't be zero
+        ZeroAmount,
     }
 }
 
@@ -1067,6 +1069,8 @@ impl<T: Config> Module<T> {
                     Error::<T>::UnauthorizedVenue
                 );
             }
+
+            ensure!(leg.amount != 0, Error::<T>::ZeroAmount);
             counter_parties.insert(leg.from);
             counter_parties.insert(leg.to);
         }
