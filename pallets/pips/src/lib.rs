@@ -197,8 +197,6 @@ pub struct Pip<Proposal, AccountId> {
     pub id: PipId,
     /// The proposal being voted on.
     pub proposal: Proposal,
-    /// The latest state
-    pub state: ProposalState,
     /// The issuer of `propose`.
     pub proposer: Proposer<AccountId>,
 }
@@ -523,6 +521,10 @@ decl_storage! {
         /// This list is a cache of all ids in `Proposals` with `Proposer::Committee(_)`.
         pub CommitteePips get(fn committee_pips): Vec<PipId>;
 
+        /// Proposal state for a given id.
+        /// proposal id -> proposalState
+        pub ProposalStates get(fn proposal_state): map hasher(twox_64_concat) PipId => ProposalState;
+
         StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
 }
@@ -652,8 +654,8 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
             storage_migrate_on!(StorageVersion::get(), 1, {
                 // We had a bug in `update_proposal_state`.
-                let count = Proposals::<T>::iter()
-                    .filter(|(_, p)| matches!(p.state, ProposalState::Scheduled | ProposalState::Pending))
+                let count = ProposalStates::iter()
+                    .filter(|(_, proposal_state)| matches!(proposal_state, ProposalState::Scheduled | ProposalState::Pending))
                     .count();
                 ActivePipCount::set(count as u32);
             });
@@ -792,9 +794,9 @@ decl_module! {
             <Proposals<T>>::insert(id, Pip {
                 id,
                 proposal: *proposal,
-                state: ProposalState::Pending,
                 proposer: proposer.clone(),
             });
+            <ProposalStates>::insert(id, ProposalState::Pending);
             PipIdSequence::put(seq);
             ActivePipCount::mutate(|count| *count += 1);
 
@@ -937,9 +939,10 @@ decl_module! {
         pub fn reject_proposal(origin, id: PipId) {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
             let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
-            ensure!(Self::is_active(proposal.state), Error::<T>::IncorrectProposalState);
-            Self::maybe_unschedule_pip(id, proposal.state);
-            Self::maybe_unsnapshot_pip(id, proposal.state);
+            let proposal_state = Self::proposal_state(id);
+            ensure!(Self::is_active(proposal_state), Error::<T>::IncorrectProposalState);
+            Self::maybe_unschedule_pip(id, proposal_state);
+            Self::maybe_unsnapshot_pip(id, proposal_state);
             Self::unsafe_reject_proposal(GC_DID, id);
         }
 
@@ -956,8 +959,9 @@ decl_module! {
         pub fn prune_proposal(origin, id: PipId) {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
             let proposal = Self::proposals(id).ok_or(Error::<T>::NoSuchProposal)?;
-            ensure!(!Self::is_active(proposal.state), Error::<T>::IncorrectProposalState);
-            Self::prune_data(GC_DID, id, proposal.state, true);
+            let proposal_state = Self::proposal_state(id);
+            ensure!(!Self::is_active(proposal_state), Error::<T>::IncorrectProposalState);
+            Self::prune_data(GC_DID, id, proposal_state, true);
         }
 
         /// Updates the execution schedule of the PIP given by `id`.
@@ -1324,8 +1328,9 @@ impl<T: Config> Module<T> {
     /// Panics if the PIP doesn't exist or isn't scheduled.
     fn execute_proposal(id: PipId) -> DispatchResultWithPostInfo {
         let proposal = Self::proposals(id).ok_or(Error::<T>::ScheduledProposalDoesntExist)?;
+        let proposal_state = Self::proposal_state(id);
         ensure!(
-            proposal.state == ProposalState::Scheduled,
+            proposal_state == ProposalState::Scheduled,
             Error::<T>::ProposalNotInScheduledState
         );
         let res = proposal.proposal.dispatch(system::RawOrigin::Root.into());
@@ -1341,14 +1346,12 @@ impl<T: Config> Module<T> {
         id: PipId,
         new_state: ProposalState,
     ) -> ProposalState {
-        <Proposals<T>>::mutate(id, |proposal| {
-            if let Some(ref mut proposal) = proposal {
-                // Decrement active count, if the `new_state` is not active.
-                if !Self::is_active(new_state) {
-                    Self::decrement_count_if_active(proposal.state);
-                }
-                proposal.state = new_state;
+        <ProposalStates>::mutate(id, |proposal_state| {
+            // Decrement active count, if the `new_state` is not active.
+            if !Self::is_active(new_state) {
+                Self::decrement_count_if_active(*proposal_state);
             }
+            *proposal_state = new_state;
         });
         Self::deposit_event(RawEvent::ProposalStateUpdated(did, id, new_state));
         new_state
@@ -1356,8 +1359,9 @@ impl<T: Config> Module<T> {
 
     /// Returns `Ok(_)` iff `id` has `state`.
     fn is_proposal_state(id: PipId, state: ProposalState) -> DispatchResult {
-        let proposal = Self::proposals(id).ok_or(Error::<T>::NoSuchProposal)?;
-        ensure!(proposal.state == state, Error::<T>::IncorrectProposalState);
+        let proposal = Self::proposals(id).ok_or(Error::<T>::NoSuchProposal);
+        let proposal_state = Self::proposal_state(id);
+        ensure!(proposal_state == state, Error::<T>::IncorrectProposalState);
         Ok(())
     }
 
