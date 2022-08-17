@@ -96,7 +96,9 @@ fn prepare_proposal(ring: AccountKeyring) {
 }
 
 fn check_scheduled(id: PipId) {
-    assert_eq!(Pips::proposals(id).unwrap().state, ProposalState::Scheduled);
+    Pips::proposal_state(id).map(|pip_state| {
+        assert_eq!(pip_state, ProposalState::Scheduled);
+    });
 }
 
 fn enact_snapshot_results_call() -> Call {

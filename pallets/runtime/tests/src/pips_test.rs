@@ -160,7 +160,9 @@ fn assert_state(id: PipId, care_about_pruned: bool, state: ProposalState) {
     if care_about_pruned && Pips::prune_historical_pips() {
         assert_eq!(prop, None);
     } else {
-        assert_eq!(prop.unwrap().state, state);
+        Pips::proposal_state(id).map(|pip_state| {
+            assert_eq!(pip_state, state);
+        });
     }
 }
 
@@ -476,10 +478,12 @@ fn proposal_details_are_correct() {
         let expected = Pip {
             id: PipId(0),
             proposal: call,
-            state: ProposalState::Pending,
             proposer,
         };
         assert_eq!(Pips::proposals(PipId(0)).unwrap(), expected);
+        Pips::proposal_state(PipId(0)).map(|pip_state| {
+            assert_eq!(pip_state, ProposalState::Pending);
+        });
 
         let expected = PipsMetadata {
             id: PipId(0),
@@ -1274,10 +1278,12 @@ fn reject_proposal_works() {
             Pip {
                 id,
                 proposal: make_proposal(42),
-                state: ProposalState::Rejected,
                 proposer: Proposer::Community(proposer.acc()),
             }
         );
+        Pips::proposal_state(id).map(|pip_state| {
+            assert_eq!(pip_state, ProposalState::Rejected);
+        });
         assert_balance(proposer.acc(), init_bal, 0);
         assert_eq!(Deposits::iter_prefix_values(id).count(), 0);
         // We keep this info for posterity.
@@ -1314,10 +1320,12 @@ fn reject_proposal_works() {
             Pip {
                 id,
                 proposal: make_proposal(42),
-                state: ProposalState::Rejected,
                 proposer: Proposer::Community(proposer.acc()),
             }
         );
+        Pips::proposal_state(id).map(|pip_state| {
+            assert_eq!(pip_state, ProposalState::Rejected);
+        });
         assert_balance(proposer.acc(), init_bal, 0);
         assert_eq!(Deposits::iter_prefix_values(id).count(), 0);
         // We keep this info for posterity.
@@ -1832,7 +1840,9 @@ fn expiry_works() {
         let s = scheduled_proposal(proposer, member, 0);
         fast_forward_blocks(13 + 100);
         for id in &[r, e, f, s] {
-            assert_ne!(Pips::proposals(id).unwrap().state, ProposalState::Expired);
+            Pips::proposal_state(id).map(|pip_state| {
+                assert_ne!(pip_state, ProposalState::Expired);
+            });
         }
     });
 }

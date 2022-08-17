@@ -523,7 +523,7 @@ decl_storage! {
 
         /// Proposal state for a given id.
         /// proposal id -> proposalState
-        pub ProposalStates get(fn proposal_state): map hasher(twox_64_concat) PipId => ProposalState;
+        pub ProposalStates get(fn proposal_state): map hasher(twox_64_concat) PipId => Option<ProposalState>;
 
         StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
     }
@@ -652,13 +652,8 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion::get(), 1, {
-                // We had a bug in `update_proposal_state`.
-                let count = ProposalStates::iter()
-                    .filter(|(_, proposal_state)| matches!(proposal_state, ProposalState::Scheduled | ProposalState::Pending))
-                    .count();
-                ActivePipCount::set(count as u32);
-            });
+            // migration v1 no longer needed
+
 
             0
         }
@@ -938,8 +933,7 @@ decl_module! {
         #[weight = (<T as Config>::WeightInfo::reject_proposal(), Operational)]
         pub fn reject_proposal(origin, id: PipId) {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
-            let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
-            let proposal_state = Self::proposal_state(id);
+            let proposal_state = Self::proposal_state(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
             ensure!(Self::is_active(proposal_state), Error::<T>::IncorrectProposalState);
             Self::maybe_unschedule_pip(id, proposal_state);
             Self::maybe_unsnapshot_pip(id, proposal_state);
@@ -958,8 +952,7 @@ decl_module! {
         #[weight = (<T as Config>::WeightInfo::prune_proposal(), Operational)]
         pub fn prune_proposal(origin, id: PipId) {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
-            let proposal = Self::proposals(id).ok_or(Error::<T>::NoSuchProposal)?;
-            let proposal_state = Self::proposal_state(id);
+            let proposal_state = Self::proposal_state(id).ok_or(Error::<T>::NoSuchProposal)?;
             ensure!(!Self::is_active(proposal_state), Error::<T>::IncorrectProposalState);
             Self::prune_data(GC_DID, id, proposal_state, true);
         }
@@ -1328,7 +1321,7 @@ impl<T: Config> Module<T> {
     /// Panics if the PIP doesn't exist or isn't scheduled.
     fn execute_proposal(id: PipId) -> DispatchResultWithPostInfo {
         let proposal = Self::proposals(id).ok_or(Error::<T>::ScheduledProposalDoesntExist)?;
-        let proposal_state = Self::proposal_state(id);
+        let proposal_state = Self::proposal_state(id).ok_or(Error::<T>::NoSuchProposal)?;
         ensure!(
             proposal_state == ProposalState::Scheduled,
             Error::<T>::ProposalNotInScheduledState
@@ -1349,9 +1342,11 @@ impl<T: Config> Module<T> {
         <ProposalStates>::mutate(id, |proposal_state| {
             // Decrement active count, if the `new_state` is not active.
             if !Self::is_active(new_state) {
-                Self::decrement_count_if_active(*proposal_state);
+                if let Some(proposal_state) = proposal_state {
+                    Self::decrement_count_if_active(*proposal_state);
+                }
             }
-            *proposal_state = new_state;
+            *proposal_state = Some(new_state);
         });
         Self::deposit_event(RawEvent::ProposalStateUpdated(did, id, new_state));
         new_state
@@ -1359,8 +1354,7 @@ impl<T: Config> Module<T> {
 
     /// Returns `Ok(_)` iff `id` has `state`.
     fn is_proposal_state(id: PipId, state: ProposalState) -> DispatchResult {
-        let proposal = Self::proposals(id).ok_or(Error::<T>::NoSuchProposal);
-        let proposal_state = Self::proposal_state(id);
+        let proposal_state = Self::proposal_state(id).ok_or(Error::<T>::NoSuchProposal)?;
         ensure!(proposal_state == state, Error::<T>::IncorrectProposalState);
         Ok(())
     }

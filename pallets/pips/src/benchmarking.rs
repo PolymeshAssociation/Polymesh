@@ -174,7 +174,9 @@ fn propose_verify<T: Config>(url: Url, description: PipDescription) -> DispatchR
 
 fn execute_verify<T: Config>(state: ProposalState, err: &'static str) -> DispatchResult {
     if Proposals::<T>::contains_key(PipId(0)) {
-        assert_eq!(state, Module::<T>::proposal_state(PipId(0)), "{}", err);
+        Module::<T>::proposal_state(PipId(0)).map(|pip_state| {
+            assert_eq!(state, pip_state, "{}", err);
+        });
     }
     Ok(())
 }
@@ -485,10 +487,12 @@ benchmarks! {
         Module::<T>::snapshot(origin0.into()).unwrap();
 
         let id = PipId(0);
-        assert_eq!(
-            ProposalState::Pending, Module::<T>::proposal_state(id),
-            "incorrect proposal state before expiration"
-        );
+        Module::<T>::proposal_state(id).map(|pip_state| {
+            assert_eq!(
+                ProposalState::Pending, pip_state,
+                "incorrect proposal state before expiration"
+            );
+        });
         let origin = RawOrigin::Root;
     }: _(origin, GC_DID, id)
     verify {
