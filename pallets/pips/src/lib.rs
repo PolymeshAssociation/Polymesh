@@ -439,7 +439,7 @@ pub trait Config:
     type Scheduler: ScheduleNamed<Self::BlockNumber, Self::Call, Self::SchedulerOrigin>;
 }
 
-storage_migration_ver!(1);
+storage_migration_ver!(2);
 
 // This module's storage items.
 decl_storage! {
@@ -654,6 +654,9 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
             // migration v1 no longer needed
 
+            storage_migrate_on!(StorageVersion::get(), 2, {
+                migration::migrate_v2::<T>();
+            });
 
             0
         }
@@ -1590,5 +1593,53 @@ mod test {
         let mut queue = vec![a, c, d, b, e, g, f];
         queue.sort_unstable_by(super::compare_spip);
         assert_eq!(queue, vec![f, d, e, c, a, b, g]);
+    }
+}
+
+pub mod migration {
+    use super::*;
+
+    mod v2 {
+        use super::*;
+        use scale_info::TypeInfo;
+
+        /// Represents a proposal
+        #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq)]
+        #[cfg_attr(feature = "std", derive(Debug))]
+        pub struct Pip<Proposal, AccountId> {
+            /// The proposal's unique id.
+            pub id: PipId,
+            /// The proposal being voted on.
+            pub proposal: Proposal,
+            /// The latest state
+            pub state: ProposalState,
+            /// The issuer of `propose`.
+            pub proposer: Proposer<AccountId>,
+        }
+
+        decl_storage! {
+            trait Store for Module<T: Config> as Pips {
+                /// Actual proposal for a given id, if it's current.
+            /// proposal id -> proposal
+            pub Proposals get(fn proposals): map hasher(twox_64_concat) PipId => Option<Pip<T::Proposal, T::AccountId>>;
+            }
+        }
+
+        decl_module! {
+            pub struct Module<T: Config> for enum Call where origin: T::Origin { }
+        }
+    }
+
+    pub fn migrate_v2<T: Config>() {
+        sp_runtime::runtime_logger::RuntimeLogger::init();
+
+        log::info!(" >>> Updating Pips storage. Migrating Pips...");
+        let total_pips = v2::Proposals::<T>::drain().fold(0usize, |total_pips, (pip_id, pip)| {
+            // Prune Pips
+            // Module::<T>::prune_proposal(_, pip_id);
+            total_pips + 1
+        });
+
+        log::info!(" >>> Migrated {} Pips.", total_pips);
     }
 }
