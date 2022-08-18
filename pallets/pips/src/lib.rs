@@ -1256,6 +1256,7 @@ impl<T: Config> Module<T> {
             }
             <Proposals<T>>::remove(id);
             PipSkipCount::remove(id);
+            <ProposalStates>::remove(id);
         }
         Self::deposit_event(RawEvent::PipClosed(did, id, prune));
     }
@@ -1635,8 +1636,17 @@ pub mod migration {
 
         log::info!(" >>> Updating Pips storage. Migrating Pips...");
         let total_pips = v2::Proposals::<T>::drain().fold(0usize, |total_pips, (pip_id, pip)| {
-            // Prune Pips
-            // Module::<T>::prune_proposal(_, pip_id);
+            // Migrate Pips
+            <Proposals<T>>::insert(
+                pip_id,
+                Pip {
+                    id: pip_id,
+                    proposal: pip.proposal,
+                    proposer: pip.proposer.clone(),
+                },
+            );
+            <ProposalStates>::insert(pip_id, pip.state);
+
             total_pips + 1
         });
 
