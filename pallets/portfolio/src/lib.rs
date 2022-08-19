@@ -127,7 +127,7 @@ decl_storage! {
     }
 }
 
-storage_migration_ver!(1);
+storage_migration_ver!(2);
 
 decl_error! {
     pub enum Error for Module<T: Config> {
@@ -301,6 +301,7 @@ decl_module! {
             // Change the name in storage.
             Portfolios::mutate(&primary_did, &num, |p| {
                 NameToNumber::remove(&primary_did, mem::replace(p, to_name.clone()));
+                NameToNumber::insert(&primary_did, &to_name, num);
             });
 
             // Emit Event.
@@ -351,6 +352,14 @@ decl_module! {
                 NameToNumber::iter()
                     .filter(|(identity, _, number)| !Portfolios::contains_key(identity, number))
                     .for_each(|(identity, name, _)| NameToNumber::remove(identity, name));
+            });
+            storage_migrate_on!(StorageVersion::get(), 2, {
+                Portfolios::iter()
+                    .filter(|(identity, number, name)| number == &Self::name_to_number(identity, name))
+                    .for_each(|(identity, number, name)| {
+                            NameToNumber::insert(identity, name, number);
+                    }
+                );
             });
 
             0
