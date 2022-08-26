@@ -160,9 +160,7 @@ fn assert_state(id: PipId, care_about_pruned: bool, state: ProposalState) {
     if care_about_pruned && Pips::prune_historical_pips() {
         assert_eq!(prop, None);
     } else {
-        Pips::proposal_state(id).map(|pip_state| {
-            assert_eq!(pip_state, state);
-        });
+        assert_eq!(Pips::proposal_state(id).unwrap(), state);
     }
 }
 

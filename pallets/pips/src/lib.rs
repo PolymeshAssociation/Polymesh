@@ -1322,10 +1322,11 @@ impl<T: Config> Module<T> {
     }
 
     /// Execute the PIP given by `id`.
-    /// Panics if the PIP doesn't exist or isn't scheduled.
+    /// Returns an error if the PIP doesn't exist or is not scheduled.
     fn execute_proposal(id: PipId) -> DispatchResultWithPostInfo {
         let proposal = Self::proposals(id).ok_or(Error::<T>::ScheduledProposalDoesntExist)?;
-        let proposal_state = Self::proposal_state(id).ok_or(Error::<T>::NoSuchProposal)?;
+        let proposal_state =
+            Self::proposal_state(id).ok_or(Error::<T>::ScheduledProposalDoesntExist)?;
         ensure!(
             proposal_state == ProposalState::Scheduled,
             Error::<T>::ProposalNotInScheduledState
@@ -1344,9 +1345,9 @@ impl<T: Config> Module<T> {
         new_state: ProposalState,
     ) -> ProposalState {
         <ProposalStates>::mutate(id, |proposal_state| {
-            // Decrement active count, if the `new_state` is not active.
-            if !Self::is_active(new_state) {
-                if let Some(proposal_state) = proposal_state {
+            if let Some(ref mut proposal_state) = proposal_state {
+                // Decrement active count, if the `new_state` is not active.
+                if !Self::is_active(new_state) {
                     Self::decrement_count_if_active(*proposal_state);
                 }
             }
@@ -1642,7 +1643,7 @@ pub mod migration {
                 Pip {
                     id: pip_id,
                     proposal: pip.proposal,
-                    proposer: pip.proposer.clone(),
+                    proposer: pip.proposer,
                 },
             );
             <ProposalStates>::insert(pip_id, pip.state);
