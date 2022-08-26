@@ -327,6 +327,8 @@ decl_storage! {
 // Public interface for this runtime module.
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Trait>::Origin {
+        type Error = Error<T>;
+
         /// Initialize the default event for this module
         fn deposit_event() = default;
 
