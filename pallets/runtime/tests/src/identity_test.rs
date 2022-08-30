@@ -16,7 +16,6 @@ use frame_support::{
     assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency, StorageDoubleMap,
     StorageMap, StorageValue,
 };
-use pallet_asset::SecurityToken;
 use pallet_balances as balances;
 use pallet_identity::{CustomClaimIdSequence, CustomClaims, CustomClaimsInverse};
 use polymesh_common_utilities::{
@@ -31,11 +30,11 @@ use polymesh_common_utilities::{
     SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    investor_zkproof_data::v2, AccountId, AssetPermissions, AuthorizationData, AuthorizationType,
-    CddId, Claim, ClaimType, CustomClaimTypeId, DispatchableName, ExtrinsicPermissions,
-    IdentityClaim, IdentityId, InvestorUid, KeyRecord, PalletName, PalletPermissions, Permissions,
-    PortfolioId, PortfolioNumber, Scope, SecondaryKey, Signatory, SubsetRestriction, Ticker,
-    TransactionError,
+    asset::SecurityToken, investor_zkproof_data::v2, AccountId, AssetPermissions,
+    AuthorizationData, AuthorizationType, CddId, Claim, ClaimType, CustomClaimTypeId,
+    DispatchableName, ExtrinsicPermissions, IdentityClaim, IdentityId, InvestorUid, KeyRecord,
+    PalletName, PalletPermissions, Permissions, PortfolioId, PortfolioNumber, Scope, SecondaryKey,
+    Signatory, SubsetRestriction, Ticker, TransactionError,
 };
 use polymesh_runtime_develop::runtime::{Call, CddHandler};
 use sp_core::H512;

@@ -19,7 +19,7 @@ use pallet_asset::checkpoint::ScheduleSpec;
 use pallet_asset::{
     self as asset, AssetOwnershipRelation, ClassicTickerImport, ClassicTickerRegistration,
     ClassicTickers, Config as AssetConfig, CustomTypeIdSequence, CustomTypes, CustomTypesInverse,
-    ScopeIdOf, SecurityToken, TickerRegistration, TickerRegistrationConfig, Tickers,
+    ScopeIdOf, TickerRegistration, TickerRegistrationConfig, Tickers,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -36,7 +36,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::ethereum;
 use polymesh_primitives::{
     agent::AgentGroup,
-    asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName},
+    asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName, SecurityToken},
     calendar::{
         CalendarPeriod, CalendarUnit, CheckpointId, CheckpointSchedule, FixedOrVariableCalendarUnit,
     },
