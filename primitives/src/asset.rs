@@ -24,6 +24,53 @@ use scale_info::TypeInfo;
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::Vec;
 
+use crate::{Balance, IdentityId};
+
+// TODO: Remove base64 hack.
+use base64;
+use frame_support::dispatch::DispatchError;
+/// A wrapper for a base-64 encoded vector of bytes.
+#[derive(
+    Encode,
+    Decode,
+    TypeInfo,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    VecU8StrongTyped,
+    Default,
+    PartialOrd,
+    Ord
+)]
+pub struct Base64Vec(pub Vec<u8>);
+
+impl Base64Vec {
+    /// Decodes a Base64-encoded vector of bytes.
+    ///
+    /// ## Errors
+    /// - `DecodeBase64Error` if `self` is not Base64-encoded.
+    pub fn decode(&self) -> Result<Vec<u8>, DispatchError> {
+        base64::decode(&self.0[..]).map_err(|_| DecodeBase64Error.into())
+    }
+
+    /// Creates a new Base64-encoded object by encoding a byte vector `inp`.
+    pub fn new(inp: Vec<u8>) -> Self {
+        Self::from(base64::encode(inp))
+    }
+}
+
+/// The error type for `Base64Vec`.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub struct DecodeBase64Error;
+
+impl From<DecodeBase64Error> for DispatchError {
+    fn from(_: DecodeBase64Error) -> DispatchError {
+        // TODO: why does this error message look unrelated?
+        DispatchError::Other("Authorization does not exist")
+    }
+}
+
 /// A wrapper for a token name.
 #[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -84,6 +131,19 @@ impl Default for AssetType {
 #[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct FundingRoundName(pub Vec<u8>);
+
+/// struct to store the token details.
+#[derive(Encode, Decode, TypeInfo, Default, Clone, PartialEq, Debug)]
+pub struct SecurityToken {
+    /// Total supply of the asset.
+    pub total_supply: Balance,
+    /// Asset's owner DID.
+    pub owner_did: IdentityId,
+    /// Whether the asset is divisible.
+    pub divisible: bool,
+    /// Type of the asset.
+    pub asset_type: AssetType,
+}
 
 /// Result of a granular can transfer.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]

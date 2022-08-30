@@ -2,58 +2,61 @@
 name = "pallet-confidential"
 version = "0.1.0"
 authors = ["Polymath"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
+# Common
 polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
 polymesh-common-utilities = { path = "../common", default-features = false }
 
-pallet-identity = { path = "../identity", default-features = false }
+# Our Pallets
+pallet-identity = { path = "../identity", default-features = false  }
 pallet-asset = { path = "../asset", default-features = false }
 
+# General
+log = "0.4"
+
 # Substrate
-codec = { package = "parity-scale-codec", version = "1.2.0", default-features = false, features = ["derive"] }
-sp-core = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
-sp-io = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
-sp-std = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
-sp-api = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
-sp-arithmetic = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
-sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
-
-frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
-frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
-
-pallet-timestamp = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
-
-sp-runtime-interface = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.0", default-features = false, features = ["derive"] }
+sp-arithmetic = { version = "5.0.0", default-features = false }
+sp-core = { version = "6.0.0", default-features = false }
+sp-std = { version = "4.0.0", default-features = false }
+sp-io = { version = "6.0.0", default-features = false }
+sp-runtime = { version = "6.0.0", default-features = false }
+sp-version = { version = "5.0.0", default-features = false }
+sp-api = { version = "4.0.0-dev", default-features = false }
+frame-system = { version = "4.0.0-dev", default-features = false }
+frame-support = { version = "4.0.0-dev", default-features = false }
+pallet-timestamp = { version = "4.0.0-dev", default-features = false }
+pallet-session = { version = "4.0.0-dev", default-features = false }
 
 # Crypto
-rand_core = { version = "0.5", default-features = false }
-rand = { version = "0.7.3", default-features = false, optional = true }
-cryptography_core = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.3" }
+rand_core = { version = "0.6", default-features = false }
+rand_chacha = { version = "0.3", default-features = false }
+confidential_identity_core = { version = "1.0.0", default-features = false }
 
 # Only Benchmarking
-frame-benchmarking = { default-features = false, git = "https://github.com/PolymathNetwork/substrate", tag = "v2.0.1-2", optional = true }
+frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
 
 [features]
 equalize = []
-only-staking = []
 default = ["std", "equalize", "u64_backend"]
 
 # Backends
-u64_backend = ["cryptography_core/u64_backend"]
-avx2_backend = ["cryptography_core/avx2_backend"]
+u64_backend = ["confidential_identity_core/u64_backend"]
+avx2_backend = ["confidential_identity_core/avx2_backend"]
 
 no_std = [
-    "cryptography_core/no_std",
+    "confidential_identity_core/no_std",
     "u64_backend"
 ]
 
 std = [
-    "rand/std",
     "rand_core/std",
-    "cryptography_core/std",
+    "rand_chacha/std",
+    "confidential_identity_core/std",
     "codec/std",
     "sp-core/std",
     "sp-std/std",
@@ -61,13 +64,12 @@ std = [
     "sp-api/std",
     "sp-arithmetic/std",
     "sp-runtime/std",
-    "sp-runtime-interface/std",
     "frame-support/std",
     "frame-system/std",
     "pallet-timestamp/std",
     "polymesh-primitives/std",
-    "pallet-identity/std",
     "pallet-asset/std",
+    "pallet-identity/std",
 ]
 
 runtime-benchmarks = [

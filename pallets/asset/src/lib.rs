@@ -107,7 +107,10 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     agent::AgentGroup,
-    asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName, GranularCanTransferResult},
+    asset::{
+        AssetName, AssetType, CustomAssetTypeId, FundingRoundName, GranularCanTransferResult,
+        SecurityToken,
+    },
     asset_metadata::{
         AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName,
         AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
@@ -142,15 +145,6 @@ impl Default for AssetOwnershipRelation {
     fn default() -> Self {
         Self::NotOwned
     }
-}
-
-/// struct to store the token details.
-#[derive(Encode, Decode, TypeInfo, Default, Clone, PartialEq, Debug)]
-pub struct SecurityToken {
-    pub total_supply: Balance,
-    pub owner_did: IdentityId,
-    pub divisible: bool,
-    pub asset_type: AssetType,
 }
 
 /// struct to store the ticker registration details.
@@ -952,6 +946,34 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::Origin> for Module<T> {
         Self::balance_of(ticker, &who)
     }
 
+    fn token_details(ticker: &Ticker) -> SecurityToken {
+        Self::token_details(ticker)
+    }
+
+    fn unchecked_set_total_supply(did: IdentityId, ticker: &Ticker, total_supply: Balance) {
+        // Read the token details
+        let mut token = Self::token_details(ticker);
+        token.total_supply = total_supply;
+        Tokens::insert(ticker, token);
+        Statistics::<T>::update_asset_stats(
+            &ticker,
+            None,
+            Some(&did),
+            None,
+            Some(total_supply),
+            total_supply,
+        );
+
+        Self::deposit_event(Event::<T>::Issued(
+            did,
+            *ticker,
+            did,
+            total_supply,
+            Self::funding_round(ticker),
+            total_supply,
+        ));
+    }
+
     fn create_asset(
         origin: T::Origin,
         name: AssetName,
@@ -961,8 +983,8 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::Origin> for Module<T> {
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
         disable_iu: bool,
-    ) -> DispatchResult {
-        Self::create_asset(
+    ) -> Result<IdentityId, DispatchError> {
+        Self::base_create_asset(
             origin,
             name,
             ticker,

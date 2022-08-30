@@ -16,31 +16,55 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
-use cryptography_core::{
-    asset_proofs::range_proof::{prove_within_range, verify_within_range, InRangeProof},
-    bulletproofs::RangeProof,
+use confidential_identity_core::{
+    asset_proofs::{
+        bulletproofs::RangeProof,
+        range_proof::{prove_within_range, verify_within_range, InRangeProof},
+    },
     CompressedRistretto, Scalar,
 };
 use frame_support::{
-    debug, decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult,
-    weights::Weight,
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult,
+    traits::Randomness, weights::Weight,
 };
 use pallet_identity as identity;
-use polymesh_common_utilities::{asset::AssetFnTrait, identity::Trait as IdentityTrait};
-use polymesh_primitives::{rng, IdentityId, Ticker};
+use polymesh_common_utilities::{asset::AssetFnTrait, identity::Config as IdentityConfig};
+use polymesh_primitives::{IdentityId, Ticker};
 use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
+use scale_info::TypeInfo;
 use sp_std::prelude::*;
+
+use rand_chacha::ChaCha20Rng as Rng;
+use rand_core::SeedableRng;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-#[derive(Encode, Decode, Clone, Default, PartialEq, Eq, SliceU8StrongTyped)]
+#[derive(
+    Encode,
+    Decode,
+    TypeInfo,
+    Clone,
+    Default,
+    PartialEq,
+    Eq,
+    SliceU8StrongTyped
+)]
 pub struct RangeProofInitialMessageWrapper(pub [u8; 32]);
 
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, VecU8StrongTyped)]
+#[derive(
+    Encode,
+    Decode,
+    TypeInfo,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    VecU8StrongTyped
+)]
 pub struct RangeProofFinalResponseWrapper(pub Vec<u8>);
 
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
 pub struct TickerRangeProof {
     // pub proof: RangeProofWrapper,
     pub initial_message: RangeProofInitialMessageWrapper,
@@ -54,23 +78,26 @@ pub trait WeightInfo {
     fn add_verify_range_proof() -> Weight;
 }
 
-pub trait Trait: frame_system::Trait + IdentityTrait {
-    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
+pub trait Config: frame_system::Config + IdentityConfig {
+    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
 
-    type Asset: AssetFnTrait<Self::Balance, Self::AccountId, Self::Origin>;
+    type Asset: AssetFnTrait<Self::AccountId, Self::Origin>;
     type WeightInfo: WeightInfo;
+
+    /// Randomness source.
+    type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
 }
 
 type Identity<T> = identity::Module<T>;
 
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
 pub struct ProverTickerKey {
     prover: IdentityId,
     ticker: Ticker,
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Confidential {
+    trait Store for Module<T: Config> as Confidential {
         /// Number of investor per asset.
         pub RangeProofs get(fn range_proof): double_map hasher(identity) IdentityId, hasher(blake2_128_concat) ProverTickerKey => Option<TickerRangeProof>;
 
@@ -79,21 +106,21 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
 
-        #[weight = <T as Trait>::WeightInfo::add_range_proof()]
+        #[weight = <T as Config>::WeightInfo::add_range_proof()]
         pub fn add_range_proof(origin, target_id: IdentityId, ticker: Ticker, secret_value: u64) {
             let prover = Identity::<T>::ensure_perms(origin)?;
 
             // Create proof
-            let mut rng = rng::Rng::default();
+            let mut rng = Self::get_rng();
             let rand_blind = Scalar::random(&mut rng);
             let in_range_proof = prove_within_range( secret_value, rand_blind, 32, &mut rng)
                 .map_err(|e| {
-                    debug::error!("Confidential error: {:?}", e);
+                    log::error!("Confidential error: {:?}", e);
                     Error::<T>::InvalidRangeProof
                 })?;
 
@@ -106,7 +133,7 @@ decl_module! {
             RangeProofs::insert(&target_id, &prover_ticker_key, ticker_range_proof);
         }
 
-        #[weight = <T as Trait>::WeightInfo::add_verify_range_proof()]
+        #[weight = <T as Config>::WeightInfo::add_verify_range_proof()]
         pub fn add_verify_range_proof(origin, target: IdentityId, prover: IdentityId, ticker: Ticker) {
             let verifier_id = Identity::<T>::ensure_perms(origin)?;
             Self::verify_range_proof(target, prover, ticker)?;
@@ -123,7 +150,7 @@ decl_event! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         ///
         MissingRangeProof,
         ///
@@ -131,14 +158,14 @@ decl_error! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     pub fn verify_range_proof(
         target: IdentityId,
         prover: IdentityId,
         ticker: Ticker,
     ) -> DispatchResult {
         let prover_ticker_key = ProverTickerKey { prover, ticker };
-        let mut rng = rng::Rng::default();
+        let mut rng = Self::get_rng();
 
         let trp = Self::range_proof(&target, &prover_ticker_key)
             .ok_or_else(|| Error::<T>::MissingRangeProof)?;
@@ -153,5 +180,13 @@ impl<T: Trait> Module<T> {
         };
 
         verify_within_range(&proof, &mut rng).map_err(|_| Error::<T>::InvalidRangeProof.into())
+    }
+
+    fn get_rng() -> Rng {
+        // TODO:
+        let (random_hash, _) = T::Randomness::random(b"TODO: add nonce.");
+        let seed = <u64>::decode(&mut random_hash.as_ref())
+            .expect("secure hashes should always be bigger than u64; qed");
+        Rng::seed_from_u64(seed)
     }
 }

@@ -106,6 +106,11 @@ substrate-wasm-builder = { git = "https://github.com/PolymeshAssociation/substra
 
 bulletproofs = { version = "4.0.0", git = "https://github.com/PolymeshAssociation/bulletproofs", branch = "polymesh" }
 
+mercat = { path = "../cryptography/mercat" }
+confidential_identity_core = { path = "../cryptography/confidential-identity-core" }
+confidential_identity_v1 = { path = "../cryptography/confidential-identity-v1" }
+confidential_identity_v2 = { path = "../cryptography/confidential-identity-v2" }
+
 [workspace]
 members = [
     "bin/bench",
@@ -121,6 +126,8 @@ members = [
     "pallets/committee",
     "pallets/common",
     "pallets/compliance-manager",
+    "pallets/confidential-asset",
+    "pallets/confidential",
     "pallets/contracts",
     "pallets/corporate-actions",
     "pallets/external-agents",

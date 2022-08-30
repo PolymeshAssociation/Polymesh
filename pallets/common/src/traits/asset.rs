@@ -15,11 +15,11 @@
 
 use crate::traits::{checkpoint, compliance_manager, external_agents, portfolio, statistics};
 use frame_support::decl_event;
-use frame_support::dispatch::DispatchResult;
+use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
 use polymesh_primitives::{
-    asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName},
+    asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName, SecurityToken},
     asset_metadata::{
         AssetMetadataGlobalKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataSpec,
         AssetMetadataValue, AssetMetadataValueDetail,
@@ -57,6 +57,10 @@ pub trait AssetSubTrait {
 pub trait AssetFnTrait<Account, Origin> {
     fn balance(ticker: &Ticker, did: IdentityId) -> Balance;
 
+    fn token_details(ticker: &Ticker) -> SecurityToken;
+
+    fn unchecked_set_total_supply(did: IdentityId, ticker: &Ticker, total_supply: Balance);
+
     fn create_asset(
         origin: Origin,
         name: AssetName,
@@ -66,7 +70,7 @@ pub trait AssetFnTrait<Account, Origin> {
         identifiers: Vec<AssetIdentifier>,
         funding_round: Option<FundingRoundName>,
         disable_iu: bool,
-    ) -> DispatchResult;
+    ) -> Result<IdentityId, DispatchError>;
 
     fn register_ticker(origin: Origin, ticker: Ticker) -> DispatchResult;
 

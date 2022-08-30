@@ -2,7 +2,7 @@
 name = "pallet-confidential-asset"
 version = "0.1.0"
 authors = ["Polymath"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 # Common
@@ -17,15 +17,18 @@ pallet-portfolio = { path = "../portfolio", default-features = false }
 pallet-statistics = { path = "../statistics", default-features = false }
 
 # Crypto
-mercat = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "v2.2.3" }
+rand_core = { version = "0.6", default-features = false }
+rand_chacha = { version = "0.3", default-features = false }
+mercat = { version = "1.0.0", default-features = false }
 base64 = { version = "0.12.1", default-features = false, features = ["alloc"] }
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
-frame-system = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
-frame-support = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
-sp-std = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
-sp-runtime = { git = "https://github.com/PolymathNetwork/substrate", default-features = false, tag = "v2.0.1-2" }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.0", default-features = false, features = ["derive"] }
+frame-system = { version = "4.0.0-dev", default-features = false }
+frame-support = { version = "4.0.0-dev", default-features = false }
+sp-std = { version = "4.0.0", default-features = false }
+sp-runtime = { version = "6.0.0", default-features = false }
 
 [features]
 equalize = []
@@ -38,6 +41,8 @@ avx2_backend = ["mercat/avx2_backend"]
 no_std = ["mercat/no_std", "u64_backend"]
 only-staking = []
 std = [
+    "rand_core/std",
+    "rand_chacha/std",
     "codec/std",
     "frame-support/std",
     "frame-system/std",
