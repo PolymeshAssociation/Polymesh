@@ -114,7 +114,7 @@ bulletproofs = { version = "4.0.0", git = "https://github.com/PolymeshAssociatio
 mercat = { version = "1.0.0", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_update" }
 confidential_identity_core = { version = "1.0.0", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_update" }
 confidential_identity_v1 = { version = "1.0.0", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_update" }
-confidential_identity_v2 = { version = "1.0.0", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_update" }
+confidential_identity_v2 = { version = "2.0.0", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_update" }
 
 [workspace]
 members = [
