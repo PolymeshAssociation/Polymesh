@@ -16,12 +16,14 @@
 use crate::*;
 
 use frame_benchmarking::benchmarks;
-use pallet_asset::SecurityToken;
 use polymesh_common_utilities::{
     benchs::{AccountIdOf, User, UserBuilder},
     TestUtilsFn,
 };
-use polymesh_primitives::{asset::AssetType, ClaimType, Scope, TrustedFor, TrustedIssuer};
+use polymesh_primitives::{
+    asset::{AssetType, SecurityToken},
+    ClaimType, Scope, TrustedFor, TrustedIssuer,
+};
 use sp_std::convert::TryFrom;
 
 const MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS: u32 = 3;
