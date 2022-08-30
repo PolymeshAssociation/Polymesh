@@ -916,6 +916,7 @@ dependencies = [
 [[package]]
 name = "confidential_identity_core"
 version = "1.0.0"
+source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_update#69684f6b9a1ffc23262b5beae970da4b153bdf0f"
 dependencies = [
  "blake2",
  "bulletproofs",
@@ -936,6 +937,7 @@ dependencies = [
 [[package]]
 name = "confidential_identity_v1"
 version = "1.0.0"
+source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_update#69684f6b9a1ffc23262b5beae970da4b153bdf0f"
 dependencies = [
  "blake2",
  "byteorder",
@@ -950,7 +952,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha3 0.9.1",
- "sp-core",
+ "sp-core-hashing",
  "sp-std",
  "zeroize",
 ]
@@ -958,6 +960,7 @@ dependencies = [
 [[package]]
 name = "confidential_identity_v2"
 version = "2.0.0"
+source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_update#69684f6b9a1ffc23262b5beae970da4b153bdf0f"
 dependencies = [
  "blake2",
  "byteorder",
@@ -972,7 +975,7 @@ dependencies = [
  "serde_bytes",
  "serde_json",
  "sha3 0.9.1",
- "sp-core",
+ "sp-core-hashing",
  "sp-std",
  "zeroize",
 ]
@@ -4045,6 +4048,7 @@ checksum = "71d96e3f3c0b6325d8ccd83c33b28acb183edcb6c67938ba104ec546854b0882"
 [[package]]
 name = "mercat"
 version = "1.0.0"
+source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_update#69684f6b9a1ffc23262b5beae970da4b153bdf0f"
 dependencies = [
  "byteorder",
  "confidential_identity_core",
@@ -10807,7 +10811,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if 0.1.10",
  "digest 0.10.3",
  "rand 0.8.5",
  "static_assertions",
@@ -11010,7 +11014,7 @@ checksum = "e7141e445af09c8919f1d5f8a20dae0b20c3b57a45dee0d5823c6ed5d237f15a"
 dependencies = [
  "bitflags",
  "chrono",
- "rustc_version 0.4.0",
+ "rustc_version 0.2.3",
 ]
 
 [[package]]
