@@ -192,14 +192,14 @@ impl<'a> TryFrom<&'a Call> for &'a pallet_test_utils::Call<Runtime> {
 impl pallet_confidential_asset::Config for Runtime {
     type Event = Event;
     type NonConfidentialAsset = Asset;
-    type Randomness = RandomnessCollectiveFlip;
+    type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
 }
 
 impl pallet_confidential::Config for Runtime {
     type Event = Event;
     type Asset = Asset;
     type WeightInfo = polymesh_weights::pallet_confidential::WeightInfo;
-    type Randomness = RandomnessCollectiveFlip;
+    type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
 }
 
 impl polymesh_common_utilities::traits::identity::Config for Runtime {

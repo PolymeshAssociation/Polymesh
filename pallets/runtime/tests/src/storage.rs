@@ -622,17 +622,17 @@ impl pallet_session::SessionManager<AccountId> for TestSessionManager {
     }
 }
 
-impl pallet_confidential_asset::Config for Runtime {
+impl pallet_confidential_asset::Config for TestStorage {
     type Event = Event;
     type NonConfidentialAsset = Asset;
-    type Randomness = RandomnessCollectiveFlip;
+    type Randomness = pallet_babe::RandomnessFromOneEpochAgo<TestStorage>;
 }
 
-impl pallet_confidential::Config for Runtime {
+impl pallet_confidential::Config for TestStorage {
     type Event = Event;
     type Asset = Asset;
     type WeightInfo = polymesh_weights::pallet_confidential::WeightInfo;
-    type Randomness = RandomnessCollectiveFlip;
+    type Randomness = pallet_babe::RandomnessFromOneEpochAgo<TestStorage>;
 }
 
 impl pips::Config for TestStorage {
