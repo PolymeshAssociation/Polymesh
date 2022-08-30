@@ -106,10 +106,15 @@ substrate-wasm-builder = { git = "https://github.com/PolymeshAssociation/substra
 
 bulletproofs = { version = "4.0.0", git = "https://github.com/PolymeshAssociation/bulletproofs", branch = "polymesh" }
 
-mercat = { path = "../cryptography/mercat" }
-confidential_identity_core = { path = "../cryptography/confidential-identity-core" }
-confidential_identity_v1 = { path = "../cryptography/confidential-identity-v1" }
-confidential_identity_v2 = { path = "../cryptography/confidential-identity-v2" }
+#mercat = { path = "../cryptography/mercat" }
+#confidential_identity_core = { path = "../cryptography/confidential-identity-core" }
+#confidential_identity_v1 = { path = "../cryptography/confidential-identity-v1" }
+#confidential_identity_v2 = { path = "../cryptography/confidential-identity-v2" }
+
+mercat = { version = "1.0.0", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_update" }
+confidential_identity_core = { version = "1.0.0", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_update" }
+confidential_identity_v1 = { version = "1.0.0", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_update" }
+confidential_identity_v2 = { version = "1.0.0", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_update" }
 
 [workspace]
 members = [
