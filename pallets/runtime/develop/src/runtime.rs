@@ -189,6 +189,19 @@ impl<'a> TryFrom<&'a Call> for &'a pallet_test_utils::Call<Runtime> {
     }
 }
 
+impl pallet_confidential_asset::Config for Runtime {
+    type Event = Event;
+    type NonConfidentialAsset = Asset;
+    type Randomness = RandomnessCollectiveFlip;
+}
+
+impl pallet_confidential::Config for Runtime {
+    type Event = Event;
+    type Asset = Asset;
+    type WeightInfo = polymesh_weights::pallet_confidential::WeightInfo;
+    type Randomness = RandomnessCollectiveFlip;
+}
+
 impl polymesh_common_utilities::traits::identity::Config for Runtime {
     type Event = Event;
     type Proposal = Call;
@@ -389,6 +402,10 @@ construct_runtime!(
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
 
         TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 50,
+
+        // Confidential Asset pallets.
+        Confidential: pallet_confidential::{Pallet, Call, Storage, Event} = 60,
+        ConfidentialAsset: pallet_confidential_asset::{Pallet, Call, Storage, Event} = 61,
     }
 );
 
@@ -437,6 +454,7 @@ polymesh_runtime_common::runtime_apis! {
             add_benchmark!(params, batches, pallet_sto, Sto);
             add_benchmark!(params, batches, pallet_checkpoint, Checkpoint);
             add_benchmark!(params, batches, pallet_compliance_manager, ComplianceManager);
+            add_benchmark!(params, batches, pallet_confidential, Confidential);
             add_benchmark!(params, batches, pallet_corporate_actions, CorporateAction);
             add_benchmark!(params, batches, pallet_corporate_ballot, CorporateBallot);
             add_benchmark!(params, batches, pallet_capital_distribution, CapitalDistribution);
@@ -488,6 +506,7 @@ polymesh_runtime_common::runtime_apis! {
             list_benchmark!(list, extra, pallet_sto, Sto);
             list_benchmark!(list, extra, pallet_checkpoint, Checkpoint);
             list_benchmark!(list, extra, pallet_compliance_manager, ComplianceManager);
+            list_benchmark!(list, extra, pallet_confidential, Confidential);
             list_benchmark!(list, extra, pallet_corporate_actions, CorporateAction);
             list_benchmark!(list, extra, pallet_corporate_ballot, CorporateBallot);
             list_benchmark!(list, extra, pallet_capital_distribution, CapitalDistribution);

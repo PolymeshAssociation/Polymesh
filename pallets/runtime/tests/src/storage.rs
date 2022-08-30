@@ -270,6 +270,10 @@ frame_support::construct_runtime!(
 
         // Preimage register.  Used by `pallet_scheduler`.
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 55,
+
+        // Confidential Asset pallets.
+        Confidential: pallet_confidential::{Pallet, Call, Storage, Event} = 60,
+        ConfidentialAsset: pallet_confidential_asset::{Pallet, Call, Storage, Event} = 61,
     }
 );
 
@@ -616,6 +620,19 @@ impl pallet_session::SessionManager<AccountId> for TestSessionManager {
     fn new_session(_: SessionIndex) -> Option<Vec<AccountId>> {
         None
     }
+}
+
+impl pallet_confidential_asset::Config for Runtime {
+    type Event = Event;
+    type NonConfidentialAsset = Asset;
+    type Randomness = RandomnessCollectiveFlip;
+}
+
+impl pallet_confidential::Config for Runtime {
+    type Event = Event;
+    type Asset = Asset;
+    type WeightInfo = polymesh_weights::pallet_confidential::WeightInfo;
+    type Randomness = RandomnessCollectiveFlip;
 }
 
 impl pips::Config for TestStorage {
