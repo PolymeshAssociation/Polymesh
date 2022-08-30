@@ -1350,8 +1350,8 @@ impl<T: Config> Module<T> {
                 if !Self::is_active(new_state) {
                     Self::decrement_count_if_active(*proposal_state);
                 }
+                *proposal_state = new_state;
             }
-            *proposal_state = Some(new_state);
         });
         Self::deposit_event(RawEvent::ProposalStateUpdated(did, id, new_state));
         new_state

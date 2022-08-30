@@ -479,9 +479,10 @@ fn proposal_details_are_correct() {
             proposer,
         };
         assert_eq!(Pips::proposals(PipId(0)).unwrap(), expected);
-        Pips::proposal_state(PipId(0)).map(|pip_state| {
-            assert_eq!(pip_state, ProposalState::Pending);
-        });
+        assert_eq!(
+            Pips::proposal_state(PipId(0)).unwrap(),
+            ProposalState::Pending
+        );
 
         let expected = PipsMetadata {
             id: PipId(0),
@@ -1279,9 +1280,7 @@ fn reject_proposal_works() {
                 proposer: Proposer::Community(proposer.acc()),
             }
         );
-        Pips::proposal_state(id).map(|pip_state| {
-            assert_eq!(pip_state, ProposalState::Rejected);
-        });
+        assert_eq!(Pips::proposal_state(id).unwrap(), ProposalState::Rejected);
         assert_balance(proposer.acc(), init_bal, 0);
         assert_eq!(Deposits::iter_prefix_values(id).count(), 0);
         // We keep this info for posterity.
@@ -1321,9 +1320,7 @@ fn reject_proposal_works() {
                 proposer: Proposer::Community(proposer.acc()),
             }
         );
-        Pips::proposal_state(id).map(|pip_state| {
-            assert_eq!(pip_state, ProposalState::Rejected);
-        });
+        assert_eq!(Pips::proposal_state(id).unwrap(), ProposalState::Rejected);
         assert_balance(proposer.acc(), init_bal, 0);
         assert_eq!(Deposits::iter_prefix_values(id).count(), 0);
         // We keep this info for posterity.
@@ -1838,9 +1835,7 @@ fn expiry_works() {
         let s = scheduled_proposal(proposer, member, 0);
         fast_forward_blocks(13 + 100);
         for id in &[r, e, f, s] {
-            Pips::proposal_state(id).map(|pip_state| {
-                assert_ne!(pip_state, ProposalState::Expired);
-            });
+            assert_ne!(Pips::proposal_state(id).unwrap(), ProposalState::Expired);
         }
     });
 }
