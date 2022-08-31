@@ -360,6 +360,10 @@ construct_runtime!(
 
         // Preimage register.  Used by `pallet_scheduler`.
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
+
+        // Confidential Asset pallets.
+        Confidential: pallet_confidential::{Pallet, Call, Storage, Event} = 60,
+        ConfidentialAsset: pallet_confidential_asset::{Pallet, Call, Storage, Event} = 61,
     }
 );
 

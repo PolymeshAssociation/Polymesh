@@ -120,8 +120,8 @@ u64_backend = ["confidential_identity_core/u64_backend"]
 avx2_backend = ["confidential_identity_core/avx2_backend"]
 
 no_std = [
-		"pallet-confidential/no_std",
-		"pallet-confidential-asset/no_std",
+    "pallet-confidential/no_std",
+    "pallet-confidential-asset/no_std",
     "confidential_identity_core/no_std",
     "u64_backend"
 ]
@@ -144,8 +144,8 @@ std = [
     "pallet-bridge/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
-		"pallet-confidential/std",
-		"pallet-confidential-asset/std",
+    "pallet-confidential/std",
+    "pallet-confidential-asset/std",
     "pallet-contracts-rpc-runtime-api/std",
     "pallet-contracts/std",
     "pallet-corporate-actions/std",
@@ -204,7 +204,7 @@ std = [
     "polymesh-extensions/std",
 ]
 runtime-benchmarks = [
-		"getrandom/js",
+    "getrandom/js",
     "frame-benchmarking/runtime-benchmarks",
     "frame-support/runtime-benchmarks",
     "frame-system-benchmarking",
@@ -219,7 +219,7 @@ runtime-benchmarks = [
     "pallet-balances/runtime-benchmarks",
     "pallet-committee/runtime-benchmarks",
     "pallet-compliance-manager/runtime-benchmarks",
-		"pallet-confidential/runtime-benchmarks",
+    "pallet-confidential/runtime-benchmarks",
     "pallet-contracts/runtime-benchmarks",
     "pallet-corporate-actions/runtime-benchmarks",
     "pallet-external-agents/runtime-benchmarks",
