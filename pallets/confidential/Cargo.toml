@@ -74,6 +74,7 @@ std = [
 
 runtime-benchmarks = [
     "polymesh-common-utilities/runtime-benchmarks",
+    "polymesh-primitives/runtime-benchmarks",
     "pallet-asset/runtime-benchmarks",
     "pallet-identity/runtime-benchmarks",
     "frame-benchmarking",
