@@ -16,25 +16,28 @@
 use crate::*;
 
 use frame_benchmarking::benchmarks;
-use polymesh_common_utilities::benchs::{User, UserBuilder};
+use polymesh_common_utilities::{
+    benchs::{AccountIdOf, User, UserBuilder},
+    traits::TestUtilsFn,
+};
 use polymesh_primitives::asset::AssetType;
 use sp_std::convert::TryFrom;
 
 const MAX_TICKER_LENGTH: u8 = 12;
 const SECRET_VALUE: u64 = 42;
 
-fn make_ticker<T: Trait>(owner: &User<T>) -> Ticker {
+fn make_ticker<T: Config>(owner: &User<T>) -> Ticker {
     let ticker = Ticker::try_from(vec![b'A'; MAX_TICKER_LENGTH as usize].as_slice()).unwrap();
     let sc_name = b"TIC".into();
     T::Asset::create_asset(
         owner.origin().into(),
         sc_name,
         ticker.clone(),
-        1_000u32.into(),
         true,
         AssetType::default(),
         vec![],
         None,
+        true,
     )
     .expect("Asset cannot be created");
 
@@ -42,7 +45,7 @@ fn make_ticker<T: Trait>(owner: &User<T>) -> Ticker {
 }
 
 benchmarks! {
-    _ {}
+    where_clause { where T: Config, T: TestUtilsFn<AccountIdOf<T>> }
 
     add_range_proof {
         let owner = UserBuilder::<T>::default().generate_did().build("owner");
