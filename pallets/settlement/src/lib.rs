@@ -84,6 +84,15 @@ use scale_info::TypeInfo;
 use sp_runtime::traits::{One, Verify};
 use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
 
+use mercat::{InitializedTransferTx, JustifiedTransferTx};
+use pallet_confidential_asset::MercatAccountId;
+use polymesh_primitives::asset::Base64Vec;
+
+/// Confidential asset transfers include data from 3 parties: sender, receiver, and the mediator.
+const MERCAT_TX_DATA_LEN: usize = 3;
+
+type ConfidentialAsset<T> = pallet_confidential_asset::Module<T>;
+
 type Identity<T> = identity::Module<T>;
 type System<T> = frame_system::Pallet<T>;
 type Asset<T> = pallet_asset::Module<T>;
@@ -96,6 +105,7 @@ pub trait Config:
     + pallet_timestamp::Config
     + asset::Config
     + pallet_compliance_manager::Config
+    + pallet_confidential_asset::Config
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -109,6 +119,19 @@ pub trait Config:
     type MaxLegsInInstruction: Get<u32>;
     /// Weight information for extrinsic of the settlement pallet.
     type WeightInfo: WeightInfo;
+}
+
+/// The wrapper for confidential transfer data which includes proofs and other related info from mercat library.
+/// Since the values of this type are received as input from user and they are binary data, the `Vec<u8>` will
+/// be a base64 encoded value.
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
+pub enum MercatTxData {
+    // The buyer (i.e., the sender), will submit this.
+    InitializedTransfer(Base64Vec),
+    // The seller (i.e., the receiver) will submit this.
+    FinalizedTransfer(Base64Vec),
+    // The exchange (i.e., the mediator) will submit this.
+    JustifiedTransfer(Base64Vec),
 }
 
 /// A global and unique venue ID.
@@ -261,10 +284,46 @@ pub struct Leg {
     pub from: PortfolioId,
     /// Portfolio of the receiver
     pub to: PortfolioId,
+    /// Part of the leg which depends on whether the leg is confidential or not.
+    pub kind: LegKind,
+}
+
+/// Information in a leg specific to whether the leg is confidential or not.
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub enum LegKind {
+    NonConfidential(NonConfidentialLeg),
+    Confidential(ConfidentialLeg),
+    Undefined,
+}
+
+impl Default for LegKind {
+    fn default() -> Self {
+        LegKind::Undefined
+    }
+}
+
+/// Details of a non-confidential leg.
+#[derive(
+    Encode, Decode, TypeInfo, Default, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord
+)]
+pub struct NonConfidentialLeg {
     /// Ticker of the asset being transferred
     pub asset: Ticker,
     /// Amount being transferred
     pub amount: Balance,
+}
+
+/// Details of a confidential leg.
+#[derive(
+    Encode, Decode, TypeInfo, Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord
+)]
+pub struct ConfidentialLeg {
+    /// Portfolio of the mediator.
+    pub mediator: PortfolioId,
+    /// Mercat account id of the sender.
+    pub from_account_id: MercatAccountId,
+    /// Mercat account id of the receiver.
+    pub to_account_id: MercatAccountId,
 }
 
 /// Details about a venue.
@@ -279,17 +338,15 @@ pub struct Venue {
 
 /// Details about an offchain transaction receipt
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct Receipt<Balance> {
+pub struct Receipt {
     /// Unique receipt number set by the signer for their receipts
     pub receipt_uid: u64,
     /// Identity of the sender
     pub from: PortfolioId,
     /// Identity of the receiver
     pub to: PortfolioId,
-    /// Ticker of the asset being transferred
-    pub asset: Ticker,
-    /// Amount being transferred
-    pub amount: Balance,
+    /// The kind of leg: confidential or non-confidential.
+    pub kind: LegKind,
 }
 
 /// A wrapper for VenueDetails
@@ -320,6 +377,7 @@ pub trait WeightInfo {
     fn add_instruction(u: u32) -> Weight;
     fn add_and_affirm_instruction(u: u32) -> Weight;
     fn affirm_instruction(l: u32) -> Weight;
+    fn affirm_confidential_instruction() -> Weight;
     fn withdraw_affirmation(u: u32) -> Weight;
     fn affirm_with_receipts(r: u32) -> Weight;
     fn claim_receipt() -> Weight;
@@ -476,6 +534,25 @@ decl_error! {
         SignerDoesNotExist,
         /// Instruction leg amount can't be zero
         ZeroAmount,
+        /// Error during the decoding base64 values.
+        DecodeBase64Error,
+        /// We only support one confidential transfer per instruction at the moment.
+        MoreThanOneConfidentialLeg,
+        /// Certain transfer modes are not yet supported in confidential modes.
+        ConfidentialModeNotSupportedYet,
+        /// Transaction proof failed to verify.
+        /// Failed to maintain confidential transaction's ordering state.
+        InvalidMercatOrderingState,
+        /// Undefined leg type.
+        UndefinedLegKind,
+        /// Confidential legs do not have assets or amounts.
+        ConfidentialLegHasNoAssetOrAmount,
+        /// Only `LegKind::NonConfidential` has receipt functionality.
+        InvalidLegKind,
+        /// The MERCAT transfer proof is invalid.
+        InvalidMercatTransferProof,
+        /// The number of MERCAT authorizations is insufficient.
+        InsufficientMercatAuthorizations,
     }
 }
 
@@ -538,6 +615,9 @@ decl_storage! {
         StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
         /// Instruction memo
         InstructionMemos get(fn memo): map hasher(twox_64_concat) InstructionId => Option<InstructionMemo>;
+        /// The storage for mercat transaction proofs.
+        /// The key is the instruction_id.
+        MercatTxDataStorage get(fn mercat_tx_data): map hasher(twox_64_concat) InstructionId => Vec<MercatTxData>;
     }
 }
 
@@ -992,16 +1072,40 @@ decl_module! {
             })
         }
 
+        /// Affirms an existing confidential instruction.
+        ///
+        /// # Arguments
+        /// * `instruction_id` - Instruction id to authorize.
+        /// * `data` - MERCAT payload to include for the instruction.
+        /// * `portfolios` - Portfolios that the sender controls and wants to authorize for this instruction.
+        #[weight = <T as Config>::WeightInfo::affirm_confidential_instruction()]
+        pub fn affirm_confidential_instruction(
+            origin,
+            instruction_id: InstructionId,
+            data: MercatTxData,
+            portfolios: Vec<PortfolioId>,
+            max_legs_count: u32,
+        ) -> DispatchResult {
+            Self::base_affirm_confidential_instruction(origin, instruction_id, data, portfolios, max_legs_count)
+        }
     }
 }
 
 impl<T: Config> Module<T> {
     fn lock_via_leg(leg: &Leg) -> DispatchResult {
-        T::Portfolio::lock_tokens(&leg.from, &leg.asset, leg.amount)
+        if let LegKind::NonConfidential(kind) = &leg.kind {
+            T::Portfolio::lock_tokens(&leg.from, &kind.asset, kind.amount)
+        } else {
+            Err(Error::<T>::InvalidLegKind.into())
+        }
     }
 
     fn unlock_via_leg(leg: &Leg) -> DispatchResult {
-        T::Portfolio::unlock_tokens(&leg.from, &leg.asset, leg.amount)
+        if let LegKind::NonConfidential(kind) = &leg.kind {
+            T::Portfolio::unlock_tokens(&leg.from, &kind.asset, kind.amount)
+        } else {
+            Err(Error::<T>::InvalidLegKind.into())
+        }
     }
 
     /// Ensure origin call permission and the given instruction validity.
@@ -1019,6 +1123,14 @@ impl<T: Config> Module<T> {
             secondary_key,
             Self::ensure_instruction_validity(id)?,
         ))
+    }
+
+    pub fn leg_asset_and_amount(leg: &Leg) -> Result<(Ticker, Balance), DispatchError> {
+        match &leg.kind {
+            LegKind::NonConfidential(kind) => Ok((kind.asset, kind.amount)),
+            LegKind::Confidential(_) => Err(Error::<T>::ConfidentialLegHasNoAssetOrAmount.into()),
+            LegKind::Undefined => Err(Error::<T>::UndefinedLegKind.into()),
+        }
     }
 
     // Extract `Venue` with `id`, assuming it was created by `did`, or error.
@@ -1043,6 +1155,10 @@ impl<T: Config> Module<T> {
             legs.len() <= T::MaxLegsInInstruction::get() as usize,
             Error::<T>::InstructionHasTooManyLegs
         );
+        // Only allow 1 confidential leg.
+        if Self::count_confidential_legs(&legs) > 1 {
+            return Err(Error::<T>::MoreThanOneConfidentialLeg.into());
+        }
 
         // Ensure that the scheduled block number is in the future so that `T::Scheduler::schedule_named`
         // doesn't fail.
@@ -1061,19 +1177,29 @@ impl<T: Config> Module<T> {
         let mut tickers = BTreeSet::new();
         for leg in &legs {
             ensure!(leg.from != leg.to, Error::<T>::SameSenderReceiver);
-            // Check if the venue is part of the token's list of allowed venues.
-            // Only check each ticker once.
-            if tickers.insert(leg.asset) && Self::venue_filtering(leg.asset) {
-                ensure!(
-                    Self::venue_allow_list(leg.asset, venue_id),
-                    Error::<T>::UnauthorizedVenue
-                );
-            }
-
-            ensure!(leg.amount != 0, Error::<T>::ZeroAmount);
             counter_parties.insert(leg.from);
             counter_parties.insert(leg.to);
+            match &leg.kind {
+                LegKind::Confidential(c_leg) => {
+                    // Mediator is added as a counter_party, so that we can wait for its authorization.
+                    counter_parties.insert(c_leg.mediator);
+                }
+                LegKind::NonConfidential(nc_leg) => {
+                    ensure!(nc_leg.amount != 0, Error::<T>::ZeroAmount);
+                    tickers.insert(nc_leg.asset);
+                }
+                LegKind::Undefined => return Err(Error::<T>::UndefinedLegKind.into()),
+            }
         }
+
+        // Check if the venue has required permissions from token owners.
+        ensure!(
+            tickers
+                .iter()
+                .filter(|t| Self::venue_filtering(*t))
+                .all(|t| Self::venue_allow_list(t, venue_id)),
+            Error::<T>::UnauthorizedVenue,
+        );
 
         // Advance and get next `instruction_id`.
         let instruction_id = InstructionCounter::try_mutate(try_next_post::<T, _>)?;
@@ -1163,7 +1289,35 @@ impl<T: Config> Module<T> {
                 }
                 LegStatus::ExecutionPending => {
                     // Tokens are locked, need to be unlocked.
-                    Self::unlock_via_leg(&leg_details)?;
+                    match leg_details.kind {
+                        LegKind::NonConfidential(_) => {
+                            Self::unlock_via_leg(&leg_details)?;
+                        }
+                        LegKind::Confidential(kind) => {
+                            // Confidential legs do not need locking/unlocking.
+                            // Transaction has failed update the sender's pending state.
+                            let tx_data = &Self::mercat_tx_data(id)[0];
+                            match tx_data {
+                                MercatTxData::InitializedTransfer(init_data) => {
+                                    let tx = init_data
+                                        .decode()
+                                        .and_then(|d| {
+                                            Ok(InitializedTransferTx::decode(&mut &d[..]))
+                                        })
+                                        .map_err(|_| Error::<T>::InvalidMercatOrderingState)?;
+                                    if let Ok(init_tx) = tx {
+                                        <ConfidentialAsset<T>>::add_failed_outgoing_balance(
+                                            &leg_details.from.did,
+                                            &kind.from_account_id,
+                                            init_tx.memo.enc_amount_using_sender,
+                                        )?;
+                                    }
+                                }
+                                _ => return Err(Error::<T>::InvalidMercatOrderingState.into()),
+                            };
+                        }
+                        LegKind::Undefined => return Err(Error::<T>::UndefinedLegKind.into()),
+                    }
                 }
                 LegStatus::PendingTokenLock => {
                     return Err(Error::<T>::InstructionNotAffirmed.into());
@@ -1209,7 +1363,28 @@ impl<T: Config> Module<T> {
         Ok(details)
     }
 
-    /// Execute the instruction with `instruction_id`, pruning it on success.
+    // Get the MERCAT transaction data, if all expected payloads have been received.
+    fn get_mercat_tx_data(id: InstructionId) -> Result<JustifiedTransferTx, DispatchError> {
+        let mut tx_data = Self::mercat_tx_data(id);
+        if tx_data.len() != MERCAT_TX_DATA_LEN {
+            return Err(Error::<T>::InstructionNotAffirmed.into());
+        }
+
+        let tx_data = tx_data.remove(MERCAT_TX_DATA_LEN - 1);
+        if let MercatTxData::JustifiedTransfer(data) = tx_data {
+            let result = data
+                .decode()
+                .map(|d| JustifiedTransferTx::decode(&mut &d[..]))?
+                .map_err(|_| {
+                    return DispatchError::from(Error::<T>::InstructionNotAffirmed);
+                });
+            return result;
+        }
+
+        return Err(Error::<T>::InstructionNotAffirmed.into());
+    }
+
+    /// Execute the instruction with `id`, pruning it on success.
     /// On error, set the instruction status to failed.
     fn execute_instruction_retryable(id: InstructionId) -> Result<u32, DispatchError> {
         let result = Self::execute_instruction(id);
@@ -1243,7 +1418,13 @@ impl<T: Config> Module<T> {
             return Err(Error::<T>::InstructionFailed.into());
         }
         // Verify that the venue still has the required permissions for the tokens involved.
-        let tickers: BTreeSet<Ticker> = legs.iter().map(|leg| leg.1.asset).collect();
+        let tickers: BTreeSet<Ticker> = legs
+            .iter()
+            .filter_map(|leg| match &leg.1.kind {
+                LegKind::NonConfidential(non_conf_leg) => Some(non_conf_leg.asset),
+                _ => None,
+            })
+            .collect();
         for ticker in &tickers {
             if Self::venue_filtering(ticker) && !Self::venue_allow_list(ticker, details.venue_id) {
                 Self::deposit_event(RawEvent::VenueUnauthorized(
@@ -1256,23 +1437,62 @@ impl<T: Config> Module<T> {
         }
 
         use frame_support::storage::{with_transaction, TransactionOutcome};
+        enum FailureReason {
+            NonConfidentialTransfer(DispatchError),
+            ConfidentialTransfer,
+            InsufficientMercatAuthorizations,
+            UndefinedLegKind,
+        }
+        let rollback = |leg_id: LegId, reason: FailureReason| {
+            TransactionOutcome::Rollback(Ok(Err((leg_id, reason))))
+        };
         match with_transaction(
-            || -> TransactionOutcome<Result<Result<(), LegId>, DispatchError>> {
+            || -> TransactionOutcome<Result<Result<(), (LegId, FailureReason)>, DispatchError>> {
                 Self::unchecked_release_locks(id, &legs);
 
                 for (leg_id, leg_details) in legs.iter().filter(|(leg_id, _)| {
                     let status = Self::instruction_leg_status(id, leg_id);
                     status == LegStatus::ExecutionPending
                 }) {
-                    if <Asset<T>>::base_transfer(
-                        leg_details.from,
-                        leg_details.to,
-                        &leg_details.asset,
-                        leg_details.amount,
-                    )
-                    .is_err()
-                    {
-                        return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
+                    match &leg_details.kind {
+                        LegKind::NonConfidential(kind) => {
+                            if let Err(e) = <Asset<T>>::base_transfer(
+                                leg_details.from,
+                                leg_details.to,
+                                &kind.asset,
+                                kind.amount,
+                            ) {
+                                return rollback(
+                                    *leg_id,
+                                    FailureReason::NonConfidentialTransfer(e.into()),
+                                );
+                            }
+                        }
+                        LegKind::Confidential(kind) => {
+                            let decoded_justified_tx = match Self::get_mercat_tx_data(id) {
+                                Err(_) => {
+                                    return rollback(
+                                        *leg_id,
+                                        FailureReason::InsufficientMercatAuthorizations,
+                                    );
+                                }
+                                Ok(tx) => tx,
+                            };
+
+                            if let Err(_) = <ConfidentialAsset<T>>::base_confidential_transfer(
+                                &leg_details.from.did,
+                                &kind.from_account_id,
+                                &leg_details.to.did,
+                                &kind.to_account_id,
+                                &decoded_justified_tx,
+                                id.0,
+                            ) {
+                                return rollback(*leg_id, FailureReason::ConfidentialTransfer);
+                            }
+                        }
+                        LegKind::Undefined => {
+                            return rollback(*leg_id, FailureReason::UndefinedLegKind);
+                        }
                     }
                 }
                 TransactionOutcome::Commit(Ok(Ok(())))
@@ -1281,7 +1501,7 @@ impl<T: Config> Module<T> {
             Ok(_) => {
                 Self::deposit_event(RawEvent::InstructionExecuted(SettlementDID.as_id(), id));
             }
-            Err(leg_id) => {
+            Err((leg_id, reason)) => {
                 Self::deposit_event(RawEvent::LegFailedExecution(
                     SettlementDID.as_id(),
                     id,
@@ -1290,7 +1510,16 @@ impl<T: Config> Module<T> {
                 Self::deposit_event(RawEvent::InstructionFailed(SettlementDID.as_id(), id));
                 // We need to unclaim receipts for the failed transaction so that they can be reused
                 Self::unsafe_unclaim_receipts(id, &legs);
-                return Err(Error::<T>::InstructionFailed.into());
+                return Err(DispatchError::from(match reason {
+                    FailureReason::NonConfidentialTransfer(e) => e,
+                    FailureReason::ConfidentialTransfer => {
+                        Error::<T>::InvalidMercatTransferProof.into()
+                    }
+                    FailureReason::InsufficientMercatAuthorizations => {
+                        Error::<T>::InsufficientMercatAuthorizations.into()
+                    }
+                    FailureReason::UndefinedLegKind => Error::<T>::UndefinedLegKind.into(),
+                }));
             }
         }
 
@@ -1302,6 +1531,7 @@ impl<T: Config> Module<T> {
         let details = <InstructionDetails<T>>::take(id);
         VenueInstructions::remove(details.venue_id, id);
         <InstructionLegStatus<T>>::remove_prefix(id, None);
+        MercatTxDataStorage::remove(id);
         InstructionAffirmsPending::remove(id);
         AffirmsReceived::remove_prefix(id, None);
 
@@ -1336,9 +1566,17 @@ impl<T: Config> Module<T> {
             Self::filtered_legs(id, &portfolios, max_legs_count)?;
         with_transaction(|| {
             for (leg_id, leg_details) in filtered_legs {
-                if let Err(_) = Self::lock_via_leg(&leg_details) {
-                    // rustc fails to infer return type of `with_transaction` if you use ?/map_err here
-                    return Err(DispatchError::from(Error::<T>::FailedToLockTokens));
+                match leg_details.kind {
+                    LegKind::NonConfidential(_) => {
+                        if let Err(_) = Self::lock_via_leg(&leg_details) {
+                            // rustc fails to infer return type of `with_transaction` if you use ?/map_err here
+                            return Err(DispatchError::from(Error::<T>::FailedToLockTokens));
+                        }
+                    }
+                    LegKind::Confidential(_) => {}
+                    LegKind::Undefined => {
+                        return Err(DispatchError::from(Error::<T>::UndefinedLegKind));
+                    }
                 }
                 <InstructionLegStatus<T>>::insert(id, leg_id, LegStatus::ExecutionPending);
             }
@@ -1391,8 +1629,7 @@ impl<T: Config> Module<T> {
             receipt_uid: receipt_details.receipt_uid,
             from: leg.from,
             to: leg.to,
-            asset: leg.asset,
-            amount: leg.amount,
+            kind: leg.kind.clone(),
         };
 
         ensure!(
@@ -1451,7 +1688,12 @@ impl<T: Config> Module<T> {
                 LegStatus::ExecutionPending => {
                     // This can never return an error since the settlement module
                     // must've locked these tokens when instruction was affirmed
-                    let _ = Self::unlock_via_leg(&leg_details);
+                    match leg_details.kind {
+                        LegKind::NonConfidential(_) => {
+                            let _ = Self::unlock_via_leg(&leg_details);
+                        }
+                        _ => {}
+                    }
                 }
                 LegStatus::ExecutionToBeSkipped(_, _) | LegStatus::PendingTokenLock => {}
             }
@@ -1489,6 +1731,15 @@ impl<T: Config> Module<T> {
                 Error::<T>::FailedToSchedule.into(),
             ));
         }
+    }
+
+    fn count_confidential_legs(legs: &Vec<Leg>) -> usize {
+        legs.iter()
+            .filter(|leg| match leg.kind {
+                LegKind::Confidential(_) => true,
+                _ => false,
+            })
+            .count()
     }
 
     pub fn base_affirm_with_receipts(
@@ -1534,22 +1785,28 @@ impl<T: Config> Module<T> {
             );
 
             let leg = Self::instruction_legs(&id, &receipt.leg_id);
-            ensure!(
-                portfolios_set.contains(&leg.from),
-                Error::<T>::PortfolioMismatch
-            );
+            match &leg.kind {
+                LegKind::NonConfidential(_) => {
+                    ensure!(
+                        portfolios_set.contains(&leg.from),
+                        Error::<T>::PortfolioMismatch
+                    );
 
-            let msg = Receipt {
-                receipt_uid: receipt.receipt_uid,
-                from: leg.from,
-                to: leg.to,
-                asset: leg.asset,
-                amount: leg.amount,
-            };
-            ensure!(
-                receipt.signature.verify(&msg.encode()[..], &receipt.signer),
-                Error::<T>::InvalidSignature
-            );
+                    let msg = Receipt {
+                        receipt_uid: receipt.receipt_uid,
+                        from: leg.from,
+                        to: leg.to,
+                        kind: leg.kind,
+                    };
+                    ensure!(
+                        receipt.signature.verify(&msg.encode()[..], &receipt.signer),
+                        Error::<T>::InvalidSignature
+                    );
+                }
+                _ => {
+                    return Err(Error::<T>::InvalidLegKind.into());
+                }
+            }
         }
 
         let (total_leg_count, filtered_legs) =
@@ -1557,24 +1814,26 @@ impl<T: Config> Module<T> {
         // Lock tokens that do not have a receipt attached to their leg.
         with_transaction(|| {
             for (leg_id, leg_details) in filtered_legs {
-                // Receipt for the leg was provided
-                if let Some(receipt) = receipt_details
-                    .iter()
-                    .find(|receipt| receipt.leg_id == leg_id)
-                {
-                    <InstructionLegStatus<T>>::insert(
-                        id,
-                        leg_id,
-                        LegStatus::ExecutionToBeSkipped(
-                            receipt.signer.clone(),
-                            receipt.receipt_uid,
-                        ),
-                    );
-                } else if let Err(_) = Self::lock_via_leg(&leg_details) {
-                    // rustc fails to infer return type of `with_transaction` if you use ?/map_err here
-                    return Err(DispatchError::from(Error::<T>::FailedToLockTokens));
-                } else {
-                    <InstructionLegStatus<T>>::insert(id, leg_id, LegStatus::ExecutionPending);
+                if let LegKind::NonConfidential(_) = leg_details.kind {
+                    // Receipt for the leg was provided
+                    if let Some(receipt) = receipt_details
+                        .iter()
+                        .find(|receipt| receipt.leg_id == leg_id)
+                    {
+                        <InstructionLegStatus<T>>::insert(
+                            id,
+                            leg_id,
+                            LegStatus::ExecutionToBeSkipped(
+                                receipt.signer.clone(),
+                                receipt.receipt_uid,
+                            ),
+                        );
+                    } else if let Err(_) = Self::lock_via_leg(&leg_details) {
+                        // rustc fails to infer return type of `with_transaction` if you use ?/map_err here
+                        return Err(DispatchError::from(Error::<T>::FailedToLockTokens));
+                    } else {
+                        <InstructionLegStatus<T>>::insert(id, leg_id, LegStatus::ExecutionPending);
+                    }
                 }
             }
             Ok(())
@@ -1612,12 +1871,14 @@ impl<T: Config> Module<T> {
         id: InstructionId,
         portfolios: impl Iterator<Item = PortfolioId>,
         max_legs_count: u32,
-    ) -> Result<u32, DispatchError> {
+    ) -> Result<(u32, IdentityId), DispatchError> {
         let (did, sk, _) = Self::ensure_origin_perm_and_instruction_validity(origin, id)?;
         let portfolios_set = portfolios.collect::<BTreeSet<_>>();
 
         // Provide affirmation to the instruction
-        Self::unsafe_affirm_instruction(did, id, portfolios_set, max_legs_count, sk.as_ref())
+        let leg_count =
+            Self::unsafe_affirm_instruction(did, id, portfolios_set, max_legs_count, sk.as_ref())?;
+        Ok((leg_count, did))
     }
 
     // It affirms the instruction and may schedule the instruction
@@ -1649,7 +1910,8 @@ impl<T: Config> Module<T> {
         portfolios: impl Iterator<Item = PortfolioId>,
         max_legs_count: u32,
     ) -> DispatchResult {
-        let legs_count = Self::base_affirm_instruction(origin, id, portfolios, max_legs_count)?;
+        let (legs_count, _) =
+            Self::base_affirm_instruction(origin, id, portfolios, max_legs_count)?;
         // Schedule the instruction if conditions are met
         Self::maybe_schedule_instruction(Self::instruction_affirms_pending(id), id, legs_count);
         Ok(())
@@ -1666,17 +1928,19 @@ impl<T: Config> Module<T> {
         max_legs_count: u32,
     ) -> DispatchResult {
         match receipt {
-            Some(receipt) => Self::base_affirm_with_receipts(
-                origin,
-                id,
-                vec![receipt],
-                portfolios,
-                max_legs_count,
-            )?,
-            None => {
-                Self::base_affirm_instruction(origin, id, portfolios.into_iter(), max_legs_count)?
+            Some(receipt) => {
+                Self::base_affirm_with_receipts(
+                    origin,
+                    id,
+                    vec![receipt],
+                    portfolios,
+                    max_legs_count,
+                )?;
             }
-        };
+            None => {
+                Self::base_affirm_instruction(origin, id, portfolios.into_iter(), max_legs_count)?;
+            }
+        }
         Self::execute_settle_on_affirmation_instruction(
             id,
             Self::instruction_affirms_pending(id),
@@ -1724,7 +1988,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Returns total number of legs of an `instruction_id` and vector of legs where sender is in the `portfolios` set.
+    /// Returns total number of legs of an `id` and vector of legs where sender is in the `portfolios` set.
     /// Also, ensures that the number of filtered legs is under the limit.
     fn filtered_legs(
         id: InstructionId,
@@ -1777,6 +2041,45 @@ impl<T: Config> Module<T> {
         }
 
         Self::deposit_event(RawEvent::VenueSignersUpdated(did, id, signers, add_signers));
+        Ok(())
+    }
+
+    fn base_affirm_confidential_instruction(
+        origin: <T as frame_system::Config>::Origin,
+        id: InstructionId,
+        data: MercatTxData,
+        portfolios: Vec<PortfolioId>,
+        max_legs_count: u32,
+    ) -> DispatchResult {
+        // Authorize the instruction.
+        let (legs_count, did) =
+            Self::base_affirm_instruction(origin, id, portfolios.into_iter(), max_legs_count)?;
+
+        // Update the transaction sender's ordering state.
+        if let MercatTxData::InitializedTransfer(tx_data) = &data {
+            let tx = tx_data
+                .decode()
+                .map(|d| InitializedTransferTx::decode(&mut &d[..]))
+                .map_err(|_| Error::<T>::InvalidMercatOrderingState)?;
+
+            if let Ok(init_tx) = tx {
+                // Temporarily store the current pending state as this instruction's pending state.
+                <ConfidentialAsset<T>>::set_tx_pending_state(
+                    &did,
+                    &init_tx.memo.sender_account_id,
+                    id.0,
+                )?;
+                <ConfidentialAsset<T>>::add_pending_outgoing_balance(
+                    &did,
+                    &init_tx.memo.sender_account_id,
+                    init_tx.memo.enc_amount_using_sender,
+                )?;
+            }
+        }
+        MercatTxDataStorage::append(id, data);
+
+        // Schedule the instruction if conditions are met
+        Self::maybe_schedule_instruction(Self::instruction_affirms_pending(id), id, legs_count);
         Ok(())
     }
 }

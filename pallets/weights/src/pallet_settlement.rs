@@ -291,6 +291,10 @@ impl pallet_settlement::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().writes(3 as Weight))
             .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(l as Weight)))
     }
+    fn affirm_confidential_instruction() -> Weight {
+        // TODO: add benchmark.
+        0 as Weight
+    }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Settlement InstructionDetails (r:1 w:0)
     // Storage: Settlement InstructionLegStatus (r:1 w:1)

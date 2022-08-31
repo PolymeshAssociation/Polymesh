@@ -32,7 +32,9 @@ use frame_support::{
 };
 use pallet_base::try_next_post;
 use pallet_identity::PermissionedCallOriginData;
-use pallet_settlement::{Leg, ReceiptDetails, SettlementType, VenueId, VenueInfo, VenueType};
+use pallet_settlement::{
+    Leg, LegKind, NonConfidentialLeg, ReceiptDetails, SettlementType, VenueId, VenueInfo, VenueType,
+};
 use polymesh_common_utilities::{
     portfolio::PortfolioSubTrait,
     traits::{identity, portfolio},
@@ -456,14 +458,18 @@ decl_module! {
                 Leg {
                     from: fundraiser.offering_portfolio,
                     to: investment_portfolio,
-                    asset: fundraiser.offering_asset,
-                    amount: purchase_amount
+                    kind: LegKind::NonConfidential(NonConfidentialLeg {
+                        asset: fundraiser.offering_asset,
+                        amount: purchase_amount
+                    }),
                 },
                 Leg {
                     from: funding_portfolio,
                     to: fundraiser.raising_portfolio,
-                    asset: fundraiser.raising_asset,
-                    amount: cost
+                    kind: LegKind::NonConfidential(NonConfidentialLeg {
+                        asset: fundraiser.raising_asset,
+                        amount: cost
+                    }),
                 }
             ];
 

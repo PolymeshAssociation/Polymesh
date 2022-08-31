@@ -296,7 +296,7 @@ fn emulate_portfolios<T: Config + TestUtilsFn<AccountIdOf<T>>>(
 }
 
 // Generate signature.
-fn get_encoded_signature<T: Config>(signer: &User<T>, msg: &Receipt<Balance>) -> Vec<u8> {
+fn get_encoded_signature<T: Config>(signer: &User<T>, msg: &Receipt) -> Vec<u8> {
     let raw_signature: [u8; 64] = signer.sign(&msg.encode()).expect("Data cannot be signed").0;
     let encoded = MultiSignature::from(Signature::from_raw(raw_signature)).encode();
     encoded

@@ -15,8 +15,12 @@ pallet-external-agents = { path = "../external-agents", default-features = false
 polymesh-primitives = { path = "../../primitives", default-features = false }
 polymesh-primitives-derive = { path = "../../primitives_derive", default-features = false }
 pallet-compliance-manager = { path = "../compliance-manager", default-features = false }
+pallet-confidential-asset = { path = "../confidential-asset", default-features = false }
 #polymesh-contracts = { path = "../contracts", default-features = false }
 pallet-statistics = { path = "../statistics", default-features = false }
+
+mercat = { version = "1.0.0", default-features = false }
+base64 = { version = "0.12", default-features = false, features = ["alloc"] }
 
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
@@ -42,12 +46,21 @@ frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional
 
 [features]
 equalize = []
-default = ["std", "equalize"]
-no_std = []
+default = ["std", "equalize", "u64_backend"]
+# Backends
+u64_backend = ["mercat/u64_backend"]
+avx2_backend = ["mercat/avx2_backend"]
+
+no_std = [
+		"mercat/no_std",
+		"u64_backend",
+		"pallet-confidential-asset/no_std",
+]
 only-staking = []
 std = [
     "hex/std",
     "codec/std",
+    "mercat/std",
     "frame-support/std",
     "frame-system/std",
     #"pallet-contracts/std",
@@ -59,6 +72,7 @@ std = [
     "pallet-statistics/std",
     "polymesh-common-utilities/std",
     "pallet-compliance-manager/std",
+		"pallet-confidential-asset/std",
     "polymesh-primitives/std",
     "serde/std",
     "serde_derive",
