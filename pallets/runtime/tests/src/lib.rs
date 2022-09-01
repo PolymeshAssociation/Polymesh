@@ -20,6 +20,8 @@ mod balances_test;
 mod bridge;
 mod committee_test;
 mod compliance_manager_test;
+mod confidential_asset_test;
+mod confidential_test;
 mod contracts_test;
 mod corporate_actions_test;
 #[macro_use]
@@ -37,6 +39,7 @@ mod settlement_test;
 mod signed_extra;
 mod staking;
 mod sto_test;
+mod transaction_ordering_test;
 mod transaction_payment_test;
 mod transfer_compliance_test;
 mod treasury_test;

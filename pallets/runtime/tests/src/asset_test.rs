@@ -165,7 +165,7 @@ crate fn allow_all_transfers(ticker: Ticker, owner: User) {
     ));
 }
 
-fn enable_investor_count(ticker: Ticker, owner: User) {
+crate fn enable_investor_count(ticker: Ticker, owner: User) {
     assert_ok!(Statistics::set_active_asset_stats(
         owner.origin(),
         ticker.into(),
@@ -389,7 +389,7 @@ fn checkpoints_fuzz_test() {
             let mut bob_balance: [u128; 100] = [0; 100];
             let mut rng = rand::thread_rng();
             for j in 1..100 {
-                let transfers = rng.gen_range(0, 10);
+                let transfers = rng.gen_range(0..10);
                 owner_balance[j] = owner_balance[j - 1];
                 bob_balance[j] = bob_balance[j - 1];
                 for _k in 0..transfers {

@@ -5,8 +5,10 @@ authors = ["Polymath"]
 edition = "2021"
 
 [dependencies]
+mercat = { version = "1.0.0", default-features = false }
 confidential_identity_v1 = { version = "1.0.0", default-features = false }
 confidential_identity_core = { version = "1.0.0", default-features = false }
+
 node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = false }
 pallet-asset = { path = "../../asset", default-features = false }
 pallet-balances = { path = "../../balances", default-features = false }
@@ -50,7 +52,8 @@ polymesh-exec-macro = { path = "exec_macro" }
 
 # General
 serde = { version = "1.0.104", default-features = false }
-rand = { version = "0.7.3", default-features = false }
+rand_core = { version = "0.6", default-features = false}
+rand = { version = "0.8", default-features = false }
 chrono = "0.4"
 hex-literal = "0.3.0"
 smallvec = "1.4.1"
@@ -120,18 +123,22 @@ equalize = []
 only-staking = []
 
 # Backends
-u64_backend = ["confidential_identity_core/u64_backend", "polymesh-primitives/u64_backend"]
-avx2_backend = ["confidential_identity_core/avx2_backend", "polymesh-primitives/avx2_backend"]
+u64_backend = ["mercat/u64_backend", "confidential_identity_core/u64_backend", "polymesh-primitives/u64_backend"]
+avx2_backend = ["mercat/avx2_backend", "confidential_identity_core/avx2_backend", "polymesh-primitives/avx2_backend"]
 
 no_std = [
 		"pallet-confidential/no_std",
 		"pallet-confidential-asset/no_std",
+    "mercat/no_std",
     "confidential_identity_core/no_std",
     "u64_backend"
 ]
 
 std = [
     "avx2_backend",
+		"rand_core/std",
+		"rand/std",
+    "mercat/std",
     "confidential_identity_core/std",
     "confidential_identity_v1/std",
     "frame-support/std",

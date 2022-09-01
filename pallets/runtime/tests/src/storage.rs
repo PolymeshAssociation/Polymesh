@@ -303,6 +303,13 @@ impl User {
         Self::new_with(register_keyring_account(ring).unwrap(), ring)
     }
 
+    /// Creates and registers a `User` for the given `ring` which will act as the primary key and
+    /// the provided `uid`.
+    pub fn new_with_uid(ring: AccountKeyring, uid: InvestorUid) -> Self {
+        let (_, did) = make_account_with_balance(ring.to_account_id(), uid, 10_000_000).unwrap();
+        Self::new_with(did, ring)
+    }
+
     /// Creates a `User` for an already registered DID with `ring` as its primary key.
     pub fn existing(ring: AccountKeyring) -> Self {
         Self::new_with(get_identity_id(ring).unwrap(), ring)
@@ -620,19 +627,6 @@ impl pallet_session::SessionManager<AccountId> for TestSessionManager {
     fn new_session(_: SessionIndex) -> Option<Vec<AccountId>> {
         None
     }
-}
-
-impl pallet_confidential_asset::Config for TestStorage {
-    type Event = Event;
-    type NonConfidentialAsset = Asset;
-    type Randomness = pallet_babe::RandomnessFromOneEpochAgo<TestStorage>;
-}
-
-impl pallet_confidential::Config for TestStorage {
-    type Event = Event;
-    type Asset = Asset;
-    type WeightInfo = polymesh_weights::pallet_confidential::WeightInfo;
-    type Randomness = pallet_babe::RandomnessFromOneEpochAgo<TestStorage>;
 }
 
 impl pips::Config for TestStorage {

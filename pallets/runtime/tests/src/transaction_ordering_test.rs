@@ -1,5 +1,5 @@
 use super::{
-    storage::{default_portfolio_vec, next_block, register_keyring_account, TestStorage},
+    storage::{default_portfolio_vec, next_block, TestStorage, User},
     ExtBuilder,
 };
 use codec::{Decode, Encode};
@@ -11,31 +11,29 @@ use frame_support::assert_ok;
 use mercat::{
     account::{convert_asset_ids, AccountCreator},
     asset::AssetIssuer,
-    cryptography_core::{
-        asset_proofs::{CommitmentWitness, ElgamalSecretKey},
+    confidential_identity_core::{
+        asset_proofs::{AssetId, CommitmentWitness, ElgamalSecretKey},
         curve25519_dalek::scalar::Scalar,
-        AssetId,
     },
     transaction::{CtxMediator, CtxReceiver, CtxSender},
     Account, AccountCreatorInitializer, AssetTransactionIssuer, EncryptedAmount, EncryptionKeys,
     FinalizedTransferTx, InitializedTransferTx, PubAccount, PubAccountTx, SecAccount,
     TransferTransactionMediator, TransferTransactionReceiver, TransferTransactionSender,
 };
-use pallet_asset as asset;
+use pallet_asset::{self as asset, AssetOwnershipRelation};
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential_asset as confidential_asset;
 use pallet_identity as identity;
 use pallet_settlement::{
-    self as settlement, ConfidentialLeg, Leg, LegKind, MercatTxData, SettlementType, VenueDetails,
-    VenueType,
+    self as settlement, ConfidentialLeg, InstructionId, Leg, LegKind, MercatTxData, SettlementType,
+    VenueDetails, VenueType,
 };
 use polymesh_primitives::{
-    asset::{AssetOwnershipRelation, AssetType, Base64Vec, FundingRoundName, SecurityToken},
-    IdentityId, PortfolioId, Ticker,
+    asset::{AssetName, AssetType, Base64Vec, FundingRoundName, SecurityToken},
+    PortfolioId, Ticker,
 };
 use rand::prelude::*;
-use sp_core::sr25519::Public;
 use sp_runtime::traits::Zero;
 use sp_runtime::AnySignature;
 use test_client::AccountKeyring;
@@ -45,29 +43,27 @@ type Balances = balances::Module<TestStorage>;
 type Asset = asset::Module<TestStorage>;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
-type Timestamp = pallet_timestamp::Module<TestStorage>;
+type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 type DidRecords = identity::DidRecords<TestStorage>;
 type Settlement = settlement::Module<TestStorage>;
-type System = frame_system::Module<TestStorage>;
+type System = frame_system::Pallet<TestStorage>;
 type Error = settlement::Error<TestStorage>;
 type ConfidentialAsset = confidential_asset::Module<TestStorage>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 struct AccountCredentials {
-    key: AccountKeyring,
-    did: IdentityId,
+    user: User,
     account_id: MercatAccountId,
     public_account: PubAccount,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 struct MediatorCredentials {
-    mediator_key: AccountKeyring,
-    mediator_did: IdentityId,
+    user: User,
     mediator_public_account: PubAccount,
     ticker: Ticker,
 }
@@ -114,14 +110,13 @@ pub fn gen_account(
 pub fn init_account(
     mut rng: &mut StdRng,
     token_name: &[u8],
-    owner: Public,
-    did: IdentityId,
+    owner: User,
 ) -> (SecAccount, MercatAccountId, PubAccount, EncryptedAmount) {
     let valid_asset_ids = ConfidentialAsset::confidential_tickers();
     let (secret_account, mercat_account_tx) = gen_account(&mut rng, token_name, valid_asset_ids);
 
     assert_ok!(ConfidentialAsset::validate_mercat_account(
-        Origin::signed(owner),
+        owner.origin(),
         PubAccountTxWrapper::from(mercat_account_tx.clone()),
     ));
 
@@ -133,10 +128,10 @@ pub fn init_account(
     (
         secret_account,
         account_id.clone(),
-        ConfidentialAsset::mercat_accounts(did, &account_id)
+        ConfidentialAsset::mercat_accounts(owner.did, &account_id)
             .to_mercat::<TestStorage>()
             .unwrap(),
-        ConfidentialAsset::mercat_account_balance(did, account_id)
+        ConfidentialAsset::mercat_account_balance(owner.did, account_id)
             .to_mercat::<TestStorage>()
             .unwrap(),
     )
@@ -146,8 +141,7 @@ pub fn init_account(
 /// It returns the the secret portion of the account, the account id, the public portion of the account,
 /// and the encrypted balance of `total_supply`.
 pub fn create_account_and_mint_token(
-    owner: Public,
-    owner_did: IdentityId,
+    owner: User,
     total_supply: u128,
     token_name: Vec<u8>,
     mut rng: &mut StdRng,
@@ -155,19 +149,17 @@ pub fn create_account_and_mint_token(
     let funding_round_name: FundingRoundName = b"round1".into();
 
     let token = SecurityToken {
-        name: token_name.clone().into(),
-        owner_did,
+        owner_did: owner.did,
         total_supply,
         divisible: false,
         asset_type: AssetType::default(),
-        primary_issuance_agent: Some(owner_did),
         ..Default::default()
     };
-    let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+    let ticker = Ticker::try_from(token_name.as_slice()).unwrap();
 
     assert_ok!(ConfidentialAsset::create_confidential_asset(
-        Origin::signed(owner),
-        token.name.clone(),
+        owner.origin(),
+        AssetName(token_name.clone()),
         ticker,
         true,
         token.asset_type.clone(),
@@ -185,7 +177,7 @@ pub fn create_account_and_mint_token(
     let (secret_account, mercat_account_tx) = gen_account(&mut rng, &token_name, valid_asset_ids);
 
     assert_ok!(ConfidentialAsset::validate_mercat_account(
-        Origin::signed(owner),
+        owner.origin(),
         PubAccountTxWrapper::from(mercat_account_tx.clone()),
     ));
 
@@ -202,7 +194,7 @@ pub fn create_account_and_mint_token(
 
     // Wallet submits the transaction to the chain for verification.
     assert_ok!(ConfidentialAsset::mint_confidential_asset(
-        Origin::signed(owner),
+        owner.origin(),
         ticker,
         amount.into(), // convert to u128.
         InitializedAssetTxWrapper::from(initialized_asset_tx),
@@ -234,10 +226,10 @@ pub fn create_account_and_mint_token(
     (
         secret_account,
         account_id.clone(),
-        ConfidentialAsset::mercat_accounts(owner_did, account_id.clone())
+        ConfidentialAsset::mercat_accounts(owner.did, account_id.clone())
             .to_mercat::<TestStorage>()
             .unwrap(),
-        ConfidentialAsset::mercat_account_balance(owner_did, account_id)
+        ConfidentialAsset::mercat_account_balance(owner.did, account_id)
             .to_mercat::<TestStorage>()
             .unwrap(),
     )
@@ -251,33 +243,33 @@ fn initialize_transaction(
     receiver_creds: AccountCredentials,
     mediator_creds: MediatorCredentials,
     amount: u32,
-) -> (u64, EncryptedAmount, EncryptedAmount) {
+) -> (InstructionId, EncryptedAmount, EncryptedAmount) {
     // The rest of rngs are built from it.
     let mut rng = StdRng::from_seed([10u8; 32]);
 
     // Mediator creates a venue.
     let venue_counter = Settlement::venue_counter();
     assert_ok!(Settlement::create_venue(
-        Origin::signed(mediator_creds.mediator_key.public()),
+        mediator_creds.user.origin(),
         VenueDetails::default(),
-        vec![mediator_creds.mediator_key.public()],
+        vec![mediator_creds.user.acc()],
         VenueType::Other
     ));
 
     // Mediator creates an instruction.
-    let instruction_counter = Settlement::instruction_counter();
+    let instruction_id = Settlement::instruction_counter();
 
     assert_ok!(Settlement::add_instruction(
-        Origin::signed(mediator_creds.mediator_key.public()),
+        mediator_creds.user.origin(),
         venue_counter,
         SettlementType::SettleOnAffirmation,
         None,
         None,
         vec![Leg {
-            from: PortfolioId::default_portfolio(sender_creds.did),
-            to: PortfolioId::default_portfolio(receiver_creds.did),
+            from: PortfolioId::default_portfolio(sender_creds.user.did),
+            to: PortfolioId::default_portfolio(receiver_creds.user.did),
             kind: LegKind::Confidential(ConfidentialLeg {
-                mediator: PortfolioId::default_portfolio(mediator_creds.mediator_did),
+                mediator: PortfolioId::default_portfolio(mediator_creds.user.did),
                 from_account_id: sender_creds.account_id.clone(),
                 to_account_id: receiver_creds.account_id.clone(),
             }),
@@ -303,16 +295,16 @@ fn initialize_transaction(
     let initialized_tx = MercatTxData::InitializedTransfer(Base64Vec::new(sender_data.encode()));
     // Sender authorizes the instruction and passes in the proofs.
     assert_ok!(Settlement::affirm_confidential_instruction(
-        Origin::signed(sender_creds.key.public()),
-        instruction_counter,
+        sender_creds.user.origin(),
+        instruction_id,
         initialized_tx,
-        default_portfolio_vec(sender_creds.did),
+        default_portfolio_vec(sender_creds.user.did),
         1
     ));
 
     // Receiver authorizes.
     // Receiver reads the sender's proof from the chain.
-    let mut tx_data = Settlement::mercat_tx_data(instruction_counter);
+    let mut tx_data = Settlement::mercat_tx_data(instruction_id);
     assert_eq!(tx_data.len(), 1);
 
     let tx_data = tx_data.remove(0);
@@ -347,15 +339,15 @@ fn initialize_transaction(
 
     // Receiver submits the proof to the chain.
     assert_ok!(Settlement::affirm_confidential_instruction(
-        Origin::signed(receiver_creds.key.public()),
-        instruction_counter,
+        receiver_creds.user.origin(),
+        instruction_id,
         finalized_tx,
-        default_portfolio_vec(receiver_creds.did),
+        default_portfolio_vec(receiver_creds.user.did),
         1
     ));
 
     (
-        instruction_counter,
+        instruction_id,
         sender_encrypted_transfer_amount,
         receiver_encrypted_transfer_amount,
     )
@@ -366,7 +358,7 @@ fn decrypt_balance(secret_account: &SecAccount, balance: &EncryptedAmount) -> u3
 }
 
 fn finalize_transaction(
-    instruction_counter: u64,
+    instruction_id: InstructionId,
     sender_creds: AccountCredentials,
     receiver_creds: AccountCredentials,
     mediator_creds: MediatorCredentials,
@@ -382,7 +374,7 @@ fn finalize_transaction(
 
     // Mediator authorizes.
     // Mediator reads the receiver's proofs from the chain (it contains the sender's proofs as well).
-    let mut tx_data = Settlement::mercat_tx_data(instruction_counter);
+    let mut tx_data = Settlement::mercat_tx_data(instruction_id);
     assert_eq!(tx_data.len(), 2);
 
     let tx_data = tx_data.remove(1);
@@ -400,9 +392,9 @@ fn finalize_transaction(
     // Mediator has access to the ticker name in plaintext.
     // Mediator gets the pending state for this instruction from chain.
     let sender_pending_balance = ConfidentialAsset::mercat_tx_pending_state((
-        sender_creds.did,
+        sender_creds.user.did,
         sender_creds.account_id.clone(),
-        instruction_counter,
+        instruction_id.0,
     ))
     .to_mercat::<TestStorage>()
     .unwrap();
@@ -429,10 +421,10 @@ fn finalize_transaction(
 
     // Affirms and process the transaction.
     assert_ok!(Settlement::affirm_confidential_instruction(
-        Origin::signed(mediator_creds.mediator_key.public()),
-        instruction_counter,
+        mediator_creds.user.origin(),
+        instruction_id,
         justified_tx,
-        default_portfolio_vec(mediator_creds.mediator_did),
+        default_portfolio_vec(mediator_creds.user.did),
         1
     ));
 
@@ -442,7 +434,7 @@ fn finalize_transaction(
     // Instruction should've settled.
     // Verify by decrypting the new balance of both Sender and Receiver.
     let new_sender_balance =
-        ConfidentialAsset::mercat_account_balance(sender_creds.did, sender_creds.account_id)
+        ConfidentialAsset::mercat_account_balance(sender_creds.user.did, sender_creds.account_id)
             .to_mercat::<TestStorage>()
             .unwrap();
 
@@ -454,10 +446,12 @@ fn finalize_transaction(
     }
     assert_eq!(new_sender_balance, expected_sender_balance);
 
-    let new_receiver_balance =
-        ConfidentialAsset::mercat_account_balance(receiver_creds.did, receiver_creds.account_id)
-            .to_mercat::<TestStorage>()
-            .unwrap();
+    let new_receiver_balance = ConfidentialAsset::mercat_account_balance(
+        receiver_creds.user.did,
+        receiver_creds.account_id,
+    )
+    .to_mercat::<TestStorage>()
+    .unwrap();
 
     if let Some(secret_account) = receiver_secret_account {
         // Invoked for debugging
@@ -485,10 +479,9 @@ fn chain_set_up(
     //   - Alice is also the sender of the token.
     //   - Bob is the receiver of the token.
     //   - Charlie is the mediator.
-    let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
+    let alice = User::new(AccountKeyring::Alice);
 
-    let charlie = AccountKeyring::Charlie.public();
-    let charlie_did = register_keyring_account(AccountKeyring::Charlie).unwrap();
+    let charlie = User::new(AccountKeyring::Charlie);
 
     // Setup a mercat asset.
     let token_name = b"ACME";
@@ -501,26 +494,23 @@ fn chain_set_up(
         alice_public_account,
         alice_encrypted_init_balance,
     ) = create_account_and_mint_token(
-        AccountKeyring::Alice.public(), // owner of ACME.
-        alice_did,
+        alice, // owner of ACME.
         total_supply,
         token_name.to_vec(),
         &mut rng,
     );
 
     let alice_creds = AccountCredentials {
-        key: AccountKeyring::Alice,
-        did: alice_did,
+        user: alice,
         account_id: alice_account_id,
         public_account: alice_public_account,
     };
 
     // Create an account for Charlie.
     let (charlie_secret_account, _, charlie_public_account, _) =
-        init_account(&mut rng, token_name, charlie, charlie_did);
+        init_account(&mut rng, token_name, charlie);
     let charlie_creds = MediatorCredentials {
-        mediator_key: AccountKeyring::Charlie,
-        mediator_did: charlie_did,
+        user: charlie,
         mediator_public_account: charlie_public_account,
         ticker,
     };
@@ -540,14 +530,13 @@ fn create_investor_account(
     let mut rng = StdRng::from_seed([10u8; 32]);
     let token_name = b"ACME";
     // Create accounts for the key holder.
-    let did = register_keyring_account(key).unwrap();
+    let user = User::new(key);
 
     let (secret_account, account_id, public_account, init_balance) =
-        init_account(&mut rng, token_name, key.public(), did);
+        init_account(&mut rng, token_name, user);
 
     let creds = AccountCredentials {
-        key,
-        did,
+        user,
         account_id,
         public_account,
     };
@@ -558,7 +547,7 @@ fn create_investor_account(
 #[test]
 fn settle_out_of_order() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
             // Setting:
@@ -581,7 +570,7 @@ fn settle_out_of_order() {
             // tx_id:1001 => Alice sends 3 assets to Bob.
             //            => Charlie (the mediator) approves tx_id:1001 first.
             //            => Charlie (the mediator) approves tx_id:1000 second.
-            let (instruction_counter1000, alice_sent_amount_1000, bob_received_amount_1000) =
+            let (instruction_id1000, alice_sent_amount_1000, bob_received_amount_1000) =
                 initialize_transaction(
                     alice_secret_account.clone(),
                     alice_creds.clone(),
@@ -593,7 +582,7 @@ fn settle_out_of_order() {
                 );
 
             let alice_init_balance2 = alice_init_balance - alice_sent_amount_1000;
-            let (instruction_counter1001, alice_sent_amount_1001, bob_received_amount_1001) =
+            let (instruction_id1001, alice_sent_amount_1001, bob_received_amount_1001) =
                 initialize_transaction(
                     alice_secret_account.clone(),
                     alice_creds.clone(),
@@ -606,7 +595,7 @@ fn settle_out_of_order() {
 
             // Approve and process tx:1001.
             finalize_transaction(
-                instruction_counter1001,
+                instruction_id1001,
                 alice_creds.clone(),
                 bob_creds.clone(),
                 charlie_creds.clone(),
@@ -620,7 +609,7 @@ fn settle_out_of_order() {
 
             // Approve and process tx:1000.
             finalize_transaction(
-                instruction_counter1000,
+                instruction_id1000,
                 alice_creds.clone(),
                 bob_creds.clone(),
                 charlie_creds.clone(),
@@ -637,7 +626,7 @@ fn settle_out_of_order() {
 #[test]
 fn double_spending_fails() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
             // Setting:
@@ -664,7 +653,7 @@ fn double_spending_fails() {
             // tx_id:1001 => Alice sends 10 assets to Dave.
             //            => Charlie (the mediator) catches tx_id:1001's double spend.
             //            => Charlie (the mediator) approves tx_id:1000.
-            let (instruction_counter1000, alice_sent_amount_1000, bob_received_amount_1000) =
+            let (instruction_id1000, alice_sent_amount_1000, bob_received_amount_1000) =
                 initialize_transaction(
                     alice_secret_account.clone(),
                     alice_creds.clone(),
@@ -675,7 +664,7 @@ fn double_spending_fails() {
                     5,
                 );
 
-            let (instruction_counter1001, alice_sent_amount_1001, dave_received_amount_1001) =
+            let (instruction_id1001, alice_sent_amount_1001, dave_received_amount_1001) =
                 initialize_transaction(
                     alice_secret_account.clone(),
                     alice_creds.clone(),
@@ -691,7 +680,7 @@ fn double_spending_fails() {
 
             // Mediator fails the tx:1001.
             finalize_transaction(
-                instruction_counter1001,
+                instruction_id1001,
                 alice_creds.clone(),
                 dave_creds.clone(),
                 charlie_creds.clone(),
@@ -705,7 +694,7 @@ fn double_spending_fails() {
 
             // Approve and process tx:1000.
             finalize_transaction(
-                instruction_counter1000,
+                instruction_id1000,
                 alice_creds.clone(),
                 bob_creds.clone(),
                 charlie_creds.clone(),
@@ -722,7 +711,7 @@ fn double_spending_fails() {
 #[test]
 fn mercat_whitepaper_scenario1() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
             // Setting:
@@ -745,7 +734,7 @@ fn mercat_whitepaper_scenario1() {
                 create_investor_account(AccountKeyring::Dave);
 
             // Alice, the token issuer, sends 10 tokens to Dave so he has something in his account.
-            let (instruction_counter999, alice_sent_amount_999, dave_received_amount_999) =
+            let (instruction_id999, alice_sent_amount_999, dave_received_amount_999) =
                 initialize_transaction(
                     alice_secret_account.clone(),
                     alice_creds.clone(),
@@ -756,7 +745,7 @@ fn mercat_whitepaper_scenario1() {
                     10,
                 );
             finalize_transaction(
-                instruction_counter999,
+                instruction_id999,
                 alice_creds.clone(),
                 dave_creds.clone(),
                 charlie_creds.clone(),
@@ -769,7 +758,7 @@ fn mercat_whitepaper_scenario1() {
             );
             // Reset Dave's pending state.
             assert_ok!(ConfidentialAsset::reset_ordering_state(
-                Origin::signed(dave_creds.key.public()),
+                dave_creds.user.origin(),
                 dave_creds.account_id.clone()
             ));
             let dave_init_balance = dave_init_balance + dave_received_amount_999;
@@ -781,7 +770,7 @@ fn mercat_whitepaper_scenario1() {
             //            => Charlie (the mediator) fails tx_id:1000.
             //            => Charlie (the mediator) approves tx_id:1001.
             //            => Charlie (the mediator) approves tx_id:1002.
-            let (instruction_counter1000, alice_sent_amount_1000, _bob_received_amount_1000) =
+            let (instruction_id1000, alice_sent_amount_1000, _bob_received_amount_1000) =
                 initialize_transaction(
                     alice_secret_account.clone(),
                     alice_creds.clone(),
@@ -793,7 +782,7 @@ fn mercat_whitepaper_scenario1() {
                 );
             let alice_pending_balance = alice_init_balance - alice_sent_amount_1000;
 
-            let (instruction_counter1001, dave_sent_amount_1001, alice_received_amount_1001) =
+            let (instruction_id1001, dave_sent_amount_1001, alice_received_amount_1001) =
                 initialize_transaction(
                     dave_secret_account.clone(),
                     dave_creds.clone(),
@@ -804,7 +793,7 @@ fn mercat_whitepaper_scenario1() {
                     8,
                 );
 
-            let (instruction_counter1002, alice_sent_amount_1002, dave_received_amount_1002) =
+            let (instruction_id1002, alice_sent_amount_1002, dave_received_amount_1002) =
                 initialize_transaction(
                     alice_secret_account.clone(),
                     alice_creds.clone(),
@@ -817,7 +806,7 @@ fn mercat_whitepaper_scenario1() {
 
             // Approve and process tx:1001.
             finalize_transaction(
-                instruction_counter1001,
+                instruction_id1001,
                 dave_creds.clone(),
                 alice_creds.clone(),
                 charlie_creds.clone(),
@@ -831,9 +820,9 @@ fn mercat_whitepaper_scenario1() {
 
             // Alice has a change of heart and rejects the transaction to Bob!
             assert_ok!(Settlement::reject_instruction(
-                Origin::signed(alice_creds.key.public()),
-                instruction_counter1000,
-                default_portfolio_vec(alice_creds.did),
+                alice_creds.user.origin(),
+                instruction_id1000,
+                PortfolioId::default_portfolio(alice_creds.user.did),
                 1
             ));
 
@@ -842,7 +831,7 @@ fn mercat_whitepaper_scenario1() {
 
             // Approve and process tx:1002.
             finalize_transaction(
-                instruction_counter1002,
+                instruction_id1002,
                 alice_creds.clone(),
                 dave_creds.clone(),
                 charlie_creds.clone(),
@@ -859,7 +848,7 @@ fn mercat_whitepaper_scenario1() {
 #[test]
 fn mercat_whitepaper_scenario2() {
     ExtBuilder::default()
-        .cdd_providers(vec![AccountKeyring::Eve.public()])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
             // Setting:
@@ -883,7 +872,7 @@ fn mercat_whitepaper_scenario2() {
                 create_investor_account(AccountKeyring::Dave);
 
             // Alice, the token issuer, sends 10 tokens to Dave so he has something in his account.
-            let (instruction_counter999, alice_sent_amount_999, dave_received_amount_999) =
+            let (instruction_id999, alice_sent_amount_999, dave_received_amount_999) =
                 initialize_transaction(
                     alice_secret_account.clone(),
                     alice_creds.clone(),
@@ -894,7 +883,7 @@ fn mercat_whitepaper_scenario2() {
                     10,
                 );
             finalize_transaction(
-                instruction_counter999,
+                instruction_id999,
                 alice_creds.clone(),
                 dave_creds.clone(),
                 charlie_creds.clone(),
@@ -907,7 +896,7 @@ fn mercat_whitepaper_scenario2() {
             );
             // Reset Dave's pending state.
             assert_ok!(ConfidentialAsset::reset_ordering_state(
-                Origin::signed(dave_creds.key.public()),
+                dave_creds.user.origin(),
                 dave_creds.account_id.clone()
             ));
             let dave_init_balance = dave_init_balance + dave_received_amount_999;
@@ -922,7 +911,7 @@ fn mercat_whitepaper_scenario2() {
             // tx_id:1003 => Alice sends 19 assets to Bob.
             // Alice resets her pending state.
             // tx_id:1004 => Alice sends 55 assets to Dave.
-            let (instruction_counter1000, alice_sent_amount_1000, _bob_received_amount_1000) =
+            let (instruction_id1000, alice_sent_amount_1000, _bob_received_amount_1000) =
                 initialize_transaction(
                     alice_secret_account.clone(),
                     alice_creds.clone(),
@@ -934,7 +923,7 @@ fn mercat_whitepaper_scenario2() {
                 );
             let alice_pending_balance = alice_init_balance - alice_sent_amount_1000;
 
-            let (instruction_counter1001, dave_sent_amount_1001, alice_received_amount_1001) =
+            let (instruction_id1001, dave_sent_amount_1001, alice_received_amount_1001) =
                 initialize_transaction(
                     dave_secret_account.clone(),
                     dave_creds.clone(),
@@ -945,7 +934,7 @@ fn mercat_whitepaper_scenario2() {
                     8,
                 );
 
-            let (instruction_counter1002, alice_sent_amount_1002, dave_received_amount_1002) =
+            let (instruction_id1002, alice_sent_amount_1002, dave_received_amount_1002) =
                 initialize_transaction(
                     alice_secret_account.clone(),
                     alice_creds.clone(),
@@ -959,7 +948,7 @@ fn mercat_whitepaper_scenario2() {
 
             // Approve and process tx:1001.
             finalize_transaction(
-                instruction_counter1001,
+                instruction_id1001,
                 dave_creds.clone(),
                 alice_creds.clone(),
                 charlie_creds.clone(),
@@ -973,9 +962,9 @@ fn mercat_whitepaper_scenario2() {
 
             // Alice has a change of heart and rejects the transaction to Bob!
             assert_ok!(Settlement::reject_instruction(
-                Origin::signed(alice_creds.key.public()),
-                instruction_counter1000,
-                default_portfolio_vec(alice_creds.did),
+                alice_creds.user.origin(),
+                instruction_id1000,
+                PortfolioId::default_portfolio(alice_creds.user.did),
                 1
             ));
 
@@ -984,7 +973,7 @@ fn mercat_whitepaper_scenario2() {
 
             // Approve and process tx:1002.
             finalize_transaction(
-                instruction_counter1002,
+                instruction_id1002,
                 alice_creds.clone(),
                 dave_creds.clone(),
                 charlie_creds.clone(),
@@ -997,7 +986,7 @@ fn mercat_whitepaper_scenario2() {
             );
 
             // tx_id:1003 => Alice sends 19 assets to Bob.
-            let (instruction_counter1003, alice_sent_amount_1003, bob_received_amount_1003) =
+            let (instruction_id1003, alice_sent_amount_1003, bob_received_amount_1003) =
                 initialize_transaction(
                     alice_secret_account.clone(),
                     alice_creds.clone(),
@@ -1010,12 +999,12 @@ fn mercat_whitepaper_scenario2() {
 
             // Reset Alice's pending state.
             assert_ok!(ConfidentialAsset::reset_ordering_state(
-                Origin::signed(alice_creds.key.public()),
+                alice_creds.user.origin(),
                 alice_creds.account_id.clone(),
             ));
             // On the Alice's wallet side, she also resets her pending state.
             let alice_init_balance = ConfidentialAsset::mercat_account_balance(
-                alice_creds.did.clone(),
+                alice_creds.user.did.clone(),
                 alice_creds.account_id.clone(),
             )
             .to_mercat::<TestStorage>()
@@ -1024,7 +1013,7 @@ fn mercat_whitepaper_scenario2() {
             let alice_pending_balance = alice_init_balance - alice_sent_amount_1003;
 
             // tx_id:1004 => Alice sends 55 assets to Dave.
-            let (instruction_counter1004, alice_sent_amount_1004, dave_received_amount_1004) =
+            let (instruction_id1004, alice_sent_amount_1004, dave_received_amount_1004) =
                 initialize_transaction(
                     alice_secret_account.clone(),
                     alice_creds.clone(),
@@ -1037,7 +1026,7 @@ fn mercat_whitepaper_scenario2() {
 
             // Approve and process tx:1004.
             finalize_transaction(
-                instruction_counter1004,
+                instruction_id1004,
                 alice_creds.clone(),
                 dave_creds.clone(),
                 charlie_creds.clone(),
@@ -1053,7 +1042,7 @@ fn mercat_whitepaper_scenario2() {
 
             // Approve and process tx:1003.
             finalize_transaction(
-                instruction_counter1003,
+                instruction_id1003,
                 alice_creds.clone(),
                 bob_creds.clone(),
                 charlie_creds.clone(),

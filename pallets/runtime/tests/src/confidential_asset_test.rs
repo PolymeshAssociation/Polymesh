@@ -1,5 +1,6 @@
 use super::{
-    storage::{register_keyring_account, TestStorage},
+    asset_test::enable_investor_count,
+    storage::{TestStorage, User},
     ExtBuilder,
 };
 use confidential_asset::{
@@ -10,40 +11,38 @@ use frame_support::{assert_err, assert_ok};
 use mercat::{
     account::{convert_asset_ids, AccountCreator},
     asset::AssetIssuer,
-    cryptography_core::{
-        asset_proofs::{CommitmentWitness, ElgamalSecretKey},
+    confidential_identity_core::{
+        asset_proofs::{AssetId, CommitmentWitness, ElgamalSecretKey},
         curve25519_dalek::scalar::Scalar,
-        AssetId,
     },
     Account, AccountCreatorInitializer, AssetTransactionIssuer, EncryptionKeys, PubAccountTx,
     SecAccount,
 };
-use pallet_asset as asset;
+use pallet_asset::{self as asset, AssetOwnershipRelation};
 use pallet_confidential_asset as confidential_asset;
 use pallet_identity as identity;
 use pallet_statistics as statistics;
 use polymesh_primitives::{
-    asset::{AssetOwnershipRelation, AssetType, FundingRoundName, SecurityToken},
+    asset::{AssetName, AssetType, FundingRoundName, SecurityToken},
     AssetIdentifier, Ticker,
 };
 use rand::{rngs::StdRng, SeedableRng};
-use sp_core::sr25519::Public;
 use sp_runtime::traits::Zero;
 use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
 type Asset = asset::Module<TestStorage>;
-type AssetError = asset::Error<TestStorage>;
-type Origin = <TestStorage as frame_system::Trait>::Origin;
+type EAError = pallet_external_agents::Error<TestStorage>;
+type Origin = <TestStorage as frame_system::Config>::Origin;
 type DidRecords = identity::DidRecords<TestStorage>;
 type Statistics = statistics::Module<TestStorage>;
-type System = frame_system::Module<TestStorage>;
+type System = frame_system::Pallet<TestStorage>;
 type ConfidentialAsset = confidential_asset::Module<TestStorage>;
 
-fn create_confidential_token(token_name: &[u8], ticker: Ticker, keyring: Public) {
+fn create_confidential_token(token_name: &[u8], ticker: Ticker, user: User) {
     assert_ok!(ConfidentialAsset::create_confidential_asset(
-        Origin::signed(keyring),
-        token_name.into(),
+        user.origin(),
+        AssetName(token_name.into()),
         ticker,
         true,
         AssetType::default(),
@@ -86,27 +85,25 @@ fn gen_account(
 #[test]
 fn issuers_can_create_and_rename_confidential_tokens() {
     ExtBuilder::default().build().execute_with(|| {
-        let owner_signed = Origin::signed(AccountKeyring::Dave.public());
-        let owner_did = register_keyring_account(AccountKeyring::Dave).unwrap();
+        let owner = User::new(AccountKeyring::Dave);
         let funding_round_name: FundingRoundName = b"round1".into();
         // Expected token entry
+        let token_name = vec![b'A'];
         let token = SecurityToken {
-            name: vec![b'A'].into(),
-            owner_did,
+            owner_did: owner.did,
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
-            primary_issuance_agent: None,
             ..Default::default()
         };
-        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+        let ticker = Ticker::try_from(token_name.as_slice()).unwrap();
         let identifier_value1 = b"037833100";
         let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
 
         // Issuance is successful.
         assert_ok!(ConfidentialAsset::create_confidential_asset(
-            owner_signed.clone(),
-            token.name.clone(),
+            owner.origin(),
+            AssetName(token_name.clone()),
             ticker,
             true,
             token.asset_type.clone(),
@@ -119,12 +116,10 @@ fn issuers_can_create_and_rename_confidential_tokens() {
 
         // A correct entry is added.
         let token_with_zero_supply = SecurityToken {
-            name: token.name,
             owner_did: token.owner_did,
             total_supply: Zero::zero(),
             divisible: token.divisible,
             asset_type: token.asset_type.clone(),
-            primary_issuance_agent: None,
             ..Default::default()
         };
         assert_eq!(Asset::token_details(ticker), token_with_zero_supply);
@@ -143,51 +138,48 @@ fn issuers_can_create_and_rename_confidential_tokens() {
         );
 
         // Unauthorized identities cannot rename the token.
-        let eve_signed = Origin::signed(AccountKeyring::Eve.public());
-        let _eve_did = register_keyring_account(AccountKeyring::Eve).unwrap();
+        let eve = User::new(AccountKeyring::Eve);
         assert_err!(
-            Asset::rename_asset(eve_signed, ticker, vec![0xde, 0xad, 0xbe, 0xef].into()),
-            AssetError::Unauthorized
+            Asset::rename_asset(eve.origin(), ticker, vec![0xde, 0xad, 0xbe, 0xef].into()),
+            EAError::UnauthorizedAgent
         );
         // The token should remain unchanged in storage.
         assert_eq!(Asset::token_details(ticker), token_with_zero_supply);
         // Rename the token and check storage has been updated.
+        let renamed_token_name = vec![0x42];
         let renamed_token = SecurityToken {
-            name: vec![0x42].into(),
             owner_did: token.owner_did,
             total_supply: token_with_zero_supply.total_supply,
             divisible: token.divisible,
             asset_type: token.asset_type.clone(),
-            primary_issuance_agent: None,
             ..Default::default()
         };
         assert_ok!(Asset::rename_asset(
-            owner_signed.clone(),
+            owner.origin(),
             ticker,
-            renamed_token.name.clone()
+            AssetName(renamed_token_name.clone())
         ));
         assert_eq!(Asset::token_details(ticker), renamed_token);
         assert_eq!(Asset::identifiers(ticker), identifiers);
 
         // Add another STO.
         // Expected token entry.
+        let token_name = vec![b'B'];
         let token = SecurityToken {
-            name: vec![b'B'].into(),
-            owner_did,
+            owner_did: owner.did,
             total_supply: 1_000_000,
             divisible: true,
             asset_type: AssetType::default(),
-            primary_issuance_agent: None,
             ..Default::default()
         };
         let identifier_value1 = b"037833100";
         let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
-        let ticker2 = Ticker::try_from(token.name.as_slice()).unwrap();
+        let ticker2 = Ticker::try_from(token_name.as_slice()).unwrap();
 
         // Second Issuance is successful.
         assert_ok!(ConfidentialAsset::create_confidential_asset(
-            owner_signed.clone(),
-            token.name.clone(),
+            owner.origin(),
+            AssetName(token_name.clone()),
             ticker2,
             true,
             token.asset_type.clone(),
@@ -196,12 +188,10 @@ fn issuers_can_create_and_rename_confidential_tokens() {
         ));
 
         let token_with_zero_supply = SecurityToken {
-            name: token.name,
             owner_did: token.owner_did,
             total_supply: Zero::zero(),
             divisible: token.divisible,
             asset_type: token.asset_type.clone(),
-            primary_issuance_agent: None,
             ..Default::default()
         };
 
@@ -233,10 +223,8 @@ fn issuers_can_create_and_mint_tokens() {
         // ------------ Setup
 
         // Alice is the owner of the token in this test.
-        let owner = AccountKeyring::Alice.public();
-        let owner_did = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let bob = AccountKeyring::Bob.public();
-        let _bob_did = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let owner = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
         let funding_round_name: FundingRoundName = b"round1".into();
 
         let token_names = [[b'A'], [b'B'], [b'C']];
@@ -249,28 +237,28 @@ fn issuers_can_create_and_mint_tokens() {
         }
         let total_supply: u128 = 10_000_000;
         // Expected token entry
+        let token_name = vec![b'D'];
         let token = SecurityToken {
-            name: vec![b'D'].into(),
-            owner_did,
+            owner_did: owner.did,
             total_supply,
             divisible: true,
             asset_type: AssetType::default(),
-            primary_issuance_agent: None,
             ..Default::default()
         };
-        let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
+        let ticker = Ticker::try_from(token_name.as_slice()).unwrap();
         let identifier_value1 = b"037833100";
         let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
 
         assert_ok!(ConfidentialAsset::create_confidential_asset(
-            Origin::signed(owner),
-            token.name.clone(),
+            owner.origin(),
+            AssetName(token_name.clone()),
             ticker,
             true,
             token.asset_type.clone(),
             identifiers.clone(),
             Some(funding_round_name.clone()),
         ));
+        enable_investor_count(ticker, owner);
 
         // In the initial call, the total_supply must be zero.
         assert_eq!(Asset::token_details(ticker).total_supply, Zero::zero());
@@ -286,7 +274,7 @@ fn issuers_can_create_and_mint_tokens() {
         );
 
         ConfidentialAsset::validate_mercat_account(
-            Origin::signed(owner),
+            owner.origin(),
             PubAccountTxWrapper::from(mercat_account_tx.clone()),
         )
         .unwrap();
@@ -307,7 +295,7 @@ fn issuers_can_create_and_mint_tokens() {
 
         // Wallet submits the transaction to the chain for verification.
         ConfidentialAsset::mint_confidential_asset(
-            Origin::signed(owner),
+            owner.origin(),
             ticker,
             amount.into(), // convert to u128
             InitializedAssetTxWrapper::from(initialized_asset_tx),
@@ -341,7 +329,7 @@ fn issuers_can_create_and_mint_tokens() {
                 .clone(),
         );
 
-        let stored_balance = ConfidentialAsset::mercat_account_balance(owner_did, account_id)
+        let stored_balance = ConfidentialAsset::mercat_account_balance(owner.did, account_id)
             .to_mercat::<TestStorage>()
             .unwrap();
         let stored_balance = secret_account
@@ -357,10 +345,8 @@ fn issuers_can_create_and_mint_tokens() {
 #[test]
 fn account_create_tx() {
     ExtBuilder::default().build().execute_with(|| {
-        let alice = AccountKeyring::Alice.public();
-        let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
-        let bob = AccountKeyring::Bob.public();
-        let _bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
         // Simulating the case were issuers have registered some tickers and therefore the list of
         // valid asset ids contains some values.
         let token_names = [[b'A'], [b'B'], [b'C']];
@@ -381,7 +367,7 @@ fn account_create_tx() {
 
         // Wallet submits the transaction to the chain for verification.
         ConfidentialAsset::validate_mercat_account(
-            Origin::signed(alice),
+            alice.origin(),
             PubAccountTxWrapper::from(mercat_account_tx.clone()),
         )
         .unwrap();
@@ -390,7 +376,7 @@ fn account_create_tx() {
         let wrapped_enc_asset_id =
             EncryptedAssetIdWrapper::from(mercat_account_tx.pub_account.enc_asset_id);
         let account_id = MercatAccountId(wrapped_enc_asset_id.0.clone());
-        let stored_account = ConfidentialAsset::mercat_accounts(alice_id, account_id.clone());
+        let stored_account = ConfidentialAsset::mercat_accounts(alice.did, account_id.clone());
 
         assert_eq!(stored_account.encrypted_asset_id, wrapped_enc_asset_id);
         assert_eq!(
@@ -402,7 +388,7 @@ fn account_create_tx() {
         );
 
         // Ensure that the account has an initial balance of zero.
-        let stored_balance = ConfidentialAsset::mercat_account_balance(alice_id, account_id)
+        let stored_balance = ConfidentialAsset::mercat_account_balance(alice.did, account_id)
             .to_mercat::<TestStorage>()
             .unwrap();
         let stored_balance = secret_account
