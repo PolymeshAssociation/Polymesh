@@ -7,7 +7,7 @@ use confidential_identity::{compute_cdd_id, compute_scope_id};
 use pallet_asset as asset;
 use pallet_compliance_manager as compliance_manager;
 use pallet_confidential as confidential;
-use pallet_identity::{self as identity, Error};
+use pallet_identity as identity;
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
     asset::{AssetType, SecurityToken},
@@ -20,6 +20,7 @@ use frame_support::{assert_err, assert_ok};
 use test_client::AccountKeyring;
 
 type Identity = identity::Module<TestStorage>;
+type IdentityError = identity::Error<TestStorage>;
 type Asset = asset::Module<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
 type Confidential = confidential::Module<TestStorage>;
@@ -48,7 +49,7 @@ fn range_proof_we() {
         asset_type: AssetType::default(),
         ..Default::default()
     };
-    let identifiers = vec![(IdentifierType::Isin, b"0123".into())];
+    let identifiers = vec![AssetIdentifier::isin(*b"US0378331005").unwrap()];
     let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
 
     assert_ok!(Asset::create_asset(
@@ -114,7 +115,7 @@ fn scope_claims_we() {
         asset_type: AssetType::default(),
         ..Default::default()
     };
-    let identifiers = vec![(IdentifierType::Isin, b"0123".into())];
+    let identifiers = vec![AssetIdentifier::isin(*b"US0378331005").unwrap()];
     let st_id = Ticker::try_from(st.name.as_slice()).unwrap();
 
     assert_ok!(Asset::create_asset(
@@ -128,47 +129,55 @@ fn scope_claims_we() {
         None,
     ));
 
-    // 2. Alice defines the asset complain compliance requirements.
+    // 2. Alice defines the asset compliance requirements.
     let st_scope = Scope::Identity(IdentityId::try_from(st_id.as_slice()).unwrap());
-    let sender_conditions = vec![];
-    let receiver_conditions = vec![Condition::from(ConditionType::HasValidProofOfInvestor(
-        st_id,
-    ))];
     assert_ok!(ComplianceManager::add_compliance_requirement(
         Origin::signed(alice),
         st_id,
-        sender_conditions,
-        receiver_conditions
+        vec![],
+        vec![]
     ));
 
     // 2. Investor adds its Confidential Scope claims.
-    let scope_claim = InvestorZKProofData::make_scope_claim(&st_id, &investor);
+    let scope_claim = InvestorZKProofData::make_scope_claim(&st_id.as_slice(), &investor);
     let scope_id = compute_scope_id(&scope_claim).compress().to_bytes().into();
 
     let inv_1_proof = InvestorZKProofData::new(&inv_did_1, &investor, &st_id);
     let cdd_claim_1 = InvestorZKProofData::make_cdd_claim(&inv_did_1, &investor);
     let cdd_id_1 = compute_cdd_id(&cdd_claim_1).compress().to_bytes().into();
 
-    let conf_scope_claim_1 =
-        Claim::InvestorZKProof(st_scope.clone(), scope_id, cdd_id_1, inv_1_proof.clone());
+    let conf_scope_claim_error = Claim::InvestorUniqueness(st_scope, scope_id, cdd_id_1);
+    let conf_scope_claim_1 = Claim::InvestorUniqueness(st_id.into(), scope_id, cdd_id_1);
 
-    assert_ok!(Identity::add_claim(
+    assert_err!(
+        Identity::add_investor_uniqueness_claim(
+            Origin::signed(inv_acc_1),
+            inv_did_1,
+            conf_scope_claim_error.clone(),
+            inv_1_proof.clone(),
+            None
+        ),
+        IdentityError::InvalidScopeClaim
+    );
+
+    assert_ok!(Identity::add_investor_uniqueness_claim(
         Origin::signed(inv_acc_1),
         inv_did_1,
         conf_scope_claim_1.clone(),
+        inv_1_proof.clone(),
         None
-    ));
+    ),);
 
     let inv_2_proof = InvestorZKProofData::new(&inv_did_2, &investor, &st_id);
     let cdd_claim_2 = InvestorZKProofData::make_cdd_claim(&inv_did_2, &investor);
     let cdd_id_2 = compute_cdd_id(&cdd_claim_2).compress().to_bytes().into();
 
-    let conf_scope_claim_2 =
-        Claim::InvestorZKProof(st_scope.clone(), scope_id, cdd_id_2, inv_2_proof);
-    assert_ok!(Identity::add_claim(
+    let conf_scope_claim_2 = Claim::InvestorUniqueness(st_id.into(), scope_id, cdd_id_2);
+    assert_ok!(Identity::add_investor_uniqueness_claim(
         Origin::signed(inv_acc_2),
         inv_did_2,
         conf_scope_claim_2,
+        inv_2_proof,
         None
     ));
 
@@ -193,13 +202,14 @@ fn scope_claims_we() {
 
     // 4. ERROR: Investor 2 cannot add a claim of the real investor.
     assert_err!(
-        Identity::add_claim(
+        Identity::add_investor_uniqueness_claim(
             Origin::signed(inv_acc_3),
             inv_did_3,
             conf_scope_claim_1,
+            inv_1_proof.clone(),
             None
         ),
-        Error::<TestStorage>::ConfidentialScopeClaimNotAllowed
+        IdentityError::ConfidentialScopeClaimNotAllowed
     );
 
     // 5. ERROR: Replace the scope
@@ -211,7 +221,7 @@ fn scope_claims_we() {
         asset_type: AssetType::default(),
         ..Default::default()
     };
-    let identifiers = vec![(IdentifierType::Isin, b"X123".into())];
+    let identifiers = vec![AssetIdentifier::isin(*b"US0378331005").unwrap()];
     let st2_id = Ticker::try_from(st_2.name.as_slice()).unwrap();
 
     assert_ok!(Asset::create_asset(
@@ -225,21 +235,24 @@ fn scope_claims_we() {
         None,
     ));
 
-    let st_scope = Scope::Identity(IdentityId::try_from(st2_id.as_slice()).unwrap());
-    let corrupted_scope_claim = InvestorZKProofData::make_scope_claim(&st2_id, &investor);
+    let corrupted_scope_claim =
+        InvestorZKProofData::make_scope_claim(&st2_id.as_slice(), &investor);
     let corrupted_scope_id = compute_scope_id(&corrupted_scope_claim)
         .compress()
         .to_bytes()
         .into();
 
-    let conf_scope_claim_3 =
-        Claim::InvestorZKProof(st_scope, corrupted_scope_id, cdd_id_1, inv_1_proof);
-    assert_ok!(Identity::add_claim(
-        Origin::signed(inv_acc_1),
-        inv_did_1,
-        conf_scope_claim_3.clone(),
-        None
-    ));
+    let conf_scope_claim_3 = Claim::InvestorUniqueness(st2_id.into(), corrupted_scope_id, cdd_id_1);
+    assert_err!(
+        Identity::add_investor_uniqueness_claim(
+            Origin::signed(inv_acc_1),
+            inv_did_1,
+            conf_scope_claim_3.clone(),
+            inv_1_proof.clone(),
+            None
+        ),
+        IdentityError::InvalidScopeClaim
+    );
 
     assert_ne!(
         Asset::_is_valid_transfer(

@@ -100,7 +100,8 @@ fn issuers_can_create_and_rename_confidential_tokens() {
             ..Default::default()
         };
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
+        let identifier_value1 = b"037833100";
+        let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
 
         // Issuance is successful.
         assert_ok!(ConfidentialAsset::create_confidential_asset(
@@ -166,9 +167,7 @@ fn issuers_can_create_and_rename_confidential_tokens() {
             renamed_token.name.clone()
         ));
         assert_eq!(Asset::token_details(ticker), renamed_token);
-        for (typ, val) in identifiers {
-            assert_eq!(Asset::identifiers((ticker, typ)), val);
-        }
+        assert_eq!(Asset::identifiers(ticker), identifiers);
 
         // Add another STO.
         // Expected token entry.
@@ -181,7 +180,8 @@ fn issuers_can_create_and_rename_confidential_tokens() {
             primary_issuance_agent: None,
             ..Default::default()
         };
-        let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
+        let identifier_value1 = b"037833100";
+        let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
         let ticker2 = Ticker::try_from(token.name.as_slice()).unwrap();
 
         // Second Issuance is successful.
@@ -259,7 +259,8 @@ fn issuers_can_create_and_mint_tokens() {
             ..Default::default()
         };
         let ticker = Ticker::try_from(token.name.as_slice()).unwrap();
-        let identifiers = vec![(IdentifierType::default(), b"undefined".into())];
+        let identifier_value1 = b"037833100";
+        let identifiers = vec![AssetIdentifier::cusip(*identifier_value1).unwrap()];
 
         assert_ok!(ConfidentialAsset::create_confidential_asset(
             Origin::signed(owner),
