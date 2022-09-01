@@ -111,6 +111,7 @@ jobs:
     environment:
       - VERBOSE: "1"
       - RUSTFLAGS: -D warnings
+      - BUILD_DUMMY_WASM_BINARY: "1"
     steps:
       - checkout
       - run:
@@ -236,8 +237,8 @@ workflows:
     jobs:
       - benchmark-build
       - lint
+      - test
       - coverage
-      - migration-tests
       - benchmark:
           requires:
             - benchmark-build
