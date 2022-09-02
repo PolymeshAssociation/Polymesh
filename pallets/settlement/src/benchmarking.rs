@@ -810,7 +810,7 @@ benchmarks! {
         // 2. Assets have maximum compliance restriction complexity.
         // 3. Assets have maximum no. of TMs.
 
-        let l in 0 .. T::MaxLegsInInstruction::get() as u32;
+        let l in 1 .. T::MaxLegsInInstruction::get() as u32;
         let c = T::MaxConditionComplexity::get() as u32;
 
         // Setup affirm instruction (One party (i.e from) already affirms the instruction)
