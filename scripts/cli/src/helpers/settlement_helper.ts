@@ -37,8 +37,12 @@ export async function addInstruction(
   let leg = {
     from: getDefaultPortfolio(signerDid),
     to: getDefaultPortfolio(receiverDid),
-    asset: ticker,
-    amount: amount,
+    kind: {
+      "NonConfidential": {
+        asset: ticker,
+        amount: amount,
+      },
+    },
   };
 
   const transaction = api.tx.settlement.addInstruction(
@@ -120,36 +124,56 @@ export async function addGroupInstruction(
   let leg = {
     from: group[1],
     to: group[0],
-    asset: ticker2,
-    amount: amount,
+    kind: {
+      "NonConfidential": {
+        asset: ticker2,
+        amount: amount,
+      },
+    },
   };
 
   let leg2 = {
     from: group[0],
     to: group[1],
-    asset: ticker,
-    amount: amount,
+    kind: {
+      "NonConfidential": {
+        asset: ticker,
+        amount: amount,
+      },
+    },
   };
 
   let leg3 = {
     from: group[0],
     to: group[2],
-    asset: ticker,
-    amount: amount,
+    kind: {
+      "NonConfidential": {
+        asset: ticker,
+        amount: amount,
+      },
+    },
   };
 
   let leg4 = {
     from: group[0],
     to: group[3],
-    asset: ticker,
-    amount: amount,
+    kind: {
+      "NonConfidential": {
+        asset: ticker,
+        amount: amount,
+      },
+    },
   };
 
   let leg5 = {
     from: group[0],
     to: group[4],
-    asset: ticker,
-    amount: amount,
+    kind: {
+      "NonConfidential": {
+        asset: ticker,
+        amount: amount,
+      },
+    },
   };
 
   const transaction = api.tx.settlement.addInstruction(
