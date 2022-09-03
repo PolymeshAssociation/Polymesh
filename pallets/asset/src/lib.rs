@@ -54,6 +54,7 @@
 //! - `set_asset_metadata_details` - Set asset metadata value details (expire, lock status).
 //! - `register_asset_metadata_local_type` - Register asset metadata local type.
 //! - `register_asset_metadata_global_type` - Register asset metadata global type.
+//! - `redeem_from_portfolio` - Redeems tokens from the caller's portfolio.
 //!
 //! ### Public Functions
 //!
@@ -871,6 +872,27 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::register_asset_metadata_global_type()]
         pub fn register_asset_metadata_global_type(origin, name: AssetMetadataName, spec: AssetMetadataSpec) -> DispatchResult {
             Self::base_register_asset_metadata_global_type(origin, name, spec)
+        }
+
+        /// Redeems existing tokens by reducing the balance of the caller's portfolio and the total supply of the token
+        ///
+        /// # Arguments
+        /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
+        /// * `ticker` Ticker of the token.
+        /// * `value` Amount of tokens to redeem.
+        /// * `agent_portfolio` From whom portfolio tokens gets transferred.
+        ///
+        /// # Errors
+        /// - `Unauthorized` If called by someone without the appropriate external agent permissions
+        /// - `InvalidGranularity` If the amount is not divisible by 10^6 for non-divisible tokens
+        /// - `InsufficientPortfolioBalance` If the caller's default portfolio doesn't have enough free balance
+        ///
+        /// # Permissions
+        /// * Asset
+        /// * Portfolio
+        #[weight = <T as Config>::WeightInfo::redeem_from_portfolio()]
+        pub fn redeem_from_portfolio(origin, ticker: Ticker, value: Balance, agent_portfolio: PortfolioId) -> DispatchResult {
+            Self::base_redeem_from_portfolio(origin, ticker, value, agent_portfolio)
         }
     }
 }
@@ -2493,5 +2515,61 @@ impl<T: Config> Module<T> {
                 id
             }
         })
+    }
+
+    fn base_redeem_from_portfolio(
+        origin: T::Origin,
+        ticker: Ticker,
+        value: Balance,
+        agent_portfolio: PortfolioId,
+    ) -> DispatchResult {
+        // Ensure origin is agent with custody and permissions for default portfolio.
+        let agent = Self::ensure_agent_with_custody_and_perms(origin, ticker)?;
+
+        Self::ensure_granular(&ticker, value)?;
+
+        // Reduce caller's portfolio balance. This makes sure that the caller has enough unlocked tokens.
+        // If `advance_update_balances` fails, `reduce_portfolio_balance` shouldn't modify storage.
+        with_transaction(|| {
+            Portfolio::<T>::reduce_portfolio_balance(&agent_portfolio, &ticker, value)?;
+
+            <Checkpoint<T>>::advance_update_balances(
+                &ticker,
+                &[(agent, Self::balance_of(ticker, agent))],
+            )
+        })?;
+
+        let updated_balance = Self::balance_of(ticker, agent) - value;
+
+        // Update identity balances and total supply
+        BalanceOf::insert(ticker, &agent, updated_balance);
+        Tokens::mutate(ticker, |token| token.total_supply -= value);
+
+        // Update scope balances
+        let scope_id = Self::scope_id(&ticker, &agent);
+        Self::update_scope_balance(&ticker, value, scope_id, agent, updated_balance, true);
+
+        // Update statistic info.
+        // Using the aggregate balance to update the unique investor count.
+        let updated_from_balance = Some(Self::aggregate_balance_of(ticker, &scope_id));
+        Statistics::<T>::update_asset_stats(
+            &ticker,
+            Some(&agent),
+            None,
+            updated_from_balance,
+            None,
+            value,
+        );
+
+        Self::deposit_event(RawEvent::Transfer(
+            agent,
+            ticker,
+            agent_portfolio,
+            PortfolioId::default(),
+            value,
+        ));
+        Self::deposit_event(RawEvent::Redeemed(agent, ticker, agent, value));
+
+        Ok(())
     }
 }
