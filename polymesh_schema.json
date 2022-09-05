@@ -665,7 +665,6 @@
     "Pip": {
       "id": "PipId",
       "proposal": "Call",
-      "state": "ProposalState",
       "proposer": "Proposer"
     },
     "ProposalData": {
