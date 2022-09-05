@@ -84,7 +84,7 @@
     "@types/jest": "^27.0.2",
     "@types/node": "14.14.22",
     "jest": "^27.2.4",
-    "nodemon": "2.0.7",
+    "nodemon": "^2.0.19",
     "pretty-error": "^3.0.4",
     "ts-jest": "^27.0.5",
     "ts-node": "9.1.1",
