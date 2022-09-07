@@ -42,8 +42,8 @@ use polymesh_primitives::{
     },
     statistics::StatType,
     AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document,
-    DocumentId, IdentityId, InvestorUid, Moment, Permissions, PortfolioId, PortfolioName,
-    SecondaryKey, Signatory, Ticker,
+    DocumentId, IdentityId, InvestorUid, Moment, Permissions, PortfolioId, PortfolioKind,
+    PortfolioName, SecondaryKey, Signatory, Ticker,
 };
 use rand::Rng;
 use sp_io::hashing::keccak_256;
@@ -338,22 +338,37 @@ fn issuers_can_redeem_tokens() {
             provide_scope_claim_to_multiple_parties(&[owner.did], ticker, alice);
 
             assert_noop!(
-                Asset::redeem(bob.origin(), ticker, token.total_supply),
+                Asset::redeem(
+                    bob.origin(),
+                    ticker,
+                    token.total_supply,
+                    PortfolioKind::Default
+                ),
                 EAError::UnauthorizedAgent
             );
 
             assert_noop!(
-                Asset::redeem(owner.origin(), ticker, token.total_supply + 1),
+                Asset::redeem(
+                    owner.origin(),
+                    ticker,
+                    token.total_supply + 1,
+                    PortfolioKind::Default
+                ),
                 PortfolioError::InsufficientPortfolioBalance
             );
 
-            assert_ok!(Asset::redeem(owner.origin(), ticker, token.total_supply));
+            assert_ok!(Asset::redeem(
+                owner.origin(),
+                ticker,
+                token.total_supply,
+                PortfolioKind::Default
+            ));
 
             assert_eq!(Asset::balance_of(&ticker, owner.did), 0);
             assert_eq!(Asset::token_details(&ticker).total_supply, 0);
 
             assert_noop!(
-                Asset::redeem(owner.origin(), ticker, 1),
+                Asset::redeem(owner.origin(), ticker, 1, PortfolioKind::Default),
                 PortfolioError::InsufficientPortfolioBalance
             );
         })

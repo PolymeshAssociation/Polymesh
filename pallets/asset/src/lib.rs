@@ -98,6 +98,7 @@ use pallet_base::{
     ensure_opt_string_limited, ensure_string_limited, try_next_pre, Error::CounterOverflow,
 };
 use pallet_identity::{self as identity, PermissionedCallOriginData};
+use pallet_portfolio::{MovePortfolioItem, NextPortfolioNumber, PortfolioAssetBalances};
 pub use polymesh_common_utilities::traits::asset::{Config, Event, RawEvent, WeightInfo};
 use polymesh_common_utilities::{
     asset::{AssetFnTrait, AssetSubTrait},
@@ -117,8 +118,8 @@ use polymesh_primitives::{
     ethereum::{self, EcdsaSignature, EthereumAddress},
     extract_auth, storage_migrate_on, storage_migration_ver,
     transfer_compliance::TransferConditionResult,
-    AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, ScopeId, SecondaryKey,
-    Ticker,
+    AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, PortfolioKind,
+    PortfolioName, ScopeId, SecondaryKey, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;
@@ -578,8 +579,8 @@ decl_module! {
         /// * Asset
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::redeem()]
-        pub fn redeem(origin, ticker: Ticker, value: Balance) -> DispatchResult {
-            Self::base_redeem(origin, ticker, value)
+        pub fn redeem(origin, ticker: Ticker, value: Balance, portfolio: PortfolioKind) -> DispatchResult {
+            Self::base_redeem(origin, ticker, value, portfolio)
         }
 
         /// Makes an indivisible token divisible.
@@ -891,8 +892,8 @@ decl_module! {
         /// * Asset
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::redeem_from_portfolio()]
-        pub fn redeem_from_portfolio(origin, ticker: Ticker, value: Balance, agent_portfolio: PortfolioId) -> DispatchResult {
-            Self::base_redeem_from_portfolio(origin, ticker, value, agent_portfolio)
+        pub fn redeem_from_portfolio(origin, ticker: Ticker, value: Balance, portfolio: PortfolioKind) -> DispatchResult {
+            Self::base_redeem(origin, ticker, value, portfolio)
         }
     }
 }
@@ -1876,17 +1877,58 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn base_redeem(origin: T::Origin, ticker: Ticker, value: Balance) -> DispatchResult {
+    fn base_redeem(
+        origin: T::Origin,
+        ticker: Ticker,
+        value: Balance,
+        portfolio_kind: PortfolioKind,
+    ) -> DispatchResult {
         // Ensure origin is agent with custody and permissions for default portfolio.
-        let agent = Self::ensure_agent_with_custody_and_perms(origin, ticker)?;
+        let agent = Self::ensure_agent_with_custody_and_perms(origin.clone(), ticker)?;
 
         Self::ensure_granular(&ticker, value)?;
 
         // Reduce caller's portfolio balance. This makes sure that the caller has enough unlocked tokens.
         // If `advance_update_balances` fails, `reduce_portfolio_balance` shouldn't modify storage.
-        let agent_portfolio = PortfolioId::default_portfolio(agent);
+        let mut portfolio = PortfolioId::default_portfolio(agent);
+
+        if portfolio_kind != PortfolioKind::Default {
+            let portfolio_name = PortfolioName(vec![65u8; 5]);
+            let next_portfolio_num = NextPortfolioNumber::get(&agent);
+            let user_portfolio = PortfolioId::user_portfolio(agent, next_portfolio_num.clone());
+
+            PortfolioAssetBalances::insert(&portfolio, &ticker, value);
+            Portfolio::<T>::create_portfolio(origin.clone(), portfolio_name.clone()).unwrap();
+
+            assert_eq!(PortfolioAssetBalances::get(&portfolio, &ticker), value);
+            assert_eq!(
+                PortfolioAssetBalances::get(&user_portfolio, &ticker),
+                0u32.into()
+            );
+
+            Portfolio::<T>::move_portfolio_funds(
+                origin,
+                portfolio,
+                user_portfolio,
+                vec![MovePortfolioItem {
+                    ticker,
+                    amount: value,
+                    memo: None,
+                }],
+            )
+            .unwrap();
+
+            assert_eq!(
+                PortfolioAssetBalances::get(&portfolio, &ticker),
+                0u32.into()
+            );
+            assert_eq!(PortfolioAssetBalances::get(&user_portfolio, &ticker), value);
+
+            portfolio = user_portfolio;
+        }
+
         with_transaction(|| {
-            Portfolio::<T>::reduce_portfolio_balance(&agent_portfolio, &ticker, value)?;
+            Portfolio::<T>::reduce_portfolio_balance(&portfolio, &ticker, value)?;
 
             <Checkpoint<T>>::advance_update_balances(
                 &ticker,
@@ -1919,7 +1961,7 @@ impl<T: Config> Module<T> {
         Self::deposit_event(RawEvent::Transfer(
             agent,
             ticker,
-            agent_portfolio,
+            portfolio,
             PortfolioId::default(),
             value,
         ));
@@ -2515,61 +2557,5 @@ impl<T: Config> Module<T> {
                 id
             }
         })
-    }
-
-    fn base_redeem_from_portfolio(
-        origin: T::Origin,
-        ticker: Ticker,
-        value: Balance,
-        agent_portfolio: PortfolioId,
-    ) -> DispatchResult {
-        // Ensure origin is agent with custody and permissions for default portfolio.
-        let agent = Self::ensure_agent_with_custody_and_perms(origin, ticker)?;
-
-        Self::ensure_granular(&ticker, value)?;
-
-        // Reduce caller's portfolio balance. This makes sure that the caller has enough unlocked tokens.
-        // If `advance_update_balances` fails, `reduce_portfolio_balance` shouldn't modify storage.
-        with_transaction(|| {
-            Portfolio::<T>::reduce_portfolio_balance(&agent_portfolio, &ticker, value)?;
-
-            <Checkpoint<T>>::advance_update_balances(
-                &ticker,
-                &[(agent, Self::balance_of(ticker, agent))],
-            )
-        })?;
-
-        let updated_balance = Self::balance_of(ticker, agent) - value;
-
-        // Update identity balances and total supply
-        BalanceOf::insert(ticker, &agent, updated_balance);
-        Tokens::mutate(ticker, |token| token.total_supply -= value);
-
-        // Update scope balances
-        let scope_id = Self::scope_id(&ticker, &agent);
-        Self::update_scope_balance(&ticker, value, scope_id, agent, updated_balance, true);
-
-        // Update statistic info.
-        // Using the aggregate balance to update the unique investor count.
-        let updated_from_balance = Some(Self::aggregate_balance_of(ticker, &scope_id));
-        Statistics::<T>::update_asset_stats(
-            &ticker,
-            Some(&agent),
-            None,
-            updated_from_balance,
-            None,
-            value,
-        );
-
-        Self::deposit_event(RawEvent::Transfer(
-            agent,
-            ticker,
-            agent_portfolio,
-            PortfolioId::default(),
-            value,
-        ));
-        Self::deposit_event(RawEvent::Redeemed(agent, ticker, agent, value));
-
-        Ok(())
     }
 }
