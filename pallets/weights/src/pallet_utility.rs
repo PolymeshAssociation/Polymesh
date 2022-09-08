@@ -51,32 +51,35 @@ use polymesh_runtime_common::GetDispatchInfo;
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 fn sum_weights(calls: &[impl GetDispatchInfo]) -> Weight {
+    let num_calls = calls.len() as Weight;
     calls
         .iter()
         .map(|call| call.get_dispatch_info().weight)
         .fold(0 as Weight, |a: Weight, n| a.saturating_add(n))
+        .saturating_add(
+            // Each call has 2 reads and 2 writes overhead.
+            num_calls.saturating_mul(
+                DbWeight::get()
+                    .reads(2 as Weight)
+                    .saturating_add(DbWeight::get().writes(2 as Weight)),
+            ),
+        )
 }
 
 /// Weights for pallet_utility using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_utility::WeightInfo for WeightInfo {
     fn batch(calls: &[impl GetDispatchInfo]) -> Weight {
-        (40_168_000 as Weight)
-            .saturating_add(sum_weights(calls))
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        (40_168_000 as Weight).saturating_add(sum_weights(calls))
     }
     fn batch_atomic(calls: &[impl GetDispatchInfo]) -> Weight {
         (34_179_000 as Weight)
             .saturating_add(sum_weights(calls))
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
     }
     fn batch_optimistic(calls: &[impl GetDispatchInfo]) -> Weight {
-        (32_963_000 as Weight)
-            .saturating_add(sum_weights(calls))
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        (32_963_000 as Weight).saturating_add(sum_weights(calls))
     }
     fn relay_tx(call: &impl GetDispatchInfo) -> Weight {
         (191_811_000 as Weight)
