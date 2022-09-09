@@ -18,7 +18,7 @@ use crate::*;
 use frame_benchmarking::benchmarks;
 use frame_support::StorageValue;
 use frame_system::RawOrigin;
-use pallet_portfolio::{PortfolioAssetBalances, NextPortfolioNumber};
+use pallet_portfolio::{NextPortfolioNumber, PortfolioAssetBalances};
 use polymesh_common_utilities::benchs::user;
 use polymesh_common_utilities::{
     benchs::{make_asset, make_indivisible_asset, make_ticker, AccountIdOf, User, UserBuilder},
@@ -32,7 +32,7 @@ use polymesh_primitives::{
         AssetMetadataValue, AssetMetadataValueDetail,
     },
     ticker::TICKER_LEN,
-    AuthorizationData, Signatory, Ticker, Url, PortfolioName
+    AuthorizationData, PortfolioName, Signatory, Ticker, Url,
 };
 use sp_io::hashing::keccak_256;
 use sp_std::{convert::TryInto, iter, prelude::*};
