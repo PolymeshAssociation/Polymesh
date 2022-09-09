@@ -18,7 +18,7 @@ use crate::*;
 use frame_benchmarking::benchmarks;
 use frame_support::StorageValue;
 use frame_system::RawOrigin;
-use pallet_portfolio::{NextPortfolioNumber, PortfolioAssetBalances, MovePortfolioItem};
+use pallet_portfolio::{MovePortfolioItem, NextPortfolioNumber, PortfolioAssetBalances};
 use polymesh_common_utilities::benchs::user;
 use polymesh_common_utilities::{
     benchs::{make_asset, make_indivisible_asset, make_ticker, AccountIdOf, User, UserBuilder},
