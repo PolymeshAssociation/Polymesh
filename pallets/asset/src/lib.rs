@@ -98,7 +98,7 @@ use pallet_base::{
     ensure_opt_string_limited, ensure_string_limited, try_next_pre, Error::CounterOverflow,
 };
 use pallet_identity::{self as identity, PermissionedCallOriginData};
-use pallet_portfolio::{MovePortfolioItem, NextPortfolioNumber, PortfolioAssetBalances};
+use pallet_portfolio::{MovePortfolioItem, PortfolioAssetBalances};
 pub use polymesh_common_utilities::traits::asset::{Config, Event, RawEvent, WeightInfo};
 use polymesh_common_utilities::{
     asset::{AssetFnTrait, AssetSubTrait},
@@ -119,7 +119,7 @@ use polymesh_primitives::{
     extract_auth, storage_migrate_on, storage_migration_ver,
     transfer_compliance::TransferConditionResult,
     AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, PortfolioKind,
-    PortfolioName, ScopeId, SecondaryKey, Ticker,
+    ScopeId, SecondaryKey, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;
@@ -579,8 +579,8 @@ decl_module! {
         /// * Asset
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::redeem()]
-        pub fn redeem(origin, ticker: Ticker, value: Balance, portfolio: PortfolioKind) -> DispatchResult {
-            Self::base_redeem(origin, ticker, value, portfolio)
+        pub fn redeem(origin, ticker: Ticker, value: Balance) -> DispatchResult {
+            Self::base_redeem(origin, ticker, value, PortfolioKind::Default)
         }
 
         /// Makes an indivisible token divisible.
@@ -1890,42 +1890,10 @@ impl<T: Config> Module<T> {
 
         // Reduce caller's portfolio balance. This makes sure that the caller has enough unlocked tokens.
         // If `advance_update_balances` fails, `reduce_portfolio_balance` shouldn't modify storage.
-        let mut portfolio = PortfolioId::default_portfolio(agent);
-
-        if portfolio_kind != PortfolioKind::Default {
-            let portfolio_name = PortfolioName(vec![65u8; 5]);
-            let next_portfolio_num = NextPortfolioNumber::get(&agent);
-            let user_portfolio = PortfolioId::user_portfolio(agent, next_portfolio_num.clone());
-
-            PortfolioAssetBalances::insert(&portfolio, &ticker, value);
-            Portfolio::<T>::create_portfolio(origin.clone(), portfolio_name.clone()).unwrap();
-
-            assert_eq!(PortfolioAssetBalances::get(&portfolio, &ticker), value);
-            assert_eq!(
-                PortfolioAssetBalances::get(&user_portfolio, &ticker),
-                0u32.into()
-            );
-
-            Portfolio::<T>::move_portfolio_funds(
-                origin,
-                portfolio,
-                user_portfolio,
-                vec![MovePortfolioItem {
-                    ticker,
-                    amount: value,
-                    memo: None,
-                }],
-            )
-            .unwrap();
-
-            assert_eq!(
-                PortfolioAssetBalances::get(&portfolio, &ticker),
-                0u32.into()
-            );
-            assert_eq!(PortfolioAssetBalances::get(&user_portfolio, &ticker), value);
-
-            portfolio = user_portfolio;
-        }
+        let portfolio = PortfolioId {
+            did: agent,
+            kind: portfolio_kind,
+        };
 
         with_transaction(|| {
             Portfolio::<T>::reduce_portfolio_balance(&portfolio, &ticker, value)?;
