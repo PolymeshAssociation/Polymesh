@@ -98,7 +98,6 @@ use pallet_base::{
     ensure_opt_string_limited, ensure_string_limited, try_next_pre, Error::CounterOverflow,
 };
 use pallet_identity::{self as identity, PermissionedCallOriginData};
-use pallet_portfolio::{MovePortfolioItem, PortfolioAssetBalances};
 pub use polymesh_common_utilities::traits::asset::{Config, Event, RawEvent, WeightInfo};
 use polymesh_common_utilities::{
     asset::{AssetFnTrait, AssetSubTrait},
