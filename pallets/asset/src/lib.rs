@@ -1884,7 +1884,7 @@ impl<T: Config> Module<T> {
         portfolio_kind: PortfolioKind,
     ) -> DispatchResult {
         // Ensure origin is agent with custody and permissions for default portfolio.
-        let agent = Self::ensure_agent_with_custody_and_perms(origin.clone(), ticker)?;
+        let agent = Self::ensure_agent_with_custody_and_perms(origin, ticker)?;
 
         Self::ensure_granular(&ticker, value)?;
 
