@@ -880,12 +880,13 @@ decl_module! {
         /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
         /// * `ticker` Ticker of the token.
         /// * `value` Amount of tokens to redeem.
-        /// * `agent_portfolio` From whom portfolio tokens gets transferred.
+        /// * `portfolio` From whom portfolio tokens gets transferred.
         ///
         /// # Errors
         /// - `Unauthorized` If called by someone without the appropriate external agent permissions
         /// - `InvalidGranularity` If the amount is not divisible by 10^6 for non-divisible tokens
-        /// - `InsufficientPortfolioBalance` If the caller's default portfolio doesn't have enough free balance
+        /// - `InsufficientPortfolioBalance` If the caller's `portfolio` doesn't have enough free balance
+        /// - `PortfolioDoesNotExist` If the portfolio doesn't exist.
         ///
         /// # Permissions
         /// * Asset
@@ -1894,6 +1895,7 @@ impl<T: Config> Module<T> {
             kind: portfolio_kind,
         };
 
+        Portfolio::<T>::ensure_portfolio_validity(&portfolio)?;
         with_transaction(|| {
             Portfolio::<T>::reduce_portfolio_balance(&portfolio, &ticker, value)?;
 
