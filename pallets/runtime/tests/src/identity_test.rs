@@ -1000,7 +1000,7 @@ fn one_step_join_id_with_ext() {
     );
 }
 
-crate fn test_with_bad_ext_perms(test: impl Fn(ExtrinsicPermissions)) {
+pub(crate) fn test_with_bad_ext_perms(test: impl Fn(ExtrinsicPermissions)) {
     test(SubsetRestriction::elems(
         (0..=max_len() as u64)
             .map(Ticker::generate)
@@ -1024,7 +1024,7 @@ crate fn test_with_bad_ext_perms(test: impl Fn(ExtrinsicPermissions)) {
     )));
 }
 
-crate fn test_with_bad_perms(did: IdentityId, test: impl Fn(Permissions)) {
+pub(crate) fn test_with_bad_perms(did: IdentityId, test: impl Fn(Permissions)) {
     test(Permissions {
         asset: SubsetRestriction::elems((0..=MAX_ASSETS).map(Ticker::generate_into)),
         ..<_>::default()

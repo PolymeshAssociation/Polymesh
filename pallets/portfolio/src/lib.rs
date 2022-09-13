@@ -40,7 +40,6 @@
 //! - `ensure_portfolio_transfer_validity`: Makes sure that a transfer between two portfolios is valid.
 //! - `quit_portfolio_custody`: Returns the custody of the portfolio to the owner unilaterally.
 
-#![feature(const_option)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -123,7 +122,7 @@ decl_storage! {
             double_map hasher(identity) IdentityId, hasher(twox_64_concat) PortfolioId => bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
     }
 }
 

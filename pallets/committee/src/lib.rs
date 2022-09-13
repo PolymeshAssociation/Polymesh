@@ -54,7 +54,6 @@
 //! `false` otherwise.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(const_option)]
 #![feature(associated_type_bounds)]
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -167,7 +166,7 @@ decl_storage! {
         /// Time after which a proposal will expire.
         pub ExpiresAfter get(fn expires_after) config(): MaybeBlock<T::BlockNumber>;
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(0)): Version;
     }
     add_extra_genesis {
         config(phantom): PhantomData<(T, I)>;

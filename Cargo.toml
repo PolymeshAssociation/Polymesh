@@ -104,6 +104,10 @@ substrate-test-utils = { git = "https://github.com/PolymeshAssociation/substrate
 substrate-test-utils-derive = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05" }
 substrate-wasm-builder = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05" }
 
+confidential_identity_core = { git = "https://github.com/PolymeshAssociation/cryptography", branch = "rust-stable" }
+confidential_identity_v1 = { git = "https://github.com/PolymeshAssociation/cryptography", branch = "rust-stable" }
+confidential_identity_v2 = { git = "https://github.com/PolymeshAssociation/cryptography", branch = "rust-stable" }
+
 bulletproofs = { version = "4.0.0", git = "https://github.com/PolymeshAssociation/bulletproofs", branch = "polymesh" }
 
 [workspace]

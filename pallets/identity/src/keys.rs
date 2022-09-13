@@ -72,7 +72,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Returns `Err(DidDoesNotExist)` unless `id` has an associated record.
-    crate fn ensure_id_record_exists(id: IdentityId) -> DispatchResult {
+    pub(crate) fn ensure_id_record_exists(id: IdentityId) -> DispatchResult {
         ensure!(Self::is_identity_exists(&id), Error::<T>::DidDoesNotExist);
         Ok(())
     }
@@ -260,7 +260,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Accepts a primary key rotation.
-    crate fn accept_primary_key_rotation(
+    pub(crate) fn accept_primary_key_rotation(
         origin: T::Origin,
         rotation_auth_id: u64,
         optional_cdd_auth_id: Option<u64>,
@@ -371,7 +371,7 @@ impl<T: Config> Module<T> {
     /// Differs from accept_primary_key_rotation in that it will leave the old primary key as a
     /// secondary key with the permissions specified in the corresponding RotatePrimaryKeyToSecondary authorization
     /// instead of unlinking the primary key.
-    crate fn base_rotate_primary_key_to_secondary(
+    pub(crate) fn base_rotate_primary_key_to_secondary(
         origin: T::Origin,
         rotation_auth_id: u64,
         optional_cdd_auth_id: Option<u64>,
@@ -396,7 +396,7 @@ impl<T: Config> Module<T> {
 
     /// Set permissions for the specific `key`.
     /// Only the primary key of an identity is able to set secondary key permissions.
-    crate fn base_set_secondary_key_permissions(
+    pub(crate) fn base_set_secondary_key_permissions(
         origin: T::Origin,
         key: T::AccountId,
         permissions: Permissions,
@@ -424,7 +424,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Removes specified secondary keys of a DID if present.
-    crate fn base_remove_secondary_keys(
+    pub(crate) fn base_remove_secondary_keys(
         origin: T::Origin,
         keys: Vec<T::AccountId>,
     ) -> DispatchResult {
@@ -457,7 +457,7 @@ impl<T: Config> Module<T> {
 
     /// Adds secondary keys to target identity `id`.
     /// Keys are directly added to identity because each of them has an authorization.
-    crate fn base_add_secondary_keys_with_authorization(
+    pub(crate) fn base_add_secondary_keys_with_authorization(
         origin: T::Origin,
         keys: Vec<SecondaryKeyWithAuth<T::AccountId>>,
         expires_at: T::Moment,
@@ -559,7 +559,7 @@ impl<T: Config> Module<T> {
         Self::deposit_event(RawEvent::SecondaryKeysAdded(target_did, vec![sk]));
     }
 
-    crate fn leave_identity(origin: T::Origin) -> DispatchResult {
+    pub(crate) fn leave_identity(origin: T::Origin) -> DispatchResult {
         let (key, did) = Self::ensure_did(origin)?;
 
         // Ensure that the caller is a secondary key.
@@ -579,7 +579,10 @@ impl<T: Config> Module<T> {
     ///
     /// # Errors
     /// Only primary key can freeze/unfreeze an identity.
-    crate fn set_frozen_secondary_key_flags(origin: T::Origin, freeze: bool) -> DispatchResult {
+    pub(crate) fn set_frozen_secondary_key_flags(
+        origin: T::Origin,
+        freeze: bool,
+    ) -> DispatchResult {
         let (_, did) = Self::ensure_primary_key(origin)?;
         if freeze {
             IsDidFrozen::insert(&did, true);
@@ -654,7 +657,7 @@ impl<T: Config> Module<T> {
 
     /// Registers the systematic issuer with its DID.
     #[allow(dead_code)]
-    crate fn register_systematic_id(issuer: SystematicIssuers)
+    pub(crate) fn register_systematic_id(issuer: SystematicIssuers)
     where
         T::AccountId: core::fmt::Display,
     {
@@ -672,7 +675,7 @@ impl<T: Config> Module<T> {
 
     /// Registers `primary_key` as `id` identity.
     #[allow(dead_code)]
-    crate fn do_register_id(
+    pub(crate) fn do_register_id(
         primary_key: T::AccountId,
         id: IdentityId,
         secondary_keys: Vec<SecondaryKey<T::AccountId>>,

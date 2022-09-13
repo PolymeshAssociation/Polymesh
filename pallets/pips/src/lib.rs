@@ -83,7 +83,6 @@
 //! - `end_block` - executes scheduled proposals
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(const_option)]
 #![feature(associated_type_bounds)]
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -525,7 +524,7 @@ decl_storage! {
         /// proposal id -> proposalState
         pub ProposalStates get(fn proposal_state): map hasher(twox_64_concat) PipId => Option<ProposalState>;
 
-        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
     }
 }
 

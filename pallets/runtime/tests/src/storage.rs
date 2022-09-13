@@ -366,7 +366,7 @@ type Lookup = IdentityLookup<AccountId>;
 type OffChainSignature = AnySignature;
 type SessionIndex = u32;
 type AuthorityId = <AnySignature as Verify>::Signer;
-crate type Balance = u128;
+pub(crate) type Balance = u128;
 
 parameter_types! {
     pub const BlockHashCount: u32 = 250;
@@ -939,7 +939,7 @@ pub fn make_remark_proposal() -> Call {
     .into()
 }
 
-crate fn set_curr_did(did: Option<IdentityId>) {
+pub(crate) fn set_curr_did(did: Option<IdentityId>) {
     Context::set_current_identity::<Identity>(did);
 }
 

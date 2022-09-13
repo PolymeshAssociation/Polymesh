@@ -47,7 +47,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
-#![feature(const_option)]
 #![feature(associated_type_bounds)]
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -535,7 +534,7 @@ decl_storage! {
         /// Number of instructions in the system (It's one more than the actual number)
         InstructionCounter get(fn instruction_counter) build(|_| InstructionId(1u64)): InstructionId;
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(0)): Version;
         /// Instruction memo
         InstructionMemos get(fn memo): map hasher(twox_64_concat) InstructionId => Option<InstructionMemo>;
     }

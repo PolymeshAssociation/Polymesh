@@ -202,7 +202,7 @@ impl<T: Config> Module<T> {
         msg[..32].copy_from_slice(&reward_address.encode());
         msg[32..].copy_from_slice(b"claim_itn_reward");
         ensure!(
-            signature.verify(msg.as_slice(), itn_address),
+            signature.verify(&msg[..], itn_address),
             Error::<T>::InvalidSignature
         );
         Ok(())
