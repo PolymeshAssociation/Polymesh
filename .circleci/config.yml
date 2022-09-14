@@ -2,7 +2,7 @@ version: 2
 jobs:
   lint:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-05-10
+      - image: polymeshassociation/rust:debian-nightly-2022-09-14
     resource_class: small
     environment:
       VERBOSE: "1"
@@ -13,7 +13,7 @@ jobs:
           command: ./scripts/rustfmt.sh
   build:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-05-10
+      - image: polymeshassociation/rust:debian-nightly-2022-09-14
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -58,7 +58,7 @@ jobs:
             - "~/.cache/sccache"
   benchmark-build:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-05-10
+      - image: polymeshassociation/rust:debian-nightly-2022-09-14
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -103,7 +103,7 @@ jobs:
           no_output_timeout: 1h
   migration-tests:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-05-10
+      - image: polymeshassociation/rust:debian-nightly-2022-09-14
     resource_class: large
     environment:
       - VERBOSE: "1"
@@ -127,7 +127,7 @@ jobs:
             - "/usr/local/cargo"
   test:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-05-10
+      - image: polymeshassociation/rust:debian-nightly-2022-09-14
     resource_class: large
     environment:
       - VERBOSE: "1"
@@ -166,7 +166,7 @@ jobs:
             - "~/.cache/sccache"
   coverage:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-05-10
+      - image: polymeshassociation/rust:debian-nightly-2022-09-14
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -216,7 +216,7 @@ jobs:
           no_output_timeout: 10m
   clippy:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-05-10
+      - image: polymeshassociation/rust:debian-nightly-2022-09-14
     resource_class: xlarge
     environment:
       VERBOSE: "1"
@@ -270,7 +270,7 @@ jobs:
           docker push $IMAGE_NAME
   build-docker-rust-debian:
     environment:
-      RUST_BASE: 1.61.0
+      RUST_BASE: 1.63.0
       IMAGE_NAME: polymeshassociation/rust
     docker:
       - image: docker:stable-git
@@ -291,7 +291,7 @@ jobs:
           docker push $IMAGE_NAME
   build-docker-rust-alpine:
     environment:
-      RUST_BASE: 1.61.0
+      RUST_BASE: 1.63.0
       IMAGE_NAME: polymeshassociation/rust
     docker:
       - image: docker:stable-git
