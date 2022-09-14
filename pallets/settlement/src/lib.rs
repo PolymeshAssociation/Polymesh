@@ -47,7 +47,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
-#![feature(associated_type_bounds)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -89,7 +88,7 @@ type Asset<T> = pallet_asset::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 
 pub trait Config:
-    frame_system::Config<Call: From<Call<Self>> + Into<<Self as IdentityConfig>::Proposal>>
+    frame_system::Config
     + CommonConfig
     + IdentityConfig
     + pallet_timestamp::Config
@@ -98,10 +97,14 @@ pub trait Config:
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+
+    /// A call type used by the scheduler.
+    type Proposal: From<Call<Self>> + Into<<Self as IdentityConfig>::Proposal>;
+
     /// Scheduler of settlement instructions.
     type Scheduler: ScheduleNamed<
         Self::BlockNumber,
-        <Self as frame_system::Config>::Call,
+        <Self as Config>::Proposal,
         Self::SchedulerOrigin,
     >;
     /// Maximum legs that can be in a single instruction.

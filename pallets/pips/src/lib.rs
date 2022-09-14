@@ -83,7 +83,6 @@
 //! - `end_block` - executes scheduled proposals
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(associated_type_bounds)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -404,7 +403,7 @@ type System<T> = frame_system::Pallet<T>;
 
 /// The module's configuration trait.
 pub trait Config:
-    frame_system::Config<Call: From<Call<Self>> + Into<<Self as IdentityConfig>::Proposal>>
+    frame_system::Config
     + pallet_timestamp::Config
     + IdentityConfig
     + CommonConfig
@@ -435,7 +434,10 @@ pub trait Config:
     /// instances, the names of scheduled tasks should be guaranteed to be unique in this
     /// pallet. Names cannot be just PIP IDs because names of executed and expired PIPs should be
     /// different.
-    type Scheduler: ScheduleNamed<Self::BlockNumber, Self::Call, Self::SchedulerOrigin>;
+    type Scheduler: ScheduleNamed<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
+
+    /// A call type used by the scheduler.
+    type SchedulerCall: From<Call<Self>> + Into<<Self as IdentityConfig>::Proposal>;
 }
 
 storage_migration_ver!(2);
