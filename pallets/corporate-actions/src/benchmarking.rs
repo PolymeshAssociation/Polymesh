@@ -25,13 +25,13 @@ use polymesh_common_utilities::{
 };
 
 const TAX: Tax = Tax::one();
-crate const SEED: u32 = 0;
+pub(crate) const SEED: u32 = 0;
 const MAX_TARGET_IDENTITIES: u32 = 500;
 const MAX_DID_WHT_IDS: u32 = 1000;
 const DETAILS_LEN: u32 = 1000;
 const MAX_DOCS: u32 = 1000;
 
-crate const RD_SPEC: Option<RecordDateSpec> = Some(RecordDateSpec::Scheduled(2000));
+pub(crate) const RD_SPEC: Option<RecordDateSpec> = Some(RecordDateSpec::Scheduled(2000));
 const RD_SPEC2: Option<RecordDateSpec> = Some(RecordDateSpec::Scheduled(3000));
 
 // NOTE(Centril): A non-owner CAA is the less complex code path.
