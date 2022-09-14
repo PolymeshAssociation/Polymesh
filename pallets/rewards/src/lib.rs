@@ -29,7 +29,6 @@
 //! - `claim_itn_reward`: Claim an ITN reward with a valid signature.
 //! - `set_itn_reward_status`: Set the status of an account ITN reward, can only be called by root.
 
-#![feature(array_methods)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
