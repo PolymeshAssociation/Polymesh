@@ -167,9 +167,7 @@ pub trait WeightInfo {
 
 /// The `Config` trait for the smart contracts pallet.
 pub trait Config:
-    IdentityConfig
-    + BConfig<Currency = Self::Balances>
-    + frame_system::Config
+    IdentityConfig + BConfig<Currency = Self::Balances> + frame_system::Config
 {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;

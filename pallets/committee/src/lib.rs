@@ -63,7 +63,7 @@ use core::mem;
 use frame_support::{
     codec::{Decode, Encode},
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult, Dispatchable, PostDispatchInfo, Parameter},
+    dispatch::{DispatchError, DispatchResult, Dispatchable, Parameter, PostDispatchInfo},
     ensure,
     traits::{ChangeMembers, EnsureOrigin, InitializeMembers},
     weights::{DispatchClass, GetDispatchInfo, Weight},
@@ -99,18 +99,15 @@ pub trait WeightInfo {
 pub type ProposalIndex = u32;
 
 /// The committee trait.
-pub trait Config<I: 'static = ()>:
-    frame_system::Config
-    + IdentityConfig
-{
+pub trait Config<I: 'static = ()>: frame_system::Config + IdentityConfig {
     /// The outer origin type.
     type Origin: From<RawOrigin<Self::AccountId, I>> + Into<<Self as frame_system::Config>::Origin>;
 
     /// The outer call type.
     type Proposal: Parameter
-      + Dispatchable<Origin = <Self as Config<I>>::Origin, PostInfo = PostDispatchInfo>
-      + GetDispatchInfo
-      + From<frame_system::Call<Self>>;
+        + Dispatchable<Origin = <Self as Config<I>>::Origin, PostInfo = PostDispatchInfo>
+        + GetDispatchInfo
+        + From<frame_system::Call<Self>>;
 
     /// Required origin for changing behaviour of this module.
     type CommitteeOrigin: EnsureOrigin<<Self as Config<I>>::Origin>;
@@ -397,9 +394,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
     }
 
     /// Ensures that `origin` is a committee member, returning its identity, or throws `NotAMember`.
-    fn ensure_is_member(
-        origin: <T as Config<I>>::Origin,
-    ) -> Result<IdentityId, DispatchError> {
+    fn ensure_is_member(origin: <T as Config<I>>::Origin) -> Result<IdentityId, DispatchError> {
         let did = <Identity<T>>::ensure_perms(origin.into())?;
         Self::ensure_did_is_member(&did)?;
         Ok(did)
