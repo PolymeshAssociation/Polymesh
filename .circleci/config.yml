@@ -270,7 +270,7 @@ jobs:
           docker push $IMAGE_NAME
   build-docker-rust-debian:
     environment:
-      RUST_BASE: 1.61.0
+      RUST_BASE: 1.63.0
       IMAGE_NAME: polymeshassociation/rust
     docker:
       - image: docker:stable-git
@@ -291,7 +291,7 @@ jobs:
           docker push $IMAGE_NAME
   build-docker-rust-alpine:
     environment:
-      RUST_BASE: 1.61.0
+      RUST_BASE: 1.63.0
       IMAGE_NAME: polymeshassociation/rust
     docker:
       - image: docker:stable-git
