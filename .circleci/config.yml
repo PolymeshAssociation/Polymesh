@@ -230,7 +230,7 @@ jobs:
             - v6-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: run clippy
-          command: cargo clippy -- -A clippy::all -W clippy::complexity -W clippy::perf
+          command: cargo +nightly clippy -- -A clippy::all -W clippy::complexity -W clippy::perf
           no_output_timeout: 1h
       - save_cache:
           key: v6-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
