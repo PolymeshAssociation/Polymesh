@@ -925,7 +925,8 @@ dependencies = [
 [[package]]
 name = "confidential_identity_core"
 version = "1.0.1"
-source = "git+https://github.com/PolymeshAssociation/cryptography?branch=rust-stable#51312f226693760c3033ab0b4c8f6b8e3425ad90"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95b0f9e2eb3c951ec923091ca347a44131f8b16b5b589b8d1ea32ef141279f33"
 dependencies = [
  "blake2",
  "bulletproofs",
@@ -945,7 +946,8 @@ dependencies = [
 [[package]]
 name = "confidential_identity_v1"
 version = "1.0.1"
-source = "git+https://github.com/PolymeshAssociation/cryptography?branch=rust-stable#51312f226693760c3033ab0b4c8f6b8e3425ad90"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab7fff78ec167a992b3b481fc41b9af5a6b89b72a3bc1bfd1130a46ee2c002f8"
 dependencies = [
  "blake2",
  "byteorder",
@@ -968,7 +970,8 @@ dependencies = [
 [[package]]
 name = "confidential_identity_v2"
 version = "2.0.1"
-source = "git+https://github.com/PolymeshAssociation/cryptography?branch=rust-stable#51312f226693760c3033ab0b4c8f6b8e3425ad90"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "beacd7949ec15f217ed3b22d078618f0c67e582173b381985596c70a0ecb3c0a"
 dependencies = [
  "blake2",
  "byteorder",
