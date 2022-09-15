@@ -208,6 +208,9 @@ serde_json = { version = "1.0", features = ["arbitrary_precision"] }
 clap = { version = "3.1.6", features = ["derive"] }
 rustc-hex = "2.1.0"
 
+# Pin version to work around substrate logging issue.
+tracing-core = "=0.1.26"
+
 # Substrate
 codec = { version = "3.0.0", package = "parity-scale-codec" }
 frame-support = "4.0.0-dev"
