@@ -341,44 +341,45 @@ workflows:
       - build-docker-rust-alpine
   commit:
     jobs:
-      - lint
-      - clippy
-      - test
-      - build
-      - benchmark-build
-      - coverage
-      - integration-test:
-          requires:
-            - build
-      - benchmark:
-          requires:
-            - benchmark-build
-      - build-docker-debian:
-          requires:
-            - build
-          filters:
-            branches:
-              only:
-                - mainnet
-                - testnet
-                - staging
-                - develop
-      - build-docker-distroless:
-          requires:
-            - build
-          filters:
-            branches:
-              only:
-                - mainnet
-                - testnet
-                - staging
-                - develop
-      - publish-github-release:
-          requires:
-            - build
-          filters:
-            branches:
-              only:
-                - mainnet
-                - testnet
-                - staging
+      - build-docker-rust-debian
+#      - lint
+#      - clippy
+#      - test
+#      - build
+#      - benchmark-build
+#      - coverage
+#      - integration-test:
+#          requires:
+#            - build
+#      - benchmark:
+#          requires:
+#            - benchmark-build
+#      - build-docker-debian:
+#          requires:
+#            - build
+#          filters:
+#            branches:
+#              only:
+#                - mainnet
+#                - testnet
+#                - staging
+#                - develop
+#      - build-docker-distroless:
+#          requires:
+#            - build
+#          filters:
+#            branches:
+#              only:
+#                - mainnet
+#                - testnet
+#                - staging
+#                - develop
+#      - publish-github-release:
+#          requires:
+#            - build
+#          filters:
+#            branches:
+#              only:
+#                - mainnet
+#                - testnet
+#                - staging
