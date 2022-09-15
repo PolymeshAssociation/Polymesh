@@ -2,7 +2,7 @@ version: 2
 jobs:
   lint:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-09-14
+      - image: polymeshassociation/rust:debian-nightly-2022-09-15
     resource_class: small
     environment:
       VERBOSE: "1"
@@ -13,7 +13,7 @@ jobs:
           command: ./scripts/rustfmt.sh
   build:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-09-14
+      - image: polymeshassociation/rust:debian-nightly-2022-09-15
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -58,7 +58,7 @@ jobs:
             - "~/.cache/sccache"
   benchmark-build:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-09-14
+      - image: polymeshassociation/rust:debian-nightly-2022-09-15
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -103,7 +103,7 @@ jobs:
           no_output_timeout: 1h
   migration-tests:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-09-14
+      - image: polymeshassociation/rust:debian-nightly-2022-09-15
     resource_class: large
     environment:
       - VERBOSE: "1"
@@ -127,7 +127,7 @@ jobs:
             - "/usr/local/cargo"
   test:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-09-14
+      - image: polymeshassociation/rust:debian-nightly-2022-09-15
     resource_class: large
     environment:
       - VERBOSE: "1"
@@ -166,7 +166,7 @@ jobs:
             - "~/.cache/sccache"
   coverage:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-09-14
+      - image: polymeshassociation/rust:debian-nightly-2022-09-15
     resource_class: xlarge
     environment:
       - VERBOSE: "1"
@@ -216,10 +216,11 @@ jobs:
           no_output_timeout: 10m
   clippy:
     docker:
-      - image: polymeshassociation/rust:debian-nightly-2022-09-14
+      - image: polymeshassociation/rust:debian-nightly-2022-09-15
     resource_class: xlarge
     environment:
-      VERBOSE: "1"
+      - VERBOSE: "1"
+      - SKIP_WASM_BUILD: "1"
     steps:
       - checkout
       - run:
@@ -230,7 +231,7 @@ jobs:
             - v6-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: run clippy
-          command: cargo +nightly-2022-09-14 clippy -- -A clippy::all -W clippy::complexity -W clippy::perf
+          command: cargo clippy -- -A clippy::all -W clippy::complexity -W clippy::perf
           no_output_timeout: 1h
       - save_cache:
           key: v6-clippy-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
