@@ -119,6 +119,7 @@ use polymesh_primitives::{
     AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, ScopeId, SecondaryKey,
     Ticker,
 };
+use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;
 #[cfg(feature = "std")]
@@ -1200,6 +1201,8 @@ impl<T: Config> Module<T> {
     /// Ensure `ticker` is fully printable ASCII (SPACE to '~').
     fn ensure_ticker_ascii(ticker: &Ticker) -> DispatchResult {
         let bytes = ticker.as_slice();
+        let s = String::from_utf8_lossy(bytes);
+        let result = s.chars().all(char::is_alphanumeric);
         // Find first byte not printable ASCII.
         let good = bytes
             .iter()
@@ -1207,6 +1210,7 @@ impl<T: Config> Module<T> {
             // Everything after must be a NULL byte.
             .map_or(true, |nm_pos| bytes[nm_pos..].iter().all(|b| *b == 0));
         ensure!(good, Error::<T>::TickerNotAscii);
+        ensure!(result, Error::<T>::TickerNotAscii);
         Ok(())
     }
 
