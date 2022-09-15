@@ -26,7 +26,7 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v6-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v7-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Build release
           command: cargo build --release
@@ -52,7 +52,7 @@ jobs:
           paths:
               - .
       - save_cache:
-          key: v6-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v7-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
             - "~/.cache/sccache"
@@ -71,7 +71,7 @@ jobs:
           command: rustc --version > rust.version
       - restore_cache:
           keys:
-            - v3-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v4-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Build binary with runtime-benchmarks
           command: cargo build --release --features=runtime-benchmarks,running-ci
@@ -84,7 +84,7 @@ jobs:
           paths:
             - polymesh-benchmarks
       - save_cache:
-          key: v3-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v4-bench-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
             - "~/.cache/sccache"
