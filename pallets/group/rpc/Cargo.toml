@@ -2,7 +2,7 @@
 name = "pallet-group-rpc"
 version = "2.0.0"
 authors = ["Anonymous"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 # Common
@@ -15,16 +15,16 @@ pallet-group-rpc-runtime-api = { version = "2.0.0", path = "./runtime-api" }
 serde = { version = "1.0.104", features = ["derive"] }
 
 # Json RPC
-jsonrpc-core = "15.0.0"
-jsonrpc-core-client = "15.0.0"
-jsonrpc-derive = "15.0.0"
+jsonrpc-core = { version = "18.0.0", features = ["arbitrary_precision"] }
+jsonrpc-core-client = { version = "18.0.0", features = ["arbitrary_precision"] }
+jsonrpc-derive = "18.0.0"
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "2.0.0" }
-sp-runtime = { version = "3.0.0", default-features = false }
-sp-blockchain = { version = "3.0.0", default_features = false}
-sp-std = {version = "3.0.0", default_features = false }
-sp-api = {version = "3.0.0", default_features = false }
+codec = { package = "parity-scale-codec", version = "3.0.0" }
+sp-runtime = { version = "6.0.0", default-features = false }
+sp-blockchain = { version = "4.0.0-dev", default_features = false}
+sp-std = {version = "4.0.0", default_features = false }
+sp-api = {version = "4.0.0-dev", default_features = false }
 
 [dev-dependencies]
-substrate-test-runtime-client = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymath-3.0.0"}
+substrate-test-runtime-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05"}

@@ -2,8 +2,8 @@ use super::{
     assert_event_doesnt_exist, assert_event_exists, assert_last_event,
     pips_test::assert_balance,
     storage::{
-        add_secondary_key, register_keyring_account_with_balance, Call, EventTest, Identity,
-        Origin, Portfolio, System, TestStorage, User, Utility,
+        add_secondary_key, get_secondary_keys, register_keyring_account_with_balance, Call,
+        EventTest, Identity, Origin, Portfolio, System, TestStorage, User, Utility,
     },
     ExtBuilder,
 };
@@ -23,19 +23,22 @@ use test_client::AccountKeyring;
 type Error = utility::Error<TestStorage>;
 
 fn transfer(to: AccountId, amount: u128) -> Call {
-    Call::Balances(BalancesCall::transfer(to.into(), amount))
+    Call::Balances(BalancesCall::transfer {
+        dest: to.into(),
+        value: amount,
+    })
 }
 
-const ERROR: DispatchError = DispatchError::Module {
+const ERROR: DispatchError = DispatchError::Module(sp_runtime::ModuleError {
     index: 4,
-    error: 2,
+    error: [2, 0, 0, 0],
     message: None,
-};
+});
 
 fn assert_event(event: Event) {
     assert_eq!(
         System::events().pop().unwrap().event,
-        EventTest::pallet_utility(event)
+        EventTest::Utility(event)
     )
 }
 
@@ -167,7 +170,10 @@ fn _relay_happy_case() {
     let origin = Origin::signed(alice);
     let transaction = UniqueCall::new(
         Utility::nonce(bob.clone()),
-        Call::Balances(BalancesCall::transfer(charlie.clone().into(), 50)),
+        Call::Balances(BalancesCall::transfer {
+            dest: charlie.clone().into(),
+            value: 50,
+        }),
     );
 
     assert_ok!(Utility::relay_tx(
@@ -199,14 +205,17 @@ fn _relay_unhappy_cases() {
     let origin = Origin::signed(alice);
     let transaction = UniqueCall::new(
         Utility::nonce(bob.clone()),
-        Call::Balances(BalancesCall::transfer(charlie.clone().into(), 59)),
+        Call::Balances(BalancesCall::transfer {
+            dest: charlie.clone().into(),
+            value: 59,
+        }),
     );
 
     assert_noop!(
         Utility::relay_tx(
             origin.clone(),
             bob.clone(),
-            Signature::default().into(),
+            Signature([0; 64]).into(),
             transaction.clone()
         ),
         Error::InvalidSignature
@@ -226,16 +235,14 @@ fn _relay_unhappy_cases() {
 
     let transaction = UniqueCall::new(
         Utility::nonce(bob.clone()) + 1,
-        Call::Balances(BalancesCall::transfer(charlie.into(), 59)),
+        Call::Balances(BalancesCall::transfer {
+            dest: charlie.into(),
+            value: 59,
+        }),
     );
 
     assert_noop!(
-        Utility::relay_tx(
-            origin.clone(),
-            bob,
-            Signature::default().into(),
-            transaction
-        ),
+        Utility::relay_tx(origin.clone(), bob, Signature([0; 64]).into(), transaction),
         Error::InvalidNonce
     );
 }
@@ -262,7 +269,7 @@ fn batch_secondary_with_permissions() {
         bob.origin(),
         low_risk_name.clone()
     ));
-    assert_last_event!(EventTest::pallet_portfolio(
+    assert_last_event!(EventTest::Portfolio(
         pallet_portfolio::Event::PortfolioCreated(_, _, _)
     ));
     check_name(low_risk_name.clone());
@@ -282,12 +289,12 @@ fn batch_secondary_with_permissions() {
         extrinsic: SubsetRestriction::These(bob_pallet_permissions.into_iter().collect()),
         ..Permissions::default()
     };
-    assert_ok!(Identity::set_permission_to_signer(
+    assert_ok!(Identity::set_secondary_key_permissions(
         alice.origin(),
-        bob.signatory_acc(),
+        bob.acc(),
         bob_permissions,
     ));
-    let bob_secondary_key = &Identity::did_records(&alice.did).secondary_keys[0];
+    let bob_secondary_key = &get_secondary_keys(alice.did)[0];
     let check_permission = |name: &[u8], t| {
         assert_eq!(
             t,
@@ -306,16 +313,18 @@ fn batch_secondary_with_permissions() {
 
     // Call one disallowed and one allowed extrinsic in a batch.
     let calls = vec![
-        Call::Portfolio(PortfolioCall::create_portfolio(high_risk_name.clone())),
-        Call::Portfolio(PortfolioCall::rename_portfolio(
-            1u64.into(),
-            high_risk_name.clone(),
-        )),
+        Call::Portfolio(PortfolioCall::create_portfolio {
+            name: high_risk_name.clone(),
+        }),
+        Call::Portfolio(PortfolioCall::rename_portfolio {
+            num: 1u64.into(),
+            to_name: high_risk_name.clone(),
+        }),
     ];
     assert_ok!(Utility::batch(bob.origin(), calls.clone()));
-    assert_event_doesnt_exist!(EventTest::pallet_utility(Event::BatchCompleted(_)));
+    assert_event_doesnt_exist!(EventTest::Utility(Event::BatchCompleted(_)));
     assert_event_exists!(
-        EventTest::pallet_utility(Event::BatchInterrupted(events, err)),
+        EventTest::Utility(Event::BatchInterrupted(events, err)),
         events == &[0] && err.0 == 0
     );
     check_name(low_risk_name);
@@ -323,7 +332,7 @@ fn batch_secondary_with_permissions() {
     // Call the same extrinsics optimistically.
     assert_ok!(Utility::batch_optimistic(bob.origin(), calls));
     assert_event_exists!(
-        EventTest::pallet_utility(Event::BatchOptimisticFailed(events, errors)),
+        EventTest::Utility(Event::BatchOptimisticFailed(events, errors)),
         events == &[0, 1] && errors.len() == 1 && errors[0].0 == 0
     );
     check_name(high_risk_name);

@@ -1,15 +1,15 @@
-[![Gitter](https://img.shields.io/badge/chat-gitter-green.svg)](https://gitter.im/PolymathNetwork/Lobby)
-[![Telegram](https://img.shields.io/badge/50k+-telegram-blue.svg)](https://t.me/polymathnetwork)
+[![Discord](https://img.shields.io/badge/Discord-Join_our_server-blue.svg?style=social&logo=discord)](https://discord.com/invite/ud2deWAnyt) 
+![Twitter Follow](https://img.shields.io/twitter/follow/PolymeshNetwork?style=social)
 
-![Polymath logo](Polymath.png)
+<img src="Polymesh-logo.svg" width="70%" alt="Polymesh"/>
 
-# Polymesh Blockchain - By Polymath
+# Polymesh Blockchain
 
 Polymesh is a blockchain for regulated securities and open finance.
 
 # Whitepaper
 
-<https://polymath.network/polymesh-whitepaper>
+<https://info.polymesh.network/hubfs/Files/Polymesh-Whitepaper.pdf>
 
 # Audit
 
@@ -28,13 +28,13 @@ Generally these two networks will be at the same version of Polymesh, although t
 We provide linux binaries for each release.
 
 The latest release for Polymesh can be found at:  
-<https://github.com/PolymathNetwork/Polymesh/releases>
+<https://github.com/PolymeshAssociation/Polymesh/releases>
 
 Generally you should be able to run the latest release for both networks, although the on-chain version of the network might differ during upgrade cycles.
 
 Below are simple instructions for running a non-operating node (i.e. a node that does not produce blocks or vote on the correctness of other blocks).
 
-For more details on monitoring infrastructure for nodes and running an operator node, see the https://github.com/PolymathNetwork/polymesh-tools repository.
+For more details on monitoring infrastructure for nodes and running an operator node, see the https://github.com/PolymeshAssociation/polymesh-tools repository.
 
 ## Polymesh Testnet
 
@@ -64,13 +64,13 @@ To run a node which connects to the Mainnet, you can start your node with:
 
 A guide to running an operator node can be found at:
 
-<https://github.com/PolymathNetwork/polymesh-tools/tree/main/docs/operator>
+<https://github.com/PolymeshAssociation/polymesh-tools/tree/main/docs/operator>
 
 # Documentation
 
 Further details on Polymesh concepts and networks can be found at:
 
-<https://developers.polymesh.live/>
+<https://developers.polymesh.network/>
 
 Code documentation can be found at:
 
@@ -78,17 +78,7 @@ Code documentation can be found at:
 
 # Build
 
-Install Rust:
-
-```bash
-curl https://sh.rustup.rs -sSf | sh
-```
-
-Install required tools:
-
-```bash
-./scripts/init.sh
-```
+To prepare your development environment with the required compiler and tools refer to https://docs.substrate.io/main-docs/install/ for instructions applicable to your operating system.
 
 Build Wasm and native code:
 
@@ -123,7 +113,7 @@ You can start a development chain with:
 Detailed logs may be shown by running the node with the following environment variables set:
 `RUST_LOG=debug RUST_BACKTRACE=1 ./target/release/polymesh --dev`.
 
-[Web Interface]: https://app.polymesh.live/#/explorer
+[Web Interface]: https://mainnet-app.polymesh.network/#/explorer
 
 To access the Polymesh Chain using the [Web Interface] do the following:
 
@@ -133,7 +123,7 @@ To access the Polymesh Chain using the [Web Interface] do the following:
    > The [Web Interface] uses `https`, but your `polymesh` instance does not, so you'll need `ws://` as opposed to `wss://`. You'll also need to use `http://httpapp.polymesh.live/` instead of [Web Interface]. Otherwise, you'll have problems with mixed-content blocking (https vs. http).
    > Finally, add `--rpc-external --ws-external --rpc-cors all` to the `polymesh` invocation above.
 
-2. If you have [custom types definitions](https://github.com/PolymathNetwork/Polymesh/blob/develop/polymesh_schema.json) that differ from the Polymesh Testnet, you can update these in [Settings](https://app.polymesh.live/#/settings) tab under the `Developer` section.
+2. If you have [custom types definitions](https://github.com/PolymeshAssociation/Polymesh/blob/develop/polymesh_schema.json) that differ from the Polymesh Testnet, you can update these in [Settings](https://app.polymesh.live/#/settings) tab under the `Developer` section.
 
 3. Reload the page.
 
@@ -183,7 +173,7 @@ cd scripts/cli
 node run test
 ```
 
-See [README](https://github.com/PolymathNetwork/Polymesh/tree/develop/scripts/cli) for details.
+See [README](https://github.com/PolymeshAssociation/Polymesh/tree/develop/scripts/cli) for details.
 
 # Benchmarks
 
@@ -192,7 +182,7 @@ extrinsic to be benchmarked, for example:
 
 ```bash
 cargo run --release --features runtime-benchmarks -- \
-    benchmark -p="*" -e="*"
+    benchmark pallet -p="*" -e="*"
 ```
 
 Note that the CLI binary should be built in release mode and that the feature flag
@@ -253,12 +243,12 @@ Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
 
 # License
 
-[LICENSE](https://github.com/PolymathNetwork/Polymesh/blob/master/LICENSE)
+[LICENSE](https://github.com/PolymeshAssociation/Polymesh/blob/master/LICENSE)
 
 # Substrate Framework
 
 Polymesh is built using the [Substrate Framework](https://www.parity.io/what-is-substrate/).
 
-# Polymath
+# Polymesh
 
-[Polymath Website](https://polymath.network)
+[Polymesh Website](https://polymesh.network)

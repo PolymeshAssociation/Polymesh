@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -28,6 +28,7 @@ pub type CanTransferResult = Result<u8, Error>;
 sp_api::decl_runtime_apis! {
 
     /// The API to interact with Asset.
+    #[api_version(2)]
     pub trait AssetApi<AccountId>
     where
         AccountId: Codec,
@@ -75,5 +76,19 @@ sp_api::decl_runtime_apis! {
             ticker: &Ticker,
             value: Balance
         ) -> polymesh_primitives::asset::GranularCanTransferResult;
+
+        /// Checks whether a transaction with given parameters can take place or not.
+        /// The result is "granular" meaning each check is run and returned regardless of outcome.
+        ///
+        /// v1 call with older TransferManagers (max investor count, max % ownership).
+        #[changed_in(2)]
+        fn can_transfer_granular(
+            from_custodian: Option<IdentityId>,
+            from_portfolio: PortfolioId,
+            to_custodian: Option<IdentityId>,
+            to_portfolio: PortfolioId,
+            ticker: &Ticker,
+            value: Balance
+        ) -> polymesh_primitives::asset::v1::GranularCanTransferResult;
     }
 }

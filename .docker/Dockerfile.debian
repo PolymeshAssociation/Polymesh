@@ -1,0 +1,12 @@
+FROM debian:stable-slim
+
+
+COPY --chown=4001:4001 ./polymesh /usr/local/bin/polymesh
+RUN mkdir /var/lib/polymesh && \
+    chown 4001:4401 /var/lib/polymesh
+
+USER 4001:4001
+
+ENTRYPOINT ["/usr/local/bin/polymesh"]
+CMD [ "-d", "/var/lib/polymesh" ]
+

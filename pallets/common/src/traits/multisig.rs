@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -18,25 +18,11 @@
 //! The interface allows to process addition of a multisig signer from modules other than the
 //! multisig module itself.
 
-use sp_std::vec::Vec;
-
 /// This trait is used to add a signer to a multisig and enable unlinking multisig from an identity
 pub trait MultiSigSubTrait<AccountId> {
-    /// Fetches signers of a multisig
-    ///
-    /// # Arguments
-    /// * `multisig` - multisig AccountId
-    fn get_key_signers(multisig: &AccountId) -> Vec<AccountId>;
-
     /// Checks if the account is a multisig
     ///
     /// # Arguments
     /// * `account` - AccountId to check
     fn is_multisig(account: &AccountId) -> bool;
-
-    /// Checks if the account is a multisig signer
-    ///
-    /// # Arguments
-    /// * `account` - AccountId to check
-    fn is_signer(key: &AccountId) -> bool;
 }

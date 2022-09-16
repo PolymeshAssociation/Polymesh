@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -84,7 +84,6 @@
 //! - `remove_ca(origin, id)` removes the CA identified by `id`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(bool_to_option)]
 #![feature(crate_visibility_modifier)]
 #![feature(const_option)]
 
@@ -95,7 +94,7 @@ pub mod ballot;
 pub mod distribution;
 
 use codec::{Decode, Encode};
-use core::convert::TryInto;
+use distribution::WeightInfo as DistWeightInfoTrait;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -106,15 +105,17 @@ use frame_support::{
 use frame_system::ensure_root;
 use pallet_asset::checkpoint::{self, SchedulePoints, ScheduleRefCount};
 use pallet_base::try_next_post;
+use pallet_identity::PermissionedCallOriginData;
 use polymesh_common_utilities::{
     balances::Config as BalancesConfig, identity::Config as IdentityConfig, traits::asset,
     traits::checkpoint::ScheduleId, with_transaction, GC_DID,
 };
 use polymesh_primitives::{
     calendar::CheckpointId, impl_checked_inc, storage_migration_ver, Balance, DocumentId, EventDid,
-    IdentityId, Moment, Ticker,
+    IdentityId, Moment, PortfolioNumber, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
+use scale_info::TypeInfo;
 use sp_arithmetic::Permill;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -125,7 +126,7 @@ pub type Tax = Permill;
 
 /// How should `identities` in `TargetIdentities` be used?
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
 pub enum TargetTreatment {
     /// Only those identities should be included.
     Include,
@@ -152,7 +153,7 @@ impl TargetTreatment {
 
 /// A description of which identities that a CA will apply to.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Default, Debug)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Default, Debug)]
 pub struct TargetIdentities {
     /// The specified identities either relevant or irrelevant, depending on `treatment`, for CAs.
     pub identities: Vec<IdentityId>,
@@ -178,7 +179,7 @@ impl TargetIdentities {
 
 /// The kind of a `CorporateAction`.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
 pub enum CAKind {
     /// A predictable benefit.
     /// These are known at the time the asset is created.
@@ -210,12 +211,13 @@ impl CAKind {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Default, Debug, VecU8StrongTyped)]
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct CADetails(pub Vec<u8>);
 
 /// Defines how to identify a CA's associated checkpoint, if any.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
 pub enum CACheckpoint {
     /// CA uses a record date scheduled to occur in the future.
     /// Checkpoint ID will be taken after the record date.
@@ -231,7 +233,7 @@ pub enum CACheckpoint {
 /// Defines the record date, at which impact should be calculated,
 /// along with checkpoint info to assess the impact at the date.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
 pub struct RecordDate {
     /// When the impact should be calculated, or already has.
     pub date: Moment,
@@ -241,7 +243,7 @@ pub struct RecordDate {
 
 /// Input specification of the record date used to derive impact for a CA.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
 pub enum RecordDateSpec {
     /// Record date is in the future.
     /// A checkpoint should be created.
@@ -255,7 +257,7 @@ pub enum RecordDateSpec {
 /// Details of a generic CA.
 /// The `(Ticker, ID)` denoting a unique identifier for the CA is stored as a key outside.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
 pub struct CorporateAction {
     /// The kind of CA that this is.
     pub kind: CAKind,
@@ -287,18 +289,31 @@ impl CorporateAction {
 /// By *local*, we mean that the same number might be used for a different `Ticker`
 /// to uniquely identify a different CA.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Default, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Default, Debug)]
 pub struct LocalCAId(pub u32);
 impl_checked_inc!(LocalCAId);
 
 /// A unique global identifier for a CA.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
 pub struct CAId {
     /// The `Ticker` component used to disambiguate the `local` one.
     pub ticker: Ticker,
     /// The per-`Ticker` local identifier.
     pub local_id: LocalCAId,
+}
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
+pub struct InitiateCorporateActionArgs {
+    ticker: Ticker,
+    kind: CAKind,
+    decl_date: Moment,
+    record_date: Option<RecordDateSpec>,
+    details: CADetails,
+    targets: Option<TargetIdentities>,
+    default_withholding_tax: Option<Tax>,
+    withholding_tax: Option<Vec<(IdentityId, Tax)>>,
 }
 
 /// Weight abstraction for the corporate actions module.
@@ -541,15 +556,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::initiate_corporate_action_use_defaults(
-                T::MaxDidWhts::get(),
-                T::MaxTargetIds::get(),
-            )
-            .max(<T as Config>::WeightInfo::initiate_corporate_action_provided(
-                withholding_tax.as_ref().map_or(0, |whts| whts.len() as u32),
-                targets.as_ref().map_or(0, |t| t.identities.len() as u32),
-            ))
-        ]
+        #[weight = initiate_corporate_action_weight::<T>(targets, withholding_tax)]
         pub fn initiate_corporate_action(
             origin,
             ticker: Ticker,
@@ -560,77 +567,21 @@ decl_module! {
             targets: Option<TargetIdentities>,
             default_withholding_tax: Option<Tax>,
             withholding_tax: Option<Vec<(IdentityId, Tax)>>,
-        ) {
-            // Ensure that `details` is short enough.
-            details
-                .len()
-                .try_into()
-                .ok()
-                .filter(|&len: &u32| len <= Self::max_details_length())
-                .ok_or(Error::<T>::DetailsTooLong)?;
-
+        ) -> DispatchResult {
             // Ensure that a permissioned agent is calling.
             let agent = <ExternalAgents<T>>::ensure_perms(origin, ticker)?.for_event();
 
-            // Ensure that the next local CA ID doesn't overflow.
-            let mut next_id = CAIdSequence::get(ticker);
-            let local_id = try_next_post::<T, _>(&mut next_id)?;
-            let id = CAId { ticker, local_id };
-
-            // Ensure there are no duplicates in withholding tax overrides
-            // and that we're within the limit.
-            let mut withholding_tax = withholding_tax;
-            if let Some(wt) = &mut withholding_tax {
-                let before = wt.len();
-                Self::ensure_did_whts_limited(before)?;
-                wt.sort_unstable_by_key(|&(did, _)| did);
-                wt.dedup_by_key(|&mut (did, _)| did);
-                ensure!(before == wt.len(), Error::<T>::DuplicateDidTax);
-            }
-
-            // Ensure target ids are limited in number if provided.
-            if let Some(ref targets) = targets {
-                Self::ensure_target_ids_limited(targets)?;
-            }
-
-            // Declaration date must be <= now.
-            ensure!(decl_date <= <Checkpoint<T>>::now_unix(), Error::<T>::DeclDateInFuture);
-
-            // If provided, either use the existing CP ID or schedule one to be made.
-            let record_date = record_date
-                .map(|date| with_transaction(|| -> Result<_, DispatchError> {
-                    let rd = Self::handle_record_date(agent, ticker, date)?;
-                    ensure!(decl_date <= rd.date, Error::<T>::DeclDateAfterRecordDate);
-                    Ok(rd)
-                }))
-                .transpose()?;
-
-            // Commit the next local CA ID.
-            CAIdSequence::insert(ticker, next_id);
-
-            // Use asset level defaults if data not provided here.
-            let targets = targets
-                .map(|t| t.dedup())
-                .unwrap_or_else(|| Self::default_target_identities(ticker));
-            let default_withholding_tax = default_withholding_tax
-                .unwrap_or_else(|| Self::default_withholding_tax(ticker));
-            let withholding_tax = withholding_tax
-                .unwrap_or_else(|| Self::did_withholding_tax(ticker));
-
-            // Commit CA to storage.
-            let ca = CorporateAction {
+            Self::unsafe_initiate_corporate_action(
+                agent,
+                ticker,
                 kind,
                 decl_date,
                 record_date,
+                details,
                 targets,
                 default_withholding_tax,
                 withholding_tax,
-            };
-            CorporateActions::insert(ticker, id.local_id, ca.clone());
-            Details::insert(id, details.clone());
-
-            // Emit event.
-            Self::deposit_event(Event::CAInitiated(agent, id, ca, details));
+            ).map(drop)
         }
 
         /// Link the given CA `id` to the given `docs`.
@@ -700,7 +651,7 @@ decl_module! {
                 }
                 CAKind::PredictableBenefit | CAKind::UnpredictableBenefit => {
                     if let Some(dist) = <Distribution<T>>::distributions(ca_id) {
-                        <Distribution<T>>::remove_distribution_base(agent, ca_id, &dist)?;
+                        <Distribution<T>>::unverified_remove_distribution(agent, ca_id, &dist)?;
                     }
                 }
             }
@@ -764,6 +715,63 @@ decl_module! {
             // Commit changes + emit event.
             CorporateActions::insert(ca_id.ticker, ca_id.local_id, ca.clone());
             Self::deposit_event(Event::RecordDateChanged(agent, ca_id, ca));
+        }
+
+        /// Utility extrinsic to batch `initiate_corporate_action` and `distribute`
+         #[weight = initiate_corporate_action_weight::<T>(&ca_args.targets, &ca_args.withholding_tax)
+            .saturating_add(<T as Config>::DistWeightInfo::distribute())]
+        pub fn initiate_corporate_action_and_distribute(
+            origin,
+            ca_args: InitiateCorporateActionArgs,
+            portfolio: Option<PortfolioNumber>,
+            currency: Ticker,
+            per_share: Balance,
+            amount: Balance,
+            payment_at: Moment,
+            expires_at: Option<Moment>,
+        ) -> DispatchResult {
+            let InitiateCorporateActionArgs {
+                ticker,
+                kind,
+                decl_date,
+                record_date,
+                details,
+                targets,
+                default_withholding_tax,
+                withholding_tax
+            } = ca_args;
+
+            let PermissionedCallOriginData {
+                primary_did: agent,
+                secondary_key,
+                ..
+            } = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ticker)?;
+
+            with_transaction(|| {
+                let ca_id = Self::unsafe_initiate_corporate_action(
+                    agent.for_event(),
+                    ticker,
+                    kind,
+                    decl_date,
+                    record_date,
+                    details,
+                    targets,
+                    default_withholding_tax,
+                    withholding_tax
+                )?;
+
+                <distribution::Module<T>>::unverified_distribute(
+                    agent,
+                    secondary_key,
+                    ca_id,
+                    portfolio,
+                    currency,
+                    per_share,
+                    amount,
+                    payment_at,
+                    expires_at,
+                )
+            })
         }
     }
 }
@@ -832,6 +840,89 @@ decl_error! {
 }
 
 impl<T: Config> Module<T> {
+    fn unsafe_initiate_corporate_action(
+        agent: EventDid,
+        ticker: Ticker,
+        kind: CAKind,
+        decl_date: Moment,
+        record_date: Option<RecordDateSpec>,
+        details: CADetails,
+        targets: Option<TargetIdentities>,
+        default_withholding_tax: Option<Tax>,
+        withholding_tax: Option<Vec<(IdentityId, Tax)>>,
+    ) -> Result<CAId, DispatchError> {
+        // Ensure that `details` is short enough.
+        ensure!(
+            details.len() <= Self::max_details_length() as usize,
+            Error::<T>::DetailsTooLong
+        );
+
+        // Ensure that the next local CA ID doesn't overflow.
+        let mut next_id = CAIdSequence::get(ticker);
+        let local_id = try_next_post::<T, _>(&mut next_id)?;
+        let id = CAId { ticker, local_id };
+
+        // Ensure there are no duplicates in withholding tax overrides
+        // and that we're within the limit.
+        let mut withholding_tax = withholding_tax;
+        if let Some(wt) = &mut withholding_tax {
+            let before = wt.len();
+            Self::ensure_did_whts_limited(before)?;
+            wt.sort_unstable_by_key(|&(did, _)| did);
+            wt.dedup_by_key(|&mut (did, _)| did);
+            ensure!(before == wt.len(), Error::<T>::DuplicateDidTax);
+        }
+
+        // Ensure target ids are limited in number if provided.
+        if let Some(ref targets) = targets {
+            Self::ensure_target_ids_limited(targets)?;
+        }
+
+        // Declaration date must be <= now.
+        ensure!(
+            decl_date <= <Checkpoint<T>>::now_unix(),
+            Error::<T>::DeclDateInFuture
+        );
+
+        // If provided, either use the existing CP ID or schedule one to be made.
+        let record_date = record_date
+            .map(|date| {
+                with_transaction(|| -> Result<_, DispatchError> {
+                    let rd = Self::handle_record_date(agent, ticker, date)?;
+                    ensure!(decl_date <= rd.date, Error::<T>::DeclDateAfterRecordDate);
+                    Ok(rd)
+                })
+            })
+            .transpose()?;
+
+        // Commit the next local CA ID.
+        CAIdSequence::insert(ticker, next_id);
+
+        // Use asset level defaults if data not provided here.
+        let targets = targets
+            .map(|t| t.dedup())
+            .unwrap_or_else(|| Self::default_target_identities(ticker));
+        let default_withholding_tax =
+            default_withholding_tax.unwrap_or_else(|| Self::default_withholding_tax(ticker));
+        let withholding_tax = withholding_tax.unwrap_or_else(|| Self::did_withholding_tax(ticker));
+
+        // Commit CA to storage.
+        let ca = CorporateAction {
+            kind,
+            decl_date,
+            record_date,
+            targets,
+            default_withholding_tax,
+            withholding_tax,
+        };
+        CorporateActions::insert(ticker, id.local_id, ca.clone());
+        Details::insert(id, details.clone());
+
+        // Emit event.
+        Self::deposit_event(Event::CAInitiated(agent, id, ca, details));
+        Ok(id)
+    }
+
     /// Ensure number of identities in `TargetIdentities` are limited.
     fn ensure_target_ids_limited(targets: &TargetIdentities) -> DispatchResult {
         ensure!(
@@ -955,4 +1046,20 @@ impl<T: Config> Module<T> {
     fn ensure_ca_exists(id: CAId) -> Result<CorporateAction, DispatchError> {
         CorporateActions::get(id.ticker, id.local_id).ok_or_else(|| Error::<T>::NoSuchCA.into())
     }
+}
+
+fn initiate_corporate_action_weight<T: Config>(
+    targets: &Option<TargetIdentities>,
+    withholding_tax: &Option<Vec<(IdentityId, Tax)>>,
+) -> Weight {
+    <T as Config>::WeightInfo::initiate_corporate_action_use_defaults(
+        T::MaxDidWhts::get(),
+        T::MaxTargetIds::get(),
+    )
+    .max(
+        <T as Config>::WeightInfo::initiate_corporate_action_provided(
+            withholding_tax.as_ref().map_or(0, |whts| whts.len() as u32),
+            targets.as_ref().map_or(0, |t| t.identities.len() as u32),
+        ),
+    )
 }

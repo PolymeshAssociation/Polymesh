@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -15,7 +15,7 @@
 
 use frame_support::dispatch::DispatchResult;
 use polymesh_primitives::{
-    secondary_key::api::SecondaryKey, traits::BlockRewardsReserveCurrency, InvestorUid,
+    secondary_key::SecondaryKey, traits::BlockRewardsReserveCurrency, InvestorUid,
 };
 
 pub trait CommonConfig: frame_system::Config + permissions::Config {
@@ -31,10 +31,6 @@ pub mod asset;
 pub mod balances;
 pub mod checkpoint;
 pub mod compliance_manager;
-/*
-pub mod contracts;
-pub use contracts::ContractsFn;
-*/
 pub mod external_agents;
 pub mod governance_group;
 pub mod group;

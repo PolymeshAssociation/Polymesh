@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -17,6 +17,7 @@
 use codec::{Decode, Encode, Error, Input};
 #[cfg(feature = "std")]
 use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongTyped};
+use scale_info::TypeInfo;
 
 use sp_std::convert::TryFrom;
 use sp_std::vec::Vec;
@@ -29,7 +30,8 @@ pub const TICKER_LEN: usize = 12;
 /// This type stores fixed-length case-sensitive byte strings. Any value of this type that is
 /// received by a Substrate module call method has to be converted to canonical uppercase
 /// representation using [`Ticker::canonize`].
-#[derive(Encode, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, TypeInfo)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(
     feature = "std",
     derive(SerializeU8StrongTyped, DeserializeU8StrongTyped)

@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2021 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -27,10 +27,11 @@
 
 use core::mem;
 use frame_support::dispatch::{DispatchError, DispatchResult};
-use frame_support::traits::Get;
+use frame_support::traits::{Get, StorageInfo, StorageInfoTrait};
 use frame_support::{decl_error, decl_module, ensure};
 pub use polymesh_common_utilities::traits::base::{Config, Event};
 use polymesh_primitives::checked_inc::CheckedInc;
+use sp_std::vec::Vec;
 
 decl_module! {
     pub struct Module<T: Config> for enum Call where origin: T::Origin {
@@ -71,6 +72,17 @@ pub fn ensure_string_limited<T: Config>(s: &[u8]) -> DispatchResult {
     ensure_length_ok::<T>(s.len())
 }
 
+/// Ensure that the `len` provided is within the custom length limit.
+pub fn ensure_custom_length_ok<T: Config>(len: usize, limit: usize) -> DispatchResult {
+    ensure!(len <= limit, Error::<T>::TooLong);
+    Ok(())
+}
+
+/// Ensure that `s.len()` is within the custom length limit.
+pub fn ensure_custom_string_limited<T: Config>(s: &[u8], limit: usize) -> DispatchResult {
+    ensure_custom_length_ok::<T>(s.len(), limit)
+}
+
 /// Ensure that given `Some(s)`, `s.len()` is within the generic length limit.
 pub fn ensure_opt_string_limited<T: Config>(s: Option<&[u8]>) -> DispatchResult {
     match s {
@@ -94,3 +106,9 @@ pub fn try_next_post<T: Config, I: CheckedInc>(seq: &mut I) -> Result<I, Dispatc
 }
 
 impl<T: Config> frame_support::traits::IntegrityTest for Module<T> {}
+
+impl<T: Config> StorageInfoTrait for Module<T> {
+    fn storage_info() -> Vec<StorageInfo> {
+        Vec::new()
+    }
+}

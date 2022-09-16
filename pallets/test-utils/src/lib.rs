@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -129,7 +129,7 @@ decl_module! {
             // Add CDD claim
             let did = Identity::<T>::get_identity(&sender).ok_or("DID Self-register failed")?;
             let cdd_claim = Claim::CustomerDueDiligence(CddId::new_v1(did, uid));
-            Identity::<T>::base_add_claim(did, cdd_claim, did, None);
+            Identity::<T>::base_add_claim(did, cdd_claim, did, None)?;
         }
 
         /// Registers a new Identity for the `target_account` and issues a CDD claim to it.
@@ -147,11 +147,11 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::mock_cdd_register_did()]
         pub fn mock_cdd_register_did(origin, target_account: T::AccountId) {
             let (cdd_did, target_did) = Identity::<T>::base_cdd_register_did(origin, target_account, vec![])?;
-            let target_uid = confidential_identity::mocked::make_investor_uid(target_did.as_bytes());
+            let target_uid = confidential_identity_v1::mocked::make_investor_uid(target_did.as_bytes());
 
             // Add CDD claim for the target
-            let cdd_claim = Claim::CustomerDueDiligence(CddId::new_v1(target_did, target_uid.clone().into()));
-            Identity::<T>::base_add_claim(target_did, cdd_claim, cdd_did, None);
+            let cdd_claim = Claim::CustomerDueDiligence(CddId::new_v1(target_did, target_uid.into()));
+            Identity::<T>::base_add_claim(target_did, cdd_claim, cdd_did, None)?;
 
             Self::deposit_event(RawEvent::MockInvestorUIDCreated(target_did, target_uid.into()));
         }
@@ -184,9 +184,8 @@ impl<T: Config> TestUtilsFn<T::AccountId> for Module<T> {
     fn register_did(
         target: T::AccountId,
         investor: InvestorUid,
-        secondary_keys: Vec<secondary_key::api::SecondaryKey<T::AccountId>>,
+        secondary_keys: Vec<secondary_key::SecondaryKey<T::AccountId>>,
     ) -> DispatchResult {
-        let keys = secondary_keys.into_iter().map(SecondaryKey::from).collect();
-        Self::register_did(RawOrigin::Signed(target).into(), investor, keys)
+        Self::register_did(RawOrigin::Signed(target).into(), investor, secondary_keys)
     }
 }

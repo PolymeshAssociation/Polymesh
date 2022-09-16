@@ -1,0 +1,593 @@
+{
+  "InvalidModuleError": {
+    "_enum": [ "Invalid" ]
+  },
+  "ModuleNoErrors": {
+    "_enum": [ "None" ]
+  },
+  "SystemError": {
+    "_enum": [
+      "InvalidSpecName",
+      "SpecVersionNeedsToIncrease",
+      "FailedToExtractRuntimeVersion",
+      "NonDefaultComposite",
+      "NonZeroRefCount"
+    ]
+  },
+  "AuthorshipError": {
+    "_enum": [
+      "InvalidUncleParent",
+      "UnclesAlreadySet",
+      "TooManyUncles",
+      "GenesisUncle",
+      "TooHighUncle",
+      "UncleAlreadyIncluded",
+      "OldUncle"
+    ]
+  },
+  "BalancesError": {
+    "_enum": [
+      "LiquidityRestrictions",
+      "Overflow",
+      "InsufficientBalance",
+      "ExistentialDeposit",
+      "ReceiverCddMissing"
+    ]
+  },
+  "IdentityError": {
+    "_enum": [
+      "AlreadyLinked",
+      "MissingCurrentIdentity",
+      "Unauthorized",
+      "InvalidAccountKey",
+      "UnAuthorizedCddProvider",
+      "InvalidAuthorizationFromOwner",
+      "InvalidAuthorizationFromCddProvider",
+      "NotCddProviderAttestation",
+      "AuthorizationsNotForSameDids",
+      "DidMustAlreadyExist",
+      "CurrentIdentityCannotBeForwarded",
+      "AuthorizationExpired",
+      "TargetHasNoCdd",
+      "AuthorizationHasBeenRevoked",
+      "InvalidAuthorizationSignature",
+      "KeyNotAllowed",
+      "NotPrimaryKey",
+      "DidDoesNotExist",
+      "DidAlreadyExists",
+      "SecondaryKeysContainPrimaryKey",
+      "FailedToChargeFee",
+      "NotASigner",
+      "CannotDecodeSignerAccountId",
+      "MultiSigHasBalance",
+      "ConfidentialScopeClaimNotAllowed",
+      "InvalidScopeClaim",
+      "ClaimVariantNotAllowed",
+      "TargetHasNonZeroBalanceAtScopeId",
+      "CDDIdNotUniqueForIdentity",
+      "InvalidCDDId",
+      "ClaimAndProofVersionsDoNotMatch",
+      "AccountKeyIsBeingUsed",
+      "CustomScopeTooLong"
+    ]
+  },
+  "CddServiceProvidersError": {
+    "_enum": [
+      "OnlyPrimaryKeyAllowed",
+      "DuplicateMember",
+      "NoSuchMember",
+      "LastMemberCannotQuit",
+      "MissingCurrentIdentity",
+      "ActiveMembersLimitExceeded",
+      "ActiveMembersLimitOverflow"
+    ]
+  },
+  "PolymeshCommitteeError": {
+    "_enum": [
+      "DuplicateVote",
+      "NotAMember",
+      "NoSuchProposal",
+      "ProposalExpired",
+      "DuplicateProposal",
+      "MismatchedVotingIndex",
+      "InvalidProportion",
+      "FirstVoteReject",
+      "ProposalsLimitReached"
+    ]
+  },
+  "CommitteeMembershipError": {
+    "_enum": [
+      "OnlyPrimaryKeyAllowed",
+      "DuplicateMember",
+      "NoSuchMember",
+      "LastMemberCannotQuit",
+      "MissingCurrentIdentity",
+      "ActiveMembersLimitExceeded",
+      "ActiveMembersLimitOverflow"
+    ]
+  },
+  "TechnicalCommitteeError": {
+    "_enum": [
+      "DuplicateVote",
+      "NotAMember",
+      "NoSuchProposal",
+      "ProposalExpired",
+      "DuplicateProposal",
+      "MismatchedVotingIndex",
+      "InvalidProportion",
+      "FirstVoteReject",
+      "ProposalsLimitReached"
+    ]
+  },
+  "TechnicalCommitteeMembershipError": {
+    "_enum": [
+      "OnlyPrimaryKeyAllowed",
+      "DuplicateMember",
+      "NoSuchMember",
+      "LastMemberCannotQuit",
+      "MissingCurrentIdentity",
+      "ActiveMembersLimitExceeded",
+      "ActiveMembersLimitOverflow"
+    ]
+  },
+  "UpgradeCommitteeError": {
+    "_enum": [
+      "DuplicateVote",
+      "NotAMember",
+      "NoSuchProposal",
+      "ProposalExpired",
+      "DuplicateProposal",
+      "MismatchedVotingIndex",
+      "InvalidProportion",
+      "FirstVoteReject",
+      "ProposalsLimitReached"
+    ]
+  },
+  "UpgradeCommitteeMembershipError": {
+    "_enum": [
+      "OnlyPrimaryKeyAllowed",
+      "DuplicateMember",
+      "NoSuchMember",
+      "LastMemberCannotQuit",
+      "MissingCurrentIdentity",
+      "ActiveMembersLimitExceeded",
+      "ActiveMembersLimitOverflow"
+    ]
+  },
+  "MultiSigError": {
+    "_enum": [
+      "CddMissing",
+      "ProposalMissing",
+      "DecodingError",
+      "NoSigners",
+      "RequiredSignaturesOutOfBounds",
+      "NotASigner",
+      "NoSuchMultisig",
+      "NotEnoughSigners",
+      "NonceOverflow",
+      "AlreadyVoted",
+      "AlreadyASigner",
+      "FailedToChargeFee",
+      "IdentityNotCreator",
+      "ChangeNotAllowed",
+      "SignerAlreadyLinked",
+      "MissingCurrentIdentity",
+      "NotPrimaryKey",
+      "ProposalAlreadyRejected",
+      "ProposalExpired",
+      "ProposalAlreadyExecuted",
+      "MultisigMissingIdentity",
+      "FailedToSchedule",
+      "TooManySigners"
+    ]
+  },
+  "BridgeError": {
+    "_enum": [
+      "ControllerNotSet",
+      "BadCaller",
+      "BadAdmin",
+      "NoValidCdd",
+      "ProposalAlreadyHandled",
+      "Unauthorized",
+      "Frozen",
+      "NotFrozen",
+      "FrozenTx",
+      "BridgeLimitReached",
+      "Overflow",
+      "DivisionByZero",
+      "TimelockedTx"
+    ]
+  },
+  "StakingError": {
+    "_enum": [
+      "NotController",
+      "NotStash",
+      "AlreadyBonded",
+      "AlreadyPaired",
+      "EmptyTargets",
+      "InvalidSlashIndex",
+      "InsufficientValue",
+      "NoMoreChunks",
+      "NoUnlockChunk",
+      "FundedTarget",
+      "InvalidEraToReward",
+      "NotSortedAndUnique",
+      "AlreadyClaimed",
+      "OffchainElectionEarlySubmission",
+      "OffchainElectionWeakSubmission",
+      "SnapshotUnavailable",
+      "OffchainElectionBogusWinnerCount",
+      "OffchainElectionBogusWinner",
+      "OffchainElectionBogusCompact",
+      "OffchainElectionBogusNominator",
+      "OffchainElectionBogusNomination",
+      "OffchainElectionSlashedNomination",
+      "OffchainElectionBogusSelfVote",
+      "OffchainElectionBogusEdge",
+      "OffchainElectionBogusScore",
+      "OffchainElectionBogusElectionSize",
+      "CallNotAllowed",
+      "IncorrectSlashingSpans",
+      "AlreadyExists",
+      "NotExists",
+      "NoChange",
+      "InvalidValidatorIdentity",
+      "InvalidValidatorCommission",
+      "StashIdentityDoesNotExist",
+      "StashIdentityNotPermissioned",
+      "StashIdentityNotCDDed",
+      "HitIntendedValidatorCount",
+      "IntendedCountIsExceedingConsensusLimit",
+      "BondTooSmall",
+      "BadState",
+      "TooManyTargets",
+      "BadTarget"
+    ]
+  },
+  "SessionError": {
+    "_enum": [
+      "InvalidProof",
+      "NoAssociatedValidatorId",
+      "DuplicatedKey",
+      "NoKeys",
+      "NoAccount"
+    ]
+  },
+  "GrandpaError": {
+    "_enum": [
+      "PauseFailed",
+      "ResumeFailed",
+      "ChangePending",
+      "TooSoon",
+      "InvalidKeyOwnershipProof",
+      "InvalidEquivocationProof",
+      "DuplicateOffenceReport"
+    ]
+  },
+  "ImOnlineError": {
+    "_enum": [
+      "InvalidKey",
+      "DuplicatedHeartbeat"
+    ]
+  },
+  "SudoError": {
+    "_enum": [
+      "RequireSudo"
+    ]
+  },
+  "AssetError": {
+    "_enum": [
+      "Unauthorized",
+      "AlreadyArchived",
+      "AlreadyUnArchived",
+      "ExtensionAlreadyPresent",
+      "AssetAlreadyCreated",
+      "TickerTooLong",
+      "TickerNotAscii",
+      "TickerAlreadyRegistered",
+      "TotalSupplyAboveLimit",
+      "NoSuchAsset",
+      "AlreadyFrozen",
+      "NotAnOwner",
+      "BalanceOverflow",
+      "TotalSupplyOverflow",
+      "InvalidGranularity",
+      "NotFrozen",
+      "InvalidTransfer",
+      "InsufficientBalance",
+      "AssetAlreadyDivisible",
+      "MaximumTMExtensionLimitReached",
+      "IncompatibleExtensionVersion",
+      "InvalidEthereumSignature",
+      "NoSuchClassicTicker",
+      "TickerRegistrationExpired",
+      "SenderSameAsReceiver",
+      "NoSuchDoc",
+      "MaxLengthOfAssetNameExceeded",
+      "FundingRoundNameMaxLengthExceeded",
+      "InvalidAssetIdentifier",
+      "InvestorUniquenessClaimNotAllowed",
+      "InvalidCustomAssetTypeId"
+    ]
+  },
+  "CapitalDistributionError": {
+    "_enum": [
+      "CANotBenefit",
+      "AlreadyExists",
+      "ExpiryBeforePayment",
+      "HolderAlreadyPaid",
+      "NoSuchDistribution",
+      "CannotClaimBeforeStart",
+      "CannotClaimAfterExpiry",
+      "BalancePerShareProductOverflowed",
+      "NotDistributionCreator",
+      "AlreadyReclaimed",
+      "NotExpired",
+      "DistributionStarted",
+      "InsufficientRemainingAmount"
+    ]
+  },
+  "CheckpointError": {
+    "_enum": [
+      "NoSuchSchedule",
+      "ScheduleNotRemovable",
+      "FailedToComputeNextCheckpoint",
+      "ScheduleDurationTooShort",
+      "SchedulesTooComplex"
+    ]
+  },
+  "ComplianceManagerError": {
+    "_enum": [
+      "Unauthorized",
+      "DidNotExist",
+      "InvalidComplianceRequirementId",
+      "IncorrectOperationOnTrustedIssuer",
+      "DuplicateComplianceRequirements",
+      "ComplianceRequirementTooComplex"
+    ]
+  },
+  "CorporateActionError": {
+    "_enum": [
+      "AuthNotCAATransfer",
+      "DetailsTooLong",
+      "DuplicateDidTax",
+      "TooManyDidTaxes",
+      "TooManyTargetIds",
+      "NoSuchCheckpointId",
+      "NoSuchCA",
+      "NoRecordDate",
+      "RecordDateAfterStart",
+      "DeclDateAfterRecordDate",
+      "DeclDateInFuture",
+      "NotTargetedByCA"
+    ]
+  },
+  "CorporateBallotError": {
+    "_enum": [
+      "CANotNotice",
+      "AlreadyExists",
+      "NoSuchBallot",
+      "StartAfterEnd",
+      "NowAfterEnd",
+      "NumberOfChoicesOverflow",
+      "VotingAlreadyStarted",
+      "VotingNotStarted",
+      "VotingAlreadyEnded",
+      "WrongVoteCount",
+      "InsufficientVotes",
+      "NoSuchRCVFallback",
+      "RCVSelfCycle",
+      "RCVNotAllowed"
+    ]
+  },
+  "PermissionsError": {
+    "_enum": [
+      "UnauthorizedCaller"
+    ]
+  },
+  "PipsError": {
+    "_enum": [
+      "RescheduleNotByReleaseCoordinator",
+      "NotFromCommunity",
+      "NotByCommittee",
+      "TooManyActivePips",
+      "IncorrectDeposit",
+      "InsufficientDeposit",
+      "NoSuchProposal",
+      "NotACommitteeMember",
+      "InvalidFutureBlockNumber",
+      "NumberOfVotesExceeded",
+      "StakeAmountOfVotesExceeded",
+      "MissingCurrentIdentity",
+      "IncorrectProposalState",
+      "CannotSkipPip",
+      "SnapshotResultTooLarge",
+      "SnapshotIdMismatch",
+      "ScheduledProposalDoesntExist",
+      "ProposalNotInScheduledState"
+    ]
+  },
+  "PortfolioError": {
+    "_enum": [
+      "PortfolioDoesNotExist",
+      "InsufficientPortfolioBalance",
+      "DestinationIsSamePortfolio",
+      "PortfolioNameAlreadyInUse",
+      "SecondaryKeyNotAuthorizedForPortfolio",
+      "UnauthorizedCustodian",
+      "InsufficientTokensLocked",
+      "PortfolioNotEmpty",
+      "DifferentIdentityPortfolios"
+    ]
+  },
+  "ProtocolFeeError": {
+    "_enum": [
+      "InsufficientAccountBalance",
+      "UnHandledImbalances",
+      "InsufficientSubsidyBalance"
+    ]
+  },
+  "SchedulerError": {
+    "_enum": [
+      "FailedToSchedule",
+      "NotFound",
+      "TargetBlockNumberInPast",
+      "RescheduleNoChange"
+    ]
+  },
+  "SettlementError": {
+    "_enum": [
+      "InvalidVenue",
+      "Unauthorized",
+      "NoPendingAffirm",
+      "InstructionNotAffirmed",
+      "InstructionNotPending",
+      "InstructionNotFailed",
+      "LegNotPending",
+      "UnauthorizedSigner",
+      "ReceiptAlreadyClaimed",
+      "ReceiptNotClaimed",
+      "UnauthorizedVenue",
+      "FailedToLockTokens",
+      "InstructionFailed",
+      "InstructionDatesInvalid",
+      "InstructionSettleBlockPassed",
+      "InvalidSignature",
+      "SameSenderReceiver",
+      "PortfolioMismatch",
+      "SettleOnPastBlock",
+      "NoPortfolioProvided",
+      "UnexpectedAffirmationStatus",
+      "FailedToSchedule",
+      "LegCountTooSmall",
+      "UnknownInstruction",
+      "InstructionHasTooManyLegs"
+    ]
+  },
+  "StatisticsError": {
+    "_enum": [
+      "DuplicateTransferManager",
+      "TransferManagerMissing",
+      "InvalidTransfer",
+      "TransferManagersLimitReached"
+    ]
+  },
+  "StoError": {
+    "_enum": [
+      "Unauthorized",
+      "Overflow",
+      "InsufficientTokensRemaining",
+      "FundraiserNotFound",
+      "FundraiserNotLive",
+      "FundraiserClosed",
+      "FundraiserExpired",
+      "InvalidVenue",
+      "InvalidPriceTiers",
+      "InvalidOfferingWindow",
+      "MaxPriceExceeded",
+      "InvestmentAmountTooLow"
+    ]
+  },
+  "TreasuryError": {
+    "_enum": [
+      "InsufficientBalance"
+    ]
+  },
+  "UtilityError": {
+    "_enum": [
+      "InvalidSignature",
+      "TargetCddMissing",
+      "InvalidNonce"
+    ]
+  },
+  "BaseError": {
+    "_enum": [
+      "TooLong",
+      "CounterOverflow"
+    ]
+  },
+  "ExternalAgentsError": {
+    "_enum": [
+      "NoSuchAG",
+      "UnauthorizedAgent",
+      "AlreadyAnAgent",
+      "NotAnAgent",
+      "RemovingLastFullAgent",
+      "SecondaryKeyNotAuthorizedForAsset"
+    ]
+  },
+  "RelayerError": {
+    "_enum": [
+      "UserKeyCddMissing",
+      "PayingKeyCddMissing",
+      "NoPayingKey",
+      "NotPayingKey",
+      "NotAuthorizedForPayingKey",
+      "NotAuthorizedForUserKey",
+      "Overflow"
+    ]
+  },
+  "RewardsError": {
+    "_enum": [
+      "UnknownItnAddress",
+      "ItnRewardAlreadyClaimed",
+      "InvalidSignature",
+      "UnableToCovertBalance"
+    ]
+  },
+  "DispatchErrorModule": {
+    "_enum": {
+      "System": "SystemError",
+      "Babe": "ModuleNoErrors",
+      "Timestamp": "ModuleNoErrors",
+      "Indices": "ModuleNoErrors",
+      "Authorship": "AuthorshipError",
+      "Balances": "BalancesError",
+      "TransactionPayment": "ModuleNoErrors",
+      "Identity": "IdentityError",
+      "CddServiceProviders": "CddServiceProvidersError",
+      "PolymeshCommittee": "PolymeshCommitteeError",
+      "CommitteeMembership": "CommitteeMembershipError",
+      "TechnicalCommittee": "TechnicalCommitteeError",
+      "TechnicalCommitteeMembership": "TechnicalCommitteeMembershipError",
+      "UpgradeCommittee": "UpgradeCommitteeError",
+      "UpgradeCommitteeMembership": "UpgradeCommitteeMembershipError",
+      "MultiSig": "MultiSigError",
+      "Bridge": "BridgeError",
+      "Staking": "StakingError",
+      "Offences": "ModuleNoErrors",
+      "Session": "SessionError",
+      "AuthorityDiscovery": "ModuleNoErrors",
+      "Grandpa": "GrandpaError",
+      "Historical": "ModuleNoErrors",
+      "ImOnline": "ImOnlineError",
+      "RandomnessCollectiveFlip": "ModuleNoErrors",
+      "Sudo": "SudoError",
+      "Asset": "AssetError",
+      "CapitalDistribution": "CapitalDistributionError",
+      "Checkpoint": "CheckpointError",
+      "ComplianceManager": "ComplianceManagerError",
+      "CorporateAction": "CorporateActionError",
+      "CorporateBallot": "CorporateBallotError",
+      "Permissions": "PermissionsError",
+      "Pips": "PipsError",
+      "Portfolio": "PortfolioError",
+      "ProtocolFee": "ProtocolFeeError",
+      "Scheduler": "SchedulerError",
+      "Settlement": "SettlementError",
+      "Statistics": "StatisticsError",
+      "Sto": "StoError",
+      "Treasury": "TreasuryError",
+      "Utility": "UtilityError",
+      "Base": "BaseError",
+      "ExternalAgents": "ExternalAgentsError",
+      "Relayer": "RelayerError",
+      "Rewards": "RewardsError",
+      "InvalidModule46": "InvalidModuleError",
+      "InvalidModule47": "InvalidModuleError",
+      "InvalidModule48": "InvalidModuleError",
+      "InvalidModule49": "InvalidModuleError",
+      "TestUtils": "ModuleNoErrors"
+    }
+  }
+}

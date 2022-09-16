@@ -18,7 +18,7 @@ fn oldify_type(ty: &mut Type, refs: Option<MigrateRefs>) {
         Some(MigrateRefs::Any) => None,
         Some(MigrateRefs::Listed(list)) => Some(list),
         Some(MigrateRefs::Exact(old_ty)) => {
-            *ty = old_ty;
+            *ty = *old_ty;
             return;
         }
     };
@@ -79,7 +79,7 @@ fn quote_pack_unpack(
         .iter()
         .enumerate()
         .map(|(index, (migrate, with, field))| match &field.ident {
-            Some(ident) => (quote!( #ident ), pack(with, migrate, &ident, &ident)),
+            Some(ident) => (quote!( #ident ), pack(with, migrate, &ident, ident)),
             None => {
                 let span = field.ty.span();
                 let index = index as u32;
@@ -170,7 +170,7 @@ enum MigrateRefs {
     /// Only those identifiers in the list and which match in the type of the field should be migrated.
     Listed(Vec<Ident>),
     /// Do an exact replacement of the field type with the one given in `#[migrate_from(Type)]`.
-    Exact(Type),
+    Exact(Box<Type>),
 }
 
 /// Returns information about any `#[migrate]` or `#[migrate_from]` attributes.
@@ -199,7 +199,7 @@ fn extract_migrate_refs(attrs: &mut Vec<Attribute>) -> Option<MigrateRefs> {
                 )
             }
             // Expect and parse `#[migrate_from($ty)]`.
-            Some("migrate_from") => MigrateRefs::Exact(attr.parse_args().unwrap()),
+            Some("migrate_from") => MigrateRefs::Exact(Box::new(attr.parse_args().unwrap())),
             _ => return None,
         })
     })

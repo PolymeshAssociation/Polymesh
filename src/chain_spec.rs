@@ -5,7 +5,7 @@ use pallet_bridge::BridgeTx;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_staking::StakerStatus;
 use polymesh_common_utilities::{
-    constants::{currency::POLY, REWARDS_MODULE_ID, TREASURY_MODULE_ID},
+    constants::{currency::ONE_POLY, REWARDS_PALLET_ID, TREASURY_PALLET_ID},
     protocol_fee::ProtocolOp,
     MaybeBlock, SystematicIssuers,
 };
@@ -13,7 +13,7 @@ use polymesh_primitives::{
     identity_id::GenesisIdentityRecord, AccountId, Balance, HexAccountId, IdentityId, Moment,
     PosRatio, SecondaryKey, Signatory, Signature, Ticker,
 };
-use sc_chain_spec::ChainType;
+use sc_chain_spec::{ChainSpecExtension, ChainType};
 use sc_service::Properties;
 use sc_telemetry::TelemetryEndpoints;
 use serde_json::json;
@@ -29,7 +29,7 @@ use sp_runtime::{Deserialize, Serialize};
 use std::convert::TryInto;
 
 // The URL for the telemetry server.
-const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.live/submit/";
+const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.network/submit/";
 
 // Genesis POLYX distribution via bridge
 const TREASURY_LOCK_HASH: &str =
@@ -38,13 +38,40 @@ const REWARDS_LOCK_HASH: &str =
     "0x1000000000000000000000000000000000000000000000000000000000000002";
 const KEY_LOCK_HASH: &str = "0x1000000000000000000000000000000000000000000000000000000000000003";
 
-const BOOTSTRAP_KEYS: u128 = 6_000 * POLY;
-const BOOTSTRAP_TREASURY: u128 = 17_500_000 * POLY;
+const BOOTSTRAP_KEYS: u128 = 6_000 * ONE_POLY;
+const BOOTSTRAP_TREASURY: u128 = 17_500_000 * ONE_POLY;
 
-const DEV_KEYS: u128 = 30_000_000 * POLY;
-const DEV_TREASURY: u128 = 50_000_000 * POLY;
+const DEV_KEYS: u128 = 30_000_000 * ONE_POLY;
+const DEV_TREASURY: u128 = 50_000_000 * ONE_POLY;
 
-const INITIAL_BOND: u128 = 500 * POLY;
+const INITIAL_BOND: u128 = 500 * ONE_POLY;
+
+// 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
+const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
+const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
+    sp_consensus_babe::BabeEpochConfiguration {
+        c: PRIMARY_PROBABILITY,
+        allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryPlainSlots,
+    };
+const BABE_GENESIS: pallet_babe::GenesisConfig = pallet_babe::GenesisConfig {
+    authorities: vec![],
+    epoch_config: Some(BABE_GENESIS_EPOCH_CONFIG),
+};
+
+/// Node `ChainSpec` extensions.
+///
+/// Additional parameters for some Substrate core modules,
+/// customizable from the chain spec.
+#[derive(Default, Clone, Serialize, Deserialize, ChainSpecExtension)]
+#[serde(rename_all = "camelCase")]
+pub struct Extensions {
+    /// The light sync state.
+    ///
+    /// This value will be set by the `sync-state rpc` implementation.
+    pub light_sync_state: sc_sync_state_rpc::LightSyncStateExtension,
+}
+
+pub type GenericChainSpec<R> = sc_service::GenericChainSpec<R, Extensions>;
 
 /// Generate a crypto pair from seed.
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -203,7 +230,20 @@ type InitialAuth = (
     AuthorityDiscoveryId,
 );
 
-fn adjust_last<'a>(bytes: &'a mut [u8], n: u8) -> &'a str {
+// alias type to make clippy happy.
+type GenesisProcessedData = (
+    Vec<GenesisIdentityRecord<AccountId>>,
+    Vec<(
+        IdentityId,
+        AccountId,
+        AccountId,
+        u128,
+        StakerStatus<AccountId>,
+    )>,
+    Vec<BridgeTx<AccountId>>,
+);
+
+fn adjust_last(bytes: &mut [u8], n: u8) -> &str {
     bytes[bytes.len() - 1] = n + b'0';
     core::str::from_utf8(bytes).unwrap()
 }
@@ -249,17 +289,7 @@ fn genesis_processed_data(
     treasury_bridge_lock: BridgeLockId,
     rewards_bridge_lock: BridgeLockId,
     key_bridge_locks: Vec<BridgeLockId>,
-) -> (
-    Vec<GenesisIdentityRecord<AccountId>>,
-    Vec<(
-        IdentityId,
-        AccountId,
-        AccountId,
-        u128,
-        StakerStatus<AccountId>,
-    )>,
-    Vec<BridgeTx<AccountId>>,
-) {
+) -> GenesisProcessedData {
     // Identities and their roles
     // 1 = [Polymath] GenesisCouncil (1 of 3) + UpgradeCommittee (1 of 1) + TechnicalCommittee (1 of 1) + GCReleaseCoordinator
     // 2 = GenesisCouncil (2 of 3)
@@ -355,14 +385,14 @@ fn genesis_processed_data(
 
     complete_txs.push(BridgeTx {
         nonce: treasury_bridge_lock.nonce,
-        recipient: TREASURY_MODULE_ID.into_account(),
+        recipient: TREASURY_PALLET_ID.into_account(),
         amount: treasury_bridge_lock.amount,
         tx_hash: treasury_bridge_lock.tx_hash,
     });
 
     complete_txs.push(BridgeTx {
         nonce: rewards_bridge_lock.nonce,
-        recipient: REWARDS_MODULE_ID.into_account(),
+        recipient: REWARDS_PALLET_ID.into_account(),
         amount: rewards_bridge_lock.amount,
         tx_hash: rewards_bridge_lock.tx_hash,
     });
@@ -376,17 +406,7 @@ fn dev_genesis_processed_data(
     rewards_bridge_lock: BridgeLockId,
     key_bridge_locks: Vec<BridgeLockId>,
     other_funded_accounts: Vec<AccountId>,
-) -> (
-    GenesisIdentityRecord<AccountId>,
-    Vec<(
-        IdentityId,
-        AccountId,
-        AccountId,
-        u128,
-        StakerStatus<AccountId>,
-    )>,
-    Vec<BridgeTx<AccountId>>,
-) {
+) -> GenesisProcessedData {
     let mut identity = GenesisIdentityRecord::new(1u8, initial_authorities[0].0.clone());
 
     let mut stakers = Vec::with_capacity(initial_authorities.len());
@@ -418,12 +438,7 @@ fn dev_genesis_processed_data(
     let mut complete_txs: Vec<_> = key_bridge_locks
         .iter()
         .cloned()
-        .zip(
-            identity
-                .secondary_keys
-                .iter()
-                .map(|sk| sk.signer.as_account().unwrap().clone()),
-        )
+        .zip(identity.secondary_keys.iter().map(|sk| sk.key.clone()))
         .map(
             |(
                 BridgeLockId {
@@ -443,22 +458,22 @@ fn dev_genesis_processed_data(
 
     complete_txs.push(BridgeTx {
         nonce: treasury_bridge_lock.nonce,
-        recipient: TREASURY_MODULE_ID.into_account(),
+        recipient: TREASURY_PALLET_ID.into_account(),
         amount: BOOTSTRAP_TREASURY,
         tx_hash: treasury_bridge_lock.tx_hash,
     });
 
     complete_txs.push(BridgeTx {
         nonce: rewards_bridge_lock.nonce,
-        recipient: REWARDS_MODULE_ID.into_account(),
-        amount: itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+        recipient: REWARDS_PALLET_ID.into_account(),
+        amount: itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
         tx_hash: rewards_bridge_lock.tx_hash,
     });
 
     // The 0th key is the primary key
     identity.secondary_keys.remove(0);
 
-    (identity, stakers, complete_txs)
+    (vec![identity], stakers, complete_txs)
 }
 
 fn bridge_signers() -> Vec<Signatory<AccountId>> {
@@ -476,7 +491,6 @@ fn bridge_signers() -> Vec<Signatory<AccountId>> {
 fn frame(wasm_binary: Option<&[u8]>) -> frame_system::GenesisConfig {
     frame_system::GenesisConfig {
         code: wasm_binary.expect("WASM binary was not generated").to_vec(),
-        changes_trie_config: Default::default(),
     }
 }
 
@@ -596,7 +610,7 @@ pub mod general {
     use super::*;
     use polymesh_runtime_develop::{self as rt, constants::time};
 
-    pub type ChainSpec = sc_service::GenericChainSpec<rt::runtime::GenesisConfig>;
+    pub type ChainSpec = GenericChainSpec<rt::runtime::GenesisConfig>;
 
     session_keys!();
 
@@ -609,7 +623,7 @@ pub mod general {
         key_bridge_locks: Vec<BridgeLockId>,
         other_funded_accounts: Vec<AccountId>,
     ) -> rt::runtime::GenesisConfig {
-        let (identity, stakers, complete_txs) = dev_genesis_processed_data(
+        let (identities, stakers, complete_txs) = dev_genesis_processed_data(
             &initial_authorities,
             treasury_bridge_lock,
             rewards_bridge_lock,
@@ -618,36 +632,36 @@ pub mod general {
         );
 
         rt::runtime::GenesisConfig {
-            frame_system: Some(frame(rt::WASM_BINARY)),
-            pallet_asset: Some(asset!()),
-            pallet_checkpoint: Some(checkpoint!()),
-            pallet_identity: Some(pallet_identity::GenesisConfig {
-                identities: vec![identity],
+            system: frame(rt::WASM_BINARY),
+            asset: asset!(),
+            checkpoint: checkpoint!(),
+            identity: pallet_identity::GenesisConfig {
+                identities,
                 ..Default::default()
-            }),
-            pallet_balances: Some(Default::default()),
-            pallet_bridge: Some(pallet_bridge::GenesisConfig {
+            },
+            balances: Default::default(),
+            bridge: pallet_bridge::GenesisConfig {
                 admin: initial_authorities[0].1.clone(),
                 creator: initial_authorities[0].1.clone(),
                 signatures_required: 1,
                 signers: bridge_signers(),
                 timelock: 10,
-                bridge_limit: (100_000_000 * POLY, 1000),
+                bridge_limit: (100_000_000 * ONE_POLY, 1000),
                 complete_txs,
-            }),
-            pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
-            pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
-            pallet_session: Some(session!(initial_authorities, session_keys)),
-            pallet_staking: Some(staking!(
+            },
+            indices: pallet_indices::GenesisConfig { indices: vec![] },
+            sudo: pallet_sudo::GenesisConfig { key: root_key },
+            session: session!(initial_authorities, session_keys),
+            staking: staking!(
                 initial_authorities,
                 stakers,
-                PerThing::from_rational_approximation(1u64, 4u64)
-            )),
-            pallet_pips: Some(pips!(time::MINUTES, MaybeBlock::None, 25)),
-            pallet_im_online: Some(Default::default()),
-            pallet_authority_discovery: Some(Default::default()),
-            pallet_babe: Some(Default::default()),
-            pallet_grandpa: Some(Default::default()),
+                PerThing::from_rational(1u64, 4u64)
+            ),
+            pips: pips!(time::MINUTES, MaybeBlock::None, 25),
+            im_online: Default::default(),
+            authority_discovery: Default::default(),
+            babe: BABE_GENESIS,
+            grandpa: Default::default(),
             /*
             pallet_contracts: Some(pallet_contracts::GenesisConfig {
                 current_schedule: pallet_contracts::Schedule {
@@ -657,23 +671,23 @@ pub mod general {
             }),
             */
             // Governance Council:
-            pallet_group_Instance1: Some(group_membership!(1)),
-            pallet_committee_Instance1: Some(committee!(1)),
+            committee_membership: group_membership!(1),
+            polymesh_committee: committee!(1),
             // CDD providers
-            pallet_group_Instance2: Some(group_membership!(1)),
+            cdd_service_providers: group_membership!(1),
             // Technical Committee:
-            pallet_group_Instance3: Some(group_membership!(1)),
-            pallet_committee_Instance3: Some(committee!(1)),
+            technical_committee_membership: group_membership!(1),
+            technical_committee: committee!(1),
             // Upgrade Committee:
-            pallet_group_Instance4: Some(group_membership!(1)),
-            pallet_committee_Instance4: Some(committee!(1)),
-            pallet_protocol_fee: Some(protocol_fee!()),
-            pallet_settlement: Some(Default::default()),
-            pallet_multisig: Some(pallet_multisig::GenesisConfig {
+            upgrade_committee_membership: group_membership!(1),
+            upgrade_committee: committee!(1),
+            protocol_fee: protocol_fee!(),
+            settlement: Default::default(),
+            multi_sig: pallet_multisig::GenesisConfig {
                 transaction_version: 1,
-            }),
-            pallet_corporate_actions: Some(corporate_actions!()),
-            pallet_rewards: Some(rewards!()),
+            },
+            corporate_action: corporate_actions!(),
+            rewards: rewards!(),
         }
     }
 
@@ -685,7 +699,7 @@ pub mod general {
             BridgeLockId::new(1, DEV_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
                 2,
-                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
                 REWARDS_LOCK_HASH,
             ),
             BridgeLockId::generate_bridge_locks(3, 20, DEV_KEYS, KEY_LOCK_HASH),
@@ -705,7 +719,18 @@ pub mod general {
         genesis: impl 'static + Sync + Send + Fn() -> rt::runtime::GenesisConfig,
     ) -> ChainSpec {
         let props = Some(polymath_props(42));
-        ChainSpec::from_genesis(name, id, ctype, genesis, vec![], None, None, props, None)
+        ChainSpec::from_genesis(
+            name,
+            id,
+            ctype,
+            genesis,
+            vec![],
+            None,
+            None,
+            None,
+            props,
+            <_>::default(),
+        )
     }
 
     pub fn develop_config() -> ChainSpec {
@@ -722,21 +747,18 @@ pub mod general {
             vec![
                 get_authority_keys_from_seed("Alice", false),
                 get_authority_keys_from_seed("Bob", false),
+                get_authority_keys_from_seed("Charlie", false),
             ],
             seeded_acc_id("Alice"),
             true,
             BridgeLockId::new(1, DEV_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
                 2,
-                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
                 REWARDS_LOCK_HASH,
             ),
             BridgeLockId::generate_bridge_locks(3, 20, DEV_KEYS, KEY_LOCK_HASH),
-            vec![
-                seeded_acc_id("Charlie"),
-                seeded_acc_id("Dave"),
-                seeded_acc_id("Eve"),
-            ],
+            vec![seeded_acc_id("Dave"), seeded_acc_id("Eve")],
         )
     }
 
@@ -754,7 +776,7 @@ pub mod testnet {
     use super::*;
     use polymesh_runtime_testnet::{self as rt, constants::time};
 
-    pub type ChainSpec = sc_service::GenericChainSpec<rt::runtime::GenesisConfig>;
+    pub type ChainSpec = GenericChainSpec<rt::runtime::GenesisConfig>;
 
     session_keys!();
 
@@ -775,36 +797,36 @@ pub mod testnet {
         );
 
         rt::runtime::GenesisConfig {
-            frame_system: Some(frame(rt::WASM_BINARY)),
-            pallet_asset: Some(asset!()),
-            pallet_checkpoint: Some(checkpoint!()),
-            pallet_identity: Some(pallet_identity::GenesisConfig {
+            system: frame(rt::WASM_BINARY),
+            asset: asset!(),
+            checkpoint: checkpoint!(),
+            identity: pallet_identity::GenesisConfig {
                 identities,
                 ..Default::default()
-            }),
-            pallet_balances: Some(Default::default()),
-            pallet_bridge: Some(pallet_bridge::GenesisConfig {
+            },
+            balances: Default::default(),
+            bridge: pallet_bridge::GenesisConfig {
                 admin: root_key.clone(),
                 creator: root_key.clone(),
                 signatures_required: 3,
                 signers: bridge_signers(),
                 timelock: time::MINUTES * 15,
-                bridge_limit: (30_000 * POLY, 1 * time::DAYS),
+                bridge_limit: (30_000 * ONE_POLY, time::DAYS),
                 complete_txs,
-            }),
-            pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
-            pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
-            pallet_session: Some(session!(initial_authorities, session_keys)),
-            pallet_staking: Some(staking!(
+            },
+            indices: pallet_indices::GenesisConfig { indices: vec![] },
+            sudo: pallet_sudo::GenesisConfig { key: root_key },
+            session: session!(initial_authorities, session_keys),
+            staking: staking!(
                 initial_authorities,
                 stakers,
-                PerThing::from_rational_approximation(1u64, 10u64)
-            )),
-            pallet_pips: Some(pips!(time::DAYS * 30, MaybeBlock::None, 1000)),
-            pallet_im_online: Some(Default::default()),
-            pallet_authority_discovery: Some(Default::default()),
-            pallet_babe: Some(Default::default()),
-            pallet_grandpa: Some(Default::default()),
+                PerThing::from_rational(1u64, 10u64)
+            ),
+            pips: pips!(time::DAYS * 30, MaybeBlock::None, 1000),
+            im_online: Default::default(),
+            authority_discovery: Default::default(),
+            babe: BABE_GENESIS,
+            grandpa: Default::default(),
             /*
             pallet_contracts: Some(pallet_contracts::GenesisConfig {
                 current_schedule: pallet_contracts::Schedule {
@@ -814,23 +836,23 @@ pub mod testnet {
             }),
             */
             // Governing council
-            pallet_group_Instance1: Some(group_membership!(1, 2, 3)), // 3 GC members
-            pallet_committee_Instance1: Some(committee!(1, (2, 3))),  // RC = 1, 2/3 votes required
+            committee_membership: group_membership!(1, 2, 3), // 3 GC members
+            polymesh_committee: committee!(1, (2, 3)),        // RC = 1, 2/3 votes required
             // CDD providers
-            pallet_group_Instance2: Some(group_membership!(1)),
+            cdd_service_providers: group_membership!(1),
             // Technical Committee:
-            pallet_group_Instance3: Some(group_membership!(3, 4, 5)), // One GC member + genesis operator + Bridge Multisig
-            pallet_committee_Instance3: Some(committee!(3)),          // RC = 3, 1/2 votes required
+            technical_committee_membership: group_membership!(3, 4, 5), // One GC member + genesis operator + Bridge Multisig
+            technical_committee: committee!(3), // RC = 3, 1/2 votes required
             // Upgrade Committee:
-            pallet_group_Instance4: Some(group_membership!(1)), // One GC member
-            pallet_committee_Instance4: Some(committee!(1)),    // RC = 1, 1/2 votes required
-            pallet_protocol_fee: Some(protocol_fee!()),
-            pallet_settlement: Some(Default::default()),
-            pallet_multisig: Some(pallet_multisig::GenesisConfig {
+            upgrade_committee_membership: group_membership!(1), // One GC member
+            upgrade_committee: committee!(1),                   // RC = 1, 1/2 votes required
+            protocol_fee: protocol_fee!(),
+            settlement: Default::default(),
+            multi_sig: pallet_multisig::GenesisConfig {
                 transaction_version: 1,
-            }),
-            pallet_corporate_actions: Some(corporate_actions!()),
-            pallet_rewards: Some(rewards!()),
+            },
+            corporate_action: corporate_actions!(),
+            rewards: rewards!(),
         }
     }
 
@@ -846,7 +868,7 @@ pub mod testnet {
             BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
                 2,
-                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
                 REWARDS_LOCK_HASH,
             ),
             BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
@@ -871,6 +893,7 @@ pub mod testnet {
                     .expect("Testnet bootstrap telemetry url is valid; qed"),
             ),
             Some(&*"/polymesh/testnet"),
+            None,
             Some(polymath_props(42)),
             Default::default(),
         )
@@ -884,7 +907,7 @@ pub mod testnet {
             BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
                 2,
-                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
                 REWARDS_LOCK_HASH,
             ),
             BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
@@ -902,6 +925,7 @@ pub mod testnet {
             boot_nodes,
             None,
             None,
+            None,
             Some(polymath_props(42)),
             Default::default(),
         )
@@ -912,13 +936,14 @@ pub mod testnet {
             vec![
                 get_authority_keys_from_seed("Alice", false),
                 get_authority_keys_from_seed("Bob", false),
+                get_authority_keys_from_seed("Charlie", false),
             ],
             seeded_acc_id("Eve"),
             true,
             BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
                 2,
-                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
                 REWARDS_LOCK_HASH,
             ),
             BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
@@ -936,6 +961,7 @@ pub mod testnet {
             boot_nodes,
             None,
             None,
+            None,
             Some(polymath_props(42)),
             Default::default(),
         )
@@ -946,7 +972,7 @@ pub mod mainnet {
     use super::*;
     use polymesh_runtime_mainnet::{self as rt, constants::time};
 
-    pub type ChainSpec = sc_service::GenericChainSpec<rt::runtime::GenesisConfig>;
+    pub type ChainSpec = GenericChainSpec<rt::runtime::GenesisConfig>;
 
     session_keys!();
 
@@ -967,40 +993,36 @@ pub mod mainnet {
         );
 
         rt::runtime::GenesisConfig {
-            frame_system: Some(frame(rt::WASM_BINARY)),
-            pallet_asset: Some(asset!()),
-            pallet_checkpoint: Some(checkpoint!()),
-            pallet_identity: Some(pallet_identity::GenesisConfig {
+            system: frame(rt::WASM_BINARY),
+            asset: asset!(),
+            checkpoint: checkpoint!(),
+            identity: pallet_identity::GenesisConfig {
                 identities,
                 ..Default::default()
-            }),
-            pallet_balances: Some(Default::default()),
-            pallet_bridge: Some(pallet_bridge::GenesisConfig {
+            },
+            balances: Default::default(),
+            bridge: pallet_bridge::GenesisConfig {
                 admin: root_key.clone(),
                 creator: root_key.clone(),
                 signatures_required: 4,
                 signers: bridge_signers(),
                 timelock: time::HOURS * 24,
-                bridge_limit: (1_000_000_000 * POLY, 365 * time::DAYS),
+                bridge_limit: (1_000_000_000 * ONE_POLY, 365 * time::DAYS),
                 complete_txs,
-            }),
-            pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
-            pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
-            pallet_session: Some(session!(initial_authorities, session_keys)),
-            pallet_staking: Some(staking!(
+            },
+            indices: pallet_indices::GenesisConfig { indices: vec![] },
+            sudo: pallet_sudo::GenesisConfig { key: root_key },
+            session: session!(initial_authorities, session_keys),
+            staking: staking!(
                 initial_authorities,
                 stakers,
-                PerThing::from_rational_approximation(1u64, 10u64)
-            )),
-            pallet_pips: Some(pips!(
-                time::DAYS * 30,
-                MaybeBlock::Some(time::DAYS * 90),
-                1000
-            )),
-            pallet_im_online: Some(Default::default()),
-            pallet_authority_discovery: Some(Default::default()),
-            pallet_babe: Some(Default::default()),
-            pallet_grandpa: Some(Default::default()),
+                PerThing::from_rational(1u64, 10u64)
+            ),
+            pips: pips!(time::DAYS * 30, MaybeBlock::Some(time::DAYS * 90), 1000),
+            im_online: Default::default(),
+            authority_discovery: Default::default(),
+            babe: BABE_GENESIS,
+            grandpa: Default::default(),
             /*
             pallet_contracts: Some(pallet_contracts::GenesisConfig {
                 current_schedule: pallet_contracts::Schedule {
@@ -1010,23 +1032,23 @@ pub mod mainnet {
             }),
             */
             // Governing council
-            pallet_group_Instance1: Some(group_membership!(1, 2, 3)), // 3 GC members
-            pallet_committee_Instance1: Some(committee!(1, (2, 3))),  // RC = 1, 2/3 votes required
+            committee_membership: group_membership!(1, 2, 3), // 3 GC members
+            polymesh_committee: committee!(1, (2, 3)),        // RC = 1, 2/3 votes required
             // CDD providers
-            pallet_group_Instance2: Some(group_membership!(1)), // GC_1 is also a CDD provider
+            cdd_service_providers: group_membership!(1), // GC_1 is also a CDD provider
             // Technical Committee:
-            pallet_group_Instance3: Some(group_membership!(1)), // One GC member
-            pallet_committee_Instance3: Some(committee!(1)),    // 1/2 votes required
+            technical_committee_membership: group_membership!(1), // One GC member
+            technical_committee: committee!(1),                   // 1/2 votes required
             // Upgrade Committee:
-            pallet_group_Instance4: Some(group_membership!(1)), // One GC member
-            pallet_committee_Instance4: Some(committee!(1)),    // 1/2 votes required
-            pallet_protocol_fee: Some(protocol_fee!()),
-            pallet_settlement: Some(Default::default()),
-            pallet_multisig: Some(pallet_multisig::GenesisConfig {
+            upgrade_committee_membership: group_membership!(1), // One GC member
+            upgrade_committee: committee!(1),                   // 1/2 votes required
+            protocol_fee: protocol_fee!(),
+            settlement: Default::default(),
+            multi_sig: pallet_multisig::GenesisConfig {
                 transaction_version: 1,
-            }),
-            pallet_corporate_actions: Some(corporate_actions!()),
-            pallet_rewards: Some(rewards!()),
+            },
+            corporate_action: corporate_actions!(),
+            rewards: rewards!(),
         }
     }
 
@@ -1042,7 +1064,7 @@ pub mod mainnet {
             BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
                 2,
-                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
                 REWARDS_LOCK_HASH,
             ),
             BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
@@ -1071,6 +1093,7 @@ pub mod mainnet {
                     .expect("Mainnet bootstrap telemetry url is valid; qed"),
             ),
             Some(&*"/polymesh/mainnet"),
+            None,
             Some(polymath_props(12)),
             Default::default(),
         )
@@ -1084,7 +1107,7 @@ pub mod mainnet {
             BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
                 2,
-                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
                 REWARDS_LOCK_HASH,
             ),
             BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
@@ -1102,6 +1125,7 @@ pub mod mainnet {
             boot_nodes,
             None,
             None,
+            None,
             Some(polymath_props(12)),
             Default::default(),
         )
@@ -1112,13 +1136,14 @@ pub mod mainnet {
             vec![
                 get_authority_keys_from_seed("Alice", false),
                 get_authority_keys_from_seed("Bob", false),
+                get_authority_keys_from_seed("Charlie", false),
             ],
             seeded_acc_id("Eve"),
             true,
             BridgeLockId::new(1, BOOTSTRAP_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
                 2,
-                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
                 REWARDS_LOCK_HASH,
             ),
             BridgeLockId::generate_bridge_locks(3, 20, BOOTSTRAP_KEYS, KEY_LOCK_HASH),
@@ -1136,6 +1161,7 @@ pub mod mainnet {
             boot_nodes,
             None,
             None,
+            None,
             Some(polymath_props(12)),
             Default::default(),
         )
@@ -1146,7 +1172,7 @@ pub mod ci {
     use super::*;
     use polymesh_runtime_ci::{self as rt, constants::time};
 
-    pub type ChainSpec = sc_service::GenericChainSpec<rt::runtime::GenesisConfig>;
+    pub type ChainSpec = GenericChainSpec<rt::runtime::GenesisConfig>;
 
     session_keys!();
 
@@ -1167,15 +1193,15 @@ pub mod ci {
         );
 
         rt::runtime::GenesisConfig {
-            frame_system: Some(frame(rt::WASM_BINARY)),
-            pallet_asset: Some(asset!()),
-            pallet_checkpoint: Some(checkpoint!()),
-            pallet_identity: Some(pallet_identity::GenesisConfig {
+            system: frame(rt::WASM_BINARY),
+            asset: asset!(),
+            checkpoint: checkpoint!(),
+            identity: pallet_identity::GenesisConfig {
                 identities,
                 ..Default::default()
-            }),
-            pallet_balances: Some(Default::default()),
-            pallet_bridge: Some(pallet_bridge::GenesisConfig {
+            },
+            balances: Default::default(),
+            bridge: pallet_bridge::GenesisConfig {
                 admin: seeded_acc_id("polymath_1"),
                 creator: seeded_acc_id("polymath_1"),
                 signatures_required: 3,
@@ -1183,16 +1209,16 @@ pub mod ci {
                 timelock: time::MINUTES * 15,
                 bridge_limit: (30_000_000_000, time::DAYS),
                 complete_txs,
-            }),
-            pallet_indices: Some(pallet_indices::GenesisConfig { indices: vec![] }),
-            pallet_sudo: Some(pallet_sudo::GenesisConfig { key: root_key }),
-            pallet_session: Some(session!(initial_authorities, session_keys)),
-            pallet_staking: Some(staking!(initial_authorities, stakers, PerThing::zero())),
-            pallet_pips: Some(pips!(time::DAYS * 7, MaybeBlock::None, 1000)),
-            pallet_im_online: Some(Default::default()),
-            pallet_authority_discovery: Some(Default::default()),
-            pallet_babe: Some(Default::default()),
-            pallet_grandpa: Some(Default::default()),
+            },
+            indices: pallet_indices::GenesisConfig { indices: vec![] },
+            sudo: pallet_sudo::GenesisConfig { key: root_key },
+            session: session!(initial_authorities, session_keys),
+            staking: staking!(initial_authorities, stakers, PerThing::zero()),
+            pips: pips!(time::DAYS * 7, MaybeBlock::None, 1000),
+            im_online: Default::default(),
+            authority_discovery: Default::default(),
+            babe: BABE_GENESIS,
+            grandpa: Default::default(),
             /*
             pallet_contracts: Some(pallet_contracts::GenesisConfig {
                 current_schedule: pallet_contracts::Schedule {
@@ -1202,23 +1228,23 @@ pub mod ci {
             }),
             */
             // Governing council
-            pallet_group_Instance1: Some(group_membership!(1, 2, 3, 5)),
-            pallet_committee_Instance1: Some(committee!(1, (2, 4))),
+            committee_membership: group_membership!(1, 2, 3, 5),
+            polymesh_committee: committee!(1, (2, 4)),
             // CDD providers
-            pallet_group_Instance2: Some(group_membership!(1, 2, 3, 5)),
+            cdd_service_providers: group_membership!(1, 2, 3, 5),
             // Technical Committee:
-            pallet_group_Instance3: Some(group_membership!(3, 5)),
-            pallet_committee_Instance3: Some(committee!(5)),
+            technical_committee_membership: group_membership!(3, 5),
+            technical_committee: committee!(5),
             // Upgrade Committee:
-            pallet_group_Instance4: Some(group_membership!(1, 5)),
-            pallet_committee_Instance4: Some(committee!(5)),
-            pallet_protocol_fee: Some(protocol_fee!()),
-            pallet_settlement: Some(Default::default()),
-            pallet_multisig: Some(pallet_multisig::GenesisConfig {
+            upgrade_committee_membership: group_membership!(1, 5),
+            upgrade_committee: committee!(5),
+            protocol_fee: protocol_fee!(),
+            settlement: Default::default(),
+            multi_sig: pallet_multisig::GenesisConfig {
                 transaction_version: 1,
-            }),
-            pallet_corporate_actions: Some(corporate_actions!()),
-            pallet_rewards: Some(rewards!()),
+            },
+            corporate_action: corporate_actions!(),
+            rewards: rewards!(),
         }
     }
 
@@ -1230,7 +1256,7 @@ pub mod ci {
             BridgeLockId::new(1, DEV_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
                 2,
-                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
                 REWARDS_LOCK_HASH,
             ),
             BridgeLockId::generate_bridge_locks(3, 20, DEV_KEYS, KEY_LOCK_HASH),
@@ -1248,6 +1274,7 @@ pub mod ci {
             boot_nodes,
             None,
             None,
+            None,
             Some(polymath_props(42)),
             Default::default(),
         )
@@ -1258,13 +1285,14 @@ pub mod ci {
             vec![
                 get_authority_keys_from_seed("Alice", false),
                 get_authority_keys_from_seed("Bob", false),
+                get_authority_keys_from_seed("Charlie", false),
             ],
             seeded_acc_id("Alice"),
             true,
             BridgeLockId::new(1, DEV_TREASURY, TREASURY_LOCK_HASH),
             BridgeLockId::new(
                 2,
-                itn_rewards().into_iter().map(|(_, b)| b + (1 * POLY)).sum(),
+                itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
                 REWARDS_LOCK_HASH,
             ),
             BridgeLockId::generate_bridge_locks(3, 20, DEV_KEYS, KEY_LOCK_HASH),
@@ -1280,6 +1308,7 @@ pub mod ci {
             ChainType::Local,
             local_genesis,
             boot_nodes,
+            None,
             None,
             None,
             Some(polymath_props(42)),

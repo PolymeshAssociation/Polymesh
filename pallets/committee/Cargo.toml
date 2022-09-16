@@ -2,7 +2,7 @@
 name = "pallet-committee"
 version = "0.1.0"
 authors = ["Polymath"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 polymesh-common-utilities = { path = "../common", default-features = false  }
@@ -15,19 +15,20 @@ serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false }
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-sp-core = { version = "3.0.0", default-features = false }
-sp-std = { version = "3.0.0", default-features = false }
-sp-io = { version = "3.0.0", default-features = false }
-sp-runtime = { version = "3.0.0", default-features = false }
-sp-version = { version = "3.0.0", default-features = false }
-sp-api = { version = "3.0.0", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.0", default-features = false, features = ["derive"] }
+sp-core = { version = "6.0.0", default-features = false }
+sp-std = { version = "4.0.0", default-features = false }
+sp-io = { version = "6.0.0", default-features = false }
+sp-runtime = { version = "6.0.0", default-features = false }
+sp-version = { version = "5.0.0", default-features = false }
+sp-api = { version = "4.0.0-dev", default-features = false }
 
-frame-system = { version = "3.0.0", default-features = false }
-frame-support = { version = "3.0.0", default-features = false }
-pallet-timestamp = { version = "3.0.0", default-features = false }
+frame-system = { version = "4.0.0-dev", default-features = false }
+frame-support = { version = "4.0.0-dev", default-features = false }
+pallet-timestamp = { version = "4.0.0-dev", default-features = false }
 
-frame-benchmarking = { version = "3.0.0", default-features = false, optional = true }
+frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
 
 [features]
 equalize = []

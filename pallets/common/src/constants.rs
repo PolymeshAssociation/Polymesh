@@ -1,9 +1,10 @@
-use sp_runtime::ModuleId;
+use frame_support::PalletId;
+
 /// Money matters.
 pub mod currency {
     use polymesh_primitives::Balance;
-    // TODO: Define proper units. These are placeholders.
     pub const POLY: Balance = 1_000_000;
+    pub const ONE_POLY: Balance = POLY;
     pub const DOLLARS: Balance = POLY;
     pub const CENTS: Balance = DOLLARS / 100;
     pub const MILLICENTS: Balance = CENTS / 1_000;
@@ -69,7 +70,6 @@ pub const ERC1400_INVALID_OPERATOR: u8 = 0x58;
 pub const INVALID_SENDER_DID: u8 = 0xa0;
 pub const INVALID_RECEIVER_DID: u8 = 0xa1;
 pub const COMPLIANCE_MANAGER_FAILURE: u8 = 0xa2;
-pub const SMART_EXTENSION_FAILURE: u8 = 0xa3;
 pub const INVALID_GRANULARITY: u8 = 0xa4;
 pub const APP_TX_VOLUME_LIMIT_REACHED: u8 = 0xa5;
 pub const APP_BLOCKED_TX: u8 = 0xa6;
@@ -84,14 +84,14 @@ pub const TRANSFER_MANAGER_FAILURE: u8 = 0xac;
 pub const PIP_MAX_REPORTING_SIZE: usize = 1024;
 
 /// Module ids, used for deriving sovereign account IDs for modules.
-pub const TREASURY_MODULE_ID: ModuleId = ModuleId(*b"pm/trsry");
-pub const BRR_MODULE_ID: ModuleId = ModuleId(*b"pm/blrwr");
-pub const GC_MODULE_ID: ModuleId = ModuleId(*b"pm/govcm");
-pub const CDD_MODULE_ID: ModuleId = ModuleId(*b"pm/cusdd");
-pub const SETTLEMENT_MODULE_ID: ModuleId = ModuleId(*b"pm/setmn");
-pub const CLASSIC_MIGRATION_MODULE_ID: ModuleId = ModuleId(*b"pm/ehmig");
-pub const FIAT_TICKERS_RESERVATION_MODULE_ID: ModuleId = ModuleId(*b"pm/ftres");
-pub const REWARDS_MODULE_ID: ModuleId = ModuleId(*b"pm/rewrd");
+pub const TREASURY_PALLET_ID: PalletId = PalletId(*b"pm/trsry");
+pub const BRR_PALLET_ID: PalletId = PalletId(*b"pm/blrwr");
+pub const GC_PALLET_ID: PalletId = PalletId(*b"pm/govcm");
+pub const CDD_PALLET_ID: PalletId = PalletId(*b"pm/cusdd");
+pub const SETTLEMENT_PALLET_ID: PalletId = PalletId(*b"pm/setmn");
+pub const CLASSIC_MIGRATION_PALLET_ID: PalletId = PalletId(*b"pm/ehmig");
+pub const FIAT_TICKERS_RESERVATION_PALLET_ID: PalletId = PalletId(*b"pm/ftres");
+pub const REWARDS_PALLET_ID: PalletId = PalletId(*b"pm/rewrd");
 
 /// Base module constants
 pub const ENSURED_MAX_LEN: u32 = 2048;

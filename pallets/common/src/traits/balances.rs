@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -26,15 +26,17 @@ use frame_support::{
 };
 use polymesh_primitives::{Balance, IdentityId};
 use polymesh_primitives_derive::SliceU8StrongTyped;
+use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 use sp_std::ops::BitOr;
 
-#[derive(Encode, Default, Decode, Clone, PartialEq, Eq, PartialOrd, Ord, SliceU8StrongTyped)]
+#[derive(Encode, Decode, TypeInfo, SliceU8StrongTyped)]
+#[derive(Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Memo(pub [u8; 32]);
 
 // POLYMESH-NOTE: Make `AccountData` public to access it from the outside module.
 /// All balance information for an account.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Default, RuntimeDebug)]
 pub struct AccountData {
     /// Non-reserved part of the balance. There may still be restrictions on this, but it is the
     /// total pool what may in principle be transferred, reserved and used for tipping.
@@ -78,7 +80,8 @@ impl AccountData {
 }
 
 /// Simplified reasons for withdrawing balance.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[allow(clippy::unnecessary_cast)]
 pub enum Reasons {
     /// Paying system transaction fees.
     Fee = 0,

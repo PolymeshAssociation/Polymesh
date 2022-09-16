@@ -2,7 +2,7 @@
 name = "pallet-test-utils"
 version = "0.1.0"
 authors = ["Polymath"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 polymesh-primitives = { path = "../../primitives", default-features = false }
@@ -16,24 +16,24 @@ serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }
 
 # Crypto
-confidential_identity = { git = "https://github.com/PolymathNetwork/cryptography.git", default-features = false, tag = "confidential-identity-v1.1.3" }
+confidential_identity_v1 = { version = "1.0.0", default-features = false }
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-sp-std = { version = "3.0.0", default-features = false }
-
-frame-system = { version = "3.0.0", default-features = false }
-frame-support = { version = "3.0.0", default-features = false }
-frame-benchmarking = { version = "3.0.0", default-features = false, optional = true }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+sp-std = { version = "4.0.0", default-features = false }
+scale-info = { version = "2.0", default-features = false, features = ["derive"] }
+frame-system = { version = "4.0.0-dev", default-features = false }
+frame-support = { version = "4.0.0-dev", default-features = false }
+frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
 
 
 [features]
 default = ["std"]
 running-ci = []
-no_std = ["confidential_identity/no_std"]
+no_std = ["confidential_identity_v1/no_std"]
 std = [
     "codec/std",
-    "confidential_identity/std",
+    "confidential_identity_v1/std",
     "serde/std",
     "serde_derive",
     "sp-std/std",

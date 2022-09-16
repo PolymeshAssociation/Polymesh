@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -14,6 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use sp_std::{
     convert::{TryFrom, TryInto},
     ops::Deref,
@@ -21,7 +22,7 @@ use sp_std::{
 };
 
 /// A wrapper for a document hash.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Encode, Decode)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Encode, Decode, TypeInfo)]
 pub enum DocumentHash {
     /// No hash
     None,
@@ -48,6 +49,12 @@ impl DocumentHash {
     #[inline]
     pub fn len(&self) -> usize {
         self.as_ref().len()
+    }
+
+    /// Returns `true` if the hash is `None`.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        matches!(self, Self::None)
     }
 }
 impl Default for DocumentHash {

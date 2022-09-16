@@ -36,12 +36,12 @@ use sp_arithmetic::Permill;
 use std::convert::TryInto;
 use test_client::AccountKeyring;
 
-type System = frame_system::Module<TestStorage>;
+type System = frame_system::Pallet<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::Origin;
 type Asset = pallet_asset::Module<TestStorage>;
 type AssetError = pallet_asset::Error<TestStorage>;
 type ExternalAgents = pallet_external_agents::Module<TestStorage>;
-type Timestamp = pallet_timestamp::Module<TestStorage>;
+type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
 type Authorizations = pallet_identity::Authorizations<TestStorage>;
 type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
@@ -253,6 +253,7 @@ fn only_caa_authorized() {
         transfer(&ticker, owner, other);
 
         let currency = create_asset(b"BETA", owner);
+        transfer(&currency, owner, caa);
 
         macro_rules! checks {
             ($user:expr, $assert:ident $(, $tail:expr)?) => {
@@ -301,7 +302,7 @@ fn only_caa_authorized() {
                 // ..., `distribute`,
                 let id = next_ca_id(ticker);
                 $assert!(mk_ca(CAKind::UnpredictableBenefit) $(, $tail)?);
-                $assert!(Dist::distribute($user.origin(), id, None, currency, 0, 0, 3000, None) $(, $tail)?);
+                $assert!(Dist::distribute($user.origin(), id, None, currency, 1, 1, 3000, None) $(, $tail)?);
                 // ..., and `remove_distribution`.
                 $assert!(Dist::remove_distribution($user.origin(), id) $(, $tail)?);
             };
@@ -340,9 +341,9 @@ fn only_caa_authorized() {
 fn only_owner_caa_invite() {
     test(|ticker, [_, caa, other]| {
         let auth_id = add_caa_auth(ticker, other, caa);
-        assert_noop!(
+        assert_eq!(
             ExternalAgents::accept_become_agent(caa.origin(), auth_id),
-            EAError::UnauthorizedAgent
+            Err(EAError::UnauthorizedAgent.into())
         );
     });
 }
@@ -837,7 +838,7 @@ fn remove_ca_works() {
                 None,
                 currency,
                 2,
-                0,
+                2,
                 3000,
                 None,
             ));
@@ -851,8 +852,8 @@ fn remove_ca_works() {
                 from: PortfolioId::default_portfolio(owner.did),
                 currency,
                 per_share: 2,
-                amount: 0,
-                remaining: 0,
+                amount: 2,
+                remaining: 2,
                 reclaimed: false,
                 payment_at: 3000,
                 expires_at: None,
@@ -1013,8 +1014,8 @@ fn change_record_date_works() {
             id,
             None,
             create_asset(b"BETA", owner),
-            0,
-            0,
+            1,
+            2,
             5000,
             None,
         ));
@@ -1756,7 +1757,7 @@ fn dist_distribute_works() {
         // Test no CA at id.
         let id = next_ca_id(ticker);
         assert_noop!(
-            Dist::distribute(owner.origin(), id, None, currency, 0, 0, 1, None),
+            Dist::distribute(owner.origin(), id, None, currency, 1, 1, 1, None),
             Error::NoSuchCA
         );
 
@@ -1765,34 +1766,53 @@ fn dist_distribute_works() {
         Timestamp::set_timestamp(2);
         let id2 = dist_ca(owner, ticker, Some(2)).unwrap();
 
-        // Test same-asset logic.
-        assert_noop!(
-            Dist::distribute(owner.origin(), id2, None, ticker, 0, 0, 0, None),
-            DistError::DistributingAsset
-        );
+        // Test same-asset.
+        let id3 = dist_ca(owner, ticker, Some(2)).unwrap();
+        assert_ok!(Dist::distribute(
+            owner.origin(),
+            id3,
+            None,
+            ticker,
+            1,
+            1,
+            5,
+            None
+        ));
 
         // Test expiry.
         for &(pay, expiry) in &[(5, 5), (6, 5)] {
             assert_noop!(
-                Dist::distribute(owner.origin(), id2, None, currency, 0, 0, pay, Some(expiry)),
+                Dist::distribute(owner.origin(), id2, None, currency, 1, 1, pay, Some(expiry)),
                 DistError::ExpiryBeforePayment
             );
         }
         Timestamp::set_timestamp(5);
+
+        // Test `amount == 0`.
+        assert_noop!(
+            Dist::distribute(owner.origin(), id2, None, currency, 1, 0, 5, Some(6)),
+            DistError::DistributionAmountIsZero
+        );
+        // Test `per_share == 0`.
+        assert_noop!(
+            Dist::distribute(owner.origin(), id2, None, currency, 0, 1, 5, Some(6)),
+            DistError::DistributionPerShareIsZero
+        );
+
         assert_ok!(Dist::distribute(
             owner.origin(),
             id2,
             None,
             currency,
-            0,
-            0,
+            1,
+            1,
             5,
             Some(6)
         ));
 
         // Distribution already exists.
         assert_noop!(
-            Dist::distribute(owner.origin(), id2, None, currency, 0, 0, 5, None),
+            Dist::distribute(owner.origin(), id2, None, currency, 1, 1, 5, None),
             DistError::AlreadyExists
         );
 
@@ -1802,8 +1822,8 @@ fn dist_distribute_works() {
             id1,
             None,
             currency,
-            0,
-            0,
+            1,
+            1,
             4,
             None
         ));
@@ -1812,14 +1832,14 @@ fn dist_distribute_works() {
         let id = dist_ca(owner, ticker, Some(5)).unwrap();
         let num = PortfolioNumber(42);
         assert_noop!(
-            Dist::distribute(owner.origin(), id, Some(num), currency, 0, 0, 5, None),
+            Dist::distribute(owner.origin(), id, Some(num), currency, 1, 1, 5, None),
             PError::PortfolioDoesNotExist
         );
 
         // No custody over portfolio.
         let custody =
             |who: User| Custodian::insert(PortfolioId::default_portfolio(owner.did), who.did);
-        let dist = |id| Dist::distribute(owner.origin(), id, None, currency, 0, 0, 6, None);
+        let dist = |id| Dist::distribute(owner.origin(), id, None, currency, 1, 1, 6, None);
         custody(other);
         assert_noop!(dist(id), PError::UnauthorizedCustodian);
         custody(owner);
@@ -1841,7 +1861,7 @@ fn dist_distribute_works() {
 
         // Record date after start.
         let dist =
-            |id, start| Dist::distribute(owner.origin(), id, None, currency, 0, 0, start, None);
+            |id, start| Dist::distribute(owner.origin(), id, None, currency, 1, 1, start, None);
         let id = dist_ca(owner, ticker, Some(5000)).unwrap();
         assert_noop!(dist(id, 4999), Error::RecordDateAfterStart);
         assert_ok!(dist(id, 5000));
@@ -1888,8 +1908,8 @@ fn dist_remove_works() {
             id,
             None,
             create_asset(b"BETA", owner),
-            0,
-            0,
+            1,
+            1,
             5,
             Some(6)
         ));
@@ -1926,7 +1946,7 @@ fn dist_reclaim_works() {
             id,
             None,
             currency,
-            0,
+            1,
             AMOUNT,
             5,
             Some(6)
@@ -1998,8 +2018,8 @@ fn dist_claim_misc_bad() {
             id,
             None,
             create_asset(b"BETA", owner),
-            0,
-            0,
+            1,
+            1,
             5,
             Some(6)
         ));
@@ -2028,8 +2048,8 @@ fn dist_claim_not_targeted() {
                 id,
                 None,
                 currency,
-                0,
-                0,
+                1,
+                1,
                 1,
                 None,
             ));
@@ -2070,7 +2090,7 @@ fn dist_claim_works() {
         CorporateActions::mutate(ticker, id.local_id, |ca| {
             let ca = ca.as_mut().unwrap();
             ca.default_withholding_tax = P25;
-            ca.withholding_tax = vec![(bar.did, Tax::from_rational_approximation(1u32, 3u32))];
+            ca.withholding_tax = vec![(bar.did, Tax::from_rational(1u32, 3u32))];
         });
 
         // Ensures that holder cannot claim or be pushed to again.
@@ -2202,7 +2222,7 @@ fn dist_claim_no_remaining() {
         // One has sufficient tokens but we'll claim from the other.
         // Previously, this would cause `remaining -= benefit` underflow.
         mk_dist(1_000_000);
-        let id = mk_dist(0);
+        let id = mk_dist(1);
 
         Timestamp::set_timestamp(5);
         assert_noop!(

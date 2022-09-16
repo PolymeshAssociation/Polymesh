@@ -4,10 +4,10 @@ name = "node-testing"
 version = "2.0.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 description = "Test utilities for Substrate node."
-edition = "2018"
+edition = "2021"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage = "https://substrate.dev"
-repository = "https://github.com/PolymathNetwork/substrate/"
+repository = "https://github.com/PolymeshAssociation/substrate/"
 publish = true
 
 [package.metadata.docs.rs]
@@ -23,32 +23,32 @@ pallet-staking = { path = "../../pallets/staking" }
 pallet-balances = { path = "../../pallets/balances" }
 node-executor = { path = "../executor", features = ["wasmtime"] }
 
-sc-service = { version = "0.9.0", features = ["test-helpers", "db", "wasmtime"] }
-sc-client-db = { version = "0.9.0", features = ["kvdb-rocksdb", "parity-db"] }
-sc-client-api = { version = "3.0.0" }
-codec = { package = "parity-scale-codec", version = "2.0.0" }
-#pallet-contracts = { version = "3.0.0" }
-pallet-grandpa = { version = "3.0.0" }
-pallet-indices = { version = "3.0.0" }
-sp-keyring = { version = "3.0.0" }
-sp-core = { version = "3.0.0" }
-sp-io = { version = "3.0.0" }
-frame-support = { version = "3.0.0" }
-pallet-session = { version = "3.0.0" }
-sp-runtime = { version = "3.0.0" }
-sc-executor = { version = "0.9.0", features = ["wasmtime"] }
-sp-consensus = { version = "0.9.0" }
-frame-system = { version = "3.0.0" }
-substrate-test-client = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymath-3.0.0" }
-pallet-timestamp = { version = "3.0.0" }
-pallet-treasury = { version = "3.0.0" }
+sc-service = { version = "0.10.0-dev", features = ["test-helpers", "db", "wasmtime"] }
+sc-client-db = { version = "0.10.0-dev", features = ["kvdb-rocksdb", "parity-db"] }
+sc-client-api = { version = "4.0.0-dev" }
+codec = { package = "parity-scale-codec", version = "3.0.0" }
+#pallet-contracts = { version = "4.0.0-dev" }
+pallet-grandpa = { version = "4.0.0-dev" }
+pallet-indices = { version = "4.0.0-dev" }
+sp-keyring = { version = "6.0.0" }
+sp-core = { version = "6.0.0" }
+sp-io = { version = "6.0.0" }
+frame-support = { version = "4.0.0-dev" }
+pallet-session = { version = "4.0.0-dev" }
+sp-runtime = { version = "6.0.0" }
+sc-executor = { version = "0.10.0-dev", features = ["wasmtime"] }
+sp-consensus = { version = "0.10.0-dev" }
+frame-system = { version = "4.0.0-dev" }
+substrate-test-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05" }
+pallet-timestamp = { version = "4.0.0-dev" }
+pallet-treasury = { version = "4.0.0-dev" }
 wabt = "0.10.0"
-sp-api = { version = "3.0.0" }
-sp-timestamp = { version = "3.0.0", default-features = false }
-sp-block-builder = { version = "3.0.0" }
-sc-block-builder = { version = "0.9.0" }
-sp-inherents = { version = "3.0.0" }
-sp-blockchain = { version = "3.0.0" }
+sp-api = { version = "4.0.0-dev" }
+sp-timestamp = { version = "4.0.0-dev", default-features = false }
+sp-block-builder = { version = "4.0.0-dev" }
+sc-block-builder = { version = "0.10.0-dev" }
+sp-inherents = { version = "4.0.0-dev" }
+sp-blockchain = { version = "4.0.0-dev" }
 log = "0.4.8"
 tempfile = "3.1.0"
 fs_extra = "1"
@@ -56,4 +56,4 @@ futures = "0.3.1"
 
 [dev-dependencies]
 criterion = "0.3.0"
-sc-cli = { version = "0.9.0", features = ["wasmtime"] }
+sc-cli = { version = "0.10.0-dev", features = ["wasmtime"] }

@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -24,6 +24,7 @@ use frame_support::{
     traits::{ChangeMembers, EnsureOrigin, InitializeMembers},
     weights::Weight,
 };
+use scale_info::TypeInfo;
 use sp_std::{
     cmp::{Eq, Ordering, PartialEq},
     vec::Vec,
@@ -32,7 +33,7 @@ use sp_std::{
 /// The number of group members.
 pub type MemberCount = u32;
 
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, TypeInfo, Default, Clone, PartialEq, Eq, Debug)]
 pub struct InactiveMember<Moment> {
     pub id: IdentityId,
     pub deactivated_at: Moment,

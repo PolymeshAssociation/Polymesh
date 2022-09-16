@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -20,6 +20,7 @@ use core::str;
 use polymesh_primitives_derive::VecU8StrongTyped;
 #[cfg(feature = "std")]
 use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongTyped};
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::traits::Printable;
@@ -33,7 +34,7 @@ const UUID_LEN: usize = 32usize;
 /// The record to initialize an identity in the chain spec.
 #[derive(Default, Clone)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-pub struct GenesisIdentityRecord<AccountId: Encode + Decode> {
+pub struct GenesisIdentityRecord<AccountId> {
     /// Identity primary key.
     pub primary_key: AccountId,
     /// Secondary keys with permissions.
@@ -73,7 +74,8 @@ impl GenesisIdentityRecord<AccountId> {
 ///  - "did:poly:ab01"
 ///  - "did:poly:1"
 ///  - "DID:poly:..."
-#[derive(Encode, Decode, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Hash)]
 #[cfg_attr(
     feature = "std",
     derive(SerializeU8StrongTyped, DeserializeU8StrongTyped)
@@ -181,7 +183,7 @@ impl TryFrom<&[u8]> for IdentityId {
         if did.len() <= UUID_LEN {
             // case where a 256 bit hash is being converted
             let mut fixed = [0; 32];
-            fixed[(UUID_LEN - did.len())..].copy_from_slice(&did);
+            fixed[(UUID_LEN - did.len())..].copy_from_slice(did);
             Ok(Self(fixed))
         } else {
             // case where a string represented as u8 is being converted
@@ -213,14 +215,14 @@ impl Printable for IdentityId {
 
 /// A wrapper for a portfolio name. It is used for non-default (aka "user") portfolios only since
 /// default ones are nameless.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
+#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PortfolioName(pub Vec<u8>);
 
 /// The unique ID of a non-default portfolio.
-#[derive(Decode, Encode, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PortfolioNumber(pub u64);
 
@@ -237,7 +239,8 @@ impl From<u64> for PortfolioNumber {
 }
 
 /// TBD
-#[derive(Decode, Encode, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum PortfolioKind {
     /// The default portfolio of a DID.
@@ -261,7 +264,8 @@ impl From<Option<PortfolioNumber>> for PortfolioKind {
 }
 
 /// The ID of a portfolio.
-#[derive(Decode, Encode, Clone, Copy, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PortfolioId {
     /// The DID of the portfolio.

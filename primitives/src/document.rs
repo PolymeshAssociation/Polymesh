@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -17,39 +17,38 @@
 use crate::{DocumentHash, Moment};
 use codec::{Decode, Encode};
 use polymesh_primitives_derive::VecU8StrongTyped;
+use scale_info::TypeInfo;
 use sp_std::prelude::Vec;
 
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
 /// The local, per-ticker, ID of an asset documentation.
-#[derive(Decode, Encode, Copy, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Copy, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DocumentId(pub u32);
 
 /// A wrapper for a document name.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
+#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DocumentName(pub Vec<u8>);
 
 /// A wrapper for a document URI.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
+#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DocumentUri(pub Vec<u8>);
 
 /// A wrapper for a document's type.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
+#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DocumentType(pub Vec<u8>);
 
 /// Represents a document associated with an asset
-#[derive(Decode, Encode, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Decode, Encode, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Document {
     /// An URI where more details can be discovered.

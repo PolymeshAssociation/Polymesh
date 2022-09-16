@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -57,6 +57,7 @@ pub use polymesh_common_utilities::traits::relayer::{
 use polymesh_primitives::{
     extract_auth, AuthorizationData, Balance, IdentityId, Signatory, TransactionError,
 };
+use scale_info::TypeInfo;
 use sp_runtime::transaction_validity::InvalidTransaction;
 
 type Identity<T> = pallet_identity::Module<T>;
@@ -65,7 +66,8 @@ type Identity<T> = pallet_identity::Module<T>;
 ///
 /// This holds the subsidiser's paying key and the remaining POLYX balance
 /// available for subsidising transaction and protocol fees.
-#[derive(Encode, Decode, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Subsidy<Acc> {
     /// The subsidiser's paying key.
     pub paying_key: Acc,
@@ -125,7 +127,7 @@ decl_module! {
         /// - `AuthorizationError::Expired` if `auth_id` the authorization has expired.
         /// - `AuthorizationError::BadType` if `auth_id` was not a `AddRelayerPayingKey` authorization.
         /// - `NotAuthorizedForUserKey` if `origin` is not authorized to accept the authorization for the `user_key`.
-        /// - `NotAuthorizedForPayingKey` if the authorization was created by a signer that isn't authorized by the `paying_key`.
+        /// - `NotAuthorizedForPayingKey` if the authorization was created an identity different from the `paying_key`'s identity.
         /// - `UserKeyCddMissing` if the `user_key` is not attached to a CDD'd identity.
         /// - `PayingKeyCddMissing` if the `paying_key` is not attached to a CDD'd identity.
         /// - `UnauthorizedCaller` if `origin` is not authorized to call this extrinsic.
@@ -236,14 +238,17 @@ impl<T: Config> Module<T> {
     }
 
     fn base_accept_paying_key(origin: T::Origin, auth_id: u64) -> DispatchResult {
-        let user_key = ensure_signed(origin)?;
+        let caller_key = ensure_signed(origin)?;
         let user_did =
-            <Identity<T>>::get_identity(&user_key).ok_or(Error::<T>::UserKeyCddMissing)?;
-        let signer = Signatory::Account(user_key);
+            <Identity<T>>::get_identity(&caller_key).ok_or(Error::<T>::UserKeyCddMissing)?;
+        let signer = Signatory::Account(caller_key.clone());
 
         <Identity<T>>::accept_auth_with(&signer, auth_id, |data, auth_by| -> DispatchResult {
             let (user_key, paying_key, polyx_limit) =
                 extract_auth!(data, AddRelayerPayingKey(user_key, paying_key, polyx_limit));
+
+            // Allow: `origin == user_key`.
+            ensure!(user_key == caller_key, Error::<T>::NotAuthorizedForUserKey);
 
             Self::auth_accept_paying_key(
                 user_did,

@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -15,8 +15,7 @@
 
 use crate::*;
 
-use confidential_identity::mocked::make_investor_uid as make_investor_uid_v2;
-use confidential_identity_v1::mocked::make_investor_uid as make_investor_uid_v1;
+use confidential_identity_v2::mocked::make_investor_uid;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 use polymesh_common_utilities::{
@@ -25,8 +24,10 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     investor_zkproof_data::{v1, v2},
-    AuthorizationData, Claim, CountryCode, IdentityId, InvestorUid, Permissions, Scope, ScopeId,
-    SecondaryKey, Signatory,
+    secondary_key::DispatchableNames,
+    AssetPermissions, AuthorizationData, Claim, CountryCode, DispatchableName,
+    ExtrinsicPermissions, IdentityId, InvestorUid, PalletName, PalletPermissions, Permissions,
+    PortfolioId, PortfolioNumber, PortfolioPermissions, Scope, ScopeId, SecondaryKey, Signatory,
 };
 use sp_core::H512;
 use sp_std::prelude::*;
@@ -56,7 +57,7 @@ where
     let investor_uid = make_investor_uid(did.as_bytes());
     let cdd_id = make_cdd_id(did, investor_uid.clone());
     let cdd_claim = Claim::CustomerDueDiligence(cdd_id.clone());
-    Module::<T>::base_add_claim(did, cdd_claim, GC_DID, None);
+    Module::<T>::unverified_add_claim_with_scope(did, cdd_claim, None, GC_DID, None);
 
     // Create the scope.
     let ticker = Ticker::default();
@@ -76,7 +77,7 @@ where
 {
     setup_investor_uniqueness_claim_common::<T, _, _, _, _, _, _>(
         name,
-        |raw_did| make_investor_uid_v2(raw_did).into(),
+        |raw_did| make_investor_uid(raw_did).into(),
         CddId::new_v2,
         v2::InvestorZKProofData::make_scope_id,
         |_scope, _scope_id, cdd_id| Claim::InvestorUniquenessV2(cdd_id),
@@ -110,7 +111,7 @@ where
 
     setup_investor_uniqueness_claim_common::<T, _, _, _, _, _, _>(
         name,
-        |raw_did| make_investor_uid_v1(raw_did).into(),
+        |raw_did| make_investor_uid(raw_did).into(),
         CddId::new_v1,
         v1::InvestorZKProofData::make_scope_id,
         |scope, scope_id, cdd_id| Claim::InvestorUniqueness(scope, scope_id, cdd_id),
@@ -122,7 +123,7 @@ pub fn generate_secondary_keys<T: Config>(n: usize) -> Vec<SecondaryKey<T::Accou
     let mut secondary_keys = Vec::with_capacity(n);
     for x in 0..n {
         secondary_keys.push(SecondaryKey {
-            signer: Signatory::Account(account("key", x as u32, SEED)),
+            key: account("key", x as u32, SEED),
             ..Default::default()
         });
     }
@@ -132,11 +133,19 @@ pub fn generate_secondary_keys<T: Config>(n: usize) -> Vec<SecondaryKey<T::Accou
 #[cfg(feature = "running-ci")]
 mod limits {
     pub const MAX_SECONDARY_KEYS: u32 = 2;
+    pub const MAX_ASSETS: u32 = 4;
+    pub const MAX_PORTFOLIOS: u32 = 4;
+    pub const MAX_PALLETS: u32 = 4;
+    pub const MAX_EXTRINSICS: u32 = 4;
 }
 
 #[cfg(not(feature = "running-ci"))]
 mod limits {
-    pub const MAX_SECONDARY_KEYS: u32 = 100;
+    pub const MAX_SECONDARY_KEYS: u32 = 200;
+    pub const MAX_ASSETS: u32 = 1000;
+    pub const MAX_PORTFOLIOS: u32 = 1000;
+    pub const MAX_PALLETS: u32 = 100;
+    pub const MAX_EXTRINSICS: u32 = 100;
 }
 
 use limits::*;
@@ -171,7 +180,7 @@ benchmarks! {
         let mut signatories = Vec::with_capacity(i as usize);
         for x in 0..i {
             let key: T::AccountId = account("key", x, SEED);
-            signatories.push(Signatory::Account(key.clone()));
+            signatories.push(key.clone());
             Module::<T>::unsafe_join_identity(target.did(), Permissions::default(), key);
         }
     }: _(target.origin, signatories.clone())
@@ -198,6 +207,29 @@ benchmarks! {
             None,
         );
     }: _(new_key.origin, owner_auth_id, Some(cdd_auth_id))
+
+    rotate_primary_key_to_secondary {
+        let cdd = cdd_provider::<T>("cdd", 0);
+        let target = user::<T>("target", 0);
+        let new_key = UserBuilder::<T>::default().build("key");
+        let signatory = Signatory::Account(new_key.account());
+
+        let cdd_auth_id =  Module::<T>::add_auth(
+            cdd.did(), signatory.clone(),
+            AuthorizationData::AttestPrimaryKeyRotation(target.did()),
+            None,
+        );
+        let rotate_auth_id =  Module::<T>::add_auth(
+            target.did(), signatory.clone(),
+            AuthorizationData::RotatePrimaryKeyToSecondary(Permissions::default()),
+            None,
+        );
+        Module::<T>::change_cdd_requirement_for_mk_rotation(
+            RawOrigin::Root.into(),
+            true
+        ).unwrap();
+
+    }: _(new_key.origin, rotate_auth_id, Some(cdd_auth_id))
 
     change_cdd_requirement_for_mk_rotation {
         assert!(
@@ -241,7 +273,7 @@ benchmarks! {
     }: _(key.origin())
     verify {
         assert!(
-            !KeyToIdentityIds::<T>::contains_key(key.account),
+            !KeyRecords::<T>::contains_key(key.account),
             "Key was not removed from its identity"
         );
     }
@@ -264,13 +296,72 @@ benchmarks! {
         Module::<T>::add_investor_uniqueness_claim_v2(caller.origin.clone().into(), caller.did(), scope.clone(), claim, proof.0, Some(666u32.into())).unwrap();
     }: _(caller.origin, caller.did(), claim_type, Some(scope))
 
-    set_permission_to_signer {
+    set_secondary_key_permissions {
         let target = user::<T>("target", 0);
         let key = UserBuilder::<T>::default().build("key");
-        let signatory = Signatory::Account(key.account());
+        let account_id = key.account();
 
-        Module::<T>::unsafe_join_identity(target.did(), Permissions::empty(), key.account());
-    }: _(target.origin, signatory, Permissions::default().into())
+        Module::<T>::unsafe_join_identity(target.did(), Permissions::empty(), account_id.clone());
+    }: _(target.origin, account_id, Permissions::default().into())
+
+    // Benchmark the memory/cpu complexity of Permissions.
+    permissions_cost {
+        // Number of assets/portfolios/pallets/extrinsics.
+        let a in 0 .. MAX_ASSETS; // a=(A)ssets
+        let p in 0 .. MAX_PORTFOLIOS; // p=(P)ortfolios
+        let l in 0 .. MAX_PALLETS; // l=pa(L)lets
+        let e in 0 .. MAX_EXTRINSICS; // e=(E)xtrinsics
+        // When the benchmarks run for parameter `e` (number of extrinsics)
+        // it will use `l == MAX_PALLETS`.  `e` will be the number of
+        // extrinsics per pallet.  So the total number of extrinsics in
+        // the `Permissions` will be `MAX_PALLETS * e`.
+        //
+        // When calculating the weight of a `Permissions` value in a
+        // transaction, we use the total number of extrinsics in the
+        // permissions.  This is to make sure that the worst-case cost
+        // is covered.
+
+        let asset = AssetPermissions::elems(
+            (0..a as u64).map(Ticker::generate_into)
+        );
+        let portfolio = PortfolioPermissions::elems(
+            (0..p as u128).map(|did| {
+                PortfolioId::user_portfolio(did.into(), PortfolioNumber(0))
+            })
+        );
+        let dispatchable_names = DispatchableNames::elems(
+            (0..e as u64).map(|e| {
+                DispatchableName(Ticker::generate(e))
+            })
+        );
+        let extrinsic = ExtrinsicPermissions::elems(
+            (0..l as u64).map(|p| {
+                PalletPermissions {
+                    pallet_name: PalletName(Ticker::generate(p)),
+                    dispatchable_names: dispatchable_names.clone(),
+                }
+            })
+        );
+
+        let permissions = Permissions {
+            asset,
+            extrinsic,
+            portfolio
+        };
+    }: {
+        // For this benchmark we need to do some "work" based on
+        // how complex the permissions object is.
+
+        // 1. Encode the Permissions value.
+        let encoded = permissions.encode();
+        // 2. Decode the Permissions value.
+        let decoded = Permissions::decode(&mut encoded.as_slice())
+            .expect("This shouldn't fail since we just encoded a Permissions value.");
+        // 3. Compare the original and decoded values.  This will touch the full value.
+        if !permissions.eq(&decoded) {
+            panic!("This shouldn't fail.");
+        }
+    }
 
     freeze_secondary_keys {
         let caller = user::<T>("caller", 0);
@@ -328,4 +419,16 @@ benchmarks! {
     add_investor_uniqueness_claim_v2 {
         let (caller, scope, claim, proof) = setup_investor_uniqueness_claim_v2::<T>("caller");
     }: _(caller.origin, caller.did(), scope, claim, proof.0, Some(666u32.into()))
+
+    register_custom_claim_type {
+        let n in 1 .. T::MaxLen::get() as u32;
+
+        let id = Module::<T>::custom_claim_id_seq();
+        let caller = user::<T>("caller", 0);
+        let ty = vec![b'X'; n as usize];
+    }: _(caller.origin, ty)
+    verify {
+        assert_ne!(id, Module::<T>::custom_claim_id_seq());
+    }
+
 }

@@ -107,8 +107,24 @@ fn can_create_rename_delete_portfolio() {
             PortfolioNumber(2)
         );
         assert_eq!(name(), new_name);
-        assert!(!NameToNumber::contains_key(owner.did, name()));
+        assert!(NameToNumber::contains_key(owner.did, name()));
         assert_ok!(Portfolio::delete_portfolio(owner.origin(), num));
+    });
+}
+
+#[test]
+fn can_delete_recreate_portfolio() {
+    ExtBuilder::default().build().execute_with(|| {
+        let (owner, num) = create_portfolio();
+
+        let name = || Portfolio::portfolios(owner.did, num);
+        let num_of = |name| Portfolio::name_to_number(owner.did, name);
+
+        let first_name = name();
+        assert_eq!(num_of(&first_name), num);
+
+        assert_ok!(Portfolio::delete_portfolio(owner.origin(), num));
+        assert_ok!(Portfolio::create_portfolio(owner.origin(), first_name));
     });
 }
 
@@ -136,7 +152,7 @@ fn cannot_delete_portfolio_with_asset() {
         ));
         // check MovedBetweenPortfolios event
         assert_last_event!(
-            EventTest::pallet_portfolio(Event::MovedBetweenPortfolios(
+            EventTest::Portfolio(Event::MovedBetweenPortfolios(
                 did, from, to, i_ticker, i_amount, i_memo
             )),
             did == &owner.did
@@ -301,7 +317,7 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
     ));
     // check MovedBetweenPortfolios event
     assert_last_event!(
-        EventTest::pallet_portfolio(Event::MovedBetweenPortfolios(
+        EventTest::Portfolio(Event::MovedBetweenPortfolios(
             did, from, to, i_ticker, i_amount, i_memo
         )),
         did == &owner.did
@@ -487,9 +503,9 @@ fn can_take_custody_of_portfolios() {
         };
 
         let auth_id = add_auth(bob, bob);
-        assert_noop!(
+        assert_eq!(
             Portfolio::accept_portfolio_custody(bob.origin(), auth_id),
-            AuthorizationError::Unauthorized
+            Err(AuthorizationError::Unauthorized.into())
         );
 
         // Can not accept an invalid auth
@@ -526,9 +542,9 @@ fn can_take_custody_of_portfolios() {
 
         // Owner can not issue authorization for custody transfer of a portfolio they don't have custody of
         let auth_id = add_auth(owner, owner);
-        assert_noop!(
+        assert_eq!(
             Portfolio::accept_portfolio_custody(owner.origin(), auth_id),
-            AuthorizationError::Unauthorized
+            Err(AuthorizationError::Unauthorized.into())
         );
 
         // Bob transfers portfolio custody back to Alice.

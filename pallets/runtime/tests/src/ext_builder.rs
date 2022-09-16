@@ -1,5 +1,5 @@
 use crate::TestStorage;
-use confidential_identity::mocked::make_investor_uid as make_investor_uid_v2;
+use confidential_identity_v1::mocked::make_investor_uid;
 use pallet_asset::{self as asset, TickerRegistrationConfig};
 use pallet_balances as balances;
 use pallet_bridge::BridgeTx;
@@ -11,13 +11,30 @@ use polymesh_common_utilities::{
     constants::currency::POLY, protocol_fee::ProtocolOp, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, AccountId, Identity, IdentityId,
-    PosRatio, Signatory,
+    cdd_id::InvestorUid, identity_id::GenesisIdentityRecord, AccountId, IdentityId, PosRatio,
+    SecondaryKey, Signatory,
 };
 use sp_io::TestExternalities;
-use sp_runtime::{Perbill, Storage};
+use sp_runtime::Storage;
+use sp_std::prelude::Vec;
 use sp_std::{cell::RefCell, convert::From, iter};
 use test_client::AccountKeyring;
+
+/// Identity information.
+#[derive(Default, Clone, PartialEq, Debug)]
+pub struct IdentityRecord {
+    primary_key: AccountId,
+    secondary_keys: Vec<SecondaryKey<AccountId>>,
+}
+
+impl IdentityRecord {
+    pub fn new(primary_key: AccountId, secondary_keys: Vec<SecondaryKey<AccountId>>) -> Self {
+        Self {
+            primary_key,
+            secondary_keys,
+        }
+    }
+}
 
 /// A prime number fee to test the split between multiple recipients.
 pub const PROTOCOL_OP_BASE_FEE: u128 = 41;
@@ -106,22 +123,13 @@ pub struct ExtBuilder {
     governance_committee_members: Vec<AccountId>,
     governance_committee_vote_threshold: BuilderVoteThreshold,
     /// Regular users. Their DID will be generated.
-    regular_users: Vec<Identity<AccountId>>,
+    regular_users: Vec<IdentityRecord>,
 
     protocol_base_fees: MockProtocolBaseFees,
     protocol_coefficient: PosRatio,
-    /// Percentage fee share of a network (treasury + validators) in instantiation fee
-    /// of a smart extension.
-    network_fee_share: Perbill,
-    /// Maximum number of transfer manager an asset can have.
-    max_no_of_tm_allowed: u32,
     /// The minimum duration for a checkpoint period, in seconds.
     min_checkpoint_duration: u64,
     adjust: Option<Box<dyn FnOnce(&mut Storage)>>,
-    /*
-    /// Enable `put_code` in contracts pallet
-    enable_contracts_put_code: bool,
-    */
     /// Bridge configuration
     bridge: BridgeConfig,
 }
@@ -130,8 +138,6 @@ thread_local! {
     pub static EXTRINSIC_BASE_WEIGHT: RefCell<u64> = RefCell::new(0);
     pub static TRANSACTION_BYTE_FEE: RefCell<u128> = RefCell::new(0);
     pub static WEIGHT_TO_FEE: RefCell<u128> = RefCell::new(0);
-    pub static NETWORK_FEE_SHARE: RefCell<Perbill> = RefCell::new(Perbill::from_percent(0));
-    pub static MAX_NO_OF_TM_ALLOWED: RefCell<u32> = RefCell::new(0);
 }
 
 impl ExtBuilder {
@@ -209,7 +215,7 @@ impl ExtBuilder {
     }
 
     /// Adds DID to `users` accounts.
-    pub fn add_regular_users(mut self, users: &[Identity<AccountId>]) -> Self {
+    pub fn add_regular_users(mut self, users: &[IdentityRecord]) -> Self {
         self.regular_users.extend_from_slice(users);
         self
     }
@@ -217,16 +223,13 @@ impl ExtBuilder {
     pub fn add_regular_users_from_accounts(mut self, accounts: &[AccountId]) -> Self {
         let identities = accounts
             .iter()
-            .map(|acc: &AccountId| Identity::new(acc.clone()))
+            .map(|acc: &AccountId| IdentityRecord {
+                primary_key: acc.clone(),
+                ..Default::default()
+            })
             .collect::<Vec<_>>();
 
         self.regular_users.extend(identities);
-        self
-    }
-
-    /// Set maximum of tms allowed for an asset
-    pub fn set_max_tms_allowed(mut self, tm_count: u32) -> Self {
-        self.max_no_of_tm_allowed = tm_count;
         self
     }
 
@@ -240,26 +243,11 @@ impl ExtBuilder {
         self
     }
 
-    /// Assigning the fee share in the instantiation fee
-    pub fn network_fee_share(mut self, share: Perbill) -> Self {
-        self.network_fee_share = share;
-        self
-    }
-
     /// Provide a closure `with` to run on the storage for final adjustments.
     pub fn adjust(mut self, with: Box<dyn FnOnce(&mut Storage)>) -> Self {
         self.adjust = Some(with);
         self
     }
-
-    /*
-    /// Enables `contracts::put_code` at genesis if `enable` is `true`.
-    /// By default, it is disabled.
-    pub fn set_contracts_put_code(mut self, enable: bool) -> Self {
-        self.enable_contracts_put_code = enable;
-        self
-    }
-    */
 
     pub fn set_bridge_complete_tx(mut self, txs: Vec<BridgeTx<AccountId>>) -> Self {
         self.bridge.complete_txs = txs;
@@ -296,8 +284,6 @@ impl ExtBuilder {
         EXTRINSIC_BASE_WEIGHT.with(|v| *v.borrow_mut() = self.extrinsic_base_weight);
         TRANSACTION_BYTE_FEE.with(|v| *v.borrow_mut() = self.transaction_byte_fee);
         WEIGHT_TO_FEE.with(|v| *v.borrow_mut() = self.weight_to_fee);
-        NETWORK_FEE_SHARE.with(|v| *v.borrow_mut() = self.network_fee_share);
-        MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow_mut() = self.max_no_of_tm_allowed);
     }
 
     fn make_balances(&self) -> Vec<(AccountId, u128)> {
@@ -341,7 +327,7 @@ impl ExtBuilder {
             .map(|(idx, primary_key)| {
                 let did_index = (idx + offset + 1) as u128;
                 let did = IdentityId::from(did_index);
-                let investor: InvestorUid = make_investor_uid_v2(did.as_bytes()).into();
+                let investor: InvestorUid = make_investor_uid(did.as_bytes()).into();
 
                 GenesisIdentityRecord {
                     primary_key,
@@ -412,13 +398,6 @@ impl ExtBuilder {
             registration_length: Some(10000),
         };
         asset::GenesisConfig::<TestStorage> {
-            /*
-            versions: vec![
-                (SmartExtensionType::TransferManager, 5000),
-                (SmartExtensionType::Offerings, 5000),
-                (SmartExtensionType::SmartWallet, 5000),
-            ],
-            */
             classic_migration_tickers: vec![],
             classic_migration_contract_did: IdentityId::from(1),
             classic_migration_tconfig: ticker_registration_config.clone(),
@@ -507,17 +486,6 @@ impl ExtBuilder {
         .assimilate_storage(storage)
         .unwrap();
     }
-
-    /*
-    fn build_contracts_genesis(&self, storage: &mut Storage) {
-        polymesh_contracts::GenesisConfig {
-            enable_put_code: self.enable_contracts_put_code,
-            ..Default::default()
-        }
-        .assimilate_storage(storage)
-        .unwrap();
-    }
-    */
 
     fn build_bridge_genesis(&self, storage: &mut Storage) {
         pallet_bridge::GenesisConfig::<TestStorage> {

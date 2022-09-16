@@ -1,6 +1,5 @@
 use crate::{
-    //contract_test::{create_se_template, flipper},
-    ext_builder::{ExtBuilder, MockProtocolBaseFees},
+    ext_builder::{ExtBuilder, IdentityRecord, MockProtocolBaseFees},
     pips_test::assert_balance,
     storage::{
         add_secondary_key, make_account_without_cdd, provide_scope_claim,
@@ -41,6 +40,7 @@ use polymesh_primitives::{
     calendar::{
         CalendarPeriod, CalendarUnit, CheckpointId, CheckpointSchedule, FixedOrVariableCalendarUnit,
     },
+    statistics::StatType,
     AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document,
     DocumentId, IdentityId, InvestorUid, Moment, Permissions, PortfolioId, PortfolioName,
     SecondaryKey, Signatory, Ticker,
@@ -57,9 +57,8 @@ use test_client::AccountKeyring;
 type BaseError = pallet_base::Error<TestStorage>;
 type Identity = identity::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
-//type Contracts = pallet_contracts::Module<TestStorage>;
 type Asset = asset::Module<TestStorage>;
-type Timestamp = pallet_timestamp::Module<TestStorage>;
+type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
 type AssetError = asset::Error<TestStorage>;
@@ -68,7 +67,7 @@ type Origin = <TestStorage as frame_system::Config>::Origin;
 type DidRecords = identity::DidRecords<TestStorage>;
 type Statistics = statistics::Module<TestStorage>;
 type AssetGenesis = asset::GenesisConfig<TestStorage>;
-type System = frame_system::Module<TestStorage>;
+type System = frame_system::Pallet<TestStorage>;
 type ExternalAgents = pallet_external_agents::Module<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;
 type FeeError = pallet_protocol_fee::Error<TestStorage>;
@@ -141,6 +140,7 @@ fn asset_with_ids(
         None,
         false,
     )?;
+    enable_investor_count(ticker, owner);
     Asset::issue(owner.origin(), ticker, token.total_supply)?;
     assert_eq!(Asset::balance_of(&ticker, owner.did), token.total_supply);
     Ok(())
@@ -165,18 +165,13 @@ crate fn allow_all_transfers(ticker: Ticker, owner: User) {
     ));
 }
 
-/*
-fn setup_se_template(creator: User, create_instance: bool) -> AccountId {
-    let (code_hash, wasm) = flipper();
-
-    // Create SE template and instantiate with empty salt.
-    if create_instance {
-        create_se_template(creator.acc(), creator.did, 0, code_hash, wasm);
-    }
-
-    Contracts::contract_address(&creator.acc(), &code_hash, &[])
+fn enable_investor_count(ticker: Ticker, owner: User) {
+    assert_ok!(Statistics::set_active_asset_stats(
+        owner.origin(),
+        ticker.into(),
+        [StatType::investor_count()].iter().cloned().collect(),
+    ));
 }
-*/
 
 crate fn transfer(ticker: Ticker, from: User, to: User, amount: u128) -> DispatchResult {
     Asset::base_transfer(
@@ -198,7 +193,7 @@ const TOTAL_SUPPLY: u128 = 1_000_000_000u128;
 /// Generates a new portfolio for `owner` using the given `name`.
 fn new_portfolio(owner: AccountId, name: &str) -> PortfolioId {
     let portfolio_name = PortfolioName::from(name);
-    let did = Identity::key_to_identity_dids(owner.clone());
+    let did = Identity::get_identity(&owner).expect("User missing identity");
 
     Portfolio::create_portfolio(Origin::signed(owner), portfolio_name.clone())
         .expect("New portfolio cannot be created");
@@ -255,6 +250,7 @@ fn issuers_can_create_and_rename_tokens() {
             Some(funding_round_name.clone()),
             false,
         ));
+        enable_investor_count(ticker, owner);
 
         let issue = |supply| Asset::issue(owner.origin(), ticker, supply);
         assert_noop!(
@@ -553,9 +549,9 @@ fn transfer_ticker() {
             AssetOwnershipRelation::TickerOwned
         );
 
-        assert_noop!(
+        assert_eq!(
             Asset::accept_ticker_transfer(bob.origin(), auth_id_bob),
-            "Illegal use of Authorization"
+            Err("Illegal use of Authorization".into()),
         );
 
         let add_auth = |auth, expiry| {
@@ -572,9 +568,9 @@ fn transfer_ticker() {
         // Try accepting the wrong authorization type.
         let auth_id = add_auth(AuthorizationData::RotatePrimaryKey, now() + 100);
 
-        assert_noop!(
+        assert_eq!(
             Asset::accept_ticker_transfer(bob.origin(), auth_id),
-            AuthorizationError::BadType
+            Err(AuthorizationError::BadType.into()),
         );
 
         let auth_id = add_auth(AuthorizationData::TransferTicker(ticker), now() + 100);
@@ -693,9 +689,9 @@ fn transfer_token_ownership() {
             AgentGroup::Full
         ));
         assert_ok!(ExternalAgents::abdicate(owner.origin(), ticker));
-        assert_noop!(
+        assert_eq!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id_bob),
-            EAError::UnauthorizedAgent
+            Err(EAError::UnauthorizedAgent.into())
         );
 
         let mut auth_id = Identity::add_auth(
@@ -718,9 +714,9 @@ fn transfer_token_ownership() {
             Some(now() + 100),
         );
 
-        assert_noop!(
+        assert_eq!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id),
-            AuthorizationError::BadType
+            Err(AuthorizationError::BadType.into())
         );
 
         auth_id = Identity::add_auth(
@@ -730,9 +726,9 @@ fn transfer_token_ownership() {
             Some(now() + 100),
         );
 
-        assert_noop!(
+        assert_eq!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id),
-            AssetError::NoSuchAsset
+            Err(AssetError::NoSuchAsset.into())
         );
 
         auth_id = Identity::add_auth(
@@ -837,182 +833,6 @@ fn adding_removing_documents() {
         assert_eq!(asset::AssetDocuments::iter_prefix_values(ticker).count(), 0);
     });
 }
-
-/*
-fn add_smart_ext(
-    owner: User,
-    ticker: Ticker,
-    ty: SmartExtensionType,
-) -> (AccountId, SmartExtension<AccountId>) {
-    let id = setup_se_template(owner, true);
-    let details = SmartExtension {
-        extension_type: ty.clone(),
-        extension_name: b"EXT".into(),
-        extension_id: id.clone(),
-        is_archive: false,
-    };
-    assert_ok!(Asset::add_extension(
-        owner.origin(),
-        ticker,
-        details.clone(),
-    ));
-    assert_eq!(Asset::extension_details((ticker, id.clone())), details);
-    assert_eq!(Asset::extensions((ticker, ty)), [id.clone()]);
-    (id, details)
-}
-
-#[track_caller]
-fn smart_ext_test(logic: impl FnOnce(User, Ticker)) {
-    ExtBuilder::default()
-        .set_max_tms_allowed(10)
-        .set_contracts_put_code(true)
-        .build()
-        .execute_with(|| {
-            let owner = User::new(AccountKeyring::Dave);
-            let (ticker, token) = a_token(owner.did);
-            assert!(!has_ticker_record(ticker));
-            assert_ok!(asset_with_ids(owner, ticker, &token, vec![cusip()]));
-            logic(owner, ticker)
-        });
-}
-
-#[test]
-fn add_extension_limited() {
-    smart_ext_test(|owner, ticker| {
-        let id = setup_se_template(owner, true);
-        let add_ext = |ty: &Vec<u8>, name: &Vec<u8>| {
-            let details = SmartExtension {
-                extension_type: SmartExtensionType::Custom(ty.clone().into()),
-                extension_name: name.clone().into(),
-                extension_id: id.clone().into(),
-                is_archive: false,
-            };
-            Asset::add_extension(owner.origin(), ticker.clone(), details)
-        };
-        let id: Vec<u8> = max_len_bytes(0);
-        let invalid_id: Vec<u8> = max_len_bytes(1);
-
-        assert_too_long!(add_ext(&invalid_id, &id));
-        assert_too_long!(add_ext(&id, &invalid_id));
-        pallet_asset::CompatibleSmartExtVersion::insert(
-            SmartExtensionType::Custom(id.clone().into()),
-            5000,
-        );
-        assert_ok!(add_ext(&id, &id));
-    });
-}
-
-#[test]
-fn add_extension_successfully() {
-    smart_ext_test(|owner, ticker| {
-        add_smart_ext(owner, ticker, SmartExtensionType::TransferManager);
-    });
-}
-
-#[test]
-fn add_same_extension_should_fail() {
-    smart_ext_test(|owner, ticker| {
-        // Add it.
-        let (_, details) = add_smart_ext(owner, ticker, SmartExtensionType::TransferManager);
-
-        // And again, unsuccessfully.
-        assert_noop!(
-            Asset::add_extension(owner.origin(), ticker, details),
-            AssetError::ExtensionAlreadyPresent
-        );
-    });
-}
-
-#[test]
-fn should_successfully_archive_extension() {
-    smart_ext_test(|owner, ticker| {
-        // Add it.
-        let (id, _) = add_smart_ext(owner, ticker, SmartExtensionType::Offerings);
-
-        // Archive it.
-        assert_ok!(Asset::archive_extension(owner.origin(), ticker, id.clone()));
-        assert_eq!(Asset::extension_details((ticker, id)).is_archive, true);
-    });
-}
-
-#[test]
-fn should_fail_to_archive_an_already_archived_extension() {
-    smart_ext_test(|owner, ticker| {
-        // Add it.
-        let (id, _) = add_smart_ext(owner, ticker, SmartExtensionType::Offerings);
-
-        // Archive it.
-        let archive = || Asset::archive_extension(owner.origin(), ticker, id.clone());
-        assert_ok!(archive());
-        assert_eq!(
-            Asset::extension_details((ticker, id.clone())).is_archive,
-            true
-        );
-
-        // And again, unsuccessfully.
-        assert_noop!(archive(), AssetError::AlreadyArchived);
-    });
-}
-
-#[test]
-fn should_fail_to_archive_a_non_existent_extension() {
-    smart_ext_test(|owner, ticker| {
-        // Archive that which doesn't exist.
-        assert_noop!(
-            Asset::archive_extension(owner.origin(), ticker, AccountKeyring::Bob.to_account_id()),
-            AssetError::NoSuchSmartExtension
-        );
-    });
-}
-
-#[test]
-fn should_successfully_unarchive_an_extension() {
-    smart_ext_test(|owner, ticker| {
-        // Add it.
-        let (id, _) = add_smart_ext(owner, ticker, SmartExtensionType::Offerings);
-
-        // Archive it.
-        let is_archive = || Asset::extension_details((ticker, id.clone())).is_archive;
-        let archive = || {
-            assert_ok!(Asset::archive_extension(owner.origin(), ticker, id.clone()));
-            assert_eq!(is_archive(), true);
-        };
-        archive();
-
-        // Unarchive it.
-        assert_ok!(Asset::unarchive_extension(
-            owner.origin(),
-            ticker,
-            id.clone()
-        ));
-        assert_eq!(is_archive(), false);
-
-        // Roundtrip.
-        archive();
-    });
-}
-
-#[test]
-fn should_fail_to_unarchive_an_already_unarchived_extension() {
-    smart_ext_test(|owner, ticker| {
-        // Add it.
-        let (id, _) = add_smart_ext(owner, ticker, SmartExtensionType::Offerings);
-
-        // Archive it.
-        assert_ok!(Asset::archive_extension(owner.origin(), ticker, id.clone()));
-        let is_archive = || Asset::extension_details((ticker, id.clone())).is_archive;
-        assert_eq!(is_archive(), true);
-
-        // Unarchive it.
-        let unarchive = || Asset::unarchive_extension(owner.origin(), ticker, id.clone());
-        assert_ok!(unarchive());
-        assert_eq!(is_archive(), false);
-
-        // And again, unsuccessfully.
-        assert_noop!(unarchive(), AssetError::AlreadyUnArchived);
-    });
-}
-*/
 
 #[test]
 fn freeze_unfreeze_asset() {
@@ -1220,25 +1040,6 @@ fn test_can_transfer_rpc() {
             );
         })
 }
-
-/*
-#[test]
-fn check_functionality_of_remove_extension() {
-    smart_ext_test(|owner, ticker| {
-        // Add it.
-        let ty = SmartExtensionType::TransferManager;
-        let (id, _) = add_smart_ext(owner, ticker, ty.clone());
-
-        // Remove it
-        let remove = || Asset::remove_smart_extension(owner.origin(), ticker, id.clone());
-        assert_ok!(remove());
-        assert_eq!(Asset::extensions((ticker, ty)), vec![]);
-
-        // Remove it again => error.
-        assert_noop!(remove(), AssetError::NoSuchSmartExtension);
-    });
-}
-*/
 
 // Classic token tests:
 
@@ -1725,7 +1526,7 @@ fn classic_ticker_claim_works() {
                 [
                     ..,
                     frame_system::EventRecord {
-                        event: super::storage::EventTest::pallet_asset(
+                        event: super::storage::EventTest::Asset(
                             pallet_asset::RawEvent::ClassicTickerClaimed(..)
                         ),
                         ..
@@ -1807,7 +1608,6 @@ fn generate_uid(entity_name: String) -> InvestorUid {
 fn check_unique_investor_count() {
     let cdd_provider = AccountKeyring::Charlie.to_account_id();
     ExtBuilder::default()
-        .set_max_tms_allowed(5)
         .cdd_providers(vec![cdd_provider.clone()])
         .build()
         .execute_with(|| {
@@ -1833,7 +1633,7 @@ fn check_unique_investor_count() {
             // Verify the balance of the alice and the investor count for the asset.
             assert_eq!(Asset::balance_of(&ticker, alice.did), total_supply); // It should be equal to total supply.
                                                                              // Alice act as the unique investor but not on the basis of ScopeId as alice doesn't posses the claim yet.
-            assert_eq!(Statistics::investor_count(&ticker), 1);
+            assert_eq!(Statistics::investor_count(ticker), 1);
             assert!(!ScopeIdOf::contains_key(&ticker, alice.did));
 
             // 1. Transfer some funds to bob_1.did.
@@ -1878,7 +1678,7 @@ fn check_unique_investor_count() {
             assert_eq!(Asset::aggregate_balance_of(&ticker, &bob_scope_id), 1000);
             assert_eq!(Asset::balance_of_at_scope(&bob_scope_id, &bob_1.did), 1000);
             assert_eq!(Asset::balance_of(&ticker, &bob_1.did), 1000);
-            assert_eq!(Statistics::investor_count(&ticker), 2);
+            assert_eq!(Statistics::investor_count(ticker), 2);
 
             // validate the storage changes for Alice.
             assert_eq!(
@@ -1890,7 +1690,7 @@ fn check_unique_investor_count() {
                 total_supply - 1000
             );
             assert_eq!(Asset::balance_of(&ticker, &alice.did), total_supply - 1000);
-            assert_eq!(Statistics::investor_count(&ticker), 2);
+            assert_eq!(Statistics::investor_count(ticker), 2);
 
             // Provide scope claim to bob_2.did
             provide_scope_claim(bob_2.did, ticker, bob_uid, cdd_provider, None).0;
@@ -1902,7 +1702,7 @@ fn check_unique_investor_count() {
             assert_eq!(Asset::aggregate_balance_of(&ticker, &bob_scope_id), 2000);
             assert_eq!(Asset::balance_of_at_scope(&bob_scope_id, &bob_2.did), 1000);
             assert_eq!(Asset::balance_of(&ticker, &bob_2.did), 1000);
-            assert_eq!(Statistics::investor_count(&ticker), 2);
+            assert_eq!(Statistics::investor_count(ticker), 2);
         });
 }
 
@@ -2184,22 +1984,19 @@ fn secondary_key_not_authorized_for_asset_test() {
 
     let secondary_keys = vec![
         SecondaryKey {
-            signer: Signatory::Account(not.to_account_id()),
+            key: not.to_account_id(),
             permissions: Permissions {
                 asset: AssetPermissions::elems(invalid_tickers),
                 ..Default::default()
             },
         },
         SecondaryKey {
-            signer: Signatory::Account(all.to_account_id()),
+            key: all.to_account_id(),
             permissions: Permissions::default(),
         },
     ];
 
-    let owner = polymesh_primitives::Identity {
-        primary_key: owner.to_account_id(),
-        secondary_keys,
-    };
+    let owner = IdentityRecord::new(owner.to_account_id(), secondary_keys);
 
     ExtBuilder::default()
         .add_regular_users(&[owner])
@@ -2236,10 +2033,9 @@ fn invalid_ticker_registry_test() {
             (&b"YOUR"[..], false),
         ]
         .iter()
-        .map(|(name, exp)| (Ticker::try_from(name.as_ref()).unwrap(), exp))
+        .map(|(name, exp)| ((*name).try_into().unwrap(), exp))
         .for_each(|(ticker, exp)| {
-            let valid = Asset::is_ticker_registry_valid(&ticker, owner.did);
-            assert_eq!(*exp, valid)
+            assert_eq!(*exp, Asset::is_ticker_registry_valid(&ticker, owner.did))
         });
     });
 }
@@ -2391,6 +2187,23 @@ fn asset_type_custom_works() {
         // Set G to max. Next registration fails.
         CustomTypeIdSequence::put(CustomAssetTypeId(u32::MAX));
         assert_noop!(register("qux"), BaseError::CounterOverflow);
+    });
+}
+
+#[test]
+fn invalid_custom_asset_type_check() {
+    ExtBuilder::default().build().execute_with(|| {
+        let owner = User::new(AccountKeyring::Dave);
+
+        // Create ticker.
+        let (ticker, mut token) = a_token(owner.did);
+
+        let invalid_id = CustomAssetTypeId(1_000_000);
+        token.asset_type = AssetType::Custom(invalid_id);
+        assert_noop!(
+            basic_asset(owner, ticker, &token),
+            AssetError::InvalidCustomAssetTypeId
+        );
     });
 }
 

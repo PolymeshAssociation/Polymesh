@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -45,7 +45,7 @@ where
 {
     let bytes: [u8; 4] = n.to_be_bytes();
     let padding = bytes.repeat(PROPOSAL_PADDING_WORDS);
-    let proposal = frame_system::Call::<T>::remark(padding).into();
+    let proposal = frame_system::Call::<T>::remark { remark: padding }.into();
     let hash = <T as frame_system::Config>::Hashing::hash_of(&proposal);
     (proposal, hash)
 }
@@ -138,7 +138,7 @@ benchmarks_instance! {
         let n = 1;
         let d = 2;
         let origin = T::CommitteeOrigin::successful_origin();
-        let call = Call::<T, I>::set_vote_threshold(n, d);
+        let call = Call::<T, I>::set_vote_threshold { n, d };
     }: {
         call.dispatch_bypass_filter(origin).unwrap();
     }
@@ -154,7 +154,7 @@ benchmarks_instance! {
         let coordinator = dids.last().unwrap().clone();
         Module::<T, I>::change_members_sorted(&dids, &[], &dids);
         let origin = T::CommitteeOrigin::successful_origin();
-        let call = Call::<T, I>::set_release_coordinator(coordinator);
+        let call = Call::<T, I>::set_release_coordinator { id: coordinator };
     }: {
         call.dispatch_bypass_filter(origin).unwrap();
     }
@@ -168,7 +168,7 @@ benchmarks_instance! {
     set_expires_after {
         let maybe_block = MaybeBlock::Some(1u32.into());
         let origin = T::CommitteeOrigin::successful_origin();
-        let call = Call::<T, I>::set_expires_after(maybe_block);
+        let call = Call::<T, I>::set_expires_after { expiry: maybe_block };
     }: {
         call.dispatch_bypass_filter(origin).unwrap();
     }

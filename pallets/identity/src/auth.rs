@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -14,8 +14,8 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    AuthorizationType, Authorizations, AuthorizationsGiven, Config, Error, KeyToIdentityIds,
-    Module, MultiPurposeNonce, RawEvent,
+    AuthorizationType, Authorizations, AuthorizationsGiven, Config, Error, KeyRecords, Module,
+    MultiPurposeNonce, RawEvent,
 };
 use frame_support::dispatch::DispatchResult;
 use frame_support::{ensure, StorageDoubleMap, StorageMap, StorageValue};
@@ -36,7 +36,9 @@ impl<T: Config> Module<T> {
         expiry: Option<T::Moment>,
     ) -> Result<u64, DispatchError> {
         let from_did = Self::ensure_perms(origin)?;
-        if let AuthorizationData::JoinIdentity(perms) = &authorization_data {
+        if let AuthorizationData::JoinIdentity(perms)
+        | AuthorizationData::RotatePrimaryKeyToSecondary(perms) = &authorization_data
+        {
             Self::ensure_perms_length_limited(perms)?;
         }
         Ok(Self::add_auth(from_did, target, authorization_data, expiry))
@@ -57,6 +59,7 @@ impl<T: Config> Module<T> {
             authorized_by: from,
             expiry,
             auth_id: new_nonce,
+            count: 50,
         };
 
         <Authorizations<T>>::insert(target.clone(), new_nonce, auth);
@@ -82,7 +85,7 @@ impl<T: Config> Module<T> {
         auth_id: u64,
     ) -> DispatchResult {
         let sender = ensure_signed(origin)?;
-        let from_did = if <KeyToIdentityIds<T>>::contains_key(&sender) {
+        let from_did = if <KeyRecords<T>>::contains_key(&sender) {
             // If the sender is linked to an identity, ensure that it has relevant permissions
             pallet_permissions::Module::<T>::ensure_call_permissions(&sender)?.primary_did
         } else {
@@ -123,9 +126,9 @@ impl<T: Config> Module<T> {
     crate fn auths_of(
         signer: &Signatory<T::AccountId>,
         did: IdentityId,
-    ) -> impl Iterator<Item = (&Signatory<T::AccountId>, u64)> {
+    ) -> impl Iterator<Item = u64> {
         <Authorizations<T>>::iter_prefix_values(signer)
-            .filter_map(move |auth| (auth.authorized_by == did).then_some((signer, auth.auth_id)))
+            .filter_map(move |auth| (auth.authorized_by == did).then_some(auth.auth_id))
     }
 
     /// Use to get the filtered authorization data for a given signatory
@@ -137,7 +140,7 @@ impl<T: Config> Module<T> {
         allow_expired: bool,
         auth_type: Option<AuthorizationType>,
     ) -> Vec<Authorization<T::AccountId, T::Moment>> {
-        let now = <pallet_timestamp::Module<T>>::get();
+        let now = <pallet_timestamp::Pallet<T>>::get();
         let auths = <Authorizations<T>>::iter_prefix_values(signatory)
             .filter(|auth| allow_expired || auth.expiry.filter(|&e| e < now).is_none());
         if let Some(auth_type) = auth_type {
@@ -156,7 +159,7 @@ impl<T: Config> Module<T> {
     ) -> Option<Authorization<T::AccountId, T::Moment>> {
         Self::authorizations(target, *auth_id).filter(|auth| {
             auth.expiry
-                .filter(|&expiry| <pallet_timestamp::Module<T>>::get() > expiry)
+                .filter(|&expiry| <pallet_timestamp::Pallet<T>>::get() > expiry)
                 .is_none()
         })
     }
@@ -176,16 +179,38 @@ impl<T: Config> Module<T> {
         accepter: impl FnOnce(AuthorizationData<T::AccountId>, IdentityId) -> DispatchResult,
     ) -> DispatchResult {
         // Extract authorization.
-        let auth = Self::ensure_authorization(target, auth_id)?;
+        let mut auth = Self::ensure_authorization(target, auth_id)?;
 
         // Ensure that `auth.expiry`, if provided, is in the future.
         if let Some(expiry) = auth.expiry {
-            let now = <pallet_timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Pallet<T>>::get();
             ensure!(expiry > now, AuthorizationError::Expired);
         }
 
         // Run custom per-type validation and updates.
-        accepter(auth.authorization_data, auth.authorized_by)?;
+        let res = accepter(auth.authorization_data.clone(), auth.authorized_by);
+
+        if res.is_err() {
+            // decrement
+            auth.count = auth.count.saturating_sub(1);
+
+            // check if count is zero
+            if auth.count == 0 {
+                <Authorizations<T>>::remove(&target, auth_id);
+                <AuthorizationsGiven<T>>::remove(auth.authorized_by, auth_id);
+                Self::deposit_event(RawEvent::AuthorizationRetryLimitReached(
+                    target.as_identity().cloned(),
+                    target.as_account().cloned(),
+                    auth_id,
+                ));
+            } else {
+                // update authorization
+                <Authorizations<T>>::insert(&target, auth_id, auth);
+            }
+
+            // return error
+            return res;
+        }
 
         // Remove authorization from storage and emit event.
         <Authorizations<T>>::remove(&target, auth_id);

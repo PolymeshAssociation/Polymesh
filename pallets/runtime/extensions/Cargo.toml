@@ -2,7 +2,7 @@
 name = "polymesh-extensions"
 version = "0.1.0"
 authors = ["Polymath"]
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -14,11 +14,12 @@ pallet-transaction-payment = { path = "../../transaction-payment", default-featu
 pallet-permissions = { path = "../../permissions", default-features = false  }
 
 # Substrate
-frame-system = { version = "3.0.0", default-features = false }
-frame-support = { version = "3.0.0", default-features = false }
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-sp-runtime = { version = "3.0.0", default-features = false }
-sp-std = { version = "3.0.0", default-features = false }
+frame-system = { version = "4.0.0-dev", default-features = false }
+frame-support = { version = "4.0.0-dev", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.0", default-features = false, features = ["derive"] }
+sp-runtime = { version = "6.0.0", default-features = false }
+sp-std = { version = "4.0.0", default-features = false }
 
 [features]
 default = ["std"]
@@ -32,4 +33,3 @@ std = [
     "sp-runtime/std",
     "sp-std/std",
 ]
-

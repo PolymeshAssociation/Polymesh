@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -13,13 +13,17 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Claim1stKey, Claim2ndKey, Claims, DidRecords, Error, Module};
+use crate::{
+    Claim1stKey, Claim2ndKey, Claims, CustomClaimIdSequence, CustomClaims, CustomClaimsInverse,
+    DidRecords, Error, Event, Module,
+};
 use core::convert::From;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    ensure, fail, StorageDoubleMap, StorageMap,
+    ensure, fail, StorageDoubleMap, StorageMap, StorageValue,
 };
 use frame_system::ensure_root;
+use pallet_base::{ensure_string_limited, try_next_pre};
 pub use polymesh_common_utilities::traits::identity::WeightInfo;
 use polymesh_common_utilities::{
     protocol_fee::ProtocolOp,
@@ -30,6 +34,7 @@ use polymesh_common_utilities::{
     },
     SystematicIssuers, SYSTEMATIC_ISSUERS,
 };
+use polymesh_primitives::identity_claim::CustomClaimTypeId;
 use polymesh_primitives::{
     investor_zkproof_data::InvestorZKProofData as InvestorZKProof, valid_proof_of_investor, CddId,
     Claim, ClaimType, IdentityClaim, IdentityId, InvestorUid, Scope, ScopeId, SecondaryKey, Ticker,
@@ -65,7 +70,7 @@ impl<T: Config> Module<T> {
         issuer: IdentityId,
         scope: Option<Scope>,
     ) -> Option<IdentityClaim> {
-        let now = <pallet_timestamp::Module<T>>::get();
+        let now = <pallet_timestamp::Pallet<T>>::get();
 
         Self::fetch_base_claim_with_issuer(id, claim_type, issuer, scope)
             .into_iter()
@@ -112,7 +117,7 @@ impl<T: Config> Module<T> {
         leeway: T::Moment,
         filter_cdd_id: Option<CddId>,
     ) -> impl Iterator<Item = IdentityClaim> {
-        let exp_with_leeway = <pallet_timestamp::Module<T>>::get()
+        let exp_with_leeway = <pallet_timestamp::Pallet<T>>::get()
             .checked_add(&leeway)
             .unwrap_or_default();
 
@@ -203,13 +208,20 @@ impl<T: Config> Module<T> {
         claim: Claim,
         issuer: IdentityId,
         expiry: Option<T::Moment>,
-    ) {
+    ) -> DispatchResult {
         let inner_scope = claim.as_scope().cloned();
-        Self::base_add_claim_with_scope(target, claim, inner_scope, issuer, expiry)
+        if let ClaimType::Custom(id) = claim.claim_type() {
+            ensure!(
+                CustomClaims::contains_key(id),
+                Error::<T>::CustomClaimTypeDoesNotExist
+            );
+        }
+        Self::unverified_add_claim_with_scope(target, claim, inner_scope, issuer, expiry);
+        Ok(())
     }
 
     /// Adds claims with no inner scope.
-    fn base_add_claim_with_scope(
+    pub fn unverified_add_claim_with_scope(
         target: IdentityId,
         claim: Claim,
         scope: Option<Scope>,
@@ -217,7 +229,7 @@ impl<T: Config> Module<T> {
         expiry: Option<T::Moment>,
     ) {
         let claim_type = claim.claim_type();
-        let last_update_date = <pallet_timestamp::Module<T>>::get().saturated_into::<u64>();
+        let last_update_date = <pallet_timestamp::Pallet<T>>::get().saturated_into::<u64>();
         let issuance_date = Self::fetch_claim(target, claim_type, issuer, scope.clone())
             .map_or(last_update_date, |id_claim| id_claim.issuance_date);
 
@@ -261,8 +273,7 @@ impl<T: Config> Module<T> {
         // Ensure cdd_id uniqueness for a given target DID.
         Self::ensure_cdd_id_validness(&claim, target)?;
 
-        Self::base_add_claim(target, claim, issuer, expiry);
-        Ok(())
+        Self::base_add_claim(target, claim, issuer, expiry)
     }
 
     /// Enforce CDD_ID uniqueness for a given target DID.
@@ -303,7 +314,7 @@ impl<T: Config> Module<T> {
                     matches!(proof, InvestorZKProof::V1(..)),
                     Error::<T>::ClaimAndProofVersionsDoNotMatch
                 );
-                (scope, scope_id.clone(), cdd_id)
+                (scope, *scope_id, cdd_id)
             }
             Claim::InvestorUniquenessV2(cdd_id) => match proof {
                 InvestorZKProof::V2(inner_proof) => (
@@ -322,8 +333,8 @@ impl<T: Config> Module<T> {
     /// # Errors
     /// - 'ConfidentialScopeClaimNotAllowed` if :
     ///     - Sender is not the issuer. That claim can be only added by your-self.
-    ///     - You are not the owner of that CDD_ID.
     ///     - If claim is not valid.
+    /// - 'InvalidCDDId' if you are not the owner of that CDD_ID.
     ///
     crate fn base_add_investor_uniqueness_claim(
         origin: T::Origin,
@@ -348,7 +359,7 @@ impl<T: Config> Module<T> {
         // Verify the owner of that CDD_ID.
         ensure!(
             Self::base_fetch_cdd(target, T::Moment::zero(), Some(*cdd_id)).is_some(),
-            Error::<T>::ConfidentialScopeClaimNotAllowed
+            Error::<T>::InvalidCDDId
         );
 
         // Verify the confidential claim.
@@ -358,12 +369,15 @@ impl<T: Config> Module<T> {
         );
 
         if let Scope::Ticker(ticker) = scope {
+            // Ensure uniqueness claims are allowed.
+            T::AssetSubTraitTarget::ensure_investor_uniqueness_claims_allowed(ticker)?;
+
             // Update the balance of the IdentityId under the ScopeId provided in claim data.
             T::AssetSubTraitTarget::update_balance_of_scope_id(scope_id, target, *ticker);
         }
 
         let scope = Some(scope.clone());
-        Self::base_add_claim_with_scope(target, claim, scope, issuer, expiry);
+        Self::unverified_add_claim_with_scope(target, claim, scope, issuer, expiry);
         Ok(())
     }
 
@@ -414,7 +428,7 @@ impl<T: Config> Module<T> {
     ) -> Result<IdentityId, DispatchError> {
         let primary_did = Self::ensure_perms(origin)?;
         ensure!(
-            <DidRecords<T>>::contains_key(target),
+            DidRecords::<T>::contains_key(target),
             Error::<T>::DidMustAlreadyExist
         );
         Ok(primary_did)
@@ -478,6 +492,11 @@ impl<T: Config> Module<T> {
         // Sender has to be part of CDDProviders
         Self::ensure_authorized_cdd_provider(cdd_did)?;
 
+        // Check limit for the SK's permissions.
+        for sk in &secondary_keys {
+            Self::ensure_perms_length_limited(&sk.permissions)?;
+        }
+
         // Register Identity
         let target_did = Self::_register_did(
             target_account,
@@ -497,7 +516,7 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         ensure_root(origin)?;
 
-        let now = <pallet_timestamp::Module<T>>::get();
+        let now = <pallet_timestamp::Pallet<T>>::get();
         ensure!(
             T::CddServiceProviders::get_valid_members_at(now).contains(&cdd),
             Error::<T>::UnAuthorizedCddProvider
@@ -511,9 +530,9 @@ impl<T: Config> Module<T> {
     /// Adds systematic CDD claims.
     pub fn add_systematic_cdd_claims(targets: &[IdentityId], issuer: SystematicIssuers) {
         for new_member in targets {
-            let cdd_id = CddId::new_v1(new_member.clone(), InvestorUid::from(new_member.as_ref()));
+            let cdd_id = CddId::new_v1(*new_member, InvestorUid::from(new_member.as_ref()));
             let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
-            Self::base_add_claim(*new_member, cdd_claim, issuer.as_id(), None);
+            let _ = Self::base_add_claim(*new_member, cdd_claim, issuer.as_id(), None);
         }
     }
 
@@ -527,5 +546,25 @@ impl<T: Config> Module<T> {
                 None,
             );
         });
+    }
+
+    pub fn base_register_custom_claim_type(origin: T::Origin, ty: Vec<u8>) -> DispatchResult {
+        let did = Self::ensure_perms(origin)?;
+        let id = Self::unsafe_register_custom_claim_type(ty.clone())?;
+        Self::deposit_event(Event::<T>::CustomClaimTypeAdded(did, id, ty));
+        Ok(())
+    }
+
+    fn unsafe_register_custom_claim_type(ty: Vec<u8>) -> Result<CustomClaimTypeId, DispatchError> {
+        ensure_string_limited::<T>(&ty)?;
+        ensure!(
+            !CustomClaimsInverse::contains_key(&ty),
+            Error::<T>::CustomClaimTypeAlreadyExists
+        );
+
+        let id = CustomClaimIdSequence::try_mutate(try_next_pre::<T, _>)?;
+        CustomClaimsInverse::insert(&ty, id);
+        CustomClaims::insert(id, ty);
+        Ok(id)
     }
 }

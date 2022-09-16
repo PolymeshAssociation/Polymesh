@@ -58,7 +58,8 @@
         "CUSIP": "[u8; 9]",
         "CINS": "[u8; 9]",
         "ISIN": "[u8; 12]",
-        "LEI": "[u8; 20]"
+        "LEI": "[u8; 20]",
+        "FIGI": "[u8; 12]"
       }
     },
     "AssetOwnershipRelation": {
@@ -76,6 +77,33 @@
       "owner_did": "IdentityId",
       "divisible": "bool",
       "asset_type": "AssetType"
+    },
+    "AssetMetadataName": "Text",
+    "AssetMetadataValue": "Vec<u8>",
+    "AssetMetadataLocalKey": "u64",
+    "AssetMetadataGlobalKey": "u64",
+    "AssetMetadataKey": {
+      "_enum": {
+        "Global": "u64",
+        "Local": "u64"
+      }
+    },
+    "AssetMetadataLockStatus": {
+      "_enum": {
+        "Unlocked": "",
+        "Locked": "",
+        "LockedUntil": "Moment"
+      }
+    },
+    "AssetMetadataValueDetail": {
+      "expire": "Option<Moment>",
+      "lock_status": "AssetMetadataLockStatus"
+    },
+    "AssetMetadataDescription": "Text",
+    "AssetMetadataSpec": {
+      "url": "Option<Url>",
+      "description": "Option<AssetMetadataDescription>",
+      "type_def": "Option<Vec<u8>>"
     },
     "PalletName": "Text",
     "DispatchableName": "Text",
@@ -116,16 +144,6 @@
       "extrinsic": "ExtrinsicPermissions",
       "portfolio": "PortfolioPermissions"
     },
-    "LegacyPalletPermissions": {
-      "pallet_name": "PalletName",
-      "total": "bool",
-      "dispatchable_names": "Vec<DispatchableName>"
-    },
-    "LegacyPermissions": {
-      "asset": "Option<Vec<Ticker>>",
-      "extrinsic": "Option<Vec<LegacyPalletPermissions>>",
-      "portfolio": "Option<Vec<PortfolioId>>"
-    },
     "Signatory": {
       "_enum": {
         "Identity": "IdentityId",
@@ -133,12 +151,12 @@
       }
     },
     "SecondaryKey": {
-      "signer": "Signatory",
+      "key": "AccountId",
       "permissions": "Permissions"
     },
     "SecondaryKeyWithAuth": {
       "secondary_key": "SecondaryKey",
-      "auth_signature": "Signature"
+      "auth_signature": "H512"
     },
     "Subsidy": {
       "paying_key": "AccountId",
@@ -163,8 +181,14 @@
       "secondary_key": "SecondaryKey"
     },
     "DidRecord": {
-      "primary_key": "AccountId",
-      "secondary_keys": "Vec<SecondaryKey>"
+      "primary_key": "Option<AccountId>"
+    },
+    "KeyRecord": {
+      "_enum": {
+        "PrimaryKey": "IdentityId",
+        "SecondaryKey": "(IdentityId, Permissions)",
+        "MultiSigSignerKey": "AccountId"
+      }
     },
     "KeyIdentityData": {
       "identity": "IdentityId",
@@ -431,7 +455,7 @@
         "Custom": "Vec<u8>"
       }
     },
-    "InvestorZKProofData": "Signature",
+    "InvestorZKProofData": "[u8; 64]",
     "Scalar": "[u8; 32]",
     "RistrettoPoint": "[u8; 32]",
     "ZkProofData": {
@@ -641,7 +665,6 @@
     "Pip": {
       "id": "PipId",
       "proposal": "Call",
-      "state": "ProposalState",
       "proposer": "Proposer"
     },
     "ProposalData": {
@@ -650,13 +673,7 @@
         "Proposal": "Vec<u8>"
       }
     },
-    "OffChainSignature": {
-      "_enum": {
-        "Ed25519": "H512",
-        "Sr25519": "H512",
-        "Ecdsa": "H512"
-      }
-    },
+    "OffChainSignature": "MultiSignature",
     "Authorization": {
       "authorization_data": "AuthorizationData",
       "authorized_by": "IdentityId",
@@ -673,58 +690,71 @@
         "JoinIdentity": "Permissions",
         "PortfolioCustody": "PortfolioId",
         "BecomeAgent": "(Ticker, AgentGroup)",
-        "AddRelayerPayingKey": "(AccountId, AccountId, Balance)"
+        "AddRelayerPayingKey": "(AccountId, AccountId, Balance)",
+        "RotatePrimaryKeyToSecondary": "Permissions"
       }
-    },
-    "SmartExtensionType": {
-      "_enum": {
-        "TransferManager": "",
-        "Offerings": "",
-        "SmartWallet": "",
-        "Custom": "Vec<u8>"
-      }
-    },
-    "SmartExtensionName": "Text",
-    "SmartExtension": {
-      "extension_type": "SmartExtensionType",
-      "extension_name": "SmartExtensionName",
-      "extension_id": "AccountId",
-      "is_archive": "bool"
-    },
-    "MetaUrl": "Text",
-    "MetaDescription": "Text",
-    "MetaVersion": "u32",
-    "ExtVersion": "u32",
-    "TemplateMetadata": {
-      "url": "Option<MetaUrl>",
-      "se_type": "SmartExtensionType",
-      "usage_fee": "Balance",
-      "description": "MetaDescription",
-      "version": "MetaVersion"
-    },
-    "TemplateDetails": {
-      "instantiation_fee": "Balance",
-      "owner": "IdentityId",
-      "frozen": "bool"
     },
     "AuthorizationNonce": "u64",
-    "Counter": "u64",
     "Percentage": "Permill",
-    "TransferManager": {
-      "_enum": {
-        "CountTransferManager": "Counter",
-        "PercentageTransferManager": "Percentage"
-      }
-    },
     "RestrictionResult": {
       "_enum": ["Valid", "Invalid", "ForceValid"]
     },
-    "Memo": "[u8;32]",
+    "Memo": "[u8; 32]",
     "BridgeTx": {
       "nonce": "u32",
       "recipient": "AccountId",
       "amount": "Balance",
       "tx_hash": "H256"
+    },
+    "AssetScope": {
+      "_enum": {
+        "Ticker": "Ticker"
+      }
+    },
+    "StatOpType": {
+      "_enum": ["Count", "Balance"]
+    },
+    "StatType": {
+      "op": "StatOpType",
+      "claim_issuer": "Option<(ClaimType, IdentityId)>"
+    },
+    "StatClaim": {
+      "_enum": {
+        "Accredited": "bool",
+        "Affiliate": "bool",
+        "Jurisdiction": "Option<CountryCode>"
+      }
+    },
+    "Stat1stKey": {
+      "asset": "AssetScope",
+      "stat_type": "StatType"
+    },
+    "Stat2ndKey": {
+      "_enum": {
+        "NoClaimStat": "",
+        "Claim": "StatClaim"
+      }
+    },
+    "StatUpdate": {
+      "key2": "Stat2ndKey",
+      "value": "Option<u128>"
+    },
+    "TransferCondition": {
+      "_enum": {
+        "MaxInvestorCount": "u64",
+        "MaxInvestorOwnership": "Percentage",
+        "ClaimCount": "(StatClaim, IdentityId, u64, Option<u64>)",
+        "ClaimOwnership": "(StatClaim, IdentityId, Percentage, Percentage)"
+      }
+    },
+    "AssetTransferCompliance": {
+      "paused": "bool",
+      "requirements": "Vec<TransferCondition>"
+    },
+    "TransferConditionExemptKey": {
+      "asset": "AssetScope",
+      "op": "StatOpType",
+      "claim_type": "Option<ClaimType>"
     },
     "AssetCompliance": {
       "paused": "bool",
@@ -783,13 +813,13 @@
         "Err": "Vec<u8>"
       }
     },
-    "DidRecordsSuccess": {
+    "RpcDidRecordsSuccess": {
       "primary_key": "AccountId",
       "secondary_keys": "Vec<SecondaryKey>"
     },
-    "DidRecords": {
+    "RpcDidRecords": {
       "_enum": {
-        "Success": "DidRecordsSuccess",
+        "Success": "RpcDidRecordsSuccess",
         "IdNotFound": "Vec<u8>"
       }
     },
@@ -846,7 +876,8 @@
         "JoinIdentity": "",
         "PortfolioCustody": "",
         "BecomeAgent": "",
-        "AddRelayerPayingKey": ""
+        "AddRelayerPayingKey": "",
+        "RotatePrimaryKeyToSecondary": ""
       }
     },
     "ProposalDetails": {
@@ -908,7 +939,7 @@
       "start": "Option<Moment>",
       "period": "CalendarPeriod",
       "remaining": "u32"
-    },
+    },    
     "InstructionStatus": {
       "_enum": {
         "Unknown": "",
@@ -986,6 +1017,12 @@
       "coeffFrac": "Perbill",
       "negative": "bool",
       "degree": "u8"
+    },
+    "WeightPerClass": {
+      "baseExtrinsic": "Weight",
+      "maxExtrinsic": "Option<Weight>",
+      "maxTotal": "Option<Weight>",
+      "reserved": "Option<Weight>"
     },
     "TargetIdentity": {
       "_enum": {
@@ -1067,6 +1104,16 @@
       "default_withholding_tax": "Tax",
       "withholding_tax": "Vec<(IdentityId, Tax)>"
     },
+    "InitiateCorporateActionArgs": {
+      "ticker": "Ticker",
+      "kind": "CAKind",
+      "decl_date": "Moment",
+      "record_date": "Option<RecordDateSpec>",
+      "details": "CADetails",
+      "targets": "Option<TargetIdentities>",
+      "default_withholding_tax": "Option<Tax>",
+      "withholding_tax": "Option<Vec<(IdentityId, Tax)>>"
+    },
     "LocalCAId": "u32",
     "CAId": {
       "ticker": "Ticker",
@@ -1104,7 +1151,7 @@
       "sender_insufficient_balance": "bool",
       "portfolio_validity_result": "PortfolioValidityResult",
       "asset_frozen": "bool",
-      "statistics_result": "Vec<TransferManagerResult>",
+      "transfer_condition_result": "Vec<TransferConditionResult>",
       "compliance_result": "AssetComplianceResult",
       "result": "bool"
     },
@@ -1115,8 +1162,8 @@
       "sender_insufficient_balance": "bool",
       "result": "bool"
     },
-    "TransferManagerResult": {
-      "tm": "TransferManager",
+    "TransferConditionResult": {
+      "condition": "TransferCondition",
       "result": "bool"
     },
     "AGId": "u32",
@@ -1217,7 +1264,7 @@
             "isOptional": true
           }
         ],
-        "type": "DidRecords"
+        "type": "RpcDidRecords"
       },
       "getDidStatus": {
         "description": "Retrieve status of the DID",
@@ -1284,7 +1331,7 @@
         "params": [
           {
             "name": "index",
-            "type": "u32",
+            "type": "PipId",
             "isOptional": false
           },
           {
@@ -1309,7 +1356,7 @@
             "isOptional": true
           }
         ],
-        "type": "Vec<u32>"
+        "type": "Vec<PipId>"
       },
       "votedOn": {
         "description": "Retrieves proposal address indices voted on",
@@ -1325,7 +1372,7 @@
             "isOptional": true
           }
         ],
-        "type": "Vec<u32>"
+        "type": "Vec<PipId>"
       }
     },
     "protocolFee": {

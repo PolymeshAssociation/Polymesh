@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -15,13 +15,13 @@
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchResult;
-use polymesh_primitives::Balance;
-use sp_runtime::Perbill;
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 
 /// Protocol fee operations.
-#[derive(Decode, Encode, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum ProtocolOp {
     AssetRegisterTicker,
@@ -53,11 +53,4 @@ pub trait ChargeProtocolFee<AccountId> {
     /// Computes the fee for `count` similar operations, and charges that fee to the given
     /// signatory.
     fn batch_charge_fee(op: ProtocolOp, count: usize) -> DispatchResult;
-
-    /// Used for charging the instantiation fee for the smart extension.
-    fn charge_extension_instantiation_fee(
-        fee: Balance,
-        owner: AccountId,
-        network_share: Perbill,
-    ) -> DispatchResult;
 }

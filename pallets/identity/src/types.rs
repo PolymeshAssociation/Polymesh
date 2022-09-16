@@ -2,6 +2,7 @@
 
 use codec::{Decode, Encode};
 use polymesh_primitives::{ClaimType, IdentityId, Permissions, Scope, SecondaryKey};
+use scale_info::TypeInfo;
 use sp_std::{prelude::*, vec::Vec};
 
 #[cfg(feature = "std")]
@@ -15,14 +16,51 @@ pub type AssetDidResult = Result<IdentityId, Error>;
 #[derive(Eq, PartialEq, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub enum DidRecords<AccountId, SecondaryKey> {
+pub enum RpcDidRecords<AccountId> {
     /// Id was found and has the following primary key and secondary keys.
     Success {
         primary_key: AccountId,
-        secondary_keys: Vec<SecondaryKey>,
+        secondary_keys: Vec<SecondaryKey<AccountId>>,
     },
     /// Error.
     IdNotFound,
+}
+
+impl<AccountId> From<v1::RpcDidRecords<AccountId>> for RpcDidRecords<AccountId> {
+    fn from(old: v1::RpcDidRecords<AccountId>) -> Self {
+        match old {
+            v1::RpcDidRecords::Success {
+                primary_key,
+                secondary_keys,
+            } => Self::Success {
+                primary_key,
+                secondary_keys: secondary_keys
+                    .into_iter()
+                    .filter_map(SecondaryKey::from_v1)
+                    .collect(),
+            },
+            v1::RpcDidRecords::IdNotFound => Self::IdNotFound,
+        }
+    }
+}
+
+pub mod v1 {
+    use super::*;
+    use polymesh_primitives::secondary_key::v1;
+
+    /// A result of execution of get_votes.
+    #[derive(Eq, PartialEq, Encode, Decode)]
+    #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+    #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+    pub enum RpcDidRecords<AccountId> {
+        /// Id was found and has the following primary key and secondary keys.
+        Success {
+            primary_key: AccountId,
+            secondary_keys: Vec<v1::SecondaryKey<AccountId>>,
+        },
+        /// Error.
+        IdNotFound,
+    }
 }
 
 #[derive(Encode, Decode, PartialEq, Eq)]
@@ -46,7 +84,7 @@ pub struct KeyIdentityData<IdentityId> {
 
 /// Result of a successful call permission check.
 #[derive(Clone, Eq, PartialEq)]
-pub struct PermissionedCallOriginData<AccountId: Encode + Decode> {
+pub struct PermissionedCallOriginData<AccountId> {
     /// The origin account.
     pub sender: AccountId,
     /// The primary identity associated with the call.
@@ -58,13 +96,13 @@ pub struct PermissionedCallOriginData<AccountId: Encode + Decode> {
     pub secondary_key: Option<SecondaryKey<AccountId>>,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct Claim1stKey {
     pub target: IdentityId,
     pub claim_type: ClaimType,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct Claim2ndKey {
     pub issuer: IdentityId,
     pub scope: Option<Scope>,

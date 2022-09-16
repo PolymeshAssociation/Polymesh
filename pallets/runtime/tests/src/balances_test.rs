@@ -20,7 +20,7 @@ use sp_runtime::traits::SignedExtension;
 use test_client::AccountKeyring;
 
 pub type Balances = balances::Module<TestStorage>;
-pub type System = frame_system::Module<TestStorage>;
+pub type System = frame_system::Pallet<TestStorage>;
 type Identity = identity::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::Origin;
 type Error = balances::Error<TestStorage>;
@@ -46,10 +46,10 @@ fn signed_extension_charge_transaction_payment_work() {
             let alice_pub = AccountKeyring::Alice.to_account_id();
             let alice_id = AccountKeyring::Alice.to_account_id();
 
-            let call = runtime::Call::TestUtils(test_utils::Call::register_did(
-                InvestorUid::default(),
-                vec![],
-            ));
+            let call = runtime::Call::TestUtils(test_utils::Call::register_did {
+                uid: InvestorUid::default(),
+                secondary_keys: vec![],
+            });
 
             assert!(
                 <ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
@@ -84,10 +84,10 @@ fn tipping_fails() {
         .monied(true)
         .build()
         .execute_with(|| {
-            let call = runtime::Call::TestUtils(test_utils::Call::register_did(
-                InvestorUid::default(),
-                vec![],
-            ));
+            let call = runtime::Call::TestUtils(test_utils::Call::register_did {
+                uid: InvestorUid::default(),
+                secondary_keys: vec![],
+            });
             let len = 10;
             let alice_id = AccountKeyring::Alice.to_account_id();
             assert!(
@@ -299,7 +299,7 @@ fn transfer_with_memo_we() {
     let expected_events = vec![
         EventRecord {
             phase: Phase::Initialization,
-            event: EventTest::pallet_balances(BalancesRawEvent::Transfer(
+            event: EventTest::Balances(BalancesRawEvent::Transfer(
                 Some(alice_id),
                 alice.clone(),
                 Some(bob_id),
@@ -311,7 +311,7 @@ fn transfer_with_memo_we() {
         },
         EventRecord {
             phase: Phase::Initialization,
-            event: EventTest::pallet_balances(BalancesRawEvent::Transfer(
+            event: EventTest::Balances(BalancesRawEvent::Transfer(
                 Some(alice_id),
                 alice,
                 Some(bob_id),

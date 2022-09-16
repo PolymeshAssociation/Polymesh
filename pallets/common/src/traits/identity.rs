@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -33,11 +33,14 @@ use frame_support::{
     Parameter,
 };
 use polymesh_primitives::{
-    secondary_key::api::SecondaryKey, AuthorizationData, IdentityClaim, IdentityId, InvestorUid,
-    Permissions, Signatory, Ticker,
+    secondary_key::{v1, SecondaryKey},
+    AuthorizationData, Balance, CustomClaimTypeId, IdentityClaim, IdentityId, Permissions,
+    Signatory, Ticker,
 };
+use scale_info::TypeInfo;
 use sp_core::H512;
 use sp_runtime::traits::{Dispatchable, IdentifyAccount, Member, Verify};
+use sp_std::convert::TryFrom;
 use sp_std::vec::Vec;
 
 pub type AuthorizationNonce = u64;
@@ -51,7 +54,7 @@ pub type AuthorizationNonce = u64;
 /// value of nonce of primary key of `target_id`. See `System::account_nonce`.
 /// In this way, the authorization is delimited to an specific transaction (usually the next one)
 /// of primary key of target identity.
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 pub struct TargetIdAuthorization<Moment> {
     /// Target identity which is authorized to make an operation.
     pub target_id: IdentityId,
@@ -67,7 +70,7 @@ pub struct TargetIdAuthorization<Moment> {
 /// # TODO
 ///  - Replace `H512` type by a template type which represents explicitly the relation with
 ///  `TargetIdAuthorization`.
-#[derive(codec::Encode, codec::Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
 pub struct SecondaryKeyWithAuth<AccountId> {
     /// Secondary key to be added.
     pub secondary_key: SecondaryKey<AccountId>,
@@ -75,17 +78,56 @@ pub struct SecondaryKeyWithAuth<AccountId> {
     pub auth_signature: H512,
 }
 
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct SecondaryKeyWithAuthV1<AccountId> {
+    secondary_key: v1::SecondaryKey<AccountId>,
+    auth_signature: H512,
+}
+
+impl<AccountId> TryFrom<SecondaryKeyWithAuthV1<AccountId>> for SecondaryKeyWithAuth<AccountId> {
+    type Error = ();
+    fn try_from(auth: SecondaryKeyWithAuthV1<AccountId>) -> Result<Self, Self::Error> {
+        match auth.secondary_key.signer {
+            Signatory::Account(key) => Ok(Self {
+                secondary_key: SecondaryKey {
+                    key,
+                    permissions: auth.secondary_key.permissions,
+                },
+                auth_signature: auth.auth_signature,
+            }),
+            _ => {
+                // Unsupported `Signatory::Identity`.
+                Err(())
+            }
+        }
+    }
+}
+
 pub trait WeightInfo {
     fn cdd_register_did(i: u32) -> Weight;
     fn invalidate_cdd_claims() -> Weight;
     fn remove_secondary_keys(i: u32) -> Weight;
     fn accept_primary_key() -> Weight;
+    fn rotate_primary_key_to_secondary() -> Weight;
     fn change_cdd_requirement_for_mk_rotation() -> Weight;
     fn join_identity_as_key() -> Weight;
     fn leave_identity_as_key() -> Weight;
     fn add_claim() -> Weight;
     fn revoke_claim() -> Weight;
-    fn set_permission_to_signer() -> Weight;
+    fn set_secondary_key_permissions() -> Weight;
+    /// Complexity Parameters:
+    /// `a` = Number of (A)ssets
+    /// `p` = Number of (P)ortfolios
+    /// `l` = Number of pa(L)lets
+    /// `e` = Number of (E)xtrinsics
+    fn permissions_cost(a: u32, p: u32, l: u32, e: u32) -> Weight;
+
+    fn permissions_cost_perms(perms: &Permissions) -> Weight {
+        let (assets, portfolios, pallets, extrinsics) = perms.counts();
+        Self::permissions_cost(assets, portfolios, pallets, extrinsics)
+    }
+
     fn freeze_secondary_keys() -> Weight;
     fn unfreeze_secondary_keys() -> Weight;
     fn add_authorization() -> Weight;
@@ -94,6 +136,53 @@ pub trait WeightInfo {
     fn add_investor_uniqueness_claim() -> Weight;
     fn add_investor_uniqueness_claim_v2() -> Weight;
     fn revoke_claim_by_index() -> Weight;
+    fn register_custom_claim_type(n: u32) -> Weight;
+
+    /// Add complexity cost of Permissions to `add_secondary_keys_with_authorization` extrinsic.
+    fn add_secondary_keys_full_v1<AccountId>(
+        additional_keys: &[SecondaryKeyWithAuthV1<AccountId>],
+    ) -> Weight {
+        Self::add_secondary_keys_perms_cost(
+            additional_keys
+                .iter()
+                .map(|auth| &auth.secondary_key.permissions),
+        )
+    }
+
+    /// Add complexity cost of Permissions to `add_secondary_keys_with_authorization` extrinsic.
+    fn add_secondary_keys_full<AccountId>(
+        additional_keys: &[SecondaryKeyWithAuth<AccountId>],
+    ) -> Weight {
+        Self::add_secondary_keys_perms_cost(
+            additional_keys
+                .iter()
+                .map(|auth| &auth.secondary_key.permissions),
+        )
+    }
+
+    /// Add complexity cost of Permissions to `add_secondary_keys_with_authorization` extrinsic.
+    fn add_secondary_keys_perms_cost<'a>(
+        perms: impl ExactSizeIterator<Item = &'a Permissions>,
+    ) -> Weight {
+        let len_cost = Self::add_secondary_keys_with_authorization(perms.len() as u32);
+        perms.fold(len_cost, |cost, key| {
+            cost.saturating_add(Self::permissions_cost_perms(key))
+        })
+    }
+
+    /// Add complexity cost of Permissions to `add_authorization` extrinsic.
+    fn add_authorization_full<AccountId>(data: &AuthorizationData<AccountId>) -> Weight {
+        let perm_cost = match data {
+            AuthorizationData::JoinIdentity(perms) => Self::permissions_cost_perms(perms),
+            _ => 0,
+        };
+        perm_cost.saturating_add(Self::add_authorization())
+    }
+
+    /// Add complexity cost of Permissions to `set_secondary_key_permissions` extrinsic.
+    fn set_secondary_key_permissions_full(perms: &Permissions) -> Weight {
+        Self::permissions_cost_perms(perms).saturating_add(Self::set_secondary_key_permissions())
+    }
 }
 
 /// The module's configuration trait.
@@ -113,14 +202,14 @@ pub trait Config: CommonConfig + pallet_timestamp::Config + crate::traits::base:
     /// Group module
     type CddServiceProviders: GroupTrait<Self::Moment>;
     /// Balances module
-    type Balances: Currency<Self::AccountId>;
+    type Balances: Currency<Self::AccountId, Balance = Balance>;
     /// Charges fee for forwarded call
     type ChargeTxFeeTarget: ChargeTxFee;
     /// Used to check and update CDD
     type CddHandler: CddAndFeeDetails<Self::AccountId, <Self as frame_system::Config>::Call>;
 
     type Public: IdentifyAccount<AccountId = Self::AccountId>;
-    type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode;
+    type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode + TypeInfo;
     type ProtocolFee: ChargeProtocolFee<Self::AccountId>;
 
     /// Origin for Governance Committee voting majority origin.
@@ -137,6 +226,10 @@ pub trait Config: CommonConfig + pallet_timestamp::Config + crate::traits::base:
 
     /// POLYX given to primary keys of all new Identities
     type InitialPOLYX: Get<<Self::Balances as Currency<Self::AccountId>>::Balance>;
+
+    /// Only allow MultiSig primary/secondary keys to be removed from an identity
+    /// if its POLYX balance is below this limit.
+    type MultiSigBalanceLimit: Get<<Self::Balances as Currency<Self::AccountId>>::Balance>;
 }
 
 decl_event!(
@@ -145,39 +238,53 @@ decl_event!(
         AccountId = <T as frame_system::Config>::AccountId,
         Moment = <T as pallet_timestamp::Config>::Moment,
     {
-        /// DID, primary key account ID, secondary keys
+        /// Identity created.
+        ///
+        /// (DID, primary key, secondary keys)
         DidCreated(IdentityId, AccountId, Vec<SecondaryKey<AccountId>>),
 
-        /// DID, new keys
+        /// Secondary keys added to identity.
+        ///
+        /// (DID, new keys)
         SecondaryKeysAdded(IdentityId, Vec<SecondaryKey<AccountId>>),
 
-        /// DID, the keys that got removed
-        SecondaryKeysRemoved(IdentityId, Vec<Signatory<AccountId>>),
+        /// Secondary keys removed from identity.
+        ///
+        /// (DID, the keys that got removed)
+        SecondaryKeysRemoved(IdentityId, Vec<AccountId>),
 
-        /// A signer left their identity. (did, signer)
-        SignerLeft(IdentityId, Signatory<AccountId>),
+        /// A secondary key left their identity.
+        ///
+        /// (DID, secondary key)
+        SecondaryKeyLeftIdentity(IdentityId, AccountId),
 
-        /// DID, updated secondary key, previous permissions, new permissions
-        SecondaryKeyPermissionsUpdated(
-            IdentityId,
-            SecondaryKey<AccountId>,
-            Permissions,
-            Permissions,
-        ),
+        /// Secondary key permissions updated.
+        ///
+        /// (DID, updated secondary key, previous permissions, new permissions)
+        SecondaryKeyPermissionsUpdated(IdentityId, AccountId, Permissions, Permissions),
 
-        /// DID, old primary key account ID, new ID
+        /// Primary key of identity changed.
+        ///
+        /// (DID, old primary key account ID, new ID)
         PrimaryKeyUpdated(IdentityId, AccountId, AccountId),
 
-        /// DID, claims
+        /// Claim added to identity.
+        ///
+        /// (DID, claim)
         ClaimAdded(IdentityId, IdentityClaim),
 
-        /// DID, ClaimType, Claim Issuer
+        /// Claim revoked from identity.
+        ///
+        /// (DID, claim)
         ClaimRevoked(IdentityId, IdentityClaim),
 
-        /// Asset DID
+        /// Asset's identity registered.
+        ///
+        /// (Asset DID, ticker)
         AssetDidRegistered(IdentityId, Ticker),
 
         /// New authorization added.
+        ///
         /// (authorised_by, target_did, target_key, auth_id, authorization_data, expiry)
         AuthorizationAdded(
             IdentityId,
@@ -189,36 +296,50 @@ decl_event!(
         ),
 
         /// Authorization revoked by the authorizer.
+        ///
         /// (authorized_identity, authorized_key, auth_id)
         AuthorizationRevoked(Option<IdentityId>, Option<AccountId>, u64),
 
         /// Authorization rejected by the user who was authorized.
+        ///
         /// (authorized_identity, authorized_key, auth_id)
         AuthorizationRejected(Option<IdentityId>, Option<AccountId>, u64),
 
         /// Authorization consumed.
+        ///
         /// (authorized_identity, authorized_key, auth_id)
         AuthorizationConsumed(Option<IdentityId>, Option<AccountId>, u64),
 
-        /// Off-chain Authorization has been revoked.
-        /// (Target Identity, Signatory)
-        OffChainAuthorizationRevoked(IdentityId, Signatory<AccountId>),
+        /// Accepting Authorization retry limit reached.
+        ///
+        /// (authorized_identity, authorized_key, auth_id)
+        AuthorizationRetryLimitReached(Option<IdentityId>, Option<AccountId>, u64),
 
-        /// CDD requirement for updating primary key changed. (new_requirement)
+        /// CDD requirement for updating primary key changed.
+        ///
+        /// (new_requirement)
         CddRequirementForPrimaryKeyUpdated(bool),
 
         /// CDD claims generated by `IdentityId` (a CDD Provider) have been invalidated from
         /// `Moment`.
+        ///
+        /// (CDD provider DID, disable from date)
         CddClaimsInvalidated(IdentityId, Moment),
 
         /// All Secondary keys of the identity ID are frozen.
+        ///
+        /// (DID)
         SecondaryKeysFrozen(IdentityId),
 
         /// All Secondary keys of the identity ID are unfrozen.
+        ///
+        /// (DID)
         SecondaryKeysUnfrozen(IdentityId),
 
-        /// Mocked InvestorUid created.
-        MockInvestorUIDCreated(IdentityId, InvestorUid),
+        /// A new CustomClaimType was added.
+        ///
+        /// (DID, id, Type)
+        CustomClaimTypeAdded(IdentityId, CustomClaimTypeId, Vec<u8>),
     }
 );
 

@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -95,6 +95,7 @@ use pallet_identity as identity;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 use polymesh_primitives::{Balance, EventDid, IdentityId, Moment};
 use polymesh_primitives_derive::VecU8StrongTyped;
+use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
@@ -107,22 +108,25 @@ type ExternalAgents<T> = pallet_external_agents::Module<T>;
 
 /// A wrapper for a motion title.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Hash, Default, Debug, Decode, Encode, VecU8StrongTyped)]
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, PartialEq, Eq, Hash, Default, Debug)]
 pub struct MotionTitle(pub Vec<u8>);
 
 /// A wrapper for a motion info link.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Hash, Default, Debug, Decode, Encode, VecU8StrongTyped)]
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, PartialEq, Eq, Hash, Default, Debug)]
 pub struct MotionInfoLink(pub Vec<u8>);
 
 /// A wrapper for a choice's title.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Hash, Default, Debug, Decode, Encode, VecU8StrongTyped)]
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, PartialEq, Eq, Hash, Default, Debug)]
 pub struct ChoiceTitle(pub Vec<u8>);
 
 /// Details about motions
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Default, Debug, Encode, Decode)]
+#[derive(Clone, PartialEq, Eq, Default, Debug, Encode, Decode, TypeInfo)]
 pub struct Motion {
     /// Title of the motion
     pub title: MotionTitle,
@@ -137,7 +141,8 @@ pub struct Motion {
 
 /// A wrapper for a ballot's title.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Default, Decode, Encode, VecU8StrongTyped)]
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Default)]
 pub struct BallotTitle(pub Vec<u8>);
 
 /// Metadata about a ballot.
@@ -148,7 +153,7 @@ pub struct BallotTitle(pub Vec<u8>);
 /// the needed numbers aforementioned are cached away,
 /// and the metadata is not read on-chain again.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, Default)]
+#[derive(Clone, PartialEq, Eq, Debug, Encode, TypeInfo, Decode, Default)]
 pub struct BallotMeta {
     /// The ballot's title.
     pub title: BallotTitle,
@@ -167,7 +172,7 @@ impl BallotMeta {
 
 /// Timestamp range details about vote start / end.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, Default, Debug, Encode, Decode)]
+#[derive(Copy, Clone, PartialEq, Eq, Default, Debug, Encode, Decode, TypeInfo)]
 pub struct BallotTimeRange {
     /// Timestamp at which voting starts.
     pub start: Moment,
@@ -178,7 +183,7 @@ pub struct BallotTimeRange {
 
 /// A vote cast on some choice in some motion in a ballot.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, Default, Debug, Encode, Decode)]
+#[derive(Copy, Clone, PartialEq, Eq, Default, Debug, Encode, Decode, TypeInfo)]
 pub struct BallotVote {
     /// The weight / voting power assigned to this vote.
     pub power: Balance,

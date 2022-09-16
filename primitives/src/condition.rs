@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -17,13 +17,15 @@ use crate::{Claim, ClaimType, IdentityId};
 use codec::{Decode, Encode};
 use core::iter;
 use either::Either;
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
+use sp_std::convert::TryInto;
 use sp_std::prelude::*;
 
 /// Defines a static / dynamic identity.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Encode, Decode, TypeInfo, Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum TargetIdentity {
     /// Matches any of the external agents of an asset. Resolved dynamically.
     ExternalAgent,
@@ -34,7 +36,7 @@ pub enum TargetIdentity {
 /// It defines the type of condition supported, and the filter information we will use to evaluate as a
 /// predicate.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum ConditionType {
     /// Condition to ensure that claim filter produces one claim.
     IsPresent(Claim),
@@ -49,7 +51,8 @@ pub enum ConditionType {
 }
 
 impl ConditionType {
-    fn complexity(&self) -> usize {
+    /// Return the number of `Claim` or `TargetIdentity`.
+    fn count(&self) -> usize {
         match self {
             ConditionType::IsIdentity(..)
             | ConditionType::IsPresent(..)
@@ -61,7 +64,7 @@ impl ConditionType {
 
 /// Denotes the set of `ClaimType`s for which an issuer is trusted.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum TrustedFor {
     /// Issuer is trusted for any `ClaimType`.
     Any,
@@ -71,7 +74,7 @@ pub enum TrustedFor {
 
 /// A trusted issuer for a certain compliance `Condition` and what `ClaimType`s is trusted for.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct TrustedIssuer {
     /// The issuer trusted for the `Condition` or for the `Ticker`,
     /// depending on where `TrustedClaimIssuer` is included.
@@ -99,6 +102,16 @@ impl TrustedIssuer {
             TrustedFor::Specific(ok_types) => ok_types.contains(&ty),
         }
     }
+
+    /// Count number of claim types this issuers is trusted for.
+    ///
+    /// Returns `1` for `TrustedFor::Any`.
+    fn count(&self) -> usize {
+        match &self.trusted_for {
+            TrustedFor::Any => 1,
+            TrustedFor::Specific(types) => types.len(),
+        }
+    }
 }
 
 /// Create a `TrustedIssuer` trusted for any claim type.
@@ -113,7 +126,7 @@ impl From<IdentityId> for TrustedIssuer {
 
 /// Type of claim requirements that a condition can have
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Condition {
     /// Type of condition.
     pub condition_type: ConditionType,
@@ -139,8 +152,38 @@ impl Condition {
     }
 
     /// Returns worst case complexity of a condition.
-    pub fn complexity(&self) -> (usize, usize) {
-        (self.condition_type.complexity(), self.issuers.len())
+    pub fn complexity(&self, default_issuer_count: usize) -> u32 {
+        let issuers = match self.issuers.len() {
+            0 => default_issuer_count,
+            count => count,
+        };
+        self.condition_type
+            .count()
+            // NB: `max(1)` makes sure issuer count is not zero.
+            .saturating_mul(issuers.max(1))
+            .try_into()
+            .unwrap_or(u32::MAX)
+    }
+
+    /// Return number of claims, issuers, and claim_types.
+    ///
+    /// This is used for weight calculation.
+    ///
+    /// Returns: `(claims_count, issuer_count, claim_type_count)`
+    fn counts(&self) -> (u32, u32, u32) {
+        // Count the number of claims.
+        let claims = self.condition_type.count().try_into().unwrap_or(u32::MAX);
+        // Count the number of issuers.
+        let issuers = self.issuers.len().try_into().unwrap_or(u32::MAX);
+        // Count the total number of claim types in all issuers.
+        let claim_types = self
+            .issuers
+            .iter()
+            .fold(0usize, |count, issuer| count.saturating_add(issuer.count()))
+            .try_into()
+            .unwrap_or(u32::MAX);
+
+        (claims, issuers, claim_types)
     }
 
     /// Returns all the claims in the condition.
@@ -151,6 +194,29 @@ impl Condition {
             ConditionType::IsIdentity(_) => Either::Right([].iter()),
         }
     }
+}
+
+/// Return the total number of condtions, claims, issuers, and claim_types.
+///
+/// This is used for weight calculation.
+///
+/// Returns: `(condition_count, claims_count, issuer_count, claim_type_count)`
+pub fn conditions_total_counts<'a>(
+    conditions: impl IntoIterator<Item = &'a Condition>,
+) -> (u32, u32, u32, u32) {
+    // Count the total number of claims, issuers, and claim_types in all conditions.
+    conditions.into_iter().fold(
+        (0u32, 0u32, 0u32, 0u32),
+        |(count, total_claims, total_issuers, total_claim_types), condition| {
+            let (claims, issuers, claim_types) = condition.counts();
+            (
+                count.saturating_add(1),
+                total_claims.saturating_add(claims),
+                total_issuers.saturating_add(issuers),
+                total_claim_types.saturating_add(claim_types),
+            )
+        },
+    )
 }
 
 impl From<ConditionType> for Condition {

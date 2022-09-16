@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -46,18 +46,19 @@ use frame_support::{
 use frame_system::{ensure_none, ensure_root, RawOrigin};
 use pallet_staking::{self as staking, RewardDestination};
 use polymesh_common_utilities::{
-    constants::{currency::POLY, REWARDS_MODULE_ID},
+    constants::{currency::ONE_POLY, REWARDS_PALLET_ID},
     traits::identity::Config as IdentityConfig,
     with_transaction,
 };
 use polymesh_primitives::Balance;
+use scale_info::TypeInfo;
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionLongevity};
 use sp_runtime::{
     traits::{AccountIdConversion, StaticLookup, Verify},
     transaction_validity::ValidTransaction,
     DispatchError,
 };
-use sp_std::{convert::TryInto, prelude::*};
+use sp_std::{convert::TryInto, prelude::*, vec};
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -80,7 +81,7 @@ pub trait WeightInfo {
 }
 
 /// Represents an Itn reward's status.
-#[derive(Decode, Encode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Decode, Encode, TypeInfo, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ItnRewardStatus {
     Unclaimed(Balance),
     Claimed,
@@ -160,7 +161,7 @@ decl_module! {
 impl<T: Config> Module<T> {
     /// The account ID of the rewards pot.
     pub fn account_id() -> T::AccountId {
-        REWARDS_MODULE_ID.into_account()
+        REWARDS_PALLET_ID.into_account()
     }
 
     /// Converts `polymesh_primitive::Balance` balances into (`bonded_amount`, `deposit_amount`).
@@ -173,7 +174,7 @@ impl<T: Config> Module<T> {
             raw_balance
                 .try_into()
                 .map_err(|_| Error::<T>::UnableToCovertBalance)?,
-            (raw_balance.saturating_add(1 * POLY))
+            (raw_balance.saturating_add(ONE_POLY))
                 .try_into()
                 .map_err(|_| Error::<T>::UnableToCovertBalance)?,
         ))
@@ -278,7 +279,12 @@ impl<T: Config> sp_runtime::traits::ValidateUnsigned for Module<T> {
 
     fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
         const PRIORITY: u64 = 100;
-        if let Call::claim_itn_reward(reward_address, itn_address, signature) = call {
+        if let Call::claim_itn_reward {
+            reward_address,
+            itn_address,
+            signature,
+        } = call
+        {
             if Self::valid_claim(reward_address, itn_address, signature) {
                 return Ok(ValidTransaction {
                     priority: PRIORITY,

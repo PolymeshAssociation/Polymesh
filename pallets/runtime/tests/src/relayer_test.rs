@@ -13,7 +13,7 @@ use polymesh_common_utilities::{
     traits::transaction_payment::CddAndFeeDetails,
 };
 use polymesh_primitives::{AccountId, Balance, Signatory, Ticker, TransactionError};
-use polymesh_runtime_develop::{fee_details::CddHandler, runtime::Call as DevCall};
+use polymesh_runtime_develop::runtime::{Call as DevCall, CddHandler};
 use sp_runtime::{
     traits::{Dispatchable, SignedExtension},
     transaction_validity::{InvalidTransaction, TransactionValidityError},
@@ -36,24 +36,25 @@ type Error = pallet_relayer::Error<TestStorage>;
 // =======================================
 
 fn call_balance_transfer(val: Balance) -> <TestStorage as frame_system::Config>::Call {
-    Call::Balances(pallet_balances::Call::transfer(
-        MultiAddress::Id(AccountKeyring::Alice.to_account_id()),
-        val,
-    ))
+    Call::Balances(pallet_balances::Call::transfer {
+        dest: MultiAddress::Id(AccountKeyring::Alice.to_account_id()),
+        value: val,
+    })
 }
 
 fn call_asset_register_ticker(name: &[u8]) -> <TestStorage as frame_system::Config>::Call {
     let ticker = Ticker::try_from(name).unwrap();
-    Call::Asset(pallet_asset::Call::register_ticker(ticker))
+    Call::Asset(pallet_asset::Call::register_ticker { ticker })
 }
 
 fn call_relayer_remove_paying_key(
     user_key: AccountId,
     paying_key: AccountId,
 ) -> <TestStorage as frame_system::Config>::Call {
-    Call::Relayer(pallet_relayer::Call::remove_paying_key(
-        user_key, paying_key,
-    ))
+    Call::Relayer(pallet_relayer::Call::remove_paying_key {
+        user_key,
+        paying_key,
+    })
 }
 
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
@@ -356,9 +357,9 @@ fn do_relayer_user_key_missing_cdd_test() {
     // Bob tries to accept the paying key, without having a CDD.
     TestStorage::set_current_identity(&bob_did);
     let auth_id = get_last_auth_id(&Signatory::Account(bob_acc.clone()));
-    assert_noop!(
+    assert_eq!(
         Relayer::accept_paying_key(bob_sign, auth_id),
-        Error::UserKeyCddMissing
+        Err(Error::UserKeyCddMissing.into()),
     );
 }
 
@@ -381,9 +382,9 @@ fn do_relayer_paying_key_missing_cdd_test() {
     // is without a CDD.
     TestStorage::set_current_identity(&alice.did);
     let auth_id = get_last_auth_id(&Signatory::Account(alice.acc()));
-    assert_noop!(
+    assert_eq!(
         Relayer::accept_paying_key(alice.origin(), auth_id),
-        Error::PayingKeyCddMissing
+        Err(Error::PayingKeyCddMissing.into()),
     );
 }
 
@@ -433,7 +434,7 @@ fn do_user_remove_paying_key_transaction_fee_test() {
 
     // 3. Call `post_dispatch`.
     assert!(ChargeTransactionPayment::post_dispatch(
-        pre,
+        Some(pre),
         &call_info,
         &post_info_from_weight(5),
         len,
@@ -523,7 +524,7 @@ fn do_relayer_transaction_and_protocol_fees_test() {
 
     // 3. Call `post_dispatch`.
     assert!(ChargeTransactionPayment::post_dispatch(
-        pre,
+        Some(pre),
         &call_info,
         &post_info_from_weight(50),
         len,
@@ -550,12 +551,12 @@ fn do_relayer_accept_cdd_and_fees_test() {
 
     // Alice creates authoration to subsidise for Bob.
     assert_ok!(Relayer::set_paying_key(alice.origin(), bob.acc(), 0u128));
-    let bob_auth_id = get_last_auth_id(&bob_sign);
+    let auth_id = get_last_auth_id(&bob_sign);
 
     // Check that Bob can accept the subsidy with Alice paying for the transaction.
     assert_eq!(
         CddHandler::get_valid_payer(
-            &DevCall::Relayer(pallet_relayer::Call::accept_paying_key(bob_auth_id)),
+            &DevCall::Relayer(pallet_relayer::Call::accept_paying_key { auth_id }),
             &bob.acc()
         ),
         Ok(Some(alice.acc()))

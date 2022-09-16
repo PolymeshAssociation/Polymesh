@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -17,22 +17,17 @@
 
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(bool_to_option)]
 
 use blake2::{Blake2b, Digest};
+use codec::{Decode, Encode};
 use confidential_identity_v1::Scalar as ScalarV1;
 use frame_support::weights::Weight;
 use polymesh_primitives_derive::VecU8StrongTyped;
+use scale_info::TypeInfo;
+use sp_runtime::{generic, traits::BlakeTwo256, MultiSignature};
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::Vec;
-
-use codec::{Decode, Encode};
-use sp_runtime::{
-    generic,
-    traits::{BlakeTwo256, Verify},
-    MultiSignature,
-};
 
 /// An index to a block.
 /// 32-bits will allow for 136 years of blocks assuming 1 block per second.
@@ -63,41 +58,10 @@ pub type Index = u32;
 /// Alias for Gas.
 pub type Gas = Weight;
 
-/// App-specific crypto used for reporting equivocation/misbehavior in BABE and
-/// GRANDPA. Any rewards for misbehavior reporting will be paid out to this
-/// account.
-#[cfg(feature = "std")]
-pub mod report {
-    use super::{Signature, Verify};
-    use frame_system::offchain::AppCrypto;
-    use sp_core::crypto::{key_types, KeyTypeId};
-
-    /// Key type for the reporting module. Used for reporting BABE and GRANDPA
-    /// equivocations.
-    pub const KEY_TYPE: KeyTypeId = key_types::REPORTING;
-
-    mod app {
-        use sp_application_crypto::{app_crypto, sr25519};
-        app_crypto!(sr25519, super::KEY_TYPE);
-    }
-
-    /// Identity of the equivocation/misbehavior reporter.
-    pub type ReporterId = app::Public;
-
-    /// An `AppCrypto` type to allow submitting signed transactions using the reporting
-    /// application key as signer.
-    pub struct ReporterAppCrypto;
-
-    impl AppCrypto<<Signature as Verify>::Signer, Signature> for ReporterAppCrypto {
-        type RuntimeAppPublic = ReporterId;
-        type GenericSignature = sp_core::sr25519::Signature;
-        type GenericPublic = sp_core::sr25519::Public;
-    }
-}
-
 /// A positive coefficient: a pair of a numerator and a denominator. Defaults to `(1, 1)`.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Decode, Encode, Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PosRatio(pub u32, pub u32);
 
 impl Default for PosRatio {
@@ -114,13 +78,10 @@ impl From<(u32, u32)> for PosRatio {
 
 /// It creates a scalar from the blake2_512 hash of `data` parameter.
 pub fn scalar_blake2_from_bytes(data: impl AsRef<[u8]>) -> ScalarV1 {
-    let mut hash = [0u8; 64];
-    hash.copy_from_slice(
-        Blake2b::default()
-            .chain(data.as_ref())
-            .finalize()
-            .as_slice(),
-    );
+    let hash = Blake2b::default()
+        .chain_update(data.as_ref())
+        .finalize()
+        .into();
     ScalarV1::from_bytes_mod_order_wide(&hash)
 }
 
@@ -170,7 +131,7 @@ pub use identity_id::{
 /// Identity information.
 /// Each DID is associated with this kind of record.
 pub mod identity;
-pub use identity::Identity;
+pub use identity::DidRecord;
 
 /// Provides the `CheckedInc` trait.
 pub mod checked_inc;
@@ -188,7 +149,7 @@ pub use investor_zkproof_data::InvestorZKProofData;
 /// Claim information.
 /// Each claim is associated with this kind of record.
 pub mod identity_claim;
-pub use identity_claim::{Claim, ClaimType, IdentityClaim, Scope, ScopeId};
+pub use identity_claim::{Claim, ClaimType, CustomClaimTypeId, IdentityClaim, Scope, ScopeId};
 
 // Defining and enumerating jurisdictions.
 pub mod jurisdiction;
@@ -200,8 +161,8 @@ pub mod migrate;
 /// This module contains entities related with secondary keys.
 pub mod secondary_key;
 pub use secondary_key::{
-    AssetPermissions, ExtrinsicPermissions, PalletPermissions, Permissions, PortfolioPermissions,
-    SecondaryKey, Signatory,
+    AssetPermissions, ExtrinsicPermissions, KeyRecord, PalletPermissions, Permissions,
+    PortfolioPermissions, SecondaryKey, Signatory,
 };
 
 /// Subset type.
@@ -217,13 +178,6 @@ pub mod traits;
 
 pub mod ticker;
 pub use ticker::Ticker;
-
-/// This module defines types used by smart extensions
-pub mod smart_extension;
-pub use smart_extension::{
-    ExtensionAttributes, MetaDescription, MetaUrl, MetaVersion, SmartExtension, SmartExtensionName,
-    SmartExtensionType, TemplateDetails, TemplateMetadata,
-};
 
 /// Document hash
 pub mod document_hash;
@@ -253,13 +207,19 @@ pub mod crypto;
 /// Asset type definitions.
 pub mod asset;
 
+/// Asset Metadata type definitions.
+pub mod asset_metadata;
+
 /// Statistics type definitions.
 pub mod statistics;
 
 /// Compliance manager type definitions.
 pub mod compliance_manager;
 
-/// Compliance manager type definitions.
+/// Transfer compliance type definitions.
+pub mod transfer_compliance;
+
+/// Committee type definitions.
 pub mod committee;
 
 /// Host functions.
@@ -283,7 +243,7 @@ pub enum TransactionError {
 }
 
 /// Represents the target identity and the amount requested by a beneficiary.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
 pub struct Beneficiary<Balance> {
     /// Beneficiary identity.
     pub id: IdentityId,
@@ -291,17 +251,20 @@ pub struct Beneficiary<Balance> {
     pub amount: Balance,
 }
 
+/// Url for linking to off-chain resources.
+#[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Url(pub Vec<u8>);
+
 /// The name of a pallet.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct PalletName(pub Vec<u8>);
 
 /// The name of a function within a pallet.
-#[derive(
-    Decode, Encode, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, VecU8StrongTyped,
-)]
+#[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
+#[derive(Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DispatchableName(pub Vec<u8>);
 
@@ -309,7 +272,8 @@ pub struct DispatchableName(pub Vec<u8>);
 #[macro_export]
 macro_rules! storage_migration_ver {
     ($ver:literal) => {
-        #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+        #[derive(Encode, Decode, scale_info::TypeInfo)]
+        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
         pub struct Version(u8);
 
         impl Version {

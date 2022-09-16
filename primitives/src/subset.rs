@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 //
 // This program is free software: you can redistribute it and/or modify
@@ -15,6 +15,7 @@
 
 use codec::{Decode, Encode};
 use core::ops::Sub;
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::{
@@ -48,7 +49,7 @@ pub trait LatticeOrd {
 /// The type of subsets of an open set of elements of type `A` where the whole set is always
 /// considered to be bigger than any finite set of its elements. This is true for infinite
 /// sets. When talking about finite sets, we have to add that they are _open_.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum SubsetRestriction<A: Ord> {
     /// No restrictions, the whole set.
@@ -173,6 +174,14 @@ impl<A: Ord> SubsetRestriction<A> {
     pub fn is_unrestricted(&self) -> bool {
         matches!(self, Self::Whole)
     }
+
+    /// Folds every element in the inner sets or return `init` for `Whole`.
+    pub fn fold<B>(&self, init: B, f: impl FnMut(B, &A) -> B) -> B {
+        match self.inner() {
+            Some(set) => set.iter().fold(init, f),
+            None => init,
+        }
+    }
 }
 
 impl<A: Clone + Ord> SubsetRestriction<A> {
@@ -180,12 +189,12 @@ impl<A: Clone + Ord> SubsetRestriction<A> {
     pub fn union(&self, other: &Self) -> Self {
         match (self, other) {
             (Self::Whole, _) | (_, Self::Whole) => Self::Whole,
-            (Self::These(l), Self::These(r)) => Self::These(l.union(&r).cloned().collect()),
+            (Self::These(l), Self::These(r)) => Self::These(l.union(r).cloned().collect()),
             (Self::Except(l), Self::Except(r)) => {
-                Self::Except(l.intersection(&r).cloned().collect())
+                Self::Except(l.intersection(r).cloned().collect())
             }
             (Self::These(l), Self::Except(r)) | (Self::Except(r), Self::These(l)) => {
-                Self::Except(r.sub(&l))
+                Self::Except(r.sub(l))
             }
         }
     }

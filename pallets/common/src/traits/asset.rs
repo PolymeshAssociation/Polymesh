@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -18,9 +18,13 @@ use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Currency, Get, UnixTime};
 use frame_support::weights::Weight;
-use polymesh_primitives::asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName};
-use polymesh_primitives::ethereum::EthereumAddress;
 use polymesh_primitives::{
+    asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName},
+    asset_metadata::{
+        AssetMetadataGlobalKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataSpec,
+        AssetMetadataValue, AssetMetadataValueDetail,
+    },
+    ethereum::EthereumAddress,
     AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, ScopeId, Ticker,
 };
 use sp_std::prelude::Vec;
@@ -45,6 +49,9 @@ pub trait AssetSubTrait {
 
     /// Returns the `ScopeId` for a given `ticker` and `did`.
     fn scope_id(ticker: &Ticker, did: &IdentityId) -> ScopeId;
+
+    /// Ensure that Investor Uniqueness is allowed for the ticker.
+    fn ensure_investor_uniqueness_claims_allowed(ticker: &Ticker) -> DispatchResult;
 }
 
 pub trait AssetFnTrait<Account, Origin> {
@@ -87,12 +94,14 @@ pub trait WeightInfo {
     fn update_identifiers(i: u32) -> Weight;
     fn claim_classic_ticker() -> Weight;
     fn reserve_classic_ticker() -> Weight;
-    fn add_extension() -> Weight;
-    fn remove_smart_extension() -> Weight;
-    fn archive_extension() -> Weight;
-    fn unarchive_extension() -> Weight;
     fn controller_transfer() -> Weight;
     fn register_custom_asset_type(n: u32) -> Weight;
+
+    fn set_asset_metadata() -> Weight;
+    fn set_asset_metadata_details() -> Weight;
+    fn register_and_set_local_asset_metadata() -> Weight;
+    fn register_asset_metadata_local_type() -> Weight;
+    fn register_asset_metadata_global_type() -> Weight;
 }
 
 /// The module's configuration trait.
@@ -101,7 +110,6 @@ pub trait Config:
     + external_agents::Config
     + pallet_session::Config
     + statistics::Config
-    //+ contracts::Trait
     + portfolio::Config
 {
     /// The overarching event type.
@@ -113,11 +121,6 @@ pub trait Config:
 
     type ComplianceManager: compliance_manager::Config;
 
-    /// Maximum number of smart extensions can attach to an asset.
-    /// This hard limit is set to avoid the cases where an asset transfer
-    /// gas usage go beyond the block gas limit.
-    type MaxNumberOfTMExtensionForAsset: Get<u32>;
-
     /// Time used in computation of checkpoints.
     type UnixTime: UnixTime;
 
@@ -127,12 +130,19 @@ pub trait Config:
     /// Max length of the funding round name.
     type FundingRoundNameMaxLength: Get<u32>;
 
+    /// Max length for the Asset Metadata type name.
+    type AssetMetadataNameMaxLength: Get<u32>;
+
+    /// Max length for the Asset Metadata value.
+    type AssetMetadataValueMaxLength: Get<u32>;
+
+    /// Max length for the Asset Metadata type definition.
+    type AssetMetadataTypeDefMaxLength: Get<u32>;
+
     type AssetFn: AssetFnTrait<Self::AccountId, Self::Origin>;
 
     type WeightInfo: WeightInfo;
     type CPWeightInfo: crate::traits::checkpoint::WeightInfo;
-
-    //type ContractsFn: ContractsFn<Self::AccountId, Self::Balance>;
 }
 
 decl_event! {
@@ -151,8 +161,8 @@ decl_event! {
         /// caller DID, ticker,  from DID, value
         Redeemed(IdentityId, Ticker, IdentityId, Balance),
         /// Event for creation of the asset.
-        /// caller DID/ owner DID, ticker, divisibility, asset type, beneficiary DID, disable investor uniqueness
-        AssetCreated(IdentityId, Ticker, bool, AssetType, IdentityId, bool),
+        /// caller DID/ owner DID, ticker, divisibility, asset type, beneficiary DID, disable investor uniqueness, asset name, identifiers, funding round
+        AssetCreated(IdentityId, Ticker, bool, AssetType, IdentityId, bool, AssetName, Vec<AssetIdentifier>, Option<FundingRoundName>),
         /// Event emitted when any token identifiers are updated.
         /// caller DID, ticker, a vector of (identifier type, identifier value)
         IdentifiersUpdated(IdentityId, Ticker, Vec<AssetIdentifier>),
@@ -186,17 +196,6 @@ decl_event! {
         /// An event carrying the name of the current funding round of a ticker.
         /// Parameters: caller DID, ticker, funding round name.
         FundingRoundSet(IdentityId, Ticker, FundingRoundName),
-        /*
-        /// Emitted when extension is added successfully.
-        /// caller DID, ticker, extension AccountId, extension name, type of smart Extension
-        ExtensionAdded(IdentityId, Ticker, AccountId, SmartExtensionName, SmartExtensionType),
-        /// Emitted when extension get archived.
-        /// caller DID, ticker, AccountId
-        ExtensionArchived(IdentityId, Ticker, AccountId),
-        /// Emitted when extension get archived.
-        /// caller DID, ticker, AccountId
-        ExtensionUnArchived(IdentityId, Ticker, AccountId),
-        */
         /// A new document attached to an asset
         DocumentAdded(IdentityId, Ticker, DocumentId, Document),
         /// A document removed from an asset
@@ -215,5 +214,17 @@ decl_event! {
         /// A custom asset type was registered on-chain.
         /// caller DID, the ID of the custom asset type, the string contents registered.
         CustomAssetTypeRegistered(IdentityId, CustomAssetTypeId, Vec<u8>),
+        /// Set asset metadata value.
+        /// (Caller DID, ticker, metadata value, optional value details)
+        SetAssetMetadataValue(IdentityId, Ticker, AssetMetadataValue, Option<AssetMetadataValueDetail<Moment>>),
+        /// Set asset metadata value details (expire, lock status).
+        /// (Caller DID, ticker, value details)
+        SetAssetMetadataValueDetails(IdentityId, Ticker, AssetMetadataValueDetail<Moment>),
+        /// Register asset metadata local type.
+        /// (Caller DID, ticker, Local type name, Local type key, type specs)
+        RegisterAssetMetadataLocalType(IdentityId, Ticker, AssetMetadataName, AssetMetadataLocalKey, AssetMetadataSpec),
+        /// Register asset metadata global type.
+        /// (Global type name, Global type key, type specs)
+        RegisterAssetMetadataGlobalType(AssetMetadataName, AssetMetadataGlobalKey, AssetMetadataSpec),
     }
 }

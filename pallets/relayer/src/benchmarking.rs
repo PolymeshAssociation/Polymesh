@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,6 @@ use polymesh_common_utilities::{
     benchs::{user, AccountIdOf, User},
     traits::{relayer::Config, TestUtilsFn},
 };
-use sp_std::prelude::*;
 
 type Relayer<T> = crate::Module<T>;
 

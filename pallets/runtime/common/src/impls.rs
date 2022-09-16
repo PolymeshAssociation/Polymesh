@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -50,7 +50,9 @@ where
     <R as system::Config>::AccountId: Into<polymesh_primitives::AccountId>,
 {
     fn on_nonzero_unbalanced(amount: NegativeImbalance<R>) {
-        <balances::Module<R>>::resolve_creating(&<authorship::Module<R>>::author(), amount);
+        if let Some(author) = authorship::Pallet::<R>::author() {
+            <balances::Module<R>>::resolve_creating(&author, amount);
+        }
     }
 }
 

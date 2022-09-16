@@ -19,13 +19,14 @@
 
 use crate::storage::create_cdd_id;
 use chrono::prelude::Utc;
+use frame_election_provider_support::NposSolution;
 use frame_support::{
     assert_ok,
     dispatch::DispatchResult,
     parameter_types,
     traits::{
-        Contains, Currency, FindAuthor, Get, Imbalance, KeyOwnerProofSystem, OnFinalize,
-        OnInitialize, OnUnbalanced, OneSessionHandler,
+        Contains, Currency, FindAuthor, GenesisBuild as _, Get, Imbalance, KeyOwnerProofSystem,
+        OnFinalize, OnInitialize, OnUnbalanced, OneSessionHandler, SortedMembers,
     },
     weights::{constants::RocksDbWeight, DispatchInfo, Weight},
     IterableStorageMap, StorageDoubleMap, StorageMap, StorageValue,
@@ -54,24 +55,20 @@ use polymesh_primitives::{
 };
 use sp_core::H256;
 use sp_npos_elections::{
-    reduce, to_support_map, CompactSolution, ElectionScore, EvaluateSupport, ExtendedBalance,
-    StakedAssignment,
+    reduce, to_supports, ElectionScore, EvaluateSupport, ExtendedBalance, StakedAssignment,
 };
 use sp_runtime::{
     curve::PiecewiseLinear,
     testing::{Header, TestSignature, TestXt, UintAuthorityId},
-    traits::{Convert, IdentityLookup, SaturatedConversion, Zero},
+    traits::{IdentityLookup, Zero},
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
     KeyTypeId, Perbill, Permill,
 };
 use sp_staking::{
-    offence::{OffenceDetails, OnOffenceHandler},
+    offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
     SessionIndex,
 };
-use std::{
-    cell::RefCell,
-    collections::{BTreeMap, HashSet},
-};
+use std::{cell::RefCell, collections::BTreeMap};
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
 pub const BLOCK_TIME: u64 = 1000;
@@ -81,23 +78,6 @@ pub(crate) type AccountId = u64;
 pub(crate) type AccountIndex = u64;
 pub(crate) type BlockNumber = u64;
 pub(crate) type Balance = u128;
-
-/// Simple structure that exposes how u64 currency can be represented as... u64.
-pub struct CurrencyToVoteHandler;
-impl Convert<Balance, u64> for CurrencyToVoteHandler {
-    fn convert(x: Balance) -> u64 {
-        x.saturated_into()
-    }
-}
-impl Convert<u128, Balance> for CurrencyToVoteHandler {
-    fn convert(x: u128) -> Balance {
-        x
-    }
-}
-
-thread_local! {
-    static SESSION: RefCell<(Vec<AccountId>, HashSet<AccountId>)> = RefCell::new(Default::default());
-}
 
 /// Another session handler struct to test on_disabled.
 pub struct OtherSessionHandler;
@@ -111,23 +91,14 @@ impl OneSessionHandler<AccountId> for OtherSessionHandler {
     {
     }
 
-    fn on_new_session<'a, I: 'a>(_: bool, validators: I, _: I)
+    fn on_new_session<'a, I: 'a>(_: bool, _: I, _: I)
     where
         I: Iterator<Item = (&'a AccountId, Self::Key)>,
         AccountId: 'a,
     {
-        SESSION.with(|x| {
-            *x.borrow_mut() = (validators.map(|x| x.0.clone()).collect(), HashSet::new())
-        });
     }
 
-    fn on_disabled(validator_index: usize) {
-        SESSION.with(|d| {
-            let mut d = d.borrow_mut();
-            let value = d.0[validator_index];
-            d.1.insert(value);
-        })
-    }
+    fn on_disabled(_validator_index: u32) {}
 }
 
 impl sp_runtime::BoundToRuntimeAppPublic for OtherSessionHandler {
@@ -136,7 +107,12 @@ impl sp_runtime::BoundToRuntimeAppPublic for OtherSessionHandler {
 
 pub fn is_disabled(controller: AccountId) -> bool {
     let stash = Staking::ledger(&controller).unwrap().stash;
-    SESSION.with(|d| d.borrow().1.contains(&stash))
+    let validator_index = match Session::validators().iter().position(|v| *v == stash) {
+        Some(index) => index as u32,
+        None => return false,
+    };
+
+    Session::disabled_validators().contains(&validator_index)
 }
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -148,21 +124,24 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        System: frame_system::{Module, Call, Config, Storage, Event<T>},
-        Babe: pallet_babe::{Module, Call, Storage, Config, Inherent, ValidateUnsigned},
-        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
-        Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
-        Staking: staking::{Module, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
-        Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
-        Identity: pallet_identity::{Module, Call, Storage, Event<T>, Config<T>},
-        CddServiceProviders: pallet_group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
-        ProtocolFee: pallet_protocol_fee::{Module, Call, Storage, Event<T>, Config},
-        Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
-        Treasury: pallet_treasury::{Module, Call, Event<T>},
-        PolymeshCommittee: pallet_committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>},
-        TestUtils: pallet_test_utils::{Module, Call, Storage, Event<T>},
-        Base: pallet_base::{Module, Call, Event},
+        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        Babe: pallet_babe::{Pallet, Call, Storage, Config, ValidateUnsigned},
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+        Authorship: pallet_authorship::{Pallet, Call, Storage, Inherent},
+        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Staking: staking::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
+        Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
+        Historical: pallet_session::historical::{Pallet},
+        Identity: pallet_identity::{Pallet, Call, Storage, Event<T>, Config<T>},
+        CddServiceProviders: pallet_group::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
+        ProtocolFee: pallet_protocol_fee::{Pallet, Call, Storage, Event<T>, Config},
+        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
+        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
+        Treasury: pallet_treasury::{Pallet, Call, Event<T>},
+        PolymeshCommittee: pallet_committee::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        Pips: pallet_pips::{Pallet, Call, Storage, Event<T>, Config<T>},
+        TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T>},
+        Base: pallet_base::{Pallet, Call, Event},
     }
 );
 
@@ -196,7 +175,7 @@ parameter_types! {
 }
 
 impl frame_system::Config for Test {
-    type BaseCallFilter = ();
+    type BaseCallFilter = frame_support::traits::Everything;
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = RocksDbWeight;
@@ -217,7 +196,9 @@ impl frame_system::Config for Test {
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
+    type OnSetCode = ();
     type SS58Prefix = ();
+    type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 impl pallet_base::Config for Test {
@@ -242,7 +223,6 @@ impl pallet_balances::Config for Test {
 
 parameter_types! {
     pub const UncleGenerations: u64 = 0;
-    pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(25);
 }
 sp_runtime::impl_opaque_keys! {
     pub struct SessionKeys {
@@ -257,7 +237,6 @@ impl pallet_session::Config for Test {
     type Event = Event;
     type ValidatorId = AccountId;
     type ValidatorIdOf = StashOf<Test>;
-    type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
     type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
     type WeightInfo = ();
 }
@@ -344,12 +323,14 @@ impl polymesh_common_utilities::traits::identity::Config for Test {
     type IdentityFn = identity::Module<Test>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
+    type MultiSigBalanceLimit = polymesh_runtime_common::MultiSigBalanceLimit;
 }
 
 parameter_types! {
     pub const InitialPOLYX: Balance = 0;
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
+    pub const NoPreimagePostponement: Option<u64> = Some(10);
 }
 
 impl pallet_scheduler::Config for Test {
@@ -361,6 +342,25 @@ impl pallet_scheduler::Config for Test {
     type ScheduleOrigin = EnsureRoot<AccountId>;
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
     type WeightInfo = ();
+    type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
+    type PreimageProvider = Preimage;
+    type NoPreimagePostponement = NoPreimagePostponement;
+}
+
+parameter_types! {
+    pub const PreimageMaxSize: u32 = 4096 * 1024;
+    pub const PreimageBaseDeposit: Balance = polymesh_runtime_common::deposit(2, 64);
+    pub const PreimageByteDeposit: Balance = polymesh_runtime_common::deposit(0, 1);
+}
+
+impl pallet_preimage::Config for Test {
+    type WeightInfo = polymesh_weights::pallet_preimage::WeightInfo;
+    type Event = Event;
+    type Currency = Balances;
+    type ManagerOrigin = EnsureRoot<AccountId>;
+    type MaxSize = PreimageMaxSize;
+    type BaseDeposit = PreimageBaseDeposit;
+    type ByteDeposit = PreimageByteDeposit;
 }
 
 impl pallet_test_utils::Config for Test {
@@ -460,18 +460,14 @@ impl AssetSubTrait for Test {
     fn scope_id(_: &Ticker, _: &IdentityId) -> ScopeId {
         ScopeId::from(0u128)
     }
+    fn ensure_investor_uniqueness_claims_allowed(_: &Ticker) -> DispatchResult {
+        Ok(())
+    }
 }
 
 impl MultiSigSubTrait<AccountId> for Test {
-    fn get_key_signers(_multisig: &AccountId) -> Vec<AccountId> {
-        unimplemented!()
-    }
     fn is_multisig(_account: &AccountId) -> bool {
         unimplemented!()
-    }
-    fn is_signer(_key: &AccountId) -> bool {
-        // Allow all keys when mocked
-        false
     }
 }
 
@@ -513,6 +509,7 @@ impl polymesh_common_utilities::traits::permissions::Config for Test {
 parameter_types! {
     pub const EpochDuration: u64 = 10;
     pub const ExpectedBlockTime: u64 = 1;
+    pub const MaxAuthorities: u32 = 100;
 }
 
 impl pallet_babe::Config for Test {
@@ -520,6 +517,7 @@ impl pallet_babe::Config for Test {
     type EpochDuration = EpochDuration;
     type ExpectedBlockTime = ExpectedBlockTime;
     type EpochChangeTrigger = pallet_babe::ExternalTrigger;
+    type DisabledValidators = Session;
 
     type KeyOwnerProofSystem = ();
     type KeyOwnerProof = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
@@ -532,6 +530,8 @@ impl pallet_babe::Config for Test {
     )>>::IdentificationTuple;
     type HandleEquivocation =
         pallet_babe::EquivocationHandler<Self::KeyOwnerIdentification, (), ()>;
+
+    type MaxAuthorities = MaxAuthorities;
 }
 
 pallet_staking_reward_curve::build! {
@@ -579,12 +579,19 @@ parameter_types! {
 }
 
 impl Contains<u64> for TwoThousand {
-    fn sorted_members() -> std::vec::Vec<u64> {
-        [2000, 3000, 4000, 5000].to_vec()
+    fn contains(t: &u64) -> bool {
+        TwoThousand::get() == *t
+    }
+}
+
+impl SortedMembers<u64> for TwoThousand {
+    fn sorted_members() -> Vec<u64> {
+        vec![TwoThousand::get()]
     }
 }
 
 impl Config for Test {
+    const MAX_NOMINATIONS: u32 = pallet_staking::MAX_NOMINATIONS;
     type Currency = Balances;
     type UnixTime = Timestamp;
     type CurrencyToVote = frame_support::traits::SaturatingCurrencyToVote;
@@ -609,9 +616,7 @@ impl Config for Test {
     type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
     type RequiredAddOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredRemoveOrigin = EnsureSignedBy<TwoThousand, Self::AccountId>;
-    type RequiredComplianceOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredCommissionOrigin = frame_system::EnsureRoot<AccountId>;
-    type RequiredChangeHistoryDepthOrigin = frame_system::EnsureRoot<AccountId>;
     type RewardScheduler = Scheduler;
     type PalletsOrigin = OriginCaller;
     type MaxValidatorPerIdentity = MaxValidatorPerIdentity;
@@ -894,7 +899,7 @@ impl ExtBuilder {
             ];
         }
         let _ = pallet_staking::GenesisConfig::<Test> {
-            stakers,
+            stakers: stakers.clone(),
             validator_count: self.validator_count,
             minimum_validator_count: self.minimum_validator_count,
             invulnerables: self.invulnerables,
@@ -905,26 +910,23 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage);
 
         let _ = pallet_session::GenesisConfig::<Test> {
-            keys: validators
-                .iter()
-                .map(|x| {
-                    (
-                        *x,
-                        *x,
-                        SessionKeys {
-                            other: UintAuthorityId(*x as u64),
-                        },
-                    )
-                })
-                .collect(),
+            keys: if self.has_stakers {
+                // set the keys for the first session.
+                stakers
+                    .into_iter()
+                    .map(|(_, id, ..)| (id, id, SessionKeys { other: id.into() }))
+                    .collect()
+            } else {
+                // set some dummy validators in genesis.
+                validators
+                    .into_iter()
+                    .map(|id| (id, id, SessionKeys { other: id.into() }))
+                    .collect()
+            },
         }
         .assimilate_storage(&mut storage);
 
         let mut ext = sp_io::TestExternalities::from(storage);
-        ext.execute_with(|| {
-            let validators = Session::validators();
-            SESSION.with(|x| *x.borrow_mut() = (validators.clone(), HashSet::new()));
-        });
 
         if self.initialize_first_session {
             // We consider all test to start after timestamp is initialized This must be ensured by
@@ -960,23 +962,23 @@ pub(crate) fn active_era() -> EraIndex {
 }
 
 pub fn provide_did_to_user(account: AccountId) -> bool {
-    if <identity::KeyToIdentityIds<Test>>::contains_key(&account) {
+    if <identity::KeyRecords<Test>>::contains_key(&account) {
         return false;
     }
     let cdd_account_id = 1005;
     let cdd = Origin::signed(cdd_account_id);
     assert!(
-        <identity::KeyToIdentityIds<Test>>::contains_key(&cdd_account_id),
+        <identity::KeyRecords<Test>>::contains_key(&cdd_account_id),
         "CDD provider account not mapped to identity"
     );
-    let cdd_did = <identity::KeyToIdentityIds<Test>>::get(&cdd_account_id);
+    let cdd_did = Identity::get_identity(&cdd_account_id).expect("CDD provider missing identity");
     assert!(
         <identity::DidRecords<Test>>::contains_key(&cdd_did),
         "CDD provider identity has no DID record"
     );
-    let cdd_did_record = <identity::DidRecords<Test>>::get(&cdd_did);
+    let cdd_did_record = <identity::DidRecords<Test>>::get(&cdd_did).unwrap_or_default();
     assert!(
-        cdd_did_record.primary_key == cdd_account_id,
+        cdd_did_record.primary_key == Some(cdd_account_id),
         "CDD identity primary key mismatch"
     );
     assert!(
@@ -1014,7 +1016,7 @@ pub fn add_secondary_key(stash_key: AccountId, to_secondary_key: AccountId) {
 }
 
 pub fn get_identity(key: AccountId) -> bool {
-    <identity::KeyToIdentityIds<Test>>::contains_key(&key)
+    <identity::KeyRecords<Test>>::contains_key(&key)
 }
 
 fn check_ledgers() {
@@ -1122,6 +1124,11 @@ pub fn bond_validator_with_intended_count(
     assert_ok!(Staking::validate(
         Origin::signed(ctrl),
         ValidatorPrefs::default()
+    ));
+    assert_ok!(Session::set_keys(
+        Origin::signed(ctrl),
+        SessionKeys { other: ctrl.into() },
+        vec![]
     ));
 }
 
@@ -1288,7 +1295,12 @@ pub(crate) fn on_offence_in_era(
     let bonded_eras = staking::BondedEras::get();
     for &(bonded_era, start_session) in bonded_eras.iter() {
         if bonded_era == era {
-            let _ = Staking::on_offence(offenders, slash_fraction, start_session).unwrap();
+            let _ = Staking::on_offence(
+                offenders,
+                slash_fraction,
+                start_session,
+                DisableStrategy::WhenSlashed,
+            );
             return;
         } else if bonded_era > era {
             break;
@@ -1300,8 +1312,8 @@ pub(crate) fn on_offence_in_era(
             offenders,
             slash_fraction,
             Staking::eras_start_session_index(era).unwrap(),
-        )
-        .unwrap();
+            DisableStrategy::WhenSlashed,
+        );
     } else {
         panic!("cannot slash in era {}", era);
     }
@@ -1404,14 +1416,10 @@ pub(crate) fn horrible_phragmen_with_post_processing(
     let score = {
         let (_, _, better_score) = prepare_submission_with(true, true, 0, |_| {});
 
-        let support = to_support_map::<AccountId>(&winners, &staked_assignment).unwrap();
+        let support = to_supports::<AccountId>(&staked_assignment);
         let score = support.evaluate();
 
-        assert!(sp_npos_elections::is_score_better::<Perbill>(
-            better_score,
-            score,
-            MinSolutionScoreBump::get(),
-        ));
+        assert!(better_score.strict_threshold_better(score, MinSolutionScoreBump::get()));
 
         score
     };
@@ -1442,7 +1450,7 @@ pub(crate) fn horrible_phragmen_with_post_processing(
     >(staked_assignment);
 
     let compact =
-        CompactAssignments::from_assignment(assignments_reduced, nominator_index, validator_index)
+        CompactAssignments::from_assignment(&assignments_reduced, nominator_index, validator_index)
             .unwrap();
 
     // winner ids to index
@@ -1467,7 +1475,7 @@ pub(crate) fn prepare_submission_with(
         winners,
         assignments,
     } = Staking::do_phragmen::<OffchainAccuracy>(iterations).unwrap();
-    let winners = sp_npos_elections::to_without_backing(winners);
+    let winners = winners.into_iter().map(|(who, _)| who).collect::<Vec<_>>();
 
     let mut staked = sp_npos_elections::assignment_ratio_to_staked(
         assignments,
@@ -1512,15 +1520,14 @@ pub(crate) fn prepare_submission_with(
             Staking::slashable_balance_of_fn(),
         );
 
-        let support_map =
-            to_support_map::<AccountId>(winners.as_slice(), staked.as_slice()).unwrap();
+        let support_map = to_supports::<AccountId>(staked.as_slice());
         support_map.evaluate()
     } else {
         Default::default()
     };
 
     let compact =
-        CompactAssignments::from_assignment(assignments_reduced, nominator_index, validator_index)
+        CompactAssignments::from_assignment(&assignments_reduced, nominator_index, validator_index)
             .expect("Failed to create compact");
 
     // winner ids to index
@@ -1556,7 +1563,7 @@ pub(crate) fn staking_events() -> Vec<staking::Event<Test>> {
         .into_iter()
         .map(|r| r.event)
         .filter_map(|e| {
-            if let Event::staking(inner) = e {
+            if let Event::Staking(inner) = e {
                 Some(inner)
             } else {
                 None
@@ -1567,6 +1574,10 @@ pub(crate) fn staking_events() -> Vec<staking::Event<Test>> {
 
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
     (Balances::free_balance(who), Balances::reserved_balance(who))
+}
+
+fn get_primary_key(target: IdentityId) -> AccountId {
+    Identity::get_primary_key(target).unwrap_or_default()
 }
 
 pub fn make_account_with_uid(
@@ -1588,7 +1599,7 @@ pub fn make_account_with_balance(
     let cdd_providers = Group::get_members();
     let did = match cdd_providers.into_iter().nth(0) {
         Some(cdd_provider) => {
-            let cdd_acc = Identity::did_records(&cdd_provider).primary_key;
+            let cdd_acc = get_primary_key(cdd_provider);
             let _ = Identity::cdd_register_did(Origin::signed(cdd_acc), id, vec![])
                 .map_err(|_| "CDD register DID failed")?;
             let did = Identity::get_identity(&id).unwrap();
@@ -1629,7 +1640,7 @@ pub fn add_nominator_claim_with_expiry(
 }
 
 pub fn create_cdd_id_and_investor_uid(identity_id: IdentityId) -> (CddId, InvestorUid) {
-    let uid = create_investor_uid(Identity::did_records(identity_id).primary_key);
+    let uid = create_investor_uid(get_primary_key(identity_id));
     let (cdd_id, _) = create_cdd_id(identity_id, Ticker::default(), uid);
     (cdd_id, uid)
 }

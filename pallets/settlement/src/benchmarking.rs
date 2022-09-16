@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -18,7 +18,6 @@ use crate::*;
 pub use frame_benchmarking::{account, benchmarks};
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
-//use pallet_contracts::ContractAddressFor;
 use pallet_identity as identity;
 use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_common_utilities::{
@@ -29,9 +28,11 @@ use polymesh_common_utilities::{
     TestUtilsFn,
 };
 use polymesh_primitives::{
-    checked_inc::CheckedInc, statistics::TransferManager, Claim, Condition, ConditionType,
-    CountryCode, IdentityId, PortfolioId, PortfolioName, PortfolioNumber, Scope, Ticker,
-    TrustedIssuer,
+    checked_inc::CheckedInc,
+    statistics::{Stat2ndKey, StatType, StatUpdate},
+    transfer_compliance::{TransferCondition, TransferConditionExemptKey},
+    Claim, Condition, ConditionType, CountryCode, IdentityId, PortfolioId, PortfolioName,
+    PortfolioNumber, Scope, Ticker, TrustedIssuer,
 };
 //use sp_runtime::traits::Hash;
 use sp_runtime::SaturatedConversion;
@@ -63,7 +64,7 @@ impl<T: Config> From<User<T>> for UserData<T> {
 }
 
 fn set_block_number<T: Config>(new_block_no: u64) {
-    system::Module::<T>::set_block_number(new_block_no.saturated_into::<T::BlockNumber>());
+    frame_system::Pallet::<T>::set_block_number(new_block_no.saturated_into::<T::BlockNumber>());
 }
 
 fn creator<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> User<T> {
@@ -322,11 +323,12 @@ pub fn setup_conditions<T: Config>(
     (0..count)
         .map(|i| {
             let scope = Scope::Custom((vec![i]).encode());
-            let claim = Claim::Jurisdiction(CountryCode::AF, scope);
+            let claim = Claim::Jurisdiction(CountryCode::AF, scope.clone());
             for did in &dids {
-                identity::Module::<T>::base_add_claim(
+                identity::Module::<T>::unverified_add_claim_with_scope(
                     did.clone(),
                     claim.clone(),
+                    Some(scope.clone()),
                     trusted_issuer.issuer,
                     None,
                 );
@@ -416,39 +418,6 @@ fn setup_affirm_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     (portfolios_to, from_data, to_data, tickers, legs)
 }
 
-/*
-#[allow(dead_code)]
-fn add_smart_extension_to_ticker<T: Config>(
-    code_hash: <T::Hashing as Hash>::Output,
-    origin: RawOrigin<T::AccountId>,
-    account: T::AccountId,
-    ticker: Ticker,
-) {
-    let data = vec![
-        209, 131, 81, 43, 160, 134, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-    ]; // Allow 100% as percentage ownership and allow primary issuance.
-    <polymesh_contracts::Module<T>>::instantiate(
-        origin.clone().into(),
-        0u32.into(),
-        Weight::max_value(),
-        code_hash,
-        data.clone(),
-        0u32.into(),
-    )
-    .expect("Settlement: Failed to instantiate the contract");
-    let extension_id =
-        T::DetermineContractAddress::contract_address_for(&code_hash, &data, &account);
-    let extension_details = SmartExtension {
-        extension_type: SmartExtensionType::TransferManager,
-        extension_name: b"PTM".into(),
-        extension_id: extension_id.clone(),
-        is_archive: false,
-    };
-    <pallet_asset::Module<T>>::add_extension(origin.into(), ticker, extension_details)
-        .expect("Settlement: Fail to add the smart extension to a given asset");
-}
-*/
-
 fn create_receipt_details<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     index: u32,
     leg: Leg,
@@ -484,31 +453,61 @@ fn create_receipt_details<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     }
 }
 
-pub fn add_transfer_managers<T: Config>(
+pub const MAX_CONDITIONS: u32 = 3;
+
+pub fn add_transfer_conditions<T: Config>(
     ticker: Ticker,
     origin: RawOrigin<T::AccountId>,
     exempted_entity: IdentityId,
-    count: u32,
+    count_conditions: u32,
 ) {
-    for i in 0..count {
-        let tm = TransferManager::CountTransferManager(i.into());
-        // Add Transfer manager
-        <pallet_statistics::Module<T>>::add_transfer_manager(
-            origin.clone().into(),
-            ticker,
-            tm.clone(),
-        )
-        .expect("failed to add transfer manager");
-        // Exempt the user.
-        <pallet_statistics::Module<T>>::add_exempted_entities(
-            origin.clone().into(),
-            ticker,
-            tm,
-            vec![exempted_entity],
-        )
-        .expect("failed to add exempted entities");
-    }
-    <pallet_statistics::Module<T>>::set_investor_count(&ticker, count.into());
+    let stat_type = StatType::investor_count();
+    // Add Investor count stat.
+    <pallet_statistics::Module<T>>::set_active_asset_stats(
+        origin.clone().into(),
+        ticker.into(),
+        [stat_type].iter().cloned().collect(),
+    )
+    .expect("failed to add stats");
+
+    let conditions = (0..count_conditions)
+        .into_iter()
+        .map(|i| TransferCondition::MaxInvestorCount(i.into()))
+        .collect();
+    // Add MaxInvestorCount transfer conditions.
+    <pallet_statistics::Module<T>>::set_asset_transfer_compliance(
+        origin.clone().into(),
+        ticker.into(),
+        conditions,
+    )
+    .expect("failed to add transfer conditions");
+
+    // Exempt the user.
+    let exempt_key = TransferConditionExemptKey {
+        asset: ticker.into(),
+        op: stat_type.op,
+        claim_type: None,
+    };
+    <pallet_statistics::Module<T>>::set_entities_exempt(
+        origin.clone().into(),
+        true,
+        exempt_key,
+        [exempted_entity].iter().cloned().collect(),
+    )
+    .expect("failed to add exempted entities");
+
+    // Update investor count stats.
+    let update = StatUpdate {
+        key2: Stat2ndKey::NoClaimStat,
+        value: Some(count_conditions.into()),
+    };
+    <pallet_statistics::Module<T>>::batch_update_asset_stats(
+        origin.clone().into(),
+        ticker.into(),
+        stat_type,
+        [update].iter().cloned().collect(),
+    )
+    .expect("failed to add exempted entities");
 }
 
 benchmarks! {
@@ -555,6 +554,23 @@ benchmarks! {
     }: _(origin, venue_id, ty)
     verify {
         assert_eq!(Module::<T>::venue_info(VenueId(1)).unwrap().venue_type, ty, "Incorrect venue type value");
+    }
+
+    update_venue_signers {
+        // Variations for the no. of signers allowed.
+        let s in 0 .. MAX_SIGNERS_ALLOWED;
+        let mut signers = Vec::with_capacity(s as usize);
+        let User {account, origin, did, .. } = creator::<T>();
+        let venue_id = create_venue_::<T>(did.unwrap(), vec![account.clone()]);
+        // Create signers vector.
+        for signer in 0 .. s {
+            signers.push(UserBuilder::<T>::default().generate_did().seed(signer).build("signers").account());
+        }
+    }: _(origin, venue_id, signers.clone(), true)
+    verify {
+        for signer in signers.iter() {
+            assert_eq!(Module::<T>::venue_signers(venue_id, signer), true, "Incorrect venue signer");
+        }
     }
 
 
@@ -667,7 +683,7 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true).unwrap();
         // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone()).unwrap();
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone(), None).unwrap();
         let instruction_id = InstructionId(1);
         // Affirm an instruction
         let portfolios_set = portfolios.clone().into_iter().collect::<BTreeSet<_>>();
@@ -687,7 +703,7 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did, _, _, account_id) = emulate_add_instruction::<T>(1, true).unwrap();
         // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone()).unwrap();
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone(), None).unwrap();
         let instruction_id = InstructionId(1);
         let leg_id = LegId(0);
 
@@ -732,7 +748,7 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , s_portfolios, r_portfolios, account_id) = emulate_add_instruction::<T>(1, true).unwrap();
         // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone()).unwrap();
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone(), None).unwrap();
         let instruction_id = InstructionId(1);
         let ticker = Ticker::generate_into(1u64);
         let receipt = create_receipt_details::<T>(0, legs.first().unwrap().clone());
@@ -757,7 +773,7 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , s_portfolios, r_portfolios, account_id) = emulate_add_instruction::<T>(r, true).unwrap();
         // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone()).unwrap();
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone(), None).unwrap();
         let instruction_id = InstructionId(1);
         let mut receipt_details = Vec::with_capacity(r as usize);
         legs.clone().into_iter().enumerate().for_each(|(idx, l)| {
@@ -790,7 +806,6 @@ benchmarks! {
         // 3. Assets have maximum no. of TMs.
 
         let l in 0 .. T::MaxLegsInInstruction::get() as u32;
-        let s = T::MaxTransferManagersPerAsset::get() as u32;
         let c = T::MaxConditionComplexity::get() as u32;
 
         // Setup affirm instruction (One party (i.e from) already affirms the instruction)
@@ -814,15 +829,8 @@ benchmarks! {
         // for both assets also add the compliance rules as per the `MaxConditionComplexity`.
         for ticker in tickers {
             compliance_setup::<T>(c, ticker, from_origin.clone(), from.did, to.did, trusted_issuer.clone());
-            add_transfer_managers::<T>(ticker, from_origin.clone(), from.did, s);
+            add_transfer_conditions::<T>(ticker, from_origin.clone(), from.did, MAX_CONDITIONS);
         }
-
-        // -------- Commented the smart extension integration ----------------
-        // let code_hash = emulate_blueprint_in_storage::<T>(0, from_origin.clone(), "ptm").unwrap();
-        // for i in 0 .. s {
-        //     add_smart_extension_to_ticker::<T>(code_hash, from_origin.clone(), from.account.clone(), from_ticker);
-        //     add_smart_extension_to_ticker::<T>(code_hash, to_origin.clone(), to.account.clone(), to_ticker);
-        // }
     }: _(origin, instruction_id, l)
     verify {
         // Assert that any one leg processed through that give sufficient evidence of successful execution of instruction.
@@ -850,11 +858,41 @@ benchmarks! {
         next_block::<T>();
         assert_eq!(Module::<T>::instruction_details(instruction_id).status, InstructionStatus::Failed, "Settlement: reschedule_instruction didn't work");
     }
+
+    add_instruction_with_memo_and_settle_on_block_type {
+        let l in 1 .. T::MaxLegsInInstruction::get(); // Variation for the MAX leg count.
+        // Define settlement type
+        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
+        let instruction_id = InstructionId(1);
+        set_block_number::<T>(50);
+
+        // Emulate the add instruction and get all the necessary arguments.
+        let (legs, venue_id, origin, did , _, _, _ ) = emulate_add_instruction::<T>(l, false).unwrap();
+
+    }: add_instruction_with_memo(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs, Some(InstructionMemo::default()))
+    verify {
+        assert_eq!(Module::<T>::memo(instruction_id).unwrap(), InstructionMemo::default());
+    }
+
+    add_and_affirm_instruction_with_memo_and_settle_on_block_type {
+        let l in 1 .. T::MaxLegsInInstruction::get();
+        // Define settlement type.
+        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
+        let instruction_id = InstructionId(1);
+        set_block_number::<T>(50);
+        // Emulate the add instruction and get all the necessary arguments.
+        let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true).unwrap();
+        let s_portfolios = portfolios.clone();
+    }: add_and_affirm_instruction_with_memo(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs, s_portfolios, Some(InstructionMemo::default()))
+    verify {
+        verify_add_and_affirm_instruction::<T>(venue_id, settlement_type, portfolios).unwrap();
+        assert_eq!(Module::<T>::memo(instruction_id).unwrap(), InstructionMemo::default());
+    }
 }
 
 pub fn next_block<T: Config + pallet_scheduler::Config>() {
     use frame_support::traits::OnInitialize;
-    let block_number = frame_system::Module::<T>::block_number() + 1u32.into();
-    frame_system::Module::<T>::set_block_number(block_number);
-    pallet_scheduler::Module::<T>::on_initialize(block_number);
+    let block_number = frame_system::Pallet::<T>::block_number() + 1u32.into();
+    frame_system::Pallet::<T>::set_block_number(block_number);
+    pallet_scheduler::Pallet::<T>::on_initialize(block_number);
 }

@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 //
 // This program is free software: you can redistribute it and/or modify
@@ -36,6 +36,7 @@ pub mod pallet_indices;
 pub mod pallet_multisig;
 pub mod pallet_pips;
 pub mod pallet_portfolio;
+pub mod pallet_preimage;
 pub mod pallet_protocol_fee;
 pub mod pallet_relayer;
 pub mod pallet_rewards;
@@ -49,4 +50,4 @@ pub mod pallet_test_utils;
 pub mod pallet_timestamp;
 pub mod pallet_treasury;
 pub mod pallet_utility;
-//pub mod polymesh_contracts;
+pub mod polymesh_contracts;

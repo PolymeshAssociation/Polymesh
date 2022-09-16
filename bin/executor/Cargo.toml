@@ -3,25 +3,25 @@ name = "node-executor"
 version = "2.0.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 description = "Substrate node implementation in Rust."
-edition = "2018"
+edition = "2021"
 license = "Apache-2.0"
 homepage = "https://substrate.dev"
-repository = "https://github.com/PolymathNetwork/substrate/"
+repository = "https://github.com/PolymeshAssociation/substrate/"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0" }
+codec = { package = "parity-scale-codec", version = "3.0.0" }
 node-primitives = { package = "polymesh-primitives", path = "../../primitives" }
 node-runtime = { package = "polymesh-runtime-testnet", path = "../../pallets/runtime/testnet" }
-sc-executor = { version = "0.9.0", features = ["wasmtime"] }
-sp-core = { version = "3.0.0" }
-sp-io = { version = "3.0.0" }
-sp-state-machine = { version = "0.9.0" }
-sp-trie = { version = "3.0.0" }
+sc-executor = { version = "0.10.0-dev", features = ["wasmtime"] }
+sp-core = { version = "6.0.0" }
+sp-io = { version = "6.0.0" }
+sp-state-machine = { version = "0.12.0" }
+sp-trie = { version = "6.0.0" }
 trie-root = "0.16.0"
-frame-benchmarking = { version = "3.0.0" }
+frame-benchmarking = { version = "4.0.0-dev" }
 
 [dev-dependencies]
 node-testing = { path = "../testing" }
@@ -29,19 +29,19 @@ pallet-transaction-payment = { path = "../../pallets/transaction-payment" }
 pallet-balances = { path = "../../pallets/balances" }
 
 criterion = "0.3.0"
-frame-support = { version = "3.0.0" }
-frame-system = { version = "3.0.0" }
-#pallet-contracts = { version = "3.0.0" }
-pallet-grandpa = { version = "3.0.0" }
-pallet-im-online = { version = "3.0.0" }
-pallet-indices = { version = "3.0.0" }
-pallet-session = { version = "3.0.0" }
-pallet-timestamp = { version = "3.0.0" }
-pallet-treasury = { version = "3.0.0" }
-sp-application-crypto = { version = "3.0.0" }
-sp-runtime = { version = "3.0.0" }
-sp-externalities = { version = "0.9.0" }
-substrate-test-client = { git = "https://github.com/PolymathNetwork/substrate", branch = "polymath-3.0.0" }
+frame-support = { version = "4.0.0-dev" }
+frame-system = { version = "4.0.0-dev" }
+#pallet-contracts = { version = "4.0.0-dev" }
+pallet-grandpa = { version = "4.0.0-dev" }
+pallet-im-online = { version = "4.0.0-dev" }
+pallet-indices = { version = "4.0.0-dev" }
+pallet-session = { version = "4.0.0-dev" }
+pallet-timestamp = { version = "4.0.0-dev" }
+pallet-treasury = { version = "4.0.0-dev" }
+sp-application-crypto = { version = "6.0.0" }
+sp-runtime = { version = "6.0.0" }
+sp-externalities = { version = "0.12.0" }
+substrate-test-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05" }
 wabt = "0.10.0"
 
 [features]

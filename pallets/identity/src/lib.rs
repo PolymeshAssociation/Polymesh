@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -68,7 +68,7 @@
 //! - `add_claim` - Adds a new claim record or edits an existing one.
 //! - `revoke_claim` - Marks the specified claim as revoked.
 //! - `revoke_claim_by_index` - Revoke a claim identified by its index.
-//! - `set_permission_to_signer` - Sets permissions for an specific `target_key` key.
+//! - `set_secondary_key_permissions` - Sets permissions for a secondary key.
 //! - `freeze_secondary_keys` - Disables all secondary keys at `did` identity.
 //! - `unfreeze_secondary_keys` - Re-enables all secondary keys of the caller's identity.
 //! - `add_authorization` - Adds an authorization.
@@ -79,27 +79,20 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
-#![feature(
-    const_option,
-    bool_to_option,
-    option_result_contains,
-    crate_visibility_modifier
-)]
+#![feature(const_option, option_result_contains, crate_visibility_modifier)]
 
 mod auth;
 mod claims;
 mod keys;
 
 pub mod types;
-pub use types::{
-    Claim1stKey, Claim2ndKey, DidRecords as RpcDidRecords, DidStatus, PermissionedCallOriginData,
-};
+pub use types::{Claim1stKey, Claim2ndKey, DidStatus, PermissionedCallOriginData, RpcDidRecords};
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
-use confidential_identity::ScopeClaimProof;
+use confidential_identity_v2::ScopeClaimProof;
 use core::convert::From;
 use frame_support::{
     decl_error, decl_module, decl_storage,
@@ -107,7 +100,7 @@ use frame_support::{
     traits::{ChangeMembers, Currency, EnsureOrigin, Get, InitializeMembers},
     weights::{
         DispatchClass::{Normal, Operational},
-        Pays,
+        Pays, Weight,
     },
 };
 use frame_system::ensure_root;
@@ -117,27 +110,29 @@ use polymesh_common_utilities::{
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::identity::{
         AuthorizationNonce, Config, IdentityFnTrait, RawEvent, SecondaryKeyWithAuth,
+        SecondaryKeyWithAuthV1,
     },
-    SystematicIssuers, GC_DID, SYSTEMATIC_ISSUERS,
+    SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    investor_zkproof_data::v1::InvestorZKProofData, secondary_key::api::LegacyPermissions,
-    storage_migration_ver, Authorization, AuthorizationData, AuthorizationType, CddId, Claim,
-    ClaimType, Identity as DidRecord, IdentityClaim, IdentityId, Permissions, Scope, SecondaryKey,
-    Signatory, Ticker,
+    investor_zkproof_data::v1::InvestorZKProofData, storage_migrate_on, storage_migration_ver,
+    Authorization, AuthorizationData, AuthorizationType, CddId, Claim, ClaimType,
+    CustomClaimTypeId, DidRecord, IdentityClaim, IdentityId, KeyRecord, Permissions, Scope,
+    SecondaryKey, Signatory, Ticker,
 };
 use sp_runtime::traits::Hash;
-use sp_std::{convert::TryFrom, iter, prelude::*, vec};
+use sp_std::{convert::TryFrom, prelude::*};
 
 pub type Event<T> = polymesh_common_utilities::traits::identity::Event<T>;
 
-storage_migration_ver!(0);
+storage_migration_ver!(2);
 
 decl_storage! {
     trait Store for Module<T: Config> as Identity {
 
         /// DID -> identity info
-        pub DidRecords get(fn did_records) config(): map hasher(identity) IdentityId => DidRecord<T::AccountId>;
+        pub DidRecords get(fn did_records):
+            map hasher(identity) IdentityId => Option<DidRecord<T::AccountId>>;
 
         /// DID -> bool that indicates if secondary keys are frozen.
         pub IsDidFrozen get(fn is_did_frozen): map hasher(identity) IdentityId => bool;
@@ -150,11 +145,20 @@ decl_storage! {
 
         /// (Target ID, claim type) (issuer,scope) -> Associated claims
         pub Claims: double_map hasher(twox_64_concat) Claim1stKey, hasher(blake2_128_concat) Claim2ndKey => IdentityClaim;
+        /// CustomClaimTypeId -> String constant
+        pub CustomClaims: map hasher(twox_64_concat) CustomClaimTypeId => Vec<u8>;
+        /// String constant -> CustomClaimTypeId
+        pub CustomClaimsInverse: map hasher(blake2_128_concat) Vec<u8> => CustomClaimTypeId;
+        /// The next `CustomClaimTypeId`.
+        pub CustomClaimIdSequence get(fn custom_claim_id_seq): CustomClaimTypeId;
 
-        // A map from AccountId primary or secondary keys to DIDs.
-        // Account keys map to at most one identity.
-        pub KeyToIdentityIds get(fn key_to_identity_dids) config():
-            map hasher(twox_64_concat) T::AccountId => IdentityId;
+        /// Map from AccountId to `KeyRecord` that holds the key's identity and permissions.
+        pub KeyRecords get(fn key_records):
+            map hasher(twox_64_concat) T::AccountId => Option<KeyRecord<T::AccountId>>;
+
+        /// A reverse double map to allow finding all keys for an identity.
+        pub DidKeys get(fn did_keys):
+            double_map hasher(identity) IdentityId, hasher(twox_64_concat) T::AccountId => bool;
 
         /// Nonce to ensure unique actions. starts from 1.
         pub MultiPurposeNonce get(fn multi_purpose_nonce) build(|_| 1u64): u64;
@@ -179,7 +183,7 @@ decl_storage! {
         pub CddAuthForPrimaryKeyRotation get(fn cdd_auth_for_primary_key_rotation): bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2).unwrap()): Version;
 
         /// How many "strong" references to the account key.
         ///
@@ -197,7 +201,7 @@ decl_storage! {
         // Secondary keys of identities at genesis. `identities` have to be initialised.
         config(secondary_keys): Vec<(T::AccountId, IdentityId)>;
         build(|config: &GenesisConfig<T>| {
-            SYSTEMATIC_ISSUERS
+            polymesh_common_utilities::SYSTEMATIC_ISSUERS
                 .iter()
                 .copied()
                 .for_each(<Module<T>>::register_systematic_id);
@@ -219,7 +223,7 @@ decl_storage! {
                 let expiry = gen_id.cdd_claim_expiry.iter().map(|m| T::Moment::from(*m as u32)).next();
                 <Module<T>>::do_register_id(gen_id.primary_key.clone(), gen_id.did, gen_id.secondary_keys.clone());
                 for issuer in &gen_id.issuers {
-                    <Module<T>>::base_add_claim(gen_id.did, cdd_claim.clone(), issuer.clone(), expiry);
+                    <Module<T>>::unverified_add_claim_with_scope(gen_id.did, cdd_claim.clone(), None, *issuer, expiry);
                 }
             }
 
@@ -227,16 +231,13 @@ decl_storage! {
                 // Direct storage change for attaching some secondary keys to identities
                 <Module<T>>::ensure_id_record_exists(did).unwrap();
                 assert!(
-                    <Module<T>>::can_link_account_key_to_did(secondary_account_id),
+                    <Module<T>>::can_add_key_record(secondary_account_id),
                     "Secondary key already linked"
                 );
                 <MultiPurposeNonce>::mutate(|n| *n += 1_u64);
-                <Module<T>>::link_account_key_to_did(secondary_account_id, did);
                 let sk = SecondaryKey::from_account_id(secondary_account_id.clone());
-                <DidRecords<T>>::mutate(did, |record| {
-                    (*record).add_secondary_keys(iter::once(sk.clone()));
-                });
-                <Module<T>>::deposit_event(RawEvent::SecondaryKeysAdded(did, vec![sk.into()]));
+                <Module<T>>::add_key_record(secondary_account_id, sk.make_key_record(did));
+                <Module<T>>::deposit_event(RawEvent::SecondaryKeysAdded(did, vec![sk]));
             }
         });
     }
@@ -252,7 +253,19 @@ decl_module! {
         // this is needed only if you are using events in your module
         fn deposit_event() = default;
 
-        const InitialPOLYX: <T::Balances as Currency<T::AccountId>>::Balance = T::InitialPOLYX::get().into();
+        const InitialPOLYX: <T::Balances as Currency<T::AccountId>>::Balance = T::InitialPOLYX::get();
+
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion::get(), 1, {
+                migration::migrate_v1::<T>();
+            });
+
+            storage_migrate_on!(StorageVersion::get(), 2, {
+                migration::migrate_v2::<T>();
+            });
+
+            0
+        }
 
         /// Register `target_account` with a new Identity.
         ///
@@ -288,21 +301,27 @@ decl_module! {
             Self::base_invalidate_cdd_claims(origin, cdd, disable_from, expiry)?;
         }
 
-        /// Removes specified secondary keys of a DID if present.
-        ///
-        /// # Failure
-        /// It can only called by primary key owner.
-        ///
-        /// # Weight
-        /// `950_000_000 + 60_000 * signers_to_remove.len()`
-        #[weight = <T as Config>::WeightInfo::remove_secondary_keys(signers_to_remove.len() as u32)]
-        pub fn remove_secondary_keys(origin, signers_to_remove: Vec<Signatory<T::AccountId>>) {
-            Self::base_remove_secondary_keys(origin, signers_to_remove)?;
+        /// Deprecated. Use `remove_secondary_keys` instead.
+        #[weight = <T as Config>::WeightInfo::remove_secondary_keys(keys_to_remove.len() as u32)]
+        pub fn remove_secondary_keys_old(origin, keys_to_remove: Vec<Signatory<T::AccountId>>) {
+            let keys_to_remove = keys_to_remove.into_iter()
+                .map(|key| match key {
+                    Signatory::Account(key) => Ok(key),
+                    _ => Err(Error::<T>::NotASigner),
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            Self::base_remove_secondary_keys(origin, keys_to_remove)?;
         }
 
         /// Call this with the new primary key. By invoking this method, caller accepts authorization
-        /// with the new primary key. If a CDD service provider approved this change, primary key of
-        /// the DID is updated.
+        /// to become the new primary key of the issuing identity. If a CDD service provider approved
+        /// this change (or this is not required), primary key of the DID is updated.
+        ///
+        /// The caller (new primary key) must be either a secondary key of the issuing identity, or
+        /// unlinked to any identity.
+        ///
+        /// Differs from rotate_primary_key_to_secondary in that it will unlink the old primary key
+        /// instead of leaving it as a secondary key.
         ///
         /// # Arguments
         /// * `owner_auth_id` Authorization from the owner who initiated the change
@@ -354,8 +373,7 @@ decl_module! {
                 _ => {
                     Self::ensure_custom_scopes_limited(&claim)?;
                     T::ProtocolFee::charge_fee(ProtocolOp::IdentityAddClaim)?;
-                    Self::base_add_claim(target, claim, issuer, expiry);
-                    Ok(())
+                    Self::base_add_claim(target, claim, issuer, expiry)
                 }
             }
         }
@@ -369,24 +387,18 @@ decl_module! {
             Self::base_revoke_claim(target, claim_type, issuer, scope)
         }
 
-        /// Sets permissions for an specific `target_key` key.
-        ///
-        /// Only the primary key of an identity is able to set secondary key permissions.
-        #[weight = <T as Config>::WeightInfo::set_permission_to_signer()]
-        pub fn set_permission_to_signer(origin, signer: Signatory<T::AccountId>, perms: Permissions) {
-            Self::base_set_permission_to_signer(origin, signer, perms)?;
+        /// Deprecated. Use `set_secondary_key_permissions` instead.
+        #[weight = <T as Config>::WeightInfo::set_secondary_key_permissions_full(&perms)]
+        pub fn set_permission_to_signer(origin, key: Signatory<T::AccountId>, perms: Permissions) {
+            match key {
+                Signatory::Account(key) => Self::base_set_secondary_key_permissions(origin, key, perms)?,
+                _ => Err(Error::<T>::NotASigner)?,
+            }
         }
 
-        /// This function is a workaround for https://github.com/polkadot-js/apps/issues/3632
-        /// It sets permissions for an specific `target_key` key.
-        /// Only the primary key of an identity is able to set secondary key permissions.
-        #[weight = <T as Config>::WeightInfo::set_permission_to_signer()]
-        pub fn legacy_set_permission_to_signer(
-            origin,
-            signer: Signatory<T::AccountId>,
-            permissions: LegacyPermissions
-        ) -> DispatchResult {
-            Self::set_permission_to_signer(origin, signer, permissions.into())
+        /// Placeholder for removed `legacy_set_permission_to_signer`.
+        #[weight = 1_000]
+        pub fn placeholder_legacy_set_permission_to_signer(_origin) {
         }
 
         /// It disables all secondary keys at `did` identity.
@@ -406,7 +418,7 @@ decl_module! {
 
         // Manage generic authorizations
         /// Adds an authorization.
-        #[weight = <T as Config>::WeightInfo::add_authorization()]
+        #[weight = <T as Config>::WeightInfo::add_authorization_full::<T::AccountId>(&data)]
         pub fn add_authorization(
             origin,
             target: Signatory<T::AccountId>,
@@ -428,24 +440,17 @@ decl_module! {
             Self::base_remove_authorization(origin, target, auth_id)?;
         }
 
-        /// It adds secondary keys to target identity `id`.
-        /// Keys are directly added to identity because each of them has an authorization.
-        ///
-        /// Arguments:
-        ///     - `origin` Primary key of `id` identity.
-        ///     - `id` Identity where new secondary keys will be added.
-        ///     - `additional_keys` New secondary items (and their authorization data) to add to target
-        ///     identity.
-        ///
-        /// Failure
-        ///     - It can only called by primary key owner.
-        ///     - Keys should be able to linked to any identity.
-        #[weight = <T as Config>::WeightInfo::add_secondary_keys_with_authorization(additional_keys.len() as u32)]
-        pub fn add_secondary_keys_with_authorization(
+        /// Deprecated. Use `add_secondary_keys_with_authorization` instead.
+        #[weight = <T as Config>::WeightInfo::add_secondary_keys_full_v1::<T::AccountId>(&additional_keys)]
+        pub fn add_secondary_keys_with_authorization_old(
             origin,
-            additional_keys: Vec<SecondaryKeyWithAuth<T::AccountId>>,
+            additional_keys: Vec<SecondaryKeyWithAuthV1<T::AccountId>>,
             expires_at: T::Moment
         ) {
+            let additional_keys = additional_keys.into_iter()
+                .map(SecondaryKeyWithAuth::<T::AccountId>::try_from)
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|_| Error::<T>::NotASigner)?;
             Self::base_add_secondary_keys_with_authorization(origin, additional_keys, expires_at)?;
         }
 
@@ -468,6 +473,7 @@ decl_module! {
         /// * `ClaimVariantNotAllowed` When origin trying to pass claim variant other than `InvestorUniqueness`.
         /// * `ConfidentialScopeClaimNotAllowed` When issuer is different from target or CDD_ID is invalid for given user.
         /// * `InvalidScopeClaim When proof is invalid.
+        /// * `InvalidCDDId` when you are not the owner of that CDD_ID.
         #[weight = <T as Config>::WeightInfo::add_investor_uniqueness_claim()]
         pub fn add_investor_uniqueness_claim(origin, target: IdentityId, claim: Claim, proof: InvestorZKProofData, expiry: Option<T::Moment>) -> DispatchResult {
             Self::base_add_investor_uniqueness_claim(origin, target, claim, None, proof.into(), expiry)
@@ -507,6 +513,76 @@ decl_module! {
         pub fn revoke_claim_by_index(origin, target: IdentityId, claim_type: ClaimType, scope: Option<Scope>) -> DispatchResult {
             let issuer = Self::ensure_perms(origin)?;
             Self::base_revoke_claim(target, claim_type, issuer, scope)
+        }
+
+        /// Call this with the new primary key. By invoking this method, caller accepts authorization
+        /// to become the new primary key of the issuing identity. If a CDD service provider approved
+        /// this change, (or this is not required), primary key of the DID is updated.
+        ///
+        /// The caller (new primary key) must be either a secondary key of the issuing identity, or
+        /// unlinked to any identity.
+        ///
+        /// Differs from accept_primary_key in that it will leave the old primary key as a secondary
+        /// key with the permissions specified in the corresponding RotatePrimaryKeyToSecondary authorization
+        /// instead of unlinking the old primary key.
+        ///
+        /// # Arguments
+        /// * `owner_auth_id` Authorization from the owner who initiated the change
+        /// * `cdd_auth_id` Authorization from a CDD service provider
+        #[weight = <T as Config>::WeightInfo::rotate_primary_key_to_secondary()]
+        pub fn rotate_primary_key_to_secondary(origin, auth_id:u64, optional_cdd_auth_id: Option<u64>) -> DispatchResult {
+            Self::base_rotate_primary_key_to_secondary(origin, auth_id, optional_cdd_auth_id)
+        }
+
+        /// Adds secondary keys to target identity `id`.
+        ///
+        /// Keys are directly added to identity because each of them has an authorization.
+        ///
+        /// # Arguments:
+        ///     - `origin` which must be the primary key of the identity `id`.
+        ///     - `id` to which new secondary keys will be added.
+        ///     - `additional_keys` which includes secondary keys,
+        ///        coupled with authorization data, to add to target identity.
+        ///
+        /// # Errors
+        ///     - Can only called by primary key owner.
+        ///     - Keys should be able to linked to any identity.
+        #[weight = <T as Config>::WeightInfo::add_secondary_keys_full::<T::AccountId>(&additional_keys)]
+        pub fn add_secondary_keys_with_authorization(
+            origin,
+            additional_keys: Vec<SecondaryKeyWithAuth<T::AccountId>>,
+            expires_at: T::Moment
+        ) {
+            Self::base_add_secondary_keys_with_authorization(origin, additional_keys, expires_at)?;
+        }
+
+        /// Sets permissions for an specific `target_key` key.
+        ///
+        /// Only the primary key of an identity is able to set secondary key permissions.
+        #[weight = <T as Config>::WeightInfo::set_secondary_key_permissions_full(&perms)]
+        pub fn set_secondary_key_permissions(origin, key: T::AccountId, perms: Permissions) {
+            Self::base_set_secondary_key_permissions(origin, key, perms)?;
+        }
+
+        /// Removes specified secondary keys of a DID if present.
+        ///
+        /// # Errors
+        ///
+        /// The extrinsic can only called by primary key owner.
+        #[weight = <T as Config>::WeightInfo::remove_secondary_keys(keys_to_remove.len() as u32)]
+        pub fn remove_secondary_keys(origin, keys_to_remove: Vec<T::AccountId>) {
+            Self::base_remove_secondary_keys(origin, keys_to_remove)?;
+        }
+
+        /// Register custom claim type.
+        ///
+        /// # Errors
+        /// * `CustomClaimTypeAlreadyExists` The type that is being registered already exists.
+        /// * `CounterOverflow` CustomClaimTypeId has overflowed.
+        /// * `TooLong` The type being registered is too lang.
+        #[weight = <T as Config>::WeightInfo::register_custom_claim_type(ty.len() as u32)]
+        pub fn register_custom_claim_type(origin, ty: Vec<u8>) {
+            Self::base_register_custom_claim_type(origin, ty)?;
         }
     }
 }
@@ -580,13 +656,17 @@ decl_error! {
         /// A custom scope is too long.
         /// It can at most be `32` characters long.
         CustomScopeTooLong,
+        /// The custom claim type trying to be registered already exists.
+        CustomClaimTypeAlreadyExists,
+       /// The custom claim type does not exist.
+        CustomClaimTypeDoesNotExist,
     }
 }
 
 impl<T: Config> Module<T> {
     /// Only used by `create_asset` since `AssetDidRegistered` is defined here instead of there.
     pub fn commit_token_did(did: IdentityId, ticker: Ticker) {
-        <DidRecords<T>>::insert(did, DidRecord::default());
+        DidRecords::<T>::insert(did, DidRecord::default());
         Self::deposit_event(RawEvent::AssetDidRegistered(did, ticker));
     }
 
@@ -603,7 +683,7 @@ impl<T: Config> Module<T> {
         dids.into_iter()
             .map(|did| {
                 // Does DID exist in the ecosystem?
-                if !<DidRecords<T>>::contains_key(did) {
+                if !DidRecords::<T>::contains_key(did) {
                     DidStatus::Unknown
                 }
                 // DID exists, but does it have a valid CDD?
@@ -619,12 +699,7 @@ impl<T: Config> Module<T> {
     #[cfg(feature = "runtime-benchmarks")]
     /// Links a did with an identity
     pub fn link_did(account: T::AccountId, did: IdentityId) {
-        let record = DidRecord {
-            primary_key: account.clone(),
-            ..Default::default()
-        };
-        KeyToIdentityIds::<T>::insert(&account, did);
-        DidRecords::<T>::insert(&did, record);
+        Self::add_key_record(&account, KeyRecord::PrimaryKey(did));
     }
 
     #[cfg(feature = "runtime-benchmarks")]
@@ -701,5 +776,152 @@ fn revoke_claim_class(claim_type: ClaimType) -> frame_support::weights::Dispatch
     match claim_type {
         ClaimType::CustomerDueDiligence => Operational,
         _ => Normal,
+    }
+}
+
+pub mod migration {
+    use super::*;
+
+    mod v1 {
+        use super::*;
+        use polymesh_primitives::secondary_key::v1;
+        use scale_info::TypeInfo;
+
+        /// Old v1 Identity information.
+        #[derive(Encode, Decode, TypeInfo)]
+        #[derive(Clone, Default, PartialEq)]
+        pub struct IdentityRecord<AccountId> {
+            pub primary_key: AccountId,
+            pub secondary_keys: Vec<v1::SecondaryKey<AccountId>>,
+        }
+
+        decl_storage! {
+            trait Store for Module<T: Config> as Identity {
+                pub DidRecords get(fn did_records): map hasher(identity) IdentityId => IdentityRecord<T::AccountId>;
+                pub KeyToIdentityIds get(fn key_to_identity_dids):
+                    map hasher(twox_64_concat) T::AccountId => IdentityId;
+            }
+        }
+
+        decl_module! {
+            pub struct Module<T: Config> for enum Call where origin: T::Origin { }
+        }
+    }
+
+    mod v2 {
+        use super::*;
+        use scale_info::TypeInfo;
+
+        // Authorization struct
+        #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Debug)]
+        pub struct Authorization<AccountId, Moment> {
+            /// Enum that contains authorization type and data
+            pub authorization_data: AuthorizationData<AccountId>,
+
+            /// Identity of the organization/individual that added this authorization
+            pub authorized_by: IdentityId,
+
+            /// time when this authorization expires. optional.
+            pub expiry: Option<Moment>,
+
+            /// Authorization id of this authorization
+            pub auth_id: u64,
+        }
+
+        decl_storage! {
+            trait Store for Module<T: Config> as Identity {
+                /// All authorizations that an identity/key has
+                pub Authorizations get(fn authorizations): double_map hasher(blake2_128_concat)
+                Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Option<Authorization<T::AccountId, T::Moment>>;
+            }
+        }
+
+        decl_module! {
+            pub struct Module<T: Config> for enum Call where origin: T::Origin { }
+        }
+    }
+
+    pub fn migrate_v1_key<T: Config>(key: T::AccountId, record: KeyRecord<T::AccountId>) {
+        // Add key to record mapping.
+        KeyRecords::<T>::insert(&key, &record);
+        // For primary/secondary keys add to `DidKeys`.
+        if let Some((did, is_primary_key)) = record.get_did_key_type() {
+            DidKeys::<T>::insert(did, &key, true);
+            // For primary keys also set the DID record.
+            if is_primary_key {
+                DidRecords::<T>::insert(did, DidRecord::new(key));
+            }
+        }
+    }
+
+    pub fn migrate_v1<T: Config>() {
+        sp_runtime::runtime_logger::RuntimeLogger::init();
+
+        log::info!(" >>> Updating Identity storage. Migrating DidRecords...");
+        let (total_dids, total_sks) = v1::DidRecords::<T>::drain().fold(
+            (0usize, 0usize),
+            |(total_dids, total_sks), (did, mut record)| {
+                // Migrate primary key.
+                if record.primary_key == Default::default() {
+                    // Asset identities don't have primary keys.
+                    DidRecords::<T>::insert(did, DidRecord::default());
+                } else {
+                    migrate_v1_key::<T>(record.primary_key, KeyRecord::PrimaryKey(did));
+                }
+
+                // Migrate secondary keys.
+                let sk_count = record.secondary_keys.drain(..).fold(0usize, |total, sk| {
+                    if let Some((key, key_record)) = sk.into_key_record(did) {
+                        migrate_v1_key::<T>(key, key_record);
+                    }
+                    total + 1
+                });
+
+                (total_dids + 1, total_sks + sk_count)
+            },
+        );
+        log::info!(
+            " >>> Migrated {} Identities and {} secondary keys.",
+            total_dids,
+            total_sks
+        );
+
+        log::info!(" >>> Removing KeyToIdentityIds...");
+        use frame_support::storage::child::KillStorageResult::*;
+        let (num_removed, all_removed) = match v1::KeyToIdentityIds::<T>::remove_all(None) {
+            AllRemoved(removed) => (removed, true),
+            SomeRemaining(removed) => (removed, false),
+        };
+        log::info!(
+            " >>> Removed {} KeyToIdentityIds, removed all: {}.",
+            num_removed,
+            all_removed
+        );
+    }
+
+    pub fn migrate_v2<T: Config>() {
+        sp_runtime::runtime_logger::RuntimeLogger::init();
+
+        log::info!(" >>> Updating Identity storage. Migrating Authorizations...");
+        let total_auths = v2::Authorizations::<T>::drain().fold(
+            0usize,
+            |total_auths, (did, auth_id, authorizations)| {
+                // Migrate authorizations.
+
+                let auth = Authorization {
+                    authorization_data: authorizations.authorization_data,
+                    authorized_by: authorizations.authorized_by,
+                    expiry: authorizations.expiry,
+                    auth_id,
+                    count: 50,
+                };
+                // Asset identities don't have primary keys.
+                Authorizations::<T>::insert(did, auth_id, auth);
+
+                total_auths + 1
+            },
+        );
+
+        log::info!(" >>> Migrated {} Authorizations.", total_auths);
     }
 }

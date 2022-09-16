@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -62,6 +62,7 @@ use polymesh_primitives::{
     calendar::{CalendarPeriod, CheckpointId, CheckpointSchedule},
     storage_migration_ver, EventDid, IdentityId, Moment, Ticker,
 };
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
@@ -73,7 +74,7 @@ type ExternalAgents<T> = pallet_external_agents::Module<T>;
 
 /// Input specification for a checkpoint schedule.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ScheduleSpec {
     /// Unix time in milli-seconds.
     /// When `None`, this is an instruction to use the current time.

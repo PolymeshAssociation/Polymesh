@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -15,7 +15,7 @@
 
 use crate::traits::CommonConfig;
 use core::marker::PhantomData;
-use frame_support::traits::{Imbalance, TryDrop};
+use frame_support::traits::{Imbalance, SameOrOther, TryDrop};
 use polymesh_primitives::traits::BlockRewardsReserveCurrency;
 use polymesh_primitives::Balance;
 use sp_arithmetic::traits::Zero;
@@ -28,6 +28,12 @@ use sp_std::{mem, result};
 /// funds have been created without any equal and opposite accounting.
 #[must_use]
 pub struct PositiveImbalance<T: CommonConfig>(Balance, PhantomData<T>);
+
+impl<T: CommonConfig> Default for PositiveImbalance<T> {
+    fn default() -> Self {
+        Self::new(<_>::default())
+    }
+}
 
 impl<T: CommonConfig> PositiveImbalance<T> {
     /// Create a new positive imbalance from a balance.
@@ -77,14 +83,16 @@ impl<T: CommonConfig> Imbalance<Balance> for PositiveImbalance<T> {
         mem::forget(other);
     }
 
-    fn offset(self, other: Self::Opposite) -> result::Result<Self, Self::Opposite> {
+    fn offset(self, other: Self::Opposite) -> SameOrOther<Self, Self::Opposite> {
         let (a, b) = (self.0, other.0);
         mem::forget((self, other));
 
-        if a >= b {
-            Ok(Self::new(a - b))
+        if a > b {
+            SameOrOther::Same(Self::new(a - b))
+        } else if b > a {
+            SameOrOther::Other(NegativeImbalance::new(b - a))
         } else {
-            Err(NegativeImbalance::new(b - a))
+            SameOrOther::None
         }
     }
 
@@ -104,6 +112,12 @@ impl<T: CommonConfig> Drop for PositiveImbalance<T> {
 /// funds have been destroyed without any equal and opposite accounting.
 #[must_use]
 pub struct NegativeImbalance<T: CommonConfig>(Balance, PhantomData<T>);
+
+impl<T: CommonConfig> Default for NegativeImbalance<T> {
+    fn default() -> Self {
+        Self::new(<_>::default())
+    }
+}
 
 impl<T: CommonConfig> NegativeImbalance<T> {
     /// Create a new negative imbalance from a balance.
@@ -153,14 +167,16 @@ impl<T: CommonConfig> Imbalance<Balance> for NegativeImbalance<T> {
         mem::forget(other);
     }
 
-    fn offset(self, other: Self::Opposite) -> result::Result<Self, Self::Opposite> {
+    fn offset(self, other: Self::Opposite) -> SameOrOther<Self, Self::Opposite> {
         let (a, b) = (self.0, other.0);
         mem::forget((self, other));
 
-        if a >= b {
-            Ok(Self::new(a - b))
+        if a > b {
+            SameOrOther::Same(Self::new(a - b))
+        } else if b > a {
+            SameOrOther::Other(PositiveImbalance::new(b - a))
         } else {
-            Err(PositiveImbalance::new(b - a))
+            SameOrOther::None
         }
     }
 

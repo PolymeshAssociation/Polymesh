@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -13,8 +13,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::Condition;
+use crate::condition::{conditions_total_counts, Condition};
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
@@ -22,7 +23,7 @@ use sp_std::prelude::*;
 /// A compliance requirement.
 /// All sender and receiver conditions of the same compliance requirement must be true in order to execute the transfer.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, TypeInfo, Default, Clone, PartialEq, Eq, Debug)]
 pub struct ComplianceRequirement {
     /// List of sender conditions
     pub sender_conditions: Vec<Condition>,
@@ -50,6 +51,13 @@ impl ComplianceRequirement {
         self.sender_conditions
             .iter()
             .chain(self.receiver_conditions.iter())
+    }
+
+    /// Return the total number of conditions, claims, issuers, and claim_types.
+    ///
+    /// This is used for weight calculation.
+    pub fn counts(&self) -> (u32, u32, u32, u32) {
+        conditions_total_counts(self.conditions())
     }
 }
 
@@ -100,7 +108,7 @@ impl From<Condition> for ConditionResult {
 
 /// List of compliance requirements associated to an asset.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Default, Clone, PartialEq, Eq)]
 pub struct AssetCompliance {
     /// This flag indicates if asset compliance should be enforced
     pub paused: bool,

@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,6 @@ use crate::{
     traits::{balances::Memo, base, identity},
     CommonConfig,
 };
-use codec::{Decode, Encode};
 use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
 use frame_support::weights::Weight;
@@ -31,7 +30,7 @@ use polymesh_primitives::{
 use sp_std::vec::Vec;
 
 /// This trait is used to accept custody of a portfolio
-pub trait PortfolioSubTrait<AccountId: Encode + Decode> {
+pub trait PortfolioSubTrait<AccountId> {
     /// Checks that the custodian is authorized for the portfolio
     ///
     /// # Arguments

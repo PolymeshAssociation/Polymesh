@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -19,12 +19,13 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchError;
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::prelude::*;
 
 /// Authorization data for two step processes.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum AuthorizationData<AccountId> {
     /// CDD provider's attestation to change primary key
@@ -51,6 +52,9 @@ pub enum AuthorizationData<AccountId> {
     /// Must be issued by the paying key.
     /// `AddRelayerPayingKey(user_key, paying_key, polyx_limit)`
     AddRelayerPayingKey(AccountId, AccountId, Balance),
+    /// Authorization to change primary key and leave it as a secondary key
+    /// with the given permissions.
+    RotatePrimaryKeyToSecondary(Permissions),
 }
 
 impl<AccountId> AuthorizationData<AccountId> {
@@ -66,6 +70,7 @@ impl<AccountId> AuthorizationData<AccountId> {
             Self::JoinIdentity(..) => AuthorizationType::JoinIdentity,
             Self::PortfolioCustody(..) => AuthorizationType::PortfolioCustody,
             Self::AddRelayerPayingKey(..) => AuthorizationType::AddRelayerPayingKey,
+            Self::RotatePrimaryKeyToSecondary(..) => AuthorizationType::RotatePrimaryKeyToSecondary,
         }
     }
 }
@@ -92,6 +97,8 @@ pub enum AuthorizationType {
     BecomeAgent,
     /// Authorization to add a Relayer paying key.
     AddRelayerPayingKey,
+    /// Authorization to change primary key with an existing secondary key
+    RotatePrimaryKeyToSecondary,
 }
 
 /// Status of an Authorization after consume is called on it.
@@ -124,7 +131,7 @@ impl From<AuthorizationError> for DispatchError {
 }
 
 /// Authorization struct
-#[derive(Encode, Decode, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct Authorization<AccountId, Moment> {
     /// Enum that contains authorization type and data
@@ -138,6 +145,9 @@ pub struct Authorization<AccountId, Moment> {
 
     /// Authorization id of this authorization
     pub auth_id: u64,
+
+    /// Current count for how many times an authorization can fail. optional.
+    pub count: u32,
 }
 
 /// Extract the authoriation variant's data, or bail.

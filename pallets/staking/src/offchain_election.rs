@@ -17,6 +17,7 @@
 
 //! Helpers for offchain worker election.
 
+use crate::_feps::NposSolution;
 use crate::{
     Call, CompactAssignments, Config, ElectionSize, Module, NominatorIndex, Nominators,
     OffchainAccuracy, ValidatorIndex,
@@ -25,10 +26,14 @@ use codec::Decode;
 use frame_support::{traits::Get, weights::Weight, IterableStorageMap};
 use frame_system::offchain::SubmitTransaction;
 use sp_npos_elections::{
-    reduce, to_support_map, Assignment, CompactSolution, ElectionResult, ElectionScore,
-    EvaluateSupport, ExtendedBalance,
+    reduce, to_supports, Assignment, ElectionResult, ElectionScore, EvaluateSupport,
+    ExtendedBalance,
 };
-use sp_runtime::{offchain::storage::StorageValueRef, traits::TrailingZeroInput, RuntimeDebug};
+use sp_runtime::{
+    offchain::storage::{MutateStorageError, StorageValueRef},
+    traits::TrailingZeroInput,
+    RuntimeDebug,
+};
 use sp_std::{convert::TryInto, prelude::*};
 
 /// Error types related to the offchain election machinery.
@@ -71,36 +76,26 @@ pub(crate) const DEFAULT_LONGEVITY: u64 = 25;
 /// Returns `Ok(())` if offchain worker should happen, `Err(reason)` otherwise.
 pub fn set_check_offchain_execution_status<T: Config>(
     now: T::BlockNumber,
-) -> Result<(), &'static str> {
+) -> Result<(), MutateStorageError<<T as frame_system::Config>::BlockNumber, &'static str>> {
     let storage = StorageValueRef::persistent(&OFFCHAIN_HEAD_DB);
     let threshold = T::BlockNumber::from(OFFCHAIN_REPEAT);
 
-    let mutate_stat =
-        storage.mutate::<_, &'static str, _>(|maybe_head: Option<Option<T::BlockNumber>>| {
-            match maybe_head {
-                Some(Some(head)) if now < head => Err("fork."),
-                Some(Some(head)) if now >= head && now <= head + threshold => {
-                    Err("recently executed.")
-                }
-                Some(Some(head)) if now > head + threshold => {
-                    // we can run again now. Write the new head.
-                    Ok(now)
-                }
-                _ => {
-                    // value doesn't exists. Probably this node just booted up. Write, and run
-                    Ok(now)
-                }
+    let mutate_stat = storage.mutate::<_, &'static str, _>(|maybe_head| {
+        match maybe_head {
+            Ok(Some(head)) if now < head => Err("fork."),
+            Ok(Some(head)) if now >= head && now <= head + threshold => Err("recently executed."),
+            Ok(Some(head)) if now > head + threshold => {
+                // we can run again now. Write the new head.
+                Ok(now)
             }
-        });
+            _ => {
+                // value doesn't exists. Probably this node just booted up. Write, and run
+                Ok(now)
+            }
+        }
+    });
 
-    match mutate_stat {
-        // all good
-        Ok(Ok(_)) => Ok(()),
-        // failed to write.
-        Ok(Err(_)) => Err("failed to write to offchain db."),
-        // fork etc.
-        Err(why) => Err(why),
-    }
+    mutate_stat.map(drop)
 }
 
 /// The internal logic of the offchain worker of this module. This runs the phragmen election,
@@ -131,11 +126,17 @@ pub(crate) fn compute_offchain_election<T: Config>() -> Result<(), OffchainElect
     );
 
     // defensive-only: current era can never be none except genesis.
-    let current_era = <Module<T>>::current_era().unwrap_or_default();
+    let era = <Module<T>>::current_era().unwrap_or_default();
 
     // send it.
-    let call =
-        Call::submit_election_solution_unsigned(winners, compact, score, current_era, size).into();
+    let call = Call::submit_election_solution_unsigned {
+        winners,
+        compact,
+        score,
+        era,
+        size,
+    }
+    .into();
 
     SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call)
         .map_err(|_| OffchainElectionError::PoolSubmissionFailed)
@@ -364,7 +365,7 @@ pub fn prepare_submission<T: Config>(
     };
 
     // Clean winners.
-    let winners = sp_npos_elections::to_without_backing(winners);
+    let winners = winners.into_iter().map(|(who, _)| who).collect::<Vec<_>>();
 
     // convert into absolute value and to obtain the reduced version.
     let mut staked = sp_npos_elections::assignment_ratio_to_staked(
@@ -383,7 +384,7 @@ pub fn prepare_submission<T: Config>(
 
     // compact encode the assignment.
     let compact = CompactAssignments::from_assignment(
-        low_accuracy_assignment,
+        &low_accuracy_assignment,
         nominator_index,
         validator_index,
     )
@@ -422,8 +423,7 @@ pub fn prepare_submission<T: Config>(
             <Module<T>>::slashable_balance_of_fn(),
         );
 
-        let support_map = to_support_map::<T::AccountId>(&winners, &staked)
-            .map_err(|_| OffchainElectionError::ElectionFailed)?;
+        let support_map = to_supports::<T::AccountId>(&staked);
         support_map.evaluate()
     };
 
@@ -451,48 +451,106 @@ mod test {
 
     struct Staking;
 
-    macro_rules! unimplemented_weight_fn {
-        ($name:ident $(,$arg_type:tt)*) => {
-            fn $name( $(_:$arg_type,)*) -> Weight {
-                unimplemented!()
-            }
-        };
-    }
-
     impl crate::WeightInfo for Staking {
-        unimplemented_weight_fn!(bond);
-        unimplemented_weight_fn!(bond_extra);
-        unimplemented_weight_fn!(unbond);
-        unimplemented_weight_fn!(validate);
-        unimplemented_weight_fn!(chill);
-        unimplemented_weight_fn!(set_payee);
-        unimplemented_weight_fn!(set_controller);
-        unimplemented_weight_fn!(set_validator_count);
-        unimplemented_weight_fn!(force_no_eras);
-        unimplemented_weight_fn!(force_new_era);
-        unimplemented_weight_fn!(force_new_era_always);
-        unimplemented_weight_fn!(set_min_bond_threshold);
-        unimplemented_weight_fn!(add_permissioned_validator);
-        unimplemented_weight_fn!(remove_permissioned_validator);
-        unimplemented_weight_fn!(set_commission_cap, u32);
-        unimplemented_weight_fn!(do_slash, u32);
-        unimplemented_weight_fn!(withdraw_unbonded_update, u32);
-        unimplemented_weight_fn!(withdraw_unbonded_kill, u32);
-        unimplemented_weight_fn!(nominate, u32);
-        unimplemented_weight_fn!(set_invulnerables, u32);
-        unimplemented_weight_fn!(force_unstake, u32);
-        unimplemented_weight_fn!(cancel_deferred_slash, u32);
-        unimplemented_weight_fn!(rebond, u32);
-        unimplemented_weight_fn!(set_history_depth, u32);
-        unimplemented_weight_fn!(reap_stash, u32);
-        unimplemented_weight_fn!(payout_stakers, u32);
-        unimplemented_weight_fn!(payout_stakers_alive_controller, u32);
-        unimplemented_weight_fn!(payout_all, u32, u32);
-        unimplemented_weight_fn!(new_era, u32, u32);
-        unimplemented_weight_fn!(change_slashing_allowed_for);
-        unimplemented_weight_fn!(update_permissioned_validator_intended_count);
-        unimplemented_weight_fn!(scale_validator_count);
-        unimplemented_weight_fn!(increase_validator_count);
+        fn bond() -> Weight {
+            unimplemented!()
+        }
+        fn bond_extra() -> Weight {
+            unimplemented!()
+        }
+        fn unbond() -> Weight {
+            unimplemented!()
+        }
+        fn withdraw_unbonded_update(s: u32) -> Weight {
+            unimplemented!()
+        }
+        fn withdraw_unbonded_kill(s: u32) -> Weight {
+            unimplemented!()
+        }
+        fn validate() -> Weight {
+            unimplemented!()
+        }
+        fn nominate(n: u32) -> Weight {
+            unimplemented!()
+        }
+        fn chill() -> Weight {
+            unimplemented!()
+        }
+        fn set_payee() -> Weight {
+            unimplemented!()
+        }
+        fn set_controller() -> Weight {
+            unimplemented!()
+        }
+        fn set_validator_count(_c: u32) -> Weight {
+            unimplemented!()
+        }
+        fn force_no_eras() -> Weight {
+            unimplemented!()
+        }
+        fn force_new_era() -> Weight {
+            unimplemented!()
+        }
+        fn force_new_era_always() -> Weight {
+            unimplemented!()
+        }
+        fn set_invulnerables(v: u32) -> Weight {
+            unimplemented!()
+        }
+        fn force_unstake(s: u32) -> Weight {
+            unimplemented!()
+        }
+        fn cancel_deferred_slash(s: u32) -> Weight {
+            unimplemented!()
+        }
+        fn payout_all(_: u32, _: u32) -> Weight {
+            unimplemented!()
+        }
+        fn payout_stakers(n: u32) -> Weight {
+            unimplemented!()
+        }
+        fn payout_stakers_alive_controller(n: u32) -> Weight {
+            unimplemented!()
+        }
+        fn set_min_bond_threshold() -> Weight {
+            unimplemented!()
+        }
+        fn add_permissioned_validator() -> Weight {
+            unimplemented!()
+        }
+        fn remove_permissioned_validator() -> Weight {
+            unimplemented!()
+        }
+        fn set_commission_cap(_: u32) -> Weight {
+            unimplemented!()
+        }
+        fn do_slash(_: u32) -> Weight {
+            unimplemented!()
+        }
+        fn rebond(l: u32) -> Weight {
+            unimplemented!()
+        }
+        fn set_history_depth(e: u32) -> Weight {
+            unimplemented!()
+        }
+        fn reap_stash(s: u32) -> Weight {
+            unimplemented!()
+        }
+        fn new_era(v: u32, n: u32) -> Weight {
+            unimplemented!()
+        }
+        fn change_slashing_allowed_for() -> Weight {
+            unimplemented!()
+        }
+        fn update_permissioned_validator_intended_count() -> Weight {
+            unimplemented!()
+        }
+        fn scale_validator_count() -> Weight {
+            unimplemented!()
+        }
+        fn increase_validator_count() -> Weight {
+            unimplemented!()
+        }
 
         fn submit_solution_better(v: u32, n: u32, a: u32, w: u32) -> Weight {
             (0 * v + 0 * n + 1000 * a + 0 * w) as Weight

@@ -16,7 +16,7 @@
 //
 // Modified by Polymath Inc - 2020
 // This module is inspired from the `pallet-utility`.
-// https://github.com/PolymathNetwork/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/utility
+// https://github.com/PolymeshAssociation/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/utility
 //
 // Polymesh changes:
 // - Pseudonymal dispatch has been removed.
@@ -52,6 +52,7 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
+use frame_support::storage::{with_transaction, TransactionOutcome};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, PostDispatchInfo},
@@ -60,14 +61,14 @@ use frame_support::{
     weights::{GetDispatchInfo, Weight},
     Parameter,
 };
-use frame_system::{ensure_root, ensure_signed, Module as System, RawOrigin};
+use frame_system::{ensure_root, ensure_signed, Pallet as System, RawOrigin};
 use pallet_balances::{self as balances};
 use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::{
     balances::{CheckCdd, Config as BalancesConfig},
     identity::{AuthorizationNonce, Config as IdentityConfig},
-    with_transaction,
 };
+use scale_info::TypeInfo;
 use sp_runtime::{traits::Dispatchable, traits::Verify, DispatchError, RuntimeDebug};
 use sp_std::prelude::*;
 
@@ -138,7 +139,7 @@ decl_event! {
 }
 
 /// Wraps a `Call` and provides uniqueness through a nonce
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct UniqueCall<C> {
     nonce: AuthorizationNonce,
     call: Box<C>,
@@ -183,7 +184,7 @@ decl_module! {
             let is_root = Self::ensure_root_or_signed(origin.clone())?;
 
             // Run batch
-            Self::deposit_event(Self::run_batch(origin.clone(), is_root, calls, true));
+            Self::deposit_event(Self::run_batch(origin, is_root, calls, true));
         }
 
         /// Dispatch multiple calls from the sender's origin.
@@ -210,19 +211,16 @@ decl_module! {
             let is_root = Self::ensure_root_or_signed(origin.clone())?;
 
             // Run batch inside a transaction
-            Self::deposit_event(match with_transaction(|| {
-                // Run batch
-                match Self::run_batch(origin.clone(), is_root, calls, true) {
-                    Event::BatchCompleted(counts) => Ok(Event::BatchCompleted(counts)),
+            Self::deposit_event(with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
+                // Run batch.
+                match Self::run_batch(origin, is_root, calls, true) {
+                    ev @ Event::BatchCompleted(_) => TransactionOutcome::Commit(Ok(ev)),
                     ev => {
-                        // Batch didn't complete.  Abort transaction
-                        Err(ev)
+                        // Batch didn't complete.  Rollback transaction.
+                        TransactionOutcome::Rollback(Ok(ev))
                     }
                 }
-            }) {
-                Ok(ev) => ev,
-                Err(ev) => ev
-            });
+            })?);
         }
 
         /// Dispatch multiple calls from the sender's origin.
@@ -251,7 +249,7 @@ decl_module! {
             let is_root = Self::ensure_root_or_signed(origin.clone())?;
 
             // Optimistically (hey, it's in the function name, :wink:) assume no errors.
-            Self::deposit_event(Self::run_batch(origin.clone(), is_root, calls, false));
+            Self::deposit_event(Self::run_batch(origin, is_root, calls, false));
         }
 
         /// Relay a call for a target from an origin

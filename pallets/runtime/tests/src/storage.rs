@@ -1,18 +1,18 @@
-use super::ext_builder::{
-    EXTRINSIC_BASE_WEIGHT, MAX_NO_OF_TM_ALLOWED, NETWORK_FEE_SHARE, TRANSACTION_BYTE_FEE,
-    WEIGHT_TO_FEE,
-};
+use super::ext_builder::{EXTRINSIC_BASE_WEIGHT, TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE};
 use codec::Encode;
 use frame_support::{
-    assert_ok, debug, parameter_types,
-    traits::{Currency, Imbalance, KeyOwnerProofSystem, OnInitialize, OnUnbalanced, Randomness},
+    assert_ok,
+    dispatch::DispatchResult,
+    parameter_types,
+    traits::{Currency, Imbalance, KeyOwnerProofSystem, OnInitialize, OnUnbalanced},
     weights::{
         DispatchInfo, RuntimeDbWeight, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
         WeightToFeePolynomial,
     },
     StorageDoubleMap,
 };
-use frame_system::EnsureRoot;
+use frame_system::{EnsureRoot, RawOrigin};
+use lazy_static::lazy_static;
 use pallet_asset::checkpoint as pallet_checkpoint;
 use pallet_balances as balances;
 use pallet_committee as committee;
@@ -40,18 +40,20 @@ use polymesh_common_utilities::{
 use polymesh_primitives::{
     investor_zkproof_data::v1::InvestorZKProofData, AccountId, Authorization, AuthorizationData,
     BlockNumber, CddId, Claim, InvestorUid, Moment, Permissions as AuthPermissions,
-    PortfolioNumber, Scope, ScopeId, TrustedFor, TrustedIssuer,
+    PortfolioNumber, Scope, ScopeId, SecondaryKey, TrustedFor, TrustedIssuer,
 };
-use polymesh_runtime_common::{merge_active_and_inactive, runtime::VMO};
-use polymesh_runtime_develop::constants::time::{
-    EPOCH_DURATION_IN_BLOCKS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK,
+use polymesh_runtime_common::{
+    merge_active_and_inactive,
+    runtime::{BENCHMARK_MAX_INCREASE, VMO},
 };
+use polymesh_runtime_develop::constants::time::{EPOCH_DURATION_IN_BLOCKS, MILLISECS_PER_BLOCK};
 use smallvec::smallvec;
 use sp_core::{
     crypto::{key_types, Pair as PairTrait},
     sr25519::Pair,
     H256,
 };
+use sp_runtime::generic::Era;
 use sp_runtime::{
     create_runtime_str,
     curve::PiecewiseLinear,
@@ -73,8 +75,41 @@ use std::cell::RefCell;
 use std::convert::From;
 use test_client::AccountKeyring;
 
+lazy_static! {
+    pub static ref INTEGRATION_TEST: bool = std::env::var("INTEGRATION_TEST")
+        .map(|var| var.parse().unwrap_or(false))
+        .unwrap_or(false);
+}
+
+#[macro_export]
+macro_rules! exec_ok {
+    ( $x:expr $(,)? ) => {
+        frame_support::assert_ok!(polymesh_exec_macro::exec!($x))
+    };
+    ( $x:expr, $y:expr $(,)? ) => {
+        frame_support::assert_ok!(polymesh_exec_macro::exec!($x), $y)
+    };
+}
+
+#[macro_export]
+macro_rules! exec_noop {
+    (
+		$x:expr,
+		$y:expr $(,)?
+	) => {
+        // Use `assert_err` when running with `INTEGRATION_TEST`.
+        // `assert_noop` returns false positives when using full extrinsic execution.
+        if *crate::storage::INTEGRATION_TEST {
+            frame_support::assert_err!(polymesh_exec_macro::exec!($x), $y);
+        } else {
+            frame_support::assert_noop!(polymesh_exec_macro::exec!($x), $y);
+        }
+    };
+}
+
 // 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
 pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
+const GENESIS_HASH: [u8; 32] = [69u8; 32];
 pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("test-storage"),
     impl_name: create_runtime_str!("test-storage"),
@@ -87,6 +122,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 7,
+    state_version: 1,
 };
 
 impl_opaque_keys! {
@@ -124,7 +160,7 @@ parameter_types! {
     pub const SlashDeferDuration: pallet_staking::EraIndex = 4;
     pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
     pub const MaxIterations: u32 = 10;
-    pub MinSolutionScoreBump: Perbill = Perbill::from_rational_approximation(5u32, 10_000);
+    pub MinSolutionScoreBump: Perbill = Perbill::from_rational(5u32, 10_000);
     pub const MaxNominatorRewardedPerValidator: u32 = 2048;
     pub const IndexDeposit: Balance = DOLLARS;
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
@@ -135,12 +171,12 @@ parameter_types! {
     pub const MinimumBond: Balance = 1 * POLY;
     pub const MaxLegsInInstruction: u32 = 100;
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
-    pub const SessionDuration: BlockNumber = EPOCH_DURATION_IN_SLOTS as _;
+    pub const MaxAuthorities: u32 = 100_000;
+    pub const MaxKeys: u32 = 10_000;
+    pub const MaxPeerInHeartbeats: u32 = 10_000;
+    pub const MaxPeerDataEncodingSize: u32 = 1_000;
     pub const ReportLongevity: u64 =
         BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
-
-    pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) * MaximumBlockWeight::get();
-
 }
 
 frame_support::construct_runtime!(
@@ -149,90 +185,91 @@ frame_support::construct_runtime!(
     NodeBlock = polymesh_primitives::Block,
     UncheckedExtrinsic = UncheckedExtrinsic,
 {
-        System: frame_system::{Module, Call, Config, Storage, Event<T>} = 0,
-        Babe: pallet_babe::{Module, Call, Storage, Config, ValidateUnsigned} = 1,
-        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent} = 2,
-        Indices: pallet_indices::{Module, Call, Storage, Config<T>, Event<T>} = 3,
+        System: frame_system::{Pallet, Call, Config, Storage, Event<T>} = 0,
+        Babe: pallet_babe::{Pallet, Call, Storage, Config, ValidateUnsigned} = 1,
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 2,
+        Indices: pallet_indices::{Pallet, Call, Storage, Config<T>, Event<T>} = 3,
 
         // Balance: Genesis config dependencies: System.
-        Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>} = 4,
+        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 4,
 
         // TransactionPayment: Genesis config dependencies: Balance.
-        TransactionPayment: pallet_transaction_payment::{Module, Storage} = 5,
+        TransactionPayment: pallet_transaction_payment::{Pallet, Storage} = 5,
 
         // Identity: Genesis config deps: Timestamp.
-        Identity: pallet_identity::{Module, Call, Storage, Event<T>, Config<T>} = 6,
-        // Authorship: pallet_authorship::{Module, Call, Storage, Inherent} = 7,
+        Identity: pallet_identity::{Pallet, Call, Storage, Event<T>, Config<T>} = 6,
+        // Authorship: pallet_authorship::{Pallet, Call, Storage, Inherent} = 7,
 
         // CddServiceProviders: Genesis config deps: Identity
-        CddServiceProviders: pallet_group::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>} = 38,
+        CddServiceProviders: pallet_group::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 38,
 
         // Staking: Genesis config deps: Balances, Indices, Identity, Babe, Timestamp, CddServiceProviders.
-        Staking: pallet_staking::{Module, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 8,
-        Offences: pallet_offences::{Module, Call, Storage, Event} = 9,
+        Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned} = 8,
+        Offences: pallet_offences::{Pallet, Storage, Event} = 9,
 
         // Session: Genesis config deps: System.
-        Session: pallet_session::{Module, Call, Storage, Event, Config<T>} = 10,
-        Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event} = 12,
-        ImOnline: pallet_im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 13,
-        AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config} = 14,
-        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage} = 15,
-        Historical: pallet_session_historical::{Module} = 16,
+        Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 10,
+        Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event} = 12,
+        ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 13,
+        AuthorityDiscovery: pallet_authority_discovery::{Pallet, Config} = 14,
+        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Pallet, Storage} = 15,
+        Historical: pallet_session_historical::{Pallet} = 16,
 
         // Sudo. Usable initially.
         // RELEASE: remove this for release build.
-        Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>} = 17,
-        MultiSig: pallet_multisig::{Module, Call, Config, Storage, Event<T>} = 18,
-
-        /*
-        // Contracts
-        BaseContracts: pallet_contracts::{Module, Config<T>, Storage, Event<T>} = 19,
-        Contracts: polymesh_contracts::{Module, Call, Storage, Event<T>} = 20,
-        */
+        Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>} = 17,
+        MultiSig: pallet_multisig::{Pallet, Call, Config, Storage, Event<T>} = 18,
 
         // Polymesh Governance Committees
-        Treasury: pallet_treasury::{Module, Call, Event<T>} = 21,
-        PolymeshCommittee: pallet_committee::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 22,
+        Treasury: pallet_treasury::{Pallet, Call, Event<T>} = 21,
+        PolymeshCommittee: pallet_committee::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 22,
 
         // CommitteeMembership: Genesis config deps: PolymeshCommittee, Identity.
-        CommitteeMembership: pallet_group::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>} = 23,
-        Pips: pallet_pips::{Module, Call, Storage, Event<T>, Config<T>} = 24,
-        TechnicalCommittee: pallet_committee::<Instance3>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 25,
+        CommitteeMembership: pallet_group::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 23,
+        Pips: pallet_pips::{Pallet, Call, Storage, Event<T>, Config<T>} = 24,
+        TechnicalCommittee: pallet_committee::<Instance3>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 25,
 
         // TechnicalCommitteeMembership: Genesis config deps: TechnicalCommittee, Identity
-        TechnicalCommitteeMembership: pallet_group::<Instance3>::{Module, Call, Storage, Event<T>, Config<T>} = 26,
-        UpgradeCommittee: pallet_committee::<Instance4>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>} = 27,
+        TechnicalCommitteeMembership: pallet_group::<Instance3>::{Pallet, Call, Storage, Event<T>, Config<T>} = 26,
+        UpgradeCommittee: pallet_committee::<Instance4>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 27,
 
         // UpgradeCommitteeMembership: Genesis config deps: UpgradeCommittee
-        UpgradeCommitteeMembership: pallet_group::<Instance4>::{Module, Call, Storage, Event<T>, Config<T>} = 28,
+        UpgradeCommitteeMembership: pallet_group::<Instance4>::{Pallet, Call, Storage, Event<T>, Config<T>} = 28,
 
         //Polymesh
         ////////////
 
         // Asset: Genesis config deps: Timestamp,
-        Asset: pallet_asset::{Module, Call, Storage, Config<T>, Event<T>} = 29,
+        Asset: pallet_asset::{Pallet, Call, Storage, Config<T>, Event<T>} = 29,
 
         // Bridge: Genesis config deps: Multisig, Identity,
-        Bridge: pallet_bridge::{Module, Call, Storage, Config<T>, Event<T>} = 31,
-        ComplianceManager: pallet_compliance_manager::{Module, Call, Storage, Event} = 32,
-        Settlement: pallet_settlement::{Module, Call, Storage, Event<T>, Config} = 36,
-        Sto: pallet_sto::{Module, Call, Storage, Event<T>} = 37,
-        Statistics: pallet_statistics::{Module, Call, Storage, Event} = 39,
-        ProtocolFee: pallet_protocol_fee::{Module, Call, Storage, Event<T>, Config} = 40,
-        Utility: pallet_utility::{Module, Call, Storage, Event} = 41,
-        Portfolio: pallet_portfolio::{Module, Call, Storage, Event} = 42,
+        Bridge: pallet_bridge::{Pallet, Call, Storage, Config<T>, Event<T>} = 31,
+        ComplianceManager: pallet_compliance_manager::{Pallet, Call, Storage, Event} = 32,
+        Settlement: pallet_settlement::{Pallet, Call, Storage, Event<T>, Config} = 36,
+        Sto: pallet_sto::{Pallet, Call, Storage, Event<T>} = 37,
+        Statistics: pallet_statistics::{Pallet, Call, Storage, Event} = 39,
+        ProtocolFee: pallet_protocol_fee::{Pallet, Call, Storage, Event<T>, Config} = 40,
+        Utility: pallet_utility::{Pallet, Call, Storage, Event} = 41,
+        Portfolio: pallet_portfolio::{Pallet, Call, Storage, Event} = 42,
         // Removed pallet Confidential = 43,
-        Permissions: pallet_permissions::{Module, Storage} = 44,
-        Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>} = 45,
-        CorporateAction: pallet_corporate_actions::{Module, Call, Storage, Event, Config} = 46,
-        CorporateBallot: corporate_ballots::{Module, Call, Storage, Event} = 47,
-        CapitalDistribution: capital_distributions::{Module, Call, Storage, Event} = 48,
-        Checkpoint: pallet_checkpoint::{Module, Call, Storage, Event, Config} = 49,
-        TestUtils: pallet_test_utils::{Module, Call, Storage, Event<T> } = 50,
-        Base: pallet_base::{Module, Call, Event} = 51,
-        ExternalAgents: pallet_external_agents::{Module, Call, Storage, Event} = 52,
-        Relayer: pallet_relayer::{Module, Call, Storage, Event<T>} = 53,
-        Rewards: pallet_rewards::{Module, Call, Storage, Event<T>, Config<T>} = 54,
+        Permissions: pallet_permissions::{Pallet, Storage} = 44,
+        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 45,
+        CorporateAction: pallet_corporate_actions::{Pallet, Call, Storage, Event, Config} = 46,
+        CorporateBallot: corporate_ballots::{Pallet, Call, Storage, Event} = 47,
+        CapitalDistribution: capital_distributions::{Pallet, Call, Storage, Event} = 48,
+        Checkpoint: pallet_checkpoint::{Pallet, Call, Storage, Event, Config} = 49,
+        TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 50,
+        Base: pallet_base::{Pallet, Call, Event} = 51,
+        ExternalAgents: pallet_external_agents::{Pallet, Call, Storage, Event} = 52,
+        Relayer: pallet_relayer::{Pallet, Call, Storage, Event<T>} = 53,
+        Rewards: pallet_rewards::{Pallet, Call, Storage, Event<T>, Config<T>} = 54,
+
+        // Contracts
+        Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>} = 19,
+        PolymeshContracts: polymesh_contracts::{Pallet, Call, Storage, Event} = 20,
+
+        // Preimage register.  Used by `pallet_scheduler`.
+        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 55,
     }
 );
 
@@ -298,6 +335,10 @@ impl User {
         create_investor_uid(self.acc())
     }
 
+    pub fn make_scope_claim(&self, ticker: Ticker, cdd_provider: &AccountId) -> (ScopeId, CddId) {
+        provide_scope_claim(self.did, ticker, self.uid(), cdd_provider.clone(), None)
+    }
+
     /// Create a `Scope::Identity` from a User
     pub fn scope(&self) -> Scope {
         Scope::Identity(self.did)
@@ -349,7 +390,7 @@ impl OnUnbalanced<NegativeImbalance<TestStorage>> for DealWithFees {
     fn on_nonzero_unbalanced(amount: NegativeImbalance<TestStorage>) {
         let target = account_from(5000);
         let positive_imbalance = Balances::deposit_creating(&target, amount.peek());
-        let _ = amount.offset(positive_imbalance).map_err(|_| 4); // random value mapped for error
+        let _ = amount.offset(positive_imbalance).same().map_err(|_| 4); // random value mapped for error
     }
 }
 
@@ -358,16 +399,19 @@ parameter_types! {
     pub const ExistentialDeposit: u64 = 0;
     pub const MaxLocks: u32 = 50;
     pub const MaxLen: u32 = 256;
-    pub MaxNumberOfTMExtensionForAsset: u32 = MAX_NO_OF_TM_ALLOWED.with(|v| *v.borrow());
     pub const AssetNameMaxLength: u32 = 128;
     pub const FundingRoundNameMaxLength: u32 = 128;
+    pub const AssetMetadataNameMaxLength: u32 = 256;
+    pub const AssetMetadataValueMaxLength: u32 = 8 * 1024;
+    pub const AssetMetadataTypeDefMaxLength: u32 = 8 * 1024;
     pub const BlockRangeForTimelock: BlockNumber = 1000;
     pub const MaxTargetIds: u32 = 10;
     pub const MaxDidWhts: u32 = 10;
     pub const MinimumPeriod: u64 = 3;
-    pub NetworkShareInFee: Perbill = NETWORK_FEE_SHARE.with(|v| *v.borrow());
 
-    pub const MaxTransferManagersPerAsset: u32 = 3;
+    pub const MaxStatsPerAsset: u32 = 10 + BENCHMARK_MAX_INCREASE;
+    pub const MaxTransferConditionsPerAsset: u32 = 4 + BENCHMARK_MAX_INCREASE;
+
     pub const MaxConditionComplexity: u32 = 50;
     pub const MaxDefaultTrustedClaimIssuers: usize = 10;
     pub const MaxTrustedIssuerPerCondition: usize = 10;
@@ -375,20 +419,20 @@ parameter_types! {
     pub const MaxReceiverConditionsPerCompliance: usize = 30;
     pub const MaxCompliancePerRequirement: usize = 10;
 
-    pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
-
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
+    pub const NoPreimagePostponement: Option<u32> = Some(10);
 
     pub const InitialPOLYX: Balance = 41;
     pub const SignedClaimHandicap: u64 = 2;
     pub const StorageSizeOffset: u32 = 8;
-    pub const TombstoneDeposit: Balance = 16;
-    pub const RentByteFee: Balance = 100;
-    pub const RentDepositOffset: Balance = 100000;
-    pub const SurchargeReward: Balance = 1500;
     pub const MaxDepth: u32 = 100;
     pub const MaxValueSize: u32 = 16_384;
+
+    pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
+    pub DeletionWeightLimit: Weight = 500_000_000_000;
+    pub DeletionQueueDepth: u32 = 1024;
+    pub MaxInLen: u32 = 8 * 1024;
 }
 
 thread_local! {
@@ -532,6 +576,7 @@ impl polymesh_common_utilities::traits::identity::Config for TestStorage {
     type IdentityFn = identity::Module<TestStorage>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
+    type MultiSigBalanceLimit = polymesh_runtime_common::MultiSigBalanceLimit;
 }
 
 pub struct TestSessionHandler;
@@ -545,7 +590,7 @@ impl pallet_session::SessionHandler<AuthorityId> for TestSessionHandler {
     ) {
     }
 
-    fn on_disabled(_validator_index: usize) {}
+    fn on_disabled(_validator_index: u32) {}
 
     fn on_genesis_session<Ks: OpaqueKeys>(_validators: &[(AuthorityId, Ks)]) {}
     fn on_before_session_ending() {}
@@ -601,7 +646,7 @@ pub type CorporateActions = corporate_actions::Module<TestStorage>;
 pub fn make_account(
     id: AccountId,
 ) -> Result<(<TestStorage as frame_system::Config>::Origin, IdentityId), &'static str> {
-    let uid = InvestorUid::from(format!("{}", id).as_str());
+    let uid = create_investor_uid(id.clone());
     make_account_with_uid(id, uid)
 }
 
@@ -649,7 +694,7 @@ pub fn make_account_with_balance(
     let cdd_providers = CddServiceProvider::get_members();
     let did = match cdd_providers.into_iter().nth(0) {
         Some(cdd_provider) => {
-            let cdd_acc = Identity::did_records(&cdd_provider).primary_key;
+            let cdd_acc = get_primary_key(cdd_provider);
             let _ = Identity::cdd_register_did(Origin::signed(cdd_acc.clone()), id.clone(), vec![])
                 .map_err(|_| "CDD register DID failed")?;
 
@@ -693,14 +738,19 @@ pub fn register_keyring_account_with_balance(
     make_account_with_balance(acc_id, uid, balance).map(|(_, id)| id)
 }
 
-pub fn register_keyring_account_without_cdd(
-    acc: AccountKeyring,
-) -> Result<IdentityId, &'static str> {
-    make_account_without_cdd(acc.to_account_id()).map(|(_, id)| id)
+pub fn get_primary_key(target: IdentityId) -> AccountId {
+    Identity::get_primary_key(target).unwrap_or_default()
+}
+
+pub fn get_secondary_keys(target: IdentityId) -> Vec<SecondaryKey<AccountId>> {
+    match Identity::get_did_records(target) {
+        RpcDidRecords::Success { secondary_keys, .. } => secondary_keys,
+        _ => vec![],
+    }
 }
 
 pub fn add_secondary_key_with_perms(did: IdentityId, acc: AccountId, perms: AuthPermissions) {
-    let _primary_key = Identity::did_records(&did).primary_key;
+    let _primary_key = get_primary_key(did);
     let auth_id = Identity::add_auth(
         did.clone(),
         Signatory::Account(acc.clone()),
@@ -735,11 +785,11 @@ pub fn authorizations_to(to: &Signatory<AccountId>) -> Vec<Authorization<Account
 
 /// Advances the system `block_number` and run any scheduled task.
 pub fn next_block() -> Weight {
-    let block_number = frame_system::Module::<TestStorage>::block_number() + 1;
-    frame_system::Module::<TestStorage>::set_block_number(block_number);
+    let block_number = frame_system::Pallet::<TestStorage>::block_number() + 1;
+    frame_system::Pallet::<TestStorage>::set_block_number(block_number);
 
     // Call the timelocked tx handler.
-    pallet_scheduler::Module::<TestStorage>::on_initialize(block_number)
+    pallet_scheduler::Pallet::<TestStorage>::on_initialize(block_number)
 }
 
 pub fn fast_forward_to_block(n: u32) -> Weight {
@@ -799,17 +849,15 @@ pub fn create_investor_uid(acc: AccountId) -> InvestorUid {
     InvestorUid::from(format!("{}", acc).as_str())
 }
 
-pub fn provide_scope_claim(
+pub fn add_cdd_claim(
     claim_to: IdentityId,
     scope: Ticker,
     investor_uid: InvestorUid,
     cdd_provider: AccountId,
     cdd_claim_expiry: Option<u64>,
-) -> (ScopeId, CddId) {
+) -> (ScopeId, CddId, InvestorZKProofData) {
     let (cdd_id, proof) = create_cdd_id(claim_to, scope, investor_uid);
     let scope_id = InvestorZKProofData::make_scope_id(&scope.as_slice(), &investor_uid);
-
-    let signed_claim_to = Origin::signed(Identity::did_records(claim_to).primary_key);
 
     // Add cdd claim first
     assert_ok!(Identity::add_claim(
@@ -818,17 +866,49 @@ pub fn provide_scope_claim(
         Claim::CustomerDueDiligence(cdd_id),
         cdd_claim_expiry,
     ));
+    (scope_id, cdd_id, proof)
+}
+
+pub fn provide_scope_claim(
+    claim_to: IdentityId,
+    scope: Ticker,
+    investor_uid: InvestorUid,
+    cdd_provider: AccountId,
+    cdd_claim_expiry: Option<u64>,
+) -> (ScopeId, CddId) {
+    // Add CDD claim, create scope_id and proof.
+    let (scope_id, cdd_id, proof) = add_cdd_claim(
+        claim_to,
+        scope,
+        investor_uid,
+        cdd_provider,
+        cdd_claim_expiry,
+    );
+
+    // Add the InvestorUniqueness claim.
+    assert_ok!(add_investor_uniqueness_claim(
+        claim_to, scope, scope_id, cdd_id, proof
+    ));
+    (scope_id, cdd_id)
+}
+
+pub fn add_investor_uniqueness_claim(
+    claim_to: IdentityId,
+    scope: Ticker,
+    scope_id: ScopeId,
+    cdd_id: CddId,
+    proof: InvestorZKProofData,
+) -> DispatchResult {
+    let signed_claim_to = Origin::signed(get_primary_key(claim_to));
 
     // Provide the InvestorUniqueness.
-    assert_ok!(Identity::add_investor_uniqueness_claim(
+    Identity::add_investor_uniqueness_claim(
         signed_claim_to,
         claim_to,
         Claim::InvestorUniqueness(Scope::Ticker(scope), scope_id, cdd_id),
         proof,
-        None
-    ));
-
-    (scope_id, cdd_id)
+        None,
+    )
 }
 
 pub fn provide_scope_claim_to_multiple_parties<'a>(
@@ -837,7 +917,7 @@ pub fn provide_scope_claim_to_multiple_parties<'a>(
     cdd_provider: AccountId,
 ) {
     parties.into_iter().for_each(|id| {
-        let uid = create_investor_uid(Identity::did_records(id).primary_key);
+        let uid = create_investor_uid(get_primary_key(*id));
         provide_scope_claim(*id, ticker, uid, cdd_provider.clone(), None).0;
     });
 }
@@ -847,13 +927,16 @@ pub fn root() -> Origin {
 }
 
 pub fn create_cdd_id_and_investor_uid(identity_id: IdentityId) -> (CddId, InvestorUid) {
-    let uid = create_investor_uid(Identity::did_records(identity_id).primary_key);
+    let uid = create_investor_uid(get_primary_key(identity_id));
     let (cdd_id, _) = create_cdd_id(identity_id, Ticker::default(), uid);
     (cdd_id, uid)
 }
 
 pub fn make_remark_proposal() -> Call {
-    Call::System(frame_system::Call::remark(vec![b'X'; 100])).into()
+    Call::System(frame_system::Call::remark {
+        remark: vec![b'X'; 100],
+    })
+    .into()
 }
 
 crate fn set_curr_did(did: Option<IdentityId>) {
@@ -913,4 +996,66 @@ macro_rules! assert_event_doesnt_exist {
             )
         }));
     };
+}
+
+pub fn exec<C: Into<Call>>(origin: Origin, call: C) -> DispatchResult {
+    let origin: Result<RawOrigin<AccountId>, Origin> = origin.into();
+    let signed = match origin.unwrap() {
+        RawOrigin::Signed(acc) => {
+            let info = frame_system::Account::<TestStorage>::get(&acc);
+            Some((acc, signed_extra(info.nonce)))
+        }
+        _ => None,
+    };
+    Executive::apply_extrinsic(sign(CheckedExtrinsic {
+        signed,
+        function: call.into(),
+    }))
+    .unwrap()
+}
+
+/// Sign given `CheckedExtrinsic` returning an `UncheckedExtrinsic`
+/// usable for execution.
+fn sign(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
+    let CheckedExtrinsic {
+        signed, function, ..
+    } = xt;
+    UncheckedExtrinsic {
+        signature: signed.map(|(signed, extra)| {
+            let payload = (
+                &function,
+                extra.clone(),
+                VERSION.spec_version,
+                VERSION.transaction_version,
+                GENESIS_HASH,
+                GENESIS_HASH,
+            );
+            let key = AccountKeyring::from_account_id(&signed).unwrap();
+            let signature = payload
+                .using_encoded(|b| {
+                    if b.len() > 256 {
+                        key.sign(&sp_io::hashing::blake2_256(b))
+                    } else {
+                        key.sign(b)
+                    }
+                })
+                .into();
+            (Address::Id(signed), signature, extra)
+        }),
+        function,
+    }
+}
+
+/// Returns transaction extra.
+fn signed_extra(nonce: Index) -> SignedExtra {
+    (
+        frame_system::CheckSpecVersion::new(),
+        frame_system::CheckTxVersion::new(),
+        frame_system::CheckGenesis::new(),
+        frame_system::CheckEra::from(Era::mortal(256, 0)),
+        frame_system::CheckNonce::from(nonce),
+        polymesh_extensions::CheckWeight::new(),
+        pallet_transaction_payment::ChargeTransactionPayment::from(0),
+        pallet_permissions::StoreCallMetadata::new(),
+    )
 }

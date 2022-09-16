@@ -31,7 +31,7 @@
 #![warn(missing_docs)]
 
 use polymesh_primitives::{
-    AccountId, Block, BlockNumber, Hash, IdentityId, Index, Moment, SecondaryKey, Signatory, Ticker,
+    AccountId, Balance, Block, BlockNumber, Hash, IdentityId, Index, Moment, Ticker,
 };
 use sc_client_api::AuxStore;
 use sc_consensus_babe::{Config, Epoch};
@@ -40,26 +40,14 @@ use sc_finality_grandpa::{
     FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState,
 };
 use sc_rpc::{DenyUnsafe, SubscriptionTaskExecutor};
+use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus::SelectChain;
 use sp_consensus_babe::BabeApi;
 use sp_keystore::SyncCryptoStorePtr;
-use sp_transaction_pool::TransactionPool;
 use std::sync::Arc;
-
-/// Light client extra dependencies.
-pub struct LightDeps<C, F, P> {
-    /// The client instance to use.
-    pub client: Arc<C>,
-    /// Transaction pool instance.
-    pub pool: Arc<P>,
-    /// Remote access to the blockchain (async).
-    pub remote_blockchain: Arc<dyn sc_client_api::light::RemoteBlockchain<Block>>,
-    /// Fetcher instance.
-    pub fetcher: Arc<F>,
-}
 
 /// Extra dependencies for BABE.
 pub struct BabeDeps {
@@ -109,7 +97,7 @@ pub type IoHandler = jsonrpc_core::IoHandler<sc_rpc::Metadata>;
 /// Instantiate all Full RPC extensions.
 pub fn create_full<C, P, UE, SC, B>(
     deps: FullDeps<C, P, SC, B>,
-) -> jsonrpc_core::IoHandler<sc_rpc_api::Metadata>
+) -> Result<jsonrpc_core::IoHandler<sc_rpc_api::Metadata>, Box<dyn std::error::Error + Send + Sync>>
 where
     C: ProvideRuntimeApi<Block>
         + HeaderBackend<Block>
@@ -119,19 +107,11 @@ where
         + Send
         + 'static,
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
-    //C::Api: pallet_contracts_rpc::ContractsRuntimeApi<Block, AccountId, Balance, BlockNumber>,
+    C::Api: pallet_contracts_rpc::ContractsRuntimeApi<Block, AccountId, Balance, BlockNumber, Hash>,
     C::Api: node_rpc::transaction_payment::TransactionPaymentRuntimeApi<Block, UE>,
     C::Api: pallet_staking_rpc::StakingRuntimeApi<Block>,
     C::Api: node_rpc::pips::PipsRuntimeApi<Block, AccountId>,
-    C::Api: node_rpc::identity::IdentityRuntimeApi<
-        Block,
-        IdentityId,
-        Ticker,
-        AccountId,
-        SecondaryKey<AccountId>,
-        Signatory<AccountId>,
-        Moment,
-    >,
+    C::Api: node_rpc::identity::IdentityRuntimeApi<Block, IdentityId, Ticker, AccountId, Moment>,
     C::Api: pallet_protocol_fee_rpc::ProtocolFeeRuntimeApi<Block>,
     C::Api: node_rpc::asset::AssetRuntimeApi<Block, AccountId>,
     C::Api: pallet_group_rpc::GroupRuntimeApi<Block>,
@@ -151,7 +131,7 @@ where
         pips::{Pips, PipsApi},
         transaction_payment::{TransactionPayment, TransactionPaymentApi},
     };
-    //use pallet_contracts_rpc::{Contracts, ContractsApi};
+    use pallet_contracts_rpc::{Contracts, ContractsApi};
     use pallet_group_rpc::{Group, GroupApi};
     use pallet_protocol_fee_rpc::{ProtocolFee, ProtocolFeeApi};
     use pallet_staking_rpc::{Staking, StakingApi};
@@ -189,9 +169,9 @@ where
         deny_unsafe,
     )));
     // Making synchronous calls in light client freezes the browser currently,
-    // more context: https://github.com/PolymathNetwork/substrate/pull/3480
+    // more context: https://github.com/PolymeshAssociation/substrate/pull/3480
     // These RPCs should use an asynchronous caller instead.
-    //io.extend_with(ContractsApi::to_delegate(Contracts::new(client.clone())));
+    io.extend_with(ContractsApi::to_delegate(Contracts::new(client.clone())));
     io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(
         client.clone(),
     )));
@@ -221,8 +201,7 @@ where
             client.clone(),
             shared_authority_set,
             shared_epoch_changes,
-            deny_unsafe,
-        ),
+        )?,
     ));
     io.extend_with(StakingApi::to_delegate(Staking::new(client.clone())));
     io.extend_with(PipsApi::to_delegate(Pips::new(client.clone())));
@@ -236,34 +215,5 @@ where
         client,
     )));
 
-    io
-}
-
-/// Instantiate all Light RPC extensions.
-pub fn create_light<C, P, M, F, UE>(deps: LightDeps<C, F, P>) -> jsonrpc_core::IoHandler<M>
-where
-    C: sp_blockchain::HeaderBackend<Block>,
-    C: ProvideRuntimeApi<Block>,
-    C: Send + Sync + 'static,
-    F: sc_client_api::light::Fetcher<Block> + 'static,
-    P: TransactionPool + 'static,
-    M: jsonrpc_core::Metadata + Default,
-    C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>
-        + node_rpc::transaction_payment::TransactionPaymentRuntimeApi<Block, UE>,
-    UE: codec::Codec + 'static,
-{
-    use substrate_frame_rpc_system::{LightSystem, SystemApi};
-
-    let LightDeps {
-        client,
-        pool,
-        remote_blockchain,
-        fetcher,
-    } = deps;
-    let mut io = jsonrpc_core::IoHandler::default();
-    io.extend_with(SystemApi::<Hash, AccountId, Index>::to_delegate(
-        LightSystem::new(client, remote_blockchain, fetcher, pool),
-    ));
-
-    io
+    Ok(io)
 }

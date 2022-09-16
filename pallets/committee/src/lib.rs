@@ -16,7 +16,7 @@
 
 // Modified by Polymath Inc - 23rd March 2020
 // Polymesh changes - This module is inspired from the `pallet-collective`
-// https://github.com/PolymathNetwork/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/collective
+// https://github.com/PolymeshAssociation/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/collective
 // It is modified as per the requirement of the Polymesh
 // -`set_members()` dispatchable get removed and members are maintained by the group module
 // - New instance of the group module is being added and assigned committee instance to
@@ -78,6 +78,7 @@ use polymesh_common_utilities::{
     Context, MaybeBlock, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{storage_migration_ver, IdentityId};
+use scale_info::TypeInfo;
 use sp_runtime::traits::Hash;
 use sp_std::{prelude::*, vec};
 
@@ -122,7 +123,7 @@ pub trait Config<I>:
 }
 
 /// Origin for the committee module.
-#[derive(PartialEq, Eq, Clone, Debug, Encode, Decode)]
+#[derive(PartialEq, Eq, Clone, Debug, Encode, Decode, TypeInfo)]
 pub enum RawOrigin<AccountId, I> {
     /// It has been condoned by M of N members of this committee
     /// with `M` and `N` set dynamically in `set_vote_threshold`.
@@ -132,7 +133,7 @@ pub enum RawOrigin<AccountId, I> {
 /// Origin for the committee module.
 pub type Origin<T, I = DefaultInstance> = RawOrigin<<T as frame_system::Config>::AccountId, I>;
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug)]
 /// Info for keeping track of a motion being voted on.
 pub struct PolymeshVotes<BlockNumber> {
     /// The proposal's unique index.
@@ -524,7 +525,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
         expiry: MaybeBlock<T::BlockNumber>,
     ) -> Result<(), Error<T, I>> {
         match expiry {
-            MaybeBlock::Some(e) if e <= frame_system::Module::<T>::block_number() => {
+            MaybeBlock::Some(e) if e <= frame_system::Pallet::<T>::block_number() => {
                 Self::clear_proposal(proposal);
                 <ProposalOf<T, I>>::remove(proposal);
                 Err(Error::<T, I>::ProposalExpired)
@@ -570,7 +571,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
             let index = <ProposalCount<I>>::mutate(|i| mem::replace(i, *i + 1));
             <Proposals<T, I>>::append(proposal_hash);
             <ProposalOf<T, I>>::insert(proposal_hash, proposal);
-            let now = frame_system::Module::<T>::block_number();
+            let now = frame_system::Pallet::<T>::block_number();
             let votes = PolymeshVotes {
                 index,
                 ayes: vec![did],

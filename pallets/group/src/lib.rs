@@ -16,7 +16,7 @@
 
 // # Modified by Polymath Inc - 23rd March 2020
 // This module is inspired by the `membership` module of the substrate framework
-// https://github.com/PolymathNetwork/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/membership
+// https://github.com/PolymeshAssociation/substrate/tree/a439a7aa5a9a3df2a42d9b25ea04288d3a0866e8/frame/membership
 // It get customize as per the Polymesh requirements
 // - Change member type from `AccountId` to `IdentityId`.
 // - Remove `change_key` function from the implementation in the favour of "User can hold only single identity on Polymesh blockchain".
@@ -313,7 +313,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
     /// Returns the current "active members" and any "valid member" whose revocation time-stamp is
     /// in the future.
     pub fn get_valid_members() -> Vec<IdentityId> {
-        let now = <pallet_timestamp::Module<T>>::get();
+        let now = <pallet_timestamp::Pallet<T>>::get();
         Self::get_valid_members_at(now)
     }
 
@@ -379,7 +379,7 @@ impl<T: Config<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
     /// Returns inactive members who are not expired yet.
     #[inline]
     fn get_inactive_members() -> Vec<InactiveMember<T::Moment>> {
-        let now = <pallet_timestamp::Module<T>>::get();
+        let now = <pallet_timestamp::Pallet<T>>::get();
         Self::inactive_members()
             .into_iter()
             .filter(|member| !Self::is_member_expired(member, now))
@@ -402,7 +402,7 @@ impl<T: Config<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
         Self::base_remove_active_member(who)?;
         let current_did = Context::current_identity::<Identity<T>>().unwrap_or(GC_DID);
 
-        let deactivated_at = at.unwrap_or_else(<pallet_timestamp::Module<T>>::get);
+        let deactivated_at = at.unwrap_or_else(<pallet_timestamp::Pallet<T>>::get);
         let inactive_member = InactiveMember {
             id: who,
             expiry,
@@ -411,7 +411,7 @@ impl<T: Config<I>, I: Instance> GroupTrait<T::Moment> for Module<T, I> {
 
         <InactiveMembers<T, I>>::mutate(|members| {
             // Remove expired members.
-            let now = <pallet_timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Pallet<T>>::get();
             members.retain(|m| {
                 if !Self::is_member_expired(m, now) {
                     true

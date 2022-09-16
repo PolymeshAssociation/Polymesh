@@ -12,8 +12,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Use rust nightly 2021-08-24 for building docs.
-      run: echo "nightly-2021-08-24" > ./rust-toolchain
     - name: Install rust toolchain
       uses: actions-rs/toolchain@v1
       with:
@@ -21,7 +19,7 @@ jobs:
         override: true
         default: true
     - name: Build docs
-      run: BUILD_DUMMY_WASM_BINARY=1 cargo doc --no-deps --workspace --release --exclude node-bench --exclude node-executor --exclude node-testing
+      run: BUILD_DUMMY_WASM_BINARY=1 cargo doc --no-deps --workspace --release --exclude node-bench --exclude node-executor --exclude node-testing --exclude crypto-cli
     - name: Add index file
       run: echo "<html lang='en'><head><meta http-equiv='refresh' content='0; URL=./polymesh/index.html'></head></html>" > ./target/doc/index.html
     - name: Publish to Cloudflare workers

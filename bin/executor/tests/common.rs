@@ -126,10 +126,10 @@ pub fn executor_call<
     executor().call::<R, NC>(&mut t, &runtime_code, method, data, use_native, native_call)
 }
 
-pub fn new_test_ext(code: &[u8], support_changes_trie: bool) -> TestExternalities<BlakeTwo256> {
+pub fn new_test_ext(code: &[u8]) -> TestExternalities<BlakeTwo256> {
     let mut ext = TestExternalities::new_with_code(
         code,
-        node_testing::genesis::config(support_changes_trie, Some(code))
+        node_testing::genesis::config(Some(code))
             .build_storage()
             .unwrap(),
     );

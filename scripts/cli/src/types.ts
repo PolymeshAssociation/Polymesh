@@ -37,20 +37,6 @@ export interface TargetIdentity {
   Specific?: IdentityId;
 }
 
-export interface Claim {
-  Accredited?: Scope;
-  Affiliate?: Scope;
-  BuyLockup?: Scope;
-  SellLockup?: Scope;
-  CustomerDueDiligence?: CddId;
-  KnowYourCustomer?: Scope;
-  Jurisdiction?: [CountryCode, Scope];
-  Exempted?: Scope;
-  Blocked?: Scope;
-  InvestorUniqueness?: [Scope, ScopeId, CddId];
-  NoData?: string;
-}
-
 export interface ClaimType {
   Accredited?: string;
   Affiliate?: string;
@@ -66,26 +52,26 @@ export interface ClaimType {
 }
 
 export interface AuthorizationData {
-	AttestPrimaryKeyRotation?: IdentityId;
-	RotatePrimaryKey?: IdentityId;
-	TransferTicker?: Ticker;
-	TransferPrimaryIssuanceAgent?: Ticker;
-	AddMultiSigSigner?: AccountId;
-	TransferAssetOwnership?: Ticker;
-	JoinIdentity?: Permissions;
-	PortfolioCustody?: PortfolioId;
-	Custom?: Ticker;
-	NoData?: string;
-	TransferCorporateActionAgent?: Ticker;
-	BecomeAgent?: (string | AgentGroup)[];
+  AttestPrimaryKeyRotation?: IdentityId;
+  RotatePrimaryKey?: IdentityId;
+  TransferTicker?: Ticker;
+  TransferPrimaryIssuanceAgent?: Ticker;
+  AddMultiSigSigner?: AccountId;
+  TransferAssetOwnership?: Ticker;
+  JoinIdentity?: Permissions;
+  PortfolioCustody?: PortfolioId;
+  Custom?: Ticker;
+  NoData?: string;
+  TransferCorporateActionAgent?: Ticker;
+  BecomeAgent?: (string | AgentGroup)[];
 }
 
 export interface AgentGroup {
-	Full?: string;
-	Custom?: number;
-	ExceptMeta?: string;
-	PolymeshV1CAA?: string;
-	PolymeshV1PIA?: string;
+  Full?: string;
+  Custom?: number;
+  ExceptMeta?: string;
+  PolymeshV1CAA?: string;
+  PolymeshV1PIA?: string;
 }
 
 export interface ConditionType {
@@ -111,7 +97,22 @@ export type DispatchableName = string;
 export type Expiry = string | object | Uint8Array | null;
 export type DocumentName = string;
 export type DocumentUri = string;
-export type Signatory = { Identity: IdentityId } | { Account: AccountId };
+export type Signatory = { Identity: IdentityId } | { Account: AccountId | Uint8Array};
+export type ItnRewardStatus = { Unclaimed: number } | { Claimed: "" };
+export type venueType = "Other" | "Distribution" | "Sto" | "Exchange" | number | Uint8Array;
+
+export type Claim =
+  | { Accredited: Scope }
+  | { Affiliate: Scope }
+  | { BuyLockup: Scope }
+  | { SellLockup: Scope }
+  | { CustomerDueDiligence: CddId }
+  | { KnowYourCustomer: Scope }
+  | { Jurisdiction: [CountryCode, Scope] }
+  | { Exempted: Scope }
+  | { Blocked: Scope }
+  | { InvestorUniqueness: [Scope, ScopeId, CddId] }
+  | { NoData: string };
 
 export type MovePortfolioItem = {
   ticker: Ticker;
@@ -140,12 +141,6 @@ export type Permissions = {
 export type PalletPermissions = {
   pallet_name: PalletName;
   dispatchable_names: SubsetRestriction<DispatchableName>;
-};
-
-export type LegacyPalletPermissions = {
-  pallet_name: PalletName;
-  total: Boolean;
-  dispatchable_names: DispatchableName[];
 };
 
 export type PortfolioId = {
@@ -185,3 +180,8 @@ export type AssetCompliance = {
   is_paused: Boolean;
   requirements: ComplianceRequirement[];
 };
+
+export type PriceTier = {
+  total: number;
+  price: number;
+}

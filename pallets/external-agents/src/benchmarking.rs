@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -22,7 +22,7 @@ use polymesh_primitives::{AuthorizationData, ExtrinsicPermissions, PalletPermiss
 use sp_std::prelude::*;
 
 pub(crate) const SEED: u32 = 0;
-const MAX_PALLETS: u32 = 1000;
+const MAX_PALLETS: u32 = 19;
 
 fn setup<T: Asset + TestUtilsFn<AccountIdOf<T>>>() -> (User<T>, Ticker) {
     let owner = user("owner", SEED);
@@ -125,4 +125,26 @@ benchmarks! {
     verify {
         assert!(GroupOfAgent::get(ticker, other.did()).is_some());
     }
+
+    create_group_and_add_auth {
+        let p in 0..MAX_PALLETS;
+
+        let perms = perms(p);
+        let (owner, ticker) = setup::<T>();
+        assert_eq!(AGId(0), AGIdSequence::get(ticker));
+    }: _(owner.origin, ticker, perms, owner.did(), None)
+    verify {
+        assert_eq!(AGId(1), AGIdSequence::get(ticker));
+    }
+
+    create_and_change_custom_group {
+        let p in 0..MAX_PALLETS;
+        let perms = perms(p);
+        let (owner, other, ticker) = setup_removal::<T>();
+        assert_eq!(AGId(0), AGIdSequence::get(ticker));
+    }: _(owner.origin, ticker, perms, other.did())
+    verify {
+        assert_eq!(AGId(1), AGIdSequence::get(ticker));
+    }
+
 }

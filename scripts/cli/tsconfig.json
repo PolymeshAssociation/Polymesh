@@ -2,9 +2,10 @@
   "compilerOptions": {
     "baseUrl": "",
     "paths": {
-      "polymesh-typegen/*": ["src/*"],
+      "polymesh-typegen/*": ["src/interfaces/*"],
       "@polkadot/api/augment": ["src/interfaces/augment-api.ts"],
-      "@polkadot/types/augment": ["src/interfaces/augment-types.ts"]
+      "@polkadot/types/augment": ["src/interfaces/augment-types.ts"],
+      "@polkadot/types/lookup": ["src/interfaces/types-lookup.ts"]
     },
     "lib": ["ES2020"],
     "module": "commonjs",
@@ -18,6 +19,6 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
   },
-  "include": ["src/tests/*", "src/util/*", "src/types.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/tests/*", "src/util/*", "src/types.ts", "src/__tests__"],
+  "exclude": ["node_modules"]
 }

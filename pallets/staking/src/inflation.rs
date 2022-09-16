@@ -43,7 +43,7 @@ where
     // Milliseconds per year for the Julian year (365.25 days).
     const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 
-    let portion = Perbill::from_rational_approximation(era_duration as u64, MILLISECONDS_PER_YEAR);
+    let portion = Perbill::from_rational(era_duration as u64, MILLISECONDS_PER_YEAR);
     // Have fixed rewards kicked in?
     if total_tokens >= max_inflated_issuance {
         let payout = portion * non_inflated_yearly_reward;
@@ -51,16 +51,18 @@ where
         return (payout.clone(), payout);
     }
 
-    let payout = portion
-        * yearly_inflation
-            .calculate_for_fraction_times_denominator(npos_token_staked, total_tokens.clone());
+    let payout = portion * yearly_inflation.calculate_for_fraction_times_denominator(
+        npos_token_staked,
+        total_tokens.clone(),
+    );
     let maximum = portion * (yearly_inflation.maximum * total_tokens);
     (payout, maximum)
 }
 
 #[cfg(test)]
 mod test {
-    use sp_runtime::{curve::PiecewiseLinear, Perbill};
+    use sp_runtime::curve::PiecewiseLinear;
+    use sp_runtime::Perbill;
 
     pallet_staking_reward_curve::build! {
         const I_NPOS: PiecewiseLinear<'static> = curve!(
@@ -76,9 +78,6 @@ mod test {
     #[test]
     fn npos_curve_is_sensible() {
         const YEAR: u64 = 365 * 24 * 60 * 60 * 1000;
-        const DAY: u64 = 24 * 60 * 60 * 1000;
-        const SIX_HOURS: u64 = 6 * 60 * 60 * 1000;
-        const HOUR: u64 = 60 * 60 * 1000;
         const MAX_VARIABLE_INFLATION_TOTAL_ISSUANCE: u64 = 1_000_000_000;
         const FIXED_YEARLY_REWARD: u64 = 1_000_000;
 
@@ -121,13 +120,16 @@ mod test {
         assert_payout(75_000, YEAR, 2_733);
         assert_payout(95_000, YEAR, 2_513);
         assert_payout(100_000, YEAR, 2_505);
+        const DAY: u64 = 24 * 60 * 60 * 1000;
         assert_payout(25_000, DAY, 17);
         assert_payout(50_000, DAY, 27);
         assert_payout(75_000, DAY, 7);
+        const SIX_HOURS: u64 = 6 * 60 * 60 * 1000;
         assert_payout(25_000, SIX_HOURS, 4);
         assert_payout(50_000, SIX_HOURS, 7);
         assert_payout(75_000, SIX_HOURS, 2);
 
+        const HOUR: u64 = 60 * 60 * 1000;
         assert_eq!(
             super::compute_total_payout(
                 &I_NPOS,

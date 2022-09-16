@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -14,7 +14,6 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(bool_to_option)]
 
 pub mod constants;
 
@@ -37,10 +36,12 @@ pub mod benchs;
 
 use core::ops::Add;
 use frame_support::codec::{Decode, Encode};
+use frame_support::PalletId;
 use polymesh_primitives::IdentityId;
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_runtime::{DispatchResult, ModuleId};
+use sp_runtime::{DispatchError, DispatchResult};
 
 /// It defines the valid issuers for Systematic Claims.
 ///
@@ -116,18 +117,18 @@ impl SystematicIssuers {
         IdentityId(*self.as_bytes())
     }
 
-    pub const fn as_module_id(self) -> ModuleId {
+    pub const fn as_pallet_id(self) -> PalletId {
         match self {
-            SystematicIssuers::Committee => constants::GC_MODULE_ID,
-            SystematicIssuers::CDDProvider => constants::CDD_MODULE_ID,
-            SystematicIssuers::Treasury => constants::TREASURY_MODULE_ID,
-            SystematicIssuers::BlockRewardReserve => constants::BRR_MODULE_ID,
-            SystematicIssuers::Settlement => constants::SETTLEMENT_MODULE_ID,
-            SystematicIssuers::ClassicMigration => constants::CLASSIC_MIGRATION_MODULE_ID,
+            SystematicIssuers::Committee => constants::GC_PALLET_ID,
+            SystematicIssuers::CDDProvider => constants::CDD_PALLET_ID,
+            SystematicIssuers::Treasury => constants::TREASURY_PALLET_ID,
+            SystematicIssuers::BlockRewardReserve => constants::BRR_PALLET_ID,
+            SystematicIssuers::Settlement => constants::SETTLEMENT_PALLET_ID,
+            SystematicIssuers::ClassicMigration => constants::CLASSIC_MIGRATION_PALLET_ID,
             SystematicIssuers::FiatTickersReservation => {
-                constants::FIAT_TICKERS_RESERVATION_MODULE_ID
+                constants::FIAT_TICKERS_RESERVATION_PALLET_ID
             }
-            SystematicIssuers::Rewards => constants::REWARDS_MODULE_ID,
+            SystematicIssuers::Rewards => constants::REWARDS_PALLET_ID,
         }
     }
 }
@@ -138,7 +139,9 @@ pub const GC_DID: IdentityId = SystematicIssuers::Committee.as_id();
 /// committing on `Ok(_)` and rolling back on `Err(_)`, returning the result.
 ///
 /// Transactions can be arbitrarily nested with commits happening to the parent.
-pub fn with_transaction<T, E>(tx: impl FnOnce() -> Result<T, E>) -> Result<T, E> {
+pub fn with_transaction<T, E: From<DispatchError>>(
+    tx: impl FnOnce() -> Result<T, E>,
+) -> Result<T, E> {
     use frame_support::storage::{with_transaction, TransactionOutcome};
     with_transaction(|| match tx() {
         r @ Ok(_) => TransactionOutcome::Commit(r),
@@ -157,7 +160,7 @@ pub fn with_each_transaction<A>(
 }
 
 /// Either a block number, or nothing.
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum MaybeBlock<BlockNumber> {
     Some(BlockNumber),

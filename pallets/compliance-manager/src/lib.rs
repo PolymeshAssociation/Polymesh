@@ -1,4 +1,4 @@
-// This file is part of the Polymesh distribution (https://github.com/PolymathNetwork/Polymesh).
+// This file is part of the Polymesh distribution (https://github.com/PolymeshAssociation/Polymesh).
 // Copyright (c) 2020 Polymath
 
 // This program is free software: you can redistribute it and/or modify
@@ -103,10 +103,7 @@ use polymesh_primitives::{
     proposition, storage_migration_ver, Balance, Claim, Condition, ConditionType, Context,
     IdentityId, Ticker, TrustedFor, TrustedIssuer,
 };
-use sp_std::{
-    convert::{From, TryFrom},
-    prelude::*,
-};
+use sp_std::{convert::From, prelude::*};
 
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 type Identity<T> = pallet_identity::Module<T>;
@@ -190,7 +187,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::add_compliance_requirement(sender_conditions.len() as u32, receiver_conditions.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::add_compliance_requirement_full(&sender_conditions, &receiver_conditions)]
         pub fn add_compliance_requirement(origin, ticker: Ticker, sender_conditions: Vec<Condition>, receiver_conditions: Vec<Condition>) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
@@ -257,7 +254,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::replace_asset_compliance(asset_compliance.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::replace_asset_compliance_full(&asset_compliance)]
         pub fn replace_asset_compliance(origin, ticker: Ticker, asset_compliance: Vec<ComplianceRequirement>) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
@@ -392,10 +389,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::change_compliance_requirement(
-            new_req.sender_conditions.len() as u32,
-            new_req.receiver_conditions.len() as u32,
-        )]
+        #[weight = <T as Config>::WeightInfo::change_compliance_requirement_full(&new_req)]
         pub fn change_compliance_requirement(origin, ticker: Ticker, new_req: ComplianceRequirement) {
             let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
@@ -601,17 +595,15 @@ impl<T: Config> Module<T> {
         let complexity = asset_compliance
             .iter()
             .flat_map(|req| req.conditions())
-            .fold(0usize, |complexity, condition| {
-                let (claims, issuers) = condition.complexity();
-                complexity.saturating_add(claims.saturating_mul(match issuers {
-                    0 => default_issuer_count,
-                    _ => issuers,
-                }))
-            });
-        if let Ok(complexity_u32) = u32::try_from(complexity) {
-            if complexity_u32 <= T::MaxConditionComplexity::get() {
-                return Ok(());
-            }
+            .fold(0u32, |total, condition| {
+                let complexity = condition.complexity(default_issuer_count);
+                total.saturating_add(complexity)
+            })
+            // NB: If the compliance requirements are empty (0 complexity),
+            // then use the count of requirements.
+            .max(asset_compliance.len() as u32);
+        if complexity <= T::MaxConditionComplexity::get() {
+            return Ok(());
         }
         Err(Error::<T>::ComplianceRequirementTooComplex.into())
     }
