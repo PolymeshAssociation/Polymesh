@@ -86,11 +86,10 @@ fn main() {
 }
 
 fn parse_permissions(doc: EnumDoc) -> BTreeMap<ExtrinsicName, Permissions> {
-    let h1_selector = Selector::parse("h1").unwrap();
-    let h2_selector = Selector::parse("h2").unwrap();
+    let heading_selector = Selector::parse("h1,h2").unwrap();
     let ul_selector = Selector::parse("ul").unwrap();
     let li_selector = Selector::parse("li").unwrap();
-    let is_heading = |child| h1_selector.matches(&child) || h2_selector.matches(&child);
+    let is_heading = |child| heading_selector.matches(&child);
 
     let mut permissions = BTreeMap::new();
     doc.variants
@@ -125,11 +124,11 @@ fn parse_permissions(doc: EnumDoc) -> BTreeMap<ExtrinsicName, Permissions> {
                         .map(|s| s.starts_with("permissions"))
                         .unwrap_or(false)
                 })
-                // Look for a ul in the contents before the next h1/h2
+                // Look for a ul in the contents before the next heading
                 .for_each(|(i, _)| {
                     children[i + 1..]
                         .iter()
-                        // Stop once we hit another h1
+                        // Stop once we hit another heading
                         .take_while(|element| !is_heading(**element))
                         .filter(|element| ul_selector.matches(element))
                         .next()
