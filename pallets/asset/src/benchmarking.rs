@@ -18,6 +18,8 @@ use crate::*;
 use frame_benchmarking::benchmarks;
 use frame_support::StorageValue;
 use frame_system::RawOrigin;
+use pallet_portfolio::{MovePortfolioItem, NextPortfolioNumber, PortfolioAssetBalances};
+use polymesh_common_utilities::benchs::user;
 use polymesh_common_utilities::{
     benchs::{make_asset, make_indivisible_asset, make_ticker, AccountIdOf, User, UserBuilder},
     constants::currency::POLY,
@@ -30,7 +32,7 @@ use polymesh_primitives::{
         AssetMetadataValue, AssetMetadataValueDetail,
     },
     ticker::TICKER_LEN,
-    AuthorizationData, Signatory, Ticker, Url,
+    AuthorizationData, PortfolioName, Signatory, Ticker, Url,
 };
 use sp_io::hashing::keccak_256;
 use sp_std::{convert::TryInto, iter, prelude::*};
@@ -453,4 +455,38 @@ benchmarks! {
         let name = make_metadata_name::<T>();
         let spec = make_metadata_spec::<T>();
     }: _(RawOrigin::Root, name, spec)
+
+    redeem_from_portfolio {
+        let target = user::<T>("target", 0);
+        let ticker = make_asset::<T>(&target, None);
+        let amount = Balance::from(10u32);
+        let portfolio_name = PortfolioName(vec![65u8; 5]);
+        let next_portfolio_num = NextPortfolioNumber::get(&target.did());
+        let default_portfolio = PortfolioId::default_portfolio(target.did());
+        let user_portfolio = PortfolioId::user_portfolio(target.did(), next_portfolio_num.clone());
+
+        PortfolioAssetBalances::insert(&default_portfolio, &ticker, amount);
+        Portfolio::<T>::create_portfolio(target.origin.clone().into(), portfolio_name.clone()).unwrap();
+
+        assert_eq!(PortfolioAssetBalances::get(&default_portfolio, &ticker), amount);
+        assert_eq!(PortfolioAssetBalances::get(&user_portfolio, &ticker), 0u32.into());
+
+        Portfolio::<T>::move_portfolio_funds(
+                target.origin().into(),
+                default_portfolio,
+                user_portfolio,
+                vec![MovePortfolioItem {
+                    ticker,
+                    amount,
+                    memo: None
+                }]
+            ).unwrap();
+
+        assert_eq!(PortfolioAssetBalances::get(&default_portfolio, &ticker), 0u32.into());
+        assert_eq!(PortfolioAssetBalances::get(&user_portfolio, &ticker), amount);
+
+    }: _(target.origin, ticker, amount, PortfolioKind::User(next_portfolio_num))
+    verify {
+        assert_eq!(Module::<T>::token_details(ticker).total_supply, (1_000_000 * POLY) - amount);
+    }
 }

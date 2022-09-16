@@ -102,6 +102,7 @@ pub trait WeightInfo {
     fn register_and_set_local_asset_metadata() -> Weight;
     fn register_asset_metadata_local_type() -> Weight;
     fn register_asset_metadata_global_type() -> Weight;
+    fn redeem_from_portfolio() -> Weight;
 }
 
 /// The module's configuration trait.
