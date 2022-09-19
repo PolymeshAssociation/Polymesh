@@ -108,7 +108,7 @@ fn register_metadata_type(owner: User, ticker: Option<Ticker>, name: &str) -> As
 
 #[test]
 fn set_asset_metadata_local_type() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let owner = User::new(AccountKeyring::Dave);
         let other = User::new(AccountKeyring::Alice);
 
@@ -306,7 +306,7 @@ fn set_asset_metadata_local_type() {
 
 #[test]
 fn register_and_set_local_asset_metadata() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let owner = User::new(AccountKeyring::Dave);
         let other = User::new(AccountKeyring::Alice);
 
@@ -357,7 +357,7 @@ fn register_and_set_local_asset_metadata() {
 
 #[test]
 fn register_asset_metadata_local_type() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let owner = User::new(AccountKeyring::Dave);
         let other = User::new(AccountKeyring::Alice);
 
@@ -395,7 +395,7 @@ fn register_asset_metadata_local_type() {
 
 #[test]
 fn register_asset_metadata_global_type() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let root = Origin::from(frame_system::RawOrigin::Root);
 
@@ -424,7 +424,7 @@ fn register_asset_metadata_global_type() {
 
 #[test]
 fn register_asset_metadata_local_type_limits() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let owner = User::new(AccountKeyring::Dave);
 
         // Create asset.
@@ -467,7 +467,7 @@ fn register_asset_metadata_local_type_limits() {
 
 #[test]
 fn register_asset_metadata_global_type_limits() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let root = Origin::from(frame_system::RawOrigin::Root);
 
         // Try registering metadata with over-sized values.
@@ -507,7 +507,7 @@ fn register_asset_metadata_global_type_limits() {
 
 #[test]
 fn check_locked_until() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let owner = User::new(AccountKeyring::Dave);
 
         // Create asset.

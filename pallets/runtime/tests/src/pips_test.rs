@@ -171,7 +171,7 @@ pub fn assert_balance(acc: AccountId, free: u128, locked: u128) {
 
 #[test]
 fn updating_pips_variables_works() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
 
         assert_eq!(Pips::prune_historical_pips(), false);
@@ -212,7 +212,7 @@ fn updating_pips_variables_works() {
 
 #[test]
 fn updating_pips_variables_only_root() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         let signer = Origin::signed(AccountKeyring::Alice.to_account_id());
         System::reset_events();
@@ -261,7 +261,7 @@ fn historical_prune_works() {
 
 #[test]
 fn min_deposit_works() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         let deposit = 40;
         assert_ok!(Pips::set_min_proposal_deposit(root(), deposit + 1));
@@ -291,7 +291,7 @@ fn min_deposit_works() {
 
 #[test]
 fn active_limit_works() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
@@ -330,7 +330,7 @@ fn active_limit_works() {
 
 #[test]
 fn default_enactment_period_works_community() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
 
         let alice = User::new(AccountKeyring::Alice).balance(300);
@@ -362,7 +362,7 @@ fn default_enactment_period_works_community() {
 
 #[test]
 fn default_enactment_period_works_committee() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
 
         let alice = User::new(AccountKeyring::Alice).balance(300);
@@ -389,7 +389,7 @@ fn default_enactment_period_works_committee() {
 
 #[test]
 fn skip_limit_works() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
@@ -451,7 +451,7 @@ fn assert_votes(id: PipId, owner: AccountId, amount: u128) {
 
 #[test]
 fn proposal_details_are_correct() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(42);
 
         let alice = User::new(AccountKeyring::Alice).balance(300);
@@ -501,7 +501,7 @@ fn proposal_details_are_correct() {
 
 #[test]
 fn proposal_limits_are_enforced() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(42);
         let proposer = User::new(AccountKeyring::Alice).balance(300);
         let propose = |url, desc| {
@@ -522,7 +522,7 @@ fn proposal_limits_are_enforced() {
 
 #[test]
 fn propose_committee_pip_only_zero_deposit() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(committee_proposal(0));
         assert_noop!(committee_proposal(1337), Error::NotFromCommunity);
@@ -531,7 +531,7 @@ fn propose_committee_pip_only_zero_deposit() {
 
 #[test]
 fn vote_no_such_proposal() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         let voter = User::new(AccountKeyring::Bob);
         assert_no_pip!(Pips::vote(voter.origin(), PipId(0), false, 0));
@@ -541,7 +541,7 @@ fn vote_no_such_proposal() {
 #[test]
 fn vote_not_pending() {
     let op_and_check = |op_and_check: &dyn Fn(Origin, PipId)| {
-        ExtBuilder::default().build().execute_with(|| {
+        ExtBuilder::default().monied(true).build().execute_with(|| {
             System::set_block_number(1);
             assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
             assert_ok!(Pips::set_prune_historical_pips(root(), false));
@@ -654,7 +654,7 @@ fn vote_unbond_deposit_works() {
 
 #[test]
 fn vote_on_community_only() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(committee_proposal(0));
         let voter = User::new(AccountKeyring::Alice);
@@ -725,7 +725,7 @@ fn vote_duplicate_ok() {
 
 #[test]
 fn vote_stake_overflow() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
 
         let alice = User::new(AccountKeyring::Alice).balance(u128::MAX);
@@ -825,7 +825,7 @@ fn vote_works() {
 
 #[test]
 fn voting_for_pip_uses_stack_over_overlay() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
 
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
@@ -847,7 +847,7 @@ fn voting_for_pip_uses_stack_over_overlay() {
 
 #[test]
 fn approve_committee_proposal_not_pending() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
         assert_ok!(Pips::set_prune_historical_pips(root(), false));
@@ -867,7 +867,7 @@ fn approve_committee_proposal_not_pending() {
 
 #[test]
 fn approve_committee_proposal_no_such_proposal() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         assert_no_pip!(Pips::approve_committee_proposal(gc_vmo(), PipId(0)));
     });
@@ -875,7 +875,7 @@ fn approve_committee_proposal_no_such_proposal() {
 
 #[test]
 fn approve_committee_proposal_not_by_committee() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
         let proposer = User::new(AccountKeyring::Bob);
@@ -889,7 +889,7 @@ fn approve_committee_proposal_not_by_committee() {
 
 #[test]
 fn only_gc_majority_stuff() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
@@ -983,7 +983,7 @@ fn only_gc_majority_stuff() {
 
 #[test]
 fn cannot_reject_no_such_proposal() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         // Rejecting PIP that doesn't exist errors.
         let id = PipId(0);
         assert_eq!(Pips::pip_id_sequence(), id);
@@ -1093,7 +1093,7 @@ fn expired_proposal(proposer: User, expiry: BlockNumber) -> PipId {
 
 #[test]
 fn cannot_reject_incorrect_state() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
         assert_ok!(Pips::set_prune_historical_pips(root(), false));
@@ -1126,7 +1126,7 @@ fn assert_pruned(id: PipId) {
 
 #[test]
 fn can_prune_states_that_cannot_be_rejected() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_prune_historical_pips(root(), false));
 
@@ -1331,7 +1331,7 @@ fn reject_proposal_works() {
 
 #[test]
 fn reject_proposal_will_unsnapshot() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
         assert_ok!(Pips::set_prune_historical_pips(root(), false));
@@ -1351,7 +1351,7 @@ fn reject_proposal_will_unsnapshot() {
 
 #[test]
 fn reject_proposal_will_unschedule() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
         assert_ok!(Pips::set_prune_historical_pips(root(), false));
@@ -1387,7 +1387,7 @@ fn reject_proposal_will_unschedule() {
 
 #[test]
 fn reschedule_execution_only_release_coordinator() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
 
         let alice = User::new(AccountKeyring::Alice);
@@ -1429,7 +1429,7 @@ fn init_rc() -> User {
 
 #[test]
 fn reschedule_execution_no_such_proposal() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         let rc = init_rc();
         assert_no_pip!(Pips::reschedule_execution(rc.origin(), PipId(0), None));
@@ -1438,7 +1438,7 @@ fn reschedule_execution_no_such_proposal() {
 
 #[test]
 fn reschedule_execution_not_scheduled() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         let rc = init_rc();
         let proposer = User::new(AccountKeyring::Bob);
@@ -1461,7 +1461,7 @@ fn reschedule_execution_not_scheduled() {
 
 #[test]
 fn reschedule_execution_in_the_past() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         let rc = init_rc();
         let proposer = User::new(AccountKeyring::Bob);
@@ -1481,7 +1481,7 @@ fn reschedule_execution_in_the_past() {
 
 #[test]
 fn reschedule_execution_works() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
 
         // General setup.
@@ -1521,7 +1521,7 @@ fn reschedule_execution_works() {
 
 #[test]
 fn clear_snapshot_not_gc_member() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         init_rc();
         assert_bad_origin!(Pips::clear_snapshot(root()));
@@ -1561,7 +1561,7 @@ fn clear_snapshot_works() {
 
 #[test]
 fn snapshot_not_gc_member() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         init_rc();
         assert_bad_origin!(Pips::snapshot(root()));
@@ -1572,7 +1572,7 @@ fn snapshot_not_gc_member() {
 
 #[test]
 fn snapshot_only_pending_hot_community() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         let rc = init_rc();
 
@@ -1669,7 +1669,7 @@ fn snapshot_works() {
 
 #[test]
 fn enact_snapshot_results_input_too_large() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
 
         let proposer = User::new(AccountKeyring::Alice);
@@ -1712,7 +1712,7 @@ fn enact_snapshot_results_input_too_large() {
 
 #[test]
 fn enact_snapshot_results_id_mismatch() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
 
         let user = User::new(AccountKeyring::Bob);
@@ -1744,7 +1744,7 @@ fn enact_snapshot_results_id_mismatch() {
 
 #[test]
 fn enact_snapshot_results_works() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
 
         let proposer = User::new(AccountKeyring::Alice);
@@ -1810,7 +1810,7 @@ fn enact_snapshot_results_works() {
 
 #[test]
 fn expiry_works() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
@@ -1843,7 +1843,7 @@ fn expiry_works() {
 #[test]
 #[should_panic = "called `Result::unwrap_err()` on an `Ok` value: 0"]
 fn propose_dupe_live_insert_panics() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
@@ -1857,7 +1857,7 @@ fn propose_dupe_live_insert_panics() {
 
 #[test]
 fn execute_scheduled_pip() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
         assert_ok!(Pips::set_prune_historical_pips(root(), true));
@@ -1878,7 +1878,7 @@ fn execute_scheduled_pip() {
 
 #[test]
 fn expire_scheduled_pip() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
         assert_ok!(Pips::set_prune_historical_pips(root(), true));

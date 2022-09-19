@@ -1,7 +1,11 @@
-use super::ext_builder::ExtBuilder;
-use super::storage::{Call, TestStorage};
+use super::{
+    pips_test::assert_balance,
+    storage::{Call, TestStorage, User},
+    ExtBuilder,
+};
 use codec::Encode;
 use frame_support::{
+    assert_ok,
     traits::Currency,
     weights::{
         DispatchClass, DispatchInfo, GetDispatchInfo, Pays, PostDispatchInfo, Weight,
@@ -10,6 +14,7 @@ use frame_support::{
 };
 use pallet_balances::Call as BalancesCall;
 use pallet_transaction_payment::{ChargeTransactionPayment, Multiplier, RuntimeDispatchInfo};
+use polymesh_common_utilities::constants::currency::POLY;
 use polymesh_primitives::AccountId;
 use polymesh_primitives::TransactionError;
 use sp_arithmetic::traits::One;
@@ -74,14 +79,16 @@ fn signed_extension_transaction_payment_work() {
         .transaction_fees(5, 1, 1)
         .build()
         .execute_with(|| {
-            let bob = AccountKeyring::Bob.to_account_id();
-            let alice = AccountKeyring::Alice.to_account_id();
+            let bob = User::new(AccountKeyring::Bob);
+            let alice = User::new(AccountKeyring::Alice);
+            let prev_bob_balance = Balances::free_balance(bob.acc());
+            let prev_alice_balance = Balances::free_balance(alice.acc());
 
             let len = 10;
             let pre = ChargeTransactionPayment::<TestStorage>::from(0)
-                .pre_dispatch(&bob, &call(), &info_from_weight(5), len)
+                .pre_dispatch(&bob.acc(), &call(), &info_from_weight(5), len)
                 .unwrap();
-            assert_eq!(Balances::free_balance(&bob), 1999969001);
+            assert_balance(bob.acc(), prev_bob_balance - 30999, 0);
 
             assert!(ChargeTransactionPayment::<TestStorage>::post_dispatch(
                 Some(pre),
@@ -91,12 +98,12 @@ fn signed_extension_transaction_payment_work() {
                 &Ok(())
             )
             .is_ok());
-            assert_eq!(Balances::free_balance(&bob), 1999969001);
+            assert_balance(bob.acc(), prev_bob_balance - 30999, 0);
 
             let pre = ChargeTransactionPayment::<TestStorage>::from(0 /* tipped */)
-                .pre_dispatch(&alice, &call(), &info_from_weight(100), len)
+                .pre_dispatch(&alice.acc(), &call(), &info_from_weight(100), len)
                 .unwrap();
-            assert_eq!(Balances::free_balance(&alice), 999969001);
+            assert_balance(alice.acc(), prev_alice_balance - 30999, 0);
 
             assert!(ChargeTransactionPayment::<TestStorage>::post_dispatch(
                 Some(pre),
@@ -106,7 +113,7 @@ fn signed_extension_transaction_payment_work() {
                 &Ok(())
             )
             .is_ok());
-            assert_eq!(Balances::free_balance(&alice), 999969001);
+            assert_balance(alice.acc(), prev_alice_balance - 30999, 0);
         });
 }
 
@@ -117,15 +124,16 @@ fn signed_extension_transaction_payment_multiplied_refund_works() {
         .transaction_fees(5, 1, 1)
         .build()
         .execute_with(|| {
-            let user = AccountKeyring::Alice.to_account_id();
+            let user = User::new(AccountKeyring::Alice);
+            let prev_balance = Balances::free_balance(user.acc());
             let len = 10;
             TransactionPayment::put_next_fee_multiplier(Multiplier::saturating_from_rational(3, 2));
 
             let pre = ChargeTransactionPayment::<TestStorage>::from(0 /* tipped */)
-                .pre_dispatch(&user, &call(), &info_from_weight(100), len)
+                .pre_dispatch(&user.acc(), &call(), &info_from_weight(100), len)
                 .unwrap();
             // 5 base fee, 10 byte fee, 3/2 * 100 weight fee, 5 tip
-            assert_eq!(Balances::free_balance(&user), 999969001);
+            assert_balance(user.acc(), prev_balance - 30999, 0);
 
             assert!(ChargeTransactionPayment::<TestStorage>::post_dispatch(
                 Some(pre),
@@ -136,7 +144,7 @@ fn signed_extension_transaction_payment_multiplied_refund_works() {
             )
             .is_ok());
             // 75 (3/2 of the returned 50 units of weight) is refunded
-            assert_eq!(Balances::free_balance(&user), 999969001);
+            assert_balance(user.acc(), prev_balance - 30999, 0);
         });
 }
 
@@ -144,12 +152,12 @@ fn signed_extension_transaction_payment_multiplied_refund_works() {
 fn signed_extension_transaction_payment_is_bounded() {
     ExtBuilder::default()
         .monied(true)
-        .balance_factor(100)
+        .balance_factor(1_000)
         .transaction_fees(0, 0, 1)
         .build()
         .execute_with(|| {
-            let user = AccountKeyring::Bob.to_account_id();
-            let free_user = Balances::free_balance(&user);
+            let user = User::new_balance(AccountKeyring::Bob, 1_000 * POLY);
+            let free_user = Balances::free_balance(user.acc());
 
             // Get the current weight settings.
             let weights = <TestStorage as frame_system::Config>::BlockWeights::get();
@@ -164,10 +172,15 @@ fn signed_extension_transaction_payment_is_bounded() {
 
             // maximum weight possible
             ChargeTransactionPayment::<TestStorage>::from(0)
-                .pre_dispatch(&user, &call(), &info_from_weight(Weight::max_value()), 10)
+                .pre_dispatch(
+                    &user.acc(),
+                    &call(),
+                    &info_from_weight(Weight::max_value()),
+                    10,
+                )
                 .unwrap();
             // fee will be proportional to what is the actual maximum weight in the runtime.
-            assert_eq!(Balances::free_balance(&user), (free_user - max_fee));
+            assert_balance(user.acc(), free_user - max_fee, 0);
         });
 }
 
@@ -178,9 +191,13 @@ fn signed_extension_allows_free_transactions() {
         .balance_factor(0)
         .build()
         .execute_with(|| {
-            let user = AccountKeyring::Bob.to_account_id();
+            let user = User::new(AccountKeyring::Bob);
+            assert_ok!(Balances::burn_account_balance(
+                user.origin(),
+                Balances::free_balance(user.acc())
+            ));
             // I ain't have a penny.
-            assert_eq!(Balances::free_balance(&user), 0);
+            assert_balance(user.acc(), 0, 0);
 
             let len = 100;
 
@@ -191,7 +208,7 @@ fn signed_extension_allows_free_transactions() {
                 pays_fee: Pays::No,
             };
             assert!(ChargeTransactionPayment::<TestStorage>::from(0)
-                .validate(&user, &call(), &operational_transaction, len)
+                .validate(&user.acc(), &call(), &operational_transaction, len)
                 .is_ok());
 
             // like a InsecureFreeNormal
@@ -201,7 +218,7 @@ fn signed_extension_allows_free_transactions() {
                 pays_fee: Pays::Yes,
             };
             assert!(ChargeTransactionPayment::<TestStorage>::from(0)
-                .validate(&user, &call(), &free_transaction, len)
+                .validate(&user.acc(), &call(), &free_transaction, len)
                 .is_err());
         });
 }
@@ -217,11 +234,12 @@ fn signed_ext_length_fee_is_also_updated_per_congestion() {
             // all fees should be x1.5
             TransactionPayment::put_next_fee_multiplier(Multiplier::saturating_from_rational(3, 2));
             let len = 10;
-            let user = AccountKeyring::Bob.to_account_id();
+            let user = User::new(AccountKeyring::Bob);
+            let prev_balance = Balances::free_balance(user.acc());
             assert!(ChargeTransactionPayment::<TestStorage>::from(0) // tipped
-                .pre_dispatch(&user, &call(), &info_from_weight(3), len)
+                .pre_dispatch(&user.acc(), &call(), &info_from_weight(3), len)
                 .is_ok());
-            assert_eq!(Balances::free_balance(&user), 19999969001);
+            assert_balance(user.acc(), prev_balance - 30999, 0);
         })
 }
 
@@ -391,11 +409,12 @@ fn actual_weight_higher_than_max_refunds_nothing() {
         .build()
         .execute_with(|| {
             let len = 10;
-            let user = AccountKeyring::Alice.to_account_id();
+            let user = User::new(AccountKeyring::Alice);
+            let prev_balance = Balances::free_balance(user.acc());
             let pre = ChargeTransactionPayment::<TestStorage>::from(0 /* tipped */)
-                .pre_dispatch(&user, &call(), &info_from_weight(100), len)
+                .pre_dispatch(&user.acc(), &call(), &info_from_weight(100), len)
                 .unwrap();
-            assert_eq!(Balances::free_balance(&user), 999969001);
+            assert_balance(user.acc(), prev_balance - 30999, 0);
 
             ChargeTransactionPayment::<TestStorage>::post_dispatch(
                 Some(pre),
@@ -405,7 +424,7 @@ fn actual_weight_higher_than_max_refunds_nothing() {
                 &Ok(()),
             )
             .unwrap();
-            assert_eq!(Balances::free_balance(&user), 999969001);
+            assert_balance(user.acc(), prev_balance - 30999, 0);
         });
 }
 
@@ -416,6 +435,7 @@ fn zero_transfer_on_free_transaction() {
         .transaction_fees(5, 1, 1)
         .build()
         .execute_with(|| {
+            let user = User::new(AccountKeyring::Alice);
             // So events are emitted
             System::set_block_number(10);
             let len = 10;
@@ -424,12 +444,11 @@ fn zero_transfer_on_free_transaction() {
                 pays_fee: Pays::No,
                 class: DispatchClass::Normal,
             };
-            let user = AccountKeyring::Alice.to_account_id();
-            let bal_init = Balances::total_balance(&user);
+            let bal_init = Balances::total_balance(&user.acc());
             let pre = ChargeTransactionPayment::<TestStorage>::from(0)
-                .pre_dispatch(&user, &call(), &dispatch_info, len)
+                .pre_dispatch(&user.acc(), &call(), &dispatch_info, len)
                 .unwrap();
-            assert_eq!(Balances::total_balance(&user), bal_init);
+            assert_eq!(Balances::total_balance(&user.acc()), bal_init);
             assert!(ChargeTransactionPayment::<TestStorage>::post_dispatch(
                 Some(pre),
                 &dispatch_info,
@@ -438,7 +457,7 @@ fn zero_transfer_on_free_transaction() {
                 &Ok(())
             )
             .is_ok());
-            assert_eq!(Balances::total_balance(&user), bal_init);
+            assert_eq!(Balances::total_balance(&user.acc()), bal_init);
             // No events for such a scenario
             assert_eq!(System::events().len(), 0);
         });
@@ -453,15 +472,15 @@ fn refund_consistent_with_actual_weight() {
         .execute_with(|| {
             let info = info_from_weight(100);
             let post_info = post_info_from_weight(33);
-            let alice = AccountKeyring::Alice.to_account_id();
-            let prev_balance = Balances::free_balance(&alice);
+            let alice = User::new(AccountKeyring::Alice);
+            let prev_balance = Balances::free_balance(alice.acc());
             let len = 10;
             let tip = 0;
 
             TransactionPayment::put_next_fee_multiplier(Multiplier::saturating_from_rational(5, 4));
 
             let pre = ChargeTransactionPayment::<TestStorage>::from(tip)
-                .pre_dispatch(&alice, &call(), &info, len)
+                .pre_dispatch(&alice.acc(), &call(), &info, len)
                 .unwrap();
 
             ChargeTransactionPayment::<TestStorage>::post_dispatch(
@@ -473,7 +492,7 @@ fn refund_consistent_with_actual_weight() {
             )
             .unwrap();
 
-            let refund_based_fee = prev_balance - Balances::free_balance(&alice);
+            let refund_based_fee = prev_balance - Balances::free_balance(alice.acc());
             let actual_fee =
                 TransactionPayment::compute_actual_fee(len as u32, &info, &post_info, tip);
 
@@ -494,7 +513,7 @@ fn normal_tx_with_tip() {
 fn normal_tx_with_tip_ext() {
     let len = 10;
     let tip = 42;
-    let user = AccountKeyring::Alice.to_account_id();
+    let user = User::new(AccountKeyring::Alice);
     let call = call();
     let normal_info = info_from_weight(100);
 
@@ -503,14 +522,14 @@ fn normal_tx_with_tip_ext() {
         TransactionError::ZeroTip as u8,
     ));
     let pre_err = ChargeTransactionPayment::<TestStorage>::from(tip)
-        .pre_dispatch(&user, &call, &normal_info, len)
+        .pre_dispatch(&user.acc(), &call, &normal_info, len)
         .map(|_| ())
         .unwrap_err();
     assert!(pre_err == expected_err);
 
     // Valid normal tx.
     assert!(ChargeTransactionPayment::<TestStorage>::from(0)
-        .pre_dispatch(&user, &call, &normal_info, len)
+        .pre_dispatch(&user.acc(), &call, &normal_info, len)
         .is_ok());
 }
 
@@ -530,18 +549,18 @@ fn operational_tx_with_tip() {
 fn operational_tx_with_tip_ext(cdd: AccountId, gc: AccountId) {
     let len = 10;
     let tip = 42;
-    let user = AccountKeyring::Alice.to_account_id();
+    let user = User::new(AccountKeyring::Alice);
     let call = call();
     let operational_info = operational_info_from_weight(100);
 
     // Valid operational tx with `tip == 0`.
     assert!(ChargeTransactionPayment::<TestStorage>::from(0)
-        .pre_dispatch(&user, &call, &operational_info, len)
+        .pre_dispatch(&user.acc(), &call, &operational_info, len)
         .is_ok());
 
     // Valid operational tx with tip. Only CDD and Governance members can tip.
     assert!(ChargeTransactionPayment::<TestStorage>::from(tip)
-        .pre_dispatch(&user, &call, &operational_info, len)
+        .pre_dispatch(&user.acc(), &call, &operational_info, len)
         .is_err());
 
     // Governance can tip.

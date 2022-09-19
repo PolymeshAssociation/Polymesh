@@ -92,6 +92,13 @@ macro_rules! exec_ok {
 }
 
 #[macro_export]
+macro_rules! exec {
+    ( $x:expr $(,)? ) => {
+        polymesh_exec_macro::exec!($x)
+    };
+}
+
+#[macro_export]
 macro_rules! exec_noop {
     (
 		$x:expr,
@@ -299,12 +306,21 @@ impl User {
         Self::new_with(register_keyring_account(ring).unwrap(), ring)
     }
 
+    /// Creates and registers a `User` for the given `ring` which will act as the primary key
+    /// and sets the account balance.
+    pub fn new_balance(ring: AccountKeyring, balance: u128) -> Self {
+        Self::new_with(
+            register_keyring_account_with_balance(ring, balance).unwrap(),
+            ring,
+        )
+    }
+
     /// Creates a `User` for an already registered DID with `ring` as its primary key.
     pub fn existing(ring: AccountKeyring) -> Self {
         Self::new_with(get_identity_id(ring).unwrap(), ring)
     }
 
-    /// Returns the current balance of `self`'s account.
+    /// Set the current balance of `self`'s account.
     pub fn balance(self, balance: u128) -> Self {
         use frame_support::traits::Currency as _;
         Balances::make_free_balance_be(&self.acc(), balance);
@@ -449,27 +465,36 @@ impl ChargeTxFee for TestStorage {
     }
 }
 
+impl<'a> TryFrom<&'a Call> for &'a pallet_test_utils::Call<TestStorage> {
+    type Error = ();
+    fn try_from(call: &'a Call) -> Result<&'a pallet_test_utils::Call<TestStorage>, ()> {
+        match call {
+            Call::TestUtils(x) => Ok(x),
+            _ => Err(()),
+        }
+    }
+}
+
+type DevCddHandler = polymesh_runtime_common::fee_details::DevCddHandler<TestStorage>;
 type CddHandler = TestStorage;
 impl CddAndFeeDetails<AccountId, Call> for TestStorage {
     fn get_valid_payer(
-        _: &Call,
+        call: &Call,
         caller: &AccountId,
     ) -> Result<Option<AccountId>, InvalidTransaction> {
-        let caller: AccountId = caller.clone();
-        Ok(Some(caller))
+        DevCddHandler::get_valid_payer(call, caller)
     }
     fn clear_context() {
-        Context::set_current_identity::<Identity>(None);
-        Context::set_current_payer::<Identity>(None);
+        DevCddHandler::clear_context()
     }
     fn set_payer_context(payer: Option<AccountId>) {
-        Context::set_current_payer::<Identity>(payer);
+        DevCddHandler::set_payer_context(payer)
     }
     fn get_payer_from_context() -> Option<AccountId> {
-        Context::current_payer::<Identity>()
+        DevCddHandler::get_payer_from_context()
     }
     fn set_current_identity(did: &IdentityId) {
-        Context::set_current_identity::<Identity>(Some(*did));
+        DevCddHandler::set_current_identity(did)
     }
 }
 
@@ -643,6 +668,11 @@ pub type DefaultCommittee = committee::Module<TestStorage, committee::DefaultIns
 //pub type WrapperContracts = polymesh_contracts::Module<TestStorage>;
 pub type CorporateActions = corporate_actions::Module<TestStorage>;
 
+pub fn sorted<T: std::cmp::Ord>(mut v: Vec<T>) -> Vec<T> {
+    v.sort();
+    v
+}
+
 pub fn make_account(
     id: AccountId,
 ) -> Result<(<TestStorage as frame_system::Config>::Origin, IdentityId), &'static str> {
@@ -695,15 +725,24 @@ pub fn make_account_with_balance(
     let did = match cdd_providers.into_iter().nth(0) {
         Some(cdd_provider) => {
             let cdd_acc = get_primary_key(cdd_provider);
-            let _ = Identity::cdd_register_did(Origin::signed(cdd_acc.clone()), id.clone(), vec![])
-                .map_err(|_| "CDD register DID failed")?;
+            let _ = exec!(Identity::cdd_register_did(
+                Origin::signed(cdd_acc.clone()),
+                id.clone(),
+                vec![]
+            ))
+            .map_err(|_| "CDD register DID failed")?;
 
             // Add CDD Claim
             let did = Identity::get_identity(&id).unwrap();
             let (cdd_id, _) = create_cdd_id(did, Ticker::default(), uid);
             let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
-            Identity::add_claim(Origin::signed(cdd_acc), did, cdd_claim, None)
-                .map_err(|_| "CDD provider cannot add the CDD claim")?;
+            exec!(Identity::add_claim(
+                Origin::signed(cdd_acc),
+                did,
+                cdd_claim,
+                None
+            ))
+            .map_err(|_| "CDD provider cannot add the CDD claim")?;
             did
         }
         _ => {

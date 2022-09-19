@@ -218,7 +218,7 @@ fn exceeded_funding_round_name() -> FundingRoundName {
 
 #[test]
 fn check_the_test_hex() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let selector: [u8; 4] = (FunctionSelectorHasher::keccak256("verify_transfer".as_bytes())
             [0..4])
             .try_into()
@@ -231,66 +231,71 @@ fn check_the_test_hex() {
 
 #[test]
 fn issuers_can_create_and_rename_tokens() {
-    ExtBuilder::default().build().execute_with(|| {
-        let owner = User::new(AccountKeyring::Dave);
+    ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::One.to_account_id()])
+        .monied(true)
+        .build()
+        .execute_with(|| {
+            let owner = User::new(AccountKeyring::Dave);
 
-        // Expected token entry
-        let (ticker, token) = a_token(owner.did);
-        assert!(!has_ticker_record(ticker));
+            // Expected token entry
+            let (ticker, token) = a_token(owner.did);
+            assert!(!has_ticker_record(ticker));
 
-        // Create asset.
-        let funding_round_name: FundingRoundName = b"round1".into();
-        assert_ok!(Asset::create_asset(
-            owner.origin(),
-            ticker.as_ref().into(),
-            ticker,
-            true,
-            token.asset_type.clone(),
-            Vec::new(),
-            Some(funding_round_name.clone()),
-            false,
-        ));
-        enable_investor_count(ticker, owner);
+            // Create asset.
+            let funding_round_name: FundingRoundName = b"round1".into();
+            assert_ok!(Asset::create_asset(
+                owner.origin(),
+                ticker.as_ref().into(),
+                ticker,
+                true,
+                token.asset_type.clone(),
+                Vec::new(),
+                Some(funding_round_name.clone()),
+                false,
+            ));
+            enable_investor_count(ticker, owner);
 
-        let issue = |supply| Asset::issue(owner.origin(), ticker, supply);
-        assert_noop!(
-            issue(1_000_000_000_000_000_000_000_000),
-            AssetError::TotalSupplyAboveLimit
-        );
+            let issue = |supply| Asset::issue(owner.origin(), ticker, supply);
+            assert_noop!(
+                issue(1_000_000_000_000_000_000_000_000),
+                AssetError::TotalSupplyAboveLimit
+            );
 
-        // Sucessfully issue. Investor count should now be 1.
-        assert_ok!(issue(token.total_supply));
-        assert_eq!(Statistics::investor_count(ticker), 1);
+            // Sucessfully issue. Investor count should now be 1.
+            assert_ok!(issue(token.total_supply));
+            assert_eq!(Statistics::investor_count(ticker), 1);
 
-        // A correct entry is added
-        assert_eq!(Asset::token_details(ticker), token);
-        assert_eq!(
-            Asset::asset_ownership_relation(token.owner_did, ticker),
-            AssetOwnershipRelation::AssetOwned
-        );
-        assert!(has_ticker_record(ticker));
-        assert_eq!(Asset::funding_round(ticker), funding_round_name.clone());
+            // A correct entry is added
+            assert_eq!(Asset::token_details(ticker), token);
+            assert_eq!(
+                Asset::asset_ownership_relation(token.owner_did, ticker),
+                AssetOwnershipRelation::AssetOwned
+            );
+            assert!(has_ticker_record(ticker));
+            assert_eq!(Asset::funding_round(ticker), funding_round_name.clone());
 
-        // Unauthorized agents cannot rename the token.
-        let eve = User::new(AccountKeyring::Eve);
-        assert_noop!(
-            Asset::rename_asset(eve.origin(), ticker, vec![0xde, 0xad, 0xbe, 0xef].into()),
-            EAError::UnauthorizedAgent
-        );
-        // The token should remain unchanged in storage.
-        assert_eq!(Asset::token_details(ticker), token);
-        // Rename the token and check storage has been updated.
-        let new: AssetName = [0x42].into();
-        assert_ok!(Asset::rename_asset(owner.origin(), ticker, new.clone()));
-        assert_eq!(Asset::asset_names(ticker), new);
-        assert!(Asset::identifiers(ticker).is_empty());
-    });
+            // Unauthorized agents cannot rename the token.
+            let eve = User::new(AccountKeyring::Eve);
+            assert_noop!(
+                Asset::rename_asset(eve.origin(), ticker, vec![0xde, 0xad, 0xbe, 0xef].into()),
+                EAError::UnauthorizedAgent
+            );
+            // The token should remain unchanged in storage.
+            assert_eq!(Asset::token_details(ticker), token);
+            // Rename the token and check storage has been updated.
+            let new: AssetName = [0x42].into();
+            assert_ok!(Asset::rename_asset(owner.origin(), ticker, new.clone()));
+            assert_eq!(Asset::asset_names(ticker), new);
+            assert!(Asset::identifiers(ticker).is_empty());
+        });
 }
 
 #[test]
 fn valid_transfers_pass() {
     let eve = AccountKeyring::Eve.to_account_id();
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![eve.clone()])
         .build()
         .execute_with(|| {
@@ -322,6 +327,7 @@ fn valid_transfers_pass() {
 fn issuers_can_redeem_tokens() {
     let alice = AccountKeyring::Alice.to_account_id();
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![alice.clone()])
         .build()
         .execute_with(|| {
@@ -373,7 +379,7 @@ fn checkpoints_fuzz_test() {
     println!("Starting");
     for _ in 0..10 {
         // When fuzzing in local, feel free to bump this number to add more fuzz runs.
-        ExtBuilder::default().build().execute_with(|| {
+        ExtBuilder::default().monied(true).build().execute_with(|| {
             set_time_to_now();
 
             let owner = User::new(AccountKeyring::Dave);
@@ -422,7 +428,7 @@ fn checkpoints_fuzz_test() {
 
 #[test]
 fn register_ticker() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         set_time_to_now();
 
         let owner = User::new(AccountKeyring::Dave);
@@ -493,7 +499,7 @@ fn register_ticker() {
 
 #[test]
 fn transfer_ticker() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         set_time_to_now();
 
         let owner = User::new(AccountKeyring::Dave);
@@ -588,6 +594,7 @@ fn transfer_ticker() {
 fn controller_transfer() {
     let eve = AccountKeyring::Eve.to_account_id();
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![eve.clone()])
         .build()
         .execute_with(|| {
@@ -632,7 +639,7 @@ fn controller_transfer() {
 
 #[test]
 fn transfer_token_ownership() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         set_time_to_now();
 
         let owner = User::new(AccountKeyring::Dave);
@@ -748,7 +755,7 @@ fn transfer_token_ownership() {
 
 #[test]
 fn update_identifiers() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let owner = User::new(AccountKeyring::Dave);
 
         // Expected token entry
@@ -789,7 +796,7 @@ fn update_identifiers() {
 
 #[test]
 fn adding_removing_documents() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let owner = User::new(AccountKeyring::Dave);
 
         // Create asset.
@@ -836,7 +843,7 @@ fn adding_removing_documents() {
 
 #[test]
 fn freeze_unfreeze_asset() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         set_time_to_now();
 
         let owner = User::new(AccountKeyring::Alice);
@@ -892,6 +899,7 @@ fn freeze_unfreeze_asset() {
 #[test]
 fn frozen_secondary_keys_create_asset() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(frozen_secondary_keys_create_asset_we);
 }
@@ -1078,9 +1086,11 @@ fn sorted<K: Ord + Clone, V>(iter: impl IntoIterator<Item = (K, V)>) -> Vec<(K, 
 }
 
 fn with_asset_genesis(genesis: AssetGenesis) -> ExtBuilder {
-    ExtBuilder::default().adjust(Box::new(move |storage| {
-        genesis.assimilate_storage(storage).unwrap();
-    }))
+    ExtBuilder::default()
+        .monied(true)
+        .adjust(Box::new(move |storage| {
+            genesis.assimilate_storage(storage).unwrap();
+        }))
 }
 
 fn test_asset_genesis(genesis: AssetGenesis) {
@@ -1608,6 +1618,7 @@ fn generate_uid(entity_name: String) -> InvestorUid {
 fn check_unique_investor_count() {
     let cdd_provider = AccountKeyring::Charlie.to_account_id();
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![cdd_provider.clone()])
         .build()
         .execute_with(|| {
@@ -1709,6 +1720,7 @@ fn check_unique_investor_count() {
 #[test]
 fn next_checkpoint_is_updated() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(next_checkpoint_is_updated_we);
 }
@@ -1790,6 +1802,7 @@ fn next_checkpoint_is_updated_we() {
 #[test]
 fn non_recurring_schedule_works() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(non_recurring_schedule_works_we);
 }
@@ -1850,7 +1863,7 @@ fn next_checkpoints(ticker: Ticker, start: u64) -> Vec<Option<u64>> {
 
 #[test]
 fn schedule_remaining_works() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let start = 1_000;
         Timestamp::set_timestamp(start);
 
@@ -1944,7 +1957,7 @@ fn schedule_remaining_works() {
 
 #[test]
 fn mesh_1531_ts_collission_regression_test() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         // Create the assets.
         let owner = User::new(AccountKeyring::Alice);
         let asset = |name: &[u8]| {
@@ -1999,6 +2012,7 @@ fn secondary_key_not_authorized_for_asset_test() {
     let owner = IdentityRecord::new(owner.to_account_id(), secondary_keys);
 
     ExtBuilder::default()
+        .monied(true)
         .add_regular_users(&[owner])
         .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
@@ -2009,12 +2023,13 @@ fn secondary_key_not_authorized_for_asset_test() {
             assert_ok!(basic_asset(owner, ticker, &token));
 
             let minted_value = 50_000u128.into();
-            StoreCallMetadata::set_call_metadata(b"pallet_asset".into(), b"issuer".into());
+            StoreCallMetadata::set_call_metadata(b"Asset".into(), b"issue".into());
             assert_noop!(
                 Asset::issue(not.origin(), ticker, minted_value),
                 pallet_external_agents::Error::<TestStorage>::SecondaryKeyNotAuthorizedForAsset
             );
 
+            StoreCallMetadata::set_call_metadata(b"Asset".into(), b"issue".into());
             assert_ok!(Asset::issue(all.origin(), ticker, minted_value));
             assert_eq!(Asset::total_supply(ticker), TOTAL_SUPPLY + minted_value);
         });
@@ -2075,6 +2090,7 @@ fn create_asset_errors_test() {
     let cdd = AccountKeyring::Eve.to_account_id();
 
     ExtBuilder::default()
+        .monied(true)
         .add_regular_users_from_accounts(&[owner.clone(), other.clone()])
         .cdd_providers(vec![cdd])
         .build()
@@ -2137,7 +2153,7 @@ fn create_asset_errors(owner: AccountId, other: AccountId) {
 
 #[test]
 fn asset_type_custom_too_long() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let user = User::new(AccountKeyring::Alice);
         let case = |add| Asset::register_custom_asset_type(user.origin(), max_len_bytes(add));
         assert_too_long!(case(1));
@@ -2147,7 +2163,7 @@ fn asset_type_custom_too_long() {
 
 #[test]
 fn asset_type_custom_works() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let user = User::new(AccountKeyring::Alice);
         let register = |ty: &str| Asset::register_custom_asset_type(user.origin(), ty.into());
         let seq_is = |num| {
@@ -2192,7 +2208,7 @@ fn asset_type_custom_works() {
 
 #[test]
 fn invalid_custom_asset_type_check() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let owner = User::new(AccountKeyring::Dave);
 
         // Create ticker.
@@ -2209,7 +2225,7 @@ fn invalid_custom_asset_type_check() {
 
 #[test]
 fn asset_doc_field_too_long() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let owner = User::new(AccountKeyring::Alice);
         let ticker = an_asset(owner, true);
         let add_doc = |doc| Asset::add_documents(owner.origin(), vec![doc], ticker);
@@ -2238,6 +2254,7 @@ fn asset_doc_field_too_long() {
 fn test_with_owner(test: impl FnOnce(User)) {
     let owner = AccountKeyring::Alice;
     ExtBuilder::default()
+        .monied(true)
         .add_regular_users_from_accounts(&[owner.to_account_id()])
         .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()

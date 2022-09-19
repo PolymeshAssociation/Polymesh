@@ -58,7 +58,7 @@ fn add_become_agent(
 
 #[test]
 fn create_group_set_perms_works() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let owner = User::new(AccountKeyring::Alice);
         let (ticker, token) = a_token(owner.did);
 
@@ -118,13 +118,14 @@ fn create_group_set_perms_works() {
         assert_noop!(other_create(make_perms("foo")), Error::UnauthorizedAgent);
         set_extrinsic("create_group");
         assert_ok!(other_create(make_perms("foo")));
+        set_extrinsic("set_group_permissions");
         assert_ok!(other_set(AGId(2), make_perms("bar")));
     });
 }
 
 #[test]
 fn remove_abdicate_change_works() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let owner = User::new(AccountKeyring::Alice);
         let other = User::new(AccountKeyring::Bob);
         let (ticker, token) = a_token(owner.did);
@@ -223,7 +224,7 @@ fn remove_abdicate_change_works() {
 
 #[test]
 fn add_works() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let owner = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
         let charlie = User::new(AccountKeyring::Charlie);
@@ -285,7 +286,7 @@ fn add_works() {
 
 #[test]
 fn agent_of_mapping_works() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let owner = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
         let charlie = User::new(AccountKeyring::Charlie);
@@ -355,7 +356,7 @@ fn agent_of_mapping_works() {
 
 #[test]
 fn atredis_multi_group_perms() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let owner = User::new(AccountKeyring::Alice);
         let other = User::new(AccountKeyring::Bob);
         let ticker = an_asset(owner, false);
@@ -392,6 +393,7 @@ fn atredis_multi_group_perms() {
         // Although `other` isn't part of the second group,
         // they are an agent with permissions for `set_group_permissions`,
         // and may therefore call it for the second group.
+        set_extrinsic("set_group_permissions");
         assert_ok!(set(b));
     });
 }

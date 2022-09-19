@@ -2,8 +2,8 @@ use super::{
     assert_event_doesnt_exist, assert_event_exists, assert_last_event,
     pips_test::assert_balance,
     storage::{
-        add_secondary_key, get_secondary_keys, register_keyring_account_with_balance, Call,
-        EventTest, Identity, Origin, Portfolio, System, TestStorage, User, Utility,
+        add_secondary_key, get_secondary_keys, Call, EventTest, Identity, Portfolio, System,
+        TestStorage, User, Utility,
     },
     ExtBuilder,
 };
@@ -13,18 +13,18 @@ use frame_system::EventRecord;
 use pallet_balances::Call as BalancesCall;
 use pallet_portfolio::Call as PortfolioCall;
 use pallet_utility::{self as utility, Event, UniqueCall};
-use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
 use polymesh_primitives::{
-    AccountId, PalletPermissions, Permissions, PortfolioName, PortfolioNumber, SubsetRestriction,
+    PalletPermissions, Permissions, PortfolioName, PortfolioNumber, SubsetRestriction,
 };
 use sp_core::sr25519::Signature;
 use test_client::AccountKeyring;
 
+type Balances = pallet_balances::Module<TestStorage>;
 type Error = utility::Error<TestStorage>;
 
-fn transfer(to: AccountId, amount: u128) -> Call {
+fn transfer(to: User, amount: u128) -> Call {
     Call::Balances(BalancesCall::transfer {
-        dest: to.into(),
+        dest: to.acc().into(),
         value: amount,
     })
 }
@@ -42,20 +42,12 @@ fn assert_event(event: Event) {
     )
 }
 
-fn batch_test(test: impl FnOnce(AccountId, AccountId)) {
-    ExtBuilder::default().build().execute_with(|| {
+fn batch_test(test: impl FnOnce(User, User)) {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
 
-        let alice = AccountKeyring::Alice.to_account_id();
-        TestStorage::set_payer_context(Some(alice.clone()));
-        let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
-
-        let bob = AccountKeyring::Bob.to_account_id();
-        TestStorage::set_payer_context(Some(bob.clone()));
-        let _ = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
-
-        assert_balance(alice.clone(), 1000, 0);
-        assert_balance(bob.clone(), 1000, 0);
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
 
         test(alice, bob)
     });
@@ -64,10 +56,12 @@ fn batch_test(test: impl FnOnce(AccountId, AccountId)) {
 #[test]
 fn batch_with_signed_works() {
     batch_test(|alice, bob| {
-        let calls = vec![transfer(bob.clone(), 400), transfer(bob.clone(), 400)];
-        assert_ok!(Utility::batch(Origin::signed(alice.clone()), calls));
-        assert_balance(alice, 200, 0);
-        assert_balance(bob, 1000 + 400 + 400, 0);
+        let prev_alice_balance = Balances::free_balance(&alice.acc());
+        let prev_bob_balance = Balances::free_balance(&bob.acc());
+        let calls = vec![transfer(bob, 400), transfer(bob, 400)];
+        assert_ok!(Utility::batch(alice.origin(), calls));
+        assert_balance(alice.acc(), prev_alice_balance - 400 - 400, 0);
+        assert_balance(bob.acc(), prev_bob_balance + 400 + 400, 0);
         assert_event(Event::BatchCompleted(vec![1, 1]));
     });
 }
@@ -75,14 +69,16 @@ fn batch_with_signed_works() {
 #[test]
 fn batch_early_exit_works() {
     batch_test(|alice, bob| {
+        let prev_alice_balance = Balances::free_balance(&alice.acc());
+        let prev_bob_balance = Balances::free_balance(&bob.acc());
         let calls = vec![
-            transfer(bob.clone(), 400),
-            transfer(bob.clone(), 900),
-            transfer(bob.clone(), 400),
+            transfer(bob, 400),
+            transfer(bob, prev_alice_balance + 900), // early exit here.
+            transfer(bob, 400),
         ];
-        assert_ok!(Utility::batch(Origin::signed(alice.clone()), calls));
-        assert_balance(alice, 600, 0);
-        assert_balance(bob, 1000 + 400, 0);
+        assert_ok!(Utility::batch(alice.origin(), calls));
+        assert_balance(alice.acc(), prev_alice_balance - 400, 0);
+        assert_balance(bob.acc(), prev_bob_balance + 400, 0);
         assert_event(Event::BatchInterrupted(vec![1, 0], (1, ERROR)));
     })
 }
@@ -90,58 +86,67 @@ fn batch_early_exit_works() {
 #[test]
 fn batch_optimistic_works() {
     batch_test(|alice, bob| {
-        let calls = vec![transfer(bob.clone(), 401), transfer(bob.clone(), 402)];
-        assert_ok!(Utility::batch_optimistic(
-            Origin::signed(alice.clone()),
-            calls
-        ));
+        let prev_alice_balance = Balances::free_balance(&alice.acc());
+        let prev_bob_balance = Balances::free_balance(&bob.acc());
+        let calls = vec![transfer(bob, 401), transfer(bob, 402)];
+        assert_ok!(Utility::batch_optimistic(alice.origin(), calls));
         assert_event(Event::BatchCompleted(vec![1, 1]));
-        assert_balance(alice, 1000 - 401 - 402, 0);
-        assert_balance(bob, 1000 + 401 + 402, 0);
+        assert_balance(alice.acc(), prev_alice_balance - 401 - 402, 0);
+        assert_balance(bob.acc(), prev_bob_balance + 401 + 402, 0);
     });
 }
 
 #[test]
 fn batch_optimistic_failures_listed() {
     batch_test(|alice, bob| {
+        let prev_alice_balance = Balances::free_balance(&alice.acc());
+        let prev_bob_balance = Balances::free_balance(&bob.acc());
         assert_ok!(Utility::batch_optimistic(
-            Origin::signed(alice.clone()),
+            alice.origin(),
             vec![
-                transfer(bob.clone(), 401), // YAY.
-                transfer(bob.clone(), 900), // NAY.
-                transfer(bob.clone(), 800), // NAY.
-                transfer(bob.clone(), 402), // YAY.
-                transfer(bob.clone(), 403), // NAY.
+                transfer(bob, 401),                      // YAY.
+                transfer(bob, prev_alice_balance + 900), // NAY.
+                transfer(bob, prev_alice_balance + 800), // NAY.
+                transfer(bob, 402),                      // YAY.
+                transfer(bob, prev_alice_balance + 403), // NAY.
             ]
         ));
         assert_event(Event::BatchOptimisticFailed(
             vec![1, 0, 0, 1, 0],
             vec![(1, ERROR), (2, ERROR), (4, ERROR)],
         ));
-        assert_balance(alice, 1000 - 401 - 402, 0);
-        assert_balance(bob, 1000 + 401 + 402, 0);
+        assert_balance(alice.acc(), prev_alice_balance - 401 - 402, 0);
+        assert_balance(bob.acc(), prev_bob_balance + 401 + 402, 0);
     });
 }
 
 #[test]
 fn batch_atomic_works() {
     batch_test(|alice, bob| {
-        let calls = vec![transfer(bob.clone(), 401), transfer(bob.clone(), 402)];
-        assert_ok!(Utility::batch_atomic(Origin::signed(alice.clone()), calls));
+        let prev_alice_balance = Balances::free_balance(&alice.acc());
+        let prev_bob_balance = Balances::free_balance(&bob.acc());
+        let calls = vec![transfer(bob, 401), transfer(bob, 402)];
+        assert_ok!(Utility::batch_atomic(alice.origin(), calls));
         assert_event(Event::BatchCompleted(vec![1, 1]));
-        assert_balance(alice, 1000 - 401 - 402, 0);
-        assert_balance(bob, 1000 + 401 + 402, 0);
+        assert_balance(alice.acc(), prev_alice_balance - 401 - 402, 0);
+        assert_balance(bob.acc(), prev_bob_balance + 401 + 402, 0);
     });
 }
 
 #[test]
 fn batch_atomic_early_exit_works() {
     batch_test(|alice, bob| {
-        let trans = |x| transfer(bob.clone(), x);
-        let calls = vec![trans(400), trans(900), trans(400)];
-        assert_ok!(Utility::batch_atomic(Origin::signed(alice.clone()), calls));
-        assert_balance(alice, 1000, 0);
-        assert_balance(bob, 1000, 0);
+        let prev_alice_balance = Balances::free_balance(&alice.acc());
+        let prev_bob_balance = Balances::free_balance(&bob.acc());
+        let trans = |x| transfer(bob, x);
+        let calls = vec![
+            trans(400),
+            trans(prev_alice_balance + 900), // This call aborts the `atomic` batch.
+            trans(400),
+        ];
+        assert_ok!(Utility::batch_atomic(alice.origin(), calls));
+        assert_balance(alice.acc(), prev_alice_balance, 0);
+        assert_balance(bob.acc(), prev_bob_balance, 0);
         assert_event(Event::BatchInterrupted(vec![1, 0], (1, ERROR)));
     })
 }
@@ -149,62 +154,55 @@ fn batch_atomic_early_exit_works() {
 #[test]
 fn relay_happy_case() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(_relay_happy_case);
 }
 
 fn _relay_happy_case() {
-    let alice = AccountKeyring::Alice.to_account_id();
-    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new(AccountKeyring::Bob);
+    let charlie = User::new(AccountKeyring::Charlie);
 
-    let bob = AccountKeyring::Bob.to_account_id();
-    let _ = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
+    let prev_bob_balance = Balances::free_balance(&bob.acc());
+    let prev_charlie_balance = Balances::free_balance(&charlie.acc());
 
-    let charlie = AccountKeyring::Charlie.to_account_id();
-    let _ = register_keyring_account_with_balance(AccountKeyring::Charlie, 1_000).unwrap();
-
-    // 41 Extra for registering a DID
-    assert_balance(bob.clone(), 1041, 0);
-    assert_balance(charlie.clone(), 1041, 0);
-
-    let origin = Origin::signed(alice);
     let transaction = UniqueCall::new(
-        Utility::nonce(bob.clone()),
+        Utility::nonce(bob.acc()),
         Call::Balances(BalancesCall::transfer {
-            dest: charlie.clone().into(),
+            dest: charlie.acc().into(),
             value: 50,
         }),
     );
 
     assert_ok!(Utility::relay_tx(
-        origin,
-        bob.clone(),
+        alice.origin(),
+        bob.acc(),
         AccountKeyring::Bob.sign(&transaction.encode()).into(),
         transaction
     ));
 
-    assert_balance(bob, 991, 0);
-    assert_balance(charlie, 1_091, 0);
+    assert_balance(bob.acc(), prev_bob_balance - 50, 0);
+    assert_balance(charlie.acc(), prev_charlie_balance + 50, 0);
 }
 
 #[test]
 fn relay_unhappy_cases() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(_relay_unhappy_cases);
 }
 
 fn _relay_unhappy_cases() {
-    let alice = AccountKeyring::Alice.to_account_id();
-    let _ = register_keyring_account_with_balance(AccountKeyring::Alice, 1_000).unwrap();
+    let alice = User::new(AccountKeyring::Alice);
 
     let bob = AccountKeyring::Bob.to_account_id();
 
     let charlie = AccountKeyring::Charlie.to_account_id();
 
-    let origin = Origin::signed(alice);
     let transaction = UniqueCall::new(
-        Utility::nonce(bob.clone()),
+        Utility::nonce(&bob),
         Call::Balances(BalancesCall::transfer {
             dest: charlie.clone().into(),
             value: 59,
@@ -213,7 +211,7 @@ fn _relay_unhappy_cases() {
 
     assert_noop!(
         Utility::relay_tx(
-            origin.clone(),
+            alice.origin(),
             bob.clone(),
             Signature([0; 64]).into(),
             transaction.clone()
@@ -223,18 +221,17 @@ fn _relay_unhappy_cases() {
 
     assert_noop!(
         Utility::relay_tx(
-            origin.clone(),
-            bob.clone(),
+            alice.origin(),
+            bob,
             AccountKeyring::Bob.sign(&transaction.encode()).into(),
             transaction.clone()
         ),
         Error::TargetCddMissing
     );
 
-    let _ = register_keyring_account_with_balance(AccountKeyring::Bob, 1_000).unwrap();
-
+    let bob = User::new(AccountKeyring::Bob);
     let transaction = UniqueCall::new(
-        Utility::nonce(bob.clone()) + 1,
+        Utility::nonce(bob.acc()) + 1,
         Call::Balances(BalancesCall::transfer {
             dest: charlie.into(),
             value: 59,
@@ -242,7 +239,12 @@ fn _relay_unhappy_cases() {
     );
 
     assert_noop!(
-        Utility::relay_tx(origin.clone(), bob, Signature([0; 64]).into(), transaction),
+        Utility::relay_tx(
+            alice.origin(),
+            bob.acc(),
+            Signature([0; 64]).into(),
+            transaction
+        ),
         Error::InvalidNonce
     );
 }
@@ -250,6 +252,7 @@ fn _relay_unhappy_cases() {
 #[test]
 fn batch_secondary_with_permissions_works() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(batch_secondary_with_permissions);
 }

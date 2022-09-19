@@ -306,11 +306,17 @@ impl ExtBuilder {
                     4_000 * POLY * self.balance_factor,
                 ),
                 // CDD Accounts
-                (AccountKeyring::Eve.to_account_id(), 1_000_000),
-                (AccountKeyring::Ferdie.to_account_id(), 1_000_000),
+                (AccountKeyring::Eve.to_account_id(), 5_000 * POLY),
+                (AccountKeyring::Ferdie.to_account_id(), 5_000 * POLY),
+                (AccountKeyring::One.to_account_id(), 5_000 * POLY),
+                (AccountKeyring::Two.to_account_id(), 5_000 * POLY),
             ]
         } else {
-            vec![]
+            // Make sure the Cdd provices have POLYX.
+            self.cdd_providers
+                .iter()
+                .map(|acc| (acc.clone(), 5_000 * POLY))
+                .collect()
         }
     }
 
@@ -497,9 +503,12 @@ impl ExtBuilder {
     }
 
     /// Create externalities.
-    pub fn build(self) -> TestExternalities {
+    pub fn build(mut self) -> TestExternalities {
         self.set_associated_consts();
 
+        if self.cdd_providers.is_empty() {
+            self.cdd_providers.push(AccountKeyring::Eve.to_account_id());
+        }
         // Regular users should intersect neither with CDD providers nor with GC members.
         assert!(!self
             .regular_users

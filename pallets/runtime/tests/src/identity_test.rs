@@ -1,12 +1,13 @@
 use super::{
     asset_test::{an_asset, basic_asset, max_len, max_len_bytes, token},
     committee_test::gc_vmo,
+    exec_ok,
     ext_builder::PROTOCOL_OP_BASE_FEE,
+    pips_test::assert_balance,
     storage::{
         account_from, add_secondary_key, add_secondary_key_with_perms,
         create_cdd_id_and_investor_uid, get_identity_id, get_last_auth_id, get_primary_key,
-        get_secondary_keys, provide_scope_claim, register_keyring_account,
-        register_keyring_account_with_balance, GovernanceCommittee, TestStorage, User,
+        get_secondary_keys, provide_scope_claim, GovernanceCommittee, TestStorage, User,
     },
     ExtBuilder,
 };
@@ -145,7 +146,7 @@ fn only_primary_or_secondary_keys_can_authenticate_as_an_identity() {
 
 #[test]
 fn gc_add_remove_cdd_claim() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let target = User::new(AccountKeyring::Charlie);
         let fetch =
             || Identity::fetch_claim(target.did, ClaimType::CustomerDueDiligence, GC_DID, None);
@@ -171,7 +172,7 @@ fn gc_add_remove_cdd_claim() {
 
 #[test]
 fn revoking_claims() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let _owner = User::new(AccountKeyring::Alice);
         let _issuer = User::new(AccountKeyring::Bob);
         let claim_issuer = User::new(AccountKeyring::Charlie);
@@ -204,7 +205,7 @@ fn revoking_claims() {
 
 #[test]
 fn revoking_batch_claims() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let _owner = User::new(AccountKeyring::Alice);
         let _issuer = User::new(AccountKeyring::Bob);
         let claim_issuer = User::new(AccountKeyring::Charlie);
@@ -324,7 +325,7 @@ fn do_add_permissions_to_multiple_tokens() {
 
 #[test]
 fn set_secondary_key_permissions_with_bad_perms() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new_with(alice.did, AccountKeyring::Bob);
         add_secondary_key(alice.did, bob.acc());
@@ -430,82 +431,78 @@ fn remove_frozen_secondary_keys_with_externalities() {
 #[test]
 fn frozen_secondary_keys_cdd_verification_test() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(&frozen_secondary_keys_cdd_verification_test_we);
 }
 
 fn frozen_secondary_keys_cdd_verification_test_we() {
     // 0. Create identity for Alice and secondary key from Bob.
-    let alice = AccountKeyring::Alice.to_account_id();
+    let alice = User::new(AccountKeyring::Alice);
+    let charlie = User::new(AccountKeyring::Charlie);
     let bob = AccountKeyring::Bob.to_account_id();
-    let charlie = AccountKeyring::Charlie.to_account_id();
-    TestStorage::set_payer_context(Some(alice.clone()));
-    let alice_id = register_keyring_account(AccountKeyring::Alice).unwrap();
-    TestStorage::set_payer_context(Some(charlie.clone()));
-    let _charlie_id = register_keyring_account_with_balance(AccountKeyring::Charlie, 100).unwrap();
-    assert_eq!(Balances::free_balance(charlie.clone()), 100);
+    let prev_charlie_balance = Balances::free_balance(charlie.acc());
+    let prev_bob_balance = Balances::free_balance(bob.clone());
 
     // 1. Add Bob as signatory to Alice ID.
-    TestStorage::set_payer_context(Some(alice.clone()));
-    add_secondary_key(alice_id, bob.clone());
-    assert_ok!(Balances::transfer_with_memo(
-        Origin::signed(alice.clone()),
+    TestStorage::set_payer_context(Some(alice.acc()));
+    add_secondary_key(alice.did, bob.clone());
+    exec_ok!(Balances::transfer_with_memo(
+        alice.origin(),
         bob.clone().into(),
         25_000,
         None
     ));
-    assert_eq!(Balances::free_balance(bob.clone()), 25_000);
+    assert_balance(bob.clone(), prev_bob_balance + 25_000, 0);
 
     // 2. Bob can transfer some funds to Charlie ID.
     TestStorage::set_payer_context(Some(bob.clone()));
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(bob.clone()),
-        charlie.clone().into(),
+        charlie.acc().into(),
         1_000,
         None
     ));
-    assert_eq!(Balances::free_balance(charlie.clone()), 1100);
+    assert_balance(charlie.acc(), prev_charlie_balance + 1_000, 0);
 
     // 3. Alice freezes her secondary keys.
-    assert_ok!(Identity::freeze_secondary_keys(Origin::signed(
-        alice.clone()
-    )));
+    assert_ok!(Identity::freeze_secondary_keys(alice.origin()));
 
     // 4. Bob should NOT transfer any amount. SE is simulated.
     // Balances::transfer_with_memo(Origin::signed(bob), charlie, 1_000, None),
     let payer = CddHandler::get_valid_payer(
         &Call::Balances(balances::Call::transfer_with_memo {
-            dest: AccountKeyring::Charlie.to_account_id().into(),
+            dest: charlie.acc().into(),
             value: 1_000,
             memo: None,
         }),
-        &AccountKeyring::Bob.to_account_id(),
+        &bob.clone(),
     );
     assert_noop!(
         payer,
         InvalidTransaction::Custom(TransactionError::MissingIdentity as u8)
     );
 
-    assert_eq!(Balances::free_balance(charlie.clone()), 1100);
+    assert_balance(charlie.acc(), prev_charlie_balance + 1_000, 0);
 
     // 5. Alice still can make transfers.
     assert_ok!(Balances::transfer_with_memo(
-        Origin::signed(alice.clone()),
-        charlie.clone().into(),
+        alice.origin(),
+        charlie.acc().into(),
         1_000,
         None
     ));
-    assert_eq!(Balances::free_balance(charlie.clone()), 2100);
+    assert_balance(charlie.acc(), prev_charlie_balance + 2_000, 0);
 
     // 6. Unfreeze signatory keys, and Bob should be able to transfer again.
-    assert_ok!(Identity::unfreeze_secondary_keys(Origin::signed(alice)));
+    assert_ok!(Identity::unfreeze_secondary_keys(alice.origin()));
     assert_ok!(Balances::transfer_with_memo(
-        Origin::signed(bob),
-        charlie.clone().into(),
+        Origin::signed(bob.clone()),
+        charlie.acc().into(),
         1_000,
         None
     ));
-    assert_eq!(Balances::free_balance(charlie), 3100);
+    assert_balance(charlie.acc(), prev_charlie_balance + 3_000, 0);
 }
 
 fn run_add_secondary_key_with_perm_test(
@@ -945,6 +942,7 @@ fn secondary_keys_with_auth(
 #[test]
 fn one_step_join_id() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(&one_step_join_id_with_ext);
 }
@@ -1046,7 +1044,7 @@ crate fn test_with_bad_perms(did: IdentityId, test: impl Fn(Permissions)) {
 
 #[test]
 fn add_secondary_keys_with_authorization_too_many_sks() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let user = User::new(AccountKeyring::Alice);
         let bob = User::new_with(user.did, AccountKeyring::Bob);
 
@@ -1125,7 +1123,7 @@ fn secondary_key_with_bad_permissions() {
 
 #[test]
 fn adding_authorizations_bad_perms() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let user = User::new(AccountKeyring::Alice);
         test_with_bad_perms(user.did, |perms| {
             assert_too_long!(Identity::add_authorization(
@@ -1140,7 +1138,7 @@ fn adding_authorizations_bad_perms() {
 
 #[test]
 fn adding_authorizations() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
         let ticker50 = Ticker::try_from(&[0x50][..]).unwrap();
@@ -1203,7 +1201,7 @@ fn adding_authorizations() {
 
 #[test]
 fn removing_authorizations() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
         let ticker50 = Ticker::try_from(&[0x50][..]).unwrap();
@@ -1901,6 +1899,7 @@ fn add_permission_with_secondary_key() {
 #[test]
 fn add_investor_uniqueness_claim() {
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![AccountKeyring::Charlie.to_account_id()])
         .build()
         .execute_with(do_add_investor_uniqueness_claim);
@@ -1971,6 +1970,7 @@ fn add_investor_uniqueness_claim_v2() {
     let user_no_cdd_id = AccountKeyring::Bob.to_account_id();
 
     ExtBuilder::default()
+        .monied(true)
         .add_regular_users_from_accounts(&[user.clone()])
         .build()
         .execute_with(|| {
@@ -2057,7 +2057,7 @@ fn add_investor_uniqueness_claim_v2_data(
 
 #[test]
 fn ensure_custom_scopes_limited() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let user = User::new(AccountKeyring::Alice);
         let data = |n| Scope::Custom([b'1'].repeat(n));
         let add = |n| Identity::add_claim(user.origin(), user.did, Claim::Affiliate(data(n)), None);
@@ -2071,7 +2071,7 @@ fn ensure_custom_scopes_limited() {
 
 #[test]
 fn custom_claim_type_too_long() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let user = User::new(AccountKeyring::Alice);
         let case = |add| Identity::register_custom_claim_type(user.origin(), max_len_bytes(add));
         assert_too_long!(case(1));
@@ -2081,7 +2081,7 @@ fn custom_claim_type_too_long() {
 
 #[test]
 fn custom_claim_type_works() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let user = User::new(AccountKeyring::Alice);
         let register = |ty: &str| Identity::register_custom_claim_type(user.origin(), ty.into());
         let seq_is = |num| {
@@ -2126,7 +2126,7 @@ fn custom_claim_type_works() {
 
 #[test]
 fn invalid_custom_claim_type() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         assert_noop!(
             Identity::base_add_claim(

@@ -84,6 +84,8 @@ fn get_latest_requirement_id(ticker: Ticker) -> u32 {
 #[test]
 fn should_add_and_verify_compliance_requirement() {
     ExtBuilder::default()
+        .monied(true)
+        .cdd_providers(vec![AccountKeyring::One.to_account_id()])
         .build()
         .execute_with(should_add_and_verify_compliance_requirement_we);
 }
@@ -295,6 +297,7 @@ fn should_add_and_verify_compliance_requirement_we() {
 #[test]
 fn should_replace_asset_compliance() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(should_replace_asset_compliance_we);
 }
@@ -337,6 +340,7 @@ fn should_replace_asset_compliance_we() {
 #[test]
 fn test_dedup_replace_asset_compliance() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(test_dedup_replace_asset_compliance_we);
 }
@@ -384,6 +388,7 @@ fn test_dedup_replace_asset_compliance_we() {
 #[test]
 fn should_reset_asset_compliance() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(should_reset_asset_compliance_we);
 }
@@ -413,6 +418,7 @@ fn should_reset_asset_compliance_we() {
 #[test]
 fn pause_resume_asset_compliance() {
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(pause_resume_asset_compliance_we);
@@ -484,6 +490,8 @@ fn pause_resume_asset_compliance_we() {
 #[test]
 fn should_successfully_add_and_use_default_issuers() {
     ExtBuilder::default()
+        .monied(true)
+        .cdd_providers(vec![AccountKeyring::One.to_account_id()])
         .build()
         .execute_with(should_successfully_add_and_use_default_issuers_we);
 }
@@ -514,7 +522,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
         ComplianceManager::add_default_trusted_claim_issuer(
             owner.origin(),
             ticker,
-            IdentityId::from(1).into()
+            IdentityId::from(1234).into()
         ),
         CMError::<TestStorage>::DidNotExist
     );
@@ -614,6 +622,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
 #[test]
 fn should_modify_vector_of_trusted_issuer() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(should_modify_vector_of_trusted_issuer_we);
 }
@@ -788,6 +797,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
 #[test]
 fn jurisdiction_asset_compliance() {
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(jurisdiction_asset_compliance_we);
@@ -853,6 +863,7 @@ fn jurisdiction_asset_compliance_we() {
 #[test]
 fn scope_asset_compliance() {
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(scope_asset_compliance_we);
@@ -900,7 +911,7 @@ fn scope_asset_compliance_we() {
 
 #[test]
 fn ensure_custom_scopes_limited() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let owner = User::new(AccountKeyring::Alice);
         let (ticker, _) = create_token(owner);
 
@@ -970,6 +981,7 @@ fn ensure_custom_scopes_limited() {
 #[test]
 fn cm_test_case_9() {
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![AccountKeyring::One.to_account_id()])
         .build()
         .execute_with(cm_test_case_9_we);
@@ -1048,6 +1060,7 @@ fn cm_test_case_9_we() {
 #[test]
 fn cm_test_case_11() {
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![AccountKeyring::Ferdie.to_account_id()])
         .build()
         .execute_with(cm_test_case_11_we);
@@ -1164,6 +1177,7 @@ fn cm_test_case_11_we() {
 #[test]
 fn cm_test_case_13() {
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![AccountKeyring::Ferdie.to_account_id()])
         .build()
         .execute_with(cm_test_case_13_we);
@@ -1298,6 +1312,7 @@ fn cm_test_case_13_we() {
 #[test]
 fn can_verify_restriction_with_primary_issuance_agent() {
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(can_verify_restriction_with_primary_issuance_agent_we);
@@ -1369,6 +1384,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
 #[test]
 fn should_limit_compliance_requirement_complexity() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(should_limit_compliance_requirements_complexity_we);
 }
@@ -1426,7 +1442,7 @@ fn should_limit_compliance_requirements_complexity_we() {
 
 #[test]
 fn check_new_return_type_of_rpc() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         // 0. Create accounts
         let owner = User::new(AccountKeyring::Alice);
         let receiver = User::new(AccountKeyring::Charlie);

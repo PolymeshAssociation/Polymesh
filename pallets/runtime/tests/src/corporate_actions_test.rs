@@ -68,6 +68,7 @@ const P75: Permill = Permill::from_percent(75);
 #[track_caller]
 fn test(logic: impl FnOnce(Ticker, [User; 3])) {
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![CDDP.to_account_id()])
         .build()
         .execute_with(|| {
@@ -478,7 +479,7 @@ fn set_did_withholding_tax_works() {
 
 #[test]
 fn set_max_details_length_only_root() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice).origin();
         assert_noop!(
             CA::set_max_details_length(alice, 5),

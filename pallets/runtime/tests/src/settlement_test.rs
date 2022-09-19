@@ -209,7 +209,7 @@ pub fn set_current_block_number(block: u32) {
 
 #[test]
 fn venue_details_length_limited() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let actor = User::new(AccountKeyring::Alice);
         let id = Settlement::venue_counter();
         let create = |d| Settlement::create_venue(actor.origin(), d, vec![], VenueType::Exchange);
@@ -227,7 +227,7 @@ fn venue_instructions(id: VenueId) -> Vec<InstructionId> {
 
 #[test]
 fn venue_registration() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let venue_counter = Settlement::venue_counter();
         assert_ok!(Settlement::create_venue(
@@ -288,6 +288,7 @@ fn venue_registration() {
 fn test_with_cdd_provider(test: impl FnOnce(AccountId)) {
     let cdd = AccountKeyring::Eve.to_account_id();
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![cdd.clone()])
         .build()
         .execute_with(|| test(cdd));
@@ -396,7 +397,7 @@ fn create_and_affirm_instruction() {
 
 #[test]
 fn overdraft_failure() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
@@ -906,7 +907,7 @@ fn settle_on_block() {
 
 #[test]
 fn failed_execution() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER, TICKER2]);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER, TICKER2]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
@@ -1448,7 +1449,7 @@ fn basic_fuzzing() {
 
 #[test]
 fn claim_multiple_receipts_during_authorization() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
@@ -1634,7 +1635,7 @@ fn overload_instruction() {
 
 #[test]
 fn encode_receipt() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let token_name = [0x01u8];
         let ticker = Ticker::try_from(&token_name[..]).unwrap();
         let msg1 = Receipt {
@@ -1662,6 +1663,7 @@ fn encode_receipt() {
 #[test]
 fn test_weights_for_settlement_transaction() {
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(|| {
@@ -2154,7 +2156,7 @@ fn multiple_custodian_settlement() {
 
 #[test]
 fn reject_instruction() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
         let charlie = User::new(AccountKeyring::Charlie);
@@ -2284,7 +2286,7 @@ fn dirty_storage_with_tx() {
 
 #[test]
 fn reject_failed_instruction() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
 
@@ -2320,7 +2322,7 @@ fn reject_failed_instruction() {
 
 #[test]
 fn modify_venue_signers() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let charlie = User::new(AccountKeyring::Charlie);
         let venue_counter = Settlement::venue_counter();

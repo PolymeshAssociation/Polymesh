@@ -36,6 +36,7 @@ fn motions_basic_environment_works() {
     ]
     .to_vec();
     ExtBuilder::default()
+        .monied(true)
         .governance_committee(committee)
         .build()
         .execute_with(motions_basic_environment_works_we);
@@ -121,6 +122,7 @@ fn vote(who: &Origin, approve: bool) -> DispatchResult {
 #[test]
 fn single_member_committee_works() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(single_member_committee_works_we);
 }
@@ -134,6 +136,8 @@ fn single_member_committee_works_we() {
 
     set_members(vec![alice_did]);
 
+    System::reset_events();
+    System::note_finished_initialize();
     // Proposal is executed if committee is comprised of a single member
     prepare_proposal(alice_ring);
     assert_ok!(Pips::snapshot(alice_signer.clone()));
@@ -143,7 +147,7 @@ fn single_member_committee_works_we() {
     check_scheduled(PipId(0));
     let hash = hash_enact_snapshot_results();
     let expected_event = EventRecord {
-        phase: Phase::Initialization,
+        phase: Phase::ApplyExtrinsic(0),
         event: EventTest::PolymeshCommittee(CommitteeRawEvent::Executed(alice_did, hash, Ok(()))),
         topics: vec![],
     };
@@ -153,6 +157,7 @@ fn single_member_committee_works_we() {
 #[test]
 fn preventing_motions_from_non_members_works() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(preventing_motions_from_non_members_works_we);
 }
@@ -179,6 +184,7 @@ fn preventing_motions_from_non_members_works_we() {
 #[test]
 fn preventing_voting_from_non_members_works() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(preventing_voting_from_non_members_works_we);
 }
@@ -205,6 +211,7 @@ fn preventing_voting_from_non_members_works_we() {
 #[test]
 fn motions_revoting_works() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(motions_revoting_works_we);
 }
@@ -258,6 +265,7 @@ fn motions_revoting_works_we() {
 #[test]
 fn first_vote_cannot_be_reject() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(first_vote_cannot_be_reject_we);
 }
@@ -282,6 +290,7 @@ fn first_vote_cannot_be_reject_we() {
 #[test]
 fn changing_vote_threshold_works() {
     ExtBuilder::default()
+        .monied(true)
         .governance_committee_vote_threshold((1, 1))
         .build()
         .execute_with(changing_vote_threshold_works_we);
@@ -321,6 +330,7 @@ fn changing_vote_threshold_works_we() {
 #[test]
 fn rage_quit() {
     ExtBuilder::default()
+        .monied(true)
         .governance_committee_vote_threshold((2, 3))
         .build()
         .execute_with(rage_quit_we);
@@ -418,6 +428,7 @@ fn rage_quit_we() {
 
     // Alice should not quit because she is the last member.
     System::reset_events();
+    System::note_finished_initialize();
     abdicate_membership(charlie_did, &charlie_signer, 3);
     abdicate_membership(bob_did, &bob_signer, 2);
     assert_eq!(Committee::voting(&enact_hash), None);
@@ -433,7 +444,7 @@ fn rage_quit_we() {
     let hash = hash_enact_snapshot_results();
     let did = IdentityId::default();
     let expected_event = EventRecord {
-        phase: Phase::Initialization,
+        phase: Phase::ApplyExtrinsic(0),
         event: EventTest::PolymeshCommittee(CommitteeRawEvent::Executed(did, hash, Ok(()))),
         topics: vec![],
     };
@@ -448,6 +459,7 @@ fn release_coordinator() {
     ]
     .to_vec();
     ExtBuilder::default()
+        .monied(true)
         .governance_committee(committee)
         .governance_committee_vote_threshold((2, 3))
         .build()
@@ -495,6 +507,7 @@ fn release_coordinator_majority() {
     ]
     .to_vec();
     ExtBuilder::default()
+        .monied(true)
         .governance_committee(committee)
         .governance_committee_vote_threshold((2, 3))
         .build()
@@ -542,6 +555,7 @@ fn enact() {
         AccountKeyring::Charlie.to_account_id(),
     ];
     ExtBuilder::default()
+        .monied(true)
         .governance_committee(committee)
         .build()
         .execute_with(enact_we);
@@ -575,7 +589,7 @@ fn enact_we() {
 
 #[test]
 fn mesh_1065_regression_test() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
 
         let alice_did = register_keyring_account(AccountKeyring::Alice).unwrap();
@@ -619,7 +633,7 @@ fn mesh_1065_regression_test() {
 
 #[test]
 fn expiry_works() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
 
         assert_ok!(Committee::set_expires_after(gc_vmo(), MaybeBlock::Some(13)));

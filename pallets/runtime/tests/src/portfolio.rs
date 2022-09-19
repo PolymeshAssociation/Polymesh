@@ -56,7 +56,7 @@ macro_rules! assert_owner_is_custodian {
 
 #[test]
 fn portfolio_name_too_long() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let owner = User::new(AccountKeyring::Alice);
         let id = Portfolio::next_portfolio_number(owner.did);
         let create = |name| Portfolio::create_portfolio(owner.origin(), name);
@@ -71,7 +71,7 @@ fn portfolio_name_too_long() {
 
 #[test]
 fn portfolio_name_taken() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let owner = User::new(AccountKeyring::Alice);
         let id = Portfolio::next_portfolio_number(owner.did);
         let create = |name: &str| Portfolio::create_portfolio(owner.origin(), name.into());
@@ -87,7 +87,7 @@ fn portfolio_name_taken() {
 
 #[test]
 fn can_create_rename_delete_portfolio() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let (owner, num) = create_portfolio();
 
         let name = || Portfolio::portfolios(owner.did, num);
@@ -114,7 +114,7 @@ fn can_create_rename_delete_portfolio() {
 
 #[test]
 fn can_delete_recreate_portfolio() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let (owner, num) = create_portfolio();
 
         let name = || Portfolio::portfolios(owner.did, num);
@@ -130,7 +130,7 @@ fn can_delete_recreate_portfolio() {
 
 #[test]
 fn cannot_delete_portfolio_with_asset() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1); // This is needed to enable events.
 
         let (owner, num) = create_portfolio();
@@ -200,6 +200,7 @@ fn cannot_delete_portfolio_with_asset() {
 #[test]
 fn can_move_asset_from_portfolio() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(|| do_move_asset_from_portfolio(None));
 }
@@ -207,6 +208,7 @@ fn can_move_asset_from_portfolio() {
 #[test]
 fn can_move_asset_from_portfolio_with_memo() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(|| do_move_asset_from_portfolio(Some(Memo::from("Test memo"))));
 }
@@ -345,7 +347,7 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
 
 #[test]
 fn can_lock_unlock_assets() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let (owner, num) = create_portfolio();
         let (ticker, token) = create_token(owner);
         assert_eq!(
@@ -471,7 +473,7 @@ fn can_lock_unlock_assets() {
 
 #[test]
 fn can_take_custody_of_portfolios() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let (owner, num) = create_portfolio();
         let bob = User::new(AccountKeyring::Bob);
 
@@ -556,7 +558,7 @@ fn can_take_custody_of_portfolios() {
 
 #[test]
 fn quit_portfolio_custody() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let (alice, num) = create_portfolio();
         let bob = User::new(AccountKeyring::Bob);
         let user_portfolio = PortfolioId::user_portfolio(alice.did, num);

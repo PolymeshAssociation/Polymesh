@@ -44,11 +44,8 @@ fn test_with_controller(test: &dyn Fn(&[AccountId])) {
     ExtBuilder::default()
         .balance_factor(1_000)
         .monied(true)
-        .add_regular_users_from_accounts(&[
-            admin.clone(),
-            Eve.to_account_id(),
-            Ferdie.to_account_id(),
-        ])
+        .cdd_providers(vec![Eve.to_account_id()])
+        .add_regular_users_from_accounts(&[admin.clone(), Ferdie.to_account_id()])
         .set_bridge_controller(
             admin,
             [bob.clone(), charlie.clone(), dave.clone()].into(),
@@ -179,6 +176,7 @@ fn cannot_propose_without_controller() {
     let alice = Alice.to_account_id();
 
     ExtBuilder::default()
+        .monied(true)
         .add_regular_users_from_accounts(&[alice.clone()])
         .build()
         .execute_with(|| {

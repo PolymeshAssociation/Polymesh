@@ -280,7 +280,11 @@ fn transfer_with_memo_we() {
         100,
         memo_1.clone()
     ));
+
     System::set_block_number(2);
+    System::reset_events();
+    System::note_finished_initialize();
+
     let memo_2 = Some(Memo([42u8; 32]));
     assert_ok!(Balances::transfer_with_memo(
         Origin::signed(alice.clone()),
@@ -298,7 +302,7 @@ fn transfer_with_memo_we() {
 
     let expected_events = vec![
         EventRecord {
-            phase: Phase::Initialization,
+            phase: Phase::ApplyExtrinsic(0),
             event: EventTest::Balances(BalancesRawEvent::Transfer(
                 Some(alice_id),
                 alice.clone(),
@@ -310,7 +314,7 @@ fn transfer_with_memo_we() {
             topics: vec![],
         },
         EventRecord {
-            phase: Phase::Initialization,
+            phase: Phase::ApplyExtrinsic(0),
             event: EventTest::Balances(BalancesRawEvent::Transfer(
                 Some(alice_id),
                 alice,

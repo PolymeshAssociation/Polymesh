@@ -1,5 +1,5 @@
 use super::{
-    storage::{get_identity_id, register_keyring_account, set_curr_did, TestStorage},
+    storage::{get_identity_id, register_keyring_account, set_curr_did, sorted, TestStorage},
     ExtBuilder,
 };
 use pallet_group::{self as group};
@@ -24,6 +24,7 @@ fn query_membership_works() {
     .to_vec();
 
     ExtBuilder::default()
+        .monied(true)
         .governance_committee(committee)
         .build()
         .execute_with(|| {
@@ -41,6 +42,7 @@ fn query_membership_works() {
 fn add_member_works() {
     let committee = [AccountKeyring::Alice.to_account_id()].to_vec();
     ExtBuilder::default()
+        .monied(true)
         .governance_committee(committee)
         .build()
         .execute_with(add_member_works_we)
@@ -76,6 +78,7 @@ fn add_member_works_we() {
 #[test]
 fn active_limit_works() {
     ExtBuilder::default()
+        .monied(true)
         .governance_committee([AccountKeyring::Alice.to_account_id()].to_vec())
         .build()
         .execute_with(|| {
@@ -159,6 +162,7 @@ fn remove_member_works() {
     .to_vec();
 
     ExtBuilder::default()
+        .monied(true)
         .governance_committee(committee)
         .build()
         .execute_with(remove_member_works_we)
@@ -195,6 +199,7 @@ fn swap_member_works() {
     .to_vec();
 
     ExtBuilder::default()
+        .monied(true)
         .governance_committee(committee)
         .build()
         .execute_with(swap_member_works_we);
@@ -239,6 +244,7 @@ fn reset_members_works() {
     ]
     .to_vec();
     ExtBuilder::default()
+        .monied(true)
         .governance_committee(committee)
         .build()
         .execute_with(reset_members_works_we);
@@ -258,7 +264,10 @@ fn reset_members_works_we() {
 
 #[test]
 fn rage_quit() {
-    ExtBuilder::default().build().execute_with(rage_quit_we);
+    ExtBuilder::default()
+        .monied(true)
+        .build()
+        .execute_with(rage_quit_we);
 }
 
 fn rage_quit_we() {
@@ -312,6 +321,7 @@ fn rage_quit_we() {
 #[test]
 fn disable_member() {
     ExtBuilder::default()
+        .monied(true)
         .build()
         .execute_with(disable_member_we);
 }
@@ -322,8 +332,7 @@ fn disable_member_we() {
     let bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
     let charlie_id = register_keyring_account(AccountKeyring::Charlie).unwrap();
 
-    let mut committee = vec![alice_id, bob_id, charlie_id];
-    committee.sort();
+    let committee = sorted(vec![alice_id, bob_id, charlie_id]);
     assert_ok!(CommitteeGroup::reset_members(
         root.clone(),
         committee.clone()
@@ -338,10 +347,13 @@ fn disable_member_we() {
         None,
         None
     ));
-    assert_eq!(CommitteeGroup::get_members(), vec![charlie_id, alice_id]);
+    assert_eq!(
+        CommitteeGroup::get_members(),
+        sorted(vec![alice_id, charlie_id])
+    );
     assert_eq!(
         CommitteeGroup::get_valid_members(),
-        vec![charlie_id, alice_id, bob_id]
+        vec![alice_id, charlie_id, bob_id]
     );
 
     // Revoke at

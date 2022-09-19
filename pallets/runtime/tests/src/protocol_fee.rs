@@ -14,7 +14,7 @@ type ProtocolFee = pallet_protocol_fee::Module<TestStorage>;
 
 #[test]
 fn can_compute_fee() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         assert_eq!(
             ProtocolFee::compute_fee(&[ProtocolOp::AssetIssue]),
             PROTOCOL_OP_BASE_FEE
@@ -24,7 +24,7 @@ fn can_compute_fee() {
 
 #[test]
 fn can_charge_fee_batch() {
-    ExtBuilder::default().build().execute_with(|| {
+    ExtBuilder::default().monied(true).build().execute_with(|| {
         let _ =
             register_keyring_account_with_balance(AccountKeyring::Alice, PROTOCOL_OP_BASE_FEE * 10)
                 .unwrap();

@@ -32,6 +32,7 @@ type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 #[track_caller]
 fn test(logic: impl FnOnce()) {
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(logic);

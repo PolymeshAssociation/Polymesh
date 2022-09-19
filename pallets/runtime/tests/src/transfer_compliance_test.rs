@@ -650,6 +650,7 @@ fn create_batches(tracker: &mut AssetTracker) -> Vec<Batch> {
 #[test]
 fn multiple_stats() {
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
         .build()
         .execute_with(multiple_stats_with_ext);
@@ -742,6 +743,7 @@ fn multiple_stats_with_ext() {
 #[test]
 fn max_investor_rule() {
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
         .build()
         .execute_with(max_investor_rule_with_ext);
@@ -780,6 +782,7 @@ fn max_investor_rule_with_ext() {
 #[test]
 fn max_investor_ownership_rule() {
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
         .build()
         .execute_with(max_investor_ownership_rule_with_ext);
@@ -820,6 +823,7 @@ fn max_investor_ownership_rule_with_ext() {
 #[test]
 fn claim_count_rule() {
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
         .build()
         .execute_with(claim_count_rule_with_ext);
@@ -908,6 +912,7 @@ fn claim_count_rule_with_ext() {
 #[test]
 fn jurisdiction_count_rule() {
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
         .build()
         .execute_with(jurisdiction_count_rule_with_ext);
@@ -994,6 +999,7 @@ fn jurisdiction_count_rule_with_ext() {
 #[test]
 fn jurisdiction_ownership_rule() {
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
         .build()
         .execute_with(jurisdiction_ownership_rule_with_ext);

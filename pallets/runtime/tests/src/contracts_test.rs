@@ -49,6 +49,7 @@ fn chain_extension() -> (Vec<u8>, CodeHash) {
 fn misc_polymesh_extensions() {
     let eve = AccountKeyring::Eve.to_account_id();
     ExtBuilder::default()
+        .monied(true)
         .cdd_providers(vec![eve.clone()])
         .build()
         .execute_with(|| {

@@ -3,6 +3,7 @@ use super::{
     storage::{make_account_without_cdd, root, TestStorage, User},
     ExtBuilder,
 };
+use frame_support::{assert_noop, assert_ok};
 
 use polymesh_primitives::{AccountId, Beneficiary, IdentityId};
 use sp_runtime::DispatchError;
@@ -21,6 +22,7 @@ fn beneficiary<Balance>(id: IdentityId, amount: Balance) -> Beneficiary<Balance>
 #[test]
 fn reimbursement_and_disbursement() {
     ExtBuilder::default()
+        .monied(true)
         .balance_factor(10)
         .build()
         .execute_with(reimbursement_and_disbursement_we);
@@ -60,7 +62,7 @@ fn reimbursement_and_disbursement_we() {
     let before_charlie_balance = Balances::free_balance(&charlie_acc);
 
     // Try disbursement.
-    exec_ok!(Treasury::disbursement(root(), beneficiaries.clone()));
+    assert_ok!(Treasury::disbursement(root(), beneficiaries.clone()));
 
     // Check balances after disbursement.
     assert_eq!(Treasury::balance(), 400);
@@ -80,7 +82,7 @@ fn reimbursement_and_disbursement_we() {
     assert_eq!(total_issuance, Balances::total_issuance());
 
     // Repeat disbursement.  This time there is not enough POLYX in the treasury.
-    exec_noop!(
+    assert_noop!(
         Treasury::disbursement(root(), beneficiaries),
         TreasuryError::InsufficientBalance,
     );
@@ -89,6 +91,7 @@ fn reimbursement_and_disbursement_we() {
 #[test]
 fn bad_disbursement_did() {
     ExtBuilder::default()
+        .monied(true)
         .balance_factor(10)
         .build()
         .execute_with(bad_disbursement_did_we);
@@ -124,7 +127,7 @@ fn bad_disbursement_did_we() {
     let before_default_key_balance = Balances::free_balance(&default_key);
 
     // Try disbursement.
-    exec_noop!(
+    assert_noop!(
         Treasury::disbursement(root(), beneficiaries),
         TreasuryError::InvalidIdentity,
     );
