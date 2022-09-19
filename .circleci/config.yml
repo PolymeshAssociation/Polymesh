@@ -145,19 +145,11 @@ jobs:
             - v12-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Tests
-          command: >-
-            cargo test
-            --package pallet-staking
-            --package pallet-group
-            --package pallet-sudo
-            --package pallet-pips
-            --package polymesh-primitives
-            --package node-rpc-runtime-api
-            --package pallet-transaction-payment
-            --package polymesh-runtime-tests
-            --package pallet-balances:0.1.0
-            --package asset-metadata
-            --features default_identity
+          command: bash ./scripts/test.sh
+          no_output_timeout: 1h
+      - run:
+          name: Tests (Integration mode=on)
+          command: bash ./scripts/integration_test.sh
           no_output_timeout: 1h
       - save_cache:
           key: v12-test-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
