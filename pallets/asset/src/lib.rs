@@ -119,7 +119,6 @@ use polymesh_primitives::{
     AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, ScopeId, SecondaryKey,
     Ticker,
 };
-use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;
 #[cfg(feature = "std")]
