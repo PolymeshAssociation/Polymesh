@@ -42,9 +42,12 @@ use sp_std::{fmt, marker::PhantomData, result::Result};
 pub use polymesh_common_utilities::traits::permissions::Config;
 
 #[cfg(feature = "testing")]
-use core::sync::atomic::{AtomicBool, Ordering::Relaxed};
+use sp_std::cell::RefCell;
 #[cfg(feature = "testing")]
-static CALL_PERMS_CHECKED: AtomicBool = AtomicBool::new(false);
+thread_local! {
+    pub static CALL_PERMS_ENABLE: RefCell<bool> = RefCell::new(false);
+    pub static CALL_PERMS_CALLED: RefCell<bool> = RefCell::new(false);
+}
 
 decl_storage! {
     trait Store for Module<T: Config> as Permissions {
@@ -79,11 +82,14 @@ impl<T: Config> Module<T> {
     ) -> Result<AccountCallPermissionsData<T::AccountId>, DispatchError> {
         #[cfg(feature = "testing")]
         {
-            if CALL_PERMS_CHECKED.load(Relaxed) {
-                panic!("ensure_call_permissions called twice!",);
-            } else {
-                CALL_PERMS_CHECKED.store(true, Relaxed);
-            }
+            let enabled = CALL_PERMS_ENABLE.with(|v| *v.borrow());
+            CALL_PERMS_CALLED.with(|v| {
+                if enabled && v.replace(true) {
+                    #[cfg(feature = "std")]
+                    eprintln!("ensure_call_permissions called multiple times.");
+                    panic!("ensure_call_permissions called multiple times.");
+                }
+            });
         }
 
         T::Checker::check_account_call_permissions(
@@ -120,12 +126,29 @@ impl<T: Config> StoreCallMetadata<T> {
 
     /// Stores call metadata in runtime storage.
     pub fn set_call_metadata(pallet_name: PalletName, dispatchable_name: DispatchableName) {
+        #[cfg(feature = "testing")]
+        {
+            CALL_PERMS_ENABLE.with(|v| {
+                v.replace(true);
+            });
+            CALL_PERMS_CALLED.with(|v| {
+                v.take();
+            });
+        }
+
         CurrentPalletName::put(pallet_name);
         CurrentDispatchableName::put(dispatchable_name);
     }
 
     /// Erases call metadata from runtime storage.
     fn clear_call_metadata() {
+        #[cfg(feature = "testing")]
+        {
+            // Reset check.
+            CALL_PERMS_ENABLE.with(|v| v.take());
+            CALL_PERMS_CALLED.with(|v| v.take());
+        }
+
         CurrentPalletName::kill();
         CurrentDispatchableName::kill();
     }
@@ -163,9 +186,6 @@ where
         _: &DispatchInfoOf<Self::Call>,
         _: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
-        #[cfg(feature = "testing")]
-        CALL_PERMS_CHECKED.store(false, Relaxed);
-
         let metadata = call.get_call_metadata();
         Self::set_call_metadata(
             metadata.pallet_name.as_bytes().into(),
@@ -212,7 +232,15 @@ pub fn swap_call_metadata(
     dispatchable_name: DispatchableName,
 ) -> (PalletName, DispatchableName) {
     #[cfg(feature = "testing")]
-    CALL_PERMS_CHECKED.store(false, Relaxed);
+    {
+        CALL_PERMS_ENABLE.with(|v| {
+            v.replace(true);
+        });
+        CALL_PERMS_CALLED.with(|v| {
+            v.take();
+        });
+    }
+
     (
         CurrentPalletName::mutate(|s| mem::replace(s, pallet_name)),
         CurrentDispatchableName::mutate(|s| mem::replace(s, dispatchable_name)),
