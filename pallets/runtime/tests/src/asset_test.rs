@@ -486,7 +486,6 @@ fn register_ticker() {
                 AssetError::TickerNotAscii
             );
         }
-
     })
 }
 
