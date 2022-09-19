@@ -487,7 +487,6 @@ fn register_ticker() {
             );
         }
 
-        assert_ok!(register(Ticker::try_from(&[b' ', b'A', b'~'][..]).unwrap()));
     })
 }
 

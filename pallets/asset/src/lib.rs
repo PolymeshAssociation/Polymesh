@@ -1203,15 +1203,11 @@ impl<T: Config> Module<T> {
         // Find first byte not printable ASCII.
         let good = bytes
             .iter()
-            .position(|b| !matches!(b, 32..=126))
+            .position(|b| { let deref_b = *b;
+                !deref_b.is_ascii_alphanumeric() })
             // Everything after must be a NULL byte.
             .map_or(true, |nm_pos| bytes[nm_pos..].iter().all(|b| *b == 0));
         ensure!(good, Error::<T>::TickerNotAscii);
-
-        for ref_b in bytes {
-            let deref_b = *ref_b;
-            ensure!(deref_b.is_ascii_alphanumeric(), Error::<T>::TickerNotAscii);
-        }
         Ok(())
     }
 
