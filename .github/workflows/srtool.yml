@@ -1,6 +1,11 @@
 name: Srtool build
 
-on: push
+on:
+  push:
+    branches:
+      - 'mainnet'
+      - 'testnet'
+      - 'staging'
 
 jobs:
   srtool:
