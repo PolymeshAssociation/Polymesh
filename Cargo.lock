@@ -6285,7 +6285,7 @@ dependencies = [
 
 [[package]]
 name = "polymesh"
-version = "5.0.1"
+version = "5.0.3"
 dependencies = [
  "chrono",
  "clap 3.2.6",
