@@ -249,7 +249,7 @@ jobs:
           at: .
       - run: |
           export VERSION=`grep ^version ./Cargo.toml | head -1 | cut -d"=" -f2 | sed 's/[^a-zA-Z0-9\.]//g'`
-          docker build -f ./.docker/Dockerfile.debian --tag $IMAGE_NAME:$CIRCLE_BRANCH-debian --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian .
+          docker build -f ./.docker/Dockerfile.debian --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
           docker push $IMAGE_NAME
   build-docker-distroless:
@@ -265,7 +265,7 @@ jobs:
           at: .
       - run: |
           export VERSION=`grep ^version ./Cargo.toml | head -1 | cut -d"=" -f2 | sed 's/[^a-zA-Z0-9\.]//g'`
-          docker build -f ./.docker/Dockerfile.distroless --tag $IMAGE_NAME:$CIRCLE_BRANCH-distroless --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-distroless .
+          docker build -f ./.docker/Dockerfile.distroless --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-distroless --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-distroless .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
           docker push $IMAGE_NAME
   build-docker-rust-debian:
