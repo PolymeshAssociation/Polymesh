@@ -15,7 +15,7 @@ jobs:
         uses: chevdor/srtool-actions@v0.5.0
         with:
           chain: ${{ matrix.chain }}
-          package: polymesh-${{ matrix.chain }}-runtime
+          package: polymesh-runtime-${{ matrix.chain }}
           runtime_dir: pallets/runtime/${{ matrix.chain }}
       - name: Summary
         run: |
