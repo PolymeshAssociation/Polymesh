@@ -51,10 +51,19 @@ use polymesh_runtime_common::GetDispatchInfo;
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 fn sum_weights(calls: &[impl GetDispatchInfo]) -> Weight {
+    let num_calls = calls.len() as Weight;
     calls
         .iter()
         .map(|call| call.get_dispatch_info().weight)
         .fold(0 as Weight, |a: Weight, n| a.saturating_add(n))
+        .saturating_add(
+            // Each call has 2 reads and 2 writes overhead.
+            num_calls.saturating_mul(
+                DbWeight::get()
+                    .reads(2 as Weight)
+                    .saturating_add(DbWeight::get().writes(2 as Weight)),
+            ),
+        )
 }
 
 /// Weights for pallet_utility using the Substrate node and recommended hardware.
@@ -66,8 +75,6 @@ impl pallet_utility::WeightInfo for WeightInfo {
         (38_672_000 as Weight)
             // Standard Error: 438_000
             .saturating_add(sum_weights(calls))
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
     }
     // Storage: unknown [0x3a7472616e73616374696f6e5f6c6576656c3a] (r:1 w:1)
     // Storage: Permissions CurrentPalletName (r:1 w:1)
@@ -76,8 +83,8 @@ impl pallet_utility::WeightInfo for WeightInfo {
         (49_113_000 as Weight)
             // Standard Error: 165_000
             .saturating_add(sum_weights(calls))
-            .saturating_add(DbWeight::get().reads(3 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
     }
     // Storage: Permissions CurrentPalletName (r:1 w:1)
     // Storage: Permissions CurrentDispatchableName (r:1 w:1)
@@ -85,8 +92,6 @@ impl pallet_utility::WeightInfo for WeightInfo {
         (27_520_000 as Weight)
             // Standard Error: 546_000
             .saturating_add(sum_weights(calls))
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
     }
     // Storage: Identity KeyRecords (r:2 w:0)
     // Storage: Utility Nonces (r:1 w:1)
