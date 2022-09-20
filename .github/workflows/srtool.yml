@@ -20,7 +20,7 @@ jobs:
       - name: Summary
         run: |
           echo Summary:
-					echo '${{ steps.srtool_build.outputs.json }}' | jq . > ${{ matrix.chain }}-srtool-digest.json
+          echo '${{ steps.srtool_build.outputs.json }}' | jq . > ${{ matrix.chain }}-srtool-digest.json
           cat ${{ matrix.chain }}-srtool-digest.json
           echo - prop: ${{ steps.srtool_build.outputs.proposal_hash }}
           echo "Runtime location: ${{ steps.srtool_build.outputs.wasm }}"
