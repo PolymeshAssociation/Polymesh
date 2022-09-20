@@ -20,10 +20,10 @@ jobs:
       - name: Summary
         run: |
           echo Summary:
-          echo - version: ${{ steps.srtool_build.outputs.version }}
-          echo - info: ${{ steps.srtool_build.outputs.info }}
+					echo '${{ steps.srtool_build.outputs.json }}' | jq . > ${{ matrix.chain }}-srtool-digest.json
+          cat ${{ matrix.chain }}-srtool-digest.json
           echo - prop: ${{ steps.srtool_build.outputs.proposal_hash }}
-          echo - json: ${{ steps.srtool_build.outputs.json }}
+          echo "Runtime location: ${{ steps.srtool_build.outputs.wasm }}"
       - name: Archive Runtime
         uses: actions/upload-artifact@v2
         with:
