@@ -345,7 +345,7 @@ jobs:
             --tag $IMAGE_NAME:alpine --tag $IMAGE_NAME:alpine-latest \
             --tag $IMAGE_NAME:alpine-$NIGHTLY .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
-          docker push --all-tags $IMAGE_NAME:alpine
+          docker push --all-tags $IMAGE_NAME
   publish-github-release:
     docker:
       - image: circleci/golang:1.16
