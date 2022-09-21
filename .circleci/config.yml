@@ -78,12 +78,12 @@ jobs:
             - v6-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Build arm64 release
-          command: >-
-            docker run --rm -v ./:/tmp/build
-              -v /usr/local/cargo/git:/usr/local/cargo/git
-              -v /usr/local/cargo/registry:/usr/local/cargo/registry
-              -v ~/.cache/sccache:/root/.cache/sccache
-              -w /tmp/build polymeshassociation/rust:debian-$NIGHTLY
+          command: |
+            docker run --rm -v ./:/tmp/build \
+              -v ~/.cargo/git:/usr/local/cargo/git \
+              -v ~/.cargo/registry:/usr/local/cargo/registry \
+              -v ~/.cache/sccache:/root/.cache/sccache \
+              -w /tmp/build polymeshassociation/rust:debian-$NIGHTLY \
               cargo build --release
           no_output_timeout: 1h
       - persist_to_workspace:
