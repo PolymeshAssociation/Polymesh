@@ -79,7 +79,11 @@ jobs:
       - run:
           name: Build arm64 release
           command: |
-            docker run --rm -v "$PWD":/tmp/build \
+            docker run --rm \
+              -e VERBOSE="$VERBOSE" \
+              -e RUSTFLAGS="$RUSTFLAGS" \
+              -e RUSTC_WRAPPER="$RUSTC_WRAPPER" \
+              -v "$PWD":/tmp/build \
               -v ~/.cargo/git:/usr/local/cargo/git \
               -v ~/.cargo/registry:/usr/local/cargo/registry \
               -v ~/.cache/sccache:/root/.cache/sccache \
