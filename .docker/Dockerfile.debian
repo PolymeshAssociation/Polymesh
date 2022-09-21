@@ -15,7 +15,6 @@ RUN ls -a && \
     chmod 0755 /opt/rotate-keys/polymesh-rotate-keys
 
 FROM debian:stable-slim
-USER 4001:4001
 
 COPY --chown=4002:4002 --from=gobuild      /opt/health-check/polymesh-health-check /usr/local/bin/check
 COPY --chown=4002:4002 --from=gobuild      /opt/rotate-keys/polymesh-rotate-keys   /usr/local/bin/rotate
@@ -23,6 +22,8 @@ COPY --chown=4001:4001 ./polymesh /usr/local/bin/polymesh
 
 RUN mkdir /var/lib/polymesh && \
     chown 4001:4001 /var/lib/polymesh
+
+USER 4001:4001
 
 ENTRYPOINT ["/usr/local/bin/polymesh"]
 CMD [ "-d", "/var/lib/polymesh" ]
