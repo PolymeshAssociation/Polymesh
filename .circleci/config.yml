@@ -366,19 +366,7 @@ workflows:
       - build-docker-distroless:
           requires:
             - build
-          filters:
-            branches:
-              only:
-                - mainnet
-                - testnet
-                - staging
-                - develop
       - publish-github-release:
           requires:
             - build
-          filters:
-            branches:
-              only:
-                - mainnet
-                - testnet
-                - staging
+
