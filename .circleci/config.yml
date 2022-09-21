@@ -356,17 +356,15 @@ workflows:
       - build-docker-debian:
           requires:
             - build
-          filters:
-            branches:
-              only:
-                - mainnet
-                - testnet
-                - staging
-                - develop
       - build-docker-distroless:
           requires:
             - build
       - publish-github-release:
           requires:
             - build
-
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
