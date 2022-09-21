@@ -489,10 +489,30 @@ workflows:
       - build-docker-arm64-debian:
           requires:
             - build-arm64
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
+                - develop
       - build-docker-arm64-distroless:
           requires:
             - build-arm64
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
+                - develop
       - publish-github-release:
           requires:
             - build
             - build-arm64
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
