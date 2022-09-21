@@ -293,7 +293,7 @@ jobs:
     environment:
       RUST_BASE: 1.63.0
       IMAGE_NAME: polymeshassociation/rust-arm64
-		machine:
+    machine:
       image: ubuntu-2004:current
     resource_class: arm.medium
     steps:
