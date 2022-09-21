@@ -289,6 +289,26 @@ jobs:
             --tag $IMAGE_NAME:debian-$NIGHTLY .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
           docker push $IMAGE_NAME
+  build-docker-rust-alpine:
+    environment:
+      RUST_BASE: 1.63.0
+      IMAGE_NAME: polymeshassociation/rust
+    docker:
+      - image: docker:stable-git
+    resource_class: small
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 20.10.14
+      - run: |
+          export NIGHTLY=`date "+nightly-%Y-%m-%d"`
+          docker build -f ./.docker/rust-nightly/Dockerfile.alpine \
+            --build-arg rustbase=$RUST_BASE \
+            --build-arg toolchainversion=$NIGHTLY \
+            --tag $IMAGE_NAME:alpine --tag $IMAGE_NAME:alpine-latest \
+            --tag $IMAGE_NAME:alpine-$NIGHTLY .
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker push $IMAGE_NAME
   build-docker-arm64-rust-debian:
     environment:
       RUST_BASE: 1.63.0
@@ -308,17 +328,15 @@ jobs:
             --tag $IMAGE_NAME:debian-$NIGHTLY .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
           docker push $IMAGE_NAME
-  build-docker-rust-alpine:
+  build-docker-arm64-rust-alpine:
     environment:
       RUST_BASE: 1.63.0
       IMAGE_NAME: polymeshassociation/rust
-    docker:
-      - image: docker:stable-git
-    resource_class: small
+    machine:
+      image: ubuntu-2004:current
+    resource_class: arm.medium
     steps:
       - checkout
-      - setup_remote_docker:
-          version: 20.10.14
       - run: |
           export NIGHTLY=`date "+nightly-%Y-%m-%d"`
           docker build -f ./.docker/rust-nightly/Dockerfile.alpine \
@@ -361,6 +379,7 @@ workflows:
   commit:
     jobs:
       - build-docker-arm64-rust-debian
+      - build-docker-arm64-rust-alpine
       - lint
       - clippy
       - test
