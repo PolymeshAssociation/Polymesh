@@ -79,11 +79,11 @@ jobs:
       - run:
           name: Build arm64 release
           command: |
-            docker run --rm -v ./:/tmp/build \
+            docker run --rm -v "$PWD":/tmp/build \
               -v ~/.cargo/git:/usr/local/cargo/git \
               -v ~/.cargo/registry:/usr/local/cargo/registry \
               -v ~/.cache/sccache:/root/.cache/sccache \
-              -w /tmp/build polymeshassociation/rust:debian-$NIGHTLY \
+              -w /tmp/build polymeshassociation/rust-arm64:debian-$NIGHTLY \
               cargo build --release
           no_output_timeout: 1h
       - persist_to_workspace:
