@@ -72,7 +72,7 @@ jobs:
           command: echo $NIGHTLY > rust.version
       - run:
           name: Create cargo folder for caching.
-          command: mkdir /usr/local/cargo/
+          command: mkdir ~/.cargo/
       - restore_cache:
           keys:
             - v6-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
@@ -109,7 +109,7 @@ jobs:
       - save_cache:
           key: v6-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
-            - "/usr/local/cargo"
+            - "~/.cargo"
             - "~/.cache/sccache"
   benchmark-build:
     docker:
@@ -323,6 +323,36 @@ jobs:
           docker build -f ./.docker/Dockerfile.distroless --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-distroless --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-distroless .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
           docker push $IMAGE_NAME
+  build-docker-arm64-debian:
+    environment:
+      IMAGE_NAME: polymeshassociation/polymesh-arm64
+    machine:
+      image: ubuntu-2004:current
+    resource_class: arm.medium
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run: |
+          export VERSION=`grep ^version ./Cargo.toml | head -1 | cut -d"=" -f2 | sed 's/[^a-zA-Z0-9\.]//g'`
+          docker build -f ./.docker/arm64/Dockerfile.debian --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian .
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker push --all-tags $IMAGE_NAME
+  build-docker-arm64-distroless:
+    environment:
+      IMAGE_NAME: polymeshassociation/polymesh-arm64
+    machine:
+      image: ubuntu-2004:current
+    resource_class: arm.medium
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run: |
+          export VERSION=`grep ^version ./Cargo.toml | head -1 | cut -d"=" -f2 | sed 's/[^a-zA-Z0-9\.]//g'`
+          docker build -f ./.docker/arm64/Dockerfile.distroless --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-distroless --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-distroless .
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker push --all-tags $IMAGE_NAME
   build-docker-rust-debian:
     environment:
       RUST_BASE: 1.63.0
@@ -468,6 +498,12 @@ workflows:
                 - testnet
                 - staging
                 - develop
+      - build-docker-arm64-debian:
+          requires:
+            - build-arm64
+      - build-docker-arm64-distroless:
+          requires:
+            - build-arm64
       - publish-github-release:
           requires:
             - build
