@@ -331,7 +331,7 @@ jobs:
   build-docker-arm64-rust-alpine:
     environment:
       RUST_BASE: 1.63.0
-      IMAGE_NAME: polymeshassociation/rust
+      IMAGE_NAME: polymeshassociation/rust-arm64
     machine:
       image: ubuntu-2004:current
     resource_class: arm.medium
@@ -339,7 +339,7 @@ jobs:
       - checkout
       - run: |
           export NIGHTLY=`date "+nightly-%Y-%m-%d"`
-          docker build -f ./.docker/rust-nightly/Dockerfile.alpine \
+          docker build -f ./.docker/arm64/rust/Dockerfile.alpine \
             --build-arg rustbase=$RUST_BASE \
             --build-arg toolchainversion=$NIGHTLY \
             --tag $IMAGE_NAME:alpine --tag $IMAGE_NAME:alpine-latest \
@@ -384,6 +384,7 @@ workflows:
       - clippy
       - test
       - build
+      - build-arm64
       - benchmark-build
       - coverage
       - integration-test:

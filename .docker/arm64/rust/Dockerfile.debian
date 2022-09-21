@@ -1,5 +1,5 @@
 ARG rustbase=1.63.0
-FROM rust:${rustbase}
+FROM arm64v8/rust:${rustbase}
 
 ARG toolchainversion=nightly-2022-05-10
 ENV TOOLCHAIN="${toolchainversion}"
