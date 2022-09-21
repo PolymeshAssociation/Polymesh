@@ -56,6 +56,51 @@ jobs:
           paths:
             - "/usr/local/cargo"
             - "~/.cache/sccache"
+  build-arm64:
+    docker:
+      - image: polymeshassociation/rust-arm64:debian-nightly-2022-09-21
+    resource_class: xlarge
+    environment:
+      - VERBOSE: "1"
+      - RUSTFLAGS: -D warnings
+      - RUSTC_WRAPPER: /usr/local/cargo/bin/sccache
+    steps:
+      - checkout
+      - run:
+          name: Store rust version in an environment var for cache key
+          command: rustc --version > rust.version
+      - restore_cache:
+          keys:
+            - v6-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+      - run:
+          name: Build release
+          command: cargo build --release
+          no_output_timeout: 1h
+      - persist_to_workspace:
+          root: ./target/release
+          paths:
+            - polymesh
+      - run:
+          name: Create assets directory for releases
+          command: mkdir ./assets
+      - run:
+          name: Copy binary to assets
+          command: cp ./target/release/polymesh ./assets/polymesh
+      - run:
+          name: Copy wasm to assets
+          command: cp ./target/release/wbuild/polymesh*/*wasm ./assets/
+      - run:
+          name: List files
+          command: ls -ltra
+      - persist_to_workspace:
+          root: ./assets
+          paths:
+              - .
+      - save_cache:
+          key: v6-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          paths:
+            - "/usr/local/cargo"
+            - "~/.cache/sccache"
   benchmark-build:
     docker:
       - image: polymeshassociation/rust:debian-nightly-2022-05-10
@@ -384,6 +429,7 @@ workflows:
       - clippy
       - test
       - build
+      - build-arm64
       - benchmark-build
       - coverage
       - integration-test:
