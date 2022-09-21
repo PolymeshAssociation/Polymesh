@@ -1,8 +1,8 @@
 ARG golangbase=1.15
 FROM golang:${golangbase} as gobuild
 
-ADD src/health-check/ /opt/health-check/
-ADD src/rotate-keys/ /opt/rotate-keys/
+ADD .docker/src/health-check/ /opt/health-check/
+ADD .docker/src/rotate-keys/ /opt/rotate-keys/
 
 WORKDIR /opt/health-check
 RUN ls -a && \
