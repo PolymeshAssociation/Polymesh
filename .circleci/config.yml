@@ -59,7 +59,7 @@ jobs:
   build-arm64:
     machine:
       image: ubuntu-2004:current
-    resource_class: arm.2xlarge
+    resource_class: arm.xlarge
     environment:
       - NIGHTLY: "nightly-2022-05-10"
       - VERBOSE: "1"
