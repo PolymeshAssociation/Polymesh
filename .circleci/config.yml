@@ -59,7 +59,7 @@ jobs:
   build-arm64:
     machine:
       image: ubuntu-2004:current
-    resource_class: arm.xlarge
+    resource_class: arm.2xlarge
     environment:
       - NIGHTLY: "nightly-2022-05-10"
       - VERBOSE: "1"
@@ -96,7 +96,7 @@ jobs:
             - polymesh
       - run:
           name: Create assets arm64 directory for releases
-          command: mkdir ./assets/arm64
+          command: mkdir -p ./assets/arm64
       - run:
           name: Copy binary to assets arm64
           command: cp ./target/release/polymesh ./assets/arm64/polymesh
@@ -524,4 +524,3 @@ workflows:
           requires:
             - build
             - build-arm64
-
