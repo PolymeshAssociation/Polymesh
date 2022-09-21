@@ -71,15 +71,15 @@ jobs:
           name: Store rust version in an environment var for cache key
           command: echo $NIGHTLY > rust.version
       - run:
-          name: Create cargo folder for caching.
-          command: mkdir ~/.cargo/
+          name: Create folders for caching.
+          command: mkdir -p ~/.cargo/git ~/.cargo/registry ~/.cache/sccache
       - restore_cache:
           keys:
             - v6-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Build arm64 release
           command: |
-            docker run --rm \
+            docker run --rm --user "$(id -u)":"$(id -g)" \
               -e VERBOSE="$VERBOSE" \
               -e RUSTFLAGS="$RUSTFLAGS" \
               -e RUSTC_WRAPPER="$RUSTC_WRAPPER" \
