@@ -17,7 +17,7 @@ RUN ls -a && \
 FROM gcr.io/distroless/cc
 USER 4001:4001
 
-COPY --chown=4001:4001 ./polymesh /
+COPY --chown=4001:4001 ./polymesh-arm64 /polymesh
 COPY --chown=4002:4002 --from=gobuild      /opt/health-check/polymesh-health-check /usr/local/bin/check
 COPY --chown=4002:4002 --from=gobuild      /opt/rotate-keys/polymesh-rotate-keys   /usr/local/bin/rotate
 

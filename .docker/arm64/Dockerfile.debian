@@ -18,7 +18,7 @@ FROM arm64v8/debian:stable-slim
 
 COPY --chown=4002:4002 --from=gobuild      /opt/health-check/polymesh-health-check /usr/local/bin/check
 COPY --chown=4002:4002 --from=gobuild      /opt/rotate-keys/polymesh-rotate-keys   /usr/local/bin/rotate
-COPY --chown=4001:4001 ./polymesh /usr/local/bin/polymesh
+COPY --chown=4001:4001 ./polymesh-arm64 /usr/local/bin/polymesh
 
 RUN mkdir /var/lib/polymesh && \
     chown 4001:4001 /var/lib/polymesh
