@@ -293,13 +293,11 @@ jobs:
     environment:
       RUST_BASE: 1.63.0
       IMAGE_NAME: polymeshassociation/rust-arm64
-    docker:
-      - image: docker:stable-git
+		machine:
+      image: ubuntu-2004:current
     resource_class: arm.medium
     steps:
       - checkout
-      - setup_remote_docker:
-          version: 20.10.14
       - run: |
           export NIGHTLY=`date "+nightly-%Y-%m-%d"`
           docker build -f ./.docker/arm64/rust/Dockerfile.debian \
