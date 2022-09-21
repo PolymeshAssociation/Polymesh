@@ -58,9 +58,10 @@ jobs:
             - "~/.cache/sccache"
   build-arm64:
     machine:
-      image: polymeshassociation/rust-arm64:debian-nightly-2022-09-21
+      image: ubuntu-2004:current
     resource_class: arm.xlarge
     environment:
+      - NIGHTLY: "nightly-2022-05-10"
       - VERBOSE: "1"
       - RUSTFLAGS: -D warnings
       - RUSTC_WRAPPER: /usr/local/cargo/bin/sccache
@@ -68,13 +69,22 @@ jobs:
       - checkout
       - run:
           name: Store rust version in an environment var for cache key
-          command: rustc --version > rust.version
+          command: echo $NIGHTLY > rust.version
+      - run:
+          name: Create cargo folder for caching.
+          command: mkdir /usr/local/cargo/
       - restore_cache:
           keys:
             - v6-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
-          name: Build release
-          command: cargo build --release
+          name: Build arm64 release
+          command: >-
+            docker run --rm -v ./:/tmp/build
+              -v /usr/local/cargo/git:/usr/local/cargo/git
+              -v /usr/local/cargo/registry:/usr/local/cargo/registry
+              -v ~/.cache/sccache:/root/.cache/sccache
+              -w /tmp/build polymeshassociation/rust:debian-$NIGHTLY
+              cargo build --release
           no_output_timeout: 1h
       - persist_to_workspace:
           root: ./target/release
@@ -364,7 +374,7 @@ jobs:
     steps:
       - checkout
       - run: |
-          export NIGHTLY="nightly-2022-05-10"
+          export NIGHTLY=`date "+nightly-%Y-%m-%d"`
           docker build -f ./.docker/arm64/rust/Dockerfile.debian \
             --build-arg rustbase=$RUST_BASE \
             --build-arg toolchainversion=$NIGHTLY \
@@ -383,7 +393,7 @@ jobs:
     steps:
       - checkout
       - run: |
-          export NIGHTLY="nightly-2022-05-10"
+          export NIGHTLY=`date "+nightly-%Y-%m-%d"`
           docker build -f ./.docker/arm64/rust/Dockerfile.alpine \
             --build-arg rustbase=$RUST_BASE \
             --build-arg toolchainversion=$NIGHTLY \
