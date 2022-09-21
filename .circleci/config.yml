@@ -327,7 +327,7 @@ jobs:
             --tag $IMAGE_NAME:debian --tag $IMAGE_NAME:debian-latest \
             --tag $IMAGE_NAME:debian-$NIGHTLY .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
-          docker push $IMAGE_NAME
+          docker push --all-tags $IMAGE_NAME
   build-docker-arm64-rust-alpine:
     environment:
       RUST_BASE: 1.63.0
@@ -345,7 +345,7 @@ jobs:
             --tag $IMAGE_NAME:alpine --tag $IMAGE_NAME:alpine-latest \
             --tag $IMAGE_NAME:alpine-$NIGHTLY .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
-          docker push $IMAGE_NAME
+          docker push --all-tags $IMAGE_NAME:alpine
   publish-github-release:
     docker:
       - image: circleci/golang:1.16
