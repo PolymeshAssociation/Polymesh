@@ -524,3 +524,9 @@ workflows:
           requires:
             - build
             - build-arm64
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
