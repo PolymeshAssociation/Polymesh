@@ -75,7 +75,7 @@ jobs:
           command: mkdir -p ~/.cargo/git ~/.cargo/registry ~/.cache/sccache
       - restore_cache:
           keys:
-            - v6-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+            - v7-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Build arm64 release
           command: |
@@ -86,7 +86,7 @@ jobs:
               -v "$PWD":/tmp/build \
               -v ~/.cargo/git:/usr/local/cargo/git \
               -v ~/.cargo/registry:/usr/local/cargo/registry \
-              -v ~/.cache/sccache:/root/.cache/sccache \
+              -v ~/.cache/sccache:/.cache/sccache \
               -w /tmp/build polymeshassociation/rust-arm64:debian-$NIGHTLY \
               cargo build --release
           no_output_timeout: 1h
@@ -108,7 +108,7 @@ jobs:
           paths:
               - .
       - save_cache:
-          key: v6-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          key: v7-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "~/.cargo"
             - "~/.cache/sccache"
