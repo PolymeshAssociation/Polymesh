@@ -95,14 +95,11 @@ jobs:
           paths:
             - polymesh
       - run:
-          name: Create assets directory for releases
-          command: mkdir ./assets
+          name: Create assets arm64 directory for releases
+          command: mkdir ./assets/arm64
       - run:
-          name: Copy binary to assets
-          command: cp ./target/release/polymesh ./assets/polymesh
-      - run:
-          name: Copy wasm to assets
-          command: cp ./target/release/wbuild/polymesh*/*wasm ./assets/
+          name: Copy binary to assets arm64
+          command: cp ./target/release/polymesh ./assets/arm64/polymesh
       - run:
           name: List files
           command: ls -ltra
@@ -446,9 +443,10 @@ jobs:
           command: |
             go get github.com/tcnksm/ghr
             cd assets
-            VERSION=$(./polymesh --version | cut -d" " -f2)
+            VERSION=$(./polymesh --version | cut -d " " -f2)
             mv ./polymesh ./polymesh-${VERSION}
-            zip -rm ./polymesh-${VERSION}.zip ./polymesh-${VERSION}
+            mv ./arm64/polymesh ./polymesh-${VERSION}-arm64
+            zip -rm ./polymesh-${VERSION}.zip ./polymesh-${VERSION} ./polymesh-${VERSION}-arm64
             zip -rm ./polymesh-${VERSION}-wasm.zip ./*.wasm
             ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -prerelease -delete ${VERSION} ./
 
@@ -465,10 +463,10 @@ workflows:
     jobs:
       - build-docker-rust-debian
       - build-docker-rust-alpine
-  commit:
-    jobs:
       - build-docker-arm64-rust-debian
       - build-docker-arm64-rust-alpine
+  commit:
+    jobs:
       - lint
       - clippy
       - test
@@ -505,15 +503,25 @@ workflows:
       - build-docker-arm64-debian:
           requires:
             - build-arm64
-      - build-docker-arm64-distroless:
-          requires:
-            - build-arm64
-      - publish-github-release:
-          requires:
-            - build
           filters:
             branches:
               only:
                 - mainnet
                 - testnet
                 - staging
+                - develop
+      - build-docker-arm64-distroless:
+          requires:
+            - build-arm64
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
+                - develop
+      - publish-github-release:
+          requires:
+            - build
+            - build-arm64
+
