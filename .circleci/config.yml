@@ -57,9 +57,9 @@ jobs:
             - "/usr/local/cargo"
             - "~/.cache/sccache"
   build-arm64:
-    docker:
-      - image: polymeshassociation/rust-arm64:debian-nightly-2022-09-21
-    resource_class: xlarge
+    machine:
+      image: polymeshassociation/rust-arm64:debian-nightly-2022-09-21
+    resource_class: arm.xlarge
     environment:
       - VERBOSE: "1"
       - RUSTFLAGS: -D warnings
@@ -364,7 +364,7 @@ jobs:
     steps:
       - checkout
       - run: |
-          export NIGHTLY=`date "+nightly-%Y-%m-%d"`
+          export NIGHTLY="nightly-2022-05-10"
           docker build -f ./.docker/arm64/rust/Dockerfile.debian \
             --build-arg rustbase=$RUST_BASE \
             --build-arg toolchainversion=$NIGHTLY \
@@ -383,7 +383,7 @@ jobs:
     steps:
       - checkout
       - run: |
-          export NIGHTLY=`date "+nightly-%Y-%m-%d"`
+          export NIGHTLY="nightly-2022-05-10"
           docker build -f ./.docker/arm64/rust/Dockerfile.alpine \
             --build-arg rustbase=$RUST_BASE \
             --build-arg toolchainversion=$NIGHTLY \
