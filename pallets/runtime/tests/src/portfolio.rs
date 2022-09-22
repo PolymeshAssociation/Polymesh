@@ -1,15 +1,17 @@
 use super::{
-    assert_last_event,
+    assert_last_event, assert_noop, assert_ok,
     asset_test::{create_token, max_len_bytes},
+    exec_noop, exec_ok,
     storage::{EventTest, System, TestStorage, User},
     ExtBuilder,
 };
 use frame_support::storage::StorageDoubleMap;
-use frame_support::{assert_noop, assert_ok, StorageMap};
+use frame_support::StorageMap;
 use frame_system::EventRecord;
 use pallet_portfolio::{Event, MovePortfolioItem, NameToNumber};
 use polymesh_common_utilities::balances::Memo;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
+use polymesh_exec_macro::exec;
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, PortfolioId, PortfolioName, PortfolioNumber, Signatory,
 };
@@ -26,7 +28,7 @@ fn create_portfolio() -> (User, PortfolioNumber) {
     let name = PortfolioName::from([42u8].to_vec());
     let num = Portfolio::next_portfolio_number(&owner.did);
     assert_eq!(num, PortfolioNumber(1));
-    assert_ok!(Portfolio::create_portfolio(owner.origin(), name.clone()));
+    exec_ok!(Portfolio::create_portfolio(owner.origin(), name.clone()));
     assert_eq!(Portfolio::portfolios(&owner.did, num), name);
     (owner, num)
 }
@@ -38,7 +40,7 @@ fn set_custodian_ok(current_custodian: User, new_custodian: User, portfolio_id: 
         AuthorizationData::PortfolioCustody(portfolio_id),
         None,
     );
-    assert_ok!(Portfolio::accept_portfolio_custody(
+    exec_ok!(Portfolio::accept_portfolio_custody(
         new_custodian.origin(),
         auth_id
     ));
@@ -59,8 +61,8 @@ fn portfolio_name_too_long() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         let owner = User::new(AccountKeyring::Alice);
         let id = Portfolio::next_portfolio_number(owner.did);
-        let create = |name| Portfolio::create_portfolio(owner.origin(), name);
-        let rename = |name| Portfolio::rename_portfolio(owner.origin(), id, name);
+        let create = |name| exec!(Portfolio::create_portfolio(owner.origin(), name));
+        let rename = |name| exec!(Portfolio::rename_portfolio(owner.origin(), id, name));
         assert_too_long!(create(max_len_bytes(1)));
         assert_ok!(create(max_len_bytes(0)));
         assert_too_long!(rename(max_len_bytes(1)));
@@ -74,8 +76,9 @@ fn portfolio_name_taken() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         let owner = User::new(AccountKeyring::Alice);
         let id = Portfolio::next_portfolio_number(owner.did);
-        let create = |name: &str| Portfolio::create_portfolio(owner.origin(), name.into());
-        let rename = |name: &str| Portfolio::rename_portfolio(owner.origin(), id, name.into());
+        let create = |name: &str| exec!(Portfolio::create_portfolio(owner.origin(), name.into()));
+        let rename =
+            |name: &str| exec!(Portfolio::rename_portfolio(owner.origin(), id, name.into()));
 
         assert_ok!(create("foo"));
         assert_ok!(create("bar"));
@@ -97,7 +100,7 @@ fn can_create_rename_delete_portfolio() {
         assert_eq!(num_of(&first_name), num);
 
         let new_name = PortfolioName::from([55u8].to_vec());
-        assert_ok!(Portfolio::rename_portfolio(
+        exec_ok!(Portfolio::rename_portfolio(
             owner.origin(),
             num,
             new_name.clone()
@@ -108,7 +111,7 @@ fn can_create_rename_delete_portfolio() {
         );
         assert_eq!(name(), new_name);
         assert!(NameToNumber::contains_key(owner.did, name()));
-        assert_ok!(Portfolio::delete_portfolio(owner.origin(), num));
+        exec_ok!(Portfolio::delete_portfolio(owner.origin(), num));
     });
 }
 
@@ -123,8 +126,8 @@ fn can_delete_recreate_portfolio() {
         let first_name = name();
         assert_eq!(num_of(&first_name), num);
 
-        assert_ok!(Portfolio::delete_portfolio(owner.origin(), num));
-        assert_ok!(Portfolio::create_portfolio(owner.origin(), first_name));
+        exec_ok!(Portfolio::delete_portfolio(owner.origin(), num));
+        exec_ok!(Portfolio::create_portfolio(owner.origin(), first_name));
     });
 }
 
@@ -140,7 +143,7 @@ fn cannot_delete_portfolio_with_asset() {
 
         // Move funds to new portfolio
         let move_amount = token.total_supply / 2;
-        assert_ok!(Portfolio::move_portfolio_funds(
+        exec_ok!(Portfolio::move_portfolio_funds(
             owner.origin(),
             owner_default_portfolio,
             owner_user_portfolio,
@@ -175,12 +178,12 @@ fn cannot_delete_portfolio_with_asset() {
         ensure_balances(token.total_supply - move_amount, move_amount);
 
         // Cannot delete portfolio as it's non-empty.
-        let delete = || Portfolio::delete_portfolio(owner.origin(), num);
+        let delete = || exec!(Portfolio::delete_portfolio(owner.origin(), num));
         assert_noop!(delete(), Error::PortfolioNotEmpty);
         ensure_balances(token.total_supply - move_amount, move_amount);
 
         // Remove remaining funds.
-        assert_ok!(Portfolio::move_portfolio_funds(
+        exec_ok!(Portfolio::move_portfolio_funds(
             owner.origin(),
             owner_user_portfolio,
             owner_default_portfolio,
@@ -232,7 +235,7 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
     let owner_user_portfolio = PortfolioId::user_portfolio(owner.did, num);
 
     // Attempt to move more than the total supply.
-    assert_noop!(
+    exec_noop!(
         Portfolio::move_portfolio_funds(
             owner.origin(),
             owner_default_portfolio,
@@ -256,7 +259,7 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
     );
 
     // Attempt to move to the same portfolio.
-    assert_noop!(
+    exec_noop!(
         Portfolio::move_portfolio_funds(
             owner.origin(),
             owner_default_portfolio,
@@ -291,7 +294,7 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
     );
 
     // Attempt to move by another identity.
-    assert_noop!(
+    exec_noop!(
         Portfolio::move_portfolio_funds(
             bob.origin(),
             owner_default_portfolio,
@@ -307,7 +310,7 @@ fn do_move_asset_from_portfolio(memo: Option<Memo>) {
 
     // Move an amount within bounds.
     let move_amount = token.total_supply / 2;
-    assert_ok!(Portfolio::move_portfolio_funds(
+    exec_ok!(Portfolio::move_portfolio_funds(
         owner.origin(),
         owner_default_portfolio,
         owner_user_portfolio,
@@ -375,7 +378,7 @@ fn can_lock_unlock_assets() {
             lock_amount,
         );
 
-        assert_noop!(
+        exec_noop!(
             Portfolio::move_portfolio_funds(
                 owner.origin(),
                 owner_default_portfolio,
@@ -390,7 +393,7 @@ fn can_lock_unlock_assets() {
         );
 
         // Transfer for unlocked tokens succeeds
-        assert_ok!(Portfolio::move_portfolio_funds(
+        exec_ok!(Portfolio::move_portfolio_funds(
             owner.origin(),
             owner_default_portfolio,
             owner_user_portfolio,
@@ -414,7 +417,7 @@ fn can_lock_unlock_assets() {
         );
 
         // Transfer of any more tokens fails
-        assert_noop!(
+        exec_noop!(
             Portfolio::move_portfolio_funds(
                 owner.origin(),
                 owner_default_portfolio,
@@ -449,7 +452,7 @@ fn can_lock_unlock_assets() {
         );
 
         // Transfer of all tokens succeeds since there is no lock anymore
-        assert_ok!(Portfolio::move_portfolio_funds(
+        exec_ok!(Portfolio::move_portfolio_funds(
             owner.origin(),
             owner_default_portfolio,
             owner_user_portfolio,
@@ -511,14 +514,14 @@ fn can_take_custody_of_portfolios() {
         );
 
         // Can not accept an invalid auth
-        assert_noop!(
+        exec_noop!(
             Portfolio::accept_portfolio_custody(bob.origin(), auth_id + 1),
             AuthorizationError::Invalid
         );
 
         // Can accept a valid custody transfer auth
         let auth_id = add_auth(owner, bob);
-        assert_ok!(Portfolio::accept_portfolio_custody(bob.origin(), auth_id));
+        exec_ok!(Portfolio::accept_portfolio_custody(bob.origin(), auth_id));
 
         assert_ok!(Portfolio::ensure_portfolio_custody(
             owner_default_portfolio,
@@ -563,12 +566,12 @@ fn quit_portfolio_custody() {
         let bob = User::new(AccountKeyring::Bob);
         let user_portfolio = PortfolioId::user_portfolio(alice.did, num);
 
-        assert_noop!(
+        exec_noop!(
             Portfolio::quit_portfolio_custody(bob.origin(), user_portfolio),
             Error::UnauthorizedCustodian
         );
         set_custodian_ok(alice, bob, user_portfolio);
-        assert_ok!(Portfolio::quit_portfolio_custody(
+        exec_ok!(Portfolio::quit_portfolio_custody(
             bob.origin(),
             user_portfolio
         ));

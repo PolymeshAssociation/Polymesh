@@ -1,9 +1,10 @@
 use crate::{
+    assert_noop, assert_ok, exec_ok,
     ext_builder::ExtBuilder,
     storage::{TestStorage, User},
 };
 use codec::Encode;
-use frame_support::{assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop};
+use frame_support::{assert_err_ignore_postinfo, assert_storage_noop};
 use polymesh_common_utilities::constants::currency::POLY;
 use polymesh_primitives::{AccountId, Gas, Permissions, PortfolioPermissions, Ticker};
 use polymesh_runtime_common::Currency;
@@ -19,12 +20,12 @@ use test_client::AccountKeyring;
 const GAS_LIMIT: Gas = 10_000_000_000;
 
 type Asset = pallet_asset::Module<TestStorage>;
-type FrameContracts = pallet_contracts::Pallet<TestStorage>;
-type BaseContractsError = pallet_contracts::Error<TestStorage>;
+type Contracts = pallet_contracts::Pallet<TestStorage>;
+type ContractsError = pallet_contracts::Error<TestStorage>;
 type CodeHash = <Hashing as Hash>::Output;
 type Hashing = <TestStorage as frame_system::Config>::Hashing;
-type Contracts = polymesh_contracts::Pallet<TestStorage>;
-type ContractsError = polymesh_contracts::Error<TestStorage>;
+type PolymeshContracts = polymesh_contracts::Pallet<TestStorage>;
+type PolymeshContractsError = polymesh_contracts::Error<TestStorage>;
 type MaxInLen = <TestStorage as polymesh_contracts::Config>::MaxInLen;
 type Balances = pallet_balances::Pallet<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
@@ -66,7 +67,7 @@ fn misc_polymesh_extensions() {
                 ..Permissions::empty()
             };
             let instantiate = || {
-                Contracts::instantiate_with_code_perms(
+                PolymeshContracts::instantiate_with_code_perms(
                     owner.origin(),
                     Balances::minimum_balance(),
                     GAS_LIMIT,
@@ -77,9 +78,9 @@ fn misc_polymesh_extensions() {
                     perms.clone(),
                 )
             };
-            let derive_key = |key, salt| FrameContracts::contract_address(&key, &hash, salt);
+            let derive_key = |key, salt| Contracts::contract_address(&key, &hash, salt);
             let call = |key: AccountId, value, data| {
-                FrameContracts::call(user.origin(), key.into(), value, GAS_LIMIT, None, data)
+                Contracts::call(user.origin(), key.into(), value, GAS_LIMIT, None, data)
             };
             let assert_has_secondary_key = |key: AccountId| {
                 let data = Identity::get_key_identity_data(key).unwrap();
@@ -99,7 +100,7 @@ fn misc_polymesh_extensions() {
             // Ensure a call different non-existent instantiation results in "contract not found".
             assert_storage_noop!(assert_err_ignore_postinfo!(
                 call(derive_key(owner.acc(), &[0x00]), 0, vec![]),
-                BaseContractsError::ContractNotFound,
+                ContractsError::ContractNotFound,
             ));
 
             // Execute a chain extension with too long data.
@@ -108,13 +109,13 @@ fn misc_polymesh_extensions() {
             too_long_data.extend(vec![b'X'; MaxInLen::get() as usize + 1]);
             assert_storage_noop!(assert_err_ignore_postinfo!(
                 call(0, too_long_data),
-                ContractsError::InLenTooLarge,
+                PolymeshContractsError::InLenTooLarge,
             ));
 
             // Execute a func_id that isn't recognized.
             assert_storage_noop!(assert_err_ignore_postinfo!(
                 call(0, 0x04_00_00_00.encode()),
-                ContractsError::RuntimeCallNotFound,
+                PolymeshContractsError::RuntimeCallNotFound,
             ));
 
             // Input for registering ticker AAAAAAAAAAAA.
@@ -127,7 +128,7 @@ fn misc_polymesh_extensions() {
             register_ticker_extra_data.extend(b"X"); // Adding this leaves too much data.
             assert_storage_noop!(assert_err_ignore_postinfo!(
                 call(0, register_ticker_extra_data),
-                ContractsError::DataLeftAfterDecoding,
+                PolymeshContractsError::DataLeftAfterDecoding,
             ));
 
             // Execute `register_ticker` but fail due to lacking permissions.
@@ -137,7 +138,7 @@ fn misc_polymesh_extensions() {
             ));
 
             // Grant permissions to `key_first_contract`, and so registration should go through.
-            assert_ok!(Identity::set_secondary_key_permissions(
+            exec_ok!(Identity::set_secondary_key_permissions(
                 owner.origin(),
                 key_first_contract.clone(),
                 Permissions::default(),

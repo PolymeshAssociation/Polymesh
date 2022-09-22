@@ -1,4 +1,5 @@
 use super::{
+    assert_noop, assert_ok,
     asset_test::{allow_all_transfers, max_len_bytes},
     exec_noop, exec_ok,
     storage::{make_account_with_portfolio, TestStorage, User},
@@ -11,10 +12,10 @@ use pallet_sto::{
     Fundraiser, FundraiserId, FundraiserName, FundraiserStatus, FundraiserTier, PriceTier,
     MAX_TIERS,
 };
+use polymesh_exec_macro::exec;
 use polymesh_primitives::{asset::AssetType, checked_inc::CheckedInc, PortfolioId, Ticker};
 
 use crate::storage::provide_scope_claim_to_multiple_parties;
-use frame_support::{assert_noop, assert_ok};
 use sp_runtime::DispatchError;
 use sp_std::convert::TryFrom;
 use test_client::AccountKeyring;
@@ -73,7 +74,7 @@ fn stop_fundraiser_ext() {
 }
 
 pub fn create_asset(origin: Origin, ticker: Ticker, supply: u128) {
-    assert_ok!(Asset::create_asset(
+    exec_ok!(Asset::create_asset(
         origin.clone(),
         vec![b'A'].into(),
         ticker,
@@ -83,7 +84,7 @@ pub fn create_asset(origin: Origin, ticker: Ticker, supply: u128) {
         None,
         false,
     ));
-    assert_ok!(Asset::issue(origin, ticker, supply));
+    exec_ok!(Asset::issue(origin, ticker, supply));
 }
 
 struct RaiseContext {
@@ -299,7 +300,7 @@ fn raise_unhappy_path() {
     provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], raise_ticker, eve);
 
     let fundraise = |tiers, venue, name| {
-        Sto::create_fundraiser(
+        exec!(Sto::create_fundraiser(
             alice.origin(),
             alice_portfolio,
             offering_ticker,
@@ -311,7 +312,7 @@ fn raise_unhappy_path() {
             None,
             0,
             name,
-        )
+        ))
     };
 
     let check_fundraiser = |tiers, venue, error: DispatchError| {
@@ -320,7 +321,7 @@ fn raise_unhappy_path() {
 
     let create_venue = |user: User, type_| {
         let bad_venue = Settlement::venue_counter();
-        assert_ok!(Settlement::create_venue(
+        exec_ok!(Settlement::create_venue(
             user.origin(),
             VenueDetails::default(),
             vec![alice.acc()],
@@ -404,7 +405,7 @@ fn raise_unhappy_path() {
     );
 
     // Invalid time window
-    assert_noop!(
+    exec_noop!(
         Sto::create_fundraiser(
             alice.origin(),
             alice_portfolio,
@@ -435,7 +436,7 @@ fn invalid_fundraiser() {
     } = init_raise_context(1_000_000, Some(1_000_000));
 
     let venue_counter = Settlement::venue_counter();
-    assert_ok!(Settlement::create_venue(
+    exec_ok!(Settlement::create_venue(
         alice.origin(),
         VenueDetails::default(),
         vec![AccountKeyring::Alice.to_account_id()],
@@ -443,7 +444,7 @@ fn invalid_fundraiser() {
     ));
 
     let create_fundraiser_fn = |tiers| {
-        Sto::create_fundraiser(
+        exec!(Sto::create_fundraiser(
             alice.origin(),
             alice_portfolio,
             offering_ticker,
@@ -455,7 +456,7 @@ fn invalid_fundraiser() {
             None,
             0,
             FundraiserName::default(),
-        )
+        ))
     };
 
     // No tiers
@@ -498,14 +499,14 @@ fn basic_fundraiser() -> (FundraiserId, RaiseContext) {
     let context = init_raise_context(1_000_000, Some(1_000_000));
 
     let venue_counter = Settlement::venue_counter();
-    assert_ok!(Settlement::create_venue(
+    exec_ok!(Settlement::create_venue(
         context.alice.origin(),
         VenueDetails::default(),
         vec![AccountKeyring::Alice.to_account_id()],
         VenueType::Sto
     ));
     let fundraiser_id = Sto::fundraiser_count(context.offering_ticker);
-    assert_ok!(Sto::create_fundraiser(
+    exec_ok!(Sto::create_fundraiser(
         context.alice.origin(),
         context.alice_portfolio,
         context.offering_ticker,
@@ -533,7 +534,7 @@ fn fundraiser_expired() {
         },
     ) = basic_fundraiser();
 
-    assert_ok!(Sto::modify_fundraiser_window(
+    exec_ok!(Sto::modify_fundraiser_window(
         alice.origin(),
         offering_ticker,
         fundraiser_id,
@@ -543,7 +544,7 @@ fn fundraiser_expired() {
 
     Timestamp::set_timestamp(Timestamp::get() + 2);
 
-    assert_noop!(
+    exec_noop!(
         Sto::modify_fundraiser_window(
             alice.origin(),
             offering_ticker,
@@ -554,7 +555,7 @@ fn fundraiser_expired() {
         Error::FundraiserExpired
     );
 
-    assert_noop!(
+    exec_noop!(
         Sto::invest(
             bob.origin(),
             bob_portfolio,
@@ -581,7 +582,7 @@ fn modifying_fundraiser_window() {
     ) = basic_fundraiser();
 
     // Wrong ticker
-    assert_noop!(
+    exec_noop!(
         Sto::modify_fundraiser_window(
             alice.origin(),
             raise_ticker.unwrap(),
@@ -593,7 +594,7 @@ fn modifying_fundraiser_window() {
     );
 
     // Bad fundraiser id
-    assert_noop!(
+    exec_noop!(
         Sto::modify_fundraiser_window(
             alice.origin(),
             offering_ticker,
@@ -605,7 +606,13 @@ fn modifying_fundraiser_window() {
     );
 
     let bad_modify_fundraiser_window = |start, end| {
-        Sto::modify_fundraiser_window(alice.origin(), offering_ticker, fundraiser_id, start, end)
+        exec!(Sto::modify_fundraiser_window(
+            alice.origin(),
+            offering_ticker,
+            fundraiser_id,
+            start,
+            end
+        ))
     };
 
     assert_ok!(bad_modify_fundraiser_window(0, None));
@@ -636,24 +643,24 @@ fn freeze_unfreeze_fundraiser() {
     ) = basic_fundraiser();
 
     // Wrong ticker
-    assert_noop!(
+    exec_noop!(
         Sto::freeze_fundraiser(alice.origin(), raise_ticker.unwrap(), fundraiser_id,),
         Error::FundraiserNotFound
     );
 
     // Bad fundraiser id
-    assert_noop!(
+    exec_noop!(
         Sto::freeze_fundraiser(alice.origin(), offering_ticker, FundraiserId(u64::MAX)),
         Error::FundraiserNotFound
     );
 
-    assert_ok!(Sto::freeze_fundraiser(
+    exec_ok!(Sto::freeze_fundraiser(
         alice.origin(),
         offering_ticker,
         fundraiser_id,
     ));
 
-    assert_ok!(Sto::unfreeze_fundraiser(
+    exec_ok!(Sto::unfreeze_fundraiser(
         alice.origin(),
         offering_ticker,
         fundraiser_id,
@@ -673,26 +680,26 @@ fn stop_fundraiser() {
     ) = basic_fundraiser();
 
     // Wrong ticker
-    assert_noop!(
+    exec_noop!(
         Sto::stop(alice.origin(), raise_ticker.unwrap(), fundraiser_id,),
         Error::FundraiserNotFound
     );
 
     // Bad fundraiser id
-    assert_noop!(
+    exec_noop!(
         Sto::stop(alice.origin(), offering_ticker, FundraiserId(u64::MAX)),
         Error::FundraiserNotFound
     );
 
     // Unauthorized
-    assert_noop!(
+    exec_noop!(
         Sto::stop(bob.origin(), offering_ticker, fundraiser_id),
         EAError::UnauthorizedAgent
     );
 
-    assert_ok!(Sto::stop(alice.origin(), offering_ticker, fundraiser_id,));
+    exec_ok!(Sto::stop(alice.origin(), offering_ticker, fundraiser_id,));
 
-    assert_noop!(
+    exec_noop!(
         Sto::stop(alice.origin(), offering_ticker, fundraiser_id,),
         Error::FundraiserClosed
     );

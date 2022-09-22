@@ -3,7 +3,6 @@ use super::{
     storage::{make_account_without_cdd, root, TestStorage, User},
     ExtBuilder,
 };
-use frame_support::{assert_noop, assert_ok};
 
 use polymesh_primitives::{AccountId, Beneficiary, IdentityId};
 use sp_runtime::DispatchError;
@@ -62,7 +61,7 @@ fn reimbursement_and_disbursement_we() {
     let before_charlie_balance = Balances::free_balance(&charlie_acc);
 
     // Try disbursement.
-    assert_ok!(Treasury::disbursement(root(), beneficiaries.clone()));
+    exec_ok!(Treasury::disbursement(root(), beneficiaries.clone()));
 
     // Check balances after disbursement.
     assert_eq!(Treasury::balance(), 400);
@@ -82,7 +81,7 @@ fn reimbursement_and_disbursement_we() {
     assert_eq!(total_issuance, Balances::total_issuance());
 
     // Repeat disbursement.  This time there is not enough POLYX in the treasury.
-    assert_noop!(
+    exec_noop!(
         Treasury::disbursement(root(), beneficiaries),
         TreasuryError::InsufficientBalance,
     );
@@ -127,7 +126,7 @@ fn bad_disbursement_did_we() {
     let before_default_key_balance = Balances::free_balance(&default_key);
 
     // Try disbursement.
-    assert_noop!(
+    exec_noop!(
         Treasury::disbursement(root(), beneficiaries),
         TreasuryError::InvalidIdentity,
     );

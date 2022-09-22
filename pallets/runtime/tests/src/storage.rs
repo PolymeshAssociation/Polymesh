@@ -1,7 +1,6 @@
 use super::ext_builder::{EXTRINSIC_BASE_WEIGHT, TRANSACTION_BYTE_FEE, WEIGHT_TO_FEE};
 use codec::Encode;
 use frame_support::{
-    assert_ok,
     dispatch::DispatchResult,
     parameter_types,
     traits::{Currency, Imbalance, KeyOwnerProofSystem, OnInitialize, OnUnbalanced},
@@ -37,6 +36,7 @@ use polymesh_common_utilities::{
     },
     Context,
 };
+use polymesh_exec_macro::exec;
 use polymesh_primitives::{
     investor_zkproof_data::v1::InvestorZKProofData, AccountId, Authorization, AuthorizationData,
     BlockNumber, CddId, Claim, InvestorUid, Moment, Permissions as AuthPermissions,
@@ -82,19 +82,38 @@ lazy_static! {
 }
 
 #[macro_export]
+macro_rules! assert_noop {
+    (
+		$x:expr,
+		$y:expr $(,)?
+	) => {
+        // Use `assert_err` when running with `INTEGRATION_TEST`.
+        // `assert_noop` returns false positives when using full extrinsic execution.
+        if *crate::storage::INTEGRATION_TEST {
+            frame_support::assert_err!($x, $y);
+        } else {
+            frame_support::assert_noop!($x, $y);
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! assert_ok {
+    ( $x:expr $(,)? ) => {
+        frame_support::assert_ok!($x)
+    };
+    ( $x:expr, $y:expr $(,)? ) => {
+        frame_support::assert_ok!($x, $y)
+    };
+}
+
+#[macro_export]
 macro_rules! exec_ok {
     ( $x:expr $(,)? ) => {
         frame_support::assert_ok!(polymesh_exec_macro::exec!($x))
     };
     ( $x:expr, $y:expr $(,)? ) => {
         frame_support::assert_ok!(polymesh_exec_macro::exec!($x), $y)
-    };
-}
-
-#[macro_export]
-macro_rules! exec {
-    ( $x:expr $(,)? ) => {
-        polymesh_exec_macro::exec!($x)
     };
 }
 
@@ -385,7 +404,7 @@ type AuthorityId = <AnySignature as Verify>::Signer;
 crate type Balance = u128;
 
 parameter_types! {
-    pub const BlockHashCount: u32 = 250;
+    pub const BlockHashCount: u32 = 2400;
     pub const MaximumBlockWeight: u64 = 4096;
     pub const MaximumBlockLength: u32 = 4096;
     pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
@@ -796,7 +815,7 @@ pub fn add_secondary_key_with_perms(did: IdentityId, acc: AccountId, perms: Auth
         AuthorizationData::JoinIdentity(perms),
         None,
     );
-    assert_ok!(Identity::join_identity(Origin::signed(acc), auth_id));
+    exec_ok!(Identity::join_identity_as_key(Origin::signed(acc), auth_id));
 }
 
 pub fn add_secondary_key(did: IdentityId, acc: AccountId) {
@@ -899,7 +918,7 @@ pub fn add_cdd_claim(
     let scope_id = InvestorZKProofData::make_scope_id(&scope.as_slice(), &investor_uid);
 
     // Add cdd claim first
-    assert_ok!(Identity::add_claim(
+    exec_ok!(Identity::add_claim(
         Origin::signed(cdd_provider),
         claim_to,
         Claim::CustomerDueDiligence(cdd_id),
@@ -925,29 +944,28 @@ pub fn provide_scope_claim(
     );
 
     // Add the InvestorUniqueness claim.
-    assert_ok!(add_investor_uniqueness_claim(
-        claim_to, scope, scope_id, cdd_id, proof
-    ));
+    add_investor_uniqueness_claim(claim_to, scope, scope_id, cdd_id, proof);
     (scope_id, cdd_id)
 }
 
-pub fn add_investor_uniqueness_claim(
+#[track_caller]
+fn add_investor_uniqueness_claim(
     claim_to: IdentityId,
     scope: Ticker,
     scope_id: ScopeId,
     cdd_id: CddId,
     proof: InvestorZKProofData,
-) -> DispatchResult {
+) {
     let signed_claim_to = Origin::signed(get_primary_key(claim_to));
 
     // Provide the InvestorUniqueness.
-    Identity::add_investor_uniqueness_claim(
+    exec_ok!(Identity::add_investor_uniqueness_claim(
         signed_claim_to,
         claim_to,
         Claim::InvestorUniqueness(Scope::Ticker(scope), scope_id, cdd_id),
         proof,
         None,
-    )
+    ));
 }
 
 pub fn provide_scope_claim_to_multiple_parties<'a>(
@@ -1037,10 +1055,22 @@ macro_rules! assert_event_doesnt_exist {
     };
 }
 
+pub fn into_frame_origin(origin: Origin) -> Result<RawOrigin<AccountId>, Origin> {
+    origin.into()
+}
+
+pub fn is_signed_origin(origin: &Origin) -> bool {
+    match into_frame_origin(origin.clone()) {
+        Ok(RawOrigin::Signed(_)) => true,
+        Ok(RawOrigin::Root) => false,
+        Ok(RawOrigin::None) => false,
+        Err(_) => false,
+    }
+}
+
 pub fn exec<C: Into<Call>>(origin: Origin, call: C) -> DispatchResult {
-    let origin: Result<RawOrigin<AccountId>, Origin> = origin.into();
-    let signed = match origin.unwrap() {
-        RawOrigin::Signed(acc) => {
+    let signed = match into_frame_origin(origin) {
+        Ok(RawOrigin::Signed(acc)) => {
             let info = frame_system::Account::<TestStorage>::get(&acc);
             Some((acc, signed_extra(info.nonce)))
         }

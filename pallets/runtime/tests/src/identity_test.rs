@@ -1,7 +1,8 @@
 use super::{
+    assert_noop, assert_ok,
     asset_test::{an_asset, basic_asset, max_len, max_len_bytes, token},
     committee_test::gc_vmo,
-    exec_ok,
+    exec_noop, exec_ok,
     ext_builder::PROTOCOL_OP_BASE_FEE,
     pips_test::assert_balance,
     storage::{
@@ -14,8 +15,7 @@ use super::{
 use codec::Encode;
 use confidential_identity_v1::mocked::make_investor_uid;
 use frame_support::{
-    assert_noop, assert_ok, dispatch::DispatchResult, traits::Currency, StorageDoubleMap,
-    StorageMap, StorageValue,
+    dispatch::DispatchResult, traits::Currency, StorageDoubleMap, StorageMap, StorageValue,
 };
 use pallet_asset::SecurityToken;
 use pallet_balances as balances;
@@ -26,11 +26,12 @@ use polymesh_common_utilities::{
     protocol_fee::ProtocolOp,
     traits::{
         group::GroupTrait,
-        identity::{Config as IdentityConfig, SecondaryKeyWithAuth, TargetIdAuthorization},
+        identity::{SecondaryKeyWithAuth, TargetIdAuthorization},
         transaction_payment::CddAndFeeDetails,
     },
     SystematicIssuers, GC_DID,
 };
+use polymesh_exec_macro::exec;
 use polymesh_primitives::{
     investor_zkproof_data::v2, AccountId, AssetPermissions, AuthorizationData, AuthorizationType,
     CddId, Claim, ClaimType, CustomClaimTypeId, DispatchableName, ExtrinsicPermissions,
@@ -54,7 +55,7 @@ type System = frame_system::Pallet<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 
 type Origin = <TestStorage as frame_system::Config>::Origin;
-type CddServiceProviders = <TestStorage as IdentityConfig>::CddServiceProviders;
+type CddServiceProviders = pallet_group::Module<TestStorage, pallet_group::Instance2>;
 type Error = pallet_identity::Error<TestStorage>;
 type PError = pallet_permissions::Error<TestStorage>;
 
@@ -106,7 +107,7 @@ fn create_new_token(name: &[u8], owner: User) -> (Ticker, SecurityToken) {
 
 macro_rules! assert_add_cdd_claim {
     ($signer:expr, $target:expr) => {
-        assert_ok!(Identity::add_claim(
+        exec_ok!(Identity::add_claim(
             $signer,
             $target,
             Claim::CustomerDueDiligence(create_cdd_id_and_investor_uid($target).0),
@@ -134,7 +135,7 @@ fn only_primary_or_secondary_keys_can_authenticate_as_an_identity() {
         assert!(Identity::is_key_authorized(bob.did, &charlie.acc()));
 
         // Remove charlie's key from the secondary keys of bob.
-        assert_ok!(Identity::remove_secondary_keys(
+        exec_ok!(Identity::remove_secondary_keys(
             bob.origin(),
             vec![charlie.acc()]
         ));
@@ -151,7 +152,7 @@ fn gc_add_remove_cdd_claim() {
         let fetch =
             || Identity::fetch_claim(target.did, ClaimType::CustomerDueDiligence, GC_DID, None);
 
-        assert_ok!(Identity::gc_add_cdd_claim(gc_vmo(), target.did));
+        exec_ok!(Identity::gc_add_cdd_claim(gc_vmo(), target.did));
 
         let cdd_id = CddId::new_v1(target.did, InvestorUid::from(target.did.as_ref()));
         assert_eq!(
@@ -165,7 +166,7 @@ fn gc_add_remove_cdd_claim() {
             })
         );
 
-        assert_ok!(Identity::gc_revoke_cdd_claim(gc_vmo(), target.did));
+        exec_ok!(Identity::gc_revoke_cdd_claim(gc_vmo(), target.did));
         assert_eq!(fetch(), None);
     });
 }
@@ -186,7 +187,7 @@ fn revoking_claims() {
                 Some(scope.clone()),
             )
         };
-        assert_ok!(Identity::add_claim(
+        exec_ok!(Identity::add_claim(
             claim_issuer.origin(),
             claim_issuer.did,
             Claim::Accredited(scope.clone()),
@@ -194,7 +195,7 @@ fn revoking_claims() {
         ));
         assert!(fetch().is_some());
 
-        assert_ok!(Identity::revoke_claim(
+        exec_ok!(Identity::revoke_claim(
             claim_issuer.origin(),
             claim_issuer.did,
             Claim::Accredited(scope.clone()),
@@ -212,12 +213,23 @@ fn revoking_batch_claims() {
         let scope = Scope::from(IdentityId::from(0));
 
         let add = |claim, scope| {
-            Identity::add_claim(claim_issuer.origin(), claim_issuer.did, claim, scope)
+            exec!(Identity::add_claim(
+                claim_issuer.origin(),
+                claim_issuer.did,
+                claim,
+                scope
+            ))
         };
         let fetch =
             |claim, scope| Identity::fetch_claim(claim_issuer.did, claim, claim_issuer.did, scope);
 
-        let revoke = |claim| Identity::revoke_claim(claim_issuer.origin(), claim_issuer.did, claim);
+        let revoke = |claim| {
+            exec!(Identity::revoke_claim(
+                claim_issuer.origin(),
+                claim_issuer.did,
+                claim
+            ))
+        };
 
         assert_ok!(add(Claim::Accredited(scope.clone()), Some(100u64)));
         assert_ok!(add(Claim::NoData, None));
@@ -254,7 +266,11 @@ fn only_primary_key_can_add_secondary_key_permissions_with_externalities() {
     add_secondary_key(alice.did, bob.acc());
 
     let set = |by: User, to: User, perms| {
-        Identity::set_secondary_key_permissions(by.origin(), to.acc(), perms)
+        exec!(Identity::set_secondary_key_permissions(
+            by.origin(),
+            to.acc(),
+            perms
+        ))
     };
 
     // Only `alice` is able to update `bob`'s permissions and `charlie`'s permissions.
@@ -299,7 +315,7 @@ fn do_add_permissions_to_multiple_tokens() {
         .collect();
 
     let test_set_perms = |asset| {
-        assert_ok!(Identity::set_secondary_key_permissions(
+        exec_ok!(Identity::set_secondary_key_permissions(
             alice.origin(),
             bob.acc(),
             Permissions {
@@ -366,18 +382,18 @@ fn freeze_secondary_keys_with_externalities() {
     assert_eq!(is_auth(bob.acc()), true);
 
     // Freeze secondary keys: bob & charlie.
-    assert_noop!(
+    exec_noop!(
         Identity::freeze_secondary_keys(bob.origin()),
         Error::KeyNotAllowed
     );
-    assert_ok!(Identity::freeze_secondary_keys(alice.origin()));
+    exec_ok!(Identity::freeze_secondary_keys(alice.origin()));
 
     assert_eq!(is_auth(bob.acc()), false);
 
     add_secondary_key(alice.did, dave.acc());
 
     // update permission of frozen keys.
-    assert_ok!(Identity::set_secondary_key_permissions(
+    exec_ok!(Identity::set_secondary_key_permissions(
         alice.origin(),
         bob.acc(),
         Permissions::default().into(),
@@ -385,11 +401,11 @@ fn freeze_secondary_keys_with_externalities() {
 
     // unfreeze all
     // commenting this because `default_identity` feature is not allowing to access None identity.
-    // assert_noop!(
+    // exec_noop!(
     //     Identity::unfreeze_secondary_keys(bob.clone()),
     //     DispatchError::Other("Current identity is none and key is not linked to any identity")
     // );
-    assert_ok!(Identity::unfreeze_secondary_keys(alice.origin()));
+    exec_ok!(Identity::unfreeze_secondary_keys(alice.origin()));
 
     assert_eq!(is_auth(dave.acc()), true);
 }
@@ -413,10 +429,10 @@ fn remove_frozen_secondary_keys_with_externalities() {
     add_secondary_key(alice.did, charlie.acc());
 
     // Freeze all secondary keys
-    assert_ok!(Identity::freeze_secondary_keys(alice.origin()));
+    exec_ok!(Identity::freeze_secondary_keys(alice.origin()));
 
     // Remove Bob's key.
-    assert_ok!(Identity::remove_secondary_keys(
+    exec_ok!(Identity::remove_secondary_keys(
         alice.origin(),
         vec![bob.acc()]
     ));
@@ -457,7 +473,7 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
 
     // 2. Bob can transfer some funds to Charlie ID.
     TestStorage::set_payer_context(Some(bob.clone()));
-    assert_ok!(Balances::transfer_with_memo(
+    exec_ok!(Balances::transfer_with_memo(
         Origin::signed(bob.clone()),
         charlie.acc().into(),
         1_000,
@@ -466,27 +482,29 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
     assert_balance(charlie.acc(), prev_charlie_balance + 1_000, 0);
 
     // 3. Alice freezes her secondary keys.
-    assert_ok!(Identity::freeze_secondary_keys(alice.origin()));
+    exec_ok!(Identity::freeze_secondary_keys(alice.origin()));
 
     // 4. Bob should NOT transfer any amount. SE is simulated.
     // Balances::transfer_with_memo(Origin::signed(bob), charlie, 1_000, None),
-    let payer = CddHandler::get_valid_payer(
-        &Call::Balances(balances::Call::transfer_with_memo {
-            dest: charlie.acc().into(),
-            value: 1_000,
-            memo: None,
-        }),
-        &bob.clone(),
-    );
+    let payer = |bob| {
+        CddHandler::get_valid_payer(
+            &Call::Balances(balances::Call::transfer_with_memo {
+                dest: charlie.acc().into(),
+                value: 1_000,
+                memo: None,
+            }),
+            bob,
+        )
+    };
     assert_noop!(
-        payer,
+        payer(&bob),
         InvalidTransaction::Custom(TransactionError::MissingIdentity as u8)
     );
 
     assert_balance(charlie.acc(), prev_charlie_balance + 1_000, 0);
 
     // 5. Alice still can make transfers.
-    assert_ok!(Balances::transfer_with_memo(
+    exec_ok!(Balances::transfer_with_memo(
         alice.origin(),
         charlie.acc().into(),
         1_000,
@@ -495,8 +513,8 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
     assert_balance(charlie.acc(), prev_charlie_balance + 2_000, 0);
 
     // 6. Unfreeze signatory keys, and Bob should be able to transfer again.
-    assert_ok!(Identity::unfreeze_secondary_keys(alice.origin()));
-    assert_ok!(Balances::transfer_with_memo(
+    exec_ok!(Identity::unfreeze_secondary_keys(alice.origin()));
+    exec_ok!(Balances::transfer_with_memo(
         Origin::signed(bob.clone()),
         charlie.acc().into(),
         1_000,
@@ -578,7 +596,7 @@ fn do_add_secondary_keys_with_permissions_test() {
         None,
     );
     assert_eq!(
-        Identity::join_identity(bob.origin(), auth_id),
+        Identity::join_identity_as_key(bob.origin(), auth_id),
         Err(Error::AlreadyLinked.into()),
     );
 
@@ -591,7 +609,7 @@ fn do_add_secondary_keys_with_permissions_test() {
         auth_signature,
         secondary_key: SecondaryKey::new(bob.acc(), permissions).into(),
     };
-    assert_noop!(
+    exec_noop!(
         Identity::add_secondary_keys_with_authorization(
             alice.origin(),
             vec![key_with_auth],
@@ -609,7 +627,7 @@ fn do_add_secondary_keys_with_permissions_test() {
 
     // Try remove bob using alice
     TestStorage::set_current_identity(&alice.did);
-    assert_ok!(Identity::remove_secondary_keys(
+    exec_ok!(Identity::remove_secondary_keys(
         alice.origin(),
         vec![bob.acc()]
     ));
@@ -650,20 +668,27 @@ fn do_remove_secondary_keys_test() {
 
     // Try removing bob using alice.
     TestStorage::set_current_identity(&alice.did);
-    let remove_sk = |u: User| Identity::remove_secondary_keys(alice.origin(), vec![u.acc()]);
+    let remove_sk = |u: User| {
+        exec!(Identity::remove_secondary_keys(
+            alice.origin(),
+            vec![u.acc()]
+        ))
+    };
     assert_ok!(remove_sk(bob));
 
     // Try changing the permissions for bob's key.
     // This should fail.
-    let result = Identity::set_secondary_key_permissions(
-        alice.origin(),
-        bob.acc(),
-        Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
-            b"identity".into(),
-        )])
-        .into(),
+    exec_noop!(
+        Identity::set_secondary_key_permissions(
+            alice.origin(),
+            bob.acc(),
+            Permissions::from_pallet_permissions(vec![PalletPermissions::entire_pallet(
+                b"identity".into(),
+            )])
+            .into(),
+        ),
+        Error::NotASigner
     );
-    assert_noop!(result, Error::NotASigner);
 
     // Check DidRecords.
     let keys = get_secondary_keys(alice.did);
@@ -710,7 +735,7 @@ fn do_remove_secondary_keys_test_with_externalities() {
 
     let ms_address = MultiSig::get_next_multisig_address(alice.acc());
 
-    assert_ok!(MultiSig::create_multisig(
+    exec_ok!(MultiSig::create_multisig(
         alice.origin(),
         vec![
             Signatory::from(alice.did),
@@ -729,7 +754,7 @@ fn do_remove_secondary_keys_test_with_externalities() {
     add_secondary_key(alice.did, ms_address.clone());
 
     // Fund the multisig
-    assert_ok!(Balances::transfer(
+    exec_ok!(Balances::transfer(
         alice.origin(),
         ms_address.clone().into(),
         2 * POLY
@@ -742,7 +767,7 @@ fn do_remove_secondary_keys_test_with_externalities() {
 
     // Try removing bob using charlie
     TestStorage::set_current_identity(&charlie.did);
-    assert_noop!(
+    exec_noop!(
         Identity::remove_secondary_keys(charlie.origin(), vec![bob.acc()]),
         Error::NotASigner
     );
@@ -754,7 +779,7 @@ fn do_remove_secondary_keys_test_with_externalities() {
 
     // Try remove bob using alice
     TestStorage::set_current_identity(&alice.did);
-    assert_ok!(Identity::remove_secondary_keys(
+    exec_ok!(Identity::remove_secondary_keys(
         alice.origin(),
         vec![bob.acc()]
     ));
@@ -765,7 +790,7 @@ fn do_remove_secondary_keys_test_with_externalities() {
     assert_eq!(Identity::get_identity(&bob_key), None);
 
     // Try removing multisig while it has funds
-    assert_noop!(
+    exec_noop!(
         Identity::remove_secondary_keys(alice.origin(), vec![ms_address.clone()]),
         Error::MultiSigHasBalance
     );
@@ -782,14 +807,14 @@ fn do_remove_secondary_keys_test_with_externalities() {
     );
 
     // Transfer funds back to Alice
-    assert_ok!(Balances::transfer(
+    exec_ok!(Balances::transfer(
         Origin::signed(ms_address.clone()),
         alice.acc().into(),
         2 * POLY
     ));
 
     // Empty multisig's funds and remove as signer
-    assert_ok!(Identity::remove_secondary_keys(
+    exec_ok!(Identity::remove_secondary_keys(
         alice.origin(),
         vec![ms_address.clone()]
     ));
@@ -823,7 +848,7 @@ fn leave_identity_test_with_externalities() {
 
     let ms_address = MultiSig::get_next_multisig_address(alice.acc());
 
-    assert_ok!(MultiSig::create_multisig(
+    exec_ok!(MultiSig::create_multisig(
         alice.origin(),
         vec![
             Signatory::from(alice.did),
@@ -844,7 +869,7 @@ fn leave_identity_test_with_externalities() {
     assert_eq!(Identity::get_identity(&bob.acc()), Some(alice.did));
 
     // Bob leaves
-    assert_ok!(Identity::leave_identity_as_key(bob.origin()));
+    exec_ok!(Identity::leave_identity_as_key(bob.origin()));
 
     // Check DidRecord.
     assert_eq!(get_secondary_keys(alice.did).len(), 0);
@@ -854,13 +879,13 @@ fn leave_identity_test_with_externalities() {
 
     add_secondary_key_with_perms(alice.did, ms_address.clone(), Permissions::empty());
     // send funds to multisig
-    assert_ok!(Balances::transfer(
+    exec_ok!(Balances::transfer(
         alice.origin(),
         ms_address.clone().into(),
         2 * POLY
     ));
     // multisig tries leaving identity while it has funds
-    assert_noop!(
+    exec_noop!(
         Identity::leave_identity_as_key(Origin::signed(ms_address.clone())),
         Error::MultiSigHasBalance
     );
@@ -876,14 +901,14 @@ fn leave_identity_test_with_externalities() {
     );
 
     // send funds back to alice from multisig
-    assert_ok!(Balances::transfer(
+    exec_ok!(Balances::transfer(
         Origin::signed(ms_address.clone()),
         alice.acc().into(),
         2 * POLY
     ));
 
     // Empty multisig's funds and remove as signer
-    assert_ok!(Identity::leave_identity_as_key(Origin::signed(
+    exec_ok!(Identity::leave_identity_as_key(Origin::signed(
         ms_address.clone()
     )));
 
@@ -921,7 +946,7 @@ fn enforce_uniqueness_keys_in_identity() {
         None,
     );
     assert_eq!(
-        Identity::join_identity(bob.origin(), auth_id),
+        Identity::join_identity_as_key(bob.origin(), auth_id),
         Err(Error::AlreadyLinked.into()),
     );
 }
@@ -962,7 +987,11 @@ fn one_step_join_id_with_ext() {
     let secondary_keys_with_auth = secondary_keys_with_auth(&users, &auth_encoded);
 
     let add = |user: User, auth| {
-        Identity::add_secondary_keys_with_authorization(user.origin(), auth, expires_at)
+        exec!(Identity::add_secondary_keys_with_authorization(
+            user.origin(),
+            auth,
+            expires_at
+        ))
     };
 
     assert_ok!(add(a, secondary_keys_with_auth[..2].to_owned()));
@@ -1084,7 +1113,7 @@ fn add_secondary_keys_with_authorization_too_many_sks() {
 
         // No Secondary key limit.
         let auth_encoded = auth();
-        assert_ok!(Identity::add_secondary_keys_with_authorization(
+        exec_ok!(Identity::add_secondary_keys_with_authorization(
             user.origin(),
             secondary_keys_with_auth(&[bob], &auth_encoded),
             expires_at
@@ -1109,7 +1138,7 @@ fn secondary_key_with_bad_permissions() {
 
             test_with_bad_perms(bob.did, |perms| {
                 let bob_sk = SecondaryKey::new(bob.acc(), perms);
-                assert_noop!(
+                exec_noop!(
                     Identity::cdd_register_did(
                         Origin::signed(cdd1.clone()),
                         alice.acc(),
@@ -1221,7 +1250,7 @@ fn removing_authorizations() {
             auth.authorization_data,
             AuthorizationData::TransferTicker(ticker50)
         );
-        assert_ok!(Identity::remove_authorization(
+        exec_ok!(Identity::remove_authorization(
             alice.origin(),
             bob.signatory_did(),
             auth_id,
@@ -1263,7 +1292,11 @@ fn changing_primary_key_we() {
         )
     };
     let accept = |ring: AccountKeyring, auth| {
-        Identity::accept_primary_key(Origin::signed(ring.to_account_id()), auth, None)
+        exec!(Identity::accept_primary_key(
+            Origin::signed(ring.to_account_id()),
+            auth,
+            None
+        ))
     };
 
     // In the case of a key belong to key DID for which we're rotating, we don't allow rotation.
@@ -1289,7 +1322,7 @@ fn changing_primary_key_we() {
         AuthorizationData::JoinIdentity(Permissions::default()),
         None,
     );
-    assert_ok!(Identity::join_identity(alice.origin(), join_auth));
+    exec_ok!(Identity::join_identity_as_key(alice.origin(), join_auth));
 
     // Do it again but now making the secondary key the new primary key.
     assert_ok!(accept(alice.ring, add(alice.ring)));
@@ -1331,7 +1364,7 @@ fn changing_primary_key_with_cdd_auth_we() {
         None,
     );
 
-    assert_ok!(Identity::change_cdd_requirement_for_mk_rotation(
+    exec_ok!(Identity::change_cdd_requirement_for_mk_rotation(
         frame_system::RawOrigin::Root.into(),
         true
     ));
@@ -1346,7 +1379,7 @@ fn changing_primary_key_with_cdd_auth_we() {
     );
 
     // Accept the authorization with the new key
-    assert_ok!(Identity::accept_primary_key(
+    exec_ok!(Identity::accept_primary_key(
         new.origin(),
         owner_auth_id2,
         Some(cdd_auth_id)
@@ -1374,8 +1407,11 @@ fn rotating_primary_key_to_secondary_we() {
     let alice_pk = || get_primary_key(alice.did);
     assert_eq!(alice_pk(), alice.acc());
 
-    let rotate =
-        |from: Origin, auth_id: u64| Identity::rotate_primary_key_to_secondary(from, auth_id, None);
+    let rotate = |from: Origin, auth_id: u64| {
+        exec!(Identity::rotate_primary_key_to_secondary(
+            from, auth_id, None
+        ))
+    };
 
     assert!(rotate(charlie_origin.clone(), 0).is_err());
 
@@ -1430,7 +1466,9 @@ fn rotating_primary_key_to_secondary_with_cdd_auth_we() {
     let charlie_origin = Origin::signed(charlie.to_account_id());
 
     let rotate = |from: Origin, auth_id: u64, cdd: Option<u64>| {
-        Identity::rotate_primary_key_to_secondary(from, auth_id, cdd)
+        exec!(Identity::rotate_primary_key_to_secondary(
+            from, auth_id, cdd
+        ))
     };
 
     let cdd_did = get_identity_id(AccountKeyring::Eve).unwrap();
@@ -1447,12 +1485,15 @@ fn rotating_primary_key_to_secondary_with_cdd_auth_we() {
         AuthorizationData::JoinIdentity(Permissions::default()),
         None,
     );
-    assert_ok!(Identity::join_identity(charlie_origin.clone(), join_auth));
+    exec_ok!(Identity::join_identity_as_key(
+        charlie_origin.clone(),
+        join_auth
+    ));
 
     // Primary key matches Alice's key
     assert_eq!(alice_pk(), alice.acc());
 
-    assert_ok!(Identity::change_cdd_requirement_for_mk_rotation(
+    exec_ok!(Identity::change_cdd_requirement_for_mk_rotation(
         frame_system::RawOrigin::Root.into(),
         true
     ));
@@ -1494,7 +1535,7 @@ fn cdd_register_did_test_we() {
     let bob_acc = AccountKeyring::Bob.to_account_id();
 
     // CDD 1 registers correctly the Alice's ID.
-    assert_ok!(Identity::cdd_register_did(
+    exec_ok!(Identity::cdd_register_did(
         cdd1.clone(),
         alice.clone(),
         vec![]
@@ -1513,7 +1554,7 @@ fn cdd_register_did_test_we() {
     );
 
     // CDD 2 registers properly Bob's ID.
-    assert_ok!(Identity::cdd_register_did(cdd2.clone(), bob_acc, vec![]));
+    exec_ok!(Identity::cdd_register_did(cdd2.clone(), bob_acc, vec![]));
     let bob_id = get_identity_id(AccountKeyring::Bob).unwrap();
     assert_add_cdd_claim!(cdd2, bob_id);
 
@@ -1526,7 +1567,7 @@ fn cdd_register_did_test_we() {
     let dave = AccountKeyring::Dave.to_account_id();
     let dave_si = SecondaryKey::from_account_id(dave.clone());
     let secondary_keys = vec![dave_si.clone().into()];
-    assert_ok!(Identity::cdd_register_did(
+    exec_ok!(Identity::cdd_register_did(
         cdd1.clone(),
         charlie.clone(),
         secondary_keys
@@ -1540,7 +1581,7 @@ fn cdd_register_did_test_we() {
 
     let dave_auth_id = get_last_auth_id(&Signatory::Account(dave_si.key.clone()));
 
-    assert_ok!(Identity::join_identity_as_key(
+    exec_ok!(Identity::join_identity_as_key(
         Origin::signed(dave),
         dave_auth_id
     ));
@@ -1562,7 +1603,10 @@ fn add_identity_signers() {
 
         let auth_id_for_acc_to_id = add_auth(alice, bob.signatory_acc());
 
-        assert_ok!(Identity::join_identity(bob.origin(), auth_id_for_acc_to_id));
+        exec_ok!(Identity::join_identity_as_key(
+            bob.origin(),
+            auth_id_for_acc_to_id
+        ));
 
         let auth_id_for_acc2_to_id = add_auth(charlie, bob.signatory_acc());
 
@@ -1575,13 +1619,13 @@ fn add_identity_signers() {
         assert_eq!(authorizations.len(), 1);
 
         assert_eq!(
-            Identity::join_identity(bob.origin(), auth_id_for_acc2_to_id),
+            Identity::join_identity_as_key(bob.origin(), auth_id_for_acc2_to_id),
             Err(Error::AlreadyLinked.into()),
         );
 
         let auth_id_for_acc1_to_acc = add_auth(alice, dave.signatory_acc());
 
-        assert_ok!(Identity::join_identity(
+        exec_ok!(Identity::join_identity_as_key(
             dave.origin(),
             auth_id_for_acc1_to_acc
         ));
@@ -1589,7 +1633,7 @@ fn add_identity_signers() {
         let auth_id_for_acc2_to_acc = add_auth(charlie, dave.signatory_acc());
 
         assert_eq!(
-            Identity::join_identity(dave.origin(), auth_id_for_acc2_to_acc),
+            Identity::join_identity_as_key(dave.origin(), auth_id_for_acc2_to_acc),
             Err(Error::AlreadyLinked.into()),
         );
 
@@ -1635,7 +1679,7 @@ fn invalidate_cdd_claims_we() {
     let cdd = AccountKeyring::Eve.to_account_id();
     let alice_acc = AccountKeyring::Alice.to_account_id();
     let bob_acc = AccountKeyring::Bob.to_account_id();
-    assert_ok!(Identity::cdd_register_did(
+    exec_ok!(Identity::cdd_register_did(
         Origin::signed(cdd.clone()),
         alice_acc,
         vec![]
@@ -1648,13 +1692,13 @@ fn invalidate_cdd_claims_we() {
     assert_eq!(Identity::has_valid_cdd(alice_id), true);
 
     // Disable CDD 1.
-    assert_ok!(Identity::invalidate_cdd_claims(root, cdd_1_id, 5, Some(10)));
+    exec_ok!(Identity::invalidate_cdd_claims(root, cdd_1_id, 5, Some(10)));
     assert_eq!(Identity::has_valid_cdd(alice_id), true);
 
     // Move to time 8... CDD_1 is inactive: Its claims are valid.
     Timestamp::set_timestamp(8);
     assert_eq!(Identity::has_valid_cdd(alice_id), true);
-    assert_noop!(
+    exec_noop!(
         Identity::cdd_register_did(Origin::signed(cdd.clone()), bob_acc.clone(), vec![]),
         Error::UnAuthorizedCddProvider
     );
@@ -1662,7 +1706,7 @@ fn invalidate_cdd_claims_we() {
     // Move to time 11 ... CDD_1 is expired: Its claims are invalid.
     Timestamp::set_timestamp(11);
     assert_eq!(Identity::has_valid_cdd(alice_id), false);
-    assert_noop!(
+    exec_noop!(
         Identity::cdd_register_did(Origin::signed(cdd), bob_acc, vec![]),
         Error::UnAuthorizedCddProvider
     );
@@ -1701,7 +1745,7 @@ fn cdd_provider_with_systematic_cdd_claims_we() {
 
     // 2. Remove one member from CDD provider and double-check that systematic CDD claim was
     //    removed too.
-    assert_ok!(CddServiceProviders::remove_member(root.clone(), bob_id));
+    exec_ok!(CddServiceProviders::remove_member(root.clone(), bob_id));
     assert_eq!(fetch_systematic_claim(bob_id).is_none(), true);
     assert_eq!(fetch_systematic_claim(alice_id).is_some(), true);
 
@@ -1711,7 +1755,7 @@ fn cdd_provider_with_systematic_cdd_claims_we() {
     let charlie_acc = AccountKeyring::Charlie.to_account_id();
 
     // 3.1. Add CDD claim to Charlie, by Alice.
-    assert_ok!(Identity::cdd_register_did(
+    exec_ok!(Identity::cdd_register_did(
         alice.clone(),
         charlie_acc.clone(),
         vec![]
@@ -1724,12 +1768,12 @@ fn cdd_provider_with_systematic_cdd_claims_we() {
         Identity::fetch_cdd(charlie_id, 0).expect("Charlie should have a CDD claim by Alice");
 
     // 3.2. Add Charlie as trusted CDD providers, and check its new systematic CDD claim.
-    assert_ok!(CddServiceProviders::add_member(root.clone(), charlie_id));
+    exec_ok!(CddServiceProviders::add_member(root.clone(), charlie_id));
     assert_eq!(fetch_systematic_claim(charlie_id).is_some(), true);
 
     // 3.3. Remove Charlie from trusted CDD providers, and verify that systematic CDD claim was
     //   removed and previous CDD claim works.
-    assert_ok!(CddServiceProviders::remove_member(root, charlie_id));
+    exec_ok!(CddServiceProviders::remove_member(root, charlie_id));
     assert_eq!(fetch_systematic_claim(charlie_id).is_none(), true);
     assert_eq!(Identity::fetch_cdd(charlie_id, 0), Some(charlie_cdd_claim));
 }
@@ -1774,7 +1818,7 @@ fn gc_with_systematic_cdd_claims_we() {
 
     // 2. Remove one member from GC and double-check that systematic CDD claim was
     //    removed too.
-    assert_ok!(GovernanceCommittee::remove_member(root.clone(), charlie_id));
+    exec_ok!(GovernanceCommittee::remove_member(root.clone(), charlie_id));
     assert_eq!(fetch_systematic_claim(charlie_id).is_none(), true);
     assert_eq!(fetch_systematic_claim(dave_id).is_some(), true);
 
@@ -1784,7 +1828,7 @@ fn gc_with_systematic_cdd_claims_we() {
     let ferdie_acc = AccountKeyring::Ferdie.to_account_id();
 
     // 3.1. Add CDD claim to Ferdie, by Alice.
-    assert_ok!(Identity::cdd_register_did(
+    exec_ok!(Identity::cdd_register_did(
         alice.clone(),
         ferdie_acc.clone(),
         vec![]
@@ -1797,12 +1841,12 @@ fn gc_with_systematic_cdd_claims_we() {
         Identity::fetch_cdd(ferdie_id, 0).expect("Ferdie should have a CDD claim by Alice");
 
     // 3.2. Add Ferdie to GC, and check its new systematic CDD claim.
-    assert_ok!(GovernanceCommittee::add_member(root.clone(), ferdie_id));
+    exec_ok!(GovernanceCommittee::add_member(root.clone(), ferdie_id));
     assert_eq!(fetch_systematic_claim(ferdie_id).is_some(), true);
 
     // 3.3. Remove Ferdie from GC, and verify that systematic CDD claim was
     //   removed and previous CDD claim works.
-    assert_ok!(GovernanceCommittee::remove_member(root, ferdie_id));
+    exec_ok!(GovernanceCommittee::remove_member(root, ferdie_id));
     assert_eq!(fetch_systematic_claim(ferdie_id).is_none(), true);
     assert_eq!(Identity::fetch_cdd(ferdie_id, 0), Some(ferdie_cdd_claim));
 }
@@ -1835,11 +1879,11 @@ fn gc_and_cdd_with_systematic_cdd_claims_we() {
     assert_eq!(fetch_systematic_cdd(alice_id).is_some(), true);
 
     // 2. Remove Alice from CDD providers.
-    assert_ok!(CddServiceProviders::remove_member(root.clone(), alice_id));
+    exec_ok!(CddServiceProviders::remove_member(root.clone(), alice_id));
     assert_eq!(fetch_systematic_gc(alice_id).is_some(), true);
 
     // 3. Remove Alice from GC.
-    assert_ok!(GovernanceCommittee::remove_member(root, alice_id));
+    exec_ok!(GovernanceCommittee::remove_member(root, alice_id));
     assert_eq!(fetch_systematic_gc(alice_id).is_none(), true);
 }
 
@@ -1866,7 +1910,7 @@ fn add_permission_with_secondary_key() {
             };
             let sks = vec![sk(&bob_acc), sk(&charlie_acc)];
 
-            assert_ok!(Identity::cdd_register_did(
+            exec_ok!(Identity::cdd_register_did(
                 Origin::signed(cdd_1_acc.clone()),
                 alice_acc.clone(),
                 sks.clone(),
@@ -1880,13 +1924,13 @@ fn add_permission_with_secondary_key() {
             println!("Print the protocol base fee: {:?}", PROTOCOL_OP_BASE_FEE);
 
             // accept the auth_id
-            assert_ok!(Identity::join_identity_as_key(
+            exec_ok!(Identity::join_identity_as_key(
                 Origin::signed(bob_acc),
                 bob_auth_id
             ));
 
             // accept the auth_id
-            assert_ok!(Identity::join_identity_as_key(
+            exec_ok!(Identity::join_identity_as_key(
                 Origin::signed(charlie_acc),
                 charlie_auth_id
             ));
@@ -1937,7 +1981,7 @@ fn do_add_investor_uniqueness_claim() {
 
     // Get some tokens for Alice in case the default initial balance changes to 0 in simple_token.
     let amount = 10_000;
-    assert_ok!(Asset::issue(alice.origin(), ticker, amount));
+    exec_ok!(Asset::issue(alice.origin(), ticker, amount));
     let asset_balance = initial_balance + amount;
 
     // Make a claim with a scope ID.
@@ -1947,7 +1991,7 @@ fn do_add_investor_uniqueness_claim() {
     aggregate_balance(scope_id, asset_balance);
 
     // Revoke the first CDD claim in order to issue another one.
-    assert_ok!(Identity::revoke_claim(
+    exec_ok!(Identity::revoke_claim(
         Origin::signed(cdd_provider.clone()),
         alice.did,
         Claim::CustomerDueDiligence(cdd_id)
@@ -2060,7 +2104,14 @@ fn ensure_custom_scopes_limited() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         let user = User::new(AccountKeyring::Alice);
         let data = |n| Scope::Custom([b'1'].repeat(n));
-        let add = |n| Identity::add_claim(user.origin(), user.did, Claim::Affiliate(data(n)), None);
+        let add = |n| {
+            exec!(Identity::add_claim(
+                user.origin(),
+                user.did,
+                Claim::Affiliate(data(n)),
+                None
+            ))
+        };
         // Check <= 32.
         assert_ok!(add(31));
         assert_ok!(add(32));
@@ -2073,7 +2124,12 @@ fn ensure_custom_scopes_limited() {
 fn custom_claim_type_too_long() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         let user = User::new(AccountKeyring::Alice);
-        let case = |add| Identity::register_custom_claim_type(user.origin(), max_len_bytes(add));
+        let case = |add| {
+            exec!(Identity::register_custom_claim_type(
+                user.origin(),
+                max_len_bytes(add)
+            ))
+        };
         assert_too_long!(case(1));
         assert_ok!(case(0));
     });
@@ -2083,7 +2139,12 @@ fn custom_claim_type_too_long() {
 fn custom_claim_type_works() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         let user = User::new(AccountKeyring::Alice);
-        let register = |ty: &str| Identity::register_custom_claim_type(user.origin(), ty.into());
+        let register = |ty: &str| {
+            exec!(Identity::register_custom_claim_type(
+                user.origin(),
+                ty.into()
+            ))
+        };
         let seq_is = |num| {
             assert_eq!(CustomClaimIdSequence::get().0, num);
         };

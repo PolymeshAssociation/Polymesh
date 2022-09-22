@@ -1,5 +1,6 @@
 use super::{
-    assert_event_doesnt_exist, assert_event_exists, assert_last_event,
+    assert_event_doesnt_exist, assert_event_exists, assert_last_event, assert_noop, assert_ok,
+    exec_noop, exec_ok,
     pips_test::assert_balance,
     storage::{
         add_secondary_key, get_secondary_keys, Call, EventTest, Identity, Portfolio, System,
@@ -8,7 +9,7 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
+use frame_support::dispatch::DispatchError;
 use frame_system::EventRecord;
 use pallet_balances::Call as BalancesCall;
 use pallet_portfolio::Call as PortfolioCall;
@@ -35,11 +36,8 @@ const ERROR: DispatchError = DispatchError::Module(sp_runtime::ModuleError {
     message: None,
 });
 
-fn assert_event(event: Event) {
-    assert_eq!(
-        System::events().pop().unwrap().event,
-        EventTest::Utility(event)
-    )
+fn assert_event(ev: Event) {
+    assert_event_exists!(EventTest::Utility(event), event == &ev);
 }
 
 fn batch_test(test: impl FnOnce(User, User)) {
@@ -59,7 +57,7 @@ fn batch_with_signed_works() {
         let prev_alice_balance = Balances::free_balance(&alice.acc());
         let prev_bob_balance = Balances::free_balance(&bob.acc());
         let calls = vec![transfer(bob, 400), transfer(bob, 400)];
-        assert_ok!(Utility::batch(alice.origin(), calls));
+        exec_ok!(Utility::batch(alice.origin(), calls));
         assert_balance(alice.acc(), prev_alice_balance - 400 - 400, 0);
         assert_balance(bob.acc(), prev_bob_balance + 400 + 400, 0);
         assert_event(Event::BatchCompleted(vec![1, 1]));
@@ -76,7 +74,7 @@ fn batch_early_exit_works() {
             transfer(bob, prev_alice_balance + 900), // early exit here.
             transfer(bob, 400),
         ];
-        assert_ok!(Utility::batch(alice.origin(), calls));
+        exec_ok!(Utility::batch(alice.origin(), calls));
         assert_balance(alice.acc(), prev_alice_balance - 400, 0);
         assert_balance(bob.acc(), prev_bob_balance + 400, 0);
         assert_event(Event::BatchInterrupted(vec![1, 0], (1, ERROR)));
@@ -89,7 +87,7 @@ fn batch_optimistic_works() {
         let prev_alice_balance = Balances::free_balance(&alice.acc());
         let prev_bob_balance = Balances::free_balance(&bob.acc());
         let calls = vec![transfer(bob, 401), transfer(bob, 402)];
-        assert_ok!(Utility::batch_optimistic(alice.origin(), calls));
+        exec_ok!(Utility::batch_optimistic(alice.origin(), calls));
         assert_event(Event::BatchCompleted(vec![1, 1]));
         assert_balance(alice.acc(), prev_alice_balance - 401 - 402, 0);
         assert_balance(bob.acc(), prev_bob_balance + 401 + 402, 0);
@@ -101,7 +99,7 @@ fn batch_optimistic_failures_listed() {
     batch_test(|alice, bob| {
         let prev_alice_balance = Balances::free_balance(&alice.acc());
         let prev_bob_balance = Balances::free_balance(&bob.acc());
-        assert_ok!(Utility::batch_optimistic(
+        exec_ok!(Utility::batch_optimistic(
             alice.origin(),
             vec![
                 transfer(bob, 401),                      // YAY.
@@ -126,7 +124,7 @@ fn batch_atomic_works() {
         let prev_alice_balance = Balances::free_balance(&alice.acc());
         let prev_bob_balance = Balances::free_balance(&bob.acc());
         let calls = vec![transfer(bob, 401), transfer(bob, 402)];
-        assert_ok!(Utility::batch_atomic(alice.origin(), calls));
+        exec_ok!(Utility::batch_atomic(alice.origin(), calls));
         assert_event(Event::BatchCompleted(vec![1, 1]));
         assert_balance(alice.acc(), prev_alice_balance - 401 - 402, 0);
         assert_balance(bob.acc(), prev_bob_balance + 401 + 402, 0);
@@ -144,7 +142,7 @@ fn batch_atomic_early_exit_works() {
             trans(prev_alice_balance + 900), // This call aborts the `atomic` batch.
             trans(400),
         ];
-        assert_ok!(Utility::batch_atomic(alice.origin(), calls));
+        exec_ok!(Utility::batch_atomic(alice.origin(), calls));
         assert_balance(alice.acc(), prev_alice_balance, 0);
         assert_balance(bob.acc(), prev_bob_balance, 0);
         assert_event(Event::BatchInterrupted(vec![1, 0], (1, ERROR)));
@@ -268,7 +266,7 @@ fn batch_secondary_with_permissions() {
     // Add Bob.
     add_secondary_key(alice.did, bob.acc());
     let low_risk_name: PortfolioName = b"low risk".into();
-    assert_ok!(Portfolio::create_portfolio(
+    exec_ok!(Portfolio::create_portfolio(
         bob.origin(),
         low_risk_name.clone()
     ));
@@ -292,7 +290,7 @@ fn batch_secondary_with_permissions() {
         extrinsic: SubsetRestriction::These(bob_pallet_permissions.into_iter().collect()),
         ..Permissions::default()
     };
-    assert_ok!(Identity::set_secondary_key_permissions(
+    exec_ok!(Identity::set_secondary_key_permissions(
         alice.origin(),
         bob.acc(),
         bob_permissions,
@@ -309,7 +307,7 @@ fn batch_secondary_with_permissions() {
 
     // Call a disallowed extrinsic.
     let high_risk_name: PortfolioName = b"high risk".into();
-    assert_noop!(
+    exec_noop!(
         Portfolio::create_portfolio(bob.origin(), high_risk_name.clone()),
         pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
     );
@@ -324,7 +322,7 @@ fn batch_secondary_with_permissions() {
             to_name: high_risk_name.clone(),
         }),
     ];
-    assert_ok!(Utility::batch(bob.origin(), calls.clone()));
+    exec_ok!(Utility::batch(bob.origin(), calls.clone()));
     assert_event_doesnt_exist!(EventTest::Utility(Event::BatchCompleted(_)));
     assert_event_exists!(
         EventTest::Utility(Event::BatchInterrupted(events, err)),
@@ -333,7 +331,7 @@ fn batch_secondary_with_permissions() {
     check_name(low_risk_name);
 
     // Call the same extrinsics optimistically.
-    assert_ok!(Utility::batch_optimistic(bob.origin(), calls));
+    exec_ok!(Utility::batch_optimistic(bob.origin(), calls));
     assert_event_exists!(
         EventTest::Utility(Event::BatchOptimisticFailed(events, errors)),
         events == &[0, 1] && errors.len() == 1 && errors[0].0 == 0

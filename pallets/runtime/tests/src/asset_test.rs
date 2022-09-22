@@ -1,4 +1,5 @@
 use crate::{
+    assert_noop, assert_ok, exec_noop, exec_ok,
     ext_builder::{ExtBuilder, IdentityRecord, MockProtocolBaseFees},
     pips_test::assert_balance,
     storage::{
@@ -9,7 +10,6 @@ use crate::{
 };
 use chrono::prelude::Utc;
 use frame_support::{
-    assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
     IterableStorageDoubleMap, IterableStorageMap, StorageDoubleMap, StorageMap, StorageValue,
 };
@@ -34,6 +34,7 @@ use polymesh_common_utilities::{
     traits::CddAndFeeDetails as _,
     SystematicIssuers,
 };
+use polymesh_exec_macro::exec;
 use polymesh_primitives::ethereum;
 use polymesh_primitives::{
     agent::AgentGroup,
@@ -131,7 +132,7 @@ fn asset_with_ids(
     token: &SecurityToken,
     ids: Vec<AssetIdentifier>,
 ) -> DispatchResult {
-    Asset::create_asset(
+    exec!(Asset::create_asset(
         owner.origin(),
         ticker.as_ref().into(),
         ticker,
@@ -140,9 +141,9 @@ fn asset_with_ids(
         ids,
         None,
         false,
-    )?;
+    ))?;
     enable_investor_count(ticker, owner);
-    Asset::issue(owner.origin(), ticker, token.total_supply)?;
+    exec!(Asset::issue(owner.origin(), ticker, token.total_supply))?;
     assert_eq!(Asset::balance_of(&ticker, owner.did), token.total_supply);
     Ok(())
 }
@@ -158,7 +159,7 @@ crate fn create_token(owner: User) -> (Ticker, SecurityToken) {
 }
 
 crate fn allow_all_transfers(ticker: Ticker, owner: User) {
-    assert_ok!(ComplianceManager::add_compliance_requirement(
+    exec_ok!(ComplianceManager::add_compliance_requirement(
         owner.origin(),
         ticker,
         vec![],
@@ -167,7 +168,7 @@ crate fn allow_all_transfers(ticker: Ticker, owner: User) {
 }
 
 fn enable_investor_count(ticker: Ticker, owner: User) {
-    assert_ok!(Statistics::set_active_asset_stats(
+    exec_ok!(Statistics::set_active_asset_stats(
         owner.origin(),
         ticker.into(),
         [StatType::investor_count()].iter().cloned().collect(),
@@ -245,7 +246,7 @@ fn issuers_can_create_and_rename_tokens() {
 
             // Create asset.
             let funding_round_name: FundingRoundName = b"round1".into();
-            assert_ok!(Asset::create_asset(
+            exec_ok!(Asset::create_asset(
                 owner.origin(),
                 ticker.as_ref().into(),
                 ticker,
@@ -257,7 +258,7 @@ fn issuers_can_create_and_rename_tokens() {
             ));
             enable_investor_count(ticker, owner);
 
-            let issue = |supply| Asset::issue(owner.origin(), ticker, supply);
+            let issue = |supply| exec!(Asset::issue(owner.origin(), ticker, supply));
             assert_noop!(
                 issue(1_000_000_000_000_000_000_000_000),
                 AssetError::TotalSupplyAboveLimit
@@ -278,7 +279,7 @@ fn issuers_can_create_and_rename_tokens() {
 
             // Unauthorized agents cannot rename the token.
             let eve = User::new(AccountKeyring::Eve);
-            assert_noop!(
+            exec_noop!(
                 Asset::rename_asset(eve.origin(), ticker, vec![0xde, 0xad, 0xbe, 0xef].into()),
                 EAError::UnauthorizedAgent
             );
@@ -286,7 +287,7 @@ fn issuers_can_create_and_rename_tokens() {
             assert_eq!(Asset::token_details(ticker), token);
             // Rename the token and check storage has been updated.
             let new: AssetName = [0x42].into();
-            assert_ok!(Asset::rename_asset(owner.origin(), ticker, new.clone()));
+            exec_ok!(Asset::rename_asset(owner.origin(), ticker, new.clone()));
             assert_eq!(Asset::asset_names(ticker), new);
             assert!(Asset::identifiers(ticker).is_empty());
         });
@@ -344,22 +345,22 @@ fn issuers_can_redeem_tokens() {
             // Provide scope claim to sender and receiver of the transaction.
             provide_scope_claim_to_multiple_parties(&[owner.did], ticker, alice);
 
-            assert_noop!(
+            exec_noop!(
                 Asset::redeem(bob.origin(), ticker, token.total_supply),
                 EAError::UnauthorizedAgent
             );
 
-            assert_noop!(
+            exec_noop!(
                 Asset::redeem(owner.origin(), ticker, token.total_supply + 1),
                 PortfolioError::InsufficientPortfolioBalance
             );
 
-            assert_ok!(Asset::redeem(owner.origin(), ticker, token.total_supply));
+            exec_ok!(Asset::redeem(owner.origin(), ticker, token.total_supply));
 
             assert_eq!(Asset::balance_of(&ticker, owner.did), 0);
             assert_eq!(Asset::token_details(&ticker).total_supply, 0);
 
-            assert_noop!(
+            exec_noop!(
                 Asset::redeem(owner.origin(), ticker, 1),
                 PortfolioError::InsufficientPortfolioBalance
             );
@@ -408,7 +409,7 @@ fn checkpoints_fuzz_test() {
                     bob_balance[j] += 1;
                     default_transfer(owner, bob, ticker, 1);
                 }
-                assert_ok!(Checkpoint::create_checkpoint(owner.origin(), ticker));
+                exec_ok!(Checkpoint::create_checkpoint(owner.origin(), ticker));
                 let bal_at = |id, did| Asset::get_balance_at(ticker, did, CheckpointId(id));
                 let check = |id, idx| {
                     assert_eq!(bal_at(id, owner.did), owner_balance[idx]);
@@ -439,7 +440,7 @@ fn register_ticker() {
         let identifiers = vec![AssetIdentifier::isin(*b"US0378331005").unwrap()];
         assert_ok!(asset_with_ids(owner, ticker, &token, identifiers.clone()));
 
-        let register = |ticker| Asset::register_ticker(owner.origin(), ticker);
+        let register = |ticker| exec!(Asset::register_ticker(owner.origin(), ticker));
 
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner.did), true);
         assert_eq!(Asset::is_ticker_available(&ticker), false);
@@ -470,7 +471,7 @@ fn register_ticker() {
             AssetOwnershipRelation::TickerOwned
         );
 
-        assert_noop!(
+        exec_noop!(
             Asset::register_ticker(alice.origin(), ticker),
             AssetError::TickerAlreadyRegistered
         );
@@ -510,7 +511,7 @@ fn transfer_ticker() {
         let ticker = Ticker::try_from(&[b'A', b'A'][..]).unwrap();
 
         assert_eq!(Asset::is_ticker_available(&ticker), true);
-        assert_ok!(Asset::register_ticker(owner.origin(), ticker));
+        exec_ok!(Asset::register_ticker(owner.origin(), ticker));
 
         let auth_id_alice = Identity::add_auth(
             owner.did,
@@ -530,7 +531,7 @@ fn transfer_ticker() {
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, alice.did), false);
         assert_eq!(Asset::is_ticker_available(&ticker), false);
 
-        assert_noop!(
+        exec_noop!(
             Asset::accept_ticker_transfer(alice.origin(), auth_id_alice + 1),
             "Authorization does not exist"
         );
@@ -540,7 +541,7 @@ fn transfer_ticker() {
             AssetOwnershipRelation::TickerOwned
         );
 
-        assert_ok!(Asset::accept_ticker_transfer(alice.origin(), auth_id_alice));
+        exec_ok!(Asset::accept_ticker_transfer(alice.origin(), auth_id_alice));
 
         assert_eq!(
             Asset::asset_ownership_relation(owner.did, ticker),
@@ -567,7 +568,7 @@ fn transfer_ticker() {
 
         let auth_id = add_auth(AuthorizationData::TransferTicker(ticker), now() - 100);
 
-        assert_noop!(
+        exec_noop!(
             Asset::accept_ticker_transfer(bob.origin(), auth_id),
             "Authorization expired"
         );
@@ -582,7 +583,7 @@ fn transfer_ticker() {
 
         let auth_id = add_auth(AuthorizationData::TransferTicker(ticker), now() + 100);
 
-        assert_ok!(Asset::accept_ticker_transfer(bob.origin(), auth_id));
+        exec_ok!(Asset::accept_ticker_transfer(bob.origin(), auth_id));
 
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner.did), false);
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, alice.did), false);
@@ -627,7 +628,7 @@ fn controller_transfer() {
             assert_eq!(balance_owner, TOTAL_SUPPLY - 500);
             assert_eq!(balance_alice, 500);
 
-            assert_ok!(Asset::controller_transfer(
+            exec_ok!(Asset::controller_transfer(
                 owner.origin(),
                 ticker,
                 100,
@@ -667,7 +668,7 @@ fn transfer_token_ownership() {
 
         assert_eq!(Asset::token_details(&ticker).owner_did, owner.did);
 
-        assert_noop!(
+        exec_noop!(
             Asset::accept_asset_ownership_transfer(alice.origin(), auth_id_alice + 1),
             "Authorization does not exist"
         );
@@ -677,7 +678,7 @@ fn transfer_token_ownership() {
             AssetOwnershipRelation::AssetOwned
         );
 
-        assert_ok!(Asset::accept_asset_ownership_transfer(
+        exec_ok!(Asset::accept_asset_ownership_transfer(
             alice.origin(),
             auth_id_alice
         ));
@@ -696,7 +697,7 @@ fn transfer_token_ownership() {
             alice.did,
             AgentGroup::Full
         ));
-        assert_ok!(ExternalAgents::abdicate(owner.origin(), ticker));
+        exec_ok!(ExternalAgents::abdicate(owner.origin(), ticker));
         assert_eq!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id_bob),
             Err(EAError::UnauthorizedAgent.into())
@@ -709,7 +710,7 @@ fn transfer_token_ownership() {
             Some(now() - 100),
         );
 
-        assert_noop!(
+        exec_noop!(
             Asset::accept_asset_ownership_transfer(bob.origin(), auth_id),
             "Authorization expired"
         );
@@ -746,7 +747,7 @@ fn transfer_token_ownership() {
             Some(now() + 100),
         );
 
-        assert_ok!(Asset::accept_asset_ownership_transfer(
+        exec_ok!(Asset::accept_asset_ownership_transfer(
             bob.origin(),
             auth_id
         ));
@@ -764,7 +765,7 @@ fn update_identifiers() {
         assert!(!has_ticker_record(ticker));
 
         let create = |idents| asset_with_ids(owner, ticker, &token, idents);
-        let update = |idents| Asset::update_identifiers(owner.origin(), ticker, idents);
+        let update = |idents| exec!(Asset::update_identifiers(owner.origin(), ticker, idents));
 
         // Create: A correct entry was added.
         assert_ok!(create(vec![cusip()]));
@@ -822,7 +823,7 @@ fn adding_removing_documents() {
             },
         ];
 
-        assert_ok!(Asset::add_documents(
+        exec_ok!(Asset::add_documents(
             owner.origin(),
             documents.clone(),
             ticker
@@ -832,7 +833,7 @@ fn adding_removing_documents() {
             assert_eq!(doc, Asset::asset_documents(ticker, DocumentId(idx as u32)));
         }
 
-        assert_ok!(Asset::remove_documents(
+        exec_ok!(Asset::remove_documents(
             owner.origin(),
             (0..=1).map(DocumentId).collect(),
             ticker
@@ -855,16 +856,16 @@ fn freeze_unfreeze_asset() {
 
         allow_all_transfers(ticker, owner);
 
-        assert_noop!(
+        exec_noop!(
             Asset::freeze(bob.origin(), ticker),
             EAError::UnauthorizedAgent
         );
-        assert_noop!(
+        exec_noop!(
             Asset::unfreeze(owner.origin(), ticker),
             AssetError::NotFrozen
         );
-        assert_ok!(Asset::freeze(owner.origin(), ticker));
-        assert_noop!(
+        exec_ok!(Asset::freeze(owner.origin(), ticker));
+        exec_noop!(
             Asset::freeze(owner.origin(), ticker),
             AssetError::AlreadyFrozen
         );
@@ -876,13 +877,13 @@ fn freeze_unfreeze_asset() {
             AuthorizationData::TransferAssetOwnership(ticker),
             None,
         );
-        assert_ok!(Asset::accept_asset_ownership_transfer(
+        exec_ok!(Asset::accept_asset_ownership_transfer(
             bob.origin(),
             auth_id
         ));
 
         // Not enough; bob needs to become an agent.
-        assert_noop!(
+        exec_noop!(
             Asset::unfreeze(bob.origin(), ticker),
             EAError::UnauthorizedAgent
         );
@@ -892,8 +893,8 @@ fn freeze_unfreeze_asset() {
             bob.did,
             AgentGroup::Full
         ));
-        assert_ok!(Asset::unfreeze(bob.origin(), ticker));
-        assert_noop!(Asset::unfreeze(bob.origin(), ticker), AssetError::NotFrozen);
+        exec_ok!(Asset::unfreeze(bob.origin(), ticker));
+        exec_noop!(Asset::unfreeze(bob.origin(), ticker), AssetError::NotFrozen);
     });
 }
 
@@ -914,7 +915,7 @@ fn frozen_secondary_keys_create_asset_we() {
     // 1. Add Bob as signatory to Alice ID.
     add_secondary_key(alice.did, bob.acc());
 
-    assert_ok!(Balances::transfer_with_memo(
+    exec_ok!(Balances::transfer_with_memo(
         alice.origin(),
         bob.acc().into(),
         1_000,
@@ -923,7 +924,7 @@ fn frozen_secondary_keys_create_asset_we() {
 
     // 2. Bob can create token
     let (ticker_1, token_1) = a_token(alice.did);
-    assert_ok!(Asset::create_asset(
+    exec_ok!(Asset::create_asset(
         bob.origin(),
         ticker_1.as_ref().into(),
         ticker_1,
@@ -933,11 +934,11 @@ fn frozen_secondary_keys_create_asset_we() {
         None,
         false,
     ));
-    assert_ok!(Asset::issue(bob.origin(), ticker_1, token_1.total_supply));
+    exec_ok!(Asset::issue(bob.origin(), ticker_1, token_1.total_supply));
     assert_eq!(Asset::token_details(ticker_1), token_1);
 
     // 3. Alice freezes her secondary keys.
-    assert_ok!(Identity::freeze_secondary_keys(alice.origin()));
+    exec_ok!(Identity::freeze_secondary_keys(alice.origin()));
 
     // 4. Bob cannot create a token.
     let (_ticker_2, _token_2) = a_token(alice.did);
@@ -1034,12 +1035,12 @@ fn test_can_transfer_rpc() {
 
             // Case 6: When Asset transfer is frozen
             // 6.1: pause the transfer
-            assert_ok!(Asset::freeze(owner.origin(), ticker));
+            exec_ok!(Asset::freeze(owner.origin(), ticker));
             assert_eq!(
                 unsafe_can_transfer_result(owner.did, bob.did, 20 * currency::ONE_UNIT),
                 ERC1400_TRANSFERS_HALTED
             );
-            assert_ok!(Asset::unfreeze(owner.origin(), ticker));
+            exec_ok!(Asset::unfreeze(owner.origin(), ticker));
 
             // Case 7: when transaction get success by the compliance_manager
             allow_all_transfers(ticker, owner);
@@ -1240,7 +1241,7 @@ fn classic_ticker_genesis_works() {
 
         // Add another ticker to contrast expiry and DID and expect it.
         let expiry = standard_config.registration_length;
-        assert_ok!(Asset::register_ticker(rt.origin(), ticker("EPSILON")));
+        exec_ok!(Asset::register_ticker(rt.origin(), ticker("EPSILON")));
         tickers.push((ticker("EPSILON"), reg(rt.did, expiry)));
 
         // Ensure actual permutes expected.
@@ -1275,20 +1276,20 @@ fn classic_ticker_register_works() {
         let alice = User::new(AccountKeyring::Alice);
 
         // Only root can call.
-        assert_noop!(
+        exec_noop!(
             Asset::reserve_classic_ticker(alice.origin(), classic, alice.did, config.clone()),
             DispatchError::BadOrigin
         );
 
         // ACME was already registered.
-        assert_noop!(
+        exec_noop!(
             Asset::reserve_classic_ticker(root(), classic, alice.did, config.clone()),
             AssetError::TickerAlreadyRegistered
         );
 
         // Create BETA as an asset and fail to register it.
         classic.ticker = ticker("BETA");
-        assert_ok!(Asset::create_asset(
+        exec_ok!(Asset::create_asset(
             alice.origin(),
             b"".into(),
             classic.ticker,
@@ -1298,7 +1299,7 @@ fn classic_ticker_register_works() {
             None,
             false,
         ));
-        assert_noop!(
+        exec_noop!(
             Asset::reserve_classic_ticker(root(), classic, alice.did, config.clone()),
             AssetError::AssetAlreadyCreated
         );
@@ -1307,7 +1308,7 @@ fn classic_ticker_register_works() {
         // Also set and expect the expiry length.
         config.max_ticker_length = 1;
         classic.ticker = ticker("AB");
-        assert_noop!(
+        exec_noop!(
             Asset::reserve_classic_ticker(root(), classic, alice.did, config.clone()),
             AssetError::TickerTooLong
         );
@@ -1315,7 +1316,7 @@ fn classic_ticker_register_works() {
         config.registration_length = Some(1337);
         let expiry = Some(Timestamp::get() + 1337);
         let assert = |classic, owner, is_created| {
-            assert_ok!(Asset::reserve_classic_ticker(
+            exec_ok!(Asset::reserve_classic_ticker(
                 root(),
                 classic,
                 alice.did,
@@ -1364,7 +1365,7 @@ fn classic_ticker_no_such_classic_ticker() {
     .build()
     .execute_with(|| {
         let signer = Origin::signed(user.clone());
-        assert_noop!(
+        exec_noop!(
             Asset::claim_classic_ticker(signer, ticker_emca, ethereum::EcdsaSignature([0; 65])),
             AssetError::NoSuchClassicTicker
         );
@@ -1392,7 +1393,7 @@ fn classic_ticker_registered_by_other() {
     .build()
     .execute_with(|| {
         let signer = Origin::signed(user);
-        assert_noop!(
+        exec_noop!(
             Asset::claim_classic_ticker(signer, ticker, ethereum::EcdsaSignature([0; 65])),
             AssetError::TickerAlreadyRegistered
         );
@@ -1421,7 +1422,7 @@ fn classic_ticker_expired_thus_available() {
     .execute_with(|| {
         let signer = Origin::signed(user);
         Timestamp::set_timestamp(1);
-        assert_noop!(
+        exec_noop!(
             Asset::claim_classic_ticker(signer, ticker, ethereum::EcdsaSignature([0; 65])),
             AssetError::TickerRegistrationExpired
         );
@@ -1442,7 +1443,7 @@ fn classic_ticker_garbage_signature() {
     .build()
     .execute_with(|| {
         let rt_signer = Origin::signed(AccountKeyring::Dave.to_account_id());
-        assert_noop!(
+        exec_noop!(
             Asset::claim_classic_ticker(rt_signer, ticker, ethereum::EcdsaSignature([0; 65])),
             pallet_permissions::Error::<TestStorage>::UnauthorizedCaller
         );
@@ -1466,7 +1467,7 @@ fn classic_ticker_not_owner() {
         let signer = Origin::signed(AccountKeyring::Bob.to_account_id());
         let did = register_keyring_account(AccountKeyring::Bob).unwrap();
         let eth_sig = ethereum::eth_msg(did, b"classic_claim", &bob_secret_key());
-        assert_noop!(
+        exec_noop!(
             Asset::claim_classic_ticker(signer, ticker, eth_sig),
             AssetError::NotAnOwner
         );
@@ -1526,7 +1527,7 @@ fn classic_ticker_claim_works() {
         let alice = focus_user(AccountKeyring::Alice, init_bal);
         let eth_sig = ethereum::eth_msg(alice.did, b"classic_claim", &alice_secret_key());
         for ClassicTickerImport { ticker, .. } in tickers {
-            assert_ok!(Asset::claim_classic_ticker(
+            exec_ok!(Asset::claim_classic_ticker(
                 alice.origin(),
                 ticker,
                 eth_sig.clone()
@@ -1550,7 +1551,7 @@ fn classic_ticker_claim_works() {
         let create = |user: User, name: &str, bal_after| {
             let asset = name.try_into().unwrap();
             let ticker = ticker(name);
-            let ret = Asset::create_asset(
+            let ret = exec!(Asset::create_asset(
                 user.origin(),
                 asset,
                 ticker,
@@ -1559,7 +1560,7 @@ fn classic_ticker_claim_works() {
                 vec![],
                 None,
                 false,
-            );
+            ));
             assert_balance(user.acc(), bal_after, 0);
             ret
         };
@@ -1576,7 +1577,7 @@ fn classic_ticker_claim_works() {
         // Now `DELTA` has expired as well. Bob registers it, so its not classic anymore and fee is charged.
         let bob = focus_user(AccountKeyring::Bob, 0);
         assert!(ClassicTickers::get(&ticker("DELTA")).is_some());
-        assert_ok!(Asset::register_ticker(bob.origin(), ticker("DELTA")));
+        exec_ok!(Asset::register_ticker(bob.origin(), ticker("DELTA")));
         assert_eq!(ClassicTickers::get(&ticker("DELTA")), None);
         assert_noop!(
             create(bob, "DELTA", 0),
@@ -1600,7 +1601,7 @@ fn classic_ticker_claim_works() {
             AuthorizationData::TransferTicker(zeta),
             None,
         );
-        assert_ok!(Asset::accept_ticker_transfer(
+        exec_ok!(Asset::accept_ticker_transfer(
             charlie.origin(),
             auth_id_alice
         ));
@@ -1755,11 +1756,11 @@ fn next_checkpoint_is_updated_we() {
         period,
         remaining: 0,
     };
-    assert_ok!(Checkpoint::set_schedules_max_complexity(
+    exec_ok!(Checkpoint::set_schedules_max_complexity(
         root(),
         period.complexity()
     ));
-    assert_ok!(Checkpoint::create_schedule(
+    exec_ok!(Checkpoint::create_schedule(
         owner.origin(),
         ticker,
         schedule
@@ -1828,11 +1829,11 @@ fn non_recurring_schedule_works_we() {
         period,
         remaining: 0,
     };
-    assert_ok!(Checkpoint::set_schedules_max_complexity(
+    exec_ok!(Checkpoint::set_schedules_max_complexity(
         root(),
         period.complexity()
     ));
-    assert_ok!(Checkpoint::create_schedule(
+    exec_ok!(Checkpoint::create_schedule(
         owner.origin(),
         ticker,
         schedule
@@ -1896,7 +1897,7 @@ fn schedule_remaining_works() {
         };
 
         // Allow such a schedule to be added on-chain. Otherwise, we'll have errors.
-        assert_ok!(Checkpoint::set_schedules_max_complexity(
+        exec_ok!(Checkpoint::set_schedules_max_complexity(
             root(),
             period.complexity()
         ));
@@ -1908,7 +1909,7 @@ fn schedule_remaining_works() {
             remaining: 1,
         };
         let schedule = CheckpointSchedule { start, period };
-        assert_ok!(Checkpoint::create_schedule(owner.origin(), ticker, spec));
+        exec_ok!(Checkpoint::create_schedule(owner.origin(), ticker, spec));
 
         // We had `remaining == 1` and `start == now`,
         // so since a CP was created, hence `remaining => 0`,
@@ -1937,7 +1938,7 @@ fn schedule_remaining_works() {
                 }]
             );
         };
-        assert_ok!(Checkpoint::create_schedule(owner.origin(), ticker, spec));
+        exec_ok!(Checkpoint::create_schedule(owner.origin(), ticker, spec));
         assert_sh(2, 4);
         assert_ts(1);
 
@@ -1972,7 +1973,7 @@ fn mesh_1531_ts_collission_regression_test() {
         // First CP is made at 1s.
         let cp = CheckpointId(1);
         Timestamp::set_timestamp(1_000);
-        let create = |ticker| Checkpoint::create_checkpoint(owner.origin(), ticker);
+        let create = |ticker| exec!(Checkpoint::create_checkpoint(owner.origin(), ticker));
         assert_ok!(create(alpha));
         assert_eq!(Checkpoint::timestamps(alpha, cp), 1_000);
 
@@ -2025,13 +2026,13 @@ fn secondary_key_not_authorized_for_asset_test() {
 
             let minted_value = 50_000u128.into();
             StoreCallMetadata::set_call_metadata(b"Asset".into(), b"issue".into());
-            assert_noop!(
+            exec_noop!(
                 Asset::issue(not.origin(), ticker, minted_value),
                 pallet_external_agents::Error::<TestStorage>::SecondaryKeyNotAuthorizedForAsset
             );
 
             StoreCallMetadata::set_call_metadata(b"Asset".into(), b"issue".into());
-            assert_ok!(Asset::issue(all.origin(), ticker, minted_value));
+            exec_ok!(Asset::issue(all.origin(), ticker, minted_value));
             assert_eq!(Asset::total_supply(ticker), TOTAL_SUPPLY + minted_value);
         });
 }
@@ -2077,7 +2078,7 @@ fn sender_same_as_receiver_test() {
 fn invalid_granularity_test() {
     test_with_owner(|owner| {
         let ticker = an_asset(owner, false);
-        assert_noop!(
+        exec_noop!(
             Asset::issue(owner.origin(), ticker, 10_000),
             AssetError::InvalidGranularity
         );
@@ -2105,7 +2106,7 @@ fn bytes_of_len<R: From<Vec<u8>>>(e: u8, len: usize) -> R {
 fn create_asset_errors(owner: AccountId, other: AccountId) {
     let o = Origin::signed(owner);
     let create = |ticker, name, is_divisible, funding_name| {
-        Asset::create_asset(
+        exec!(Asset::create_asset(
             o.clone(),
             name,
             ticker,
@@ -2114,7 +2115,7 @@ fn create_asset_errors(owner: AccountId, other: AccountId) {
             vec![],
             funding_name,
             false,
-        )
+        ))
     };
 
     let ta = Ticker::try_from(&b"A"[..]).unwrap();
@@ -2131,21 +2132,21 @@ fn create_asset_errors(owner: AccountId, other: AccountId) {
     );
 
     assert_ok!(create(ta, name.clone(), false, None));
-    assert_noop!(
+    exec_noop!(
         Asset::issue(o.clone(), ta, 1_000),
         AssetError::InvalidGranularity,
     );
 
     let tb = Ticker::try_from(&b"B"[..]).unwrap();
     assert_ok!(create(tb, name.clone(), true, None));
-    assert_noop!(
+    exec_noop!(
         Asset::issue(o.clone(), tb, u128::MAX),
         AssetError::TotalSupplyAboveLimit,
     );
 
     let o2 = Origin::signed(other);
     let tc = Ticker::try_from(&b"C"[..]).unwrap();
-    assert_ok!(Asset::register_ticker(o2.clone(), tc));
+    exec_ok!(Asset::register_ticker(o2.clone(), tc));
     assert_noop!(
         create(tc, name, true, None),
         AssetError::TickerAlreadyRegistered
@@ -2156,7 +2157,12 @@ fn create_asset_errors(owner: AccountId, other: AccountId) {
 fn asset_type_custom_too_long() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         let user = User::new(AccountKeyring::Alice);
-        let case = |add| Asset::register_custom_asset_type(user.origin(), max_len_bytes(add));
+        let case = |add| {
+            exec!(Asset::register_custom_asset_type(
+                user.origin(),
+                max_len_bytes(add)
+            ))
+        };
         assert_too_long!(case(1));
         assert_ok!(case(0));
     });
@@ -2166,7 +2172,8 @@ fn asset_type_custom_too_long() {
 fn asset_type_custom_works() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         let user = User::new(AccountKeyring::Alice);
-        let register = |ty: &str| Asset::register_custom_asset_type(user.origin(), ty.into());
+        let register =
+            |ty: &str| exec!(Asset::register_custom_asset_type(user.origin(), ty.into()));
         let seq_is = |num| {
             assert_eq!(CustomTypeIdSequence::get().0, num);
         };
@@ -2229,7 +2236,7 @@ fn asset_doc_field_too_long() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         let owner = User::new(AccountKeyring::Alice);
         let ticker = an_asset(owner, true);
-        let add_doc = |doc| Asset::add_documents(owner.origin(), vec![doc], ticker);
+        let add_doc = |doc| exec!(Asset::add_documents(owner.origin(), vec![doc], ticker));
         assert_too_long!(add_doc(Document {
             uri: max_len_bytes(1),
             ..<_>::default()
@@ -2279,7 +2286,7 @@ fn unsafe_can_transfer_all_status_codes_test() {
         assert_eq!(code, INVALID_GRANULARITY);
 
         // Update indivisible.
-        assert_ok!(Asset::make_divisible(owner.origin(), ticker));
+        exec_ok!(Asset::make_divisible(owner.origin(), ticker));
 
         // INVALID_RECEIVER_DID
         let code = do_unsafe_can_transfer();
@@ -2304,11 +2311,11 @@ fn unsafe_can_transfer_all_status_codes_test() {
 fn set_funding_round_test() {
     test_with_owner(|owner| {
         let ticker = an_asset(owner, true);
-        assert_noop!(
+        exec_noop!(
             Asset::set_funding_round(owner.origin(), ticker, exceeded_funding_round_name()),
             AssetError::FundingRoundNameMaxLengthExceeded
         );
-        assert_ok!(Asset::set_funding_round(
+        exec_ok!(Asset::set_funding_round(
             owner.origin(),
             ticker,
             FundingRoundName(b"VIP round".to_vec())
@@ -2328,14 +2335,14 @@ fn update_identifiers_errors_test() {
         ];
 
         invalid_asset_ids.into_iter().for_each(|asset_id| {
-            assert_noop!(
+            exec_noop!(
                 Asset::update_identifiers(owner.origin(), ticker, vec![asset_id]),
                 AssetError::InvalidAssetIdentifier
             );
         });
 
         let valid_asset_ids = vec![AssetIdentifier::CUSIP(*b"037833100")];
-        assert_ok!(Asset::update_identifiers(
+        exec_ok!(Asset::update_identifiers(
             owner.origin(),
             ticker,
             valid_asset_ids
@@ -2389,7 +2396,7 @@ fn issuers_can_redeem_tokens_from_portfolio() {
                 token.total_supply
             );
 
-            assert_noop!(
+            exec_noop!(
                 Asset::redeem_from_portfolio(
                     bob.origin(),
                     ticker,
@@ -2399,7 +2406,7 @@ fn issuers_can_redeem_tokens_from_portfolio() {
                 EAError::UnauthorizedAgent
             );
 
-            assert_noop!(
+            exec_noop!(
                 Asset::redeem_from_portfolio(
                     owner.origin(),
                     ticker,
@@ -2409,7 +2416,7 @@ fn issuers_can_redeem_tokens_from_portfolio() {
                 PortfolioError::InsufficientPortfolioBalance
             );
 
-            assert_ok!(Asset::redeem_from_portfolio(
+            exec_ok!(Asset::redeem_from_portfolio(
                 owner.origin(),
                 ticker,
                 token.total_supply,
@@ -2419,7 +2426,7 @@ fn issuers_can_redeem_tokens_from_portfolio() {
             assert_eq!(Asset::balance_of(&ticker, owner.did), 0);
             assert_eq!(Asset::token_details(&ticker).total_supply, 0);
 
-            assert_noop!(
+            exec_noop!(
                 Asset::redeem_from_portfolio(
                     owner.origin(),
                     ticker,

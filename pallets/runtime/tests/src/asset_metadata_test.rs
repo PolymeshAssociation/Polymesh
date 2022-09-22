@@ -4,7 +4,7 @@ use super::{
     storage::{TestStorage, User},
     ExtBuilder,
 };
-use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
+use frame_support::dispatch::DispatchError;
 use polymesh_primitives::{
     asset_metadata::{
         AssetMetadataKey, AssetMetadataLockStatus, AssetMetadataName, AssetMetadataSpec,
@@ -94,7 +94,7 @@ fn register_metadata_type(owner: User, ticker: Option<Ticker>, name: &str) -> As
     } else {
         let root = frame_system::RawOrigin::Root;
         // Register global metadata type with root.
-        assert_ok!(Asset::register_asset_metadata_global_type(
+        exec_ok!(Asset::register_asset_metadata_global_type(
             root.into(),
             name.clone(),
             spec,
@@ -408,14 +408,14 @@ fn register_asset_metadata_global_type() {
         );
 
         // Register global metadata type with root.
-        assert_ok!(Asset::register_asset_metadata_global_type(
+        exec_ok!(Asset::register_asset_metadata_global_type(
             root.clone(),
             name.clone(),
             spec.clone(),
         ));
 
         // Try registering metadata with the same name.
-        assert_noop!(
+        exec_noop!(
             Asset::register_asset_metadata_global_type(root, name, spec,),
             AssetError::AssetMetadataGlobalKeyAlreadyExists
         );
@@ -473,7 +473,7 @@ fn register_asset_metadata_global_type_limits() {
         // Try registering metadata with over-sized values.
         let register_type = |name, url, desc, type_def, err: DispatchError| {
             let (name, spec) = make_metadata_type_sizes(name, url, desc, type_def);
-            assert_noop!(
+            exec_noop!(
                 Asset::register_asset_metadata_global_type(root.clone(), name, spec,),
                 err
             );

@@ -1,6 +1,7 @@
 use super::{
+    assert_noop, assert_ok,
     asset_test::{allow_all_transfers, max_len_bytes},
-    next_block,
+    exec_noop, exec_ok, next_block,
     storage::{
         default_portfolio_vec, make_account_without_cdd, provide_scope_claim_to_multiple_parties,
         user_portfolio_vec, TestStorage, User,
@@ -8,7 +9,7 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use frame_support::{assert_noop, assert_ok, IterableStorageDoubleMap};
+use frame_support::IterableStorageDoubleMap;
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -21,6 +22,7 @@ use pallet_settlement::{
     VenueInstructions, VenueType,
 };
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
+use polymesh_exec_macro::exec;
 use polymesh_primitives::{
     asset::AssetType, checked_inc::CheckedInc, AccountId, AuthorizationData, Balance, Claim,
     Condition, ConditionType, IdentityId, PortfolioId, PortfolioName, PortfolioNumber, Signatory,
@@ -55,13 +57,13 @@ const TICKER2: Ticker = Ticker::new_unchecked([b'A', b'C', b'M', b'E', b'2', 0, 
 
 macro_rules! assert_add_claim {
     ($signer:expr, $target:expr, $claim:expr) => {
-        assert_ok!(Identity::add_claim($signer, $target, $claim, None,));
+        exec_ok!(Identity::add_claim($signer, $target, $claim, None,));
     };
 }
 
 macro_rules! assert_affirm_instruction {
     ($signer:expr, $instruction_id:expr, $did:expr, $count:expr) => {
-        assert_ok!(Settlement::affirm_instruction(
+        exec_ok!(Settlement::affirm_instruction(
             $signer,
             $instruction_id,
             default_portfolio_vec($did),
@@ -179,7 +181,7 @@ impl Deref for UserWithBalance {
 fn create_token_and_venue(ticker: Ticker, user: User) -> VenueId {
     create_token(ticker, user);
     let venue_counter = Settlement::venue_counter();
-    assert_ok!(Settlement::create_venue(
+    exec_ok!(Settlement::create_venue(
         user.origin(),
         VenueDetails::default(),
         vec![user.acc()],
@@ -189,7 +191,7 @@ fn create_token_and_venue(ticker: Ticker, user: User) -> VenueId {
 }
 
 fn create_token(ticker: Ticker, user: User) {
-    assert_ok!(Asset::create_asset(
+    exec_ok!(Asset::create_asset(
         user.origin(),
         ticker.as_slice().into(),
         ticker,
@@ -199,7 +201,7 @@ fn create_token(ticker: Ticker, user: User) {
         None,
         false,
     ));
-    assert_ok!(Asset::issue(user.origin(), ticker, 100_000));
+    exec_ok!(Asset::issue(user.origin(), ticker, 100_000));
     allow_all_transfers(ticker, user);
 }
 
@@ -212,8 +214,15 @@ fn venue_details_length_limited() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         let actor = User::new(AccountKeyring::Alice);
         let id = Settlement::venue_counter();
-        let create = |d| Settlement::create_venue(actor.origin(), d, vec![], VenueType::Exchange);
-        let update = |d| Settlement::update_venue_details(actor.origin(), id, d);
+        let create = |d| {
+            exec!(Settlement::create_venue(
+                actor.origin(),
+                d,
+                vec![],
+                VenueType::Exchange
+            ))
+        };
+        let update = |d| exec!(Settlement::update_venue_details(actor.origin(), id, d));
         assert_too_long!(create(max_len_bytes(1)));
         assert_ok!(create(max_len_bytes(0)));
         assert_too_long!(update(max_len_bytes(1)));
@@ -230,7 +239,7 @@ fn venue_registration() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let venue_counter = Settlement::venue_counter();
-        assert_ok!(Settlement::create_venue(
+        exec_ok!(Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
             vec![
@@ -260,7 +269,7 @@ fn venue_registration() {
         );
 
         // Creating a second venue
-        assert_ok!(Settlement::create_venue(
+        exec_ok!(Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
             vec![alice.acc(), AccountKeyring::Bob.to_account_id()],
@@ -272,7 +281,7 @@ fn venue_registration() {
         );
 
         // Editing venue details
-        assert_ok!(Settlement::update_venue_details(
+        exec_ok!(Settlement::update_venue_details(
             alice.origin(),
             venue_counter,
             [0x01].into(),
@@ -308,7 +317,7 @@ fn basic_settlement() {
         // Provide scope claim to sender and receiver of the transaction.
         provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
 
-        assert_ok!(Settlement::add_instruction(
+        exec_ok!(Settlement::add_instruction(
             alice.origin(),
             venue_counter,
             SettlementType::SettleOnAffirmation,
@@ -354,7 +363,7 @@ fn create_and_affirm_instruction() {
         provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
 
         let add_and_affirm_tx = |affirm_from_portfolio| {
-            Settlement::add_and_affirm_instruction(
+            exec!(Settlement::add_and_affirm_instruction(
                 alice.origin(),
                 venue_counter,
                 SettlementType::SettleOnAffirmation,
@@ -367,7 +376,7 @@ fn create_and_affirm_instruction() {
                     amount,
                 }],
                 affirm_from_portfolio,
-            )
+            ))
         };
 
         // If affirmation fails, the instruction should be rolled back.
@@ -406,7 +415,7 @@ fn overdraft_failure() {
         alice.refresh_init_balances();
         bob.refresh_init_balances();
 
-        assert_ok!(Settlement::add_instruction(
+        exec_ok!(Settlement::add_instruction(
             alice.origin(),
             venue_counter,
             SettlementType::SettleOnAffirmation,
@@ -421,7 +430,7 @@ fn overdraft_failure() {
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
-        assert_noop!(
+        exec_noop!(
             Settlement::affirm_instruction(
                 alice.origin(),
                 instruction_id,
@@ -462,7 +471,7 @@ fn token_swap() {
             },
         ];
 
-        assert_ok!(Settlement::add_instruction(
+        exec_ok!(Settlement::add_instruction(
             alice.origin(),
             venue_counter,
             SettlementType::SettleOnAffirmation,
@@ -519,7 +528,7 @@ fn token_swap() {
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
 
-        assert_ok!(Settlement::withdraw_affirmation(
+        exec_ok!(Settlement::withdraw_affirmation(
             alice.origin(),
             instruction_id,
             default_portfolio_vec(alice.did),
@@ -593,7 +602,7 @@ fn claiming_receipt() {
             },
         ];
 
-        assert_ok!(Settlement::add_instruction(
+        exec_ok!(Settlement::add_instruction(
             alice.origin(),
             venue_counter,
             SettlementType::SettleOnAffirmation,
@@ -645,7 +654,7 @@ fn claiming_receipt() {
         let signature = AccountKeyring::Alice.sign(&msg.encode());
 
         let claim_receipt = |signature, metadata| {
-            Settlement::claim_receipt(
+            exec!(Settlement::claim_receipt(
                 alice.origin(),
                 instruction_id,
                 ReceiptDetails {
@@ -655,7 +664,7 @@ fn claiming_receipt() {
                     signature,
                     metadata,
                 },
-            )
+            ))
         };
 
         assert_noop!(
@@ -694,7 +703,7 @@ fn claiming_receipt() {
 
         // Can not claim invalidated receipt
         let change_receipt_validity = |validity| {
-            assert_ok!(Settlement::change_receipt_validity(
+            exec_ok!(Settlement::change_receipt_validity(
                 alice.origin(),
                 0,
                 validity
@@ -728,7 +737,7 @@ fn claiming_receipt() {
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
 
-        assert_ok!(Settlement::unclaim_receipt(
+        exec_ok!(Settlement::unclaim_receipt(
             alice.origin(),
             instruction_id,
             LegId(0)
@@ -744,7 +753,7 @@ fn claiming_receipt() {
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
 
-        assert_ok!(Settlement::claim_receipt(
+        exec_ok!(Settlement::claim_receipt(
             alice.origin(),
             instruction_id,
             ReceiptDetails {
@@ -819,7 +828,7 @@ fn settle_on_block() {
         ];
 
         assert_eq!(0, scheduler::Agenda::<TestStorage>::get(block_number).len());
-        assert_ok!(Settlement::add_instruction(
+        exec_ok!(Settlement::add_instruction(
             alice.origin(),
             venue_counter,
             SettlementType::SettleOnBlock(block_number),
@@ -913,7 +922,7 @@ fn failed_execution() {
         let venue_counter = create_token_and_venue(TICKER, alice.user);
         create_token(TICKER2, bob.user);
         let instruction_id = Settlement::instruction_counter();
-        assert_ok!(ComplianceManager::reset_asset_compliance(
+        exec_ok!(ComplianceManager::reset_asset_compliance(
             Origin::signed(AccountKeyring::Bob.to_account_id()),
             TICKER2,
         ));
@@ -938,7 +947,7 @@ fn failed_execution() {
         ];
 
         assert_eq!(0, scheduler::Agenda::<TestStorage>::get(block_number).len());
-        assert_ok!(Settlement::add_instruction(
+        exec_ok!(Settlement::add_instruction(
             alice.origin(),
             venue_counter,
             SettlementType::SettleOnBlock(block_number),
@@ -1035,7 +1044,7 @@ fn failed_execution() {
         bob.assert_all_balances_unchanged();
 
         // Reschedule instruction and ensure the state is identical to the original state.
-        assert_ok!(Settlement::reschedule_instruction(
+        exec_ok!(Settlement::reschedule_instruction(
             alice.origin(),
             instruction_id
         ));
@@ -1064,7 +1073,7 @@ fn venue_filtering() {
             asset: TICKER,
             amount: 10,
         }];
-        assert_ok!(Settlement::add_instruction(
+        exec_ok!(Settlement::add_instruction(
             alice.origin(),
             venue_counter,
             SettlementType::SettleOnBlock(block_number),
@@ -1072,12 +1081,12 @@ fn venue_filtering() {
             None,
             legs.clone(),
         ));
-        assert_ok!(Settlement::set_venue_filtering(
+        exec_ok!(Settlement::set_venue_filtering(
             alice.origin(),
             TICKER,
             true
         ));
-        assert_noop!(
+        exec_noop!(
             Settlement::add_instruction(
                 alice.origin(),
                 venue_counter,
@@ -1088,12 +1097,12 @@ fn venue_filtering() {
             ),
             Error::UnauthorizedVenue
         );
-        assert_ok!(Settlement::allow_venues(
+        exec_ok!(Settlement::allow_venues(
             alice.origin(),
             TICKER,
             vec![venue_counter]
         ));
-        assert_ok!(Settlement::add_and_affirm_instruction(
+        exec_ok!(Settlement::add_and_affirm_instruction(
             alice.origin(),
             venue_counter,
             SettlementType::SettleOnBlock(block_number + 1),
@@ -1113,7 +1122,7 @@ fn venue_filtering() {
 
         next_block();
         assert_eq!(Asset::balance_of(&TICKER, bob.did), 10);
-        assert_ok!(Settlement::disallow_venues(
+        exec_ok!(Settlement::disallow_venues(
             alice.origin(),
             TICKER,
             vec![venue_counter]
@@ -1133,7 +1142,7 @@ fn basic_fuzzing() {
         let dave = User::new(AccountKeyring::Dave);
         let eve = User::existing(AccountKeyring::Eve);
         let venue_counter = Settlement::venue_counter();
-        assert_ok!(Settlement::create_venue(
+        exec_ok!(Settlement::create_venue(
             Origin::signed(AccountKeyring::Alice.to_account_id()),
             VenueDetails::default(),
             vec![AccountKeyring::Alice.to_account_id()],
@@ -1272,7 +1281,7 @@ fn basic_fuzzing() {
                 break;
             }
         }
-        assert_ok!(Settlement::add_instruction(
+        exec_ok!(Settlement::add_instruction(
             alice.origin(),
             venue_counter,
             SettlementType::SettleOnBlock(block_number),
@@ -1287,7 +1296,7 @@ fn basic_fuzzing() {
             for _ in 0..2 {
                 if random() {
                     assert_affirm_instruction!(user.origin(), instruction_id, user.did, leg_count);
-                    assert_ok!(Settlement::withdraw_affirmation(
+                    exec_ok!(Settlement::withdraw_affirmation(
                         user.origin(),
                         instruction_id,
                         default_portfolio_vec(user.did),
@@ -1310,7 +1319,7 @@ fn basic_fuzzing() {
                 .unwrap();
             for _ in 0..2 {
                 if random() {
-                    assert_ok!(Settlement::claim_receipt(
+                    exec_ok!(Settlement::claim_receipt(
                         user.origin(),
                         instruction_id,
                         ReceiptDetails {
@@ -1321,14 +1330,14 @@ fn basic_fuzzing() {
                             metadata: ReceiptMetadata::default()
                         }
                     ));
-                    assert_ok!(Settlement::unclaim_receipt(
+                    exec_ok!(Settlement::unclaim_receipt(
                         user.origin(),
                         instruction_id,
                         leg_num
                     ));
                 }
             }
-            assert_ok!(Settlement::claim_receipt(
+            exec_ok!(Settlement::claim_receipt(
                 user.origin(),
                 instruction_id,
                 ReceiptDetails {
@@ -1371,7 +1380,7 @@ fn basic_fuzzing() {
         let mut rng = thread_rng();
         let failed_user = rng.gen_range(0, 4);
         if fail {
-            assert_ok!(Settlement::withdraw_affirmation(
+            exec_ok!(Settlement::withdraw_affirmation(
                 users[failed_user].origin(),
                 instruction_id,
                 default_portfolio_vec(users[failed_user].did),
@@ -1424,7 +1433,7 @@ fn basic_fuzzing() {
         }
 
         if fail {
-            assert_ok!(Settlement::reject_instruction(
+            exec_ok!(Settlement::reject_instruction(
                 users[0].origin(),
                 instruction_id,
                 PortfolioId::default_portfolio(users[0].did),
@@ -1473,7 +1482,7 @@ fn claim_multiple_receipts_during_authorization() {
             },
         ];
 
-        assert_ok!(Settlement::add_instruction(
+        exec_ok!(Settlement::add_instruction(
             alice.origin(),
             venue_counter,
             SettlementType::SettleOnAffirmation,
@@ -1507,7 +1516,7 @@ fn claim_multiple_receipts_during_authorization() {
             amount,
         };
 
-        assert_noop!(
+        exec_noop!(
             Settlement::affirm_with_receipts(
                 alice.origin(),
                 instruction_id,
@@ -1533,7 +1542,7 @@ fn claim_multiple_receipts_during_authorization() {
             Error::ReceiptAlreadyClaimed
         );
 
-        assert_ok!(Settlement::affirm_with_receipts(
+        exec_ok!(Settlement::affirm_with_receipts(
             alice.origin(),
             instruction_id,
             vec![
@@ -1610,7 +1619,7 @@ fn overload_instruction() {
         // Provide scope claim to multiple parties of the transaction.
         provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
 
-        assert_noop!(
+        exec_noop!(
             Settlement::add_instruction(
                 alice.origin(),
                 venue_counter,
@@ -1622,7 +1631,7 @@ fn overload_instruction() {
             Error::InstructionHasTooManyLegs
         );
         legs.truncate(leg_limit);
-        assert_ok!(Settlement::add_instruction(
+        exec_ok!(Settlement::add_instruction(
             alice.origin(),
             venue_counter,
             SettlementType::SettleOnAffirmation,
@@ -1686,13 +1695,13 @@ fn test_weights_for_settlement_transaction() {
             let ticker_id = Identity::get_token_did(&TICKER).unwrap();
 
             // Remove existing rules
-            assert_ok!(ComplianceManager::remove_compliance_requirement(
+            exec_ok!(ComplianceManager::remove_compliance_requirement(
                 alice_signed.clone(),
                 TICKER,
                 1
             ));
             // Add claim rules for settlement
-            assert_ok!(ComplianceManager::add_compliance_requirement(
+            exec_ok!(ComplianceManager::add_compliance_requirement(
                 alice_signed.clone(),
                 TICKER,
                 vec![
@@ -1750,7 +1759,7 @@ fn test_weights_for_settlement_transaction() {
                 amount: 100u128,
             }];
 
-            assert_ok!(Settlement::add_instruction(
+            exec_ok!(Settlement::add_instruction(
                 alice_signed.clone(),
                 venue_counter,
                 SettlementType::SettleOnAffirmation,
@@ -1787,7 +1796,7 @@ fn cross_portfolio_settlement() {
         let venue_counter = create_token_and_venue(TICKER, alice.user);
         let name = PortfolioName::from([42u8].to_vec());
         let num = Portfolio::next_portfolio_number(&bob.did);
-        assert_ok!(Portfolio::create_portfolio(bob.origin(), name.clone()));
+        exec_ok!(Portfolio::create_portfolio(bob.origin(), name.clone()));
         let instruction_id = Settlement::instruction_counter();
         let amount = 100u128;
         alice.refresh_init_balances();
@@ -1797,7 +1806,7 @@ fn cross_portfolio_settlement() {
         provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
 
         // Instruction referencing a user defined portfolio is created
-        assert_ok!(Settlement::add_instruction(
+        exec_ok!(Settlement::add_instruction(
             alice.origin(),
             venue_counter,
             SettlementType::SettleOnAffirmation,
@@ -1827,7 +1836,7 @@ fn cross_portfolio_settlement() {
         // Bob fails to approve the instruction with a
         // different portfolio than the one specified in the instruction
         next_block();
-        assert_noop!(
+        exec_noop!(
             Settlement::affirm_instruction(
                 bob.origin(),
                 instruction_id,
@@ -1839,7 +1848,7 @@ fn cross_portfolio_settlement() {
 
         next_block();
         // Bob approves the instruction with the correct portfolio
-        assert_ok!(Settlement::affirm_instruction(
+        exec_ok!(Settlement::affirm_instruction(
             bob.origin(),
             instruction_id,
             user_portfolio_vec(bob.did, num),
@@ -1865,8 +1874,8 @@ fn multiple_portfolio_settlement() {
         let name = PortfolioName::from([42u8].to_vec());
         let alice_num = Portfolio::next_portfolio_number(&alice.did);
         let bob_num = Portfolio::next_portfolio_number(&bob.did);
-        assert_ok!(Portfolio::create_portfolio(bob.origin(), name.clone()));
-        assert_ok!(Portfolio::create_portfolio(alice.origin(), name.clone()));
+        exec_ok!(Portfolio::create_portfolio(bob.origin(), name.clone()));
+        exec_ok!(Portfolio::create_portfolio(alice.origin(), name.clone()));
         let venue_counter = create_token_and_venue(TICKER, alice.user);
         let instruction_id = Settlement::instruction_counter();
         let amount = 100u128;
@@ -1877,7 +1886,7 @@ fn multiple_portfolio_settlement() {
         provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
 
         // An instruction is created with multiple legs referencing multiple portfolios
-        assert_ok!(Settlement::add_instruction(
+        exec_ok!(Settlement::add_instruction(
             alice.origin(),
             venue_counter,
             SettlementType::SettleOnAffirmation,
@@ -1916,7 +1925,7 @@ fn multiple_portfolio_settlement() {
         assert_locked_assets(&TICKER, &alice, amount);
 
         // Alice tries to withdraw affirmation from multiple portfolios where only one has been affirmed.
-        assert_noop!(
+        exec_noop!(
             Settlement::withdraw_affirmation(
                 alice.origin(),
                 instruction_id,
@@ -1930,7 +1939,7 @@ fn multiple_portfolio_settlement() {
         );
 
         // Alice fails to approve the instruction from her user specified portfolio due to lack of funds
-        assert_noop!(
+        exec_noop!(
             Settlement::affirm_instruction(
                 alice.origin(),
                 instruction_id,
@@ -1941,7 +1950,7 @@ fn multiple_portfolio_settlement() {
         );
 
         // Alice moves her funds to the correct portfolio
-        assert_ok!(Portfolio::move_portfolio_funds(
+        exec_ok!(Portfolio::move_portfolio_funds(
             alice.origin(),
             PortfolioId::default_portfolio(alice.did),
             PortfolioId::user_portfolio(alice.did, alice_num),
@@ -1953,7 +1962,7 @@ fn multiple_portfolio_settlement() {
         ));
         set_current_block_number(15);
         // Alice is now able to approve the instruction with the user portfolio
-        assert_ok!(Settlement::affirm_instruction(
+        exec_ok!(Settlement::affirm_instruction(
             alice.origin(),
             instruction_id,
             user_portfolio_vec(alice.did, alice_num),
@@ -1978,7 +1987,7 @@ fn multiple_portfolio_settlement() {
         ];
 
         next_block();
-        assert_ok!(Settlement::affirm_instruction(
+        exec_ok!(Settlement::affirm_instruction(
             bob.origin(),
             instruction_id,
             portfolios_vec,
@@ -2006,8 +2015,8 @@ fn multiple_custodian_settlement() {
         let name = PortfolioName::from([42u8].to_vec());
         let alice_num = Portfolio::next_portfolio_number(&alice.did);
         let bob_num = Portfolio::next_portfolio_number(&bob.did);
-        assert_ok!(Portfolio::create_portfolio(bob.origin(), name.clone()));
-        assert_ok!(Portfolio::create_portfolio(alice.origin(), name.clone()));
+        exec_ok!(Portfolio::create_portfolio(bob.origin(), name.clone()));
+        exec_ok!(Portfolio::create_portfolio(alice.origin(), name.clone()));
 
         // Give custody of Bob's user portfolio to Alice
         let auth_id = Identity::add_auth(
@@ -2016,7 +2025,7 @@ fn multiple_custodian_settlement() {
             AuthorizationData::PortfolioCustody(PortfolioId::user_portfolio(bob.did, bob_num)),
             None,
         );
-        assert_ok!(Portfolio::accept_portfolio_custody(alice.origin(), auth_id));
+        exec_ok!(Portfolio::accept_portfolio_custody(alice.origin(), auth_id));
 
         // Create a token
         let venue_counter = create_token_and_venue(TICKER, alice.user);
@@ -2028,7 +2037,7 @@ fn multiple_custodian_settlement() {
         // Provide scope claim to sender and receiver of the transaction.
         provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
 
-        assert_ok!(Portfolio::move_portfolio_funds(
+        exec_ok!(Portfolio::move_portfolio_funds(
             alice.origin(),
             PortfolioId::default_portfolio(alice.did),
             PortfolioId::user_portfolio(alice.did, alice_num),
@@ -2040,7 +2049,7 @@ fn multiple_custodian_settlement() {
         ));
 
         // An instruction is created with multiple legs referencing multiple portfolios
-        assert_ok!(Settlement::add_instruction(
+        exec_ok!(Settlement::add_instruction(
             alice.origin(),
             venue_counter,
             SettlementType::SettleOnAffirmation,
@@ -2074,7 +2083,7 @@ fn multiple_custodian_settlement() {
             PortfolioId::user_portfolio(alice.did, alice_num),
         ];
         set_current_block_number(10);
-        assert_ok!(Settlement::affirm_instruction(
+        exec_ok!(Settlement::affirm_instruction(
             alice.origin(),
             instruction_id,
             portfolios_vec.clone(),
@@ -2098,14 +2107,14 @@ fn multiple_custodian_settlement() {
             AuthorizationData::PortfolioCustody(PortfolioId::user_portfolio(alice.did, alice_num)),
             None,
         );
-        assert_ok!(Portfolio::accept_portfolio_custody(bob.origin(), auth_id2));
+        exec_ok!(Portfolio::accept_portfolio_custody(bob.origin(), auth_id2));
 
         // Bob fails to approve the instruction with both of his portfolios since he doesn't have custody for the second one
         let portfolios_bob = vec![
             PortfolioId::default_portfolio(bob.did),
             PortfolioId::user_portfolio(bob.did, bob_num),
         ];
-        assert_noop!(
+        exec_noop!(
             Settlement::affirm_instruction(bob.origin(), instruction_id, portfolios_bob, 0),
             PortfolioError::UnauthorizedCustodian
         );
@@ -2116,13 +2125,13 @@ fn multiple_custodian_settlement() {
 
         // Alice fails to deny the instruction from both her portfolios since she doesn't have the custody
         next_block();
-        assert_noop!(
+        exec_noop!(
             Settlement::withdraw_affirmation(alice.origin(), instruction_id, portfolios_vec, 2),
             PortfolioError::UnauthorizedCustodian
         );
 
         // Alice can deny instruction from the portfolio she has custody of
-        assert_ok!(Settlement::withdraw_affirmation(
+        exec_ok!(Settlement::withdraw_affirmation(
             alice.origin(),
             instruction_id,
             default_portfolio_vec(alice.did),
@@ -2136,7 +2145,7 @@ fn multiple_custodian_settlement() {
             PortfolioId::user_portfolio(bob.did, bob_num),
         ];
         next_block();
-        assert_ok!(Settlement::affirm_instruction(
+        exec_ok!(Settlement::affirm_instruction(
             alice.origin(),
             instruction_id,
             portfolios_final,
@@ -2165,12 +2174,12 @@ fn reject_instruction() {
         let amount = 100u128;
 
         let reject_instruction = |user: &User, instruction_id| {
-            Settlement::reject_instruction(
+            exec!(Settlement::reject_instruction(
                 user.origin(),
                 instruction_id,
                 PortfolioId::default_portfolio(user.did),
                 1,
-            )
+            ))
         };
 
         let assert_user_affirmations = |instruction_id, alice_status, bob_status| {
@@ -2241,7 +2250,7 @@ fn dirty_storage_with_tx() {
         // Provide scope claim to sender and receiver of the transaction.
         provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
 
-        assert_ok!(Settlement::add_instruction(
+        exec_ok!(Settlement::add_instruction(
             alice.origin(),
             venue_counter,
             SettlementType::SettleOnAffirmation,
@@ -2295,7 +2304,7 @@ fn reject_failed_instruction() {
 
         let instruction_id = create_instruction(&alice, &bob, venue_counter, TICKER, amount);
 
-        assert_ok!(Settlement::affirm_instruction(
+        exec_ok!(Settlement::affirm_instruction(
             bob.origin(),
             instruction_id,
             default_portfolio_vec(bob.did),
@@ -2307,7 +2316,7 @@ fn reject_failed_instruction() {
         assert_instruction_status(instruction_id, InstructionStatus::Failed);
 
         // Reject instruction so that it is pruned on next execution.
-        assert_ok!(Settlement::reject_instruction(
+        exec_ok!(Settlement::reject_instruction(
             bob.origin(),
             instruction_id,
             PortfolioId::default_portfolio(bob.did),
@@ -2327,7 +2336,7 @@ fn modify_venue_signers() {
         let charlie = User::new(AccountKeyring::Charlie);
         let venue_counter = Settlement::venue_counter();
 
-        assert_ok!(Settlement::create_venue(
+        exec_ok!(Settlement::create_venue(
             alice.origin(),
             VenueDetails::default(),
             vec![
@@ -2338,7 +2347,7 @@ fn modify_venue_signers() {
         ));
 
         // Charlie fails to add dave to signer list
-        assert_noop!(
+        exec_noop!(
             Settlement::update_venue_signers(
                 charlie.origin(),
                 venue_counter,
@@ -2349,7 +2358,7 @@ fn modify_venue_signers() {
         );
 
         // Alice adds charlie to signer list
-        assert_ok!(Settlement::update_venue_signers(
+        exec_ok!(Settlement::update_venue_signers(
             alice.origin(),
             venue_counter,
             vec![AccountKeyring::Charlie.to_account_id(),],
@@ -2357,7 +2366,7 @@ fn modify_venue_signers() {
         ));
 
         // Alice fails to remove dave from signer list
-        assert_noop!(
+        exec_noop!(
             Settlement::update_venue_signers(
                 alice.origin(),
                 venue_counter,
@@ -2368,7 +2377,7 @@ fn modify_venue_signers() {
         );
 
         // Alice fails to add charlie to the signer list
-        assert_noop!(
+        exec_noop!(
             Settlement::update_venue_signers(
                 alice.origin(),
                 venue_counter,
@@ -2379,7 +2388,7 @@ fn modify_venue_signers() {
         );
 
         // Alice removes charlie from signer list
-        assert_ok!(Settlement::update_venue_signers(
+        exec_ok!(Settlement::update_venue_signers(
             alice.origin(),
             venue_counter,
             vec![AccountKeyring::Charlie.to_account_id(),],
@@ -2398,7 +2407,7 @@ fn modify_venue_signers() {
         );
 
         // Alice adds charlie, dave and eve
-        assert_ok!(Settlement::update_venue_signers(
+        exec_ok!(Settlement::update_venue_signers(
             alice.origin(),
             venue_counter,
             vec![
@@ -2410,7 +2419,7 @@ fn modify_venue_signers() {
         ));
 
         // Alice removes charlie, dave and eve
-        assert_ok!(Settlement::update_venue_signers(
+        exec_ok!(Settlement::update_venue_signers(
             alice.origin(),
             venue_counter,
             vec![
@@ -2422,7 +2431,7 @@ fn modify_venue_signers() {
         ));
 
         // Alice fails to adds charlie, dave, eve and bob
-        assert_noop!(
+        exec_noop!(
             Settlement::update_venue_signers(
                 alice.origin(),
                 venue_counter,
@@ -2472,7 +2481,7 @@ fn reject_instruction_with_zero_amount() {
         // Provide scope claim to sender and receiver of the transaction.
         provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
 
-        assert_noop!(
+        exec_noop!(
             Settlement::add_instruction(
                 alice.origin(),
                 venue_counter,
@@ -2505,7 +2514,7 @@ fn basic_settlement_with_memo() {
 
         // Provide scope claim to sender and receiver of the transaction.
         provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
-        assert_ok!(Settlement::add_instruction_with_memo(
+        exec_ok!(Settlement::add_instruction_with_memo(
             alice.origin(),
             venue_counter,
             SettlementType::SettleOnAffirmation,
@@ -2552,7 +2561,7 @@ fn create_instruction(
 ) -> InstructionId {
     let instruction_id = Settlement::instruction_counter();
     set_current_block_number(10);
-    assert_ok!(Settlement::add_and_affirm_instruction(
+    exec_ok!(Settlement::add_and_affirm_instruction(
         alice.origin(),
         venue_counter,
         SettlementType::SettleOnAffirmation,

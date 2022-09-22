@@ -41,9 +41,9 @@ use sp_std::{fmt, marker::PhantomData, result::Result};
 
 pub use polymesh_common_utilities::traits::permissions::Config;
 
-#[cfg(feature = "testing")]
+#[cfg(feature = "call_perm_check")]
 use sp_std::cell::RefCell;
-#[cfg(feature = "testing")]
+#[cfg(feature = "call_perm_check")]
 thread_local! {
     pub static CALL_PERMS_ENABLE: RefCell<bool> = RefCell::new(false);
     pub static CALL_PERMS_CALLED: RefCell<bool> = RefCell::new(false);
@@ -80,13 +80,14 @@ impl<T: Config> Module<T> {
     pub fn ensure_call_permissions(
         who: &T::AccountId,
     ) -> Result<AccountCallPermissionsData<T::AccountId>, DispatchError> {
-        #[cfg(feature = "testing")]
+        #[cfg(feature = "call_perm_check")]
         {
             let enabled = CALL_PERMS_ENABLE.with(|v| *v.borrow());
             CALL_PERMS_CALLED.with(|v| {
                 if enabled && v.replace(true) {
                     #[cfg(feature = "std")]
                     eprintln!("ensure_call_permissions called multiple times.");
+                    #[cfg(feature = "call_perm_check_panics")]
                     panic!("ensure_call_permissions called multiple times.");
                 }
             });
@@ -126,7 +127,7 @@ impl<T: Config> StoreCallMetadata<T> {
 
     /// Stores call metadata in runtime storage.
     pub fn set_call_metadata(pallet_name: PalletName, dispatchable_name: DispatchableName) {
-        #[cfg(feature = "testing")]
+        #[cfg(feature = "call_perm_check")]
         {
             CALL_PERMS_ENABLE.with(|v| {
                 v.replace(true);
@@ -142,7 +143,7 @@ impl<T: Config> StoreCallMetadata<T> {
 
     /// Erases call metadata from runtime storage.
     fn clear_call_metadata() {
-        #[cfg(feature = "testing")]
+        #[cfg(feature = "call_perm_check")]
         {
             // Reset check.
             CALL_PERMS_ENABLE.with(|v| v.take());
@@ -231,7 +232,7 @@ pub fn swap_call_metadata(
     pallet_name: PalletName,
     dispatchable_name: DispatchableName,
 ) -> (PalletName, DispatchableName) {
-    #[cfg(feature = "testing")]
+    #[cfg(feature = "call_perm_check")]
     {
         CALL_PERMS_ENABLE.with(|v| {
             v.replace(true);

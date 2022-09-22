@@ -1,10 +1,9 @@
 use super::{
-    exec_noop, exec_ok,
+    assert_noop, assert_ok, exec_noop, exec_ok,
     storage::{get_last_auth_id, make_account_without_cdd, Call, TestStorage, User},
     ExtBuilder,
 };
 use frame_support::{
-    assert_noop, assert_ok,
     weights::{DispatchInfo, Pays, PostDispatchInfo, Weight},
     StorageMap,
 };
@@ -231,26 +230,24 @@ fn do_update_polyx_limit_test() {
         Add,
         Sub,
     }
+    use polymesh_exec_macro::exec;
     use Action::*;
     let test_update = |action, p: User, x, expected_res: Result<(), Error>, expected_limit| {
-        let ext = match action {
+        let ext = || match action {
             Set => {
-                set_call_metadata("Relayer", "update_polyx_limit");
-                Relayer::update_polyx_limit
+                exec!(Relayer::update_polyx_limit(p.origin(), bob.acc(), x))
             }
             Add => {
-                set_call_metadata("Relayer", "increase_polyx_limit");
-                Relayer::increase_polyx_limit
+                exec!(Relayer::increase_polyx_limit(p.origin(), bob.acc(), x))
             }
             Sub => {
-                set_call_metadata("Relayer", "decrease_polyx_limit");
-                Relayer::decrease_polyx_limit
+                exec!(Relayer::decrease_polyx_limit(p.origin(), bob.acc(), x))
             }
         };
         if let Err(e) = expected_res {
-            assert_noop!(ext(p.origin(), bob.acc(), x), e);
+            assert_noop!(ext(), e);
         } else {
-            assert_ok!(ext(p.origin(), bob.acc(), x));
+            assert_ok!(ext());
         }
         assert_subsidy(bob, Some((alice, expected_limit)));
     };
@@ -401,7 +398,7 @@ fn do_relayer_paying_key_missing_cdd_test() {
     let (bob_sign, _) = make_account_without_cdd(bob_acc.clone()).unwrap();
 
     // Add authorization for using Bob as the paying key for Alice.
-    assert_ok!(Relayer::set_paying_key(bob_sign, alice.acc(), 10 * POLY));
+    exec_ok!(Relayer::set_paying_key(bob_sign, alice.acc(), 10 * POLY));
 
     // Alice tries to accept the paying key, but the paying key
     // is without a CDD.

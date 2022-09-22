@@ -20,7 +20,7 @@ pallet-group = { path = "../../group", default-features = false }
 pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-features = false }
 pallet-identity = { path = "../../identity", default-features = false, features = ["no_cdd"] }
 pallet-multisig = { path = "../../multisig", default-features = false }
-pallet-permissions = { path = "../../permissions", default-features = false, features = ["testing"]}
+pallet-permissions = { path = "../../permissions", default-features = false }
 pallet-pips = { path = "../../pips", default-features = false }
 pallet-portfolio = { path = "../../portfolio", default-features = false }
 pallet-protocol-fee = { path = "../../protocol-fee", default-features = false }
@@ -110,9 +110,14 @@ wat = "1.0"
 sp-tracing = { version = "5.0.0", default-features = false }
 
 [features]
-default = ["std", "equalize"]
+default = ["std", "equalize", "call_perm_check"]
 
 default_identity = [ "polymesh-common-utilities/default_identity" ]
+
+call_perm_check = [
+    "pallet-permissions/call_perm_check",
+		#"pallet-permissions/call_perm_check_panics",
+]
 
 equalize = []
 only-staking = []

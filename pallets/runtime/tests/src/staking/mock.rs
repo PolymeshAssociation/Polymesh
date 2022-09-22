@@ -157,7 +157,7 @@ impl FindAuthor<AccountId> for Author11 {
 }
 
 parameter_types! {
-    pub const BlockHashCount: u64 = 250;
+    pub const BlockHashCount: u64 = 2400;
     pub const MaxLen: u32 = 256;
     pub const MaxLocks: u32 = 1024;
     pub const MaximumBlockWeight: Weight = 1024;

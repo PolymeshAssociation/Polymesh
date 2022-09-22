@@ -1,11 +1,11 @@
 use super::{
+    exec_ok,
     pips_test::assert_balance,
     storage::{Call, TestStorage, User},
     ExtBuilder,
 };
 use codec::Encode;
 use frame_support::{
-    assert_ok,
     traits::Currency,
     weights::{
         DispatchClass, DispatchInfo, GetDispatchInfo, Pays, PostDispatchInfo, Weight,
@@ -192,7 +192,7 @@ fn signed_extension_allows_free_transactions() {
         .build()
         .execute_with(|| {
             let user = User::new(AccountKeyring::Bob);
-            assert_ok!(Balances::burn_account_balance(
+            exec_ok!(Balances::burn_account_balance(
                 user.origin(),
                 Balances::free_balance(user.acc())
             ));

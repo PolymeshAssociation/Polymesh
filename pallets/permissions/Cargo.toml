@@ -41,4 +41,5 @@ runtime-benchmarks = [
     "frame-benchmarking",
     "polymesh-common-utilities/runtime-benchmarks",
 ]
-testing = []
+call_perm_check = []
+call_perm_check_panics = []

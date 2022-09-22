@@ -58,15 +58,19 @@ pub fn exec(item: TokenStream) -> TokenStream {
     );
 
     let token_stream = quote! {
-        if *crate::storage::INTEGRATION_TEST {
-            crate::storage::exec(
-                #origin,
-                <crate::storage::#pallet as frame_support::dispatch::Callable<crate::TestStorage>>::Call::#call_variant(
-                    #params
-                )
-            )
-        } else {
-            #pallet::#extrinsic(#origin, #params)
+        {
+            let origin = #origin;
+            match (*crate::storage::INTEGRATION_TEST, crate::storage::is_signed_origin(&origin)) {
+                (true, true) => crate::storage::exec(
+                    origin,
+                    <crate::storage::#pallet as frame_support::dispatch::Callable<crate::TestStorage>>::Call::#call_variant(
+                        #params
+                    )
+                ),
+                _ => {
+                    #pallet::#extrinsic(origin, #params)
+                }
+            }
         }
     };
 

@@ -1,12 +1,10 @@
 use super::{
-    fast_forward_blocks, next_block,
+    exec_noop, exec_ok, fast_forward_blocks, next_block,
     storage::{Call, TestStorage, User},
     ExtBuilder,
 };
 
-use frame_support::{
-    assert_noop, assert_ok, storage::IterableStorageDoubleMap, traits::Currency, weights::Weight,
-};
+use frame_support::{storage::IterableStorageDoubleMap, traits::Currency, weights::Weight};
 use pallet_bridge::{
     self as bridge, BridgeTx as GBridgeTx, BridgeTxDetail as GBridgeTxDetail, BridgeTxStatus,
 };
@@ -101,7 +99,7 @@ fn signers_approve_bridge_tx(tx: BridgeTx, signers: &[AccountId]) -> BridgeTx {
 
     // Use minimun number of signs to approve it.
     for i in 0..(MIN_SIGNS_REQUIRED as usize) {
-        assert_ok!(Bridge::propose_bridge_tx(
+        exec_ok!(Bridge::propose_bridge_tx(
             Origin::signed(signers[i].clone()),
             tx.clone()
         ));
@@ -151,7 +149,7 @@ fn can_issue_to_identity() {
         assert_eq!(alice_tx_details(1).status, BridgeTxStatus::Handled);
 
         let controller = Origin::signed(Bridge::controller());
-        assert_noop!(
+        exec_noop!(
             Bridge::handle_bridge_tx(controller, tx),
             Error::ProposalAlreadyHandled
         );
@@ -163,7 +161,7 @@ fn can_change_controller() {
     test_with_controller(&|_signers| {
         let controller = Bob.to_account_id();
 
-        assert_ok!(Bridge::change_controller(
+        exec_ok!(Bridge::change_controller(
             signed_admin(),
             controller.clone()
         ));
@@ -181,7 +179,7 @@ fn cannot_propose_without_controller() {
         .build()
         .execute_with(|| {
             let bridge_tx = alice_bridge_tx(1_000_000);
-            assert_noop!(
+            exec_noop!(
                 Bridge::propose_bridge_tx(Origin::signed(alice), bridge_tx),
                 Error::ControllerNotSet
             );
@@ -193,13 +191,13 @@ fn cannot_call_bridge_callback_extrinsics() {
     test_with_controller(&|_signers| {
         let controller = Bridge::controller();
         let no_admin = Origin::signed(Bob.to_account_id());
-        assert_noop!(
+        exec_noop!(
             Bridge::change_controller(no_admin.clone(), controller),
             Error::BadAdmin
         );
 
         let bridge_tx = alice_bridge_tx(1_000_000);
-        assert_noop!(
+        exec_noop!(
             Bridge::handle_bridge_tx(no_admin, bridge_tx),
             Error::BadCaller
         );
@@ -218,7 +216,7 @@ fn do_admin_freeze_and_unfreeze_bridge(signers: &[AccountId]) {
     let timelock = Bridge::timelock();
 
     // Freeze the bridge with the transaction still in flight.
-    assert_ok!(Bridge::freeze(admin.clone()));
+    exec_ok!(Bridge::freeze(admin.clone()));
     assert!(Bridge::frozen());
 
     let starting_alices_balance = alice_balance();
@@ -232,7 +230,7 @@ fn do_admin_freeze_and_unfreeze_bridge(signers: &[AccountId]) {
     assert_eq!(next_block(), WEIGHT_EXPECTED_1);
 
     // Unfreeze the bridge.
-    assert_ok!(Bridge::unfreeze(admin));
+    exec_ok!(Bridge::unfreeze(admin));
     assert!(!Bridge::frozen());
     next_block();
 
@@ -270,29 +268,29 @@ fn do_test_freeze_admins(_signers: &[AccountId]) {
 
         if can_freeze {
             // User is allowed to freeze the bridge.
-            assert_ok!(Bridge::freeze(user.origin()));
+            exec_ok!(Bridge::freeze(user.origin()));
             assert!(Bridge::frozen());
         } else {
             // User is not allowed to freeze the bridge.
-            assert_noop!(Bridge::freeze(user.origin()), Error::BadAdmin);
+            exec_noop!(Bridge::freeze(user.origin()), Error::BadAdmin);
             assert!(!Bridge::frozen());
 
             // Use admin to freeze the bridge.
-            assert_ok!(Bridge::freeze(admin.clone()));
+            exec_ok!(Bridge::freeze(admin.clone()));
             assert!(Bridge::frozen());
         }
 
         // User is not allowed to unfreeze the bridge.
-        assert_noop!(Bridge::unfreeze(user.origin()), Error::BadAdmin);
+        exec_noop!(Bridge::unfreeze(user.origin()), Error::BadAdmin);
         assert!(Bridge::frozen());
 
         // Use admin to unfreeze the bridge.
-        assert_ok!(Bridge::unfreeze(admin.clone()));
+        exec_ok!(Bridge::unfreeze(admin.clone()));
         assert!(!Bridge::frozen());
     };
     let add_freeze_admin = |user: User| {
         // Use admin to add a freeze admin.
-        assert_ok!(Bridge::add_freeze_admin(admin.clone(), user.acc()));
+        exec_ok!(Bridge::add_freeze_admin(admin.clone(), user.acc()));
         assert!(Bridge::freeze_admins(user.acc()));
 
         // Check that they can freeze/unfreeze the bridge.
@@ -300,7 +298,7 @@ fn do_test_freeze_admins(_signers: &[AccountId]) {
     };
     let remove_freeze_admin = |user: User| {
         // Use admin to remove a freeze admin.
-        assert_ok!(Bridge::remove_freeze_admin(admin.clone(), user.acc()));
+        exec_ok!(Bridge::remove_freeze_admin(admin.clone(), user.acc()));
         assert!(!Bridge::freeze_admins(user.acc()));
 
         // Check that they cannot freeze/unfreeze the bridge.
@@ -378,7 +376,7 @@ fn do_rate_limit(signers: &[AccountId]) {
     let starting_alices_balance = alice_balance();
 
     // Set up limit and timeclock.
-    assert_ok!(Bridge::change_bridge_limit(admin.clone(), rate_limit, 1));
+    exec_ok!(Bridge::change_bridge_limit(admin.clone(), rate_limit, 1));
 
     // Propose the transaction... and it should not issue due to the current rate_limit.
     signers_approve_bridge_tx(tx, signers);
@@ -386,7 +384,7 @@ fn do_rate_limit(signers: &[AccountId]) {
 
     // Still no issue, rate limit reached.
     assert_eq!(alice_balance(), starting_alices_balance);
-    assert_ok!(Bridge::change_bridge_limit(admin, AMOUNT_OVER_LIMIT + 1, 1));
+    exec_ok!(Bridge::change_bridge_limit(admin, AMOUNT_OVER_LIMIT + 1, 1));
 
     // Mint successful after limit is increased.
     next_block();
@@ -416,7 +414,7 @@ fn do_exempted(signers: &[AccountId]) {
 
     // Still no issue, rate limit reached.
     assert_eq!(alice_balance(), starting_alices_balance);
-    assert_ok!(Bridge::change_bridge_exempted(
+    exec_ok!(Bridge::change_bridge_exempted(
         signed_admin(),
         vec![(alice_did, true)]
     ));
@@ -450,7 +448,7 @@ fn do_force_mint(signers: &[AccountId]) {
 
     // Still no issue, rate limit reached.
     assert_eq!(alice_balance(), starting_alices_balance);
-    assert_ok!(Bridge::force_handle_bridge_tx(signed_admin(), tx));
+    exec_ok!(Bridge::force_handle_bridge_tx(signed_admin(), tx));
 
     // Mint successful after force handle.
     assert_eq!(alice_balance(), starting_alices_balance + AMOUNT_OVER_LIMIT);
@@ -464,11 +462,11 @@ fn change_admin() {
         let new_admin = signers[0].clone();
         assert_ne!(new_admin, Bridge::admin());
 
-        assert_noop!(
+        exec_noop!(
             Bridge::change_admin(Origin::signed(new_admin.clone()), new_admin.clone()),
             Error::BadAdmin
         );
-        assert_ok!(Bridge::change_admin(signed_admin(), new_admin.clone()));
+        exec_ok!(Bridge::change_admin(signed_admin(), new_admin.clone()));
         assert_eq!(Bridge::admin(), new_admin);
     });
 }
@@ -479,11 +477,11 @@ fn change_timelock() {
         let no_admin = Origin::signed(signers[0].clone());
         let new_timelock = Bridge::timelock() * 2;
 
-        assert_noop!(
+        exec_noop!(
             Bridge::change_timelock(no_admin, new_timelock),
             Error::BadAdmin
         );
-        assert_ok!(Bridge::change_timelock(signed_admin(), new_timelock));
+        exec_ok!(Bridge::change_timelock(signed_admin(), new_timelock));
         assert_eq!(Bridge::timelock(), new_timelock);
     });
 }
@@ -508,11 +506,11 @@ fn do_freeze_txs(signers: &[AccountId]) {
     // Freeze all txs except the first one.
     let frozen_txs = txs.iter().skip(1).cloned().collect::<Vec<_>>();
     assert!(!frozen_txs.is_empty());
-    assert_noop!(
+    exec_noop!(
         Bridge::freeze_txs(no_admin.clone(), frozen_txs.clone()),
         Error::BadAdmin
     );
-    assert_ok!(Bridge::freeze_txs(signed_admin(), frozen_txs.clone()));
+    exec_ok!(Bridge::freeze_txs(signed_admin(), frozen_txs.clone()));
     next_block();
 
     // Double check that first TX is done, and any other is frozen.
@@ -524,11 +522,11 @@ fn do_freeze_txs(signers: &[AccountId]) {
     });
 
     // Unfreeze frozen TXs.
-    assert_noop!(
+    exec_noop!(
         Bridge::unfreeze_txs(no_admin, frozen_txs.clone()),
         Error::BadAdmin
     );
-    assert_ok!(Bridge::unfreeze_txs(signed_admin(), frozen_txs));
+    exec_ok!(Bridge::unfreeze_txs(signed_admin(), frozen_txs));
 
     // Verify that all TXs are done and balances of owner are updated.
     txs.iter()
@@ -556,7 +554,7 @@ fn do_batch_propose_bridge_tx(signers: &[AccountId]) {
         });
     };
 
-    assert_ok!(Bridge::batch_propose_bridge_tx(alice, txs.clone()));
+    exec_ok!(Bridge::batch_propose_bridge_tx(alice, txs.clone()));
 
     // Transactions should be `Absent`.
     ensure_txs_status(&txs, BridgeTxStatus::Absent);
@@ -646,18 +644,18 @@ fn do_remove_txs(signers: &[AccountId]) {
     // Freeze all txs except the first one.
     let frozen_txs = txs.iter().skip(1).cloned().collect::<Vec<_>>();
     assert!(!frozen_txs.is_empty());
-    assert_ok!(Bridge::freeze_txs(signed_admin(), frozen_txs.clone()));
+    exec_ok!(Bridge::freeze_txs(signed_admin(), frozen_txs.clone()));
 
-    assert_noop!(
+    exec_noop!(
         Bridge::remove_txs(no_admin, txs.clone().into()),
         Error::BadAdmin
     );
-    assert_noop!(
+    exec_noop!(
         Bridge::remove_txs(signed_admin(), txs.clone().into()),
         Error::NotFrozen
     );
 
-    assert_ok!(Bridge::remove_txs(signed_admin(), frozen_txs.clone()));
+    exec_ok!(Bridge::remove_txs(signed_admin(), frozen_txs.clone()));
     assert!(frozen_txs
         .iter()
         .map(|tx| Bridge::get_tx_details(&tx))

@@ -1,14 +1,14 @@
 use super::{
-    next_block,
+    assert_noop, assert_ok, exec_noop, exec_ok, next_block,
     storage::{
         add_secondary_key, get_last_auth_id, get_primary_key, get_secondary_keys,
         register_keyring_account, set_curr_did, Call, TestStorage, User,
     },
     ExtBuilder,
 };
-use frame_support::{assert_noop, assert_ok};
 use pallet_multisig as multisig;
 use polymesh_common_utilities::constants::currency::POLY;
+use polymesh_exec_macro::exec;
 use polymesh_primitives::{AccountId, AuthorizationData, Permissions, SecondaryKey, Signatory};
 use test_client::AccountKeyring;
 
@@ -31,7 +31,8 @@ fn create_multisig() {
         let ms_address = MultiSig::get_next_multisig_address(alice.acc());
 
         let signers = || vec![Signatory::from(alice.did), Signatory::from(bob.did)];
-        let create = |signers, nsigs| MultiSig::create_multisig(alice.origin(), signers, nsigs);
+        let create =
+            |signers, nsigs| exec!(MultiSig::create_multisig(alice.origin(), signers, nsigs));
 
         assert_ok!(create(signers(), 1));
         assert_eq!(MultiSig::ms_signs_required(ms_address), 1);
@@ -57,7 +58,7 @@ fn join_multisig() {
 
         let ms_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id());
 
-        assert_ok!(MultiSig::create_multisig(
+        exec_ok!(MultiSig::create_multisig(
             alice.clone(),
             vec![Signatory::from(alice_did), bob_signer.clone()],
             1,
@@ -75,14 +76,14 @@ fn join_multisig() {
 
         let alice_auth_id = get_last_auth_id(&Signatory::from(alice_did));
         set_curr_did(Some(alice_did));
-        assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+        exec_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
             alice_auth_id
         ));
 
         let bob_auth_id = get_last_auth_id(&bob_signer);
         set_curr_did(Some(alice_did));
-        assert_ok!(MultiSig::accept_multisig_signer_as_key(
+        exec_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
             bob_auth_id
         ));
@@ -97,7 +98,7 @@ fn join_multisig() {
         );
 
         set_curr_did(None);
-        assert_ok!(MultiSig::create_multisig(
+        exec_ok!(MultiSig::create_multisig(
             alice.clone(),
             vec![Signatory::from(alice_did), bob_signer.clone()],
             1,
@@ -110,7 +111,7 @@ fn join_multisig() {
             Err(Error::SignerAlreadyLinkedToMultisig.into()),
         );
 
-        assert_ok!(MultiSig::create_multisig(
+        exec_ok!(MultiSig::create_multisig(
             alice.clone(),
             vec![Signatory::from(alice_did), dave.signatory_acc()],
             1,
@@ -125,7 +126,7 @@ fn join_multisig() {
         );
 
         set_curr_did(None);
-        assert_ok!(MultiSig::create_multisig(
+        exec_ok!(MultiSig::create_multisig(
             alice.clone(),
             vec![Signatory::Account(ms_address.clone())],
             1,
@@ -156,7 +157,7 @@ fn change_multisig_sigs_required() {
 
         let ms_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id());
 
-        assert_ok!(MultiSig::create_multisig(
+        exec_ok!(MultiSig::create_multisig(
             alice.clone(),
             vec![Signatory::from(alice_did), bob_signer.clone()],
             2,
@@ -164,7 +165,7 @@ fn change_multisig_sigs_required() {
 
         let alice_auth_id = get_last_auth_id(&Signatory::from(alice_did));
         set_curr_did(Some(alice_did));
-        assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+        exec_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
             alice_auth_id
         ));
@@ -172,7 +173,7 @@ fn change_multisig_sigs_required() {
         let bob_auth_id = get_last_auth_id(&bob_signer);
 
         set_curr_did(Some(alice_did));
-        assert_ok!(MultiSig::accept_multisig_signer_as_key(
+        exec_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
             bob_auth_id
         ));
@@ -189,7 +190,7 @@ fn change_multisig_sigs_required() {
         }));
 
         set_curr_did(Some(alice_did));
-        assert_ok!(MultiSig::create_proposal_as_key(
+        exec_ok!(MultiSig::create_proposal_as_key(
             bob.clone(),
             ms_address.clone(),
             call,
@@ -207,7 +208,7 @@ fn change_multisig_sigs_required() {
         );
 
         set_curr_did(Some(alice_did));
-        assert_ok!(MultiSig::approve_as_identity(
+        exec_ok!(MultiSig::approve_as_identity(
             alice.clone(),
             ms_address.clone(),
             0
@@ -225,7 +226,7 @@ fn create_or_approve_change_multisig_sigs_required() {
         let bob = Origin::signed(AccountKeyring::Bob.to_account_id());
         let bob_signer = Signatory::Account(AccountKeyring::Bob.to_account_id());
         let ms_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id());
-        assert_ok!(MultiSig::create_multisig(
+        exec_ok!(MultiSig::create_multisig(
             alice.clone(),
             vec![Signatory::from(alice_did), bob_signer.clone()],
             2,
@@ -233,12 +234,12 @@ fn create_or_approve_change_multisig_sigs_required() {
         let alice_auth_id = get_last_auth_id(&Signatory::from(alice_did));
 
         set_curr_did(Some(alice_did));
-        assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+        exec_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
             alice_auth_id
         ));
         let bob_auth_id = get_last_auth_id(&bob_signer);
-        assert_ok!(MultiSig::accept_multisig_signer_as_key(
+        exec_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
             bob_auth_id
         ));
@@ -250,7 +251,7 @@ fn create_or_approve_change_multisig_sigs_required() {
         let call = Box::new(Call::MultiSig(multisig::Call::change_sigs_required {
             sigs_required: 1,
         }));
-        assert_ok!(MultiSig::create_or_approve_proposal_as_key(
+        exec_ok!(MultiSig::create_or_approve_proposal_as_key(
             bob.clone(),
             ms_address.clone(),
             call.clone(),
@@ -259,7 +260,7 @@ fn create_or_approve_change_multisig_sigs_required() {
         ));
         next_block();
         assert_eq!(MultiSig::ms_signs_required(ms_address.clone()), 2);
-        assert_ok!(MultiSig::create_or_approve_proposal_as_identity(
+        exec_ok!(MultiSig::create_or_approve_proposal_as_identity(
             alice.clone(),
             ms_address.clone(),
             call,
@@ -282,7 +283,7 @@ fn remove_multisig_signer() {
 
         let ms_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id());
 
-        assert_ok!(MultiSig::create_multisig(
+        exec_ok!(MultiSig::create_multisig(
             alice.clone(),
             vec![alice_signer.clone(), bob_signer.clone()],
             1,
@@ -293,7 +294,7 @@ fn remove_multisig_signer() {
         let alice_auth_id = get_last_auth_id(&alice_signer);
 
         set_curr_did(Some(alice_did));
-        assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+        exec_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
             alice_auth_id
         ));
@@ -302,7 +303,7 @@ fn remove_multisig_signer() {
 
         let bob_auth_id = get_last_auth_id(&bob_signer);
 
-        assert_ok!(MultiSig::accept_multisig_signer_as_key(
+        exec_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
             bob_auth_id
         ));
@@ -331,7 +332,7 @@ fn remove_multisig_signer() {
             signer: bob_signer.clone(),
         }));
 
-        assert_ok!(MultiSig::create_proposal_as_identity(
+        exec_ok!(MultiSig::create_proposal_as_identity(
             alice.clone(),
             ms_address.clone(),
             call,
@@ -361,7 +362,7 @@ fn remove_multisig_signer() {
             signer: alice_signer.clone(),
         }));
 
-        assert_ok!(MultiSig::create_proposal_as_identity(
+        exec_ok!(MultiSig::create_proposal_as_identity(
             alice.clone(),
             ms_address.clone(),
             remove_alice,
@@ -388,7 +389,7 @@ fn add_multisig_signer() {
 
         let ms_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id());
 
-        assert_ok!(MultiSig::create_multisig(
+        exec_ok!(MultiSig::create_multisig(
             alice.clone(),
             vec![Signatory::from(alice_did)],
             1,
@@ -397,7 +398,7 @@ fn add_multisig_signer() {
         let alice_auth_id = get_last_auth_id(&Signatory::from(alice_did));
 
         set_curr_did(Some(alice_did));
-        assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+        exec_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
             alice_auth_id
         ));
@@ -415,7 +416,7 @@ fn add_multisig_signer() {
             signer: bob_signer.clone(),
         }));
 
-        assert_ok!(MultiSig::create_proposal_as_identity(
+        exec_ok!(MultiSig::create_proposal_as_identity(
             alice.clone(),
             ms_address.clone(),
             call,
@@ -429,7 +430,7 @@ fn add_multisig_signer() {
             signer: charlie_signer.clone(),
         }));
 
-        assert_ok!(MultiSig::create_proposal_as_identity(
+        exec_ok!(MultiSig::create_proposal_as_identity(
             alice.clone(),
             ms_address.clone(),
             call2,
@@ -454,13 +455,13 @@ fn add_multisig_signer() {
 
         let root = Origin::from(frame_system::RawOrigin::Root);
 
-        assert_ok!(MultiSig::make_multisig_primary(
+        exec_ok!(MultiSig::make_multisig_primary(
             alice.clone(),
             ms_address.clone(),
             None
         ));
 
-        assert_ok!(MultiSig::accept_multisig_signer_as_key(
+        exec_ok!(MultiSig::accept_multisig_signer_as_key(
             charlie.clone(),
             charlie_auth_id
         ));
@@ -479,7 +480,7 @@ fn add_multisig_signer() {
         assert!(Identity::change_cdd_requirement_for_mk_rotation(root.clone(), false).is_ok());
 
         set_curr_did(Some(alice_did));
-        assert_ok!(MultiSig::accept_multisig_signer_as_key(
+        exec_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
             bob_auth_id
         ));
@@ -498,7 +499,7 @@ fn make_multisig_primary() {
 
         let ms_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id());
 
-        assert_ok!(MultiSig::create_multisig(
+        exec_ok!(MultiSig::create_multisig(
             alice.clone(),
             vec![Signatory::from(alice_did)],
             1,
@@ -509,12 +510,12 @@ fn make_multisig_primary() {
             AccountKeyring::Alice.to_account_id()
         );
 
-        assert_noop!(
+        exec_noop!(
             MultiSig::make_multisig_primary(bob.clone(), ms_address.clone(), None),
             Error::IdentityNotCreator
         );
 
-        assert_ok!(MultiSig::make_multisig_primary(
+        exec_ok!(MultiSig::make_multisig_primary(
             alice.clone(),
             ms_address.clone(),
             None
@@ -534,7 +535,7 @@ fn rotate_multisig_primary_key_with_balance() {
 
         let ms_address = MultiSig::get_next_multisig_address(alice.acc());
 
-        assert_ok!(MultiSig::create_multisig(
+        exec_ok!(MultiSig::create_multisig(
             alice.origin(),
             vec![Signatory::Account(dave_key)],
             1,
@@ -544,13 +545,13 @@ fn rotate_multisig_primary_key_with_balance() {
         assert_eq!(get_primary_key(alice.did), alice.acc());
 
         // Bob can't make the MultiSig account his primary key.
-        assert_noop!(
+        exec_noop!(
             MultiSig::make_multisig_primary(bob.origin(), ms_address.clone(), None),
             Error::IdentityNotCreator
         );
 
         // Make the MultiSig account Alice's primary key.
-        assert_ok!(MultiSig::make_multisig_primary(
+        exec_ok!(MultiSig::make_multisig_primary(
             alice.origin(),
             ms_address.clone(),
             None
@@ -560,7 +561,7 @@ fn rotate_multisig_primary_key_with_balance() {
         assert_eq!(get_primary_key(alice.did), ms_address);
 
         // Fund the MultiSig.
-        assert_ok!(Balances::transfer(
+        exec_ok!(Balances::transfer(
             bob.origin(),
             ms_address.clone().into(),
             2 * POLY
@@ -589,7 +590,7 @@ fn make_multisig_secondary_key() {
 
         let multisig = MultiSig::get_next_multisig_address(alice.acc());
 
-        assert_ok!(MultiSig::create_multisig(
+        exec_ok!(MultiSig::create_multisig(
             alice.origin(),
             vec![Signatory::from(alice.did)],
             1,
@@ -600,8 +601,12 @@ fn make_multisig_secondary_key() {
         let has_ms_sk = || get_secondary_keys(alice.did).contains(&multisig_secondary);
         assert!(!has_ms_sk());
 
-        let mk_ms_signer =
-            |u: User| MultiSig::make_multisig_secondary(u.origin(), multisig.clone());
+        let mk_ms_signer = |u: User| {
+            exec!(MultiSig::make_multisig_secondary(
+                u.origin(),
+                multisig.clone()
+            ))
+        };
         assert_noop!(mk_ms_signer(bob), Error::IdentityNotCreator);
 
         assert_ok!(mk_ms_signer(alice));
@@ -622,7 +627,7 @@ fn remove_multisig_signers_via_creator() {
 
         let ms_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id());
 
-        assert_ok!(MultiSig::create_multisig(
+        exec_ok!(MultiSig::create_multisig(
             alice.clone(),
             vec![alice_signer.clone(), bob_signer.clone()],
             1,
@@ -632,7 +637,7 @@ fn remove_multisig_signers_via_creator() {
 
         let alice_auth_id = get_last_auth_id(&alice_signer.clone());
 
-        assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+        exec_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
             alice_auth_id
         ));
@@ -641,7 +646,7 @@ fn remove_multisig_signers_via_creator() {
 
         let bob_auth_id = get_last_auth_id(&bob_signer.clone());
 
-        assert_ok!(MultiSig::accept_multisig_signer_as_key(
+        exec_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
             bob_auth_id
         ));
@@ -658,7 +663,7 @@ fn remove_multisig_signers_via_creator() {
             true
         );
 
-        assert_noop!(
+        exec_noop!(
             MultiSig::remove_multisig_signers_via_creator(
                 bob.clone(),
                 ms_address.clone(),
@@ -667,7 +672,7 @@ fn remove_multisig_signers_via_creator() {
             Error::IdentityNotCreator
         );
 
-        assert_ok!(MultiSig::remove_multisig_signers_via_creator(
+        exec_ok!(MultiSig::remove_multisig_signers_via_creator(
             alice.clone(),
             ms_address.clone(),
             vec![bob_signer.clone()]
@@ -685,7 +690,7 @@ fn remove_multisig_signers_via_creator() {
             false
         );
 
-        assert_noop!(
+        exec_noop!(
             MultiSig::remove_multisig_signers_via_creator(
                 alice.clone(),
                 ms_address.clone(),
@@ -709,7 +714,7 @@ fn add_multisig_signers_via_creator() {
 
         let ms_address = MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id());
 
-        assert_ok!(MultiSig::create_multisig(
+        exec_ok!(MultiSig::create_multisig(
             alice.clone(),
             vec![Signatory::from(alice_did)],
             1,
@@ -717,7 +722,7 @@ fn add_multisig_signers_via_creator() {
 
         let alice_auth_id = get_last_auth_id(&Signatory::from(alice_did));
 
-        assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+        exec_ok!(MultiSig::accept_multisig_signer_as_identity(
             alice.clone(),
             alice_auth_id
         ));
@@ -731,7 +736,7 @@ fn add_multisig_signers_via_creator() {
             false
         );
 
-        assert_noop!(
+        exec_noop!(
             MultiSig::add_multisig_signers_via_creator(
                 bob.clone(),
                 ms_address.clone(),
@@ -740,7 +745,7 @@ fn add_multisig_signers_via_creator() {
             Error::IdentityNotCreator
         );
 
-        assert_ok!(MultiSig::add_multisig_signers_via_creator(
+        exec_ok!(MultiSig::add_multisig_signers_via_creator(
             alice.clone(),
             ms_address.clone(),
             vec![bob_signer.clone()]
@@ -758,7 +763,7 @@ fn add_multisig_signers_via_creator() {
 
         let bob_auth_id = get_last_auth_id(&bob_signer.clone());
 
-        assert_ok!(MultiSig::accept_multisig_signer_as_key(
+        exec_ok!(MultiSig::accept_multisig_signer_as_key(
             bob.clone(),
             bob_auth_id
         ));
@@ -783,7 +788,7 @@ fn check_for_approval_closure() {
             let ms_address =
                 MultiSig::get_next_multisig_address(AccountKeyring::Alice.to_account_id());
 
-            assert_ok!(MultiSig::create_multisig(
+            exec_ok!(MultiSig::create_multisig(
                 alice.clone(),
                 vec![Signatory::from(alice_did), Signatory::from(eve_did)],
                 1,
@@ -792,7 +797,7 @@ fn check_for_approval_closure() {
             let alice_auth_id = get_last_auth_id(&Signatory::from(alice_did));
 
             set_curr_did(Some(alice_did));
-            assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+            exec_ok!(MultiSig::accept_multisig_signer_as_identity(
                 alice.clone(),
                 alice_auth_id
             ));
@@ -805,7 +810,7 @@ fn check_for_approval_closure() {
             let eve_auth_id = get_last_auth_id(&Signatory::from(eve_did));
 
             set_curr_did(Some(eve_did));
-            assert_ok!(MultiSig::accept_multisig_signer_as_identity(
+            exec_ok!(MultiSig::accept_multisig_signer_as_identity(
                 eve.clone(),
                 eve_auth_id
             ));
@@ -824,7 +829,7 @@ fn check_for_approval_closure() {
                 signer: bob_signer.clone(),
             }));
             set_curr_did(Some(alice_did));
-            assert_ok!(MultiSig::create_proposal_as_identity(
+            exec_ok!(MultiSig::create_proposal_as_identity(
                 alice.clone(),
                 ms_address.clone(),
                 call,
@@ -838,7 +843,7 @@ fn check_for_approval_closure() {
 
             set_curr_did(Some(eve_did));
 
-            assert_noop!(
+            exec_noop!(
                 MultiSig::approve_as_identity(eve.clone(), ms_address.clone(), proposal_id),
                 Error::ProposalAlreadyExecuted
             );
@@ -903,7 +908,7 @@ fn reject_proposals() {
                 sigs_required: 5,
             }));
             set_curr_did(Some(alice_did));
-            assert_ok!(MultiSig::create_proposal_as_identity(
+            exec_ok!(MultiSig::create_proposal_as_identity(
                 alice.clone(),
                 ms_address.clone(),
                 call1,
@@ -911,7 +916,7 @@ fn reject_proposals() {
                 false
             ));
             let proposal_id1 = MultiSig::ms_tx_done(ms_address.clone()) - 1;
-            assert_ok!(MultiSig::create_proposal_as_identity(
+            exec_ok!(MultiSig::create_proposal_as_identity(
                 alice.clone(),
                 ms_address.clone(),
                 call2,
@@ -922,24 +927,24 @@ fn reject_proposals() {
 
             // Proposal with auto close disabled can be voted on even after rejection.
             set_curr_did(Some(bob_did));
-            assert_ok!(MultiSig::reject_as_identity(
+            exec_ok!(MultiSig::reject_as_identity(
                 bob.clone(),
                 ms_address.clone(),
                 proposal_id1
             ));
             set_curr_did(Some(charlie_did));
-            assert_ok!(MultiSig::reject_as_identity(
+            exec_ok!(MultiSig::reject_as_identity(
                 charlie.clone(),
                 ms_address.clone(),
                 proposal_id1
             ));
-            assert_ok!(MultiSig::reject_as_key(
+            exec_ok!(MultiSig::reject_as_key(
                 eve.clone(),
                 ms_address.clone(),
                 proposal_id1
             ));
             set_curr_did(Some(dave_did));
-            assert_ok!(MultiSig::approve_as_identity(
+            exec_ok!(MultiSig::approve_as_identity(
                 dave.clone(),
                 ms_address.clone(),
                 proposal_id1
@@ -955,24 +960,24 @@ fn reject_proposals() {
 
             // Proposal with auto close enabled can not be voted on after rejection.
             set_curr_did(Some(bob_did));
-            assert_ok!(MultiSig::reject_as_identity(
+            exec_ok!(MultiSig::reject_as_identity(
                 bob.clone(),
                 ms_address.clone(),
                 proposal_id2
             ));
             set_curr_did(Some(charlie_did));
-            assert_ok!(MultiSig::reject_as_identity(
+            exec_ok!(MultiSig::reject_as_identity(
                 charlie.clone(),
                 ms_address.clone(),
                 proposal_id2
             ));
-            assert_ok!(MultiSig::reject_as_key(
+            exec_ok!(MultiSig::reject_as_key(
                 eve.clone(),
                 ms_address.clone(),
                 proposal_id2
             ));
             set_curr_did(Some(dave_did));
-            assert_noop!(
+            exec_noop!(
                 MultiSig::approve_as_identity(dave.clone(), ms_address.clone(), proposal_id2),
                 Error::ProposalAlreadyRejected
             );
@@ -1015,7 +1020,7 @@ fn expired_proposals() {
         }));
 
         set_curr_did(Some(alice_did));
-        assert_ok!(MultiSig::create_proposal_as_identity(
+        exec_ok!(MultiSig::create_proposal_as_identity(
             alice.clone(),
             ms_address.clone(),
             call,
@@ -1032,7 +1037,7 @@ fn expired_proposals() {
         );
 
         set_curr_did(Some(bob_did));
-        assert_ok!(MultiSig::approve_as_identity(
+        exec_ok!(MultiSig::approve_as_identity(
             bob.clone(),
             ms_address.clone(),
             proposal_id
@@ -1048,7 +1053,7 @@ fn expired_proposals() {
         // Approval fails when proposal has expired
         Timestamp::set_timestamp(expires_at);
         set_curr_did(Some(charlie_did));
-        assert_noop!(
+        exec_noop!(
             MultiSig::approve_as_identity(charlie.clone(), ms_address.clone(), proposal_id),
             Error::ProposalExpired
         );
@@ -1062,7 +1067,7 @@ fn expired_proposals() {
 
         // Approval works when time is expiry - 1
         Timestamp::set_timestamp(expires_at - 1);
-        assert_ok!(MultiSig::approve_as_identity(
+        exec_ok!(MultiSig::approve_as_identity(
             charlie.clone(),
             ms_address.clone(),
             proposal_id
@@ -1078,7 +1083,7 @@ fn expired_proposals() {
 }
 
 fn setup_multisig(creator_origin: Origin, sigs_required: u64, signers: Vec<Signatory<AccountId>>) {
-    assert_ok!(MultiSig::create_multisig(
+    exec_ok!(MultiSig::create_multisig(
         creator_origin,
         signers.clone(),
         sigs_required,

@@ -1,13 +1,11 @@
 use super::{
+    assert_noop, assert_ok, exec_ok,
     storage::{
         account_from, create_investor_uid, make_account, provide_scope_claim, TestStorage, User,
     },
     ExtBuilder,
 };
-use frame_support::{
-    assert_noop, assert_ok,
-    dispatch::{DispatchError, DispatchResult},
-};
+use frame_support::dispatch::{DispatchError, DispatchResult};
 use polymesh_primitives::{
     asset::AssetType, investor_zkproof_data::v1::InvestorZKProofData, jurisdiction::CountryCode,
     statistics::*, transfer_compliance::*, AccountId, Balance, CddId, Claim, ClaimType, IdentityId,
@@ -73,7 +71,7 @@ impl InvestorState {
     }
 
     pub fn add_issuer_claim(&mut self, did: &IdentityId, acc: &AccountId, claim: &Claim) {
-        assert_ok!(Identity::add_claim(
+        exec_ok!(Identity::add_claim(
             Origin::signed(acc.clone()),
             self.did,
             claim.clone(),
@@ -184,7 +182,7 @@ impl AssetTracker {
         // Create the owner investor state.
         self.create_investor(self.owner_id);
 
-        assert_ok!(Asset::create_asset(
+        exec_ok!(Asset::create_asset(
             self.owner_origin(),
             format!("Token {}", self.name).into(),
             self.asset,
@@ -199,7 +197,7 @@ impl AssetTracker {
     }
 
     pub fn set_active_stats(&mut self, active_stats: Vec<StatType>) {
-        assert_ok!(Statistics::set_active_asset_stats(
+        exec_ok!(Statistics::set_active_asset_stats(
             self.owner_origin(),
             self.asset_scope,
             active_stats.clone().into_iter().collect(),
@@ -208,7 +206,7 @@ impl AssetTracker {
     }
 
     pub fn set_transfer_conditions(&mut self, conditions: Vec<TransferCondition>) {
-        assert_ok!(Statistics::set_asset_transfer_compliance(
+        exec_ok!(Statistics::set_asset_transfer_compliance(
             self.owner_origin(),
             self.asset_scope,
             conditions.clone().into_iter().collect(),
@@ -231,7 +229,7 @@ impl AssetTracker {
     }
 
     pub fn mint(&mut self, amount: Balance) {
-        assert_ok!(Asset::issue(self.owner_origin(), self.asset, amount));
+        exec_ok!(Asset::issue(self.owner_origin(), self.asset, amount));
         self.total_supply += amount;
         self.owner_mut().balance += amount;
     }
@@ -288,7 +286,7 @@ impl AssetTracker {
         for condition in &self.transfer_conditions {
             let exempt_key = condition.get_exempt_key(self.asset_scope);
             println!(" -- exempt={:?}", exempt_key);
-            assert_ok!(Statistics::set_entities_exempt(
+            exec_ok!(Statistics::set_entities_exempt(
                 self.owner_origin(),
                 is_exempt,
                 exempt_key,
@@ -442,7 +440,7 @@ impl AssetTracker {
 
     #[track_caller]
     pub fn allow_all_transfers(&self) {
-        assert_ok!(ComplianceManager::add_compliance_requirement(
+        exec_ok!(ComplianceManager::add_compliance_requirement(
             self.owner().origin(),
             self.asset,
             vec![],

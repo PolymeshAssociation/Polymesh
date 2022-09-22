@@ -1,4 +1,5 @@
 use super::{
+    exec_noop, exec_ok,
     storage::{register_keyring_account, EventTest, TestStorage},
     ExtBuilder,
 };
@@ -9,7 +10,7 @@ use polymesh_common_utilities::traits::balances::{Memo, RawEvent as BalancesRawE
 use polymesh_runtime_develop::{runtime, Runtime};
 
 use frame_support::{
-    assert_noop, assert_ok,
+    assert_ok,
     traits::Currency,
     weights::{DispatchInfo, Weight},
 };
@@ -126,7 +127,7 @@ fn mint_subsidy_works() {
 
             // Funding BRR
             let eve_signed = Origin::signed(AccountKeyring::Eve.to_account_id());
-            assert_ok!(Balances::deposit_block_reward_reserve_balance(
+            exec_ok!(Balances::deposit_block_reward_reserve_balance(
                 eve_signed, 500,
             ));
             assert_eq!(Balances::free_balance(&brr), 500);
@@ -185,7 +186,7 @@ fn issue_must_work() {
 
             // Funding BRR
             let eve_signed = Origin::signed(AccountKeyring::Eve.to_account_id());
-            assert_ok!(Balances::deposit_block_reward_reserve_balance(
+            exec_ok!(Balances::deposit_block_reward_reserve_balance(
                 eve_signed, 500,
             ));
             assert_eq!(Balances::free_balance(&brr), 500);
@@ -225,7 +226,7 @@ fn burn_account_balance_works() {
         let total_issuance0 = Balances::total_issuance();
         let alice_free_balance0 = Balances::free_balance(&alice_pub);
         let burn_amount = 100_000;
-        assert_ok!(Balances::burn_account_balance(
+        exec_ok!(Balances::burn_account_balance(
             Origin::signed(alice_pub.clone()),
             burn_amount
         ));
@@ -234,7 +235,7 @@ fn burn_account_balance_works() {
         let total_issuance1 = Balances::total_issuance();
         assert_eq!(total_issuance1, total_issuance0 - burn_amount);
         let fat_finger_burn_amount = std::u128::MAX;
-        assert_noop!(
+        exec_noop!(
             Balances::burn_account_balance(
                 Origin::signed(alice_pub.clone()),
                 fat_finger_burn_amount
@@ -267,14 +268,14 @@ fn transfer_with_memo_we() {
     let bob_id = register_keyring_account(AccountKeyring::Bob).unwrap();
 
     let memo_1 = Some(Memo([7u8; 32]));
-    assert_ok!(Balances::transfer_with_memo(
+    exec_ok!(Balances::transfer_with_memo(
         Origin::signed(alice.clone()),
         bob.clone().into(),
         100,
         memo_1.clone()
     ),);
     Balances::make_free_balance_be(&bob, 0);
-    assert_ok!(Balances::transfer_with_memo(
+    exec_ok!(Balances::transfer_with_memo(
         Origin::signed(alice.clone()),
         bob.clone().into(),
         100,
@@ -286,14 +287,14 @@ fn transfer_with_memo_we() {
     System::note_finished_initialize();
 
     let memo_2 = Some(Memo([42u8; 32]));
-    assert_ok!(Balances::transfer_with_memo(
+    exec_ok!(Balances::transfer_with_memo(
         Origin::signed(alice.clone()),
         bob.clone().into(),
         200,
         memo_2.clone()
     ));
 
-    assert_ok!(Balances::transfer_with_memo(
+    exec_ok!(Balances::transfer_with_memo(
         Origin::signed(alice.clone()),
         bob.clone().into(),
         300,

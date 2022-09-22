@@ -1,7 +1,8 @@
 use super::{
-    assert_event_exists,
+    assert_event_exists, assert_noop, assert_ok,
     asset_test::max_len_bytes,
     committee_test::{gc_vmo, set_members},
+    exec_noop, exec_ok,
     storage::{
         fast_forward_blocks, make_remark_proposal, root, Call, EventTest, TestStorage, User,
     },
@@ -9,7 +10,6 @@ use super::{
 };
 use core::assert_matches::assert_matches;
 use frame_support::{
-    assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
     traits::{LockableCurrency, WithdrawReasons},
     StorageDoubleMap, StorageValue,
@@ -22,6 +22,7 @@ use pallet_pips::{
 };
 use pallet_treasury as treasury;
 use polymesh_common_utilities::{MaybeBlock, GC_DID};
+use polymesh_exec_macro::exec;
 use polymesh_primitives::{AccountId, BlockNumber, Url};
 use test_client::AccountKeyring;
 
@@ -57,19 +58,19 @@ macro_rules! assert_last_event {
 
 macro_rules! assert_bad_origin {
     ($e:expr) => {
-        assert_noop!($e, DispatchError::BadOrigin);
+        exec_noop!($e, DispatchError::BadOrigin);
     };
 }
 
 macro_rules! assert_bad_state {
     ($e:expr) => {{
-        assert_noop!($e, Error::IncorrectProposalState);
+        exec_noop!($e, Error::IncorrectProposalState);
     }};
 }
 
 macro_rules! assert_no_pip {
     ($e:expr) => {{
-        assert_noop!($e, Error::NoSuchProposal);
+        exec_noop!($e, Error::NoSuchProposal);
     }};
 }
 
@@ -97,7 +98,13 @@ fn proposal(
     let before = Pips::pip_id_sequence();
     let active = Pips::active_pip_count();
     let signer = signer.clone();
-    let result = Pips::propose(signer, Box::new(proposal), deposit, url, desc);
+    let result = exec!(Pips::propose(
+        signer,
+        Box::new(proposal),
+        deposit,
+        url,
+        desc
+    ));
     let add = result.map_or(0, |_| 1);
     if let Ok(_) = result {
         assert_last_event!(Event::ProposalCreated(_, _, id, ..), *id == before);
@@ -151,7 +158,7 @@ fn community_proposal(user: User, deposit: u128) -> DispatchResult {
 fn consensus_call(call: pallet_pips::Call<TestStorage>, signers: &[&Origin]) {
     let call = Box::new(Call::Pips(call));
     for signer in signers.iter().copied().cloned() {
-        assert_ok!(Committee::vote_or_propose(signer, true, call.clone()));
+        exec_ok!(Committee::vote_or_propose(signer, true, call.clone()));
     }
 }
 
@@ -175,22 +182,22 @@ fn updating_pips_variables_works() {
         System::set_block_number(1);
 
         assert_eq!(Pips::prune_historical_pips(), false);
-        assert_ok!(Pips::set_prune_historical_pips(root(), true));
+        exec_ok!(Pips::set_prune_historical_pips(root(), true));
         assert_last_event!(Event::HistoricalPipsPruned(_, false, true));
         assert_eq!(Pips::prune_historical_pips(), true);
 
         assert_eq!(Pips::min_proposal_deposit(), 50);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 10));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 10));
         assert_last_event!(Event::MinimumProposalDepositChanged(_, 50, 10));
         assert_eq!(Pips::min_proposal_deposit(), 10);
 
         assert_eq!(Pips::default_enactment_period(), 100);
-        assert_ok!(Pips::set_default_enactment_period(root(), 10));
+        exec_ok!(Pips::set_default_enactment_period(root(), 10));
         assert_last_event!(Event::DefaultEnactmentPeriodChanged(_, 100, 10));
         assert_eq!(Pips::default_enactment_period(), 10);
 
         assert_eq!(Pips::pending_pip_expiry(), MaybeBlock::None);
-        assert_ok!(Pips::set_pending_pip_expiry(root(), MaybeBlock::Some(13)));
+        exec_ok!(Pips::set_pending_pip_expiry(root(), MaybeBlock::Some(13)));
         assert_last_event!(Event::PendingPipExpiryChanged(
             _,
             MaybeBlock::None,
@@ -199,12 +206,12 @@ fn updating_pips_variables_works() {
         assert_eq!(Pips::pending_pip_expiry(), MaybeBlock::Some(13));
 
         assert_eq!(Pips::max_pip_skip_count(), 1);
-        assert_ok!(Pips::set_max_pip_skip_count(root(), 42));
+        exec_ok!(Pips::set_max_pip_skip_count(root(), 42));
         assert_last_event!(Event::MaxPipSkipCountChanged(_, 1, 42));
         assert_eq!(Pips::max_pip_skip_count(), 42);
 
         assert_eq!(Pips::active_pip_limit(), 5);
-        assert_ok!(Pips::set_active_pip_limit(root(), 42));
+        exec_ok!(Pips::set_active_pip_limit(root(), 42));
         assert_last_event!(Event::ActivePipLimitChanged(_, 5, 42));
         assert_eq!(Pips::active_pip_limit(), 42);
     });
@@ -217,23 +224,23 @@ fn updating_pips_variables_only_root() {
         let signer = Origin::signed(AccountKeyring::Alice.to_account_id());
         System::reset_events();
 
-        assert_noop!(
+        exec_noop!(
             Pips::set_prune_historical_pips(signer.clone(), false),
             DispatchError::BadOrigin,
         );
-        assert_noop!(
+        exec_noop!(
             Pips::set_min_proposal_deposit(signer.clone(), 0),
             DispatchError::BadOrigin,
         );
-        assert_noop!(
+        exec_noop!(
             Pips::set_default_enactment_period(signer.clone(), 0),
             DispatchError::BadOrigin,
         );
-        assert_noop!(
+        exec_noop!(
             Pips::set_max_pip_skip_count(signer.clone(), 0),
             DispatchError::BadOrigin,
         );
-        assert_noop!(
+        exec_noop!(
             Pips::set_active_pip_limit(signer.clone(), 0),
             DispatchError::BadOrigin,
         );
@@ -247,7 +254,7 @@ fn historical_prune_works() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         // We just test one case for brevity.
         System::set_block_number(1);
-        assert_ok!(Pips::set_prune_historical_pips(root(), true));
+        exec_ok!(Pips::set_prune_historical_pips(root(), true));
         let proposer = User::new(AccountKeyring::Alice);
         let member = User::new(AccountKeyring::Bob);
 
@@ -264,7 +271,7 @@ fn min_deposit_works() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
         let deposit = 40;
-        assert_ok!(Pips::set_min_proposal_deposit(root(), deposit + 1));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), deposit + 1));
 
         let alice = User::new(AccountKeyring::Alice).balance(300);
 
@@ -293,7 +300,7 @@ fn min_deposit_works() {
 fn active_limit_works() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
         let proposer = User::new(AccountKeyring::Alice);
 
@@ -304,12 +311,12 @@ fn active_limit_works() {
         assert_eq!(Pips::active_pip_count(), 1);
 
         // Limit reached, so error.
-        assert_ok!(Pips::set_active_pip_limit(root(), 1));
+        exec_ok!(Pips::set_active_pip_limit(root(), 1));
         assert_noop!(community_proposal(proposer, 0), Error::TooManyActivePips);
         assert_eq!(Pips::active_pip_count(), 1);
 
         // Bump limit; ok again.
-        assert_ok!(Pips::set_active_pip_limit(root(), 2));
+        exec_ok!(Pips::set_active_pip_limit(root(), 2));
         assert_ok!(community_proposal(proposer, 0));
         assert_eq!(Pips::active_pip_count(), 2);
 
@@ -322,7 +329,7 @@ fn active_limit_works() {
         assert_eq!(Pips::active_pip_count(), 3);
 
         // Remove limit completely, and let's add more.
-        assert_ok!(Pips::set_active_pip_limit(root(), 0));
+        exec_ok!(Pips::set_active_pip_limit(root(), 0));
         assert_ok!(community_proposal(proposer, 0));
         assert_eq!(Pips::active_pip_count(), 4);
     })
@@ -337,14 +344,14 @@ fn default_enactment_period_works_community() {
         set_members(vec![alice.did]);
 
         let check_community = |period| {
-            assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+            exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
             assert_ok!(community_proposal(alice, 0));
             let last_id = PipId(Pips::pip_id_sequence().0 - 1);
             fast_forward_blocks(1);
-            assert_ok!(Pips::snapshot(alice.origin()));
-            assert_ok!(Pips::set_default_enactment_period(root(), period));
+            exec_ok!(Pips::snapshot(alice.origin()));
+            exec_ok!(Pips::set_default_enactment_period(root(), period));
             let block_at_approval = System::block_number();
-            assert_ok!(Pips::enact_snapshot_results(
+            exec_ok!(Pips::enact_snapshot_results(
                 gc_vmo(),
                 vec![(last_id, SnapshotResult::Approve)]
             ));
@@ -372,9 +379,9 @@ fn default_enactment_period_works_committee() {
             assert_ok!(committee_proposal(0));
             let last_id = PipId(Pips::pip_id_sequence().0 - 1);
             fast_forward_blocks(1);
-            assert_ok!(Pips::set_default_enactment_period(root(), period));
+            exec_ok!(Pips::set_default_enactment_period(root(), period));
             let block_at_approval = System::block_number();
-            assert_ok!(Pips::approve_committee_proposal(gc_vmo(), last_id));
+            exec_ok!(Pips::approve_committee_proposal(gc_vmo(), last_id));
             let expected = Pips::pip_to_schedule(last_id).unwrap();
             let period = period.max(1);
             assert_eq!(expected, block_at_approval + period);
@@ -391,15 +398,19 @@ fn default_enactment_period_works_committee() {
 fn skip_limit_works() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
         let alice = User::new(AccountKeyring::Alice).balance(300);
         set_members(vec![alice.did]);
 
         let snap = || Pips::snapshot(alice.origin()).unwrap();
         let count = |n| Pips::set_max_pip_skip_count(root(), n).unwrap();
-        let commit =
-            || Pips::enact_snapshot_results(gc_vmo(), vec![(PipId(0), SnapshotResult::Skip)]);
+        let commit = || {
+            exec!(Pips::enact_snapshot_results(
+                gc_vmo(),
+                vec![(PipId(0), SnapshotResult::Skip)]
+            ))
+        };
 
         assert_ok!(community_proposal(alice, 0));
 
@@ -543,8 +554,8 @@ fn vote_not_pending() {
     let op_and_check = |op_and_check: &dyn Fn(Origin, PipId)| {
         ExtBuilder::default().monied(true).build().execute_with(|| {
             System::set_block_number(1);
-            assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-            assert_ok!(Pips::set_prune_historical_pips(root(), false));
+            exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
+            exec_ok!(Pips::set_prune_historical_pips(root(), false));
 
             let proposer = User::new(AccountKeyring::Alice);
             let member = User::new(AccountKeyring::Bob);
@@ -570,7 +581,7 @@ fn vote_not_pending() {
 fn vote_bond_additional_deposit_works() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
         let proposer = User::new(AccountKeyring::Alice);
         let init_free = Balances::free_balance(&proposer.acc());
@@ -582,7 +593,7 @@ fn vote_bond_additional_deposit_works() {
 
         assert_ok!(community_proposal(proposer, init_amount));
         assert_balance(proposer.acc(), init_free, init_amount);
-        assert_ok!(Pips::vote(proposer.origin(), PipId(0), true, amount));
+        exec_ok!(Pips::vote(proposer.origin(), PipId(0), true, amount));
         assert_balance(proposer.acc(), init_free, amount);
         assert_last_event!(Event::Voted(.., true, _));
         assert_votes(PipId(0), proposer.acc(), amount);
@@ -595,19 +606,19 @@ fn vote_owner_below_min_deposit() {
         System::set_block_number(1);
         let min = 50;
         let sub = min - 1;
-        assert_ok!(Pips::set_min_proposal_deposit(root(), min));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), min));
 
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
 
         assert_ok!(community_proposal(alice, 100));
-        assert_noop!(
+        exec_noop!(
             Pips::vote(alice.origin(), PipId(0), true, sub),
             Error::IncorrectDeposit
         );
         assert_votes(PipId(0), alice.acc(), 100);
         // Doesn't apply to Bob though, as they didn't propose it.
-        assert_ok!(Pips::vote(bob.origin(), PipId(0), true, sub));
+        exec_ok!(Pips::vote(bob.origin(), PipId(0), true, sub));
         assert_vote_details(
             PipId(0),
             VotingResult {
@@ -634,7 +645,7 @@ fn vote_owner_below_min_deposit() {
 fn vote_unbond_deposit_works() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
         let proposer = User::new(AccountKeyring::Alice);
         let init_free = Balances::free_balance(&proposer.acc());
@@ -645,7 +656,7 @@ fn vote_unbond_deposit_works() {
 
         assert_ok!(community_proposal(proposer, init_amount));
         assert_balance(proposer.acc(), init_free, init_amount);
-        assert_ok!(Pips::vote(proposer.origin(), PipId(0), true, then_amount));
+        exec_ok!(Pips::vote(proposer.origin(), PipId(0), true, then_amount));
         assert_balance(proposer.acc(), init_free, then_amount);
         assert_last_event!(Event::Voted(.., true, _));
         assert_votes(PipId(0), proposer.acc(), then_amount);
@@ -658,7 +669,7 @@ fn vote_on_community_only() {
         System::set_block_number(1);
         assert_ok!(committee_proposal(0));
         let voter = User::new(AccountKeyring::Alice);
-        assert_noop!(
+        exec_noop!(
             Pips::vote(voter.origin(), PipId(0), false, 0),
             Error::NotFromCommunity
         );
@@ -669,10 +680,10 @@ fn vote_on_community_only() {
 fn vote_duplicate_ok() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
         let proposer = User::new(AccountKeyring::Alice);
 
-        let vote = |aye, power| Pips::vote(proposer.origin(), PipId(0), aye, power);
+        let vote = |aye, power| exec!(Pips::vote(proposer.origin(), PipId(0), aye, power));
         let res = || Pips::proposal_result(PipId(0));
 
         assert_ok!(community_proposal(proposer, 42));
@@ -741,12 +752,12 @@ fn vote_stake_overflow() {
                 ..VotingResult::default()
             }
         );
-        assert_noop!(
+        exec_noop!(
             Pips::vote(bob.origin(), id, true, 1),
             Error::StakeAmountOfVotesExceeded,
         );
-        assert_ok!(Pips::vote(bob.origin(), id, false, 1));
-        assert_noop!(
+        exec_ok!(Pips::vote(bob.origin(), id, false, 1));
+        exec_noop!(
             Pips::vote(alice.origin(), id, false, u128::MAX),
             Error::StakeAmountOfVotesExceeded,
         );
@@ -760,15 +771,15 @@ fn vote_insufficient_reserve() {
         .build()
         .execute_with(|| {
             System::set_block_number(1);
-            assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+            exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
             let proposer = User::new(AccountKeyring::Alice).balance(0);
             let id = PipId(0);
             assert_ok!(community_proposal(proposer, 0));
-            assert_noop!(
+            exec_noop!(
                 Pips::vote(proposer.origin(), id, false, 50),
                 Error::InsufficientDeposit
             );
-            assert_noop!(
+            exec_noop!(
                 Pips::vote(proposer.origin(), id, true, 1),
                 Error::InsufficientDeposit
             );
@@ -779,7 +790,7 @@ fn vote_insufficient_reserve() {
 fn vote_works() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
         let bob_balance = Balances::free_balance(&bob.acc());
@@ -790,9 +801,9 @@ fn vote_works() {
         assert_ok!(community_proposal(alice, 100));
         assert_balance(bob.acc(), bob_balance, 0);
         assert_balance(charlie.acc(), charlie_balance, 0);
-        assert_ok!(Pips::vote(bob.origin(), id, false, 1337));
+        exec_ok!(Pips::vote(bob.origin(), id, false, 1337));
         assert_last_event!(Event::Voted(.., false, 1337));
-        assert_ok!(Pips::vote(charlie.origin(), id, true, 2441));
+        exec_ok!(Pips::vote(charlie.origin(), id, true, 2441));
         assert_last_event!(Event::Voted(.., true, 2441));
         assert_balance(bob.acc(), bob_balance, 1337);
         assert_balance(charlie.acc(), charlie_balance, 2441);
@@ -828,7 +839,7 @@ fn voting_for_pip_uses_stack_over_overlay() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
 
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
         // Initialize with 100 POLYX.
         let alice = User::new(AccountKeyring::Alice).balance(100);
         // Lock all but 10.
@@ -849,8 +860,8 @@ fn voting_for_pip_uses_stack_over_overlay() {
 fn approve_committee_proposal_not_pending() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        assert_ok!(Pips::set_prune_historical_pips(root(), false));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_prune_historical_pips(root(), false));
 
         let proposer = User::new(AccountKeyring::Bob);
         let member = User::new(AccountKeyring::Alice);
@@ -877,10 +888,10 @@ fn approve_committee_proposal_no_such_proposal() {
 fn approve_committee_proposal_not_by_committee() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
         let proposer = User::new(AccountKeyring::Bob);
         assert_ok!(community_proposal(proposer, 0));
-        assert_noop!(
+        exec_noop!(
             Pips::approve_committee_proposal(gc_vmo(), PipId(0)),
             Error::NotByCommittee,
         );
@@ -891,7 +902,7 @@ fn approve_committee_proposal_not_by_committee() {
 fn only_gc_majority_stuff() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
         let proposer = User::new(AccountKeyring::Dave);
 
@@ -927,25 +938,25 @@ fn only_gc_majority_stuff() {
         assert_bad_origin!(Pips::enact_snapshot_results(charlie.origin(), vec![]));
 
         // VMO can reject.
-        assert_ok!(Pips::set_prune_historical_pips(root(), false));
-        assert_ok!(Pips::reject_proposal(gc_vmo(), id));
+        exec_ok!(Pips::set_prune_historical_pips(root(), false));
+        exec_ok!(Pips::reject_proposal(gc_vmo(), id));
         assert_eq!(Pips::pip_id_sequence(), PipId(1));
         assert_eq!(Pips::active_pip_count(), 0);
         assert_state(id, false, ProposalState::Rejected);
         // VMO can also prune.
-        assert_ok!(Pips::prune_proposal(gc_vmo(), id));
+        exec_ok!(Pips::prune_proposal(gc_vmo(), id));
         assert_eq!(Pips::proposals(id), None);
         // VMO can also `approve_committee_proposal`.
         let id = Pips::pip_id_sequence();
         assert_ok!(committee_proposal(0));
-        assert_ok!(Pips::approve_committee_proposal(gc_vmo(), id));
-        assert_ok!(Pips::reject_proposal(gc_vmo(), id));
-        assert_ok!(Pips::prune_proposal(gc_vmo(), id));
+        exec_ok!(Pips::approve_committee_proposal(gc_vmo(), id));
+        exec_ok!(Pips::reject_proposal(gc_vmo(), id));
+        exec_ok!(Pips::prune_proposal(gc_vmo(), id));
         // VMO can also `enact_snapshot_results`.
         let id = Pips::pip_id_sequence();
         assert_ok!(community_proposal(proposer, 0));
-        assert_ok!(Pips::snapshot(bob.origin()));
-        assert_ok!(Pips::enact_snapshot_results(
+        exec_ok!(Pips::snapshot(bob.origin()));
+        exec_ok!(Pips::enact_snapshot_results(
             gc_vmo(),
             vec![(id, SnapshotResult::Reject)]
         ));
@@ -971,7 +982,7 @@ fn only_gc_majority_stuff() {
         assert_ok!(committee_proposal(0));
         let id_snapshot = Pips::pip_id_sequence();
         assert_ok!(community_proposal(proposer, 0));
-        assert_ok!(Pips::snapshot(bob.origin()));
+        exec_ok!(Pips::snapshot(bob.origin()));
         consensus_call(pallet_pips::Call::approve_committee_proposal { id: id_committee });
         consensus_call(pallet_pips::Call::enact_snapshot_results {
             results: vec![(id_snapshot, SnapshotResult::Approve)],
@@ -1001,8 +1012,8 @@ fn scheduled_proposal(proposer: User, member: User, deposit: u128) -> PipId {
     let next_id = Pips::pip_id_sequence();
     assert_ok!(community_proposal(proposer, deposit));
     let active = Pips::active_pip_count();
-    assert_ok!(Pips::snapshot(member.origin()));
-    assert_ok!(Pips::enact_snapshot_results(
+    exec_ok!(Pips::snapshot(member.origin()));
+    exec_ok!(Pips::enact_snapshot_results(
         gc_vmo(),
         vec![(next_id, SnapshotResult::Approve)]
     ));
@@ -1020,7 +1031,7 @@ fn executed_community_proposal(proposer: User, member: User) -> PipId {
     let next_id = scheduled_proposal(proposer, member, deposit);
     let active = Pips::active_pip_count();
     fast_forward_blocks(Pips::default_enactment_period() + 1);
-    assert_ok!(Pips::set_min_proposal_deposit(root(), deposit));
+    exec_ok!(Pips::set_min_proposal_deposit(root(), deposit));
     assert_state(next_id, true, ProposalState::Executed);
     assert_eq!(Pips::active_pip_count(), active - 1);
     next_id
@@ -1038,8 +1049,8 @@ fn failed_community_proposal(proposer: User, member: User, bad_id: PipId) -> Pip
         None
     ));
     let active = Pips::active_pip_count();
-    assert_ok!(Pips::snapshot(member.origin()));
-    assert_ok!(Pips::enact_snapshot_results(
+    exec_ok!(Pips::snapshot(member.origin()));
+    exec_ok!(Pips::enact_snapshot_results(
         gc_vmo(),
         vec![(next_id, SnapshotResult::Approve)]
     ));
@@ -1055,7 +1066,7 @@ fn rejected_proposal(proposer: User) -> PipId {
     let next_id = Pips::pip_id_sequence();
     assert_ok!(community_proposal(proposer, Pips::min_proposal_deposit()));
     let active = Pips::active_pip_count();
-    assert_ok!(Pips::reject_proposal(gc_vmo(), next_id));
+    exec_ok!(Pips::reject_proposal(gc_vmo(), next_id));
     assert_state(next_id, true, ProposalState::Rejected);
     assert_eq!(Pips::active_pip_count(), active - 1);
     assert_eq!(Pips::pip_id_sequence().0, next_id.0 + 1);
@@ -1067,7 +1078,7 @@ fn expired_proposal(proposer: User, expiry: BlockNumber) -> PipId {
 
     // Save old config data and set new ones for expiry.
     let old_expiry = Pips::pending_pip_expiry();
-    assert_ok!(Pips::set_pending_pip_expiry(
+    exec_ok!(Pips::set_pending_pip_expiry(
         root(),
         MaybeBlock::Some(expiry)
     ));
@@ -1086,7 +1097,7 @@ fn expired_proposal(proposer: User, expiry: BlockNumber) -> PipId {
     assert_eq!(Pips::active_pip_count(), active);
 
     // Restore config to before function was called.
-    assert_ok!(Pips::set_pending_pip_expiry(root(), old_expiry));
+    exec_ok!(Pips::set_pending_pip_expiry(root(), old_expiry));
 
     next_id
 }
@@ -1095,8 +1106,8 @@ fn expired_proposal(proposer: User, expiry: BlockNumber) -> PipId {
 fn cannot_reject_incorrect_state() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        assert_ok!(Pips::set_prune_historical_pips(root(), false));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_prune_historical_pips(root(), false));
 
         let proposer = User::new(AccountKeyring::Alice);
         let member = User::new(AccountKeyring::Bob);
@@ -1128,7 +1139,7 @@ fn assert_pruned(id: PipId) {
 fn can_prune_states_that_cannot_be_rejected() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(Pips::set_prune_historical_pips(root(), false));
+        exec_ok!(Pips::set_prune_historical_pips(root(), false));
 
         let init_bal = 1000;
         let proposer = User::new(AccountKeyring::Alice).balance(init_bal);
@@ -1143,8 +1154,8 @@ fn can_prune_states_that_cannot_be_rejected() {
         assert_balance(proposer.acc(), init_bal, 200);
         assert_eq!(Pips::pip_id_sequence(), PipId(1));
         assert_eq!(Pips::active_pip_count(), 1);
-        assert_ok!(Pips::snapshot(member.origin()));
-        assert_ok!(Pips::enact_snapshot_results(
+        exec_ok!(Pips::snapshot(member.origin()));
+        exec_ok!(Pips::enact_snapshot_results(
             gc_vmo(),
             vec![(id, SnapshotResult::Approve)]
         ));
@@ -1155,7 +1166,7 @@ fn can_prune_states_that_cannot_be_rejected() {
         assert_state(id, false, ProposalState::Executed);
         assert_balance(proposer.acc(), init_bal, 0);
         assert_eq!(Pips::active_pip_count(), 0);
-        assert_ok!(Pips::prune_proposal(gc_vmo(), id));
+        exec_ok!(Pips::prune_proposal(gc_vmo(), id));
         assert_balance(proposer.acc(), init_bal, 0);
         assert_pruned(id);
 
@@ -1172,8 +1183,8 @@ fn can_prune_states_that_cannot_be_rejected() {
         assert_balance(proposer.acc(), init_bal, 300);
         assert_eq!(Pips::pip_id_sequence(), PipId(2));
         assert_eq!(Pips::active_pip_count(), 1);
-        assert_ok!(Pips::snapshot(member.origin()));
-        assert_ok!(Pips::enact_snapshot_results(
+        exec_ok!(Pips::snapshot(member.origin()));
+        exec_ok!(Pips::enact_snapshot_results(
             gc_vmo(),
             vec![(id, SnapshotResult::Approve)]
         ));
@@ -1184,7 +1195,7 @@ fn can_prune_states_that_cannot_be_rejected() {
         assert_state(id, false, ProposalState::Failed);
         assert_balance(proposer.acc(), init_bal, 0);
         assert_eq!(Pips::active_pip_count(), 0);
-        assert_ok!(Pips::prune_proposal(gc_vmo(), id));
+        exec_ok!(Pips::prune_proposal(gc_vmo(), id));
         assert_balance(proposer.acc(), init_bal, 0);
         assert_pruned(id);
 
@@ -1194,11 +1205,11 @@ fn can_prune_states_that_cannot_be_rejected() {
         assert_balance(proposer.acc(), init_bal, 400);
         assert_eq!(Pips::pip_id_sequence(), PipId(3));
         assert_eq!(Pips::active_pip_count(), 1);
-        assert_ok!(Pips::reject_proposal(gc_vmo(), id));
+        exec_ok!(Pips::reject_proposal(gc_vmo(), id));
         assert_balance(proposer.acc(), init_bal, 0);
         assert_state(id, false, ProposalState::Rejected);
         assert_eq!(Pips::active_pip_count(), 0);
-        assert_ok!(Pips::prune_proposal(gc_vmo(), id));
+        exec_ok!(Pips::prune_proposal(gc_vmo(), id));
         assert_balance(proposer.acc(), init_bal, 0);
         assert_pruned(id);
     });
@@ -1219,7 +1230,7 @@ fn cannot_prune_active() {
         assert_ok!(community_proposal(proposer, 50));
         assert_balance(proposer.acc(), init_bal, 50);
         // Now remove that PIP and check that funds are back.
-        assert_ok!(Pips::set_prune_historical_pips(root(), false));
+        exec_ok!(Pips::set_prune_historical_pips(root(), false));
         assert_state(id, false, ProposalState::Pending);
         assert_bad_state!(Pips::prune_proposal(gc_vmo(), id));
         let id = PipId(1);
@@ -1231,8 +1242,8 @@ fn cannot_prune_active() {
         assert_ok!(community_proposal(proposer, 60));
         assert_balance(proposer.acc(), init_bal, 50 + 60);
         // Schedule the PIP.
-        assert_ok!(Pips::snapshot(member.origin()));
-        assert_ok!(Pips::enact_snapshot_results(
+        exec_ok!(Pips::snapshot(member.origin()));
+        exec_ok!(Pips::enact_snapshot_results(
             gc_vmo(),
             vec![(id, SnapshotResult::Approve)]
         ));
@@ -1268,9 +1279,9 @@ fn reject_proposal_works() {
         assert_eq!(Pips::proposal_result(id), result);
 
         // Now remove that PIP and check that funds are back.
-        assert_ok!(Pips::set_prune_historical_pips(root(), false));
+        exec_ok!(Pips::set_prune_historical_pips(root(), false));
         assert_state(id, false, ProposalState::Pending);
-        assert_ok!(Pips::reject_proposal(gc_vmo(), id));
+        exec_ok!(Pips::reject_proposal(gc_vmo(), id));
         assert_eq!(Pips::active_pip_count(), 0);
         assert_eq!(
             Pips::proposals(id).unwrap(),
@@ -1301,15 +1312,15 @@ fn reject_proposal_works() {
         assert_eq!(Pips::proposal_result(id), result);
 
         // Schedule the PIP.
-        assert_ok!(Pips::snapshot(member.origin()));
-        assert_ok!(Pips::enact_snapshot_results(
+        exec_ok!(Pips::snapshot(member.origin()));
+        exec_ok!(Pips::enact_snapshot_results(
             gc_vmo(),
             vec![(id, SnapshotResult::Approve)]
         ));
         assert_state(id, false, ProposalState::Scheduled);
 
         // Now remove that PIP and check that funds are back.
-        assert_ok!(Pips::reject_proposal(gc_vmo(), id));
+        exec_ok!(Pips::reject_proposal(gc_vmo(), id));
         assert_eq!(Pips::pip_id_sequence(), PipId(2));
         assert_eq!(Pips::active_pip_count(), 0);
         assert_eq!(
@@ -1333,8 +1344,8 @@ fn reject_proposal_works() {
 fn reject_proposal_will_unsnapshot() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        assert_ok!(Pips::set_prune_historical_pips(root(), false));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_prune_historical_pips(root(), false));
 
         let proposer = User::new(AccountKeyring::Alice);
         let member = User::new(AccountKeyring::Bob).balance(300);
@@ -1342,9 +1353,9 @@ fn reject_proposal_will_unsnapshot() {
 
         let id = PipId(0);
         assert_ok!(community_proposal(proposer, 0));
-        assert_ok!(Pips::snapshot(member.origin()));
+        exec_ok!(Pips::snapshot(member.origin()));
         assert_eq!(Pips::snapshot_queue()[0].id, id);
-        assert_ok!(Pips::reject_proposal(gc_vmo(), id));
+        exec_ok!(Pips::reject_proposal(gc_vmo(), id));
         assert_eq!(Pips::snapshot_queue(), vec![]);
     });
 }
@@ -1353,15 +1364,15 @@ fn reject_proposal_will_unsnapshot() {
 fn reject_proposal_will_unschedule() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        assert_ok!(Pips::set_prune_historical_pips(root(), false));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_prune_historical_pips(root(), false));
 
         let alice = User::new(AccountKeyring::Alice).balance(300);
         set_members(vec![alice.did]);
 
         let check = |id: PipId| {
             let scheduled_at = Pips::pip_to_schedule(id).unwrap();
-            assert_ok!(Pips::reject_proposal(gc_vmo(), id));
+            exec_ok!(Pips::reject_proposal(gc_vmo(), id));
             assert_eq!(Pips::pip_to_schedule(id), None);
             assert_event_exists!(
                 EventTest::Scheduler(pallet_scheduler::Event::Canceled { when, .. }),
@@ -1371,8 +1382,8 @@ fn reject_proposal_will_unschedule() {
 
         // Test snapshot method.
         assert_ok!(community_proposal(alice, 0));
-        assert_ok!(Pips::snapshot(alice.origin()));
-        assert_ok!(Pips::enact_snapshot_results(
+        exec_ok!(Pips::snapshot(alice.origin()));
+        exec_ok!(Pips::enact_snapshot_results(
             gc_vmo(),
             vec![(PipId(0), SnapshotResult::Approve)]
         ));
@@ -1380,7 +1391,7 @@ fn reject_proposal_will_unschedule() {
 
         // Test committee method.
         assert_ok!(committee_proposal(0));
-        assert_ok!(Pips::approve_committee_proposal(gc_vmo(), PipId(1)));
+        exec_ok!(Pips::approve_committee_proposal(gc_vmo(), PipId(1)));
         check(PipId(1));
     });
 }
@@ -1394,20 +1405,20 @@ fn reschedule_execution_only_release_coordinator() {
         let bob = User::new(AccountKeyring::Bob);
         let charlie = User::new(AccountKeyring::Charlie);
         set_members(vec![alice.did, bob.did, charlie.did]);
-        assert_ok!(Committee::set_release_coordinator(gc_vmo(), charlie.did));
+        exec_ok!(Committee::set_release_coordinator(gc_vmo(), charlie.did));
 
         let id = PipId(0);
         assert_bad_origin!(Pips::reschedule_execution(root(), id, None));
-        assert_noop!(
+        exec_noop!(
             Pips::reschedule_execution(alice.origin(), id, None),
             Error::RescheduleNotByReleaseCoordinator
         );
-        assert_noop!(
+        exec_noop!(
             Pips::reschedule_execution(bob.origin(), id, None),
             Error::RescheduleNotByReleaseCoordinator
         );
 
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
         let id = scheduled_proposal(alice, alice, 0);
         let scheduled_at = Pips::pip_to_schedule(id);
         consensus_call(
@@ -1415,7 +1426,7 @@ fn reschedule_execution_only_release_coordinator() {
             &[&alice.origin(), &bob.origin(), &charlie.origin()],
         );
         assert_eq!(scheduled_at, Pips::pip_to_schedule(id));
-        assert_ok!(Pips::reschedule_execution(charlie.origin(), id, None));
+        exec_ok!(Pips::reschedule_execution(charlie.origin(), id, None));
         assert_ne!(scheduled_at, Pips::pip_to_schedule(id));
     });
 }
@@ -1423,7 +1434,7 @@ fn reschedule_execution_only_release_coordinator() {
 fn init_rc() -> User {
     let user = User::new(AccountKeyring::Alice);
     set_members(vec![user.did]);
-    assert_ok!(Committee::set_release_coordinator(gc_vmo(), user.did));
+    exec_ok!(Committee::set_release_coordinator(gc_vmo(), user.did));
     user
 }
 
@@ -1442,12 +1453,12 @@ fn reschedule_execution_not_scheduled() {
         System::set_block_number(1);
         let rc = init_rc();
         let proposer = User::new(AccountKeyring::Bob);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
         let id = Pips::pip_id_sequence();
         assert_ok!(community_proposal(proposer, 0));
         assert_bad_state!(Pips::reschedule_execution(rc.origin(), id, None));
-        assert_ok!(Pips::reject_proposal(gc_vmo(), id));
-        assert_ok!(Pips::prune_proposal(gc_vmo(), id));
+        exec_ok!(Pips::reject_proposal(gc_vmo(), id));
+        exec_ok!(Pips::prune_proposal(gc_vmo(), id));
         let id = rejected_proposal(proposer);
         assert_bad_state!(Pips::reschedule_execution(rc.origin(), id, None));
         let id = executed_community_proposal(proposer, rc);
@@ -1465,14 +1476,14 @@ fn reschedule_execution_in_the_past() {
         System::set_block_number(1);
         let rc = init_rc();
         let proposer = User::new(AccountKeyring::Bob);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
         let id = scheduled_proposal(proposer, rc, 0);
         let next = System::block_number() + 1;
-        assert_noop!(
+        exec_noop!(
             Pips::reschedule_execution(rc.origin(), id, Some(next - 1)),
             Error::InvalidFutureBlockNumber
         );
-        assert_noop!(
+        exec_noop!(
             Pips::reschedule_execution(rc.origin(), id, Some(next - 2)),
             Error::InvalidFutureBlockNumber
         );
@@ -1487,7 +1498,7 @@ fn reschedule_execution_works() {
         // General setup.
         let rc = init_rc();
         let proposer = User::new(AccountKeyring::Bob);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
         // Schedule a proposal and verify that it is.
         assert_eq!(Pips::active_pip_count(), 0);
@@ -1498,7 +1509,7 @@ fn reschedule_execution_works() {
 
         // Reschedule execution for next block.
         let next = System::block_number() + 1;
-        assert_ok!(Pips::reschedule_execution(rc.origin(), id, None));
+        exec_ok!(Pips::reschedule_execution(rc.origin(), id, None));
         // Regression test for <https://polymath.atlassian.net/browse/GTN-2172>.
         assert_eq!(Pips::active_pip_count(), 1);
         // Rescheduling currently works by cancelling + then scheduling again. Verify this.
@@ -1510,7 +1521,7 @@ fn reschedule_execution_works() {
         assert_matches!(&*Agenda::get(next), [Some(_)]);
 
         // Reschedule execution for 50 blocks ahead.
-        assert_ok!(Pips::reschedule_execution(rc.origin(), id, Some(next + 50)));
+        exec_ok!(Pips::reschedule_execution(rc.origin(), id, Some(next + 50)));
         assert_eq!(Pips::active_pip_count(), 1);
         assert_eq!(Pips::pip_to_schedule(id).unwrap(), next + 50);
         assert_eq!(vec![None], Agenda::get(scheduled_at));
@@ -1526,7 +1537,7 @@ fn clear_snapshot_not_gc_member() {
         init_rc();
         assert_bad_origin!(Pips::clear_snapshot(root()));
         let bob = User::new(AccountKeyring::Bob);
-        assert_noop!(
+        exec_noop!(
             Pips::clear_snapshot(bob.origin()),
             Error::NotACommitteeMember,
         );
@@ -1541,7 +1552,7 @@ fn clear_snapshot_works() {
         // No snapshot, but we can still clear.
         assert_eq!(Pips::snapshot_queue(), vec![]);
         assert_eq!(Pips::snapshot_metadata(), None);
-        assert_ok!(Pips::clear_snapshot(rc.origin()));
+        exec_ok!(Pips::clear_snapshot(rc.origin()));
         assert_eq!(Pips::snapshot_queue(), vec![]);
         assert_eq!(Pips::snapshot_metadata(), None);
 
@@ -1550,10 +1561,10 @@ fn clear_snapshot_works() {
         assert_ok!(community_proposal(proposer, 100));
         assert_ok!(community_proposal(proposer, 200));
         assert_ok!(community_proposal(proposer, 400));
-        assert_ok!(Pips::snapshot(rc.origin()));
+        exec_ok!(Pips::snapshot(rc.origin()));
         assert_ne!(Pips::snapshot_queue(), vec![]);
         assert_ne!(Pips::snapshot_metadata(), None);
-        assert_ok!(Pips::clear_snapshot(rc.origin()));
+        exec_ok!(Pips::clear_snapshot(rc.origin()));
         assert_eq!(Pips::snapshot_queue(), vec![]);
         assert_eq!(Pips::snapshot_metadata(), None);
     });
@@ -1566,7 +1577,7 @@ fn snapshot_not_gc_member() {
         init_rc();
         assert_bad_origin!(Pips::snapshot(root()));
         let bob = User::new(AccountKeyring::Bob);
-        assert_noop!(Pips::snapshot(bob.origin()), Error::NotACommitteeMember);
+        exec_noop!(Pips::snapshot(bob.origin()), Error::NotACommitteeMember);
     });
 }
 
@@ -1576,7 +1587,7 @@ fn snapshot_only_pending_hot_community() {
         System::set_block_number(1);
         let rc = init_rc();
 
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
         let proposer = User::new(AccountKeyring::Bob);
 
@@ -1595,7 +1606,7 @@ fn snapshot_only_pending_hot_community() {
         }
         assert_ok!(committee_proposal(0));
 
-        assert_ok!(Pips::snapshot(rc.origin()));
+        exec_ok!(Pips::snapshot(rc.origin()));
         assert_eq!(Pips::snapshot_queue(), vec![spip(p.0, true, 0)]);
         assert_ne!(Pips::snapshot_metadata(), None);
     });
@@ -1613,11 +1624,11 @@ fn snapshot_works() {
 
         let member = User::new(AccountKeyring::Bob);
         set_members(vec![member.did]);
-        let vote = |id, aye, deposit| Pips::vote(member.origin(), PipId(id), aye, deposit);
-        let snapshot = || Pips::snapshot(member.origin());
+        let vote = |id, aye, deposit| exec!(Pips::vote(member.origin(), PipId(id), aye, deposit));
+        let snapshot = || exec!(Pips::snapshot(member.origin()));
 
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        assert_ok!(Pips::set_active_pip_limit(root(), 0));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_active_pip_limit(root(), 0));
 
         propose(0); // 0
         assert_ok!(vote(0, true, 100));
@@ -1676,14 +1687,14 @@ fn enact_snapshot_results_input_too_large() {
         let member = User::new(AccountKeyring::Bob);
         set_members(vec![member.did]);
 
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
-        assert_ok!(Pips::snapshot(member.origin()));
-        assert_noop!(
+        exec_ok!(Pips::snapshot(member.origin()));
+        exec_noop!(
             Pips::enact_snapshot_results(gc_vmo(), vec![(PipId(0), SnapshotResult::Skip)]),
             Error::SnapshotResultTooLarge,
         );
-        assert_noop!(
+        exec_noop!(
             Pips::enact_snapshot_results(
                 gc_vmo(),
                 vec![
@@ -1695,8 +1706,8 @@ fn enact_snapshot_results_input_too_large() {
         );
         assert_ok!(community_proposal(proposer, 0));
         assert_ok!(community_proposal(proposer, 0));
-        assert_ok!(Pips::snapshot(member.origin()));
-        assert_noop!(
+        exec_ok!(Pips::snapshot(member.origin()));
+        exec_noop!(
             Pips::enact_snapshot_results(
                 gc_vmo(),
                 vec![
@@ -1718,18 +1729,18 @@ fn enact_snapshot_results_id_mismatch() {
         let user = User::new(AccountKeyring::Bob);
         set_members(vec![user.did]);
 
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
         let proposer = User::new(AccountKeyring::Alice);
         assert_ok!(community_proposal(proposer, 0));
         assert_ok!(community_proposal(proposer, 0));
 
-        assert_ok!(Pips::snapshot(user.origin()));
-        assert_noop!(
+        exec_ok!(Pips::snapshot(user.origin()));
+        exec_noop!(
             Pips::enact_snapshot_results(gc_vmo(), vec![(PipId(1), SnapshotResult::Skip)]),
             Error::SnapshotIdMismatch,
         );
-        assert_noop!(
+        exec_noop!(
             Pips::enact_snapshot_results(
                 gc_vmo(),
                 vec![
@@ -1755,8 +1766,8 @@ fn enact_snapshot_results_works() {
         let member = User::new(AccountKeyring::Bob);
         set_members(vec![member.did]);
 
-        assert_ok!(Pips::set_prune_historical_pips(root(), false));
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_prune_historical_pips(root(), false));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
         let mk_queue = |ids: &[u32]| ids.iter().map(|&id| spip(id, true, 0)).collect::<Vec<_>>();
 
@@ -1764,10 +1775,10 @@ fn enact_snapshot_results_works() {
         propose();
         propose();
         propose();
-        assert_ok!(Pips::snapshot(member.origin()));
+        exec_ok!(Pips::snapshot(member.origin()));
         assert_eq!(Pips::snapshot_queue(), mk_queue(&[2, 1, 0]));
         assert_eq!(Pips::pip_skip_count(PipId(1)), 0);
-        assert_ok!(Pips::enact_snapshot_results(
+        exec_ok!(Pips::enact_snapshot_results(
             gc_vmo(),
             vec![
                 (PipId(0), SnapshotResult::Reject),
@@ -1785,9 +1796,9 @@ fn enact_snapshot_results_works() {
         // Add another proposal; we previously skipped one, so queue size is 2.
         // Only enact for 1 proposal, leaving the last added PIP in the queue.
         propose();
-        assert_ok!(Pips::snapshot(member.origin()));
+        exec_ok!(Pips::snapshot(member.origin()));
         assert_eq!(Pips::snapshot_queue(), mk_queue(&[3, 1]));
-        assert_ok!(Pips::enact_snapshot_results(
+        exec_ok!(Pips::enact_snapshot_results(
             gc_vmo(),
             vec![(PipId(1), SnapshotResult::Approve)]
         ));
@@ -1799,8 +1810,8 @@ fn enact_snapshot_results_works() {
         assert_eq!(Pips::snapshot_queue(), mk_queue(&[3]));
 
         // Cleared queue + enacting zero-length results => noop.
-        assert_ok!(Pips::clear_snapshot(member.origin()));
-        assert_ok!(Pips::enact_snapshot_results(gc_vmo(), vec![]));
+        exec_ok!(Pips::clear_snapshot(member.origin()));
+        exec_ok!(Pips::enact_snapshot_results(gc_vmo(), vec![]));
         assert_last_event!(
             Event::SnapshotResultsEnacted(_, None, a, b, c),
             a.is_empty() && b.is_empty() && c.is_empty()
@@ -1812,10 +1823,10 @@ fn enact_snapshot_results_works() {
 fn expiry_works() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
         // Test non-prune logic. Prune logic is tested elsewhere.
-        assert_ok!(Pips::set_prune_historical_pips(root(), false));
+        exec_ok!(Pips::set_prune_historical_pips(root(), false));
         let proposer = User::new(AccountKeyring::Bob);
         let id = expired_proposal(proposer, 13);
         assert_state(id, true, ProposalState::Expired);
@@ -1825,8 +1836,8 @@ fn expiry_works() {
         assert_state(id, true, ProposalState::Expired);
 
         // Make sure non-pending PIPs cannot expire.
-        assert_ok!(Pips::set_prune_historical_pips(root(), false));
-        assert_ok!(Pips::set_pending_pip_expiry(root(), MaybeBlock::Some(13)));
+        exec_ok!(Pips::set_prune_historical_pips(root(), false));
+        exec_ok!(Pips::set_pending_pip_expiry(root(), MaybeBlock::Some(13)));
         let member = User::new(AccountKeyring::Alice);
         set_members(vec![member.did]);
         let r = rejected_proposal(proposer);
@@ -1845,7 +1856,7 @@ fn expiry_works() {
 fn propose_dupe_live_insert_panics() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
         // Manipulate storage to provoke panic in `insert_live_queue`.
         LiveQueue::mutate(|queue| *queue = vec![spip(0, true, 0)]);
@@ -1859,14 +1870,14 @@ fn propose_dupe_live_insert_panics() {
 fn execute_scheduled_pip() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        assert_ok!(Pips::set_prune_historical_pips(root(), true));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_prune_historical_pips(root(), true));
         let pip_id = Pips::pip_id_sequence();
         let user = User::new(AccountKeyring::Alice);
         assert_ok!(remark_proposal(user, 0));
         set_members(vec![user.did]);
-        assert_ok!(Pips::snapshot(user.origin()));
-        assert_ok!(Pips::enact_snapshot_results(
+        exec_ok!(Pips::snapshot(user.origin()));
+        exec_ok!(Pips::enact_snapshot_results(
             gc_vmo(),
             vec![(pip_id, SnapshotResult::Approve)],
         ));
@@ -1880,13 +1891,13 @@ fn execute_scheduled_pip() {
 fn expire_scheduled_pip() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        assert_ok!(Pips::set_prune_historical_pips(root(), true));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_prune_historical_pips(root(), true));
         let pip_id = Pips::pip_id_sequence();
         let user = User::new(AccountKeyring::Alice);
         assert_ok!(remark_proposal(user, 0));
         assert_state(pip_id, false, ProposalState::Pending);
-        assert_ok!(Pips::expire_scheduled_pip(root(), GC_DID, pip_id));
+        exec_ok!(Pips::expire_scheduled_pip(root(), GC_DID, pip_id));
         assert_pruned(pip_id);
     });
 }
@@ -1895,7 +1906,7 @@ fn expire_scheduled_pip() {
 fn live_queue_off_by_one_insertion_regression_test() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
         let proposer = User::new(AccountKeyring::Alice);
         assert_ok!(community_proposal(proposer, 2));
@@ -1903,7 +1914,7 @@ fn live_queue_off_by_one_insertion_regression_test() {
         assert_eq!(Pips::live_queue(), vec![spip(0, true, 2), spip(1, true, 4)]);
 
         let user = User::new(AccountKeyring::Bob);
-        assert_ok!(Pips::vote(user.origin(), PipId(0), true, 1));
+        exec_ok!(Pips::vote(user.origin(), PipId(0), true, 1));
         assert_eq!(Pips::live_queue(), vec![spip(0, true, 3), spip(1, true, 4)]);
     });
 }
@@ -1912,8 +1923,8 @@ fn live_queue_off_by_one_insertion_regression_test() {
 fn live_queue_off_by_one_insertion_regression_test2() {
     ExtBuilder::default().monied(true).build().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
-        assert_ok!(Pips::set_active_pip_limit(root(), 0));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_active_pip_limit(root(), 0));
 
         let proposer = User::new(AccountKeyring::Alice);
         let voter = User::new(AccountKeyring::Bob);
@@ -1921,8 +1932,8 @@ fn live_queue_off_by_one_insertion_regression_test2() {
         assert_ok!(community_proposal(proposer, 0)); // 0
         assert_ok!(community_proposal(proposer, 0)); // 1
         assert_ok!(community_proposal(proposer, 50)); // 2
-        assert_ok!(Pips::vote(voter.origin(), PipId(0), false, 100));
-        assert_ok!(Pips::vote(voter.origin(), PipId(2), false, 100));
+        exec_ok!(Pips::vote(voter.origin(), PipId(0), false, 100));
+        exec_ok!(Pips::vote(voter.origin(), PipId(2), false, 100));
         assert_eq!(
             Pips::live_queue(),
             vec![spip(0, false, 100), spip(2, false, 50), spip(1, true, 0)]
@@ -1938,7 +1949,7 @@ fn pips_rpcs() {
         let charlie = User::new(AccountKeyring::Charlie);
 
         System::set_block_number(1);
-        assert_ok!(Pips::set_min_proposal_deposit(root(), 0));
+        exec_ok!(Pips::set_min_proposal_deposit(root(), 0));
 
         // Create two community proposals with IDs 0 and 1.
         assert_ok!(community_proposal(alice, 0));
@@ -1948,9 +1959,9 @@ fn pips_rpcs() {
 
         let bob_vote_deposit = 100;
         let charlie_vote_deposit = 200;
-        assert_ok!(Pips::vote(bob.origin(), pip_id0, false, bob_vote_deposit));
-        assert_ok!(Pips::vote(bob.origin(), pip_id1, true, bob_vote_deposit));
-        assert_ok!(Pips::vote(
+        exec_ok!(Pips::vote(bob.origin(), pip_id0, false, bob_vote_deposit));
+        exec_ok!(Pips::vote(bob.origin(), pip_id1, true, bob_vote_deposit));
+        exec_ok!(Pips::vote(
             charlie.origin(),
             pip_id0,
             true,
