@@ -79,7 +79,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
-#![feature(const_option, option_result_contains, crate_visibility_modifier)]
 
 mod auth;
 mod claims;
@@ -183,7 +182,7 @@ decl_storage! {
         pub CddAuthForPrimaryKeyRotation get(fn cdd_auth_for_primary_key_rotation): bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(2).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
 
         /// How many "strong" references to the account key.
         ///

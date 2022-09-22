@@ -924,9 +924,9 @@ dependencies = [
 
 [[package]]
 name = "confidential_identity_core"
-version = "1.0.0"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf3c20971d45d23a2eb5909e2dedce60e4736b0223bada9e0b5747c43a78f621"
+checksum = "95b0f9e2eb3c951ec923091ca347a44131f8b16b5b589b8d1ea32ef141279f33"
 dependencies = [
  "blake2",
  "bulletproofs",
@@ -945,9 +945,9 @@ dependencies = [
 
 [[package]]
 name = "confidential_identity_v1"
-version = "1.0.0"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a140dd3425471b44b3fc0ab89c6eb8e72c484de0aa80e138ea41b706dbff00f"
+checksum = "ab7fff78ec167a992b3b481fc41b9af5a6b89b72a3bc1bfd1130a46ee2c002f8"
 dependencies = [
  "blake2",
  "byteorder",
@@ -969,9 +969,9 @@ dependencies = [
 
 [[package]]
 name = "confidential_identity_v2"
-version = "2.0.0"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05b9cef2c3d5d42769ce099822dbea11959f6a38fe4eb9ef2a431eaeaf24a24b"
+checksum = "beacd7949ec15f217ed3b22d078618f0c67e582173b381985596c70a0ecb3c0a"
 dependencies = [
  "blake2",
  "byteorder",
@@ -1424,7 +1424,6 @@ checksum = "1c359b7249347e46fb28804470d071c921156ad62b3eef5d34e2ba867533dec8"
 dependencies = [
  "byteorder",
  "digest 0.9.0",
- "packed_simd_2",
  "rand_core 0.6.3",
  "serde",
  "subtle-ng",
@@ -3193,12 +3192,6 @@ dependencies = [
 
 [[package]]
 name = "libm"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fc7aa29613bd6a620df431842069224d8bc9011086b1db4c0e0cd47fa03ec9a"
-
-[[package]]
-name = "libm"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "292a948cd991e376cf75541fe5b97a1081d713c618b4f1b9500f8844e49eb565"
@@ -4626,7 +4619,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "578ede34cf02f8924ab9447f50c28075b4d3e5b269972345e7e0372b38c6cdcd"
 dependencies = [
  "autocfg",
- "libm 0.2.5",
+ "libm",
 ]
 
 [[package]]
@@ -4702,16 +4695,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ff55baddef9e4ad00f88b6c743a2a8062d4c6ade126c2a528644b8e444d52ce"
 dependencies = [
  "stable_deref_trait",
-]
-
-[[package]]
-name = "packed_simd_2"
-version = "0.3.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1914cd452d8fccd6f9db48147b29fd4ae05bea9dc5d9ad578509f72415de282"
-dependencies = [
- "cfg-if 1.0.0",
- "libm 0.1.4",
 ]
 
 [[package]]
@@ -11150,7 +11133,7 @@ dependencies = [
  "downcast-rs",
  "errno",
  "libc",
- "libm 0.2.5",
+ "libm",
  "memory_units",
  "num-rational 0.2.4",
  "num-traits",

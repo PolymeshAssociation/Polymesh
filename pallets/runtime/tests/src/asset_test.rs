@@ -83,11 +83,11 @@ fn set_time_to_now() {
     Timestamp::set_timestamp(now());
 }
 
-crate fn max_len() -> u32 {
+pub(crate) fn max_len() -> u32 {
     <TestStorage as pallet_base::Config>::MaxLen::get()
 }
 
-crate fn max_len_bytes<R: From<Vec<u8>>>(add: u32) -> R {
+pub(crate) fn max_len_bytes<R: From<Vec<u8>>>(add: u32) -> R {
     bytes_of_len(b'A', (max_len() + add) as usize)
 }
 
@@ -98,7 +98,7 @@ macro_rules! assert_too_long {
     };
 }
 
-crate fn token(name: &[u8], owner_did: IdentityId) -> (Ticker, SecurityToken) {
+pub(crate) fn token(name: &[u8], owner_did: IdentityId) -> (Ticker, SecurityToken) {
     let ticker = Ticker::try_from(name).unwrap();
     let token = SecurityToken {
         owner_did,
@@ -110,11 +110,11 @@ crate fn token(name: &[u8], owner_did: IdentityId) -> (Ticker, SecurityToken) {
     (ticker, token)
 }
 
-crate fn a_token(owner_did: IdentityId) -> (Ticker, SecurityToken) {
+pub(crate) fn a_token(owner_did: IdentityId) -> (Ticker, SecurityToken) {
     token(b"A", owner_did)
 }
 
-crate fn an_asset(owner: User, divisible: bool) -> Ticker {
+pub(crate) fn an_asset(owner: User, divisible: bool) -> Ticker {
     let (ticker, mut token) = a_token(owner.did);
     token.divisible = divisible;
     assert_ok!(basic_asset(owner, ticker, &token));
@@ -147,17 +147,17 @@ fn asset_with_ids(
     Ok(())
 }
 
-crate fn basic_asset(owner: User, ticker: Ticker, token: &SecurityToken) -> DispatchResult {
+pub(crate) fn basic_asset(owner: User, ticker: Ticker, token: &SecurityToken) -> DispatchResult {
     asset_with_ids(owner, ticker, token, vec![])
 }
 
-crate fn create_token(owner: User) -> (Ticker, SecurityToken) {
+pub(crate) fn create_token(owner: User) -> (Ticker, SecurityToken) {
     let r = a_token(owner.did);
     assert_ok!(basic_asset(owner, r.0, &r.1));
     r
 }
 
-crate fn allow_all_transfers(ticker: Ticker, owner: User) {
+pub(crate) fn allow_all_transfers(ticker: Ticker, owner: User) {
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.origin(),
         ticker,
@@ -174,7 +174,7 @@ fn enable_investor_count(ticker: Ticker, owner: User) {
     ));
 }
 
-crate fn transfer(ticker: Ticker, from: User, to: User, amount: u128) -> DispatchResult {
+pub(crate) fn transfer(ticker: Ticker, from: User, to: User, amount: u128) -> DispatchResult {
     Asset::base_transfer(
         PortfolioId::default_portfolio(from.did),
         PortfolioId::default_portfolio(to.did),

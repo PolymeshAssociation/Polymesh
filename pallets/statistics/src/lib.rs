@@ -14,7 +14,6 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(const_option)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -63,7 +62,7 @@ decl_storage! {
                 bool;
 
         /// Storage migration version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
     }
 }
 

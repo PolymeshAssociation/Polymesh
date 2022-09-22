@@ -1,0 +1,38 @@
+name: Srtool build
+
+on:
+  push:
+    branches:
+      - 'mainnet'
+      - 'testnet'
+      - 'staging'
+
+jobs:
+  srtool:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        chain: ["testnet", "mainnet"]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Srtool build
+        id: srtool_build
+        uses: chevdor/srtool-actions@v0.5.0
+        with:
+          chain: ${{ matrix.chain }}
+          package: polymesh-runtime-${{ matrix.chain }}
+          runtime_dir: pallets/runtime/${{ matrix.chain }}
+      - name: Summary
+        run: |
+          echo Summary:
+          echo '${{ steps.srtool_build.outputs.json }}' | jq . > ${{ matrix.chain }}-srtool-digest.json
+          cat ${{ matrix.chain }}-srtool-digest.json
+          echo - prop: ${{ steps.srtool_build.outputs.proposal_hash }}
+          echo "Runtime location: ${{ steps.srtool_build.outputs.wasm }}"
+      - name: Archive Runtime
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.chain }}-runtime-${{ github.sha }}
+          path: |
+            ${{ steps.srtool_build.outputs.wasm }}
+            ${{ matrix.chain }}-srtool-digest.json
