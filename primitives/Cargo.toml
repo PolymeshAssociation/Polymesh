@@ -20,8 +20,8 @@ polymesh-primitives-derive = { version = "0.1.0", path = "../primitives_derive",
 
 # Crypto
 blake2 = { version = "0.10.2", default-features = false }
-confidential_identity_v1 = { version = "1.0.0", default-features = false }
-confidential_identity_v2 = { version = "2.0.0", default-features = false }
+confidential_identity_v1 = { version = "1.0.1", default-features = false }
+confidential_identity_v2 = { version = "2.0.1", default-features = false }
 schnorrkel = { version = "0.10.1", default-features = false }
 # For `no_std` we add the `no_cc` feature to clear_on_drop,
 # this is to fix issues with compiling with some Clang versions that
@@ -53,7 +53,6 @@ default = ["std"]
 # Backends
 u32_backend = [ "confidential_identity_v1/u32_backend", "schnorrkel/u32_backend"]
 u64_backend = [ "confidential_identity_v1/u64_backend", "schnorrkel/u64_backend"]
-avx2_backend = [ "confidential_identity_v1/avx2_backend", "schnorrkel/avx2_backend"]
 
 no_std = [
 	"clear_on_drop/no_cc",
@@ -75,7 +74,6 @@ std = [
     "sp-version/std",
 
     # Crypto
-    "blake2/simd",
     "blake2/std",
     "confidential_identity_v1/std",
     "confidential_identity_v2/std",
