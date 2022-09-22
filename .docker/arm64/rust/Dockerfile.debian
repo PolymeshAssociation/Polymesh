@@ -1,0 +1,25 @@
+ARG rustbase=1.63.0
+FROM arm64v8/rust:${rustbase}
+
+ARG toolchainversion=nightly-2022-05-10
+ENV TOOLCHAIN="${toolchainversion}"
+
+RUN apt update && \
+  DEBIAN_FRONTEND=noninteractive apt install \
+  build-essential \
+  ca-certificates \
+  clang \
+  cmake \
+  gcc \
+  jq \
+  libclang-dev \
+  libssl-dev \
+  pkg-config \
+  rsync \
+  -y --no-install-recommends && \
+  apt autoremove -y && \
+  apt clean
+RUN rustup toolchain install $TOOLCHAIN && \
+  rustup target add wasm32-unknown-unknown && \
+  rustup target add wasm32-unknown-unknown --toolchain $TOOLCHAIN && \
+  cargo install sccache
