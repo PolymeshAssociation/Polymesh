@@ -54,6 +54,7 @@
 //! - `set_asset_metadata_details` - Set asset metadata value details (expire, lock status).
 //! - `register_asset_metadata_local_type` - Register asset metadata local type.
 //! - `register_asset_metadata_global_type` - Register asset metadata global type.
+//! - `redeem_from_portfolio` - Redeems tokens from the caller's portfolio.
 //!
 //! ### Public Functions
 //!
@@ -116,8 +117,8 @@ use polymesh_primitives::{
     ethereum::{self, EcdsaSignature, EthereumAddress},
     extract_auth, storage_migrate_on, storage_migration_ver,
     transfer_compliance::TransferConditionResult,
-    AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, ScopeId, SecondaryKey,
-    Ticker,
+    AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, PortfolioKind,
+    ScopeId, SecondaryKey, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;
@@ -578,7 +579,7 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::redeem()]
         pub fn redeem(origin, ticker: Ticker, value: Balance) -> DispatchResult {
-            Self::base_redeem(origin, ticker, value)
+            Self::base_redeem(origin, ticker, value, PortfolioKind::Default)
         }
 
         /// Makes an indivisible token divisible.
@@ -871,6 +872,28 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::register_asset_metadata_global_type()]
         pub fn register_asset_metadata_global_type(origin, name: AssetMetadataName, spec: AssetMetadataSpec) -> DispatchResult {
             Self::base_register_asset_metadata_global_type(origin, name, spec)
+        }
+
+        /// Redeems existing tokens by reducing the balance of the caller's portfolio and the total supply of the token
+        ///
+        /// # Arguments
+        /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
+        /// * `ticker` Ticker of the token.
+        /// * `value` Amount of tokens to redeem.
+        /// * `portfolio` From whom portfolio tokens gets transferred.
+        ///
+        /// # Errors
+        /// - `Unauthorized` If called by someone without the appropriate external agent permissions
+        /// - `InvalidGranularity` If the amount is not divisible by 10^6 for non-divisible tokens
+        /// - `InsufficientPortfolioBalance` If the caller's `portfolio` doesn't have enough free balance
+        /// - `PortfolioDoesNotExist` If the portfolio doesn't exist.
+        ///
+        /// # Permissions
+        /// * Asset
+        /// * Portfolio
+        #[weight = <T as Config>::WeightInfo::redeem_from_portfolio()]
+        pub fn redeem_from_portfolio(origin, ticker: Ticker, value: Balance, portfolio: PortfolioKind) -> DispatchResult {
+            Self::base_redeem(origin, ticker, value, portfolio)
         }
     }
 }
@@ -1854,7 +1877,12 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn base_redeem(origin: T::Origin, ticker: Ticker, value: Balance) -> DispatchResult {
+    fn base_redeem(
+        origin: T::Origin,
+        ticker: Ticker,
+        value: Balance,
+        portfolio_kind: PortfolioKind,
+    ) -> DispatchResult {
         // Ensure origin is agent with custody and permissions for default portfolio.
         let agent = Self::ensure_agent_with_custody_and_perms(origin, ticker)?;
 
@@ -1862,9 +1890,14 @@ impl<T: Config> Module<T> {
 
         // Reduce caller's portfolio balance. This makes sure that the caller has enough unlocked tokens.
         // If `advance_update_balances` fails, `reduce_portfolio_balance` shouldn't modify storage.
-        let agent_portfolio = PortfolioId::default_portfolio(agent);
+        let portfolio = PortfolioId {
+            did: agent,
+            kind: portfolio_kind,
+        };
+
+        Portfolio::<T>::ensure_portfolio_validity(&portfolio)?;
         with_transaction(|| {
-            Portfolio::<T>::reduce_portfolio_balance(&agent_portfolio, &ticker, value)?;
+            Portfolio::<T>::reduce_portfolio_balance(&portfolio, &ticker, value)?;
 
             <Checkpoint<T>>::advance_update_balances(
                 &ticker,
@@ -1897,7 +1930,7 @@ impl<T: Config> Module<T> {
         Self::deposit_event(RawEvent::Transfer(
             agent,
             ticker,
-            agent_portfolio,
+            portfolio,
             PortfolioId::default(),
             value,
         ));
