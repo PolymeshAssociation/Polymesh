@@ -432,7 +432,8 @@ jobs:
             VERSION=$(./polymesh --version | cut -d " " -f2)
             mv ./polymesh ./polymesh-${VERSION}
             mv ./polymesh-arm64 ./polymesh-${VERSION}-arm64
-            zip -rm ./polymesh-${VERSION}.zip ./polymesh-${VERSION} ./polymesh-${VERSION}-arm64
+            zip -rm ./polymesh-${VERSION}.zip ./polymesh-${VERSION}
+            zip -rm ./polymesh-${VERSION}-linux-arm64.zip ./polymesh-${VERSION}-arm64
             zip -rm ./polymesh-${VERSION}-wasm.zip ./*.wasm
             ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -prerelease -delete ${VERSION} ./
 
