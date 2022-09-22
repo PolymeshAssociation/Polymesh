@@ -1,11 +1,5 @@
 [
   {
-    "eth_owner": "0xfD4c0F5848642FC2041c003cb684fc66B16217bc",
-    "ticker": "0x57452e522e4c495645000000",
-    "is_contract": false,
-    "is_created": false
-  },
-  {
     "eth_owner": "0x27448B14A7c16c613b4e8Ef4Fdc26283955e994B",
     "ticker": "0x414e4e000000000000000000",
     "is_contract": false,
