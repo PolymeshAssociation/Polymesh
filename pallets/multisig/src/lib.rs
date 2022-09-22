@@ -953,6 +953,7 @@ impl<T: Config> Module<T> {
             Error::<T>::CddMissing
         );
         T::CddHandler::set_current_identity(&multisig_did);
+        T::CddHandler::set_payer_context(Identity::<T>::get_primary_key(multisig_did));
 
         if let Some(proposal) = Self::proposals((multisig.clone(), proposal_id)) {
             let update_proposal_status = |status| {
