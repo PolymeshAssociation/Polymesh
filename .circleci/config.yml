@@ -31,10 +31,6 @@ jobs:
           name: Build release
           command: cargo build --release
           no_output_timeout: 1h
-      - persist_to_workspace:
-          root: ./target/release
-          paths:
-            - polymesh
       - run:
           name: Create assets directory for releases
           command: mkdir ./assets
@@ -44,9 +40,6 @@ jobs:
       - run:
           name: Copy wasm to assets
           command: cp ./target/release/wbuild/polymesh*/*wasm ./assets/
-      - run:
-          name: List files
-          command: ls -ltra
       - persist_to_workspace:
           root: ./assets
           paths:
@@ -55,6 +48,55 @@ jobs:
           key: v6-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
           paths:
             - "/usr/local/cargo"
+            - "~/.cache/sccache"
+  build-arm64:
+    machine:
+      image: ubuntu-2004:current
+    resource_class: arm.xlarge
+    environment:
+      - NIGHTLY: "nightly-2022-05-10"
+      - VERBOSE: "1"
+      - RUSTFLAGS: -D warnings
+      - RUSTC_WRAPPER: /usr/local/cargo/bin/sccache
+    steps:
+      - checkout
+      - run:
+          name: Store rust version in an environment var for cache key
+          command: echo $NIGHTLY > rust.version
+      - run:
+          name: Create folders for caching.
+          command: mkdir -p ~/.cargo/git ~/.cargo/registry ~/.cache/sccache
+      - restore_cache:
+          keys:
+            - v7-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+      - run:
+          name: Build arm64 release
+          command: |
+            docker run --rm --user "$(id -u)":"$(id -g)" \
+              -e VERBOSE="$VERBOSE" \
+              -e RUSTFLAGS="$RUSTFLAGS" \
+              -e RUSTC_WRAPPER="$RUSTC_WRAPPER" \
+              -v "$PWD":/tmp/build \
+              -v ~/.cargo/git:/usr/local/cargo/git \
+              -v ~/.cargo/registry:/usr/local/cargo/registry \
+              -v ~/.cache/sccache:/.cache/sccache \
+              -w /tmp/build polymeshassociation/rust-arm64:debian-$NIGHTLY \
+              cargo build --release
+          no_output_timeout: 1h
+      - run:
+          name: Create assets directory for releases
+          command: mkdir -p ./assets
+      - run:
+          name: Copy arm64 binary to assets
+          command: cp ./target/release/polymesh ./assets/polymesh-arm64
+      - persist_to_workspace:
+          root: ./assets
+          paths:
+              - .
+      - save_cache:
+          key: v7-release-arm64-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+          paths:
+            - "~/.cargo"
             - "~/.cache/sccache"
   benchmark-build:
     docker:
@@ -268,6 +310,36 @@ jobs:
           docker build -f ./.docker/Dockerfile.distroless --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-distroless --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-distroless .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
           docker push $IMAGE_NAME
+  build-docker-arm64-debian:
+    environment:
+      IMAGE_NAME: polymeshassociation/polymesh-arm64
+    machine:
+      image: ubuntu-2004:current
+    resource_class: arm.medium
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run: |
+          export VERSION=`grep ^version ./Cargo.toml | head -1 | cut -d"=" -f2 | sed 's/[^a-zA-Z0-9\.]//g'`
+          docker build -f ./.docker/arm64/Dockerfile.debian --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-debian --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-debian .
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker push --all-tags $IMAGE_NAME
+  build-docker-arm64-distroless:
+    environment:
+      IMAGE_NAME: polymeshassociation/polymesh-arm64
+    machine:
+      image: ubuntu-2004:current
+    resource_class: arm.medium
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run: |
+          export VERSION=`grep ^version ./Cargo.toml | head -1 | cut -d"=" -f2 | sed 's/[^a-zA-Z0-9\.]//g'`
+          docker build -f ./.docker/arm64/Dockerfile.distroless --tag $IMAGE_NAME:latest-$CIRCLE_BRANCH-distroless --tag $IMAGE_NAME:$VERSION-$CIRCLE_BRANCH-distroless .
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker push --all-tags $IMAGE_NAME
   build-docker-rust-debian:
     environment:
       RUST_BASE: 1.63.0
@@ -309,6 +381,43 @@ jobs:
             --tag $IMAGE_NAME:alpine-$NIGHTLY .
           echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
           docker push $IMAGE_NAME
+  build-docker-arm64-rust-debian:
+    environment:
+      RUST_BASE: 1.63.0
+      IMAGE_NAME: polymeshassociation/rust-arm64
+    machine:
+      image: ubuntu-2004:current
+    resource_class: arm.medium
+    steps:
+      - checkout
+      - run: |
+          export NIGHTLY=`date "+nightly-%Y-%m-%d"`
+          docker build -f ./.docker/arm64/rust/Dockerfile.debian \
+            --build-arg rustbase=$RUST_BASE \
+            --build-arg toolchainversion=$NIGHTLY \
+            --tag $IMAGE_NAME:latest \
+            --tag $IMAGE_NAME:debian --tag $IMAGE_NAME:debian-latest \
+            --tag $IMAGE_NAME:debian-$NIGHTLY .
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker push --all-tags $IMAGE_NAME
+  build-docker-arm64-rust-alpine:
+    environment:
+      RUST_BASE: 1.63.0
+      IMAGE_NAME: polymeshassociation/rust-arm64
+    machine:
+      image: ubuntu-2004:current
+    resource_class: arm.medium
+    steps:
+      - checkout
+      - run: |
+          export NIGHTLY=`date "+nightly-%Y-%m-%d"`
+          docker build -f ./.docker/arm64/rust/Dockerfile.alpine \
+            --build-arg rustbase=$RUST_BASE \
+            --build-arg toolchainversion=$NIGHTLY \
+            --tag $IMAGE_NAME:alpine --tag $IMAGE_NAME:alpine-latest \
+            --tag $IMAGE_NAME:alpine-$NIGHTLY .
+          echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker push --all-tags $IMAGE_NAME
   publish-github-release:
     docker:
       - image: circleci/golang:1.16
@@ -320,9 +429,10 @@ jobs:
           command: |
             go get github.com/tcnksm/ghr
             cd assets
-            VERSION=$(./polymesh --version | cut -d" " -f2)
+            VERSION=$(./polymesh --version | cut -d " " -f2)
             mv ./polymesh ./polymesh-${VERSION}
-            zip -rm ./polymesh-${VERSION}.zip ./polymesh-${VERSION}
+            mv ./polymesh-arm64 ./polymesh-${VERSION}-arm64
+            zip -rm ./polymesh-${VERSION}.zip ./polymesh-${VERSION} ./polymesh-${VERSION}-arm64
             zip -rm ./polymesh-${VERSION}-wasm.zip ./*.wasm
             ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -prerelease -delete ${VERSION} ./
 
@@ -339,12 +449,15 @@ workflows:
     jobs:
       - build-docker-rust-debian
       - build-docker-rust-alpine
+      - build-docker-arm64-rust-debian
+      - build-docker-arm64-rust-alpine
   commit:
     jobs:
       - lint
       - clippy
       - test
       - build
+      - build-arm64
       - benchmark-build
       - coverage
       - integration-test:
@@ -373,9 +486,30 @@ workflows:
                 - testnet
                 - staging
                 - develop
+      - build-docker-arm64-debian:
+          requires:
+            - build-arm64
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
+                - develop
+      - build-docker-arm64-distroless:
+          requires:
+            - build-arm64
+          filters:
+            branches:
+              only:
+                - mainnet
+                - testnet
+                - staging
+                - develop
       - publish-github-release:
           requires:
             - build
+            - build-arm64
           filters:
             branches:
               only:
