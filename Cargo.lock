@@ -5279,7 +5279,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "pallet-balances 0.1.0",
  "pallet-base",
  "pallet-committee",
