@@ -850,8 +850,8 @@ pub fn authorizations_to(to: &Signatory<AccountId>) -> Vec<Authorization<Account
 
 /// Advances the system `block_number` and run any scheduled task.
 pub fn next_block() -> Weight {
-    let block_number = frame_system::Pallet::<TestStorage>::block_number() + 1;
-    frame_system::Pallet::<TestStorage>::set_block_number(block_number);
+    let block_number = System::block_number() + 1;
+    System::set_block_number(block_number);
 
     // Call the timelocked tx handler.
     pallet_scheduler::Pallet::<TestStorage>::on_initialize(block_number)
@@ -1098,14 +1098,8 @@ fn sign(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
     } = xt;
     UncheckedExtrinsic {
         signature: signed.map(|(signed, extra)| {
-            let payload = (
-                &function,
-                extra.clone(),
-                VERSION.spec_version,
-                VERSION.transaction_version,
-                GENESIS_HASH,
-                GENESIS_HASH,
-            );
+            let payload = SignedPayload::new(function.clone(), extra.clone())
+                .expect("Failed to create signed payload");
             let key = AccountKeyring::from_account_id(&signed).unwrap();
             let signature = payload
                 .using_encoded(|b| {
@@ -1128,7 +1122,7 @@ fn signed_extra(nonce: Index) -> SignedExtra {
         frame_system::CheckSpecVersion::new(),
         frame_system::CheckTxVersion::new(),
         frame_system::CheckGenesis::new(),
-        frame_system::CheckEra::from(Era::mortal(256, 0)),
+        frame_system::CheckEra::from(Era::immortal()),
         frame_system::CheckNonce::from(nonce),
         polymesh_extensions::CheckWeight::new(),
         pallet_transaction_payment::ChargeTransactionPayment::from(0),
