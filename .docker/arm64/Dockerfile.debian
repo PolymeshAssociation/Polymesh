@@ -1,5 +1,5 @@
 ARG golangbase=1.15
-FROM golang:${golangbase} as gobuild
+FROM arm64v8/golang:${golangbase} as gobuild
 
 ADD .docker/src/health-check/ /opt/health-check/
 ADD .docker/src/rotate-keys/ /opt/rotate-keys/
@@ -14,14 +14,18 @@ RUN ls -a && \
     go build && \
     chmod 0755 /opt/rotate-keys/polymesh-rotate-keys
 
-FROM gcr.io/distroless/cc
-USER 4001:4001
+FROM arm64v8/debian:stable-slim
 
-COPY --chown=4001:4001 ./polymesh /
 COPY --chown=4002:4002 --from=gobuild      /opt/health-check/polymesh-health-check /usr/local/bin/check
 COPY --chown=4002:4002 --from=gobuild      /opt/rotate-keys/polymesh-rotate-keys   /usr/local/bin/rotate
+COPY --chown=4001:4001 ./polymesh-arm64 /usr/local/bin/polymesh
 
-ENTRYPOINT ["/polymesh"]
+RUN mkdir /var/lib/polymesh && \
+    chown 4001:4001 /var/lib/polymesh
+
+USER 4001:4001
+
+ENTRYPOINT ["/usr/local/bin/polymesh"]
 CMD [ "-d", "/var/lib/polymesh" ]
 
 HEALTHCHECK \
