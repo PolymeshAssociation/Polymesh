@@ -56,7 +56,7 @@ pub const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 /// We allow for 2 seconds of compute with a 6 second average block time.
-const MAXIMUM_BLOCK_WEIGHT: Weight = 2 * WEIGHT_PER_SECOND;
+const MAXIMUM_BLOCK_WEIGHT: Weight = 10 * WEIGHT_PER_SECOND;
 
 // TODO (miguel) Remove unused constants.
 parameter_types! {
