@@ -620,10 +620,7 @@ decl_module! {
         ///
         /// # Weight
         /// `950_000_000 + 1_000_000 * legs.len()`
-        #[weight = <T as Config>::WeightInfo::add_instruction_with_settle_on_block_type(legs.len() as u32)
-        .saturating_add(
-            <T as Config>::WeightInfo::execute_scheduled_instruction(legs.len() as u32)
-        )]
+        #[weight = <T as Config>::WeightInfo::add_instruction_with_settle_on_block_type(legs.len() as u32)]
         pub fn add_instruction(
             origin,
             venue_id: VenueId,
@@ -650,10 +647,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_with_settle_on_block_type(legs.len() as u32)
-        .saturating_add(
-            <T as Config>::WeightInfo::execute_scheduled_instruction(legs.len() as u32)
-        )]
+        #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_with_settle_on_block_type(legs.len() as u32)]
         pub fn add_and_affirm_instruction(
             origin,
             venue_id: VenueId,
@@ -940,10 +934,7 @@ decl_module! {
         ///
         /// # Weight
         /// `950_000_000 + 1_000_000 * legs.len()`
-        #[weight = <T as Config>::WeightInfo::add_instruction_with_memo_and_settle_on_block_type(legs.len() as u32)
-        .saturating_add(
-            <T as Config>::WeightInfo::execute_scheduled_instruction(legs.len() as u32)
-        )]
+        #[weight = <T as Config>::WeightInfo::add_instruction_with_memo_and_settle_on_block_type(legs.len() as u32)]
         pub fn add_instruction_with_memo(
             origin,
             venue_id: VenueId,
@@ -971,10 +962,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_with_memo_and_settle_on_block_type(legs.len() as u32)
-        .saturating_add(
-            <T as Config>::WeightInfo::execute_scheduled_instruction(legs.len() as u32)
-        )]
+        #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_with_memo_and_settle_on_block_type(legs.len() as u32)]
         pub fn add_and_affirm_instruction_with_memo(
             origin,
             venue_id: VenueId,
