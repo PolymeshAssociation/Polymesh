@@ -436,7 +436,7 @@ jobs:
             zip -rm ./polymesh-${VERSION}.zip ./polymesh-${VERSION}
             zip -rm ./polymesh-${VERSION}-linux-arm64.zip ./polymesh-${VERSION}-arm64
             zip -rm ./polymesh-${VERSION}-wasm.zip ./*.wasm
-            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -prerelease -delete ${VERSION} ./
+            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -prerelease -delete v${VERSION} ./
 
 workflows:
   version: 2
