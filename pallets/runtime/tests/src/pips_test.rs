@@ -7,7 +7,6 @@ use super::{
     },
     ExtBuilder,
 };
-use core::assert_matches::assert_matches;
 use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
@@ -160,7 +159,7 @@ fn assert_state(id: PipId, care_about_pruned: bool, state: ProposalState) {
     if care_about_pruned && Pips::prune_historical_pips() {
         assert_eq!(prop, None);
     } else {
-        assert_eq!(prop.unwrap().state, state);
+        assert_eq!(Pips::proposal_state(id).unwrap(), state);
     }
 }
 
@@ -476,10 +475,13 @@ fn proposal_details_are_correct() {
         let expected = Pip {
             id: PipId(0),
             proposal: call,
-            state: ProposalState::Pending,
             proposer,
         };
         assert_eq!(Pips::proposals(PipId(0)).unwrap(), expected);
+        assert_eq!(
+            Pips::proposal_state(PipId(0)).unwrap(),
+            ProposalState::Pending
+        );
 
         let expected = PipsMetadata {
             id: PipId(0),
@@ -1274,10 +1276,10 @@ fn reject_proposal_works() {
             Pip {
                 id,
                 proposal: make_proposal(42),
-                state: ProposalState::Rejected,
                 proposer: Proposer::Community(proposer.acc()),
             }
         );
+        assert_eq!(Pips::proposal_state(id).unwrap(), ProposalState::Rejected);
         assert_balance(proposer.acc(), init_bal, 0);
         assert_eq!(Deposits::iter_prefix_values(id).count(), 0);
         // We keep this info for posterity.
@@ -1314,10 +1316,10 @@ fn reject_proposal_works() {
             Pip {
                 id,
                 proposal: make_proposal(42),
-                state: ProposalState::Rejected,
                 proposer: Proposer::Community(proposer.acc()),
             }
         );
+        assert_eq!(Pips::proposal_state(id).unwrap(), ProposalState::Rejected);
         assert_balance(proposer.acc(), init_bal, 0);
         assert_eq!(Deposits::iter_prefix_values(id).count(), 0);
         // We keep this info for posterity.
@@ -1491,7 +1493,7 @@ fn reschedule_execution_works() {
         let id = scheduled_proposal(proposer, rc, 0);
         assert_eq!(Pips::active_pip_count(), 1);
         let scheduled_at = Pips::pip_to_schedule(id).unwrap();
-        assert_matches!(&*Agenda::get(scheduled_at), [Some(_)]);
+        assert!(matches!(&*Agenda::get(scheduled_at), [Some(_)]));
 
         // Reschedule execution for next block.
         let next = System::block_number() + 1;
@@ -1504,7 +1506,7 @@ fn reschedule_execution_works() {
         ));
         assert_eq!(Pips::pip_to_schedule(id).unwrap(), next);
         assert_eq!(Agenda::get(scheduled_at), vec![None]);
-        assert_matches!(&*Agenda::get(next), [Some(_)]);
+        assert!(matches!(&*Agenda::get(next), [Some(_)]));
 
         // Reschedule execution for 50 blocks ahead.
         assert_ok!(Pips::reschedule_execution(rc.origin(), id, Some(next + 50)));
@@ -1512,7 +1514,7 @@ fn reschedule_execution_works() {
         assert_eq!(Pips::pip_to_schedule(id).unwrap(), next + 50);
         assert_eq!(vec![None], Agenda::get(scheduled_at));
         assert_eq!(vec![None], Agenda::get(next));
-        assert_matches!(&*Agenda::get(next + 50), [Some(_)]);
+        assert!(matches!(&*Agenda::get(next + 50), [Some(_)]));
     });
 }
 
@@ -1832,7 +1834,7 @@ fn expiry_works() {
         let s = scheduled_proposal(proposer, member, 0);
         fast_forward_blocks(13 + 100);
         for id in &[r, e, f, s] {
-            assert_ne!(Pips::proposals(id).unwrap().state, ProposalState::Expired);
+            assert_ne!(Pips::proposal_state(id).unwrap(), ProposalState::Expired);
         }
     });
 }

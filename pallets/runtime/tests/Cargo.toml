@@ -5,8 +5,8 @@ authors = ["Polymath"]
 edition = "2021"
 
 [dependencies]
-confidential_identity_v1 = { version = "1.0.0", default-features = false }
-confidential_identity_core = { version = "1.0.0", default-features = false }
+confidential_identity_v1 = { version = "1.0.1", default-features = false }
+confidential_identity_core = { version = "1.0.1", default-features = false }
 node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = false }
 pallet-asset = { path = "../../asset", default-features = false }
 pallet-balances = { path = "../../balances", default-features = false }
@@ -119,7 +119,6 @@ only-staking = []
 
 # Backends
 u64_backend = ["confidential_identity_core/u64_backend", "polymesh-primitives/u64_backend"]
-avx2_backend = ["confidential_identity_core/avx2_backend", "polymesh-primitives/avx2_backend"]
 
 no_std = [
     "confidential_identity_core/no_std",
@@ -127,7 +126,7 @@ no_std = [
 ]
 
 std = [
-    "avx2_backend",
+    "u64_backend",
     "confidential_identity_core/std",
     "confidential_identity_v1/std",
     "frame-support/std",

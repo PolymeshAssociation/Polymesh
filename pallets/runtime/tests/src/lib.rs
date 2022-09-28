@@ -1,6 +1,4 @@
 #![allow(dead_code)]
-#![feature(crate_visibility_modifier)]
-#![feature(assert_matches)]
 #![cfg(test)]
 
 pub mod storage;

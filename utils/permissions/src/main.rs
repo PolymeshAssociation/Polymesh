@@ -16,12 +16,15 @@
 use crate::doc_parser::enums::{EnumDoc, EnumDocParser};
 use regex::Regex;
 use scraper::{Html, Selector};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::fs::{read_dir, File};
 use std::io::Read;
-use std::path::PathBuf;
 
 mod doc_parser;
+
+type PalletName = String;
+type ExtrinsicName = String;
+type Permissions = Vec<String>;
 
 fn main() {
     assert!(
@@ -34,15 +37,15 @@ fn main() {
 
     let pallets_regex = Regex::new("target/doc/pallet_.*").unwrap();
 
-    let mut permission_mappings: BTreeMap<String, BTreeMap<String, Vec<String>>> = BTreeMap::new();
+    let mut permission_mappings: BTreeMap<PalletName, BTreeMap<ExtrinsicName, Permissions>> =
+        BTreeMap::new();
 
-    // read the docs of all crates in target that match a regex
+    // read the docs of all crates in target that match a regex.
     read_dir("target/doc")
         .expect("dir does not exist")
         .into_iter()
         .filter_map(|entry| entry.ok().map(|entry| entry.path()))
-        .collect::<BTreeSet<PathBuf>>()
-        .into_iter()
+        // check path is a ref to a pallet.
         .filter(|path| {
             path.to_str()
                 .map(|str| pallets_regex.is_match(str))
@@ -53,7 +56,6 @@ fn main() {
                 .and_then(|name| name.to_str().map(|s| s.to_owned()))
                 .map(|name| (name, path.join("enum.Call.html")))
         })
-        .filter(|(_, path)| path.exists())
         .filter_map(|(pallet, path)| File::open(&path).ok().map(|f| (pallet, f)))
         .filter_map(|(pallet, mut file)| {
             let mut text = String::new();
@@ -63,35 +65,33 @@ fn main() {
         .filter_map(|(pallet, text)| {
             EnumDocParser::parse(Html::parse_document(&text)).map(|doc| (pallet, doc))
         })
-        .map(|(pallet, doc)| (pallet, parse_permissions(doc)))
-        .for_each(|(pallet, permissions)| {
-            for (extrinsic, permission) in permissions {
-                permission_mappings
-                    .entry(pallet.clone())
-                    .or_insert(Default::default())
-                    .entry(extrinsic.clone())
-                    .or_insert(Default::default())
-                    .push(permission);
-            }
+        .for_each(|(pallet, doc)| {
+            *permission_mappings
+                .entry(pallet.clone())
+                .or_insert(Default::default()) = parse_permissions(doc);
         });
 
     permission_mappings
         .into_iter()
         .for_each(|(pallet, mapping)| {
-            mapping.into_iter().for_each(|(extrinsic, permissions)| {
-                println!("{},{},{}", pallet, extrinsic, permissions.join(","))
-            })
+            mapping
+                .into_iter()
+                .for_each(|(extrinsic, mut permissions)| {
+                    if permissions.is_empty() {
+                        permissions.push("None".into());
+                    }
+                    println!("{},{},{}", pallet, extrinsic, permissions.join(","));
+                })
         });
 }
 
-fn parse_permissions(doc: EnumDoc) -> Vec<(String, String)> {
-    let h1_selector = Selector::parse("h1").unwrap();
-    let h2_selector = Selector::parse("h2").unwrap();
+fn parse_permissions(doc: EnumDoc) -> BTreeMap<ExtrinsicName, Permissions> {
+    let heading_selector = Selector::parse("h1,h2").unwrap();
     let ul_selector = Selector::parse("ul").unwrap();
     let li_selector = Selector::parse("li").unwrap();
-    let is_heading = |child| h1_selector.matches(&child) || h2_selector.matches(&child);
+    let is_heading = |child| heading_selector.matches(&child);
 
-    let mut permissions = Vec::new();
+    let mut permissions = BTreeMap::new();
     doc.variants
         .iter()
         // Find the div that contains the content of the doc block
@@ -102,7 +102,11 @@ fn parse_permissions(doc: EnumDoc) -> Vec<(String, String)> {
                 .next()
                 .map(|div| (variant.name.clone(), div))
         })
-        .for_each(|(name, doc_block_div)| {
+        .for_each(|(extrinsic, doc_block_div)| {
+            permissions
+                .entry(extrinsic.clone())
+                .or_insert(Permissions::new());
+
             // Collect all children of the doc block, which in practice is the content of the doc block
             let children: Vec<_> = doc_block_div
                 .select(&Selector::parse("*").unwrap())
@@ -120,18 +124,20 @@ fn parse_permissions(doc: EnumDoc) -> Vec<(String, String)> {
                         .map(|s| s.starts_with("permissions"))
                         .unwrap_or(false)
                 })
-                // Look for a ul in the contents before the next h1/h2
+                // Look for a ul in the contents before the next heading
                 .for_each(|(i, _)| {
                     children[i + 1..]
                         .iter()
-                        // Stop once we hit another h1
+                        // Stop once we hit another heading
                         .take_while(|element| !is_heading(**element))
                         .filter(|element| ul_selector.matches(element))
                         .next()
                         .map(|ul| {
                             ul.select(&li_selector)
-                                .map(|element| element.text().collect())
-                                .for_each(|li| permissions.push((name.clone(), li)))
+                                .map(|element| element.text().collect::<String>())
+                                .for_each(|permission| {
+                                    permissions.get_mut(&extrinsic).unwrap().push(permission)
+                                })
                         });
                 })
         });

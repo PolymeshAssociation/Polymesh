@@ -57,7 +57,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     impl_name: create_runtime_str!("polymesh_ci"),
     authoring_version: 1,
     // `spec_version: aaa_bbb_ccc` should match node version v`aaa.bbb.ccc`
-    spec_version: 5_000_003,
+    spec_version: 5_001_000,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 3,
@@ -213,6 +213,8 @@ impl polymesh_common_utilities::traits::identity::Config for Runtime {
 }
 
 impl pallet_committee::Config<GovernanceCommittee> for Runtime {
+    type Origin = Origin;
+    type Proposal = Call;
     type CommitteeOrigin = VMO<GovernanceCommittee>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
@@ -235,6 +237,8 @@ impl pallet_group::Config<pallet_group::Instance1> for Runtime {
 macro_rules! committee_config {
     ($committee:ident, $instance:ident) => {
         impl pallet_committee::Config<pallet_committee::$instance> for Runtime {
+            type Origin = Origin;
+            type Proposal = Call;
             // Can act upon itself.
             type CommitteeOrigin = VMO<pallet_committee::$instance>;
             type VoteThresholdOrigin = Self::CommitteeOrigin;
@@ -270,6 +274,7 @@ impl pallet_pips::Config for Runtime {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
+    type SchedulerCall = Call;
 }
 
 /// CddProviders instance of group

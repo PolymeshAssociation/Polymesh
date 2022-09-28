@@ -323,11 +323,12 @@ pub fn setup_conditions<T: Config>(
     (0..count)
         .map(|i| {
             let scope = Scope::Custom((vec![i]).encode());
-            let claim = Claim::Jurisdiction(CountryCode::AF, scope);
+            let claim = Claim::Jurisdiction(CountryCode::AF, scope.clone());
             for did in &dids {
-                identity::Module::<T>::base_add_claim(
+                identity::Module::<T>::unverified_add_claim_with_scope(
                     did.clone(),
                     claim.clone(),
+                    Some(scope.clone()),
                     trusted_issuer.issuer,
                     None,
                 );
@@ -555,6 +556,23 @@ benchmarks! {
         assert_eq!(Module::<T>::venue_info(VenueId(1)).unwrap().venue_type, ty, "Incorrect venue type value");
     }
 
+    update_venue_signers {
+        // Variations for the no. of signers allowed.
+        let s in 0 .. MAX_SIGNERS_ALLOWED;
+        let mut signers = Vec::with_capacity(s as usize);
+        let User {account, origin, did, .. } = creator::<T>();
+        let venue_id = create_venue_::<T>(did.unwrap(), vec![account.clone()]);
+        // Create signers vector.
+        for signer in 0 .. s {
+            signers.push(UserBuilder::<T>::default().generate_did().seed(signer).build("signers").account());
+        }
+    }: _(origin, venue_id, signers.clone(), true)
+    verify {
+        for signer in signers.iter() {
+            assert_eq!(Module::<T>::venue_signers(venue_id, signer), true, "Incorrect venue signer");
+        }
+    }
+
 
     add_instruction {
 
@@ -665,7 +683,7 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true).unwrap();
         // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone()).unwrap();
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone(), None).unwrap();
         let instruction_id = InstructionId(1);
         // Affirm an instruction
         let portfolios_set = portfolios.clone().into_iter().collect::<BTreeSet<_>>();
@@ -685,7 +703,7 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did, _, _, account_id) = emulate_add_instruction::<T>(1, true).unwrap();
         // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone()).unwrap();
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone(), None).unwrap();
         let instruction_id = InstructionId(1);
         let leg_id = LegId(0);
 
@@ -730,7 +748,7 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , s_portfolios, r_portfolios, account_id) = emulate_add_instruction::<T>(1, true).unwrap();
         // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone()).unwrap();
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone(), None).unwrap();
         let instruction_id = InstructionId(1);
         let ticker = Ticker::generate_into(1u64);
         let receipt = create_receipt_details::<T>(0, legs.first().unwrap().clone());
@@ -755,7 +773,7 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , s_portfolios, r_portfolios, account_id) = emulate_add_instruction::<T>(r, true).unwrap();
         // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone()).unwrap();
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone(), None).unwrap();
         let instruction_id = InstructionId(1);
         let mut receipt_details = Vec::with_capacity(r as usize);
         legs.clone().into_iter().enumerate().for_each(|(idx, l)| {
@@ -839,6 +857,36 @@ benchmarks! {
         assert_eq!(Module::<T>::instruction_details(instruction_id).status, InstructionStatus::Pending, "Settlement: reschedule_instruction didn't work");
         next_block::<T>();
         assert_eq!(Module::<T>::instruction_details(instruction_id).status, InstructionStatus::Failed, "Settlement: reschedule_instruction didn't work");
+    }
+
+    add_instruction_with_memo_and_settle_on_block_type {
+        let l in 1 .. T::MaxLegsInInstruction::get(); // Variation for the MAX leg count.
+        // Define settlement type
+        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
+        let instruction_id = InstructionId(1);
+        set_block_number::<T>(50);
+
+        // Emulate the add instruction and get all the necessary arguments.
+        let (legs, venue_id, origin, did , _, _, _ ) = emulate_add_instruction::<T>(l, false).unwrap();
+
+    }: add_instruction_with_memo(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs, Some(InstructionMemo::default()))
+    verify {
+        assert_eq!(Module::<T>::memo(instruction_id).unwrap(), InstructionMemo::default());
+    }
+
+    add_and_affirm_instruction_with_memo_and_settle_on_block_type {
+        let l in 1 .. T::MaxLegsInInstruction::get();
+        // Define settlement type.
+        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
+        let instruction_id = InstructionId(1);
+        set_block_number::<T>(50);
+        // Emulate the add instruction and get all the necessary arguments.
+        let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true).unwrap();
+        let s_portfolios = portfolios.clone();
+    }: add_and_affirm_instruction_with_memo(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs, s_portfolios, Some(InstructionMemo::default()))
+    verify {
+        verify_add_and_affirm_instruction::<T>(venue_id, settlement_type, portfolios).unwrap();
+        assert_eq!(Module::<T>::memo(instruction_id).unwrap(), InstructionMemo::default());
     }
 }
 

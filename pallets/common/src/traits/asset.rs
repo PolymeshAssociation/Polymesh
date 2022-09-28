@@ -102,6 +102,7 @@ pub trait WeightInfo {
     fn register_and_set_local_asset_metadata() -> Weight;
     fn register_asset_metadata_local_type() -> Weight;
     fn register_asset_metadata_global_type() -> Weight;
+    fn redeem_from_portfolio() -> Weight;
 }
 
 /// The module's configuration trait.
@@ -161,8 +162,8 @@ decl_event! {
         /// caller DID, ticker,  from DID, value
         Redeemed(IdentityId, Ticker, IdentityId, Balance),
         /// Event for creation of the asset.
-        /// caller DID/ owner DID, ticker, divisibility, asset type, beneficiary DID, disable investor uniqueness
-        AssetCreated(IdentityId, Ticker, bool, AssetType, IdentityId, bool),
+        /// caller DID/ owner DID, ticker, divisibility, asset type, beneficiary DID, disable investor uniqueness, asset name, identifiers, funding round
+        AssetCreated(IdentityId, Ticker, bool, AssetType, IdentityId, bool, AssetName, Vec<AssetIdentifier>, Option<FundingRoundName>),
         /// Event emitted when any token identifiers are updated.
         /// caller DID, ticker, a vector of (identifier type, identifier value)
         IdentifiersUpdated(IdentityId, Ticker, Vec<AssetIdentifier>),

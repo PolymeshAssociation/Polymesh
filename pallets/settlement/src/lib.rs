@@ -47,8 +47,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
-#![feature(const_option)]
-#![feature(associated_type_bounds)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -90,7 +88,7 @@ type Asset<T> = pallet_asset::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 
 pub trait Config:
-    frame_system::Config<Call: From<Call<Self>> + Into<<Self as IdentityConfig>::Proposal>>
+    frame_system::Config
     + CommonConfig
     + IdentityConfig
     + pallet_timestamp::Config
@@ -99,10 +97,14 @@ pub trait Config:
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+
+    /// A call type used by the scheduler.
+    type Proposal: From<Call<Self>> + Into<<Self as IdentityConfig>::Proposal>;
+
     /// Scheduler of settlement instructions.
     type Scheduler: ScheduleNamed<
         Self::BlockNumber,
-        <Self as frame_system::Config>::Call,
+        <Self as Config>::Proposal,
         Self::SchedulerOrigin,
     >;
     /// Maximum legs that can be in a single instruction.
@@ -228,6 +230,11 @@ impl InstructionId {
     }
 }
 
+/// A wrapper for InstructionMemo
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct InstructionMemo(pub [u8; 32]);
+
 /// Details about an instruction.
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
@@ -311,6 +318,7 @@ pub trait WeightInfo {
     fn create_venue(d: u32, u: u32) -> Weight;
     fn update_venue_details(d: u32) -> Weight;
     fn update_venue_type() -> Weight;
+    fn update_venue_signers(u: u32) -> Weight;
     fn add_instruction(u: u32) -> Weight;
     fn add_and_affirm_instruction(u: u32) -> Weight;
     fn affirm_instruction(l: u32) -> Weight;
@@ -330,6 +338,8 @@ pub trait WeightInfo {
     // TODO: Will be removed once we get the worst case weight.
     fn add_instruction_with_settle_on_block_type(u: u32) -> Weight;
     fn add_and_affirm_instruction_with_settle_on_block_type(u: u32) -> Weight;
+    fn add_instruction_with_memo_and_settle_on_block_type(u: u32) -> Weight;
+    fn add_and_affirm_instruction_with_memo_and_settle_on_block_type(u: u32) -> Weight;
 }
 
 type EnsureValidInstructionResult<AccountId, Moment, BlockNumber> = Result<
@@ -355,7 +365,7 @@ decl_event!(
         /// An existing venue's type has been updated (did, venue_id, type)
         VenueTypeUpdated(IdentityId, VenueId, VenueType),
         /// A new instruction has been created
-        /// (did, venue_id, instruction_id, settlement_type, trade_date, value_date, legs)
+        /// (did, venue_id, instruction_id, settlement_type, trade_date, value_date, legs, memo)
         InstructionCreated(
             IdentityId,
             VenueId,
@@ -364,6 +374,7 @@ decl_event!(
             Option<Moment>,
             Option<Moment>,
             Vec<Leg>,
+            Option<InstructionMemo>,
         ),
         /// An instruction has been affirmed (did, portfolio, instruction_id)
         InstructionAffirmed(IdentityId, PortfolioId, InstructionId),
@@ -403,6 +414,8 @@ decl_event!(
         /// Instruction is rescheduled.
         /// (caller DID, instruction_id)
         InstructionRescheduled(IdentityId, InstructionId),
+        /// An existing venue's signers has been updated (did, venue_id, signers, update_type)
+        VenueSignersUpdated(IdentityId, VenueId, Vec<AccountId>, bool),
     }
 );
 
@@ -459,6 +472,12 @@ decl_error! {
         UnknownInstruction,
         /// Maximum legs that can be in a single instruction.
         InstructionHasTooManyLegs,
+        /// Signer is already added to venue.
+        SignerAlreadyExists,
+        /// Signer is not added to venue.
+        SignerDoesNotExist,
+        /// Instruction leg amount can't be zero
+        ZeroAmount,
     }
 }
 
@@ -518,7 +537,9 @@ decl_storage! {
         /// Number of instructions in the system (It's one more than the actual number)
         InstructionCounter get(fn instruction_counter) build(|_| InstructionId(1u64)): InstructionId;
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(0)): Version;
+        /// Instruction memo
+        InstructionMemos get(fn memo): map hasher(twox_64_concat) InstructionId => Option<InstructionMemo>;
     }
 }
 
@@ -586,6 +607,7 @@ decl_module! {
             Ok(())
         }
 
+        /// Deprecated. Use `add_instruction_with_memo` instead.
         /// Adds a new instruction.
         ///
         /// # Arguments
@@ -611,9 +633,10 @@ decl_module! {
             legs: Vec<Leg>,
         ) {
             let did = Identity::<T>::ensure_perms(origin)?;
-            Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs)?;
+            Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, None)?;
         }
 
+        /// Deprecated. Use `add_and_affirm_instruction_with_memo` instead.
         /// Adds and affirms a new instruction.
         ///
         /// # Arguments
@@ -638,13 +661,13 @@ decl_module! {
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
             legs: Vec<Leg>,
-            portfolios: Vec<PortfolioId>
+            portfolios: Vec<PortfolioId>,
         ) -> DispatchResult {
             let did = Identity::<T>::ensure_perms(origin.clone())?;
             with_transaction(|| {
                 let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
                 let legs_count = legs.iter().filter(|l| portfolios_set.contains(&l.from)).count() as u32;
-                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs)?;
+                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, None)?;
                 Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios_set.into_iter(), legs_count)
             })
         }
@@ -892,6 +915,85 @@ decl_module! {
 
             Self::deposit_event(RawEvent::InstructionRescheduled(did, id));
         }
+
+        /// Edit a venue's signers.
+        /// * `id` specifies the ID of the venue to edit.
+        /// * `signers` specifies the signers to add/remove.
+        /// * `add_signers` specifies the update type add/remove of venue where add is true and remove is false.
+        #[weight = <T as Config>::WeightInfo::update_venue_signers(signers.len() as u32)]
+        pub fn update_venue_signers(origin, id: VenueId, signers: Vec<T::AccountId>, add_signers: bool) {
+            let did = Identity::<T>::ensure_perms(origin)?;
+
+            Self::base_update_venue_signers(did, id, signers, add_signers)?;
+        }
+
+        /// Adds a new instruction with memo.
+        ///
+        /// # Arguments
+        /// * `venue_id` - ID of the venue this instruction belongs to.
+        /// * `settlement_type` - Defines if the instruction should be settled
+        ///    in the next block after receiving all affirmations or waiting till a specific block.
+        /// * `trade_date` - Optional date from which people can interact with this instruction.
+        /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
+        /// * `legs` - Legs included in this instruction.
+        /// * `memo` - Memo field for this instruction.
+        ///
+        /// # Weight
+        /// `950_000_000 + 1_000_000 * legs.len()`
+        #[weight = <T as Config>::WeightInfo::add_instruction_with_memo_and_settle_on_block_type(legs.len() as u32)
+        .saturating_add(
+            <T as Config>::WeightInfo::execute_scheduled_instruction(legs.len() as u32)
+        )]
+        pub fn add_instruction_with_memo(
+            origin,
+            venue_id: VenueId,
+            settlement_type: SettlementType<T::BlockNumber>,
+            trade_date: Option<T::Moment>,
+            value_date: Option<T::Moment>,
+            legs: Vec<Leg>,
+            instruction_memo: Option<InstructionMemo>,
+        ) {
+            let did = Identity::<T>::ensure_perms(origin)?;
+            Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo)?;
+        }
+
+        /// Adds and affirms a new instruction.
+        ///
+        /// # Arguments
+        /// * `venue_id` - ID of the venue this instruction belongs to.
+        /// * `settlement_type` - Defines if the instruction should be settled
+        ///    in the next block after receiving all affirmations or waiting till a specific block.
+        /// * `trade_date` - Optional date from which people can interact with this instruction.
+        /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
+        /// * `legs` - Legs included in this instruction.
+        /// * `portfolios` - Portfolios that the sender controls and wants to use in this affirmations.
+        /// * `memo` - Memo field for this instruction.
+        ///
+        /// # Permissions
+        /// * Portfolio
+        #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_with_memo_and_settle_on_block_type(legs.len() as u32)
+        .saturating_add(
+            <T as Config>::WeightInfo::execute_scheduled_instruction(legs.len() as u32)
+        )]
+        pub fn add_and_affirm_instruction_with_memo(
+            origin,
+            venue_id: VenueId,
+            settlement_type: SettlementType<T::BlockNumber>,
+            trade_date: Option<T::Moment>,
+            value_date: Option<T::Moment>,
+            legs: Vec<Leg>,
+            portfolios: Vec<PortfolioId>,
+            instruction_memo: Option<InstructionMemo>,
+        ) -> DispatchResult {
+            let did = Identity::<T>::ensure_perms(origin.clone())?;
+            with_transaction(|| {
+                let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
+                let legs_count = legs.iter().filter(|l| portfolios_set.contains(&l.from)).count() as u32;
+                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo)?;
+                Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios_set.into_iter(), legs_count)
+            })
+        }
+
     }
 }
 
@@ -936,6 +1038,7 @@ impl<T: Config> Module<T> {
         trade_date: Option<T::Moment>,
         value_date: Option<T::Moment>,
         legs: Vec<Leg>,
+        memo: Option<InstructionMemo>,
     ) -> Result<InstructionId, DispatchError> {
         // Ensure instruction does not have too many legs.
         ensure!(
@@ -968,6 +1071,8 @@ impl<T: Config> Module<T> {
                     Error::<T>::UnauthorizedVenue
                 );
             }
+
+            ensure!(leg.amount != 0, Error::<T>::ZeroAmount);
             counter_parties.insert(leg.from);
             counter_parties.insert(leg.to);
         }
@@ -1003,11 +1108,16 @@ impl<T: Config> Module<T> {
         }
 
         <InstructionDetails<T>>::insert(instruction_id, instruction);
+
         InstructionAffirmsPending::insert(
             instruction_id,
             u64::try_from(counter_parties.len()).unwrap_or_default(),
         );
         VenueInstructions::insert(venue_id, instruction_id, ());
+        if let Some(ref memo) = memo {
+            InstructionMemos::insert(instruction_id, &memo);
+        }
+
         Self::deposit_event(RawEvent::InstructionCreated(
             did,
             venue_id,
@@ -1016,7 +1126,9 @@ impl<T: Config> Module<T> {
             trade_date,
             value_date,
             legs,
+            memo,
         ));
+
         Ok(instruction_id)
     }
 
@@ -1633,5 +1745,40 @@ impl<T: Config> Module<T> {
             Error::<T>::LegCountTooSmall
         );
         Ok((legs_count, filtered_legs))
+    }
+
+    fn base_update_venue_signers(
+        did: IdentityId,
+        id: VenueId,
+        signers: Vec<T::AccountId>,
+        add_signers: bool,
+    ) -> DispatchResult {
+        // Ensure venue exists & sender is its creator.
+        Self::venue_for_management(id, did)?;
+
+        if add_signers {
+            for signer in &signers {
+                ensure!(
+                    !Self::venue_signers(&id, &signer),
+                    Error::<T>::SignerAlreadyExists
+                );
+            }
+            for signer in &signers {
+                <VenueSigners<T>>::insert(&id, &signer, true);
+            }
+        } else {
+            for signer in &signers {
+                ensure!(
+                    Self::venue_signers(&id, &signer),
+                    Error::<T>::SignerDoesNotExist
+                );
+            }
+            for signer in &signers {
+                <VenueSigners<T>>::remove(&id, &signer);
+            }
+        }
+
+        Self::deposit_event(RawEvent::VenueSignersUpdated(did, id, signers, add_signers));
+        Ok(())
     }
 }

@@ -83,8 +83,6 @@
 //! - `end_block` - executes scheduled proposals
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(const_option)]
-#![feature(associated_type_bounds)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -197,8 +195,6 @@ pub struct Pip<Proposal, AccountId> {
     pub id: PipId,
     /// The proposal being voted on.
     pub proposal: Proposal,
-    /// The latest state
-    pub state: ProposalState,
     /// The issuer of `propose`.
     pub proposer: Proposer<AccountId>,
 }
@@ -407,7 +403,7 @@ type System<T> = frame_system::Pallet<T>;
 
 /// The module's configuration trait.
 pub trait Config:
-    frame_system::Config<Call: From<Call<Self>> + Into<<Self as IdentityConfig>::Proposal>>
+    frame_system::Config
     + pallet_timestamp::Config
     + IdentityConfig
     + CommonConfig
@@ -438,10 +434,13 @@ pub trait Config:
     /// instances, the names of scheduled tasks should be guaranteed to be unique in this
     /// pallet. Names cannot be just PIP IDs because names of executed and expired PIPs should be
     /// different.
-    type Scheduler: ScheduleNamed<Self::BlockNumber, Self::Call, Self::SchedulerOrigin>;
+    type Scheduler: ScheduleNamed<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
+
+    /// A call type used by the scheduler.
+    type SchedulerCall: From<Call<Self>> + Into<<Self as IdentityConfig>::Proposal>;
 }
 
-storage_migration_ver!(1);
+storage_migration_ver!(2);
 
 // This module's storage items.
 decl_storage! {
@@ -523,7 +522,11 @@ decl_storage! {
         /// This list is a cache of all ids in `Proposals` with `Proposer::Committee(_)`.
         pub CommitteePips get(fn committee_pips): Vec<PipId>;
 
-        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
+        /// Proposal state for a given id.
+        /// proposal id -> proposalState
+        pub ProposalStates get(fn proposal_state): map hasher(twox_64_concat) PipId => Option<ProposalState>;
+
+        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
     }
 }
 
@@ -650,12 +653,10 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion::get(), 1, {
-                // We had a bug in `update_proposal_state`.
-                let count = Proposals::<T>::iter()
-                    .filter(|(_, p)| matches!(p.state, ProposalState::Scheduled | ProposalState::Pending))
-                    .count();
-                ActivePipCount::set(count as u32);
+            // migration v1 no longer needed
+
+            storage_migrate_on!(StorageVersion::get(), 2, {
+                migration::migrate_v2::<T>();
             });
 
             0
@@ -792,9 +793,9 @@ decl_module! {
             <Proposals<T>>::insert(id, Pip {
                 id,
                 proposal: *proposal,
-                state: ProposalState::Pending,
                 proposer: proposer.clone(),
             });
+            <ProposalStates>::insert(id, ProposalState::Pending);
             PipIdSequence::put(seq);
             ActivePipCount::mutate(|count| *count += 1);
 
@@ -936,10 +937,10 @@ decl_module! {
         #[weight = (<T as Config>::WeightInfo::reject_proposal(), Operational)]
         pub fn reject_proposal(origin, id: PipId) {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
-            let proposal = Self::proposals(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
-            ensure!(Self::is_active(proposal.state), Error::<T>::IncorrectProposalState);
-            Self::maybe_unschedule_pip(id, proposal.state);
-            Self::maybe_unsnapshot_pip(id, proposal.state);
+            let proposal_state = Self::proposal_state(id).ok_or_else(|| Error::<T>::NoSuchProposal)?;
+            ensure!(Self::is_active(proposal_state), Error::<T>::IncorrectProposalState);
+            Self::maybe_unschedule_pip(id, proposal_state);
+            Self::maybe_unsnapshot_pip(id, proposal_state);
             Self::unsafe_reject_proposal(GC_DID, id);
         }
 
@@ -955,9 +956,9 @@ decl_module! {
         #[weight = (<T as Config>::WeightInfo::prune_proposal(), Operational)]
         pub fn prune_proposal(origin, id: PipId) {
             T::VotingMajorityOrigin::ensure_origin(origin)?;
-            let proposal = Self::proposals(id).ok_or(Error::<T>::NoSuchProposal)?;
-            ensure!(!Self::is_active(proposal.state), Error::<T>::IncorrectProposalState);
-            Self::prune_data(GC_DID, id, proposal.state, true);
+            let proposal_state = Self::proposal_state(id).ok_or(Error::<T>::NoSuchProposal)?;
+            ensure!(!Self::is_active(proposal_state), Error::<T>::IncorrectProposalState);
+            Self::prune_data(GC_DID, id, proposal_state, true);
         }
 
         /// Updates the execution schedule of the PIP given by `id`.
@@ -1256,6 +1257,7 @@ impl<T: Config> Module<T> {
             }
             <Proposals<T>>::remove(id);
             PipSkipCount::remove(id);
+            <ProposalStates>::remove(id);
         }
         Self::deposit_event(RawEvent::PipClosed(did, id, prune));
     }
@@ -1321,11 +1323,13 @@ impl<T: Config> Module<T> {
     }
 
     /// Execute the PIP given by `id`.
-    /// Panics if the PIP doesn't exist or isn't scheduled.
+    /// Returns an error if the PIP doesn't exist or is not scheduled.
     fn execute_proposal(id: PipId) -> DispatchResultWithPostInfo {
         let proposal = Self::proposals(id).ok_or(Error::<T>::ScheduledProposalDoesntExist)?;
+        let proposal_state =
+            Self::proposal_state(id).ok_or(Error::<T>::ScheduledProposalDoesntExist)?;
         ensure!(
-            proposal.state == ProposalState::Scheduled,
+            proposal_state == ProposalState::Scheduled,
             Error::<T>::ProposalNotInScheduledState
         );
         let res = proposal.proposal.dispatch(system::RawOrigin::Root.into());
@@ -1341,13 +1345,13 @@ impl<T: Config> Module<T> {
         id: PipId,
         new_state: ProposalState,
     ) -> ProposalState {
-        <Proposals<T>>::mutate(id, |proposal| {
-            if let Some(ref mut proposal) = proposal {
+        <ProposalStates>::mutate(id, |proposal_state| {
+            if let Some(ref mut proposal_state) = proposal_state {
                 // Decrement active count, if the `new_state` is not active.
                 if !Self::is_active(new_state) {
-                    Self::decrement_count_if_active(proposal.state);
+                    Self::decrement_count_if_active(*proposal_state);
                 }
-                proposal.state = new_state;
+                *proposal_state = new_state;
             }
         });
         Self::deposit_event(RawEvent::ProposalStateUpdated(did, id, new_state));
@@ -1356,8 +1360,8 @@ impl<T: Config> Module<T> {
 
     /// Returns `Ok(_)` iff `id` has `state`.
     fn is_proposal_state(id: PipId, state: ProposalState) -> DispatchResult {
-        let proposal = Self::proposals(id).ok_or(Error::<T>::NoSuchProposal)?;
-        ensure!(proposal.state == state, Error::<T>::IncorrectProposalState);
+        let proposal_state = Self::proposal_state(id).ok_or(Error::<T>::NoSuchProposal)?;
+        ensure!(proposal_state == state, Error::<T>::IncorrectProposalState);
         Ok(())
     }
 
@@ -1592,5 +1596,62 @@ mod test {
         let mut queue = vec![a, c, d, b, e, g, f];
         queue.sort_unstable_by(super::compare_spip);
         assert_eq!(queue, vec![f, d, e, c, a, b, g]);
+    }
+}
+
+pub mod migration {
+    use super::*;
+
+    mod v2 {
+        use super::*;
+        use scale_info::TypeInfo;
+
+        /// Represents a proposal
+        #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq)]
+        #[cfg_attr(feature = "std", derive(Debug))]
+        pub struct Pip<Proposal, AccountId> {
+            /// The proposal's unique id.
+            pub id: PipId,
+            /// The proposal being voted on.
+            pub proposal: Proposal,
+            /// The latest state
+            pub state: ProposalState,
+            /// The issuer of `propose`.
+            pub proposer: Proposer<AccountId>,
+        }
+
+        decl_storage! {
+            trait Store for Module<T: Config> as Pips {
+                /// Actual proposal for a given id, if it's current.
+            /// proposal id -> proposal
+            pub Proposals get(fn proposals): map hasher(twox_64_concat) PipId => Option<Pip<T::Proposal, T::AccountId>>;
+            }
+        }
+
+        decl_module! {
+            pub struct Module<T: Config> for enum Call where origin: T::Origin { }
+        }
+    }
+
+    pub fn migrate_v2<T: Config>() {
+        sp_runtime::runtime_logger::RuntimeLogger::init();
+
+        log::info!(" >>> Updating Pips storage. Migrating Pips...");
+        let total_pips = v2::Proposals::<T>::drain().fold(0usize, |total_pips, (pip_id, pip)| {
+            // Migrate Pips
+            <Proposals<T>>::insert(
+                pip_id,
+                Pip {
+                    id: pip_id,
+                    proposal: pip.proposal,
+                    proposer: pip.proposer,
+                },
+            );
+            <ProposalStates>::insert(pip_id, pip.state);
+
+            total_pips + 1
+        });
+
+        log::info!(" >>> Migrated {} Pips.", total_pips);
     }
 }

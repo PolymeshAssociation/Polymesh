@@ -24,6 +24,7 @@ use pallet_asset::{
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
+use pallet_portfolio::{MovePortfolioItem, NextPortfolioNumber, PortfolioAssetBalances};
 use pallet_statistics as statistics;
 use polymesh_common_utilities::{
     constants::*,
@@ -42,8 +43,8 @@ use polymesh_primitives::{
     },
     statistics::StatType,
     AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document,
-    DocumentId, IdentityId, InvestorUid, Moment, Permissions, PortfolioId, PortfolioName,
-    SecondaryKey, Signatory, Ticker,
+    DocumentId, IdentityId, InvestorUid, Moment, Permissions, PortfolioId, PortfolioKind,
+    PortfolioName, SecondaryKey, Signatory, Ticker,
 };
 use rand::Rng;
 use sp_io::hashing::keccak_256;
@@ -82,11 +83,11 @@ fn set_time_to_now() {
     Timestamp::set_timestamp(now());
 }
 
-crate fn max_len() -> u32 {
+pub(crate) fn max_len() -> u32 {
     <TestStorage as pallet_base::Config>::MaxLen::get()
 }
 
-crate fn max_len_bytes<R: From<Vec<u8>>>(add: u32) -> R {
+pub(crate) fn max_len_bytes<R: From<Vec<u8>>>(add: u32) -> R {
     bytes_of_len(b'A', (max_len() + add) as usize)
 }
 
@@ -97,7 +98,7 @@ macro_rules! assert_too_long {
     };
 }
 
-crate fn token(name: &[u8], owner_did: IdentityId) -> (Ticker, SecurityToken) {
+pub(crate) fn token(name: &[u8], owner_did: IdentityId) -> (Ticker, SecurityToken) {
     let ticker = Ticker::try_from(name).unwrap();
     let token = SecurityToken {
         owner_did,
@@ -109,11 +110,11 @@ crate fn token(name: &[u8], owner_did: IdentityId) -> (Ticker, SecurityToken) {
     (ticker, token)
 }
 
-crate fn a_token(owner_did: IdentityId) -> (Ticker, SecurityToken) {
+pub(crate) fn a_token(owner_did: IdentityId) -> (Ticker, SecurityToken) {
     token(b"A", owner_did)
 }
 
-crate fn an_asset(owner: User, divisible: bool) -> Ticker {
+pub(crate) fn an_asset(owner: User, divisible: bool) -> Ticker {
     let (ticker, mut token) = a_token(owner.did);
     token.divisible = divisible;
     assert_ok!(basic_asset(owner, ticker, &token));
@@ -146,17 +147,17 @@ fn asset_with_ids(
     Ok(())
 }
 
-crate fn basic_asset(owner: User, ticker: Ticker, token: &SecurityToken) -> DispatchResult {
+pub(crate) fn basic_asset(owner: User, ticker: Ticker, token: &SecurityToken) -> DispatchResult {
     asset_with_ids(owner, ticker, token, vec![])
 }
 
-crate fn create_token(owner: User) -> (Ticker, SecurityToken) {
+pub(crate) fn create_token(owner: User) -> (Ticker, SecurityToken) {
     let r = a_token(owner.did);
     assert_ok!(basic_asset(owner, r.0, &r.1));
     r
 }
 
-crate fn allow_all_transfers(ticker: Ticker, owner: User) {
+pub(crate) fn allow_all_transfers(ticker: Ticker, owner: User) {
     assert_ok!(ComplianceManager::add_compliance_requirement(
         owner.origin(),
         ticker,
@@ -173,7 +174,7 @@ fn enable_investor_count(ticker: Ticker, owner: User) {
     ));
 }
 
-crate fn transfer(ticker: Ticker, from: User, to: User, amount: u128) -> DispatchResult {
+pub(crate) fn transfer(ticker: Ticker, from: User, to: User, amount: u128) -> DispatchResult {
     Asset::base_transfer(
         PortfolioId::default_portfolio(from.did),
         PortfolioId::default_portfolio(to.did),
@@ -2323,4 +2324,92 @@ fn update_identifiers_errors_test() {
             valid_asset_ids
         ));
     })
+}
+
+#[test]
+fn issuers_can_redeem_tokens_from_portfolio() {
+    let alice = AccountKeyring::Alice.to_account_id();
+    ExtBuilder::default()
+        .cdd_providers(vec![alice.clone()])
+        .build()
+        .execute_with(|| {
+            set_time_to_now();
+
+            let owner = User::new(AccountKeyring::Dave);
+            let bob = User::new(AccountKeyring::Bob);
+
+            // Create asset.
+            let (ticker, token) = a_token(owner.did);
+            assert_ok!(basic_asset(owner, ticker, &token));
+
+            // Provide scope claim to sender and receiver of the transaction.
+            provide_scope_claim_to_multiple_parties(&[owner.did], ticker, alice);
+
+            let portfolio_name = PortfolioName(vec![65u8; 5]);
+            let next_portfolio_num = NextPortfolioNumber::get(&owner.did);
+            let portfolio = PortfolioId::default_portfolio(owner.did);
+            let user_portfolio = PortfolioId::user_portfolio(owner.did, next_portfolio_num.clone());
+            Portfolio::create_portfolio(owner.origin(), portfolio_name.clone()).unwrap();
+
+            Portfolio::move_portfolio_funds(
+                owner.origin(),
+                portfolio,
+                user_portfolio,
+                vec![MovePortfolioItem {
+                    ticker,
+                    amount: token.total_supply,
+                    memo: None,
+                }],
+            )
+            .unwrap();
+
+            assert_eq!(
+                PortfolioAssetBalances::get(&portfolio, &ticker),
+                0u32.into()
+            );
+            assert_eq!(
+                PortfolioAssetBalances::get(&user_portfolio, &ticker),
+                token.total_supply
+            );
+
+            assert_noop!(
+                Asset::redeem_from_portfolio(
+                    bob.origin(),
+                    ticker,
+                    token.total_supply,
+                    PortfolioKind::User(next_portfolio_num)
+                ),
+                EAError::UnauthorizedAgent
+            );
+
+            assert_noop!(
+                Asset::redeem_from_portfolio(
+                    owner.origin(),
+                    ticker,
+                    token.total_supply + 1,
+                    PortfolioKind::User(next_portfolio_num)
+                ),
+                PortfolioError::InsufficientPortfolioBalance
+            );
+
+            assert_ok!(Asset::redeem_from_portfolio(
+                owner.origin(),
+                ticker,
+                token.total_supply,
+                PortfolioKind::User(next_portfolio_num)
+            ));
+
+            assert_eq!(Asset::balance_of(&ticker, owner.did), 0);
+            assert_eq!(Asset::token_details(&ticker).total_supply, 0);
+
+            assert_noop!(
+                Asset::redeem_from_portfolio(
+                    owner.origin(),
+                    ticker,
+                    1,
+                    PortfolioKind::User(next_portfolio_num)
+                ),
+                PortfolioError::InsufficientPortfolioBalance
+            );
+        })
 }
