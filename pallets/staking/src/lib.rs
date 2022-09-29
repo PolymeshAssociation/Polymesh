@@ -1365,6 +1365,8 @@ decl_event!(
         RewardPaymentSchedulingInterrupted(AccountId, EraIndex, DispatchError),
         /// Update for whom balance get slashed.
         SlashingAllowedForChanged(SlashingSwitch),
+        // Stash not a part of DID.
+        StashNotPartOfDid(AccountId, IdentityId),
     }
 );
 
@@ -2644,6 +2646,32 @@ decl_module! {
                     .map(|p| p.intended_count = new_intended_count)
             })
         }
+
+
+        /// Declare no desire to either validate or nominate.
+        ///
+        /// Effects will be felt at the beginning of the next era.
+        ///
+        /// The dispatch origin for this call must be a GC.
+        /// And, it can be only called when [`EraElectionStatus`] is `Closed`.
+        #[weight = <T as Config>::WeightInfo::chill_from_governance()]
+        pub fn chill_from_governance(origin, identity: IdentityId, stash_keys: Vec<T::AccountId>) {
+            ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
+            let _controller = ensure_signed(origin)?;
+            PermissionedIdentity::remove(&identity);
+
+            for key in stash_keys {
+                let key_did = Identity::<T>::get_identity(&key);
+                if let Some(key_did) = key_did {
+                    if identity == key_did {
+                        Self::chill_stash(&key);
+                    } else {
+                        Self::deposit_event(RawEvent::StashNotPartOfDid(key, identity));
+                    }
+                }
+            }
+        }
+
     }
 }
 
