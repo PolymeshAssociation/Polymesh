@@ -2559,7 +2559,7 @@ fn slash_in_old_span_does_not_deselect() {
         );
 
         // the validator doesn't get chilled again
-        assert!(<Staking as Store>::Validators::iter().any(|(stash, _)| stash == 11));
+        assert!(Staking::Validators::iter().any(|(stash, _)| stash == 11));
 
         // but we are still forcing a new era
         assert_eq!(Staking::force_era(), Forcing::ForceNew);
@@ -2578,7 +2578,7 @@ fn slash_in_old_span_does_not_deselect() {
         );
 
         // the validator doesn't get chilled again
-        assert!(<Staking as Store>::Validators::iter().any(|(stash, _)| stash == 11));
+        assert!(Staking::Validators::iter().any(|(stash, _)| stash == 11));
 
         // but it's disabled
         assert!(is_disabled(10));
