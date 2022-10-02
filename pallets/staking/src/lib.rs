@@ -946,9 +946,9 @@ pub trait Config:
     /// their reward. This used to limit the i/o cost for the nominator payout.
     type MaxNominatorRewardedPerValidator: Get<u32>;
 
-		/// The fraction of the validator set that is safe to be offending.
-		/// After the threshold is reached a new era will be forced.
-		type OffendingValidatorsThreshold: Get<Perbill>;
+    /// The fraction of the validator set that is safe to be offending.
+    /// After the threshold is reached a new era will be forced.
+    type OffendingValidatorsThreshold: Get<Perbill>;
 
     /// A configuration for base priority of unsigned transactions.
     ///
