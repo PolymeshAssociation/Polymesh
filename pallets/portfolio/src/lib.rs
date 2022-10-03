@@ -122,7 +122,7 @@ decl_storage! {
             double_map hasher(identity) IdentityId, hasher(twox_64_concat) PortfolioId => bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
     }
 }
 

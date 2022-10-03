@@ -238,7 +238,7 @@ decl_storage! {
         /// The last transaction version, used for `on_runtime_upgrade`.
         TransactionVersion get(fn transaction_version) config(): u32;
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
     }
 }
 

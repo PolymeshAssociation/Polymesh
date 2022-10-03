@@ -526,7 +526,7 @@ decl_storage! {
         /// proposal id -> proposalState
         pub ProposalStates get(fn proposal_state): map hasher(twox_64_concat) PipId => Option<ProposalState>;
 
-        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
     }
 }
 
