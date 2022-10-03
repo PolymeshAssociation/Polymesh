@@ -245,6 +245,7 @@ macro_rules! misc_pallet_impls {
             type MaxIterations = MaxIterations;
             type MinSolutionScoreBump = MinSolutionScoreBump;
             type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
+            type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
             type UnsignedPriority = StakingUnsignedPriority;
             type RequiredAddOrigin = Self::SlashCancelOrigin;
             type RequiredRemoveOrigin = Self::SlashCancelOrigin;

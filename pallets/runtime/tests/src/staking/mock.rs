@@ -551,6 +551,7 @@ parameter_types! {
     pub const BondingDuration: EraIndex = 3;
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
     pub const MaxNominatorRewardedPerValidator: u32 = 64;
+    pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
     pub const UnsignedPriority: u64 = 1 << 20;
     pub const MinSolutionScoreBump: Perbill = Perbill::zero();
     pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
@@ -614,6 +615,7 @@ impl Config for Test {
     type MaxIterations = MaxIterations;
     type MinSolutionScoreBump = MinSolutionScoreBump;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
+    type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
     type UnsignedPriority = UnsignedPriority;
     type OffchainSolutionWeightLimit = polymesh_runtime_common::OffchainSolutionWeightLimit;
     type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
