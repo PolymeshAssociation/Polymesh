@@ -56,8 +56,9 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("polymesh_testnet"),
     impl_name: create_runtime_str!("polymesh_testnet"),
     authoring_version: 1,
-    // `spec_version: aaa_bbb_ccc` should match node version v`aaa.bbb.ccc`
-    spec_version: 5_001_000,
+    // `spec_version: aaa_bbb_ccd` should match node version v`aaa.bbb.cc`
+    // N.B. `d` is unpinned from the binary version
+    spec_version: 5_001_001,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 3,
@@ -163,6 +164,7 @@ parameter_types! {
     pub const SlashDeferDuration: pallet_staking::EraIndex = 14; // 1/2 the bonding duration.
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const MaxNominatorRewardedPerValidator: u32 = 2048;
+    pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
     pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
     pub const MaxIterations: u32 = 10;
     pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
