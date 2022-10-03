@@ -2,22 +2,18 @@ name: Publish docs
 
 on:
   push:
-    branches:
-      - develop
+    #branches:
+    #  - develop
 
 jobs:
   docs:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v2
     - name: Install rust toolchain
       uses: actions-rs/toolchain@v1
       with:
-        target: wasm32-unknown-unknown
-        override: true
-        default: true
+        toolchain: stable
     - name: Build docs
       run: BUILD_DUMMY_WASM_BINARY=1 cargo doc --no-deps --workspace --release --exclude node-bench --exclude node-executor --exclude node-testing --exclude crypto-cli
     - name: Add index file
