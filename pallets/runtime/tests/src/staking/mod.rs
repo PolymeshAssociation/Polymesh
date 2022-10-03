@@ -2558,10 +2558,11 @@ fn slash_in_old_span_does_not_deselect() {
             1,
         );
 
-        // not forcing for zero-slash and previous span.
-        assert_eq!(Staking::force_era(), Forcing::NotForcing);
-        assert!(<Validators<Test>>::contains_key(11));
-        assert!(Session::validators().contains(&11));
+        // the validator doesn't get chilled again
+        assert!(<Validators<Test>>::iter().any(|(stash, _)| stash == 11));
+
+        // but we are still forcing a new era
+        assert_eq!(Staking::force_era(), Forcing::ForceNew);
 
         on_offence_in_era(
             &[OffenceDetails {
@@ -2576,10 +2577,13 @@ fn slash_in_old_span_does_not_deselect() {
             1,
         );
 
-        // or non-zero.
-        assert_eq!(Staking::force_era(), Forcing::NotForcing);
-        assert!(<Validators<Test>>::contains_key(11));
-        assert!(Session::validators().contains(&11));
+        // the validator doesn't get chilled again
+        assert!(<Validators<Test>>::iter().any(|(stash, _)| stash == 11));
+
+        // but it's disabled
+        assert!(is_disabled(10));
+        // and we are still forcing a new era
+        assert_eq!(Staking::force_era(), Forcing::ForceNew);
     });
 }
 
