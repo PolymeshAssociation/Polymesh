@@ -1,6 +1,17 @@
 version: 2
 jobs:
-  checks:
+  lint:
+    docker:
+      - image: polymeshassociation/rust:debian-nightly-2022-09-15
+    resource_class: small
+    environment:
+      VERBOSE: "1"
+    steps:
+      - checkout
+      - run:
+          name: Check formatting
+          command: ./scripts/rustfmt.sh
+  check-storage-version:
     docker:
       - image: polymeshassociation/rust:debian-nightly-2022-09-15
     resource_class: small
@@ -11,9 +22,6 @@ jobs:
       - run:
           name: Check Storage versions
           command: ./scripts/check_storage_versions.sh
-      - run:
-          name: Check formatting
-          command: ./scripts/rustfmt.sh
   build:
     docker:
       - image: polymeshassociation/rust:debian-nightly-2022-09-15
@@ -458,7 +466,8 @@ workflows:
       - build-docker-arm64-rust-alpine
   commit:
     jobs:
-      - checks
+      - lint
+      - check-storage-version
       - clippy
       - test
       - build
