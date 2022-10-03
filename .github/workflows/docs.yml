@@ -2,8 +2,8 @@ name: Publish docs
 
 on:
   push:
-    #branches:
-    #  - develop
+    branches:
+      - develop
 
 jobs:
   docs:
