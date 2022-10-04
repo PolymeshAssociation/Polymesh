@@ -750,6 +750,12 @@ benchmarks! {
     verify {
         assert_eq!(Staking::<T>::validator_count(), 12);
     }
+
+    chill_from_governance {
+        clear_validators_and_nominators::<T>();
+        let (stash, controller) = create_stash_controller::<T>(10, INIT_BALANCE)?;
+        whitelist_account!(controller);
+    }: _(controller.origin(), stash.did(), vec![stash.account()])
 }
 
 #[cfg(test)]
