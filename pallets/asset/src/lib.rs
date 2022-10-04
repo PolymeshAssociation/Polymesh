@@ -509,6 +509,23 @@ decl_module! {
             Self::set_freeze(origin, ticker, true)
         }
 
+        /// Updates the type of an asset.
+        ///
+        /// # Arguments
+        /// * `origin` - the secondary key of the sender.
+        /// * `ticker` - the ticker of the token.
+        /// * `asset_type` - the new type of the token.
+        ///
+        /// ## Errors
+        /// - `InvalidCustomAssetTypeId` if `asset_type` is of type custom and has an invalid type id.
+        ///
+        /// # Permissions
+        /// * Asset
+        #[weight = <T as Config>::WeightInfo::freeze()]
+        pub fn update_asset_type(origin, ticker: Ticker, asset_type: AssetType) -> DispatchResult {
+            Self::base_update_asset_type(origin, ticker, asset_type)
+        }
+
         /// Unfreezes transfers and minting of a given token.
         ///
         /// # Arguments
@@ -1864,6 +1881,20 @@ impl<T: Config> Module<T> {
 
         AssetNames::insert(&ticker, name.clone());
         Self::deposit_event(RawEvent::AssetRenamed(did, ticker, name));
+        Ok(())
+    }
+
+    fn base_update_asset_type(
+        origin: T::Origin,
+        ticker: Ticker,
+        asset_type: AssetType,
+    ) -> DispatchResult {
+        Self::ensure_asset_exists(&ticker)?;
+        Self::ensure_asset_type_valid(asset_type)?;
+        let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+
+        Tokens::mutate(ticker, |token| token.asset_type = asset_type);
+        Self::deposit_event(RawEvent::AssetTypeChanged(did, ticker, asset_type));
         Ok(())
     }
 

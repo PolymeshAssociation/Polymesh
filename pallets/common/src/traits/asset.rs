@@ -194,6 +194,9 @@ decl_event! {
         /// An event emitted when a token is renamed.
         /// Parameters: caller DID, ticker, new token name.
         AssetRenamed(IdentityId, Ticker, AssetName),
+        /// An event emitted when the type of an asset changed.
+        /// Parameters: caller DID, ticker, new token type.
+        AssetTypeChanged(IdentityId, Ticker, AssetType),
         /// An event carrying the name of the current funding round of a ticker.
         /// Parameters: caller DID, ticker, funding round name.
         FundingRoundSet(IdentityId, Ticker, FundingRoundName),
