@@ -254,23 +254,6 @@ benchmarks! {
         assert_eq!(Module::<T>::identifiers(ticker), identifiers2);
     }
 
-    update_asset_type {
-        // Token name length.
-        let n in 1 .. T::AssetNameMaxLength::get() as u32;
-        // Length of the vector of identifiers.
-        let i in 1 .. MAX_IDENTIFIERS_PER_ASSET;
-        // Funding round name length.
-        let f in 1 .. T::FundingRoundNameMaxLength::get() as u32;
-
-       let (origin, name, ticker, token, identifiers, fundr) = setup_create_asset::<T>(n, i , f, 0);
-       assert_eq!(Module::<T>::token_details(&ticker).asset_type, AssetType::default());
-
-       let asset_type = AssetType::EquityPreferred;
-    }: _(origin, ticker, asset_type)
-    verify {
-        assert_eq!(Module::<T>::token_details(&ticker).asset_type, asset_type);
-    }
-
     freeze {
         let (owner, ticker) = owned_ticker::<T>();
     }: _(owner.origin, ticker)
@@ -505,5 +488,16 @@ benchmarks! {
     }: _(target.origin, ticker, amount, PortfolioKind::User(next_portfolio_num))
     verify {
         assert_eq!(Module::<T>::token_details(ticker).total_supply, (1_000_000 * POLY) - amount);
+    }
+
+    update_asset_type {
+        let target = user::<T>("target", 0);
+        let ticker = make_asset::<T>(&target, None);
+        assert_eq!(Module::<T>::token_details(&ticker).asset_type, AssetType::default());
+
+        let asset_type = AssetType::EquityPreferred;
+    }: _(target.origin, ticker, asset_type)
+    verify {
+        assert_eq!(Module::<T>::token_details(&ticker).asset_type, asset_type);
     }
 }
