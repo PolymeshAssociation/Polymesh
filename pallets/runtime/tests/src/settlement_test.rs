@@ -1144,8 +1144,8 @@ fn basic_fuzzing() {
 
         for ticker_id in 0..10 {
             let mut create = |x: usize, user: User| {
-                let tn = [b'!' + u8::try_from(ticker_id * 4 + x).unwrap()];
-                tickers.push(Ticker::try_from(&tn[..]).unwrap());
+                let tn = format!("TOKEN{}", ticker_id * 4 + x);
+                tickers.push(Ticker::try_from(tn.as_bytes()).unwrap());
                 create_token(tickers[ticker_id * 4 + x], user);
             };
             create(0, alice);
