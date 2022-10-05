@@ -825,12 +825,9 @@ impl<BlockNumber> Default for ElectionStatus<BlockNumber> {
 ///
 /// This is needed because `Staking` sets the `ValidatorIdOf` of the `pallet_session::Config`
 pub trait SessionInterface<AccountId>: frame_system::Config {
-    /// Disable a given validator by stash ID.
-    ///
-    /// Returns `true` if new era should be forced at the end of this session.
-    /// This allows preventing a situation where there is too many validators
-    /// disabled and block production stalls.
-    fn disable_validator(validator: &AccountId) -> Result<bool, ()>;
+    /// Disable the validator at the given index, returns `false` if the validator was already
+    /// disabled or the index is out of bounds.
+    fn disable_validator(validator_index: u32) -> bool;
     /// Get the validators from session.
     fn validators() -> Vec<AccountId>;
     /// Prune historical session tries up to but not including the given index.
@@ -848,8 +845,8 @@ impl<T: Config> SessionInterface<<T as frame_system::Config>::AccountId> for T w
     T::ValidatorIdOf:
         Convert<<T as frame_system::Config>::AccountId, Option<<T as frame_system::Config>::AccountId>>,
 {
-    fn disable_validator(validator: &<T as frame_system::Config>::AccountId) -> Result<bool, ()> {
-        Ok(<pallet_session::Pallet<T>>::disable(validator))
+    fn disable_validator(validator_index: u32) -> bool {
+        <pallet_session::Pallet<T>>::disable_index(validator_index)
     }
 
     fn validators() -> Vec<<T as frame_system::Config>::AccountId> {
@@ -948,6 +945,10 @@ pub trait Config:
     /// For each validator only the `$MaxNominatorRewardedPerValidator` biggest stakers can claim
     /// their reward. This used to limit the i/o cost for the nominator payout.
     type MaxNominatorRewardedPerValidator: Get<u32>;
+
+    /// The fraction of the validator set that is safe to be offending.
+    /// After the threshold is reached a new era will be forced.
+    type OffendingValidatorsThreshold: Get<Perbill>;
 
     /// A configuration for base priority of unsigned transactions.
     ///
@@ -1207,6 +1208,17 @@ decl_storage! {
 
         /// The earliest era for which we have a pending, unapplied slash.
         EarliestUnappliedSlash: Option<EraIndex>;
+
+        /// Indices of validators that have offended in the active era and whether they are currently
+        /// disabled.
+        ///
+        /// This value should be a superset of disabled validators since not all offences lead to the
+        /// validator being disabled (if there was no slash). This is needed to track the percentage of
+        /// validators that have offended in the current era, ensuring a new era is forced if
+        /// `OffendingValidatorsThreshold` is reached. The vec is always kept sorted so that we can find
+        /// whether a given validator has previously offended using binary search. It gets cleared when
+        /// the era ends.
+        pub OffendingValidators get(fn offending_validators): Vec<(u32, bool)>;
 
         /// Snapshot of validators at the beginning of the current election window. This should only
         /// have a value when [`EraElectionStatus`] == `ElectionStatus::Open(_)`.
@@ -3162,6 +3174,13 @@ impl<T: Config> Module<T> {
                 Self::start_era(start_session);
             }
         }
+
+        // disable all offending validators that have been disabled for the whole era
+        for (index, disabled) in OffendingValidators::get() {
+            if disabled {
+                T::SessionInterface::disable_validator(index);
+            }
+        }
     }
 
     /// End a session potentially ending an era.
@@ -3272,6 +3291,9 @@ impl<T: Config> Module<T> {
             // Set ending era reward.
             <ErasValidatorReward<T>>::insert(&active_era.index, validator_payout);
             T::RewardRemainder::on_unbalanced(T::Currency::issue(rest));
+
+            // Clear offending validators.
+            OffendingValidators::kill();
         }
     }
 

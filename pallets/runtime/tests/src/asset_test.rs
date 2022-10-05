@@ -487,8 +487,6 @@ fn register_ticker() {
                 AssetError::TickerNotAscii
             );
         }
-
-        assert_ok!(register(Ticker::try_from(&[b' ', b'A', b'~'][..]).unwrap()));
     })
 }
 
