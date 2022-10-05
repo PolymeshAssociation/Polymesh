@@ -54,8 +54,6 @@
 //! `false` otherwise.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(const_option)]
-#![feature(associated_type_bounds)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -65,7 +63,7 @@ use core::mem;
 use frame_support::{
     codec::{Decode, Encode},
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult, Dispatchable, Parameter},
+    dispatch::{DispatchError, DispatchResult, Dispatchable, Parameter, PostDispatchInfo},
     ensure,
     traits::{ChangeMembers, EnsureOrigin, InitializeMembers},
     weights::{DispatchClass, GetDispatchInfo, Weight},
@@ -74,7 +72,7 @@ use pallet_identity as identity;
 use polymesh_common_utilities::{
     governance_group::GovernanceGroupTrait,
     group::{GroupTrait, InactiveMember, MemberCount},
-    identity::Config as IdentityModuleConfig,
+    identity::Config as IdentityConfig,
     Context, MaybeBlock, SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{storage_migration_ver, IdentityId};
@@ -101,19 +99,21 @@ pub trait WeightInfo {
 pub type ProposalIndex = u32;
 
 /// The committee trait.
-pub trait Config<I>:
-    frame_system::Config<
-        Call: Parameter
-                  + Dispatchable<Origin = <Self as frame_system::Config>::Origin>
-                  + GetDispatchInfo,
-        Origin: From<RawOrigin<<Self as frame_system::Config>::AccountId, I>>,
-    > + IdentityModuleConfig
-{
+pub trait Config<I: 'static = ()>: frame_system::Config + IdentityConfig {
+    /// The outer origin type.
+    type Origin: From<RawOrigin<Self::AccountId, I>> + Into<<Self as frame_system::Config>::Origin>;
+
+    /// The outer call type.
+    type Proposal: Parameter
+        + Dispatchable<Origin = <Self as Config<I>>::Origin, PostInfo = PostDispatchInfo>
+        + GetDispatchInfo
+        + From<frame_system::Call<Self>>;
+
     /// Required origin for changing behaviour of this module.
-    type CommitteeOrigin: EnsureOrigin<<Self as frame_system::Config>::Origin>;
+    type CommitteeOrigin: EnsureOrigin<<Self as Config<I>>::Origin>;
 
     /// Required origin for changing the voting threshold.
-    type VoteThresholdOrigin: EnsureOrigin<<Self as frame_system::Config>::Origin>;
+    type VoteThresholdOrigin: EnsureOrigin<<Self as Config<I>>::Origin>;
 
     /// The outer event type.
     type Event: From<Event<Self, I>> + Into<<Self as frame_system::Config>::Event>;
@@ -153,7 +153,7 @@ decl_storage! {
         /// The hashes of the active proposals.
         pub Proposals get(fn proposals): Vec<T::Hash>;
         /// Actual proposal for a given hash.
-        pub ProposalOf get(fn proposal_of): map hasher(identity) T::Hash => Option<<T as frame_system::Config>::Call>;
+        pub ProposalOf get(fn proposal_of): map hasher(identity) T::Hash => Option<<T as Config<I>>::Proposal>;
         /// PolymeshVotes on a given proposal, if it is ongoing.
         pub Voting get(fn voting): map hasher(identity) T::Hash => Option<PolymeshVotes<T::BlockNumber>>;
         /// Proposals so far.
@@ -167,7 +167,7 @@ decl_storage! {
         /// Time after which a proposal will expire.
         pub ExpiresAfter get(fn expires_after) config(): MaybeBlock<T::BlockNumber>;
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(0)): Version;
     }
     add_extra_genesis {
         config(phantom): PhantomData<(T, I)>;
@@ -244,7 +244,7 @@ decl_error! {
 type Identity<T> = identity::Module<T>;
 
 decl_module! {
-    pub struct Module<T: Config<I>, I: Instance=DefaultInstance> for enum Call where origin: <T as frame_system::Config>::Origin {
+    pub struct Module<T: Config<I>, I: Instance=DefaultInstance> for enum Call where origin: <T as Config<I>>::Origin {
 
         type Error = Error<T, I>;
 
@@ -321,7 +321,7 @@ decl_module! {
             <T as Config<I>>::WeightInfo::vote_or_propose_new_proposal() + call.get_dispatch_info().weight,
             DispatchClass::Operational,
         )]
-        pub fn vote_or_propose(origin, approve: bool, call: Box<<T as frame_system::Config>::Call>) -> DispatchResult {
+        pub fn vote_or_propose(origin, approve: bool, call: Box<<T as Config<I>>::Proposal>) -> DispatchResult {
             // Either create a new proposal or vote on an existing one.
             let hash = T::Hashing::hash_of(&call);
             match Self::voting(hash) {
@@ -394,10 +394,8 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
     }
 
     /// Ensures that `origin` is a committee member, returning its identity, or throws `NotAMember`.
-    fn ensure_is_member(
-        origin: <T as frame_system::Config>::Origin,
-    ) -> Result<IdentityId, DispatchError> {
-        let did = <Identity<T>>::ensure_perms(origin)?;
+    fn ensure_is_member(origin: <T as Config<I>>::Origin) -> Result<IdentityId, DispatchError> {
+        let did = <Identity<T>>::ensure_perms(origin.into())?;
         Self::ensure_did_is_member(&did)?;
         Ok(did)
     }
@@ -534,7 +532,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
         }
     }
 
-    fn execute(did: IdentityId, proposal: <T as frame_system::Config>::Call, hash: T::Hash) {
+    fn execute(did: IdentityId, proposal: <T as Config<I>>::Proposal, hash: T::Hash) {
         let origin = RawOrigin::Endorsed(PhantomData).into();
         let res = proposal.dispatch(origin).map_err(|e| e.error).map(drop);
         Self::deposit_event(RawEvent::Executed(did, hash, res));
@@ -545,8 +543,8 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
     /// # Arguments
     /// * `proposal` - A dispatchable call.
     fn propose(
-        origin: <T as frame_system::Config>::Origin,
-        proposal: <T as frame_system::Config>::Call,
+        origin: <T as Config<I>>::Origin,
+        proposal: <T as Config<I>>::Proposal,
     ) -> DispatchResult {
         // 1. Ensure `origin` is a committee member.
         let did = Self::ensure_is_member(origin)?;

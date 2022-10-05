@@ -60,7 +60,10 @@ fn free_balance<T: Config>(acc: &T::AccountId) -> Balance {
 
 /// The `user` instantiates `wasm.code` as the contract with `salt`.
 /// Returns the address of the new contract.
-fn instantiate<T: Config>(user: &User<T>, wasm: WasmModule<T>, salt: Vec<u8>) -> T::AccountId {
+fn instantiate<T: Config>(user: &User<T>, wasm: WasmModule<T>, salt: Vec<u8>) -> T::AccountId
+where
+    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
+{
     let callee = FrameContracts::<T>::contract_address(&user.account(), &wasm.hash, &salt);
     Pallet::<T>::instantiate_with_code_perms(
         user.origin().into(),
@@ -105,6 +108,7 @@ benchmarks! {
     where_clause { where
         T: pallet_asset::Config,
         T: TestUtilsFn<AccountIdOf<T>>,
+        T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
     }
 
     chain_extension_full {

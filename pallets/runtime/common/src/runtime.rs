@@ -245,6 +245,7 @@ macro_rules! misc_pallet_impls {
             type MaxIterations = MaxIterations;
             type MinSolutionScoreBump = MinSolutionScoreBump;
             type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
+            type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
             type UnsignedPriority = StakingUnsignedPriority;
             type RequiredAddOrigin = Self::SlashCancelOrigin;
             type RequiredRemoveOrigin = Self::SlashCancelOrigin;
@@ -468,6 +469,7 @@ macro_rules! misc_pallet_impls {
 
         impl pallet_settlement::Config for Runtime {
             type Event = Event;
+            type Proposal = Call;
             type Scheduler = Scheduler;
             type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
             type MaxLegsInInstruction = MaxLegsInInstruction;

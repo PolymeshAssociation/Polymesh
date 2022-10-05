@@ -268,6 +268,18 @@ pub struct PalletName(pub Vec<u8>);
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DispatchableName(pub Vec<u8>);
 
+/// Compile time assert.
+#[macro_export]
+macro_rules! const_assert {
+    ($x:expr $(,)?) => {
+        #[allow(unknown_lints, eq_op)]
+        const _: [(); 0 - !{
+            const ASSERT: bool = $x;
+            ASSERT
+        } as usize] = [];
+    };
+}
+
 /// Create a `Version` struct with an upper limit.
 #[macro_export]
 macro_rules! storage_migration_ver {
@@ -279,28 +291,19 @@ macro_rules! storage_migration_ver {
         impl Version {
             const MAX: u8 = $ver;
 
-            /// Constructor as `const function` which is interpreted by the compiler at
-            /// compile-time.
-            const fn new(ver: u8) -> Option<Self> {
-                if ver <= Self::MAX {
-                    Some(Self(ver))
-                } else {
-                    None
-                }
+            /// Build const version and do compile-time maximum version check.
+            const fn new(ver: u8) -> Self {
+                Self(ver)
+            }
+
+            const fn check_version(&self) -> bool {
+                self.0 <= Self::MAX
             }
         }
 
         impl Default for Version {
             fn default() -> Self {
                 Version(0)
-            }
-        }
-
-        impl sp_std::convert::TryFrom<u8> for Version {
-            type Error = &'static str;
-
-            fn try_from(ver: u8) -> Result<Self, Self::Error> {
-                Self::new(ver).ok_or("Unsupported version")
             }
         }
     };
@@ -311,7 +314,8 @@ macro_rules! storage_migration_ver {
 #[macro_export]
 macro_rules! storage_migrate_on {
     ($curr: expr, $ver:literal, $([$($targ:ty),*])? $body: block) => {{
-        const TARGET_VERSION: Version = Version::new($ver).unwrap();
+        const TARGET_VERSION: Version = Version::new($ver);
+        polymesh_primitives::const_assert!(TARGET_VERSION.check_version());
         if $curr < TARGET_VERSION {
             $body;
             StorageVersion::< $($($targ),*)? >::put(TARGET_VERSION);
@@ -324,7 +328,6 @@ mod tests {
     use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 
     use codec::{Decode, Encode};
-    use sp_std::convert::TryInto;
 
     #[derive(VecU8StrongTyped)]
     struct A(Vec<u8>);
@@ -393,13 +396,7 @@ mod tests {
     fn storage_migration_ver_test_1() {
         storage_migration_ver!(3);
 
-        assert!(Version::new(2).is_some());
-        assert!(Version::new(4).is_none());
-
-        let v: Result<Version, _> = 3u8.try_into();
-        assert!(v.is_ok());
-
-        let v: Result<Version, _> = 5u8.try_into();
-        assert!(v.is_err());
+        assert!(Version::new(2).check_version());
+        assert!(!Version::new(4).check_version());
     }
 }

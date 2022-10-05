@@ -242,6 +242,8 @@ impl pallet_session::Config for Test {
 }
 
 impl pallet_committee::Config<pallet_committee::Instance1> for Test {
+    type Origin = Origin;
+    type Proposal = Call;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
@@ -262,6 +264,7 @@ impl pallet_pips::Config for Test {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
+    type SchedulerCall = Call;
 }
 
 impl pallet_treasury::Config for Test {
@@ -548,6 +551,7 @@ parameter_types! {
     pub const BondingDuration: EraIndex = 3;
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
     pub const MaxNominatorRewardedPerValidator: u32 = 64;
+    pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
     pub const UnsignedPriority: u64 = 1 << 20;
     pub const MinSolutionScoreBump: Perbill = Perbill::zero();
     pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
@@ -611,6 +615,7 @@ impl Config for Test {
     type MaxIterations = MaxIterations;
     type MinSolutionScoreBump = MinSolutionScoreBump;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
+    type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
     type UnsignedPriority = UnsignedPriority;
     type OffchainSolutionWeightLimit = polymesh_runtime_common::OffchainSolutionWeightLimit;
     type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
