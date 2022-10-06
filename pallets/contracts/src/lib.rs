@@ -458,31 +458,35 @@ where
     PolymeshContracts(Call<T>),
 }
 
-/// An encoding of `func_id` into the encoding `0x_S_P_E_V`,
-/// with each letter being a byte.
+/// Decoded ChainExtension func_id.
 #[derive(Clone, Copy, Debug)]
-struct FuncId {
-    /// Decides the version of the `extrinsic`.
-    version: u8,
-    /// Decides the `extrinsic` within the `pallet`.
-    /// This isn't necessarily the same as the index within the pallet.
-    extrinsic: u8,
-    /// Decides the `pallet` within the runtime.
-    /// This isn't necessarily the same as the index within the runtime.
-    pallet: u8,
-    /// Decides the scheme to use when interpreting `(extrinsic, pallet, version)`.
-    scheme: u8,
+enum FuncId {
+    /// Polymesh Extension.
+    Polymesh(u16),
+    /// Polymesh v5.0.x extension.
+    OldFuncId {
+      pallet: u8,
+      extrinsic: u8,
+    },
 }
 
-/// Splits the `func_id` given from a smart contract into
-/// the encoding `(scheme: u8, pallet: u8, extrinsic: u8, version: u8)`.
-fn split_func_id(func_id: u32) -> FuncId {
-    let extract = |which| (func_id >> (which * 8)) as u8;
-    FuncId {
-        version: extract(0),
-        extrinsic: extract(1),
-        pallet: extract(2),
-        scheme: extract(3),
+impl FuncId {
+    /// Decode chain extension id.
+    pub fn try_from_u32(id: u32) -> Option<Self> {
+        let ext_id = (id >> 16) as u16;
+        let func_id = (id & 0x0000FFFF) as u16;
+        match (ext_id, func_id) {
+            (0, _) => Some(Self::Polymesh(func_id)),
+            (26, 0 | 1 | 2 | 3 | 17) => Some(Self::OldFuncId {
+                pallet: 26,
+                extrinsic: func_id as u8,
+            }),
+            (47, 1) => Some(Self::OldFuncId {
+                pallet: 47,
+                extrinsic: 1,
+            }),
+            _ => None,
+        }
     }
 }
 
@@ -526,7 +530,7 @@ fn decode<V: Decode, T: Config>(input: &mut &[u8]) -> Result<V, DispatchError> {
 }
 
 /// Constructs a call description from a `func_id` and associated `input`.
-fn construct_call<T>(func_id: u32, input: &mut &[u8]) -> Result<CommonCall<T>, DispatchError>
+fn construct_call<T>(func_id: FuncId, input: &mut &[u8]) -> Result<CommonCall<T>, DispatchError>
 where
     T: Config + pallet_asset::Config,
     T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
@@ -541,16 +545,13 @@ where
     /// Pattern match on functions `0x00_pp_ee_00`.
     macro_rules! on {
         ($p:pat, $e:pat) => {
-            FuncId {
-                scheme: 0,
+            FuncId::OldFuncId {
                 pallet: $p,
                 extrinsic: $e,
-                version: 0,
             }
         };
     }
 
-    let func_id = split_func_id(func_id);
     Ok(match func_id {
         on!(26, 0) => CommonCall::Asset(pallet_asset::Call::register_ticker { ticker: decode!() }),
         on!(26, 1) => {
@@ -612,6 +613,9 @@ where
             ensure!(in_len == 0, Error::<T>::DataLeftAfterDecoding);
             return Ok(ce::RetVal::Converging(0));
         }
+
+        // Decode chain extension id.
+        let func_id = FuncId::try_from_u32(func_id).ok_or(Error::<T>::RuntimeCallNotFound)?;
 
         // Limit `in_len` to a maximum.
         ensure!(
