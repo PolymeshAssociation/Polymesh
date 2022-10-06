@@ -25,7 +25,9 @@ use polymesh_common_utilities::{
     protocol_fee::ProtocolOp,
     traits::{
         group::GroupTrait,
-        identity::{Config as IdentityConfig, SecondaryKeyWithAuth, TargetIdAuthorization},
+        identity::{
+            Config as IdentityConfig, RawEvent, SecondaryKeyWithAuth, TargetIdAuthorization,
+        },
         transaction_payment::CddAndFeeDetails,
     },
     SystematicIssuers, GC_DID,
@@ -2164,7 +2166,7 @@ fn cdd_register_did_events() {
             let mut system_events = System::events();
             assert_eq!(
                 system_events.pop().unwrap().event,
-                super::storage::EventTest::Identity(pallet_identity::RawEvent::AuthorizationAdded(
+                super::storage::EventTest::Identity(RawEvent::AuthorizationAdded(
                     alice_did,
                     None,
                     Some(AccountKeyring::Charlie.to_account_id()),
@@ -2175,7 +2177,7 @@ fn cdd_register_did_events() {
             );
             assert_eq!(
                 system_events.pop().unwrap().event,
-                super::storage::EventTest::Identity(pallet_identity::RawEvent::AuthorizationAdded(
+                super::storage::EventTest::Identity(RawEvent::AuthorizationAdded(
                     alice_did,
                     None,
                     Some(AccountKeyring::Dave.to_account_id()),
@@ -2187,7 +2189,7 @@ fn cdd_register_did_events() {
             // Make sure a Did Created event was sent
             assert_eq!(
                 system_events.pop().unwrap().event,
-                super::storage::EventTest::Identity(pallet_identity::RawEvent::DidCreated(
+                super::storage::EventTest::Identity(RawEvent::DidCreated(
                     alice_did,
                     alice_account_id,
                     alice_secundary_keys.clone()

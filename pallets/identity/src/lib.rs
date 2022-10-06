@@ -103,12 +103,13 @@ use frame_support::{
     },
 };
 use frame_system::ensure_root;
-pub use polymesh_common_utilities::traits::identity::{RawEvent, WeightInfo};
+pub use polymesh_common_utilities::traits::identity::WeightInfo;
 use polymesh_common_utilities::{
     constants::did::SECURITY_TOKEN,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::identity::{
-        AuthorizationNonce, Config, IdentityFnTrait, SecondaryKeyWithAuth, SecondaryKeyWithAuthV1,
+        AuthorizationNonce, Config, IdentityFnTrait, RawEvent, SecondaryKeyWithAuth,
+        SecondaryKeyWithAuthV1,
     },
     SystematicIssuers, GC_DID,
 };
