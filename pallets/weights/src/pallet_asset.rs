@@ -397,4 +397,15 @@ impl pallet_asset::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(17 as Weight))
             .saturating_add(DbWeight::get().writes(7 as Weight))
     }
+
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
+    // Storage: Permissions CurrentPalletName (r:1 w:0)
+    // Storage: Permissions CurrentDispatchableName (r:1 w:0)
+    // Storage: Asset Tokens (r:2 w:1)
+    fn update_asset_type() -> Weight {
+        (154_000_000 as Weight)
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
 }
