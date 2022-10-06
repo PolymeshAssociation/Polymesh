@@ -468,6 +468,7 @@
       "proof_scope_id_cdd_id_match": "ZkProofData",
       "scope_id": "RistrettoPoint"
     },
+    "CustomClaimTypeId": "u32",
     "Claim": {
       "_enum": {
         "Accredited": "Scope",
@@ -481,7 +482,8 @@
         "Blocked": "Scope",
         "InvestorUniqueness": "(Scope, ScopeId, CddId)",
         "NoData": "",
-        "InvestorUniquenessV2": "(CddId)"
+        "InvestorUniquenessV2": "CddId",
+        "Custom": "(CustomClaimTypeId, Option<Scope>)"
       }
     },
     "ClaimType": {
@@ -497,7 +499,8 @@
         "Blocked": "",
         "InvestorUniqueness": "",
         "NoData": "",
-        "InvestorUniquenessV2": ""
+        "InvestorUniquenessV2": "",
+        "Custom": "CustomClaimTypeId"
       }
     },
     "IdentityClaim": {
@@ -1056,10 +1059,6 @@
     "VenueId": "u64",
     "VenueType": {
       "_enum": ["Other", "Distribution", "Sto", "Exchange"]
-    },
-    "ExtensionAttributes": {
-      "usage_fee": "Balance",
-      "version": "MetaVersion"
     },
     "Tax": "Permill",
     "TargetIdentities": {
