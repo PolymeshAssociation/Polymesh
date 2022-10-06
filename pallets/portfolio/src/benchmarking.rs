@@ -89,7 +89,7 @@ benchmarks! {
         let a in 1 .. 500;
         let mut items = Vec::with_capacity(a as usize);
         let target = user::<T>("target", 0);
-        let first_ticker = make_asset::<T>(&target, Some(&Ticker::generate(0u64)));
+        let first_ticker = Ticker::generate_into(0u64);
         let amount = Balance::from(10u32);
         let portfolio_name = PortfolioName(vec![65u8; 5]);
         let next_portfolio_num = NextPortfolioNumber::get(&target.did());
