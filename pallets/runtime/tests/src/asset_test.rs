@@ -487,8 +487,6 @@ fn register_ticker() {
                 AssetError::TickerNotAscii
             );
         }
-
-        assert_ok!(register(Ticker::try_from(&[b' ', b'A', b'~'][..]).unwrap()));
     })
 }
 
@@ -2412,4 +2410,43 @@ fn issuers_can_redeem_tokens_from_portfolio() {
                 PortfolioError::InsufficientPortfolioBalance
             );
         })
+}
+
+#[test]
+fn issuers_can_change_asset_type() {
+    ExtBuilder::default().build().execute_with(|| {
+        set_time_to_now();
+
+        let owner = User::new(AccountKeyring::Dave);
+        let alice = User::new(AccountKeyring::Alice);
+
+        // Create an asset
+        let (ticker, token) = a_token(owner.did);
+        assert_ok!(basic_asset(owner, ticker, &token));
+
+        // Only the asset issuer is allowed to update the asset type
+        assert_noop!(
+            Asset::update_asset_type(alice.origin(), ticker, AssetType::EquityPreferred),
+            EAError::UnauthorizedAgent
+        );
+        // Invalid Custom type id must be rejected
+        assert_noop!(
+            Asset::update_asset_type(
+                owner.origin(),
+                ticker,
+                AssetType::Custom(CustomAssetTypeId(1))
+            ),
+            AssetError::InvalidCustomAssetTypeId
+        );
+        // Owner of the asset must be able to change the asset type, as long as it's not an invalid custom type
+        assert_ok!(Asset::update_asset_type(
+            owner.origin(),
+            ticker,
+            AssetType::EquityPreferred
+        ));
+        assert_eq!(
+            Asset::token_details(&ticker).asset_type,
+            AssetType::EquityPreferred
+        );
+    })
 }

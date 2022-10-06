@@ -103,6 +103,7 @@ pub trait WeightInfo {
     fn register_asset_metadata_local_type() -> Weight;
     fn register_asset_metadata_global_type() -> Weight;
     fn redeem_from_portfolio() -> Weight;
+    fn update_asset_type() -> Weight;
 }
 
 /// The module's configuration trait.
@@ -227,5 +228,8 @@ decl_event! {
         /// Register asset metadata global type.
         /// (Global type name, Global type key, type specs)
         RegisterAssetMetadataGlobalType(AssetMetadataName, AssetMetadataGlobalKey, AssetMetadataSpec),
+        /// An event emitted when the type of an asset changed.
+        /// Parameters: caller DID, ticker, new token type.
+        AssetTypeChanged(IdentityId, Ticker, AssetType),
     }
 }

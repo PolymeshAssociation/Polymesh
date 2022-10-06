@@ -291,7 +291,7 @@ fn do_add_permissions_to_multiple_tokens() {
     let max_tokens = 20;
     let tokens: Vec<Ticker> = (0..max_tokens)
         .map(|i| {
-            let name = format!("TOKEN_{}", i);
+            let name = format!("TOKEN{}", i);
             let (ticker, _) = create_new_token(name.as_bytes(), alice);
             ticker
         })
