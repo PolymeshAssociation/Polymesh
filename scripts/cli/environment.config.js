@@ -1,5 +1,5 @@
 // PM2 config file
-let chain = "ci-local";
+let chain = "dev-local";
 let polymesh_bin = "../../target/release/polymesh";
 let common = "--wasm-execution compiled " +
   //  "--db-cache=3000 " +
