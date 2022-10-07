@@ -5,7 +5,7 @@ set -e
 echo "*** Initializing WASM build environment"
 
 # Fetch name of preferred toolchain...
-TOOLCHAIN=$(< $(dirname $0)/../rust-toolchain)
+TOOLCHAIN=stable
 # ...and install it + wasm32 target.
 rustup toolchain install $TOOLCHAIN
 rustup target add wasm32-unknown-unknown --toolchain $TOOLCHAIN
