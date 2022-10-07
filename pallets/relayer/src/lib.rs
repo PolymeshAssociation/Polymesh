@@ -455,9 +455,8 @@ impl<T: Config> Module<T> {
         match pallet {
             // These pallets are subsidised by the paying key.
             b"Asset" | b"ComplianceManager" | b"CorporateAction" | b"ExternalAgents"
-            | b"Permissions" | b"Portfolio" | b"Settlement" | b"Statistics" | b"Sto" => {
-                Ok(Some(()))
-            }
+            | b"Permissions" | b"Portfolio" | b"Settlement" | b"Statistics" | b"Sto"
+            | b"Balances" => Ok(Some(())),
             // The user key needs to pay for `remove_paying_key` call.
             b"Relayer" => Ok(None),
             // Reject all other pallets.
