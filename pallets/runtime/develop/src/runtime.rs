@@ -51,7 +51,13 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 /// Runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
+    #[cfg(feature = "ci-runtime")]
+    spec_name: create_runtime_str!("polymesh_ci"),
+    #[cfg(not(feature = "ci-runtime"))]
     spec_name: create_runtime_str!("polymesh_dev"),
+    #[cfg(feature = "ci-runtime")]
+    impl_name: create_runtime_str!("polymesh_ci"),
+    #[cfg(not(feature = "ci-runtime"))]
     impl_name: create_runtime_str!("polymesh_dev"),
     authoring_version: 1,
     // `spec_version: aaa_bbb_ccd` should match node version v`aaa.bbb.cc`

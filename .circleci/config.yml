@@ -49,6 +49,36 @@ jobs:
           paths:
             - "/usr/local/cargo"
             - "~/.cache/sccache"
+  build-ci:
+    docker:
+      - image: polymeshassociation/rust:debian-nightly-2022-09-15
+    resource_class: xlarge
+    environment:
+      - VERBOSE: "1"
+      - RUSTFLAGS: -D warnings
+      - RUSTC_WRAPPER: /usr/local/cargo/bin/sccache
+    steps:
+      - checkout
+      - run:
+          name: Store rust version in an environment var for cache key
+          command: rustc --version > rust.version
+      - restore_cache:
+          keys:
+            - v7-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
+      - run:
+          name: Build ci-runtime
+          command: cargo build --release --no-default-features --features ci-runtime
+          no_output_timeout: 1h
+      - run:
+          name: Create assets directory for releases
+          command: mkdir ./assets
+      - run:
+          name: Copy binary to assets
+          command: cp ./target/release/polymesh ./assets/ci-runtime-polymesh
+      - persist_to_workspace:
+          root: ./assets
+          paths:
+              - .
   build-arm64:
     machine:
       image: ubuntu-2004:current
@@ -241,7 +271,7 @@ jobs:
       - run:
           name: run Polymesh ci-dev chain node for integration tests
           command: >-
-            ./target/release/polymesh --bob --chain ci-dev
+            ./target/release/ci-runtime-polymesh --bob --chain ci-dev
               --no-prometheus --no-telemetry --tmp
               --wasm-execution compiled
               --pool-limit 100000
@@ -464,7 +494,7 @@ workflows:
       - coverage
       - integration-test:
           requires:
-            - build
+            - build-ci
       - benchmark:
           requires:
             - benchmark-build

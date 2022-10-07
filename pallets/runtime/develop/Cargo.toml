@@ -113,6 +113,8 @@ polymesh-build-tool = { path = "../build_tool", default-features = false }
 default = ["std", "equalize"]
 equalize = []
 
+ci-runtime = []
+
 # Backends
 u64_backend = ["confidential_identity_core/u64_backend"]
 
