@@ -55,7 +55,10 @@ use frame_support::{
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::traits::balances::Memo;
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
-pub use polymesh_common_utilities::traits::portfolio::{Config, Event, WeightInfo};
+pub use polymesh_common_utilities::traits::{
+    asset::AssetFnTrait,
+    portfolio::{Config, Event, WeightInfo},
+};
 use polymesh_primitives::{
     extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, IdentityId,
     PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
@@ -576,6 +579,7 @@ impl<T: Config> Module<T> {
         ticker: &Ticker,
         amount: Balance,
     ) -> DispatchResult {
+        T::Asset::ensure_granular(ticker, amount)?;
         Self::portfolio_asset_balances(portfolio, ticker)
             .saturating_sub(Self::locked_assets(portfolio, ticker))
             .checked_sub(amount)
