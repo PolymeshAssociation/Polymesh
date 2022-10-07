@@ -489,6 +489,7 @@ workflows:
       - clippy
       - test
       - build
+      - build-ci
       - build-arm64
       - benchmark-build
       - coverage
