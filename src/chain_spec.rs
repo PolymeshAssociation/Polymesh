@@ -15,7 +15,6 @@ use polymesh_primitives::{
 };
 use sc_chain_spec::{ChainSpecExtension, ChainType};
 use sc_service::Properties;
-#[cfg(not(feature = "ci-runtime"))]
 use sc_telemetry::TelemetryEndpoints;
 use serde_json::json;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -30,7 +29,6 @@ use sp_runtime::{Deserialize, Serialize};
 use std::convert::TryInto;
 
 // The URL for the telemetry server.
-#[cfg(not(feature = "ci-runtime"))]
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polymesh.network/submit/";
 
 // Genesis POLYX distribution via bridge
@@ -40,9 +38,7 @@ const REWARDS_LOCK_HASH: &str =
     "0x1000000000000000000000000000000000000000000000000000000000000002";
 const KEY_LOCK_HASH: &str = "0x1000000000000000000000000000000000000000000000000000000000000003";
 
-#[cfg(not(feature = "ci-runtime"))]
 const BOOTSTRAP_KEYS: u128 = 6_000 * ONE_POLY;
-#[cfg(not(feature = "ci-runtime"))]
 const BOOTSTRAP_TREASURY: u128 = 17_500_000 * ONE_POLY;
 
 const DEV_KEYS: u128 = 30_000_000 * ONE_POLY;
@@ -778,7 +774,6 @@ pub mod general {
     }
 }
 
-#[cfg(not(feature = "ci-runtime"))]
 pub mod testnet {
     use super::*;
     use polymesh_runtime_testnet::{self as rt, constants::time};
@@ -975,7 +970,6 @@ pub mod testnet {
     }
 }
 
-#[cfg(not(feature = "ci-runtime"))]
 pub mod mainnet {
     use super::*;
     use polymesh_runtime_mainnet::{self as rt, constants::time};
@@ -1177,7 +1171,7 @@ pub mod mainnet {
 }
 
 #[cfg(feature = "ci-runtime")]
-pub mod ci {
+pub mod general {
     use super::*;
     use polymesh_runtime_develop::{self as rt, constants::time};
 

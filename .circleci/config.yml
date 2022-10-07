@@ -269,9 +269,9 @@ jobs:
       - attach_workspace:
           at: ./target/release
       - run:
-          name: run Polymesh ci-dev chain node for integration tests
+          name: run Polymesh ci-runtime dev chain node for integration tests
           command: >-
-            ./target/release/ci-runtime-polymesh --bob --chain ci-dev
+            ./target/release/ci-runtime-polymesh --bob --chain dev
               --no-prometheus --no-telemetry --tmp
               --wasm-execution compiled
               --pool-limit 100000

@@ -12,9 +12,7 @@ pub use polymesh_primitives::{
     BlockNumber, Hash, IdentityId, Index as Nonce, Moment, Ticker,
 };
 pub use polymesh_runtime_develop;
-#[cfg(not(feature = "ci-runtime"))]
 pub use polymesh_runtime_mainnet;
-#[cfg(not(feature = "ci-runtime"))]
 pub use polymesh_runtime_testnet;
 use prometheus_endpoint::Registry;
 pub use sc_client_api::backend::Backend;
@@ -40,9 +38,7 @@ use std::sync::Arc;
 
 /// Known networks based on name.
 pub enum Network {
-    #[cfg(not(feature = "ci-runtime"))]
     Mainnet,
-    #[cfg(not(feature = "ci-runtime"))]
     Testnet,
     Other,
 }
@@ -53,19 +49,12 @@ pub trait IsNetwork {
 
 impl IsNetwork for dyn ChainSpec {
     fn network(&self) -> Network {
-        #[cfg(not(feature = "ci-runtime"))]
-        {
-            let name = self.name();
-            if name.starts_with("Polymesh Mainnet") {
-                Network::Mainnet
-            } else if name.starts_with("Polymesh Testnet") {
-                Network::Testnet
-            } else {
-                Network::Other
-            }
-        }
-        #[cfg(feature = "ci-runtime")]
-        {
+        let name = self.name();
+        if name.starts_with("Polymesh Mainnet") {
+            Network::Mainnet
+        } else if name.starts_with("Polymesh Testnet") {
+            Network::Testnet
+        } else {
             Network::Other
         }
     }
@@ -93,18 +82,13 @@ type EHF = (
     native_rng::HostFunctions,
 );
 
-#[cfg(not(feature = "ci-runtime"))]
 native_executor_instance!(
     GeneralExecutor,
     polymesh_runtime_develop,
     (EHF, native_schnorrkel::HostFunctions)
 );
-#[cfg(not(feature = "ci-runtime"))]
 native_executor_instance!(TestnetExecutor, polymesh_runtime_testnet, EHF);
-#[cfg(not(feature = "ci-runtime"))]
 native_executor_instance!(MainnetExecutor, polymesh_runtime_mainnet, EHF);
-#[cfg(feature = "ci-runtime")]
-native_executor_instance!(CIExecutor, polymesh_runtime_develop, EHF);
 
 /// A set of APIs that polkadot-like runtimes must implement.
 pub trait RuntimeApiCollection<Extrinsic: RuntimeExtrinsic>:
@@ -636,28 +620,18 @@ where
 type TaskResult = Result<TaskManager, ServiceError>;
 
 /// Create a new Testnet service for a full node.
-#[cfg(not(feature = "ci-runtime"))]
 pub fn testnet_new_full(config: Configuration) -> TaskResult {
     new_full_base::<polymesh_runtime_testnet::RuntimeApi, TestnetExecutor, _, _>(config, |_, _| ())
         .map(|data| data.task_manager)
 }
 
 /// Create a new General node service for a full node.
-#[cfg(not(feature = "ci-runtime"))]
 pub fn general_new_full(config: Configuration) -> TaskResult {
     new_full_base::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor, _, _>(config, |_, _| ())
         .map(|data| data.task_manager)
 }
 
-/// Create a new CI service for a full node.
-#[cfg(feature = "ci-runtime")]
-pub fn ci_new_full(config: Configuration) -> TaskResult {
-    new_full_base::<polymesh_runtime_develop::RuntimeApi, CIExecutor, _, _>(config, |_, _| ())
-        .map(|data| data.task_manager)
-}
-
 /// Create a new Mainnet service for a full node.
-#[cfg(not(feature = "ci-runtime"))]
 pub fn mainnet_new_full(config: Configuration) -> TaskResult {
     new_full_base::<polymesh_runtime_mainnet::RuntimeApi, MainnetExecutor, _, _>(config, |_, _| ())
         .map(|data| data.task_manager)
@@ -689,28 +663,18 @@ where
     Ok((client, backend, import_queue, task_manager))
 }
 
-#[cfg(not(feature = "ci-runtime"))]
 pub fn testnet_chain_ops(
     config: &mut Configuration,
 ) -> Result<NewChainOps<polymesh_runtime_testnet::RuntimeApi, TestnetExecutor>, ServiceError> {
     chain_ops::<_, _, polymesh_runtime_testnet::UncheckedExtrinsic>(config)
 }
 
-#[cfg(not(feature = "ci-runtime"))]
 pub fn general_chain_ops(
     config: &mut Configuration,
 ) -> Result<NewChainOps<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>, ServiceError> {
     chain_ops::<_, _, polymesh_runtime_develop::UncheckedExtrinsic>(config)
 }
 
-#[cfg(feature = "ci-runtime")]
-pub fn ci_chain_ops(
-    config: &mut Configuration,
-) -> Result<NewChainOps<polymesh_runtime_develop::RuntimeApi, CIExecutor>, ServiceError> {
-    chain_ops::<_, _, polymesh_runtime_develop::UncheckedExtrinsic>(config)
-}
-
-#[cfg(not(feature = "ci-runtime"))]
 pub fn mainnet_chain_ops(
     config: &mut Configuration,
 ) -> Result<NewChainOps<polymesh_runtime_mainnet::RuntimeApi, MainnetExecutor>, ServiceError> {

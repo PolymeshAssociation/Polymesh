@@ -17,22 +17,17 @@
 
 use crate::chain_spec;
 use crate::cli::{Cli, Subcommand};
-use crate::service::{self, FullClient, IsNetwork, Network, NewChainOps};
-#[cfg(feature = "ci-runtime")]
-use crate::service::{ci_chain_ops, CIExecutor};
-#[cfg(not(feature = "ci-runtime"))]
 use crate::service::{
-    general_chain_ops, mainnet_chain_ops, new_partial, testnet_chain_ops, FullServiceComponents,
-    GeneralExecutor, MainnetExecutor, TestnetExecutor,
+    self, general_chain_ops, mainnet_chain_ops, new_partial, testnet_chain_ops,
+    FullClient, FullServiceComponents, GeneralExecutor, IsNetwork, MainnetExecutor,
+    Network, NewChainOps, TestnetExecutor,
 };
-#[cfg(not(feature = "ci-runtime"))]
 use frame_benchmarking_cli::*;
 use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
 use sc_service::{Configuration, TaskManager};
 
 use core::future::Future;
 use log::info;
-#[cfg(not(feature = "ci-runtime"))]
 use polymesh_primitives::Block;
 use std::sync::Arc;
 
@@ -66,15 +61,6 @@ impl SubstrateCli for Cli {
     }
 
     fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
-        #[cfg(feature = "ci-runtime")]
-        return Ok(match id {
-            "ci-dev" => Box::new(chain_spec::ci::develop_config()),
-            "ci-local" => Box::new(chain_spec::ci::local_config()),
-            path => Box::new(chain_spec::ci::ChainSpec::from_json_file(
-                std::path::PathBuf::from(path),
-            )?),
-        });
-        #[cfg(not(feature = "ci-runtime"))]
         Ok(match id {
             "dev" => Box::new(chain_spec::general::develop_config()),
             "local" => Box::new(chain_spec::general::local_config()),
@@ -98,9 +84,7 @@ impl SubstrateCli for Cli {
 
     fn native_runtime_version(chain_spec: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
         match chain_spec.network() {
-            #[cfg(not(feature = "ci-runtime"))]
             Network::Testnet => &polymesh_runtime_testnet::runtime::VERSION,
-            #[cfg(not(feature = "ci-runtime"))]
             Network::Mainnet => &polymesh_runtime_mainnet::runtime::VERSION,
             Network::Other => &polymesh_runtime_develop::runtime::VERSION,
         }
@@ -126,14 +110,9 @@ pub fn run() -> Result<()> {
 
             runner.run_node_until_exit(|config| async move {
                 match network {
-                    #[cfg(not(feature = "ci-runtime"))]
                     Network::Testnet => service::testnet_new_full(config),
-                    #[cfg(not(feature = "ci-runtime"))]
                     Network::Mainnet => service::mainnet_new_full(config),
-                    #[cfg(not(feature = "ci-runtime"))]
                     Network::Other => service::general_new_full(config),
-                    #[cfg(feature = "ci-runtime")]
-                    Network::Other => service::ci_new_full(config),
                 }
                 .map_err(sc_cli::Error::Service)
             })
@@ -145,36 +124,28 @@ pub fn run() -> Result<()> {
         Some(Subcommand::CheckBlock(cmd)) => async_run(
             &cli,
             cmd,
-            #[cfg(not(feature = "ci-runtime"))]
             |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
-            #[cfg(not(feature = "ci-runtime"))]
             |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
             |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
         ),
         Some(Subcommand::ExportBlocks(cmd)) => async_run(
             &cli,
             cmd,
-            #[cfg(not(feature = "ci-runtime"))]
             |(c, .., tm), config| Ok((cmd.run(c, config.database), tm)),
-            #[cfg(not(feature = "ci-runtime"))]
             |(c, .., tm), config| Ok((cmd.run(c, config.database), tm)),
             |(c, .., tm), config| Ok((cmd.run(c, config.database), tm)),
         ),
         Some(Subcommand::ExportState(cmd)) => async_run(
             &cli,
             cmd,
-            #[cfg(not(feature = "ci-runtime"))]
             |(c, .., tm), config| Ok((cmd.run(c, config.chain_spec), tm)),
-            #[cfg(not(feature = "ci-runtime"))]
             |(c, .., tm), config| Ok((cmd.run(c, config.chain_spec), tm)),
             |(c, .., tm), config| Ok((cmd.run(c, config.chain_spec), tm)),
         ),
         Some(Subcommand::ImportBlocks(cmd)) => async_run(
             &cli,
             cmd,
-            #[cfg(not(feature = "ci-runtime"))]
             |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
-            #[cfg(not(feature = "ci-runtime"))]
             |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
             |(c, _, iq, tm), _| Ok((cmd.run(c, iq), tm)),
         ),
@@ -185,7 +156,6 @@ pub fn run() -> Result<()> {
         Some(Subcommand::Revert(cmd)) => async_run(
             &cli,
             cmd,
-            #[cfg(not(feature = "ci-runtime"))]
             |(c, b, _, tm), _| {
                 let aux_revert = Box::new(|client: Arc<FullClient<_, _>>, backend, blocks| {
                     sc_consensus_babe::revert(client.clone(), backend, blocks)?;
@@ -194,7 +164,6 @@ pub fn run() -> Result<()> {
                 });
                 Ok((cmd.run(c, b, Some(aux_revert)), tm))
             },
-            #[cfg(not(feature = "ci-runtime"))]
             |(c, b, _, tm), _| {
                 let aux_revert = Box::new(|client: Arc<FullClient<_, _>>, backend, blocks| {
                     sc_consensus_babe::revert(client.clone(), backend, blocks)?;
@@ -212,7 +181,6 @@ pub fn run() -> Result<()> {
                 Ok((cmd.run(c, b, Some(aux_revert)), tm))
             },
         ),
-        #[cfg(not(feature = "ci-runtime"))]
         Some(Subcommand::Benchmark(cmd)) => {
             let runner = cli.create_runner(cmd)?;
             let network = runner.config().chain_spec.network();
@@ -265,14 +233,9 @@ pub fn run() -> Result<()> {
                 }
             })
         }
-        #[cfg(feature = "ci-runtime")]
-        Some(Subcommand::Benchmark(_)) => {
-            Err("Benchmarking is only supported with the `develop` runtime.".into())
-        }
     }
 }
 
-#[cfg(not(feature = "ci-runtime"))]
 fn async_run<F, G, H>(
     cli: &impl sc_cli::SubstrateCli,
     cmd: &impl sc_cli::CliConfiguration,
@@ -305,23 +268,5 @@ where
         Network::Mainnet => {
             runner.async_run(|mut config| mainnet(mainnet_chain_ops(&mut config)?, config))
         }
-    }
-}
-
-#[cfg(feature = "ci-runtime")]
-fn async_run<F>(
-    cli: &impl sc_cli::SubstrateCli,
-    cmd: &impl sc_cli::CliConfiguration,
-    ci: impl FnOnce(
-        NewChainOps<polymesh_runtime_develop::RuntimeApi, CIExecutor>,
-        Configuration,
-    ) -> sc_cli::Result<(F, TaskManager)>,
-) -> sc_service::Result<(), sc_cli::Error>
-where
-    F: Future<Output = sc_cli::Result<()>>,
-{
-    let runner = cli.create_runner(cmd)?;
-    match runner.config().chain_spec.network() {
-        Network::Other => runner.async_run(|mut config| ci(ci_chain_ops(&mut config)?, config)),
     }
 }

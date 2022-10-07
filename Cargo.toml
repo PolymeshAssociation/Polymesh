@@ -193,8 +193,8 @@ polymesh-node-rpc = { path = "node-rpc" }
 
 # Runtimes
 polymesh-runtime-develop = { path = "pallets/runtime/develop" }
-polymesh-runtime-mainnet = { path = "pallets/runtime/mainnet", optional = true }
-polymesh-runtime-testnet = { path = "pallets/runtime/testnet", optional = true }
+polymesh-runtime-mainnet = { path = "pallets/runtime/mainnet" }
+polymesh-runtime-testnet = { path = "pallets/runtime/testnet" }
 
 # General
 chrono = "0.4.11"
@@ -265,13 +265,13 @@ frame-benchmarking-cli = "4.0.0-dev"
 vergen = "3.1.0"
 
 [features]
-default = ["std", "polymesh-runtime-testnet", "polymesh-runtime-mainnet"]
+default = ["std"]
 running-ci = [ "polymesh-runtime-develop/running-ci" ]
 default_identity = [ "polymesh-common-utilities/default_identity" ]
 runtime-benchmarks = [ "polymesh-runtime-develop/runtime-benchmarks" ]
 
 # Only build a "ci" runtime.
-ci-runtime = [ "std", "polymesh-runtime-develop/ci-runtime" ]
+ci-runtime = [ "polymesh-runtime-develop/ci-runtime" ]
 
 std = [
     "polymesh-common-utilities/std",
