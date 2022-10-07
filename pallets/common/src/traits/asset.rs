@@ -55,6 +55,9 @@ pub trait AssetSubTrait {
 }
 
 pub trait AssetFnTrait<Account, Origin> {
+    /// Ensure the granularity of `value` meets the requirements of `ticker`.
+    fn ensure_granular(ticker: &Ticker, value: Balance) -> DispatchResult;
+
     fn balance(ticker: &Ticker, did: IdentityId) -> Balance;
 
     fn create_asset(
