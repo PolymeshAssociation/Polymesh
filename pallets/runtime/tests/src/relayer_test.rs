@@ -7,7 +7,7 @@ use frame_support::{
     weights::{DispatchInfo, Pays, PostDispatchInfo, Weight},
     StorageMap,
 };
-use frame_system::self;
+use frame_system;
 use pallet_relayer::Subsidy;
 use polymesh_common_utilities::{
     constants::currency::POLY, protocol_fee::ProtocolOp,
@@ -45,7 +45,7 @@ fn call_balance_transfer(val: Balance) -> <TestStorage as frame_system::Config>:
 
 fn call_system_remark(size: usize) -> <TestStorage as frame_system::Config>::Call {
     Call::System(frame_system::Call::remark {
-        remark: vec![0; size]
+        remark: vec![0; size],
     })
 }
 
