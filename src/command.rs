@@ -18,9 +18,9 @@
 use crate::chain_spec;
 use crate::cli::{Cli, Subcommand};
 use crate::service::{
-    self, general_chain_ops, mainnet_chain_ops, new_partial, testnet_chain_ops,
-    FullClient, FullServiceComponents, GeneralExecutor, IsNetwork, MainnetExecutor,
-    Network, NewChainOps, TestnetExecutor,
+    self, general_chain_ops, mainnet_chain_ops, new_partial, testnet_chain_ops, FullClient,
+    FullServiceComponents, GeneralExecutor, IsNetwork, MainnetExecutor, Network, NewChainOps,
+    TestnetExecutor,
 };
 use frame_benchmarking_cli::*;
 use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
