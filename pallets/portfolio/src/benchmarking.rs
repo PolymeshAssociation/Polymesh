@@ -17,7 +17,8 @@ use crate::*;
 use core::convert::TryInto;
 use frame_benchmarking::benchmarks;
 use polymesh_common_utilities::{
-    benchs::{user, AccountIdOf, User},
+    asset::Config as AssetConfig,
+    benchs::{make_asset, user, AccountIdOf, User},
     TestUtilsFn,
 };
 use polymesh_primitives::{AuthorizationData, PortfolioName, Signatory};
@@ -59,7 +60,7 @@ fn assert_custodian<T: Config>(pid: PortfolioId, custodian: &User<T>, holds: boo
 }
 
 benchmarks! {
-    where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
+    where_clause { where T: TestUtilsFn<AccountIdOf<T>> + AssetConfig }
 
     create_portfolio {
         let target = user::<T>("target", 0);
@@ -96,7 +97,7 @@ benchmarks! {
         let user_portfolio = PortfolioId::user_portfolio(target.did(), next_portfolio_num.clone());
 
         for x in 0..a as u64 {
-            let ticker = Ticker::generate_into(x);
+            let ticker = make_asset::<T>(&target, Some(&Ticker::generate(x)));
             items.push(MovePortfolioItem {
                 ticker,
                 amount: amount,
