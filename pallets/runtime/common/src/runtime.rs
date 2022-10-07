@@ -286,6 +286,7 @@ macro_rules! misc_pallet_impls {
 
         impl pallet_portfolio::Config for Runtime {
             type Event = Event;
+            type Asset = Asset;
             type WeightInfo = polymesh_weights::pallet_portfolio::WeightInfo;
         }
 
