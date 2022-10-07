@@ -7,6 +7,7 @@ use frame_support::{
     weights::{DispatchInfo, Pays, PostDispatchInfo, Weight},
     StorageMap,
 };
+use frame_system;
 use pallet_relayer::Subsidy;
 use polymesh_common_utilities::{
     constants::currency::POLY, protocol_fee::ProtocolOp,
@@ -39,6 +40,12 @@ fn call_balance_transfer(val: Balance) -> <TestStorage as frame_system::Config>:
     Call::Balances(pallet_balances::Call::transfer {
         dest: MultiAddress::Id(AccountKeyring::Alice.to_account_id()),
         value: val,
+    })
+}
+
+fn call_system_remark(size: usize) -> <TestStorage as frame_system::Config>::Call {
+    Call::System(frame_system::Call::remark {
+        remark: vec![0; size],
     })
 }
 
@@ -474,12 +481,12 @@ fn do_relayer_transaction_and_protocol_fees_test() {
         TransactionError::PalletNotSubsidised as u8,
     ));
 
-    // Pallet Balance is not subsidised.
+    // Pallet System is not subsidised.
     // test `validate`
     let pre_err = ChargeTransactionPayment::from(0)
         .validate(
             &bob.acc(),
-            &call_balance_transfer(42),
+            &call_system_remark(42),
             &info_from_weight(5),
             len,
         )
@@ -491,7 +498,7 @@ fn do_relayer_transaction_and_protocol_fees_test() {
     let pre_err = ChargeTransactionPayment::from(0)
         .pre_dispatch(
             &bob.acc(),
-            &call_balance_transfer(42),
+            &call_system_remark(42),
             &info_from_weight(5),
             len,
         )
