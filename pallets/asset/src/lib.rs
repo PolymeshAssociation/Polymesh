@@ -986,6 +986,10 @@ decl_error! {
 }
 
 impl<T: Config> AssetFnTrait<T::AccountId, T::Origin> for Module<T> {
+    fn ensure_granular(ticker: &Ticker, value: Balance) -> DispatchResult {
+        Self::ensure_granular(ticker, value)
+    }
+
     /// Get the asset `id` balance of `who`.
     fn balance(ticker: &Ticker, who: IdentityId) -> Balance {
         Self::balance_of(ticker, &who)
