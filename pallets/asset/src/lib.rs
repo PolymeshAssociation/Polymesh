@@ -376,7 +376,7 @@ decl_module! {
             use frame_support::weights::constants::WEIGHT_PER_MICROS;
             // Keep track of upgrade cost.
             let mut weight = 0u64;
-            storage_migrate_on!(StorageVersion::get(), 1, {
+            storage_migrate_on!(StorageVersion, 1, {
                 let mut total_len = 0u64;
                 // Get list of assets with invalid asset_types.
                 let fix_list = Tokens::iter()

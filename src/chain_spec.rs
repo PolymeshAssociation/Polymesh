@@ -685,6 +685,8 @@ pub mod general {
             upgrade_committee: committee!(1),
             protocol_fee: protocol_fee!(),
             settlement: Default::default(),
+            portfolio: Default::default(),
+            statistics: Default::default(),
             multi_sig: pallet_multisig::GenesisConfig {
                 transaction_version: 1,
             },
@@ -850,6 +852,8 @@ pub mod testnet {
             upgrade_committee: committee!(1),                   // RC = 1, 1/2 votes required
             protocol_fee: protocol_fee!(),
             settlement: Default::default(),
+            portfolio: Default::default(),
+            statistics: Default::default(),
             multi_sig: pallet_multisig::GenesisConfig {
                 transaction_version: 1,
             },
@@ -1046,6 +1050,8 @@ pub mod mainnet {
             upgrade_committee: committee!(1),                   // 1/2 votes required
             protocol_fee: protocol_fee!(),
             settlement: Default::default(),
+            portfolio: Default::default(),
+            statistics: Default::default(),
             multi_sig: pallet_multisig::GenesisConfig {
                 transaction_version: 1,
             },
@@ -1243,6 +1249,8 @@ pub mod general {
             upgrade_committee: committee!(5),
             protocol_fee: protocol_fee!(),
             settlement: Default::default(),
+            portfolio: Default::default(),
+            statistics: Default::default(),
             multi_sig: pallet_multisig::GenesisConfig {
                 transaction_version: 1,
             },
