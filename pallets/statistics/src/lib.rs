@@ -74,7 +74,7 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion::get(), 1, {
+            storage_migrate_on!(StorageVersion, 1, {
                 migration::migrate_v1::<T>();
             });
 
