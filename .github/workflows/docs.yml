@@ -7,14 +7,13 @@ on:
 
 jobs:
   docs:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v2
     - name: Install rust toolchain
       uses: actions-rs/toolchain@v1
       with:
+        toolchain: nightly
         target: wasm32-unknown-unknown
         override: true
         default: true
