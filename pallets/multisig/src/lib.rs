@@ -262,11 +262,11 @@ decl_module! {
                 }
             }
 
-            storage_migrate_on!(StorageVersion::get(), 1, {
+            storage_migrate_on!(StorageVersion, 1, {
                 migration::migrate_v1::<T>();
             });
 
-            storage_migrate_on!(StorageVersion::get(), 2, {
+            storage_migrate_on!(StorageVersion, 2, {
                 migration::migrate_v2::<T>();
             });
 

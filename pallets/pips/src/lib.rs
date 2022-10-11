@@ -655,7 +655,7 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
             // migration v1 no longer needed
 
-            storage_migrate_on!(StorageVersion::get(), 2, {
+            storage_migrate_on!(StorageVersion, 2, {
                 migration::migrate_v2::<T>();
             });
 
