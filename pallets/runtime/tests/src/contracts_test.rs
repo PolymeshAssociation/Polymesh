@@ -116,7 +116,7 @@ fn misc_polymesh_extensions() {
                 ContractsError::InvalidFuncId,
             ));
 
-            // Input for registering ticker AAAAAAAAAAAA.
+            // Input for registering ticker `A` (11 trailing nulls).
             let ticker = Ticker::try_from(b"A" as &[u8]).unwrap();
             let mut register_ticker_data = 0x00_1A_00_00.encode();
             register_ticker_data.extend(ticker.encode());
