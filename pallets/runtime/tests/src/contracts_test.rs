@@ -113,7 +113,7 @@ fn misc_polymesh_extensions() {
             // Execute a func_id that isn't recognized.
             assert_storage_noop!(assert_err_ignore_postinfo!(
                 call(0, 0x04_00_00_00.encode()),
-                ContractsError::RuntimeCallNotFound,
+                ContractsError::InvalidFuncId,
             ));
 
             // Input for registering ticker AAAAAAAAAAAA.

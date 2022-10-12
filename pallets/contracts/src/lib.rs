@@ -763,7 +763,7 @@ where
             // Caveat: This `if` imposes a minor cost during benchmarking but we'll live with that.
             #[cfg(feature = "runtime-benchmarks")]
             FuncId::NOP => {
-                let mut env = env.buf_in_buf_out();
+                let env = env.buf_in_buf_out();
                 let in_len = env.in_len();
 
                 // No input data is allowed for this chain extension.
