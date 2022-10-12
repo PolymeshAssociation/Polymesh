@@ -103,7 +103,7 @@ fn misc_polymesh_extensions() {
 
             // Execute a chain extension with too long data.
             let call = |value, data| call(key_first_contract.clone(), value, data);
-            let mut too_long_data = 0x00_00_00_00.encode();
+            let mut too_long_data = 0x00_00_00_01.encode();
             too_long_data.extend(vec![b'X'; MaxInLen::get() as usize + 1]);
             assert_storage_noop!(assert_err_ignore_postinfo!(
                 call(0, too_long_data),
