@@ -3,90 +3,28 @@
 extern crate alloc;
 
 use ink_lang as ink;
-use ink_env::Environment;
-
-use ink_storage::traits::{
-    PackedLayout, SpreadLayout,
-};
-#[cfg(feature = "std")]
-use ink_storage::traits::StorageLayout;
-use scale::{Decode, Encode};
 use alloc::vec::Vec;
 
-pub const TICKER_LEN: usize = 12;
+use polymesh_api::{
+  Api,
+  ink::{
+    extension::PolymeshEnvironment,
+    basic_types::IdentityId,
+    Error as PolymeshError,
+  },
+  polymesh::types::{
+    polymesh_primitives::{
+      ticker::Ticker,
+      asset::{
+        AssetName,
+        AssetType,
+      },
+      identity_id::PortfolioId,
+    },
+  },
+};
 
-pub type Ticker = [u8; TICKER_LEN];
-pub type AssetName = Vec<u8>;
-pub type FundingRoundName = Vec<u8>;
-
-#[derive(Clone, Copy, Decode, Encode, PackedLayout, SpreadLayout)]
-#[cfg_attr(feature = "std", derive(StorageLayout, scale_info::TypeInfo))]
-pub enum AssetType {
-  EquityCommon,
-  EquityPreferred,
-  // TODO: More.
-}
-
-#[derive(Clone, Copy, Decode, Encode, PackedLayout, SpreadLayout)]
-#[cfg_attr(feature = "std", derive(StorageLayout, scale_info::TypeInfo))]
-pub enum AssetIdentifier {
-  CUSIP([u8; 9]),
-  CINS([u8; 9]),
-  // TODO: More.
-}
-
-#[ink::chain_extension]
-pub trait PolymeshRuntime {
-    type ErrorCode = PolymeshRuntimeErr;
-
-    // V5.0.0-rc1
-    //#[ink(extension = 0x00_01_03_00, returns_result = false)]
-    #[ink(extension = 0x00_1A_03_00, returns_result = false)]
-    fn create_asset(
-      name: AssetName,
-      ticker: Ticker,
-      divisible: bool,
-      asset_type: AssetType,
-      identifiers: Vec<AssetIdentifier>,
-      funding_round: Option<FundingRoundName>,
-      disable_iu: bool,
-    );
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, scale::Encode, scale::Decode)]
-#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-pub enum PolymeshRuntimeErr {
-    Unknown,
-}
-
-impl ink_env::chain_extension::FromStatusCode for PolymeshRuntimeErr {
-    fn from_status_code(status_code: u32) -> Result<(), Self> {
-        match status_code {
-            0 => Ok(()),
-            1 => Err(Self::Unknown),
-            _ => panic!("encountered unknown status code"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-pub enum PolymeshEnvironment {}
-
-impl Environment for PolymeshEnvironment {
-    const MAX_EVENT_TOPICS: usize =
-        <ink_env::DefaultEnvironment as Environment>::MAX_EVENT_TOPICS;
-
-    type AccountId = <ink_env::DefaultEnvironment as Environment>::AccountId;
-    type Balance = <ink_env::DefaultEnvironment as Environment>::Balance;
-    type Hash = <ink_env::DefaultEnvironment as Environment>::Hash;
-    type BlockNumber = <ink_env::DefaultEnvironment as Environment>::BlockNumber;
-    type Timestamp = <ink_env::DefaultEnvironment as Environment>::Timestamp;
-
-    type ChainExtension = PolymeshRuntime;
-}
-
-#[ink::contract(env = crate::PolymeshEnvironment)]
+#[ink::contract(env = PolymeshEnvironment)]
 mod runtime_tester {
     use alloc::vec;
 
@@ -97,14 +35,17 @@ mod runtime_tester {
     pub struct RuntimeTester {}
 
     /// The contract error types.
-    #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
+    #[derive(Debug, scale::Encode, scale::Decode)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
     pub enum Error {
         /// Caller needs to pay the contract for the protocol fee.
         /// (Amount needed)
         InsufficientTransferValue(Balance),
         /// Polymesh runtime error.
-        PolymeshError(PolymeshRuntimeErr),
+        PolymeshError(PolymeshError),
+        //PolymeshError(PolymeshRuntimeErr),
+        /// Scale decode failed.
+        ScaleError,
     }
 
     // hard-code protocol fees.
@@ -120,18 +61,92 @@ mod runtime_tester {
         pub fn new() -> Self { Self {} }
 
         #[ink(message)]
-        pub fn create_asset(&mut self, name: AssetName, ticker: Ticker, asset_type: AssetType) -> Result<()> {
-            Self::env().extension().create_asset(name, ticker, true, asset_type, vec![], None, true)
+        pub fn call_runtime(&mut self, call: Vec<u8>) -> Result<()> {
+            Self::env().extension().call_runtime(call.into())
+              .map_err(|err| Error::PolymeshError(PolymeshError::RuntimeError(err)))
+        }
+
+        #[ink(message)]
+        pub fn read_storage(&self, key: Vec<u8>) -> Result<Option<Vec<u8>>> {
+            Self::env().extension().read_storage(key.into())
+              .map_err(|err| Error::PolymeshError(PolymeshError::RuntimeError(err)))
+        }
+
+        #[ink(message)]
+        pub fn get_spec_version(&self) -> Result<u32> {
+            Self::env().extension().get_spec_version()
+              .map_err(|err| Error::PolymeshError(PolymeshError::RuntimeError(err)))
+        }
+
+        #[ink(message)]
+        pub fn get_transaction_version(&self) -> Result<u32> {
+            Self::env().extension().get_transaction_version()
+              .map_err(|err| Error::PolymeshError(PolymeshError::RuntimeError(err)))
+        }
+
+        #[ink(message)]
+        pub fn asset_balance_of(&self, ticker: Ticker, did: IdentityId) -> Result<u128> {
+            let api = Api::new();
+            api.query().asset().balance_of(ticker, did)
               .map_err(|err| Error::PolymeshError(err))
         }
 
+        #[ink(message)]
+        pub fn portfolio_asset_balance(&self, portfolio: PortfolioId, ticker: Ticker) -> Result<u128> {
+            let api = Api::new();
+            api.query().portfolio().portfolio_asset_balances(portfolio, ticker)
+              .map_err(|err| Error::PolymeshError(err))
+        }
+
+        #[ink(message)]
+        pub fn register_ticker(&mut self, ticker: Ticker) -> Result<()> {
+            let api = Api::new();
+            api.call().asset().register_ticker(ticker).submit()
+              .map_err(|err| Error::PolymeshError(err))
+        }
+
+        #[ink(message)]
+        pub fn accept_ticker_transfer(&mut self, auth_id: u64) -> Result<()> {
+            let api = Api::new();
+            api.call().asset().accept_ticker_transfer(auth_id).submit()
+              .map_err(|err| Error::PolymeshError(err))
+        }
+
+        #[ink(message)]
+        pub fn accept_asset_ownership_transfer(&mut self, auth_id: u64) -> Result<()> {
+            let api = Api::new();
+            api.call().asset().accept_asset_ownership_transfer(auth_id).submit()
+              .map_err(|err| Error::PolymeshError(err))
+        }
+
+        fn create_asset(&mut self, name: AssetName, ticker: Ticker, asset_type: AssetType, supply: u128) -> Result<()> {
+            let api = Api::new();
+            api.call().asset().create_asset(name, ticker.clone(), true, asset_type, vec![], None, true).submit()
+              .map_err(|err| Error::PolymeshError(err))?;
+            api.call().asset().issue(ticker, supply).submit()
+              .map_err(|err| Error::PolymeshError(err))
+        }
+
+        #[ink(message)]
+        /// Create asset where the contract pays the asset creation fees (3k POLYX).
+        pub fn create_asset_and_issue(&mut self, name: AssetName, ticker: Ticker, asset_type: AssetType, supply: u128) -> Result<()> {
+            self.create_asset(name, ticker, asset_type, supply)
+        }
+
         #[ink(message, payable)]
-        pub fn payable_create_asset(&mut self, name: AssetName, ticker: Ticker, asset_type: AssetType) -> Result<()> {
+        /// Create asset where the caller need to pay the asset creation fees (3k POLYX).
+        pub fn payable_create_asset_and_issue(&mut self, name: AssetName, ticker: Ticker, asset_type: AssetType, supply: u128) -> Result<()> {
             let transferred = Self::env().transferred_value();
             if transferred < CREATE_ASSET_FEE {
               return Err(Error::InsufficientTransferValue(CREATE_ASSET_FEE));
             }
-            Self::env().extension().create_asset(name, ticker, true, asset_type, vec![], None, true)
+            self.create_asset(name, ticker, asset_type, supply)
+        }
+
+        #[ink(message)]
+        pub fn register_custom_asset_type(&mut self, ty: Vec<u8>) -> Result<()> {
+            let api = Api::new();
+            api.call().asset().register_custom_asset_type(ty).submit()
               .map_err(|err| Error::PolymeshError(err))
         }
     }

@@ -54,7 +54,6 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use codec::Decode;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{
@@ -62,6 +61,8 @@ use frame_support::{
         Dispatchable, GetDispatchInfo,
     },
     ensure,
+    log::trace,
+    storage::unhashed,
     traits::{Get, GetCallMetadata},
     weights::Weight,
 };
@@ -85,6 +86,9 @@ type Identity<T> = pallet_identity::Module<T>;
 type IdentityError<T> = pallet_identity::Error<T>;
 type FrameContracts<T> = pallet_contracts::Pallet<T>;
 type CodeHash<T> = <T as frame_system::Config>::Hash;
+
+/// Maximum decoding depth.
+const MAX_DECODE_DEPTH: u32 = 10;
 
 pub struct ContractPolymeshHooks;
 
@@ -190,8 +194,12 @@ decl_event! {
 
 decl_error! {
     pub enum Error for Module<T: Config> where T::AccountId: UncheckedFrom<T::Hash>, T::AccountId: AsRef<[u8]> {
-        /// The given `func_id: u32` did not translate into a known runtime call.
-        RuntimeCallNotFound,
+        /// Invalid `func_id` provided from contract.
+        InvalidFuncId,
+        /// Failed to decode a valid `RuntimeCall`.
+        InvalidRuntimeCall,
+        /// `ReadStorage` failed to write value into the contract's buffer.
+        ReadStorageFailed,
         /// Data left in input when decoding arguments of a call.
         DataLeftAfterDecoding,
         /// Input data that a contract passed when making a runtime call was too large.
@@ -448,43 +456,45 @@ where
     }
 }
 
-/// The `Call` enums of various pallets that the contracts pallet wants to know about.
-pub enum CommonCall<T>
-where
-    T: Config + pallet_asset::Config,
-    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
-{
-    Asset(pallet_asset::Call<T>),
-    PolymeshContracts(Call<T>),
-}
-
-/// Decoded ChainExtension func_id.
+/// Polymesh ChainExtension callable.
 #[derive(Clone, Copy, Debug)]
 enum FuncId {
-    /// Polymesh Extension.
-    Polymesh(u16),
-    /// Polymesh v5.0.x extension.
-    OldFuncId {
-      pallet: u8,
-      extrinsic: u8,
-    },
+    /// No operation -- Used for benchmarking the ChainExtension.
+    #[cfg(feature = "runtime-benchmarks")]
+    NOP,
+    CallRuntime,
+    ReadStorage,
+    GetSpecVersion,
+    GetTransactionVersion,
+
+    /// Deprecated Polymesh v5.0.x chain extensions.
+    OldCallRuntime(u8, u8),
 }
 
 impl FuncId {
-    /// Decode chain extension id.
-    pub fn try_from_u32(id: u32) -> Option<Self> {
+    fn try_from(id: u32) -> Option<Self> {
         let ext_id = (id >> 16) as u16;
         let func_id = (id & 0x0000FFFF) as u16;
-        match (ext_id, func_id) {
-            (0, _) => Some(Self::Polymesh(func_id)),
-            (26, 0 | 1 | 2 | 3 | 17) => Some(Self::OldFuncId {
-                pallet: 26,
-                extrinsic: func_id as u8,
-            }),
-            (47, 1) => Some(Self::OldFuncId {
-                pallet: 47,
-                extrinsic: 1,
-            }),
+        match ext_id {
+            0x00 => match func_id {
+                #[cfg(feature = "runtime-benchmarks")]
+                0x00 => Some(Self::NOP),
+                0x01 => Some(Self::CallRuntime),
+                0x02 => Some(Self::ReadStorage),
+                0x03 => Some(Self::GetSpecVersion),
+                0x04 => Some(Self::GetTransactionVersion),
+                _ => None,
+            },
+            0x1A => match func_id {
+                0x00_00 | 0x01_00 | 0x02_00 | 0x03_00 | 0x11_00 => {
+                    Some(Self::OldCallRuntime(0x1A, (func_id >> 8) as u8))
+                }
+                _ => None,
+            },
+            0x2F => match func_id {
+                0x01_00 => Some(Self::OldCallRuntime(0x2F, 0x01)),
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -515,82 +525,210 @@ fn with_did_and_payer<T: Config, W: FnOnce() -> R, R>(
     result
 }
 
-/// Ensure that `input.is_empty()` or error.
-fn ensure_consumed<T: Config>(input: &[u8]) -> DispatchResult
-where
-    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
-{
-    ensure!(input.is_empty(), Error::<T>::DataLeftAfterDecoding);
-    Ok(())
+// TODO: Move into a different file.
+struct ChainInput<'a, 'b> {
+    input1: &'a [u8],
+    input2: &'b [u8],
 }
 
-/// Advance `input` and decode a `V` from it, or error.
-fn decode<V: Decode, T: Config>(input: &mut &[u8]) -> Result<V, DispatchError> {
-    <_>::decode(input).map_err(|_| pallet_contracts::Error::<T>::DecodingFailed.into())
+impl<'a, 'b> ChainInput<'a, 'b> {
+    pub fn new(input1: &'a [u8], input2: &'b [u8]) -> Self {
+        Self { input1, input2 }
+    }
+
+    pub fn len(&self) -> usize {
+        self.input1.len() + self.input2.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
-/// Constructs a call description from a `func_id` and associated `input`.
-fn construct_call<T>(func_id: FuncId, input: &mut &[u8]) -> Result<CommonCall<T>, DispatchError>
+impl<'a, 'b> codec::Input for ChainInput<'a, 'b> {
+    fn remaining_len(&mut self) -> Result<Option<usize>, codec::Error> {
+        Ok(Some(self.len()))
+    }
+
+    fn read(&mut self, into: &mut [u8]) -> Result<(), codec::Error> {
+        let len = into.len();
+        let in1_len = self.input1.len();
+        let in2_len = self.input2.len();
+        if len > (in1_len + in2_len) {
+            return Err("Not enough data to fill buffer".into());
+        }
+        // `input1` still has bytes, read from it first.
+        if in1_len > 0 {
+            let off = in1_len.min(len);
+            // Split `into` buffer into two parts.
+            let (into1, into2) = into.split_at_mut(off);
+            // Read from `input1`.
+            let len = into1.len();
+            into1.copy_from_slice(&self.input1[..len]);
+            self.input1 = &self.input1[len..];
+            // Read from `input2`.
+            let len = into2.len();
+            into2.copy_from_slice(&self.input2[..len]);
+            self.input2 = &self.input2[len..];
+        } else {
+            // `input1` is empty, only read from `input2`.
+            let len = into.len();
+            into.copy_from_slice(&self.input2[..len]);
+            self.input2 = &self.input2[len..];
+        }
+        Ok(())
+    }
+}
+
+fn read_storage<T, E>(env: ce::Environment<E, ce::InitState>) -> ce::Result<ce::RetVal>
 where
-    T: Config + pallet_asset::Config,
+    T: Config,
     T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
+    E: ce::Ext<T = T>,
 {
-    /// Decode type from `input`.
-    macro_rules! decode {
-        () => {
-            decode::<_, T>(input)?
-        };
+    use codec::Encode;
+    let mut env = env.buf_in_buf_out();
+    let in_len = env.in_len();
+
+    // TODO: benchmarks and weights.
+    let key = env.read(in_len)?;
+    trace!(
+        target: "runtime",
+        "PolymeshExtension contract ReadStorage: key={:?}",
+        key
+    );
+    let value = unhashed::get_raw(key.as_slice());
+    trace!(
+        target: "runtime",
+        "PolymeshExtension contract ReadStorage: value={:?}",
+        value
+    );
+    let encoded = value.encode();
+    env.write(&encoded, false, None).map_err(|err| {
+        trace!(
+            target: "runtime",
+            "PolymeshExtension failed to write storage value into contract memory:{:?}",
+            err
+        );
+        Error::<T>::ReadStorageFailed
+    })?;
+
+    Ok(ce::RetVal::Converging(0))
+}
+
+fn get_version<T, E>(
+    env: ce::Environment<E, ce::InitState>,
+    get_spec: bool,
+) -> ce::Result<ce::RetVal>
+where
+    T: Config,
+    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
+    E: ce::Ext<T = T>,
+{
+    use codec::Encode;
+    let mut env = env.prim_in_buf_out();
+
+    let runtime_version = <T as frame_system::Config>::Version::get();
+    let version = if get_spec {
+        runtime_version.spec_version
+    } else {
+        runtime_version.transaction_version
+    }
+    .encode();
+    env.write(&version, false, None).map_err(|err| {
+        trace!(
+            target: "runtime",
+            "PolymeshExtension failed to write value into contract memory:{:?}",
+            err
+        );
+        Error::<T>::ReadStorageFailed
+    })?;
+
+    Ok(ce::RetVal::Converging(0))
+}
+
+fn call_runtime<T, E>(
+    env: ce::Environment<E, ce::InitState>,
+    old_call: Option<(u8, u8)>,
+) -> ce::Result<ce::RetVal>
+where
+    <T as BConfig>::Call: GetDispatchInfo + GetCallMetadata,
+    T: Config,
+    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
+    E: ce::Ext<T = T>,
+{
+    let mut env = env.buf_in_buf_out();
+    let in_len = env.in_len();
+
+    // Limit `in_len` to a maximum.
+    ensure!(
+        in_len <= <T as Config>::MaxInLen::get(),
+        Error::<T>::InLenTooLarge
+    );
+
+    // Charge weight as a linear function of `in_len`.
+    env.charge_weight(<T as Config>::WeightInfo::chain_extension(in_len))?;
+
+    // Decide what to call in the runtime.
+    use codec::DecodeLimit;
+    let call = match old_call {
+        None => {
+            // TODO: Decode pallet_id, extrinsic_id and do call filtering.
+            let input = env.read(in_len)?;
+            <<T as BConfig>::Call>::decode_all_with_depth_limit(
+                MAX_DECODE_DEPTH,
+                &mut input.as_slice(),
+            )
+            .map_err(|_| Error::<T>::InvalidRuntimeCall)?
+        }
+        Some((pallet_id, extrinsic_id)) => {
+            // Convert old ChainExtension runtime calls into `Call` format.
+            let extrinsic = [pallet_id, extrinsic_id];
+            let params = env.read(in_len)?;
+            let mut input = ChainInput::new(&extrinsic, params.as_slice());
+            let call =
+                <<T as BConfig>::Call>::decode_with_depth_limit(MAX_DECODE_DEPTH, &mut input)
+                    .map_err(|_| Error::<T>::InvalidRuntimeCall)?;
+            ensure!(input.is_empty(), Error::<T>::DataLeftAfterDecoding);
+            call
+        }
+    };
+
+    // Charge weight for the call.
+    let di = call.get_dispatch_info();
+    let charged_amount = env.charge_weight(di.weight)?;
+
+    // Execute call requested by contract, with current DID set to the contract owner.
+    let addr = env.ext().address().clone();
+    let result = with_did_and_payer::<T, _, _>(contract_did::<T>(&addr)?, addr.clone(), || {
+        with_call_metadata(call.get_call_metadata(), || {
+            // Dispatch the call, avoiding use of `ext.call_runtime()`,
+            // as that uses `CallFilter = Nothing`, which would case a problem for us.
+            call.dispatch(RawOrigin::Signed(addr).into())
+        })
+    });
+
+    // Refund unspent weight.
+    let post_di = result.unwrap_or_else(|e| e.post_info);
+    // This check isn't necessary but avoids some work.
+    if post_di.actual_weight.is_some() {
+        let actual_weight = post_di.calc_actual_weight(&di);
+        env.adjust_weight(charged_amount, actual_weight);
     }
 
-    /// Pattern match on functions `0x00_pp_ee_00`.
-    macro_rules! on {
-        ($p:pat, $e:pat) => {
-            FuncId::OldFuncId {
-                pallet: $p,
-                extrinsic: $e,
-            }
-        };
-    }
+    // Ensure the call was successful.
+    result.map_err(|e| e.error)?;
 
-    Ok(match func_id {
-        on!(26, 0) => CommonCall::Asset(pallet_asset::Call::register_ticker { ticker: decode!() }),
-        on!(26, 1) => {
-            CommonCall::Asset(pallet_asset::Call::accept_ticker_transfer { auth_id: decode!() })
-        }
-        on!(26, 2) => CommonCall::Asset(pallet_asset::Call::accept_asset_ownership_transfer {
-            auth_id: decode!(),
-        }),
-        on!(26, 3) => CommonCall::Asset(pallet_asset::Call::create_asset {
-            name: decode!(),
-            ticker: decode!(),
-            divisible: decode!(),
-            asset_type: decode!(),
-            identifiers: decode!(),
-            funding_round: decode!(),
-            disable_iu: decode!(),
-        }),
-        on!(26, 17) => {
-            CommonCall::Asset(pallet_asset::Call::register_custom_asset_type { ty: decode!() })
-        }
-        on!(47, 1) => CommonCall::PolymeshContracts(Call::instantiate_with_hash_perms {
-            endowment: decode!(),
-            gas_limit: decode!(),
-            storage_deposit_limit: decode!(),
-            code_hash: decode!(),
-            data: decode!(),
-            salt: decode!(),
-            perms: decode!(),
-        }),
-        _ => return Err(Error::<T>::RuntimeCallNotFound.into()),
-    })
+    // Done; continue with smart contract execution when returning.
+    Ok(ce::RetVal::Converging(0))
 }
 
 /// A chain extension allowing calls to polymesh pallets
 /// and using the contract's DID instead of the caller's DID.
 impl<T> ce::ChainExtension<T> for Module<T>
 where
-    <T as BConfig>::Call: From<CommonCall<T>> + GetDispatchInfo + GetCallMetadata,
-    T: Config + pallet_asset::Config,
+    <T as BConfig>::Call: GetDispatchInfo + GetCallMetadata,
+    T: Config,
     T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 {
     fn enabled() -> bool {
@@ -601,62 +739,42 @@ where
         func_id: u32,
         env: ce::Environment<E, ce::InitState>,
     ) -> ce::Result<ce::RetVal> {
-        let mut env = env.buf_in_buf_out();
-        let in_len = env.in_len();
-        // Used for benchmarking `chain_extension_early_exit`,
-        // so we can remove the cost of the call + overhead of using any chain extension.
-        // That is, we want to subtract costs not directly arising from *this* function body.
-        // Caveat: This `if` imposes a minor cost during benchmarking but we'll live with that.
-        #[cfg(feature = "runtime-benchmarks")]
-        if func_id == 0 {
-            // No input data is allowed for this chain extension.
-            ensure!(in_len == 0, Error::<T>::DataLeftAfterDecoding);
-            return Ok(ce::RetVal::Converging(0));
-        }
-
         // Decode chain extension id.
-        let func_id = FuncId::try_from_u32(func_id).ok_or(Error::<T>::RuntimeCallNotFound)?;
+        let func_id = FuncId::try_from(func_id)
+            .ok_or(Error::<T>::InvalidFuncId)
+            .map_err(|e| {
+                trace!(
+                    target: "runtime",
+                    "PolymeshExtension contract calling invalid func_id={:?}",
+                    func_id
+                );
+                e
+            })?;
 
-        // Limit `in_len` to a maximum.
-        ensure!(
-            in_len <= <T as Config>::MaxInLen::get(),
-            Error::<T>::InLenTooLarge
+        trace!(
+            target: "runtime",
+            "PolymeshExtension contract calling: func_id={:?}",
+            func_id
         );
+        match func_id {
+            // Used for benchmarking `chain_extension_early_exit`,
+            // so we can remove the cost of the call + overhead of using any chain extension.
+            // That is, we want to subtract costs not directly arising from *this* function body.
+            // Caveat: This `if` imposes a minor cost during benchmarking but we'll live with that.
+            #[cfg(feature = "runtime-benchmarks")]
+            FuncId::NOP => {
+                let mut env = env.buf_in_buf_out();
+                let in_len = env.in_len();
 
-        // Charge weight as a linear function of `in_len`.
-        env.charge_weight(<T as Config>::WeightInfo::chain_extension(in_len))?;
-
-        // Decide what to call in the runtime.
-        let input = &mut &*env.read(in_len)?;
-        let call: <T as BConfig>::Call = construct_call::<T>(func_id, input)?.into();
-        ensure_consumed::<T>(input)?;
-
-        // Charge weight for the call.
-        let di = call.get_dispatch_info();
-        let charged_amount = env.charge_weight(di.weight)?;
-
-        // Execute call requested by contract, with current DID set to the contract owner.
-        let addr = env.ext().address().clone();
-        let result = with_did_and_payer::<T, _, _>(contract_did::<T>(&addr)?, addr.clone(), || {
-            with_call_metadata(call.get_call_metadata(), || {
-                // Dispatch the call, avoiding use of `ext.call_runtime()`,
-                // as that uses `CallFilter = Nothing`, which would case a problem for us.
-                call.dispatch(RawOrigin::Signed(addr).into())
-            })
-        });
-
-        // Refund unspent weight.
-        let post_di = result.unwrap_or_else(|e| e.post_info);
-        // This check isn't necessary but avoids some work.
-        if post_di.actual_weight.is_some() {
-            let actual_weight = post_di.calc_actual_weight(&di);
-            env.adjust_weight(charged_amount, actual_weight);
+                // No input data is allowed for this chain extension.
+                ensure!(in_len == 0, Error::<T>::DataLeftAfterDecoding);
+                return Ok(ce::RetVal::Converging(0));
+            }
+            FuncId::ReadStorage => read_storage(env),
+            FuncId::CallRuntime => call_runtime(env, None),
+            FuncId::GetSpecVersion => get_version(env, true),
+            FuncId::GetTransactionVersion => get_version(env, false),
+            FuncId::OldCallRuntime(p, e) => call_runtime(env, Some((p, e))),
         }
-
-        // Ensure the call was successful.
-        result.map_err(|e| e.error)?;
-
-        // Done; continue with smart contract execution when returning.
-        Ok(ce::RetVal::Converging(0))
     }
 }
