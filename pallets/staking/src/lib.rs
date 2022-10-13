@@ -1577,7 +1577,7 @@ decl_module! {
                 migrations::migrate_to_blockable::<T>();
             }
 
-            storage_migrate_on!(PolymeshStorageVersion::get(), 1, {
+            storage_migrate_on!(PolymeshStorageVersion, 1, {
                 <Validators<T>>::iter().for_each(|(k,_)| <Identity<T>>::add_account_key_ref_count(&k));
             });
 
