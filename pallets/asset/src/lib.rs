@@ -557,7 +557,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::issue()]
         pub fn issue(origin, ticker: Ticker, amount: Balance) -> DispatchResult {
             // Ensure origin is agent with custody and permissions for default portfolio.
-            let did = Self::ensure_agent_with_custody_and_perms(origin, ticker)?;
+            let did = Self::ensure_agent_with_custody_and_perms(origin, ticker, PortfolioKind::Default)?;
             Self::_mint(&ticker, did, amount, Some(ProtocolOp::AssetIssue))
         }
 
@@ -1150,11 +1150,15 @@ impl<T: Config> Module<T> {
     fn ensure_agent_with_custody_and_perms(
         origin: T::Origin,
         ticker: Ticker,
+        portfolio_kind: PortfolioKind,
     ) -> Result<IdentityId, DispatchError> {
         let data = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ticker)?;
 
-        // Ensure the caller has not assigned custody of their default portfolio and that they are permissioned.
-        let portfolio = PortfolioId::default_portfolio(data.primary_did);
+        // Ensure the caller has not assigned custody of their portfolio and that they are permissioned.
+        let portfolio = PortfolioId {
+            did: data.primary_did,
+            kind: portfolio_kind,
+        };
         let skey = data.secondary_key.as_ref();
         Portfolio::<T>::ensure_portfolio_custody_and_permission(portfolio, data.primary_did, skey)?;
         Ok(data.primary_did)
@@ -1904,7 +1908,7 @@ impl<T: Config> Module<T> {
         portfolio_kind: PortfolioKind,
     ) -> DispatchResult {
         // Ensure origin is agent with custody and permissions for default portfolio.
-        let agent = Self::ensure_agent_with_custody_and_perms(origin, ticker)?;
+        let agent = Self::ensure_agent_with_custody_and_perms(origin, ticker, portfolio_kind)?;
 
         Self::ensure_granular(&ticker, value)?;
 
@@ -2341,7 +2345,8 @@ impl<T: Config> Module<T> {
         from_portfolio: PortfolioId,
     ) -> DispatchResult {
         // Ensure `origin` has perms.
-        let agent = Self::ensure_agent_with_custody_and_perms(origin, ticker)?;
+        let agent =
+            Self::ensure_agent_with_custody_and_perms(origin, ticker, PortfolioKind::Default)?;
         let to_portfolio = PortfolioId::default_portfolio(agent);
 
         // Transfer `value` of ticker tokens from `investor_did` to controller
