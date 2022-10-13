@@ -526,7 +526,7 @@ decl_storage! {
         /// proposal id -> proposalState
         pub ProposalStates get(fn proposal_state): map hasher(twox_64_concat) PipId => Option<ProposalState>;
 
-        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
     }
 }
 
@@ -655,7 +655,7 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
             // migration v1 no longer needed
 
-            storage_migrate_on!(StorageVersion::get(), 2, {
+            storage_migrate_on!(StorageVersion, 2, {
                 migration::migrate_v2::<T>();
             });
 
