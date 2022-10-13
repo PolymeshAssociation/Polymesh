@@ -641,17 +641,16 @@ impl<T: Config> Module<T> {
         // 2. Apply changes to our extrinsic.
         // 2.1. Create a new identity record and link the primary key.
         Self::add_key_record(&sender, KeyRecord::PrimaryKey(did));
-        // 2.2. add pre-authorized secondary keys.
+        // 2.2. Give `InitialPOLYX` to the primary key for testing.
+        T::Balances::deposit_creating(&sender, T::InitialPOLYX::get());
+        Self::deposit_event(RawEvent::DidCreated(did, sender, secondary_keys.clone()));
+
+        // 2.3. add pre-authorized secondary keys.
         secondary_keys.iter().for_each(|sk| {
             let signer = Signatory::Account(sk.key.clone());
             let data = AuthorizationData::JoinIdentity(sk.permissions.clone());
             Self::add_auth(did, signer, data, None);
         });
-
-        // 2.3. Give `InitialPOLYX` to the primary key for testing.
-        T::Balances::deposit_creating(&sender, T::InitialPOLYX::get());
-
-        Self::deposit_event(RawEvent::DidCreated(did, sender, secondary_keys));
         Ok(did)
     }
 
