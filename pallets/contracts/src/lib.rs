@@ -456,6 +456,20 @@ where
     }
 }
 
+/// KeyHasher
+#[derive(Clone, Copy, Debug)]
+enum KeyHasher {
+    Twox,
+}
+
+/// HashSize
+#[derive(Clone, Copy, Debug)]
+enum HashSize {
+    B64,
+    B128,
+    B256,
+}
+
 /// Polymesh ChainExtension callable.
 #[derive(Clone, Copy, Debug)]
 enum FuncId {
@@ -466,6 +480,8 @@ enum FuncId {
     ReadStorage,
     GetSpecVersion,
     GetTransactionVersion,
+    GetKeyDid,
+    KeyHasher(KeyHasher, HashSize),
 
     /// Deprecated Polymesh v5.0.x chain extensions.
     OldCallRuntime(u8, u8),
@@ -483,6 +499,10 @@ impl FuncId {
                 0x02 => Some(Self::ReadStorage),
                 0x03 => Some(Self::GetSpecVersion),
                 0x04 => Some(Self::GetTransactionVersion),
+                0x05 => Some(Self::GetKeyDid),
+                0x10 => Some(Self::KeyHasher(KeyHasher::Twox, HashSize::B64)),
+                0x11 => Some(Self::KeyHasher(KeyHasher::Twox, HashSize::B128)),
+                0x12 => Some(Self::KeyHasher(KeyHasher::Twox, HashSize::B256)),
                 _ => None,
             },
             0x1A => match func_id {
@@ -594,13 +614,13 @@ where
     let key = env.read(in_len)?;
     trace!(
         target: "runtime",
-        "PolymeshExtension contract ReadStorage: key={:?}",
+        "PolymeshExtension contract ReadStorage: key={:x?}",
         key
     );
     let value = unhashed::get_raw(key.as_slice());
     trace!(
         target: "runtime",
-        "PolymeshExtension contract ReadStorage: value={:?}",
+        "PolymeshExtension contract ReadStorage: value={:x?}",
         value
     );
     let encoded = value.encode();
@@ -639,6 +659,77 @@ where
         trace!(
             target: "runtime",
             "PolymeshExtension failed to write value into contract memory:{:?}",
+            err
+        );
+        Error::<T>::ReadStorageFailed
+    })?;
+
+    Ok(ce::RetVal::Converging(0))
+}
+
+fn get_key_did<T, E>(env: ce::Environment<E, ce::InitState>) -> ce::Result<ce::RetVal>
+where
+    T: Config,
+    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
+    E: ce::Ext<T = T>,
+{
+    use codec::Encode;
+    let mut env = env.buf_in_buf_out();
+
+    // TODO: benchmarks and weights.
+    let key: T::AccountId = env.read_as()?;
+    trace!(
+        target: "runtime",
+        "PolymeshExtension contract GetKeyDid: key={key:?}",
+    );
+    let did = Identity::<T>::get_identity(&key);
+    trace!(
+        target: "runtime",
+        "PolymeshExtension contract GetKeyDid: did={did:?}",
+    );
+    let encoded = did.encode();
+    env.write(&encoded, false, None).map_err(|err| {
+        trace!(
+            target: "runtime",
+            "PolymeshExtension failed to write identity value into contract memory:{:?}",
+            err
+        );
+        Error::<T>::ReadStorageFailed
+    })?;
+
+    Ok(ce::RetVal::Converging(0))
+}
+
+fn key_hasher<T, E>(
+    env: ce::Environment<E, ce::InitState>,
+    hasher: KeyHasher,
+    size: HashSize,
+) -> ce::Result<ce::RetVal>
+where
+    T: Config,
+    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
+    E: ce::Ext<T = T>,
+{
+    use codec::Encode;
+    use sp_io::hashing;
+    let mut env = env.buf_in_buf_out();
+    let in_len = env.in_len();
+
+    // TODO: benchmarks and weights.
+    let data = env.read(in_len)?;
+    let hash = match (hasher, size) {
+        (KeyHasher::Twox, HashSize::B64) => hashing::twox_64(data.as_slice()).encode(),
+        (KeyHasher::Twox, HashSize::B128) => hashing::twox_128(data.as_slice()).encode(),
+        (KeyHasher::Twox, HashSize::B256) => hashing::twox_256(data.as_slice()).encode(),
+    };
+    trace!(
+        target: "runtime",
+        "PolymeshExtension contract KeyHasher: hash={hash:x?}",
+    );
+    env.write(&hash, false, None).map_err(|err| {
+        trace!(
+            target: "runtime",
+            "PolymeshExtension failed to write hash into contract memory:{:?}",
             err
         );
         Error::<T>::ReadStorageFailed
@@ -736,25 +827,15 @@ where
     }
 
     fn call<E: ce::Ext<T = T>>(
-        func_id: u32,
+        ext_id: u32,
         env: ce::Environment<E, ce::InitState>,
     ) -> ce::Result<ce::RetVal> {
         // Decode chain extension id.
-        let func_id = FuncId::try_from(func_id)
-            .ok_or(Error::<T>::InvalidFuncId)
-            .map_err(|e| {
-                trace!(
-                    target: "runtime",
-                    "PolymeshExtension contract calling invalid func_id={:?}",
-                    func_id
-                );
-                e
-            })?;
+        let func_id = FuncId::try_from(ext_id);
 
         trace!(
             target: "runtime",
-            "PolymeshExtension contract calling: func_id={:?}",
-            func_id
+            "PolymeshExtension contract calling: {func_id:?}",
         );
         match func_id {
             // Used for benchmarking `chain_extension_early_exit`,
@@ -762,7 +843,7 @@ where
             // That is, we want to subtract costs not directly arising from *this* function body.
             // Caveat: This `if` imposes a minor cost during benchmarking but we'll live with that.
             #[cfg(feature = "runtime-benchmarks")]
-            FuncId::NOP => {
+            Some(FuncId::NOP) => {
                 let env = env.buf_in_buf_out();
                 let in_len = env.in_len();
 
@@ -770,11 +851,20 @@ where
                 ensure!(in_len == 0, Error::<T>::DataLeftAfterDecoding);
                 return Ok(ce::RetVal::Converging(0));
             }
-            FuncId::ReadStorage => read_storage(env),
-            FuncId::CallRuntime => call_runtime(env, None),
-            FuncId::GetSpecVersion => get_version(env, true),
-            FuncId::GetTransactionVersion => get_version(env, false),
-            FuncId::OldCallRuntime(p, e) => call_runtime(env, Some((p, e))),
+            Some(FuncId::ReadStorage) => read_storage(env),
+            Some(FuncId::CallRuntime) => call_runtime(env, None),
+            Some(FuncId::GetSpecVersion) => get_version(env, true),
+            Some(FuncId::GetTransactionVersion) => get_version(env, false),
+            Some(FuncId::GetKeyDid) => get_key_did(env),
+            Some(FuncId::KeyHasher(hasher, size)) => key_hasher(env, hasher, size),
+            Some(FuncId::OldCallRuntime(p, e)) => call_runtime(env, Some((p, e))),
+            None => {
+                trace!(
+                    target: "runtime",
+                    "PolymeshExtension contract calling invalid ext_id={ext_id:?}",
+                );
+                Err(Error::<T>::InvalidFuncId)?
+            }
         }
     }
 }
