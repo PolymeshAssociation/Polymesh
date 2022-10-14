@@ -475,7 +475,7 @@ impl pallet_staking::WeightInfo for WeightInfo {
     // Storage: Staking Validators (r:1 w:1)
     // Storage: Staking PermissionedIdentity (r:0 w:1)
     // Storage: Staking Nominators (r:0 w:1)
-    fn chill_from_governance() -> Weight {
+    fn chill_from_governance(s: u32) -> Weight {
         (16_691_000 as Weight)
             .saturating_add(DbWeight::get().reads(3 as Weight))
             .saturating_add(DbWeight::get().writes(3 as Weight))

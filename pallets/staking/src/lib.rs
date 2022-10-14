@@ -2654,22 +2654,27 @@ decl_module! {
         ///
         /// The dispatch origin for this call must be a GC.
         /// And, it can be only called when [`EraElectionStatus`] is `Closed`.
-        #[weight = <T as Config>::WeightInfo::chill_from_governance()]
+        #[weight = <T as Config>::WeightInfo::chill_from_governance(stash_keys.len() as u32)]
         pub fn chill_from_governance(origin, identity: IdentityId, stash_keys: Vec<T::AccountId>) {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
-            let _controller = ensure_signed(origin)?;
-            PermissionedIdentity::remove(&identity);
+            T::RequiredRemoveOrigin::ensure_origin(origin)?;
+            ensure!(Self::permissioned_identity(&identity).is_some(), Error::<T>::NotExists);
 
             for key in stash_keys {
                 let key_did = Identity::<T>::get_identity(&key);
                 if let Some(key_did) = key_did {
                     if identity == key_did {
+                        <Validators<T>>::contains_key(&key);
                         Self::chill_stash(&key);
                     } else {
+                        Err(Error::<T>::NotStash)?;
                         Self::deposit_event(RawEvent::StashNotPartOfDid(key, identity));
                     }
                 }
             }
+
+            // Change identity status to be Non-Permissioned
+            PermissionedIdentity::remove(&identity);
         }
 
     }
