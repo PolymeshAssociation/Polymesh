@@ -2450,3 +2450,90 @@ fn issuers_can_change_asset_type() {
         );
     })
 }
+#[test]
+fn issuers_can_redeem_tokens_from_portfolio_with_custodian() {
+    let alice = AccountKeyring::Alice.to_account_id();
+    ExtBuilder::default()
+        .cdd_providers(vec![alice.clone()])
+        .build()
+        .execute_with(|| {
+            set_time_to_now();
+
+            let owner = User::new(AccountKeyring::Dave);
+            let bob = User::new(AccountKeyring::Bob);
+
+            // Create asset.
+            let (ticker, token) = a_token(owner.did);
+            assert_ok!(basic_asset(owner, ticker, &token));
+
+            // Provide scope claim to sender and receiver of the transaction.
+            provide_scope_claim_to_multiple_parties(&[owner.did], ticker, alice);
+
+            let portfolio_name = PortfolioName(vec![65u8; 5]);
+            let next_portfolio_num = NextPortfolioNumber::get(&owner.did);
+            let portfolio = PortfolioId::default_portfolio(owner.did);
+            let user_portfolio = PortfolioId::user_portfolio(owner.did, next_portfolio_num.clone());
+            Portfolio::create_portfolio(owner.origin(), portfolio_name.clone()).unwrap();
+
+            Portfolio::move_portfolio_funds(
+                owner.origin(),
+                portfolio,
+                user_portfolio,
+                vec![MovePortfolioItem {
+                    ticker,
+                    amount: token.total_supply,
+                    memo: None,
+                }],
+            )
+            .unwrap();
+
+            assert_eq!(
+                PortfolioAssetBalances::get(&portfolio, &ticker),
+                0u32.into()
+            );
+            assert_eq!(
+                PortfolioAssetBalances::get(&user_portfolio, &ticker),
+                token.total_supply
+            );
+
+            let auth_id = Identity::add_auth(
+                owner.did,
+                Signatory::from(bob.did),
+                AuthorizationData::PortfolioCustody(user_portfolio),
+                None,
+            );
+
+            assert_ok!(Portfolio::accept_portfolio_custody(bob.origin(), auth_id));
+
+            assert_eq!(
+                Portfolio::portfolio_custodian(user_portfolio),
+                Some(bob.did)
+            );
+
+            assert_noop!(
+                Asset::redeem_from_portfolio(
+                    owner.origin(),
+                    ticker,
+                    token.total_supply,
+                    PortfolioKind::User(next_portfolio_num)
+                ),
+                PortfolioError::UnauthorizedCustodian
+            );
+
+            assert_ok!(ExternalAgents::unchecked_add_agent(
+                ticker,
+                bob.did,
+                AgentGroup::Full
+            ));
+
+            assert_ok!(Asset::redeem_from_portfolio(
+                bob.origin(),
+                ticker,
+                token.total_supply,
+                PortfolioKind::User(next_portfolio_num)
+            ));
+
+            assert_eq!(Asset::balance_of(&ticker, bob.did), 0);
+            assert_eq!(Asset::token_details(&ticker).total_supply, 0);
+        })
+}
