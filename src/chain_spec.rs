@@ -690,6 +690,7 @@ pub mod general {
             },
             corporate_action: corporate_actions!(),
             rewards: rewards!(),
+            nft: Default::default(),
         }
     }
 
@@ -857,6 +858,7 @@ pub mod testnet {
             },
             corporate_action: corporate_actions!(),
             rewards: rewards!(),
+            nft: Default::default(),
         }
     }
 
@@ -1055,6 +1057,7 @@ pub mod mainnet {
             },
             corporate_action: corporate_actions!(),
             rewards: rewards!(),
+            nft: Default::default(),
         }
     }
 
@@ -1253,6 +1256,7 @@ pub mod ci {
             },
             corporate_action: corporate_actions!(),
             rewards: rewards!(),
+            nft: Default::default(),
         }
     }
 

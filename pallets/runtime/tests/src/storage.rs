@@ -271,6 +271,10 @@ frame_support::construct_runtime!(
 
         // Preimage register.  Used by `pallet_scheduler`.
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 55,
+
+        Asset: pallet_asset::{Pallet, Call, Storage, Config<T>, Event<T>},
+
+        Nft: pallet_nft::{Pallet, Call, Storage, Config<T>, Event},
     }
 );
 

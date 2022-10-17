@@ -1,0 +1,30 @@
+[package]
+name = "pallet-nft"
+version = "0.1.0"
+authors = ["Polymath"]
+edition = "2021"
+
+[dependencies]
+# Common
+polymesh-primitives = { path = "../../primitives", default-features = false }
+# Our Pallets
+polymesh-common-utilities = { path = "../common", default-features = false }
+# Other
+# Substrate
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+frame-support = { version = "4.0.0-dev", default-features = false }
+frame-system = { version = "4.0.0-dev", default-features = false }
+scale-info = { version = "2.0", default-features = false, features = ["derive"] }
+# Only in STD
+
+[features]
+default = ["std"]
+no_std = []
+std = [
+    "codec/std",
+    "frame-support/std",
+    "frame-system/std",
+    "polymesh-common-utilities/std",
+    "polymesh-primitives/std"
+]
+runtime-benchmarks = []
