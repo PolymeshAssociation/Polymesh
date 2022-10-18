@@ -18,10 +18,6 @@ decl_storage!(
         /// (ticker) -> NftCollection [returns NFTCollection struct]
         pub NFtCollection get(fn nft_collection): map hasher(blake2_128_concat) Ticker => NFTCollection;
     }
-
-    add_extra_genesis {
-        build(|_config: &GenesisConfig| {});
-    }
 );
 
 decl_module! {

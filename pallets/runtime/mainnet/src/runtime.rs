@@ -360,7 +360,6 @@ construct_runtime!(
         ExternalAgents: pallet_external_agents::{Pallet, Call, Storage, Event},
         Relayer: pallet_relayer::{Pallet, Call, Storage, Event<T>},
         Rewards: pallet_rewards::{Pallet, Call, Storage, Event<T>, Config<T>, ValidateUnsigned},
-        Nft: pallet_nft::{Pallet, Call, Storage, Config, Event},
 
         // Contracts
         Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>},
@@ -368,6 +367,8 @@ construct_runtime!(
 
         // Preimage register.  Used by `pallet_scheduler`.
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
+
+        Nft: pallet_nft::{Pallet, Call, Storage, Event},
     }
 );
 
