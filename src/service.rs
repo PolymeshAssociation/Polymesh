@@ -11,7 +11,6 @@ pub use polymesh_primitives::{
     crypto::native_schnorrkel, host_functions::native_rng::native_rng, AccountId, Balance, Block,
     BlockNumber, Hash, IdentityId, Index as Nonce, Moment, Ticker,
 };
-pub use polymesh_runtime_ci;
 pub use polymesh_runtime_develop;
 pub use polymesh_runtime_mainnet;
 pub use polymesh_runtime_testnet;
@@ -40,7 +39,6 @@ use std::sync::Arc;
 /// Known networks based on name.
 pub enum Network {
     Mainnet,
-    CI,
     Testnet,
     Other,
 }
@@ -56,8 +54,6 @@ impl IsNetwork for dyn ChainSpec {
             Network::Mainnet
         } else if name.starts_with("Polymesh Testnet") {
             Network::Testnet
-        } else if name.starts_with("Polymesh CI") {
-            Network::CI
         } else {
             Network::Other
         }
@@ -92,7 +88,6 @@ native_executor_instance!(
     (EHF, native_schnorrkel::HostFunctions)
 );
 native_executor_instance!(TestnetExecutor, polymesh_runtime_testnet, EHF);
-native_executor_instance!(CIExecutor, polymesh_runtime_ci, EHF);
 native_executor_instance!(MainnetExecutor, polymesh_runtime_mainnet, EHF);
 
 /// A set of APIs that polkadot-like runtimes must implement.
@@ -636,12 +631,6 @@ pub fn general_new_full(config: Configuration) -> TaskResult {
         .map(|data| data.task_manager)
 }
 
-/// Create a new CI service for a full node.
-pub fn ci_new_full(config: Configuration) -> TaskResult {
-    new_full_base::<polymesh_runtime_ci::RuntimeApi, CIExecutor, _, _>(config, |_, _| ())
-        .map(|data| data.task_manager)
-}
-
 /// Create a new Mainnet service for a full node.
 pub fn mainnet_new_full(config: Configuration) -> TaskResult {
     new_full_base::<polymesh_runtime_mainnet::RuntimeApi, MainnetExecutor, _, _>(config, |_, _| ())
@@ -684,12 +673,6 @@ pub fn general_chain_ops(
     config: &mut Configuration,
 ) -> Result<NewChainOps<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>, ServiceError> {
     chain_ops::<_, _, polymesh_runtime_develop::UncheckedExtrinsic>(config)
-}
-
-pub fn ci_chain_ops(
-    config: &mut Configuration,
-) -> Result<NewChainOps<polymesh_runtime_ci::RuntimeApi, CIExecutor>, ServiceError> {
-    chain_ops::<_, _, polymesh_runtime_ci::UncheckedExtrinsic>(config)
 }
 
 pub fn mainnet_chain_ops(
