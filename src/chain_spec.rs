@@ -400,6 +400,7 @@ fn genesis_processed_data(
     (identities, stakers, complete_txs)
 }
 
+#[cfg(not(feature = "ci-runtime"))]
 fn dev_genesis_processed_data(
     initial_authorities: &Vec<InitialAuth>,
     treasury_bridge_lock: BridgeLockId,
@@ -606,6 +607,7 @@ fn itn_rewards() -> Vec<(AccountId, Balance)> {
         .collect()
 }
 
+#[cfg(not(feature = "ci-runtime"))]
 pub mod general {
     use super::*;
     use polymesh_runtime_develop::{self as rt, constants::time};
@@ -1174,9 +1176,10 @@ pub mod mainnet {
     }
 }
 
-pub mod ci {
+#[cfg(feature = "ci-runtime")]
+pub mod general {
     use super::*;
-    use polymesh_runtime_ci::{self as rt, constants::time};
+    use polymesh_runtime_develop::{self as rt, constants::time};
 
     pub type ChainSpec = GenericChainSpec<rt::runtime::GenesisConfig>;
 

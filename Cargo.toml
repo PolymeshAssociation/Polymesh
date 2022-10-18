@@ -195,7 +195,6 @@ polymesh-node-rpc = { path = "node-rpc" }
 polymesh-runtime-develop = { path = "pallets/runtime/develop" }
 polymesh-runtime-mainnet = { path = "pallets/runtime/mainnet" }
 polymesh-runtime-testnet = { path = "pallets/runtime/testnet" }
-polymesh-runtime-ci = { path = "pallets/runtime/ci" }
 
 # General
 chrono = "0.4.11"
@@ -270,6 +269,9 @@ default = ["std"]
 running-ci = [ "polymesh-runtime-develop/running-ci" ]
 default_identity = [ "polymesh-common-utilities/default_identity" ]
 runtime-benchmarks = [ "polymesh-runtime-develop/runtime-benchmarks" ]
+
+# Only build a "ci" runtime.
+ci-runtime = [ "polymesh-runtime-develop/ci-runtime" ]
 
 std = [
     "polymesh-common-utilities/std",
