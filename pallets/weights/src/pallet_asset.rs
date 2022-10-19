@@ -380,6 +380,7 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: Portfolio PortfolioCustodian (r:1 w:0)
     // Storage: Asset Tokens (r:1 w:1)
+    // Storage: Portfolio Portfolios (r:1 w:0)
     // Storage: unknown [0x3a7472616e73616374696f6e5f6c6576656c3a] (r:1 w:1)
     // Storage: Portfolio PortfolioAssetBalances (r:1 w:1)
     // Storage: Portfolio PortfolioLockedAssets (r:1 w:0)
@@ -393,19 +394,18 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Statistics ActiveAssetStats (r:1 w:0)
     // Storage: Asset BalanceOfAtScope (r:0 w:1)
     fn redeem_from_portfolio() -> Weight {
-        (154_000_000 as Weight)
-            .saturating_add(DbWeight::get().reads(17 as Weight))
+        (170_323_000 as Weight)
+            .saturating_add(DbWeight::get().reads(18 as Weight))
             .saturating_add(DbWeight::get().writes(7 as Weight))
     }
-
+    // Storage: Asset Tokens (r:1 w:1)
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
     // Storage: Permissions CurrentPalletName (r:1 w:0)
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
-    // Storage: Asset Tokens (r:2 w:1)
     fn update_asset_type() -> Weight {
-        (154_000_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
+        (51_841_000 as Weight)
+            .saturating_add(DbWeight::get().reads(5 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
 }
