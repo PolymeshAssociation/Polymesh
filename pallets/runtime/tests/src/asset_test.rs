@@ -2473,9 +2473,12 @@ fn issuers_can_redeem_tokens_from_portfolio_with_custodian() {
             let next_portfolio_num = NextPortfolioNumber::get(&owner.did);
             let portfolio = PortfolioId::default_portfolio(owner.did);
             let user_portfolio = PortfolioId::user_portfolio(owner.did, next_portfolio_num.clone());
-            Portfolio::create_portfolio(owner.origin(), portfolio_name.clone()).unwrap();
+            assert_ok!(Portfolio::create_portfolio(
+                owner.origin(),
+                portfolio_name.clone()
+            ));
 
-            Portfolio::move_portfolio_funds(
+            assert_ok!(Portfolio::move_portfolio_funds(
                 owner.origin(),
                 portfolio,
                 user_portfolio,
@@ -2484,8 +2487,7 @@ fn issuers_can_redeem_tokens_from_portfolio_with_custodian() {
                     amount: token.total_supply,
                     memo: None,
                 }],
-            )
-            .unwrap();
+            ));
 
             assert_eq!(
                 PortfolioAssetBalances::get(&portfolio, &ticker),
