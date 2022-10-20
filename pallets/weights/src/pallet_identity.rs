@@ -276,7 +276,15 @@ impl pallet_identity::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().writes(4 as Weight))
     }
 
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Storage: Identity CustomClaimsInverse (r:1 w:1)
+    // Storage: Identity CustomClaimIdSequence (r:1 w:1)
+    // Storage: Identity CustomClaims (r:0 w:1)
     fn register_custom_claim_type(n: u32) -> Weight {
-        n as Weight
+        (44_816_000 as Weight)
+            // Standard Error: 0
+            .saturating_add((8_000 as Weight).saturating_mul(n as Weight))
+            .saturating_add(DbWeight::get().reads(3 as Weight))
+            .saturating_add(DbWeight::get().writes(3 as Weight))
     }
 }
