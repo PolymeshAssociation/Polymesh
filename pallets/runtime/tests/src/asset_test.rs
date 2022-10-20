@@ -2478,6 +2478,7 @@ fn issuers_can_redeem_tokens_from_portfolio_with_custodian() {
                 portfolio_name.clone()
             ));
 
+            // Moves portfolio funds from default to user portfolio
             assert_ok!(Portfolio::move_portfolio_funds(
                 owner.origin(),
                 portfolio,
@@ -2489,6 +2490,7 @@ fn issuers_can_redeem_tokens_from_portfolio_with_custodian() {
                 }],
             ));
 
+            // Check balances
             assert_eq!(
                 PortfolioAssetBalances::get(&portfolio, &ticker),
                 0u32.into()
@@ -2498,6 +2500,7 @@ fn issuers_can_redeem_tokens_from_portfolio_with_custodian() {
                 token.total_supply
             );
 
+            // Add auth for custody to be moved to bob
             let auth_id = Identity::add_auth(
                 owner.did,
                 Signatory::from(bob.did),
@@ -2505,6 +2508,7 @@ fn issuers_can_redeem_tokens_from_portfolio_with_custodian() {
                 None,
             );
 
+            // Check that bob accepts auth
             assert_ok!(Portfolio::accept_portfolio_custody(bob.origin(), auth_id));
 
             assert_eq!(
@@ -2512,6 +2516,7 @@ fn issuers_can_redeem_tokens_from_portfolio_with_custodian() {
                 Some(bob.did)
             );
 
+            // Check error is given when previous custodian tries to redeem form portfolio
             assert_noop!(
                 Asset::redeem_from_portfolio(
                     owner.origin(),
@@ -2522,12 +2527,14 @@ fn issuers_can_redeem_tokens_from_portfolio_with_custodian() {
                 PortfolioError::UnauthorizedCustodian
             );
 
+            // Adds Bob as an external agent for the asset
             assert_ok!(ExternalAgents::unchecked_add_agent(
                 ticker,
                 bob.did,
                 AgentGroup::Full
             ));
 
+            // Redeems using Bob
             assert_ok!(Asset::redeem_from_portfolio(
                 bob.origin(),
                 ticker,
