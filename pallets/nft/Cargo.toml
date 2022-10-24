@@ -5,17 +5,17 @@ authors = ["Polymath"]
 edition = "2021"
 
 [dependencies]
-# Common
-polymesh-primitives = { path = "../../primitives", default-features = false }
-# Our Pallets
+# Our crates
+pallet-base = { path = "../base", default-features = false  }
+pallet-identity = { path = "../identity", default-features = false }
 polymesh-common-utilities = { path = "../common", default-features = false }
-# Other
+polymesh-primitives = { path = "../../primitives", default-features = false }
 # Substrate
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
-# Only in STD
+sp-std = { version = "4.0.0", default-features = false }
 
 [features]
 default = ["std"]
@@ -24,7 +24,9 @@ std = [
     "codec/std",
     "frame-support/std",
     "frame-system/std",
+    "pallet-identity/std",
     "polymesh-common-utilities/std",
-    "polymesh-primitives/std"
+    "polymesh-primitives/std",
+    "sp-std/std"
 ]
 runtime-benchmarks = []

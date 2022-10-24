@@ -5243,10 +5243,13 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-base",
+ "pallet-identity",
  "parity-scale-codec 3.2.1",
  "polymesh-common-utilities",
  "polymesh-primitives",
  "scale-info",
+ "sp-std",
 ]
 
 [[package]]

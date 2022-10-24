@@ -227,6 +227,9 @@ pub mod host_functions;
 
 pub mod ethereum;
 
+/// NFT type definitions.
+pub mod nft;
+
 /// Represents custom transaction errors.
 #[repr(u8)]
 pub enum TransactionError {

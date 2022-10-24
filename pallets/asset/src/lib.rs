@@ -583,7 +583,7 @@ decl_module! {
 
         /// Makes an indivisible token divisible.
         ///
-        /// # Arguments
+        /// # Argumentsis_registered_metadata_key(ticker: &Ticker, metadata_key: &AssetMetadataKey) -> bool;
         /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
         /// * `ticker` Ticker of the token.
         ///
@@ -1044,6 +1044,14 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::Origin> for Module<T> {
 
     fn issue(origin: T::Origin, ticker: Ticker, total_supply: Balance) -> DispatchResult {
         Self::issue(origin, ticker, total_supply)
+    }
+
+    fn is_registered_ticker(ticker: &Ticker) -> bool {
+        <Tickers<T>>::contains_key(ticker)
+    }
+
+    fn is_registered_metadata_key(ticker: &Ticker, metadata_key: &AssetMetadataKey) -> bool {
+        Self::check_asset_metadata_key_exists(ticker, metadata_key)
     }
 }
 
@@ -2055,7 +2063,7 @@ impl<T: Config> Module<T> {
         })
     }
 
-    fn check_asset_metadata_key_exists(ticker: Ticker, key: AssetMetadataKey) -> bool {
+    fn check_asset_metadata_key_exists(ticker: &Ticker, key: &AssetMetadataKey) -> bool {
         match key {
             AssetMetadataKey::Global(key) => AssetMetadataGlobalKeyToName::contains_key(key),
             AssetMetadataKey::Local(key) => AssetMetadataLocalKeyToName::contains_key(ticker, key),
@@ -2118,7 +2126,7 @@ impl<T: Config> Module<T> {
 
         // Check key exists.
         ensure!(
-            Self::check_asset_metadata_key_exists(ticker, key),
+            Self::check_asset_metadata_key_exists(&ticker, &key),
             Error::<T>::AssetMetadataKeyIsMissing
         );
 
@@ -2151,7 +2159,7 @@ impl<T: Config> Module<T> {
 
         // Check key exists.
         ensure!(
-            Self::check_asset_metadata_key_exists(ticker, key),
+            Self::check_asset_metadata_key_exists(&ticker, &key),
             Error::<T>::AssetMetadataKeyIsMissing
         );
 
