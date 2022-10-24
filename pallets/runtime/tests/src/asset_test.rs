@@ -2393,13 +2393,74 @@ fn issuers_can_redeem_tokens_from_portfolio() {
             assert_ok!(Asset::redeem_from_portfolio(
                 owner.origin(),
                 ticker,
-                token.total_supply,
+                token.total_supply / 2,
                 PortfolioKind::User(next_portfolio_num)
             ));
 
-            assert_eq!(Asset::balance_of(&ticker, owner.did), 0);
-            assert_eq!(Asset::token_details(&ticker).total_supply, 0);
+            assert_eq!(
+                Asset::balance_of(&ticker, owner.did),
+                token.total_supply / 2
+            );
+            assert_eq!(
+                Asset::token_details(&ticker).total_supply,
+                token.total_supply / 2
+            );
 
+            // Add auth for custody to be moved to bob
+            let auth_id = Identity::add_auth(
+                owner.did,
+                Signatory::from(bob.did),
+                AuthorizationData::PortfolioCustody(user_portfolio),
+                None,
+            );
+
+            // Check that bob accepts auth
+            assert_ok!(Portfolio::accept_portfolio_custody(bob.origin(), auth_id));
+
+            assert_eq!(
+                Portfolio::portfolio_custodian(user_portfolio),
+                Some(bob.did)
+            );
+
+            // Check error is given when unauthorized custodian tries to redeem from portfolio
+            assert_noop!(
+                Asset::redeem_from_portfolio(
+                    owner.origin(),
+                    ticker,
+                    token.total_supply,
+                    PortfolioKind::User(next_portfolio_num)
+                ),
+                PortfolioError::UnauthorizedCustodian
+            );
+
+            // Remove bob as custodian
+            assert_ok!(Portfolio::quit_portfolio_custody(
+                bob.origin(),
+                user_portfolio
+            ));
+
+            assert_ok!(Asset::redeem_from_portfolio(
+                owner.origin(),
+                ticker,
+                token.total_supply / 2,
+                PortfolioKind::User(next_portfolio_num)
+            ));
+
+            // Adds Bob as an external agent for the asset
+            assert_ok!(ExternalAgents::unchecked_add_agent(
+                ticker,
+                bob.did,
+                AgentGroup::Full
+            ));
+
+            // Remove owner as agent
+            assert_ok!(ExternalAgents::remove_agent(
+                owner.origin(),
+                ticker,
+                owner.did
+            ));
+
+            // Check error is given when unauthorized agent tries to redeem from portfolio
             assert_noop!(
                 Asset::redeem_from_portfolio(
                     owner.origin(),
@@ -2407,7 +2468,7 @@ fn issuers_can_redeem_tokens_from_portfolio() {
                     1,
                     PortfolioKind::User(next_portfolio_num)
                 ),
-                PortfolioError::InsufficientPortfolioBalance
+                EAError::UnauthorizedAgent
             );
         })
 }
@@ -2449,100 +2510,4 @@ fn issuers_can_change_asset_type() {
             AssetType::EquityPreferred
         );
     })
-}
-#[test]
-fn issuers_can_redeem_tokens_from_portfolio_with_custodian() {
-    let alice = AccountKeyring::Alice.to_account_id();
-    ExtBuilder::default()
-        .cdd_providers(vec![alice.clone()])
-        .build()
-        .execute_with(|| {
-            set_time_to_now();
-
-            let owner = User::new(AccountKeyring::Dave);
-            let bob = User::new(AccountKeyring::Bob);
-
-            // Create asset.
-            let (ticker, token) = a_token(owner.did);
-            assert_ok!(basic_asset(owner, ticker, &token));
-
-            // Provide scope claim to sender and receiver of the transaction.
-            provide_scope_claim_to_multiple_parties(&[owner.did], ticker, alice);
-
-            let portfolio_name = PortfolioName(vec![65u8; 5]);
-            let next_portfolio_num = NextPortfolioNumber::get(&owner.did);
-            let portfolio = PortfolioId::default_portfolio(owner.did);
-            let user_portfolio = PortfolioId::user_portfolio(owner.did, next_portfolio_num.clone());
-            assert_ok!(Portfolio::create_portfolio(
-                owner.origin(),
-                portfolio_name.clone()
-            ));
-
-            // Moves portfolio funds from default to user portfolio
-            assert_ok!(Portfolio::move_portfolio_funds(
-                owner.origin(),
-                portfolio,
-                user_portfolio,
-                vec![MovePortfolioItem {
-                    ticker,
-                    amount: token.total_supply,
-                    memo: None,
-                }],
-            ));
-
-            // Check balances
-            assert_eq!(
-                PortfolioAssetBalances::get(&portfolio, &ticker),
-                0u32.into()
-            );
-            assert_eq!(
-                PortfolioAssetBalances::get(&user_portfolio, &ticker),
-                token.total_supply
-            );
-
-            // Add auth for custody to be moved to bob
-            let auth_id = Identity::add_auth(
-                owner.did,
-                Signatory::from(bob.did),
-                AuthorizationData::PortfolioCustody(user_portfolio),
-                None,
-            );
-
-            // Check that bob accepts auth
-            assert_ok!(Portfolio::accept_portfolio_custody(bob.origin(), auth_id));
-
-            assert_eq!(
-                Portfolio::portfolio_custodian(user_portfolio),
-                Some(bob.did)
-            );
-
-            // Check error is given when previous custodian tries to redeem form portfolio
-            assert_noop!(
-                Asset::redeem_from_portfolio(
-                    owner.origin(),
-                    ticker,
-                    token.total_supply,
-                    PortfolioKind::User(next_portfolio_num)
-                ),
-                PortfolioError::UnauthorizedCustodian
-            );
-
-            // Adds Bob as an external agent for the asset
-            assert_ok!(ExternalAgents::unchecked_add_agent(
-                ticker,
-                bob.did,
-                AgentGroup::Full
-            ));
-
-            // Redeems using Bob
-            assert_ok!(Asset::redeem_from_portfolio(
-                bob.origin(),
-                ticker,
-                token.total_supply,
-                PortfolioKind::User(next_portfolio_num)
-            ));
-
-            assert_eq!(Asset::balance_of(&ticker, bob.did), 0);
-            assert_eq!(Asset::token_details(&ticker).total_supply, 0);
-        })
 }
