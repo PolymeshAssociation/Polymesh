@@ -583,7 +583,7 @@ decl_module! {
 
         /// Makes an indivisible token divisible.
         ///
-        /// # Argumentsis_registered_metadata_key(ticker: &Ticker, metadata_key: &AssetMetadataKey) -> bool;
+        /// # Arguments
         /// * `origin` is a signer that has permissions to act as an agent of `ticker`.
         /// * `ticker` Ticker of the token.
         ///
