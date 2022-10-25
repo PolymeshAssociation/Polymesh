@@ -557,8 +557,8 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::issue()]
         pub fn issue(origin, ticker: Ticker, amount: Balance) -> DispatchResult {
             // Ensure origin is agent with custody and permissions for default portfolio.
-            let did = Self::ensure_agent_with_custody_and_perms(origin, ticker)?;
-            Self::_mint(&ticker, did, amount, Some(ProtocolOp::AssetIssue))
+            let portfolio = Self::ensure_agent_with_custody_and_perms(origin, ticker, PortfolioKind::Default)?;
+            Self::_mint(&ticker, portfolio.did, amount, Some(ProtocolOp::AssetIssue))
         }
 
         /// Redeems existing tokens by reducing the balance of the caller's default portfolio and the total supply of the token
@@ -1150,14 +1150,18 @@ impl<T: Config> Module<T> {
     fn ensure_agent_with_custody_and_perms(
         origin: T::Origin,
         ticker: Ticker,
-    ) -> Result<IdentityId, DispatchError> {
+        portfolio_kind: PortfolioKind,
+    ) -> Result<PortfolioId, DispatchError> {
         let data = <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ticker)?;
 
-        // Ensure the caller has not assigned custody of their default portfolio and that they are permissioned.
-        let portfolio = PortfolioId::default_portfolio(data.primary_did);
+        // Ensure the caller has not assigned custody of their portfolio and that they are permissioned.
+        let portfolio = PortfolioId {
+            did: data.primary_did,
+            kind: portfolio_kind,
+        };
         let skey = data.secondary_key.as_ref();
         Portfolio::<T>::ensure_portfolio_custody_and_permission(portfolio, data.primary_did, skey)?;
-        Ok(data.primary_did)
+        Ok(portfolio)
     }
 
     /// Ensure that `did` is the owner of `ticker`.
@@ -1903,17 +1907,13 @@ impl<T: Config> Module<T> {
         value: Balance,
         portfolio_kind: PortfolioKind,
     ) -> DispatchResult {
-        // Ensure origin is agent with custody and permissions for default portfolio.
-        let agent = Self::ensure_agent_with_custody_and_perms(origin, ticker)?;
+        // Ensure origin is agent with custody and permissions for portfolio.
+        let portfolio = Self::ensure_agent_with_custody_and_perms(origin, ticker, portfolio_kind)?;
 
         Self::ensure_granular(&ticker, value)?;
 
         // Reduce caller's portfolio balance. This makes sure that the caller has enough unlocked tokens.
         // If `advance_update_balances` fails, `reduce_portfolio_balance` shouldn't modify storage.
-        let portfolio = PortfolioId {
-            did: agent,
-            kind: portfolio_kind,
-        };
 
         Portfolio::<T>::ensure_portfolio_validity(&portfolio)?;
         with_transaction(|| {
@@ -1921,26 +1921,33 @@ impl<T: Config> Module<T> {
 
             <Checkpoint<T>>::advance_update_balances(
                 &ticker,
-                &[(agent, Self::balance_of(ticker, agent))],
+                &[(portfolio.did, Self::balance_of(ticker, portfolio.did))],
             )
         })?;
 
-        let updated_balance = Self::balance_of(ticker, agent) - value;
+        let updated_balance = Self::balance_of(ticker, portfolio.did) - value;
 
         // Update identity balances and total supply
-        BalanceOf::insert(ticker, &agent, updated_balance);
+        BalanceOf::insert(ticker, &portfolio.did, updated_balance);
         Tokens::mutate(ticker, |token| token.total_supply -= value);
 
         // Update scope balances
-        let scope_id = Self::scope_id(&ticker, &agent);
-        Self::update_scope_balance(&ticker, value, scope_id, agent, updated_balance, true);
+        let scope_id = Self::scope_id(&ticker, &portfolio.did);
+        Self::update_scope_balance(
+            &ticker,
+            value,
+            scope_id,
+            portfolio.did,
+            updated_balance,
+            true,
+        );
 
         // Update statistic info.
         // Using the aggregate balance to update the unique investor count.
         let updated_from_balance = Some(Self::aggregate_balance_of(ticker, &scope_id));
         Statistics::<T>::update_asset_stats(
             &ticker,
-            Some(&agent),
+            Some(&portfolio.did),
             None,
             updated_from_balance,
             None,
@@ -1948,13 +1955,18 @@ impl<T: Config> Module<T> {
         );
 
         Self::deposit_event(RawEvent::Transfer(
-            agent,
+            portfolio.did,
             ticker,
             portfolio,
             PortfolioId::default(),
             value,
         ));
-        Self::deposit_event(RawEvent::Redeemed(agent, ticker, agent, value));
+        Self::deposit_event(RawEvent::Redeemed(
+            portfolio.did,
+            ticker,
+            portfolio.did,
+            value,
+        ));
 
         Ok(())
     }
@@ -2341,13 +2353,13 @@ impl<T: Config> Module<T> {
         from_portfolio: PortfolioId,
     ) -> DispatchResult {
         // Ensure `origin` has perms.
-        let agent = Self::ensure_agent_with_custody_and_perms(origin, ticker)?;
-        let to_portfolio = PortfolioId::default_portfolio(agent);
+        let to_portfolio =
+            Self::ensure_agent_with_custody_and_perms(origin, ticker, PortfolioKind::Default)?;
 
         // Transfer `value` of ticker tokens from `investor_did` to controller
         Self::unsafe_transfer(from_portfolio, to_portfolio, &ticker, value)?;
         Self::deposit_event(RawEvent::ControllerTransfer(
-            agent,
+            to_portfolio.did,
             ticker,
             from_portfolio,
             value,
