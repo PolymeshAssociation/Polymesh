@@ -12,6 +12,6 @@ sp_api::decl_runtime_apis! {
         #[changed_in(2)]
         fn query_info(uxt: Extrinsic, len: u32) -> RuntimeDispatchInfo<Balance>;
 
-            fn query_fee_details(encoded_xt: Vec<u8>) -> Option<FeeDetails<Balance>>;
+        fn query_fee_details(encoded_xt: Vec<u8>) -> Option<FeeDetails<Balance>>;
     }
 }
