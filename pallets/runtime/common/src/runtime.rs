@@ -840,6 +840,12 @@ macro_rules! runtime_apis {
                     let uxt: UncheckedExtrinsic = codec::Decode::decode(&mut &*encoded_xt).ok()?;
                     Some(TransactionPayment::query_info(uxt, len))
                 }
+
+                fn query_fee_details(encoded_xt: Vec<u8>) -> Option<pallet_transaction_payment::FeeDetails<Balance>> {
+                    let len = encoded_xt.len() as u32;
+                    let uxt: UncheckedExtrinsic = codec::Decode::decode(&mut &*encoded_xt).ok()?;
+                    Some(TransactionPayment::query_fee_details(uxt, len))
+                }
             }
 
             impl sp_session::SessionKeys<Block> for Runtime {
