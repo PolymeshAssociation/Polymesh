@@ -17,13 +17,13 @@
 //! RPC interface for the transaction payment module.
 
 pub use self::gen_client::Client as TransactionPaymentClient;
-use codec::Codec;
+use codec::{Codec, Decode};
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 pub use node_rpc_runtime_api::transaction_payment::TransactionPaymentApi as TransactionPaymentRuntimeApi;
 use pallet_transaction_payment::RuntimeDispatchInfo;
 use polymesh_primitives::Balance;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
@@ -87,17 +87,50 @@ where
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash
         }));
-
-        api.query_info(&at, encoded_xt.0)
+        let api_version = api
+            .api_version::<dyn TransactionPaymentRuntimeApi<Block, Extrinsic>>(&at)
             .map_err(|e| RpcError {
-                code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                code: ErrorCode::ServerError(Error::RuntimeError as i64),
                 message: "Unable to query dispatch info.".into(),
                 data: Some(format!("{:?}", e).into()),
-            })?
-            .ok_or_else(|| RpcError {
-                code: ErrorCode::ServerError(Error::DecodeError.into()),
-                message: "Unable to query dispatch info.".into(),
-                data: None,
-            })
+            })?;
+
+        match api_version {
+            Some(version) if version >= 2 => api
+                .query_info(&at, encoded_xt.0)
+                .map_err(|e| RpcError {
+                    code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                    message: "Unable to query dispatch info.".into(),
+                    data: Some(format!("{:?}", e).into()),
+                })?
+                .ok_or_else(|| RpcError {
+                    code: ErrorCode::ServerError(Error::DecodeError.into()),
+                    message: "Unable to query dispatch info.".into(),
+                    data: None,
+                }),
+            Some(1) => {
+                let encoded_len = encoded_xt.len() as u32;
+
+                let uxt: Extrinsic = Decode::decode(&mut &*encoded_xt).map_err(|e| RpcError {
+                    code: ErrorCode::ServerError(Error::DecodeError.into()),
+                    message: "Unable to query dispatch info.".into(),
+                    data: Some(format!("{:?}", e).into()),
+                })?;
+                #[allow(deprecated)]
+                api.query_info_before_version_2(&at, uxt, encoded_len)
+                    .map_err(|e| RpcError {
+                        code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                        message: "Unable to query dispatch info.".into(),
+                        data: Some(format!("{:?}", e).into()),
+                    })
+            }
+            _ => {
+                return Err(RpcError {
+                    code: ErrorCode::MethodNotFound,
+                    message: format!("Cannot find `TransactionPaymentApi` for block {:?}", at),
+                    data: None,
+                });
+            }
+        }
     }
 }
