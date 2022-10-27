@@ -1068,33 +1068,33 @@ dependencies = [
 
 [[package]]
 name = "ink_allocator"
-version = "3.1.0"
+version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "abe6a609d6c6cd84dd091419f672a5ed98504a111211491d7024014244782369"
+checksum = "1c9588a59a0e8997c0b2153cd11b5aaa77c06a0537a6b18f3811d1f1aa098b12"
 dependencies = [
  "cfg-if",
 ]
 
 [[package]]
 name = "ink_engine"
-version = "3.0.1"
+version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b3d2da83b1a6a121fc6a1d7d9b49a3273a3b9663e0ed3d486c6940890f6f718"
+checksum = "487c3b390b7feb0620496b0cd38683433c7d7e6946b1caabda51e1f23eb24b30"
 dependencies = [
  "blake2",
  "derive_more",
  "parity-scale-codec",
  "rand 0.8.5",
- "secp256k1 0.22.1",
+ "secp256k1 0.24.1",
  "sha2 0.10.2",
  "sha3",
 ]
 
 [[package]]
 name = "ink_env"
-version = "3.0.1"
+version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5d465fe08377a1d92063ff6b3fa222ab337001bc70de1941884dbc8d7a7e599"
+checksum = "a891d34301a3dbb1c7b7424c49ae184282b163491c54f9acd17fcbe14a80447b"
 dependencies = [
  "arrayref",
  "blake2",
@@ -1111,31 +1111,20 @@ dependencies = [
  "rand 0.8.5",
  "rlibc",
  "scale-info",
- "secp256k1 0.22.1",
+ "secp256k1 0.24.1",
  "sha2 0.10.2",
  "sha3",
  "static_assertions",
 ]
 
 [[package]]
-name = "ink_eth_compatibility"
-version = "3.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34ab970c1d9d27b4c9d3609dd048a9e49151691955806224a3107b1d31d50010"
-dependencies = [
- "ink_env",
- "libsecp256k1",
-]
-
-[[package]]
 name = "ink_lang"
-version = "3.0.1"
+version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4466ef3833f113d4b8b685550b16eece4d4fa812d6de3e7ce5725ae5e1dc44f"
+checksum = "cca26e374e0f89c82cf5dabb4309ef3c76a01659ad95186f4e84455c5f4621a0"
 dependencies = [
  "derive_more",
  "ink_env",
- "ink_eth_compatibility",
  "ink_lang_macro",
  "ink_prelude",
  "ink_primitives",
@@ -1145,9 +1134,9 @@ dependencies = [
 
 [[package]]
 name = "ink_lang_codegen"
-version = "3.0.1"
+version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3060b19aec639eea7811d36d9143c849f97a4f742bf5e43f892ad6ce8c43050a"
+checksum = "9fe57826726d89c84fe0b1fafe0dee328f58c8e927be40f0290f04602aacc45c"
 dependencies = [
  "blake2",
  "derive_more",
@@ -1164,9 +1153,9 @@ dependencies = [
 
 [[package]]
 name = "ink_lang_ir"
-version = "3.1.0"
+version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ea5a1b06d72d1abaa50c7788e670f21e2de9fc9e651ee57b3b24596da693d08"
+checksum = "f47d16b2a5340df90f11b2ec2242b37907f5c8396dbbc72c52ec9f2b1a8c90c8"
 dependencies = [
  "blake2",
  "either",
@@ -1178,9 +1167,9 @@ dependencies = [
 
 [[package]]
 name = "ink_lang_macro"
-version = "3.0.1"
+version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ffcfe6b64bc9fc9ee5ac92c5655c9d4dc27ae6062addc0cba2045446dfea105"
+checksum = "81b858be42ac6cde2c15ce6d7fa75cef59b64a3baf37f7105f39208f2b84dadb"
 dependencies = [
  "ink_lang_codegen",
  "ink_lang_ir",
@@ -1192,9 +1181,9 @@ dependencies = [
 
 [[package]]
 name = "ink_metadata"
-version = "3.0.1"
+version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fbe60facb61034f78367fc30dc56bd5e385487ce60aefd0b1727e6b680446dc"
+checksum = "74913aaed5751f5615af4631b7559328b8ed56c9cb821b89e14af0706176e849"
 dependencies = [
  "derive_more",
  "impl-serde",
@@ -1206,18 +1195,18 @@ dependencies = [
 
 [[package]]
 name = "ink_prelude"
-version = "3.1.0"
+version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90a9133adeaa0d07bb1f29b9d4a0db6f0399e34ff63d5c9f1c008cde54f4db24"
+checksum = "1f031e6b8495594a7288b089bf4122e76c26b994959d1b2b693bdfe846b14c0e"
 dependencies = [
  "cfg-if",
 ]
 
 [[package]]
 name = "ink_primitives"
-version = "3.0.1"
+version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1793c77ab7354147a4a0de3e0a77a31a29bf6fbd5f97192b8202c3ce2587699"
+checksum = "e12cf42dce81d060401c7cec95a392ad6d3c2f18661fa3083f619ce135133c33"
 dependencies = [
  "cfg-if",
  "ink_prelude",
@@ -1227,9 +1216,9 @@ dependencies = [
 
 [[package]]
 name = "ink_storage"
-version = "3.0.1"
+version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c0aead5b91524156263fa11d203f3304f55e5c4d2050949939d1f47ad82ee8f"
+checksum = "9c0a98b6acbd79eedf44720412437d713e7195d1407822604de5885b0ee6c7e1"
 dependencies = [
  "array-init",
  "cfg-if",
@@ -1245,9 +1234,9 @@ dependencies = [
 
 [[package]]
 name = "ink_storage_derive"
-version = "3.1.0"
+version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "799e4abd7ecf3a146a70dda56c8523583d2ec338fca3224179d8b592a2192dc4"
+checksum = "babf1d8903dc9219ad8e8aa181eddb919d9794aad1da23ccdce770925b7de2ba"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1804,7 +1793,7 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
 name = "polymesh-api"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "ink_env",
  "ink_lang",
@@ -1879,7 +1868,7 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-ink"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "hex",
  "ink_env",
@@ -2274,11 +2263,11 @@ dependencies = [
 
 [[package]]
 name = "secp256k1"
-version = "0.22.1"
+version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26947345339603ae8395f68e2f3d85a6b0a8ddfe6315818e80b8504415099db0"
+checksum = "ff55dc09d460954e9ef2fa8a7ced735a964be9981fd50e870b2b3b0705e14964"
 dependencies = [
- "secp256k1-sys 0.5.2",
+ "secp256k1-sys 0.6.1",
 ]
 
 [[package]]
@@ -2292,9 +2281,9 @@ dependencies = [
 
 [[package]]
 name = "secp256k1-sys"
-version = "0.5.2"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "152e20a0fd0519390fc43ab404663af8a0b794273d2a91d60ad4a39f13ffe110"
+checksum = "83080e2c2fc1006e625be82e5d1eb6a43b7fd9578b617fcc55814daf286bba4b"
 dependencies = [
  "cc",
 ]

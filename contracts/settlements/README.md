@@ -8,7 +8,7 @@ cargo install cargo-contract --force
 ```
 
 Build the contract:
-`cargo +nightly-2022-05-10 contract build --release`
+`cargo +nightly contract build --release`
 
 Contract file needed for deployment `./target/ink/settlements.contract`.
 
