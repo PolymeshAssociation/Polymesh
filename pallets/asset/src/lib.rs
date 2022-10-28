@@ -982,6 +982,8 @@ decl_error! {
         AssetMetadataLocalKeyAlreadyExists,
         /// Asset Metadata Global type already exists.
         AssetMetadataGlobalKeyAlreadyExists,
+        /// Tickers should start with at least one valid byte.
+        TickerFirstByteNotValid,
     }
 }
 
@@ -1247,6 +1249,8 @@ impl<T: Config> Module<T> {
     /// Ensure `ticker` is fully printable ASCII (SPACE to '~').
     fn ensure_ticker_ascii(ticker: &Ticker) -> DispatchResult {
         let bytes = ticker.as_slice();
+
+        ensure!(bytes[0] != 0, Error::<T>::TickerFirstByteNotValid);
         // Find first byte not printable ASCII.
         let good = bytes
             .iter()
