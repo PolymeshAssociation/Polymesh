@@ -17,11 +17,11 @@
 //! RPC interface for the transaction payment module.
 
 pub use self::gen_client::Client as TransactionPaymentClient;
-use codec::{Codec, Decode};
+use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 pub use node_rpc_runtime_api::transaction_payment::{
-    FeeDetails, InclusionFee, RuntimeDispatchInfo,
+    Encoded, FeeDetails, InclusionFee, RuntimeDispatchInfo,
     TransactionPaymentApi as TransactionPaymentRuntimeApi,
 };
 use polymesh_primitives::Balance;
@@ -120,11 +120,8 @@ where
             Some(1) => {
                 let encoded_len = encoded_xt.len() as u32;
 
-                let uxt: Extrinsic = Decode::decode(&mut &*encoded_xt).map_err(|e| RpcError {
-                    code: ErrorCode::ServerError(Error::DecodeError.into()),
-                    message: "Unable to query dispatch info.".into(),
-                    data: Some(format!("{:?}", e).into()),
-                })?;
+                // Pass the raw encoded bytes to the runtime, without decoding them here.
+                let uxt = Encoded(encoded_xt.0);
                 #[allow(deprecated)]
                 api.query_info_before_version_2(&at, uxt, encoded_len)
                     .map_err(|e| RpcError {
