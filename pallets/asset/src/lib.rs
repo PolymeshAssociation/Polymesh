@@ -1045,14 +1045,6 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::Origin> for Module<T> {
     fn issue(origin: T::Origin, ticker: Ticker, total_supply: Balance) -> DispatchResult {
         Self::issue(origin, ticker, total_supply)
     }
-
-    fn is_registered_ticker(ticker: &Ticker) -> bool {
-        <Tickers<T>>::contains_key(ticker)
-    }
-
-    fn is_registered_metadata_key(ticker: &Ticker, metadata_key: &AssetMetadataKey) -> bool {
-        Self::check_asset_metadata_key_exists(ticker, metadata_key)
-    }
 }
 
 impl<T: Config> AssetSubTrait for Module<T> {
@@ -1155,7 +1147,7 @@ impl<T: Config> Module<T> {
         Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, idents));
     }
 
-    fn ensure_agent_with_custody_and_perms(
+    pub fn ensure_agent_with_custody_and_perms(
         origin: T::Origin,
         ticker: Ticker,
     ) -> Result<IdentityId, DispatchError> {
@@ -2063,7 +2055,7 @@ impl<T: Config> Module<T> {
         })
     }
 
-    fn check_asset_metadata_key_exists(ticker: &Ticker, key: &AssetMetadataKey) -> bool {
+    pub fn check_asset_metadata_key_exists(ticker: &Ticker, key: &AssetMetadataKey) -> bool {
         match key {
             AssetMetadataKey::Global(key) => AssetMetadataGlobalKeyToName::contains_key(key),
             AssetMetadataKey::Local(key) => AssetMetadataLocalKeyToName::contains_key(ticker, key),
@@ -2568,5 +2560,10 @@ impl<T: Config> Module<T> {
         Tokens::mutate(ticker, |token| token.asset_type = asset_type);
         Self::deposit_event(RawEvent::AssetTypeChanged(did, ticker, asset_type));
         Ok(())
+    }
+
+    /// Returns true if the given ticker has already been registered
+    pub fn is_registered_ticker(ticker: &Ticker) -> bool {
+        Tickers::<T>::contains_key(ticker)
     }
 }

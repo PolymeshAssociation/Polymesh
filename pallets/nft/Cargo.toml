@@ -6,8 +6,10 @@ edition = "2021"
 
 [dependencies]
 # Our crates
+pallet-asset = { path = "../asset", default-features = false  }
 pallet-base = { path = "../base", default-features = false  }
 pallet-identity = { path = "../identity", default-features = false }
+pallet-portfolio = { path = "../portfolio", default-features = false }
 polymesh-common-utilities = { path = "../common", default-features = false }
 polymesh-primitives = { path = "../../primitives", default-features = false }
 # Substrate
@@ -24,7 +26,9 @@ std = [
     "codec/std",
     "frame-support/std",
     "frame-system/std",
+    "pallet-asset/std",
     "pallet-identity/std",
+    "pallet-portfolio/std",
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",
     "sp-std/std"

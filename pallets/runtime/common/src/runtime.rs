@@ -546,7 +546,6 @@ macro_rules! misc_pallet_impls {
         impl pallet_nft::Config for Runtime {
             type Event = Event;
             type WeightInfo = polymesh_weights::pallet_nft::WeightInfo;
-            type Asset = Asset;
             type MaxNumberOfCollectionKeys = MaxNumberOfCollectionKeys;
         }
     };

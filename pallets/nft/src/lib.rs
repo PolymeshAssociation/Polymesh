@@ -4,14 +4,19 @@ use frame_support::dispatch::DispatchResult;
 use frame_support::traits::Get;
 use frame_support::{decl_error, decl_module, decl_storage};
 use pallet_base::try_next_pre;
-use polymesh_common_utilities::traits::asset::AssetFnTrait;
 pub use polymesh_common_utilities::traits::nft::{Config, Event, WeightInfo};
 use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use polymesh_primitives::nft::{
     NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute,
 };
 use polymesh_primitives::Ticker;
+use sp_std::collections::btree_map::BTreeMap;
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec::Vec;
+
+type Asset<T> = pallet_asset::Module<T>;
+type Identity<T> = pallet_identity::Module<T>;
+type Portfolio<T> = pallet_portfolio::Module<T>;
 
 decl_storage!(
     trait Store for Module<T: Config> as NFT {
@@ -19,7 +24,7 @@ decl_storage!(
         pub Collection get(fn nft_collection): map hasher(blake2_128_concat) NFTCollectionId => NFTCollection;
 
         /// All mandatory metadata keys for a given collection.
-        pub CollectionKeys get(fn collection_keys): map hasher(blake2_128_concat) NFTCollectionId => NFTCollectionKeys;
+        pub CollectionKeys get(fn collection_keys): map hasher(blake2_128_concat) NFTCollectionId => BTreeSet<AssetMetadataKey>;
 
         /// The metadata value of an nft given its collection id, token id and metadata key.
         pub MetadataValue get(fn metadata_value): double_map hasher(blake2_128_concat) (NFTCollectionId, NFTId), hasher(blake2_128_concat) AssetMetadataKey => AssetMetadataValue;
@@ -62,8 +67,8 @@ decl_module! {
         ///
         /// # Arguments
         /// * `origin` - is a signer that has permissions to act as an agent of `ticker`.
-        /// * `nft_collection_id` - the ticker associated to the new collection.
-        /// * `nft_attributes` - all mandatory metadata keys and values for the nft.
+        /// * `nft_collection_id` - the id of the NFT collection .
+        /// * `nft_metadata_attributes` - all mandatory metadata keys and values for the NFT.
         ///
         /// ## Errors
         /// - `CollectionNotFound` - if the collection associated to the given ticker has not been created.
@@ -78,6 +83,7 @@ decl_module! {
 decl_error! {
     pub enum Error for Module<T: Config> {
         CollectionNotFound,
+        DuplicateMetadataKey,
         InvalidMetadataAttribute,
         MaxNumberOfKeysExceeded,
         Unauthorized,
@@ -88,14 +94,15 @@ decl_error! {
 
 impl<T: Config> Module<T> {
     fn base_create_nft_collection(
-        _origin: T::Origin,
+        origin: T::Origin,
         ticker: Ticker,
         collection_keys: NFTCollectionKeys,
     ) -> DispatchResult {
         // Verifies if the caller has the right permissions to create the collection
+        let _did = Identity::<T>::ensure_perms(origin)?;
 
         // Verifies if the ticker has already been registered
-        if !T::Asset::is_registered_ticker(&ticker) {
+        if !Asset::<T>::is_registered_ticker(&ticker) {
             return Err(Error::<T>::UnregisteredTicker.into());
         }
 
@@ -104,8 +111,11 @@ impl<T: Config> Module<T> {
             return Err(Error::<T>::MaxNumberOfKeysExceeded.into());
         }
 
-        for key in collection_keys.metadata_keys() {
-            if !T::Asset::is_registered_metadata_key(&ticker, key) {
+        // Ignores duplicate keys
+        let collection_keys: BTreeSet<AssetMetadataKey> = collection_keys.into_iter().collect();
+
+        for key in &collection_keys {
+            if !Asset::<T>::check_asset_metadata_key_exists(&ticker, key) {
                 return Err(Error::<T>::UnregisteredMetadataKey.into());
             }
         }
@@ -121,37 +131,50 @@ impl<T: Config> Module<T> {
     }
 
     fn base_mint_nft(
-        _origin: T::Origin,
+        origin: T::Origin,
         collection_id: NFTCollectionId,
         metadata_attributes: Vec<NFTMetadataAttribute>,
     ) -> DispatchResult {
-        // Verifies if the caller has the right permissions
-
         // Verifies if the collection exists
-        if !Collection::contains_key(&collection_id) {
-            return Err(Error::<T>::CollectionNotFound.into());
+        let collection =
+            Collection::try_get(&collection_id).map_err(|_| Error::<T>::CollectionNotFound)?;
+
+        // Verifies if the caller has the right permissions (regarding asset and portfolio)
+        let caller_did =
+            Asset::<T>::ensure_agent_with_custody_and_perms(origin, collection.ticker().clone())?;
+
+        // Returns an error in case a duplicated key is found
+        let mut nft_attributes = BTreeMap::new();
+        for metadata_attribute in metadata_attributes {
+            if nft_attributes
+                .insert(metadata_attribute.key, metadata_attribute.value)
+                .is_some()
+            {
+                return Err(Error::<T>::DuplicateMetadataKey.into());
+            }
         }
 
-        // Verifies if the metadata atributes are respecting the set defined in the collection
-        let mandatory_keys = Self::collection_keys(&collection_id);
-        if metadata_attributes.len() != mandatory_keys.len() {
+        // Verifies if all mandatory metadata keys defined in the collection are being set
+        let mandatory_keys: BTreeSet<AssetMetadataKey> = Self::collection_keys(&collection_id);
+        if nft_attributes.len() != mandatory_keys.len() {
             return Err(Error::<T>::InvalidMetadataAttribute.into());
         }
-        for metadata_attribute in &metadata_attributes {
-            if !mandatory_keys.contains(&metadata_attribute.key) {
+        for metadata_key in nft_attributes.keys() {
+            if !mandatory_keys.contains(metadata_key) {
                 return Err(Error::<T>::InvalidMetadataAttribute.into());
             }
         }
 
-        // Mints the NFT
+        // Mints the NFT and adds it to the caller's portfolio
         let nft_id = NextNFTId::try_mutate(&collection_id, try_next_pre::<T, _>)?;
-        for metadata_attribute in metadata_attributes {
+        for (metadata_key, metadata_value) in nft_attributes.into_iter() {
             MetadataValue::insert(
                 (collection_id.clone(), nft_id.clone()),
-                metadata_attribute.key,
-                metadata_attribute.value,
+                metadata_key,
+                metadata_value,
             );
         }
+        Portfolio::<T>::add_portfolio_nft(caller_did, collection_id.clone(), nft_id.clone());
 
         Self::deposit_event(Event::MintedNft(collection_id, nft_id));
         Ok(())

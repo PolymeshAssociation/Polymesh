@@ -21,8 +21,8 @@ use frame_support::weights::Weight;
 use polymesh_primitives::{
     asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName},
     asset_metadata::{
-        AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName,
-        AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
+        AssetMetadataGlobalKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataSpec,
+        AssetMetadataValue, AssetMetadataValueDetail,
     },
     ethereum::EthereumAddress,
     AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, ScopeId, Ticker,
@@ -78,12 +78,6 @@ pub trait AssetFnTrait<Account, Origin> {
     fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker);
 
     fn issue(origin: Origin, ticker: Ticker, total_supply: Balance) -> DispatchResult;
-
-    /// Returns true if the given ticker has already been registered
-    fn is_registered_ticker(ticker: &Ticker) -> bool;
-
-    /// Returns true if the given metadata key has already been registered
-    fn is_registered_metadata_key(ticker: &Ticker, metadata_key: &AssetMetadataKey) -> bool;
 }
 
 pub trait WeightInfo {

@@ -1,6 +1,7 @@
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_std::prelude::Vec;
+use sp_std::vec::IntoIter;
+use sp_std::vec::Vec;
 
 use crate::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use crate::{impl_checked_inc, Ticker};
@@ -27,41 +28,39 @@ impl NFTCollection {
     pub fn new(id: NFTCollectionId, ticker: Ticker) -> Self {
         Self { id, ticker }
     }
+
+    /// Returns a reference to the `NFTCollectionId`.
+    pub fn id(&self) -> &NFTCollectionId {
+        &self.id
+    }
+
+    /// Returns a reference to the `Ticker` associated with the collection.
+    pub fn ticker(&self) -> &Ticker {
+        &self.ticker
+    }
 }
 
 /// The metadata keys for the NFT collection.
 #[derive(Clone, Debug, Decode, Default, Encode, PartialEq, TypeInfo)]
 pub struct NFTCollectionKeys(Vec<AssetMetadataKey>);
 
-impl NFTCollectionKeys {
+impl<'a> NFTCollectionKeys {
+    /// Returns an iterator, consuming the value, over `AssetMetadataKey`.
+    pub fn into_iter(self) -> IntoIter<AssetMetadataKey> {
+        self.0.into_iter()
+    }
+
     /// Returns the number of metadata keys.
     pub fn len(&self) -> usize {
         self.0.len()
     }
-
-    /// Returns a slice of all metadata keys.
-    pub fn metadata_keys(&self) -> &[AssetMetadataKey] {
-        &self.0
-    }
-
-    /// Returns true if the given key exists.
-    pub fn contains(&self, key: &AssetMetadataKey) -> bool {
-        self.0.contains(key)
-    }
 }
 
-/// Defines a metadata attribute which is a composed of a key and a value
+/// Defines a metadata attribute which is a composed of a key and a value.
 #[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
 pub struct NFTMetadataAttribute {
-    /// The mmetadata key
+    /// The metadata key.
     pub key: AssetMetadataKey,
-    /// The mmetadata value
+    /// The metadata value.
     pub value: AssetMetadataValue,
-}
-
-/// Defines an instance of an NFT collection.
-#[derive(Clone, Debug, Decode, Default, Encode, PartialEq, TypeInfo)]
-pub struct NFT {
-    id: NFTId,
-    collection_id: NFTCollectionId,
 }

@@ -229,6 +229,7 @@ pub mod ethereum;
 
 /// NFT type definitions.
 pub mod nft;
+pub use nft::{NFTCollectionId, NFTId};
 
 /// Represents custom transaction errors.
 #[repr(u8)]
