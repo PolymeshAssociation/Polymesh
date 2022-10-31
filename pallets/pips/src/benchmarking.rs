@@ -176,7 +176,7 @@ fn execute_verify<T: Config>(state: ProposalState, err: &'static str) -> Dispatc
     if Proposals::<T>::contains_key(PipId(0)) {
         assert_eq!(
             state,
-            Module::<T>::proposals(PipId(0)).unwrap().state,
+            Module::<T>::proposal_state(PipId(0)).unwrap(),
             "{}",
             err
         );
@@ -490,10 +490,12 @@ benchmarks! {
         Module::<T>::snapshot(origin0.into()).unwrap();
 
         let id = PipId(0);
+
         assert_eq!(
-            ProposalState::Pending, Module::<T>::proposals(id).unwrap().state,
+            ProposalState::Pending, Module::<T>::proposal_state(id).unwrap(),
             "incorrect proposal state before expiration"
         );
+
         let origin = RawOrigin::Root;
     }: _(origin, GC_DID, id)
     verify {

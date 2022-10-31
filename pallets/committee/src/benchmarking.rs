@@ -20,6 +20,7 @@ use frame_support::{
     traits::{ChangeMembers, UnfilteredDispatchable},
     StorageValue,
 };
+use frame_system::RawOrigin as SystemOrigin;
 use polymesh_common_utilities::{
     benchs::{user, AccountIdOf, User},
     MaybeBlock, TestUtilsFn,
@@ -35,13 +36,12 @@ const PROPOSAL_ALMOST_APPROVED: u32 = COMMITTEE_MEMBERS_MAX - 3;
 fn make_proposal<T, I>(
     n: u32,
 ) -> (
-    <T as frame_system::Config>::Call,
+    <T as Config<I>>::Proposal,
     <T as frame_system::Config>::Hash,
 )
 where
     I: Instance,
     T: Config<I>,
-    <T as frame_system::Config>::Call: From<frame_system::Call<T>>,
 {
     let bytes: [u8; 4] = n.to_be_bytes();
     let padding = bytes.repeat(PROPOSAL_PADDING_WORDS);
@@ -54,7 +54,7 @@ fn make_proposals_and_vote<T, I>(users: &[User<T>]) -> DispatchResult
 where
     I: Instance,
     T: Config<I>,
-    <T as frame_system::Config>::Call: From<frame_system::Call<T>>,
+    <T as Config<I>>::Origin: From<SystemOrigin<T::AccountId>>,
 {
     assert!(
         users.len() > 0,
@@ -88,7 +88,7 @@ fn make_members_and_proposals<T, I>() -> Result<Vec<User<T>>, DispatchError>
 where
     I: Instance,
     T: Config<I> + TestUtilsFn<AccountIdOf<T>>,
-    <T as frame_system::Config>::Call: From<frame_system::Call<T>>,
+    <T as Config<I>>::Origin: From<SystemOrigin<T::AccountId>>,
 {
     let members: Vec<_> = (0..COMMITTEE_MEMBERS_MAX)
         .map(|i| user::<T>("member", i))
@@ -131,7 +131,7 @@ benchmarks_instance! {
     where_clause {
         where
             T: TestUtilsFn<AccountIdOf<T>>,
-            <T as frame_system::Config>::Call: From<frame_system::Call<T>>,
+            <T as Config<I>>::Origin: From<SystemOrigin<T::AccountId>>,
     }
 
     set_vote_threshold {

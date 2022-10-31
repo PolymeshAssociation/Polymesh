@@ -59,8 +59,8 @@ fn generate_tiers<T: Config>(n: u32) -> Vec<PriceTier> {
     let mut tiers = Vec::with_capacity(n);
     for i in 0..n {
         tiers.push(PriceTier {
-            total: 1u32.into(),
-            price: (i as u128 + 1).into(),
+            total: 100_000u128.into(),
+            price: (i as u128 + 100_000).into(),
         })
     }
     tiers
@@ -113,7 +113,7 @@ fn setup_fundraiser<T: Config + TestUtilsFn<AccountIdOf<T>>>(
         venue_id,
         None,
         Some(101u32.into()),
-        0u32.into(),
+        2,
         vec![].into(),
     )
     .unwrap();
@@ -159,14 +159,15 @@ benchmarks! {
 
     invest {
         let (alice, bob) = setup_fundraiser::<T>(T::MaxConditionComplexity::get() as u32, MAX_TIERS as u32, MAX_CONDITIONS as u32).unwrap();
+        let amount = 100u128;
     }: _(
             bob.user.origin(),
             bob.portfolio,
             bob.portfolio,
             OFFERING_TICKER,
             FundraiserId(0),
-            (MAX_TIERS as u128).into(),
-            Some(100u32.into()),
+            amount.into(),
+            Some(1_000_000u128.into()),
             None
         )
     verify {

@@ -48,7 +48,6 @@
 //! - `change_group` changes the agent group an asset belongs to.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(iter_advance_by)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;

@@ -29,7 +29,6 @@
 //! - `claim_itn_reward`: Claim an ITN reward with a valid signature.
 //! - `set_itn_reward_status`: Set the status of an account ITN reward, can only be called by root.
 
-#![feature(array_methods)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
@@ -202,7 +201,7 @@ impl<T: Config> Module<T> {
         msg[..32].copy_from_slice(&reward_address.encode());
         msg[32..].copy_from_slice(b"claim_itn_reward");
         ensure!(
-            signature.verify(msg.as_slice(), itn_address),
+            signature.verify(&msg[..], itn_address),
             Error::<T>::InvalidSignature
         );
         Ok(())

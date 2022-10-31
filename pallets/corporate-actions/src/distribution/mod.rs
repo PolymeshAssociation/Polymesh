@@ -154,7 +154,7 @@ decl_storage! {
         HolderPaid get(fn holder_paid): map hasher(blake2_128_concat) (CAId, IdentityId) => bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(0)): Version;
     }
 }
 
@@ -477,7 +477,7 @@ impl<T: Config> Module<T> {
     /// Kill the distribution identified by `ca_id`.
     ///
     /// Unlike `base_remove_distribution`, this won't check permissions and that the dist exists.
-    crate fn unverified_remove_distribution(
+    pub(crate) fn unverified_remove_distribution(
         agent: EventDid,
         ca_id: CAId,
         dist: &Distribution,
@@ -495,7 +495,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Ensure that `now < payment_at`.
-    crate fn ensure_distribution_not_started(dist: &Distribution) -> DispatchResult {
+    pub(crate) fn ensure_distribution_not_started(dist: &Distribution) -> DispatchResult {
         ensure!(
             <Checkpoint<T>>::now_unix() < dist.payment_at,
             Error::<T>::DistributionStarted
@@ -601,7 +601,7 @@ impl<T: Config> Module<T> {
     /// Create a capital distribution.
     ///
     /// Unlike `base_distribute`, this won't check permissions.
-    crate fn unverified_distribute(
+    pub(crate) fn unverified_distribute(
         agent: IdentityId,
         secondary_key: Option<SecondaryKey<T::AccountId>>,
         ca_id: CAId,

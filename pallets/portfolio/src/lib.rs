@@ -40,7 +40,6 @@
 //! - `ensure_portfolio_transfer_validity`: Makes sure that a transfer between two portfolios is valid.
 //! - `quit_portfolio_custody`: Returns the custody of the portfolio to the owner unilaterally.
 
-#![feature(const_option)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -126,11 +125,11 @@ decl_storage! {
             double_map hasher(identity) IdentityId, hasher(twox_64_concat) PortfolioId => bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
     }
 }
 
-storage_migration_ver!(1);
+storage_migration_ver!(2);
 
 decl_error! {
     pub enum Error for Module<T: Config> {
@@ -304,6 +303,7 @@ decl_module! {
             // Change the name in storage.
             Portfolios::mutate(&primary_did, &num, |p| {
                 NameToNumber::remove(&primary_did, mem::replace(p, to_name.clone()));
+                NameToNumber::insert(&primary_did, &to_name, num);
             });
 
             // Emit Event.
@@ -350,10 +350,18 @@ decl_module! {
             // the NameToNumber mapping was left out of date, this upgrade removes dangling
             // NameToNumber mappings.
             // https://github.com/PolymeshAssociation/Polymesh/pull/1200
-            storage_migrate_on!(StorageVersion::get(), 1, {
+            storage_migrate_on!(StorageVersion, 1, {
                 NameToNumber::iter()
                     .filter(|(identity, _, number)| !Portfolios::contains_key(identity, number))
                     .for_each(|(identity, name, _)| NameToNumber::remove(identity, name));
+            });
+            storage_migrate_on!(StorageVersion, 2, {
+                Portfolios::iter()
+                    .filter(|(identity, number, name)| number == &Self::name_to_number(identity, name))
+                    .for_each(|(identity, number, name)| {
+                            NameToNumber::insert(identity, name, number);
+                    }
+                );
             });
 
             0
