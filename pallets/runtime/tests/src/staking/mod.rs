@@ -5815,3 +5815,19 @@ fn test_bond_too_small() {
         assert_ok!(both(90, 91, MinimumBond::get() + 1));
     });
 }
+
+#[test]
+fn chill_from_governance() {
+    ExtBuilder::default().build_and_execute(|| {
+       // add new validator
+       bond_validator_with_intended_count(4, 3, 500000, Some(3));
+
+        provide_did_to_user(3);
+        add_secondary_key(3, 4);
+        add_secondary_key(3, 5);
+
+        let entity_id = Identity::get_identity(&3).unwrap();
+
+        Staking::chill_from_governance(Origin::signed(3), entity_id, vec![4,5]);
+    });
+}
