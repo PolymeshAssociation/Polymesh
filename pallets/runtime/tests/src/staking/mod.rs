@@ -5818,16 +5818,38 @@ fn test_bond_too_small() {
 
 #[test]
 fn chill_from_governance() {
-    ExtBuilder::default().build_and_execute(|| {
-       // add new validator
-       bond_validator_with_intended_count(4, 3, 500000, Some(3));
+    ExtBuilder::default()
+        .validator_count(8)
+        .minimum_validator_count(1)
+        .build()
+        .execute_with(|| {
+            // Add new validator
+            bond(50, 51, 500000);
+            let entity_id = Identity::get_identity(&50).unwrap();
 
-        provide_did_to_user(3);
-        add_secondary_key(3, 4);
-        add_secondary_key(3, 5);
+            // Add a new validator successfully.
+            bond_validator_with_intended_count(50, 51, 500000, Some(2));
 
-        let entity_id = Identity::get_identity(&3).unwrap();
+            assert_permissioned_identity_prefs!(entity_id, 2, 1);
 
-        Staking::chill_from_governance(Origin::signed(3), entity_id, vec![4,5]);
-    });
+            // Add other stash and controller to the same did.
+            // 60 stash and 61 controller.
+            add_secondary_key(50, 60);
+            add_secondary_key(50, 61);
+
+            // Validate one more validator from the same entity.
+            bond_validator(60, 61, 500000);
+            assert_permissioned_identity_prefs!(entity_id, 2, 2);
+
+            assert_ok!(Staking::chill_from_governance(
+                Origin::signed(2000),
+                entity_id,
+                vec![60, 61]
+            ));
+
+            assert_noop!(
+                Staking::chill_from_governance(Origin::signed(2000), entity_id, vec![60, 61]),
+                Error::<Test>::NotExists
+            );
+        });
 }

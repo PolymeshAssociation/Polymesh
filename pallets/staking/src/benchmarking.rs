@@ -755,7 +755,9 @@ benchmarks! {
         clear_validators_and_nominators::<T>();
         let (stash, controller) = create_stash_controller::<T>(10, INIT_BALANCE)?;
         whitelist_account!(controller);
-    }: _(controller.origin(), stash.did(), vec![stash.account()])
+        let stash_id = stash.did();
+        add_perm_validator::<T>(stash_id, Some(1));
+    }: _(RawOrigin::Root, stash_id, vec![stash.account()])
 }
 
 #[cfg(test)]
