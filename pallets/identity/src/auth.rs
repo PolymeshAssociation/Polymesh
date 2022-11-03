@@ -29,7 +29,7 @@ use sp_std::vec::Vec;
 
 impl<T: Config> Module<T> {
     /// Adds an authorization.
-    crate fn base_add_authorization(
+    pub(crate) fn base_add_authorization(
         origin: T::Origin,
         target: Signatory<T::AccountId>,
         authorization_data: AuthorizationData<T::AccountId>,
@@ -79,7 +79,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Removes an authorization.
-    crate fn base_remove_authorization(
+    pub(crate) fn base_remove_authorization(
         origin: T::Origin,
         target: Signatory<T::AccountId>,
         auth_id: u64,
@@ -104,7 +104,7 @@ impl<T: Config> Module<T> {
 
     /// Removes any authorization. No questions asked.
     /// NB: Please do all the required checks before calling this function.
-    crate fn unsafe_remove_auth(
+    pub(crate) fn unsafe_remove_auth(
         target: &Signatory<T::AccountId>,
         auth_id: u64,
         authorizer: &IdentityId,
@@ -123,7 +123,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Returns an iterator over all authorizations belonging to `signer` and authorized by `did`.
-    crate fn auths_of(
+    pub(crate) fn auths_of(
         signer: &Signatory<T::AccountId>,
         did: IdentityId,
     ) -> impl Iterator<Item = u64> {

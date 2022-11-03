@@ -367,7 +367,7 @@ type Lookup = IdentityLookup<AccountId>;
 type OffChainSignature = AnySignature;
 type SessionIndex = u32;
 type AuthorityId = <AnySignature as Verify>::Signer;
-crate type Balance = u128;
+pub(crate) type Balance = u128;
 
 parameter_types! {
     pub const BlockHashCount: u32 = 250;
@@ -540,6 +540,8 @@ impl group::Config<group::Instance4> for TestStorage {
 pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as frame_system::Config>::AccountId, I>;
 
 impl committee::Config<committee::Instance1> for TestStorage {
+    type Origin = Origin;
+    type Proposal = Call;
     type CommitteeOrigin = VMO<committee::Instance1>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
@@ -547,6 +549,8 @@ impl committee::Config<committee::Instance1> for TestStorage {
 }
 
 impl committee::Config<committee::Instance3> for TestStorage {
+    type Origin = Origin;
+    type Proposal = Call;
     type CommitteeOrigin = EnsureRoot<AccountId>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
@@ -554,6 +558,8 @@ impl committee::Config<committee::Instance3> for TestStorage {
 }
 
 impl committee::Config<committee::Instance4> for TestStorage {
+    type Origin = Origin;
+    type Proposal = Call;
     type CommitteeOrigin = EnsureRoot<AccountId>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
@@ -628,6 +634,7 @@ impl pips::Config for TestStorage {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
+    type SchedulerCall = Call;
 }
 
 impl pallet_test_utils::Config for TestStorage {
@@ -940,7 +947,7 @@ pub fn make_remark_proposal() -> Call {
     .into()
 }
 
-crate fn set_curr_did(did: Option<IdentityId>) {
+pub(crate) fn set_curr_did(did: Option<IdentityId>) {
     Context::set_current_identity::<Identity>(did);
 }
 

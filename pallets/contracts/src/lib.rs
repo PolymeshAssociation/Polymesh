@@ -50,7 +50,6 @@
 //!   The contract's address will be added as a secondary key with the provided permissions.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(associated_type_bounds)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -89,7 +88,10 @@ type CodeHash<T> = <T as frame_system::Config>::Hash;
 
 pub struct ContractPolymeshHooks;
 
-impl<T: Config> pallet_contracts::PolymeshHooks<T> for ContractPolymeshHooks {
+impl<T: Config> pallet_contracts::PolymeshHooks<T> for ContractPolymeshHooks
+where
+    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
+{
     fn check_call_permissions(caller: &T::AccountId) -> DispatchResult {
         pallet_permissions::Module::<T>::ensure_call_permissions(caller)?;
         Ok(())
@@ -165,11 +167,7 @@ pub trait WeightInfo {
 
 /// The `Config` trait for the smart contracts pallet.
 pub trait Config:
-    IdentityConfig
-    + BConfig<Currency = Self::Balances, Call: GetCallMetadata>
-    + frame_system::Config<
-        AccountId: AsRef<[u8]> + UncheckedFrom<<Self as frame_system::Config>::Hash>,
-    >
+    IdentityConfig + BConfig<Currency = Self::Balances> + frame_system::Config
 {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
@@ -191,7 +189,7 @@ decl_event! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Config> {
+    pub enum Error for Module<T: Config> where T::AccountId: UncheckedFrom<T::Hash>, T::AccountId: AsRef<[u8]> {
         /// The given `func_id: u32` did not translate into a known runtime call.
         RuntimeCallNotFound,
         /// Data left in input when decoding arguments of a call.
@@ -205,13 +203,13 @@ decl_error! {
 }
 
 decl_storage! {
-    trait Store for Module<T: Config> as Contracts {
+    trait Store for Module<T: Config> as Contracts where T::AccountId: UncheckedFrom<T::Hash>, T::AccountId: AsRef<[u8]> {
         // Storage items defined in `pallet_contracts` and `pallet_identity`.
     }
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin, T::AccountId: UncheckedFrom<T::Hash>, T::AccountId: AsRef<[u8]> {
         type Error = Error<T>;
         fn deposit_event() = default;
 
@@ -306,7 +304,10 @@ decl_module! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Module<T>
+where
+    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
+{
     /// Instantiates a contract using `code` as the WASM code blob.
     fn base_instantiate_with_code(
         origin: T::Origin,
@@ -412,7 +413,7 @@ impl<T: Config> Module<T> {
             Self::handle_error(
                 base_weight,
                 FrameContracts::<T>::bare_instantiate(
-                    sender.clone(),
+                    sender,
                     endowment,
                     gas_limit,
                     storage_deposit_limit,
@@ -451,6 +452,7 @@ impl<T: Config> Module<T> {
 pub enum CommonCall<T>
 where
     T: Config + pallet_asset::Config,
+    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 {
     Asset(pallet_asset::Call<T>),
     PolymeshContracts(Call<T>),
@@ -485,9 +487,12 @@ fn split_func_id(func_id: u32) -> FuncId {
 }
 
 /// Returns the `contract`'s DID or errors.
-fn contract_did<T: Config>(contract: &T::AccountId) -> Result<IdentityId, DispatchError> {
+fn contract_did<T: Config>(contract: &T::AccountId) -> Result<IdentityId, DispatchError>
+where
+    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
+{
     // N.B. it might be the case that the contract is a primary key due to rotation.
-    Ok(Identity::<T>::get_identity(&contract).ok_or(Error::<T>::InstantiatorWithNoIdentity)?)
+    Ok(Identity::<T>::get_identity(contract).ok_or(Error::<T>::InstantiatorWithNoIdentity)?)
 }
 
 /// Run `with` while the current DID and Payer is temporarily set to the given one.
@@ -507,7 +512,10 @@ fn with_did_and_payer<T: Config, W: FnOnce() -> R, R>(
 }
 
 /// Ensure that `input.is_empty()` or error.
-fn ensure_consumed<T: Config>(input: &[u8]) -> DispatchResult {
+fn ensure_consumed<T: Config>(input: &[u8]) -> DispatchResult
+where
+    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
+{
     ensure!(input.is_empty(), Error::<T>::DataLeftAfterDecoding);
     Ok(())
 }
@@ -521,6 +529,7 @@ fn decode<V: Decode, T: Config>(input: &mut &[u8]) -> Result<V, DispatchError> {
 fn construct_call<T>(func_id: u32, input: &mut &[u8]) -> Result<CommonCall<T>, DispatchError>
 where
     T: Config + pallet_asset::Config,
+    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 {
     /// Decode type from `input`.
     macro_rules! decode {
@@ -579,8 +588,9 @@ where
 /// and using the contract's DID instead of the caller's DID.
 impl<T> ce::ChainExtension<T> for Module<T>
 where
-    <T as BConfig>::Call: From<CommonCall<T>> + GetDispatchInfo,
+    <T as BConfig>::Call: From<CommonCall<T>> + GetDispatchInfo + GetCallMetadata,
     T: Config + pallet_asset::Config,
+    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 {
     fn enabled() -> bool {
         true

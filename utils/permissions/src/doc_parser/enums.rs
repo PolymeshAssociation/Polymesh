@@ -3,7 +3,7 @@ use regex::Regex;
 use scraper::{ElementRef, Html, Selector};
 
 lazy_static! {
-    static ref VARIANT_REGEX: Regex = Regex::new(r#"variant\.(.+)"#).unwrap();
+    static ref VARIANT_REGEX: Regex = Regex::new(r#"variant\.(.+)\.fields"#).unwrap();
 }
 
 #[derive(Debug)]

@@ -107,7 +107,7 @@ fn can_create_rename_delete_portfolio() {
             PortfolioNumber(2)
         );
         assert_eq!(name(), new_name);
-        assert!(!NameToNumber::contains_key(owner.did, name()));
+        assert!(NameToNumber::contains_key(owner.did, name()));
         assert_ok!(Portfolio::delete_portfolio(owner.origin(), num));
     });
 }

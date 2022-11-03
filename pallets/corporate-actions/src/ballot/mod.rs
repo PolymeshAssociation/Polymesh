@@ -630,7 +630,7 @@ decl_error! {
 
 impl<T: Config> Module<T> {
     /// Ensure the ballot hasn't started and remove it.
-    crate fn remove_ballot_base(
+    pub(crate) fn remove_ballot_base(
         agent: EventDid,
         ca_id: CAId,
         range: BallotTimeRange,
@@ -679,7 +679,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Ensure that `now < range.start`.
-    crate fn ensure_ballot_not_started(range: BallotTimeRange) -> DispatchResult {
+    pub(crate) fn ensure_ballot_not_started(range: BallotTimeRange) -> DispatchResult {
         ensure!(
             <Checkpoint<T>>::now_unix() < range.start,
             Error::<T>::VotingAlreadyStarted

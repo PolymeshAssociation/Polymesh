@@ -96,7 +96,7 @@ sp-transaction-pool = { version = "4.0.0-dev", default-features = false }
 sp-version = { version = "5.0.0", default-features = false }
 
 # Crypto
-confidential_identity_core = { version = "1.0.0", default-features = false }
+confidential_identity_core = { version = "1.0.1", default-features = false }
 
 [build-dependencies]
 polymesh-build-tool = { path = "../build_tool", default-features = false }
@@ -107,7 +107,6 @@ equalize = []
 
 # Backends
 u64_backend = ["confidential_identity_core/u64_backend"]
-avx2_backend = ["confidential_identity_core/avx2_backend"]
 
 migration-dry-run = []
 no_std = [
@@ -115,7 +114,7 @@ no_std = [
     "u64_backend",
 ]
 std = [
-    "avx2_backend",
+    "u64_backend",
     "codec/std",
     "frame-support/std",
     "frame-system-rpc-runtime-api/std",

@@ -54,8 +54,9 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("polymesh_dev"),
     impl_name: create_runtime_str!("polymesh_dev"),
     authoring_version: 1,
-    // `spec_version: aaa_bbb_ccc` should match node version v`aaa.bbb.ccc`
-    spec_version: 5_000_004,
+    // `spec_version: aaa_bbb_ccd` should match node version v`aaa.bbb.cc`
+    // N.B. `d` is unpinned from the binary version
+    spec_version: 5_001_002,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 3,
@@ -211,6 +212,8 @@ impl polymesh_common_utilities::traits::identity::Config for Runtime {
 }
 
 impl pallet_committee::Config<GovernanceCommittee> for Runtime {
+    type Origin = Origin;
+    type Proposal = Call;
     type CommitteeOrigin = VMO<GovernanceCommittee>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
@@ -233,6 +236,8 @@ impl pallet_group::Config<pallet_group::Instance1> for Runtime {
 macro_rules! committee_config {
     ($committee:ident, $instance:ident) => {
         impl pallet_committee::Config<pallet_committee::$instance> for Runtime {
+            type Origin = Origin;
+            type Proposal = Call;
             // Can act upon itself.
             type CommitteeOrigin = VMO<pallet_committee::$instance>;
             type VoteThresholdOrigin = Self::CommitteeOrigin;
@@ -268,6 +273,7 @@ impl pallet_pips::Config for Runtime {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
+    type SchedulerCall = Call;
 }
 
 /// CddProviders instance of group
@@ -369,11 +375,11 @@ construct_runtime!(
         CorporateBallot: pallet_corporate_ballot::{Pallet, Call, Storage, Event},
         Permissions: pallet_permissions::{Pallet},
         Pips: pallet_pips::{Pallet, Call, Storage, Event<T>, Config<T>},
-        Portfolio: pallet_portfolio::{Pallet, Call, Storage, Event},
+        Portfolio: pallet_portfolio::{Pallet, Call, Storage, Event, Config},
         ProtocolFee: pallet_protocol_fee::{Pallet, Call, Storage, Event<T>, Config},
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
         Settlement: pallet_settlement::{Pallet, Call, Storage, Event<T>, Config},
-        Statistics: pallet_statistics::{Pallet, Call, Storage, Event},
+        Statistics: pallet_statistics::{Pallet, Call, Storage, Event, Config},
         Sto: pallet_sto::{Pallet, Call, Storage, Event<T>},
         Treasury: pallet_treasury::{Pallet, Call, Event<T>},
         Utility: pallet_utility::{Pallet, Call, Storage, Event},

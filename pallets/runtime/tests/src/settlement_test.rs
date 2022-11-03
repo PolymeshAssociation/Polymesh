@@ -16,8 +16,8 @@ use pallet_identity as identity;
 use pallet_portfolio::MovePortfolioItem;
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
-    AffirmationStatus, Instruction, InstructionId, InstructionStatus, Leg, LegId, LegStatus,
-    Receipt, ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails, VenueId,
+    AffirmationStatus, Instruction, InstructionId, InstructionMemo, InstructionStatus, Leg, LegId,
+    LegStatus, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails, VenueId,
     VenueInstructions, VenueType,
 };
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
@@ -318,7 +318,7 @@ fn basic_settlement() {
                 to: PortfolioId::default_portfolio(bob.did),
                 asset: TICKER,
                 amount: amount
-            }]
+            }],
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -416,7 +416,7 @@ fn overdraft_failure() {
                 to: PortfolioId::default_portfolio(bob.did),
                 asset: TICKER,
                 amount: amount
-            }]
+            }],
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -467,7 +467,7 @@ fn token_swap() {
             SettlementType::SettleOnAffirmation,
             None,
             None,
-            legs.clone()
+            legs.clone(),
         ));
 
         assert_user_affirms(instruction_id, &alice, AffirmationStatus::Pending);
@@ -598,7 +598,7 @@ fn claiming_receipt() {
             SettlementType::SettleOnAffirmation,
             None,
             None,
-            legs.clone()
+            legs.clone(),
         ));
 
         assert_user_affirms(instruction_id, &alice, AffirmationStatus::Pending);
@@ -824,7 +824,7 @@ fn settle_on_block() {
             SettlementType::SettleOnBlock(block_number),
             None,
             None,
-            legs.clone()
+            legs.clone(),
         ));
         assert_eq!(1, scheduler::Agenda::<TestStorage>::get(block_number).len());
 
@@ -943,7 +943,7 @@ fn failed_execution() {
             SettlementType::SettleOnBlock(block_number),
             None,
             None,
-            legs.clone()
+            legs.clone(),
         ));
         assert_eq!(1, scheduler::Agenda::<TestStorage>::get(block_number).len());
 
@@ -1069,7 +1069,7 @@ fn venue_filtering() {
             SettlementType::SettleOnBlock(block_number),
             None,
             None,
-            legs.clone()
+            legs.clone(),
         ));
         assert_ok!(Settlement::set_venue_filtering(
             alice.origin(),
@@ -1083,7 +1083,7 @@ fn venue_filtering() {
                 SettlementType::SettleOnBlock(block_number),
                 None,
                 None,
-                legs.clone()
+                legs.clone(),
             ),
             Error::UnauthorizedVenue
         );
@@ -1099,7 +1099,7 @@ fn venue_filtering() {
             None,
             None,
             legs.clone(),
-            default_portfolio_vec(alice.did)
+            default_portfolio_vec(alice.did),
         ));
 
         assert_affirm_instruction_with_one_leg!(alice.origin(), instruction_id, alice.did);
@@ -1277,7 +1277,7 @@ fn basic_fuzzing() {
             SettlementType::SettleOnBlock(block_number),
             None,
             None,
-            legs.clone()
+            legs.clone(),
         ));
 
         // Authorize instructions and do a few authorize/deny in between
@@ -1478,7 +1478,7 @@ fn claim_multiple_receipts_during_authorization() {
             SettlementType::SettleOnAffirmation,
             None,
             None,
-            legs.clone()
+            legs.clone(),
         ));
 
         alice.assert_all_balances_unchanged();
@@ -1616,7 +1616,7 @@ fn overload_instruction() {
                 SettlementType::SettleOnAffirmation,
                 None,
                 None,
-                legs.clone()
+                legs.clone(),
             ),
             Error::InstructionHasTooManyLegs
         );
@@ -1627,7 +1627,7 @@ fn overload_instruction() {
             SettlementType::SettleOnAffirmation,
             None,
             None,
-            legs
+            legs,
         ));
     });
 }
@@ -1754,7 +1754,7 @@ fn test_weights_for_settlement_transaction() {
                 SettlementType::SettleOnAffirmation,
                 None,
                 None,
-                legs.clone()
+                legs.clone(),
             ));
 
             assert_affirm_instruction_with_one_leg!(
@@ -1806,7 +1806,7 @@ fn cross_portfolio_settlement() {
                 to: PortfolioId::user_portfolio(bob.did, num),
                 asset: TICKER,
                 amount: amount
-            }]
+            }],
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -1894,7 +1894,7 @@ fn multiple_portfolio_settlement() {
                     asset: TICKER,
                     amount: amount
                 }
-            ]
+            ],
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -2057,7 +2057,7 @@ fn multiple_custodian_settlement() {
                     asset: TICKER,
                     amount: amount
                 }
-            ]
+            ],
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -2253,18 +2253,12 @@ fn dirty_storage_with_tx() {
                     amount: amount1
                 },
                 Leg {
-                    from: PortfolioId::default_portfolio(bob.did),
-                    to: PortfolioId::default_portfolio(alice.did),
-                    asset: TICKER,
-                    amount: 0
-                },
-                Leg {
                     from: PortfolioId::default_portfolio(alice.did),
                     to: PortfolioId::default_portfolio(bob.did),
                     asset: TICKER,
                     amount: amount2
                 }
-            ]
+            ],
         ));
 
         assert_affirm_instruction!(alice.origin(), instruction_id, alice.did, 2);
@@ -2324,6 +2318,229 @@ fn reject_failed_instruction() {
     });
 }
 
+#[test]
+fn modify_venue_signers() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let charlie = User::new(AccountKeyring::Charlie);
+        let venue_counter = Settlement::venue_counter();
+
+        assert_ok!(Settlement::create_venue(
+            alice.origin(),
+            VenueDetails::default(),
+            vec![
+                AccountKeyring::Alice.to_account_id(),
+                AccountKeyring::Bob.to_account_id()
+            ],
+            VenueType::Exchange
+        ));
+
+        // Charlie fails to add dave to signer list
+        assert_noop!(
+            Settlement::update_venue_signers(
+                charlie.origin(),
+                venue_counter,
+                vec![AccountKeyring::Dave.to_account_id(),],
+                true
+            ),
+            Error::Unauthorized
+        );
+
+        // Alice adds charlie to signer list
+        assert_ok!(Settlement::update_venue_signers(
+            alice.origin(),
+            venue_counter,
+            vec![AccountKeyring::Charlie.to_account_id(),],
+            true
+        ));
+
+        // Alice fails to remove dave from signer list
+        assert_noop!(
+            Settlement::update_venue_signers(
+                alice.origin(),
+                venue_counter,
+                vec![AccountKeyring::Dave.to_account_id(),],
+                false
+            ),
+            Error::SignerDoesNotExist
+        );
+
+        // Alice fails to add charlie to the signer list
+        assert_noop!(
+            Settlement::update_venue_signers(
+                alice.origin(),
+                venue_counter,
+                vec![AccountKeyring::Charlie.to_account_id(),],
+                true
+            ),
+            Error::SignerAlreadyExists
+        );
+
+        // Alice removes charlie from signer list
+        assert_ok!(Settlement::update_venue_signers(
+            alice.origin(),
+            venue_counter,
+            vec![AccountKeyring::Charlie.to_account_id(),],
+            false
+        ));
+
+        // this checks if the signer is already in the signer list
+        assert_eq!(Settlement::venue_signers(venue_counter, alice.acc()), true);
+        assert_eq!(
+            Settlement::venue_signers(venue_counter, AccountKeyring::Bob.to_account_id()),
+            true
+        );
+        assert_eq!(
+            Settlement::venue_signers(venue_counter, AccountKeyring::Charlie.to_account_id()),
+            false
+        );
+
+        // Alice adds charlie, dave and eve
+        assert_ok!(Settlement::update_venue_signers(
+            alice.origin(),
+            venue_counter,
+            vec![
+                AccountKeyring::Charlie.to_account_id(),
+                AccountKeyring::Dave.to_account_id(),
+                AccountKeyring::Eve.to_account_id(),
+            ],
+            true
+        ));
+
+        // Alice removes charlie, dave and eve
+        assert_ok!(Settlement::update_venue_signers(
+            alice.origin(),
+            venue_counter,
+            vec![
+                AccountKeyring::Charlie.to_account_id(),
+                AccountKeyring::Dave.to_account_id(),
+                AccountKeyring::Eve.to_account_id(),
+            ],
+            false
+        ));
+
+        // Alice fails to adds charlie, dave, eve and bob
+        assert_noop!(
+            Settlement::update_venue_signers(
+                alice.origin(),
+                venue_counter,
+                vec![
+                    AccountKeyring::Charlie.to_account_id(),
+                    AccountKeyring::Dave.to_account_id(),
+                    AccountKeyring::Eve.to_account_id(),
+                    AccountKeyring::Bob.to_account_id()
+                ],
+                true
+            ),
+            Error::SignerAlreadyExists
+        );
+
+        assert_eq!(Settlement::venue_signers(venue_counter, alice.acc()), true);
+        assert_eq!(
+            Settlement::venue_signers(venue_counter, AccountKeyring::Bob.to_account_id()),
+            true
+        );
+        assert_eq!(
+            Settlement::venue_signers(venue_counter, AccountKeyring::Charlie.to_account_id()),
+            false
+        );
+        assert_eq!(
+            Settlement::venue_signers(venue_counter, AccountKeyring::Dave.to_account_id()),
+            false
+        );
+        assert_eq!(
+            Settlement::venue_signers(venue_counter, AccountKeyring::Eve.to_account_id()),
+            false
+        );
+    });
+}
+
+#[test]
+
+fn reject_instruction_with_zero_amount() {
+    test_with_cdd_provider(|eve| {
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let venue_counter = create_token_and_venue(TICKER, alice.user);
+        let amount = 0u128;
+
+        alice.refresh_init_balances();
+        bob.refresh_init_balances();
+
+        // Provide scope claim to sender and receiver of the transaction.
+        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
+
+        assert_noop!(
+            Settlement::add_instruction(
+                alice.origin(),
+                venue_counter,
+                SettlementType::SettleOnAffirmation,
+                None,
+                None,
+                vec![Leg {
+                    from: PortfolioId::default_portfolio(alice.did),
+                    to: PortfolioId::default_portfolio(bob.did),
+                    asset: TICKER,
+                    amount: amount
+                }]
+            ),
+            Error::ZeroAmount
+        );
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
+    });
+}
+
+fn basic_settlement_with_memo() {
+    test_with_cdd_provider(|eve| {
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let venue_counter = create_token_and_venue(TICKER, alice.user);
+        let instruction_id = Settlement::instruction_counter();
+        let amount = 100u128;
+        alice.refresh_init_balances();
+        bob.refresh_init_balances();
+
+        // Provide scope claim to sender and receiver of the transaction.
+        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve);
+        assert_ok!(Settlement::add_instruction_with_memo(
+            alice.origin(),
+            venue_counter,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            vec![Leg {
+                from: PortfolioId::default_portfolio(alice.did),
+                to: PortfolioId::default_portfolio(bob.did),
+                asset: TICKER,
+                amount: amount
+            }],
+            Some(InstructionMemo::default()),
+        ));
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
+
+        // check that the memo was stored correctly
+        assert_eq!(
+            Settlement::memo(instruction_id).unwrap(),
+            InstructionMemo::default()
+        );
+
+        assert_affirm_instruction_with_one_leg!(alice.origin(), instruction_id, alice.did);
+
+        alice.assert_all_balances_unchanged();
+        bob.assert_all_balances_unchanged();
+        set_current_block_number(5);
+        // Instruction get scheduled to next block.
+        assert_affirm_instruction_with_zero_leg!(bob.origin(), instruction_id, bob.did);
+
+        // Advances the block no. to execute the instruction.
+        next_block();
+        alice.assert_balance_decreased(&TICKER, amount);
+        bob.assert_balance_increased(&TICKER, amount);
+    });
+}
+
 fn create_instruction(
     alice: &User,
     bob: &User,
@@ -2345,7 +2562,7 @@ fn create_instruction(
             asset: ticker,
             amount
         }],
-        default_portfolio_vec(alice.did)
+        default_portfolio_vec(alice.did),
     ));
     instruction_id
 }

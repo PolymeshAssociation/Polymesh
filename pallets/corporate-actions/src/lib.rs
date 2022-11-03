@@ -84,8 +84,6 @@
 //! - `remove_ca(origin, id)` removes the CA identified by `id`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(crate_visibility_modifier)]
-#![feature(const_option)]
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -418,7 +416,7 @@ decl_storage! {
         pub Details get(fn details): map hasher(blake2_128_concat) CAId => CADetails;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(0)): Version;
     }
 }
 
@@ -942,7 +940,7 @@ impl<T: Config> Module<T> {
     }
 
     // Ensure that `record_date <= start`.
-    crate fn ensure_record_date_before_start(
+    pub(crate) fn ensure_record_date_before_start(
         ca: &CorporateAction,
         start: Moment,
     ) -> DispatchResult {
@@ -954,7 +952,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Returns the balance for `did` at `cp`, if any, or `did`'s current balance otherwise.
-    crate fn balance_at_cp(did: IdentityId, ca_id: CAId, cp: Option<CheckpointId>) -> Balance {
+    pub(crate) fn balance_at_cp(did: IdentityId, ca_id: CAId, cp: Option<CheckpointId>) -> Balance {
         let ticker = ca_id.ticker;
         match cp {
             // CP exists, use it.
@@ -967,7 +965,7 @@ impl<T: Config> Module<T> {
 
     // Extract checkpoint ID for the CA's record date, if any.
     // Assumes the CA has a record date where `date <= now`.
-    crate fn record_date_cp(ca: &CorporateAction, ca_id: CAId) -> Option<CheckpointId> {
+    pub(crate) fn record_date_cp(ca: &CorporateAction, ca_id: CAId) -> Option<CheckpointId> {
         // Record date has passed by definition.
         let ticker = ca_id.ticker;
         match ca.record_date.unwrap().checkpoint {
@@ -983,7 +981,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Ensure that `ca` targets `did`.
-    crate fn ensure_ca_targets(ca: &CorporateAction, did: &IdentityId) -> DispatchResult {
+    pub(crate) fn ensure_ca_targets(ca: &CorporateAction, did: &IdentityId) -> DispatchResult {
         ensure!(ca.targets.targets(did), Error::<T>::NotTargetedByCA);
         Ok(())
     }

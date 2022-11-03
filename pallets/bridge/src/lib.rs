@@ -98,7 +98,6 @@
 //! - `remove_freeze_admin`: Remove a freeze admin.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(const_option)]
 
 #[cfg(feature = "std")]
 mod genesis;
@@ -293,7 +292,7 @@ decl_storage! {
         BridgeLimitExempted get(fn bridge_exempted): map hasher(twox_64_concat) IdentityId => bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(0).unwrap()): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(0)): Version;
     }
     add_extra_genesis {
         /// AccountId of the multisig creator.

@@ -25,13 +25,13 @@ use polymesh_common_utilities::{
 };
 
 const TAX: Tax = Tax::one();
-crate const SEED: u32 = 0;
+pub(crate) const SEED: u32 = 0;
 const MAX_TARGET_IDENTITIES: u32 = 500;
 const MAX_DID_WHT_IDS: u32 = 1000;
 const DETAILS_LEN: u32 = 1000;
 const MAX_DOCS: u32 = 1000;
 
-crate const RD_SPEC: Option<RecordDateSpec> = Some(RecordDateSpec::Scheduled(2000));
+pub(crate) const RD_SPEC: Option<RecordDateSpec> = Some(RecordDateSpec::Scheduled(2000));
 const RD_SPEC2: Option<RecordDateSpec> = Some(RecordDateSpec::Scheduled(3000));
 
 // NOTE(Centril): A non-owner CAA is the less complex code path.
@@ -49,7 +49,7 @@ fn target<T: Config + TestUtilsFn<AccountIdOf<T>>>(u: u32) -> IdentityId {
     user::<T>("target", u).did()
 }
 
-crate fn target_ids<T: Config + TestUtilsFn<AccountIdOf<T>>>(
+pub(crate) fn target_ids<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     n: u32,
     treatment: TargetTreatment,
 ) -> TargetIdentities {
@@ -63,7 +63,7 @@ crate fn target_ids<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     }
 }
 
-crate fn did_whts<T: Config + TestUtilsFn<AccountIdOf<T>>>(n: u32) -> Vec<(IdentityId, Tax)> {
+pub(crate) fn did_whts<T: Config + TestUtilsFn<AccountIdOf<T>>>(n: u32) -> Vec<(IdentityId, Tax)> {
     (0..n)
         .map(target::<T>)
         .map(|did| (did, TAX))
@@ -94,7 +94,7 @@ fn add_docs<T: Config>(origin: &T::Origin, ticker: Ticker, n: u32) -> Vec<Docume
     ids
 }
 
-crate fn setup_ca<T: Config + TestUtilsFn<AccountIdOf<T>>>(kind: CAKind) -> (User<T>, CAId) {
+pub(crate) fn setup_ca<T: Config + TestUtilsFn<AccountIdOf<T>>>(kind: CAKind) -> (User<T>, CAId) {
     let (owner, ticker) = setup::<T>();
 
     <pallet_timestamp::Now<T>>::set(1000u32.into());
@@ -138,7 +138,7 @@ fn attach<T: Config>(owner: &User<T>, ca_id: CAId) {
     <Ballot<T>>::attach_ballot(owner.origin().into(), ca_id, range, meta, true).unwrap();
 }
 
-crate fn currency<T: Config>(owner: &User<T>) -> Ticker {
+pub(crate) fn currency<T: Config>(owner: &User<T>) -> Ticker {
     let currency = Ticker::try_from(b"B" as &[_]).unwrap();
     Asset::<T>::create_asset(
         owner.origin().into(),
@@ -171,7 +171,7 @@ fn distribute<T: Config>(owner: &User<T>, ca_id: CAId) {
     .unwrap();
 }
 
-crate fn set_ca_targets<T: Config + TestUtilsFn<AccountIdOf<T>>>(ca_id: CAId, k: u32) {
+pub(crate) fn set_ca_targets<T: Config + TestUtilsFn<AccountIdOf<T>>>(ca_id: CAId, k: u32) {
     CorporateActions::mutate(ca_id.ticker, ca_id.local_id, |ca| {
         let mut ids = target_ids::<T>(k, TargetTreatment::Exclude);
         ids.identities.sort();

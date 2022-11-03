@@ -242,6 +242,8 @@ impl pallet_session::Config for Test {
 }
 
 impl pallet_committee::Config<pallet_committee::Instance1> for Test {
+    type Origin = Origin;
+    type Proposal = Call;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type Event = Event;
@@ -262,6 +264,7 @@ impl pallet_pips::Config for Test {
     type Event = Event;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
+    type SchedulerCall = Call;
 }
 
 impl pallet_treasury::Config for Test {
