@@ -556,7 +556,7 @@ mod test {
             (0 * v + 0 * n + 1000 * a + 0 * w) as Weight
         }
 
-        fn chill_from_governance() -> Weight {
+        fn chill_from_governance(s: u32) -> Weight {
             unimplemented!()
         }
     }

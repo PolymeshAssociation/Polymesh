@@ -28,11 +28,15 @@ use polymesh_common_utilities::{
     TestUtilsFn,
 };
 use sp_runtime::traits::One;
+use polymesh_primitives::{
+    Permissions,
+};
 const SEED: u32 = 0;
 const MAX_SPANS: u32 = 100;
 const MAX_VALIDATORS: u32 = 1000;
 const MAX_SLASHES: u32 = 1000;
 const INIT_BALANCE: u32 = 10_000_000;
+const MAX_STASHES: u32 = 100;
 
 macro_rules! whitelist_account {
     ($acc:expr) => {
@@ -752,12 +756,25 @@ benchmarks! {
     }
 
     chill_from_governance {
-        clear_validators_and_nominators::<T>();
-        let (stash, controller) = create_stash_controller::<T>(10, INIT_BALANCE)?;
-        whitelist_account!(controller);
-        let stash_id = stash.did();
-        add_perm_validator::<T>(stash_id, Some(1));
-    }: _(RawOrigin::Root, stash_id, vec![stash.account()])
+        let s in 1 .. MAX_STASHES;
+        let validator = create_funded_user::<T>("caller", 2, 10000);
+        let validator_did = validator.did();
+        let mut signatories = Vec::with_capacity(s as usize);
+
+        // Increases the maximum number of validators
+        emulate_validator_setup::<T>(1, 1000, Perbill::from_percent(60));
+
+        add_perm_validator::<T>(validator_did, Some(1));
+        whitelist_account!(validator);
+
+        for x in 0 .. s {     
+            let key = create_funded_user_without_did::<T>("stash", x, 10000);
+            signatories.push(key.account.clone());
+            Identity::<T>::unsafe_join_identity(validator_did, Permissions::default(), key.account.clone());
+            
+            let _ = Staking::<T>::bond(RawOrigin::Root.into(), validator.lookup(), 2_000_000u32.into(), RewardDestination::Staked);   
+        }    
+    }: _(RawOrigin::Root, validator_did, signatories)
 }
 
 #[cfg(test)]
