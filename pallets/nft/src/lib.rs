@@ -19,6 +19,9 @@ type Asset<T> = pallet_asset::Module<T>;
 type Identity<T> = pallet_identity::Module<T>;
 type Portfolio<T> = pallet_portfolio::Module<T>;
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 storage_migration_ver!(1);
 
 decl_storage!(
@@ -85,12 +88,19 @@ decl_module! {
 
 decl_error! {
     pub enum Error for Module<T: Config> {
+        /// The NFT collection does not exist.
         CollectionNotFound,
+        /// A duplicate metadata key has been passed as parameter.
         DuplicateMetadataKey,
+        /// Either the number of keys or the key identifier does not match the keys defined for the collection.
         InvalidMetadataAttribute,
+        /// The maximum number of metadata keys was exceeded.
         MaxNumberOfKeysExceeded,
+        /// The caller does not have the permissions for the requested operation.
         Unauthorized,
+        /// At least one of the metadata keys has not been registered.
         UnregisteredMetadataKey,
+        /// The ticker has not been registered.
         UnregisteredTicker,
     }
 }
@@ -114,8 +124,12 @@ impl<T: Config> Module<T> {
             return Err(Error::<T>::MaxNumberOfKeysExceeded.into());
         }
 
-        // Ignores duplicate keys
+        // Returns an error in case a duplicated key is found
+        let n_keys = collection_keys.len();
         let collection_keys: BTreeSet<AssetMetadataKey> = collection_keys.into_iter().collect();
+        if n_keys != collection_keys.len() {
+            return Err(Error::<T>::DuplicateMetadataKey.into());
+        }
 
         for key in &collection_keys {
             if !Asset::<T>::check_asset_metadata_key_exists(&ticker, key) {

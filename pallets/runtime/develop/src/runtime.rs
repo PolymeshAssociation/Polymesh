@@ -471,6 +471,7 @@ polymesh_runtime_common::runtime_apis! {
             add_benchmark!(params, batches, pallet_staking, Staking);
             add_benchmark!(params, batches, pallet_test_utils, TestUtils);
             add_benchmark!(params, batches, polymesh_contracts, PolymeshContracts);
+            add_benchmark!(params, batches, pallet_nft, Nft);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)
@@ -522,6 +523,7 @@ polymesh_runtime_common::runtime_apis! {
             list_benchmark!(list, extra, pallet_staking, Staking);
             list_benchmark!(list, extra, pallet_test_utils, TestUtils);
             list_benchmark!(list, extra, polymesh_contracts, PolymeshContracts);
+            list_benchmark!(list, extra, pallet_nft, Nft);
 
             let storage_info = AllPalletsWithSystem::storage_info();
 

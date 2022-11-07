@@ -243,6 +243,7 @@ runtime-benchmarks = [
     "polymesh-primitives/runtime-benchmarks",
     "polymesh-runtime-common/runtime-benchmarks",
     "sp-runtime/runtime-benchmarks",
+    "pallet-nft/runtime-benchmarks"
 ]
 running-ci = [
     "pallet-statistics/running-ci",

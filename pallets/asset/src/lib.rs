@@ -1045,6 +1045,19 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::Origin> for Module<T> {
     fn issue(origin: T::Origin, ticker: Ticker, total_supply: Balance) -> DispatchResult {
         Self::issue(origin, ticker, total_supply)
     }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn register_asset_metadata_type(
+        origin: T::Origin,
+        ticker: Option<Ticker>,
+        name: AssetMetadataName,
+        spec: AssetMetadataSpec,
+    ) -> DispatchResult {
+        match ticker {
+            Some(ticker) => Self::register_asset_metadata_local_type(origin, ticker, name, spec),
+            None => Self::register_asset_metadata_global_type(origin, name, spec),
+        }
+    }
 }
 
 impl<T: Config> AssetSubTrait for Module<T> {

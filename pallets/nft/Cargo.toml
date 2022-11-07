@@ -19,6 +19,9 @@ frame-system = { version = "4.0.0-dev", default-features = false }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
 sp-std = { version = "4.0.0", default-features = false }
 
+# Only in STD
+frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
+
 [features]
 default = ["std"]
 no_std = []
@@ -33,4 +36,6 @@ std = [
     "polymesh-primitives/std",
     "sp-std/std"
 ]
-runtime-benchmarks = []
+runtime-benchmarks = [
+    "frame-benchmarking",
+]
