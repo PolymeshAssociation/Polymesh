@@ -178,6 +178,7 @@ parameter_types! {
     pub const MaxPeerDataEncodingSize: u32 = 1_000;
     pub const ReportLongevity: u64 =
         BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
+    pub const MaxNumberOfCollectionKeys: u8 = u8::MAX;
 }
 
 frame_support::construct_runtime!(
@@ -272,7 +273,7 @@ frame_support::construct_runtime!(
         // Preimage register.  Used by `pallet_scheduler`.
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 55,
 
-        Nft: pallet_nft::{Pallet, Call, Storage, Config<T>, Event},
+        Nft: pallet_nft::{Pallet, Call, Storage, Event},
     }
 );
 

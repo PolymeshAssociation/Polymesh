@@ -26,6 +26,7 @@ mod fee_details;
 mod group_test;
 mod identity_test;
 mod multisig;
+mod nft;
 mod pips_test;
 mod portfolio;
 mod protocol_fee;

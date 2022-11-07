@@ -8,12 +8,12 @@ use crate::{impl_checked_inc, Ticker};
 
 /// Controls the next available id for an NFT collection.
 #[derive(Clone, Debug, Decode, Default, Eq, Encode, PartialEq, TypeInfo)]
-pub struct NFTCollectionId(u64);
+pub struct NFTCollectionId(pub u64);
 impl_checked_inc!(NFTCollectionId);
 
 /// Controls the next available id for an NFT within a collection.
 #[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
-pub struct NFTId(u64);
+pub struct NFTId(pub u64);
 impl_checked_inc!(NFTId);
 
 /// Defines an NFT collection.
@@ -44,7 +44,12 @@ impl NFTCollection {
 #[derive(Clone, Debug, Decode, Default, Encode, PartialEq, TypeInfo)]
 pub struct NFTCollectionKeys(Vec<AssetMetadataKey>);
 
-impl<'a> NFTCollectionKeys {
+impl NFTCollectionKeys {
+    /// Returns a slice of all `AssetMetadataKey`.
+    pub fn keys(&self) -> &[AssetMetadataKey] {
+        &self.0
+    }
+
     /// Returns an iterator, consuming the value, over `AssetMetadataKey`.
     pub fn into_iter(self) -> IntoIter<AssetMetadataKey> {
         self.0.into_iter()
@@ -53,6 +58,12 @@ impl<'a> NFTCollectionKeys {
     /// Returns the number of metadata keys.
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+}
+
+impl From<Vec<AssetMetadataKey>> for NFTCollectionKeys {
+    fn from(asset_metadata_keys: Vec<AssetMetadataKey>) -> Self {
+        Self(asset_metadata_keys)
     }
 }
 
