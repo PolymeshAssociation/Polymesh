@@ -10,7 +10,7 @@ use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use polymesh_primitives::nft::{
     NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute,
 };
-use polymesh_primitives::{storage_migration_ver, Ticker};
+use polymesh_primitives::Ticker;
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec::Vec;
@@ -21,8 +21,6 @@ type Portfolio<T> = pallet_portfolio::Module<T>;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-
-storage_migration_ver!(1);
 
 decl_storage!(
     trait Store for Module<T: Config> as NFT {
