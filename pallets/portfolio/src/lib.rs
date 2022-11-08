@@ -55,7 +55,10 @@ use frame_support::{
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::traits::balances::Memo;
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
-pub use polymesh_common_utilities::traits::portfolio::{Config, Event, WeightInfo};
+pub use polymesh_common_utilities::traits::{
+    asset::AssetFnTrait,
+    portfolio::{Config, Event, WeightInfo},
+};
 use polymesh_primitives::{
     extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, IdentityId,
     PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
@@ -122,7 +125,7 @@ decl_storage! {
             double_map hasher(identity) IdentityId, hasher(twox_64_concat) PortfolioId => bool;
 
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
     }
 }
 
@@ -347,12 +350,12 @@ decl_module! {
             // the NameToNumber mapping was left out of date, this upgrade removes dangling
             // NameToNumber mappings.
             // https://github.com/PolymeshAssociation/Polymesh/pull/1200
-            storage_migrate_on!(StorageVersion::get(), 1, {
+            storage_migrate_on!(StorageVersion, 1, {
                 NameToNumber::iter()
                     .filter(|(identity, _, number)| !Portfolios::contains_key(identity, number))
                     .for_each(|(identity, name, _)| NameToNumber::remove(identity, name));
             });
-            storage_migrate_on!(StorageVersion::get(), 2, {
+            storage_migrate_on!(StorageVersion, 2, {
                 Portfolios::iter()
                     .filter(|(identity, number, name)| number == &Self::name_to_number(identity, name))
                     .for_each(|(identity, number, name)| {
@@ -576,6 +579,7 @@ impl<T: Config> Module<T> {
         ticker: &Ticker,
         amount: Balance,
     ) -> DispatchResult {
+        T::Asset::ensure_granular(ticker, amount)?;
         Self::portfolio_asset_balances(portfolio, ticker)
             .saturating_sub(Self::locked_assets(portfolio, ticker))
             .checked_sub(amount)

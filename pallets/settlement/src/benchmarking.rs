@@ -54,8 +54,8 @@ pub struct UserData<T: Config> {
     pub did: IdentityId,
 }
 
-impl<T: Config> From<User<T>> for UserData<T> {
-    fn from(user: User<T>) -> Self {
+impl<T: Config> From<&User<T>> for UserData<T> {
+    fn from(user: &User<T>) -> Self {
         Self {
             account: user.account(),
             did: user.did(),
@@ -118,6 +118,7 @@ fn fund_portfolio<T: Config>(portfolio: &PortfolioId, ticker: &Ticker, amount: B
 }
 
 fn setup_leg_and_portfolio<T: Config + TestUtilsFn<AccountIdOf<T>>>(
+    owner: &User<T>,
     to_user: Option<UserData<T>>,
     from_user: Option<UserData<T>>,
     index: u32,
@@ -126,7 +127,7 @@ fn setup_leg_and_portfolio<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     receiver_portfolios: &mut Vec<PortfolioId>,
 ) {
     let variance = index + 1;
-    let ticker = Ticker::generate_into(variance.into());
+    let ticker = make_asset::<T>(owner, Some(&Ticker::generate(variance.into())));
     let portfolio_from = generate_portfolio::<T>("", variance + 500, from_user);
     let _ = fund_portfolio::<T>(&portfolio_from, &ticker, 500u32.into());
     let portfolio_to = generate_portfolio::<T>("to_did", variance + 800, to_user);
@@ -151,7 +152,7 @@ fn generate_portfolio<T: Config + TestUtilsFn<AccountIdOf<T>>>(
                 .generate_did()
                 .seed(pseudo_random_no)
                 .build(portfolio_to);
-            UserData::from(user)
+            UserData::from(&user)
         }
         Some(u) => u,
     };
@@ -238,7 +239,7 @@ fn emulate_add_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     let mut receiver_portfolios: Vec<PortfolioId> = Vec::with_capacity(l as usize);
     // create venue
     let user = creator::<T>();
-    let user_data = UserData::from(user);
+    let user_data = UserData::from(&user);
     let venue_id = create_venue_::<T>(user_data.did, vec![user_data.account.clone()]);
 
     // Create legs vector.
@@ -247,6 +248,7 @@ fn emulate_add_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
         // Assumption here is that instruction will never be executed as still there is one auth pending.
         for n in 0..l {
             setup_leg_and_portfolio::<T>(
+                &user,
                 None,
                 Some(user_data.clone()),
                 n,
@@ -386,8 +388,8 @@ fn setup_affirm_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     let mut portfolios_to: Vec<PortfolioId> = Vec::with_capacity(l as usize);
     let mut legs: Vec<Leg> = Vec::with_capacity(l as usize);
     let mut tickers = Vec::with_capacity(l as usize);
-    let from_data = UserData::from(from.clone());
-    let to_data = UserData::from(to);
+    let from_data = UserData::from(&from);
+    let to_data = UserData::from(&to);
 
     for n in 0..l {
         tickers.push(make_asset::<T>(

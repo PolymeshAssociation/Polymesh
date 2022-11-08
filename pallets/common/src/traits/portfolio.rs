@@ -17,10 +17,7 @@
 //!
 //! The interface allows to accept portfolio custody
 
-use crate::{
-    traits::{balances::Memo, base, identity},
-    CommonConfig,
-};
+use crate::{asset::AssetFnTrait, balances::Memo, base, identity, CommonConfig};
 use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
 use frame_support::weights::Weight;
@@ -80,6 +77,8 @@ pub trait WeightInfo {
 
 pub trait Config: CommonConfig + identity::Config + base::Config {
     type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
+    /// Asset module.
+    type Asset: AssetFnTrait<Self::AccountId, Self::Origin>;
     type WeightInfo: WeightInfo;
 }
 

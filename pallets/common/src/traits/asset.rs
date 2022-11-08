@@ -55,6 +55,9 @@ pub trait AssetSubTrait {
 }
 
 pub trait AssetFnTrait<Account, Origin> {
+    /// Ensure the granularity of `value` meets the requirements of `ticker`.
+    fn ensure_granular(ticker: &Ticker, value: Balance) -> DispatchResult;
+
     fn balance(ticker: &Ticker, did: IdentityId) -> Balance;
 
     fn create_asset(
@@ -103,6 +106,7 @@ pub trait WeightInfo {
     fn register_asset_metadata_local_type() -> Weight;
     fn register_asset_metadata_global_type() -> Weight;
     fn redeem_from_portfolio() -> Weight;
+    fn update_asset_type() -> Weight;
 }
 
 /// The module's configuration trait.
@@ -227,5 +231,8 @@ decl_event! {
         /// Register asset metadata global type.
         /// (Global type name, Global type key, type specs)
         RegisterAssetMetadataGlobalType(AssetMetadataName, AssetMetadataGlobalKey, AssetMetadataSpec),
+        /// An event emitted when the type of an asset changed.
+        /// Parameters: caller DID, ticker, new token type.
+        AssetTypeChanged(IdentityId, Ticker, AssetType),
     }
 }

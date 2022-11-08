@@ -309,16 +309,16 @@ macro_rules! storage_migration_ver {
     };
 }
 
-/// Helper macro which execute the `$body` if `$curr` is less than version `$ver`.
-/// It also updates `StorageVersion` in the current pallet to `$ver`.
+/// Helper macro which execute the `$body` if `$storage` is less than version `$ver`.
+/// It also updates `$storage` in the current pallet to `$ver`.
 #[macro_export]
 macro_rules! storage_migrate_on {
-    ($curr: expr, $ver:literal, $([$($targ:ty),*])? $body: block) => {{
+    ($storage: ty, $ver:literal, $body: block) => {{
         const TARGET_VERSION: Version = Version::new($ver);
         polymesh_primitives::const_assert!(TARGET_VERSION.check_version());
-        if $curr < TARGET_VERSION {
+        if <$storage>::get() < TARGET_VERSION {
             $body;
-            StorageVersion::< $($($targ),*)? >::put(TARGET_VERSION);
+            <$storage>::put(TARGET_VERSION);
         }
     }};
 }

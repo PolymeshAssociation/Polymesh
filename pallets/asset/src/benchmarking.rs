@@ -489,4 +489,15 @@ benchmarks! {
     verify {
         assert_eq!(Module::<T>::token_details(ticker).total_supply, (1_000_000 * POLY) - amount);
     }
+
+    update_asset_type {
+        let target = user::<T>("target", 0);
+        let ticker = make_asset::<T>(&target, None);
+        assert_eq!(Module::<T>::token_details(&ticker).asset_type, AssetType::default());
+
+        let asset_type = AssetType::EquityPreferred;
+    }: _(target.origin, ticker, asset_type)
+    verify {
+        assert_eq!(Module::<T>::token_details(&ticker).asset_type, asset_type);
+    }
 }

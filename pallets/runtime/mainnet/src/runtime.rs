@@ -51,8 +51,9 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("polymesh_mainnet"),
     impl_name: create_runtime_str!("polymesh_mainnet"),
     authoring_version: 1,
-    // `spec_version: aaa_bbb_ccc` should match node version v`aaa.bbb.ccc`
-    spec_version: 5_001_000,
+    // `spec_version: aaa_bbb_ccd` should match node version v`aaa.bbb.cc`
+    // N.B. `d` is unpinned from the binary version
+    spec_version: 5_001_001,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 3,
@@ -157,6 +158,7 @@ parameter_types! {
     pub const SlashDeferDuration: pallet_staking::EraIndex = 14; // 1/2 the bonding duration.
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const MaxNominatorRewardedPerValidator: u32 = 2048;
+    pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
     pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
     pub const MaxIterations: u32 = 10;
     pub const MaxValidatorPerIdentity: Permill = Permill::from_percent(33);
@@ -346,11 +348,11 @@ construct_runtime!(
         CorporateBallot: pallet_corporate_ballot::{Pallet, Call, Storage, Event},
         Permissions: pallet_permissions::{Pallet},
         Pips: pallet_pips::{Pallet, Call, Storage, Event<T>, Config<T>},
-        Portfolio: pallet_portfolio::{Pallet, Call, Storage, Event},
+        Portfolio: pallet_portfolio::{Pallet, Call, Storage, Event, Config},
         ProtocolFee: pallet_protocol_fee::{Pallet, Call, Storage, Event<T>, Config},
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
         Settlement: pallet_settlement::{Pallet, Call, Storage, Event<T>, Config},
-        Statistics: pallet_statistics::{Pallet, Call, Storage, Event},
+        Statistics: pallet_statistics::{Pallet, Call, Storage, Event, Config},
         Sto: pallet_sto::{Pallet, Call, Storage, Event<T>},
         Treasury: pallet_treasury::{Pallet, Call, Event<T>},
         Utility: pallet_utility::{Pallet, Call, Storage, Event},

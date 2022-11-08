@@ -25,7 +25,9 @@ use polymesh_common_utilities::{
     protocol_fee::ProtocolOp,
     traits::{
         group::GroupTrait,
-        identity::{Config as IdentityConfig, SecondaryKeyWithAuth, TargetIdAuthorization},
+        identity::{
+            Config as IdentityConfig, RawEvent, SecondaryKeyWithAuth, TargetIdAuthorization,
+        },
         transaction_payment::CddAndFeeDetails,
     },
     SystematicIssuers, GC_DID,
@@ -291,7 +293,7 @@ fn do_add_permissions_to_multiple_tokens() {
     let max_tokens = 20;
     let tokens: Vec<Ticker> = (0..max_tokens)
         .map(|i| {
-            let name = format!("TOKEN_{}", i);
+            let name = format!("TOKEN{}", i);
             let (ticker, _) = create_new_token(name.as_bytes(), alice);
             ticker
         })
@@ -2138,4 +2140,60 @@ fn invalid_custom_claim_type() {
             Error::CustomClaimTypeDoesNotExist
         );
     });
+}
+
+#[test]
+fn cdd_register_did_events() {
+    ExtBuilder::default()
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
+        .build()
+        .execute_with(|| {
+            System::set_block_number(1);
+            // Register an Identity for alice with two secundary keys
+            let cdd_provider = Origin::signed(AccountKeyring::Eve.to_account_id());
+            let alice_account_id = AccountKeyring::Alice.to_account_id();
+            let alice_secundary_keys = vec![
+                SecondaryKey::from_account_id(AccountKeyring::Dave.to_account_id()),
+                SecondaryKey::from_account_id(AccountKeyring::Charlie.to_account_id()),
+            ];
+            assert_ok!(Identity::cdd_register_did(
+                cdd_provider,
+                alice_account_id.clone(),
+                alice_secundary_keys.clone()
+            ));
+            let alice_did = get_identity_id(AccountKeyring::Alice).unwrap();
+            // Make sure one Authorization event was sent for each secundary key
+            let mut system_events = System::events();
+            assert_eq!(
+                system_events.pop().unwrap().event,
+                super::storage::EventTest::Identity(RawEvent::AuthorizationAdded(
+                    alice_did,
+                    None,
+                    Some(AccountKeyring::Charlie.to_account_id()),
+                    Identity::multi_purpose_nonce(),
+                    AuthorizationData::JoinIdentity(alice_secundary_keys[1].permissions.clone()),
+                    None,
+                ))
+            );
+            assert_eq!(
+                system_events.pop().unwrap().event,
+                super::storage::EventTest::Identity(RawEvent::AuthorizationAdded(
+                    alice_did,
+                    None,
+                    Some(AccountKeyring::Dave.to_account_id()),
+                    Identity::multi_purpose_nonce() - 1,
+                    AuthorizationData::JoinIdentity(alice_secundary_keys[0].permissions.clone()),
+                    None,
+                ))
+            );
+            // Make sure a Did Created event was sent
+            assert_eq!(
+                system_events.pop().unwrap().event,
+                super::storage::EventTest::Identity(RawEvent::DidCreated(
+                    alice_did,
+                    alice_account_id,
+                    alice_secundary_keys.clone()
+                ))
+            );
+        });
 }
