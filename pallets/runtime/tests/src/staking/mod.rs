@@ -5845,7 +5845,7 @@ fn chill_from_governance() {
             bond_validator(60, 61, 500000);
             assert_permissioned_identity_prefs!(entity_id, 2, 2);
 
-            // Removes 60 and 61 from being validators
+            // Removes 50 and 60 from being validators
             assert_ok!(Staking::chill_from_governance(
                 Origin::signed(2000),
                 entity_id,

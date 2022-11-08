@@ -1377,8 +1377,6 @@ decl_event!(
         RewardPaymentSchedulingInterrupted(AccountId, EraIndex, DispatchError),
         /// Update for whom balance get slashed.
         SlashingAllowedForChanged(SlashingSwitch),
-        // Stash not a part of DID.
-        StashNotPartOfDid(AccountId, IdentityId),
     }
 );
 
@@ -2661,11 +2659,19 @@ decl_module! {
 
 
         /// Declare no desire to either validate or nominate.
-        ///
         /// Effects will be felt at the beginning of the next era.
-        ///
-        /// The dispatch origin for this call must be a GC.
         /// And, it can be only called when [`EraElectionStatus`] is `Closed`.
+        /// 
+        /// # Arguments
+        /// * origin which must be a GC.
+        /// * identity must be permissioned to run operator/validator nodes.
+        /// * stash_keys contains the secondary keys of the permissioned identity
+        /// 
+        /// # Errors
+        /// * `BadOrigin` The origin was not a GC member.
+        /// * `CallNotAllowed` The call is not allowed at the given time due to restrictions of election period.
+        /// * `NotExists` Permissioned validator doesn't exist.
+        /// * `NotStash` Not a stash account for the permissioned identity.
         #[weight = <T as Config>::WeightInfo::chill_from_governance(stash_keys.len() as u32)]
         pub fn chill_from_governance(origin, identity: IdentityId, stash_keys: Vec<T::AccountId>) -> DispatchResult {
             Self::base_chill_from_governance(origin, identity, stash_keys)
