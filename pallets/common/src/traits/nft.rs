@@ -29,6 +29,6 @@ decl_event!(
 );
 
 pub trait WeightInfo {
-    fn create_nft_collection() -> Weight;
-    fn mint_nft() -> Weight;
+    fn create_nft_collection(n: u32) -> Weight;
+    fn mint_nft(n: u32) -> Weight;
 }

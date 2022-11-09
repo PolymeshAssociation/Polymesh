@@ -11,13 +11,15 @@ use sp_std::vec::Vec;
 
 use crate::*;
 
-/// Creates an NFT collection with 255 metadata keys
-fn create_collection<T: Config>(origin: T::Origin, ticker: Ticker) -> NFTCollectionId {
-    let collection_keys: NFTCollectionKeys = (1..256)
-        .map(|key| AssetMetadataKey::Local(AssetMetadataLocalKey(key)))
+const MAX_COLLECTION_KEYS: u32 = 255;
+
+/// Creates an NFT collection with `n_keys` metadata keys.
+fn create_collection<T: Config>(origin: T::Origin, ticker: Ticker, n_keys: u32) -> NFTCollectionId {
+    let collection_keys: NFTCollectionKeys = (1..n_keys + 1)
+        .map(|key| AssetMetadataKey::Local(AssetMetadataLocalKey(key.into())))
         .collect::<Vec<AssetMetadataKey>>()
         .into();
-    for i in 1..256 {
+    for i in 1..n_keys + 1 {
         let asset_metadata_name = format!("key{}", i).as_bytes().to_vec();
         T::AssetFn::register_asset_metadata_type(
             origin.clone(),
@@ -36,13 +38,15 @@ benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
     create_nft_collection {
+        let n in 1..MAX_COLLECTION_KEYS;
+
         let user = user::<T>("target", 0);
         let ticker = make_asset::<T>(&user, None);
-        let collection_keys: NFTCollectionKeys = (1..256)
-            .map(|key| AssetMetadataKey::Local(AssetMetadataLocalKey(key)))
+        let collection_keys: NFTCollectionKeys = (1..n + 1)
+            .map(|key| AssetMetadataKey::Local(AssetMetadataLocalKey(key.into())))
             .collect::<Vec<AssetMetadataKey>>()
             .into();
-        for i in 1..256 {
+        for i in 1..n + 1 {
             let asset_metadata_name = format!("key{}", i).as_bytes().to_vec();
             T::AssetFn::register_asset_metadata_type(
                 user.origin.clone().into(),
@@ -55,28 +59,30 @@ benchmarks! {
     }: _(user.origin, ticker, collection_keys)
     verify {
         assert!(Collection::contains_key(NFTCollectionId(1)));
-        assert_eq!(CollectionKeys::get(NFTCollectionId(1)).len(), 255);
+        assert_eq!(CollectionKeys::get(NFTCollectionId(1)).len(), n as usize);
     }
 
     mint_nft {
+        let n in 1..MAX_COLLECTION_KEYS;
+
         let user = user::<T>("target", 0);
         let ticker = make_asset::<T>(&user, None);
-        let collection_id = create_collection::<T>(user.origin().into(), ticker);
-        let metadata_attributes: Vec<NFTMetadataAttribute> = (1..256)
+        let collection_id = create_collection::<T>(user.origin().into(), ticker, n);
+        let metadata_attributes: Vec<NFTMetadataAttribute> = (1..n + 1)
             .map(|key| {
                 NFTMetadataAttribute{
-                    key: AssetMetadataKey::Local(AssetMetadataLocalKey(key)),
+                    key: AssetMetadataKey::Local(AssetMetadataLocalKey(key.into())),
                     value: AssetMetadataValue(b"value".to_vec()),
                 }
             })
             .collect();
     }: _(user.origin, collection_id, metadata_attributes)
     verify {
-        for i in 1..256 {
+        for i in 1..n + 1 {
             assert!(
                 MetadataValue::contains_key(
                     (NFTCollectionId(1), NFTId(1)),
-                    AssetMetadataKey::Local(AssetMetadataLocalKey(i))
+                    AssetMetadataKey::Local(AssetMetadataLocalKey(i.into()))
                 )
             );
         }

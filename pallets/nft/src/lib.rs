@@ -61,7 +61,11 @@ decl_module! {
         /// - `UnregisteredTicker` - if the ticker associated to the collection has not been registered.
         /// - `MaxNumberOfKeysExceeded` - if the number of metadata keys for the collection is greater than the maximum allowed.
         /// - `UnregisteredMetadataKey` - if any of the metadata keys needed for the collection has not been registered.
-        #[weight = <T as Config>::WeightInfo::create_nft_collection()]
+        /// - `DuplicateMetadataKey` - if a duplicate metadata keys has been passed as input.
+        ///
+        /// # Permissions
+        /// * Asset
+        #[weight = <T as Config>::WeightInfo::create_nft_collection(collection_keys.len() as u32)]
         pub fn create_nft_collection(origin, ticker: Ticker, collection_keys: NFTCollectionKeys) -> DispatchResult {
             Self::base_create_nft_collection(origin, ticker, collection_keys)
         }
@@ -76,7 +80,12 @@ decl_module! {
         /// ## Errors
         /// - `CollectionNotFound` - if the collection associated to the given ticker has not been created.
         /// - `InvalidMetadataAttribute` - if the number of attributes is not equal to the number set in the collection or attempting to set a value for a key not definied in the collection.
-        #[weight = <T as Config>::WeightInfo::mint_nft()]
+        /// - `DuplicateMetadataKey` - if a duplicate metadata keys has been passed as input.
+        ///
+        /// # Permissions
+        /// * Asset
+        /// * Portfolio
+        #[weight = <T as Config>::WeightInfo::mint_nft(nft_metadata_attributes.len() as u32)]
         pub fn mint_nft(origin, nft_collection_id: NFTCollectionId, nft_metadata_attributes: Vec<NFTMetadataAttribute>) -> DispatchResult {
             Self::base_mint_nft(origin, nft_collection_id, nft_metadata_attributes)
         }
@@ -93,8 +102,6 @@ decl_error! {
         InvalidMetadataAttribute,
         /// The maximum number of metadata keys was exceeded.
         MaxNumberOfKeysExceeded,
-        /// The caller does not have the permissions for the requested operation.
-        Unauthorized,
         /// At least one of the metadata keys has not been registered.
         UnregisteredMetadataKey,
         /// The ticker has not been registered.
