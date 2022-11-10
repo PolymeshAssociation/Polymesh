@@ -2658,7 +2658,7 @@ decl_module! {
         }
 
 
-        /// Declare no desire to either validate or nominate.
+        /// GC forcefully chills a validator.
         /// Effects will be felt at the beginning of the next era.
         /// And, it can be only called when [`EraElectionStatus`] is `Closed`.
         /// 
