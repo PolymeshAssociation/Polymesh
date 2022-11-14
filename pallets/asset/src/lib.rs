@@ -1017,10 +1017,6 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::Origin> for Module<T> {
         )
     }
 
-    fn register_ticker(origin: T::Origin, ticker: Ticker) -> DispatchResult {
-        Self::base_register_ticker(origin, ticker)
-    }
-
     #[cfg(feature = "runtime-benchmarks")]
     /// Adds an artificial IU claim for benchmarks
     fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker) {
@@ -2575,8 +2571,13 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Returns true if the given ticker has already been registered
-    pub fn is_registered_ticker(ticker: &Ticker) -> bool {
-        Tickers::<T>::contains_key(ticker)
+    /// Returns `None` if there's no asset associated to the given ticker,
+    /// returns Some(true) if the asset exists and is of type `AssetType::NFT`, and returns Some(false) otherwise.
+    pub fn nft_asset(ticker: &Ticker) -> Option<bool> {
+        let security_token = Tokens::try_get(ticker).ok()?;
+        match security_token.asset_type {
+            AssetType::NFT => Some(true),
+            _ => Some(false),
+        }
     }
 }

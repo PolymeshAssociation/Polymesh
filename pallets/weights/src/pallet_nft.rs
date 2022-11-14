@@ -12,7 +12,8 @@ impl pallet_nft::WeightInfo for WeightInfo {
     fn create_nft_collection(n: u32) -> Weight {
         (207_235_000 as Weight)
             .saturating_add(DbWeight::get().reads(3 as Weight))
-            .saturating_add(DbWeight::get().reads(1 as Weight)).saturating_mul(n as Weight)
+            .saturating_add(DbWeight::get().reads(1 as Weight))
+            .saturating_mul(n as Weight)
             .saturating_add(DbWeight::get().writes(3 as Weight))
     }
 
@@ -30,6 +31,7 @@ impl pallet_nft::WeightInfo for WeightInfo {
         (207_235_000 as Weight)
             .saturating_add(DbWeight::get().reads(8 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight)).saturating_mul(n as Weight)
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+            .saturating_mul(n as Weight)
     }
 }

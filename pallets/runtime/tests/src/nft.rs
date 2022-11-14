@@ -22,7 +22,7 @@ type NFTError = pallet_nft::Error<TestStorage>;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 
-/// An NFT collection can only be created for tickers that have already been registered.
+/// Successfully creates an NFT collection and an Asset.
 #[test]
 fn create_collection_unregistered_ticker() {
     ExtBuilder::default().build().execute_with(|| {
@@ -32,9 +32,63 @@ fn create_collection_unregistered_ticker() {
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
         let collection_keys: NFTCollectionKeys = vec![].into();
 
+        assert_ok!(NFT::create_nft_collection(
+            alice.origin(),
+            ticker.clone(),
+            collection_keys
+        ));
+        assert_eq!(Asset::token_details(&ticker).divisible, false);
+        assert_eq!(Asset::token_details(&ticker).asset_type, AssetType::NFT);
+    });
+}
+
+/// An NFT collection can only be created for assets of type NFT.
+#[test]
+fn create_collection_invalid_asset_type() {
+    ExtBuilder::default().build().execute_with(|| {
+        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+
+        let alice: User = User::new(AccountKeyring::Alice);
+        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let collection_keys: NFTCollectionKeys = vec![].into();
+
+        Asset::create_asset(
+            alice.origin(),
+            ticker.as_ref().into(),
+            ticker.clone(),
+            false,
+            AssetType::default(),
+            Vec::new(),
+            None,
+            false,
+        )
+        .expect("failed to create an asset");
+
         assert_noop!(
             NFT::create_nft_collection(alice.origin(), ticker, collection_keys),
-            NFTError::UnregisteredTicker
+            NFTError::InvalidAssetType
+        );
+    });
+}
+
+/// There can only be one NFT collection per ticker.
+#[test]
+fn create_collection_already_registered() {
+    ExtBuilder::default().build().execute_with(|| {
+        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+
+        let alice: User = User::new(AccountKeyring::Alice);
+        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let collection_keys: NFTCollectionKeys = vec![].into();
+
+        assert_ok!(NFT::create_nft_collection(
+            alice.origin(),
+            ticker,
+            collection_keys.clone()
+        ));
+        assert_noop!(
+            NFT::create_nft_collection(alice.origin(), ticker, collection_keys),
+            NFTError::CollectionAlredyRegistered
         );
     });
 }
@@ -50,11 +104,9 @@ fn create_collection_max_keys_exceeded() {
         let collection_keys: Vec<AssetMetadataKey> = (0..256)
             .map(|key| AssetMetadataKey::Local(AssetMetadataLocalKey(key)))
             .collect();
-        Asset::register_ticker(alice.origin(), ticker.clone()).unwrap();
-
-        assert_noop!(
-            NFT::create_nft_collection(alice.origin(), ticker, collection_keys.into()),
-            NFTError::MaxNumberOfKeysExceeded
+        assert_eq!(
+            NFT::create_nft_collection(alice.origin(), ticker, collection_keys.into()).unwrap_err(),
+            NFTError::MaxNumberOfKeysExceeded.into()
         );
     });
 }
@@ -72,11 +124,10 @@ fn create_collection_duplicate_key() {
             AssetMetadataKey::Local(AssetMetadataLocalKey(0)),
         ]
         .into();
-        Asset::register_ticker(alice.origin(), ticker.clone()).unwrap();
 
-        assert_noop!(
-            NFT::create_nft_collection(alice.origin(), ticker, collection_keys.into()),
-            NFTError::DuplicateMetadataKey
+        assert_eq!(
+            NFT::create_nft_collection(alice.origin(), ticker, collection_keys.into()).unwrap_err(),
+            NFTError::DuplicateMetadataKey.into()
         );
     });
 }
@@ -91,11 +142,10 @@ fn create_collection_unregistered_key() {
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(0))].into();
-        Asset::register_ticker(alice.origin(), ticker.clone()).unwrap();
 
-        assert_noop!(
-            NFT::create_nft_collection(alice.origin(), ticker, collection_keys),
-            NFTError::UnregisteredMetadataKey
+        assert_eq!(
+            NFT::create_nft_collection(alice.origin(), ticker, collection_keys).unwrap_err(),
+            NFTError::UnregisteredMetadataKey.into()
         );
     });
 }
@@ -107,7 +157,7 @@ fn create_nft_collection(owner: User, ticker: Ticker, collection_keys: NFTCollec
         ticker.as_ref().into(),
         ticker.clone(),
         false,
-        AssetType::default(),
+        AssetType::NFT,
         Vec::new(),
         None,
         false,
@@ -143,10 +193,11 @@ fn mint_nft_collection_not_found() {
         Timestamp::set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
+        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
         assert_noop!(
             NFT::mint_nft(
                 alice.origin(),
-                NFTCollectionId(0),
+                ticker,
                 vec![NFTMetadataAttribute {
                     key: AssetMetadataKey::Local(AssetMetadataLocalKey(0)),
                     value: AssetMetadataValue(b"test".to_vec())
@@ -172,7 +223,7 @@ fn mint_nft_duplicate_key() {
         assert_noop!(
             NFT::mint_nft(
                 alice.origin(),
-                NFTCollectionId(1),
+                ticker,
                 vec![
                     NFTMetadataAttribute {
                         key: AssetMetadataKey::Local(AssetMetadataLocalKey(0)),
@@ -204,7 +255,7 @@ fn mint_nft_wrong_number_of_keys() {
         assert_noop!(
             NFT::mint_nft(
                 alice.origin(),
-                NFTCollectionId(1),
+                ticker.clone(),
                 vec![
                     NFTMetadataAttribute {
                         key: AssetMetadataKey::Local(AssetMetadataLocalKey(0)),
@@ -219,7 +270,7 @@ fn mint_nft_wrong_number_of_keys() {
             NFTError::InvalidMetadataAttribute
         );
         assert_noop!(
-            NFT::mint_nft(alice.origin(), NFTCollectionId(1), vec![]),
+            NFT::mint_nft(alice.origin(), ticker, vec![]),
             NFTError::InvalidMetadataAttribute
         );
     });
@@ -240,7 +291,7 @@ fn mint_nft_wrong_key() {
         assert_noop!(
             NFT::mint_nft(
                 alice.origin(),
-                NFTCollectionId(1),
+                ticker,
                 vec![NFTMetadataAttribute {
                     key: AssetMetadataKey::Local(AssetMetadataLocalKey(35)),
                     value: AssetMetadataValue(b"test".to_vec())
@@ -265,7 +316,7 @@ fn mint_nft() {
         create_nft_collection(alice.clone(), ticker.clone(), collection_keys);
         assert_ok!(NFT::mint_nft(
             alice.origin(),
-            NFTCollectionId(1),
+            ticker,
             vec![NFTMetadataAttribute {
                 key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
                 value: AssetMetadataValue(b"test".to_vec())
