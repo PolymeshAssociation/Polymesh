@@ -1017,6 +1017,10 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::Origin> for Module<T> {
         )
     }
 
+    fn register_ticker(origin: T::Origin, ticker: Ticker) -> DispatchResult {
+        Self::base_register_ticker(origin, ticker)
+    }
+
     #[cfg(feature = "runtime-benchmarks")]
     /// Adds an artificial IU claim for benchmarks
     fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker) {
