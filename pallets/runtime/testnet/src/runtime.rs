@@ -135,6 +135,7 @@ parameter_types! {
     pub DeletionWeightLimit: Weight = 500_000_000_000;
     pub DeletionQueueDepth: u32 = 1024;
     pub MaxInLen: u32 = 8 * 1024;
+    pub MaxOutLen: u32 = 8 * 1024;
 }
 
 /// Splits fees 80/20 between treasury and block author.

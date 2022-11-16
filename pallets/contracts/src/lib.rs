@@ -125,7 +125,40 @@ where
     }
 }
 
+pub const CHAIN_EXTENSION_BATCH_SIZE: u32 = 100;
+
+macro_rules! cost {
+    ($name:ident) => {
+        (Self::$name(1).saturating_sub(Self::$name(0)))
+    };
+}
+
+macro_rules! cost_batched {
+    ($name:ident) => {
+        cost!($name) / Weight::from(CHAIN_EXTENSION_BATCH_SIZE)
+    };
+}
+
+macro_rules! cost_byte_batched {
+    ($name:ident) => {
+        cost_batched!($name) / 1024
+    };
+}
+
 pub trait WeightInfo {
+    fn chain_extension_read_storage(k: u32, v: u32) -> Weight;
+    fn chain_extension_get_version(r: u32) -> Weight;
+    fn chain_extension_get_key_did(r: u32) -> Weight;
+    fn chain_extension_hash_twox_64(r: u32) -> Weight;
+    fn chain_extension_hash_twox_64_per_kb(n: u32) -> Weight;
+    fn chain_extension_hash_twox_128(r: u32) -> Weight;
+    fn chain_extension_hash_twox_128_per_kb(n: u32) -> Weight;
+    fn chain_extension_hash_twox_256(r: u32) -> Weight;
+    fn chain_extension_hash_twox_256_per_kb(n: u32) -> Weight;
+    fn chain_extension_call_runtime(n: u32) -> Weight;
+    fn dummy_contract() -> Weight;
+    fn basic_runtime_call(n: u32) -> Weight;
+
     /// Computes the cost of instantiating where `code_len`
     /// and `salt_len` are specified in kilobytes.
     fn instantiate_with_code_perms(code_len: u32, salt_len: u32) -> Weight;
@@ -147,26 +180,42 @@ pub trait WeightInfo {
         Self::instantiate_with_hash_perms((salt.len()) as u32)
     }
 
-    /// Computes the cost just for executing the chain extension,
-    /// subtracting costs for `call` itself and runtime callbacks.
-    fn chain_extension(in_len: u32) -> Weight {
-        Self::chain_extension_full(in_len)
-            .saturating_sub(Self::chain_extension_early_exit())
-            .saturating_sub(Self::basic_runtime_call(in_len))
+    // TODO: Needs improvement.
+    fn read_storage(k: u32, v: u32) -> Weight {
+        Self::chain_extension_read_storage(k, v).saturating_sub(Self::dummy_contract())
     }
 
-    /// Returns the weight for a full execution of a smart contract `call` that
-    /// calls  `register_custom_asset_type` in the runtime via a chain extension.
-    /// The asset type is `in_len` characters long.
-    fn chain_extension_full(in_len: u32) -> Weight;
+    fn get_version() -> Weight {
+        cost_batched!(chain_extension_get_version)
+    }
 
-    /// Returns the weight for a smart contract `call` that enters the chain extension
-    /// but then immediately returns.
-    fn chain_extension_early_exit() -> Weight;
+    fn get_key_did() -> Weight {
+        cost_batched!(chain_extension_get_key_did)
+    }
 
-    /// Returns the weight of executing `Asset::register_custom_asset_type`
-    /// with an asset type that is `in_len` characters long.
-    fn basic_runtime_call(in_len: u32) -> Weight;
+    fn hash_twox_64(r: u32) -> Weight {
+        let per_byte = cost_byte_batched!(chain_extension_hash_twox_64_per_kb);
+        cost_batched!(chain_extension_hash_twox_64)
+            .saturating_add(per_byte.saturating_mul(r as Weight))
+    }
+
+    fn hash_twox_128(r: u32) -> Weight {
+        let per_byte = cost_byte_batched!(chain_extension_hash_twox_128_per_kb);
+        cost_batched!(chain_extension_hash_twox_128)
+            .saturating_add(per_byte.saturating_mul(r as Weight))
+    }
+
+    fn hash_twox_256(r: u32) -> Weight {
+        let per_byte = cost_byte_batched!(chain_extension_hash_twox_256_per_kb);
+        cost_batched!(chain_extension_hash_twox_256)
+            .saturating_add(per_byte.saturating_mul(r as Weight))
+    }
+
+    fn call_runtime(in_len: u32) -> Weight {
+        Self::chain_extension_call_runtime(in_len)
+            .saturating_sub(Self::dummy_contract())
+            .saturating_sub(Self::basic_runtime_call(in_len))
+    }
 }
 
 /// The `Config` trait for the smart contracts pallet.
@@ -177,8 +226,11 @@ pub trait Config:
     type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
 
     /// Max value that `in_len` can take, that is,
-    /// the length of the data sent from a contract when making a runtime call.
+    /// the length of the data sent from a contract when using the ChainExtension.
     type MaxInLen: Get<u32>;
+
+    /// Max value that can be returned from the ChainExtension.
+    type MaxOutLen: Get<u32>;
 
     /// The weight configuration for the pallet.
     type WeightInfo: WeightInfo;
@@ -202,8 +254,10 @@ decl_error! {
         ReadStorageFailed,
         /// Data left in input when decoding arguments of a call.
         DataLeftAfterDecoding,
-        /// Input data that a contract passed when making a runtime call was too large.
+        /// Input data that a contract passed when using the ChainExtension was too large.
         InLenTooLarge,
+        /// Output data returned from the ChainExtension was too large.
+        OutLenTooLarge,
         /// A contract was attempted to be instantiated,
         /// but no identity was given to associate the new contract's key with.
         InstantiatorWithNoIdentity,
@@ -457,22 +511,22 @@ where
 }
 
 /// KeyHasher
-#[derive(Clone, Copy, Debug)]
-enum KeyHasher {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum KeyHasher {
     Twox,
 }
 
 /// HashSize
-#[derive(Clone, Copy, Debug)]
-enum HashSize {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HashSize {
     B64,
     B128,
     B256,
 }
 
 /// Polymesh ChainExtension callable.
-#[derive(Clone, Copy, Debug)]
-enum FuncId {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FuncId {
     /// No operation -- Used for benchmarking the ChainExtension.
     #[cfg(feature = "runtime-benchmarks")]
     NOP,
@@ -483,7 +537,7 @@ enum FuncId {
     GetKeyDid,
     KeyHasher(KeyHasher, HashSize),
 
-    /// Deprecated Polymesh v5.0.x chain extensions.
+    /// Deprecated Polymesh (<=5.0) chain extensions.
     OldCallRuntime(u8, u8),
 }
 
@@ -517,6 +571,32 @@ impl FuncId {
             },
             _ => None,
         }
+    }
+}
+
+impl Into<u32> for FuncId {
+    fn into(self) -> u32 {
+        let (ext_id, func_id) = match self {
+            #[cfg(feature = "runtime-benchmarks")]
+            Self::NOP => (0x0000, 0x0000),
+            Self::CallRuntime => (0x0000, 0x01),
+            Self::ReadStorage => (0x0000, 0x02),
+            Self::GetSpecVersion => (0x0000, 0x03),
+            Self::GetTransactionVersion => (0x0000, 0x04),
+            Self::GetKeyDid => (0x0000, 0x05),
+            Self::KeyHasher(KeyHasher::Twox, HashSize::B64) => (0x0000, 0x10),
+            Self::KeyHasher(KeyHasher::Twox, HashSize::B128) => (0x0000, 0x11),
+            Self::KeyHasher(KeyHasher::Twox, HashSize::B256) => (0x0000, 0x12),
+            Self::OldCallRuntime(ext_id, func_id) => (ext_id as u32, (func_id as u32) << 8),
+        };
+        (ext_id << 16) + func_id
+    }
+}
+
+impl Into<i32> for FuncId {
+    fn into(self) -> i32 {
+        let id: u32 = self.into();
+        id as i32
     }
 }
 
@@ -608,16 +688,47 @@ where
 {
     use codec::Encode;
     let mut env = env.buf_in_buf_out();
-    let in_len = env.in_len();
+    let key_len = env.in_len();
 
-    // TODO: benchmarks and weights.
-    let key = env.read(in_len)?;
+    // Limit `key_len` to a maximum.
+    ensure!(
+        key_len <= <T as Config>::MaxInLen::get(),
+        Error::<T>::InLenTooLarge
+    );
+
+    // Charge weight based on storage value length `MaxOutLen`.
+    let max_len = T::MaxOutLen::get() as u32;
+    let charged_amount =
+        env.charge_weight(<T as Config>::WeightInfo::read_storage(key_len, max_len))?;
+
+    let key = env.read(key_len)?;
     trace!(
         target: "runtime",
         "PolymeshExtension contract ReadStorage: key={:x?}",
         key
     );
     let value = unhashed::get_raw(key.as_slice());
+    let value_len = value.as_ref().map(|v| v.len() as u32).unwrap_or_default();
+    trace!(
+        target: "runtime",
+        "PolymeshExtension contract ReadStorage: value length={:?}",
+        value_len
+    );
+
+    // Limit `value_len` to a maximum.
+    ensure!(
+        value_len <= <T as Config>::MaxOutLen::get(),
+        Error::<T>::OutLenTooLarge
+    );
+
+    // Adjust charged weight based on the actual value length.
+    if value_len < max_len {
+        env.adjust_weight(
+            charged_amount,
+            <T as Config>::WeightInfo::read_storage(key_len, value_len),
+        );
+    }
+
     trace!(
         target: "runtime",
         "PolymeshExtension contract ReadStorage: value={:x?}",
@@ -648,6 +759,9 @@ where
     use codec::Encode;
     let mut env = env.prim_in_buf_out();
 
+    // Charge weight.
+    env.charge_weight(<T as Config>::WeightInfo::get_version())?;
+
     let runtime_version = <T as frame_system::Config>::Version::get();
     let version = if get_spec {
         runtime_version.spec_version
@@ -676,7 +790,9 @@ where
     use codec::Encode;
     let mut env = env.buf_in_buf_out();
 
-    // TODO: benchmarks and weights.
+    // Charge weight.
+    env.charge_weight(<T as Config>::WeightInfo::get_version())?;
+
     let key: T::AccountId = env.read_as()?;
     trace!(
         target: "runtime",
@@ -715,7 +831,14 @@ where
     let mut env = env.buf_in_buf_out();
     let in_len = env.in_len();
 
-    // TODO: benchmarks and weights.
+    // Charge weight as a linear function of `in_len`.
+    let weight = match size {
+        HashSize::B64 => <T as Config>::WeightInfo::hash_twox_64(in_len),
+        HashSize::B128 => <T as Config>::WeightInfo::hash_twox_64(in_len),
+        HashSize::B256 => <T as Config>::WeightInfo::hash_twox_64(in_len),
+    };
+    env.charge_weight(weight)?;
+
     let data = env.read(in_len)?;
     let hash = match (hasher, size) {
         (KeyHasher::Twox, HashSize::B64) => hashing::twox_64(data.as_slice()).encode(),
@@ -758,7 +881,7 @@ where
     );
 
     // Charge weight as a linear function of `in_len`.
-    env.charge_weight(<T as Config>::WeightInfo::chain_extension(in_len))?;
+    env.charge_weight(<T as Config>::WeightInfo::call_runtime(in_len))?;
 
     // Decide what to call in the runtime.
     use codec::DecodeLimit;
@@ -838,17 +961,12 @@ where
             "PolymeshExtension contract calling: {func_id:?}",
         );
         match func_id {
-            // Used for benchmarking `chain_extension_early_exit`,
-            // so we can remove the cost of the call + overhead of using any chain extension.
-            // That is, we want to subtract costs not directly arising from *this* function body.
-            // Caveat: This `if` imposes a minor cost during benchmarking but we'll live with that.
+            // `FuncId::NOP` is only used to benchmark the cost of:
+            // 1. Calling a contract.
+            // 2. Calling `seal_call_chain_extension` from the contract.
             #[cfg(feature = "runtime-benchmarks")]
             Some(FuncId::NOP) => {
-                let env = env.buf_in_buf_out();
-                let in_len = env.in_len();
-
-                // No input data is allowed for this chain extension.
-                ensure!(in_len == 0, Error::<T>::DataLeftAfterDecoding);
+                // Return without doing any work.
                 return Ok(ce::RetVal::Converging(0));
             }
             Some(FuncId::ReadStorage) => read_storage(env),
@@ -866,5 +984,35 @@ where
                 Err(Error::<T>::InvalidFuncId)?
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_func_id() {
+        let test_func_id = |id: FuncId| {
+            let id_u32: u32 = id.into();
+            let id2 = FuncId::try_from(id_u32).expect("Failed to convert back to FuncId");
+            assert_eq!(id, id2);
+        };
+        #[cfg(feature = "runtime-benchmarks")]
+        test_func_id(FuncId::NOP);
+        test_func_id(FuncId::CallRuntime);
+        test_func_id(FuncId::ReadStorage);
+        test_func_id(FuncId::GetSpecVersion);
+        test_func_id(FuncId::GetTransactionVersion);
+        test_func_id(FuncId::GetKeyDid);
+        test_func_id(FuncId::KeyHasher(KeyHasher::Twox, HashSize::B64));
+        test_func_id(FuncId::KeyHasher(KeyHasher::Twox, HashSize::B128));
+        test_func_id(FuncId::KeyHasher(KeyHasher::Twox, HashSize::B256));
+        test_func_id(FuncId::OldCallRuntime(0x1A, 0x00));
+        test_func_id(FuncId::OldCallRuntime(0x1A, 0x01));
+        test_func_id(FuncId::OldCallRuntime(0x1A, 0x02));
+        test_func_id(FuncId::OldCallRuntime(0x1A, 0x03));
+        test_func_id(FuncId::OldCallRuntime(0x1A, 0x11));
+        test_func_id(FuncId::OldCallRuntime(0x2F, 0x01));
     }
 }

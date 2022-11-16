@@ -323,6 +323,7 @@ macro_rules! misc_pallet_impls {
         impl polymesh_contracts::Config for Runtime {
             type Event = Event;
             type MaxInLen = MaxInLen;
+            type MaxOutLen = MaxOutLen;
             type WeightInfo = polymesh_weights::polymesh_contracts::WeightInfo;
         }
         impl pallet_contracts::Config for Runtime {
