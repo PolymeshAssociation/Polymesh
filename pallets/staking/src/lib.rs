@@ -1470,6 +1470,8 @@ decl_error! {
 		TooManyTargets,
         /// A nomination target was supplied that was blocked or otherwise not a validator.
         BadTarget,
+        /// Validator should have minimum 50k POLYX bonded.
+        InvalidValidatorUnbondAmount,
     }
 }
 
@@ -1827,10 +1829,18 @@ decl_module! {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
             let mut ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
+            let stash = &ledger.stash;
+
             ensure!(
                 ledger.unlocking.len() < MAX_UNLOCKING_CHUNKS,
                 Error::<T>::NoMoreChunks,
             );
+            // check if validator
+            if <Validators<T>>::contains_key(stash) {
+                let minimum_validator_bonding_balance: BalanceOf<T> = 50_000u32.into();
+                // check that the remaining bond balance is at least 50k
+                ensure!(ledger.total - value >= minimum_validator_bonding_balance, Error::<T>::InvalidValidatorUnbondAmount);
+            }
             Self::unbond_balance(controller, &mut ledger, value);
         }
 

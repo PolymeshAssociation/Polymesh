@@ -5819,3 +5819,30 @@ fn test_bond_too_small() {
         assert_ok!(both(90, 91, MinimumBond::get() + 1));
     });
 }
+
+#[test]
+fn validator_unbonding() {
+    ExtBuilder::default()
+        .validator_count(8)
+        .minimum_validator_count(1)
+        .build()
+        .execute_with(|| {
+            // 50 stash and 51 controller
+            bond(50, 51, 500000);
+            let entity_id = Identity::get_identity(&50).unwrap();
+
+            // Add a new validator successfully.
+            bond_validator_with_intended_count(50, 51, 500000, Some(2));
+
+            assert_permissioned_identity_prefs!(entity_id, 2, 1);
+
+            assert_noop!(
+                Staking::unbond(Origin::signed(51), 480000),
+                Error::<Test>::InvalidValidatorUnbondAmount
+            );
+
+            assert_ok!(Staking::chill(Origin::signed(51)));
+
+            assert_ok!(Staking::unbond(Origin::signed(51), 480000));
+        });
+}
