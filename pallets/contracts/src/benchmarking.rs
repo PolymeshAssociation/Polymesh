@@ -14,6 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::*;
+use crate::chain_extension::*;
 
 use codec::Encode;
 use frame_benchmarking::benchmarks;
