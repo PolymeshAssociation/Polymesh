@@ -82,9 +82,6 @@ type IdentityError<T> = pallet_identity::Error<T>;
 type FrameContracts<T> = pallet_contracts::Pallet<T>;
 type CodeHash<T> = <T as frame_system::Config>::Hash;
 
-/// Maximum decoding depth.
-const MAX_DECODE_DEPTH: u32 = 10;
-
 pub struct ContractPolymeshHooks;
 
 impl<T: Config> pallet_contracts::PolymeshHooks<T> for ContractPolymeshHooks

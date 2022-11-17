@@ -1,8 +1,5 @@
 use frame_support::{
-    dispatch::{
-        DispatchError,
-        Dispatchable, GetDispatchInfo,
-    },
+    dispatch::{DispatchError, Dispatchable, GetDispatchInfo},
     ensure,
     log::trace,
     storage::unhashed,
@@ -19,6 +16,9 @@ use sp_core::crypto::UncheckedFrom;
 use super::*;
 
 type Identity<T> = pallet_identity::Module<T>;
+
+/// Maximum decoding depth.
+const MAX_DECODE_DEPTH: u32 = 10;
 
 /// KeyHasher
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
