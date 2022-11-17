@@ -5827,12 +5827,9 @@ fn validator_unbonding() {
         .minimum_validator_count(1)
         .build()
         .execute_with(|| {
-            // 50 stash and 51 controller
-            bond(50, 51, 500000);
-            let entity_id = Identity::get_identity(&50).unwrap();
-
             // Add a new validator successfully.
             bond_validator_with_intended_count(50, 51, 500000, Some(2));
+            let entity_id = Identity::get_identity(&50).unwrap();
             assert_permissioned_identity_prefs!(entity_id, 2, 1);
             // Set minimum bond threshold to 50k POLYX
             assert_ok!(Staking::set_min_bond_threshold(Origin::root(), 50000));
@@ -5841,9 +5838,14 @@ fn validator_unbonding() {
                 Staking::unbond(Origin::signed(51), 480000),
                 Error::<Test>::InvalidValidatorUnbondAmount
             );
+            // Check that validator can unbond once it doesn't go below the minimum bond threshold
+            assert_ok!(Staking::unbond(Origin::signed(51), 80000));
+            assert_ok!(Staking::unbond(Origin::signed(51), 80000));
+            assert_ok!(Staking::unbond(Origin::signed(51), 80000));
+            assert_ok!(Staking::unbond(Origin::signed(51), 80000));
             // Chill validator
             assert_ok!(Staking::chill(Origin::signed(51)));
             // After chilling validator checks that entity can unbond successfully
-            assert_ok!(Staking::unbond(Origin::signed(51), 480000));
+            assert_ok!(Staking::unbond(Origin::signed(51), 160000));
         });
 }
