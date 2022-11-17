@@ -1829,14 +1829,13 @@ decl_module! {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
             let mut ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
-            let stash = &ledger.stash;
 
             ensure!(
                 ledger.unlocking.len() < MAX_UNLOCKING_CHUNKS,
                 Error::<T>::NoMoreChunks,
             );
             // check if validator
-            if <Validators<T>>::contains_key(stash) {
+            if <Validators<T>>::contains_key(&ledger.stash) {
                 // check that the remaining bond balance is at least equal to minimum bond threshold
                 ensure!(ledger.total - value >= <MinimumBondThreshold<T>>::get(), Error::<T>::InvalidValidatorUnbondAmount);
             }
