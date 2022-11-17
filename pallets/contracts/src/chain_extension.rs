@@ -1,3 +1,4 @@
+use codec::{Decode, Encode};
 use frame_support::{
     dispatch::{DispatchError, Dispatchable, GetDispatchInfo},
     ensure,
@@ -11,7 +12,10 @@ use pallet_contracts::Config as BConfig;
 use pallet_permissions::with_call_metadata;
 use polymesh_common_utilities::Context;
 use polymesh_primitives::IdentityId;
+use scale_info::TypeInfo;
 use sp_core::crypto::UncheckedFrom;
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
 
 use super::*;
 
@@ -19,6 +23,34 @@ type Identity<T> = pallet_identity::Module<T>;
 
 /// Maximum decoding depth.
 const MAX_DECODE_DEPTH: u32 = 10;
+
+/// ExtrinsicId
+#[derive(Encode, Decode, TypeInfo)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ExtrinsicId(u8, u8);
+
+impl From<ExtrinsicId> for [u8; 2] {
+    fn from(ExtrinsicId(pallet_id, extrinsic_id): ExtrinsicId) -> Self {
+        [pallet_id, extrinsic_id]
+    }
+}
+
+impl From<[u8; 2]> for ExtrinsicId {
+    fn from(ext_id: [u8; 2]) -> Self {
+        Self(ext_id[0], ext_id[1])
+    }
+}
+
+impl ExtrinsicId {
+    fn try_from(input: &[u8]) -> Option<Self> {
+        if input.len() >= 2 {
+            Some(Self(input[0], input[1]))
+        } else {
+            None
+        }
+    }
+}
 
 /// KeyHasher
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -48,7 +80,7 @@ pub enum FuncId {
     KeyHasher(KeyHasher, HashSize),
 
     /// Deprecated Polymesh (<=5.0) chain extensions.
-    OldCallRuntime(u8, u8),
+    OldCallRuntime(ExtrinsicId),
 }
 
 impl FuncId {
@@ -70,13 +102,13 @@ impl FuncId {
                 _ => None,
             },
             0x1A => match func_id {
-                0x00_00 | 0x01_00 | 0x02_00 | 0x03_00 | 0x11_00 => {
-                    Some(Self::OldCallRuntime(0x1A, (func_id >> 8) as u8))
-                }
+                0x00_00 | 0x01_00 | 0x02_00 | 0x03_00 | 0x11_00 => Some(Self::OldCallRuntime(
+                    ExtrinsicId(0x1A, (func_id >> 8) as u8),
+                )),
                 _ => None,
             },
             0x2F => match func_id {
-                0x01_00 => Some(Self::OldCallRuntime(0x2F, 0x01)),
+                0x01_00 => Some(Self::OldCallRuntime(ExtrinsicId(0x2F, 0x01))),
                 _ => None,
             },
             _ => None,
@@ -97,7 +129,9 @@ impl Into<u32> for FuncId {
             Self::KeyHasher(KeyHasher::Twox, HashSize::B64) => (0x0000, 0x10),
             Self::KeyHasher(KeyHasher::Twox, HashSize::B128) => (0x0000, 0x11),
             Self::KeyHasher(KeyHasher::Twox, HashSize::B256) => (0x0000, 0x12),
-            Self::OldCallRuntime(ext_id, func_id) => (ext_id as u32, (func_id as u32) << 8),
+            Self::OldCallRuntime(ExtrinsicId(ext_id, func_id)) => {
+                (ext_id as u32, (func_id as u32) << 8)
+            }
         };
         (ext_id << 16) + func_id
     }
@@ -196,7 +230,6 @@ where
     T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
     E: ce::Ext<T = T>,
 {
-    use codec::Encode;
     let mut env = env.buf_in_buf_out();
     let key_len = env.in_len();
 
@@ -266,7 +299,6 @@ where
     T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
     E: ce::Ext<T = T>,
 {
-    use codec::Encode;
     let mut env = env.prim_in_buf_out();
 
     // Charge weight.
@@ -297,7 +329,6 @@ where
     T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
     E: ce::Ext<T = T>,
 {
-    use codec::Encode;
     let mut env = env.buf_in_buf_out();
 
     // Charge weight.
@@ -336,7 +367,6 @@ where
     T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
     E: ce::Ext<T = T>,
 {
-    use codec::Encode;
     use sp_io::hashing;
     let mut env = env.buf_in_buf_out();
     let in_len = env.in_len();
@@ -373,7 +403,7 @@ where
 
 fn call_runtime<T, E>(
     env: ce::Environment<E, ce::InitState>,
-    old_call: Option<(u8, u8)>,
+    old_call: Option<ExtrinsicId>,
 ) -> ce::Result<ce::RetVal>
 where
     <T as BConfig>::Call: GetDispatchInfo + GetCallMetadata,
@@ -397,17 +427,23 @@ where
     use codec::DecodeLimit;
     let call = match old_call {
         None => {
-            // TODO: Decode pallet_id, extrinsic_id and do call filtering.
             let input = env.read(in_len)?;
+            // Decode the pallet_id & extrinsic_id.
+            let ext_id =
+                ExtrinsicId::try_from(input.as_slice()).ok_or(Error::<T>::InvalidRuntimeCall)?;
+            // Check if the extrinsic is allowed to be called.
+            Module::<T>::ensure_call_runtime(ext_id)?;
             <<T as BConfig>::Call>::decode_all_with_depth_limit(
                 MAX_DECODE_DEPTH,
                 &mut input.as_slice(),
             )
             .map_err(|_| Error::<T>::InvalidRuntimeCall)?
         }
-        Some((pallet_id, extrinsic_id)) => {
+        Some(ext_id) => {
+            // Check if the extrinsic is allowed to be called.
+            Module::<T>::ensure_call_runtime(ext_id)?;
             // Convert old ChainExtension runtime calls into `Call` format.
-            let extrinsic = [pallet_id, extrinsic_id];
+            let extrinsic: [u8; 2] = ext_id.into();
             let params = env.read(in_len)?;
             let mut input = ChainInput::new(&extrinsic, params.as_slice());
             let call =
@@ -485,7 +521,7 @@ where
             Some(FuncId::GetTransactionVersion) => get_version(env, false),
             Some(FuncId::GetKeyDid) => get_key_did(env),
             Some(FuncId::KeyHasher(hasher, size)) => key_hasher(env, hasher, size),
-            Some(FuncId::OldCallRuntime(p, e)) => call_runtime(env, Some((p, e))),
+            Some(FuncId::OldCallRuntime(p)) => call_runtime(env, Some(p)),
             None => {
                 trace!(
                     target: "runtime",
@@ -518,11 +554,11 @@ mod tests {
         test_func_id(FuncId::KeyHasher(KeyHasher::Twox, HashSize::B64));
         test_func_id(FuncId::KeyHasher(KeyHasher::Twox, HashSize::B128));
         test_func_id(FuncId::KeyHasher(KeyHasher::Twox, HashSize::B256));
-        test_func_id(FuncId::OldCallRuntime(0x1A, 0x00));
-        test_func_id(FuncId::OldCallRuntime(0x1A, 0x01));
-        test_func_id(FuncId::OldCallRuntime(0x1A, 0x02));
-        test_func_id(FuncId::OldCallRuntime(0x1A, 0x03));
-        test_func_id(FuncId::OldCallRuntime(0x1A, 0x11));
-        test_func_id(FuncId::OldCallRuntime(0x2F, 0x01));
+        test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x1A, 0x00)));
+        test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x1A, 0x01)));
+        test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x1A, 0x02)));
+        test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x1A, 0x03)));
+        test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x1A, 0x11)));
+        test_func_id(FuncId::OldCallRuntime(ExtrinsicId(0x2F, 0x01)));
     }
 }

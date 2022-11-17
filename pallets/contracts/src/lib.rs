@@ -55,15 +55,18 @@
 pub mod benchmarking;
 
 pub mod chain_extension;
+pub use chain_extension::ExtrinsicId;
 
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{
         DispatchError, DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo,
     },
+    ensure,
     traits::Get,
     weights::Weight,
 };
+use frame_system::ensure_root;
 use pallet_contracts::Config as BConfig;
 use pallet_contracts_primitives::{Code, ContractResult};
 use pallet_identity::PermissionedCallOriginData;
@@ -165,6 +168,8 @@ pub trait WeightInfo {
     /// Computes the cost of instantiating where `salt_len` is specified in kilobytes.
     fn instantiate_with_hash_perms(salt_len: u32) -> Weight;
 
+    fn update_call_runtime_whitelist(u: u32) -> Weight;
+
     /// Computes the cost of instantiating for `salt`.
     ///
     /// Permissions are not accounted for here.
@@ -253,12 +258,24 @@ decl_error! {
         /// A contract was attempted to be instantiated,
         /// but no identity was given to associate the new contract's key with.
         InstantiatorWithNoIdentity,
+        /// Extrinsic is not allowed to be called by contracts.
+        RuntimeCallDenied,
     }
 }
 
 decl_storage! {
     trait Store for Module<T: Config> as Contracts where T::AccountId: UncheckedFrom<T::Hash>, T::AccountId: AsRef<[u8]> {
-        // Storage items defined in `pallet_contracts` and `pallet_identity`.
+        /// Whitelist of extrinsics allowed to be called from contracts.
+        pub CallRuntimeWhitelist get(fn call_runtime_whitelist):
+            map hasher(identity) ExtrinsicId => bool;
+    }
+    add_extra_genesis {
+        config(call_whitelist): Vec<ExtrinsicId>;
+        build(|config: &GenesisConfig| {
+            for ext_id in &config.call_whitelist {
+                CallRuntimeWhitelist::insert(ext_id, true);
+            }
+        });
     }
 }
 
@@ -355,6 +372,16 @@ decl_module! {
         ) -> DispatchResultWithPostInfo {
             Self::base_instantiate_with_hash(origin, endowment, gas_limit, storage_deposit_limit, code_hash, data, salt, perms)
         }
+
+        /// Update CallRuntime whitelist.
+        ///
+        /// # Arguments
+        ///
+        /// # Errors
+        #[weight = <T as Config>::WeightInfo::update_call_runtime_whitelist(updates.len() as u32)]
+        pub fn update_call_runtime_whitelist(origin, updates: Vec<(ExtrinsicId, bool)>) -> DispatchResult {
+            Self::base_update_call_runtime_whitelist(origin, updates)
+        }
     }
 }
 
@@ -362,6 +389,31 @@ impl<T: Config> Module<T>
 where
     T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 {
+    /// Instantiates a contract using `code` as the WASM code blob.
+    fn base_update_call_runtime_whitelist(
+        origin: T::Origin,
+        updates: Vec<(ExtrinsicId, bool)>,
+    ) -> DispatchResult {
+        ensure_root(origin)?;
+
+        for (ext_id, allow) in updates {
+            if allow {
+                CallRuntimeWhitelist::insert(ext_id, true);
+            } else {
+                CallRuntimeWhitelist::remove(ext_id);
+            }
+        }
+        Ok(())
+    }
+
+    pub fn ensure_call_runtime(ext_id: ExtrinsicId) -> DispatchResult {
+        ensure!(
+            Self::call_runtime_whitelist(ext_id),
+            Error::<T>::RuntimeCallDenied
+        );
+        Ok(())
+    }
+
     /// Instantiates a contract using `code` as the WASM code blob.
     fn base_instantiate_with_code(
         origin: T::Origin,

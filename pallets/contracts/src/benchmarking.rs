@@ -19,7 +19,7 @@ use crate::*;
 use codec::Encode;
 use frame_benchmarking::benchmarks;
 use frame_support::{storage::unhashed, traits::tokens::currency::Currency};
-use frame_system::Pallet as System;
+use frame_system::{Pallet as System, RawOrigin};
 use pallet_contracts::benchmarking::code::{
     body, max_pages, DataSegment, ImportedFunction, ImportedMemory, Location, ModuleDefinition,
     WasmModule,
@@ -363,4 +363,12 @@ benchmarks! {
         // Ensure contract has the full value.
         assert_eq!(free_balance::<T>(&addr), ENDOWMENT);
     }
+
+    update_call_runtime_whitelist {
+        let u in 0 .. 2000;
+
+        let updates = (0..u)
+            .map(|id| ([(id & 0xFF) as u8, (id >> 8) as u8].into(), true))
+            .collect();
+    }: _(RawOrigin::Root, updates)
 }

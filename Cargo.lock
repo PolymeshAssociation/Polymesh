@@ -6327,6 +6327,7 @@ dependencies = [
  "pallet-sudo",
  "parity-scale-codec 3.2.1",
  "polymesh-common-utilities",
+ "polymesh-contracts",
  "polymesh-node-rpc",
  "polymesh-primitives",
  "polymesh-runtime-common",

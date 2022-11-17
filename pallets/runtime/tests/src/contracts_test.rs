@@ -50,6 +50,23 @@ fn misc_polymesh_extensions() {
     let eve = AccountKeyring::Eve.to_account_id();
     ExtBuilder::default()
         .cdd_providers(vec![eve.clone()])
+        .adjust(Box::new(move |storage| {
+            polymesh_contracts::GenesisConfig {
+                call_whitelist: [
+                    [0x1A, 0x00],
+                    [0x1A, 0x01],
+                    [0x1A, 0x02],
+                    [0x1A, 0x03],
+                    [0x1A, 0x11],
+                    [0x2F, 0x01],
+                ]
+                .into_iter()
+                .map(|ext_id: [u8; 2]| ext_id.into())
+                .collect(),
+            }
+            .assimilate_storage(storage)
+            .unwrap();
+        }))
         .build()
         .execute_with(|| {
             let owner = User::new(AccountKeyring::Alice);
