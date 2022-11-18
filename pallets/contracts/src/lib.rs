@@ -34,7 +34,7 @@
 //!
 //! ## Overview
 //!
-//! The Contracts module provides functions for:
+//! The PolymeshContracts module provides functions for:
 //!
 //! - Instantiating contracts with custom permissions.
 //!
