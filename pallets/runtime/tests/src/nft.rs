@@ -4,6 +4,7 @@ use frame_support::{StorageDoubleMap, StorageMap};
 use pallet_asset::BalanceOf;
 use pallet_nft::{Collection, CollectionKeys, MetadataValue};
 use pallet_portfolio::PortfolioNFT;
+use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_primitives::asset::AssetType;
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataSpec,
@@ -332,7 +333,7 @@ fn mint_nft() {
             ),
             AssetMetadataValue(b"test".to_vec())
         );
-        assert_eq!(BalanceOf::get(&ticker, alice.did), 1);
+        assert_eq!(BalanceOf::get(&ticker, alice.did), ONE_UNIT);
         assert_eq!(
             PortfolioNFT::get(
                 PortfolioId::default_portfolio(alice.did),
