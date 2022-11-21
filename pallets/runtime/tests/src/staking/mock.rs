@@ -180,16 +180,16 @@ impl frame_system::Config for Test {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = RocksDbWeight;
-    type Origin = Origin;
+    type RuntimeOrigin = RuntimeOrigin;
     type Index = AccountIndex;
     type BlockNumber = BlockNumber;
-    type Call = Call;
+    type RuntimeCall = RuntimeCall;
     type Hash = H256;
     type Hashing = ::sp_runtime::traits::BlakeTwo256;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -203,7 +203,7 @@ impl frame_system::Config for Test {
 }
 
 impl pallet_base::Config for Test {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type MaxLen = MaxLen;
 }
 
@@ -214,7 +214,7 @@ impl CommonConfig for Test {
 
 impl pallet_balances::Config for Test {
     type DustRemoval = ();
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type CddChecker = Test;
@@ -235,7 +235,7 @@ impl pallet_session::Config for Test {
     type Keys = SessionKeys;
     type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
     type SessionHandler = (OtherSessionHandler,);
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type ValidatorId = AccountId;
     type ValidatorIdOf = StashOf<Test>;
     type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
@@ -243,11 +243,11 @@ impl pallet_session::Config for Test {
 }
 
 impl pallet_committee::Config<pallet_committee::Instance1> for Test {
-    type Origin = Origin;
-    type Proposal = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type Proposal = RuntimeCall;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
 }
 
@@ -262,14 +262,14 @@ impl pallet_pips::Config for Test {
     type GovernanceCommittee = crate::storage::Committee;
     type TechnicalCommitteeVMO = frame_system::EnsureRoot<AccountId>;
     type UpgradeCommitteeVMO = frame_system::EnsureRoot<AccountId>;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
-    type SchedulerCall = Call;
+    type SchedulerCall = RuntimeCall;
 }
 
 impl pallet_treasury::Config for Test {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type Currency = pallet_balances::Module<Self>;
     type WeightInfo = polymesh_weights::pallet_treasury::WeightInfo;
 }
@@ -291,7 +291,7 @@ impl pallet_timestamp::Config for Test {
 }
 
 impl group::Config<group::Instance2> for Test {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
@@ -303,7 +303,7 @@ impl group::Config<group::Instance2> for Test {
 }
 
 impl protocol_fee::Config for Test {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type OnProtocolFeePayment = ();
     type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
@@ -311,8 +311,8 @@ impl protocol_fee::Config for Test {
 }
 
 impl polymesh_common_utilities::traits::identity::Config for Test {
-    type Event = Event;
-    type Proposal = Call;
+    type RuntimeEvent = RuntimeEvent;
+    type Proposal = RuntimeCall;
     type MultiSig = Test;
     type Portfolio = Test;
     type CddServiceProviders = group::Module<Test, group::Instance2>;
@@ -334,21 +334,19 @@ parameter_types! {
     pub const InitialPOLYX: Balance = 0;
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
-    pub const NoPreimagePostponement: Option<u64> = Some(10);
 }
 
 impl pallet_scheduler::Config for Test {
-    type Event = Event;
-    type Origin = Origin;
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeOrigin = RuntimeOrigin;
     type PalletsOrigin = OriginCaller;
-    type Call = Call;
+    type RuntimeCall = RuntimeCall;
     type MaximumWeight = MaximumSchedulerWeight;
     type ScheduleOrigin = EnsureRoot<AccountId>;
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
     type WeightInfo = ();
     type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
-    type PreimageProvider = Preimage;
-    type NoPreimagePostponement = NoPreimagePostponement;
+    type Preimages = Preimage;
 }
 
 parameter_types! {
@@ -359,16 +357,15 @@ parameter_types! {
 
 impl pallet_preimage::Config for Test {
     type WeightInfo = polymesh_weights::pallet_preimage::WeightInfo;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type ManagerOrigin = EnsureRoot<AccountId>;
-    type MaxSize = PreimageMaxSize;
     type BaseDeposit = PreimageBaseDeposit;
     type ByteDeposit = PreimageByteDeposit;
 }
 
 impl pallet_test_utils::Config for Test {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = polymesh_weights::pallet_test_utils::WeightInfo;
 }
 
@@ -609,7 +606,7 @@ impl Config for Test {
     type UnixTime = Timestamp;
     type CurrencyToVote = frame_support::traits::SaturatingCurrencyToVote;
     type RewardRemainder = RewardRemainderMock;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type Slash = ();
     type Reward = ();
     type SessionsPerEra = SessionsPerEra;
@@ -620,7 +617,7 @@ impl Config for Test {
     type RewardCurve = RewardCurve;
     type NextNewSession = Session;
     type ElectionLookahead = ElectionLookahead;
-    type Call = Call;
+    type RuntimeCall = RuntimeCall;
     type MaxIterations = MaxIterations;
     type MinSolutionScoreBump = MinSolutionScoreBump;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
@@ -643,7 +640,7 @@ impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
 where
     Call: From<LocalCall>,
 {
-    type OverarchingCall = Call;
+    type OverarchingCall = RuntimeCall;
     type Extrinsic = Extrinsic;
 }
 

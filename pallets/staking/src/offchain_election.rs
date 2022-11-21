@@ -166,7 +166,6 @@ pub fn maximum_compact_len<W: crate::WeightInfo>(
     size: ElectionSize,
     max_weight: Weight,
 ) -> u32 {
-    use sp_std::cmp::Ordering;
 
     if size.nominators < 1 {
         return size.nominators;
@@ -186,16 +185,16 @@ pub fn maximum_compact_len<W: crate::WeightInfo>(
     };
 
     let next_voters = |current_weight: Weight, voters: u32, step: u32| -> Result<u32, ()> {
-        match current_weight.cmp(&max_weight) {
-            Ordering::Less => {
-                let next_voters = voters.checked_add(step);
-                match next_voters {
-                    Some(voters) if voters < max_voters => Ok(voters),
-                    _ => Err(()),
-                }
+        if current_weight.all_lt(max_weight) {
+            let next_voters = voters.checked_add(step);
+            match next_voters {
+                Some(voters) if voters < max_voters => Ok(voters),
+                _ => Err(()),
             }
-            Ordering::Greater => voters.checked_sub(step).ok_or(()),
-            Ordering::Equal => Ok(voters),
+        } else if current_weight.any_gt(max_weight) {
+            voters.checked_sub(step).ok_or(())
+        } else {
+            Ok(voters)
         }
     };
 
@@ -222,15 +221,15 @@ pub fn maximum_compact_len<W: crate::WeightInfo>(
     // Time to finish.
     // We might have reduced less than expected due to rounding error. Increase one last time if we
     // have any room left, the reduce until we are sure we are below limit.
-    while voters + 1 <= max_voters && weight_with(voters + 1) < max_weight {
+    while voters + 1 <= max_voters && weight_with(voters + 1).all_lt(max_weight) {
         voters += 1;
     }
-    while voters.checked_sub(1).is_some() && weight_with(voters) > max_weight {
+    while voters.checked_sub(1).is_some() && weight_with(voters).all_gt(max_weight) {
         voters -= 1;
     }
 
     debug_assert!(
-        weight_with(voters.min(size.nominators)) <= max_weight,
+        weight_with(voters.min(size.nominators)).all_lte(max_weight),
         "weight_with({}) <= {}",
         voters.min(size.nominators),
         max_weight,
@@ -553,7 +552,7 @@ mod test {
         }
 
         fn submit_solution_better(v: u32, n: u32, a: u32, w: u32) -> Weight {
-            (0 * v + 0 * n + 1000 * a + 0 * w) as Weight
+            Weight::from_ref_time(0 * v + 0 * n + 1000 * a + 0 * w)
         }
 
         fn chill_from_governance(s: u32) -> Weight {

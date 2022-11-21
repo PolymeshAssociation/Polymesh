@@ -12,7 +12,7 @@ use sp_std::{convert::TryFrom, vec};
 pub type ResultTicker = Result<Ticker, &'static str>;
 
 /// Create a ticker and register it.
-pub fn make_ticker<T: Config>(owner: T::Origin, opt_name: Option<&[u8]>) -> Ticker {
+pub fn make_ticker<T: Config>(owner: T::RuntimeOrigin, opt_name: Option<&[u8]>) -> Ticker {
     let ticker = match opt_name {
         Some(name) => Ticker::try_from(name).expect("Invalid ticker name"),
         _ => Ticker::repeating(b'A'),

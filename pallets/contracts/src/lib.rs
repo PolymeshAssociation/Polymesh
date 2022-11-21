@@ -63,6 +63,7 @@ use frame_support::{
         DispatchError, DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo,
     },
     ensure,
+    log::trace,
     traits::Get,
     weights::Weight,
 };
@@ -75,7 +76,6 @@ use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
 use polymesh_common_utilities::with_transaction;
 use polymesh_primitives::{Balance, Permissions};
 use sp_core::crypto::UncheckedFrom;
-use sp_core::Bytes;
 use sp_runtime::traits::Hash;
 use sp_std::borrow::Cow;
 use sp_std::vec::Vec;
@@ -220,7 +220,7 @@ pub trait Config:
     IdentityConfig + BConfig<Currency = Self::Balances> + frame_system::Config
 {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
 
     /// Max value that `in_len` can take, that is,
     /// the length of the data sent from a contract when using the ChainExtension.
@@ -280,7 +280,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin, T::AccountId: UncheckedFrom<T::Hash>, T::AccountId: AsRef<[u8]> {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin, T::AccountId: UncheckedFrom<T::Hash>, T::AccountId: AsRef<[u8]> {
         type Error = Error<T>;
         fn deposit_event() = default;
 
@@ -406,7 +406,7 @@ where
 
     /// Instantiates a contract using `code` as the WASM code blob.
     fn base_instantiate_with_code(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         endowment: Balance,
         gas_limit: Weight,
         storage_deposit_limit: Option<Balance>,
@@ -422,7 +422,7 @@ where
             Self::weight_instantiate_with_code(&code, &salt, &perms),
             gas_limit,
             storage_deposit_limit,
-            Code::Upload(Bytes(code)),
+            Code::Upload(code),
             inst_data,
             salt,
             perms,
@@ -438,7 +438,7 @@ where
 
     /// Instantiates a contract using an existing WASM code blob with `code_hash` as its code.
     fn base_instantiate_with_hash(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         endowment: Balance,
         gas_limit: Weight,
         storage_deposit_limit: Option<Balance>,
@@ -476,7 +476,7 @@ where
     /// - `code` specifies the code for the contract, either as a code blob or an existing hash.
     ///   The hash of `code` in either case is assumed to correspond to `code_hash`.
     fn general_instantiate(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         endowment: Balance,
         base_weight: Weight,
         gas_limit: Weight,

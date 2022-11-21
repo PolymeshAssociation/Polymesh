@@ -91,14 +91,13 @@ use codec::{Decode, Encode, FullCodec};
 use core::{cmp::Ordering, mem};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchResult, DispatchResultWithPostInfo},
+    dispatch::{DispatchClass::Operational, DispatchResult, DispatchResultWithPostInfo, Weight},
     ensure,
     storage::IterableStorageMap,
     traits::{
         schedule::{DispatchTime, Named as ScheduleNamed, Priority, HARD_DEADLINE},
         Currency, EnsureOrigin, Get, LockIdentifier, WithdrawReasons,
     },
-    weights::{DispatchClass::Operational, Weight},
     StorageValue,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
@@ -411,19 +410,19 @@ pub trait Config:
     type Currency: LockableCurrencyExt<Self::AccountId, Moment = Self::BlockNumber>;
 
     /// Origin for enacting results for PIPs (reject, approve, skip, etc.).
-    type VotingMajorityOrigin: EnsureOrigin<Self::Origin>;
+    type VotingMajorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
     /// Committee
     type GovernanceCommittee: GovernanceGroupTrait<<Self as pallet_timestamp::Config>::Moment>;
 
     /// Voting majority origin for Technical Committee.
-    type TechnicalCommitteeVMO: EnsureOrigin<Self::Origin>;
+    type TechnicalCommitteeVMO: EnsureOrigin<Self::RuntimeOrigin>;
 
     /// Voting majority origin for Upgrade Committee.
-    type UpgradeCommitteeVMO: EnsureOrigin<Self::Origin>;
+    type UpgradeCommitteeVMO: EnsureOrigin<Self::RuntimeOrigin>;
 
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
+    type RuntimeEvent: From<Event<Self>> + Into<<Self as system::Config>::RuntimeEvent>;
 
     /// Weight calaculation.
     type WeightInfo: WeightInfo;
@@ -645,7 +644,7 @@ decl_error! {
 // The module's dispatchable functions.
 decl_module! {
     /// The module declaration.
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -1137,7 +1136,7 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
-    fn config<SV, X, E>(origin: T::Origin, new: X, event: E) -> DispatchResult
+    fn config<SV, X, E>(origin: T::RuntimeOrigin, new: X, event: E) -> DispatchResult
     where
         SV: StorageValue<X, Query = X>,
         X: FullCodec + Clone,
@@ -1159,7 +1158,7 @@ impl<T: Config> Module<T> {
     /// # Errors
     /// * `BadOrigin` if not a signed extrinsic.
     fn ensure_infer_proposer(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
     ) -> Result<(Proposer<T::AccountId>, IdentityId), DispatchError> {
         match ensure_signed(origin.clone()) {
             Ok(sender) => {
@@ -1324,7 +1323,7 @@ impl<T: Config> Module<T> {
         let weight = res.unwrap_or_else(|e| e.post_info).actual_weight;
         let new_state = res.map_or(ProposalState::Failed, |_| ProposalState::Executed);
         Self::maybe_prune(GC_DID, id, new_state);
-        Ok(Some(weight.unwrap_or(0)).into())
+        Ok(Some(weight.unwrap_or(Weight::zero())).into())
     }
 
     /// Update the proposal state of `did` setting it to `new_state`.

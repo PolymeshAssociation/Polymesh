@@ -54,12 +54,12 @@
 use codec::{Decode, Encode};
 use frame_support::{
     decl_module, decl_storage,
-    dispatch::DispatchResult,
-    traits::{Currency, Get, GetCallMetadata},
-    weights::{
-        DispatchClass, DispatchInfo, GetDispatchInfo, Pays, PostDispatchInfo, Weight,
-        WeightToFeeCoefficient, WeightToFeePolynomial,
+    dispatch::{
+        DispatchClass, DispatchInfo, DispatchResult, GetDispatchInfo, Pays, PostDispatchInfo,
+        Weight,
     },
+    traits::{Currency, Get, GetCallMetadata},
+    weights::{WeightToFee, WeightToFeeCoefficient, WeightToFeePolynomial},
 };
 use polymesh_common_utilities::traits::{
     group::GroupTrait,
@@ -201,9 +201,13 @@ where
             .max_total
             .unwrap_or_else(|| weights.max_block);
         let current_block_weight = <frame_system::Pallet<T>>::block_weight();
-        let normal_block_weight = *current_block_weight
+        let normal_block_weight = current_block_weight
             .get(DispatchClass::Normal)
-            .min(&normal_max_weight);
+            .min(normal_max_weight);
+
+        // TODO: Handle all weight dimensions
+        let normal_max_weight = normal_max_weight.ref_time();
+        let normal_block_weight = normal_block_weight.ref_time();
 
         let s = S::get();
         let v = V::get();
@@ -278,7 +282,7 @@ pub trait Config: frame_system::Config + pallet_timestamp::Config {
 
     // Polymesh note: This was specifically added for Polymesh
     /// Fetch the signatory to charge fee from. Also sets fee payer and identity in context.
-    type CddHandler: CddAndFeeDetails<Self::AccountId, Self::Call>;
+    type CddHandler: CddAndFeeDetails<Self::AccountId, Self::RuntimeCall>;
 
     /// Connection to the `Relayer` pallet.
     /// Used to charge transaction fees to a subsidiser, if any, instead of the payer.
@@ -303,7 +307,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         /// The fee to be paid for making a transaction; the per-byte portion.
         const TransactionByteFee: BalanceOf<T> = T::TransactionByteFee::get();
 
@@ -320,7 +324,7 @@ decl_module! {
             assert!(
                 <Multiplier as sp_runtime::traits::Bounded>::max_value() >=
                 Multiplier::checked_from_integer::<u64>(
-                    T::BlockWeights::get().max_block
+                    T::BlockWeights::get().max_block.ref_time()
                 ).unwrap(),
             );
 
@@ -337,7 +341,7 @@ decl_module! {
 
             // add 1 percent;
             let addition = target / 100;
-            if addition == 0 {
+            if addition == Weight::zero() {
                 // this is most likely because in a test setup we set everything to ().
                 return;
             }
@@ -372,7 +376,7 @@ where
         len: u32,
     ) -> RuntimeDispatchInfo<BalanceOf<T>>
     where
-        T::Call: Dispatchable<Info = DispatchInfo>,
+        T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
     {
         // NOTE: we can actually make it understand `ChargeTransactionPayment`, but would be some
         // hassle for sure. We have to make it aware of the index of `ChargeTransactionPayment` in
@@ -397,16 +401,20 @@ where
         len: u32,
     ) -> FeeDetails<BalanceOf<T>>
     where
-        T::Call: Dispatchable<Info = DispatchInfo>,
+        T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
     {
         let dispatch_info = <Extrinsic as GetDispatchInfo>::get_dispatch_info(&unchecked_extrinsic);
         Self::compute_fee_details(len, &dispatch_info, 0u32.into())
     }
 
     /// Compute the final fee value for a particular transaction.
-    pub fn compute_fee(len: u32, info: &DispatchInfoOf<T::Call>, tip: BalanceOf<T>) -> BalanceOf<T>
+    pub fn compute_fee(
+        len: u32,
+        info: &DispatchInfoOf<T::RuntimeCall>,
+        tip: BalanceOf<T>,
+    ) -> BalanceOf<T>
     where
-        T::Call: Dispatchable<Info = DispatchInfo>,
+        T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
     {
         Self::compute_fee_details(len, info, tip).final_fee()
     }
@@ -414,11 +422,11 @@ where
     /// Compute the fee details for a particular transaction.
     pub fn compute_fee_details(
         len: u32,
-        info: &DispatchInfoOf<T::Call>,
+        info: &DispatchInfoOf<T::RuntimeCall>,
         tip: BalanceOf<T>,
     ) -> FeeDetails<BalanceOf<T>>
     where
-        T::Call: Dispatchable<Info = DispatchInfo>,
+        T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
     {
         Self::compute_fee_raw(len, info.weight, tip, info.pays_fee, info.class)
     }
@@ -429,12 +437,12 @@ where
     /// weight is used for the weight fee calculation.
     pub fn compute_actual_fee(
         len: u32,
-        info: &DispatchInfoOf<T::Call>,
-        post_info: &PostDispatchInfoOf<T::Call>,
+        info: &DispatchInfoOf<T::RuntimeCall>,
+        post_info: &PostDispatchInfoOf<T::RuntimeCall>,
         tip: BalanceOf<T>,
     ) -> BalanceOf<T>
     where
-        T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+        T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     {
         Self::compute_actual_fee_details(len, info, post_info, tip).final_fee()
     }
@@ -442,12 +450,12 @@ where
     /// Compute the actual post dispatch fee details for a particular transaction.
     pub fn compute_actual_fee_details(
         len: u32,
-        info: &DispatchInfoOf<T::Call>,
-        post_info: &PostDispatchInfoOf<T::Call>,
+        info: &DispatchInfoOf<T::RuntimeCall>,
+        post_info: &PostDispatchInfoOf<T::RuntimeCall>,
         tip: BalanceOf<T>,
     ) -> FeeDetails<BalanceOf<T>>
     where
-        T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+        T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     {
         Self::compute_fee_raw(
             len,
@@ -500,7 +508,7 @@ where
         // cap the weight to the maximum defined in runtime, otherwise it will be the
         // `Bounded` maximum of its data type, which is not desired.
         let capped_weight = weight.min(T::BlockWeights::get().max_block);
-        T::WeightToFee::calc(&capped_weight)
+        T::WeightToFee::weight_to_fee(&capped_weight)
     }
 
     /// Polymesh-Note :- Change for the supporting the test
@@ -539,7 +547,8 @@ pub struct ChargeTransactionPayment<T: Config>(#[codec(compact)] BalanceOf<T>);
 
 impl<T: Config> ChargeTransactionPayment<T>
 where
-    T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo> + GetCallMetadata,
+    T::RuntimeCall:
+        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo> + GetCallMetadata,
     BalanceOf<T>: Send + Sync + FixedPointOperand + Into<u128>,
 {
     /// utility constructor. Used only in client/factory code.
@@ -550,8 +559,8 @@ where
     fn withdraw_fee(
         &self,
         who: &T::AccountId,
-        call: &T::Call,
-        info: &DispatchInfoOf<T::Call>,
+        call: &T::RuntimeCall,
+        info: &DispatchInfoOf<T::RuntimeCall>,
         len: usize,
     ) -> Result<WithdrawFeeInfo<T, T::AccountId>, TransactionValidityError> {
         let tip = self.0;
@@ -601,7 +610,7 @@ where
     fn ensure_valid_tip(
         &self,
         who: &T::AccountId,
-        info: &DispatchInfoOf<T::Call>,
+        info: &DispatchInfoOf<T::RuntimeCall>,
     ) -> Result<BalanceOf<T>, TransactionValidityError> {
         let is_valid_tip = match info.class {
             DispatchClass::Normal => self.0 == Zero::zero(),
@@ -631,11 +640,12 @@ impl<T: Config> sp_std::fmt::Debug for ChargeTransactionPayment<T> {
 impl<T: Config> SignedExtension for ChargeTransactionPayment<T>
 where
     BalanceOf<T>: Send + Sync + From<u64> + FixedPointOperand + Into<u128>,
-    T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo> + GetCallMetadata,
+    T::RuntimeCall:
+        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo> + GetCallMetadata,
 {
     const IDENTIFIER: &'static str = "ChargeTransactionPayment";
     type AccountId = T::AccountId;
-    type Call = T::Call;
+    type Call = T::RuntimeCall;
     type AdditionalSigned = ();
     type Pre = (
         // tip
@@ -724,9 +734,9 @@ where
 impl<T: Config> ChargeTxFee for Module<T>
 where
     BalanceOf<T>: FixedPointOperand,
-    T::Call: Dispatchable<Info = DispatchInfo>,
+    T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 {
-    fn charge_fee(len: u32, info: DispatchInfoOf<T::Call>) -> TransactionValidity {
+    fn charge_fee(len: u32, info: DispatchInfoOf<T::RuntimeCall>) -> TransactionValidity {
         let fee = Self::compute_fee(len as u32, &info, 0u32.into());
         if let Some(payer) = T::CddHandler::get_payer_from_context() {
             T::OnChargeTransaction::charge_fee(&payer, fee)?;

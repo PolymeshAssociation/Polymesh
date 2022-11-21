@@ -99,9 +99,9 @@ pub trait WeightInfo {
 }
 
 pub trait Config: CommonConfig + identity::Config + base::Config {
-    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
     /// Asset module.
-    type Asset: AssetFnTrait<Self::AccountId, Self::Origin>;
+    type Asset: AssetFnTrait<Self::AccountId, Self::RuntimeOrigin>;
     type WeightInfo: WeightInfo;
     /// Maximum number of fungible assets that can be moved in a single transfer call.
     type MaxNumberOfFungibleMoves: Get<u32>;

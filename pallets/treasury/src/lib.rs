@@ -64,7 +64,7 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 
 pub trait Config: frame_system::Config + BalancesConfig {
     // The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
     /// The native currency.
     type Currency: Currency<Self::AccountId>;
     /// Weight information for extrinsics in the identity pallet.
@@ -110,7 +110,7 @@ decl_error! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -139,7 +139,7 @@ decl_module! {
 
 impl<T: Config> Module<T> {
     fn base_disbursement(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         beneficiaries: Vec<Beneficiary<BalanceOf<T>>>,
     ) -> DispatchResult {
         ensure_root(origin)?;
@@ -171,7 +171,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn base_reimbursement(origin: T::Origin, amount: BalanceOf<T>) -> DispatchResult {
+    fn base_reimbursement(origin: T::RuntimeOrigin, amount: BalanceOf<T>) -> DispatchResult {
         let identity::PermissionedCallOriginData {
             sender,
             primary_did,
@@ -197,7 +197,7 @@ impl<T: Config> Module<T> {
     /// This actually does computation. If you need to keep using it, then make sure you cache the
     /// value and only call this once.
     fn account_id() -> T::AccountId {
-        TREASURY_PALLET_ID.into_account()
+        TREASURY_PALLET_ID.into_account_truncating()
     }
 
     fn unsafe_disbursement(primary_key: T::AccountId, target: IdentityId, amount: BalanceOf<T>) {
