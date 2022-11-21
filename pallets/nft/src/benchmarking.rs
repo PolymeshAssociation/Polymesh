@@ -1,29 +1,32 @@
 use frame_benchmarking::benchmarks;
-use polymesh_common_utilities::benchs::{make_asset, user, AccountIdOf};
+use frame_system::RawOrigin;
+use polymesh_common_utilities::benchs::{user, AccountIdOf};
 use polymesh_common_utilities::traits::asset::AssetFnTrait;
 use polymesh_common_utilities::TestUtilsFn;
 use polymesh_primitives::asset_metadata::{
-    AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataSpec, AssetMetadataValue,
+    AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataSpec, AssetMetadataValue,
 };
 use polymesh_primitives::nft::{NFTCollectionId, NFTCollectionKeys, NFTId};
+use polymesh_primitives::PortfolioKind;
 use scale_info::prelude::format;
+use sp_std::prelude::*;
 use sp_std::vec::Vec;
 
 use crate::*;
 
 const MAX_COLLECTION_KEYS: u32 = 255;
 
-/// Creates an NFT collection with `n_keys` metadata keys.
+/// Creates an NFT collection with `n_keys` global metadata keys.
 fn create_collection<T: Config>(origin: T::Origin, ticker: Ticker, n_keys: u32) -> NFTCollectionId {
     let collection_keys: NFTCollectionKeys = (1..n_keys + 1)
-        .map(|key| AssetMetadataKey::Local(AssetMetadataLocalKey(key.into())))
+        .map(|key| AssetMetadataKey::Global(AssetMetadataGlobalKey(key.into())))
         .collect::<Vec<AssetMetadataKey>>()
         .into();
     for i in 1..n_keys + 1 {
         let asset_metadata_name = format!("key{}", i).as_bytes().to_vec();
         T::AssetFn::register_asset_metadata_type(
-            origin.clone(),
-            Some(ticker.clone()),
+            RawOrigin::Root.into(),
+            None,
             asset_metadata_name.into(),
             AssetMetadataSpec::default(),
         )
@@ -41,16 +44,16 @@ benchmarks! {
         let n in 1..MAX_COLLECTION_KEYS;
 
         let user = user::<T>("target", 0);
-        let ticker = make_asset::<T>(&user, None);
+        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
         let collection_keys: NFTCollectionKeys = (1..n + 1)
-            .map(|key| AssetMetadataKey::Local(AssetMetadataLocalKey(key.into())))
+            .map(|key| AssetMetadataKey::Global(AssetMetadataGlobalKey(key.into())))
             .collect::<Vec<AssetMetadataKey>>()
             .into();
         for i in 1..n + 1 {
             let asset_metadata_name = format!("key{}", i).as_bytes().to_vec();
             T::AssetFn::register_asset_metadata_type(
-                user.origin.clone().into(),
-                Some(ticker.clone()),
+                RawOrigin::Root.into(),
+                None,
                 asset_metadata_name.into(),
                 AssetMetadataSpec::default()
             )
@@ -66,12 +69,12 @@ benchmarks! {
         let n in 1..MAX_COLLECTION_KEYS;
 
         let user = user::<T>("target", 0);
-        let ticker = make_asset::<T>(&user, None);
+        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
         let collection_id = create_collection::<T>(user.origin().into(), ticker, n);
         let metadata_attributes: Vec<NFTMetadataAttribute> = (1..n + 1)
             .map(|key| {
                 NFTMetadataAttribute{
-                    key: AssetMetadataKey::Local(AssetMetadataLocalKey(key.into())),
+                    key: AssetMetadataKey::Global(AssetMetadataGlobalKey(key.into())),
                     value: AssetMetadataValue(b"value".to_vec()),
                 }
             })
@@ -82,9 +85,29 @@ benchmarks! {
             assert!(
                 MetadataValue::contains_key(
                     (NFTCollectionId(1), NFTId(1)),
-                    AssetMetadataKey::Local(AssetMetadataLocalKey(i.into()))
+                    AssetMetadataKey::Global(AssetMetadataGlobalKey(i.into()))
                 )
             );
         }
+    }
+
+    burn_nft {
+        let user = user::<T>("target", 0);
+        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let collection_id = create_collection::<T>(user.origin().into(), ticker, 1);
+
+        let metadata_attributes: Vec<NFTMetadataAttribute> = vec![
+            NFTMetadataAttribute {
+                key: AssetMetadataKey::Global(AssetMetadataGlobalKey(1)),
+                value: AssetMetadataValue(b"value".to_vec())
+            }
+        ];
+        Module::<T>::mint_nft(user.origin().into(), ticker, metadata_attributes).expect("failed to mint nft");
+    }: _(user.origin, ticker, NFTId(1), PortfolioKind::Default)
+    verify {
+        assert!(!MetadataValue::contains_key(
+            (NFTCollectionId(1), NFTId(1)),
+            AssetMetadataKey::Global(AssetMetadataGlobalKey(1))
+        ),);
     }
 }

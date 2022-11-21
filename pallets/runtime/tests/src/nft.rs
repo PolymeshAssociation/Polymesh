@@ -405,18 +405,14 @@ fn burn_nft() {
             NFTId(1),
             PortfolioKind::Default
         ));
-        assert!(
-            !MetadataValue::contains_key(
-                (NFTCollectionId(1), NFTId(1)),
-                AssetMetadataKey::Local(AssetMetadataLocalKey(1))
-            ),
-        );
+        assert!(!MetadataValue::contains_key(
+            (NFTCollectionId(1), NFTId(1)),
+            AssetMetadataKey::Local(AssetMetadataLocalKey(1))
+        ),);
         assert_eq!(BalanceOf::get(&ticker, alice.did), 0);
-        assert!(
-            !PortfolioNFT::contains_key(
-                PortfolioId::default_portfolio(alice.did),
-                (NFTCollectionId(1), NFTId(1))
-            ),
-        );
+        assert!(!PortfolioNFT::contains_key(
+            PortfolioId::default_portfolio(alice.did),
+            (NFTCollectionId(1), NFTId(1))
+        ),);
     });
 }
