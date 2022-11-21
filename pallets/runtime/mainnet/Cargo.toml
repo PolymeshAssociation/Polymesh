@@ -48,7 +48,6 @@ polymesh-contracts = { path = "../../contracts", default-features = false }
 node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = false }
 pallet-staking-rpc-runtime-api = { package = "pallet-staking-rpc-runtime-api", path = "../../staking/rpc/runtime-api", default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { package = "pallet-protocol-fee-rpc-runtime-api", path = "../../protocol-fee/rpc/runtime-api", default-features = false }
-pallet-contracts-rpc-runtime-api = { version = "4.0.0-dev", default-features = false }
 
 # Others
 log = "0.4.8"
@@ -129,7 +128,6 @@ std = [
     "pallet-bridge/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
-    "pallet-contracts-rpc-runtime-api/std",
     "pallet-contracts/std",
     "pallet-executive/std",
     "pallet-external-agents/std",
