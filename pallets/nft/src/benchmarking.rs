@@ -76,7 +76,7 @@ benchmarks! {
                 }
             })
             .collect();
-    }: _(user.origin, collection_id, metadata_attributes)
+    }: _(user.origin, ticker, metadata_attributes)
     verify {
         for i in 1..n + 1 {
             assert!(

@@ -25,10 +25,13 @@ decl_event!(
         NftCollectionCreated(Ticker, NFTCollectionId),
         /// Emitted when a new nft is minted.
         MintedNft(NFTCollectionId, NFTId),
+        /// Emitted when an NFT is burned.
+        BurnedNFT(Ticker, NFTId),
     }
 );
 
 pub trait WeightInfo {
     fn create_nft_collection(n: u32) -> Weight;
     fn mint_nft(n: u32) -> Weight;
+    fn burn_nft() -> Weight;
 }

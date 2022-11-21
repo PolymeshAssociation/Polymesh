@@ -34,4 +34,8 @@ impl pallet_nft::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().writes(1 as Weight))
             .saturating_mul(n as Weight)
     }
+
+    fn burn_nft() -> Weight {
+        unimplemented!()
+    }
 }
