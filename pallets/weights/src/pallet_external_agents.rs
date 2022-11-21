@@ -59,11 +59,11 @@ impl pallet_external_agents::WeightInfo for WeightInfo {
     // Storage: ExternalAgents AGIdSequence (r:1 w:1)
     // Storage: ExternalAgents GroupPermissions (r:0 w:1)
     fn create_group(p: u32) -> Weight {
-        (75_988_000 as Weight)
+        Weight::from_ref_time(75_988_000 as u64)
             // Standard Error: 285_000
-            .saturating_add((631_000 as Weight).saturating_mul(p as Weight))
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+            .saturating_add(Weight::from_ref_time(631_000 as u64).saturating_mul(p as u64))
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -72,11 +72,11 @@ impl pallet_external_agents::WeightInfo for WeightInfo {
     // Storage: ExternalAgents AGIdSequence (r:1 w:0)
     // Storage: ExternalAgents GroupPermissions (r:0 w:1)
     fn set_group_permissions(p: u32) -> Weight {
-        (66_758_000 as Weight)
+        Weight::from_ref_time(66_758_000 as u64)
             // Standard Error: 157_000
-            .saturating_add((1_041_000 as Weight).saturating_mul(p as Weight))
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+            .saturating_add(Weight::from_ref_time(1_041_000 as u64).saturating_mul(p as u64))
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:2 w:1)
@@ -85,18 +85,18 @@ impl pallet_external_agents::WeightInfo for WeightInfo {
     // Storage: ExternalAgents NumFullAgents (r:1 w:1)
     // Storage: ExternalAgents AgentOf (r:0 w:1)
     fn remove_agent() -> Weight {
-        (79_259_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+        Weight::from_ref_time(79_259_000 as u64)
+            .saturating_add(DbWeight::get().reads(6 as u64))
+            .saturating_add(DbWeight::get().writes(3 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:1)
     // Storage: ExternalAgents NumFullAgents (r:1 w:1)
     // Storage: ExternalAgents AgentOf (r:0 w:1)
     fn abdicate() -> Weight {
-        (69_603_000 as Weight)
-            .saturating_add(DbWeight::get().reads(3 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+        Weight::from_ref_time(69_603_000 as u64)
+            .saturating_add(DbWeight::get().reads(3 as u64))
+            .saturating_add(DbWeight::get().writes(3 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:2 w:1)
@@ -105,9 +105,9 @@ impl pallet_external_agents::WeightInfo for WeightInfo {
     // Storage: ExternalAgents AGIdSequence (r:1 w:0)
     // Storage: ExternalAgents NumFullAgents (r:1 w:1)
     fn change_group_custom() -> Weight {
-        (78_347_000 as Weight)
-            .saturating_add(DbWeight::get().reads(7 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(78_347_000 as u64)
+            .saturating_add(DbWeight::get().reads(7 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:2 w:1)
@@ -115,9 +115,9 @@ impl pallet_external_agents::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: ExternalAgents NumFullAgents (r:1 w:1)
     fn change_group_builtin() -> Weight {
-        (78_211_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(78_211_000 as u64)
+            .saturating_add(DbWeight::get().reads(6 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity Authorizations (r:1 w:1)
@@ -128,9 +128,9 @@ impl pallet_external_agents::WeightInfo for WeightInfo {
     // Storage: Identity AuthorizationsGiven (r:0 w:1)
     // Storage: ExternalAgents AgentOf (r:0 w:1)
     fn accept_become_agent() -> Weight {
-        (102_508_000 as Weight)
-            .saturating_add(DbWeight::get().reads(7 as Weight))
-            .saturating_add(DbWeight::get().writes(5 as Weight))
+        Weight::from_ref_time(102_508_000 as u64)
+            .saturating_add(DbWeight::get().reads(7 as u64))
+            .saturating_add(DbWeight::get().writes(5 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -142,19 +142,19 @@ impl pallet_external_agents::WeightInfo for WeightInfo {
     // Storage: Identity Authorizations (r:0 w:1)
     // Storage: ExternalAgents GroupPermissions (r:0 w:1)
     fn create_group_and_add_auth(p: u32) -> Weight {
-        (88_904_000 as Weight)
+        Weight::from_ref_time(88_904_000 as u64)
             // Standard Error: 287_000
-            .saturating_add((1_828_000 as Weight).saturating_mul(p as Weight))
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(5 as Weight))
+            .saturating_add(Weight::from_ref_time(1_828_000 as u64).saturating_mul(p as u64))
+            .saturating_add(DbWeight::get().reads(6 as u64))
+            .saturating_add(DbWeight::get().writes(5 as u64))
     }
 
     // Manually added - sum of create group and change custom group
     fn create_and_change_custom_group(p: u32) -> Weight {
-        (154_335_000 as Weight)
+        Weight::from_ref_time(154_335_000 as u64)
             // Standard Error: 285_000
-            .saturating_add((631_000 as Weight).saturating_mul(p as Weight))
-            .saturating_add(DbWeight::get().reads(12 as Weight))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
+            .saturating_add(Weight::from_ref_time(631_000 as u64).saturating_mul(p as u64))
+            .saturating_add(DbWeight::get().reads(12 as u64))
+            .saturating_add(DbWeight::get().writes(4 as u64))
     }
 }

@@ -76,9 +76,9 @@ pub trait WeightInfo {
 }
 
 pub trait Config: CommonConfig + identity::Config + base::Config {
-    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
     /// Asset module.
-    type Asset: AssetFnTrait<Self::AccountId, Self::Origin>;
+    type Asset: AssetFnTrait<Self::AccountId, Self::RuntimeOrigin>;
     type WeightInfo: WeightInfo;
 }
 

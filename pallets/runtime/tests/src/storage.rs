@@ -421,7 +421,6 @@ parameter_types! {
 
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
-    pub const NoPreimagePostponement: Option<u32> = Some(10);
 
     pub const InitialPOLYX: Balance = 41;
     pub const SignedClaimHandicap: u64 = 2;
@@ -430,7 +429,7 @@ parameter_types! {
     pub const MaxValueSize: u32 = 16_384;
 
     pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
-    pub DeletionWeightLimit: Weight = 500_000_000_000;
+    pub DeletionWeightLimit: Weight = Weight::from_ref_time(500_000_000_000);
     pub DeletionQueueDepth: u32 = 1024;
     pub MaxInLen: u32 = 8 * 1024;
     pub MaxOutLen: u32 = 8 * 1024;
@@ -490,7 +489,7 @@ impl WeightToFeePolynomial for WeightToFee {
 
 /// PolymeshCommittee as an instance of group
 impl group::Config<group::Instance1> for TestStorage {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type LimitOrigin = EnsureRoot<AccountId>;
     type AddOrigin = EnsureRoot<AccountId>;
     type RemoveOrigin = EnsureRoot<AccountId>;
@@ -502,7 +501,7 @@ impl group::Config<group::Instance1> for TestStorage {
 }
 
 impl group::Config<group::Instance2> for TestStorage {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type LimitOrigin = EnsureRoot<AccountId>;
     type AddOrigin = EnsureRoot<AccountId>;
     type RemoveOrigin = EnsureRoot<AccountId>;
@@ -514,7 +513,7 @@ impl group::Config<group::Instance2> for TestStorage {
 }
 
 impl group::Config<group::Instance3> for TestStorage {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type LimitOrigin = EnsureRoot<AccountId>;
     type AddOrigin = EnsureRoot<AccountId>;
     type RemoveOrigin = EnsureRoot<AccountId>;
@@ -526,7 +525,7 @@ impl group::Config<group::Instance3> for TestStorage {
 }
 
 impl group::Config<group::Instance4> for TestStorage {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type LimitOrigin = EnsureRoot<AccountId>;
     type AddOrigin = EnsureRoot<AccountId>;
     type RemoveOrigin = EnsureRoot<AccountId>;
@@ -540,35 +539,35 @@ impl group::Config<group::Instance4> for TestStorage {
 pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as frame_system::Config>::AccountId, I>;
 
 impl committee::Config<committee::Instance1> for TestStorage {
-    type Origin = Origin;
-    type Proposal = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type Proposal = RuntimeCall;
     type CommitteeOrigin = VMO<committee::Instance1>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
 }
 
 impl committee::Config<committee::Instance3> for TestStorage {
-    type Origin = Origin;
-    type Proposal = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type Proposal = RuntimeCall;
     type CommitteeOrigin = EnsureRoot<AccountId>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
 }
 
 impl committee::Config<committee::Instance4> for TestStorage {
-    type Origin = Origin;
-    type Proposal = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type Proposal = RuntimeCall;
     type CommitteeOrigin = EnsureRoot<AccountId>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
 }
 
 impl polymesh_common_utilities::traits::identity::Config for TestStorage {
-    type Event = Event;
-    type Proposal = Call;
+    type RuntimeEvent = RuntimeEvent;
+    type Proposal = RuntimeCall;
     type MultiSig = multisig::Module<TestStorage>;
     type Portfolio = portfolio::Module<TestStorage>;
     type CddServiceProviders = CddServiceProvider;
@@ -631,14 +630,14 @@ impl pips::Config for TestStorage {
     type GovernanceCommittee = Committee;
     type TechnicalCommitteeVMO = VMO<committee::Instance3>;
     type UpgradeCommitteeVMO = VMO<committee::Instance4>;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
     type Scheduler = Scheduler;
-    type SchedulerCall = Call;
+    type SchedulerCall = RuntimeCall;
 }
 
 impl pallet_test_utils::Config for TestStorage {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = polymesh_weights::pallet_test_utils::WeightInfo;
 }
 

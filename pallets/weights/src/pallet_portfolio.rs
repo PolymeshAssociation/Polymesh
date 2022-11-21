@@ -57,9 +57,9 @@ impl pallet_portfolio::WeightInfo for WeightInfo {
     // Storage: Portfolio NextPortfolioNumber (r:1 w:1)
     // Storage: Portfolio Portfolios (r:0 w:1)
     fn create_portfolio() -> Weight {
-        (55_827_000 as Weight)
-            .saturating_add(DbWeight::get().reads(3 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+        Weight::from_ref_time(55_827_000 as u64)
+            .saturating_add(DbWeight::get().reads(3 as u64))
+            .saturating_add(DbWeight::get().writes(3 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Portfolio PortfolioAssetCount (r:1 w:1)
@@ -68,9 +68,9 @@ impl pallet_portfolio::WeightInfo for WeightInfo {
     // Storage: Portfolio PortfoliosInCustody (r:0 w:1)
     // Storage: Portfolio NameToNumber (r:0 w:1)
     fn delete_portfolio() -> Weight {
-        (82_934_000 as Weight)
-            .saturating_add(DbWeight::get().reads(4 as Weight))
-            .saturating_add(DbWeight::get().writes(5 as Weight))
+        Weight::from_ref_time(82_934_000 as u64)
+            .saturating_add(DbWeight::get().reads(4 as u64))
+            .saturating_add(DbWeight::get().writes(5 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Portfolio PortfolioCustodian (r:1 w:0)
@@ -79,31 +79,31 @@ impl pallet_portfolio::WeightInfo for WeightInfo {
     // Storage: Portfolio PortfolioLockedAssets (r:1 w:0)
     // Storage: Portfolio PortfolioAssetCount (r:2 w:2)
     fn move_portfolio_funds(a: u32) -> Weight {
-        (240_712_000 as Weight)
+        Weight::from_ref_time(240_712_000 as u64)
             // Standard Error: 397_000
-            .saturating_add((38_563_000 as Weight).saturating_mul(a as Weight))
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().reads((3 as Weight).saturating_mul(a as Weight)))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
-            .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(a as Weight)))
+            .saturating_add(Weight::from_ref_time(38_563_000 as u64).saturating_mul(a as u64))
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().reads((3 as u64).saturating_mul(a as u64)))
+            .saturating_add(DbWeight::get().writes(2 as u64))
+            .saturating_add(DbWeight::get().writes((2 as u64).saturating_mul(a as u64)))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Portfolio Portfolios (r:1 w:1)
     // Storage: Portfolio NameToNumber (r:1 w:1)
     fn rename_portfolio(i: u32) -> Weight {
-        (61_140_000 as Weight)
+        Weight::from_ref_time(61_140_000 as u64)
             // Standard Error: 3_000
-            .saturating_add((17_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add(DbWeight::get().reads(3 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+            .saturating_add(Weight::from_ref_time(17_000 as u64).saturating_mul(i as u64))
+            .saturating_add(DbWeight::get().reads(3 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Portfolio PortfolioCustodian (r:1 w:1)
     // Storage: Portfolio PortfoliosInCustody (r:0 w:1)
     fn quit_portfolio_custody() -> Weight {
-        (51_711_000 as Weight)
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(51_711_000 as u64)
+            .saturating_add(DbWeight::get().reads(2 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity Authorizations (r:1 w:1)
@@ -111,8 +111,8 @@ impl pallet_portfolio::WeightInfo for WeightInfo {
     // Storage: Portfolio PortfoliosInCustody (r:0 w:2)
     // Storage: Identity AuthorizationsGiven (r:0 w:1)
     fn accept_portfolio_custody() -> Weight {
-        (75_530_000 as Weight)
-            .saturating_add(DbWeight::get().reads(3 as Weight))
-            .saturating_add(DbWeight::get().writes(5 as Weight))
+        Weight::from_ref_time(75_530_000 as u64)
+            .saturating_add(DbWeight::get().reads(3 as u64))
+            .saturating_add(DbWeight::get().writes(5 as u64))
     }
 }

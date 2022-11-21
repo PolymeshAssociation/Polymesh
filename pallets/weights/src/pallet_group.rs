@@ -54,9 +54,9 @@ pub struct WeightInfo;
 impl pallet_group::WeightInfo for WeightInfo {
     // Storage: Instance2Group ActiveMembersLimit (r:1 w:1)
     fn set_active_members_limit() -> Weight {
-        (30_672_000 as Weight)
-            .saturating_add(DbWeight::get().reads(1 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(30_672_000 as u64)
+            .saturating_add(DbWeight::get().reads(1 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Instance2Group ActiveMembers (r:1 w:1)
     // Storage: Instance2Group ActiveMembersLimit (r:1 w:0)
@@ -64,17 +64,17 @@ impl pallet_group::WeightInfo for WeightInfo {
     // Storage: Identity Claims (r:1 w:1)
     // Storage: Identity CurrentDid (r:1 w:0)
     fn add_member() -> Weight {
-        (1_528_157_000 as Weight)
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(1_528_157_000 as u64)
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
     // Storage: Instance2Group ActiveMembers (r:1 w:0)
     // Storage: Instance2Group InactiveMembers (r:1 w:1)
     // Storage: Identity CurrentDid (r:1 w:0)
     fn remove_member() -> Weight {
-        (325_770_000 as Weight)
-            .saturating_add(DbWeight::get().reads(3 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(325_770_000 as u64)
+            .saturating_add(DbWeight::get().reads(3 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Instance2Group ActiveMembers (r:1 w:1)
     // Storage: Identity Claims (r:1 w:1)
@@ -82,18 +82,18 @@ impl pallet_group::WeightInfo for WeightInfo {
     // Storage: Timestamp Now (r:1 w:0)
     // Storage: Instance2Group InactiveMembers (r:1 w:1)
     fn disable_member() -> Weight {
-        (281_008_000 as Weight)
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+        Weight::from_ref_time(281_008_000 as u64)
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().writes(3 as u64))
     }
     // Storage: Instance2Group ActiveMembers (r:1 w:1)
     // Storage: Timestamp Now (r:1 w:0)
     // Storage: Identity Claims (r:2 w:2)
     // Storage: Identity CurrentDid (r:1 w:0)
     fn swap_member() -> Weight {
-        (1_554_960_000 as Weight)
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+        Weight::from_ref_time(1_554_960_000 as u64)
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().writes(3 as u64))
     }
     // Storage: Instance2Group ActiveMembersLimit (r:1 w:0)
     // Storage: Instance2Group ActiveMembers (r:1 w:1)
@@ -101,13 +101,13 @@ impl pallet_group::WeightInfo for WeightInfo {
     // Storage: Identity Claims (r:2 w:2)
     // Storage: Identity CurrentDid (r:1 w:0)
     fn reset_members(m: u32) -> Weight {
-        (3_401_075_000 as Weight)
+        Weight::from_ref_time(3_401_075_000 as u64)
             // Standard Error: 5_538_000
-            .saturating_add((1_322_473_000 as Weight).saturating_mul(m as Weight))
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(m as Weight)))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
-            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(m as Weight)))
+            .saturating_add(Weight::from_ref_time(1_322_473_000 as u64).saturating_mul(m as u64))
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().reads((1 as u64).saturating_mul(m as u64)))
+            .saturating_add(DbWeight::get().writes(2 as u64))
+            .saturating_add(DbWeight::get().writes((1 as u64).saturating_mul(m as u64)))
     }
     // Storage: Identity CurrentDid (r:1 w:0)
     // Storage: Identity KeyRecords (r:1 w:0)
@@ -115,8 +115,8 @@ impl pallet_group::WeightInfo for WeightInfo {
     // Storage: Instance2Group ActiveMembers (r:1 w:1)
     // Storage: Identity Claims (r:1 w:1)
     fn abdicate_membership() -> Weight {
-        (378_008_000 as Weight)
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(378_008_000 as u64)
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
 }

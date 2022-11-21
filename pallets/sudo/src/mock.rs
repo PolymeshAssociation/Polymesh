@@ -33,7 +33,7 @@ pub mod logger {
     use frame_system::{ensure_root, ensure_signed};
 
     pub trait Config: frame_system::Config {
-        type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
     }
 
     decl_storage! {

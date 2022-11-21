@@ -55,11 +55,11 @@ impl pallet_timestamp::WeightInfo for WeightInfo {
     // Storage: Timestamp Now (r:1 w:1)
     // Storage: Babe CurrentSlot (r:1 w:0)
     fn set() -> Weight {
-        (24_959_000 as Weight)
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(24_959_000 as u64)
+            .saturating_add(DbWeight::get().reads(2 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     fn on_finalize() -> Weight {
-        (10_557_000 as Weight)
+        Weight::from_ref_time(10_557_000 as u64)
     }
 }

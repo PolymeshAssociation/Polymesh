@@ -54,18 +54,18 @@ pub struct WeightInfo;
 impl pallet_committee::WeightInfo for WeightInfo {
     // Storage: Instance1Committee VoteThreshold (r:0 w:1)
     fn set_vote_threshold() -> Weight {
-        (20_972_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(20_972_000 as u64).saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Instance1Committee Members (r:1 w:0)
     // Storage: Instance1Committee ReleaseCoordinator (r:0 w:1)
     fn set_release_coordinator() -> Weight {
-        (166_590_000 as Weight)
-            .saturating_add(DbWeight::get().reads(1 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(166_590_000 as u64)
+            .saturating_add(DbWeight::get().reads(1 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Instance1Committee ExpiresAfter (r:0 w:1)
     fn set_expires_after() -> Weight {
-        (24_033_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(24_033_000 as u64).saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Instance1Committee Voting (r:1 w:1)
     // Storage: Identity KeyRecords (r:1 w:0)
@@ -75,18 +75,18 @@ impl pallet_committee::WeightInfo for WeightInfo {
     // Storage: Instance1Committee Proposals (r:1 w:1)
     // Storage: Instance1Committee ExpiresAfter (r:1 w:0)
     fn vote_or_propose_new_proposal() -> Weight {
-        (396_265_000 as Weight)
-            .saturating_add(DbWeight::get().reads(7 as Weight))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
+        Weight::from_ref_time(396_265_000 as u64)
+            .saturating_add(DbWeight::get().reads(7 as u64))
+            .saturating_add(DbWeight::get().writes(4 as u64))
     }
     // Storage: Instance1Committee Voting (r:1 w:1)
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Instance1Committee Members (r:1 w:0)
     // Storage: Instance1Committee VoteThreshold (r:1 w:0)
     fn vote_or_propose_existing_proposal() -> Weight {
-        (309_183_000 as Weight)
-            .saturating_add(DbWeight::get().reads(4 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(309_183_000 as u64)
+            .saturating_add(DbWeight::get().reads(4 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Instance1Committee Members (r:1 w:0)
@@ -96,17 +96,17 @@ impl pallet_committee::WeightInfo for WeightInfo {
     // Storage: Instance1Committee ProposalOf (r:1 w:1)
     // Storage: Instance1Committee Proposals (r:1 w:1)
     fn vote_aye() -> Weight {
-        (550_119_000 as Weight)
-            .saturating_add(DbWeight::get().reads(7 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+        Weight::from_ref_time(550_119_000 as u64)
+            .saturating_add(DbWeight::get().reads(7 as u64))
+            .saturating_add(DbWeight::get().writes(3 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Instance1Committee Members (r:1 w:0)
     // Storage: Instance1Committee Voting (r:1 w:1)
     // Storage: Instance1Committee VoteThreshold (r:1 w:0)
     fn vote_nay() -> Weight {
-        (332_290_000 as Weight)
-            .saturating_add(DbWeight::get().reads(4 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(332_290_000 as u64)
+            .saturating_add(DbWeight::get().reads(4 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
 }

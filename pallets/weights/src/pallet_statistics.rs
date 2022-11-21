@@ -59,11 +59,11 @@ impl pallet_statistics::WeightInfo for WeightInfo {
     // Storage: Statistics AssetTransferCompliances (r:1 w:0)
     // Storage: Statistics ActiveAssetStats (r:1 w:1)
     fn set_active_asset_stats(i: u32) -> Weight {
-        (87_657_000 as Weight)
+        Weight::from_ref_time(87_657_000 as u64)
             // Standard Error: 4_000
-            .saturating_add((164_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+            .saturating_add(Weight::from_ref_time(164_000 as u64).saturating_mul(i as u64))
+            .saturating_add(DbWeight::get().reads(6 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -72,11 +72,11 @@ impl pallet_statistics::WeightInfo for WeightInfo {
     // Storage: Statistics ActiveAssetStats (r:1 w:0)
     // Storage: Statistics AssetStats (r:0 w:1)
     fn batch_update_asset_stats(i: u32) -> Weight {
-        (184_291_000 as Weight)
+        Weight::from_ref_time(184_291_000 as u64)
             // Standard Error: 116_000
-            .saturating_add((4_733_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(i as Weight)))
+            .saturating_add(Weight::from_ref_time(4_733_000 as u64).saturating_mul(i as u64))
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().writes((1 as u64).saturating_mul(i as u64)))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -85,11 +85,11 @@ impl pallet_statistics::WeightInfo for WeightInfo {
     // Storage: Statistics ActiveAssetStats (r:1 w:0)
     // Storage: Statistics AssetTransferCompliances (r:1 w:1)
     fn set_asset_transfer_compliance(i: u32) -> Weight {
-        (4_311_268_000 as Weight)
+        Weight::from_ref_time(4_311_268_000 as u64)
             // Standard Error: 1_316_000
-            .saturating_add((97_923_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+            .saturating_add(Weight::from_ref_time(97_923_000 as u64).saturating_mul(i as u64))
+            .saturating_add(DbWeight::get().reads(6 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -97,10 +97,10 @@ impl pallet_statistics::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: Statistics TransferConditionExemptEntities (r:0 w:10)
     fn set_entities_exempt(i: u32) -> Weight {
-        (107_410_000 as Weight)
+        Weight::from_ref_time(107_410_000 as u64)
             // Standard Error: 46_000
-            .saturating_add((3_624_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add(DbWeight::get().reads(4 as Weight))
-            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(i as Weight)))
+            .saturating_add(Weight::from_ref_time(3_624_000 as u64).saturating_mul(i as u64))
+            .saturating_add(DbWeight::get().reads(4 as u64))
+            .saturating_add(DbWeight::get().writes((1 as u64).saturating_mul(i as u64)))
     }
 }

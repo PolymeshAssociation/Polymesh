@@ -54,7 +54,7 @@ pub struct WeightInfo;
 impl pallet_asset::checkpoint::WeightInfo for WeightInfo {
     // Storage: Checkpoint SchedulesMaxComplexity (r:0 w:1)
     fn set_schedules_max_complexity() -> Weight {
-        (22_014_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(22_014_000 as u64).saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -66,9 +66,9 @@ impl pallet_asset::checkpoint::WeightInfo for WeightInfo {
     // Storage: Checkpoint TotalSupply (r:0 w:1)
     // Storage: Checkpoint Timestamps (r:0 w:1)
     fn create_checkpoint() -> Weight {
-        (80_449_000 as Weight)
-            .saturating_add(DbWeight::get().reads(7 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+        Weight::from_ref_time(80_449_000 as u64)
+            .saturating_add(DbWeight::get().reads(7 as u64))
+            .saturating_add(DbWeight::get().writes(3 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -87,11 +87,11 @@ impl pallet_asset::checkpoint::WeightInfo for WeightInfo {
     // Storage: Checkpoint Timestamps (r:0 w:1)
     // Storage: Checkpoint ScheduleRefCount (r:0 w:1)
     fn create_schedule(s: u32) -> Weight {
-        (137_723_000 as Weight)
+        Weight::from_ref_time(137_723_000 as u64)
             // Standard Error: 106_000
-            .saturating_add((518_000 as Weight).saturating_mul(s as Weight))
-            .saturating_add(DbWeight::get().reads(13 as Weight))
-            .saturating_add(DbWeight::get().writes(7 as Weight))
+            .saturating_add(Weight::from_ref_time(518_000 as u64).saturating_mul(s as u64))
+            .saturating_add(DbWeight::get().reads(13 as u64))
+            .saturating_add(DbWeight::get().writes(7 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -100,10 +100,10 @@ impl pallet_asset::checkpoint::WeightInfo for WeightInfo {
     // Storage: Checkpoint Schedules (r:1 w:1)
     // Storage: Checkpoint ScheduleRefCount (r:1 w:1)
     fn remove_schedule(s: u32) -> Weight {
-        (85_362_000 as Weight)
+        Weight::from_ref_time(85_362_000 as u64)
             // Standard Error: 91_000
-            .saturating_add((332_000 as Weight).saturating_mul(s as Weight))
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+            .saturating_add(Weight::from_ref_time(332_000 as u64).saturating_mul(s as u64))
+            .saturating_add(DbWeight::get().reads(6 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
 }

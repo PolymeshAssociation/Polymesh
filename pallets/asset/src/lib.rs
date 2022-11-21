@@ -88,7 +88,7 @@ use core::result::Result as StdResult;
 use currency::*;
 use frame_support::{
     decl_error, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
+    dispatch::{DispatchError, DispatchResult, Weight},
     ensure, fail,
     traits::Get,
 };
@@ -358,7 +358,7 @@ type Identity<T> = identity::Module<T>;
 
 // Public interface for this runtime module.
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
 
         type Error = Error<T>;
 
@@ -375,13 +375,13 @@ decl_module! {
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             use frame_support::weights::constants::WEIGHT_PER_MICROS;
             // Keep track of upgrade cost.
-            let mut weight = 0u64;
+            let mut weight = Weight::zero();
             storage_migrate_on!(StorageVersion, 1, {
-                let mut total_len = 0u64;
+                let mut total_len = Weight::zero();
                 // Get list of assets with invalid asset_types.
                 let fix_list = Tokens::iter()
                     .filter(|(_, token)| {
-                        total_len += 1;
+                        total_len += Weight::from_ref_time(1);
                         // Check if the asset_type is invalid.
                         Self::ensure_asset_type_valid(token.asset_type).is_err()
                     }).map(|(ticker, _)| ticker).collect::<Vec<_>>();
@@ -389,11 +389,11 @@ decl_module! {
                 // Calculate weight based on the number of assets
                 // and how many need to be fixed.
                 // Based on storage read/write cost: read 50 micros, write 200 micros.
-                let fix_len = fix_list.len() as u64;
+                let fix_len = Weight::from_ref_time(fix_list.len() as u64);
                 weight = weight
-                    .saturating_add(total_len.saturating_mul(50 * WEIGHT_PER_MICROS))
-                    .saturating_add(fix_len.saturating_mul(50 * WEIGHT_PER_MICROS))
-                    .saturating_add(fix_len.saturating_mul(200 * WEIGHT_PER_MICROS));
+                    .saturating_add(total_len.saturating_mul(50u64 * WEIGHT_PER_MICROS.ref_time()))
+                    .saturating_add(fix_len.saturating_mul(50u64 * WEIGHT_PER_MICROS.ref_time()))
+                    .saturating_add(fix_len.saturating_mul(200u64 * WEIGHT_PER_MICROS.ref_time()));
 
                 // Replace invalid asset_types with the default AssetType.
                 for ticker in fix_list {
@@ -987,7 +987,7 @@ decl_error! {
     }
 }
 
-impl<T: Config> AssetFnTrait<T::AccountId, T::Origin> for Module<T> {
+impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
     fn ensure_granular(ticker: &Ticker, value: Balance) -> DispatchResult {
         Self::ensure_granular(ticker, value)
     }
@@ -998,7 +998,7 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::Origin> for Module<T> {
     }
 
     fn create_asset(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         name: AssetName,
         ticker: Ticker,
         divisible: bool,
@@ -1019,7 +1019,7 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::Origin> for Module<T> {
         )
     }
 
-    fn register_ticker(origin: T::Origin, ticker: Ticker) -> DispatchResult {
+    fn register_ticker(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
         Self::base_register_ticker(origin, ticker)
     }
 
@@ -1044,7 +1044,7 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::Origin> for Module<T> {
         ScopeIdOf::insert(ticker, did, did);
     }
 
-    fn issue(origin: T::Origin, ticker: Ticker, total_supply: Balance) -> DispatchResult {
+    fn issue(origin: T::RuntimeOrigin, ticker: Ticker, total_supply: Balance) -> DispatchResult {
         Self::issue(origin, ticker, total_supply)
     }
 }
@@ -1129,7 +1129,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    pub fn base_register_ticker(origin: T::Origin, ticker: Ticker) -> DispatchResult {
+    pub fn base_register_ticker(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
         let to_did = Identity::<T>::ensure_perms(origin)?;
         let expiry = Self::ticker_registration_checks(&ticker, to_did, false, || {
             Self::ticker_registration_config()
@@ -1150,7 +1150,7 @@ impl<T: Config> Module<T> {
     }
 
     fn ensure_agent_with_custody_and_perms(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
         portfolio_kind: PortfolioKind,
     ) -> Result<PortfolioId, DispatchError> {
@@ -1581,7 +1581,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Accepts and executes the ticker transfer.
-    fn base_accept_ticker_transfer(origin: T::Origin, auth_id: u64) -> DispatchResult {
+    fn base_accept_ticker_transfer(origin: T::RuntimeOrigin, auth_id: u64) -> DispatchResult {
         let to = Identity::<T>::ensure_perms(origin)?;
         <Identity<T>>::accept_auth_with(&to.into(), auth_id, |data, auth_by| {
             let ticker = extract_auth!(data, TransferTicker(t));
@@ -1606,7 +1606,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Accept and process a token ownership transfer.
-    fn base_accept_token_ownership_transfer(origin: T::Origin, id: u64) -> DispatchResult {
+    fn base_accept_token_ownership_transfer(origin: T::RuntimeOrigin, id: u64) -> DispatchResult {
         let to = Identity::<T>::ensure_perms(origin)?;
         <Identity<T>>::accept_auth_with(&to.into(), id, |data, auth_by| {
             let ticker = extract_auth!(data, TransferAssetOwnership(t));
@@ -1723,7 +1723,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_create_asset(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         name: AssetName,
         ticker: Ticker,
         divisible: bool,
@@ -1867,7 +1867,7 @@ impl<T: Config> Module<T> {
         Ok(did)
     }
 
-    fn set_freeze(origin: T::Origin, ticker: Ticker, freeze: bool) -> DispatchResult {
+    fn set_freeze(origin: T::RuntimeOrigin, ticker: Ticker, freeze: bool) -> DispatchResult {
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
         Self::ensure_asset_exists(&ticker)?;
 
@@ -1886,7 +1886,11 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn base_rename_asset(origin: T::Origin, ticker: Ticker, name: AssetName) -> DispatchResult {
+    fn base_rename_asset(
+        origin: T::RuntimeOrigin,
+        ticker: Ticker,
+        name: AssetName,
+    ) -> DispatchResult {
         Self::ensure_asset_name_bounded(&name)?;
         Self::ensure_asset_exists(&ticker)?;
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
@@ -1906,7 +1910,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_redeem(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
         value: Balance,
         portfolio_kind: PortfolioKind,
@@ -1975,7 +1979,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn base_make_divisible(origin: T::Origin, ticker: Ticker) -> DispatchResult {
+    fn base_make_divisible(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
         Tokens::try_mutate(&ticker, |token| -> DispatchResult {
@@ -1988,7 +1992,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_add_documents(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         docs: Vec<Document>,
         ticker: Ticker,
     ) -> DispatchResult {
@@ -2020,7 +2024,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_remove_documents(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ids: Vec<DocumentId>,
         ticker: Ticker,
     ) -> DispatchResult {
@@ -2033,7 +2037,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_set_funding_round(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
         name: FundingRoundName,
     ) -> DispatchResult {
@@ -2055,7 +2059,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_update_identifiers(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
         identifiers: Vec<AssetIdentifier>,
     ) -> DispatchResult {
@@ -2110,7 +2114,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_set_asset_metadata(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
         key: AssetMetadataKey,
         value: AssetMetadataValue,
@@ -2157,7 +2161,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_set_asset_metadata_details(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
         key: AssetMetadataKey,
         detail: AssetMetadataValueDetail<T::Moment>,
@@ -2185,7 +2189,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_register_and_set_local_asset_metadata(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
         name: AssetMetadataName,
         spec: AssetMetadataSpec,
@@ -2202,7 +2206,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_register_asset_metadata_local_type(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
         name: AssetMetadataName,
         spec: AssetMetadataSpec,
@@ -2245,7 +2249,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_register_asset_metadata_global_type(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         name: AssetMetadataName,
         spec: AssetMetadataSpec,
     ) -> DispatchResult {
@@ -2276,7 +2280,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_claim_classic_ticker(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
         ethereum_signature: ethereum::EcdsaSignature,
     ) -> DispatchResult {
@@ -2321,7 +2325,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_reserve_classic_ticker(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         classic_ticker_import: ClassicTickerImport,
         contract_did: IdentityId,
         config: TickerRegistrationConfig<T::Moment>,
@@ -2351,7 +2355,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_controller_transfer(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
         value: Balance,
         from_portfolio: PortfolioId,
@@ -2536,7 +2540,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_register_custom_asset_type(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ty: Vec<u8>,
     ) -> Result<CustomAssetTypeId, DispatchError> {
         let did = Identity::<T>::ensure_perms(origin)?;
@@ -2565,7 +2569,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_update_asset_type(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
         asset_type: AssetType,
     ) -> DispatchResult {

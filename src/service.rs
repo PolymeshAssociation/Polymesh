@@ -102,7 +102,6 @@ pub trait RuntimeApiCollection:
     + sp_offchain::OffchainWorkerApi<Block>
     + sp_session::SessionKeys<Block>
     + sp_authority_discovery::AuthorityDiscoveryApi<Block>
-    + pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, BlockNumber, Hash>
     + pallet_staking_rpc_runtime_api::StakingApi<Block>
     + node_rpc_runtime_api::pips::PipsApi<Block, AccountId>
     + node_rpc_runtime_api::identity::IdentityApi<Block, IdentityId, Ticker, AccountId, Moment>
@@ -128,7 +127,6 @@ where
         + sp_offchain::OffchainWorkerApi<Block>
         + sp_session::SessionKeys<Block>
         + sp_authority_discovery::AuthorityDiscoveryApi<Block>
-        + pallet_contracts_rpc_runtime_api::ContractsApi<Block, AccountId, Balance, BlockNumber, Hash>
         + pallet_staking_rpc_runtime_api::StakingApi<Block>
         + node_rpc_runtime_api::pips::PipsApi<Block, AccountId>
         + node_rpc_runtime_api::identity::IdentityApi<Block, IdentityId, Ticker, AccountId, Moment>

@@ -87,13 +87,12 @@ use codec::{Decode, Encode, Error as CodecError};
 use core::convert::From;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
+    dispatch::{DispatchError, DispatchResult, GetDispatchInfo, Weight},
     ensure,
     traits::{
         schedule::{DispatchTime, Named as ScheduleNamed},
         Get, GetCallMetadata,
     },
-    weights::{GetDispatchInfo, Weight},
     StorageDoubleMap, StorageValue,
 };
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
@@ -127,7 +126,7 @@ pub type CreateProposalResult = sp_std::result::Result<u64, DispatchError>;
 /// The multisig trait.
 pub trait Config: frame_system::Config + IdentityConfig {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
     /// Scheduler of multisig proposals.
     type Scheduler: ScheduleNamed<Self::BlockNumber, Self::SchedulerCall, Self::SchedulerOrigin>;
     /// A call type for identity-mapping the `Call` enum type. Used by the scheduler.
@@ -244,7 +243,7 @@ decl_storage! {
 
 decl_module! {
     /// A multisig module.
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -271,7 +270,7 @@ decl_module! {
             });
 
             //TODO placeholder weight
-            1_000
+            Weight::from_ref_time(1_000)
         }
 
         /// Creates a multisig
@@ -691,13 +690,15 @@ decl_error! {
 }
 
 impl<T: Config> Module<T> {
-    fn ensure_signed_acc(origin: T::Origin) -> Result<Signatory<T::AccountId>, DispatchError> {
+    fn ensure_signed_acc(
+        origin: T::RuntimeOrigin,
+    ) -> Result<Signatory<T::AccountId>, DispatchError> {
         let sender = ensure_signed(origin)?;
         Ok(Signatory::Account(sender))
     }
 
     fn ensure_perms_signed_did(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
     ) -> Result<Signatory<T::AccountId>, DispatchError> {
         <Identity<T>>::ensure_perms(origin).map(|d| d.into())
     }
@@ -711,7 +712,7 @@ impl<T: Config> Module<T> {
     }
 
     fn ensure_ms_creator(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         multisig: &T::AccountId,
     ) -> Result<IdentityId, DispatchError> {
         let (sender, did) = Identity::<T>::ensure_did(origin)?;
@@ -1160,7 +1161,7 @@ mod migration {
         }
 
         decl_module! {
-            pub struct Module<T: Config> for enum Call where origin: T::Origin { }
+            pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin { }
         }
     }
 
@@ -1175,7 +1176,7 @@ mod migration {
         }
 
         decl_module! {
-            pub struct Module<T: Config> for enum Call where origin: T::Origin { }
+            pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin { }
         }
     }
 

@@ -65,11 +65,11 @@ impl pallet_sto::WeightInfo for WeightInfo {
     // Storage: Sto FundraiserNames (r:0 w:1)
     // Storage: Sto Fundraisers (r:0 w:1)
     fn create_fundraiser(i: u32) -> Weight {
-        (122_668_000 as Weight)
+        Weight::from_ref_time(122_668_000 as u64)
             // Standard Error: 1_610_000
-            .saturating_add((4_429_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add(DbWeight::get().reads(10 as Weight))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
+            .saturating_add(Weight::from_ref_time(4_429_000 as u64).saturating_mul(i as u64))
+            .saturating_add(DbWeight::get().reads(10 as u64))
+            .saturating_add(DbWeight::get().writes(4 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Portfolio PortfolioCustodian (r:2 w:0)
@@ -105,9 +105,9 @@ impl pallet_sto::WeightInfo for WeightInfo {
     // Storage: Settlement InstructionLegStatus (r:0 w:2)
     // Storage: Asset BalanceOfAtScope (r:0 w:2)
     fn invest() -> Weight {
-        (2_215_912_000 as Weight)
-            .saturating_add(DbWeight::get().reads(105 as Weight))
-            .saturating_add(DbWeight::get().writes(32 as Weight))
+        Weight::from_ref_time(2_215_912_000 as u64)
+            .saturating_add(DbWeight::get().reads(105 as u64))
+            .saturating_add(DbWeight::get().writes(32 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -115,9 +115,9 @@ impl pallet_sto::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: Sto Fundraisers (r:1 w:1)
     fn freeze_fundraiser() -> Weight {
-        (90_700_000 as Weight)
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(90_700_000 as u64)
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -125,9 +125,9 @@ impl pallet_sto::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: Sto Fundraisers (r:1 w:1)
     fn unfreeze_fundraiser() -> Weight {
-        (84_669_000 as Weight)
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(84_669_000 as u64)
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -136,17 +136,17 @@ impl pallet_sto::WeightInfo for WeightInfo {
     // Storage: Sto Fundraisers (r:1 w:1)
     // Storage: Timestamp Now (r:1 w:0)
     fn modify_fundraiser_window() -> Weight {
-        (147_920_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(147_920_000 as u64)
+            .saturating_add(DbWeight::get().reads(6 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Sto Fundraisers (r:1 w:1)
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Portfolio PortfolioLockedAssets (r:1 w:1)
     // Storage: Timestamp Now (r:1 w:0)
     fn stop() -> Weight {
-        (84_482_000 as Weight)
-            .saturating_add(DbWeight::get().reads(4 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(84_482_000 as u64)
+            .saturating_add(DbWeight::get().reads(4 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
 }

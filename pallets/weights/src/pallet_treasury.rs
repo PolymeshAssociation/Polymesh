@@ -60,13 +60,13 @@ impl pallet_treasury::WeightInfo for WeightInfo {
     // Storage: Instance2Group InactiveMembers (r:1 w:0)
     // Storage: Identity Claims (r:2 w:0)
     fn disbursement(b: u32) -> Weight {
-        (76_508_000 as Weight)
+        Weight::from_ref_time(76_508_000 as u64)
             // Standard Error: 651_000
-            .saturating_add((80_111_000 as Weight).saturating_mul(b as Weight))
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().reads((5 as Weight).saturating_mul(b as Weight)))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
-            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(b as Weight)))
+            .saturating_add(Weight::from_ref_time(80_111_000 as u64).saturating_mul(b as u64))
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().reads((5 as u64).saturating_mul(b as u64)))
+            .saturating_add(DbWeight::get().writes(1 as u64))
+            .saturating_add(DbWeight::get().writes((1 as u64).saturating_mul(b as u64)))
     }
     // Storage: Identity KeyRecords (r:2 w:0)
     // Storage: Timestamp Now (r:1 w:0)
@@ -75,8 +75,8 @@ impl pallet_treasury::WeightInfo for WeightInfo {
     // Storage: Identity Claims (r:2 w:0)
     // Storage: System Account (r:2 w:2)
     fn reimbursement() -> Weight {
-        (113_304_000 as Weight)
-            .saturating_add(DbWeight::get().reads(9 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(113_304_000 as u64)
+            .saturating_add(DbWeight::get().reads(9 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
 }

@@ -65,11 +65,11 @@ impl pallet_corporate_actions::ballot::WeightInfo for WeightInfo {
     // Storage: CorporateBallot Metas (r:0 w:1)
     // Storage: CorporateBallot RCV (r:0 w:1)
     fn attach_ballot(c: u32) -> Weight {
-        (118_293_000 as Weight)
+        Weight::from_ref_time(118_293_000 as u64)
             // Standard Error: 9_000
-            .saturating_add((109_000 as Weight).saturating_mul(c as Weight))
-            .saturating_add(DbWeight::get().reads(9 as Weight))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
+            .saturating_add(Weight::from_ref_time(109_000 as u64).saturating_mul(c as u64))
+            .saturating_add(DbWeight::get().reads(9 as u64))
+            .saturating_add(DbWeight::get().writes(4 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: CorporateBallot TimeRanges (r:1 w:0)
@@ -82,13 +82,13 @@ impl pallet_corporate_actions::ballot::WeightInfo for WeightInfo {
     // Storage: CorporateBallot Votes (r:1 w:1)
     // Storage: CorporateBallot Results (r:1 w:1)
     fn vote(c: u32, t: u32) -> Weight {
-        (132_433_000 as Weight)
+        Weight::from_ref_time(132_433_000 as u64)
             // Standard Error: 9_000
-            .saturating_add((233_000 as Weight).saturating_mul(c as Weight))
+            .saturating_add(Weight::from_ref_time(233_000 as u64).saturating_mul(c as u64))
             // Standard Error: 9_000
-            .saturating_add((254_000 as Weight).saturating_mul(t as Weight))
-            .saturating_add(DbWeight::get().reads(10 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+            .saturating_add(Weight::from_ref_time(254_000 as u64).saturating_mul(t as u64))
+            .saturating_add(DbWeight::get().reads(10 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -97,9 +97,9 @@ impl pallet_corporate_actions::ballot::WeightInfo for WeightInfo {
     // Storage: CorporateBallot TimeRanges (r:1 w:1)
     // Storage: Timestamp Now (r:1 w:0)
     fn change_end() -> Weight {
-        (130_412_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(130_412_000 as u64)
+            .saturating_add(DbWeight::get().reads(6 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -110,11 +110,11 @@ impl pallet_corporate_actions::ballot::WeightInfo for WeightInfo {
     // Storage: CorporateBallot MotionNumChoices (r:0 w:1)
     // Storage: CorporateBallot Metas (r:0 w:1)
     fn change_meta(c: u32) -> Weight {
-        (76_724_000 as Weight)
+        Weight::from_ref_time(76_724_000 as u64)
             // Standard Error: 8_000
-            .saturating_add((124_000 as Weight).saturating_mul(c as Weight))
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+            .saturating_add(Weight::from_ref_time(124_000 as u64).saturating_mul(c as u64))
+            .saturating_add(DbWeight::get().reads(6 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -124,9 +124,9 @@ impl pallet_corporate_actions::ballot::WeightInfo for WeightInfo {
     // Storage: Timestamp Now (r:1 w:0)
     // Storage: CorporateBallot RCV (r:0 w:1)
     fn change_rcv() -> Weight {
-        (74_809_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(74_809_000 as u64)
+            .saturating_add(DbWeight::get().reads(6 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -138,8 +138,8 @@ impl pallet_corporate_actions::ballot::WeightInfo for WeightInfo {
     // Storage: CorporateBallot Metas (r:0 w:1)
     // Storage: CorporateBallot RCV (r:0 w:1)
     fn remove_ballot() -> Weight {
-        (81_801_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
+        Weight::from_ref_time(81_801_000 as u64)
+            .saturating_add(DbWeight::get().reads(6 as u64))
+            .saturating_add(DbWeight::get().writes(4 as u64))
     }
 }
