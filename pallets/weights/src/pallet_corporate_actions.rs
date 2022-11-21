@@ -54,7 +54,7 @@ pub struct WeightInfo;
 impl pallet_corporate_actions::WeightInfo for WeightInfo {
     // Storage: CorporateAction MaxDetailsLength (r:0 w:1)
     fn set_max_details_length() -> Weight {
-        (42_777_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(42_777_000 as u64).saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -62,11 +62,11 @@ impl pallet_corporate_actions::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: CorporateAction DefaultTargetIdentities (r:1 w:1)
     fn set_default_targets(t: u32) -> Weight {
-        (125_321_000 as Weight)
+        Weight::from_ref_time(125_321_000 as u64)
             // Standard Error: 19_000
-            .saturating_add((745_000 as Weight).saturating_mul(t as Weight))
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+            .saturating_add(Weight::from_ref_time(745_000 as u64).saturating_mul(t as u64))
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -74,9 +74,9 @@ impl pallet_corporate_actions::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: CorporateAction DefaultWithholdingTax (r:1 w:1)
     fn set_default_withholding_tax() -> Weight {
-        (66_114_000 as Weight)
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(66_114_000 as u64)
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -84,11 +84,11 @@ impl pallet_corporate_actions::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: CorporateAction DidWithholdingTax (r:1 w:1)
     fn set_did_withholding_tax(w: u32) -> Weight {
-        (148_501_000 as Weight)
+        Weight::from_ref_time(148_501_000 as u64)
             // Standard Error: 6_000
-            .saturating_add((203_000 as Weight).saturating_mul(w as Weight))
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+            .saturating_add(Weight::from_ref_time(203_000 as u64).saturating_mul(w as u64))
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -110,13 +110,13 @@ impl pallet_corporate_actions::WeightInfo for WeightInfo {
     // Storage: CorporateAction CorporateActions (r:0 w:1)
     // Storage: CorporateAction Details (r:0 w:1)
     fn initiate_corporate_action_use_defaults(w: u32, t: u32) -> Weight {
-        (317_619_000 as Weight)
+        Weight::from_ref_time(317_619_000 as u64)
             // Standard Error: 9_000
-            .saturating_add((218_000 as Weight).saturating_mul(w as Weight))
+            .saturating_add(Weight::from_ref_time(218_000 as u64).saturating_mul(w as u64))
             // Standard Error: 19_000
-            .saturating_add((155_000 as Weight).saturating_mul(t as Weight))
-            .saturating_add(DbWeight::get().reads(16 as Weight))
-            .saturating_add(DbWeight::get().writes(7 as Weight))
+            .saturating_add(Weight::from_ref_time(155_000 as u64).saturating_mul(t as u64))
+            .saturating_add(DbWeight::get().reads(16 as u64))
+            .saturating_add(DbWeight::get().writes(7 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -135,13 +135,13 @@ impl pallet_corporate_actions::WeightInfo for WeightInfo {
     // Storage: CorporateAction CorporateActions (r:0 w:1)
     // Storage: CorporateAction Details (r:0 w:1)
     fn initiate_corporate_action_provided(w: u32, t: u32) -> Weight {
-        (320_024_000 as Weight)
+        Weight::from_ref_time(320_024_000 as u64)
             // Standard Error: 13_000
-            .saturating_add((443_000 as Weight).saturating_mul(w as Weight))
+            .saturating_add(Weight::from_ref_time(443_000 as u64).saturating_mul(w as u64))
             // Standard Error: 27_000
-            .saturating_add((524_000 as Weight).saturating_mul(t as Weight))
-            .saturating_add(DbWeight::get().reads(13 as Weight))
-            .saturating_add(DbWeight::get().writes(7 as Weight))
+            .saturating_add(Weight::from_ref_time(524_000 as u64).saturating_mul(t as u64))
+            .saturating_add(DbWeight::get().reads(13 as u64))
+            .saturating_add(DbWeight::get().writes(7 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -151,12 +151,12 @@ impl pallet_corporate_actions::WeightInfo for WeightInfo {
     // Storage: CorporateAction CADocLink (r:1 w:1)
     // Storage: Asset AssetDocuments (r:10 w:0)
     fn link_ca_doc(d: u32) -> Weight {
-        (0 as Weight)
+        Weight::from_ref_time(0 as u64)
             // Standard Error: 141_000
-            .saturating_add((11_060_000 as Weight).saturating_mul(d as Weight))
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(d as Weight)))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+            .saturating_add(Weight::from_ref_time(11_060_000 as u64).saturating_mul(d as u64))
+            .saturating_add(DbWeight::get().reads(6 as u64))
+            .saturating_add(DbWeight::get().reads((1 as u64).saturating_mul(d as u64)))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -172,9 +172,9 @@ impl pallet_corporate_actions::WeightInfo for WeightInfo {
     // Storage: CorporateBallot Metas (r:0 w:1)
     // Storage: CorporateBallot RCV (r:0 w:1)
     fn remove_ca_with_ballot() -> Weight {
-        (148_969_000 as Weight)
-            .saturating_add(DbWeight::get().reads(8 as Weight))
-            .saturating_add(DbWeight::get().writes(8 as Weight))
+        Weight::from_ref_time(148_969_000 as u64)
+            .saturating_add(DbWeight::get().reads(8 as u64))
+            .saturating_add(DbWeight::get().writes(8 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -188,9 +188,9 @@ impl pallet_corporate_actions::WeightInfo for WeightInfo {
     // Storage: CorporateAction Details (r:0 w:1)
     // Storage: CorporateAction CADocLink (r:0 w:1)
     fn remove_ca_with_dist() -> Weight {
-        (133_199_000 as Weight)
-            .saturating_add(DbWeight::get().reads(9 as Weight))
-            .saturating_add(DbWeight::get().writes(6 as Weight))
+        Weight::from_ref_time(133_199_000 as u64)
+            .saturating_add(DbWeight::get().reads(9 as u64))
+            .saturating_add(DbWeight::get().writes(6 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -207,9 +207,9 @@ impl pallet_corporate_actions::WeightInfo for WeightInfo {
     // Storage: ProtocolFee BaseFees (r:1 w:0)
     // Storage: CorporateBallot TimeRanges (r:1 w:0)
     fn change_record_date_with_ballot() -> Weight {
-        (247_549_000 as Weight)
-            .saturating_add(DbWeight::get().reads(14 as Weight))
-            .saturating_add(DbWeight::get().writes(6 as Weight))
+        Weight::from_ref_time(247_549_000 as u64)
+            .saturating_add(DbWeight::get().reads(14 as u64))
+            .saturating_add(DbWeight::get().writes(6 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -226,8 +226,8 @@ impl pallet_corporate_actions::WeightInfo for WeightInfo {
     // Storage: ProtocolFee BaseFees (r:1 w:0)
     // Storage: CapitalDistribution Distributions (r:1 w:0)
     fn change_record_date_with_dist() -> Weight {
-        (167_270_000 as Weight)
-            .saturating_add(DbWeight::get().reads(14 as Weight))
-            .saturating_add(DbWeight::get().writes(6 as Weight))
+        Weight::from_ref_time(167_270_000 as u64)
+            .saturating_add(DbWeight::get().reads(14 as u64))
+            .saturating_add(DbWeight::get().writes(6 as u64))
     }
 }

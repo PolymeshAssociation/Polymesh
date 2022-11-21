@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::traits::{identity::Config as IdentityConfig, NegativeImbalance};
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
     decl_event,
     dispatch::{DispatchError, DispatchResult},
@@ -36,7 +36,17 @@ pub struct Memo(pub [u8; 32]);
 
 // POLYMESH-NOTE: Make `AccountData` public to access it from the outside module.
 /// All balance information for an account.
-#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Default, RuntimeDebug)]
+#[derive(
+    Encode,
+    Decode,
+    Clone,
+    PartialEq,
+    Eq,
+    Default,
+    RuntimeDebug,
+    MaxEncodedLen,
+    TypeInfo
+)]
 pub struct AccountData {
     /// Non-reserved part of the balance. There may still be restrictions on this, but it is the
     /// total pool what may in principle be transferred, reserved and used for tipping.
@@ -154,7 +164,7 @@ pub trait Config: IdentityConfig {
     type DustRemoval: OnUnbalanced<NegativeImbalance<Self>>;
 
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
 
     /// This type is no longer needed but kept for compatibility reasons.
     /// The minimum amount required to keep an account open.

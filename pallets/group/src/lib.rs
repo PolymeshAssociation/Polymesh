@@ -122,7 +122,7 @@ decl_storage! {
 decl_module! {
     pub struct Module<T: Config<I>, I: Instance=DefaultInstance>
         for enum Call
-        where origin: T::Origin
+        where origin: T::RuntimeOrigin
     {
         type Error = Error<T, I>;
 

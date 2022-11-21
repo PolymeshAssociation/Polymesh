@@ -1,6 +1,6 @@
 use polymesh_primitives::IdentityId;
 
-use frame_support::weights::DispatchInfo;
+use frame_support::dispatch::DispatchInfo;
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidity};
 
 // Polymesh note: This was specifically added for Polymesh

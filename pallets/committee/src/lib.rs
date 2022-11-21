@@ -61,12 +61,14 @@ pub mod benchmarking;
 use core::marker::PhantomData;
 use core::mem;
 use frame_support::{
-    codec::{Decode, Encode},
+    codec::{Decode, Encode, MaxEncodedLen},
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult, Dispatchable, Parameter, PostDispatchInfo},
+    dispatch::{
+        DispatchClass, DispatchError, DispatchResult, Dispatchable, GetDispatchInfo, Parameter,
+        PostDispatchInfo, Weight,
+    },
     ensure,
     traits::{ChangeMembers, EnsureOrigin, InitializeMembers},
-    weights::{DispatchClass, GetDispatchInfo, Weight},
 };
 use pallet_identity as identity;
 use polymesh_common_utilities::{
@@ -101,29 +103,32 @@ pub type ProposalIndex = u32;
 /// The committee trait.
 pub trait Config<I: 'static = ()>: frame_system::Config + IdentityConfig {
     /// The outer origin type.
-    type Origin: From<RawOrigin<Self::AccountId, I>> + Into<<Self as frame_system::Config>::Origin>;
+    type RuntimeOrigin: From<RawOrigin<Self::AccountId, I>>
+        + Into<<Self as frame_system::Config>::RuntimeOrigin>;
 
     /// The outer call type.
     type Proposal: Parameter
-        + Dispatchable<Origin = <Self as Config<I>>::Origin, PostInfo = PostDispatchInfo>
-        + GetDispatchInfo
+        + Dispatchable<
+            RuntimeOrigin = <Self as Config<I>>::RuntimeOrigin,
+            PostInfo = PostDispatchInfo,
+        > + GetDispatchInfo
         + From<frame_system::Call<Self>>;
 
     /// Required origin for changing behaviour of this module.
-    type CommitteeOrigin: EnsureOrigin<<Self as Config<I>>::Origin>;
+    type CommitteeOrigin: EnsureOrigin<<Self as Config<I>>::RuntimeOrigin>;
 
     /// Required origin for changing the voting threshold.
-    type VoteThresholdOrigin: EnsureOrigin<<Self as Config<I>>::Origin>;
+    type VoteThresholdOrigin: EnsureOrigin<<Self as Config<I>>::RuntimeOrigin>;
 
     /// The outer event type.
-    type Event: From<Event<Self, I>> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event<Self, I>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
 
     /// Weight computation.
     type WeightInfo: WeightInfo;
 }
 
 /// Origin for the committee module.
-#[derive(PartialEq, Eq, Clone, Debug, Encode, Decode, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub enum RawOrigin<AccountId, I> {
     /// It has been condoned by M of N members of this committee
     /// with `M` and `N` set dynamically in `set_vote_threshold`.
@@ -244,7 +249,7 @@ decl_error! {
 type Identity<T> = identity::Module<T>;
 
 decl_module! {
-    pub struct Module<T: Config<I>, I: Instance=DefaultInstance> for enum Call where origin: <T as Config<I>>::Origin {
+    pub struct Module<T: Config<I>, I: Instance=DefaultInstance> for enum Call where origin: <T as Config<I>>::RuntimeOrigin {
 
         type Error = Error<T, I>;
 
@@ -394,7 +399,9 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
     }
 
     /// Ensures that `origin` is a committee member, returning its identity, or throws `NotAMember`.
-    fn ensure_is_member(origin: <T as Config<I>>::Origin) -> Result<IdentityId, DispatchError> {
+    fn ensure_is_member(
+        origin: <T as Config<I>>::RuntimeOrigin,
+    ) -> Result<IdentityId, DispatchError> {
         let did = <Identity<T>>::ensure_perms(origin.into())?;
         Self::ensure_did_is_member(&did)?;
         Ok(did)
@@ -543,7 +550,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
     /// # Arguments
     /// * `proposal` - A dispatchable call.
     fn propose(
-        origin: <T as Config<I>>::Origin,
+        origin: <T as Config<I>>::RuntimeOrigin,
         proposal: <T as Config<I>>::Proposal,
     ) -> DispatchResult {
         // 1. Ensure `origin` is a committee member.

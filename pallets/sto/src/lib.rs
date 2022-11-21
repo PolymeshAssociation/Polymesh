@@ -173,7 +173,7 @@ pub trait Config:
     + pallet_base::Config
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
     /// Weight information for extrinsic of the sto pallet.
     type WeightInfo: WeightInfo;
 }
@@ -267,7 +267,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::Origin {
+    pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::RuntimeOrigin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -596,7 +596,7 @@ decl_module! {
 
 impl<T: Config> Module<T> {
     fn set_frozen(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         offering_asset: Ticker,
         id: FundraiserId,
         frozen: bool,

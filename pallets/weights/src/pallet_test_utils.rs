@@ -64,13 +64,13 @@ impl pallet_test_utils::WeightInfo for WeightInfo {
     // Storage: Identity AuthorizationsGiven (r:0 w:1)
     // Storage: Identity Authorizations (r:0 w:1)
     fn register_did(i: u32) -> Weight {
-        (1_435_565_000 as Weight)
+        Weight::from_ref_time(1_435_565_000 as u64)
             // Standard Error: 544_000
-            .saturating_add((21_593_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add(DbWeight::get().reads(8 as Weight))
-            .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(i as Weight)))
-            .saturating_add(DbWeight::get().writes(5 as Weight))
-            .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
+            .saturating_add(Weight::from_ref_time(21_593_000 as u64).saturating_mul(i as u64))
+            .saturating_add(DbWeight::get().reads(8 as u64))
+            .saturating_add(DbWeight::get().reads((1 as u64).saturating_mul(i as u64)))
+            .saturating_add(DbWeight::get().writes(5 as u64))
+            .saturating_add(DbWeight::get().writes((2 as u64).saturating_mul(i as u64)))
     }
     // Storage: Identity KeyRecords (r:2 w:1)
     // Storage: Instance2Group ActiveMembers (r:1 w:0)
@@ -83,13 +83,13 @@ impl pallet_test_utils::WeightInfo for WeightInfo {
     // Storage: Identity Claims (r:1 w:1)
     // Storage: Identity DidKeys (r:0 w:1)
     fn mock_cdd_register_did() -> Weight {
-        (1_371_475_000 as Weight)
-            .saturating_add(DbWeight::get().reads(10 as Weight))
-            .saturating_add(DbWeight::get().writes(5 as Weight))
+        Weight::from_ref_time(1_371_475_000 as u64)
+            .saturating_add(DbWeight::get().reads(10 as u64))
+            .saturating_add(DbWeight::get().writes(5 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     fn get_my_did() -> Weight {
-        (37_063_000 as Weight).saturating_add(DbWeight::get().reads(1 as Weight))
+        Weight::from_ref_time(37_063_000 as u64).saturating_add(DbWeight::get().reads(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Timestamp Now (r:1 w:0)
@@ -97,6 +97,6 @@ impl pallet_test_utils::WeightInfo for WeightInfo {
     // Storage: Instance2Group InactiveMembers (r:1 w:0)
     // Storage: Identity Claims (r:2 w:0)
     fn get_cdd_of() -> Weight {
-        (83_854_000 as Weight).saturating_add(DbWeight::get().reads(6 as Weight))
+        Weight::from_ref_time(83_854_000 as u64).saturating_add(DbWeight::get().reads(6 as u64))
     }
 }

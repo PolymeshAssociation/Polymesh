@@ -58,7 +58,7 @@
 //! pub trait Trait: frame_system::Config {}
 //!
 //! decl_module! {
-//!     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+//!     pub struct Module<T: Trait> for enum Call where origin: T::RuntimeOrigin {
 //!     #[weight = 0]
 //!         pub fn privileged_function(origin) -> dispatch::DispatchResult {
 //!             ensure_root(origin)?;
@@ -92,9 +92,8 @@ use sp_std::prelude::*;
 
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, Parameter};
 use frame_support::{
-    dispatch::DispatchResultWithPostInfo,
+    dispatch::{DispatchResultWithPostInfo, GetDispatchInfo, Pays, Weight},
     traits::{Get, UnfilteredDispatchable},
-    weights::{GetDispatchInfo, Pays, Weight},
 };
 use frame_system::ensure_signed;
 
@@ -105,15 +104,17 @@ mod tests;
 
 pub trait Config: frame_system::Config {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
 
     /// A sudo-able call.
-    type Call: Parameter + UnfilteredDispatchable<Origin = Self::Origin> + GetDispatchInfo;
+    type RuntimeCall: Parameter
+        + UnfilteredDispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+        + GetDispatchInfo;
 }
 
 decl_module! {
     /// Sudo module declaration.
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -130,9 +131,9 @@ decl_module! {
         /// # </weight>
         #[weight = {
             let dispatch_info = call.get_dispatch_info();
-            (dispatch_info.weight.saturating_add(10_000), dispatch_info.class)
+            (dispatch_info.weight, dispatch_info.class)
         }]
-        fn sudo(origin, call: Box<<T as Config>::Call>) -> DispatchResultWithPostInfo {
+        fn sudo(origin, call: Box<<T as Config>::RuntimeCall>) -> DispatchResultWithPostInfo {
             // This is a public call, so we ensure that the origin is some signed account.
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::key(), Error::<T>::RequireSudo);
@@ -154,7 +155,7 @@ decl_module! {
         /// - The weight of this call is defined by the caller.
         /// # </weight>
         #[weight = (*_weight, call.get_dispatch_info().class)]
-        fn sudo_unchecked_weight(origin, call: Box<<T as Config>::Call>, _weight: Weight) -> DispatchResultWithPostInfo {
+        fn sudo_unchecked_weight(origin, call: Box<<T as Config>::RuntimeCall>, _weight: Weight) -> DispatchResultWithPostInfo {
             // This is a public call, so we ensure that the origin is some signed account.
             let sender = ensure_signed(origin)?;
             ensure!(sender == Self::key(), Error::<T>::RequireSudo);
@@ -202,7 +203,6 @@ decl_module! {
             let dispatch_info = call.get_dispatch_info();
             (
                 dispatch_info.weight
-                    .saturating_add(10_000)
                     // AccountData for inner call origin accountdata.
                     .saturating_add(T::DbWeight::get().reads_writes(1, 1)),
                 dispatch_info.class,
@@ -210,7 +210,7 @@ decl_module! {
         }]
         fn sudo_as(origin,
             who: <T::Lookup as StaticLookup>::Source,
-            call: Box<<T as Config>::Call>
+            call: Box<<T as Config>::RuntimeCall>
         ) -> DispatchResultWithPostInfo {
             // This is a public call, so we ensure that the origin is some signed account.
             let sender = ensure_signed(origin)?;

@@ -53,15 +53,15 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 pub struct WeightInfo;
 impl pallet_compliance_manager::WeightInfo for WeightInfo {
     fn condition_costs(a: u32, b: u32, c: u32, d: u32) -> Weight {
-        (0 as Weight)
+        Weight::from_ref_time(0 as u64)
             // Standard Error: 522_000
-            .saturating_add((9_579_000 as Weight).saturating_mul(a as Weight))
+            .saturating_add(Weight::from_ref_time(9_579_000 as u64).saturating_mul(a as u64))
             // Standard Error: 522_000
-            .saturating_add((5_484_000 as Weight).saturating_mul(b as Weight))
+            .saturating_add(Weight::from_ref_time(5_484_000 as u64).saturating_mul(b as u64))
             // Standard Error: 522_000
-            .saturating_add((5_395_000 as Weight).saturating_mul(c as Weight))
+            .saturating_add(Weight::from_ref_time(5_395_000 as u64).saturating_mul(c as u64))
             // Standard Error: 522_000
-            .saturating_add((968_000 as Weight).saturating_mul(d as Weight))
+            .saturating_add(Weight::from_ref_time(968_000 as u64).saturating_mul(d as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -72,11 +72,11 @@ impl pallet_compliance_manager::WeightInfo for WeightInfo {
     // Storage: ProtocolFee Coefficient (r:1 w:0)
     // Storage: ProtocolFee BaseFees (r:1 w:0)
     fn add_compliance_requirement(c: u32) -> Weight {
-        (115_178_000 as Weight)
+        Weight::from_ref_time(115_178_000 as u64)
             // Standard Error: 1_087_000
-            .saturating_add((387_000 as Weight).saturating_mul(c as Weight))
-            .saturating_add(DbWeight::get().reads(8 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+            .saturating_add(Weight::from_ref_time(387_000 as u64).saturating_mul(c as u64))
+            .saturating_add(DbWeight::get().reads(8 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -84,9 +84,9 @@ impl pallet_compliance_manager::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: ComplianceManager AssetCompliances (r:1 w:1)
     fn remove_compliance_requirement() -> Weight {
-        (85_598_000 as Weight)
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(85_598_000 as u64)
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -94,9 +94,9 @@ impl pallet_compliance_manager::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: ComplianceManager AssetCompliances (r:1 w:1)
     fn pause_asset_compliance() -> Weight {
-        (108_303_000 as Weight)
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(108_303_000 as u64)
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -104,9 +104,9 @@ impl pallet_compliance_manager::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: ComplianceManager AssetCompliances (r:1 w:1)
     fn resume_asset_compliance() -> Weight {
-        (74_689_000 as Weight)
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(74_689_000 as u64)
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -116,9 +116,9 @@ impl pallet_compliance_manager::WeightInfo for WeightInfo {
     // Storage: ComplianceManager TrustedClaimIssuer (r:1 w:1)
     // Storage: ComplianceManager AssetCompliances (r:1 w:0)
     fn add_default_trusted_claim_issuer() -> Weight {
-        (89_973_000 as Weight)
-            .saturating_add(DbWeight::get().reads(7 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(89_973_000 as u64)
+            .saturating_add(DbWeight::get().reads(7 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -126,9 +126,9 @@ impl pallet_compliance_manager::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: ComplianceManager TrustedClaimIssuer (r:1 w:1)
     fn remove_default_trusted_claim_issuer() -> Weight {
-        (73_911_000 as Weight)
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(73_911_000 as u64)
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -137,11 +137,11 @@ impl pallet_compliance_manager::WeightInfo for WeightInfo {
     // Storage: ComplianceManager AssetCompliances (r:1 w:1)
     // Storage: ComplianceManager TrustedClaimIssuer (r:1 w:0)
     fn change_compliance_requirement(c: u32) -> Weight {
-        (100_696_000 as Weight)
+        Weight::from_ref_time(100_696_000 as u64)
             // Standard Error: 1_115_000
-            .saturating_add((1_832_000 as Weight).saturating_mul(c as Weight))
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+            .saturating_add(Weight::from_ref_time(1_832_000 as u64).saturating_mul(c as u64))
+            .saturating_add(DbWeight::get().reads(6 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -150,11 +150,11 @@ impl pallet_compliance_manager::WeightInfo for WeightInfo {
     // Storage: ComplianceManager TrustedClaimIssuer (r:1 w:0)
     // Storage: ComplianceManager AssetCompliances (r:1 w:1)
     fn replace_asset_compliance(c: u32) -> Weight {
-        (103_333_000 as Weight)
+        Weight::from_ref_time(103_333_000 as u64)
             // Standard Error: 2_864_000
-            .saturating_add((10_787_000 as Weight).saturating_mul(c as Weight))
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+            .saturating_add(Weight::from_ref_time(10_787_000 as u64).saturating_mul(c as u64))
+            .saturating_add(DbWeight::get().reads(6 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -162,8 +162,8 @@ impl pallet_compliance_manager::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: ComplianceManager AssetCompliances (r:0 w:1)
     fn reset_asset_compliance() -> Weight {
-        (69_229_000 as Weight)
-            .saturating_add(DbWeight::get().reads(4 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(69_229_000 as u64)
+            .saturating_add(DbWeight::get().reads(4 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
 }

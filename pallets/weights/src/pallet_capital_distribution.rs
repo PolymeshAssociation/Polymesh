@@ -65,9 +65,9 @@ impl pallet_corporate_actions::distribution::WeightInfo for WeightInfo {
     // Storage: ProtocolFee Coefficient (r:1 w:0)
     // Storage: ProtocolFee BaseFees (r:1 w:0)
     fn distribute() -> Weight {
-        (116_871_000 as Weight)
-            .saturating_add(DbWeight::get().reads(12 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(116_871_000 as u64)
+            .saturating_add(DbWeight::get().reads(12 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: CapitalDistribution HolderPaid (r:1 w:1)
@@ -92,13 +92,13 @@ impl pallet_corporate_actions::distribution::WeightInfo for WeightInfo {
     // Storage: Checkpoint CheckpointIdSequence (r:1 w:0)
     // Storage: Asset BalanceOfAtScope (r:0 w:2)
     fn claim(t: u32, w: u32) -> Weight {
-        (516_215_000 as Weight)
+        Weight::from_ref_time(516_215_000 as u64)
             // Standard Error: 7_000
-            .saturating_add((159_000 as Weight).saturating_mul(t as Weight))
+            .saturating_add(Weight::from_ref_time(159_000 as u64).saturating_mul(t as u64))
             // Standard Error: 7_000
-            .saturating_add((81_000 as Weight).saturating_mul(w as Weight))
-            .saturating_add(DbWeight::get().reads(27 as Weight))
-            .saturating_add(DbWeight::get().writes(12 as Weight))
+            .saturating_add(Weight::from_ref_time(81_000 as u64).saturating_mul(w as u64))
+            .saturating_add(DbWeight::get().reads(27 as u64))
+            .saturating_add(DbWeight::get().writes(12 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -126,13 +126,13 @@ impl pallet_corporate_actions::distribution::WeightInfo for WeightInfo {
     // Storage: Checkpoint CheckpointIdSequence (r:1 w:0)
     // Storage: Asset BalanceOfAtScope (r:0 w:2)
     fn push_benefit(t: u32, w: u32) -> Weight {
-        (517_263_000 as Weight)
+        Weight::from_ref_time(517_263_000 as u64)
             // Standard Error: 8_000
-            .saturating_add((205_000 as Weight).saturating_mul(t as Weight))
+            .saturating_add(Weight::from_ref_time(205_000 as u64).saturating_mul(t as u64))
             // Standard Error: 8_000
-            .saturating_add((95_000 as Weight).saturating_mul(w as Weight))
-            .saturating_add(DbWeight::get().reads(30 as Weight))
-            .saturating_add(DbWeight::get().writes(12 as Weight))
+            .saturating_add(Weight::from_ref_time(95_000 as u64).saturating_mul(w as u64))
+            .saturating_add(DbWeight::get().reads(30 as u64))
+            .saturating_add(DbWeight::get().writes(12 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -143,9 +143,9 @@ impl pallet_corporate_actions::distribution::WeightInfo for WeightInfo {
     // Storage: Portfolio PortfolioCustodian (r:1 w:0)
     // Storage: Portfolio PortfolioLockedAssets (r:1 w:1)
     fn reclaim() -> Weight {
-        (101_522_000 as Weight)
-            .saturating_add(DbWeight::get().reads(8 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(101_522_000 as u64)
+            .saturating_add(DbWeight::get().reads(8 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -155,8 +155,8 @@ impl pallet_corporate_actions::distribution::WeightInfo for WeightInfo {
     // Storage: Timestamp Now (r:1 w:0)
     // Storage: Portfolio PortfolioLockedAssets (r:1 w:1)
     fn remove_distribution() -> Weight {
-        (96_594_000 as Weight)
-            .saturating_add(DbWeight::get().reads(7 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(96_594_000 as u64)
+            .saturating_add(DbWeight::get().reads(7 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
 }

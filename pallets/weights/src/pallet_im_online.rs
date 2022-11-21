@@ -58,12 +58,12 @@ impl pallet_im_online::WeightInfo for WeightInfo {
     // Storage: ImOnline AuthoredBlocks (r:1 w:0)
     // Storage: ImOnline Keys (r:1 w:0)
     fn validate_unsigned_and_then_heartbeat(k: u32, e: u32) -> Weight {
-        (177_041_000 as Weight)
+        Weight::from_ref_time(177_041_000 as u64)
             // Standard Error: 6_000
-            .saturating_add((98_000 as Weight).saturating_mul(k as Weight))
+            .saturating_add(Weight::from_ref_time(98_000 as u64).saturating_mul(k as u64))
             // Standard Error: 63_000
-            .saturating_add((896_000 as Weight).saturating_mul(e as Weight))
-            .saturating_add(DbWeight::get().reads(4 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+            .saturating_add(Weight::from_ref_time(896_000 as u64).saturating_mul(e as u64))
+            .saturating_add(DbWeight::get().reads(4 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
 }

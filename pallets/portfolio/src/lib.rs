@@ -158,7 +158,7 @@ decl_error! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         type Error = Error<T>;
 
         /// The event logger.
@@ -369,7 +369,7 @@ decl_module! {
                 );
             });
 
-            0
+            Weight::zero()
         }
     }
 }
@@ -599,7 +599,7 @@ impl<T: Config> Module<T> {
         PortfolioLockedAssets::mutate(portfolio, ticker, |l| *l = l.saturating_add(amount));
     }
 
-    fn base_accept_portfolio_custody(origin: T::Origin, auth_id: u64) -> DispatchResult {
+    fn base_accept_portfolio_custody(origin: T::RuntimeOrigin, auth_id: u64) -> DispatchResult {
         let to = Identity::<T>::ensure_perms(origin)?;
         Identity::<T>::accept_auth_with(&to.into(), auth_id, |data, from| {
             let pid = extract_auth!(data, PortfolioCustody(p));

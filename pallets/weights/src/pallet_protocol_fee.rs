@@ -54,10 +54,10 @@ pub struct WeightInfo;
 impl pallet_protocol_fee::WeightInfo for WeightInfo {
     // Storage: ProtocolFee Coefficient (r:0 w:1)
     fn change_coefficient() -> Weight {
-        (27_515_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(27_515_000 as u64).saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: ProtocolFee BaseFees (r:0 w:1)
     fn change_base_fee() -> Weight {
-        (29_524_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(29_524_000 as u64).saturating_add(DbWeight::get().writes(1 as u64))
     }
 }

@@ -97,7 +97,7 @@ pub trait Config:
     + pallet_compliance_manager::Config
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
 
     /// A call type used by the scheduler.
     type Proposal: From<Call<Self>> + Into<<Self as IdentityConfig>::Proposal>;
@@ -554,7 +554,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::Origin {
+    pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::RuntimeOrigin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -1057,7 +1057,7 @@ impl<T: Config> Module<T> {
 
     /// Ensure origin call permission and the given instruction validity.
     fn ensure_origin_perm_and_instruction_validity(
-        origin: <T as frame_system::Config>::Origin,
+        origin: <T as frame_system::Config>::RuntimeOrigin,
         id: InstructionId,
         is_execute: bool,
     ) -> EnsureValidInstructionResult<T::AccountId, T::Moment, T::BlockNumber> {
@@ -1581,7 +1581,7 @@ impl<T: Config> Module<T> {
     }
 
     pub fn base_affirm_with_receipts(
-        origin: <T as frame_system::Config>::Origin,
+        origin: <T as frame_system::Config>::RuntimeOrigin,
         id: InstructionId,
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
@@ -1697,7 +1697,7 @@ impl<T: Config> Module<T> {
     }
 
     pub fn base_affirm_instruction(
-        origin: <T as frame_system::Config>::Origin,
+        origin: <T as frame_system::Config>::RuntimeOrigin,
         id: InstructionId,
         portfolios: impl Iterator<Item = PortfolioId>,
         max_legs_count: u32,
@@ -1712,7 +1712,7 @@ impl<T: Config> Module<T> {
     // It affirms the instruction and may schedule the instruction
     // depends on the settlement type.
     pub fn affirm_with_receipts_and_maybe_schedule_instruction(
-        origin: <T as frame_system::Config>::Origin,
+        origin: <T as frame_system::Config>::RuntimeOrigin,
         id: InstructionId,
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
@@ -1733,7 +1733,7 @@ impl<T: Config> Module<T> {
     /// Schedule settlement instruction execution in the next block, unless already scheduled.
     /// Used for general purpose settlement.
     pub fn affirm_and_maybe_schedule_instruction(
-        origin: <T as frame_system::Config>::Origin,
+        origin: <T as frame_system::Config>::RuntimeOrigin,
         id: InstructionId,
         portfolios: impl Iterator<Item = PortfolioId>,
         max_legs_count: u32,
@@ -1748,7 +1748,7 @@ impl<T: Config> Module<T> {
     ///
     /// NB - Use this function only in the STO pallet to support DVP settlements.
     pub fn affirm_and_execute_instruction(
-        origin: <T as frame_system::Config>::Origin,
+        origin: <T as frame_system::Config>::RuntimeOrigin,
         id: InstructionId,
         receipt: Option<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,

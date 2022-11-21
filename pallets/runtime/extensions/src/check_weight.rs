@@ -19,7 +19,7 @@
 //  - Priority of a transaction is always zero.
 
 use codec::{Decode, Encode};
-use frame_support::weights::{DispatchClass, DispatchInfo, PostDispatchInfo};
+use frame_support::dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo};
 use frame_system::{CheckWeight as CW, Config};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -35,7 +35,7 @@ pub struct CheckWeight<T: Config + Send + Sync>(CW<T>);
 
 impl<T: Config + Send + Sync> CheckWeight<T>
 where
-    T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
     /// Creates new `SignedExtension` to check weight of the extrinsic.
     pub fn new() -> Self {
@@ -46,7 +46,7 @@ where
     ///
     /// It only checks that the block weight and length limit will not exceed.
     /// NOTE The returned transaction priority is 0 on success.
-    fn do_validate(info: &DispatchInfoOf<T::Call>, len: usize) -> TransactionValidity {
+    fn do_validate(info: &DispatchInfoOf<T::RuntimeCall>, len: usize) -> TransactionValidity {
         let mut tv = CW::<T>::do_validate(info, len)?;
         tv.priority = 0;
         Ok(tv)
@@ -55,10 +55,10 @@ where
 
 impl<T: Config + Send + Sync> SignedExtension for CheckWeight<T>
 where
-    T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
     type AccountId = T::AccountId;
-    type Call = T::Call;
+    type Call = T::RuntimeCall;
     type AdditionalSigned = ();
     type Pre = ();
     const IDENTIFIER: &'static str = "CheckWeight";

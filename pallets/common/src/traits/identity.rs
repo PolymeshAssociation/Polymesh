@@ -27,9 +27,8 @@ use crate::{
 use codec::{Decode, Encode};
 use frame_support::{
     decl_event,
-    dispatch::PostDispatchInfo,
+    dispatch::{GetDispatchInfo, PostDispatchInfo, Weight},
     traits::{Currency, EnsureOrigin, Get, GetCallMetadata},
-    weights::{GetDispatchInfo, Weight},
     Parameter,
 };
 use polymesh_primitives::{
@@ -174,7 +173,7 @@ pub trait WeightInfo {
     fn add_authorization_full<AccountId>(data: &AuthorizationData<AccountId>) -> Weight {
         let perm_cost = match data {
             AuthorizationData::JoinIdentity(perms) => Self::permissions_cost_perms(perms),
-            _ => 0,
+            _ => Weight::zero(),
         };
         perm_cost.saturating_add(Self::add_authorization())
     }
@@ -188,11 +187,13 @@ pub trait WeightInfo {
 /// The module's configuration trait.
 pub trait Config: CommonConfig + pallet_timestamp::Config + crate::traits::base::Config {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
     /// An extrinsic call.
     type Proposal: Parameter
-        + Dispatchable<Origin = <Self as frame_system::Config>::Origin, PostInfo = PostDispatchInfo>
-        + GetCallMetadata
+        + Dispatchable<
+            RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin,
+            PostInfo = PostDispatchInfo,
+        > + GetCallMetadata
         + GetDispatchInfo
         + From<frame_system::Call<Self>>;
     /// MultiSig module
@@ -206,14 +207,14 @@ pub trait Config: CommonConfig + pallet_timestamp::Config + crate::traits::base:
     /// Charges fee for forwarded call
     type ChargeTxFeeTarget: ChargeTxFee;
     /// Used to check and update CDD
-    type CddHandler: CddAndFeeDetails<Self::AccountId, <Self as frame_system::Config>::Call>;
+    type CddHandler: CddAndFeeDetails<Self::AccountId, <Self as frame_system::Config>::RuntimeCall>;
 
     type Public: IdentifyAccount<AccountId = Self::AccountId>;
     type OffChainSignature: Verify<Signer = Self::Public> + Member + Decode + Encode + TypeInfo;
     type ProtocolFee: ChargeProtocolFee<Self::AccountId>;
 
     /// Origin for Governance Committee voting majority origin.
-    type GCVotingMajorityOrigin: EnsureOrigin<Self::Origin>;
+    type GCVotingMajorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
     /// Weight information for extrinsics in the identity pallet.
     type WeightInfo: WeightInfo;

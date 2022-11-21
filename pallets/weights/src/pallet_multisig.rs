@@ -61,12 +61,12 @@ impl pallet_multisig::WeightInfo for WeightInfo {
     // Storage: MultiSig MultiSigToIdentity (r:0 w:1)
     // Storage: MultiSig MultiSigSignsRequired (r:0 w:1)
     fn create_multisig(i: u32) -> Weight {
-        (94_723_000 as Weight)
+        Weight::from_ref_time(94_723_000 as u64)
             // Standard Error: 219_000
-            .saturating_add((17_265_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add(DbWeight::get().reads(4 as Weight))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
-            .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
+            .saturating_add(Weight::from_ref_time(17_265_000 as u64).saturating_mul(i as u64))
+            .saturating_add(DbWeight::get().reads(4 as u64))
+            .saturating_add(DbWeight::get().writes(4 as u64))
+            .saturating_add(DbWeight::get().writes((2 as u64).saturating_mul(i as u64)))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: MultiSig ProposalIds (r:1 w:1)
@@ -81,9 +81,9 @@ impl pallet_multisig::WeightInfo for WeightInfo {
     // Storage: MultiSig ProposalDetail (r:0 w:1)
     // Storage: MultiSig Proposals (r:0 w:1)
     fn create_or_approve_proposal_as_identity() -> Weight {
-        (191_998_000 as Weight)
-            .saturating_add(DbWeight::get().reads(10 as Weight))
-            .saturating_add(DbWeight::get().writes(7 as Weight))
+        Weight::from_ref_time(191_998_000 as u64)
+            .saturating_add(DbWeight::get().reads(10 as u64))
+            .saturating_add(DbWeight::get().writes(7 as u64))
     }
     // Storage: MultiSig ProposalIds (r:1 w:1)
     // Storage: MultiSig MultiSigSigners (r:1 w:0)
@@ -99,9 +99,9 @@ impl pallet_multisig::WeightInfo for WeightInfo {
     // Storage: MultiSig ProposalDetail (r:0 w:1)
     // Storage: MultiSig Proposals (r:0 w:1)
     fn create_or_approve_proposal_as_key() -> Weight {
-        (265_725_000 as Weight)
-            .saturating_add(DbWeight::get().reads(11 as Weight))
-            .saturating_add(DbWeight::get().writes(7 as Weight))
+        Weight::from_ref_time(265_725_000 as u64)
+            .saturating_add(DbWeight::get().reads(11 as u64))
+            .saturating_add(DbWeight::get().writes(7 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: MultiSig MultiSigSigners (r:1 w:0)
@@ -115,9 +115,9 @@ impl pallet_multisig::WeightInfo for WeightInfo {
     // Storage: MultiSig ProposalDetail (r:0 w:1)
     // Storage: MultiSig Proposals (r:0 w:1)
     fn create_proposal_as_identity() -> Weight {
-        (147_361_000 as Weight)
-            .saturating_add(DbWeight::get().reads(9 as Weight))
-            .saturating_add(DbWeight::get().writes(6 as Weight))
+        Weight::from_ref_time(147_361_000 as u64)
+            .saturating_add(DbWeight::get().reads(9 as u64))
+            .saturating_add(DbWeight::get().writes(6 as u64))
     }
     // Storage: MultiSig MultiSigSigners (r:1 w:0)
     // Storage: Identity CurrentDid (r:1 w:0)
@@ -132,9 +132,9 @@ impl pallet_multisig::WeightInfo for WeightInfo {
     // Storage: MultiSig ProposalDetail (r:0 w:1)
     // Storage: MultiSig Proposals (r:0 w:1)
     fn create_proposal_as_key() -> Weight {
-        (152_857_000 as Weight)
-            .saturating_add(DbWeight::get().reads(10 as Weight))
-            .saturating_add(DbWeight::get().writes(6 as Weight))
+        Weight::from_ref_time(152_857_000 as u64)
+            .saturating_add(DbWeight::get().reads(10 as u64))
+            .saturating_add(DbWeight::get().writes(6 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: MultiSig MultiSigSigners (r:1 w:0)
@@ -146,9 +146,9 @@ impl pallet_multisig::WeightInfo for WeightInfo {
     // Storage: Scheduler Lookup (r:1 w:1)
     // Storage: Scheduler Agenda (r:1 w:1)
     fn approve_as_identity() -> Weight {
-        (147_117_000 as Weight)
-            .saturating_add(DbWeight::get().reads(9 as Weight))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
+        Weight::from_ref_time(147_117_000 as u64)
+            .saturating_add(DbWeight::get().reads(9 as u64))
+            .saturating_add(DbWeight::get().writes(4 as u64))
     }
     // Storage: MultiSig MultiSigSigners (r:1 w:0)
     // Storage: MultiSig Votes (r:1 w:1)
@@ -159,9 +159,9 @@ impl pallet_multisig::WeightInfo for WeightInfo {
     // Storage: Scheduler Lookup (r:1 w:1)
     // Storage: Scheduler Agenda (r:1 w:1)
     fn approve_as_key() -> Weight {
-        (126_430_000 as Weight)
-            .saturating_add(DbWeight::get().reads(8 as Weight))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
+        Weight::from_ref_time(126_430_000 as u64)
+            .saturating_add(DbWeight::get().reads(8 as u64))
+            .saturating_add(DbWeight::get().writes(4 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: MultiSig MultiSigSigners (r:1 w:0)
@@ -171,9 +171,9 @@ impl pallet_multisig::WeightInfo for WeightInfo {
     // Storage: MultiSig MultiSigSignsRequired (r:1 w:0)
     // Storage: MultiSig NumberOfSigners (r:1 w:0)
     fn reject_as_identity() -> Weight {
-        (117_515_000 as Weight)
-            .saturating_add(DbWeight::get().reads(7 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(117_515_000 as u64)
+            .saturating_add(DbWeight::get().reads(7 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
     // Storage: MultiSig MultiSigSigners (r:1 w:0)
     // Storage: MultiSig Votes (r:1 w:1)
@@ -182,9 +182,9 @@ impl pallet_multisig::WeightInfo for WeightInfo {
     // Storage: MultiSig MultiSigSignsRequired (r:1 w:0)
     // Storage: MultiSig NumberOfSigners (r:1 w:0)
     fn reject_as_key() -> Weight {
-        (89_431_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(89_431_000 as u64)
+            .saturating_add(DbWeight::get().reads(6 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity Authorizations (r:1 w:1)
@@ -194,9 +194,9 @@ impl pallet_multisig::WeightInfo for WeightInfo {
     // Storage: MultiSig NumberOfSigners (r:1 w:1)
     // Storage: Identity AuthorizationsGiven (r:0 w:1)
     fn accept_multisig_signer_as_identity() -> Weight {
-        (96_603_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
+        Weight::from_ref_time(96_603_000 as u64)
+            .saturating_add(DbWeight::get().reads(6 as u64))
+            .saturating_add(DbWeight::get().writes(4 as u64))
     }
     // Storage: Identity Authorizations (r:1 w:1)
     // Storage: MultiSig MultiSigToIdentity (r:1 w:0)
@@ -206,18 +206,18 @@ impl pallet_multisig::WeightInfo for WeightInfo {
     // Storage: MultiSig NumberOfSigners (r:1 w:1)
     // Storage: Identity AuthorizationsGiven (r:0 w:1)
     fn accept_multisig_signer_as_key() -> Weight {
-        (100_271_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(5 as Weight))
+        Weight::from_ref_time(100_271_000 as u64)
+            .saturating_add(DbWeight::get().reads(6 as u64))
+            .saturating_add(DbWeight::get().writes(5 as u64))
     }
     // Storage: MultiSig MultiSigToIdentity (r:1 w:0)
     // Storage: Identity MultiPurposeNonce (r:1 w:1)
     // Storage: Identity AuthorizationsGiven (r:0 w:1)
     // Storage: Identity Authorizations (r:0 w:1)
     fn add_multisig_signer() -> Weight {
-        (68_606_000 as Weight)
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+        Weight::from_ref_time(68_606_000 as u64)
+            .saturating_add(DbWeight::get().reads(2 as u64))
+            .saturating_add(DbWeight::get().writes(3 as u64))
     }
     // Storage: MultiSig MultiSigToIdentity (r:1 w:0)
     // Storage: MultiSig MultiSigSigners (r:1 w:1)
@@ -226,9 +226,9 @@ impl pallet_multisig::WeightInfo for WeightInfo {
     // Storage: Identity CddAuthForPrimaryKeyRotation (r:1 w:0)
     // Storage: Identity CurrentDid (r:1 w:0)
     fn remove_multisig_signer() -> Weight {
-        (73_975_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(73_975_000 as u64)
+            .saturating_add(DbWeight::get().reads(6 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
     // Storage: Identity CurrentDid (r:1 w:0)
     // Storage: Identity KeyRecords (r:1 w:0)
@@ -238,12 +238,12 @@ impl pallet_multisig::WeightInfo for WeightInfo {
     // Storage: Identity AuthorizationsGiven (r:0 w:1)
     // Storage: Identity Authorizations (r:0 w:1)
     fn add_multisig_signers_via_creator(i: u32) -> Weight {
-        (165_799_000 as Weight)
+        Weight::from_ref_time(165_799_000 as u64)
             // Standard Error: 273_000
-            .saturating_add((23_626_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
-            .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
+            .saturating_add(Weight::from_ref_time(23_626_000 as u64).saturating_mul(i as u64))
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
+            .saturating_add(DbWeight::get().writes((2 as u64).saturating_mul(i as u64)))
     }
     // Storage: Identity CurrentDid (r:1 w:0)
     // Storage: Identity KeyRecords (r:2 w:1)
@@ -254,13 +254,13 @@ impl pallet_multisig::WeightInfo for WeightInfo {
     // Storage: MultiSig MultiSigSignsRequired (r:1 w:0)
     // Storage: MultiSig MultiSigSigners (r:1 w:1)
     fn remove_multisig_signers_via_creator(i: u32) -> Weight {
-        (24_806_000 as Weight)
+        Weight::from_ref_time(24_806_000 as u64)
             // Standard Error: 367_000
-            .saturating_add((32_285_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add(DbWeight::get().reads(7 as Weight))
-            .saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(i as Weight)))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
-            .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
+            .saturating_add(Weight::from_ref_time(32_285_000 as u64).saturating_mul(i as u64))
+            .saturating_add(DbWeight::get().reads(7 as u64))
+            .saturating_add(DbWeight::get().reads((2 as u64).saturating_mul(i as u64)))
+            .saturating_add(DbWeight::get().writes(1 as u64))
+            .saturating_add(DbWeight::get().writes((2 as u64).saturating_mul(i as u64)))
     }
     // Storage: MultiSig MultiSigToIdentity (r:1 w:0)
     // Storage: MultiSig NumberOfSigners (r:1 w:0)
@@ -268,17 +268,17 @@ impl pallet_multisig::WeightInfo for WeightInfo {
     // Storage: Identity CurrentDid (r:1 w:0)
     // Storage: MultiSig MultiSigSignsRequired (r:0 w:1)
     fn change_sigs_required() -> Weight {
-        (53_135_000 as Weight)
-            .saturating_add(DbWeight::get().reads(4 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(53_135_000 as u64)
+            .saturating_add(DbWeight::get().reads(4 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:2 w:1)
     // Storage: MultiSig MultiSigToIdentity (r:1 w:0)
     // Storage: Identity DidKeys (r:0 w:1)
     fn make_multisig_secondary() -> Weight {
-        (67_282_000 as Weight)
-            .saturating_add(DbWeight::get().reads(3 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(67_282_000 as u64)
+            .saturating_add(DbWeight::get().reads(3 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
     // Storage: Identity CurrentDid (r:1 w:0)
     // Storage: Identity KeyRecords (r:2 w:2)
@@ -288,9 +288,9 @@ impl pallet_multisig::WeightInfo for WeightInfo {
     // Storage: Identity CddAuthForPrimaryKeyRotation (r:1 w:0)
     // Storage: Identity DidKeys (r:0 w:2)
     fn make_multisig_primary() -> Weight {
-        (100_028_000 as Weight)
-            .saturating_add(DbWeight::get().reads(8 as Weight))
-            .saturating_add(DbWeight::get().writes(5 as Weight))
+        Weight::from_ref_time(100_028_000 as u64)
+            .saturating_add(DbWeight::get().reads(8 as u64))
+            .saturating_add(DbWeight::get().writes(5 as u64))
     }
     // Storage: Timestamp Now (r:1 w:0)
     // Storage: Instance2Group ActiveMembers (r:1 w:0)
@@ -302,8 +302,8 @@ impl pallet_multisig::WeightInfo for WeightInfo {
     // Storage: MultiSig ProposalDetail (r:1 w:1)
     // Storage: Identity CurrentDid (r:0 w:1)
     fn execute_scheduled_proposal() -> Weight {
-        (110_785_000 as Weight)
-            .saturating_add(DbWeight::get().reads(9 as Weight))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
+        Weight::from_ref_time(110_785_000 as u64)
+            .saturating_add(DbWeight::get().reads(9 as u64))
+            .saturating_add(DbWeight::get().writes(4 as u64))
     }
 }

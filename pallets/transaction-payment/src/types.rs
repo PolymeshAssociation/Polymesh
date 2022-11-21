@@ -18,7 +18,7 @@
 //! Types for transaction-payment RPC.
 
 use codec::{Decode, Encode};
-use frame_support::weights::{DispatchClass, Weight};
+use frame_support::dispatch::{DispatchClass, Weight};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::traits::{AtLeast32BitUnsigned, Zero};

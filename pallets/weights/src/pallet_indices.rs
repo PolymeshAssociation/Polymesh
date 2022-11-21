@@ -54,34 +54,34 @@ pub struct WeightInfo;
 impl pallet_indices::WeightInfo for WeightInfo {
     // Storage: Indices Accounts (r:1 w:1)
     fn claim() -> Weight {
-        (50_420_000 as Weight)
-            .saturating_add(DbWeight::get().reads(1 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(50_420_000 as u64)
+            .saturating_add(DbWeight::get().reads(1 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Indices Accounts (r:1 w:1)
     // Storage: System Account (r:1 w:1)
     fn transfer() -> Weight {
-        (61_433_000 as Weight)
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(61_433_000 as u64)
+            .saturating_add(DbWeight::get().reads(2 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
     // Storage: Indices Accounts (r:1 w:1)
     fn free() -> Weight {
-        (67_322_000 as Weight)
-            .saturating_add(DbWeight::get().reads(1 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(67_322_000 as u64)
+            .saturating_add(DbWeight::get().reads(1 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Indices Accounts (r:1 w:1)
     // Storage: System Account (r:1 w:1)
     fn force_transfer() -> Weight {
-        (50_854_000 as Weight)
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(50_854_000 as u64)
+            .saturating_add(DbWeight::get().reads(2 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
     // Storage: Indices Accounts (r:1 w:1)
     fn freeze() -> Weight {
-        (79_742_000 as Weight)
-            .saturating_add(DbWeight::get().reads(1 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(79_742_000 as u64)
+            .saturating_add(DbWeight::get().reads(1 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
 }

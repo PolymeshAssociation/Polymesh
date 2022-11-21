@@ -63,13 +63,13 @@ impl pallet_identity::WeightInfo for WeightInfo {
     // Storage: Identity AuthorizationsGiven (r:0 w:2)
     // Storage: Identity Authorizations (r:0 w:2)
     fn cdd_register_did(i: u32) -> Weight {
-        (87_207_000 as Weight)
+        Weight::from_ref_time(87_207_000 as u64)
             // Standard Error: 277_000
-            .saturating_add((21_687_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add(DbWeight::get().reads(8 as Weight))
-            .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(i as Weight)))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
-            .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
+            .saturating_add(Weight::from_ref_time(21_687_000 as u64).saturating_mul(i as u64))
+            .saturating_add(DbWeight::get().reads(8 as u64))
+            .saturating_add(DbWeight::get().reads((1 as u64).saturating_mul(i as u64)))
+            .saturating_add(DbWeight::get().writes(4 as u64))
+            .saturating_add(DbWeight::get().writes((2 as u64).saturating_mul(i as u64)))
     }
     // Storage: Timestamp Now (r:1 w:0)
     // Storage: Instance2Group ActiveMembers (r:1 w:1)
@@ -77,9 +77,9 @@ impl pallet_identity::WeightInfo for WeightInfo {
     // Storage: Identity Claims (r:1 w:1)
     // Storage: Identity CurrentDid (r:1 w:0)
     fn invalidate_cdd_claims() -> Weight {
-        (91_475_000 as Weight)
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+        Weight::from_ref_time(91_475_000 as u64)
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().writes(3 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity AccountKeyRefCount (r:2 w:0)
@@ -87,12 +87,12 @@ impl pallet_identity::WeightInfo for WeightInfo {
     // Storage: Identity Authorizations (r:2 w:0)
     // Storage: Identity DidKeys (r:0 w:2)
     fn remove_secondary_keys(i: u32) -> Weight {
-        (0 as Weight)
+        Weight::from_ref_time(0 as u64)
             // Standard Error: 541_000
-            .saturating_add((33_882_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add(DbWeight::get().reads(1 as Weight))
-            .saturating_add(DbWeight::get().reads((4 as Weight).saturating_mul(i as Weight)))
-            .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
+            .saturating_add(Weight::from_ref_time(33_882_000 as u64).saturating_mul(i as u64))
+            .saturating_add(DbWeight::get().reads(1 as u64))
+            .saturating_add(DbWeight::get().reads((4 as u64).saturating_mul(i as u64)))
+            .saturating_add(DbWeight::get().writes((2 as u64).saturating_mul(i as u64)))
     }
     // Storage: Identity Authorizations (r:2 w:2)
     // Storage: Identity DidRecords (r:1 w:1)
@@ -104,9 +104,9 @@ impl pallet_identity::WeightInfo for WeightInfo {
     // Storage: Identity AuthorizationsGiven (r:0 w:2)
     // Storage: Identity DidKeys (r:0 w:2)
     fn accept_primary_key() -> Weight {
-        (143_309_000 as Weight)
-            .saturating_add(DbWeight::get().reads(9 as Weight))
-            .saturating_add(DbWeight::get().writes(9 as Weight))
+        Weight::from_ref_time(143_309_000 as u64)
+            .saturating_add(DbWeight::get().reads(9 as u64))
+            .saturating_add(DbWeight::get().writes(9 as u64))
     }
     // Storage: Identity Authorizations (r:2 w:2)
     // Storage: Identity DidRecords (r:1 w:1)
@@ -116,13 +116,13 @@ impl pallet_identity::WeightInfo for WeightInfo {
     // Storage: Identity AuthorizationsGiven (r:0 w:2)
     // Storage: Identity DidKeys (r:0 w:1)
     fn rotate_primary_key_to_secondary() -> Weight {
-        (127_719_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(8 as Weight))
+        Weight::from_ref_time(127_719_000 as u64)
+            .saturating_add(DbWeight::get().reads(6 as u64))
+            .saturating_add(DbWeight::get().writes(8 as u64))
     }
     // Storage: Identity CddAuthForPrimaryKeyRotation (r:0 w:1)
     fn change_cdd_requirement_for_mk_rotation() -> Weight {
-        (21_657_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(21_657_000 as u64).saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity Authorizations (r:1 w:1)
     // Storage: Identity DidRecords (r:1 w:0)
@@ -137,9 +137,9 @@ impl pallet_identity::WeightInfo for WeightInfo {
     // Storage: Identity DidKeys (r:0 w:1)
     // Storage: Identity CurrentDid (r:0 w:1)
     fn join_identity_as_key() -> Weight {
-        (115_020_000 as Weight)
-            .saturating_add(DbWeight::get().reads(10 as Weight))
-            .saturating_add(DbWeight::get().writes(5 as Weight))
+        Weight::from_ref_time(115_020_000 as u64)
+            .saturating_add(DbWeight::get().reads(10 as u64))
+            .saturating_add(DbWeight::get().writes(5 as u64))
     }
     // Storage: Identity CurrentDid (r:1 w:0)
     // Storage: Identity KeyRecords (r:1 w:1)
@@ -147,9 +147,9 @@ impl pallet_identity::WeightInfo for WeightInfo {
     // Storage: MultiSig MultiSigToIdentity (r:1 w:0)
     // Storage: Identity DidKeys (r:0 w:1)
     fn leave_identity_as_key() -> Weight {
-        (63_942_000 as Weight)
-            .saturating_add(DbWeight::get().reads(4 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(63_942_000 as u64)
+            .saturating_add(DbWeight::get().reads(4 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity DidRecords (r:1 w:0)
@@ -158,17 +158,17 @@ impl pallet_identity::WeightInfo for WeightInfo {
     // Storage: Timestamp Now (r:1 w:0)
     // Storage: Identity Claims (r:1 w:1)
     fn add_claim() -> Weight {
-        (74_138_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(74_138_000 as u64)
+            .saturating_add(DbWeight::get().reads(6 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity Claims (r:1 w:1)
     // Storage: Asset BalanceOfAtScope (r:1 w:0)
     fn revoke_claim() -> Weight {
-        (93_044_000 as Weight)
-            .saturating_add(DbWeight::get().reads(3 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(93_044_000 as u64)
+            .saturating_add(DbWeight::get().reads(3 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity Claims (r:1 w:1)
@@ -176,57 +176,57 @@ impl pallet_identity::WeightInfo for WeightInfo {
     // Storage: Asset ScopeIdOf (r:1 w:0)
     // Storage: Asset BalanceOfAtScope (r:1 w:0)
     fn revoke_claim_by_index() -> Weight {
-        (88_241_000 as Weight)
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(88_241_000 as u64)
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:2 w:1)
     fn set_secondary_key_permissions() -> Weight {
-        (53_854_000 as Weight)
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(53_854_000 as u64)
+            .saturating_add(DbWeight::get().reads(2 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     fn permissions_cost(a: u32, p: u32, l: u32, e: u32) -> Weight {
-        (0 as Weight)
+        Weight::from_ref_time(0 as u64)
             // Standard Error: 60_000
-            .saturating_add((296_000 as Weight).saturating_mul(a as Weight))
+            .saturating_add(Weight::from_ref_time(296_000 as u64).saturating_mul(a as u64))
             // Standard Error: 60_000
-            .saturating_add((301_000 as Weight).saturating_mul(p as Weight))
+            .saturating_add(Weight::from_ref_time(301_000 as u64).saturating_mul(p as u64))
             // Standard Error: 607_000
-            .saturating_add((37_546_000 as Weight).saturating_mul(l as Weight))
+            .saturating_add(Weight::from_ref_time(37_546_000 as u64).saturating_mul(l as u64))
             // Standard Error: 607_000
-            .saturating_add((36_844_000 as Weight).saturating_mul(e as Weight))
+            .saturating_add(Weight::from_ref_time(36_844_000 as u64).saturating_mul(e as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity IsDidFrozen (r:0 w:1)
     fn freeze_secondary_keys() -> Weight {
-        (40_657_000 as Weight)
-            .saturating_add(DbWeight::get().reads(1 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(40_657_000 as u64)
+            .saturating_add(DbWeight::get().reads(1 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity IsDidFrozen (r:0 w:1)
     fn unfreeze_secondary_keys() -> Weight {
-        (36_631_000 as Weight)
-            .saturating_add(DbWeight::get().reads(1 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(36_631_000 as u64)
+            .saturating_add(DbWeight::get().reads(1 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity MultiPurposeNonce (r:1 w:1)
     // Storage: Identity AuthorizationsGiven (r:0 w:1)
     // Storage: Identity Authorizations (r:0 w:1)
     fn add_authorization() -> Weight {
-        (50_950_000 as Weight)
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+        Weight::from_ref_time(50_950_000 as u64)
+            .saturating_add(DbWeight::get().reads(2 as u64))
+            .saturating_add(DbWeight::get().writes(3 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity Authorizations (r:1 w:1)
     // Storage: Identity AuthorizationsGiven (r:0 w:1)
     fn remove_authorization() -> Weight {
-        (51_898_000 as Weight)
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(51_898_000 as u64)
+            .saturating_add(DbWeight::get().reads(2 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Timestamp Now (r:1 w:0)
@@ -235,13 +235,13 @@ impl pallet_identity::WeightInfo for WeightInfo {
     // Storage: ProtocolFee BaseFees (r:1 w:0)
     // Storage: Identity DidKeys (r:0 w:2)
     fn add_secondary_keys_with_authorization(i: u32) -> Weight {
-        (118_228_000 as Weight)
+        Weight::from_ref_time(118_228_000 as u64)
             // Standard Error: 888_000
-            .saturating_add((98_154_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(i as Weight)))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
-            .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(i as Weight)))
+            .saturating_add(Weight::from_ref_time(98_154_000 as u64).saturating_mul(i as u64))
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().reads((1 as u64).saturating_mul(i as u64)))
+            .saturating_add(DbWeight::get().writes(1 as u64))
+            .saturating_add(DbWeight::get().writes((2 as u64).saturating_mul(i as u64)))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity DidRecords (r:1 w:0)
@@ -255,9 +255,9 @@ impl pallet_identity::WeightInfo for WeightInfo {
     // Storage: Asset BalanceOf (r:1 w:0)
     // Storage: Asset AggregateBalance (r:1 w:1)
     fn add_investor_uniqueness_claim() -> Weight {
-        (2_974_629_000 as Weight)
-            .saturating_add(DbWeight::get().reads(13 as Weight))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
+        Weight::from_ref_time(2_974_629_000 as u64)
+            .saturating_add(DbWeight::get().reads(13 as u64))
+            .saturating_add(DbWeight::get().writes(4 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity DidRecords (r:1 w:0)
@@ -271,9 +271,9 @@ impl pallet_identity::WeightInfo for WeightInfo {
     // Storage: Asset BalanceOf (r:1 w:0)
     // Storage: Asset AggregateBalance (r:1 w:1)
     fn add_investor_uniqueness_claim_v2() -> Weight {
-        (4_439_255_000 as Weight)
-            .saturating_add(DbWeight::get().reads(13 as Weight))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
+        Weight::from_ref_time(4_439_255_000 as u64)
+            .saturating_add(DbWeight::get().reads(13 as u64))
+            .saturating_add(DbWeight::get().writes(4 as u64))
     }
 
     // Storage: Identity KeyRecords (r:1 w:0)
@@ -281,10 +281,10 @@ impl pallet_identity::WeightInfo for WeightInfo {
     // Storage: Identity CustomClaimIdSequence (r:1 w:1)
     // Storage: Identity CustomClaims (r:0 w:1)
     fn register_custom_claim_type(n: u32) -> Weight {
-        (44_816_000 as Weight)
+        Weight::from_ref_time(44_816_000 as u64)
             // Standard Error: 0
-            .saturating_add((8_000 as Weight).saturating_mul(n as Weight))
-            .saturating_add(DbWeight::get().reads(3 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+            .saturating_add(Weight::from_ref_time(8_000 as u64).saturating_mul(n as u64))
+            .saturating_add(DbWeight::get().reads(3 as u64))
+            .saturating_add(DbWeight::get().writes(3 as u64))
     }
 }

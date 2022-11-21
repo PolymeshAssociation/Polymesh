@@ -34,7 +34,7 @@ use polymesh_primitives::{
     AccountId, Balance, Block, BlockNumber, Hash, IdentityId, Index, Moment, Ticker,
 };
 use sc_client_api::AuxStore;
-use sc_consensus_babe::{Config, Epoch};
+use sc_consensus_babe::{BabeConfiguration, Epoch};
 use sc_consensus_epochs::SharedEpochChanges;
 use sc_finality_grandpa::{
     FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState,
@@ -52,7 +52,7 @@ use std::sync::Arc;
 /// Extra dependencies for BABE.
 pub struct BabeDeps {
     /// BABE protocol config.
-    pub babe_config: Config,
+    pub babe_config: BabeConfiguration,
     /// BABE pending epoch changes.
     pub shared_epoch_changes: SharedEpochChanges<Block, Epoch>,
     /// The keystore that manages the keys of the node.
@@ -107,7 +107,6 @@ where
         + Send
         + 'static,
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
-    C::Api: pallet_contracts_rpc::ContractsRuntimeApi<Block, AccountId, Balance, BlockNumber, Hash>,
     C::Api: node_rpc::transaction_payment::TransactionPaymentRuntimeApi<Block>,
     C::Api: pallet_staking_rpc::StakingRuntimeApi<Block>,
     C::Api: node_rpc::pips::PipsRuntimeApi<Block, AccountId>,
@@ -130,13 +129,12 @@ where
         pips::{Pips, PipsApi},
         transaction_payment::{TransactionPayment, TransactionPaymentApi},
     };
-    use pallet_contracts_rpc::{Contracts, ContractsApi};
     use pallet_group_rpc::{Group, GroupApi};
     use pallet_protocol_fee_rpc::{ProtocolFee, ProtocolFeeApi};
     use pallet_staking_rpc::{Staking, StakingApi};
-    use sc_consensus_babe_rpc::BabeRpcHandler;
-    use sc_finality_grandpa_rpc::GrandpaRpcHandler;
-    use substrate_frame_rpc_system::{FullSystem, SystemApi};
+    use sc_consensus_babe_rpc::{Babe, BabeApiServer};
+    use sc_finality_grandpa_rpc::{Grandpa, GrandpaApiServer};
+    use substrate_frame_rpc_system::{System, SystemApiServer};
 
     let mut io = jsonrpc_core::IoHandler::default();
     let FullDeps {
@@ -170,7 +168,6 @@ where
     // Making synchronous calls in light client freezes the browser currently,
     // more context: https://github.com/PolymeshAssociation/substrate/pull/3480
     // These RPCs should use an asynchronous caller instead.
-    io.extend_with(ContractsApi::to_delegate(Contracts::new(client.clone())));
     io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(
         client.clone(),
     )));

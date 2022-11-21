@@ -59,9 +59,9 @@ impl pallet_balances::WeightInfo for WeightInfo {
     // Storage: Identity Claims (r:2 w:0)
     // Storage: System Account (r:2 w:2)
     fn transfer() -> Weight {
-        (209_604_000 as Weight)
-            .saturating_add(DbWeight::get().reads(9 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(209_604_000 as u64)
+            .saturating_add(DbWeight::get().reads(9 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
     // Storage: Identity KeyRecords (r:2 w:0)
     // Storage: Timestamp Now (r:1 w:0)
@@ -70,38 +70,38 @@ impl pallet_balances::WeightInfo for WeightInfo {
     // Storage: Identity Claims (r:2 w:0)
     // Storage: System Account (r:2 w:2)
     fn transfer_with_memo() -> Weight {
-        (145_217_000 as Weight)
-            .saturating_add(DbWeight::get().reads(9 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(145_217_000 as u64)
+            .saturating_add(DbWeight::get().reads(9 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
     // Storage: Identity KeyRecords (r:2 w:0)
     // Storage: System Account (r:2 w:2)
     fn deposit_block_reward_reserve_balance() -> Weight {
-        (154_228_000 as Weight)
-            .saturating_add(DbWeight::get().reads(4 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(154_228_000 as u64)
+            .saturating_add(DbWeight::get().reads(4 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
     // Storage: Identity CurrentDid (r:1 w:0)
     // Storage: Identity KeyRecords (r:2 w:0)
     // Storage: System Account (r:2 w:2)
     fn set_balance() -> Weight {
-        (126_335_000 as Weight)
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(126_335_000 as u64)
+            .saturating_add(DbWeight::get().reads(5 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
     // Storage: System Account (r:2 w:2)
     // Storage: Identity KeyRecords (r:2 w:0)
     fn force_transfer() -> Weight {
-        (70_921_000 as Weight)
-            .saturating_add(DbWeight::get().reads(4 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(70_921_000 as u64)
+            .saturating_add(DbWeight::get().reads(4 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity CurrentDid (r:1 w:0)
     // Storage: System Account (r:1 w:1)
     fn burn_account_balance() -> Weight {
-        (60_874_000 as Weight)
-            .saturating_add(DbWeight::get().reads(3 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(60_874_000 as u64)
+            .saturating_add(DbWeight::get().reads(3 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
 }

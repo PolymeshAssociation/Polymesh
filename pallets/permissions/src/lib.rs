@@ -51,7 +51,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         // This definition is needed because the construct_runtime! macro uses it to generate metadata.
         // Without this definition, the metadata won't have details about the errors of this module.
         // That will lead to UIs either throwing fits or showing incorrect error messages.
@@ -120,11 +120,11 @@ impl<T: Config> StoreCallMetadata<T> {
 impl<T> SignedExtension for StoreCallMetadata<T>
 where
     T: Config + Send + Sync,
-    <T as frame_system::Config>::Call: GetCallMetadata,
+    <T as frame_system::Config>::RuntimeCall: GetCallMetadata,
 {
     const IDENTIFIER: &'static str = "StoreCallMetadata";
     type AccountId = T::AccountId;
-    type Call = <T as frame_system::Config>::Call;
+    type Call = <T as frame_system::Config>::RuntimeCall;
     type AdditionalSigned = ();
     type Pre = ();
 

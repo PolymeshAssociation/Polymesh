@@ -59,9 +59,9 @@ impl<T: frame_system::Config> pallet_relayer::WeightInfo for WeightInfo<T> {
     // Storage: Identity AuthorizationsGiven (r:0 w:1)
     // Storage: Identity Authorizations (r:0 w:1)
     fn set_paying_key() -> Weight {
-        (115_227_000 as Weight)
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+        Weight::from_ref_time(115_227_000 as u64)
+            .saturating_add(DbWeight::get().reads(2 as u64))
+            .saturating_add(DbWeight::get().writes(3 as u64))
     }
     // Storage: Identity KeyRecords (r:2 w:0)
     // Storage: Identity Authorizations (r:1 w:1)
@@ -73,37 +73,37 @@ impl<T: frame_system::Config> pallet_relayer::WeightInfo for WeightInfo<T> {
     // Storage: Identity AccountKeyRefCount (r:2 w:2)
     // Storage: Identity AuthorizationsGiven (r:0 w:1)
     fn accept_paying_key() -> Weight {
-        (260_708_000 as Weight)
-            .saturating_add(DbWeight::get().reads(13 as Weight))
-            .saturating_add(DbWeight::get().writes(5 as Weight))
+        Weight::from_ref_time(260_708_000 as u64)
+            .saturating_add(DbWeight::get().reads(13 as u64))
+            .saturating_add(DbWeight::get().writes(5 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Relayer Subsidies (r:1 w:1)
     // Storage: Identity AccountKeyRefCount (r:2 w:2)
     fn remove_paying_key() -> Weight {
-        (110_209_000 as Weight)
-            .saturating_add(DbWeight::get().reads(4 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+        Weight::from_ref_time(110_209_000 as u64)
+            .saturating_add(DbWeight::get().reads(4 as u64))
+            .saturating_add(DbWeight::get().writes(3 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Relayer Subsidies (r:1 w:1)
     fn update_polyx_limit() -> Weight {
-        (90_477_000 as Weight)
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(90_477_000 as u64)
+            .saturating_add(DbWeight::get().reads(2 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Relayer Subsidies (r:1 w:1)
     fn increase_polyx_limit() -> Weight {
-        (68_388_000 as Weight)
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(68_388_000 as u64)
+            .saturating_add(DbWeight::get().reads(2 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Relayer Subsidies (r:1 w:1)
     fn decrease_polyx_limit() -> Weight {
-        (70_320_000 as Weight)
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(70_320_000 as u64)
+            .saturating_add(DbWeight::get().reads(2 as u64))
+            .saturating_add(DbWeight::get().writes(1 as u64))
     }
 }
