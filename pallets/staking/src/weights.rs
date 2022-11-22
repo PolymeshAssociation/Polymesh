@@ -35,4 +35,5 @@ pub trait WeightInfo {
     fn update_permissioned_validator_intended_count() -> Weight;
     fn increase_validator_count() -> Weight;
     fn scale_validator_count() -> Weight;
+    fn chill_from_governance(s: u32) -> Weight;
 }
