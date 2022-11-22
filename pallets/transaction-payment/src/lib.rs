@@ -407,6 +407,32 @@ where
         Self::compute_fee_details(len, &dispatch_info, 0u32.into())
     }
 
+    /// Query information of a dispatch class, weight, and fee of a given encoded `Call`.
+    pub fn query_call_info(call: T::RuntimeCall, len: u32) -> RuntimeDispatchInfo<BalanceOf<T>>
+    where
+        T::RuntimeCall: Dispatchable<Info = DispatchInfo> + GetDispatchInfo,
+    {
+        let dispatch_info = <T::RuntimeCall as GetDispatchInfo>::get_dispatch_info(&call);
+        let DispatchInfo { weight, class, .. } = dispatch_info;
+
+        RuntimeDispatchInfo {
+            weight,
+            class,
+            partial_fee: Self::compute_fee(len, &dispatch_info, 0u32.into()),
+        }
+    }
+
+    /// Query fee details of a given encoded `Call`.
+    pub fn query_call_fee_details(call: T::RuntimeCall, len: u32) -> FeeDetails<BalanceOf<T>>
+    where
+        T::RuntimeCall: Dispatchable<Info = DispatchInfo> + GetDispatchInfo,
+    {
+        let dispatch_info = <T::RuntimeCall as GetDispatchInfo>::get_dispatch_info(&call);
+        let tip = 0u32.into();
+
+        Self::compute_fee_details(len, &dispatch_info, tip)
+    }
+
     /// Compute the final fee value for a particular transaction.
     pub fn compute_fee(
         len: u32,

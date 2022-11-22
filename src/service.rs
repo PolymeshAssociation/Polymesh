@@ -15,17 +15,17 @@ pub use polymesh_runtime_mainnet;
 pub use polymesh_runtime_testnet;
 use prometheus_endpoint::Registry;
 pub use sc_client_api::backend::Backend;
-use sc_client_api::{BlockBackend, ExecutorProvider};
+use sc_client_api::BlockBackend;
 pub use sc_consensus::LongestChain;
 use sc_consensus_slots::SlotProportion;
 use sc_executor::NativeElseWasmExecutor;
 pub use sc_executor::{NativeExecutionDispatch, RuntimeVersionOf};
-use sc_network::{Event, NetworkService};
-use sc_service::TaskManager;
+use sc_network::NetworkService;
+use sc_network_common::{protocol::event::Event, service::NetworkEventStream};
+use sc_service::{config::Configuration, error::Error as ServiceError, RpcHandlers, TaskManager};
 pub use sc_service::{
     config::{PrometheusConfig, Role},
-    error::Error as ServiceError,
-    ChainSpec, Configuration, Error, PruningMode, RuntimeGenesis, TFullBackend, TFullCallExecutor,
+    ChainSpec, Error, PruningMode, RuntimeGenesis, TFullBackend, TFullCallExecutor,
     TFullClient, TransactionPoolOptions,
 };
 use sc_telemetry::{Telemetry, TelemetryWorker};
@@ -148,32 +148,31 @@ fn set_prometheus_registry(config: &mut Configuration) -> Result<(), ServiceErro
 }
 
 type BabeLink = sc_consensus_babe::BabeLink<Block>;
-type IoHandler = jsonrpc_core::IoHandler<sc_rpc::Metadata>;
 
 type FullLinkHalf<R, D> = grandpa::LinkHalf<Block, FullClient<R, D>, FullSelectChain>;
-pub type FullClient<R, E> = sc_service::TFullClient<Block, R, NativeElseWasmExecutor<E>>;
+pub type FullClient<R, D> = sc_service::TFullClient<Block, R, NativeElseWasmExecutor<D>>;
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
-type FullGrandpaBlockImport<R, E> =
-    grandpa::GrandpaBlockImport<FullBackend, Block, FullClient<R, E>, FullSelectChain>;
-type FullBabeImportQueue<R, E> = sc_consensus::DefaultImportQueue<Block, FullClient<R, E>>;
+type FullGrandpaBlockImport<R, D> =
+    grandpa::GrandpaBlockImport<FullBackend, Block, FullClient<R, D>, FullSelectChain>;
+type FullBabeImportQueue<R, D> = sc_consensus::DefaultImportQueue<Block, FullClient<R, D>>;
 type FullStateBackend = sc_client_api::StateBackendFor<FullBackend, Block>;
-type FullPool<R, E> = sc_transaction_pool::FullPool<Block, FullClient<R, E>>;
-pub type FullServiceComponents<R, E, F> = sc_service::PartialComponents<
-    FullClient<R, E>,
+type FullPool<R, D> = sc_transaction_pool::FullPool<Block, FullClient<R, D>>;
+pub type FullServiceComponents<R, D, F> = sc_service::PartialComponents<
+    FullClient<R, D>,
     FullBackend,
     FullSelectChain,
-    FullBabeImportQueue<R, E>,
-    FullPool<R, E>,
+    FullBabeImportQueue<R, D>,
+    FullPool<R, D>,
     (
         F,
-        (FullBabeBlockImport<R, E>, FullLinkHalf<R, E>, BabeLink),
+        (FullBabeBlockImport<R, D>, FullLinkHalf<R, D>, BabeLink),
         grandpa::SharedVoterState,
         Option<Telemetry>,
     ),
 >;
-type FullBabeBlockImport<R, E> =
-    sc_consensus_babe::BabeBlockImport<Block, FullClient<R, E>, FullGrandpaBlockImport<R, E>>;
+type FullBabeBlockImport<R, D> =
+    sc_consensus_babe::BabeBlockImport<Block, FullClient<R, D>, FullGrandpaBlockImport<R, D>>;
 
 pub fn new_partial<R, D>(
     config: &mut Configuration,
@@ -181,7 +180,7 @@ pub fn new_partial<R, D>(
     FullServiceComponents<
         R,
         D,
-        impl Fn(sc_rpc::DenyUnsafe, sc_rpc::SubscriptionTaskExecutor) -> Result<IoHandler, Error>,
+        impl Fn(sc_rpc::DenyUnsafe, sc_rpc::SubscriptionTaskExecutor) -> Result<jsonrpsee::RpcModule<()>, Error>,
     >,
     Error,
 >
@@ -244,7 +243,7 @@ where
     let justification_import = grandpa_block_import.clone();
 
     let (block_import, babe_link) = sc_consensus_babe::block_import(
-        sc_consensus_babe::Config::get(&*client)?,
+		    sc_consensus_babe::configuration(&*client)?,
         grandpa_block_import,
         client.clone(),
     )?;
@@ -268,11 +267,10 @@ where
             let uncles =
                 sp_authorship::InherentDataProvider::<<Block as BlockT>::Header>::check_inherents();
 
-            Ok((timestamp, slot, uncles))
+            Ok((slot, timestamp, uncles))
         },
         &task_manager.spawn_essential_handle(),
         config.prometheus_registry(),
-        sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone()),
         telemetry.as_ref().map(|x| x.handle()),
     )?;
 
@@ -284,9 +282,6 @@ where
         let justification_stream = grandpa_link.justification_stream();
         let shared_authority_set = grandpa_link.shared_authority_set().clone();
         let shared_voter_state = grandpa::SharedVoterState::empty();
-        // let finality_proof_provider =
-        //     GrandpaFinalityProofProvider::new_for_service(backend.clone(), client.clone());
-        // let rpc_setup = (shared_voter_state.clone(), finality_proof_provider.clone());
         let rpc_setup = shared_voter_state.clone();
 
         let finality_proof_provider = grandpa::FinalityProofProvider::new_for_service(
@@ -303,6 +298,7 @@ where
         let keystore = keystore_container.sync_keystore();
         let chain_spec = config.chain_spec.cloned_box();
 
+		    let rpc_backend = backend.clone();
         let rpc_extensions_builder = move |deny_unsafe, subscription_executor| {
             let deps = node_rpc::FullDeps {
                 client: client.clone(),
@@ -324,7 +320,7 @@ where
                 },
             };
 
-            node_rpc::create_full(deps).map_err(Into::into)
+            node_rpc::create_full(deps, rpc_backend.clone()).map_err(Into::into)
         };
 
         (rpc_extensions_builder, rpc_setup)
@@ -348,10 +344,16 @@ where
     R::RuntimeApi: RuntimeApiCollection<StateBackend = FullStateBackend>,
     D: NativeExecutionDispatch + 'static,
 {
+	  /// The task manager of the node.
     pub task_manager: TaskManager,
+	  /// The client instance of the node.
     pub client: Arc<FullClient<R, D>>,
+	  /// The networking service of the node.
     pub network: Arc<NetworkService<Block, <Block as BlockT>::Hash>>,
+	  /// The transaction pool of the node.
     pub transaction_pool: Arc<FullPool<R, D>>,
+	  /// The rpc handlers of the node.
+	  pub rpc_handlers: RpcHandlers,
 }
 
 /// Creates a full service from the configuration.
@@ -373,7 +375,7 @@ where
         keystore_container,
         select_chain,
         transaction_pool,
-        other: (rpc_extensions_builder, import_setup, rpc_setup, mut telemetry),
+        other: (rpc_builder, import_setup, rpc_setup, mut telemetry),
     } = new_partial(&mut config)?;
 
     let shared_voter_state = rpc_setup;
@@ -408,7 +410,7 @@ where
         ),
     );
 
-    let (network, system_rpc_tx, network_starter) =
+    let (network, system_rpc_tx, tx_handler_controller, network_starter) =
         sc_service::build_network(sc_service::BuildNetworkParams {
             config: &config,
             client: client.clone(),
@@ -436,16 +438,17 @@ where
     let enable_grandpa = !config.disable_grandpa;
     let prometheus_registry = config.prometheus_registry().cloned();
 
-    let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+    let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
         config,
         backend,
         client: client.clone(),
         keystore: keystore_container.sync_keystore(),
         network: network.clone(),
-        rpc_extensions_builder: Box::new(rpc_extensions_builder),
+        rpc_builder: Box::new(rpc_builder),
         transaction_pool: transaction_pool.clone(),
         task_manager: &mut task_manager,
         system_rpc_tx,
+        tx_handler_controller,
         telemetry: telemetry.as_mut(),
     })?;
 
@@ -461,9 +464,6 @@ where
             prometheus_registry.as_ref(),
             telemetry.as_ref().map(|x| x.handle()),
         );
-
-        let can_author_with =
-            sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
         let client_clone = client.clone();
         let slot_duration = babe_link.config().slot_duration();
@@ -486,10 +486,10 @@ where
                     let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
                     let slot =
-						sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-							*timestamp,
-							slot_duration,
-						);
+                        sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+                            *timestamp,
+                            slot_duration,
+                        );
 
                     let storage_proof =
                         sp_transaction_storage_proof::registration::new_data_provider(
@@ -497,13 +497,12 @@ where
                             &parent,
                         )?;
 
-                    Ok((timestamp, slot, uncles, storage_proof))
+                    Ok((slot, timestamp, uncles, storage_proof))
                 }
             },
             force_authoring,
             backoff_authoring_blocks,
             babe_link,
-            can_author_with,
             block_proposal_slot_portion: SlotProportion::new(0.5),
             max_block_proposal_slot_portion: None,
             telemetry: telemetry.as_ref().map(|x| x.handle()),
@@ -602,6 +601,7 @@ where
         client,
         network,
         transaction_pool,
+        rpc_handlers,
     })
 }
 
@@ -610,19 +610,19 @@ type TaskResult = Result<TaskManager, ServiceError>;
 /// Create a new Testnet service for a full node.
 pub fn testnet_new_full(config: Configuration) -> TaskResult {
     new_full_base::<polymesh_runtime_testnet::RuntimeApi, TestnetExecutor, _>(config, |_, _| ())
-        .map(|data| data.task_manager)
+		    .map(|data| data.task_manager)
 }
 
 /// Create a new General node service for a full node.
 pub fn general_new_full(config: Configuration) -> TaskResult {
     new_full_base::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor, _>(config, |_, _| ())
-        .map(|data| data.task_manager)
+		    .map(|data| data.task_manager)
 }
 
 /// Create a new Mainnet service for a full node.
 pub fn mainnet_new_full(config: Configuration) -> TaskResult {
     new_full_base::<polymesh_runtime_mainnet::RuntimeApi, MainnetExecutor, _>(config, |_, _| ())
-        .map(|data| data.task_manager)
+		    .map(|data| data.task_manager)
 }
 
 pub type NewChainOps<R, D> = (
