@@ -21,6 +21,15 @@ pub enum Error {
     RuntimeError,
 }
 
+impl From<Error> for i32 {
+    fn from(e: Error) -> i32 {
+        match e {
+            Error::RuntimeError => 1,
+            Error::DecodeError => 2,
+        }
+    }
+}
+
 /// Helper macro to forward call to Api.
 /// It also maps any error into an `RpcError`.
 macro_rules! rpc_forward_call {
@@ -28,10 +37,12 @@ macro_rules! rpc_forward_call {
         let api = $self.client.runtime_api();
         let at = BlockId::hash($at.unwrap_or_else(|| $self.client.info().best_hash));
 
-        let result = $f(api, &at).map_err(|e| RpcError {
-            code: ErrorCode::ServerError($crate::Error::RuntimeError as i64),
-            message: $err_msg.into(),
-            data: Some(format!("{:?}", e).into()),
+        let result = $f(api, &at).map_err(|e| {
+            CallError::Custom(ErrorObject::owned(
+                crate::Error::RuntimeError.into(),
+                $err_msg,
+                Some(e.to_string()),
+            ))
         })?;
 
         Ok(result)

@@ -821,6 +821,17 @@ macro_rules! runtime_apis {
                 }
             }
 
+            impl node_rpc_runtime_api::transaction_payment::TransactionPaymentCallApi<Block, RuntimeCall>
+                for Runtime
+            {
+                fn query_call_info(call: RuntimeCall, len: u32) -> RuntimeDispatchInfo<Balance> {
+                    TransactionPayment::query_call_info(call, len)
+                }
+                fn query_call_fee_details(call: RuntimeCall, len: u32) -> pallet_transaction_payment::FeeDetails<Balance> {
+                    TransactionPayment::query_call_fee_details(call, len)
+                }
+            }
+
             impl sp_session::SessionKeys<Block> for Runtime {
                 fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
                     SessionKeys::generate(seed)
