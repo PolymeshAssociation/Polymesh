@@ -324,7 +324,7 @@ use frame_system::{
 use pallet_identity as identity;
 use pallet_session::historical;
 use polymesh_common_utilities::{identity::Config as IdentityConfig, Context, GC_DID};
-use polymesh_primitives::IdentityId;
+use polymesh_primitives::{IdentityId, storage_migration_ver, storage_migrate_on};
 use scale_info::TypeInfo;
 use frame_election_provider_support::{
     generate_solution_type,
@@ -1263,6 +1263,9 @@ decl_storage! {
         ///
         /// This is set to v6.0.1 for new networks.
         StorageVersion build(|_: &GenesisConfig<T>| Releases::V6_0_1): Releases;
+
+        /// Polymesh Storage version.
+        PolymeshStorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
     }
     add_extra_genesis {
         config(stakers):
@@ -1305,6 +1308,8 @@ decl_storage! {
         });
     }
 }
+
+storage_migration_ver!(1);
 
 pub mod migrations {
     use super::*;
@@ -1571,6 +1576,10 @@ decl_module! {
                 StorageVersion::put(Releases::V7_0_0);
                 migrations::migrate_to_blockable::<T>();
             }
+
+            storage_migrate_on!(PolymeshStorageVersion, 1, {
+                <Validators<T>>::iter().for_each(|(k,_)| <Identity<T>>::add_account_key_ref_count(&k));
+            });
 
             1_000
         }
@@ -1939,6 +1948,7 @@ decl_module! {
                 // Ensure identity doesn't run more validators than the intended count.
                 ensure!(id_pref.running_count < id_pref.intended_count, Error::<T>::HitIntendedValidatorCount);
                 id_pref.running_count += 1;
+                <Identity<T>>::add_account_key_ref_count(&stash);
             }
             PermissionedIdentity::insert(id, id_pref);
             // -----------------------------------------------------------------
@@ -2896,7 +2906,8 @@ impl<T: Config> Module<T> {
             PermissionedIdentity::mutate(&id, |pref| {
                 if let Some(p) = pref {
                     if p.running_count > 0 {
-                        p.running_count -= 1
+                        p.running_count -= 1;
+                        <Identity<T>>::remove_account_key_ref_count(&stash);
                     }
                 }
             });

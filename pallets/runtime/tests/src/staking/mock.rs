@@ -470,7 +470,7 @@ impl AssetSubTrait for Test {
 
 impl MultiSigSubTrait<AccountId> for Test {
     fn is_multisig(_account: &AccountId) -> bool {
-        unimplemented!()
+        false
     }
 }
 
