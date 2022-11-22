@@ -197,12 +197,20 @@ pub fn run() -> Result<()> {
                         cmd.run::<Block, service::GeneralExecutor>(config)
                     }
                     (BenchmarkCmd::Block(cmd), Network::Other) => {
-                        let FullServiceComponents { client, .. } =
-                            new_partial::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>(
-                                &mut config,
-                            )?;
+                        let FullServiceComponents { client, .. } = new_partial::<
+                            polymesh_runtime_develop::RuntimeApi,
+                            GeneralExecutor,
+                        >(
+                            &mut config
+                        )?;
                         cmd.run(client)
                     }
+                    #[cfg(not(feature = "runtime-benchmarks"))]
+                    (BenchmarkCmd::Storage(_), Network::Other) => Err(
+                        "Storage benchmarking can be enabled with `--features runtime-benchmarks`."
+                            .into(),
+                    ),
+                    #[cfg(feature = "runtime-benchmarks")]
                     (BenchmarkCmd::Storage(cmd), Network::Other) => {
                         let FullServiceComponents {
                             client, backend, ..

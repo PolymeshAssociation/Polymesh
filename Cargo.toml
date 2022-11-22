@@ -54,8 +54,10 @@ sc-finality-grandpa = { git = "https://github.com/PolymeshAssociation/substrate"
 sc-finality-grandpa-rpc = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
 sc-keystore = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
 sc-network = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
+sc-network-common = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
 sc-rpc = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
 sc-rpc-api = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
+sc-rpc-spec-v2 = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
 sc-service = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
 sc-telemetry = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
 sc-transaction-pool = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
@@ -83,7 +85,6 @@ sp-offchain = { git = "https://github.com/PolymeshAssociation/substrate", branch
 sp-rpc = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
 sp-runtime = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
 sp-runtime-interface = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
-sp-serializer = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
 sp-session = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
 sp-staking = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
 sp-state-machine = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
@@ -96,6 +97,7 @@ sp-transaction-storage-proof = { git = "https://github.com/PolymeshAssociation/s
 sp-trie = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
 sp-version = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
 substrate-frame-rpc-system = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
+substrate-state-trie-migration-rpc = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
 substrate-prometheus-endpoint = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
 substrate-test-runtime-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
 substrate-test-utils = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
@@ -198,10 +200,10 @@ polymesh-runtime-testnet = { path = "pallets/runtime/testnet" }
 # General
 chrono = "0.4.11"
 ed25519-dalek = "1.0.0"
-futures = "0.3.4"
-jsonrpc-core = { version = "18.0", features = ["arbitrary_precision"] }
-log = "0.4.8"
-serde = { version = "1.0.104", default-features = false }
+futures = "0.3.21"
+jsonrpsee = { version = "0.15.1", features = ["server"] }
+log = "0.4.17"
+serde = { version = "1.0.136", default-features = false }
 serde_json = { version = "1.0", features = ["arbitrary_precision"] }
 clap = { version = "3.1.6", features = ["derive"] }
 rustc-hex = "2.1.0"
@@ -232,6 +234,7 @@ sc-consensus-slots = "0.10.0-dev"
 sc-consensus-uncles = "0.10.0-dev"
 sc-executor = { version = "0.10.0-dev", features = ["wasmtime"] }
 sc-network = "0.10.0-dev"
+sc-network-common = { version = "0.10.0-dev" }
 sc-rpc = "4.0.0-dev"
 sc-service = { version = "0.10.0-dev", features = ["wasmtime"] }
 sc-telemetry = "4.0.0-dev"

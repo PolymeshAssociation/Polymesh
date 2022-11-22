@@ -16,10 +16,14 @@
 
 //! RPC interface for the transaction payment module.
 
-pub use self::gen_client::Client as TransactionPaymentClient;
-use codec::Decode;
-use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
-use jsonrpc_derive::rpc;
+use std::{convert::TryInto, sync::Arc};
+
+use super::Error;
+use jsonrpsee::{
+    core::RpcResult,
+    proc_macros::rpc,
+    types::error::{CallError, ErrorCode, ErrorObject},
+};
 pub use node_rpc_runtime_api::transaction_payment::{
     FeeDetails, InclusionFee, RuntimeDispatchInfo,
     TransactionPaymentApi as TransactionPaymentRuntimeApi,
@@ -30,28 +34,29 @@ use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
 use sp_rpc::number::NumberOrHex;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
-use std::sync::Arc;
 
-#[rpc]
+#[rpc(client, server)]
 pub trait TransactionPaymentApi<BlockHash, ResponseType> {
-    #[rpc(name = "payment_queryInfo")]
-    fn query_info(&self, encoded_xt: Bytes, at: Option<BlockHash>) -> Result<ResponseType>;
-    #[rpc(name = "payment_queryFeeDetails")]
+    #[method(name = "payment_queryInfo")]
+    fn query_info(&self, encoded_xt: Bytes, at: Option<BlockHash>) -> RpcResult<ResponseType>;
+
+    #[method(name = "payment_queryFeeDetails")]
     fn query_fee_details(
         &self,
         encoded_xt: Bytes,
         at: Option<BlockHash>,
-    ) -> Result<FeeDetails<NumberOrHex>>;
+    ) -> RpcResult<FeeDetails<NumberOrHex>>;
 }
 
-/// A struct that implements the [`TransactionPaymentApi`].
+/// Provides RPC methods to query a dispatchable's class, weight and fee.
 pub struct TransactionPayment<C, P> {
+    /// Shared reference to the client.
     client: Arc<C>,
     _marker: std::marker::PhantomData<P>,
 }
 
 impl<C, P> TransactionPayment<C, P> {
-    /// Create new `TransactionPayment` with the given reference to the client.
+    /// Creates a new instance of the TransactionPayment Rpc helper.
     pub fn new(client: Arc<C>) -> Self {
         Self {
             client,
@@ -77,18 +82,18 @@ impl From<Error> for i64 {
     }
 }
 
-impl<C, Block> TransactionPaymentApi<<Block as BlockT>::Hash, RuntimeDispatchInfo<Balance>>
+impl<C, Block> TransactionPaymentApiServer<<Block as BlockT>::Hash, RuntimeDispatchInfo<Balance>>
     for TransactionPayment<C, Block>
 where
     Block: BlockT,
-    C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
+    C: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
     C::Api: TransactionPaymentRuntimeApi<Block>,
 {
     fn query_info(
         &self,
         encoded_xt: Bytes,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<RuntimeDispatchInfo<Balance>> {
+    ) -> RpcResult<RuntimeDispatchInfo<Balance>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| {
             // If the block hash is not supplied assume the best block.
@@ -113,7 +118,7 @@ where
         &self,
         encoded_xt: Bytes,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<FeeDetails<NumberOrHex>> {
+    ) -> RpcResult<FeeDetails<NumberOrHex>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| {
             // If the block hash is not supplied assume the best block.
@@ -135,10 +140,12 @@ where
             })?;
 
         let try_into_rpc_balance = |value: Balance| {
-            value.try_into().map_err(|_| RpcError {
-                code: ErrorCode::InvalidParams,
-                message: format!("{} doesn't fit in NumberOrHex representation", value),
-                data: None,
+            value.try_into().map_err(|_| {
+                CallError::Custom(ErrorObject::owned(
+                    ErrorCode::InvalidParams.code(),
+                    format!("{} doesn't fit in NumberOrHex representation", value),
+                    None::<()>,
+                ))
             })
         };
 

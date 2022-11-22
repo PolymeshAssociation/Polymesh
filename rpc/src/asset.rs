@@ -14,23 +14,26 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 pub use node_rpc_runtime_api::asset::{AssetApi as AssetRuntimeApi, CanTransferResult};
-use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 
-use jsonrpc_core::{Error, Error as RpcError, ErrorCode, Result};
-use jsonrpc_derive::rpc;
+use std::{convert::TryInto, sync::Arc};
 
+use crate::Error;
 use codec::Codec;
+use jsonrpsee::{
+    core::RpcResult,
+    proc_macros::rpc,
+    types::error::{CallError, ErrorCode, ErrorObject},
+};
 use polymesh_primitives::asset::GranularCanTransferResult;
+use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 use sp_api::{ApiExt, ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_rpc::number;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
-use std::convert::TryInto;
-use std::sync::Arc;
 
-#[rpc]
+#[rpc(client, server)]
 pub trait AssetApi<BlockHash, AccountId> {
-    #[rpc(name = "asset_canTransfer")]
+    #[method(name = "asset_canTransfer")]
     fn can_transfer(
         &self,
         sender: AccountId,
@@ -41,9 +44,9 @@ pub trait AssetApi<BlockHash, AccountId> {
         ticker: Ticker,
         value: number::NumberOrHex,
         at: Option<BlockHash>,
-    ) -> Result<CanTransferResult>;
+    ) -> RpcResult<CanTransferResult>;
 
-    #[rpc(name = "asset_canTransferGranular")]
+    #[method(name = "asset_canTransferGranular")]
     fn can_transfer_granular(
         &self,
         from_custodian: Option<IdentityId>,
@@ -53,7 +56,7 @@ pub trait AssetApi<BlockHash, AccountId> {
         ticker: Ticker,
         value: number::NumberOrHex,
         at: Option<BlockHash>,
-    ) -> Result<GranularCanTransferResult>;
+    ) -> RpcResult<GranularCanTransferResult>;
 }
 
 /// An implementation of asset specific RPC methods.
@@ -72,12 +75,10 @@ impl<T, U> Asset<T, U> {
     }
 }
 
-impl<C, Block, AccountId> AssetApi<<Block as BlockT>::Hash, AccountId> for Asset<C, Block>
+impl<C, Block, AccountId> AssetApiServer<<Block as BlockT>::Hash, AccountId> for Asset<C, Block>
 where
     Block: BlockT,
-    C: Send + Sync + 'static,
-    C: ProvideRuntimeApi<Block>,
-    C: HeaderBackend<Block>,
+    C: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
     C::Api: AssetRuntimeApi<Block, AccountId>,
     AccountId: Codec,
 {
@@ -91,12 +92,14 @@ where
         ticker: Ticker,
         value: number::NumberOrHex,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<CanTransferResult> {
+    ) -> RpcResult<CanTransferResult> {
         // Make sure that value fits into 64 bits.
-        let value: u64 = value.try_into().map_err(|_| Error {
-            code: ErrorCode::InvalidParams,
-            message: format!("{:?} doesn't fit in 64 bit unsigned value", value),
-            data: None,
+        let value: u64 = value.try_into().map_err(|_| {
+            CallError::Custom(ErrorObject::owned(
+                ErrorCode::InvalidParams.code(),
+                format!("{:?} doesn't fit in 64 bit unsigned value", value),
+                None::<()>,
+            ))
         })?;
         rpc_forward_call!(
             self,
@@ -124,21 +127,25 @@ where
         ticker: Ticker,
         value: number::NumberOrHex,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<GranularCanTransferResult> {
+    ) -> RpcResult<GranularCanTransferResult> {
         // Make sure that value fits into 64 bits.
-        let value: u64 = value.try_into().map_err(|_| Error {
-            code: ErrorCode::InvalidParams,
-            message: format!("{:?} doesn't fit in 64 bit unsigned value", value),
-            data: None,
+        let value: u64 = value.try_into().map_err(|_| {
+            CallError::Custom(ErrorObject::owned(
+                ErrorCode::InvalidParams.code(),
+                format!("{:?} doesn't fit in 64 bit unsigned value", value),
+                None::<()>,
+            ))
         })?;
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
         let api_version = api
             .api_version::<dyn AssetRuntimeApi<Block, AccountId>>(&at)
-            .map_err(|e| RpcError {
-                code: ErrorCode::ServerError(crate::Error::RuntimeError as i64),
-                message: "Unable to check transfer".into(),
-                data: Some(format!("{:?}", e).into()),
+            .map_err(|e| {
+                CallError::Custom(ErrorObject::owned(
+                    Error::RuntimeError.into(),
+                    "Unable to check transfer",
+                    Some(e.to_string()),
+                ))
             })?;
 
         match api_version {
@@ -166,17 +173,21 @@ where
                 .map(|res| res.into())
             }
             _ => {
-                return Err(Error {
-                    code: ErrorCode::MethodNotFound,
-                    message: format!("Cannot find `AssetApi` for block {:?}", at),
-                    data: None,
-                });
+                return Err(CallError::Custom(ErrorObject::owned(
+                    ErrorCode::MethodNotFound.code(),
+                    format!("Cannot find `AssetApi` for block {:?}", at),
+                    None::<()>,
+                ))
+                .into());
             }
         }
-        .map_err(|e| RpcError {
-            code: ErrorCode::ServerError(crate::Error::RuntimeError as i64),
-            message: "Unable to check transfer".into(),
-            data: Some(format!("{:?}", e).into()),
+        .map_err(|e| {
+            CallError::Custom(ErrorObject::owned(
+                Error::RuntimeError.into(),
+                "Unable to check transfer",
+                Some(e.to_string()),
+            ))
+            .into()
         })
     }
 }
