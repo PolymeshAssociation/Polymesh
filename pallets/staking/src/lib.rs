@@ -1837,7 +1837,7 @@ decl_module! {
             // check if validator
             if <Validators<T>>::contains_key(&ledger.stash) {
                 // check that the remaining bond balance is at least equal to minimum bond threshold
-                ensure!(ledger.total - value >= <MinimumBondThreshold<T>>::get(), Error::<T>::InvalidValidatorUnbondAmount);
+                ensure!(ledger.active.saturating_sub(value) >= <MinimumBondThreshold<T>>::get(), Error::<T>::InvalidValidatorUnbondAmount);
             }
             Self::unbond_balance(controller, &mut ledger, value);
         }
