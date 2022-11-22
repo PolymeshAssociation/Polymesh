@@ -5845,7 +5845,10 @@ fn validator_unbonding() {
             assert_ok!(Staking::unbond(Origin::signed(51), 80_000));
 
             // Check the remaining bond amount can't all be unbond
-            assert_noop!(Staking::unbond(Origin::signed(51), 180_000), Error::<Test>::InvalidValidatorUnbondAmount);
+            assert_noop!(
+                Staking::unbond(Origin::signed(51), 180_000),
+                Error::<Test>::InvalidValidatorUnbondAmount
+            );
             // Chill validator
             assert_ok!(Staking::chill(Origin::signed(51)));
             // After chilling validator checks that entity can unbond successfully
