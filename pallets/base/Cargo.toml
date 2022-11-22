@@ -25,3 +25,14 @@ frame-system = { git = "https://github.com/PolymeshAssociation/substrate", defau
 frame-support = { git = "https://github.com/PolymeshAssociation/substrate", default-features = false, branch = "polymesh-monthly-2022-05" }
 
 [features]
+default = ["std"]
+no_std = []
+std = [
+    "codec/std",
+    "sp-runtime/std",
+    "frame-support/std",
+    "frame-system/std",
+    "sp-std/std",
+    "polymesh-primitives/std",
+    "polymesh-common-utilities/std",
+]
