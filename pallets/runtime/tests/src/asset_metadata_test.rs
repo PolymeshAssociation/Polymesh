@@ -14,7 +14,7 @@ use polymesh_primitives::{
 };
 use test_client::AccountKeyring;
 
-type Origin = <TestStorage as frame_system::Config>::Origin;
+type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type Moment = <TestStorage as pallet_timestamp::Config>::Moment;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 

@@ -54,7 +54,7 @@ type MultiSig = pallet_multisig::Module<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 
-type Origin = <TestStorage as frame_system::Config>::Origin;
+type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type CddServiceProviders = <TestStorage as IdentityConfig>::CddServiceProviders;
 type Error = pallet_identity::Error<TestStorage>;
 type PError = pallet_permissions::Error<TestStorage>;

@@ -17,7 +17,7 @@ use test_client::AccountKeyring;
 type MultiSig = multisig::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type Identity = identity::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Config>::Origin;
+type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 
 #[test]
 fn cdd_checks() {

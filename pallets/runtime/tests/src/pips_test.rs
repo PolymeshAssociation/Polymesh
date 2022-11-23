@@ -36,7 +36,7 @@ type Votes = pallet_pips::ProposalVotes<TestStorage>;
 type Scheduler = pallet_scheduler::Pallet<TestStorage>;
 type Agenda = pallet_scheduler::Agenda<TestStorage>;
 
-type Origin = <TestStorage as frame_system::Config>::Origin;
+type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 
 macro_rules! assert_last_event {
     ($event:pat) => {
@@ -134,7 +134,7 @@ const THE_COMMITTEE: Proposer<AccountId> = Proposer::Committee(pallet_pips::Comm
 
 fn committee_proposal(deposit: u128) -> DispatchResult {
     standard_proposal(
-        &pallet_committee::Origin::<TestStorage, pallet_committee::Instance4>::Endorsed(
+        &pallet_committee::RuntimeOrigin::<TestStorage, pallet_committee::Instance4>::Endorsed(
             <_>::default(),
         )
         .into(),

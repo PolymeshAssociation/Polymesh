@@ -19,7 +19,7 @@ type Error = bridge::Error<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
 type Balances = pallet_balances::Module<TestStorage>;
 type MultiSig = pallet_multisig::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Config>::Origin;
+type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type System = frame_system::Pallet<TestStorage>;
 type Scheduler = pallet_scheduler::Pallet<TestStorage>;
 
