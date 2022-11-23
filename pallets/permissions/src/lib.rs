@@ -37,7 +37,7 @@ use sp_runtime::{
     traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
     transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
 };
-use sp_std::{fmt, marker::PhantomData, result::Result};
+use sp_std::{fmt, marker::PhantomData, result::Result, vec};
 
 pub use polymesh_common_utilities::traits::permissions::Config;
 
