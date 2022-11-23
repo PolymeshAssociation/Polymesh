@@ -197,12 +197,10 @@ pub fn run() -> Result<()> {
                         cmd.run::<Block, service::GeneralExecutor>(config)
                     }
                     (BenchmarkCmd::Block(cmd), Network::Other) => {
-                        let FullServiceComponents { client, .. } = new_partial::<
-                            polymesh_runtime_develop::RuntimeApi,
-                            GeneralExecutor,
-                        >(
-                            &mut config
-                        )?;
+                        let FullServiceComponents { client, .. } =
+                            new_partial::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>(
+                                &mut config,
+                            )?;
                         cmd.run(client)
                     }
                     #[cfg(not(feature = "runtime-benchmarks"))]
