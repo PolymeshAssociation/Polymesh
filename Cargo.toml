@@ -205,7 +205,7 @@ jsonrpsee = { version = "0.15.1", features = ["server"] }
 log = "0.4.17"
 serde = { version = "1.0.136", default-features = false }
 serde_json = { version = "1.0", features = ["arbitrary_precision"] }
-clap = { version = "3.1.6", features = ["derive"] }
+clap = { version = "4.0.9", features = ["derive"] }
 rustc-hex = "2.1.0"
 
 # Pin version to work around substrate logging issue.

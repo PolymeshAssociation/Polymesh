@@ -5,12 +5,12 @@ use serde::{Deserialize, Serialize};
 
 use std::{marker::PhantomData, sync::Arc};
 
-use node_rpc::Error;
 use jsonrpsee::{
     core::RpcResult,
     proc_macros::rpc,
     types::error::{CallError, ErrorObject},
 };
+use node_rpc::Error;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};

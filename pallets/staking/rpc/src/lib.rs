@@ -1,9 +1,9 @@
-use node_rpc::Error;
 use jsonrpsee::{
     core::RpcResult,
     proc_macros::rpc,
     types::error::{CallError, ErrorObject},
 };
+use node_rpc::Error;
 pub use pallet_staking_rpc_runtime_api::StakingApi as StakingRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
