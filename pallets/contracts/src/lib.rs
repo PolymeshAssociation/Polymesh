@@ -78,7 +78,7 @@ use polymesh_primitives::{Balance, Permissions};
 use sp_core::crypto::UncheckedFrom;
 use sp_runtime::traits::Hash;
 use sp_std::borrow::Cow;
-use sp_std::vec::Vec;
+use sp_std::{vec, vec::Vec};
 
 type Identity<T> = pallet_identity::Module<T>;
 type IdentityError<T> = pallet_identity::Error<T>;

@@ -66,7 +66,7 @@ use polymesh_primitives::{
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::Zero;
 use sp_std::collections::btree_set::BTreeSet;
-use sp_std::prelude::Vec;
+use sp_std::prelude::*;
 
 type Identity<T> = identity::Module<T>;
 

@@ -59,6 +59,7 @@ use polymesh_primitives::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::transaction_validity::InvalidTransaction;
+use sp_std::vec;
 
 type Identity<T> = pallet_identity::Module<T>;
 
