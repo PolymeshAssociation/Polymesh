@@ -659,7 +659,13 @@ pub type CorporateActions = corporate_actions::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,
-) -> Result<(<TestStorage as frame_system::Config>::Origin, IdentityId), &'static str> {
+) -> Result<
+    (
+        <TestStorage as frame_system::Config>::RuntimeOrigin,
+        IdentityId,
+    ),
+    &'static str,
+> {
     let uid = create_investor_uid(id.clone());
     make_account_with_uid(id, uid)
 }
@@ -676,7 +682,7 @@ pub fn make_account_with_scope(
     cdd_provider: AccountId,
 ) -> Result<
     (
-        <TestStorage as frame_system::Config>::Origin,
+        <TestStorage as frame_system::Config>::RuntimeOrigin,
         IdentityId,
         ScopeId,
     ),
@@ -691,7 +697,13 @@ pub fn make_account_with_scope(
 pub fn make_account_with_uid(
     id: AccountId,
     uid: InvestorUid,
-) -> Result<(<TestStorage as frame_system::Config>::Origin, IdentityId), &'static str> {
+) -> Result<
+    (
+        <TestStorage as frame_system::Config>::RuntimeOrigin,
+        IdentityId,
+    ),
+    &'static str,
+> {
     make_account_with_balance(id, uid, 1_000_000)
 }
 
@@ -700,7 +712,13 @@ pub fn make_account_with_balance(
     id: AccountId,
     uid: InvestorUid,
     balance: Balance,
-) -> Result<(<TestStorage as frame_system::Config>::Origin, IdentityId), &'static str> {
+) -> Result<
+    (
+        <TestStorage as frame_system::Config>::RuntimeOrigin,
+        IdentityId,
+    ),
+    &'static str,
+> {
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, balance);
 
@@ -732,7 +750,13 @@ pub fn make_account_with_balance(
 
 pub fn make_account_without_cdd(
     id: AccountId,
-) -> Result<(<TestStorage as frame_system::Config>::Origin, IdentityId), &'static str> {
+) -> Result<
+    (
+        <TestStorage as frame_system::Config>::RuntimeOrigin,
+        IdentityId,
+    ),
+    &'static str,
+> {
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, 10_000_000);
     let did = Identity::_register_did(id.clone(), vec![], None).expect("did");

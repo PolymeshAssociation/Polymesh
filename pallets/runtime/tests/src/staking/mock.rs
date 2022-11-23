@@ -1593,7 +1593,7 @@ fn get_primary_key(target: IdentityId) -> AccountId {
 
 pub fn make_account_with_uid(
     id: AccountId,
-) -> Result<(<Test as frame_system::Config>::Origin, IdentityId), &'static str> {
+) -> Result<(<Test as frame_system::Config>::RuntimeOrigin, IdentityId), &'static str> {
     make_account_with_balance(id, 1_000_000, None)
 }
 
@@ -1602,7 +1602,7 @@ pub fn make_account_with_balance(
     id: AccountId,
     balance: Balance,
     expiry: Option<Moment>,
-) -> Result<(<Test as frame_system::Config>::Origin, IdentityId), &'static str> {
+) -> Result<(<Test as frame_system::Config>::RuntimeOrigin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, balance);
     let uid = create_investor_uid(id);

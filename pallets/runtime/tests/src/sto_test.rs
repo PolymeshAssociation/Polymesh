@@ -19,7 +19,7 @@ use sp_runtime::DispatchError;
 use sp_std::convert::TryFrom;
 use test_client::AccountKeyring;
 
-type Origin = <TestStorage as frame_system::Config>::Origin;
+type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type Asset = asset::Module<TestStorage>;
 type Sto = pallet_sto::Module<TestStorage>;
 type Error = pallet_sto::Error<TestStorage>;

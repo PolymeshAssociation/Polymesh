@@ -51,7 +51,7 @@ pub mod logger {
     }
 
     decl_module! {
-        pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::Origin {
+        pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::RuntimeOrigin {
             fn deposit_event() = default;
 
             #[weight = *weight]

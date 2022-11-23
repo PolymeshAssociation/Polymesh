@@ -31,10 +31,10 @@ use polymesh_common_utilities::{
     TestUtilsFn,
 };
 use polymesh_primitives::{Balance, Permissions};
-use pwasm_utils::parity_wasm::elements::{Instruction, ValueType};
 use sp_runtime::traits::StaticLookup;
 use sp_runtime::Perbill;
 use sp_std::prelude::*;
+use wasm_instrument::parity_wasm::elements::{Instruction, ValueType};
 
 pub(crate) const SEED: u32 = 0;
 
@@ -348,7 +348,7 @@ benchmarks! {
     // We cannot let `c` grow to the maximum code size because the code is not allowed
     // to be larger than the maximum size **after instrumentation**.
     instantiate_with_code_perms {
-        let c in 0 .. Perbill::from_percent(50).mul_ceil(T::Schedule::get().limits.code_len);
+        let c in 0 .. Perbill::from_percent(49).mul_ceil(T::MaxCodeLen::get());
         let s in 0 .. max_pages::<T>() * 64 * 1024;
         let salt = vec![42u8; s as usize];
 

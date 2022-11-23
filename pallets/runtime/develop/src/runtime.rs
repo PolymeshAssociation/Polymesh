@@ -315,6 +315,49 @@ impl TestUtilsFn<AccountId> for Runtime {
     }
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+#[macro_use]
+mod benches {
+    define_benchmarks!(
+        [frame_benchmarking, BaselineBench::<Runtime>]
+        [pallet_asset, Asset]
+        [pallet_balances, Balances]
+        [pallet_identity, Identity]
+        [pallet_pips, Pips]
+        [pallet_multisig, MultiSig]
+        [pallet_portfolio, Portfolio]
+        [pallet_protocol_fee, ProtocolFee]
+        [frame_system, SystemBench::<Runtime>]
+        [pallet_timestamp, Timestamp]
+        [pallet_settlement, Settlement]
+        [pallet_sto, Sto]
+        [pallet_checkpoint, Checkpoint]
+        [pallet_compliance_manager, ComplianceManager]
+        [pallet_corporate_actions, CorporateAction]
+        [pallet_corporate_ballot, CorporateBallot]
+        [pallet_capital_distribution, CapitalDistribution]
+        [pallet_external_agents, ExternalAgents]
+        [pallet_relayer, Relayer]
+        [pallet_committee, PolymeshCommittee]
+        [pallet_utility, Utility]
+        [pallet_treasury, Treasury]
+        [pallet_im_online, ImOnline]
+        [pallet_group, CddServiceProviders]
+        [pallet_statistics, Statistics]
+        [pallet_permissions, Permissions]
+        [pallet_preimage, Preimage]
+        [pallet_babe, Babe]
+        [pallet_indices, Indices]
+        [pallet_session, SessionBench::<Runtime>]
+        [pallet_grandpa, Grandpa]
+        [pallet_scheduler, Scheduler]
+        [pallet_staking, Staking]
+        [pallet_test_utils, TestUtils]
+        [polymesh_contracts, PolymeshContracts]
+        [pallet_nft, Nft]
+    );
+}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -416,12 +459,14 @@ polymesh_runtime_common::runtime_apis! {
         fn dispatch_benchmark(
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-            use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
+            use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch,  TrackedStorageKey};
 
-            type SystemBench = frame_system_benchmarking::Pallet<Runtime>;
-            type SessionBench = crate::benchmarks::pallet_session::Pallet<Runtime>;
+            use crate::benchmarks::pallet_session::Pallet as SessionBench;
+            use frame_system_benchmarking::Pallet as SystemBench;
+            use baseline::Pallet as BaselineBench;
 
             impl frame_system_benchmarking::Config for Runtime {}
+            impl baseline::Config for Runtime {}
             impl crate::benchmarks::pallet_session::Config for Runtime {}
 
             let whitelist: Vec<TrackedStorageKey> = vec![
@@ -441,44 +486,7 @@ polymesh_runtime_common::runtime_apis! {
 
             let mut batches = Vec::<BenchmarkBatch>::new();
             let params = (&config, &whitelist);
-
-            add_benchmark!(params, batches, pallet_asset, Asset);
-            add_benchmark!(params, batches, pallet_balances, Balances);
-            add_benchmark!(params, batches, pallet_identity, Identity);
-            add_benchmark!(params, batches, pallet_pips, Pips);
-            add_benchmark!(params, batches, pallet_multisig, MultiSig);
-            add_benchmark!(params, batches, pallet_portfolio, Portfolio);
-            add_benchmark!(params, batches, pallet_protocol_fee, ProtocolFee);
-            add_benchmark!(params, batches, frame_system, SystemBench);
-            add_benchmark!(params, batches, pallet_timestamp, Timestamp);
-            add_benchmark!(params, batches, pallet_settlement, Settlement);
-            add_benchmark!(params, batches, pallet_sto, Sto);
-            add_benchmark!(params, batches, pallet_checkpoint, Checkpoint);
-            add_benchmark!(params, batches, pallet_compliance_manager, ComplianceManager);
-            add_benchmark!(params, batches, pallet_corporate_actions, CorporateAction);
-            add_benchmark!(params, batches, pallet_corporate_ballot, CorporateBallot);
-            add_benchmark!(params, batches, pallet_capital_distribution, CapitalDistribution);
-            add_benchmark!(params, batches, pallet_external_agents, ExternalAgents);
-            add_benchmark!(params, batches, pallet_relayer, Relayer);
-            add_benchmark!(params, batches, pallet_committee, PolymeshCommittee);
-            add_benchmark!(params, batches, pallet_utility, Utility);
-            add_benchmark!(params, batches, pallet_treasury, Treasury);
-            add_benchmark!(params, batches, pallet_im_online, ImOnline);
-            add_benchmark!(params, batches, pallet_group, CddServiceProviders);
-            add_benchmark!(params, batches, pallet_statistics, Statistics);
-            add_benchmark!(params, batches, pallet_permissions, Permissions);
-            add_benchmark!(params, batches, pallet_preimage, Preimage);
-            add_benchmark!(params, batches, pallet_babe, Babe);
-            add_benchmark!(params, batches, pallet_indices, Indices);
-            add_benchmark!(params, batches, pallet_session, SessionBench);
-            add_benchmark!(params, batches, pallet_grandpa, Grandpa);
-            add_benchmark!(params, batches, pallet_scheduler, Scheduler);
-            add_benchmark!(params, batches, pallet_staking, Staking);
-            add_benchmark!(params, batches, pallet_test_utils, TestUtils);
-            add_benchmark!(params, batches, polymesh_contracts, PolymeshContracts);
-            add_benchmark!(params, batches, pallet_nft, Nft);
-
-            if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
+            add_benchmarks!(params, batches);
             Ok(batches)
         }
 
@@ -486,48 +494,15 @@ polymesh_runtime_common::runtime_apis! {
             Vec<frame_benchmarking::BenchmarkList>,
             Vec<frame_support::traits::StorageInfo>,
         ) {
+            use frame_benchmarking::{baseline, Benchmarking, BenchmarkList};
             use frame_support::traits::StorageInfoTrait;
-            use frame_benchmarking::{list_benchmark, Benchmarking, BenchmarkList};
-            type SystemBench = frame_system_benchmarking::Pallet<Runtime>;
+
             use crate::benchmarks::pallet_session::Pallet as SessionBench;
+            use frame_system_benchmarking::Pallet as SystemBench;
+            use baseline::Pallet as BaselineBench;
 
             let mut list = Vec::<BenchmarkList>::new();
-
-            list_benchmark!(list, extra, pallet_asset, Asset);
-            list_benchmark!(list, extra, pallet_balances, Balances);
-            list_benchmark!(list, extra, pallet_identity, Identity);
-            list_benchmark!(list, extra, pallet_pips, Pips);
-            list_benchmark!(list, extra, pallet_multisig, MultiSig);
-            list_benchmark!(list, extra, pallet_portfolio, Portfolio);
-            list_benchmark!(list, extra, pallet_protocol_fee, ProtocolFee);
-            list_benchmark!(list, extra, frame_system, SystemBench);
-            list_benchmark!(list, extra, pallet_timestamp, Timestamp);
-            list_benchmark!(list, extra, pallet_settlement, Settlement);
-            list_benchmark!(list, extra, pallet_sto, Sto);
-            list_benchmark!(list, extra, pallet_checkpoint, Checkpoint);
-            list_benchmark!(list, extra, pallet_compliance_manager, ComplianceManager);
-            list_benchmark!(list, extra, pallet_corporate_actions, CorporateAction);
-            list_benchmark!(list, extra, pallet_corporate_ballot, CorporateBallot);
-            list_benchmark!(list, extra, pallet_capital_distribution, CapitalDistribution);
-            list_benchmark!(list, extra, pallet_external_agents, ExternalAgents);
-            list_benchmark!(list, extra, pallet_relayer, Relayer);
-            list_benchmark!(list, extra, pallet_committee, PolymeshCommittee);
-            list_benchmark!(list, extra, pallet_utility, Utility);
-            list_benchmark!(list, extra, pallet_treasury, Treasury);
-            list_benchmark!(list, extra, pallet_im_online, ImOnline);
-            list_benchmark!(list, extra, pallet_group, CddServiceProviders);
-            list_benchmark!(list, extra, pallet_statistics, Statistics);
-            list_benchmark!(list, extra, pallet_permissions, Permissions);
-            list_benchmark!(list, extra, pallet_preimage, Preimage);
-            list_benchmark!(list, extra, pallet_babe, Babe);
-            list_benchmark!(list, extra, pallet_indices, Indices);
-            list_benchmark!(list, extra, pallet_session, SessionBench::<Runtime>);
-            list_benchmark!(list, extra, pallet_grandpa, Grandpa);
-            list_benchmark!(list, extra, pallet_scheduler, Scheduler);
-            list_benchmark!(list, extra, pallet_staking, Staking);
-            list_benchmark!(list, extra, pallet_test_utils, TestUtils);
-            list_benchmark!(list, extra, polymesh_contracts, PolymeshContracts);
-            list_benchmark!(list, extra, pallet_nft, Nft);
+            list_benchmarks!(list, extra);
 
             let storage_info = AllPalletsWithSystem::storage_info();
 

@@ -26,7 +26,7 @@ type CommitteeGroup = group::Module<TestStorage, group::Instance1>;
 type System = frame_system::Pallet<TestStorage>;
 type Identity = identity::Module<TestStorage>;
 type Pips = pallet_pips::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Config>::Origin;
+type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 
 #[test]
 fn motions_basic_environment_works() {
@@ -289,7 +289,8 @@ fn changing_vote_threshold_works() {
 
 /// Constructs an origin for the governance council voting majority.
 pub fn gc_vmo() -> Origin {
-    pallet_committee::Origin::<TestStorage, committee::Instance1>::Endorsed(<_>::default()).into()
+    pallet_committee::RuntimeOrigin::<TestStorage, committee::Instance1>::Endorsed(<_>::default())
+        .into()
 }
 
 fn changing_vote_threshold_works_we() {

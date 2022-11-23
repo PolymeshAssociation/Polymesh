@@ -228,7 +228,7 @@ sc-basic-authorship = "0.10.0-dev"
 sc-chain-spec = "4.0.0-dev"
 sc-cli = { version = "0.10.0-dev", features = ["wasmtime"] }
 sc-client-api = "4.0.0-dev"
-sc-client-db = "0.10.0-dev"
+sc-client-db = { version = "0.10.0-dev", default-features = false }
 sc-consensus = "0.10.0-dev"
 sc-consensus-babe = "0.10.0-dev"
 sc-consensus-slots = "0.10.0-dev"
@@ -270,7 +270,10 @@ vergen = "3.1.0"
 default = ["std"]
 running-ci = [ "polymesh-runtime-develop/running-ci" ]
 default_identity = [ "polymesh-common-utilities/default_identity" ]
-runtime-benchmarks = [ "polymesh-runtime-develop/runtime-benchmarks" ]
+runtime-benchmarks = [
+    "sc-client-db/runtime-benchmarks",
+    "polymesh-runtime-develop/runtime-benchmarks",
+]
 
 # Only build a "ci" runtime.
 ci-runtime = [ "polymesh-runtime-develop/ci-runtime" ]
