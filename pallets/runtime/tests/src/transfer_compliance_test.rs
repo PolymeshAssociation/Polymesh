@@ -18,7 +18,7 @@ use sp_std::convert::TryFrom;
 use std::collections::{HashMap, HashSet};
 use test_client::AccountKeyring;
 
-type Origin = <TestStorage as frame_system::Config>::Origin;
+type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type Identity = pallet_identity::Module<TestStorage>;
 type Asset = pallet_asset::Module<TestStorage>;
 type Statistics = pallet_statistics::Module<TestStorage>;

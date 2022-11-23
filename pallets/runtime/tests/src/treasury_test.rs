@@ -12,7 +12,7 @@ pub type Balances = pallet_balances::Module<TestStorage>;
 pub type Treasury = pallet_treasury::Module<TestStorage>;
 type TreasuryError = pallet_treasury::Error<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Config>::Origin;
+type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 
 fn beneficiary<Balance>(id: IdentityId, amount: Balance) -> Beneficiary<Balance> {
     Beneficiary { id, amount }

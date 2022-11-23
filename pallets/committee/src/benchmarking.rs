@@ -54,7 +54,7 @@ fn make_proposals_and_vote<T, I>(users: &[User<T>]) -> DispatchResult
 where
     I: Instance,
     T: Config<I>,
-    <T as Config<I>>::Origin: From<SystemOrigin<T::AccountId>>,
+    <T as Config<I>>::RuntimeOrigin: From<SystemOrigin<T::AccountId>>,
 {
     assert!(
         users.len() > 0,
@@ -88,7 +88,7 @@ fn make_members_and_proposals<T, I>() -> Result<Vec<User<T>>, DispatchError>
 where
     I: Instance,
     T: Config<I> + TestUtilsFn<AccountIdOf<T>>,
-    <T as Config<I>>::Origin: From<SystemOrigin<T::AccountId>>,
+    <T as Config<I>>::RuntimeOrigin: From<SystemOrigin<T::AccountId>>,
 {
     let members: Vec<_> = (0..COMMITTEE_MEMBERS_MAX)
         .map(|i| user::<T>("member", i))
@@ -131,7 +131,7 @@ benchmarks_instance! {
     where_clause {
         where
             T: TestUtilsFn<AccountIdOf<T>>,
-            <T as Config<I>>::Origin: From<SystemOrigin<T::AccountId>>,
+            <T as Config<I>>::RuntimeOrigin: From<SystemOrigin<T::AccountId>>,
     }
 
     set_vote_threshold {
