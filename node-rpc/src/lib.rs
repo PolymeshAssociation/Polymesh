@@ -33,9 +33,7 @@
 use std::sync::Arc;
 
 use jsonrpsee::RpcModule;
-use polymesh_primitives::{
-    AccountId, Block, BlockNumber, Hash, IdentityId, Index, Moment, Ticker,
-};
+use polymesh_primitives::{AccountId, Block, BlockNumber, Hash, IdentityId, Index, Moment, Ticker};
 use sc_client_api::AuxStore;
 use sc_consensus_babe::{BabeConfiguration, Epoch};
 use sc_consensus_epochs::SharedEpochChanges;
@@ -101,7 +99,7 @@ pub fn create_full<C, P, SC, B>(
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
     C: ProvideRuntimeApi<Block>
-		    + sc_client_api::BlockBackend<Block>
+        + sc_client_api::BlockBackend<Block>
         + HeaderBackend<Block>
         + AuxStore
         + HeaderMetadata<Block, Error = BlockChainError>
@@ -167,7 +165,11 @@ where
     } = grandpa;
 
     let chain_name = chain_spec.name().to_string();
-    let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
+    let genesis_hash = client
+        .block_hash(0)
+        .ok()
+        .flatten()
+        .expect("Genesis block exists; qed");
     let properties = chain_spec.properties();
     io.merge(ChainSpec::new(chain_name, genesis_hash, properties).into_rpc())?;
 
@@ -199,8 +201,13 @@ where
     )?;
 
     io.merge(
-        SyncState::new(chain_spec, client.clone(), shared_authority_set, shared_epoch_changes)?
-            .into_rpc(),
+        SyncState::new(
+            chain_spec,
+            client.clone(),
+            shared_authority_set,
+            shared_epoch_changes,
+        )?
+        .into_rpc(),
     )?;
 
     io.merge(StateMigration::new(client.clone(), backend, deny_unsafe).into_rpc())?;
@@ -209,14 +216,10 @@ where
     io.merge(Staking::new(client.clone()).into_rpc())?;
     io.merge(Pips::new(client.clone()).into_rpc())?;
     io.merge(Identity::new(client.clone()).into_rpc())?;
-    io.merge(ProtocolFee::new(
-        client.clone(),
-    ).into_rpc())?;
+    io.merge(ProtocolFee::new(client.clone()).into_rpc())?;
     io.merge(Asset::new(client.clone()).into_rpc())?;
     io.merge(Group::from(client.clone()).into_rpc())?;
-    io.merge(ComplianceManager::new(
-        client,
-    ).into_rpc())?;
+    io.merge(ComplianceManager::new(client).into_rpc())?;
 
     Ok(io)
 }
