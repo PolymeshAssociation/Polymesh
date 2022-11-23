@@ -34,7 +34,7 @@ use polymesh_primitives::{
     transfer_compliance::*,
     Balance, IdentityId, ScopeId, Ticker,
 };
-use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
+use sp_std::{collections::btree_set::BTreeSet, vec, vec::Vec};
 
 type Identity<T> = pallet_identity::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
