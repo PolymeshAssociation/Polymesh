@@ -54,6 +54,7 @@ std = [
     "confidential_identity_v2/u64_backend",
     "frame-support/std",
     "frame-system/std",
+    "pallet-base/std",
     "pallet-balances/std",
     "pallet-permissions/std",
     "pallet-timestamp/std",

@@ -47,6 +47,7 @@ std = [
     "codec/std",
     "frame-support/std",
     "frame-system/std",
+    "pallet-base/std",
     "pallet-balances/std",
     "pallet-timestamp/std",
     "polymesh-common-utilities/std",
