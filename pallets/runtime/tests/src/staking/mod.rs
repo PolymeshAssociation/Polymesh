@@ -5822,6 +5822,42 @@ fn test_bond_too_small() {
 }
 
 #[test]
+fn validator_unbonding() {
+    ExtBuilder::default()
+        .validator_count(8)
+        .minimum_validator_count(1)
+        .build()
+        .execute_with(|| {
+            // Add a new validator successfully.
+            bond_validator_with_intended_count(50, 51, 500_000, Some(2));
+            let entity_id = Identity::get_identity(&50).unwrap();
+            assert_permissioned_identity_prefs!(entity_id, 2, 1);
+            // Set minimum bond threshold to 50k POLYX
+            assert_ok!(Staking::set_min_bond_threshold(Origin::root(), 50_000));
+            // Check that an error is given when unbonding beyond the minimum bond threshold as a validator
+            assert_noop!(
+                Staking::unbond(Origin::signed(51), 480_000),
+                Error::<Test>::InvalidValidatorUnbondAmount
+            );
+            // Check that validator can unbond once it doesn't go below the minimum bond threshold
+            assert_ok!(Staking::unbond(Origin::signed(51), 80_000));
+            assert_ok!(Staking::unbond(Origin::signed(51), 80_000));
+            assert_ok!(Staking::unbond(Origin::signed(51), 80_000));
+            assert_ok!(Staking::unbond(Origin::signed(51), 80_000));
+
+            // Check the remaining bond amount can't all be unbond
+            assert_noop!(
+                Staking::unbond(Origin::signed(51), 180_000),
+                Error::<Test>::InvalidValidatorUnbondAmount
+            );
+            // Chill validator
+            assert_ok!(Staking::chill(Origin::signed(51)));
+            // After chilling validator checks that entity can unbond successfully
+            assert_ok!(Staking::unbond(Origin::signed(51), 180_000));
+        });
+}
+
+#[test]
 fn chill_from_governance() {
     ExtBuilder::default()
         .validator_count(8)
