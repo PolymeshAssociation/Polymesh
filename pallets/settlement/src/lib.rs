@@ -203,6 +203,8 @@ pub enum SettlementType<BlockNumber> {
     SettleOnAffirmation,
     /// Instruction should be settled on a particular block.
     SettleOnBlock(BlockNumber),
+    /// Instruction must be settled manually on or after BlockNumber.
+    SettleManual(BlockNumber),
 }
 
 impl<BlockNumber> Default for SettlementType<BlockNumber> {
@@ -416,6 +418,8 @@ decl_event!(
         InstructionRescheduled(IdentityId, InstructionId),
         /// An existing venue's signers has been updated (did, venue_id, signers, update_type)
         VenueSignersUpdated(IdentityId, VenueId, Vec<AccountId>, bool),
+        /// Settlement manually executed (did, id)
+        SettlementManuallyExecuted(IdentityId, InstructionId),
     }
 );
 
@@ -994,6 +998,34 @@ decl_module! {
             })
         }
 
+        /// Manually execute settlement
+        ///
+        /// # Arguments
+        /// * `id` - Target instruction id to reschedule.
+        /// * `_legs_count` - Legs included in this instruction.
+        ///
+        /// # Errors
+        /// * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
+        #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*legs_count)]
+        fn execute_manual_settlement(origin, id: InstructionId, legs_count: u32) {
+            // check origin has the permissions required and valid instruction
+            let (did, sk, _) = Self::ensure_origin_perm_and_instruction_validity(origin, id)?;
+
+            // check that the instruction leg count matches
+            ensure!(InstructionLegs::iter_prefix(id).count() as u32 == legs_count, Error::<T>::LegCountTooSmall);
+
+            <InstructionDetails<T>>::try_mutate(id, |details| {
+                ensure!(details.status == InstructionStatus::Failed, Error::<T>::InstructionNotFailed);
+                details.status = InstructionStatus::Pending;
+                Result::<_, Error<T>>::Ok(())
+            })?;
+
+            // Executes the instruction
+            Self::execute_instruction_retryable(id)?;
+
+            Self::deposit_event(RawEvent::SettlementManuallyExecuted(did, id));
+        }
+
     }
 }
 
@@ -1055,6 +1087,15 @@ impl<T: Config> Module<T> {
             );
         }
 
+        // Ensure that the scheduled block number is in the future so that `T::Scheduler::schedule_named`
+        // doesn't fail.
+        if let SettlementType::SettleManual(block_number) = &settlement_type {
+            ensure!(
+                *block_number > System::<T>::block_number(),
+                Error::<T>::SettleOnPastBlock
+            );
+        }
+
         // Ensure venue exists & sender is its creator.
         Self::venue_for_management(venue_id, did)?;
 
@@ -1105,6 +1146,10 @@ impl<T: Config> Module<T> {
 
         if let SettlementType::SettleOnBlock(block_number) = settlement_type {
             Self::schedule_instruction(instruction_id, block_number, legs.len() as u32);
+        }
+
+        if let SettlementType::SettleManual(block_number) = settlement_type {
+            Self::execute_manual_settlement(instruction_id, block_number, legs.len() as u32);
         }
 
         <InstructionDetails<T>>::insert(instruction_id, instruction);
@@ -1203,6 +1248,12 @@ impl<T: Config> Module<T> {
             );
         }
         if let SettlementType::SettleOnBlock(block_number) = details.settlement_type {
+            ensure!(
+                block_number > System::<T>::block_number(),
+                Error::<T>::InstructionSettleBlockPassed
+            );
+        }
+        if let SettlementType::SettleManual(block_number) = details.settlement_type {
             ensure!(
                 block_number > System::<T>::block_number(),
                 Error::<T>::InstructionSettleBlockPassed
