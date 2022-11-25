@@ -5857,6 +5857,7 @@ fn validator_unbonding() {
         });
 }
 
+#[test]
 fn chill_from_governance() {
     ExtBuilder::default()
         .validator_count(8)
