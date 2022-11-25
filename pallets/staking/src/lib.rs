@@ -324,7 +324,7 @@ use frame_system::{
 use pallet_identity as identity;
 use pallet_session::historical;
 use polymesh_common_utilities::{identity::Config as IdentityConfig, Context, GC_DID};
-use polymesh_primitives::IdentityId;
+use polymesh_primitives::{IdentityId, storage_migration_ver, storage_migrate_on};
 use scale_info::TypeInfo;
 use frame_election_provider_support::{
     generate_solution_type,
@@ -1263,6 +1263,9 @@ decl_storage! {
         ///
         /// This is set to v6.0.1 for new networks.
         StorageVersion build(|_: &GenesisConfig<T>| Releases::V6_0_1): Releases;
+
+        /// Polymesh Storage version.
+        PolymeshStorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
     }
     add_extra_genesis {
         config(stakers):
@@ -1305,6 +1308,8 @@ decl_storage! {
         });
     }
 }
+
+storage_migration_ver!(1);
 
 pub mod migrations {
     use super::*;
@@ -1573,6 +1578,10 @@ decl_module! {
                 StorageVersion::put(Releases::V7_0_0);
                 migrations::migrate_to_blockable::<T>();
             }
+
+            storage_migrate_on!(PolymeshStorageVersion, 1, {
+                <Validators<T>>::iter().for_each(|(k,_)| <Identity<T>>::add_account_key_ref_count(&k));
+            });
 
             1_000
         }
@@ -1947,6 +1956,7 @@ decl_module! {
                 // Ensure identity doesn't run more validators than the intended count.
                 ensure!(id_pref.running_count < id_pref.intended_count, Error::<T>::HitIntendedValidatorCount);
                 id_pref.running_count += 1;
+                <Identity<T>>::add_account_key_ref_count(&stash);
             }
             PermissionedIdentity::insert(id, id_pref);
             // -----------------------------------------------------------------
@@ -2664,6 +2674,27 @@ decl_module! {
                     .map(|p| p.intended_count = new_intended_count)
             })
         }
+
+
+        /// GC forcefully chills a validator.
+        /// Effects will be felt at the beginning of the next era.
+        /// And, it can be only called when [`EraElectionStatus`] is `Closed`.
+        /// 
+        /// # Arguments
+        /// * origin which must be a GC.
+        /// * identity must be permissioned to run operator/validator nodes.
+        /// * stash_keys contains the secondary keys of the permissioned identity
+        /// 
+        /// # Errors
+        /// * `BadOrigin` The origin was not a GC member.
+        /// * `CallNotAllowed` The call is not allowed at the given time due to restrictions of election period.
+        /// * `NotExists` Permissioned validator doesn't exist.
+        /// * `NotStash` Not a stash account for the permissioned identity.
+        #[weight = <T as Config>::WeightInfo::chill_from_governance(stash_keys.len() as u32)]
+        pub fn chill_from_governance(origin, identity: IdentityId, stash_keys: Vec<T::AccountId>) -> DispatchResult {
+            Self::base_chill_from_governance(origin, identity, stash_keys)
+        }
+
     }
 }
 
@@ -2883,7 +2914,8 @@ impl<T: Config> Module<T> {
             PermissionedIdentity::mutate(&id, |pref| {
                 if let Some(p) = pref {
                     if p.running_count > 0 {
-                        p.running_count -= 1
+                        p.running_count -= 1;
+                        <Identity<T>>::remove_account_key_ref_count(&stash);
                     }
                 }
             });
@@ -3706,6 +3738,31 @@ impl<T: Config> Module<T> {
         (T::SessionsPerEra::get()  * T::BondingDuration::get()) as u64 // total session
             * T::EpochDuration::get() // session length
             * T::ExpectedBlockTime::get().saturated_into::<u64>()
+    }
+
+    fn base_chill_from_governance(origin: T::Origin, identity: IdentityId, stash_keys: Vec<T::AccountId>) -> DispatchResult {
+        // Checks that the era election status is closed.
+        ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
+        // Required origin for removing a validator.
+        T::RequiredRemoveOrigin::ensure_origin(origin)?;
+        // Checks that the identity is allowed to run operator/validator nodes.
+        ensure!(Self::permissioned_identity(&identity).is_some(), Error::<T>::NotExists);
+
+        for key in &stash_keys {
+            let key_did = Identity::<T>::get_identity(&key);
+            // Checks if the stash key identity is the same as the identity given.
+            ensure!(key_did == Some(identity), Error::<T>::NotStash);   
+            // Checks if the key is a validator if not returns an error.
+            ensure!(<Validators<T>>::contains_key(&key), Error::<T>::NotExists); 
+        }
+
+        for key in stash_keys {
+            Self::chill_stash(&key);
+        }
+       
+        // Change identity status to be Non-Permissioned
+        PermissionedIdentity::remove(&identity);
+        Ok(())
     }
 
     #[cfg(feature = "runtime-benchmarks")]

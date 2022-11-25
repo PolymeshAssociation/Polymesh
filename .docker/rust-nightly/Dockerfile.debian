@@ -16,6 +16,7 @@ RUN apt update && \
   libssl-dev \
   pkg-config \
   rsync \
+  protobuf-compiler \
   -y --no-install-recommends && \
   apt autoremove -y && \
   apt clean

@@ -104,6 +104,7 @@ use frame_support::{
 };
 use mock::*;
 use pallet_balances::Error as BalancesError;
+use pallet_identity::Error as IdentityError;
 use pallet_staking::*;
 use sp_npos_elections::ElectionScore;
 use sp_runtime::{
@@ -5853,5 +5854,107 @@ fn validator_unbonding() {
             assert_ok!(Staking::chill(Origin::signed(51)));
             // After chilling validator checks that entity can unbond successfully
             assert_ok!(Staking::unbond(Origin::signed(51), 180_000));
+        });
+}
+
+fn chill_from_governance() {
+    ExtBuilder::default()
+        .validator_count(8)
+        .minimum_validator_count(1)
+        .build()
+        .execute_with(|| {
+            // 50 stash and 51 controller (corrected)
+            bond(50, 51, 500000);
+            let entity_id = Identity::get_identity(&50).unwrap();
+
+            // Add a new validator successfully.
+            bond_validator_with_intended_count(50, 51, 500000, Some(2));
+            assert_permissioned_identity_prefs!(entity_id, 2, 1);
+
+            // Add other stash and controller to the same did.
+            add_secondary_key(50, 60);
+            add_secondary_key(50, 61);
+
+            // Validate one more validator from the same entity.
+            // 60 stash and 61 controller.
+            bond_validator(60, 61, 500000);
+            assert_permissioned_identity_prefs!(entity_id, 2, 2);
+
+            // Removes 50 and 60 from being validators
+            assert_ok!(Staking::chill_from_governance(
+                Origin::signed(2000),
+                entity_id,
+                vec![50, 60]
+            ));
+
+            // No longer permissioned identity
+            assert_noop!(
+                Staking::chill_from_governance(Origin::signed(2000), entity_id, vec![50, 60]),
+                Error::<Test>::NotExists
+            );
+
+            // 70 stash and 71 controller
+            bond(70, 71, 500000);
+            let entity_id_2 = Identity::get_identity(&70).unwrap();
+
+            // Add a new validator successfully.
+            bond_validator_with_intended_count(70, 71, 500000, Some(2));
+
+            // Add other stash and controller to the same did.
+            add_secondary_key(70, 80);
+            add_secondary_key(70, 81);
+
+            // Check keys that aren't joined with identity gives error
+            assert_noop!(
+                Staking::chill_from_governance(Origin::signed(2000), entity_id_2, vec![90, 95]),
+                Error::<Test>::NotStash
+            );
+
+            // Check key that is not GC gives error
+            assert_noop!(
+                Staking::chill_from_governance(Origin::signed(20), entity_id_2, vec![90, 95]),
+                BadOrigin
+            );
+        });
+}
+
+#[test]
+fn test_running_count() {
+    ExtBuilder::default()
+        .validator_count(8)
+        .minimum_validator_count(1)
+        .build()
+        .execute_with(|| {
+            // 50 stash and 51 controller
+            bond(50, 51, 500000);
+            let entity_id = Identity::get_identity(&50).unwrap();
+
+            // Add a new validator successfully.
+            bond_validator_with_intended_count(50, 51, 500000, Some(2));
+            assert_permissioned_identity_prefs!(entity_id, 2, 1);
+
+            // Add other stash and controller to the same did.
+            add_secondary_key(50, 60);
+            add_secondary_key(50, 61);
+
+            // Validate one more validator from the same entity.
+            // 60 stash and 61 controller.
+            bond_validator(60, 61, 500000);
+            assert_permissioned_identity_prefs!(entity_id, 2, 2);
+
+            // Ensure that the validator's stash key can't be removed from it's identity.
+            assert_noop!(
+                Identity::remove_secondary_keys(Origin::signed(50), vec![60]),
+                IdentityError::<Test>::AccountKeyIsBeingUsed
+            );
+
+            // chill to remove the validator
+            assert_ok!(Staking::chill(Origin::signed(61)));
+
+            // remove validator's stash key from it's identity
+            assert_ok!(Identity::remove_secondary_keys(
+                Origin::signed(50),
+                vec![60]
+            ));
         });
 }

@@ -22,6 +22,6 @@ Items should be added to the `changelog` using bulletpoints.
 
 - [the addition or removal of any extrinsics or events emitted by those extrinsics, that relate to permissioned agents]
 
-### data migration required
+### data migration
 
 - [storage modified during upgrade process - provide details]
