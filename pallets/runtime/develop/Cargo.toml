@@ -135,6 +135,7 @@ std = [
     "pallet-asset/std",
     "pallet-authority-discovery/std",
     "pallet-authorship/std",
+    "pallet-base/std",
     "pallet-babe/std",
     "pallet-balances/std",
     "pallet-sto/std",

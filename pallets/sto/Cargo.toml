@@ -43,26 +43,27 @@ default = ["std", "equalize"]
 no_std = []
 only-staking = []
 std = [
-	"serde_derive",
-	"serde/std",
-	"codec/std",
-	"sp-std/std",
-	"sp-io/std",
-	"sp-core/std",
-	"sp-runtime/std",
-	"sp-version/std",
-	"sp-api/std",
-	"frame-system/std",
-	"frame-support/std",
-	"frame-benchmarking/std",
-	"polymesh-common-utilities/std",
-	"pallet-balances/std",
-	"polymesh-primitives/std",
-	"pallet-identity/std",
-	"pallet-asset/std",
-	"pallet-settlement/std",
-	"pallet-timestamp/std"
+    "serde_derive",
+    "serde/std",
+    "codec/std",
+    "sp-std/std",
+    "sp-io/std",
+    "sp-core/std",
+    "sp-runtime/std",
+    "sp-version/std",
+    "sp-api/std",
+    "frame-system/std",
+    "frame-support/std",
+    "frame-benchmarking/std",
+    "polymesh-common-utilities/std",
+    "pallet-base/std",
+    "pallet-balances/std",
+    "polymesh-primitives/std",
+    "pallet-identity/std",
+    "pallet-asset/std",
+    "pallet-settlement/std",
+    "pallet-timestamp/std"
 ]
 runtime-benchmarks = [
-	"frame-benchmarking"
+    "frame-benchmarking"
 ]
