@@ -17,7 +17,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::migration::{put_storage_value, storage_iter, storage_key_iter};
-use frame_support::storage::unhashed::kill_prefix;
+use frame_support::storage::unhashed;
 use frame_support::{ReversibleStorageHasher, StorageHasher, Twox128};
 use sp_std::vec::Vec;
 
@@ -235,7 +235,8 @@ pub fn kill_item(module: &[u8], item: &[u8]) {
     let mut prefix = [0u8; 32];
     prefix[0..16].copy_from_slice(&Twox128::hash(module));
     prefix[16..32].copy_from_slice(&Twox128::hash(item));
-    kill_prefix(&prefix, None);
+    #[allow(deprecated)]
+    unhashed::kill_prefix(&prefix, None);
 }
 
 /// Moves a single or double map storage item under a new module prefix and removes the map from

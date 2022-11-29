@@ -206,7 +206,9 @@ decl_module! {
             Portfolios::remove(&primary_did, &num);
             NameToNumber::remove(&primary_did, &portfolio);
             PortfolioAssetCount::remove(&pid);
+            #[allow(deprecated)]
             PortfolioAssetBalances::remove_prefix(&pid, None);
+            #[allow(deprecated)]
             PortfolioLockedAssets::remove_prefix(&pid, None);
             PortfoliosInCustody::remove(&Self::custodian(&pid), &pid);
             PortfolioCustodian::remove(&pid);

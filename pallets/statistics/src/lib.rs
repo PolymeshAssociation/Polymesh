@@ -219,6 +219,7 @@ impl<T: Config> Module<T> {
         // Cleanup storage for old types to be removed.
         for stat_type in &remove_types {
             // Cleanup storage for this stat type, since it is being removed.
+            #[allow(deprecated)]
             AssetStats::remove_prefix(
                 Stat1stKey {
                     asset,
