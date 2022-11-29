@@ -2,12 +2,11 @@ use super::ext_builder::{EXTRINSIC_BASE_WEIGHT, TRANSACTION_BYTE_FEE, WEIGHT_TO_
 use codec::Encode;
 use frame_support::{
     assert_ok,
-    dispatch::DispatchResult,
+    dispatch::{DispatchInfo, DispatchResult, Weight},
     parameter_types,
     traits::{Currency, Imbalance, KeyOwnerProofSystem, OnInitialize, OnUnbalanced},
     weights::{
-        DispatchInfo, RuntimeDbWeight, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
-        WeightToFeePolynomial,
+        RuntimeDbWeight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
     },
     StorageDoubleMap,
 };
@@ -334,8 +333,8 @@ impl User {
     }
 
     /// Returns an `Origin` that can be used to execute extrinsics.
-    pub fn origin(&self) -> Origin {
-        Origin::signed(self.acc())
+    pub fn origin(&self) -> RuntimeOrigin {
+        RuntimeOrigin::signed(self.acc())
     }
 
     pub fn uid(&self) -> InvestorUid {
@@ -365,7 +364,7 @@ impl User {
     }
 }
 
-pub type EventTest = Event;
+pub type EventTest = RuntimeEvent;
 
 type Hash = H256;
 type Hashing = BlakeTwo256;
@@ -377,13 +376,13 @@ pub(crate) type Balance = u128;
 
 parameter_types! {
     pub const BlockHashCount: u32 = 250;
-    pub const MaximumBlockWeight: u64 = 4096;
+    pub const MaximumBlockWeight: Weight = Weight::from_ref_time(4096);
     pub const MaximumBlockLength: u32 = 4096;
     pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
-    pub const MaximumExtrinsicWeight: u64 = 2800;
-    pub const BlockExecutionWeight: u64 = 10;
+    pub const MaximumExtrinsicWeight: Weight = Weight::from_ref_time(2800);
+    pub const BlockExecutionWeight: Weight = Weight::from_ref_time(10);
     pub TransactionByteFee: Balance = TRANSACTION_BYTE_FEE.with(|v| *v.borrow());
-    pub ExtrinsicBaseWeight: u64 = EXTRINSIC_BASE_WEIGHT.with(|v| *v.borrow());
+    pub ExtrinsicBaseWeight: Weight = EXTRINSIC_BASE_WEIGHT.with(|v| *v.borrow());
     pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight {
         read: 10,
         write: 100,
@@ -457,9 +456,9 @@ impl ChargeTxFee for TestStorage {
 }
 
 type CddHandler = TestStorage;
-impl CddAndFeeDetails<AccountId, Call> for TestStorage {
+impl CddAndFeeDetails<AccountId, RuntimeCall> for TestStorage {
     fn get_valid_payer(
-        _: &Call,
+        _: &RuntimeCall,
         caller: &AccountId,
     ) -> Result<Option<AccountId>, InvalidTransaction> {
         let caller: AccountId = caller.clone();
@@ -719,7 +718,7 @@ pub fn make_account_with_balance(
     ),
     &'static str,
 > {
-    let signed_id = Origin::signed(id.clone());
+    let signed_id = RuntimeOrigin::signed(id.clone());
     Balances::make_free_balance_be(&id, balance);
 
     // If we have CDD providers, first of them executes the registration.
@@ -727,14 +726,18 @@ pub fn make_account_with_balance(
     let did = match cdd_providers.into_iter().nth(0) {
         Some(cdd_provider) => {
             let cdd_acc = get_primary_key(cdd_provider);
-            let _ = Identity::cdd_register_did(Origin::signed(cdd_acc.clone()), id.clone(), vec![])
-                .map_err(|_| "CDD register DID failed")?;
+            let _ = Identity::cdd_register_did(
+                RuntimeOrigin::signed(cdd_acc.clone()),
+                id.clone(),
+                vec![],
+            )
+            .map_err(|_| "CDD register DID failed")?;
 
             // Add CDD Claim
             let did = Identity::get_identity(&id).unwrap();
             let (cdd_id, _) = create_cdd_id(did, Ticker::default(), uid);
             let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
-            Identity::add_claim(Origin::signed(cdd_acc), did, cdd_claim, None)
+            Identity::add_claim(RuntimeOrigin::signed(cdd_acc), did, cdd_claim, None)
                 .map_err(|_| "CDD provider cannot add the CDD claim")?;
             did
         }
@@ -757,7 +760,7 @@ pub fn make_account_without_cdd(
     ),
     &'static str,
 > {
-    let signed_id = Origin::signed(id.clone());
+    let signed_id = RuntimeOrigin::signed(id.clone());
     Balances::make_free_balance_be(&id, 10_000_000);
     let did = Identity::_register_did(id.clone(), vec![], None).expect("did");
     Ok((signed_id, did))
@@ -795,7 +798,7 @@ pub fn add_secondary_key_with_perms(did: IdentityId, acc: AccountId, perms: Auth
         AuthorizationData::JoinIdentity(perms),
         None,
     );
-    assert_ok!(Identity::join_identity(Origin::signed(acc), auth_id));
+    assert_ok!(Identity::join_identity(RuntimeOrigin::signed(acc), auth_id));
 }
 
 pub fn add_secondary_key(did: IdentityId, acc: AccountId) {
@@ -830,12 +833,14 @@ pub fn next_block() -> Weight {
     pallet_scheduler::Pallet::<TestStorage>::on_initialize(block_number)
 }
 
-pub fn fast_forward_to_block(n: u32) -> Weight {
+pub fn fast_forward_to_block(n: u32) {
     let i = System::block_number();
-    (i..=n).map(|_| next_block()).sum()
+    for _ in i..=n {
+        next_block();
+    }
 }
 
-pub fn fast_forward_blocks(offset: u32) -> Weight {
+pub fn fast_forward_blocks(offset: u32) {
     fast_forward_to_block(offset + System::block_number())
 }
 
@@ -899,7 +904,7 @@ pub fn add_cdd_claim(
 
     // Add cdd claim first
     assert_ok!(Identity::add_claim(
-        Origin::signed(cdd_provider),
+        RuntimeOrigin::signed(cdd_provider),
         claim_to,
         Claim::CustomerDueDiligence(cdd_id),
         cdd_claim_expiry,
@@ -937,7 +942,7 @@ pub fn add_investor_uniqueness_claim(
     cdd_id: CddId,
     proof: InvestorZKProofData,
 ) -> DispatchResult {
-    let signed_claim_to = Origin::signed(get_primary_key(claim_to));
+    let signed_claim_to = RuntimeOrigin::signed(get_primary_key(claim_to));
 
     // Provide the InvestorUniqueness.
     Identity::add_investor_uniqueness_claim(
@@ -960,8 +965,8 @@ pub fn provide_scope_claim_to_multiple_parties<'a>(
     });
 }
 
-pub fn root() -> Origin {
-    Origin::from(frame_system::RawOrigin::Root)
+pub fn root() -> RuntimeOrigin {
+    RuntimeOrigin::from(frame_system::RawOrigin::Root)
 }
 
 pub fn create_cdd_id_and_investor_uid(identity_id: IdentityId) -> (CddId, InvestorUid) {
@@ -970,8 +975,8 @@ pub fn create_cdd_id_and_investor_uid(identity_id: IdentityId) -> (CddId, Invest
     (cdd_id, uid)
 }
 
-pub fn make_remark_proposal() -> Call {
-    Call::System(frame_system::Call::remark {
+pub fn make_remark_proposal() -> RuntimeCall {
+    RuntimeCall::System(frame_system::Call::remark {
         remark: vec![b'X'; 100],
     })
     .into()
@@ -1036,8 +1041,8 @@ macro_rules! assert_event_doesnt_exist {
     };
 }
 
-pub fn exec<C: Into<Call>>(origin: Origin, call: C) -> DispatchResult {
-    let origin: Result<RawOrigin<AccountId>, Origin> = origin.into();
+pub fn exec<C: Into<RuntimeCall>>(origin: RuntimeOrigin, call: C) -> DispatchResult {
+    let origin: Result<RawOrigin<AccountId>, RuntimeOrigin> = origin.into();
     let signed = match origin.unwrap() {
         RawOrigin::Signed(acc) => {
             let info = frame_system::Account::<TestStorage>::get(&acc);

@@ -164,8 +164,9 @@ pub fn get_balancing_iters<T: Config>() -> usize {
 pub fn maximum_compact_len<W: crate::WeightInfo>(
     winners_len: u32,
     size: ElectionSize,
-    max_weight: Weight,
+    max_weight: u64,
 ) -> u32 {
+    let max_weight = Weight::from_ref_time(max_weight);
 
     if size.nominators < 1 {
         return size.nominators;
@@ -552,7 +553,7 @@ mod test {
         }
 
         fn submit_solution_better(v: u32, n: u32, a: u32, w: u32) -> Weight {
-            Weight::from_ref_time(0 * v + 0 * n + 1000 * a + 0 * w)
+            Weight::from_ref_time((0 * v + 0 * n + 1000 * a + 0 * w).into())
         }
 
         fn chill_from_governance(s: u32) -> Weight {

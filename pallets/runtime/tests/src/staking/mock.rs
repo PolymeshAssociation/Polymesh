@@ -23,13 +23,13 @@ use chrono::prelude::Utc;
 use frame_election_provider_support::NposSolution;
 use frame_support::{
     assert_ok,
-    dispatch::DispatchResult,
+    dispatch::{DispatchInfo, DispatchResult, Weight},
     parameter_types,
     traits::{
         Contains, Currency, FindAuthor, GenesisBuild as _, Get, Imbalance, KeyOwnerProofSystem,
         OnFinalize, OnInitialize, OnUnbalanced, OneSessionHandler, SortedMembers,
     },
-    weights::{constants::RocksDbWeight, DispatchInfo, Weight},
+    weights::constants::RocksDbWeight,
     IterableStorageMap, StorageDoubleMap, StorageMap, StorageValue,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
@@ -118,6 +118,8 @@ pub fn is_disabled(controller: AccountId) -> bool {
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
+pub type Origin = <Test as frame_system::Config>::RuntimeOrigin;
+pub type Call = RuntimeCall;
 
 frame_support::construct_runtime!(
     pub enum Test where
@@ -161,7 +163,7 @@ parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const MaxLen: u32 = 256;
     pub const MaxLocks: u32 = 1024;
-    pub const MaximumBlockWeight: Weight = 1024;
+    pub const MaximumBlockWeight: Weight = Weight::from_ref_time(1024);
     pub BlockWeights: frame_system::limits::BlockWeights =
         frame_system::limits::BlockWeights::simple_max(
             frame_support::weights::constants::WEIGHT_PER_SECOND * 2
@@ -617,7 +619,7 @@ impl Config for Test {
     type RewardCurve = RewardCurve;
     type NextNewSession = Session;
     type ElectionLookahead = ElectionLookahead;
-    type RuntimeCall = RuntimeCall;
+    type Call = RuntimeCall;
     type MaxIterations = MaxIterations;
     type MinSolutionScoreBump = MinSolutionScoreBump;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
@@ -1574,7 +1576,7 @@ pub(crate) fn staking_events() -> Vec<staking::Event<Test>> {
         .into_iter()
         .map(|r| r.event)
         .filter_map(|e| {
-            if let Event::Staking(inner) = e {
+            if let RuntimeEvent::Staking(inner) = e {
                 Some(inner)
             } else {
                 None
