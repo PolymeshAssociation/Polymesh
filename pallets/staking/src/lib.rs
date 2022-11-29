@@ -3632,8 +3632,11 @@ impl<T: Config> Module<T> {
 
     /// Clear all era information for given era.
     fn clear_era_information(era_index: EraIndex) {
+        #[allow(deprecated)]
         <ErasStakers<T>>::remove_prefix(era_index, None);
+        #[allow(deprecated)]
         <ErasStakersClipped<T>>::remove_prefix(era_index, None);
+        #[allow(deprecated)]
         <ErasValidatorPrefs<T>>::remove_prefix(era_index, None);
         <ErasValidatorReward<T>>::remove(era_index);
         <ErasRewardPoints<T>>::remove(era_index);

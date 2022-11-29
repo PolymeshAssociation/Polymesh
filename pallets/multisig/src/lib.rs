@@ -256,6 +256,9 @@ decl_module! {
             let current_version = <T::Version as Get<RuntimeVersion>>::get().transaction_version;
             if TransactionVersion::get() < current_version {
                 TransactionVersion::set(current_version);
+                // TODO: Replace this code with `Proposal*::remove*` calls.
+                // Doing so will provide compile-time checks.  The current code
+                // will fail silently if storage names changes.
                 for item in &["Proposals", "ProposalIds", "ProposalDetail", "Votes"] {
                     kill_item(NAME, item.as_bytes())
                 }

@@ -1189,11 +1189,13 @@ impl<T: Config> Module<T> {
     /// This operation is idempotent wrt. chain state,
     /// i.e., once run, refunding again will refund nothing.
     fn refund_proposal(did: IdentityId, id: PipId) {
+        // TODO: use `drain_prefix` instead, to avoid the `remove_prefix` call.
         let total_refund =
             <Deposits<T>>::iter_prefix_values(id).fold(0u32.into(), |acc, depo_info| {
                 Self::reduce_lock(&depo_info.owner, depo_info.amount).unwrap();
                 depo_info.amount.saturating_add(acc)
             });
+        #[allow(deprecated)]
         <Deposits<T>>::remove_prefix(id, None);
         Self::deposit_event(RawEvent::ProposalRefund(did, id, total_refund));
     }
@@ -1237,6 +1239,7 @@ impl<T: Config> Module<T> {
         Self::decrement_count_if_active(state);
         if prune {
             ProposalResult::remove(id);
+            #[allow(deprecated)]
             ProposalVotes::<T>::remove_prefix(id, None);
             <ProposalMetadata<T>>::remove(id);
             if let Some(Proposer::Committee(_)) = Self::proposals(id).map(|p| p.proposer) {
