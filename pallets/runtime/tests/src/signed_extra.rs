@@ -4,11 +4,11 @@ use polymesh_primitives::{
     identity_id::GenesisIdentityRecord, AccountId, IdentityId, Index, InvestorUid,
 };
 use polymesh_runtime_develop::{
-    runtime::{Call, SignedExtra},
+    runtime::{RuntimeCall, SignedExtra},
     Runtime,
 };
 
-use frame_support::weights::{DispatchClass, DispatchInfo};
+use frame_support::dispatch::{DispatchClass, DispatchInfo, Weight};
 use frame_system::{CheckEra, CheckGenesis, CheckNonce, CheckSpecVersion, CheckTxVersion};
 use sp_io::TestExternalities;
 use sp_runtime::{generic, traits::SignedExtension};
@@ -16,9 +16,9 @@ use sp_std::convert::From;
 
 use test_client::AccountKeyring;
 
-pub fn make_call() -> (<Runtime as frame_system::Config>::Call, usize) {
+pub fn make_call() -> (<Runtime as frame_system::Config>::RuntimeCall, usize) {
     (
-        Call::System(frame_system::Call::remark { remark: vec![] }),
+        RuntimeCall::System(frame_system::Call::remark { remark: vec![] }),
         10,
     )
 }
@@ -123,7 +123,7 @@ fn normal_tx() -> Result<(), String> {
     let user = AccountKeyring::Alice.to_account_id();
     let (call, len) = make_call();
     let info = DispatchInfo {
-        weight: 100,
+        weight: Weight::from_ref_time(100),
         ..Default::default()
     };
 
@@ -153,7 +153,7 @@ fn operational_tx() -> Result<(), String> {
     let user: AccountId = AccountKeyring::Alice.public().into();
     let (call, len) = make_call();
     let info = DispatchInfo {
-        weight: 100,
+        weight: Weight::from_ref_time(100),
         class: DispatchClass::Operational,
         ..Default::default()
     };
