@@ -1389,8 +1389,10 @@ impl<T: Config> Module<T> {
         let legs = InstructionLegs::drain_prefix(id).collect::<Vec<_>>();
         let details = <InstructionDetails<T>>::take(id);
         VenueInstructions::remove(details.venue_id, id);
+        #[allow(deprecated)]
         <InstructionLegStatus<T>>::remove_prefix(id, None);
         InstructionAffirmsPending::remove(id);
+        #[allow(deprecated)]
         AffirmsReceived::remove_prefix(id, None);
 
         // We remove duplicates in memory before triggering storage actions

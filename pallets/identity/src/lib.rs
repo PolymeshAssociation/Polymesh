@@ -888,6 +888,7 @@ pub mod migration {
 
         log::info!(" >>> Removing KeyToIdentityIds...");
         use frame_support::storage::child::KillStorageResult::*;
+        #[allow(deprecated)]
         let (num_removed, all_removed) = match v1::KeyToIdentityIds::<T>::remove_all(None) {
             AllRemoved(removed) => (removed, true),
             SomeRemaining(removed) => (removed, false),
