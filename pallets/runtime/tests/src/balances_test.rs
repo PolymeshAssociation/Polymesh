@@ -10,8 +10,8 @@ use polymesh_runtime_develop::{runtime, Runtime};
 
 use frame_support::{
     assert_noop, assert_ok,
+    dispatch::{DispatchInfo, Weight},
     traits::Currency,
-    weights::{DispatchInfo, Weight},
 };
 use frame_system::{EventRecord, Phase};
 use pallet_transaction_payment::ChargeTransactionPayment;
@@ -26,9 +26,9 @@ type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type Error = balances::Error<TestStorage>;
 
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
-pub fn info_from_weight(w: Weight) -> DispatchInfo {
+pub fn info_from_weight(w: u64) -> DispatchInfo {
     DispatchInfo {
-        weight: w,
+        weight: Weight::from_ref_time(w),
         ..Default::default()
     }
 }
@@ -46,7 +46,7 @@ fn signed_extension_charge_transaction_payment_work() {
             let alice_pub = AccountKeyring::Alice.to_account_id();
             let alice_id = AccountKeyring::Alice.to_account_id();
 
-            let call = runtime::Call::TestUtils(test_utils::Call::register_did {
+            let call = runtime::RuntimeCall::TestUtils(test_utils::Call::register_did {
                 uid: InvestorUid::default(),
                 secondary_keys: vec![],
             });
@@ -84,7 +84,7 @@ fn tipping_fails() {
         .monied(true)
         .build()
         .execute_with(|| {
-            let call = runtime::Call::TestUtils(test_utils::Call::register_did {
+            let call = runtime::RuntimeCall::TestUtils(test_utils::Call::register_did {
                 uid: InvestorUid::default(),
                 secondary_keys: vec![],
             });

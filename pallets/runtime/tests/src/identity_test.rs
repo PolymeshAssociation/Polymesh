@@ -39,7 +39,7 @@ use polymesh_primitives::{
     PortfolioId, PortfolioNumber, Scope, SecondaryKey, Signatory, SubsetRestriction, Ticker,
     TransactionError,
 };
-use polymesh_runtime_develop::runtime::{Call, CddHandler};
+use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
 use sp_core::H512;
 use sp_runtime::transaction_validity::InvalidTransaction;
 use std::convert::{From, TryFrom};
@@ -476,7 +476,7 @@ fn frozen_secondary_keys_cdd_verification_test_we() {
     // 4. Bob should NOT transfer any amount. SE is simulated.
     // Balances::transfer_with_memo(Origin::signed(bob), charlie, 1_000, None),
     let payer = CddHandler::get_valid_payer(
-        &Call::Balances(balances::Call::transfer_with_memo {
+        &RuntimeCall::Balances(balances::Call::transfer_with_memo {
             dest: AccountKeyring::Charlie.to_account_id().into(),
             value: 1_000,
             memo: None,

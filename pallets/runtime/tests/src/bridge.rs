@@ -1,6 +1,6 @@
 use super::{
     fast_forward_blocks, next_block,
-    storage::{Call, TestStorage, User},
+    storage::{RuntimeCall, TestStorage, User},
     ExtBuilder,
 };
 
@@ -29,8 +29,8 @@ type BridgeTxDetail = GBridgeTxDetail<u32>;
 const AMOUNT: u128 = 1_000_000_000;
 const AMOUNT_OVER_LIMIT: u128 = 1_000_000_000_000_000_000_000;
 // Note: Need to update these weights after running benchmarks.
-const WEIGHT_EXPECTED_1: u64 = 838956000;
-const WEIGHT_EXPECTED_2: u64 = 1818942000;
+const WEIGHT_EXPECTED_1: Weight = Weight::from_ref_time(838_956_000);
+const WEIGHT_EXPECTED_2: Weight = Weight::from_ref_time(1_818_942_000);
 const MIN_SIGNS_REQUIRED: u64 = 2;
 
 fn test_with_controller(test: &dyn Fn(&[AccountId])) {
@@ -75,8 +75,8 @@ fn alice_bridge_tx(amount: u128) -> BridgeTx {
     make_bridge_tx(Alice.to_account_id(), amount)
 }
 
-fn bridge_tx_to_proposal(tx: &BridgeTx) -> Call {
-    Call::Bridge(bridge::Call::handle_bridge_tx {
+fn bridge_tx_to_proposal(tx: &BridgeTx) -> RuntimeCall {
+    RuntimeCall::Bridge(bridge::Call::handle_bridge_tx {
         bridge_tx: tx.clone(),
     })
 }
@@ -125,12 +125,10 @@ fn signers_approve_bridge_tx(tx: BridgeTx, signers: &[AccountId]) -> BridgeTx {
 }
 
 fn advance_block_and_verify_alice_balance(offset: u32, expected_balance: u128) -> Weight {
-    (0..=offset)
-        .map(|_| {
-            assert_eq!(alice_balance(), expected_balance);
-            next_block()
-        })
-        .sum()
+    (0..=offset).fold(Weight::zero(), |total, _| {
+        assert_eq!(alice_balance(), expected_balance);
+        total.saturating_add(next_block())
+    })
 }
 
 fn next_unlock_block_number() -> u32 {
