@@ -701,7 +701,7 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::withdraw_affirmation(*max_legs_count as u32)]
         pub fn withdraw_affirmation(origin, id: InstructionId, portfolios: Vec<PortfolioId>, max_legs_count: u32) {
-            let (did, secondary_key, details) = Self::ensure_origin_perm_and_instruction_validity(origin, id)?;
+            let (did, secondary_key, details) = Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
             // Withdraw an affirmation.
@@ -785,7 +785,7 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::claim_receipt()]
         pub fn claim_receipt(origin, id: InstructionId, receipt_details: ReceiptDetails<T::AccountId, T::OffChainSignature>) -> DispatchResult {
-            let (primary_did, secondary_key, _) = Self::ensure_origin_perm_and_instruction_validity(origin, id)?;
+            let (primary_did, secondary_key, _) = Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
             Self::unsafe_claim_receipt(
                 primary_did,
                 id,
@@ -804,7 +804,7 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::unclaim_receipt()]
         pub fn unclaim_receipt(origin, instruction_id: InstructionId, leg_id: LegId) {
-            let (did, secondary_key, _) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
+            let (did, secondary_key, _) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id, false)?;
 
             let (signer, receipt_uid) = match Self::instruction_leg_status(instruction_id, leg_id) {
                 LegStatus::ExecutionToBeSkipped(s, r) => (s, r),
@@ -1007,18 +1007,30 @@ decl_module! {
         /// # Errors
         /// * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
         #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*legs_count)]
-        fn execute_manual_settlement(origin, id: InstructionId, legs_count: u32) {
+        fn execute_manual_settlement(origin, id: InstructionId, legs_count: u32, portfolio: Option<PortfolioId>) {
             // check origin has the permissions required and valid instruction
-            let (did, sk, _) = Self::ensure_origin_perm_and_instruction_validity(origin, id)?;
+            let (did, sk, instruction_details) = Self::ensure_origin_perm_and_instruction_validity(origin, id, true)?;
+
+            // Check for portfolio
+            if let Some(portfolio) = portfolio {
+                let legs = InstructionLegs::iter_prefix(id).collect::<Vec<_>>();
+
+                // Ensure that the sender is a party of this instruction.
+                T::Portfolio::ensure_portfolio_custody_and_permission(portfolio, did, sk.as_ref())?;
+                ensure!(
+                    legs.iter().any(|(_, leg)| [leg.from, leg.to].contains(&portfolio)),
+                    Error::<T>::UnauthorizedSigner
+                );
+            } else {
+                // Ensure venue exists & sender is its creator.
+                Self::venue_for_management(instruction_details.venue_id, did)?;
+            }
+
+            // Check that instruction status isn't unknown
+            ensure!(instruction_details.status != InstructionStatus::Unknown, Error::<T>::UnknownInstruction);
 
             // check that the instruction leg count matches
             ensure!(InstructionLegs::iter_prefix(id).count() as u32 == legs_count, Error::<T>::LegCountTooSmall);
-
-            <InstructionDetails<T>>::try_mutate(id, |details| {
-                ensure!(details.status == InstructionStatus::Failed, Error::<T>::InstructionNotFailed);
-                details.status = InstructionStatus::Pending;
-                Result::<_, Error<T>>::Ok(())
-            })?;
 
             // Executes the instruction
             Self::execute_instruction_retryable(id)?;
@@ -1042,6 +1054,7 @@ impl<T: Config> Module<T> {
     fn ensure_origin_perm_and_instruction_validity(
         origin: <T as frame_system::Config>::Origin,
         id: InstructionId,
+        is_execute: bool,
     ) -> EnsureValidInstructionResult<T::AccountId, T::Moment, T::BlockNumber> {
         let PermissionedCallOriginData {
             primary_did,
@@ -1051,7 +1064,7 @@ impl<T: Config> Module<T> {
         Ok((
             primary_did,
             secondary_key,
-            Self::ensure_instruction_validity(id)?,
+            Self::ensure_instruction_validity(id, is_execute)?,
         ))
     }
 
@@ -1093,6 +1106,14 @@ impl<T: Config> Module<T> {
             ensure!(
                 *block_number > System::<T>::block_number(),
                 Error::<T>::SettleOnPastBlock
+            );
+        }
+
+        // Ensure that instruction dates are valid.
+        if let (Some(trade_date), Some(value_date)) = (trade_date, value_date) {
+            ensure!(
+                value_date >= trade_date,
+                Error::<T>::InstructionDatesInvalid
             );
         }
 
@@ -1146,10 +1167,6 @@ impl<T: Config> Module<T> {
 
         if let SettlementType::SettleOnBlock(block_number) = settlement_type {
             Self::schedule_instruction(instruction_id, block_number, legs.len() as u32);
-        }
-
-        if let SettlementType::SettleManual(block_number) = settlement_type {
-            Self::execute_manual_settlement(instruction_id, block_number, legs.len() as u32);
         }
 
         <InstructionDetails<T>>::insert(instruction_id, instruction);
@@ -1235,30 +1252,37 @@ impl<T: Config> Module<T> {
 
     fn ensure_instruction_validity(
         id: InstructionId,
+        is_execute: bool,
     ) -> Result<Instruction<T::Moment, T::BlockNumber>, DispatchError> {
         let details = Self::instruction_details(id);
         ensure!(
             details.status != InstructionStatus::Unknown,
             Error::<T>::UnknownInstruction
         );
-        if let (Some(trade_date), Some(value_date)) = (details.trade_date, details.value_date) {
-            ensure!(
-                value_date >= trade_date,
-                Error::<T>::InstructionDatesInvalid
-            );
+
+        match details.settlement_type {
+            SettlementType::SettleOnBlock(block_number) => {
+                if is_execute {
+                    ensure!(
+                        block_number > System::<T>::block_number(),
+                        Error::<T>::InstructionSettleBlockPassed
+                    );
+                } else {
+                    ensure!(
+                        block_number <= System::<T>::block_number(),
+                        Error::<T>::InstructionSettleBlockPassed
+                    );
+                }
+            }
+            SettlementType::SettleManual(block_number) => {
+                ensure!(
+                    block_number >= System::<T>::block_number(),
+                    Error::<T>::InstructionSettleBlockPassed
+                );
+            }
+            _ => {}
         }
-        if let SettlementType::SettleOnBlock(block_number) = details.settlement_type {
-            ensure!(
-                block_number > System::<T>::block_number(),
-                Error::<T>::InstructionSettleBlockPassed
-            );
-        }
-        if let SettlementType::SettleManual(block_number) = details.settlement_type {
-            ensure!(
-                block_number > System::<T>::block_number(),
-                Error::<T>::InstructionSettleBlockPassed
-            );
-        }
+
         Ok(details)
     }
 
@@ -1420,7 +1444,7 @@ impl<T: Config> Module<T> {
         receipt_details: ReceiptDetails<T::AccountId, T::OffChainSignature>,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
     ) -> DispatchResult {
-        Self::ensure_instruction_validity(id)?;
+        Self::ensure_instruction_validity(id, false)?;
 
         ensure!(
             Self::instruction_leg_status(id, receipt_details.leg_id) == LegStatus::ExecutionPending,
@@ -1552,7 +1576,7 @@ impl<T: Config> Module<T> {
         max_legs_count: u32,
     ) -> Result<u32, DispatchError> {
         let (did, secondary_key, instruction_details) =
-            Self::ensure_origin_perm_and_instruction_validity(origin, id)?;
+            Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
         let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
         // Verify that the receipts provided are unique
@@ -1666,7 +1690,7 @@ impl<T: Config> Module<T> {
         portfolios: impl Iterator<Item = PortfolioId>,
         max_legs_count: u32,
     ) -> Result<u32, DispatchError> {
-        let (did, sk, _) = Self::ensure_origin_perm_and_instruction_validity(origin, id)?;
+        let (did, sk, _) = Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
         let portfolios_set = portfolios.collect::<BTreeSet<_>>();
 
         // Provide affirmation to the instruction
