@@ -5246,6 +5246,7 @@ dependencies = [
  "frame-system",
  "pallet-asset",
  "pallet-base",
+ "pallet-external-agents",
  "pallet-identity",
  "pallet-portfolio",
  "parity-scale-codec 3.2.1",

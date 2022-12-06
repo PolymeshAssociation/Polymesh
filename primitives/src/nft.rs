@@ -7,12 +7,12 @@ use crate::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use crate::{impl_checked_inc, Ticker};
 
 /// Controls the next available id for an NFT collection.
-#[derive(Clone, Debug, Decode, Default, Eq, Encode, PartialEq, TypeInfo)]
+#[derive(Clone, Copy, Debug, Decode, Default, Eq, Encode, PartialEq, TypeInfo)]
 pub struct NFTCollectionId(pub u64);
 impl_checked_inc!(NFTCollectionId);
 
 /// Controls the next available id for an NFT within a collection.
-#[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Clone, Copy, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
 pub struct NFTId(pub u64);
 impl_checked_inc!(NFTId);
 

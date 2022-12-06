@@ -16,13 +16,21 @@ use crate::*;
 
 const MAX_COLLECTION_KEYS: u32 = 255;
 
-/// Creates an NFT collection with `n_keys` global metadata keys.
-fn create_collection<T: Config>(origin: T::Origin, ticker: Ticker, n_keys: u32) -> NFTCollectionId {
-    let collection_keys: NFTCollectionKeys = (1..n_keys + 1)
+/// Creates an NFT collection with `n` global metadata keys.
+fn create_collection<T: Config>(origin: T::Origin, ticker: Ticker, n: u32) -> NFTCollectionId {
+    let collection_keys: NFTCollectionKeys = creates_keys_register_metadata_types::<T>(n);
+    Module::<T>::create_nft_collection(origin, ticker, collection_keys)
+        .expect("failed to create nft collection");
+    Module::<T>::collection_id()
+}
+
+/// Creates a set of `NFTCollectionKeys` made of `n` global keys and registers `n` global asset metadata types.
+fn creates_keys_register_metadata_types<T: Config>(n: u32) -> NFTCollectionKeys {
+    let collection_keys: NFTCollectionKeys = (1..n + 1)
         .map(|key| AssetMetadataKey::Global(AssetMetadataGlobalKey(key.into())))
         .collect::<Vec<AssetMetadataKey>>()
         .into();
-    for i in 1..n_keys + 1 {
+    for i in 1..n + 1 {
         let asset_metadata_name = format!("key{}", i).as_bytes().to_vec();
         T::AssetFn::register_asset_metadata_type(
             RawOrigin::Root.into(),
@@ -32,9 +40,7 @@ fn create_collection<T: Config>(origin: T::Origin, ticker: Ticker, n_keys: u32) 
         )
         .expect("failed to register asset metadata");
     }
-    Module::<T>::create_nft_collection(origin, ticker, collection_keys)
-        .expect("failed to create nft collection");
-    Module::<T>::collection_id()
+    collection_keys
 }
 
 benchmarks! {
@@ -45,20 +51,7 @@ benchmarks! {
 
         let user = user::<T>("target", 0);
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
-        let collection_keys: NFTCollectionKeys = (1..n + 1)
-            .map(|key| AssetMetadataKey::Global(AssetMetadataGlobalKey(key.into())))
-            .collect::<Vec<AssetMetadataKey>>()
-            .into();
-        for i in 1..n + 1 {
-            let asset_metadata_name = format!("key{}", i).as_bytes().to_vec();
-            T::AssetFn::register_asset_metadata_type(
-                RawOrigin::Root.into(),
-                None,
-                asset_metadata_name.into(),
-                AssetMetadataSpec::default()
-            )
-            .expect("failed to register asset metadata");
-        }
+        let collection_keys: NFTCollectionKeys = creates_keys_register_metadata_types::<T>(n);
     }: _(user.origin, ticker, collection_keys)
     verify {
         assert!(Collection::contains_key(NFTCollectionId(1)));

@@ -3,6 +3,7 @@ use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use polymesh_primitives::nft::{NFTCollectionId, NFTId};
 use polymesh_primitives::ticker::Ticker;
+use polymesh_primitives::IdentityId;
 
 use crate::asset;
 use crate::base;
@@ -22,11 +23,11 @@ pub trait Config:
 decl_event!(
     pub enum Event {
         /// Emitted when a new nft collection is created.
-        NftCollectionCreated(Ticker, NFTCollectionId),
+        NftCollectionCreated(IdentityId, Ticker, NFTCollectionId),
         /// Emitted when a new nft is minted.
-        MintedNft(NFTCollectionId, NFTId),
+        MintedNft(IdentityId, NFTCollectionId, NFTId),
         /// Emitted when an NFT is burned.
-        BurnedNFT(Ticker, NFTId),
+        BurnedNFT(IdentityId, Ticker, NFTId),
     }
 );
 

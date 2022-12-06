@@ -220,8 +220,11 @@ fn mint_nft_duplicate_key() {
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
-        let collection_keys: NFTCollectionKeys =
-            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        let collection_keys: NFTCollectionKeys = vec![
+            AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            AssetMetadataKey::Local(AssetMetadataLocalKey(2)),
+        ]
+        .into();
 
         create_nft_collection(alice.clone(), ticker.clone(), collection_keys);
         assert_noop!(
