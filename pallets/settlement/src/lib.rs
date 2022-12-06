@@ -1012,22 +1012,21 @@ decl_module! {
             let (did, sk, instruction_details) = Self::ensure_origin_perm_and_instruction_validity(origin, id, true)?;
 
             // Check for portfolio
-            if let Some(portfolio) = portfolio {
-                let legs = InstructionLegs::iter_prefix(id).collect::<Vec<_>>();
-
-                // Ensure that the sender is a party of this instruction.
-                T::Portfolio::ensure_portfolio_custody_and_permission(portfolio, did, sk.as_ref())?;
-                ensure!(
-                    legs.iter().any(|(_, leg)| [leg.from, leg.to].contains(&portfolio)),
-                    Error::<T>::UnauthorizedSigner
-                );
-            } else {
-                // Ensure venue exists & sender is its creator.
-                Self::venue_for_management(instruction_details.venue_id, did)?;
+            match portfolio {
+                Some(portfolio) => {
+                    // Ensure that the sender is a party of this instruction.
+                    T::Portfolio::ensure_portfolio_custody_and_permission(portfolio, did, sk.as_ref())?;
+                    let mut legs = InstructionLegs::iter_prefix(id);
+                    ensure!(
+                        legs.any(|(_, leg)| [leg.from, leg.to].contains(&portfolio)),
+                        Error::<T>::UnauthorizedSigner
+                    );
+                }
+                None => {
+                    // Ensure venue exists & sender is its creator.
+                    Self::venue_for_management(instruction_details.venue_id, did)?;
+                }
             }
-
-            // Check that instruction status isn't unknown
-            ensure!(instruction_details.status != InstructionStatus::Unknown, Error::<T>::UnknownInstruction);
 
             // check that the instruction leg count matches
             ensure!(InstructionLegs::iter_prefix(id).count() as u32 == legs_count, Error::<T>::LegCountTooSmall);
@@ -1091,22 +1090,17 @@ impl<T: Config> Module<T> {
             Error::<T>::InstructionHasTooManyLegs
         );
 
-        // Ensure that the scheduled block number is in the future so that `T::Scheduler::schedule_named`
-        // doesn't fail.
-        if let SettlementType::SettleOnBlock(block_number) = &settlement_type {
-            ensure!(
-                *block_number > System::<T>::block_number(),
-                Error::<T>::SettleOnPastBlock
-            );
-        }
-
-        // Ensure that the scheduled block number is in the future so that `T::Scheduler::schedule_named`
-        // doesn't fail.
-        if let SettlementType::SettleManual(block_number) = &settlement_type {
-            ensure!(
-                *block_number > System::<T>::block_number(),
-                Error::<T>::SettleOnPastBlock
-            );
+        match &settlement_type {
+            SettlementType::SettleOnBlock(block_number) => {
+                // Ensure that the scheduled block number is in the future so that `T::Scheduler::schedule_named`
+                // doesn't fail.
+                ensure!(
+                    *block_number > System::<T>::block_number(),
+                    Error::<T>::SettleOnPastBlock
+                );
+            }
+            SettlementType::SettleManual(_block_number) => {}
+            _ => {}
         }
 
         // Ensure that instruction dates are valid.
@@ -1260,27 +1254,29 @@ impl<T: Config> Module<T> {
             Error::<T>::UnknownInstruction
         );
 
-        match details.settlement_type {
-            SettlementType::SettleOnBlock(block_number) => {
-                if is_execute {
-                    ensure!(
-                        block_number > System::<T>::block_number(),
-                        Error::<T>::InstructionSettleBlockPassed
-                    );
-                } else {
-                    ensure!(
-                        block_number <= System::<T>::block_number(),
-                        Error::<T>::InstructionSettleBlockPassed
-                    );
-                }
+        match (details.settlement_type, is_execute) {
+            (SettlementType::SettleOnBlock(block_number), true) => {
+                // Ensures block number is less than or equal to current block number.
+                ensure!(
+                    block_number <= System::<T>::block_number(),
+                    Error::<T>::InstructionSettleBlockPassed
+                );
             }
-            SettlementType::SettleManual(block_number) => {
+            (SettlementType::SettleOnBlock(block_number), false) => {
+                // Ensures block number is greater than current block number.
+                ensure!(
+                    block_number > System::<T>::block_number(),
+                    Error::<T>::InstructionSettleBlockPassed
+                );
+            }
+            (SettlementType::SettleManual(block_number), _) => {
+                // Ensures block number is greater than  or equal to current block number.
                 ensure!(
                     block_number >= System::<T>::block_number(),
                     Error::<T>::InstructionSettleBlockPassed
                 );
             }
-            _ => {}
+            (_, _) => {}
         }
 
         Ok(details)
