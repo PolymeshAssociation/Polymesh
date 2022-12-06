@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 serde = { version = "1.0.104", default-features = false }
 
-pwasm-utils = { version = "0.18.2", default-features = false }
+pwasm-utils = { version = "0.18.2", optional = true, default-features = false }
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 frame-system = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
@@ -15,11 +15,11 @@ pallet-contracts = { version = "4.0.0-dev", default-features = false }
 pallet-contracts-primitives = { version = "6.0.0", default-features = false }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
 sp-core = { version = "6.0.0", default-features = false }
+sp-io = { version = "6.0.0", default-features = false }
 sp-runtime = { version = "6.0.0", default-features = false }
 sp-std = { version = "4.0.0", default-features = false }
 
 # Polymesh specific
-pallet-asset = { path = "../asset", default-features = false }
 pallet-base = { path = "../base", default-features = false }
 pallet-identity = { path = "../identity", default-features = false }
 pallet-permissions = { path = "../permissions", default-features = false }
@@ -36,6 +36,7 @@ std = [
     "codec/std",
     "sp-std/std",
     "sp-core/std",
+    "sp-io/std",
     "frame-system/std",
     "frame-support/std",
     "pallet-base/std",
@@ -43,9 +44,10 @@ std = [
     "pallet-contracts/std",
     "polymesh-primitives/std",
     "polymesh-common-utilities/std",
-    "pwasm-utils/std",
+    "pwasm-utils?/std",
 ]
 runtime-benchmarks = [
+    "pwasm-utils",
     "frame-benchmarking",
     "pallet-contracts/runtime-benchmarks",
 ]

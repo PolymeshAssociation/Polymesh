@@ -6327,6 +6327,7 @@ dependencies = [
  "pallet-sudo",
  "parity-scale-codec 3.2.1",
  "polymesh-common-utilities",
+ "polymesh-contracts",
  "polymesh-node-rpc",
  "polymesh-primitives",
  "polymesh-runtime-common",
@@ -6416,7 +6417,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "pallet-asset",
  "pallet-base",
  "pallet-contracts",
  "pallet-contracts-primitives",
@@ -6429,6 +6429,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-std",
 ]
