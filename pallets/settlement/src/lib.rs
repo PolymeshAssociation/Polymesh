@@ -335,6 +335,7 @@ pub trait WeightInfo {
     fn change_receipt_validity() -> Weight;
     fn execute_scheduled_instruction(l: u32) -> Weight;
     fn reschedule_instruction() -> Weight;
+    fn execute_manual_instruction(l: u32) -> Weight;
 
     // Some multiple paths based extrinsic.
     // TODO: Will be removed once we get the worst case weight.
@@ -1006,8 +1007,8 @@ decl_module! {
         ///
         /// # Errors
         /// * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
-        #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*legs_count)]
-        fn execute_manual_settlement(origin, id: InstructionId, legs_count: u32, portfolio: Option<PortfolioId>) {
+        #[weight = <T as Config>::WeightInfo::execute_manual_instruction(*legs_count)]
+        pub fn execute_manual_settlement(origin, id: InstructionId, legs_count: u32, portfolio: Option<PortfolioId>) {
             // check origin has the permissions required and valid instruction
             let (did, sk, instruction_details) = Self::ensure_origin_perm_and_instruction_validity(origin, id, true)?;
 
@@ -1270,9 +1271,9 @@ impl<T: Config> Module<T> {
                 );
             }
             (SettlementType::SettleManual(block_number), _) => {
-                // Ensures block number is greater than  or equal to current block number.
+                // Ensures block number is less than  or equal to current block number.
                 ensure!(
-                    block_number >= System::<T>::block_number(),
+                    block_number <= System::<T>::block_number(),
                     Error::<T>::InstructionSettleBlockPassed
                 );
             }

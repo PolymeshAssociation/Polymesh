@@ -429,4 +429,7 @@ impl pallet_settlement::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().writes(8 as Weight))
             .saturating_add(DbWeight::get().writes((6 as Weight).saturating_mul(l as Weight)))
     }
+    fn execute_manual_instruction(l: u32) -> Weight {
+        todo!()
+    }
 }

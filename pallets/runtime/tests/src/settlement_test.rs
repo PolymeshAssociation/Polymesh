@@ -2567,6 +2567,56 @@ fn create_instruction(
     instruction_id
 }
 
+#[test]
+fn settle_manual_instruction() {
+    test_with_cdd_provider(|eve| {
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER, TICKER2]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER, TICKER2]);
+        let venue_counter = create_token_and_venue(TICKER, alice.user);
+        create_token(TICKER2, bob.user);
+        let instruction_id = Settlement::instruction_counter();
+        let block_number = System::block_number() + 1;
+        let amount = 0u128;
+        alice.refresh_init_balances();
+        bob.refresh_init_balances();
+
+        let legs = vec![
+            Leg {
+                from: PortfolioId::default_portfolio(alice.did),
+                to: PortfolioId::default_portfolio(bob.did),
+                asset: TICKER,
+                amount,
+            }
+        ];
+
+        assert_ok!(Settlement::add_instruction(
+            alice.origin(),
+            venue_counter,
+            SettlementType::SettleManual(block_number),
+            None,
+            None,
+            legs.clone(),
+        ));
+        assert_eq!(1, scheduler::Agenda::<TestStorage>::get(block_number).len());
+
+        assert_user_affirms(instruction_id, &alice, AffirmationStatus::Pending);
+        assert_user_affirms(instruction_id, &bob, AffirmationStatus::Pending);
+
+        // Before authorization need to provide the scope claim for both the parties of a transaction.
+        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve.clone());
+        
+        assert_ok!(Settlement::execute_manual_settlement(alice.origin(), instruction_id, legs.len().try_into().unwrap(), None));    
+
+        // Instruction should've settled
+        next_block();
+        assert_user_affirms(instruction_id, &alice, AffirmationStatus::Unknown);
+        assert_locked_assets(&TICKER, &alice, 0);
+    
+        alice.assert_balance_decreased(&TICKER, amount);
+        bob.assert_balance_increased(&TICKER, amount);
+    });
+}
+
 #[track_caller]
 fn assert_instruction_details(
     instruction_id: InstructionId,
