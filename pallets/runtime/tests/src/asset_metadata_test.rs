@@ -1,5 +1,5 @@
 use super::{
-    asset_test::create_token,
+    asset_test::{create_token, set_timestamp},
     exec_noop, exec_ok,
     storage::{TestStorage, User},
     ExtBuilder,
@@ -587,7 +587,7 @@ fn check_locked_until() {
         );
 
         // Move time forward until after `unlock_timestamp`.
-        Timestamp::set_timestamp(unlock_timestamp + 1_000);
+        set_timestamp(unlock_timestamp + 1_000);
 
         // Updated unlocked metadata value for global key.
         exec_ok!(Asset::set_asset_metadata(
