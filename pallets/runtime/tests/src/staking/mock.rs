@@ -17,6 +17,7 @@
 
 //! Test utilities
 
+use crate::asset_test::set_timestamp;
 use crate::storage::create_cdd_id;
 use chrono::prelude::Utc;
 use frame_election_provider_support::NposSolution;
@@ -941,7 +942,7 @@ impl ExtBuilder {
                 System::set_block_number(1);
                 Session::on_initialize(1);
                 Staking::on_initialize(1);
-                Timestamp::set_timestamp(INIT_TIMESTAMP);
+                set_timestamp(INIT_TIMESTAMP);
             });
         }
 
@@ -1186,7 +1187,7 @@ pub(crate) fn run_to_block(n: BlockNumber) {
         System::set_block_number(b);
         Session::on_initialize(b);
         Staking::on_initialize(b);
-        Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
+        set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
         if b != n {
             Staking::on_finalize(System::block_number());
         }

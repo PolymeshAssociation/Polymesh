@@ -94,6 +94,8 @@ macro_rules! __assert_eq_uvec {
 }
 
 mod mock;
+
+use crate::asset_test::set_timestamp;
 use chrono::prelude::Utc;
 use codec::Decode;
 use frame_support::{
@@ -5006,7 +5008,7 @@ fn on_initialize_weight_is_correct() {
             run_to_block(11);
             Staking::on_finalize(System::block_number());
             System::set_block_number((System::block_number() + 1).into());
-            Timestamp::set_timestamp(System::block_number() * 1000 + INIT_TIMESTAMP);
+            set_timestamp(System::block_number() * 1000 + INIT_TIMESTAMP);
             Session::on_initialize(System::block_number());
 
             assert_eq!(Validators::<Test>::iter().count(), 4);
@@ -5048,7 +5050,7 @@ fn add_nominator_with_invalid_expiry() {
             ));
 
             let now = Utc::now();
-            Timestamp::set_timestamp(now.timestamp() as u64);
+            set_timestamp(now.timestamp() as u64);
             let validators = vec![10, 20, 30];
             assert_noop!(
                 Staking::nominate(controller_signed.clone(), validators),
@@ -5081,7 +5083,7 @@ fn add_valid_nominator_with_multiple_claims() {
                 RewardDestination::Stash
             ));
 
-            Timestamp::set_timestamp(now.timestamp() as u64);
+            set_timestamp(now.timestamp() as u64);
             let validators = vec![10, 20, 30];
 
             assert_ok!(Staking::nominate(controller_signed.clone(), validators));
@@ -5140,7 +5142,7 @@ fn validate_nominators_with_valid_cdd() {
             ));
 
             now = Utc::now();
-            Timestamp::set_timestamp(now.timestamp() as u64);
+            set_timestamp(now.timestamp() as u64);
             let validators_1 = vec![10, 20, 30];
             assert_ok!(Staking::nominate(
                 controller_signed_alice.clone(),
@@ -5155,7 +5157,7 @@ fn validate_nominators_with_valid_cdd() {
             ));
             assert!(!Staking::nominators(&account_eve).is_none());
             now = Utc::now();
-            Timestamp::set_timestamp((now.timestamp() as u64) + 800_u64);
+            set_timestamp((now.timestamp() as u64) + 800_u64);
             let claimed_nominator = vec![account_alice.clone(), account_eve.clone()];
 
             println!("Current timestamp: {:?}", Timestamp::now());
