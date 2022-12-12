@@ -446,9 +446,11 @@ where
             let extrinsic: [u8; 2] = ext_id.into();
             let params = env.read(in_len)?;
             let mut input = ChainInput::new(&extrinsic, params.as_slice());
-            let call =
-                <<T as BConfig>::RuntimeCall>::decode_with_depth_limit(MAX_DECODE_DEPTH, &mut input)
-                    .map_err(|_| Error::<T>::InvalidRuntimeCall)?;
+            let call = <<T as BConfig>::RuntimeCall>::decode_with_depth_limit(
+                MAX_DECODE_DEPTH,
+                &mut input,
+            )
+            .map_err(|_| Error::<T>::InvalidRuntimeCall)?;
             ensure!(input.is_empty(), Error::<T>::DataLeftAfterDecoding);
             call
         }
