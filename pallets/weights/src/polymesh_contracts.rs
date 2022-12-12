@@ -65,7 +65,7 @@ impl polymesh_contracts::WeightInfo for WeightInfo {
     // Storage: unknown [0x00] (r:1 w:0)
     // Storage: unknown [0x000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f] (r:1 w:0)
     fn chain_extension_read_storage(k: u32, v: u32) -> Weight {
-       Weight::from_ref_time (616_785_000 as u64)
+        Weight::from_ref_time(616_785_000 as u64)
             // Standard Error: 3_000
             .saturating_add(Weight::from_ref_time(8_000 as u64).saturating_mul(k as u64))
             // Standard Error: 2_000
