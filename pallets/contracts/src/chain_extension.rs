@@ -504,8 +504,9 @@ where
         &mut self,
         env: ce::Environment<E, ce::InitState>,
     ) -> ce::Result<ce::RetVal> {
+        let ext_id = ((env.ext_id() as u32) << 16) + env.func_id() as u32;
         // Decode chain extension id.
-        let func_id = FuncId::try_from(((env.ext_id() as u32) << 16) + env.func_id() as u32);
+        let func_id = FuncId::try_from(ext_id);
 
         trace!(
             target: "runtime",

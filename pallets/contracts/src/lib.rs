@@ -55,7 +55,7 @@
 pub mod benchmarking;
 
 pub mod chain_extension;
-pub use chain_extension::ExtrinsicId;
+pub use chain_extension::{ExtrinsicId, PolymeshExtension};
 
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -63,7 +63,6 @@ use frame_support::{
         DispatchError, DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo,
     },
     ensure,
-    log::trace,
     traits::Get,
     weights::Weight,
 };
@@ -130,7 +129,7 @@ macro_rules! cost {
 
 macro_rules! cost_batched {
     ($name:ident) => {
-        cost!($name) / Weight::from(CHAIN_EXTENSION_BATCH_SIZE)
+        cost!($name) / u64::from(CHAIN_EXTENSION_BATCH_SIZE)
     };
 }
 
@@ -193,19 +192,19 @@ pub trait WeightInfo {
     fn hash_twox_64(r: u32) -> Weight {
         let per_byte = cost_byte_batched!(chain_extension_hash_twox_64_per_kb);
         cost_batched!(chain_extension_hash_twox_64)
-            .saturating_add(per_byte.saturating_mul(r as Weight))
+            .saturating_add(per_byte.saturating_mul(r as u64))
     }
 
     fn hash_twox_128(r: u32) -> Weight {
         let per_byte = cost_byte_batched!(chain_extension_hash_twox_128_per_kb);
         cost_batched!(chain_extension_hash_twox_128)
-            .saturating_add(per_byte.saturating_mul(r as Weight))
+            .saturating_add(per_byte.saturating_mul(r as u64))
     }
 
     fn hash_twox_256(r: u32) -> Weight {
         let per_byte = cost_byte_batched!(chain_extension_hash_twox_256_per_kb);
         cost_batched!(chain_extension_hash_twox_256)
-            .saturating_add(per_byte.saturating_mul(r as Weight))
+            .saturating_add(per_byte.saturating_mul(r as u64))
     }
 
     fn call_runtime(in_len: u32) -> Weight {
@@ -391,7 +390,7 @@ where
 {
     /// Instantiates a contract using `code` as the WASM code blob.
     fn base_update_call_runtime_whitelist(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         updates: Vec<(ExtrinsicId, bool)>,
     ) -> DispatchResult {
         ensure_root(origin)?;
