@@ -1,5 +1,5 @@
 use super::{
-    asset_test::{an_asset, basic_asset, max_len, max_len_bytes, token},
+    asset_test::{an_asset, basic_asset, max_len, max_len_bytes, set_timestamp, token},
     committee_test::gc_vmo,
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{
@@ -987,7 +987,7 @@ fn one_step_join_id_with_ext() {
 
     // Check expire
     System::inc_account_nonce(a.acc());
-    Timestamp::set_timestamp(expires_at);
+    set_timestamp(expires_at);
 
     let f = User::new(AccountKeyring::Ferdie);
     let (ferdie_auth, _) = target_id_auth(a);
@@ -1184,7 +1184,7 @@ fn adding_authorizations() {
         );
 
         // Testing the list of filtered authorizations
-        Timestamp::set_timestamp(120);
+        set_timestamp(120);
 
         // Getting expired and non-expired both
         let mut authorizations = Identity::get_filtered_authorizations(
@@ -1656,7 +1656,7 @@ fn invalidate_cdd_claims_we() {
     assert_eq!(Identity::has_valid_cdd(alice_id), true);
 
     // Move to time 8... CDD_1 is inactive: Its claims are valid.
-    Timestamp::set_timestamp(8);
+    set_timestamp(8);
     assert_eq!(Identity::has_valid_cdd(alice_id), true);
     assert_noop!(
         Identity::cdd_register_did(Origin::signed(cdd.clone()), bob_acc.clone(), vec![]),
@@ -1664,7 +1664,7 @@ fn invalidate_cdd_claims_we() {
     );
 
     // Move to time 11 ... CDD_1 is expired: Its claims are invalid.
-    Timestamp::set_timestamp(11);
+    set_timestamp(11);
     assert_eq!(Identity::has_valid_cdd(alice_id), false);
     assert_noop!(
         Identity::cdd_register_did(Origin::signed(cdd), bob_acc, vec![]),

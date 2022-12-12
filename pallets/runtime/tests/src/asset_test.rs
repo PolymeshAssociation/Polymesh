@@ -47,6 +47,7 @@ use polymesh_primitives::{
     PortfolioName, SecondaryKey, Signatory, Ticker,
 };
 use rand::Rng;
+use sp_consensus_babe::Slot;
 use sp_io::hashing::keccak_256;
 use sp_runtime::AnySignature;
 use sp_std::{
@@ -80,7 +81,16 @@ fn now() -> u64 {
 }
 
 fn set_time_to_now() {
-    Timestamp::set_timestamp(now());
+    set_timestamp(now());
+}
+
+fn slot_duration() -> u64 {
+    pallet_babe::Pallet::<TestStorage>::slot_duration()
+}
+
+pub(crate) fn set_timestamp(n: u64) {
+    pallet_babe::CurrentSlot::<TestStorage>::set(Slot::from(n / slot_duration()));
+    Timestamp::set_timestamp(n);
 }
 
 pub(crate) fn max_len() -> u32 {
@@ -472,7 +482,7 @@ fn register_ticker() {
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner.did), true);
         assert_eq!(Asset::is_ticker_available(&ticker), false);
 
-        Timestamp::set_timestamp(now() + 10001);
+        set_timestamp(now() + 10001);
 
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner.did), false);
         assert_eq!(Asset::is_ticker_available(&ticker), true);
@@ -1408,7 +1418,7 @@ fn classic_ticker_expired_thus_available() {
     .build()
     .execute_with(|| {
         let signer = Origin::signed(user);
-        Timestamp::set_timestamp(1);
+        set_timestamp(1);
         assert_noop!(
             Asset::claim_classic_ticker(signer, ticker, ethereum::EcdsaSignature([0; 65])),
             AssetError::TickerRegistrationExpired
@@ -1558,7 +1568,7 @@ fn classic_ticker_claim_works() {
 
         // Fast forward, thereby expiring `GAMMA` for which `is_created: true` holds.
         // Thus, fee isn't waived and is charged.
-        Timestamp::set_timestamp(expire_after + 1);
+        set_timestamp(expire_after + 1);
         assert_ok!(create(alice, "GAMMA", init_bal - fee - fee));
 
         // Now `DELTA` has expired as well. Bob registers it, so its not classic anymore and fee is charged.
@@ -1579,7 +1589,7 @@ fn classic_ticker_claim_works() {
 
         // Travel back in time to unexpire `ZETA`,
         // transfer it to Charlie, and ensure its not classic anymore.
-        Timestamp::set_timestamp(0);
+        set_timestamp(0);
         let zeta = ticker("ZETA");
         assert!(ClassicTickers::get(&zeta).is_some());
         let auth_id_alice = Identity::add_auth(
@@ -1726,7 +1736,7 @@ fn next_checkpoint_is_updated_we() {
         _ => panic!("period should be fixed"),
     };
     let period_ms = period_secs * 1000;
-    Timestamp::set_timestamp(start);
+    set_timestamp(start);
     assert_eq!(start, <TestStorage as asset::Config>::UnixTime::now());
 
     let owner = User::new(AccountKeyring::Alice);
@@ -1762,7 +1772,7 @@ fn next_checkpoint_is_updated_we() {
     assert_eq!(vec![checkpoint2], checkpoint_ats(ticker));
 
     let transfer = |at| {
-        Timestamp::set_timestamp(at);
+        set_timestamp(at);
         default_transfer(owner, bob, ticker, total_supply / 2);
     };
 
@@ -1798,7 +1808,7 @@ fn non_recurring_schedule_works_we() {
     let start: u64 = 1_700_000_000_000;
     // Non-recuring schedule.
     let period = CalendarPeriod::default();
-    Timestamp::set_timestamp(start);
+    set_timestamp(start);
     assert_eq!(start, <TestStorage as asset::Config>::UnixTime::now());
 
     let owner = User::new(AccountKeyring::Alice);
@@ -1851,7 +1861,7 @@ fn next_checkpoints(ticker: Ticker, start: u64) -> Vec<Option<u64>> {
 fn schedule_remaining_works() {
     ExtBuilder::default().build().execute_with(|| {
         let start = 1_000;
-        Timestamp::set_timestamp(start);
+        set_timestamp(start);
 
         let owner = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
@@ -1861,7 +1871,7 @@ fn schedule_remaining_works() {
         assert_ok!(basic_asset(owner, ticker, &token));
 
         let transfer = |at: Moment| {
-            Timestamp::set_timestamp(at * 1_000);
+            set_timestamp(at * 1_000);
             default_transfer(owner, bob, ticker, 1);
         };
         let collect_ts = |sh_id| {
@@ -1956,13 +1966,13 @@ fn mesh_1531_ts_collission_regression_test() {
 
         // First CP is made at 1s.
         let cp = CheckpointId(1);
-        Timestamp::set_timestamp(1_000);
+        set_timestamp(1_000);
         let create = |ticker| Checkpoint::create_checkpoint(owner.origin(), ticker);
         assert_ok!(create(alpha));
         assert_eq!(Checkpoint::timestamps(alpha, cp), 1_000);
 
         // Second CP is for beta, using same ID.
-        Timestamp::set_timestamp(2_000);
+        set_timestamp(2_000);
         assert_ok!(create(beta));
         assert_eq!(Checkpoint::timestamps(alpha, cp), 1_000);
         assert_eq!(Checkpoint::timestamps(beta, cp), 2_000);

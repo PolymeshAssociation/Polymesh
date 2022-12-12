@@ -1,5 +1,5 @@
 use super::{
-    asset_test::{allow_all_transfers, max_len_bytes},
+    asset_test::{allow_all_transfers, max_len_bytes, set_timestamp},
     exec_noop, exec_ok,
     storage::{make_account_with_portfolio, TestStorage, User},
     ExtBuilder,
@@ -540,7 +540,7 @@ fn fundraiser_expired() {
         Some(Timestamp::get() + 1)
     ));
 
-    Timestamp::set_timestamp(Timestamp::get() + 2);
+    set_timestamp(Timestamp::get() + 2);
 
     assert_noop!(
         Sto::modify_fundraiser_window(
