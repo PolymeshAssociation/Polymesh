@@ -628,10 +628,9 @@ dependencies = [
 [[package]]
 name = "bulletproofs"
 version = "4.0.0"
-source = "git+https://github.com/PolymeshAssociation/bulletproofs?branch=polymesh#def499bb056771bf4986034f8d09d7dc91078563"
+source = "git+https://github.com/PolymeshAssociation/bulletproofs?branch=polymesh#b73845c70516fe45039c58136618305b09358268"
 dependencies = [
  "byteorder",
- "clear_on_drop",
  "curve25519-dalek-ng",
  "digest 0.9.0",
  "merlin 3.0.0",
@@ -893,15 +892,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2850f2f5a82cbf437dd5af4d49848fbdfc27c157c3d010345776f952765261c5"
 dependencies = [
  "os_str_bytes",
-]
-
-[[package]]
-name = "clear_on_drop"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38508a63f4979f0048febc9966fadbd48e5dab31fd0ec6a3f151bbf4a74f7423"
-dependencies = [
- "cc",
 ]
 
 [[package]]
@@ -6499,7 +6489,6 @@ version = "5.0.0"
 dependencies = [
  "blake2",
  "chrono",
- "clear_on_drop",
  "confidential_identity_v1",
  "confidential_identity_v2",
  "either",
@@ -10649,9 +10638,9 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if 0.1.10",
  "digest 0.10.5",
- "rand 0.8.5",
+ "rand 0.7.3",
  "static_assertions",
 ]
 
