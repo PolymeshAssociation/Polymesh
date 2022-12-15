@@ -17,6 +17,7 @@ RUN apk add --no-cache \
         openssl-dev \
         make \
         pkgconfig \
+        protobuf \
         rsync
 RUN rustup toolchain install $TOOLCHAIN && \
         rustup target add wasm32-unknown-unknown --toolchain $TOOLCHAIN

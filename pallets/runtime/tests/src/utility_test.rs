@@ -30,7 +30,7 @@ fn transfer(to: AccountId, amount: u128) -> Call {
 }
 
 const ERROR: DispatchError = DispatchError::Module(sp_runtime::ModuleError {
-    index: 4,
+    index: 5,
     error: [2, 0, 0, 0],
     message: None,
 });

@@ -36,6 +36,7 @@ std = [
     "codec/std",
     "frame-support/std",
     "frame-system/std",
+    "pallet-base/std",
     "pallet-identity/std",
     "polymesh-common-utilities/std",
     "polymesh-primitives/std",

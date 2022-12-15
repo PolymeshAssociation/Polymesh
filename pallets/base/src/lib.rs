@@ -105,8 +105,6 @@ pub fn try_next_post<T: Config, I: CheckedInc>(seq: &mut I) -> Result<I, Dispatc
         .ok_or_else(|| Error::<T>::CounterOverflow.into())
 }
 
-impl<T: Config> frame_support::traits::IntegrityTest for Module<T> {}
-
 impl<T: Config> StorageInfoTrait for Module<T> {
     fn storage_info() -> Vec<StorageInfo> {
         Vec::new()

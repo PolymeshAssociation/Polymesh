@@ -6,7 +6,7 @@ use super::{
     },
     ExtBuilder,
 };
-use crate::asset_test::{allow_all_transfers, basic_asset, token};
+use crate::asset_test::{allow_all_transfers, basic_asset, set_timestamp, token};
 use core::iter;
 use frame_support::{
     assert_noop, assert_ok,
@@ -204,7 +204,7 @@ fn moment_ca(owner: User, ticker: Ticker, kind: CAKind, rd: Option<Moment>) -> C
 }
 
 fn set_schedule_complexity() {
-    Timestamp::set_timestamp(1);
+    set_timestamp(1);
     assert_ok!(Checkpoint::set_schedules_max_complexity(root(), 1000));
 }
 
@@ -531,7 +531,7 @@ fn initiate_corporate_action_record_date() {
     test(|ticker, [owner, foo, _]| {
         assert_ok!(Checkpoint::set_schedules_max_complexity(root(), 1));
 
-        Timestamp::set_timestamp(0);
+        set_timestamp(0);
 
         let mut cp_id = CheckpointId(0);
         let mut schedule_id = ScheduleId(0);
@@ -549,7 +549,7 @@ fn initiate_corporate_action_record_date() {
                     _ => panic!(),
                 }
 
-                Timestamp::set_timestamp(date);
+                set_timestamp(date);
                 transfer(&ticker, owner, foo);
 
                 assert_eq!(
@@ -787,7 +787,7 @@ fn remove_ca_works() {
             motions: vec![motion],
         };
         let mk_ballot = || {
-            Timestamp::set_timestamp(0);
+            set_timestamp(0);
             let id = next_ca_id(ticker);
             ca(CAKind::IssuerNotice, Some(1000));
             assert_ballot(id, &<_>::default());
@@ -813,7 +813,7 @@ fn remove_ca_works() {
             },
         );
         // Sucessfully remove it. Edge condition `now == start - 1`.
-        Timestamp::set_timestamp(3000 - 1);
+        set_timestamp(3000 - 1);
         assert_ok!(remove(id));
         // And ensure all details were removed.
         assert_no_ca(id);
@@ -821,15 +821,15 @@ fn remove_ca_works() {
 
         // Create another ballot, move now => start date; try to remove, but fail.
         let id = mk_ballot();
-        Timestamp::set_timestamp(3000); // now == start
+        set_timestamp(3000); // now == start
         assert_noop!(remove(id), BallotError::VotingAlreadyStarted);
-        Timestamp::set_timestamp(3001); // now == start + 1
+        set_timestamp(3001); // now == start + 1
         assert_noop!(remove(id), BallotError::VotingAlreadyStarted);
 
         // Create a distribution CA, which hasn't started.
         let currency = create_asset(b"BETA", owner);
         let mk_dist = || {
-            Timestamp::set_timestamp(0);
+            set_timestamp(0);
             let id = next_ca_id(ticker);
             ca(CAKind::UnpredictableBenefit, Some(1000));
             assert_ok!(Dist::distribute(
@@ -860,7 +860,7 @@ fn remove_ca_works() {
             }),
         );
         // Sucessfully remove it. Edge condition `now == start - 1`.
-        Timestamp::set_timestamp(3000 - 1);
+        set_timestamp(3000 - 1);
         assert_ok!(remove(id));
         // And ensure all details were removed.
         assert_no_ca(id);
@@ -989,24 +989,24 @@ fn change_record_date_works() {
             let change_ok = |spec, expect| {
                 change_ok(id, spec_ts(spec), rd_ts(expect, next_schedule_id(ticker)))
             };
-            Timestamp::set_timestamp(3000);
+            set_timestamp(3000);
             change_ok(4999, 4000); // floor(4999 / 1000) * 1000 == 4000
-            Timestamp::set_timestamp(4999);
+            set_timestamp(4999);
             change_ok(4999, 4999); // Flooring not applied cause now == 2999.
             change_ok(5000, 5000); // floor(5000 / 1000) * 1000 == 5000
             change_ok(5001, 5000); // floor(5001 / 1000) * 1000 == 5000
-            Timestamp::set_timestamp(5001);
+            set_timestamp(5001);
             assert_noop!(change(id, spec_ts(5001)), Error::RecordDateAfterStart); // 5001 < 5000
             assert_noop!(change(id, spec_ts(6000)), Error::RecordDateAfterStart); // 6000 < 5000
-            Timestamp::set_timestamp(6000);
+            set_timestamp(6000);
             assert_noop!(change(id, spec_cp(1)), error); // 6000 < 4000
-            Timestamp::set_timestamp(6001);
+            set_timestamp(6001);
             assert_noop!(change(id, spec_cp(1)), error); // 6001 < 4000
         };
         test_branch(id, BallotError::VotingAlreadyStarted.into());
 
         // Test distribution branch.
-        Timestamp::set_timestamp(0);
+        set_timestamp(0);
         let id = next_ca_id(ticker);
         ca(CAKind::PredictableBenefit, Some(1000));
         assert_ok!(Dist::distribute(
@@ -1132,10 +1132,10 @@ fn attach_ballot_range_invariant() {
 
         assert_noop!(attach(id, range(6001)), BallotError::StartAfterEnd);
 
-        Timestamp::set_timestamp(6001);
+        set_timestamp(6001);
         assert_noop!(attach(id, range(6000)), BallotError::NowAfterEnd);
 
-        Timestamp::set_timestamp(4000);
+        set_timestamp(4000);
         assert_ok!(attach(id, range(6000)));
 
         let id = notice_ca(owner, ticker, Some(5000)).unwrap();
@@ -1267,11 +1267,11 @@ fn change_end_works() {
             Ok(())
         };
 
-        Timestamp::set_timestamp(1999);
+        set_timestamp(1999);
         assert_ok!(change(5000)); // Not started yet, OK.
         assert_ok!(change(2000)); // start == end, OK.
         assert_noop!(change(1999), BallotError::StartAfterEnd); // end is before start; bad!
-        Timestamp::set_timestamp(2000);
+        set_timestamp(2000);
         assert_noop!(change(5000), BallotError::VotingAlreadyStarted);
     });
 }
@@ -1303,12 +1303,12 @@ fn change_rcv_works() {
             ));
             assert_ballot(id, &data);
 
-            Timestamp::set_timestamp(2999);
+            set_timestamp(2999);
             data.rcv ^= true;
             assert_ok!(change(data.rcv));
             assert_ballot(id, &data);
 
-            Timestamp::set_timestamp(3000);
+            set_timestamp(3000);
             assert_noop!(change(!data.rcv), BallotError::VotingAlreadyStarted);
             assert_ballot(id, &data);
         }
@@ -1343,7 +1343,7 @@ fn change_meta_works() {
         assert_ballot(id, &data);
 
         // Changing meta works as expected.
-        Timestamp::set_timestamp(3999);
+        set_timestamp(3999);
         assert_ok!(change(mk_meta()));
         data.meta = Some(mk_meta());
         data.choices = vec![3, 1];
@@ -1383,7 +1383,7 @@ fn change_meta_works() {
         );
 
         // Set now := start; so voting has already started => error.
-        Timestamp::set_timestamp(4000);
+        set_timestamp(4000);
         assert_noop!(change(mk_meta()), BallotError::VotingAlreadyStarted);
         assert_ballot(id, &data);
     });
@@ -1414,11 +1414,11 @@ fn remove_ballot_works() {
         ));
         assert_ballot(id, &data);
 
-        Timestamp::set_timestamp(5000);
+        set_timestamp(5000);
         assert_noop!(remove(), BallotError::VotingAlreadyStarted);
         assert_ballot(id, &data);
 
-        Timestamp::set_timestamp(4999);
+        set_timestamp(4999);
         assert_ok!(remove());
         assert_ballot(id, &<_>::default());
 
@@ -1456,13 +1456,13 @@ fn vote_wrong_dates() {
 
         let vote = || Ballot::vote(voter.origin(), id, vec![]);
 
-        Timestamp::set_timestamp(range.start - 1);
+        set_timestamp(range.start - 1);
         assert_noop!(vote(), BallotError::VotingNotStarted);
-        Timestamp::set_timestamp(range.end + 1);
+        set_timestamp(range.end + 1);
         assert_noop!(vote(), BallotError::VotingAlreadyEnded);
-        Timestamp::set_timestamp(range.start);
+        set_timestamp(range.start);
         assert_ok!(vote());
-        Timestamp::set_timestamp(range.end);
+        set_timestamp(range.end);
         assert_ok!(vote());
     });
 }
@@ -1505,10 +1505,10 @@ fn vote_not_targeted() {
     test(|ticker, [owner, other, voter]| {
         set_schedule_complexity();
         let ca = || {
-            Timestamp::set_timestamp(1);
+            set_timestamp(1);
             let id = notice_ca(owner, ticker, Some(1)).unwrap();
             assert_ok!(attach(owner, id, false));
-            Timestamp::set_timestamp(T_RANGE.start);
+            set_timestamp(T_RANGE.start);
             id
         };
         let vote = |id| Ballot::vote(voter.origin(), id, votes(&[0, 0, 0, 0]));
@@ -1523,7 +1523,7 @@ fn vote_wrong_count() {
 
         let id = notice_ca(owner, ticker, Some(1)).unwrap();
         assert_ok!(attach(owner, id, false));
-        Timestamp::set_timestamp(T_RANGE.start);
+        set_timestamp(T_RANGE.start);
 
         let vote = |count| {
             let votes = iter::repeat(BallotVote::default()).take(count).collect();
@@ -1562,7 +1562,7 @@ fn vote_rcv_not_allowed() {
 
         let id = notice_ca(owner, ticker, Some(1)).unwrap();
         assert_ok!(attach(owner, id, false));
-        Timestamp::set_timestamp(T_RANGE.start);
+        set_timestamp(T_RANGE.start);
 
         assert_noop!(
             Ballot::vote(voter.origin(), id, fallbacks(&[None, None, Some(42), None])),
@@ -1578,7 +1578,7 @@ fn vote_rcv_fallback_pointers() {
 
         let id = notice_ca(owner, ticker, Some(1)).unwrap();
         assert_ok!(attach(owner, id, true));
-        Timestamp::set_timestamp(T_RANGE.start);
+        set_timestamp(T_RANGE.start);
 
         let vote = |fs| Ballot::vote(voter.origin(), id, fallbacks(fs));
 
@@ -1639,7 +1639,7 @@ fn vote_works() {
 
         let id = notice_ca(owner, ticker, Some(1)).unwrap();
         assert_ok!(attach(owner, id, false));
-        Timestamp::set_timestamp(T_RANGE.start);
+        set_timestamp(T_RANGE.start);
 
         let vote = |vs| Ballot::vote(voter.origin(), id, votes(vs));
 
@@ -1697,7 +1697,7 @@ fn vote_cp_test(mk_ca: impl FnOnce(Ticker, User) -> CAId) {
         let id = mk_ca(ticker, owner);
 
         // Transfer 500 <== other. N.B. this is after the CP was made.
-        Timestamp::set_timestamp(3000);
+        set_timestamp(3000);
         transfer(&ticker, voter, other);
 
         let time = BallotTimeRange {
@@ -1714,7 +1714,7 @@ fn vote_cp_test(mk_ca: impl FnOnce(Ticker, User) -> CAId) {
 
         let vote = |user: User, vs| Ballot::vote(user.origin(), id, votes(vs));
 
-        Timestamp::set_timestamp(4000);
+        set_timestamp(4000);
         let data = ballot_data(id);
         assert_noop!(vote(other, &[1, 0, 0, 0]), BallotError::InsufficientVotes);
         assert_ballot(id, &data);
@@ -1763,7 +1763,7 @@ fn dist_distribute_works() {
 
         let id1 = dist_ca(owner, ticker, Some(1)).unwrap();
 
-        Timestamp::set_timestamp(2);
+        set_timestamp(2);
         let id2 = dist_ca(owner, ticker, Some(2)).unwrap();
 
         // Test same-asset.
@@ -1786,7 +1786,7 @@ fn dist_distribute_works() {
                 DistError::ExpiryBeforePayment
             );
         }
-        Timestamp::set_timestamp(5);
+        set_timestamp(5);
 
         // Test `amount == 0`.
         assert_noop!(
@@ -1913,11 +1913,11 @@ fn dist_remove_works() {
             5,
             Some(6)
         ));
-        Timestamp::set_timestamp(5);
+        set_timestamp(5);
         assert_noop!(remove(id), DistError::DistributionStarted);
 
         // Not started, and can remove.
-        Timestamp::set_timestamp(4);
+        set_timestamp(4);
         assert_ok!(remove(id));
         assert_eq!(Dist::distributions(id), None);
     });
@@ -1953,11 +1953,11 @@ fn dist_reclaim_works() {
         ));
 
         // Not expired yet.
-        Timestamp::set_timestamp(5);
+        set_timestamp(5);
         assert_noop!(reclaim(id, other), DistError::NotExpired);
 
         // Test successful behavior.
-        Timestamp::set_timestamp(6);
+        set_timestamp(6);
         let pid = PortfolioId::default_portfolio(other.did);
 
         // No custody over portfolio.
@@ -2025,15 +2025,15 @@ fn dist_claim_misc_bad() {
         ));
 
         // But it hasn't started yet.
-        Timestamp::set_timestamp(4);
+        set_timestamp(4);
         noop(DistError::CannotClaimBeforeStart.into());
 
         // And now it has already expired.
-        Timestamp::set_timestamp(6);
+        set_timestamp(6);
         noop(DistError::CannotClaimAfterExpiry.into());
 
         // Travel back in time. Now dist is active, but no scope claims, so transfer fails.
-        Timestamp::set_timestamp(5);
+        set_timestamp(5);
         noop(AssetError::InvalidTransfer.into());
     });
 }
@@ -2084,7 +2084,7 @@ fn dist_claim_works() {
             5,
             None,
         ));
-        Timestamp::set_timestamp(5);
+        set_timestamp(5);
 
         // Alter taxes, using both default and DID-specific taxes.
         CorporateActions::mutate(ticker, id.local_id, |ca| {
@@ -2168,7 +2168,7 @@ fn dist_claim_rounding_indivisible() {
             5,
             None,
         ));
-        Timestamp::set_timestamp(5);
+        set_timestamp(5);
 
         let benefit = |x| x * per_share / PER_SHARE_PRECISION;
         let rounded = |x| x / ONE_UNIT * ONE_UNIT;
@@ -2224,7 +2224,7 @@ fn dist_claim_no_remaining() {
         mk_dist(1_000_000);
         let id = mk_dist(1);
 
-        Timestamp::set_timestamp(5);
+        set_timestamp(5);
         assert_noop!(
             Dist::claim(foo.origin(), id),
             DistError::InsufficientRemainingAmount
@@ -2244,7 +2244,7 @@ fn dist_claim_cp_test(mk_ca: impl FnOnce(Ticker, User) -> CAId) {
         let id = mk_ca(ticker, owner);
 
         // Voter ==[500]==> Other. N.B. this is after the CP was made.
-        Timestamp::set_timestamp(3000);
+        set_timestamp(3000);
         transfer(&ticker, claimant, other);
 
         // Create the distribution.
@@ -2262,7 +2262,7 @@ fn dist_claim_cp_test(mk_ca: impl FnOnce(Ticker, User) -> CAId) {
         ));
 
         // Claim the distribution.
-        Timestamp::set_timestamp(4000);
+        set_timestamp(4000);
         assert_ok!(Dist::claim(claimant.origin(), id));
         assert_ok!(Dist::push_benefit(owner.origin(), id, other.did));
 

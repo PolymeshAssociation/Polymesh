@@ -323,6 +323,7 @@ macro_rules! misc_pallet_impls {
         impl polymesh_contracts::Config for Runtime {
             type Event = Event;
             type MaxInLen = MaxInLen;
+            type MaxOutLen = MaxOutLen;
             type WeightInfo = polymesh_weights::polymesh_contracts::WeightInfo;
         }
         impl pallet_contracts::Config for Runtime {
@@ -347,15 +348,6 @@ macro_rules! misc_pallet_impls {
             type DeletionWeightLimit = DeletionWeightLimit;
             type AddressGenerator = pallet_contracts::DefaultAddressGenerator;
             type PolymeshHooks = polymesh_contracts::ContractPolymeshHooks;
-        }
-        impl From<polymesh_contracts::CommonCall<Runtime>> for Call {
-            fn from(call: polymesh_contracts::CommonCall<Runtime>) -> Self {
-                use polymesh_contracts::CommonCall::*;
-                match call {
-                    Asset(x) => Self::Asset(x),
-                    PolymeshContracts(x) => Self::PolymeshContracts(x),
-                }
-            }
         }
 
         impl pallet_compliance_manager::Config for Runtime {
