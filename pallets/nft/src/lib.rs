@@ -227,7 +227,11 @@ impl<T: Config> Module<T> {
             CollectionTicker::try_get(&ticker).map_err(|_| Error::<T>::CollectionNotFound)?;
 
         // Verifies if the caller has the right permissions (regarding asset and portfolio)
-        let caller_did = Asset::<T>::ensure_agent_with_custody_and_perms(origin, ticker.clone())?;
+        let caller_portfolio = Asset::<T>::ensure_agent_with_custody_and_perms(
+            origin,
+            ticker.clone(),
+            PortfolioKind::Default,
+        )?;
 
         // Verifies that all mandatory keys are being set and that there are no duplicated keys
         let mandatory_keys: BTreeSet<AssetMetadataKey> = Self::collection_keys(&collection_id);
@@ -254,17 +258,21 @@ impl<T: Config> Module<T> {
         }
 
         // Mints the NFT and adds it to the caller's portfolio
-        let new_balance = BalanceOf::get(&ticker, &caller_did)
+        let new_balance = BalanceOf::get(&ticker, &caller_portfolio.did)
             .checked_add(ONE_UNIT)
             .ok_or(Error::<T>::BalanceOverflow)?;
         let nft_id = NextNFTId::try_mutate(&collection_id, try_next_pre::<T, _>)?;
-        BalanceOf::insert(&ticker, &caller_did, new_balance);
+        BalanceOf::insert(&ticker, &caller_portfolio.did, new_balance);
         for (metadata_key, metadata_value) in nft_attributes.into_iter() {
             MetadataValue::insert((&collection_id, &nft_id), metadata_key, metadata_value);
         }
-        Portfolio::<T>::add_portfolio_nft(caller_did, collection_id, nft_id);
+        Portfolio::<T>::add_portfolio_nft(caller_portfolio.did, collection_id, nft_id);
 
-        Self::deposit_event(Event::MintedNft(caller_did, collection_id, nft_id));
+        Self::deposit_event(Event::MintedNft(
+            caller_portfolio.did,
+            collection_id,
+            nft_id,
+        ));
         Ok(())
     }
 
@@ -279,11 +287,15 @@ impl<T: Config> Module<T> {
             CollectionTicker::try_get(&ticker).map_err(|_| Error::<T>::CollectionNotFound)?;
 
         // Ensure origin is agent with custody and permissions for default portfolio.
-        let caller_did = Asset::<T>::ensure_agent_with_custody_and_perms(origin, ticker)?;
+        let caller_portfolio = Asset::<T>::ensure_agent_with_custody_and_perms(
+            origin,
+            ticker,
+            PortfolioKind::Default,
+        )?;
 
         // Verifies if the NFT exists
         let portfolio_id = PortfolioId {
-            did: caller_did,
+            did: caller_portfolio.did,
             kind: portfolio_kind,
         };
 
@@ -293,14 +305,14 @@ impl<T: Config> Module<T> {
         );
 
         // Burns the NFT
-        let new_balance = BalanceOf::get(&ticker, &caller_did)
+        let new_balance = BalanceOf::get(&ticker, &caller_portfolio.did)
             .checked_sub(ONE_UNIT)
             .ok_or(Error::<T>::BalanceUnderflow)?;
-        BalanceOf::insert(&ticker, &caller_did, new_balance);
+        BalanceOf::insert(&ticker, &caller_portfolio.did, new_balance);
         PortfolioNFT::remove(&portfolio_id, (&collection_id, &nft_id));
         MetadataValue::remove_prefix((&collection_id, &nft_id), None);
 
-        Self::deposit_event(Event::BurnedNFT(caller_did, ticker, nft_id));
+        Self::deposit_event(Event::BurnedNFT(caller_portfolio.did, ticker, nft_id));
         Ok(())
     }
 }
