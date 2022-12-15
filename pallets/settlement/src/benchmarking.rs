@@ -560,7 +560,14 @@ fn setup_manual_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     )
     .expect("Unable to add and affirm the instruction");
 
-    (portfolios_from, portfolios_to, from_data, to_data, tickers, legs)
+    (
+        portfolios_from,
+        portfolios_to,
+        from_data,
+        to_data,
+        tickers,
+        legs,
+    )
 }
 
 benchmarks! {
@@ -945,7 +952,7 @@ benchmarks! {
     execute_manual_instruction {
         // This dispatch execute an instruction.
 
-        let l in 0 .. T::MaxLegsInInstruction::get() as u32;
+        let l in 1 .. T::MaxLegsInInstruction::get() as u32;
         let c = T::MaxConditionComplexity::get() as u32;
 
         // Setup affirm instruction (One party (i.e from) already affirms the instruction)
@@ -954,12 +961,11 @@ benchmarks! {
         let legs_count: u32 = legs.len().try_into().unwrap();
         let first_leg = legs.into_iter().nth(0).unwrap_or_default();
         let before_transfer_balance = PortfolioAssetBalances::get(first_leg.from, first_leg.asset);
-        
+
         let instruction_id = InstructionId(1);
-        let origin = RawOrigin::Root;
         let from_origin = RawOrigin::Signed(from.account.clone());
         let to_origin = RawOrigin::Signed(to.account.clone());
-        
+
         Module::<T>::affirm_instruction((to_origin.clone()).into(), instruction_id, portfolios_to, (legs_count / 2).into()).expect("Settlement: Failed to affirm instruction");
         // Create trusted issuer for both the ticker
         let t_issuer = UserBuilder::<T>::default().generate_did().build("TrustedClaimIssuer");
@@ -971,7 +977,14 @@ benchmarks! {
             compliance_setup::<T>(c, ticker, from_origin.clone(), from.did, to.did, trusted_issuer.clone());
             add_transfer_conditions::<T>(ticker, from_origin.clone(), from.did, MAX_CONDITIONS);
         }
-    }: _(origin, instruction_id, l, portfolios_from)
+    }: _(from_origin, instruction_id, l, Some(portfolios_from[0]))
+    verify {
+        // Assert that any one leg processed through that give sufficient evidence of successful execution of instruction.
+        let after_transfer_balance = PortfolioAssetBalances::get(first_leg.from, first_leg.asset);
+        let traded_amount = before_transfer_balance - after_transfer_balance;
+        let expected_transfer_amount = first_leg.amount;
+        assert_eq!(traded_amount, expected_transfer_amount,"Settlement: Failed to execute the instruction");
+    }
 }
 
 pub fn next_block<T: Config + pallet_scheduler::Config>() {

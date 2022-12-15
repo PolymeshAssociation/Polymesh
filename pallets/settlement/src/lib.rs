@@ -483,6 +483,8 @@ decl_error! {
         SignerDoesNotExist,
         /// Instruction leg amount can't be zero
         ZeroAmount,
+        /// Instruction settlement block has not yet been reached.
+        InstructionSettleBlockNotReached,
     }
 }
 
@@ -1008,7 +1010,7 @@ decl_module! {
         /// # Errors
         /// * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
         #[weight = <T as Config>::WeightInfo::execute_manual_instruction(*legs_count)]
-        pub fn execute_manual_settlement(origin, id: InstructionId, legs_count: u32, portfolio: Option<PortfolioId>) {
+        pub fn execute_manual_instruction(origin, id: InstructionId, legs_count: u32, portfolio: Option<PortfolioId>) {
             // check origin has the permissions required and valid instruction
             let (did, sk, instruction_details) = Self::ensure_origin_perm_and_instruction_validity(origin, id, true)?;
 
@@ -1256,13 +1258,15 @@ impl<T: Config> Module<T> {
         );
 
         match (details.settlement_type, is_execute) {
+            // is_execute is true for execution
             (SettlementType::SettleOnBlock(block_number), true) => {
                 // Ensures block number is less than or equal to current block number.
                 ensure!(
                     block_number <= System::<T>::block_number(),
-                    Error::<T>::InstructionSettleBlockPassed
+                    Error::<T>::InstructionSettleBlockNotReached
                 );
             }
+            // is_execute is false for affirmation
             (SettlementType::SettleOnBlock(block_number), false) => {
                 // Ensures block number is greater than current block number.
                 ensure!(
@@ -1270,11 +1274,11 @@ impl<T: Config> Module<T> {
                     Error::<T>::InstructionSettleBlockPassed
                 );
             }
-            (SettlementType::SettleManual(block_number), _) => {
+            (SettlementType::SettleManual(block_number), true) => {
                 // Ensures block number is less than  or equal to current block number.
                 ensure!(
                     block_number <= System::<T>::block_number(),
-                    Error::<T>::InstructionSettleBlockPassed
+                    Error::<T>::InstructionSettleBlockNotReached
                 );
             }
             (_, _) => {}
