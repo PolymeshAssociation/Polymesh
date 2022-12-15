@@ -27,4 +27,4 @@ sp-std = {version = "4.0.0", default_features = false }
 sp-api = {version = "4.0.0-dev", default_features = false }
 
 [dev-dependencies]
-substrate-test-runtime-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-1"}
+substrate-test-runtime-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2"}
