@@ -1,4 +1,5 @@
 use super::{
+    asset_test::set_timestamp,
     next_block,
     storage::{
         add_secondary_key, get_last_auth_id, get_primary_key, get_secondary_keys,
@@ -1036,7 +1037,7 @@ fn expired_proposals() {
         );
 
         // Approval fails when proposal has expired
-        Timestamp::set_timestamp(expires_at);
+        set_timestamp(expires_at);
         set_curr_did(Some(charlie_did));
         assert_noop!(
             MultiSig::approve_as_identity(charlie.clone(), ms_address.clone(), proposal_id),
@@ -1051,7 +1052,7 @@ fn expired_proposals() {
         );
 
         // Approval works when time is expiry - 1
-        Timestamp::set_timestamp(expires_at - 1);
+        set_timestamp(expires_at - 1);
         assert_ok!(MultiSig::approve_as_identity(
             charlie.clone(),
             ms_address.clone(),

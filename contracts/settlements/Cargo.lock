@@ -1845,7 +1845,7 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
 name = "polymesh-api"
-version = "0.3.5"
+version = "0.3.6"
 dependencies = [
  "ink_env",
  "ink_lang",
@@ -1909,7 +1909,7 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-codegen-macro"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "darling",
  "parity-scale-codec",
@@ -2186,21 +2186,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc874b127765f014d792f16763a81245ab80500e2ad921ed4ee9e82481ee08fe"
 
 [[package]]
-name = "runtime-tester"
-version = "3.0.0"
-dependencies = [
- "ink_env",
- "ink_lang",
- "ink_lang_codegen",
- "ink_metadata",
- "ink_primitives",
- "ink_storage",
- "parity-scale-codec",
- "polymesh-api",
- "scale-info",
-]
-
-[[package]]
 name = "rustc-demangle"
 version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2428,6 +2413,21 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "settlements"
+version = "3.0.0"
+dependencies = [
+ "ink_env",
+ "ink_lang",
+ "ink_lang_codegen",
+ "ink_metadata",
+ "ink_primitives",
+ "ink_storage",
+ "parity-scale-codec",
+ "polymesh-api",
+ "scale-info",
 ]
 
 [[package]]

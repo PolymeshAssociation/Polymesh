@@ -5,7 +5,7 @@ function run_tests() {
     LLVM_PROFILE_FILE="json5format-%m.profraw" \
     SKIP_WASM_BUILD=1 RUST_BACKTRACE=1 \
     INTEGRATION_TEST=1 \
-    cargo +nightly-2022-09-15 test --tests \
+    cargo +nightly-2022-11-02 test --tests \
         --package pallet-staking \
         --package pallet-group \
         --package pallet-sudo \
@@ -32,10 +32,10 @@ function get_tests_filenames() {
 
 run_tests
 
-cargo +nightly-2022-09-15 profdata -- merge -sparse $(find . -name 'json5format-*.profraw') -o json5format.profdata
+cargo +nightly-2022-11-02 profdata -- merge -sparse $(find . -name 'json5format-*.profraw') -o json5format.profdata
 
 if [[ -v CIRCLECI ]]; then
-    cargo +nightly-2022-09-15 cov -- export \
+    cargo +nightly-2022-11-02 cov -- export \
     $( get_tests_filenames ) \
     --format='lcov' \
     --instr-profile=json5format.profdata \
@@ -50,7 +50,7 @@ if [[ -v CIRCLECI ]]; then
 
     bash <(curl -s https://codecov.io/bash)
 else
-    cargo +nightly-2022-09-15 cov -- report \
+    cargo +nightly-2022-11-02 cov -- report \
     $( get_tests_filenames ) \
     --instr-profile=json5format.profdata \
     --use-color \
