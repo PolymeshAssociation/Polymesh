@@ -2628,12 +2628,7 @@ fn settle_manual_instruction() {
         );
         // Ensure correct error message when wrong number of legs is given
         assert_noop!(
-            Settlement::execute_manual_instruction(
-                alice.origin(),
-                instruction_id,
-                legs.len().saturating_add(10) as u32,
-                None
-            ),
+            Settlement::execute_manual_instruction(alice.origin(), instruction_id, 0u32, None),
             Error::LegCountTooSmall
         );
         // Ensure it succeeds as the execute block was reached
@@ -2657,6 +2652,8 @@ fn settle_manual_instruction_with_portfolio() {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
         let alice_portfolio = PortfolioId::default_portfolio(alice.did);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let charlie = UserWithBalance::new(AccountKeyring::Charlie, &[TICKER]);
+        let charlie_portfolio = PortfolioId::default_portfolio(charlie.did);
         let venue_counter = create_token_and_venue(TICKER, alice.user);
         let instruction_id = Settlement::instruction_counter();
         let block_number = System::block_number() + 1;
@@ -2701,12 +2698,22 @@ fn settle_manual_instruction_with_portfolio() {
             Error::InstructionSettleBlockNotReached
         );
         next_block();
+        // Ensure correct error is shown when non party member tries to execute function
+        assert_noop!(
+            Settlement::execute_manual_instruction(
+                charlie.origin(),
+                instruction_id,
+                legs.len() as u32,
+                Some(charlie_portfolio)
+            ),
+            Error::UnauthorizedSigner
+        );
         // Ensure correct error message when wrong number of legs is given
         assert_noop!(
             Settlement::execute_manual_instruction(
                 alice.origin(),
                 instruction_id,
-                legs.len().saturating_add(10) as u32,
+                0u32,
                 Some(alice_portfolio)
             ),
             Error::LegCountTooSmall

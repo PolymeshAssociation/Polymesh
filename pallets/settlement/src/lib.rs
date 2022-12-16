@@ -1032,7 +1032,7 @@ decl_module! {
             }
 
             // check that the instruction leg count matches
-            ensure!(InstructionLegs::iter_prefix(id).count() as u32 == legs_count, Error::<T>::LegCountTooSmall);
+            ensure!(InstructionLegs::iter_prefix(id).count() as u32 <= legs_count, Error::<T>::LegCountTooSmall);
 
             // Executes the instruction
             Self::execute_instruction_retryable(id)?;
