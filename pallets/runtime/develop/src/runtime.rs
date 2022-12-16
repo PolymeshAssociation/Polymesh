@@ -500,7 +500,6 @@ polymesh_runtime_common::runtime_apis! {
             list_benchmark!(list, extra, pallet_capital_distribution, CapitalDistribution);
             list_benchmark!(list, extra, pallet_external_agents, ExternalAgents);
             list_benchmark!(list, extra, pallet_relayer, Relayer);
-            list_benchmark!(list, extra, pallet_rewards, Rewards);
             list_benchmark!(list, extra, pallet_committee, PolymeshCommittee);
             list_benchmark!(list, extra, pallet_utility, Utility);
             list_benchmark!(list, extra, pallet_treasury, Treasury);
