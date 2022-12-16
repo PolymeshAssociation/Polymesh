@@ -35,15 +35,11 @@
 use codec::{Decode, Encode};
 use frame_support::dispatch::Weight;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
-    dispatch::DispatchResult,
-    ensure
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
 use frame_system::{ensure_root, ensure_signed};
 use pallet_staking::{self as staking};
-use polymesh_common_utilities::{
-    traits::identity::Config as IdentityConfig
-};
+use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
 use polymesh_primitives::Balance;
 use scale_info::TypeInfo;
 use sp_std::{convert::TryInto, prelude::*};
