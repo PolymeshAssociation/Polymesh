@@ -44,9 +44,6 @@ use polymesh_primitives::Balance;
 use scale_info::TypeInfo;
 use sp_std::{convert::TryInto, prelude::*};
 
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benchmarking;
-
 pub trait Config: frame_system::Config + IdentityConfig + staking::Config {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -111,10 +108,9 @@ decl_module! {
 
         // Remove all storage for this module
         fn on_runtime_upgrade() -> Weight {
-            use frame_support::sp_io::hashing;
             sp_runtime::runtime_logger::RuntimeLogger::init();
             log::info!(" >>> Removing reward pallet storage");
-            let reward_prefix = hashing::twox_128(b"Rewards");
+            let reward_prefix = <ItnRewards<T>>::module_prefix();
             let _ = frame_support::storage::unhashed::kill_prefix(&reward_prefix, None);
             log::info!(" >>> Reward pallet storage removed");
             1_000
