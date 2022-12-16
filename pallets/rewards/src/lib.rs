@@ -37,35 +37,19 @@ use frame_support::dispatch::Weight;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
-    ensure,
-    traits::{Currency, ExistenceRequirement},
-    unsigned::TransactionSource,
-    unsigned::TransactionValidity,
+    ensure
 };
-use frame_system::{ensure_root, ensure_signed, RawOrigin};
-use pallet_staking::{self as staking, RewardDestination};
+use frame_system::{ensure_root, ensure_signed};
+use pallet_staking::{self as staking};
 use polymesh_common_utilities::{
-    constants::{currency::ONE_POLY, REWARDS_PALLET_ID},
-    traits::identity::Config as IdentityConfig,
-    with_transaction,
+    traits::identity::Config as IdentityConfig
 };
 use polymesh_primitives::Balance;
 use scale_info::TypeInfo;
-use sp_runtime::transaction_validity::{InvalidTransaction, TransactionLongevity};
-use sp_runtime::{
-    traits::{AccountIdConversion, StaticLookup, Verify},
-    transaction_validity::ValidTransaction,
-    DispatchError,
-};
-use sp_std::{convert::TryInto, prelude::*, vec};
+use sp_std::{convert::TryInto, prelude::*};
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-
-type Staking<T> = staking::Module<T>;
-type BalanceOf<T> = <<T as pallet_staking::Config>::Currency as Currency<
-    <T as frame_system::Config>::AccountId,
->>::Balance;
 
 pub trait Config: frame_system::Config + IdentityConfig + staking::Config {
     /// The overarching event type.
@@ -107,7 +91,7 @@ decl_storage! {
     }
     add_extra_genesis {
         config(itn_rewards): Vec<(T::AccountId, Balance)>;
-        build(|config: &GenesisConfig<T>| {
+        build(|_config: &GenesisConfig<T>| {
             // Do nothing
         });
     }
@@ -154,7 +138,7 @@ decl_module! {
         /// * `ItnRewardAlreadyClaimed` - Reward issued to the `itn_address` has already been claimed.
         /// * `UnknownItnAddress` - `itn_address` is not in the rewards table and has no reward to be claimed.
         #[weight = <T as Config>::WeightInfo::claim_itn_reward()]
-        pub fn claim_itn_reward(origin, reward_address: T::AccountId, itn_address: T::AccountId, signature: T::OffChainSignature) -> DispatchResult {
+        pub fn claim_itn_reward(origin, _reward_address: T::AccountId, _itn_address: T::AccountId, _signature: T::OffChainSignature) -> DispatchResult {
             ensure_signed(origin)?;
             ensure!(false, Error::<T>::UnknownItnAddress);
             Ok(())
@@ -162,7 +146,7 @@ decl_module! {
         }
 
         #[weight = <T as Config>::WeightInfo::set_itn_reward_status()]
-        pub fn set_itn_reward_status(origin, itn_address: T::AccountId, status: ItnRewardStatus) -> DispatchResult {
+        pub fn set_itn_reward_status(origin, _itn_address: T::AccountId, _status: ItnRewardStatus) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(false, Error::<T>::UnknownItnAddress);
             Ok(())
