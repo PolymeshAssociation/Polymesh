@@ -2198,7 +2198,7 @@ fn reject_instruction() {
         // Try rejecting the instruction from a non-party account.
         assert_noop!(
             reject_instruction(&charlie, instruction_id),
-            Error::UnauthorizedSigner
+            Error::CallerIsNotAParty
         );
         next_block();
         assert_ok!(reject_instruction(&alice, instruction_id,));
@@ -2706,7 +2706,7 @@ fn settle_manual_instruction_with_portfolio() {
                 legs.len() as u32,
                 Some(charlie_portfolio)
             ),
-            Error::UnauthorizedSigner
+            Error::CallerIsNotAParty
         );
         // Ensure correct error message when wrong number of legs is given
         assert_noop!(

@@ -485,6 +485,8 @@ decl_error! {
         ZeroAmount,
         /// Instruction settlement block has not yet been reached.
         InstructionSettleBlockNotReached,
+        /// The caller is not a party of this instruction.
+        CallerIsNotAParty
     }
 }
 
@@ -744,11 +746,11 @@ decl_module! {
                 Error::<T>::LegCountTooSmall
             );
 
-            // Ensure that the sender is a party of this instruction.
+            // Ensure that the caller is a party of this instruction.
             T::Portfolio::ensure_portfolio_custody_and_permission(portfolio, primary_did, secondary_key.as_ref())?;
             ensure!(
                 legs.iter().any(|(_, leg)| [leg.from, leg.to].contains(&portfolio)),
-                Error::<T>::UnauthorizedSigner
+                Error::<T>::CallerIsNotAParty
             );
 
             Self::unsafe_unclaim_receipts(id, &legs);
@@ -1017,12 +1019,12 @@ decl_module! {
             // Check for portfolio
             match portfolio {
                 Some(portfolio) => {
-                    // Ensure that the sender is a party of this instruction.
+                    // Ensure that the caller is a party of this instruction.
                     T::Portfolio::ensure_portfolio_custody_and_permission(portfolio, did, sk.as_ref())?;
                     let mut legs = InstructionLegs::iter_prefix(id);
                     ensure!(
                         legs.any(|(_, leg)| [leg.from, leg.to].contains(&portfolio)),
-                        Error::<T>::UnauthorizedSigner
+                        Error::<T>::CallerIsNotAParty
                     );
                 }
                 None => {
