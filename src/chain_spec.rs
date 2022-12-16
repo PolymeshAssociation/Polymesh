@@ -594,6 +594,14 @@ macro_rules! rewards {
     };
 }
 
+macro_rules! polymesh_contracts {
+    () => {
+        polymesh_contracts::GenesisConfig {
+            call_whitelist: contracts_call_whitelist(),
+        }
+    };
+}
+
 #[allow(unreachable_code)]
 fn itn_rewards() -> Vec<(AccountId, Balance)> {
     #[cfg(feature = "runtime-benchmarks")]
@@ -605,6 +613,12 @@ fn itn_rewards() -> Vec<(AccountId, Balance)> {
         .into_iter()
         .map(|(acc, bal)| (acc.0.into(), bal))
         .collect()
+}
+
+fn contracts_call_whitelist() -> Vec<polymesh_contracts::ExtrinsicId> {
+    let whitelist_file = include_str!("data/contracts_call_whitelist.json");
+    serde_json::from_str::<Vec<polymesh_contracts::ExtrinsicId>>(&whitelist_file)
+        .expect("Failed to read contracts call whitelist")
 }
 
 #[cfg(not(feature = "ci-runtime"))]
@@ -692,6 +706,7 @@ pub mod general {
             },
             corporate_action: corporate_actions!(),
             rewards: rewards!(),
+            polymesh_contracts: polymesh_contracts!(),
         }
     }
 
@@ -859,6 +874,7 @@ pub mod testnet {
             },
             corporate_action: corporate_actions!(),
             rewards: rewards!(),
+            polymesh_contracts: polymesh_contracts!(),
         }
     }
 
@@ -1057,6 +1073,7 @@ pub mod mainnet {
             },
             corporate_action: corporate_actions!(),
             rewards: rewards!(),
+            polymesh_contracts: polymesh_contracts!(),
         }
     }
 
@@ -1256,6 +1273,7 @@ pub mod general {
             },
             corporate_action: corporate_actions!(),
             rewards: rewards!(),
+            polymesh_contracts: polymesh_contracts!(),
         }
     }
 

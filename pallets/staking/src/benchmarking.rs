@@ -28,11 +28,15 @@ use polymesh_common_utilities::{
     TestUtilsFn,
 };
 use sp_runtime::traits::One;
+use polymesh_primitives::{
+    Permissions,
+};
 const SEED: u32 = 0;
 const MAX_SPANS: u32 = 100;
 const MAX_VALIDATORS: u32 = 1000;
 const MAX_SLASHES: u32 = 1000;
 const INIT_BALANCE: u32 = 10_000_000;
+const MAX_STASHES: u32 = 100;
 
 macro_rules! whitelist_account {
     ($acc:expr) => {
@@ -749,6 +753,50 @@ benchmarks! {
     }: _(RawOrigin::Root, Percent::from_percent(25))
     verify {
         assert_eq!(Staking::<T>::validator_count(), 12);
+    }
+
+    chill_from_governance {
+        let s in 1 .. MAX_STASHES;
+        let validator = create_funded_user::<T>("caller", 2, 10000);
+        let validator_did = validator.did();
+        let mut signatories = Vec::with_capacity(s as usize);
+
+        // Increases the maximum number of validators
+        emulate_validator_setup::<T>(1, 1000, Perbill::from_percent(60));
+        assert_eq!(Staking::<T>::validator_count(), 1000);
+
+        // Add validator
+        Staking::<T>::add_permissioned_validator(RawOrigin::Root.into(), validator_did, Some(MAX_STASHES))
+        .expect("Failed to add permissioned validator");
+        whitelist_account!(validator);
+
+        for x in 0 .. s {
+            // Create stash key
+            let key = create_funded_user_without_did::<T>("stash", x, 10000);
+            // Add key to signatories vec
+            signatories.push(key.account.clone());
+            // Add key as secondary key to validator_did
+            Identity::<T>::unsafe_join_identity(validator_did, Permissions::default(), key.account.clone());
+            // Use key to bond
+            Staking::<T>::bond(key.origin().into(), key.lookup(), 2_000_000u32.into(), RewardDestination::Staked).expect("Bond failed.");
+            // Create ValidatorPrefs
+            let validator_prefs = ValidatorPrefs {
+                commission: Perbill::from_percent(50),
+                ..Default::default()
+            };
+
+            whitelist_account!(key);
+            // Use stash key to validate
+            Staking::<T>::validate(key.origin().into(), validator_prefs).expect("Validate fails");
+            // Checks that the stash key is in validators storage
+            assert_eq!(<Validators<T>>::contains_key(&key.account), true);
+        }    
+    }: _(RawOrigin::Root, validator_did, signatories.clone())
+    verify {
+        for key in signatories {
+            // Checks that the stash key has been removed from storage
+            assert_eq!(<Validators<T>>::contains_key(&key), false);
+        }
     }
 }
 
