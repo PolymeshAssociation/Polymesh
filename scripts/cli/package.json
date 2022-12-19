@@ -42,7 +42,6 @@
     "14_investment": "jest --runInBand 14_investment",
     "15_portfolio": "jest --runInBand 15_portfolio",
     "16_relayer": "jest --runInBand 16_relayer",
-    "17_itn_rewards": "jest --runInBand 17_itn_rewards",
     "schema_test": "./util/schema_test.sh",
     "offchain_worker_test": "node ./dist/util/offchain_worker_test.js",
     "polyx_balances": "node ./util/userBalancePOLYX.js",

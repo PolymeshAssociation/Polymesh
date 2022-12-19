@@ -30,7 +30,6 @@ mod pips_test;
 mod portfolio;
 mod protocol_fee;
 mod relayer_test;
-mod rewards_test;
 mod settlement_test;
 mod signed_extra;
 mod staking;
