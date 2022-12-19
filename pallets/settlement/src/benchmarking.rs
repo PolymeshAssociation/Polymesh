@@ -134,10 +134,10 @@ fn setup_leg_and_portfolio<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     legs.push(Leg {
         from: portfolio_from,
         to: portfolio_to,
-        asset_type: LegAssetType::Fungible {
+        assets: vec![LegAsset::Fungible {
             ticker,
             amount: 100,
-        },
+        }],
     });
     receiver_portfolios.push(portfolio_to);
     sender_portfolios.push(portfolio_from);
@@ -176,10 +176,10 @@ fn populate_legs_for_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     legs.push(Leg {
         from: generate_portfolio::<T>("from_did", index + 500, None),
         to: generate_portfolio::<T>("to_did", index + 800, None),
-        asset_type: LegAssetType::Fungible {
+        assets: vec![LegAsset::Fungible {
             ticker: Ticker::generate_into(index.into()),
             amount: 100,
-        },
+        }],
     });
 }
 
@@ -296,15 +296,15 @@ fn emulate_portfolios<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     legs.push(Leg {
         from: sender_portfolio,
         to: receiver_portfolio,
-        asset_type: LegAssetType::Fungible {
+        assets: vec![LegAsset::Fungible {
             ticker,
             amount: transacted_amount,
-        },
+        }],
     })
 }
 
 // Generate signature.
-fn get_encoded_signature<T: Config>(signer: &User<T>, msg: &Receipt<Balance>) -> Vec<u8> {
+fn get_encoded_signature<T: Config>(signer: &User<T>, msg: &Receipt) -> Vec<u8> {
     let raw_signature: [u8; 64] = signer.sign(&msg.encode()).expect("Data cannot be signed").0;
     let encoded = MultiSignature::from(Signature::from_raw(raw_signature)).encode();
     encoded
@@ -433,13 +433,11 @@ fn create_receipt_details<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     let User {
         account, secret, ..
     } = creator::<T>();
-    let (asset, amount) = leg.asset_and_amount();
     let msg = Receipt {
         receipt_uid: index as u64,
         from: leg.from,
         to: leg.to,
-        asset,
-        amount,
+        assets: leg.assets.clone(),
     };
     let origin = RawOrigin::Signed(account.clone());
     let creator = User {
@@ -822,7 +820,10 @@ benchmarks! {
         // Keep the portfolio asset balance before the instruction execution to verify it later.
         let legs_count: u32 = legs.len().try_into().unwrap();
         let first_leg = legs.into_iter().nth(0).unwrap_or_default();
-        let before_transfer_balance = PortfolioAssetBalances::get(first_leg.from, first_leg.asset_and_amount().0);
+        let before_transfer_balance = PortfolioAssetBalances::get(
+            first_leg.from,
+            Ticker::default()
+        );
         // It always be one as no other instruction is already scheduled.
         let instruction_id = InstructionId(1);
         let origin = RawOrigin::Root;
@@ -843,7 +844,7 @@ benchmarks! {
     }: _(origin, instruction_id, l)
     verify {
         // Assert that any one leg processed through that give sufficient evidence of successful execution of instruction.
-        let (asset, amount) = first_leg.asset_and_amount();
+        let (asset, amount) = (Ticker::default(), Balance::default());
         let after_transfer_balance = PortfolioAssetBalances::get(first_leg.from, asset);
         let traded_amount = before_transfer_balance - after_transfer_balance;
         let expected_transfer_amount = amount;

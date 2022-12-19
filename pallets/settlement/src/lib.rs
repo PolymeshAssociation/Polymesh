@@ -260,16 +260,25 @@ pub struct Instruction<Moment, BlockNumber> {
 /// Type of asset that can be transferred in a `Leg`.
 #[derive(Decode, Encode, TypeInfo)]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum LegAssetType {
+pub enum LegAsset {
     Fungible { ticker: Ticker, amount: Balance },
     NonFungible(NFT),
 }
 
-impl Default for LegAssetType {
+impl Default for LegAsset {
     fn default() -> Self {
-        LegAssetType::Fungible {
+        LegAsset::Fungible {
             ticker: Ticker::default(),
             amount: Balance::default(),
+        }
+    }
+}
+
+impl LegAsset {
+    pub fn ticker_and_amount(&self) -> (Ticker, Balance) {
+        match self {
+            LegAsset::Fungible { ticker, amount } => (*ticker, *amount),
+            LegAsset::NonFungible(nft) => (*nft.ticker(), nft.amount()),
         }
     }
 }
@@ -283,17 +292,7 @@ pub struct Leg {
     /// Portfolio of the receiver.
     pub to: PortfolioId,
     /// Type of asset being transferred.
-    pub asset_type: LegAssetType,
-}
-
-impl Leg {
-    /// Returns the asset and the amount being transferred.
-    pub fn asset_and_amount(&self) -> (Ticker, Balance) {
-        match &self.asset_type {
-            LegAssetType::Fungible { ticker, amount } => (*ticker, *amount),
-            LegAssetType::NonFungible(nft) => (*nft.ticker(), nft.amount()),
-        }
-    }
+    pub assets: Vec<LegAsset>,
 }
 
 /// Details about a venue.
@@ -306,19 +305,17 @@ pub struct Venue {
     pub venue_type: VenueType,
 }
 
-/// Details about an offchain transaction receipt
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct Receipt<Balance> {
-    /// Unique receipt number set by the signer for their receipts
+/// Details about an offchain transaction receipt.
+#[derive(Clone, Debug, Decode, Encode, Eq, PartialEq)]
+pub struct Receipt {
+    /// Unique receipt number set by the signer for their receipts.
     pub receipt_uid: u64,
-    /// Identity of the sender
+    /// Identity of the sender.
     pub from: PortfolioId,
-    /// Identity of the receiver
+    /// Identity of the receiver.
     pub to: PortfolioId,
-    /// Ticker of the asset being transferred
-    pub asset: Ticker,
-    /// Amount being transferred
-    pub amount: Balance,
+    /// Ticker and amount of the assets being transferred.
+    pub assets: Vec<LegAsset>,
 }
 
 /// A wrapper for VenueDetails
@@ -1026,13 +1023,19 @@ decl_module! {
 
 impl<T: Config> Module<T> {
     fn lock_via_leg(leg: &Leg) -> DispatchResult {
-        let (asset, amount) = leg.asset_and_amount();
-        T::Portfolio::lock_tokens(&leg.from, &asset, amount)
+        for asset in &leg.assets {
+            let (ticker, amount) = asset.ticker_and_amount();
+            T::Portfolio::lock_tokens(&leg.from, &ticker, amount)?;
+        }
+        Ok(())
     }
 
     fn unlock_via_leg(leg: &Leg) -> DispatchResult {
-        let (asset, amount) = leg.asset_and_amount();
-        T::Portfolio::unlock_tokens(&leg.from, &asset, amount)
+        for asset in &leg.assets {
+            let (ticker, amount) = asset.ticker_and_amount();
+            T::Portfolio::unlock_tokens(&leg.from, &ticker, amount)?;
+        }
+        Ok(())
     }
 
     /// Ensure origin call permission and the given instruction validity.
@@ -1094,15 +1097,17 @@ impl<T: Config> Module<T> {
             ensure!(leg.from != leg.to, Error::<T>::SameSenderReceiver);
             // Check if the venue is part of the token's list of allowed venues.
             // Only check each ticker once.
-            let (asset, amount) = leg.asset_and_amount();
-            if tickers.insert(asset) && Self::venue_filtering(asset) {
-                ensure!(
-                    Self::venue_allow_list(asset, venue_id),
-                    Error::<T>::UnauthorizedVenue
-                );
+            for asset in &leg.assets {
+                let (ticker, amount) = asset.ticker_and_amount();
+                if tickers.insert(ticker) && Self::venue_filtering(ticker) {
+                    ensure!(
+                        Self::venue_allow_list(ticker, venue_id),
+                        Error::<T>::UnauthorizedVenue
+                    );
+                }
+                ensure!(amount != 0, Error::<T>::ZeroAmount);
             }
 
-            ensure!(amount != 0, Error::<T>::ZeroAmount);
             counter_parties.insert(leg.from);
             counter_parties.insert(leg.to);
         }
@@ -1260,8 +1265,8 @@ impl<T: Config> Module<T> {
             Error::<T>::InstructionFailed
         );
 
+        // Verifies that the instruction is not in a Failed or in an Unknown state
         let details = Self::instruction_details(instruction_id);
-        // Verifies that the instriction is not in a Failed or in an Unknown state
         ensure!(
             details.status == InstructionStatus::Pending,
             Error::<T>::InstructionNotPending
@@ -1280,18 +1285,20 @@ impl<T: Config> Module<T> {
         // The tickers set ensures that each ticker is only checked once
         let mut tickers: BTreeSet<Ticker> = BTreeSet::new();
         for (_, leg) in &instruction_legs {
-            let ticker = leg.asset_and_amount().0;
+            for asset in &leg.assets {
+                let ticker = asset.ticker_and_amount().0;
 
-            if tickers.insert(ticker)
-                && Self::venue_filtering(ticker)
-                && !Self::venue_allow_list(ticker, details.venue_id)
-            {
-                Self::deposit_event(RawEvent::VenueUnauthorized(
-                    SettlementDID.as_id(),
-                    ticker,
-                    details.venue_id,
-                ));
-                return Err(Error::<T>::UnauthorizedVenue.into());
+                if tickers.insert(ticker)
+                    && Self::venue_filtering(ticker)
+                    && !Self::venue_allow_list(ticker, details.venue_id)
+                {
+                    Self::deposit_event(RawEvent::VenueUnauthorized(
+                        SettlementDID.as_id(),
+                        ticker,
+                        details.venue_id,
+                    ));
+                    return Err(Error::<T>::UnauthorizedVenue.into());
+                }
             }
         }
 
@@ -1330,9 +1337,11 @@ impl<T: Config> Module<T> {
         Self::unchecked_release_locks(instruction_id, instruction_legs);
         for (leg_id, leg) in instruction_legs {
             if Self::instruction_leg_status(instruction_id, leg_id) == LegStatus::ExecutionPending {
-                let (asset, amount) = leg.asset_and_amount();
-                if <Asset<T>>::base_transfer(leg.from, leg.to, &asset, amount).is_err() {
-                    return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
+                for asset in &leg.assets {
+                    let (ticker, amount) = asset.ticker_and_amount();
+                    if <Asset<T>>::base_transfer(leg.from, leg.to, &ticker, amount).is_err() {
+                        return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
+                    }
                 }
             }
         }
@@ -1430,13 +1439,11 @@ impl<T: Config> Module<T> {
 
         T::Portfolio::ensure_portfolio_custody_and_permission(leg.from, did, secondary_key)?;
 
-        let (asset, amount) = leg.asset_and_amount();
         let msg = Receipt {
             receipt_uid: receipt_details.receipt_uid,
             from: leg.from,
             to: leg.to,
-            asset,
-            amount,
+            assets: leg.assets.clone(),
         };
 
         ensure!(
@@ -1583,13 +1590,11 @@ impl<T: Config> Module<T> {
                 Error::<T>::PortfolioMismatch
             );
 
-            let (asset, amount) = leg.asset_and_amount();
             let msg = Receipt {
                 receipt_uid: receipt.receipt_uid,
                 from: leg.from,
                 to: leg.to,
-                asset,
-                amount,
+                assets: leg.assets.clone(),
             };
             ensure!(
                 receipt.signature.verify(&msg.encode()[..], &receipt.signer),

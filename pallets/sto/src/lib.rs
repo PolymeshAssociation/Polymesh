@@ -33,7 +33,7 @@ use frame_support::{
 use pallet_base::try_next_post;
 use pallet_identity::PermissionedCallOriginData;
 use pallet_settlement::{
-    Leg, LegAssetType, ReceiptDetails, SettlementType, VenueId, VenueInfo, VenueType,
+    Leg, LegAsset, ReceiptDetails, SettlementType, VenueId, VenueInfo, VenueType,
 };
 use polymesh_common_utilities::{
     portfolio::PortfolioSubTrait,
@@ -458,13 +458,13 @@ decl_module! {
                 Leg {
                     from: fundraiser.offering_portfolio,
                     to: investment_portfolio,
-                    asset_type: LegAssetType::Fungible { ticker: fundraiser.offering_asset, amount: purchase_amount }
+                    assets: vec![LegAsset::Fungible { ticker: fundraiser.offering_asset, amount: purchase_amount }]
 
                 },
                 Leg {
                     from: funding_portfolio,
                     to: fundraiser.raising_portfolio,
-                    asset_type: LegAssetType::Fungible { ticker: fundraiser.raising_asset, amount: purchase_amount }
+                    assets: vec![LegAsset::Fungible { ticker: fundraiser.raising_asset, amount: purchase_amount }]
                 }
             ];
 
