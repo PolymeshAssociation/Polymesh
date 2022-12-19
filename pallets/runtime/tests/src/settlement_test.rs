@@ -16,9 +16,9 @@ use pallet_identity as identity;
 use pallet_portfolio::MovePortfolioItem;
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
-    AffirmationStatus, Instruction, InstructionId, InstructionMemo, InstructionStatus, Leg, LegId,
-    LegStatus, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails, VenueId,
-    VenueInstructions, VenueType,
+    AffirmationStatus, Instruction, InstructionId, InstructionMemo, InstructionStatus, Leg,
+    LegAssetType, LegId, LegStatus, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType,
+    VenueDetails, VenueId, VenueInstructions, VenueType,
 };
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
@@ -316,8 +316,10 @@ fn basic_settlement() {
             vec![Leg {
                 from: PortfolioId::default_portfolio(alice.did),
                 to: PortfolioId::default_portfolio(bob.did),
-                asset: TICKER,
-                amount: amount
+                asset_type: LegAssetType::Fungible {
+                    ticker: TICKER,
+                    amount
+                }
             }],
         ));
         alice.assert_all_balances_unchanged();
@@ -362,8 +364,10 @@ fn create_and_affirm_instruction() {
                 vec![Leg {
                     from: PortfolioId::default_portfolio(alice.did),
                     to: PortfolioId::default_portfolio(bob.did),
-                    asset: TICKER,
-                    amount,
+                    asset_type: LegAssetType::Fungible {
+                        ticker: TICKER,
+                        amount,
+                    },
                 }],
                 affirm_from_portfolio,
             )
@@ -414,8 +418,10 @@ fn overdraft_failure() {
             vec![Leg {
                 from: PortfolioId::default_portfolio(alice.did),
                 to: PortfolioId::default_portfolio(bob.did),
-                asset: TICKER,
-                amount: amount
+                asset_type: LegAssetType::Fungible {
+                    ticker: TICKER,
+                    amount
+                }
             }],
         ));
         alice.assert_all_balances_unchanged();
@@ -450,14 +456,18 @@ fn token_swap() {
             Leg {
                 from: PortfolioId::default_portfolio(alice.did),
                 to: PortfolioId::default_portfolio(bob.did),
-                asset: TICKER,
-                amount,
+                asset_type: LegAssetType::Fungible {
+                    ticker: TICKER,
+                    amount,
+                },
             },
             Leg {
                 from: PortfolioId::default_portfolio(bob.did),
                 to: PortfolioId::default_portfolio(alice.did),
-                asset: TICKER2,
-                amount,
+                asset_type: LegAssetType::Fungible {
+                    ticker: TICKER2,
+                    amount,
+                },
             },
         ];
 
@@ -581,14 +591,18 @@ fn claiming_receipt() {
             Leg {
                 from: PortfolioId::default_portfolio(alice.did),
                 to: PortfolioId::default_portfolio(bob.did),
-                asset: TICKER,
-                amount,
+                asset_type: LegAssetType::Fungible {
+                    ticker: TICKER,
+                    amount,
+                },
             },
             Leg {
                 from: PortfolioId::default_portfolio(bob.did),
                 to: PortfolioId::default_portfolio(alice.did),
-                asset: TICKER2,
-                amount,
+                asset_type: LegAssetType::Fungible {
+                    ticker: TICKER2,
+                    amount,
+                },
             },
         ];
 
@@ -806,14 +820,18 @@ fn settle_on_block() {
             Leg {
                 from: PortfolioId::default_portfolio(alice.did),
                 to: PortfolioId::default_portfolio(bob.did),
-                asset: TICKER,
-                amount,
+                asset_type: LegAssetType::Fungible {
+                    ticker: TICKER,
+                    amount,
+                },
             },
             Leg {
                 from: PortfolioId::default_portfolio(bob.did),
                 to: PortfolioId::default_portfolio(alice.did),
-                asset: TICKER2,
-                amount,
+                asset_type: LegAssetType::Fungible {
+                    ticker: TICKER2,
+                    amount,
+                },
             },
         ];
 
@@ -925,14 +943,18 @@ fn failed_execution() {
             Leg {
                 from: PortfolioId::default_portfolio(alice.did),
                 to: PortfolioId::default_portfolio(bob.did),
-                asset: TICKER,
-                amount,
+                asset_type: LegAssetType::Fungible {
+                    ticker: TICKER,
+                    amount,
+                },
             },
             Leg {
                 from: PortfolioId::default_portfolio(bob.did),
                 to: PortfolioId::default_portfolio(alice.did),
-                asset: TICKER2,
-                amount,
+                asset_type: LegAssetType::Fungible {
+                    ticker: TICKER2,
+                    amount,
+                },
             },
         ];
 
@@ -1060,8 +1082,10 @@ fn venue_filtering() {
         let legs = vec![Leg {
             from: PortfolioId::default_portfolio(alice.did),
             to: PortfolioId::default_portfolio(bob.did),
-            asset: TICKER,
-            amount: 10,
+            asset_type: LegAssetType::Fungible {
+                ticker: TICKER,
+                amount: 10,
+            },
         }];
         assert_ok!(Settlement::add_instruction(
             alice.origin(),
@@ -1245,8 +1269,10 @@ fn basic_fuzzing() {
                         legs.push(Leg {
                             from: PortfolioId::default_portfolio(users[user_id].did),
                             to: PortfolioId::default_portfolio(users[k].did),
-                            asset: tickers[ticker_id * 4 + user_id],
-                            amount: 1,
+                            asset_type: LegAssetType::Fungible {
+                                ticker: tickers[ticker_id * 4 + user_id],
+                                amount: 1,
+                            },
                         });
                         *legs_count.entry(users[user_id].did).or_insert(0) += 1;
                         if legs.len() >= 100 {
@@ -1461,14 +1487,18 @@ fn claim_multiple_receipts_during_authorization() {
             Leg {
                 from: PortfolioId::default_portfolio(alice.did),
                 to: PortfolioId::default_portfolio(bob.did),
-                asset: TICKER,
-                amount,
+                asset_type: LegAssetType::Fungible {
+                    ticker: TICKER,
+                    amount,
+                },
             },
             Leg {
                 from: PortfolioId::default_portfolio(alice.did),
                 to: PortfolioId::default_portfolio(bob.did),
-                asset: TICKER2,
-                amount,
+                asset_type: LegAssetType::Fungible {
+                    ticker: TICKER2,
+                    amount,
+                },
             },
         ];
 
@@ -1600,8 +1630,10 @@ fn overload_instruction() {
             Leg {
                 from: PortfolioId::default_portfolio(alice.did),
                 to: PortfolioId::default_portfolio(bob.did),
-                asset: TICKER,
-                amount: 1u128,
+                asset_type: LegAssetType::Fungible {
+                    ticker: TICKER,
+                    amount: 1u128,
+                }
             };
             leg_limit + 1
         ];
@@ -1744,8 +1776,10 @@ fn test_weights_for_settlement_transaction() {
             let legs = vec![Leg {
                 from: PortfolioId::default_portfolio(alice_did),
                 to: PortfolioId::default_portfolio(bob_did),
-                asset: TICKER,
-                amount: 100u128,
+                asset_type: LegAssetType::Fungible {
+                    ticker: TICKER,
+                    amount: 100,
+                },
             }];
 
             assert_ok!(Settlement::add_instruction(
@@ -1804,8 +1838,10 @@ fn cross_portfolio_settlement() {
             vec![Leg {
                 from: PortfolioId::default_portfolio(alice.did),
                 to: PortfolioId::user_portfolio(bob.did, num),
-                asset: TICKER,
-                amount: amount
+                asset_type: LegAssetType::Fungible {
+                    ticker: TICKER,
+                    amount,
+                }
             }],
         ));
         alice.assert_all_balances_unchanged();
@@ -1885,14 +1921,18 @@ fn multiple_portfolio_settlement() {
                 Leg {
                     from: PortfolioId::user_portfolio(alice.did, alice_num),
                     to: PortfolioId::default_portfolio(bob.did),
-                    asset: TICKER,
-                    amount: amount
+                    asset_type: LegAssetType::Fungible {
+                        ticker: TICKER,
+                        amount: amount,
+                    }
                 },
                 Leg {
                     from: PortfolioId::default_portfolio(alice.did),
                     to: PortfolioId::user_portfolio(bob.did, bob_num),
-                    asset: TICKER,
-                    amount: amount
+                    asset_type: LegAssetType::Fungible {
+                        ticker: TICKER,
+                        amount: amount,
+                    }
                 }
             ],
         ));
@@ -2048,14 +2088,18 @@ fn multiple_custodian_settlement() {
                 Leg {
                     from: PortfolioId::user_portfolio(alice.did, alice_num),
                     to: PortfolioId::default_portfolio(bob.did),
-                    asset: TICKER,
-                    amount: amount
+                    asset_type: LegAssetType::Fungible {
+                        ticker: TICKER,
+                        amount: amount,
+                    }
                 },
                 Leg {
                     from: PortfolioId::default_portfolio(alice.did),
                     to: PortfolioId::user_portfolio(bob.did, bob_num),
-                    asset: TICKER,
-                    amount: amount
+                    asset_type: LegAssetType::Fungible {
+                        ticker: TICKER,
+                        amount: amount,
+                    }
                 }
             ],
         ));
@@ -2249,14 +2293,18 @@ fn dirty_storage_with_tx() {
                 Leg {
                     from: PortfolioId::default_portfolio(alice.did),
                     to: PortfolioId::default_portfolio(bob.did),
-                    asset: TICKER,
-                    amount: amount1
+                    asset_type: LegAssetType::Fungible {
+                        ticker: TICKER,
+                        amount: amount1,
+                    }
                 },
                 Leg {
                     from: PortfolioId::default_portfolio(alice.did),
                     to: PortfolioId::default_portfolio(bob.did),
-                    asset: TICKER,
-                    amount: amount2
+                    asset_type: LegAssetType::Fungible {
+                        ticker: TICKER,
+                        amount: amount2,
+                    }
                 }
             ],
         ));
@@ -2480,8 +2528,10 @@ fn reject_instruction_with_zero_amount() {
                 vec![Leg {
                     from: PortfolioId::default_portfolio(alice.did),
                     to: PortfolioId::default_portfolio(bob.did),
-                    asset: TICKER,
-                    amount: amount
+                    asset_type: LegAssetType::Fungible {
+                        ticker: TICKER,
+                        amount: amount,
+                    }
                 }]
             ),
             Error::ZeroAmount
@@ -2512,8 +2562,10 @@ fn basic_settlement_with_memo() {
             vec![Leg {
                 from: PortfolioId::default_portfolio(alice.did),
                 to: PortfolioId::default_portfolio(bob.did),
-                asset: TICKER,
-                amount: amount
+                asset_type: LegAssetType::Fungible {
+                    ticker: TICKER,
+                    amount: amount,
+                }
             }],
             Some(InstructionMemo::default()),
         ));
@@ -2559,8 +2611,10 @@ fn create_instruction(
         vec![Leg {
             from: PortfolioId::default_portfolio(alice.did),
             to: PortfolioId::default_portfolio(bob.did),
-            asset: ticker,
-            amount
+            asset_type: LegAssetType::Fungible {
+                ticker,
+                amount: amount,
+            }
         }],
         default_portfolio_vec(alice.did),
     ));

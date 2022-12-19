@@ -75,7 +75,8 @@ use polymesh_common_utilities::{
     SystematicIssuers::Settlement as SettlementDID,
 };
 use polymesh_primitives::{
-    impl_checked_inc, storage_migration_ver, Balance, IdentityId, PortfolioId, SecondaryKey, Ticker,
+    impl_checked_inc, nft::NFT, storage_migration_ver, Balance, IdentityId, PortfolioId,
+    SecondaryKey, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
@@ -255,18 +256,43 @@ pub struct Instruction<Moment, BlockNumber> {
     pub value_date: Option<Moment>,
 }
 
+/// Type of asset that can be transferred in a `Leg`.
+#[derive(Decode, Encode, TypeInfo)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum LegAssetType {
+    Fungible { ticker: Ticker, amount: Balance },
+    NonFungible(NFT),
+}
+
+impl Default for LegAssetType {
+    fn default() -> Self {
+        LegAssetType::Fungible {
+            ticker: Ticker::default(),
+            amount: Balance::default(),
+        }
+    }
+}
+
 /// Details of a leg including the leg id in the instruction.
 #[derive(Encode, Decode, TypeInfo)]
-#[derive(Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Leg {
-    /// Portfolio of the sender
+    /// Portfolio of the sender.
     pub from: PortfolioId,
-    /// Portfolio of the receiver
+    /// Portfolio of the receiver.
     pub to: PortfolioId,
-    /// Ticker of the asset being transferred
-    pub asset: Ticker,
-    /// Amount being transferred
-    pub amount: Balance,
+    /// Type of asset being transferred.
+    pub asset_type: LegAssetType,
+}
+
+impl Leg {
+    /// Returns the asset and the amount being transferred.
+    pub fn asset_and_amount(&self) -> (Ticker, Balance) {
+        match &self.asset_type {
+            LegAssetType::Fungible { ticker, amount } => (*ticker, *amount),
+            LegAssetType::NonFungible(nft) => (*nft.ticker(), nft.amount()),
+        }
+    }
 }
 
 /// Details about a venue.
@@ -999,11 +1025,13 @@ decl_module! {
 
 impl<T: Config> Module<T> {
     fn lock_via_leg(leg: &Leg) -> DispatchResult {
-        T::Portfolio::lock_tokens(&leg.from, &leg.asset, leg.amount)
+        let (asset, amount) = leg.asset_and_amount();
+        T::Portfolio::lock_tokens(&leg.from, &asset, amount)
     }
 
     fn unlock_via_leg(leg: &Leg) -> DispatchResult {
-        T::Portfolio::unlock_tokens(&leg.from, &leg.asset, leg.amount)
+        let (asset, amount) = leg.asset_and_amount();
+        T::Portfolio::unlock_tokens(&leg.from, &asset, amount)
     }
 
     /// Ensure origin call permission and the given instruction validity.
@@ -1065,14 +1093,15 @@ impl<T: Config> Module<T> {
             ensure!(leg.from != leg.to, Error::<T>::SameSenderReceiver);
             // Check if the venue is part of the token's list of allowed venues.
             // Only check each ticker once.
-            if tickers.insert(leg.asset) && Self::venue_filtering(leg.asset) {
+            let (asset, amount) = leg.asset_and_amount();
+            if tickers.insert(asset) && Self::venue_filtering(asset) {
                 ensure!(
-                    Self::venue_allow_list(leg.asset, venue_id),
+                    Self::venue_allow_list(asset, venue_id),
                     Error::<T>::UnauthorizedVenue
                 );
             }
 
-            ensure!(leg.amount != 0, Error::<T>::ZeroAmount);
+            ensure!(amount != 0, Error::<T>::ZeroAmount);
             counter_parties.insert(leg.from);
             counter_parties.insert(leg.to);
         }
@@ -1245,7 +1274,7 @@ impl<T: Config> Module<T> {
             return Err(Error::<T>::InstructionFailed.into());
         }
         // Verify that the venue still has the required permissions for the tokens involved.
-        let tickers: BTreeSet<Ticker> = legs.iter().map(|leg| leg.1.asset).collect();
+        let tickers: BTreeSet<Ticker> = legs.iter().map(|leg| leg.1.asset_and_amount().0).collect();
         for ticker in &tickers {
             if Self::venue_filtering(ticker) && !Self::venue_allow_list(ticker, details.venue_id) {
                 Self::deposit_event(RawEvent::VenueUnauthorized(
@@ -1266,13 +1295,9 @@ impl<T: Config> Module<T> {
                     let status = Self::instruction_leg_status(id, leg_id);
                     status == LegStatus::ExecutionPending
                 }) {
-                    if <Asset<T>>::base_transfer(
-                        leg_details.from,
-                        leg_details.to,
-                        &leg_details.asset,
-                        leg_details.amount,
-                    )
-                    .is_err()
+                    let (asset, amount) = leg_details.asset_and_amount();
+                    if <Asset<T>>::base_transfer(leg_details.from, leg_details.to, &asset, amount)
+                        .is_err()
                     {
                         return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
                     }
@@ -1389,12 +1414,13 @@ impl<T: Config> Module<T> {
 
         T::Portfolio::ensure_portfolio_custody_and_permission(leg.from, did, secondary_key)?;
 
+        let (asset, amount) = leg.asset_and_amount();
         let msg = Receipt {
             receipt_uid: receipt_details.receipt_uid,
             from: leg.from,
             to: leg.to,
-            asset: leg.asset,
-            amount: leg.amount,
+            asset,
+            amount,
         };
 
         ensure!(
@@ -1541,12 +1567,13 @@ impl<T: Config> Module<T> {
                 Error::<T>::PortfolioMismatch
             );
 
+            let (asset, amount) = leg.asset_and_amount();
             let msg = Receipt {
                 receipt_uid: receipt.receipt_uid,
                 from: leg.from,
                 to: leg.to,
-                asset: leg.asset,
-                amount: leg.amount,
+                asset,
+                amount,
             };
             ensure!(
                 receipt.signature.verify(&msg.encode()[..], &receipt.signer),
