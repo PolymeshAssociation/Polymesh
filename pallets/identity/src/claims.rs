@@ -389,8 +389,11 @@ impl<T: Config> Module<T> {
         scope: Option<Scope>,
     ) -> DispatchResult {
         let (pk, sk) = Self::get_claim_keys(target, claim_type, issuer, scope);
-
-        let investor_unique_scope_id = match Claims::get(&pk, &sk).claim {
+        // Ensure that claim exists
+        let investor_unique_scope_id = match Claims::try_get(&pk, &sk)
+            .map_err(|_| Error::<T>::ClaimDoesNotExist)?
+            .claim
+        {
             Claim::InvestorUniqueness(_, scope_id, _) => Some(scope_id),
             Claim::InvestorUniquenessV2(..) => match &sk.scope {
                 Some(Scope::Ticker(ticker)) => {
