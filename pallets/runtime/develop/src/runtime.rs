@@ -56,7 +56,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     authoring_version: 1,
     // `spec_version: aaa_bbb_ccd` should match node version v`aaa.bbb.cc`
     // N.B. `d` is unpinned from the binary version
-    spec_version: 5_001_010,
+    spec_version: 5_001_020,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 3,
@@ -387,7 +387,7 @@ construct_runtime!(
         Base: pallet_base::{Pallet, Call, Event},
         ExternalAgents: pallet_external_agents::{Pallet, Call, Storage, Event},
         Relayer: pallet_relayer::{Pallet, Call, Storage, Event<T>},
-        Rewards: pallet_rewards::{Pallet, Call, Storage, Event<T>, Config<T>, ValidateUnsigned},
+        Rewards: pallet_rewards::{Pallet, Call, Storage, Event<T>, Config<T>},
 
         // Contracts
         Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>},
@@ -450,7 +450,6 @@ polymesh_runtime_common::runtime_apis! {
             add_benchmark!(params, batches, pallet_capital_distribution, CapitalDistribution);
             add_benchmark!(params, batches, pallet_external_agents, ExternalAgents);
             add_benchmark!(params, batches, pallet_relayer, Relayer);
-            add_benchmark!(params, batches, pallet_rewards, Rewards);
             add_benchmark!(params, batches, pallet_committee, PolymeshCommittee);
             add_benchmark!(params, batches, pallet_utility, Utility);
             add_benchmark!(params, batches, pallet_treasury, Treasury);
@@ -501,7 +500,6 @@ polymesh_runtime_common::runtime_apis! {
             list_benchmark!(list, extra, pallet_capital_distribution, CapitalDistribution);
             list_benchmark!(list, extra, pallet_external_agents, ExternalAgents);
             list_benchmark!(list, extra, pallet_relayer, Relayer);
-            list_benchmark!(list, extra, pallet_rewards, Rewards);
             list_benchmark!(list, extra, pallet_committee, PolymeshCommittee);
             list_benchmark!(list, extra, pallet_utility, Utility);
             list_benchmark!(list, extra, pallet_treasury, Treasury);

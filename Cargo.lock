@@ -5415,6 +5415,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-identity",
  "pallet-staking",
  "parity-scale-codec 3.2.1",
