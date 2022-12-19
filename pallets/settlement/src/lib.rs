@@ -56,6 +56,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
+    storage::{with_transaction as frame_storage_with_transaction, TransactionOutcome},
     traits::{
         schedule::{DispatchTime, Named as ScheduleNamed},
         Get,
@@ -1252,76 +1253,90 @@ impl<T: Config> Module<T> {
         result
     }
 
-    fn execute_instruction(id: InstructionId) -> Result<u32, DispatchError> {
-        let details = Self::instruction_details(id);
-        // Ignore instructions in Failed and Unknown state
+    fn execute_instruction(instruction_id: InstructionId) -> Result<u32, DispatchError> {
+        // Verifies that there are no pending affirmations for the given instruction
+        ensure!(
+            Self::instruction_affirms_pending(instruction_id) == 0,
+            Error::<T>::InstructionFailed
+        );
+
+        let details = Self::instruction_details(instruction_id);
+        // Verifies that the instriction is not in a Failed or in an Unknown state
         ensure!(
             details.status == InstructionStatus::Pending,
             Error::<T>::InstructionNotPending
         );
 
-        let mut legs = InstructionLegs::iter_prefix(id).collect::<Vec<_>>();
-        // NB: Execution order doesn't matter in most cases but might matter in some edge cases around compliance
-        // Example of an edge case: Consider a token with total supply 100 and maximum percentage ownership of 10%.
-        // Alice owns 10 tokens, Bob owns 5 and Charlie owns 0.
-        // Instruction has two legs: 1. Alice transfers 5 tokens to Charlie. 2. Bob transfers 5 tokens to Alice.
-        // If the instruction is executed in order, it remains valid but if the second leg gets executed before first,
-        // Alice will momentarily hold 15% of the asset and hence the settlement will fail compliance.
-        legs.sort_by_key(|leg| leg.0);
-        let instructions_processed: u32 = u32::try_from(legs.len()).unwrap_or_default();
-        if Self::instruction_affirms_pending(id) > 0 {
-            // Instruction does not have enough affirmations.
-            return Err(Error::<T>::InstructionFailed.into());
-        }
-        // Verify that the venue still has the required permissions for the tokens involved.
-        let tickers: BTreeSet<Ticker> = legs.iter().map(|leg| leg.1.asset_and_amount().0).collect();
-        for ticker in &tickers {
-            if Self::venue_filtering(ticker) && !Self::venue_allow_list(ticker, details.venue_id) {
+        let mut instruction_legs: Vec<(LegId, Leg)> =
+            InstructionLegs::iter_prefix(instruction_id).collect();
+        // NB: The order of execution of the legs matter in some edge cases around compliance.
+        // E.g: Consider a token with a total supply of 100 and maximum percentage ownership of 10%.
+        // In a given moment, Alice owns 10 tokens, Bob owns 5 and Charlie owns 0.
+        // Now, consider one instruction with two legs: 1. Alice transfers 5 tokens to Charlie; 2. Bob transfers 5 tokens to Alice;
+        // If the second leg gets executed before the first leg, Alice will momentarily hold 15% of the asset and hence the settlement will fail compliance.
+        instruction_legs.sort_by_key(|instruction_id_leg| instruction_id_leg.0);
+
+        // Verifies that the venue still has the required permissions for the tokens involved.
+        // The tickers set ensures that each ticker is only checked once
+        let mut tickers: BTreeSet<Ticker> = BTreeSet::new();
+        for (_, leg) in &instruction_legs {
+            let ticker = leg.asset_and_amount().0;
+
+            if tickers.insert(ticker)
+                && Self::venue_filtering(ticker)
+                && !Self::venue_allow_list(ticker, details.venue_id)
+            {
                 Self::deposit_event(RawEvent::VenueUnauthorized(
                     SettlementDID.as_id(),
-                    *ticker,
+                    ticker,
                     details.venue_id,
                 ));
                 return Err(Error::<T>::UnauthorizedVenue.into());
             }
         }
 
-        use frame_support::storage::{with_transaction, TransactionOutcome};
-        match with_transaction(
-            || -> TransactionOutcome<Result<Result<(), LegId>, DispatchError>> {
-                Self::unchecked_release_locks(id, &legs);
-
-                for (leg_id, leg_details) in legs.iter().filter(|(leg_id, _)| {
-                    let status = Self::instruction_leg_status(id, leg_id);
-                    status == LegStatus::ExecutionPending
-                }) {
-                    let (asset, amount) = leg_details.asset_and_amount();
-                    if <Asset<T>>::base_transfer(leg_details.from, leg_details.to, &asset, amount)
-                        .is_err()
-                    {
-                        return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
-                    }
-                }
-                TransactionOutcome::Commit(Ok(Ok(())))
-            },
-        )? {
+        match frame_storage_with_transaction(|| {
+            Self::release_asset_locks_and_transfer_pending_legs(instruction_id, &instruction_legs)
+        })? {
             Ok(_) => {
-                Self::deposit_event(RawEvent::InstructionExecuted(SettlementDID.as_id(), id));
+                Self::deposit_event(RawEvent::InstructionExecuted(
+                    SettlementDID.as_id(),
+                    instruction_id,
+                ));
             }
             Err(leg_id) => {
                 Self::deposit_event(RawEvent::LegFailedExecution(
                     SettlementDID.as_id(),
-                    id,
+                    instruction_id,
                     leg_id,
                 ));
-                Self::deposit_event(RawEvent::InstructionFailed(SettlementDID.as_id(), id));
-                // We need to unclaim receipts for the failed transaction so that they can be reused
-                Self::unsafe_unclaim_receipts(id, &legs);
+                Self::deposit_event(RawEvent::InstructionFailed(
+                    SettlementDID.as_id(),
+                    instruction_id,
+                ));
+                // Unclaim receipts for the failed transaction so that they can be reused
+                Self::unsafe_unclaim_receipts(instruction_id, &instruction_legs);
                 return Err(Error::<T>::InstructionFailed.into());
             }
         }
 
-        Ok(instructions_processed)
+        Ok(instruction_legs.len().try_into().unwrap_or_default())
+    }
+
+    fn release_asset_locks_and_transfer_pending_legs(
+        instruction_id: InstructionId,
+        instruction_legs: &[(LegId, Leg)],
+    ) -> TransactionOutcome<Result<Result<(), LegId>, DispatchError>> {
+        Self::unchecked_release_locks(instruction_id, instruction_legs);
+        for (leg_id, leg) in instruction_legs {
+            if Self::instruction_leg_status(instruction_id, leg_id) == LegStatus::ExecutionPending {
+                let (asset, amount) = leg.asset_and_amount();
+                if <Asset<T>>::base_transfer(leg.from, leg.to, &asset, amount).is_err() {
+                    return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
+                }
+            }
+        }
+        TransactionOutcome::Commit(Ok(Ok(())))
     }
 
     fn prune_instruction(id: InstructionId) {
@@ -1390,17 +1405,18 @@ impl<T: Config> Module<T> {
 
     fn unsafe_claim_receipt(
         did: IdentityId,
-        id: InstructionId,
+        instruction_id: InstructionId,
         receipt_details: ReceiptDetails<T::AccountId, T::OffChainSignature>,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
     ) -> DispatchResult {
-        Self::ensure_instruction_validity(id)?;
+        Self::ensure_instruction_validity(instruction_id)?;
 
         ensure!(
-            Self::instruction_leg_status(id, receipt_details.leg_id) == LegStatus::ExecutionPending,
+            Self::instruction_leg_status(instruction_id, receipt_details.leg_id)
+                == LegStatus::ExecutionPending,
             Error::<T>::LegNotPending
         );
-        let venue_id = Self::instruction_details(id).venue_id;
+        let venue_id = Self::instruction_details(instruction_id).venue_id;
         ensure!(
             Self::venue_signers(venue_id, &receipt_details.signer),
             Error::<T>::UnauthorizedSigner
@@ -1410,7 +1426,7 @@ impl<T: Config> Module<T> {
             Error::<T>::ReceiptAlreadyClaimed
         );
 
-        let leg = Self::instruction_legs(id, receipt_details.leg_id);
+        let leg = Self::instruction_legs(instruction_id, receipt_details.leg_id);
 
         T::Portfolio::ensure_portfolio_custody_and_permission(leg.from, did, secondary_key)?;
 
@@ -1435,7 +1451,7 @@ impl<T: Config> Module<T> {
         <ReceiptsUsed<T>>::insert(&receipt_details.signer, receipt_details.receipt_uid, true);
 
         <InstructionLegStatus<T>>::insert(
-            id,
+            instruction_id,
             receipt_details.leg_id,
             LegStatus::ExecutionToBeSkipped(
                 receipt_details.signer.clone(),
@@ -1444,7 +1460,7 @@ impl<T: Config> Module<T> {
         );
         Self::deposit_event(RawEvent::ReceiptClaimed(
             did,
-            id,
+            instruction_id,
             receipt_details.leg_id,
             receipt_details.receipt_uid,
             receipt_details.signer,
@@ -1473,13 +1489,13 @@ impl<T: Config> Module<T> {
         }
     }
 
-    fn unchecked_release_locks(id: InstructionId, legs: &[(LegId, Leg)]) {
-        for (leg_id, leg_details) in legs.iter() {
+    fn unchecked_release_locks(id: InstructionId, instruction_legs: &[(LegId, Leg)]) {
+        for (leg_id, leg) in instruction_legs.iter() {
             match Self::instruction_leg_status(id, leg_id) {
                 LegStatus::ExecutionPending => {
                     // This can never return an error since the settlement module
                     // must've locked these tokens when instruction was affirmed
-                    let _ = Self::unlock_via_leg(&leg_details);
+                    let _ = Self::unlock_via_leg(&leg);
                 }
                 LegStatus::ExecutionToBeSkipped(_, _) | LegStatus::PendingTokenLock => {}
             }
