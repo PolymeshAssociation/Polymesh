@@ -153,8 +153,22 @@ impl<T: Config> Module<T> {
         ticker: Ticker,
         collection_keys: NFTCollectionKeys,
     ) -> DispatchResult {
-        // Verifies if the caller has the right permissions to create the collection
-        let caller_did = Identity::<T>::ensure_perms(origin.clone())?;
+        // Verifies if the asset has already been created and the caller's permission to create the collection
+        let (create_asset, caller_did) = {
+            match Asset::<T>::nft_asset(&ticker) {
+                Some(is_nft_asset) => {
+                    ensure!(is_nft_asset, Error::<T>::InvalidAssetType);
+                    let caller_did =
+                        <ExternalAgents<T>>::ensure_agent_asset_perms(origin.clone(), ticker)?
+                            .primary_did;
+                    (false, caller_did)
+                }
+                None => {
+                    let caller_did = Identity::<T>::ensure_perms(origin.clone())?;
+                    (true, caller_did)
+                }
+            }
+        };
 
         // Verifies if the ticker is already associated to an NFT collection
         ensure!(
@@ -184,13 +198,9 @@ impl<T: Config> Module<T> {
             )
         }
 
-        // Verifies if the asset is of type NFT or creates an nft asset if it does not exist
-        match Asset::<T>::nft_asset(&ticker) {
-            Some(is_nft_asset) => {
-                ensure!(is_nft_asset, Error::<T>::InvalidAssetType);
-                <ExternalAgents<T>>::ensure_agent_asset_perms(origin, ticker)?;
-            }
-            None => Asset::<T>::create_asset(
+        // Creates an nft asset if it hasn't been created yet
+        if create_asset {
+            Asset::<T>::create_asset(
                 origin,
                 AssetName(ticker.as_slice().to_vec()),
                 ticker.clone(),
@@ -199,7 +209,7 @@ impl<T: Config> Module<T> {
                 Vec::new(),
                 None,
                 false,
-            )?,
+            )?;
         }
 
         // Creates the nft collection
