@@ -279,6 +279,16 @@ pub enum LegAsset {
     NonFungible(NFT),
 }
 
+impl LegAsset {
+    /// Returns the ticker and amount being transferred.
+    pub fn ticker_and_amount(&self) -> (Ticker, Balance) {
+        match self {
+            LegAsset::Fungible { ticker, amount } => (*ticker, *amount),
+            LegAsset::NonFungible(nft) => (*nft.ticker(), nft.amount()),
+        }
+    }
+}
+
 impl Default for LegAsset {
     fn default() -> Self {
         LegAsset::Fungible {
@@ -297,6 +307,16 @@ pub struct LegV2 {
     pub receiver_portfolio: PortfolioId,
     /// Assets being transferred.
     pub assets: Vec<LegAsset>,
+}
+
+impl From<Leg> for LegV2 {
+    fn from(leg: Leg) -> Self {
+        LegV2 {
+            sender_portfolio: leg.from,
+            receiver_portfolio: leg.to,
+            assets: vec![LegAsset::Fungible { ticker: leg.asset, amount: leg.amount }]
+        }
+    }
 }
 
 /// Details about a venue.
