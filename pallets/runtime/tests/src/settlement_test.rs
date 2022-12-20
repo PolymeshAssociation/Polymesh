@@ -2198,7 +2198,7 @@ fn reject_instruction() {
         // Try rejecting the instruction from a non-party account.
         assert_noop!(
             reject_instruction(&charlie, instruction_id),
-            Error::UnauthorizedSigner
+            Error::CallerIsNotAParty
         );
         next_block();
         assert_ok!(reject_instruction(&alice, instruction_id,));
@@ -2565,6 +2565,172 @@ fn create_instruction(
         default_portfolio_vec(alice.did),
     ));
     instruction_id
+}
+
+#[test]
+fn settle_manual_instruction() {
+    test_with_cdd_provider(|eve| {
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let venue_counter = create_token_and_venue(TICKER, alice.user);
+        let instruction_id = Settlement::instruction_counter();
+        let block_number = System::block_number() + 1;
+        let amount = 10u128;
+        alice.refresh_init_balances();
+        bob.refresh_init_balances();
+
+        let legs = vec![Leg {
+            from: PortfolioId::default_portfolio(alice.did),
+            to: PortfolioId::default_portfolio(bob.did),
+            asset: TICKER,
+            amount,
+        }];
+
+        assert_ok!(Settlement::add_instruction(
+            alice.origin(),
+            venue_counter,
+            SettlementType::SettleManual(block_number),
+            None,
+            None,
+            legs.clone(),
+        ));
+
+        // Ensure instruction is pending
+        assert_user_affirms(instruction_id, &alice, AffirmationStatus::Pending);
+        assert_user_affirms(instruction_id, &bob, AffirmationStatus::Pending);
+
+        // Affirm instruction for alice and bob
+        assert_affirm_instruction_with_one_leg!(alice.origin(), instruction_id, alice.did);
+        assert_affirm_instruction_with_zero_leg!(bob.origin(), instruction_id, bob.did);
+
+        // Before authorization need to provide the scope claim for both the parties of a transaction.
+        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve.clone());
+        // Ensure it gave the correct error message after it failed because the execution block number hasn't reached yet
+        assert_noop!(
+            Settlement::execute_manual_instruction(
+                alice.origin(),
+                instruction_id,
+                legs.len() as u32,
+                None
+            ),
+            Error::InstructionSettleBlockNotReached
+        );
+        next_block();
+        // Ensure bob can't execute instruction with portfolio set to none since he is not the venue creator
+        assert_noop!(
+            Settlement::execute_manual_instruction(
+                bob.origin(),
+                instruction_id,
+                legs.len() as u32,
+                None
+            ),
+            Error::Unauthorized
+        );
+        // Ensure correct error message when wrong number of legs is given
+        assert_noop!(
+            Settlement::execute_manual_instruction(alice.origin(), instruction_id, 0u32, None),
+            Error::LegCountTooSmall
+        );
+        // Ensure it succeeds as the execute block was reached
+        assert_ok!(Settlement::execute_manual_instruction(
+            alice.origin(),
+            instruction_id,
+            legs.len() as u32,
+            None
+        ));
+        assert_user_affirms(instruction_id, &alice, AffirmationStatus::Unknown);
+        assert_locked_assets(&TICKER, &alice, 0);
+
+        alice.assert_balance_decreased(&TICKER, amount);
+        bob.assert_balance_increased(&TICKER, amount);
+    });
+}
+
+#[test]
+fn settle_manual_instruction_with_portfolio() {
+    test_with_cdd_provider(|eve| {
+        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
+        let alice_portfolio = PortfolioId::default_portfolio(alice.did);
+        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
+        let charlie = UserWithBalance::new(AccountKeyring::Charlie, &[TICKER]);
+        let charlie_portfolio = PortfolioId::default_portfolio(charlie.did);
+        let venue_counter = create_token_and_venue(TICKER, alice.user);
+        let instruction_id = Settlement::instruction_counter();
+        let block_number = System::block_number() + 1;
+        let amount = 10u128;
+        alice.refresh_init_balances();
+        bob.refresh_init_balances();
+
+        let legs = vec![Leg {
+            from: alice_portfolio.clone(),
+            to: PortfolioId::default_portfolio(bob.did),
+            asset: TICKER,
+            amount,
+        }];
+
+        assert_ok!(Settlement::add_instruction(
+            alice.origin(),
+            venue_counter,
+            SettlementType::SettleManual(block_number),
+            None,
+            None,
+            legs.clone(),
+        ));
+
+        // Ensure instruction is pending
+        assert_user_affirms(instruction_id, &alice, AffirmationStatus::Pending);
+        assert_user_affirms(instruction_id, &bob, AffirmationStatus::Pending);
+
+        // Affirm instruction for alice and bob
+        assert_affirm_instruction_with_one_leg!(alice.origin(), instruction_id, alice.did);
+        assert_affirm_instruction_with_zero_leg!(bob.origin(), instruction_id, bob.did);
+
+        // Before authorization need to provide the scope claim for both the parties of a transaction.
+        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve.clone());
+        // Ensure it gave the correct error message after it failed because the execution block number hasn't reached yet
+        assert_noop!(
+            Settlement::execute_manual_instruction(
+                alice.origin(),
+                instruction_id,
+                legs.len() as u32,
+                Some(alice_portfolio)
+            ),
+            Error::InstructionSettleBlockNotReached
+        );
+        next_block();
+        // Ensure correct error is shown when non party member tries to execute function
+        assert_noop!(
+            Settlement::execute_manual_instruction(
+                charlie.origin(),
+                instruction_id,
+                legs.len() as u32,
+                Some(charlie_portfolio)
+            ),
+            Error::CallerIsNotAParty
+        );
+        // Ensure correct error message when wrong number of legs is given
+        assert_noop!(
+            Settlement::execute_manual_instruction(
+                alice.origin(),
+                instruction_id,
+                0u32,
+                Some(alice_portfolio)
+            ),
+            Error::LegCountTooSmall
+        );
+        // Ensure it succeeds as the execute block was reached
+        assert_ok!(Settlement::execute_manual_instruction(
+            alice.origin(),
+            instruction_id,
+            legs.len() as u32,
+            Some(alice_portfolio)
+        ));
+        assert_user_affirms(instruction_id, &alice, AffirmationStatus::Unknown);
+        assert_locked_assets(&TICKER, &alice, 0);
+
+        alice.assert_balance_decreased(&TICKER, amount);
+        bob.assert_balance_increased(&TICKER, amount);
+    });
 }
 
 #[track_caller]

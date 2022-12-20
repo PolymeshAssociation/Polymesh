@@ -512,6 +512,64 @@ pub fn add_transfer_conditions<T: Config>(
     .expect("failed to add exempted entities");
 }
 
+fn setup_manual_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
+    l: u32,
+) -> (
+    Vec<PortfolioId>,
+    Vec<PortfolioId>,
+    UserData<T>,
+    UserData<T>,
+    Vec<Ticker>,
+    Vec<Leg>,
+) {
+    // create venue
+    let from = creator::<T>();
+    let venue_id = create_venue_::<T>(from.did(), vec![]);
+    let settlement_type: SettlementType<T::BlockNumber> = SettlementType::SettleManual(0u32.into());
+    let to = UserBuilder::<T>::default().generate_did().build("receiver");
+    let mut portfolios_from: Vec<PortfolioId> = Vec::with_capacity(l as usize);
+    let mut portfolios_to: Vec<PortfolioId> = Vec::with_capacity(l as usize);
+    let mut legs: Vec<Leg> = Vec::with_capacity(l as usize);
+    let mut tickers = Vec::with_capacity(l as usize);
+    let from_data = UserData::from(&from);
+    let to_data = UserData::from(&to);
+
+    for n in 0..l {
+        tickers.push(make_asset::<T>(
+            &from,
+            Some(&Ticker::generate(n as u64 + 1)),
+        ));
+        emulate_portfolios::<T>(
+            Some(from_data.clone()),
+            Some(to_data.clone()),
+            tickers[n as usize],
+            l,
+            &mut legs,
+            &mut portfolios_from,
+            &mut portfolios_to,
+        );
+    }
+    Module::<T>::add_and_affirm_instruction(
+        (RawOrigin::Signed(from_data.account.clone())).into(),
+        venue_id,
+        settlement_type,
+        None,
+        None,
+        legs.clone(),
+        portfolios_from.clone(),
+    )
+    .expect("Unable to add and affirm the instruction");
+
+    (
+        portfolios_from,
+        portfolios_to,
+        from_data,
+        to_data,
+        tickers,
+        legs,
+    )
+}
+
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>>, T: pallet_scheduler::Config }
 
@@ -889,6 +947,43 @@ benchmarks! {
     verify {
         verify_add_and_affirm_instruction::<T>(venue_id, settlement_type, portfolios).unwrap();
         assert_eq!(Module::<T>::memo(instruction_id).unwrap(), InstructionMemo::default());
+    }
+
+    execute_manual_instruction {
+        // This dispatch execute an instruction.
+
+        let l in 1 .. T::MaxLegsInInstruction::get() as u32;
+        let c = T::MaxConditionComplexity::get() as u32;
+
+        // Setup affirm instruction (One party (i.e from) already affirms the instruction)
+        let (portfolios_from, portfolios_to, from, to, tickers, legs) = setup_manual_instruction::<T>(l);
+        // Keep the portfolio asset balance before the instruction execution to verify it later.
+        let legs_count: u32 = legs.len().try_into().unwrap();
+        let first_leg = legs.into_iter().nth(0).unwrap_or_default();
+        let before_transfer_balance = PortfolioAssetBalances::get(first_leg.from, first_leg.asset);
+
+        let instruction_id = InstructionId(1);
+        let from_origin = RawOrigin::Signed(from.account.clone());
+        let to_origin = RawOrigin::Signed(to.account.clone());
+
+        Module::<T>::affirm_instruction((to_origin.clone()).into(), instruction_id, portfolios_to, (legs_count / 2).into()).expect("Settlement: Failed to affirm instruction");
+        // Create trusted issuer for both the ticker
+        let t_issuer = UserBuilder::<T>::default().generate_did().build("TrustedClaimIssuer");
+        let trusted_issuer = TrustedIssuer::from(t_issuer.did());
+
+        // Need to provide the Investor uniqueness claim for both sender and receiver,
+        // for both assets also add the compliance rules as per the `MaxConditionComplexity`.
+        for ticker in tickers {
+            compliance_setup::<T>(c, ticker, from_origin.clone(), from.did, to.did, trusted_issuer.clone());
+            add_transfer_conditions::<T>(ticker, from_origin.clone(), from.did, MAX_CONDITIONS);
+        }
+    }: _(from_origin, instruction_id, l, Some(portfolios_from[0]))
+    verify {
+        // Assert that any one leg processed through that give sufficient evidence of successful execution of instruction.
+        let after_transfer_balance = PortfolioAssetBalances::get(first_leg.from, first_leg.asset);
+        let traded_amount = before_transfer_balance - after_transfer_balance;
+        let expected_transfer_amount = first_leg.amount;
+        assert_eq!(traded_amount, expected_transfer_amount,"Settlement: Failed to execute the instruction");
     }
 }
 
