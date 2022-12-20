@@ -14,7 +14,7 @@ use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use polymesh_primitives::nft::{
     NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute,
 };
-use polymesh_primitives::{PortfolioId, PortfolioKind, Ticker};
+use polymesh_primitives::{PortfolioKind, Ticker};
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec::Vec;
@@ -287,20 +287,12 @@ impl<T: Config> Module<T> {
             CollectionTicker::try_get(&ticker).map_err(|_| Error::<T>::CollectionNotFound)?;
 
         // Ensure origin is agent with custody and permissions for default portfolio.
-        let caller_portfolio = Asset::<T>::ensure_agent_with_custody_and_perms(
-            origin,
-            ticker,
-            PortfolioKind::Default,
-        )?;
+        let caller_portfolio =
+            Asset::<T>::ensure_agent_with_custody_and_perms(origin, ticker, portfolio_kind)?;
 
         // Verifies if the NFT exists
-        let portfolio_id = PortfolioId {
-            did: caller_portfolio.did,
-            kind: portfolio_kind,
-        };
-
         ensure!(
-            PortfolioNFT::contains_key(&portfolio_id, (&collection_id, &nft_id)),
+            PortfolioNFT::contains_key(&caller_portfolio, (&collection_id, &nft_id)),
             Error::<T>::NFTNotFound
         );
 
@@ -309,7 +301,7 @@ impl<T: Config> Module<T> {
             .checked_sub(ONE_UNIT)
             .ok_or(Error::<T>::BalanceUnderflow)?;
         BalanceOf::insert(&ticker, &caller_portfolio.did, new_balance);
-        PortfolioNFT::remove(&portfolio_id, (&collection_id, &nft_id));
+        PortfolioNFT::remove(&caller_portfolio, (&collection_id, &nft_id));
         MetadataValue::remove_prefix((&collection_id, &nft_id), None);
 
         Self::deposit_event(Event::BurnedNFT(caller_portfolio.did, ticker, nft_id));
