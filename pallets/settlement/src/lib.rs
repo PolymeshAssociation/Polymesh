@@ -75,7 +75,8 @@ use polymesh_common_utilities::{
     SystematicIssuers::Settlement as SettlementDID,
 };
 use polymesh_primitives::{
-    impl_checked_inc, storage_migration_ver, Balance, IdentityId, PortfolioId, SecondaryKey, Ticker,
+    impl_checked_inc, nft::NFT, storage_migration_ver, Balance, IdentityId, PortfolioId,
+    SecondaryKey, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
@@ -111,6 +112,8 @@ pub trait Config:
     type MaxLegsInInstruction: Get<u32>;
     /// Weight information for extrinsic of the settlement pallet.
     type WeightInfo: WeightInfo;
+    /// Maximum number of assets that can be transferred in one leg.
+    type MaxNumberOfLegAssets: Get<u8>;
 }
 
 /// A global and unique venue ID.
@@ -269,6 +272,33 @@ pub struct Leg {
     pub amount: Balance,
 }
 
+/// Type of assets that can be transferred in a `Leg`.
+#[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
+pub enum LegAsset {
+    Fungible { ticker: Ticker, amount: Balance },
+    NonFungible(NFT),
+}
+
+impl Default for LegAsset {
+    fn default() -> Self {
+        LegAsset::Fungible {
+            ticker: Ticker::default(),
+            amount: Balance::default(),
+        }
+    }
+}
+
+/// Defines a leg (i.e the action of a settlement).
+#[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
+pub struct LegV2 {
+    /// Portfolio of the sender.
+    pub sender_portfolio: PortfolioId,
+    /// Portfolio of the receiver.
+    pub receiver_portfolio: PortfolioId,
+    /// Assets being transferred.
+    pub assets: Vec<LegAsset>,
+}
+
 /// Details about a venue.
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Clone, Default, PartialEq, Eq, Debug, PartialOrd, Ord)]
@@ -292,6 +322,19 @@ pub struct Receipt<Balance> {
     pub asset: Ticker,
     /// Amount being transferred
     pub amount: Balance,
+}
+
+/// Defines a receipt (i.e details about an offchain transaction).
+#[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
+pub struct ReceiptV2 {
+    /// Unique receipt number set by the signer.
+    pub uid: u64,
+    /// Portfolio of the sender.
+    pub sender_portfolio: PortfolioId,
+    /// Portfolio of the receiver.
+    pub receiver_portfolio: PortfolioId,
+    /// Ticker and amount of the transferred assets.
+    pub assets: Vec<LegAsset>,
 }
 
 /// A wrapper for VenueDetails
@@ -476,8 +519,10 @@ decl_error! {
         SignerAlreadyExists,
         /// Signer is not added to venue.
         SignerDoesNotExist,
-        /// Instruction leg amount can't be zero
+        /// Instruction leg amount can't be zero.
         ZeroAmount,
+        /// The maximum number of assets in one leg was exceeded.
+        InvalidNumberOfLegAssets
     }
 }
 
