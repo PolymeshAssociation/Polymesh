@@ -24,6 +24,7 @@ frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional
 
 # Other
 serde = { version = "1.0.104", default-features = false }
+log = "0.4.8"
 
 [features]
 equalize = []

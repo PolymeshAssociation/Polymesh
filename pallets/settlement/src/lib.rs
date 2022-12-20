@@ -56,6 +56,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
+    storage::{with_transaction as frame_storage_with_transaction, TransactionOutcome},
     traits::{
         schedule::{DispatchTime, Named as ScheduleNamed},
         Get,
@@ -206,6 +207,8 @@ pub enum SettlementType<BlockNumber> {
     SettleOnAffirmation,
     /// Instruction should be settled on a particular block.
     SettleOnBlock(BlockNumber),
+    /// Instruction must be settled manually on or after BlockNumber.
+    SettleManual(BlockNumber),
 }
 
 impl<BlockNumber> Default for SettlementType<BlockNumber> {
@@ -396,6 +399,7 @@ pub trait WeightInfo {
     fn change_receipt_validity() -> Weight;
     fn execute_scheduled_instruction(l: u32) -> Weight;
     fn reschedule_instruction() -> Weight;
+    fn execute_manual_instruction(l: u32) -> Weight;
 
     // Some multiple paths based extrinsic.
     // TODO: Will be removed once we get the worst case weight.
@@ -479,6 +483,8 @@ decl_event!(
         InstructionRescheduled(IdentityId, InstructionId),
         /// An existing venue's signers has been updated (did, venue_id, signers, update_type)
         VenueSignersUpdated(IdentityId, VenueId, Vec<AccountId>, bool),
+        /// Settlement manually executed (did, id)
+        SettlementManuallyExecuted(IdentityId, InstructionId),
     }
 );
 
@@ -541,6 +547,10 @@ decl_error! {
         SignerDoesNotExist,
         /// Instruction leg amount can't be zero.
         ZeroAmount,
+        /// Instruction settlement block has not yet been reached.
+        InstructionSettleBlockNotReached,
+        /// The caller is not a party of this instruction.
+        CallerIsNotAParty,
         /// The maximum number of assets in one leg was exceeded.
         InvalidNumberOfLegAssets
     }
@@ -762,7 +772,7 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::withdraw_affirmation(*max_legs_count as u32)]
         pub fn withdraw_affirmation(origin, id: InstructionId, portfolios: Vec<PortfolioId>, max_legs_count: u32) {
-            let (did, secondary_key, details) = Self::ensure_origin_perm_and_instruction_validity(origin, id)?;
+            let (did, secondary_key, details) = Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
             // Withdraw an affirmation.
@@ -802,11 +812,11 @@ decl_module! {
                 Error::<T>::LegCountTooSmall
             );
 
-            // Ensure that the sender is a party of this instruction.
+            // Ensure that the caller is a party of this instruction.
             T::Portfolio::ensure_portfolio_custody_and_permission(portfolio, primary_did, secondary_key.as_ref())?;
             ensure!(
                 legs.iter().any(|(_, leg)| [leg.from, leg.to].contains(&portfolio)),
-                Error::<T>::UnauthorizedSigner
+                Error::<T>::CallerIsNotAParty
             );
 
             Self::unsafe_unclaim_receipts(id, &legs);
@@ -846,7 +856,7 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::claim_receipt()]
         pub fn claim_receipt(origin, id: InstructionId, receipt_details: ReceiptDetails<T::AccountId, T::OffChainSignature>) -> DispatchResult {
-            let (primary_did, secondary_key, _) = Self::ensure_origin_perm_and_instruction_validity(origin, id)?;
+            let (primary_did, secondary_key, _) = Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
             Self::unsafe_claim_receipt(
                 primary_did,
                 id,
@@ -865,7 +875,7 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::unclaim_receipt()]
         pub fn unclaim_receipt(origin, instruction_id: InstructionId, leg_id: LegId) {
-            let (did, secondary_key, _) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id)?;
+            let (did, secondary_key, _) = Self::ensure_origin_perm_and_instruction_validity(origin, instruction_id, false)?;
 
             let (signer, receipt_uid) = match Self::instruction_leg_status(instruction_id, leg_id) {
                 LegStatus::ExecutionToBeSkipped(s, r) => (s, r),
@@ -1059,6 +1069,45 @@ decl_module! {
             })
         }
 
+        /// Manually execute settlement
+        ///
+        /// # Arguments
+        /// * `id` - Target instruction id to reschedule.
+        /// * `_legs_count` - Legs included in this instruction.
+        ///
+        /// # Errors
+        /// * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
+        #[weight = <T as Config>::WeightInfo::execute_manual_instruction(*legs_count)]
+        pub fn execute_manual_instruction(origin, id: InstructionId, legs_count: u32, portfolio: Option<PortfolioId>) {
+            // check origin has the permissions required and valid instruction
+            let (did, sk, instruction_details) = Self::ensure_origin_perm_and_instruction_validity(origin, id, true)?;
+
+            // Check for portfolio
+            match portfolio {
+                Some(portfolio) => {
+                    // Ensure that the caller is a party of this instruction.
+                    T::Portfolio::ensure_portfolio_custody_and_permission(portfolio, did, sk.as_ref())?;
+                    let mut legs = InstructionLegs::iter_prefix(id);
+                    ensure!(
+                        legs.any(|(_, leg)| [leg.from, leg.to].contains(&portfolio)),
+                        Error::<T>::CallerIsNotAParty
+                    );
+                }
+                None => {
+                    // Ensure venue exists & sender is its creator.
+                    Self::venue_for_management(instruction_details.venue_id, did)?;
+                }
+            }
+
+            // check that the instruction leg count matches
+            ensure!(InstructionLegs::iter_prefix(id).count() as u32 <= legs_count, Error::<T>::LegCountTooSmall);
+
+            // Executes the instruction
+            Self::execute_instruction_retryable(id)?;
+
+            Self::deposit_event(RawEvent::SettlementManuallyExecuted(did, id));
+        }
+
     }
 }
 
@@ -1075,6 +1124,7 @@ impl<T: Config> Module<T> {
     fn ensure_origin_perm_and_instruction_validity(
         origin: <T as frame_system::Config>::Origin,
         id: InstructionId,
+        is_execute: bool,
     ) -> EnsureValidInstructionResult<T::AccountId, T::Moment, T::BlockNumber> {
         let PermissionedCallOriginData {
             primary_did,
@@ -1084,7 +1134,7 @@ impl<T: Config> Module<T> {
         Ok((
             primary_did,
             secondary_key,
-            Self::ensure_instruction_validity(id)?,
+            Self::ensure_instruction_validity(id, is_execute)?,
         ))
     }
 
@@ -1111,12 +1161,24 @@ impl<T: Config> Module<T> {
             Error::<T>::InstructionHasTooManyLegs
         );
 
-        // Ensure that the scheduled block number is in the future so that `T::Scheduler::schedule_named`
-        // doesn't fail.
-        if let SettlementType::SettleOnBlock(block_number) = &settlement_type {
+        match &settlement_type {
+            SettlementType::SettleOnBlock(block_number) => {
+                // Ensure that the scheduled block number is in the future so that `T::Scheduler::schedule_named`
+                // doesn't fail.
+                ensure!(
+                    *block_number > System::<T>::block_number(),
+                    Error::<T>::SettleOnPastBlock
+                );
+            }
+            SettlementType::SettleManual(_block_number) => {}
+            _ => {}
+        }
+
+        // Ensure that instruction dates are valid.
+        if let (Some(trade_date), Some(value_date)) = (trade_date, value_date) {
             ensure!(
-                *block_number > System::<T>::block_number(),
-                Error::<T>::SettleOnPastBlock
+                value_date >= trade_date,
+                Error::<T>::InstructionDatesInvalid
             );
         }
 
@@ -1255,24 +1317,41 @@ impl<T: Config> Module<T> {
 
     fn ensure_instruction_validity(
         id: InstructionId,
+        is_execute: bool,
     ) -> Result<Instruction<T::Moment, T::BlockNumber>, DispatchError> {
         let details = Self::instruction_details(id);
         ensure!(
             details.status != InstructionStatus::Unknown,
             Error::<T>::UnknownInstruction
         );
-        if let (Some(trade_date), Some(value_date)) = (details.trade_date, details.value_date) {
-            ensure!(
-                value_date >= trade_date,
-                Error::<T>::InstructionDatesInvalid
-            );
+
+        match (details.settlement_type, is_execute) {
+            // is_execute is true for execution
+            (SettlementType::SettleOnBlock(block_number), true) => {
+                // Ensures block number is less than or equal to current block number.
+                ensure!(
+                    block_number <= System::<T>::block_number(),
+                    Error::<T>::InstructionSettleBlockNotReached
+                );
+            }
+            // is_execute is false for affirmation
+            (SettlementType::SettleOnBlock(block_number), false) => {
+                // Ensures block number is greater than current block number.
+                ensure!(
+                    block_number > System::<T>::block_number(),
+                    Error::<T>::InstructionSettleBlockPassed
+                );
+            }
+            (SettlementType::SettleManual(block_number), true) => {
+                // Ensures block number is less than  or equal to current block number.
+                ensure!(
+                    block_number <= System::<T>::block_number(),
+                    Error::<T>::InstructionSettleBlockNotReached
+                );
+            }
+            (_, _) => {}
         }
-        if let SettlementType::SettleOnBlock(block_number) = details.settlement_type {
-            ensure!(
-                block_number > System::<T>::block_number(),
-                Error::<T>::InstructionSettleBlockPassed
-            );
-        }
+
         Ok(details)
     }
 
@@ -1288,80 +1367,87 @@ impl<T: Config> Module<T> {
         result
     }
 
-    fn execute_instruction(id: InstructionId) -> Result<u32, DispatchError> {
-        let details = Self::instruction_details(id);
-        // Ignore instructions in Failed and Unknown state
+    fn execute_instruction(instruction_id: InstructionId) -> Result<u32, DispatchError> {
+        // Verifies that there are no pending affirmations for the given instruction
+        ensure!(
+            Self::instruction_affirms_pending(instruction_id) == 0,
+            Error::<T>::InstructionFailed
+        );
+
+        // Verifies that the instruction is not in a Failed or in an Unknown state
+        let details = Self::instruction_details(instruction_id);
         ensure!(
             details.status == InstructionStatus::Pending,
             Error::<T>::InstructionNotPending
         );
 
-        let mut legs = InstructionLegs::iter_prefix(id).collect::<Vec<_>>();
-        // NB: Execution order doesn't matter in most cases but might matter in some edge cases around compliance
-        // Example of an edge case: Consider a token with total supply 100 and maximum percentage ownership of 10%.
-        // Alice owns 10 tokens, Bob owns 5 and Charlie owns 0.
-        // Instruction has two legs: 1. Alice transfers 5 tokens to Charlie. 2. Bob transfers 5 tokens to Alice.
-        // If the instruction is executed in order, it remains valid but if the second leg gets executed before first,
-        // Alice will momentarily hold 15% of the asset and hence the settlement will fail compliance.
-        legs.sort_by_key(|leg| leg.0);
-        let instructions_processed: u32 = u32::try_from(legs.len()).unwrap_or_default();
-        if Self::instruction_affirms_pending(id) > 0 {
-            // Instruction does not have enough affirmations.
-            return Err(Error::<T>::InstructionFailed.into());
-        }
-        // Verify that the venue still has the required permissions for the tokens involved.
-        let tickers: BTreeSet<Ticker> = legs.iter().map(|leg| leg.1.asset).collect();
-        for ticker in &tickers {
-            if Self::venue_filtering(ticker) && !Self::venue_allow_list(ticker, details.venue_id) {
+        let mut instruction_legs: Vec<(LegId, Leg)> =
+            InstructionLegs::iter_prefix(instruction_id).collect();
+        // NB: The order of execution of the legs matter in some edge cases around compliance.
+        // E.g: Consider a token with a total supply of 100 and maximum percentage ownership of 10%.
+        // In a given moment, Alice owns 10 tokens, Bob owns 5 and Charlie owns 0.
+        // Now, consider one instruction with two legs: 1. Alice transfers 5 tokens to Charlie; 2. Bob transfers 5 tokens to Alice;
+        // If the second leg gets executed before the first leg, Alice will momentarily hold 15% of the asset and hence the settlement will fail compliance.
+        instruction_legs.sort_by_key(|leg_id_leg| leg_id_leg.0);
+
+        // Verifies that the venue still has the required permissions for the tokens involved.
+        let mut tickers: BTreeSet<Ticker> = BTreeSet::new();
+        for (_, leg) in &instruction_legs {
+            // Each ticker is only checked once
+            if tickers.insert(leg.asset)
+                && Self::venue_filtering(leg.asset)
+                && !Self::venue_allow_list(leg.asset, details.venue_id)
+            {
                 Self::deposit_event(RawEvent::VenueUnauthorized(
                     SettlementDID.as_id(),
-                    *ticker,
+                    leg.asset,
                     details.venue_id,
                 ));
                 return Err(Error::<T>::UnauthorizedVenue.into());
             }
         }
 
-        use frame_support::storage::{with_transaction, TransactionOutcome};
-        match with_transaction(
-            || -> TransactionOutcome<Result<Result<(), LegId>, DispatchError>> {
-                Self::unchecked_release_locks(id, &legs);
-
-                for (leg_id, leg_details) in legs.iter().filter(|(leg_id, _)| {
-                    let status = Self::instruction_leg_status(id, leg_id);
-                    status == LegStatus::ExecutionPending
-                }) {
-                    if <Asset<T>>::base_transfer(
-                        leg_details.from,
-                        leg_details.to,
-                        &leg_details.asset,
-                        leg_details.amount,
-                    )
-                    .is_err()
-                    {
-                        return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
-                    }
-                }
-                TransactionOutcome::Commit(Ok(Ok(())))
-            },
-        )? {
+        match frame_storage_with_transaction(|| {
+            Self::release_asset_locks_and_transfer_pending_legs(instruction_id, &instruction_legs)
+        })? {
             Ok(_) => {
-                Self::deposit_event(RawEvent::InstructionExecuted(SettlementDID.as_id(), id));
+                Self::deposit_event(RawEvent::InstructionExecuted(
+                    SettlementDID.as_id(),
+                    instruction_id,
+                ));
             }
             Err(leg_id) => {
                 Self::deposit_event(RawEvent::LegFailedExecution(
                     SettlementDID.as_id(),
-                    id,
+                    instruction_id,
                     leg_id,
                 ));
-                Self::deposit_event(RawEvent::InstructionFailed(SettlementDID.as_id(), id));
-                // We need to unclaim receipts for the failed transaction so that they can be reused
-                Self::unsafe_unclaim_receipts(id, &legs);
+                Self::deposit_event(RawEvent::InstructionFailed(
+                    SettlementDID.as_id(),
+                    instruction_id,
+                ));
+                // Unclaim receipts for the failed transaction so that they can be reused
+                Self::unsafe_unclaim_receipts(instruction_id, &instruction_legs);
                 return Err(Error::<T>::InstructionFailed.into());
             }
         }
 
-        Ok(instructions_processed)
+        Ok(instruction_legs.len().try_into().unwrap_or_default())
+    }
+
+    fn release_asset_locks_and_transfer_pending_legs(
+        instruction_id: InstructionId,
+        instruction_legs: &[(LegId, Leg)],
+    ) -> TransactionOutcome<Result<Result<(), LegId>, DispatchError>> {
+        Self::unchecked_release_locks(instruction_id, instruction_legs);
+        for (leg_id, leg) in instruction_legs {
+            if Self::instruction_leg_status(instruction_id, leg_id) == LegStatus::ExecutionPending {
+                if <Asset<T>>::base_transfer(leg.from, leg.to, &leg.asset, leg.amount).is_err() {
+                    return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
+                }
+            }
+        }
+        TransactionOutcome::Commit(Ok(Ok(())))
     }
 
     fn prune_instruction(id: InstructionId) {
@@ -1430,17 +1516,18 @@ impl<T: Config> Module<T> {
 
     fn unsafe_claim_receipt(
         did: IdentityId,
-        id: InstructionId,
+        instruction_id: InstructionId,
         receipt_details: ReceiptDetails<T::AccountId, T::OffChainSignature>,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
     ) -> DispatchResult {
-        Self::ensure_instruction_validity(id)?;
+        Self::ensure_instruction_validity(instruction_id, false)?;
 
         ensure!(
-            Self::instruction_leg_status(id, receipt_details.leg_id) == LegStatus::ExecutionPending,
+            Self::instruction_leg_status(instruction_id, receipt_details.leg_id)
+                == LegStatus::ExecutionPending,
             Error::<T>::LegNotPending
         );
-        let venue_id = Self::instruction_details(id).venue_id;
+        let venue_id = Self::instruction_details(instruction_id).venue_id;
         ensure!(
             Self::venue_signers(venue_id, &receipt_details.signer),
             Error::<T>::UnauthorizedSigner
@@ -1450,7 +1537,7 @@ impl<T: Config> Module<T> {
             Error::<T>::ReceiptAlreadyClaimed
         );
 
-        let leg = Self::instruction_legs(id, receipt_details.leg_id);
+        let leg = Self::instruction_legs(instruction_id, receipt_details.leg_id);
 
         T::Portfolio::ensure_portfolio_custody_and_permission(leg.from, did, secondary_key)?;
 
@@ -1474,7 +1561,7 @@ impl<T: Config> Module<T> {
         <ReceiptsUsed<T>>::insert(&receipt_details.signer, receipt_details.receipt_uid, true);
 
         <InstructionLegStatus<T>>::insert(
-            id,
+            instruction_id,
             receipt_details.leg_id,
             LegStatus::ExecutionToBeSkipped(
                 receipt_details.signer.clone(),
@@ -1483,7 +1570,7 @@ impl<T: Config> Module<T> {
         );
         Self::deposit_event(RawEvent::ReceiptClaimed(
             did,
-            id,
+            instruction_id,
             receipt_details.leg_id,
             receipt_details.receipt_uid,
             receipt_details.signer,
@@ -1512,13 +1599,13 @@ impl<T: Config> Module<T> {
         }
     }
 
-    fn unchecked_release_locks(id: InstructionId, legs: &[(LegId, Leg)]) {
-        for (leg_id, leg_details) in legs.iter() {
+    fn unchecked_release_locks(id: InstructionId, instruction_legs: &[(LegId, Leg)]) {
+        for (leg_id, leg) in instruction_legs {
             match Self::instruction_leg_status(id, leg_id) {
                 LegStatus::ExecutionPending => {
                     // This can never return an error since the settlement module
                     // must've locked these tokens when instruction was affirmed
-                    let _ = Self::unlock_via_leg(&leg_details);
+                    let _ = Self::unlock_via_leg(&leg);
                 }
                 LegStatus::ExecutionToBeSkipped(_, _) | LegStatus::PendingTokenLock => {}
             }
@@ -1566,7 +1653,7 @@ impl<T: Config> Module<T> {
         max_legs_count: u32,
     ) -> Result<u32, DispatchError> {
         let (did, secondary_key, instruction_details) =
-            Self::ensure_origin_perm_and_instruction_validity(origin, id)?;
+            Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
         let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
         // Verify that the receipts provided are unique
@@ -1680,7 +1767,7 @@ impl<T: Config> Module<T> {
         portfolios: impl Iterator<Item = PortfolioId>,
         max_legs_count: u32,
     ) -> Result<u32, DispatchError> {
-        let (did, sk, _) = Self::ensure_origin_perm_and_instruction_validity(origin, id)?;
+        let (did, sk, _) = Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
         let portfolios_set = portfolios.collect::<BTreeSet<_>>();
 
         // Provide affirmation to the instruction
