@@ -95,6 +95,7 @@ parameter_types! {
 
     // Settlement:
     pub const MaxLegsInInstruction: u32 = 10;
+    pub const MaxNumberOfLegAssets: u8 = u8::MAX;
 
     // I'm online:
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();

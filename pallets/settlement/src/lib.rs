@@ -113,6 +113,8 @@ pub trait Config:
     type MaxLegsInInstruction: Get<u32>;
     /// Weight information for extrinsic of the settlement pallet.
     type WeightInfo: WeightInfo;
+    /// Maximum number of assets that can be transferred in one leg.
+    type MaxNumberOfLegAssets: Get<u8>;
 }
 
 /// A global and unique venue ID.
@@ -502,6 +504,8 @@ decl_error! {
         SignerDoesNotExist,
         /// Instruction leg amount can't be zero
         ZeroAmount,
+        /// The maximum number of assets in one leg was exceeded.
+        InvalidNumberOfLegAssets
     }
 }
 
@@ -1077,6 +1081,14 @@ impl<T: Config> Module<T> {
             legs.len() <= T::MaxLegsInInstruction::get() as usize,
             Error::<T>::InstructionHasTooManyLegs
         );
+
+        // Verifies that the maximum number of assets in a leg is being respected
+        for leg in &legs {
+            ensure!(
+                leg.assets.len() <= T::MaxNumberOfLegAssets::get() as usize,
+                Error::<T>::InvalidNumberOfLegAssets
+            )
+        }
 
         // Ensure that the scheduled block number is in the future so that `T::Scheduler::schedule_named`
         // doesn't fail.
