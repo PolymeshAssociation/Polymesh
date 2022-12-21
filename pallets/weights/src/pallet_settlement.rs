@@ -461,12 +461,12 @@ impl pallet_settlement::WeightInfo for WeightInfo {
     // Storage: Settlement AffirmsReceived (r:0 w:2)
     // Storage: Asset BalanceOfAtScope (r:0 w:2)
     fn execute_manual_instruction(l: u32) -> Weight {
-        (214_454_000 as Weight)
+        Weight::from_ref_time(214_454_000 as u64)
             // Standard Error: 2_083_000
-            .saturating_add((516_479_000 as Weight).saturating_mul(l as Weight))
-            .saturating_add(DbWeight::get().reads(57 as Weight))
-            .saturating_add(DbWeight::get().reads((28 as Weight).saturating_mul(l as Weight)))
-            .saturating_add(DbWeight::get().writes(6 as Weight))
-            .saturating_add(DbWeight::get().writes((16 as Weight).saturating_mul(l as Weight)))
+            .saturating_add(Weight::from_ref_time(516_479_000 as u64).saturating_mul(l as u64))
+            .saturating_add(DbWeight::get().reads(57 as u64))
+            .saturating_add(DbWeight::get().reads((28 as u64).saturating_mul(l as u64)))
+            .saturating_add(DbWeight::get().writes(6 as u64))
+            .saturating_add(DbWeight::get().writes((16 as u64).saturating_mul(l as u64)))
     }
 }
