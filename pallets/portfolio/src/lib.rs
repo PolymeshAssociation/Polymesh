@@ -61,8 +61,8 @@ pub use polymesh_common_utilities::traits::{
 };
 use polymesh_primitives::{
     extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, IdentityId,
-    NFTCollectionId, NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
-    SecondaryKey, Ticker,
+    NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
+    SecondaryKey, Ticker, NFT,
 };
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::Zero;
@@ -127,7 +127,11 @@ decl_storage! {
 
         /// The nft associated to the portfolio.
         pub PortfolioNFT get(fn portfolio_nft):
-            double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) (NFTCollectionId, NFTId) => bool;
+            double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) (Ticker, NFTId) => bool;
+
+        /// All locked nft for a given portfolio.
+        pub PortfolioLockedNFT get(fn portfolio_locked_nft):
+            double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) (Ticker, NFTId) => bool;
 
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
@@ -155,7 +159,13 @@ decl_error! {
         /// The portfolio still has some asset balance left
         PortfolioNotEmpty,
         /// The portfolios belong to different identities
-        DifferentIdentityPortfolios
+        DifferentIdentityPortfolios,
+        /// The NFT does not exist in the portfolio.
+        NFTNotFoundInPortfolio,
+        /// The NFT is already locked.
+        NFTAlreadyLocked,
+        /// The NFT has never been locked.
+        NFTNotLocked
     }
 }
 
@@ -623,9 +633,9 @@ impl<T: Config> Module<T> {
     }
 
     /// Adds an NFT that belongs to the given collection to the default portfolio of the did.
-    pub fn add_portfolio_nft(did: IdentityId, nft_collection_id: NFTCollectionId, nft_id: NFTId) {
+    pub fn add_portfolio_nft(did: IdentityId, ticker: &Ticker, nft_id: NFTId) {
         let portfolio_id = PortfolioId::default_portfolio(did);
-        PortfolioNFT::insert(portfolio_id, (nft_collection_id, nft_id), true);
+        PortfolioNFT::insert(portfolio_id, (ticker, nft_id), true);
     }
 }
 
@@ -672,5 +682,40 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Module<T> {
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
     ) -> DispatchResult {
         Self::ensure_portfolio_custody_and_permission(portfolio, custodian, secondary_key)
+    }
+
+    /// Locks the given nft. This prevents transfering the same NFT more than once.
+    ///
+    /// # Errors
+    /// * `NFTAlreadyLocked` if the given nft is already locked.
+    /// * `NFTNotFoundInPortfolio` if the given nft was not found in the portfolio.
+    fn lock_nft(portfolio_id: &PortfolioId, nft: &NFT) -> DispatchResult {
+        // Verifies if the portfolio contains the NFT
+        ensure!(
+            PortfolioNFT::contains_key(portfolio_id, (nft.ticker(), nft.id())),
+            Error::<T>::NFTNotFoundInPortfolio
+        );
+        // Verifies if the nft is not locked
+        ensure!(
+            PortfolioLockedNFT::contains_key(portfolio_id, (nft.ticker(), nft.id())),
+            Error::<T>::NFTAlreadyLocked
+        );
+        // Locks the nft
+        PortfolioLockedNFT::insert(portfolio_id, (nft.ticker(), nft.id()), true);
+        Ok(())
+    }
+
+    /// Unlocks the given nft.
+    ///
+    /// # Errors
+    /// * `NFTNotFoundInPortfolio` if the given nft was not found in the portfolio.
+    fn unlock_nft(portfolio_id: &PortfolioId, nft: &NFT) -> DispatchResult {
+        // Verifies if the locked NFT exist.
+        ensure!(
+            PortfolioLockedNFT::contains_key(portfolio_id, (nft.ticker(), nft.id())),
+            Error::<T>::NFTNotLocked
+        );
+        PortfolioLockedNFT::remove(portfolio_id, (nft.ticker(), nft.id()));
+        Ok(())
     }
 }

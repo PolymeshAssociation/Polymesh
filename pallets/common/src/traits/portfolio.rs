@@ -22,7 +22,7 @@ use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
 use frame_support::weights::Weight;
 use polymesh_primitives::{
-    Balance, IdentityId, PortfolioId, PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
+    Balance, IdentityId, PortfolioId, PortfolioName, PortfolioNumber, SecondaryKey, Ticker, NFT,
 };
 use sp_std::vec::Vec;
 
@@ -64,6 +64,20 @@ pub trait PortfolioSubTrait<AccountId> {
         custodian: IdentityId,
         secondary_key: Option<&SecondaryKey<AccountId>>,
     ) -> DispatchResult;
+
+    /// Locks the given nft. This prevents transfering the same NFT more than once.
+    ///
+    /// # Arguments
+    /// * `portfolio_id` - PortfolioId that contains the nft to be locked.
+    /// * `nft` - nft to be unlocked.
+    fn lock_nft(portfolio_id: &PortfolioId, nft: &NFT) -> DispatchResult;
+
+    /// Unlocks the given nft.
+    ///
+    /// # Arguments
+    /// * `portfolio_id` - PortfolioId that contains the locked nft.
+    /// * `nft` - nft to be unlocked.
+    fn unlock_nft(portfolio_id: &PortfolioId, nft: &NFT) -> DispatchResult;
 }
 
 pub trait WeightInfo {

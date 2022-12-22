@@ -279,7 +279,7 @@ impl<T: Config> Module<T> {
         for (metadata_key, metadata_value) in nft_attributes.into_iter() {
             MetadataValue::insert((&collection_id, &nft_id), metadata_key, metadata_value);
         }
-        Portfolio::<T>::add_portfolio_nft(caller_portfolio.did, collection_id, nft_id);
+        Portfolio::<T>::add_portfolio_nft(caller_portfolio.did, &ticker, nft_id);
 
         Self::deposit_event(Event::MintedNft(
             caller_portfolio.did,
@@ -305,7 +305,7 @@ impl<T: Config> Module<T> {
 
         // Verifies if the NFT exists
         ensure!(
-            PortfolioNFT::contains_key(&caller_portfolio, (&collection_id, &nft_id)),
+            PortfolioNFT::contains_key(&caller_portfolio, (&ticker, &nft_id)),
             Error::<T>::NFTNotFound
         );
 
@@ -314,7 +314,7 @@ impl<T: Config> Module<T> {
             .checked_sub(ONE_UNIT)
             .ok_or(Error::<T>::BalanceUnderflow)?;
         BalanceOf::insert(&ticker, &caller_portfolio.did, new_balance);
-        PortfolioNFT::remove(&caller_portfolio, (&collection_id, &nft_id));
+        PortfolioNFT::remove(&caller_portfolio, (&ticker, &nft_id));
         MetadataValue::remove_prefix((&collection_id, &nft_id), None);
 
         Self::deposit_event(Event::BurnedNFT(caller_portfolio.did, ticker, nft_id));
@@ -328,10 +328,9 @@ impl<T: Config> Module<T> {
         nft: &NFT,
     ) -> DispatchResult {
         // Verifies if there is a collection associated to the NFT
-        let collection_id =
-            CollectionTicker::try_get(nft.ticker()).map_err(|_| Error::<T>::InvalidNftTransfer)?;
+        CollectionTicker::try_get(nft.ticker()).map_err(|_| Error::<T>::InvalidNftTransfer)?;
         // Verifies if all rules for transfering the NFT are being respected
-        Self::validate_nft_transfer(sender_portfolio, receiver_portfolio, &collection_id, &nft)?;
+        Self::validate_nft_transfer(sender_portfolio, receiver_portfolio, &nft)?;
 
         // Transfer ownership of the NFT
         // Update the balance of the sender and the receiver
@@ -342,8 +341,8 @@ impl<T: Config> Module<T> {
             *balance += ONE_UNIT
         });
         // Update the portfolio of the sender and the receiver
-        PortfolioNFT::remove(sender_portfolio, (&collection_id, nft.id()));
-        PortfolioNFT::insert(receiver_portfolio, (&collection_id, nft.id()), true);
+        PortfolioNFT::remove(sender_portfolio, (nft.ticker(), nft.id()));
+        PortfolioNFT::insert(receiver_portfolio, (nft.ticker(), nft.id()), true);
         Ok(())
     }
 
@@ -352,7 +351,6 @@ impl<T: Config> Module<T> {
     fn validate_nft_transfer(
         sender_portfolio: &PortfolioId,
         receiver_portfolio: &PortfolioId,
-        collection_id: &NFTCollectionId,
         nft: &NFT,
     ) -> DispatchResult {
         // Verifies that the sender and receiver are not the same
@@ -367,7 +365,7 @@ impl<T: Config> Module<T> {
         );
         // Verfies that the sender owns the nft
         ensure!(
-            PortfolioNFT::contains_key(sender_portfolio, (collection_id, nft.id())),
+            PortfolioNFT::contains_key(sender_portfolio, (nft.ticker(), nft.id())),
             Error::<T>::InvalidNftTransfer
         );
         // Verfies that the receiver will not overflow
