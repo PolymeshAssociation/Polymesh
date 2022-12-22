@@ -7,6 +7,7 @@ use polymesh_primitives::IdentityId;
 
 use crate::asset;
 use crate::base;
+use crate::compliance_manager;
 use crate::identity;
 use crate::portfolio;
 
@@ -16,6 +17,8 @@ pub trait Config:
     type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
 
     type WeightInfo: WeightInfo;
+
+    type Compliance: compliance_manager::Config;
 
     type MaxNumberOfCollectionKeys: Get<u8>;
 }

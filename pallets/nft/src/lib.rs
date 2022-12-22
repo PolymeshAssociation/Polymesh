@@ -7,14 +7,15 @@ use frame_support::{decl_error, decl_module, decl_storage};
 use pallet_asset::BalanceOf;
 use pallet_base::try_next_pre;
 use pallet_portfolio::PortfolioNFT;
+use polymesh_common_utilities::compliance_manager::Config as ComplianceManagerConfig;
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
 pub use polymesh_common_utilities::traits::nft::{Config, Event, WeightInfo};
 use polymesh_primitives::asset::{AssetName, AssetType};
 use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use polymesh_primitives::nft::{
-    NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute,
+    NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFT,
 };
-use polymesh_primitives::{PortfolioKind, Ticker};
+use polymesh_primitives::{PortfolioId, PortfolioKind, Ticker};
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec::Vec;
@@ -138,6 +139,8 @@ decl_error! {
         InvalidAssetType,
         /// Either the number of keys or the key identifier does not match the keys defined for the collection.
         InvalidMetadataAttribute,
+        /// Failed to transfer an NFT.
+        InvalidNftTransfer,
         /// The maximum number of metadata keys was exceeded.
         MaxNumberOfKeysExceeded,
         /// The NFT does not exist.
@@ -315,6 +318,69 @@ impl<T: Config> Module<T> {
         MetadataValue::remove_prefix((&collection_id, &nft_id), None);
 
         Self::deposit_event(Event::BurnedNFT(caller_portfolio.did, ticker, nft_id));
+        Ok(())
+    }
+
+    /// Tranfer ownership of the given `nft`.
+    pub fn base_nft_transfer(
+        sender_portfolio: &PortfolioId,
+        receiver_portfolio: &PortfolioId,
+        nft: &NFT,
+    ) -> DispatchResult {
+        // Verifies if there is a collection associated to the NFT
+        let collection_id =
+            CollectionTicker::try_get(nft.ticker()).map_err(|_| Error::<T>::InvalidNftTransfer)?;
+        // Verifies if all rules for transfering the NFT are being respected
+        Self::validate_nft_transfer(sender_portfolio, receiver_portfolio, &collection_id, &nft)?;
+
+        // Transfer ownership of the NFT
+        // Update the balance of the sender and the receiver
+        BalanceOf::mutate(nft.ticker(), sender_portfolio.did, |balance| {
+            *balance -= ONE_UNIT
+        });
+        BalanceOf::mutate(nft.ticker(), receiver_portfolio.did, |balance| {
+            *balance += ONE_UNIT
+        });
+        // Update the portfolio of the sender and the receiver
+        PortfolioNFT::remove(sender_portfolio, (&collection_id, nft.id()));
+        PortfolioNFT::insert(receiver_portfolio, (&collection_id, nft.id()), true);
+        Ok(())
+    }
+
+    /// Verifies if and the sender and receiver are not the same, if both have valid balances,
+    /// if the sender owns the nft, and if all compliance rules are being respected.
+    fn validate_nft_transfer(
+        sender_portfolio: &PortfolioId,
+        receiver_portfolio: &PortfolioId,
+        collection_id: &NFTCollectionId,
+        nft: &NFT,
+    ) -> DispatchResult {
+        // Verifies that the sender and receiver are not the same
+        ensure!(
+            sender_portfolio != receiver_portfolio,
+            Error::<T>::InvalidNftTransfer
+        );
+        // Verifies that the sender has at least a balance of ONE_UNIT
+        ensure!(
+            BalanceOf::get(nft.ticker(), sender_portfolio.did) >= ONE_UNIT,
+            Error::<T>::InvalidNftTransfer
+        );
+        // Verfies that the sender owns the nft
+        ensure!(
+            PortfolioNFT::contains_key(sender_portfolio, (collection_id, nft.id())),
+            Error::<T>::InvalidNftTransfer
+        );
+        // Verfies that the receiver will not overflow
+        BalanceOf::get(nft.ticker(), receiver_portfolio.did)
+            .checked_add(ONE_UNIT)
+            .ok_or(Error::<T>::BalanceOverflow)?;
+        // Verifies that all compliance rules are being respected
+        T::Compliance::verify_restriction(
+            nft.ticker(),
+            Some(sender_portfolio.did),
+            Some(receiver_portfolio.did),
+            ONE_UNIT,
+        )?;
         Ok(())
     }
 }
