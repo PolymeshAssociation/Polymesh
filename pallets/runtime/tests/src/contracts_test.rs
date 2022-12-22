@@ -18,7 +18,7 @@ use test_client::AccountKeyring;
 // and instead focus on the particulars of our contracts pallet.
 // This includes testing CDD, permissions, and what the chain extension does.
 
-const GAS_LIMIT: Gas = Weight::from_ref_time(10_000_000_000);
+const GAS_LIMIT: Gas = Weight::from_ref_time(100_000_000_000).set_proof_size(256 * 1024);
 
 type Asset = pallet_asset::Module<TestStorage>;
 type FrameContracts = pallet_contracts::Pallet<TestStorage>;
