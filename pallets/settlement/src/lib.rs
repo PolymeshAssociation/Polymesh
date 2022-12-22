@@ -68,6 +68,7 @@ use frame_system::{ensure_root, RawOrigin};
 use pallet_base::{ensure_string_limited, try_next_post};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
+    constants::currency::ONE_UNIT,
     constants::queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,
     traits::{
         asset, identity::Config as IdentityConfig, portfolio::PortfolioSubTrait, CommonConfig,
@@ -287,7 +288,7 @@ impl LegAsset {
     pub fn ticker_and_amount(&self) -> (Ticker, Balance) {
         match self {
             LegAsset::Fungible { ticker, amount } => (*ticker, *amount),
-            LegAsset::NonFungible(nft) => (*nft.ticker(), nft.amount()),
+            LegAsset::NonFungible(nft) => (*nft.ticker(), ONE_UNIT),
         }
     }
 }
@@ -305,19 +306,22 @@ impl Default for LegAsset {
 #[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
 pub struct LegV2 {
     /// Portfolio of the sender.
-    pub sender_portfolio: PortfolioId,
+    pub from: PortfolioId,
     /// Portfolio of the receiver.
-    pub receiver_portfolio: PortfolioId,
+    pub to: PortfolioId,
     /// Assets being transferred.
-    pub assets: Vec<LegAsset>,
+    pub asset: LegAsset,
 }
 
 impl From<Leg> for LegV2 {
     fn from(leg: Leg) -> Self {
         LegV2 {
-            sender_portfolio: leg.from,
-            receiver_portfolio: leg.to,
-            assets: vec![LegAsset::Fungible { ticker: leg.asset, amount: leg.amount }]
+            from: leg.from,
+            to: leg.to,
+            asset: LegAsset::Fungible {
+                ticker: leg.asset,
+                amount: leg.amount,
+            },
         }
     }
 }
@@ -345,19 +349,6 @@ pub struct Receipt<Balance> {
     pub asset: Ticker,
     /// Amount being transferred
     pub amount: Balance,
-}
-
-/// Defines a receipt (i.e details about an offchain transaction).
-#[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
-pub struct ReceiptV2 {
-    /// Unique receipt number set by the signer.
-    pub uid: u64,
-    /// Portfolio of the sender.
-    pub sender_portfolio: PortfolioId,
-    /// Portfolio of the receiver.
-    pub receiver_portfolio: PortfolioId,
-    /// Ticker and amount of the transferred assets.
-    pub assets: Vec<LegAsset>,
 }
 
 /// A wrapper for VenueDetails
@@ -485,6 +476,18 @@ decl_event!(
         VenueSignersUpdated(IdentityId, VenueId, Vec<AccountId>, bool),
         /// Settlement manually executed (did, id)
         SettlementManuallyExecuted(IdentityId, InstructionId),
+        /// A new instruction has been created
+        /// (did, venue_id, instruction_id, settlement_type, trade_date, value_date, legs, memo)
+        InstructionV2Created(
+            IdentityId,
+            VenueId,
+            InstructionId,
+            SettlementType<BlockNumber>,
+            Option<Moment>,
+            Option<Moment>,
+            Vec<LegV2>,
+            Option<InstructionMemo>,
+        ),
     }
 );
 
@@ -615,6 +618,9 @@ decl_storage! {
         StorageVersion get(fn storage_version) build(|_| Version::new(0)): Version;
         /// Instruction memo
         InstructionMemos get(fn memo): map hasher(twox_64_concat) InstructionId => Option<InstructionMemo>;
+        /// Legs under an instruction. (instruction_id, leg_id) -> Leg
+        pub InstructionLegsV2 get(fn instruction_legsv2):
+            double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => LegV2;
     }
 }
 
@@ -708,6 +714,7 @@ decl_module! {
             legs: Vec<Leg>,
         ) {
             let did = Identity::<T>::ensure_perms(origin)?;
+            let legs: Vec<LegV2> = legs.into_iter().map(|leg| leg.into()).collect();
             Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, None)?;
         }
 
@@ -739,6 +746,7 @@ decl_module! {
             portfolios: Vec<PortfolioId>,
         ) -> DispatchResult {
             let did = Identity::<T>::ensure_perms(origin.clone())?;
+            let legs: Vec<LegV2> = legs.into_iter().map(|leg| leg.into()).collect();
             with_transaction(|| {
                 let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
                 let legs_count = legs.iter().filter(|l| portfolios_set.contains(&l.from)).count() as u32;
@@ -1029,6 +1037,7 @@ decl_module! {
             instruction_memo: Option<InstructionMemo>,
         ) {
             let did = Identity::<T>::ensure_perms(origin)?;
+            let legs: Vec<LegV2> = legs.into_iter().map(|leg| leg.into()).collect();
             Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo)?;
         }
 
@@ -1061,6 +1070,7 @@ decl_module! {
             instruction_memo: Option<InstructionMemo>,
         ) -> DispatchResult {
             let did = Identity::<T>::ensure_perms(origin.clone())?;
+            let legs: Vec<LegV2> = legs.into_iter().map(|leg| leg.into()).collect();
             with_transaction(|| {
                 let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
                 let legs_count = legs.iter().filter(|l| portfolios_set.contains(&l.from)).count() as u32;
@@ -1152,7 +1162,7 @@ impl<T: Config> Module<T> {
         settlement_type: SettlementType<T::BlockNumber>,
         trade_date: Option<T::Moment>,
         value_date: Option<T::Moment>,
-        legs: Vec<Leg>,
+        legs: Vec<LegV2>,
         memo: Option<InstructionMemo>,
     ) -> Result<InstructionId, DispatchError> {
         // Ensure instruction does not have too many legs.
@@ -1161,17 +1171,12 @@ impl<T: Config> Module<T> {
             Error::<T>::InstructionHasTooManyLegs
         );
 
-        match &settlement_type {
-            SettlementType::SettleOnBlock(block_number) => {
-                // Ensure that the scheduled block number is in the future so that `T::Scheduler::schedule_named`
-                // doesn't fail.
-                ensure!(
-                    *block_number > System::<T>::block_number(),
-                    Error::<T>::SettleOnPastBlock
-                );
-            }
-            SettlementType::SettleManual(_block_number) => {}
-            _ => {}
+        // Verifies if the block number is in the future so that `T::Scheduler::schedule_named` doesn't fail.
+        if let SettlementType::SettleOnBlock(block_number) = &settlement_type {
+            ensure!(
+                *block_number > System::<T>::block_number(),
+                Error::<T>::SettleOnPastBlock
+            );
         }
 
         // Ensure that instruction dates are valid.
@@ -1190,16 +1195,17 @@ impl<T: Config> Module<T> {
         let mut tickers = BTreeSet::new();
         for leg in &legs {
             ensure!(leg.from != leg.to, Error::<T>::SameSenderReceiver);
-            // Check if the venue is part of the token's list of allowed venues.
-            // Only check each ticker once.
-            if tickers.insert(leg.asset) && Self::venue_filtering(leg.asset) {
+            let (ticker, amount) = leg.asset.ticker_and_amount();
+            // Verifies if the venue is part of the token's list of allowed venues
+            // Each ticker is only checked once
+            if tickers.insert(ticker) && Self::venue_filtering(ticker) {
                 ensure!(
-                    Self::venue_allow_list(leg.asset, venue_id),
+                    Self::venue_allow_list(ticker, venue_id),
                     Error::<T>::UnauthorizedVenue
                 );
             }
 
-            ensure!(leg.amount != 0, Error::<T>::ZeroAmount);
+            ensure!(amount != 0, Error::<T>::ZeroAmount);
             counter_parties.insert(leg.from);
             counter_parties.insert(leg.to);
         }
@@ -1223,7 +1229,7 @@ impl<T: Config> Module<T> {
         }
 
         for (i, leg) in legs.iter().enumerate() {
-            InstructionLegs::insert(
+            InstructionLegsV2::insert(
                 instruction_id,
                 u64::try_from(i).map(LegId).unwrap_or_default(),
                 leg.clone(),
@@ -1245,7 +1251,7 @@ impl<T: Config> Module<T> {
             InstructionMemos::insert(instruction_id, &memo);
         }
 
-        Self::deposit_event(RawEvent::InstructionCreated(
+        Self::deposit_event(RawEvent::InstructionV2Created(
             did,
             venue_id,
             instruction_id,
@@ -1932,5 +1938,26 @@ impl<T: Config> Module<T> {
 
         Self::deposit_event(RawEvent::VenueSignersUpdated(did, id, signers, add_signers));
         Ok(())
+    }
+
+    /// Returns the specified leg for the given instruction and leg id.
+    /// If it doesn't exist in the InstructionLegsV2 storage it will be converted from the deprecated InstructionLegs storage.
+    fn get_instruction_leg(instruction_id: &InstructionId, leg_id: &LegId) -> LegV2 {
+        InstructionLegsV2::try_get(instruction_id, leg_id)
+            .unwrap_or_else(|_| InstructionLegs::get(instruction_id, leg_id).into())
+    }
+
+    /// Returns all legs and their id for the given instruction.
+    /// If it doesn't exist in the InstructionLegsV2 storage it will be converted from the deprecated InstructionLegs storage.
+    fn get_instruction_legs(instruction_id: &InstructionId) -> Vec<(LegId, LegV2)> {
+        let instruction_legs: Vec<(LegId, LegV2)> =
+            InstructionLegsV2::iter_prefix(instruction_id).collect();
+
+        if instruction_legs.is_empty() {
+            return InstructionLegs::iter_prefix(instruction_id)
+                .map(|(leg_id, leg)| (leg_id, leg.into()))
+                .collect();
+        }
+        instruction_legs
     }
 }

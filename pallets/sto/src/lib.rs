@@ -32,7 +32,9 @@ use frame_support::{
 };
 use pallet_base::try_next_post;
 use pallet_identity::PermissionedCallOriginData;
-use pallet_settlement::{Leg, ReceiptDetails, SettlementType, VenueId, VenueInfo, VenueType};
+use pallet_settlement::{
+    LegAsset, LegV2, ReceiptDetails, SettlementType, VenueId, VenueInfo, VenueType,
+};
 use polymesh_common_utilities::{
     portfolio::PortfolioSubTrait,
     traits::{identity, portfolio},
@@ -453,17 +455,15 @@ decl_module! {
             );
 
             let legs = vec![
-                Leg {
+                LegV2 {
                     from: fundraiser.offering_portfolio,
                     to: investment_portfolio,
-                    asset: fundraiser.offering_asset,
-                    amount: purchase_amount
+                    asset: LegAsset::Fungible { ticker: fundraiser.offering_asset, amount: purchase_amount }
                 },
-                Leg {
+                LegV2 {
                     from: funding_portfolio,
                     to: fundraiser.raising_portfolio,
-                    asset: fundraiser.raising_asset,
-                    amount: cost
+                    asset: LegAsset::Fungible { ticker: fundraiser.raising_asset, amount: cost }
                 }
             ];
 
