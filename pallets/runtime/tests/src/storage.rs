@@ -44,6 +44,7 @@ use polymesh_primitives::{
 use polymesh_runtime_common::{
     merge_active_and_inactive,
     runtime::{BENCHMARK_MAX_INCREASE, VMO},
+    AvailableBlockRatio, MaximumBlockWeight,
 };
 use polymesh_runtime_develop::constants::time::{EPOCH_DURATION_IN_BLOCKS, MILLISECS_PER_BLOCK};
 use smallvec::smallvec;
@@ -368,11 +369,8 @@ type AuthorityId = <AnySignature as Verify>::Signer;
 pub(crate) type Balance = u128;
 
 parameter_types! {
-    pub const BlockHashCount: u32 = 250;
-    pub const MaximumBlockWeight: Weight = Weight::from_ref_time(4096);
-    pub const MaximumBlockLength: u32 = 4096;
-    pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
-    pub const MaximumExtrinsicWeight: Weight = Weight::from_ref_time(2800);
+    pub MaximumExtrinsicWeight: Weight = AvailableBlockRatio::get()
+        .saturating_sub(Perbill::from_percent(10)) * MaximumBlockWeight::get();
     pub const BlockExecutionWeight: Weight = Weight::from_ref_time(10);
     pub TransactionByteFee: Balance = TRANSACTION_BYTE_FEE.with(|v| *v.borrow());
     pub ExtrinsicBaseWeight: Weight = EXTRINSIC_BASE_WEIGHT.with(|v| *v.borrow());
