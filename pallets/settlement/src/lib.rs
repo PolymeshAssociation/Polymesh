@@ -1965,14 +1965,14 @@ impl<T: Config> Module<T> {
 
     /// Returns the specified leg for the given instruction and leg id.
     /// If it doesn't exist in the InstructionLegsV2 storage it will be converted from the deprecated InstructionLegs storage.
-    fn get_instruction_leg(instruction_id: &InstructionId, leg_id: &LegId) -> LegV2 {
+    pub fn get_instruction_leg(instruction_id: &InstructionId, leg_id: &LegId) -> LegV2 {
         InstructionLegsV2::try_get(instruction_id, leg_id)
             .unwrap_or_else(|_| InstructionLegs::get(instruction_id, leg_id).into())
     }
 
     /// Returns all legs and their id for the given instruction.
     /// If it doesn't exist in the InstructionLegsV2 storage it will be converted from the deprecated InstructionLegs storage.
-    fn get_instruction_legs(instruction_id: &InstructionId) -> Vec<(LegId, LegV2)> {
+    pub fn get_instruction_legs(instruction_id: &InstructionId) -> Vec<(LegId, LegV2)> {
         let instruction_legs: Vec<(LegId, LegV2)> =
             InstructionLegsV2::iter_prefix(instruction_id).collect();
 

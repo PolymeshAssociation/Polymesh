@@ -743,7 +743,8 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true).unwrap();
         // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone(), None).unwrap();
+        let legs_v2: Vec<LegV2> = legs.iter().map(|leg| leg.clone().into()).collect();
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs_v2, None).unwrap();
         let instruction_id = InstructionId(1);
         // Affirm an instruction
         let portfolios_set = portfolios.clone().into_iter().collect::<BTreeSet<_>>();
@@ -763,7 +764,8 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did, _, _, account_id) = emulate_add_instruction::<T>(1, true).unwrap();
         // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone(), None).unwrap();
+        let legs_v2: Vec<LegV2> = legs.iter().map(|leg| leg.clone().into()).collect();
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs_v2.clone(), None).unwrap();
         let instruction_id = InstructionId(1);
         let leg_id = LegId(0);
 
@@ -808,7 +810,8 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , s_portfolios, r_portfolios, account_id) = emulate_add_instruction::<T>(1, true).unwrap();
         // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone(), None).unwrap();
+        let legs_v2: Vec<LegV2> = legs.iter().map(|leg| leg.clone().into()).collect();
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs_v2, None).unwrap();
         let instruction_id = InstructionId(1);
         let ticker = Ticker::generate_into(1u64);
         let receipt = create_receipt_details::<T>(0, legs.first().unwrap().clone());
@@ -833,7 +836,8 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , s_portfolios, r_portfolios, account_id) = emulate_add_instruction::<T>(r, true).unwrap();
         // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone(), None).unwrap();
+        let legs_v2: Vec<LegV2> = legs.iter().map(|leg| leg.clone().into()).collect();
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs_v2, None).unwrap();
         let instruction_id = InstructionId(1);
         let mut receipt_details = Vec::with_capacity(r as usize);
         legs.clone().into_iter().enumerate().for_each(|(idx, l)| {

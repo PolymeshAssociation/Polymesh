@@ -340,7 +340,7 @@ fn mint_nft() {
         assert_eq!(
             PortfolioNFT::get(
                 PortfolioId::default_portfolio(alice.did),
-                (NFTCollectionId(1), NFTId(1))
+                (&ticker, NFTId(1))
             ),
             true
         );
@@ -416,7 +416,7 @@ fn burn_nft() {
         assert_eq!(BalanceOf::get(&ticker, alice.did), 0);
         assert!(!PortfolioNFT::contains_key(
             PortfolioId::default_portfolio(alice.did),
-            (NFTCollectionId(1), NFTId(1))
+            (&ticker, NFTId(1))
         ),);
     });
 }
