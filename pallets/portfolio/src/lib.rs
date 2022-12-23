@@ -61,8 +61,7 @@ pub use polymesh_common_utilities::traits::{
 };
 use polymesh_primitives::{
     extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, IdentityId,
-    NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
-    SecondaryKey, Ticker, NFT,
+    NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Ticker, NFT,
 };
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::Zero;

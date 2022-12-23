@@ -5499,6 +5499,7 @@ dependencies = [
  "pallet-compliance-manager",
  "pallet-external-agents",
  "pallet-identity",
+ "pallet-nft",
  "pallet-portfolio",
  "pallet-scheduler",
  "pallet-statistics",

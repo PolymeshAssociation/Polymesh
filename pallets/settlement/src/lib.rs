@@ -89,6 +89,7 @@ type Identity<T> = identity::Module<T>;
 type System<T> = frame_system::Pallet<T>;
 type Asset<T> = pallet_asset::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
+type Nft<T> = pallet_nft::Module<T>;
 
 pub trait Config:
     frame_system::Config
@@ -97,6 +98,7 @@ pub trait Config:
     + pallet_timestamp::Config
     + asset::Config
     + pallet_compliance_manager::Config
+    + pallet_nft::Config
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -812,7 +814,7 @@ decl_module! {
                 Error::<T>::UnknownInstruction
             );
 
-            let legs = InstructionLegs::iter_prefix(id).collect::<Vec<_>>();
+            let legs: Vec<(LegId, LegV2)> = Self::get_instruction_legs(&id);
 
             // Ensure num_of_legs is correct.
             ensure!(
@@ -889,7 +891,7 @@ decl_module! {
                 LegStatus::ExecutionToBeSkipped(s, r) => (s, r),
                 _ => return Err(Error::<T>::ReceiptNotClaimed.into()),
             };
-            let leg = Self::instruction_legs(instruction_id, leg_id);
+            let leg = Self::get_instruction_leg(&instruction_id, &leg_id);
             T::Portfolio::ensure_portfolio_custody_and_permission(leg.from, did, secondary_key.as_ref())?;
             // Lock tokens that are part of the leg
             Self::lock_via_leg(&leg)?;
@@ -994,7 +996,7 @@ decl_module! {
 
             // Schedule instruction to be executed in the next block.
             let execution_at = System::<T>::block_number() + One::one();
-            Self::schedule_instruction(id, execution_at, InstructionLegs::iter_prefix(id).count() as u32);
+            Self::schedule_instruction(id, execution_at, Self::get_instruction_legs(&id).len() as u32);
 
             Self::deposit_event(RawEvent::InstructionRescheduled(did, id));
         }
@@ -1093,13 +1095,13 @@ decl_module! {
             let (did, sk, instruction_details) = Self::ensure_origin_perm_and_instruction_validity(origin, id, true)?;
 
             // Check for portfolio
+            let instruction_legs: Vec<(LegId, LegV2)> = Self::get_instruction_legs(&id);
             match portfolio {
                 Some(portfolio) => {
                     // Ensure that the caller is a party of this instruction.
                     T::Portfolio::ensure_portfolio_custody_and_permission(portfolio, did, sk.as_ref())?;
-                    let mut legs = InstructionLegs::iter_prefix(id);
                     ensure!(
-                        legs.any(|(_, leg)| [leg.from, leg.to].contains(&portfolio)),
+                        instruction_legs.iter().any(|(_, leg)| leg.from == portfolio || leg.to == portfolio),
                         Error::<T>::CallerIsNotAParty
                     );
                 }
@@ -1110,7 +1112,7 @@ decl_module! {
             }
 
             // check that the instruction leg count matches
-            ensure!(InstructionLegs::iter_prefix(id).count() as u32 <= legs_count, Error::<T>::LegCountTooSmall);
+            ensure!(instruction_legs.len() as u32 <= legs_count, Error::<T>::LegCountTooSmall);
 
             // Executes the instruction
             Self::execute_instruction_retryable(id)?;
@@ -1122,12 +1124,22 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
-    fn lock_via_leg(leg: &Leg) -> DispatchResult {
-        T::Portfolio::lock_tokens(&leg.from, &leg.asset, leg.amount)
+    fn lock_via_leg(leg: &LegV2) -> DispatchResult {
+        match &leg.asset {
+            LegAsset::Fungible { ticker, amount } => {
+                T::Portfolio::lock_tokens(&leg.from, &ticker, *amount)
+            }
+            LegAsset::NonFungible(nft) => T::Portfolio::lock_nft(&leg.from, &nft),
+        }
     }
 
-    fn unlock_via_leg(leg: &Leg) -> DispatchResult {
-        T::Portfolio::unlock_tokens(&leg.from, &leg.asset, leg.amount)
+    fn unlock_via_leg(leg: &LegV2) -> DispatchResult {
+        match &leg.asset {
+            LegAsset::Fungible { ticker, amount } => {
+                T::Portfolio::unlock_tokens(&leg.from, &ticker, *amount)
+            }
+            LegAsset::NonFungible(nft) => T::Portfolio::unlock_nft(&leg.from, &nft),
+        }
     }
 
     /// Ensure origin call permission and the given instruction validity.
@@ -1282,7 +1294,7 @@ impl<T: Config> Module<T> {
         )?;
         // Unlock tokens that were previously locked during the affirmation
         let (total_leg_count, filtered_legs) =
-            Self::filtered_legs(id, &portfolios, max_legs_count)?;
+            Self::filtered_legs(&id, &portfolios, max_legs_count)?;
         for (leg_id, leg_details) in filtered_legs {
             match Self::instruction_leg_status(id, leg_id) {
                 LegStatus::ExecutionToBeSkipped(signer, receipt_uid) => {
@@ -1387,8 +1399,7 @@ impl<T: Config> Module<T> {
             Error::<T>::InstructionNotPending
         );
 
-        let mut instruction_legs: Vec<(LegId, Leg)> =
-            InstructionLegs::iter_prefix(instruction_id).collect();
+        let mut instruction_legs: Vec<(LegId, LegV2)> = Self::get_instruction_legs(&instruction_id);
         // NB: The order of execution of the legs matter in some edge cases around compliance.
         // E.g: Consider a token with a total supply of 100 and maximum percentage ownership of 10%.
         // In a given moment, Alice owns 10 tokens, Bob owns 5 and Charlie owns 0.
@@ -1400,13 +1411,14 @@ impl<T: Config> Module<T> {
         let mut tickers: BTreeSet<Ticker> = BTreeSet::new();
         for (_, leg) in &instruction_legs {
             // Each ticker is only checked once
-            if tickers.insert(leg.asset)
-                && Self::venue_filtering(leg.asset)
-                && !Self::venue_allow_list(leg.asset, details.venue_id)
+            let ticker = leg.asset.ticker_and_amount().0;
+            if tickers.insert(ticker)
+                && Self::venue_filtering(ticker)
+                && !Self::venue_allow_list(ticker, details.venue_id)
             {
                 Self::deposit_event(RawEvent::VenueUnauthorized(
                     SettlementDID.as_id(),
-                    leg.asset,
+                    ticker,
                     details.venue_id,
                 ));
                 return Err(Error::<T>::UnauthorizedVenue.into());
@@ -1443,13 +1455,22 @@ impl<T: Config> Module<T> {
 
     fn release_asset_locks_and_transfer_pending_legs(
         instruction_id: InstructionId,
-        instruction_legs: &[(LegId, Leg)],
+        instruction_legs: &[(LegId, LegV2)],
     ) -> TransactionOutcome<Result<Result<(), LegId>, DispatchError>> {
         Self::unchecked_release_locks(instruction_id, instruction_legs);
         for (leg_id, leg) in instruction_legs {
             if Self::instruction_leg_status(instruction_id, leg_id) == LegStatus::ExecutionPending {
-                if <Asset<T>>::base_transfer(leg.from, leg.to, &leg.asset, leg.amount).is_err() {
-                    return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
+                match &leg.asset {
+                    LegAsset::Fungible { ticker, amount } => {
+                        if <Asset<T>>::base_transfer(leg.from, leg.to, &ticker, *amount).is_err() {
+                            return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
+                        }
+                    }
+                    LegAsset::NonFungible(nft) => {
+                        if <Nft<T>>::base_nft_transfer(&leg.from, &leg.to, &nft).is_err() {
+                            return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
+                        }
+                    }
                 }
             }
         }
@@ -1457,7 +1478,7 @@ impl<T: Config> Module<T> {
     }
 
     fn prune_instruction(id: InstructionId) {
-        let legs = InstructionLegs::drain_prefix(id).collect::<Vec<_>>();
+        let legs: Vec<(LegId, LegV2)> = Self::drain_instruction_legs(&id);
         let details = <InstructionDetails<T>>::take(id);
         VenueInstructions::remove(details.venue_id, id);
         <InstructionLegStatus<T>>::remove_prefix(id, None);
@@ -1492,7 +1513,7 @@ impl<T: Config> Module<T> {
         )?;
 
         let (total_leg_count, filtered_legs) =
-            Self::filtered_legs(id, &portfolios, max_legs_count)?;
+            Self::filtered_legs(&id, &portfolios, max_legs_count)?;
         with_transaction(|| {
             for (leg_id, leg_details) in filtered_legs {
                 if let Err(_) = Self::lock_via_leg(&leg_details) {
@@ -1543,16 +1564,17 @@ impl<T: Config> Module<T> {
             Error::<T>::ReceiptAlreadyClaimed
         );
 
-        let leg = Self::instruction_legs(instruction_id, receipt_details.leg_id);
+        let leg = Self::get_instruction_leg(&instruction_id, &receipt_details.leg_id);
 
         T::Portfolio::ensure_portfolio_custody_and_permission(leg.from, did, secondary_key)?;
 
+        let (asset, amount) = leg.asset.ticker_and_amount();
         let msg = Receipt {
             receipt_uid: receipt_details.receipt_uid,
             from: leg.from,
             to: leg.to,
-            asset: leg.asset,
-            amount: leg.amount,
+            asset,
+            amount,
         };
 
         ensure!(
@@ -1587,7 +1609,7 @@ impl<T: Config> Module<T> {
 
     // Unclaims all receipts for an instruction
     // Should only be used if user is unclaiming, or instruction has failed
-    fn unsafe_unclaim_receipts(id: InstructionId, legs: &[(LegId, Leg)]) {
+    fn unsafe_unclaim_receipts(id: InstructionId, legs: &[(LegId, LegV2)]) {
         for (leg_id, _) in legs {
             match Self::instruction_leg_status(id, leg_id) {
                 LegStatus::ExecutionToBeSkipped(signer, receipt_uid) => {
@@ -1605,7 +1627,7 @@ impl<T: Config> Module<T> {
         }
     }
 
-    fn unchecked_release_locks(id: InstructionId, instruction_legs: &[(LegId, Leg)]) {
+    fn unchecked_release_locks(id: InstructionId, instruction_legs: &[(LegId, LegV2)]) {
         for (leg_id, leg) in instruction_legs {
             match Self::instruction_leg_status(id, leg_id) {
                 LegStatus::ExecutionPending => {
@@ -1693,18 +1715,19 @@ impl<T: Config> Module<T> {
                 Error::<T>::ReceiptAlreadyClaimed
             );
 
-            let leg = Self::instruction_legs(&id, &receipt.leg_id);
+            let leg = Self::get_instruction_leg(&id, &receipt.leg_id);
             ensure!(
                 portfolios_set.contains(&leg.from),
                 Error::<T>::PortfolioMismatch
             );
 
+            let (asset, amount) = leg.asset.ticker_and_amount();
             let msg = Receipt {
                 receipt_uid: receipt.receipt_uid,
                 from: leg.from,
                 to: leg.to,
-                asset: leg.asset,
-                amount: leg.amount,
+                asset,
+                amount,
             };
             ensure!(
                 receipt.signature.verify(&msg.encode()[..], &receipt.signer),
@@ -1713,7 +1736,7 @@ impl<T: Config> Module<T> {
         }
 
         let (total_leg_count, filtered_legs) =
-            Self::filtered_legs(id, &portfolios_set, max_legs_count)?;
+            Self::filtered_legs(&id, &portfolios_set, max_legs_count)?;
         // Lock tokens that do not have a receipt attached to their leg.
         with_transaction(|| {
             for (leg_id, leg_details) in filtered_legs {
@@ -1887,22 +1910,22 @@ impl<T: Config> Module<T> {
     /// Returns total number of legs of an `instruction_id` and vector of legs where sender is in the `portfolios` set.
     /// Also, ensures that the number of filtered legs is under the limit.
     fn filtered_legs(
-        id: InstructionId,
+        id: &InstructionId,
         portfolios: &BTreeSet<PortfolioId>,
         max_filtered_legs: u32,
-    ) -> Result<(u32, Vec<(LegId, Leg)>), DispatchError> {
-        let mut legs_count = 0;
-        let filtered_legs = InstructionLegs::iter_prefix(id)
+    ) -> Result<(u32, Vec<(LegId, LegV2)>), DispatchError> {
+        let instruction_legs: Vec<(LegId, LegV2)> = Self::get_instruction_legs(&id);
+        let total_legs = instruction_legs.len() as u32;
+        let legs_from_portfolios: Vec<(LegId, LegV2)> = instruction_legs
             .into_iter()
-            .inspect(|_| legs_count += 1)
-            .filter(|(_, leg_details)| portfolios.contains(&leg_details.from))
-            .collect::<Vec<_>>();
+            .filter(|(_, leg)| portfolios.contains(&leg.from))
+            .collect();
         // Ensure leg count is under the limit
         ensure!(
-            filtered_legs.len() <= max_filtered_legs as usize,
+            legs_from_portfolios.len() <= max_filtered_legs as usize,
             Error::<T>::LegCountTooSmall
         );
-        Ok((legs_count, filtered_legs))
+        Ok((total_legs, legs_from_portfolios))
     }
 
     fn base_update_venue_signers(
@@ -1959,5 +1982,17 @@ impl<T: Config> Module<T> {
                 .collect();
         }
         instruction_legs
+    }
+
+    fn drain_instruction_legs(instruction_id: &InstructionId) -> Vec<(LegId, LegV2)> {
+        let drained_legs: Vec<(LegId, LegV2)> =
+            InstructionLegsV2::drain_prefix(instruction_id).collect();
+
+        if drained_legs.is_empty() {
+            return InstructionLegs::drain_prefix(instruction_id)
+                .map(|(leg_id, leg)| (leg_id, leg.into()))
+                .collect();
+        }
+        drained_legs
     }
 }
