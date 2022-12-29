@@ -68,7 +68,6 @@ use frame_system::{ensure_root, RawOrigin};
 use pallet_base::{ensure_string_limited, try_next_post};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::{
-    constants::currency::ONE_UNIT,
     constants::queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,
     traits::{
         asset, identity::Config as IdentityConfig, portfolio::PortfolioSubTrait, CommonConfig,
@@ -77,8 +76,8 @@ use polymesh_common_utilities::{
     SystematicIssuers::Settlement as SettlementDID,
 };
 use polymesh_primitives::{
-    impl_checked_inc, nft::NFT, storage_migration_ver, Balance, IdentityId, PortfolioId,
-    SecondaryKey, Ticker,
+    impl_checked_inc, storage_migration_ver, Balance, IdentityId, NFTs, PortfolioId, SecondaryKey,
+    Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
@@ -282,7 +281,7 @@ pub struct Leg {
 #[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
 pub enum LegAsset {
     Fungible { ticker: Ticker, amount: Balance },
-    NonFungible(NFT),
+    NonFungible(NFTs),
 }
 
 impl LegAsset {
@@ -290,7 +289,7 @@ impl LegAsset {
     pub fn ticker_and_amount(&self) -> (Ticker, Balance) {
         match self {
             LegAsset::Fungible { ticker, amount } => (*ticker, *amount),
-            LegAsset::NonFungible(nft) => (*nft.ticker(), ONE_UNIT),
+            LegAsset::NonFungible(nfts) => (*nfts.ticker(), nfts.amount()),
         }
     }
 }
@@ -1127,19 +1126,29 @@ impl<T: Config> Module<T> {
     fn lock_via_leg(leg: &LegV2) -> DispatchResult {
         match &leg.asset {
             LegAsset::Fungible { ticker, amount } => {
-                T::Portfolio::lock_tokens(&leg.from, &ticker, *amount)
+                T::Portfolio::lock_tokens(&leg.from, &ticker, *amount)?;
             }
-            LegAsset::NonFungible(nft) => T::Portfolio::lock_nft(&leg.from, &nft),
+            LegAsset::NonFungible(nfts) => {
+                for nft_id in nfts.ids() {
+                    T::Portfolio::lock_nft(&leg.from, nfts.ticker(), &nft_id)?;
+                }
+            }
         }
+        Ok(())
     }
 
     fn unlock_via_leg(leg: &LegV2) -> DispatchResult {
         match &leg.asset {
             LegAsset::Fungible { ticker, amount } => {
-                T::Portfolio::unlock_tokens(&leg.from, &ticker, *amount)
+                T::Portfolio::unlock_tokens(&leg.from, &ticker, *amount)?;
             }
-            LegAsset::NonFungible(nft) => T::Portfolio::unlock_nft(&leg.from, &nft),
+            LegAsset::NonFungible(nfts) => {
+                for nft_id in nfts.ids() {
+                    T::Portfolio::unlock_nft(&leg.from, nfts.ticker(), &nft_id)?;
+                }
+            }
         }
+        Ok(())
     }
 
     /// Ensure origin call permission and the given instruction validity.
@@ -1466,8 +1475,8 @@ impl<T: Config> Module<T> {
                             return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
                         }
                     }
-                    LegAsset::NonFungible(nft) => {
-                        if <Nft<T>>::base_nft_transfer(&leg.from, &leg.to, &nft).is_err() {
+                    LegAsset::NonFungible(nfts) => {
+                        if <Nft<T>>::base_nft_transfer(&leg.from, &leg.to, &nfts).is_err() {
                             return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
                         }
                     }

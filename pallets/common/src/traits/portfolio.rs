@@ -22,7 +22,7 @@ use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
 use frame_support::weights::Weight;
 use polymesh_primitives::{
-    Balance, IdentityId, PortfolioId, PortfolioName, PortfolioNumber, SecondaryKey, Ticker, NFT,
+    Balance, IdentityId, NFTId, PortfolioId, PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
 };
 use sp_std::vec::Vec;
 
@@ -69,15 +69,17 @@ pub trait PortfolioSubTrait<AccountId> {
     ///
     /// # Arguments
     /// * `portfolio_id` - PortfolioId that contains the nft to be locked.
-    /// * `nft` - nft to be unlocked.
-    fn lock_nft(portfolio_id: &PortfolioId, nft: &NFT) -> DispatchResult;
+    /// * `ticker` - the ticker of the NFT.
+    /// * `nft_id` - the id of the nft to be unlocked.
+    fn lock_nft(portfolio_id: &PortfolioId, ticker: &Ticker, nft_id: &NFTId) -> DispatchResult;
 
     /// Unlocks the given nft.
     ///
     /// # Arguments
     /// * `portfolio_id` - PortfolioId that contains the locked nft.
-    /// * `nft` - nft to be unlocked.
-    fn unlock_nft(portfolio_id: &PortfolioId, nft: &NFT) -> DispatchResult;
+    /// * `ticker` - the ticker of the NFT.
+    /// * `nft_id` - the id of the nft to be unlocked.
+    fn unlock_nft(portfolio_id: &PortfolioId, ticker: &Ticker, nft_id: &NFTId) -> DispatchResult;
 }
 
 pub trait WeightInfo {

@@ -475,10 +475,7 @@ fn token_swap() {
 
         for i in 0..legs.len() {
             assert_eq!(
-                Settlement::get_instruction_leg(
-                    &instruction_id,
-                    &LegId(i as u64)
-                ),
+                Settlement::get_instruction_leg(&instruction_id, &LegId(i as u64)),
                 legs[i].clone().into()
             );
         }
@@ -606,10 +603,7 @@ fn claiming_receipt() {
 
         for i in 0..legs.len() {
             assert_eq!(
-                Settlement::get_instruction_leg(
-                    &instruction_id,
-                    &LegId(i as u64)
-                ),
+                Settlement::get_instruction_leg(&instruction_id, &LegId(i as u64)),
                 legs[i].clone().into()
             );
         }
@@ -833,10 +827,7 @@ fn settle_on_block() {
 
         for i in 0..legs.len() {
             assert_eq!(
-                Settlement::get_instruction_leg(
-                    &instruction_id,
-                    &LegId(i as u64)
-                ),
+                Settlement::get_instruction_leg(&instruction_id, &LegId(i as u64)),
                 legs[i].clone().into()
             );
         }
@@ -952,10 +943,7 @@ fn failed_execution() {
 
         for i in 0..legs.len() {
             assert_eq!(
-                Settlement::get_instruction_leg(
-                    &instruction_id,
-                    &LegId(i as u64)
-                ),
+                Settlement::get_instruction_leg(&instruction_id, &LegId(i as u64)),
                 legs[i].clone().into()
             );
         }

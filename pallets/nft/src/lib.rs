@@ -13,7 +13,7 @@ pub use polymesh_common_utilities::traits::nft::{Config, Event, WeightInfo};
 use polymesh_primitives::asset::{AssetName, AssetType};
 use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use polymesh_primitives::nft::{
-    NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFT,
+    NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs,
 };
 use polymesh_primitives::{PortfolioId, PortfolioKind, Ticker};
 use sp_std::collections::btree_map::BTreeMap;
@@ -321,28 +321,31 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Tranfer ownership of the given `nft`.
+    /// Tranfer ownership of all NFTs.
     pub fn base_nft_transfer(
         sender_portfolio: &PortfolioId,
         receiver_portfolio: &PortfolioId,
-        nft: &NFT,
+        nfts: &NFTs,
     ) -> DispatchResult {
-        // Verifies if there is a collection associated to the NFT
-        CollectionTicker::try_get(nft.ticker()).map_err(|_| Error::<T>::InvalidNftTransfer)?;
-        // Verifies if all rules for transfering the NFT are being respected
-        Self::validate_nft_transfer(sender_portfolio, receiver_portfolio, &nft)?;
+        // Verifies if there is a collection associated to the NFTs
+        CollectionTicker::try_get(nfts.ticker()).map_err(|_| Error::<T>::InvalidNftTransfer)?;
+        // Verifies if all rules for transfering the NFTs are being respected
+        Self::validate_nft_transfer(sender_portfolio, receiver_portfolio, &nfts)?;
 
         // Transfer ownership of the NFT
         // Update the balance of the sender and the receiver
-        BalanceOf::mutate(nft.ticker(), sender_portfolio.did, |balance| {
-            *balance -= ONE_UNIT
+        let transferred_amount = nfts.amount();
+        BalanceOf::mutate(nfts.ticker(), sender_portfolio.did, |balance| {
+            *balance -= transferred_amount
         });
-        BalanceOf::mutate(nft.ticker(), receiver_portfolio.did, |balance| {
-            *balance += ONE_UNIT
+        BalanceOf::mutate(nfts.ticker(), receiver_portfolio.did, |balance| {
+            *balance += transferred_amount
         });
         // Update the portfolio of the sender and the receiver
-        PortfolioNFT::remove(sender_portfolio, (nft.ticker(), nft.id()));
-        PortfolioNFT::insert(receiver_portfolio, (nft.ticker(), nft.id()), true);
+        for nft_id in nfts.ids() {
+            PortfolioNFT::remove(sender_portfolio, (nfts.ticker(), nft_id));
+            PortfolioNFT::insert(receiver_portfolio, (nfts.ticker(), nft_id), true);
+        }
         Ok(())
     }
 
@@ -351,33 +354,36 @@ impl<T: Config> Module<T> {
     fn validate_nft_transfer(
         sender_portfolio: &PortfolioId,
         receiver_portfolio: &PortfolioId,
-        nft: &NFT,
+        nfts: &NFTs,
     ) -> DispatchResult {
+        let transferred_amount = nfts.amount();
         // Verifies that the sender and receiver are not the same
         ensure!(
             sender_portfolio != receiver_portfolio,
             Error::<T>::InvalidNftTransfer
         );
-        // Verifies that the sender has at least a balance of ONE_UNIT
+        // Verifies that the sender has the required balance
         ensure!(
-            BalanceOf::get(nft.ticker(), sender_portfolio.did) >= ONE_UNIT,
+            BalanceOf::get(nfts.ticker(), sender_portfolio.did) >= transferred_amount,
             Error::<T>::InvalidNftTransfer
         );
-        // Verfies that the sender owns the nft
-        ensure!(
-            PortfolioNFT::contains_key(sender_portfolio, (nft.ticker(), nft.id())),
-            Error::<T>::InvalidNftTransfer
-        );
+        // Verfies that the sender owns the nfts
+        for nft_id in nfts.ids() {
+            ensure!(
+                PortfolioNFT::contains_key(sender_portfolio, (nfts.ticker(), nft_id)),
+                Error::<T>::InvalidNftTransfer
+            );
+        }
         // Verfies that the receiver will not overflow
-        BalanceOf::get(nft.ticker(), receiver_portfolio.did)
-            .checked_add(ONE_UNIT)
+        BalanceOf::get(nfts.ticker(), receiver_portfolio.did)
+            .checked_add(transferred_amount)
             .ok_or(Error::<T>::BalanceOverflow)?;
         // Verifies that all compliance rules are being respected
         T::Compliance::verify_restriction(
-            nft.ticker(),
+            nfts.ticker(),
             Some(sender_portfolio.did),
             Some(receiver_portfolio.did),
-            ONE_UNIT,
+            transferred_amount,
         )?;
         Ok(())
     }

@@ -61,7 +61,7 @@ pub use polymesh_common_utilities::traits::{
 };
 use polymesh_primitives::{
     extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, IdentityId,
-    NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Ticker, NFT,
+    NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::Zero;
@@ -688,19 +688,19 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Module<T> {
     /// # Errors
     /// * `NFTAlreadyLocked` if the given nft is already locked.
     /// * `NFTNotFoundInPortfolio` if the given nft was not found in the portfolio.
-    fn lock_nft(portfolio_id: &PortfolioId, nft: &NFT) -> DispatchResult {
+    fn lock_nft(portfolio_id: &PortfolioId, ticker: &Ticker, nft_id: &NFTId) -> DispatchResult {
         // Verifies if the portfolio contains the NFT
         ensure!(
-            PortfolioNFT::contains_key(portfolio_id, (nft.ticker(), nft.id())),
+            PortfolioNFT::contains_key(portfolio_id, (ticker, nft_id)),
             Error::<T>::NFTNotFoundInPortfolio
         );
         // Verifies if the nft is not locked
         ensure!(
-            PortfolioLockedNFT::contains_key(portfolio_id, (nft.ticker(), nft.id())),
+            PortfolioLockedNFT::contains_key(portfolio_id, (ticker, nft_id)),
             Error::<T>::NFTAlreadyLocked
         );
         // Locks the nft
-        PortfolioLockedNFT::insert(portfolio_id, (nft.ticker(), nft.id()), true);
+        PortfolioLockedNFT::insert(portfolio_id, (ticker, nft_id), true);
         Ok(())
     }
 
@@ -708,13 +708,13 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Module<T> {
     ///
     /// # Errors
     /// * `NFTNotFoundInPortfolio` if the given nft was not found in the portfolio.
-    fn unlock_nft(portfolio_id: &PortfolioId, nft: &NFT) -> DispatchResult {
+    fn unlock_nft(portfolio_id: &PortfolioId, ticker: &Ticker, nft_id: &NFTId) -> DispatchResult {
         // Verifies if the locked NFT exist.
         ensure!(
-            PortfolioLockedNFT::contains_key(portfolio_id, (nft.ticker(), nft.id())),
+            PortfolioLockedNFT::contains_key(portfolio_id, (ticker, nft_id)),
             Error::<T>::NFTNotLocked
         );
-        PortfolioLockedNFT::remove(portfolio_id, (nft.ticker(), nft.id()));
+        PortfolioLockedNFT::remove(portfolio_id, (ticker, nft_id));
         Ok(())
     }
 }

@@ -4,6 +4,7 @@ use sp_std::vec::IntoIter;
 use sp_std::vec::Vec;
 
 use crate::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
+use crate::Balance;
 use crate::{impl_checked_inc, Ticker};
 
 /// Controls the next available id for an NFT collection.
@@ -40,22 +41,32 @@ impl NFTCollection {
     }
 }
 
-/// Represents an NFT.
+/// Represent all NFT being transferred for a given `Ticker`.
 #[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
-pub struct NFT {
+pub struct NFTs {
     ticker: Ticker,
-    id: NFTId,
+    ids: Vec<NFTId>,
 }
 
-impl NFT {
-    /// Returns a reference to the Ticker of the NFT.
+impl NFTs {
+    /// Returns a reference to the Ticker of the `NFTs`.
     pub fn ticker(&self) -> &Ticker {
         &self.ticker
     }
 
-    /// Returns a reference to the `NFTId` of the NFT.
-    pub fn id(&self) -> &NFTId {
-        &self.id
+    /// Returns a slice of `NFTid`.
+    pub fn ids(&self) -> &[NFTId] {
+        &self.ids
+    }
+
+    /// Returns the number nfts being transferred.
+    pub fn len(&self) -> usize {
+        self.ids.len()
+    }
+
+    /// Returns the amount being transferred (currently each NFT is equal to ONE_UNIT).
+    pub fn amount(&self) -> Balance {
+        (self.ids.len() * 1_000_000) as u128
     }
 }
 
