@@ -277,6 +277,24 @@ pub struct Leg {
     pub amount: Balance,
 }
 
+impl TryFrom<LegV2> for Leg {
+    type Error = &'static str;
+
+    fn try_from(leg_v2: LegV2) -> Result<Self, Self::Error> {
+        if let LegAsset::NonFungible(_nfts) = leg_v2.asset {
+            return Err("InvalidLegAsset");
+        }
+
+        let (asset, amount) = leg_v2.asset.ticker_and_amount();
+        Ok(Leg {
+            from: leg_v2.from,
+            to: leg_v2.to,
+            asset,
+            amount,
+        })
+    }
+}
+
 /// Type of assets that can be transferred in a `Leg`.
 #[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
 pub enum LegAsset {
@@ -555,8 +573,8 @@ decl_error! {
         InstructionSettleBlockNotReached,
         /// The caller is not a party of this instruction.
         CallerIsNotAParty,
-        /// The maximum number of assets in one leg was exceeded.
-        InvalidNumberOfLegAssets
+        /// Expected a different type of asset in a leg.
+        InvalidLegAsset
     }
 }
 
@@ -716,7 +734,7 @@ decl_module! {
         ) {
             let did = Identity::<T>::ensure_perms(origin)?;
             let legs: Vec<LegV2> = legs.into_iter().map(|leg| leg.into()).collect();
-            Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, None)?;
+            Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, None, true)?;
         }
 
         /// Deprecated. Use `add_and_affirm_instruction_with_memo` instead.
@@ -751,7 +769,7 @@ decl_module! {
             with_transaction(|| {
                 let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
                 let legs_count = legs.iter().filter(|l| portfolios_set.contains(&l.from)).count() as u32;
-                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, None)?;
+                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, None, true)?;
                 Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios_set.into_iter(), legs_count)
             })
         }
@@ -1039,7 +1057,7 @@ decl_module! {
         ) {
             let did = Identity::<T>::ensure_perms(origin)?;
             let legs: Vec<LegV2> = legs.into_iter().map(|leg| leg.into()).collect();
-            Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo)?;
+            Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo, true)?;
         }
 
         /// Adds and affirms a new instruction.
@@ -1075,7 +1093,7 @@ decl_module! {
             with_transaction(|| {
                 let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
                 let legs_count = legs.iter().filter(|l| portfolios_set.contains(&l.from)).count() as u32;
-                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo)?;
+                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo, true)?;
                 Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios_set.into_iter(), legs_count)
             })
         }
@@ -1185,6 +1203,7 @@ impl<T: Config> Module<T> {
         value_date: Option<T::Moment>,
         legs: Vec<LegV2>,
         memo: Option<InstructionMemo>,
+        emit_deprecated_event: bool,
     ) -> Result<InstructionId, DispatchError> {
         // Ensure instruction does not have too many legs.
         ensure!(
@@ -1272,16 +1291,34 @@ impl<T: Config> Module<T> {
             InstructionMemos::insert(instruction_id, &memo);
         }
 
-        Self::deposit_event(RawEvent::InstructionV2Created(
-            did,
-            venue_id,
-            instruction_id,
-            settlement_type,
-            trade_date,
-            value_date,
-            legs,
-            memo,
-        ));
+        if emit_deprecated_event {
+            let legs: Result<Vec<Leg>, &str> = legs
+                .into_iter()
+                .map(|leg_v2| Leg::try_from(leg_v2))
+                .collect();
+            let legs: Vec<Leg> = legs.map_err(|_| Error::<T>::InvalidLegAsset)?;
+            Self::deposit_event(RawEvent::InstructionCreated(
+                did,
+                venue_id,
+                instruction_id,
+                settlement_type,
+                trade_date,
+                value_date,
+                legs,
+                memo,
+            ))
+        } else {
+            Self::deposit_event(RawEvent::InstructionV2Created(
+                did,
+                venue_id,
+                instruction_id,
+                settlement_type,
+                trade_date,
+                value_date,
+                legs,
+                memo,
+            ));
+        }
 
         Ok(instruction_id)
     }

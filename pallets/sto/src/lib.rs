@@ -477,7 +477,8 @@ decl_module! {
                     None,
                     None,
                     legs,
-                    None
+                    None,
+                    true
                 )?;
 
                 let portfolios = [fundraiser.offering_portfolio, fundraiser.raising_portfolio].iter().copied().collect::<BTreeSet<_>>();
