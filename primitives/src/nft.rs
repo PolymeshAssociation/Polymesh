@@ -13,7 +13,9 @@ pub struct NFTCollectionId(pub u64);
 impl_checked_inc!(NFTCollectionId);
 
 /// Controls the next available id for an NFT within a collection.
-#[derive(Clone, Copy, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(
+    Clone, Copy, Debug, Decode, Default, Encode, Eq, Ord, PartialOrd, PartialEq, TypeInfo
+)]
 pub struct NFTId(pub u64);
 impl_checked_inc!(NFTId);
 

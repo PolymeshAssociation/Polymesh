@@ -76,8 +76,8 @@ use polymesh_common_utilities::{
     SystematicIssuers::Settlement as SettlementDID,
 };
 use polymesh_primitives::{
-    impl_checked_inc, storage_migration_ver, Balance, IdentityId, NFTs, PortfolioId, SecondaryKey,
-    Ticker,
+    impl_checked_inc, storage_migration_ver, Balance, IdentityId, NFTId, NFTs, PortfolioId,
+    SecondaryKey, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
@@ -115,8 +115,8 @@ pub trait Config:
     type MaxLegsInInstruction: Get<u32>;
     /// Weight information for extrinsic of the settlement pallet.
     type WeightInfo: WeightInfo;
-    /// Maximum number of assets that can be transferred in one leg.
-    type MaxNumberOfLegAssets: Get<u8>;
+    /// Maximum number of NFTs that can be transferred in a leg.
+    type MaxNumberOfNFTsTransfer: Get<u8>;
 }
 
 /// A global and unique venue ID.
@@ -573,6 +573,10 @@ decl_error! {
         InstructionSettleBlockNotReached,
         /// The caller is not a party of this instruction.
         CallerIsNotAParty,
+        /// The maximum number of NFTs being transferred in one leg was exceeded.
+        InvalidNumberOfNFTs,
+        /// There is a duplicated nft in one of the legs.
+        DuplicatedNFTId,
         /// Expected a different type of asset in a leg.
         InvalidLegAsset
     }
@@ -1137,6 +1141,73 @@ decl_module! {
             Self::deposit_event(RawEvent::SettlementManuallyExecuted(did, id));
         }
 
+        /// Adds a new instruction with memo.
+        ///
+        /// # Arguments
+        /// * `venue_id` - ID of the venue this instruction belongs to.
+        /// * `settlement_type` - Defines if the instruction should be settled
+        ///    in the next block after receiving all affirmations or waiting till a specific block.
+        /// * `trade_date` - Optional date from which people can interact with this instruction.
+        /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
+        /// * `legs` - Legs included in this instruction.
+        /// * `memo` - Memo field for this instruction.
+        ///
+        /// # Weight
+        /// `950_000_000 + 1_000_000 * legs.len()`
+        #[weight = <T as Config>::WeightInfo::add_instruction_with_memo_and_settle_on_block_type(legs.len() as u32)
+        .saturating_add(
+            <T as Config>::WeightInfo::execute_scheduled_instruction(legs.len() as u32)
+        )]
+        pub fn add_instruction_with_memo_v2(
+            origin,
+            venue_id: VenueId,
+            settlement_type: SettlementType<T::BlockNumber>,
+            trade_date: Option<T::Moment>,
+            value_date: Option<T::Moment>,
+            legs: Vec<LegV2>,
+            instruction_memo: Option<InstructionMemo>,
+        ) {
+            let did = Identity::<T>::ensure_perms(origin)?;
+            Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo, false)?;
+        }
+
+        /// Adds and affirms a new instruction.
+        ///
+        /// # Arguments
+        /// * `venue_id` - ID of the venue this instruction belongs to.
+        /// * `settlement_type` - Defines if the instruction should be settled
+        ///    in the next block after receiving all affirmations or waiting till a specific block.
+        /// * `trade_date` - Optional date from which people can interact with this instruction.
+        /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
+        /// * `legs` - Legs included in this instruction.
+        /// * `portfolios` - Portfolios that the sender controls and wants to use in this affirmations.
+        /// * `memo` - Memo field for this instruction.
+        ///
+        /// # Permissions
+        /// * Portfolio
+        #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_with_memo_and_settle_on_block_type(legs.len() as u32)
+        .saturating_add(
+            <T as Config>::WeightInfo::execute_scheduled_instruction(legs.len() as u32)
+        )]
+        pub fn add_and_affirm_instruction_with_memo_v2(
+            origin,
+            venue_id: VenueId,
+            settlement_type: SettlementType<T::BlockNumber>,
+            trade_date: Option<T::Moment>,
+            value_date: Option<T::Moment>,
+            legs: Vec<LegV2>,
+            portfolios: Vec<PortfolioId>,
+            instruction_memo: Option<InstructionMemo>,
+        ) -> DispatchResult {
+            let did = Identity::<T>::ensure_perms(origin.clone())?;
+            with_transaction(|| {
+                let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
+                let legs_count = legs.iter().filter(|l| portfolios_set.contains(&l.from)).count() as u32;
+                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo, false)?;
+                Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios_set.into_iter(), legs_count)
+            })
+        }
+
     }
 }
 
@@ -1230,25 +1301,8 @@ impl<T: Config> Module<T> {
         // Ensure venue exists & sender is its creator.
         Self::venue_for_management(venue_id, did)?;
 
-        // Create a list of unique counter parties involved in the instruction.
-        let mut counter_parties = BTreeSet::new();
-        let mut tickers = BTreeSet::new();
-        for leg in &legs {
-            ensure!(leg.from != leg.to, Error::<T>::SameSenderReceiver);
-            let (ticker, amount) = leg.asset.ticker_and_amount();
-            // Verifies if the venue is part of the token's list of allowed venues
-            // Each ticker is only checked once
-            if tickers.insert(ticker) && Self::venue_filtering(ticker) {
-                ensure!(
-                    Self::venue_allow_list(ticker, venue_id),
-                    Error::<T>::UnauthorizedVenue
-                );
-            }
-
-            ensure!(amount != 0, Error::<T>::ZeroAmount);
-            counter_parties.insert(leg.from);
-            counter_parties.insert(leg.to);
-        }
+        // Verifies if all legs are valid.
+        let counter_parties = Self::ensure_valid_legs(&legs, venue_id)?;
 
         // Advance and get next `instruction_id`.
         let instruction_id = InstructionCounter::try_mutate(try_next_post::<T, _>)?;
@@ -1321,6 +1375,41 @@ impl<T: Config> Module<T> {
         }
 
         Ok(instruction_id)
+    }
+
+    /// Makes sure the legs are valid.
+    /// For both types of assets the sender and receiver must be different, the amount being transferred must be greater than zero,
+    /// and if filtering is enabled the venue list is also checked.
+    /// If the asset is non-fungible, the number of NFTs being transferred and the uniqueness of the ids are also checked.
+    /// Returns a set of the unique counter parties involved in the legs.
+    fn ensure_valid_legs(
+        legs: &[LegV2],
+        venue_id: VenueId,
+    ) -> Result<BTreeSet<PortfolioId>, DispatchError> {
+        let mut parties = BTreeSet::new();
+        let mut tickers = BTreeSet::new();
+        for leg in legs {
+            let (ticker, amount) = leg.asset.ticker_and_amount();
+            ensure!(leg.from != leg.to, Error::<T>::SameSenderReceiver);
+            ensure!(amount > 0, Error::<T>::ZeroAmount);
+            if tickers.insert(ticker) && Self::venue_filtering(ticker) {
+                ensure!(
+                    Self::venue_allow_list(ticker, venue_id),
+                    Error::<T>::UnauthorizedVenue
+                );
+            }
+            if let LegAsset::NonFungible(nfts) = &leg.asset {
+                ensure!(
+                    nfts.len() <= (T::MaxNumberOfNFTsTransfer::get() as usize),
+                    Error::<T>::InvalidNumberOfNFTs
+                );
+                let unique_nfts: BTreeSet<&NFTId> = nfts.ids().iter().collect();
+                ensure!(unique_nfts.len() == nfts.len(), Error::<T>::DuplicatedNFTId);
+            }
+            parties.insert(leg.from);
+            parties.insert(leg.to);
+        }
+        Ok(parties)
     }
 
     fn unsafe_withdraw_instruction_affirmation(
