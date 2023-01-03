@@ -49,6 +49,11 @@ pub struct NFTs {
 }
 
 impl NFTs {
+    /// Creates an `NFTs` instance.
+    pub fn new(ticker: Ticker, ids: Vec<NFTId>) -> Self {
+        NFTs { ticker, ids }
+    }
+
     /// Returns a reference to the Ticker of the `NFTs`.
     pub fn ticker(&self) -> &Ticker {
         &self.ticker
