@@ -17,7 +17,7 @@
 //! RPC interface for the transaction payment module.
 
 pub use self::gen_client::Client as TransactionPaymentClient;
-use codec::{Codec, Decode};
+use codec::Decode;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 pub use node_rpc_runtime_api::transaction_payment::{
@@ -53,7 +53,7 @@ pub struct TransactionPayment<C, P> {
 impl<C, P> TransactionPayment<C, P> {
     /// Create new `TransactionPayment` with the given reference to the client.
     pub fn new(client: Arc<C>) -> Self {
-        TransactionPayment {
+        Self {
             client,
             _marker: Default::default(),
         }
@@ -77,14 +77,12 @@ impl From<Error> for i64 {
     }
 }
 
-impl<C, Block, Extrinsic>
-    TransactionPaymentApi<<Block as BlockT>::Hash, RuntimeDispatchInfo<Balance>>
-    for TransactionPayment<C, (Block, Extrinsic)>
+impl<C, Block> TransactionPaymentApi<<Block as BlockT>::Hash, RuntimeDispatchInfo<Balance>>
+    for TransactionPayment<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    C::Api: TransactionPaymentRuntimeApi<Block, Extrinsic>,
-    Extrinsic: Codec + Send + Sync + 'static,
+    C::Api: TransactionPaymentRuntimeApi<Block>,
 {
     fn query_info(
         &self,
@@ -99,7 +97,7 @@ where
 
         let encoded_len = encoded_xt.len() as u32;
 
-        let uxt: Extrinsic = Decode::decode(&mut &*encoded_xt).map_err(|e| RpcError {
+        let uxt: Block::Extrinsic = Decode::decode(&mut &*encoded_xt).map_err(|e| RpcError {
             code: ErrorCode::ServerError(Error::DecodeError.into()),
             message: "Unable to query dispatch info.".into(),
             data: Some(format!("{:?}", e).into()),
@@ -123,7 +121,7 @@ where
         }));
         let encoded_len = encoded_xt.len() as u32;
 
-        let uxt: Extrinsic = Decode::decode(&mut &*encoded_xt).map_err(|e| RpcError {
+        let uxt: Block::Extrinsic = Decode::decode(&mut &*encoded_xt).map_err(|e| RpcError {
             code: ErrorCode::ServerError(Error::DecodeError.into()),
             message: "Unable to query fee details.".into(),
             data: Some(format!("{:?}", e).into()),

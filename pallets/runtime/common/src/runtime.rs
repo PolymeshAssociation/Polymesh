@@ -825,13 +825,12 @@ macro_rules! runtime_apis {
 
             impl node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<
                 Block,
-                UncheckedExtrinsic,
             > for Runtime {
-                fn query_info(uxt: UncheckedExtrinsic, len: u32) -> RuntimeDispatchInfo<Balance> {
+                fn query_info(uxt: <Block as BlockT>::Extrinsic, len: u32) -> RuntimeDispatchInfo<Balance> {
                     TransactionPayment::query_info(uxt, len)
                 }
 
-                fn query_fee_details(uxt: UncheckedExtrinsic, len: u32) -> pallet_transaction_payment::FeeDetails<Balance> {
+                fn query_fee_details(uxt: <Block as BlockT>::Extrinsic, len: u32) -> pallet_transaction_payment::FeeDetails<Balance> {
                     TransactionPayment::query_fee_details(uxt, len)
                 }
             }
