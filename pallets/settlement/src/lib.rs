@@ -281,17 +281,15 @@ impl TryFrom<LegV2> for Leg {
     type Error = &'static str;
 
     fn try_from(leg_v2: LegV2) -> Result<Self, Self::Error> {
-        if let LegAsset::NonFungible(_nfts) = leg_v2.asset {
-            return Err("InvalidLegAsset");
+        match leg_v2.asset {
+            LegAsset::NonFungible(_nfts) => Err("InvalidLegAsset"),
+            LegAsset::Fungible { ticker, amount } => Ok(Leg {
+                from: leg_v2.from,
+                to: leg_v2.to,
+                asset: ticker,
+                amount,
+            }),
         }
-
-        let (asset, amount) = leg_v2.asset.ticker_and_amount();
-        Ok(Leg {
-            from: leg_v2.from,
-            to: leg_v2.to,
-            asset,
-            amount,
-        })
     }
 }
 
@@ -1215,29 +1213,29 @@ impl<T: Config> Module<T> {
     fn lock_via_leg(leg: &LegV2) -> DispatchResult {
         match &leg.asset {
             LegAsset::Fungible { ticker, amount } => {
-                T::Portfolio::lock_tokens(&leg.from, &ticker, *amount)?;
+                T::Portfolio::lock_tokens(&leg.from, &ticker, *amount)
             }
-            LegAsset::NonFungible(nfts) => {
+            LegAsset::NonFungible(nfts) => with_transaction(|| {
                 for nft_id in nfts.ids() {
                     T::Portfolio::lock_nft(&leg.from, nfts.ticker(), &nft_id)?;
                 }
-            }
+                Ok(())
+            }),
         }
-        Ok(())
     }
 
     fn unlock_via_leg(leg: &LegV2) -> DispatchResult {
         match &leg.asset {
             LegAsset::Fungible { ticker, amount } => {
-                T::Portfolio::unlock_tokens(&leg.from, &ticker, *amount)?;
+                T::Portfolio::unlock_tokens(&leg.from, &ticker, *amount)
             }
-            LegAsset::NonFungible(nfts) => {
+            LegAsset::NonFungible(nfts) => with_transaction(|| {
                 for nft_id in nfts.ids() {
                     T::Portfolio::unlock_nft(&leg.from, nfts.ticker(), &nft_id)?;
                 }
-            }
+                Ok(())
+            }),
         }
-        Ok(())
     }
 
     /// Ensure origin call permission and the given instruction validity.
@@ -1322,14 +1320,6 @@ impl<T: Config> Module<T> {
             UserAffirmations::insert(counter_party, instruction_id, AffirmationStatus::Pending);
         }
 
-        for (i, leg) in legs.iter().enumerate() {
-            InstructionLegsV2::insert(
-                instruction_id,
-                u64::try_from(i).map(LegId).unwrap_or_default(),
-                leg.clone(),
-            );
-        }
-
         if let SettlementType::SettleOnBlock(block_number) = settlement_type {
             Self::schedule_instruction(instruction_id, block_number, legs.len() as u32);
         }
@@ -1351,6 +1341,9 @@ impl<T: Config> Module<T> {
                 .map(|leg_v2| Leg::try_from(leg_v2))
                 .collect();
             let legs: Vec<Leg> = legs.map_err(|_| Error::<T>::InvalidLegAsset)?;
+            legs.iter().enumerate().for_each(|(index, leg)| {
+                InstructionLegs::insert(instruction_id, LegId(index as u64), leg.clone())
+            });
             Self::deposit_event(RawEvent::InstructionCreated(
                 did,
                 venue_id,
@@ -1362,6 +1355,9 @@ impl<T: Config> Module<T> {
                 memo,
             ))
         } else {
+            legs.iter().enumerate().for_each(|(index, leg)| {
+                InstructionLegsV2::insert(instruction_id, LegId(index as u64), leg.clone())
+            });
             Self::deposit_event(RawEvent::InstructionV2Created(
                 did,
                 venue_id,

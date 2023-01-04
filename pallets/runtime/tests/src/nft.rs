@@ -5,6 +5,7 @@ use pallet_asset::BalanceOf;
 use pallet_nft::{Collection, CollectionKeys, MetadataValue};
 use pallet_portfolio::PortfolioNFT;
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
+use polymesh_common_utilities::with_transaction;
 use polymesh_primitives::asset::AssetType;
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataSpec,
@@ -442,10 +443,12 @@ fn transfer_nft_without_collection() {
             did: bob.did,
             kind: PortfolioKind::Default,
         };
-        let nfts = NFTs::new(ticker, vec![NFTId(1)]);
+        let nfts = NFTs::new(ticker, vec![NFTId(1)]).unwrap();
 
         assert_noop!(
-            NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts),
+            with_transaction(|| {
+                NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts)
+            }),
             NFTError::InvalidNftTransfer
         );
     });
@@ -473,9 +476,11 @@ fn transfer_nft_same_portfolio() {
             did: alice.did,
             kind: PortfolioKind::Default,
         };
-        let nfts = NFTs::new(ticker, vec![NFTId(1)]);
+        let nfts = NFTs::new(ticker, vec![NFTId(1)]).unwrap();
         assert_noop!(
-            NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts),
+            with_transaction(|| {
+                NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts)
+            }),
             NFTError::InvalidNftTransfer
         );
     });
@@ -509,9 +514,11 @@ fn transfer_nft_invalid_balance() {
             did: bob.did,
             kind: PortfolioKind::Default,
         };
-        let nfts = NFTs::new(ticker, vec![NFTId(1), NFTId(2)]);
+        let nfts = NFTs::new(ticker, vec![NFTId(1), NFTId(2)]).unwrap();
         assert_noop!(
-            NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts),
+            with_transaction(|| {
+                NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts)
+            }),
             NFTError::InvalidNftTransfer
         );
     });
@@ -545,9 +552,11 @@ fn transfer_nft_not_owned() {
             did: bob.did,
             kind: PortfolioKind::Default,
         };
-        let nfts = NFTs::new(ticker, vec![NFTId(2)]);
+        let nfts = NFTs::new(ticker, vec![NFTId(2)]).unwrap();
         assert_noop!(
-            NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts),
+            with_transaction(|| {
+                NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts)
+            }),
             NFTError::InvalidNftTransfer
         );
     });
@@ -585,12 +594,10 @@ fn transfer_nft() {
             did: bob.did,
             kind: PortfolioKind::Default,
         };
-        let nfts = NFTs::new(ticker, vec![NFTId(1)]);
-        assert_ok!(NFT::base_nft_transfer(
-            &sender_portfolio,
-            &receiver_portfolio,
-            &nfts
-        ));
+        let nfts = NFTs::new(ticker, vec![NFTId(1)]).unwrap();
+        assert_ok!(with_transaction(|| {
+            NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts)
+        }));
         assert_eq!(BalanceOf::get(&ticker, alice.did), 0);
         assert_eq!(
             PortfolioNFT::get(

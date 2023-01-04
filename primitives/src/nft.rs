@@ -1,5 +1,6 @@
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec::IntoIter;
 use sp_std::vec::Vec;
 
@@ -52,8 +53,12 @@ pub struct NFTs {
 
 impl NFTs {
     /// Creates an `NFTs` instance.
-    pub fn new(ticker: Ticker, ids: Vec<NFTId>) -> Self {
-        NFTs { ticker, ids }
+    pub fn new(ticker: Ticker, ids: Vec<NFTId>) -> Result<Self, &'static str> {
+        let unique_ids: BTreeSet<&NFTId> = ids.iter().collect();
+        if unique_ids.len() != ids.len() {
+            return Err("No duplicate NFTIds are allowed");
+        }
+        Ok(NFTs { ticker, ids })
     }
 
     /// Returns a reference to the Ticker of the `NFTs`.

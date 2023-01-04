@@ -1,9 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::dispatch::DispatchResult;
-use frame_support::ensure;
 use frame_support::traits::Get;
 use frame_support::{decl_error, decl_module, decl_storage};
+use frame_support::{ensure, require_transactional};
 use pallet_asset::BalanceOf;
 use pallet_base::try_next_pre;
 use pallet_portfolio::PortfolioNFT;
@@ -322,6 +322,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Tranfer ownership of all NFTs.
+    #[require_transactional]
     pub fn base_nft_transfer(
         sender_portfolio: &PortfolioId,
         receiver_portfolio: &PortfolioId,
