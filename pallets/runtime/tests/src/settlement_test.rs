@@ -436,7 +436,7 @@ fn overdraft_failure() {
                 default_portfolio_vec(alice.did),
                 1
             ),
-            Error::FailedToLockTokens
+            PortfolioError::InsufficientPortfolioBalance
         );
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -1932,7 +1932,7 @@ fn multiple_portfolio_settlement() {
                 user_portfolio_vec(alice.did, alice_num),
                 1
             ),
-            Error::FailedToLockTokens
+            PortfolioError::InsufficientPortfolioBalance
         );
 
         // Alice moves her funds to the correct portfolio
