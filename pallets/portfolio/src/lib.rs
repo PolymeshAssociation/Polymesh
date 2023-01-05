@@ -696,7 +696,7 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Module<T> {
         );
         // Verifies if the nft is not locked
         ensure!(
-            PortfolioLockedNFT::contains_key(portfolio_id, (ticker, nft_id)),
+            !PortfolioLockedNFT::contains_key(portfolio_id, (ticker, nft_id)),
             Error::<T>::NFTAlreadyLocked
         );
         // Locks the nft

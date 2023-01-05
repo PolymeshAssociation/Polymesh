@@ -52,6 +52,11 @@ pub struct NFTs {
 }
 
 impl NFTs {
+    /// Creates an `NFTs` instance without checking for duplicate ids.
+    pub fn new_unverified(ticker: Ticker, ids: Vec<NFTId>) -> Self {
+        NFTs { ticker, ids }
+    }
+
     /// Creates an `NFTs` instance.
     pub fn new(ticker: Ticker, ids: Vec<NFTId>) -> Result<Self, &'static str> {
         let unique_ids: BTreeSet<&NFTId> = ids.iter().collect();

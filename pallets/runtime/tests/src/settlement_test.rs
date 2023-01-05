@@ -1,6 +1,7 @@
 use super::{
     asset_test::{allow_all_transfers, max_len_bytes},
     next_block,
+    nft::{create_nft_collection, mint_nft},
     storage::{
         default_portfolio_vec, make_account_without_cdd, provide_scope_claim_to_multiple_parties,
         user_portfolio_vec, TestStorage, User,
@@ -8,23 +9,27 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use frame_support::{assert_noop, assert_ok, IterableStorageDoubleMap};
+use frame_support::{assert_noop, assert_ok, IterableStorageDoubleMap, StorageDoubleMap};
 use pallet_asset as asset;
+use pallet_asset::BalanceOf;
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
-use pallet_portfolio::MovePortfolioItem;
+use pallet_portfolio::{MovePortfolioItem, PortfolioLockedNFT, PortfolioNFT};
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
-    AffirmationStatus, Instruction, InstructionId, InstructionMemo, InstructionStatus, Leg, LegId,
-    LegStatus, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails, VenueId,
-    VenueInstructions, VenueType,
+    AffirmationStatus, Instruction, InstructionId, InstructionMemo, InstructionStatus, Leg,
+    LegAsset, LegId, LegStatus, LegV2, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType,
+    VenueDetails, VenueId, VenueInstructions, VenueType,
 };
-use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
+use polymesh_common_utilities::constants::{currency::ONE_UNIT, ERC1400_TRANSFER_SUCCESS};
 use polymesh_primitives::{
-    asset::AssetType, checked_inc::CheckedInc, AccountId, AuthorizationData, Balance, Claim,
-    Condition, ConditionType, IdentityId, PortfolioId, PortfolioName, PortfolioNumber, Signatory,
-    Ticker,
+    asset::AssetType,
+    asset_metadata::{AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue},
+    checked_inc::CheckedInc,
+    AccountId, AuthorizationData, Balance, Claim, Condition, ConditionType, IdentityId,
+    NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId, PortfolioName,
+    PortfolioNumber, Signatory, Ticker,
 };
 use rand::{prelude::*, thread_rng};
 use sp_runtime::AnySignature;
@@ -178,14 +183,7 @@ impl Deref for UserWithBalance {
 
 fn create_token_and_venue(ticker: Ticker, user: User) -> VenueId {
     create_token(ticker, user);
-    let venue_counter = Settlement::venue_counter();
-    assert_ok!(Settlement::create_venue(
-        user.origin(),
-        VenueDetails::default(),
-        vec![user.acc()],
-        VenueType::Other
-    ));
-    venue_counter
+    create_venue(user)
 }
 
 fn create_token(ticker: Ticker, user: User) {
@@ -201,6 +199,17 @@ fn create_token(ticker: Ticker, user: User) {
     ));
     assert_ok!(Asset::issue(user.origin(), ticker, 100_000));
     allow_all_transfers(ticker, user);
+}
+
+fn create_venue(user: User) -> VenueId {
+    let venue_counter = Settlement::venue_counter();
+    assert_ok!(Settlement::create_venue(
+        user.origin(),
+        VenueDetails::default(),
+        vec![user.acc()],
+        VenueType::Other
+    ));
+    venue_counter
 }
 
 pub fn set_current_block_number(block: u32) {
@@ -2718,6 +2727,233 @@ fn settle_manual_instruction_with_portfolio() {
 
         alice.assert_balance_decreased(&TICKER, amount);
         bob.assert_balance_increased(&TICKER, amount);
+    });
+}
+
+/// An instruction with non-fungible assets, must reject duplicated NFTIds.
+#[test]
+fn add_nft_instruction_with_duplicated_nfts() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let venue_counter = create_token_and_venue(TICKER, alice);
+
+        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1), NFTId(1)]);
+        let legs: Vec<LegV2> = vec![LegV2 {
+            from: PortfolioId::default_portfolio(alice.did),
+            to: PortfolioId::default_portfolio(bob.did),
+            asset: LegAsset::NonFungible(nfts),
+        }];
+        assert_noop!(
+            Settlement::add_instruction_with_memo_v2(
+                alice.origin(),
+                venue_counter,
+                SettlementType::SettleOnAffirmation,
+                None,
+                None,
+                legs,
+                Some(InstructionMemo::default()),
+            ),
+            Error::DuplicatedNFTId
+        );
+    });
+}
+
+/// An instruction with non-fungible assets, must reject legs with more than MaxNumberOfNFTsTransfer.
+#[test]
+fn add_nft_instruction_exceeding_nfts() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let venue_counter = create_token_and_venue(TICKER, alice);
+
+        let nfts = NFTs::new_unverified(
+            TICKER,
+            vec![
+                NFTId(1),
+                NFTId(2),
+                NFTId(3),
+                NFTId(4),
+                NFTId(5),
+                NFTId(6),
+                NFTId(7),
+                NFTId(8),
+                NFTId(9),
+                NFTId(10),
+                NFTId(11),
+            ],
+        );
+        let legs: Vec<LegV2> = vec![LegV2 {
+            from: PortfolioId::default_portfolio(alice.did),
+            to: PortfolioId::default_portfolio(bob.did),
+            asset: LegAsset::NonFungible(nfts),
+        }];
+        assert_noop!(
+            Settlement::add_instruction_with_memo_v2(
+                alice.origin(),
+                venue_counter,
+                SettlementType::SettleOnAffirmation,
+                None,
+                None,
+                legs,
+                Some(InstructionMemo::default()),
+            ),
+            Error::InvalidNumberOfNFTs
+        );
+    });
+}
+
+/// Successfully adds an instruction with non-fungible assets.
+#[test]
+fn add_nft_instruction() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let venue_counter = create_token_and_venue(TICKER, alice);
+
+        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let legs: Vec<LegV2> = vec![LegV2 {
+            from: PortfolioId::default_portfolio(alice.did),
+            to: PortfolioId::default_portfolio(bob.did),
+            asset: LegAsset::NonFungible(nfts),
+        }];
+        assert_ok!(Settlement::add_instruction_with_memo_v2(
+            alice.origin(),
+            venue_counter,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs,
+            Some(InstructionMemo::default()),
+        ));
+    });
+}
+
+/// Successfully adds and affirms an instruction with non-fungible assets.
+#[test]
+fn add_and_affirm_nft_instruction() {
+    test_with_cdd_provider(|_eve| {
+        // First we need to create a collection, mint one NFT, and create a venue
+        let alice: User = User::new(AccountKeyring::Alice);
+        let bob: User = User::new(AccountKeyring::Bob);
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(alice.clone(), TICKER, collection_keys);
+        let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
+            key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            value: AssetMetadataValue(b"test".to_vec()),
+        }];
+        mint_nft(alice.clone(), TICKER, nfts_metadata);
+        let venue_id = create_venue(alice);
+
+        // Adds and affirms the instruction
+        let instruction_id = Settlement::instruction_counter();
+        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let legs: Vec<LegV2> = vec![LegV2 {
+            from: PortfolioId::default_portfolio(alice.did),
+            to: PortfolioId::default_portfolio(bob.did),
+            asset: LegAsset::NonFungible(nfts),
+        }];
+        assert_ok!(Settlement::add_and_affirm_instruction_with_memo_v2(
+            alice.origin(),
+            venue_id,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs,
+            default_portfolio_vec(alice.did),
+            Some(InstructionMemo::default()),
+        ));
+
+        // Before bob accepts the transaction balances must not be changed and the NFT must be locked.
+        assert_eq!(BalanceOf::get(TICKER, alice.did), ONE_UNIT);
+        assert_eq!(
+            PortfolioNFT::get(
+                PortfolioId::default_portfolio(alice.did),
+                (TICKER, NFTId(1))
+            ),
+            true
+        );
+        assert_eq!(
+            PortfolioLockedNFT::get(
+                PortfolioId::default_portfolio(alice.did),
+                (TICKER, NFTId(1))
+            ),
+            true
+        );
+
+        // Bob affirms the instruction. Balances must be updated and NFT unlocked.
+        assert_ok!(Settlement::affirm_instruction(
+            bob.origin(),
+            instruction_id,
+            default_portfolio_vec(bob.did),
+            1
+        ));
+        next_block();
+        assert_eq!(BalanceOf::get(TICKER, alice.did), 0);
+        assert_eq!(BalanceOf::get(TICKER, bob.did), ONE_UNIT);
+        assert_eq!(
+            PortfolioNFT::get(
+                PortfolioId::default_portfolio(alice.did),
+                (TICKER, NFTId(1))
+            ),
+            false
+        );
+        assert_eq!(
+            PortfolioNFT::get(PortfolioId::default_portfolio(bob.did), (TICKER, NFTId(1))),
+            true
+        );
+        assert_eq!(
+            PortfolioLockedNFT::get(
+                PortfolioId::default_portfolio(alice.did),
+                (TICKER, NFTId(1))
+            ),
+            false
+        );
+        assert_eq!(
+            PortfolioLockedNFT::get(PortfolioId::default_portfolio(bob.did), (TICKER, NFTId(1))),
+            false
+        );
+    });
+}
+
+/// Only instructions with NFTS owned by the caller can be affirmed.
+#[test]
+fn add_and_affirm_nft_not_owned() {
+    test_with_cdd_provider(|_eve| {
+        // First we need to create a collection, mint one NFT, and create a venue
+        let alice: User = User::new(AccountKeyring::Alice);
+        let bob: User = User::new(AccountKeyring::Bob);
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(alice.clone(), TICKER, collection_keys);
+        let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
+            key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            value: AssetMetadataValue(b"test".to_vec()),
+        }];
+        mint_nft(alice.clone(), TICKER, nfts_metadata);
+        let venue_id = create_venue(alice);
+
+        // Adds and affirms the instruction
+        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(2)]);
+        let legs: Vec<LegV2> = vec![LegV2 {
+            from: PortfolioId::default_portfolio(alice.did),
+            to: PortfolioId::default_portfolio(bob.did),
+            asset: LegAsset::NonFungible(nfts),
+        }];
+        assert_noop!(
+            Settlement::add_and_affirm_instruction_with_memo_v2(
+                alice.origin(),
+                venue_id,
+                SettlementType::SettleOnAffirmation,
+                None,
+                None,
+                legs,
+                default_portfolio_vec(alice.did),
+                Some(InstructionMemo::default()),
+            ),
+            PortfolioError::NFTNotFoundInPortfolio
+        );
     });
 }
 

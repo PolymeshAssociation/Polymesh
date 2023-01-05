@@ -156,7 +156,11 @@ fn create_collection_unregistered_key() {
 }
 
 /// Successfully creates an NFT collection.
-fn create_nft_collection(owner: User, ticker: Ticker, collection_keys: NFTCollectionKeys) {
+pub(crate) fn create_nft_collection(
+    owner: User,
+    ticker: Ticker,
+    collection_keys: NFTCollectionKeys,
+) {
     Asset::create_asset(
         owner.origin(),
         ticker.as_ref().into(),
@@ -348,7 +352,7 @@ fn mint_nft_successfully() {
     });
 }
 
-fn mint_nft(user: User, ticker: Ticker, metadata_atributes: Vec<NFTMetadataAttribute>) {
+pub(crate) fn mint_nft(user: User, ticker: Ticker, metadata_atributes: Vec<NFTMetadataAttribute>) {
     assert_ok!(NFT::mint_nft(user.origin(), ticker, metadata_atributes));
 }
 

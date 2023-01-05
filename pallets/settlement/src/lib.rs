@@ -1647,14 +1647,12 @@ impl<T: Config> Module<T> {
             Self::filtered_legs(&id, &portfolios, max_legs_count)?;
         with_transaction(|| {
             for (leg_id, leg_details) in filtered_legs {
-                if let Err(_) = Self::lock_via_leg(&leg_details) {
-                    // rustc fails to infer return type of `with_transaction` if you use ?/map_err here
-                    return Err(DispatchError::from(Error::<T>::FailedToLockTokens));
-                }
+                Self::lock_via_leg(&leg_details)?;
                 <InstructionLegStatus<T>>::insert(id, leg_id, LegStatus::ExecutionPending);
             }
             Ok(())
-        })?;
+        })
+        .map_err(|e: DispatchError| e)?;
 
         let affirms_pending = Self::instruction_affirms_pending(id);
 
