@@ -43,6 +43,28 @@ fn creates_keys_register_metadata_types<T: Config>(n: u32) -> NFTCollectionKeys 
     collection_keys
 }
 
+/// Creates an NFT collection with `n_keys` global metadata keys and mints `n_nfts`.
+pub fn create_collection_mint_nfts<T: Config>(
+    origin: T::Origin,
+    ticker: Ticker,
+    n_keys: u32,
+    n_nfts: u32,
+) {
+    let collection_keys: NFTCollectionKeys = creates_keys_register_metadata_types::<T>(n_keys);
+    Module::<T>::create_nft_collection(origin.clone(), ticker, collection_keys)
+        .expect("failed to create nft collection");
+    let metadata_attributes: Vec<NFTMetadataAttribute> = (1..n_keys + 1)
+        .map(|key| NFTMetadataAttribute {
+            key: AssetMetadataKey::Global(AssetMetadataGlobalKey(key.into())),
+            value: AssetMetadataValue(b"value".to_vec()),
+        })
+        .collect();
+    for _ in 0..n_nfts {
+        Module::<T>::mint_nft(origin.clone(), ticker, metadata_attributes.clone())
+            .expect("failed to mint nft");
+    }
+}
+
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 

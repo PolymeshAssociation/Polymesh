@@ -116,7 +116,7 @@ pub trait Config:
     /// Weight information for extrinsic of the settlement pallet.
     type WeightInfo: WeightInfo;
     /// Maximum number of NFTs that can be transferred in a leg.
-    type MaxNumberOfNFTsTransfer: Get<u8>;
+    type MaxNumberOfNFTs: Get<u32>;
 }
 
 /// A global and unique venue ID.
@@ -415,6 +415,8 @@ pub trait WeightInfo {
     fn add_and_affirm_instruction_with_settle_on_block_type(u: u32) -> Weight;
     fn add_instruction_with_memo_and_settle_on_block_type(u: u32) -> Weight;
     fn add_and_affirm_instruction_with_memo_and_settle_on_block_type(u: u32) -> Weight;
+    fn add_instruction_with_memo_v2(n_legs: u32) -> Weight;
+    fn add_and_affirm_instruction_with_memo_v2(n_legs: u32, n_nfts: u32) -> Weight;
 }
 
 type EnsureValidInstructionResult<AccountId, Moment, BlockNumber> = Result<
@@ -1152,10 +1154,7 @@ decl_module! {
         ///
         /// # Weight
         /// `950_000_000 + 1_000_000 * legs.len()`
-        #[weight = <T as Config>::WeightInfo::add_instruction_with_memo_and_settle_on_block_type(legs.len() as u32)
-        .saturating_add(
-            <T as Config>::WeightInfo::execute_scheduled_instruction(legs.len() as u32)
-        )]
+        #[weight = <T as Config>::WeightInfo::add_instruction_with_memo_v2(legs.len() as u32)]
         pub fn add_instruction_with_memo_v2(
             origin,
             venue_id: VenueId,
@@ -1183,10 +1182,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_with_memo_and_settle_on_block_type(legs.len() as u32)
-        .saturating_add(
-            <T as Config>::WeightInfo::execute_scheduled_instruction(legs.len() as u32)
-        )]
+        #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_with_memo_v2(legs.len() as u32, total_nfts_transfer(&legs) as u32)]
         pub fn add_and_affirm_instruction_with_memo_v2(
             origin,
             venue_id: VenueId,
@@ -1396,7 +1392,7 @@ impl<T: Config> Module<T> {
             }
             if let LegAsset::NonFungible(nfts) = &leg.asset {
                 ensure!(
-                    nfts.len() <= (T::MaxNumberOfNFTsTransfer::get() as usize),
+                    nfts.len() <= (T::MaxNumberOfNFTs::get() as usize),
                     Error::<T>::InvalidNumberOfNFTs
                 );
                 let unique_nfts: BTreeSet<&NFTId> = nfts.ids().iter().collect();
@@ -2113,6 +2109,7 @@ impl<T: Config> Module<T> {
         instruction_legs
     }
 
+    /// Removes all legs for the given `instruction_id`, returning a `Vec<(LegId, LegV2)>` containing the removed legs.
     fn drain_instruction_legs(instruction_id: &InstructionId) -> Vec<(LegId, LegV2)> {
         let drained_legs: Vec<(LegId, LegV2)> =
             InstructionLegsV2::drain_prefix(instruction_id).collect();
@@ -2124,4 +2121,15 @@ impl<T: Config> Module<T> {
         }
         drained_legs
     }
+}
+
+/// Returns the total number of nfts being transfered in a `Vec<LegsV2>`.
+fn total_nfts_transfer(legs: &[LegV2]) -> usize {
+    let mut total_nft = 0;
+    for leg in legs {
+        if let LegAsset::NonFungible(nfts) = &leg.asset {
+            total_nft += nfts.len();
+        }
+    }
+    total_nft
 }

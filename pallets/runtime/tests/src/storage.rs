@@ -171,7 +171,7 @@ parameter_types! {
     pub const FixedYearlyReward: Balance = 140_000_000 * POLY;
     pub const MinimumBond: Balance = 1 * POLY;
     pub const MaxLegsInInstruction: u32 = 100;
-    pub const MaxNumberOfNFTsTransfer: u8 = 10;
+    pub const MaxNumberOfNFTs: u32 = 10;
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
     pub const MaxAuthorities: u32 = 100_000;
     pub const MaxKeys: u32 = 10_000;

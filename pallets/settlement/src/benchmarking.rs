@@ -18,11 +18,12 @@ use crate::*;
 pub use frame_benchmarking::{account, benchmarks};
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
+use pallet_asset::BalanceOf;
 use pallet_identity as identity;
-use pallet_portfolio::PortfolioAssetBalances;
+use pallet_portfolio::{PortfolioAssetBalances, PortfolioLockedNFT};
 use polymesh_common_utilities::{
     benchs::{make_asset, user, AccountIdOf, User, UserBuilder},
-    constants::currency::POLY,
+    constants::currency::{ONE_UNIT, POLY},
     constants::ENSURED_MAX_LEN,
     traits::asset::AssetFnTrait,
     TestUtilsFn,
@@ -31,10 +32,11 @@ use polymesh_primitives::{
     checked_inc::CheckedInc,
     statistics::{Stat2ndKey, StatType, StatUpdate},
     transfer_compliance::{TransferCondition, TransferConditionExemptKey},
-    Claim, Condition, ConditionType, CountryCode, IdentityId, PortfolioId, PortfolioName,
-    PortfolioNumber, Scope, Ticker, TrustedIssuer,
+    Claim, Condition, ConditionType, CountryCode, IdentityId, PortfolioId, PortfolioKind,
+    PortfolioName, PortfolioNumber, Scope, Ticker, TrustedIssuer,
 };
 //use sp_runtime::traits::Hash;
+use pallet_nft::benchmarking::create_collection_mint_nfts;
 use sp_runtime::SaturatedConversion;
 use sp_std::convert::TryInto;
 use sp_std::prelude::*;
@@ -570,6 +572,48 @@ fn setup_manual_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     )
 }
 
+/// Creates an nft collection for `ticker`, mints `n_nfts` nfts for `token_sender`, and creates a venue.
+/// Returns a `Vec<LegV2>` with all minted nfts split among the legs.
+fn setup_nft_instructions<T: Config>(
+    token_sender: User<T>,
+    token_receiver: User<T>,
+    ticker: Ticker,
+    n_legs: u32,
+    n_nfts: u32,
+) -> Vec<LegV2> {
+    create_collection_mint_nfts::<T>(token_sender.origin().into(), ticker, 0, n_nfts);
+    create_venue_::<T>(token_sender.did(), vec![]);
+    let nft_per_leg = n_nfts / n_legs;
+    // Each leg has their own NFTs vec with n_nfts
+    // E.g: Consider two legs with six nfts
+    // The first leg will contain NFTs one to six, and the second leg NFTs seven to twelve
+    let nfts: Vec<NFTs> = (1..n_legs + 1)
+        .map(|leg_index| {
+            NFTs::new(
+                ticker,
+                (1..nft_per_leg + 1)
+                    .map(|nft_index| NFTId(((leg_index - 1) * nft_per_leg + nft_index) as u64))
+                    .collect(),
+            )
+            .unwrap()
+        })
+        .collect();
+    // Creates each leg
+    (1..n_legs + 1)
+        .map(|index| LegV2 {
+            from: PortfolioId {
+                did: token_sender.did(),
+                kind: PortfolioKind::Default,
+            },
+            to: PortfolioId {
+                did: token_receiver.did(),
+                kind: PortfolioKind::Default,
+            },
+            asset: LegAsset::NonFungible(nfts[(index - 1) as usize].clone()),
+        })
+        .collect()
+}
+
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>>, T: pallet_scheduler::Config }
 
@@ -988,6 +1032,51 @@ benchmarks! {
         let traded_amount = before_transfer_balance - after_transfer_balance;
         let expected_transfer_amount = first_leg.amount;
         assert_eq!(traded_amount, expected_transfer_amount,"Settlement: Failed to execute the instruction");
+    }
+
+    add_instruction_with_memo_v2 {
+        let l in 1..T::MaxLegsInInstruction::get() as u32;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let legs_v2 = setup_nft_instructions(alice.clone(), bob, ticker, l, l * 1);
+        set_block_number::<T>(50);
+    }: _(alice.origin, VenueId(1), SettlementType::SettleOnBlock(100u32.into()),  Some(99999999u32.into()), Some(99999999u32.into()), legs_v2.clone(), Some(InstructionMemo::default()))
+    verify {
+        for (index, leg_v2) in legs_v2.iter().enumerate() {
+            assert_eq!(&InstructionLegsV2::get(InstructionId(1), LegId(index as u64)), leg_v2);
+        }
+    }
+
+    add_and_affirm_instruction_with_memo_v2 {
+        let l in 1..T::MaxLegsInInstruction::get() as u32;
+        let n in 1..(T::MaxNumberOfNFTs::get() * T::MaxLegsInInstruction::get()) as u32;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        // Makes sure there is at least one nft for each leg
+        let total_nfts = sp_std::cmp::max(n, l);
+        // Makes sure there are at most MaxNumberOfNFTs for each leg
+        let total_nfts = sp_std::cmp::min(total_nfts, l * T::MaxNumberOfNFTs::get() as u32);
+        let legs_v2 = setup_nft_instructions(alice.clone(), bob, ticker, l, total_nfts);
+        set_block_number::<T>(50);
+    }: _(alice.clone().origin, VenueId(1), SettlementType::SettleOnBlock(100u32.into()),  Some(99999999u32.into()), Some(99999999u32.into()), legs_v2.clone(), vec![PortfolioId { did: alice.did(), kind: PortfolioKind::Default }], Some(InstructionMemo::default()))
+    verify {
+        let alice_did = alice.did();
+        for (index, leg_v2) in legs_v2.iter().enumerate() {
+            assert_eq!(&InstructionLegsV2::get(InstructionId(1), LegId(index as u64)), leg_v2);
+            if let LegAsset::NonFungible(nfts) = &leg_v2.asset {
+                for nftd_id in nfts.ids() {
+                    assert_eq!(
+                        PortfolioLockedNFT::get(PortfolioId::default_portfolio(alice_did.clone()), (&ticker, nftd_id)),
+                        true
+                    );
+                }
+            }
+        }
+        assert_eq!(BalanceOf::get(ticker, alice_did), ONE_UNIT * total_nfts as u128);
     }
 }
 

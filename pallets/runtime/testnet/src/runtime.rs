@@ -95,7 +95,7 @@ parameter_types! {
 
     // Settlement:
     pub const MaxLegsInInstruction: u32 = 10;
-    pub const MaxNumberOfNFTsTransfer: u8 = 10;
+    pub const MaxNumberOfNFTs: u32 = 10;
 
     // I'm online:
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();

@@ -466,7 +466,7 @@ macro_rules! misc_pallet_impls {
             type Scheduler = Scheduler;
             type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
             type MaxLegsInInstruction = MaxLegsInInstruction;
-            type MaxNumberOfNFTsTransfer = MaxNumberOfNFTsTransfer;
+            type MaxNumberOfNFTs = MaxNumberOfNFTs;
         }
 
         impl pallet_sto::Config for Runtime {

@@ -2759,7 +2759,7 @@ fn add_nft_instruction_with_duplicated_nfts() {
     });
 }
 
-/// An instruction with non-fungible assets, must reject legs with more than MaxNumberOfNFTsTransfer.
+/// An instruction with non-fungible assets, must reject legs with more than MaxNumberOfNFTs.
 #[test]
 fn add_nft_instruction_exceeding_nfts() {
     ExtBuilder::default().build().execute_with(|| {
