@@ -2957,6 +2957,115 @@ fn add_and_affirm_nft_not_owned() {
     });
 }
 
+/// An NFT can only be included in one of the legs.
+#[test]
+fn add_same_nft_different_legs() {
+    test_with_cdd_provider(|_eve| {
+        // First we need to create a collection, mint two NFTs, and create a venue
+        let alice: User = User::new(AccountKeyring::Alice);
+        let bob: User = User::new(AccountKeyring::Bob);
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(alice.clone(), TICKER, collection_keys);
+        let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
+            key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            value: AssetMetadataValue(b"test".to_vec()),
+        }];
+        mint_nft(alice.clone(), TICKER, nfts_metadata.clone());
+        mint_nft(alice.clone(), TICKER, nfts_metadata);
+        let venue_id = create_venue(alice);
+
+        // Adds and affirms the instruction
+        let legs: Vec<LegV2> = vec![
+            LegV2 {
+                from: PortfolioId::default_portfolio(alice.did),
+                to: PortfolioId::default_portfolio(bob.did),
+                asset: LegAsset::NonFungible(NFTs::new_unverified(TICKER, vec![NFTId(1)])),
+            },
+            LegV2 {
+                from: PortfolioId::default_portfolio(alice.did),
+                to: PortfolioId::default_portfolio(bob.did),
+                asset: LegAsset::NonFungible(NFTs::new_unverified(TICKER, vec![NFTId(1)])),
+            },
+        ];
+        assert_noop!(
+            Settlement::add_and_affirm_instruction_with_memo_v2(
+                alice.origin(),
+                venue_id,
+                SettlementType::SettleOnAffirmation,
+                None,
+                None,
+                legs,
+                default_portfolio_vec(alice.did),
+                Some(InstructionMemo::default()),
+            ),
+            PortfolioError::NFTAlreadyLocked
+        );
+    });
+}
+
+/// Receipts can only be used for fungible assets
+#[test]
+fn add_and_affirm_with_receipts_nfts() {
+    test_with_cdd_provider(|_eve| {
+        // First we need to create a collection, mint one NFT, and create a venue
+        let alice: User = User::new(AccountKeyring::Alice);
+        let bob: User = User::new(AccountKeyring::Bob);
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(alice.clone(), TICKER, collection_keys);
+        let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
+            key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            value: AssetMetadataValue(b"test".to_vec()),
+        }];
+        mint_nft(alice.clone(), TICKER, nfts_metadata);
+        let venue_id = create_venue(alice);
+
+        // Adds the instruction and fails to use a receipt
+        let legs: Vec<LegV2> = vec![LegV2 {
+            from: PortfolioId::default_portfolio(alice.did),
+            to: PortfolioId::default_portfolio(bob.did),
+            asset: LegAsset::NonFungible(NFTs::new_unverified(TICKER, vec![NFTId(1)])),
+        }];
+        assert_ok!(Settlement::add_instruction_with_memo_v2(
+            alice.origin(),
+            venue_id,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs,
+            Some(InstructionMemo::default()),
+        ));
+        assert_noop!(
+            Settlement::affirm_with_receipts(
+                alice.origin(),
+                InstructionId(0),
+                vec![ReceiptDetails {
+                    receipt_uid: 0,
+                    leg_id: LegId(0),
+                    signer: AccountKeyring::Alice.to_account_id(),
+                    signature: AccountKeyring::Alice
+                        .sign(
+                            &Receipt {
+                                receipt_uid: 0,
+                                from: PortfolioId::default_portfolio(alice.did),
+                                to: PortfolioId::default_portfolio(bob.did),
+                                asset: TICKER,
+                                amount: ONE_UNIT,
+                            }
+                            .encode()
+                        )
+                        .into(),
+                    metadata: ReceiptMetadata::default()
+                }],
+                vec![PortfolioId::default_portfolio(alice.did)],
+                1
+            ),
+            Error::ReceiptForNonFungibleAsset
+        );
+    });
+}
+
 #[track_caller]
 fn assert_instruction_details(
     instruction_id: InstructionId,
