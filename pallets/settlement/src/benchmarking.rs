@@ -1157,6 +1157,46 @@ benchmarks! {
         }
         assert_eq!(BalanceOf::get(ticker, alice_did), ONE_UNIT * total_nfts as u128);
     }
+
+    reject_instruction_v2 {
+        let l in 1..T::MaxLegsInInstruction::get() as u32;
+        let n in 1..(T::MaxNumberOfNFTs::get() * T::MaxLegsInInstruction::get()) as u32;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        // Makes sure there is at least one nft for each leg
+        let total_nfts = sp_std::cmp::max(n, l);
+        // Makes sure there are at most MaxNumberOfNFTs for each leg
+        let total_nfts = sp_std::cmp::min(total_nfts, l * T::MaxNumberOfNFTs::get() as u32);
+        let legs_v2 = setup_nft_instructions(alice.clone(), bob, ticker, l, total_nfts);
+        let alice_portfolio = vec![PortfolioId { did: alice.did(), kind: PortfolioKind::Default }];
+        Module::<T>::add_and_affirm_instruction_with_memo_v2(
+            alice.clone().origin.into(),
+            VenueId(1),
+            SettlementType::SettleOnBlock(100u32.into()),
+            Some(99999999u32.into()),
+            Some(99999999u32.into()),
+            legs_v2.clone(),
+            alice_portfolio.clone(),
+            Some(InstructionMemo::default())
+        ).expect("failed to add instruction");
+    }: _(alice.clone().origin, InstructionId(1), alice_portfolio[0], l, total_nfts)
+    verify {
+        let alice_did = alice.did();
+        for (index, leg_v2) in legs_v2.iter().enumerate() {
+            assert!(&InstructionLegsV2::try_get(InstructionId(1), LegId(index as u64)).is_err());
+            if let LegAsset::NonFungible(nfts) = &leg_v2.asset {
+                for nftd_id in nfts.ids() {
+                    assert_eq!(
+                        PortfolioLockedNFT::get(PortfolioId::default_portfolio(alice_did.clone()), (&ticker, nftd_id)),
+                        false
+                    );
+                }
+            }
+        }
+        assert_eq!(BalanceOf::get(ticker, alice_did), ONE_UNIT * total_nfts as u128);
+    }
 }
 
 pub fn next_block<T: Config + pallet_scheduler::Config>() {

@@ -419,6 +419,7 @@ pub trait WeightInfo {
     fn add_and_affirm_instruction_with_memo_v2(n_legs: u32, n_nfts: u32) -> Weight;
     fn affirm_instruction_v2(n_legs: u32, n_nfts: u32) -> Weight;
     fn withdraw_affirmation_v2(n_legs: u32, n_nfts: u32) -> Weight;
+    fn reject_instruction_v2(n_legs: u32, n_nfts: u32) -> Weight;
 }
 
 type EnsureValidInstructionResult<AccountId, Moment, BlockNumber> = Result<
@@ -832,37 +833,8 @@ decl_module! {
         /// # Permissions
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::reject_instruction(*num_of_legs)]
-        pub fn reject_instruction(origin, id: InstructionId, portfolio: PortfolioId, num_of_legs: u32) {
-            let PermissionedCallOriginData {
-                primary_did,
-                secondary_key,
-                ..
-            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
-            ensure!(
-                Self::instruction_details(id).status != InstructionStatus::Unknown,
-                Error::<T>::UnknownInstruction
-            );
-
-            let legs: Vec<(LegId, LegV2)> = Self::get_instruction_legs(&id);
-
-            // Ensure num_of_legs is correct.
-            ensure!(
-                legs.len() <= num_of_legs as usize,
-                Error::<T>::LegCountTooSmall
-            );
-
-            // Ensure that the caller is a party of this instruction.
-            T::Portfolio::ensure_portfolio_custody_and_permission(portfolio, primary_did, secondary_key.as_ref())?;
-            ensure!(
-                legs.iter().any(|(_, leg)| [leg.from, leg.to].contains(&portfolio)),
-                Error::<T>::CallerIsNotAParty
-            );
-
-            Self::unsafe_unclaim_receipts(id, &legs);
-            Self::unchecked_release_locks(id, &legs);
-            let _ = T::Scheduler::cancel_named(id.execution_name());
-            Self::prune_instruction(id);
-            Self::deposit_event(RawEvent::InstructionRejected(primary_did, id));
+        pub fn reject_instruction(origin, id: InstructionId, portfolio: PortfolioId, num_of_legs: u32) -> DispatchResult {
+            Self::base_reject_instruction(origin, id, portfolio, num_of_legs, None)
         }
 
         /// Accepts an instruction and claims a signed receipt.
@@ -1258,6 +1230,21 @@ decl_module! {
                 let _fix_this = T::Scheduler::cancel_named(id.execution_name());
             }
             Ok(())
+        }
+
+        /// Rejects an existing instruction.
+        ///
+        /// # Arguments
+        /// * `id` - Instruction id to reject.
+        /// * `portfolio` - Portfolio to reject the instruction.
+        /// * `num_of_legs` - Number of legs in the instruction.
+        /// * `nfts_transferred` - total number of NFTs being transferred in the instruction.
+        ///
+        /// # Permissions
+        /// * Portfolio
+        #[weight = <T as Config>::WeightInfo::reject_instruction_v2(*num_of_legs, *nfts_transferred)]
+        pub fn reject_instruction_v2(origin, id: InstructionId, portfolio: PortfolioId, num_of_legs: u32, nfts_transferred: u32) -> DispatchResult {
+            Self::base_reject_instruction(origin, id, portfolio, num_of_legs, Some(nfts_transferred))
         }
 
     }
@@ -2188,6 +2175,68 @@ impl<T: Config> Module<T> {
         }
 
         Self::deposit_event(RawEvent::VenueSignersUpdated(did, id, signers, add_signers));
+        Ok(())
+    }
+
+    fn base_reject_instruction(
+        origin: T::Origin,
+        id: InstructionId,
+        portfolio: PortfolioId,
+        num_of_legs: u32,
+        nfts_transferred: Option<u32>,
+    ) -> DispatchResult {
+        let PermissionedCallOriginData {
+            primary_did,
+            secondary_key,
+            ..
+        } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+        ensure!(
+            Self::instruction_details(id).status != InstructionStatus::Unknown,
+            Error::<T>::UnknownInstruction
+        );
+
+        let legs: Vec<(LegId, LegV2)> = Self::get_instruction_legs(&id);
+
+        // Ensure num_of_legs is correct.
+        ensure!(
+            legs.len() <= num_of_legs as usize,
+            Error::<T>::LegCountTooSmall
+        );
+
+        T::Portfolio::ensure_portfolio_custody_and_permission(
+            portfolio,
+            primary_did,
+            secondary_key.as_ref(),
+        )?;
+
+        // Counts the number of nfts being transferred and checks if portfolio is a party in any leg
+        let mut portfolio_in_leg = false;
+        let mut n_nfts_transferred = 0;
+        for (_leg_id, leg_v2) in &legs {
+            if let LegAsset::NonFungible(nfts) = &leg_v2.asset {
+                n_nfts_transferred += nfts.len();
+            }
+            if leg_v2.from == portfolio || leg_v2.to == portfolio {
+                portfolio_in_leg = true
+            }
+        }
+
+        if n_nfts_transferred > 0 {
+            let nfts_transferred =
+                nfts_transferred.ok_or(Error::<T>::DeprecatedCallOnV2Instruction)?;
+            ensure!(
+                n_nfts_transferred <= nfts_transferred as usize,
+                Error::<T>::NumberOfTransferredNFTsUnderestimated
+            );
+        }
+
+        ensure!(portfolio_in_leg, Error::<T>::CallerIsNotAParty);
+
+        Self::unsafe_unclaim_receipts(id, &legs);
+        Self::unchecked_release_locks(id, &legs);
+        let _ = T::Scheduler::cancel_named(id.execution_name());
+        Self::prune_instruction(id);
+        Self::deposit_event(RawEvent::InstructionRejected(primary_did, id));
         Ok(())
     }
 
