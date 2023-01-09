@@ -585,6 +585,8 @@ decl_error! {
         NumberOfTransferredNFTsUnderestimated,
         /// Deprecated function has been called on a v2 instruction.
         DeprecatedCallOnV2Instruction,
+        /// Off-chain receipts are not accepted for non-fungible tokens.
+        ReceiptForNonFungibleAsset
     }
 }
 
@@ -1748,6 +1750,9 @@ impl<T: Config> Module<T> {
         );
 
         let leg = Self::get_instruction_leg(&instruction_id, &receipt_details.leg_id);
+        if let LegAsset::NonFungible(_nfts) = leg.asset {
+            return Err(Error::<T>::ReceiptForNonFungibleAsset.into());
+        }
 
         T::Portfolio::ensure_portfolio_custody_and_permission(leg.from, did, secondary_key)?;
 
@@ -1899,6 +1904,9 @@ impl<T: Config> Module<T> {
             );
 
             let leg = Self::get_instruction_leg(&id, &receipt.leg_id);
+            if let LegAsset::NonFungible(_nfts) = leg.asset {
+                return Err(Error::<T>::ReceiptForNonFungibleAsset.into());
+            }
             ensure!(
                 portfolios_set.contains(&leg.from),
                 Error::<T>::PortfolioMismatch
