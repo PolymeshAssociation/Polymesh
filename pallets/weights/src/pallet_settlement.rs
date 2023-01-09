@@ -516,4 +516,41 @@ impl pallet_settlement::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().writes((12 as Weight).saturating_mul(l as Weight)))
             .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(n as Weight)))
     }
+
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Storage: Settlement InstructionDetails (r:1 w:0)
+    // Storage: Portfolio PortfolioCustodian (r:1 w:0)
+    // Storage: Settlement UserAffirmations (r:1 w:1)
+    // Storage: Settlement InstructionLegsV2 (r:2 w:0)
+    // Storage: unknown [0x3a7472616e73616374696f6e5f6c6576656c3a] (r:1 w:1)
+    // Storage: Portfolio PortfolioNFT (r:10 w:0)
+    // Storage: Portfolio PortfolioLockedNFT (r:10 w:10)
+    // Storage: Settlement InstructionAffirmsPending (r:1 w:1)
+    // Storage: Settlement AffirmsReceived (r:0 w:1)
+    // Storage: Settlement InstructionLegStatus (r:0 w:1)
+    fn affirm_instruction_v2(l: u32, n: u32) -> Weight {
+        (113_407_000 as Weight)
+            .saturating_add(DbWeight::get().reads((21 as Weight).saturating_mul(l as Weight)))
+            .saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(n as Weight)))
+            .saturating_add(DbWeight::get().writes((11 as Weight).saturating_mul(l as Weight)))
+            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(n as Weight)))
+    }
+
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Storage: Settlement InstructionDetails (r:1 w:0)
+    // Storage: Portfolio PortfolioCustodian (r:1 w:0)
+    // Storage: Settlement UserAffirmations (r:1 w:1)
+    // Storage: Settlement InstructionLegsV2 (r:2 w:0)
+    // Storage: Settlement InstructionLegStatus (r:1 w:1)
+    // Storage: unknown [0x3a7472616e73616374696f6e5f6c6576656c3a] (r:1 w:1)
+    // Storage: Portfolio PortfolioLockedNFT (r:10 w:10)
+    // Storage: Settlement InstructionAffirmsPending (r:1 w:1)
+    // Storage: Settlement AffirmsReceived (r:0 w:1)
+    fn withdraw_affirmation_v2(l: u32, n: u32) -> Weight {
+        (113_407_000 as Weight)
+            .saturating_add(DbWeight::get().reads((12 as Weight).saturating_mul(l as Weight)))
+            .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(n as Weight)))
+            .saturating_add(DbWeight::get().writes((11 as Weight).saturating_mul(l as Weight)))
+            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(n as Weight)))
+    }
 }
