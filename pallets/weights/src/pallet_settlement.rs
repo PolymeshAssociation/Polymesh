@@ -567,7 +567,7 @@ impl pallet_settlement::WeightInfo for WeightInfo {
     // Storage: Settlement InstructionAffirmsPending (r:0 w:1)
     // Storage: Settlement VenueInstructions (r:0 w:1)
     // Storage: Settlement AffirmsReceived (r:0 w:1)
-    fn reject_instruction_v2(n_legs: u32, n_nfts: u32) -> Weight {
+    fn reject_instruction_v2(l: u32, n: u32) -> Weight {
         (113_407_000 as Weight)
             .saturating_add(DbWeight::get().reads((12 as Weight).saturating_mul(l as Weight)))
             .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(n as Weight)))
