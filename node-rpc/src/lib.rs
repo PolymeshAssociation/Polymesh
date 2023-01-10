@@ -95,7 +95,7 @@ pub struct FullDeps<C, P, SC, B> {
 pub type IoHandler = jsonrpc_core::IoHandler<sc_rpc::Metadata>;
 
 /// Instantiate all Full RPC extensions.
-pub fn create_full<C, P, UE, SC, B>(
+pub fn create_full<C, P, SC, B>(
     deps: FullDeps<C, P, SC, B>,
 ) -> Result<jsonrpc_core::IoHandler<sc_rpc_api::Metadata>, Box<dyn std::error::Error + Send + Sync>>
 where
@@ -108,7 +108,7 @@ where
         + 'static,
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
     C::Api: pallet_contracts_rpc::ContractsRuntimeApi<Block, AccountId, Balance, BlockNumber, Hash>,
-    C::Api: node_rpc::transaction_payment::TransactionPaymentRuntimeApi<Block, UE>,
+    C::Api: node_rpc::transaction_payment::TransactionPaymentRuntimeApi<Block>,
     C::Api: pallet_staking_rpc::StakingRuntimeApi<Block>,
     C::Api: node_rpc::pips::PipsRuntimeApi<Block, AccountId>,
     C::Api: node_rpc::identity::IdentityRuntimeApi<Block, IdentityId, Ticker, AccountId, Moment>,
@@ -119,7 +119,6 @@ where
     C::Api: BabeApi<Block>,
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + 'static,
-    UE: codec::Codec + Send + Sync + 'static,
     SC: SelectChain<Block> + 'static,
     B: sc_client_api::Backend<Block> + Send + Sync + 'static,
     B::State: sc_client_api::backend::StateBackend<sp_runtime::traits::HashFor<Block>>,

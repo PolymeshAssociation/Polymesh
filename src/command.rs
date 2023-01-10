@@ -197,19 +197,16 @@ pub fn run() -> Result<()> {
                         cmd.run::<Block, service::GeneralExecutor>(config)
                     }
                     (BenchmarkCmd::Block(cmd), Network::Other) => {
-                        let FullServiceComponents { client, .. } = new_partial::<
-                            polymesh_runtime_develop::RuntimeApi,
-                            GeneralExecutor,
-                            _,
-                        >(
-                            &mut config
-                        )?;
+                        let FullServiceComponents { client, .. } =
+                            new_partial::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>(
+                                &mut config,
+                            )?;
                         cmd.run(client)
                     }
                     (BenchmarkCmd::Storage(cmd), Network::Other) => {
                         let FullServiceComponents {
                             client, backend, ..
-                        } = new_partial::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor, _>(
+                        } = new_partial::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>(
                             &mut config,
                         )?;
                         let db = backend.expose_db();
@@ -220,7 +217,7 @@ pub fn run() -> Result<()> {
                     (BenchmarkCmd::Overhead(_cmd), Network::Other) => {
                         unimplemented!();
                         /*
-                                    let FullServiceComponents { client, .. } = new_partial::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor, _>(&mut config)?;
+                                    let FullServiceComponents { client, .. } = new_partial::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>(&mut config)?;
                                     let ext_builder = BenchmarkExtrinsicBuilder::new(client.clone());
 
                         cmd.run(config, client, inherent_benchmark_data()?, Arc::new(ext_builder))
