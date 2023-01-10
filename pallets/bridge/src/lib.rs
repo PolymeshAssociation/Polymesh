@@ -345,6 +345,8 @@ decl_event! {
         FreezeAdminRemoved(IdentityId, AccountId),
         /// Notification of removing a transaction.
         TxRemoved(IdentityId, BridgeTx<AccountId>),
+        /// Bridge Tx failed.  Recipient missing CDD or limit reached.
+        BridgeTxFailed(IdentityId, BridgeTx<AccountId>, DispatchError),
     }
 }
 
@@ -679,20 +681,22 @@ impl<T: Config> Module<T> {
                 if untrusted_manual_retry {
                     return Err(e);
                 }
-                // Recipient missing CDD or limit reached. Retry this tx again later.
+                let current_did =
+                    Context::current_identity::<Identity<T>>().unwrap_or_else(|| GC_DID);
+                // Recipient missing CDD or limit reached.  Report error as an event.
+                Self::deposit_event(RawEvent::BridgeTxFailed(current_did, bridge_tx.clone(), e));
+                // Retry this tx again later.
                 if let Err(sched_e) =
                     Self::handle_bridge_tx_later(bridge_tx.clone(), tx_details, Self::timelock())
                 {
                     // Report scheduling error as an event.
-                    let current_did =
-                        Context::current_identity::<Identity<T>>().unwrap_or_else(|| GC_DID);
                     Self::deposit_event(RawEvent::BridgeTxScheduleFailed(
                         current_did,
                         bridge_tx,
                         sched_e.encode(),
                     ));
                 }
-                Err(e)
+                Ok(())
             }
         }
     }
