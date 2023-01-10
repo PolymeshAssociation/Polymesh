@@ -17,15 +17,15 @@
 //! RPC interface for the transaction payment module.
 
 pub use self::gen_client::Client as TransactionPaymentClient;
-use codec::Codec;
+use codec::Decode;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 pub use node_rpc_runtime_api::transaction_payment::{
-    Encoded, FeeDetails, InclusionFee, RuntimeDispatchInfo,
+    FeeDetails, InclusionFee, RuntimeDispatchInfo,
     TransactionPaymentApi as TransactionPaymentRuntimeApi,
 };
 use polymesh_primitives::Balance;
-use sp_api::{ApiExt, ProvideRuntimeApi};
+use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
 use sp_rpc::number::NumberOrHex;
@@ -53,7 +53,7 @@ pub struct TransactionPayment<C, P> {
 impl<C, P> TransactionPayment<C, P> {
     /// Create new `TransactionPayment` with the given reference to the client.
     pub fn new(client: Arc<C>) -> Self {
-        TransactionPayment {
+        Self {
             client,
             _marker: Default::default(),
         }
@@ -77,14 +77,12 @@ impl From<Error> for i64 {
     }
 }
 
-impl<C, Block, Extrinsic>
-    TransactionPaymentApi<<Block as BlockT>::Hash, RuntimeDispatchInfo<Balance>>
-    for TransactionPayment<C, (Block, Extrinsic)>
+impl<C, Block> TransactionPaymentApi<<Block as BlockT>::Hash, RuntimeDispatchInfo<Balance>>
+    for TransactionPayment<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    C::Api: TransactionPaymentRuntimeApi<Block, Extrinsic>,
-    Extrinsic: Codec + Send + Sync + 'static,
+    C::Api: TransactionPaymentRuntimeApi<Block>,
 {
     fn query_info(
         &self,
@@ -96,48 +94,19 @@ where
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash
         }));
-        let api_version = api
-            .api_version::<dyn TransactionPaymentRuntimeApi<Block, Extrinsic>>(&at)
-            .map_err(|e| RpcError {
-                code: ErrorCode::ServerError(Error::RuntimeError as i64),
-                message: "Unable to query dispatch info.".into(),
-                data: Some(format!("{:?}", e).into()),
-            })?;
 
-        match api_version {
-            Some(version) if version >= 2 => api
-                .query_info(&at, encoded_xt.0)
-                .map_err(|e| RpcError {
-                    code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                    message: "Unable to query dispatch info.".into(),
-                    data: Some(format!("{:?}", e).into()),
-                })?
-                .ok_or_else(|| RpcError {
-                    code: ErrorCode::ServerError(Error::DecodeError.into()),
-                    message: "Unable to query dispatch info.".into(),
-                    data: None,
-                }),
-            Some(1) => {
-                let encoded_len = encoded_xt.len() as u32;
+        let encoded_len = encoded_xt.len() as u32;
 
-                // Pass the raw encoded bytes to the runtime, without decoding them here.
-                let uxt = Encoded(encoded_xt.0);
-                #[allow(deprecated)]
-                api.query_info_before_version_2(&at, uxt, encoded_len)
-                    .map_err(|e| RpcError {
-                        code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                        message: "Unable to query dispatch info.".into(),
-                        data: Some(format!("{:?}", e).into()),
-                    })
-            }
-            _ => {
-                return Err(RpcError {
-                    code: ErrorCode::MethodNotFound,
-                    message: format!("Cannot find `TransactionPaymentApi` for block {:?}", at),
-                    data: None,
-                });
-            }
-        }
+        let uxt: Block::Extrinsic = Decode::decode(&mut &*encoded_xt).map_err(|e| RpcError {
+            code: ErrorCode::ServerError(Error::DecodeError.into()),
+            message: "Unable to query dispatch info.".into(),
+            data: Some(format!("{:?}", e).into()),
+        })?;
+        api.query_info(&at, uxt, encoded_len).map_err(|e| RpcError {
+            code: ErrorCode::ServerError(Error::RuntimeError.into()),
+            message: "Unable to query dispatch info.".into(),
+            data: Some(e.to_string().into()),
+        })
     }
 
     fn query_fee_details(
@@ -150,36 +119,19 @@ where
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash
         }));
-        // The `query_fee_details` method was only added in v2.
-        let has_v2 = api
-            .has_api::<dyn TransactionPaymentRuntimeApi<Block, Extrinsic>>(&at)
-            .map_err(|e| RpcError {
-                code: ErrorCode::ServerError(Error::RuntimeError as i64),
-                message: "Unable to query fee details.".into(),
-                data: Some(format!("{:?}", e).into()),
-            })?;
-        if !has_v2 {
-            return Err(RpcError {
-                code: ErrorCode::MethodNotFound,
-                message: format!(
-                    "Cannot find `TransactionPaymentApi::query_fee_details` for block {:?}",
-                    at
-                ),
-                data: None,
-            });
-        }
+        let encoded_len = encoded_xt.len() as u32;
 
+        let uxt: Block::Extrinsic = Decode::decode(&mut &*encoded_xt).map_err(|e| RpcError {
+            code: ErrorCode::ServerError(Error::DecodeError.into()),
+            message: "Unable to query fee details.".into(),
+            data: Some(format!("{:?}", e).into()),
+        })?;
         let fee_details = api
-            .query_fee_details(&at, encoded_xt.0)
+            .query_fee_details(&at, uxt, encoded_len)
             .map_err(|e| RpcError {
                 code: ErrorCode::ServerError(Error::RuntimeError.into()),
                 message: "Unable to query fee details.".into(),
                 data: Some(e.to_string().into()),
-            })?
-            .ok_or_else(|| RpcError {
-                code: ErrorCode::ServerError(Error::DecodeError.into()),
-                message: "Unable to query dispatch info.".into(),
-                data: None,
             })?;
 
         let try_into_rpc_balance = |value: Balance| {
