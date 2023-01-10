@@ -133,6 +133,9 @@ parameter_types! {
     pub DeletionQueueDepth: u32 = 1024;
     pub MaxInLen: u32 = 8 * 1024;
     pub MaxOutLen: u32 = 8 * 1024;
+
+    // NFT:
+    pub const MaxNumberOfCollectionKeys: u8 = u8::MAX;
 }
 
 /// Splits fees 80/20 between treasury and block author.
@@ -396,6 +399,8 @@ construct_runtime!(
         // Preimage register.  Used by `pallet_scheduler`.
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
 
+        Nft: pallet_nft::{Pallet, Call, Storage, Event},
+
         TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 50,
     }
 );
@@ -466,6 +471,7 @@ polymesh_runtime_common::runtime_apis! {
             add_benchmark!(params, batches, pallet_staking, Staking);
             add_benchmark!(params, batches, pallet_test_utils, TestUtils);
             add_benchmark!(params, batches, polymesh_contracts, PolymeshContracts);
+            add_benchmark!(params, batches, pallet_nft, Nft);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)
@@ -516,6 +522,7 @@ polymesh_runtime_common::runtime_apis! {
             list_benchmark!(list, extra, pallet_staking, Staking);
             list_benchmark!(list, extra, pallet_test_utils, TestUtils);
             list_benchmark!(list, extra, polymesh_contracts, PolymeshContracts);
+            list_benchmark!(list, extra, pallet_nft, Nft);
 
             let storage_info = AllPalletsWithSystem::storage_info();
 

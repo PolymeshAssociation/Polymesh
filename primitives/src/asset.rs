@@ -72,6 +72,8 @@ pub enum AssetType {
     /// relative to some "stable" asset or basket of assets.
     /// A stablecoin can be pegged to a cryptocurrency, fiat money, or to exchange-traded commodities.
     StableCoin,
+    /// Non-fungible token.
+    NFT,
 }
 
 impl Default for AssetType {

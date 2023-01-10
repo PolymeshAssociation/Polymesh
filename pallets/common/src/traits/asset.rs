@@ -78,6 +78,14 @@ pub trait AssetFnTrait<Account, Origin> {
     fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker);
 
     fn issue(origin: Origin, ticker: Ticker, total_supply: Balance) -> DispatchResult;
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn register_asset_metadata_type(
+        origin: Origin,
+        ticker: Option<Ticker>,
+        name: AssetMetadataName,
+        spec: AssetMetadataSpec,
+    ) -> DispatchResult;
 }
 
 pub trait WeightInfo {

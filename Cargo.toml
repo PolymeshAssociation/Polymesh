@@ -129,6 +129,7 @@ members = [
     "pallets/group/rpc/runtime-api",
     "pallets/identity",
     "pallets/multisig",
+    "pallets/nft",
     "pallets/pips",
     "pallets/protocol-fee",
     "pallets/rewards",

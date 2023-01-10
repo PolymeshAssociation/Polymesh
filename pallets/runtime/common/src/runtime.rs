@@ -534,6 +534,12 @@ macro_rules! misc_pallet_impls {
             type Extrinsic = UncheckedExtrinsic;
             type OverarchingCall = Call;
         }
+
+        impl pallet_nft::Config for Runtime {
+            type Event = Event;
+            type WeightInfo = polymesh_weights::pallet_nft::WeightInfo;
+            type MaxNumberOfCollectionKeys = MaxNumberOfCollectionKeys;
+        }
     };
 }
 

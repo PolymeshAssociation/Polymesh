@@ -61,7 +61,8 @@ pub use polymesh_common_utilities::traits::{
 };
 use polymesh_primitives::{
     extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, IdentityId,
-    PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
+    NFTCollectionId, NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
+    SecondaryKey, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::Zero;
@@ -123,6 +124,10 @@ decl_storage! {
         /// `false` values are never explicitly stored in the map, and are instead inferred by the absence of a key.
         pub PortfoliosInCustody get(fn portfolios_in_custody):
             double_map hasher(identity) IdentityId, hasher(twox_64_concat) PortfolioId => bool;
+
+        /// The nft associated to the portfolio.
+        pub PortfolioNFT get(fn portfolio_nft):
+            double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) (NFTCollectionId, NFTId) => bool;
 
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
@@ -615,6 +620,12 @@ impl<T: Config> Module<T> {
             Self::deposit_event(Event::PortfolioCustodianChanged(to, pid, to));
             Ok(())
         })
+    }
+
+    /// Adds an NFT that belongs to the given collection to the default portfolio of the did.
+    pub fn add_portfolio_nft(did: IdentityId, nft_collection_id: NFTCollectionId, nft_id: NFTId) {
+        let portfolio_id = PortfolioId::default_portfolio(did);
+        PortfolioNFT::insert(portfolio_id, (nft_collection_id, nft_id), true);
     }
 }
 

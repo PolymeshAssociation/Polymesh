@@ -1047,6 +1047,19 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::Origin> for Module<T> {
     fn issue(origin: T::Origin, ticker: Ticker, total_supply: Balance) -> DispatchResult {
         Self::issue(origin, ticker, total_supply)
     }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn register_asset_metadata_type(
+        origin: T::Origin,
+        ticker: Option<Ticker>,
+        name: AssetMetadataName,
+        spec: AssetMetadataSpec,
+    ) -> DispatchResult {
+        match ticker {
+            Some(ticker) => Self::register_asset_metadata_local_type(origin, ticker, name, spec),
+            None => Self::register_asset_metadata_global_type(origin, name, spec),
+        }
+    }
 }
 
 impl<T: Config> AssetSubTrait for Module<T> {
@@ -1149,7 +1162,7 @@ impl<T: Config> Module<T> {
         Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, idents));
     }
 
-    fn ensure_agent_with_custody_and_perms(
+    pub fn ensure_agent_with_custody_and_perms(
         origin: T::Origin,
         ticker: Ticker,
         portfolio_kind: PortfolioKind,
@@ -2071,7 +2084,7 @@ impl<T: Config> Module<T> {
         })
     }
 
-    fn check_asset_metadata_key_exists(ticker: Ticker, key: AssetMetadataKey) -> bool {
+    pub fn check_asset_metadata_key_exists(ticker: &Ticker, key: &AssetMetadataKey) -> bool {
         match key {
             AssetMetadataKey::Global(key) => AssetMetadataGlobalKeyToName::contains_key(key),
             AssetMetadataKey::Local(key) => AssetMetadataLocalKeyToName::contains_key(ticker, key),
@@ -2134,7 +2147,7 @@ impl<T: Config> Module<T> {
 
         // Check key exists.
         ensure!(
-            Self::check_asset_metadata_key_exists(ticker, key),
+            Self::check_asset_metadata_key_exists(&ticker, &key),
             Error::<T>::AssetMetadataKeyIsMissing
         );
 
@@ -2167,7 +2180,7 @@ impl<T: Config> Module<T> {
 
         // Check key exists.
         ensure!(
-            Self::check_asset_metadata_key_exists(ticker, key),
+            Self::check_asset_metadata_key_exists(&ticker, &key),
             Error::<T>::AssetMetadataKeyIsMissing
         );
 
@@ -2576,5 +2589,15 @@ impl<T: Config> Module<T> {
         Tokens::mutate(ticker, |token| token.asset_type = asset_type);
         Self::deposit_event(RawEvent::AssetTypeChanged(did, ticker, asset_type));
         Ok(())
+    }
+
+    /// Returns `None` if there's no asset associated to the given ticker,
+    /// returns Some(true) if the asset exists and is of type `AssetType::NFT`, and returns Some(false) otherwise.
+    pub fn nft_asset(ticker: &Ticker) -> Option<bool> {
+        let security_token = Tokens::try_get(ticker).ok()?;
+        match security_token.asset_type {
+            AssetType::NFT => Some(true),
+            _ => Some(false),
+        }
     }
 }

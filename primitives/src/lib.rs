@@ -227,6 +227,10 @@ pub mod host_functions;
 
 pub mod ethereum;
 
+/// NFT type definitions.
+pub mod nft;
+pub use nft::{NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute};
+
 /// Represents custom transaction errors.
 #[repr(u8)]
 pub enum TransactionError {

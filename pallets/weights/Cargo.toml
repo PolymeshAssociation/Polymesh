@@ -29,6 +29,7 @@ pallet-external-agents = { path = "../external-agents", default-features = false
 pallet-group = { path = "../group", default-features = false }
 pallet-identity = { path = "../identity", default-features = false }
 pallet-multisig = { path = "../multisig", default-features = false  }
+pallet-nft = { path = "../nft", default-features = false  }
 pallet-pips = { path = "../pips", default-features = false }
 pallet-portfolio = { path = "../portfolio", default-features = false  }
 pallet-protocol-fee = { path = "../protocol-fee", default-features = false  }
@@ -61,6 +62,7 @@ std = [
     "pallet-im-online/std",
     "pallet-indices/std",
     "pallet-multisig/std",
+    "pallet-nft/std",
     "pallet-pips/std",
     "pallet-portfolio/std",
     "pallet-protocol-fee/std",
