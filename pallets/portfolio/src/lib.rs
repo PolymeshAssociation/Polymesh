@@ -65,6 +65,7 @@ use polymesh_primitives::{
 };
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::Zero;
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::Vec;
 
 type Identity<T> = identity::Module<T>;
@@ -150,7 +151,9 @@ decl_error! {
         /// The portfolio still has some asset balance left
         PortfolioNotEmpty,
         /// The portfolios belong to different identities
-        DifferentIdentityPortfolios
+        DifferentIdentityPortfolios,
+        /// Duplicate asset among the items.
+        NoDuplicateAssetsAllowed
     }
 }
 
@@ -254,7 +257,9 @@ decl_module! {
             Self::ensure_user_portfolio_permission(secondary_key.as_ref(), to)?;
 
             // Ensure there are sufficient funds for all moves.
+            let mut unique_tickers = BTreeSet::new();
             for item in &items {
+                ensure!(unique_tickers.insert(item.ticker.clone()), Error::<T>::NoDuplicateAssetsAllowed);
                 Self::ensure_sufficient_balance(&from, &item.ticker, item.amount)?;
             }
 
