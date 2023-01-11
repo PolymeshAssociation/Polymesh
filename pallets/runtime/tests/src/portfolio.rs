@@ -7,11 +7,12 @@ use super::{
 use frame_support::storage::StorageDoubleMap;
 use frame_support::{assert_noop, assert_ok, StorageMap};
 use frame_system::EventRecord;
-use pallet_portfolio::{Event, MovePortfolioItem, NameToNumber};
+use pallet_portfolio::{Event, MovePortfolioItem, NameToNumber, PortfolioAssetBalances};
 use polymesh_common_utilities::balances::Memo;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, PortfolioId, PortfolioName, PortfolioNumber, Signatory,
+    AuthorizationData, AuthorizationError, PortfolioId, PortfolioKind, PortfolioName,
+    PortfolioNumber, Signatory,
 };
 use test_client::AccountKeyring;
 
@@ -572,5 +573,51 @@ fn quit_portfolio_custody() {
         ));
         // The mapping is removed which means the owner is the custodian.
         assert_owner_is_custodian!(user_portfolio);
+    });
+}
+
+#[test]
+fn move_more_funds() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice: User = User::new(AccountKeyring::Alice);
+        let alice_default_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+        let alice_custom_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::User(PortfolioNumber(1)),
+        };
+        let (ticker, _) = create_token(alice);
+        assert_eq!(
+            PortfolioAssetBalances::get(&alice_default_portfolio, &ticker),
+            1_000_000_000
+        );
+        assert_ok!(Portfolio::create_portfolio(
+            alice.origin(),
+            PortfolioName(b"MyOwnPortfolio".to_vec())
+        ));
+
+        let items = vec![
+            MovePortfolioItem {
+                ticker: ticker,
+                amount: 1_000_000_000,
+                memo: None,
+            },
+            MovePortfolioItem {
+                ticker: ticker,
+                amount: 1_000_000_000,
+                memo: None,
+            },
+        ];
+        assert_noop!(
+            Portfolio::move_portfolio_funds(
+                alice.origin(),
+                alice_default_portfolio,
+                alice_custom_portfolio,
+                items,
+            ),
+            Error::NoDuplicateAssetsAllowed
+        );
     });
 }
