@@ -572,44 +572,87 @@ fn setup_manual_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     )
 }
 
-/// Creates an nft collection for `ticker`, mints `n_nfts` nfts for `token_sender`, and creates a venue.
-/// Returns a `Vec<LegV2>` with all minted nfts split among the legs.
-fn setup_nft_instructions<T: Config>(
-    token_sender: User<T>,
-    token_receiver: User<T>,
+/// Creates a fungible asset for the given `ticker` and returns a `Vec<LegV2>` containing `n_legs`.
+fn setup_fungible_legs_v2<T: Config>(
+    sender: User<T>,
+    receiver: User<T>,
+    ticker: Ticker,
+    n_legs: u32,
+) -> Vec<LegV2> {
+    make_asset(&sender, Some(ticker.as_ref()));
+    (0..n_legs)
+        .map(|_| LegV2 {
+            from: PortfolioId {
+                did: sender.did(),
+                kind: PortfolioKind::Default,
+            },
+            to: PortfolioId {
+                did: receiver.did(),
+                kind: PortfolioKind::Default,
+            },
+            asset: LegAsset::Fungible {
+                ticker: ticker.clone(),
+                amount: ONE_UNIT,
+            },
+        })
+        .collect()
+}
+
+/// Creates an nft collection for `ticker`, mints `n_nfts` for `token_sender`, and returns a `Vec<LegV2>`
+/// containing `n_legs` with a total of `n_nfts` split among the legs.
+/// For this function only calls with the minimum number of legs to contain all `n_nfts` are allowed.
+/// E.g: If n_nfts = 78, n_legs must be equal to 8 (considering MaxNumberOfNFTs is equal to 10).
+fn setup_nft_legs<T: Config>(
+    sender: User<T>,
+    receiver: User<T>,
     ticker: Ticker,
     n_legs: u32,
     n_nfts: u32,
 ) -> Vec<LegV2> {
-    create_collection_mint_nfts::<T>(token_sender.origin().into(), ticker, 0, n_nfts);
-    create_venue_::<T>(token_sender.did(), vec![]);
-    let nft_per_leg = n_nfts / n_legs;
-    // Each leg has their own NFTs vec with n_nfts
-    // E.g: Consider two legs with six nfts
-    // The first leg will contain NFTs one to six, and the second leg NFTs seven to twelve
-    let nfts: Vec<NFTs> = (1..n_legs + 1)
+    create_collection_mint_nfts::<T>(sender.origin().into(), ticker, 0, n_nfts);
+
+    let max_nfts_per_leg = T::MaxNumberOfNFTs::get();
+    let last_leg_len = n_nfts % max_nfts_per_leg;
+    let full_legs = n_nfts / max_nfts_per_leg;
+
+    // Creates the NFTs for each leg. All legs except the last one will have T::MaxNumberOfNFTs NFTs each.
+    let mut nfts: Vec<NFTs> = (0..full_legs)
         .map(|leg_index| {
             NFTs::new(
                 ticker,
-                (1..nft_per_leg + 1)
-                    .map(|nft_index| NFTId(((leg_index - 1) * nft_per_leg + nft_index) as u64))
+                (0..max_nfts_per_leg)
+                    .map(|nft_index| NFTId((leg_index * max_nfts_per_leg + nft_index + 1) as u64))
                     .collect(),
             )
             .unwrap()
         })
         .collect();
+    // The last leg may have less than T::MaxNumberOfNFTs NFTs
+    if last_leg_len > 0 {
+        nfts.push(NFTs::new_unverified(
+            ticker,
+            (0..last_leg_len)
+                .map(|nft_index| {
+                    NFTId((max_nfts_per_leg * (nfts.len() as u32) + nft_index + 1) as u64)
+                })
+                .collect(),
+        ));
+    }
+    // For this function only calls with the minimum number of legs to contain all `n_nfts` are allowed
+    assert_eq!(nfts.len() as u32, n_legs);
     // Creates each leg
-    (1..n_legs + 1)
+    (0..n_legs)
         .map(|index| LegV2 {
             from: PortfolioId {
-                did: token_sender.did(),
+                did: sender.did(),
                 kind: PortfolioKind::Default,
             },
             to: PortfolioId {
-                did: token_receiver.did(),
+                did: receiver.did(),
                 kind: PortfolioKind::Default,
             },
-            asset: LegAsset::NonFungible(nfts[(index - 1) as usize].clone()),
+
+            asset: LegAsset::NonFungible(nfts[index as usize].clone()),
         })
         .collect()
 }
@@ -1034,169 +1077,39 @@ benchmarks! {
         assert_eq!(traded_amount, expected_transfer_amount,"Settlement: Failed to execute the instruction");
     }
 
-    add_instruction_with_memo_v2 {
+    add_and_affirm_instructions_v2_fungible {
         let l in 1..T::MaxLegsInInstruction::get() as u32;
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
-        let legs_v2 = setup_nft_instructions(alice.clone(), bob, ticker, l, l * 1);
-        set_block_number::<T>(50);
-    }: _(alice.origin, VenueId(1), SettlementType::SettleOnBlock(100u32.into()),  Some(99999999u32.into()), Some(99999999u32.into()), legs_v2.clone(), Some(InstructionMemo::default()))
-    verify {
-        for (index, leg_v2) in legs_v2.iter().enumerate() {
-            assert_eq!(&InstructionLegsV2::get(InstructionId(1), LegId(index as u64)), leg_v2);
-        }
-    }
-
-    add_and_affirm_instruction_with_memo_v2 {
-        let l in 1..T::MaxLegsInInstruction::get() as u32;
-        let n in 1..(T::MaxNumberOfNFTs::get() * T::MaxLegsInInstruction::get()) as u32;
-
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
-        // Makes sure there is at least one nft for each leg
-        let total_nfts = sp_std::cmp::max(n, l);
-        // Makes sure there are at most MaxNumberOfNFTs for each leg
-        let total_nfts = sp_std::cmp::min(total_nfts, l * T::MaxNumberOfNFTs::get() as u32);
-        let legs_v2 = setup_nft_instructions(alice.clone(), bob, ticker, l, total_nfts);
-        set_block_number::<T>(50);
-    }: _(alice.clone().origin, VenueId(1), SettlementType::SettleOnBlock(100u32.into()),  Some(99999999u32.into()), Some(99999999u32.into()), legs_v2.clone(), vec![PortfolioId { did: alice.did(), kind: PortfolioKind::Default }], Some(InstructionMemo::default()))
-    verify {
-        let alice_did = alice.did();
-        for (index, leg_v2) in legs_v2.iter().enumerate() {
-            assert_eq!(&InstructionLegsV2::get(InstructionId(1), LegId(index as u64)), leg_v2);
-            if let LegAsset::NonFungible(nfts) = &leg_v2.asset {
-                for nftd_id in nfts.ids() {
-                    assert_eq!(
-                        PortfolioLockedNFT::get(PortfolioId::default_portfolio(alice_did.clone()), (&ticker, nftd_id)),
-                        true
-                    );
-                }
-            }
-        }
-        assert_eq!(BalanceOf::get(ticker, alice_did), ONE_UNIT * total_nfts as u128);
-    }
-
-    affirm_instruction_v2 {
-        let l in 1..T::MaxLegsInInstruction::get() as u32;
-        let n in 1..(T::MaxNumberOfNFTs::get() * T::MaxLegsInInstruction::get()) as u32;
-
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
-        // Makes sure there is at least one nft for each leg
-        let total_nfts = sp_std::cmp::max(n, l);
-        // Makes sure there are at most MaxNumberOfNFTs for each leg
-        let total_nfts = sp_std::cmp::min(total_nfts, l * T::MaxNumberOfNFTs::get() as u32);
-        let legs_v2 = setup_nft_instructions(alice.clone(), bob, ticker, l, total_nfts);
         let alice_portfolio = vec![PortfolioId { did: alice.did(), kind: PortfolioKind::Default }];
-        Module::<T>::add_instruction_with_memo_v2(
-            alice.clone().origin.into(),
-            VenueId(1),
-            SettlementType::SettleOnBlock(100u32.into()),
-            Some(99999999u32.into()),
-            Some(99999999u32.into()),
-            legs_v2.clone(),
-            Some(InstructionMemo::default())
-        ).expect("failed to add instruction");
-    }: _(alice.clone().origin, InstructionId(1), alice_portfolio, l, total_nfts)
-    verify {
-        let alice_did = alice.did();
-        for (index, leg_v2) in legs_v2.iter().enumerate() {
-            assert_eq!(&InstructionLegsV2::get(InstructionId(1), LegId(index as u64)), leg_v2);
-            if let LegAsset::NonFungible(nfts) = &leg_v2.asset {
-                for nftd_id in nfts.ids() {
-                    assert_eq!(
-                        PortfolioLockedNFT::get(PortfolioId::default_portfolio(alice_did.clone()), (&ticker, nftd_id)),
-                        true
-                    );
-                }
-            }
-        }
-        assert_eq!(BalanceOf::get(ticker, alice_did), ONE_UNIT * total_nfts as u128);
-    }
+        let venue_id = create_venue_::<T>(alice.did(), vec![]);
 
-    withdraw_affirmation_v2 {
-        let l in 1..T::MaxLegsInInstruction::get() as u32;
+        let legs_v2 = setup_fungible_legs_v2(alice.clone(), bob.clone(), ticker, l);
+        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
+        let date = Some(99999999u32.into());
+        let memo = Some(InstructionMemo::default());
+    }: add_and_affirm_instruction_with_memo_v2(alice.clone().origin, venue_id, settlement_type, date, date, legs_v2, alice_portfolio, memo)
+
+    add_and_affirm_instructions_v2_nfts {
         let n in 1..(T::MaxNumberOfNFTs::get() * T::MaxLegsInInstruction::get()) as u32;
 
+        let max_nfts = T::MaxNumberOfNFTs::get();
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
-        // Makes sure there is at least one nft for each leg
-        let total_nfts = sp_std::cmp::max(n, l);
-        // Makes sure there are at most MaxNumberOfNFTs for each leg
-        let total_nfts = sp_std::cmp::min(total_nfts, l * T::MaxNumberOfNFTs::get() as u32);
-        let legs_v2 = setup_nft_instructions(alice.clone(), bob, ticker, l, total_nfts);
+        let ticker: Ticker = b"TICKER0".as_ref().try_into().unwrap();
         let alice_portfolio = vec![PortfolioId { did: alice.did(), kind: PortfolioKind::Default }];
-        Module::<T>::add_and_affirm_instruction_with_memo_v2(
-            alice.clone().origin.into(),
-            VenueId(1),
-            SettlementType::SettleOnBlock(100u32.into()),
-            Some(99999999u32.into()),
-            Some(99999999u32.into()),
-            legs_v2.clone(),
-            alice_portfolio.clone(),
-            Some(InstructionMemo::default())
-        ).expect("failed to add instruction");
-    }: _(alice.clone().origin, InstructionId(1), alice_portfolio, l, total_nfts)
-    verify {
-        let alice_did = alice.did();
-        for (index, leg_v2) in legs_v2.iter().enumerate() {
-            assert_eq!(&InstructionLegsV2::get(InstructionId(1), LegId(index as u64)), leg_v2);
-            if let LegAsset::NonFungible(nfts) = &leg_v2.asset {
-                for nftd_id in nfts.ids() {
-                    assert_eq!(
-                        PortfolioLockedNFT::get(PortfolioId::default_portfolio(alice_did.clone()), (&ticker, nftd_id)),
-                        false
-                    );
-                }
-            }
-        }
-        assert_eq!(BalanceOf::get(ticker, alice_did), ONE_UNIT * total_nfts as u128);
-    }
+        let venue_id = create_venue_::<T>(alice.did(), vec![]);
 
-    reject_instruction_v2 {
-        let l in 1..T::MaxLegsInInstruction::get() as u32;
-        let n in 1..(T::MaxNumberOfNFTs::get() * T::MaxLegsInInstruction::get()) as u32;
+        let n_legs = if n % max_nfts == 0 { n / max_nfts } else { n / max_nfts + 1 };
+        let legs_v2 = setup_nft_legs(alice.clone(), bob, ticker, n_legs, n);
 
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
-        // Makes sure there is at least one nft for each leg
-        let total_nfts = sp_std::cmp::max(n, l);
-        // Makes sure there are at most MaxNumberOfNFTs for each leg
-        let total_nfts = sp_std::cmp::min(total_nfts, l * T::MaxNumberOfNFTs::get() as u32);
-        let legs_v2 = setup_nft_instructions(alice.clone(), bob, ticker, l, total_nfts);
-        let alice_portfolio = vec![PortfolioId { did: alice.did(), kind: PortfolioKind::Default }];
-        Module::<T>::add_and_affirm_instruction_with_memo_v2(
-            alice.clone().origin.into(),
-            VenueId(1),
-            SettlementType::SettleOnBlock(100u32.into()),
-            Some(99999999u32.into()),
-            Some(99999999u32.into()),
-            legs_v2.clone(),
-            alice_portfolio.clone(),
-            Some(InstructionMemo::default())
-        ).expect("failed to add instruction");
-    }: _(alice.clone().origin, InstructionId(1), alice_portfolio[0], l, total_nfts)
-    verify {
-        let alice_did = alice.did();
-        for (index, leg_v2) in legs_v2.iter().enumerate() {
-            assert!(&InstructionLegsV2::try_get(InstructionId(1), LegId(index as u64)).is_err());
-            if let LegAsset::NonFungible(nfts) = &leg_v2.asset {
-                for nftd_id in nfts.ids() {
-                    assert_eq!(
-                        PortfolioLockedNFT::get(PortfolioId::default_portfolio(alice_did.clone()), (&ticker, nftd_id)),
-                        false
-                    );
-                }
-            }
-        }
-        assert_eq!(BalanceOf::get(ticker, alice_did), ONE_UNIT * total_nfts as u128);
-    }
+        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
+        let date = Some(99999999u32.into());
+        let memo = Some(InstructionMemo::default());
+    }: add_and_affirm_instruction_with_memo_v2(alice.clone().origin, venue_id, settlement_type, date, date, legs_v2, alice_portfolio, memo)
+
 }
 
 pub fn next_block<T: Config + pallet_scheduler::Config>() {
