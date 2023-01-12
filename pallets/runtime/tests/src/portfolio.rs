@@ -9,7 +9,7 @@ use super::{
 use frame_support::storage::StorageDoubleMap;
 use frame_support::{assert_noop, assert_ok, StorageMap};
 use frame_system::EventRecord;
-use pallet_portfolio::{Event, MovePortfolioItem, NameToNumber};
+use pallet_portfolio::{Event, MovePortfolioItem, NameToNumber, PortfolioNFT};
 use pallet_settlement::{InstructionMemo, LegAsset, LegV2, SettlementType};
 use polymesh_common_utilities::balances::Memo;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
@@ -28,6 +28,8 @@ type Identity = pallet_identity::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::Origin;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
 type Settlement = pallet_settlement::Module<TestStorage>;
+
+const TICKER: Ticker = Ticker::new_unchecked([b'A', b'C', b'M', b'E', 0, 0, 0, 0, 0, 0, 0, 0]);
 
 fn create_portfolio() -> (User, PortfolioNumber) {
     let owner = User::new(AccountKeyring::Alice);
@@ -664,6 +666,177 @@ fn delete_portfolio_with_locked_nfts() {
         assert_noop!(
             Portfolio::delete_portfolio(alice.origin(), PortfolioNumber(1)),
             Error::PortfolioNotEmpty
+        );
+    });
+}
+
+/// NFTs can only be moved if sender owns the NFTs.
+#[test]
+fn move_portfolio_nfts_not_owned() {
+    ExtBuilder::default().build().execute_with(|| {
+        // First we need to create a token and a portfolio
+        let alice: User = User::new(AccountKeyring::Alice);
+        let alice_default_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+        let alice_custom_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::User(PortfolioNumber(1)),
+        };
+        let (ticker, _) = create_token(alice);
+        Portfolio::create_portfolio(alice.origin(), PortfolioName(b"MyOwnPortfolio".to_vec()))
+            .unwrap();
+        // Attempts to move the NFT
+        let items = vec![NFTs::new_unverified(ticker, vec![NFTId(1)])];
+        assert_noop!(
+            Portfolio::move_portfolio_nfts(
+                alice.origin(),
+                alice_default_portfolio,
+                alice_custom_portfolio,
+                items,
+                1
+            ),
+            Error::InvalidTransferNFTNotOwned
+        );
+    });
+}
+
+/// Duplicated tickers are not allowed as input.
+#[test]
+fn move_portfolio_nfts_duplicated() {
+    ExtBuilder::default().build().execute_with(|| {
+        // First we need to create a collection, mint an NFT, and create one portfolio
+        let alice: User = User::new(AccountKeyring::Alice);
+        let alice_default_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+        let alice_custom_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::User(PortfolioNumber(1)),
+        };
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(alice.clone(), TICKER, collection_keys);
+        let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
+            key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            value: AssetMetadataValue(b"test".to_vec()),
+        }];
+        mint_nft(alice.clone(), TICKER, nfts_metadata, PortfolioKind::Default);
+        Portfolio::create_portfolio(alice.origin(), PortfolioName(b"MyOwnPortfolio".to_vec()))
+            .unwrap();
+        // Attempts to move the NFT
+        let items = vec![
+            NFTs::new_unverified(TICKER, vec![NFTId(1)]),
+            NFTs::new_unverified(TICKER, vec![NFTId(1)]),
+        ];
+        assert_noop!(
+            Portfolio::move_portfolio_nfts(
+                alice.origin(),
+                alice_default_portfolio,
+                alice_custom_portfolio,
+                items,
+                2
+            ),
+            Error::NoDuplicateAssetsAllowed
+        );
+    });
+}
+
+/// Funds can only be moved if the proper cost has been input.
+#[test]
+fn move_portfolio_nfts_uderestimated() {
+    ExtBuilder::default().build().execute_with(|| {
+        // First we need to create a collection, mint an NFT, and create one portfolio
+        let alice: User = User::new(AccountKeyring::Alice);
+        let alice_default_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+        let alice_custom_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::User(PortfolioNumber(1)),
+        };
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(alice.clone(), TICKER, collection_keys);
+        let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
+            key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            value: AssetMetadataValue(b"test".to_vec()),
+        }];
+        mint_nft(alice.clone(), TICKER, nfts_metadata, PortfolioKind::Default);
+        Portfolio::create_portfolio(alice.origin(), PortfolioName(b"MyOwnPortfolio".to_vec()))
+            .unwrap();
+        // Attempts to move the NFT
+        let items = vec![NFTs::new_unverified(TICKER, vec![NFTId(1)])];
+        assert_noop!(
+            Portfolio::move_portfolio_nfts(
+                alice.origin(),
+                alice_default_portfolio,
+                alice_custom_portfolio,
+                items,
+                0
+            ),
+            Error::NumberOfNFTsUnderestimated
+        );
+    });
+}
+
+/// Successfully move the funds.
+#[test]
+fn move_portfolio_nfts() {
+    ExtBuilder::default().build().execute_with(|| {
+        // First we need to create a collection, mint two NFTs, and create one portfolio
+        let alice: User = User::new(AccountKeyring::Alice);
+        let alice_default_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+        let alice_custom_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::User(PortfolioNumber(1)),
+        };
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(alice.clone(), TICKER, collection_keys);
+        let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
+            key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            value: AssetMetadataValue(b"test".to_vec()),
+        }];
+        mint_nft(
+            alice.clone(),
+            TICKER,
+            nfts_metadata.clone(),
+            PortfolioKind::Default,
+        );
+        mint_nft(alice.clone(), TICKER, nfts_metadata, PortfolioKind::Default);
+        Portfolio::create_portfolio(alice.origin(), PortfolioName(b"MyOwnPortfolio".to_vec()))
+            .unwrap();
+        // Moves the NFT
+        let items = vec![NFTs::new_unverified(TICKER, vec![NFTId(1), NFTId(2)])];
+        assert_ok!(Portfolio::move_portfolio_nfts(
+            alice.origin(),
+            alice_default_portfolio,
+            alice_custom_portfolio,
+            items,
+            3
+        ));
+        assert_eq!(
+            PortfolioNFT::get(alice_default_portfolio, (TICKER, NFTId(1))),
+            false
+        );
+        assert_eq!(
+            PortfolioNFT::get(alice_default_portfolio, (TICKER, NFTId(2))),
+            false
+        );
+        assert_eq!(
+            PortfolioNFT::get(alice_custom_portfolio, (TICKER, NFTId(1))),
+            true
+        );
+        assert_eq!(
+            PortfolioNFT::get(alice_custom_portfolio, (TICKER, NFTId(2))),
+            true
         );
     });
 }

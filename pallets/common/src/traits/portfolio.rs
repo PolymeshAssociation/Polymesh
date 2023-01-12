@@ -22,7 +22,8 @@ use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
 use frame_support::weights::Weight;
 use polymesh_primitives::{
-    Balance, IdentityId, NFTId, PortfolioId, PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
+    Balance, IdentityId, NFTId, NFTs, PortfolioId, PortfolioName, PortfolioNumber, SecondaryKey,
+    Ticker,
 };
 use sp_std::vec::Vec;
 
@@ -89,6 +90,7 @@ pub trait WeightInfo {
     fn rename_portfolio(i: u32) -> Weight;
     fn quit_portfolio_custody() -> Weight;
     fn accept_portfolio_custody() -> Weight;
+    fn move_portfolio_nfts(i: u32, n: u32) -> Weight;
 }
 
 pub trait Config: CommonConfig + identity::Config + base::Config {
@@ -149,5 +151,18 @@ decl_event! {
         /// * portfolio id
         /// * portfolio custodian did
         PortfolioCustodianChanged(IdentityId, PortfolioId, IdentityId),
+        /// NFTs have been moved from one portfolio to another.
+        ///
+        /// # Parameters
+        /// * origin DID
+        /// * source portfolio
+        /// * destination portfolio
+        /// * NFTs
+        NFTsMovedBetweenPortfolios(
+            IdentityId,
+            PortfolioId,
+            PortfolioId,
+            Vec<NFTs>
+        ),
     }
 }

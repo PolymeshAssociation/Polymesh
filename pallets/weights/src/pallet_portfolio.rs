@@ -115,4 +115,8 @@ impl pallet_portfolio::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(3 as Weight))
             .saturating_add(DbWeight::get().writes(5 as Weight))
     }
+
+    fn move_portfolio_nfts(i: u32, n: u32) -> Weight {
+        unimplemented!()
+    }
 }

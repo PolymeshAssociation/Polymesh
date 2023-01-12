@@ -49,7 +49,7 @@ use codec::{Decode, Encode};
 use core::{iter, mem};
 use frame_support::{
     decl_error, decl_module, decl_storage,
-    dispatch::{DispatchResult, Weight},
+    dispatch::{DispatchError, DispatchResult, Weight},
     ensure,
 };
 use pallet_identity::{self as identity, PermissionedCallOriginData};
@@ -61,10 +61,11 @@ pub use polymesh_common_utilities::traits::{
 };
 use polymesh_primitives::{
     extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, IdentityId,
-    NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
+    NFTId, NFTs, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::Zero;
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::Vec;
 
 type Identity<T> = identity::Module<T>;
@@ -159,12 +160,20 @@ decl_error! {
         PortfolioNotEmpty,
         /// The portfolios belong to different identities
         DifferentIdentityPortfolios,
+        /// Duplicate asset among the items.
+        NoDuplicateAssetsAllowed,
         /// The NFT does not exist in the portfolio.
         NFTNotFoundInPortfolio,
         /// The NFT is already locked.
         NFTAlreadyLocked,
         /// The NFT has never been locked.
-        NFTNotLocked
+        NFTNotLocked,
+        /// Only owned NFTs can be moved between portfolios.
+        InvalidTransferNFTNotOwned,
+        /// Locked NFTs can not be moved between portfolios.
+        InvalidTransferNFTIsLocked,
+        /// The number of NFTs being transferred exceeds the caller's input.
+        NumberOfNFTsUnderestimated
     }
 }
 
@@ -240,6 +249,7 @@ decl_module! {
         /// * `DifferentIdentityPortfolios` if the sender and receiver portfolios belong to different identities
         /// * `UnauthorizedCustodian` if the caller is not the custodian of the from portfolio
         /// * `InsufficientPortfolioBalance` if the sender does not have enough free balance
+        /// * `NoDuplicateAssetsAllowed` the same ticker can't be repeated in the items vector.
         ///
         /// # Permissions
         /// * Portfolio
@@ -250,29 +260,10 @@ decl_module! {
             to: PortfolioId,
             items: Vec<MovePortfolioItem>,
         ) {
-            let PermissionedCallOriginData {
-                primary_did,
-                secondary_key,
-                ..
-            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+            let primary_did =
+                Self::ensure_portfolios_validity_and_permissions(origin, from.clone(), to.clone())?;
 
-            // Ensure the source and destination portfolios are in fact different.
-            ensure!(from != to, Error::<T>::DestinationIsSamePortfolio);
-            // Ensure the source and destination DID are in fact same.
-            ensure!(from.did == to.did, Error::<T>::DifferentIdentityPortfolios);
-
-            // Ensure the sender is the custodian & secondary key has access to the portfolio.
-            Self::ensure_portfolio_custody_and_permission(from, primary_did, secondary_key.as_ref())?;
-
-            // Ensure the receiving portfolio exists.
-            Self::ensure_portfolio_validity(&to)?;
-            // Ensure that the secondary key has access to the receiver's portfolio.
-            Self::ensure_user_portfolio_permission(secondary_key.as_ref(), to)?;
-
-            // Ensure there are sufficient funds for all moves.
-            for item in &items {
-                Self::ensure_sufficient_balance(&from, &item.ticker, item.amount)?;
-            }
+            Self::ensure_valid_balances(&from, &items)?;
 
             // Commit changes.
             for item in items {
@@ -356,6 +347,46 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::accept_portfolio_custody()]
         pub fn accept_portfolio_custody(origin, auth_id: u64) -> DispatchResult {
             Self::base_accept_portfolio_custody(origin, auth_id)
+        }
+
+        /// Moves NFTs from one portfolio of an identity to another portfolio of the same
+        /// identity. Must be called by the custodian of the sender.
+        /// Funds from deleted portfolios can also be recovered via this method.
+        ///
+        ///
+        /// # Errors
+        /// * `PortfolioDoesNotExist` if one or both of the portfolios reference an invalid portfolio.
+        /// * `destination_is_same_portfolio` if both sender and receiver portfolio are the same.
+        /// * `DifferentIdentityPortfolios` if the sender and receiver portfolios belong to different identities.
+        /// * `UnauthorizedCustodian` if the caller is not the custodian of the from portfolio.
+        /// * `NoDuplicateAssetsAllowed` the same ticker can't be repeated in the items vector.
+        /// * `InvalidTransferNFTNotOwned` if the caller is trying to move an NFT he doesn't own.
+        /// * `InvalidTransferNFTIsLocked` if the caller is trying to move a locked NFT.
+        /// * `NumberOfNFTsUnderestimated` if `nfts_transferred` is less than the numbers of NFTs being transferred.
+        ///
+        /// # Permissions
+        /// * Portfolio
+        #[weight = <T as Config>::WeightInfo::move_portfolio_nfts(items.len() as u32, *nfts_transferred)]
+        pub fn move_portfolio_nfts(origin, from: PortfolioId, to: PortfolioId, items: Vec<NFTs>, nfts_transferred: u32) -> DispatchResult {
+            let primary_did =
+                Self::ensure_portfolios_validity_and_permissions(origin, from.clone(), to.clone())?;
+
+            Self::ensure_valid_nfts(&from, &items, nfts_transferred)?;
+
+            // Updates the portfolio of the sender and receiver
+            for nfts in &items {
+                for nft_id in nfts.ids() {
+                    PortfolioNFT::remove(from, (nfts.ticker(), nft_id));
+                    PortfolioNFT::insert(to, (nfts.ticker(), nft_id), true);
+                }
+            }
+            Self::deposit_event(Event::NFTsMovedBetweenPortfolios(
+                primary_did,
+                from,
+                to,
+                items
+            ));
+            Ok(())
         }
 
         fn on_runtime_upgrade() -> Weight {
@@ -631,6 +662,83 @@ impl<T: Config> Module<T> {
             Self::deposit_event(Event::PortfolioCustodianChanged(to, pid, to));
             Ok(())
         })
+    }
+
+    /// Verifies if the portfolios are different, if the move is between the same identity, if the receiving portfolio exists,
+    /// and if the user has access to both portfolios.
+    fn ensure_portfolios_validity_and_permissions(
+        origin: T::Origin,
+        from: PortfolioId,
+        to: PortfolioId,
+    ) -> Result<IdentityId, DispatchError> {
+        let origin_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
+        // Ensures the source and destination portfolios are in fact different
+        ensure!(from != to, Error::<T>::DestinationIsSamePortfolio);
+        // Ensures the source and destination DID are in fact the same
+        ensure!(from.did == to.did, Error::<T>::DifferentIdentityPortfolios);
+        // Ensures the receiving portfolio exists
+        Self::ensure_portfolio_validity(&to)?;
+
+        // Ensures the sender is the custodian and that the secondary key has access to the portfolio.
+        Self::ensure_portfolio_custody_and_permission(
+            from,
+            origin_data.primary_did,
+            origin_data.secondary_key.as_ref(),
+        )?;
+
+        // Ensures the secondary key has access to the receiver's portfolio.
+        Self::ensure_user_portfolio_permission(origin_data.secondary_key.as_ref(), to)?;
+        Ok(origin_data.primary_did)
+    }
+
+    /// Verifies if the sending portfolio has the right balance for the transfer.
+    fn ensure_valid_balances(
+        sender_portfolio: &PortfolioId,
+        items: &[MovePortfolioItem],
+    ) -> DispatchResult {
+        let mut unique_tickers = BTreeSet::new();
+        // Ensure there are sufficient funds for all moves.
+        for item in items {
+            ensure!(
+                unique_tickers.insert(item.ticker),
+                Error::<T>::NoDuplicateAssetsAllowed
+            );
+            Self::ensure_sufficient_balance(sender_portfolio, &item.ticker, item.amount)?;
+        }
+        Ok(())
+    }
+
+    /// Verifies if the sender has the nfts for the transfer, if they are not locked, and if `nfts_transfered`
+    /// is greater or equal to the number of NFTs being moved.
+    fn ensure_valid_nfts(
+        sender_portfolio: &PortfolioId,
+        items: &[NFTs],
+        nfts_transfered: u32,
+    ) -> DispatchResult {
+        let mut unique_tickers = BTreeSet::new();
+        let mut n_nfts_trasfered = 0;
+        for nfts in items {
+            ensure!(
+                unique_tickers.insert(nfts.ticker()),
+                Error::<T>::NoDuplicateAssetsAllowed
+            );
+            for nft_id in nfts.ids() {
+                ensure!(
+                    PortfolioNFT::contains_key(sender_portfolio, (nfts.ticker(), nft_id)),
+                    Error::<T>::InvalidTransferNFTNotOwned
+                );
+                ensure!(
+                    !PortfolioLockedNFT::contains_key(sender_portfolio, (nfts.ticker(), nft_id)),
+                    Error::<T>::InvalidTransferNFTIsLocked
+                );
+            }
+            n_nfts_trasfered += nfts.len();
+        }
+        ensure!(
+            n_nfts_trasfered <= nfts_transfered as usize,
+            Error::<T>::NumberOfNFTsUnderestimated
+        );
+        Ok(())
     }
 }
 
