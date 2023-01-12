@@ -601,7 +601,7 @@ fn setup_fungible_legs_v2<T: Config>(
 /// Creates an nft collection for `ticker`, mints `n_nfts` for `token_sender`, and returns a `Vec<LegV2>`
 /// containing `n_legs` with a total of `n_nfts` split among the legs.
 /// For this function only calls with the minimum number of legs to contain all `n_nfts` are allowed.
-/// E.g: If n_nfts = 78, n_legs must be equal to 8 (considering MaxNumberOfNFTs is equal to 10).
+/// E.g: If n_nfts = 78, n_legs must be equal to 8 (considering that MaxNumberOfNFTs is equal to 10).
 fn setup_nft_legs<T: Config>(
     sender: User<T>,
     receiver: User<T>,
@@ -609,7 +609,13 @@ fn setup_nft_legs<T: Config>(
     n_legs: u32,
     n_nfts: u32,
 ) -> Vec<LegV2> {
-    create_collection_mint_nfts::<T>(sender.origin().into(), ticker, 0, n_nfts);
+    create_collection_mint_nfts::<T>(
+        sender.origin().into(),
+        ticker,
+        0,
+        n_nfts,
+        PortfolioKind::Default,
+    );
 
     let max_nfts_per_leg = T::MaxNumberOfNFTs::get();
     let last_leg_len = n_nfts % max_nfts_per_leg;

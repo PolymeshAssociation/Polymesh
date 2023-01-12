@@ -210,7 +210,8 @@ fn mint_nft_collection_not_found() {
                 vec![NFTMetadataAttribute {
                     key: AssetMetadataKey::Local(AssetMetadataLocalKey(0)),
                     value: AssetMetadataValue(b"test".to_vec())
-                }]
+                }],
+                PortfolioKind::Default
             ),
             NFTError::CollectionNotFound
         );
@@ -245,7 +246,8 @@ fn mint_nft_duplicate_key() {
                         key: AssetMetadataKey::Local(AssetMetadataLocalKey(0)),
                         value: AssetMetadataValue(b"test".to_vec())
                     }
-                ]
+                ],
+                PortfolioKind::Default
             ),
             NFTError::DuplicateMetadataKey
         );
@@ -277,12 +279,13 @@ fn mint_nft_wrong_number_of_keys() {
                         key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
                         value: AssetMetadataValue(b"test".to_vec())
                     }
-                ]
+                ],
+                PortfolioKind::Default
             ),
             NFTError::InvalidMetadataAttribute
         );
         assert_noop!(
-            NFT::mint_nft(alice.origin(), ticker, vec![]),
+            NFT::mint_nft(alice.origin(), ticker, vec![], PortfolioKind::Default),
             NFTError::InvalidMetadataAttribute
         );
     });
@@ -307,7 +310,8 @@ fn mint_nft_wrong_key() {
                 vec![NFTMetadataAttribute {
                     key: AssetMetadataKey::Local(AssetMetadataLocalKey(35)),
                     value: AssetMetadataValue(b"test".to_vec())
-                }]
+                }],
+                PortfolioKind::Default
             ),
             NFTError::InvalidMetadataAttribute
         );
@@ -332,7 +336,8 @@ fn mint_nft_successfully() {
             vec![NFTMetadataAttribute {
                 key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
                 value: AssetMetadataValue(b"test".to_vec())
-            }]
+            }],
+            PortfolioKind::Default
         ));
         assert_eq!(
             MetadataValue::get(
@@ -352,8 +357,18 @@ fn mint_nft_successfully() {
     });
 }
 
-pub(crate) fn mint_nft(user: User, ticker: Ticker, metadata_atributes: Vec<NFTMetadataAttribute>) {
-    assert_ok!(NFT::mint_nft(user.origin(), ticker, metadata_atributes));
+pub(crate) fn mint_nft(
+    user: User,
+    ticker: Ticker,
+    metadata_atributes: Vec<NFTMetadataAttribute>,
+    portfolio_kind: PortfolioKind,
+) {
+    assert_ok!(NFT::mint_nft(
+        user.origin(),
+        ticker,
+        metadata_atributes,
+        portfolio_kind
+    ));
 }
 
 /// An NFT can only be burned if its collection exists.
@@ -409,6 +424,7 @@ fn burn_nft() {
                 key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
                 value: AssetMetadataValue(b"test".to_vec()),
             }],
+            PortfolioKind::Default,
         )
         .unwrap();
 
@@ -507,7 +523,12 @@ fn transfer_nft_invalid_balance() {
             key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             value: AssetMetadataValue(b"test".to_vec()),
         }];
-        mint_nft(alice.clone(), ticker.clone(), nfts_metadata);
+        mint_nft(
+            alice.clone(),
+            ticker.clone(),
+            nfts_metadata,
+            PortfolioKind::Default,
+        );
 
         // Attempts to transfer two NFTs
         let sender_portfolio = PortfolioId {
@@ -545,7 +566,12 @@ fn transfer_nft_not_owned() {
             key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             value: AssetMetadataValue(b"test".to_vec()),
         }];
-        mint_nft(alice.clone(), ticker.clone(), nfts_metadata);
+        mint_nft(
+            alice.clone(),
+            ticker.clone(),
+            nfts_metadata,
+            PortfolioKind::Default,
+        );
 
         // Attempts to transfer an NFT not owned by the sender
         let sender_portfolio = PortfolioId {
@@ -587,7 +613,12 @@ fn transfer_nft() {
             key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             value: AssetMetadataValue(b"test".to_vec()),
         }];
-        mint_nft(alice.clone(), ticker.clone(), nfts_metadata);
+        mint_nft(
+            alice.clone(),
+            ticker.clone(),
+            nfts_metadata,
+            PortfolioKind::Default,
+        );
 
         // transfer the NFT
         let sender_portfolio = PortfolioId {

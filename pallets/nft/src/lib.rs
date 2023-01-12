@@ -23,7 +23,6 @@ use sp_std::vec::Vec;
 type Asset<T> = pallet_asset::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 type Identity<T> = pallet_identity::Module<T>;
-type Portfolio<T> = pallet_portfolio::Module<T>;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -87,18 +86,20 @@ decl_module! {
         /// * `origin` - is a signer that has permissions to act as an agent of `ticker`.
         /// * `ticker` - the ticker of the NFT collection.
         /// * `nft_metadata_attributes` - all mandatory metadata keys and values for the NFT.
+        /// - `portfolio_kind` - the portfolio that will receive the minted nft.
         ///
         /// ## Errors
         /// - `CollectionNotFound` - if the collection associated to the given ticker has not been created.
         /// - `InvalidMetadataAttribute` - if the number of attributes is not equal to the number set in the collection or attempting to set a value for a key not definied in the collection.
         /// - `DuplicateMetadataKey` - if a duplicate metadata keys has been passed as input.
         ///
+        ///
         /// # Permissions
         /// * Asset
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::mint_nft(nft_metadata_attributes.len() as u32)]
-        pub fn mint_nft(origin, ticker: Ticker, nft_metadata_attributes: Vec<NFTMetadataAttribute>) -> DispatchResult {
-            Self::base_mint_nft(origin, ticker, nft_metadata_attributes)
+        pub fn mint_nft(origin, ticker: Ticker, nft_metadata_attributes: Vec<NFTMetadataAttribute>, portfolio_kind: PortfolioKind) -> DispatchResult {
+            Self::base_mint_nft(origin, ticker, nft_metadata_attributes, portfolio_kind)
         }
 
         /// Burns the given NFT from the caller's portfolio.
@@ -234,6 +235,7 @@ impl<T: Config> Module<T> {
         origin: T::Origin,
         ticker: Ticker,
         metadata_attributes: Vec<NFTMetadataAttribute>,
+        portfolio_kind: PortfolioKind,
     ) -> DispatchResult {
         // Verifies if the collection exists
         let collection_id =
@@ -279,7 +281,14 @@ impl<T: Config> Module<T> {
         for (metadata_key, metadata_value) in nft_attributes.into_iter() {
             MetadataValue::insert((&collection_id, &nft_id), metadata_key, metadata_value);
         }
-        Portfolio::<T>::add_portfolio_nft(caller_portfolio.did, &ticker, nft_id);
+        PortfolioNFT::insert(
+            PortfolioId {
+                did: caller_portfolio.did,
+                kind: portfolio_kind,
+            },
+            (ticker, nft_id),
+            true,
+        );
 
         Self::deposit_event(Event::MintedNft(
             caller_portfolio.did,

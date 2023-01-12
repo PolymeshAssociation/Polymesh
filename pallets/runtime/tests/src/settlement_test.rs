@@ -28,8 +28,8 @@ use polymesh_primitives::{
     asset_metadata::{AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue},
     checked_inc::CheckedInc,
     AccountId, AuthorizationData, Balance, Claim, Condition, ConditionType, IdentityId,
-    NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId, PortfolioName,
-    PortfolioNumber, Signatory, Ticker,
+    NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind,
+    PortfolioName, PortfolioNumber, Signatory, Ticker,
 };
 use rand::{prelude::*, thread_rng};
 use sp_runtime::AnySignature;
@@ -2843,7 +2843,7 @@ fn add_and_affirm_nft_instruction() {
             key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             value: AssetMetadataValue(b"test".to_vec()),
         }];
-        mint_nft(alice.clone(), TICKER, nfts_metadata);
+        mint_nft(alice.clone(), TICKER, nfts_metadata, PortfolioKind::Default);
         let venue_id = create_venue(alice);
 
         // Adds and affirms the instruction
@@ -2931,7 +2931,7 @@ fn add_and_affirm_nft_not_owned() {
             key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             value: AssetMetadataValue(b"test".to_vec()),
         }];
-        mint_nft(alice.clone(), TICKER, nfts_metadata);
+        mint_nft(alice.clone(), TICKER, nfts_metadata, PortfolioKind::Default);
         let venue_id = create_venue(alice);
 
         // Adds and affirms the instruction
@@ -2971,8 +2971,13 @@ fn add_same_nft_different_legs() {
             key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             value: AssetMetadataValue(b"test".to_vec()),
         }];
-        mint_nft(alice.clone(), TICKER, nfts_metadata.clone());
-        mint_nft(alice.clone(), TICKER, nfts_metadata);
+        mint_nft(
+            alice.clone(),
+            TICKER,
+            nfts_metadata.clone(),
+            PortfolioKind::Default,
+        );
+        mint_nft(alice.clone(), TICKER, nfts_metadata, PortfolioKind::Default);
         let venue_id = create_venue(alice);
 
         // Adds and affirms the instruction
@@ -3018,7 +3023,7 @@ fn add_and_affirm_with_receipts_nfts() {
             key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             value: AssetMetadataValue(b"test".to_vec()),
         }];
-        mint_nft(alice.clone(), TICKER, nfts_metadata);
+        mint_nft(alice.clone(), TICKER, nfts_metadata, PortfolioKind::Default);
         let venue_id = create_venue(alice);
 
         // Adds the instruction and fails to use a receipt

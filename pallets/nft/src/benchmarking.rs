@@ -49,6 +49,7 @@ pub fn create_collection_mint_nfts<T: Config>(
     ticker: Ticker,
     n_keys: u32,
     n_nfts: u32,
+    portfolio_kind: PortfolioKind,
 ) {
     let collection_keys: NFTCollectionKeys = creates_keys_register_metadata_types::<T>(n_keys);
     Module::<T>::create_nft_collection(origin.clone(), ticker, collection_keys)
@@ -60,8 +61,13 @@ pub fn create_collection_mint_nfts<T: Config>(
         })
         .collect();
     for _ in 0..n_nfts {
-        Module::<T>::mint_nft(origin.clone(), ticker, metadata_attributes.clone())
-            .expect("failed to mint nft");
+        Module::<T>::mint_nft(
+            origin.clone(),
+            ticker,
+            metadata_attributes.clone(),
+            portfolio_kind,
+        )
+        .expect("failed to mint nft");
     }
 }
 
@@ -94,7 +100,7 @@ benchmarks! {
                 }
             })
             .collect();
-    }: _(user.origin, ticker, metadata_attributes)
+    }: _(user.origin, ticker, metadata_attributes, PortfolioKind::Default)
     verify {
         for i in 1..n + 1 {
             assert!(
@@ -117,7 +123,7 @@ benchmarks! {
                 value: AssetMetadataValue(b"value".to_vec())
             }
         ];
-        Module::<T>::mint_nft(user.origin().into(), ticker, metadata_attributes).expect("failed to mint nft");
+        Module::<T>::mint_nft(user.origin().into(), ticker, metadata_attributes, PortfolioKind::Default).expect("failed to mint nft");
     }: _(user.origin, ticker, NFTId(1), PortfolioKind::Default)
     verify {
         assert!(!MetadataValue::contains_key(
