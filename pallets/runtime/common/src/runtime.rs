@@ -465,7 +465,8 @@ macro_rules! misc_pallet_impls {
             type Proposal = Call;
             type Scheduler = Scheduler;
             type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
-            type MaxLegsInInstruction = MaxLegsInInstruction;
+            type MaxNumberOfFungibleAssets = MaxNumberOfFungibleAssets;
+            type MaxNumberOfNFTsPerLeg = MaxNumberOfNFTsPerLeg;
             type MaxNumberOfNFTs = MaxNumberOfNFTs;
         }
 

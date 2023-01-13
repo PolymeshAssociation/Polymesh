@@ -1591,7 +1591,7 @@ fn overload_instruction() {
         let bob = User::new(AccountKeyring::Bob);
         let venue_counter = create_token_and_venue(TICKER, alice);
         let leg_limit =
-            <TestStorage as pallet_settlement::Config>::MaxLegsInInstruction::get() as usize;
+            <TestStorage as pallet_settlement::Config>::MaxNumberOfFungibleAssets::get() as usize;
 
         let mut legs = vec![
             Leg {
@@ -2759,7 +2759,7 @@ fn add_nft_instruction_with_duplicated_nfts() {
     });
 }
 
-/// An instruction with non-fungible assets, must reject legs with more than MaxNumberOfNFTs.
+/// An instruction with non-fungible assets, must reject legs with more than MaxNumberOfNFTsPerLeg.
 #[test]
 fn add_nft_instruction_exceeding_nfts() {
     ExtBuilder::default().build().execute_with(|| {
@@ -2798,7 +2798,7 @@ fn add_nft_instruction_exceeding_nfts() {
                 legs,
                 Some(InstructionMemo::default()),
             ),
-            Error::InvalidNumberOfNFTs
+            Error::MaxNumberOfNFTsPerLegExceeded
         );
     });
 }
