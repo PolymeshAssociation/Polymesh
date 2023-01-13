@@ -4342,6 +4342,52 @@ mod offchain_phragmen {
     }
 
     #[test]
+fn off_chain_election_validator_non_compliance() {
+    ExtBuilder::default()
+            .offchain_election_ext()
+            .validator_count(4)
+            .has_stakers(false)
+            .build()
+            .execute_with(|| {
+                build_offchain_phragmen_test_ext();
+                run_to_block(12);
+
+                let acc_70 = 70;
+                // Add did to user
+                provide_did_to_user(70);
+                // Add permissions
+                assert_add_permissioned_validator!(&acc_70);
+
+                ValidatorCount::put(3);
+                let (compact, winners, score) = prepare_submission_with(true, true, 2, |_| {});
+                ValidatorCount::put(4);
+
+                // Ensure winner count
+                assert_eq!(winners.len(), 3);
+
+                // Ensure correct error message
+                assert_noop!(
+                    submit_solution(Origin::signed(10), winners.clone(), compact.clone(), score,),
+                    Error::<Test>::OffchainElectionBogusWinnerCount,
+                );
+
+                // Remove validator
+                assert_ok!(Staking::remove_permissioned_validator(
+                    Origin::signed(2000),
+                    Identity::get_identity(&acc_70).unwrap()
+                ));
+
+                // Ensure identity is removed
+                assert_absent_identity!(&acc_70);
+
+                assert_noop!(
+                    submit_solution(Origin::signed(acc_70), winners, compact, score,),
+                    Error::<Test>::OffchainElectionBogusWinnerCount,
+                );
+            })
+}
+
+    #[test]
     fn offchain_storage_is_set() {
         let mut ext = ExtBuilder::default()
             .offchain_election_ext()
@@ -5961,3 +6007,5 @@ fn test_running_count() {
             ));
         });
 }
+
+
