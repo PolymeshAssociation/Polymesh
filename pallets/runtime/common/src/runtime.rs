@@ -587,8 +587,9 @@ macro_rules! runtime_apis {
             Runtime,
             AllPalletsWithSystem,
             (
-              // TODO: migrate substrate pallets: preimage, contracts
+              pallet_preimage::migration::v1::Migration<Runtime>,
               pallet_scheduler::migration::v3::MigrateToV4<Runtime>,
+              pallet_contracts::Migration<Runtime>,
             )
         >;
 
