@@ -5493,6 +5493,7 @@ dependencies = [
  "frame-system",
  "hex",
  "hex-literal 0.2.2",
+ "num-traits",
  "pallet-asset",
  "pallet-balances 0.1.0",
  "pallet-base",

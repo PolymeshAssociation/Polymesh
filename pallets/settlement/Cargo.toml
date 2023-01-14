@@ -40,6 +40,7 @@ pallet-scheduler = { version = "4.0.0-dev", default-features = false }
 
 # Only in STD
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
+num-traits = { version = "0.2.15", default-features = false, optional = true }
 
 [features]
 equalize = []
@@ -71,4 +72,5 @@ std = [
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
+    "num-traits"
 ]
