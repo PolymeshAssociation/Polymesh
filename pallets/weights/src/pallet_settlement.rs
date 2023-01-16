@@ -47,6 +47,7 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
+use pallet_settlement::{get_transfer_by_asset, LegV2};
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_settlement using the Substrate node and recommended hardware.
@@ -512,7 +513,8 @@ impl pallet_settlement::WeightInfo for WeightInfo {
     // Storage: Settlement VenueInstructions (r:0 w:1)
     // Storage: Settlement AffirmsReceived (r:0 w:1)
     // Storage: Settlement InstructionLegStatus (r:0 w:11)
-    fn add_and_affirm_instruction_with_memo_v2(f: u32, n: u32) -> Weight {
+    fn add_and_affirm_instruction_with_memo_v2(legs_v2: &[LegV2]) -> Weight {
+        let (f, n) = get_transfer_by_asset(legs_v2);
         (101_933_000 as Weight)
             .saturating_add(DbWeight::get().reads(15 as Weight))
             .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(f as Weight)))

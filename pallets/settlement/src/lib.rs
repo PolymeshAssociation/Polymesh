@@ -443,11 +443,11 @@ pub trait WeightInfo {
     fn add_and_affirm_instruction_with_settle_on_block_type(u: u32) -> Weight;
     fn add_instruction_with_memo_and_settle_on_block_type(u: u32) -> Weight;
     fn add_and_affirm_instruction_with_memo_and_settle_on_block_type(u: u32) -> Weight;
-    fn add_instruction_with_memo_v2(n_legs: u32) -> Weight;
-    fn add_and_affirm_instruction_with_memo_v2(n_legs: u32, n_nfts: u32) -> Weight;
-    fn affirm_instruction_v2(n_legs: u32, n_nfts: u32) -> Weight;
-    fn withdraw_affirmation_v2(n_legs: u32, n_nfts: u32) -> Weight;
-    fn reject_instruction_v2(n_legs: u32, n_nfts: u32) -> Weight;
+    fn add_instruction_with_memo_v2(f: u32) -> Weight;
+    fn add_and_affirm_instruction_with_memo_v2(legs_v2: &[LegV2]) -> Weight;
+    fn affirm_instruction_v2(f: u32, n: u32) -> Weight;
+    fn withdraw_affirmation_v2(f: u32, n: u32) -> Weight;
+    fn reject_instruction_v2(f: u32, n: u32) -> Weight;
 }
 
 type EnsureValidInstructionResult<AccountId, Moment, BlockNumber> = Result<
@@ -1192,7 +1192,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_with_memo_v2(legs.len() as u32, total_nfts_transfer(&legs) as u32)]
+        #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_with_memo_v2(legs)]
         pub fn add_and_affirm_instruction_with_memo_v2(
             origin,
             venue_id: VenueId,
@@ -1206,15 +1206,14 @@ decl_module! {
             let did = Identity::<T>::ensure_perms(origin.clone())?;
             with_transaction(|| {
                 let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
-                let legs_count = legs.iter().filter(|l| portfolios_set.contains(&l.from)).count() as u32;
-                let nfts_transferred = total_nfts_transfer(&legs);
+                let (fungible_transfers, nfts_transfers) = get_transfer_by_asset(&legs);
                 let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo, false)?;
                 Self::affirm_and_maybe_schedule_instruction(
                     origin,
                     instruction_id,
                     portfolios_set.into_iter(),
-                    legs_count,
-                    Some(nfts_transferred as u32)
+                    fungible_transfers,
+                    Some(nfts_transfers)
                 )
             })
         }
@@ -2312,13 +2311,15 @@ impl<T: Config> Module<T> {
     }
 }
 
-/// Returns the total number of nfts being transfered in a `Vec<LegsV2>`.
-fn total_nfts_transfer(legs: &[LegV2]) -> usize {
-    let mut total_nft = 0;
-    for leg in legs {
-        if let LegAsset::NonFungible(nfts) = &leg.asset {
-            total_nft += nfts.len();
+/// Returns the number of fungible and non fungible transfers in a slice of legs.
+pub fn get_transfer_by_asset(legs_v2: &[LegV2]) -> (u32, u32) {
+    let mut nfts_transfers = 0;
+    let mut fungible_transfers = 0;
+    for leg_v2 in legs_v2 {
+        match &leg_v2.asset {
+            LegAsset::Fungible { .. } => fungible_transfers += 1,
+            LegAsset::NonFungible(nfts) => nfts_transfers += nfts.len(),
         }
     }
-    total_nft
+    (fungible_transfers, nfts_transfers as u32)
 }
