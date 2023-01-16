@@ -497,7 +497,7 @@ fn transfer_nft_without_collection() {
             with_transaction(|| {
                 NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts)
             }),
-            NFTError::InvalidNftTransfer
+            NFTError::InvalidNFTTransferCollectionNotFound
         );
     });
 }
@@ -529,7 +529,7 @@ fn transfer_nft_same_portfolio() {
             with_transaction(|| {
                 NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts)
             }),
-            NFTError::InvalidNftTransfer
+            NFTError::InvalidNFTTransferSamePortfolio
         );
     });
 }
@@ -572,7 +572,7 @@ fn transfer_nft_invalid_balance() {
             with_transaction(|| {
                 NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts)
             }),
-            NFTError::InvalidNftTransfer
+            NFTError::InvalidNFTTransferNoBalance
         );
     });
 }
@@ -615,7 +615,7 @@ fn transfer_nft_not_owned() {
             with_transaction(|| {
                 NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts)
             }),
-            NFTError::InvalidNftTransfer
+            NFTError::InvalidNFTTransferNFTNotOwned
         );
     });
 }

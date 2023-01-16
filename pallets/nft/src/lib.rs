@@ -141,8 +141,16 @@ decl_error! {
         InvalidAssetType,
         /// Either the number of keys or the key identifier does not match the keys defined for the collection.
         InvalidMetadataAttribute,
-        /// Failed to transfer an NFT.
-        InvalidNftTransfer,
+        /// Failed to transfer an NFT - NFT collection not found.
+        InvalidNFTTransferCollectionNotFound,
+        /// Failed to transfer an NFT - attempt to move to the same portfolio.
+        InvalidNFTTransferSamePortfolio,
+        /// Failed to transfer an NFT - NFT not found in portfolio.
+        InvalidNFTTransferNFTNotOwned,
+        /// Failed to transfer an NFT - balance would overflow.
+        InvalidNFTTransferBalanceOverflow,
+        /// Failed to transfer an NFT - not enough balance.
+        InvalidNFTTransferNoBalance,
         /// The maximum number of metadata keys was exceeded.
         MaxNumberOfKeysExceeded,
         /// The NFT does not exist.
@@ -334,7 +342,8 @@ impl<T: Config> Module<T> {
         nfts: &NFTs,
     ) -> DispatchResult {
         // Verifies if there is a collection associated to the NFTs
-        CollectionTicker::try_get(nfts.ticker()).map_err(|_| Error::<T>::InvalidNftTransfer)?;
+        CollectionTicker::try_get(nfts.ticker())
+            .map_err(|_| Error::<T>::InvalidNFTTransferCollectionNotFound)?;
         // Verifies if all rules for transfering the NFTs are being respected
         Self::validate_nft_transfer(sender_portfolio, receiver_portfolio, &nfts)?;
 
@@ -366,24 +375,24 @@ impl<T: Config> Module<T> {
         // Verifies that the sender and receiver are not the same
         ensure!(
             sender_portfolio != receiver_portfolio,
-            Error::<T>::InvalidNftTransfer
+            Error::<T>::InvalidNFTTransferSamePortfolio
         );
         // Verifies that the sender has the required balance
         ensure!(
             BalanceOf::get(nfts.ticker(), sender_portfolio.did) >= transferred_amount,
-            Error::<T>::InvalidNftTransfer
+            Error::<T>::InvalidNFTTransferNoBalance
         );
         // Verfies that the sender owns the nfts
         for nft_id in nfts.ids() {
             ensure!(
                 PortfolioNFT::contains_key(sender_portfolio, (nfts.ticker(), nft_id)),
-                Error::<T>::InvalidNftTransfer
+                Error::<T>::InvalidNFTTransferNFTNotOwned
             );
         }
         // Verfies that the receiver will not overflow
         BalanceOf::get(nfts.ticker(), receiver_portfolio.did)
             .checked_add(transferred_amount)
-            .ok_or(Error::<T>::BalanceOverflow)?;
+            .ok_or(Error::<T>::InvalidNFTTransferBalanceOverflow)?;
         // Verifies that all compliance rules are being respected
         T::Compliance::verify_restriction(
             nfts.ticker(),
