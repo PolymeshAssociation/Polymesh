@@ -50,6 +50,23 @@ fn misc_polymesh_extensions() {
     let eve = AccountKeyring::Eve.to_account_id();
     ExtBuilder::default()
         .cdd_providers(vec![eve.clone()])
+        .adjust(Box::new(move |storage| {
+            polymesh_contracts::GenesisConfig {
+                call_whitelist: [
+                    [0x1A, 0x00],
+                    [0x1A, 0x01],
+                    [0x1A, 0x02],
+                    [0x1A, 0x03],
+                    [0x1A, 0x11],
+                    [0x2F, 0x01],
+                ]
+                .into_iter()
+                .map(|ext_id: [u8; 2]| ext_id.into())
+                .collect(),
+            }
+            .assimilate_storage(storage)
+            .unwrap();
+        }))
         .build()
         .execute_with(|| {
             let owner = User::new(AccountKeyring::Alice);
@@ -103,7 +120,7 @@ fn misc_polymesh_extensions() {
 
             // Execute a chain extension with too long data.
             let call = |value, data| call(key_first_contract.clone(), value, data);
-            let mut too_long_data = 0x00_00_00_00.encode();
+            let mut too_long_data = 0x00_00_00_01.encode();
             too_long_data.extend(vec![b'X'; MaxInLen::get() as usize + 1]);
             assert_storage_noop!(assert_err_ignore_postinfo!(
                 call(0, too_long_data),
@@ -113,10 +130,10 @@ fn misc_polymesh_extensions() {
             // Execute a func_id that isn't recognized.
             assert_storage_noop!(assert_err_ignore_postinfo!(
                 call(0, 0x04_00_00_00.encode()),
-                ContractsError::RuntimeCallNotFound,
+                ContractsError::InvalidFuncId,
             ));
 
-            // Input for registering ticker AAAAAAAAAAAA.
+            // Input for registering ticker `A` (11 trailing nulls).
             let ticker = Ticker::try_from(b"A" as &[u8]).unwrap();
             let mut register_ticker_data = 0x00_1A_00_00.encode();
             register_ticker_data.extend(ticker.encode());

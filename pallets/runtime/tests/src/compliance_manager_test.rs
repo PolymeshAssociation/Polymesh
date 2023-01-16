@@ -1,5 +1,5 @@
 use super::{
-    asset_test::{allow_all_transfers, create_token},
+    asset_test::{allow_all_transfers, create_token, set_timestamp},
     storage::{
         create_cdd_id, create_investor_uid, get_primary_key,
         provide_scope_claim_to_multiple_parties, set_curr_did, TestStorage, User,
@@ -120,7 +120,7 @@ fn should_add_and_verify_compliance_requirement_we() {
     ));
 
     let now = Utc::now();
-    Timestamp::set_timestamp(now.timestamp() as u64);
+    set_timestamp(now.timestamp() as u64);
 
     let sender_condition =
         Condition::from_dids(ConditionType::IsPresent(Claim::NoData), &[claim_issuer.did]);
@@ -436,7 +436,7 @@ fn pause_resume_asset_compliance_we() {
     ));
 
     let now = Utc::now();
-    Timestamp::set_timestamp(now.timestamp() as u64);
+    set_timestamp(now.timestamp() as u64);
 
     // 4. Define conditions
     let receiver_conditions = vec![Condition::from_dids(
@@ -554,7 +554,7 @@ fn should_successfully_add_and_use_default_issuers_we() {
     ));
 
     let now = Utc::now();
-    Timestamp::set_timestamp(now.timestamp() as u64);
+    set_timestamp(now.timestamp() as u64);
 
     let claim_need_to_posses_1 = Claim::Affiliate(owner.scope());
     let claim_need_to_posses_2 = Claim::Accredited(owner.scope());
@@ -677,7 +677,7 @@ fn should_modify_vector_of_trusted_issuer_we() {
     );
 
     let now = Utc::now();
-    Timestamp::set_timestamp(now.timestamp() as u64);
+    set_timestamp(now.timestamp() as u64);
 
     let create_condition = |claim| -> Condition {
         Condition {

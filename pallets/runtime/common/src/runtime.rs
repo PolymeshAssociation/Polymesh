@@ -323,6 +323,7 @@ macro_rules! misc_pallet_impls {
         impl polymesh_contracts::Config for Runtime {
             type Event = Event;
             type MaxInLen = MaxInLen;
+            type MaxOutLen = MaxOutLen;
             type WeightInfo = polymesh_weights::polymesh_contracts::WeightInfo;
         }
         impl pallet_contracts::Config for Runtime {
@@ -347,15 +348,6 @@ macro_rules! misc_pallet_impls {
             type DeletionWeightLimit = DeletionWeightLimit;
             type AddressGenerator = pallet_contracts::DefaultAddressGenerator;
             type PolymeshHooks = polymesh_contracts::ContractPolymeshHooks;
-        }
-        impl From<polymesh_contracts::CommonCall<Runtime>> for Call {
-            fn from(call: polymesh_contracts::CommonCall<Runtime>) -> Self {
-                use polymesh_contracts::CommonCall::*;
-                match call {
-                    Asset(x) => Self::Asset(x),
-                    PolymeshContracts(x) => Self::PolymeshContracts(x),
-                }
-            }
         }
 
         impl pallet_compliance_manager::Config for Runtime {
@@ -833,10 +825,13 @@ macro_rules! runtime_apis {
 
             impl node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<
                 Block,
-                UncheckedExtrinsic,
             > for Runtime {
-                fn query_info(uxt: UncheckedExtrinsic, len: u32) -> RuntimeDispatchInfo<Balance> {
+                fn query_info(uxt: <Block as BlockT>::Extrinsic, len: u32) -> RuntimeDispatchInfo<Balance> {
                     TransactionPayment::query_info(uxt, len)
+                }
+
+                fn query_fee_details(uxt: <Block as BlockT>::Extrinsic, len: u32) -> pallet_transaction_payment::FeeDetails<Balance> {
+                    TransactionPayment::query_fee_details(uxt, len)
                 }
             }
 

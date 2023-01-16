@@ -659,6 +659,8 @@ decl_error! {
         CustomClaimTypeAlreadyExists,
        /// The custom claim type does not exist.
         CustomClaimTypeDoesNotExist,
+        /// Claim does not exist.
+        ClaimDoesNotExist,
     }
 }
 

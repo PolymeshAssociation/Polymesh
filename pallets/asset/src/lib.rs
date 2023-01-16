@@ -894,6 +894,23 @@ decl_module! {
         pub fn redeem_from_portfolio(origin, ticker: Ticker, value: Balance, portfolio: PortfolioKind) -> DispatchResult {
             Self::base_redeem(origin, ticker, value, portfolio)
         }
+
+        /// Updates the type of an asset.
+        ///
+        /// # Arguments
+        /// * `origin` - the secondary key of the sender.
+        /// * `ticker` - the ticker of the token.
+        /// * `asset_type` - the new type of the token.
+        ///
+        /// ## Errors
+        /// - `InvalidCustomAssetTypeId` if `asset_type` is of type custom and has an invalid type id.
+        ///
+        /// # Permissions
+        /// * Asset
+        #[weight = <T as Config>::WeightInfo::update_asset_type()]
+        pub fn update_asset_type(origin, ticker: Ticker, asset_type: AssetType) -> DispatchResult {
+            Self::base_update_asset_type(origin, ticker, asset_type)
+        }
     }
 }
 
@@ -965,6 +982,8 @@ decl_error! {
         AssetMetadataLocalKeyAlreadyExists,
         /// Asset Metadata Global type already exists.
         AssetMetadataGlobalKeyAlreadyExists,
+        /// Tickers should start with at least one valid byte.
+        TickerFirstByteNotValid,
     }
 }
 
@@ -1230,10 +1249,12 @@ impl<T: Config> Module<T> {
     /// Ensure `ticker` is fully printable ASCII (SPACE to '~').
     fn ensure_ticker_ascii(ticker: &Ticker) -> DispatchResult {
         let bytes = ticker.as_slice();
+
+        ensure!(bytes[0] != 0, Error::<T>::TickerFirstByteNotValid);
         // Find first byte not printable ASCII.
         let good = bytes
             .iter()
-            .position(|b| !matches!(b, 32..=126))
+            .position(|b| !(*b).is_ascii_alphanumeric())
             // Everything after must be a NULL byte.
             .map_or(true, |nm_pos| bytes[nm_pos..].iter().all(|b| *b == 0));
         ensure!(good, Error::<T>::TickerNotAscii);
@@ -2541,5 +2562,19 @@ impl<T: Config> Module<T> {
                 id
             }
         })
+    }
+
+    fn base_update_asset_type(
+        origin: T::Origin,
+        ticker: Ticker,
+        asset_type: AssetType,
+    ) -> DispatchResult {
+        Self::ensure_asset_exists(&ticker)?;
+        Self::ensure_asset_type_valid(asset_type)?;
+        let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+
+        Tokens::mutate(ticker, |token| token.asset_type = asset_type);
+        Self::deposit_event(RawEvent::AssetTypeChanged(did, ticker, asset_type));
+        Ok(())
     }
 }

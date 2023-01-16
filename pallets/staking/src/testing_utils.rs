@@ -463,3 +463,18 @@ pub fn create_assignments_for_offchain<T: Config>(
 
     Ok((winners, assignments))
 }
+
+/// Grab a funded user with the given balance without did.
+pub fn create_funded_user_without_did<T: Config + TestUtilsFn<AccountIdOf<T>>>(
+    string: &'static str,
+    n: u32,
+    balance: u32,
+) -> User<T> {
+    let user = UserBuilder::<T>::default()
+        .balance(balance)
+        .seed(n)
+        .build(string);
+    // ensure T::CurrencyToVote will work correctly.
+    T::Currency::issue(balance.into());
+    user
+}

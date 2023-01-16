@@ -94,6 +94,8 @@ macro_rules! __assert_eq_uvec {
 }
 
 mod mock;
+
+use crate::asset_test::set_timestamp;
 use chrono::prelude::Utc;
 use codec::Decode;
 use frame_support::{
@@ -104,6 +106,7 @@ use frame_support::{
 };
 use mock::*;
 use pallet_balances::Error as BalancesError;
+use pallet_identity::Error as IdentityError;
 use pallet_staking::*;
 use sp_npos_elections::ElectionScore;
 use sp_runtime::{
@@ -5005,7 +5008,7 @@ fn on_initialize_weight_is_correct() {
             run_to_block(11);
             Staking::on_finalize(System::block_number());
             System::set_block_number((System::block_number() + 1).into());
-            Timestamp::set_timestamp(System::block_number() * 1000 + INIT_TIMESTAMP);
+            set_timestamp(System::block_number() * 1000 + INIT_TIMESTAMP);
             Session::on_initialize(System::block_number());
 
             assert_eq!(Validators::<Test>::iter().count(), 4);
@@ -5047,7 +5050,7 @@ fn add_nominator_with_invalid_expiry() {
             ));
 
             let now = Utc::now();
-            Timestamp::set_timestamp(now.timestamp() as u64);
+            set_timestamp(now.timestamp() as u64);
             let validators = vec![10, 20, 30];
             assert_noop!(
                 Staking::nominate(controller_signed.clone(), validators),
@@ -5080,7 +5083,7 @@ fn add_valid_nominator_with_multiple_claims() {
                 RewardDestination::Stash
             ));
 
-            Timestamp::set_timestamp(now.timestamp() as u64);
+            set_timestamp(now.timestamp() as u64);
             let validators = vec![10, 20, 30];
 
             assert_ok!(Staking::nominate(controller_signed.clone(), validators));
@@ -5139,7 +5142,7 @@ fn validate_nominators_with_valid_cdd() {
             ));
 
             now = Utc::now();
-            Timestamp::set_timestamp(now.timestamp() as u64);
+            set_timestamp(now.timestamp() as u64);
             let validators_1 = vec![10, 20, 30];
             assert_ok!(Staking::nominate(
                 controller_signed_alice.clone(),
@@ -5154,7 +5157,7 @@ fn validate_nominators_with_valid_cdd() {
             ));
             assert!(!Staking::nominators(&account_eve).is_none());
             now = Utc::now();
-            Timestamp::set_timestamp((now.timestamp() as u64) + 800_u64);
+            set_timestamp((now.timestamp() as u64) + 800_u64);
             let claimed_nominator = vec![account_alice.clone(), account_eve.clone()];
 
             println!("Current timestamp: {:?}", Timestamp::now());
@@ -5818,4 +5821,143 @@ fn test_bond_too_small() {
         assert_ok!(both(70, 71, MinimumBond::get()));
         assert_ok!(both(90, 91, MinimumBond::get() + 1));
     });
+}
+
+#[test]
+fn validator_unbonding() {
+    ExtBuilder::default()
+        .validator_count(8)
+        .minimum_validator_count(1)
+        .build()
+        .execute_with(|| {
+            // Add a new validator successfully.
+            bond_validator_with_intended_count(50, 51, 500_000, Some(2));
+            let entity_id = Identity::get_identity(&50).unwrap();
+            assert_permissioned_identity_prefs!(entity_id, 2, 1);
+            // Set minimum bond threshold to 50k POLYX
+            assert_ok!(Staking::set_min_bond_threshold(Origin::root(), 50_000));
+            // Check that an error is given when unbonding beyond the minimum bond threshold as a validator
+            assert_noop!(
+                Staking::unbond(Origin::signed(51), 480_000),
+                Error::<Test>::InvalidValidatorUnbondAmount
+            );
+            // Check that validator can unbond once it doesn't go below the minimum bond threshold
+            assert_ok!(Staking::unbond(Origin::signed(51), 80_000));
+            assert_ok!(Staking::unbond(Origin::signed(51), 80_000));
+            assert_ok!(Staking::unbond(Origin::signed(51), 80_000));
+            assert_ok!(Staking::unbond(Origin::signed(51), 80_000));
+
+            // Check the remaining bond amount can't all be unbond
+            assert_noop!(
+                Staking::unbond(Origin::signed(51), 180_000),
+                Error::<Test>::InvalidValidatorUnbondAmount
+            );
+            // Chill validator
+            assert_ok!(Staking::chill(Origin::signed(51)));
+            // After chilling validator checks that entity can unbond successfully
+            assert_ok!(Staking::unbond(Origin::signed(51), 180_000));
+        });
+}
+
+#[test]
+fn chill_from_governance() {
+    ExtBuilder::default()
+        .validator_count(8)
+        .minimum_validator_count(1)
+        .build()
+        .execute_with(|| {
+            // 50 stash and 51 controller (corrected)
+            bond(50, 51, 500000);
+            let entity_id = Identity::get_identity(&50).unwrap();
+
+            // Add a new validator successfully.
+            bond_validator_with_intended_count(50, 51, 500000, Some(2));
+            assert_permissioned_identity_prefs!(entity_id, 2, 1);
+
+            // Add other stash and controller to the same did.
+            add_secondary_key(50, 60);
+            add_secondary_key(50, 61);
+
+            // Validate one more validator from the same entity.
+            // 60 stash and 61 controller.
+            bond_validator(60, 61, 500000);
+            assert_permissioned_identity_prefs!(entity_id, 2, 2);
+
+            // Removes 50 and 60 from being validators
+            assert_ok!(Staking::chill_from_governance(
+                Origin::signed(2000),
+                entity_id,
+                vec![50, 60]
+            ));
+
+            // No longer permissioned identity
+            assert_noop!(
+                Staking::chill_from_governance(Origin::signed(2000), entity_id, vec![50, 60]),
+                Error::<Test>::NotExists
+            );
+
+            // 70 stash and 71 controller
+            bond(70, 71, 500000);
+            let entity_id_2 = Identity::get_identity(&70).unwrap();
+
+            // Add a new validator successfully.
+            bond_validator_with_intended_count(70, 71, 500000, Some(2));
+
+            // Add other stash and controller to the same did.
+            add_secondary_key(70, 80);
+            add_secondary_key(70, 81);
+
+            // Check keys that aren't joined with identity gives error
+            assert_noop!(
+                Staking::chill_from_governance(Origin::signed(2000), entity_id_2, vec![90, 95]),
+                Error::<Test>::NotStash
+            );
+
+            // Check key that is not GC gives error
+            assert_noop!(
+                Staking::chill_from_governance(Origin::signed(20), entity_id_2, vec![90, 95]),
+                BadOrigin
+            );
+        });
+}
+
+#[test]
+fn test_running_count() {
+    ExtBuilder::default()
+        .validator_count(8)
+        .minimum_validator_count(1)
+        .build()
+        .execute_with(|| {
+            // 50 stash and 51 controller
+            bond(50, 51, 500000);
+            let entity_id = Identity::get_identity(&50).unwrap();
+
+            // Add a new validator successfully.
+            bond_validator_with_intended_count(50, 51, 500000, Some(2));
+            assert_permissioned_identity_prefs!(entity_id, 2, 1);
+
+            // Add other stash and controller to the same did.
+            add_secondary_key(50, 60);
+            add_secondary_key(50, 61);
+
+            // Validate one more validator from the same entity.
+            // 60 stash and 61 controller.
+            bond_validator(60, 61, 500000);
+            assert_permissioned_identity_prefs!(entity_id, 2, 2);
+
+            // Ensure that the validator's stash key can't be removed from it's identity.
+            assert_noop!(
+                Identity::remove_secondary_keys(Origin::signed(50), vec![60]),
+                IdentityError::<Test>::AccountKeyIsBeingUsed
+            );
+
+            // chill to remove the validator
+            assert_ok!(Staking::chill(Origin::signed(61)));
+
+            // remove validator's stash key from it's identity
+            assert_ok!(Identity::remove_secondary_keys(
+                Origin::signed(50),
+                vec![60]
+            ));
+        });
 }

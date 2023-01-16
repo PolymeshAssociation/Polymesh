@@ -4,7 +4,6 @@
 //     testnet::ChainSpec as TestnetChainSpec,
 // };
 pub use codec::Codec;
-use core::marker::PhantomData;
 use futures::stream::StreamExt;
 use polymesh_node_rpc as node_rpc;
 pub use polymesh_primitives::{
@@ -91,14 +90,14 @@ native_executor_instance!(TestnetExecutor, polymesh_runtime_testnet, EHF);
 native_executor_instance!(MainnetExecutor, polymesh_runtime_mainnet, EHF);
 
 /// A set of APIs that polkadot-like runtimes must implement.
-pub trait RuntimeApiCollection<Extrinsic: RuntimeExtrinsic>:
+pub trait RuntimeApiCollection:
     sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
     + sp_api::ApiExt<Block>
     + sp_consensus_babe::BabeApi<Block>
     + grandpa::GrandpaApi<Block>
     + sp_block_builder::BlockBuilder<Block>
     + frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>
-    + node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<Block, Extrinsic>
+    + node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<Block>
     + sp_api::Metadata<Block>
     + sp_offchain::OffchainWorkerApi<Block>
     + sp_session::SessionKeys<Block>
@@ -116,7 +115,7 @@ where
 {
 }
 
-impl<Api, Extrinsic: RuntimeExtrinsic> RuntimeApiCollection<Extrinsic> for Api
+impl<Api> RuntimeApiCollection for Api
 where
     Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
         + sp_api::ApiExt<Block>
@@ -124,7 +123,7 @@ where
         + grandpa::GrandpaApi<Block>
         + sp_block_builder::BlockBuilder<Block>
         + frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>
-        + node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<Block, Extrinsic>
+        + node_rpc_runtime_api::transaction_payment::TransactionPaymentApi<Block>
         + sp_api::Metadata<Block>
         + sp_offchain::OffchainWorkerApi<Block>
         + sp_session::SessionKeys<Block>
@@ -140,10 +139,6 @@ where
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
 }
-
-pub trait RuntimeExtrinsic: codec::Codec + Send + Sync + 'static {}
-
-impl<E> RuntimeExtrinsic for E where E: codec::Codec + Send + Sync + 'static {}
 
 // Using prometheus, use a registry with a prefix of `polymesh`.
 fn set_prometheus_registry(config: &mut Configuration) -> Result<(), ServiceError> {
@@ -182,7 +177,7 @@ pub type FullServiceComponents<R, E, F> = sc_service::PartialComponents<
 type FullBabeBlockImport<R, E> =
     sc_consensus_babe::BabeBlockImport<Block, FullClient<R, E>, FullGrandpaBlockImport<R, E>>;
 
-pub fn new_partial<R, D, E>(
+pub fn new_partial<R, D>(
     config: &mut Configuration,
 ) -> Result<
     FullServiceComponents<
@@ -194,9 +189,8 @@ pub fn new_partial<R, D, E>(
 >
 where
     R: ConstructRuntimeApi<Block, FullClient<R, D>> + Send + Sync + 'static,
-    R::RuntimeApi: RuntimeApiCollection<E, StateBackend = FullStateBackend>,
+    R::RuntimeApi: RuntimeApiCollection<StateBackend = FullStateBackend>,
     D: NativeExecutionDispatch + 'static,
-    E: RuntimeExtrinsic,
 {
     set_prometheus_registry(config)?;
 
@@ -350,31 +344,28 @@ where
     })
 }
 
-pub struct NewFullBase<R, D, E>
+pub struct NewFullBase<R, D>
 where
     R: ConstructRuntimeApi<Block, FullClient<R, D>> + Send + Sync + 'static,
-    R::RuntimeApi: RuntimeApiCollection<E, StateBackend = FullStateBackend>,
+    R::RuntimeApi: RuntimeApiCollection<StateBackend = FullStateBackend>,
     D: NativeExecutionDispatch + 'static,
-    E: RuntimeExtrinsic,
 {
     pub task_manager: TaskManager,
     pub client: Arc<FullClient<R, D>>,
     pub network: Arc<NetworkService<Block, <Block as BlockT>::Hash>>,
     pub transaction_pool: Arc<FullPool<R, D>>,
-    marker: PhantomData<E>,
 }
 
 /// Creates a full service from the configuration.
-pub fn new_full_base<R, D, E, F>(
+pub fn new_full_base<R, D, F>(
     mut config: Configuration,
     with_startup_data: F,
-) -> Result<NewFullBase<R, D, E>, ServiceError>
+) -> Result<NewFullBase<R, D>, ServiceError>
 where
     F: FnOnce(&FullBabeBlockImport<R, D>, &BabeLink),
     R: ConstructRuntimeApi<Block, FullClient<R, D>> + Send + Sync + 'static,
-    R::RuntimeApi: RuntimeApiCollection<E, StateBackend = FullStateBackend>,
+    R::RuntimeApi: RuntimeApiCollection<StateBackend = FullStateBackend>,
     D: NativeExecutionDispatch + 'static,
-    E: RuntimeExtrinsic,
 {
     let sc_service::PartialComponents {
         client,
@@ -613,7 +604,6 @@ where
         client,
         network,
         transaction_pool,
-        marker: PhantomData,
     })
 }
 
@@ -621,19 +611,19 @@ type TaskResult = Result<TaskManager, ServiceError>;
 
 /// Create a new Testnet service for a full node.
 pub fn testnet_new_full(config: Configuration) -> TaskResult {
-    new_full_base::<polymesh_runtime_testnet::RuntimeApi, TestnetExecutor, _, _>(config, |_, _| ())
+    new_full_base::<polymesh_runtime_testnet::RuntimeApi, TestnetExecutor, _>(config, |_, _| ())
         .map(|data| data.task_manager)
 }
 
 /// Create a new General node service for a full node.
 pub fn general_new_full(config: Configuration) -> TaskResult {
-    new_full_base::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor, _, _>(config, |_, _| ())
+    new_full_base::<polymesh_runtime_develop::RuntimeApi, GeneralExecutor, _>(config, |_, _| ())
         .map(|data| data.task_manager)
 }
 
 /// Create a new Mainnet service for a full node.
 pub fn mainnet_new_full(config: Configuration) -> TaskResult {
-    new_full_base::<polymesh_runtime_mainnet::RuntimeApi, MainnetExecutor, _, _>(config, |_, _| ())
+    new_full_base::<polymesh_runtime_mainnet::RuntimeApi, MainnetExecutor, _>(config, |_, _| ())
         .map(|data| data.task_manager)
 }
 
@@ -645,12 +635,11 @@ pub type NewChainOps<R, D> = (
 );
 
 /// Builds a new object suitable for chain operations.
-pub fn chain_ops<R, D, E>(config: &mut Configuration) -> Result<NewChainOps<R, D>, ServiceError>
+pub fn chain_ops<R, D>(config: &mut Configuration) -> Result<NewChainOps<R, D>, ServiceError>
 where
     R: ConstructRuntimeApi<Block, FullClient<R, D>> + Send + Sync + 'static,
-    R::RuntimeApi: RuntimeApiCollection<E, StateBackend = FullStateBackend>,
+    R::RuntimeApi: RuntimeApiCollection<StateBackend = FullStateBackend>,
     D: NativeExecutionDispatch + 'static,
-    E: RuntimeExtrinsic,
 {
     config.keystore = sc_service::config::KeystoreConfig::InMemory;
     let FullServiceComponents {
@@ -659,24 +648,24 @@ where
         import_queue,
         task_manager,
         ..
-    } = new_partial::<R, D, E>(config)?;
+    } = new_partial::<R, D>(config)?;
     Ok((client, backend, import_queue, task_manager))
 }
 
 pub fn testnet_chain_ops(
     config: &mut Configuration,
 ) -> Result<NewChainOps<polymesh_runtime_testnet::RuntimeApi, TestnetExecutor>, ServiceError> {
-    chain_ops::<_, _, polymesh_runtime_testnet::UncheckedExtrinsic>(config)
+    chain_ops::<_, _>(config)
 }
 
 pub fn general_chain_ops(
     config: &mut Configuration,
 ) -> Result<NewChainOps<polymesh_runtime_develop::RuntimeApi, GeneralExecutor>, ServiceError> {
-    chain_ops::<_, _, polymesh_runtime_develop::UncheckedExtrinsic>(config)
+    chain_ops::<_, _>(config)
 }
 
 pub fn mainnet_chain_ops(
     config: &mut Configuration,
 ) -> Result<NewChainOps<polymesh_runtime_mainnet::RuntimeApi, MainnetExecutor>, ServiceError> {
-    chain_ops::<_, _, polymesh_runtime_mainnet::UncheckedExtrinsic>(config)
+    chain_ops::<_, _>(config)
 }
