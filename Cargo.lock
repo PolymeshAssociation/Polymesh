@@ -6048,7 +6048,7 @@ name = "polymesh"
 version = "5.2.0"
 dependencies = [
  "chrono",
- "clap 4.0.30",
+ "clap 4.1.0",
  "ed25519-dalek",
  "frame-benchmarking",
  "frame-benchmarking-cli",
