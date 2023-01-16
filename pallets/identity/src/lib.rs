@@ -274,9 +274,6 @@ decl_module! {
         /// - `target_account` (primary key of the new Identity) can be linked to just one and only
         /// one identity.
         /// - External secondary keys can be linked to just one identity.
-        ///
-        /// # Weight
-        /// `7_000_000_000 + 600_000 * secondary_keys.len()`
         #[weight = <T as Config>::WeightInfo::cdd_register_did(secondary_keys.len() as u32)]
         pub fn cdd_register_did(
             origin,
@@ -584,7 +581,7 @@ decl_module! {
             Self::base_register_custom_claim_type(origin, ty)?;
         }
 
-        /// Register `target_account` with a new Identity.
+        /// Register `target_account` with a new Identity and issue a CDD claim with a blank CddId
         ///
         /// # Failure
         /// - `origin` has to be a active CDD provider. Inactive CDD providers cannot add new
@@ -592,10 +589,7 @@ decl_module! {
         /// - `target_account` (primary key of the new Identity) can be linked to just one and only
         /// one identity.
         /// - External secondary keys can be linked to just one identity.
-        ///
-        /// # Weight
-        /// `7_000_000_000 + 600_000 * secondary_keys.len()`
-        #[weight = <T as Config>::WeightInfo::cdd_register_did(secondary_keys.len() as u32).add(<T as Config>::WeightInfo::add_claim())]
+        #[weight = <T as Config>::WeightInfo::cdd_register_did(secondary_keys.len() as u32).saturating_add(<T as Config>::WeightInfo::add_claim())]
         pub fn cdd_register_did_with_cdd(
             origin,
             target_account: T::AccountId,
