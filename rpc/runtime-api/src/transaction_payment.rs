@@ -1,3 +1,5 @@
+use codec::Codec;
+
 pub use pallet_transaction_payment::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
 use polymesh_primitives::Balance;
 
