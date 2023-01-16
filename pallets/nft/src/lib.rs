@@ -23,6 +23,7 @@ use sp_std::vec::Vec;
 type Asset<T> = pallet_asset::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 type Identity<T> = pallet_identity::Module<T>;
+type Portfolio<T> = pallet_portfolio::Module<T>;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -245,8 +246,10 @@ impl<T: Config> Module<T> {
         let caller_portfolio = Asset::<T>::ensure_agent_with_custody_and_perms(
             origin,
             ticker.clone(),
-            PortfolioKind::Default,
+            portfolio_kind,
         )?;
+
+        Portfolio::<T>::ensure_portfolio_validity(&caller_portfolio)?;
 
         // Verifies that all mandatory keys are being set and that there are no duplicated keys
         let mandatory_keys: BTreeSet<AssetMetadataKey> = Self::collection_keys(&collection_id);
@@ -281,14 +284,7 @@ impl<T: Config> Module<T> {
         for (metadata_key, metadata_value) in nft_attributes.into_iter() {
             MetadataValue::insert((&collection_id, &nft_id), metadata_key, metadata_value);
         }
-        PortfolioNFT::insert(
-            PortfolioId {
-                did: caller_portfolio.did,
-                kind: portfolio_kind,
-            },
-            (ticker, nft_id),
-            true,
-        );
+        PortfolioNFT::insert(caller_portfolio, (ticker, nft_id), true);
 
         Self::deposit_event(Event::MintedNft(
             caller_portfolio.did,

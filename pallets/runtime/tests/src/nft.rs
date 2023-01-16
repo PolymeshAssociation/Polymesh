@@ -13,7 +13,7 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::{
     NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId,
-    PortfolioKind, Ticker,
+    PortfolioKind, PortfolioNumber, Ticker,
 };
 use test_client::AccountKeyring;
 
@@ -25,6 +25,7 @@ type Identity = pallet_identity::Module<TestStorage>;
 type NFT = pallet_nft::Module<TestStorage>;
 type NFTError = pallet_nft::Error<TestStorage>;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
+type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 
 /// Successfully creates an NFT collection and an Asset.
@@ -318,6 +319,33 @@ fn mint_nft_wrong_key() {
     });
 }
 
+/// An NFT can only be minted if the given portfolio exists.
+#[test]
+fn mint_nft_portfolio_not_found() {
+    ExtBuilder::default().build().execute_with(|| {
+        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+
+        let alice: User = User::new(AccountKeyring::Alice);
+        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(alice.clone(), ticker.clone(), collection_keys);
+
+        assert_noop!(
+            NFT::mint_nft(
+                alice.origin(),
+                ticker,
+                vec![NFTMetadataAttribute {
+                    key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+                    value: AssetMetadataValue(b"test".to_vec())
+                }],
+                PortfolioKind::User(PortfolioNumber(1))
+            ),
+            PortfolioError::PortfolioDoesNotExist
+        );
+    });
+}
+
 /// Successfully mints an NFT.
 #[test]
 fn mint_nft_successfully() {
@@ -474,7 +502,7 @@ fn transfer_nft_without_collection() {
     });
 }
 
-/// An NFT can only be transferred if its collection exists.
+/// An NFT can only be transferred to a differrent portfolio.
 #[test]
 fn transfer_nft_same_portfolio() {
     ExtBuilder::default().build().execute_with(|| {

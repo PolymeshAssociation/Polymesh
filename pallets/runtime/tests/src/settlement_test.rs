@@ -201,7 +201,7 @@ fn create_token(ticker: Ticker, user: User) {
     allow_all_transfers(ticker, user);
 }
 
-fn create_venue(user: User) -> VenueId {
+pub(crate) fn create_venue(user: User) -> VenueId {
     let venue_counter = Settlement::venue_counter();
     assert_ok!(Settlement::create_venue(
         user.origin(),

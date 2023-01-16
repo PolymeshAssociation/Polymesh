@@ -207,6 +207,8 @@ decl_module! {
 
             // Ensure the portfolio is empty. Otherwise we would end up with unreachable assets.
             ensure!(PortfolioAssetCount::get(pid) == 0, Error::<T>::PortfolioNotEmpty);
+            ensure!(PortfolioNFT::iter_prefix(pid).count() == 0, Error::<T>::PortfolioNotEmpty);
+            ensure!(PortfolioLockedNFT::iter_prefix(pid).count() == 0, Error::<T>::PortfolioNotEmpty);
 
             // Check that the portfolio exists and the secondary key has access to it.
             Self::ensure_user_portfolio_validity(primary_did, num)?;
@@ -629,12 +631,6 @@ impl<T: Config> Module<T> {
             Self::deposit_event(Event::PortfolioCustodianChanged(to, pid, to));
             Ok(())
         })
-    }
-
-    /// Adds an NFT that belongs to the given collection to the default portfolio of the did.
-    pub fn add_portfolio_nft(did: IdentityId, ticker: &Ticker, nft_id: NFTId) {
-        let portfolio_id = PortfolioId::default_portfolio(did);
-        PortfolioNFT::insert(portfolio_id, (ticker, nft_id), true);
     }
 }
 
