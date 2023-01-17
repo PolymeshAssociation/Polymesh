@@ -95,7 +95,7 @@ fn can_create_rename_delete_portfolio() {
         let num_of = |name| Portfolio::name_to_number(owner.did, name);
 
         let first_name = name();
-        assert_eq!(num_of(&first_name), num);
+        assert_eq!(num_of(&first_name), Some(num));
 
         let new_name = PortfolioName::from([55u8].to_vec());
         assert_ok!(Portfolio::rename_portfolio(
@@ -122,7 +122,7 @@ fn can_delete_recreate_portfolio() {
         let num_of = |name| Portfolio::name_to_number(owner.did, name);
 
         let first_name = name();
-        assert_eq!(num_of(&first_name), num);
+        assert_eq!(num_of(&first_name), Some(num));
 
         assert_ok!(Portfolio::delete_portfolio(owner.origin(), num));
         assert_ok!(Portfolio::create_portfolio(owner.origin(), first_name));
