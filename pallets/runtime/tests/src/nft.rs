@@ -597,25 +597,25 @@ fn transfer_nft_not_owned() {
         mint_nft(
             alice.clone(),
             ticker.clone(),
-            nfts_metadata,
+            nfts_metadata.clone(),
             PortfolioKind::Default,
         );
 
         // Attempts to transfer an NFT not owned by the sender
         let sender_portfolio = PortfolioId {
-            did: alice.did,
-            kind: PortfolioKind::Default,
-        };
-        let receiver_portfolio = PortfolioId {
             did: bob.did,
             kind: PortfolioKind::Default,
         };
-        let nfts = NFTs::new(ticker, vec![NFTId(2)]).unwrap();
+        let receiver_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+        let nfts = NFTs::new(ticker, vec![NFTId(1)]).unwrap();
         assert_noop!(
             with_transaction(|| {
                 NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts)
             }),
-            NFTError::InvalidNFTTransferNFTNotOwned
+            NFTError::InvalidNFTTransferNoBalance
         );
     });
 }
