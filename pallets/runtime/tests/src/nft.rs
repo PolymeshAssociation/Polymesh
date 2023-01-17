@@ -536,7 +536,7 @@ fn transfer_nft_same_portfolio() {
 
 /// An NFT can only be transferred if there is enough balance.
 #[test]
-fn transfer_nft_invalid_balance() {
+fn transfer_nft_invalid_count() {
     ExtBuilder::default().build().execute_with(|| {
         Timestamp::set_timestamp(Utc::now().timestamp() as _);
 

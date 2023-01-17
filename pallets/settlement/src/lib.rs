@@ -444,10 +444,14 @@ pub trait WeightInfo {
     fn add_instruction_with_memo_and_settle_on_block_type(u: u32) -> Weight;
     fn add_and_affirm_instruction_with_memo_and_settle_on_block_type(u: u32) -> Weight;
     fn add_instruction_with_memo_v2(f: u32) -> Weight;
-    fn add_and_affirm_instruction_with_memo_v2(legs_v2: &[LegV2]) -> Weight;
+    fn add_and_affirm_instruction_with_memo_v2(f: u32, n: u32) -> Weight;
     fn affirm_instruction_v2(f: u32, n: u32) -> Weight;
     fn withdraw_affirmation_v2(f: u32, n: u32) -> Weight;
     fn reject_instruction_v2(f: u32, n: u32) -> Weight;
+    fn add_and_affirm_instruction_with_memo_v2_legs(legs_v2: &[LegV2]) -> Weight {
+        let (f, n) = get_transfer_by_asset(legs_v2);
+        Self::add_and_affirm_instruction_with_memo_v2(f, n)
+    }
 }
 
 type EnsureValidInstructionResult<AccountId, Moment, BlockNumber> = Result<
@@ -1192,7 +1196,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_with_memo_v2(legs)]
+        #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_with_memo_v2_legs(legs)]
         pub fn add_and_affirm_instruction_with_memo_v2(
             origin,
             venue_id: VenueId,
