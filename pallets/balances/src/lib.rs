@@ -886,6 +886,9 @@ impl<T: Config> Currency<T::AccountId> for Module<T> {
         if value.is_zero() {
             return (NegativeImbalance::zero(), Zero::zero());
         }
+        if Self::total_balance(who).is_zero() {
+            return (NegativeImbalance::zero(), value);
+        }
 
         Self::mutate_account(who, |account| {
             let free_slash = cmp::min(account.free, value);
@@ -1064,6 +1067,9 @@ impl<T: Config> ReservableCurrency<T::AccountId> for Module<T> {
         if value.is_zero() {
             return Zero::zero();
         }
+        if Self::total_balance(who).is_zero() {
+            return value;
+        }
 
         let actual = Self::mutate_account(who, |account| {
             let actual = cmp::min(account.reserved, value);
@@ -1088,6 +1094,9 @@ impl<T: Config> ReservableCurrency<T::AccountId> for Module<T> {
     ) -> (Self::NegativeImbalance, Self::Balance) {
         if value.is_zero() {
             return (NegativeImbalance::zero(), Zero::zero());
+        }
+        if Self::total_balance(who).is_zero() {
+            return (NegativeImbalance::zero(), value);
         }
 
         Self::mutate_account(who, |account| {
