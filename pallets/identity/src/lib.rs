@@ -274,9 +274,6 @@ decl_module! {
         /// - `target_account` (primary key of the new Identity) can be linked to just one and only
         /// one identity.
         /// - External secondary keys can be linked to just one identity.
-        ///
-        /// # Weight
-        /// `7_000_000_000 + 600_000 * secondary_keys.len()`
         #[weight = <T as Config>::WeightInfo::cdd_register_did(secondary_keys.len() as u32)]
         pub fn cdd_register_did(
             origin,
@@ -583,6 +580,27 @@ decl_module! {
         pub fn register_custom_claim_type(origin, ty: Vec<u8>) {
             Self::base_register_custom_claim_type(origin, ty)?;
         }
+
+        /// Register `target_account` with a new Identity and issue a CDD claim with a blank CddId
+        ///
+        /// # Failure
+        /// - `origin` has to be a active CDD provider. Inactive CDD providers cannot add new
+        /// claims.
+        /// - `target_account` (primary key of the new Identity) can be linked to just one and only
+        /// one identity.
+        /// - External secondary keys can be linked to just one identity.
+        #[weight = <T as Config>::WeightInfo::cdd_register_did(secondary_keys.len() as u32).saturating_add(<T as Config>::WeightInfo::add_claim())]
+        pub fn cdd_register_did_with_cdd(
+            origin,
+            target_account: T::AccountId,
+            secondary_keys: Vec<SecondaryKey<T::AccountId>>,
+            expiry: Option<T::Moment>
+        ) {
+            let (cdd_did, target_did) = Self::base_cdd_register_did(origin, target_account, secondary_keys)?;
+            let cdd_claim = Claim::CustomerDueDiligence(CddId::default());
+            Self::base_add_claim(target_did, cdd_claim, cdd_did, expiry)?;
+        }
+
     }
 }
 
