@@ -45,10 +45,8 @@ where
     /// Do the validate checks. This can be applied to both signed and unsigned.
     ///
     /// It only checks that the block weight and length limit will not exceed.
-    /// NOTE The returned transaction priority is 0 on success.
     fn do_validate(info: &DispatchInfoOf<T::Call>, len: usize) -> TransactionValidity {
-        let mut tv = CW::<T>::do_validate(info, len)?;
-        tv.priority = 0;
+        let tv = CW::<T>::do_validate(info, len)?;
         Ok(tv)
     }
 }

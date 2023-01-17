@@ -176,7 +176,7 @@ decl_module! {
         const MaxConditionComplexity: u32 = T::MaxConditionComplexity::get();
 
         /// Adds a compliance requirement to an asset's compliance by ticker.
-        /// If the compliance requirement is a duplicate, it does nothing.
+        /// If there are duplicate ClaimTypes for a particular trusted issuer, duplicates are removed.
         ///
         /// # Arguments
         /// * origin - Signer of the dispatchable. It should be the owner of the ticker
