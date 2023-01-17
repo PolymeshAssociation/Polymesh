@@ -9,6 +9,7 @@ use pallet_base::try_next_pre;
 use pallet_portfolio::PortfolioNFT;
 use polymesh_common_utilities::compliance_manager::Config as ComplianceManagerConfig;
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
+use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 pub use polymesh_common_utilities::traits::nft::{Config, Event, WeightInfo};
 use polymesh_primitives::asset::{AssetName, AssetType};
 use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
@@ -151,6 +152,8 @@ decl_error! {
         InvalidNFTTransferBalanceOverflow,
         /// Failed to transfer an NFT - not enough balance.
         InvalidNFTTransferNoBalance,
+        /// Failed to transfer an NFT - compliance failed.
+        InvalidNFTTransferComplianceFailure,
         /// The maximum number of metadata keys was exceeded.
         MaxNumberOfKeysExceeded,
         /// The NFT does not exist.
@@ -394,12 +397,16 @@ impl<T: Config> Module<T> {
             .checked_add(transferred_amount)
             .ok_or(Error::<T>::InvalidNFTTransferBalanceOverflow)?;
         // Verifies that all compliance rules are being respected
-        T::Compliance::verify_restriction(
+        let code = T::Compliance::verify_restriction(
             nfts.ticker(),
             Some(sender_portfolio.did),
             Some(receiver_portfolio.did),
             transferred_amount,
         )?;
+        if code != ERC1400_TRANSFER_SUCCESS {
+            return Err(Error::<T>::InvalidNFTTransferComplianceFailure.into());
+        }
+
         Ok(())
     }
 }

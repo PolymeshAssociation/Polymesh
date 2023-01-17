@@ -2844,6 +2844,7 @@ fn add_and_affirm_nft_instruction() {
             value: AssetMetadataValue(b"test".to_vec()),
         }];
         mint_nft(alice.clone(), TICKER, nfts_metadata, PortfolioKind::Default);
+        ComplianceManager::pause_asset_compliance(alice.origin(), TICKER).unwrap();
         let venue_id = create_venue(alice);
 
         // Adds and affirms the instruction

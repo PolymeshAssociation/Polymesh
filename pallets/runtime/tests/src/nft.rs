@@ -21,6 +21,7 @@ use crate::ext_builder::ExtBuilder;
 use crate::storage::{TestStorage, User};
 
 type Asset = pallet_asset::Module<TestStorage>;
+type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
 type NFT = pallet_nft::Module<TestStorage>;
 type NFTError = pallet_nft::Error<TestStorage>;
@@ -622,7 +623,46 @@ fn transfer_nft_not_owned() {
 
 /// An NFT can only be transferred if the compliance rules are respected.
 #[test]
-fn transfer_nft_failing_compliance() {}
+fn transfer_nft_failing_compliance() {
+    ExtBuilder::default().build().execute_with(|| {
+        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+
+        // First we need to create a collection and mint one NFT
+        let alice: User = User::new(AccountKeyring::Alice);
+        let bob: User = User::new(AccountKeyring::Bob);
+        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(alice.clone(), ticker.clone(), collection_keys);
+        let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
+            key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            value: AssetMetadataValue(b"test".to_vec()),
+        }];
+        mint_nft(
+            alice.clone(),
+            ticker.clone(),
+            nfts_metadata,
+            PortfolioKind::Default,
+        );
+
+        // transfer the NFT
+        let sender_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+        let receiver_portfolio = PortfolioId {
+            did: bob.did,
+            kind: PortfolioKind::Default,
+        };
+        let nfts = NFTs::new(ticker, vec![NFTId(1)]).unwrap();
+        assert_noop!(
+            with_transaction(|| {
+                NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts)
+            }),
+            NFTError::InvalidNFTTransferComplianceFailure
+        );
+    });
+}
 
 /// Successfully transfer an NFT
 #[test]
@@ -647,6 +687,7 @@ fn transfer_nft() {
             nfts_metadata,
             PortfolioKind::Default,
         );
+        ComplianceManager::pause_asset_compliance(alice.origin(), ticker.clone()).unwrap();
 
         // transfer the NFT
         let sender_portfolio = PortfolioId {
