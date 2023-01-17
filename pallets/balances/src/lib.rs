@@ -1058,6 +1058,8 @@ impl<T: Config> ReservableCurrency<T::AccountId> for Module<T> {
     /// Unreserve some funds, returning any amount that was unable to be unreserved.
     ///
     /// Is a no-op if the value to be unreserved is zero.
+    ///
+    /// NOTE: returns amount value which wasn't successfully unreserved.
     fn unreserve(who: &T::AccountId, value: Self::Balance) -> Self::Balance {
         if value.is_zero() {
             return Zero::zero();
@@ -1101,6 +1103,8 @@ impl<T: Config> ReservableCurrency<T::AccountId> for Module<T> {
     /// Is a no-op if:
     /// - the value to be moved is zero; or
     /// - the `slashed` id equal to `beneficiary` and the `status` is `Reserved`.
+    ///
+    /// NOTE: returns actual amount of transferred value in `Ok` case.
     fn repatriate_reserved(
         slashed: &T::AccountId,
         beneficiary: &T::AccountId,
@@ -1113,7 +1117,7 @@ impl<T: Config> ReservableCurrency<T::AccountId> for Module<T> {
 
         if slashed == beneficiary {
             return match status {
-                Status::Free => Ok(Self::unreserve(slashed, value)),
+                Status::Free => Ok(value.saturating_sub(Self::unreserve(slashed, value))),
                 Status::Reserved => Ok(value.saturating_sub(Self::reserved_balance(slashed))),
             };
         }
