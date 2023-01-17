@@ -100,7 +100,7 @@ decl_storage! {
         /// and uniqueness of names in `Portfolios`.
         pub NameToNumber get(fn name_to_number):
             double_map hasher(identity) IdentityId, hasher(blake2_128_concat) PortfolioName =>
-                PortfolioNumber;
+                Option<PortfolioNumber>;
 
         /// How many assets with non-zero balance this portfolio contains.
         pub PortfolioAssetCount get(fn portfolio_has_assets):
@@ -362,7 +362,7 @@ decl_module! {
             });
             storage_migrate_on!(StorageVersion, 2, {
                 Portfolios::iter()
-                    .filter(|(identity, number, name)| number == &Self::name_to_number(identity, name))
+                    .filter(|(identity, number, name)| Some(number) == Self::name_to_number(identity, name).as_ref())
                     .for_each(|(identity, number, name)| {
                             NameToNumber::insert(identity, name, number);
                     }
