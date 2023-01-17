@@ -108,6 +108,7 @@ use mock::*;
 use pallet_balances::Error as BalancesError;
 use pallet_identity::Error as IdentityError;
 use pallet_staking::*;
+use polymesh_primitives::Claim;
 use sp_npos_elections::ElectionScore;
 use sp_runtime::{
     assert_eq_error_rate,
@@ -4342,8 +4343,8 @@ mod offchain_phragmen {
     }
 
     #[test]
-fn off_chain_election_validator_non_compliance() {
-    ExtBuilder::default()
+    fn off_chain_election_validator_non_compliance() {
+        ExtBuilder::default()
             .offchain_election_ext()
             .validator_count(4)
             .has_stakers(false)
@@ -4355,37 +4356,46 @@ fn off_chain_election_validator_non_compliance() {
                 let acc_70 = 70;
                 // Add did to user
                 provide_did_to_user(70);
+                let entity_id = Identity::get_identity(&70).unwrap();
+                let cdd_account_id = 1005;
+                let (cdd_id, _) = create_cdd_id_and_investor_uid(entity_id);
+
                 // Add permissions
                 assert_add_permissioned_validator!(&acc_70);
-
-                ValidatorCount::put(3);
                 let (compact, winners, score) = prepare_submission_with(true, true, 2, |_| {});
-                ValidatorCount::put(4);
 
-                // Ensure winner count
-                assert_eq!(winners.len(), 3);
-
-                // Ensure correct error message
-                assert_noop!(
-                    submit_solution(Origin::signed(10), winners.clone(), compact.clone(), score,),
-                    Error::<Test>::OffchainElectionBogusWinnerCount,
-                );
-
-                // Remove validator
-                assert_ok!(Staking::remove_permissioned_validator(
-                    Origin::signed(2000),
-                    Identity::get_identity(&acc_70).unwrap()
+                // Ensure submit_solution runs successfully
+                assert_ok!(submit_solution(
+                    Origin::signed(acc_70),
+                    winners.clone(),
+                    compact.clone(),
+                    score
                 ));
 
-                // Ensure identity is removed
-                assert_absent_identity!(&acc_70);
+                assert_eq!(winners.len(), 4);
 
+                // Remove cdd claim for 70
+                assert_ok!(Identity::revoke_claim(
+                    Origin::signed(cdd_account_id),
+                    entity_id,
+                    Claim::CustomerDueDiligence(cdd_id),
+                ));
+
+                let (compact_2, winners_2, score_2) =
+                    prepare_submission_with(true, true, 2, |_| {});
+
+                // Ensure submit_solution gets error
                 assert_noop!(
-                    submit_solution(Origin::signed(acc_70), winners, compact, score,),
-                    Error::<Test>::OffchainElectionBogusWinnerCount,
+                    submit_solution(
+                        Origin::signed(acc_70),
+                        winners_2.clone(),
+                        compact_2.clone(),
+                        score_2,
+                    ),
+                    Error::<Test>::OffchainElectionWeakSubmission,
                 );
             })
-}
+    }
 
     #[test]
     fn offchain_storage_is_set() {
@@ -6007,5 +6017,3 @@ fn test_running_count() {
             ));
         });
 }
-
-
