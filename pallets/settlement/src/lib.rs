@@ -1042,10 +1042,9 @@ decl_module! {
             ensure!(InstructionLegs::iter_prefix(id).count() as u32 <= legs_count, Error::<T>::LegCountTooSmall);
 
             // Executes the instruction
-            match Self::execute_instruction_retryable(id) {
-                Ok(_) => Self::deposit_event(RawEvent::SettlementManuallyExecuted(did, id)),
-                Err(e) => Self::deposit_event(RawEvent::FailedToExecuteInstruction(id, e)),
-            }
+            Self::execute_instruction_retryable(id)?;
+
+            Self::deposit_event(RawEvent::SettlementManuallyExecuted(did, id));
         }
 
     }
