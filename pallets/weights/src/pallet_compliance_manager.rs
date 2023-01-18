@@ -50,8 +50,8 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_compliance_manager using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_compliance_manager::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
     fn condition_costs(a: u32, b: u32, c: u32, d: u32) -> Weight {
         Weight::from_ref_time(0 as u64)
             // Standard Error: 522_000

@@ -50,8 +50,8 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_pips using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_pips::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_pips::WeightInfo for SubstrateWeight {
     // Storage: Pips PruneHistoricalPips (r:1 w:1)
     fn set_prune_historical_pips() -> Weight {
         Weight::from_ref_time(27_104_000 as u64)

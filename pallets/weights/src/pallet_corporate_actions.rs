@@ -50,8 +50,8 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_corporate_actions using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_corporate_actions::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_corporate_actions::WeightInfo for SubstrateWeight {
     // Storage: CorporateAction MaxDetailsLength (r:0 w:1)
     fn set_max_details_length() -> Weight {
         Weight::from_ref_time(42_777_000 as u64).saturating_add(DbWeight::get().writes(1 as u64))

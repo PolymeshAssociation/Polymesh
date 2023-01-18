@@ -207,7 +207,7 @@ impl polymesh_common_utilities::traits::identity::Config for Runtime {
     type OffChainSignature = MultiSignature;
     type ProtocolFee = pallet_protocol_fee::Module<Runtime>;
     type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
-    type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_identity::SubstrateWeight;
     type IdentityFn = pallet_identity::Module<Runtime>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
@@ -220,7 +220,7 @@ impl pallet_committee::Config<GovernanceCommittee> for Runtime {
     type CommitteeOrigin = VMO<GovernanceCommittee>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_committee::SubstrateWeight;
 }
 
 /// PolymeshCommittee as an instance of group
@@ -233,7 +233,7 @@ impl pallet_group::Config<pallet_group::Instance1> for Runtime {
     type ResetOrigin = Self::LimitOrigin;
     type MembershipInitialized = PolymeshCommittee;
     type MembershipChanged = PolymeshCommittee;
-    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_group::SubstrateWeight;
 }
 
 macro_rules! committee_config {
@@ -245,7 +245,7 @@ macro_rules! committee_config {
             type CommitteeOrigin = VMO<pallet_committee::$instance>;
             type VoteThresholdOrigin = Self::CommitteeOrigin;
             type RuntimeEvent = RuntimeEvent;
-            type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_committee::SubstrateWeight;
         }
         impl pallet_group::Config<pallet_group::$instance> for Runtime {
             type RuntimeEvent = RuntimeEvent;
@@ -259,7 +259,7 @@ macro_rules! committee_config {
             type ResetOrigin = VMO<GovernanceCommittee>;
             type MembershipInitialized = $committee;
             type MembershipChanged = $committee;
-            type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_group::SubstrateWeight;
         }
     };
 }
@@ -274,7 +274,7 @@ impl pallet_pips::Config for Runtime {
     type TechnicalCommitteeVMO = VMO<pallet_committee::Instance3>;
     type UpgradeCommitteeVMO = VMO<pallet_committee::Instance4>;
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_pips::SubstrateWeight;
     type Scheduler = Scheduler;
     type SchedulerCall = RuntimeCall;
 }
@@ -289,12 +289,12 @@ impl pallet_group::Config<pallet_group::Instance2> for Runtime {
     type ResetOrigin = polymesh_primitives::EnsureRoot;
     type MembershipInitialized = Identity;
     type MembershipChanged = Identity;
-    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_group::SubstrateWeight;
 }
 
 impl pallet_test_utils::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = polymesh_weights::pallet_test_utils::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_test_utils::SubstrateWeight;
 }
 
 pub type AllModulesExported = AllPalletsWithSystem;

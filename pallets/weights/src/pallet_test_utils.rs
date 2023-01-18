@@ -50,8 +50,8 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_test_utils using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_test_utils::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_test_utils::WeightInfo for SubstrateWeight {
     // Storage: Identity MultiPurposeNonce (r:1 w:1)
     // Storage: Identity KeyRecords (r:1 w:1)
     // Storage: System ParentHash (r:1 w:0)

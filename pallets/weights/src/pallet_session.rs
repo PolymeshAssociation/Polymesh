@@ -50,8 +50,8 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_session using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_session::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_session::WeightInfo for SubstrateWeight {
     // Storage: Staking Ledger (r:1 w:0)
     // Storage: Session NextKeys (r:1 w:1)
     // Storage: Session KeyOwner (r:4 w:4)

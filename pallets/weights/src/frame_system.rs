@@ -50,8 +50,8 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for frame_system using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl frame_system::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl frame_system::WeightInfo for SubstrateWeight {
     fn remark(b: u32) -> Weight {
         Weight::from_ref_time(0 as u64)
             // Standard Error: 0

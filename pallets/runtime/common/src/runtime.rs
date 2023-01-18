@@ -82,7 +82,7 @@ macro_rules! misc_pallet_impls {
             type OnKilledAccount = ();
             /// The data to be stored in an account.
             type AccountData = polymesh_common_utilities::traits::balances::AccountData;
-            type SystemWeightInfo = polymesh_weights::frame_system::WeightInfo;
+            type SystemWeightInfo = polymesh_weights::frame_system::SubstrateWeight;
             type OnSetCode = ();
             type MaxConsumers = frame_support::traits::ConstU32<16>;
         }
@@ -93,7 +93,7 @@ macro_rules! misc_pallet_impls {
         }
 
         impl pallet_babe::Config for Runtime {
-            type WeightInfo = polymesh_weights::pallet_babe::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_babe::SubstrateWeight;
             type EpochDuration = EpochDuration;
             type ExpectedBlockTime = ExpectedBlockTime;
             type EpochChangeTrigger = pallet_babe::ExternalTrigger;
@@ -124,7 +124,7 @@ macro_rules! misc_pallet_impls {
             type Currency = Balances;
             type Deposit = IndexDeposit;
             type RuntimeEvent = RuntimeEvent;
-            type WeightInfo = polymesh_weights::pallet_indices::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_indices::SubstrateWeight;
         }
 
         impl<'a> core::convert::TryFrom<&'a RuntimeCall>
@@ -169,14 +169,14 @@ macro_rules! misc_pallet_impls {
             type ExistentialDeposit = ExistentialDeposit;
             type AccountStore = frame_system::Pallet<Runtime>;
             type CddChecker = polymesh_runtime_common::cdd_check::CddChecker<Runtime>;
-            type WeightInfo = polymesh_weights::pallet_balances::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_balances::SubstrateWeight;
         }
 
         impl pallet_protocol_fee::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type Currency = Balances;
             type OnProtocolFeePayment = DealWithFees;
-            type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_protocol_fee::SubstrateWeight;
             type Subsidiser = Relayer;
         }
 
@@ -184,7 +184,7 @@ macro_rules! misc_pallet_impls {
             type Moment = polymesh_primitives::Moment;
             type OnTimestampSet = Babe;
             type MinimumPeriod = MinimumPeriod;
-            type WeightInfo = polymesh_weights::pallet_timestamp::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_timestamp::SubstrateWeight;
         }
 
         impl pallet_authorship::Config for Runtime {
@@ -213,7 +213,7 @@ macro_rules! misc_pallet_impls {
             type SessionHandler =
                 <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
             type Keys = SessionKeys;
-            type WeightInfo = polymesh_weights::pallet_session::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_session::SubstrateWeight;
         }
 
         impl pallet_session::historical::Config for Runtime {
@@ -259,7 +259,7 @@ macro_rules! misc_pallet_impls {
             // The unsigned solution weight targeted by the OCW. We set it to the maximum possible value of
             // a single extrinsic.
             type OffchainSolutionWeightLimit = polymesh_runtime_common::OffchainSolutionWeightLimit;
-            type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_staking::SubstrateWeight;
         }
 
         impl pallet_authority_discovery::Config for Runtime {
@@ -275,7 +275,7 @@ macro_rules! misc_pallet_impls {
             type RuntimeEvent = RuntimeEvent;
             type Scheduler = Scheduler;
             type SchedulerCall = RuntimeCall;
-            type WeightInfo = polymesh_weights::pallet_multisig::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_multisig::SubstrateWeight;
         }
 
         impl pallet_bridge::Config for Runtime {
@@ -287,22 +287,22 @@ macro_rules! misc_pallet_impls {
         impl pallet_portfolio::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type Asset = Asset;
-            type WeightInfo = polymesh_weights::pallet_portfolio::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_portfolio::SubstrateWeight;
         }
 
         impl pallet_external_agents::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
-            type WeightInfo = polymesh_weights::pallet_external_agents::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_external_agents::SubstrateWeight;
         }
 
         impl pallet_relayer::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
-            type WeightInfo = polymesh_weights::pallet_relayer::WeightInfo<Runtime>;
+            type WeightInfo = polymesh_weights::pallet_relayer::SubstrateWeight<Runtime>;
         }
 
         impl pallet_rewards::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
-            type WeightInfo = polymesh_weights::pallet_rewards::WeightInfo<Runtime>;
+            type WeightInfo = polymesh_weights::pallet_rewards::SubstrateWeight<Runtime>;
         }
 
         impl pallet_asset::Config for Runtime {
@@ -316,15 +316,15 @@ macro_rules! misc_pallet_impls {
             type AssetMetadataValueMaxLength = AssetMetadataValueMaxLength;
             type AssetMetadataTypeDefMaxLength = AssetMetadataTypeDefMaxLength;
             type AssetFn = Asset;
-            type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
-            type CPWeightInfo = polymesh_weights::pallet_checkpoint::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_asset::SubstrateWeight;
+            type CPWeightInfo = polymesh_weights::pallet_checkpoint::SubstrateWeight;
         }
 
         impl polymesh_contracts::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type MaxInLen = MaxInLen;
             type MaxOutLen = MaxOutLen;
-            type WeightInfo = polymesh_weights::polymesh_contracts::WeightInfo;
+            type WeightInfo = polymesh_weights::polymesh_contracts::SubstrateWeight;
         }
         impl pallet_contracts::Config for Runtime {
             type Time = Timestamp;
@@ -355,7 +355,7 @@ macro_rules! misc_pallet_impls {
         impl pallet_compliance_manager::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type Asset = Asset;
-            type WeightInfo = polymesh_weights::pallet_compliance_manager::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_compliance_manager::SubstrateWeight;
             type MaxConditionComplexity = MaxConditionComplexity;
         }
 
@@ -363,9 +363,9 @@ macro_rules! misc_pallet_impls {
             type RuntimeEvent = RuntimeEvent;
             type MaxTargetIds = MaxTargetIds;
             type MaxDidWhts = MaxDidWhts;
-            type WeightInfo = polymesh_weights::pallet_corporate_actions::WeightInfo;
-            type BallotWeightInfo = polymesh_weights::pallet_corporate_ballot::WeightInfo;
-            type DistWeightInfo = polymesh_weights::pallet_capital_distribution::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_corporate_actions::SubstrateWeight;
+            type BallotWeightInfo = polymesh_weights::pallet_corporate_ballot::SubstrateWeight;
+            type DistWeightInfo = polymesh_weights::pallet_capital_distribution::SubstrateWeight;
         }
 
         impl pallet_statistics::Config for Runtime {
@@ -373,13 +373,13 @@ macro_rules! misc_pallet_impls {
             type Asset = Asset;
             type MaxStatsPerAsset = MaxStatsPerAsset;
             type MaxTransferConditionsPerAsset = MaxTransferConditionsPerAsset;
-            type WeightInfo = polymesh_weights::pallet_statistics::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_statistics::SubstrateWeight;
         }
 
         impl pallet_utility::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type Call = RuntimeCall;
-            type WeightInfo = polymesh_weights::pallet_utility::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_utility::SubstrateWeight;
         }
 
         impl pallet_scheduler::Config for Runtime {
@@ -390,7 +390,7 @@ macro_rules! misc_pallet_impls {
             type MaximumWeight = MaximumSchedulerWeight;
             type ScheduleOrigin = polymesh_primitives::EnsureRoot;
             type MaxScheduledPerBlock = MaxScheduledPerBlock;
-            type WeightInfo = polymesh_weights::pallet_scheduler::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_scheduler::SubstrateWeight;
             type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
             type Preimages = Preimage;
         }
@@ -402,7 +402,7 @@ macro_rules! misc_pallet_impls {
         }
 
         impl pallet_preimage::Config for Runtime {
-            type WeightInfo = polymesh_weights::pallet_preimage::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_preimage::SubstrateWeight;
             type RuntimeEvent = RuntimeEvent;
             type Currency = Balances;
             type ManagerOrigin = polymesh_primitives::EnsureRoot;
@@ -425,7 +425,7 @@ macro_rules! misc_pallet_impls {
             type ValidatorSet = Historical;
             type UnsignedPriority = ImOnlineUnsignedPriority;
             type ReportUnresponsiveness = Offences;
-            type WeightInfo = polymesh_weights::pallet_im_online::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_im_online::SubstrateWeight;
             type MaxKeys = MaxKeys;
             type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
             type MaxPeerDataEncodingSize = MaxPeerDataEncodingSize;
@@ -457,20 +457,20 @@ macro_rules! misc_pallet_impls {
         impl pallet_treasury::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type Currency = Balances;
-            type WeightInfo = polymesh_weights::pallet_treasury::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_treasury::SubstrateWeight;
         }
 
         impl pallet_settlement::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type Proposal = RuntimeCall;
             type Scheduler = Scheduler;
-            type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_settlement::SubstrateWeight;
             type MaxLegsInInstruction = MaxLegsInInstruction;
         }
 
         impl pallet_sto::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
-            type WeightInfo = polymesh_weights::pallet_sto::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_sto::SubstrateWeight;
         }
 
         impl polymesh_common_utilities::traits::permissions::Config for Runtime {

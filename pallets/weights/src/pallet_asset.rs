@@ -50,8 +50,8 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_asset using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_asset::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Asset Tokens (r:1 w:0)
     // Storage: Asset TickerConfig (r:1 w:0)

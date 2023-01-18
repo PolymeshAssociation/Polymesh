@@ -44,8 +44,8 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_scheduler using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_scheduler::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_scheduler::WeightInfo for SubstrateWeight {
 	// Storage: Scheduler IncompleteSince (r:1 w:1)
 	fn service_agendas_base() -> Weight {
 		Weight::from_ref_time(4_992_000 as u64)

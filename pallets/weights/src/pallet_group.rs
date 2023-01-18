@@ -50,8 +50,8 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_group using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_group::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_group::WeightInfo for SubstrateWeight {
     // Storage: Instance2Group ActiveMembersLimit (r:1 w:1)
     fn set_active_members_limit() -> Weight {
         Weight::from_ref_time(30_672_000 as u64)

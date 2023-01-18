@@ -220,7 +220,7 @@ impl pallet_balances::Config for Test {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type CddChecker = Test;
-    type WeightInfo = polymesh_weights::pallet_balances::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_balances::SubstrateWeight;
     type MaxLocks = MaxLocks;
 }
 
@@ -250,7 +250,7 @@ impl pallet_committee::Config<pallet_committee::Instance1> for Test {
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_committee::SubstrateWeight;
 }
 
 impl pallet_session::historical::Config for Test {
@@ -265,7 +265,7 @@ impl pallet_pips::Config for Test {
     type TechnicalCommitteeVMO = frame_system::EnsureRoot<AccountId>;
     type UpgradeCommitteeVMO = frame_system::EnsureRoot<AccountId>;
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_pips::SubstrateWeight;
     type Scheduler = Scheduler;
     type SchedulerCall = RuntimeCall;
 }
@@ -273,7 +273,7 @@ impl pallet_pips::Config for Test {
 impl pallet_treasury::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Currency = pallet_balances::Module<Self>;
-    type WeightInfo = polymesh_weights::pallet_treasury::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_treasury::SubstrateWeight;
 }
 
 impl pallet_authorship::Config for Test {
@@ -301,14 +301,14 @@ impl group::Config<group::Instance2> for Test {
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
     type MembershipInitialized = ();
     type MembershipChanged = ();
-    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_group::SubstrateWeight;
 }
 
 impl protocol_fee::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type OnProtocolFeePayment = ();
-    type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_protocol_fee::SubstrateWeight;
     type Subsidiser = Test;
 }
 
@@ -325,7 +325,7 @@ impl polymesh_common_utilities::traits::identity::Config for Test {
     type OffChainSignature = TestSignature;
     type ProtocolFee = protocol_fee::Module<Test>;
     type GCVotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
-    type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_identity::SubstrateWeight;
     type IdentityFn = identity::Module<Test>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
@@ -358,7 +358,7 @@ parameter_types! {
 }
 
 impl pallet_preimage::Config for Test {
-    type WeightInfo = polymesh_weights::pallet_preimage::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_preimage::SubstrateWeight;
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type ManagerOrigin = EnsureRoot<AccountId>;
@@ -368,7 +368,7 @@ impl pallet_preimage::Config for Test {
 
 impl pallet_test_utils::Config for Test {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = polymesh_weights::pallet_test_utils::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_test_utils::SubstrateWeight;
 }
 
 impl CddAndFeeDetails<AccountId, Call> for Test {
@@ -618,7 +618,7 @@ impl Config for Test {
     type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
     type UnsignedPriority = UnsignedPriority;
     type OffchainSolutionWeightLimit = polymesh_runtime_common::OffchainSolutionWeightLimit;
-    type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_staking::SubstrateWeight;
     type RequiredAddOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredRemoveOrigin = EnsureSignedBy<TwoThousand, Self::AccountId>;
     type RequiredCommissionOrigin = frame_system::EnsureRoot<AccountId>;

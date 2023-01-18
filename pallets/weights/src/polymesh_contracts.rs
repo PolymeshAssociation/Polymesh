@@ -50,8 +50,8 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for polymesh_contracts using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl polymesh_contracts::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl polymesh_contracts::WeightInfo for SubstrateWeight {
     // Storage: Identity KeyRecords (r:2 w:0)
     // Storage: System Account (r:1 w:0)
     // Storage: Contracts ContractInfoOf (r:1 w:1)

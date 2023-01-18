@@ -50,8 +50,8 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_protocol_fee using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_protocol_fee::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_protocol_fee::WeightInfo for SubstrateWeight {
     // Storage: ProtocolFee Coefficient (r:0 w:1)
     fn change_coefficient() -> Weight {
         Weight::from_ref_time(27_515_000 as u64).saturating_add(DbWeight::get().writes(1 as u64))

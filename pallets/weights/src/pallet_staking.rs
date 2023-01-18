@@ -50,8 +50,8 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_staking using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_staking::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_staking::WeightInfo for SubstrateWeight {
     // Storage: Staking Bonded (r:1 w:1)
     // Storage: Staking Ledger (r:1 w:1)
     // Storage: Staking CurrentEra (r:1 w:0)

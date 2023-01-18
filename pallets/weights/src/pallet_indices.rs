@@ -50,8 +50,8 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_indices using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_indices::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_indices::WeightInfo for SubstrateWeight {
     // Storage: Indices Accounts (r:1 w:1)
     fn claim() -> Weight {
         Weight::from_ref_time(50_420_000 as u64)

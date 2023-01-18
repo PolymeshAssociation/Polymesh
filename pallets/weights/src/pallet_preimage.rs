@@ -44,8 +44,8 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_scheduler using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_preimage::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_preimage::WeightInfo for SubstrateWeight {
 	// Storage: Preimage PreimageFor (r:1 w:1)
 	// Storage: Preimage StatusFor (r:1 w:1)
 	fn note_preimage(s: u32, ) -> Weight {
