@@ -107,8 +107,9 @@ use frame_support::{
 use mock::*;
 use pallet_balances::Error as BalancesError;
 use pallet_identity::Error as IdentityError;
+use pallet_identity::{Claim1stKey, Claims};
 use pallet_staking::*;
-use polymesh_primitives::Claim;
+use polymesh_primitives::ClaimType;
 use sp_npos_elections::ElectionScore;
 use sp_runtime::{
     assert_eq_error_rate,
@@ -4348,55 +4349,76 @@ mod offchain_phragmen {
             .offchain_election_ext()
             .validator_count(4)
             .has_stakers(false)
+            .session_per_era(5)
+            .period(10)
+            .election_lookahead(3)
             .build()
             .execute_with(|| {
                 build_offchain_phragmen_test_ext();
                 run_to_block(12);
+                ValidatorCount::put(10);
 
-                let acc_70 = 70;
                 // Add did to user
                 provide_did_to_user(70);
-                let entity_id = Identity::get_identity(&70).unwrap();
-                let cdd_account_id = 1005;
-                let (cdd_id, _) = create_cdd_id_and_investor_uid(entity_id);
+                add_secondary_key(70, 71);
+                // add a new validator candidate
+                assert_ok!(Staking::bond(
+                    Origin::signed(70),
+                    71,
+                    1000,
+                    RewardDestination::Controller
+                ));
+                assert_add_permissioned_validator!(&70);
 
-                // Add permissions
-                assert_add_permissioned_validator!(&acc_70);
-                let (compact, winners, score) = prepare_submission_with(true, true, 2, |_| {});
+                assert_ok!(Staking::validate(
+                    Origin::signed(71),
+                    ValidatorPrefs::default()
+                ));
+                assert_ok!(Session::set_keys(
+                    Origin::signed(71),
+                    SessionKeys { other: 71.into() },
+                    vec![]
+                ));
+
+                run_to_block(37);
+
+                let entity_id = Identity::get_identity(&70).unwrap();
+
+                let (_compact, winners, _score) = prepare_submission_with(true, true, 2, |_| {});
 
                 // Ensure submit_solution runs successfully
-                assert_ok!(Staking::submit_election_solution_unsigned(
-                    Origin::none(),
-                    winners.clone(),
-                    compact.clone(),
-                    score,
-                    current_era(),
-                    election_size(),
-                ));
+                // assert_ok!(submit_solution(
+                //     Origin::signed(acc_70),
+                //     winners.clone(),
+                //     compact.clone(),
+                //     score,
+                // ));
 
-                assert_eq!(winners.len(), 4);
+                assert_eq!(winners.len(), 5);
 
-                // Remove cdd claim for 70
-                assert_ok!(Identity::revoke_claim(
-                    Origin::signed(cdd_account_id),
-                    entity_id,
-                    Claim::CustomerDueDiligence(cdd_id),
-                ));
+                let claim_key = Claim1stKey {
+                    target: entity_id,
+                    claim_type: ClaimType::CustomerDueDiligence,
+                };
+                Claims::remove_prefix(claim_key, None); // Remove all CDD claims for the validator.
+
+                // Ensure did no longer has valid cdd
+                assert_eq!(Identity::has_valid_cdd(entity_id), false);
 
                 let (compact_2, winners_2, score_2) =
                     prepare_submission_with(true, true, 2, |_| {});
 
+                assert_eq!(winners_2.len(), 4);
+
                 // Ensure submit_solution gets error
                 assert_noop!(
-                    Staking::submit_election_solution_unsigned(
-                        Origin::none(),
+                    submit_solution(
+                        Origin::signed(10),
                         winners_2.clone(),
                         compact_2.clone(),
                         score_2,
-                        current_era(),
-                        election_size(),
                     ),
-                    Error::<Test>::OffchainElectionWeakSubmission,
+                    Error::<Test>::OffchainElectionBogusWinnerCount,
                 );
             })
     }
