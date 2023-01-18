@@ -50,8 +50,8 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_settlement using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_settlement::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Settlement VenueCounter (r:1 w:1)
     // Storage: Settlement UserVenues (r:1 w:1)

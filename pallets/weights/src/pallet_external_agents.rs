@@ -50,8 +50,8 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_external_agents using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_external_agents::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_external_agents::WeightInfo for SubstrateWeight {
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
     // Storage: Permissions CurrentPalletName (r:1 w:0)

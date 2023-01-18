@@ -50,8 +50,8 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_im_online using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_im_online::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_im_online::WeightInfo for SubstrateWeight {
     // Storage: Session Validators (r:1 w:0)
     // Storage: Session CurrentIndex (r:1 w:0)
     // Storage: ImOnline ReceivedHeartbeats (r:1 w:1)

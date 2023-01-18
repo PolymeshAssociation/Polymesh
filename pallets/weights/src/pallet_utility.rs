@@ -66,8 +66,8 @@ fn sum_weights(calls: &[impl GetDispatchInfo]) -> Weight {
 }
 
 /// Weights for pallet_utility using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_utility::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_utility::WeightInfo for SubstrateWeight {
     // Storage: Permissions CurrentPalletName (r:1 w:1)
     // Storage: Permissions CurrentDispatchableName (r:1 w:1)
     fn batch(calls: &[impl GetDispatchInfo]) -> Weight {

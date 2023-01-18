@@ -33,8 +33,8 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for {{pallet}} using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl {{pallet}}::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl {{pallet}}::WeightInfo for SubstrateWeight {
     {{#each benchmarks as |benchmark|}}
     {{#each benchmark.comments as |comment|}}
     // {{comment}}

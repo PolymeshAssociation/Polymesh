@@ -50,8 +50,8 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_timestamp using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_timestamp::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_timestamp::WeightInfo for SubstrateWeight {
     // Storage: Timestamp Now (r:1 w:1)
     // Storage: Babe CurrentSlot (r:1 w:0)
     fn set() -> Weight {

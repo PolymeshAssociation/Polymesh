@@ -51,8 +51,8 @@ use polymesh_runtime_common::{
     RocksDbWeight as DbWeight, Weight, WEIGHT_PER_MICROS, WEIGHT_PER_NANOS,
 };
 /// Weights for pallet_grandpa using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_grandpa::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_grandpa::WeightInfo for SubstrateWeight {
     fn report_equivocation(validator_count: u32) -> Weight {
         // we take the validator set count from the membership proof to
         // calculate the weight but we set a floor of 100 validators.

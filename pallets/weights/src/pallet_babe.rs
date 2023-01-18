@@ -23,8 +23,8 @@ use polymesh_runtime_common::{
 };
 
 /// Weights for pallet_babe using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_babe::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_babe::WeightInfo for SubstrateWeight {
     fn plan_config_change() -> Weight {
         Weight::zero()
     }

@@ -50,8 +50,8 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_multisig using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_multisig::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_multisig::WeightInfo for SubstrateWeight {
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity CurrentDid (r:1 w:0)
     // Storage: MultiSig MultiSigNonce (r:1 w:1)

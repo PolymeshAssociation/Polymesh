@@ -50,8 +50,8 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_committee using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_committee::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_committee::WeightInfo for SubstrateWeight {
     // Storage: Instance1Committee VoteThreshold (r:0 w:1)
     fn set_vote_threshold() -> Weight {
         Weight::from_ref_time(20_972_000 as u64).saturating_add(DbWeight::get().writes(1 as u64))
