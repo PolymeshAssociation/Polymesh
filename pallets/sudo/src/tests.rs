@@ -53,7 +53,10 @@ fn sudo_basics() {
         }));
         assert_noop!(
             Sudo::sudo(RuntimeOrigin::signed(2), call),
-            Error::<Test>::RequireSudo
+            DispatchErrorWithPostInfo {
+                post_info: Some(MIN_WEIGHT).into(),
+                error: Error::<Test>::RequireSudo.into(),
+            }
         );
     });
 }
@@ -101,7 +104,10 @@ fn sudo_unchecked_weight_basics() {
                 call,
                 Weight::from_ref_time(1_000)
             ),
-            Error::<Test>::RequireSudo,
+            DispatchErrorWithPostInfo {
+                post_info: Some(MIN_WEIGHT).into(),
+                error: Error::<Test>::RequireSudo.into(),
+            }
         );
         // `I32Log` is unchanged after unsuccessful call.
         assert_eq!(Logger::i32_log(), vec![42i32]);
@@ -153,7 +159,10 @@ fn set_key_basics() {
         // A non-root `key` will trigger a `RequireSudo` error and a non-root `key` cannot change the root `key`.
         assert_noop!(
             Sudo::set_key(RuntimeOrigin::signed(2), 3),
-            Error::<Test>::RequireSudo
+            DispatchErrorWithPostInfo {
+                post_info: Some(MIN_WEIGHT).into(),
+                error: Error::<Test>::RequireSudo.into(),
+            }
         );
     });
 }
@@ -194,7 +203,10 @@ fn sudo_as_basics() {
         }));
         assert_noop!(
             Sudo::sudo_as(RuntimeOrigin::signed(3), 2, call),
-            Error::<Test>::RequireSudo
+            DispatchErrorWithPostInfo {
+                post_info: Some(MIN_WEIGHT).into(),
+                error: Error::<Test>::RequireSudo.into(),
+            }
         );
 
         // A non-privileged function will work when passed to `sudo_as` with the root `key`.
