@@ -422,6 +422,8 @@ decl_event!(
         VenueSignersUpdated(IdentityId, VenueId, Vec<AccountId>, bool),
         /// Settlement manually executed (did, id)
         SettlementManuallyExecuted(IdentityId, InstructionId),
+        /// Failed to execute instruction.
+        FailedToExecuteInstruction(InstructionId, DispatchError),
     }
 );
 
@@ -896,7 +898,9 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*_legs_count)]
         fn execute_scheduled_instruction(origin, id: InstructionId, _legs_count: u32) {
             ensure_root(origin)?;
-            Self::execute_instruction_retryable(id)?;
+            if let Err(e) = Self::execute_instruction_retryable(id) {
+                Self::deposit_event(RawEvent::FailedToExecuteInstruction(id, e));
+            }
         }
 
         /// Reschedules a failed instruction.
@@ -1038,9 +1042,10 @@ decl_module! {
             ensure!(InstructionLegs::iter_prefix(id).count() as u32 <= legs_count, Error::<T>::LegCountTooSmall);
 
             // Executes the instruction
-            Self::execute_instruction_retryable(id)?;
-
-            Self::deposit_event(RawEvent::SettlementManuallyExecuted(did, id));
+            match Self::execute_instruction_retryable(id) {
+                Ok(_) => Self::deposit_event(RawEvent::SettlementManuallyExecuted(did, id)),
+                Err(e) => Self::deposit_event(RawEvent::FailedToExecuteInstruction(id, e)),
+            }
         }
 
     }
