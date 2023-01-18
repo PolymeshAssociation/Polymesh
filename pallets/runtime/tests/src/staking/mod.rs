@@ -4365,11 +4365,13 @@ mod offchain_phragmen {
                 let (compact, winners, score) = prepare_submission_with(true, true, 2, |_| {});
 
                 // Ensure submit_solution runs successfully
-                assert_ok!(submit_solution(
-                    Origin::signed(acc_70),
+                assert_ok!(Staking::submit_election_solution_unsigned(
+                    Origin::none(),
                     winners.clone(),
                     compact.clone(),
-                    score
+                    score,
+                    current_era(),
+                    election_size(),
                 ));
 
                 assert_eq!(winners.len(), 4);
@@ -4386,11 +4388,13 @@ mod offchain_phragmen {
 
                 // Ensure submit_solution gets error
                 assert_noop!(
-                    submit_solution(
-                        Origin::signed(acc_70),
+                    Staking::submit_election_solution_unsigned(
+                        Origin::none(),
                         winners_2.clone(),
                         compact_2.clone(),
                         score_2,
+                        current_era(),
+                        election_size(),
                     ),
                     Error::<Test>::OffchainElectionWeakSubmission,
                 );
