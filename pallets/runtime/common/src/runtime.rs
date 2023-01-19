@@ -297,7 +297,7 @@ macro_rules! misc_pallet_impls {
 
         impl pallet_relayer::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
-            type WeightInfo = polymesh_weights::pallet_relayer::SubstrateWeight<Runtime>;
+            type WeightInfo = polymesh_weights::pallet_relayer::SubstrateWeight;
         }
 
         impl pallet_rewards::Config for Runtime {
