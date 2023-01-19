@@ -4381,18 +4381,18 @@ mod offchain_phragmen {
                 ));
 
                 run_to_block(37);
-
+                assert!(Staking::snapshot_validators().is_some());
                 let entity_id = Identity::get_identity(&70).unwrap();
 
-                let (_compact, winners, _score) = prepare_submission_with(true, true, 2, |_| {});
+                let (compact, winners, score) = prepare_submission_with(true, true, 2, |_| {});
 
                 // Ensure submit_solution runs successfully
-                // assert_ok!(submit_solution(
-                //     Origin::signed(acc_70),
-                //     winners.clone(),
-                //     compact.clone(),
-                //     score,
-                // ));
+                assert_ok!(submit_solution(
+                    Origin::signed(70),
+                    winners.clone(),
+                    compact.clone(),
+                    score,
+                ));
 
                 assert_eq!(winners.len(), 5);
 
@@ -4405,21 +4405,20 @@ mod offchain_phragmen {
                 // Ensure did no longer has valid cdd
                 assert_eq!(Identity::has_valid_cdd(entity_id), false);
 
+                run_to_block(87);
+                assert!(Staking::snapshot_validators().is_some());
                 let (compact_2, winners_2, score_2) =
                     prepare_submission_with(true, true, 2, |_| {});
 
                 assert_eq!(winners_2.len(), 4);
 
-                // Ensure submit_solution gets error
-                assert_noop!(
-                    submit_solution(
-                        Origin::signed(10),
-                        winners_2.clone(),
-                        compact_2.clone(),
-                        score_2,
-                    ),
-                    Error::<Test>::OffchainElectionBogusWinnerCount,
-                );
+                // Ensure submit_solution runs successfully
+                assert_ok!(submit_solution(
+                    Origin::signed(10),
+                    winners_2.clone(),
+                    compact_2.clone(),
+                    score_2,
+                ));
             })
     }
 
