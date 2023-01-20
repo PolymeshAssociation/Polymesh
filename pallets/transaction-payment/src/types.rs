@@ -95,12 +95,12 @@ impl<Balance: AtLeast32BitUnsigned + Copy> FeeDetails<Balance> {
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 #[cfg_attr(
-	feature = "std",
-	serde(bound(serialize = "Balance: std::fmt::Display, Weight: Serialize"))
+    feature = "std",
+    serde(bound(serialize = "Balance: std::fmt::Display, Weight: Serialize"))
 )]
 #[cfg_attr(
-	feature = "std",
-	serde(bound(deserialize = "Balance: std::str::FromStr, Weight: Deserialize<'de>"))
+    feature = "std",
+    serde(bound(deserialize = "Balance: std::str::FromStr, Weight: Deserialize<'de>"))
 )]
 pub struct RuntimeDispatchInfo<Balance, Weight = frame_support::weights::Weight> {
     /// Weight of this dispatch.

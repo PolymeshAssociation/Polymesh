@@ -66,8 +66,11 @@ impl<C, P> TransactionPayment<C, P> {
     }
 }
 
-impl<C, Block> TransactionPaymentApiServer<<Block as BlockT>::Hash, RuntimeDispatchInfo<Balance, sp_weights::OldWeight>>
-    for TransactionPayment<C, Block>
+impl<C, Block>
+    TransactionPaymentApiServer<
+        <Block as BlockT>::Hash,
+        RuntimeDispatchInfo<Balance, sp_weights::OldWeight>,
+    > for TransactionPayment<C, Block>
 where
     Block: BlockT,
     C: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
