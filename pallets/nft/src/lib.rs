@@ -1,20 +1,22 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::dispatch::DispatchResult;
-use frame_support::ensure;
 use frame_support::traits::Get;
 use frame_support::{decl_error, decl_module, decl_storage};
+use frame_support::{ensure, require_transactional};
 use pallet_asset::BalanceOf;
 use pallet_base::try_next_pre;
 use pallet_portfolio::PortfolioNFT;
+use polymesh_common_utilities::compliance_manager::Config as ComplianceManagerConfig;
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
+use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 pub use polymesh_common_utilities::traits::nft::{Config, Event, WeightInfo};
 use polymesh_primitives::asset::{AssetName, AssetType};
 use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use polymesh_primitives::nft::{
-    NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute,
+    NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs,
 };
-use polymesh_primitives::{PortfolioKind, Ticker};
+use polymesh_primitives::{PortfolioId, PortfolioKind, Ticker};
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec::Vec;
@@ -86,18 +88,20 @@ decl_module! {
         /// * `origin` - is a signer that has permissions to act as an agent of `ticker`.
         /// * `ticker` - the ticker of the NFT collection.
         /// * `nft_metadata_attributes` - all mandatory metadata keys and values for the NFT.
+        /// - `portfolio_kind` - the portfolio that will receive the minted nft.
         ///
         /// ## Errors
         /// - `CollectionNotFound` - if the collection associated to the given ticker has not been created.
         /// - `InvalidMetadataAttribute` - if the number of attributes is not equal to the number set in the collection or attempting to set a value for a key not definied in the collection.
         /// - `DuplicateMetadataKey` - if a duplicate metadata keys has been passed as input.
         ///
+        ///
         /// # Permissions
         /// * Asset
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::mint_nft(nft_metadata_attributes.len() as u32)]
-        pub fn mint_nft(origin, ticker: Ticker, nft_metadata_attributes: Vec<NFTMetadataAttribute>) -> DispatchResult {
-            Self::base_mint_nft(origin, ticker, nft_metadata_attributes)
+        pub fn mint_nft(origin, ticker: Ticker, nft_metadata_attributes: Vec<NFTMetadataAttribute>, portfolio_kind: PortfolioKind) -> DispatchResult {
+            Self::base_mint_nft(origin, ticker, nft_metadata_attributes, portfolio_kind)
         }
 
         /// Burns the given NFT from the caller's portfolio.
@@ -138,6 +142,18 @@ decl_error! {
         InvalidAssetType,
         /// Either the number of keys or the key identifier does not match the keys defined for the collection.
         InvalidMetadataAttribute,
+        /// Failed to transfer an NFT - NFT collection not found.
+        InvalidNFTTransferCollectionNotFound,
+        /// Failed to transfer an NFT - attempt to move to the same portfolio.
+        InvalidNFTTransferSamePortfolio,
+        /// Failed to transfer an NFT - NFT not found in portfolio.
+        InvalidNFTTransferNFTNotOwned,
+        /// Failed to transfer an NFT - balance would overflow.
+        InvalidNFTTransferBalanceOverflow,
+        /// Failed to transfer an NFT - not enough balance.
+        InvalidNFTTransferNoBalance,
+        /// Failed to transfer an NFT - compliance failed.
+        InvalidNFTTransferComplianceFailure,
         /// The maximum number of metadata keys was exceeded.
         MaxNumberOfKeysExceeded,
         /// The NFT does not exist.
@@ -231,6 +247,7 @@ impl<T: Config> Module<T> {
         origin: T::Origin,
         ticker: Ticker,
         metadata_attributes: Vec<NFTMetadataAttribute>,
+        portfolio_kind: PortfolioKind,
     ) -> DispatchResult {
         // Verifies if the collection exists
         let collection_id =
@@ -240,8 +257,10 @@ impl<T: Config> Module<T> {
         let caller_portfolio = Asset::<T>::ensure_agent_with_custody_and_perms(
             origin,
             ticker.clone(),
-            PortfolioKind::Default,
+            portfolio_kind,
         )?;
+
+        Portfolio::<T>::ensure_portfolio_validity(&caller_portfolio)?;
 
         // Verifies that all mandatory keys are being set and that there are no duplicated keys
         let mandatory_keys: BTreeSet<AssetMetadataKey> = Self::collection_keys(&collection_id);
@@ -276,7 +295,7 @@ impl<T: Config> Module<T> {
         for (metadata_key, metadata_value) in nft_attributes.into_iter() {
             MetadataValue::insert((&collection_id, &nft_id), metadata_key, metadata_value);
         }
-        Portfolio::<T>::add_portfolio_nft(caller_portfolio.did, collection_id, nft_id);
+        PortfolioNFT::insert(caller_portfolio, (ticker, nft_id), true);
 
         Self::deposit_event(Event::MintedNft(
             caller_portfolio.did,
@@ -302,7 +321,7 @@ impl<T: Config> Module<T> {
 
         // Verifies if the NFT exists
         ensure!(
-            PortfolioNFT::contains_key(&caller_portfolio, (&collection_id, &nft_id)),
+            PortfolioNFT::contains_key(&caller_portfolio, (&ticker, &nft_id)),
             Error::<T>::NFTNotFound
         );
 
@@ -311,10 +330,83 @@ impl<T: Config> Module<T> {
             .checked_sub(ONE_UNIT)
             .ok_or(Error::<T>::BalanceUnderflow)?;
         BalanceOf::insert(&ticker, &caller_portfolio.did, new_balance);
-        PortfolioNFT::remove(&caller_portfolio, (&collection_id, &nft_id));
+        PortfolioNFT::remove(&caller_portfolio, (&ticker, &nft_id));
         MetadataValue::remove_prefix((&collection_id, &nft_id), None);
 
         Self::deposit_event(Event::BurnedNFT(caller_portfolio.did, ticker, nft_id));
+        Ok(())
+    }
+
+    /// Tranfer ownership of all NFTs.
+    #[require_transactional]
+    pub fn base_nft_transfer(
+        sender_portfolio: &PortfolioId,
+        receiver_portfolio: &PortfolioId,
+        nfts: &NFTs,
+    ) -> DispatchResult {
+        // Verifies if there is a collection associated to the NFTs
+        CollectionTicker::try_get(nfts.ticker())
+            .map_err(|_| Error::<T>::InvalidNFTTransferCollectionNotFound)?;
+        // Verifies if all rules for transfering the NFTs are being respected
+        Self::validate_nft_transfer(sender_portfolio, receiver_portfolio, &nfts)?;
+
+        // Transfer ownership of the NFT
+        // Update the balance of the sender and the receiver
+        let transferred_amount = nfts.amount();
+        BalanceOf::mutate(nfts.ticker(), sender_portfolio.did, |balance| {
+            *balance -= transferred_amount
+        });
+        BalanceOf::mutate(nfts.ticker(), receiver_portfolio.did, |balance| {
+            *balance += transferred_amount
+        });
+        // Update the portfolio of the sender and the receiver
+        for nft_id in nfts.ids() {
+            PortfolioNFT::remove(sender_portfolio, (nfts.ticker(), nft_id));
+            PortfolioNFT::insert(receiver_portfolio, (nfts.ticker(), nft_id), true);
+        }
+        Ok(())
+    }
+
+    /// Verifies if and the sender and receiver are not the same, if both have valid balances,
+    /// if the sender owns the nft, and if all compliance rules are being respected.
+    fn validate_nft_transfer(
+        sender_portfolio: &PortfolioId,
+        receiver_portfolio: &PortfolioId,
+        nfts: &NFTs,
+    ) -> DispatchResult {
+        let transferred_amount = nfts.amount();
+        // Verifies that the sender and receiver are not the same
+        ensure!(
+            sender_portfolio != receiver_portfolio,
+            Error::<T>::InvalidNFTTransferSamePortfolio
+        );
+        // Verifies that the sender has the required balance
+        ensure!(
+            BalanceOf::get(nfts.ticker(), sender_portfolio.did) >= transferred_amount,
+            Error::<T>::InvalidNFTTransferNoBalance
+        );
+        // Verfies that the sender owns the nfts
+        for nft_id in nfts.ids() {
+            ensure!(
+                PortfolioNFT::contains_key(sender_portfolio, (nfts.ticker(), nft_id)),
+                Error::<T>::InvalidNFTTransferNFTNotOwned
+            );
+        }
+        // Verfies that the receiver will not overflow
+        BalanceOf::get(nfts.ticker(), receiver_portfolio.did)
+            .checked_add(transferred_amount)
+            .ok_or(Error::<T>::InvalidNFTTransferBalanceOverflow)?;
+        // Verifies that all compliance rules are being respected
+        let code = T::Compliance::verify_restriction(
+            nfts.ticker(),
+            Some(sender_portfolio.did),
+            Some(receiver_portfolio.did),
+            transferred_amount,
+        )?;
+        if code != ERC1400_TRANSFER_SUCCESS {
+            return Err(Error::<T>::InvalidNFTTransferComplianceFailure.into());
+        }
+
         Ok(())
     }
 }

@@ -465,7 +465,9 @@ macro_rules! misc_pallet_impls {
             type Proposal = Call;
             type Scheduler = Scheduler;
             type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
-            type MaxLegsInInstruction = MaxLegsInInstruction;
+            type MaxNumberOfFungibleAssets = MaxNumberOfFungibleAssets;
+            type MaxNumberOfNFTsPerLeg = MaxNumberOfNFTsPerLeg;
+            type MaxNumberOfNFTs = MaxNumberOfNFTs;
         }
 
         impl pallet_sto::Config for Runtime {
@@ -538,6 +540,7 @@ macro_rules! misc_pallet_impls {
         impl pallet_nft::Config for Runtime {
             type Event = Event;
             type WeightInfo = polymesh_weights::pallet_nft::WeightInfo;
+            type Compliance = pallet_compliance_manager::Module<Runtime>;
             type MaxNumberOfCollectionKeys = MaxNumberOfCollectionKeys;
         }
     };

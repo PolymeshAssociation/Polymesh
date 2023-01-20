@@ -5,14 +5,15 @@ use pallet_asset::BalanceOf;
 use pallet_nft::{Collection, CollectionKeys, MetadataValue};
 use pallet_portfolio::PortfolioNFT;
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
+use polymesh_common_utilities::with_transaction;
 use polymesh_primitives::asset::AssetType;
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataSpec,
     AssetMetadataValue,
 };
 use polymesh_primitives::{
-    NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, PortfolioId, PortfolioKind,
-    Ticker,
+    NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId,
+    PortfolioKind, PortfolioNumber, Ticker,
 };
 use test_client::AccountKeyring;
 
@@ -20,10 +21,12 @@ use crate::ext_builder::ExtBuilder;
 use crate::storage::{TestStorage, User};
 
 type Asset = pallet_asset::Module<TestStorage>;
+type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
 type NFT = pallet_nft::Module<TestStorage>;
 type NFTError = pallet_nft::Error<TestStorage>;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
+type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 
 /// Successfully creates an NFT collection and an Asset.
@@ -155,7 +158,11 @@ fn create_collection_unregistered_key() {
 }
 
 /// Successfully creates an NFT collection.
-fn create_nft_collection(owner: User, ticker: Ticker, collection_keys: NFTCollectionKeys) {
+pub(crate) fn create_nft_collection(
+    owner: User,
+    ticker: Ticker,
+    collection_keys: NFTCollectionKeys,
+) {
     Asset::create_asset(
         owner.origin(),
         ticker.as_ref().into(),
@@ -205,7 +212,8 @@ fn mint_nft_collection_not_found() {
                 vec![NFTMetadataAttribute {
                     key: AssetMetadataKey::Local(AssetMetadataLocalKey(0)),
                     value: AssetMetadataValue(b"test".to_vec())
-                }]
+                }],
+                PortfolioKind::Default
             ),
             NFTError::CollectionNotFound
         );
@@ -240,7 +248,8 @@ fn mint_nft_duplicate_key() {
                         key: AssetMetadataKey::Local(AssetMetadataLocalKey(0)),
                         value: AssetMetadataValue(b"test".to_vec())
                     }
-                ]
+                ],
+                PortfolioKind::Default
             ),
             NFTError::DuplicateMetadataKey
         );
@@ -272,12 +281,13 @@ fn mint_nft_wrong_number_of_keys() {
                         key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
                         value: AssetMetadataValue(b"test".to_vec())
                     }
-                ]
+                ],
+                PortfolioKind::Default
             ),
             NFTError::InvalidMetadataAttribute
         );
         assert_noop!(
-            NFT::mint_nft(alice.origin(), ticker, vec![]),
+            NFT::mint_nft(alice.origin(), ticker, vec![], PortfolioKind::Default),
             NFTError::InvalidMetadataAttribute
         );
     });
@@ -302,16 +312,44 @@ fn mint_nft_wrong_key() {
                 vec![NFTMetadataAttribute {
                     key: AssetMetadataKey::Local(AssetMetadataLocalKey(35)),
                     value: AssetMetadataValue(b"test".to_vec())
-                }]
+                }],
+                PortfolioKind::Default
             ),
             NFTError::InvalidMetadataAttribute
         );
     });
 }
 
+/// An NFT can only be minted if the given portfolio exists.
+#[test]
+fn mint_nft_portfolio_not_found() {
+    ExtBuilder::default().build().execute_with(|| {
+        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+
+        let alice: User = User::new(AccountKeyring::Alice);
+        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(alice.clone(), ticker.clone(), collection_keys);
+
+        assert_noop!(
+            NFT::mint_nft(
+                alice.origin(),
+                ticker,
+                vec![NFTMetadataAttribute {
+                    key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+                    value: AssetMetadataValue(b"test".to_vec())
+                }],
+                PortfolioKind::User(PortfolioNumber(1))
+            ),
+            PortfolioError::PortfolioDoesNotExist
+        );
+    });
+}
+
 /// Successfully mints an NFT.
 #[test]
-fn mint_nft() {
+fn mint_nft_successfully() {
     ExtBuilder::default().build().execute_with(|| {
         Timestamp::set_timestamp(Utc::now().timestamp() as _);
 
@@ -327,7 +365,8 @@ fn mint_nft() {
             vec![NFTMetadataAttribute {
                 key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
                 value: AssetMetadataValue(b"test".to_vec())
-            }]
+            }],
+            PortfolioKind::Default
         ));
         assert_eq!(
             MetadataValue::get(
@@ -340,11 +379,25 @@ fn mint_nft() {
         assert_eq!(
             PortfolioNFT::get(
                 PortfolioId::default_portfolio(alice.did),
-                (NFTCollectionId(1), NFTId(1))
+                (&ticker, NFTId(1))
             ),
             true
         );
     });
+}
+
+pub(crate) fn mint_nft(
+    user: User,
+    ticker: Ticker,
+    metadata_atributes: Vec<NFTMetadataAttribute>,
+    portfolio_kind: PortfolioKind,
+) {
+    assert_ok!(NFT::mint_nft(
+        user.origin(),
+        ticker,
+        metadata_atributes,
+        portfolio_kind
+    ));
 }
 
 /// An NFT can only be burned if its collection exists.
@@ -400,6 +453,7 @@ fn burn_nft() {
                 key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
                 value: AssetMetadataValue(b"test".to_vec()),
             }],
+            PortfolioKind::Default,
         )
         .unwrap();
 
@@ -416,7 +470,250 @@ fn burn_nft() {
         assert_eq!(BalanceOf::get(&ticker, alice.did), 0);
         assert!(!PortfolioNFT::contains_key(
             PortfolioId::default_portfolio(alice.did),
-            (NFTCollectionId(1), NFTId(1))
+            (&ticker, NFTId(1))
         ),);
+    });
+}
+
+/// An NFT can only be transferred if its collection exists.
+#[test]
+fn transfer_nft_without_collection() {
+    ExtBuilder::default().build().execute_with(|| {
+        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+
+        let alice: User = User::new(AccountKeyring::Alice);
+        let bob: User = User::new(AccountKeyring::Bob);
+        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let sender_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+        let receiver_portfolio = PortfolioId {
+            did: bob.did,
+            kind: PortfolioKind::Default,
+        };
+        let nfts = NFTs::new(ticker, vec![NFTId(1)]).unwrap();
+
+        assert_noop!(
+            with_transaction(|| {
+                NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts)
+            }),
+            NFTError::InvalidNFTTransferCollectionNotFound
+        );
+    });
+}
+
+/// An NFT can only be transferred to a differrent portfolio.
+#[test]
+fn transfer_nft_same_portfolio() {
+    ExtBuilder::default().build().execute_with(|| {
+        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+
+        // Creates a collection
+        let alice: User = User::new(AccountKeyring::Alice);
+        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(alice.clone(), ticker.clone(), collection_keys);
+
+        // Attempts to transfer to the same portfolio
+        let sender_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+        let receiver_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+        let nfts = NFTs::new(ticker, vec![NFTId(1)]).unwrap();
+        assert_noop!(
+            with_transaction(|| {
+                NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts)
+            }),
+            NFTError::InvalidNFTTransferSamePortfolio
+        );
+    });
+}
+
+/// An NFT can only be transferred if there is enough balance.
+#[test]
+fn transfer_nft_invalid_count() {
+    ExtBuilder::default().build().execute_with(|| {
+        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+
+        // First we need to create a collection and mint one NFT
+        let alice: User = User::new(AccountKeyring::Alice);
+        let bob: User = User::new(AccountKeyring::Bob);
+        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(alice.clone(), ticker.clone(), collection_keys);
+        let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
+            key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            value: AssetMetadataValue(b"test".to_vec()),
+        }];
+        mint_nft(
+            alice.clone(),
+            ticker.clone(),
+            nfts_metadata,
+            PortfolioKind::Default,
+        );
+
+        // Attempts to transfer two NFTs
+        let sender_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+        let receiver_portfolio = PortfolioId {
+            did: bob.did,
+            kind: PortfolioKind::Default,
+        };
+        let nfts = NFTs::new(ticker, vec![NFTId(1), NFTId(2)]).unwrap();
+        assert_noop!(
+            with_transaction(|| {
+                NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts)
+            }),
+            NFTError::InvalidNFTTransferNoBalance
+        );
+    });
+}
+
+/// An NFT can only be transferred if it is owned by the sender.
+#[test]
+fn transfer_nft_not_owned() {
+    ExtBuilder::default().build().execute_with(|| {
+        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+
+        // First we need to create a collection and mint one NFT
+        let alice: User = User::new(AccountKeyring::Alice);
+        let bob: User = User::new(AccountKeyring::Bob);
+        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(alice.clone(), ticker.clone(), collection_keys);
+        let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
+            key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            value: AssetMetadataValue(b"test".to_vec()),
+        }];
+        mint_nft(
+            alice.clone(),
+            ticker.clone(),
+            nfts_metadata.clone(),
+            PortfolioKind::Default,
+        );
+
+        // Attempts to transfer an NFT not owned by the sender
+        let sender_portfolio = PortfolioId {
+            did: bob.did,
+            kind: PortfolioKind::Default,
+        };
+        let receiver_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+        let nfts = NFTs::new(ticker, vec![NFTId(1)]).unwrap();
+        assert_noop!(
+            with_transaction(|| {
+                NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts)
+            }),
+            NFTError::InvalidNFTTransferNoBalance
+        );
+    });
+}
+
+/// An NFT can only be transferred if the compliance rules are respected.
+#[test]
+fn transfer_nft_failing_compliance() {
+    ExtBuilder::default().build().execute_with(|| {
+        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+
+        // First we need to create a collection and mint one NFT
+        let alice: User = User::new(AccountKeyring::Alice);
+        let bob: User = User::new(AccountKeyring::Bob);
+        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(alice.clone(), ticker.clone(), collection_keys);
+        let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
+            key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            value: AssetMetadataValue(b"test".to_vec()),
+        }];
+        mint_nft(
+            alice.clone(),
+            ticker.clone(),
+            nfts_metadata,
+            PortfolioKind::Default,
+        );
+
+        // transfer the NFT
+        let sender_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+        let receiver_portfolio = PortfolioId {
+            did: bob.did,
+            kind: PortfolioKind::Default,
+        };
+        let nfts = NFTs::new(ticker, vec![NFTId(1)]).unwrap();
+        assert_noop!(
+            with_transaction(|| {
+                NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts)
+            }),
+            NFTError::InvalidNFTTransferComplianceFailure
+        );
+    });
+}
+
+/// Successfully transfer an NFT
+#[test]
+fn transfer_nft() {
+    ExtBuilder::default().build().execute_with(|| {
+        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+
+        // First we need to create a collection and mint one NFT
+        let alice: User = User::new(AccountKeyring::Alice);
+        let bob: User = User::new(AccountKeyring::Bob);
+        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(alice.clone(), ticker.clone(), collection_keys);
+        let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
+            key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            value: AssetMetadataValue(b"test".to_vec()),
+        }];
+        mint_nft(
+            alice.clone(),
+            ticker.clone(),
+            nfts_metadata,
+            PortfolioKind::Default,
+        );
+        ComplianceManager::pause_asset_compliance(alice.origin(), ticker.clone()).unwrap();
+
+        // transfer the NFT
+        let sender_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+        let receiver_portfolio = PortfolioId {
+            did: bob.did,
+            kind: PortfolioKind::Default,
+        };
+        let nfts = NFTs::new(ticker, vec![NFTId(1)]).unwrap();
+        assert_ok!(with_transaction(|| {
+            NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts)
+        }));
+        assert_eq!(BalanceOf::get(&ticker, alice.did), 0);
+        assert_eq!(
+            PortfolioNFT::get(
+                PortfolioId::default_portfolio(alice.did),
+                (&ticker, NFTId(1))
+            ),
+            false
+        );
+        assert_eq!(BalanceOf::get(&ticker, bob.did), ONE_UNIT);
+        assert_eq!(
+            PortfolioNFT::get(PortfolioId::default_portfolio(bob.did), (&ticker, NFTId(1))),
+            true
+        );
     });
 }

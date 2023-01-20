@@ -5,10 +5,8 @@ use polymesh_primitives::nft::{NFTCollectionId, NFTId};
 use polymesh_primitives::ticker::Ticker;
 use polymesh_primitives::IdentityId;
 
-use crate::asset;
-use crate::base;
-use crate::identity;
-use crate::portfolio;
+use crate::compliance_manager::Config as ComplianceManagerConfig;
+use crate::{asset, base, identity, portfolio};
 
 pub trait Config:
     frame_system::Config + base::Config + asset::Config + identity::Config + portfolio::Config
@@ -16,6 +14,8 @@ pub trait Config:
     type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
 
     type WeightInfo: WeightInfo;
+
+    type Compliance: ComplianceManagerConfig;
 
     type MaxNumberOfCollectionKeys: Get<u8>;
 }

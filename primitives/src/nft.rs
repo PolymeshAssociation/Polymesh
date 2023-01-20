@@ -1,9 +1,11 @@
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec::IntoIter;
 use sp_std::vec::Vec;
 
 use crate::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
+use crate::Balance;
 use crate::{impl_checked_inc, Ticker};
 
 /// Controls the next available id for an NFT collection.
@@ -12,7 +14,9 @@ pub struct NFTCollectionId(pub u64);
 impl_checked_inc!(NFTCollectionId);
 
 /// Controls the next available id for an NFT within a collection.
-#[derive(Clone, Copy, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(
+    Clone, Copy, Debug, Decode, Default, Encode, Eq, Ord, PartialOrd, PartialEq, TypeInfo
+)]
 pub struct NFTId(pub u64);
 impl_checked_inc!(NFTId);
 
@@ -37,6 +41,49 @@ impl NFTCollection {
     /// Returns a reference to the `Ticker` associated with the collection.
     pub fn ticker(&self) -> &Ticker {
         &self.ticker
+    }
+}
+
+/// Represent all NFT being transferred for a given `Ticker`.
+#[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
+pub struct NFTs {
+    ticker: Ticker,
+    ids: Vec<NFTId>,
+}
+
+impl NFTs {
+    /// Creates an `NFTs` instance without checking for duplicate ids.
+    pub fn new_unverified(ticker: Ticker, ids: Vec<NFTId>) -> Self {
+        NFTs { ticker, ids }
+    }
+
+    /// Creates an `NFTs` instance.
+    pub fn new(ticker: Ticker, ids: Vec<NFTId>) -> Result<Self, &'static str> {
+        let unique_ids: BTreeSet<&NFTId> = ids.iter().collect();
+        if unique_ids.len() != ids.len() {
+            return Err("No duplicate NFTIds are allowed");
+        }
+        Ok(NFTs { ticker, ids })
+    }
+
+    /// Returns a reference to the Ticker of the `NFTs`.
+    pub fn ticker(&self) -> &Ticker {
+        &self.ticker
+    }
+
+    /// Returns a slice of `NFTid`.
+    pub fn ids(&self) -> &[NFTId] {
+        &self.ids
+    }
+
+    /// Returns the number nfts being transferred.
+    pub fn len(&self) -> usize {
+        self.ids.len()
+    }
+
+    /// Returns the amount being transferred (currently each NFT is equal to ONE_UNIT).
+    pub fn amount(&self) -> Balance {
+        (self.ids.len() * 1_000_000) as u128
     }
 }
 
