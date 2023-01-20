@@ -144,6 +144,7 @@ macro_rules! misc_pallet_impls {
         }
 
         impl pallet_transaction_payment::Config for Runtime {
+            type RuntimeEvent = RuntimeEvent;
             type Currency = Balances;
             type OnChargeTransaction =
                 pallet_transaction_payment::CurrencyAdapter<Balances, DealWithFees>;
