@@ -30,7 +30,7 @@ pub use node_rpc_runtime_api::transaction_payment::{
     TransactionPaymentApi as TransactionPaymentRuntimeApi,
 };
 use polymesh_primitives::Balance;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
 use sp_rpc::number::NumberOrHex;
@@ -66,7 +66,7 @@ impl<C, P> TransactionPayment<C, P> {
     }
 }
 
-impl<C, Block> TransactionPaymentApiServer<<Block as BlockT>::Hash, RuntimeDispatchInfo<Balance>>
+impl<C, Block> TransactionPaymentApiServer<<Block as BlockT>::Hash, RuntimeDispatchInfo<Balance, sp_weights::OldWeight>>
     for TransactionPayment<C, Block>
 where
     Block: BlockT,
@@ -77,7 +77,7 @@ where
         &self,
         encoded_xt: Bytes,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<RuntimeDispatchInfo<Balance>> {
+    ) -> RpcResult<RuntimeDispatchInfo<Balance, sp_weights::OldWeight>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| {
             // If the block hash is not supplied assume the best block.
@@ -93,14 +93,41 @@ where
                 Some(format!("{:?}", e)),
             ))
         })?;
-        api.query_info(&at, uxt, encoded_len).map_err(|e| {
+
+        fn map_err(error: impl ToString, desc: &'static str) -> CallError {
             CallError::Custom(ErrorObject::owned(
                 Error::RuntimeError.into(),
-                "Unable to query dispatch info.",
-                Some(e.to_string()),
+                desc,
+                Some(error.to_string()),
             ))
-            .into()
-        })
+        }
+
+        let api_version = api
+            .api_version::<dyn TransactionPaymentRuntimeApi<Block>>(&at)
+            .map_err(|e| map_err(e, "Failed to get transaction payment runtime api version"))?
+            .ok_or_else(|| {
+                CallError::Custom(ErrorObject::owned(
+                    Error::RuntimeError.into(),
+                    "Transaction payment runtime api wasn't found in the runtime",
+                    None::<String>,
+                ))
+            })?;
+
+        if api_version < 2 {
+            #[allow(deprecated)]
+            api.query_info_before_version_2(&at, uxt, encoded_len)
+                .map_err(|e| map_err(e, "Unable to query dispatch info.").into())
+        } else {
+            let res = api
+                .query_info(&at, uxt, encoded_len)
+                .map_err(|e| map_err(e, "Unable to query dispatch info."))?;
+
+            Ok(RuntimeDispatchInfo {
+                weight: sp_weights::OldWeight(res.weight.ref_time()),
+                class: res.class,
+                partial_fee: res.partial_fee,
+            })
+        }
     }
 
     fn query_fee_details(

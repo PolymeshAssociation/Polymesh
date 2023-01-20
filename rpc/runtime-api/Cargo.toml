@@ -12,6 +12,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 sp-api = { version = "4.0.0-dev", default-features = false }
 sp-runtime = { version = "6.0.0", default-features = false }
 sp-std = { version = "4.0.0", default_features = false }
+sp-weights = { version = "4.0.0", default_features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
 frame-system = { version = "4.0.0-dev", default-features = false }
 
@@ -45,4 +46,5 @@ std = [
     "sp-api/std",
     "sp-runtime/std",
     "sp-std/std",
+    "sp-weights/std",
 ]
