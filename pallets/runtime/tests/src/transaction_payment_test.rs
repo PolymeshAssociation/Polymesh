@@ -437,8 +437,8 @@ fn zero_transfer_on_free_transaction() {
             )
             .is_ok());
             assert_eq!(Balances::total_balance(&user), bal_init);
-            // No events for such a scenario
-            assert_eq!(System::events().len(), 0);
+            // One event for tx fee payment `TransactionFeePaid`.
+            assert_eq!(System::events().len(), 1);
         });
 }
 
