@@ -312,6 +312,9 @@ impl Default for Releases {
 }
 
 pub trait Config: frame_system::Config + pallet_timestamp::Config {
+    /// The overarching event type.
+    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
+
     /// The currency type in which fees will be paid.
     type Currency: Currency<Self::AccountId> + Send + Sync;
 
@@ -376,6 +379,8 @@ decl_event! {
 
 decl_module! {
     pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
+        fn deposit_event() = default;
+
         /// The fee to be paid for making a transaction; the per-byte portion.
         const TransactionByteFee: BalanceOf<T> = T::TransactionByteFee::get();
 
@@ -832,7 +837,7 @@ where
 
         // Fee returned to original payer.
         // If payer context is empty, the fee is returned to the caller account.
-        let payer = T::CddHandler::get_payer_from_context().unwrap_or(who);
+        let payer = T::CddHandler::get_payer_from_context().unwrap_or(who.clone());
 
         // `fee_key` is either a subsidiser or the original payer.
         let fee_key = if let Some(subsidiser_key) = subsidiser {
