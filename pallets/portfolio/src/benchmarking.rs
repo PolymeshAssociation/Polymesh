@@ -18,7 +18,7 @@ use core::convert::TryInto;
 use frame_benchmarking::benchmarks;
 use polymesh_common_utilities::{
     asset::Config as AssetConfig,
-    benchs::{make_asset, user, AccountIdOf, User},
+    benchs::{make_asset, user, AccountIdOf, User, UserBuilder},
     TestUtilsFn,
 };
 use polymesh_primitives::{AuthorizationData, PortfolioName, Signatory};
@@ -156,5 +156,25 @@ benchmarks! {
     }: _(custodian.origin.clone(), auth_id)
     verify {
         assert_custodian::<T>(user_portfolio, &custodian, true);
+    }
+
+    move_portfolio_nfts {
+        let n in 1..500;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let alice_default_portfolio = PortfolioId { did: alice.did(), kind: PortfolioKind::Default };
+        let alice_custom_portfolio = PortfolioId { did: alice.did(), kind: PortfolioKind::User(PortfolioNumber(1)) };
+        let ticker: Ticker = b"TICKER0".as_ref().try_into().unwrap();
+        // Simulates minting - Adding the NFT pallet causes cyclic dependency
+        (1..n + 1).for_each(|id| PortfolioNFT::insert(alice_default_portfolio, (ticker, NFTId(id.into())), true));
+        Module::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
+
+        let items = vec![NFTs::new_unverified(ticker, (1..n + 1).map(|id| NFTId(id.into())).collect())];
+    }: _(alice.origin, alice_default_portfolio.clone(), alice_custom_portfolio.clone(), items)
+    verify {
+        for i in 1..n + 1 {
+            assert_eq!(PortfolioNFT::get(&alice_default_portfolio, (&ticker, NFTId(i as u64))), false);
+            assert_eq!(PortfolioNFT::get(&alice_custom_portfolio, (&ticker, NFTId(i as u64))), true);
+        }
     }
 }

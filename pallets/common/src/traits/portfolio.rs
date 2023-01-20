@@ -90,7 +90,11 @@ pub trait WeightInfo {
     fn rename_portfolio(i: u32) -> Weight;
     fn quit_portfolio_custody() -> Weight;
     fn accept_portfolio_custody() -> Weight;
-    fn move_portfolio_nfts(i: u32, n: u32) -> Weight;
+    fn move_portfolio_nfts_items(items: &[NFTs]) -> Weight {
+        let n = items.iter().fold(0, |acc, nfts| acc + nfts.len());
+        Self::move_portfolio_nfts(n as u32)
+    }
+    fn move_portfolio_nfts(n: u32) -> Weight;
 }
 
 pub trait Config: CommonConfig + identity::Config + base::Config {

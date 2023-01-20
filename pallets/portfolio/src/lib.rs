@@ -171,9 +171,7 @@ decl_error! {
         /// Only owned NFTs can be moved between portfolios.
         InvalidTransferNFTNotOwned,
         /// Locked NFTs can not be moved between portfolios.
-        InvalidTransferNFTIsLocked,
-        /// The number of NFTs being transferred exceeds the caller's input.
-        NumberOfNFTsUnderestimated
+        InvalidTransferNFTIsLocked
     }
 }
 
@@ -359,19 +357,17 @@ decl_module! {
         /// * `destination_is_same_portfolio` if both sender and receiver portfolio are the same.
         /// * `DifferentIdentityPortfolios` if the sender and receiver portfolios belong to different identities.
         /// * `UnauthorizedCustodian` if the caller is not the custodian of the from portfolio.
-        /// * `NoDuplicateAssetsAllowed` the same ticker can't be repeated in the items vector.
         /// * `InvalidTransferNFTNotOwned` if the caller is trying to move an NFT he doesn't own.
         /// * `InvalidTransferNFTIsLocked` if the caller is trying to move a locked NFT.
-        /// * `NumberOfNFTsUnderestimated` if `nfts_transferred` is less than the numbers of NFTs being transferred.
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::move_portfolio_nfts(items.len() as u32, *nfts_transferred)]
-        pub fn move_portfolio_nfts(origin, from: PortfolioId, to: PortfolioId, items: Vec<NFTs>, nfts_transferred: u32) -> DispatchResult {
+        #[weight = <T as Config>::WeightInfo::move_portfolio_nfts_items(items)]
+        pub fn move_portfolio_nfts(origin, from: PortfolioId, to: PortfolioId, items: Vec<NFTs>) -> DispatchResult {
             let primary_did =
                 Self::ensure_portfolios_validity_and_permissions(origin, from.clone(), to.clone())?;
 
-            Self::ensure_valid_nfts(&from, &items, nfts_transferred)?;
+            Self::ensure_valid_nfts(&from, &items)?;
 
             // Updates the portfolio of the sender and receiver
             for nfts in &items {
@@ -708,20 +704,9 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Verifies if the sender has the nfts for the transfer, if they are not locked, and if `nfts_transfered`
-    /// is greater or equal to the number of NFTs being moved.
-    fn ensure_valid_nfts(
-        sender_portfolio: &PortfolioId,
-        items: &[NFTs],
-        nfts_transfered: u32,
-    ) -> DispatchResult {
-        let mut unique_tickers = BTreeSet::new();
-        let mut n_nfts_trasfered = 0;
+    /// Verifies if the sender has the nfts for the transfer and if they are not locked.
+    fn ensure_valid_nfts(sender_portfolio: &PortfolioId, items: &[NFTs]) -> DispatchResult {
         for nfts in items {
-            ensure!(
-                unique_tickers.insert(nfts.ticker()),
-                Error::<T>::NoDuplicateAssetsAllowed
-            );
             for nft_id in nfts.ids() {
                 ensure!(
                     PortfolioNFT::contains_key(sender_portfolio, (nfts.ticker(), nft_id)),
@@ -732,12 +717,7 @@ impl<T: Config> Module<T> {
                     Error::<T>::InvalidTransferNFTIsLocked
                 );
             }
-            n_nfts_trasfered += nfts.len();
         }
-        ensure!(
-            n_nfts_trasfered <= nfts_transfered as usize,
-            Error::<T>::NumberOfNFTsUnderestimated
-        );
         Ok(())
     }
 }
