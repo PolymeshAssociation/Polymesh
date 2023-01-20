@@ -84,6 +84,7 @@ sp-npos-elections = { git = "https://github.com/PolymeshAssociation/substrate", 
 sp-offchain = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
 sp-rpc = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
 sp-runtime = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
+sp-weights = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
 sp-runtime-interface = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
 sp-session = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
 sp-staking = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-11" }
