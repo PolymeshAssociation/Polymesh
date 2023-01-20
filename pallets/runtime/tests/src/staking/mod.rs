@@ -4400,6 +4400,7 @@ mod offchain_phragmen {
                     target: entity_id,
                     claim_type: ClaimType::CustomerDueDiligence,
                 };
+                #[allow(deprecated)]
                 Claims::remove_prefix(claim_key, None); // Remove all CDD claims for the validator.
 
                 // Ensure did no longer has valid cdd
