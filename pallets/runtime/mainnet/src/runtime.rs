@@ -304,7 +304,7 @@ construct_runtime!(
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 
         // TransactionPayment: Genesis config dependencies: Balance.
-        TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
+        TransactionPayment: pallet_transaction_payment::{Pallet, Event<T>, Storage},
 
         // Identity: Genesis config deps: Timestamp.
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>, Config<T>},
