@@ -23,8 +23,8 @@ use frame_support::dispatch::DispatchResult;
 use frame_support::pallet_prelude::Get;
 use frame_support::weights::Weight;
 use polymesh_primitives::{
-    Balance, Fund, IdentityId, Memo as PortfolioMemo, NFTId, NFTs, PortfolioId, PortfolioName,
-    PortfolioNumber, SecondaryKey, Ticker,
+    Balance, Fund, FundDescription, IdentityId, Memo as PortfolioMemo, NFTId, NFTs, PortfolioId,
+    PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
 };
 use sp_std::vec::Vec;
 
@@ -92,7 +92,8 @@ pub trait WeightInfo {
     fn quit_portfolio_custody() -> Weight;
     fn accept_portfolio_custody() -> Weight;
     fn move_portfolio_funds_v2(funds: &[Fund]) -> Weight {
-        unimplemented!()
+        let (f, n) = count_token_moves(funds);
+        Self::move_portfolio_funds_v2_weight(f, n)
     }
     fn move_portfolio_funds_v2_weight(f: u32, u: u32) -> Weight;
 }
@@ -190,4 +191,20 @@ decl_event! {
             Option<PortfolioMemo>,
         ),
     }
+}
+
+fn count_token_moves(funds: &[Fund]) -> (u32, u32) {
+    let mut fungible_moves = 0;
+    let mut nfts_moves = 0;
+    for fund in funds {
+        match &fund.description {
+            FundDescription::Fungible { .. } => {
+                fungible_moves += 1;
+            }
+            FundDescription::NonFungible(nfts) => {
+                nfts_moves += nfts.len();
+            }
+        }
+    }
+    (fungible_moves, nfts_moves as u32)
 }
