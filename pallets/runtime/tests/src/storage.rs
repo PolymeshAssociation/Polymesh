@@ -181,6 +181,8 @@ parameter_types! {
     pub const ReportLongevity: u64 =
         BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
     pub const MaxNumberOfCollectionKeys: u8 = u8::MAX;
+    pub const MaxNumberOfFungibleMoves: u32 = 10;
+    pub const MaxNumberOfNFTsMoves: u32 = 100;
 }
 
 frame_support::construct_runtime!(

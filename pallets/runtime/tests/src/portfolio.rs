@@ -17,8 +17,9 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue,
 };
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs,
-    PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, Signatory, Ticker,
+    AuthorizationData, AuthorizationError, Fund, FundDescription, NFTCollectionKeys, NFTId,
+    NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
+    Signatory, Ticker,
 };
 use test_client::AccountKeyring;
 
@@ -670,11 +671,11 @@ fn delete_portfolio_with_locked_nfts() {
     });
 }
 
-/// NFTs can only be moved if sender owns the NFTs.
+/// NFTs can only be moved if the sender portfolio contains the NFTs.
 #[test]
-fn move_portfolio_nfts_not_owned() {
+fn move_nft_not_in_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
-        // First we need to create a token and a portfolio
+        // First we need to create a collection, mint one NFT, and create one portfolio
         let alice: User = User::new(AccountKeyring::Alice);
         let alice_default_portfolio = PortfolioId {
             did: alice.did,
@@ -684,17 +685,33 @@ fn move_portfolio_nfts_not_owned() {
             did: alice.did,
             kind: PortfolioKind::User(PortfolioNumber(1)),
         };
-        let (ticker, _) = create_token(alice);
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(alice.clone(), TICKER, collection_keys);
+        let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
+            key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            value: AssetMetadataValue(b"test".to_vec()),
+        }];
+        mint_nft(
+            alice.clone(),
+            TICKER,
+            nfts_metadata.clone(),
+            PortfolioKind::Default,
+        );
         Portfolio::create_portfolio(alice.origin(), PortfolioName(b"MyOwnPortfolio".to_vec()))
             .unwrap();
         // Attempts to move the NFT
-        let items = vec![NFTs::new_unverified(ticker, vec![NFTId(1)])];
+        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let funds = vec![Fund {
+            description: FundDescription::NonFungible(nfts),
+            memo: None,
+        }];
         assert_noop!(
-            Portfolio::move_portfolio_nfts(
+            Portfolio::move_portfolio_funds_v2(
                 alice.origin(),
-                alice_default_portfolio,
                 alice_custom_portfolio,
-                items,
+                alice_default_portfolio,
+                funds
             ),
             Error::InvalidTransferNFTNotOwned
         );
@@ -732,15 +749,25 @@ fn move_portfolio_nfts() {
         Portfolio::create_portfolio(alice.origin(), PortfolioName(b"MyOwnPortfolio".to_vec()))
             .unwrap();
         // Moves the NFT
-        let items = vec![
+        let nfts = vec![
             NFTs::new_unverified(TICKER, vec![NFTId(1), NFTId(2), NFTId(1)]),
             NFTs::new_unverified(TICKER, vec![NFTId(1)]),
         ];
-        assert_ok!(Portfolio::move_portfolio_nfts(
+        let funds = vec![
+            Fund {
+                description: FundDescription::NonFungible(nfts[0].clone()),
+                memo: None,
+            },
+            Fund {
+                description: FundDescription::NonFungible(nfts[1].clone()),
+                memo: None,
+            },
+        ];
+        assert_ok!(Portfolio::move_portfolio_funds_v2(
             alice.origin(),
             alice_default_portfolio,
             alice_custom_portfolio,
-            items,
+            funds,
         ));
         assert_eq!(
             PortfolioNFT::get(alice_default_portfolio, (TICKER, NFTId(1))),

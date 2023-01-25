@@ -231,6 +231,10 @@ pub mod ethereum;
 pub mod nft;
 pub use nft::{NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs};
 
+/// Portfolio type definitions.
+pub mod portfolio;
+pub use portfolio::{Fund, FundDescription, Memo};
+
 /// Represents custom transaction errors.
 #[repr(u8)]
 pub enum TransactionError {

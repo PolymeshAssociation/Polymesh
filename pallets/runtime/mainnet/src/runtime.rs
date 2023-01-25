@@ -135,6 +135,10 @@ parameter_types! {
 
     // NFT:
     pub const MaxNumberOfCollectionKeys: u8 = u8::MAX;
+
+    // Portfolio:
+    pub const MaxNumberOfFungibleMoves: u32 = 10;
+    pub const MaxNumberOfNFTsMoves: u32 = 100;
 }
 
 /// Splits fees 80/20 between treasury and block author.

@@ -20,10 +20,11 @@
 use crate::{asset::AssetFnTrait, balances::Memo, base, identity, CommonConfig};
 use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
+use frame_support::pallet_prelude::Get;
 use frame_support::weights::Weight;
 use polymesh_primitives::{
-    Balance, IdentityId, NFTId, NFTs, PortfolioId, PortfolioName, PortfolioNumber, SecondaryKey,
-    Ticker,
+    Balance, Fund, IdentityId, Memo as PortfolioMemo, NFTId, NFTs, PortfolioId, PortfolioName,
+    PortfolioNumber, SecondaryKey, Ticker,
 };
 use sp_std::vec::Vec;
 
@@ -90,11 +91,10 @@ pub trait WeightInfo {
     fn rename_portfolio(i: u32) -> Weight;
     fn quit_portfolio_custody() -> Weight;
     fn accept_portfolio_custody() -> Weight;
-    fn move_portfolio_nfts_items(items: &[NFTs]) -> Weight {
-        let n = items.iter().fold(0, |acc, nfts| acc + nfts.len());
-        Self::move_portfolio_nfts(n as u32)
+    fn move_portfolio_funds_v2(funds: &[Fund]) -> Weight {
+        unimplemented!()
     }
-    fn move_portfolio_nfts(n: u32) -> Weight;
+    fn move_portfolio_funds_v2_weight(f: u32, u: u32) -> Weight;
 }
 
 pub trait Config: CommonConfig + identity::Config + base::Config {
@@ -102,6 +102,10 @@ pub trait Config: CommonConfig + identity::Config + base::Config {
     /// Asset module.
     type Asset: AssetFnTrait<Self::AccountId, Self::Origin>;
     type WeightInfo: WeightInfo;
+    /// Maximum number of fungible assets that can be moved in a single transfer call.
+    type MaxNumberOfFungibleMoves: Get<u32>;
+    /// Maximum number of NFTs that can be moved in a single transfer call.
+    type MaxNumberOfNFTsMoves: Get<u32>;
 }
 
 decl_event! {
@@ -166,7 +170,24 @@ decl_event! {
             IdentityId,
             PortfolioId,
             PortfolioId,
-            Vec<NFTs>
+            NFTs,
+            Option<PortfolioMemo>
+        ),
+        /// A token amount has been moved from one portfolio to another.
+        ///
+        /// # Parameters
+        /// * origin DID
+        /// * source portfolio
+        /// * destination portfolio
+        /// * asset ticker
+        /// * asset balance that was moved
+        FungibleTokensMovedBetweenPortfolios(
+            IdentityId,
+            PortfolioId,
+            PortfolioId,
+            Ticker,
+            Balance,
+            Option<PortfolioMemo>,
         ),
     }
 }
