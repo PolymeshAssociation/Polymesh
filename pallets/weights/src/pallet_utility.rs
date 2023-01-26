@@ -71,7 +71,7 @@ impl pallet_utility::WeightInfo for SubstrateWeight {
     // Storage: Permissions CurrentPalletName (r:1 w:1)
     // Storage: Permissions CurrentDispatchableName (r:1 w:1)
     fn batch(calls: &[impl GetDispatchInfo]) -> Weight {
-        Weight::from_ref_time(38_672_000 as u64)
+        Weight::from_ref_time(38_672_000)
             // Standard Error: 438_000
             .saturating_add(sum_weights(calls))
     }
@@ -79,16 +79,16 @@ impl pallet_utility::WeightInfo for SubstrateWeight {
     // Storage: Permissions CurrentPalletName (r:1 w:1)
     // Storage: Permissions CurrentDispatchableName (r:1 w:1)
     fn batch_atomic(calls: &[impl GetDispatchInfo]) -> Weight {
-        Weight::from_ref_time(49_113_000 as u64)
+        Weight::from_ref_time(49_113_000)
             // Standard Error: 165_000
             .saturating_add(sum_weights(calls))
-            .saturating_add(DbWeight::get().reads(1 as u64))
-            .saturating_add(DbWeight::get().writes(1 as u64))
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Permissions CurrentPalletName (r:1 w:1)
     // Storage: Permissions CurrentDispatchableName (r:1 w:1)
     fn batch_optimistic(calls: &[impl GetDispatchInfo]) -> Weight {
-        Weight::from_ref_time(27_520_000 as u64)
+        Weight::from_ref_time(27_520_000)
             // Standard Error: 546_000
             .saturating_add(sum_weights(calls))
     }
@@ -101,9 +101,9 @@ impl pallet_utility::WeightInfo for SubstrateWeight {
     // Storage: Permissions CurrentPalletName (r:1 w:1)
     // Storage: Permissions CurrentDispatchableName (r:1 w:1)
     fn relay_tx(call: &impl GetDispatchInfo) -> Weight {
-        Weight::from_ref_time(167_964_000 as u64)
+        Weight::from_ref_time(167_964_000)
             .saturating_add(call.get_dispatch_info().weight)
-            .saturating_add(DbWeight::get().reads(10 as u64))
-            .saturating_add(DbWeight::get().writes(3 as u64))
+            .saturating_add(DbWeight::get().reads(10))
+            .saturating_add(DbWeight::get().writes(3))
     }
 }

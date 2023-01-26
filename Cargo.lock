@@ -5079,7 +5079,7 @@ dependencies = [
  "polymesh-common-utilities",
  "polymesh-primitives",
  "scale-info",
- "sp-std",
+ "sp-std 4.0.0",
 ]
 
 [[package]]

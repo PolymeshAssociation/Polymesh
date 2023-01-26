@@ -78,6 +78,6 @@ impl pallet_grandpa::WeightInfo for SubstrateWeight {
     }
     // Storage: Grandpa Stalled (r:0 w:1)
     fn note_stalled() -> Weight {
-        Weight::from_ref_time(2_979_000 as u64).saturating_add(DbWeight::get().writes(1 as u64))
+        Weight::from_ref_time(2_979_000).saturating_add(DbWeight::get().writes(1))
     }
 }
