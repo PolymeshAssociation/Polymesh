@@ -49,7 +49,7 @@ use codec::{Decode, Encode};
 use core::{iter, mem};
 use frame_support::{
     decl_error, decl_module, decl_storage,
-    dispatch::{DispatchResult, Weight},
+    dispatch::{DispatchError, DispatchResult, Weight},
     ensure,
 };
 use pallet_identity::{self as identity, PermissionedCallOriginData};
@@ -60,11 +60,13 @@ pub use polymesh_common_utilities::traits::{
     portfolio::{Config, Event, WeightInfo},
 };
 use polymesh_primitives::{
-    extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, IdentityId,
-    NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
+    extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, Fund,
+    FundDescription, IdentityId, NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
+    SecondaryKey, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::Zero;
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::Vec;
 
 type Identity<T> = identity::Module<T>;
@@ -159,12 +161,18 @@ decl_error! {
         PortfolioNotEmpty,
         /// The portfolios belong to different identities
         DifferentIdentityPortfolios,
+        /// Duplicate asset among the items.
+        NoDuplicateAssetsAllowed,
         /// The NFT does not exist in the portfolio.
         NFTNotFoundInPortfolio,
         /// The NFT is already locked.
         NFTAlreadyLocked,
         /// The NFT has never been locked.
-        NFTNotLocked
+        NFTNotLocked,
+        /// Only owned NFTs can be moved between portfolios.
+        InvalidTransferNFTNotOwned,
+        /// Locked NFTs can not be moved between portfolios.
+        InvalidTransferNFTIsLocked
     }
 }
 
@@ -240,6 +248,7 @@ decl_module! {
         /// * `DifferentIdentityPortfolios` if the sender and receiver portfolios belong to different identities
         /// * `UnauthorizedCustodian` if the caller is not the custodian of the from portfolio
         /// * `InsufficientPortfolioBalance` if the sender does not have enough free balance
+        /// * `NoDuplicateAssetsAllowed` the same ticker can't be repeated in the items vector.
         ///
         /// # Permissions
         /// * Portfolio
@@ -250,29 +259,10 @@ decl_module! {
             to: PortfolioId,
             items: Vec<MovePortfolioItem>,
         ) {
-            let PermissionedCallOriginData {
-                primary_did,
-                secondary_key,
-                ..
-            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+            let primary_did =
+                Self::ensure_portfolios_validity_and_permissions(origin, from.clone(), to.clone())?;
 
-            // Ensure the source and destination portfolios are in fact different.
-            ensure!(from != to, Error::<T>::DestinationIsSamePortfolio);
-            // Ensure the source and destination DID are in fact same.
-            ensure!(from.did == to.did, Error::<T>::DifferentIdentityPortfolios);
-
-            // Ensure the sender is the custodian & secondary key has access to the portfolio.
-            Self::ensure_portfolio_custody_and_permission(from, primary_did, secondary_key.as_ref())?;
-
-            // Ensure the receiving portfolio exists.
-            Self::ensure_portfolio_validity(&to)?;
-            // Ensure that the secondary key has access to the receiver's portfolio.
-            Self::ensure_user_portfolio_permission(secondary_key.as_ref(), to)?;
-
-            // Ensure there are sufficient funds for all moves.
-            for item in &items {
-                Self::ensure_sufficient_balance(&from, &item.ticker, item.amount)?;
-            }
+            Self::ensure_valid_balances(&from, &items)?;
 
             // Commit changes.
             for item in items {
@@ -356,6 +346,44 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::accept_portfolio_custody()]
         pub fn accept_portfolio_custody(origin, auth_id: u64) -> DispatchResult {
             Self::base_accept_portfolio_custody(origin, auth_id)
+        }
+
+        /// Moves fungigle an non-fungible tokens from one portfolio of an identity to another portfolio of the same
+        /// identity. Must be called by the custodian of the sender.
+        /// Funds from deleted portfolios can also be recovered via this method.
+        ///
+        /// A short memo can be added to to each token amount moved.
+        ///
+        /// # Errors
+        /// * `PortfolioDoesNotExist` if one or both of the portfolios reference an invalid portfolio.
+        /// * `destination_is_same_portfolio` if both sender and receiver portfolio are the same
+        /// * `DifferentIdentityPortfolios` if the sender and receiver portfolios belong to different identities
+        /// * `UnauthorizedCustodian` if the caller is not the custodian of the from portfolio
+        /// * `InsufficientPortfolioBalance` if the sender does not have enough free balance
+        /// * `NoDuplicateAssetsAllowed` the same ticker can't be repeated in the items vector.
+        /// * `InvalidTransferNFTNotOwned` if the caller is trying to move an NFT he doesn't own.
+        /// * `InvalidTransferNFTIsLocked` if the caller is trying to move a locked NFT.
+        ///
+        /// # Permissions
+        /// * Portfolio
+        #[weight = <T as Config>::WeightInfo::move_portfolio_funds_v2(funds)]
+        pub fn move_portfolio_funds_v2(
+            origin,
+            from: PortfolioId,
+            to: PortfolioId,
+            funds: Vec<Fund>,
+        ) -> DispatchResult {
+            // Verifies if the given portfolios are valid
+            let primary_did =
+                Self::ensure_portfolios_validity_and_permissions(origin, from.clone(), to.clone())?;
+
+            // Verifies if the sender has all the funds
+            Self::ensure_valid_funds(&from, &funds)?;
+
+            // Updates the portfolio of the sender and receiver
+            Self::unchecked_move_funds(primary_did, from, to, funds);
+
+            Ok(())
         }
 
         fn on_runtime_upgrade() -> Weight {
@@ -631,6 +659,133 @@ impl<T: Config> Module<T> {
             Self::deposit_event(Event::PortfolioCustodianChanged(to, pid, to));
             Ok(())
         })
+    }
+
+    /// Verifies if the portfolios are different, if the move is between the same identity, if the receiving portfolio exists,
+    /// and if the user has access to both portfolios.
+    fn ensure_portfolios_validity_and_permissions(
+        origin: T::Origin,
+        from: PortfolioId,
+        to: PortfolioId,
+    ) -> Result<IdentityId, DispatchError> {
+        let origin_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
+        // Ensures the source and destination portfolios are in fact different
+        ensure!(from != to, Error::<T>::DestinationIsSamePortfolio);
+        // Ensures the source and destination DID are in fact the same
+        ensure!(from.did == to.did, Error::<T>::DifferentIdentityPortfolios);
+        // Ensures the receiving portfolio exists
+        Self::ensure_portfolio_validity(&to)?;
+
+        // Ensures the sender is the custodian and that the secondary key has access to the portfolio.
+        Self::ensure_portfolio_custody_and_permission(
+            from,
+            origin_data.primary_did,
+            origin_data.secondary_key.as_ref(),
+        )?;
+
+        // Ensures the secondary key has access to the receiver's portfolio.
+        Self::ensure_user_portfolio_permission(origin_data.secondary_key.as_ref(), to)?;
+        Ok(origin_data.primary_did)
+    }
+
+    /// Verifies if the sending portfolio has the right balance for the transfer.
+    fn ensure_valid_balances(
+        sender_portfolio: &PortfolioId,
+        items: &[MovePortfolioItem],
+    ) -> DispatchResult {
+        let mut unique_tickers = BTreeSet::new();
+        // Ensure there are sufficient funds for all moves.
+        for item in items {
+            ensure!(
+                unique_tickers.insert(item.ticker),
+                Error::<T>::NoDuplicateAssetsAllowed
+            );
+            Self::ensure_sufficient_balance(sender_portfolio, &item.ticker, item.amount)?;
+        }
+        Ok(())
+    }
+
+    /// Verifies if the sender has all funds for the transfer. For a fungible move to be valid, the sender must have sufficient balance, and for
+    /// a non-fungible move, the NFTs must be owned by the sender and can't be locked.
+    fn ensure_valid_funds(sender_portfolio: &PortfolioId, funds: &[Fund]) -> DispatchResult {
+        let mut unique_tickers = BTreeSet::new();
+        // Ensure there are sufficient funds for all moves
+        for fund in funds {
+            match &fund.description {
+                FundDescription::Fungible { ticker, amount } => {
+                    ensure!(
+                        unique_tickers.insert(ticker),
+                        Error::<T>::NoDuplicateAssetsAllowed
+                    );
+                    Self::ensure_sufficient_balance(sender_portfolio, &ticker, *amount)?;
+                }
+                FundDescription::NonFungible(nfts) => {
+                    Self::ensure_valid_nfts(sender_portfolio, nfts.ticker(), nfts.ids())?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Verifies if the portfolio has the nfts and if they are not locked.
+    fn ensure_valid_nfts(
+        portfolio: &PortfolioId,
+        ticker: &Ticker,
+        nft_ids: &[NFTId],
+    ) -> DispatchResult {
+        for nft_id in nft_ids {
+            ensure!(
+                PortfolioNFT::contains_key(portfolio, (ticker, nft_id)),
+                Error::<T>::InvalidTransferNFTNotOwned
+            );
+            ensure!(
+                !PortfolioLockedNFT::contains_key(portfolio, (ticker, nft_id)),
+                Error::<T>::InvalidTransferNFTIsLocked
+            );
+        }
+        Ok(())
+    }
+
+    /// Moves all funds from the sender portfolio to the receiver portfolio.
+    fn unchecked_move_funds(
+        origin_did: IdentityId,
+        sender_portfolio: PortfolioId,
+        receiver_portfolio: PortfolioId,
+        funds: Vec<Fund>,
+    ) {
+        for fund in funds {
+            match fund.description {
+                FundDescription::Fungible { ticker, amount } => {
+                    Self::unchecked_transfer_portfolio_balance(
+                        &sender_portfolio,
+                        &receiver_portfolio,
+                        &ticker,
+                        amount,
+                    );
+                    Self::deposit_event(Event::FungibleTokensMovedBetweenPortfolios(
+                        origin_did,
+                        sender_portfolio,
+                        receiver_portfolio,
+                        ticker,
+                        amount,
+                        fund.memo,
+                    ));
+                }
+                FundDescription::NonFungible(nfts) => {
+                    for nft_id in nfts.ids() {
+                        PortfolioNFT::remove(&sender_portfolio, (nfts.ticker(), nft_id));
+                        PortfolioNFT::insert(&receiver_portfolio, (nfts.ticker(), nft_id), true);
+                    }
+                    Self::deposit_event(Event::NFTsMovedBetweenPortfolios(
+                        origin_did,
+                        sender_portfolio,
+                        receiver_portfolio,
+                        nfts,
+                        fund.memo,
+                    ))
+                }
+            }
+        }
     }
 }
 

@@ -115,4 +115,23 @@ impl pallet_portfolio::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(3 as Weight))
             .saturating_add(DbWeight::get().writes(5 as Weight))
     }
+
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Storage: Portfolio Portfolios (r:1 w:0)
+    // Storage: Portfolio PortfolioCustodian (r:1 w:0)
+    // Storage: Portfolio PortfolioNFT (r:100 w:200)
+    // Storage: Portfolio PortfolioLockedNFT (r:100 w:0)
+    // Storage: Asset Tokens (r:1 w:0)
+    // Storage: Portfolio PortfolioAssetBalances (r:2 w:2)
+    // Storage: Portfolio PortfolioLockedAssets (r:1 w:0)
+    // Storage: Portfolio PortfolioAssetCount (r:1 w:1)
+    fn move_portfolio_funds_v2_weight(f: u32, n: u32) -> Weight {
+        (240_712_000 as Weight)
+            .saturating_add(DbWeight::get().reads(4 as Weight))
+            .saturating_add(DbWeight::get().reads((4 as Weight).saturating_mul(f as Weight)))
+            .saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(n as Weight)))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+            .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(f as Weight)))
+            .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(n as Weight)))
+    }
 }

@@ -1454,22 +1454,20 @@ impl<T: Config> Module<T> {
         let mut parties = BTreeSet::new();
         let mut tickers = BTreeSet::new();
         for leg in legs {
-            let (ticker, amount) = leg.asset.ticker_and_amount();
             ensure!(leg.from != leg.to, Error::<T>::SameSenderReceiver);
-            ensure!(amount > 0, Error::<T>::ZeroAmount);
-            if tickers.insert(ticker) && Self::venue_filtering(ticker) {
-                ensure!(
-                    Self::venue_allow_list(ticker, venue_id),
-                    Error::<T>::UnauthorizedVenue
-                );
-            }
             match &leg.asset {
-                LegAsset::Fungible { .. } => fungible_transfers += 1,
+                LegAsset::Fungible { ticker, amount } => {
+                    ensure!(*amount > 0, Error::<T>::ZeroAmount);
+                    Self::ensure_venue_filtering(&mut tickers, ticker.clone(), &venue_id)?;
+                    fungible_transfers += 1;
+                }
                 LegAsset::NonFungible(nfts) => {
+                    ensure!(nfts.len() > 0, Error::<T>::ZeroAmount);
                     ensure!(
                         nfts.len() <= (T::MaxNumberOfNFTsPerLeg::get() as usize),
                         Error::<T>::MaxNumberOfNFTsPerLegExceeded
                     );
+                    Self::ensure_venue_filtering(&mut tickers, nfts.ticker().clone(), &venue_id)?;
                     let unique_nfts: BTreeSet<&NFTId> = nfts.ids().iter().collect();
                     ensure!(unique_nfts.len() == nfts.len(), Error::<T>::DuplicatedNFTId);
                     nfts_transfers += nfts.len();
@@ -2277,6 +2275,21 @@ impl<T: Config> Module<T> {
             transfer_data.fungible() <= fungible_transfers,
             Error::<T>::LegCountTooSmall
         );
+        Ok(())
+    }
+
+    /// If `tickers` doesn't contain the given `ticker` and venue_filtering is enabled, ensures that venue_id is in the allowed list
+    fn ensure_venue_filtering(
+        tickers: &mut BTreeSet<Ticker>,
+        ticker: Ticker,
+        venue_id: &VenueId,
+    ) -> DispatchResult {
+        if tickers.insert(ticker) && Self::venue_filtering(ticker) {
+            ensure!(
+                Self::venue_allow_list(ticker, venue_id),
+                Error::<T>::UnauthorizedVenue
+            );
+        }
         Ok(())
     }
 

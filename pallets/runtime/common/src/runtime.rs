@@ -288,6 +288,8 @@ macro_rules! misc_pallet_impls {
             type Event = Event;
             type Asset = Asset;
             type WeightInfo = polymesh_weights::pallet_portfolio::WeightInfo;
+            type MaxNumberOfFungibleMoves = MaxNumberOfFungibleMoves;
+            type MaxNumberOfNFTsMoves = MaxNumberOfNFTsMoves;
         }
 
         impl pallet_external_agents::Config for Runtime {
