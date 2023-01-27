@@ -9,7 +9,9 @@ use super::{
 use frame_support::storage::StorageDoubleMap;
 use frame_support::{assert_noop, assert_ok, StorageMap};
 use frame_system::EventRecord;
-use pallet_portfolio::{Event, MovePortfolioItem, NameToNumber, PortfolioNFT};
+use pallet_portfolio::{
+    Event, MovePortfolioItem, NameToNumber, PortfolioAssetBalances, PortfolioNFT,
+};
 use pallet_settlement::{InstructionMemo, LegAsset, LegV2, SettlementType};
 use polymesh_common_utilities::balances::Memo;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
@@ -105,7 +107,7 @@ fn can_create_rename_delete_portfolio() {
         let num_of = |name| Portfolio::name_to_number(owner.did, name);
 
         let first_name = name();
-        assert_eq!(num_of(&first_name), num);
+        assert_eq!(num_of(&first_name), Some(num));
 
         let new_name = PortfolioName::from([55u8].to_vec());
         assert_ok!(Portfolio::rename_portfolio(
@@ -132,7 +134,7 @@ fn can_delete_recreate_portfolio() {
         let num_of = |name| Portfolio::name_to_number(owner.did, name);
 
         let first_name = name();
-        assert_eq!(num_of(&first_name), num);
+        assert_eq!(num_of(&first_name), Some(num));
 
         assert_ok!(Portfolio::delete_portfolio(owner.origin(), num));
         assert_ok!(Portfolio::create_portfolio(owner.origin(), first_name));
@@ -784,6 +786,52 @@ fn move_portfolio_nfts() {
         assert_eq!(
             PortfolioNFT::get(alice_custom_portfolio, (TICKER, NFTId(2))),
             true
+        );
+    });
+}
+
+#[test]
+fn move_more_funds() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice: User = User::new(AccountKeyring::Alice);
+        let alice_default_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+        let alice_custom_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::User(PortfolioNumber(1)),
+        };
+        let (ticker, _) = create_token(alice);
+        assert_eq!(
+            PortfolioAssetBalances::get(&alice_default_portfolio, &ticker),
+            1_000_000_000
+        );
+        assert_ok!(Portfolio::create_portfolio(
+            alice.origin(),
+            PortfolioName(b"MyOwnPortfolio".to_vec())
+        ));
+
+        let items = vec![
+            MovePortfolioItem {
+                ticker: ticker,
+                amount: 1_000_000_000,
+                memo: None,
+            },
+            MovePortfolioItem {
+                ticker: ticker,
+                amount: 1_000_000_000,
+                memo: None,
+            },
+        ];
+        assert_noop!(
+            Portfolio::move_portfolio_funds(
+                alice.origin(),
+                alice_default_portfolio,
+                alice_custom_portfolio,
+                items,
+            ),
+            Error::NoDuplicateAssetsAllowed
         );
     });
 }

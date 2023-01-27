@@ -2737,7 +2737,17 @@ impl<T: Config> Module<T> {
         let mut add_db_reads_writes = |reads, writes| {
             consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
         };
-        let validators = <Validators<T>>::iter().map(|(v, _)| v).collect::<Vec<_>>();
+        let mut validators = Vec::new();
+        for (validator, _) in <Validators<T>>::iter()
+            // Polymesh-Note: Ensure that validator is CDDed + has enough bonded.
+            // -----------------------------------------------------------------
+            .filter(|(v, _)| {
+                Self::is_active_balance_above_min_bond(&v) && Self::is_validator_compliant(&v)
+            })
+            // -----------------------------------------------------------------
+        {
+            validators.push(validator);
+        }
         let mut nominators = <Nominators<T>>::iter().map(|(n, _)| n).collect::<Vec<_>>();
 
         let num_validators = validators.len();
