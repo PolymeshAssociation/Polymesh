@@ -967,7 +967,8 @@
     "SettlementType": {
       "_enum": {
         "SettleOnAffirmation": "",
-        "SettleOnBlock": "BlockNumber"
+        "SettleOnBlock": "BlockNumber",
+        "SettleManual": "BlockNumber"
       }
     },
     "LegId": "u64",
