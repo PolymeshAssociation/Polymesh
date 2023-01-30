@@ -146,8 +146,6 @@ mod wrapped_polyx {
           // The contract should always have an identity.
           self.did = self.get_did(Self::env().account_id()).unwrap();
           self.ticker = ticker;
-          //Ticker::try_from(b"POLYX").unwrap();
-          //Ticker::try_from(&b"A"[..]).unwrap();
           self.initialized = false;
         }
 
