@@ -16,7 +16,7 @@ ink_lang_codegen = { version = "3.0", default-features = false }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
 
-polymesh-api = { version = "0.3", path = "../../../polymesh-api", default-features = false, features = ["ink"] }
+polymesh-api = { version = "0.3", default-features = false, features = ["ink"] }
 
 [lib]
 name = "runtime_tester"
