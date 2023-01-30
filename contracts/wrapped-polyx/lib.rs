@@ -51,7 +51,6 @@ mod wrapped_polyx {
     #[derive(Default, SpreadAllocate)]
     pub struct WrappedPolyx {
       ticker: Ticker,
-      total_supply: Balance,
       initialized: bool,
       /// Venue for settlements.
       venue: VenueId,
