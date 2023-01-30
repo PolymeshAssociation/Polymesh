@@ -233,9 +233,13 @@ mod settlements {
               did: self.did,
               kind: PortfolioKind::Default,
             };
+            // Get the next instruction id.
+            let id = api.query().settlement().instruction_counter()
+              .map(|v| v.into())?;
+            // Create settlement.
             api.call().settlement().add_and_affirm_instruction(
               self.venue,
-              SettlementType::SettleOnAffirmation,
+              SettlementType::SettleManual(0),
               None,
               None,
               vec![Leg {
@@ -253,6 +257,13 @@ mod settlements {
                 our_portfolio,
                 caller_portfolio,
               ],
+            ).submit()?;
+
+            // Create settlement.
+            api.call().settlement().execute_manual_instruction(
+              id,
+              2,
+              None,
             ).submit()?;
 
             Ok(())
