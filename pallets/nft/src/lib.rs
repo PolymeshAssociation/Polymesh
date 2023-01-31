@@ -119,7 +119,7 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::burn_nft()]
+        #[weight = <T as Config>::WeightInfo::burn_nft(T::MaxNumberOfCollectionKeys::get() as u32)]
         pub fn burn_nft(origin, ticker: Ticker, nft_id: NFTId, portfolio_kind: PortfolioKind) -> DispatchResult {
             Self::base_burn_nft(origin, ticker, nft_id, portfolio_kind)
         }

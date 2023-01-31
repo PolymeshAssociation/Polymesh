@@ -366,7 +366,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::move_portfolio_funds_v2(funds)]
+        #[weight = <T as Config>::WeightInfo::move_portfolio_v2(funds)]
         pub fn move_portfolio_funds_v2(
             origin,
             from: PortfolioId,

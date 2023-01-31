@@ -18,8 +18,6 @@ use crate::*;
 pub use frame_benchmarking::{account, benchmarks};
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
-#[allow(unused_imports)]
-use num_traits::float::FloatCore;
 use pallet_identity as identity;
 use pallet_nft::benchmarking::create_collection_mint_nfts;
 use pallet_portfolio::PortfolioAssetBalances;
@@ -701,7 +699,11 @@ where
         fungible_ticker,
         fungible_transfers,
     );
-    let n_nft_legs = (n_nfts as f32 / max_nfts as f32).ceil() as u32;
+    let n_nft_legs = if n_nfts % max_nfts == 0 {
+        n_nfts / max_nfts
+    } else {
+        n_nfts / max_nfts + 1
+    };
     let mut non_fungible_legs =
         setup_nft_legs(alice.clone(), bob.clone(), nft_ticker, n_nft_legs, n_nfts);
     non_fungible_legs.append(&mut fungible_legs);

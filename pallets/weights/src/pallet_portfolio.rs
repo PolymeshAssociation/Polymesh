@@ -115,7 +115,6 @@ impl pallet_portfolio::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(3 as Weight))
             .saturating_add(DbWeight::get().writes(5 as Weight))
     }
-
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Portfolio Portfolios (r:1 w:0)
     // Storage: Portfolio PortfolioCustodian (r:1 w:0)
@@ -125,8 +124,12 @@ impl pallet_portfolio::WeightInfo for WeightInfo {
     // Storage: Portfolio PortfolioAssetBalances (r:2 w:2)
     // Storage: Portfolio PortfolioLockedAssets (r:1 w:0)
     // Storage: Portfolio PortfolioAssetCount (r:1 w:1)
-    fn move_portfolio_funds_v2_weight(f: u32, n: u32) -> Weight {
-        (240_712_000 as Weight)
+    fn move_portfolio_funds_v2(f: u32, n: u32) -> Weight {
+        (68_018_000 as Weight)
+            // Standard Error: 473_000
+            .saturating_add((25_861_000 as Weight).saturating_mul(f as Weight))
+            // Standard Error: 23_000
+            .saturating_add((13_023_000 as Weight).saturating_mul(n as Weight))
             .saturating_add(DbWeight::get().reads(4 as Weight))
             .saturating_add(DbWeight::get().reads((4 as Weight).saturating_mul(f as Weight)))
             .saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(n as Weight)))

@@ -470,7 +470,6 @@ impl pallet_settlement::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().writes(6 as Weight))
             .saturating_add(DbWeight::get().writes((16 as Weight).saturating_mul(l as Weight)))
     }
-
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Settlement VenueInfo (r:1 w:0)
     // Storage: Settlement VenueFiltering (r:2 w:0)
@@ -485,12 +484,13 @@ impl pallet_settlement::WeightInfo for WeightInfo {
     // Storage: Settlement InstructionDetails (r:0 w:1)
     // Storage: Settlement VenueInstructions (r:0 w:1)
     fn add_instruction_with_memo_v2(f: u32) -> Weight {
-        (101_933_000 as Weight)
+        (119_496_000 as Weight)
+            // Standard Error: 191_000
+            .saturating_add((2_101_000 as Weight).saturating_mul(f as Weight))
             .saturating_add(DbWeight::get().reads(8 as Weight))
             .saturating_add(DbWeight::get().writes(19 as Weight))
             .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(f as Weight)))
     }
-
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: unknown [0x3a7472616e73616374696f6e5f6c6576656c3a] (r:1 w:1)
     // Storage: Settlement VenueInfo (r:1 w:0)
@@ -514,15 +514,18 @@ impl pallet_settlement::WeightInfo for WeightInfo {
     // Storage: Settlement AffirmsReceived (r:0 w:1)
     // Storage: Settlement InstructionLegStatus (r:0 w:11)
     fn add_and_affirm_instruction_with_memo_v2(f: u32, n: u32) -> Weight {
-        (101_933_000 as Weight)
-            .saturating_add(DbWeight::get().reads(15 as Weight))
+        (114_317_000 as Weight)
+            // Standard Error: 356_000
+            .saturating_add((18_329_000 as Weight).saturating_mul(f as Weight))
+            // Standard Error: 17_000
+            .saturating_add((12_938_000 as Weight).saturating_mul(n as Weight))
+            .saturating_add(DbWeight::get().reads(14 as Weight))
             .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(f as Weight)))
             .saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(n as Weight)))
-            .saturating_add(DbWeight::get().writes(14 as Weight))
+            .saturating_add(DbWeight::get().writes(12 as Weight))
             .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(f as Weight)))
             .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(n as Weight)))
     }
-
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Settlement InstructionDetails (r:1 w:0)
     // Storage: Portfolio PortfolioCustodian (r:1 w:0)
@@ -538,15 +541,18 @@ impl pallet_settlement::WeightInfo for WeightInfo {
     // Storage: Settlement AffirmsReceived (r:0 w:1)
     // Storage: Settlement InstructionLegStatus (r:0 w:11)
     fn affirm_instruction_v2(f: u32, n: u32) -> Weight {
-        (101_933_000 as Weight)
-            .saturating_add(DbWeight::get().reads(11 as Weight))
+        (84_908_000 as Weight)
+            // Standard Error: 360_000
+            .saturating_add((17_455_000 as Weight).saturating_mul(f as Weight))
+            // Standard Error: 18_000
+            .saturating_add((12_961_000 as Weight).saturating_mul(n as Weight))
+            .saturating_add(DbWeight::get().reads(10 as Weight))
             .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(f as Weight)))
             .saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(n as Weight)))
-            .saturating_add(DbWeight::get().writes(6 as Weight))
+            .saturating_add(DbWeight::get().writes(5 as Weight))
             .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(f as Weight)))
             .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(n as Weight)))
     }
-
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Settlement InstructionDetails (r:1 w:0)
     // Storage: Portfolio PortfolioCustodian (r:1 w:0)
@@ -559,15 +565,18 @@ impl pallet_settlement::WeightInfo for WeightInfo {
     // Storage: Settlement InstructionAffirmsPending (r:1 w:1)
     // Storage: Settlement AffirmsReceived (r:0 w:1)
     fn withdraw_affirmation_v2(f: u32, n: u32) -> Weight {
-        (101_933_000 as Weight)
-            .saturating_add(DbWeight::get().reads(10 as Weight))
+        (68_187_000 as Weight)
+            // Standard Error: 290_000
+            .saturating_add((17_795_000 as Weight).saturating_mul(f as Weight))
+            // Standard Error: 14_000
+            .saturating_add((9_530_000 as Weight).saturating_mul(n as Weight))
+            .saturating_add(DbWeight::get().reads(8 as Weight))
             .saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(f as Weight)))
             .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(n as Weight)))
-            .saturating_add(DbWeight::get().writes(6 as Weight))
+            .saturating_add(DbWeight::get().writes(5 as Weight))
             .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(f as Weight)))
             .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(n as Weight)))
     }
-
     // Storage: Settlement InstructionDetails (r:1 w:1)
     // Storage: Settlement InstructionLegsV2 (r:12 w:11)
     // Storage: Identity KeyRecords (r:1 w:0)
@@ -583,11 +592,15 @@ impl pallet_settlement::WeightInfo for WeightInfo {
     // Storage: Settlement VenueInstructions (r:0 w:1)
     // Storage: Settlement AffirmsReceived (r:0 w:1)
     fn reject_instruction_v2(f: u32, n: u32) -> Weight {
-        (101_933_000 as Weight)
-            .saturating_add(DbWeight::get().reads(10 as Weight))
+        (92_422_000 as Weight)
+            // Standard Error: 365_000
+            .saturating_add((24_665_000 as Weight).saturating_mul(f as Weight))
+            // Standard Error: 18_000
+            .saturating_add((10_175_000 as Weight).saturating_mul(n as Weight))
+            .saturating_add(DbWeight::get().reads(8 as Weight))
             .saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(f as Weight)))
             .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(n as Weight)))
-            .saturating_add(DbWeight::get().writes(12 as Weight))
+            .saturating_add(DbWeight::get().writes(10 as Weight))
             .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(f as Weight)))
             .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(n as Weight)))
     }

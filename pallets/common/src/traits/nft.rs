@@ -34,5 +34,5 @@ decl_event!(
 pub trait WeightInfo {
     fn create_nft_collection(n: u32) -> Weight;
     fn mint_nft(n: u32) -> Weight;
-    fn burn_nft() -> Weight;
+    fn burn_nft(n: u32) -> Weight;
 }

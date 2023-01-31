@@ -91,11 +91,11 @@ pub trait WeightInfo {
     fn rename_portfolio(i: u32) -> Weight;
     fn quit_portfolio_custody() -> Weight;
     fn accept_portfolio_custody() -> Weight;
-    fn move_portfolio_funds_v2(funds: &[Fund]) -> Weight {
+    fn move_portfolio_v2(funds: &[Fund]) -> Weight {
         let (f, n) = count_token_moves(funds);
-        Self::move_portfolio_funds_v2_weight(f, n)
+        Self::move_portfolio_funds_v2(f, n)
     }
-    fn move_portfolio_funds_v2_weight(f: u32, u: u32) -> Weight;
+    fn move_portfolio_funds_v2(f: u32, u: u32) -> Weight;
 }
 
 pub trait Config: CommonConfig + identity::Config + base::Config {

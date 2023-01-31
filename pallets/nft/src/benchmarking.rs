@@ -113,22 +113,30 @@ benchmarks! {
     }
 
     burn_nft {
+        let n in 1..MAX_COLLECTION_KEYS;
+
         let user = user::<T>("target", 0);
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
-        let collection_id = create_collection::<T>(user.origin().into(), ticker, 1);
+        let collection_id = create_collection::<T>(user.origin().into(), ticker, n);
 
-        let metadata_attributes: Vec<NFTMetadataAttribute> = vec![
-            NFTMetadataAttribute {
-                key: AssetMetadataKey::Global(AssetMetadataGlobalKey(1)),
-                value: AssetMetadataValue(b"value".to_vec())
-            }
-        ];
+        let metadata_attributes: Vec<NFTMetadataAttribute> = (1..n + 1)
+            .map(|key| {
+                NFTMetadataAttribute{
+                    key: AssetMetadataKey::Global(AssetMetadataGlobalKey(key.into())),
+                    value: AssetMetadataValue(b"value".to_vec()),
+                }
+            })
+            .collect();
         Module::<T>::mint_nft(user.origin().into(), ticker, metadata_attributes, PortfolioKind::Default).expect("failed to mint nft");
     }: _(user.origin, ticker, NFTId(1), PortfolioKind::Default)
     verify {
-        assert!(!MetadataValue::contains_key(
-            (NFTCollectionId(1), NFTId(1)),
-            AssetMetadataKey::Global(AssetMetadataGlobalKey(1))
-        ),);
+        for i in 1..n + 1 {
+            assert!(
+                !MetadataValue::contains_key(
+                    (NFTCollectionId(1), NFTId(1)),
+                    AssetMetadataKey::Global(AssetMetadataGlobalKey(i.into()))
+                )
+            );
+        }
     }
 }
