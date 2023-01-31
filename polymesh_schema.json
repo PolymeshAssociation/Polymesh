@@ -1185,6 +1185,38 @@
         "Unclaimed": "Balance",
         "Claimed": ""
       }
+    },
+    "NFTId": "u64",
+    "NFTs": {
+      "ticker": "Ticker",
+      "ids": "Vec<NFTId>"
+    },
+    "LegAsset": {
+      "_enum": {
+        "Fungible": {
+          "ticker": "Ticker",
+          "amount": "Balance"
+        },
+        "NonFungible": "NFTs"
+      }
+    },
+    "LegV2": {
+      "from": "PortfolioId",
+      "to": "PortfolioId",
+      "asset": "LegAsset"
+    },
+    "FundDescription": {
+      "_enum": {
+        "Fungible": {
+          "ticker": "Ticker",
+          "amount": "Balance"
+        },
+        "NonFungible": "NFTs"
+      }
+    },
+    "Fund": {
+      "description": "FundDescription",
+      "memo": "Option<Memo>"
     }
   },
   "rpc": {
@@ -1529,32 +1561,5 @@
       "extrinsic": {},
       "payload": {}
     }
-  },
-  "LegAsset": {
-    "_enum": {
-      "Fungible": {
-        "ticker": "Ticker",
-        "amount": "Balance"
-      },
-      "NonFungible": "NFTs"
-    }
-  },
-  "LegV2": {
-    "from": "PortfolioId",
-    "to": "PortfolioId",
-    "asset": "LegAsset"
-  },
-  "FundDescription": {
-    "_enum": {
-      "Fungible": {
-        "ticker": "Ticker",
-        "amount": "Balance"
-      },
-      "NonFungible": "NFTs"
-    }
-  },
-  "Fund": {
-    "description": "FundDescription",
-    "memo": "Option<Memo>"
   }
 }
