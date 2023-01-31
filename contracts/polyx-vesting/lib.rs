@@ -3,13 +3,13 @@
 use ink_lang as ink;
 
 #[ink::contract]
-mod vesting {
+mod polyx_vesting {
     use ink_storage::{traits::SpreadAllocate, Mapping};
 
     /// Defines the storage of your contract.
     #[ink(storage)]
     #[derive(SpreadAllocate)]
-    pub struct Vesting {
+    pub struct PolyxVesting {
         released: Balance,
         beneficiary: AccountId,
         start: u64,
@@ -30,7 +30,7 @@ mod vesting {
         InsufficientBalance,
     }
 
-    impl Vesting {
+    impl PolyxVesting {
         /// Constructor
         #[ink(constructor)]
         pub fn new(
