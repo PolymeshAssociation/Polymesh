@@ -1150,7 +1150,6 @@ dependencies = [
  "derive_more",
  "ink_env",
  "ink_lang_macro",
- "ink_metadata",
  "ink_prelude",
  "ink_primitives",
  "ink_storage",
@@ -2994,22 +2993,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be55cf8942feac5c765c2c993422806843c9a9a45d4d5c407ad6dd2ea95eb9b6"
 dependencies = [
  "winapi-util",
-]
-
-[[package]]
-name = "test_runtime_v5"
-version = "1.0.0"
-dependencies = [
- "ink_env",
- "ink_lang",
- "ink_lang_codegen",
- "ink_metadata",
- "ink_prelude",
- "ink_primitives",
- "ink_storage",
- "parity-scale-codec",
- "polymesh-ink",
- "scale-info",
 ]
 
 [[package]]

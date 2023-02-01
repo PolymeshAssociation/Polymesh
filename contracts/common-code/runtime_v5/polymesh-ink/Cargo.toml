@@ -1,9 +1,8 @@
 [package]
-name = "runtime_v5"
+name = "polymesh-ink"
 version = "5.0.0"
 authors = ["Polymesh Association"]
 edition = "2021"
-publish = false
 
 [dependencies]
 ink_primitives = { version = "3.0", default-features = false }
@@ -17,14 +16,6 @@ scale = { package = "parity-scale-codec", version = "3", default-features = fals
 scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
 
 polymesh-api = { version = "0.3.8", default-features = false, features = ["ink"] }
-
-[lib]
-name = "runtime_v5"
-path = "src/lib.rs"
-crate-type = [
-  # Used for normal contract Wasm blobs.
-  "cdylib",
-]
 
 [features]
 default = ["std"]
