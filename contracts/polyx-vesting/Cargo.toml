@@ -1,7 +1,7 @@
 [package]
-name = "vesting"
+name = "polyx-vesting"
 version = "0.1.0"
-authors = ["[your_name] <[your_email]>"]
+authors = ["Polymesh Association"]
 edition = "2021"
 
 [dependencies]
@@ -15,7 +15,7 @@ scale = { package = "parity-scale-codec", version = "3", default-features = fals
 scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
 
 [lib]
-name = "vesting"
+name = "polyx_vesting"
 path = "lib.rs"
 crate-type = [
 	# Used for normal contract Wasm blobs.

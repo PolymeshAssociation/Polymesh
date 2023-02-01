@@ -4,7 +4,7 @@ use ink_lang as ink;
 
 #[ink::contract]
 mod polyx_vesting {
-    use ink_storage::{traits::SpreadAllocate, Mapping};
+    use ink_storage::traits::SpreadAllocate;
 
     /// Defines the storage of your contract.
     #[ink(storage)]
@@ -12,8 +12,8 @@ mod polyx_vesting {
     pub struct PolyxVesting {
         released: Balance,
         beneficiary: AccountId,
-        start: u64,
-        duration: u64,
+        start: u128,
+        duration: u128,
     }
 
     /// Event emitted when Polyx is released.
@@ -30,51 +30,54 @@ mod polyx_vesting {
         InsufficientBalance,
     }
 
+    /// The contract result type.
+    pub type Result<T> = core::result::Result<T, Error>;
+
     impl PolyxVesting {
         /// Constructor
         #[ink(constructor)]
         pub fn new(
-            beneficiaryAddress: AccountId,
-            startTimestamp: u64,
-            durationSeconds: u64,
+            beneficiary_address: AccountId,
+            start_timestamp: u128,
+            duration_seconds: u128,
         ) -> Self {
             ink_lang::utils::initialize_contract(|contract| {
                 Self::new_init(
                     contract,
-                    beneficiaryAddress,
-                    startTimestamp,
-                    durationSeconds,
+                    beneficiary_address,
+                    start_timestamp,
+                    duration_seconds,
                 )
             })
         }
 
         fn new_init(
             &mut self,
-            beneficiaryAddress: AccountId,
-            startTimestamp: u64,
-            durationSeconds: u64,
+            beneficiary_address: AccountId,
+            start_timestamp: u128,
+            duration_seconds: u128,
         ) {
-            self.beneficiary = beneficiaryAddress;
-            self.start = startTimestamp;
-            self.duration = durationSeconds;
+            self.beneficiary = beneficiary_address;
+            self.start = start_timestamp;
+            self.duration = duration_seconds;
         }
 
         // Getters
         /// Returns the vesting duration.
         #[ink(message)]
-        pub fn duration(&self) -> Balance {
+        pub fn duration(&self) -> u128 {
             self.duration
         }
 
         /// Returns the start timestamp.
         #[ink(message)]
-        pub fn start(&self) -> Balance {
+        pub fn start(&self) -> u128 {
             self.start
         }
 
         /// Returns the beneficiary address.
         #[ink(message)]
-        pub fn beneficiary(&self) -> Balance {
+        pub fn beneficiary(&self) -> AccountId {
             self.beneficiary
         }
 
@@ -87,34 +90,36 @@ mod polyx_vesting {
         /// Returns the amount of releasable POLYX.
         #[ink(message)]
         pub fn releasable(&self) -> Balance {
-            vestedAmount(self, self.env.block_timestamp()).saturating_sub(released(self))
+            self.vested_amount(self.env().block_timestamp().into()).saturating_sub(self.released())
         }
 
         /// Release the native token (POLYX) that have already vested.
         #[ink(message)]
-        pub fn release(&mut self) {
-            let amount = releasable(self);
+        pub fn release(&mut self) -> Result<()> {
+            let amount = self.releasable();
             self.released += amount;
             Self::env().emit_event(PolyxReleased { value: amount });
             if self.env().transfer(self.env().caller(), amount).is_err() {
                 Err(Error::InsufficientBalance)
+            } else {
+                Ok(())
             }
         }
 
         /// Calculates the amount of tokens that has already vested.
         #[ink(message)]
-        fn vestedAmount(&self, timestamp: u64) -> Balance {
-            vestingSchedule(self, self.env().balance() + self.released, timestamp);
+        pub fn vested_amount(&self, timestamp: u128) -> Balance {
+            self.vesting_schedule(self.env().balance() + self.released, timestamp)
         }
 
         /// This returns the amount vested.
-        fn vestingSchedule(&self, totalAllocation: Balance, timestamp: u64) -> Balance {
-            if (timestamp < self.start) {
+        fn vesting_schedule(&self, total_allocation: u128, timestamp: u128) -> Balance {
+            if timestamp < self.start {
                 return 0;
-            } else if (timestamp > self.start + self.duration) {
-                return totalAllocation;
+            } else if timestamp > self.start + self.duration {
+                return total_allocation;
             } else {
-                return (totalAllocation * (timestamp - self.start)) / self.duration;
+                return (total_allocation * (timestamp - self.start)) / self.duration;
             }
         }
     }
