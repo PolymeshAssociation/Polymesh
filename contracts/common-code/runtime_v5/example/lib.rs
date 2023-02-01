@@ -3,6 +3,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use ink_lang as ink;
 
 /// TODO: Create a better error type.
@@ -15,10 +17,18 @@ pub enum PolymeshError {
 
 pub type PolymeshResult<T> = core::result::Result<T, PolymeshError>;
 
-#[ink::contract]
+use polymesh_api::{
+    ink::{
+        extension::PolymeshEnvironment,
+    },
+    Api,
+};
+
+#[ink::contract(env = PolymeshEnvironment)]
 pub mod test_runtime_v5 {
     use ink_env::call::{DelegateCall, Selector, ExecutionInput};
 
+    use alloc::vec::Vec;
     use crate::*;
 
     /// A simple proxy contract.
@@ -75,13 +85,41 @@ pub mod test_runtime_v5 {
             self.runtime = new_runtime;
         }
 
+        /// Test direct calling `system.remark()` using the chain extension.
+        #[ink(message)]
+        pub fn direct_remark(&mut self, remark: Vec<u8>) -> Result<()> {
+            let api = Api::new();
+            api.call().system().remark(remark).submit().map_err(|_| Error::PolymeshError)?;
+            Ok(())
+        }
+
+        /// Test calling `system.remark()` using the `runtime_v5` contract code.
+        #[ink(message)]
+        pub fn delegate_remark(&mut self, remark: Vec<u8>) -> Result<()> {
+            ink_env::call::build_call::<ink_env::DefaultEnvironment>()
+                .call_type(DelegateCall::new().code_hash(self.runtime))
+                .exec_input(
+                      ExecutionInput::new(Selector::new([0x00, 0x00, 0x00, 0x01]))
+                          .push_arg(remark)
+                )
+                .returns::<PolymeshResult<()>>()
+                .fire()
+                .unwrap_or_else(|err| {
+                    panic!(
+                        "delegate call to {:?} failed due to {:?}",
+                        self.runtime, err
+                    )
+                })?;
+            Ok(())
+        }
+
         /// Test calling `asset.create_asset()` using the `runtime_v5` contract code.
         #[ink(message)]
         pub fn create_asset(&mut self, ticker: [u8; 12]) -> Result<()> {
             ink_env::call::build_call::<ink_env::DefaultEnvironment>()
                 .call_type(DelegateCall::new().code_hash(self.runtime))
                 .exec_input(
-                      ExecutionInput::new(Selector::new([0x00, 0x00, 0x00, 0x01]))
+                      ExecutionInput::new(Selector::new([0x00, 0x00, 0x1a, 0x01]))
                           .push_arg(ticker)
                 )
                 .returns::<PolymeshResult<()>>()

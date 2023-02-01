@@ -20,7 +20,7 @@ use polymesh_api::{
 
 #[ink::contract(env = PolymeshEnvironment)]
 mod runtime_v5 {
-    use alloc::vec;
+    use alloc::{vec, vec::Vec};
 
     use crate::*;
 
@@ -56,11 +56,19 @@ mod runtime_v5 {
         /// Creates a new contract.
         #[ink(constructor)]
         pub fn new() -> Self {
-            Self {}
+            panic!("Only upload this contract, don't deploy it.");
         }
 
         /// Very simple create asset call.
         #[ink(message, selector = 0x00_00_00_01)]
+        pub fn system_remark(&mut self, remark: Vec<u8>) -> Result<()> {
+            let api = Api::new();
+            api.call().system().remark(remark).submit()?;
+            Ok(())
+        }
+
+        /// Very simple create asset call.
+        #[ink(message, selector = 0x00_00_1a_01)]
         pub fn create_asset(&mut self, ticker: Ticker) -> Result<()> {
             let api = Api::new();
             // Create asset.
