@@ -6,6 +6,9 @@ use alloc::{vec, vec::Vec};
 
 use ink_env::call::{DelegateCall, ExecutionInput, Selector};
 
+#[cfg(feature = "tracker")]
+pub use upgrade_tracker::UpgradeTrackerRef;
+
 use polymesh_api::Api;
 pub use polymesh_api::{
     ink::extension::PolymeshEnvironment,
@@ -14,6 +17,8 @@ pub use polymesh_api::{
         ticker::Ticker,
     },
 };
+
+pub const API_VERSION: u32 = 5;
 
 /// The contract error types.
 #[derive(Debug, scale::Encode, scale::Decode)]
@@ -50,16 +55,31 @@ pub type Hash = <PolymeshEnvironment as ink_env::Environment>::Hash;
 #[cfg_attr(feature = "std", derive(ink_storage::traits::StorageLayout))]
 pub struct PolymeshInk {
     hash: Option<Hash>,
+    #[cfg(feature = "tracker")]
+    tracker: Option<UpgradeTrackerRef>,
 }
 
 impl PolymeshInk {
+    #[cfg(not(feature = "tracker"))]
     pub fn new(hash: Option<Hash>) -> Self {
         Self { hash }
+    }
+
+    #[cfg(feature = "tracker")]
+    pub fn new(hash: Option<Hash>, tracker: Option<UpgradeTrackerRef>) -> Self {
+        Self { hash, tracker }
     }
 
     /// Update code hash.
     pub fn update_code_hash(&mut self, hash: Option<Hash>) {
         self.hash = hash;
+    }
+
+    #[cfg(feature = "tracker")]
+    pub fn check_for_upgrade(&mut self) {
+        if let Some(tracker) = &self.tracker {
+            self.hash = tracker.get_latest_upgrade(API_VERSION);
+        }
     }
 
     /// Very simple api call for testing overhead.

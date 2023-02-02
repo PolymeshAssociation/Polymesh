@@ -1,5 +1,4 @@
-//! Example contract showing how to delegate calls to the `runtime_v5`
-//! contract code to make Polymesh runtime calls.
+//! Example contract for upgradable `polymesh-ink` API.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -10,18 +9,17 @@ use ink_lang as ink;
 use polymesh_ink::*;
 
 #[ink::contract(env = PolymeshEnvironment)]
-pub mod test_runtime_v5 {
-    use alloc::vec::Vec;
+pub mod test_polymesh_ink {
     use crate::*;
+    use alloc::vec::Vec;
 
     /// A simple proxy contract.
     #[ink(storage)]
     pub struct Proxy {
-        /// The `Hash` of the current `runtime_v5` contract code.
-        runtime: Hash,
-        /// The `AccountId` of a privileged account that can update the
-        /// runtime code hash. This address is set to the account that
-        /// instantiated this contract.
+        /// The `AccountId` of a privileged account that override the
+        /// code hash for `PolymeshInk`.
+        ///
+        /// This address is set to the account that instantiated this contract.
         admin: AccountId,
         /// Upgradable Polymesh Ink API.
         api: PolymeshInk,
@@ -50,15 +48,16 @@ pub mod test_runtime_v5 {
         /// Sets the privileged account to the caller. Only this account may
         /// later changed the `forward_to` address.
         #[ink(constructor)]
-        pub fn new(runtime: Hash) -> Self {
+        pub fn new(tracker: Option<UpgradeTrackerRef>) -> Self {
             Self {
-                runtime,
                 admin: Self::env().caller(),
-                api: Default::default(),
+                api: PolymeshInk::new(None, tracker),
             }
         }
 
         /// Update the code hash of the polymesh runtime API.
+        ///
+        /// Only the `admin` is allowed to call this.
         #[ink(message)]
         pub fn update_code_hash(&mut self, hash: Option<Hash>) {
             assert_eq!(
@@ -71,16 +70,28 @@ pub mod test_runtime_v5 {
             self.api.update_code_hash(hash);
         }
 
+        /// Update the `polymesh-ink` API using the tracker.
+        ///
+        /// Anyone can pay the gas fees to do the update using the tracker.
+        #[ink(message)]
+        pub fn update_polymesh_ink(&mut self) {
+            self.api.check_for_update();
+        }
+
         #[ink(message)]
         pub fn system_remark(&mut self, remark: Vec<u8>) -> Result<()> {
-            self.api.system_remark(remark).map_err(|_| Error::PolymeshError)?;
+            self.api
+                .system_remark(remark)
+                .map_err(|_| Error::PolymeshError)?;
             Ok(())
         }
 
-        /// Test calling `asset.create_asset()` using the `runtime_v5` contract code.
+        /// Test calling `asset.create_asset()` using the upgradable `polymesh-ink` API.
         #[ink(message)]
         pub fn create_asset(&mut self, ticker: Ticker, amount: Balance) -> Result<()> {
-            self.api.create_simple_asset(ticker, amount).map_err(|_| Error::PolymeshError)?;
+            self.api
+                .create_simple_asset(ticker, amount)
+                .map_err(|_| Error::PolymeshError)?;
             Ok(())
         }
     }

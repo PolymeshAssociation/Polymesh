@@ -1,5 +1,5 @@
 [package]
-name = "test_runtime_v5"
+name = "test_polymesh_ink"
 version = "1.0.0"
 authors = ["Polymesh Association"]
 edition = "2021"
@@ -17,10 +17,10 @@ ink_lang_codegen = { version = "3.0", default-features = false }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
 
-polymesh-ink = { version = "5.0.0", path = "../polymesh-ink", default-features = false }
+polymesh-ink = { version = "5.0.0", path = "../polymesh-ink", default-features = false, features = ["tracker"] }
 
 [lib]
-name = "test_runtime_v5"
+name = "test_polymesh_ink"
 path = "lib.rs"
 crate-type = ["cdylib"]
 
