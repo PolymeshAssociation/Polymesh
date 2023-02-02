@@ -90,13 +90,25 @@ mod polyx_vesting {
         /// Returns the amount of releasable POLYX.
         #[ink(message)]
         pub fn releasable(&self) -> Balance {
-            self.vested_amount(self.env().block_timestamp().into()).saturating_sub(self.released())
+            self.vested_amount(self.env().block_timestamp().into())
+                .saturating_sub(self.released())
+        }
+
+        #[ink(message)]
+        pub fn get_time(&self) -> Balance {
+            self.env().block_timestamp().into()
+        }
+
+        #[ink(message)]
+        pub fn get_balance(&self) -> Balance {
+            self.env().balance()
         }
 
         /// Release the native token (POLYX) that have already vested.
         #[ink(message)]
         pub fn release(&mut self) -> Result<()> {
             let amount = self.releasable();
+            assert!(amount > 0, "insufficient funds!");
             self.released += amount;
             Self::env().emit_event(PolyxReleased { value: amount });
             if self.env().transfer(self.env().caller(), amount).is_err() {
@@ -123,32 +135,34 @@ mod polyx_vesting {
             }
         }
     }
-}
 
-/// Unit tests in Rust are normally defined within such a `#[cfg(test)]`
-/// module and test functions are marked with a `#[test]` attribute.
-/// The below code is technically just normal Rust code.
-#[cfg(test)]
-mod tests {
-    /// Imports all the definitions from the outer scope so we can use them here.
-    use super::*;
+    #[cfg(test)]
+    mod tests {
+        /// Imports all the definitions from the outer scope so we can use them here.
+        use super::*;
 
-    /// Imports `ink_lang` so we can use `#[ink::test]`.
-    use ink_lang as ink;
+        /// Imports `ink_lang` so we can use `#[ink::test]`.
+        use ink_lang as ink;
 
-    /// We test if the default constructor does its job.
-    #[ink::test]
-    fn default_works() {
-        let vesting = Vesting::default();
-        assert_eq!(vesting.get(), false);
-    }
+        /// We test if the new constructor does its job.
+        #[ink::test]
+        fn new_works() {
+            // Constructor works.
+            let polyx_vesting = PolyxVesting::new(AccountId::from([0x01; 32]), 5, 20);
+            // Ensure the values are stored correctly
+            assert_eq!(polyx_vesting.beneficiary(), AccountId::from([0x01; 32]));
+            assert_eq!(polyx_vesting.start(), 5u128);
+            assert_eq!(polyx_vesting.duration(), 20u128);
+            assert_eq!(polyx_vesting.released(), 0u128);
+        }
 
-    /// We test a simple use case of our contract.
-    #[ink::test]
-    fn it_works() {
-        let mut vesting = Vesting::new(false);
-        assert_eq!(vesting.get(), false);
-        vesting.flip();
-        assert_eq!(vesting.get(), true);
+        #[ink::test]
+        fn vesting_works() {
+            // Constructor works.
+            let mut polyx_vesting = PolyxVesting::new(AccountId::from([0x01; 32]), 1, 3);
+
+            // Release Polyx
+            assert_eq!(polyx_vesting.release(), Ok(()));
+        }
     }
 }
