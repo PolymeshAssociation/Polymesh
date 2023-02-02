@@ -28,6 +28,8 @@ mod polyx_vesting {
     pub enum Error {
         /// Returned if not enough balance to fulfill a request is available.
         InsufficientBalance,
+        /// Funds are not released as yet.
+        FundsNotReleased,
     }
 
     /// The contract result type.
@@ -108,10 +110,12 @@ mod polyx_vesting {
         #[ink(message)]
         pub fn release(&mut self) -> Result<()> {
             let amount = self.releasable();
-            assert!(amount > 0, "insufficient funds!");
+            if amount == 0 {
+                return Err(Error::FundsNotReleased);
+            }
             self.released += amount;
             Self::env().emit_event(PolyxReleased { value: amount });
-            if self.env().transfer(self.env().caller(), amount).is_err() {
+            if self.env().transfer(self.beneficiary, amount).is_err() {
                 Err(Error::InsufficientBalance)
             } else {
                 Ok(())
@@ -144,24 +148,55 @@ mod polyx_vesting {
         /// Imports `ink_lang` so we can use `#[ink::test]`.
         use ink_lang as ink;
 
+        fn next_x_block(x: u8) {
+            for _i in 0..x {
+                ink_env::test::advance_block::<ink_env::DefaultEnvironment>();
+            }
+        }
+
+        fn beneficiary_balance(beneficiary_address: AccountId) -> Balance {
+            ink_env::test::get_account_balance::<ink_env::DefaultEnvironment>(beneficiary_address)
+                .expect("failed to get account balance")
+        }
+
         /// We test if the new constructor does its job.
         #[ink::test]
         fn new_works() {
+            let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
             // Constructor works.
-            let polyx_vesting = PolyxVesting::new(AccountId::from([0x01; 32]), 5, 20);
+            let polyx_vesting = PolyxVesting::new(accounts.alice, 24, 80);
             // Ensure the values are stored correctly
-            assert_eq!(polyx_vesting.beneficiary(), AccountId::from([0x01; 32]));
-            assert_eq!(polyx_vesting.start(), 5u128);
-            assert_eq!(polyx_vesting.duration(), 20u128);
+            assert_eq!(polyx_vesting.beneficiary(), accounts.alice);
+            assert_eq!(polyx_vesting.start(), 24u128);
+            assert_eq!(polyx_vesting.duration(), 80u128);
             assert_eq!(polyx_vesting.released(), 0u128);
         }
 
+        /// We test if vesting does its job.
         #[ink::test]
         fn vesting_works() {
+            let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
             // Constructor works.
-            let mut polyx_vesting = PolyxVesting::new(AccountId::from([0x01; 32]), 1, 3);
+            let mut polyx_vesting = PolyxVesting::new(accounts.alice, 24, 80);
+
+            // Ensure error when calling relase before start of vesting period
+            assert_eq!(polyx_vesting.release(), Err(Error::FundsNotReleased));
+
+            // Check beneficiary current balance
+            let old_balance = beneficiary_balance(accounts.alice);
+
+            next_x_block(5);
 
             // Release Polyx
+            assert_eq!(polyx_vesting.release(), Ok(()));
+
+            // Check beneficiary updated balance
+            let new_balance = beneficiary_balance(accounts.alice);
+
+            assert_eq!(polyx_vesting.released(), new_balance - old_balance);
+
+            next_x_block(6);
+
             assert_eq!(polyx_vesting.release(), Ok(()));
         }
     }
