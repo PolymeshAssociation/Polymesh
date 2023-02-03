@@ -96,16 +96,6 @@ mod polyx_vesting {
                 .saturating_sub(self.released())
         }
 
-        #[ink(message)]
-        pub fn get_time(&self) -> Balance {
-            self.env().block_timestamp().into()
-        }
-
-        #[ink(message)]
-        pub fn get_balance(&self) -> Balance {
-            self.env().balance()
-        }
-
         /// Release the native token (POLYX) that have already vested.
         #[ink(message)]
         pub fn release(&mut self) -> Result<()> {
