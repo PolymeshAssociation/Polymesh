@@ -20,6 +20,29 @@ pub use polymesh_api::{
 
 pub const API_VERSION: u32 = 5;
 
+macro_rules! upgradable_func {
+    ($func:ident ($($param:ident: $ty:ty),+) $code:expr) => {
+        pub fn $func(&self, $($param: $ty),+) -> PolymeshResult<()> {
+            if let Some(hash) = self.hash {
+                const FUNC: &str = stringify!($func);
+                let selector = ink_lang_ir::Selector::compute(FUNC.as_bytes()).to_bytes();
+                ink_env::call::build_call::<ink_env::DefaultEnvironment>()
+                    .call_type(DelegateCall::new().code_hash(hash))
+                    .exec_input(
+                        ExecutionInput::new(Selector::new(selector))
+                            .push_arg(($($param),+)),
+                    )
+                    .returns::<PolymeshResult<()>>()
+                    .fire()
+                    .unwrap_or_else(|err| panic!("delegate call to {:?} failed due to {:?}", hash, err))?;
+            } else {
+                $code
+            }
+            Ok(())
+        }
+    }
+}
+
 /// The contract error types.
 #[derive(Debug, scale::Encode, scale::Decode)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
@@ -82,65 +105,18 @@ impl PolymeshInk {
         }
     }
 
-    /// Very simple api call for testing overhead.
-    pub fn system_remark(&mut self, remark: Vec<u8>) -> PolymeshResult<()> {
-        if let Some(hash) = self.hash {
-            self.delegate_system_remark(hash, remark)
-        } else {
-            self.direct_system_remark(remark)
-        }
-    }
-
-    // Use a DelegateCall to to the "wrapped" contract.
-    fn delegate_system_remark(&self, hash: Hash, remark: Vec<u8>) -> PolymeshResult<()> {
-        ink_env::call::build_call::<ink_env::DefaultEnvironment>()
-            .call_type(DelegateCall::new().code_hash(hash))
-            .exec_input(
-                ExecutionInput::new(Selector::new([0x00, 0x00, 0x00, 0x01])).push_arg(remark),
-            )
-            .returns::<PolymeshResult<()>>()
-            .fire()
-            .unwrap_or_else(|err| panic!("delegate call to {:?} failed due to {:?}", hash, err))?;
-        Ok(())
-    }
-
-    fn direct_system_remark(&mut self, remark: Vec<u8>) -> PolymeshResult<()> {
+    upgradable_func!(system_remark (remark: Vec<u8>) {
         let api = Api::new();
         api.call().system().remark(remark).submit()?;
-        Ok(())
-    }
+    });
 
-    /// Just an example "high-level" API.
-    pub fn create_simple_asset(&self, ticker: Ticker, amount: Balance) -> PolymeshResult<()> {
-        if let Some(hash) = self.hash {
-            self.delegate_create_simple_asset(hash, ticker, amount)
-        } else {
-            self.direct_create_simple_asset(ticker, amount)
-        }
-    }
+    upgradable_func!(asset_issue (ticker: Ticker, amount: Balance) {
+        let api = Api::new();
+        // Mint some tokens.
+        api.call().asset().issue(ticker, amount).submit()?;
+    });
 
-    // Use a DelegateCall to to the "wrapped" contract.
-    fn delegate_create_simple_asset(
-        &self,
-        hash: Hash,
-        ticker: Ticker,
-        amount: Balance,
-    ) -> PolymeshResult<()> {
-        ink_env::call::build_call::<ink_env::DefaultEnvironment>()
-            .call_type(DelegateCall::new().code_hash(hash))
-            .exec_input(
-                ExecutionInput::new(Selector::new([0x00, 0x00, 0x1a, 0x01]))
-                    .push_arg(ticker)
-                    .push_arg(amount),
-            )
-            .returns::<PolymeshResult<()>>()
-            .fire()
-            .unwrap_or_else(|err| panic!("delegate call to {:?} failed due to {:?}", hash, err))?;
-        Ok(())
-    }
-
-    // Directly use the chain extension.
-    fn direct_create_simple_asset(&self, ticker: Ticker, amount: Balance) -> PolymeshResult<()> {
+    upgradable_func!(asset_create_and_issue (ticker: Ticker, amount: Balance) {
         let api = Api::new();
         // Create asset.
         api.call()
@@ -162,6 +138,5 @@ impl PolymeshInk {
             .compliance_manager()
             .pause_asset_compliance(ticker.into())
             .submit()?;
-        Ok(())
-    }
+    });
 }

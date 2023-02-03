@@ -60,7 +60,7 @@ mod runtime_v5 {
         }
 
         /// Very simple create asset call.
-        #[ink(message, selector = 0x00_00_00_01)]
+        #[ink(message)]
         pub fn system_remark(&mut self, remark: Vec<u8>) -> Result<()> {
             let api = Api::new();
             api.call().system().remark(remark).submit()?;
@@ -68,8 +68,16 @@ mod runtime_v5 {
         }
 
         /// Very simple create asset call.
-        #[ink(message, selector = 0x00_00_1a_01)]
-        pub fn create_asset(&mut self, ticker: Ticker) -> Result<()> {
+        #[ink(message)]
+        pub fn system_remark(&mut self, remark: Vec<u8>) -> Result<()> {
+            let api = Api::new();
+            api.call().system().remark(remark).submit()?;
+            Ok(())
+        }
+
+        /// Very simple create asset call.
+        #[ink(message)]
+        pub fn asset_create_and_issue(&mut self, ticker: Ticker, amount: Balance) -> Result<()> {
             let api = Api::new();
             // Create asset.
             api.call()
@@ -83,6 +91,13 @@ mod runtime_v5 {
                     None,
                     true, // Disable Investor uniqueness requirements.
                 )
+                .submit()?;
+            // Mint some tokens.
+            api.call().asset().issue(ticker.into(), amount).submit()?;
+            // Pause compliance rules to allow transfers.
+            api.call()
+                .compliance_manager()
+                .pause_asset_compliance(ticker.into())
                 .submit()?;
             Ok(())
         }
