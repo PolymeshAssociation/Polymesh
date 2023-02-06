@@ -67,11 +67,11 @@ mod runtime_v5 {
             Ok(())
         }
 
-        /// Very simple create asset call.
         #[ink(message)]
-        pub fn system_remark(&mut self, remark: Vec<u8>) -> Result<()> {
+        pub fn asset_issue(&mut self, ticker: Ticker, amount: Balance) -> Result<()> {
             let api = Api::new();
-            api.call().system().remark(remark).submit()?;
+            // Mint some tokens.
+            api.call().asset().issue(ticker.into(), amount).submit()?;
             Ok(())
         }
 
