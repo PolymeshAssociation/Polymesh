@@ -161,7 +161,7 @@ pub trait Config:
     type WeightInfo: WeightInfo;
     type CPWeightInfo: crate::traits::checkpoint::WeightInfo;
 
-    type NFTFn: NFTTrait;
+    type NFTFn: NFTTrait<Self::Origin>;
 }
 
 decl_event! {

@@ -1,3 +1,8 @@
+#[cfg(feature = "runtime-benchmarks")]
+use frame_support::dispatch::DispatchResult;
+#[cfg(feature = "runtime-benchmarks")]
+use polymesh_primitives::nft::NFTCollectionKeys;
+
 use frame_support::decl_event;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
@@ -36,7 +41,14 @@ pub trait WeightInfo {
     fn burn_nft(n: u32) -> Weight;
 }
 
-pub trait NFTTrait {
+pub trait NFTTrait<Origin> {
     /// Returns true if the given `metadata_key` is a mandatory key for the ticker's NFT collection.
     fn is_collection_key(ticker: &Ticker, metadata_key: &AssetMetadataKey) -> bool;
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn create_nft_collection(
+        origin: Origin,
+        ticker: Ticker,
+        collection_keys: NFTCollectionKeys,
+    ) -> DispatchResult;
 }

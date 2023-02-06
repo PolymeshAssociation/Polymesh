@@ -411,7 +411,7 @@ impl<T: Config> Module<T> {
     }
 }
 
-impl<T: Config> NFTTrait for Module<T> {
+impl<T: Config> NFTTrait<T::Origin> for Module<T> {
     fn is_collection_key(ticker: &Ticker, metadata_key: &AssetMetadataKey) -> bool {
         match CollectionTicker::try_get(ticker) {
             Ok(collection_id) => {
@@ -420,5 +420,14 @@ impl<T: Config> NFTTrait for Module<T> {
             }
             Err(_) => false,
         }
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn create_nft_collection(
+        origin: T::Origin,
+        ticker: Ticker,
+        collection_keys: NFTCollectionKeys,
+    ) -> DispatchResult {
+        Module::<T>::create_nft_collection(origin, ticker, collection_keys)
     }
 }
