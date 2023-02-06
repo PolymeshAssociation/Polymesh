@@ -10,7 +10,7 @@ use pallet_portfolio::PortfolioNFT;
 use polymesh_common_utilities::compliance_manager::Config as ComplianceManagerConfig;
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
-pub use polymesh_common_utilities::traits::nft::{Config, Event, WeightInfo};
+pub use polymesh_common_utilities::traits::nft::{Config, Event, NFTTrait, WeightInfo};
 use polymesh_primitives::asset::{AssetName, AssetType};
 use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use polymesh_primitives::nft::{
@@ -337,7 +337,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Tranfer ownership of all NFTs.
+    /// Transfer ownership of all NFTs.
     #[require_transactional]
     pub fn base_nft_transfer(
         sender_portfolio: &PortfolioId,
@@ -408,5 +408,17 @@ impl<T: Config> Module<T> {
         }
 
         Ok(())
+    }
+}
+
+impl<T: Config> NFTTrait for Module<T> {
+    fn is_collection_key(ticker: &Ticker, metadata_key: &AssetMetadataKey) -> bool {
+        match CollectionTicker::try_get(ticker) {
+            Ok(collection_id) => {
+                let key_set = CollectionKeys::get(&collection_id);
+                key_set.contains(metadata_key)
+            }
+            Err(_) => false,
+        }
     }
 }

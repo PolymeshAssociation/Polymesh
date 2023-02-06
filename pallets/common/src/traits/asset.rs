@@ -13,7 +13,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::traits::{checkpoint, compliance_manager, external_agents, portfolio, statistics};
 use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Currency, Get, UnixTime};
@@ -28,6 +27,9 @@ use polymesh_primitives::{
     AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, ScopeId, Ticker,
 };
 use sp_std::prelude::Vec;
+
+use crate::traits::nft::NFTTrait;
+use crate::traits::{checkpoint, compliance_manager, external_agents, portfolio, statistics};
 
 /// This trait is used by the `identity` pallet to interact with the `pallet-asset`.
 pub trait AssetSubTrait {
@@ -115,6 +117,8 @@ pub trait WeightInfo {
     fn register_asset_metadata_global_type() -> Weight;
     fn redeem_from_portfolio() -> Weight;
     fn update_asset_type() -> Weight;
+    fn remove_local_metadata_key() -> Weight;
+    fn remove_local_metadata_value() -> Weight;
 }
 
 /// The module's configuration trait.
@@ -156,6 +160,8 @@ pub trait Config:
 
     type WeightInfo: WeightInfo;
     type CPWeightInfo: crate::traits::checkpoint::WeightInfo;
+
+    type NFTFn: NFTTrait;
 }
 
 decl_event! {

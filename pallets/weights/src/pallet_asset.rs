@@ -408,4 +408,12 @@ impl pallet_asset::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(5 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
+
+    fn remove_local_metadata_key() -> Weight {
+        unimplemented!();
+    }
+
+    fn remove_local_metadata_value() -> Weight {
+        unimplemented!();
+    }
 }
