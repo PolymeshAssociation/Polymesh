@@ -2684,6 +2684,7 @@ impl<T: Config> Module<T> {
         AssetMetadataLocalNameToKey::remove(&ticker, &name);
         AssetMetadataLocalKeyToName::remove(&ticker, &local_key);
         AssetMetadataLocalSpecs::remove(&ticker, &local_key);
+        Self::deposit_event(RawEvent::LocalMetadataKeyDeleted(ticker, name));
         Ok(())
     }
 
@@ -2708,6 +2709,7 @@ impl<T: Config> Module<T> {
         // Remove the metadata value from storage
         AssetMetadataValues::remove(&ticker, &metadata_key);
         AssetMetadataValueDetails::<T>::remove(&ticker, &metadata_key);
+        Self::deposit_event(RawEvent::LocalMetadataValueDeleted(ticker, name));
         Ok(())
     }
 }

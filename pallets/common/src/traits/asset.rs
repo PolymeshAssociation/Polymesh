@@ -248,5 +248,11 @@ decl_event! {
         /// An event emitted when the type of an asset changed.
         /// Parameters: caller DID, ticker, new token type.
         AssetTypeChanged(IdentityId, Ticker, AssetType),
+        /// An event emitted when a local metadata key has been removed.
+        /// Parameters: caller ticker, Local type name
+        LocalMetadataKeyDeleted(Ticker, AssetMetadataName),
+        /// An event emitted when a local metadata value has been removed.
+        /// Parameters: caller ticker, Local type name
+        LocalMetadataValueDeleted(Ticker, AssetMetadataName),
     }
 }
