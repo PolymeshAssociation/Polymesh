@@ -10,7 +10,6 @@ ink_metadata = { version = "3.0", default-features = false, features = ["derive"
 ink_env = { version = "3.0", default-features = false }
 ink_storage = { version = "3.0", default-features = false }
 ink_lang = { version = "3.0", default-features = false }
-ink_lang_ir = { version = "3.0", default-features = false }
 ink_lang_codegen = { version = "3.0", default-features = false }
 
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
@@ -20,8 +19,21 @@ polymesh-api = { version = "0.3.8", default-features = false, features = ["ink"]
 
 upgrade_tracker = { version = "1.0.0", path = "../upgrade_tracker/", default-features = false, features = ["ink-as-dependency"], optional = true }
 
+[lib]
+name = "polymesh_ink"
+path = "src/lib.rs"
+crate-type = [
+  # Used for normal contract Wasm blobs for upgrades.
+  "cdylib",
+	# Used when contracts link to this crate.
+	"rlib",
+]
+
 [features]
-default = ["std", "tracker"]
+default = ["std"]
+
+# Compile as upgradable library.
+as-library = []
 
 # Enable support for an "Upgrade tracker" contract.
 tracker = [

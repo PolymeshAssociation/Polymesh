@@ -75,7 +75,7 @@ pub mod test_polymesh_ink {
         /// Anyone can pay the gas fees to do the update using the tracker.
         #[ink(message)]
         pub fn update_polymesh_ink(&mut self) {
-            self.api.check_for_update();
+            self.api.check_for_upgrade();
         }
 
         #[ink(message)]
@@ -90,7 +90,7 @@ pub mod test_polymesh_ink {
         #[ink(message)]
         pub fn create_asset(&mut self, ticker: Ticker, amount: Balance) -> Result<()> {
             self.api
-                .create_simple_asset(ticker, amount)
+                .asset_create_and_issue(ticker, amount)
                 .map_err(|_| Error::PolymeshError)?;
             Ok(())
         }

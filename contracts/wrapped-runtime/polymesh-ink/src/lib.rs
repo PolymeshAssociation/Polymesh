@@ -2,9 +2,39 @@
 
 extern crate alloc;
 
-use alloc::{vec, vec::Vec};
+pub use polymesh_ink::*;
 
-use ink_env::call::{DelegateCall, ExecutionInput, Selector};
+#[cfg(feature = "as-library")]
+pub const API_VERSION: u32 = 5;
+
+#[cfg(feature = "as-library")]
+macro_rules! upgradable_func {
+    ($func:ident ($($param:ident: $ty:ty),+) $code:expr) => {
+        pub fn $func(&self, $($param: $ty),+) -> PolymeshResult<()> {
+            use ink_env::call::{DelegateCall, ExecutionInput, Selector};
+            if let Some(hash) = self.hash {
+                const FUNC: &str = stringify!($func);
+                let selector: [u8; 4] = ::polymesh_api::ink::blake2_256(FUNC.as_bytes())[..4]
+                  .try_into().unwrap();
+                let ret = ink_env::call::build_call::<ink_env::DefaultEnvironment>()
+                    .call_type(DelegateCall::new().code_hash(hash))
+                    .exec_input(
+                        ExecutionInput::new(Selector::new(selector))
+                            .push_arg(($($param),+)),
+                    )
+                    .returns::<PolymeshResult<()>>()
+                    .fire()
+                    .unwrap_or_else(|err| panic!("delegate call to {:?} failed due to {:?}", hash, err))?;
+                Ok(ret)
+            } else {
+                $code
+            }
+        }
+    }
+}
+
+#[cfg(not(feature = "as-library"))]
+use ink_lang as ink;
 
 #[cfg(feature = "tracker")]
 pub use upgrade_tracker::UpgradeTrackerRef;
@@ -17,31 +47,6 @@ pub use polymesh_api::{
         ticker::Ticker,
     },
 };
-
-pub const API_VERSION: u32 = 5;
-
-macro_rules! upgradable_func {
-    ($func:ident ($($param:ident: $ty:ty),+) $code:expr) => {
-        pub fn $func(&self, $($param: $ty),+) -> PolymeshResult<()> {
-            if let Some(hash) = self.hash {
-                const FUNC: &str = stringify!($func);
-                let selector = ink_lang_ir::Selector::compute(FUNC.as_bytes()).to_bytes();
-                ink_env::call::build_call::<ink_env::DefaultEnvironment>()
-                    .call_type(DelegateCall::new().code_hash(hash))
-                    .exec_input(
-                        ExecutionInput::new(Selector::new(selector))
-                            .push_arg(($($param),+)),
-                    )
-                    .returns::<PolymeshResult<()>>()
-                    .fire()
-                    .unwrap_or_else(|err| panic!("delegate call to {:?} failed due to {:?}", hash, err))?;
-            } else {
-                $code
-            }
-            Ok(())
-        }
-    }
-}
 
 /// The contract error types.
 #[derive(Debug, scale::Encode, scale::Decode)]
@@ -66,77 +71,148 @@ impl From<polymesh_api::ink::extension::PolymeshRuntimeErr> for PolymeshError {
 /// The contract result type.
 pub type PolymeshResult<T> = core::result::Result<T, PolymeshError>;
 
-pub type AccountId = <PolymeshEnvironment as ink_env::Environment>::AccountId;
+#[cfg(feature = "as-library")]
 pub type Balance = <PolymeshEnvironment as ink_env::Environment>::Balance;
+#[cfg(feature = "as-library")]
 pub type Hash = <PolymeshEnvironment as ink_env::Environment>::Hash;
 
-/// Contracts would store this a value of this type.
-#[derive(Debug, Default, scale::Encode, scale::Decode)]
-#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-#[derive(ink_storage::traits::SpreadLayout)]
-#[derive(ink_storage::traits::PackedLayout)]
-#[cfg_attr(feature = "std", derive(ink_storage::traits::StorageLayout))]
-pub struct PolymeshInk {
-    hash: Option<Hash>,
-    #[cfg(feature = "tracker")]
-    tracker: Option<UpgradeTrackerRef>,
-}
+#[cfg_attr(not(feature = "as-library"), ink::contract(env = PolymeshEnvironment))]
+mod polymesh_ink {
+    use alloc::{vec, vec::Vec};
 
-impl PolymeshInk {
-    #[cfg(not(feature = "tracker"))]
-    pub fn new(hash: Option<Hash>) -> Self {
-        Self { hash }
+    use super::*;
+
+    /// Contracts would store this a value of this type.
+    #[derive(Debug, Default, scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+    #[derive(ink_storage::traits::SpreadLayout)]
+    #[derive(ink_storage::traits::PackedLayout)]
+    #[cfg_attr(feature = "std", derive(ink_storage::traits::StorageLayout))]
+    #[cfg(feature = "as-library")]
+    pub struct PolymeshInk {
+        hash: Option<Hash>,
+        #[cfg(feature = "tracker")]
+        tracker: Option<UpgradeTrackerRef>,
     }
 
-    #[cfg(feature = "tracker")]
-    pub fn new(hash: Option<Hash>, tracker: Option<UpgradeTrackerRef>) -> Self {
-        Self { hash, tracker }
+    /// Wrap Polymesh runtime v5.x calls.
+    #[ink(storage)]
+    #[cfg(not(feature = "as-library"))]
+    pub struct PolymeshInk {
     }
 
-    /// Update code hash.
-    pub fn update_code_hash(&mut self, hash: Option<Hash>) {
-        self.hash = hash;
-    }
+    #[cfg(not(feature = "as-library"))]
+    impl PolymeshInk {
+        /// Creates a new contract.
+        #[ink(constructor)]
+        pub fn new() -> Self {
+            panic!("Only upload this contract, don't deploy it.");
+        }
 
-    #[cfg(feature = "tracker")]
-    pub fn check_for_upgrade(&mut self) {
-        if let Some(tracker) = &self.tracker {
-            self.hash = tracker.get_latest_upgrade(API_VERSION);
+        /// Very simple create asset call.
+        #[ink(message)]
+        pub fn system_remark(&mut self, remark: Vec<u8>) -> PolymeshResult<()> {
+            let api = Api::new();
+            api.call().system().remark(remark).submit()?;
+            Ok(())
+        }
+
+        #[ink(message)]
+        pub fn asset_issue(&mut self, ticker: Ticker, amount: Balance) -> PolymeshResult<()> {
+            let api = Api::new();
+            // Mint some tokens.
+            api.call().asset().issue(ticker.into(), amount).submit()?;
+            Ok(())
+        }
+
+        /// Very simple create asset call.
+        #[ink(message)]
+        pub fn asset_create_and_issue(&mut self, ticker: Ticker, amount: Balance) -> PolymeshResult<()> {
+            let api = Api::new();
+            // Create asset.
+            api.call()
+                .asset()
+                .create_asset(
+                    AssetName(b"".to_vec()),
+                    ticker.into(),
+                    true, // Divisible token.
+                    AssetType::EquityCommon,
+                    vec![],
+                    None,
+                    true, // Disable Investor uniqueness requirements.
+                )
+                .submit()?;
+            // Mint some tokens.
+            api.call().asset().issue(ticker.into(), amount).submit()?;
+            // Pause compliance rules to allow transfers.
+            api.call()
+                .compliance_manager()
+                .pause_asset_compliance(ticker.into())
+                .submit()?;
+            Ok(())
         }
     }
 
-    upgradable_func!(system_remark (remark: Vec<u8>) {
-        let api = Api::new();
-        api.call().system().remark(remark).submit()?;
-    });
-
-    upgradable_func!(asset_issue (ticker: Ticker, amount: Balance) {
-        let api = Api::new();
-        // Mint some tokens.
-        api.call().asset().issue(ticker, amount).submit()?;
-    });
-
-    upgradable_func!(asset_create_and_issue (ticker: Ticker, amount: Balance) {
-        let api = Api::new();
-        // Create asset.
-        api.call()
-            .asset()
-            .create_asset(
-                AssetName(b"".to_vec()),
-                ticker.into(),
-                true, // Divisible token.
-                AssetType::EquityCommon,
-                vec![],
-                None,
-                true, // Disable Investor uniqueness requirements.
-            )
-            .submit()?;
-        // Mint some tokens.
-        api.call().asset().issue(ticker.into(), amount).submit()?;
-        // Pause compliance rules to allow transfers.
-        api.call()
-            .compliance_manager()
-            .pause_asset_compliance(ticker.into())
-            .submit()?;
-    });
+    #[cfg(feature = "as-library")]
+    impl PolymeshInk {
+        #[cfg(not(feature = "tracker"))]
+        pub fn new(hash: Option<Hash>) -> Self {
+            Self { hash }
+        }
+    
+        #[cfg(feature = "tracker")]
+        pub fn new(hash: Option<Hash>, tracker: Option<UpgradeTrackerRef>) -> Self {
+            Self { hash, tracker }
+        }
+    
+        /// Update code hash.
+        pub fn update_code_hash(&mut self, hash: Option<Hash>) {
+            self.hash = hash;
+        }
+    
+        #[cfg(feature = "tracker")]
+        pub fn check_for_upgrade(&mut self) {
+            if let Some(tracker) = &self.tracker {
+                self.hash = tracker.get_latest_upgrade(API_VERSION);
+            }
+        }
+    
+        upgradable_func!(system_remark (remark: Vec<u8>) {
+            let api = Api::new();
+            api.call().system().remark(remark).submit()?;
+            Ok(())
+        });
+    
+        upgradable_func!(asset_issue (ticker: Ticker, amount: Balance) {
+            let api = Api::new();
+            // Mint some tokens.
+            api.call().asset().issue(ticker, amount).submit()?;
+            Ok(())
+        });
+    
+        upgradable_func!(asset_create_and_issue (ticker: Ticker, amount: Balance) {
+            let api = Api::new();
+            // Create asset.
+            api.call()
+                .asset()
+                .create_asset(
+                    AssetName(b"".to_vec()),
+                    ticker.into(),
+                    true, // Divisible token.
+                    AssetType::EquityCommon,
+                    vec![],
+                    None,
+                    true, // Disable Investor uniqueness requirements.
+                )
+                .submit()?;
+            // Mint some tokens.
+            api.call().asset().issue(ticker.into(), amount).submit()?;
+            // Pause compliance rules to allow transfers.
+            api.call()
+                .compliance_manager()
+                .pause_asset_compliance(ticker.into())
+                .submit()?;
+            Ok(())
+        });
+    }
 }
