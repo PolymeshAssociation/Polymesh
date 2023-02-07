@@ -37,7 +37,7 @@ mod polyx_vesting {
 
     impl PolyxVesting {
         /// Constructor
-        #[ink(constructor)]
+        #[ink(constructor, payable)]
         pub fn new(
             beneficiary_address: AccountId,
             start_timestamp: u128,
