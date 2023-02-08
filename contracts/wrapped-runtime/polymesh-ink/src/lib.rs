@@ -40,6 +40,8 @@ pub enum PolymeshError {
     PolymeshError,
     /// Missing Identity.  MultiSig's are not supported.
     MissingIdentity,
+    /// Invalid portfolio authorization.
+    InvalidPortfolioAuthorization,
 }
 
 impl From<polymesh_api::ink::Error> for PolymeshError {
@@ -80,7 +82,7 @@ upgradable_api! {
             pub fn create_portfolio(&self, name: Vec<u8>) -> PolymeshResult<PortfolioId> {
                 let api = Api::new();
                 // Get the contract's did.
-                let did = self.get_key_did(ink_env::account_id::<PolymeshEnvironment>()).unwrap();
+                let did = self.get_our_did()?;
                 // Get the next portfolio number.
                 let num = api.query().portfolio().next_portfolio_number(did).map(|v| v.into())?;
                 // Create Venue.
@@ -94,6 +96,77 @@ upgradable_api! {
                   did,
                   kind: PortfolioKind::User(num),
                 })
+            }
+
+            /// Accept custody of a portfolio.
+            #[ink(message)]
+            pub fn accept_portfolio_custody(&self, auth_id: u64, portfolio: PortfolioKind) -> PolymeshResult<()> {
+                // Get the caller's identity.
+                let caller_did = self.get_caller_did()?;
+
+                let portfolio = PortfolioId {
+                    did: caller_did,
+                    kind: portfolio,
+                };
+                let api = Api::new();
+                // Accept authorization.
+                api.call()
+                    .portfolio()
+                    .accept_portfolio_custody(auth_id)
+                    .submit()?;
+                // Check that we are the custodian.
+                let did = self.get_our_did()?;
+                if !api
+                    .query()
+                    .portfolio()
+                    .portfolios_in_custody(did, portfolio)?
+                {
+                    return Err(PolymeshError::InvalidPortfolioAuthorization);
+                }
+                Ok(())
+            }
+
+            /// Quit custodianship of a portfolio returning control back to the owner.
+            #[ink(message)]
+            pub fn quit_portfolio_custody(&self, portfolio: PortfolioId) -> PolymeshResult<()> {
+                let api = Api::new();
+                // Remove our custodianship.
+                api.call()
+                    .portfolio()
+                    .quit_portfolio_custody(portfolio)
+                    .submit()?;
+                Ok(())
+            }
+
+            /// Move funds between portfolios.
+            #[ink(message)]
+            pub fn move_portfolio_funds(
+                &self,
+                did: IdentityId,
+                src: PortfolioKind,
+                dest: PortfolioKind,
+                funds: Vec<MovePortfolioItem>
+            ) -> PolymeshResult<()> {
+                let src = PortfolioId {
+                    did,
+                    kind: src,
+                };
+                let dest = PortfolioId {
+                    did,
+                    kind: dest,
+                };
+
+                let api = Api::new();
+                // Move funds out of the contract controlled portfolio.
+                api.call()
+                    .portfolio()
+                    .move_portfolio_funds(
+                        src,
+                        dest,
+                        funds,
+                    )
+                    .submit()?;
+                Ok(())
             }
 
             /// Create a Settlement Venue.
@@ -112,6 +185,38 @@ upgradable_api! {
                     )
                     .submit()?;
                 Ok(id)
+            }
+
+            /// Create and execute a settlement to transfer assets.
+            #[ink(message)]
+            pub fn settlement_execute(&self, venue: VenueId, legs: Vec<Leg>, portfolios: Vec<PortfolioId>) -> PolymeshResult<()> {
+                let leg_count = legs.len() as u32;
+                let api = Api::new();
+                // Get the next instruction id.
+                let instruction_id = api
+                    .query()
+                    .settlement()
+                    .instruction_counter()
+                    .map(|v| v.into())?;
+                // Create settlement.
+                api.call()
+                    .settlement()
+                    .add_and_affirm_instruction(
+                        venue,
+                        SettlementType::SettleManual(0),
+                        None,
+                        None,
+                        legs,
+                        portfolios,
+                    )
+                    .submit()?;
+
+                // Create settlement.
+                api.call()
+                    .settlement()
+                    .execute_manual_instruction(instruction_id, leg_count, None)
+                    .submit()?;
+                Ok(())
             }
 
             /// Asset issue.
@@ -150,6 +255,16 @@ upgradable_api! {
                     .pause_asset_compliance(ticker.into())
                     .submit()?;
                 Ok(())
+            }
+
+            /// Get the identity of the caller.
+            pub fn get_caller_did(&self) -> PolymeshResult<IdentityId> {
+                self.get_key_did(ink_env::caller::<PolymeshEnvironment>())
+            }
+
+            /// Get the identity of the contract.
+            pub fn get_our_did(&self) -> PolymeshResult<IdentityId> {
+                self.get_key_did(ink_env::account_id::<PolymeshEnvironment>())
             }
 
             /// Get the identity of a key.

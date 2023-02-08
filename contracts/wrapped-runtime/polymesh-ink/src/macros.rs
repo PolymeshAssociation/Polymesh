@@ -137,7 +137,7 @@ macro_rules! upgradable_api {
                     .call_type(DelegateCall::new().code_hash(hash))
                     .exec_input(
                         ExecutionInput::new(Selector::new(selector))
-                            .push_arg(($($param),+)),
+                            .push_arg(($($param),*)),
                     )
                     .returns::<$fn_return>()
                     .fire()
