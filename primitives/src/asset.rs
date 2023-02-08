@@ -73,7 +73,26 @@ pub enum AssetType {
     /// A stablecoin can be pegged to a cryptocurrency, fiat money, or to exchange-traded commodities.
     StableCoin,
     /// Non-fungible token.
-    NFT,
+    NonFungible(NonFungibleType),
+}
+
+/// Defines all non-fungible variants.
+#[derive(Encode, Decode, TypeInfo, Copy, Clone, Debug, PartialEq, Eq)]
+pub enum NonFungibleType {
+    /// TODO: remove this.
+    Placeholder,
+    /// Derivative contract - a contract between two parties for buying or selling a security at a
+    /// predetermined price within a specific time period.
+    /// Examples: forwards, futures, options or swaps.
+    Derivative,
+    /// Fixed income security - an investment that provides a return in the form of fixed periodic
+    /// interest payments and the eventual return of principal at maturity.
+    /// Examples: bonds, treasury bills, certificates of deposit.
+    FixedIncome,
+    /// Invoice - a list of goods sent or services provided, with a statement of the sum due for these.
+    Invoice,
+    /// The Id of a user definied type.
+    Custom(CustomAssetTypeId),
 }
 
 impl Default for AssetType {

@@ -1,12 +1,11 @@
 use chrono::prelude::Utc;
 use frame_support::{assert_noop, assert_ok};
 use frame_support::{StorageDoubleMap, StorageMap};
-use pallet_asset::BalanceOf;
-use pallet_nft::{Collection, CollectionKeys, MetadataValue};
+use pallet_nft::{BalanceOf, Collection, CollectionKeys, MetadataValue};
 use pallet_portfolio::PortfolioNFT;
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::with_transaction;
-use polymesh_primitives::asset::AssetType;
+use polymesh_primitives::asset::{AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataSpec,
     AssetMetadataValue,
@@ -45,7 +44,10 @@ fn create_collection_unregistered_ticker() {
             collection_keys
         ));
         assert_eq!(Asset::token_details(&ticker).divisible, false);
-        assert_eq!(Asset::token_details(&ticker).asset_type, AssetType::NFT);
+        assert_eq!(
+            Asset::token_details(&ticker).asset_type,
+            AssetType::NonFungible(NonFungibleType::Placeholder)
+        );
     });
 }
 
@@ -168,7 +170,7 @@ pub(crate) fn create_nft_collection(
         ticker.as_ref().into(),
         ticker.clone(),
         false,
-        AssetType::NFT,
+        AssetType::NonFungible(NonFungibleType::Placeholder),
         Vec::new(),
         None,
         false,

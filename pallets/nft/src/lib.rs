@@ -4,19 +4,19 @@ use frame_support::dispatch::DispatchResult;
 use frame_support::traits::Get;
 use frame_support::{decl_error, decl_module, decl_storage};
 use frame_support::{ensure, require_transactional};
-use pallet_asset::BalanceOf;
+use pallet_asset::Frozen;
 use pallet_base::try_next_pre;
 use pallet_portfolio::PortfolioNFT;
 use polymesh_common_utilities::compliance_manager::Config as ComplianceManagerConfig;
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 pub use polymesh_common_utilities::traits::nft::{Config, Event, WeightInfo};
-use polymesh_primitives::asset::{AssetName, AssetType};
+use polymesh_primitives::asset::{AssetName, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use polymesh_primitives::nft::{
     NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs,
 };
-use polymesh_primitives::{PortfolioId, PortfolioKind, Ticker};
+use polymesh_primitives::{Balance, IdentityId, PortfolioId, PortfolioKind, Ticker};
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec::Vec;
@@ -31,6 +31,9 @@ pub mod benchmarking;
 
 decl_storage!(
     trait Store for Module<T: Config> as NFT {
+        /// The total number of NFTs per identity.
+        pub BalanceOf get(fn balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) IdentityId => Balance;
+
         /// The collection id corresponding to each ticker.
         pub CollectionTicker get(fn collection_ticker): map hasher(blake2_128_concat) Ticker => NFTCollectionId;
 
@@ -154,6 +157,8 @@ decl_error! {
         InvalidNFTTransferNoBalance,
         /// Failed to transfer an NFT - compliance failed.
         InvalidNFTTransferComplianceFailure,
+        /// Failed to transfer an NFT - asset is frozen.
+        InvalidNFTTransferFrozenAsset,
         /// The maximum number of metadata keys was exceeded.
         MaxNumberOfKeysExceeded,
         /// The NFT does not exist.
@@ -221,7 +226,7 @@ impl<T: Config> Module<T> {
                 AssetName(ticker.as_slice().to_vec()),
                 ticker.clone(),
                 false,
-                AssetType::NFT,
+                AssetType::NonFungible(NonFungibleType::Placeholder),
                 Vec::new(),
                 None,
                 false,
@@ -379,6 +384,11 @@ impl<T: Config> Module<T> {
         ensure!(
             sender_portfolio != receiver_portfolio,
             Error::<T>::InvalidNFTTransferSamePortfolio
+        );
+        // Verifies that the asset is not frozen
+        ensure!(
+            !Frozen::get(nfts.ticker()),
+            Error::<T>::InvalidNFTTransferFrozenAsset
         );
         // Verifies that the sender has the required balance
         ensure!(
