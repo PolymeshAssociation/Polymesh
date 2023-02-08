@@ -219,12 +219,21 @@ upgradable_api! {
                 Ok(())
             }
 
-            /// Asset issue.
+            /// Asset issue tokens.
             #[ink(message)]
             pub fn asset_issue(&self, ticker: Ticker, amount: Balance) -> PolymeshResult<()> {
                 let api = Api::new();
-                // Mint some tokens.
+                // Mint tokens.
                 api.call().asset().issue(ticker.into(), amount).submit()?;
+                Ok(())
+            }
+
+            /// Asset redeem tokens.
+            #[ink(message)]
+            pub fn asset_redeem_from_portfolio(&self, ticker: Ticker, amount: Balance, portfolio: PortfolioKind) -> PolymeshResult<()> {
+                let api = Api::new();
+                // Redeem tokens.
+                api.call().asset().redeem_from_portfolio(ticker.into(), amount, portfolio).submit()?;
                 Ok(())
             }
 
