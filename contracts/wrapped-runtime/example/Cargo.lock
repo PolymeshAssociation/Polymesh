@@ -1976,6 +1976,7 @@ dependencies = [
  "ink_primitives",
  "ink_storage",
  "parity-scale-codec",
+ "paste",
  "polymesh-api",
  "scale-info",
  "upgrade_tracker",

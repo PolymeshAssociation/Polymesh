@@ -18,6 +18,7 @@ scale-info = { version = "2", default-features = false, features = ["derive"], o
 polymesh-api = { version = "0.3.8", default-features = false, features = ["ink"] }
 
 upgrade_tracker = { version = "1.0.0", path = "../upgrade_tracker/", default-features = false, features = ["ink-as-dependency"], optional = true }
+paste = "1.0"
 
 [lib]
 name = "polymesh_ink"

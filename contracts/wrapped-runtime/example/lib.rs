@@ -29,13 +29,13 @@ pub mod test_polymesh_ink {
     #[derive(Debug, scale::Encode, scale::Decode)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
     pub enum Error {
-        /// Polymesh runtime error.
-        PolymeshError,
+        /// PolymeshInk errors.
+        PolymeshInk(PolymeshError),
     }
 
     impl From<PolymeshError> for Error {
-        fn from(_err: PolymeshError) -> Self {
-            Self::PolymeshError
+        fn from(err: PolymeshError) -> Self {
+            Self::PolymeshInk(err)
         }
     }
 
@@ -81,17 +81,21 @@ pub mod test_polymesh_ink {
         #[ink(message)]
         pub fn system_remark(&mut self, remark: Vec<u8>) -> Result<()> {
             self.api
-                .system_remark(remark)
-                .map_err(|_| Error::PolymeshError)?;
+                .system_remark(remark)?;
             Ok(())
         }
 
-        /// Test calling `asset.create_asset()` using the upgradable `polymesh-ink` API.
         #[ink(message)]
-        pub fn create_asset(&mut self, ticker: Ticker, amount: Balance) -> Result<()> {
+        pub fn create_venue(&mut self, details: Vec<u8>) -> Result<VenueId> {
+            Ok(self.api
+                .create_venue(VenueDetails(details), VenueType::Other)?)
+        }
+
+        /// Test creating and issueing an asset using the upgradable `polymesh-ink` API.
+        #[ink(message)]
+        pub fn create_asset(&mut self, name: Vec<u8>, ticker: Ticker, amount: Balance) -> Result<()> {
             self.api
-                .asset_create_and_issue(ticker, amount)
-                .map_err(|_| Error::PolymeshError)?;
+                .asset_create_and_issue(AssetName(name), ticker, AssetType::EquityCommon, true, Some(amount))?;
             Ok(())
         }
     }
