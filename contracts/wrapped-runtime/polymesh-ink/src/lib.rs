@@ -142,20 +142,10 @@ upgradable_api! {
             #[ink(message)]
             pub fn move_portfolio_funds(
                 &self,
-                did: IdentityId,
-                src: PortfolioKind,
-                dest: PortfolioKind,
+                src: PortfolioId,
+                dest: PortfolioId,
                 funds: Vec<MovePortfolioItem>
             ) -> PolymeshResult<()> {
-                let src = PortfolioId {
-                    did,
-                    kind: src,
-                };
-                let dest = PortfolioId {
-                    did,
-                    kind: dest,
-                };
-
                 let api = Api::new();
                 // Move funds out of the contract controlled portfolio.
                 api.call()

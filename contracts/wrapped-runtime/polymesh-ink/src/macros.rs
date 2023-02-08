@@ -67,6 +67,7 @@ macro_rules! upgradable_api {
             #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
             #[derive(ink_storage::traits::SpreadLayout)]
             #[derive(ink_storage::traits::PackedLayout)]
+            #[derive(ink_storage::traits::SpreadAllocate)]
             #[cfg_attr(feature = "std", derive(ink_storage::traits::StorageLayout))]
             pub struct $api_type {
                 hash: Option<Hash>,
