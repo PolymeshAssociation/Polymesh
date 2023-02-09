@@ -11,7 +11,7 @@ use polymesh_common_utilities::compliance_manager::Config as ComplianceManagerCo
 use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 pub use polymesh_common_utilities::traits::nft::{Config, Event, WeightInfo};
-use polymesh_primitives::asset::{AssetName, AssetType, NonFungibleType};
+use polymesh_primitives::asset::{AssetName, AssetType};
 use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use polymesh_primitives::nft::{
     NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs,
@@ -69,6 +69,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` - contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
         /// * `ticker` - the ticker associated to the new collection.
+        /// * `asset_type` - in case the asset hasn't been created yet, one will be created with the given type.
         /// * `collection_keys` - all mandatory metadata keys that the tokens in the collection must have.
         ///
         /// ## Errors
@@ -81,8 +82,8 @@ decl_module! {
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::create_nft_collection(collection_keys.len() as u32)]
-        pub fn create_nft_collection(origin, ticker: Ticker, collection_keys: NFTCollectionKeys) -> DispatchResult {
-            Self::base_create_nft_collection(origin, ticker, collection_keys)
+        pub fn create_nft_collection(origin, ticker: Ticker, asset_type: Option<AssetType>, collection_keys: NFTCollectionKeys) -> DispatchResult {
+            Self::base_create_nft_collection(origin, ticker, asset_type, collection_keys)
         }
 
         /// Mints an NFT to the caller.
@@ -141,7 +142,7 @@ decl_error! {
         CollectionNotFound,
         /// A duplicate metadata key has been passed as parameter.
         DuplicateMetadataKey,
-        /// The associated asset is not of type NFT.
+        /// The asset must be of type non-fungible.
         InvalidAssetType,
         /// Either the number of keys or the key identifier does not match the keys defined for the collection.
         InvalidMetadataAttribute,
@@ -172,6 +173,7 @@ impl<T: Config> Module<T> {
     fn base_create_nft_collection(
         origin: T::Origin,
         ticker: Ticker,
+        asset_type: Option<AssetType>,
         collection_keys: NFTCollectionKeys,
     ) -> DispatchResult {
         // Verifies if the asset has already been created and the caller's permission to create the collection
@@ -221,12 +223,14 @@ impl<T: Config> Module<T> {
 
         // Creates an nft asset if it hasn't been created yet
         if create_asset {
+            let asset_type = asset_type.ok_or(Error::<T>::InvalidAssetType)?;
+            ensure!(asset_type.is_non_fungible(), Error::<T>::InvalidAssetType);
             Asset::<T>::create_asset(
                 origin,
                 AssetName(ticker.as_slice().to_vec()),
                 ticker.clone(),
                 false,
-                AssetType::NonFungible(NonFungibleType::Placeholder),
+                asset_type,
                 Vec::new(),
                 None,
                 false,

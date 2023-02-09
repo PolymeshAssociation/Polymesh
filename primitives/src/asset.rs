@@ -79,8 +79,6 @@ pub enum AssetType {
 /// Defines all non-fungible variants.
 #[derive(Encode, Decode, TypeInfo, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum NonFungibleType {
-    /// TODO: remove this.
-    Placeholder,
     /// Derivative contract - a contract between two parties for buying or selling a security at a
     /// predetermined price within a specific time period.
     /// Examples: forwards, futures, options or swaps.
@@ -98,6 +96,34 @@ pub enum NonFungibleType {
 impl Default for AssetType {
     fn default() -> Self {
         Self::EquityCommon
+    }
+}
+
+impl AssetType {
+    /// Returns true if the asset type is non-fungible.
+    pub fn is_non_fungible(&self) -> bool {
+        if let AssetType::NonFungible(_) = self {
+            return true;
+        }
+        false
+    }
+
+    /// Returns true if the asset type is fungible.
+    pub fn is_fungible(&self) -> bool {
+        match self {
+            AssetType::EquityCommon
+            | AssetType::EquityPreferred
+            | AssetType::Commodity
+            | AssetType::FixedIncome
+            | AssetType::REIT
+            | AssetType::Fund
+            | AssetType::RevenueShareAgreement
+            | AssetType::StructuredProduct
+            | AssetType::Derivative
+            | AssetType::Custom(_)
+            | AssetType::StableCoin => true,
+            AssetType::NonFungible(_) => false,
+        }
     }
 }
 

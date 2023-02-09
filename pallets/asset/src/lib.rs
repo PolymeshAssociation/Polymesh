@@ -1387,9 +1387,10 @@ impl<T: Config> Module<T> {
         Self::ensure_granular(ticker, value)?;
 
         // Ensures the token is fungible
-        if let AssetType::NonFungible(_) = Tokens::get(&ticker).asset_type {
-            return Err(Error::<T>::UnexpectedNonFungibleToken.into());
-        }
+        ensure!(
+            Tokens::get(&ticker).asset_type.is_fungible(),
+            Error::<T>::UnexpectedNonFungibleToken
+        );
 
         ensure!(
             from_portfolio.did != to_portfolio.did,
@@ -1498,9 +1499,10 @@ impl<T: Config> Module<T> {
         // Read the token details
         let mut token = Self::token_details(ticker);
         // Ensures the token is fungible
-        if let AssetType::NonFungible(_) = token.asset_type {
-            return Err(Error::<T>::UnexpectedNonFungibleToken.into());
-        }
+        ensure!(
+            Tokens::get(&ticker).asset_type.is_fungible(),
+            Error::<T>::UnexpectedNonFungibleToken
+        );
 
         // Prepare the updated total supply.
         let updated_total_supply = token
@@ -1943,9 +1945,10 @@ impl<T: Config> Module<T> {
         Self::ensure_granular(&ticker, value)?;
 
         // Ensures the token is fungible
-        if let AssetType::NonFungible(_) = Tokens::get(&ticker).asset_type {
-            return Err(Error::<T>::UnexpectedNonFungibleToken.into());
-        }
+        ensure!(
+            Tokens::get(&ticker).asset_type.is_fungible(),
+            Error::<T>::UnexpectedNonFungibleToken
+        );
 
         // Reduce caller's portfolio balance. This makes sure that the caller has enough unlocked tokens.
         // If `advance_update_balances` fails, `reduce_portfolio_balance` shouldn't modify storage.
@@ -2011,10 +2014,10 @@ impl<T: Config> Module<T> {
 
         Tokens::try_mutate(&ticker, |token| -> DispatchResult {
             // Ensures the token is fungible
-            if let AssetType::NonFungible(_) = Tokens::get(&ticker).asset_type {
-                return Err(Error::<T>::UnexpectedNonFungibleToken.into());
-            }
-
+            ensure!(
+                Tokens::get(&ticker).asset_type.is_fungible(),
+                Error::<T>::UnexpectedNonFungibleToken
+            );
             ensure!(!token.divisible, Error::<T>::AssetAlreadyDivisible);
             token.divisible = true;
 
@@ -2609,7 +2612,11 @@ impl<T: Config> Module<T> {
         Self::ensure_asset_type_valid(asset_type)?;
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
         Tokens::try_mutate(&ticker, |token| -> DispatchResult {
-            Self::ensure_valid_asset_type_update(token.asset_type, asset_type)?;
+            // Ensures that both parameters are non fungible types or if both are fungible types.
+            ensure!(
+                token.asset_type.is_fungible() == asset_type.is_fungible(),
+                Error::<T>::IncompatibleAssetTypeUpdate
+            );
             token.asset_type = asset_type;
             Ok(())
         })?;
@@ -2624,40 +2631,6 @@ impl<T: Config> Module<T> {
         match security_token.asset_type {
             AssetType::NonFungible(_) => Some(true),
             _ => Some(false),
-        }
-    }
-
-    /// Returns Ok if both parameters are non fungible types or if both are fungible types.
-    /// Otherwise it returns an error.
-    fn ensure_valid_asset_type_update(
-        current_asset_type: AssetType,
-        new_asset_type: AssetType,
-    ) -> DispatchResult {
-        match current_asset_type {
-            AssetType::NonFungible(_) => {
-                // If the current asset type is non fungible, it cannot be updated to a fungible type.
-                if let AssetType::NonFungible(_) = new_asset_type {
-                    return Ok(());
-                }
-                Err(Error::<T>::IncompatibleAssetTypeUpdate.into())
-            }
-            AssetType::EquityCommon
-            | AssetType::EquityPreferred
-            | AssetType::Commodity
-            | AssetType::FixedIncome
-            | AssetType::REIT
-            | AssetType::Fund
-            | AssetType::RevenueShareAgreement
-            | AssetType::StructuredProduct
-            | AssetType::Derivative
-            | AssetType::Custom(_)
-            | AssetType::StableCoin => {
-                // If the current asset type is fungible, it cannot be updated to a non fungible type.
-                if let AssetType::NonFungible(_) = new_asset_type {
-                    return Err(Error::<T>::IncompatibleAssetTypeUpdate.into());
-                }
-                Ok(())
-            }
         }
     }
 }

@@ -15,6 +15,7 @@ use pallet_portfolio::{
 use pallet_settlement::{InstructionMemo, LegAsset, LegV2, SettlementType};
 use polymesh_common_utilities::balances::Memo;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
+use polymesh_primitives::asset::{AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue,
 };
@@ -602,7 +603,12 @@ fn delete_portfolio_with_nfts() {
         .unwrap();
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(alice.clone(), ticker, collection_keys);
+        create_nft_collection(
+            alice.clone(),
+            ticker,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
         let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
             key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             value: AssetMetadataValue(b"test".to_vec()),
@@ -636,7 +642,12 @@ fn delete_portfolio_with_locked_nfts() {
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(alice.clone(), ticker, collection_keys);
+        create_nft_collection(
+            alice.clone(),
+            ticker,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
         let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
             key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             value: AssetMetadataValue(b"test".to_vec()),
@@ -689,7 +700,12 @@ fn move_nft_not_in_portfolio() {
         };
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(alice.clone(), TICKER, collection_keys);
+        create_nft_collection(
+            alice.clone(),
+            TICKER,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
         let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
             key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             value: AssetMetadataValue(b"test".to_vec()),
@@ -736,7 +752,12 @@ fn move_portfolio_nfts() {
         };
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(alice.clone(), TICKER, collection_keys);
+        create_nft_collection(
+            alice.clone(),
+            TICKER,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
         let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
             key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             value: AssetMetadataValue(b"test".to_vec()),
