@@ -2627,10 +2627,7 @@ impl<T: Config> Module<T> {
     /// Returns `None` if there's no asset associated to the given ticker,
     /// returns Some(true) if the asset exists and is of type `AssetType::NonFungible`, and returns Some(false) otherwise.
     pub fn nft_asset(ticker: &Ticker) -> Option<bool> {
-        let security_token = Tokens::try_get(ticker).ok()?;
-        match security_token.asset_type {
-            AssetType::NonFungible(_) => Some(true),
-            _ => Some(false),
-        }
+        let token = Tokens::try_get(ticker).ok()?;
+        Some(token.asset_type.is_non_fungible())
     }
 }

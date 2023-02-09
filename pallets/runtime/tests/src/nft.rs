@@ -1,9 +1,8 @@
 use chrono::prelude::Utc;
 use frame_support::{assert_noop, assert_ok};
 use frame_support::{StorageDoubleMap, StorageMap};
-use pallet_nft::{BalanceOf, Collection, CollectionKeys, MetadataValue};
+use pallet_nft::{Collection, CollectionKeys, MetadataValue, NumberOfNFTs};
 use pallet_portfolio::PortfolioNFT;
-use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::with_transaction;
 use polymesh_primitives::asset::{AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
@@ -417,7 +416,7 @@ fn mint_nft_successfully() {
             ),
             AssetMetadataValue(b"test".to_vec())
         );
-        assert_eq!(BalanceOf::get(&ticker, alice.did), ONE_UNIT);
+        assert_eq!(NumberOfNFTs::get(&ticker, alice.did), 1);
         assert_eq!(
             PortfolioNFT::get(
                 PortfolioId::default_portfolio(alice.did),
@@ -519,7 +518,7 @@ fn burn_nft() {
             (NFTCollectionId(1), NFTId(1)),
             AssetMetadataKey::Local(AssetMetadataLocalKey(1))
         ),);
-        assert_eq!(BalanceOf::get(&ticker, alice.did), 0);
+        assert_eq!(NumberOfNFTs::get(&ticker, alice.did), 0);
         assert!(!PortfolioNFT::contains_key(
             PortfolioId::default_portfolio(alice.did),
             (&ticker, NFTId(1))
@@ -779,7 +778,7 @@ fn transfer_nft() {
         assert_ok!(with_transaction(|| {
             NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts)
         }));
-        assert_eq!(BalanceOf::get(&ticker, alice.did), 0);
+        assert_eq!(NumberOfNFTs::get(&ticker, alice.did), 0);
         assert_eq!(
             PortfolioNFT::get(
                 PortfolioId::default_portfolio(alice.did),
@@ -787,7 +786,7 @@ fn transfer_nft() {
             ),
             false
         );
-        assert_eq!(BalanceOf::get(&ticker, bob.did), ONE_UNIT);
+        assert_eq!(NumberOfNFTs::get(&ticker, bob.did), 1);
         assert_eq!(
             PortfolioNFT::get(PortfolioId::default_portfolio(bob.did), (&ticker, NFTId(1))),
             true

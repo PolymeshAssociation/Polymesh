@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::dispatch::DispatchResult;
+use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Get;
 use frame_support::{decl_error, decl_module, decl_storage};
 use frame_support::{ensure, require_transactional};
@@ -8,15 +8,14 @@ use pallet_asset::Frozen;
 use pallet_base::try_next_pre;
 use pallet_portfolio::PortfolioNFT;
 use polymesh_common_utilities::compliance_manager::Config as ComplianceManagerConfig;
-use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 pub use polymesh_common_utilities::traits::nft::{Config, Event, WeightInfo};
 use polymesh_primitives::asset::{AssetName, AssetType};
 use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use polymesh_primitives::nft::{
-    NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs,
+    NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTCount, NFTId, NFTMetadataAttribute, NFTs,
 };
-use polymesh_primitives::{Balance, IdentityId, PortfolioId, PortfolioKind, Ticker};
+use polymesh_primitives::{IdentityId, PortfolioId, PortfolioKind, Ticker};
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec::Vec;
@@ -32,7 +31,7 @@ pub mod benchmarking;
 decl_storage!(
     trait Store for Module<T: Config> as NFT {
         /// The total number of NFTs per identity.
-        pub BalanceOf get(fn balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) IdentityId => Balance;
+        pub NumberOfNFTs get(fn balance_of): double_map hasher(blake2_128_concat) Ticker, hasher(identity) IdentityId => NFTCount;
 
         /// The collection id corresponding to each ticker.
         pub CollectionTicker get(fn collection_ticker): map hasher(blake2_128_concat) Ticker => NFTCollectionId;
@@ -296,15 +295,14 @@ impl<T: Config> Module<T> {
         }
 
         // Mints the NFT and adds it to the caller's portfolio
-        let new_balance = BalanceOf::get(&ticker, &caller_portfolio.did)
-            .checked_add(ONE_UNIT)
-            .ok_or(Error::<T>::BalanceOverflow)?;
         let nft_id = NextNFTId::try_mutate(&collection_id, try_next_pre::<T, _>)?;
-        BalanceOf::insert(&ticker, &caller_portfolio.did, new_balance);
         for (metadata_key, metadata_value) in nft_attributes.into_iter() {
             MetadataValue::insert((&collection_id, &nft_id), metadata_key, metadata_value);
         }
         PortfolioNFT::insert(caller_portfolio, (ticker, nft_id), true);
+        NumberOfNFTs::mutate(&ticker, &caller_portfolio.did, {
+            |current_balance| *current_balance += 1
+        });
 
         Self::deposit_event(Event::MintedNft(
             caller_portfolio.did,
@@ -335,10 +333,14 @@ impl<T: Config> Module<T> {
         );
 
         // Burns the NFT
-        let new_balance = BalanceOf::get(&ticker, &caller_portfolio.did)
-            .checked_sub(ONE_UNIT)
-            .ok_or(Error::<T>::BalanceUnderflow)?;
-        BalanceOf::insert(&ticker, &caller_portfolio.did, new_balance);
+        NumberOfNFTs::try_mutate(&ticker, &caller_portfolio.did, {
+            |current_balance| {
+                *current_balance = current_balance
+                    .checked_sub(1)
+                    .ok_or(Error::<T>::BalanceUnderflow)?;
+                Ok::<(), DispatchError>(())
+            }
+        })?;
         PortfolioNFT::remove(&caller_portfolio, (&ticker, &nft_id));
         MetadataValue::remove_prefix((&collection_id, &nft_id), None);
 
@@ -347,6 +349,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Tranfer ownership of all NFTs.
+    /// Note: the checks validating uniqueness of the ids and the number of NFTs are done in the settlement pallet.
     #[require_transactional]
     pub fn base_nft_transfer(
         sender_portfolio: &PortfolioId,
@@ -361,11 +364,11 @@ impl<T: Config> Module<T> {
 
         // Transfer ownership of the NFT
         // Update the balance of the sender and the receiver
-        let transferred_amount = nfts.amount();
-        BalanceOf::mutate(nfts.ticker(), sender_portfolio.did, |balance| {
+        let transferred_amount = nfts.len() as u64;
+        NumberOfNFTs::mutate(nfts.ticker(), sender_portfolio.did, |balance| {
             *balance -= transferred_amount
         });
-        BalanceOf::mutate(nfts.ticker(), receiver_portfolio.did, |balance| {
+        NumberOfNFTs::mutate(nfts.ticker(), receiver_portfolio.did, |balance| {
             *balance += transferred_amount
         });
         // Update the portfolio of the sender and the receiver
@@ -378,12 +381,13 @@ impl<T: Config> Module<T> {
 
     /// Verifies if and the sender and receiver are not the same, if both have valid balances,
     /// if the sender owns the nft, and if all compliance rules are being respected.
+    /// Note: the checks validating uniqueness of the ids and the number of NFTs are done in the settlement pallet.
     fn validate_nft_transfer(
         sender_portfolio: &PortfolioId,
         receiver_portfolio: &PortfolioId,
         nfts: &NFTs,
     ) -> DispatchResult {
-        let transferred_amount = nfts.amount();
+        let transferred_amount = nfts.len() as u64;
         // Verifies that the sender and receiver are not the same
         ensure!(
             sender_portfolio != receiver_portfolio,
@@ -396,7 +400,7 @@ impl<T: Config> Module<T> {
         );
         // Verifies that the sender has the required balance
         ensure!(
-            BalanceOf::get(nfts.ticker(), sender_portfolio.did) >= transferred_amount,
+            NumberOfNFTs::get(nfts.ticker(), sender_portfolio.did) >= transferred_amount,
             Error::<T>::InvalidNFTTransferNoBalance
         );
         // Verfies that the sender owns the nfts
@@ -407,7 +411,7 @@ impl<T: Config> Module<T> {
             );
         }
         // Verfies that the receiver will not overflow
-        BalanceOf::get(nfts.ticker(), receiver_portfolio.did)
+        NumberOfNFTs::get(nfts.ticker(), receiver_portfolio.did)
             .checked_add(transferred_amount)
             .ok_or(Error::<T>::InvalidNFTTransferBalanceOverflow)?;
         // Verifies that all compliance rules are being respected
@@ -415,7 +419,7 @@ impl<T: Config> Module<T> {
             nfts.ticker(),
             Some(sender_portfolio.did),
             Some(receiver_portfolio.did),
-            transferred_amount,
+            transferred_amount.into(),
         )?;
         if code != ERC1400_TRANSFER_SUCCESS {
             return Err(Error::<T>::InvalidNFTTransferComplianceFailure.into());
