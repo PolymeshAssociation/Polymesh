@@ -1500,7 +1500,7 @@ impl<T: Config> Module<T> {
         let mut token = Self::token_details(ticker);
         // Ensures the token is fungible
         ensure!(
-            Tokens::get(&ticker).asset_type.is_fungible(),
+            token.asset_type.is_fungible(),
             Error::<T>::UnexpectedNonFungibleToken
         );
 
@@ -2015,7 +2015,7 @@ impl<T: Config> Module<T> {
         Tokens::try_mutate(&ticker, |token| -> DispatchResult {
             // Ensures the token is fungible
             ensure!(
-                Tokens::get(&ticker).asset_type.is_fungible(),
+                token.asset_type.is_fungible(),
                 Error::<T>::UnexpectedNonFungibleToken
             );
             ensure!(!token.divisible, Error::<T>::AssetAlreadyDivisible);
