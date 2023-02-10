@@ -62,7 +62,10 @@ macro_rules! upgradable_api {
         mod $mod_name {
             use super::*;
 
-            /// Contracts would store this a value of this type.
+            /// Upgradable wrapper for the Polymesh Runtime API.
+            ///
+            /// Contracts can use this to maintain support accross
+            /// major Polymesh releases.
             #[derive(Debug, Default, scale::Encode, scale::Decode)]
             #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
             #[derive(ink_storage::traits::SpreadLayout)]

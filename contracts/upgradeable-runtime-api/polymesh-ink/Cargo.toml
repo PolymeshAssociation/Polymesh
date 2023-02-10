@@ -1,8 +1,13 @@
 [package]
 name = "polymesh-ink"
-version = "5.0.0"
+version = "0.5.0"
 authors = ["Polymesh Association"]
 edition = "2021"
+license = "Apache-2.0"
+description = "Upgradable Polymesh Ink! API"
+keywords = ["polymesh", "ink", "blockchain", "substrate", "upgradable"]
+repository = "https://github.com/PolymeshAssociation/Polymesh"
+homepage = "https://github.com/PolymeshAssociation/Polymesh"
 
 [dependencies]
 ink_primitives = { version = "3.0", default-features = false }
@@ -17,7 +22,7 @@ scale-info = { version = "2", default-features = false, features = ["derive"], o
 
 polymesh-api = { version = "0.3.8", default-features = false, features = ["ink"] }
 
-upgrade_tracker = { version = "1.0.0", path = "./upgrade_tracker/", default-features = false, features = ["ink-as-dependency"], optional = true }
+upgrade_tracker = { package = "polymesh_ink_upgrade_tracker", version = "0.1.0", path = "./upgrade_tracker/", default-features = false, features = ["ink-as-dependency"], optional = true }
 paste = "1.0"
 
 [lib]
@@ -29,6 +34,9 @@ crate-type = [
 	# Used when contracts link to this crate.
 	"rlib",
 ]
+
+[package.metadata.docs.rs]
+features = ["as-library", "tracker"]
 
 [features]
 default = ["std"]

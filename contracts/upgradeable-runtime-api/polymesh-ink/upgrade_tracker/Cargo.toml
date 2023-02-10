@@ -1,8 +1,13 @@
 [package]
-name = "upgrade_tracker"
-version = "1.0.0"
+name = "polymesh_ink_upgrade_tracker"
+version = "0.1.0"
 authors = ["Polymesh Association"]
 edition = "2021"
+license = "Apache-2.0"
+description = "Upgrade tracker contract for Upgradable Polymesh Ink! API"
+keywords = ["polymesh", "ink", "blockchain", "substrate", "upgradable"]
+repository = "https://github.com/PolymeshAssociation/Polymesh"
+homepage = "https://github.com/PolymeshAssociation/Polymesh"
 
 [dependencies]
 ink_primitives = { version = "3.0", default-features = false }
@@ -19,7 +24,7 @@ scale-info = { version = "2", default-features = false, features = ["derive"], o
 polymesh-api = { version = "0.3.8", default-features = false, features = ["ink"] }
 
 [lib]
-name = "upgrade_tracker"
+name = "polymesh_ink_upgrade_tracker"
 path = "src/lib.rs"
 crate-type = [
     # Used for normal contract Wasm blobs.

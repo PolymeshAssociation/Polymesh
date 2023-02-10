@@ -1966,6 +1966,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "polymesh_ink_upgrade_tracker"
+version = "0.1.0"
+dependencies = [
+ "ink_env",
+ "ink_lang",
+ "ink_lang_codegen",
+ "ink_metadata",
+ "ink_prelude",
+ "ink_primitives",
+ "ink_storage",
+ "parity-scale-codec",
+ "polymesh-api",
+ "scale-info",
+]
+
+[[package]]
 name = "ppv-lite86"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3290,22 +3306,6 @@ name = "untrusted"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a156c684c91ea7d62626509bce3cb4e1d9ed5c4d978f7b4352658f96a4c26b4a"
-
-[[package]]
-name = "upgrade_tracker"
-version = "1.0.0"
-dependencies = [
- "ink_env",
- "ink_lang",
- "ink_lang_codegen",
- "ink_metadata",
- "ink_prelude",
- "ink_primitives",
- "ink_storage",
- "parity-scale-codec",
- "polymesh-api",
- "scale-info",
-]
 
 [[package]]
 name = "valuable"
