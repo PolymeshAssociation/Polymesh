@@ -12,8 +12,8 @@ mod polyx_vesting {
     pub struct PolyxVesting {
         released: Balance,
         beneficiary: AccountId,
-        start: u128,
-        duration: u128,
+        start: Timestamp,
+        duration: Timestamp,
     }
 
     /// Event emitted when Polyx is released.
@@ -46,15 +46,15 @@ mod polyx_vesting {
         #[ink(constructor, payable)]
         pub fn new(
             beneficiary_address: AccountId,
-            start_timestamp: u128,
-            duration_seconds: u128,
+            start_timestamp: Timestamp,
+            duration_milli_seconds: Timestamp,
         ) -> Self {
             ink_lang::utils::initialize_contract(|contract| {
                 Self::new_init(
                     contract,
                     beneficiary_address,
                     start_timestamp,
-                    duration_seconds,
+                    duration_milli_seconds,
                 )
             })
         }
@@ -62,25 +62,26 @@ mod polyx_vesting {
         fn new_init(
             &mut self,
             beneficiary_address: AccountId,
-            start_timestamp: u128,
-            duration_seconds: u128,
+            start_timestamp: Timestamp,
+            duration_milli_seconds: Timestamp,
         ) {
+            Self::validation(self, self.start, self.duration);
             self.beneficiary = beneficiary_address;
             self.start = start_timestamp;
-            self.duration = duration_seconds;
+            self.duration = duration_milli_seconds;
         }
 
-        fn validation(start_timestamp: u128, duration_seconds: u128) -> Result<()> {
+        fn validation(&self, start_timestamp: Timestamp, duration_milli_seconds: Timestamp) -> Result<()> {
             // Ensure start isn't zero
-            if start_timestamp <= 0 || duration_seconds <= 0 {
+            if start_timestamp == 0 || duration_milli_seconds == 0 {
                 return Err(Error::InvalidTimestamp);
             }
 
-            let year_seconds = 31556926;
-            // Ensure start and duration not over a year
-            if start_timestamp > year_seconds {
+            let max_milli_seconds = u64::MAX;
+            // Ensure start and duration not over type limit
+            if start_timestamp > max_milli_seconds || start_timestamp < self.env().block_timestamp() {
                 return Err(Error::InvalidStartTimestamp);
-            } else if duration_seconds > year_seconds {
+            } else if duration_milli_seconds > max_milli_seconds {
                 return Err(Error::InvalidDuration);
             } else {
                 Ok(())
@@ -90,13 +91,13 @@ mod polyx_vesting {
         // Getters
         /// Returns the vesting duration.
         #[ink(message)]
-        pub fn duration(&self) -> u128 {
+        pub fn duration(&self) -> Timestamp {
             self.duration
         }
 
         /// Returns the start timestamp.
         #[ink(message)]
-        pub fn start(&self) -> u128 {
+        pub fn start(&self) -> Timestamp {
             self.start
         }
 
@@ -122,7 +123,6 @@ mod polyx_vesting {
         /// Release the native token (POLYX) that have already vested.
         #[ink(message)]
         pub fn release(&mut self) -> Result<()> {
-            Self::validation(self.start, self.duration)?;
             let amount = self.releasable();
             if amount == 0 {
                 return Err(Error::FundsNotReleased);
@@ -138,7 +138,7 @@ mod polyx_vesting {
 
         /// Calculates the amount of tokens that has already vested.
         #[ink(message)]
-        pub fn vested_amount(&self, timestamp: u128) -> Balance {
+        pub fn vested_amount(&self, timestamp: Timestamp) -> Balance {
             self.vesting_schedule(
                 self.env().balance().saturating_add(self.released),
                 timestamp,
@@ -146,13 +146,13 @@ mod polyx_vesting {
         }
 
         /// This returns the amount vested.
-        fn vesting_schedule(&self, total_allocation: u128, timestamp: u128) -> Balance {
+        fn vesting_schedule(&self, total_allocation: Balance, timestamp: Timestamp) -> Balance {
             if timestamp < self.start {
                 return 0;
             } else if timestamp > self.start.saturating_add(self.duration) {
-                return total_allocation;
+                return total_allocation.into();
             } else {
-                return (total_allocation * (timestamp.saturating_sub(self.start))) / self.duration;
+                return (total_allocation * (timestamp.saturating_sub(self.start))as u128) / self.duration as u128;
             }
         }
     }
@@ -184,9 +184,9 @@ mod polyx_vesting {
             let polyx_vesting = PolyxVesting::new(accounts.alice, 24, 80);
             // Ensure the values are stored correctly
             assert_eq!(polyx_vesting.beneficiary(), accounts.alice);
-            assert_eq!(polyx_vesting.start(), 24u128);
-            assert_eq!(polyx_vesting.duration(), 80u128);
-            assert_eq!(polyx_vesting.released(), 0u128);
+            assert_eq!(polyx_vesting.start(), 24);
+            assert_eq!(polyx_vesting.duration(), 80);
+            assert_eq!(polyx_vesting.released(), 0);
         }
 
         /// We test if vesting does its job.
@@ -226,13 +226,13 @@ mod polyx_vesting {
             let mut polyx_vesting_3 = PolyxVesting::new(accounts.alice, 0, 0);
 
             // Ensure error when calling release() with start timestamp over 1 year.
-            assert_eq!(polyx_vesting_1.release(), Err(Error::InvalidStartTimestamp));
+            assert_eq!(polyx_vesting_1, Err(Error::InvalidStartTimestamp));
 
             // Ensure error when calling release() with duration timestamp over 1 year.
-            assert_eq!(polyx_vesting_2.release(), Err(Error::InvalidDuration));
+            assert_eq!(polyx_vesting_2, Err(Error::InvalidDuration));
 
             // Ensure error when calling release() with start and duration timestamp being zero.
-            assert_eq!(polyx_vesting_3.release(), Err(Error::InvalidTimestamp));
+            assert_eq!(polyx_vesting_3, Err(Error::InvalidTimestamp));
         }
     }
 }
