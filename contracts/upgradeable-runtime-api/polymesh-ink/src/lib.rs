@@ -10,7 +10,7 @@ use ink_lang as ink;
 use alloc::{vec, vec::Vec};
 
 #[cfg(feature = "tracker")]
-pub use upgrade_tracker::UpgradeTrackerRef;
+pub use upgrade_tracker::{WrappedApi, UpgradeTrackerRef};
 
 use polymesh_api::Api;
 pub use polymesh_api::{
@@ -29,8 +29,8 @@ pub use polymesh_api::{
     },
 };
 
-#[cfg(feature = "as-library")]
-pub const API_VERSION: u32 = 5;
+#[cfg(feature = "tracker")]
+pub const API_VERSION: WrappedApi = (*b"POLY", 5);
 
 /// The contract error types.
 #[derive(Debug, scale::Encode, scale::Decode)]

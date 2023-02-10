@@ -4,17 +4,11 @@
 
 extern crate alloc;
 
-pub use self::upgrade_tracker::{
-    UpgradeTracker,
-    UpgradeTrackerRef,
-};
+pub use self::upgrade_tracker::{UpgradeTracker, UpgradeTrackerRef};
 
 use ink_lang as ink;
 
-use polymesh_api::{
-    ink::extension::PolymeshEnvironment,
-    Api,
-};
+use polymesh_api::{ink::extension::PolymeshEnvironment, Api};
 
 pub type Hash = <PolymeshEnvironment as ink_env::Environment>::Hash;
 
@@ -22,11 +16,19 @@ pub type Hash = <PolymeshEnvironment as ink_env::Environment>::Hash;
 pub type SpecVersion = u32;
 pub type TxVersion = u32;
 /// Wrapped api.
-/// TODO: Change to `(String, u32)` to allow multiple smaller APIs?
-pub type WrappedApi = u32;
+pub type WrappedApi = ([u8; 4], u32);
 
 /// The chain version to apply an upgrade at.
-#[derive(Default, Eq, PartialEq, Ord, PartialOrd, scale::Encode, scale::Decode)]
+#[derive(
+    Default,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    scale::Encode,
+    scale::Decode
+)]
 #[cfg_attr(feature = "std", derive(Debug, scale_info::TypeInfo))]
 #[derive(ink_storage::traits::SpreadLayout)]
 #[derive(ink_storage::traits::PackedLayout)]
@@ -48,9 +50,9 @@ impl ChainVersion {
 
 /// The chain version and contract hash of the upgrade.
 ///
-/// This upgrade is applied when the current chain version 
+/// This upgrade is applied when the current chain version
 /// is greater then or equal to `chain_version`.
-#[derive(Default, scale::Encode, scale::Decode)]
+#[derive(Default, Clone, scale::Encode, scale::Decode)]
 #[cfg_attr(feature = "std", derive(Debug, scale_info::TypeInfo))]
 #[derive(ink_storage::traits::SpreadLayout)]
 #[derive(ink_storage::traits::PackedLayout)]
@@ -62,12 +64,9 @@ pub struct Upgrade {
 
 #[ink::contract(env = PolymeshEnvironment)]
 pub mod upgrade_tracker {
-    use alloc::vec::Vec;
     use crate::*;
-    use ink_storage::{
-        traits::SpreadAllocate,
-        Mapping,
-    };
+    use alloc::vec::Vec;
+    use ink_storage::{traits::SpreadAllocate, Mapping};
 
     /// A simple proxy contract.
     #[ink(storage)]
@@ -80,6 +79,37 @@ pub mod upgrade_tracker {
         upgrades: Mapping<WrappedApi, Vec<Upgrade>>,
     }
 
+    /// Event emitted when the admin account is set.
+    #[ink(event)]
+    pub struct AdminSet {
+        #[ink(topic)]
+        old: Option<AccountId>,
+        #[ink(topic)]
+        new: AccountId,
+    }
+
+    /// Event emitted when a wrapped api is upgraded.
+    #[ink(event)]
+    pub struct UpgradeWrappedApi {
+        #[ink(topic)]
+        admin: AccountId,
+        #[ink(topic)]
+        api: WrappedApi,
+        #[ink(topic)]
+        upgrade: Upgrade,
+    }
+
+    /// Contract error type.
+    #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+    pub enum Error {
+        /// Only the current admin can make this call.
+        NotAdmin,
+    }
+
+    /// Contract result type.
+    pub type Result<T> = core::result::Result<T, Error>;
+
     impl UpgradeTracker {
         /// Sets the privileged account to the caller. Only this account may
         /// later changed `update_code_hash`.
@@ -87,49 +117,66 @@ pub mod upgrade_tracker {
         pub fn new() -> Self {
             // This call is required in order to correctly initialize the
             // `Mapping`s of our contract.
-            ink_lang::utils::initialize_contract(|contract| {
-                Self::new_init(contract)
-            })
+            ink_lang::utils::initialize_contract(|contract| Self::new_init(contract))
         }
 
         fn new_init(&mut self) {
             self.admin = Self::env().caller();
+            self.env().emit_event(AdminSet {
+                old: None,
+                new: self.admin,
+            });
         }
 
-        fn ensure_admin(&self) {
-            assert_eq!(
-                self.env().caller(),
-                self.admin,
-                "caller {:?} does not have sufficient permissions, only {:?} does",
-                self.env().caller(),
-                self.admin,
-            );
+        fn ensure_admin(&self) -> Result<()> {
+            let caller = self.env().caller();
+            if caller != self.admin {
+                ink_env::debug_println!(
+                    "caller {:?} does not have sufficient permissions, only {:?} does",
+                    caller,
+                    self.admin
+                );
+                Err(Error::NotAdmin)
+            } else {
+                Ok(())
+            }
         }
 
         /// Change admin.
         #[ink(message)]
-        pub fn set_admin(&mut self, new_admin: AccountId) {
-            self.ensure_admin();
+        pub fn set_admin(&mut self, new_admin: AccountId) -> Result<()> {
+            self.ensure_admin()?;
+            self.env().emit_event(AdminSet {
+                old: Some(self.admin),
+                new: new_admin,
+            });
             self.admin = new_admin;
+            Ok(())
         }
 
         /// Upgrade a wrapped api.
         #[ink(message)]
-        pub fn upgrade_wrapped_api(&mut self, api: WrappedApi, upgrade: Upgrade) {
-            self.ensure_admin();
+        pub fn upgrade_wrapped_api(&mut self, api: WrappedApi, upgrade: Upgrade) -> Result<()> {
+            self.ensure_admin()?;
             // Get current upgrades.
             let mut upgrades = self.upgrades.get(&api).unwrap_or_default();
             // Remove old upgrade if it is for the same ChainVersion.
             upgrades.retain(|x| x.chain_version != upgrade.chain_version);
             // Add new upgrade.
-            upgrades.push(upgrade);
+            upgrades.push(upgrade.clone());
             // Sort by upgrade chain_version.
             upgrades.sort_by(|a, b| a.chain_version.cmp(&b.chain_version));
             // Only keep the latest 10 upgrades for each API.
             upgrades.truncate(10);
 
+            self.env().emit_event(UpgradeWrappedApi {
+                admin: self.admin,
+                api,
+                upgrade,
+            });
             // Store upgrades.
             self.upgrades.insert(api, &upgrades);
+            Ok(())
         }
 
         /// Get the latest compatible API upgrade.

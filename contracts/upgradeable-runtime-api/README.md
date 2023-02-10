@@ -9,11 +9,7 @@ without having to have "admin" support in each contract.
 
 ## TODO
 
-1. Add more useful APIs.
-2. Add namespacing of the versioned APIs to allow suport multiple upgradable APIs (Asset, Portfolio, Settlement, etc..).
 3. Support custom "Release" version in the tracker.  Right now the upgrade tracker uses the chain version (spec, tx) to trigger upgrades.  But with namescaped APIs, the tracker could be use to sync multiple contract upgrades.
-4. Add events and errors to `upgrade_tracker`.
-5. Publish crates `polymesh_ink` and `polymesh_ink_upgrade_tracker`.
 
 ## Setup.
 

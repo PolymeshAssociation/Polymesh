@@ -10,11 +10,11 @@ cargo install cargo-contract --force
 Build the contract:
 `cargo +nightly contract build --release`
 
-Contract file needed for deployment `./target/ink/upgrade_tracker.contract`.
+Contract file needed for deployment `./target/ink/polymesh_ink_upgrade_tracker.contract`.
 
 ## Setup.
 
-Deploy the contract `upgrade_tracker.contract`.  The account used will be the admin.
+Deploy the contract `polymesh_ink_upgrade_tracker.contract`.  The account used will be the admin.
 
 ## Use
 
