@@ -25,6 +25,8 @@ use frame_support::{
     ensure,
     traits::Get,
     weights::Weight,
+    BoundedBTreeSet,
+    pallet_prelude::ConstU32,
 };
 pub use polymesh_common_utilities::traits::statistics::{Config, Event, WeightInfo};
 use polymesh_primitives::{
@@ -100,7 +102,7 @@ decl_module! {
         /// - Agent
         /// - Asset
         #[weight = <T as Config>::WeightInfo::set_active_asset_stats(stat_types.len() as u32)]
-        pub fn set_active_asset_stats(origin, asset: AssetScope, stat_types: BTreeSet<StatType>) {
+        pub fn set_active_asset_stats(origin, asset: AssetScope, stat_types: BoundedBTreeSet<StatType, ConstU32<MaxStatsPerAsset>) {
             Self::base_set_active_asset_stats(origin, asset, stat_types)?;
         }
 
@@ -140,7 +142,7 @@ decl_module! {
         /// - Agent
         /// - Asset
         #[weight = <T as Config>::WeightInfo::set_asset_transfer_compliance(transfer_conditions.len() as u32)]
-        pub fn set_asset_transfer_compliance(origin, asset: AssetScope, transfer_conditions: BTreeSet<TransferCondition>) {
+        pub fn set_asset_transfer_compliance(origin, asset: AssetScope, transfer_conditions: BoundedBTreeSet<TransferCondition, ConstU32<MaxTransferConditionsPerAsset>>) {
             Self::base_set_asset_transfer_compliance(origin, asset, transfer_conditions)?;
         }
 
@@ -182,7 +184,7 @@ impl<T: Config> Module<T> {
     fn base_set_active_asset_stats(
         origin: T::Origin,
         asset: AssetScope,
-        stat_types: BTreeSet<StatType>,
+        stat_types: BoundedBTreeSet<StatType, ConstU32<MaxStatsPerAsset>>,
     ) -> DispatchResult {
         // Check EA permissions for asset.
         let did = Self::ensure_asset_perms(origin, asset)?;
@@ -279,7 +281,7 @@ impl<T: Config> Module<T> {
     fn base_set_asset_transfer_compliance(
         origin: T::Origin,
         asset: AssetScope,
-        transfer_conditions: BTreeSet<TransferCondition>,
+        transfer_conditions: BoundedBTreeSet<TransferCondition, ConstU32<MaxTransferConditionsPerAsset>>,
     ) -> DispatchResult {
         // Check EA permissions for asset.
         let did = Self::ensure_asset_perms(origin, asset)?;
