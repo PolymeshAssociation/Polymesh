@@ -10,14 +10,11 @@ use ink_lang as ink;
 use alloc::{vec, vec::Vec};
 
 #[cfg(feature = "tracker")]
-pub use upgrade_tracker::{WrappedApi, UpgradeTrackerRef, Error as UpgradeError};
+pub use upgrade_tracker::{Error as UpgradeError, UpgradeTrackerRef, WrappedApi};
 
 use polymesh_api::Api;
 pub use polymesh_api::{
-    ink::{
-        basic_types::IdentityId,
-        extension::PolymeshEnvironment,
-    },
+    ink::{basic_types::IdentityId, extension::PolymeshEnvironment},
     polymesh::types::{
         pallet_portfolio::MovePortfolioItem,
         pallet_settlement::{Leg, SettlementType, VenueDetails, VenueId, VenueType},

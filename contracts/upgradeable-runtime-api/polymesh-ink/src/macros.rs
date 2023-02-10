@@ -88,17 +88,17 @@ macro_rules! upgradable_api {
                 pub fn new(hash: UpgradeHash) -> Self {
                     Self { hash }
                 }
-            
+
                 #[cfg(feature = "tracker")]
                 pub fn new(hash: UpgradeHash, tracker: Option<UpgradeTrackerRef>) -> Self {
                     Self { hash, tracker }
                 }
-            
+
                 /// Update code hash.
                 pub fn update_code_hash(&mut self, hash: UpgradeHash) {
                     self.hash = hash;
                 }
-            
+
                 #[cfg(feature = "tracker")]
                 pub fn check_for_upgrade(&mut self) -> Result<(), UpgradeError> {
                     if let Some(tracker) = &self.tracker {

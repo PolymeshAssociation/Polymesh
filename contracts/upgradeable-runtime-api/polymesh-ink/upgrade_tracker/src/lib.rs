@@ -4,7 +4,7 @@
 
 extern crate alloc;
 
-pub use self::upgrade_tracker::{UpgradeTracker, UpgradeTrackerRef, Error};
+pub use self::upgrade_tracker::{Error, UpgradeTracker, UpgradeTrackerRef};
 
 use ink_lang as ink;
 
@@ -186,12 +186,10 @@ pub mod upgrade_tracker {
         /// Get the latest compatible API upgrade.
         #[ink(message)]
         pub fn get_latest_upgrade(&self, api: WrappedApi) -> Result<Hash> {
-            let upgrades = self.upgrades.get(&api)
-                .ok_or(Error::NoUpgrade)?;
+            let upgrades = self.upgrades.get(&api).ok_or(Error::NoUpgrade)?;
 
             // Search for a compatible upgrade to the wrapped api.
-            let current = ChainVersion::current()
-                .ok_or(Error::NoChainVersion)?;
+            let current = ChainVersion::current().ok_or(Error::NoChainVersion)?;
             for upgrade in upgrades.into_iter() {
                 if upgrade.chain_version <= current {
                     return Ok(upgrade.hash);
