@@ -10,7 +10,7 @@ use ink_lang as ink;
 use alloc::{vec, vec::Vec};
 
 #[cfg(feature = "tracker")]
-pub use upgrade_tracker::{WrappedApi, UpgradeTrackerRef};
+pub use upgrade_tracker::{WrappedApi, UpgradeTrackerRef, Error as UpgradeError};
 
 use polymesh_api::Api;
 pub use polymesh_api::{

@@ -62,6 +62,11 @@ macro_rules! upgradable_api {
         mod $mod_name {
             use super::*;
 
+            #[cfg(not(feature = "always-delegate"))]
+            pub type UpgradeHash = Option<Hash>;
+            #[cfg(feature = "always-delegate")]
+            pub type UpgradeHash = Hash;
+
             /// Upgradable wrapper for the Polymesh Runtime API.
             ///
             /// Contracts can use this to maintain support accross
@@ -73,32 +78,40 @@ macro_rules! upgradable_api {
             #[derive(ink_storage::traits::SpreadAllocate)]
             #[cfg_attr(feature = "std", derive(ink_storage::traits::StorageLayout))]
             pub struct $api_type {
-                hash: Option<Hash>,
+                hash: UpgradeHash,
                 #[cfg(feature = "tracker")]
                 tracker: Option<UpgradeTrackerRef>,
             }
 
             impl $api_type {
                 #[cfg(not(feature = "tracker"))]
-                pub fn new(hash: Option<Hash>) -> Self {
+                pub fn new(hash: UpgradeHash) -> Self {
                     Self { hash }
                 }
             
                 #[cfg(feature = "tracker")]
-                pub fn new(hash: Option<Hash>, tracker: Option<UpgradeTrackerRef>) -> Self {
+                pub fn new(hash: UpgradeHash, tracker: Option<UpgradeTrackerRef>) -> Self {
                     Self { hash, tracker }
                 }
             
                 /// Update code hash.
-                pub fn update_code_hash(&mut self, hash: Option<Hash>) {
+                pub fn update_code_hash(&mut self, hash: UpgradeHash) {
                     self.hash = hash;
                 }
             
                 #[cfg(feature = "tracker")]
-                pub fn check_for_upgrade(&mut self) {
+                pub fn check_for_upgrade(&mut self) -> Result<(), UpgradeError> {
                     if let Some(tracker) = &self.tracker {
-                        self.hash = tracker.get_latest_upgrade(API_VERSION);
+                        #[cfg(not(feature = "always-delegate"))]
+                        {
+                            self.hash = tracker.get_latest_upgrade(API_VERSION).ok();
+                        }
+                        #[cfg(feature = "always-delegate")]
+                        {
+                            self.hash = tracker.get_latest_upgrade(API_VERSION)?;
+                        }
                     }
+                    Ok(())
                 }
             }
 
@@ -133,7 +146,11 @@ macro_rules! upgradable_api {
         $(#[doc = $doc_attr])*
         $fn_vis fn $fn_name(&$self $(, $param: $ty)*) -> $fn_return {
             use ink_env::call::{DelegateCall, ExecutionInput, Selector};
-            if let Some(hash) = $self.hash {
+            #[cfg(not(feature = "always-delegate"))]
+            let hash = $self.hash;
+            #[cfg(feature = "always-delegate")]
+            let hash = Some($self.hash);
+            if let Some(hash) = hash {
                 const FUNC: &str = stringify!($func);
                 let selector: [u8; 4] = ::polymesh_api::ink::blake2_256(FUNC.as_bytes())[..4]
                   .try_into().unwrap();

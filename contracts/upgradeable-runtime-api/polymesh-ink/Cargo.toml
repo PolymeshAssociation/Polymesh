@@ -44,6 +44,9 @@ default = ["std"]
 # Compile as upgradable library.
 as-library = []
 
+# Don't include API code, always use delegate calls.  This will generate smaller code.
+always-delegate = []
+
 # Enable support for an "Upgrade tracker" contract.
 tracker = [
 	"upgrade_tracker",

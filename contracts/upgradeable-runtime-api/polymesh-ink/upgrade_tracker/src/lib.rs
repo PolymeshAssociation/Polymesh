@@ -4,7 +4,7 @@
 
 extern crate alloc;
 
-pub use self::upgrade_tracker::{UpgradeTracker, UpgradeTrackerRef};
+pub use self::upgrade_tracker::{UpgradeTracker, UpgradeTrackerRef, Error};
 
 use ink_lang as ink;
 
@@ -105,6 +105,10 @@ pub mod upgrade_tracker {
     pub enum Error {
         /// Only the current admin can make this call.
         NotAdmin,
+        /// Failed to get current ChainVersion.
+        NoChainVersion,
+        /// No upgrade available for the API.
+        NoUpgrade,
     }
 
     /// Contract result type.
@@ -181,19 +185,21 @@ pub mod upgrade_tracker {
 
         /// Get the latest compatible API upgrade.
         #[ink(message)]
-        pub fn get_latest_upgrade(&self, api: WrappedApi) -> Option<Hash> {
-            let upgrades = self.upgrades.get(&api)?;
+        pub fn get_latest_upgrade(&self, api: WrappedApi) -> Result<Hash> {
+            let upgrades = self.upgrades.get(&api)
+                .ok_or(Error::NoUpgrade)?;
 
             // Search for a compatible upgrade to the wrapped api.
-            let current = ChainVersion::current()?;
+            let current = ChainVersion::current()
+                .ok_or(Error::NoChainVersion)?;
             for upgrade in upgrades.into_iter() {
                 if upgrade.chain_version <= current {
-                    return Some(upgrade.hash);
+                    return Ok(upgrade.hash);
                 }
             }
 
             // No upgrades found for `version`.
-            None
+            Err(Error::NoUpgrade)
         }
     }
 }

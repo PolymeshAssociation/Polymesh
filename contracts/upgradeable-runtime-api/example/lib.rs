@@ -31,11 +31,19 @@ pub mod test_polymesh_ink {
     pub enum Error {
         /// PolymeshInk errors.
         PolymeshInk(PolymeshError),
+        /// Upgrade error.
+        UpgradeError(UpgradeError)
     }
 
     impl From<PolymeshError> for Error {
         fn from(err: PolymeshError) -> Self {
             Self::PolymeshInk(err)
+        }
+    }
+
+    impl From<UpgradeError> for Error {
+        fn from(err: UpgradeError) -> Self {
+            Self::UpgradeError(err)
         }
     }
 
@@ -48,10 +56,10 @@ pub mod test_polymesh_ink {
         /// Sets the privileged account to the caller. Only this account may
         /// later changed the `forward_to` address.
         #[ink(constructor)]
-        pub fn new(tracker: Option<UpgradeTrackerRef>) -> Self {
+        pub fn new(hash: Hash, tracker: Option<UpgradeTrackerRef>) -> Self {
             Self {
                 admin: Self::env().caller(),
-                api: PolymeshInk::new(None, tracker),
+                api: PolymeshInk::new(hash, tracker),
             }
         }
 
@@ -59,7 +67,7 @@ pub mod test_polymesh_ink {
         ///
         /// Only the `admin` is allowed to call this.
         #[ink(message)]
-        pub fn update_code_hash(&mut self, hash: Option<Hash>) {
+        pub fn update_code_hash(&mut self, hash: Hash) {
             assert_eq!(
                 self.env().caller(),
                 self.admin,
@@ -74,8 +82,9 @@ pub mod test_polymesh_ink {
         ///
         /// Anyone can pay the gas fees to do the update using the tracker.
         #[ink(message)]
-        pub fn update_polymesh_ink(&mut self) {
-            self.api.check_for_upgrade();
+        pub fn update_polymesh_ink(&mut self) -> Result<()> {
+            self.api.check_for_upgrade()?;
+            Ok(())
         }
 
         #[ink(message)]

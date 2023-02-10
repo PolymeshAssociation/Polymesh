@@ -46,6 +46,8 @@ mod settlements {
     pub enum Error {
         /// PolymeshInk errors.
         PolymeshInk(PolymeshError),
+        /// Upgrade error.
+        UpgradeError(UpgradeError),
         /// Caller needs to pay the contract for the protocol fee.
         /// (Amount needed)
         InsufficientTransferValue(Balance),
@@ -73,21 +75,27 @@ mod settlements {
         }
     }
 
+    impl From<UpgradeError> for Error {
+        fn from(err: UpgradeError) -> Self {
+            Self::UpgradeError(err)
+        }
+    }
+
     /// The contract result type.
     pub type Result<T> = core::result::Result<T, Error>;
 
     impl Settlements {
         /// Creates a new contract.
         #[ink(constructor)]
-        pub fn new(ticker1: Ticker, ticker2: Ticker, tracker: Option<UpgradeTrackerRef>) -> Self {
+        pub fn new(ticker1: Ticker, ticker2: Ticker, hash: Hash, tracker: Option<UpgradeTrackerRef>) -> Self {
             ink_lang::utils::initialize_contract(|contract| {
-                Self::new_init(contract, ticker1, ticker2, tracker)
+                Self::new_init(contract, ticker1, ticker2, hash, tracker)
             })
         }
 
-        fn new_init(&mut self, ticker1: Ticker, ticker2: Ticker, tracker: Option<UpgradeTrackerRef>) {
+        fn new_init(&mut self, ticker1: Ticker, ticker2: Ticker, hash: Hash, tracker: Option<UpgradeTrackerRef>) {
             self.admin = Self::env().caller();
-            self.api = PolymeshInk::new(None, tracker);
+            self.api = PolymeshInk::new(hash, tracker);
             self.ticker1 = ticker1;
             self.ticker2 = ticker2;
             // The contract should always have an identity.
@@ -99,7 +107,7 @@ mod settlements {
         ///
         /// Only the `admin` is allowed to call this.
         #[ink(message)]
-        pub fn update_code_hash(&mut self, hash: Option<Hash>) {
+        pub fn update_code_hash(&mut self, hash: Hash) {
             assert_eq!(
                 self.env().caller(),
                 self.admin,
@@ -114,8 +122,9 @@ mod settlements {
         ///
         /// Anyone can pay the gas fees to do the update using the tracker.
         #[ink(message)]
-        pub fn update_polymesh_ink(&mut self) {
-            self.api.check_for_upgrade();
+        pub fn update_polymesh_ink(&mut self) -> Result<()> {
+            self.api.check_for_upgrade()?;
+            Ok(())
         }
 
         fn create_asset(&mut self, ticker: Ticker) -> Result<()> {
