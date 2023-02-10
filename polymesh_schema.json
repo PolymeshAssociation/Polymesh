@@ -50,7 +50,8 @@
         "StructuredProduct": "",
         "Derivative": "",
         "Custom": "CustomAssetTypeId",
-        "StableCoin": ""
+        "StableCoin": "",
+        "NonFungible": "NonFungibleType"
       }
     },
     "AssetIdentifier": {
@@ -1218,6 +1219,14 @@
     "Fund": {
       "description": "FundDescription",
       "memo": "Option<Memo>"
+    },
+    "NonFungibleType": {
+      "_enum": {
+        "Derivative": "",
+        "FixedIncome": "",
+        "Invoice": "",
+        "Custom": "CustomAssetTypeId"
+      }
     }
   },
   "rpc": {

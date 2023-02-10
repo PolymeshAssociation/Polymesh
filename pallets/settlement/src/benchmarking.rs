@@ -29,7 +29,7 @@ use polymesh_common_utilities::{
     TestUtilsFn,
 };
 use polymesh_primitives::{
-    asset::{AssetType, NonFungibleType},
+    asset::NonFungibleType,
     checked_inc::CheckedInc,
     statistics::{Stat2ndKey, StatType, StatUpdate},
     transfer_compliance::{TransferCondition, TransferConditionExemptKey},
@@ -624,7 +624,7 @@ fn setup_nft_legs<T: Config>(
     create_collection_mint_nfts::<T>(
         sender.origin().into(),
         ticker,
-        Some(AssetType::NonFungible(NonFungibleType::Derivative)),
+        Some(NonFungibleType::Derivative),
         0,
         n_nfts,
         PortfolioKind::Default,

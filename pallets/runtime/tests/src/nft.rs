@@ -35,17 +35,20 @@ fn create_collection_unregistered_ticker() {
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
-        let asset_type: AssetType = AssetType::NonFungible(NonFungibleType::Derivative);
+        let nft_type = NonFungibleType::Derivative;
         let collection_keys: NFTCollectionKeys = vec![].into();
 
         assert_ok!(NFT::create_nft_collection(
             alice.origin(),
             ticker.clone(),
-            Some(asset_type),
+            Some(nft_type),
             collection_keys
         ));
         assert_eq!(Asset::token_details(&ticker).divisible, false);
-        assert_eq!(Asset::token_details(&ticker).asset_type, asset_type);
+        assert_eq!(
+            Asset::token_details(&ticker).asset_type,
+            AssetType::NonFungible(nft_type)
+        );
     });
 }
 
@@ -86,17 +89,17 @@ fn create_collection_already_registered() {
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
-        let asset_type: AssetType = AssetType::NonFungible(NonFungibleType::Derivative);
+        let nft_type = NonFungibleType::Derivative;
         let collection_keys: NFTCollectionKeys = vec![].into();
 
         assert_ok!(NFT::create_nft_collection(
             alice.origin(),
             ticker,
-            Some(asset_type),
+            Some(nft_type),
             collection_keys.clone()
         ));
         assert_noop!(
-            NFT::create_nft_collection(alice.origin(), ticker, Some(asset_type), collection_keys),
+            NFT::create_nft_collection(alice.origin(), ticker, Some(nft_type), collection_keys),
             NFTError::CollectionAlredyRegistered
         );
     });
@@ -110,7 +113,7 @@ fn create_collection_max_keys_exceeded() {
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
-        let asset_type: AssetType = AssetType::NonFungible(NonFungibleType::Derivative);
+        let nft_type = NonFungibleType::Derivative;
         let collection_keys: Vec<AssetMetadataKey> = (0..256)
             .map(|key| AssetMetadataKey::Local(AssetMetadataLocalKey(key)))
             .collect();
@@ -118,7 +121,7 @@ fn create_collection_max_keys_exceeded() {
             NFT::create_nft_collection(
                 alice.origin(),
                 ticker,
-                Some(asset_type),
+                Some(nft_type),
                 collection_keys.into()
             ),
             NFTError::MaxNumberOfKeysExceeded
@@ -134,7 +137,7 @@ fn create_collection_duplicate_key() {
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
-        let asset_type: AssetType = AssetType::NonFungible(NonFungibleType::Derivative);
+        let nft_type = NonFungibleType::Derivative;
         let collection_keys: NFTCollectionKeys = vec![
             AssetMetadataKey::Local(AssetMetadataLocalKey(0)),
             AssetMetadataKey::Local(AssetMetadataLocalKey(0)),
@@ -145,7 +148,7 @@ fn create_collection_duplicate_key() {
             NFT::create_nft_collection(
                 alice.origin(),
                 ticker,
-                Some(asset_type),
+                Some(nft_type),
                 collection_keys.into()
             ),
             NFTError::DuplicateMetadataKey
@@ -161,12 +164,12 @@ fn create_collection_unregistered_key() {
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
-        let asset_type: AssetType = AssetType::NonFungible(NonFungibleType::Derivative);
+        let nft_type = NonFungibleType::Derivative;
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(0))].into();
 
         assert_noop!(
-            NFT::create_nft_collection(alice.origin(), ticker, Some(asset_type), collection_keys),
+            NFT::create_nft_collection(alice.origin(), ticker, Some(nft_type), collection_keys),
             NFTError::UnregisteredMetadataKey
         );
     });

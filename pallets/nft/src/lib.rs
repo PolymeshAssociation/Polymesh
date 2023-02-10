@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::dispatch::DispatchResult;
 use frame_support::traits::Get;
 use frame_support::{decl_error, decl_module, decl_storage};
 use frame_support::{ensure, require_transactional};
@@ -10,7 +10,7 @@ use pallet_portfolio::PortfolioNFT;
 use polymesh_common_utilities::compliance_manager::Config as ComplianceManagerConfig;
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 pub use polymesh_common_utilities::traits::nft::{Config, Event, WeightInfo};
-use polymesh_primitives::asset::{AssetName, AssetType};
+use polymesh_primitives::asset::{AssetName, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use polymesh_primitives::nft::{
     NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTCount, NFTId, NFTMetadataAttribute, NFTs,
@@ -81,8 +81,8 @@ decl_module! {
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::create_nft_collection(collection_keys.len() as u32)]
-        pub fn create_nft_collection(origin, ticker: Ticker, asset_type: Option<AssetType>, collection_keys: NFTCollectionKeys) -> DispatchResult {
-            Self::base_create_nft_collection(origin, ticker, asset_type, collection_keys)
+        pub fn create_nft_collection(origin, ticker: Ticker, nft_type: Option<NonFungibleType>, collection_keys: NFTCollectionKeys) -> DispatchResult {
+            Self::base_create_nft_collection(origin, ticker, nft_type, collection_keys)
         }
 
         /// Mints an NFT to the caller.
@@ -172,7 +172,7 @@ impl<T: Config> Module<T> {
     fn base_create_nft_collection(
         origin: T::Origin,
         ticker: Ticker,
-        asset_type: Option<AssetType>,
+        nft_type: Option<NonFungibleType>,
         collection_keys: NFTCollectionKeys,
     ) -> DispatchResult {
         // Verifies if the asset has already been created and the caller's permission to create the collection
@@ -222,14 +222,13 @@ impl<T: Config> Module<T> {
 
         // Creates an nft asset if it hasn't been created yet
         if create_asset {
-            let asset_type = asset_type.ok_or(Error::<T>::InvalidAssetType)?;
-            ensure!(asset_type.is_non_fungible(), Error::<T>::InvalidAssetType);
+            let nft_type = nft_type.ok_or(Error::<T>::InvalidAssetType)?;
             Asset::<T>::create_asset(
                 origin,
                 AssetName(ticker.as_slice().to_vec()),
                 ticker.clone(),
                 false,
-                asset_type,
+                AssetType::NonFungible(nft_type),
                 Vec::new(),
                 None,
                 false,
@@ -295,14 +294,15 @@ impl<T: Config> Module<T> {
         }
 
         // Mints the NFT and adds it to the caller's portfolio
+        let new_balance = NumberOfNFTs::get(&ticker, &caller_portfolio.did)
+            .checked_add(1)
+            .ok_or(Error::<T>::BalanceOverflow)?;
         let nft_id = NextNFTId::try_mutate(&collection_id, try_next_pre::<T, _>)?;
+        NumberOfNFTs::insert(&ticker, &caller_portfolio.did, new_balance);
         for (metadata_key, metadata_value) in nft_attributes.into_iter() {
             MetadataValue::insert((&collection_id, &nft_id), metadata_key, metadata_value);
         }
         PortfolioNFT::insert(caller_portfolio, (ticker, nft_id), true);
-        NumberOfNFTs::mutate(&ticker, &caller_portfolio.did, {
-            |current_balance| *current_balance += 1
-        });
 
         Self::deposit_event(Event::MintedNft(
             caller_portfolio.did,
@@ -333,14 +333,10 @@ impl<T: Config> Module<T> {
         );
 
         // Burns the NFT
-        NumberOfNFTs::try_mutate(&ticker, &caller_portfolio.did, {
-            |current_balance| {
-                *current_balance = current_balance
-                    .checked_sub(1)
-                    .ok_or(Error::<T>::BalanceUnderflow)?;
-                Ok::<(), DispatchError>(())
-            }
-        })?;
+        let new_balance = NumberOfNFTs::get(&ticker, &caller_portfolio.did)
+            .checked_sub(1)
+            .ok_or(Error::<T>::BalanceUnderflow)?;
+        NumberOfNFTs::insert(&ticker, &caller_portfolio.did, new_balance);
         PortfolioNFT::remove(&caller_portfolio, (&ticker, &nft_id));
         MetadataValue::remove_prefix((&collection_id, &nft_id), None);
 
