@@ -68,7 +68,7 @@ pub mod upgrade_tracker {
     use alloc::vec::Vec;
     use ink_storage::{traits::SpreadAllocate, Mapping};
 
-    /// A simple proxy contract.
+    /// Upgrade tracker contract for Polymesh Ink! API.
     #[ink(storage)]
     #[derive(SpreadAllocate)]
     pub struct UpgradeTracker {

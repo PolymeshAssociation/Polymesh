@@ -94,6 +94,15 @@ macro_rules! upgradable_api {
                     Self { hash, tracker }
                 }
 
+                #[cfg(feature = "tracker")]
+                pub fn new_tracker(tracker: UpgradeTrackerRef) -> Self {
+                    #[cfg(not(feature = "always-delegate"))]
+                    let hash = tracker.get_latest_upgrade(API_VERSION).ok();
+                    #[cfg(feature = "always-delegate")]
+                    let hash = tracker.get_latest_upgrade(API_VERSION).unwrap();
+                    Self { hash, tracker: Some(tracker) }
+                }
+
                 /// Update code hash.
                 pub fn update_code_hash(&mut self, hash: UpgradeHash) {
                     self.hash = hash;
