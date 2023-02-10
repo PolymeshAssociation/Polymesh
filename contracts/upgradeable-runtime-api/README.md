@@ -7,15 +7,11 @@ The `upgrade_tracker` contract is an optional feature for easier
 upgrades.  It allows multiple contracts to use upgradable APIs
 without having to have "admin" support in each contract.
 
-## TODO
-
-3. Support custom "Release" version in the tracker.  Right now the upgrade tracker uses the chain version (spec, tx) to trigger upgrades.  But with namescaped APIs, the tracker could be use to sync multiple contract upgrades.
-
 ## Setup.
 
 1. (Optional) Build and deploy the upgrade tracker contract `./upgrade_tracker/`.
-2. Build and deploy the test contract `./example/`.  Use the contract address from step #1 if used.
-3. (Optional) Build and upload (don't deploy) the `./polymesh_ink/` contract for testing upgrades.
+2. Build and upload (don't deploy) the `./polymesh_ink/` contract for testing upgrades.
+3. Build and deploy the test contract `./example/`.  Use the code hash from step #2 and the tracker contract address from step #1 if used.
 
 ## Usable
 
