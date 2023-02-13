@@ -68,7 +68,7 @@ decl_module! {
         /// # Arguments
         /// * `origin` - contains the secondary key of the caller (i.e. who signed the transaction to execute this function).
         /// * `ticker` - the ticker associated to the new collection.
-        /// * `asset_type` - in case the asset hasn't been created yet, one will be created with the given type.
+        /// * `nft_type` - in case the asset hasn't been created yet, one will be created with the given type.
         /// * `collection_keys` - all mandatory metadata keys that the tokens in the collection must have.
         ///
         /// ## Errors
