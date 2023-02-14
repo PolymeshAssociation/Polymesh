@@ -538,9 +538,9 @@ benchmarks! {
         let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(2));
         let collection_keys: NFTCollectionKeys = vec![asset_metada_key.clone()].into();
         T::NFTFn::create_nft_collection(user.origin().into(), ticker, None, collection_keys).unwrap();
-    }: _(user.origin, ticker, asset_metadata_name)
+    }: _(user.origin, ticker, AssetMetadataLocalKey(1))
 
-    remove_local_metadata_value {
+    remove_metadata_value {
         // Creates an asset of type NFT
         let user = user::<T>("target", 0);
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
@@ -574,5 +574,5 @@ benchmarks! {
             AssetMetadataValue(b"randomvalue".to_vec()),
             None,
         ).unwrap();
-    }: _(user.origin, ticker, asset_metadata_name)
+    }: _(user.origin, ticker, AssetMetadataKey::Local(AssetMetadataLocalKey(1)))
 }

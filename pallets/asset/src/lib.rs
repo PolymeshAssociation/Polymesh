@@ -110,8 +110,8 @@ use polymesh_primitives::{
     agent::AgentGroup,
     asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName, GranularCanTransferResult},
     asset_metadata::{
-        AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataLockStatus,
-        AssetMetadataName, AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
+        AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName,
+        AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
     },
     calendar::CheckpointId,
     ethereum::{self, EcdsaSignature, EthereumAddress},
@@ -913,12 +913,12 @@ decl_module! {
             Self::base_update_asset_type(origin, ticker, asset_type)
         }
 
-        /// Removes a local metadata key.
+        /// Removes the asset metadata key and value of a local key.
         ///
         /// # Arguments
         /// * `origin` - the secondary key of the sender.
         /// * `ticker` - the ticker of the local metadata key.
-        /// * `name` - the metadata name.
+        /// * `local_key` - the local metadata key.
         ///
         /// # Errors
         ///  - `SecondaryKeyNotAuthorizedForAsset` - if called by someone without the appropriate external agent permissions.
@@ -930,16 +930,16 @@ decl_module! {
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::remove_local_metadata_key()]
-        pub fn remove_local_metadata_key(origin, ticker: Ticker, name: AssetMetadataName) -> DispatchResult {
-            Self::base_remove_local_metadata_key(origin, ticker, name)
+        pub fn remove_local_metadata_key(origin, ticker: Ticker, local_key: AssetMetadataLocalKey) -> DispatchResult {
+            Self::base_remove_local_metadata_key(origin, ticker, local_key)
         }
 
-        /// Removes the asset metadata value of a local key.
+        /// Removes the asset metadata value of a metadata key.
         ///
         /// # Arguments
         /// * `origin` - the secondary key of the sender.
         /// * `ticker` - the ticker of the local metadata key.
-        /// * `name` - the metadata name.
+        /// * `metadata_key` - the metadata key that will have its value deleted.
         ///
         /// # Errors
         ///  - `SecondaryKeyNotAuthorizedForAsset` - if called by someone without the appropriate external agent permissions.
@@ -950,8 +950,8 @@ decl_module! {
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::remove_local_metadata_value()]
-        pub fn remove_local_metadata_value(origin, ticker: Ticker, name: AssetMetadataName) -> DispatchResult {
-            Self::base_remove_local_metadata_value(origin, ticker, name)
+        pub fn remove_metadata_value(origin, ticker: Ticker, metadata_key: AssetMetadataKey) -> DispatchResult {
+            Self::base_remove_metadata_value(origin, ticker, metadata_key)
         }
     }
 }
@@ -2263,9 +2263,7 @@ impl<T: Config> Module<T> {
         );
 
         // Prevent locking an asset metadata with no value
-        if let AssetMetadataLockStatus::Locked | AssetMetadataLockStatus::LockedUntil(_) =
-            detail.lock_status
-        {
+        if detail.is_locked(<pallet_timestamp::Pallet<T>>::get()) {
             AssetMetadataValues::try_get(&ticker, &key)
                 .map_err(|_| Error::<T>::AssetMetadataValueIsEmpty)?;
         }
@@ -2688,12 +2686,12 @@ impl<T: Config> Module<T> {
     fn base_remove_local_metadata_key(
         origin: T::Origin,
         ticker: Ticker,
-        name: AssetMetadataName,
+        local_key: AssetMetadataLocalKey,
     ) -> DispatchResult {
         // Verifies if the caller has the correct permissions for this asset
-        let _caller_did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
         // Verifies if the key exists.
-        let local_key = AssetMetadataLocalNameToKey::try_get(ticker, &name)
+        let name = AssetMetadataLocalKeyToName::try_get(ticker, &local_key)
             .map_err(|_| Error::<T>::AssetMetadataKeyIsMissing)?;
         // Verifies if the value is locked
         let metadata_key = AssetMetadataKey::Local(local_key);
@@ -2714,22 +2712,31 @@ impl<T: Config> Module<T> {
         AssetMetadataLocalNameToKey::remove(&ticker, &name);
         AssetMetadataLocalKeyToName::remove(&ticker, &local_key);
         AssetMetadataLocalSpecs::remove(&ticker, &local_key);
-        Self::deposit_event(RawEvent::LocalMetadataKeyDeleted(ticker, name));
+        Self::deposit_event(RawEvent::LocalMetadataKeyDeleted(
+            caller_did, ticker, local_key,
+        ));
         Ok(())
     }
 
-    fn base_remove_local_metadata_value(
+    fn base_remove_metadata_value(
         origin: T::Origin,
         ticker: Ticker,
-        name: AssetMetadataName,
+        metadata_key: AssetMetadataKey,
     ) -> DispatchResult {
         // Verifies if the caller has the correct permissions for this asset
-        let _caller_did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
         // Verifies if the key exists.
-        let local_key = AssetMetadataLocalNameToKey::try_get(ticker, &name)
-            .map_err(|_| Error::<T>::AssetMetadataKeyIsMissing)?;
+        match metadata_key {
+            AssetMetadataKey::Global(global_key) => {
+                let _name = AssetMetadataGlobalKeyToName::try_get(&global_key)
+                    .map_err(|_| Error::<T>::AssetMetadataKeyIsMissing)?;
+            }
+            AssetMetadataKey::Local(local_key) => {
+                let _name = AssetMetadataLocalKeyToName::try_get(ticker, &local_key)
+                    .map_err(|_| Error::<T>::AssetMetadataKeyIsMissing)?;
+            }
+        }
         // Verifies if the value is locked
-        let metadata_key = AssetMetadataKey::Local(local_key);
         if let Some(value_detail) = AssetMetadataValueDetails::<T>::get(&ticker, &metadata_key) {
             ensure!(
                 !value_detail.is_locked(<pallet_timestamp::Pallet<T>>::get()),
@@ -2739,7 +2746,11 @@ impl<T: Config> Module<T> {
         // Remove the metadata value from storage
         AssetMetadataValues::remove(&ticker, &metadata_key);
         AssetMetadataValueDetails::<T>::remove(&ticker, &metadata_key);
-        Self::deposit_event(RawEvent::LocalMetadataValueDeleted(ticker, name));
+        Self::deposit_event(RawEvent::MetadataValueDeleted(
+            caller_did,
+            ticker,
+            metadata_key,
+        ));
         Ok(())
     }
 }

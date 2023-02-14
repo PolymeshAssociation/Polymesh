@@ -2574,9 +2574,9 @@ fn remove_local_metadata_key_missing_key() {
 
         let alice = User::new(AccountKeyring::Alice);
         let ticker = an_asset(alice, true);
-        let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
+        let local_key = AssetMetadataLocalKey(1);
         assert_noop!(
-            Asset::remove_local_metadata_key(alice.origin(), ticker, asset_metadata_name),
+            Asset::remove_local_metadata_key(alice.origin(), ticker, local_key),
             AssetError::AssetMetadataKeyIsMissing
         );
     })
@@ -2621,7 +2621,7 @@ fn remove_local_metadata_key_locked_value() {
             asset_metadata_detail
         ));
         assert_noop!(
-            Asset::remove_local_metadata_key(alice.origin(), ticker, asset_metadata_name),
+            Asset::remove_local_metadata_key(alice.origin(), ticker, AssetMetadataLocalKey(1)),
             AssetError::AssetMetadataValueIsLocked
         );
     })
@@ -2635,7 +2635,6 @@ fn remove_nft_collection_metada_key() {
 
         let alice = User::new(AccountKeyring::Alice);
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
-        let asset_metadata_name = AssetMetadataName(b"key0".to_vec());
         let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(1));
         let collection_keys: NFTCollectionKeys = vec![asset_metada_key.clone()].into();
         create_nft_collection(
@@ -2652,7 +2651,7 @@ fn remove_nft_collection_metada_key() {
             None,
         ));
         assert_noop!(
-            Asset::remove_local_metadata_key(alice.origin(), ticker, asset_metadata_name),
+            Asset::remove_local_metadata_key(alice.origin(), ticker, AssetMetadataLocalKey(1)),
             AssetError::AssetMetadataKeyBelongsToNFTCollection
         );
     })
@@ -2689,7 +2688,7 @@ fn remove_local_metadata_key() {
         assert_ok!(Asset::remove_local_metadata_key(
             alice.origin(),
             ticker,
-            asset_metadata_name.clone()
+            AssetMetadataLocalKey(1)
         ),);
         assert_eq!(
             AssetMetadataLocalKeyToName::get(&ticker, AssetMetadataLocalKey(1)),
@@ -2715,9 +2714,12 @@ fn remove_local_metadata_value_missing_key() {
 
         let alice = User::new(AccountKeyring::Alice);
         let ticker = an_asset(alice, true);
-        let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
         assert_noop!(
-            Asset::remove_local_metadata_value(alice.origin(), ticker, asset_metadata_name),
+            Asset::remove_metadata_value(
+                alice.origin(),
+                ticker,
+                AssetMetadataKey::Local(AssetMetadataLocalKey(1))
+            ),
             AssetError::AssetMetadataKeyIsMissing
         );
     })
@@ -2762,15 +2764,15 @@ fn remove_local_metadata_value_locked_value() {
             asset_metadata_detail
         ));
         assert_noop!(
-            Asset::remove_local_metadata_value(alice.origin(), ticker, asset_metadata_name),
+            Asset::remove_metadata_value(alice.origin(), ticker, asset_metada_key),
             AssetError::AssetMetadataValueIsLocked
         );
     })
 }
 
-/// Successfully removes a local metadata value.
+/// Successfully removes a metadata value.
 #[test]
-fn remove_local_metadata_value() {
+fn remove_metadata_value() {
     ExtBuilder::default().build().execute_with(|| {
         set_time_to_now();
 
@@ -2796,10 +2798,10 @@ fn remove_local_metadata_value() {
             AssetMetadataValue(b"randomvalue".to_vec()),
             None,
         ));
-        assert_ok!(Asset::remove_local_metadata_value(
+        assert_ok!(Asset::remove_metadata_value(
             alice.origin(),
             ticker,
-            asset_metadata_name.clone()
+            asset_metada_key.clone(),
         ),);
         assert_eq!(
             AssetMetadataLocalKeyToName::get(&ticker, AssetMetadataLocalKey(1)),

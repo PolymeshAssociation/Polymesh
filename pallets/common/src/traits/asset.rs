@@ -20,8 +20,8 @@ use frame_support::weights::Weight;
 use polymesh_primitives::{
     asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName},
     asset_metadata::{
-        AssetMetadataGlobalKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataSpec,
-        AssetMetadataValue, AssetMetadataValueDetail,
+        AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName,
+        AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
     },
     ethereum::EthereumAddress,
     AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, ScopeId, Ticker,
@@ -250,9 +250,9 @@ decl_event! {
         AssetTypeChanged(IdentityId, Ticker, AssetType),
         /// An event emitted when a local metadata key has been removed.
         /// Parameters: caller ticker, Local type name
-        LocalMetadataKeyDeleted(Ticker, AssetMetadataName),
+        LocalMetadataKeyDeleted(IdentityId, Ticker, AssetMetadataLocalKey),
         /// An event emitted when a local metadata value has been removed.
         /// Parameters: caller ticker, Local type name
-        LocalMetadataValueDeleted(Ticker, AssetMetadataName),
+        MetadataValueDeleted(IdentityId, Ticker, AssetMetadataKey),
     }
 }

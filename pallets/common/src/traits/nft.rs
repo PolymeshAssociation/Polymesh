@@ -1,12 +1,13 @@
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::dispatch::DispatchResult;
 #[cfg(feature = "runtime-benchmarks")]
+use polymesh_primitives::asset::NonFungibleType;
+#[cfg(feature = "runtime-benchmarks")]
 use polymesh_primitives::nft::NFTCollectionKeys;
 
 use frame_support::decl_event;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
-use polymesh_primitives::asset::NonFungibleType;
 use polymesh_primitives::asset_metadata::AssetMetadataKey;
 use polymesh_primitives::nft::{NFTCollectionId, NFTId};
 use polymesh_primitives::ticker::Ticker;
