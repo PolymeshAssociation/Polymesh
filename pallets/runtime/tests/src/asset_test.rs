@@ -40,7 +40,7 @@ use polymesh_common_utilities::{
 use polymesh_primitives::ethereum;
 use polymesh_primitives::{
     agent::AgentGroup,
-    asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName},
+    asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName, NonFungibleType},
     asset_metadata::{
         AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataLockStatus, AssetMetadataName,
         AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
@@ -2638,7 +2638,12 @@ fn remove_nft_collection_metada_key() {
         let asset_metadata_name = AssetMetadataName(b"key0".to_vec());
         let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(1));
         let collection_keys: NFTCollectionKeys = vec![asset_metada_key.clone()].into();
-        create_nft_collection(alice, ticker, collection_keys);
+        create_nft_collection(
+            alice,
+            ticker,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
         assert_ok!(Asset::set_asset_metadata(
             alice.origin(),
             ticker,

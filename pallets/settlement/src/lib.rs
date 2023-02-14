@@ -307,7 +307,7 @@ impl LegAsset {
     pub fn ticker_and_amount(&self) -> (Ticker, Balance) {
         match self {
             LegAsset::Fungible { ticker, amount } => (*ticker, *amount),
-            LegAsset::NonFungible(nfts) => (*nfts.ticker(), nfts.amount()),
+            LegAsset::NonFungible(nfts) => (*nfts.ticker(), nfts.len() as Balance),
         }
     }
 }

@@ -11,10 +11,10 @@ use super::{
 use codec::Encode;
 use frame_support::{assert_noop, assert_ok, IterableStorageDoubleMap, StorageDoubleMap};
 use pallet_asset as asset;
-use pallet_asset::BalanceOf;
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
+use pallet_nft::NumberOfNFTs;
 use pallet_portfolio::{MovePortfolioItem, PortfolioLockedNFT, PortfolioNFT};
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
@@ -22,9 +22,9 @@ use pallet_settlement::{
     LegAsset, LegId, LegStatus, LegV2, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType,
     VenueDetails, VenueId, VenueInstructions, VenueType,
 };
-use polymesh_common_utilities::constants::{currency::ONE_UNIT, ERC1400_TRANSFER_SUCCESS};
+use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    asset::AssetType,
+    asset::{AssetType, NonFungibleType},
     asset_metadata::{AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue},
     checked_inc::CheckedInc,
     AccountId, AuthorizationData, Balance, Claim, Condition, ConditionType, IdentityId,
@@ -2838,7 +2838,12 @@ fn add_and_affirm_nft_instruction() {
         let bob: User = User::new(AccountKeyring::Bob);
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(alice.clone(), TICKER, collection_keys);
+        create_nft_collection(
+            alice.clone(),
+            TICKER,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
         let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
             key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             value: AssetMetadataValue(b"test".to_vec()),
@@ -2867,7 +2872,7 @@ fn add_and_affirm_nft_instruction() {
         ));
 
         // Before bob accepts the transaction balances must not be changed and the NFT must be locked.
-        assert_eq!(BalanceOf::get(TICKER, alice.did), ONE_UNIT);
+        assert_eq!(NumberOfNFTs::get(TICKER, alice.did), 1);
         assert_eq!(
             PortfolioNFT::get(
                 PortfolioId::default_portfolio(alice.did),
@@ -2891,8 +2896,8 @@ fn add_and_affirm_nft_instruction() {
             1
         ));
         next_block();
-        assert_eq!(BalanceOf::get(TICKER, alice.did), 0);
-        assert_eq!(BalanceOf::get(TICKER, bob.did), ONE_UNIT);
+        assert_eq!(NumberOfNFTs::get(TICKER, alice.did), 0);
+        assert_eq!(NumberOfNFTs::get(TICKER, bob.did), 1);
         assert_eq!(
             PortfolioNFT::get(
                 PortfolioId::default_portfolio(alice.did),
@@ -2927,7 +2932,12 @@ fn add_and_affirm_nft_not_owned() {
         let bob: User = User::new(AccountKeyring::Bob);
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(alice.clone(), TICKER, collection_keys);
+        create_nft_collection(
+            alice.clone(),
+            TICKER,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
         let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
             key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             value: AssetMetadataValue(b"test".to_vec()),
@@ -2967,7 +2977,12 @@ fn add_same_nft_different_legs() {
         let bob: User = User::new(AccountKeyring::Bob);
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(alice.clone(), TICKER, collection_keys);
+        create_nft_collection(
+            alice.clone(),
+            TICKER,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
         let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
             key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             value: AssetMetadataValue(b"test".to_vec()),
@@ -3019,7 +3034,12 @@ fn add_and_affirm_with_receipts_nfts() {
         let bob: User = User::new(AccountKeyring::Bob);
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(alice.clone(), TICKER, collection_keys);
+        create_nft_collection(
+            alice.clone(),
+            TICKER,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
         let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
             key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             value: AssetMetadataValue(b"test".to_vec()),
@@ -3057,7 +3077,7 @@ fn add_and_affirm_with_receipts_nfts() {
                                 from: PortfolioId::default_portfolio(alice.did),
                                 to: PortfolioId::default_portfolio(bob.did),
                                 asset: TICKER,
-                                amount: ONE_UNIT,
+                                amount: 1,
                             }
                             .encode()
                         )

@@ -27,7 +27,7 @@ use polymesh_common_utilities::{
     TestUtilsFn,
 };
 use polymesh_primitives::{
-    asset::AssetName,
+    asset::{AssetName, NonFungibleType},
     asset_metadata::{
         AssetMetadataDescription, AssetMetadataKey, AssetMetadataName, AssetMetadataSpec,
         AssetMetadataValue, AssetMetadataValueDetail,
@@ -511,7 +511,7 @@ benchmarks! {
             ticker.as_ref().into(),
             ticker,
             false,
-            AssetType::NFT,
+            AssetType::NonFungible(NonFungibleType::Derivative),
             Vec::new(),
             None,
             false,
@@ -537,7 +537,7 @@ benchmarks! {
         ).unwrap();
         let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(2));
         let collection_keys: NFTCollectionKeys = vec![asset_metada_key.clone()].into();
-        T::NFTFn::create_nft_collection(user.origin().into(), ticker, collection_keys).unwrap();
+        T::NFTFn::create_nft_collection(user.origin().into(), ticker, None, collection_keys).unwrap();
     }: _(user.origin, ticker, asset_metadata_name)
 
     remove_local_metadata_value {
@@ -549,7 +549,7 @@ benchmarks! {
             ticker.as_ref().into(),
             ticker,
             false,
-            AssetType::NFT,
+            AssetType::NonFungible(NonFungibleType::Derivative),
             Vec::new(),
             None,
             false,

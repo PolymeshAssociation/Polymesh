@@ -6,6 +6,7 @@ use polymesh_primitives::nft::NFTCollectionKeys;
 use frame_support::decl_event;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
+use polymesh_primitives::asset::NonFungibleType;
 use polymesh_primitives::asset_metadata::AssetMetadataKey;
 use polymesh_primitives::nft::{NFTCollectionId, NFTId};
 use polymesh_primitives::ticker::Ticker;
@@ -49,6 +50,7 @@ pub trait NFTTrait<Origin> {
     fn create_nft_collection(
         origin: Origin,
         ticker: Ticker,
+        nft_type: Option<NonFungibleType>,
         collection_keys: NFTCollectionKeys,
     ) -> DispatchResult;
 }
