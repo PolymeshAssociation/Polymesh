@@ -32,10 +32,12 @@ mod polyx_vesting {
         FundsNotReleased,
         /// Invalid start timestamp
         InvalidStartTimestamp,
-        /// Invalid duration
-        InvalidDuration,
+        /// Duration Overflow
+        DurationOverflow,
         /// Invalid timestamp
         InvalidTimestamp,
+        /// Timestamp Overflow
+        TimestampOverflow,
     }
 
     /// The contract result type.
@@ -48,7 +50,7 @@ mod polyx_vesting {
             beneficiary_address: AccountId,
             start_timestamp: Timestamp,
             duration_milli_seconds: Timestamp,
-        ) -> Self {
+        ) -> Result<Self> {
             ink_lang::utils::initialize_contract(|contract| {
                 Self::new_init(
                     contract,
@@ -64,25 +66,25 @@ mod polyx_vesting {
             beneficiary_address: AccountId,
             start_timestamp: Timestamp,
             duration_milli_seconds: Timestamp,
-        ) {
-            Self::validation(self, self.start, self.duration);
+        ) -> Result<()> {
             self.beneficiary = beneficiary_address;
             self.start = start_timestamp;
             self.duration = duration_milli_seconds;
+            self.validation()
         }
 
-        fn validation(&self, start_timestamp: Timestamp, duration_milli_seconds: Timestamp) -> Result<()> {
+        fn validation(&self) -> Result<()> {
             // Ensure start isn't zero
-            if start_timestamp == 0 || duration_milli_seconds == 0 {
+            if self.start == 0 || self.duration == 0 {
                 return Err(Error::InvalidTimestamp);
             }
 
             let max_milli_seconds = u64::MAX;
             // Ensure start and duration not over type limit
-            if start_timestamp > max_milli_seconds || start_timestamp < self.env().block_timestamp() {
+            if self.start < ink_env::block_timestamp::<ink_env::DefaultEnvironment>() {
                 return Err(Error::InvalidStartTimestamp);
-            } else if duration_milli_seconds > max_milli_seconds {
-                return Err(Error::InvalidDuration);
+            } else if self.duration > max_milli_seconds {
+                return Err(Error::DurationOverflow);
             } else {
                 Ok(())
             }
@@ -115,15 +117,16 @@ mod polyx_vesting {
 
         /// Returns the amount of releasable POLYX.
         #[ink(message)]
-        pub fn releasable(&self) -> Balance {
-            self.vested_amount(self.env().block_timestamp().into())
-                .saturating_sub(self.released())
+        pub fn releasable(&self) -> Result<Balance> {
+            Ok(self
+                .vested_amount(self.env().block_timestamp().into())?
+                .saturating_sub(self.released()))
         }
 
         /// Release the native token (POLYX) that have already vested.
         #[ink(message)]
         pub fn release(&mut self) -> Result<()> {
-            let amount = self.releasable();
+            let amount = self.releasable()?;
             if amount == 0 {
                 return Err(Error::FundsNotReleased);
             }
@@ -138,21 +141,33 @@ mod polyx_vesting {
 
         /// Calculates the amount of tokens that has already vested.
         #[ink(message)]
-        pub fn vested_amount(&self, timestamp: Timestamp) -> Balance {
-            self.vesting_schedule(
+        pub fn vested_amount(&self, timestamp: Timestamp) -> Result<Balance> {
+            Ok(self.vesting_schedule(
                 self.env().balance().saturating_add(self.released),
                 timestamp,
-            )
+            )?)
         }
 
         /// This returns the amount vested.
-        fn vesting_schedule(&self, total_allocation: Balance, timestamp: Timestamp) -> Balance {
-            if timestamp < self.start {
-                return 0;
-            } else if timestamp > self.start.saturating_add(self.duration) {
-                return total_allocation.into();
+        fn vesting_schedule(
+            &self,
+            total_allocation: Balance,
+            timestamp: Timestamp,
+        ) -> Result<Balance> {
+            let add_result = self.start.checked_add(self.duration);
+            if let Some(add_result) = add_result {
+                if timestamp < self.start {
+                    return Ok(0);
+                } else if timestamp > add_result {
+                    return Ok(total_allocation.into());
+                } else {
+                    return Ok(
+                        (total_allocation * (timestamp.saturating_sub(self.start)) as u128)
+                            / self.duration as u128,
+                    );
+                }
             } else {
-                return (total_allocation * (timestamp.saturating_sub(self.start))as u128) / self.duration as u128;
+                Err(Error::TimestampOverflow)
             }
         }
     }
@@ -229,7 +244,7 @@ mod polyx_vesting {
             assert_eq!(polyx_vesting_1, Err(Error::InvalidStartTimestamp));
 
             // Ensure error when calling release() with duration timestamp over 1 year.
-            assert_eq!(polyx_vesting_2, Err(Error::InvalidDuration));
+            assert_eq!(polyx_vesting_2, Err(Error::DurationOverflow));
 
             // Ensure error when calling release() with start and duration timestamp being zero.
             assert_eq!(polyx_vesting_3, Err(Error::InvalidTimestamp));
