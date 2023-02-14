@@ -949,7 +949,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Asset
-        #[weight = <T as Config>::WeightInfo::remove_local_metadata_value()]
+        #[weight = <T as Config>::WeightInfo::remove_metadata_value()]
         pub fn remove_metadata_value(origin, ticker: Ticker, metadata_key: AssetMetadataKey) -> DispatchResult {
             Self::base_remove_metadata_value(origin, ticker, metadata_key)
         }

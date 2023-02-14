@@ -431,7 +431,7 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Asset AssetMetadataLocalNameToKey (r:1 w:0)
     // Storage: Asset AssetMetadataValueDetails (r:1 w:1)
     // Storage: Asset AssetMetadataValues (r:0 w:1)
-    fn remove_local_metadata_value() -> Weight {
+    fn remove_metadata_value() -> Weight {
         (36_579_000 as Weight)
             .saturating_add(DbWeight::get().reads(6 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))

@@ -118,7 +118,7 @@ pub trait WeightInfo {
     fn redeem_from_portfolio() -> Weight;
     fn update_asset_type() -> Weight;
     fn remove_local_metadata_key() -> Weight;
-    fn remove_local_metadata_value() -> Weight;
+    fn remove_metadata_value() -> Weight;
 }
 
 /// The module's configuration trait.
