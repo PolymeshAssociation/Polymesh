@@ -1,12 +1,10 @@
 use chrono::prelude::Utc;
 use frame_support::{assert_noop, assert_ok};
 use frame_support::{StorageDoubleMap, StorageMap};
-use pallet_asset::BalanceOf;
-use pallet_nft::{Collection, CollectionKeys, MetadataValue};
+use pallet_nft::{Collection, CollectionKeys, MetadataValue, NumberOfNFTs};
 use pallet_portfolio::PortfolioNFT;
-use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::with_transaction;
-use polymesh_primitives::asset::AssetType;
+use polymesh_primitives::asset::{AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName, AssetMetadataSpec,
     AssetMetadataValue,
@@ -37,15 +35,20 @@ fn create_collection_unregistered_ticker() {
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let nft_type = NonFungibleType::Derivative;
         let collection_keys: NFTCollectionKeys = vec![].into();
 
         assert_ok!(NFT::create_nft_collection(
             alice.origin(),
             ticker.clone(),
+            Some(nft_type),
             collection_keys
         ));
         assert_eq!(Asset::token_details(&ticker).divisible, false);
-        assert_eq!(Asset::token_details(&ticker).asset_type, AssetType::NFT);
+        assert_eq!(
+            Asset::token_details(&ticker).asset_type,
+            AssetType::NonFungible(nft_type)
+        );
     });
 }
 
@@ -72,7 +75,7 @@ fn create_collection_invalid_asset_type() {
         .expect("failed to create an asset");
 
         assert_noop!(
-            NFT::create_nft_collection(alice.origin(), ticker, collection_keys),
+            NFT::create_nft_collection(alice.origin(), ticker, None, collection_keys),
             NFTError::InvalidAssetType
         );
     });
@@ -86,15 +89,17 @@ fn create_collection_already_registered() {
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let nft_type = NonFungibleType::Derivative;
         let collection_keys: NFTCollectionKeys = vec![].into();
 
         assert_ok!(NFT::create_nft_collection(
             alice.origin(),
             ticker,
+            Some(nft_type),
             collection_keys.clone()
         ));
         assert_noop!(
-            NFT::create_nft_collection(alice.origin(), ticker, collection_keys),
+            NFT::create_nft_collection(alice.origin(), ticker, Some(nft_type), collection_keys),
             NFTError::CollectionAlredyRegistered
         );
     });
@@ -108,11 +113,17 @@ fn create_collection_max_keys_exceeded() {
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let nft_type = NonFungibleType::Derivative;
         let collection_keys: Vec<AssetMetadataKey> = (0..256)
             .map(|key| AssetMetadataKey::Local(AssetMetadataLocalKey(key)))
             .collect();
         assert_noop!(
-            NFT::create_nft_collection(alice.origin(), ticker, collection_keys.into()),
+            NFT::create_nft_collection(
+                alice.origin(),
+                ticker,
+                Some(nft_type),
+                collection_keys.into()
+            ),
             NFTError::MaxNumberOfKeysExceeded
         );
     });
@@ -126,6 +137,7 @@ fn create_collection_duplicate_key() {
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let nft_type = NonFungibleType::Derivative;
         let collection_keys: NFTCollectionKeys = vec![
             AssetMetadataKey::Local(AssetMetadataLocalKey(0)),
             AssetMetadataKey::Local(AssetMetadataLocalKey(0)),
@@ -133,7 +145,12 @@ fn create_collection_duplicate_key() {
         .into();
 
         assert_noop!(
-            NFT::create_nft_collection(alice.origin(), ticker, collection_keys.into()),
+            NFT::create_nft_collection(
+                alice.origin(),
+                ticker,
+                Some(nft_type),
+                collection_keys.into()
+            ),
             NFTError::DuplicateMetadataKey
         );
     });
@@ -147,11 +164,12 @@ fn create_collection_unregistered_key() {
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let nft_type = NonFungibleType::Derivative;
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(0))].into();
 
         assert_noop!(
-            NFT::create_nft_collection(alice.origin(), ticker, collection_keys),
+            NFT::create_nft_collection(alice.origin(), ticker, Some(nft_type), collection_keys),
             NFTError::UnregisteredMetadataKey
         );
     });
@@ -161,6 +179,7 @@ fn create_collection_unregistered_key() {
 pub(crate) fn create_nft_collection(
     owner: User,
     ticker: Ticker,
+    asset_type: AssetType,
     collection_keys: NFTCollectionKeys,
 ) {
     Asset::create_asset(
@@ -168,7 +187,7 @@ pub(crate) fn create_nft_collection(
         ticker.as_ref().into(),
         ticker.clone(),
         false,
-        AssetType::NFT,
+        asset_type,
         Vec::new(),
         None,
         false,
@@ -191,6 +210,7 @@ pub(crate) fn create_nft_collection(
     assert_ok!(NFT::create_nft_collection(
         owner.origin(),
         ticker,
+        None,
         collection_keys
     ));
     assert!(Collection::contains_key(NFTCollectionId(1)));
@@ -234,7 +254,12 @@ fn mint_nft_duplicate_key() {
         ]
         .into();
 
-        create_nft_collection(alice.clone(), ticker.clone(), collection_keys);
+        create_nft_collection(
+            alice.clone(),
+            ticker.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
         assert_noop!(
             NFT::mint_nft(
                 alice.origin(),
@@ -267,7 +292,12 @@ fn mint_nft_wrong_number_of_keys() {
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
 
-        create_nft_collection(alice.clone(), ticker.clone(), collection_keys);
+        create_nft_collection(
+            alice.clone(),
+            ticker.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
         assert_noop!(
             NFT::mint_nft(
                 alice.origin(),
@@ -304,7 +334,12 @@ fn mint_nft_wrong_key() {
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
 
-        create_nft_collection(alice.clone(), ticker.clone(), collection_keys);
+        create_nft_collection(
+            alice.clone(),
+            ticker.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
         assert_noop!(
             NFT::mint_nft(
                 alice.origin(),
@@ -330,8 +365,12 @@ fn mint_nft_portfolio_not_found() {
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(alice.clone(), ticker.clone(), collection_keys);
-
+        create_nft_collection(
+            alice.clone(),
+            ticker.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
         assert_noop!(
             NFT::mint_nft(
                 alice.origin(),
@@ -358,7 +397,12 @@ fn mint_nft_successfully() {
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
 
-        create_nft_collection(alice.clone(), ticker.clone(), collection_keys);
+        create_nft_collection(
+            alice.clone(),
+            ticker.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
         assert_ok!(NFT::mint_nft(
             alice.origin(),
             ticker,
@@ -375,7 +419,7 @@ fn mint_nft_successfully() {
             ),
             AssetMetadataValue(b"test".to_vec())
         );
-        assert_eq!(BalanceOf::get(&ticker, alice.did), ONE_UNIT);
+        assert_eq!(NumberOfNFTs::get(&ticker, alice.did), 1);
         assert_eq!(
             PortfolioNFT::get(
                 PortfolioId::default_portfolio(alice.did),
@@ -426,7 +470,12 @@ fn burn_nft_not_found() {
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(alice.clone(), ticker.clone(), collection_keys);
+        create_nft_collection(
+            alice.clone(),
+            ticker.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
 
         assert_noop!(
             NFT::burn_nft(alice.origin(), ticker, NFTId(1), PortfolioKind::Default),
@@ -445,7 +494,12 @@ fn burn_nft() {
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(alice.clone(), ticker.clone(), collection_keys);
+        create_nft_collection(
+            alice.clone(),
+            ticker.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
         NFT::mint_nft(
             alice.origin(),
             ticker,
@@ -467,7 +521,7 @@ fn burn_nft() {
             (NFTCollectionId(1), NFTId(1)),
             AssetMetadataKey::Local(AssetMetadataLocalKey(1))
         ),);
-        assert_eq!(BalanceOf::get(&ticker, alice.did), 0);
+        assert_eq!(NumberOfNFTs::get(&ticker, alice.did), 0);
         assert!(!PortfolioNFT::contains_key(
             PortfolioId::default_portfolio(alice.did),
             (&ticker, NFTId(1))
@@ -514,7 +568,12 @@ fn transfer_nft_same_portfolio() {
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(alice.clone(), ticker.clone(), collection_keys);
+        create_nft_collection(
+            alice.clone(),
+            ticker.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
 
         // Attempts to transfer to the same portfolio
         let sender_portfolio = PortfolioId {
@@ -547,7 +606,12 @@ fn transfer_nft_invalid_count() {
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(alice.clone(), ticker.clone(), collection_keys);
+        create_nft_collection(
+            alice.clone(),
+            ticker.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
         let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
             key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             value: AssetMetadataValue(b"test".to_vec()),
@@ -590,7 +654,12 @@ fn transfer_nft_not_owned() {
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(alice.clone(), ticker.clone(), collection_keys);
+        create_nft_collection(
+            alice.clone(),
+            ticker.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
         let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
             key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             value: AssetMetadataValue(b"test".to_vec()),
@@ -633,7 +702,12 @@ fn transfer_nft_failing_compliance() {
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(alice.clone(), ticker.clone(), collection_keys);
+        create_nft_collection(
+            alice.clone(),
+            ticker.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
         let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
             key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             value: AssetMetadataValue(b"test".to_vec()),
@@ -676,7 +750,12 @@ fn transfer_nft() {
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        create_nft_collection(alice.clone(), ticker.clone(), collection_keys);
+        create_nft_collection(
+            alice.clone(),
+            ticker.clone(),
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
         let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
             key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             value: AssetMetadataValue(b"test".to_vec()),
@@ -702,7 +781,7 @@ fn transfer_nft() {
         assert_ok!(with_transaction(|| {
             NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts)
         }));
-        assert_eq!(BalanceOf::get(&ticker, alice.did), 0);
+        assert_eq!(NumberOfNFTs::get(&ticker, alice.did), 0);
         assert_eq!(
             PortfolioNFT::get(
                 PortfolioId::default_portfolio(alice.did),
@@ -710,7 +789,7 @@ fn transfer_nft() {
             ),
             false
         );
-        assert_eq!(BalanceOf::get(&ticker, bob.did), ONE_UNIT);
+        assert_eq!(NumberOfNFTs::get(&ticker, bob.did), 1);
         assert_eq!(
             PortfolioNFT::get(PortfolioId::default_portfolio(bob.did), (&ticker, NFTId(1))),
             true

@@ -5,8 +5,10 @@ use sp_std::vec::IntoIter;
 use sp_std::vec::Vec;
 
 use crate::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
-use crate::Balance;
 use crate::{impl_checked_inc, Ticker};
+
+/// Controls the total number of NFTs per identity.
+pub type NFTCount = u64;
 
 /// Controls the next available id for an NFT collection.
 #[derive(Clone, Copy, Debug, Decode, Default, Eq, Encode, PartialEq, TypeInfo)]
@@ -79,11 +81,6 @@ impl NFTs {
     /// Returns the number nfts being transferred.
     pub fn len(&self) -> usize {
         self.ids.len()
-    }
-
-    /// Returns the amount being transferred (currently each NFT is equal to ONE_UNIT).
-    pub fn amount(&self) -> Balance {
-        (self.ids.len() * 1_000_000) as u128
     }
 }
 

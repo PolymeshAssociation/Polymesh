@@ -3,6 +3,7 @@ use frame_system::RawOrigin;
 use polymesh_common_utilities::benchs::{user, AccountIdOf};
 use polymesh_common_utilities::traits::asset::AssetFnTrait;
 use polymesh_common_utilities::TestUtilsFn;
+use polymesh_primitives::asset::NonFungibleType;
 use polymesh_primitives::asset_metadata::{
     AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataSpec, AssetMetadataValue,
 };
@@ -17,9 +18,14 @@ use crate::*;
 const MAX_COLLECTION_KEYS: u32 = 255;
 
 /// Creates an NFT collection with `n` global metadata keys.
-fn create_collection<T: Config>(origin: T::Origin, ticker: Ticker, n: u32) -> NFTCollectionId {
+fn create_collection<T: Config>(
+    origin: T::Origin,
+    ticker: Ticker,
+    nft_type: Option<NonFungibleType>,
+    n: u32,
+) -> NFTCollectionId {
     let collection_keys: NFTCollectionKeys = creates_keys_register_metadata_types::<T>(n);
-    Module::<T>::create_nft_collection(origin, ticker, collection_keys)
+    Module::<T>::create_nft_collection(origin, ticker, nft_type, collection_keys)
         .expect("failed to create nft collection");
     Module::<T>::collection_id()
 }
@@ -47,12 +53,13 @@ fn creates_keys_register_metadata_types<T: Config>(n: u32) -> NFTCollectionKeys 
 pub fn create_collection_mint_nfts<T: Config>(
     origin: T::Origin,
     ticker: Ticker,
+    nft_type: Option<NonFungibleType>,
     n_keys: u32,
     n_nfts: u32,
     portfolio_kind: PortfolioKind,
 ) {
     let collection_keys: NFTCollectionKeys = creates_keys_register_metadata_types::<T>(n_keys);
-    Module::<T>::create_nft_collection(origin.clone(), ticker, collection_keys)
+    Module::<T>::create_nft_collection(origin.clone(), ticker, nft_type, collection_keys)
         .expect("failed to create nft collection");
     let metadata_attributes: Vec<NFTMetadataAttribute> = (1..n_keys + 1)
         .map(|key| NFTMetadataAttribute {
@@ -79,8 +86,9 @@ benchmarks! {
 
         let user = user::<T>("target", 0);
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let nft_type: Option<NonFungibleType> = Some(NonFungibleType::Derivative);
         let collection_keys: NFTCollectionKeys = creates_keys_register_metadata_types::<T>(n);
-    }: _(user.origin, ticker, collection_keys)
+    }: _(user.origin, ticker, nft_type, collection_keys)
     verify {
         assert!(Collection::contains_key(NFTCollectionId(1)));
         assert_eq!(CollectionKeys::get(NFTCollectionId(1)).len(), n as usize);
@@ -91,7 +99,8 @@ benchmarks! {
 
         let user = user::<T>("target", 0);
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
-        let collection_id = create_collection::<T>(user.origin().into(), ticker, n);
+        let nft_type: Option<NonFungibleType> = Some(NonFungibleType::Derivative);
+        let collection_id = create_collection::<T>(user.origin().into(), ticker, nft_type, n);
         let metadata_attributes: Vec<NFTMetadataAttribute> = (1..n + 1)
             .map(|key| {
                 NFTMetadataAttribute{
@@ -117,7 +126,8 @@ benchmarks! {
 
         let user = user::<T>("target", 0);
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
-        let collection_id = create_collection::<T>(user.origin().into(), ticker, n);
+        let nft_type: Option<NonFungibleType> = Some(NonFungibleType::Derivative);
+        let collection_id = create_collection::<T>(user.origin().into(), ticker, nft_type, n);
 
         let metadata_attributes: Vec<NFTMetadataAttribute> = (1..n + 1)
             .map(|key| {
