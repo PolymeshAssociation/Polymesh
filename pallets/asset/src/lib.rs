@@ -114,7 +114,7 @@ use polymesh_primitives::{
     },
     calendar::CheckpointId,
     ethereum::{self, EcdsaSignature, EthereumAddress},
-    extract_auth, storage_migrate_on, storage_migration_ver,
+    extract_auth, storage_migration_ver,
     transfer_compliance::TransferConditionResult,
     AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, PortfolioKind,
     ScopeId, SecondaryKey, Ticker,
@@ -371,40 +371,6 @@ decl_module! {
         const AssetMetadataNameMaxLength: u32 = T::AssetMetadataNameMaxLength::get();
         const AssetMetadataValueMaxLength: u32 = T::AssetMetadataValueMaxLength::get();
         const AssetMetadataTypeDefMaxLength: u32 = T::AssetMetadataTypeDefMaxLength::get();
-
-        fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            use frame_support::weights::constants::WEIGHT_PER_MICROS;
-            // Keep track of upgrade cost.
-            let mut weight = 0u64;
-            storage_migrate_on!(StorageVersion, 1, {
-                let mut total_len = 0u64;
-                // Get list of assets with invalid asset_types.
-                let fix_list = Tokens::iter()
-                    .filter(|(_, token)| {
-                        total_len += 1;
-                        // Check if the asset_type is invalid.
-                        Self::ensure_asset_type_valid(token.asset_type).is_err()
-                    }).map(|(ticker, _)| ticker).collect::<Vec<_>>();
-
-                // Calculate weight based on the number of assets
-                // and how many need to be fixed.
-                // Based on storage read/write cost: read 50 micros, write 200 micros.
-                let fix_len = fix_list.len() as u64;
-                weight = weight
-                    .saturating_add(total_len.saturating_mul(50 * WEIGHT_PER_MICROS))
-                    .saturating_add(fix_len.saturating_mul(50 * WEIGHT_PER_MICROS))
-                    .saturating_add(fix_len.saturating_mul(200 * WEIGHT_PER_MICROS));
-
-                // Replace invalid asset_types with the default AssetType.
-                for ticker in fix_list {
-                    Tokens::mutate(&ticker, |token| {
-                        token.asset_type = AssetType::default();
-                    });
-                }
-            });
-
-            weight
-        }
 
         /// Registers a new ticker or extends validity of an existing ticker.
         /// NB: Ticker validity does not get carry forward when renewing ticker.

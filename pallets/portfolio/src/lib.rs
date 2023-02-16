@@ -47,11 +47,7 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use core::{iter, mem};
-use frame_support::{
-    decl_error, decl_module, decl_storage,
-    dispatch::{DispatchResult, Weight},
-    ensure,
-};
+use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
 use polymesh_common_utilities::traits::balances::Memo;
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
@@ -345,31 +341,6 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::accept_portfolio_custody()]
         pub fn accept_portfolio_custody(origin, auth_id: u64) -> DispatchResult {
             Self::base_accept_portfolio_custody(origin, auth_id)
-        }
-
-        fn on_runtime_upgrade() -> Weight {
-            use polymesh_primitives::storage_migrate_on;
-
-            // Remove old name to number mappings.
-            // In version 4.0.0 (first mainnet deployment) when a portfolio was removed
-            // the NameToNumber mapping was left out of date, this upgrade removes dangling
-            // NameToNumber mappings.
-            // https://github.com/PolymeshAssociation/Polymesh/pull/1200
-            storage_migrate_on!(StorageVersion, 1, {
-                NameToNumber::iter()
-                    .filter(|(identity, _, number)| !Portfolios::contains_key(identity, number))
-                    .for_each(|(identity, name, _)| NameToNumber::remove(identity, name));
-            });
-            storage_migrate_on!(StorageVersion, 2, {
-                Portfolios::iter()
-                    .filter(|(identity, number, name)| Some(number) == Self::name_to_number(identity, name).as_ref())
-                    .for_each(|(identity, number, name)| {
-                            NameToNumber::insert(identity, name, number);
-                    }
-                );
-            });
-
-            0
         }
     }
 }
