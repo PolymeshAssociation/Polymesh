@@ -26,7 +26,6 @@ use frame_support::{
     traits::Get,
     weights::Weight,
     BoundedBTreeSet,
-    pallet_prelude::ConstU32,
 };
 pub use polymesh_common_utilities::traits::statistics::{Config, Event, WeightInfo};
 use polymesh_primitives::{
@@ -47,7 +46,7 @@ storage_migration_ver!(1);
 decl_storage! {
     trait Store for Module<T: Config> as Statistics {
         /// Active stats for a ticker/company.  There should be a max limit on the number of active stats for a ticker/company.
-        pub ActiveAssetStats get(fn active_asset_stats): map hasher(blake2_128_concat) AssetScope => BTreeSet<StatType>;
+        pub ActiveAssetStats get(fn active_asset_stats): map hasher(blake2_128_concat) AssetScope => BoundedBTreeSet<StatType, T::MaxStatsPerAsset>;
         /// Asset stats.
         pub AssetStats get(fn asset_stats):
           double_map
@@ -102,7 +101,7 @@ decl_module! {
         /// - Agent
         /// - Asset
         #[weight = <T as Config>::WeightInfo::set_active_asset_stats(stat_types.len() as u32)]
-        pub fn set_active_asset_stats(origin, asset: AssetScope, stat_types: BoundedBTreeSet<StatType, ConstU32<MaxStatsPerAsset>) {
+        pub fn set_active_asset_stats(origin, asset: AssetScope, stat_types: BoundedBTreeSet<StatType, T::MaxStatsPerAsset>) {
             Self::base_set_active_asset_stats(origin, asset, stat_types)?;
         }
 
@@ -142,7 +141,7 @@ decl_module! {
         /// - Agent
         /// - Asset
         #[weight = <T as Config>::WeightInfo::set_asset_transfer_compliance(transfer_conditions.len() as u32)]
-        pub fn set_asset_transfer_compliance(origin, asset: AssetScope, transfer_conditions: BoundedBTreeSet<TransferCondition, ConstU32<MaxTransferConditionsPerAsset>>) {
+        pub fn set_asset_transfer_compliance(origin, asset: AssetScope, transfer_conditions: BTreeSet<TransferCondition>) {
             Self::base_set_asset_transfer_compliance(origin, asset, transfer_conditions)?;
         }
 
@@ -184,7 +183,7 @@ impl<T: Config> Module<T> {
     fn base_set_active_asset_stats(
         origin: T::Origin,
         asset: AssetScope,
-        stat_types: BoundedBTreeSet<StatType, ConstU32<MaxStatsPerAsset>>,
+        stat_types: BoundedBTreeSet<StatType, T::MaxStatsPerAsset>,
     ) -> DispatchResult {
         // Check EA permissions for asset.
         let did = Self::ensure_asset_perms(origin, asset)?;
@@ -232,7 +231,7 @@ impl<T: Config> Module<T> {
 
         // Save new stat types.
         let add_types = stat_types.iter().cloned().collect::<Vec<_>>();
-        ActiveAssetStats::insert(&asset, stat_types);
+        ActiveAssetStats::<T>::insert(&asset, stat_types);
 
         if remove_types.len() > 0 {
             Self::deposit_event(Event::StatTypesRemoved(did, asset, remove_types));
@@ -281,7 +280,7 @@ impl<T: Config> Module<T> {
     fn base_set_asset_transfer_compliance(
         origin: T::Origin,
         asset: AssetScope,
-        transfer_conditions: BoundedBTreeSet<TransferCondition, ConstU32<MaxTransferConditionsPerAsset>>,
+        transfer_conditions: BTreeSet<TransferCondition>,
     ) -> DispatchResult {
         // Check EA permissions for asset.
         let did = Self::ensure_asset_perms(origin, asset)?;
@@ -906,7 +905,7 @@ mod migration {
                     .iter()
                     .map(|c| c.get_stat_type())
                     .collect::<BTreeSet<_>>();
-                ActiveAssetStats::insert(asset, stats);
+                ActiveAssetStats::insert(asset, stats.into());
 
                 // Save new transfer compliance rules.
                 AssetTransferCompliances::insert(asset, compliance);

@@ -999,6 +999,27 @@ fn jurisdiction_ownership_rule() {
         .execute_with(jurisdiction_ownership_rule_with_ext);
 }
 
+#[test]
+fn ensure_invalid_set_active_stats() {
+    // Create an asset.
+    let mut tracker = AssetTracker::new();
+
+    let issuer = User::new(AccountKeyring::Dave);
+    let claim_type = ClaimType::Jurisdiction;
+    let stats = vec![];
+    // Add issuer.
+    tracker.add_issuer(&issuer, &[claim_type]);
+    for _i in 0..15 {
+        // Active stats.
+        stats.push(StatType {
+            op: StatOpType::Count,
+            claim_issuer: Some((claim_type, issuer.did)),
+        });
+    }
+    // Ensures active stats outputs correct error message
+    assert_noop!(tracker.set_active_stats(stats), Error::StatTypeLimitReached);
+}
+
 fn jurisdiction_ownership_rule_with_ext() {
     // Create an asset.
     let mut tracker = AssetTracker::new();

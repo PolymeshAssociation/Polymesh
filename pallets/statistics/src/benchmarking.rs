@@ -19,7 +19,7 @@ const STAT_TYPES: &[(StatOpType, Option<ClaimType>)] = &[
     (StatOpType::Balance, Some(ClaimType::Jurisdiction)),
 ];
 
-fn make_stats(count: u32) -> BTreeSet<StatType> {
+fn make_stats(count: u32) -> BoundedBTreeSet<StatType, T::MaxStatsPerAsset> {
     (0..count as usize)
         .into_iter()
         .map(|idx| {
@@ -53,7 +53,7 @@ fn claim_type_to_stat_claim(claim_type: ClaimType) -> Option<StatClaim> {
     }
 }
 
-fn make_transfer_conditions(stats: &BTreeSet<StatType>, count: u32) -> BTreeSet<TransferCondition> {
+fn make_transfer_conditions(stats: &BoundedBTreeSet<StatType, T::MaxStatsPerAsset>, count: u32) -> BTreeSet<TransferCondition> {
     let p0 = sp_arithmetic::Permill::from_rational(0u32, 100u32);
     let p40 = sp_arithmetic::Permill::from_rational(40u32, 100u32);
     (0..count as usize)
@@ -86,7 +86,7 @@ fn init_transfer_conditions<T: Config + Asset + TestUtilsFn<AccountIdOf<T>>>(
 ) -> (
     User<T>,
     Ticker,
-    BTreeSet<StatType>,
+    BoundedBTreeSet<StatType, T::MaxStatsPerAsset>,
     BTreeSet<TransferCondition>,
 ) {
     let (owner, ticker) = init_ticker::<T>();
