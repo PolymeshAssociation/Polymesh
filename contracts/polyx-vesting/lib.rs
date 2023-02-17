@@ -36,8 +36,6 @@ mod polyx_vesting {
         DurationOverflow,
         /// Invalid timestamp
         InvalidTimestamp,
-        /// Timestamp Overflow
-        TimestampOverflow,
     }
 
     /// The contract result type.
@@ -50,7 +48,7 @@ mod polyx_vesting {
             beneficiary_address: AccountId,
             start_timestamp: Timestamp,
             duration_milli_seconds: Timestamp,
-        ) -> Result<Self> {
+        ) -> Self {
             ink_lang::utils::initialize_contract(|contract| {
                 Self::new_init(
                     contract,
@@ -59,6 +57,7 @@ mod polyx_vesting {
                     duration_milli_seconds,
                 )
             })
+            .unwrap()
         }
 
         fn new_init(
@@ -75,15 +74,15 @@ mod polyx_vesting {
 
         fn validation(&self) -> Result<()> {
             // Ensure start isn't zero
-            if self.start == 0 || self.duration == 0 {
+            if self.duration == 0 {
                 return Err(Error::InvalidTimestamp);
             }
 
-            let max_milli_seconds = u64::MAX;
+            let add_result = self.start.checked_add(self.duration);
             // Ensure start and duration not over type limit
             if self.start < ink_env::block_timestamp::<ink_env::DefaultEnvironment>() {
                 return Err(Error::InvalidStartTimestamp);
-            } else if self.duration > max_milli_seconds {
+            } else if add_result.is_none() {
                 return Err(Error::DurationOverflow);
             } else {
                 Ok(())
@@ -154,20 +153,15 @@ mod polyx_vesting {
             total_allocation: Balance,
             timestamp: Timestamp,
         ) -> Result<Balance> {
-            let add_result = self.start.checked_add(self.duration);
-            if let Some(add_result) = add_result {
-                if timestamp < self.start {
-                    return Ok(0);
-                } else if timestamp > add_result {
-                    return Ok(total_allocation.into());
-                } else {
-                    return Ok(
-                        (total_allocation * (timestamp.saturating_sub(self.start)) as u128)
-                            / self.duration as u128,
-                    );
-                }
+            if timestamp < self.start {
+                return Ok(0);
+            } else if timestamp > self.start.saturating_add(self.duration) {
+                return Ok(total_allocation.into());
             } else {
-                Err(Error::TimestampOverflow)
+                return Ok(
+                    (total_allocation * (timestamp.saturating_sub(self.start)) as u128)
+                        / self.duration as u128,
+                );
             }
         }
     }
@@ -236,18 +230,29 @@ mod polyx_vesting {
         fn validation_works() {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
             // Constructor works.
-            let mut polyx_vesting_1 = PolyxVesting::new(accounts.alice, 31557000, 80);
-            let mut polyx_vesting_2 = PolyxVesting::new(accounts.alice, 24, 31557000);
-            let mut polyx_vesting_3 = PolyxVesting::new(accounts.alice, 0, 0);
+            let mut polyx_vesting_1 = PolyxVesting::new(accounts.alice, 24, 80);
+            let mut polyx_vesting_2 = PolyxVesting::new(accounts.alice, 24, 80);
+            let mut polyx_vesting_3 = PolyxVesting::new(accounts.alice, 24, 80);
+
+            next_x_block(5);
 
             // Ensure error when calling release() with start timestamp over 1 year.
-            assert_eq!(polyx_vesting_1, Err(Error::InvalidStartTimestamp));
+            assert_eq!(
+                polyx_vesting_1.new_init(accounts.alice, 1, 80),
+                Err(Error::InvalidStartTimestamp)
+            );
 
             // Ensure error when calling release() with duration timestamp over 1 year.
-            assert_eq!(polyx_vesting_2, Err(Error::DurationOverflow));
+            assert_eq!(
+                polyx_vesting_2.new_init(accounts.alice, Timestamp::MAX, 80),
+                Err(Error::DurationOverflow)
+            );
 
             // Ensure error when calling release() with start and duration timestamp being zero.
-            assert_eq!(polyx_vesting_3, Err(Error::InvalidTimestamp));
+            assert_eq!(
+                polyx_vesting_3.new_init(accounts.alice, 28, 0),
+                Err(Error::InvalidTimestamp)
+            );
         }
     }
 }
