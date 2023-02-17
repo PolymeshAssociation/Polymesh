@@ -49,6 +49,8 @@ mod polyx_vesting {
             start_timestamp: Timestamp,
             duration_milli_seconds: Timestamp,
         ) -> Self {
+            // We use unwrap as ink! <= v3.4 doesn't support returning Result
+            // But it is fixed in v4.0 https://github.com/paritytech/ink/pull/1446
             ink_lang::utils::initialize_contract(|contract| {
                 Self::new_init(
                     contract,
@@ -73,11 +75,6 @@ mod polyx_vesting {
         }
 
         fn validation(&self) -> Result<()> {
-            // Ensure start isn't zero
-            if self.duration == 0 {
-                return Err(Error::InvalidTimestamp);
-            }
-
             let add_result = self.start.checked_add(self.duration);
             // Ensure start and duration not over type limit
             if self.start < ink_env::block_timestamp::<ink_env::DefaultEnvironment>() {
@@ -232,7 +229,6 @@ mod polyx_vesting {
             // Constructor works.
             let mut polyx_vesting_1 = PolyxVesting::new(accounts.alice, 24, 80);
             let mut polyx_vesting_2 = PolyxVesting::new(accounts.alice, 24, 80);
-            let mut polyx_vesting_3 = PolyxVesting::new(accounts.alice, 24, 80);
 
             next_x_block(5);
 
@@ -246,12 +242,6 @@ mod polyx_vesting {
             assert_eq!(
                 polyx_vesting_2.new_init(accounts.alice, Timestamp::MAX, 80),
                 Err(Error::DurationOverflow)
-            );
-
-            // Ensure error when calling release() with start and duration timestamp being zero.
-            assert_eq!(
-                polyx_vesting_3.new_init(accounts.alice, 28, 0),
-                Err(Error::InvalidTimestamp)
             );
         }
     }
