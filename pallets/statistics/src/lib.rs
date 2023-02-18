@@ -101,7 +101,7 @@ decl_module! {
         /// - Agent
         /// - Asset
         #[weight = <T as Config>::WeightInfo::set_active_asset_stats(stat_types.len() as u32)]
-        pub fn set_active_asset_stats(origin, asset: AssetScope, stat_types: BoundedBTreeSet<StatType, T::MaxStatsPerAsset>) {
+        pub fn set_active_asset_stats(origin, asset: AssetScope, stat_types: BTreeSet<StatType>) {
             Self::base_set_active_asset_stats(origin, asset, stat_types)?;
         }
 
@@ -183,16 +183,12 @@ impl<T: Config> Module<T> {
     fn base_set_active_asset_stats(
         origin: T::Origin,
         asset: AssetScope,
-        stat_types: BoundedBTreeSet<StatType, T::MaxStatsPerAsset>,
+        stat_types: BTreeSet<StatType>,
     ) -> DispatchResult {
         // Check EA permissions for asset.
         let did = Self::ensure_asset_perms(origin, asset)?;
-
-        // Check StatType per Asset limit.
-        ensure!(
-            stat_types.len() < T::MaxStatsPerAsset::get() as usize,
-            Error::<T>::StatTypeLimitReached
-        );
+        // converting from a btreeset to a bounded version 
+        let stat_type: BoundedBTreeSet<_, T::MaxStatsPerAsset> = stat_types.try_into().map(|_| Err(Error::<T>::StatTypeLimitReached))?;
 
         // Get list of StatTypes required by current TransferConditions.
         let required_types = AssetTransferCompliances::get(&asset)
@@ -900,12 +896,12 @@ mod migration {
                 };
 
                 // Enable stats.
-                let stats = compliance
+                let _stats = compliance
                     .requirements
                     .iter()
                     .map(|c| c.get_stat_type())
                     .collect::<BTreeSet<_>>();
-                ActiveAssetStats::insert(asset, stats.into());
+                //ActiveAssetStats::insert(asset, stats.try_into().unwrap());
 
                 // Save new transfer compliance rules.
                 AssetTransferCompliances::insert(asset, compliance);
@@ -918,9 +914,9 @@ mod migration {
         let total_counts =
             v1::InvestorCountPerAsset::drain().fold(0usize, |total, (ticker, count)| {
                 // Make sure investor count stats are enabled.
-                ActiveAssetStats::mutate(AssetScope::from(ticker), |stats| {
-                    stats.insert(StatType::investor_count());
-                });
+                // ActiveAssetStats::mutate(AssetScope::from(ticker), |stats| {
+                //     stats.insert(StatType::investor_count());
+                // });
 
                 // Save investor count to new stats storage.
                 AssetStats::insert(
