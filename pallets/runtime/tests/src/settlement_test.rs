@@ -176,8 +176,7 @@ impl Deref for UserWithBalance {
     }
 }
 
-fn create_token_and_venue(ticker: Ticker, user: User) -> VenueId {
-    create_token(ticker, user);
+fn create_venue(user: User) -> VenueId {
     let venue_counter = Settlement::venue_counter();
     assert_ok!(Settlement::create_venue(
         user.origin(),
@@ -186,6 +185,11 @@ fn create_token_and_venue(ticker: Ticker, user: User) -> VenueId {
         VenueType::Other
     ));
     venue_counter
+}
+
+fn create_token_and_venue(ticker: Ticker, user: User) -> VenueId {
+    create_token(ticker, user);
+    create_venue(user)
 }
 
 fn create_token(ticker: Ticker, user: User) {
@@ -1451,7 +1455,7 @@ fn claim_multiple_receipts_during_authorization() {
     ExtBuilder::default().build().execute_with(|| {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
-        let venue_counter = create_token_and_venue(TICKER, alice.user);
+        let venue_counter = create_venue(alice.user);
         let instruction_id = Settlement::instruction_counter();
         let amount = 100u128;
         alice.refresh_init_balances();
