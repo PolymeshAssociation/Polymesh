@@ -1480,6 +1480,11 @@ impl<T: Config> Module<T> {
 
         T::Portfolio::ensure_portfolio_custody_and_permission(leg.from, did, secondary_key)?;
 
+        ensure!(
+            !pallet_asset::Tokens::contains_key(&leg.asset),
+            Error::<T>::UnauthorizedVenue
+        );
+
         let msg = Receipt {
             receipt_uid: receipt_details.receipt_uid,
             from: leg.from,
@@ -1630,6 +1635,11 @@ impl<T: Config> Module<T> {
             ensure!(
                 portfolios_set.contains(&leg.from),
                 Error::<T>::PortfolioMismatch
+            );
+
+            ensure!(
+                !pallet_asset::Tokens::contains_key(&leg.asset),
+                Error::<T>::UnauthorizedVenue
             );
 
             let msg = Receipt {
