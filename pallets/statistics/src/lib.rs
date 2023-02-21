@@ -187,8 +187,11 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         // Check EA permissions for asset.
         let did = Self::ensure_asset_perms(origin, asset)?;
-        // converting from a btreeset to a bounded version 
-        let stat_type: BoundedBTreeSet<_, T::MaxStatsPerAsset> = stat_types.try_into().map(|_| Err(Error::<T>::StatTypeLimitReached))?;
+        // converting from a btreeset to a bounded version
+        let bounded_stat_types: BoundedBTreeSet<_, T::MaxStatsPerAsset> = stat_types
+            .clone()
+            .try_into()
+            .map_err(|_| Error::<T>::StatTypeLimitReached)?;
 
         // Get list of StatTypes required by current TransferConditions.
         let required_types = AssetTransferCompliances::get(&asset)
@@ -227,7 +230,7 @@ impl<T: Config> Module<T> {
 
         // Save new stat types.
         let add_types = stat_types.iter().cloned().collect::<Vec<_>>();
-        ActiveAssetStats::<T>::insert(&asset, stat_types);
+        ActiveAssetStats::<T>::insert(&asset, bounded_stat_types);
 
         if remove_types.len() > 0 {
             Self::deposit_event(Event::StatTypesRemoved(did, asset, remove_types));

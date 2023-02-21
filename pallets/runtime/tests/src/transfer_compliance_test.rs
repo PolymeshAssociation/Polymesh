@@ -1007,7 +1007,7 @@ fn ensure_invalid_set_active_stats() {
     let issuer = User::new(AccountKeyring::Dave);
     let claim_type = ClaimType::Jurisdiction;
     let stats = vec![];
-    
+
     for i in 0u128..15u128 {
         // Active stats.
         stats.push(StatType {

@@ -53,10 +53,7 @@ fn claim_type_to_stat_claim(claim_type: ClaimType) -> Option<StatClaim> {
     }
 }
 
-fn make_transfer_conditions(
-    stats: &BTreeSet<StatType>,
-    count: u32,
-) -> BTreeSet<TransferCondition> {
+fn make_transfer_conditions(stats: &BTreeSet<StatType>, count: u32) -> BTreeSet<TransferCondition> {
     let p0 = sp_arithmetic::Permill::from_rational(0u32, 100u32);
     let p40 = sp_arithmetic::Permill::from_rational(40u32, 100u32);
     (0..count as usize)
