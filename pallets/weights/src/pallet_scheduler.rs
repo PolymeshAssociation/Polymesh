@@ -56,7 +56,7 @@ impl pallet_scheduler::WeightInfo for WeightInfo {
     // Storage: Preimage PreimageFor (r:1 w:1)
     // Storage: Preimage StatusFor (r:1 w:1)
     // Storage: Scheduler Lookup (r:0 w:1)
-    fn on_initialize_periodic_named_resolved(s: u32, ) -> Weight {
+    fn on_initialize_periodic_named_resolved(s: u32) -> Weight {
         (323_671_000 as Weight)
             // Standard Error: 2_738_000
             .saturating_add((36_011_000 as Weight).saturating_mul(s as Weight))
@@ -69,7 +69,7 @@ impl pallet_scheduler::WeightInfo for WeightInfo {
     // Storage: Preimage PreimageFor (r:1 w:1)
     // Storage: Preimage StatusFor (r:1 w:1)
     // Storage: Scheduler Lookup (r:0 w:1)
-    fn on_initialize_named_resolved(s: u32, ) -> Weight {
+    fn on_initialize_named_resolved(s: u32) -> Weight {
         (189_810_000 as Weight)
             // Standard Error: 2_846_000
             .saturating_add((34_162_000 as Weight).saturating_mul(s as Weight))
@@ -81,7 +81,7 @@ impl pallet_scheduler::WeightInfo for WeightInfo {
     // Storage: Scheduler Agenda (r:2 w:2)
     // Storage: Preimage PreimageFor (r:1 w:1)
     // Storage: Preimage StatusFor (r:1 w:1)
-    fn on_initialize_periodic_resolved(s: u32, ) -> Weight {
+    fn on_initialize_periodic_resolved(s: u32) -> Weight {
         (318_362_000 as Weight)
             // Standard Error: 3_054_000
             .saturating_add((32_874_000 as Weight).saturating_mul(s as Weight))
@@ -93,7 +93,7 @@ impl pallet_scheduler::WeightInfo for WeightInfo {
     // Storage: Scheduler Agenda (r:1 w:1)
     // Storage: Preimage PreimageFor (r:1 w:1)
     // Storage: Preimage StatusFor (r:1 w:1)
-    fn on_initialize_resolved(s: u32, ) -> Weight {
+    fn on_initialize_resolved(s: u32) -> Weight {
         (202_634_000 as Weight)
             // Standard Error: 2_151_000
             .saturating_add((27_098_000 as Weight).saturating_mul(s as Weight))
@@ -105,7 +105,7 @@ impl pallet_scheduler::WeightInfo for WeightInfo {
     // Storage: Scheduler Agenda (r:2 w:2)
     // Storage: Preimage PreimageFor (r:1 w:0)
     // Storage: Scheduler Lookup (r:0 w:1)
-    fn on_initialize_named_aborted(s: u32, ) -> Weight {
+    fn on_initialize_named_aborted(s: u32) -> Weight {
         (65_035_000 as Weight)
             // Standard Error: 1_411_000
             .saturating_add((14_999_000 as Weight).saturating_mul(s as Weight))
@@ -116,7 +116,7 @@ impl pallet_scheduler::WeightInfo for WeightInfo {
     }
     // Storage: Scheduler Agenda (r:2 w:2)
     // Storage: Preimage PreimageFor (r:1 w:0)
-    fn on_initialize_aborted(s: u32, ) -> Weight {
+    fn on_initialize_aborted(s: u32) -> Weight {
         (64_503_000 as Weight)
             // Standard Error: 894_000
             .saturating_add((9_734_000 as Weight).saturating_mul(s as Weight))
@@ -126,7 +126,7 @@ impl pallet_scheduler::WeightInfo for WeightInfo {
     }
     // Storage: Scheduler Agenda (r:2 w:2)
     // Storage: Scheduler Lookup (r:0 w:1)
-    fn on_initialize_periodic_named(s: u32, ) -> Weight {
+    fn on_initialize_periodic_named(s: u32) -> Weight {
         (69_487_000 as Weight)
             // Standard Error: 2_267_000
             .saturating_add((25_617_000 as Weight).saturating_mul(s as Weight))
@@ -136,7 +136,7 @@ impl pallet_scheduler::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(s as Weight)))
     }
     // Storage: Scheduler Agenda (r:2 w:2)
-    fn on_initialize_periodic(s: u32, ) -> Weight {
+    fn on_initialize_periodic(s: u32) -> Weight {
         (91_929_000 as Weight)
             // Standard Error: 1_986_000
             .saturating_add((18_768_000 as Weight).saturating_mul(s as Weight))
@@ -147,7 +147,7 @@ impl pallet_scheduler::WeightInfo for WeightInfo {
     }
     // Storage: Scheduler Agenda (r:1 w:1)
     // Storage: Scheduler Lookup (r:0 w:1)
-    fn on_initialize_named(s: u32, ) -> Weight {
+    fn on_initialize_named(s: u32) -> Weight {
         (87_190_000 as Weight)
             // Standard Error: 1_511_000
             .saturating_add((15_747_000 as Weight).saturating_mul(s as Weight))
@@ -156,7 +156,7 @@ impl pallet_scheduler::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(s as Weight)))
     }
     // Storage: Scheduler Agenda (r:1 w:1)
-    fn on_initialize(s: u32, ) -> Weight {
+    fn on_initialize(s: u32) -> Weight {
         (69_180_000 as Weight)
             // Standard Error: 1_228_000
             .saturating_add((13_298_000 as Weight).saturating_mul(s as Weight))
@@ -164,7 +164,7 @@ impl pallet_scheduler::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
     // Storage: Scheduler Agenda (r:1 w:1)
-    fn schedule(s: u32, ) -> Weight {
+    fn schedule(s: u32) -> Weight {
         (54_152_000 as Weight)
             // Standard Error: 145_000
             .saturating_add((115_000 as Weight).saturating_mul(s as Weight))
@@ -173,7 +173,7 @@ impl pallet_scheduler::WeightInfo for WeightInfo {
     }
     // Storage: Scheduler Agenda (r:1 w:1)
     // Storage: Scheduler Lookup (r:0 w:1)
-    fn cancel(s: u32, ) -> Weight {
+    fn cancel(s: u32) -> Weight {
         (70_932_000 as Weight)
             // Standard Error: 286_000
             .saturating_add((1_173_000 as Weight).saturating_mul(s as Weight))
@@ -182,7 +182,7 @@ impl pallet_scheduler::WeightInfo for WeightInfo {
     }
     // Storage: Scheduler Lookup (r:1 w:1)
     // Storage: Scheduler Agenda (r:1 w:1)
-    fn schedule_named(s: u32, ) -> Weight {
+    fn schedule_named(s: u32) -> Weight {
         (28_166_000 as Weight)
             // Standard Error: 55_000
             .saturating_add((454_000 as Weight).saturating_mul(s as Weight))
@@ -191,7 +191,7 @@ impl pallet_scheduler::WeightInfo for WeightInfo {
     }
     // Storage: Scheduler Lookup (r:1 w:1)
     // Storage: Scheduler Agenda (r:1 w:1)
-    fn cancel_named(s: u32, ) -> Weight {
+    fn cancel_named(s: u32) -> Weight {
         (56_084_000 as Weight)
             // Standard Error: 301_000
             .saturating_add((1_989_000 as Weight).saturating_mul(s as Weight))

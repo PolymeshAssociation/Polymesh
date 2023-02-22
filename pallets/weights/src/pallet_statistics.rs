@@ -58,7 +58,7 @@ impl pallet_statistics::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: Statistics AssetTransferCompliances (r:1 w:0)
     // Storage: Statistics ActiveAssetStats (r:1 w:1)
-    fn set_active_asset_stats(i: u32, ) -> Weight {
+    fn set_active_asset_stats(i: u32) -> Weight {
         (100_618_000 as Weight)
             // Standard Error: 13_000
             .saturating_add((123_000 as Weight).saturating_mul(i as Weight))
@@ -71,7 +71,7 @@ impl pallet_statistics::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: Statistics ActiveAssetStats (r:1 w:0)
     // Storage: Statistics AssetStats (r:0 w:1)
-    fn batch_update_asset_stats(i: u32, ) -> Weight {
+    fn batch_update_asset_stats(i: u32) -> Weight {
         (218_711_000 as Weight)
             // Standard Error: 174_000
             .saturating_add((3_746_000 as Weight).saturating_mul(i as Weight))
@@ -84,7 +84,7 @@ impl pallet_statistics::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: Statistics ActiveAssetStats (r:1 w:0)
     // Storage: Statistics AssetTransferCompliances (r:1 w:1)
-    fn set_asset_transfer_compliance(i: u32, ) -> Weight {
+    fn set_asset_transfer_compliance(i: u32) -> Weight {
         (4_011_919_000 as Weight)
             // Standard Error: 914_000
             .saturating_add((77_733_000 as Weight).saturating_mul(i as Weight))
@@ -96,7 +96,7 @@ impl pallet_statistics::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentPalletName (r:1 w:0)
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: Statistics TransferConditionExemptEntities (r:0 w:10)
-    fn set_entities_exempt(i: u32, ) -> Weight {
+    fn set_entities_exempt(i: u32) -> Weight {
         (152_234_000 as Weight)
             // Standard Error: 76_000
             .saturating_add((2_882_000 as Weight).saturating_mul(i as Weight))

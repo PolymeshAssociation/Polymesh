@@ -54,8 +54,7 @@ pub struct WeightInfo;
 impl pallet_committee::WeightInfo for WeightInfo {
     // Storage: Instance1Committee VoteThreshold (r:0 w:1)
     fn set_vote_threshold() -> Weight {
-        (57_429_000 as Weight)
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        (57_429_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
     // Storage: Instance1Committee Members (r:1 w:0)
     // Storage: Instance1Committee ReleaseCoordinator (r:0 w:1)
@@ -66,8 +65,7 @@ impl pallet_committee::WeightInfo for WeightInfo {
     }
     // Storage: Instance1Committee ExpiresAfter (r:0 w:1)
     fn set_expires_after() -> Weight {
-        (31_739_000 as Weight)
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        (31_739_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
     // Storage: Instance1Committee Voting (r:1 w:1)
     // Storage: Identity KeyRecords (r:1 w:0)

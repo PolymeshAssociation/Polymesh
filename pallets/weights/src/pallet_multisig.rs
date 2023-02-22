@@ -60,7 +60,7 @@ impl pallet_multisig::WeightInfo for WeightInfo {
     // Storage: Identity Authorizations (r:0 w:1)
     // Storage: MultiSig MultiSigToIdentity (r:0 w:1)
     // Storage: MultiSig MultiSigSignsRequired (r:0 w:1)
-    fn create_multisig(i: u32, ) -> Weight {
+    fn create_multisig(i: u32) -> Weight {
         (79_534_000 as Weight)
             // Standard Error: 70_000
             .saturating_add((12_215_000 as Weight).saturating_mul(i as Weight))
@@ -237,7 +237,7 @@ impl pallet_multisig::WeightInfo for WeightInfo {
     // Storage: Identity MultiPurposeNonce (r:1 w:1)
     // Storage: Identity AuthorizationsGiven (r:0 w:1)
     // Storage: Identity Authorizations (r:0 w:1)
-    fn add_multisig_signers_via_creator(i: u32, ) -> Weight {
+    fn add_multisig_signers_via_creator(i: u32) -> Weight {
         (64_781_000 as Weight)
             // Standard Error: 102_000
             .saturating_add((17_501_000 as Weight).saturating_mul(i as Weight))
@@ -253,7 +253,7 @@ impl pallet_multisig::WeightInfo for WeightInfo {
     // Storage: MultiSig NumberOfSigners (r:1 w:1)
     // Storage: MultiSig MultiSigSignsRequired (r:1 w:0)
     // Storage: MultiSig MultiSigSigners (r:1 w:1)
-    fn remove_multisig_signers_via_creator(i: u32, ) -> Weight {
+    fn remove_multisig_signers_via_creator(i: u32) -> Weight {
         (43_808_000 as Weight)
             // Standard Error: 123_000
             .saturating_add((21_993_000 as Weight).saturating_mul(i as Weight))

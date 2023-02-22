@@ -64,7 +64,7 @@ impl pallet_corporate_actions::ballot::WeightInfo for WeightInfo {
     // Storage: CorporateBallot MotionNumChoices (r:0 w:1)
     // Storage: CorporateBallot Metas (r:0 w:1)
     // Storage: CorporateBallot RCV (r:0 w:1)
-    fn attach_ballot(c: u32, ) -> Weight {
+    fn attach_ballot(c: u32) -> Weight {
         (113_047_000 as Weight)
             // Standard Error: 12_000
             .saturating_add((63_000 as Weight).saturating_mul(c as Weight))
@@ -81,7 +81,7 @@ impl pallet_corporate_actions::ballot::WeightInfo for WeightInfo {
     // Storage: Asset BalanceOf (r:1 w:0)
     // Storage: CorporateBallot Votes (r:1 w:1)
     // Storage: CorporateBallot Results (r:1 w:1)
-    fn vote(c: u32, t: u32, ) -> Weight {
+    fn vote(c: u32, t: u32) -> Weight {
         (71_860_000 as Weight)
             // Standard Error: 4_000
             .saturating_add((170_000 as Weight).saturating_mul(c as Weight))
@@ -109,7 +109,7 @@ impl pallet_corporate_actions::ballot::WeightInfo for WeightInfo {
     // Storage: Timestamp Now (r:1 w:0)
     // Storage: CorporateBallot MotionNumChoices (r:0 w:1)
     // Storage: CorporateBallot Metas (r:0 w:1)
-    fn change_meta(c: u32, ) -> Weight {
+    fn change_meta(c: u32) -> Weight {
         (91_517_000 as Weight)
             // Standard Error: 11_000
             .saturating_add((68_000 as Weight).saturating_mul(c as Weight))

@@ -91,7 +91,7 @@ impl pallet_staking::WeightInfo for WeightInfo {
     // Storage: Staking CurrentEra (r:1 w:0)
     // Storage: Balances Locks (r:1 w:1)
     // Storage: System Account (r:1 w:1)
-    fn withdraw_unbonded_update(s: u32, ) -> Weight {
+    fn withdraw_unbonded_update(s: u32) -> Weight {
         (100_962_000 as Weight)
             // Standard Error: 71_000
             .saturating_add((47_000 as Weight).saturating_mul(s as Weight))
@@ -109,7 +109,7 @@ impl pallet_staking::WeightInfo for WeightInfo {
     // Storage: Staking Payee (r:0 w:1)
     // Storage: Staking Nominators (r:0 w:1)
     // Storage: Staking SpanSlash (r:0 w:1)
-    fn withdraw_unbonded_kill(s: u32, ) -> Weight {
+    fn withdraw_unbonded_kill(s: u32) -> Weight {
         (146_196_000 as Weight)
             // Standard Error: 177_000
             .saturating_add((2_414_000 as Weight).saturating_mul(s as Weight))
@@ -133,8 +133,7 @@ impl pallet_staking::WeightInfo for WeightInfo {
     }
     // Storage: Staking MinimumBondThreshold (r:0 w:1)
     fn set_min_bond_threshold() -> Weight {
-        (19_903_000 as Weight)
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        (19_903_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
     // Storage: Staking PermissionedIdentity (r:1 w:1)
     // Storage: Timestamp Now (r:1 w:0)
@@ -155,7 +154,7 @@ impl pallet_staking::WeightInfo for WeightInfo {
     }
     // Storage: Staking ValidatorCommissionCap (r:1 w:1)
     // Storage: Staking Validators (r:2 w:1)
-    fn set_commission_cap(m: u32, ) -> Weight {
+    fn set_commission_cap(m: u32) -> Weight {
         (76_025_000 as Weight)
             // Standard Error: 87_000
             .saturating_add((15_329_000 as Weight).saturating_mul(m as Weight))
@@ -174,7 +173,7 @@ impl pallet_staking::WeightInfo for WeightInfo {
     // Storage: Identity Claims (r:2 w:0)
     // Storage: Staking Validators (r:2 w:1)
     // Storage: Staking CurrentEra (r:1 w:0)
-    fn nominate(n: u32, ) -> Weight {
+    fn nominate(n: u32) -> Weight {
         (112_277_000 as Weight)
             // Standard Error: 628_000
             .saturating_add((10_806_000 as Weight).saturating_mul(n as Weight))
@@ -206,27 +205,23 @@ impl pallet_staking::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().writes(3 as Weight))
     }
     // Storage: Staking ValidatorCount (r:0 w:1)
-    fn set_validator_count(_c: u32, ) -> Weight {
-        (5_416_000 as Weight)
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+    fn set_validator_count(_c: u32) -> Weight {
+        (5_416_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
     // Storage: Staking ForceEra (r:0 w:1)
     fn force_no_eras() -> Weight {
-        (4_299_000 as Weight)
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        (4_299_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
     // Storage: Staking ForceEra (r:0 w:1)
     fn force_new_era() -> Weight {
-        (8_515_000 as Weight)
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        (8_515_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
     // Storage: Staking ForceEra (r:0 w:1)
     fn force_new_era_always() -> Weight {
-        (3_579_000 as Weight)
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        (3_579_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
     // Storage: Staking Invulnerables (r:0 w:1)
-    fn set_invulnerables(v: u32, ) -> Weight {
+    fn set_invulnerables(v: u32) -> Weight {
         (5_203_000 as Weight)
             // Standard Error: 2_000
             .saturating_add((24_000 as Weight).saturating_mul(v as Weight))
@@ -241,7 +236,7 @@ impl pallet_staking::WeightInfo for WeightInfo {
     // Storage: Staking Payee (r:0 w:1)
     // Storage: Staking Nominators (r:0 w:1)
     // Storage: Staking SpanSlash (r:0 w:1)
-    fn force_unstake(s: u32, ) -> Weight {
+    fn force_unstake(s: u32) -> Weight {
         (111_066_000 as Weight)
             // Standard Error: 127_000
             .saturating_add((1_901_000 as Weight).saturating_mul(s as Weight))
@@ -250,7 +245,7 @@ impl pallet_staking::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(s as Weight)))
     }
     // Storage: Staking UnappliedSlashes (r:1 w:1)
-    fn cancel_deferred_slash(s: u32, ) -> Weight {
+    fn cancel_deferred_slash(s: u32) -> Weight {
         (2_240_651_000 as Weight)
             // Standard Error: 246_000
             .saturating_add((6_448_000 as Weight).saturating_mul(s as Weight))
@@ -271,7 +266,7 @@ impl pallet_staking::WeightInfo for WeightInfo {
     // Storage: Balances Locks (r:1 w:1)
     // Storage: Identity KeyRecords (r:4 w:0)
     // Storage: Identity IsDidFrozen (r:1 w:0)
-    fn payout_stakers(n: u32, ) -> Weight {
+    fn payout_stakers(n: u32) -> Weight {
         (504_191_000 as Weight)
             // Standard Error: 279_000
             .saturating_add((102_713_000 as Weight).saturating_mul(n as Weight))
@@ -293,7 +288,7 @@ impl pallet_staking::WeightInfo for WeightInfo {
     // Storage: System Account (r:3 w:3)
     // Storage: Balances Locks (r:2 w:2)
     // Storage: Identity KeyRecords (r:3 w:0)
-    fn payout_stakers_alive_controller(n: u32, ) -> Weight {
+    fn payout_stakers_alive_controller(n: u32) -> Weight {
         (604_608_000 as Weight)
             // Standard Error: 369_000
             .saturating_add((113_211_000 as Weight).saturating_mul(n as Weight))
@@ -306,7 +301,7 @@ impl pallet_staking::WeightInfo for WeightInfo {
     // Storage: Staking Ledger (r:1 w:1)
     // Storage: Balances Locks (r:1 w:1)
     // Storage: System Account (r:1 w:1)
-    fn rebond(_u: u32, ) -> Weight {
+    fn rebond(_u: u32) -> Weight {
         (76_450_000 as Weight)
             .saturating_add(DbWeight::get().reads(4 as Weight))
             .saturating_add(DbWeight::get().writes(3 as Weight))
@@ -320,7 +315,7 @@ impl pallet_staking::WeightInfo for WeightInfo {
     // Storage: Staking ErasStakers (r:0 w:2)
     // Storage: Staking ErasTotalStake (r:0 w:1)
     // Storage: Staking ErasStartSessionIndex (r:0 w:1)
-    fn set_history_depth(e: u32, ) -> Weight {
+    fn set_history_depth(e: u32) -> Weight {
         (107_179_000 as Weight)
             // Standard Error: 826_000
             .saturating_add((40_214_000 as Weight).saturating_mul(e as Weight))
@@ -337,7 +332,7 @@ impl pallet_staking::WeightInfo for WeightInfo {
     // Storage: Staking Payee (r:0 w:1)
     // Storage: Staking Nominators (r:0 w:1)
     // Storage: Staking SpanSlash (r:0 w:1)
-    fn reap_stash(s: u32, ) -> Weight {
+    fn reap_stash(s: u32) -> Weight {
         (103_480_000 as Weight)
             // Standard Error: 128_000
             .saturating_add((2_241_000 as Weight).saturating_mul(s as Weight))
@@ -372,7 +367,7 @@ impl pallet_staking::WeightInfo for WeightInfo {
     // Storage: Staking QueuedScore (r:0 w:1)
     // Storage: Staking EraElectionStatus (r:0 w:1)
     // Storage: Staking SnapshotNominators (r:0 w:1)
-    fn new_era(v: u32, n: u32, ) -> Weight {
+    fn new_era(v: u32, n: u32) -> Weight {
         (0 as Weight)
             // Standard Error: 10_531_000
             .saturating_add((535_457_000 as Weight).saturating_mul(v as Weight))
@@ -397,7 +392,7 @@ impl pallet_staking::WeightInfo for WeightInfo {
     // Storage: System Account (r:102 w:102)
     // Storage: Balances Locks (r:101 w:101)
     // Storage: Identity KeyRecords (r:102 w:0)
-    fn payout_all(v: u32, n: u32, ) -> Weight {
+    fn payout_all(v: u32, n: u32) -> Weight {
         (0 as Weight)
             // Standard Error: 249_996_000
             .saturating_add((4_259_711_000 as Weight).saturating_mul(v as Weight))
@@ -414,7 +409,7 @@ impl pallet_staking::WeightInfo for WeightInfo {
     // Storage: Staking Ledger (r:1 w:1)
     // Storage: System Account (r:1 w:1)
     // Storage: Balances Locks (r:1 w:1)
-    fn do_slash(l: u32, ) -> Weight {
+    fn do_slash(l: u32) -> Weight {
         (100_876_000 as Weight)
             // Standard Error: 569_000
             .saturating_add((780_000 as Weight).saturating_mul(l as Weight))
@@ -433,7 +428,7 @@ impl pallet_staking::WeightInfo for WeightInfo {
     // Storage: Staking Bonded (r:500 w:0)
     // Storage: Staking Ledger (r:500 w:0)
     // Storage: Staking QueuedElected (r:0 w:1)
-    fn submit_solution_better(v: u32, n: u32, a: u32, w: u32, ) -> Weight {
+    fn submit_solution_better(v: u32, n: u32, a: u32, w: u32) -> Weight {
         (0 as Weight)
             // Standard Error: 150_000
             .saturating_add((1_566_000 as Weight).saturating_mul(v as Weight))
@@ -450,8 +445,7 @@ impl pallet_staking::WeightInfo for WeightInfo {
     }
     // Storage: Staking SlashingAllowedFor (r:0 w:1)
     fn change_slashing_allowed_for() -> Weight {
-        (43_547_000 as Weight)
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        (43_547_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
     // Storage: Staking ValidatorCount (r:1 w:0)
     // Storage: Staking PermissionedIdentity (r:1 w:1)
@@ -479,7 +473,7 @@ impl pallet_staking::WeightInfo for WeightInfo {
     // Storage: Staking Validators (r:1 w:1)
     // Storage: Identity AccountKeyRefCount (r:1 w:1)
     // Storage: Staking Nominators (r:0 w:1)
-    fn chill_from_governance(s: u32, ) -> Weight {
+    fn chill_from_governance(s: u32) -> Weight {
         (58_999_000 as Weight)
             // Standard Error: 230_000
             .saturating_add((35_387_000 as Weight).saturating_mul(s as Weight))

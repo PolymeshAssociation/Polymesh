@@ -54,15 +54,14 @@ pub struct WeightInfo;
 impl pallet_corporate_actions::WeightInfo for WeightInfo {
     // Storage: CorporateAction MaxDetailsLength (r:0 w:1)
     fn set_max_details_length() -> Weight {
-        (61_773_000 as Weight)
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        (61_773_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
     // Storage: Permissions CurrentPalletName (r:1 w:0)
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: CorporateAction DefaultTargetIdentities (r:1 w:1)
-    fn set_default_targets(t: u32, ) -> Weight {
+    fn set_default_targets(t: u32) -> Weight {
         (97_698_000 as Weight)
             // Standard Error: 9_000
             .saturating_add((462_000 as Weight).saturating_mul(t as Weight))
@@ -84,7 +83,7 @@ impl pallet_corporate_actions::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentPalletName (r:1 w:0)
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: CorporateAction DidWithholdingTax (r:1 w:1)
-    fn set_did_withholding_tax(w: u32, ) -> Weight {
+    fn set_did_withholding_tax(w: u32) -> Weight {
         (98_129_000 as Weight)
             // Standard Error: 3_000
             .saturating_add((140_000 as Weight).saturating_mul(w as Weight))
@@ -110,7 +109,7 @@ impl pallet_corporate_actions::WeightInfo for WeightInfo {
     // Storage: Checkpoint ScheduleRefCount (r:0 w:1)
     // Storage: CorporateAction CorporateActions (r:0 w:1)
     // Storage: CorporateAction Details (r:0 w:1)
-    fn initiate_corporate_action_use_defaults(w: u32, t: u32, ) -> Weight {
+    fn initiate_corporate_action_use_defaults(w: u32, t: u32) -> Weight {
         (220_483_000 as Weight)
             // Standard Error: 4_000
             .saturating_add((188_000 as Weight).saturating_mul(w as Weight))
@@ -135,7 +134,7 @@ impl pallet_corporate_actions::WeightInfo for WeightInfo {
     // Storage: Checkpoint ScheduleRefCount (r:0 w:1)
     // Storage: CorporateAction CorporateActions (r:0 w:1)
     // Storage: CorporateAction Details (r:0 w:1)
-    fn initiate_corporate_action_provided(w: u32, t: u32, ) -> Weight {
+    fn initiate_corporate_action_provided(w: u32, t: u32) -> Weight {
         (225_979_000 as Weight)
             // Standard Error: 7_000
             .saturating_add((357_000 as Weight).saturating_mul(w as Weight))
@@ -151,7 +150,7 @@ impl pallet_corporate_actions::WeightInfo for WeightInfo {
     // Storage: CorporateAction CorporateActions (r:1 w:0)
     // Storage: CorporateAction CADocLink (r:1 w:1)
     // Storage: Asset AssetDocuments (r:10 w:0)
-    fn link_ca_doc(d: u32, ) -> Weight {
+    fn link_ca_doc(d: u32) -> Weight {
         (0 as Weight)
             // Standard Error: 55_000
             .saturating_add((7_782_000 as Weight).saturating_mul(d as Weight))

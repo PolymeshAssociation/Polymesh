@@ -58,7 +58,7 @@ impl pallet_external_agents::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: ExternalAgents AGIdSequence (r:1 w:1)
     // Storage: ExternalAgents GroupPermissions (r:0 w:1)
-    fn create_group(p: u32, ) -> Weight {
+    fn create_group(p: u32) -> Weight {
         (85_865_000 as Weight)
             // Standard Error: 738_000
             .saturating_add((207_000 as Weight).saturating_mul(p as Weight))
@@ -71,7 +71,7 @@ impl pallet_external_agents::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: ExternalAgents AGIdSequence (r:1 w:0)
     // Storage: ExternalAgents GroupPermissions (r:0 w:1)
-    fn set_group_permissions(p: u32, ) -> Weight {
+    fn set_group_permissions(p: u32) -> Weight {
         (73_998_000 as Weight)
             // Standard Error: 435_000
             .saturating_add((801_000 as Weight).saturating_mul(p as Weight))
@@ -141,7 +141,7 @@ impl pallet_external_agents::WeightInfo for WeightInfo {
     // Storage: Identity AuthorizationsGiven (r:0 w:1)
     // Storage: Identity Authorizations (r:0 w:1)
     // Storage: ExternalAgents GroupPermissions (r:0 w:1)
-    fn create_group_and_add_auth(p: u32, ) -> Weight {
+    fn create_group_and_add_auth(p: u32) -> Weight {
         (121_513_000 as Weight)
             // Standard Error: 1_210_000
             .saturating_add((1_243_000 as Weight).saturating_mul(p as Weight))
@@ -156,7 +156,7 @@ impl pallet_external_agents::WeightInfo for WeightInfo {
     // Storage: ExternalAgents AGIdSequence (r:1 w:1)
     // Storage: ExternalAgents NumFullAgents (r:1 w:1)
     // Storage: ExternalAgents GroupPermissions (r:0 w:1)
-    fn create_and_change_custom_group(p: u32, ) -> Weight {
+    fn create_and_change_custom_group(p: u32) -> Weight {
         (113_769_000 as Weight)
             // Standard Error: 645_000
             .saturating_add((955_000 as Weight).saturating_mul(p as Weight))

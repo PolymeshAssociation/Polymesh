@@ -92,7 +92,7 @@ impl pallet_corporate_actions::distribution::WeightInfo for WeightInfo {
     // Storage: Checkpoint Schedules (r:1 w:0)
     // Storage: Checkpoint CheckpointIdSequence (r:1 w:0)
     // Storage: Asset BalanceOfAtScope (r:0 w:2)
-    fn claim(t: u32, w: u32, ) -> Weight {
+    fn claim(t: u32, w: u32) -> Weight {
         (449_169_000 as Weight)
             // Standard Error: 6_000
             .saturating_add((194_000 as Weight).saturating_mul(t as Weight))
@@ -126,7 +126,7 @@ impl pallet_corporate_actions::distribution::WeightInfo for WeightInfo {
     // Storage: Checkpoint Schedules (r:1 w:0)
     // Storage: Checkpoint CheckpointIdSequence (r:1 w:0)
     // Storage: Asset BalanceOfAtScope (r:0 w:2)
-    fn push_benefit(t: u32, w: u32, ) -> Weight {
+    fn push_benefit(t: u32, w: u32) -> Weight {
         (539_024_000 as Weight)
             // Standard Error: 6_000
             .saturating_add((172_000 as Weight).saturating_mul(t as Weight))

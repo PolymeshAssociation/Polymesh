@@ -100,7 +100,7 @@ impl pallet_group::WeightInfo for WeightInfo {
     // Storage: Timestamp Now (r:1 w:0)
     // Storage: Identity Claims (r:2 w:2)
     // Storage: Identity CurrentDid (r:1 w:0)
-    fn reset_members(m: u32, ) -> Weight {
+    fn reset_members(m: u32) -> Weight {
         (2_876_585_000 as Weight)
             // Standard Error: 3_421_000
             .saturating_add((1_021_849_000 as Weight).saturating_mul(m as Weight))
