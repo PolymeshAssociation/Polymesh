@@ -105,8 +105,8 @@ use polymesh_common_utilities::{
     transaction_payment::CddAndFeeDetails, Context,
 };
 use polymesh_primitives::{
-    extract_auth, storage_migration_ver, AuthorizationData, IdentityId,
-    KeyRecord, Permissions, Signatory,
+    extract_auth, storage_migration_ver, AuthorizationData, IdentityId, KeyRecord, Permissions,
+    Signatory,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Dispatchable, Hash, One};
