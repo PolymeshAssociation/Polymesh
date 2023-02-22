@@ -87,21 +87,6 @@ fn create_venue_<T: Config>(did: IdentityId, signers: Vec<T::AccountId>) -> Venu
     venue_counter
 }
 
-/// Set instruction leg status to `LegStatus::ExecutionToBeSkipped` without any sanity checks.
-fn set_instruction_leg_status_to_skipped<T: Config>(
-    instruction_id: InstructionId,
-    leg_id: LegId,
-    signer: T::AccountId,
-    receipt_uid: u64,
-) {
-    <ReceiptsUsed<T>>::insert(&signer, receipt_uid, true);
-    <InstructionLegStatus<T>>::insert(
-        instruction_id,
-        leg_id,
-        LegStatus::ExecutionToBeSkipped(signer, receipt_uid),
-    );
-}
-
 /// Set Leg status to `LegStatus::ExecutionPending`
 fn set_instruction_leg_status_to_pending<T: Config>(id: InstructionId, leg_id: LegId) {
     <InstructionLegStatus<T>>::insert(id, leg_id, LegStatus::ExecutionPending);
