@@ -757,24 +757,6 @@ benchmarks! {
         }
     }
 
-
-    unclaim_receipt {
-        // There is no catalyst in this dispatchable, It will be time constant always.
-        // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did, _, _, account_id) = emulate_add_instruction::<T>(1, true).unwrap();
-        // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone(), None).unwrap();
-        let instruction_id = InstructionId(1);
-        let leg_id = LegId(0);
-
-        set_instruction_leg_status_to_skipped::<T>(instruction_id, leg_id, account_id.clone(), 0);
-    }: _(origin, instruction_id, leg_id)
-    verify {
-        assert!(matches!(Module::<T>::instruction_leg_status(instruction_id, leg_id), LegStatus::ExecutionPending), "Fail: unclaim_receipt dispatch");
-        assert!(!Module::<T>::receipts_used(&account_id, 0), "Fail: Receipt status didn't get update");
-    }
-
-
     reject_instruction {
         let l in 1 .. T::MaxLegsInInstruction::get() as u32;
         // Emulate the add instruction and get all the necessary arguments.
@@ -800,30 +782,6 @@ benchmarks! {
         for p in portfolios_to.iter() {
             assert_eq!(Module::<T>::affirms_received(instruction_id, p), AffirmationStatus::Affirmed, "Settlement: Failed to affirm instruction");
         }
-    }
-
-
-    claim_receipt {
-        // There is no catalyst in this dispatchable, It will always be time constant.
-        // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , s_portfolios, r_portfolios, account_id) = emulate_add_instruction::<T>(1, true).unwrap();
-        // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone(), None).unwrap();
-        let instruction_id = InstructionId(1);
-        let ticker = Ticker::generate_into(1u64);
-        let receipt = create_receipt_details::<T>(0, legs.first().unwrap().clone());
-        let leg_id = LegId(0);
-        let amount = 100u128;
-        // Some manual setup to support the extrinsic.
-        set_instruction_leg_status_to_pending::<T>(instruction_id, leg_id);
-        T::Portfolio::lock_tokens(s_portfolios.first().unwrap(), &ticker, amount.into()).unwrap();
-        let s_receipt = receipt.clone();
-    }: _(origin, instruction_id, s_receipt)
-    verify {
-        assert_eq!(Module::<T>::instruction_leg_status(instruction_id, leg_id),  LegStatus::ExecutionToBeSkipped(
-            receipt.signer,
-            receipt.receipt_uid,
-        ), "Settlement: Fail to unclaim the receipt");
     }
 
 

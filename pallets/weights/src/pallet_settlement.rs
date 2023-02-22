@@ -240,19 +240,6 @@ impl pallet_settlement::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().writes((4 as Weight).saturating_mul(l as Weight)))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
-    // Storage: Settlement InstructionDetails (r:1 w:0)
-    // Storage: Settlement InstructionLegStatus (r:1 w:1)
-    // Storage: Settlement InstructionLegs (r:1 w:0)
-    // Storage: Portfolio PortfolioCustodian (r:1 w:0)
-    // Storage: Portfolio PortfolioAssetBalances (r:1 w:0)
-    // Storage: Portfolio PortfolioLockedAssets (r:1 w:1)
-    // Storage: Settlement ReceiptsUsed (r:0 w:1)
-    fn unclaim_receipt() -> Weight {
-        (94_830_000 as Weight)
-            .saturating_add(DbWeight::get().reads(7 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
-    }
-    // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Settlement InstructionDetails (r:1 w:1)
     // Storage: Settlement InstructionLegs (r:2 w:1)
     // Storage: Portfolio PortfolioCustodian (r:1 w:0)
@@ -290,19 +277,6 @@ impl pallet_settlement::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads((3 as Weight).saturating_mul(l as Weight)))
             .saturating_add(DbWeight::get().writes(3 as Weight))
             .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(l as Weight)))
-    }
-    // Storage: Identity KeyRecords (r:1 w:0)
-    // Storage: Settlement InstructionDetails (r:1 w:0)
-    // Storage: Settlement InstructionLegStatus (r:1 w:1)
-    // Storage: Settlement VenueSigners (r:1 w:0)
-    // Storage: Settlement ReceiptsUsed (r:1 w:1)
-    // Storage: Settlement InstructionLegs (r:1 w:0)
-    // Storage: Portfolio PortfolioCustodian (r:1 w:0)
-    // Storage: Portfolio PortfolioLockedAssets (r:1 w:1)
-    fn claim_receipt() -> Weight {
-        (212_979_000 as Weight)
-            .saturating_add(DbWeight::get().reads(8 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Settlement InstructionDetails (r:1 w:0)
