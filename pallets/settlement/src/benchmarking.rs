@@ -87,11 +87,6 @@ fn create_venue_<T: Config>(did: IdentityId, signers: Vec<T::AccountId>) -> Venu
     venue_counter
 }
 
-/// Set Leg status to `LegStatus::ExecutionPending`
-fn set_instruction_leg_status_to_pending<T: Config>(id: InstructionId, leg_id: LegId) {
-    <InstructionLegStatus<T>>::insert(id, leg_id, LegStatus::ExecutionPending);
-}
-
 // create asset
 pub fn create_asset_<T: Config>(owner: &User<T>) -> Ticker {
     make_asset::<T>(owner, Some(&Ticker::generate(8u64)))
