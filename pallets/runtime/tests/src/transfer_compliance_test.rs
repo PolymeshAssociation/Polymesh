@@ -602,6 +602,17 @@ impl AssetTracker {
             self.ensure_asset_stat(stat_type);
         }
     }
+    #[track_caller]
+    pub fn ensure_bounded_stats_error(&mut self, active_stats: Vec<StatType>) {
+        assert_noop!(
+            Statistics::set_active_asset_stats(
+                self.owner_origin(),
+                self.asset_scope,
+                active_stats.clone().into_iter().collect(),
+            ),
+            Error::StatTypeLimitReached
+        );
+    }
 }
 
 /// Create some batches of investors.
@@ -1003,10 +1014,8 @@ fn jurisdiction_ownership_rule() {
 fn ensure_invalid_set_active_stats() {
     // Create an asset.
     let mut tracker = AssetTracker::new();
-
-    let issuer = User::new(AccountKeyring::Dave);
     let claim_type = ClaimType::Jurisdiction;
-    let stats = vec![];
+    let mut stats = vec![];
 
     for i in 0u128..15u128 {
         // Active stats.
@@ -1015,8 +1024,9 @@ fn ensure_invalid_set_active_stats() {
             claim_issuer: Some((claim_type, IdentityId::from(i))),
         });
     }
+
     // Ensures active stats outputs correct error message
-    assert!(stats.into_iter().try_collect(), Error::StatTypeLimitReached);
+    tracker.ensure_bounded_stats_error(stats);
 }
 
 fn jurisdiction_ownership_rule_with_ext() {
