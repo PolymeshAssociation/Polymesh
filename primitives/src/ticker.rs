@@ -14,7 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 //! Ticker symbol
-use codec::{Decode, Encode, Error, Input};
+use codec::{Decode, Encode, Error};
 #[cfg(feature = "std")]
 use polymesh_primitives_derive::{DeserializeU8StrongTyped, SerializeU8StrongTyped};
 use scale_info::TypeInfo;
@@ -30,7 +30,7 @@ pub const TICKER_LEN: usize = 12;
 /// This type stores fixed-length case-sensitive byte strings. Any value of this type that is
 /// received by a Substrate module call method has to be converted to canonical uppercase
 /// representation using [`Ticker::canonize`].
-#[derive(Encode, TypeInfo)]
+#[derive(Encode, Decode, TypeInfo)]
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(
     feature = "std",
@@ -68,14 +68,6 @@ impl TryFrom<&[u8]> for Ticker {
         } else {
             Err("lowercase ticker".into())
         }
-    }
-}
-
-/// It custom decoder enforces to upper case.
-impl Decode for Ticker {
-    fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-        let inner = <[u8; TICKER_LEN]>::decode(input)?;
-        Self::try_from(&inner[..])
     }
 }
 

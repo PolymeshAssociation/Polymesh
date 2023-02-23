@@ -494,7 +494,7 @@ fn register_ticker() {
         ] {
             assert_noop!(
                 register(Ticker::try_from(&bs[..]).unwrap()),
-                AssetError::TickerNotAscii
+                AssetError::TickerNotAlphanumeric
             );
         }
     })
