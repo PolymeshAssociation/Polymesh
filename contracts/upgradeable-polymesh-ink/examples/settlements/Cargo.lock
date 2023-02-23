@@ -1144,6 +1144,7 @@ dependencies = [
  "derive_more",
  "ink_env",
  "ink_lang_macro",
+ "ink_metadata",
  "ink_prelude",
  "ink_primitives",
  "ink_storage",
@@ -1845,9 +1846,9 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
 name = "polymesh-api"
-version = "0.3.7"
+version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68099cc08a8f60fe9b2599605c264cfb266c5c457894a8507980c77c2ae03515"
+checksum = "e6f0cf0fb9698c976c86c3e9866c24ade3643586aa028107f5affdd900ca90bb"
 dependencies = [
  "ink_env",
  "ink_lang",
@@ -1915,9 +1916,9 @@ dependencies = [
 
 [[package]]
 name = "polymesh-api-codegen-macro"
-version = "0.3.3"
+version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "017ec5dfe86dc4805d2812c2907045aafad0b3dad79d59a749fbc1fc75fc0f10"
+checksum = "44e19d5c7ebd74960ca2a183013e7bf5e123079b505df338b65d83429c542da5"
 dependencies = [
  "darling",
  "parity-scale-codec",
@@ -1947,6 +1948,39 @@ dependencies = [
  "scale-info",
  "sp-arithmetic",
  "thiserror",
+]
+
+[[package]]
+name = "polymesh-ink"
+version = "0.5.2"
+dependencies = [
+ "ink_env",
+ "ink_lang",
+ "ink_lang_codegen",
+ "ink_metadata",
+ "ink_primitives",
+ "ink_storage",
+ "parity-scale-codec",
+ "paste",
+ "polymesh-api",
+ "polymesh_ink_upgrade_tracker",
+ "scale-info",
+]
+
+[[package]]
+name = "polymesh_ink_upgrade_tracker"
+version = "0.2.0"
+dependencies = [
+ "ink_env",
+ "ink_lang",
+ "ink_lang_codegen",
+ "ink_metadata",
+ "ink_prelude",
+ "ink_primitives",
+ "ink_storage",
+ "parity-scale-codec",
+ "polymesh-api",
+ "scale-info",
 ]
 
 [[package]]
@@ -2436,7 +2470,7 @@ dependencies = [
  "ink_primitives",
  "ink_storage",
  "parity-scale-codec",
- "polymesh-api",
+ "polymesh-ink",
  "scale-info",
 ]
 
