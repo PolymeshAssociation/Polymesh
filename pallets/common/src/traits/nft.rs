@@ -24,15 +24,15 @@ decl_event!(
     pub enum Event {
         /// Emitted when a new nft collection is created.
         NftCollectionCreated(IdentityId, Ticker, NFTCollectionId),
-        /// Emitted when a new nft is minted.
-        MintedNft(IdentityId, NFTCollectionId, NFTId),
-        /// Emitted when an NFT is burned.
-        BurnedNFT(IdentityId, Ticker, NFTId),
+        /// Emitted when a new nft is issued.
+        IssuedNFT(IdentityId, NFTCollectionId, NFTId),
+        /// Emitted when an NFT is redeemed.
+        RedeemedNFT(IdentityId, Ticker, NFTId),
     }
 );
 
 pub trait WeightInfo {
     fn create_nft_collection(n: u32) -> Weight;
-    fn mint_nft(n: u32) -> Weight;
-    fn burn_nft(n: u32) -> Weight;
+    fn issue_nft(n: u32) -> Weight;
+    fn redeem_nft(n: u32) -> Weight;
 }

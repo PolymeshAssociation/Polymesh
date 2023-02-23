@@ -19,7 +19,7 @@ pub use frame_benchmarking::{account, benchmarks};
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use pallet_identity as identity;
-use pallet_nft::benchmarking::create_collection_mint_nfts;
+use pallet_nft::benchmarking::create_collection_issue_nfts;
 use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_common_utilities::{
     benchs::{make_asset, user, AccountIdOf, User, UserBuilder},
@@ -621,7 +621,7 @@ fn setup_nft_legs<T: Config>(
     n_legs: u32,
     n_nfts: u32,
 ) -> Vec<LegV2> {
-    create_collection_mint_nfts::<T>(
+    create_collection_issue_nfts::<T>(
         sender.origin().into(),
         ticker,
         Some(NonFungibleType::Derivative),

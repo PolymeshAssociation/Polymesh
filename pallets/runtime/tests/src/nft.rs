@@ -226,7 +226,7 @@ fn mint_nft_collection_not_found() {
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
         assert_noop!(
-            NFT::mint_nft(
+            NFT::issue_nft(
                 alice.origin(),
                 ticker,
                 vec![NFTMetadataAttribute {
@@ -261,7 +261,7 @@ fn mint_nft_duplicate_key() {
             collection_keys,
         );
         assert_noop!(
-            NFT::mint_nft(
+            NFT::issue_nft(
                 alice.origin(),
                 ticker,
                 vec![
@@ -299,7 +299,7 @@ fn mint_nft_wrong_number_of_keys() {
             collection_keys,
         );
         assert_noop!(
-            NFT::mint_nft(
+            NFT::issue_nft(
                 alice.origin(),
                 ticker.clone(),
                 vec![
@@ -317,7 +317,7 @@ fn mint_nft_wrong_number_of_keys() {
             NFTError::InvalidMetadataAttribute
         );
         assert_noop!(
-            NFT::mint_nft(alice.origin(), ticker, vec![], PortfolioKind::Default),
+            NFT::issue_nft(alice.origin(), ticker, vec![], PortfolioKind::Default),
             NFTError::InvalidMetadataAttribute
         );
     });
@@ -341,7 +341,7 @@ fn mint_nft_wrong_key() {
             collection_keys,
         );
         assert_noop!(
-            NFT::mint_nft(
+            NFT::issue_nft(
                 alice.origin(),
                 ticker,
                 vec![NFTMetadataAttribute {
@@ -372,7 +372,7 @@ fn mint_nft_portfolio_not_found() {
             collection_keys,
         );
         assert_noop!(
-            NFT::mint_nft(
+            NFT::issue_nft(
                 alice.origin(),
                 ticker,
                 vec![NFTMetadataAttribute {
@@ -403,7 +403,7 @@ fn mint_nft_successfully() {
             AssetType::NonFungible(NonFungibleType::Derivative),
             collection_keys,
         );
-        assert_ok!(NFT::mint_nft(
+        assert_ok!(NFT::issue_nft(
             alice.origin(),
             ticker,
             vec![NFTMetadataAttribute {
@@ -436,7 +436,7 @@ pub(crate) fn mint_nft(
     metadata_atributes: Vec<NFTMetadataAttribute>,
     portfolio_kind: PortfolioKind,
 ) {
-    assert_ok!(NFT::mint_nft(
+    assert_ok!(NFT::issue_nft(
         user.origin(),
         ticker,
         metadata_atributes,
@@ -454,7 +454,7 @@ fn burn_nft_collection_not_found() {
         let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
 
         assert_noop!(
-            NFT::burn_nft(alice.origin(), ticker, NFTId(1), PortfolioKind::Default),
+            NFT::redeem_nft(alice.origin(), ticker, NFTId(1), PortfolioKind::Default),
             NFTError::CollectionNotFound
         );
     });
@@ -478,7 +478,7 @@ fn burn_nft_not_found() {
         );
 
         assert_noop!(
-            NFT::burn_nft(alice.origin(), ticker, NFTId(1), PortfolioKind::Default),
+            NFT::redeem_nft(alice.origin(), ticker, NFTId(1), PortfolioKind::Default),
             NFTError::NFTNotFound
         );
     });
@@ -500,7 +500,7 @@ fn burn_nft() {
             AssetType::NonFungible(NonFungibleType::Derivative),
             collection_keys,
         );
-        NFT::mint_nft(
+        NFT::issue_nft(
             alice.origin(),
             ticker,
             vec![NFTMetadataAttribute {
@@ -511,7 +511,7 @@ fn burn_nft() {
         )
         .unwrap();
 
-        assert_ok!(NFT::burn_nft(
+        assert_ok!(NFT::redeem_nft(
             alice.origin(),
             ticker,
             NFTId(1),

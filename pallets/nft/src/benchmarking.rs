@@ -49,8 +49,8 @@ fn creates_keys_register_metadata_types<T: Config>(n: u32) -> NFTCollectionKeys 
     collection_keys
 }
 
-/// Creates an NFT collection with `n_keys` global metadata keys and mints `n_nfts`.
-pub fn create_collection_mint_nfts<T: Config>(
+/// Creates an NFT collection with `n_keys` global metadata keys and issues `n_nfts`.
+pub fn create_collection_issue_nfts<T: Config>(
     origin: T::Origin,
     ticker: Ticker,
     nft_type: Option<NonFungibleType>,
@@ -68,7 +68,7 @@ pub fn create_collection_mint_nfts<T: Config>(
         })
         .collect();
     for _ in 0..n_nfts {
-        Module::<T>::mint_nft(
+        Module::<T>::issue_nft(
             origin.clone(),
             ticker,
             metadata_attributes.clone(),
@@ -94,7 +94,7 @@ benchmarks! {
         assert_eq!(CollectionKeys::get(NFTCollectionId(1)).len(), n as usize);
     }
 
-    mint_nft {
+    issue_nft {
         let n in 1..MAX_COLLECTION_KEYS;
 
         let user = user::<T>("target", 0);
@@ -121,7 +121,7 @@ benchmarks! {
         }
     }
 
-    burn_nft {
+    redeem_nft {
         let n in 1..MAX_COLLECTION_KEYS;
 
         let user = user::<T>("target", 0);
@@ -137,7 +137,7 @@ benchmarks! {
                 }
             })
             .collect();
-        Module::<T>::mint_nft(user.origin().into(), ticker, metadata_attributes, PortfolioKind::Default).expect("failed to mint nft");
+        Module::<T>::issue_nft(user.origin().into(), ticker, metadata_attributes, PortfolioKind::Default).expect("failed to mint nft");
     }: _(user.origin, ticker, NFTId(1), PortfolioKind::Default)
     verify {
         for i in 1..n + 1 {

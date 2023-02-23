@@ -85,7 +85,7 @@ decl_module! {
             Self::base_create_nft_collection(origin, ticker, nft_type, collection_keys)
         }
 
-        /// Mints an NFT to the caller.
+        /// Issues an NFT to the caller.
         ///
         /// # Arguments
         /// * `origin` - is a signer that has permissions to act as an agent of `ticker`.
@@ -102,12 +102,12 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::mint_nft(nft_metadata_attributes.len() as u32)]
-        pub fn mint_nft(origin, ticker: Ticker, nft_metadata_attributes: Vec<NFTMetadataAttribute>, portfolio_kind: PortfolioKind) -> DispatchResult {
-            Self::base_mint_nft(origin, ticker, nft_metadata_attributes, portfolio_kind)
+        #[weight = <T as Config>::WeightInfo::issue_nft(nft_metadata_attributes.len() as u32)]
+        pub fn issue_nft(origin, ticker: Ticker, nft_metadata_attributes: Vec<NFTMetadataAttribute>, portfolio_kind: PortfolioKind) -> DispatchResult {
+            Self::base_issue_nft(origin, ticker, nft_metadata_attributes, portfolio_kind)
         }
 
-        /// Burns the given NFT from the caller's portfolio.
+        /// Redeems the given NFT from the caller's portfolio.
         ///
         /// # Arguments
         /// * `origin` - is a signer that has permissions to act as an agent of `ticker`.
@@ -122,9 +122,9 @@ decl_module! {
         /// # Permissions
         /// * Asset
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::burn_nft(T::MaxNumberOfCollectionKeys::get() as u32)]
-        pub fn burn_nft(origin, ticker: Ticker, nft_id: NFTId, portfolio_kind: PortfolioKind) -> DispatchResult {
-            Self::base_burn_nft(origin, ticker, nft_id, portfolio_kind)
+        #[weight = <T as Config>::WeightInfo::redeem_nft(T::MaxNumberOfCollectionKeys::get() as u32)]
+        pub fn redeem_nft(origin, ticker: Ticker, nft_id: NFTId, portfolio_kind: PortfolioKind) -> DispatchResult {
+            Self::base_redeem_nft(origin, ticker, nft_id, portfolio_kind)
         }
     }
 }
@@ -250,7 +250,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn base_mint_nft(
+    fn base_issue_nft(
         origin: T::Origin,
         ticker: Ticker,
         metadata_attributes: Vec<NFTMetadataAttribute>,
@@ -304,7 +304,7 @@ impl<T: Config> Module<T> {
         }
         PortfolioNFT::insert(caller_portfolio, (ticker, nft_id), true);
 
-        Self::deposit_event(Event::MintedNft(
+        Self::deposit_event(Event::IssuedNFT(
             caller_portfolio.did,
             collection_id,
             nft_id,
@@ -312,7 +312,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn base_burn_nft(
+    fn base_redeem_nft(
         origin: T::Origin,
         ticker: Ticker,
         nft_id: NFTId,
@@ -340,7 +340,7 @@ impl<T: Config> Module<T> {
         PortfolioNFT::remove(&caller_portfolio, (&ticker, &nft_id));
         MetadataValue::remove_prefix((&collection_id, &nft_id), None);
 
-        Self::deposit_event(Event::BurnedNFT(caller_portfolio.did, ticker, nft_id));
+        Self::deposit_event(Event::RedeemedNFT(caller_portfolio.did, ticker, nft_id));
         Ok(())
     }
 
