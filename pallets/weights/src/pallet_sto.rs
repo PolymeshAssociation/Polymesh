@@ -65,8 +65,9 @@ impl pallet_sto::WeightInfo for WeightInfo {
     // Storage: Portfolio PortfolioLockedAssets (r:1 w:1)
     // Storage: Sto FundraiserNames (r:0 w:1)
     // Storage: Sto Fundraisers (r:0 w:1)
-    fn create_fundraiser(_i: u32) -> Weight {
+    fn create_fundraiser(i: u32) -> Weight {
         (105_964_000 as Weight)
+            .saturating_add((4_429_000 as Weight).saturating_mul(i as Weight))
             .saturating_add(DbWeight::get().reads(11 as Weight))
             .saturating_add(DbWeight::get().writes(4 as Weight))
     }
