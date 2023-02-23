@@ -101,26 +101,6 @@ fn create_venue_<T: Config>(did: IdentityId, signers: Vec<T::AccountId>) -> Venu
     venue_counter
 }
 
-/// Set instruction leg status to `LegStatus::ExecutionToBeSkipped` without any sanity checks.
-fn set_instruction_leg_status_to_skipped<T: Config>(
-    instruction_id: InstructionId,
-    leg_id: LegId,
-    signer: T::AccountId,
-    receipt_uid: u64,
-) {
-    <ReceiptsUsed<T>>::insert(&signer, receipt_uid, true);
-    <InstructionLegStatus<T>>::insert(
-        instruction_id,
-        leg_id,
-        LegStatus::ExecutionToBeSkipped(signer, receipt_uid),
-    );
-}
-
-/// Set Leg status to `LegStatus::ExecutionPending`
-fn set_instruction_leg_status_to_pending<T: Config>(id: InstructionId, leg_id: LegId) {
-    <InstructionLegStatus<T>>::insert(id, leg_id, LegStatus::ExecutionPending);
-}
-
 // create asset
 pub fn create_asset_<T: Config>(owner: &User<T>) -> Ticker {
     make_asset::<T>(owner, Some(&Ticker::generate(8u64)))
@@ -139,11 +119,17 @@ fn setup_leg_and_portfolio<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     legs: &mut Vec<Leg>,
     sender_portfolios: &mut Vec<PortfolioId>,
     receiver_portfolios: &mut Vec<PortfolioId>,
+    onchain: bool,
 ) {
     let variance = index + 1;
-    let ticker = make_asset::<T>(owner, Some(&Ticker::generate(variance.into())));
     let portfolio_from = generate_portfolio::<T>("", variance + 500, from_user);
-    let _ = fund_portfolio::<T>(&portfolio_from, &ticker, 500u32.into());
+    let ticker = if onchain {
+        let ticker = make_asset::<T>(owner, Some(&Ticker::generate(variance.into())));
+        let _ = fund_portfolio::<T>(&portfolio_from, &ticker, 500u32.into());
+        ticker
+    } else {
+        Ticker::generate_into(variance.into())
+    };
     let portfolio_to = generate_portfolio::<T>("to_did", variance + 800, to_user);
     legs.push(Leg {
         from: portfolio_from,
@@ -236,6 +222,7 @@ fn verify_add_and_affirm_instruction<T: Config>(
 fn emulate_add_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     l: u32,
     create_portfolios: bool,
+    onchain: bool,
 ) -> Result<
     (
         Vec<Leg>,
@@ -269,6 +256,7 @@ fn emulate_add_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
                 &mut legs,
                 &mut sender_portfolios,
                 &mut receiver_portfolios,
+                onchain,
             );
         }
     } else {
@@ -799,7 +787,7 @@ benchmarks! {
         // Define settlement type
         let settlement_type = SettlementType::SettleOnAffirmation;
         // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , _, _, _ ) = emulate_add_instruction::<T>(l, false).unwrap();
+        let (legs, venue_id, origin, did , _, _, _ ) = emulate_add_instruction::<T>(l, false, true).unwrap();
 
     }: _(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs)
     verify {
@@ -814,7 +802,7 @@ benchmarks! {
         set_block_number::<T>(50);
 
         // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , _, _, _ ) = emulate_add_instruction::<T>(l, false).unwrap();
+        let (legs, venue_id, origin, did , _, _, _ ) = emulate_add_instruction::<T>(l, false, true).unwrap();
 
     }: add_instruction(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs)
     verify {
@@ -827,7 +815,7 @@ benchmarks! {
         // Define settlement type
         let settlement_type = SettlementType::SettleOnAffirmation;
         // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true).unwrap();
+        let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true, true).unwrap();
         let s_portfolios = portfolios.clone();
     }: _(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs, s_portfolios)
     verify {
@@ -841,7 +829,7 @@ benchmarks! {
         let settlement_type = SettlementType::SettleOnBlock(100u32.into());
         set_block_number::<T>(50);
         // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true).unwrap();
+        let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true, true).unwrap();
         let s_portfolios = portfolios.clone();
     }: add_and_affirm_instruction(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs, s_portfolios)
     verify {
@@ -900,7 +888,7 @@ benchmarks! {
 
         let l in 0 .. T::MaxNumberOfFungibleAssets::get();
         // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true).unwrap();
+        let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true, true).unwrap();
         // Add instruction
         let legs_v2: Vec<LegV2> = legs.iter().map(|leg| leg.clone().into()).collect();
         Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs_v2, None, true).unwrap();
@@ -917,29 +905,10 @@ benchmarks! {
         }
     }
 
-
-    unclaim_receipt {
-        // There is no catalyst in this dispatchable, It will be time constant always.
-        // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did, _, _, account_id) = emulate_add_instruction::<T>(1, true).unwrap();
-        // Add instruction
-        let legs_v2: Vec<LegV2> = legs.iter().map(|leg| leg.clone().into()).collect();
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs_v2.clone(), None, true).unwrap();
-        let instruction_id = InstructionId(1);
-        let leg_id = LegId(0);
-
-        set_instruction_leg_status_to_skipped::<T>(instruction_id, leg_id, account_id.clone(), 0);
-    }: _(origin, instruction_id, leg_id)
-    verify {
-        assert!(matches!(Module::<T>::instruction_leg_status(instruction_id, leg_id), LegStatus::ExecutionPending), "Fail: unclaim_receipt dispatch");
-        assert!(!Module::<T>::receipts_used(&account_id, 0), "Fail: Receipt status didn't get update");
-    }
-
-
     reject_instruction {
         let l in 1 .. T::MaxNumberOfFungibleAssets::get() as u32;
         // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(l, true).unwrap();
+        let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(l, true, true).unwrap();
         // Add and affirm instruction.
         Module::<T>::add_and_affirm_instruction((origin.clone()).into(), venue_id, SettlementType::SettleOnAffirmation, None, None, legs, portfolios.clone()).expect("Unable to add and affirm the instruction");
         let instruction_id = InstructionId(1);
@@ -963,37 +932,11 @@ benchmarks! {
         }
     }
 
-
-    claim_receipt {
-        // There is no catalyst in this dispatchable, It will always be time constant.
-        // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , s_portfolios, r_portfolios, account_id) = emulate_add_instruction::<T>(1, true).unwrap();
-        // Add instruction
-        let legs_v2: Vec<LegV2> = legs.iter().map(|leg| leg.clone().into()).collect();
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs_v2, None, true).unwrap();
-        let instruction_id = InstructionId(1);
-        let ticker = Ticker::generate_into(1u64);
-        let receipt = create_receipt_details::<T>(0, legs.first().unwrap().clone());
-        let leg_id = LegId(0);
-        let amount = 100u128;
-        // Some manual setup to support the extrinsic.
-        set_instruction_leg_status_to_pending::<T>(instruction_id, leg_id);
-        T::Portfolio::lock_tokens(s_portfolios.first().unwrap(), &ticker, amount.into()).unwrap();
-        let s_receipt = receipt.clone();
-    }: _(origin, instruction_id, s_receipt)
-    verify {
-        assert_eq!(Module::<T>::instruction_leg_status(instruction_id, leg_id),  LegStatus::ExecutionToBeSkipped(
-            receipt.signer,
-            receipt.receipt_uid,
-        ), "Settlement: Fail to unclaim the receipt");
-    }
-
-
     affirm_with_receipts {
         // Catalyst here is the length of receipts vector.
         let r in 1 .. T::MaxNumberOfFungibleAssets::get() as u32;
         // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , s_portfolios, r_portfolios, account_id) = emulate_add_instruction::<T>(r, true).unwrap();
+        let (legs, venue_id, origin, did , s_portfolios, r_portfolios, account_id) = emulate_add_instruction::<T>(r, true, false).unwrap();
         // Add instruction
         let legs_v2: Vec<LegV2> = legs.iter().map(|leg| leg.clone().into()).collect();
         Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs_v2, None, true).unwrap();
@@ -1090,7 +1033,7 @@ benchmarks! {
         set_block_number::<T>(50);
 
         // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , _, _, _ ) = emulate_add_instruction::<T>(l, false).unwrap();
+        let (legs, venue_id, origin, did , _, _, _ ) = emulate_add_instruction::<T>(l, false, true).unwrap();
 
     }: add_instruction_with_memo(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs, Some(InstructionMemo::default()))
     verify {
@@ -1104,7 +1047,7 @@ benchmarks! {
         let instruction_id = InstructionId(1);
         set_block_number::<T>(50);
         // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true).unwrap();
+        let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true, true).unwrap();
         let s_portfolios = portfolios.clone();
     }: add_and_affirm_instruction_with_memo(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs, s_portfolios, Some(InstructionMemo::default()))
     verify {
