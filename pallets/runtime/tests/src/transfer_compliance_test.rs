@@ -1010,25 +1010,6 @@ fn jurisdiction_ownership_rule() {
         .execute_with(jurisdiction_ownership_rule_with_ext);
 }
 
-#[test]
-fn ensure_invalid_set_active_stats() {
-    // Create an asset.
-    let mut tracker = AssetTracker::new();
-    let claim_type = ClaimType::Jurisdiction;
-    let mut stats = vec![];
-
-    for i in 0u128..15u128 {
-        // Active stats.
-        stats.push(StatType {
-            op: StatOpType::Count,
-            claim_issuer: Some((claim_type, IdentityId::from(i))),
-        });
-    }
-
-    // Ensures active stats outputs correct error message
-    tracker.ensure_bounded_stats_error(stats);
-}
-
 fn jurisdiction_ownership_rule_with_ext() {
     // Create an asset.
     let mut tracker = AssetTracker::new();
@@ -1104,4 +1085,29 @@ fn jurisdiction_ownership_rule_with_ext() {
     tracker.do_valid_transfer(tracker.owner_id, id, 260_000);
 
     tracker.ensure_asset_stats();
+}
+
+#[test]
+fn ensure_invalid_set_active_stats() {
+    ExtBuilder::default()
+        .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
+        .build()
+        .execute_with(ensure_invalid_set_active_stats_ext);
+}
+fn ensure_invalid_set_active_stats_ext() {
+    // Create an asset.
+    let mut tracker = AssetTracker::new();
+    let claim_type = ClaimType::Jurisdiction;
+    let mut stats = vec![];
+
+    for i in 0u128..15u128 {
+        // Active stats.
+        stats.push(StatType {
+            op: StatOpType::Count,
+            claim_issuer: Some((claim_type, IdentityId::from(i))),
+        });
+    }
+
+    // Ensures active stats outputs correct error message
+    tracker.ensure_bounded_stats_error(stats);
 }
