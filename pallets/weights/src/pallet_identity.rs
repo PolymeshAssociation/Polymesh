@@ -189,7 +189,7 @@ impl pallet_identity::WeightInfo for WeightInfo {
     fn permissions_cost(a: u32, p: u32, l: u32, e: u32) -> Weight {
         (0 as Weight)
             // Standard Error: 60_000
-            .saturating_add((296_000 as Weight).saturating_mul(a as Weight))        
+            .saturating_add((296_000 as Weight).saturating_mul(a as Weight))
             // Standard Error: 107_000
             .saturating_add((211_000 as Weight).saturating_mul(p as Weight))
             // Standard Error: 1_073_000
