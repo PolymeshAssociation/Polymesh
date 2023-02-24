@@ -137,7 +137,7 @@ struct AssetTracker {
     asset: Ticker,
     total_supply: Balance,
     disable_iu: bool,
-    asset_scope: AssetScope,
+    pub asset_scope: AssetScope,
 
     issuers: HashMap<IdentityId, IssuerState>,
 
@@ -601,17 +601,6 @@ impl AssetTracker {
         for stat_type in &self.active_stats {
             self.ensure_asset_stat(stat_type);
         }
-    }
-    #[track_caller]
-    pub fn ensure_bounded_stats_error(&mut self, active_stats: Vec<StatType>) {
-        assert_noop!(
-            Statistics::set_active_asset_stats(
-                self.owner_origin(),
-                self.asset_scope,
-                active_stats.clone().into_iter().collect(),
-            ),
-            Error::StatTypeLimitReached
-        );
     }
 }
 
@@ -1109,5 +1098,40 @@ fn ensure_invalid_set_active_stats_ext() {
     }
 
     // Ensures active stats outputs correct error message
-    tracker.ensure_bounded_stats_error(stats);
+    assert_noop!(
+        Statistics::set_active_asset_stats(
+            tracker.owner_origin(),
+            tracker.asset_scope,
+            stats.into_iter().collect(),
+        ),
+        Error::StatTypeLimitReached
+    );
+}
+
+#[test]
+fn ensure_invalid_transfer_conditions() {
+    ExtBuilder::default()
+        .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
+        .build()
+        .execute_with(ensure_invalid_transfer_conditions_ext);
+}
+fn ensure_invalid_transfer_conditions_ext() {
+    // Create an asset.
+    let mut tracker = AssetTracker::new();
+    let mut conditions = vec![];
+
+    for i in 0..7 as u64 {
+        // Transfer conditions.
+        conditions.push(TransferCondition::MaxInvestorCount(i));
+    }
+
+    // Ensures transfer condition outputs correct error message
+    assert_noop!(
+        Statistics::set_asset_transfer_compliance(
+            tracker.owner_origin(),
+            tracker.asset_scope,
+            conditions.into_iter().collect(),
+        ),
+        Error::TransferConditionLimitReached
+    );
 }
