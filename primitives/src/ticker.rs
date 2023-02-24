@@ -50,27 +50,6 @@ impl AsRef<[u8]> for Ticker {
     }
 }
 
-impl TryFrom<&[u8]> for Ticker {
-    type Error = Error;
-
-    fn try_from(s: &[u8]) -> Result<Self, Self::Error> {
-        let len = s.len();
-        if len > TICKER_LEN {
-            return Err("ticker too long".into());
-        }
-        let mut inner = [0u8; TICKER_LEN];
-        inner[..len].copy_from_slice(s);
-        inner.make_ascii_uppercase();
-        // Check whether the given ticker contains no lowercase characters and return an error
-        // otherwise.
-        if &inner[..len] == s {
-            Ok(Ticker(inner))
-        } else {
-            Err("lowercase ticker".into())
-        }
-    }
-}
-
 impl Ticker {
     /// Used to make an unchecked ticker.
     pub const fn new_unchecked(bytes: [u8; TICKER_LEN]) -> Self {
