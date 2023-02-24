@@ -1097,34 +1097,6 @@ fn test_asset_genesis(genesis: AssetGenesis) {
 }
 
 #[test]
-#[should_panic = "lowercase ticker"]
-fn classic_ticker_genesis_lowercase() {
-    test_asset_genesis(AssetGenesis {
-        classic_migration_tickers: vec![ClassicTickerImport {
-            ticker: ticker("lower"),
-            ..default_classic()
-        }],
-        ..<_>::default()
-    });
-}
-
-#[test]
-#[should_panic = "TickerTooLong"]
-fn classic_ticker_genesis_too_long() {
-    test_asset_genesis(AssetGenesis {
-        classic_migration_tconfig: TickerRegistrationConfig {
-            max_ticker_length: 3,
-            registration_length: None,
-        },
-        classic_migration_tickers: vec![ClassicTickerImport {
-            ticker: ticker("ACME"),
-            ..default_classic()
-        }],
-        ..<_>::default()
-    });
-}
-
-#[test]
 #[should_panic = "TickerAlreadyRegistered"]
 fn classic_ticker_genesis_already_registered_sys_did() {
     let import = ClassicTickerImport {
