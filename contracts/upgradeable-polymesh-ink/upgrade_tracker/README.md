@@ -18,5 +18,5 @@ Deploy the contract `polymesh_ink_upgrade_tracker.contract`.  The account used w
 
 ## Use
 
-Call the `upgrade_wrapped_api(<api version>, Upgrade { chain_version: ChainVersion { spec: 5_002_000, tx: 3}, hash: <code hash of upgraded api>})`
+Call the `upgrade_wrapped_api(<api version>, Upgrade { chain_version: ChainVersion { spec: 5_002_001, tx: 3}, hash: <code hash of upgraded api>})`
 to upgrade an API.
