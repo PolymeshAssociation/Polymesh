@@ -288,6 +288,8 @@ macro_rules! misc_pallet_impls {
             type Event = Event;
             type Asset = Asset;
             type WeightInfo = polymesh_weights::pallet_portfolio::WeightInfo;
+            type MaxNumberOfFungibleMoves = MaxNumberOfFungibleMoves;
+            type MaxNumberOfNFTsMoves = MaxNumberOfNFTsMoves;
         }
 
         impl pallet_external_agents::Config for Runtime {
@@ -465,7 +467,9 @@ macro_rules! misc_pallet_impls {
             type Proposal = Call;
             type Scheduler = Scheduler;
             type WeightInfo = polymesh_weights::pallet_settlement::WeightInfo;
-            type MaxLegsInInstruction = MaxLegsInInstruction;
+            type MaxNumberOfFungibleAssets = MaxNumberOfFungibleAssets;
+            type MaxNumberOfNFTsPerLeg = MaxNumberOfNFTsPerLeg;
+            type MaxNumberOfNFTs = MaxNumberOfNFTs;
         }
 
         impl pallet_sto::Config for Runtime {
@@ -533,6 +537,13 @@ macro_rules! misc_pallet_impls {
         {
             type Extrinsic = UncheckedExtrinsic;
             type OverarchingCall = Call;
+        }
+
+        impl pallet_nft::Config for Runtime {
+            type Event = Event;
+            type WeightInfo = polymesh_weights::pallet_nft::WeightInfo;
+            type Compliance = pallet_compliance_manager::Module<Runtime>;
+            type MaxNumberOfCollectionKeys = MaxNumberOfCollectionKeys;
         }
     };
 }

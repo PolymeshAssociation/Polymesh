@@ -5228,6 +5228,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-nft"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-asset",
+ "pallet-base",
+ "pallet-external-agents",
+ "pallet-identity",
+ "pallet-portfolio",
+ "parity-scale-codec 3.2.1",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "scale-info",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-offences"
 version = "4.0.0-dev"
 source = "git+https://github.com/PolymeshAssociation/substrate?branch=polymesh-monthly-2022-05-2#9a08d1f2d81d4993dc88f0a1a57caa0771d80a4b"
@@ -5480,6 +5499,7 @@ dependencies = [
  "pallet-compliance-manager",
  "pallet-external-agents",
  "pallet-identity",
+ "pallet-nft",
  "pallet-portfolio",
  "pallet-scheduler",
  "pallet-statistics",
@@ -6541,6 +6561,7 @@ dependencies = [
  "pallet-group-rpc-runtime-api",
  "pallet-identity",
  "pallet-multisig",
+ "pallet-nft",
  "pallet-portfolio",
  "pallet-relayer",
  "pallet-test-utils",
@@ -6593,6 +6614,7 @@ dependencies = [
  "pallet-im-online",
  "pallet-indices",
  "pallet-multisig",
+ "pallet-nft",
  "pallet-offences",
  "pallet-permissions",
  "pallet-pips",
@@ -6677,6 +6699,7 @@ dependencies = [
  "pallet-im-online",
  "pallet-indices",
  "pallet-multisig",
+ "pallet-nft",
  "pallet-offences",
  "pallet-permissions",
  "pallet-pips",
@@ -6762,6 +6785,7 @@ dependencies = [
  "pallet-im-online",
  "pallet-indices",
  "pallet-multisig",
+ "pallet-nft",
  "pallet-offences",
  "pallet-permissions",
  "pallet-pips",
@@ -6856,6 +6880,7 @@ dependencies = [
  "pallet-im-online",
  "pallet-indices",
  "pallet-multisig",
+ "pallet-nft",
  "pallet-offences",
  "pallet-permissions",
  "pallet-pips",
@@ -6936,6 +6961,7 @@ dependencies = [
  "pallet-im-online",
  "pallet-indices",
  "pallet-multisig",
+ "pallet-nft",
  "pallet-pips",
  "pallet-portfolio",
  "pallet-preimage",

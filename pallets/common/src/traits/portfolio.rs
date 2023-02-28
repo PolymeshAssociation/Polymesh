@@ -20,9 +20,11 @@
 use crate::{asset::AssetFnTrait, balances::Memo, base, identity, CommonConfig};
 use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
+use frame_support::pallet_prelude::Get;
 use frame_support::weights::Weight;
 use polymesh_primitives::{
-    Balance, IdentityId, PortfolioId, PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
+    Balance, Fund, FundDescription, IdentityId, Memo as PortfolioMemo, NFTId, NFTs, PortfolioId,
+    PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
 };
 use sp_std::vec::Vec;
 
@@ -64,6 +66,22 @@ pub trait PortfolioSubTrait<AccountId> {
         custodian: IdentityId,
         secondary_key: Option<&SecondaryKey<AccountId>>,
     ) -> DispatchResult;
+
+    /// Locks the given nft. This prevents transfering the same NFT more than once.
+    ///
+    /// # Arguments
+    /// * `portfolio_id` - PortfolioId that contains the nft to be locked.
+    /// * `ticker` - the ticker of the NFT.
+    /// * `nft_id` - the id of the nft to be unlocked.
+    fn lock_nft(portfolio_id: &PortfolioId, ticker: &Ticker, nft_id: &NFTId) -> DispatchResult;
+
+    /// Unlocks the given nft.
+    ///
+    /// # Arguments
+    /// * `portfolio_id` - PortfolioId that contains the locked nft.
+    /// * `ticker` - the ticker of the NFT.
+    /// * `nft_id` - the id of the nft to be unlocked.
+    fn unlock_nft(portfolio_id: &PortfolioId, ticker: &Ticker, nft_id: &NFTId) -> DispatchResult;
 }
 
 pub trait WeightInfo {
@@ -73,6 +91,11 @@ pub trait WeightInfo {
     fn rename_portfolio(i: u32) -> Weight;
     fn quit_portfolio_custody() -> Weight;
     fn accept_portfolio_custody() -> Weight;
+    fn move_portfolio_v2(funds: &[Fund]) -> Weight {
+        let (f, n) = count_token_moves(funds);
+        Self::move_portfolio_funds_v2(f, n)
+    }
+    fn move_portfolio_funds_v2(f: u32, u: u32) -> Weight;
 }
 
 pub trait Config: CommonConfig + identity::Config + base::Config {
@@ -80,6 +103,10 @@ pub trait Config: CommonConfig + identity::Config + base::Config {
     /// Asset module.
     type Asset: AssetFnTrait<Self::AccountId, Self::Origin>;
     type WeightInfo: WeightInfo;
+    /// Maximum number of fungible assets that can be moved in a single transfer call.
+    type MaxNumberOfFungibleMoves: Get<u32>;
+    /// Maximum number of NFTs that can be moved in a single transfer call.
+    type MaxNumberOfNFTsMoves: Get<u32>;
 }
 
 decl_event! {
@@ -133,5 +160,51 @@ decl_event! {
         /// * portfolio id
         /// * portfolio custodian did
         PortfolioCustodianChanged(IdentityId, PortfolioId, IdentityId),
+        /// NFTs have been moved from one portfolio to another.
+        ///
+        /// # Parameters
+        /// * origin DID
+        /// * source portfolio
+        /// * destination portfolio
+        /// * NFTs
+        NFTsMovedBetweenPortfolios(
+            IdentityId,
+            PortfolioId,
+            PortfolioId,
+            NFTs,
+            Option<PortfolioMemo>
+        ),
+        /// A token amount has been moved from one portfolio to another.
+        ///
+        /// # Parameters
+        /// * origin DID
+        /// * source portfolio
+        /// * destination portfolio
+        /// * asset ticker
+        /// * asset balance that was moved
+        FungibleTokensMovedBetweenPortfolios(
+            IdentityId,
+            PortfolioId,
+            PortfolioId,
+            Ticker,
+            Balance,
+            Option<PortfolioMemo>,
+        ),
     }
+}
+
+fn count_token_moves(funds: &[Fund]) -> (u32, u32) {
+    let mut fungible_moves = 0;
+    let mut nfts_moves = 0;
+    for fund in funds {
+        match &fund.description {
+            FundDescription::Fungible { .. } => {
+                fungible_moves += 1;
+            }
+            FundDescription::NonFungible(nfts) => {
+                nfts_moves += nfts.len();
+            }
+        }
+    }
+    (fungible_moves, nfts_moves as u32)
 }

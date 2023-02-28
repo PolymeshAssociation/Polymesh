@@ -950,6 +950,10 @@ decl_error! {
         AssetMetadataGlobalKeyAlreadyExists,
         /// Tickers should start with at least one valid byte.
         TickerFirstByteNotValid,
+        /// Attempt to call an extrinsic that is only permitted for fungible tokens.
+        UnexpectedNonFungibleToken,
+        /// Attempt to update the type of a non fungible token to a fungible token or the other way around.
+        IncompatibleAssetTypeUpdate
     }
 }
 
@@ -1012,6 +1016,19 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::Origin> for Module<T> {
 
     fn issue(origin: T::Origin, ticker: Ticker, total_supply: Balance) -> DispatchResult {
         Self::issue(origin, ticker, total_supply)
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn register_asset_metadata_type(
+        origin: T::Origin,
+        ticker: Option<Ticker>,
+        name: AssetMetadataName,
+        spec: AssetMetadataSpec,
+    ) -> DispatchResult {
+        match ticker {
+            Some(ticker) => Self::register_asset_metadata_local_type(origin, ticker, name, spec),
+            None => Self::register_asset_metadata_global_type(origin, name, spec),
+        }
     }
 }
 
@@ -1115,7 +1132,7 @@ impl<T: Config> Module<T> {
         Self::deposit_event(RawEvent::IdentifiersUpdated(did, ticker, idents));
     }
 
-    fn ensure_agent_with_custody_and_perms(
+    pub fn ensure_agent_with_custody_and_perms(
         origin: T::Origin,
         ticker: Ticker,
         portfolio_kind: PortfolioKind,
@@ -1335,6 +1352,12 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         Self::ensure_granular(ticker, value)?;
 
+        // Ensures the token is fungible
+        ensure!(
+            Tokens::get(&ticker).asset_type.is_fungible(),
+            Error::<T>::UnexpectedNonFungibleToken
+        );
+
         ensure!(
             from_portfolio.did != to_portfolio.did,
             Error::<T>::SenderSameAsReceiver
@@ -1439,9 +1462,14 @@ impl<T: Config> Module<T> {
         protocol_fee_data: Option<ProtocolOp>,
     ) -> DispatchResult {
         Self::ensure_granular(ticker, value)?;
-
         // Read the token details
         let mut token = Self::token_details(ticker);
+        // Ensures the token is fungible
+        ensure!(
+            token.asset_type.is_fungible(),
+            Error::<T>::UnexpectedNonFungibleToken
+        );
+
         // Prepare the updated total supply.
         let updated_total_supply = token
             .total_supply
@@ -1882,6 +1910,12 @@ impl<T: Config> Module<T> {
 
         Self::ensure_granular(&ticker, value)?;
 
+        // Ensures the token is fungible
+        ensure!(
+            Tokens::get(&ticker).asset_type.is_fungible(),
+            Error::<T>::UnexpectedNonFungibleToken
+        );
+
         // Reduce caller's portfolio balance. This makes sure that the caller has enough unlocked tokens.
         // If `advance_update_balances` fails, `reduce_portfolio_balance` shouldn't modify storage.
 
@@ -1945,6 +1979,11 @@ impl<T: Config> Module<T> {
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
 
         Tokens::try_mutate(&ticker, |token| -> DispatchResult {
+            // Ensures the token is fungible
+            ensure!(
+                token.asset_type.is_fungible(),
+                Error::<T>::UnexpectedNonFungibleToken
+            );
             ensure!(!token.divisible, Error::<T>::AssetAlreadyDivisible);
             token.divisible = true;
 
@@ -2037,7 +2076,7 @@ impl<T: Config> Module<T> {
         })
     }
 
-    fn check_asset_metadata_key_exists(ticker: Ticker, key: AssetMetadataKey) -> bool {
+    pub fn check_asset_metadata_key_exists(ticker: &Ticker, key: &AssetMetadataKey) -> bool {
         match key {
             AssetMetadataKey::Global(key) => AssetMetadataGlobalKeyToName::contains_key(key),
             AssetMetadataKey::Local(key) => AssetMetadataLocalKeyToName::contains_key(ticker, key),
@@ -2100,7 +2139,7 @@ impl<T: Config> Module<T> {
 
         // Check key exists.
         ensure!(
-            Self::check_asset_metadata_key_exists(ticker, key),
+            Self::check_asset_metadata_key_exists(&ticker, &key),
             Error::<T>::AssetMetadataKeyIsMissing
         );
 
@@ -2133,7 +2172,7 @@ impl<T: Config> Module<T> {
 
         // Check key exists.
         ensure!(
-            Self::check_asset_metadata_key_exists(ticker, key),
+            Self::check_asset_metadata_key_exists(&ticker, &key),
             Error::<T>::AssetMetadataKeyIsMissing
         );
 
@@ -2538,9 +2577,23 @@ impl<T: Config> Module<T> {
         Self::ensure_asset_exists(&ticker)?;
         Self::ensure_asset_type_valid(asset_type)?;
         let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
-
-        Tokens::mutate(ticker, |token| token.asset_type = asset_type);
+        Tokens::try_mutate(&ticker, |token| -> DispatchResult {
+            // Ensures that both parameters are non fungible types or if both are fungible types.
+            ensure!(
+                token.asset_type.is_fungible() == asset_type.is_fungible(),
+                Error::<T>::IncompatibleAssetTypeUpdate
+            );
+            token.asset_type = asset_type;
+            Ok(())
+        })?;
         Self::deposit_event(RawEvent::AssetTypeChanged(did, ticker, asset_type));
         Ok(())
+    }
+
+    /// Returns `None` if there's no asset associated to the given ticker,
+    /// returns Some(true) if the asset exists and is of type `AssetType::NonFungible`, and returns Some(false) otherwise.
+    pub fn nft_asset(ticker: &Ticker) -> Option<bool> {
+        let token = Tokens::try_get(ticker).ok()?;
+        Some(token.asset_type.is_non_fungible())
     }
 }

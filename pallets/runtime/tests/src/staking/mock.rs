@@ -52,7 +52,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     identity_id::GenesisIdentityRecord, Authorization, AuthorizationData, CddId, Claim, IdentityId,
-    InvestorUid, Moment, Permissions, PortfolioId, ScopeId, SecondaryKey, Signatory, Ticker,
+    InvestorUid, Moment, NFTId, Permissions, PortfolioId, ScopeId, SecondaryKey, Signatory, Ticker,
 };
 use sp_core::H256;
 use sp_npos_elections::{
@@ -493,6 +493,14 @@ impl PortfolioSubTrait<AccountId> for Test {
         _: IdentityId,
         _: Option<&SecondaryKey<AccountId>>,
     ) -> DispatchResult {
+        unimplemented!()
+    }
+
+    fn lock_nft(_: &PortfolioId, _: &Ticker, _: &NFTId) -> DispatchResult {
+        unimplemented!()
+    }
+
+    fn unlock_nft(_: &PortfolioId, _: &Ticker, _: &NFTId) -> DispatchResult {
         unimplemented!()
     }
 }

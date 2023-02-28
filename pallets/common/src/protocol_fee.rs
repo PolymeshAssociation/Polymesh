@@ -37,6 +37,8 @@ pub enum ProtocolOp {
     ContractsPutCode,
     CorporateBallotAttachBallot,
     CapitalDistributionDistribute,
+    NFTCreateCollection,
+    NFTMint,
 }
 
 /// Common interface to protocol fees for runtime modules.
