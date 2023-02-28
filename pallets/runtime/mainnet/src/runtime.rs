@@ -53,7 +53,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     authoring_version: 1,
     // `spec_version: aaa_bbb_ccd` should match node version v`aaa.bbb.cc`
     // N.B. `d` is unpinned from the binary version
-    spec_version: 5_002_001,
+    spec_version: 5_003_000,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 3,
@@ -88,7 +88,9 @@ parameter_types! {
     pub const UncleGenerations: BlockNumber = 0;
 
     // Settlement:
-    pub const MaxLegsInInstruction: u32 = 10;
+    pub const MaxNumberOfFungibleAssets: u32 = 10;
+    pub const MaxNumberOfNFTsPerLeg: u32 = 10;
+    pub const MaxNumberOfNFTs: u32 = 100;
 
     // I'm online:
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
@@ -130,6 +132,13 @@ parameter_types! {
     pub DeletionQueueDepth: u32 = 1024;
     pub MaxInLen: u32 = 8 * 1024;
     pub MaxOutLen: u32 = 8 * 1024;
+
+    // NFT:
+    pub const MaxNumberOfCollectionKeys: u8 = u8::MAX;
+
+    // Portfolio:
+    pub const MaxNumberOfFungibleMoves: u32 = 10;
+    pub const MaxNumberOfNFTsMoves: u32 = 100;
 }
 
 /// Splits fees 80/20 between treasury and block author.
@@ -368,6 +377,8 @@ construct_runtime!(
 
         // Preimage register.  Used by `pallet_scheduler`.
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
+
+        Nft: pallet_nft::{Pallet, Call, Storage, Event},
     }
 );
 

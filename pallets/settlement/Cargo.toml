@@ -17,6 +17,7 @@ polymesh-primitives-derive = { path = "../../primitives_derive", default-feature
 pallet-compliance-manager = { path = "../compliance-manager", default-features = false }
 #polymesh-contracts = { path = "../contracts", default-features = false }
 pallet-statistics = { path = "../statistics", default-features = false }
+pallet-nft = { path = "../nft", default-features = false }
 
 serde = { version = "1.0.104", default-features = false }
 serde_derive = { version = "1.0.104", optional = true, default-features = false  }

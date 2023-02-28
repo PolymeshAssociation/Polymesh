@@ -1,0 +1,43 @@
+[package]
+name = "pallet-nft"
+version = "0.1.0"
+authors = ["Polymath"]
+edition = "2021"
+
+[dependencies]
+# Our crates
+pallet-asset = { path = "../asset", default-features = false  }
+pallet-base = { path = "../base", default-features = false  }
+pallet-external-agents = { path = "../external-agents", default-features = false }
+pallet-identity = { path = "../identity", default-features = false }
+pallet-portfolio = { path = "../portfolio", default-features = false }
+polymesh-common-utilities = { path = "../common", default-features = false }
+polymesh-primitives = { path = "../../primitives", default-features = false }
+# Substrate
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+frame-support = { version = "4.0.0-dev", default-features = false }
+frame-system = { version = "4.0.0-dev", default-features = false }
+scale-info = { version = "2.0", default-features = false, features = ["derive"] }
+sp-std = { version = "4.0.0", default-features = false }
+
+# Only in STD
+frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
+
+[features]
+default = ["std"]
+no_std = []
+std = [
+    "codec/std",
+    "frame-support/std",
+    "frame-system/std",
+    "pallet-asset/std",
+    "pallet-external-agents/std",
+    "pallet-identity/std",
+    "pallet-portfolio/std",
+    "polymesh-common-utilities/std",
+    "polymesh-primitives/std",
+    "sp-std/std"
+]
+runtime-benchmarks = [
+    "frame-benchmarking",
+]

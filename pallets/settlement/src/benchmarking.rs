@@ -19,22 +19,23 @@ pub use frame_benchmarking::{account, benchmarks};
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use pallet_identity as identity;
+use pallet_nft::benchmarking::create_collection_issue_nfts;
 use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_common_utilities::{
     benchs::{make_asset, user, AccountIdOf, User, UserBuilder},
-    constants::currency::POLY,
+    constants::currency::{ONE_UNIT, POLY},
     constants::ENSURED_MAX_LEN,
     traits::asset::AssetFnTrait,
     TestUtilsFn,
 };
 use polymesh_primitives::{
+    asset::NonFungibleType,
     checked_inc::CheckedInc,
     statistics::{Stat2ndKey, StatType, StatUpdate},
     transfer_compliance::{TransferCondition, TransferConditionExemptKey},
-    Claim, Condition, ConditionType, CountryCode, IdentityId, PortfolioId, PortfolioName,
-    PortfolioNumber, Scope, Ticker, TrustedIssuer,
+    Claim, Condition, ConditionType, CountryCode, IdentityId, PortfolioId, PortfolioKind,
+    PortfolioName, PortfolioNumber, Scope, Ticker, TrustedIssuer,
 };
-//use sp_runtime::traits::Hash;
 use sp_runtime::SaturatedConversion;
 use sp_std::convert::TryInto;
 use sp_std::prelude::*;
@@ -61,6 +62,19 @@ impl<T: Config> From<&User<T>> for UserData<T> {
             did: user.did(),
         }
     }
+}
+
+pub struct BaseV2Parameters<T: Config> {
+    pub sender: User<T>,
+    pub receiver: User<T>,
+    pub fungible_ticker: Ticker,
+    pub nft_ticker: Ticker,
+    pub venue_id: VenueId,
+    pub legs_v2: Vec<LegV2>,
+    pub sender_portfolios: Vec<PortfolioId>,
+    pub settlement_type: SettlementType<T::BlockNumber>,
+    pub date: Option<T::Moment>,
+    pub memo: Option<InstructionMemo>,
 }
 
 fn set_block_number<T: Config>(new_block_no: u64) {
@@ -558,6 +572,151 @@ fn setup_manual_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     )
 }
 
+/// Creates a fungible asset for the given `ticker` and returns a `Vec<LegV2>` containing `n_legs`.
+fn setup_fungible_legs_v2<T: Config>(
+    sender: User<T>,
+    receiver: User<T>,
+    ticker: Ticker,
+    n_legs: u32,
+) -> Vec<LegV2> {
+    make_asset(&sender, Some(ticker.as_ref()));
+    (0..n_legs)
+        .map(|_| LegV2 {
+            from: PortfolioId {
+                did: sender.did(),
+                kind: PortfolioKind::Default,
+            },
+            to: PortfolioId {
+                did: receiver.did(),
+                kind: PortfolioKind::Default,
+            },
+            asset: LegAsset::Fungible {
+                ticker: ticker.clone(),
+                amount: ONE_UNIT,
+            },
+        })
+        .collect()
+}
+
+/// Creates an nft collection for `ticker`, mints `n_nfts` for `token_sender`, and returns a `Vec<LegV2>`
+/// containing `n_legs` with a total of `n_nfts` split among the legs.
+/// For this function only calls with the minimum number of legs to contain all `n_nfts` are allowed.
+/// E.g: If n_nfts = 78, n_legs must be equal to 8 (considering that MaxNumberOfNFTsPerLeg is equal to 10).
+fn setup_nft_legs<T: Config>(
+    sender: User<T>,
+    receiver: User<T>,
+    ticker: Ticker,
+    n_legs: u32,
+    n_nfts: u32,
+) -> Vec<LegV2> {
+    create_collection_issue_nfts::<T>(
+        sender.origin().into(),
+        ticker,
+        Some(NonFungibleType::Derivative),
+        0,
+        n_nfts,
+        PortfolioKind::Default,
+    );
+
+    let max_nfts_per_leg = T::MaxNumberOfNFTsPerLeg::get();
+    let last_leg_len = n_nfts % max_nfts_per_leg;
+    let full_legs = n_nfts / max_nfts_per_leg;
+
+    // Creates the NFTs for each leg. All legs except the last one will have T::MaxNumberOfNFTsPerLeg NFTs each.
+    let mut nfts: Vec<NFTs> = (0..full_legs)
+        .map(|leg_index| {
+            NFTs::new(
+                ticker,
+                (0..max_nfts_per_leg)
+                    .map(|nft_index| NFTId((leg_index * max_nfts_per_leg + nft_index + 1) as u64))
+                    .collect(),
+            )
+            .unwrap()
+        })
+        .collect();
+    // The last leg may have less than T::MaxNumberOfNFTsPerLeg NFTs
+    if last_leg_len > 0 {
+        nfts.push(NFTs::new_unverified(
+            ticker,
+            (0..last_leg_len)
+                .map(|nft_index| {
+                    NFTId((max_nfts_per_leg * (nfts.len() as u32) + nft_index + 1) as u64)
+                })
+                .collect(),
+        ));
+    }
+    // For this function only calls with the minimum number of legs to contain all `n_nfts` are allowed
+    assert_eq!(nfts.len() as u32, n_legs);
+    // Creates each leg
+    (0..n_legs)
+        .map(|index| LegV2 {
+            from: PortfolioId {
+                did: sender.did(),
+                kind: PortfolioKind::Default,
+            },
+            to: PortfolioId {
+                did: receiver.did(),
+                kind: PortfolioKind::Default,
+            },
+
+            asset: LegAsset::NonFungible(nfts[index as usize].clone()),
+        })
+        .collect()
+}
+
+/// Creates the basic environment for executing the benchmarks for the v2 extrinsics.
+/// This includes: creating one fungible asset, one NFT collection with `n_nfts`, and
+/// the instruction legs filled with `n_nfts` and `fungible_transfers`.
+/// All other parameters are also included in the `BaseV2Parameters` struct.
+fn setup_v2_extrinsics_parameters<T>(fungible_transfers: u32, n_nfts: u32) -> BaseV2Parameters<T>
+where
+    T: TestUtilsFn<AccountIdOf<T>> + Config,
+{
+    let max_nfts = T::MaxNumberOfNFTsPerLeg::get();
+    let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+    let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+    let fungible_ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+    let nft_ticker: Ticker = b"TICKER0".as_ref().try_into().unwrap();
+    let venue_id = create_venue_::<T>(alice.did(), vec![]);
+    let sender_portfolios = vec![PortfolioId {
+        did: alice.did(),
+        kind: PortfolioKind::Default,
+    }];
+
+    let mut fungible_legs = setup_fungible_legs_v2(
+        alice.clone(),
+        bob.clone(),
+        fungible_ticker,
+        fungible_transfers,
+    );
+    let n_nft_legs = if n_nfts % max_nfts == 0 {
+        n_nfts / max_nfts
+    } else {
+        n_nfts / max_nfts + 1
+    };
+    let mut non_fungible_legs =
+        setup_nft_legs(alice.clone(), bob.clone(), nft_ticker, n_nft_legs, n_nfts);
+    non_fungible_legs.append(&mut fungible_legs);
+    let legs_v2 = non_fungible_legs;
+
+    let settlement_type = SettlementType::SettleOnBlock(100u32.into());
+    let date = Some(99999999u32.into());
+    let memo = Some(InstructionMemo::default());
+
+    BaseV2Parameters::<T> {
+        sender: alice,
+        receiver: bob,
+        fungible_ticker,
+        nft_ticker,
+        venue_id,
+        legs_v2,
+        sender_portfolios,
+        settlement_type,
+        date,
+        memo,
+    }
+}
+
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>>, T: pallet_scheduler::Config }
 
@@ -624,7 +783,7 @@ benchmarks! {
 
     add_instruction {
 
-        let l in 1 .. T::MaxLegsInInstruction::get(); // Variation for the MAX leg count.
+        let l in 1 .. T::MaxNumberOfFungibleAssets::get(); // Variation for the MAX leg count.
         // Define settlement type
         let settlement_type = SettlementType::SettleOnAffirmation;
         // Emulate the add instruction and get all the necessary arguments.
@@ -637,7 +796,7 @@ benchmarks! {
 
 
     add_instruction_with_settle_on_block_type {
-        let l in 1 .. T::MaxLegsInInstruction::get(); // Variation for the MAX leg count.
+        let l in 1 .. T::MaxNumberOfFungibleAssets::get(); // Variation for the MAX leg count.
         // Define settlement type
         let settlement_type = SettlementType::SettleOnBlock(100u32.into());
         set_block_number::<T>(50);
@@ -652,7 +811,7 @@ benchmarks! {
 
 
     add_and_affirm_instruction {
-        let l in 1 .. T::MaxLegsInInstruction::get();
+        let l in 1 .. T::MaxNumberOfFungibleAssets::get();
         // Define settlement type
         let settlement_type = SettlementType::SettleOnAffirmation;
         // Emulate the add instruction and get all the necessary arguments.
@@ -665,7 +824,7 @@ benchmarks! {
 
 
     add_and_affirm_instruction_with_settle_on_block_type {
-        let l in 1 .. T::MaxLegsInInstruction::get();
+        let l in 1 .. T::MaxNumberOfFungibleAssets::get();
         // Define settlement type.
         let settlement_type = SettlementType::SettleOnBlock(100u32.into());
         set_block_number::<T>(50);
@@ -727,15 +886,16 @@ benchmarks! {
     withdraw_affirmation {
         // Below setup is for the onchain affirmation.
 
-        let l in 0 .. T::MaxLegsInInstruction::get();
+        let l in 0 .. T::MaxNumberOfFungibleAssets::get();
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true, true).unwrap();
         // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone(), None).unwrap();
+        let legs_v2: Vec<LegV2> = legs.iter().map(|leg| leg.clone().into()).collect();
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs_v2, None, true).unwrap();
         let instruction_id = InstructionId(1);
         // Affirm an instruction
         let portfolios_set = portfolios.clone().into_iter().collect::<BTreeSet<_>>();
-        Module::<T>::unsafe_affirm_instruction(did, instruction_id, portfolios_set, l.into(), None).unwrap();
+        Module::<T>::unsafe_affirm_instruction(did, instruction_id, portfolios_set, l.into(), None, None).unwrap();
 
     }: _(origin, instruction_id, portfolios, l.into())
     verify {
@@ -746,7 +906,7 @@ benchmarks! {
     }
 
     reject_instruction {
-        let l in 1 .. T::MaxLegsInInstruction::get() as u32;
+        let l in 1 .. T::MaxNumberOfFungibleAssets::get() as u32;
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(l, true, true).unwrap();
         // Add and affirm instruction.
@@ -760,7 +920,7 @@ benchmarks! {
 
 
     affirm_instruction {
-        let l in 0 .. T::MaxLegsInInstruction::get() as u32; // At least 2 legs needed to achieve worst case.
+        let l in 0 .. T::MaxNumberOfFungibleAssets::get() as u32; // At least 2 legs needed to achieve worst case.
         let (portfolios_to, _, to, _, _) = setup_affirm_instruction::<T>(l);
         let instruction_id = InstructionId(1); // It will always be `1` as we know there is no other instruction in the storage yet.
         let to_portfolios = portfolios_to.clone();
@@ -772,14 +932,14 @@ benchmarks! {
         }
     }
 
-
     affirm_with_receipts {
         // Catalyst here is the length of receipts vector.
-        let r in 1 .. T::MaxLegsInInstruction::get() as u32;
+        let r in 1 .. T::MaxNumberOfFungibleAssets::get() as u32;
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , s_portfolios, r_portfolios, account_id) = emulate_add_instruction::<T>(r, true, false).unwrap();
         // Add instruction
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs.clone(), None).unwrap();
+        let legs_v2: Vec<LegV2> = legs.iter().map(|leg| leg.clone().into()).collect();
+        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs_v2, None, true).unwrap();
         let instruction_id = InstructionId(1);
         let mut receipt_details = Vec::with_capacity(r as usize);
         legs.clone().into_iter().enumerate().for_each(|(idx, l)| {
@@ -811,7 +971,7 @@ benchmarks! {
         // 2. Assets have maximum compliance restriction complexity.
         // 3. Assets have maximum no. of TMs.
 
-        let l in 0 .. T::MaxLegsInInstruction::get() as u32;
+        let l in 0 .. T::MaxNumberOfFungibleAssets::get() as u32;
         let c = T::MaxConditionComplexity::get() as u32;
 
         // Setup affirm instruction (One party (i.e from) already affirms the instruction)
@@ -847,7 +1007,7 @@ benchmarks! {
     }
 
     reschedule_instruction {
-        let l = T::MaxLegsInInstruction::get() as u32;
+        let l = T::MaxNumberOfFungibleAssets::get() as u32;
 
         let (portfolios_to, from, to, tickers, _) = setup_affirm_instruction::<T>(l);
         // It will always be `1` as we know there is no other instruction in the storage yet.
@@ -866,7 +1026,7 @@ benchmarks! {
     }
 
     add_instruction_with_memo_and_settle_on_block_type {
-        let l in 1 .. T::MaxLegsInInstruction::get(); // Variation for the MAX leg count.
+        let l in 1 .. T::MaxNumberOfFungibleAssets::get(); // Variation for the MAX leg count.
         // Define settlement type
         let settlement_type = SettlementType::SettleOnBlock(100u32.into());
         let instruction_id = InstructionId(1);
@@ -881,7 +1041,7 @@ benchmarks! {
     }
 
     add_and_affirm_instruction_with_memo_and_settle_on_block_type {
-        let l in 1 .. T::MaxLegsInInstruction::get();
+        let l in 1 .. T::MaxNumberOfFungibleAssets::get();
         // Define settlement type.
         let settlement_type = SettlementType::SettleOnBlock(100u32.into());
         let instruction_id = InstructionId(1);
@@ -898,7 +1058,7 @@ benchmarks! {
     execute_manual_instruction {
         // This dispatch execute an instruction.
 
-        let l in 1 .. T::MaxLegsInInstruction::get() as u32;
+        let l in 1 .. T::MaxNumberOfFungibleAssets::get() as u32;
         let c = T::MaxConditionComplexity::get() as u32;
 
         // Setup affirm instruction (One party (i.e from) already affirms the instruction)
@@ -931,6 +1091,70 @@ benchmarks! {
         let expected_transfer_amount = first_leg.amount;
         assert_eq!(traded_amount, expected_transfer_amount,"Settlement: Failed to execute the instruction");
     }
+
+    add_instruction_with_memo_v2 {
+        let f in 1..T::MaxNumberOfFungibleAssets::get() as u32;
+
+        let parameters = setup_v2_extrinsics_parameters::<T>(f, T::MaxNumberOfNFTs::get());
+    }: _(parameters.sender.origin, parameters.venue_id, parameters.settlement_type, parameters.date, parameters.date, parameters.legs_v2, parameters.memo)
+
+    add_and_affirm_instruction_with_memo_v2 {
+        let f in 1..T::MaxNumberOfFungibleAssets::get() as u32;
+        let n in 1..T::MaxNumberOfNFTs::get() as u32;
+
+        let parameters = setup_v2_extrinsics_parameters::<T>(f, n);
+    }: _(parameters.sender.origin, parameters.venue_id, parameters.settlement_type, parameters.date, parameters.date, parameters.legs_v2, parameters.sender_portfolios, parameters.memo)
+
+    affirm_instruction_v2 {
+        let f in 1..T::MaxNumberOfFungibleAssets::get() as u32;
+        let n in 1..T::MaxNumberOfNFTs::get() as u32;
+
+        let parameters = setup_v2_extrinsics_parameters::<T>(f, n);
+        Module::<T>::add_instruction_with_memo_v2(
+            parameters.sender.clone().origin.into(),
+            parameters.venue_id,
+            parameters.settlement_type,
+            parameters.date,
+            parameters.date,
+            parameters.legs_v2.clone(),
+            parameters.memo
+        ).expect("failed to add instruction");
+    }: _(parameters.sender.origin, InstructionId(1), parameters.sender_portfolios, f, n)
+
+    withdraw_affirmation_v2 {
+        let f in 1..T::MaxNumberOfFungibleAssets::get() as u32;
+        let n in 1..T::MaxNumberOfNFTs::get() as u32;
+
+        let parameters = setup_v2_extrinsics_parameters::<T>(f, n);
+        Module::<T>::add_and_affirm_instruction_with_memo_v2(
+            parameters.sender.clone().origin.into(),
+            parameters.venue_id,
+            parameters.settlement_type,
+            parameters.date,
+            parameters.date,
+            parameters.legs_v2.clone(),
+            parameters.sender_portfolios.clone(),
+            parameters.memo
+        ).expect("failed to add instruction");
+    }: _(parameters.sender.origin, InstructionId(1), parameters.sender_portfolios, f, n)
+
+    reject_instruction_v2 {
+        let f in 1..T::MaxNumberOfFungibleAssets::get() as u32;
+        let n in 1..T::MaxNumberOfNFTs::get() as u32;
+
+        let parameters = setup_v2_extrinsics_parameters::<T>(f, n);
+        Module::<T>::add_and_affirm_instruction_with_memo_v2(
+            parameters.sender.clone().origin.into(),
+            parameters.venue_id,
+            parameters.settlement_type,
+            parameters.date,
+            parameters.date,
+            parameters.legs_v2.clone(),
+            parameters.sender_portfolios.clone(),
+            parameters.memo
+        ).expect("failed to add instruction");
+    }: _(parameters.sender.origin, InstructionId(1), parameters.sender_portfolios[0], f, n)
+
 }
 
 pub fn next_block<T: Config + pallet_scheduler::Config>() {

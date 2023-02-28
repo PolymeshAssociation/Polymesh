@@ -36,6 +36,7 @@ pub mod governance_group;
 pub mod group;
 pub mod identity;
 pub mod multisig;
+pub mod nft;
 pub mod portfolio;
 pub mod transaction_payment;
 pub use transaction_payment::{CddAndFeeDetails, ChargeTxFee};
