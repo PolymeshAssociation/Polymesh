@@ -106,17 +106,6 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        // Remove all storage for this module
-        fn on_runtime_upgrade() -> Weight {
-            use frame_support::sp_io::hashing;
-            sp_runtime::runtime_logger::RuntimeLogger::init();
-            log::info!(" >>> Removing reward pallet storage");
-            let reward_prefix = hashing::twox_128(b"Rewards");
-            let _ = frame_support::storage::unhashed::kill_prefix(&reward_prefix, None);
-            log::info!(" >>> Reward pallet storage removed");
-            1_000
-        }
-
         /// Claim an ITN reward.
         ///
         /// ## Arguments
