@@ -94,7 +94,7 @@ impl pallet_nft::WeightInfo for WeightInfo {
     // Storage: NFT NextNFTId (r:1 w:1)
     // Storage: Portfolio PortfolioNFT (r:0 w:1)
     // Storage: NFT MetadataValue (r:0 w:1)
-    fn mint_nft(n: u32) -> Weight {
+    fn issue_nft(n: u32) -> Weight {
         (70_116_000 as Weight)
             // Standard Error: 4_000
             .saturating_add((2_578_000 as Weight).saturating_mul(n as Weight))
@@ -111,7 +111,7 @@ impl pallet_nft::WeightInfo for WeightInfo {
     // Storage: Portfolio PortfolioNFT (r:1 w:1)
     // Storage: Asset BalanceOf (r:1 w:1)
     // Storage: NFT MetadataValue (r:0 w:1)
-    fn burn_nft(n: u32) -> Weight {
+    fn redeem_nft(n: u32) -> Weight {
         (76_996_000 as Weight)
             // Standard Error: 4_000
             .saturating_add((871_000 as Weight).saturating_mul(n as Weight))

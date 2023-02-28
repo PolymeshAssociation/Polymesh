@@ -105,8 +105,8 @@ use polymesh_common_utilities::{
     transaction_payment::CddAndFeeDetails, Context,
 };
 use polymesh_primitives::{
-    extract_auth, storage_migrate_on, storage_migration_ver, AuthorizationData, IdentityId,
-    KeyRecord, Permissions, Signatory,
+    extract_auth, storage_migration_ver, AuthorizationData, IdentityId, KeyRecord, Permissions,
+    Signatory,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Dispatchable, Hash, One};
@@ -261,14 +261,6 @@ decl_module! {
                     kill_item(NAME, item.as_bytes())
                 }
             }
-
-            storage_migrate_on!(StorageVersion, 1, {
-                migration::migrate_v1::<T>();
-            });
-
-            storage_migrate_on!(StorageVersion, 2, {
-                migration::migrate_v2::<T>();
-            });
 
             //TODO placeholder weight
             1_000
@@ -1143,67 +1135,5 @@ impl<T: Config> Module<T> {
 impl<T: Config> MultiSigSubTrait<T::AccountId> for Module<T> {
     fn is_multisig(account: &T::AccountId) -> bool {
         <MultiSigToIdentity<T>>::contains_key(account)
-    }
-}
-
-mod migration {
-    use super::*;
-    use pallet_identity::migration::migrate_v1_key;
-
-    mod v1 {
-        use super::*;
-
-        decl_storage! {
-            trait Store for Module<T: Config> as MultiSig {
-                pub KeyToMultiSig get(fn key_to_ms): map hasher(twox_64_concat) T::AccountId => T::AccountId;
-            }
-        }
-
-        decl_module! {
-            pub struct Module<T: Config> for enum Call where origin: T::Origin { }
-        }
-    }
-
-    mod v2 {
-        use super::*;
-
-        decl_storage! {
-            trait Store for Module<T: Config> as MultiSig {
-                /// Signers of a multisig. (multisig, signer) => signer.
-        pub MultiSigSigners: double_map hasher(identity) T::AccountId, hasher(twox_64_concat) Signatory<T::AccountId> => Signatory<T::AccountId>;
-            }
-        }
-
-        decl_module! {
-            pub struct Module<T: Config> for enum Call where origin: T::Origin { }
-        }
-    }
-
-    pub fn migrate_v1<T: Config>() {
-        sp_runtime::runtime_logger::RuntimeLogger::init();
-
-        log::info!(" >>> Updating MultiSig storage. Migrating KeyToMultiSig..");
-        let total_ms_signers =
-            v1::KeyToMultiSig::<T>::drain().fold(0usize, |total_ms_signers, (signer, ms)| {
-                // Migrate MS Signer to `Identity::KeyRecords` storage.
-                migrate_v1_key::<T>(signer, KeyRecord::MultiSigSignerKey(ms));
-
-                total_ms_signers + 1
-            });
-        log::info!(" >>> Migrated {} MultiSig Signers.", total_ms_signers);
-    }
-
-    pub fn migrate_v2<T: Config>() {
-        sp_runtime::runtime_logger::RuntimeLogger::init();
-
-        log::info!(" >>> Updating MultiSig storage. Migrating MultiSigSigners..");
-        let total_ms_signers =
-            v2::MultiSigSigners::<T>::drain().fold(0usize, |total_ms_signers, (ms, signer, _)| {
-                // Migrate MultiSigSigner.
-                <MultiSigSigners<T>>::insert(&ms, &signer, true);
-
-                total_ms_signers + 1
-            });
-        log::info!(" >>> Migrated {} MultiSigSigners.", total_ms_signers);
     }
 }
