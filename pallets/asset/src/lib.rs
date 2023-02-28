@@ -2694,12 +2694,14 @@ impl<T: Config> Module<T> {
         // Verifies if the key exists.
         match metadata_key {
             AssetMetadataKey::Global(global_key) => {
-                let _name = AssetMetadataGlobalKeyToName::try_get(&global_key)
-                    .map_err(|_| Error::<T>::AssetMetadataKeyIsMissing)?;
+                if !AssetMetadataGlobalKeyToName::contains_key(&global_key) {
+                    return Err(Error::<T>::AssetMetadataKeyIsMissing.into());
+                }
             }
             AssetMetadataKey::Local(local_key) => {
-                let _name = AssetMetadataLocalKeyToName::try_get(ticker, &local_key)
-                    .map_err(|_| Error::<T>::AssetMetadataKeyIsMissing)?;
+                if !AssetMetadataLocalKeyToName::contains_key(ticker, &local_key) {
+                    return Err(Error::<T>::AssetMetadataKeyIsMissing.into());
+                }
             }
         }
         // Verifies if the value is locked
