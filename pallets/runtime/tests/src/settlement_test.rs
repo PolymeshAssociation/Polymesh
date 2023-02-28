@@ -567,6 +567,7 @@ fn token_swap() {
     });
 }
 
+#[test]
 fn settle_on_block() {
     test_with_cdd_provider(|eve| {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER, TICKER2]);
