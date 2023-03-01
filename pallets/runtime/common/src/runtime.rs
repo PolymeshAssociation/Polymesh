@@ -320,6 +320,7 @@ macro_rules! misc_pallet_impls {
             type AssetFn = Asset;
             type WeightInfo = polymesh_weights::pallet_asset::WeightInfo;
             type CPWeightInfo = polymesh_weights::pallet_checkpoint::WeightInfo;
+            type NFTFn = pallet_nft::Module<Runtime>;
         }
 
         impl polymesh_contracts::Config for Runtime {
