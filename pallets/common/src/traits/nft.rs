@@ -1,6 +1,14 @@
+#[cfg(feature = "runtime-benchmarks")]
+use frame_support::dispatch::DispatchResult;
+#[cfg(feature = "runtime-benchmarks")]
+use polymesh_primitives::asset::NonFungibleType;
+#[cfg(feature = "runtime-benchmarks")]
+use polymesh_primitives::nft::NFTCollectionKeys;
+
 use frame_support::decl_event;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
+use polymesh_primitives::asset_metadata::AssetMetadataKey;
 use polymesh_primitives::nft::{NFTCollectionId, NFTId};
 use polymesh_primitives::ticker::Ticker;
 use polymesh_primitives::IdentityId;
@@ -35,4 +43,17 @@ pub trait WeightInfo {
     fn create_nft_collection(n: u32) -> Weight;
     fn issue_nft(n: u32) -> Weight;
     fn redeem_nft(n: u32) -> Weight;
+}
+
+pub trait NFTTrait<Origin> {
+    /// Returns true if the given `metadata_key` is a mandatory key for the ticker's NFT collection.
+    fn is_collection_key(ticker: &Ticker, metadata_key: &AssetMetadataKey) -> bool;
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn create_nft_collection(
+        origin: Origin,
+        ticker: Ticker,
+        nft_type: Option<NonFungibleType>,
+        collection_keys: NFTCollectionKeys,
+    ) -> DispatchResult;
 }

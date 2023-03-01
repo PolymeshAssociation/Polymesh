@@ -9,7 +9,7 @@ use pallet_base::try_next_pre;
 use pallet_portfolio::PortfolioNFT;
 use polymesh_common_utilities::compliance_manager::Config as ComplianceManagerConfig;
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
-pub use polymesh_common_utilities::traits::nft::{Config, Event, WeightInfo};
+pub use polymesh_common_utilities::traits::nft::{Config, Event, NFTTrait, WeightInfo};
 use polymesh_primitives::asset::{AssetName, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use polymesh_primitives::nft::{
@@ -422,5 +422,27 @@ impl<T: Config> Module<T> {
         }
 
         Ok(())
+    }
+}
+
+impl<T: Config> NFTTrait<T::Origin> for Module<T> {
+    fn is_collection_key(ticker: &Ticker, metadata_key: &AssetMetadataKey) -> bool {
+        match CollectionTicker::try_get(ticker) {
+            Ok(collection_id) => {
+                let key_set = CollectionKeys::get(&collection_id);
+                key_set.contains(metadata_key)
+            }
+            Err(_) => false,
+        }
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn create_nft_collection(
+        origin: T::Origin,
+        ticker: Ticker,
+        nft_type: Option<NonFungibleType>,
+        collection_keys: NFTCollectionKeys,
+    ) -> DispatchResult {
+        Module::<T>::create_nft_collection(origin, ticker, nft_type, collection_keys)
     }
 }

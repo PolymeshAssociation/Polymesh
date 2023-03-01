@@ -103,6 +103,7 @@ use polymesh_common_utilities::{
     compliance_manager::Config as ComplianceManagerConfig,
     constants::*,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
+    traits::nft::NFTTrait,
     with_transaction, SystematicIssuers,
 };
 use polymesh_primitives::{
@@ -877,6 +878,47 @@ decl_module! {
         pub fn update_asset_type(origin, ticker: Ticker, asset_type: AssetType) -> DispatchResult {
             Self::base_update_asset_type(origin, ticker, asset_type)
         }
+
+        /// Removes the asset metadata key and value of a local key.
+        ///
+        /// # Arguments
+        /// * `origin` - the secondary key of the sender.
+        /// * `ticker` - the ticker of the local metadata key.
+        /// * `local_key` - the local metadata key.
+        ///
+        /// # Errors
+        ///  - `SecondaryKeyNotAuthorizedForAsset` - if called by someone without the appropriate external agent permissions.
+        ///  - `UnauthorizedAgent` - if called by someone without the appropriate external agent permissions.
+        ///  - `AssetMetadataKeyIsMissing` - if the key doens't exist.
+        ///  - `AssetMetadataValueIsLocked` - if the value of the key is locked.
+        ///  - AssetMetadataKeyBelongsToNFTCollection - if the key is a mandatory key in an NFT collection.
+        ///
+        /// # Permissions
+        /// * Asset
+        #[weight = <T as Config>::WeightInfo::remove_local_metadata_key()]
+        pub fn remove_local_metadata_key(origin, ticker: Ticker, local_key: AssetMetadataLocalKey) -> DispatchResult {
+            Self::base_remove_local_metadata_key(origin, ticker, local_key)
+        }
+
+        /// Removes the asset metadata value of a metadata key.
+        ///
+        /// # Arguments
+        /// * `origin` - the secondary key of the sender.
+        /// * `ticker` - the ticker of the local metadata key.
+        /// * `metadata_key` - the metadata key that will have its value deleted.
+        ///
+        /// # Errors
+        ///  - `SecondaryKeyNotAuthorizedForAsset` - if called by someone without the appropriate external agent permissions.
+        ///  - `UnauthorizedAgent` - if called by someone without the appropriate external agent permissions.
+        ///  - `AssetMetadataKeyIsMissing` - if the key doens't exist.
+        ///  - `AssetMetadataValueIsLocked` - if the value of the key is locked.
+        ///
+        /// # Permissions
+        /// * Asset
+        #[weight = <T as Config>::WeightInfo::remove_metadata_value()]
+        pub fn remove_metadata_value(origin, ticker: Ticker, metadata_key: AssetMetadataKey) -> DispatchResult {
+            Self::base_remove_metadata_value(origin, ticker, metadata_key)
+        }
     }
 }
 
@@ -953,7 +995,11 @@ decl_error! {
         /// Attempt to call an extrinsic that is only permitted for fungible tokens.
         UnexpectedNonFungibleToken,
         /// Attempt to update the type of a non fungible token to a fungible token or the other way around.
-        IncompatibleAssetTypeUpdate
+        IncompatibleAssetTypeUpdate,
+        /// Attempt to delete a key that is needed for an NFT collection.
+        AssetMetadataKeyBelongsToNFTCollection,
+        /// Attempt to lock a metadata value that is empty.
+        AssetMetadataValueIsEmpty
     }
 }
 
@@ -2182,6 +2228,12 @@ impl<T: Config> Module<T> {
             Error::<T>::AssetMetadataValueIsLocked
         );
 
+        // Prevent locking an asset metadata with no value
+        if detail.is_locked(<pallet_timestamp::Pallet<T>>::get()) {
+            AssetMetadataValues::try_get(&ticker, &key)
+                .map_err(|_| Error::<T>::AssetMetadataValueIsEmpty)?;
+        }
+
         // Set asset metadata value details.
         AssetMetadataValueDetails::<T>::insert(ticker, key, &detail);
 
@@ -2595,5 +2647,78 @@ impl<T: Config> Module<T> {
     pub fn nft_asset(ticker: &Ticker) -> Option<bool> {
         let token = Tokens::try_get(ticker).ok()?;
         Some(token.asset_type.is_non_fungible())
+    }
+
+    fn base_remove_local_metadata_key(
+        origin: T::Origin,
+        ticker: Ticker,
+        local_key: AssetMetadataLocalKey,
+    ) -> DispatchResult {
+        // Verifies if the caller has the correct permissions for this asset
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+        // Verifies if the key exists.
+        let name = AssetMetadataLocalKeyToName::try_get(ticker, &local_key)
+            .map_err(|_| Error::<T>::AssetMetadataKeyIsMissing)?;
+        // Verifies if the value is locked
+        let metadata_key = AssetMetadataKey::Local(local_key);
+        if let Some(value_detail) = AssetMetadataValueDetails::<T>::get(&ticker, &metadata_key) {
+            ensure!(
+                !value_detail.is_locked(<pallet_timestamp::Pallet<T>>::get()),
+                Error::<T>::AssetMetadataValueIsLocked
+            );
+        }
+        // Verifies if the key belongs to an NFT collection
+        ensure!(
+            !T::NFTFn::is_collection_key(&ticker, &metadata_key),
+            Error::<T>::AssetMetadataKeyBelongsToNFTCollection
+        );
+        // Remove key from storage
+        AssetMetadataValues::remove(&ticker, &metadata_key);
+        AssetMetadataValueDetails::<T>::remove(&ticker, &metadata_key);
+        AssetMetadataLocalNameToKey::remove(&ticker, &name);
+        AssetMetadataLocalKeyToName::remove(&ticker, &local_key);
+        AssetMetadataLocalSpecs::remove(&ticker, &local_key);
+        Self::deposit_event(RawEvent::LocalMetadataKeyDeleted(
+            caller_did, ticker, local_key,
+        ));
+        Ok(())
+    }
+
+    fn base_remove_metadata_value(
+        origin: T::Origin,
+        ticker: Ticker,
+        metadata_key: AssetMetadataKey,
+    ) -> DispatchResult {
+        // Verifies if the caller has the correct permissions for this asset
+        let caller_did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+        // Verifies if the key exists.
+        match metadata_key {
+            AssetMetadataKey::Global(global_key) => {
+                if !AssetMetadataGlobalKeyToName::contains_key(&global_key) {
+                    return Err(Error::<T>::AssetMetadataKeyIsMissing.into());
+                }
+            }
+            AssetMetadataKey::Local(local_key) => {
+                if !AssetMetadataLocalKeyToName::contains_key(ticker, &local_key) {
+                    return Err(Error::<T>::AssetMetadataKeyIsMissing.into());
+                }
+            }
+        }
+        // Verifies if the value is locked
+        if let Some(value_detail) = AssetMetadataValueDetails::<T>::get(&ticker, &metadata_key) {
+            ensure!(
+                !value_detail.is_locked(<pallet_timestamp::Pallet<T>>::get()),
+                Error::<T>::AssetMetadataValueIsLocked
+            );
+        }
+        // Remove the metadata value from storage
+        AssetMetadataValues::remove(&ticker, &metadata_key);
+        AssetMetadataValueDetails::<T>::remove(&ticker, &metadata_key);
+        Self::deposit_event(RawEvent::MetadataValueDeleted(
+            caller_did,
+            ticker,
+            metadata_key,
+        ));
+        Ok(())
     }
 }
