@@ -338,6 +338,7 @@ impl<T: Config> Module<T> {
             .ok_or(Error::<T>::BalanceUnderflow)?;
         NumberOfNFTs::insert(&ticker, &caller_portfolio.did, new_balance);
         PortfolioNFT::remove(&caller_portfolio, (&ticker, &nft_id));
+        #[allow(deprecated)]
         MetadataValue::remove_prefix((&collection_id, &nft_id), None);
 
         Self::deposit_event(Event::RedeemedNFT(caller_portfolio.did, ticker, nft_id));
