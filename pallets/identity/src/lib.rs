@@ -97,7 +97,6 @@ use frame_support::{
     decl_error, decl_module, decl_storage,
     dispatch::{
         DispatchClass::{Normal, Operational},
-        Pays,
         DispatchResult, Pays,
     },
     traits::{ChangeMembers, Currency, EnsureOrigin, Get, InitializeMembers},

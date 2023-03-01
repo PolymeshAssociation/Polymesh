@@ -19,7 +19,7 @@ const MAX_COLLECTION_KEYS: u32 = 255;
 
 /// Creates an NFT collection with `n` global metadata keys.
 fn create_collection<T: Config>(
-    origin: T::Origin,
+    origin: T::RuntimeOrigin,
     ticker: Ticker,
     nft_type: Option<NonFungibleType>,
     n: u32,
@@ -51,7 +51,7 @@ fn creates_keys_register_metadata_types<T: Config>(n: u32) -> NFTCollectionKeys 
 
 /// Creates an NFT collection with `n_keys` global metadata keys and issues `n_nfts`.
 pub fn create_collection_issue_nfts<T: Config>(
-    origin: T::Origin,
+    origin: T::RuntimeOrigin,
     ticker: Ticker,
     nft_type: Option<NonFungibleType>,
     n_keys: u32,

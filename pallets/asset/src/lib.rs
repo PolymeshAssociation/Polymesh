@@ -88,7 +88,7 @@ use core::result::Result as StdResult;
 use currency::*;
 use frame_support::{
     decl_error, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult, Weight},
+    dispatch::{DispatchError, DispatchResult},
     ensure, fail,
     traits::Get,
 };
@@ -1066,7 +1066,7 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
 
     #[cfg(feature = "runtime-benchmarks")]
     fn register_asset_metadata_type(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Option<Ticker>,
         name: AssetMetadataName,
         spec: AssetMetadataSpec,
@@ -2654,7 +2654,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_remove_local_metadata_key(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
         local_key: AssetMetadataLocalKey,
     ) -> DispatchResult {
@@ -2689,7 +2689,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_remove_metadata_value(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
         metadata_key: AssetMetadataKey,
     ) -> DispatchResult {

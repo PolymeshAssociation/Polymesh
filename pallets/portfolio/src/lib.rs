@@ -666,7 +666,7 @@ impl<T: Config> Module<T> {
     /// Verifies if the portfolios are different, if the move is between the same identity, if the receiving portfolio exists,
     /// and if the user has access to both portfolios.
     fn ensure_portfolios_validity_and_permissions(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         from: PortfolioId,
         to: PortfolioId,
     ) -> Result<IdentityId, DispatchError> {

@@ -18,7 +18,7 @@ use polymesh_primitives::nft::{
 use polymesh_primitives::{IdentityId, PortfolioId, PortfolioKind, Ticker};
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
-use sp_std::vec::Vec;
+use sp_std::{vec, vec::Vec};
 
 type Asset<T> = pallet_asset::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
@@ -54,7 +54,7 @@ decl_storage!(
 );
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
 
         type Error = Error<T>;
 
@@ -170,7 +170,7 @@ decl_error! {
 
 impl<T: Config> Module<T> {
     fn base_create_nft_collection(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
         nft_type: Option<NonFungibleType>,
         collection_keys: NFTCollectionKeys,
@@ -251,7 +251,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_issue_nft(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
         metadata_attributes: Vec<NFTMetadataAttribute>,
         portfolio_kind: PortfolioKind,
@@ -313,7 +313,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_redeem_nft(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
         nft_id: NFTId,
         portfolio_kind: PortfolioKind,
@@ -425,7 +425,7 @@ impl<T: Config> Module<T> {
     }
 }
 
-impl<T: Config> NFTTrait<T::Origin> for Module<T> {
+impl<T: Config> NFTTrait<T::RuntimeOrigin> for Module<T> {
     fn is_collection_key(ticker: &Ticker, metadata_key: &AssetMetadataKey) -> bool {
         match CollectionTicker::try_get(ticker) {
             Ok(collection_id) => {
@@ -438,7 +438,7 @@ impl<T: Config> NFTTrait<T::Origin> for Module<T> {
 
     #[cfg(feature = "runtime-benchmarks")]
     fn create_nft_collection(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
         nft_type: Option<NonFungibleType>,
         collection_keys: NFTCollectionKeys,

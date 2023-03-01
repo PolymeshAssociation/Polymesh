@@ -2098,7 +2098,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_reject_instruction(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         id: InstructionId,
         portfolio: PortfolioId,
         fungible_transfers: u32,
