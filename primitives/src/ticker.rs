@@ -56,8 +56,14 @@ impl TryFrom<&[u8]> for Ticker {
     fn try_from(s: &[u8]) -> Result<Self, Self::Error> {
         let len = s.len();
         let mut inner = [0u8; TICKER_LEN];
-        inner[..len].copy_from_slice(s);
-        Ok(Ticker(inner))
+        if len >= TICKER_LEN {
+            // return a ticker with the first TICKER_LEN bytes.
+            inner[..TICKER_LEN].copy_from_slice(&s[..TICKER_LEN]);
+            Ok(Ticker(inner))
+        } else {
+            inner[..len].copy_from_slice(s);
+            Ok(Ticker(inner))
+        }
     }
 }
 
