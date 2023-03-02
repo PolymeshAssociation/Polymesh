@@ -125,16 +125,20 @@ pub struct VenueDetails(Vec<u8>);
 
 /// Status of an instruction
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum InstructionStatus {
+pub enum InstructionStatus<BlockNumber> {
     /// Invalid instruction or details pruned
     Unknown,
     /// Instruction is pending execution
     Pending,
     /// Instruction has failed execution
     Failed,
+    /// Instruction has been executed successfully
+    Success(BlockNumber),
+    /// Instruction has been rejected.
+    Rejected(BlockNumber),
 }
 
-impl Default for InstructionStatus {
+impl<BlockNumber> Default for InstructionStatus<BlockNumber> {
     fn default() -> Self {
         Self::Unknown
     }
@@ -244,8 +248,6 @@ pub struct Instruction<Moment, BlockNumber> {
     pub instruction_id: InstructionId,
     /// Id of the venue this instruction belongs to
     pub venue_id: VenueId,
-    /// Status of the instruction
-    pub status: InstructionStatus,
     /// Type of settlement used for this instruction
     pub settlement_type: SettlementType<BlockNumber>,
     /// Date at which this instruction was created
@@ -548,6 +550,9 @@ decl_storage! {
         StorageVersion get(fn storage_version) build(|_| Version::new(0)): Version;
         /// Instruction memo
         InstructionMemos get(fn memo): map hasher(twox_64_concat) InstructionId => Option<InstructionMemo>;
+        /// Instruction statuses. instruction_id -> InstructionStatus
+        InstructionStatuses get(fn instruction_status):
+            map hasher(twox_64_concat) InstructionId => InstructionStatus<T::BlockNumber>;
     }
 }
 
@@ -733,7 +738,7 @@ decl_module! {
                 ..
             } = Identity::<T>::ensure_origin_call_permissions(origin)?;
             ensure!(
-                Self::instruction_details(id).status != InstructionStatus::Unknown,
+                Self::instruction_status(id) != InstructionStatus::Unknown,
                 Error::<T>::UnknownInstruction
             );
 
@@ -876,9 +881,9 @@ decl_module! {
         pub fn reschedule_instruction(origin, id: InstructionId) {
             let did = Identity::<T>::ensure_perms(origin)?;
 
-            <InstructionDetails<T>>::try_mutate(id, |details| {
-                ensure!(details.status == InstructionStatus::Failed, Error::<T>::InstructionNotFailed);
-                details.status = InstructionStatus::Pending;
+            <InstructionStatuses<T>>::try_mutate(id, |status| {
+                ensure!(*status == InstructionStatus::Failed, Error::<T>::InstructionNotFailed);
+                *status = InstructionStatus::Pending;
                 Result::<_, Error<T>>::Ok(())
             })?;
 
@@ -1108,12 +1113,13 @@ impl<T: Config> Module<T> {
         let instruction = Instruction {
             instruction_id,
             venue_id,
-            status: InstructionStatus::Pending,
             settlement_type,
             created_at: Some(<pallet_timestamp::Pallet<T>>::get()),
             trade_date,
             value_date,
         };
+
+        InstructionStatuses::<T>::insert(instruction_id, InstructionStatus::Pending);
 
         // Write data to storage.
         for counter_party in &counter_parties {
@@ -1219,7 +1225,7 @@ impl<T: Config> Module<T> {
     ) -> Result<Instruction<T::Moment, T::BlockNumber>, DispatchError> {
         let details = Self::instruction_details(id);
         ensure!(
-            details.status != InstructionStatus::Unknown,
+            Self::instruction_status(id) != InstructionStatus::Unknown,
             Error::<T>::UnknownInstruction
         );
 
@@ -1260,7 +1266,7 @@ impl<T: Config> Module<T> {
         if result.is_ok() {
             Self::prune_instruction(id);
         } else if <InstructionDetails<T>>::contains_key(id) {
-            <InstructionDetails<T>>::mutate(id, |d| d.status = InstructionStatus::Failed);
+            <InstructionStatuses<T>>::mutate(id, |d| *d = InstructionStatus::Failed);
         }
         result
     }
@@ -1275,7 +1281,7 @@ impl<T: Config> Module<T> {
         // Verifies that the instruction is not in a Failed or in an Unknown state
         let details = Self::instruction_details(instruction_id);
         ensure!(
-            details.status == InstructionStatus::Pending,
+            Self::instruction_status(instruction_id) == InstructionStatus::Pending,
             Error::<T>::InstructionNotPending
         );
 
