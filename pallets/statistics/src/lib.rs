@@ -53,7 +53,7 @@ decl_storage! {
             hasher(blake2_128_concat) Stat1stKey,
             hasher(blake2_128_concat) Stat2ndKey => u128;
         /// Asset transfer compliance for a ticker (AssetScope -> AssetTransferCompliance)
-        pub AssetTransferCompliances get(fn asset_transfer_compliance): map hasher(blake2_128_concat) AssetScope => AssetTransferCompliance;
+        pub AssetTransferCompliances get(fn asset_transfer_compliance): map hasher(blake2_128_concat) AssetScope => AssetTransferCompliance<T::MaxTransferConditionsPerAsset>;
         /// Entities exempt from a Transfer Compliance rule.
         pub TransferConditionExemptEntities get(fn transfer_condition_exempt_entities):
             double_map
@@ -193,7 +193,7 @@ impl<T: Config> Module<T> {
             .map_err(|_| Error::<T>::StatTypeLimitReached)?;
 
         // Get list of StatTypes required by current TransferConditions.
-        let required_types = AssetTransferCompliances::get(&asset)
+        let required_types = AssetTransferCompliances::<T>::get(&asset)
             .requirements
             .into_iter()
             .map(|condition| condition.get_stat_type())
@@ -293,7 +293,7 @@ impl<T: Config> Module<T> {
         // Commit changes to storage.
         if bounded_transfer_conditions.len() > 0 {
             // Check if required Stats are enabled.
-            for condition in &bounded_transfer_conditions {
+            for condition in bounded_transfer_conditions.into_iter() {
                 let stat_type = condition.get_stat_type();
                 ensure!(
                     Self::is_asset_stat_active(asset, stat_type),
@@ -724,7 +724,7 @@ impl<T: Config> Module<T> {
         total_supply: Balance,
     ) -> DispatchResult {
         let asset = AssetScope::Ticker(*ticker);
-        let tm = AssetTransferCompliances::get(&asset);
+        let tm = AssetTransferCompliances::<T>::get(&asset);
         if tm.paused {
             // Transfer rules are paused.
             return Ok(());
@@ -769,7 +769,7 @@ impl<T: Config> Module<T> {
         total_supply: Balance,
     ) -> Vec<TransferConditionResult> {
         let asset = AssetScope::Ticker(*ticker);
-        let tm = AssetTransferCompliances::get(&asset);
+        let tm = AssetTransferCompliances::<T>::get(&asset);
 
         // Pre-Calculate the investor count changes.
         let count_changes = Self::investor_count_changes(
