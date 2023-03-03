@@ -124,11 +124,23 @@ pub struct TransferConditionExemptKey {
 /// List of transfer compliance requirements associated to an asset.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Decode, Encode, TypeInfo)]
-#[derive(Clone, Default, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 #[scale_info(skip_type_params(S))]
 pub struct AssetTransferCompliance<S: Get<u32>> {
     /// This flag indicates if asset transfer compliance should be enforced.
     pub paused: bool,
     /// List of transfer compliance requirements.
     pub requirements: BoundedBTreeSet<TransferCondition, S>,
+}
+
+impl<S> Default for AssetTransferCompliance<S>
+where
+    S: Get<u32>,
+{
+    fn default() -> Self {
+        Self {
+            paused: Default::default(),
+            requirements: Default::default(),
+        }
+    }
 }
