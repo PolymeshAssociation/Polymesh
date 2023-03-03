@@ -124,7 +124,7 @@ pub struct TransferConditionExemptKey {
 /// List of transfer compliance requirements associated to an asset.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Decode, Encode, TypeInfo)]
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct AssetTransferCompliance<S: Get<u32>> {
     /// This flag indicates if asset transfer compliance should be enforced.
     pub paused: bool,
