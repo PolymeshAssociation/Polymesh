@@ -72,11 +72,58 @@ pub enum AssetType {
     /// relative to some "stable" asset or basket of assets.
     /// A stablecoin can be pegged to a cryptocurrency, fiat money, or to exchange-traded commodities.
     StableCoin,
+    /// Non-fungible token.
+    NonFungible(NonFungibleType),
+}
+
+/// Defines all non-fungible variants.
+#[derive(Encode, Decode, TypeInfo, Copy, Clone, Debug, PartialEq, Eq)]
+pub enum NonFungibleType {
+    /// Derivative contract - a contract between two parties for buying or selling a security at a
+    /// predetermined price within a specific time period.
+    /// Examples: forwards, futures, options or swaps.
+    Derivative,
+    /// Fixed income security - an investment that provides a return in the form of fixed periodic
+    /// interest payments and the eventual return of principal at maturity.
+    /// Examples: bonds, treasury bills, certificates of deposit.
+    FixedIncome,
+    /// Invoice - a list of goods sent or services provided, with a statement of the sum due for these.
+    Invoice,
+    /// The Id of a user definied type.
+    Custom(CustomAssetTypeId),
 }
 
 impl Default for AssetType {
     fn default() -> Self {
         Self::EquityCommon
+    }
+}
+
+impl AssetType {
+    /// Returns true if the asset type is non-fungible.
+    pub fn is_non_fungible(&self) -> bool {
+        if let AssetType::NonFungible(_) = self {
+            return true;
+        }
+        false
+    }
+
+    /// Returns true if the asset type is fungible.
+    pub fn is_fungible(&self) -> bool {
+        match self {
+            AssetType::EquityCommon
+            | AssetType::EquityPreferred
+            | AssetType::Commodity
+            | AssetType::FixedIncome
+            | AssetType::REIT
+            | AssetType::Fund
+            | AssetType::RevenueShareAgreement
+            | AssetType::StructuredProduct
+            | AssetType::Derivative
+            | AssetType::Custom(_)
+            | AssetType::StableCoin => true,
+            AssetType::NonFungible(_) => false,
+        }
     }
 }
 

@@ -1,6 +1,7 @@
 use super::{
     asset_test::{allow_all_transfers, max_len_bytes},
     next_block,
+    nft::{create_nft_collection, mint_nft},
     storage::{
         default_portfolio_vec, make_account_without_cdd, provide_scope_claim_to_multiple_parties,
         user_portfolio_vec, TestStorage, User,
@@ -8,23 +9,27 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use frame_support::{assert_noop, assert_ok, IterableStorageDoubleMap};
+use frame_support::{assert_noop, assert_ok, IterableStorageDoubleMap, StorageDoubleMap};
 use pallet_asset as asset;
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
 use pallet_identity as identity;
-use pallet_portfolio::MovePortfolioItem;
+use pallet_nft::NumberOfNFTs;
+use pallet_portfolio::{MovePortfolioItem, PortfolioLockedNFT, PortfolioNFT};
 use pallet_scheduler as scheduler;
 use pallet_settlement::{
-    AffirmationStatus, Instruction, InstructionId, InstructionMemo, InstructionStatus, Leg, LegId,
-    LegStatus, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails, VenueId,
-    VenueInstructions, VenueType,
+    AffirmationStatus, Instruction, InstructionId, InstructionMemo, InstructionStatus, Leg,
+    LegAsset, LegId, LegStatus, LegV2, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType,
+    VenueDetails, VenueId, VenueInstructions, VenueType,
 };
 use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    asset::AssetType, checked_inc::CheckedInc, AccountId, AuthorizationData, Balance, Claim,
-    Condition, ConditionType, IdentityId, PortfolioId, PortfolioName, PortfolioNumber, Signatory,
-    Ticker,
+    asset::{AssetType, NonFungibleType},
+    asset_metadata::{AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue},
+    checked_inc::CheckedInc,
+    AccountId, AuthorizationData, Balance, Claim, Condition, ConditionType, IdentityId,
+    NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind,
+    PortfolioName, PortfolioNumber, Signatory, Ticker,
 };
 use rand::{prelude::*, thread_rng};
 use sp_runtime::AnySignature;
@@ -178,14 +183,7 @@ impl Deref for UserWithBalance {
 
 fn create_token_and_venue(ticker: Ticker, user: User) -> VenueId {
     create_token(ticker, user);
-    let venue_counter = Settlement::venue_counter();
-    assert_ok!(Settlement::create_venue(
-        user.origin(),
-        VenueDetails::default(),
-        vec![user.acc()],
-        VenueType::Other
-    ));
-    venue_counter
+    create_venue(user)
 }
 
 fn create_token(ticker: Ticker, user: User) {
@@ -201,6 +199,17 @@ fn create_token(ticker: Ticker, user: User) {
     ));
     assert_ok!(Asset::issue(user.origin(), ticker, 100_000));
     allow_all_transfers(ticker, user);
+}
+
+pub(crate) fn create_venue(user: User) -> VenueId {
+    let venue_counter = Settlement::venue_counter();
+    assert_ok!(Settlement::create_venue(
+        user.origin(),
+        VenueDetails::default(),
+        vec![user.acc()],
+        VenueType::Other
+    ));
+    venue_counter
 }
 
 pub fn set_current_block_number(block: u32) {
@@ -427,7 +436,7 @@ fn overdraft_failure() {
                 default_portfolio_vec(alice.did),
                 1
             ),
-            Error::FailedToLockTokens
+            PortfolioError::InsufficientPortfolioBalance
         );
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
@@ -475,11 +484,8 @@ fn token_swap() {
 
         for i in 0..legs.len() {
             assert_eq!(
-                Settlement::instruction_legs(
-                    instruction_id,
-                    u64::try_from(i).map(LegId).unwrap_or_default()
-                ),
-                legs[i]
+                Settlement::get_instruction_leg(&instruction_id, &LegId(i as u64)),
+                legs[i].clone().into()
             );
         }
 
@@ -562,234 +568,6 @@ fn token_swap() {
 }
 
 #[test]
-fn claiming_receipt() {
-    test_with_cdd_provider(|eve| {
-        let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER, TICKER2]);
-        let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER, TICKER2]);
-        let venue_counter = create_token_and_venue(TICKER, alice.user);
-        create_token(TICKER2, bob.user);
-        let instruction_id = Settlement::instruction_counter();
-        alice.refresh_init_balances();
-        bob.refresh_init_balances();
-
-        // Provide scope claims to multiple parties of a transactions.
-        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER, eve.clone());
-        provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], TICKER2, eve);
-
-        let amount = 100u128;
-        let legs = vec![
-            Leg {
-                from: PortfolioId::default_portfolio(alice.did),
-                to: PortfolioId::default_portfolio(bob.did),
-                asset: TICKER,
-                amount,
-            },
-            Leg {
-                from: PortfolioId::default_portfolio(bob.did),
-                to: PortfolioId::default_portfolio(alice.did),
-                asset: TICKER2,
-                amount,
-            },
-        ];
-
-        assert_ok!(Settlement::add_instruction(
-            alice.origin(),
-            venue_counter,
-            SettlementType::SettleOnAffirmation,
-            None,
-            None,
-            legs.clone(),
-        ));
-
-        assert_user_affirms(instruction_id, &alice, AffirmationStatus::Pending);
-        assert_user_affirms(instruction_id, &bob, AffirmationStatus::Pending);
-
-        for i in 0..legs.len() {
-            assert_eq!(
-                Settlement::instruction_legs(
-                    instruction_id,
-                    u64::try_from(i).map(LegId).unwrap_or_default()
-                ),
-                legs[i]
-            );
-        }
-
-        let instruction_details = Instruction {
-            instruction_id,
-            venue_id: venue_counter,
-            status: InstructionStatus::Pending,
-            settlement_type: SettlementType::SettleOnAffirmation,
-            created_at: Some(Timestamp::get()),
-            trade_date: None,
-            value_date: None,
-        };
-        assert_eq!(
-            Settlement::instruction_details(instruction_id),
-            instruction_details
-        );
-
-        assert_affirms_pending(instruction_id, 2);
-        assert_eq!(venue_instructions(venue_counter), vec![instruction_id]);
-
-        alice.assert_all_balances_unchanged();
-        bob.assert_all_balances_unchanged();
-
-        let msg = Receipt {
-            receipt_uid: 0,
-            from: PortfolioId::default_portfolio(alice.did),
-            to: PortfolioId::default_portfolio(bob.did),
-            asset: TICKER,
-            amount,
-        };
-        let signature = AccountKeyring::Alice.sign(&msg.encode());
-
-        let claim_receipt = |signature, metadata| {
-            Settlement::claim_receipt(
-                alice.origin(),
-                instruction_id,
-                ReceiptDetails {
-                    receipt_uid: 0,
-                    leg_id: LegId(0),
-                    signer: AccountKeyring::Alice.to_account_id(),
-                    signature,
-                    metadata,
-                },
-            )
-        };
-
-        assert_noop!(
-            claim_receipt(signature.clone().into(), ReceiptMetadata::default()),
-            Error::LegNotPending
-        );
-        set_current_block_number(4);
-
-        assert_affirm_instruction_with_one_leg!(alice.origin(), instruction_id, alice.did);
-
-        assert_affirms_pending(instruction_id, 1);
-        assert_user_affirms(instruction_id, &alice, AffirmationStatus::Affirmed);
-        assert_user_affirms(instruction_id, &bob, AffirmationStatus::Pending);
-        assert_leg_status(instruction_id, LegId(0), LegStatus::ExecutionPending);
-        assert_leg_status(instruction_id, LegId(1), LegStatus::PendingTokenLock);
-        assert_locked_assets(&TICKER, &alice, amount);
-
-        alice.assert_all_balances_unchanged();
-        bob.assert_all_balances_unchanged();
-
-        let msg2 = Receipt {
-            receipt_uid: 0,
-            from: PortfolioId::default_portfolio(alice.did),
-            to: PortfolioId::default_portfolio(alice.did),
-            asset: TICKER,
-            amount,
-        };
-        let signature2 = AccountKeyring::Alice.sign(&msg2.encode());
-
-        assert_noop!(
-            claim_receipt(signature2.into(), ReceiptMetadata::default()),
-            Error::InvalidSignature
-        );
-
-        let metadata = ReceiptMetadata::from(vec![42u8]);
-
-        // Can not claim invalidated receipt
-        let change_receipt_validity = |validity| {
-            assert_ok!(Settlement::change_receipt_validity(
-                alice.origin(),
-                0,
-                validity
-            ));
-        };
-        change_receipt_validity(false);
-        assert_noop!(
-            claim_receipt(signature.clone().into(), metadata.clone()),
-            Error::ReceiptAlreadyClaimed
-        );
-        change_receipt_validity(true);
-
-        // Claiming, unclaiming and claiming receipt
-        assert_ok!(claim_receipt(signature.into(), metadata.clone()));
-
-        assert_eq!(
-            Settlement::receipts_used(AccountKeyring::Alice.to_account_id(), 0),
-            true
-        );
-        assert_affirms_pending(instruction_id, 1);
-        assert_user_affirms(instruction_id, &alice, AffirmationStatus::Affirmed);
-        assert_user_affirms(instruction_id, &bob, AffirmationStatus::Pending);
-        assert_leg_status(
-            instruction_id,
-            LegId(0),
-            LegStatus::ExecutionToBeSkipped(AccountKeyring::Alice.to_account_id(), 0),
-        );
-        assert_leg_status(instruction_id, LegId(1), LegStatus::PendingTokenLock);
-        assert_locked_assets(&TICKER, &alice, 0);
-
-        alice.assert_all_balances_unchanged();
-        bob.assert_all_balances_unchanged();
-
-        assert_ok!(Settlement::unclaim_receipt(
-            alice.origin(),
-            instruction_id,
-            LegId(0)
-        ));
-
-        assert_affirms_pending(instruction_id, 1);
-        assert_user_affirms(instruction_id, &alice, AffirmationStatus::Affirmed);
-        assert_user_affirms(instruction_id, &bob, AffirmationStatus::Pending);
-        assert_leg_status(instruction_id, LegId(0), LegStatus::ExecutionPending);
-        assert_leg_status(instruction_id, LegId(1), LegStatus::PendingTokenLock);
-        assert_locked_assets(&TICKER, &alice, amount);
-
-        alice.assert_all_balances_unchanged();
-        bob.assert_all_balances_unchanged();
-
-        assert_ok!(Settlement::claim_receipt(
-            alice.origin(),
-            instruction_id,
-            ReceiptDetails {
-                receipt_uid: 0,
-                leg_id: LegId(0),
-                signer: AccountKeyring::Alice.to_account_id(),
-                signature: AccountKeyring::Alice.sign(&msg.encode()).into(),
-                metadata: ReceiptMetadata::default()
-            }
-        ));
-
-        assert_eq!(
-            Settlement::receipts_used(AccountKeyring::Alice.to_account_id(), 0),
-            true
-        );
-        assert_affirms_pending(instruction_id, 1);
-        assert_user_affirms(instruction_id, &alice, AffirmationStatus::Affirmed);
-        assert_user_affirms(instruction_id, &bob, AffirmationStatus::Pending);
-        assert_leg_status(
-            instruction_id,
-            LegId(0),
-            LegStatus::ExecutionToBeSkipped(AccountKeyring::Alice.to_account_id(), 0),
-        );
-        assert_leg_status(instruction_id, LegId(1), LegStatus::PendingTokenLock);
-        assert_locked_assets(&TICKER, &alice, 0);
-
-        alice.assert_all_balances_unchanged();
-        bob.assert_all_balances_unchanged();
-
-        set_current_block_number(10);
-
-        assert_affirm_instruction_with_one_leg!(bob.origin(), instruction_id, bob.did);
-
-        // Advances block.
-        next_block();
-        assert_user_affirms(instruction_id, &alice, AffirmationStatus::Unknown);
-        assert_user_affirms(instruction_id, &bob, AffirmationStatus::Unknown);
-        assert_locked_assets(&TICKER, &alice, 0);
-        alice.assert_balance_unchanged(&TICKER);
-        bob.assert_balance_unchanged(&TICKER);
-        alice.assert_balance_increased(&TICKER2, amount);
-        bob.assert_balance_decreased(&TICKER2, amount);
-    });
-}
-
-#[test]
 fn settle_on_block() {
     test_with_cdd_provider(|eve| {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER, TICKER2]);
@@ -833,11 +611,8 @@ fn settle_on_block() {
 
         for i in 0..legs.len() {
             assert_eq!(
-                Settlement::instruction_legs(
-                    instruction_id,
-                    u64::try_from(i).map(LegId).unwrap_or_default()
-                ),
-                legs[i]
+                Settlement::get_instruction_leg(&instruction_id, &LegId(i as u64)),
+                legs[i].clone().into()
             );
         }
 
@@ -952,11 +727,8 @@ fn failed_execution() {
 
         for i in 0..legs.len() {
             assert_eq!(
-                Settlement::instruction_legs(
-                    instruction_id,
-                    u64::try_from(i).map(LegId).unwrap_or_default()
-                ),
-                legs[i]
+                Settlement::get_instruction_leg(&instruction_id, &LegId(i as u64)),
+                legs[i].clone().into()
             );
         }
 
@@ -1190,8 +962,6 @@ fn basic_fuzzing() {
         }
 
         let mut legs = Vec::with_capacity(100);
-        let mut receipts = Vec::with_capacity(100);
-        let mut receipt_legs = HashMap::with_capacity(100);
         let mut legs_count: HashMap<IdentityId, u32> = HashMap::with_capacity(100);
         let mut locked_assets = HashMap::with_capacity(100);
         for ticker_id in 0..10 {
@@ -1211,31 +981,14 @@ fn basic_fuzzing() {
                     );
                     if random() {
                         // This leg should happen
-                        if random() {
-                            // Receipt to be claimed
-                            balances.insert(
-                                (tickers[ticker_id * 4 + user_id], users[k].did, "final").encode(),
-                                0,
-                            );
-                            receipts.push(Receipt {
-                                receipt_uid: u64::try_from(k * 1000 + ticker_id * 4 + user_id)
-                                    .unwrap(),
-                                from: PortfolioId::default_portfolio(users[user_id].did),
-                                to: PortfolioId::default_portfolio(users[k].did),
-                                asset: tickers[ticker_id * 4 + user_id],
-                                amount: 1u128,
-                            });
-                            receipt_legs.insert(receipts.last().unwrap().encode(), legs.len());
-                        } else {
-                            balances.insert(
-                                (tickers[ticker_id * 4 + user_id], users[k].did, "final").encode(),
-                                1,
-                            );
-                            final_i -= 1;
-                            *locked_assets
-                                .entry((users[user_id].did, tickers[ticker_id * 4 + user_id]))
-                                .or_insert(0) += 1;
-                        }
+                        balances.insert(
+                            (tickers[ticker_id * 4 + user_id], users[k].did, "final").encode(),
+                            1,
+                        );
+                        final_i -= 1;
+                        *locked_assets
+                            .entry((users[user_id].did, tickers[ticker_id * 4 + user_id]))
+                            .or_insert(0) += 1;
                         // Provide scope claim for all the dids
                         provide_scope_claim_to_multiple_parties(
                             &[users[user_id].did, users[k].did],
@@ -1295,49 +1048,6 @@ fn basic_fuzzing() {
                 }
             }
             assert_affirm_instruction!(user.origin(), instruction_id, user.did, leg_count);
-        }
-
-        // Claim receipts and do a few claim/unclaims in between
-        for receipt in receipts {
-            let leg_num = u64::try_from(*receipt_legs.get(&(receipt.encode())).unwrap())
-                .map(LegId)
-                .unwrap();
-            let user = users
-                .iter()
-                .filter(|&from| PortfolioId::default_portfolio(from.did) == receipt.from)
-                .next()
-                .unwrap();
-            for _ in 0..2 {
-                if random() {
-                    assert_ok!(Settlement::claim_receipt(
-                        user.origin(),
-                        instruction_id,
-                        ReceiptDetails {
-                            receipt_uid: receipt.receipt_uid,
-                            leg_id: leg_num,
-                            signer: AccountKeyring::Alice.to_account_id(),
-                            signature: AccountKeyring::Alice.sign(&receipt.encode()).into(),
-                            metadata: ReceiptMetadata::default()
-                        }
-                    ));
-                    assert_ok!(Settlement::unclaim_receipt(
-                        user.origin(),
-                        instruction_id,
-                        leg_num
-                    ));
-                }
-            }
-            assert_ok!(Settlement::claim_receipt(
-                user.origin(),
-                instruction_id,
-                ReceiptDetails {
-                    receipt_uid: receipt.receipt_uid,
-                    leg_id: leg_num,
-                    signer: AccountKeyring::Alice.to_account_id(),
-                    signature: AccountKeyring::Alice.sign(&receipt.encode()).into(),
-                    metadata: ReceiptMetadata::default()
-                }
-            ));
         }
 
         fn check_locked_assets(
@@ -1451,7 +1161,7 @@ fn claim_multiple_receipts_during_authorization() {
     ExtBuilder::default().build().execute_with(|| {
         let mut alice = UserWithBalance::new(AccountKeyring::Alice, &[TICKER]);
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
-        let venue_counter = create_token_and_venue(TICKER, alice.user);
+        let venue_counter = create_venue(alice.user);
         let instruction_id = Settlement::instruction_counter();
         let amount = 100u128;
         alice.refresh_init_balances();
@@ -1594,7 +1304,7 @@ fn overload_instruction() {
         let bob = User::new(AccountKeyring::Bob);
         let venue_counter = create_token_and_venue(TICKER, alice);
         let leg_limit =
-            <TestStorage as pallet_settlement::Config>::MaxLegsInInstruction::get() as usize;
+            <TestStorage as pallet_settlement::Config>::MaxNumberOfFungibleAssets::get() as usize;
 
         let mut legs = vec![
             Leg {
@@ -1935,7 +1645,7 @@ fn multiple_portfolio_settlement() {
                 user_portfolio_vec(alice.did, alice_num),
                 1
             ),
-            Error::FailedToLockTokens
+            PortfolioError::InsufficientPortfolioBalance
         );
 
         // Alice moves her funds to the correct portfolio
@@ -2730,6 +2440,368 @@ fn settle_manual_instruction_with_portfolio() {
 
         alice.assert_balance_decreased(&TICKER, amount);
         bob.assert_balance_increased(&TICKER, amount);
+    });
+}
+
+/// An instruction with non-fungible assets, must reject duplicated NFTIds.
+#[test]
+fn add_nft_instruction_with_duplicated_nfts() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let venue_counter = create_token_and_venue(TICKER, alice);
+
+        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1), NFTId(1)]);
+        let legs: Vec<LegV2> = vec![LegV2 {
+            from: PortfolioId::default_portfolio(alice.did),
+            to: PortfolioId::default_portfolio(bob.did),
+            asset: LegAsset::NonFungible(nfts),
+        }];
+        assert_noop!(
+            Settlement::add_instruction_with_memo_v2(
+                alice.origin(),
+                venue_counter,
+                SettlementType::SettleOnAffirmation,
+                None,
+                None,
+                legs,
+                Some(InstructionMemo::default()),
+            ),
+            Error::DuplicatedNFTId
+        );
+    });
+}
+
+/// An instruction with non-fungible assets, must reject legs with more than MaxNumberOfNFTsPerLeg.
+#[test]
+fn add_nft_instruction_exceeding_nfts() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let venue_counter = create_token_and_venue(TICKER, alice);
+
+        let nfts = NFTs::new_unverified(
+            TICKER,
+            vec![
+                NFTId(1),
+                NFTId(2),
+                NFTId(3),
+                NFTId(4),
+                NFTId(5),
+                NFTId(6),
+                NFTId(7),
+                NFTId(8),
+                NFTId(9),
+                NFTId(10),
+                NFTId(11),
+            ],
+        );
+        let legs: Vec<LegV2> = vec![LegV2 {
+            from: PortfolioId::default_portfolio(alice.did),
+            to: PortfolioId::default_portfolio(bob.did),
+            asset: LegAsset::NonFungible(nfts),
+        }];
+        assert_noop!(
+            Settlement::add_instruction_with_memo_v2(
+                alice.origin(),
+                venue_counter,
+                SettlementType::SettleOnAffirmation,
+                None,
+                None,
+                legs,
+                Some(InstructionMemo::default()),
+            ),
+            Error::MaxNumberOfNFTsPerLegExceeded
+        );
+    });
+}
+
+/// Successfully adds an instruction with non-fungible assets.
+#[test]
+fn add_nft_instruction() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let venue_counter = create_token_and_venue(TICKER, alice);
+
+        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let legs: Vec<LegV2> = vec![LegV2 {
+            from: PortfolioId::default_portfolio(alice.did),
+            to: PortfolioId::default_portfolio(bob.did),
+            asset: LegAsset::NonFungible(nfts),
+        }];
+        assert_ok!(Settlement::add_instruction_with_memo_v2(
+            alice.origin(),
+            venue_counter,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs,
+            Some(InstructionMemo::default()),
+        ));
+    });
+}
+
+/// Successfully adds and affirms an instruction with non-fungible assets.
+#[test]
+fn add_and_affirm_nft_instruction() {
+    test_with_cdd_provider(|_eve| {
+        // First we need to create a collection, mint one NFT, and create a venue
+        let alice: User = User::new(AccountKeyring::Alice);
+        let bob: User = User::new(AccountKeyring::Bob);
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(
+            alice.clone(),
+            TICKER,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
+        let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
+            key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            value: AssetMetadataValue(b"test".to_vec()),
+        }];
+        mint_nft(alice.clone(), TICKER, nfts_metadata, PortfolioKind::Default);
+        ComplianceManager::pause_asset_compliance(alice.origin(), TICKER).unwrap();
+        let venue_id = create_venue(alice);
+
+        // Adds and affirms the instruction
+        let instruction_id = Settlement::instruction_counter();
+        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let legs: Vec<LegV2> = vec![LegV2 {
+            from: PortfolioId::default_portfolio(alice.did),
+            to: PortfolioId::default_portfolio(bob.did),
+            asset: LegAsset::NonFungible(nfts),
+        }];
+        assert_ok!(Settlement::add_and_affirm_instruction_with_memo_v2(
+            alice.origin(),
+            venue_id,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs,
+            default_portfolio_vec(alice.did),
+            Some(InstructionMemo::default()),
+        ));
+
+        // Before bob accepts the transaction balances must not be changed and the NFT must be locked.
+        assert_eq!(NumberOfNFTs::get(TICKER, alice.did), 1);
+        assert_eq!(
+            PortfolioNFT::get(
+                PortfolioId::default_portfolio(alice.did),
+                (TICKER, NFTId(1))
+            ),
+            true
+        );
+        assert_eq!(
+            PortfolioLockedNFT::get(
+                PortfolioId::default_portfolio(alice.did),
+                (TICKER, NFTId(1))
+            ),
+            true
+        );
+
+        // Bob affirms the instruction. Balances must be updated and NFT unlocked.
+        assert_ok!(Settlement::affirm_instruction(
+            bob.origin(),
+            instruction_id,
+            default_portfolio_vec(bob.did),
+            1
+        ));
+        next_block();
+        assert_eq!(NumberOfNFTs::get(TICKER, alice.did), 0);
+        assert_eq!(NumberOfNFTs::get(TICKER, bob.did), 1);
+        assert_eq!(
+            PortfolioNFT::get(
+                PortfolioId::default_portfolio(alice.did),
+                (TICKER, NFTId(1))
+            ),
+            false
+        );
+        assert_eq!(
+            PortfolioNFT::get(PortfolioId::default_portfolio(bob.did), (TICKER, NFTId(1))),
+            true
+        );
+        assert_eq!(
+            PortfolioLockedNFT::get(
+                PortfolioId::default_portfolio(alice.did),
+                (TICKER, NFTId(1))
+            ),
+            false
+        );
+        assert_eq!(
+            PortfolioLockedNFT::get(PortfolioId::default_portfolio(bob.did), (TICKER, NFTId(1))),
+            false
+        );
+    });
+}
+
+/// Only instructions with NFTS owned by the caller can be affirmed.
+#[test]
+fn add_and_affirm_nft_not_owned() {
+    test_with_cdd_provider(|_eve| {
+        // First we need to create a collection, mint one NFT, and create a venue
+        let alice: User = User::new(AccountKeyring::Alice);
+        let bob: User = User::new(AccountKeyring::Bob);
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(
+            alice.clone(),
+            TICKER,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
+        let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
+            key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            value: AssetMetadataValue(b"test".to_vec()),
+        }];
+        mint_nft(alice.clone(), TICKER, nfts_metadata, PortfolioKind::Default);
+        let venue_id = create_venue(alice);
+
+        // Adds and affirms the instruction
+        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(2)]);
+        let legs: Vec<LegV2> = vec![LegV2 {
+            from: PortfolioId::default_portfolio(alice.did),
+            to: PortfolioId::default_portfolio(bob.did),
+            asset: LegAsset::NonFungible(nfts),
+        }];
+        assert_noop!(
+            Settlement::add_and_affirm_instruction_with_memo_v2(
+                alice.origin(),
+                venue_id,
+                SettlementType::SettleOnAffirmation,
+                None,
+                None,
+                legs,
+                default_portfolio_vec(alice.did),
+                Some(InstructionMemo::default()),
+            ),
+            PortfolioError::NFTNotFoundInPortfolio
+        );
+    });
+}
+
+/// An NFT can only be included in one of the legs.
+#[test]
+fn add_same_nft_different_legs() {
+    test_with_cdd_provider(|_eve| {
+        // First we need to create a collection, mint two NFTs, and create a venue
+        let alice: User = User::new(AccountKeyring::Alice);
+        let bob: User = User::new(AccountKeyring::Bob);
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(
+            alice.clone(),
+            TICKER,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
+        let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
+            key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            value: AssetMetadataValue(b"test".to_vec()),
+        }];
+        mint_nft(
+            alice.clone(),
+            TICKER,
+            nfts_metadata.clone(),
+            PortfolioKind::Default,
+        );
+        mint_nft(alice.clone(), TICKER, nfts_metadata, PortfolioKind::Default);
+        let venue_id = create_venue(alice);
+
+        // Adds and affirms the instruction
+        let legs: Vec<LegV2> = vec![
+            LegV2 {
+                from: PortfolioId::default_portfolio(alice.did),
+                to: PortfolioId::default_portfolio(bob.did),
+                asset: LegAsset::NonFungible(NFTs::new_unverified(TICKER, vec![NFTId(1)])),
+            },
+            LegV2 {
+                from: PortfolioId::default_portfolio(alice.did),
+                to: PortfolioId::default_portfolio(bob.did),
+                asset: LegAsset::NonFungible(NFTs::new_unverified(TICKER, vec![NFTId(1)])),
+            },
+        ];
+        assert_noop!(
+            Settlement::add_and_affirm_instruction_with_memo_v2(
+                alice.origin(),
+                venue_id,
+                SettlementType::SettleOnAffirmation,
+                None,
+                None,
+                legs,
+                default_portfolio_vec(alice.did),
+                Some(InstructionMemo::default()),
+            ),
+            PortfolioError::NFTAlreadyLocked
+        );
+    });
+}
+
+/// Receipts can only be used for fungible assets
+#[test]
+fn add_and_affirm_with_receipts_nfts() {
+    test_with_cdd_provider(|_eve| {
+        // First we need to create a collection, mint one NFT, and create a venue
+        let alice: User = User::new(AccountKeyring::Alice);
+        let bob: User = User::new(AccountKeyring::Bob);
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(
+            alice.clone(),
+            TICKER,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
+        let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
+            key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            value: AssetMetadataValue(b"test".to_vec()),
+        }];
+        mint_nft(alice.clone(), TICKER, nfts_metadata, PortfolioKind::Default);
+        let venue_id = create_venue(alice);
+
+        // Adds the instruction and fails to use a receipt
+        let legs: Vec<LegV2> = vec![LegV2 {
+            from: PortfolioId::default_portfolio(alice.did),
+            to: PortfolioId::default_portfolio(bob.did),
+            asset: LegAsset::NonFungible(NFTs::new_unverified(TICKER, vec![NFTId(1)])),
+        }];
+        assert_ok!(Settlement::add_instruction_with_memo_v2(
+            alice.origin(),
+            venue_id,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs,
+            Some(InstructionMemo::default()),
+        ));
+        assert_noop!(
+            Settlement::affirm_with_receipts(
+                alice.origin(),
+                InstructionId(0),
+                vec![ReceiptDetails {
+                    receipt_uid: 0,
+                    leg_id: LegId(0),
+                    signer: AccountKeyring::Alice.to_account_id(),
+                    signature: AccountKeyring::Alice
+                        .sign(
+                            &Receipt {
+                                receipt_uid: 0,
+                                from: PortfolioId::default_portfolio(alice.did),
+                                to: PortfolioId::default_portfolio(bob.did),
+                                asset: TICKER,
+                                amount: 1,
+                            }
+                            .encode()
+                        )
+                        .into(),
+                    metadata: ReceiptMetadata::default()
+                }],
+                vec![PortfolioId::default_portfolio(alice.did)],
+                1
+            ),
+            Error::ReceiptForNonFungibleAsset
+        );
     });
 }
 

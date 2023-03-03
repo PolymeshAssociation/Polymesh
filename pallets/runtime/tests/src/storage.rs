@@ -170,7 +170,9 @@ parameter_types! {
     pub const MaxVariableInflationTotalIssuance: Balance = 1_000_000_000 * POLY;
     pub const FixedYearlyReward: Balance = 140_000_000 * POLY;
     pub const MinimumBond: Balance = 1 * POLY;
-    pub const MaxLegsInInstruction: u32 = 100;
+    pub const MaxNumberOfFungibleAssets: u32 = 100;
+    pub const MaxNumberOfNFTsPerLeg: u32 = 10;
+    pub const MaxNumberOfNFTs: u32 = 100;
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
     pub const MaxAuthorities: u32 = 100_000;
     pub const MaxKeys: u32 = 10_000;
@@ -178,6 +180,9 @@ parameter_types! {
     pub const MaxPeerDataEncodingSize: u32 = 1_000;
     pub const ReportLongevity: u64 =
         BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
+    pub const MaxNumberOfCollectionKeys: u8 = u8::MAX;
+    pub const MaxNumberOfFungibleMoves: u32 = 10;
+    pub const MaxNumberOfNFTsMoves: u32 = 100;
 }
 
 frame_support::construct_runtime!(
@@ -270,6 +275,8 @@ frame_support::construct_runtime!(
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 48,
 
         TestUtils: pallet_test_utils::{Pallet, Call, Storage, Event<T> } = 50,
+
+        Nft: pallet_nft::{Pallet, Call, Storage, Event} = 51,
     }
 );
 
