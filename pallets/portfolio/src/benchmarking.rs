@@ -169,7 +169,7 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let alice_default_portfolio = PortfolioId { did: alice.did(), kind: PortfolioKind::Default };
         let alice_custom_portfolio = PortfolioId { did: alice.did(), kind: PortfolioKind::User(PortfolioNumber(1)) };
-        let nft_ticker: Ticker = b"TICKERNFT".as_ref().try_into().unwrap();
+        let nft_ticker: Ticker = Ticker::from_slice_truncated(b"TICKERNFT".as_ref());
         Module::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
         // Simulates minting - Adding the NFT pallet causes cyclic dependency
         (1..n + 1).for_each(|id| PortfolioNFT::insert(alice_default_portfolio, (nft_ticker, NFTId(id.into())), true));

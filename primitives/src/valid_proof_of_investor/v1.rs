@@ -53,7 +53,7 @@ mod tests {
         investor_zkproof_data::v1::InvestorZKProofData, Claim, Context, InvestorUid, Ticker,
     };
     use confidential_identity_v1::compute_cdd_id;
-    use sp_std::convert::{From, TryFrom};
+    use sp_std::convert::From;
 
     #[test]
     fn generate_and_validate_claim() {
