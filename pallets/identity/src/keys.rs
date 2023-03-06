@@ -15,7 +15,7 @@
 
 use crate::{
     types, AccountKeyRefCount, Config, DidKeys, DidRecords, Error, IsDidFrozen, KeyRecords, Module,
-    MultiPurposeNonce, OffChainAuthorizationNonce, PermissionedCallOriginData, RawEvent,
+    MultiPurposeNonce, OffChainAuthorizationNonce, ParentDid, PermissionedCallOriginData, RawEvent,
     RpcDidRecords,
 };
 use codec::{Decode, Encode as _};
@@ -68,6 +68,11 @@ impl<T: Config> Module<T> {
 
     pub fn ensure_no_id_record(id: IdentityId) -> DispatchResult {
         ensure!(!Self::is_identity_exists(&id), Error::<T>::DidAlreadyExists);
+        Ok(())
+    }
+
+    pub fn ensure_no_parent(id: IdentityId) -> DispatchResult {
+        ensure!(!ParentDid::contains_key(id), Error::<T>::IsChildIdentity);
         Ok(())
     }
 
@@ -423,6 +428,57 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    /// Create a child identity.
+    pub(crate) fn base_create_child_identity(
+        origin: T::Origin,
+        secondary_key: T::AccountId,
+    ) -> DispatchResult {
+        let (_, parent_did) = Self::ensure_primary_key(origin)?;
+
+        // Make sure `parent_did` has no parent.
+        Self::ensure_no_parent(parent_did)?;
+
+        // Ensure that the key is a secondary key.
+        Self::ensure_secondary_key(parent_did, &secondary_key)?;
+
+        // Ensure that the key can be unlinked.
+        Self::ensure_key_unlinkable_from_did(&secondary_key)?;
+
+        // Generate a new DID for the child.
+        let child_did = Self::make_did()?;
+
+        // Remove links and get all authorization IDs per signer.
+        // Unlink the secondary account key.
+        Self::remove_key_record(&secondary_key, Some(parent_did));
+
+        // All `auth_id`s for `signer` authorized by `parent_did`.
+        let signer = Signatory::Account(secondary_key.clone());
+        for auth_id in Self::auths_of(&signer, parent_did) {
+            // Remove authorizations.
+            Self::unsafe_remove_auth(&signer, auth_id, &parent_did, true);
+        }
+        Self::deposit_event(RawEvent::SecondaryKeysRemoved(
+            parent_did,
+            vec![secondary_key.clone()],
+        ));
+
+        let primary_key = secondary_key;
+        // Create a new identity record and link the primary key.
+        Self::add_key_record(&primary_key, KeyRecord::PrimaryKey(child_did));
+        Self::deposit_event(RawEvent::DidCreated(child_did, primary_key.clone(), vec![]));
+
+        // Link new identity to parent identity.
+        ParentDid::insert(child_did, parent_did);
+
+        Self::deposit_event(RawEvent::ChildDidCreated(
+            parent_did,
+            child_did,
+            primary_key,
+        ));
+
+        Ok(())
+    }
+
     /// Removes specified secondary keys of a DID if present.
     pub(crate) fn base_remove_secondary_keys(
         origin: T::Origin,
@@ -595,12 +651,22 @@ impl<T: Config> Module<T> {
     }
 
     /// Create a new DID out of the parent block hash and a `nonce`.
-    fn make_did(nonce: u64) -> IdentityId {
+    fn make_did() -> Result<IdentityId, DispatchError> {
+        let nonce = Self::multi_purpose_nonce() + 7u64;
+        // Even if this transaction fails, nonce should be increased for added unpredictability of dids
+        MultiPurposeNonce::put(&nonce);
+
         // TODO: Look into getting randomness from `pallet_babe`.
         // NB: We can't get the current block's hash while processing
         // an extrinsic, so we use parent hash here.
         let parent_hash = System::<T>::parent_hash();
-        IdentityId(blake2_256(&(USER, parent_hash, nonce).encode()))
+        let did = IdentityId(blake2_256(&(USER, parent_hash, nonce).encode()));
+
+        // Make sure there's no pre-existing entry for the DID
+        // This should never happen but just being defensive here
+        Self::ensure_no_id_record(did)?;
+
+        Ok(did)
     }
 
     /// Registers a did without adding a CDD claim for it.
@@ -609,10 +675,6 @@ impl<T: Config> Module<T> {
         secondary_keys: Vec<SecondaryKey<T::AccountId>>,
         protocol_fee_data: Option<ProtocolOp>,
     ) -> Result<IdentityId, DispatchError> {
-        let new_nonce = Self::multi_purpose_nonce() + 7u64;
-        // Even if this transaction fails, nonce should be increased for added unpredictability of dids
-        MultiPurposeNonce::put(&new_nonce);
-
         // 1 Check constraints.
         // Primary key is not linked to any identity.
         Self::ensure_key_did_unlinked(&sender)?;
@@ -622,11 +684,7 @@ impl<T: Config> Module<T> {
             Error::<T>::SecondaryKeysContainPrimaryKey
         );
 
-        let did = Self::make_did(new_nonce);
-
-        // Make sure there's no pre-existing entry for the DID
-        // This should never happen but just being defensive here
-        Self::ensure_no_id_record(did)?;
+        let did = Self::make_did()?;
 
         // Secondary keys can be linked to the new identity.
         for sk in &secondary_keys {

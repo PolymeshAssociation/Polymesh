@@ -340,6 +340,11 @@ decl_event!(
         ///
         /// (DID, id, Type)
         CustomClaimTypeAdded(IdentityId, CustomClaimTypeId, Vec<u8>),
+
+        /// Child identity created.
+        ///
+        /// (Parent DID, Child DID, primary key)
+        ChildDidCreated(IdentityId, IdentityId, AccountId),
     }
 );
 

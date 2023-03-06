@@ -192,6 +192,10 @@ decl_storage! {
         ///
         pub AccountKeyRefCount get(fn account_key_ref_count):
             map hasher(blake2_128_concat) T::AccountId => u64;
+
+        /// Parent identity if the DID is a child Identity.
+        pub ParentDid get(fn parent_did):
+            map hasher(identity) IdentityId => Option<IdentityId>;
     }
     add_extra_genesis {
         // Identities at genesis.
@@ -588,6 +592,15 @@ decl_module! {
             Self::base_add_claim(target_did, cdd_claim, cdd_did, expiry)?;
         }
 
+        /// Create a child identity and make the `secondary_key` it's primary key.
+        ///
+        /// # Errors
+        ///
+        /// The extrinsic can only called by primary key owner.
+        #[weight = 100_000_000]
+        pub fn create_child_identity(origin, secondary_key: T::AccountId) {
+            Self::base_create_child_identity(origin, secondary_key)?;
+        }
     }
 }
 
@@ -666,6 +679,8 @@ decl_error! {
         CustomClaimTypeDoesNotExist,
         /// Claim does not exist.
         ClaimDoesNotExist,
+        /// Identity is already a child of an other identity, can't create grand-child identity.
+        IsChildIdentity,
     }
 }
 
