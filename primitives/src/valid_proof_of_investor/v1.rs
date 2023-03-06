@@ -59,7 +59,7 @@ mod tests {
     fn generate_and_validate_claim() {
         let investor_id = IdentityId::from(100);
         let investor_uid = InvestorUid::from(b"inv0".as_ref());
-        let asset_ticker = Ticker::try_from(b"1".as_ref()).unwrap();
+        let asset_ticker = Ticker::from_slice_truncated(b"1".as_ref());
 
         let exists_affiliate_claim = Claim::Affiliate(Scope::Ticker(asset_ticker));
         let proposition = exists(&exists_affiliate_claim);

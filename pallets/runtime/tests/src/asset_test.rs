@@ -109,7 +109,7 @@ macro_rules! assert_too_long {
 }
 
 pub(crate) fn token(name: &[u8], owner_did: IdentityId) -> (Ticker, SecurityToken) {
-    let ticker = Ticker::try_from(name).unwrap();
+    let ticker = Ticker::from_slice_truncated(name);
     let token = SecurityToken {
         owner_did,
         total_supply: TOTAL_SUPPLY,
@@ -451,19 +451,18 @@ fn register_ticker() {
         assert_eq!(stored_token.asset_type, token.asset_type);
         assert_eq!(Asset::identifiers(ticker), identifiers);
         assert_noop!(
-            register(Ticker::try_from(&[b'A'][..]).unwrap()),
+            register(Ticker::from_slice_truncated(&[b'A'][..])),
             AssetError::AssetAlreadyCreated
         );
 
         assert_noop!(
-            register(
-                Ticker::try_from(&[b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A'][..])
-                    .unwrap()
-            ),
+            register(Ticker::from_slice_truncated(
+                &[b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A'][..]
+            )),
             AssetError::TickerTooLong
         );
 
-        let ticker = Ticker::try_from(&[b'A', b'A'][..]).unwrap();
+        let ticker = Ticker::from_slice_truncated(&[b'A', b'A'][..]);
 
         assert_eq!(Asset::is_ticker_available(&ticker), true);
 
@@ -493,7 +492,7 @@ fn register_ticker() {
             [b'A', 0, 0, 0, b'A'].as_ref(),
         ] {
             assert_noop!(
-                register(Ticker::try_from(&bs[..]).unwrap()),
+                register(Ticker::from_slice_truncated(&bs[..])),
                 AssetError::TickerNotAlphanumeric
             );
         }
@@ -509,7 +508,7 @@ fn transfer_ticker() {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
 
-        let ticker = Ticker::try_from(&[b'A', b'A'][..]).unwrap();
+        let ticker = Ticker::from_slice_truncated(&[b'A', b'A'][..]);
 
         assert_eq!(Asset::is_ticker_available(&ticker), true);
         assert_ok!(Asset::register_ticker(owner.origin(), ticker));
@@ -731,7 +730,7 @@ fn transfer_token_ownership() {
         auth_id = Identity::add_auth(
             alice.did,
             Signatory::from(bob.did),
-            AuthorizationData::TransferAssetOwnership(Ticker::try_from(&[0x50][..]).unwrap()),
+            AuthorizationData::TransferAssetOwnership(Ticker::from_slice_truncated(&[0x50][..])),
             Some(now() + 100),
         );
 
@@ -1053,7 +1052,7 @@ fn test_can_transfer_rpc() {
 // Classic token tests:
 
 fn ticker(name: &str) -> Ticker {
-    name.as_bytes().try_into().unwrap()
+    Ticker::from_slice_truncated(name.as_bytes())
 }
 
 fn default_classic() -> ClassicTickerImport {
@@ -1961,7 +1960,7 @@ fn secondary_key_not_authorized_for_asset_test() {
     let invalid_names = [b"WPUSD1\0", &b"WPUSC\0\0", &b"WPUSD\01"];
     let invalid_tickers = invalid_names
         .iter()
-        .filter_map(|name| Ticker::try_from(name.as_ref()).ok());
+        .filter_map(|name| Some(Ticker::from_slice_truncated(name.as_ref())));
 
     let secondary_keys = vec![
         SecondaryKey {
@@ -2014,7 +2013,7 @@ fn invalid_ticker_registry_test() {
             (&b"YOUR"[..], false),
         ]
         .iter()
-        .map(|(name, exp)| ((*name).try_into().unwrap(), exp))
+        .map(|(name, exp)| (Ticker::from_slice_truncated(*name), exp))
         .for_each(|(ticker, exp)| {
             assert_eq!(*exp, Asset::is_ticker_registry_valid(&ticker, owner.did))
         });
@@ -2081,7 +2080,7 @@ fn create_asset_errors(owner: AccountId, other: AccountId) {
         )
     };
 
-    let ta = Ticker::try_from(&b"A"[..]).unwrap();
+    let ta = Ticker::from_slice_truncated(&b"A"[..]);
     let max_length = <TestStorage as AssetConfig>::AssetNameMaxLength::get() + 1;
     assert_noop!(
         create(ta, bytes_of_len(b'A', max_length as usize), true, None),
@@ -2100,7 +2099,7 @@ fn create_asset_errors(owner: AccountId, other: AccountId) {
         AssetError::InvalidGranularity,
     );
 
-    let tb = Ticker::try_from(&b"B"[..]).unwrap();
+    let tb = Ticker::from_slice_truncated(&b"B"[..]);
     assert_ok!(create(tb, name.clone(), true, None));
     assert_noop!(
         Asset::issue(o.clone(), tb, u128::MAX),
@@ -2108,7 +2107,7 @@ fn create_asset_errors(owner: AccountId, other: AccountId) {
     );
 
     let o2 = Origin::signed(other);
-    let tc = Ticker::try_from(&b"C"[..]).unwrap();
+    let tc = Ticker::from_slice_truncated(&b"C"[..]);
     assert_ok!(Asset::register_ticker(o2.clone(), tc));
     assert_noop!(
         create(tc, name, true, None),

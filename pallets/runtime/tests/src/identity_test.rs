@@ -42,7 +42,7 @@ use polymesh_primitives::{
 use polymesh_runtime_develop::runtime::{Call, CddHandler};
 use sp_core::H512;
 use sp_runtime::transaction_validity::InvalidTransaction;
-use std::convert::{From, TryFrom};
+use std::convert::From;
 use test_client::AccountKeyring;
 
 type AuthorizationsGiven = pallet_identity::AuthorizationsGiven<TestStorage>;
@@ -1145,7 +1145,7 @@ fn adding_authorizations() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
-        let ticker50 = Ticker::try_from(&[0x50][..]).unwrap();
+        let ticker50 = Ticker::from_slice_truncated(&[0x50][..]);
         let mut auth_id = Identity::add_auth(
             alice.did,
             bob.signatory_did(),
@@ -1208,7 +1208,7 @@ fn removing_authorizations() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
-        let ticker50 = Ticker::try_from(&[0x50][..]).unwrap();
+        let ticker50 = Ticker::from_slice_truncated(&[0x50][..]);
         let auth_id = Identity::add_auth(
             alice.did,
             bob.signatory_did(),
@@ -2016,7 +2016,7 @@ fn add_investor_uniqueness_claim_v2_data(
     let proof = v2::InvestorZKProofData::new(&did, &investor, &ticker);
     let claim = Claim::InvestorUniquenessV2(cdd_id);
     let scope = Scope::Ticker(ticker);
-    let invalid_ticker = Ticker::try_from(&b"1"[..]).unwrap();
+    let invalid_ticker = Ticker::from_slice_truncated(&b"1"[..]);
     let invalid_version_claim =
         Claim::InvestorUniqueness(Scope::Ticker(ticker), IdentityId::from(42u128), cdd_id);
     let invalid_proof = v2::InvestorZKProofData::new(&did, &investor, &invalid_ticker);

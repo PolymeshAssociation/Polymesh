@@ -8,7 +8,6 @@ use polymesh_common_utilities::constants::currency::POLY;
 use polymesh_primitives::{AccountId, Gas, Permissions, PortfolioPermissions, Ticker};
 use polymesh_runtime_common::Currency;
 use sp_runtime::traits::Hash;
-use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 // We leave it to tests in the substrate to ensure that `pallet-contracts`
@@ -134,7 +133,7 @@ fn misc_polymesh_extensions() {
             ));
 
             // Input for registering ticker `A` (11 trailing nulls).
-            let ticker = Ticker::try_from(b"A" as &[u8]).unwrap();
+            let ticker = Ticker::from_slice_truncated(b"A" as &[u8]);
             let mut register_ticker_data = 0x00_1A_00_00.encode();
             register_ticker_data.extend(ticker.encode());
 
