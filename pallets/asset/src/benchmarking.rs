@@ -23,16 +23,17 @@ use polymesh_common_utilities::benchs::user;
 use polymesh_common_utilities::{
     benchs::{make_asset, make_indivisible_asset, make_ticker, AccountIdOf, User, UserBuilder},
     constants::currency::POLY,
+    traits::nft::NFTTrait,
     TestUtilsFn,
 };
 use polymesh_primitives::{
-    asset::AssetName,
+    asset::{AssetName, NonFungibleType},
     asset_metadata::{
         AssetMetadataDescription, AssetMetadataKey, AssetMetadataName, AssetMetadataSpec,
         AssetMetadataValue, AssetMetadataValueDetail,
     },
     ticker::TICKER_LEN,
-    AuthorizationData, PortfolioName, Signatory, Ticker, Url,
+    AuthorizationData, NFTCollectionKeys, PortfolioName, Signatory, Ticker, Url,
 };
 use sp_io::hashing::keccak_256;
 use sp_std::{convert::TryInto, iter, prelude::*};
@@ -500,4 +501,78 @@ benchmarks! {
     verify {
         assert_eq!(Module::<T>::token_details(&ticker).asset_type, asset_type);
     }
+
+    remove_local_metadata_key {
+        // Creates an asset of type NFT
+        let user = user::<T>("target", 0);
+        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        Module::<T>::create_asset(
+            user.origin().into(),
+            ticker.as_ref().into(),
+            ticker,
+            false,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            Vec::new(),
+            None,
+            false,
+        ).unwrap();
+        // Creates two metadata keys, one that belong to the NFT collection and one that doesn't
+        let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
+        let asset_metadata_spec = AssetMetadataSpec {
+            url: None,
+            description: None,
+            type_def: None,
+        };
+        Module::<T>::register_asset_metadata_local_type(
+            user.origin().into(),
+            ticker,
+            asset_metadata_name.clone(),
+            asset_metadata_spec.clone()
+        ).unwrap();
+        Module::<T>::register_asset_metadata_local_type(
+            user.origin().into(),
+            ticker,
+            AssetMetadataName(b"mylocalkey2".to_vec()),
+            asset_metadata_spec
+        ).unwrap();
+        let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(2));
+        let collection_keys: NFTCollectionKeys = vec![asset_metada_key.clone()].into();
+        T::NFTFn::create_nft_collection(user.origin().into(), ticker, None, collection_keys).unwrap();
+    }: _(user.origin, ticker, AssetMetadataLocalKey(1))
+
+    remove_metadata_value {
+        // Creates an asset of type NFT
+        let user = user::<T>("target", 0);
+        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        Module::<T>::create_asset(
+            user.origin().into(),
+            ticker.as_ref().into(),
+            ticker,
+            false,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            Vec::new(),
+            None,
+            false,
+        ).unwrap();
+        // Creates one metadata key and set its value
+        let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
+        let asset_metadata_spec = AssetMetadataSpec {
+            url: None,
+            description: None,
+            type_def: None,
+        };
+        Module::<T>::register_asset_metadata_local_type(
+            user.origin().into(),
+            ticker,
+            asset_metadata_name.clone(),
+            asset_metadata_spec.clone()
+        ).unwrap();
+        Module::<T>::set_asset_metadata(
+            user.origin().into(),
+            ticker,
+            AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            AssetMetadataValue(b"randomvalue".to_vec()),
+            None,
+        ).unwrap();
+    }: _(user.origin, ticker, AssetMetadataKey::Local(AssetMetadataLocalKey(1)))
 }

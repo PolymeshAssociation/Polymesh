@@ -99,7 +99,7 @@ use frame_support::{
     traits::{ChangeMembers, Currency, EnsureOrigin, Get, InitializeMembers},
     weights::{
         DispatchClass::{Normal, Operational},
-        Pays, Weight,
+        Pays,
     },
 };
 use frame_system::ensure_root;
@@ -114,10 +114,9 @@ use polymesh_common_utilities::{
     SystematicIssuers, GC_DID,
 };
 use polymesh_primitives::{
-    investor_zkproof_data::v1::InvestorZKProofData, storage_migrate_on, storage_migration_ver,
-    Authorization, AuthorizationData, AuthorizationType, CddId, Claim, ClaimType,
-    CustomClaimTypeId, DidRecord, IdentityClaim, IdentityId, KeyRecord, Permissions, Scope,
-    SecondaryKey, Signatory, Ticker,
+    investor_zkproof_data::v1::InvestorZKProofData, storage_migration_ver, Authorization,
+    AuthorizationData, AuthorizationType, CddId, Claim, ClaimType, CustomClaimTypeId, DidRecord,
+    IdentityClaim, IdentityId, KeyRecord, Permissions, Scope, SecondaryKey, Signatory, Ticker,
 };
 use sp_runtime::traits::Hash;
 use sp_std::{convert::TryFrom, prelude::*};
@@ -253,18 +252,6 @@ decl_module! {
         fn deposit_event() = default;
 
         const InitialPOLYX: <T::Balances as Currency<T::AccountId>>::Balance = T::InitialPOLYX::get();
-
-        fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 1, {
-                migration::migrate_v1::<T>();
-            });
-
-            storage_migrate_on!(StorageVersion, 2, {
-                migration::migrate_v2::<T>();
-            });
-
-            0
-        }
 
         /// Register `target_account` with a new Identity.
         ///
@@ -795,152 +782,5 @@ fn revoke_claim_class(claim_type: ClaimType) -> frame_support::weights::Dispatch
     match claim_type {
         ClaimType::CustomerDueDiligence => Operational,
         _ => Normal,
-    }
-}
-
-pub mod migration {
-    use super::*;
-
-    mod v1 {
-        use super::*;
-        use polymesh_primitives::secondary_key::v1;
-        use scale_info::TypeInfo;
-
-        /// Old v1 Identity information.
-        #[derive(Encode, Decode, TypeInfo)]
-        #[derive(Clone, Default, PartialEq)]
-        pub struct IdentityRecord<AccountId> {
-            pub primary_key: AccountId,
-            pub secondary_keys: Vec<v1::SecondaryKey<AccountId>>,
-        }
-
-        decl_storage! {
-            trait Store for Module<T: Config> as Identity {
-                pub DidRecords get(fn did_records): map hasher(identity) IdentityId => IdentityRecord<T::AccountId>;
-                pub KeyToIdentityIds get(fn key_to_identity_dids):
-                    map hasher(twox_64_concat) T::AccountId => IdentityId;
-            }
-        }
-
-        decl_module! {
-            pub struct Module<T: Config> for enum Call where origin: T::Origin { }
-        }
-    }
-
-    mod v2 {
-        use super::*;
-        use scale_info::TypeInfo;
-
-        // Authorization struct
-        #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Debug)]
-        pub struct Authorization<AccountId, Moment> {
-            /// Enum that contains authorization type and data
-            pub authorization_data: AuthorizationData<AccountId>,
-
-            /// Identity of the organization/individual that added this authorization
-            pub authorized_by: IdentityId,
-
-            /// time when this authorization expires. optional.
-            pub expiry: Option<Moment>,
-
-            /// Authorization id of this authorization
-            pub auth_id: u64,
-        }
-
-        decl_storage! {
-            trait Store for Module<T: Config> as Identity {
-                /// All authorizations that an identity/key has
-                pub Authorizations get(fn authorizations): double_map hasher(blake2_128_concat)
-                Signatory<T::AccountId>, hasher(twox_64_concat) u64 => Option<Authorization<T::AccountId, T::Moment>>;
-            }
-        }
-
-        decl_module! {
-            pub struct Module<T: Config> for enum Call where origin: T::Origin { }
-        }
-    }
-
-    pub fn migrate_v1_key<T: Config>(key: T::AccountId, record: KeyRecord<T::AccountId>) {
-        // Add key to record mapping.
-        KeyRecords::<T>::insert(&key, &record);
-        // For primary/secondary keys add to `DidKeys`.
-        if let Some((did, is_primary_key)) = record.get_did_key_type() {
-            DidKeys::<T>::insert(did, &key, true);
-            // For primary keys also set the DID record.
-            if is_primary_key {
-                DidRecords::<T>::insert(did, DidRecord::new(key));
-            }
-        }
-    }
-
-    pub fn migrate_v1<T: Config>() {
-        sp_runtime::runtime_logger::RuntimeLogger::init();
-
-        log::info!(" >>> Updating Identity storage. Migrating DidRecords...");
-        let (total_dids, total_sks) = v1::DidRecords::<T>::drain().fold(
-            (0usize, 0usize),
-            |(total_dids, total_sks), (did, mut record)| {
-                // Migrate primary key.
-                if record.primary_key == Default::default() {
-                    // Asset identities don't have primary keys.
-                    DidRecords::<T>::insert(did, DidRecord::default());
-                } else {
-                    migrate_v1_key::<T>(record.primary_key, KeyRecord::PrimaryKey(did));
-                }
-
-                // Migrate secondary keys.
-                let sk_count = record.secondary_keys.drain(..).fold(0usize, |total, sk| {
-                    if let Some((key, key_record)) = sk.into_key_record(did) {
-                        migrate_v1_key::<T>(key, key_record);
-                    }
-                    total + 1
-                });
-
-                (total_dids + 1, total_sks + sk_count)
-            },
-        );
-        log::info!(
-            " >>> Migrated {} Identities and {} secondary keys.",
-            total_dids,
-            total_sks
-        );
-
-        log::info!(" >>> Removing KeyToIdentityIds...");
-        use frame_support::storage::child::KillStorageResult::*;
-        let (num_removed, all_removed) = match v1::KeyToIdentityIds::<T>::remove_all(None) {
-            AllRemoved(removed) => (removed, true),
-            SomeRemaining(removed) => (removed, false),
-        };
-        log::info!(
-            " >>> Removed {} KeyToIdentityIds, removed all: {}.",
-            num_removed,
-            all_removed
-        );
-    }
-
-    pub fn migrate_v2<T: Config>() {
-        sp_runtime::runtime_logger::RuntimeLogger::init();
-
-        log::info!(" >>> Updating Identity storage. Migrating Authorizations...");
-        let total_auths = v2::Authorizations::<T>::drain().fold(
-            0usize,
-            |total_auths, (did, auth_id, authorizations)| {
-                // Migrate authorizations.
-
-                let auth = Authorization {
-                    authorization_data: authorizations.authorization_data,
-                    authorized_by: authorizations.authorized_by,
-                    expiry: authorizations.expiry,
-                    auth_id,
-                    count: 50,
-                };
-                // Asset identities don't have primary keys.
-                Authorizations::<T>::insert(did, auth_id, auth);
-
-                total_auths + 1
-            },
-        );
-
-        log::info!(" >>> Migrated {} Authorizations.", total_auths);
     }
 }

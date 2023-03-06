@@ -1,6 +1,6 @@
 [package]
 name = "polymesh"
-version = "5.2.0"
+version = "5.3.0"
 authors = ["Polymesh Association"]
 build = "build.rs"
 edition = "2021"
@@ -129,6 +129,7 @@ members = [
     "pallets/group/rpc/runtime-api",
     "pallets/identity",
     "pallets/multisig",
+    "pallets/nft",
     "pallets/pips",
     "pallets/protocol-fee",
     "pallets/rewards",

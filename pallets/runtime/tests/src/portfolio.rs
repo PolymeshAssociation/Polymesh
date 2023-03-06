@@ -1,18 +1,28 @@
 use super::{
     assert_last_event,
     asset_test::{create_token, max_len_bytes},
+    nft::{create_nft_collection, mint_nft},
+    settlement_test::create_venue,
     storage::{EventTest, System, TestStorage, User},
     ExtBuilder,
 };
 use frame_support::storage::StorageDoubleMap;
 use frame_support::{assert_noop, assert_ok, StorageMap};
 use frame_system::EventRecord;
-use pallet_portfolio::{Event, MovePortfolioItem, NameToNumber, PortfolioAssetBalances};
+use pallet_portfolio::{
+    Event, MovePortfolioItem, NameToNumber, PortfolioAssetBalances, PortfolioNFT,
+};
+use pallet_settlement::{InstructionMemo, LegAsset, LegV2, SettlementType};
 use polymesh_common_utilities::balances::Memo;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
+use polymesh_primitives::asset::{AssetType, NonFungibleType};
+use polymesh_primitives::asset_metadata::{
+    AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue,
+};
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, PortfolioId, PortfolioKind, PortfolioName,
-    PortfolioNumber, Signatory,
+    AuthorizationData, AuthorizationError, Fund, FundDescription, NFTCollectionKeys, NFTId,
+    NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
+    Signatory, Ticker,
 };
 use test_client::AccountKeyring;
 
@@ -21,6 +31,9 @@ type Error = pallet_portfolio::Error<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
 type Origin = <TestStorage as frame_system::Config>::Origin;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
+type Settlement = pallet_settlement::Module<TestStorage>;
+
+const TICKER: Ticker = Ticker::new_unchecked([b'A', b'C', b'M', b'E', 0, 0, 0, 0, 0, 0, 0, 0]);
 
 fn create_portfolio() -> (User, PortfolioNumber) {
     let owner = User::new(AccountKeyring::Alice);
@@ -573,6 +586,228 @@ fn quit_portfolio_custody() {
         ));
         // The mapping is removed which means the owner is the custodian.
         assert_owner_is_custodian!(user_portfolio);
+    });
+}
+
+/// A portfolio can only be deleted if it is empty.
+#[test]
+fn delete_portfolio_with_nfts() {
+    ExtBuilder::default().build().execute_with(|| {
+        // First we need to create a collection and mint one NFT
+        let alice: User = User::new(AccountKeyring::Alice);
+        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        Portfolio::create_portfolio(
+            alice.clone().origin(),
+            PortfolioName(b"MyPortfolio".to_vec()),
+        )
+        .unwrap();
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(
+            alice.clone(),
+            ticker,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
+        let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
+            key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            value: AssetMetadataValue(b"test".to_vec()),
+        }];
+        mint_nft(
+            alice.clone(),
+            ticker,
+            nfts_metadata,
+            PortfolioKind::User(PortfolioNumber(1)),
+        );
+
+        assert_noop!(
+            Portfolio::delete_portfolio(alice.origin(), PortfolioNumber(1)),
+            Error::PortfolioNotEmpty
+        );
+    });
+}
+
+/// A portfolio can only be deleted if it is empty (i.e no locked nfts).
+#[test]
+fn delete_portfolio_with_locked_nfts() {
+    ExtBuilder::default().build().execute_with(|| {
+        // First we need to create a collection, mint one NFT and lock it
+        let alice: User = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        Portfolio::create_portfolio(
+            alice.clone().origin(),
+            PortfolioName(b"MyPortfolio".to_vec()),
+        )
+        .unwrap();
+        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(
+            alice.clone(),
+            ticker,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
+        let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
+            key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            value: AssetMetadataValue(b"test".to_vec()),
+        }];
+        mint_nft(
+            alice.clone(),
+            ticker,
+            nfts_metadata,
+            PortfolioKind::User(PortfolioNumber(1)),
+        );
+        let venue_id = create_venue(alice);
+        // Locks the NFT - Adds and affirms the instruction
+        let nfts = NFTs::new_unverified(ticker, vec![NFTId(1)]);
+        let legs: Vec<LegV2> = vec![LegV2 {
+            from: PortfolioId::user_portfolio(alice.did, PortfolioNumber(1)),
+            to: PortfolioId::default_portfolio(bob.did),
+            asset: LegAsset::NonFungible(nfts),
+        }];
+        assert_ok!(Settlement::add_and_affirm_instruction_with_memo_v2(
+            alice.origin(),
+            venue_id,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs,
+            vec![PortfolioId::user_portfolio(alice.did, PortfolioNumber(1))],
+            Some(InstructionMemo::default()),
+        ));
+
+        assert_noop!(
+            Portfolio::delete_portfolio(alice.origin(), PortfolioNumber(1)),
+            Error::PortfolioNotEmpty
+        );
+    });
+}
+
+/// NFTs can only be moved if the sender portfolio contains the NFTs.
+#[test]
+fn move_nft_not_in_portfolio() {
+    ExtBuilder::default().build().execute_with(|| {
+        // First we need to create a collection, mint one NFT, and create one portfolio
+        let alice: User = User::new(AccountKeyring::Alice);
+        let alice_default_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+        let alice_custom_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::User(PortfolioNumber(1)),
+        };
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(
+            alice.clone(),
+            TICKER,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
+        let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
+            key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            value: AssetMetadataValue(b"test".to_vec()),
+        }];
+        mint_nft(
+            alice.clone(),
+            TICKER,
+            nfts_metadata.clone(),
+            PortfolioKind::Default,
+        );
+        Portfolio::create_portfolio(alice.origin(), PortfolioName(b"MyOwnPortfolio".to_vec()))
+            .unwrap();
+        // Attempts to move the NFT
+        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let funds = vec![Fund {
+            description: FundDescription::NonFungible(nfts),
+            memo: None,
+        }];
+        assert_noop!(
+            Portfolio::move_portfolio_funds_v2(
+                alice.origin(),
+                alice_custom_portfolio,
+                alice_default_portfolio,
+                funds
+            ),
+            Error::InvalidTransferNFTNotOwned
+        );
+    });
+}
+
+/// Successfully move the funds.
+#[test]
+fn move_portfolio_nfts() {
+    ExtBuilder::default().build().execute_with(|| {
+        // First we need to create a collection, mint two NFTs, and create one portfolio
+        let alice: User = User::new(AccountKeyring::Alice);
+        let alice_default_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::Default,
+        };
+        let alice_custom_portfolio = PortfolioId {
+            did: alice.did,
+            kind: PortfolioKind::User(PortfolioNumber(1)),
+        };
+        let collection_keys: NFTCollectionKeys =
+            vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
+        create_nft_collection(
+            alice.clone(),
+            TICKER,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
+        let nfts_metadata: Vec<NFTMetadataAttribute> = vec![NFTMetadataAttribute {
+            key: AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
+            value: AssetMetadataValue(b"test".to_vec()),
+        }];
+        mint_nft(
+            alice.clone(),
+            TICKER,
+            nfts_metadata.clone(),
+            PortfolioKind::Default,
+        );
+        mint_nft(alice.clone(), TICKER, nfts_metadata, PortfolioKind::Default);
+        Portfolio::create_portfolio(alice.origin(), PortfolioName(b"MyOwnPortfolio".to_vec()))
+            .unwrap();
+        // Moves the NFT
+        let nfts = vec![
+            NFTs::new_unverified(TICKER, vec![NFTId(1), NFTId(2), NFTId(1)]),
+            NFTs::new_unverified(TICKER, vec![NFTId(1)]),
+        ];
+        let funds = vec![
+            Fund {
+                description: FundDescription::NonFungible(nfts[0].clone()),
+                memo: None,
+            },
+            Fund {
+                description: FundDescription::NonFungible(nfts[1].clone()),
+                memo: None,
+            },
+        ];
+        assert_ok!(Portfolio::move_portfolio_funds_v2(
+            alice.origin(),
+            alice_default_portfolio,
+            alice_custom_portfolio,
+            funds,
+        ));
+        assert_eq!(
+            PortfolioNFT::get(alice_default_portfolio, (TICKER, NFTId(1))),
+            false
+        );
+        assert_eq!(
+            PortfolioNFT::get(alice_default_portfolio, (TICKER, NFTId(2))),
+            false
+        );
+        assert_eq!(
+            PortfolioNFT::get(alice_custom_portfolio, (TICKER, NFTId(1))),
+            true
+        );
+        assert_eq!(
+            PortfolioNFT::get(alice_custom_portfolio, (TICKER, NFTId(2))),
+            true
+        );
     });
 }
 

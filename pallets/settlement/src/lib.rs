@@ -74,7 +74,8 @@ use polymesh_common_utilities::{
     SystematicIssuers::Settlement as SettlementDID,
 };
 use polymesh_primitives::{
-    impl_checked_inc, storage_migration_ver, Balance, IdentityId, PortfolioId, SecondaryKey, Ticker,
+    impl_checked_inc, storage_migration_ver, Balance, IdentityId, NFTId, NFTs, PortfolioId,
+    SecondaryKey, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
@@ -85,6 +86,7 @@ type Identity<T> = identity::Module<T>;
 type System<T> = frame_system::Pallet<T>;
 type Asset<T> = pallet_asset::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
+type Nft<T> = pallet_nft::Module<T>;
 
 pub trait Config:
     frame_system::Config
@@ -93,6 +95,7 @@ pub trait Config:
     + pallet_timestamp::Config
     + asset::Config
     + pallet_compliance_manager::Config
+    + pallet_nft::Config
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -106,10 +109,14 @@ pub trait Config:
         <Self as Config>::Proposal,
         Self::SchedulerOrigin,
     >;
-    /// Maximum legs that can be in a single instruction.
-    type MaxLegsInInstruction: Get<u32>;
+    /// Maximum number of fungible assets that can be in a single instruction.
+    type MaxNumberOfFungibleAssets: Get<u32>;
     /// Weight information for extrinsic of the settlement pallet.
     type WeightInfo: WeightInfo;
+    /// Maximum number of NFTs that can be transferred in a leg.
+    type MaxNumberOfNFTsPerLeg: Get<u32>;
+    /// Maximum number of NFTs that can be transferred in a instruction.
+    type MaxNumberOfNFTs: Get<u32>;
 }
 
 /// A global and unique venue ID.
@@ -270,6 +277,98 @@ pub struct Leg {
     pub amount: Balance,
 }
 
+impl TryFrom<LegV2> for Leg {
+    type Error = &'static str;
+
+    fn try_from(leg_v2: LegV2) -> Result<Self, Self::Error> {
+        match leg_v2.asset {
+            LegAsset::NonFungible(_nfts) => Err("InvalidLegAsset"),
+            LegAsset::Fungible { ticker, amount } => Ok(Leg {
+                from: leg_v2.from,
+                to: leg_v2.to,
+                asset: ticker,
+                amount,
+            }),
+        }
+    }
+}
+
+/// Type of assets that can be transferred in a `Leg`.
+#[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
+pub enum LegAsset {
+    Fungible { ticker: Ticker, amount: Balance },
+    NonFungible(NFTs),
+}
+
+impl LegAsset {
+    /// Returns the ticker and amount being transferred.
+    pub fn ticker_and_amount(&self) -> (Ticker, Balance) {
+        match self {
+            LegAsset::Fungible { ticker, amount } => (*ticker, *amount),
+            LegAsset::NonFungible(nfts) => (*nfts.ticker(), nfts.len() as Balance),
+        }
+    }
+}
+
+impl Default for LegAsset {
+    fn default() -> Self {
+        LegAsset::Fungible {
+            ticker: Ticker::default(),
+            amount: Balance::default(),
+        }
+    }
+}
+
+/// Defines a leg (i.e the action of a settlement).
+#[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
+pub struct LegV2 {
+    /// Portfolio of the sender.
+    pub from: PortfolioId,
+    /// Portfolio of the receiver.
+    pub to: PortfolioId,
+    /// Assets being transferred.
+    pub asset: LegAsset,
+}
+
+impl From<Leg> for LegV2 {
+    fn from(leg: Leg) -> Self {
+        LegV2 {
+            from: leg.from,
+            to: leg.to,
+            asset: LegAsset::Fungible {
+                ticker: leg.asset,
+                amount: leg.amount,
+            },
+        }
+    }
+}
+
+/// Stores the number of fungible and non fungible transfers in a set of legs.
+pub struct TransferData {
+    fungible: u32,
+    non_fungible: u32,
+}
+
+impl TransferData {
+    /// Creates an instance of `TransfersData`.
+    fn new(fungible: u32, non_fungible: u32) -> Self {
+        TransferData {
+            fungible,
+            non_fungible,
+        }
+    }
+
+    /// Returns the number of fungible transfers.
+    fn fungible(&self) -> u32 {
+        self.fungible
+    }
+
+    /// Returns the number of non fungible transfers.
+    fn non_fungible(&self) -> u32 {
+        self.non_fungible
+    }
+}
+
 /// Details about a venue.
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Clone, Default, PartialEq, Eq, Debug, PartialOrd, Ord)]
@@ -340,6 +439,15 @@ pub trait WeightInfo {
     fn add_and_affirm_instruction_with_settle_on_block_type(u: u32) -> Weight;
     fn add_instruction_with_memo_and_settle_on_block_type(u: u32) -> Weight;
     fn add_and_affirm_instruction_with_memo_and_settle_on_block_type(u: u32) -> Weight;
+    fn add_instruction_with_memo_v2(f: u32) -> Weight;
+    fn add_and_affirm_instruction_with_memo_v2(f: u32, n: u32) -> Weight;
+    fn affirm_instruction_v2(f: u32, n: u32) -> Weight;
+    fn withdraw_affirmation_v2(f: u32, n: u32) -> Weight;
+    fn reject_instruction_v2(f: u32, n: u32) -> Weight;
+    fn add_and_affirm_instruction_with_memo_v2_legs(legs_v2: &[LegV2]) -> Weight {
+        let (f, n) = get_transfer_by_asset(legs_v2);
+        Self::add_and_affirm_instruction_with_memo_v2(f, n)
+    }
 }
 
 type EnsureValidInstructionResult<AccountId, Moment, BlockNumber> = Result<
@@ -418,6 +526,18 @@ decl_event!(
         VenueSignersUpdated(IdentityId, VenueId, Vec<AccountId>, bool),
         /// Settlement manually executed (did, id)
         SettlementManuallyExecuted(IdentityId, InstructionId),
+        /// A new instruction has been created
+        /// (did, venue_id, instruction_id, settlement_type, trade_date, value_date, legs, memo)
+        InstructionV2Created(
+            IdentityId,
+            VenueId,
+            InstructionId,
+            SettlementType<BlockNumber>,
+            Option<Moment>,
+            Option<Moment>,
+            Vec<LegV2>,
+            Option<InstructionMemo>,
+        ),
         /// Failed to execute instruction.
         FailedToExecuteInstruction(InstructionId, DispatchError),
     }
@@ -480,12 +600,26 @@ decl_error! {
         SignerAlreadyExists,
         /// Signer is not added to venue.
         SignerDoesNotExist,
-        /// Instruction leg amount can't be zero
+        /// Instruction leg amount can't be zero.
         ZeroAmount,
         /// Instruction settlement block has not yet been reached.
         InstructionSettleBlockNotReached,
         /// The caller is not a party of this instruction.
-        CallerIsNotAParty
+        CallerIsNotAParty,
+        /// There is a duplicated nft in one of the legs.
+        DuplicatedNFTId,
+        /// Expected a different type of asset in a leg.
+        InvalidLegAsset,
+        /// The number of nfts being transferred in the instruction was exceeded.
+        MaxNumberOfNFTsExceeded,
+        /// The number of nfts being transferred in one leg was exceeded.
+        MaxNumberOfNFTsPerLegExceeded,
+        /// The given number of nfts being transferred was underestimated.
+        NumberOfTransferredNFTsUnderestimated,
+        /// Deprecated function has been called on a v2 instruction.
+        DeprecatedCallOnV2Instruction,
+        /// Off-chain receipts are not accepted for non-fungible tokens.
+        ReceiptForNonFungibleAsset
     }
 }
 
@@ -548,6 +682,9 @@ decl_storage! {
         StorageVersion get(fn storage_version) build(|_| Version::new(0)): Version;
         /// Instruction memo
         InstructionMemos get(fn memo): map hasher(twox_64_concat) InstructionId => Option<InstructionMemo>;
+        /// Legs under an instruction. (instruction_id, leg_id) -> Leg
+        pub InstructionLegsV2 get(fn instruction_legsv2):
+            double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => LegV2;
     }
 }
 
@@ -641,7 +778,8 @@ decl_module! {
             legs: Vec<Leg>,
         ) {
             let did = Identity::<T>::ensure_perms(origin)?;
-            Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, None)?;
+            let legs: Vec<LegV2> = legs.into_iter().map(|leg| leg.into()).collect();
+            Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, None, true)?;
         }
 
         /// Deprecated. Use `add_and_affirm_instruction_with_memo` instead.
@@ -672,11 +810,12 @@ decl_module! {
             portfolios: Vec<PortfolioId>,
         ) -> DispatchResult {
             let did = Identity::<T>::ensure_perms(origin.clone())?;
+            let legs: Vec<LegV2> = legs.into_iter().map(|leg| leg.into()).collect();
             with_transaction(|| {
                 let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
                 let legs_count = legs.iter().filter(|l| portfolios_set.contains(&l.from)).count() as u32;
-                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, None)?;
-                Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios_set.into_iter(), legs_count)
+                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, None, true)?;
+                Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios_set.into_iter(), legs_count, None)
             })
         }
 
@@ -691,7 +830,7 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::affirm_instruction(*max_legs_count as u32)]
         pub fn affirm_instruction(origin, id: InstructionId, portfolios: Vec<PortfolioId>, max_legs_count: u32) -> DispatchResult {
-            Self::affirm_and_maybe_schedule_instruction(origin, id, portfolios.into_iter(), max_legs_count)
+            Self::affirm_and_maybe_schedule_instruction(origin, id, portfolios.into_iter(), max_legs_count, None)
         }
 
         /// Withdraw an affirmation for a given instruction.
@@ -709,7 +848,7 @@ decl_module! {
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
             // Withdraw an affirmation.
-            Self::unsafe_withdraw_instruction_affirmation(did, id, portfolios_set, secondary_key.as_ref(), max_legs_count)?;
+            Self::unsafe_withdraw_instruction_affirmation(did, id, portfolios_set, secondary_key.as_ref(), max_legs_count, None)?;
             if details.settlement_type == SettlementType::SettleOnAffirmation {
                 // Cancel the scheduled task for the execution of a given instruction.
                 let _ = T::Scheduler::cancel_named(id.execution_name());
@@ -726,37 +865,8 @@ decl_module! {
         /// # Permissions
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::reject_instruction(*num_of_legs)]
-        pub fn reject_instruction(origin, id: InstructionId, portfolio: PortfolioId, num_of_legs: u32) {
-            let PermissionedCallOriginData {
-                primary_did,
-                secondary_key,
-                ..
-            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
-            ensure!(
-                Self::instruction_details(id).status != InstructionStatus::Unknown,
-                Error::<T>::UnknownInstruction
-            );
-
-            let legs = InstructionLegs::iter_prefix(id).collect::<Vec<_>>();
-
-            // Ensure num_of_legs is correct.
-            ensure!(
-                legs.len() <= num_of_legs as usize,
-                Error::<T>::LegCountTooSmall
-            );
-
-            // Ensure that the caller is a party of this instruction.
-            T::Portfolio::ensure_portfolio_custody_and_permission(portfolio, primary_did, secondary_key.as_ref())?;
-            ensure!(
-                legs.iter().any(|(_, leg)| [leg.from, leg.to].contains(&portfolio)),
-                Error::<T>::CallerIsNotAParty
-            );
-
-            Self::unsafe_unclaim_receipts(id, &legs);
-            Self::unchecked_release_locks(id, &legs);
-            let _ = T::Scheduler::cancel_named(id.execution_name());
-            Self::prune_instruction(id);
-            Self::deposit_event(RawEvent::InstructionRejected(primary_did, id));
+        pub fn reject_instruction(origin, id: InstructionId, portfolio: PortfolioId, num_of_legs: u32) -> DispatchResult {
+            Self::base_reject_instruction(origin, id, portfolio, num_of_legs, None)
         }
 
         /// Accepts an instruction and claims a signed receipt.
@@ -778,13 +888,11 @@ decl_module! {
 
         /// Placeholder for removed `claim_receipt`
         #[weight = 1_000]
-        pub fn placeholder_claim_receipt(_origin) {
-        }
+        pub fn placeholder_claim_receipt(_origin) {}
 
         /// Placeholder for removed `unclaim_receipt`
         #[weight = 1_000]
-        pub fn placeholder_unclaim_receipt(_origin) {
-        }
+        pub fn placeholder_unclaim_receipt(_origin) {}
 
         /// Enables or disabled venue filtering for a token.
         ///
@@ -884,7 +992,7 @@ decl_module! {
 
             // Schedule instruction to be executed in the next block.
             let execution_at = System::<T>::block_number() + One::one();
-            Self::schedule_instruction(id, execution_at, InstructionLegs::iter_prefix(id).count() as u32);
+            Self::schedule_instruction(id, execution_at, Self::get_instruction_legs(&id).len() as u32);
 
             Self::deposit_event(RawEvent::InstructionRescheduled(did, id));
         }
@@ -927,7 +1035,8 @@ decl_module! {
             instruction_memo: Option<InstructionMemo>,
         ) {
             let did = Identity::<T>::ensure_perms(origin)?;
-            Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo)?;
+            let legs: Vec<LegV2> = legs.into_iter().map(|leg| leg.into()).collect();
+            Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo, true)?;
         }
 
         /// Adds and affirms a new instruction.
@@ -959,11 +1068,12 @@ decl_module! {
             instruction_memo: Option<InstructionMemo>,
         ) -> DispatchResult {
             let did = Identity::<T>::ensure_perms(origin.clone())?;
+            let legs: Vec<LegV2> = legs.into_iter().map(|leg| leg.into()).collect();
             with_transaction(|| {
                 let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
                 let legs_count = legs.iter().filter(|l| portfolios_set.contains(&l.from)).count() as u32;
-                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo)?;
-                Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios_set.into_iter(), legs_count)
+                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo, true)?;
+                Self::affirm_and_maybe_schedule_instruction(origin, instruction_id, portfolios_set.into_iter(), legs_count, None)
             })
         }
 
@@ -981,13 +1091,13 @@ decl_module! {
             let (did, sk, instruction_details) = Self::ensure_origin_perm_and_instruction_validity(origin, id, true)?;
 
             // Check for portfolio
+            let instruction_legs: Vec<(LegId, LegV2)> = Self::get_instruction_legs(&id);
             match portfolio {
                 Some(portfolio) => {
                     // Ensure that the caller is a party of this instruction.
                     T::Portfolio::ensure_portfolio_custody_and_permission(portfolio, did, sk.as_ref())?;
-                    let mut legs = InstructionLegs::iter_prefix(id);
                     ensure!(
-                        legs.any(|(_, leg)| [leg.from, leg.to].contains(&portfolio)),
+                        instruction_legs.iter().any(|(_, leg)| leg.from == portfolio || leg.to == portfolio),
                         Error::<T>::CallerIsNotAParty
                     );
                 }
@@ -998,7 +1108,7 @@ decl_module! {
             }
 
             // check that the instruction leg count matches
-            ensure!(InstructionLegs::iter_prefix(id).count() as u32 <= legs_count, Error::<T>::LegCountTooSmall);
+            ensure!(instruction_legs.len() as u32 <= legs_count, Error::<T>::LegCountTooSmall);
 
             // Executes the instruction
             Self::execute_instruction_retryable(id)?;
@@ -1006,16 +1116,161 @@ decl_module! {
             Self::deposit_event(RawEvent::SettlementManuallyExecuted(did, id));
         }
 
+        /// Adds a new instruction with memo.
+        ///
+        /// # Arguments
+        /// * `venue_id` - ID of the venue this instruction belongs to.
+        /// * `settlement_type` - Defines if the instruction should be settled
+        ///    in the next block after receiving all affirmations or waiting till a specific block.
+        /// * `trade_date` - Optional date from which people can interact with this instruction.
+        /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
+        /// * `legs` - Legs included in this instruction.
+        /// * `memo` - Memo field for this instruction.
+        ///
+        /// # Weight
+        /// `950_000_000 + 1_000_000 * legs.len()`
+        #[weight = <T as Config>::WeightInfo::add_instruction_with_memo_v2(legs.len() as u32)]
+        pub fn add_instruction_with_memo_v2(
+            origin,
+            venue_id: VenueId,
+            settlement_type: SettlementType<T::BlockNumber>,
+            trade_date: Option<T::Moment>,
+            value_date: Option<T::Moment>,
+            legs: Vec<LegV2>,
+            instruction_memo: Option<InstructionMemo>,
+        ) {
+            let did = Identity::<T>::ensure_perms(origin)?;
+            Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo, false)?;
+        }
+
+        /// Adds and affirms a new instruction.
+        ///
+        /// # Arguments
+        /// * `venue_id` - ID of the venue this instruction belongs to.
+        /// * `settlement_type` - Defines if the instruction should be settled
+        ///    in the next block after receiving all affirmations or waiting till a specific block.
+        /// * `trade_date` - Optional date from which people can interact with this instruction.
+        /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
+        /// * `legs` - Legs included in this instruction.
+        /// * `portfolios` - Portfolios that the sender controls and wants to use in this affirmations.
+        /// * `memo` - Memo field for this instruction.
+        ///
+        /// # Permissions
+        /// * Portfolio
+        #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_with_memo_v2_legs(legs)]
+        pub fn add_and_affirm_instruction_with_memo_v2(
+            origin,
+            venue_id: VenueId,
+            settlement_type: SettlementType<T::BlockNumber>,
+            trade_date: Option<T::Moment>,
+            value_date: Option<T::Moment>,
+            legs: Vec<LegV2>,
+            portfolios: Vec<PortfolioId>,
+            instruction_memo: Option<InstructionMemo>,
+        ) -> DispatchResult {
+            let did = Identity::<T>::ensure_perms(origin.clone())?;
+            with_transaction(|| {
+                let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
+                let (fungible_transfers, nfts_transfers) = get_transfer_by_asset(&legs);
+                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo, false)?;
+                Self::affirm_and_maybe_schedule_instruction(
+                    origin,
+                    instruction_id,
+                    portfolios_set.into_iter(),
+                    fungible_transfers,
+                    Some(nfts_transfers)
+                )
+            })
+        }
+
+        /// Provide affirmation to an existing instruction.
+        ///
+        /// # Arguments
+        /// * `id` - Instruction id to affirm.
+        /// * `portfolios` - Portfolios that the sender controls and wants to affirm this instruction.
+        /// * `fungible_transfers` - number of fungible transfers in the instruction.
+        /// * `nfts_transfers` - total number of NFTs being transferred in the instruction.
+        ///
+        /// # Permissions
+        /// * Portfolio
+        #[weight = <T as Config>::WeightInfo::affirm_instruction_v2(*fungible_transfers, *nfts_transfers)]
+        pub fn affirm_instruction_v2(origin, id: InstructionId, portfolios: Vec<PortfolioId>, fungible_transfers: u32, nfts_transfers: u32) -> DispatchResult {
+            Self::affirm_and_maybe_schedule_instruction(
+                origin, id, portfolios.into_iter(),
+                fungible_transfers,
+                Some(nfts_transfers)
+            )
+        }
+
+        /// Withdraw an affirmation for a given instruction.
+        ///
+        /// # Arguments
+        /// * `id` - Instruction id for that affirmation get withdrawn.
+        /// * `portfolios` - Portfolios that the sender controls and wants to withdraw affirmation.
+        /// * `fungible_transfers` - number of fungible transfers in the instruction.
+        /// * `nfts_transfers` - total number of NFTs being transferred in the instruction.
+        ///
+        /// # Permissions
+        /// * Portfolio
+        #[weight = <T as Config>::WeightInfo::withdraw_affirmation_v2(*fungible_transfers, *nfts_transfers)]
+        pub fn withdraw_affirmation_v2(origin, id: InstructionId, portfolios: Vec<PortfolioId>, fungible_transfers: u32, nfts_transfers: u32) -> DispatchResult {
+            let (did, secondary_key, details) = Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
+            let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
+
+            // Withdraw an affirmation.
+            Self::unsafe_withdraw_instruction_affirmation(did, id, portfolios_set, secondary_key.as_ref(), fungible_transfers, Some(nfts_transfers))?;
+            if details.settlement_type == SettlementType::SettleOnAffirmation {
+                // Cancel the scheduled task for the execution of a given instruction.
+                let _fix_this = T::Scheduler::cancel_named(id.execution_name());
+            }
+            Ok(())
+        }
+
+        /// Rejects an existing instruction.
+        ///
+        /// # Arguments
+        /// * `id` - Instruction id to reject.
+        /// * `portfolio` - Portfolio to reject the instruction.
+        /// * `fungible_transfers` - number of fungible transfers in the instruction.
+        /// * `nfts_transfers` - total number of NFTs being transferred in the instruction.
+        ///
+        /// # Permissions
+        /// * Portfolio
+        #[weight = <T as Config>::WeightInfo::reject_instruction_v2(*fungible_transfers, *nfts_transfers)]
+        pub fn reject_instruction_v2(origin, id: InstructionId, portfolio: PortfolioId, fungible_transfers: u32, nfts_transfers: u32) -> DispatchResult {
+            Self::base_reject_instruction(origin, id, portfolio, fungible_transfers, Some(nfts_transfers))
+        }
+
     }
 }
 
 impl<T: Config> Module<T> {
-    fn lock_via_leg(leg: &Leg) -> DispatchResult {
-        T::Portfolio::lock_tokens(&leg.from, &leg.asset, leg.amount)
+    fn lock_via_leg(leg: &LegV2) -> DispatchResult {
+        match &leg.asset {
+            LegAsset::Fungible { ticker, amount } => {
+                T::Portfolio::lock_tokens(&leg.from, &ticker, *amount)
+            }
+            LegAsset::NonFungible(nfts) => with_transaction(|| {
+                for nft_id in nfts.ids() {
+                    T::Portfolio::lock_nft(&leg.from, nfts.ticker(), &nft_id)?;
+                }
+                Ok(())
+            }),
+        }
     }
 
-    fn unlock_via_leg(leg: &Leg) -> DispatchResult {
-        T::Portfolio::unlock_tokens(&leg.from, &leg.asset, leg.amount)
+    fn unlock_via_leg(leg: &LegV2) -> DispatchResult {
+        match &leg.asset {
+            LegAsset::Fungible { ticker, amount } => {
+                T::Portfolio::unlock_tokens(&leg.from, &ticker, *amount)
+            }
+            LegAsset::NonFungible(nfts) => with_transaction(|| {
+                for nft_id in nfts.ids() {
+                    T::Portfolio::unlock_nft(&leg.from, nfts.ticker(), &nft_id)?;
+                }
+                Ok(())
+            }),
+        }
     }
 
     /// Ensure origin call permission and the given instruction validity.
@@ -1050,26 +1305,16 @@ impl<T: Config> Module<T> {
         settlement_type: SettlementType<T::BlockNumber>,
         trade_date: Option<T::Moment>,
         value_date: Option<T::Moment>,
-        legs: Vec<Leg>,
+        legs: Vec<LegV2>,
         memo: Option<InstructionMemo>,
+        emit_deprecated_event: bool,
     ) -> Result<InstructionId, DispatchError> {
-        // Ensure instruction does not have too many legs.
-        ensure!(
-            legs.len() <= T::MaxLegsInInstruction::get() as usize,
-            Error::<T>::InstructionHasTooManyLegs
-        );
-
-        match &settlement_type {
-            SettlementType::SettleOnBlock(block_number) => {
-                // Ensure that the scheduled block number is in the future so that `T::Scheduler::schedule_named`
-                // doesn't fail.
-                ensure!(
-                    *block_number > System::<T>::block_number(),
-                    Error::<T>::SettleOnPastBlock
-                );
-            }
-            SettlementType::SettleManual(_block_number) => {}
-            _ => {}
+        // Verifies if the block number is in the future so that `T::Scheduler::schedule_named` doesn't fail.
+        if let SettlementType::SettleOnBlock(block_number) = &settlement_type {
+            ensure!(
+                *block_number > System::<T>::block_number(),
+                Error::<T>::SettleOnPastBlock
+            );
         }
 
         // Ensure that instruction dates are valid.
@@ -1083,24 +1328,8 @@ impl<T: Config> Module<T> {
         // Ensure venue exists & sender is its creator.
         Self::venue_for_management(venue_id, did)?;
 
-        // Create a list of unique counter parties involved in the instruction.
-        let mut counter_parties = BTreeSet::new();
-        let mut tickers = BTreeSet::new();
-        for leg in &legs {
-            ensure!(leg.from != leg.to, Error::<T>::SameSenderReceiver);
-            // Check if the venue is part of the token's list of allowed venues.
-            // Only check each ticker once.
-            if tickers.insert(leg.asset) && Self::venue_filtering(leg.asset) {
-                ensure!(
-                    Self::venue_allow_list(leg.asset, venue_id),
-                    Error::<T>::UnauthorizedVenue
-                );
-            }
-
-            ensure!(leg.amount != 0, Error::<T>::ZeroAmount);
-            counter_parties.insert(leg.from);
-            counter_parties.insert(leg.to);
-        }
+        // Verifies if all legs are valid.
+        let counter_parties = Self::ensure_valid_legs(&legs, venue_id)?;
 
         // Advance and get next `instruction_id`.
         let instruction_id = InstructionCounter::try_mutate(try_next_post::<T, _>)?;
@@ -1120,14 +1349,6 @@ impl<T: Config> Module<T> {
             UserAffirmations::insert(counter_party, instruction_id, AffirmationStatus::Pending);
         }
 
-        for (i, leg) in legs.iter().enumerate() {
-            InstructionLegs::insert(
-                instruction_id,
-                u64::try_from(i).map(LegId).unwrap_or_default(),
-                leg.clone(),
-            );
-        }
-
         if let SettlementType::SettleOnBlock(block_number) = settlement_type {
             Self::schedule_instruction(instruction_id, block_number, legs.len() as u32);
         }
@@ -1143,18 +1364,88 @@ impl<T: Config> Module<T> {
             InstructionMemos::insert(instruction_id, &memo);
         }
 
-        Self::deposit_event(RawEvent::InstructionCreated(
-            did,
-            venue_id,
-            instruction_id,
-            settlement_type,
-            trade_date,
-            value_date,
-            legs,
-            memo,
-        ));
+        if emit_deprecated_event {
+            let legs: Result<Vec<Leg>, &str> = legs
+                .into_iter()
+                .map(|leg_v2| Leg::try_from(leg_v2))
+                .collect();
+            let legs: Vec<Leg> = legs.map_err(|_| Error::<T>::InvalidLegAsset)?;
+            legs.iter().enumerate().for_each(|(index, leg)| {
+                InstructionLegs::insert(instruction_id, LegId(index as u64), leg.clone())
+            });
+            Self::deposit_event(RawEvent::InstructionCreated(
+                did,
+                venue_id,
+                instruction_id,
+                settlement_type,
+                trade_date,
+                value_date,
+                legs,
+                memo,
+            ))
+        } else {
+            legs.iter().enumerate().for_each(|(index, leg)| {
+                InstructionLegsV2::insert(instruction_id, LegId(index as u64), leg.clone())
+            });
+            Self::deposit_event(RawEvent::InstructionV2Created(
+                did,
+                venue_id,
+                instruction_id,
+                settlement_type,
+                trade_date,
+                value_date,
+                legs,
+                memo,
+            ));
+        }
 
         Ok(instruction_id)
+    }
+
+    /// Makes sure the legs are valid. For both types of assets the sender and receiver must be different,
+    /// the amount being transferred must be greater than zero, and if filtering is enabled the venue list is also checked.
+    /// The number of fungible an non fungible assets in the legs must be within the valid limits allowed.
+    /// Returns a set of the unique counter parties involved in the legs.
+    fn ensure_valid_legs(
+        legs: &[LegV2],
+        venue_id: VenueId,
+    ) -> Result<BTreeSet<PortfolioId>, DispatchError> {
+        let mut nfts_transfers = 0;
+        let mut fungible_transfers = 0;
+        let mut parties = BTreeSet::new();
+        let mut tickers = BTreeSet::new();
+        for leg in legs {
+            ensure!(leg.from != leg.to, Error::<T>::SameSenderReceiver);
+            match &leg.asset {
+                LegAsset::Fungible { ticker, amount } => {
+                    ensure!(*amount > 0, Error::<T>::ZeroAmount);
+                    Self::ensure_venue_filtering(&mut tickers, ticker.clone(), &venue_id)?;
+                    fungible_transfers += 1;
+                }
+                LegAsset::NonFungible(nfts) => {
+                    ensure!(nfts.len() > 0, Error::<T>::ZeroAmount);
+                    ensure!(
+                        nfts.len() <= (T::MaxNumberOfNFTsPerLeg::get() as usize),
+                        Error::<T>::MaxNumberOfNFTsPerLegExceeded
+                    );
+                    Self::ensure_venue_filtering(&mut tickers, nfts.ticker().clone(), &venue_id)?;
+                    let unique_nfts: BTreeSet<&NFTId> = nfts.ids().iter().collect();
+                    ensure!(unique_nfts.len() == nfts.len(), Error::<T>::DuplicatedNFTId);
+                    nfts_transfers += nfts.len();
+                }
+            }
+            parties.insert(leg.from);
+            parties.insert(leg.to);
+        }
+        ensure!(
+            nfts_transfers <= T::MaxNumberOfNFTs::get() as usize,
+            Error::<T>::MaxNumberOfNFTsExceeded
+        );
+        ensure!(
+            fungible_transfers <= T::MaxNumberOfFungibleAssets::get(),
+            Error::<T>::InstructionHasTooManyLegs
+        );
+        Ok(parties)
     }
 
     fn unsafe_withdraw_instruction_affirmation(
@@ -1162,7 +1453,8 @@ impl<T: Config> Module<T> {
         id: InstructionId,
         portfolios: BTreeSet<PortfolioId>,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
-        max_legs_count: u32,
+        fungible_transfers: u32,
+        nfts_transfers: Option<u32>,
     ) -> Result<u32, DispatchError> {
         // checks custodianship of portfolios and affirmation status
         Self::ensure_portfolios_and_affirmation_status(
@@ -1174,7 +1466,7 @@ impl<T: Config> Module<T> {
         )?;
         // Unlock tokens that were previously locked during the affirmation
         let (total_leg_count, filtered_legs) =
-            Self::filtered_legs(id, &portfolios, max_legs_count)?;
+            Self::filtered_legs(&id, &portfolios, fungible_transfers, nfts_transfers)?;
         for (leg_id, leg_details) in filtered_legs {
             match Self::instruction_leg_status(id, leg_id) {
                 LegStatus::ExecutionToBeSkipped(signer, receipt_uid) => {
@@ -1279,8 +1571,7 @@ impl<T: Config> Module<T> {
             Error::<T>::InstructionNotPending
         );
 
-        let mut instruction_legs: Vec<(LegId, Leg)> =
-            InstructionLegs::iter_prefix(instruction_id).collect();
+        let mut instruction_legs: Vec<(LegId, LegV2)> = Self::get_instruction_legs(&instruction_id);
         // NB: The order of execution of the legs matter in some edge cases around compliance.
         // E.g: Consider a token with a total supply of 100 and maximum percentage ownership of 10%.
         // In a given moment, Alice owns 10 tokens, Bob owns 5 and Charlie owns 0.
@@ -1292,13 +1583,14 @@ impl<T: Config> Module<T> {
         let mut tickers: BTreeSet<Ticker> = BTreeSet::new();
         for (_, leg) in &instruction_legs {
             // Each ticker is only checked once
-            if tickers.insert(leg.asset)
-                && Self::venue_filtering(leg.asset)
-                && !Self::venue_allow_list(leg.asset, details.venue_id)
+            let ticker = leg.asset.ticker_and_amount().0;
+            if tickers.insert(ticker)
+                && Self::venue_filtering(ticker)
+                && !Self::venue_allow_list(ticker, details.venue_id)
             {
                 Self::deposit_event(RawEvent::VenueUnauthorized(
                     SettlementDID.as_id(),
-                    leg.asset,
+                    ticker,
                     details.venue_id,
                 ));
                 return Err(Error::<T>::UnauthorizedVenue.into());
@@ -1335,13 +1627,22 @@ impl<T: Config> Module<T> {
 
     fn release_asset_locks_and_transfer_pending_legs(
         instruction_id: InstructionId,
-        instruction_legs: &[(LegId, Leg)],
+        instruction_legs: &[(LegId, LegV2)],
     ) -> TransactionOutcome<Result<Result<(), LegId>, DispatchError>> {
         Self::unchecked_release_locks(instruction_id, instruction_legs);
         for (leg_id, leg) in instruction_legs {
             if Self::instruction_leg_status(instruction_id, leg_id) == LegStatus::ExecutionPending {
-                if <Asset<T>>::base_transfer(leg.from, leg.to, &leg.asset, leg.amount).is_err() {
-                    return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
+                match &leg.asset {
+                    LegAsset::Fungible { ticker, amount } => {
+                        if <Asset<T>>::base_transfer(leg.from, leg.to, &ticker, *amount).is_err() {
+                            return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
+                        }
+                    }
+                    LegAsset::NonFungible(nfts) => {
+                        if <Nft<T>>::base_nft_transfer(&leg.from, &leg.to, &nfts).is_err() {
+                            return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
+                        }
+                    }
                 }
             }
         }
@@ -1349,7 +1650,7 @@ impl<T: Config> Module<T> {
     }
 
     fn prune_instruction(id: InstructionId) {
-        let legs = InstructionLegs::drain_prefix(id).collect::<Vec<_>>();
+        let legs: Vec<(LegId, LegV2)> = Self::drain_instruction_legs(&id);
         let details = <InstructionDetails<T>>::take(id);
         VenueInstructions::remove(details.venue_id, id);
         <InstructionLegStatus<T>>::remove_prefix(id, None);
@@ -1371,7 +1672,8 @@ impl<T: Config> Module<T> {
         did: IdentityId,
         id: InstructionId,
         portfolios: BTreeSet<PortfolioId>,
-        max_legs_count: u32,
+        fungible_transfers: u32,
+        nfts_trasferred: Option<u32>,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
     ) -> Result<u32, DispatchError> {
         // Checks portfolio's custodian and if it is a counter party with a pending affirmation.
@@ -1384,17 +1686,15 @@ impl<T: Config> Module<T> {
         )?;
 
         let (total_leg_count, filtered_legs) =
-            Self::filtered_legs(id, &portfolios, max_legs_count)?;
+            Self::filtered_legs(&id, &portfolios, fungible_transfers, nfts_trasferred)?;
         with_transaction(|| {
             for (leg_id, leg_details) in filtered_legs {
-                if let Err(_) = Self::lock_via_leg(&leg_details) {
-                    // rustc fails to infer return type of `with_transaction` if you use ?/map_err here
-                    return Err(DispatchError::from(Error::<T>::FailedToLockTokens));
-                }
+                Self::lock_via_leg(&leg_details)?;
                 <InstructionLegStatus<T>>::insert(id, leg_id, LegStatus::ExecutionPending);
             }
             Ok(())
-        })?;
+        })
+        .map_err(|e: DispatchError| e)?;
 
         let affirms_pending = Self::instruction_affirms_pending(id);
 
@@ -1414,7 +1714,7 @@ impl<T: Config> Module<T> {
 
     // Unclaims all receipts for an instruction
     // Should only be used if user is unclaiming, or instruction has failed
-    fn unsafe_unclaim_receipts(id: InstructionId, legs: &[(LegId, Leg)]) {
+    fn unsafe_unclaim_receipts(id: InstructionId, legs: &[(LegId, LegV2)]) {
         for (leg_id, _) in legs {
             match Self::instruction_leg_status(id, leg_id) {
                 LegStatus::ExecutionToBeSkipped(signer, receipt_uid) => {
@@ -1432,7 +1732,7 @@ impl<T: Config> Module<T> {
         }
     }
 
-    fn unchecked_release_locks(id: InstructionId, instruction_legs: &[(LegId, Leg)]) {
+    fn unchecked_release_locks(id: InstructionId, instruction_legs: &[(LegId, LegV2)]) {
         for (leg_id, leg) in instruction_legs {
             match Self::instruction_leg_status(id, leg_id) {
                 LegStatus::ExecutionPending => {
@@ -1483,7 +1783,7 @@ impl<T: Config> Module<T> {
         id: InstructionId,
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
-        max_legs_count: u32,
+        fungible_transfers: u32,
     ) -> Result<u32, DispatchError> {
         let (did, secondary_key, instruction_details) =
             Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
@@ -1520,14 +1820,18 @@ impl<T: Config> Module<T> {
                 Error::<T>::ReceiptAlreadyClaimed
             );
 
-            let leg = Self::instruction_legs(&id, &receipt.leg_id);
+            let leg = Self::get_instruction_leg(&id, &receipt.leg_id);
+            if let LegAsset::NonFungible(_nfts) = leg.asset {
+                return Err(Error::<T>::ReceiptForNonFungibleAsset.into());
+            }
             ensure!(
                 portfolios_set.contains(&leg.from),
                 Error::<T>::PortfolioMismatch
             );
 
+            let (asset, amount) = leg.asset.ticker_and_amount();
             ensure!(
-                !pallet_asset::Tokens::contains_key(&leg.asset),
+                !pallet_asset::Tokens::contains_key(&asset),
                 Error::<T>::UnauthorizedVenue
             );
 
@@ -1535,8 +1839,8 @@ impl<T: Config> Module<T> {
                 receipt_uid: receipt.receipt_uid,
                 from: leg.from,
                 to: leg.to,
-                asset: leg.asset,
-                amount: leg.amount,
+                asset,
+                amount,
             };
             ensure!(
                 receipt.signature.verify(&msg.encode()[..], &receipt.signer),
@@ -1545,7 +1849,7 @@ impl<T: Config> Module<T> {
         }
 
         let (total_leg_count, filtered_legs) =
-            Self::filtered_legs(id, &portfolios_set, max_legs_count)?;
+            Self::filtered_legs(&id, &portfolios_set, fungible_transfers, None)?;
         // Lock tokens that do not have a receipt attached to their leg.
         with_transaction(|| {
             for (leg_id, leg_details) in filtered_legs {
@@ -1603,13 +1907,21 @@ impl<T: Config> Module<T> {
         origin: <T as frame_system::Config>::Origin,
         id: InstructionId,
         portfolios: impl Iterator<Item = PortfolioId>,
-        max_legs_count: u32,
+        fungible_transfers: u32,
+        nfts_transferred: Option<u32>,
     ) -> Result<u32, DispatchError> {
         let (did, sk, _) = Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
         let portfolios_set = portfolios.collect::<BTreeSet<_>>();
 
         // Provide affirmation to the instruction
-        Self::unsafe_affirm_instruction(did, id, portfolios_set, max_legs_count, sk.as_ref())
+        Self::unsafe_affirm_instruction(
+            did,
+            id,
+            portfolios_set,
+            fungible_transfers,
+            nfts_transferred,
+            sk.as_ref(),
+        )
     }
 
     // It affirms the instruction and may schedule the instruction
@@ -1619,14 +1931,14 @@ impl<T: Config> Module<T> {
         id: InstructionId,
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
-        max_legs_count: u32,
+        fungible_transfers: u32,
     ) -> DispatchResult {
         let legs_count = Self::base_affirm_with_receipts(
             origin,
             id,
             receipt_details,
             portfolios,
-            max_legs_count,
+            fungible_transfers,
         )?;
         // Schedule instruction to be execute in the next block (expected) if conditions are met.
         Self::maybe_schedule_instruction(Self::instruction_affirms_pending(id), id, legs_count);
@@ -1639,9 +1951,16 @@ impl<T: Config> Module<T> {
         origin: <T as frame_system::Config>::Origin,
         id: InstructionId,
         portfolios: impl Iterator<Item = PortfolioId>,
-        max_legs_count: u32,
+        fungible_transfers: u32,
+        nfts_transfers: Option<u32>,
     ) -> DispatchResult {
-        let legs_count = Self::base_affirm_instruction(origin, id, portfolios, max_legs_count)?;
+        let legs_count = Self::base_affirm_instruction(
+            origin,
+            id,
+            portfolios,
+            fungible_transfers,
+            nfts_transfers,
+        )?;
         // Schedule the instruction if conditions are met
         Self::maybe_schedule_instruction(Self::instruction_affirms_pending(id), id, legs_count);
         Ok(())
@@ -1656,6 +1975,7 @@ impl<T: Config> Module<T> {
         receipt: Option<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
         max_legs_count: u32,
+        nfts_transferred: Option<u32>,
     ) -> DispatchResult {
         match receipt {
             Some(receipt) => Self::base_affirm_with_receipts(
@@ -1665,9 +1985,13 @@ impl<T: Config> Module<T> {
                 portfolios,
                 max_legs_count,
             )?,
-            None => {
-                Self::base_affirm_instruction(origin, id, portfolios.into_iter(), max_legs_count)?
-            }
+            None => Self::base_affirm_instruction(
+                origin,
+                id,
+                portfolios.into_iter(),
+                max_legs_count,
+                nfts_transferred,
+            )?,
         };
         Self::execute_settle_on_affirmation_instruction(
             id,
@@ -1716,25 +2040,24 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Returns total number of legs of an `instruction_id` and vector of legs where sender is in the `portfolios` set.
-    /// Also, ensures that the number of filtered legs is under the limit.
+    /// Returns the total number of legs of an `instruction_id` and a vector of legs where sender is in the `portfolio_set`.
+    /// Ensures that the number of fungible and non fungible assets being transferred is under the given limit.
     fn filtered_legs(
-        id: InstructionId,
-        portfolios: &BTreeSet<PortfolioId>,
-        max_filtered_legs: u32,
-    ) -> Result<(u32, Vec<(LegId, Leg)>), DispatchError> {
-        let mut legs_count = 0;
-        let filtered_legs = InstructionLegs::iter_prefix(id)
+        id: &InstructionId,
+        portfolio_set: &BTreeSet<PortfolioId>,
+        fungible_transfers: u32,
+        nfts_transfers: Option<u32>,
+    ) -> Result<(u32, Vec<(LegId, LegV2)>), DispatchError> {
+        let instruction_legs: Vec<(LegId, LegV2)> = Self::get_instruction_legs(&id);
+        let n_instruction_legs = instruction_legs.len() as u32;
+        // Gets all legs where the sender is in the given set
+        let legs_from_set: Vec<(LegId, LegV2)> = instruction_legs
             .into_iter()
-            .inspect(|_| legs_count += 1)
-            .filter(|(_, leg_details)| portfolios.contains(&leg_details.from))
-            .collect::<Vec<_>>();
-        // Ensure leg count is under the limit
-        ensure!(
-            filtered_legs.len() <= max_filtered_legs as usize,
-            Error::<T>::LegCountTooSmall
-        );
-        Ok((legs_count, filtered_legs))
+            .filter(|(_, leg_v2)| portfolio_set.contains(&leg_v2.from))
+            .collect();
+        let transfer_data = Self::get_transfer_data(&legs_from_set)?;
+        Self::ensure_valid_input_cost(&transfer_data, fungible_transfers, nfts_transfers)?;
+        Ok((n_instruction_legs, legs_from_set))
     }
 
     fn base_update_venue_signers(
@@ -1771,4 +2094,146 @@ impl<T: Config> Module<T> {
         Self::deposit_event(RawEvent::VenueSignersUpdated(did, id, signers, add_signers));
         Ok(())
     }
+
+    fn base_reject_instruction(
+        origin: T::Origin,
+        id: InstructionId,
+        portfolio: PortfolioId,
+        fungible_transfers: u32,
+        nfts_transfers: Option<u32>,
+    ) -> DispatchResult {
+        ensure!(
+            Self::instruction_details(id).status != InstructionStatus::Unknown,
+            Error::<T>::UnknownInstruction
+        );
+        // Gets all legs for the instruction, checks if portfolio is in any of the legs, and validates the input cost.
+        let legs_v2: Vec<(LegId, LegV2)> = Self::get_instruction_legs(&id);
+        ensure!(
+            legs_v2
+                .iter()
+                .any(|(_, leg_v2)| leg_v2.from == portfolio || leg_v2.to == portfolio),
+            Error::<T>::CallerIsNotAParty
+        );
+        let transfer_data = Self::get_transfer_data(&legs_v2)?;
+        Self::ensure_valid_input_cost(&transfer_data, fungible_transfers, nfts_transfers)?;
+
+        // Verifies if the caller has the right permissions for this call
+        let origin_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
+        T::Portfolio::ensure_portfolio_custody_and_permission(
+            portfolio,
+            origin_data.primary_did,
+            origin_data.secondary_key.as_ref(),
+        )?;
+
+        Self::unsafe_unclaim_receipts(id, &legs_v2);
+        Self::unchecked_release_locks(id, &legs_v2);
+        let _ = T::Scheduler::cancel_named(id.execution_name());
+        Self::prune_instruction(id);
+        Self::deposit_event(RawEvent::InstructionRejected(origin_data.primary_did, id));
+        Ok(())
+    }
+
+    /// Returns the number of fungible and non fungible transfers in a slice of legs.
+    /// In case that T::MaxNumberOfNFTsPerLeg is exceeded an error will be returned.
+    fn get_transfer_data(legs_v2: &[(LegId, LegV2)]) -> Result<TransferData, DispatchError> {
+        let mut nfts_transfers = 0;
+        let mut fungible_transfers = 0;
+        for (_, leg_v2) in legs_v2 {
+            match &leg_v2.asset {
+                LegAsset::Fungible { .. } => fungible_transfers += 1,
+                LegAsset::NonFungible(nfts) => {
+                    ensure!(
+                        nfts.len() <= T::MaxNumberOfNFTsPerLeg::get() as usize,
+                        Error::<T>::MaxNumberOfNFTsPerLegExceeded
+                    );
+                    nfts_transfers += nfts.len();
+                }
+            }
+        }
+        Ok(TransferData::new(fungible_transfers, nfts_transfers as u32))
+    }
+
+    /// Returns ok if the number of fungible assets and nfts being transferred is under the input given by the user.
+    pub fn ensure_valid_input_cost(
+        transfer_data: &TransferData,
+        fungible_transfers: u32,
+        nfts_transfers: Option<u32>,
+    ) -> DispatchResult {
+        // Verifies if the number of nfts being transferred is under the limit
+        if transfer_data.non_fungible() > 0 {
+            let nfts_transfers = nfts_transfers.ok_or(Error::<T>::DeprecatedCallOnV2Instruction)?;
+            ensure!(
+                transfer_data.non_fungible() <= nfts_transfers,
+                Error::<T>::NumberOfTransferredNFTsUnderestimated
+            );
+        }
+        // Verifies if the number of fungible transfers is under the limit
+        ensure!(
+            transfer_data.fungible() <= fungible_transfers,
+            Error::<T>::LegCountTooSmall
+        );
+        Ok(())
+    }
+
+    /// If `tickers` doesn't contain the given `ticker` and venue_filtering is enabled, ensures that venue_id is in the allowed list
+    fn ensure_venue_filtering(
+        tickers: &mut BTreeSet<Ticker>,
+        ticker: Ticker,
+        venue_id: &VenueId,
+    ) -> DispatchResult {
+        if tickers.insert(ticker) && Self::venue_filtering(ticker) {
+            ensure!(
+                Self::venue_allow_list(ticker, venue_id),
+                Error::<T>::UnauthorizedVenue
+            );
+        }
+        Ok(())
+    }
+
+    /// Returns the specified leg for the given instruction and leg id.
+    /// If it doesn't exist in the InstructionLegsV2 storage it will be converted from the deprecated InstructionLegs storage.
+    pub fn get_instruction_leg(instruction_id: &InstructionId, leg_id: &LegId) -> LegV2 {
+        InstructionLegsV2::try_get(instruction_id, leg_id)
+            .unwrap_or_else(|_| InstructionLegs::get(instruction_id, leg_id).into())
+    }
+
+    /// Returns all legs and their id for the given instruction.
+    /// If it doesn't exist in the InstructionLegsV2 storage it will be converted from the deprecated InstructionLegs storage.
+    pub fn get_instruction_legs(instruction_id: &InstructionId) -> Vec<(LegId, LegV2)> {
+        let instruction_legs: Vec<(LegId, LegV2)> =
+            InstructionLegsV2::iter_prefix(instruction_id).collect();
+
+        if instruction_legs.is_empty() {
+            return InstructionLegs::iter_prefix(instruction_id)
+                .map(|(leg_id, leg)| (leg_id, leg.into()))
+                .collect();
+        }
+        instruction_legs
+    }
+
+    /// Removes all legs for the given `instruction_id`, returning a `Vec<(LegId, LegV2)>` containing the removed legs.
+    fn drain_instruction_legs(instruction_id: &InstructionId) -> Vec<(LegId, LegV2)> {
+        let drained_legs: Vec<(LegId, LegV2)> =
+            InstructionLegsV2::drain_prefix(instruction_id).collect();
+
+        if drained_legs.is_empty() {
+            return InstructionLegs::drain_prefix(instruction_id)
+                .map(|(leg_id, leg)| (leg_id, leg.into()))
+                .collect();
+        }
+        drained_legs
+    }
+}
+
+/// Returns the number of fungible and non fungible transfers in a slice of legs.
+pub fn get_transfer_by_asset(legs_v2: &[LegV2]) -> (u32, u32) {
+    let mut nfts_transfers = 0;
+    let mut fungible_transfers = 0;
+    for leg_v2 in legs_v2 {
+        match &leg_v2.asset {
+            LegAsset::Fungible { .. } => fungible_transfers += 1,
+            LegAsset::NonFungible(nfts) => nfts_transfers += nfts.len(),
+        }
+    }
+    (fungible_transfers, nfts_transfers as u32)
 }

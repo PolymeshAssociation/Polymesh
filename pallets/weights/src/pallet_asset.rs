@@ -406,4 +406,32 @@ impl pallet_asset::WeightInfo for WeightInfo {
             .saturating_add(DbWeight::get().reads(5 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
+    // Storage: Permissions CurrentPalletName (r:1 w:0)
+    // Storage: Permissions CurrentDispatchableName (r:1 w:0)
+    // Storage: Asset AssetMetadataLocalNameToKey (r:1 w:1)
+    // Storage: Asset AssetMetadataValueDetails (r:1 w:1)
+    // Storage: NFT CollectionTicker (r:1 w:0)
+    // Storage: NFT CollectionKeys (r:1 w:0)
+    // Storage: Asset AssetMetadataValues (r:0 w:1)
+    // Storage: Asset AssetMetadataLocalKeyToName (r:0 w:1)
+    // Storage: Asset AssetMetadataLocalSpecs (r:0 w:1)
+    fn remove_local_metadata_key() -> Weight {
+        (52_321_000 as Weight)
+            .saturating_add(DbWeight::get().reads(8 as Weight))
+            .saturating_add(DbWeight::get().writes(5 as Weight))
+    }
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
+    // Storage: Permissions CurrentPalletName (r:1 w:0)
+    // Storage: Permissions CurrentDispatchableName (r:1 w:0)
+    // Storage: Asset AssetMetadataLocalNameToKey (r:1 w:0)
+    // Storage: Asset AssetMetadataValueDetails (r:1 w:1)
+    // Storage: Asset AssetMetadataValues (r:0 w:1)
+    fn remove_metadata_value() -> Weight {
+        (36_579_000 as Weight)
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
 }
