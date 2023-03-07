@@ -74,8 +74,8 @@ use polymesh_common_utilities::{
     SystematicIssuers::Settlement as SettlementDID,
 };
 use polymesh_primitives::{
-    impl_checked_inc, storage_migration_ver, Balance, IdentityId, NFTId, NFTs, PortfolioId,
-    SecondaryKey, Ticker,
+    impl_checked_inc, storage_migration_ver, Balance, IdentityId, NFTs, PortfolioId, SecondaryKey,
+    Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
@@ -1429,8 +1429,8 @@ impl<T: Config> Module<T> {
                         Error::<T>::MaxNumberOfNFTsPerLegExceeded
                     );
                     Self::ensure_venue_filtering(&mut tickers, nfts.ticker().clone(), &venue_id)?;
-                    let unique_nfts: BTreeSet<&NFTId> = nfts.ids().iter().collect();
-                    ensure!(unique_nfts.len() == nfts.len(), Error::<T>::DuplicatedNFTId);
+                    <Nft<T>>::ensure_no_duplicate_nfts(&nfts)
+                        .map_err(|_| Error::<T>::DuplicatedNFTId)?;
                     nfts_transfers += nfts.len();
                 }
             }

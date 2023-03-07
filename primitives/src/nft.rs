@@ -1,3 +1,6 @@
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
+
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_std::collections::btree_set::BTreeSet;
@@ -19,6 +22,7 @@ impl_checked_inc!(NFTCollectionId);
 #[derive(
     Clone, Copy, Debug, Decode, Default, Encode, Eq, Ord, PartialOrd, PartialEq, TypeInfo
 )]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct NFTId(pub u64);
 impl_checked_inc!(NFTId);
 
@@ -48,6 +52,7 @@ impl NFTCollection {
 
 /// Represent all NFT being transferred for a given `Ticker`.
 #[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct NFTs {
     ticker: Ticker,
     ids: Vec<NFTId>,
