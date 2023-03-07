@@ -165,6 +165,8 @@ decl_error! {
         NFTNotFound,
         /// At least one of the metadata keys has not been registered.
         UnregisteredMetadataKey,
+        /// Failed to transfer an NFT - asset is frozen.
+        InvalidNFTTransferDuplicatedNFTId,
     }
 }
 
@@ -345,7 +347,6 @@ impl<T: Config> Module<T> {
     }
 
     /// Tranfer ownership of all NFTs.
-    /// Note: the checks validating uniqueness of the ids and the number of NFTs are done in the settlement pallet.
     #[require_transactional]
     pub fn base_nft_transfer(
         sender_portfolio: &PortfolioId,
@@ -377,8 +378,7 @@ impl<T: Config> Module<T> {
 
     /// Verifies if and the sender and receiver are not the same, if both have valid balances,
     /// if the sender owns the nft, and if all compliance rules are being respected.
-    /// Note: the checks validating uniqueness of the ids and the number of NFTs are done in the settlement pallet.
-    fn validate_nft_transfer(
+    pub fn validate_nft_transfer(
         sender_portfolio: &PortfolioId,
         receiver_portfolio: &PortfolioId,
         nfts: &NFTs,
@@ -399,6 +399,8 @@ impl<T: Config> Module<T> {
             NumberOfNFTs::get(nfts.ticker(), sender_portfolio.did) >= transferred_amount,
             Error::<T>::InvalidNFTTransferNoBalance
         );
+        // Verifies that all ids are unique
+        Self::ensure_no_duplicate_nfts(nfts)?;
         // Verfies that the sender owns the nfts
         for nft_id in nfts.ids() {
             ensure!(
@@ -421,6 +423,16 @@ impl<T: Config> Module<T> {
             return Err(Error::<T>::InvalidNFTTransferComplianceFailure.into());
         }
 
+        Ok(())
+    }
+
+    /// Verifies that there are no duplicate ids in the `NFTs` struct.
+    pub fn ensure_no_duplicate_nfts(nfts: &NFTs) -> DispatchResult {
+        let unique_nfts: BTreeSet<&NFTId> = nfts.ids().iter().collect();
+        ensure!(
+            unique_nfts.len() == nfts.len(),
+            Error::<T>::InvalidNFTTransferDuplicatedNFTId
+        );
         Ok(())
     }
 }
