@@ -2605,7 +2605,7 @@ fn remove_nft_collection_metada_key() {
         set_time_to_now();
 
         let alice = User::new(AccountKeyring::Alice);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(1));
         let collection_keys: NFTCollectionKeys = vec![asset_metada_key.clone()].into();
         create_nft_collection(

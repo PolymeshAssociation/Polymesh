@@ -505,7 +505,7 @@ benchmarks! {
     remove_local_metadata_key {
         // Creates an asset of type NFT
         let user = user::<T>("target", 0);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         Module::<T>::create_asset(
             user.origin().into(),
             ticker.as_ref().into(),
@@ -543,7 +543,7 @@ benchmarks! {
     remove_metadata_value {
         // Creates an asset of type NFT
         let user = user::<T>("target", 0);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         Module::<T>::create_asset(
             user.origin().into(),
             ticker.as_ref().into(),
