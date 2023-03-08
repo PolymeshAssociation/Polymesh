@@ -165,7 +165,7 @@ decl_error! {
         NFTNotFound,
         /// At least one of the metadata keys has not been registered.
         UnregisteredMetadataKey,
-        /// Failed to transfer an NFT - asset is frozen.
+        /// Failed to transfer an NFT - duplicate ids are not allowed.
         InvalidNFTTransferDuplicatedNFTId,
     }
 }
