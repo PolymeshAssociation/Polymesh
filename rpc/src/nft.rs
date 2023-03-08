@@ -23,7 +23,7 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::generic::BlockId;
 use sp_runtime::traits::Block as BlockT;
 
-use node_rpc_runtime_api::nft::NFTApi as NFTRuntimeApi;
+pub use node_rpc_runtime_api::nft::NFTApi as NFTRuntimeApi;
 use polymesh_primitives::{NFTs, PortfolioId};
 
 #[rpc]

@@ -118,6 +118,7 @@ where
     C::Api: node_rpc::compliance_manager::ComplianceManagerRuntimeApi<Block, AccountId>,
     C::Api: BabeApi<Block>,
     C::Api: BlockBuilder<Block>,
+    C::Api: node_rpc::nft::NFTRuntimeApi<Block>,
     P: TransactionPool + 'static,
     SC: SelectChain<Block> + 'static,
     B: sc_client_api::Backend<Block> + Send + Sync + 'static,
@@ -127,6 +128,7 @@ where
     use node_rpc::{
         asset::{Asset, AssetApi},
         identity::{Identity, IdentityApi},
+        nft::{NFTApi, NFT},
         pips::{Pips, PipsApi},
         transaction_payment::{TransactionPayment, TransactionPaymentApi},
     };
@@ -211,8 +213,9 @@ where
     io.extend_with(AssetApi::to_delegate(Asset::new(client.clone())));
     io.extend_with(GroupApi::to_delegate(Group::from(client.clone())));
     io.extend_with(ComplianceManagerApi::to_delegate(ComplianceManager::new(
-        client,
+        client.clone(),
     )));
+    io.extend_with(NFTApi::to_delegate(NFT::new(client)));
 
     Ok(io)
 }
