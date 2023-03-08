@@ -180,6 +180,7 @@ impl<T: Config> Module<T> {
         let did = Self::ensure_asset_perms(origin, asset)?;
         // converting from a btreeset to a bounded version
         let bounded_stat_types: BoundedBTreeSet<_, T::MaxStatsPerAsset> = stat_types
+            .clone()
             .try_into()
             .map_err(|_| Error::<T>::StatTypeLimitReached)?;
 
@@ -278,13 +279,14 @@ impl<T: Config> Module<T> {
         // converting from a btreeset to a bounded version
         let bounded_transfer_conditions: BoundedBTreeSet<_, T::MaxTransferConditionsPerAsset> =
             transfer_conditions
+                .clone()
                 .try_into()
                 .map_err(|_| Error::<T>::TransferConditionLimitReached)?;
 
         // Commit changes to storage.
         if bounded_transfer_conditions.len() > 0 {
             // Check if required Stats are enabled.
-            for condition in bounded_transfer_conditions.into_iter() {
+            for condition in bounded_transfer_conditions.clone().into_iter() {
                 let stat_type = condition.get_stat_type();
                 ensure!(
                     Self::is_asset_stat_active(asset, stat_type),
