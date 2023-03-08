@@ -153,6 +153,20 @@ use limits::*;
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
+    has_valid_cdd {
+        // Number of cdd providers.
+        let i in 1 .. 19;
+
+        let providers = (0..i).into_iter().map(|i| {
+          cdd_provider::<T>("cdd", i)
+        }).collect::<Vec<_>>();
+
+        let target = user::<T>("target", 0);
+        let did = target.did.unwrap();
+    }: {
+      Module::<T>::has_valid_cdd(did);
+    }
+
     cdd_register_did {
         // Number of secondary items.
         let i in 0 .. MAX_SECONDARY_KEYS;
