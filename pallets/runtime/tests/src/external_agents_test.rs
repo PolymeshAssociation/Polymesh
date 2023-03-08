@@ -14,7 +14,6 @@ use polymesh_primitives::{
     AuthorizationData, ExtrinsicPermissions, PalletPermissions, Signatory, SubsetRestriction,
     Ticker,
 };
-use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type ExternalAgents = pallet_external_agents::Module<TestStorage>;
@@ -292,7 +291,7 @@ fn agent_of_mapping_works() {
         let dave = User::new(AccountKeyring::Dave);
         let mut tickers = (b'A'..b'Z')
             .map(|ticker| {
-                let ticker = Ticker::try_from(&[ticker] as &[u8]).unwrap();
+                let ticker = Ticker::from_slice_truncated(&[ticker] as &[u8]);
                 crate::sto_test::create_asset(owner.origin(), ticker, POLY);
                 ticker
             })

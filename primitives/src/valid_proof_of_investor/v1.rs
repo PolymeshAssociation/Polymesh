@@ -53,13 +53,13 @@ mod tests {
         investor_zkproof_data::v1::InvestorZKProofData, Claim, Context, InvestorUid, Ticker,
     };
     use confidential_identity_v1::compute_cdd_id;
-    use sp_std::convert::{From, TryFrom};
+    use sp_std::convert::From;
 
     #[test]
     fn generate_and_validate_claim() {
         let investor_id = IdentityId::from(100);
         let investor_uid = InvestorUid::from(b"inv0".as_ref());
-        let asset_ticker = Ticker::try_from(b"1".as_ref()).unwrap();
+        let asset_ticker = Ticker::from_slice_truncated(b"1".as_ref());
 
         let exists_affiliate_claim = Claim::Affiliate(Scope::Ticker(asset_ticker));
         let proposition = exists(&exists_affiliate_claim);

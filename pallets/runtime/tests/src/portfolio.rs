@@ -595,7 +595,7 @@ fn delete_portfolio_with_nfts() {
     ExtBuilder::default().build().execute_with(|| {
         // First we need to create a collection and mint one NFT
         let alice: User = User::new(AccountKeyring::Alice);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         Portfolio::create_portfolio(
             alice.clone().origin(),
             PortfolioName(b"MyPortfolio".to_vec()),
@@ -639,7 +639,7 @@ fn delete_portfolio_with_locked_nfts() {
             PortfolioName(b"MyPortfolio".to_vec()),
         )
         .unwrap();
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
         create_nft_collection(

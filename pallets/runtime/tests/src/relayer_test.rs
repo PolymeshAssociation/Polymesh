@@ -20,7 +20,6 @@ use sp_runtime::{
     transaction_validity::{InvalidTransaction, TransactionValidityError},
     MultiAddress,
 };
-use std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type Relayer = pallet_relayer::Module<TestStorage>;
@@ -50,7 +49,7 @@ fn call_system_remark(size: usize) -> <TestStorage as frame_system::Config>::Cal
 }
 
 fn call_asset_register_ticker(name: &[u8]) -> <TestStorage as frame_system::Config>::Call {
-    let ticker = Ticker::try_from(name).unwrap();
+    let ticker = Ticker::from_slice_truncated(name);
     Call::Asset(pallet_asset::Call::register_ticker { ticker })
 }
 

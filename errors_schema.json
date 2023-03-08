@@ -283,7 +283,7 @@
       "ExtensionAlreadyPresent",
       "AssetAlreadyCreated",
       "TickerTooLong",
-      "TickerNotAscii",
+      "TickerNotAlphanumeric",
       "TickerAlreadyRegistered",
       "TotalSupplyAboveLimit",
       "NoSuchAsset",

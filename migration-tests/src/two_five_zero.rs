@@ -36,7 +36,7 @@ fn post_migration_checkpoint_tests() {
 
     // Ensure that the storage is nuked after the upgrade
     let ticker_name = b"SBL";
-    let ticker = Ticker::try_from(&ticker_name[..]).unwrap();
+    let ticker = Ticker::from_slice_truncated(&ticker_name[..]);
     assert!(!checkpoint::TotalSupply::<Runtime>::contains_key(
         ticker,
         CheckpointId(1)

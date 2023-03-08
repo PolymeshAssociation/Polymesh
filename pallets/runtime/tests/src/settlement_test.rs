@@ -917,7 +917,7 @@ fn basic_fuzzing() {
         for ticker_id in 0..10 {
             let mut create = |x: usize, user: User| {
                 let tn = format!("TOKEN{}", ticker_id * 4 + x);
-                tickers.push(Ticker::try_from(tn.as_bytes()).unwrap());
+                tickers.push(Ticker::from_slice_truncated(tn.as_bytes()));
                 create_token(tickers[ticker_id * 4 + x], user);
             };
             create(0, alice);
@@ -1346,7 +1346,7 @@ fn overload_instruction() {
 fn encode_receipt() {
     ExtBuilder::default().build().execute_with(|| {
         let token_name = [0x01u8];
-        let ticker = Ticker::try_from(&token_name[..]).unwrap();
+        let ticker = Ticker::from_slice_truncated(&token_name[..]);
         let msg1 = Receipt {
             receipt_uid: 0,
             from: PortfolioId::default_portfolio(
