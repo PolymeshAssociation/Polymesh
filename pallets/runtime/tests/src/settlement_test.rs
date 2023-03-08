@@ -490,7 +490,6 @@ fn token_swap() {
         let instruction_details = Instruction {
             instruction_id,
             venue_id: venue_counter,
-            status: InstructionStatus::Pending,
             settlement_type: SettlementType::SettleOnAffirmation,
             created_at: Some(Timestamp::get()),
             trade_date: None,
@@ -620,7 +619,6 @@ fn settle_on_block() {
         let instruction_details = Instruction {
             instruction_id,
             venue_id: venue_counter,
-            status: InstructionStatus::Pending,
             settlement_type: SettlementType::SettleOnBlock(block_number),
             created_at: Some(Timestamp::get()),
             trade_date: None,
@@ -739,7 +737,6 @@ fn failed_execution() {
         let instruction_details = Instruction {
             instruction_id,
             venue_id: venue_counter,
-            status: InstructionStatus::Pending,
             settlement_type: SettlementType::SettleOnBlock(block_number),
             created_at: Some(Timestamp::get()),
             trade_date: None,
@@ -1097,7 +1094,7 @@ fn basic_fuzzing() {
 
         if fail {
             assert_eq!(
-                Settlement::instruction_details(instruction_id).status,
+                Settlement::instruction_status(instruction_id),
                 InstructionStatus::Failed
             );
             check_locked_assets(&locked_assets, &tickers, &users);
@@ -1144,8 +1141,8 @@ fn basic_fuzzing() {
                 legs.len() as u32,
             ));
             assert_eq!(
-                Settlement::instruction_details(instruction_id).status,
-                InstructionStatus::Unknown
+                Settlement::instruction_status(instruction_id),
+                InstructionStatus::Rejected(System::block_number())
             );
         }
 
@@ -2016,7 +2013,7 @@ fn reject_failed_instruction() {
 
         // Go to next block to have the scheduled execution run and ensure it has failed.
         next_block();
-        assert_instruction_status(instruction_id, InstructionStatus::Failed);
+        assert_instruction_status(instruction_id, InstructionStatus::<BlockNumber>::Failed);
 
         // Reject instruction so that it is pruned on next execution.
         assert_ok!(Settlement::reject_instruction(
@@ -2028,7 +2025,10 @@ fn reject_failed_instruction() {
 
         // Go to next block to have the scheduled execution run and ensure it has pruned the instruction.
         next_block();
-        assert_instruction_status(instruction_id, InstructionStatus::Unknown);
+        assert_instruction_status(
+            instruction_id,
+            InstructionStatus::Rejected(System::block_number() - 1),
+        );
     });
 }
 
@@ -2456,11 +2456,11 @@ fn assert_instruction_details(
 }
 
 #[track_caller]
-fn assert_instruction_status(instruction_id: InstructionId, status: InstructionStatus) {
-    assert_eq!(
-        Settlement::instruction_details(instruction_id).status,
-        status
-    );
+fn assert_instruction_status(
+    instruction_id: InstructionId,
+    status: InstructionStatus<BlockNumber>,
+) {
+    assert_eq!(Settlement::instruction_status(instruction_id), status);
 }
 
 #[track_caller]
