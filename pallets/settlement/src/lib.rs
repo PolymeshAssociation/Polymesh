@@ -760,7 +760,7 @@ decl_module! {
             Self::unsafe_unclaim_receipts(id, &legs);
             Self::unchecked_release_locks(id, &legs);
             let _ = T::Scheduler::cancel_named(id.execution_name());
-            Self::prune_instruction(id);
+            Self::prune_instruction(id, false);
             Self::deposit_event(RawEvent::InstructionRejected(primary_did, id));
         }
 
@@ -1264,7 +1264,7 @@ impl<T: Config> Module<T> {
     fn execute_instruction_retryable(id: InstructionId) -> Result<u32, DispatchError> {
         let result = Self::execute_instruction(id);
         if result.is_ok() {
-            Self::prune_instruction(id);
+            Self::prune_instruction(id, true);
         } else if <InstructionDetails<T>>::contains_key(id) {
             <InstructionStatuses<T>>::mutate(id, |d| *d = InstructionStatus::Failed);
         }
@@ -1354,13 +1354,23 @@ impl<T: Config> Module<T> {
         TransactionOutcome::Commit(Ok(Ok(())))
     }
 
-    fn prune_instruction(id: InstructionId) {
+    fn prune_instruction(id: InstructionId, executed: bool) {
         let legs = InstructionLegs::drain_prefix(id).collect::<Vec<_>>();
         let details = <InstructionDetails<T>>::take(id);
         VenueInstructions::remove(details.venue_id, id);
         <InstructionLegStatus<T>>::remove_prefix(id, None);
         InstructionAffirmsPending::remove(id);
         AffirmsReceived::remove_prefix(id, None);
+
+        if executed {
+            <InstructionStatuses<T>>::mutate(id, |d| {
+                *d = InstructionStatus::Success(System::<T>::block_number())
+            });
+        } else {
+            <InstructionStatuses<T>>::mutate(id, |d| {
+                *d = InstructionStatus::Rejected(System::<T>::block_number())
+            });
+        }
 
         // We remove duplicates in memory before triggering storage actions
         let mut counter_parties = BTreeSet::new();
@@ -1680,7 +1690,7 @@ impl<T: Config> Module<T> {
             Self::instruction_affirms_pending(id),
             Self::instruction_details(id).settlement_type,
         )?;
-        Self::prune_instruction(id);
+        Self::prune_instruction(id, true);
         Ok(())
     }
 
