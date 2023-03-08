@@ -755,7 +755,7 @@ benchmarks! {
         let portfolio_id = (l - 1) as usize;
     }: _(origin, instruction_id, portfolios[portfolio_id], l)
     verify {
-        assert_eq!(Module::<T>::instruction_status(instruction_id), InstructionStatus::Unknown, "Settlement: Failed to reject instruction");
+        assert_eq!(Module::<T>::instruction_status(instruction_id), InstructionStatus::Rejected(frame_system::Pallet::<T>::block_number()));
     }
 
 
