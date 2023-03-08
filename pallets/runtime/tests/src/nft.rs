@@ -34,7 +34,7 @@ fn create_collection_unregistered_ticker() {
         Timestamp::set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let nft_type = NonFungibleType::Derivative;
         let collection_keys: NFTCollectionKeys = vec![].into();
 
@@ -59,7 +59,7 @@ fn create_collection_invalid_asset_type() {
         Timestamp::set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let collection_keys: NFTCollectionKeys = vec![].into();
 
         Asset::create_asset(
@@ -88,7 +88,7 @@ fn create_collection_already_registered() {
         Timestamp::set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let nft_type = NonFungibleType::Derivative;
         let collection_keys: NFTCollectionKeys = vec![].into();
 
@@ -112,7 +112,7 @@ fn create_collection_max_keys_exceeded() {
         Timestamp::set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let nft_type = NonFungibleType::Derivative;
         let collection_keys: Vec<AssetMetadataKey> = (0..256)
             .map(|key| AssetMetadataKey::Local(AssetMetadataLocalKey(key)))
@@ -136,7 +136,7 @@ fn create_collection_duplicate_key() {
         Timestamp::set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let nft_type = NonFungibleType::Derivative;
         let collection_keys: NFTCollectionKeys = vec![
             AssetMetadataKey::Local(AssetMetadataLocalKey(0)),
@@ -163,7 +163,7 @@ fn create_collection_unregistered_key() {
         Timestamp::set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let nft_type = NonFungibleType::Derivative;
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(0))].into();
@@ -224,7 +224,7 @@ fn mint_nft_collection_not_found() {
         Timestamp::set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         assert_noop!(
             NFT::issue_nft(
                 alice.origin(),
@@ -247,7 +247,7 @@ fn mint_nft_duplicate_key() {
         Timestamp::set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let collection_keys: NFTCollectionKeys = vec![
             AssetMetadataKey::Local(AssetMetadataLocalKey(1)),
             AssetMetadataKey::Local(AssetMetadataLocalKey(2)),
@@ -288,7 +288,7 @@ fn mint_nft_wrong_number_of_keys() {
         Timestamp::set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
 
@@ -330,7 +330,7 @@ fn mint_nft_wrong_key() {
         Timestamp::set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
 
@@ -362,7 +362,7 @@ fn mint_nft_portfolio_not_found() {
         Timestamp::set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
         create_nft_collection(
@@ -393,7 +393,7 @@ fn mint_nft_successfully() {
         Timestamp::set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
 
@@ -451,7 +451,7 @@ fn burn_nft_collection_not_found() {
         Timestamp::set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
 
         assert_noop!(
             NFT::redeem_nft(alice.origin(), ticker, NFTId(1), PortfolioKind::Default),
@@ -467,7 +467,7 @@ fn burn_nft_not_found() {
         Timestamp::set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
         create_nft_collection(
@@ -491,7 +491,7 @@ fn burn_nft() {
         Timestamp::set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
         create_nft_collection(
@@ -537,7 +537,7 @@ fn transfer_nft_without_collection() {
 
         let alice: User = User::new(AccountKeyring::Alice);
         let bob: User = User::new(AccountKeyring::Bob);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let sender_portfolio = PortfolioId {
             did: alice.did,
             kind: PortfolioKind::Default,
@@ -565,7 +565,7 @@ fn transfer_nft_same_portfolio() {
 
         // Creates a collection
         let alice: User = User::new(AccountKeyring::Alice);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
         create_nft_collection(
@@ -603,7 +603,7 @@ fn transfer_nft_invalid_count() {
         // First we need to create a collection and mint one NFT
         let alice: User = User::new(AccountKeyring::Alice);
         let bob: User = User::new(AccountKeyring::Bob);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
         create_nft_collection(
@@ -651,7 +651,7 @@ fn transfer_nft_not_owned() {
         // First we need to create a collection and mint one NFT
         let alice: User = User::new(AccountKeyring::Alice);
         let bob: User = User::new(AccountKeyring::Bob);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
         create_nft_collection(
@@ -699,7 +699,7 @@ fn transfer_nft_failing_compliance() {
         // First we need to create a collection and mint one NFT
         let alice: User = User::new(AccountKeyring::Alice);
         let bob: User = User::new(AccountKeyring::Bob);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
         create_nft_collection(
@@ -747,7 +747,7 @@ fn transfer_nft() {
         // First we need to create a collection and mint one NFT
         let alice: User = User::new(AccountKeyring::Alice);
         let bob: User = User::new(AccountKeyring::Bob);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
         create_nft_collection(

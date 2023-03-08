@@ -126,7 +126,7 @@ pub fn make_token<T: Config>(owner: &User<T>, name: Vec<u8>) -> Ticker {
         asset_type: AssetType::default(),
         ..Default::default()
     };
-    let ticker = Ticker::try_from(&*name).unwrap();
+    let ticker = Ticker::from_slice_truncated(&*name);
 
     T::Asset::create_asset(
         owner.origin.clone().into(),

@@ -7,14 +7,14 @@ use polymesh_primitives::{
     asset::{AssetName, AssetType},
     Ticker,
 };
-use sp_std::{convert::TryFrom, vec};
+use sp_std::vec;
 
 pub type ResultTicker = Result<Ticker, &'static str>;
 
 /// Create a ticker and register it.
 pub fn make_ticker<T: Config>(owner: T::Origin, opt_name: Option<&[u8]>) -> Ticker {
     let ticker = match opt_name {
-        Some(name) => Ticker::try_from(name).expect("Invalid ticker name"),
+        Some(name) => Ticker::from_slice_truncated(name),
         _ => Ticker::repeating(b'A'),
     };
     T::AssetFn::register_ticker(owner, ticker).expect("Ticker cannot be registered");

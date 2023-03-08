@@ -9,7 +9,7 @@ fn main() {
         b"did:poly:8b2270afc77017630caf8463e283470c597231504a9c4707d08e517ad7ff1b67",
     ];
     let ticker_name = b"A";
-    let ticker = Ticker::try_from(&ticker_name[..]).unwrap();
+    let ticker = Ticker::from_slice_truncated(&ticker_name[..]);
     for user_did in user_dids {
         let did = IdentityId::try_from(&user_did[..]).unwrap();
         let uid = InvestorUid::from(mocked::make_investor_uid(did.as_bytes()));
