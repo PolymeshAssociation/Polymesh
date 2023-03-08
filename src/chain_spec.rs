@@ -194,7 +194,7 @@ fn currency_codes() -> Vec<Ticker> {
     currency_data
         .codes
         .into_iter()
-        .map(|y| y.as_bytes().try_into().unwrap())
+        .map(|y| Ticker::from_slice_truncated(y.as_bytes()))
         .collect()
 }
 

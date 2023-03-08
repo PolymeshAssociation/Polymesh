@@ -85,7 +85,7 @@ benchmarks! {
         let n in 1..MAX_COLLECTION_KEYS;
 
         let user = user::<T>("target", 0);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let nft_type: Option<NonFungibleType> = Some(NonFungibleType::Derivative);
         let collection_keys: NFTCollectionKeys = creates_keys_register_metadata_types::<T>(n);
     }: _(user.origin, ticker, nft_type, collection_keys)
@@ -98,7 +98,7 @@ benchmarks! {
         let n in 1..MAX_COLLECTION_KEYS;
 
         let user = user::<T>("target", 0);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let nft_type: Option<NonFungibleType> = Some(NonFungibleType::Derivative);
         let collection_id = create_collection::<T>(user.origin().into(), ticker, nft_type, n);
         let metadata_attributes: Vec<NFTMetadataAttribute> = (1..n + 1)
@@ -125,7 +125,7 @@ benchmarks! {
         let n in 1..MAX_COLLECTION_KEYS;
 
         let user = user::<T>("target", 0);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let nft_type: Option<NonFungibleType> = Some(NonFungibleType::Derivative);
         let collection_id = create_collection::<T>(user.origin().into(), ticker, nft_type, n);
 

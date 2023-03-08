@@ -437,7 +437,7 @@ decl_module! {
         /// - `AssetAlreadyCreated` if asset was already created.
         /// - `TickerTooLong` if `ticker`'s length is greater than `config.max_ticker_length` chain
         /// parameter.
-        /// - `TickerNotAscii` if `ticker` is not yet registered, and contains non-ascii printable characters (from code 32 to 126) or any character after first occurrence of `\0`.
+        /// - `TickerNotAlphanumeric` if `ticker` is not yet registered, and contains non-alphanumeric characters or any character after first occurrence of `\0`.
         ///
         /// ## Permissions
         /// * Portfolio
@@ -930,8 +930,8 @@ decl_error! {
         AssetAlreadyCreated,
         /// The ticker length is over the limit.
         TickerTooLong,
-        /// The ticker has non-ascii-encoded parts.
-        TickerNotAscii,
+        /// The ticker has non-alphanumeric parts.
+        TickerNotAlphanumeric,
         /// The ticker is already registered to someone else.
         TickerAlreadyRegistered,
         /// The total supply is above the limit.
@@ -1280,13 +1280,13 @@ impl<T: Config> Module<T> {
         let bytes = ticker.as_slice();
 
         ensure!(bytes[0] != 0, Error::<T>::TickerFirstByteNotValid);
-        // Find first byte not printable ASCII.
+        // Find first byte not alphanumeric.
         let good = bytes
             .iter()
             .position(|b| !(*b).is_ascii_alphanumeric())
             // Everything after must be a NULL byte.
             .map_or(true, |nm_pos| bytes[nm_pos..].iter().all(|b| *b == 0));
-        ensure!(good, Error::<T>::TickerNotAscii);
+        ensure!(good, Error::<T>::TickerNotAlphanumeric);
         Ok(())
     }
 
