@@ -34,6 +34,8 @@ use sp_std::prelude::*;
 
 const SEED: u32 = 0;
 
+const SYS_CDD_DID: IdentityId = SystematicIssuers::CDDProvider.as_id();
+
 fn setup_investor_uniqueness_claim_common<T, P, IF, CF, SF, IUF, PF>(
     name: &'static str,
     make_investor_uid: IF,
@@ -57,7 +59,7 @@ where
     let investor_uid = make_investor_uid(did.as_bytes());
     let cdd_id = make_cdd_id(did, investor_uid.clone());
     let cdd_claim = Claim::CustomerDueDiligence(cdd_id.clone());
-    Module::<T>::unverified_add_claim_with_scope(did, cdd_claim, None, GC_DID, None);
+    Module::<T>::unverified_add_claim_with_scope(did, cdd_claim, None, SYS_CDD_DID, None);
 
     // Create the scope.
     let ticker = Ticker::default();
