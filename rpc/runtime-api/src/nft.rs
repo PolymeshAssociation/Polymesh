@@ -26,10 +26,10 @@ sp_api::decl_runtime_apis! {
         /// In order for the transfer to be successfull, the following conditions must hold:
         /// The sender and receiver are not the same, both portfolios have valid balances, the sender owns the nft,
         /// all compliance rules are being respected, and no duplicate nfts being transferred.
-        /// 
+        ///
         /// ```ignore
         /// curl http://localhost:9933 -H "Content-Type: application/json" -d '{
-        ///     "id":1, 
+        ///     "id":1,
         ///     "jsonrpc":"2.0",
         ///     "method": "nft_validateNFTTransfer",
         ///     "params":[
