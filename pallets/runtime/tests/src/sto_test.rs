@@ -16,7 +16,6 @@ use polymesh_primitives::{asset::AssetType, checked_inc::CheckedInc, PortfolioId
 use crate::storage::provide_scope_claim_to_multiple_parties;
 use frame_support::{assert_noop, assert_ok};
 use sp_runtime::DispatchError;
-use sp_std::convert::TryFrom;
 use test_client::AccountKeyring;
 
 type Origin = <TestStorage as frame_system::Config>::Origin;
@@ -100,12 +99,12 @@ fn init_raise_context(offering_supply: u128, raise_supply_opt: Option<u128>) -> 
     let eve = AccountKeyring::Eve.to_account_id();
 
     // Register tokens
-    let offering_ticker = Ticker::try_from(&[b'A'][..]).unwrap();
+    let offering_ticker = Ticker::from_slice_truncated(&[b'A'][..]);
     create_asset(alice.origin(), offering_ticker, offering_supply);
     provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], offering_ticker, eve.clone());
 
     let raise_ticker = raise_supply_opt.map(|raise_supply| {
-        let raise_ticker = Ticker::try_from(&[b'B'][..]).unwrap();
+        let raise_ticker = Ticker::from_slice_truncated(&[b'B'][..]);
         create_asset(alice.origin(), raise_ticker, raise_supply);
         provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], raise_ticker, eve);
         raise_ticker
@@ -289,8 +288,8 @@ fn raise_unhappy_path() {
     let (alice, alice_portfolio) = make_account_with_portfolio(AccountKeyring::Alice);
     let (bob, bob_portfolio) = make_account_with_portfolio(AccountKeyring::Bob);
 
-    let offering_ticker = Ticker::try_from(&[b'C'][..]).unwrap();
-    let raise_ticker = Ticker::try_from(&[b'D'][..]).unwrap();
+    let offering_ticker = Ticker::from_slice_truncated(&[b'C'][..]);
+    let raise_ticker = Ticker::from_slice_truncated(&[b'D'][..]);
 
     // Provide scope claim to both the parties of the transaction.
     let eve = AccountKeyring::Eve.to_account_id();

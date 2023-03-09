@@ -371,7 +371,7 @@ benchmarks! {
         let owner_eth_sk = libsecp256k1::SecretKey::parse(&keccak_256(b"owner")).unwrap();
         let owner_eth_pk = ethereum::address(&owner_eth_sk);
 
-        let ticker: Ticker = b"USDX1"[..].try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(&b"USDX1"[..]);
         make_classic_ticker::<T>(owner_eth_pk, ticker);
 
         let eth_sig = ethereum::eth_msg(did, b"classic_claim", &owner_eth_sk);
@@ -383,7 +383,7 @@ benchmarks! {
     reserve_classic_ticker {
         let owner = owner::<T>();
 
-        let ticker: Ticker = b"ACME"[..].try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(&b"ACME"[..]);
         let config = make_default_reg_config::<T>();
         let classic = ClassicTickerImport {
             eth_owner: ethereum::EthereumAddress(*b"0x012345678987654321"),
@@ -505,7 +505,7 @@ benchmarks! {
     remove_local_metadata_key {
         // Creates an asset of type NFT
         let user = user::<T>("target", 0);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         Module::<T>::create_asset(
             user.origin().into(),
             ticker.as_ref().into(),
@@ -543,7 +543,7 @@ benchmarks! {
     remove_metadata_value {
         // Creates an asset of type NFT
         let user = user::<T>("target", 0);
-        let ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         Module::<T>::create_asset(
             user.origin().into(),
             ticker.as_ref().into(),
