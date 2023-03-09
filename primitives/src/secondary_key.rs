@@ -487,7 +487,7 @@ mod tests {
         assert_eq!(rk1, rk2);
 
         let rk3_permissions = Permissions {
-            asset: SubsetRestriction::elem(Ticker::try_from(&[1][..]).unwrap()),
+            asset: SubsetRestriction::elem(Ticker::from_slice_truncated(&[1][..])),
             extrinsic: SubsetRestriction::Whole,
             portfolio: SubsetRestriction::elem(PortfolioId::default_portfolio(IdentityId::from(
                 1u128,
@@ -504,8 +504,8 @@ mod tests {
     #[test]
     fn has_permission_test() {
         let key = Public::from_raw([b'A'; 32]);
-        let ticker1 = Ticker::try_from(&[1][..]).unwrap();
-        let ticker2 = Ticker::try_from(&[2][..]).unwrap();
+        let ticker1 = Ticker::from_slice_truncated(&[1][..]);
+        let ticker2 = Ticker::from_slice_truncated(&[2][..]);
         let portfolio1 = PortfolioId::user_portfolio(IdentityId::default(), 1.into());
         let portfolio2 = PortfolioId::user_portfolio(IdentityId::default(), 2.into());
         let permissions = Permissions {

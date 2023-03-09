@@ -27,19 +27,19 @@ pub struct AssetMetadataName(pub Vec<u8>);
 
 /// Asset Metadata Global Key.
 #[derive(Encode, Decode, TypeInfo)]
-#[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, Ord, PartialOrd)]
 pub struct AssetMetadataGlobalKey(pub u64);
 impl_checked_inc!(AssetMetadataGlobalKey);
 
 /// Asset Metadata Local Key.
 #[derive(Encode, Decode, TypeInfo)]
-#[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, Ord, PartialOrd)]
 pub struct AssetMetadataLocalKey(pub u64);
 impl_checked_inc!(AssetMetadataLocalKey);
 
 /// Asset Metadata Key.
 #[derive(Encode, Decode, TypeInfo)]
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Ord, PartialOrd)]
 pub enum AssetMetadataKey {
     /// Global Metadata Key.
     Global(AssetMetadataGlobalKey),

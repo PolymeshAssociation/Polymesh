@@ -1,5 +1,6 @@
 use crate::{
     ext_builder::{ExtBuilder, IdentityRecord, MockProtocolBaseFees},
+    nft::create_nft_collection,
     pips_test::assert_balance,
     storage::{
         add_secondary_key, make_account_without_cdd, provide_scope_claim,
@@ -17,9 +18,11 @@ use hex_literal::hex;
 use ink_primitives::hash as FunctionSelectorHasher;
 use pallet_asset::checkpoint::ScheduleSpec;
 use pallet_asset::{
-    self as asset, AssetOwnershipRelation, ClassicTickerImport, ClassicTickerRegistration,
-    ClassicTickers, Config as AssetConfig, CustomTypeIdSequence, CustomTypes, CustomTypesInverse,
-    ScopeIdOf, SecurityToken, TickerRegistration, TickerRegistrationConfig, Tickers,
+    self as asset, AssetMetadataLocalKeyToName, AssetMetadataLocalNameToKey,
+    AssetMetadataLocalSpecs, AssetMetadataValues, AssetOwnershipRelation, ClassicTickerImport,
+    ClassicTickerRegistration, ClassicTickers, Config as AssetConfig, CustomTypeIdSequence,
+    CustomTypes, CustomTypesInverse, ScopeIdOf, SecurityToken, TickerRegistration,
+    TickerRegistrationConfig, Tickers,
 };
 use pallet_balances as balances;
 use pallet_compliance_manager as compliance_manager;
@@ -37,14 +40,18 @@ use polymesh_common_utilities::{
 use polymesh_primitives::ethereum;
 use polymesh_primitives::{
     agent::AgentGroup,
-    asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName},
+    asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName, NonFungibleType},
+    asset_metadata::{
+        AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataLockStatus, AssetMetadataName,
+        AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
+    },
     calendar::{
         CalendarPeriod, CalendarUnit, CheckpointId, CheckpointSchedule, FixedOrVariableCalendarUnit,
     },
     statistics::StatType,
     AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document,
-    DocumentId, IdentityId, InvestorUid, Moment, Permissions, PortfolioId, PortfolioKind,
-    PortfolioName, SecondaryKey, Signatory, Ticker,
+    DocumentId, IdentityId, InvestorUid, Moment, NFTCollectionKeys, Permissions, PortfolioId,
+    PortfolioKind, PortfolioName, SecondaryKey, Signatory, Ticker,
 };
 use rand::Rng;
 use sp_consensus_babe::Slot;
@@ -109,7 +116,7 @@ macro_rules! assert_too_long {
 }
 
 pub(crate) fn token(name: &[u8], owner_did: IdentityId) -> (Ticker, SecurityToken) {
-    let ticker = Ticker::try_from(name).unwrap();
+    let ticker = Ticker::from_slice_truncated(name);
     let token = SecurityToken {
         owner_did,
         total_supply: TOTAL_SUPPLY,
@@ -451,19 +458,18 @@ fn register_ticker() {
         assert_eq!(stored_token.asset_type, token.asset_type);
         assert_eq!(Asset::identifiers(ticker), identifiers);
         assert_noop!(
-            register(Ticker::try_from(&[b'A'][..]).unwrap()),
+            register(Ticker::from_slice_truncated(&[b'A'][..])),
             AssetError::AssetAlreadyCreated
         );
 
         assert_noop!(
-            register(
-                Ticker::try_from(&[b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A'][..])
-                    .unwrap()
-            ),
+            register(Ticker::from_slice_truncated(
+                &[b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A'][..]
+            )),
             AssetError::TickerTooLong
         );
 
-        let ticker = Ticker::try_from(&[b'A', b'A'][..]).unwrap();
+        let ticker = Ticker::from_slice_truncated(&[b'A', b'A'][..]);
 
         assert_eq!(Asset::is_ticker_available(&ticker), true);
 
@@ -493,8 +499,8 @@ fn register_ticker() {
             [b'A', 0, 0, 0, b'A'].as_ref(),
         ] {
             assert_noop!(
-                register(Ticker::try_from(&bs[..]).unwrap()),
-                AssetError::TickerNotAscii
+                register(Ticker::from_slice_truncated(&bs[..])),
+                AssetError::TickerNotAlphanumeric
             );
         }
     })
@@ -509,7 +515,7 @@ fn transfer_ticker() {
         let alice = User::new(AccountKeyring::Alice);
         let bob = User::new(AccountKeyring::Bob);
 
-        let ticker = Ticker::try_from(&[b'A', b'A'][..]).unwrap();
+        let ticker = Ticker::from_slice_truncated(&[b'A', b'A'][..]);
 
         assert_eq!(Asset::is_ticker_available(&ticker), true);
         assert_ok!(Asset::register_ticker(owner.origin(), ticker));
@@ -731,7 +737,7 @@ fn transfer_token_ownership() {
         auth_id = Identity::add_auth(
             alice.did,
             Signatory::from(bob.did),
-            AuthorizationData::TransferAssetOwnership(Ticker::try_from(&[0x50][..]).unwrap()),
+            AuthorizationData::TransferAssetOwnership(Ticker::from_slice_truncated(&[0x50][..])),
             Some(now() + 100),
         );
 
@@ -1053,7 +1059,7 @@ fn test_can_transfer_rpc() {
 // Classic token tests:
 
 fn ticker(name: &str) -> Ticker {
-    name.as_bytes().try_into().unwrap()
+    Ticker::from_slice_truncated(name.as_bytes())
 }
 
 fn default_classic() -> ClassicTickerImport {
@@ -1094,34 +1100,6 @@ fn with_asset_genesis(genesis: AssetGenesis) -> ExtBuilder {
 
 fn test_asset_genesis(genesis: AssetGenesis) {
     with_asset_genesis(genesis).build().execute_with(|| {});
-}
-
-#[test]
-#[should_panic = "lowercase ticker"]
-fn classic_ticker_genesis_lowercase() {
-    test_asset_genesis(AssetGenesis {
-        classic_migration_tickers: vec![ClassicTickerImport {
-            ticker: ticker("lower"),
-            ..default_classic()
-        }],
-        ..<_>::default()
-    });
-}
-
-#[test]
-#[should_panic = "TickerTooLong"]
-fn classic_ticker_genesis_too_long() {
-    test_asset_genesis(AssetGenesis {
-        classic_migration_tconfig: TickerRegistrationConfig {
-            max_ticker_length: 3,
-            registration_length: None,
-        },
-        classic_migration_tickers: vec![ClassicTickerImport {
-            ticker: ticker("ACME"),
-            ..default_classic()
-        }],
-        ..<_>::default()
-    });
 }
 
 #[test]
@@ -1989,7 +1967,7 @@ fn secondary_key_not_authorized_for_asset_test() {
     let invalid_names = [b"WPUSD1\0", &b"WPUSC\0\0", &b"WPUSD\01"];
     let invalid_tickers = invalid_names
         .iter()
-        .filter_map(|name| Ticker::try_from(name.as_ref()).ok());
+        .filter_map(|name| Some(Ticker::from_slice_truncated(name.as_ref())));
 
     let secondary_keys = vec![
         SecondaryKey {
@@ -2042,7 +2020,7 @@ fn invalid_ticker_registry_test() {
             (&b"YOUR"[..], false),
         ]
         .iter()
-        .map(|(name, exp)| ((*name).try_into().unwrap(), exp))
+        .map(|(name, exp)| (Ticker::from_slice_truncated(*name), exp))
         .for_each(|(ticker, exp)| {
             assert_eq!(*exp, Asset::is_ticker_registry_valid(&ticker, owner.did))
         });
@@ -2109,7 +2087,7 @@ fn create_asset_errors(owner: AccountId, other: AccountId) {
         )
     };
 
-    let ta = Ticker::try_from(&b"A"[..]).unwrap();
+    let ta = Ticker::from_slice_truncated(&b"A"[..]);
     let max_length = <TestStorage as AssetConfig>::AssetNameMaxLength::get() + 1;
     assert_noop!(
         create(ta, bytes_of_len(b'A', max_length as usize), true, None),
@@ -2128,7 +2106,7 @@ fn create_asset_errors(owner: AccountId, other: AccountId) {
         AssetError::InvalidGranularity,
     );
 
-    let tb = Ticker::try_from(&b"B"[..]).unwrap();
+    let tb = Ticker::from_slice_truncated(&b"B"[..]);
     assert_ok!(create(tb, name.clone(), true, None));
     assert_noop!(
         Asset::issue(o.clone(), tb, u128::MAX),
@@ -2136,7 +2114,7 @@ fn create_asset_errors(owner: AccountId, other: AccountId) {
     );
 
     let o2 = Origin::signed(other);
-    let tc = Ticker::try_from(&b"C"[..]).unwrap();
+    let tc = Ticker::from_slice_truncated(&b"C"[..]);
     assert_ok!(Asset::register_ticker(o2.clone(), tc));
     assert_noop!(
         create(tc, name, true, None),
@@ -2519,5 +2497,295 @@ fn issuers_can_change_asset_type() {
             Asset::token_details(&ticker).asset_type,
             AssetType::EquityPreferred
         );
+    })
+}
+
+/// Only metadata keys that already have a value set can be locked.
+#[test]
+fn prevent_locking_an_empty_key() {
+    ExtBuilder::default().build().execute_with(|| {
+        set_time_to_now();
+
+        let alice = User::new(AccountKeyring::Alice);
+        let ticker = an_asset(alice, true);
+        let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
+        let asset_metadata_spec = AssetMetadataSpec {
+            url: None,
+            description: None,
+            type_def: None,
+        };
+        assert_ok!(Asset::register_asset_metadata_local_type(
+            alice.origin(),
+            ticker,
+            asset_metadata_name.clone(),
+            asset_metadata_spec
+        ));
+        let asset_metadata_detail = AssetMetadataValueDetail {
+            expire: None,
+            lock_status: AssetMetadataLockStatus::Locked,
+        };
+        let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(1));
+        assert_noop!(
+            Asset::set_asset_metadata_details(
+                alice.origin(),
+                ticker,
+                asset_metada_key,
+                asset_metadata_detail
+            ),
+            AssetError::AssetMetadataValueIsEmpty
+        );
+    })
+}
+
+/// Only metadata keys that already exist can be deleted.
+#[test]
+fn remove_local_metadata_key_missing_key() {
+    ExtBuilder::default().build().execute_with(|| {
+        set_time_to_now();
+
+        let alice = User::new(AccountKeyring::Alice);
+        let ticker = an_asset(alice, true);
+        let local_key = AssetMetadataLocalKey(1);
+        assert_noop!(
+            Asset::remove_local_metadata_key(alice.origin(), ticker, local_key),
+            AssetError::AssetMetadataKeyIsMissing
+        );
+    })
+}
+
+/// Only metadata keys that are not locked can be deleted.
+#[test]
+fn remove_local_metadata_key_locked_value() {
+    ExtBuilder::default().build().execute_with(|| {
+        set_time_to_now();
+
+        let alice = User::new(AccountKeyring::Alice);
+        let ticker = an_asset(alice, true);
+        let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
+        let asset_metadata_spec = AssetMetadataSpec {
+            url: None,
+            description: None,
+            type_def: None,
+        };
+        assert_ok!(Asset::register_asset_metadata_local_type(
+            alice.origin(),
+            ticker,
+            asset_metadata_name.clone(),
+            asset_metadata_spec
+        ));
+        let asset_metadata_detail = AssetMetadataValueDetail {
+            expire: None,
+            lock_status: AssetMetadataLockStatus::Locked,
+        };
+        let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(1));
+        assert_ok!(Asset::set_asset_metadata(
+            alice.origin(),
+            ticker,
+            asset_metada_key.clone(),
+            AssetMetadataValue(b"randomvalue".to_vec()),
+            None,
+        ));
+        assert_ok!(Asset::set_asset_metadata_details(
+            alice.origin(),
+            ticker,
+            asset_metada_key,
+            asset_metadata_detail
+        ));
+        assert_noop!(
+            Asset::remove_local_metadata_key(alice.origin(), ticker, AssetMetadataLocalKey(1)),
+            AssetError::AssetMetadataValueIsLocked
+        );
+    })
+}
+
+/// Only metadata keys that don't belong to NFT collections can be deleted.
+#[test]
+fn remove_nft_collection_metada_key() {
+    ExtBuilder::default().build().execute_with(|| {
+        set_time_to_now();
+
+        let alice = User::new(AccountKeyring::Alice);
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(1));
+        let collection_keys: NFTCollectionKeys = vec![asset_metada_key.clone()].into();
+        create_nft_collection(
+            alice,
+            ticker,
+            AssetType::NonFungible(NonFungibleType::Derivative),
+            collection_keys,
+        );
+        assert_ok!(Asset::set_asset_metadata(
+            alice.origin(),
+            ticker,
+            asset_metada_key,
+            AssetMetadataValue(b"randomvalue".to_vec()),
+            None,
+        ));
+        assert_noop!(
+            Asset::remove_local_metadata_key(alice.origin(), ticker, AssetMetadataLocalKey(1)),
+            AssetError::AssetMetadataKeyBelongsToNFTCollection
+        );
+    })
+}
+
+/// Successfully deletes a local metadata key.
+#[test]
+fn remove_local_metadata_key() {
+    ExtBuilder::default().build().execute_with(|| {
+        set_time_to_now();
+
+        let alice = User::new(AccountKeyring::Alice);
+        let ticker = an_asset(alice, true);
+        let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
+        let asset_metadata_spec = AssetMetadataSpec {
+            url: None,
+            description: None,
+            type_def: None,
+        };
+        assert_ok!(Asset::register_asset_metadata_local_type(
+            alice.origin(),
+            ticker,
+            asset_metadata_name.clone(),
+            asset_metadata_spec
+        ));
+        let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(1));
+        assert_ok!(Asset::set_asset_metadata(
+            alice.origin(),
+            ticker,
+            asset_metada_key.clone(),
+            AssetMetadataValue(b"randomvalue".to_vec()),
+            None,
+        ));
+        assert_ok!(Asset::remove_local_metadata_key(
+            alice.origin(),
+            ticker,
+            AssetMetadataLocalKey(1)
+        ),);
+        assert_eq!(
+            AssetMetadataLocalKeyToName::get(&ticker, AssetMetadataLocalKey(1)),
+            None
+        );
+        assert_eq!(
+            AssetMetadataLocalNameToKey::get(&ticker, &asset_metadata_name),
+            None
+        );
+        assert_eq!(
+            AssetMetadataLocalSpecs::get(&ticker, &AssetMetadataLocalKey(1)),
+            None
+        );
+        assert_eq!(AssetMetadataValues::get(&ticker, &asset_metada_key), None);
+    })
+}
+
+/// Only metadata keys that already exist can have their value removed.
+#[test]
+fn remove_local_metadata_value_missing_key() {
+    ExtBuilder::default().build().execute_with(|| {
+        set_time_to_now();
+
+        let alice = User::new(AccountKeyring::Alice);
+        let ticker = an_asset(alice, true);
+        assert_noop!(
+            Asset::remove_metadata_value(
+                alice.origin(),
+                ticker,
+                AssetMetadataKey::Local(AssetMetadataLocalKey(1))
+            ),
+            AssetError::AssetMetadataKeyIsMissing
+        );
+    })
+}
+
+/// Only metadata keys that are no locked can have their value removed.
+#[test]
+fn remove_local_metadata_value_locked_value() {
+    ExtBuilder::default().build().execute_with(|| {
+        set_time_to_now();
+
+        let alice = User::new(AccountKeyring::Alice);
+        let ticker = an_asset(alice, true);
+        let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
+        let asset_metadata_spec = AssetMetadataSpec {
+            url: None,
+            description: None,
+            type_def: None,
+        };
+        assert_ok!(Asset::register_asset_metadata_local_type(
+            alice.origin(),
+            ticker,
+            asset_metadata_name.clone(),
+            asset_metadata_spec
+        ));
+        let asset_metadata_detail = AssetMetadataValueDetail {
+            expire: None,
+            lock_status: AssetMetadataLockStatus::Locked,
+        };
+        let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(1));
+        assert_ok!(Asset::set_asset_metadata(
+            alice.origin(),
+            ticker,
+            asset_metada_key.clone(),
+            AssetMetadataValue(b"randomvalue".to_vec()),
+            None,
+        ));
+        assert_ok!(Asset::set_asset_metadata_details(
+            alice.origin(),
+            ticker,
+            asset_metada_key,
+            asset_metadata_detail
+        ));
+        assert_noop!(
+            Asset::remove_metadata_value(alice.origin(), ticker, asset_metada_key),
+            AssetError::AssetMetadataValueIsLocked
+        );
+    })
+}
+
+/// Successfully removes a metadata value.
+#[test]
+fn remove_metadata_value() {
+    ExtBuilder::default().build().execute_with(|| {
+        set_time_to_now();
+
+        let alice = User::new(AccountKeyring::Alice);
+        let ticker = an_asset(alice, true);
+        let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
+        let asset_metadata_spec = AssetMetadataSpec {
+            url: None,
+            description: None,
+            type_def: None,
+        };
+        assert_ok!(Asset::register_asset_metadata_local_type(
+            alice.origin(),
+            ticker,
+            asset_metadata_name.clone(),
+            asset_metadata_spec.clone()
+        ));
+        let asset_metada_key = AssetMetadataKey::Local(AssetMetadataLocalKey(1));
+        assert_ok!(Asset::set_asset_metadata(
+            alice.origin(),
+            ticker,
+            asset_metada_key.clone(),
+            AssetMetadataValue(b"randomvalue".to_vec()),
+            None,
+        ));
+        assert_ok!(Asset::remove_metadata_value(
+            alice.origin(),
+            ticker,
+            asset_metada_key.clone(),
+        ),);
+        assert_eq!(
+            AssetMetadataLocalKeyToName::get(&ticker, AssetMetadataLocalKey(1)),
+            Some(asset_metadata_name.clone())
+        );
+        assert_eq!(
+            AssetMetadataLocalNameToKey::get(&ticker, &asset_metadata_name),
+            Some(AssetMetadataLocalKey(1))
+        );
+        assert_eq!(
+            AssetMetadataLocalSpecs::get(&ticker, &AssetMetadataLocalKey(1)),
+            Some(asset_metadata_spec)
+        );
+        assert_eq!(AssetMetadataValues::get(&ticker, &asset_metada_key), None);
     })
 }

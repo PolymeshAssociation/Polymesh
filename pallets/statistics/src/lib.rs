@@ -24,14 +24,13 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::Get,
-    weights::Weight,
 };
 pub use polymesh_common_utilities::traits::statistics::{Config, Event, WeightInfo};
 use polymesh_primitives::{
     statistics::{
         AssetScope, Percentage, Stat1stKey, Stat2ndKey, StatOpType, StatType, StatUpdate,
     },
-    storage_migrate_on, storage_migration_ver,
+    storage_migration_ver,
     transfer_compliance::*,
     Balance, IdentityId, ScopeId, Ticker,
 };
@@ -72,14 +71,6 @@ decl_module! {
 
         /// initialize the default event for this module
         fn deposit_event() = default;
-
-        fn on_runtime_upgrade() -> Weight {
-            storage_migrate_on!(StorageVersion, 1, {
-                migration::migrate_v1::<T>();
-            });
-
-            0
-        }
 
         const MaxStatsPerAsset: u32 = T::MaxStatsPerAsset::get();
         const MaxTransferConditionsPerAsset: u32 = T::MaxTransferConditionsPerAsset::get();
@@ -830,106 +821,5 @@ decl_error! {
         StatTypeLimitReached,
         /// The limit of TransferConditions allowed for an asset has been reached.
         TransferConditionLimitReached,
-    }
-}
-
-mod migration {
-    use super::*;
-
-    mod v1 {
-        use super::*;
-        pub use polymesh_primitives::statistics::v1::*;
-
-        decl_storage! {
-            trait Store for Module<T: Config> as Statistics {
-                pub ActiveTransferManagers get(fn transfer_managers): map hasher(blake2_128_concat) Ticker => Vec<TransferManager>;
-                pub InvestorCountPerAsset get(fn investor_count): map hasher(blake2_128_concat) Ticker => Counter;
-                pub ExemptEntities get(fn entity_exempt):
-                    double_map
-                        hasher(blake2_128_concat) (Ticker, TransferManager),
-                        hasher(blake2_128_concat) ScopeId
-                    =>
-                        bool;
-            }
-        }
-
-        decl_module! {
-            pub struct Module<T: Config> for enum Call where origin: T::Origin { }
-        }
-    }
-
-    pub fn migrate_v1<T: Config>() {
-        sp_runtime::runtime_logger::RuntimeLogger::init();
-
-        log::info!(" >>> Updating Statistics storage. Migrating TransferManagers...");
-        let total_managers =
-            v1::ActiveTransferManagers::drain().fold(0usize, |total, (ticker, managers)| {
-                let count = managers.len();
-                let asset = AssetScope::from(ticker);
-
-                let requirements = managers
-                    .into_iter()
-                    .map(|manager| {
-                        // Convert TransferManager to TransferCondition.
-                        let condition = match manager {
-                            v1::TransferManager::CountTransferManager(max) => {
-                                TransferCondition::MaxInvestorCount(max)
-                            }
-                            v1::TransferManager::PercentageTransferManager(max) => {
-                                TransferCondition::MaxInvestorOwnership(max.0)
-                            }
-                        };
-
-                        // Convert Exemptions for the TransferManager.
-                        for (entity, exempt) in v1::ExemptEntities::drain_prefix((ticker, manager))
-                        {
-                            if exempt {
-                                let exempt_key = condition.get_exempt_key(asset);
-                                TransferConditionExemptEntities::insert(&exempt_key, entity, true);
-                            }
-                        }
-
-                        condition
-                    })
-                    .collect();
-
-                let compliance = AssetTransferCompliance {
-                    paused: false,
-                    requirements,
-                };
-
-                // Enable stats.
-                let stats = compliance
-                    .requirements
-                    .iter()
-                    .map(|c| c.get_stat_type())
-                    .collect::<BTreeSet<_>>();
-                ActiveAssetStats::insert(asset, stats);
-
-                // Save new transfer compliance rules.
-                AssetTransferCompliances::insert(asset, compliance);
-
-                total + count
-            });
-        log::info!(" >>> Migrated {} TransferManagers.", total_managers);
-
-        log::info!(" >>> Migrating Investor counts...");
-        let total_counts =
-            v1::InvestorCountPerAsset::drain().fold(0usize, |total, (ticker, count)| {
-                // Make sure investor count stats are enabled.
-                ActiveAssetStats::mutate(AssetScope::from(ticker), |stats| {
-                    stats.insert(StatType::investor_count());
-                });
-
-                // Save investor count to new stats storage.
-                AssetStats::insert(
-                    Stat1stKey::investor_count(ticker),
-                    Stat2ndKey::NoClaimStat,
-                    count as u128,
-                );
-
-                total + 1
-            });
-        log::info!(" >>> Migrated {} Asset Investor counts.", total_counts);
     }
 }

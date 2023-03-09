@@ -16,6 +16,7 @@ pallet-compliance-manager = { path = "../../compliance-manager", default-feature
 #pallet-contracts = { version = "4.0.0-dev", default-features = false }
 pallet-identity = { path = "../../identity", default-features = false  }
 pallet-multisig = { path = "../../multisig", default-features = false }
+pallet-nft = { path = "../../nft", default-features = false }
 pallet-portfolio = { path = "../../portfolio", default-features = false  }
 pallet-relayer = { path = "../../relayer", default-features = false }
 pallet-test-utils = { path = "../../test-utils", default-features = false }
@@ -59,6 +60,7 @@ std = [
     "pallet-group-rpc-runtime-api/std",
     "pallet-identity/std",
     "pallet-multisig/std",
+    "pallet-nft/std",
     "pallet-portfolio/std",
     "pallet-timestamp/std",
     "polymesh-common-utilities/std",
