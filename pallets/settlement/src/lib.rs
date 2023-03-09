@@ -2121,7 +2121,7 @@ impl<T: Config> Module<T> {
         nfts_transfers: Option<u32>,
     ) -> DispatchResult {
         ensure!(
-            Self::instruction_details(id).status != InstructionStatus::Unknown,
+            Self::instruction_status(id) != InstructionStatus::Unknown,
             Error::<T>::UnknownInstruction
         );
         // Gets all legs for the instruction, checks if portfolio is in any of the legs, and validates the input cost.
