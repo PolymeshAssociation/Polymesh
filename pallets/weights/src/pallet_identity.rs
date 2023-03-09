@@ -52,6 +52,19 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 /// Weights for pallet_identity using the Substrate node and recommended hardware.
 pub struct WeightInfo;
 impl pallet_identity::WeightInfo for WeightInfo {
+    // Storage: Timestamp Now (r:1 w:0)
+    // Storage: Instance2Group ActiveMembers (r:1 w:0)
+    // Storage: Identity Claims (r:2 w:0)
+    fn has_valid_cdd() -> Weight {
+        (42_889_000 as Weight).saturating_add(DbWeight::get().reads(4 as Weight))
+    }
+    // Storage: Timestamp Now (r:1 w:0)
+    // Storage: Instance2Group ActiveMembers (r:1 w:0)
+    // Storage: Identity Claims (r:3 w:0)
+    // Storage: Identity ParentDid (r:1 w:0)
+    fn child_identity_has_valid_cdd() -> Weight {
+        (70_043_000 as Weight).saturating_add(DbWeight::get().reads(6 as Weight))
+    }
     // Storage: Identity KeyRecords (r:2 w:1)
     // Storage: Instance2Group ActiveMembers (r:1 w:0)
     // Storage: Identity MultiPurposeNonce (r:1 w:1)
