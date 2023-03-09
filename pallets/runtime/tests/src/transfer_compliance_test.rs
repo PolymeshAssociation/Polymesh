@@ -1085,7 +1085,7 @@ fn ensure_invalid_set_active_stats() {
 }
 fn ensure_invalid_set_active_stats_ext() {
     // Create an asset.
-    let mut tracker = AssetTracker::new();
+    let tracker = AssetTracker::new();
     let claim_type = ClaimType::Jurisdiction;
     let mut stats = vec![];
 
@@ -1117,7 +1117,7 @@ fn ensure_invalid_transfer_conditions() {
 }
 fn ensure_invalid_transfer_conditions_ext() {
     // Create an asset.
-    let mut tracker = AssetTracker::new();
+    let tracker = AssetTracker::new();
     let mut conditions = vec![];
 
     for i in 0..7 as u64 {

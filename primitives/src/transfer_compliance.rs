@@ -122,7 +122,6 @@ pub struct TransferConditionExemptKey {
 }
 
 /// List of transfer compliance requirements associated to an asset.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Decode, Encode, TypeInfo)]
 #[derive(Clone, PartialEq, Eq)]
 #[scale_info(skip_type_params(S))]
