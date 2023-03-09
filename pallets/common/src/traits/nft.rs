@@ -18,6 +18,8 @@ pub trait Config:
     type Compliance: ComplianceManagerConfig;
 
     type MaxNumberOfCollectionKeys: Get<u8>;
+
+    type MaxNumberOfNFTsCount: Get<u32>;
 }
 
 decl_event!(

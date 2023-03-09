@@ -544,6 +544,7 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_nft::WeightInfo;
             type Compliance = pallet_compliance_manager::Module<Runtime>;
             type MaxNumberOfCollectionKeys = MaxNumberOfCollectionKeys;
+            type MaxNumberOfNFTsCount = MaxNumberOfNFTsPerLeg;
         }
     };
 }

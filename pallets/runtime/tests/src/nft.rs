@@ -637,7 +637,7 @@ fn transfer_nft_invalid_count() {
             with_transaction(|| {
                 NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts)
             }),
-            NFTError::InvalidNFTTransferNoBalance
+            NFTError::InvalidNFTTransferInsufficientCount
         );
     });
 }
@@ -685,7 +685,7 @@ fn transfer_nft_not_owned() {
             with_transaction(|| {
                 NFT::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts)
             }),
-            NFTError::InvalidNFTTransferNoBalance
+            NFTError::InvalidNFTTransferInsufficientCount
         );
     });
 }
