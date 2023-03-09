@@ -15,7 +15,7 @@
 
 use crate::{
     Claim1stKey, Claim2ndKey, Claims, CustomClaimIdSequence, CustomClaims, CustomClaimsInverse,
-    DidRecords, Error, Event, Module,
+    DidRecords, Error, Event, Module, ParentDid,
 };
 use core::convert::From;
 use frame_support::{
@@ -195,7 +195,30 @@ impl<T: Config> Module<T> {
             .next()
     }
 
-    pub fn base_fetch_valid_cdd_claims(
+    // Returns a lazy iterator that will return the CDD claims from the
+    // parent of `did` if they are a child identity.
+    pub(crate) fn base_fetch_parent_cdd_claims(
+        did: IdentityId,
+    ) -> impl Iterator<Item = IdentityClaim> {
+        let mut first_call = true;
+        let mut parent_claims = None;
+        core::iter::from_fn(move || -> Option<IdentityClaim> {
+            if first_call {
+                first_call = false;
+                parent_claims = ParentDid::get(did).map(|parent_did| {
+                    Self::fetch_base_claims(parent_did, ClaimType::CustomerDueDiligence)
+                });
+            }
+
+            let claim = parent_claims.as_mut()?.next();
+            if claim.is_none() {
+                parent_claims = None;
+            }
+            claim
+        })
+    }
+
+    pub(crate) fn base_fetch_valid_cdd_claims(
         claim_for: IdentityId,
         leeway: T::Moment,
         filter_cdd_id: Option<CddId>,
@@ -203,6 +226,7 @@ impl<T: Config> Module<T> {
         let mut cdd_checker = CddClaimChecker::<T>::new(claim_for, leeway, filter_cdd_id);
 
         Self::fetch_base_claims(claim_for, ClaimType::CustomerDueDiligence)
+            .chain(Self::base_fetch_parent_cdd_claims(claim_for))
             .filter(move |id_claim| cdd_checker.filter_cdd_claims(id_claim))
     }
 

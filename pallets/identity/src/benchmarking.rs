@@ -156,17 +156,56 @@ benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
     has_valid_cdd {
-        // Number of cdd providers.
-        let i in 1 .. 19;
-
-        let providers = (0..i).into_iter().map(|i| {
-          cdd_provider::<T>("cdd", i)
+        let providers = (0..19).into_iter().map(|i| {
+            let user = cdd_provider::<T>("cdd", i);
+            user.did.unwrap()
         }).collect::<Vec<_>>();
 
         let target = user::<T>("target", 0);
         let did = target.did.unwrap();
+
+        let last_cdd = providers.last().unwrap();
+        let cdd_claim = Claim::CustomerDueDiligence(last_cdd.0.into());
+        Module::<T>::unverified_add_claim_with_scope(did, cdd_claim, None, *last_cdd, None);
+        let cdd_claims = Module::<T>::base_fetch_valid_cdd_claims(did, 0u32.into(), None)
+            .collect::<Vec<_>>().len();
+        log::info!("--- has_valid_cdd: cdd_claims={cdd_claims}");
     }: {
-      Module::<T>::has_valid_cdd(did);
+        assert!(Module::<T>::has_valid_cdd(did));
+    }
+
+    child_identity_has_valid_cdd {
+        let providers = (0..19).into_iter().map(|i| {
+            let user = cdd_provider::<T>("cdd", i);
+            user.did.unwrap()
+        }).collect::<Vec<_>>();
+
+        // Create parent identity.
+        let parent = user::<T>("parent", 0);
+        let parent_did = parent.did.unwrap();
+
+        // Make secondary key.
+        let child = UserBuilder::<T>::default().build("child");
+        Module::<T>::add_key_record(&child.account, KeyRecord::SecondaryKey(parent_did, Permissions::empty()));
+        assert_eq!(Module::<T>::get_identity(&child.account), Some(parent_did));
+
+        let last_cdd = providers.last().unwrap();
+        let cdd_claim = Claim::CustomerDueDiligence(last_cdd.0.into());
+        Module::<T>::unverified_add_claim_with_scope(parent_did, cdd_claim, None, *last_cdd, None);
+        let cdd_claims = Module::<T>::base_fetch_valid_cdd_claims(parent_did, 0u32.into(), None)
+            .count();
+        log::info!("--- child_identity_has_valid_cdd: parent cdd_claims={cdd_claims}");
+
+        // Create child identity.
+        Module::<T>::base_create_child_identity(parent.origin().into(), child.account.clone()).unwrap();
+        let child_did = Module::<T>::get_identity(&child.account).unwrap();
+        assert_ne!(child_did, parent_did);
+
+        let cdd_claims = Module::<T>::base_fetch_valid_cdd_claims(child_did, 0u32.into(), None)
+            .count();
+        log::info!("--- child_identity_has_valid_cdd: child cdd_claims={cdd_claims}");
+    }: {
+        assert!(Module::<T>::has_valid_cdd(child_did));
     }
 
     cdd_register_did {
