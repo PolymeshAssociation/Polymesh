@@ -495,6 +495,7 @@ fn token_swap() {
             trade_date: None,
             value_date: None,
         };
+        assert_instruction_status(instruction_id, InstructionStatus::Pending);
         assert_instruction_details(instruction_id, instruction_details);
 
         assert_affirms_pending(instruction_id, 2);
@@ -624,6 +625,7 @@ fn settle_on_block() {
             trade_date: None,
             value_date: None,
         };
+        assert_instruction_status(instruction_id, InstructionStatus::Pending);
         assert_eq!(
             Settlement::instruction_details(instruction_id),
             instruction_details
@@ -742,6 +744,7 @@ fn failed_execution() {
             trade_date: None,
             value_date: None,
         };
+        assert_instruction_status(instruction_id, InstructionStatus::Pending);
         assert_eq!(
             Settlement::instruction_details(instruction_id),
             instruction_details

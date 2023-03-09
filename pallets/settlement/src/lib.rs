@@ -1266,7 +1266,7 @@ impl<T: Config> Module<T> {
         if result.is_ok() {
             Self::prune_instruction(id, true);
         } else if <InstructionDetails<T>>::contains_key(id) {
-            <InstructionStatuses<T>>::mutate(id, |d| *d = InstructionStatus::Failed);
+            InstructionStatuses::<T>::insert(id, InstructionStatus::Failed);
         }
         result
     }
@@ -1363,13 +1363,15 @@ impl<T: Config> Module<T> {
         AffirmsReceived::remove_prefix(id, None);
 
         if executed {
-            <InstructionStatuses<T>>::mutate(id, |d| {
-                *d = InstructionStatus::Success(System::<T>::block_number())
-            });
+            InstructionStatuses::<T>::insert(
+                id,
+                InstructionStatus::Success(System::<T>::block_number()),
+            );
         } else {
-            <InstructionStatuses<T>>::mutate(id, |d| {
-                *d = InstructionStatus::Rejected(System::<T>::block_number())
-            });
+            InstructionStatuses::<T>::insert(
+                id,
+                InstructionStatus::Rejected(System::<T>::block_number()),
+            );
         }
 
         // We remove duplicates in memory before triggering storage actions
