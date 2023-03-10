@@ -74,8 +74,8 @@ use polymesh_common_utilities::{
     SystematicIssuers::Settlement as SettlementDID,
 };
 use polymesh_primitives::{
-    impl_checked_inc, storage_migration_ver, Balance, IdentityId, NFTId, NFTs, PortfolioId,
-    SecondaryKey, Ticker,
+    impl_checked_inc, storage_migrate_on, storage_migration_ver, Balance, IdentityId, NFTId, NFTs,
+    PortfolioId, SecondaryKey, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
@@ -2280,7 +2280,7 @@ pub mod migration {
             /// Id of the venue this instruction belongs to
             pub venue_id: VenueId,
             /// Status of the instruction
-            pub status: InstructionStatus,
+            pub status: InstructionStatus<BlockNumber>,
             /// Type of settlement used for this instruction
             pub settlement_type: SettlementType<BlockNumber>,
             /// Date at which this instruction was created
@@ -2310,7 +2310,7 @@ pub mod migration {
         log::info!(" >>> Updating Settlement storage. Migrating Instructions...");
         let total_instructions = v1::InstructionDetails::<T>::drain().fold(
             0usize,
-            |total_instructions, (did, id, instruction_details)| {
+            |total_instructions, (id, instruction_details)| {
                 // Migrate Instruction satus.
                 InstructionStatuses::<T>::insert(id, instruction_details.status);
 
