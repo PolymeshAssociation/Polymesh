@@ -169,7 +169,7 @@ impl<T: Config> Module<T> {
             return true;
         }
 
-        Self::base_fetch_cdd(claim_for, T::Moment::zero(), None).is_some()
+        Self::base_fetch_cdd(claim_for, T::Moment::zero(), None, true).is_some()
     }
 
     /// It returns the CDD identity which issued the current valid CDD claim for `claim_for`
@@ -182,15 +182,16 @@ impl<T: Config> Module<T> {
     /// No state change is allowed in this function because this function is used within the RPC
     /// calls.
     pub fn fetch_cdd(claim_for: IdentityId, leeway: T::Moment) -> Option<IdentityId> {
-        Self::base_fetch_cdd(claim_for, leeway, None)
+        Self::base_fetch_cdd(claim_for, leeway, None, true)
     }
 
     fn base_fetch_cdd(
         claim_for: IdentityId,
         leeway: T::Moment,
         filter_cdd_id: Option<CddId>,
+        include_parent: bool,
     ) -> Option<IdentityId> {
-        Self::base_fetch_valid_cdd_claims(claim_for, leeway, filter_cdd_id)
+        Self::base_fetch_valid_cdd_claims(claim_for, leeway, filter_cdd_id, include_parent)
             .map(|id_claim| id_claim.claim_issuer)
             .next()
     }
@@ -199,8 +200,9 @@ impl<T: Config> Module<T> {
     // parent of `did` if they are a child identity.
     pub(crate) fn base_fetch_parent_cdd_claims(
         did: IdentityId,
+        include_parent: bool,
     ) -> impl Iterator<Item = IdentityClaim> {
-        let mut first_call = true;
+        let mut first_call = include_parent;
         let mut parent_claims = None;
         core::iter::from_fn(move || -> Option<IdentityClaim> {
             if first_call {
@@ -222,11 +224,12 @@ impl<T: Config> Module<T> {
         claim_for: IdentityId,
         leeway: T::Moment,
         filter_cdd_id: Option<CddId>,
+        include_parent: bool,
     ) -> impl Iterator<Item = IdentityClaim> {
         let mut cdd_checker = CddClaimChecker::<T>::new(claim_for, leeway, filter_cdd_id);
 
         Self::fetch_base_claims(claim_for, ClaimType::CustomerDueDiligence)
-            .chain(Self::base_fetch_parent_cdd_claims(claim_for))
+            .chain(Self::base_fetch_parent_cdd_claims(claim_for, include_parent))
             .filter(move |id_claim| cdd_checker.filter_cdd_claims(id_claim))
     }
 
@@ -334,7 +337,7 @@ impl<T: Config> Module<T> {
         if let Claim::CustomerDueDiligence(cdd_id) = claim {
             ensure!(
                 cdd_id.is_default_cdd()
-                    || Self::base_fetch_valid_cdd_claims(target, 0u32.into(), None)
+                    || Self::base_fetch_valid_cdd_claims(target, 0u32.into(), None, false)
                         .filter_map(|c| match c.claim {
                             Claim::CustomerDueDiligence(c_id) => Some(c_id),
                             _ => None,
@@ -408,7 +411,7 @@ impl<T: Config> Module<T> {
         );
         // Verify the owner of that CDD_ID.
         ensure!(
-            Self::base_fetch_cdd(target, T::Moment::zero(), Some(*cdd_id)).is_some(),
+            Self::base_fetch_cdd(target, T::Moment::zero(), Some(*cdd_id), false).is_some(),
             Error::<T>::InvalidCDDId
         );
 

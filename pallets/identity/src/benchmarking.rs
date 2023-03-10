@@ -167,9 +167,6 @@ benchmarks! {
         let last_cdd = providers.last().unwrap();
         let cdd_claim = Claim::CustomerDueDiligence(last_cdd.0.into());
         Module::<T>::unverified_add_claim_with_scope(did, cdd_claim, None, *last_cdd, None);
-        let cdd_claims = Module::<T>::base_fetch_valid_cdd_claims(did, 0u32.into(), None)
-            .collect::<Vec<_>>().len();
-        log::info!("--- has_valid_cdd: cdd_claims={cdd_claims}");
     }: {
         assert!(Module::<T>::has_valid_cdd(did));
     }
@@ -192,18 +189,11 @@ benchmarks! {
         let last_cdd = providers.last().unwrap();
         let cdd_claim = Claim::CustomerDueDiligence(last_cdd.0.into());
         Module::<T>::unverified_add_claim_with_scope(parent_did, cdd_claim, None, *last_cdd, None);
-        let cdd_claims = Module::<T>::base_fetch_valid_cdd_claims(parent_did, 0u32.into(), None)
-            .count();
-        log::info!("--- child_identity_has_valid_cdd: parent cdd_claims={cdd_claims}");
 
         // Create child identity.
         Module::<T>::base_create_child_identity(parent.origin().into(), child.account.clone()).unwrap();
         let child_did = Module::<T>::get_identity(&child.account).unwrap();
         assert_ne!(child_did, parent_did);
-
-        let cdd_claims = Module::<T>::base_fetch_valid_cdd_claims(child_did, 0u32.into(), None)
-            .count();
-        log::info!("--- child_identity_has_valid_cdd: child cdd_claims={cdd_claims}");
     }: {
         assert!(Module::<T>::has_valid_cdd(child_did));
     }
