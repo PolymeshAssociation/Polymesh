@@ -675,8 +675,8 @@ where
     let max_nfts = T::MaxNumberOfNFTsPerLeg::get();
     let alice = UserBuilder::<T>::default().generate_did().build("Alice");
     let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-    let fungible_ticker: Ticker = b"TICKER".as_ref().try_into().unwrap();
-    let nft_ticker: Ticker = b"TICKER0".as_ref().try_into().unwrap();
+    let fungible_ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+    let nft_ticker: Ticker = Ticker::from_slice_truncated(b"TICKER0".as_ref());
     let venue_id = create_venue_::<T>(alice.did(), vec![]);
     let sender_portfolios = vec![PortfolioId {
         did: alice.did(),
