@@ -284,7 +284,7 @@ impl<T: Config> Module<T> {
         // Commit changes to storage.
         if transfer_conditions.len() > 0 {
             // Check if required Stats are enabled.
-            for condition in transfer_conditions.clone().into_iter() {
+            for condition in transfer_conditions.iter() {
                 let stat_type = condition.get_stat_type();
                 ensure!(
                     Self::is_asset_stat_active(asset, stat_type),
@@ -302,7 +302,7 @@ impl<T: Config> Module<T> {
         Self::deposit_event(Event::SetAssetTransferCompliance(
             did,
             asset,
-            transfer_conditions.clone().into_iter().collect(),
+            transfer_conditions.into_iter().collect(),
         ));
 
         Ok(())
