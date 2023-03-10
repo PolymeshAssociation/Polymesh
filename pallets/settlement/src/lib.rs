@@ -653,7 +653,7 @@ decl_storage! {
         /// Array of venues created by an identity. Only needed for the UI. IdentityId -> Vec<venue_id>
         UserVenues get(fn user_venues): map hasher(twox_64_concat) IdentityId => Vec<VenueId>;
         /// Details about an instruction. instruction_id -> instruction_details
-        InstructionDetails get(fn instruction_details):
+        pub InstructionDetails get(fn instruction_details):
             map hasher(twox_64_concat) InstructionId => Instruction<T::Moment, T::BlockNumber>;
         /// Legs under an instruction. (instruction_id, leg_id) -> Leg
         pub InstructionLegs get(fn instruction_legs):
@@ -2294,7 +2294,7 @@ pub mod migration {
         decl_storage! {
             trait Store for Module<T: Config> as Settlement {
                 /// Details about an instruction. instruction_id -> instruction_details
-                InstructionDetails get(fn instruction_details):
+                pub InstructionDetails get(fn instruction_details):
                 map hasher(twox_64_concat) InstructionId => Instruction<T::Moment, T::BlockNumber>;
                     }
         }
@@ -2312,7 +2312,19 @@ pub mod migration {
             0usize,
             |total_instructions, (did, id, instruction_details)| {
                 // Migrate Instruction satus.
-                InstructionStatuses::<T>::insert(instruction_id, instruction_details.status);
+                InstructionStatuses::<T>::insert(id, instruction_details.status);
+
+                //Migrate Instruction details.
+                let instruction = Instruction {
+                    instruction_id: id,
+                    venue_id: instruction_details.venue_id,
+                    settlement_type: instruction_details.settlement_type,
+                    created_at: instruction_details.created_at,
+                    trade_date: instruction_details.trade_date,
+                    value_date: instruction_details.value_date,
+                };
+                <InstructionDetails<T>>::insert(id, instruction);
+
                 total_instructions + 1
             },
         );
