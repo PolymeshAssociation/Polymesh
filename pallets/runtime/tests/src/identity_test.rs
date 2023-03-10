@@ -1,6 +1,7 @@
 use super::{
     asset_test::{an_asset, basic_asset, max_len, max_len_bytes, set_timestamp, token},
     committee_test::gc_vmo,
+    exec_noop, exec_ok,
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{
         account_from, add_secondary_key, add_secondary_key_with_perms,
@@ -2196,4 +2197,102 @@ fn cdd_register_did_events() {
                 ))
             );
         });
+}
+
+#[test]
+fn child_identity_test() {
+    ExtBuilder::default()
+        .balance_factor(1_000)
+        .monied(true)
+        .cdd_providers(vec![
+            AccountKeyring::Eve.to_account_id(),
+        ])
+        .build()
+        .execute_with(&do_child_identity_test);
+
+}
+
+fn do_child_identity_test() {
+    let cdd = Origin::signed(AccountKeyring::Eve.to_account_id());
+    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new_with(alice.did, AccountKeyring::Bob);
+    let dave = User::new_with(alice.did, AccountKeyring::Dave);
+
+    let charlie = User::new(AccountKeyring::Charlie);
+
+    // Helper functions.
+    let did_of = |u: User| Identity::get_identity(&u.acc());
+    let valid_cdd = |u: User| {
+      match did_of(u) {
+          Some(did) => Identity::has_valid_cdd(did),
+          None => false,
+      }
+    };
+    let inc_acc_ref = |u: User| Identity::add_account_key_ref_count(&u.acc());
+
+    // Create some secondary keys.
+    add_secondary_key(alice.did, bob.acc());
+    add_secondary_key(alice.did, dave.acc());
+
+    // Check KeyRecords map
+    assert_eq!(did_of(bob), Some(alice.did));
+    assert_eq!(did_of(dave), Some(alice.did));
+    assert!(valid_cdd(alice));
+    assert!(valid_cdd(bob));
+    assert!(valid_cdd(dave));
+
+    // The new child identity's primary key must be a secondary key.
+    exec_noop!(
+      Identity::create_child_identity(alice.origin(), charlie.acc()),
+      Error::NotASigner,
+    );
+
+    // The new child identity's primary key must be unlinkable (no account references).
+    inc_acc_ref(dave);
+    exec_noop!(
+      Identity::create_child_identity(alice.origin(), dave.acc()),
+      Error::AccountKeyIsBeingUsed,
+    );
+
+    // The new child identity's primary key can't already be a primary key.
+    exec_noop!(
+      Identity::create_child_identity(alice.origin(), alice.acc()),
+      Error::NotASigner,
+    );
+
+    // Only the primary key can create a child identity.
+    exec_noop!(
+      Identity::create_child_identity(bob.origin(), bob.acc()),
+      Error::KeyNotAllowed,
+    );
+
+    // Create child identity with Bob as the primary key.
+    exec_ok!(Identity::create_child_identity(alice.origin(), bob.acc()));
+    // Update bob's identity.
+    let bob_did = did_of(bob).expect("Bob's new identity");
+    let bob = User::new_with(bob_did, AccountKeyring::Bob);
+
+    // Ensure bob has a new identity.
+    assert!(valid_cdd(bob));
+    assert_ne!(bob.did, alice.did);
+    let (bob_cdd_id, _bob_uid) = create_cdd_id_and_investor_uid(bob_did);
+
+    // Attach secondary key to child identity.
+    let ferdie = User::new_with(bob.did, AccountKeyring::Ferdie);
+    add_secondary_key(bob.did, ferdie.acc());
+
+    // Child identity can't create a child identity.
+    exec_noop!(
+      Identity::create_child_identity(bob.origin(), ferdie.acc()),
+      Error::IsChildIdentity,
+    );
+
+    // Child identity can receive a CDD Claim.
+    assert_ok!(Identity::add_claim(
+        cdd.clone(),
+        bob_did,
+        Claim::CustomerDueDiligence(bob_cdd_id),
+        None
+    ));
+    assert!(valid_cdd(bob));
 }
