@@ -625,7 +625,7 @@ decl_error! {
     }
 }
 
-storage_migration_ver!(0);
+storage_migration_ver!(1);
 
 decl_storage! {
     trait Store for Module<T: Config> as Settlement {
@@ -681,7 +681,7 @@ decl_storage! {
         /// Number of instructions in the system (It's one more than the actual number)
         InstructionCounter get(fn instruction_counter) build(|_| InstructionId(1u64)): InstructionId;
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(0)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
         /// Instruction memo
         InstructionMemos get(fn memo): map hasher(twox_64_concat) InstructionId => Option<InstructionMemo>;
         /// Instruction statuses. instruction_id -> InstructionStatus
@@ -698,6 +698,14 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion, 1, {
+                migration::migrate_v1::<T>();
+            });
+
+            0
+        }
 
         /// Registers a new venue.
         ///
@@ -2254,4 +2262,61 @@ pub fn get_transfer_by_asset(legs_v2: &[LegV2]) -> (u32, u32) {
         }
     }
     (fungible_transfers, nfts_transfers as u32)
+}
+
+pub mod migration {
+    use super::*;
+
+    mod v1 {
+        use super::*;
+        use scale_info::TypeInfo;
+
+        /// Old v1 Instruction information.
+        #[derive(Encode, Decode, TypeInfo)]
+        #[derive(Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+        pub struct Instruction<Moment, BlockNumber> {
+            /// Unique instruction id. It is an auto incrementing number
+            pub instruction_id: InstructionId,
+            /// Id of the venue this instruction belongs to
+            pub venue_id: VenueId,
+            /// Status of the instruction
+            pub status: InstructionStatus,
+            /// Type of settlement used for this instruction
+            pub settlement_type: SettlementType<BlockNumber>,
+            /// Date at which this instruction was created
+            pub created_at: Option<Moment>,
+            /// Date from which this instruction is valid
+            pub trade_date: Option<Moment>,
+            /// Date after which the instruction should be settled (not enforced)
+            pub value_date: Option<Moment>,
+        }
+
+        decl_storage! {
+            trait Store for Module<T: Config> as Settlement {
+                /// Details about an instruction. instruction_id -> instruction_details
+                InstructionDetails get(fn instruction_details):
+                map hasher(twox_64_concat) InstructionId => Instruction<T::Moment, T::BlockNumber>;
+                    }
+        }
+
+        decl_module! {
+            pub struct Module<T: Config> for enum Call where origin: T::Origin { }
+        }
+    }
+
+    pub fn migrate_v1<T: Config>() {
+        sp_runtime::runtime_logger::RuntimeLogger::init();
+
+        log::info!(" >>> Updating Settlement storage. Migrating Instructions...");
+        let total_instructions = v1::InstructionDetails::<T>::drain().fold(
+            0usize,
+            |total_instructions, (did, id, instruction_details)| {
+                // Migrate Instruction satus.
+                InstructionStatuses::<T>::insert(instruction_id, instruction_details.status);
+                total_instructions + 1
+            },
+        );
+
+        log::info!(" >>> Migrated {} Instructions.", total_instructions);
+    }
 }
