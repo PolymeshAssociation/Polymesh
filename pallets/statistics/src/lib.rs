@@ -179,8 +179,7 @@ impl<T: Config> Module<T> {
         // Check EA permissions for asset.
         let did = Self::ensure_asset_perms(origin, asset)?;
         // converting from a btreeset to a bounded version
-        let bounded_stat_types: BoundedBTreeSet<_, T::MaxStatsPerAsset> = stat_types
-            .clone()
+        let stat_types: BoundedBTreeSet<_, T::MaxStatsPerAsset> = stat_types
             .try_into()
             .map_err(|_| Error::<T>::StatTypeLimitReached)?;
 
@@ -195,7 +194,7 @@ impl<T: Config> Module<T> {
         let remove_types = Self::active_asset_stats(asset)
             .into_iter()
             // Only remove stats that are not in the new `stat_types` set.
-            .filter(|stat_type| !bounded_stat_types.contains(&stat_type))
+            .filter(|stat_type| !stat_types.contains(&stat_type))
             .map(|stat_type| {
                 if required_types.contains(&stat_type) {
                     // Throw an error if the user tries to remove a `StatType` required
@@ -221,7 +220,7 @@ impl<T: Config> Module<T> {
 
         // Save new stat types.
         let add_types = stat_types.iter().cloned().collect::<Vec<_>>();
-        ActiveAssetStats::<T>::insert(&asset, bounded_stat_types);
+        ActiveAssetStats::<T>::insert(&asset, stat_types);
 
         if remove_types.len() > 0 {
             Self::deposit_event(Event::StatTypesRemoved(did, asset, remove_types));
@@ -277,16 +276,15 @@ impl<T: Config> Module<T> {
 
         // TODO: Use complexity instead of count to limit TransferConditions per asset.
         // converting from a btreeset to a bounded version
-        let bounded_transfer_conditions: BoundedBTreeSet<_, T::MaxTransferConditionsPerAsset> =
+        let transfer_conditions: BoundedBTreeSet<_, T::MaxTransferConditionsPerAsset> =
             transfer_conditions
-                .clone()
                 .try_into()
                 .map_err(|_| Error::<T>::TransferConditionLimitReached)?;
 
         // Commit changes to storage.
-        if bounded_transfer_conditions.len() > 0 {
+        if transfer_conditions.len() > 0 {
             // Check if required Stats are enabled.
-            for condition in bounded_transfer_conditions.clone().into_iter() {
+            for condition in transfer_conditions.clone().into_iter() {
                 let stat_type = condition.get_stat_type();
                 ensure!(
                     Self::is_asset_stat_active(asset, stat_type),
@@ -295,7 +293,7 @@ impl<T: Config> Module<T> {
             }
 
             AssetTransferCompliances::<T>::mutate(&asset, |old| {
-                old.requirements = bounded_transfer_conditions.clone()
+                old.requirements = transfer_conditions.clone()
             });
         } else {
             AssetTransferCompliances::<T>::remove(&asset);
@@ -304,7 +302,7 @@ impl<T: Config> Module<T> {
         Self::deposit_event(Event::SetAssetTransferCompliance(
             did,
             asset,
-            transfer_conditions.into_iter().collect(),
+            transfer_conditions.clone().into_iter().collect(),
         ));
 
         Ok(())
