@@ -229,7 +229,10 @@ impl<T: Config> Module<T> {
         let mut cdd_checker = CddClaimChecker::<T>::new(claim_for, leeway, filter_cdd_id);
 
         Self::fetch_base_claims(claim_for, ClaimType::CustomerDueDiligence)
-            .chain(Self::base_fetch_parent_cdd_claims(claim_for, include_parent))
+            .chain(Self::base_fetch_parent_cdd_claims(
+                claim_for,
+                include_parent,
+            ))
             .filter(move |id_claim| cdd_checker.filter_cdd_claims(id_claim))
     }
 

@@ -2204,12 +2204,9 @@ fn child_identity_test() {
     ExtBuilder::default()
         .balance_factor(1_000)
         .monied(true)
-        .cdd_providers(vec![
-            AccountKeyring::Eve.to_account_id(),
-        ])
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
         .build()
         .execute_with(&do_child_identity_test);
-
 }
 
 fn do_child_identity_test() {
@@ -2222,12 +2219,7 @@ fn do_child_identity_test() {
 
     // Helper functions.
     let did_of = |u: User| Identity::get_identity(&u.acc());
-    let valid_cdd = |u: User| {
-      match did_of(u) {
-          Some(did) => Identity::has_valid_cdd(did),
-          None => false,
-      }
-    };
+    let valid_cdd = |u: User| did_of(u).map(Identity::has_valid_cdd).unwrap_or_default();
     let inc_acc_ref = |u: User| Identity::add_account_key_ref_count(&u.acc());
 
     // Create some secondary keys.
@@ -2243,27 +2235,27 @@ fn do_child_identity_test() {
 
     // The new child identity's primary key must be a secondary key.
     exec_noop!(
-      Identity::create_child_identity(alice.origin(), charlie.acc()),
-      Error::NotASigner,
+        Identity::create_child_identity(alice.origin(), charlie.acc()),
+        Error::NotASigner,
     );
 
     // The new child identity's primary key must be unlinkable (no account references).
     inc_acc_ref(dave);
     exec_noop!(
-      Identity::create_child_identity(alice.origin(), dave.acc()),
-      Error::AccountKeyIsBeingUsed,
+        Identity::create_child_identity(alice.origin(), dave.acc()),
+        Error::AccountKeyIsBeingUsed,
     );
 
     // The new child identity's primary key can't already be a primary key.
     exec_noop!(
-      Identity::create_child_identity(alice.origin(), alice.acc()),
-      Error::NotASigner,
+        Identity::create_child_identity(alice.origin(), alice.acc()),
+        Error::NotASigner,
     );
 
     // Only the primary key can create a child identity.
     exec_noop!(
-      Identity::create_child_identity(bob.origin(), bob.acc()),
-      Error::KeyNotAllowed,
+        Identity::create_child_identity(bob.origin(), bob.acc()),
+        Error::KeyNotAllowed,
     );
 
     // Create child identity with Bob as the primary key.
@@ -2283,8 +2275,8 @@ fn do_child_identity_test() {
 
     // Child identity can't create a child identity.
     exec_noop!(
-      Identity::create_child_identity(bob.origin(), ferdie.acc()),
-      Error::IsChildIdentity,
+        Identity::create_child_identity(bob.origin(), ferdie.acc()),
+        Error::IsChildIdentity,
     );
 
     // Child identity can receive a CDD Claim.
