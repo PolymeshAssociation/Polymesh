@@ -198,6 +198,50 @@ benchmarks! {
         assert!(Module::<T>::has_valid_cdd(child_did));
     }
 
+    create_child_identity {
+        // Create parent identity.
+        let parent = user::<T>("parent", 0);
+        let parent_did = parent.did.unwrap();
+
+        let child_key: T::AccountId = account("child", 0, SEED);
+        Module::<T>::unsafe_join_identity(parent_did, Permissions::default(), child_key.clone());
+
+    }: _(parent.origin, child_key.clone())
+    verify {
+        let child_did = Module::<T>::get_identity(&child_key).unwrap();
+        assert_ne!(child_did, parent_did);
+    }
+
+    unlink_child_identity {
+        // Create parent identity.
+        let parent = user::<T>("parent", 0);
+        let parent_did = parent.did.unwrap();
+
+        // Create a secondary key.
+        let child_key: T::AccountId = account("child", 0, SEED);
+        Module::<T>::unsafe_join_identity(parent_did, Permissions::default(), child_key.clone());
+
+        // Create a child identity using the secondary key.
+        Module::<T>::create_child_identity(
+            parent.origin().into(),
+            child_key.clone()
+        ).unwrap();
+        let child_did = Module::<T>::get_identity(&child_key).unwrap();
+
+        // Generate valid CDD claim for child identity.
+        let investor_uid = make_investor_uid(child_did.as_bytes());
+        let cdd_id = CddId::new_v1(child_did, investor_uid.into());
+        let cdd_claim = Claim::CustomerDueDiligence(cdd_id.clone());
+
+        // Add CDD claim to the child identity.
+        let cdd = cdd_provider::<T>("cdd", 0).did.unwrap();
+        Module::<T>::unverified_add_claim_with_scope(child_did, cdd_claim, None, cdd, None);
+
+    }: _(parent.origin, child_did, false)
+    verify {
+        assert!(Module::<T>::has_valid_cdd(child_did));
+    }
+
     cdd_register_did {
         // Number of secondary items.
         let i in 0 .. MAX_SECONDARY_KEYS;

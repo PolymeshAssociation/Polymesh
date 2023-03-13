@@ -66,6 +66,30 @@ impl pallet_identity::WeightInfo for WeightInfo {
         (70_043_000 as Weight).saturating_add(DbWeight::get().reads(6 as Weight))
     }
     // Storage: Identity KeyRecords (r:2 w:1)
+    // Storage: Identity ParentDid (r:1 w:1)
+    // Storage: Identity AccountKeyRefCount (r:1 w:0)
+    // Storage: MultiSig MultiSigToIdentity (r:1 w:0)
+    // Storage: Identity MultiPurposeNonce (r:1 w:1)
+    // Storage: System ParentHash (r:1 w:0)
+    // Storage: Identity DidRecords (r:1 w:1)
+    // Storage: Identity Authorizations (r:1 w:0)
+    // Storage: Identity DidKeys (r:0 w:2)
+    fn create_child_identity() -> Weight {
+        (143_356_000 as Weight)
+            .saturating_add(DbWeight::get().reads(9 as Weight))
+            .saturating_add(DbWeight::get().writes(6 as Weight))
+    }
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Storage: Identity ParentDid (r:1 w:1)
+    // Storage: Timestamp Now (r:1 w:0)
+    // Storage: Instance2Group ActiveMembers (r:1 w:0)
+    // Storage: Identity Claims (r:2 w:0)
+    fn unlink_child_identity() -> Weight {
+        (87_631_000 as Weight)
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    // Storage: Identity KeyRecords (r:2 w:1)
     // Storage: Instance2Group ActiveMembers (r:1 w:0)
     // Storage: Identity MultiPurposeNonce (r:1 w:1)
     // Storage: System ParentHash (r:1 w:0)

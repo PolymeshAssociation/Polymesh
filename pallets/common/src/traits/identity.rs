@@ -107,6 +107,8 @@ impl<AccountId> TryFrom<SecondaryKeyWithAuthV1<AccountId>> for SecondaryKeyWithA
 pub trait WeightInfo {
     fn has_valid_cdd() -> Weight;
     fn child_identity_has_valid_cdd() -> Weight;
+    fn create_child_identity() -> Weight;
+    fn unlink_child_identity() -> Weight;
     fn cdd_register_did(i: u32) -> Weight;
     fn invalidate_cdd_claims() -> Weight;
     fn remove_secondary_keys(i: u32) -> Weight;
