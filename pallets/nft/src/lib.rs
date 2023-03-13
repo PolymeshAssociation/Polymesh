@@ -59,6 +59,7 @@ decl_module! {
         type Error = Error<T>;
 
         const MaxNumberOfCollectionKeys: u8 = T::MaxNumberOfCollectionKeys::get();
+        const MaxNumberOfNFTsCount: u32 = T::MaxNumberOfNFTsCount::get();
 
         /// Initializes the default event for this module.
         fn deposit_event() = default;
@@ -141,6 +142,8 @@ decl_error! {
         CollectionNotFound,
         /// A duplicate metadata key has been passed as parameter.
         DuplicateMetadataKey,
+        /// Duplicate ids are not allowed.
+        DuplicatedNFTId,
         /// The asset must be of type non-fungible.
         InvalidAssetType,
         /// Either the number of keys or the key identifier does not match the keys defined for the collection.
@@ -151,20 +154,24 @@ decl_error! {
         InvalidNFTTransferSamePortfolio,
         /// Failed to transfer an NFT - NFT not found in portfolio.
         InvalidNFTTransferNFTNotOwned,
-        /// Failed to transfer an NFT - balance would overflow.
-        InvalidNFTTransferBalanceOverflow,
-        /// Failed to transfer an NFT - not enough balance.
-        InvalidNFTTransferNoBalance,
+        /// Failed to transfer an NFT - identity count would overflow.
+        InvalidNFTTransferCountOverflow,
         /// Failed to transfer an NFT - compliance failed.
         InvalidNFTTransferComplianceFailure,
         /// Failed to transfer an NFT - asset is frozen.
         InvalidNFTTransferFrozenAsset,
+        /// Failed to transfer an NFT - the number of nfts in the identity is insufficient.
+        InvalidNFTTransferInsufficientCount,
         /// The maximum number of metadata keys was exceeded.
         MaxNumberOfKeysExceeded,
+        /// The maximum number of nfts being transferred in one leg was exceeded.
+        MaxNumberOfNFTsPerLegExceeded,
         /// The NFT does not exist.
         NFTNotFound,
         /// At least one of the metadata keys has not been registered.
         UnregisteredMetadataKey,
+        /// It is not possible to transferr zero nft.
+        ZeroCount,
     }
 }
 
@@ -345,7 +352,6 @@ impl<T: Config> Module<T> {
     }
 
     /// Tranfer ownership of all NFTs.
-    /// Note: the checks validating uniqueness of the ids and the number of NFTs are done in the settlement pallet.
     #[require_transactional]
     pub fn base_nft_transfer(
         sender_portfolio: &PortfolioId,
@@ -377,13 +383,12 @@ impl<T: Config> Module<T> {
 
     /// Verifies if and the sender and receiver are not the same, if both have valid balances,
     /// if the sender owns the nft, and if all compliance rules are being respected.
-    /// Note: the checks validating uniqueness of the ids and the number of NFTs are done in the settlement pallet.
-    fn validate_nft_transfer(
+    pub fn validate_nft_transfer(
         sender_portfolio: &PortfolioId,
         receiver_portfolio: &PortfolioId,
         nfts: &NFTs,
     ) -> DispatchResult {
-        let transferred_amount = nfts.len() as u64;
+        let nfts_transferred = nfts.len() as u64;
         // Verifies that the sender and receiver are not the same
         ensure!(
             sender_portfolio != receiver_portfolio,
@@ -394,11 +399,15 @@ impl<T: Config> Module<T> {
             !Frozen::get(nfts.ticker()),
             Error::<T>::InvalidNFTTransferFrozenAsset
         );
-        // Verifies that the sender has the required balance
+        // Verifies that the sender has the required nft count
         ensure!(
-            NumberOfNFTs::get(nfts.ticker(), sender_portfolio.did) >= transferred_amount,
-            Error::<T>::InvalidNFTTransferNoBalance
+            NumberOfNFTs::get(nfts.ticker(), sender_portfolio.did) >= nfts_transferred,
+            Error::<T>::InvalidNFTTransferInsufficientCount
         );
+        // Verifies that the number of nfts being transferred are within the allowed limits
+        Self::ensure_within_nfts_transfer_limits(nfts)?;
+        // Verifies that all ids are unique
+        Self::ensure_no_duplicate_nfts(nfts)?;
         // Verfies that the sender owns the nfts
         for nft_id in nfts.ids() {
             ensure!(
@@ -408,19 +417,36 @@ impl<T: Config> Module<T> {
         }
         // Verfies that the receiver will not overflow
         NumberOfNFTs::get(nfts.ticker(), receiver_portfolio.did)
-            .checked_add(transferred_amount)
-            .ok_or(Error::<T>::InvalidNFTTransferBalanceOverflow)?;
+            .checked_add(nfts_transferred)
+            .ok_or(Error::<T>::InvalidNFTTransferCountOverflow)?;
         // Verifies that all compliance rules are being respected
         let code = T::Compliance::verify_restriction(
             nfts.ticker(),
             Some(sender_portfolio.did),
             Some(receiver_portfolio.did),
-            transferred_amount.into(),
+            nfts_transferred.into(),
         )?;
         if code != ERC1400_TRANSFER_SUCCESS {
             return Err(Error::<T>::InvalidNFTTransferComplianceFailure.into());
         }
 
+        Ok(())
+    }
+
+    /// Verifies that the number of NFTs being transferred is greater than zero and less or equal to `MaxNumberOfNFTsPerLeg`.
+    pub fn ensure_within_nfts_transfer_limits(nfts: &NFTs) -> DispatchResult {
+        ensure!(nfts.len() > 0, Error::<T>::ZeroCount);
+        ensure!(
+            nfts.len() <= (T::MaxNumberOfNFTsCount::get() as usize),
+            Error::<T>::MaxNumberOfNFTsPerLegExceeded
+        );
+        Ok(())
+    }
+
+    /// Verifies that there are no duplicate ids in the `NFTs` struct.
+    pub fn ensure_no_duplicate_nfts(nfts: &NFTs) -> DispatchResult {
+        let unique_nfts: BTreeSet<&NFTId> = nfts.ids().iter().collect();
+        ensure!(unique_nfts.len() == nfts.len(), Error::<T>::DuplicatedNFTId);
         Ok(())
     }
 }

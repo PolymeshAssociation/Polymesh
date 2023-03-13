@@ -54,6 +54,7 @@ type Settlement = pallet_settlement::Module<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 type Error = pallet_settlement::Error<TestStorage>;
 type Scheduler = scheduler::Pallet<TestStorage>;
+type NFTError = pallet_nft::Error<TestStorage>;
 
 const TICKER: Ticker = Ticker::new_unchecked([b'A', b'C', b'M', b'E', 0, 0, 0, 0, 0, 0, 0, 0]);
 const TICKER2: Ticker = Ticker::new_unchecked([b'A', b'C', b'M', b'E', b'2', 0, 0, 0, 0, 0, 0, 0]);
@@ -2467,7 +2468,7 @@ fn add_nft_instruction_with_duplicated_nfts() {
                 legs,
                 Some(InstructionMemo::default()),
             ),
-            Error::DuplicatedNFTId
+            NFTError::DuplicatedNFTId
         );
     });
 }
@@ -2511,7 +2512,7 @@ fn add_nft_instruction_exceeding_nfts() {
                 legs,
                 Some(InstructionMemo::default()),
             ),
-            Error::MaxNumberOfNFTsPerLegExceeded
+            NFTError::MaxNumberOfNFTsPerLegExceeded
         );
     });
 }

@@ -33,7 +33,7 @@ use polymesh_primitives::{
     checked_inc::CheckedInc,
     statistics::{Stat2ndKey, StatType, StatUpdate},
     transfer_compliance::{TransferCondition, TransferConditionExemptKey},
-    Claim, Condition, ConditionType, CountryCode, IdentityId, PortfolioId, PortfolioKind,
+    Claim, Condition, ConditionType, CountryCode, IdentityId, NFTId, PortfolioId, PortfolioKind,
     PortfolioName, PortfolioNumber, Scope, Ticker, TrustedIssuer,
 };
 use sp_runtime::SaturatedConversion;
