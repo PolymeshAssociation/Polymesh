@@ -545,6 +545,7 @@ macro_rules! misc_pallet_impls {
             type WeightInfo = polymesh_weights::pallet_nft::WeightInfo;
             type Compliance = pallet_compliance_manager::Module<Runtime>;
             type MaxNumberOfCollectionKeys = MaxNumberOfCollectionKeys;
+            type MaxNumberOfNFTsCount = MaxNumberOfNFTsPerLeg;
         }
     };
 }
@@ -559,7 +560,7 @@ macro_rules! runtime_apis {
         use pallet_identity::types::{AssetDidResult, CddStatus, RpcDidRecords, DidStatus, KeyIdentityData};
         use pallet_pips::{Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
-        use polymesh_primitives::{calendar::CheckpointId, compliance_manager::AssetComplianceResult, IdentityId, Index, PortfolioId, Signatory, Ticker};
+        use polymesh_primitives::{calendar::CheckpointId, compliance_manager::AssetComplianceResult, IdentityId, Index, PortfolioId, Signatory, Ticker, NFTs};
 
         /// The address format for describing accounts.
         pub type Address = <Indices as StaticLookup>::Source;
@@ -992,6 +993,17 @@ macro_rules! runtime_apis {
                     merge_active_and_inactive::<Block>(
                         CommitteeMembership::active_members(),
                         CommitteeMembership::inactive_members())
+                }
+            }
+
+            impl node_rpc_runtime_api::nft::NFTApi<Block> for Runtime {
+                #[inline]
+                fn validate_nft_transfer(
+                    sender_portfolio: &PortfolioId,
+                    receiver_portfolio: &PortfolioId,
+                    nfts: &NFTs
+                ) -> frame_support::dispatch::DispatchResult {
+                    Nft::validate_nft_transfer(sender_portfolio, receiver_portfolio, nfts)
                 }
             }
 
