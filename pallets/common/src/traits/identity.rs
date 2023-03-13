@@ -347,6 +347,11 @@ decl_event!(
         ///
         /// (Parent DID, Child DID, primary key)
         ChildDidCreated(IdentityId, IdentityId, AccountId),
+
+        /// Child identity unlinked from parent identity.
+        ///
+        /// (Caller DID, Parent DID, Child DID)
+        ChildDidUnlinked(IdentityId, IdentityId, IdentityId),
     }
 );
 

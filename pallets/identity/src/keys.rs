@@ -479,6 +479,40 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    /// Unlink a child identity.
+    pub(crate) fn base_unlink_child_identity(
+        origin: T::Origin,
+        child_did: IdentityId,
+        override_cdd_check: bool,
+    ) -> DispatchResult {
+        let (_, caller_did) = Self::ensure_primary_key(origin)?;
+
+        // Make sure that `child_did` is a child and get their parent identity.
+        let parent_did = ParentDid::get(child_did).ok_or(Error::<T>::NoParentIdentity)?;
+
+        // Only the parent or child can unlink `child_did` from their parent.
+        if caller_did != parent_did && caller_did != child_did {
+            return Err(Error::<T>::NotParentOrChildIdentity.into());
+        }
+
+        // Check if child identity has a valid CDD claim.
+        if !override_cdd_check {
+            ensure!(
+                Self::child_has_valid_cdd(child_did),
+                Error::<T>::ChildIdentityMissingCDDClaim
+            );
+        }
+
+        // Unlink child identity from parent identity.
+        ParentDid::remove(child_did);
+
+        Self::deposit_event(RawEvent::ChildDidUnlinked(
+            caller_did, parent_did, child_did,
+        ));
+
+        Ok(())
+    }
+
     /// Removes specified secondary keys of a DID if present.
     pub(crate) fn base_remove_secondary_keys(
         origin: T::Origin,

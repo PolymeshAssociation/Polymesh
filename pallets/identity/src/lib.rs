@@ -594,12 +594,25 @@ decl_module! {
 
         /// Create a child identity and make the `secondary_key` it's primary key.
         ///
+        /// TODO: Improve docs.
+        /// TODO: weights and benchmark.
+        ///
         /// # Errors
         ///
         /// The extrinsic can only called by primary key owner.
         #[weight = 100_000_000]
         pub fn create_child_identity(origin, secondary_key: T::AccountId) {
             Self::base_create_child_identity(origin, secondary_key)?;
+        }
+
+        /// Unlink a child identity from it's parent identity.
+        ///
+        /// TODO: Improve docs.
+        /// TODO: weights and benchmark.
+        ///
+        #[weight = 100_000_000]
+        pub fn unlink_child_identity(origin, child_did: IdentityId, override_cdd_check: bool) {
+            Self::base_unlink_child_identity(origin, child_did, override_cdd_check)?;
         }
     }
 }
@@ -681,6 +694,12 @@ decl_error! {
         ClaimDoesNotExist,
         /// Identity is already a child of an other identity, can't create grand-child identity.
         IsChildIdentity,
+        /// The Identity doesn't have a parent identity.
+        NoParentIdentity,
+        /// The caller is not the parent or child identity.
+        NotParentOrChildIdentity,
+        /// Child identity doesn't have its own CDD claim.
+        ChildIdentityMissingCDDClaim,
     }
 }
 

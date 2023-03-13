@@ -161,7 +161,6 @@ impl<T: Config> Module<T> {
     }
 
     /// See `Self::fetch_cdd`.
-    #[inline]
     pub fn has_valid_cdd(claim_for: IdentityId) -> bool {
         // It will never happen in production but helpful during testing.
         #[cfg(feature = "no_cdd")]
@@ -170,6 +169,11 @@ impl<T: Config> Module<T> {
         }
 
         Self::base_fetch_cdd(claim_for, T::Moment::zero(), None, true).is_some()
+    }
+
+    /// Don't include parent's CDD claims.
+    pub(crate) fn child_has_valid_cdd(claim_for: IdentityId) -> bool {
+        Self::base_fetch_cdd(claim_for, T::Moment::zero(), None, false).is_some()
     }
 
     /// It returns the CDD identity which issued the current valid CDD claim for `claim_for`
@@ -198,13 +202,18 @@ impl<T: Config> Module<T> {
 
     // Returns a lazy iterator that will return the CDD claims from the
     // parent of `did` if they are a child identity.
-    pub(crate) fn base_fetch_parent_cdd_claims(
+    //
+    // If `include_parent` is `false` then the iterator will not return claims
+    // from the parent.
+    pub fn base_fetch_parent_cdd_claims(
         did: IdentityId,
         include_parent: bool,
     ) -> impl Iterator<Item = IdentityClaim> {
         let mut first_call = include_parent;
         let mut parent_claims = None;
         core::iter::from_fn(move || -> Option<IdentityClaim> {
+            // The first time this iterator function is called
+            // we will initialize the `parent_claims` iterator.
             if first_call {
                 first_call = false;
                 parent_claims = ParentDid::get(did).map(|parent_did| {
@@ -212,6 +221,7 @@ impl<T: Config> Module<T> {
                 });
             }
 
+            // If `parent_claims` is `None` then this returns early with `None`.
             let claim = parent_claims.as_mut()?.next();
             if claim.is_none() {
                 parent_claims = None;

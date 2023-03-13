@@ -51,6 +51,7 @@ type Asset = pallet_asset::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type BaseError = pallet_base::Error<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
+type ParentDid = pallet_identity::ParentDid;
 type MultiSig = pallet_multisig::Module<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
@@ -2221,6 +2222,9 @@ fn do_child_identity_test() {
     let did_of = |u: User| Identity::get_identity(&u.acc());
     let valid_cdd = |u: User| did_of(u).map(Identity::has_valid_cdd).unwrap_or_default();
     let inc_acc_ref = |u: User| Identity::add_account_key_ref_count(&u.acc());
+    let rejoin_parent = |parent: User, child: User| {
+        ParentDid::insert(child.did, parent.did);
+    };
 
     // Create some secondary keys.
     add_secondary_key(alice.did, bob.acc());
@@ -2246,7 +2250,7 @@ fn do_child_identity_test() {
         Error::AccountKeyIsBeingUsed,
     );
 
-    // The new child identity's primary key can't already be a primary key.
+    // Only a secondary key from the parent identity can be used as the primary key for the child identity.
     exec_noop!(
         Identity::create_child_identity(alice.origin(), alice.acc()),
         Error::NotASigner,
@@ -2279,6 +2283,30 @@ fn do_child_identity_test() {
         Error::IsChildIdentity,
     );
 
+    // Parent can't unlink child without a CDD claim.
+    exec_noop!(
+        Identity::unlink_child_identity(alice.origin(), bob_did, false),
+        Error::ChildIdentityMissingCDDClaim,
+    );
+
+    // Child can't unlink from parent without a CDD claim.
+    exec_noop!(
+        Identity::unlink_child_identity(bob.origin(), bob_did, false),
+        Error::ChildIdentityMissingCDDClaim,
+    );
+
+    // Parent can force unlinking of child identity without CDD claim.
+    exec_ok!(Identity::unlink_child_identity(
+        alice.origin(),
+        bob_did,
+        true
+    ));
+    rejoin_parent(alice, bob);
+
+    // Child can force unlinking from parent identity without CDD claim.
+    exec_ok!(Identity::unlink_child_identity(bob.origin(), bob_did, true));
+    rejoin_parent(alice, bob);
+
     // Child identity can receive a CDD Claim.
     assert_ok!(Identity::add_claim(
         cdd.clone(),
@@ -2286,5 +2314,62 @@ fn do_child_identity_test() {
         Claim::CustomerDueDiligence(bob_cdd_id),
         None
     ));
+
+    // Parent can unlink child identity (has CDD claim).  CDD check passed.
+    exec_ok!(Identity::unlink_child_identity(
+        alice.origin(),
+        bob_did,
+        false
+    ));
+    rejoin_parent(alice, bob);
+
+    // Child can unlink from parent identity.  CDD check passed.
+    exec_ok!(Identity::unlink_child_identity(
+        bob.origin(),
+        bob_did,
+        false
+    ));
+
+    // Bob's identity doesn't have a parent.
+    exec_noop!(
+        Identity::unlink_child_identity(alice.origin(), bob_did, false),
+        Error::NoParentIdentity,
+    );
+
+    // Rejoin parent identity for testing.
+    rejoin_parent(alice, bob);
+
+    // The caller's identity must be the parent or child.
+    exec_noop!(
+        Identity::unlink_child_identity(charlie.origin(), bob_did, false),
+        Error::NotParentOrChildIdentity,
+    );
+
+    // Only the parent's primary key can unlink a child identity.
+    exec_noop!(
+        Identity::unlink_child_identity(dave.origin(), bob_did, true),
+        Error::KeyNotAllowed,
+    );
+
+    // Only the child's primary key can unlink a child identity.
+    exec_noop!(
+        Identity::unlink_child_identity(ferdie.origin(), bob_did, true),
+        Error::KeyNotAllowed,
+    );
+
+    // Unlink child from parent again.
+    exec_ok!(Identity::unlink_child_identity(
+        bob.origin(),
+        bob_did,
+        false
+    ));
+
     assert!(valid_cdd(bob));
+
+    // Bob's identity is no longer a child identity.  It can create child identities.
+    exec_ok!(Identity::create_child_identity(bob.origin(), ferdie.acc()));
+    // Update ferdie's identity.
+    let ferdie_did = did_of(ferdie).expect("Ferdie's new identity");
+    let ferdie = User::new_with(ferdie_did, AccountKeyring::Ferdie);
+    assert!(valid_cdd(ferdie));
 }
