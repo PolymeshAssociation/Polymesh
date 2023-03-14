@@ -594,11 +594,16 @@ decl_module! {
 
         /// Create a child identity and make the `secondary_key` it's primary key.
         ///
-        /// TODO: Improve docs.
+        /// Only the primary key can create child identities.
+        ///
+        /// # Arguments
+        /// - `secondary_key` the secondary key that will become the primary key of the new identity.
         ///
         /// # Errors
-        ///
-        /// The extrinsic can only called by primary key owner.
+        /// - `KeyNotAllowed` only the primary key can create a new identity.
+        /// - `NotASigner` the `secondary_key` is not a secondary key of the caller's identity.
+        /// - `AccountKeyIsBeingUsed` the `secondary_key` can't be unlinked from it's current identity.
+        /// - `IsChildIdentity` the caller's identity is already a child identity and can't create child identities.
         #[weight = <T as Config>::WeightInfo::create_child_identity()]
         pub fn create_child_identity(origin, secondary_key: T::AccountId) {
             Self::base_create_child_identity(origin, secondary_key)?;
@@ -606,8 +611,17 @@ decl_module! {
 
         /// Unlink a child identity from it's parent identity.
         ///
-        /// TODO: Improve docs.
+        /// Only the primary key of the parent or child identities can unlink the identities.
         ///
+        /// # Arguments
+        /// - `child_did` the child identity to unlink from its parent identity.
+        /// - `override_cdd_check` unlink the child identity even if it doesn't have a valid CDD claim.
+        ///
+        /// # Errors
+        /// - `KeyNotAllowed` only the primary key of either the parent or child identity can unlink the identities.
+        /// - `ChildIdentityMissingCDDClaim` the child identity doesn't have a valid CDD claim.
+        /// - `NoParentIdentity` the identity `child_did` doesn't have a parent identity.
+        /// - `NotParentOrChildIdentity` the caller's identity isn't the parent or child identity.
         #[weight = <T as Config>::WeightInfo::unlink_child_identity()]
         pub fn unlink_child_identity(origin, child_did: IdentityId, override_cdd_check: bool) {
             Self::base_unlink_child_identity(origin, child_did, override_cdd_check)?;
