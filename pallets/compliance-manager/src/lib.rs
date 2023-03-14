@@ -67,7 +67,8 @@
 //!
 //! ### Public Functions
 //!
-//! - [verify_restriction](Module::verify_restriction) - Checks if a transfer is a valid transfer and returns the result
+//! - [is_compliant](Module::is_compliant) - Returns `true` if `ticker` is compliant to any of the asset's requirement,
+//! and `false` if there are no compliance requirements for the asset or if the compliance checks fail.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
@@ -91,7 +92,6 @@ use polymesh_common_utilities::{
     asset::AssetFnTrait,
     balances::Config as BalancesConfig,
     compliance_manager::Config as ComplianceManagerConfig,
-    constants::*,
     identity::Config as IdentityConfig,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
 };
@@ -99,8 +99,8 @@ use polymesh_primitives::{
     compliance_manager::{
         AssetCompliance, AssetComplianceResult, ComplianceRequirement, ConditionResult,
     },
-    proposition, storage_migration_ver, Balance, Claim, Condition, ConditionType, Context,
-    IdentityId, Ticker, TrustedFor, TrustedIssuer,
+    proposition, storage_migration_ver, Claim, Condition, ConditionType, Context, IdentityId,
+    Ticker, TrustedFor, TrustedIssuer,
 };
 use sp_std::{convert::From, prelude::*};
 
@@ -641,35 +641,24 @@ impl<T: Config> Module<T> {
 }
 
 impl<T: Config> ComplianceManagerConfig for Module<T> {
-    ///  Sender restriction verification
-    fn verify_restriction(
-        ticker: &Ticker,
-        from_did_opt: Option<IdentityId>,
-        to_did_opt: Option<IdentityId>,
-        _: Balance,
-    ) -> Result<u8, DispatchError> {
-        // Transfer is valid if ALL receiver AND sender conditions of ANY asset conditions are valid.
+    fn is_compliant(ticker: &Ticker, sender_id: IdentityId, receiver_id: IdentityId) -> bool {
         let asset_compliance = Self::asset_compliance(ticker);
+
+        // If compliance is paused, then the rules are not checked
         if asset_compliance.paused {
-            return Ok(ERC1400_TRANSFER_SUCCESS);
+            return true;
         }
 
-        for req in asset_compliance.requirements {
-            if let Some(from_did) = from_did_opt {
-                if !Self::are_all_conditions_satisfied(ticker, from_did, &req.sender_conditions) {
-                    // Skips checking receiver conditions because sender conditions are not satisfied.
-                    continue;
-                }
-            }
-
-            if let Some(to_did) = to_did_opt {
-                if Self::are_all_conditions_satisfied(ticker, to_did, &req.receiver_conditions) {
-                    // All conditions satisfied, return early
-                    return Ok(ERC1400_TRANSFER_SUCCESS);
-                }
-            }
-        }
-        Ok(ERC1400_TRANSFER_FAILURE)
+        // If any requirement is satisfied, then transferring is allowed
+        asset_compliance.requirements.iter().any(|requirement| {
+            // Returns true if all conditions for the sender and receiver are satisfied
+            Self::are_all_conditions_satisfied(ticker, sender_id, &requirement.sender_conditions)
+                && Self::are_all_conditions_satisfied(
+                    ticker,
+                    receiver_id,
+                    &requirement.receiver_conditions,
+                )
+        })
     }
 
     /// verifies all requirements and returns the result in an array of booleans.

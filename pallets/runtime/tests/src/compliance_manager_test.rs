@@ -14,7 +14,7 @@ use pallet_group as group;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
     compliance_manager::Config as _,
-    constants::{ERC1400_TRANSFER_FAILURE, ERC1400_TRANSFER_SUCCESS},
+    constants::ERC1400_TRANSFER_SUCCESS,
 };
 use polymesh_primitives::{
     agent::AgentGroup,
@@ -1321,7 +1321,6 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
         issuer.origin(),
         auth_id
     ));
-    let amount = 1_000;
 
     // Provide scope claim for sender and receiver.
     provide_scope_claim_to_multiple_parties(
@@ -1331,9 +1330,9 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
     );
 
     // No compliance requirement is present, compliance should fail
-    assert_ok!(
-        ComplianceManager::verify_restriction(&ticker, None, Some(issuer.did), amount),
-        ERC1400_TRANSFER_FAILURE
+    assert_eq!(
+        ComplianceManager::is_compliant(&ticker, issuer.did, other.did),
+        false
     );
 
     let conditions = |ident: TargetIdentity| {
@@ -1353,17 +1352,17 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
     ));
 
     let verify = |from: User, to: User| {
-        ComplianceManager::verify_restriction(&ticker, Some(from.did), Some(to.did), amount)
+        ComplianceManager::is_compliant(&ticker, from.did, to.did)
     };
 
     // From primary issuance agent to the random guy should succeed
-    assert_ok!(verify(issuer, other), ERC1400_TRANSFER_SUCCESS);
+    assert_eq!(verify(issuer, other), true);
 
     // From primary issuance agent to owner should fail
-    assert_ok!(verify(issuer, owner), ERC1400_TRANSFER_FAILURE);
+    assert_eq!(verify(issuer, owner), false);
 
     // From random guy to primary issuance agent should fail
-    assert_ok!(verify(other, issuer), ERC1400_TRANSFER_FAILURE);
+    assert_eq!(verify(other, issuer), false);
 }
 
 #[test]

@@ -13,21 +13,17 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use core::result::Result;
-use frame_support::{dispatch::DispatchError, weights::Weight};
+use frame_support::weights::Weight;
 use polymesh_primitives::{
     compliance_manager::{AssetComplianceResult, ComplianceRequirement},
     condition::{conditions_total_counts, Condition},
-    Balance, IdentityId, Ticker,
+    IdentityId, Ticker,
 };
 
 pub trait Config {
-    fn verify_restriction(
-        ticker: &Ticker,
-        from_id: Option<IdentityId>,
-        to_id: Option<IdentityId>,
-        _value: Balance,
-    ) -> Result<u8, DispatchError>;
+    /// Returns `true` if `ticker` is compliant to any of the asset's requirement.
+    /// Returns `false` if there are no compliance requirements for the asset or if the compliance checks fail.
+    fn is_compliant(ticker: &Ticker, sender_id: IdentityId, receiver_id: IdentityId) -> bool;
 
     fn verify_restriction_granular(
         ticker: &Ticker,
