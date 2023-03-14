@@ -17,12 +17,13 @@ pub use node_rpc_runtime_api::compliance_manager::ComplianceManagerApi as Compli
 
 use std::sync::Arc;
 
+use crate::Error;
 use codec::Codec;
 use frame_support::traits::Currency;
 use jsonrpsee::{
     core::RpcResult,
     proc_macros::rpc,
-    types::error::{CallError, ErrorCode, ErrorObject},
+    types::error::{CallError, ErrorObject},
 };
 use polymesh_primitives::{compliance_manager::AssetComplianceResult, IdentityId, Ticker};
 use sp_api::ProvideRuntimeApi;
@@ -87,7 +88,7 @@ where
         api.can_transfer(&at, ticker, from_did, to_did)
             .map_err(|e| {
                 CallError::Custom(ErrorObject::owned(
-                    ErrorCode::ServerError(1).code(),
+                    Error::RuntimeError.into(),
                     "Unable to fetch transfer status from compliance manager.",
                     Some(e.to_string()),
                 ))
