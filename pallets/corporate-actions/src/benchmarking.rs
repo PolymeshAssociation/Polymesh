@@ -14,7 +14,6 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::*;
-use core::convert::TryFrom;
 use core::iter;
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
@@ -139,7 +138,7 @@ fn attach<T: Config>(owner: &User<T>, ca_id: CAId) {
 }
 
 pub(crate) fn currency<T: Config>(owner: &User<T>) -> Ticker {
-    let currency = Ticker::try_from(b"B" as &[_]).unwrap();
+    let currency = Ticker::from_slice_truncated(b"B" as &[_]);
     Asset::<T>::create_asset(
         owner.origin().into(),
         currency.as_slice().into(),

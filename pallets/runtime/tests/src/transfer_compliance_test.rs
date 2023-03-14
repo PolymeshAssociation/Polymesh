@@ -14,7 +14,6 @@ use polymesh_primitives::{
     InvestorUid, PortfolioId, Scope, ScopeId, Ticker,
 };
 use sp_arithmetic::Permill;
-use sp_std::convert::TryFrom;
 use std::collections::{HashMap, HashSet};
 use test_client::AccountKeyring;
 
@@ -156,7 +155,7 @@ impl AssetTracker {
     }
 
     pub fn new_full(owner_id: u64, name: &str) -> Self {
-        let asset = Ticker::try_from(name.as_bytes()).expect("Bad ticker");
+        let asset = Ticker::from_slice_truncated(name.as_bytes());
         let investor_start_id = owner_id + 1000;
         let mut tracker = Self {
             name: name.into(),

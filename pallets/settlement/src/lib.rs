@@ -74,8 +74,8 @@ use polymesh_common_utilities::{
     SystematicIssuers::Settlement as SettlementDID,
 };
 use polymesh_primitives::{
-    impl_checked_inc, storage_migration_ver, Balance, IdentityId, NFTId, NFTs, PortfolioId,
-    SecondaryKey, Ticker,
+    impl_checked_inc, storage_migration_ver, Balance, IdentityId, NFTs, PortfolioId, SecondaryKey,
+    Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
@@ -606,13 +606,11 @@ decl_error! {
         InstructionSettleBlockNotReached,
         /// The caller is not a party of this instruction.
         CallerIsNotAParty,
-        /// There is a duplicated nft in one of the legs.
-        DuplicatedNFTId,
         /// Expected a different type of asset in a leg.
         InvalidLegAsset,
         /// The number of nfts being transferred in the instruction was exceeded.
         MaxNumberOfNFTsExceeded,
-        /// The number of nfts being transferred in one leg was exceeded.
+        /// The maximum number of nfts being transferred in one leg was exceeded.
         MaxNumberOfNFTsPerLegExceeded,
         /// The given number of nfts being transferred was underestimated.
         NumberOfTransferredNFTsUnderestimated,
@@ -1423,14 +1421,9 @@ impl<T: Config> Module<T> {
                     fungible_transfers += 1;
                 }
                 LegAsset::NonFungible(nfts) => {
-                    ensure!(nfts.len() > 0, Error::<T>::ZeroAmount);
-                    ensure!(
-                        nfts.len() <= (T::MaxNumberOfNFTsPerLeg::get() as usize),
-                        Error::<T>::MaxNumberOfNFTsPerLegExceeded
-                    );
+                    <Nft<T>>::ensure_within_nfts_transfer_limits(&nfts)?;
                     Self::ensure_venue_filtering(&mut tickers, nfts.ticker().clone(), &venue_id)?;
-                    let unique_nfts: BTreeSet<&NFTId> = nfts.ids().iter().collect();
-                    ensure!(unique_nfts.len() == nfts.len(), Error::<T>::DuplicatedNFTId);
+                    <Nft<T>>::ensure_no_duplicate_nfts(&nfts)?;
                     nfts_transfers += nfts.len();
                 }
             }

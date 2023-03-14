@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-//! Runtime API definition for Identity module.
+//! Runtime API definition for Asset module.
 
 use codec::Codec;
 use polymesh_primitives::{Balance, IdentityId, PortfolioId, Ticker};
