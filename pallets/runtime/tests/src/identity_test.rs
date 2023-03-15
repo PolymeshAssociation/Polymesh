@@ -2283,28 +2283,12 @@ fn do_child_identity_test() {
         Error::IsChildIdentity,
     );
 
-    // Parent can't unlink child without a CDD claim.
-    exec_noop!(
-        Identity::unlink_child_identity(alice.origin(), bob_did, false),
-        Error::ChildIdentityMissingCDDClaim,
-    );
-
-    // Child can't unlink from parent without a CDD claim.
-    exec_noop!(
-        Identity::unlink_child_identity(bob.origin(), bob_did, false),
-        Error::ChildIdentityMissingCDDClaim,
-    );
-
     // Parent can force unlinking of child identity without CDD claim.
-    exec_ok!(Identity::unlink_child_identity(
-        alice.origin(),
-        bob_did,
-        true
-    ));
+    exec_ok!(Identity::unlink_child_identity(alice.origin(), bob_did));
     rejoin_parent(alice, bob);
 
     // Child can force unlinking from parent identity without CDD claim.
-    exec_ok!(Identity::unlink_child_identity(bob.origin(), bob_did, true));
+    exec_ok!(Identity::unlink_child_identity(bob.origin(), bob_did));
     rejoin_parent(alice, bob);
 
     // Child identity can receive a CDD Claim.
@@ -2315,24 +2299,16 @@ fn do_child_identity_test() {
         None
     ));
 
-    // Parent can unlink child identity (has CDD claim).  CDD check passed.
-    exec_ok!(Identity::unlink_child_identity(
-        alice.origin(),
-        bob_did,
-        false
-    ));
+    // Parent can unlink child identity (has CDD claim).
+    exec_ok!(Identity::unlink_child_identity(alice.origin(), bob_did));
     rejoin_parent(alice, bob);
 
-    // Child can unlink from parent identity.  CDD check passed.
-    exec_ok!(Identity::unlink_child_identity(
-        bob.origin(),
-        bob_did,
-        false
-    ));
+    // Child can unlink from parent identity.
+    exec_ok!(Identity::unlink_child_identity(bob.origin(), bob_did));
 
     // Bob's identity doesn't have a parent.
     exec_noop!(
-        Identity::unlink_child_identity(alice.origin(), bob_did, false),
+        Identity::unlink_child_identity(alice.origin(), bob_did),
         Error::NoParentIdentity,
     );
 
@@ -2341,28 +2317,24 @@ fn do_child_identity_test() {
 
     // The caller's identity must be the parent or child.
     exec_noop!(
-        Identity::unlink_child_identity(charlie.origin(), bob_did, false),
+        Identity::unlink_child_identity(charlie.origin(), bob_did),
         Error::NotParentOrChildIdentity,
     );
 
     // Only the parent's primary key can unlink a child identity.
     exec_noop!(
-        Identity::unlink_child_identity(dave.origin(), bob_did, true),
+        Identity::unlink_child_identity(dave.origin(), bob_did),
         Error::KeyNotAllowed,
     );
 
     // Only the child's primary key can unlink a child identity.
     exec_noop!(
-        Identity::unlink_child_identity(ferdie.origin(), bob_did, true),
+        Identity::unlink_child_identity(ferdie.origin(), bob_did),
         Error::KeyNotAllowed,
     );
 
     // Unlink child from parent again.
-    exec_ok!(Identity::unlink_child_identity(
-        bob.origin(),
-        bob_did,
-        false
-    ));
+    exec_ok!(Identity::unlink_child_identity(bob.origin(), bob_did));
 
     assert!(valid_cdd(bob));
 

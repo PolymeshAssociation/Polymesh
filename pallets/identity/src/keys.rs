@@ -483,7 +483,6 @@ impl<T: Config> Module<T> {
     pub(crate) fn base_unlink_child_identity(
         origin: T::Origin,
         child_did: IdentityId,
-        override_cdd_check: bool,
     ) -> DispatchResult {
         let (_, caller_did) = Self::ensure_primary_key(origin)?;
 
@@ -493,14 +492,6 @@ impl<T: Config> Module<T> {
         // Only the parent or child can unlink `child_did` from their parent.
         if caller_did != parent_did && caller_did != child_did {
             return Err(Error::<T>::NotParentOrChildIdentity.into());
-        }
-
-        // Check if child identity has a valid CDD claim.
-        if !override_cdd_check {
-            ensure!(
-                Self::child_has_valid_cdd(child_did),
-                Error::<T>::ChildIdentityMissingCDDClaim
-            );
         }
 
         // Unlink child identity from parent identity.

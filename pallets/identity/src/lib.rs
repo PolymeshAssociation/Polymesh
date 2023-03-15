@@ -615,16 +615,14 @@ decl_module! {
         ///
         /// # Arguments
         /// - `child_did` the child identity to unlink from its parent identity.
-        /// - `override_cdd_check` unlink the child identity even if it doesn't have a valid CDD claim.
         ///
         /// # Errors
         /// - `KeyNotAllowed` only the primary key of either the parent or child identity can unlink the identities.
-        /// - `ChildIdentityMissingCDDClaim` the child identity doesn't have a valid CDD claim.
         /// - `NoParentIdentity` the identity `child_did` doesn't have a parent identity.
         /// - `NotParentOrChildIdentity` the caller's identity isn't the parent or child identity.
         #[weight = <T as Config>::WeightInfo::unlink_child_identity()]
-        pub fn unlink_child_identity(origin, child_did: IdentityId, override_cdd_check: bool) {
-            Self::base_unlink_child_identity(origin, child_did, override_cdd_check)?;
+        pub fn unlink_child_identity(origin, child_did: IdentityId) {
+            Self::base_unlink_child_identity(origin, child_did)?;
         }
     }
 }
@@ -710,8 +708,6 @@ decl_error! {
         NoParentIdentity,
         /// The caller is not the parent or child identity.
         NotParentOrChildIdentity,
-        /// Child identity doesn't have its own CDD claim.
-        ChildIdentityMissingCDDClaim,
     }
 }
 

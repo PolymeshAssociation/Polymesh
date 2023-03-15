@@ -194,7 +194,7 @@ benchmarks! {
         let cdd = cdd_provider::<T>("cdd", 0).did.unwrap();
         Module::<T>::unverified_add_claim_with_scope(child_did, cdd_claim, None, cdd, None);
 
-    }: _(parent.origin, child_did, false)
+    }: _(parent.origin, child_did)
     verify {
         assert!(Module::<T>::has_valid_cdd(child_did));
     }
