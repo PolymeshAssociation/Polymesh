@@ -504,9 +504,8 @@ impl<T: Config> Module<T> {
         let auth_encoded = authorization.encode();
 
         // Verify signatures.
-        let mut children = Vec::with_capacity(child_keys.len());
         let mut keys = BTreeSet::new();
-        for auth in child_keys {
+        for auth in &child_keys {
             // Ensure the key isn't linked to an identity.
             Self::ensure_key_did_unlinked(&auth.key)?;
 
@@ -523,11 +522,19 @@ impl<T: Config> Module<T> {
                 signature.verify(auth_encoded.as_slice(), &signer),
                 Error::<T>::InvalidAuthorizationSignature
             );
+        }
 
+        // Generate a new identity for each child.
+        let mut children = Vec::with_capacity(child_keys.len());
+        for auth in child_keys {
             // Generate a new DID for the child.
+            // NOTE: `make_did` increases a nonce value (storage modification)
+            // and also checks that the new identity is unique.  It is unlikely
+            // to fail, but we check anyways.
             let child_did = Self::make_did()?;
             children.push((auth.key, child_did));
         }
+
         // Update that identity's offchain authorization nonce.
         OffChainAuthorizationNonce::mutate(parent_did, |nonce| *nonce = authorization.nonce + 1);
 
