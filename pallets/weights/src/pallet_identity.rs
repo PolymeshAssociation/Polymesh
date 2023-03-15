@@ -68,12 +68,9 @@ impl pallet_identity::WeightInfo for WeightInfo {
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity ParentDid (r:1 w:1)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Storage: Instance2Group ActiveMembers (r:1 w:0)
-    // Storage: Identity Claims (r:2 w:0)
     fn unlink_child_identity() -> Weight {
-        (87_631_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
+        (72_309_000 as Weight)
+            .saturating_add(DbWeight::get().reads(2 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
     // Storage: Identity KeyRecords (r:2 w:1)
