@@ -171,11 +171,6 @@ impl<T: Config> Module<T> {
         Self::base_fetch_cdd(claim_for, T::Moment::zero(), None, true).is_some()
     }
 
-    /// Don't include parent's CDD claims.
-    pub(crate) fn child_has_valid_cdd(claim_for: IdentityId) -> bool {
-        Self::base_fetch_cdd(claim_for, T::Moment::zero(), None, false).is_some()
-    }
-
     /// It returns the CDD identity which issued the current valid CDD claim for `claim_for`
     /// identity.
     /// # Parameters
