@@ -52,7 +52,7 @@ pallet-staking-rpc-runtime-api = { package = "pallet-staking-rpc-runtime-api", p
 pallet-protocol-fee-rpc-runtime-api = { package = "pallet-protocol-fee-rpc-runtime-api", path = "../../protocol-fee/rpc/runtime-api", default-features = false }
 
 # Crypto
-confidential_identity_core = { version = "1.0.1", default-features = false }
+confidential_identity_core = { version = "1.1.0", default-features = false }
 
 # Others
 lazy_static = { version = "1.4.0", default-features = false }
