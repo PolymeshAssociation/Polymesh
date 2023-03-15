@@ -27,7 +27,8 @@ use polymesh_common_utilities::{
     traits::{
         group::GroupTrait,
         identity::{
-            Config as IdentityConfig, RawEvent, SecondaryKeyWithAuth, TargetIdAuthorization,
+            Config as IdentityConfig, CreateChildIdentityWithAuth, RawEvent, SecondaryKeyWithAuth,
+            TargetIdAuthorization,
         },
         transaction_payment::CddAndFeeDetails,
     },
@@ -2344,4 +2345,69 @@ fn do_child_identity_test() {
     let ferdie_did = did_of(ferdie).expect("Ferdie's new identity");
     let ferdie = User::new_with(ferdie_did, AccountKeyring::Ferdie);
     assert!(valid_cdd(ferdie));
+}
+
+#[test]
+fn create_child_identities_with_auth_test() {
+    ExtBuilder::default()
+        .balance_factor(1_000)
+        .monied(true)
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
+        .build()
+        .execute_with(&do_create_child_identities_with_auth_test);
+}
+
+fn do_create_child_identities_with_auth_test() {
+    let alice = User::new(AccountKeyring::Alice);
+    let charlie = User::new_with(alice.did, AccountKeyring::Charlie);
+    // Create some secondary keys.
+    add_secondary_key(alice.did, charlie.acc());
+
+    let expires_at = 100;
+    let auth = || {
+        let auth = TargetIdAuthorization {
+            target_id: alice.did,
+            nonce: Identity::offchain_authorization_nonce(alice.did),
+            expires_at,
+        };
+        auth.encode()
+    };
+    let create_with_auth = |child: AccountKeyring| {
+        let auth_encoded = auth();
+        CreateChildIdentityWithAuth {
+            key: child.to_account_id(),
+            auth_signature: H512::from(child.sign(&auth_encoded)),
+        }
+    };
+
+    // Try creating a child identity with a key already linked to another identity.
+    let child_keys = vec![create_with_auth(charlie.ring)];
+    assert_noop!(
+        Identity::create_child_identities(alice.origin(), child_keys, expires_at),
+        Error::AlreadyLinked
+    );
+
+    // Repeat a key.
+    let child_keys = vec![
+        create_with_auth(AccountKeyring::Bob),
+        create_with_auth(AccountKeyring::Dave),
+        create_with_auth(AccountKeyring::Ferdie),
+        create_with_auth(AccountKeyring::Bob), // Duplicate key.
+    ];
+    assert_noop!(
+        Identity::create_child_identities(alice.origin(), child_keys, expires_at),
+        Error::DuplicateKey
+    );
+
+    // Create multiple child identities from unlinked keys.
+    let child_keys = vec![
+        create_with_auth(AccountKeyring::Bob),
+        create_with_auth(AccountKeyring::Dave),
+        create_with_auth(AccountKeyring::Ferdie),
+    ];
+    assert_ok!(Identity::create_child_identities(
+        alice.origin(),
+        child_keys,
+        expires_at
+    ));
 }

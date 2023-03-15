@@ -29,7 +29,9 @@ use frame_system::ensure_signed;
 use pallet_base::{ensure_custom_length_ok, ensure_custom_string_limited};
 use polymesh_common_utilities::constants::did::USER;
 use polymesh_common_utilities::group::GroupTrait;
-use polymesh_common_utilities::identity::{SecondaryKeyWithAuth, TargetIdAuthorization};
+use polymesh_common_utilities::identity::{
+    CreateChildIdentityWithAuth, SecondaryKeyWithAuth, TargetIdAuthorization,
+};
 use polymesh_common_utilities::multisig::MultiSigSubTrait as _;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee as _, ProtocolOp};
 use polymesh_common_utilities::traits::{
@@ -44,6 +46,7 @@ use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{AccountIdConversion as _, IdentifyAccount, Verify};
 use sp_runtime::{AnySignature, DispatchError};
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{vec, vec::Vec};
 
 // Maximum secondary keys to return from RPC `identity_getDidRecords`.
@@ -475,6 +478,69 @@ impl<T: Config> Module<T> {
             child_did,
             primary_key,
         ));
+
+        Ok(())
+    }
+
+    /// Create a child identities.
+    pub(crate) fn base_create_child_identities(
+        origin: T::Origin,
+        child_keys: Vec<CreateChildIdentityWithAuth<T::AccountId>>,
+        expires_at: T::Moment,
+    ) -> DispatchResult {
+        let (_, parent_did) = Self::ensure_primary_key(origin)?;
+
+        // Make sure `parent_did` has no parent.
+        Self::ensure_no_parent(parent_did)?;
+
+        // Create authorization data that the child keys need to sign.
+        let now = <pallet_timestamp::Pallet<T>>::get();
+        ensure!(now < expires_at, Error::<T>::AuthorizationExpired);
+        let authorization = TargetIdAuthorization {
+            target_id: parent_did,
+            nonce: Self::offchain_authorization_nonce(parent_did),
+            expires_at,
+        };
+        let auth_encoded = authorization.encode();
+
+        // Verify signatures.
+        let mut children = Vec::with_capacity(child_keys.len());
+        let mut keys = BTreeSet::new();
+        for auth in child_keys {
+            // Ensure the key isn't linked to an identity.
+            Self::ensure_key_did_unlinked(&auth.key)?;
+
+            // Check for duplicate keys.
+            ensure!(!keys.contains(&auth.key), Error::<T>::DuplicateKey);
+            keys.insert(auth.key.clone());
+
+            // Verify the signature.
+            let signature = AnySignature::from(Signature::from_h512(auth.auth_signature));
+            let signer: <<AnySignature as Verify>::Signer as IdentifyAccount>::AccountId =
+                Decode::decode(&mut &auth.key.encode()[..])
+                    .map_err(|_| Error::<T>::CannotDecodeSignerAccountId)?;
+            ensure!(
+                signature.verify(auth_encoded.as_slice(), &signer),
+                Error::<T>::InvalidAuthorizationSignature
+            );
+
+            // Generate a new DID for the child.
+            let child_did = Self::make_did()?;
+            children.push((auth.key, child_did));
+        }
+        // Update that identity's offchain authorization nonce.
+        OffChainAuthorizationNonce::mutate(parent_did, |nonce| *nonce = authorization.nonce + 1);
+
+        for (key, child_did) in children {
+            // Create a new identity record and link the primary key.
+            Self::add_key_record(&key, KeyRecord::PrimaryKey(child_did));
+            Self::deposit_event(RawEvent::DidCreated(child_did, key.clone(), vec![]));
+
+            // Link new identity to parent identity.
+            ParentDid::insert(child_did, parent_did);
+
+            Self::deposit_event(RawEvent::ChildDidCreated(parent_did, child_did, key));
+        }
 
         Ok(())
     }

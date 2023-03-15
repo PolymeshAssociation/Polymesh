@@ -108,8 +108,8 @@ use polymesh_common_utilities::{
     constants::did::SECURITY_TOKEN,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::identity::{
-        AuthorizationNonce, Config, IdentityFnTrait, RawEvent, SecondaryKeyWithAuth,
-        SecondaryKeyWithAuthV1,
+        AuthorizationNonce, Config, CreateChildIdentityWithAuth, IdentityFnTrait, RawEvent,
+        SecondaryKeyWithAuth, SecondaryKeyWithAuthV1,
     },
     SystematicIssuers, GC_DID,
 };
@@ -609,6 +609,30 @@ decl_module! {
             Self::base_create_child_identity(origin, secondary_key)?;
         }
 
+        /// Create a child identities.
+        ///
+        /// The new primary key for each child identity will need to sign (off-chain)
+        /// an authorization.
+        ///
+        /// Only the primary key can create child identities.
+        ///
+        /// # Arguments
+        /// - `child_keys` the keys that will become primary keys of their own child identity.
+        ///
+        /// # Errors
+        /// - `KeyNotAllowed` only the primary key can create a new identity.
+        /// - `AlreadyLinked` one of the keys is already linked to an identity.
+        /// - `DuplicateKey` one of the keys is included multiple times.
+        /// - `IsChildIdentity` the caller's identity is already a child identity and can't create child identities.
+        #[weight = <T as Config>::WeightInfo::create_child_identities(child_keys.len() as u32)]
+        pub fn create_child_identities(
+            origin,
+            child_keys: Vec<CreateChildIdentityWithAuth<T::AccountId>>,
+            expires_at: T::Moment
+        ) {
+            Self::base_create_child_identities(origin, child_keys, expires_at)?;
+        }
+
         /// Unlink a child identity from it's parent identity.
         ///
         /// Only the primary key of the parent or child identities can unlink the identities.
@@ -708,6 +732,8 @@ decl_error! {
         NoParentIdentity,
         /// The caller is not the parent or child identity.
         NotParentOrChildIdentity,
+        /// The same key was included multiple times.
+        DuplicateKey,
     }
 }
 

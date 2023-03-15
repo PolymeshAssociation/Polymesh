@@ -169,6 +169,37 @@ benchmarks! {
         assert_ne!(child_did, parent_did);
     }
 
+    create_child_identities {
+        // Number of keys.
+        let i in 0 .. 100;
+
+        // Create parent identity.
+        let parent = user::<T>("parent", 0);
+        let parent_did = parent.did.unwrap();
+
+        let expires_at: T::Moment = 600u32.into();
+        let authorization = TargetIdAuthorization::<T::Moment> {
+            target_id: parent_did,
+            nonce: Module::<T>::offchain_authorization_nonce(parent_did),
+            expires_at,
+        };
+        let auth_encoded = authorization.encode();
+
+        let child_keys_with_auth = (0..i).map(|x| {
+            let user = user_without_did::<T>("key", x);
+            CreateChildIdentityWithAuth {
+                key: user.account(),
+                auth_signature: H512::from(user.sign(&auth_encoded).unwrap()),
+            }
+        }).collect::<Vec<_>>();
+    }: _(parent.origin, child_keys_with_auth.clone(), expires_at)
+    verify {
+        for auth in child_keys_with_auth {
+            let child_did = Module::<T>::get_identity(&auth.key).unwrap();
+            assert_ne!(child_did, parent_did);
+        }
+    }
+
     unlink_child_identity {
         // Create parent identity.
         let parent = user::<T>("parent", 0);
