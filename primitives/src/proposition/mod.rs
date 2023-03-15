@@ -18,30 +18,35 @@ use codec::{Decode, Encode};
 
 use sp_std::prelude::*;
 
-/// Context using during an `Proposition` evaluation.
+/// Claims of a given identity that will be assessed.
 #[derive(Encode, Decode, Clone, Default)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Context<C> {
-    /// Proposition evaluation will use those claims.
-    pub claims: C,
-    /// Identity of this context.
-    /// It could be the sender DID during the evaluation of sender's conditions or
-    /// the receiver DID on a receiver's condition evaluation.
+pub struct IdentityClaims {
+    /// Identity id.
     pub id: IdentityId,
+    /// Identity claims.
+    pub claims: Vec<Claim>,
+}
+
+impl IdentityClaims {
+    /// Creates a new `IdentityClaims` instance.
+    pub fn new(id: IdentityId, claims: Vec<Claim>) -> Self {
+        IdentityClaims { id, claims }
+    }
 }
 
 // Proposition Trait
 // ==================================
 
 /// It allows composition and evaluation of claims based on a context.
-pub trait Proposition<C> {
+pub trait Proposition {
     /// Evaluates this proposition based on `context`.
-    fn evaluate(&self, context: Context<C>) -> bool;
+    fn evaluate(&self, identity_claims: &IdentityClaims) -> bool;
 
     /// It generates a new proposition that represents the logical AND
     /// of two propositions: `Self` and `other`.
     #[inline]
-    fn and<B: Proposition<C>>(self, other: B) -> AndProposition<Self, B>
+    fn and<B: Proposition>(self, other: B) -> AndProposition<Self, B>
     where
         Self: Sized,
     {
@@ -51,7 +56,7 @@ pub trait Proposition<C> {
     /// It generates a new proposition that represents the logical OR
     /// of two propositions: `Self` and `other`.
     #[inline]
-    fn or<B: Proposition<C>>(self, other: B) -> OrProposition<Self, B>
+    fn or<B: Proposition>(self, other: B) -> OrProposition<Self, B>
     where
         Self: Sized,
     {
@@ -69,9 +74,9 @@ pub trait Proposition<C> {
     }
 }
 
-impl<C, F: Fn(Context<C>) -> bool> Proposition<C> for F {
-    fn evaluate(&self, context: Context<C>) -> bool {
-        self(context)
+impl<F: Fn(&IdentityClaims) -> bool> Proposition for F {
+    fn evaluate(&self, identity_claims: &IdentityClaims) -> bool {
+        self(identity_claims)
     }
 }
 
@@ -99,24 +104,26 @@ pub fn any(claims: &[Claim]) -> AnyProposition<'_> {
 
 /// It create a negate proposition of `proposition`.
 #[inline]
-pub fn not<P: Proposition<C>, C>(proposition: P) -> NotProposition<P> {
+pub fn not<P: Proposition>(proposition: P) -> NotProposition<P> {
     NotProposition::new(proposition)
 }
 
-/// Helper function to run propositions from a context.
-pub fn run<C: Iterator<Item = Claim>, E: Proposition<C>>(
+/// Returns `true` if the condition is satisfied.
+pub fn run<P: Proposition>(
     condition: &Condition,
-    context: Context<C>,
-    ea_prop: E,
+    identity_claims: &IdentityClaims,
+    external_agent_proposition: P,
 ) -> bool {
     match &condition.condition_type {
-        ConditionType::IsPresent(claim) => exists(claim).evaluate(context),
-        ConditionType::IsAbsent(claim) => not::<_, C>(exists(claim)).evaluate(context),
-        ConditionType::IsAnyOf(claims) => any(claims).evaluate(context),
-        ConditionType::IsNoneOf(claims) => not::<_, C>(any(claims)).evaluate(context),
+        ConditionType::IsPresent(claim) => exists(claim).evaluate(identity_claims),
+        ConditionType::IsAbsent(claim) => not::<_>(exists(claim)).evaluate(identity_claims),
+        ConditionType::IsAnyOf(claims) => any(claims).evaluate(identity_claims),
+        ConditionType::IsNoneOf(claims) => not::<_>(any(claims)).evaluate(identity_claims),
         ConditionType::IsIdentity(TargetIdentity::Specific(id)) => {
-            IsIdentityProposition { identity: *id }.evaluate(context)
+            IsIdentityProposition { identity: *id }.evaluate(identity_claims)
         }
-        ConditionType::IsIdentity(TargetIdentity::ExternalAgent) => ea_prop.evaluate(context),
+        ConditionType::IsIdentity(TargetIdentity::ExternalAgent) => {
+            external_agent_proposition.evaluate(identity_claims)
+        }
     }
 }

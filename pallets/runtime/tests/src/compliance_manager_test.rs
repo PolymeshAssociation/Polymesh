@@ -13,8 +13,7 @@ use pallet_compliance_manager::{self as compliance_manager, Error as CMError};
 use pallet_group as group;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    compliance_manager::Config as _,
-    constants::ERC1400_TRANSFER_SUCCESS,
+    compliance_manager::Config as _, constants::ERC1400_TRANSFER_SUCCESS,
 };
 use polymesh_primitives::{
     agent::AgentGroup,
@@ -1351,9 +1350,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
         conditions(TargetIdentity::Specific(other.did)),
     ));
 
-    let verify = |from: User, to: User| {
-        ComplianceManager::is_compliant(&ticker, from.did, to.did)
-    };
+    let verify = |from: User, to: User| ComplianceManager::is_compliant(&ticker, from.did, to.did);
 
     // From primary issuance agent to the random guy should succeed
     assert_eq!(verify(issuer, other), true);

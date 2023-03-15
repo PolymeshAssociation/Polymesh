@@ -1,5 +1,5 @@
 use crate::{
-    proposition::{Context, Proposition},
+    proposition::{IdentityClaims, Proposition},
     Claim, IdentityId,
 };
 use codec::{Decode, Encode};
@@ -14,10 +14,10 @@ pub struct IsIdentityProposition {
     pub identity: IdentityId,
 }
 
-impl<C> Proposition<C> for IsIdentityProposition {
+impl Proposition for IsIdentityProposition {
     #[inline]
-    fn evaluate(&self, context: Context<C>) -> bool {
-        context.id == self.identity
+    fn evaluate(&self, identity_claims: &IdentityClaims) -> bool {
+        identity_claims.id == self.identity
     }
 }
 
@@ -36,19 +36,23 @@ impl<C> Proposition<C> for IsIdentityProposition {
 #[derive(Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct ExistentialProposition<'a> {
-    /// Claims we want to check if it exists in context.
+    /// Claims that must exist.
     pub claim: &'a Claim,
 }
 
-impl<C: Iterator<Item = Claim>> Proposition<C> for ExistentialProposition<'_> {
-    fn evaluate(&self, mut context: Context<C>) -> bool {
+impl Proposition for ExistentialProposition<'_> {
+    fn evaluate(&self, identity_claims: &IdentityClaims) -> bool {
         match &self.claim {
             // The default search only double-checks if any CDD claim is in the context.
-            Claim::CustomerDueDiligence(cdd_id) if cdd_id.is_default_cdd() => context
+            Claim::CustomerDueDiligence(cdd_id) if cdd_id.is_default_cdd() => identity_claims
                 .claims
-                .any(|ctx_claim| matches!(ctx_claim, Claim::CustomerDueDiligence(..))),
+                .iter()
+                .any(|id_claim| matches!(id_claim, Claim::CustomerDueDiligence(..))),
             // In regular claim evaluation, the data of the claim has to match too.
-            _ => context.claims.any(|ctx_claim| &ctx_claim == self.claim),
+            _ => identity_claims
+                .claims
+                .iter()
+                .any(|id_claim| id_claim == self.claim),
         }
     }
 }
@@ -72,15 +76,15 @@ impl<P1, P2> AndProposition<P1, P2> {
     }
 }
 
-impl<P1, P2, C: Clone> Proposition<C> for AndProposition<P1, P2>
+impl<P1, P2> Proposition for AndProposition<P1, P2>
 where
-    P1: Proposition<C>,
-    P2: Proposition<C>,
+    P1: Proposition,
+    P2: Proposition,
 {
     /// Evaluate proposition against `context`.
     #[inline]
-    fn evaluate(&self, context: Context<C>) -> bool {
-        self.lhs.evaluate(context.clone()) && self.rhs.evaluate(context)
+    fn evaluate(&self, identity_claims: &IdentityClaims) -> bool {
+        self.lhs.evaluate(identity_claims) && self.rhs.evaluate(identity_claims)
     }
 }
 
@@ -103,15 +107,15 @@ impl<P1, P2> OrProposition<P1, P2> {
     }
 }
 
-impl<P1, P2, C: Clone> Proposition<C> for OrProposition<P1, P2>
+impl<P1, P2> Proposition for OrProposition<P1, P2>
 where
-    P1: Proposition<C>,
-    P2: Proposition<C>,
+    P1: Proposition,
+    P2: Proposition,
 {
     /// Evaluate proposition against `context`.
     #[inline]
-    fn evaluate(&self, context: Context<C>) -> bool {
-        self.lhs.evaluate(context.clone()) || self.rhs.evaluate(context)
+    fn evaluate(&self, identity_claims: &IdentityClaims) -> bool {
+        self.lhs.evaluate(identity_claims) || self.rhs.evaluate(identity_claims)
     }
 }
 
@@ -133,11 +137,11 @@ impl<P> NotProposition<P> {
     }
 }
 
-impl<P: Proposition<C>, C> Proposition<C> for NotProposition<P> {
+impl<P: Proposition> Proposition for NotProposition<P> {
     /// Evaluate proposition against `context`.
     #[inline]
-    fn evaluate(&self, context: Context<C>) -> bool {
-        !self.proposition.evaluate(context)
+    fn evaluate(&self, identity_claims: &IdentityClaims) -> bool {
+        !self.proposition.evaluate(identity_claims)
     }
 }
 
@@ -152,13 +156,13 @@ pub struct AnyProposition<'a> {
     pub claims: &'a [Claim],
 }
 
-impl<C: Iterator<Item = Claim>> Proposition<C> for AnyProposition<'_> {
+impl Proposition for AnyProposition<'_> {
     /// Evaluate proposition against `context`.
-    fn evaluate(&self, mut context: Context<C>) -> bool {
-        context.claims.any(|ctx_claim| {
+    fn evaluate(&self, identity_claims: &IdentityClaims) -> bool {
+        identity_claims.claims.iter().any(|id_claim| {
             self.claims
                 .iter()
-                .any(|valid_claim| &ctx_claim == valid_claim)
+                .any(|valid_claim| id_claim == valid_claim)
         })
     }
 }
@@ -166,26 +170,17 @@ impl<C: Iterator<Item = Claim>> Proposition<C> for AnyProposition<'_> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        proposition::{self, Context, Proposition},
+        proposition::{self, IdentityClaims, Proposition},
         CddId, Claim, Condition, ConditionType, CountryCode, IdentityId, InvestorUid, Scope,
         TargetIdentity,
     };
     use std::convert::From;
     use std::vec::IntoIter;
 
-    type Iter = IntoIter<Claim>;
-
     struct Dummy;
-    impl<C> Proposition<C> for Dummy {
-        fn evaluate(&self, _: Context<C>) -> bool {
+    impl Proposition for Dummy {
+        fn evaluate(&self, _: &IdentityClaims) -> bool {
             false
-        }
-    }
-
-    fn mk_ctx(claims: Vec<Claim>) -> Context<Iter> {
-        Context {
-            claims: claims.into_iter(),
-            id: <_>::default(),
         }
     }
 
@@ -195,17 +190,19 @@ mod tests {
         let did = IdentityId::from(1);
         let cdd_claim =
             Claim::CustomerDueDiligence(CddId::new_v1(did, InvestorUid::from(b"UID1".as_ref())));
-        let mut context = mk_ctx(vec![cdd_claim.clone(), Claim::Affiliate(scope.clone())]);
-        context.id = did;
+        let id_claims = IdentityClaims::new(
+            did,
+            vec![cdd_claim.clone(), Claim::Affiliate(scope.clone())],
+        );
 
         // Affiliate && CustommerDueDiligenge
         let affiliate_claim = Claim::Affiliate(scope);
-        let affiliate_and_cdd_pred = Proposition::<Iter>::and(
+        let affiliate_and_cdd_pred = Proposition::and(
             proposition::exists(&affiliate_claim),
             proposition::exists(&cdd_claim),
         );
 
-        assert_eq!(affiliate_and_cdd_pred.evaluate(context), true);
+        assert_eq!(affiliate_and_cdd_pred.evaluate(&id_claims), true);
     }
 
     #[test]
@@ -219,22 +216,29 @@ mod tests {
             Claim::Jurisdiction(CountryCode::IN, scope.clone()),
         ];
 
-        let context = mk_ctx(vec![Claim::Jurisdiction(CountryCode::CA, scope.clone())]);
+        let id_claims = IdentityClaims::new(
+            IdentityId::default(),
+            vec![Claim::Jurisdiction(CountryCode::CA, scope.clone())],
+        );
         let in_juridisction_pre = proposition::any(&valid_jurisdictions);
-        assert_eq!(in_juridisction_pre.evaluate(context), true);
+        assert_eq!(in_juridisction_pre.evaluate(&id_claims), true);
 
         // 2. Check USA does not belong to {ESP, CAN, IND}.
-        let context = mk_ctx(vec![Claim::Jurisdiction(CountryCode::US, scope)]);
-        assert_eq!(in_juridisction_pre.evaluate(context.clone()), false);
+        let id_claims = IdentityClaims::new(
+            IdentityId::default(),
+            vec![Claim::Jurisdiction(CountryCode::US, scope)],
+        );
+        assert_eq!(in_juridisction_pre.evaluate(&id_claims), false);
 
         // 3. Check NOT in jurisdiction.
-        let not_in_jurisdiction_pre = proposition::not::<_, Iter>(in_juridisction_pre.clone());
-        assert_eq!(not_in_jurisdiction_pre.evaluate(context), true);
+        let not_in_jurisdiction_pre = proposition::not::<_>(in_juridisction_pre.clone());
+        assert_eq!(not_in_jurisdiction_pre.evaluate(&id_claims), true);
     }
 
     #[test]
     fn run_proposition() {
         let scope = Scope::Identity(IdentityId::from(0));
+        let external_agent_proposition = |_: &IdentityClaims| false;
 
         let conditions: Vec<Condition> = vec![
             ConditionType::IsPresent(Claim::Accredited(scope.clone())).into(),
@@ -248,66 +252,76 @@ mod tests {
                 .into(),
         ];
 
-        let check = |expected, context: &Context<Iter>| {
-            let out = !conditions
-                .iter()
-                .any(|condition| !proposition::run(&condition, context.clone(), |_| false));
+        let check = |expected, id_claims: &IdentityClaims| {
+            let out = !conditions.iter().any(|condition| {
+                !proposition::run(&condition, id_claims, external_agent_proposition)
+            });
             assert_eq!(out, expected);
         };
 
         // Valid case
-        let context = mk_ctx(vec![
-            Claim::Accredited(scope.clone()),
-            Claim::Jurisdiction(CountryCode::CA, scope.clone()),
-        ]);
+        let id_claims = IdentityClaims::new(
+            IdentityId::default(),
+            vec![
+                Claim::Accredited(scope.clone()),
+                Claim::Jurisdiction(CountryCode::CA, scope.clone()),
+            ],
+        );
 
-        check(true, &context);
+        check(true, &&id_claims);
 
         // Invalid case: `BuyLockup` is present.
-        let context = mk_ctx(vec![
-            Claim::Accredited(scope.clone()),
-            Claim::BuyLockup(scope.clone()),
-            Claim::Jurisdiction(CountryCode::CA, scope.clone()),
-        ]);
-        check(false, &context);
+        let id_claims = IdentityClaims::new(
+            IdentityId::default(),
+            vec![
+                Claim::Accredited(scope.clone()),
+                Claim::BuyLockup(scope.clone()),
+                Claim::Jurisdiction(CountryCode::CA, scope.clone()),
+            ],
+        );
+        check(false, &id_claims);
 
         // Invalid case: Missing `Accredited`
-        let context = mk_ctx(vec![
-            Claim::BuyLockup(scope.clone()),
-            Claim::Jurisdiction(CountryCode::CA, scope.clone()),
-        ]);
-        check(false, &context);
+        let id_claims = IdentityClaims::new(
+            IdentityId::default(),
+            vec![
+                Claim::BuyLockup(scope.clone()),
+                Claim::Jurisdiction(CountryCode::CA, scope.clone()),
+            ],
+        );
+        check(false, &id_claims);
 
         // Invalid case: Missing `Jurisdiction`
-        let context = mk_ctx(vec![
-            Claim::Accredited(scope.clone()),
-            Claim::Jurisdiction(CountryCode::ES, scope.clone()),
-        ]);
-        check(false, &context);
+        let id_claims = IdentityClaims::new(
+            IdentityId::default(),
+            vec![
+                Claim::Accredited(scope.clone()),
+                Claim::Jurisdiction(CountryCode::ES, scope.clone()),
+            ],
+        );
+        check(false, &id_claims);
 
         // Check NoneOf
-        let context = mk_ctx(vec![
-            Claim::Accredited(scope.clone()),
-            Claim::Jurisdiction(CountryCode::CU, scope.clone()),
-        ]);
-        check(false, &context);
+        let id_claims = IdentityClaims::new(
+            IdentityId::default(),
+            vec![
+                Claim::Accredited(scope.clone()),
+                Claim::Jurisdiction(CountryCode::CU, scope.clone()),
+            ],
+        );
+        check(false, &id_claims);
 
-        let identity1 = IdentityId::from(1);
+        let identity_id = IdentityId::from(1);
+        let id_claims = IdentityClaims::new(identity_id, vec![]);
         assert!(proposition::run(
             &ConditionType::IsIdentity(TargetIdentity::ExternalAgent).into(),
-            Context {
-                id: identity1,
-                claims: vec![].into_iter(),
-            },
-            |context: Context<_>| context.id == identity1,
+            &id_claims,
+            |id_claims: &IdentityClaims| id_claims.id == identity_id,
         ));
         assert!(proposition::run(
-            &ConditionType::IsIdentity(TargetIdentity::Specific(identity1)).into(),
-            Context {
-                id: identity1,
-                claims: vec![].into_iter(),
-            },
-            |_| false,
+            &ConditionType::IsIdentity(TargetIdentity::Specific(identity_id)).into(),
+            &id_claims,
+            external_agent_proposition,
         ));
     }
 }

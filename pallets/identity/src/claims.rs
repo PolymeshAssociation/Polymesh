@@ -199,7 +199,7 @@ impl<T: Config> Module<T> {
     ) -> Option<IdentityClaim> {
         let pk = Claim1stKey { target, claim_type };
         let sk = Claim2ndKey { issuer, scope };
-        Claims::contains_key(&pk, &sk).then(|| Claims::get(&pk, &sk))
+        Claims::try_get(&pk, &sk).ok()
     }
 
     /// It adds a new claim without any previous security check.

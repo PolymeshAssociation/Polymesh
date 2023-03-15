@@ -50,7 +50,7 @@ mod tests {
     use super::*;
     use crate::proposition::{exists, Proposition};
     use crate::{
-        investor_zkproof_data::v1::InvestorZKProofData, Claim, Context, InvestorUid, Ticker,
+        investor_zkproof_data::v1::InvestorZKProofData, Claim, IdentityClaims, InvestorUid, Ticker,
     };
     use confidential_identity_v1::compute_cdd_id;
     use sp_std::convert::From;
@@ -64,17 +64,14 @@ mod tests {
         let exists_affiliate_claim = Claim::Affiliate(Scope::Ticker(asset_ticker));
         let proposition = exists(&exists_affiliate_claim);
 
-        let context = Context {
-            claims: vec![].into_iter(),
-            id: investor_id,
-        };
-        assert_eq!(proposition.evaluate(context), false);
+        let identity_claims = IdentityClaims::new(investor_id, Vec::new());
+        assert_eq!(proposition.evaluate(&identity_claims), false);
 
-        let context = Context {
-            claims: vec![Claim::Affiliate(Scope::Ticker(asset_ticker))].into_iter(),
-            id: investor_id,
-        };
-        assert_eq!(proposition.evaluate(context), true);
+        let identity_claims = IdentityClaims::new(
+            investor_id,
+            vec![Claim::Affiliate(Scope::Ticker(asset_ticker))],
+        );
+        assert_eq!(proposition.evaluate(&identity_claims), true);
 
         let proof: InvestorZKProofData =
             InvestorZKProofData::new(&investor_id, &investor_uid, &asset_ticker);
