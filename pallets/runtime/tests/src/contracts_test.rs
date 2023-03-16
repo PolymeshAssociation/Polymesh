@@ -3,7 +3,9 @@ use crate::{
     storage::{TestStorage, User},
 };
 use codec::Encode;
-use frame_support::{assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop};
+use frame_support::{
+    assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop, dispatch::Weight,
+};
 use polymesh_common_utilities::constants::currency::POLY;
 use polymesh_primitives::{AccountId, Gas, Permissions, PortfolioPermissions, Ticker};
 use polymesh_runtime_common::Currency;
@@ -15,7 +17,7 @@ use test_client::AccountKeyring;
 // and instead focus on the particulars of our contracts pallet.
 // This includes testing CDD, permissions, and what the chain extension does.
 
-const GAS_LIMIT: Gas = 10_000_000_000;
+const GAS_LIMIT: Gas = Weight::from_ref_time(100_000_000_000).set_proof_size(256 * 1024);
 
 type Asset = pallet_asset::Module<TestStorage>;
 type FrameContracts = pallet_contracts::Pallet<TestStorage>;

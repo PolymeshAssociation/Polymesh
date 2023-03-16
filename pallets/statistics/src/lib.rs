@@ -35,7 +35,7 @@ use polymesh_primitives::{
     transfer_compliance::*,
     Balance, IdentityId, ScopeId, Ticker,
 };
-use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
+use sp_std::{collections::btree_set::BTreeSet, vec, vec::Vec};
 
 type Identity<T> = pallet_identity::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
@@ -67,7 +67,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         type Error = Error<T>;
 
         /// initialize the default event for this module
@@ -159,7 +159,7 @@ decl_module! {
 
 impl<T: Config> Module<T> {
     fn ensure_asset_perms(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         asset: AssetScope,
     ) -> Result<IdentityId, DispatchError> {
         match asset {
@@ -172,7 +172,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_set_active_asset_stats(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         asset: AssetScope,
         stat_types: BTreeSet<StatType>,
     ) -> DispatchResult {
@@ -209,6 +209,7 @@ impl<T: Config> Module<T> {
         // Cleanup storage for old types to be removed.
         for stat_type in &remove_types {
             // Cleanup storage for this stat type, since it is being removed.
+            #[allow(deprecated)]
             AssetStats::remove_prefix(
                 Stat1stKey {
                     asset,
@@ -232,7 +233,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_batch_update_asset_stats(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         asset: AssetScope,
         stat_type: StatType,
         values: BTreeSet<StatUpdate>,
@@ -267,7 +268,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_set_asset_transfer_compliance(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         asset: AssetScope,
         transfer_conditions: BTreeSet<TransferCondition>,
     ) -> DispatchResult {
@@ -309,7 +310,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_set_entities_exempt(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         is_exempt: bool,
         exempt_key: TransferConditionExemptKey,
         entities: BTreeSet<ScopeId>,

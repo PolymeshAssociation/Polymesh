@@ -169,8 +169,9 @@ use frame_support::traits::Get;
 use frame_support::{
     decl_error, decl_module, decl_storage, ensure,
     traits::{
-        BalanceStatus as Status, Currency, ExistenceRequirement, Imbalance, LockIdentifier,
-        LockableCurrency, ReservableCurrency, SignedImbalance, StoredMap, WithdrawReasons,
+        tokens::{fungible, BalanceStatus as Status, DepositConsequence, WithdrawConsequence},
+        Currency, ExistenceRequirement, Imbalance, LockIdentifier, LockableCurrency,
+        ReservableCurrency, SignedImbalance, StoredMap, WithdrawReasons,
     },
     StorageValue,
 };
@@ -254,7 +255,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         type Error = Error<T>;
 
         // Polymesh modified code. Existential Deposit requirements are zero in Polymesh.
@@ -441,7 +442,7 @@ impl<T: Config> Module<T> {
     pub fn block_rewards_reserve() -> T::AccountId {
         SystematicIssuers::BlockRewardReserve
             .as_pallet_id()
-            .into_account()
+            .into_account_truncating()
     }
 
     /// Get both the free and reserved balances of an account.
@@ -458,6 +459,83 @@ impl<T: Config> Module<T> {
     fn post_mutation(_who: &T::AccountId, new: AccountData) -> Option<AccountData> {
         // Polymesh modified code. Removed Existential Deposit logic
         Some(new)
+    }
+
+    fn deposit_consequence(
+        _who: &T::AccountId,
+        amount: Balance,
+        account: &AccountData,
+        mint: bool,
+    ) -> DepositConsequence {
+        if amount.is_zero() {
+            return DepositConsequence::Success;
+        }
+
+        if mint && TotalIssuance::get().checked_add(amount).is_none() {
+            return DepositConsequence::Overflow;
+        }
+
+        let new_total_balance = match account.total().checked_add(amount) {
+            Some(x) => x,
+            None => return DepositConsequence::Overflow,
+        };
+
+        if new_total_balance < T::ExistentialDeposit::get() {
+            return DepositConsequence::BelowMinimum;
+        }
+
+        // NOTE: We assume that we are a provider, so don't need to do any checks in the
+        // case of account creation.
+
+        DepositConsequence::Success
+    }
+
+    fn withdraw_consequence(
+        who: &T::AccountId,
+        amount: Balance,
+        account: &AccountData,
+    ) -> WithdrawConsequence<Balance> {
+        if amount.is_zero() {
+            return WithdrawConsequence::Success;
+        }
+
+        if TotalIssuance::get().checked_sub(amount).is_none() {
+            return WithdrawConsequence::Underflow;
+        }
+
+        let new_total_balance = match account.total().checked_sub(amount) {
+            Some(x) => x,
+            None => return WithdrawConsequence::NoFunds,
+        };
+
+        // Provider restriction - total account balance cannot be reduced to zero if it cannot
+        // sustain the loss of a provider reference.
+        // NOTE: This assumes that the pallet is a provider (which is true). Is this ever changes,
+        // then this will need to adapt accordingly.
+        let ed = T::ExistentialDeposit::get();
+        let success = if new_total_balance < ed {
+            if frame_system::Pallet::<T>::can_dec_provider(who) {
+                WithdrawConsequence::ReducedToZero(new_total_balance)
+            } else {
+                return WithdrawConsequence::WouldDie;
+            }
+        } else {
+            WithdrawConsequence::Success
+        };
+
+        // Enough free funds to have them be reduced.
+        let new_free_balance = match account.free.checked_sub(amount) {
+            Some(b) => b,
+            None => return WithdrawConsequence::NoFunds,
+        };
+
+        // Eventual free funds must be no less than the frozen balance.
+        let min_balance = account.frozen(Reasons::All);
+        if new_free_balance < min_balance {
+            return WithdrawConsequence::Frozen;
+        }
+
+        success
     }
 
     /// Mutate an account to some new value, or delete it entirely with `None`.
@@ -808,6 +886,9 @@ impl<T: Config> Currency<T::AccountId> for Module<T> {
         if value.is_zero() {
             return (NegativeImbalance::zero(), Zero::zero());
         }
+        if Self::total_balance(who).is_zero() {
+            return (NegativeImbalance::zero(), value);
+        }
 
         Self::mutate_account(who, |account| {
             let free_slash = cmp::min(account.free, value);
@@ -980,9 +1061,14 @@ impl<T: Config> ReservableCurrency<T::AccountId> for Module<T> {
     /// Unreserve some funds, returning any amount that was unable to be unreserved.
     ///
     /// Is a no-op if the value to be unreserved is zero.
+    ///
+    /// NOTE: returns amount value which wasn't successfully unreserved.
     fn unreserve(who: &T::AccountId, value: Self::Balance) -> Self::Balance {
         if value.is_zero() {
             return Zero::zero();
+        }
+        if Self::total_balance(who).is_zero() {
+            return value;
         }
 
         let actual = Self::mutate_account(who, |account| {
@@ -1009,6 +1095,9 @@ impl<T: Config> ReservableCurrency<T::AccountId> for Module<T> {
         if value.is_zero() {
             return (NegativeImbalance::zero(), Zero::zero());
         }
+        if Self::total_balance(who).is_zero() {
+            return (NegativeImbalance::zero(), value);
+        }
 
         Self::mutate_account(who, |account| {
             // underflow should never happen, but it if does, there's nothing to be done here.
@@ -1023,6 +1112,8 @@ impl<T: Config> ReservableCurrency<T::AccountId> for Module<T> {
     /// Is a no-op if:
     /// - the value to be moved is zero; or
     /// - the `slashed` id equal to `beneficiary` and the `status` is `Reserved`.
+    ///
+    /// NOTE: returns actual amount of transferred value in `Ok` case.
     fn repatriate_reserved(
         slashed: &T::AccountId,
         beneficiary: &T::AccountId,
@@ -1035,7 +1126,7 @@ impl<T: Config> ReservableCurrency<T::AccountId> for Module<T> {
 
         if slashed == beneficiary {
             return match status {
-                Status::Free => Ok(Self::unreserve(slashed, value)),
+                Status::Free => Ok(value.saturating_sub(Self::unreserve(slashed, value))),
                 Status::Reserved => Ok(value.saturating_sub(Self::reserved_balance(slashed))),
             };
         }
@@ -1192,5 +1283,42 @@ impl<T: Config> LockableCurrencyExt<T::AccountId> for Module<T> {
         })?;
         Self::update_locks(who, &locks[..]);
         Ok(())
+    }
+}
+
+impl<T: Config> fungible::Inspect<T::AccountId> for Module<T> {
+    type Balance = Balance;
+
+    fn total_issuance() -> Self::Balance {
+        TotalIssuance::get()
+    }
+    fn minimum_balance() -> Self::Balance {
+        T::ExistentialDeposit::get()
+    }
+    fn balance(who: &T::AccountId) -> Self::Balance {
+        Self::account(who).total()
+    }
+    fn reducible_balance(who: &T::AccountId, keep_alive: bool) -> Self::Balance {
+        let a = Self::account(who);
+        // Liquid balance is what is neither reserved nor locked/frozen.
+        let liquid = a.free.saturating_sub(a.fee_frozen.max(a.misc_frozen));
+        if frame_system::Pallet::<T>::can_dec_provider(who) && !keep_alive {
+            liquid
+        } else {
+            // `must_remain_to_exist` is the part of liquid balance which must remain to keep total
+            // over ED.
+            let must_remain_to_exist =
+                T::ExistentialDeposit::get().saturating_sub(a.total() - liquid);
+            liquid.saturating_sub(must_remain_to_exist)
+        }
+    }
+    fn can_deposit(who: &T::AccountId, amount: Self::Balance, mint: bool) -> DepositConsequence {
+        Self::deposit_consequence(who, amount, &Self::account(who), mint)
+    }
+    fn can_withdraw(
+        who: &T::AccountId,
+        amount: Self::Balance,
+    ) -> WithdrawConsequence<Self::Balance> {
+        Self::withdraw_consequence(who, amount, &Self::account(who))
     }
 }

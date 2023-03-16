@@ -21,25 +21,25 @@ pallet-transaction-payment = { path = "../../pallets/transaction-payment" }
 pallet-permissions = { path = "../../pallets/permissions" }
 pallet-staking = { path = "../../pallets/staking" }
 pallet-balances = { path = "../../pallets/balances" }
-node-executor = { path = "../executor", features = ["wasmtime"] }
+node-executor = { path = "../executor" }
 
-sc-service = { version = "0.10.0-dev", features = ["test-helpers", "db", "wasmtime"] }
-sc-client-db = { version = "0.10.0-dev", features = ["kvdb-rocksdb", "parity-db"] }
+sc-service = { version = "0.10.0-dev", features = ["test-helpers"] }
+sc-client-db = { version = "0.10.0-dev", features = ["kvdb-rocksdb"] }
 sc-client-api = { version = "4.0.0-dev" }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 #pallet-contracts = { version = "4.0.0-dev" }
 pallet-grandpa = { version = "4.0.0-dev" }
 pallet-indices = { version = "4.0.0-dev" }
-sp-keyring = { version = "6.0.0" }
-sp-core = { version = "6.0.0" }
-sp-io = { version = "6.0.0" }
+sp-keyring = { version = "7.0.0" }
+sp-core = { version = "7.0.0" }
+sp-io = { version = "7.0.0" }
 frame-support = { version = "4.0.0-dev" }
 pallet-session = { version = "4.0.0-dev" }
-sp-runtime = { version = "6.0.0" }
-sc-executor = { version = "0.10.0-dev", features = ["wasmtime"] }
+sp-runtime = { version = "7.0.0" }
+sc-executor = { version = "0.10.0-dev" }
 sp-consensus = { version = "0.10.0-dev" }
 frame-system = { version = "4.0.0-dev" }
-substrate-test-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
+substrate-test-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
 pallet-timestamp = { version = "4.0.0-dev" }
 pallet-treasury = { version = "4.0.0-dev" }
 wabt = "0.10.0"
@@ -56,4 +56,4 @@ futures = "0.3.1"
 
 [dev-dependencies]
 criterion = "0.3.0"
-sc-cli = { version = "0.10.0-dev", features = ["wasmtime"] }
+sc-cli = { version = "0.10.0-dev" }

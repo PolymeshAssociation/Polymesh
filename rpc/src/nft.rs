@@ -15,9 +15,14 @@
 
 use std::sync::Arc;
 
+use crate::Error;
+use jsonrpsee::{
+    core::RpcResult,
+    proc_macros::rpc,
+    types::error::{CallError, ErrorObject},
+};
+
 use frame_support::dispatch::DispatchResult;
-use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
-use jsonrpc_derive::rpc;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::generic::BlockId;
@@ -26,16 +31,16 @@ use sp_runtime::traits::Block as BlockT;
 pub use node_rpc_runtime_api::nft::NFTApi as NFTRuntimeApi;
 use polymesh_primitives::{NFTs, PortfolioId};
 
-#[rpc]
+#[rpc(client, server)]
 pub trait NFTApi<BlockHash> {
-    #[rpc(name = "nft_validateNFTTransfer")]
+    #[method(name = "nft_validateNFTTransfer")]
     fn validate_nft_transfer(
         &self,
         sender_portfolio: PortfolioId,
         receiver_portfolio: PortfolioId,
         nfts: NFTs,
         at: Option<BlockHash>,
-    ) -> Result<DispatchResult>;
+    ) -> RpcResult<DispatchResult>;
 }
 
 /// An implementation of NFT specific RPC methods.
@@ -54,12 +59,10 @@ impl<T, U> NFT<T, U> {
     }
 }
 
-impl<T, Block> NFTApi<<Block as BlockT>::Hash> for NFT<T, Block>
+impl<T, Block> NFTApiServer<<Block as BlockT>::Hash> for NFT<T, Block>
 where
     Block: BlockT,
-    T: Send + Sync + 'static,
-    T: ProvideRuntimeApi<Block>,
-    T: HeaderBackend<Block>,
+    T: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
     T::Api: NFTRuntimeApi<Block>,
 {
     fn validate_nft_transfer(
@@ -68,16 +71,19 @@ where
         receiver_portfolio: PortfolioId,
         nfts: NFTs,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<DispatchResult> {
+    ) -> RpcResult<DispatchResult> {
         let api = self.client.runtime_api();
         // If the block hash is not supplied assume the best block.
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         api.validate_nft_transfer(&at, &sender_portfolio, &receiver_portfolio, &nfts)
-            .map_err(|e| RpcError {
-                code: ErrorCode::ServerError(crate::Error::RuntimeError as i64),
-                message: "Unable to call validate_nft_transfer runtime".into(),
-                data: Some(format!("{:?}", e).into()),
+            .map_err(|e| {
+                CallError::Custom(ErrorObject::owned(
+                    Error::RuntimeError.into(),
+                    "Unable to call validate_nft_transfer runtime",
+                    Some(e.to_string()),
+                ))
+                .into()
             })
     }
 }

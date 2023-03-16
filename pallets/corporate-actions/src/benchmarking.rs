@@ -86,7 +86,7 @@ fn details(len: u32) -> CADetails {
         .into()
 }
 
-fn add_docs<T: Config>(origin: &T::Origin, ticker: Ticker, n: u32) -> Vec<DocumentId> {
+fn add_docs<T: Config>(origin: &T::RuntimeOrigin, ticker: Ticker, n: u32) -> Vec<DocumentId> {
     let ids = (0..n).map(DocumentId).collect::<Vec<_>>();
     let docs = (0..n).map(|_| make_document()).collect::<Vec<_>>();
     <Asset<T>>::add_documents(origin.clone(), docs, ticker).unwrap();
@@ -98,7 +98,7 @@ pub(crate) fn setup_ca<T: Config + TestUtilsFn<AccountIdOf<T>>>(kind: CAKind) ->
 
     <pallet_timestamp::Now<T>>::set(1000u32.into());
 
-    let origin: T::Origin = owner.origin().into();
+    let origin: T::RuntimeOrigin = owner.origin().into();
     <Module<T>>::initiate_corporate_action(
         origin.clone(),
         ticker,
@@ -276,7 +276,7 @@ benchmarks! {
         let d in 0..MAX_DOCS;
 
         let (owner, ticker) = setup::<T>();
-        let origin: T::Origin = owner.origin().into();
+        let origin: T::RuntimeOrigin = owner.origin().into();
         let ids = add_docs::<T>(&origin, ticker, d);
         let ids2 = ids.clone();
         <Module<T>>::initiate_corporate_action(

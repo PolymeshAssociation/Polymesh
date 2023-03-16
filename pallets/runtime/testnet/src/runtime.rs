@@ -58,7 +58,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     authoring_version: 1,
     // `spec_version: aaa_bbb_ccd` should match node version v`aaa.bbb.cc`
     // N.B. `d` is unpinned from the binary version
-    spec_version: 5_003_000,
+    spec_version: 5_004_000,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 3,
@@ -127,14 +127,13 @@ parameter_types! {
     // Scheduler:
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
-    pub const NoPreimagePostponement: Option<u32> = Some(10);
 
     // Identity:
     pub const InitialPOLYX: Balance = 100_000 * ONE_POLY;
 
     // Contracts:
     pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
-    pub DeletionWeightLimit: Weight = 500_000_000_000;
+    pub DeletionWeightLimit: Weight = Weight::from_ref_time(500_000_000_000);
     pub DeletionQueueDepth: u32 = 1024;
     pub MaxInLen: u32 = 8 * 1024;
     pub MaxOutLen: u32 = 8 * 1024;
@@ -194,19 +193,19 @@ polymesh_runtime_common::misc_pallet_impls!();
 
 type CddHandler = polymesh_runtime_common::fee_details::DevCddHandler<Runtime>;
 
-impl<'a> TryFrom<&'a Call> for &'a pallet_test_utils::Call<Runtime> {
+impl<'a> TryFrom<&'a RuntimeCall> for &'a pallet_test_utils::Call<Runtime> {
     type Error = ();
-    fn try_from(call: &'a Call) -> Result<&'a pallet_test_utils::Call<Runtime>, ()> {
+    fn try_from(call: &'a RuntimeCall) -> Result<&'a pallet_test_utils::Call<Runtime>, ()> {
         match call {
-            Call::TestUtils(x) => Ok(x),
+            RuntimeCall::TestUtils(x) => Ok(x),
             _ => Err(()),
         }
     }
 }
 
 impl polymesh_common_utilities::traits::identity::Config for Runtime {
-    type Event = Event;
-    type Proposal = Call;
+    type RuntimeEvent = RuntimeEvent;
+    type Proposal = RuntimeCall;
     type MultiSig = MultiSig;
     type Portfolio = Portfolio;
     type CddServiceProviders = CddServiceProviders;
@@ -217,7 +216,7 @@ impl polymesh_common_utilities::traits::identity::Config for Runtime {
     type OffChainSignature = MultiSignature;
     type ProtocolFee = pallet_protocol_fee::Module<Runtime>;
     type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
-    type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_identity::SubstrateWeight;
     type IdentityFn = pallet_identity::Module<Runtime>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
@@ -225,17 +224,17 @@ impl polymesh_common_utilities::traits::identity::Config for Runtime {
 }
 
 impl pallet_committee::Config<GovernanceCommittee> for Runtime {
-    type Origin = Origin;
-    type Proposal = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type Proposal = RuntimeCall;
     type CommitteeOrigin = VMO<GovernanceCommittee>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
-    type Event = Event;
-    type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = polymesh_weights::pallet_committee::SubstrateWeight;
 }
 
 /// PolymeshCommittee as an instance of group
 impl pallet_group::Config<pallet_group::Instance1> for Runtime {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type LimitOrigin = polymesh_primitives::EnsureRoot;
     type AddOrigin = Self::LimitOrigin;
     type RemoveOrigin = Self::LimitOrigin;
@@ -243,22 +242,22 @@ impl pallet_group::Config<pallet_group::Instance1> for Runtime {
     type ResetOrigin = Self::LimitOrigin;
     type MembershipInitialized = PolymeshCommittee;
     type MembershipChanged = PolymeshCommittee;
-    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_group::SubstrateWeight;
 }
 
 macro_rules! committee_config {
     ($committee:ident, $instance:ident) => {
         impl pallet_committee::Config<pallet_committee::$instance> for Runtime {
-            type Origin = Origin;
-            type Proposal = Call;
+            type RuntimeOrigin = RuntimeOrigin;
+            type Proposal = RuntimeCall;
             // Can act upon itself.
             type CommitteeOrigin = VMO<pallet_committee::$instance>;
             type VoteThresholdOrigin = Self::CommitteeOrigin;
-            type Event = Event;
-            type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
+            type RuntimeEvent = RuntimeEvent;
+            type WeightInfo = polymesh_weights::pallet_committee::SubstrateWeight;
         }
         impl pallet_group::Config<pallet_group::$instance> for Runtime {
-            type Event = Event;
+            type RuntimeEvent = RuntimeEvent;
             // Committee cannot alter its own active membership limit.
             type LimitOrigin = polymesh_primitives::EnsureRoot;
             // Can manage its own addition, deletion, and swapping of membership...
@@ -269,7 +268,7 @@ macro_rules! committee_config {
             type ResetOrigin = VMO<GovernanceCommittee>;
             type MembershipInitialized = $committee;
             type MembershipChanged = $committee;
-            type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_group::SubstrateWeight;
         }
     };
 }
@@ -283,15 +282,15 @@ impl pallet_pips::Config for Runtime {
     type GovernanceCommittee = PolymeshCommittee;
     type TechnicalCommitteeVMO = VMO<pallet_committee::Instance3>;
     type UpgradeCommitteeVMO = VMO<pallet_committee::Instance4>;
-    type Event = Event;
-    type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = polymesh_weights::pallet_pips::SubstrateWeight;
     type Scheduler = Scheduler;
-    type SchedulerCall = Call;
+    type SchedulerCall = RuntimeCall;
 }
 
 /// CddProviders instance of group
 impl pallet_group::Config<pallet_group::Instance2> for Runtime {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type LimitOrigin = polymesh_primitives::EnsureRoot;
     type AddOrigin = polymesh_primitives::EnsureRoot;
     type RemoveOrigin = polymesh_primitives::EnsureRoot;
@@ -299,12 +298,12 @@ impl pallet_group::Config<pallet_group::Instance2> for Runtime {
     type ResetOrigin = polymesh_primitives::EnsureRoot;
     type MembershipInitialized = Identity;
     type MembershipChanged = Identity;
-    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_group::SubstrateWeight;
 }
 
 impl pallet_test_utils::Config for Runtime {
-    type Event = Event;
-    type WeightInfo = polymesh_weights::pallet_test_utils::WeightInfo;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = polymesh_weights::pallet_test_utils::SubstrateWeight;
 }
 
 pub type AllModulesExported = AllPalletsWithSystem;
@@ -326,7 +325,7 @@ construct_runtime!(
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 
         // TransactionPayment: Genesis config dependencies: Balance.
-        TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
+        TransactionPayment: pallet_transaction_payment::{Pallet, Event<T>, Storage},
 
         // Identity: Genesis config deps: Timestamp.
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>, Config<T>},

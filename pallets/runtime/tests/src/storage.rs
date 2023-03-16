@@ -2,12 +2,11 @@ use super::ext_builder::{EXTRINSIC_BASE_WEIGHT, TRANSACTION_BYTE_FEE, WEIGHT_TO_
 use codec::Encode;
 use frame_support::{
     assert_ok,
-    dispatch::DispatchResult,
+    dispatch::{DispatchInfo, DispatchResult, Weight},
     parameter_types,
     traits::{Currency, Imbalance, KeyOwnerProofSystem, OnInitialize, OnUnbalanced},
     weights::{
-        DispatchInfo, RuntimeDbWeight, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
-        WeightToFeePolynomial,
+        RuntimeDbWeight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
     },
     StorageDoubleMap,
 };
@@ -45,6 +44,7 @@ use polymesh_primitives::{
 use polymesh_runtime_common::{
     merge_active_and_inactive,
     runtime::{BENCHMARK_MAX_INCREASE, VMO},
+    AvailableBlockRatio, MaximumBlockWeight,
 };
 use polymesh_runtime_develop::constants::time::{EPOCH_DURATION_IN_BLOCKS, MILLISECS_PER_BLOCK};
 use smallvec::smallvec;
@@ -201,7 +201,7 @@ frame_support::construct_runtime!(
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 5,
 
         // TransactionPayment: Genesis config dependencies: Balance.
-        TransactionPayment: pallet_transaction_payment::{Pallet, Storage} = 6,
+        TransactionPayment: pallet_transaction_payment::{Pallet, Event<T>, Storage} = 6,
 
         // Identity: Genesis config deps: Timestamp.
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>, Config<T>} = 7,
@@ -334,8 +334,8 @@ impl User {
     }
 
     /// Returns an `Origin` that can be used to execute extrinsics.
-    pub fn origin(&self) -> Origin {
-        Origin::signed(self.acc())
+    pub fn origin(&self) -> RuntimeOrigin {
+        RuntimeOrigin::signed(self.acc())
     }
 
     pub fn uid(&self) -> InvestorUid {
@@ -365,7 +365,7 @@ impl User {
     }
 }
 
-pub type EventTest = Event;
+pub type EventTest = RuntimeEvent;
 
 type Hash = H256;
 type Hashing = BlakeTwo256;
@@ -376,14 +376,11 @@ type AuthorityId = <AnySignature as Verify>::Signer;
 pub(crate) type Balance = u128;
 
 parameter_types! {
-    pub const BlockHashCount: u32 = 250;
-    pub const MaximumBlockWeight: u64 = 4096;
-    pub const MaximumBlockLength: u32 = 4096;
-    pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
-    pub const MaximumExtrinsicWeight: u64 = 2800;
-    pub const BlockExecutionWeight: u64 = 10;
+    pub MaximumExtrinsicWeight: Weight = AvailableBlockRatio::get()
+        .saturating_sub(Perbill::from_percent(10)) * MaximumBlockWeight::get();
+    pub const BlockExecutionWeight: Weight = Weight::from_ref_time(10);
     pub TransactionByteFee: Balance = TRANSACTION_BYTE_FEE.with(|v| *v.borrow());
-    pub ExtrinsicBaseWeight: u64 = EXTRINSIC_BASE_WEIGHT.with(|v| *v.borrow());
+    pub ExtrinsicBaseWeight: Weight = EXTRINSIC_BASE_WEIGHT.with(|v| *v.borrow());
     pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight {
         read: 10,
         write: 100,
@@ -428,7 +425,6 @@ parameter_types! {
 
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
-    pub const NoPreimagePostponement: Option<u32> = Some(10);
 
     pub const InitialPOLYX: Balance = 41;
     pub const SignedClaimHandicap: u64 = 2;
@@ -437,7 +433,7 @@ parameter_types! {
     pub const MaxValueSize: u32 = 16_384;
 
     pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
-    pub DeletionWeightLimit: Weight = 500_000_000_000;
+    pub DeletionWeightLimit: Weight = Weight::from_ref_time(500_000_000_000);
     pub DeletionQueueDepth: u32 = 1024;
     pub MaxInLen: u32 = 8 * 1024;
     pub MaxOutLen: u32 = 8 * 1024;
@@ -458,9 +454,9 @@ impl ChargeTxFee for TestStorage {
 }
 
 type CddHandler = TestStorage;
-impl CddAndFeeDetails<AccountId, Call> for TestStorage {
+impl CddAndFeeDetails<AccountId, RuntimeCall> for TestStorage {
     fn get_valid_payer(
-        _: &Call,
+        _: &RuntimeCall,
         caller: &AccountId,
     ) -> Result<Option<AccountId>, InvalidTransaction> {
         let caller: AccountId = caller.clone();
@@ -497,7 +493,7 @@ impl WeightToFeePolynomial for WeightToFee {
 
 /// PolymeshCommittee as an instance of group
 impl group::Config<group::Instance1> for TestStorage {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type LimitOrigin = EnsureRoot<AccountId>;
     type AddOrigin = EnsureRoot<AccountId>;
     type RemoveOrigin = EnsureRoot<AccountId>;
@@ -505,11 +501,11 @@ impl group::Config<group::Instance1> for TestStorage {
     type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = committee::Module<TestStorage, committee::Instance1>;
     type MembershipChanged = committee::Module<TestStorage, committee::Instance1>;
-    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_group::SubstrateWeight;
 }
 
 impl group::Config<group::Instance2> for TestStorage {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type LimitOrigin = EnsureRoot<AccountId>;
     type AddOrigin = EnsureRoot<AccountId>;
     type RemoveOrigin = EnsureRoot<AccountId>;
@@ -517,11 +513,11 @@ impl group::Config<group::Instance2> for TestStorage {
     type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = identity::Module<TestStorage>;
     type MembershipChanged = identity::Module<TestStorage>;
-    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_group::SubstrateWeight;
 }
 
 impl group::Config<group::Instance3> for TestStorage {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type LimitOrigin = EnsureRoot<AccountId>;
     type AddOrigin = EnsureRoot<AccountId>;
     type RemoveOrigin = EnsureRoot<AccountId>;
@@ -529,11 +525,11 @@ impl group::Config<group::Instance3> for TestStorage {
     type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = TechnicalCommittee;
     type MembershipChanged = TechnicalCommittee;
-    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_group::SubstrateWeight;
 }
 
 impl group::Config<group::Instance4> for TestStorage {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type LimitOrigin = EnsureRoot<AccountId>;
     type AddOrigin = EnsureRoot<AccountId>;
     type RemoveOrigin = EnsureRoot<AccountId>;
@@ -541,41 +537,41 @@ impl group::Config<group::Instance4> for TestStorage {
     type ResetOrigin = EnsureRoot<AccountId>;
     type MembershipInitialized = UpgradeCommittee;
     type MembershipChanged = UpgradeCommittee;
-    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_group::SubstrateWeight;
 }
 
 pub type CommitteeOrigin<T, I> = committee::RawOrigin<<T as frame_system::Config>::AccountId, I>;
 
 impl committee::Config<committee::Instance1> for TestStorage {
-    type Origin = Origin;
-    type Proposal = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type Proposal = RuntimeCall;
     type CommitteeOrigin = VMO<committee::Instance1>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
-    type Event = Event;
-    type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = polymesh_weights::pallet_committee::SubstrateWeight;
 }
 
 impl committee::Config<committee::Instance3> for TestStorage {
-    type Origin = Origin;
-    type Proposal = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type Proposal = RuntimeCall;
     type CommitteeOrigin = EnsureRoot<AccountId>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
-    type Event = Event;
-    type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = polymesh_weights::pallet_committee::SubstrateWeight;
 }
 
 impl committee::Config<committee::Instance4> for TestStorage {
-    type Origin = Origin;
-    type Proposal = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type Proposal = RuntimeCall;
     type CommitteeOrigin = EnsureRoot<AccountId>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
-    type Event = Event;
-    type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = polymesh_weights::pallet_committee::SubstrateWeight;
 }
 
 impl polymesh_common_utilities::traits::identity::Config for TestStorage {
-    type Event = Event;
-    type Proposal = Call;
+    type RuntimeEvent = RuntimeEvent;
+    type Proposal = RuntimeCall;
     type MultiSig = multisig::Module<TestStorage>;
     type Portfolio = portfolio::Module<TestStorage>;
     type CddServiceProviders = CddServiceProvider;
@@ -586,7 +582,7 @@ impl polymesh_common_utilities::traits::identity::Config for TestStorage {
     type OffChainSignature = MultiSignature;
     type ProtocolFee = protocol_fee::Module<TestStorage>;
     type GCVotingMajorityOrigin = VMO<committee::Instance1>;
-    type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_identity::SubstrateWeight;
     type IdentityFn = identity::Module<TestStorage>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
@@ -638,15 +634,15 @@ impl pips::Config for TestStorage {
     type GovernanceCommittee = Committee;
     type TechnicalCommitteeVMO = VMO<committee::Instance3>;
     type UpgradeCommitteeVMO = VMO<committee::Instance4>;
-    type Event = Event;
-    type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = polymesh_weights::pallet_pips::SubstrateWeight;
     type Scheduler = Scheduler;
-    type SchedulerCall = Call;
+    type SchedulerCall = RuntimeCall;
 }
 
 impl pallet_test_utils::Config for TestStorage {
-    type Event = Event;
-    type WeightInfo = polymesh_weights::pallet_test_utils::WeightInfo;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = polymesh_weights::pallet_test_utils::SubstrateWeight;
 }
 
 polymesh_runtime_common::misc_pallet_impls!();
@@ -660,7 +656,13 @@ pub type CorporateActions = corporate_actions::Module<TestStorage>;
 
 pub fn make_account(
     id: AccountId,
-) -> Result<(<TestStorage as frame_system::Config>::Origin, IdentityId), &'static str> {
+) -> Result<
+    (
+        <TestStorage as frame_system::Config>::RuntimeOrigin,
+        IdentityId,
+    ),
+    &'static str,
+> {
     let uid = create_investor_uid(id.clone());
     make_account_with_uid(id, uid)
 }
@@ -677,7 +679,7 @@ pub fn make_account_with_scope(
     cdd_provider: AccountId,
 ) -> Result<
     (
-        <TestStorage as frame_system::Config>::Origin,
+        <TestStorage as frame_system::Config>::RuntimeOrigin,
         IdentityId,
         ScopeId,
     ),
@@ -692,7 +694,13 @@ pub fn make_account_with_scope(
 pub fn make_account_with_uid(
     id: AccountId,
     uid: InvestorUid,
-) -> Result<(<TestStorage as frame_system::Config>::Origin, IdentityId), &'static str> {
+) -> Result<
+    (
+        <TestStorage as frame_system::Config>::RuntimeOrigin,
+        IdentityId,
+    ),
+    &'static str,
+> {
     make_account_with_balance(id, uid, 1_000_000)
 }
 
@@ -701,8 +709,14 @@ pub fn make_account_with_balance(
     id: AccountId,
     uid: InvestorUid,
     balance: Balance,
-) -> Result<(<TestStorage as frame_system::Config>::Origin, IdentityId), &'static str> {
-    let signed_id = Origin::signed(id.clone());
+) -> Result<
+    (
+        <TestStorage as frame_system::Config>::RuntimeOrigin,
+        IdentityId,
+    ),
+    &'static str,
+> {
+    let signed_id = RuntimeOrigin::signed(id.clone());
     Balances::make_free_balance_be(&id, balance);
 
     // If we have CDD providers, first of them executes the registration.
@@ -710,14 +724,18 @@ pub fn make_account_with_balance(
     let did = match cdd_providers.into_iter().nth(0) {
         Some(cdd_provider) => {
             let cdd_acc = get_primary_key(cdd_provider);
-            let _ = Identity::cdd_register_did(Origin::signed(cdd_acc.clone()), id.clone(), vec![])
-                .map_err(|_| "CDD register DID failed")?;
+            let _ = Identity::cdd_register_did(
+                RuntimeOrigin::signed(cdd_acc.clone()),
+                id.clone(),
+                vec![],
+            )
+            .map_err(|_| "CDD register DID failed")?;
 
             // Add CDD Claim
             let did = Identity::get_identity(&id).unwrap();
             let (cdd_id, _) = create_cdd_id(did, Ticker::default(), uid);
             let cdd_claim = Claim::CustomerDueDiligence(cdd_id);
-            Identity::add_claim(Origin::signed(cdd_acc), did, cdd_claim, None)
+            Identity::add_claim(RuntimeOrigin::signed(cdd_acc), did, cdd_claim, None)
                 .map_err(|_| "CDD provider cannot add the CDD claim")?;
             did
         }
@@ -733,8 +751,14 @@ pub fn make_account_with_balance(
 
 pub fn make_account_without_cdd(
     id: AccountId,
-) -> Result<(<TestStorage as frame_system::Config>::Origin, IdentityId), &'static str> {
-    let signed_id = Origin::signed(id.clone());
+) -> Result<
+    (
+        <TestStorage as frame_system::Config>::RuntimeOrigin,
+        IdentityId,
+    ),
+    &'static str,
+> {
+    let signed_id = RuntimeOrigin::signed(id.clone());
     Balances::make_free_balance_be(&id, 10_000_000);
     let did = Identity::_register_did(id.clone(), vec![], None).expect("did");
     Ok((signed_id, did))
@@ -772,7 +796,7 @@ pub fn add_secondary_key_with_perms(did: IdentityId, acc: AccountId, perms: Auth
         AuthorizationData::JoinIdentity(perms),
         None,
     );
-    assert_ok!(Identity::join_identity(Origin::signed(acc), auth_id));
+    assert_ok!(Identity::join_identity(RuntimeOrigin::signed(acc), auth_id));
 }
 
 pub fn add_secondary_key(did: IdentityId, acc: AccountId) {
@@ -807,12 +831,14 @@ pub fn next_block() -> Weight {
     pallet_scheduler::Pallet::<TestStorage>::on_initialize(block_number)
 }
 
-pub fn fast_forward_to_block(n: u32) -> Weight {
+pub fn fast_forward_to_block(n: u32) {
     let i = System::block_number();
-    (i..=n).map(|_| next_block()).sum()
+    for _ in i..=n {
+        next_block();
+    }
 }
 
-pub fn fast_forward_blocks(offset: u32) -> Weight {
+pub fn fast_forward_blocks(offset: u32) {
     fast_forward_to_block(offset + System::block_number())
 }
 
@@ -876,7 +902,7 @@ pub fn add_cdd_claim(
 
     // Add cdd claim first
     assert_ok!(Identity::add_claim(
-        Origin::signed(cdd_provider),
+        RuntimeOrigin::signed(cdd_provider),
         claim_to,
         Claim::CustomerDueDiligence(cdd_id),
         cdd_claim_expiry,
@@ -914,7 +940,7 @@ pub fn add_investor_uniqueness_claim(
     cdd_id: CddId,
     proof: InvestorZKProofData,
 ) -> DispatchResult {
-    let signed_claim_to = Origin::signed(get_primary_key(claim_to));
+    let signed_claim_to = RuntimeOrigin::signed(get_primary_key(claim_to));
 
     // Provide the InvestorUniqueness.
     Identity::add_investor_uniqueness_claim(
@@ -937,8 +963,8 @@ pub fn provide_scope_claim_to_multiple_parties<'a>(
     });
 }
 
-pub fn root() -> Origin {
-    Origin::from(frame_system::RawOrigin::Root)
+pub fn root() -> RuntimeOrigin {
+    RuntimeOrigin::from(frame_system::RawOrigin::Root)
 }
 
 pub fn create_cdd_id_and_investor_uid(identity_id: IdentityId) -> (CddId, InvestorUid) {
@@ -947,8 +973,8 @@ pub fn create_cdd_id_and_investor_uid(identity_id: IdentityId) -> (CddId, Invest
     (cdd_id, uid)
 }
 
-pub fn make_remark_proposal() -> Call {
-    Call::System(frame_system::Call::remark {
+pub fn make_remark_proposal() -> RuntimeCall {
+    RuntimeCall::System(frame_system::Call::remark {
         remark: vec![b'X'; 100],
     })
     .into()
@@ -1013,8 +1039,8 @@ macro_rules! assert_event_doesnt_exist {
     };
 }
 
-pub fn exec<C: Into<Call>>(origin: Origin, call: C) -> DispatchResult {
-    let origin: Result<RawOrigin<AccountId>, Origin> = origin.into();
+pub fn exec<C: Into<RuntimeCall>>(origin: RuntimeOrigin, call: C) -> DispatchResult {
+    let origin: Result<RawOrigin<AccountId>, RuntimeOrigin> = origin.into();
     let signed = match origin.unwrap() {
         RawOrigin::Signed(acc) => {
             let info = frame_system::Account::<TestStorage>::get(&acc);

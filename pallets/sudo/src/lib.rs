@@ -58,7 +58,7 @@
 //! pub trait Trait: frame_system::Config {}
 //!
 //! decl_module! {
-//!     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+//!     pub struct Module<T: Trait> for enum Call where origin: T::RuntimeOrigin {
 //!     #[weight = 0]
 //!         pub fn privileged_function(origin) -> dispatch::DispatchResult {
 //!             ensure_root(origin)?;
@@ -90,11 +90,12 @@
 use sp_runtime::{traits::StaticLookup, DispatchResult};
 use sp_std::prelude::*;
 
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, Parameter};
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, Parameter};
 use frame_support::{
-    dispatch::DispatchResultWithPostInfo,
+    dispatch::{
+        DispatchErrorWithPostInfo, DispatchResultWithPostInfo, GetDispatchInfo, Pays, Weight,
+    },
     traits::{Get, UnfilteredDispatchable},
-    weights::{GetDispatchInfo, Pays, Weight},
 };
 use frame_system::ensure_signed;
 
@@ -103,17 +104,21 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+pub const MIN_WEIGHT: Weight = Weight::from_ref_time(1_000);
+
 pub trait Config: frame_system::Config {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
 
     /// A sudo-able call.
-    type Call: Parameter + UnfilteredDispatchable<Origin = Self::Origin> + GetDispatchInfo;
+    type RuntimeCall: Parameter
+        + UnfilteredDispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+        + GetDispatchInfo;
 }
 
 decl_module! {
     /// Sudo module declaration.
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -130,12 +135,10 @@ decl_module! {
         /// # </weight>
         #[weight = {
             let dispatch_info = call.get_dispatch_info();
-            (dispatch_info.weight.saturating_add(10_000), dispatch_info.class)
+            (dispatch_info.weight.max(MIN_WEIGHT), dispatch_info.class)
         }]
-        fn sudo(origin, call: Box<<T as Config>::Call>) -> DispatchResultWithPostInfo {
-            // This is a public call, so we ensure that the origin is some signed account.
-            let sender = ensure_signed(origin)?;
-            ensure!(sender == Self::key(), Error::<T>::RequireSudo);
+        fn sudo(origin, call: Box<<T as Config>::RuntimeCall>) -> DispatchResultWithPostInfo {
+            Self::ensure_sudo(origin)?;
 
             let res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
             Self::deposit_event(RawEvent::Sudid(res.map(|_| ()).map_err(|e| e.error)));
@@ -153,11 +156,9 @@ decl_module! {
         /// - O(1).
         /// - The weight of this call is defined by the caller.
         /// # </weight>
-        #[weight = (*_weight, call.get_dispatch_info().class)]
-        fn sudo_unchecked_weight(origin, call: Box<<T as Config>::Call>, _weight: Weight) -> DispatchResultWithPostInfo {
-            // This is a public call, so we ensure that the origin is some signed account.
-            let sender = ensure_signed(origin)?;
-            ensure!(sender == Self::key(), Error::<T>::RequireSudo);
+        #[weight = (_weight.max(MIN_WEIGHT), call.get_dispatch_info().class)]
+        fn sudo_unchecked_weight(origin, call: Box<<T as Config>::RuntimeCall>, _weight: Weight) -> DispatchResultWithPostInfo {
+            Self::ensure_sudo(origin)?;
 
             let res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
             Self::deposit_event(RawEvent::Sudid(res.map(|_| ()).map_err(|e| e.error)));
@@ -174,11 +175,9 @@ decl_module! {
         /// - Limited storage reads.
         /// - One DB change.
         /// # </weight>
-        #[weight = 0]
+        #[weight = MIN_WEIGHT]
         fn set_key(origin, new: <T::Lookup as StaticLookup>::Source) -> DispatchResultWithPostInfo {
-            // This is a public call, so we ensure that the origin is some signed account.
-            let sender = ensure_signed(origin)?;
-            ensure!(sender == Self::key(), Error::<T>::RequireSudo);
+            Self::ensure_sudo(origin)?;
             let new = T::Lookup::lookup(new)?;
 
             Self::deposit_event(RawEvent::KeyChanged(Self::key()));
@@ -201,8 +200,7 @@ decl_module! {
         #[weight = {
             let dispatch_info = call.get_dispatch_info();
             (
-                dispatch_info.weight
-                    .saturating_add(10_000)
+                dispatch_info.weight.max(MIN_WEIGHT)
                     // AccountData for inner call origin accountdata.
                     .saturating_add(T::DbWeight::get().reads_writes(1, 1)),
                 dispatch_info.class,
@@ -210,11 +208,9 @@ decl_module! {
         }]
         fn sudo_as(origin,
             who: <T::Lookup as StaticLookup>::Source,
-            call: Box<<T as Config>::Call>
+            call: Box<<T as Config>::RuntimeCall>
         ) -> DispatchResultWithPostInfo {
-            // This is a public call, so we ensure that the origin is some signed account.
-            let sender = ensure_signed(origin)?;
-            ensure!(sender == Self::key(), Error::<T>::RequireSudo);
+            Self::ensure_sudo(origin)?;
 
             let who = T::Lookup::lookup(who)?;
 
@@ -224,6 +220,23 @@ decl_module! {
             // Sudo user does not pay a fee.
             Ok(Pays::No.into())
         }
+    }
+}
+
+impl<T: Config> Module<T> {
+    /// Ensure `origin` is from the current Sudo key.
+    fn ensure_sudo(origin: T::RuntimeOrigin) -> DispatchResultWithPostInfo {
+        // Only allow signed origins.
+        let sender = ensure_signed(origin)?;
+        // Ensure the signer is the current Sudo key.
+        if sender != Self::key() {
+            // roughly same as a 4 byte remark since perbill is u32.
+            return Err(DispatchErrorWithPostInfo {
+                post_info: Some(MIN_WEIGHT).into(),
+                error: Error::<T>::RequireSudo.into(),
+            });
+        }
+        Ok(().into())
     }
 }
 

@@ -68,7 +68,7 @@ pub trait WeightInfo {
 }
 
 pub trait Config: IdentityConfig {
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
     /// Weight information for extrinsics in the identity pallet.
     type WeightInfo: WeightInfo;
 }
@@ -101,7 +101,7 @@ decl_error! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
 
         type Error = Error<T>;
 
