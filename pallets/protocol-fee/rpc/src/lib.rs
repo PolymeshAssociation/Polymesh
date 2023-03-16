@@ -13,8 +13,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
-use jsonrpc_derive::rpc;
+use jsonrpsee::{
+    core::RpcResult,
+    proc_macros::rpc,
+    types::error::{CallError, ErrorObject},
+};
+use node_rpc::Error;
 pub use pallet_protocol_fee_rpc_runtime_api::{CappedFee, ProtocolFeeApi as ProtocolFeeRuntimeApi};
 use polymesh_common_utilities::protocol_fee::ProtocolOp;
 use sp_api::ProvideRuntimeApi;
@@ -22,10 +26,10 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
 
-#[rpc]
+#[rpc(client, server)]
 pub trait ProtocolFeeApi<BlockHash> {
-    #[rpc(name = "protocolFee_computeFee")]
-    fn compute_fee(&self, op: ProtocolOp, at: Option<BlockHash>) -> Result<CappedFee>;
+    #[method(name = "protocolFee_computeFee")]
+    fn compute_fee(&self, op: ProtocolOp, at: Option<BlockHash>) -> RpcResult<CappedFee>;
 }
 
 /// A struct that implements the [`ProtocolFeeApi`].
@@ -44,36 +48,29 @@ impl<C, M> ProtocolFee<C, M> {
     }
 }
 
-/// Error type of this RPC API.
-pub enum Error {
-    /// The transaction was not decodable.
-    DecodeError = 1,
-    /// The call to runtime failed.
-    RuntimeError = 2,
-}
-
-impl<C, Block> ProtocolFeeApi<<Block as BlockT>::Hash> for ProtocolFee<C, Block>
+impl<C, Block> ProtocolFeeApiServer<<Block as BlockT>::Hash> for ProtocolFee<C, Block>
 where
     Block: BlockT,
-    C: Send + Sync + 'static,
-    C: ProvideRuntimeApi<Block>,
-    C: HeaderBackend<Block>,
+    C: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
     C::Api: ProtocolFeeRuntimeApi<Block>,
 {
     fn compute_fee(
         &self,
         op: ProtocolOp,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<CappedFee> {
+    ) -> RpcResult<CappedFee> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
 
-        api.compute_fee(&at, op).map_err(|e| RpcError {
-            code: ErrorCode::ServerError(Error::RuntimeError as i64),
-            message: "Unable to query dispatch info.".into(),
-            data: Some(format!("{:?}", e).into()),
+        api.compute_fee(&at, op).map_err(|e| {
+            CallError::Custom(ErrorObject::owned(
+                Error::RuntimeError.into(),
+                "Unable to query dispatch info.",
+                Some(e.to_string()),
+            ))
+            .into()
         })
     }
 }

@@ -33,7 +33,7 @@ pub mod logger {
     use frame_system::{ensure_root, ensure_signed};
 
     pub trait Config: frame_system::Config {
-        type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
     }
 
     decl_storage! {
@@ -51,7 +51,7 @@ pub mod logger {
     }
 
     decl_module! {
-        pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::Origin {
+        pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::RuntimeOrigin {
             fn deposit_event() = default;
 
             #[weight = *weight]
@@ -91,7 +91,7 @@ frame_support::construct_runtime!(
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
-    pub const MaximumBlockWeight: Weight = 1024;
+    pub const MaximumBlockWeight: Weight = Weight::from_ref_time(1024);
     pub const MaximumBlockLength: u32 = 2 * 1024;
     pub const AvailableBlockRatio: Perbill = Perbill::one();
 }
@@ -100,8 +100,8 @@ impl frame_system::Config for Test {
     type BaseCallFilter = frame_support::traits::Everything;
     type BlockWeights = ();
     type BlockLength = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = u64;
     type BlockNumber = u64;
     type Hash = H256;
@@ -109,7 +109,7 @@ impl frame_system::Config for Test {
     type AccountId = u64;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type DbWeight = ();
     type Version = ();
@@ -124,12 +124,12 @@ impl frame_system::Config for Test {
 }
 
 impl sudo::Config for Test {
-    type Event = Event;
-    type Call = Call;
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
 }
 
 impl logger::Config for Test {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
 }
 
 // New types for dispatchable functions.

@@ -10,14 +10,14 @@ use pallet_test_utils as test_utils;
 use polymesh_common_utilities::traits::transaction_payment::CddAndFeeDetails;
 use polymesh_common_utilities::Context;
 use polymesh_primitives::{InvestorUid, Signatory, TransactionError};
-use polymesh_runtime_develop::runtime::{Call, CddHandler};
+use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall};
 use sp_runtime::transaction_validity::InvalidTransaction;
 use test_client::AccountKeyring;
 
 type MultiSig = multisig::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type Identity = identity::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Config>::Origin;
+type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 
 #[test]
 fn cdd_checks() {
@@ -43,7 +43,7 @@ fn cdd_checks() {
             // register did bypasses cdd checks
             assert_eq!(
                 CddHandler::get_valid_payer(
-                    &Call::TestUtils(test_utils::Call::register_did {
+                    &RuntimeCall::TestUtils(test_utils::Call::register_did {
                         uid: InvestorUid::default(),
                         secondary_keys: Default::default()
                     }),
@@ -58,7 +58,9 @@ fn cdd_checks() {
             // normal tx without cdd should fail
             assert_noop!(
                 CddHandler::get_valid_payer(
-                    &Call::MultiSig(multisig::Call::change_sigs_required { sigs_required: 1 }),
+                    &RuntimeCall::MultiSig(multisig::Call::change_sigs_required {
+                        sigs_required: 1
+                    }),
                     &alice_account
                 ),
                 InvalidTransaction::Custom(TransactionError::CddRequired as u8)
@@ -70,7 +72,9 @@ fn cdd_checks() {
             // call to accept being a multisig signer should fail when invalid auth
             assert_noop!(
                 CddHandler::get_valid_payer(
-                    &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key { auth_id: 0 }),
+                    &RuntimeCall::MultiSig(multisig::Call::accept_multisig_signer_as_key {
+                        auth_id: 0
+                    }),
                     &alice_account
                 ),
                 InvalidTransaction::Custom(TransactionError::InvalidAuthorization as u8)
@@ -86,7 +90,7 @@ fn cdd_checks() {
             let alice_auth_id = get_last_auth_id(&alice_key_signatory);
             assert_noop!(
                 CddHandler::get_valid_payer(
-                    &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key {
+                    &RuntimeCall::MultiSig(multisig::Call::accept_multisig_signer_as_key {
                         auth_id: alice_auth_id
                     }),
                     &alice_account
@@ -100,7 +104,7 @@ fn cdd_checks() {
             // call to remove authorisation with issuer paying should fail if issuer does not have a valid cdd
             assert_noop!(
                 CddHandler::get_valid_payer(
-                    &Call::Identity(identity::Call::remove_authorization {
+                    &RuntimeCall::Identity(identity::Call::remove_authorization {
                         target: alice_account_signatory.clone(),
                         auth_id: alice_auth_id,
                         _auth_issuer_pays: true
@@ -113,7 +117,7 @@ fn cdd_checks() {
             // call to remove authorisation with caller paying should fail if caller does not have a valid cdd
             assert_noop!(
                 CddHandler::get_valid_payer(
-                    &Call::Identity(identity::Call::remove_authorization {
+                    &RuntimeCall::Identity(identity::Call::remove_authorization {
                         target: alice_account_signatory.clone(),
                         auth_id: alice_auth_id,
                         _auth_issuer_pays: false
@@ -134,7 +138,7 @@ fn cdd_checks() {
             // call to remove authorisation with caller paying should fail if caller does not have a valid cdd
             assert_noop!(
                 CddHandler::get_valid_payer(
-                    &Call::Identity(identity::Call::remove_authorization {
+                    &RuntimeCall::Identity(identity::Call::remove_authorization {
                         target: alice_account_signatory.clone(),
                         auth_id: alice_auth_id,
                         _auth_issuer_pays: false
@@ -147,7 +151,7 @@ fn cdd_checks() {
             // call to remove authorisation with issuer paying should succeed as issuer has CDD
             assert_eq!(
                 CddHandler::get_valid_payer(
-                    &Call::Identity(identity::Call::remove_authorization {
+                    &RuntimeCall::Identity(identity::Call::remove_authorization {
                         target: alice_account_signatory,
                         auth_id: alice_auth_id,
                         _auth_issuer_pays: true
@@ -171,7 +175,7 @@ fn cdd_checks() {
             // call to remove authorisation with issuer paying should fail if issuer does not have a valid cdd
             assert_noop!(
                 CddHandler::get_valid_payer(
-                    &Call::Identity(identity::Call::remove_authorization {
+                    &RuntimeCall::Identity(identity::Call::remove_authorization {
                         target: charlie_account_signatory.clone(),
                         auth_id: charlie_auth_id,
                         _auth_issuer_pays: true
@@ -184,7 +188,7 @@ fn cdd_checks() {
             // call to remove authorisation with caller paying should succeed as caller has CDD
             assert_eq!(
                 CddHandler::get_valid_payer(
-                    &Call::Identity(identity::Call::remove_authorization {
+                    &RuntimeCall::Identity(identity::Call::remove_authorization {
                         target: charlie_account_signatory,
                         auth_id: charlie_auth_id,
                         _auth_issuer_pays: false
@@ -208,7 +212,7 @@ fn cdd_checks() {
 
             assert_eq!(
                 CddHandler::get_valid_payer(
-                    &Call::MultiSig(multisig::Call::accept_multisig_signer_as_key {
+                    &RuntimeCall::MultiSig(multisig::Call::accept_multisig_signer_as_key {
                         auth_id: alice_auth_id
                     }),
                     &alice_account
@@ -219,7 +223,9 @@ fn cdd_checks() {
             // normal tx with cdd should succeed
             assert_eq!(
                 CddHandler::get_valid_payer(
-                    &Call::MultiSig(multisig::Call::change_sigs_required { sigs_required: 1 }),
+                    &RuntimeCall::MultiSig(multisig::Call::change_sigs_required {
+                        sigs_required: 1
+                    }),
                     &charlie_account
                 ),
                 Ok(Some(AccountKeyring::Charlie.to_account_id()))

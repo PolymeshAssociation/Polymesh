@@ -10,34 +10,32 @@ repository = "https://github.com/PolymeshAssociation/substrate"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+jsonrpsee = { version = "0.15.1", features = ["server"] }
+
 polymesh-primitives = { path = "../primitives", default-features = false }
-pallet-contracts-rpc = { version = "4.0.0-dev" }
 pallet-group-rpc = { path = "../pallets/group/rpc" }
 pallet-staking-rpc = { path = "../pallets/staking/rpc" }
 pallet-protocol-fee-rpc = {  path = "../pallets/protocol-fee/rpc" }
 node-rpc = { path = "../rpc" }
 
-jsonrpc-core = { version = "18.0.0", features = ["arbitrary_precision"] }
-
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false }
-sp-blockchain = { version = "4.0.0-dev" }
-sp-runtime = { version = "6.0.0" }
-sp-api = { version = "4.0.0-dev" }
-sc-client-api = { version = "4.0.0-dev" }
-sp-consensus = { version = "0.10.0-dev" }
-sp-consensus-babe = { version = "0.10.0-dev" }
-sp-block-builder = { version = "4.0.0-dev" }
-sp-keystore = { version = "0.12.0" }
-
-sc-rpc = { version = "4.0.0-dev" }
-sc-rpc-api = { version = "0.10.0-dev" }
 sc-chain-spec = { version = "4.0.0-dev" }
+sc-client-api = { version = "4.0.0-dev" }
 sc-consensus-babe = { version = "0.10.0-dev" }
 sc-consensus-babe-rpc = { version = "0.10.0-dev" }
 sc-consensus-epochs = { version = "0.10.0-dev" }
 sc-finality-grandpa = { version = "0.10.0-dev" }
 sc-finality-grandpa-rpc = { version = "0.10.0-dev" }
-sc-keystore = { version = "4.0.0-dev" }
+sc-rpc = { version = "4.0.0-dev" }
+sc-rpc-api = { version = "0.10.0-dev" }
+sc-rpc-spec-v2 = { version = "0.10.0-dev" }
 sc-sync-state-rpc = { version = "0.10.0-dev" }
 sc-transaction-pool-api = { version = "4.0.0-dev" }
+sp-api = { version = "4.0.0-dev" }
+sp-block-builder = { version = "4.0.0-dev" }
+sp-blockchain = { version = "4.0.0-dev" }
+sp-consensus = { version = "0.10.0-dev" }
+sp-consensus-babe = { version = "0.10.0-dev" }
+sp-keystore = { version = "0.13.0" }
+sp-runtime = { version = "7.0.0" }
 substrate-frame-rpc-system = { version = "4.0.0-dev" }
+substrate-state-trie-migration-rpc = { version = "4.0.0-dev" }

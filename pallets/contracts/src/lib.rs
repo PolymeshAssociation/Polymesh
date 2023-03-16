@@ -55,7 +55,7 @@
 pub mod benchmarking;
 
 pub mod chain_extension;
-pub use chain_extension::ExtrinsicId;
+pub use chain_extension::{ExtrinsicId, PolymeshExtension};
 
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -75,10 +75,9 @@ use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
 use polymesh_common_utilities::with_transaction;
 use polymesh_primitives::{Balance, Permissions};
 use sp_core::crypto::UncheckedFrom;
-use sp_core::Bytes;
 use sp_runtime::traits::Hash;
 use sp_std::borrow::Cow;
-use sp_std::vec::Vec;
+use sp_std::{vec, vec::Vec};
 
 type Identity<T> = pallet_identity::Module<T>;
 type IdentityError<T> = pallet_identity::Error<T>;
@@ -130,7 +129,7 @@ macro_rules! cost {
 
 macro_rules! cost_batched {
     ($name:ident) => {
-        cost!($name) / Weight::from(CHAIN_EXTENSION_BATCH_SIZE)
+        cost!($name) / u64::from(CHAIN_EXTENSION_BATCH_SIZE)
     };
 }
 
@@ -193,19 +192,19 @@ pub trait WeightInfo {
     fn hash_twox_64(r: u32) -> Weight {
         let per_byte = cost_byte_batched!(chain_extension_hash_twox_64_per_kb);
         cost_batched!(chain_extension_hash_twox_64)
-            .saturating_add(per_byte.saturating_mul(r as Weight))
+            .saturating_add(per_byte.saturating_mul(r as u64))
     }
 
     fn hash_twox_128(r: u32) -> Weight {
         let per_byte = cost_byte_batched!(chain_extension_hash_twox_128_per_kb);
         cost_batched!(chain_extension_hash_twox_128)
-            .saturating_add(per_byte.saturating_mul(r as Weight))
+            .saturating_add(per_byte.saturating_mul(r as u64))
     }
 
     fn hash_twox_256(r: u32) -> Weight {
         let per_byte = cost_byte_batched!(chain_extension_hash_twox_256_per_kb);
         cost_batched!(chain_extension_hash_twox_256)
-            .saturating_add(per_byte.saturating_mul(r as Weight))
+            .saturating_add(per_byte.saturating_mul(r as u64))
     }
 
     fn call_runtime(in_len: u32) -> Weight {
@@ -220,7 +219,7 @@ pub trait Config:
     IdentityConfig + BConfig<Currency = Self::Balances> + frame_system::Config
 {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
 
     /// Max value that `in_len` can take, that is,
     /// the length of the data sent from a contract when using the ChainExtension.
@@ -280,7 +279,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin, T::AccountId: UncheckedFrom<T::Hash>, T::AccountId: AsRef<[u8]> {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin, T::AccountId: UncheckedFrom<T::Hash>, T::AccountId: AsRef<[u8]> {
         type Error = Error<T>;
         fn deposit_event() = default;
 
@@ -381,7 +380,7 @@ where
 {
     /// Instantiates a contract using `code` as the WASM code blob.
     fn base_update_call_runtime_whitelist(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         updates: Vec<(ExtrinsicId, bool)>,
     ) -> DispatchResult {
         ensure_root(origin)?;
@@ -406,7 +405,7 @@ where
 
     /// Instantiates a contract using `code` as the WASM code blob.
     fn base_instantiate_with_code(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         endowment: Balance,
         gas_limit: Weight,
         storage_deposit_limit: Option<Balance>,
@@ -422,7 +421,7 @@ where
             Self::weight_instantiate_with_code(&code, &salt, &perms),
             gas_limit,
             storage_deposit_limit,
-            Code::Upload(Bytes(code)),
+            Code::Upload(code),
             inst_data,
             salt,
             perms,
@@ -438,7 +437,7 @@ where
 
     /// Instantiates a contract using an existing WASM code blob with `code_hash` as its code.
     fn base_instantiate_with_hash(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         endowment: Balance,
         gas_limit: Weight,
         storage_deposit_limit: Option<Balance>,
@@ -476,7 +475,7 @@ where
     /// - `code` specifies the code for the contract, either as a code blob or an existing hash.
     ///   The hash of `code` in either case is assumed to correspond to `code_hash`.
     fn general_instantiate(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         endowment: Balance,
         base_weight: Weight,
         gas_limit: Weight,

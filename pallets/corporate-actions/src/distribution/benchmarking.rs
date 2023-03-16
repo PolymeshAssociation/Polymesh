@@ -30,7 +30,7 @@ const MAX_DID_WHT_IDS: u32 = 1000;
 
 fn portfolio<T: Config>(owner: &User<T>, pnum: PortfolioNumber, ticker: Ticker, amount: Balance) {
     let did = owner.did();
-    let origin: T::Origin = owner.origin().into();
+    let origin: T::RuntimeOrigin = owner.origin().into();
     <Portfolio<T>>::create_portfolio(origin.clone(), "portfolio".into()).unwrap();
     <Portfolio<T>>::move_portfolio_funds(
         origin,

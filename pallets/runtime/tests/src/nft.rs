@@ -15,6 +15,7 @@ use polymesh_primitives::{
 };
 use test_client::AccountKeyring;
 
+use super::asset_test::set_timestamp;
 use crate::ext_builder::ExtBuilder;
 use crate::storage::{TestStorage, User};
 
@@ -25,13 +26,12 @@ type NFT = pallet_nft::Module<TestStorage>;
 type NFTError = pallet_nft::Error<TestStorage>;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
-type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 
 /// Successfully creates an NFT collection and an Asset.
 #[test]
 fn create_collection_unregistered_ticker() {
     ExtBuilder::default().build().execute_with(|| {
-        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+        set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
@@ -56,7 +56,7 @@ fn create_collection_unregistered_ticker() {
 #[test]
 fn create_collection_invalid_asset_type() {
     ExtBuilder::default().build().execute_with(|| {
-        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+        set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
@@ -85,7 +85,7 @@ fn create_collection_invalid_asset_type() {
 #[test]
 fn create_collection_already_registered() {
     ExtBuilder::default().build().execute_with(|| {
-        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+        set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
@@ -109,7 +109,7 @@ fn create_collection_already_registered() {
 #[test]
 fn create_collection_max_keys_exceeded() {
     ExtBuilder::default().build().execute_with(|| {
-        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+        set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
@@ -133,7 +133,7 @@ fn create_collection_max_keys_exceeded() {
 #[test]
 fn create_collection_duplicate_key() {
     ExtBuilder::default().build().execute_with(|| {
-        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+        set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
@@ -160,7 +160,7 @@ fn create_collection_duplicate_key() {
 #[test]
 fn create_collection_unregistered_key() {
     ExtBuilder::default().build().execute_with(|| {
-        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+        set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
@@ -221,7 +221,7 @@ pub(crate) fn create_nft_collection(
 #[test]
 fn mint_nft_collection_not_found() {
     ExtBuilder::default().build().execute_with(|| {
-        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+        set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
@@ -244,7 +244,7 @@ fn mint_nft_collection_not_found() {
 #[test]
 fn mint_nft_duplicate_key() {
     ExtBuilder::default().build().execute_with(|| {
-        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+        set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
@@ -285,7 +285,7 @@ fn mint_nft_duplicate_key() {
 #[test]
 fn mint_nft_wrong_number_of_keys() {
     ExtBuilder::default().build().execute_with(|| {
-        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+        set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
@@ -327,7 +327,7 @@ fn mint_nft_wrong_number_of_keys() {
 #[test]
 fn mint_nft_wrong_key() {
     ExtBuilder::default().build().execute_with(|| {
-        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+        set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
@@ -359,7 +359,7 @@ fn mint_nft_wrong_key() {
 #[test]
 fn mint_nft_portfolio_not_found() {
     ExtBuilder::default().build().execute_with(|| {
-        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+        set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
@@ -390,7 +390,7 @@ fn mint_nft_portfolio_not_found() {
 #[test]
 fn mint_nft_successfully() {
     ExtBuilder::default().build().execute_with(|| {
-        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+        set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
@@ -448,7 +448,7 @@ pub(crate) fn mint_nft(
 #[test]
 fn burn_nft_collection_not_found() {
     ExtBuilder::default().build().execute_with(|| {
-        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+        set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
@@ -464,7 +464,7 @@ fn burn_nft_collection_not_found() {
 #[test]
 fn burn_nft_not_found() {
     ExtBuilder::default().build().execute_with(|| {
-        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+        set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
@@ -488,7 +488,7 @@ fn burn_nft_not_found() {
 #[test]
 fn burn_nft() {
     ExtBuilder::default().build().execute_with(|| {
-        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+        set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
@@ -533,7 +533,7 @@ fn burn_nft() {
 #[test]
 fn transfer_nft_without_collection() {
     ExtBuilder::default().build().execute_with(|| {
-        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+        set_timestamp(Utc::now().timestamp() as _);
 
         let alice: User = User::new(AccountKeyring::Alice);
         let bob: User = User::new(AccountKeyring::Bob);
@@ -561,7 +561,7 @@ fn transfer_nft_without_collection() {
 #[test]
 fn transfer_nft_same_portfolio() {
     ExtBuilder::default().build().execute_with(|| {
-        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+        set_timestamp(Utc::now().timestamp() as _);
 
         // Creates a collection
         let alice: User = User::new(AccountKeyring::Alice);
@@ -598,7 +598,7 @@ fn transfer_nft_same_portfolio() {
 #[test]
 fn transfer_nft_invalid_count() {
     ExtBuilder::default().build().execute_with(|| {
-        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+        set_timestamp(Utc::now().timestamp() as _);
 
         // First we need to create a collection and mint one NFT
         let alice: User = User::new(AccountKeyring::Alice);
@@ -646,7 +646,7 @@ fn transfer_nft_invalid_count() {
 #[test]
 fn transfer_nft_not_owned() {
     ExtBuilder::default().build().execute_with(|| {
-        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+        set_timestamp(Utc::now().timestamp() as _);
 
         // First we need to create a collection and mint one NFT
         let alice: User = User::new(AccountKeyring::Alice);
@@ -694,7 +694,7 @@ fn transfer_nft_not_owned() {
 #[test]
 fn transfer_nft_failing_compliance() {
     ExtBuilder::default().build().execute_with(|| {
-        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+        set_timestamp(Utc::now().timestamp() as _);
 
         // First we need to create a collection and mint one NFT
         let alice: User = User::new(AccountKeyring::Alice);
@@ -742,7 +742,7 @@ fn transfer_nft_failing_compliance() {
 #[test]
 fn transfer_nft() {
     ExtBuilder::default().build().execute_with(|| {
-        Timestamp::set_timestamp(Utc::now().timestamp() as _);
+        set_timestamp(Utc::now().timestamp() as _);
 
         // First we need to create a collection and mint one NFT
         let alice: User = User::new(AccountKeyring::Alice);

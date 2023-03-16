@@ -30,7 +30,7 @@ use sp_std::vec::Vec;
 impl<T: Config> Module<T> {
     /// Adds an authorization.
     pub(crate) fn base_add_authorization(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         target: Signatory<T::AccountId>,
         authorization_data: AuthorizationData<T::AccountId>,
         expiry: Option<T::Moment>,
@@ -80,7 +80,7 @@ impl<T: Config> Module<T> {
 
     /// Removes an authorization.
     pub(crate) fn base_remove_authorization(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         target: Signatory<T::AccountId>,
         auth_id: u64,
     ) -> DispatchResult {

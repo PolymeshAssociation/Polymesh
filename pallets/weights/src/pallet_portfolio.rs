@@ -20,6 +20,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
 //! DATE: 2023-03-29, STEPS: `100`, REPEAT: 5, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! EXECUTION: Some(Wasm), WASM-EXECUTION: Compiled, CHAIN: None, DB CACHE: 512
+//! HOSTNAME: `dev-fsn001`, CPU: `AMD Ryzen 9 5950X 16-Core Processor`
 
 // Executed Command:
 // ./target/release/polymesh
@@ -50,16 +51,17 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_portfolio using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_portfolio::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_portfolio::WeightInfo for SubstrateWeight {
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Portfolio NameToNumber (r:1 w:1)
     // Storage: Portfolio NextPortfolioNumber (r:1 w:1)
     // Storage: Portfolio Portfolios (r:0 w:1)
     fn create_portfolio() -> Weight {
-        (121_886_000 as Weight)
-            .saturating_add(DbWeight::get().reads(3 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+        // Minimum execution time: 38_721 nanoseconds.
+        Weight::from_ref_time(121_886_000)
+            .saturating_add(DbWeight::get().reads(3))
+            .saturating_add(DbWeight::get().writes(3))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Portfolio PortfolioAssetCount (r:1 w:1)
@@ -70,9 +72,10 @@ impl pallet_portfolio::WeightInfo for WeightInfo {
     // Storage: Portfolio PortfoliosInCustody (r:0 w:1)
     // Storage: Portfolio NameToNumber (r:0 w:1)
     fn delete_portfolio() -> Weight {
-        (149_138_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(5 as Weight))
+        // Minimum execution time: 52_497 nanoseconds.
+        Weight::from_ref_time(149_138_000)
+            .saturating_add(DbWeight::get().reads(6))
+            .saturating_add(DbWeight::get().writes(5))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Portfolio Portfolios (r:1 w:0)
@@ -81,32 +84,37 @@ impl pallet_portfolio::WeightInfo for WeightInfo {
     // Storage: Portfolio PortfolioAssetBalances (r:2 w:2)
     // Storage: Portfolio PortfolioLockedAssets (r:1 w:0)
     // Storage: Portfolio PortfolioAssetCount (r:2 w:2)
+    /// The range of component `a` is `[1, 500]`.
     fn move_portfolio_funds(a: u32) -> Weight {
-        (0 as Weight)
-            // Standard Error: 308_000
-            .saturating_add((51_407_000 as Weight).saturating_mul(a as Weight))
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().reads((4 as Weight).saturating_mul(a as Weight)))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
-            .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(a as Weight)))
+        // Minimum execution time: 58_878 nanoseconds.
+        Weight::from_ref_time(0)
+            // Standard Error: 28_100
+            .saturating_add(Weight::from_ref_time(51_407_000).saturating_mul(a.into()))
+            .saturating_add(DbWeight::get().reads(5))
+            .saturating_add(DbWeight::get().reads((4_u64).saturating_mul(a.into())))
+            .saturating_add(DbWeight::get().writes(2))
+            .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(a.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Portfolio Portfolios (r:1 w:1)
     // Storage: Portfolio NameToNumber (r:1 w:2)
+    /// The range of component `i` is `[1, 500]`.
     fn rename_portfolio(i: u32) -> Weight {
-        (75_868_000 as Weight)
-            // Standard Error: 5_000
-            .saturating_add((27_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add(DbWeight::get().reads(3 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+        // Minimum execution time: 41_106 nanoseconds.
+        Weight::from_ref_time(75_868_000)
+            // Standard Error: 1_134
+            .saturating_add(Weight::from_ref_time(27_000).saturating_mul(i.into()))
+            .saturating_add(DbWeight::get().reads(3))
+            .saturating_add(DbWeight::get().writes(3))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Portfolio PortfolioCustodian (r:1 w:1)
     // Storage: Portfolio PortfoliosInCustody (r:0 w:1)
     fn quit_portfolio_custody() -> Weight {
-        (64_351_000 as Weight)
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        // Minimum execution time: 37_319 nanoseconds.
+        Weight::from_ref_time(64_351_000)
+            .saturating_add(DbWeight::get().reads(2))
+            .saturating_add(DbWeight::get().writes(2))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity Authorizations (r:1 w:1)
@@ -114,9 +122,10 @@ impl pallet_portfolio::WeightInfo for WeightInfo {
     // Storage: Portfolio PortfoliosInCustody (r:0 w:2)
     // Storage: Identity AuthorizationsGiven (r:0 w:1)
     fn accept_portfolio_custody() -> Weight {
-        (95_261_000 as Weight)
-            .saturating_add(DbWeight::get().reads(3 as Weight))
-            .saturating_add(DbWeight::get().writes(5 as Weight))
+        // Minimum execution time: 50_784 nanoseconds.
+        Weight::from_ref_time(95_261_000)
+            .saturating_add(DbWeight::get().reads(3))
+            .saturating_add(DbWeight::get().writes(5))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Portfolio Portfolios (r:1 w:0)
@@ -128,16 +137,16 @@ impl pallet_portfolio::WeightInfo for WeightInfo {
     // Storage: Portfolio PortfolioLockedAssets (r:1 w:0)
     // Storage: Portfolio PortfolioAssetCount (r:1 w:1)
     fn move_portfolio_funds_v2(f: u32, n: u32) -> Weight {
-        (7_128_000 as Weight)
-            // Standard Error: 11_049_000
-            .saturating_add((60_935_000 as Weight).saturating_mul(f as Weight))
-            // Standard Error: 555_000
-            .saturating_add((21_991_000 as Weight).saturating_mul(n as Weight))
-            .saturating_add(DbWeight::get().reads(4 as Weight))
-            .saturating_add(DbWeight::get().reads((4 as Weight).saturating_mul(f as Weight)))
-            .saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(n as Weight)))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
-            .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(f as Weight)))
-            .saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(n as Weight)))
+        Weight::from_ref_time(7_128_000 as u64)
+            // Standard Error: 473_000
+            .saturating_add(Weight::from_ref_time(60_935_000 as u64).saturating_mul(f as u64))
+            // Standard Error: 23_000
+            .saturating_add(Weight::from_ref_time(21_991_000 as u64).saturating_mul(n as u64))
+            .saturating_add(DbWeight::get().reads(4 as u64))
+            .saturating_add(DbWeight::get().reads((4 as u64).saturating_mul(f as u64)))
+            .saturating_add(DbWeight::get().reads((2 as u64).saturating_mul(n as u64)))
+            .saturating_add(DbWeight::get().writes(1 as u64))
+            .saturating_add(DbWeight::get().writes((2 as u64).saturating_mul(f as u64)))
+            .saturating_add(DbWeight::get().writes((2 as u64).saturating_mul(n as u64)))
     }
 }

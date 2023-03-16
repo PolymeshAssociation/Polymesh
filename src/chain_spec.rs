@@ -385,14 +385,14 @@ fn genesis_processed_data(
 
     complete_txs.push(BridgeTx {
         nonce: treasury_bridge_lock.nonce,
-        recipient: TREASURY_PALLET_ID.into_account(),
+        recipient: TREASURY_PALLET_ID.into_account_truncating(),
         amount: treasury_bridge_lock.amount,
         tx_hash: treasury_bridge_lock.tx_hash,
     });
 
     complete_txs.push(BridgeTx {
         nonce: rewards_bridge_lock.nonce,
-        recipient: REWARDS_PALLET_ID.into_account(),
+        recipient: REWARDS_PALLET_ID.into_account_truncating(),
         amount: rewards_bridge_lock.amount,
         tx_hash: rewards_bridge_lock.tx_hash,
     });
@@ -459,14 +459,14 @@ fn dev_genesis_processed_data(
 
     complete_txs.push(BridgeTx {
         nonce: treasury_bridge_lock.nonce,
-        recipient: TREASURY_PALLET_ID.into_account(),
+        recipient: TREASURY_PALLET_ID.into_account_truncating(),
         amount: BOOTSTRAP_TREASURY,
         tx_hash: treasury_bridge_lock.tx_hash,
     });
 
     complete_txs.push(BridgeTx {
         nonce: rewards_bridge_lock.nonce,
-        recipient: REWARDS_PALLET_ID.into_account(),
+        recipient: REWARDS_PALLET_ID.into_account_truncating(),
         amount: itn_rewards().into_iter().map(|(_, b)| b + ONE_POLY).sum(),
         tx_hash: rewards_bridge_lock.tx_hash,
     });

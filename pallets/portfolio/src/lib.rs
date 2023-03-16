@@ -67,7 +67,7 @@ use polymesh_primitives::{
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::Zero;
 use sp_std::collections::btree_set::BTreeSet;
-use sp_std::prelude::Vec;
+use sp_std::prelude::*;
 
 type Identity<T> = identity::Module<T>;
 
@@ -177,7 +177,7 @@ decl_error! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         type Error = Error<T>;
 
         /// The event logger.
@@ -227,7 +227,9 @@ decl_module! {
             Portfolios::remove(&primary_did, &num);
             NameToNumber::remove(&primary_did, &portfolio);
             PortfolioAssetCount::remove(&pid);
+            #[allow(deprecated)]
             PortfolioAssetBalances::remove_prefix(&pid, None);
+            #[allow(deprecated)]
             PortfolioLockedAssets::remove_prefix(&pid, None);
             PortfoliosInCustody::remove(&Self::custodian(&pid), &pid);
             PortfolioCustodian::remove(&pid);
@@ -408,7 +410,7 @@ decl_module! {
                 );
             });
 
-            0
+            Weight::zero()
         }
     }
 }
@@ -638,7 +640,7 @@ impl<T: Config> Module<T> {
         PortfolioLockedAssets::mutate(portfolio, ticker, |l| *l = l.saturating_add(amount));
     }
 
-    fn base_accept_portfolio_custody(origin: T::Origin, auth_id: u64) -> DispatchResult {
+    fn base_accept_portfolio_custody(origin: T::RuntimeOrigin, auth_id: u64) -> DispatchResult {
         let to = Identity::<T>::ensure_perms(origin)?;
         Identity::<T>::accept_auth_with(&to.into(), auth_id, |data, from| {
             let pid = extract_auth!(data, PortfolioCustody(p));
@@ -664,7 +666,7 @@ impl<T: Config> Module<T> {
     /// Verifies if the portfolios are different, if the move is between the same identity, if the receiving portfolio exists,
     /// and if the user has access to both portfolios.
     fn ensure_portfolios_validity_and_permissions(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         from: PortfolioId,
         to: PortfolioId,
     ) -> Result<IdentityId, DispatchError> {

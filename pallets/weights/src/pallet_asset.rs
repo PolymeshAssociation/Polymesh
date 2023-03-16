@@ -20,6 +20,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
 //! DATE: 2023-03-29, STEPS: `100`, REPEAT: 5, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! EXECUTION: Some(Wasm), WASM-EXECUTION: Compiled, CHAIN: None, DB CACHE: 512
+//! HOSTNAME: `dev-fsn001`, CPU: `AMD Ryzen 9 5950X 16-Core Processor`
 
 // Executed Command:
 // ./target/release/polymesh
@@ -50,8 +51,8 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_asset using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_asset::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Asset Tokens (r:1 w:0)
     // Storage: Asset TickerConfig (r:1 w:0)
@@ -63,9 +64,10 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Asset AssetOwnershipRelations (r:0 w:1)
     // Storage: Asset ClassicTickers (r:0 w:1)
     fn register_ticker() -> Weight {
-        (86_666_000 as Weight)
-            .saturating_add(DbWeight::get().reads(8 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+        // Minimum execution time: 53_809 nanoseconds.
+        Weight::from_ref_time(86_666_000)
+            .saturating_add(DbWeight::get().reads(8))
+            .saturating_add(DbWeight::get().writes(3))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity Authorizations (r:1 w:1)
@@ -75,9 +77,10 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Asset AssetOwnershipRelations (r:0 w:2)
     // Storage: Asset ClassicTickers (r:0 w:1)
     fn accept_ticker_transfer() -> Weight {
-        (113_044_000 as Weight)
-            .saturating_add(DbWeight::get().reads(4 as Weight))
-            .saturating_add(DbWeight::get().writes(6 as Weight))
+        // Minimum execution time: 59_149 nanoseconds.
+        Weight::from_ref_time(113_044_000)
+            .saturating_add(DbWeight::get().reads(4))
+            .saturating_add(DbWeight::get().writes(6))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity Authorizations (r:1 w:1)
@@ -89,9 +92,10 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Identity AuthorizationsGiven (r:0 w:1)
     // Storage: Asset AssetOwnershipRelations (r:0 w:2)
     fn accept_asset_ownership_transfer() -> Weight {
-        (125_338_000 as Weight)
-            .saturating_add(DbWeight::get().reads(7 as Weight))
-            .saturating_add(DbWeight::get().writes(6 as Weight))
+        // Minimum execution time: 72_134 nanoseconds.
+        Weight::from_ref_time(125_338_000)
+            .saturating_add(DbWeight::get().reads(7))
+            .saturating_add(DbWeight::get().writes(6))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Asset Tokens (r:1 w:1)
@@ -111,12 +115,16 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Asset Identifiers (r:0 w:1)
     // Storage: ExternalAgents AgentOf (r:0 w:1)
     // Storage: ExternalAgents GroupOfAgent (r:0 w:1)
+    /// The range of component `n` is `[1, 128]`.
+    /// The range of component `i` is `[1, 512]`.
+    /// The range of component `f` is `[1, 128]`.
     fn create_asset(_n: u32, i: u32, _f: u32) -> Weight {
-        (206_807_000 as Weight)
-            // Standard Error: 15_000
-            .saturating_add((158_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add(DbWeight::get().reads(11 as Weight))
-            .saturating_add(DbWeight::get().writes(12 as Weight))
+        // Minimum execution time: 98_963 nanoseconds.
+        Weight::from_ref_time(206_807_000)
+            // Manually set weight for `i`
+            .saturating_add(Weight::from_ref_time(158_000).saturating_mul(i.into()))
+            .saturating_add(DbWeight::get().reads(11))
+            .saturating_add(DbWeight::get().writes(12))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -125,9 +133,10 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Asset Tokens (r:1 w:0)
     // Storage: Asset Frozen (r:1 w:1)
     fn freeze() -> Weight {
-        (69_060_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        // Minimum execution time: 45_164 nanoseconds.
+        Weight::from_ref_time(69_060_000)
+            .saturating_add(DbWeight::get().reads(6))
+            .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -136,9 +145,10 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Asset Tokens (r:1 w:0)
     // Storage: Asset Frozen (r:1 w:1)
     fn unfreeze() -> Weight {
-        (83_098_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        // Minimum execution time: 46_366 nanoseconds.
+        Weight::from_ref_time(83_098_000)
+            .saturating_add(DbWeight::get().reads(6))
+            .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Asset Tokens (r:1 w:0)
     // Storage: Identity KeyRecords (r:1 w:0)
@@ -146,10 +156,13 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentPalletName (r:1 w:0)
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: Asset AssetNames (r:0 w:1)
+    /// The range of component `n` is `[1, 128]`.
     fn rename_asset(_n: u32) -> Weight {
-        (80_111_000 as Weight)
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        // Minimum execution time: 43_360 nanoseconds.
+        Weight::from_ref_time(80_111_000)
+            // Standard Error: 924
+            .saturating_add(DbWeight::get().reads(5))
+            .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -159,7 +172,6 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Asset Tokens (r:1 w:1)
     // Storage: Asset BalanceOf (r:1 w:1)
     // Storage: Portfolio PortfolioAssetBalances (r:1 w:1)
-    // Storage: unknown [0x3a7472616e73616374696f6e5f6c6576656c3a] (r:1 w:1)
     // Storage: ProtocolFee Coefficient (r:1 w:0)
     // Storage: ProtocolFee BaseFees (r:1 w:0)
     // Storage: Checkpoint Schedules (r:1 w:0)
@@ -171,9 +183,10 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Asset IssuedInFundingRound (r:1 w:1)
     // Storage: Asset BalanceOfAtScope (r:0 w:1)
     fn issue() -> Weight {
-        (163_187_000 as Weight)
-            .saturating_add(DbWeight::get().reads(18 as Weight))
-            .saturating_add(DbWeight::get().writes(7 as Weight))
+        // Minimum execution time: 93_723 nanoseconds.
+        Weight::from_ref_time(163_187_000)
+            .saturating_add(DbWeight::get().reads(18))
+            .saturating_add(DbWeight::get().writes(7))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -181,7 +194,6 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: Portfolio PortfolioCustodian (r:1 w:0)
     // Storage: Asset Tokens (r:1 w:1)
-    // Storage: unknown [0x3a7472616e73616374696f6e5f6c6576656c3a] (r:1 w:1)
     // Storage: Portfolio PortfolioAssetBalances (r:1 w:1)
     // Storage: Portfolio PortfolioLockedAssets (r:1 w:0)
     // Storage: Asset BalanceOf (r:1 w:1)
@@ -192,9 +204,10 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Statistics ActiveAssetStats (r:1 w:0)
     // Storage: Asset BalanceOfAtScope (r:0 w:1)
     fn redeem() -> Weight {
-        (185_602_000 as Weight)
-            .saturating_add(DbWeight::get().reads(15 as Weight))
-            .saturating_add(DbWeight::get().writes(6 as Weight))
+        // Minimum execution time: 90_156 nanoseconds.
+        Weight::from_ref_time(185_602_000)
+            .saturating_add(DbWeight::get().reads(15))
+            .saturating_add(DbWeight::get().writes(6))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -202,9 +215,10 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: Asset Tokens (r:1 w:1)
     fn make_divisible() -> Weight {
-        (63_399_000 as Weight)
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        // Minimum execution time: 43_921 nanoseconds.
+        Weight::from_ref_time(63_399_000)
+            .saturating_add(DbWeight::get().reads(5))
+            .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -214,49 +228,57 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: ProtocolFee Coefficient (r:1 w:0)
     // Storage: ProtocolFee BaseFees (r:1 w:0)
     // Storage: Asset AssetDocuments (r:0 w:1)
+    /// The range of component `d` is `[1, 64]`.
     fn add_documents(d: u32) -> Weight {
-        (41_245_000 as Weight)
-            // Standard Error: 570_000
-            .saturating_add((22_617_000 as Weight).saturating_mul(d as Weight))
-            .saturating_add(DbWeight::get().reads(7 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
-            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(d as Weight)))
+        // Minimum execution time: 56_915 nanoseconds.
+        Weight::from_ref_time(41_245_000)
+            // Standard Error: 18_514
+            .saturating_add(Weight::from_ref_time(22_617_000).saturating_mul(d.into()))
+            .saturating_add(DbWeight::get().reads(7))
+            .saturating_add(DbWeight::get().writes(1))
+            .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(d.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
     // Storage: Permissions CurrentPalletName (r:1 w:0)
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: Asset AssetDocuments (r:0 w:1)
+    /// The range of component `d` is `[1, 64]`.
     fn remove_documents(d: u32) -> Weight {
-        (65_487_000 as Weight)
-            // Standard Error: 228_000
-            .saturating_add((9_167_000 as Weight).saturating_mul(d as Weight))
-            .saturating_add(DbWeight::get().reads(4 as Weight))
-            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(d as Weight)))
+        // Minimum execution time: 31_147 nanoseconds.
+        Weight::from_ref_time(65_487_000)
+            // Standard Error: 14_496
+            .saturating_add(Weight::from_ref_time(9_167_000).saturating_mul(d.into()))
+            .saturating_add(DbWeight::get().reads(4))
+            .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(d.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
     // Storage: Permissions CurrentPalletName (r:1 w:0)
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: Asset FundingRound (r:0 w:1)
+    /// The range of component `f` is `[1, 128]`.
     fn set_funding_round(f: u32) -> Weight {
-        (67_236_000 as Weight)
-            // Standard Error: 29_000
-            .saturating_add((59_000 as Weight).saturating_mul(f as Weight))
-            .saturating_add(DbWeight::get().reads(4 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        // Minimum execution time: 38_311 nanoseconds.
+        Weight::from_ref_time(67_236_000)
+            // Standard Error: 7_975
+            .saturating_add(Weight::from_ref_time(59_000).saturating_mul(f.into()))
+            .saturating_add(DbWeight::get().reads(4))
+            .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
     // Storage: Permissions CurrentPalletName (r:1 w:0)
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     // Storage: Asset Identifiers (r:0 w:1)
+    /// The range of component `i` is `[1, 512]`.
     fn update_identifiers(i: u32) -> Weight {
-        (73_881_000 as Weight)
-            // Standard Error: 9_000
-            .saturating_add((121_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add(DbWeight::get().reads(4 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        // Minimum execution time: 39_563 nanoseconds.
+        Weight::from_ref_time(73_881_000)
+            // Standard Error: 684
+            .saturating_add(Weight::from_ref_time(121_000).saturating_mul(i.into()))
+            .saturating_add(DbWeight::get().reads(4))
+            .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Asset ClassicTickers (r:1 w:0)
@@ -264,9 +286,10 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Timestamp Now (r:1 w:0)
     // Storage: Asset AssetOwnershipRelations (r:0 w:2)
     fn claim_classic_ticker() -> Weight {
-        (163_459_000 as Weight)
-            .saturating_add(DbWeight::get().reads(4 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+        // Minimum execution time: 90_747 nanoseconds.
+        Weight::from_ref_time(163_459_000)
+            .saturating_add(DbWeight::get().reads(4))
+            .saturating_add(DbWeight::get().writes(3))
     }
     // Storage: Asset Tokens (r:1 w:0)
     // Storage: Asset Tickers (r:1 w:1)
@@ -274,9 +297,10 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Asset AssetOwnershipRelations (r:0 w:1)
     // Storage: Asset ClassicTickers (r:0 w:1)
     fn reserve_classic_ticker() -> Weight {
-        (60_606_000 as Weight)
-            .saturating_add(DbWeight::get().reads(3 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+        // Minimum execution time: 40_935 nanoseconds.
+        Weight::from_ref_time(60_606_000)
+            .saturating_add(DbWeight::get().reads(3))
+            .saturating_add(DbWeight::get().writes(3))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -294,20 +318,23 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Statistics ActiveAssetStats (r:1 w:0)
     // Storage: Asset BalanceOfAtScope (r:0 w:2)
     fn controller_transfer() -> Weight {
-        (191_837_000 as Weight)
-            .saturating_add(DbWeight::get().reads(17 as Weight))
-            .saturating_add(DbWeight::get().writes(9 as Weight))
+        // Minimum execution time: 111_636 nanoseconds.
+        Weight::from_ref_time(191_837_000)
+            .saturating_add(DbWeight::get().reads(17))
+            .saturating_add(DbWeight::get().writes(9))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Asset CustomTypesInverse (r:1 w:1)
     // Storage: Asset CustomTypeIdSequence (r:1 w:1)
     // Storage: Asset CustomTypes (r:0 w:1)
+    /// The range of component `n` is `[1, 2048]`.
     fn register_custom_asset_type(n: u32) -> Weight {
-        (62_766_000 as Weight)
-            // Standard Error: 2_000
-            .saturating_add((12_000 as Weight).saturating_mul(n as Weight))
-            .saturating_add(DbWeight::get().reads(3 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+        // Minimum execution time: 35_405 nanoseconds.
+        Weight::from_ref_time(62_766_000)
+            // Standard Error: 76
+            .saturating_add(Weight::from_ref_time(12_000).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(3))
+            .saturating_add(DbWeight::get().writes(3))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -317,9 +344,10 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Asset AssetMetadataValueDetails (r:1 w:1)
     // Storage: Asset AssetMetadataValues (r:0 w:1)
     fn set_asset_metadata() -> Weight {
-        (91_527_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        // Minimum execution time: 57_917 nanoseconds.
+        Weight::from_ref_time(91_527_000)
+            .saturating_add(DbWeight::get().reads(6))
+            .saturating_add(DbWeight::get().writes(2))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -328,9 +356,10 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Asset AssetMetadataGlobalKeyToName (r:1 w:0)
     // Storage: Asset AssetMetadataValueDetails (r:1 w:1)
     fn set_asset_metadata_details() -> Weight {
-        (77_824_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        // Minimum execution time: 47_959 nanoseconds.
+        Weight::from_ref_time(77_824_000)
+            .saturating_add(DbWeight::get().reads(6))
+            .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -343,9 +372,10 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Asset AssetMetadataLocalKeyToName (r:0 w:1)
     // Storage: Asset AssetMetadataLocalSpecs (r:0 w:1)
     fn register_and_set_local_asset_metadata() -> Weight {
-        (164_952_000 as Weight)
-            .saturating_add(DbWeight::get().reads(7 as Weight))
-            .saturating_add(DbWeight::get().writes(6 as Weight))
+        // Minimum execution time: 89_555 nanoseconds.
+        Weight::from_ref_time(164_952_000)
+            .saturating_add(DbWeight::get().reads(7))
+            .saturating_add(DbWeight::get().writes(6))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -356,18 +386,20 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Asset AssetMetadataLocalKeyToName (r:0 w:1)
     // Storage: Asset AssetMetadataLocalSpecs (r:0 w:1)
     fn register_asset_metadata_local_type() -> Weight {
-        (117_218_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
+        // Minimum execution time: 69_048 nanoseconds.
+        Weight::from_ref_time(117_218_000)
+            .saturating_add(DbWeight::get().reads(6))
+            .saturating_add(DbWeight::get().writes(4))
     }
     // Storage: Asset AssetMetadataGlobalNameToKey (r:1 w:1)
     // Storage: Asset AssetMetadataNextGlobalKey (r:1 w:1)
     // Storage: Asset AssetMetadataGlobalKeyToName (r:0 w:1)
     // Storage: Asset AssetMetadataGlobalSpecs (r:0 w:1)
     fn register_asset_metadata_global_type() -> Weight {
-        (121_855_000 as Weight)
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
+        // Minimum execution time: 44_132 nanoseconds.
+        Weight::from_ref_time(121_855_000)
+            .saturating_add(DbWeight::get().reads(2))
+            .saturating_add(DbWeight::get().writes(4))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -376,7 +408,6 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Portfolio PortfolioCustodian (r:1 w:0)
     // Storage: Asset Tokens (r:1 w:1)
     // Storage: Portfolio Portfolios (r:1 w:0)
-    // Storage: unknown [0x3a7472616e73616374696f6e5f6c6576656c3a] (r:1 w:1)
     // Storage: Portfolio PortfolioAssetBalances (r:1 w:1)
     // Storage: Portfolio PortfolioLockedAssets (r:1 w:0)
     // Storage: Portfolio PortfolioAssetCount (r:1 w:1)
@@ -388,9 +419,10 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Statistics ActiveAssetStats (r:1 w:0)
     // Storage: Asset BalanceOfAtScope (r:0 w:1)
     fn redeem_from_portfolio() -> Weight {
-        (173_158_000 as Weight)
-            .saturating_add(DbWeight::get().reads(17 as Weight))
-            .saturating_add(DbWeight::get().writes(7 as Weight))
+        // Minimum execution time: 100_245 nanoseconds.
+        Weight::from_ref_time(173_158_000)
+            .saturating_add(DbWeight::get().reads(17))
+            .saturating_add(DbWeight::get().writes(7))
     }
     // Storage: Asset Tokens (r:1 w:1)
     // Storage: Identity KeyRecords (r:1 w:0)
@@ -398,9 +430,10 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentPalletName (r:1 w:0)
     // Storage: Permissions CurrentDispatchableName (r:1 w:0)
     fn update_asset_type() -> Weight {
-        (65_857_000 as Weight)
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        // Minimum execution time: 46_175 nanoseconds.
+        Weight::from_ref_time(65_857_000)
+            .saturating_add(DbWeight::get().reads(5))
+            .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -414,9 +447,9 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Asset AssetMetadataLocalKeyToName (r:0 w:1)
     // Storage: Asset AssetMetadataLocalSpecs (r:0 w:1)
     fn remove_local_metadata_key() -> Weight {
-        (52_321_000 as Weight)
-            .saturating_add(DbWeight::get().reads(8 as Weight))
-            .saturating_add(DbWeight::get().writes(5 as Weight))
+        Weight::from_ref_time(52_321_000 as u64)
+            .saturating_add(DbWeight::get().reads(8 as u64))
+            .saturating_add(DbWeight::get().writes(5 as u64))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -426,8 +459,8 @@ impl pallet_asset::WeightInfo for WeightInfo {
     // Storage: Asset AssetMetadataValueDetails (r:1 w:1)
     // Storage: Asset AssetMetadataValues (r:0 w:1)
     fn remove_metadata_value() -> Weight {
-        (36_579_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(36_579_000 as u64)
+            .saturating_add(DbWeight::get().reads(6 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
     }
 }

@@ -1,5 +1,6 @@
 use crate::TestStorage;
 use confidential_identity_v1::mocked::make_investor_uid;
+use frame_support::dispatch::Weight;
 use pallet_asset::{self as asset, TickerRegistrationConfig};
 use pallet_balances as balances;
 use pallet_bridge::BridgeTx;
@@ -104,7 +105,7 @@ struct BridgeConfig {
 #[derive(Default)]
 pub struct ExtBuilder {
     /// Minimum weight for the extrinsic (see `weight_to_fee` below).
-    extrinsic_base_weight: u64,
+    extrinsic_base_weight: Weight,
     /// The transaction fee per byte.
     /// Transactions with bigger payloads will have a bigger `len_fee`.
     /// This is calculated as `transaction_byte_fee * tx.len()`.
@@ -135,7 +136,7 @@ pub struct ExtBuilder {
 }
 
 thread_local! {
-    pub static EXTRINSIC_BASE_WEIGHT: RefCell<u64> = RefCell::new(0);
+    pub static EXTRINSIC_BASE_WEIGHT: RefCell<Weight> = RefCell::new(Weight::zero());
     pub static TRANSACTION_BYTE_FEE: RefCell<u128> = RefCell::new(0);
     pub static WEIGHT_TO_FEE: RefCell<u128> = RefCell::new(0);
 }
@@ -143,7 +144,7 @@ thread_local! {
 impl ExtBuilder {
     /// Sets the minimum weight for the extrinsic (see also `weight_fee`).
     pub fn base_weight(mut self, extrinsic_base_weight: u64) -> Self {
-        self.extrinsic_base_weight = extrinsic_base_weight;
+        self.extrinsic_base_weight = Weight::from_ref_time(extrinsic_base_weight);
         self
     }
 

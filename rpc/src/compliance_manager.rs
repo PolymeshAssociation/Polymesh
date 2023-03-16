@@ -15,15 +15,20 @@
 
 pub use node_rpc_runtime_api::compliance_manager::ComplianceManagerApi as ComplianceManagerRuntimeApi;
 
+use std::sync::Arc;
+
+use crate::Error;
 use codec::Codec;
 use frame_support::traits::Currency;
-use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
-use jsonrpc_derive::rpc;
+use jsonrpsee::{
+    core::RpcResult,
+    proc_macros::rpc,
+    types::error::{CallError, ErrorObject},
+};
 use polymesh_primitives::{compliance_manager::AssetComplianceResult, IdentityId, Ticker};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
-use std::sync::Arc;
 
 pub trait Trait: frame_system::Config {
     type Currency: Currency<Self::AccountId>;
@@ -32,16 +37,16 @@ pub trait Trait: frame_system::Config {
 pub type BalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-#[rpc]
+#[rpc(client, server)]
 pub trait ComplianceManagerApi<BlockHash, AccountId> {
-    #[rpc(name = "compliance_canTransfer")]
+    #[method(name = "compliance_canTransfer")]
     fn can_transfer(
         &self,
         ticker: Ticker,
         from_did: Option<IdentityId>,
         to_did: Option<IdentityId>,
         at: Option<BlockHash>,
-    ) -> Result<AssetComplianceResult>;
+    ) -> RpcResult<AssetComplianceResult>;
 }
 
 /// An implementation of Compliance manager specific RPC methods.
@@ -60,13 +65,11 @@ impl<T, U> ComplianceManager<T, U> {
     }
 }
 
-impl<C, Block, AccountId> ComplianceManagerApi<<Block as BlockT>::Hash, AccountId>
+impl<C, Block, AccountId> ComplianceManagerApiServer<<Block as BlockT>::Hash, AccountId>
     for ComplianceManager<C, Block>
 where
     Block: BlockT,
-    C: Send + Sync + 'static,
-    C: ProvideRuntimeApi<Block>,
-    C: HeaderBackend<Block>,
+    C: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
     C::Api: ComplianceManagerRuntimeApi<Block, AccountId>,
     AccountId: Codec,
 {
@@ -76,17 +79,20 @@ where
         from_did: Option<IdentityId>,
         to_did: Option<IdentityId>,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<AssetComplianceResult> {
+    ) -> RpcResult<AssetComplianceResult> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
                 // If the block hash is not supplied assume the best block.
                 self.client.info().best_hash));
 
         api.can_transfer(&at, ticker, from_did, to_did)
-            .map_err(|e| RpcError {
-                code: ErrorCode::ServerError(1),
-                message: "Unable to fetch transfer status from compliance manager.".into(),
-                data: Some(format!("{:?}", e).into()),
+            .map_err(|e| {
+                CallError::Custom(ErrorObject::owned(
+                    Error::RuntimeError.into(),
+                    "Unable to fetch transfer status from compliance manager.",
+                    Some(e.to_string()),
+                ))
+                .into()
             })
     }
 }

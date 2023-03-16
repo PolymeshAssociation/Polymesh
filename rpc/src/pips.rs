@@ -13,9 +13,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+use std::sync::Arc;
+
 use codec::Codec;
-use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
-use jsonrpc_derive::rpc;
+use jsonrpsee::{
+    core::RpcResult,
+    proc_macros::rpc,
+    types::error::{CallError, ErrorObject},
+};
 pub use node_rpc_runtime_api::pips::{
     self as runtime_api,
     capped::{Vote, VoteCount},
@@ -26,23 +31,22 @@ use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use sp_std::{prelude::*, vec::Vec};
-use std::sync::Arc;
 
 /// Pips RPC methods.
-#[rpc]
+#[rpc(client, server)]
 pub trait PipsApi<BlockHash, AccountId> {
     /// Summary of votes of the proposal given by `id`.
-    #[rpc(name = "pips_getVotes")]
-    fn get_votes(&self, id: PipId, at: Option<BlockHash>) -> Result<VoteCount>;
+    #[method(name = "pips_getVotes")]
+    fn get_votes(&self, id: PipId, at: Option<BlockHash>) -> RpcResult<VoteCount>;
 
     /// Retrieves proposal indices started by `address`.
-    #[rpc(name = "pips_proposedBy")]
-    fn proposed_by(&self, address: AccountId, at: Option<BlockHash>) -> Result<Vec<PipId>>;
+    #[method(name = "pips_proposedBy")]
+    fn proposed_by(&self, address: AccountId, at: Option<BlockHash>) -> RpcResult<Vec<PipId>>;
 
     /// Retrieves proposal `address` indices voted on
 
-    #[rpc(name = "pips_votedOn")]
-    fn voted_on(&self, address: AccountId, at: Option<BlockHash>) -> Result<Vec<PipId>>;
+    #[method(name = "pips_votedOn")]
+    fn voted_on(&self, address: AccountId, at: Option<BlockHash>) -> RpcResult<Vec<PipId>>;
 }
 
 /// An implementation of pips specific RPC methods.
@@ -61,16 +65,14 @@ impl<T, U> Pips<T, U> {
     }
 }
 
-impl<C, Block, AccountId> PipsApi<<Block as BlockT>::Hash, AccountId> for Pips<C, Block>
+impl<C, Block, AccountId> PipsApiServer<<Block as BlockT>::Hash, AccountId> for Pips<C, Block>
 where
     Block: BlockT,
-    C: Send + Sync + 'static,
-    C: ProvideRuntimeApi<Block>,
-    C: HeaderBackend<Block>,
+    C: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
     C::Api: PipsRuntimeApi<Block, AccountId>,
     AccountId: Codec,
 {
-    fn get_votes(&self, id: PipId, at: Option<<Block as BlockT>::Hash>) -> Result<VoteCount> {
+    fn get_votes(&self, id: PipId, at: Option<<Block as BlockT>::Hash>) -> RpcResult<VoteCount> {
         rpc_forward_call!(
             self,
             at,
@@ -84,7 +86,7 @@ where
         &self,
         address: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Vec<PipId>> {
+    ) -> RpcResult<Vec<PipId>> {
         rpc_forward_call!(
             self,
             at,
@@ -97,7 +99,7 @@ where
         &self,
         address: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Vec<PipId>> {
+    ) -> RpcResult<Vec<PipId>> {
         rpc_forward_call!(
             self,
             at,

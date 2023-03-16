@@ -7,17 +7,17 @@ edition = "2021"
 [dependencies]
 serde = { version = "1.0.104", default-features = false }
 
-pwasm-utils = { version = "0.18.2", optional = true, default-features = false }
+wasm-instrument = { version = "0.3", default-features = false, optional = true }
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 frame-system = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
 pallet-contracts = { version = "4.0.0-dev", default-features = false }
-pallet-contracts-primitives = { version = "6.0.0", default-features = false }
+pallet-contracts-primitives = { version = "7.0.0", default-features = false }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
-sp-core = { version = "6.0.0", default-features = false }
-sp-io = { version = "6.0.0", default-features = false }
-sp-runtime = { version = "6.0.0", default-features = false }
-sp-std = { version = "4.0.0", default-features = false }
+sp-core = { version = "7.0.0", default-features = false }
+sp-io = { version = "7.0.0", default-features = false }
+sp-runtime = { version = "7.0.0", default-features = false }
+sp-std = { version = "5.0.0", default-features = false }
 
 # Polymesh specific
 pallet-base = { path = "../base", default-features = false }
@@ -44,10 +44,10 @@ std = [
     "pallet-contracts/std",
     "polymesh-primitives/std",
     "polymesh-common-utilities/std",
-    "pwasm-utils?/std",
+    "wasm-instrument?/std",
 ]
 runtime-benchmarks = [
-    "pwasm-utils",
+    "wasm-instrument",
     "frame-benchmarking",
     "pallet-contracts/runtime-benchmarks",
 ]

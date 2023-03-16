@@ -1,8 +1,8 @@
 use super::{
     ext_builder::{ExtBuilder, COOL_OFF_PERIOD},
     storage::{
-        fast_forward_blocks, get_identity_id, register_keyring_account, root, Call, EventTest,
-        TestStorage,
+        fast_forward_blocks, get_identity_id, register_keyring_account, root, EventTest,
+        RuntimeCall, TestStorage,
     },
 };
 use frame_support::{
@@ -26,7 +26,7 @@ type CommitteeGroup = group::Module<TestStorage, group::Instance1>;
 type System = frame_system::Pallet<TestStorage>;
 type Identity = identity::Module<TestStorage>;
 type Pips = pallet_pips::Module<TestStorage>;
-type Origin = <TestStorage as frame_system::Config>::Origin;
+type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 
 #[test]
 fn motions_basic_environment_works() {
@@ -53,8 +53,8 @@ fn motions_basic_environment_works_we() {
     assert_eq!(Committee::proposals(), vec![]);
 }
 
-fn make_proposal(value: u64) -> Call {
-    Call::Identity(identity::Call::accept_primary_key {
+fn make_proposal(value: u64) -> RuntimeCall {
+    RuntimeCall::Identity(identity::Call::accept_primary_key {
         rotation_auth_id: value,
         optional_cdd_auth_id: Some(value),
     })
@@ -99,8 +99,8 @@ fn check_scheduled(id: PipId) {
     assert_eq!(Pips::proposal_state(id).unwrap(), ProposalState::Scheduled);
 }
 
-fn enact_snapshot_results_call() -> Call {
-    Call::Pips(pallet_pips::Call::enact_snapshot_results {
+fn enact_snapshot_results_call() -> RuntimeCall {
+    RuntimeCall::Pips(pallet_pips::Call::enact_snapshot_results {
         results: APPROVE_0.into(),
     })
 }
@@ -301,7 +301,7 @@ fn changing_vote_threshold_works_we() {
 
     assert_eq!(Committee::vote_threshold(), (1, 1));
 
-    let call_svt = Box::new(Call::PolymeshCommittee(
+    let call_svt = Box::new(RuntimeCall::PolymeshCommittee(
         pallet_committee::Call::set_vote_threshold { n: 4, d: 17 },
     ));
     assert_ok!(Committee::vote_or_propose(
@@ -512,8 +512,9 @@ fn release_coordinator_majority_we() {
     );
 
     // Vote to change RC => bob.
-    let call =
-        Call::PolymeshCommittee(pallet_committee::Call::set_release_coordinator { id: bob_id });
+    let call = RuntimeCall::PolymeshCommittee(pallet_committee::Call::set_release_coordinator {
+        id: bob_id,
+    });
     assert_ok!(Committee::vote_or_propose(
         alice.clone(),
         true,
