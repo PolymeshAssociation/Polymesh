@@ -3803,7 +3803,7 @@ mod offchain_phragmen {
 
             let call = extrinsic.call;
             let inner = match call {
-                mock::Call::Staking(inner) => inner,
+                mock::RuntimeCall::Staking(inner) => inner,
                 _ => panic!(),
             };
 
@@ -3847,7 +3847,7 @@ mod offchain_phragmen {
 
             let call = extrinsic.call;
             let inner = match call {
-                mock::Call::Staking(inner) => inner,
+                mock::RuntimeCall::Staking(inner) => inner,
                 _ => panic!(),
             };
 
@@ -3890,7 +3890,7 @@ mod offchain_phragmen {
 
             let call = extrinsic.call;
             let inner = match call {
-                mock::Call::Staking(inner) => inner,
+                mock::RuntimeCall::Staking(inner) => inner,
                 _ => panic!(),
             };
 
@@ -4400,6 +4400,7 @@ mod offchain_phragmen {
                     target: entity_id,
                     claim_type: ClaimType::CustomerDueDiligence,
                 };
+                #[allow(deprecated)]
                 Claims::remove_prefix(claim_key, None); // Remove all CDD claims for the validator.
 
                 // Ensure did no longer has valid cdd
@@ -5417,7 +5418,7 @@ type PError = pallet_pips::Error<Test>;
 
 #[test]
 fn voting_for_pip_overlays_with_staking() {
-    use crate::staking::mock::Call;
+    use crate::staking::mock::RuntimeCall;
 
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
@@ -5430,9 +5431,9 @@ fn voting_for_pip_overlays_with_staking() {
 
         let alice_proposal = |deposit: u128| {
             let signer = Origin::signed(alice_acc);
-            let proposal = Box::new(Call::Pips(pallet_pips::Call::set_min_proposal_deposit {
-                deposit: 0,
-            }));
+            let proposal = Box::new(RuntimeCall::Pips(
+                pallet_pips::Call::set_min_proposal_deposit { deposit: 0 },
+            ));
             Pips::propose(signer, proposal, deposit, None, None)
         };
 
@@ -5454,14 +5455,14 @@ fn voting_for_pip_overlays_with_staking() {
 
 #[test]
 fn slashing_leaves_pips_untouched() {
-    use crate::staking::mock::Call;
+    use crate::staking::mock::RuntimeCall;
     use pallet_pips::PipId;
 
     ExtBuilder::default().build_and_execute(|| {
         let acc = 11;
         let propose = |deposit| {
             let signer = Origin::signed(acc);
-            let proposal = Box::new(Call::Pips(pallet_pips::Call::set_active_pip_limit {
+            let proposal = Box::new(RuntimeCall::Pips(pallet_pips::Call::set_active_pip_limit {
                 limit: 0,
             }));
             Pips::propose(signer, proposal, deposit, None, None)

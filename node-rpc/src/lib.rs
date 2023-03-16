@@ -30,16 +30,18 @@
 
 #![warn(missing_docs)]
 
-use polymesh_primitives::{
-    AccountId, Balance, Block, BlockNumber, Hash, IdentityId, Index, Moment, Ticker,
-};
+use std::sync::Arc;
+
+use jsonrpsee::RpcModule;
+use polymesh_primitives::{AccountId, Block, BlockNumber, Hash, IdentityId, Index, Moment, Ticker};
 use sc_client_api::AuxStore;
-use sc_consensus_babe::{Config, Epoch};
+use sc_consensus_babe::{BabeConfiguration, Epoch};
 use sc_consensus_epochs::SharedEpochChanges;
 use sc_finality_grandpa::{
     FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState,
 };
-use sc_rpc::{DenyUnsafe, SubscriptionTaskExecutor};
+use sc_rpc::SubscriptionTaskExecutor;
+pub use sc_rpc_api::DenyUnsafe;
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
@@ -47,12 +49,11 @@ use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus::SelectChain;
 use sp_consensus_babe::BabeApi;
 use sp_keystore::SyncCryptoStorePtr;
-use std::sync::Arc;
 
 /// Extra dependencies for BABE.
 pub struct BabeDeps {
     /// BABE protocol config.
-    pub babe_config: Config,
+    pub babe_config: BabeConfiguration,
     /// BABE pending epoch changes.
     pub shared_epoch_changes: SharedEpochChanges<Block, Epoch>,
     /// The keystore that manages the keys of the node.
@@ -91,15 +92,14 @@ pub struct FullDeps<C, P, SC, B> {
     pub grandpa: GrandpaDeps<B>,
 }
 
-/// A IO handler that uses all Full RPC extensions.
-pub type IoHandler = jsonrpc_core::IoHandler<sc_rpc::Metadata>;
-
 /// Instantiate all Full RPC extensions.
 pub fn create_full<C, P, SC, B>(
     deps: FullDeps<C, P, SC, B>,
-) -> Result<jsonrpc_core::IoHandler<sc_rpc_api::Metadata>, Box<dyn std::error::Error + Send + Sync>>
+    backend: Arc<B>,
+) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
     C: ProvideRuntimeApi<Block>
+        + sc_client_api::BlockBackend<Block>
         + HeaderBackend<Block>
         + AuxStore
         + HeaderMetadata<Block, Error = BlockChainError>
@@ -107,7 +107,6 @@ where
         + Send
         + 'static,
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
-    C::Api: pallet_contracts_rpc::ContractsRuntimeApi<Block, AccountId, Balance, BlockNumber, Hash>,
     C::Api: node_rpc::transaction_payment::TransactionPaymentRuntimeApi<Block>,
     C::Api: pallet_staking_rpc::StakingRuntimeApi<Block>,
     C::Api: node_rpc::pips::PipsRuntimeApi<Block, AccountId>,
@@ -124,23 +123,26 @@ where
     B: sc_client_api::Backend<Block> + Send + Sync + 'static,
     B::State: sc_client_api::backend::StateBackend<sp_runtime::traits::HashFor<Block>>,
 {
-    use node_rpc::compliance_manager::{ComplianceManager, ComplianceManagerApi};
+    use node_rpc::compliance_manager::{ComplianceManager, ComplianceManagerApiServer};
     use node_rpc::{
-        asset::{Asset, AssetApi},
-        identity::{Identity, IdentityApi},
-        nft::{NFTApi, NFT},
-        pips::{Pips, PipsApi},
-        transaction_payment::{TransactionPayment, TransactionPaymentApi},
+        asset::{Asset, AssetApiServer},
+        identity::{Identity, IdentityApiServer},
+        nft::{NFTApiServer, NFT},
+        pips::{Pips, PipsApiServer},
+        transaction_payment::{TransactionPayment, TransactionPaymentApiServer},
     };
-    use pallet_contracts_rpc::{Contracts, ContractsApi};
-    use pallet_group_rpc::{Group, GroupApi};
-    use pallet_protocol_fee_rpc::{ProtocolFee, ProtocolFeeApi};
-    use pallet_staking_rpc::{Staking, StakingApi};
-    use sc_consensus_babe_rpc::BabeRpcHandler;
-    use sc_finality_grandpa_rpc::GrandpaRpcHandler;
-    use substrate_frame_rpc_system::{FullSystem, SystemApi};
+    use pallet_group_rpc::{Group, GroupApiServer};
+    use pallet_protocol_fee_rpc::{ProtocolFee, ProtocolFeeApiServer};
+    use pallet_staking_rpc::{Staking, StakingApiServer};
+    use sc_consensus_babe_rpc::{Babe, BabeApiServer};
+    use sc_finality_grandpa_rpc::{Grandpa, GrandpaApiServer};
+    use sc_rpc::dev::{Dev, DevApiServer};
+    use sc_rpc_spec_v2::chain_spec::{ChainSpec, ChainSpecApiServer};
+    use sc_sync_state_rpc::{SyncState, SyncStateApiServer};
+    use substrate_frame_rpc_system::{System, SystemApiServer};
+    use substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer};
 
-    let mut io = jsonrpc_core::IoHandler::default();
+    let mut io = RpcModule::new(());
     let FullDeps {
         client,
         pool,
@@ -164,58 +166,63 @@ where
         finality_provider,
     } = grandpa;
 
-    io.extend_with(SystemApi::to_delegate(FullSystem::new(
-        client.clone(),
-        pool,
-        deny_unsafe,
-    )));
+    let chain_name = chain_spec.name().to_string();
+    let genesis_hash = client
+        .block_hash(0)
+        .ok()
+        .flatten()
+        .expect("Genesis block exists; qed");
+    let properties = chain_spec.properties();
+    io.merge(ChainSpec::new(chain_name, genesis_hash, properties).into_rpc())?;
+
+    io.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
     // Making synchronous calls in light client freezes the browser currently,
-    // more context: https://github.com/PolymeshAssociation/substrate/pull/3480
+    // more context: https://github.com/paritytech/substrate/pull/3480
     // These RPCs should use an asynchronous caller instead.
-    io.extend_with(ContractsApi::to_delegate(Contracts::new(client.clone())));
-    io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(
-        client.clone(),
-    )));
-    io.extend_with(sc_consensus_babe_rpc::BabeApi::to_delegate(
-        BabeRpcHandler::new(
+    io.merge(TransactionPayment::new(client.clone()).into_rpc())?;
+    io.merge(
+        Babe::new(
             client.clone(),
             shared_epoch_changes.clone(),
             keystore,
             babe_config,
             select_chain,
             deny_unsafe,
-        ),
-    ));
-    io.extend_with(sc_finality_grandpa_rpc::GrandpaApi::to_delegate(
-        GrandpaRpcHandler::new(
+        )
+        .into_rpc(),
+    )?;
+    io.merge(
+        Grandpa::new(
+            subscription_executor,
             shared_authority_set.clone(),
             shared_voter_state,
             justification_stream,
-            subscription_executor,
             finality_provider,
-        ),
-    ));
+        )
+        .into_rpc(),
+    )?;
 
-    io.extend_with(sc_sync_state_rpc::SyncStateRpcApi::to_delegate(
-        sc_sync_state_rpc::SyncStateRpcHandler::new(
+    io.merge(
+        SyncState::new(
             chain_spec,
             client.clone(),
             shared_authority_set,
             shared_epoch_changes,
-        )?,
-    ));
-    io.extend_with(StakingApi::to_delegate(Staking::new(client.clone())));
-    io.extend_with(PipsApi::to_delegate(Pips::new(client.clone())));
-    io.extend_with(IdentityApi::to_delegate(Identity::new(client.clone())));
-    io.extend_with(ProtocolFeeApi::to_delegate(ProtocolFee::new(
-        client.clone(),
-    )));
-    io.extend_with(AssetApi::to_delegate(Asset::new(client.clone())));
-    io.extend_with(GroupApi::to_delegate(Group::from(client.clone())));
-    io.extend_with(ComplianceManagerApi::to_delegate(ComplianceManager::new(
-        client.clone(),
-    )));
-    io.extend_with(NFTApi::to_delegate(NFT::new(client)));
+        )?
+        .into_rpc(),
+    )?;
+
+    io.merge(StateMigration::new(client.clone(), backend, deny_unsafe).into_rpc())?;
+    io.merge(Dev::new(client.clone(), deny_unsafe).into_rpc())?;
+
+    io.merge(Staking::new(client.clone()).into_rpc())?;
+    io.merge(Pips::new(client.clone()).into_rpc())?;
+    io.merge(Identity::new(client.clone()).into_rpc())?;
+    io.merge(ProtocolFee::new(client.clone()).into_rpc())?;
+    io.merge(Asset::new(client.clone()).into_rpc())?;
+    io.merge(Group::from(client.clone()).into_rpc())?;
+    io.merge(ComplianceManager::new(client.clone()).into_rpc())?;
+    io.merge(NFT::new(client).into_rpc())?;
 
     Ok(io)
 }

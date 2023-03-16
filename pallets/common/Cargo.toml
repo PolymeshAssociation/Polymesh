@@ -20,11 +20,11 @@ pallet-session = { version = "4.0.0-dev", default-features = false }
 pallet-timestamp = { version = "4.0.0-dev", default-features = false }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
 sp-api = { version = "4.0.0-dev", default-features = false }
-sp-arithmetic = { version = "5.0.0", default-features = false }
-sp-core = { version = "6.0.0", default-features = false }
-sp-io = { version = "6.0.0", default-features = false }
-sp-runtime = { version = "6.0.0", default-features = false }
-sp-std = { version = "4.0.0", default-features = false }
+sp-arithmetic = { version = "6.0.0", default-features = false }
+sp-core = { version = "7.0.0", default-features = false }
+sp-io = { version = "7.0.0", default-features = false }
+sp-runtime = { version = "7.0.0", default-features = false }
+sp-std = { version = "5.0.0", default-features = false }
 
 # Benchmarks
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }
@@ -32,7 +32,7 @@ schnorrkel = { version = "0.10.1", default-features = false, optional = true }
 
 [dev-dependencies]
 lazy_static = { version = "1.4.0", default-features = false }
-substrate-test-runtime-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
+substrate-test-runtime-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
 
 [features]
 default = ["std", "equalize"]

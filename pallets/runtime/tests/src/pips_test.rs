@@ -3,7 +3,7 @@ use super::{
     asset_test::max_len_bytes,
     committee_test::{gc_vmo, set_members},
     storage::{
-        fast_forward_blocks, make_remark_proposal, root, Call, EventTest, TestStorage, User,
+        fast_forward_blocks, make_remark_proposal, root, EventTest, RuntimeCall, TestStorage, User,
     },
     ExtBuilder,
 };
@@ -22,6 +22,7 @@ use pallet_pips::{
 use pallet_treasury as treasury;
 use polymesh_common_utilities::{MaybeBlock, GC_DID};
 use polymesh_primitives::{AccountId, BlockNumber, Url};
+use std::ops::Deref;
 use test_client::AccountKeyring;
 
 type System = frame_system::Pallet<TestStorage>;
@@ -36,7 +37,7 @@ type Votes = pallet_pips::ProposalVotes<TestStorage>;
 type Scheduler = pallet_scheduler::Pallet<TestStorage>;
 type Agenda = pallet_scheduler::Agenda<TestStorage>;
 
-type Origin = <TestStorage as frame_system::Config>::Origin;
+type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 
 macro_rules! assert_last_event {
     ($event:pat) => {
@@ -79,8 +80,8 @@ fn spip(id: u32, dir: bool, power: u128) -> SnapshottedPip {
     }
 }
 
-fn make_proposal(value: u64) -> Call {
-    Call::Pips(pallet_pips::Call::set_min_proposal_deposit {
+fn make_proposal(value: u64) -> RuntimeCall {
+    RuntimeCall::Pips(pallet_pips::Call::set_min_proposal_deposit {
         deposit: value.into(),
     })
 }
@@ -88,7 +89,7 @@ fn make_proposal(value: u64) -> Call {
 fn proposal(
     signer: &Origin,
     proposer: &Proposer<AccountId>,
-    proposal: Call,
+    proposal: RuntimeCall,
     deposit: u128,
     url: Option<Url>,
     desc: Option<PipDescription>,
@@ -148,7 +149,7 @@ fn community_proposal(user: User, deposit: u128) -> DispatchResult {
 }
 
 fn consensus_call(call: pallet_pips::Call<TestStorage>, signers: &[&Origin]) {
-    let call = Box::new(Call::Pips(call));
+    let call = Box::new(RuntimeCall::Pips(call));
     for signer in signers.iter().copied().cloned() {
         assert_ok!(Committee::vote_or_propose(signer, true, call.clone()));
     }
@@ -1031,7 +1032,7 @@ fn failed_community_proposal(proposer: User, member: User, bad_id: PipId) -> Pip
     assert_ok!(proposal(
         &proposer.origin(),
         &Proposer::Community(proposer.acc()),
-        Call::Pips(pallet_pips::Call::reject_proposal { id: bad_id }),
+        RuntimeCall::Pips(pallet_pips::Call::reject_proposal { id: bad_id }),
         deposit,
         None,
         None
@@ -1163,7 +1164,7 @@ fn can_prune_states_that_cannot_be_rejected() {
         assert_ok!(proposal(
             &proposer.origin(),
             &Proposer::Community(proposer.acc()),
-            Call::Pips(pallet_pips::Call::reject_proposal { id: PipId(1337) }),
+            RuntimeCall::Pips(pallet_pips::Call::reject_proposal { id: PipId(1337) }),
             300,
             None,
             None
@@ -1493,7 +1494,7 @@ fn reschedule_execution_works() {
         let id = scheduled_proposal(proposer, rc, 0);
         assert_eq!(Pips::active_pip_count(), 1);
         let scheduled_at = Pips::pip_to_schedule(id).unwrap();
-        assert!(matches!(&*Agenda::get(scheduled_at), [Some(_)]));
+        assert!(matches!(Agenda::get(scheduled_at).deref()[..], [Some(_)]));
 
         // Reschedule execution for next block.
         let next = System::block_number() + 1;
@@ -1506,15 +1507,15 @@ fn reschedule_execution_works() {
         ));
         assert_eq!(Pips::pip_to_schedule(id).unwrap(), next);
         assert_eq!(Agenda::get(scheduled_at), vec![None]);
-        assert!(matches!(&*Agenda::get(next), [Some(_)]));
+        assert!(matches!(Agenda::get(next).deref()[..], [Some(_)]));
 
         // Reschedule execution for 50 blocks ahead.
         assert_ok!(Pips::reschedule_execution(rc.origin(), id, Some(next + 50)));
         assert_eq!(Pips::active_pip_count(), 1);
         assert_eq!(Pips::pip_to_schedule(id).unwrap(), next + 50);
-        assert_eq!(vec![None], Agenda::get(scheduled_at));
-        assert_eq!(vec![None], Agenda::get(next));
-        assert!(matches!(&*Agenda::get(next + 50), [Some(_)]));
+        assert_eq!(&vec![None], Agenda::get(scheduled_at).deref());
+        assert_eq!(&vec![None], Agenda::get(next).deref());
+        assert!(matches!(Agenda::get(next + 50).deref()[..], [Some(_)]));
     });
 }
 

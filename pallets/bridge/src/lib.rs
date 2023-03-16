@@ -105,14 +105,13 @@ mod genesis;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
+    dispatch::{DispatchClass, DispatchError, DispatchResult, Pays},
     ensure, fail,
     storage::StorageDoubleMap,
     traits::{
         schedule::{Anon as ScheduleAnon, DispatchTime, LOWEST_PRIORITY},
         Currency,
     },
-    weights::{DispatchClass, Pays},
 };
 use frame_system::{ensure_root, ensure_signed, RawOrigin};
 use pallet_balances as balances;
@@ -134,7 +133,7 @@ type Identity<T> = pallet_identity::Module<T>;
 type System<T> = frame_system::Pallet<T>;
 
 pub trait Config: multisig::Config + BalancesConfig + pallet_base::Config {
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
     type Proposal: From<Call<Self>> + Into<<Self as IdentityConfig>::Proposal>;
     /// Scheduler of timelocked bridge transactions.
     type Scheduler: ScheduleAnon<
@@ -351,7 +350,7 @@ decl_event! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::Origin {
+    pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::RuntimeOrigin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -569,18 +568,18 @@ impl<T: Config> Module<T> {
         Self::controller()
     }
 
-    fn ensure_admin_did(origin: T::Origin) -> Result<IdentityId, DispatchError> {
+    fn ensure_admin_did(origin: T::RuntimeOrigin) -> Result<IdentityId, DispatchError> {
         let sender = Self::ensure_admin(origin)?;
         Context::current_identity_or::<Identity<T>>(&sender)
     }
 
-    fn ensure_admin(origin: T::Origin) -> Result<T::AccountId, DispatchError> {
+    fn ensure_admin(origin: T::RuntimeOrigin) -> Result<T::AccountId, DispatchError> {
         let sender = ensure_signed(origin)?;
         ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
         Ok(sender)
     }
 
-    fn ensure_freeze_admin_did(origin: T::Origin) -> Result<IdentityId, DispatchError> {
+    fn ensure_freeze_admin_did(origin: T::RuntimeOrigin) -> Result<IdentityId, DispatchError> {
         let sender = ensure_signed(origin)?;
         if !<FreezeAdmins<T>>::get(&sender) {
             // Not a freeze admin, check if they are the main admin.
@@ -747,7 +746,7 @@ impl<T: Config> Module<T> {
 
     /// Proposes a vector of bridge transaction. The bridge controller must be set.
     fn base_batch_propose_bridge_tx(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         bridge_txs: Vec<BridgeTx<T::AccountId>>,
         send_event: bool,
     ) -> DispatchResult {
@@ -775,7 +774,7 @@ impl<T: Config> Module<T> {
 
     /// Handles an approved bridge transaction proposal.
     fn base_handle_bridge_tx(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         bridge_tx: BridgeTx<T::AccountId>,
     ) -> DispatchResult {
         let sender = ensure_signed(origin)?;
@@ -820,7 +819,7 @@ impl<T: Config> Module<T> {
 
     /// Forces handling a transaction by bypassing the bridge limit and timelock.
     fn base_force_handle_bridge_tx(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         bridge_tx: BridgeTx<T::AccountId>,
     ) -> DispatchResult {
         Self::ensure_admin(origin)?;
@@ -871,7 +870,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_handle_scheduled_bridge_tx(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         bridge_tx: BridgeTx<T::AccountId>,
     ) -> DispatchResult {
         ensure_root(origin)?;
@@ -879,42 +878,51 @@ impl<T: Config> Module<T> {
         Self::handle_bridge_tx_now(bridge_tx, tx_details, false, None)
     }
 
-    fn base_change_controller(origin: T::Origin, controller: T::AccountId) -> DispatchResult {
+    fn base_change_controller(
+        origin: T::RuntimeOrigin,
+        controller: T::AccountId,
+    ) -> DispatchResult {
         let did = Self::ensure_admin_did(origin)?;
         <Controller<T>>::put(controller.clone());
         Self::deposit_event(RawEvent::ControllerChanged(did, controller));
         Ok(())
     }
 
-    fn base_change_admin(origin: T::Origin, admin: T::AccountId) -> DispatchResult {
+    fn base_change_admin(origin: T::RuntimeOrigin, admin: T::AccountId) -> DispatchResult {
         let did = Self::ensure_admin_did(origin)?;
         <Admin<T>>::put(admin.clone());
         Self::deposit_event(RawEvent::AdminChanged(did, admin));
         Ok(())
     }
 
-    fn base_change_timelock(origin: T::Origin, timelock: T::BlockNumber) -> DispatchResult {
+    fn base_change_timelock(origin: T::RuntimeOrigin, timelock: T::BlockNumber) -> DispatchResult {
         let did = Self::ensure_admin_did(origin)?;
         <Timelock<T>>::put(timelock);
         Self::deposit_event(RawEvent::TimelockChanged(did, timelock));
         Ok(())
     }
 
-    fn base_add_freeze_admin(origin: T::Origin, freeze_admin: T::AccountId) -> DispatchResult {
+    fn base_add_freeze_admin(
+        origin: T::RuntimeOrigin,
+        freeze_admin: T::AccountId,
+    ) -> DispatchResult {
         let did = Self::ensure_admin_did(origin)?;
         <FreezeAdmins<T>>::insert(freeze_admin.clone(), true);
         Self::deposit_event(RawEvent::FreezeAdminAdded(did, freeze_admin));
         Ok(())
     }
 
-    fn base_remove_freeze_admin(origin: T::Origin, freeze_admin: T::AccountId) -> DispatchResult {
+    fn base_remove_freeze_admin(
+        origin: T::RuntimeOrigin,
+        freeze_admin: T::AccountId,
+    ) -> DispatchResult {
         let did = Self::ensure_admin_did(origin)?;
         <FreezeAdmins<T>>::remove(freeze_admin.clone());
         Self::deposit_event(RawEvent::FreezeAdminRemoved(did, freeze_admin));
         Ok(())
     }
 
-    fn set_freeze(origin: T::Origin, freeze: bool) -> DispatchResult {
+    fn set_freeze(origin: T::RuntimeOrigin, freeze: bool) -> DispatchResult {
         let did = if freeze {
             Self::ensure_freeze_admin_did(origin)?
         } else {
@@ -934,7 +942,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_change_bridge_limit(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         amount: Balance,
         duration: T::BlockNumber,
     ) -> DispatchResult {
@@ -948,7 +956,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_change_bridge_exempted(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         exempted: Vec<(IdentityId, bool)>,
     ) -> DispatchResult {
         let did = Self::ensure_admin_did(origin)?;
@@ -960,7 +968,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_freeze_txs(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         bridge_txs: Vec<BridgeTx<T::AccountId>>,
     ) -> DispatchResult {
         let did = Self::ensure_admin_did(origin)?;
@@ -983,7 +991,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_unfreeze_txs(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         bridge_txs: Vec<BridgeTx<T::AccountId>>,
     ) -> DispatchResult {
         // NB: An admin can call Freeze + Unfreeze on a transaction to bypass the timelock.
@@ -1013,7 +1021,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_remove_txs(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         bridge_txs: Vec<BridgeTx<T::AccountId>>,
     ) -> DispatchResult {
         let did = Self::ensure_admin_did(origin)?;

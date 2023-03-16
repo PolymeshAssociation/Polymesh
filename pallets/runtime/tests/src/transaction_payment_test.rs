@@ -1,12 +1,10 @@
 use super::ext_builder::ExtBuilder;
-use super::storage::{Call, TestStorage};
+use super::storage::{RuntimeCall, TestStorage};
 use codec::Encode;
 use frame_support::{
+    dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays, PostDispatchInfo, Weight},
     traits::Currency,
-    weights::{
-        DispatchClass, DispatchInfo, GetDispatchInfo, Pays, PostDispatchInfo, Weight,
-        WeightToFeePolynomial,
-    },
+    weights::WeightToFee,
 };
 use pallet_balances::Call as BalancesCall;
 use pallet_transaction_payment::{ChargeTransactionPayment, Multiplier, RuntimeDispatchInfo};
@@ -21,8 +19,8 @@ use sp_runtime::{
 };
 use test_client::AccountKeyring;
 
-fn call() -> <TestStorage as frame_system::Config>::Call {
-    Call::Balances(BalancesCall::transfer {
+fn call() -> <TestStorage as frame_system::Config>::RuntimeCall {
+    RuntimeCall::Balances(BalancesCall::transfer {
         dest: MultiAddress::Id(AccountKeyring::Alice.to_account_id()),
         value: 69,
     })
@@ -33,29 +31,29 @@ type System = frame_system::Pallet<TestStorage>;
 type TransactionPayment = pallet_transaction_payment::Module<TestStorage>;
 
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
-pub fn info_from_weight(w: Weight) -> DispatchInfo {
+pub fn info_from_weight(w: u64) -> DispatchInfo {
     // pays_fee: Pays::Yes -- class: DispatchClass::Normal
     DispatchInfo {
-        weight: w,
+        weight: Weight::from_ref_time(w),
         ..Default::default()
     }
 }
 
 fn weight_to_fee(weight: Weight) -> u128 {
-    <TestStorage as pallet_transaction_payment::Config>::WeightToFee::calc(&weight)
+    <TestStorage as pallet_transaction_payment::Config>::WeightToFee::weight_to_fee(&weight)
 }
 
-fn operational_info_from_weight(w: Weight) -> DispatchInfo {
+fn operational_info_from_weight(w: u64) -> DispatchInfo {
     DispatchInfo {
-        weight: w,
+        weight: Weight::from_ref_time(w),
         class: DispatchClass::Operational,
         ..Default::default()
     }
 }
 
-fn post_info_from_weight(w: Weight) -> PostDispatchInfo {
+fn post_info_from_weight(w: u64) -> PostDispatchInfo {
     PostDispatchInfo {
-        actual_weight: Some(w),
+        actual_weight: Some(Weight::from_ref_time(w)),
         pays_fee: Pays::Yes,
     }
 }
@@ -164,7 +162,7 @@ fn signed_extension_transaction_payment_is_bounded() {
 
             // maximum weight possible
             ChargeTransactionPayment::<TestStorage>::from(0)
-                .pre_dispatch(&user, &call(), &info_from_weight(Weight::max_value()), 10)
+                .pre_dispatch(&user, &call(), &info_from_weight(u64::MAX), 10)
                 .unwrap();
             // fee will be proportional to what is the actual maximum weight in the runtime.
             assert_eq!(Balances::free_balance(&user), (free_user - max_fee));
@@ -186,7 +184,7 @@ fn signed_extension_allows_free_transactions() {
 
             // This is a completely free (and thus wholly insecure/DoS-ridden) transaction.
             let operational_transaction = DispatchInfo {
-                weight: 0,
+                weight: Weight::from_ref_time(0),
                 class: DispatchClass::Operational,
                 pays_fee: Pays::No,
             };
@@ -196,7 +194,7 @@ fn signed_extension_allows_free_transactions() {
 
             // like a InsecureFreeNormal
             let free_transaction = DispatchInfo {
-                weight: 0,
+                weight: Weight::from_ref_time(0),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::Yes,
             };
@@ -264,14 +262,14 @@ fn compute_fee_works_without_multiplier() {
 
             // Tip only, no fees works
             let dispatch_info = DispatchInfo {
-                weight: 0,
+                weight: Weight::from_ref_time(0),
                 class: DispatchClass::Operational,
                 pays_fee: Pays::No,
             };
             assert_eq!(TransactionPayment::compute_fee(0, &dispatch_info, 10), 10);
             // No tip, only base fee works
             let dispatch_info = DispatchInfo {
-                weight: 0,
+                weight: Weight::from_ref_time(0),
                 class: DispatchClass::Operational,
                 pays_fee: Pays::Yes,
             };
@@ -288,7 +286,7 @@ fn compute_fee_works_without_multiplier() {
             );
             // Weight fee + base fee works
             let dispatch_info = DispatchInfo {
-                weight: 1000,
+                weight: Weight::from_ref_time(1000),
                 class: DispatchClass::Operational,
                 pays_fee: Pays::Yes,
             };
@@ -307,7 +305,7 @@ fn compute_fee_works_with_multiplier() {
             TransactionPayment::put_next_fee_multiplier(Multiplier::saturating_from_rational(3, 2));
             // Base fee is unaffected by multiplier
             let dispatch_info = DispatchInfo {
-                weight: 0,
+                weight: Weight::from_ref_time(0),
                 class: DispatchClass::Operational,
                 pays_fee: Pays::Yes,
             };
@@ -315,7 +313,7 @@ fn compute_fee_works_with_multiplier() {
 
             // Everything works together :)
             let dispatch_info = DispatchInfo {
-                weight: 123,
+                weight: Weight::from_ref_time(123),
                 class: DispatchClass::Operational,
                 pays_fee: Pays::Yes,
             };
@@ -339,7 +337,7 @@ fn compute_fee_works_with_negative_multiplier() {
 
             // Base fee is unaffected by multiplier.
             let dispatch_info = DispatchInfo {
-                weight: 0,
+                weight: Weight::from_ref_time(0),
                 class: DispatchClass::Operational,
                 pays_fee: Pays::Yes,
             };
@@ -347,7 +345,7 @@ fn compute_fee_works_with_negative_multiplier() {
 
             // Everything works together.
             let dispatch_info = DispatchInfo {
-                weight: 123,
+                weight: Weight::from_ref_time(123),
                 class: DispatchClass::Operational,
                 pays_fee: Pays::Yes,
             };
@@ -368,7 +366,7 @@ fn compute_fee_does_not_overflow() {
         .execute_with(|| {
             // Overflow is handled
             let dispatch_info = DispatchInfo {
-                weight: Weight::max_value(),
+                weight: Weight::MAX,
                 class: DispatchClass::Operational,
                 pays_fee: Pays::Yes,
             };
@@ -420,7 +418,7 @@ fn zero_transfer_on_free_transaction() {
             System::set_block_number(10);
             let len = 10;
             let dispatch_info = DispatchInfo {
-                weight: 100,
+                weight: Weight::from_ref_time(100),
                 pays_fee: Pays::No,
                 class: DispatchClass::Normal,
             };
@@ -439,8 +437,8 @@ fn zero_transfer_on_free_transaction() {
             )
             .is_ok());
             assert_eq!(Balances::total_balance(&user), bal_init);
-            // No events for such a scenario
-            assert_eq!(System::events().len(), 0);
+            // One event for tx fee payment `TransactionFeePaid`.
+            assert_eq!(System::events().len(), 1);
         });
 }
 

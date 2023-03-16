@@ -174,7 +174,7 @@
 //! pub trait Config: staking::Config {}
 //!
 //! decl_module! {
-//!     pub struct Module<T: Config> for enum Call where origin: T::Origin {
+//!     pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
 //!         /// Reward a validator.
 //!         #[weight = 0]
 //!         pub fn reward_myself(origin) -> dispatch::DispatchResult {
@@ -302,6 +302,8 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{
         DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, WithPostDispatchInfo,
+        DispatchClass::Operational,
+        Pays, Weight,
     },
     ensure,
     storage::IterableStorageMap,
@@ -312,8 +314,6 @@ use frame_support::{
     },
     weights::{
         constants::{WEIGHT_PER_MICROS, WEIGHT_PER_NANOS},
-        DispatchClass::Operational,
-        Pays, Weight,
     },
     Twox64Concat,
 };
@@ -331,7 +331,7 @@ use frame_election_provider_support::{
 };
 use sp_npos_elections::{
     seq_phragmen, to_support_map,
-    Assignment, ElectionResult as PrimitiveElectionResult, ElectionScore,
+    Assignment, BalancingConfig, ElectionResult as PrimitiveElectionResult, ElectionScore,
     EvaluateSupport, ExtendedBalance,
     PerThing128, Supports, SupportMap, VoteWeight,
 };
@@ -887,7 +887,7 @@ pub trait Config:
     type RewardRemainder: OnUnbalanced<NegativeImbalanceOf<Self>>;
 
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
 
     /// Handler for the unbalanced reduction when slashing a staker.
     type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
@@ -908,7 +908,7 @@ pub trait Config:
     type SlashDeferDuration: Get<EraIndex>;
 
     /// The origin which can cancel a deferred slash. Root can always do this.
-    type SlashCancelOrigin: EnsureOrigin<Self::Origin>;
+    type SlashCancelOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
     /// Interface for interacting with a session module.
     type SessionInterface: self::SessionInterface<Self::AccountId>;
@@ -967,13 +967,13 @@ pub trait Config:
     type WeightInfo: WeightInfo;
 
     /// Required origin for adding a potential validator (can always be Root).
-    type RequiredAddOrigin: EnsureOrigin<Self::Origin>;
+    type RequiredAddOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
     /// Required origin for removing a validator (can always be Root).
-    type RequiredRemoveOrigin: EnsureOrigin<Self::Origin>;
+    type RequiredRemoveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
     /// Required origin for changing validator commission.
-    type RequiredCommissionOrigin: EnsureOrigin<Self::Origin>;
+    type RequiredCommissionOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
     /// To schedule the rewards for the stakers after the end of era.
     type RewardScheduler: Anon<Self::BlockNumber, <Self as Config>::Call, Self::PalletsOrigin>;
@@ -1277,7 +1277,7 @@ decl_storage! {
                     "Stash does not have enough balance to bond."
                 );
                 let _ = <Module<T>>::bond(
-					T::Origin::from(Some(stash.clone()).into()),
+					T::RuntimeOrigin::from(Some(stash.clone()).into()),
                     T::Lookup::unlookup(controller.clone()),
                     balance,
                     RewardDestination::Staked,
@@ -1293,13 +1293,13 @@ decl_storage! {
                         // Setting the cap value here.
                         prefs.commission = config.validator_commission_cap;
                         <Module<T>>::validate(
-							T::Origin::from(Some(controller.clone()).into()),
+							T::RuntimeOrigin::from(Some(controller.clone()).into()),
                             prefs,
                         )
                     },
                     StakerStatus::Nominator(votes) => {
                         <Module<T>>::nominate(
-							T::Origin::from(Some(controller.clone()).into()),
+							T::RuntimeOrigin::from(Some(controller.clone()).into()),
                             votes.iter().map(|l| T::Lookup::unlookup(l.clone())).collect(),
                         )
                     }, _ => Ok(())
@@ -1481,7 +1481,7 @@ decl_error! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         /// Number of sessions per era.
         const SessionsPerEra: SessionIndex = T::SessionsPerEra::get();
 
@@ -1583,7 +1583,7 @@ decl_module! {
                 <Validators<T>>::iter().for_each(|(k,_)| <Identity<T>>::add_account_key_ref_count(&k));
             });
 
-            1_000
+            Weight::from_ref_time(1_000)
         }
 
         /// sets `ElectionStatus` to `Open(now)` where `now` is the block number at which the
@@ -1592,8 +1592,8 @@ decl_module! {
         /// worker, if applicable, will execute at the end of the current block, and solutions may
         /// be submitted.
         fn on_initialize(now: T::BlockNumber) -> Weight {
-            let mut consumed_weight = 0;
-            let mut add_weight = |reads, writes, weight| {
+            let mut consumed_weight = Weight::zero();
+            let mut add_weight = |reads: u64, writes: u64, weight| {
                 consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
                 consumed_weight += weight;
             };
@@ -1617,7 +1617,7 @@ decl_module! {
                                 <EraElectionStatus<T>>::put(
                                     ElectionStatus::<T::BlockNumber>::Open(now)
                                 );
-                                add_weight(0, 1, 0);
+                                add_weight(0, 1, Weight::zero());
                                 log!(info, "💸 Election window is Open({:?}). Snapshot created", now);
                             } else {
                                 log!(warn, "💸 Failed to create snapshot at {:?}.", now);
@@ -1630,9 +1630,9 @@ decl_module! {
                 add_weight(0, 0, estimate_next_new_session_weight)
             }
             // For `era_election_status`, `is_current_session_final`, `will_era_be_forced`
-            add_weight(3, 0, 0);
+            add_weight(3, 0, Weight::zero());
             // Additional read from `on_finalize`
-            add_weight(1, 0, 0);
+            add_weight(1, 0, Weight::zero());
             consumed_weight
         }
 
@@ -2463,8 +2463,8 @@ decl_module! {
 
             Self::update_ledger(&controller, &ledger);
             Ok(Some(
-                35 * WEIGHT_PER_MICROS
-                + 50 * WEIGHT_PER_NANOS * (ledger.unlocking.len() as Weight)
+                35u64 * WEIGHT_PER_MICROS
+                + 50u64 * WEIGHT_PER_NANOS * (ledger.unlocking.len() as u64)
                 + T::DbWeight::get().reads_writes(3, 2)
             ).into())
         }
@@ -2733,7 +2733,7 @@ impl<T: Config> Module<T> {
     /// This data is used to efficiently evaluate election results. returns `true` if the operation
     /// is successful.
     pub fn create_stakers_snapshot() -> (bool, Weight) {
-        let mut consumed_weight = 0;
+        let mut consumed_weight = Weight::zero();
         let mut add_db_reads_writes = |reads, writes| {
             consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
         };
@@ -2752,7 +2752,7 @@ impl<T: Config> Module<T> {
 
         let num_validators = validators.len();
         let num_nominators = nominators.len();
-        add_db_reads_writes((num_validators + num_nominators) as Weight, 0);
+        add_db_reads_writes((num_validators + num_nominators) as u64, 0);
 
         if
             num_validators > MAX_VALIDATORS ||
@@ -3028,7 +3028,7 @@ impl<T: Config> Module<T> {
             )
         }
 
-        Ok(None.into())
+        Ok(None::<Weight>.into())
     }
 
     /// Checks a given solution and if correct and improved, writes it on chain as the queued result
@@ -3203,7 +3203,7 @@ impl<T: Config> Module<T> {
         // emit event.
         Self::deposit_event(RawEvent::SolutionStored(compute));
 
-        Ok(None.into())
+        Ok(None::<Weight>.into())
     }
 
     /// Start a session potentially starting an era.
@@ -3565,7 +3565,7 @@ impl<T: Config> Module<T> {
                 Self::validator_count() as usize,
                 all_validators,
                 all_nominators,
-                Some((iterations, 0)), // exactly run `iterations` rounds.
+                Some(BalancingConfig { iterations, tolerance: 0 }), // exactly run `iterations` rounds.
             )
             .map_err(|err| log!(error, "Call to seq-phragmen failed due to {:?}", err))
             .ok()
@@ -3632,8 +3632,11 @@ impl<T: Config> Module<T> {
 
     /// Clear all era information for given era.
     fn clear_era_information(era_index: EraIndex) {
+        #[allow(deprecated)]
         <ErasStakers<T>>::remove_prefix(era_index, None);
+        #[allow(deprecated)]
         <ErasStakersClipped<T>>::remove_prefix(era_index, None);
+        #[allow(deprecated)]
         <ErasValidatorPrefs<T>>::remove_prefix(era_index, None);
         <ErasValidatorReward<T>>::remove(era_index);
         <ErasRewardPoints<T>>::remove(era_index);
@@ -3750,7 +3753,7 @@ impl<T: Config> Module<T> {
             * T::ExpectedBlockTime::get().saturated_into::<u64>()
     }
 
-    fn base_chill_from_governance(origin: T::Origin, identity: IdentityId, stash_keys: Vec<T::AccountId>) -> DispatchResult {
+    fn base_chill_from_governance(origin: T::RuntimeOrigin, identity: IdentityId, stash_keys: Vec<T::AccountId>) -> DispatchResult {
         // Checks that the era election status is closed.
         ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
         // Required origin for removing a validator.
@@ -3925,7 +3928,7 @@ for Module<T> where
         slash_fraction: &[Perbill],
         slash_session: SessionIndex,
         _disable_strategy: DisableStrategy,
-    ) -> u64 {
+    ) -> Weight {
         // Polymesh-Note:
         // When slashing is off or allowed for none, set slash fraction to zero.
         // ---------------------------------------------------------------------
@@ -3939,7 +3942,7 @@ for Module<T> where
         // ---------------------------------------------------------------------
 
         let reward_proportion = SlashRewardFraction::get();
-        let mut consumed_weight: Weight = 0;
+        let mut consumed_weight = Weight::zero();
         let mut add_db_reads_writes = |reads, writes| {
             consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
         };

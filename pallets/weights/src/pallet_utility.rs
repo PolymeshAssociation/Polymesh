@@ -51,28 +51,27 @@ use polymesh_runtime_common::GetDispatchInfo;
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 fn sum_weights(calls: &[impl GetDispatchInfo]) -> Weight {
-    let num_calls = calls.len() as Weight;
+    let num_calls = calls.len() as u64;
     calls
         .iter()
         .map(|call| call.get_dispatch_info().weight)
-        .fold(0 as Weight, |a: Weight, n| a.saturating_add(n))
+        .fold(Weight::zero(), |a: Weight, n| a.saturating_add(n))
         .saturating_add(
             // Each call has 2 reads and 2 writes overhead.
-            num_calls.saturating_mul(
-                DbWeight::get()
-                    .reads(2 as Weight)
-                    .saturating_add(DbWeight::get().writes(2 as Weight)),
-            ),
+            num_calls
+                * DbWeight::get()
+                    .reads(2 as u64)
+                    .saturating_add(DbWeight::get().writes(2 as u64)),
         )
 }
 
 /// Weights for pallet_utility using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_utility::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_utility::WeightInfo for SubstrateWeight {
     // Storage: Permissions CurrentPalletName (r:1 w:1)
     // Storage: Permissions CurrentDispatchableName (r:1 w:1)
     fn batch(calls: &[impl GetDispatchInfo]) -> Weight {
-        (38_672_000 as Weight)
+        Weight::from_ref_time(38_672_000)
             // Standard Error: 438_000
             .saturating_add(sum_weights(calls))
     }
@@ -80,16 +79,16 @@ impl pallet_utility::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentPalletName (r:1 w:1)
     // Storage: Permissions CurrentDispatchableName (r:1 w:1)
     fn batch_atomic(calls: &[impl GetDispatchInfo]) -> Weight {
-        (49_113_000 as Weight)
+        Weight::from_ref_time(49_113_000)
             // Standard Error: 165_000
             .saturating_add(sum_weights(calls))
-            .saturating_add(DbWeight::get().reads(1 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Permissions CurrentPalletName (r:1 w:1)
     // Storage: Permissions CurrentDispatchableName (r:1 w:1)
     fn batch_optimistic(calls: &[impl GetDispatchInfo]) -> Weight {
-        (27_520_000 as Weight)
+        Weight::from_ref_time(27_520_000)
             // Standard Error: 546_000
             .saturating_add(sum_weights(calls))
     }
@@ -102,9 +101,9 @@ impl pallet_utility::WeightInfo for WeightInfo {
     // Storage: Permissions CurrentPalletName (r:1 w:1)
     // Storage: Permissions CurrentDispatchableName (r:1 w:1)
     fn relay_tx(call: &impl GetDispatchInfo) -> Weight {
-        (167_964_000 as Weight)
+        Weight::from_ref_time(167_964_000)
             .saturating_add(call.get_dispatch_info().weight)
-            .saturating_add(DbWeight::get().reads(10 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+            .saturating_add(DbWeight::get().reads(10))
+            .saturating_add(DbWeight::get().writes(3))
     }
 }

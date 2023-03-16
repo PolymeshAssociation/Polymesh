@@ -4,14 +4,23 @@ version = "2.0.0"
 authors = ["Anonymous"]
 edition = "2021"
 
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0" }
-serde = { version = "1.0.104", features = ["derive"] }
-jsonrpc-core = { version = "18.0.0", features = ["arbitrary_precision"] }
-jsonrpc-core-client = { version = "18.0.0", features = ["arbitrary_precision"] }
-jsonrpc-derive = "18.0.0"
-sp-runtime = { version = "6.0.0", default_features = false }
-sp-blockchain = { version = "4.0.0-dev", default_features = false}
-sp-api = { version = "4.0.0-dev", default_features = false}
+jsonrpsee = { version = "0.15.1", features = ["server", "macros"] }
+sp-api = { version = "4.0.0-dev", default_features = false }
+sp-blockchain = { version = "4.0.0-dev" }
+sp-core = { version = "7.0.0", default_features = false }
+sp-rpc = { version = "6.0.0" }
+sp-runtime = { version = "7.0.0", default_features = false }
+sp-std = {version = "5.0.0", default_features = false }
+frame-support = { version = "4.0.0-dev", default-features = false }
+frame-system = { version = "4.0.0-dev", default-features = false }
 
+# General
+serde = { version = "1.0.104", features = ["derive"] }
+
+node-rpc = { path = "../../../rpc" }
 pallet-staking-rpc-runtime-api = { version = "2.0.0", path = "./runtime-api" }

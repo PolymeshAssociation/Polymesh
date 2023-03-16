@@ -59,6 +59,7 @@ use polymesh_primitives::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::transaction_validity::InvalidTransaction;
+use sp_std::vec;
 
 type Identity<T> = pallet_identity::Module<T>;
 
@@ -99,7 +100,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -222,7 +223,7 @@ decl_error! {
 
 impl<T: Config> Module<T> {
     fn base_set_paying_key(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         user_key: T::AccountId,
         polyx_limit: Balance,
     ) -> DispatchResult {
@@ -237,7 +238,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn base_accept_paying_key(origin: T::Origin, auth_id: u64) -> DispatchResult {
+    fn base_accept_paying_key(origin: T::RuntimeOrigin, auth_id: u64) -> DispatchResult {
         let caller_key = ensure_signed(origin)?;
         let user_did =
             <Identity<T>>::get_identity(&caller_key).ok_or(Error::<T>::UserKeyCddMissing)?;
@@ -269,7 +270,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_remove_paying_key(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         user_key: T::AccountId,
         paying_key: T::AccountId,
     ) -> DispatchResult {
@@ -308,7 +309,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_update_polyx_limit(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         user_key: T::AccountId,
         action: UpdateAction,
         amount: Balance,

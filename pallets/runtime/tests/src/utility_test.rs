@@ -2,8 +2,8 @@ use super::{
     assert_event_doesnt_exist, assert_event_exists, assert_last_event,
     pips_test::assert_balance,
     storage::{
-        add_secondary_key, get_secondary_keys, register_keyring_account_with_balance, Call,
-        EventTest, Identity, Origin, Portfolio, System, TestStorage, User, Utility,
+        add_secondary_key, get_secondary_keys, register_keyring_account_with_balance, EventTest,
+        Identity, Portfolio, RuntimeCall, RuntimeOrigin, System, TestStorage, User, Utility,
     },
     ExtBuilder,
 };
@@ -22,8 +22,8 @@ use test_client::AccountKeyring;
 
 type Error = utility::Error<TestStorage>;
 
-fn transfer(to: AccountId, amount: u128) -> Call {
-    Call::Balances(BalancesCall::transfer {
+fn transfer(to: AccountId, amount: u128) -> RuntimeCall {
+    RuntimeCall::Balances(BalancesCall::transfer {
         dest: to.into(),
         value: amount,
     })
@@ -65,7 +65,7 @@ fn batch_test(test: impl FnOnce(AccountId, AccountId)) {
 fn batch_with_signed_works() {
     batch_test(|alice, bob| {
         let calls = vec![transfer(bob.clone(), 400), transfer(bob.clone(), 400)];
-        assert_ok!(Utility::batch(Origin::signed(alice.clone()), calls));
+        assert_ok!(Utility::batch(RuntimeOrigin::signed(alice.clone()), calls));
         assert_balance(alice, 200, 0);
         assert_balance(bob, 1000 + 400 + 400, 0);
         assert_event(Event::BatchCompleted(vec![1, 1]));
@@ -80,7 +80,7 @@ fn batch_early_exit_works() {
             transfer(bob.clone(), 900),
             transfer(bob.clone(), 400),
         ];
-        assert_ok!(Utility::batch(Origin::signed(alice.clone()), calls));
+        assert_ok!(Utility::batch(RuntimeOrigin::signed(alice.clone()), calls));
         assert_balance(alice, 600, 0);
         assert_balance(bob, 1000 + 400, 0);
         assert_event(Event::BatchInterrupted(vec![1, 0], (1, ERROR)));
@@ -92,7 +92,7 @@ fn batch_optimistic_works() {
     batch_test(|alice, bob| {
         let calls = vec![transfer(bob.clone(), 401), transfer(bob.clone(), 402)];
         assert_ok!(Utility::batch_optimistic(
-            Origin::signed(alice.clone()),
+            RuntimeOrigin::signed(alice.clone()),
             calls
         ));
         assert_event(Event::BatchCompleted(vec![1, 1]));
@@ -105,7 +105,7 @@ fn batch_optimistic_works() {
 fn batch_optimistic_failures_listed() {
     batch_test(|alice, bob| {
         assert_ok!(Utility::batch_optimistic(
-            Origin::signed(alice.clone()),
+            RuntimeOrigin::signed(alice.clone()),
             vec![
                 transfer(bob.clone(), 401), // YAY.
                 transfer(bob.clone(), 900), // NAY.
@@ -127,7 +127,10 @@ fn batch_optimistic_failures_listed() {
 fn batch_atomic_works() {
     batch_test(|alice, bob| {
         let calls = vec![transfer(bob.clone(), 401), transfer(bob.clone(), 402)];
-        assert_ok!(Utility::batch_atomic(Origin::signed(alice.clone()), calls));
+        assert_ok!(Utility::batch_atomic(
+            RuntimeOrigin::signed(alice.clone()),
+            calls
+        ));
         assert_event(Event::BatchCompleted(vec![1, 1]));
         assert_balance(alice, 1000 - 401 - 402, 0);
         assert_balance(bob, 1000 + 401 + 402, 0);
@@ -139,7 +142,10 @@ fn batch_atomic_early_exit_works() {
     batch_test(|alice, bob| {
         let trans = |x| transfer(bob.clone(), x);
         let calls = vec![trans(400), trans(900), trans(400)];
-        assert_ok!(Utility::batch_atomic(Origin::signed(alice.clone()), calls));
+        assert_ok!(Utility::batch_atomic(
+            RuntimeOrigin::signed(alice.clone()),
+            calls
+        ));
         assert_balance(alice, 1000, 0);
         assert_balance(bob, 1000, 0);
         assert_event(Event::BatchInterrupted(vec![1, 0], (1, ERROR)));
@@ -167,10 +173,10 @@ fn _relay_happy_case() {
     assert_balance(bob.clone(), 1041, 0);
     assert_balance(charlie.clone(), 1041, 0);
 
-    let origin = Origin::signed(alice);
+    let origin = RuntimeOrigin::signed(alice);
     let transaction = UniqueCall::new(
         Utility::nonce(bob.clone()),
-        Call::Balances(BalancesCall::transfer {
+        RuntimeCall::Balances(BalancesCall::transfer {
             dest: charlie.clone().into(),
             value: 50,
         }),
@@ -202,10 +208,10 @@ fn _relay_unhappy_cases() {
 
     let charlie = AccountKeyring::Charlie.to_account_id();
 
-    let origin = Origin::signed(alice);
+    let origin = RuntimeOrigin::signed(alice);
     let transaction = UniqueCall::new(
         Utility::nonce(bob.clone()),
-        Call::Balances(BalancesCall::transfer {
+        RuntimeCall::Balances(BalancesCall::transfer {
             dest: charlie.clone().into(),
             value: 59,
         }),
@@ -235,7 +241,7 @@ fn _relay_unhappy_cases() {
 
     let transaction = UniqueCall::new(
         Utility::nonce(bob.clone()) + 1,
-        Call::Balances(BalancesCall::transfer {
+        RuntimeCall::Balances(BalancesCall::transfer {
             dest: charlie.into(),
             value: 59,
         }),
@@ -313,10 +319,10 @@ fn batch_secondary_with_permissions() {
 
     // Call one disallowed and one allowed extrinsic in a batch.
     let calls = vec![
-        Call::Portfolio(PortfolioCall::create_portfolio {
+        RuntimeCall::Portfolio(PortfolioCall::create_portfolio {
             name: high_risk_name.clone(),
         }),
-        Call::Portfolio(PortfolioCall::rename_portfolio {
+        RuntimeCall::Portfolio(PortfolioCall::rename_portfolio {
             num: 1u64.into(),
             to_name: high_risk_name.clone(),
         }),

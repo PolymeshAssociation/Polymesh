@@ -53,10 +53,10 @@ log = "0.4.8"
 # Substrate
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
-sp-core = { version = "6.0.0", default-features = false }
-sp-std = { version = "4.0.0", default-features = false }
-sp-io = { version = "6.0.0", default-features = false }
-sp-runtime = { version = "6.0.0", default-features = false }
+sp-core = { version = "7.0.0", default-features = false }
+sp-std = { version = "5.0.0", default-features = false }
+sp-io = { version = "7.0.0", default-features = false }
+sp-runtime = { version = "7.0.0", default-features = false }
 sp-version = { version = "5.0.0", default-features = false }
 sp-api = { version = "4.0.0-dev", default-features = false }
 sp-inherents = { version = "4.0.0-dev", default-features = false }
@@ -67,11 +67,11 @@ sp-session = { version = "4.0.0-dev", default-features = false }
 sp-authority-discovery = { version = "4.0.0-dev", default-features = false }
 sp-transaction-pool = { version = "4.0.0-dev", default-features = false }
 sp-block-builder = { version = "4.0.0-dev", default-features = false }
-sp-arithmetic = { version = "5.0.0", default-features = false }
+sp-arithmetic = { version = "6.0.0", default-features = false }
 #
 pallet-authorship = { version = "4.0.0-dev", default-features = false }
 pallet-contracts = { version = "4.0.0-dev", default-features = false }
-pallet-contracts-primitives = { version = "6.0.0", default-features = false }
+pallet-contracts-primitives = { version = "7.0.0", default-features = false }
 pallet-executive = { package = "frame-executive", version = "4.0.0-dev", default-features = false }
 pallet-grandpa = { version = "4.0.0-dev", default-features = false }
 pallet-im-online = { version = "4.0.0-dev", default-features = false }
@@ -89,13 +89,12 @@ frame-system = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
 
 # Crypto
-confidential_identity_core = { version = "1.0.1", default-features = false }
+confidential_identity_core = { version = "1.1.0", default-features = false }
 
 # RPC
 frame-system-rpc-runtime-api = { version = "4.0.0-dev", default-features = false }
 pallet-group-rpc-runtime-api = { path = "../../group/rpc/runtime-api", default-features = false }
 pallet-protocol-fee-rpc-runtime-api = { path = "../../protocol-fee/rpc/runtime-api", default-features = false }
-pallet-contracts-rpc-runtime-api = { version = "4.0.0-dev", default-features = false }
 pallet-staking-rpc-runtime-api = { path = "../../staking/rpc/runtime-api", default-features = false }
 node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = false }
 
@@ -127,9 +126,10 @@ no_std = [
 std = [
     "u64_backend",
     "codec/std",
-    "frame-benchmarking/std",
+    "frame-benchmarking?/std",
     "frame-support/std",
     "frame-system-rpc-runtime-api/std",
+    "frame-system-benchmarking?/std",
     "frame-system/std",
     "node-rpc-runtime-api/std",
     "confidential_identity_core/std",
@@ -143,7 +143,6 @@ std = [
     "pallet-bridge/std",
     "pallet-committee/std",
     "pallet-compliance-manager/std",
-    "pallet-contracts-rpc-runtime-api/std",
     "pallet-contracts/std",
     "pallet-corporate-actions/std",
     "pallet-executive/std",
@@ -205,7 +204,7 @@ runtime-benchmarks = [
 		"getrandom/js",
     "frame-benchmarking/runtime-benchmarks",
     "frame-support/runtime-benchmarks",
-    "frame-system-benchmarking",
+    "frame-system-benchmarking/runtime-benchmarks",
     "frame-system/runtime-benchmarks",
     "pallet-babe/runtime-benchmarks",
     "pallet-indices/runtime-benchmarks",
