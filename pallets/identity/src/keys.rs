@@ -433,7 +433,7 @@ impl<T: Config> Module<T> {
 
     /// Create a child identity.
     pub(crate) fn base_create_child_identity(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         secondary_key: T::AccountId,
     ) -> DispatchResult {
         let (_, parent_did) = Self::ensure_primary_key(origin)?;
@@ -484,7 +484,7 @@ impl<T: Config> Module<T> {
 
     /// Create a child identities.
     pub(crate) fn base_create_child_identities(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         child_keys: Vec<CreateChildIdentityWithAuth<T::AccountId>>,
         expires_at: T::Moment,
     ) -> DispatchResult {
@@ -554,7 +554,7 @@ impl<T: Config> Module<T> {
 
     /// Unlink a child identity.
     pub(crate) fn base_unlink_child_identity(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         child_did: IdentityId,
     ) -> DispatchResult {
         let (_, caller_did) = Self::ensure_primary_key(origin)?;
