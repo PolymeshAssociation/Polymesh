@@ -14,9 +14,9 @@ pub trait Config:
     frame_system::Config + crate::traits::identity::Config + crate::traits::external_agents::Config
 {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
     /// Asset module.
-    type Asset: AssetFnTrait<Self::AccountId, Self::Origin>;
+    type Asset: AssetFnTrait<Self::AccountId, Self::RuntimeOrigin>;
     /// Maximum stats that can be enabled for an Asset.
     type MaxStatsPerAsset: Get<u32>;
     /// Maximum transfer conditions that can be enabled for an Asset.

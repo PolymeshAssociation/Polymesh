@@ -61,7 +61,7 @@ pub fn exec(item: TokenStream) -> TokenStream {
         if *crate::storage::INTEGRATION_TEST {
             crate::storage::exec(
                 #origin,
-                <crate::storage::#pallet as frame_support::dispatch::Callable<crate::TestStorage>>::Call::#call_variant(
+                <crate::storage::#pallet as frame_support::dispatch::Callable<crate::TestStorage>>::RuntimeCall::#call_variant(
                     #params
                 )
             )

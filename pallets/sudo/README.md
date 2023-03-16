@@ -41,7 +41,7 @@ use frame_system::ensure_root;
 pub trait Config: frame_system::Config {}
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
 		#[weight = 0]
         pub fn privileged_function(origin) -> dispatch::DispatchResult {
             ensure_root(origin)?;

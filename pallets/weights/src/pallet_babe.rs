@@ -23,10 +23,10 @@ use polymesh_runtime_common::{
 };
 
 /// Weights for pallet_babe using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_babe::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_babe::WeightInfo for SubstrateWeight {
     fn plan_config_change() -> Weight {
-        0
+        Weight::zero()
     }
 
     // WARNING! Some components were not used: ["x"]
@@ -40,14 +40,14 @@ impl pallet_babe::WeightInfo for WeightInfo {
         const MAX_NOMINATORS: u64 = 200;
 
         // checking membership proof
-        (35 * WEIGHT_PER_MICROS)
-            .saturating_add((175 * WEIGHT_PER_NANOS).saturating_mul(validator_count))
+        (35u64 * WEIGHT_PER_MICROS)
+            .saturating_add((175u64 * WEIGHT_PER_NANOS).saturating_mul(validator_count))
             .saturating_add(DbWeight::get().reads(5))
             // check equivocation proof
-            .saturating_add(110 * WEIGHT_PER_MICROS)
+            .saturating_add(110u64 * WEIGHT_PER_MICROS)
             // report offence
-            .saturating_add(110 * WEIGHT_PER_MICROS)
-            .saturating_add(25 * WEIGHT_PER_MICROS * MAX_NOMINATORS)
+            .saturating_add(110u64 * WEIGHT_PER_MICROS)
+            .saturating_add(25u64 * WEIGHT_PER_MICROS * MAX_NOMINATORS)
             .saturating_add(DbWeight::get().reads(14 + 3 * MAX_NOMINATORS))
             .saturating_add(DbWeight::get().writes(10 + 3 * MAX_NOMINATORS))
     }

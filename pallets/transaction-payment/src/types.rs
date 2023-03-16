@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2021 Parity Technologies (UK) Ltd.
+// Copyright (C) 2021-2022 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,11 +18,13 @@
 //! Types for transaction-payment RPC.
 
 use codec::{Decode, Encode};
-use frame_support::weights::{DispatchClass, Weight};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
+
 use sp_runtime::traits::{AtLeast32BitUnsigned, Zero};
 use sp_std::prelude::*;
+
+use frame_support::dispatch::DispatchClass;
 
 /// The base fee and adjusted weight and length fees constitute the _inclusion fee_.
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
@@ -34,8 +36,9 @@ pub struct InclusionFee<Balance> {
     pub base_fee: Balance,
     /// The length fee, the amount paid for the encoded length (in bytes) of the transaction.
     pub len_fee: Balance,
-    /// - `targeted_fee_adjustment`: This is a multiplier that can tune the final fee based on
-    ///     the congestion of the network.
+    ///
+    /// - `targeted_fee_adjustment`: This is a multiplier that can tune the final fee based on the
+    ///   congestion of the network.
     /// - `weight_fee`: This amount is computed based on the weight of the transaction. Weight
     /// accounts for the execution time of a transaction.
     ///
@@ -58,8 +61,8 @@ impl<Balance: AtLeast32BitUnsigned + Copy> InclusionFee<Balance> {
 
 /// The `FeeDetails` is composed of:
 ///   - (Optional) `inclusion_fee`: Only the `Pays::Yes` transaction can have the inclusion fee.
-///   - `tip`: If included in the transaction, the tip will be added on top. Only
-///     signed transactions can have a tip.
+///   - `tip`: If included in the transaction, the tip will be added on top. Only signed
+///     transactions can have a tip.
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
@@ -86,19 +89,20 @@ impl<Balance: AtLeast32BitUnsigned + Copy> FeeDetails<Balance> {
     }
 }
 
-/// Information related to a dispatchable's class, weight, and fee that can be queried from the runtime.
+/// Information related to a dispatchable's class, weight, and fee that can be queried from the
+/// runtime.
 #[derive(Eq, PartialEq, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "std",
-    serde(bound(serialize = "Balance: std::fmt::Display"))
+    serde(bound(serialize = "Balance: std::fmt::Display, Weight: Serialize"))
 )]
 #[cfg_attr(
     feature = "std",
-    serde(bound(deserialize = "Balance: std::str::FromStr"))
+    serde(bound(deserialize = "Balance: std::str::FromStr, Weight: Deserialize<'de>"))
 )]
-pub struct RuntimeDispatchInfo<Balance> {
+pub struct RuntimeDispatchInfo<Balance, Weight = frame_support::weights::Weight> {
     /// Weight of this dispatch.
     pub weight: Weight,
     /// Class of this dispatch.
@@ -134,16 +138,18 @@ mod serde_balance {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use frame_support::weights::Weight;
 
     #[test]
     fn should_serialize_and_deserialize_properly_with_string() {
         let info = RuntimeDispatchInfo {
-            weight: 5,
+            weight: Weight::from_ref_time(5),
             class: DispatchClass::Normal,
             partial_fee: 1_000_000_u64,
         };
 
-        let json_str = r#"{"weight":5,"class":"normal","partialFee":"1000000"}"#;
+        let json_str =
+            r#"{"weight":{"ref_time":5,"proof_size":0},"class":"normal","partialFee":"1000000"}"#;
 
         assert_eq!(serde_json::to_string(&info).unwrap(), json_str);
         assert_eq!(
@@ -158,12 +164,12 @@ mod tests {
     #[test]
     fn should_serialize_and_deserialize_properly_large_value() {
         let info = RuntimeDispatchInfo {
-            weight: 5,
+            weight: Weight::from_ref_time(5),
             class: DispatchClass::Normal,
             partial_fee: u128::max_value(),
         };
 
-        let json_str = r#"{"weight":5,"class":"normal","partialFee":"340282366920938463463374607431768211455"}"#;
+        let json_str = r#"{"weight":{"ref_time":5,"proof_size":0},"class":"normal","partialFee":"340282366920938463463374607431768211455"}"#;
 
         assert_eq!(serde_json::to_string(&info).unwrap(), json_str);
         assert_eq!(

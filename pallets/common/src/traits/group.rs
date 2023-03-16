@@ -93,24 +93,24 @@ pub trait WeightInfo {
 
 pub trait Config<I>: frame_system::Config + pallet_timestamp::Config + IdentityConfig {
     /// The overarching event type.
-    type Event: From<Event<Self, I>> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event<Self, I>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
 
     /// Required origin for changing the active limit.
     /// It's recommended that e.g., in case of a committee,
     /// this be an origin that cannot be formed through a committee majority.
-    type LimitOrigin: EnsureOrigin<<Self as frame_system::Config>::Origin>;
+    type LimitOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
 
     /// Required origin for adding a member (though can always be Root).
-    type AddOrigin: EnsureOrigin<<Self as frame_system::Config>::Origin>;
+    type AddOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
 
     /// Required origin for removing a member (though can always be Root).
-    type RemoveOrigin: EnsureOrigin<<Self as frame_system::Config>::Origin>;
+    type RemoveOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
 
     /// Required origin for adding and removing a member in a single action.
-    type SwapOrigin: EnsureOrigin<<Self as frame_system::Config>::Origin>;
+    type SwapOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
 
     /// Required origin for resetting membership.
-    type ResetOrigin: EnsureOrigin<<Self as frame_system::Config>::Origin>;
+    type ResetOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
 
     /// The receiver of the signal for when the membership has been initialized. This happens pre-
     /// genesis and will usually be the same as `MembershipChanged`. If you need to do something
@@ -127,7 +127,7 @@ pub trait Config<I>: frame_system::Config + pallet_timestamp::Config + IdentityC
 decl_event!(
     pub enum Event<T, I> where
     <T as frame_system::Config>::AccountId,
-    <T as Config<I>>::Event,
+    <T as Config<I>>::RuntimeEvent,
     {
         /// The given member was added; see the transaction for who.
         /// caller DID, New member DID.
@@ -147,7 +147,7 @@ decl_event!(
         /// The limit of how many active members there can be concurrently was changed.
         ActiveLimitChanged(IdentityId, MemberCount, MemberCount),
         /// Phantom member, never used.
-        Dummy(sp_std::marker::PhantomData<(AccountId, Event)>),
+        Dummy(sp_std::marker::PhantomData<(AccountId, RuntimeEvent)>),
     }
 );
 

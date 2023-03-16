@@ -5,8 +5,8 @@ authors = ["Polymath"]
 edition = "2021"
 
 [dependencies]
-confidential_identity_v1 = { version = "1.0.1", default-features = false }
-confidential_identity_core = { version = "1.0.1", default-features = false }
+confidential_identity_v1 = { version = "1.1.0", default-features = false }
+confidential_identity_core = { version = "1.1.0", default-features = false }
 node-rpc-runtime-api = { path = "../../../rpc/runtime-api", default-features = false }
 pallet-asset = { path = "../../asset", default-features = false }
 pallet-balances = { path = "../../balances", default-features = false }
@@ -71,8 +71,7 @@ pallet-authority-discovery = { version = "4.0.0-dev", default-features = false }
 pallet-authorship = { version = "4.0.0-dev", default-features = false }
 pallet-babe = { version = "4.0.0-dev", default-features = false }
 pallet-contracts = { version = "4.0.0-dev", default-features = false }
-pallet-contracts-primitives = { version = "6.0.0", default-features = false }
-pallet-contracts-rpc-runtime-api = { version = "4.0.0-dev", default-features = false }
+pallet-contracts-primitives = { version = "7.0.0", default-features = false }
 pallet-executive = { package = "frame-executive", version = "4.0.0-dev", default-features = false }
 pallet-grandpa = { version = "4.0.0-dev", default-features = false }
 pallet-im-online = { version = "4.0.0-dev", default-features = false }
@@ -86,23 +85,23 @@ pallet-staking-reward-curve = { version = "4.0.0-dev", default-features = false 
 pallet-timestamp = { version = "4.0.0-dev", default-features = false }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
 sp-api = { version = "4.0.0-dev", default-features = false }
-sp-arithmetic = { version = "5.0.0", default-features = false }
+sp-arithmetic = { version = "6.0.0", default-features = false }
 sp-authority-discovery = { version = "4.0.0-dev", default-features = false }
 sp-block-builder = { version = "4.0.0-dev", default-features = false }
 sp-consensus-babe = { version = "0.10.0-dev", default-features = false }
-sp-core = { version = "6.0.0", default-features = false }
+sp-core = { version = "7.0.0", default-features = false }
 sp-inherents = { version = "4.0.0-dev", default-features = false }
-sp-io = { version = "6.0.0", default-features = false }
+sp-io = { version = "7.0.0", default-features = false }
 sp-npos-elections = { version = "4.0.0-dev", default-features = false }
 sp-offchain = { version = "4.0.0-dev", default-features = false }
-sp-runtime = { version = "6.0.0", default-features = false }
+sp-runtime = { version = "7.0.0", default-features = false }
 sp-session = { version = "4.0.0-dev", default-features = false }
 sp-staking = { version = "4.0.0-dev", default-features = false }
-sp-std = { version = "4.0.0", default-features = false }
+sp-std = { version = "5.0.0", default-features = false }
 sp-transaction-pool = { version = "4.0.0-dev", default-features = false }
 sp-version = { version = "5.0.0", default-features = false }
 
-test_client = { package = "substrate-test-runtime-client", git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2", optional = true }
+test_client = { package = "substrate-test-runtime-client", git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12", optional = true }
 substrate-test-utils = { version = "4.0.0-dev", optional = true }
 
 [dev-dependencies]

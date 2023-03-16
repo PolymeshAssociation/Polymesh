@@ -54,6 +54,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{Balance, IdentityId, PosRatio};
 use sp_runtime::{traits::Zero, Perbill};
+use sp_std::vec;
 
 type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
@@ -67,7 +68,7 @@ pub trait WeightInfo {
 }
 
 pub trait Config: frame_system::Config + IdentityConfig {
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
     /// The currency type in which fees will be paid.
     type Currency: Currency<Self::AccountId, Balance = Balance> + Send + Sync;
     /// Handler for the unbalanced reduction when taking protocol fees.
@@ -119,7 +120,7 @@ decl_event! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         type Error = Error<T>;
 
         fn deposit_event() = default;

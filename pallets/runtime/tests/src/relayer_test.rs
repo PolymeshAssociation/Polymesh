@@ -1,10 +1,10 @@
 use super::{
-    storage::{get_last_auth_id, make_account_without_cdd, Call, TestStorage, User},
+    storage::{get_last_auth_id, make_account_without_cdd, RuntimeCall, TestStorage, User},
     ExtBuilder,
 };
 use frame_support::{
     assert_noop, assert_ok,
-    weights::{DispatchInfo, Pays, PostDispatchInfo, Weight},
+    dispatch::{DispatchInfo, Pays, PostDispatchInfo, Weight},
     StorageMap,
 };
 use frame_system;
@@ -14,7 +14,7 @@ use polymesh_common_utilities::{
     traits::transaction_payment::CddAndFeeDetails,
 };
 use polymesh_primitives::{AccountId, Balance, Signatory, Ticker, TransactionError};
-use polymesh_runtime_develop::runtime::{Call as DevCall, CddHandler};
+use polymesh_runtime_develop::runtime::{CddHandler, RuntimeCall as DevRuntimeCall};
 use sp_runtime::{
     traits::{Dispatchable, SignedExtension},
     transaction_validity::{InvalidTransaction, TransactionValidityError},
@@ -35,45 +35,45 @@ type Error = pallet_relayer::Error<TestStorage>;
 // Relayer Test Helper functions
 // =======================================
 
-fn call_balance_transfer(val: Balance) -> <TestStorage as frame_system::Config>::Call {
-    Call::Balances(pallet_balances::Call::transfer {
+fn call_balance_transfer(val: Balance) -> <TestStorage as frame_system::Config>::RuntimeCall {
+    RuntimeCall::Balances(pallet_balances::Call::transfer {
         dest: MultiAddress::Id(AccountKeyring::Alice.to_account_id()),
         value: val,
     })
 }
 
-fn call_system_remark(size: usize) -> <TestStorage as frame_system::Config>::Call {
-    Call::System(frame_system::Call::remark {
+fn call_system_remark(size: usize) -> <TestStorage as frame_system::Config>::RuntimeCall {
+    RuntimeCall::System(frame_system::Call::remark {
         remark: vec![0; size],
     })
 }
 
-fn call_asset_register_ticker(name: &[u8]) -> <TestStorage as frame_system::Config>::Call {
+fn call_asset_register_ticker(name: &[u8]) -> <TestStorage as frame_system::Config>::RuntimeCall {
     let ticker = Ticker::from_slice_truncated(name);
-    Call::Asset(pallet_asset::Call::register_ticker { ticker })
+    RuntimeCall::Asset(pallet_asset::Call::register_ticker { ticker })
 }
 
 fn call_relayer_remove_paying_key(
     user_key: AccountId,
     paying_key: AccountId,
-) -> <TestStorage as frame_system::Config>::Call {
-    Call::Relayer(pallet_relayer::Call::remove_paying_key {
+) -> <TestStorage as frame_system::Config>::RuntimeCall {
+    RuntimeCall::Relayer(pallet_relayer::Call::remove_paying_key {
         user_key,
         paying_key,
     })
 }
 
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
-pub fn info_from_weight(w: Weight) -> DispatchInfo {
+pub fn info_from_weight(w: u64) -> DispatchInfo {
     DispatchInfo {
-        weight: w,
+        weight: Weight::from_ref_time(w),
         ..Default::default()
     }
 }
 
-fn post_info_from_weight(w: Weight) -> PostDispatchInfo {
+fn post_info_from_weight(w: u64) -> PostDispatchInfo {
     PostDispatchInfo {
-        actual_weight: Some(w),
+        actual_weight: Some(Weight::from_ref_time(w)),
         pays_fee: Pays::Yes,
     }
 }
@@ -562,7 +562,7 @@ fn do_relayer_accept_cdd_and_fees_test() {
     // Check that Bob can accept the subsidy with Alice paying for the transaction.
     assert_eq!(
         CddHandler::get_valid_payer(
-            &DevCall::Relayer(pallet_relayer::Call::accept_paying_key { auth_id }),
+            &DevRuntimeCall::Relayer(pallet_relayer::Call::accept_paying_key { auth_id }),
             &bob.acc()
         ),
         Ok(Some(alice.acc()))

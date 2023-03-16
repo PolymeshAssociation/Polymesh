@@ -23,13 +23,13 @@ use chrono::prelude::Utc;
 use frame_election_provider_support::NposSolution;
 use frame_support::{
     assert_ok,
-    dispatch::DispatchResult,
+    dispatch::{DispatchInfo, DispatchResult, Weight},
     parameter_types,
     traits::{
         Contains, Currency, FindAuthor, GenesisBuild as _, Get, Imbalance, KeyOwnerProofSystem,
         OnFinalize, OnInitialize, OnUnbalanced, OneSessionHandler, SortedMembers,
     },
-    weights::{constants::RocksDbWeight, DispatchInfo, Weight},
+    weights::constants::RocksDbWeight,
     IterableStorageMap, StorageDoubleMap, StorageMap, StorageValue,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
@@ -118,6 +118,8 @@ pub fn is_disabled(controller: AccountId) -> bool {
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
+pub type Origin = <Test as frame_system::Config>::RuntimeOrigin;
+pub type Call = RuntimeCall;
 
 frame_support::construct_runtime!(
     pub enum Test where
@@ -161,7 +163,7 @@ parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const MaxLen: u32 = 256;
     pub const MaxLocks: u32 = 1024;
-    pub const MaximumBlockWeight: Weight = 1024;
+    pub const MaximumBlockWeight: Weight = Weight::from_ref_time(1024);
     pub BlockWeights: frame_system::limits::BlockWeights =
         frame_system::limits::BlockWeights::simple_max(
             frame_support::weights::constants::WEIGHT_PER_SECOND * 2
@@ -180,16 +182,16 @@ impl frame_system::Config for Test {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = RocksDbWeight;
-    type Origin = Origin;
+    type RuntimeOrigin = RuntimeOrigin;
     type Index = AccountIndex;
     type BlockNumber = BlockNumber;
-    type Call = Call;
+    type RuntimeCall = RuntimeCall;
     type Hash = H256;
     type Hashing = ::sp_runtime::traits::BlakeTwo256;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -203,7 +205,7 @@ impl frame_system::Config for Test {
 }
 
 impl pallet_base::Config for Test {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type MaxLen = MaxLen;
 }
 
@@ -214,11 +216,11 @@ impl CommonConfig for Test {
 
 impl pallet_balances::Config for Test {
     type DustRemoval = ();
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type CddChecker = Test;
-    type WeightInfo = polymesh_weights::pallet_balances::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_balances::SubstrateWeight;
     type MaxLocks = MaxLocks;
 }
 
@@ -235,7 +237,7 @@ impl pallet_session::Config for Test {
     type Keys = SessionKeys;
     type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
     type SessionHandler = (OtherSessionHandler,);
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type ValidatorId = AccountId;
     type ValidatorIdOf = StashOf<Test>;
     type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
@@ -243,12 +245,12 @@ impl pallet_session::Config for Test {
 }
 
 impl pallet_committee::Config<pallet_committee::Instance1> for Test {
-    type Origin = Origin;
-    type Proposal = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type Proposal = RuntimeCall;
     type CommitteeOrigin = frame_system::EnsureRoot<AccountId>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
-    type Event = Event;
-    type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = polymesh_weights::pallet_committee::SubstrateWeight;
 }
 
 impl pallet_session::historical::Config for Test {
@@ -262,16 +264,16 @@ impl pallet_pips::Config for Test {
     type GovernanceCommittee = crate::storage::Committee;
     type TechnicalCommitteeVMO = frame_system::EnsureRoot<AccountId>;
     type UpgradeCommitteeVMO = frame_system::EnsureRoot<AccountId>;
-    type Event = Event;
-    type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = polymesh_weights::pallet_pips::SubstrateWeight;
     type Scheduler = Scheduler;
-    type SchedulerCall = Call;
+    type SchedulerCall = RuntimeCall;
 }
 
 impl pallet_treasury::Config for Test {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type Currency = pallet_balances::Module<Self>;
-    type WeightInfo = polymesh_weights::pallet_treasury::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_treasury::SubstrateWeight;
 }
 
 impl pallet_authorship::Config for Test {
@@ -291,7 +293,7 @@ impl pallet_timestamp::Config for Test {
 }
 
 impl group::Config<group::Instance2> for Test {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type LimitOrigin = frame_system::EnsureRoot<AccountId>;
     type AddOrigin = frame_system::EnsureRoot<AccountId>;
     type RemoveOrigin = frame_system::EnsureRoot<AccountId>;
@@ -299,20 +301,20 @@ impl group::Config<group::Instance2> for Test {
     type ResetOrigin = frame_system::EnsureRoot<AccountId>;
     type MembershipInitialized = ();
     type MembershipChanged = ();
-    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_group::SubstrateWeight;
 }
 
 impl protocol_fee::Config for Test {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type OnProtocolFeePayment = ();
-    type WeightInfo = polymesh_weights::pallet_protocol_fee::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_protocol_fee::SubstrateWeight;
     type Subsidiser = Test;
 }
 
 impl polymesh_common_utilities::traits::identity::Config for Test {
-    type Event = Event;
-    type Proposal = Call;
+    type RuntimeEvent = RuntimeEvent;
+    type Proposal = RuntimeCall;
     type MultiSig = Test;
     type Portfolio = Test;
     type CddServiceProviders = group::Module<Test, group::Instance2>;
@@ -323,7 +325,7 @@ impl polymesh_common_utilities::traits::identity::Config for Test {
     type OffChainSignature = TestSignature;
     type ProtocolFee = protocol_fee::Module<Test>;
     type GCVotingMajorityOrigin = frame_system::EnsureRoot<AccountId>;
-    type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_identity::SubstrateWeight;
     type IdentityFn = identity::Module<Test>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
@@ -334,21 +336,19 @@ parameter_types! {
     pub const InitialPOLYX: Balance = 0;
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
-    pub const NoPreimagePostponement: Option<u64> = Some(10);
 }
 
 impl pallet_scheduler::Config for Test {
-    type Event = Event;
-    type Origin = Origin;
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeOrigin = RuntimeOrigin;
     type PalletsOrigin = OriginCaller;
-    type Call = Call;
+    type RuntimeCall = RuntimeCall;
     type MaximumWeight = MaximumSchedulerWeight;
     type ScheduleOrigin = EnsureRoot<AccountId>;
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
     type WeightInfo = ();
     type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
-    type PreimageProvider = Preimage;
-    type NoPreimagePostponement = NoPreimagePostponement;
+    type Preimages = Preimage;
 }
 
 parameter_types! {
@@ -358,18 +358,17 @@ parameter_types! {
 }
 
 impl pallet_preimage::Config for Test {
-    type WeightInfo = polymesh_weights::pallet_preimage::WeightInfo;
-    type Event = Event;
+    type WeightInfo = polymesh_weights::pallet_preimage::SubstrateWeight;
+    type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type ManagerOrigin = EnsureRoot<AccountId>;
-    type MaxSize = PreimageMaxSize;
     type BaseDeposit = PreimageBaseDeposit;
     type ByteDeposit = PreimageByteDeposit;
 }
 
 impl pallet_test_utils::Config for Test {
-    type Event = Event;
-    type WeightInfo = polymesh_weights::pallet_test_utils::WeightInfo;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = polymesh_weights::pallet_test_utils::SubstrateWeight;
 }
 
 impl CddAndFeeDetails<AccountId, Call> for Test {
@@ -609,7 +608,7 @@ impl Config for Test {
     type UnixTime = Timestamp;
     type CurrencyToVote = frame_support::traits::SaturatingCurrencyToVote;
     type RewardRemainder = RewardRemainderMock;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type Slash = ();
     type Reward = ();
     type SessionsPerEra = SessionsPerEra;
@@ -620,14 +619,14 @@ impl Config for Test {
     type RewardCurve = RewardCurve;
     type NextNewSession = Session;
     type ElectionLookahead = ElectionLookahead;
-    type Call = Call;
+    type Call = RuntimeCall;
     type MaxIterations = MaxIterations;
     type MinSolutionScoreBump = MinSolutionScoreBump;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
     type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
     type UnsignedPriority = UnsignedPriority;
     type OffchainSolutionWeightLimit = polymesh_runtime_common::OffchainSolutionWeightLimit;
-    type WeightInfo = polymesh_weights::pallet_staking::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_staking::SubstrateWeight;
     type RequiredAddOrigin = frame_system::EnsureRoot<AccountId>;
     type RequiredRemoveOrigin = EnsureSignedBy<TwoThousand, Self::AccountId>;
     type RequiredCommissionOrigin = frame_system::EnsureRoot<AccountId>;
@@ -643,7 +642,7 @@ impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
 where
     Call: From<LocalCall>,
 {
-    type OverarchingCall = Call;
+    type OverarchingCall = RuntimeCall;
     type Extrinsic = Extrinsic;
 }
 
@@ -1577,7 +1576,7 @@ pub(crate) fn staking_events() -> Vec<staking::Event<Test>> {
         .into_iter()
         .map(|r| r.event)
         .filter_map(|e| {
-            if let Event::Staking(inner) = e {
+            if let RuntimeEvent::Staking(inner) = e {
                 Some(inner)
             } else {
                 None
@@ -1596,7 +1595,7 @@ fn get_primary_key(target: IdentityId) -> AccountId {
 
 pub fn make_account_with_uid(
     id: AccountId,
-) -> Result<(<Test as frame_system::Config>::Origin, IdentityId), &'static str> {
+) -> Result<(<Test as frame_system::Config>::RuntimeOrigin, IdentityId), &'static str> {
     make_account_with_balance(id, 1_000_000, None)
 }
 
@@ -1605,7 +1604,7 @@ pub fn make_account_with_balance(
     id: AccountId,
     balance: Balance,
     expiry: Option<Moment>,
-) -> Result<(<Test as frame_system::Config>::Origin, IdentityId), &'static str> {
+) -> Result<(<Test as frame_system::Config>::RuntimeOrigin, IdentityId), &'static str> {
     let signed_id = Origin::signed(id.clone());
     Balances::make_free_balance_be(&id, balance);
     let uid = create_investor_uid(id);

@@ -95,12 +95,11 @@ use confidential_identity_v2::ScopeClaimProof;
 use core::convert::From;
 use frame_support::{
     decl_error, decl_module, decl_storage,
-    dispatch::DispatchResult,
-    traits::{ChangeMembers, Currency, EnsureOrigin, Get, InitializeMembers},
-    weights::{
+    dispatch::{
         DispatchClass::{Normal, Operational},
-        Pays,
+        DispatchResult, Pays,
     },
+    traits::{ChangeMembers, Currency, EnsureOrigin, Get, InitializeMembers},
 };
 use frame_system::ensure_root;
 pub use polymesh_common_utilities::traits::identity::WeightInfo;
@@ -243,7 +242,7 @@ decl_storage! {
 
 decl_module! {
     /// The module declaration.
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
 
         type Error = Error<T>;
 
@@ -778,7 +777,7 @@ impl<T: Config> InitializeMembers<IdentityId> for Module<T> {
 
 /// A `revoke_claim` or `revoke_claim_by_index` TX is operational iff `claim_type` is a `Claim::CustomerDueDiligence`.
 /// Otherwise, it will be a normal transaction.
-fn revoke_claim_class(claim_type: ClaimType) -> frame_support::weights::DispatchClass {
+fn revoke_claim_class(claim_type: ClaimType) -> frame_support::dispatch::DispatchClass {
     match claim_type {
         ClaimType::CustomerDueDiligence => Operational,
         _ => Normal,

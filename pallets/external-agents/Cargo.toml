@@ -24,7 +24,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 frame-system = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
-sp-std = { version = "4.0.0", default-features = false }
+sp-std = { version = "5.0.0", default-features = false }
 
 # Only in STD
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true }

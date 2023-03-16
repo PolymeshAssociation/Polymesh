@@ -161,7 +161,7 @@ decl_storage! {
 storage_migration_ver!(0);
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -386,7 +386,7 @@ decl_error! {
 
 impl<T: Config> Module<T> {
     fn base_distribute(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ca_id: CAId,
         portfolio: Option<PortfolioNumber>,
         currency: Ticker,
@@ -414,19 +414,23 @@ impl<T: Config> Module<T> {
         )
     }
 
-    fn base_claim(origin: T::Origin, ca_id: CAId) -> DispatchResult {
+    fn base_claim(origin: T::RuntimeOrigin, ca_id: CAId) -> DispatchResult {
         let did = <Identity<T>>::ensure_perms(origin)?;
         Self::transfer_benefit(did.for_event(), did, ca_id)?;
         Ok(())
     }
 
-    fn base_push_benefit(origin: T::Origin, ca_id: CAId, holder: IdentityId) -> DispatchResult {
+    fn base_push_benefit(
+        origin: T::RuntimeOrigin,
+        ca_id: CAId,
+        holder: IdentityId,
+    ) -> DispatchResult {
         let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
         Self::transfer_benefit(agent, holder, ca_id)?;
         Ok(())
     }
 
-    fn base_reclaim(origin: T::Origin, ca_id: CAId) -> DispatchResult {
+    fn base_reclaim(origin: T::RuntimeOrigin, ca_id: CAId) -> DispatchResult {
         // Ensure distribution is created, they haven't reclaimed, and that expiry has passed.
         // CA must be authorized and be the custodian.
         let PermissionedCallOriginData {
@@ -466,7 +470,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn base_remove_distribution(origin: T::Origin, ca_id: CAId) -> DispatchResult {
+    fn base_remove_distribution(origin: T::RuntimeOrigin, ca_id: CAId) -> DispatchResult {
         let agent = <ExternalAgents<T>>::ensure_perms(origin, ca_id.ticker)?.for_event();
         let dist = Self::ensure_distribution_exists(ca_id)?;
         Self::unverified_remove_distribution(agent, ca_id, &dist)?;
