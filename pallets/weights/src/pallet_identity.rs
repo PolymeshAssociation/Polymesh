@@ -63,9 +63,9 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Storage: Identity Authorizations (r:1 w:0)
     // Storage: Identity DidKeys (r:0 w:2)
     fn create_child_identity() -> Weight {
-        (143_356_000 as Weight)
-            .saturating_add(DbWeight::get().reads(9 as Weight))
-            .saturating_add(DbWeight::get().writes(6 as Weight))
+        Weight::from_ref_time(143_356_000)
+            .saturating_add(DbWeight::get().reads(9))
+            .saturating_add(DbWeight::get().writes(6))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity ParentDid (r:1 w:0)
@@ -76,20 +76,20 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     // Storage: Identity DidRecords (r:50 w:50)
     // Storage: Identity DidKeys (r:0 w:50)
     fn create_child_identities(i: u32) -> Weight {
-        (96_123_000 as Weight)
+        Weight::from_ref_time(96_123_000)
             // Standard Error: 2_070_000
-            .saturating_add((133_102_000 as Weight).saturating_mul(i as Weight))
-            .saturating_add(DbWeight::get().reads(4 as Weight))
-            .saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(i as Weight)))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
-            .saturating_add(DbWeight::get().writes((4 as Weight).saturating_mul(i as Weight)))
+            .saturating_add(Weight::from_ref_time(133_102_000).saturating_mul(i.into()))
+            .saturating_add(DbWeight::get().reads(4))
+            .saturating_add(DbWeight::get().reads((2u64).saturating_mul(i.into())))
+            .saturating_add(DbWeight::get().writes(1))
+            .saturating_add(DbWeight::get().writes((4u64).saturating_mul(i.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity ParentDid (r:1 w:1)
     fn unlink_child_identity() -> Weight {
-        (72_309_000 as Weight)
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(72_309_000)
+            .saturating_add(DbWeight::get().reads(2))
+            .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:2 w:1)
     // Storage: Instance2Group ActiveMembers (r:1 w:0)
