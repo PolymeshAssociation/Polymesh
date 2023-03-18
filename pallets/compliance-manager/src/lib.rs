@@ -638,12 +638,12 @@ impl<T: Config> ComplianceManagerConfig for Module<T> {
     fn is_compliant(ticker: &Ticker, sender_id: IdentityId, receiver_id: IdentityId) -> bool {
         let asset_compliance = Self::asset_compliance(ticker);
 
-        // If compliance is paused, then the rules are not checked
+        // If compliance is paused, the rules are not checked
         if asset_compliance.paused {
             return true;
         }
 
-        // If any requirement is satisfied, then transferring is allowed
+        // If any requirement is satisfied, transferring is allowed
         asset_compliance.requirements.iter().any(|requirement| {
             // Returns true if all conditions for the sender and receiver are satisfied
             Self::are_all_conditions_satisfied(sender_id, ticker, &requirement.sender_conditions)

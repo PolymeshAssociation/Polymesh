@@ -175,7 +175,6 @@ mod tests {
         TargetIdentity,
     };
     use std::convert::From;
-    use std::vec::IntoIter;
 
     struct Dummy;
     impl Proposition for Dummy {
