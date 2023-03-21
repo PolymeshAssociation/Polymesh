@@ -21,7 +21,11 @@ use polymesh_common_utilities::{
     benchs::{AccountIdOf, User, UserBuilder},
     TestUtilsFn,
 };
-use polymesh_primitives::{asset::AssetType, ClaimType, Scope, TrustedFor, TrustedIssuer};
+use polymesh_primitives::agent::AgentGroup;
+use polymesh_primitives::{
+    asset::AssetType, AuthorizationData, ClaimType, CountryCode, Scope, TargetIdentity, TrustedFor,
+    TrustedIssuer,
+};
 use sp_std::convert::TryFrom;
 
 const MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS: u32 = 3;
@@ -243,6 +247,171 @@ fn conditions_bench(conditions: Vec<Condition>) {
     }
 }
 
+/// Adds an enternal agent for `ticker` authorized by `id`.
+fn add_external_agent<T>(id: IdentityId, ticker: Ticker)
+where
+    T: TestUtilsFn<AccountIdOf<T>> + Config,
+{
+    let external_agent_user = UserBuilder::<T>::default()
+        .generate_did()
+        .build("External Agent User");
+    pallet_identity::Module::<T>::add_auth(
+        id.clone(),
+        external_agent_user.did().into(),
+        AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),
+        None,
+    );
+}
+
+/// Adds `claim` issued by `trusted_issuer_id` to `id`.
+fn add_identity_claim<T: Config>(id: IdentityId, claim: Claim, trusted_issuer_id: IdentityId) {
+    pallet_identity::Module::<T>::unverified_add_claim_with_scope(
+        id,
+        claim.clone(),
+        claim.as_scope().cloned(),
+        trusted_issuer_id,
+        None,
+    );
+}
+
+/// Adds to the given `origin` one trusted issuer for ticker.
+fn add_trusted_issuer_2<T>(origin: T::RuntimeOrigin, ticker: Ticker) -> TrustedIssuer
+where
+    T: TestUtilsFn<AccountIdOf<T>> + Config,
+{
+    let trusted_user = UserBuilder::<T>::default()
+        .generate_did()
+        .build("Trusted Issuer");
+    let trusted_issuer = TrustedIssuer::from(trusted_user.did());
+
+    Module::<T>::add_default_trusted_claim_issuer(origin.clone(), ticker, trusted_issuer.clone())
+        .unwrap();
+
+    trusted_issuer
+}
+
+fn setup_conditions_2(
+    trusted_claims_calls: u32,
+    id_fetch_claim_calls: u32,
+    external_agents_calls: u32,
+    trusted_issuers: Option<Vec<TrustedIssuer>>,
+) -> Vec<Condition> {
+    let conditions: Vec<Condition> = {
+        if id_fetch_claim_calls == 0 {
+            Vec::new()
+        } else if trusted_claims_calls == 0 {
+            vec![Condition::new(
+                ConditionType::IsNoneOf(
+                    (0..id_fetch_claim_calls)
+                        .map(|i| {
+                            Claim::Jurisdiction(CountryCode::BR, Scope::Custom(vec![(i + 1) as u8]))
+                        })
+                        .collect(),
+                ),
+                trusted_issuers.unwrap(),
+            )]
+        } else {
+            vec![Condition::new(
+                ConditionType::IsAbsent(Claim::Jurisdiction(
+                    CountryCode::BR,
+                    Scope::Custom(vec![0]),
+                )),
+                Vec::new(),
+            )]
+        }
+    };
+
+    let is_identity_conditions: Vec<Condition> = (0..external_agents_calls)
+        .map(|_| {
+            Condition::new(
+                ConditionType::IsIdentity(TargetIdentity::ExternalAgent),
+                Vec::new(),
+            )
+        })
+        .collect();
+
+    [conditions, is_identity_conditions].concat()
+}
+
+fn add_compliance_rule<T>(
+    sender: User<T>,
+    ticker: Ticker,
+    trusted_claims_calls: u32,
+    id_fetch_claim_calls: u32,
+    external_agents_calls: u32,
+    trusted_issuers: Vec<TrustedIssuer>,
+) where
+    T: TestUtilsFn<AccountIdOf<T>> + Config,
+{
+    let (sender_conditions, receiver_conditions) = {
+        if trusted_claims_calls == 0 {
+            let sender_conditions = setup_conditions_2(
+                0,
+                id_fetch_claim_calls,
+                external_agents_calls - 1,
+                Some(trusted_issuers),
+            );
+            let receiver_conditions = setup_conditions_2(0, 0, 1, None);
+            (sender_conditions, receiver_conditions)
+        } else {
+            let sender_conditions = setup_conditions_2(
+                0,
+                id_fetch_claim_calls - 1,
+                external_agents_calls - 1,
+                Some(trusted_issuers),
+            );
+            let receiver_conditions = setup_conditions_2(1, 1, 1, None);
+            (sender_conditions, receiver_conditions)
+        }
+    };
+
+    Module::<T>::add_compliance_requirement(
+        sender.origin().clone().into(),
+        ticker.clone(),
+        sender_conditions.clone(),
+        receiver_conditions,
+    )
+    .unwrap();
+}
+
+fn setup_verify_restriction<T>(
+    sender: User<T>,
+    receiver: User<T>,
+    ticker: Ticker,
+    trusted_claims_calls: u32,
+    id_fetch_claim_calls: u32,
+    external_agents_calls: u32,
+) where
+    T: TestUtilsFn<AccountIdOf<T>> + Config,
+{
+    make_token::<T>(&sender, ticker.as_ref().to_vec());
+
+    // Adds a default trusted issuer for `ticker`
+    let trusted_issuer = add_trusted_issuer_2::<T>(sender.origin().into(), ticker);
+
+    // Adds multiple Jurisdiction claim issued by `trusted_issuer` for the sender
+    for i in 1..id_fetch_claim_calls {
+        let claim: Claim = Claim::Jurisdiction(CountryCode::US, Scope::Custom(vec![i as u8]));
+        add_identity_claim::<T>(sender.did(), claim, trusted_issuer.issuer);
+    }
+    // Adds one Jurisdiction claim issued by `trusted_issuer` for the receiver
+    let claim: Claim = Claim::Jurisdiction(CountryCode::US, Scope::Custom(vec![0]));
+    add_identity_claim::<T>(receiver.did(), claim, trusted_issuer.issuer);
+
+    // Adds an external agent for the sender and receiver
+    add_external_agent::<T>(sender.did(), ticker);
+    add_external_agent::<T>(receiver.did(), ticker);
+
+    add_compliance_rule::<T>(
+        sender,
+        ticker,
+        trusted_claims_calls,
+        id_fetch_claim_calls,
+        external_agents_calls,
+        vec![trusted_issuer],
+    );
+}
+
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
@@ -425,5 +594,20 @@ benchmarks! {
         assert!(
             Module::<T>::asset_compliance(d.ticker).requirements.is_empty(),
             "Compliance Requeriment was not reset");
+    }
+
+    verify_restriction {
+        // Number of calls to `TrustedClaimIssuer`, `Identity::<T>::fetch_claim` and ExternalAgents::<T>::agents
+        let t in 0..1;
+        let i in 2..3;
+        let e in 1..2;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+
+        setup_verify_restriction(alice.clone(), bob.clone(), ticker, t, i, e);
+    }: {
+        Module::<T>::verify_restriction(&ticker, Some(alice.did()), Some(bob.did()), 0).unwrap();
     }
 }

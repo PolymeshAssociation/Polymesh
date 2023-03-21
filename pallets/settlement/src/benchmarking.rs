@@ -29,12 +29,14 @@ use polymesh_common_utilities::{
     TestUtilsFn,
 };
 use polymesh_primitives::{
+    agent::AgentGroup,
     asset::NonFungibleType,
     checked_inc::CheckedInc,
     statistics::{Stat2ndKey, StatType, StatUpdate},
     transfer_compliance::{TransferCondition, TransferConditionExemptKey},
-    Claim, Condition, ConditionType, CountryCode, IdentityId, NFTId, PortfolioId, PortfolioKind,
-    PortfolioName, PortfolioNumber, Scope, Ticker, TrustedIssuer,
+    AuthorizationData, Claim, Condition, ConditionType, CountryCode, IdentityId, NFTId,
+    PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, Scope, TargetIdentity, Ticker,
+    TrustedIssuer,
 };
 use sp_runtime::SaturatedConversion;
 use sp_std::convert::TryInto;
@@ -608,6 +610,7 @@ fn setup_nft_legs<T: Config>(
     ticker: Ticker,
     n_legs: u32,
     n_nfts: u32,
+    max_nfts_per_leg: Option<u32>,
 ) -> Vec<LegV2> {
     create_collection_issue_nfts::<T>(
         sender.origin().into(),
@@ -618,7 +621,7 @@ fn setup_nft_legs<T: Config>(
         PortfolioKind::Default,
     );
 
-    let max_nfts_per_leg = T::MaxNumberOfNFTsPerLeg::get();
+    let max_nfts_per_leg = max_nfts_per_leg.unwrap_or(T::MaxNumberOfNFTsPerLeg::get());
     let last_leg_len = n_nfts % max_nfts_per_leg;
     let full_legs = n_nfts / max_nfts_per_leg;
 
@@ -694,8 +697,14 @@ where
     } else {
         n_nfts / max_nfts + 1
     };
-    let mut non_fungible_legs =
-        setup_nft_legs(alice.clone(), bob.clone(), nft_ticker, n_nft_legs, n_nfts);
+    let mut non_fungible_legs = setup_nft_legs(
+        alice.clone(),
+        bob.clone(),
+        nft_ticker,
+        n_nft_legs,
+        n_nfts,
+        None,
+    );
     non_fungible_legs.append(&mut fungible_legs);
     let legs_v2 = non_fungible_legs;
 
@@ -1154,7 +1163,6 @@ benchmarks! {
             parameters.memo
         ).expect("failed to add instruction");
     }: _(parameters.sender.origin, InstructionId(1), parameters.sender_portfolios[0], f, n)
-
 }
 
 pub fn next_block<T: Config + pallet_scheduler::Config>() {
