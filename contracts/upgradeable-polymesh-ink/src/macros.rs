@@ -71,7 +71,7 @@ macro_rules! upgradable_api {
             ///
             /// Contracts can use this to maintain support accross
             /// major Polymesh releases.
-            #[derive(Debug, Default, scale::Encode, scale::Decode)]
+            #[derive(Clone, Debug, Default, scale::Encode, scale::Decode)]
             #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
             #[derive(ink_storage::traits::SpreadLayout)]
             #[derive(ink_storage::traits::PackedLayout)]
@@ -160,7 +160,7 @@ macro_rules! upgradable_api {
             #[cfg(feature = "always-delegate")]
             let hash = Some($self.hash);
             if let Some(hash) = hash {
-                const FUNC: &str = stringify!($func);
+                const FUNC: &str = stringify!{$fn_name};
                 let selector: [u8; 4] = ::polymesh_api::ink::blake2_256(FUNC.as_bytes())[..4]
                   .try_into().unwrap();
                 let ret = ink_env::call::build_call::<ink_env::DefaultEnvironment>()
