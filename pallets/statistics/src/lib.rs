@@ -24,6 +24,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::Get,
+    BoundedBTreeSet,
 };
 pub use polymesh_common_utilities::traits::statistics::{Config, Event, WeightInfo};
 use polymesh_primitives::{
@@ -44,14 +45,14 @@ storage_migration_ver!(1);
 decl_storage! {
     trait Store for Module<T: Config> as Statistics {
         /// Active stats for a ticker/company.  There should be a max limit on the number of active stats for a ticker/company.
-        pub ActiveAssetStats get(fn active_asset_stats): map hasher(blake2_128_concat) AssetScope => BTreeSet<StatType>;
+        pub ActiveAssetStats get(fn active_asset_stats): map hasher(blake2_128_concat) AssetScope => BoundedBTreeSet<StatType, T::MaxStatsPerAsset>;
         /// Asset stats.
         pub AssetStats get(fn asset_stats):
           double_map
             hasher(blake2_128_concat) Stat1stKey,
             hasher(blake2_128_concat) Stat2ndKey => u128;
         /// Asset transfer compliance for a ticker (AssetScope -> AssetTransferCompliance)
-        pub AssetTransferCompliances get(fn asset_transfer_compliance): map hasher(blake2_128_concat) AssetScope => AssetTransferCompliance;
+        pub AssetTransferCompliances get(fn asset_transfer_compliance): map hasher(blake2_128_concat) AssetScope => AssetTransferCompliance<T::MaxTransferConditionsPerAsset>;
         /// Entities exempt from a Transfer Compliance rule.
         pub TransferConditionExemptEntities get(fn transfer_condition_exempt_entities):
             double_map
@@ -177,15 +178,13 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         // Check EA permissions for asset.
         let did = Self::ensure_asset_perms(origin, asset)?;
-
-        // Check StatType per Asset limit.
-        ensure!(
-            stat_types.len() < T::MaxStatsPerAsset::get() as usize,
-            Error::<T>::StatTypeLimitReached
-        );
+        // converting from a btreeset to a bounded version
+        let stat_types: BoundedBTreeSet<_, T::MaxStatsPerAsset> = stat_types
+            .try_into()
+            .map_err(|_| Error::<T>::StatTypeLimitReached)?;
 
         // Get list of StatTypes required by current TransferConditions.
-        let required_types = AssetTransferCompliances::get(&asset)
+        let required_types = AssetTransferCompliances::<T>::get(&asset)
             .requirements
             .into_iter()
             .map(|condition| condition.get_stat_type())
@@ -222,7 +221,7 @@ impl<T: Config> Module<T> {
 
         // Save new stat types.
         let add_types = stat_types.iter().cloned().collect::<Vec<_>>();
-        ActiveAssetStats::insert(&asset, stat_types);
+        ActiveAssetStats::<T>::insert(&asset, stat_types);
 
         if remove_types.len() > 0 {
             Self::deposit_event(Event::StatTypesRemoved(did, asset, remove_types));
@@ -277,16 +276,16 @@ impl<T: Config> Module<T> {
         let did = Self::ensure_asset_perms(origin, asset)?;
 
         // TODO: Use complexity instead of count to limit TransferConditions per asset.
-        // Check maximum TransferConditions per Asset limit.
-        ensure!(
-            transfer_conditions.len() < T::MaxTransferConditionsPerAsset::get() as usize,
-            Error::<T>::TransferConditionLimitReached
-        );
+        // converting from a btreeset to a bounded version
+        let transfer_conditions: BoundedBTreeSet<_, T::MaxTransferConditionsPerAsset> =
+            transfer_conditions
+                .try_into()
+                .map_err(|_| Error::<T>::TransferConditionLimitReached)?;
 
         // Commit changes to storage.
         if transfer_conditions.len() > 0 {
             // Check if required Stats are enabled.
-            for condition in &transfer_conditions {
+            for condition in transfer_conditions.iter() {
                 let stat_type = condition.get_stat_type();
                 ensure!(
                     Self::is_asset_stat_active(asset, stat_type),
@@ -294,11 +293,11 @@ impl<T: Config> Module<T> {
                 );
             }
 
-            AssetTransferCompliances::mutate(&asset, |old| {
+            AssetTransferCompliances::<T>::mutate(&asset, |old| {
                 old.requirements = transfer_conditions.clone()
             });
         } else {
-            AssetTransferCompliances::remove(&asset);
+            AssetTransferCompliances::<T>::remove(&asset);
         }
 
         Self::deposit_event(Event::SetAssetTransferCompliance(
@@ -717,7 +716,7 @@ impl<T: Config> Module<T> {
         total_supply: Balance,
     ) -> DispatchResult {
         let asset = AssetScope::Ticker(*ticker);
-        let tm = AssetTransferCompliances::get(&asset);
+        let tm = AssetTransferCompliances::<T>::get(&asset);
         if tm.paused {
             // Transfer rules are paused.
             return Ok(());
@@ -762,7 +761,7 @@ impl<T: Config> Module<T> {
         total_supply: Balance,
     ) -> Vec<TransferConditionResult> {
         let asset = AssetScope::Ticker(*ticker);
-        let tm = AssetTransferCompliances::get(&asset);
+        let tm = AssetTransferCompliances::<T>::get(&asset);
 
         // Pre-Calculate the investor count changes.
         let count_changes = Self::investor_count_changes(
