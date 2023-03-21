@@ -19,13 +19,15 @@ use crate::{asset, base, identity, portfolio};
 pub trait Config:
     frame_system::Config + base::Config + asset::Config + identity::Config + portfolio::Config
 {
-    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
 
     type WeightInfo: WeightInfo;
 
     type Compliance: ComplianceManagerConfig;
 
     type MaxNumberOfCollectionKeys: Get<u8>;
+
+    type MaxNumberOfNFTsCount: Get<u32>;
 }
 
 decl_event!(

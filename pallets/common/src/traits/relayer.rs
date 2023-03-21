@@ -28,7 +28,7 @@ pub trait SubsidiserTrait<AccountId> {
 
 pub trait Config: CommonConfig + identity::Config {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
 
     type WeightInfo: WeightInfo;
 }

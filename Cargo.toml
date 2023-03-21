@@ -1,6 +1,6 @@
 [package]
 name = "polymesh"
-version = "5.3.0"
+version = "5.4.0"
 authors = ["Polymesh Association"]
 build = "build.rs"
 edition = "2021"
@@ -11,98 +11,99 @@ path = "src/main.rs"
 
 # Path build to use our Substrate version from github, `branch = "develop"`.
 [patch.crates-io]
-frame-benchmarking = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-frame-benchmarking-cli = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-frame-executive = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-frame-support = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-frame-election-provider-support = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-frame-system = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-frame-system-benchmarking = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-frame-system-rpc-runtime-api = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-pallet-authority-discovery = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-pallet-authorship = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-pallet-babe = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-pallet-balances = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-pallet-contracts = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-pallet-contracts-primitives = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-pallet-contracts-rpc = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-pallet-contracts-rpc-runtime-api = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-pallet-grandpa = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-pallet-im-online = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-pallet-indices = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-pallet-offences = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-pallet-preimage = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-pallet-randomness-collective-flip = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-pallet-scheduler = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-pallet-session = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-pallet-staking-reward-curve = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-pallet-timestamp = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-pallet-treasury = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-authority-discovery = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-basic-authorship = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-block-builder = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-chain-spec = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-cli = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-client-api = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-client-db = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-consensus = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-consensus-babe = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-consensus-babe-rpc = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-consensus-epochs = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-consensus-slots = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-consensus-uncles = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-executor = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-finality-grandpa = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-finality-grandpa-rpc = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-keystore = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-network = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-rpc = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-rpc-api = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-service = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-telemetry = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-transaction-pool = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-transaction-pool-api = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sc-sync-state-rpc = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-api = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-application-crypto = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-arithmetic = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-authority-discovery = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-authorship = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-block-builder = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-blockchain = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-consensus = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-consensus-babe = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-consensus-slots = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-core = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-externalities = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-finality-grandpa = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-inherents = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-io = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-keystore = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-keyring = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-npos-elections = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-offchain = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-rpc = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-runtime = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-runtime-interface = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-serializer = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-session = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-staking = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-state-machine = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-std = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-storage = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-timestamp = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-tracing = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-transaction-pool = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-transaction-storage-proof = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-trie = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-sp-version = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-substrate-frame-rpc-system = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-substrate-prometheus-endpoint = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-substrate-test-runtime-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-substrate-test-utils = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-substrate-test-utils-derive = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
-substrate-wasm-builder = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-05-2" }
+frame-benchmarking = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+frame-benchmarking-cli = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+frame-executive = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+frame-support = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+frame-election-provider-support = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+frame-system = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+frame-system-benchmarking = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+frame-system-rpc-runtime-api = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+pallet-authority-discovery = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+pallet-authorship = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+pallet-babe = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+pallet-balances = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+pallet-contracts = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+pallet-contracts-primitives = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+pallet-grandpa = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+pallet-im-online = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+pallet-indices = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+pallet-offences = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+pallet-preimage = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+pallet-randomness-collective-flip = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+pallet-scheduler = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+pallet-session = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+pallet-staking-reward-curve = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+pallet-timestamp = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+pallet-treasury = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-authority-discovery = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-basic-authorship = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-block-builder = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-chain-spec = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-cli = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-client-api = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-client-db = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-consensus = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-consensus-babe = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-consensus-babe-rpc = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-consensus-epochs = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-consensus-slots = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-consensus-uncles = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-executor = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-finality-grandpa = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-finality-grandpa-rpc = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-keystore = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-network = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-network-common = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-rpc = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-rpc-api = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-rpc-spec-v2 = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-service = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-telemetry = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-transaction-pool = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-transaction-pool-api = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sc-sync-state-rpc = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-api = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-application-crypto = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-arithmetic = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-authority-discovery = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-authorship = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-block-builder = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-blockchain = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-consensus = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-consensus-babe = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-consensus-slots = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-core = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-externalities = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-finality-grandpa = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-inherents = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-io = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-keystore = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-keyring = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-npos-elections = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-offchain = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-rpc = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-runtime = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-weights = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-runtime-interface = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-session = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-staking = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-state-machine = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-std = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-storage = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-timestamp = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-tracing = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-transaction-pool = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-transaction-storage-proof = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-trie = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+sp-version = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+substrate-frame-rpc-system = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+substrate-state-trie-migration-rpc = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+substrate-prometheus-endpoint = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+substrate-test-runtime-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+substrate-test-utils = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+substrate-test-utils-derive = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
+substrate-wasm-builder = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12" }
 
 bulletproofs = { version = "4.0.0", git = "https://github.com/PolymeshAssociation/bulletproofs", branch = "polymesh" }
 
@@ -201,16 +202,16 @@ polymesh-runtime-testnet = { path = "pallets/runtime/testnet" }
 # General
 chrono = "0.4.11"
 ed25519-dalek = "1.0.0"
-futures = "0.3.4"
-jsonrpc-core = { version = "18.0", features = ["arbitrary_precision"] }
-log = "0.4.8"
-serde = { version = "1.0.104", default-features = false }
+futures = "0.3.21"
+jsonrpsee = { version = "0.15.1", features = ["server"] }
+log = "0.4.17"
+serde = { version = "1.0.136", default-features = false }
 serde_json = { version = "1.0", features = ["arbitrary_precision"] }
-clap = { version = "3.1.6", features = ["derive"] }
+clap = { version = "4.0.9", features = ["derive"] }
 rustc-hex = "2.1.0"
 
 # Pin version to work around substrate logging issue.
-tracing-core = "=0.1.26"
+tracing-core = "0.1.30"
 
 # Substrate
 codec = { version = "3.0.0", package = "parity-scale-codec" }
@@ -218,7 +219,6 @@ frame-support = "4.0.0-dev"
 frame-system = "4.0.0-dev"
 frame-system-rpc-runtime-api = "4.0.0-dev"
 grandpa = { package = "sc-finality-grandpa", version = "0.10.0-dev" }
-pallet-contracts-rpc-runtime-api = "4.0.0-dev"
 pallet-babe = "4.0.0-dev"
 pallet-im-online = "4.0.0-dev"
 pallet-indices = "4.0.0-dev"
@@ -227,17 +227,18 @@ prometheus-endpoint = { package = "substrate-prometheus-endpoint", version = "0.
 sc-authority-discovery = "0.10.0-dev"
 sc-basic-authorship = "0.10.0-dev"
 sc-chain-spec = "4.0.0-dev"
-sc-cli = { version = "0.10.0-dev", features = ["wasmtime"] }
+sc-cli = { version = "0.10.0-dev" }
 sc-client-api = "4.0.0-dev"
-sc-client-db = "0.10.0-dev"
+sc-client-db = { version = "0.10.0-dev", default-features = false }
 sc-consensus = "0.10.0-dev"
 sc-consensus-babe = "0.10.0-dev"
 sc-consensus-slots = "0.10.0-dev"
 sc-consensus-uncles = "0.10.0-dev"
-sc-executor = { version = "0.10.0-dev", features = ["wasmtime"] }
+sc-executor = { version = "0.10.0-dev" }
 sc-network = "0.10.0-dev"
+sc-network-common = { version = "0.10.0-dev" }
 sc-rpc = "4.0.0-dev"
-sc-service = { version = "0.10.0-dev", features = ["wasmtime"] }
+sc-service = { version = "0.10.0-dev" }
 sc-telemetry = "4.0.0-dev"
 sc-transaction-pool = "4.0.0-dev"
 sc-sync-state-rpc = { version = "0.10.0-dev" }
@@ -249,12 +250,12 @@ sp-blockchain = "4.0.0-dev"
 sp-consensus = "0.10.0-dev"
 sp-consensus-babe = "0.10.0-dev"
 sp-consensus-slots = "0.10.0-dev"
-sp-keyring = { version = "6.0.0" }
-sp-core = "6.0.0"
+sp-keyring = { version = "7.0.0" }
+sp-core = "7.0.0"
 sp-inherents = "4.0.0-dev"
 sp-transaction-storage-proof = "4.0.0-dev"
 sp-offchain = "4.0.0-dev"
-sp-runtime = "6.0.0"
+sp-runtime = "7.0.0"
 sp-timestamp = "4.0.0-dev"
 sp-session = "4.0.0-dev"
 sp-transaction-pool = { version = "4.0.0-dev" }
@@ -270,7 +271,10 @@ vergen = "3.1.0"
 default = ["std"]
 running-ci = [ "polymesh-runtime-develop/running-ci" ]
 default_identity = [ "polymesh-common-utilities/default_identity" ]
-runtime-benchmarks = [ "polymesh-runtime-develop/runtime-benchmarks" ]
+runtime-benchmarks = [
+    "sc-client-db/runtime-benchmarks",
+    "polymesh-runtime-develop/runtime-benchmarks",
+]
 
 # Only build a "ci" runtime.
 ci-runtime = [ "polymesh-runtime-develop/ci-runtime" ]

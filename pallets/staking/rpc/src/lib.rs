@@ -1,15 +1,19 @@
-use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
-use jsonrpc_derive::rpc;
+use jsonrpsee::{
+    core::RpcResult,
+    proc_macros::rpc,
+    types::error::{CallError, ErrorObject},
+};
+use node_rpc::Error;
 pub use pallet_staking_rpc_runtime_api::StakingApi as StakingRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT, Perbill};
 use std::sync::Arc;
 
-#[rpc]
+#[rpc(client, server)]
 pub trait StakingApi<BlockHash> {
-    #[rpc(name = "staking_getCurve")]
-    fn get_curve(&self, at: Option<BlockHash>) -> Result<Vec<(Perbill, Perbill)>>;
+    #[method(name = "staking_getCurve")]
+    fn get_curve(&self, at: Option<BlockHash>) -> RpcResult<Vec<(Perbill, Perbill)>>;
 }
 
 /// A struct that implements the [`StakingApi`].
@@ -28,41 +32,25 @@ impl<C, M> Staking<C, M> {
     }
 }
 
-/// Error type of this RPC api.
-pub enum Error {
-    /// The transaction was not decodable.
-    DecodeError,
-    /// The call to runtime failed.
-    RuntimeError,
-}
-
-impl From<Error> for i64 {
-    fn from(e: Error) -> i64 {
-        match e {
-            Error::RuntimeError => 1,
-            Error::DecodeError => 2,
-        }
-    }
-}
-
-impl<C, Block> StakingApi<<Block as BlockT>::Hash> for Staking<C, Block>
+impl<C, Block> StakingApiServer<<Block as BlockT>::Hash> for Staking<C, Block>
 where
     Block: BlockT,
-    C: Send + Sync + 'static,
-    C: ProvideRuntimeApi<Block>,
-    C: HeaderBackend<Block>,
+    C: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
     C::Api: StakingRuntimeApi<Block>,
 {
-    fn get_curve(&self, at: Option<<Block as BlockT>::Hash>) -> Result<Vec<(Perbill, Perbill)>> {
+    fn get_curve(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<(Perbill, Perbill)>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
 
-        api.get_curve(&at).map_err(|e| RpcError {
-            code: ErrorCode::ServerError(Error::RuntimeError.into()),
-            message: "Unable to query dispatch info.".into(),
-            data: Some(format!("{:?}", e).into()),
+        api.get_curve(&at).map_err(|e| {
+            CallError::Custom(ErrorObject::owned(
+                Error::RuntimeError.into(),
+                "Unable to get curve.",
+                Some(e.to_string()),
+            ))
+            .into()
         })
     }
 }

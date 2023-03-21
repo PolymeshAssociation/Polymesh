@@ -12,7 +12,7 @@ use sp_std::vec;
 pub type ResultTicker = Result<Ticker, &'static str>;
 
 /// Create a ticker and register it.
-pub fn make_ticker<T: Config>(owner: T::Origin, opt_name: Option<&[u8]>) -> Ticker {
+pub fn make_ticker<T: Config>(owner: T::RuntimeOrigin, opt_name: Option<&[u8]>) -> Ticker {
     let ticker = match opt_name {
         Some(name) => Ticker::from_slice_truncated(name),
         _ => Ticker::repeating(b'A'),

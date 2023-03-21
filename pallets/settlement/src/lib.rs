@@ -98,7 +98,7 @@ pub trait Config:
     + pallet_nft::Config
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
 
     /// A call type used by the scheduler.
     type Proposal: From<Call<Self>> + Into<<Self as IdentityConfig>::Proposal>;
@@ -608,13 +608,11 @@ decl_error! {
         InstructionSettleBlockNotReached,
         /// The caller is not a party of this instruction.
         CallerIsNotAParty,
-        /// There is a duplicated nft in one of the legs.
-        DuplicatedNFTId,
         /// Expected a different type of asset in a leg.
         InvalidLegAsset,
         /// The number of nfts being transferred in the instruction was exceeded.
         MaxNumberOfNFTsExceeded,
-        /// The number of nfts being transferred in one leg was exceeded.
+        /// The maximum number of nfts being transferred in one leg was exceeded.
         MaxNumberOfNFTsPerLegExceeded,
         /// The given number of nfts being transferred was underestimated.
         NumberOfTransferredNFTsUnderestimated,
@@ -694,7 +692,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::Origin {
+    pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::RuntimeOrigin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -1288,7 +1286,7 @@ impl<T: Config> Module<T> {
 
     /// Ensure origin call permission and the given instruction validity.
     fn ensure_origin_perm_and_instruction_validity(
-        origin: <T as frame_system::Config>::Origin,
+        origin: <T as frame_system::Config>::RuntimeOrigin,
         id: InstructionId,
         is_execute: bool,
     ) -> EnsureValidInstructionResult<T::AccountId, T::Moment, T::BlockNumber> {
@@ -1437,14 +1435,9 @@ impl<T: Config> Module<T> {
                     fungible_transfers += 1;
                 }
                 LegAsset::NonFungible(nfts) => {
-                    ensure!(nfts.len() > 0, Error::<T>::ZeroAmount);
-                    ensure!(
-                        nfts.len() <= (T::MaxNumberOfNFTsPerLeg::get() as usize),
-                        Error::<T>::MaxNumberOfNFTsPerLegExceeded
-                    );
+                    <Nft<T>>::ensure_within_nfts_transfer_limits(&nfts)?;
                     Self::ensure_venue_filtering(&mut tickers, nfts.ticker().clone(), &venue_id)?;
-                    let unique_nfts: BTreeSet<&NFTId> = nfts.ids().iter().collect();
-                    ensure!(unique_nfts.len() == nfts.len(), Error::<T>::DuplicatedNFTId);
+                    <Nft<T>>::ensure_no_duplicate_nfts(&nfts)?;
                     nfts_transfers += nfts.len();
                 }
             }
@@ -1667,8 +1660,10 @@ impl<T: Config> Module<T> {
         let legs: Vec<(LegId, LegV2)> = Self::drain_instruction_legs(&id);
         let details = <InstructionDetails<T>>::take(id);
         VenueInstructions::remove(details.venue_id, id);
+        #[allow(deprecated)]
         <InstructionLegStatus<T>>::remove_prefix(id, None);
         InstructionAffirmsPending::remove(id);
+        #[allow(deprecated)]
         AffirmsReceived::remove_prefix(id, None);
 
         if executed {
@@ -1805,7 +1800,7 @@ impl<T: Config> Module<T> {
     }
 
     pub fn base_affirm_with_receipts(
-        origin: <T as frame_system::Config>::Origin,
+        origin: <T as frame_system::Config>::RuntimeOrigin,
         id: InstructionId,
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
@@ -1930,7 +1925,7 @@ impl<T: Config> Module<T> {
     }
 
     pub fn base_affirm_instruction(
-        origin: <T as frame_system::Config>::Origin,
+        origin: <T as frame_system::Config>::RuntimeOrigin,
         id: InstructionId,
         portfolios: impl Iterator<Item = PortfolioId>,
         fungible_transfers: u32,
@@ -1953,7 +1948,7 @@ impl<T: Config> Module<T> {
     // It affirms the instruction and may schedule the instruction
     // depends on the settlement type.
     pub fn affirm_with_receipts_and_maybe_schedule_instruction(
-        origin: <T as frame_system::Config>::Origin,
+        origin: <T as frame_system::Config>::RuntimeOrigin,
         id: InstructionId,
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
@@ -1974,7 +1969,7 @@ impl<T: Config> Module<T> {
     /// Schedule settlement instruction execution in the next block, unless already scheduled.
     /// Used for general purpose settlement.
     pub fn affirm_and_maybe_schedule_instruction(
-        origin: <T as frame_system::Config>::Origin,
+        origin: <T as frame_system::Config>::RuntimeOrigin,
         id: InstructionId,
         portfolios: impl Iterator<Item = PortfolioId>,
         fungible_transfers: u32,
@@ -1996,7 +1991,7 @@ impl<T: Config> Module<T> {
     ///
     /// NB - Use this function only in the STO pallet to support DVP settlements.
     pub fn affirm_and_execute_instruction(
-        origin: <T as frame_system::Config>::Origin,
+        origin: <T as frame_system::Config>::RuntimeOrigin,
         id: InstructionId,
         receipt: Option<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
@@ -2122,7 +2117,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_reject_instruction(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         id: InstructionId,
         portfolio: PortfolioId,
         fungible_transfers: u32,

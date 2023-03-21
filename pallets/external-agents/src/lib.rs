@@ -110,7 +110,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -279,7 +279,7 @@ decl_error! {
 }
 
 impl<T: Config> Module<T> {
-    fn base_accept_become_agent(origin: T::Origin, auth_id: u64) -> DispatchResult {
+    fn base_accept_become_agent(origin: T::RuntimeOrigin, auth_id: u64) -> DispatchResult {
         let to = Identity::<T>::ensure_perms(origin)?;
         Identity::<T>::accept_auth_with(&to.into(), auth_id, |data, from| {
             let (ticker, group) = extract_auth!(data, BecomeAgent(t, ag));
@@ -297,7 +297,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_create_group(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
         perms: ExtrinsicPermissions,
     ) -> Result<(IdentityId, AGId), DispatchError> {
@@ -312,7 +312,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_create_group_and_add_auth(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
         perms: ExtrinsicPermissions,
         target: IdentityId,
@@ -329,7 +329,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_set_group_permissions(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
         id: AGId,
         perms: ExtrinsicPermissions,
@@ -344,14 +344,18 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn base_remove_agent(origin: T::Origin, ticker: Ticker, agent: IdentityId) -> DispatchResult {
+    fn base_remove_agent(
+        origin: T::RuntimeOrigin,
+        ticker: Ticker,
+        agent: IdentityId,
+    ) -> DispatchResult {
         let did = Self::ensure_perms(origin, ticker)?.for_event();
         Self::try_mutate_agents_group(ticker, agent, None)?;
         Self::deposit_event(Event::AgentRemoved(did, ticker, agent));
         Ok(())
     }
 
-    fn base_abdicate(origin: T::Origin, ticker: Ticker) -> DispatchResult {
+    fn base_abdicate(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
         let did = Self::ensure_asset_perms(origin, &ticker)?.primary_did;
         Self::try_mutate_agents_group(ticker, did, None)?;
         Self::deposit_event(Event::AgentRemoved(did.for_event(), ticker, did));
@@ -359,7 +363,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_create_and_change_custom_group(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
         perms: ExtrinsicPermissions,
         agent: IdentityId,
@@ -369,7 +373,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_change_group(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
         agent: IdentityId,
         group: AgentGroup,
@@ -468,13 +472,16 @@ impl<T: Config> Module<T> {
     }
 
     /// Ensures that `origin` is a permissioned agent for `ticker`.
-    pub fn ensure_perms(origin: T::Origin, ticker: Ticker) -> Result<IdentityId, DispatchError> {
+    pub fn ensure_perms(
+        origin: T::RuntimeOrigin,
+        ticker: Ticker,
+    ) -> Result<IdentityId, DispatchError> {
         Self::ensure_agent_asset_perms(origin, ticker).map(|d| d.primary_did)
     }
 
     /// Ensures that `origin` is a permissioned agent for `ticker`.
     pub fn ensure_agent_asset_perms(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
     ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
         let data = Self::ensure_asset_perms(origin, &ticker)?;
@@ -485,7 +492,7 @@ impl<T: Config> Module<T> {
     /// Ensure that `origin` is permissioned for this call
     /// and the secondary key has relevant asset permissions.
     pub fn ensure_asset_perms(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: &Ticker,
     ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
         let data = <Identity<T>>::ensure_origin_call_permissions(origin)?;

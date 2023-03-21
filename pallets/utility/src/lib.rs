@@ -55,10 +55,12 @@ use codec::{Decode, Encode};
 use frame_support::storage::{with_transaction, TransactionOutcome};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, PostDispatchInfo},
+    dispatch::{
+        DispatchErrorWithPostInfo, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo,
+        Weight,
+    },
     ensure,
     traits::{GetCallMetadata, UnfilteredDispatchable},
-    weights::{GetDispatchInfo, Weight},
     Parameter,
 };
 use frame_system::{ensure_root, ensure_signed, Pallet as System, RawOrigin};
@@ -80,16 +82,16 @@ pub type ErrorAt = (u32, DispatchError);
 /// Configuration trait.
 pub trait Config: frame_system::Config + IdentityConfig + BalancesConfig {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
 
     /// The overarching call type.
     type Call: Parameter
-        + Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
+        + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
         + GetCallMetadata
         + GetDispatchInfo
         + From<frame_system::Call<Self>>
         + From<balances::Call<Self>>
-        + UnfilteredDispatchable<Origin = Self::Origin>;
+        + UnfilteredDispatchable<RuntimeOrigin = Self::RuntimeOrigin>;
 
     type WeightInfo: WeightInfo;
 }
@@ -155,7 +157,7 @@ impl<C> UniqueCall<C> {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         type Error = Error<T>;
 
         /// Deposit one of this module's events by using the default implementation.
@@ -296,14 +298,14 @@ decl_module! {
             Self::dispatch_call(RawOrigin::Signed(target).into(), false, *call.call)
                 .map(|info| info
                      .actual_weight
-                     .map(|w| w.saturating_add(90_000_000))
+                     .map(|w| w.saturating_add(Weight::from_ref_time(90_000_000)))
                      .into())
                 .map_err(|e| DispatchErrorWithPostInfo {
                     error: e.error,
                     post_info: e
                         .post_info
                         .actual_weight
-                        .map(|w| w.saturating_add(90_000_000))
+                        .map(|w| w.saturating_add(Weight::from_ref_time(90_000_000)))
                         .into()
                 })
         }
@@ -312,7 +314,7 @@ decl_module! {
 
 impl<T: Config> Module<T> {
     fn dispatch_call(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         is_root: bool,
         call: <T as Config>::Call,
     ) -> DispatchResultWithPostInfo {
@@ -326,7 +328,7 @@ impl<T: Config> Module<T> {
     }
 
     fn run_batch(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         is_root: bool,
         calls: Vec<<T as Config>::Call>,
         stop_on_errors: bool,
@@ -357,7 +359,7 @@ impl<T: Config> Module<T> {
         }
     }
 
-    fn ensure_root_or_signed(origin: T::Origin) -> Result<bool, DispatchError> {
+    fn ensure_root_or_signed(origin: T::RuntimeOrigin) -> Result<bool, DispatchError> {
         let is_root = ensure_root(origin.clone()).is_ok();
         if !is_root {
             ensure_signed(origin)?;

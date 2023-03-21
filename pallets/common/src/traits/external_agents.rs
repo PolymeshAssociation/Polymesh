@@ -16,7 +16,7 @@ pub trait WeightInfo {
 
 pub trait Config: frame_system::Config + crate::balances::Config {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
 
     type WeightInfo: WeightInfo;
 }

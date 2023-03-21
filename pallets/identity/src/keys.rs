@@ -261,7 +261,7 @@ impl<T: Config> Module<T> {
 
     /// Accepts a primary key rotation.
     pub(crate) fn accept_primary_key_rotation(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         rotation_auth_id: u64,
         optional_cdd_auth_id: Option<u64>,
     ) -> DispatchResult {
@@ -372,7 +372,7 @@ impl<T: Config> Module<T> {
     /// secondary key with the permissions specified in the corresponding RotatePrimaryKeyToSecondary authorization
     /// instead of unlinking the primary key.
     pub(crate) fn base_rotate_primary_key_to_secondary(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         rotation_auth_id: u64,
         optional_cdd_auth_id: Option<u64>,
     ) -> DispatchResult {
@@ -397,7 +397,7 @@ impl<T: Config> Module<T> {
     /// Set permissions for the specific `key`.
     /// Only the primary key of an identity is able to set secondary key permissions.
     pub(crate) fn base_set_secondary_key_permissions(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         key: T::AccountId,
         permissions: Permissions,
     ) -> DispatchResult {
@@ -425,7 +425,7 @@ impl<T: Config> Module<T> {
 
     /// Removes specified secondary keys of a DID if present.
     pub(crate) fn base_remove_secondary_keys(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         keys: Vec<T::AccountId>,
     ) -> DispatchResult {
         let (_, did) = Self::ensure_primary_key(origin)?;
@@ -458,7 +458,7 @@ impl<T: Config> Module<T> {
     /// Adds secondary keys to target identity `id`.
     /// Keys are directly added to identity because each of them has an authorization.
     pub(crate) fn base_add_secondary_keys_with_authorization(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         keys: Vec<SecondaryKeyWithAuth<T::AccountId>>,
         expires_at: T::Moment,
     ) -> DispatchResult {
@@ -518,7 +518,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Accepts an auth to join an identity as a signer
-    pub fn join_identity(origin: T::Origin, auth_id: u64) -> DispatchResult {
+    pub fn join_identity(origin: T::RuntimeOrigin, auth_id: u64) -> DispatchResult {
         let key = ensure_signed(origin)?;
         let signer = Signatory::Account(key.clone());
         Self::accept_auth_with(&signer, auth_id, |data, target_did| {
@@ -559,7 +559,7 @@ impl<T: Config> Module<T> {
         Self::deposit_event(RawEvent::SecondaryKeysAdded(target_did, vec![sk]));
     }
 
-    pub(crate) fn leave_identity(origin: T::Origin) -> DispatchResult {
+    pub(crate) fn leave_identity(origin: T::RuntimeOrigin) -> DispatchResult {
         let (key, did) = Self::ensure_did(origin)?;
 
         // Ensure that the caller is a secondary key.
@@ -580,7 +580,7 @@ impl<T: Config> Module<T> {
     /// # Errors
     /// Only primary key can freeze/unfreeze an identity.
     pub(crate) fn set_frozen_secondary_key_flags(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         freeze: bool,
     ) -> DispatchResult {
         let (_, did) = Self::ensure_primary_key(origin)?;
@@ -660,7 +660,7 @@ impl<T: Config> Module<T> {
     where
         T::AccountId: core::fmt::Display,
     {
-        let acc = issuer.as_pallet_id().into_account();
+        let acc = issuer.as_pallet_id().into_account_truncating();
         let id = issuer.as_id();
         log::info!(
             "Register Systematic id {} with account {} as {}",
@@ -697,7 +697,9 @@ impl<T: Config> Module<T> {
     }
 
     /// Ensures that `origin`'s key is the primary key of a DID.
-    fn ensure_primary_key(origin: T::Origin) -> Result<(T::AccountId, IdentityId), DispatchError> {
+    fn ensure_primary_key(
+        origin: T::RuntimeOrigin,
+    ) -> Result<(T::AccountId, IdentityId), DispatchError> {
         let sender = ensure_signed(origin)?;
         let key_rec =
             Self::key_records(&sender).ok_or(pallet_permissions::Error::<T>::UnauthorizedCaller)?;
@@ -706,7 +708,9 @@ impl<T: Config> Module<T> {
     }
 
     /// Ensures that `origin`'s key is linked to a DID and returns both.
-    pub fn ensure_did(origin: T::Origin) -> Result<(T::AccountId, IdentityId), DispatchError> {
+    pub fn ensure_did(
+        origin: T::RuntimeOrigin,
+    ) -> Result<(T::AccountId, IdentityId), DispatchError> {
         let sender = ensure_signed(origin)?;
         let did = Context::current_identity_or::<Self>(&sender)?;
         Ok((sender, did))
@@ -714,7 +718,7 @@ impl<T: Config> Module<T> {
 
     /// Checks call permissions and, if successful, returns the caller's account, primary and secondary identities.
     pub fn ensure_origin_call_permissions(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
     ) -> Result<PermissionedCallOriginData<T::AccountId>, DispatchError> {
         let sender = ensure_signed(origin)?;
         let AccountCallPermissionsData {
@@ -729,7 +733,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Ensure `origin` is signed and permissioned for this call, returning its DID.
-    pub fn ensure_perms(origin: T::Origin) -> Result<IdentityId, DispatchError> {
+    pub fn ensure_perms(origin: T::RuntimeOrigin) -> Result<IdentityId, DispatchError> {
         Self::ensure_origin_call_permissions(origin).map(|x| x.primary_did)
     }
 

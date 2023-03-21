@@ -112,10 +112,10 @@ pub trait Config:
     pallet_timestamp::Config + frame_system::Config + BalancesConfig + IdentityConfig + EAConfig
 {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
 
     /// Asset module
-    type Asset: AssetFnTrait<Self::AccountId, Self::Origin>;
+    type Asset: AssetFnTrait<Self::AccountId, Self::RuntimeOrigin>;
 
     /// Weight details of all extrinsic
     type WeightInfo: WeightInfo;
@@ -128,11 +128,11 @@ pub mod weight_for {
     use super::*;
 
     pub fn weight_for_verify_restriction<T: Config>(no_of_compliance_requirements: u64) -> Weight {
-        no_of_compliance_requirements * 100_000_000
+        no_of_compliance_requirements * Weight::from_ref_time(100_000_000)
     }
 
     pub fn weight_for_reading_asset_compliance<T: Config>() -> Weight {
-        T::DbWeight::get().reads(1) + 1_000_000
+        T::DbWeight::get().reads(1) + Weight::from_ref_time(1_000_000)
     }
 }
 
@@ -168,7 +168,7 @@ decl_error! {
 
 decl_module! {
     /// The module declaration.
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -554,7 +554,7 @@ impl<T: Config> Module<T> {
 
     /// Pauses or resumes the asset compliance.
     fn pause_resume_asset_compliance(
-        origin: T::Origin,
+        origin: T::RuntimeOrigin,
         ticker: Ticker,
         pause: bool,
     ) -> Result<IdentityId, DispatchError> {

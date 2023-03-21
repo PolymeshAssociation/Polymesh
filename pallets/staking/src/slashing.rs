@@ -587,7 +587,9 @@ impl<'a, T: 'a + Config> Drop for InspectingSpans<'a, T> {
 
 /// Clear slashing metadata for an obsolete era.
 pub(crate) fn clear_era_metadata<T: Config>(obsolete_era: EraIndex) {
+    #[allow(deprecated)]
     <Module<T> as Store>::ValidatorSlashInEra::remove_prefix(&obsolete_era, None);
+    #[allow(deprecated)]
     <Module<T> as Store>::NominatorSlashInEra::remove_prefix(&obsolete_era, None);
 }
 

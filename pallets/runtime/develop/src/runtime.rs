@@ -56,7 +56,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     authoring_version: 1,
     // `spec_version: aaa_bbb_ccd` should match node version v`aaa.bbb.cc`
     // N.B. `d` is unpinned from the binary version
-    spec_version: 5_003_000,
+    spec_version: 5_004_000,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 3,
@@ -124,14 +124,13 @@ parameter_types! {
     // Scheduler:
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
     pub const MaxScheduledPerBlock: u32 = 50;
-    pub const NoPreimagePostponement: Option<u32> = Some(10);
 
     // Identity:
     pub const InitialPOLYX: Balance = 0;
 
     // Contracts:
     pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
-    pub DeletionWeightLimit: Weight = 500_000_000_000;
+    pub DeletionWeightLimit: Weight = Weight::from_ref_time(500_000_000_000);
     pub DeletionQueueDepth: u32 = 1024;
     pub MaxInLen: u32 = 8 * 1024;
     pub MaxOutLen: u32 = 8 * 1024;
@@ -191,19 +190,19 @@ polymesh_runtime_common::misc_pallet_impls!();
 
 pub type CddHandler = polymesh_runtime_common::fee_details::DevCddHandler<Runtime>;
 
-impl<'a> TryFrom<&'a Call> for &'a pallet_test_utils::Call<Runtime> {
+impl<'a> TryFrom<&'a RuntimeCall> for &'a pallet_test_utils::Call<Runtime> {
     type Error = ();
-    fn try_from(call: &'a Call) -> Result<&'a pallet_test_utils::Call<Runtime>, ()> {
+    fn try_from(call: &'a RuntimeCall) -> Result<&'a pallet_test_utils::Call<Runtime>, ()> {
         match call {
-            Call::TestUtils(x) => Ok(x),
+            RuntimeCall::TestUtils(x) => Ok(x),
             _ => Err(()),
         }
     }
 }
 
 impl polymesh_common_utilities::traits::identity::Config for Runtime {
-    type Event = Event;
-    type Proposal = Call;
+    type RuntimeEvent = RuntimeEvent;
+    type Proposal = RuntimeCall;
     type MultiSig = MultiSig;
     type Portfolio = Portfolio;
     type CddServiceProviders = CddServiceProviders;
@@ -214,7 +213,7 @@ impl polymesh_common_utilities::traits::identity::Config for Runtime {
     type OffChainSignature = MultiSignature;
     type ProtocolFee = pallet_protocol_fee::Module<Runtime>;
     type GCVotingMajorityOrigin = VMO<GovernanceCommittee>;
-    type WeightInfo = polymesh_weights::pallet_identity::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_identity::SubstrateWeight;
     type IdentityFn = pallet_identity::Module<Runtime>;
     type SchedulerOrigin = OriginCaller;
     type InitialPOLYX = InitialPOLYX;
@@ -222,17 +221,17 @@ impl polymesh_common_utilities::traits::identity::Config for Runtime {
 }
 
 impl pallet_committee::Config<GovernanceCommittee> for Runtime {
-    type Origin = Origin;
-    type Proposal = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type Proposal = RuntimeCall;
     type CommitteeOrigin = VMO<GovernanceCommittee>;
     type VoteThresholdOrigin = Self::CommitteeOrigin;
-    type Event = Event;
-    type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = polymesh_weights::pallet_committee::SubstrateWeight;
 }
 
 /// PolymeshCommittee as an instance of group
 impl pallet_group::Config<pallet_group::Instance1> for Runtime {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type LimitOrigin = polymesh_primitives::EnsureRoot;
     type AddOrigin = Self::LimitOrigin;
     type RemoveOrigin = Self::LimitOrigin;
@@ -240,22 +239,22 @@ impl pallet_group::Config<pallet_group::Instance1> for Runtime {
     type ResetOrigin = Self::LimitOrigin;
     type MembershipInitialized = PolymeshCommittee;
     type MembershipChanged = PolymeshCommittee;
-    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_group::SubstrateWeight;
 }
 
 macro_rules! committee_config {
     ($committee:ident, $instance:ident) => {
         impl pallet_committee::Config<pallet_committee::$instance> for Runtime {
-            type Origin = Origin;
-            type Proposal = Call;
+            type RuntimeOrigin = RuntimeOrigin;
+            type Proposal = RuntimeCall;
             // Can act upon itself.
             type CommitteeOrigin = VMO<pallet_committee::$instance>;
             type VoteThresholdOrigin = Self::CommitteeOrigin;
-            type Event = Event;
-            type WeightInfo = polymesh_weights::pallet_committee::WeightInfo;
+            type RuntimeEvent = RuntimeEvent;
+            type WeightInfo = polymesh_weights::pallet_committee::SubstrateWeight;
         }
         impl pallet_group::Config<pallet_group::$instance> for Runtime {
-            type Event = Event;
+            type RuntimeEvent = RuntimeEvent;
             // Committee cannot alter its own active membership limit.
             type LimitOrigin = polymesh_primitives::EnsureRoot;
             // Can manage its own addition, deletion, and swapping of membership...
@@ -266,7 +265,7 @@ macro_rules! committee_config {
             type ResetOrigin = VMO<GovernanceCommittee>;
             type MembershipInitialized = $committee;
             type MembershipChanged = $committee;
-            type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
+            type WeightInfo = polymesh_weights::pallet_group::SubstrateWeight;
         }
     };
 }
@@ -280,15 +279,15 @@ impl pallet_pips::Config for Runtime {
     type GovernanceCommittee = PolymeshCommittee;
     type TechnicalCommitteeVMO = VMO<pallet_committee::Instance3>;
     type UpgradeCommitteeVMO = VMO<pallet_committee::Instance4>;
-    type Event = Event;
-    type WeightInfo = polymesh_weights::pallet_pips::WeightInfo;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = polymesh_weights::pallet_pips::SubstrateWeight;
     type Scheduler = Scheduler;
-    type SchedulerCall = Call;
+    type SchedulerCall = RuntimeCall;
 }
 
 /// CddProviders instance of group
 impl pallet_group::Config<pallet_group::Instance2> for Runtime {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     // Cannot alter its own active membership limit.
     type LimitOrigin = polymesh_primitives::EnsureRoot;
     type AddOrigin = polymesh_primitives::EnsureRoot;
@@ -297,12 +296,12 @@ impl pallet_group::Config<pallet_group::Instance2> for Runtime {
     type ResetOrigin = polymesh_primitives::EnsureRoot;
     type MembershipInitialized = Identity;
     type MembershipChanged = Identity;
-    type WeightInfo = polymesh_weights::pallet_group::WeightInfo;
+    type WeightInfo = polymesh_weights::pallet_group::SubstrateWeight;
 }
 
 impl pallet_test_utils::Config for Runtime {
-    type Event = Event;
-    type WeightInfo = polymesh_weights::pallet_test_utils::WeightInfo;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = polymesh_weights::pallet_test_utils::SubstrateWeight;
 }
 
 /// NB It is needed by benchmarks, in order to use `UserBuilder`.
@@ -314,6 +313,49 @@ impl TestUtilsFn<AccountId> for Runtime {
     ) -> DispatchResult {
         <TestUtils as TestUtilsFn<AccountId>>::register_did(target, investor, secondary_keys)
     }
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+#[macro_use]
+mod benches {
+    define_benchmarks!(
+        [frame_benchmarking, BaselineBench::<Runtime>]
+        [pallet_asset, Asset]
+        [pallet_balances, Balances]
+        [pallet_identity, Identity]
+        [pallet_pips, Pips]
+        [pallet_multisig, MultiSig]
+        [pallet_portfolio, Portfolio]
+        [pallet_protocol_fee, ProtocolFee]
+        [frame_system, SystemBench::<Runtime>]
+        [pallet_timestamp, Timestamp]
+        [pallet_settlement, Settlement]
+        [pallet_sto, Sto]
+        [pallet_checkpoint, Checkpoint]
+        [pallet_compliance_manager, ComplianceManager]
+        [pallet_corporate_actions, CorporateAction]
+        [pallet_corporate_ballot, CorporateBallot]
+        [pallet_capital_distribution, CapitalDistribution]
+        [pallet_external_agents, ExternalAgents]
+        [pallet_relayer, Relayer]
+        [pallet_committee, PolymeshCommittee]
+        [pallet_utility, Utility]
+        [pallet_treasury, Treasury]
+        [pallet_im_online, ImOnline]
+        [pallet_group, CddServiceProviders]
+        [pallet_statistics, Statistics]
+        [pallet_permissions, Permissions]
+        [pallet_preimage, Preimage]
+        [pallet_babe, Babe]
+        [pallet_indices, Indices]
+        [pallet_session, SessionBench::<Runtime>]
+        [pallet_grandpa, Grandpa]
+        [pallet_scheduler, Scheduler]
+        [pallet_staking, Staking]
+        [pallet_test_utils, TestUtils]
+        [polymesh_contracts, PolymeshContracts]
+        [pallet_nft, Nft]
+    );
 }
 
 construct_runtime!(
@@ -332,7 +374,7 @@ construct_runtime!(
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 
         // TransactionPayment: Genesis config dependencies: Balance.
-        TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
+        TransactionPayment: pallet_transaction_payment::{Pallet, Event<T>, Storage},
 
         // Identity: Genesis config deps: Timestamp.
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>, Config<T>},
@@ -417,12 +459,14 @@ polymesh_runtime_common::runtime_apis! {
         fn dispatch_benchmark(
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-            use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
+            use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch,  TrackedStorageKey};
 
-            type SystemBench = frame_system_benchmarking::Pallet<Runtime>;
-            type SessionBench = crate::benchmarks::pallet_session::Pallet<Runtime>;
+            use crate::benchmarks::pallet_session::Pallet as SessionBench;
+            use frame_system_benchmarking::Pallet as SystemBench;
+            use baseline::Pallet as BaselineBench;
 
             impl frame_system_benchmarking::Config for Runtime {}
+            impl baseline::Config for Runtime {}
             impl crate::benchmarks::pallet_session::Config for Runtime {}
 
             let whitelist: Vec<TrackedStorageKey> = vec![
@@ -442,44 +486,7 @@ polymesh_runtime_common::runtime_apis! {
 
             let mut batches = Vec::<BenchmarkBatch>::new();
             let params = (&config, &whitelist);
-
-            add_benchmark!(params, batches, pallet_asset, Asset);
-            add_benchmark!(params, batches, pallet_balances, Balances);
-            add_benchmark!(params, batches, pallet_identity, Identity);
-            add_benchmark!(params, batches, pallet_pips, Pips);
-            add_benchmark!(params, batches, pallet_multisig, MultiSig);
-            add_benchmark!(params, batches, pallet_portfolio, Portfolio);
-            add_benchmark!(params, batches, pallet_protocol_fee, ProtocolFee);
-            add_benchmark!(params, batches, frame_system, SystemBench);
-            add_benchmark!(params, batches, pallet_timestamp, Timestamp);
-            add_benchmark!(params, batches, pallet_settlement, Settlement);
-            add_benchmark!(params, batches, pallet_sto, Sto);
-            add_benchmark!(params, batches, pallet_checkpoint, Checkpoint);
-            add_benchmark!(params, batches, pallet_compliance_manager, ComplianceManager);
-            add_benchmark!(params, batches, pallet_corporate_actions, CorporateAction);
-            add_benchmark!(params, batches, pallet_corporate_ballot, CorporateBallot);
-            add_benchmark!(params, batches, pallet_capital_distribution, CapitalDistribution);
-            add_benchmark!(params, batches, pallet_external_agents, ExternalAgents);
-            add_benchmark!(params, batches, pallet_relayer, Relayer);
-            add_benchmark!(params, batches, pallet_committee, PolymeshCommittee);
-            add_benchmark!(params, batches, pallet_utility, Utility);
-            add_benchmark!(params, batches, pallet_treasury, Treasury);
-            add_benchmark!(params, batches, pallet_im_online, ImOnline);
-            add_benchmark!(params, batches, pallet_group, CddServiceProviders);
-            add_benchmark!(params, batches, pallet_statistics, Statistics);
-            add_benchmark!(params, batches, pallet_permissions, Permissions);
-            add_benchmark!(params, batches, pallet_preimage, Preimage);
-            add_benchmark!(params, batches, pallet_babe, Babe);
-            add_benchmark!(params, batches, pallet_indices, Indices);
-            add_benchmark!(params, batches, pallet_session, SessionBench);
-            add_benchmark!(params, batches, pallet_grandpa, Grandpa);
-            add_benchmark!(params, batches, pallet_scheduler, Scheduler);
-            add_benchmark!(params, batches, pallet_staking, Staking);
-            add_benchmark!(params, batches, pallet_test_utils, TestUtils);
-            add_benchmark!(params, batches, polymesh_contracts, PolymeshContracts);
-            add_benchmark!(params, batches, pallet_nft, Nft);
-
-            if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
+            add_benchmarks!(params, batches);
             Ok(batches)
         }
 
@@ -487,48 +494,15 @@ polymesh_runtime_common::runtime_apis! {
             Vec<frame_benchmarking::BenchmarkList>,
             Vec<frame_support::traits::StorageInfo>,
         ) {
+            use frame_benchmarking::{baseline, Benchmarking, BenchmarkList};
             use frame_support::traits::StorageInfoTrait;
-            use frame_benchmarking::{list_benchmark, Benchmarking, BenchmarkList};
-            type SystemBench = frame_system_benchmarking::Pallet<Runtime>;
+
             use crate::benchmarks::pallet_session::Pallet as SessionBench;
+            use frame_system_benchmarking::Pallet as SystemBench;
+            use baseline::Pallet as BaselineBench;
 
             let mut list = Vec::<BenchmarkList>::new();
-
-            list_benchmark!(list, extra, pallet_asset, Asset);
-            list_benchmark!(list, extra, pallet_balances, Balances);
-            list_benchmark!(list, extra, pallet_identity, Identity);
-            list_benchmark!(list, extra, pallet_pips, Pips);
-            list_benchmark!(list, extra, pallet_multisig, MultiSig);
-            list_benchmark!(list, extra, pallet_portfolio, Portfolio);
-            list_benchmark!(list, extra, pallet_protocol_fee, ProtocolFee);
-            list_benchmark!(list, extra, frame_system, SystemBench);
-            list_benchmark!(list, extra, pallet_timestamp, Timestamp);
-            list_benchmark!(list, extra, pallet_settlement, Settlement);
-            list_benchmark!(list, extra, pallet_sto, Sto);
-            list_benchmark!(list, extra, pallet_checkpoint, Checkpoint);
-            list_benchmark!(list, extra, pallet_compliance_manager, ComplianceManager);
-            list_benchmark!(list, extra, pallet_corporate_actions, CorporateAction);
-            list_benchmark!(list, extra, pallet_corporate_ballot, CorporateBallot);
-            list_benchmark!(list, extra, pallet_capital_distribution, CapitalDistribution);
-            list_benchmark!(list, extra, pallet_external_agents, ExternalAgents);
-            list_benchmark!(list, extra, pallet_relayer, Relayer);
-            list_benchmark!(list, extra, pallet_committee, PolymeshCommittee);
-            list_benchmark!(list, extra, pallet_utility, Utility);
-            list_benchmark!(list, extra, pallet_treasury, Treasury);
-            list_benchmark!(list, extra, pallet_im_online, ImOnline);
-            list_benchmark!(list, extra, pallet_group, CddServiceProviders);
-            list_benchmark!(list, extra, pallet_statistics, Statistics);
-            list_benchmark!(list, extra, pallet_permissions, Permissions);
-            list_benchmark!(list, extra, pallet_preimage, Preimage);
-            list_benchmark!(list, extra, pallet_babe, Babe);
-            list_benchmark!(list, extra, pallet_indices, Indices);
-            list_benchmark!(list, extra, pallet_session, SessionBench::<Runtime>);
-            list_benchmark!(list, extra, pallet_grandpa, Grandpa);
-            list_benchmark!(list, extra, pallet_scheduler, Scheduler);
-            list_benchmark!(list, extra, pallet_staking, Staking);
-            list_benchmark!(list, extra, pallet_test_utils, TestUtils);
-            list_benchmark!(list, extra, polymesh_contracts, PolymeshContracts);
-            list_benchmark!(list, extra, pallet_nft, Nft);
+            list_benchmarks!(list, extra);
 
             let storage_info = AllPalletsWithSystem::storage_info();
 

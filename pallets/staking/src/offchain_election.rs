@@ -164,7 +164,7 @@ pub fn get_balancing_iters<T: Config>() -> usize {
 pub fn maximum_compact_len<W: crate::WeightInfo>(
     winners_len: u32,
     size: ElectionSize,
-    max_weight: Weight,
+    max_weight: u64,
 ) -> u32 {
     use sp_std::cmp::Ordering;
 
@@ -176,16 +176,16 @@ pub fn maximum_compact_len<W: crate::WeightInfo>(
     let mut voters = max_voters;
 
     // helper closures.
-    let weight_with = |voters: u32| -> Weight {
+    let weight_with = |voters: u32| -> u64 {
         W::submit_solution_better(
             size.validators.into(),
             size.nominators.into(),
             voters,
             winners_len,
-        )
+        ).ref_time()
     };
 
-    let next_voters = |current_weight: Weight, voters: u32, step: u32| -> Result<u32, ()> {
+    let next_voters = |current_weight: u64, voters: u32, step: u32| -> Result<u32, ()> {
         match current_weight.cmp(&max_weight) {
             Ordering::Less => {
                 let next_voters = voters.checked_add(step);
@@ -553,7 +553,7 @@ mod test {
         }
 
         fn submit_solution_better(v: u32, n: u32, a: u32, w: u32) -> Weight {
-            (0 * v + 0 * n + 1000 * a + 0 * w) as Weight
+            Weight::from_ref_time((0 * v + 0 * n + 1000 * a + 0 * w).into())
         }
 
         fn chill_from_governance(s: u32) -> Weight {

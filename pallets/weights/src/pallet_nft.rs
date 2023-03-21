@@ -50,8 +50,8 @@
 use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 
 /// Weights for pallet_nft using the Substrate node and recommended hardware.
-pub struct WeightInfo;
-impl pallet_nft::WeightInfo for WeightInfo {
+pub struct SubstrateWeight;
+impl pallet_nft::WeightInfo for SubstrateWeight {
     // Storage: Asset Tokens (r:1 w:1)
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: NFT CollectionTicker (r:1 w:1)
@@ -76,12 +76,12 @@ impl pallet_nft::WeightInfo for WeightInfo {
     // Storage: ExternalAgents AgentOf (r:0 w:1)
     // Storage: ExternalAgents GroupOfAgent (r:0 w:1)
     fn create_nft_collection(n: u32) -> Weight {
-        (120_477_000 as Weight)
+        Weight::from_ref_time(120_477_000 as u64)
             // Standard Error: 6_000
-            .saturating_add((3_674_000 as Weight).saturating_mul(n as Weight))
-            .saturating_add(DbWeight::get().reads(13 as Weight))
-            .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(n as Weight)))
-            .saturating_add(DbWeight::get().writes(16 as Weight))
+            .saturating_add(Weight::from_ref_time(3_674_000 as u64).saturating_mul(n as u64))
+            .saturating_add(DbWeight::get().reads(13 as u64))
+            .saturating_add(DbWeight::get().reads((1 as u64).saturating_mul(n as u64)))
+            .saturating_add(DbWeight::get().writes(16 as u64))
     }
     // Storage: NFT CollectionTicker (r:1 w:0)
     // Storage: Identity KeyRecords (r:1 w:0)
@@ -95,12 +95,12 @@ impl pallet_nft::WeightInfo for WeightInfo {
     // Storage: Portfolio PortfolioNFT (r:0 w:1)
     // Storage: NFT MetadataValue (r:0 w:1)
     fn issue_nft(n: u32) -> Weight {
-        (70_116_000 as Weight)
+        Weight::from_ref_time(70_116_000 as u64)
             // Standard Error: 4_000
-            .saturating_add((2_578_000 as Weight).saturating_mul(n as Weight))
-            .saturating_add(DbWeight::get().reads(9 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
-            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(n as Weight)))
+            .saturating_add(Weight::from_ref_time(2_578_000 as u64).saturating_mul(n as u64))
+            .saturating_add(DbWeight::get().reads(9 as u64))
+            .saturating_add(DbWeight::get().writes(3 as u64))
+            .saturating_add(DbWeight::get().writes((1 as u64).saturating_mul(n as u64)))
     }
     // Storage: NFT CollectionTicker (r:1 w:0)
     // Storage: Identity KeyRecords (r:1 w:0)
@@ -112,11 +112,11 @@ impl pallet_nft::WeightInfo for WeightInfo {
     // Storage: Asset BalanceOf (r:1 w:1)
     // Storage: NFT MetadataValue (r:0 w:1)
     fn redeem_nft(n: u32) -> Weight {
-        (76_996_000 as Weight)
+        Weight::from_ref_time(76_996_000 as u64)
             // Standard Error: 4_000
-            .saturating_add((871_000 as Weight).saturating_mul(n as Weight))
-            .saturating_add(DbWeight::get().reads(8 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
-            .saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(n as Weight)))
+            .saturating_add(Weight::from_ref_time(871_000 as u64).saturating_mul(n as u64))
+            .saturating_add(DbWeight::get().reads(8 as u64))
+            .saturating_add(DbWeight::get().writes(2 as u64))
+            .saturating_add(DbWeight::get().writes((1 as u64).saturating_mul(n as u64)))
     }
 }

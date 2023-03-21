@@ -130,9 +130,9 @@ pub trait Config:
     + portfolio::Config
 {
     /// The overarching event type.
-    type Event: From<Event<Self>>
+    type RuntimeEvent: From<Event<Self>>
         + From<checkpoint::Event>
-        + Into<<Self as frame_system::Config>::Event>;
+        + Into<<Self as frame_system::Config>::RuntimeEvent>;
 
     type Currency: Currency<Self::AccountId>;
 
@@ -156,12 +156,12 @@ pub trait Config:
     /// Max length for the Asset Metadata type definition.
     type AssetMetadataTypeDefMaxLength: Get<u32>;
 
-    type AssetFn: AssetFnTrait<Self::AccountId, Self::Origin>;
+    type AssetFn: AssetFnTrait<Self::AccountId, Self::RuntimeOrigin>;
 
     type WeightInfo: WeightInfo;
     type CPWeightInfo: crate::traits::checkpoint::WeightInfo;
 
-    type NFTFn: NFTTrait<Self::Origin>;
+    type NFTFn: NFTTrait<Self::RuntimeOrigin>;
 }
 
 decl_event! {

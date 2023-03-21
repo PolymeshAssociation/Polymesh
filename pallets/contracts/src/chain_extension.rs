@@ -406,7 +406,7 @@ fn call_runtime<T, E>(
     old_call: Option<ExtrinsicId>,
 ) -> ce::Result<ce::RetVal>
 where
-    <T as BConfig>::Call: GetDispatchInfo + GetCallMetadata,
+    <T as BConfig>::RuntimeCall: GetDispatchInfo + GetCallMetadata,
     T: Config,
     T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
     E: ce::Ext<T = T>,
@@ -433,7 +433,7 @@ where
                 ExtrinsicId::try_from(input.as_slice()).ok_or(Error::<T>::InvalidRuntimeCall)?;
             // Check if the extrinsic is allowed to be called.
             Module::<T>::ensure_call_runtime(ext_id)?;
-            <<T as BConfig>::Call>::decode_all_with_depth_limit(
+            <<T as BConfig>::RuntimeCall>::decode_all_with_depth_limit(
                 MAX_DECODE_DEPTH,
                 &mut input.as_slice(),
             )
@@ -446,9 +446,11 @@ where
             let extrinsic: [u8; 2] = ext_id.into();
             let params = env.read(in_len)?;
             let mut input = ChainInput::new(&extrinsic, params.as_slice());
-            let call =
-                <<T as BConfig>::Call>::decode_with_depth_limit(MAX_DECODE_DEPTH, &mut input)
-                    .map_err(|_| Error::<T>::InvalidRuntimeCall)?;
+            let call = <<T as BConfig>::RuntimeCall>::decode_with_depth_limit(
+                MAX_DECODE_DEPTH,
+                &mut input,
+            )
+            .map_err(|_| Error::<T>::InvalidRuntimeCall)?;
             ensure!(input.is_empty(), Error::<T>::DataLeftAfterDecoding);
             call
         }
@@ -483,11 +485,14 @@ where
     Ok(ce::RetVal::Converging(0))
 }
 
+#[derive(Clone, Copy, Default)]
+pub struct PolymeshExtension;
+
 /// A chain extension allowing calls to polymesh pallets
 /// and using the contract's DID instead of the caller's DID.
-impl<T> ce::ChainExtension<T> for Module<T>
+impl<T> ce::ChainExtension<T> for PolymeshExtension
 where
-    <T as BConfig>::Call: GetDispatchInfo + GetCallMetadata,
+    <T as BConfig>::RuntimeCall: GetDispatchInfo + GetCallMetadata,
     T: Config,
     T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 {
@@ -496,9 +501,10 @@ where
     }
 
     fn call<E: ce::Ext<T = T>>(
-        ext_id: u32,
+        &mut self,
         env: ce::Environment<E, ce::InitState>,
     ) -> ce::Result<ce::RetVal> {
+        let ext_id = ((env.ext_id() as u32) << 16) + env.func_id() as u32;
         // Decode chain extension id.
         let func_id = FuncId::try_from(ext_id);
 

@@ -332,10 +332,10 @@ pub trait WeightInfo {
 /// The module's configuration trait.
 pub trait Config: frame_system::Config + BalancesConfig + IdentityConfig + asset::Config {
     /// The overarching event type.
-    type Event: From<Event>
+    type RuntimeEvent: From<Event>
         + From<ballot::Event>
         + From<distribution::Event>
-        + Into<<Self as frame_system::Config>::Event>;
+        + Into<<Self as frame_system::Config>::RuntimeEvent>;
 
     /// Max number of DID specified in `TargetIdentities`.
     type MaxTargetIds: Get<u32>;
@@ -424,7 +424,7 @@ storage_migration_ver!(0);
 
 // Public interface for this runtime module.
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
         type Error = Error<T>;
 
         /// initialize the default event for this module
