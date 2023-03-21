@@ -74,7 +74,7 @@ use polymesh_common_utilities::{
     SystematicIssuers::Settlement as SettlementDID,
 };
 use polymesh_primitives::{
-    impl_checked_inc, storage_migrate_on, storage_migration_ver, Balance, IdentityId, NFTId, NFTs,
+    impl_checked_inc, storage_migrate_on, storage_migration_ver, Balance, IdentityId, NFTs,
     PortfolioId, SecondaryKey, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
@@ -702,7 +702,7 @@ decl_module! {
                 migration::migrate_v1::<T>();
             });
 
-            0
+            Weight::zero()
         }
 
         /// Registers a new venue.
@@ -2295,7 +2295,7 @@ pub mod migration {
         }
 
         decl_module! {
-            pub struct Module<T: Config> for enum Call where origin: T::Origin { }
+            pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin { }
         }
     }
 
