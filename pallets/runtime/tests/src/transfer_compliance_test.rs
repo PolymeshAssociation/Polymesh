@@ -136,7 +136,7 @@ struct AssetTracker {
     asset: Ticker,
     total_supply: Balance,
     disable_iu: bool,
-    asset_scope: AssetScope,
+    pub asset_scope: AssetScope,
 
     issuers: HashMap<IdentityId, IssuerState>,
 
@@ -1073,4 +1073,64 @@ fn jurisdiction_ownership_rule_with_ext() {
     tracker.do_valid_transfer(tracker.owner_id, id, 260_000);
 
     tracker.ensure_asset_stats();
+}
+
+#[test]
+fn ensure_invalid_set_active_stats() {
+    ExtBuilder::default()
+        .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
+        .build()
+        .execute_with(ensure_invalid_set_active_stats_ext);
+}
+fn ensure_invalid_set_active_stats_ext() {
+    // Create an asset.
+    let tracker = AssetTracker::new();
+    let claim_type = ClaimType::Jurisdiction;
+    let mut stats = vec![];
+
+    for i in 0u128..15u128 {
+        // Active stats.
+        stats.push(StatType {
+            op: StatOpType::Count,
+            claim_issuer: Some((claim_type, IdentityId::from(i))),
+        });
+    }
+
+    // Ensures active stats outputs correct error message
+    assert_noop!(
+        Statistics::set_active_asset_stats(
+            tracker.owner_origin(),
+            tracker.asset_scope,
+            stats.into_iter().collect(),
+        ),
+        Error::StatTypeLimitReached
+    );
+}
+
+#[test]
+fn ensure_invalid_transfer_conditions() {
+    ExtBuilder::default()
+        .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
+        .build()
+        .execute_with(ensure_invalid_transfer_conditions_ext);
+}
+fn ensure_invalid_transfer_conditions_ext() {
+    // Create an asset.
+    let tracker = AssetTracker::new();
+    let mut conditions = vec![];
+
+    for i in 0..7 as u64 {
+        // Transfer conditions.
+        conditions.push(TransferCondition::MaxInvestorCount(i));
+    }
+
+    // Ensures transfer condition outputs correct error message
+    assert_noop!(
+        Statistics::set_asset_transfer_compliance(
+            tracker.owner_origin(),
+            tracker.asset_scope,
+            conditions.into_iter().collect(),
+        ),
+        Error::TransferConditionLimitReached
+    );
 }
