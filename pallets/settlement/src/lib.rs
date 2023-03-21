@@ -74,8 +74,8 @@ use polymesh_common_utilities::{
     SystematicIssuers::Settlement as SettlementDID,
 };
 use polymesh_primitives::{
-    impl_checked_inc, storage_migration_ver, Balance, IdentityId, NFTs, PortfolioId, SecondaryKey,
-    Ticker,
+    impl_checked_inc, storage_migrate_on, storage_migration_ver, Balance, IdentityId, NFTs,
+    PortfolioId, SecondaryKey, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
@@ -132,16 +132,20 @@ pub struct VenueDetails(Vec<u8>);
 
 /// Status of an instruction
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum InstructionStatus {
+pub enum InstructionStatus<BlockNumber> {
     /// Invalid instruction or details pruned
     Unknown,
     /// Instruction is pending execution
     Pending,
     /// Instruction has failed execution
     Failed,
+    /// Instruction has been executed successfully
+    Success(BlockNumber),
+    /// Instruction has been rejected.
+    Rejected(BlockNumber),
 }
 
-impl Default for InstructionStatus {
+impl<BlockNumber> Default for InstructionStatus<BlockNumber> {
     fn default() -> Self {
         Self::Unknown
     }
@@ -251,8 +255,6 @@ pub struct Instruction<Moment, BlockNumber> {
     pub instruction_id: InstructionId,
     /// Id of the venue this instruction belongs to
     pub venue_id: VenueId,
-    /// Status of the instruction
-    pub status: InstructionStatus,
     /// Type of settlement used for this instruction
     pub settlement_type: SettlementType<BlockNumber>,
     /// Date at which this instruction was created
@@ -621,7 +623,7 @@ decl_error! {
     }
 }
 
-storage_migration_ver!(0);
+storage_migration_ver!(1);
 
 decl_storage! {
     trait Store for Module<T: Config> as Settlement {
@@ -649,7 +651,7 @@ decl_storage! {
         /// Array of venues created by an identity. Only needed for the UI. IdentityId -> Vec<venue_id>
         UserVenues get(fn user_venues): map hasher(twox_64_concat) IdentityId => Vec<VenueId>;
         /// Details about an instruction. instruction_id -> instruction_details
-        InstructionDetails get(fn instruction_details):
+        pub InstructionDetails get(fn instruction_details):
             map hasher(twox_64_concat) InstructionId => Instruction<T::Moment, T::BlockNumber>;
         /// Legs under an instruction. (instruction_id, leg_id) -> Leg
         pub InstructionLegs get(fn instruction_legs):
@@ -677,9 +679,12 @@ decl_storage! {
         /// Number of instructions in the system (It's one more than the actual number)
         InstructionCounter get(fn instruction_counter) build(|_| InstructionId(1u64)): InstructionId;
         /// Storage version.
-        StorageVersion get(fn storage_version) build(|_| Version::new(0)): Version;
+        StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
         /// Instruction memo
         InstructionMemos get(fn memo): map hasher(twox_64_concat) InstructionId => Option<InstructionMemo>;
+        /// Instruction statuses. instruction_id -> InstructionStatus
+        InstructionStatuses get(fn instruction_status):
+            map hasher(twox_64_concat) InstructionId => InstructionStatus<T::BlockNumber>;
         /// Legs under an instruction. (instruction_id, leg_id) -> Leg
         pub InstructionLegsV2 get(fn instruction_legsv2):
             double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => LegV2;
@@ -691,6 +696,14 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        fn on_runtime_upgrade() -> Weight {
+            storage_migrate_on!(StorageVersion, 1, {
+                migration::migrate_v1::<T>();
+            });
+
+            Weight::zero()
+        }
 
         /// Registers a new venue.
         ///
@@ -982,9 +995,9 @@ decl_module! {
         pub fn reschedule_instruction(origin, id: InstructionId) {
             let did = Identity::<T>::ensure_perms(origin)?;
 
-            <InstructionDetails<T>>::try_mutate(id, |details| {
-                ensure!(details.status == InstructionStatus::Failed, Error::<T>::InstructionNotFailed);
-                details.status = InstructionStatus::Pending;
+            <InstructionStatuses<T>>::try_mutate(id, |status| {
+                ensure!(*status == InstructionStatus::Failed, Error::<T>::InstructionNotFailed);
+                *status = InstructionStatus::Pending;
                 Result::<_, Error<T>>::Ok(())
             })?;
 
@@ -1335,12 +1348,13 @@ impl<T: Config> Module<T> {
         let instruction = Instruction {
             instruction_id,
             venue_id,
-            status: InstructionStatus::Pending,
             settlement_type,
             created_at: Some(<pallet_timestamp::Pallet<T>>::get()),
             trade_date,
             value_date,
         };
+
+        InstructionStatuses::<T>::insert(instruction_id, InstructionStatus::Pending);
 
         // Write data to storage.
         for counter_party in &counter_parties {
@@ -1504,7 +1518,7 @@ impl<T: Config> Module<T> {
     ) -> Result<Instruction<T::Moment, T::BlockNumber>, DispatchError> {
         let details = Self::instruction_details(id);
         ensure!(
-            details.status != InstructionStatus::Unknown,
+            Self::instruction_status(id) != InstructionStatus::Unknown,
             Error::<T>::UnknownInstruction
         );
 
@@ -1543,9 +1557,9 @@ impl<T: Config> Module<T> {
     fn execute_instruction_retryable(id: InstructionId) -> Result<u32, DispatchError> {
         let result = Self::execute_instruction(id);
         if result.is_ok() {
-            Self::prune_instruction(id);
+            Self::prune_instruction(id, true);
         } else if <InstructionDetails<T>>::contains_key(id) {
-            <InstructionDetails<T>>::mutate(id, |d| d.status = InstructionStatus::Failed);
+            InstructionStatuses::<T>::insert(id, InstructionStatus::Failed);
         }
         result
     }
@@ -1560,7 +1574,7 @@ impl<T: Config> Module<T> {
         // Verifies that the instruction is not in a Failed or in an Unknown state
         let details = Self::instruction_details(instruction_id);
         ensure!(
-            details.status == InstructionStatus::Pending,
+            Self::instruction_status(instruction_id) == InstructionStatus::Pending,
             Error::<T>::InstructionNotPending
         );
 
@@ -1642,7 +1656,7 @@ impl<T: Config> Module<T> {
         TransactionOutcome::Commit(Ok(Ok(())))
     }
 
-    fn prune_instruction(id: InstructionId) {
+    fn prune_instruction(id: InstructionId, executed: bool) {
         let legs: Vec<(LegId, LegV2)> = Self::drain_instruction_legs(&id);
         let details = <InstructionDetails<T>>::take(id);
         VenueInstructions::remove(details.venue_id, id);
@@ -1651,6 +1665,18 @@ impl<T: Config> Module<T> {
         InstructionAffirmsPending::remove(id);
         #[allow(deprecated)]
         AffirmsReceived::remove_prefix(id, None);
+
+        if executed {
+            InstructionStatuses::<T>::insert(
+                id,
+                InstructionStatus::Success(System::<T>::block_number()),
+            );
+        } else {
+            InstructionStatuses::<T>::insert(
+                id,
+                InstructionStatus::Rejected(System::<T>::block_number()),
+            );
+        }
 
         // We remove duplicates in memory before triggering storage actions
         let mut counter_parties = BTreeSet::new();
@@ -1993,7 +2019,7 @@ impl<T: Config> Module<T> {
             Self::instruction_affirms_pending(id),
             Self::instruction_details(id).settlement_type,
         )?;
-        Self::prune_instruction(id);
+        Self::prune_instruction(id, true);
         Ok(())
     }
 
@@ -2098,7 +2124,7 @@ impl<T: Config> Module<T> {
         nfts_transfers: Option<u32>,
     ) -> DispatchResult {
         ensure!(
-            Self::instruction_details(id).status != InstructionStatus::Unknown,
+            Self::instruction_status(id) != InstructionStatus::Unknown,
             Error::<T>::UnknownInstruction
         );
         // Gets all legs for the instruction, checks if portfolio is in any of the legs, and validates the input cost.
@@ -2123,7 +2149,7 @@ impl<T: Config> Module<T> {
         Self::unsafe_unclaim_receipts(id, &legs_v2);
         Self::unchecked_release_locks(id, &legs_v2);
         let _ = T::Scheduler::cancel_named(id.execution_name());
-        Self::prune_instruction(id);
+        Self::prune_instruction(id, false);
         Self::deposit_event(RawEvent::InstructionRejected(origin_data.primary_did, id));
         Ok(())
     }
@@ -2231,4 +2257,73 @@ pub fn get_transfer_by_asset(legs_v2: &[LegV2]) -> (u32, u32) {
         }
     }
     (fungible_transfers, nfts_transfers as u32)
+}
+
+pub mod migration {
+    use super::*;
+
+    mod v1 {
+        use super::*;
+        use scale_info::TypeInfo;
+
+        /// Old v1 Instruction information.
+        #[derive(Encode, Decode, TypeInfo)]
+        #[derive(Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+        pub struct Instruction<Moment, BlockNumber> {
+            /// Unique instruction id. It is an auto incrementing number
+            pub instruction_id: InstructionId,
+            /// Id of the venue this instruction belongs to
+            pub venue_id: VenueId,
+            /// Status of the instruction
+            pub status: InstructionStatus<BlockNumber>,
+            /// Type of settlement used for this instruction
+            pub settlement_type: SettlementType<BlockNumber>,
+            /// Date at which this instruction was created
+            pub created_at: Option<Moment>,
+            /// Date from which this instruction is valid
+            pub trade_date: Option<Moment>,
+            /// Date after which the instruction should be settled (not enforced)
+            pub value_date: Option<Moment>,
+        }
+
+        decl_storage! {
+            trait Store for Module<T: Config> as Settlement {
+                /// Details about an instruction. instruction_id -> instruction_details
+                pub InstructionDetails get(fn instruction_details):
+                map hasher(twox_64_concat) InstructionId => Instruction<T::Moment, T::BlockNumber>;
+                    }
+        }
+
+        decl_module! {
+            pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin { }
+        }
+    }
+
+    pub fn migrate_v1<T: Config>() {
+        sp_runtime::runtime_logger::RuntimeLogger::init();
+
+        log::info!(" >>> Updating Settlement storage. Migrating Instructions...");
+        let total_instructions = v1::InstructionDetails::<T>::drain().fold(
+            0usize,
+            |total_instructions, (id, instruction_details)| {
+                // Migrate Instruction satus.
+                InstructionStatuses::<T>::insert(id, instruction_details.status);
+
+                //Migrate Instruction details.
+                let instruction = Instruction {
+                    instruction_id: id,
+                    venue_id: instruction_details.venue_id,
+                    settlement_type: instruction_details.settlement_type,
+                    created_at: instruction_details.created_at,
+                    trade_date: instruction_details.trade_date,
+                    value_date: instruction_details.value_date,
+                };
+                <InstructionDetails<T>>::insert(id, instruction);
+
+                total_instructions + 1
+            },
+        );
+
+        log::info!(" >>> Migrated {} Instructions.", total_instructions);
+    }
 }

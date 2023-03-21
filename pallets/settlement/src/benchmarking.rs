@@ -915,7 +915,7 @@ benchmarks! {
         let portfolio_id = (l - 1) as usize;
     }: _(origin, instruction_id, portfolios[portfolio_id], l)
     verify {
-        assert_eq!(Module::<T>::instruction_details(instruction_id).status, InstructionStatus::Unknown, "Settlement: Failed to reject instruction");
+        assert_eq!(Module::<T>::instruction_status(instruction_id), InstructionStatus::Rejected(frame_system::Pallet::<T>::block_number()));
     }
 
 
@@ -1016,13 +1016,13 @@ benchmarks! {
         tickers.iter().for_each(|ticker| Asset::<T>::freeze(RawOrigin::Signed(from.account.clone()).into(), *ticker).unwrap());
         Module::<T>::affirm_instruction(RawOrigin::Signed(to.account.clone()).into(), instruction_id, to_portfolios, l).unwrap();
         next_block::<T>();
-        assert_eq!(Module::<T>::instruction_details(instruction_id).status, InstructionStatus::Failed);
+        assert_eq!(Module::<T>::instruction_status(instruction_id), InstructionStatus::Failed);
         tickers.iter().for_each(|ticker| Asset::<T>::unfreeze(RawOrigin::Signed(from.account.clone()).into(), *ticker).unwrap());
     }: _(RawOrigin::Signed(to.account), instruction_id)
     verify {
-        assert_eq!(Module::<T>::instruction_details(instruction_id).status, InstructionStatus::Pending, "Settlement: reschedule_instruction didn't work");
+        assert_eq!(Module::<T>::instruction_status(instruction_id), InstructionStatus::Pending, "Settlement: reschedule_instruction didn't work");
         next_block::<T>();
-        assert_eq!(Module::<T>::instruction_details(instruction_id).status, InstructionStatus::Failed, "Settlement: reschedule_instruction didn't work");
+        assert_eq!(Module::<T>::instruction_status(instruction_id), InstructionStatus::Failed, "Settlement: reschedule_instruction didn't work");
     }
 
     add_instruction_with_memo_and_settle_on_block_type {

@@ -27,6 +27,7 @@ type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type ComplianceManager = compliance_manager::Module<TestStorage>;
 type Settlement = pallet_settlement::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
+type System = frame_system::Pallet<TestStorage>;
 
 #[track_caller]
 fn test(logic: impl FnOnce()) {
@@ -262,8 +263,8 @@ fn raise_happy_path() {
         instruction_id.checked_inc()
     );
     assert_eq!(
-        Settlement::instruction_details(instruction_id).status,
-        InstructionStatus::Unknown
+        Settlement::instruction_status(instruction_id),
+        InstructionStatus::Success(System::block_number())
     );
 
     assert_eq!(
