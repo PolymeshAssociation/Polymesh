@@ -211,6 +211,32 @@ upgradable_api! {
                 Ok(())
             }
 
+            /// Get portfolio balance.
+            #[ink(message)]
+            pub fn portfolio_asset_balances(
+                &self,
+                portfolio: PortfolioId,
+                ticker: Ticker
+            ) -> PolymeshResult<Balance> {
+                let api = Api::new();
+                let balance = api.query().portfolio().portfolio_asset_balances(portfolio, ticker).map(|v| v.into())?;
+                Ok(balance)
+            }
+
+            /// Check portfolios_in_custody.
+            #[ink(message)]
+            pub fn check_portfolios_in_custody(
+                &self,
+                did: IdentityId,
+                portfolio: PortfolioId
+            ) -> PolymeshResult<bool> {
+                let api = Api::new();
+                Ok(api
+                    .query()
+                    .portfolio()
+                    .portfolios_in_custody(did, portfolio)?)
+            }
+
             /// Create a Settlement Venue.
             #[ink(message)]
             pub fn create_venue(&self, details: VenueDetails, ty: VenueType) -> PolymeshResult<VenueId> {
