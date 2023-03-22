@@ -11,6 +11,9 @@ jobs:
       - run:
           name: Check formatting
           command: ./scripts/rustfmt.sh
+      - run:
+          name: Check runtime spec versions and polymesh crate version.
+          command: ./scripts/check_spec_and_cargo_version.sh
   check-storage-version:
     docker:
       - image: polymeshassociation/rust:debian-nightly-2022-11-02
@@ -40,7 +43,7 @@ jobs:
             - v7-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Build release
-          command: cargo build --release
+          command: cargo build --locked --release
           no_output_timeout: 1h
       - run:
           name: Create assets directory for releases
@@ -78,7 +81,7 @@ jobs:
             - v7-release-cache-{{ checksum "./rust.version" }}-{{ checksum "./Cargo.lock" }}
       - run:
           name: Build ci-runtime
-          command: cargo build --release --features ci-runtime
+          command: cargo build --locked --release --features ci-runtime
           no_output_timeout: 1h
       - run:
           name: Create assets directory for releases
