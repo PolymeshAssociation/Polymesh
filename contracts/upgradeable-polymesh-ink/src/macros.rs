@@ -71,7 +71,7 @@ macro_rules! upgradable_api {
             ///
             /// Contracts can use this to maintain support accross
             /// major Polymesh releases.
-            #[derive(Debug, Default, scale::Encode, scale::Decode)]
+            #[derive(Clone, Debug, Default, scale::Encode, scale::Decode)]
             #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
             #[derive(ink_storage::traits::SpreadLayout)]
             #[derive(ink_storage::traits::PackedLayout)]
@@ -122,9 +122,7 @@ macro_rules! upgradable_api {
                     }
                     Ok(())
                 }
-            }
 
-            impl $api_type {
                 $(
                     $crate::upgradable_api! {
                         @impl_api_func
@@ -160,19 +158,18 @@ macro_rules! upgradable_api {
             #[cfg(feature = "always-delegate")]
             let hash = Some($self.hash);
             if let Some(hash) = hash {
-                const FUNC: &str = stringify!($func);
-                let selector: [u8; 4] = ::polymesh_api::ink::blake2_256(FUNC.as_bytes())[..4]
-                  .try_into().unwrap();
-                let ret = ink_env::call::build_call::<ink_env::DefaultEnvironment>()
+                const FUNC: &'static str = stringify!{$fn_name};
+                let selector = Selector::new(::polymesh_api::ink::blake2_256(FUNC.as_bytes())[..4]
+                  .try_into().unwrap());
+                ink_env::call::build_call::<ink_env::DefaultEnvironment>()
                     .call_type(DelegateCall::new().code_hash(hash))
                     .exec_input(
-                        ExecutionInput::new(Selector::new(selector))
+                        ExecutionInput::new(selector)
                             .push_arg(($($param),*)),
                     )
                     .returns::<$fn_return>()
                     .fire()
-                    .unwrap_or_else(|err| panic!("delegate call to {:?} failed due to {:?}", hash, err))?;
-                Ok(ret)
+                    .map_err(|e| crate::PolymeshError::from_delegate_error(e, selector))?
             } else {
                 $( $fn_impl )*
             }
