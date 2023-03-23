@@ -39,6 +39,61 @@ pub enum PolymeshError {
     MissingIdentity,
     /// Invalid portfolio authorization.
     InvalidPortfolioAuthorization,
+    /// Ink! Delegate call error.
+    InkDelegateCallError {
+      selector: [u8; 4],
+      err: Option<InkEnvError>,
+    },
+}
+
+/// Encodable `ink_env::Error`.
+#[derive(Debug, scale::Encode, scale::Decode)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+pub enum InkEnvError {
+    /// Error upon decoding an encoded value.
+    ScaleDecodeError,
+    /// The call to another contract has trapped.
+    CalleeTrapped,
+    /// The call to another contract has been reverted.
+    CalleeReverted,
+    /// The queried contract storage entry is missing.
+    KeyNotFound,
+    /// Transfer failed for other not further specified reason. Most probably
+    /// reserved or locked balance of the sender that was preventing the transfer.
+    TransferFailed,
+    /// Deprecated and no longer returned: Endowment is no longer required.
+    _EndowmentTooLow,
+    /// No code could be found at the supplied code hash.
+    CodeNotFound,
+    /// The account that was called is no contract, but a plain account.
+    NotCallable,
+    /// The call to `seal_debug_message` had no effect because debug message
+    /// recording was disabled.
+    LoggingDisabled,
+    /// ECDSA pubkey recovery failed. Most probably wrong recovery id or signature.
+    EcdsaRecoveryFailed,
+}
+
+impl PolymeshError {
+    pub fn from_delegate_error(err: ink_env::Error, selector: ink_env::call::Selector) -> Self {
+        use ink_env::Error::*;
+        Self::InkDelegateCallError {
+          selector: selector.to_bytes(),
+          err: match err {
+            Decode(_) => Some(InkEnvError::ScaleDecodeError),
+            CalleeTrapped => Some(InkEnvError::CalleeTrapped),
+            CalleeReverted => Some(InkEnvError::CalleeReverted),
+            KeyNotFound => Some(InkEnvError::KeyNotFound),
+            TransferFailed => Some(InkEnvError::TransferFailed),
+            _EndowmentTooLow => Some(InkEnvError::_EndowmentTooLow),
+            CodeNotFound => Some(InkEnvError::CodeNotFound),
+            NotCallable => Some(InkEnvError::NotCallable),
+            LoggingDisabled => Some(InkEnvError::LoggingDisabled),
+            EcdsaRecoveryFailed => Some(InkEnvError::EcdsaRecoveryFailed),
+            _ => None,
+          },
+        }
+    }
 }
 
 impl From<polymesh_api::ink::Error> for PolymeshError {
@@ -154,6 +209,32 @@ upgradable_api! {
                     )
                     .submit()?;
                 Ok(())
+            }
+
+            /// Get portfolio balance.
+            #[ink(message)]
+            pub fn portfolio_asset_balances(
+                &self,
+                portfolio: PortfolioId,
+                ticker: Ticker
+            ) -> PolymeshResult<Balance> {
+                let api = Api::new();
+                let balance = api.query().portfolio().portfolio_asset_balances(portfolio, ticker).map(|v| v.into())?;
+                Ok(balance)
+            }
+
+            /// Check portfolios_in_custody.
+            #[ink(message)]
+            pub fn check_portfolios_in_custody(
+                &self,
+                did: IdentityId,
+                portfolio: PortfolioId
+            ) -> PolymeshResult<bool> {
+                let api = Api::new();
+                Ok(api
+                    .query()
+                    .portfolio()
+                    .portfolios_in_custody(did, portfolio)?)
             }
 
             /// Create a Settlement Venue.
