@@ -17,6 +17,8 @@ jobs:
         target: wasm32-unknown-unknown
         override: true
         default: true
+    - name: Install protobuf-compiler
+      run: sudo apt-get install -y protobuf-compiler
     - name: Build docs
       run: BUILD_DUMMY_WASM_BINARY=1 cargo doc --no-deps --workspace --release --exclude node-bench --exclude node-executor --exclude node-testing --exclude crypto-cli
     - name: Add index file
