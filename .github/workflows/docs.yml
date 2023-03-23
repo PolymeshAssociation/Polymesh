@@ -24,7 +24,7 @@ jobs:
     - name: Add index file
       run: echo "<html lang='en'><head><meta http-equiv='refresh' content='0; URL=./polymesh/index.html'></head></html>" > ./target/doc/index.html
     - name: Publish to Cloudflare workers
-      uses: cloudflare/wrangler-action@1.1.0
+      uses: cloudflare/wrangler-action@2.0.0
       with:
         apiToken: ${{ secrets.CF_API_TOKEN }}
       env:
