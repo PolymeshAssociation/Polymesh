@@ -1044,6 +1044,9 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::RuntimeOrigin> for Module<T> {
     #[cfg(feature = "runtime-benchmarks")]
     /// Adds an artificial IU claim for benchmarks
     fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker) {
+        if Self::disable_iu(ticker) {
+            return;
+        }
         use polymesh_primitives::{CddId, Claim, InvestorUid, Scope};
         Identity::<T>::unverified_add_claim_with_scope(
             did,
