@@ -10,6 +10,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+
+    - name: Set Node.js 16.x
+      uses: actions/setup-node@v3
+      with:
+        node-version: 16.x
+
+    - name: Yarn install
+      run: yarn install --frozen-lockfile
+
     - name: Install rust toolchain
       uses: actions-rs/toolchain@v1
       with:
@@ -17,15 +26,19 @@ jobs:
         target: wasm32-unknown-unknown
         override: true
         default: true
+
     - name: Install protobuf-compiler
       run: sudo apt-get install -y protobuf-compiler
+
     - name: Build docs
       run: BUILD_DUMMY_WASM_BINARY=1 cargo doc --no-deps --workspace --release --exclude node-bench --exclude node-executor --exclude node-testing --exclude crypto-cli
+
     - name: Add index file
       run: echo "<html lang='en'><head><meta http-equiv='refresh' content='0; URL=./polymesh/index.html'></head></html>" > ./target/doc/index.html
+
     - name: Publish to Cloudflare workers
       uses: cloudflare/wrangler-action@2.0.0
       with:
         apiToken: ${{ secrets.CF_API_TOKEN }}
       env:
-        CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}

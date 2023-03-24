@@ -1,10 +1,11 @@
 {
   "private": true,
-  "name": "polymesh-docs",
+  "name": "@polymeshassociation/polymesh-rust-docs",
   "version": "1.0.0",
-  "description": "A template for deploying Polymesh docs to Cloudflare Workers",
+  "description": "Polymesh Rust docs on Cloudflare Workers",
   "main": "index.js",
   "dependencies": {
-    "@cloudflare/kv-asset-handler": "^0.0.5"
+    "@cloudflare/kv-asset-handler": "^0.2.0",
+    "wrangler": "^2.13.0"
   }
 }
