@@ -13,7 +13,7 @@ use pallet_compliance_manager::{self as compliance_manager, Error as CMError};
 use pallet_group as group;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    compliance_manager::Config as _,
+    compliance_manager::ComplianceFnConfig,
     constants::{ERC1400_TRANSFER_FAILURE, ERC1400_TRANSFER_SUCCESS},
 };
 use polymesh_primitives::{

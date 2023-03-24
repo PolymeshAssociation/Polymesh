@@ -100,7 +100,7 @@ use pallet_identity::{self as identity, PermissionedCallOriginData};
 pub use polymesh_common_utilities::traits::asset::{Config, Event, RawEvent, WeightInfo};
 use polymesh_common_utilities::{
     asset::{AssetFnTrait, AssetSubTrait},
-    compliance_manager::Config as ComplianceManagerConfig,
+    compliance_manager::ComplianceFnConfig,
     constants::*,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::nft::NFTTrait,

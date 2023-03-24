@@ -29,14 +29,12 @@ use polymesh_common_utilities::{
     TestUtilsFn,
 };
 use polymesh_primitives::{
-    agent::AgentGroup,
     asset::NonFungibleType,
     checked_inc::CheckedInc,
     statistics::{Stat2ndKey, StatType, StatUpdate},
     transfer_compliance::{TransferCondition, TransferConditionExemptKey},
-    AuthorizationData, Claim, Condition, ConditionType, CountryCode, IdentityId, NFTId,
-    PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber, Scope, TargetIdentity, Ticker,
-    TrustedIssuer,
+    Claim, Condition, ConditionType, CountryCode, IdentityId, NFTId, PortfolioId, PortfolioKind,
+    PortfolioName, PortfolioNumber, Scope, Ticker, TrustedIssuer,
 };
 use sp_runtime::SaturatedConversion;
 use sp_std::convert::TryInto;

@@ -13,15 +13,78 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use core::result::Result;
-use frame_support::{dispatch::DispatchError, weights::Weight};
-use polymesh_primitives::{
-    compliance_manager::{AssetComplianceResult, ComplianceRequirement},
-    condition::{conditions_total_counts, Condition},
-    Balance, IdentityId, Ticker,
-};
+#[cfg(feature = "runtime-benchmarks")]
+use frame_support::dispatch::DispatchResult;
 
-pub trait Config {
+use core::result::Result;
+use frame_support::decl_event;
+use frame_support::dispatch::DispatchError;
+use frame_support::traits::Get;
+use frame_support::weights::Weight;
+use sp_std::prelude::*;
+
+use polymesh_primitives::compliance_manager::{AssetComplianceResult, ComplianceRequirement};
+use polymesh_primitives::condition::{conditions_total_counts, Condition};
+use polymesh_primitives::{Balance, IdentityId, Ticker, TrustedIssuer};
+
+use crate::asset::AssetFnTrait;
+use crate::balances::Config as BalancesConfig;
+use crate::identity::Config as IdentityConfig;
+use crate::traits::external_agents::Config as EAConfig;
+
+/// The module's configuration trait.
+pub trait Config:
+    pallet_timestamp::Config + frame_system::Config + BalancesConfig + IdentityConfig + EAConfig
+{
+    /// The overarching event type.
+    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
+
+    /// Asset module
+    type Asset: AssetFnTrait<Self::AccountId, Self::RuntimeOrigin>;
+
+    /// Weight details of all extrinsic
+    type WeightInfo: WeightInfo;
+
+    /// The maximum claim reads that are allowed to happen in worst case of a condition resolution
+    type MaxConditionComplexity: Get<u32>;
+
+    /// Compliance functions - used for benchmarking
+    type ComplianceFn: ComplianceFnConfig<Self::RuntimeOrigin>;
+}
+
+decl_event!(
+    pub enum Event {
+        /// Emitted when new compliance requirement is created.
+        /// (caller DID, Ticker, ComplianceRequirement).
+        ComplianceRequirementCreated(IdentityId, Ticker, ComplianceRequirement),
+        /// Emitted when a compliance requirement is removed.
+        /// (caller DID, Ticker, requirement_id).
+        ComplianceRequirementRemoved(IdentityId, Ticker, u32),
+        /// Emitted when an asset compliance is replaced.
+        /// Parameters: caller DID, ticker, new asset compliance.
+        AssetComplianceReplaced(IdentityId, Ticker, Vec<ComplianceRequirement>),
+        /// Emitted when an asset compliance of a ticker is reset.
+        /// (caller DID, Ticker).
+        AssetComplianceReset(IdentityId, Ticker),
+        /// Emitted when an asset compliance for a given ticker gets resume.
+        /// (caller DID, Ticker).
+        AssetComplianceResumed(IdentityId, Ticker),
+        /// Emitted when an asset compliance for a given ticker gets paused.
+        /// (caller DID, Ticker).
+        AssetCompliancePaused(IdentityId, Ticker),
+        /// Emitted when compliance requirement get modified/change.
+        /// (caller DID, Ticker, ComplianceRequirement).
+        ComplianceRequirementChanged(IdentityId, Ticker, ComplianceRequirement),
+        /// Emitted when default claim issuer list for a given ticker gets added.
+        /// (caller DID, Ticker, Added TrustedIssuer).
+        TrustedDefaultClaimIssuerAdded(IdentityId, Ticker, TrustedIssuer),
+        /// Emitted when default claim issuer list for a given ticker get removed.
+        /// (caller DID, Ticker, Removed TrustedIssuer).
+        TrustedDefaultClaimIssuerRemoved(IdentityId, Ticker, IdentityId),
+    }
+);
+
+pub trait ComplianceFnConfig<Origin> {
     fn verify_restriction(
         ticker: &Ticker,
         from_id: Option<IdentityId>,
@@ -34,6 +97,38 @@ pub trait Config {
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
     ) -> AssetComplianceResult;
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn add_compliance_requirement(
+        origin: Origin,
+        ticker: Ticker,
+        sender_conditions: Vec<Condition>,
+        receiver_conditions: Vec<Condition>,
+    ) -> DispatchResult;
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn add_default_trusted_claim_issuer(
+        origin: Origin,
+        ticker: Ticker,
+        issuer: TrustedIssuer,
+    ) -> DispatchResult;
+
+    /// Adds a compliance rule that will require `trusted_claims_calls`, `id_fetch_claim_calls` and `external_agents_calls`
+    /// reads to the `TrustedClaimIssuer`, `Claims` and `GroupOfAgent` storage, respectively.
+    /// This setup also adds `receiver_id` as an external agent of `ticker`, sets `trusted_issuer` as a trusted issuer for the asset
+    /// and adds `id_fetch_claim_calls` - 1 claims to `sender_id` and one claim to `receiver_id`.
+    #[cfg(feature = "runtime-benchmarks")]
+    fn setup_ticker_compliance(
+        sender_origin: Origin,
+        sender_did: IdentityId,
+        ticker: Ticker,
+        trusted_issuer: TrustedIssuer,
+        receiver_id: IdentityId,
+        receiver_origin: Origin,
+        trusted_claims_calls: u32,
+        id_fetch_claim_calls: u32,
+        external_agents_calls: u32,
+    );
 }
 
 pub trait WeightInfo {

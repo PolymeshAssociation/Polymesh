@@ -136,7 +136,7 @@ pub trait Config:
 
     type Currency: Currency<Self::AccountId>;
 
-    type ComplianceManager: compliance_manager::Config;
+    type ComplianceManager: compliance_manager::ComplianceFnConfig<Self::RuntimeOrigin>;
 
     /// Time used in computation of checkpoints.
     type UnixTime: UnixTime;

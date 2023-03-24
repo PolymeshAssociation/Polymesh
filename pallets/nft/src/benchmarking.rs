@@ -1,17 +1,19 @@
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
-use polymesh_common_utilities::benchs::{user, AccountIdOf};
+use scale_info::prelude::format;
+use sp_std::prelude::*;
+use sp_std::vec::Vec;
+
+use polymesh_common_utilities::benchs::{user, AccountIdOf, UserBuilder};
 use polymesh_common_utilities::traits::asset::AssetFnTrait;
-use polymesh_common_utilities::TestUtilsFn;
+use polymesh_common_utilities::traits::compliance_manager::ComplianceFnConfig;
+use polymesh_common_utilities::{with_transaction, TestUtilsFn};
 use polymesh_primitives::asset::NonFungibleType;
 use polymesh_primitives::asset_metadata::{
     AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataSpec, AssetMetadataValue,
 };
 use polymesh_primitives::nft::{NFTCollectionId, NFTCollectionKeys, NFTId};
-use polymesh_primitives::PortfolioKind;
-use scale_info::prelude::format;
-use sp_std::prelude::*;
-use sp_std::vec::Vec;
+use polymesh_primitives::{PortfolioKind, TrustedIssuer};
 
 use crate::*;
 
@@ -148,5 +150,56 @@ benchmarks! {
                 )
             );
         }
+    }
+
+    base_nft_transfer {
+        let n in 1..10;
+        let t in 0..1;
+        let i in 2..3;
+        let e in 1..2;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let trusted_user = UserBuilder::<T>::default().generate_did().build("TrustedUser");
+        let trusted_issuer = TrustedIssuer::from(trusted_user.did());
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let nft_type: Option<NonFungibleType> = Some(NonFungibleType::Derivative);
+
+        // Creates a collection for `ticker` and mints `n` NFTs
+        create_collection_issue_nfts::<T>(
+            alice.origin().into(),
+            ticker,
+            nft_type,
+            0,
+            n,
+            PortfolioKind::Default,
+        );
+        // Adds the compliance rule for allowing transferring the asset
+        T::Compliance::setup_ticker_compliance(
+            alice.origin().into(),
+            alice.did(),
+            ticker,
+            trusted_issuer,
+            bob.did(),
+            bob.origin().into(),
+            t,
+            i,
+            e
+        );
+
+        // Base parameters for calling the function
+        let sender_portfolio = PortfolioId {
+            did: alice.did(),
+            kind: PortfolioKind::Default,
+        };
+        let receiver_portfolio = PortfolioId {
+            did: bob.did(),
+            kind: PortfolioKind::Default,
+        };
+        let nfts = NFTs::new_unverified(ticker, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
+    }: {
+        with_transaction(|| {
+            Module::<T>::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts)
+        }).unwrap();
     }
 }
