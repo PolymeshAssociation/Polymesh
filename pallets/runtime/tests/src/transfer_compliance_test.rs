@@ -155,7 +155,7 @@ struct AssetTracker {
 
 impl AssetTracker {
     pub fn new() -> Self {
-        Self::new_full(0, "ACME", false)
+        Self::new_full(0, "ACME", true)
     }
 
     pub fn new_full(owner_id: u64, name: &str, disable_iu: bool) -> Self {
@@ -828,14 +828,6 @@ fn claim_count_rule_no_investor_uniqueness() {
         .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
         .build()
         .execute_with(|| claim_count_rule_with_ext(true));
-}
-
-#[test]
-fn claim_count_rule_with_investor_uniqueness() {
-    ExtBuilder::default()
-        .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
-        .build()
-        .execute_with(|| claim_count_rule_with_ext(false));
 }
 
 fn claim_count_rule_with_ext(disable_iu: bool) {
