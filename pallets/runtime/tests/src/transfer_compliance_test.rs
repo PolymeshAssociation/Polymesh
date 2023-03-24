@@ -135,7 +135,6 @@ struct AssetTracker {
     name: String,
     asset: Ticker,
     total_supply: Balance,
-    disable_iu: bool,
     pub asset_scope: AssetScope,
 
     issuers: HashMap<IdentityId, IssuerState>,
@@ -161,7 +160,6 @@ impl AssetTracker {
             name: name.into(),
             asset,
             total_supply: 0,
-            disable_iu: false,
             asset_scope: AssetScope::from(asset),
 
             issuers: HashMap::new(),
@@ -191,7 +189,7 @@ impl AssetTracker {
             AssetType::default(),
             vec![],
             None,
-            self.disable_iu,
+            true,
         ));
 
         self.allow_all_transfers();

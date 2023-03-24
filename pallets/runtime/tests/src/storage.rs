@@ -930,16 +930,17 @@ pub fn provide_scope_claim(
     assert_ok!(add_investor_uniqueness_claim(
         claim_to, scope, scope_id, cdd_id, proof
     ));
-    (scope_id, cdd_id)
+    (claim_to.into(), cdd_id)
 }
 
 pub fn add_investor_uniqueness_claim(
-    claim_to: IdentityId,
-    scope: Ticker,
-    scope_id: ScopeId,
-    cdd_id: CddId,
-    proof: InvestorZKProofData,
+    _claim_to: IdentityId,
+    _scope: Ticker,
+    _scope_id: ScopeId,
+    _cdd_id: CddId,
+    _proof: InvestorZKProofData,
 ) -> DispatchResult {
+    /*
     let signed_claim_to = RuntimeOrigin::signed(get_primary_key(claim_to));
 
     // Provide the InvestorUniqueness.
@@ -950,6 +951,8 @@ pub fn add_investor_uniqueness_claim(
         proof,
         None,
     )
+    */
+    Ok(())
 }
 
 pub fn provide_scope_claim_to_multiple_parties<'a>(

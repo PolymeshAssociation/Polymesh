@@ -196,7 +196,7 @@ fn create_token(ticker: Ticker, user: User) {
         AssetType::default(),
         vec![],
         None,
-        false,
+        true,
     ));
     assert_ok!(Asset::issue(user.origin(), ticker, 100_000));
     allow_all_transfers(ticker, user);
@@ -2010,6 +2010,10 @@ fn reject_failed_instruction() {
             default_portfolio_vec(bob.did),
             1
         ));
+
+        // Resume compliance to cause transfer failure.
+        assert_ok!(ComplianceManager::resume_asset_compliance(alice.origin(), TICKER));
+        assert_ok!(ComplianceManager::reset_asset_compliance(alice.origin(), TICKER));
 
         // Go to next block to have the scheduled execution run and ensure it has failed.
         next_block();

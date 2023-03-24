@@ -999,7 +999,9 @@ decl_error! {
         /// Attempt to delete a key that is needed for an NFT collection.
         AssetMetadataKeyBelongsToNFTCollection,
         /// Attempt to lock a metadata value that is empty.
-        AssetMetadataValueIsEmpty
+        AssetMetadataValueIsEmpty,
+        /// Investor Uniqueness not allowed.
+        InvestorUniquenessNotAllowed,
     }
 }
 
@@ -1801,6 +1803,8 @@ impl<T: Config> Module<T> {
         funding_round: Option<FundingRoundName>,
         disable_iu: bool,
     ) -> Result<IdentityId, DispatchError> {
+        ensure!(disable_iu, Error::<T>::InvestorUniquenessNotAllowed);
+
         Self::ensure_asset_name_bounded(&name)?;
         if let Some(fr) = &funding_round {
             Self::ensure_funding_round_name_bounded(fr)?;

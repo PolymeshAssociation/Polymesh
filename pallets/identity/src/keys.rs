@@ -442,13 +442,6 @@ impl<T: Config> Module<T> {
         for key in &keys {
             // Unlink the secondary account key.
             Self::remove_key_record(key, Some(did));
-
-            // All `auth_id`s for `signer` authorized by `did`.
-            let signer = Signatory::Account(key.clone());
-            for auth_id in Self::auths_of(&signer, did) {
-                // Remove authorizations.
-                Self::unsafe_remove_auth(&signer, auth_id, &did, true);
-            }
         }
 
         Self::deposit_event(RawEvent::SecondaryKeysRemoved(did, keys));
