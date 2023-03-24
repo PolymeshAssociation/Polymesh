@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - develop
-      - fix_wrangler_workers_site
 
 jobs:
   docs:
