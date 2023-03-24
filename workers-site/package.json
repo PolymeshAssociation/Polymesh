@@ -1,8 +1,8 @@
 {
   "private": true,
-  "name": "polymesh-docs",
+  "name": "@polymeshassociation/polymesh-rust-docs",
   "version": "1.0.0",
-  "description": "Polymesh docs on Cloudflare Workers",
+  "description": "Polymesh Rust docs on Cloudflare Workers",
   "main": "index.js",
   "dependencies": {
     "@cloudflare/kv-asset-handler": "^0.2.0",
