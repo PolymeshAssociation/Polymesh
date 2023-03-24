@@ -2026,8 +2026,14 @@ fn dist_claim_misc_bad() {
         ));
 
         // Resume compliance to cause transfer failure.
-        assert_ok!(ComplianceManager::resume_asset_compliance(owner.origin(), ticker2));
-        assert_ok!(ComplianceManager::reset_asset_compliance(owner.origin(), ticker2));
+        assert_ok!(ComplianceManager::resume_asset_compliance(
+            owner.origin(),
+            ticker2
+        ));
+        assert_ok!(ComplianceManager::reset_asset_compliance(
+            owner.origin(),
+            ticker2
+        ));
 
         // But it hasn't started yet.
         set_timestamp(4);

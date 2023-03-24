@@ -2012,8 +2012,14 @@ fn reject_failed_instruction() {
         ));
 
         // Resume compliance to cause transfer failure.
-        assert_ok!(ComplianceManager::resume_asset_compliance(alice.origin(), TICKER));
-        assert_ok!(ComplianceManager::reset_asset_compliance(alice.origin(), TICKER));
+        assert_ok!(ComplianceManager::resume_asset_compliance(
+            alice.origin(),
+            TICKER
+        ));
+        assert_ok!(ComplianceManager::reset_asset_compliance(
+            alice.origin(),
+            TICKER
+        ));
 
         // Go to next block to have the scheduled execution run and ensure it has failed.
         next_block();
