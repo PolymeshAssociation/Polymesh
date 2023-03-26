@@ -365,15 +365,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: Settlement AffirmsReceived (r:0 w:2)
     // Storage: Asset BalanceOfAtScope (r:0 w:2)
     /// The range of component `l` is `[0, 10]`.
-    fn execute_scheduled_instruction(l: u32) -> Weight {
-        // Minimum execution time: 49_561 nanoseconds.
-        Weight::from_ref_time(169_535_200)
-            // Standard Error: 1_232_382
-            .saturating_add(Weight::from_ref_time(405_339_852).saturating_mul(l.into()))
-            .saturating_add(DbWeight::get().reads(36))
-            .saturating_add(DbWeight::get().reads((31_u64).saturating_mul(l.into())))
-            .saturating_add(DbWeight::get().writes(4))
-            .saturating_add(DbWeight::get().writes((16_u64).saturating_mul(l.into())))
+    fn execute_scheduled_instruction(f: u32, n: u32) -> Weight {
+        unimplemented!()
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Settlement InstructionDetails (r:1 w:1)
