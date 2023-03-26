@@ -483,6 +483,10 @@ pub trait WeightInfo {
         let (f, n) = get_transfer_by_asset(legs_v2);
         Self::add_and_affirm_instruction_with_memo_v2(f, n)
     }
+    fn execute_scheduled_instruction_v2(legs_v2: &[LegV2]) -> Weight {
+        let (f, n) = get_transfer_by_asset(legs_v2);
+        Self::execute_scheduled_instruction(f, n)
+    }
 }
 
 type EnsureValidInstructionResult<AccountId, Moment, BlockNumber> = Result<
@@ -1175,7 +1179,10 @@ decl_module! {
         ///
         /// # Weight
         /// `950_000_000 + 1_000_000 * legs.len()`
-        #[weight = <T as Config>::WeightInfo::add_instruction_with_memo_v2(legs.len() as u32)]
+        #[weight =
+            <T as Config>::WeightInfo::add_instruction_with_memo_v2(legs.len() as u32)
+            .saturating_add( <T as Config>::WeightInfo::execute_scheduled_instruction_v2(legs))
+        ]
         pub fn add_instruction_with_memo_v2(
             origin,
             venue_id: VenueId,
@@ -1203,7 +1210,10 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_with_memo_v2_legs(legs)]
+        #[weight =
+            <T as Config>::WeightInfo::add_and_affirm_instruction_with_memo_v2_legs(legs)
+            .saturating_add( <T as Config>::WeightInfo::execute_scheduled_instruction_v2(legs))
+        ]
         pub fn add_and_affirm_instruction_with_memo_v2(
             origin,
             venue_id: VenueId,

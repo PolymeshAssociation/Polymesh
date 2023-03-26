@@ -73,7 +73,6 @@ pub struct BaseV2Parameters<T: Config> {
     pub venue_id: VenueId,
     pub legs_v2: Vec<LegV2>,
     pub sender_portfolios: Vec<PortfolioId>,
-    pub receiver_portfolios: Vec<PortfolioId>,
     pub settlement_type: SettlementType<T::BlockNumber>,
     pub date: Option<T::Moment>,
     pub memo: Option<InstructionMemo>,
@@ -684,10 +683,6 @@ where
         did: alice.did(),
         kind: PortfolioKind::Default,
     }];
-    let receiver_portfolios = vec![PortfolioId {
-        did: bob.did(),
-        kind: PortfolioKind::Default,
-    }];
 
     let mut fungible_legs = setup_fungible_legs_v2(
         alice.clone(),
@@ -717,7 +712,6 @@ where
         venue_id,
         legs_v2,
         sender_portfolios,
-        receiver_portfolios,
         settlement_type,
         date,
         memo,
