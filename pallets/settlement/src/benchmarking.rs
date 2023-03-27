@@ -1119,9 +1119,9 @@ benchmarks! {
 
         // Pre-conditions: Add settlement intruction, add compliance rules and transfer conditions
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let sender_portfolio = generate_portfolio::<T>("", 0, alice);
+        let sender_portfolio = generate_portfolio::<T>("", 0, Some(UserData::from(&alice)));
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let receiver_portfolio = generate_portfolio::<T>("", 0, bob);
+        let receiver_portfolio = generate_portfolio::<T>("", 0, Some(UserData::from(&bob)));
         let trusted_user = UserBuilder::<T>::default()
             .generate_did()
             .build("TrustedUser");
@@ -1132,6 +1132,7 @@ benchmarks! {
         let mut fungible_legs = Vec::new();
         for index in 0..f {
             let ticker = make_asset(&alice, Some(&Ticker::generate(index as u64 + 1)));
+            fund_portfolio::<T>(&sender_portfolio, &ticker, ONE_UNIT);
             compliance_setup::<T>(
                 max_condition_complexity,
                 ticker,
@@ -1167,7 +1168,7 @@ benchmarks! {
                 Some(NonFungibleType::Derivative),
                 0,
                 1,
-                PortfolioKind::Default,
+                sender_portfolio.kind,
             );
             compliance_setup::<T>(
                 max_condition_complexity,
