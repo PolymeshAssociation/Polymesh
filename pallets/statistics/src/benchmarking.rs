@@ -1,12 +1,14 @@
-use crate::*;
 use frame_benchmarking::benchmarks;
-use polymesh_common_utilities::{
-    benchs::{make_asset, AccountIdOf, User, UserBuilder},
-    traits::{asset::Config as Asset, TestUtilsFn},
-};
-use polymesh_primitives::{jurisdiction::*, statistics::*, ClaimType};
+use sp_runtime::Permill;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
+
+use polymesh_common_utilities::benchs::{make_asset, AccountIdOf, User, UserBuilder};
+use polymesh_common_utilities::constants::currency::{ONE_UNIT, POLY};
+use polymesh_common_utilities::traits::{asset::Config as Asset, TestUtilsFn};
+use polymesh_primitives::{jurisdiction::*, statistics::*, ClaimType, TrustedIssuer};
+
+use crate::*;
 
 const STAT_TYPES: &[(StatOpType, Option<ClaimType>)] = &[
     (StatOpType::Count, None),
@@ -108,6 +110,78 @@ fn init_exempts<T: Config + Asset + TestUtilsFn<AccountIdOf<T>>>(
     (owner, exempt_key, scope_ids)
 }
 
+/// Returns a set of `StatType`.
+fn statistics_types(n_issuers: u32) -> BTreeSet<StatType> {
+    let no_issuer_types = vec![
+        StatType {
+            op: StatOpType::Count,
+            claim_issuer: None,
+        },
+        StatType {
+            op: StatOpType::Balance,
+            claim_issuer: None,
+        },
+    ];
+
+    let issuer_types: Vec<StatType> = (0..n_issuers)
+        .map(|idx| StatType {
+            op: StatOpType::Balance,
+            claim_issuer: Some((ClaimType::Jurisdiction, IdentityId::from(idx as u128))),
+        })
+        .collect();
+
+    let statistics_types = [no_issuer_types, issuer_types].concat();
+    statistics_types.into_iter().collect()
+}
+
+/// Returns a set of `TransferCondition` that will require `a` calls to `AssetStats`, `t` calls to
+/// `TransferConditionExemptEntities` and `c` condition of type `ClaimOwnership`.
+fn transfer_conditions(a: u32, c: u32, t: u32) -> BTreeSet<TransferCondition> {
+    // Add one `MaxInvestorCount` condition for every `AssetStats` read
+    let asset_stats_conditions: Vec<TransferCondition> = (0..a)
+        .map(|_| TransferCondition::MaxInvestorCount(100))
+        .collect();
+
+    // Both ClaimCount and ClaimOwnership read the `Claim` storage twice and might call `AssetStats` once
+    let claim_conditions: Vec<TransferCondition> = (0..c)
+        .map(|idx| {
+            TransferCondition::ClaimOwnership(
+                StatClaim::Jurisdiction(Some(CountryCode::BR)),
+                IdentityId::from(idx as u128),
+                Permill::zero(),
+                Permill::one(),
+            )
+        })
+        .collect();
+
+    // Add t conditions that will require a call to the `TransferConditionExemptEntities` storage
+    let key_exceptions: Vec<TransferCondition> = (0..t)
+        .map(|_| TransferCondition::MaxInvestorOwnership(Permill::zero()))
+        .collect();
+
+    let all_conditions = [asset_stats_conditions, claim_conditions, key_exceptions].concat();
+    all_conditions.into_iter().collect()
+}
+
+fn set_transfer_exception<T: Config>(
+    origin: T::RuntimeOrigin,
+    ticker: Ticker,
+    exception_scope_id: IdentityId,
+) {
+    let transfer_exception = TransferConditionExemptKey {
+        asset: AssetScope::Ticker(ticker),
+        op: StatOpType::Balance,
+        claim_type: None,
+    };
+    Module::<T>::set_entities_exempt(
+        origin.clone(),
+        true,
+        transfer_exception,
+        [exception_scope_id].into(),
+    )
+    .unwrap();
+}
+
 #[cfg(feature = "running-ci")]
 mod limits {
     pub const MAX_EXEMPTED_IDENTITIES: u32 = 10;
@@ -164,4 +238,43 @@ benchmarks! {
 
         let (owner, exempt_key, scope_ids) = init_exempts::<T>(i);
     }: set_entities_exempt(owner.origin, true, exempt_key, scope_ids)
+
+    verify_transfer_restrictions {
+        // In the worst case, all conditions are of type ClaimCount or ClaimOwnership, and read both the `AssetStats`
+        // and the `TransferConditionExemptEntities` storage
+
+        // Number of reads to the `AssetStats` storage.
+        let a in 0..1;
+        // Number of condiions of type ClaimCount + ClaimOwnership.
+        let c in 1..2;
+        // Number of reads to the `TransferConditionExemptEntities` storage
+        let t in 0..1;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let trusted_user = UserBuilder::<T>::default().generate_did().build("TrustedUser");
+        let trusted_issuer = TrustedIssuer::from(trusted_user.did());
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let asset_scope = AssetScope::Ticker(ticker);
+
+        make_asset::<T>(&alice, Some(ticker.as_ref()));
+        let statistics_types = statistics_types(c);
+        Module::<T>::set_active_asset_stats(alice.origin().into(), asset_scope, statistics_types).unwrap();
+        let transfer_conditions = transfer_conditions(a, c, t);
+        set_transfer_exception::<T>(alice.origin().into(), ticker, bob.did());
+        Module::<T>::base_set_asset_transfer_compliance(alice.origin().into(), asset_scope, transfer_conditions).unwrap();
+    }: {
+        Module::<T>::verify_transfer_restrictions(
+            &ticker,
+            alice.did(),
+            bob.did(),
+            &alice.did(),
+            &bob.did(),
+            ONE_UNIT * POLY,
+            0,
+            ONE_UNIT,
+            ONE_UNIT * POLY
+        )
+        .unwrap();
+    }
 }
