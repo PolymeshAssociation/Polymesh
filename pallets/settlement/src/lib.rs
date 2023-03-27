@@ -1010,12 +1010,10 @@ decl_module! {
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
-        #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*_fungible_transfers, *_nfts_transfers)]
-        fn execute_scheduled_instruction(origin, id: InstructionId, _fungible_transfers: u32, _nfts_transfers: u32) {
+        #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*_legs_count, 0)]
+        fn execute_scheduled_instruction(origin, id: InstructionId, _legs_count: u32) {
             ensure_root(origin)?;
-            if let Err(e) = Self::execute_instruction_retryable(id) {
-                Self::deposit_event(RawEvent::FailedToExecuteInstruction(id, e));
-            }
+            Self::base_execute_scheduled_instruction(id)
         }
 
         /// Reschedules a failed instruction.
@@ -1297,6 +1295,12 @@ decl_module! {
             Self::base_reject_instruction(origin, id, portfolio, fungible_transfers, Some(nfts_transfers))
         }
 
+        /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
+        #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*_fungible_transfers, *_nfts_transfers)]
+        fn execute_scheduled_instruction_v2(origin, id: InstructionId, _fungible_transfers: u32, _nfts_transfers: u32) {
+            ensure_root(origin)?;
+            Self::base_execute_scheduled_instruction(id);
+        }
     }
 }
 
@@ -1847,7 +1851,7 @@ impl<T: Config> Module<T> {
         _fungible_transfers: u32,
         _nfts_transfers: u32,
     ) {
-        let call = Call::<T>::execute_scheduled_instruction {
+        let call = Call::<T>::execute_scheduled_instruction_v2 {
             id,
             _fungible_transfers,
             _nfts_transfers,
@@ -2316,6 +2320,12 @@ impl<T: Config> Module<T> {
                 .collect();
         }
         drained_legs
+    }
+
+    fn base_execute_scheduled_instruction(id: InstructionId) {
+        if let Err(e) = Self::execute_instruction_retryable(id) {
+            Self::deposit_event(RawEvent::FailedToExecuteInstruction(id, e));
+        }
     }
 }
 

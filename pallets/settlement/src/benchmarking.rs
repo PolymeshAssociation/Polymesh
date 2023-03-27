@@ -1119,15 +1119,9 @@ benchmarks! {
 
         // Pre-conditions: Add settlement intruction, add compliance rules and transfer conditions
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let sender_portfolio = PortfolioId {
-            did: alice.did(),
-            kind: PortfolioKind::Default,
-        };
+        let sender_portfolio = generate_portfolio::<T>("", 0, alice);
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let receiver_portfolio = PortfolioId {
-            did: bob.did(),
-            kind: PortfolioKind::Default,
-        };
+        let receiver_portfolio = generate_portfolio::<T>("", 0, bob);
         let trusted_user = UserBuilder::<T>::default()
             .generate_did()
             .build("TrustedUser");
@@ -1212,7 +1206,7 @@ benchmarks! {
         )
         .expect("failed to affirm instruction");
 
-    }: _(RawOrigin::Root, InstructionId(1), f, n)
+    }: execute_scheduled_instruction_v2(RawOrigin::Root, InstructionId(1), f, n)
 
 }
 
