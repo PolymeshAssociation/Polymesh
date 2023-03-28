@@ -414,6 +414,39 @@ pub struct ReceiptDetails<AccountId, OffChainSignature> {
     pub metadata: ReceiptMetadata,
 }
 
+/// Stores information about an Instruction.
+struct InstructionInfo {
+    /// Unique counter parties involved in the instruction.
+    parties: BTreeSet<PortfolioId>,
+    /// The number of fungible and non fungible transfers in the instruction.
+    transfer_data: TransferData,
+}
+
+impl InstructionInfo {
+    /// Creates an instance of `InstructionInfo`.
+    fn new(parties: BTreeSet<PortfolioId>, transfer_data: TransferData) -> Self {
+        Self {
+            parties,
+            transfer_data,
+        }
+    }
+
+    /// Returns a slice of all unique parties in the instruction.
+    fn parties(&self) -> &BTreeSet<PortfolioId> {
+        &self.parties
+    }
+
+    /// Returns the number of fungible transfers.
+    fn fungible_transfers(&self) -> u32 {
+        self.transfer_data.fungible()
+    }
+
+    /// Returns the number of non fungible transfers.
+    fn nfts_transferred(&self) -> u32 {
+        self.transfer_data.non_fungible()
+    }
+}
+
 pub trait WeightInfo {
     fn create_venue(d: u32, u: u32) -> Weight;
     fn update_venue_details(d: u32) -> Weight;
@@ -429,7 +462,7 @@ pub trait WeightInfo {
     fn disallow_venues(u: u32) -> Weight;
     fn reject_instruction(u: u32) -> Weight;
     fn change_receipt_validity() -> Weight;
-    fn execute_scheduled_instruction(l: u32) -> Weight;
+    fn execute_scheduled_instruction(f: u32, n: u32) -> Weight;
     fn reschedule_instruction() -> Weight;
     fn execute_manual_instruction(l: u32) -> Weight;
 
@@ -447,6 +480,10 @@ pub trait WeightInfo {
     fn add_and_affirm_instruction_with_memo_v2_legs(legs_v2: &[LegV2]) -> Weight {
         let (f, n) = get_transfer_by_asset(legs_v2);
         Self::add_and_affirm_instruction_with_memo_v2(f, n)
+    }
+    fn execute_scheduled_instruction_v2(legs_v2: &[LegV2]) -> Weight {
+        let (f, n) = get_transfer_by_asset(legs_v2);
+        Self::execute_scheduled_instruction(f, n)
     }
 }
 
@@ -765,7 +802,7 @@ decl_module! {
         /// `950_000_000 + 1_000_000 * legs.len()`
         #[weight = <T as Config>::WeightInfo::add_instruction_with_settle_on_block_type(legs.len() as u32)
         .saturating_add(
-            <T as Config>::WeightInfo::execute_scheduled_instruction(legs.len() as u32)
+            <T as Config>::WeightInfo::execute_scheduled_instruction(legs.len() as u32, 0)
         )]
         pub fn add_instruction(
             origin,
@@ -796,7 +833,7 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_with_settle_on_block_type(legs.len() as u32)
         .saturating_add(
-            <T as Config>::WeightInfo::execute_scheduled_instruction(legs.len() as u32)
+            <T as Config>::WeightInfo::execute_scheduled_instruction(legs.len() as u32, 0)
         )]
         pub fn add_and_affirm_instruction(
             origin,
@@ -960,12 +997,10 @@ decl_module! {
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
-        #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*_legs_count)]
+        #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*_legs_count, 0)]
         fn execute_scheduled_instruction(origin, id: InstructionId, _legs_count: u32) {
             ensure_root(origin)?;
-            if let Err(e) = Self::execute_instruction_retryable(id) {
-                Self::deposit_event(RawEvent::FailedToExecuteInstruction(id, e));
-            }
+            Self::base_execute_scheduled_instruction(id)
         }
 
         /// Reschedules a failed instruction.
@@ -990,7 +1025,9 @@ decl_module! {
 
             // Schedule instruction to be executed in the next block.
             let execution_at = System::<T>::block_number() + One::one();
-            Self::schedule_instruction(id, execution_at, Self::get_instruction_legs(&id).len() as u32);
+            let instruction_legs = Self::get_instruction_legs(&id);
+            let transfer_data = Self::get_transfer_data(&instruction_legs)?;
+            Self::schedule_instruction(id, execution_at, transfer_data.fungible(), transfer_data.non_fungible());
 
             Self::deposit_event(RawEvent::InstructionRescheduled(did, id));
         }
@@ -1021,7 +1058,7 @@ decl_module! {
         /// `950_000_000 + 1_000_000 * legs.len()`
         #[weight = <T as Config>::WeightInfo::add_instruction_with_memo_and_settle_on_block_type(legs.len() as u32)
         .saturating_add(
-            <T as Config>::WeightInfo::execute_scheduled_instruction(legs.len() as u32)
+            <T as Config>::WeightInfo::execute_scheduled_instruction(legs.len() as u32, 0)
         )]
         pub fn add_instruction_with_memo(
             origin,
@@ -1053,7 +1090,7 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_with_memo_and_settle_on_block_type(legs.len() as u32)
         .saturating_add(
-            <T as Config>::WeightInfo::execute_scheduled_instruction(legs.len() as u32)
+            <T as Config>::WeightInfo::execute_scheduled_instruction(legs.len() as u32, 0)
         )]
         pub fn add_and_affirm_instruction_with_memo(
             origin,
@@ -1127,7 +1164,10 @@ decl_module! {
         ///
         /// # Weight
         /// `950_000_000 + 1_000_000 * legs.len()`
-        #[weight = <T as Config>::WeightInfo::add_instruction_with_memo_v2(legs.len() as u32)]
+        #[weight =
+            <T as Config>::WeightInfo::add_instruction_with_memo_v2(legs.len() as u32)
+            .saturating_add( <T as Config>::WeightInfo::execute_scheduled_instruction_v2(legs))
+        ]
         pub fn add_instruction_with_memo_v2(
             origin,
             venue_id: VenueId,
@@ -1155,7 +1195,10 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::add_and_affirm_instruction_with_memo_v2_legs(legs)]
+        #[weight =
+            <T as Config>::WeightInfo::add_and_affirm_instruction_with_memo_v2_legs(legs)
+            .saturating_add( <T as Config>::WeightInfo::execute_scheduled_instruction_v2(legs))
+        ]
         pub fn add_and_affirm_instruction_with_memo_v2(
             origin,
             venue_id: VenueId,
@@ -1239,6 +1282,12 @@ decl_module! {
             Self::base_reject_instruction(origin, id, portfolio, fungible_transfers, Some(nfts_transfers))
         }
 
+        /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
+        #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*_fungible_transfers, *_nfts_transfers)]
+        fn execute_scheduled_instruction_v2(origin, id: InstructionId, _fungible_transfers: u32, _nfts_transfers: u32) {
+            ensure_root(origin)?;
+            Self::base_execute_scheduled_instruction(id);
+        }
     }
 }
 
@@ -1327,7 +1376,7 @@ impl<T: Config> Module<T> {
         Self::venue_for_management(venue_id, did)?;
 
         // Verifies if all legs are valid.
-        let counter_parties = Self::ensure_valid_legs(&legs, venue_id)?;
+        let instruction_info = Self::ensure_valid_legs(&legs, venue_id)?;
 
         // Advance and get next `instruction_id`.
         let instruction_id = InstructionCounter::try_mutate(try_next_post::<T, _>)?;
@@ -1343,19 +1392,24 @@ impl<T: Config> Module<T> {
         };
 
         // Write data to storage.
-        for counter_party in &counter_parties {
+        for counter_party in instruction_info.parties() {
             UserAffirmations::insert(counter_party, instruction_id, AffirmationStatus::Pending);
         }
 
         if let SettlementType::SettleOnBlock(block_number) = settlement_type {
-            Self::schedule_instruction(instruction_id, block_number, legs.len() as u32);
+            Self::schedule_instruction(
+                instruction_id,
+                block_number,
+                instruction_info.fungible_transfers(),
+                instruction_info.nfts_transferred(),
+            );
         }
 
         <InstructionDetails<T>>::insert(instruction_id, instruction);
 
         InstructionAffirmsPending::insert(
             instruction_id,
-            u64::try_from(counter_parties.len()).unwrap_or_default(),
+            u64::try_from(instruction_info.parties().len()).unwrap_or_default(),
         );
         VenueInstructions::insert(venue_id, instruction_id, ());
         if let Some(ref memo) = memo {
@@ -1407,7 +1461,7 @@ impl<T: Config> Module<T> {
     fn ensure_valid_legs(
         legs: &[LegV2],
         venue_id: VenueId,
-    ) -> Result<BTreeSet<PortfolioId>, DispatchError> {
+    ) -> Result<InstructionInfo, DispatchError> {
         let mut nfts_transfers = 0;
         let mut fungible_transfers = 0;
         let mut parties = BTreeSet::new();
@@ -1438,7 +1492,10 @@ impl<T: Config> Module<T> {
             fungible_transfers <= T::MaxNumberOfFungibleAssets::get(),
             Error::<T>::InstructionHasTooManyLegs
         );
-        Ok(parties)
+        Ok(InstructionInfo::new(
+            parties,
+            TransferData::new(fungible_transfers, nfts_transfers as u32),
+        ))
     }
 
     fn unsafe_withdraw_instruction_affirmation(
@@ -1740,13 +1797,18 @@ impl<T: Config> Module<T> {
 
     /// Schedule a given instruction to be executed on the next block only if the
     /// settlement type is `SettleOnAffirmation` and no. of affirms pending is 0.
-    fn maybe_schedule_instruction(affirms_pending: u64, id: InstructionId, legs_count: u32) {
+    fn maybe_schedule_instruction(
+        affirms_pending: u64,
+        id: InstructionId,
+        fungible_transfers: u32,
+        nfts_tranferred: u32,
+    ) {
         if affirms_pending == 0
             && Self::instruction_details(id).settlement_type == SettlementType::SettleOnAffirmation
         {
             // Schedule instruction to be executed in the next block.
             let execution_at = System::<T>::block_number() + One::one();
-            Self::schedule_instruction(id, execution_at, legs_count);
+            Self::schedule_instruction(id, execution_at, fungible_transfers, nfts_tranferred);
         }
     }
 
@@ -1755,8 +1817,18 @@ impl<T: Config> Module<T> {
     /// NB - It is expected to execute the given instruction into the given block number but
     /// it is not a guaranteed behavior, Scheduler may have other high priority task scheduled
     /// for the given block so there are chances where the instruction execution block no. may drift.
-    fn schedule_instruction(id: InstructionId, execution_at: T::BlockNumber, _legs_count: u32) {
-        let call = Call::<T>::execute_scheduled_instruction { id, _legs_count }.into();
+    fn schedule_instruction(
+        id: InstructionId,
+        execution_at: T::BlockNumber,
+        _fungible_transfers: u32,
+        _nfts_transfers: u32,
+    ) {
+        let call = Call::<T>::execute_scheduled_instruction_v2 {
+            id,
+            _fungible_transfers,
+            _nfts_transfers,
+        }
+        .into();
         if let Err(_) = T::Scheduler::schedule_named(
             id.execution_name(),
             DispatchTime::At(execution_at),
@@ -1934,7 +2006,7 @@ impl<T: Config> Module<T> {
             fungible_transfers,
         )?;
         // Schedule instruction to be execute in the next block (expected) if conditions are met.
-        Self::maybe_schedule_instruction(Self::instruction_affirms_pending(id), id, legs_count);
+        Self::maybe_schedule_instruction(Self::instruction_affirms_pending(id), id, legs_count, 0);
         Ok(())
     }
 
@@ -1955,7 +2027,12 @@ impl<T: Config> Module<T> {
             nfts_transfers,
         )?;
         // Schedule the instruction if conditions are met
-        Self::maybe_schedule_instruction(Self::instruction_affirms_pending(id), id, legs_count);
+        Self::maybe_schedule_instruction(
+            Self::instruction_affirms_pending(id),
+            id,
+            legs_count,
+            nfts_transfers.unwrap_or_default(),
+        );
         Ok(())
     }
 
@@ -2215,6 +2292,12 @@ impl<T: Config> Module<T> {
                 .collect();
         }
         drained_legs
+    }
+
+    fn base_execute_scheduled_instruction(id: InstructionId) {
+        if let Err(e) = Self::execute_instruction_retryable(id) {
+            Self::deposit_event(RawEvent::FailedToExecuteInstruction(id, e));
+        }
     }
 }
 

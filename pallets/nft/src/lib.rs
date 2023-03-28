@@ -238,7 +238,7 @@ impl<T: Config> Module<T> {
                 AssetType::NonFungible(nft_type),
                 Vec::new(),
                 None,
-                false,
+                true,
             )?;
         }
 
