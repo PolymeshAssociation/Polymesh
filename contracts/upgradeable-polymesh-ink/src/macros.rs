@@ -142,7 +142,7 @@ macro_rules! upgradable_api {
     // Upgradable api method.
     (@impl_api_func
         $(#[doc = $doc_attr:tt])*
-        $(#[ink($ink_attr:tt)])*
+        $(#[ink($ink_attr:tt)])+
         $fn_vis:vis fn $fn_name:ident(
             &$self:ident
             $(, $param:ident: $ty:ty)*
