@@ -95,6 +95,18 @@ pub mod test_polymesh_ink {
         }
 
         #[ink(message)]
+        pub fn get_our_did(&mut self) -> Result<IdentityId> {
+            Ok(self.api
+                .get_our_did()?)
+        }
+
+        #[ink(message)]
+        pub fn get_caller_did(&mut self) -> Result<IdentityId> {
+            Ok(self.api
+                .get_caller_did()?)
+        }
+
+        #[ink(message)]
         pub fn create_venue(&mut self, details: Vec<u8>) -> Result<VenueId> {
             Ok(self.api
                 .create_venue(VenueDetails(details), VenueType::Other)?)
