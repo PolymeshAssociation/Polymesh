@@ -36,6 +36,7 @@ use polymesh_primitives::{
     Claim, Condition, ConditionType, CountryCode, IdentityId, NFTId, PortfolioId, PortfolioKind,
     PortfolioName, PortfolioNumber, Scope, Ticker, TrustedIssuer,
 };
+use scale_info::prelude::format;
 use sp_runtime::SaturatedConversion;
 use sp_std::convert::TryInto;
 use sp_std::prelude::*;
@@ -963,49 +964,6 @@ benchmarks! {
         assert!(Module::<T>::receipts_used(&signer.account(), 0), "Settlement: change_receipt_validity didn't work");
     }
 
-    execute_scheduled_instruction {
-        // This dispatch execute an instruction.
-        //
-        // Worst case scenarios.
-        // 1. Create maximum legs and both traded assets are different assets/securities.
-        // 2. Assets have maximum compliance restriction complexity.
-        // 3. Assets have maximum no. of TMs.
-
-        let l in 0 .. T::MaxNumberOfFungibleAssets::get() as u32;
-        let c = T::MaxConditionComplexity::get() as u32;
-
-        // Setup affirm instruction (One party (i.e from) already affirms the instruction)
-        let (portfolios_to, from, to, tickers, legs) = setup_affirm_instruction::<T>(l);
-        // Keep the portfolio asset balance before the instruction execution to verify it later.
-        let legs_count: u32 = legs.len().try_into().unwrap();
-        let first_leg = legs.into_iter().nth(0).unwrap_or_default();
-        let before_transfer_balance = PortfolioAssetBalances::get(first_leg.from, first_leg.asset);
-        // It always be one as no other instruction is already scheduled.
-        let instruction_id = InstructionId(1);
-        let origin = RawOrigin::Root;
-        let from_origin = RawOrigin::Signed(from.account.clone());
-        let to_origin = RawOrigin::Signed(to.account.clone());
-        // Do another affirmations that lead to scheduling an instruction.
-        Module::<T>::affirm_instruction((to_origin.clone()).into(), instruction_id, portfolios_to, (legs_count / 2).into()).expect("Settlement: Failed to affirm instruction");
-        // Create trusted issuer for both the ticker
-        let t_issuer = UserBuilder::<T>::default().generate_did().build("TrustedClaimIssuer");
-        let trusted_issuer = TrustedIssuer::from(t_issuer.did());
-
-        // Need to provide the Investor uniqueness claim for both sender and receiver,
-        // for both assets also add the compliance rules as per the `MaxConditionComplexity`.
-        for ticker in tickers {
-            compliance_setup::<T>(c, ticker, from_origin.clone(), from.did, to.did, trusted_issuer.clone());
-            add_transfer_conditions::<T>(ticker, from_origin.clone(), from.did, MAX_CONDITIONS);
-        }
-    }: _(origin, instruction_id, l)
-    verify {
-        // Assert that any one leg processed through that give sufficient evidence of successful execution of instruction.
-        let after_transfer_balance = PortfolioAssetBalances::get(first_leg.from, first_leg.asset);
-        let traded_amount = before_transfer_balance - after_transfer_balance;
-        let expected_transfer_amount = first_leg.amount;
-        assert_eq!(traded_amount, expected_transfer_amount,"Settlement: Failed to execute the instruction");
-    }
-
     reschedule_instruction {
         let l = T::MaxNumberOfFungibleAssets::get() as u32;
 
@@ -1154,6 +1112,102 @@ benchmarks! {
             parameters.memo
         ).expect("failed to add instruction");
     }: _(parameters.sender.origin, InstructionId(1), parameters.sender_portfolios[0], f, n)
+
+    execute_scheduled_instruction {
+        let f in 1..T::MaxNumberOfFungibleAssets::get() as u32;
+        let n in 1..T::MaxNumberOfNFTs::get() as u32;
+
+        // Pre-conditions: Add settlement intruction, add compliance rules and transfer conditions
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let sender_portfolio = generate_portfolio::<T>("", 0, Some(UserData::from(&alice)));
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let receiver_portfolio = generate_portfolio::<T>("", 0, Some(UserData::from(&bob)));
+        let trusted_user = UserBuilder::<T>::default()
+            .generate_did()
+            .build("TrustedUser");
+        let trusted_issuer = TrustedIssuer::from(trusted_user.did());
+        let max_condition_complexity = T::MaxConditionComplexity::get() as u32;
+        let venue_id = create_venue_::<T>(alice.did(), vec![]);
+
+        let mut fungible_legs = Vec::new();
+        for index in 0..f {
+            let ticker = make_asset(&alice, Some(&Ticker::generate(index as u64 + 1)));
+            fund_portfolio::<T>(&sender_portfolio, &ticker, ONE_UNIT);
+            compliance_setup::<T>(
+                max_condition_complexity,
+                ticker,
+                alice.origin().clone().into(),
+                alice.did(),
+                bob.did(),
+                trusted_issuer.clone(),
+            );
+            add_transfer_conditions::<T>(
+                ticker,
+                alice.origin().clone().into(),
+                alice.did(),
+                MAX_CONDITIONS,
+            );
+            fungible_legs.push(LegV2 {
+                from: sender_portfolio,
+                to: receiver_portfolio,
+                asset: LegAsset::Fungible {
+                    ticker: ticker.clone(),
+                    amount: ONE_UNIT,
+                },
+            })
+        }
+
+        let mut nft_legs = Vec::new();
+        for index in 0..n {
+            let ticker = Ticker::from_slice_truncated(
+                format!("NFTTICKER{}", index).as_bytes(),
+            );
+            create_collection_issue_nfts::<T>(
+                alice.origin().into(),
+                ticker,
+                Some(NonFungibleType::Derivative),
+                0,
+                1,
+                sender_portfolio.kind,
+            );
+            compliance_setup::<T>(
+                max_condition_complexity,
+                ticker,
+                alice.origin().clone().into(),
+                alice.did(),
+                bob.did(),
+                trusted_issuer.clone(),
+            );
+            nft_legs.push(LegV2 {
+                from: sender_portfolio,
+                to: receiver_portfolio,
+                asset: LegAsset::NonFungible(NFTs::new_unverified(ticker, vec![NFTId(1)])),
+            });
+        }
+
+        let legs_v2 = [fungible_legs, nft_legs].concat();
+        Module::<T>::add_and_affirm_instruction_with_memo_v2(
+            alice.origin().into(),
+            venue_id,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs_v2,
+            vec![sender_portfolio],
+            None,
+        )
+        .expect("failed to add instruction");
+
+        Module::<T>::affirm_instruction_v2(
+            bob.origin().into(),
+            InstructionId(1),
+            vec![receiver_portfolio],
+            f,
+            n,
+        )
+        .expect("failed to affirm instruction");
+
+    }: execute_scheduled_instruction_v2(RawOrigin::Root, InstructionId(1), f, n)
 
 }
 
