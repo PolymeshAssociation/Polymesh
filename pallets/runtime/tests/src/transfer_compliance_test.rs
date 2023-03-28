@@ -58,8 +58,12 @@ impl InvestorState {
         create_investor_uid(self.acc.clone())
     }
 
-    pub fn scope_id(&self, ticker: Ticker) -> ScopeId {
-        InvestorZKProofData::make_scope_id(&ticker.as_slice(), &self.uid())
+    pub fn scope_id(&self, disable_iu: bool, ticker: Ticker) -> ScopeId {
+        if disable_iu {
+            self.did
+        } else {
+            InvestorZKProofData::make_scope_id(&ticker.as_slice(), &self.uid())
+        }
     }
 
     pub fn provide_scope_claim(&self, ticker: Ticker) -> (ScopeId, CddId) {
@@ -152,17 +156,17 @@ struct AssetTracker {
 
 impl AssetTracker {
     pub fn new() -> Self {
-        Self::new_full(0, "ACME")
+        Self::new_full(0, "ACME", true)
     }
 
-    pub fn new_full(owner_id: u64, name: &str) -> Self {
+    pub fn new_full(owner_id: u64, name: &str, disable_iu: bool) -> Self {
         let asset = Ticker::try_from(name.as_bytes()).expect("Bad ticker");
         let investor_start_id = owner_id + 1000;
         let mut tracker = Self {
             name: name.into(),
             asset,
             total_supply: 0,
-            disable_iu: false,
+            disable_iu,
             asset_scope: AssetScope::from(asset),
 
             issuers: HashMap::new(),
@@ -282,7 +286,7 @@ impl AssetTracker {
         println!("ids = {:?}", ids);
         let investors = ids
             .into_iter()
-            .map(|id| self.investor(*id).scope_id(self.asset))
+            .map(|id| self.investor(*id).scope_id(self.disable_iu, self.asset))
             .collect::<Vec<_>>();
         println!("investors = {:?}", investors);
         for condition in &self.transfer_conditions {
@@ -428,7 +432,9 @@ impl AssetTracker {
 
     fn create_investor(&mut self, id: u64) {
         let investor = InvestorState::new(id);
-        investor.provide_scope_claim(self.asset);
+        if !self.disable_iu {
+            investor.provide_scope_claim(self.asset);
+        }
         assert!(self.investors.insert(id, investor).is_none());
     }
 
@@ -818,16 +824,16 @@ fn max_investor_ownership_rule_with_ext() {
 }
 
 #[test]
-fn claim_count_rule() {
+fn claim_count_rule_no_investor_uniqueness() {
     ExtBuilder::default()
         .cdd_providers(vec![CDD_PROVIDER.to_account_id()])
         .build()
-        .execute_with(claim_count_rule_with_ext);
+        .execute_with(|| claim_count_rule_with_ext(true));
 }
 
-fn claim_count_rule_with_ext() {
+fn claim_count_rule_with_ext(disable_iu: bool) {
     // Create an asset.
-    let mut tracker = AssetTracker::new();
+    let mut tracker = AssetTracker::new_full(0, "ACME", disable_iu);
 
     let issuer = User::new(AccountKeyring::Dave);
     let claim_types = vec![ClaimType::Accredited];

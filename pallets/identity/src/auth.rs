@@ -122,15 +122,6 @@ impl<T: Config> Module<T> {
         Self::deposit_event(event(id, acc, auth_id))
     }
 
-    /// Returns an iterator over all authorizations belonging to `signer` and authorized by `did`.
-    pub(crate) fn auths_of(
-        signer: &Signatory<T::AccountId>,
-        did: IdentityId,
-    ) -> impl Iterator<Item = u64> {
-        <Authorizations<T>>::iter_prefix_values(signer)
-            .filter_map(move |auth| (auth.authorized_by == did).then_some(auth.auth_id))
-    }
-
     /// Use to get the filtered authorization data for a given signatory
     /// - if auth_type is None then return authorizations data on the basis of the `allow_expired` boolean
     /// - if auth_type is Some(value) then return filtered authorizations on the value basis type in conjunction

@@ -70,7 +70,7 @@ fn create_collection_invalid_asset_type() {
             AssetType::default(),
             Vec::new(),
             None,
-            false,
+            true,
         )
         .expect("failed to create an asset");
 
@@ -190,7 +190,7 @@ pub(crate) fn create_nft_collection(
         asset_type,
         Vec::new(),
         None,
-        false,
+        true,
     )
     .expect("failed to create an asset");
     for (i, _) in collection_keys.keys().iter().enumerate() {

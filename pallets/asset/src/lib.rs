@@ -953,7 +953,9 @@ decl_error! {
         /// Attempt to call an extrinsic that is only permitted for fungible tokens.
         UnexpectedNonFungibleToken,
         /// Attempt to update the type of a non fungible token to a fungible token or the other way around.
-        IncompatibleAssetTypeUpdate
+        IncompatibleAssetTypeUpdate,
+        /// Investor Uniqueness not allowed.
+        InvestorUniquenessNotAllowed
     }
 }
 
@@ -996,6 +998,9 @@ impl<T: Config> AssetFnTrait<T::AccountId, T::Origin> for Module<T> {
     #[cfg(feature = "runtime-benchmarks")]
     /// Adds an artificial IU claim for benchmarks
     fn add_investor_uniqueness_claim(did: IdentityId, ticker: Ticker) {
+        if Self::disable_iu(ticker) {
+            return;
+        }
         use polymesh_primitives::{CddId, Claim, InvestorUid, Scope};
         Identity::<T>::unverified_add_claim_with_scope(
             did,
@@ -1755,6 +1760,8 @@ impl<T: Config> Module<T> {
         funding_round: Option<FundingRoundName>,
         disable_iu: bool,
     ) -> Result<IdentityId, DispatchError> {
+        ensure!(disable_iu, Error::<T>::InvestorUniquenessNotAllowed);
+
         Self::ensure_asset_name_bounded(&name)?;
         if let Some(fr) = &funding_round {
             Self::ensure_funding_round_name_bounded(fr)?;

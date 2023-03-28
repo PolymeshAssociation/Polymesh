@@ -1456,7 +1456,7 @@ fn check_new_return_type_of_rpc() {
         assert_eq!(result.requirements[0], compliance_requirement);
         assert_eq!(result.result, true);
 
-        // Should fail txn as implicit requirements are active.
-        assert_invalid_transfer!(ticker, owner.did, receiver.did, 100);
+        // Transfer should be valid as there are no restrictions.
+        assert_valid_transfer!(ticker, owner.did, receiver.did, 100);
     });
 }

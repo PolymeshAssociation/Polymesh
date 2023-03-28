@@ -1900,6 +1900,7 @@ fn add_permission_with_secondary_key() {
         });
 }
 
+#[ignore]
 #[test]
 fn add_investor_uniqueness_claim() {
     ExtBuilder::default()
@@ -1967,6 +1968,7 @@ fn do_add_investor_uniqueness_claim() {
     aggregate_balance(new_scope_id, asset_balance);
 }
 
+#[ignore]
 #[test]
 fn add_investor_uniqueness_claim_v2() {
     let user = AccountKeyring::Alice.to_account_id();
