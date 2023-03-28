@@ -147,7 +147,7 @@ pub(crate) fn currency<T: Config>(owner: &User<T>) -> Ticker {
         <_>::default(),
         vec![],
         None,
-        false,
+        true,
     )
     .expect("Asset cannot be created");
     Asset::<T>::issue(owner.origin().into(), currency, 1_000_000u32.into())

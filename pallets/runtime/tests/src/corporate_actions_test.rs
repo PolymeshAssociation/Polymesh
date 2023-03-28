@@ -2012,16 +2012,27 @@ fn dist_claim_misc_bad() {
         // Dist doesn't exist yet.
         noop(DistError::NoSuchDistribution.into());
 
+        let ticker2 = create_asset(b"BETA", owner);
         // Now it does.
         assert_ok!(Dist::distribute(
             owner.origin(),
             id,
             None,
-            create_asset(b"BETA", owner),
+            ticker2,
             1,
             1,
             5,
             Some(6)
+        ));
+
+        // Resume compliance to cause transfer failure.
+        assert_ok!(ComplianceManager::resume_asset_compliance(
+            owner.origin(),
+            ticker2
+        ));
+        assert_ok!(ComplianceManager::reset_asset_compliance(
+            owner.origin(),
+            ticker2
         ));
 
         // But it hasn't started yet.
@@ -2032,7 +2043,7 @@ fn dist_claim_misc_bad() {
         set_timestamp(6);
         noop(DistError::CannotClaimAfterExpiry.into());
 
-        // Travel back in time. Now dist is active, but no scope claims, so transfer fails.
+        // Travel back in time. Now dist is active, but compliance rules not met, so transfer fails.
         set_timestamp(5);
         noop(AssetError::InvalidTransfer.into());
     });

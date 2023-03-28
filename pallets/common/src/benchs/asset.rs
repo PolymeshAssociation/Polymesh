@@ -41,7 +41,7 @@ fn make_base_asset<T: Config>(owner: &User<T>, divisible: bool, name: Option<&[u
         AssetType::default(),
         vec![],
         None,
-        false,
+        true,
     )
     .expect("Asset cannot be created");
 

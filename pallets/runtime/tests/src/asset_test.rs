@@ -156,7 +156,7 @@ fn asset_with_ids(
         token.asset_type.clone(),
         ids,
         None,
-        false,
+        true,
     )?;
     enable_investor_count(ticker, owner);
     Asset::issue(owner.origin(), ticker, token.total_supply)?;
@@ -266,7 +266,7 @@ fn issuers_can_create_and_rename_tokens() {
             token.asset_type.clone(),
             Vec::new(),
             Some(funding_round_name.clone()),
-            false,
+            true,
         ));
         enable_investor_count(ticker, owner);
 
@@ -937,7 +937,7 @@ fn frozen_secondary_keys_create_asset_we() {
         token_1.asset_type.clone(),
         vec![],
         None,
-        false,
+        true,
     ));
     assert_ok!(Asset::issue(bob.origin(), ticker_1, token_1.total_supply));
     assert_eq!(Asset::token_details(ticker_1), token_1);
@@ -1272,7 +1272,7 @@ fn classic_ticker_register_works() {
             <_>::default(),
             vec![],
             None,
-            false,
+            true,
         ));
         assert_noop!(
             Asset::reserve_classic_ticker(root(), classic, alice.did, config.clone()),
@@ -1534,7 +1534,7 @@ fn classic_ticker_claim_works() {
                 <_>::default(),
                 vec![],
                 None,
-                false,
+                true,
             );
             assert_balance(user.acc(), bal_after, 0);
             ret
@@ -1591,6 +1591,7 @@ fn generate_uid(entity_name: String) -> InvestorUid {
 }
 
 // Test for the validating the code for unique investors and aggregation of balances.
+#[ignore]
 #[test]
 fn check_unique_investor_count() {
     let cdd_provider = AccountKeyring::Charlie.to_account_id();
@@ -2083,7 +2084,7 @@ fn create_asset_errors(owner: AccountId, other: AccountId) {
             AssetType::default(),
             vec![],
             funding_name,
-            false,
+            true,
         )
     };
 
