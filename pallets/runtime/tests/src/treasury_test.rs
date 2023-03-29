@@ -4,6 +4,7 @@ use super::{
     ExtBuilder,
 };
 
+use codec::Decode;
 use polymesh_primitives::{AccountId, Beneficiary, IdentityId};
 use sp_runtime::DispatchError;
 use test_client::AccountKeyring;
@@ -97,7 +98,7 @@ fn bad_disbursement_did() {
 fn bad_disbursement_did_we() {
     let alice = User::new(AccountKeyring::Alice);
     let bob = User::new(AccountKeyring::Bob);
-    let default_key = AccountId::default();
+    let default_key = AccountId::decode(&mut vec![0u8; 32].as_slice()).expect("Zero account");
 
     let total_issuance = Balances::total_issuance();
     let treasury_balance = 10_000;
