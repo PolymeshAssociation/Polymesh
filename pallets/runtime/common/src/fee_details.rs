@@ -176,7 +176,10 @@ where
             Ok(Call::Bridge(
                 pallet_bridge::Call::propose_bridge_tx { .. }
                 | pallet_bridge::Call::batch_propose_bridge_tx { .. },
-            )) => handle_multisig(&pallet_bridge::Module::<A>::controller_key(), caller),
+            )) => match pallet_bridge::Module::<A>::controller() {
+                Some(controller) => handle_multisig(&controller, caller),
+                None => MISSING_ID,
+            },
             // All other calls.
             //
             // The external account must directly be linked to an identity with valid CDD.
