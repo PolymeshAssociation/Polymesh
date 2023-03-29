@@ -471,8 +471,15 @@ benchmarks! {
         let s in 1 .. MAX_SLASHES;
         let mut unapplied_slashes = Vec::new();
         let era = EraIndex::one();
+        let unapplied_slash = UnappliedSlash {
+            validator: account("validator", 0, 10000),
+            own: Default::default(),
+            others: Vec::new(),
+            reporters: Vec::new(),
+            payout: Default::default(),
+        };
         for _ in 0 .. MAX_SLASHES {
-            unapplied_slashes.push(UnappliedSlash::<T::AccountId, BalanceOf<T>>::default());
+            unapplied_slashes.push(unapplied_slash.clone());
         }
         UnappliedSlashes::<T>::insert(era, &unapplied_slashes);
 
@@ -531,9 +538,10 @@ benchmarks! {
         HistoryDepth::put(e);
         CurrentEra::put(e);
         for i in 0 .. e {
-            <ErasStakers<T>>::insert(i, T::AccountId::default(), Exposure::<T::AccountId, BalanceOf<T>>::default());
-            <ErasStakersClipped<T>>::insert(i, T::AccountId::default(), Exposure::<T::AccountId, BalanceOf<T>>::default());
-            <ErasValidatorPrefs<T>>::insert(i, T::AccountId::default(), ValidatorPrefs::default());
+            let acc: T::AccountId = account("validator", i, 10000);
+            <ErasStakers<T>>::insert(i, acc.clone(), Exposure::<T::AccountId, BalanceOf<T>>::default());
+            <ErasStakersClipped<T>>::insert(i, acc.clone(), Exposure::<T::AccountId, BalanceOf<T>>::default());
+            <ErasValidatorPrefs<T>>::insert(i, acc, ValidatorPrefs::default());
             <ErasValidatorReward<T>>::insert(i, BalanceOf::<T>::one());
             <ErasRewardPoints<T>>::insert(i, EraRewardPoints::<T::AccountId>::default());
             <ErasTotalStake<T>>::insert(i, BalanceOf::<T>::one());
