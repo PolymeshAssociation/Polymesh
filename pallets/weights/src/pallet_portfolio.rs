@@ -81,7 +81,7 @@ impl pallet_portfolio::WeightInfo for WeightInfo {
     // Storage: Portfolio PortfolioAssetBalances (r:2 w:2)
     // Storage: Portfolio PortfolioLockedAssets (r:1 w:0)
     // Storage: Portfolio PortfolioAssetCount (r:2 w:2)
-    fn move_portfolio_funds(a: u32, ) -> Weight {
+    fn move_portfolio_funds(a: u32) -> Weight {
         (0 as Weight)
             // Standard Error: 308_000
             .saturating_add((51_407_000 as Weight).saturating_mul(a as Weight))
@@ -93,7 +93,7 @@ impl pallet_portfolio::WeightInfo for WeightInfo {
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Portfolio Portfolios (r:1 w:1)
     // Storage: Portfolio NameToNumber (r:1 w:2)
-    fn rename_portfolio(i: u32, ) -> Weight {
+    fn rename_portfolio(i: u32) -> Weight {
         (75_868_000 as Weight)
             // Standard Error: 5_000
             .saturating_add((27_000 as Weight).saturating_mul(i as Weight))
@@ -127,7 +127,7 @@ impl pallet_portfolio::WeightInfo for WeightInfo {
     // Storage: Portfolio PortfolioAssetBalances (r:2 w:2)
     // Storage: Portfolio PortfolioLockedAssets (r:1 w:0)
     // Storage: Portfolio PortfolioAssetCount (r:1 w:1)
-    fn move_portfolio_funds_v2(f: u32, n: u32, ) -> Weight {
+    fn move_portfolio_funds_v2(f: u32, n: u32) -> Weight {
         (7_128_000 as Weight)
             // Standard Error: 11_049_000
             .saturating_add((60_935_000 as Weight).saturating_mul(f as Weight))

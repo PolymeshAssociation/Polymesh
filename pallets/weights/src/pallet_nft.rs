@@ -75,7 +75,7 @@ impl pallet_nft::WeightInfo for WeightInfo {
     // Storage: Asset Identifiers (r:0 w:1)
     // Storage: ExternalAgents AgentOf (r:0 w:1)
     // Storage: ExternalAgents GroupOfAgent (r:0 w:1)
-    fn create_nft_collection(n: u32, ) -> Weight {
+    fn create_nft_collection(n: u32) -> Weight {
         (226_460_000 as Weight)
             // Standard Error: 100_000
             .saturating_add((6_085_000 as Weight).saturating_mul(n as Weight))
@@ -94,7 +94,7 @@ impl pallet_nft::WeightInfo for WeightInfo {
     // Storage: NFT NextNFTId (r:1 w:1)
     // Storage: Portfolio PortfolioNFT (r:0 w:1)
     // Storage: NFT MetadataValue (r:0 w:1)
-    fn issue_nft(n: u32, ) -> Weight {
+    fn issue_nft(n: u32) -> Weight {
         (116_305_000 as Weight)
             // Standard Error: 62_000
             .saturating_add((4_310_000 as Weight).saturating_mul(n as Weight))
@@ -111,7 +111,7 @@ impl pallet_nft::WeightInfo for WeightInfo {
     // Storage: Portfolio PortfolioNFT (r:1 w:1)
     // Storage: NFT NumberOfNFTs (r:1 w:1)
     // Storage: NFT MetadataValue (r:0 w:1)
-    fn redeem_nft(n: u32, ) -> Weight {
+    fn redeem_nft(n: u32) -> Weight {
         (144_158_000 as Weight)
             // Standard Error: 42_000
             .saturating_add((1_489_000 as Weight).saturating_mul(n as Weight))
