@@ -666,7 +666,9 @@ pub mod general {
                 complete_txs,
             },
             indices: pallet_indices::GenesisConfig { indices: vec![] },
-            sudo: pallet_sudo::GenesisConfig { key: root_key },
+            sudo: pallet_sudo::GenesisConfig {
+                key: Some(root_key),
+            },
             session: session!(initial_authorities, session_keys),
             staking: staking!(
                 initial_authorities,
@@ -834,7 +836,9 @@ pub mod testnet {
                 complete_txs,
             },
             indices: pallet_indices::GenesisConfig { indices: vec![] },
-            sudo: pallet_sudo::GenesisConfig { key: root_key },
+            sudo: pallet_sudo::GenesisConfig {
+                key: Some(root_key),
+            },
             session: session!(initial_authorities, session_keys),
             staking: staking!(
                 initial_authorities,
@@ -1033,7 +1037,9 @@ pub mod mainnet {
                 complete_txs,
             },
             indices: pallet_indices::GenesisConfig { indices: vec![] },
-            sudo: pallet_sudo::GenesisConfig { key: root_key },
+            sudo: pallet_sudo::GenesisConfig {
+                key: Some(root_key),
+            },
             session: session!(initial_authorities, session_keys),
             staking: staking!(
                 initial_authorities,
@@ -1237,7 +1243,9 @@ pub mod general {
                 complete_txs,
             },
             indices: pallet_indices::GenesisConfig { indices: vec![] },
-            sudo: pallet_sudo::GenesisConfig { key: root_key },
+            sudo: pallet_sudo::GenesisConfig {
+                key: Some(root_key),
+            },
             session: session!(initial_authorities, session_keys),
             staking: staking!(initial_authorities, stakers, PerThing::zero()),
             pips: pips!(time::DAYS * 7, MaybeBlock::None, 1000),

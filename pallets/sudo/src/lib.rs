@@ -229,7 +229,7 @@ impl<T: Config> Module<T> {
         // Only allow signed origins.
         let sender = ensure_signed(origin)?;
         // Ensure the signer is the current Sudo key.
-        if sender != Self::key() {
+        if Some(sender) != Self::key() {
             // roughly same as a 4 byte remark since perbill is u32.
             return Err(DispatchErrorWithPostInfo {
                 post_info: Some(MIN_WEIGHT).into(),
@@ -248,7 +248,7 @@ decl_event!(
         /// A sudo just took place. \[result\]
         Sudid(DispatchResult),
         /// The \[sudoer\] just switched identity; the old key is supplied.
-        KeyChanged(AccountId),
+        KeyChanged(Option<AccountId>),
         /// A sudo just took place. \[result\]
         SudoAsDone(DispatchResult),
     }
@@ -257,7 +257,15 @@ decl_event!(
 decl_storage! {
     trait Store for Module<T: Config> as Sudo {
         /// The `AccountId` of the sudo key.
-        Key get(fn key) config(): T::AccountId;
+        Key get(fn key): Option<T::AccountId>;
+    }
+    add_extra_genesis {
+        config(key): Option<T::AccountId>;
+        build(|config: &GenesisConfig<T>| {
+            if let Some(key) = &config.key {
+                Key::<T>::put(key);
+            }
+        })
     }
 }
 

@@ -89,7 +89,7 @@ fn make_min_storage() -> Result<TestExternalities, String> {
 
     // Sudo
     pallet_sudo::GenesisConfig::<Runtime> {
-        key: accounts[0].clone(),
+        key: Some(accounts[0].clone()),
     }
     .assimilate_storage(&mut storage)?;
 
