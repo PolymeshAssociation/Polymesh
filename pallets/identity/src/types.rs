@@ -19,7 +19,7 @@ pub type AssetDidResult = Result<IdentityId, Error>;
 pub enum RpcDidRecords<AccountId> {
     /// Id was found and has the following primary key and secondary keys.
     Success {
-        primary_key: AccountId,
+        primary_key: Option<AccountId>,
         secondary_keys: Vec<SecondaryKey<AccountId>>,
     },
     /// Error.
@@ -55,7 +55,7 @@ pub mod v1 {
     pub enum RpcDidRecords<AccountId> {
         /// Id was found and has the following primary key and secondary keys.
         Success {
-            primary_key: AccountId,
+            primary_key: Option<AccountId>,
             secondary_keys: Vec<v1::SecondaryKey<AccountId>>,
         },
         /// Error.

@@ -62,7 +62,7 @@ fn make_min_storage() -> Result<TestExternalities, String> {
             let issuers = vec![did];
 
             GenesisIdentityRecord {
-                primary_key: primary_key.clone(),
+                primary_key: Some(primary_key.clone()),
                 issuers,
                 did,
                 investor,

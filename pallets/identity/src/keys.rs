@@ -155,7 +155,7 @@ impl<T: Config> Module<T> {
                 })
                 .collect();
             RpcDidRecords::Success {
-                primary_key: record.primary_key.unwrap_or_default(),
+                primary_key: record.primary_key,
                 secondary_keys,
             }
         } else {
@@ -284,7 +284,8 @@ impl<T: Config> Module<T> {
         new_permissions: Option<Permissions>,
         optional_cdd_auth_id: Option<u64>,
     ) -> DispatchResult {
-        let old_primary_key = Self::get_primary_key(target_did).unwrap_or_default();
+        let old_primary_key =
+            Self::get_primary_key(target_did).ok_or(Error::<T>::InvalidAccountKey)?;
 
         let key_record = KeyRecords::<T>::get(&new_primary_key);
         let (is_linked, is_secondary_key) = match key_record {
