@@ -291,7 +291,7 @@ benchmarks! {
         let origin = voter.origin();
     }: _(origin, id, true, voter_deposit)
     verify {
-        assert!(voter_deposit == Deposits::<T>::get(id, &voter.account()).amount, "incorrect voter deposit");
+        assert!(voter_deposit == Deposits::<T>::get(id, &voter.account()).expect("Deposit").amount, "incorrect voter deposit");
     }
 
     approve_committee_proposal {
@@ -332,7 +332,7 @@ benchmarks! {
             Some(description)
         ).unwrap();
         let id = PipId(0);
-        assert_eq!(deposit, Deposits::<T>::get(id, &user.account()).amount, "incorrect deposit in reject_proposal");
+        assert_eq!(deposit, Deposits::<T>::get(id, &user.account()).expect("Deposit").amount, "incorrect deposit in reject_proposal");
         let vmo_origin = T::VotingMajorityOrigin::successful_origin();
         let call = Call::<T>::reject_proposal { id };
     }: {
