@@ -450,16 +450,8 @@ impl<T: Config> Module<T> {
         // Generate a new DID for the child.
         let child_did = Self::make_did()?;
 
-        // Remove links and get all authorization IDs per signer.
         // Unlink the secondary account key.
         Self::remove_key_record(&secondary_key, Some(parent_did));
-
-        // All `auth_id`s for `signer` authorized by `parent_did`.
-        let signer = Signatory::Account(secondary_key.clone());
-        for auth_id in Self::auths_of(&signer, parent_did) {
-            // Remove authorizations.
-            Self::unsafe_remove_auth(&signer, auth_id, &parent_did, true);
-        }
         Self::deposit_event(RawEvent::SecondaryKeysRemoved(
             parent_did,
             vec![secondary_key.clone()],
