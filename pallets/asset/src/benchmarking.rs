@@ -13,36 +13,44 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::*;
-
 use frame_benchmarking::benchmarks;
 use frame_support::StorageValue;
 use frame_system::RawOrigin;
-use pallet_portfolio::{MovePortfolioItem, NextPortfolioNumber, PortfolioAssetBalances};
-use polymesh_common_utilities::benchs::user;
-use polymesh_common_utilities::{
-    benchs::{make_asset, make_indivisible_asset, make_ticker, AccountIdOf, User, UserBuilder},
-    constants::currency::POLY,
-    traits::nft::NFTTrait,
-    TestUtilsFn,
-};
-use polymesh_primitives::{
-    asset::{AssetName, NonFungibleType},
-    asset_metadata::{
-        AssetMetadataDescription, AssetMetadataKey, AssetMetadataName, AssetMetadataSpec,
-        AssetMetadataValue, AssetMetadataValueDetail,
-    },
-    ticker::TICKER_LEN,
-    AuthorizationData, NFTCollectionKeys, PortfolioName, Signatory, Ticker, Url,
-};
 use sp_io::hashing::keccak_256;
 use sp_std::{convert::TryInto, iter, prelude::*};
+
+use pallet_portfolio::{MovePortfolioItem, NextPortfolioNumber, PortfolioAssetBalances};
+use pallet_statistics::benchmarking::{
+    add_identity_claim, set_transfer_exception, statistics_types, transfer_conditions,
+};
+use polymesh_common_utilities::benchs::{
+    make_asset, make_indivisible_asset, make_ticker, user, AccountIdOf, User, UserBuilder,
+};
+use polymesh_common_utilities::constants::currency::POLY;
+use polymesh_common_utilities::traits::compliance_manager::ComplianceFnConfig;
+use polymesh_common_utilities::traits::nft::NFTTrait;
+use polymesh_common_utilities::TestUtilsFn;
+use polymesh_primitives::asset::{AssetName, NonFungibleType};
+use polymesh_primitives::asset_metadata::{
+    AssetMetadataDescription, AssetMetadataKey, AssetMetadataName, AssetMetadataSpec,
+    AssetMetadataValue, AssetMetadataValueDetail,
+};
+use polymesh_primitives::statistics::AssetScope;
+use polymesh_primitives::ticker::TICKER_LEN;
+use polymesh_primitives::{
+    AuthorizationData, Claim, NFTCollectionKeys, PortfolioName, PortfolioNumber,
+    Scope, Signatory, Ticker, TrustedIssuer, Url,
+};
+
+use crate::*;
 
 const MAX_DOCS_PER_ASSET: u32 = 64;
 const MAX_DOC_URI: usize = 1024;
 const MAX_DOC_NAME: usize = 1024;
 const MAX_DOC_TYPE: usize = 1024;
 const MAX_IDENTIFIERS_PER_ASSET: u32 = 512;
+
+type Statistics<T> = pallet_statistics::Module<T>;
 
 pub fn make_document() -> Document {
     Document {
@@ -188,6 +196,46 @@ fn setup_create_asset<T: Config + TestUtilsFn<<T as frame_system::Config>::Accou
         asset_type: AssetType::default(),
     };
     (owner.origin, name, ticker, token, identifiers, fundr)
+}
+
+/// Creates a user portfolio for `user`.
+fn create_portfolio<T: Config>(user: &User<T>, portofolio_name: &str) -> PortfolioId {
+    let portfolio_number = Portfolio::<T>::next_portfolio_number(user.did()).0;
+
+    Portfolio::<T>::create_portfolio(
+        user.origin().clone().into(),
+        PortfolioName(portofolio_name.as_bytes().to_vec()),
+    )
+    .unwrap();
+
+    PortfolioId {
+        did: user.did(),
+        kind: PortfolioKind::User(PortfolioNumber(portfolio_number)),
+    }
+}
+
+/// Moves `amount` from the default portfolio to `destination_portfolio`.
+fn move_from_default_portfolio<T: Config>(
+    user: &User<T>,
+    ticker: Ticker,
+    amount: Balance,
+    destination_portfolio: PortfolioId,
+) {
+    let moved_item = MovePortfolioItem {
+        ticker,
+        amount,
+        memo: None,
+    };
+    Portfolio::<T>::move_portfolio_funds(
+        user.origin().clone().into(),
+        PortfolioId {
+            did: user.did(),
+            kind: PortfolioKind::Default,
+        },
+        destination_portfolio,
+        vec![moved_item],
+    )
+    .unwrap();
 }
 
 benchmarks! {
@@ -575,4 +623,72 @@ benchmarks! {
             None,
         ).unwrap();
     }: _(user.origin, ticker, AssetMetadataKey::Local(AssetMetadataLocalKey(1)))
+
+    base_transfer {
+        // For the worst case, investor uniqueness is enabled and the portfolios are not the
+        // the default ones. The complexity of the transfer depends on the complexity of the transfer
+        // restrictions, the complexity of the compliance rules, and the number of statistics to be updated.
+
+        // Compliance parameters
+        // Number of calls to `TrustedClaimIssuer`, `Identity::<T>::fetch_claim` and ExternalAgents::<T>::agents
+        let t in 0..1;
+        let i in 2..45;
+        let e in 1..2;
+        // Transfer restrictions parameters
+        // Number of condiions of type ClaimCount + ClaimOwnership and calls to `TransferConditionExemptEntities`
+        let c in 0..10;
+        let x in 0..1;
+        // Update asset statistics parameters
+        // Number of active statistics and number of writes/reads to `AssetStats`
+        let s in 11..20;
+        let w in 10..20;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let trusted_user = UserBuilder::<T>::default().generate_did().build("TrustedUser");
+        let trusted_issuer = TrustedIssuer::from(trusted_user.did());
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let asset_scope = AssetScope::Ticker(ticker);
+
+        make_asset::<T>(&alice, Some(ticker.as_ref()));
+        let sender_portfolio = create_portfolio::<T>(&alice, "SenderPortfolio");
+        let receiver_portfolio = create_portfolio::<T>(&bob, "ReceiverPortfolio");
+        move_from_default_portfolio::<T>(&alice, ticker, ONE_UNIT * POLY, sender_portfolio);
+        Module::<T>::add_investor_uniqueness_claim(alice.did(), ticker);
+        Module::<T>::add_investor_uniqueness_claim(bob.did(), ticker);
+        T::ComplianceManager::setup_ticker_compliance(
+            alice.origin().into(),
+            alice.did(),
+            ticker,
+            trusted_issuer,
+            bob.did(),
+            bob.origin().into(),
+            t,
+            i,
+            e
+        );
+
+        let statistics_types = statistics_types(s);
+        Statistics::<T>::set_active_asset_stats(alice.origin().into(), asset_scope, statistics_types).unwrap();
+        let transfer_conditions = transfer_conditions(c, x);
+        set_transfer_exception::<T>(alice.origin().into(), ticker, bob.did());
+        Statistics::<T>::set_asset_transfer_compliance(alice.origin().into(), asset_scope, transfer_conditions).unwrap();
+
+        for idx in 0..c {
+            add_identity_claim::<T>(
+                alice.did(),
+                Claim::Accredited(Scope::Ticker(ticker)),
+                IdentityId::from(idx as u128)
+            );
+        }
+        for idx in 10..w {
+            add_identity_claim::<T>(
+                alice.did(),
+                Claim::Accredited(Scope::Ticker(ticker)),
+                IdentityId::from(idx as u128)
+            );
+        }
+    }: {
+        Module::<T>::base_transfer(sender_portfolio, receiver_portfolio, &ticker, ONE_UNIT).unwrap();
+    }
 }

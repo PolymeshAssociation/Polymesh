@@ -153,6 +153,10 @@ benchmarks! {
     }
 
     base_nft_transfer {
+        // Transfering depends on the number of ids in the `NFTs` vec and the complexity of
+        // the compliance rules (i.e number of calls to `TrustedClaimIssuer`, `Identity::<T>::fetch_claim`
+        // and ExternalAgents::<T>::agents)
+
         let n in 1..10;
         let t in 0..1;
         let i in 2..3;

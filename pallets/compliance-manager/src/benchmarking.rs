@@ -501,9 +501,13 @@ benchmarks! {
     }
 
     verify_restriction {
-        // Number of calls to `TrustedClaimIssuer`, `Identity::<T>::fetch_claim` and ExternalAgents::<T>::agents
+        // In the worst case, since reads to same keys are only counted once, `TrustedClaimIssuer` is called one time
+        // and `Identity::<T>::fetch_claim` is called `T::MaxConditionComplexity` times, `ExternalAgents::<T>::agents`
+        // would not be called.
+
+        // Number of calls to `TrustedClaimIssuer`, `Identity::<T>::fetch_claim` and `ExternalAgents::<T>::agents`
         let t in 0..1;
-        let i in 2..3;
+        let i in 2..T::MaxConditionComplexity::get().saturating_sub(4);
         let e in 1..2;
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");

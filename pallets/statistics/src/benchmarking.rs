@@ -6,7 +6,7 @@ use sp_std::prelude::*;
 use polymesh_common_utilities::benchs::{make_asset, AccountIdOf, User, UserBuilder};
 use polymesh_common_utilities::constants::currency::{ONE_UNIT, POLY};
 use polymesh_common_utilities::traits::{asset::Config as Asset, TestUtilsFn};
-use polymesh_primitives::{jurisdiction::*, statistics::*, ClaimType, TrustedIssuer};
+use polymesh_primitives::{jurisdiction::*, statistics::*, Claim, ClaimType, Scope};
 
 use crate::*;
 
@@ -111,42 +111,21 @@ fn init_exempts<T: Config + Asset + TestUtilsFn<AccountIdOf<T>>>(
 }
 
 /// Returns a set of `StatType`.
-fn statistics_types(n_issuers: u32) -> BTreeSet<StatType> {
-    let no_issuer_types = vec![
-        StatType {
-            op: StatOpType::Count,
-            claim_issuer: None,
-        },
-        StatType {
-            op: StatOpType::Balance,
-            claim_issuer: None,
-        },
-    ];
-
-    let issuer_types: Vec<StatType> = (0..n_issuers)
+pub fn statistics_types(n_issuers: u32) -> BTreeSet<StatType> {
+    (0..n_issuers)
         .map(|idx| StatType {
             op: StatOpType::Balance,
-            claim_issuer: Some((ClaimType::Jurisdiction, IdentityId::from(idx as u128))),
+            claim_issuer: Some((ClaimType::Accredited, IdentityId::from(idx as u128))),
         })
-        .collect();
-
-    let statistics_types = [no_issuer_types, issuer_types].concat();
-    statistics_types.into_iter().collect()
+        .collect()
 }
 
-/// Returns a set of `TransferCondition` that will require `a` calls to `AssetStats`, `t` calls to
-/// `TransferConditionExemptEntities` and `c` condition of type `ClaimOwnership`.
-fn transfer_conditions(a: u32, c: u32, t: u32) -> BTreeSet<TransferCondition> {
-    // Add one `MaxInvestorCount` condition for every `AssetStats` read
-    let asset_stats_conditions: Vec<TransferCondition> = (0..a)
-        .map(|_| TransferCondition::MaxInvestorCount(100))
-        .collect();
-
-    // Both ClaimCount and ClaimOwnership read the `Claim` storage twice and might call `AssetStats` once
-    let claim_conditions: Vec<TransferCondition> = (0..c)
+/// Returns a set of `c` `TransferCondition` that will succeed and `t` conditions that will fail.
+pub fn transfer_conditions(c: u32, t: u32) -> BTreeSet<TransferCondition> {
+    let valid_claim_conditions: Vec<TransferCondition> = (0..c)
         .map(|idx| {
             TransferCondition::ClaimOwnership(
-                StatClaim::Jurisdiction(Some(CountryCode::BR)),
+                StatClaim::Accredited(true),
                 IdentityId::from(idx as u128),
                 Permill::zero(),
                 Permill::one(),
@@ -154,32 +133,50 @@ fn transfer_conditions(a: u32, c: u32, t: u32) -> BTreeSet<TransferCondition> {
         })
         .collect();
 
-    // Add t conditions that will require a call to the `TransferConditionExemptEntities` storage
-    let key_exceptions: Vec<TransferCondition> = (0..t)
-        .map(|_| TransferCondition::MaxInvestorOwnership(Permill::zero()))
+    let failed_claim_conditions: Vec<TransferCondition> = (0..t)
+        .map(|_| {
+            TransferCondition::ClaimOwnership(
+                StatClaim::Accredited(true),
+                IdentityId::from(0),
+                Permill::one(),
+                Permill::zero(),
+            )
+        })
         .collect();
 
-    let all_conditions = [asset_stats_conditions, claim_conditions, key_exceptions].concat();
+    let all_conditions = [valid_claim_conditions, failed_claim_conditions].concat();
     all_conditions.into_iter().collect()
 }
 
-fn set_transfer_exception<T: Config>(
+/// Exempts `exempt_user_id` to follow a transfer condition of claim type `Accredited` for `ticker`.
+pub fn set_transfer_exception<T: Config>(
     origin: T::RuntimeOrigin,
     ticker: Ticker,
-    exception_scope_id: IdentityId,
+    exempt_user_id: IdentityId,
 ) {
     let transfer_exception = TransferConditionExemptKey {
         asset: AssetScope::Ticker(ticker),
         op: StatOpType::Balance,
-        claim_type: None,
+        claim_type: Some(ClaimType::Accredited),
     };
     Module::<T>::set_entities_exempt(
         origin.clone(),
         true,
         transfer_exception,
-        [exception_scope_id].into(),
+        [exempt_user_id].into(),
     )
     .unwrap();
+}
+
+/// Adds `claim` issued by `issuer_id` to `id`.
+pub fn add_identity_claim<T: Config>(id: IdentityId, claim: Claim, issuer_id: IdentityId) {
+    pallet_identity::Module::<T>::unverified_add_claim_with_scope(
+        id,
+        claim.clone(),
+        claim.as_scope().cloned(),
+        issuer_id,
+        None,
+    );
 }
 
 #[cfg(feature = "running-ci")]
@@ -240,29 +237,34 @@ benchmarks! {
     }: set_entities_exempt(owner.origin, true, exempt_key, scope_ids)
 
     verify_transfer_restrictions {
-        // In the worst case, all conditions are of type ClaimCount or ClaimOwnership, and read both the `AssetStats`
-        // and the `TransferConditionExemptEntities` storage
+        // In the worst case, each condition (at most T::MaxTransferConditionsPerAsset) call `Identity::<T>::fetch_claim' two times 
+        // and `AssetStats` one time. The number of calls to `TransferConditionExemptEntities`  would be 12 
+        // (3 (Accredited, Affiliate, Jurisdiction) * 2 (balance, count) * 2 (from_did, to_did)).
 
-        // Number of reads to the `AssetStats` storage.
-        let a in 0..1;
         // Number of condiions of type ClaimCount + ClaimOwnership.
-        let c in 1..2;
+        let c in 0..T::MaxTransferConditionsPerAsset::get() - 2;
         // Number of reads to the `TransferConditionExemptEntities` storage
         let t in 0..1;
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let trusted_user = UserBuilder::<T>::default().generate_did().build("TrustedUser");
-        let trusted_issuer = TrustedIssuer::from(trusted_user.did());
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let asset_scope = AssetScope::Ticker(ticker);
 
         make_asset::<T>(&alice, Some(ticker.as_ref()));
-        let statistics_types = statistics_types(c);
+        let statistics_types = statistics_types(c+t);
         Module::<T>::set_active_asset_stats(alice.origin().into(), asset_scope, statistics_types).unwrap();
-        let transfer_conditions = transfer_conditions(a, c, t);
+        let transfer_conditions = transfer_conditions(c, t);
         set_transfer_exception::<T>(alice.origin().into(), ticker, bob.did());
         Module::<T>::base_set_asset_transfer_compliance(alice.origin().into(), asset_scope, transfer_conditions).unwrap();
+        
+        for idx in 0..c {
+            add_identity_claim::<T>(
+                alice.did(),
+                Claim::Accredited(Scope::Ticker(ticker)),
+                IdentityId::from(idx as u128)
+            );
+        }
     }: {
         Module::<T>::verify_transfer_restrictions(
             &ticker,
@@ -276,5 +278,40 @@ benchmarks! {
             ONE_UNIT * POLY
         )
         .unwrap();
+    }
+
+    update_asset_stats {
+        // In the worst case, `ActiveAssetStats` has the maximum number of statistics (T::MaxStatsPerAsset), all
+        // are of type `StatOpType::Balance` and have identity claims. This would mean four reads and two writes everytime.
+
+        // Number of active statistics of type `StatOpType::Balance` or `StatOpType::Count`
+        let s in 0..T::MaxStatsPerAsset::get() -1;
+        // Number of writes/reads to `AssetStats`
+        let a in 0..1;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let asset_scope = AssetScope::Ticker(ticker);
+
+        make_asset::<T>(&alice, Some(ticker.as_ref()));
+        let statistics_types = statistics_types(s);
+        Module::<T>::set_active_asset_stats(alice.origin().into(), asset_scope, statistics_types).unwrap();
+        for i in 0..a {
+            add_identity_claim::<T>(
+                alice.did(),
+                Claim::Accredited(Scope::Ticker(ticker)),
+                IdentityId::from(i as u128)
+            );
+        }
+    }: {
+        Module::<T>::update_asset_stats(
+            &ticker,
+            Some(&alice.did()),
+            Some(&bob.did()),
+            Some(ONE_UNIT * POLY),
+            Some(ONE_UNIT),
+            ONE_UNIT
+        );
     }
 }
