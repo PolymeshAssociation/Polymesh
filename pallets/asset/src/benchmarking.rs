@@ -38,8 +38,8 @@ use polymesh_primitives::asset_metadata::{
 use polymesh_primitives::statistics::AssetScope;
 use polymesh_primitives::ticker::TICKER_LEN;
 use polymesh_primitives::{
-    AuthorizationData, Claim, NFTCollectionKeys, PortfolioName, PortfolioNumber,
-    Scope, Signatory, Ticker, TrustedIssuer, Url,
+    AuthorizationData, Claim, NFTCollectionKeys, PortfolioName, PortfolioNumber, Scope, Signatory,
+    Ticker, TrustedIssuer, Url,
 };
 
 use crate::*;
@@ -198,6 +198,78 @@ fn setup_create_asset<T: Config + TestUtilsFn<<T as frame_system::Config>::Accou
     (owner.origin, name, ticker, token, identifiers, fundr)
 }
 
+/// Creates an asset, adds a compliance rule, transfer restrictions and active statitics for `ticker`.
+/// Returns the sender and receiver portfolio.
+pub fn setup_asset_transfer<T>(
+    sender: &User<T>,
+    receiver: &User<T>,
+    ticker: Ticker,
+    compliance_identity_fetch_calls: u32,
+    n_ownership_conditions: u32,
+    n_active_statistics: u32,
+) -> (PortfolioId, PortfolioId)
+where
+    T: Config + TestUtilsFn<AccountIdOf<T>>,
+{
+    let trusted_user = UserBuilder::<T>::default()
+        .generate_did()
+        .build("TrustedUser");
+    let trusted_issuer = TrustedIssuer::from(trusted_user.did());
+    let asset_scope = AssetScope::Ticker(ticker);
+    let sender_portfolio = create_portfolio::<T>(sender, "SenderPortfolio");
+    let receiver_portfolio = create_portfolio::<T>(receiver, "ReceiverPortfolio");
+
+    // creates the asset and enable asset uniqueness
+    make_asset::<T>(sender, Some(ticker.as_ref()));
+    move_from_default_portfolio::<T>(sender, ticker, ONE_UNIT * POLY, sender_portfolio);
+    Module::<T>::add_investor_uniqueness_claim(sender.did(), ticker);
+    Module::<T>::add_investor_uniqueness_claim(receiver.did(), ticker);
+
+    // Add a compliance rule for the ticker
+    T::ComplianceManager::setup_ticker_compliance(
+        sender.origin().into(),
+        sender.did(),
+        ticker,
+        trusted_issuer,
+        receiver.did(),
+        receiver.origin().into(),
+        1,
+        compliance_identity_fetch_calls,
+        1,
+    );
+
+    // Adds active statistics and transfer rules
+    let statistics_types = statistics_types(n_active_statistics);
+    Statistics::<T>::set_active_asset_stats(sender.origin().into(), asset_scope, statistics_types)
+        .unwrap();
+    let transfer_conditions = transfer_conditions(n_ownership_conditions, 1);
+    set_transfer_exception::<T>(sender.origin().into(), ticker, receiver.did());
+    Statistics::<T>::set_asset_transfer_compliance(
+        sender.origin().into(),
+        asset_scope,
+        transfer_conditions,
+    )
+    .unwrap();
+
+    // Adds identity claims
+    for idx in 0..n_ownership_conditions {
+        add_identity_claim::<T>(
+            sender.did(),
+            Claim::Accredited(Scope::Ticker(ticker)),
+            IdentityId::from(idx as u128),
+        );
+    }
+    for idx in 10..n_active_statistics {
+        add_identity_claim::<T>(
+            sender.did(),
+            Claim::Accredited(Scope::Ticker(ticker)),
+            IdentityId::from(idx as u128),
+        );
+    }
+
+    (sender_portfolio, receiver_portfolio)
+}
+
 /// Creates a user portfolio for `user`.
 fn create_portfolio<T: Config>(user: &User<T>, portofolio_name: &str) -> PortfolioId {
     let portfolio_number = Portfolio::<T>::next_portfolio_number(user.did()).0;
@@ -214,7 +286,7 @@ fn create_portfolio<T: Config>(user: &User<T>, portofolio_name: &str) -> Portfol
     }
 }
 
-/// Moves `amount` from the default portfolio to `destination_portfolio`.
+/// Moves `amount` from the user's default portfolio to `destination_portfolio`.
 fn move_from_default_portfolio<T: Config>(
     user: &User<T>,
     ticker: Ticker,
@@ -630,64 +702,18 @@ benchmarks! {
         // restrictions, the complexity of the compliance rules, and the number of statistics to be updated.
 
         // Compliance parameters
-        // Number of calls to `TrustedClaimIssuer`, `Identity::<T>::fetch_claim` and ExternalAgents::<T>::agents
-        let t in 0..1;
         let i in 2..45;
-        let e in 1..2;
         // Transfer restrictions parameters
-        // Number of condiions of type ClaimCount + ClaimOwnership and calls to `TransferConditionExemptEntities`
         let c in 0..10;
-        let x in 0..1;
         // Update asset statistics parameters
-        // Number of active statistics and number of writes/reads to `AssetStats`
         let s in 11..20;
-        let w in 10..20;
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let trusted_user = UserBuilder::<T>::default().generate_did().build("TrustedUser");
-        let trusted_issuer = TrustedIssuer::from(trusted_user.did());
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let asset_scope = AssetScope::Ticker(ticker);
 
-        make_asset::<T>(&alice, Some(ticker.as_ref()));
-        let sender_portfolio = create_portfolio::<T>(&alice, "SenderPortfolio");
-        let receiver_portfolio = create_portfolio::<T>(&bob, "ReceiverPortfolio");
-        move_from_default_portfolio::<T>(&alice, ticker, ONE_UNIT * POLY, sender_portfolio);
-        Module::<T>::add_investor_uniqueness_claim(alice.did(), ticker);
-        Module::<T>::add_investor_uniqueness_claim(bob.did(), ticker);
-        T::ComplianceManager::setup_ticker_compliance(
-            alice.origin().into(),
-            alice.did(),
-            ticker,
-            trusted_issuer,
-            bob.did(),
-            bob.origin().into(),
-            t,
-            i,
-            e
-        );
-
-        let statistics_types = statistics_types(s);
-        Statistics::<T>::set_active_asset_stats(alice.origin().into(), asset_scope, statistics_types).unwrap();
-        let transfer_conditions = transfer_conditions(c, x);
-        set_transfer_exception::<T>(alice.origin().into(), ticker, bob.did());
-        Statistics::<T>::set_asset_transfer_compliance(alice.origin().into(), asset_scope, transfer_conditions).unwrap();
-
-        for idx in 0..c {
-            add_identity_claim::<T>(
-                alice.did(),
-                Claim::Accredited(Scope::Ticker(ticker)),
-                IdentityId::from(idx as u128)
-            );
-        }
-        for idx in 10..w {
-            add_identity_claim::<T>(
-                alice.did(),
-                Claim::Accredited(Scope::Ticker(ticker)),
-                IdentityId::from(idx as u128)
-            );
-        }
+        let (sender_portfolio, receiver_portfolio) =
+            setup_asset_transfer::<T>(&alice, &bob, ticker, i, c, s);
     }: {
         Module::<T>::base_transfer(sender_portfolio, receiver_portfolio, &ticker, ONE_UNIT).unwrap();
     }

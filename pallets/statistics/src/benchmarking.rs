@@ -237,14 +237,11 @@ benchmarks! {
     }: set_entities_exempt(owner.origin, true, exempt_key, scope_ids)
 
     verify_transfer_restrictions {
-        // In the worst case, each condition (at most T::MaxTransferConditionsPerAsset) call `Identity::<T>::fetch_claim' two times 
-        // and `AssetStats` one time. The number of calls to `TransferConditionExemptEntities`  would be 12 
+        // In the worst case, each condition (at most T::MaxTransferConditionsPerAsset) calls `Identity::<T>::fetch_claim' two times
+        // and `AssetStats` one time. The number of calls to `TransferConditionExemptEntities` would be 12
         // (3 (Accredited, Affiliate, Jurisdiction) * 2 (balance, count) * 2 (from_did, to_did)).
 
-        // Number of condiions of type ClaimCount + ClaimOwnership.
         let c in 0..T::MaxTransferConditionsPerAsset::get() - 2;
-        // Number of reads to the `TransferConditionExemptEntities` storage
-        let t in 0..1;
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
@@ -252,12 +249,12 @@ benchmarks! {
         let asset_scope = AssetScope::Ticker(ticker);
 
         make_asset::<T>(&alice, Some(ticker.as_ref()));
-        let statistics_types = statistics_types(c+t);
+        let statistics_types = statistics_types(T::MaxStatsPerAsset::get() -1);
         Module::<T>::set_active_asset_stats(alice.origin().into(), asset_scope, statistics_types).unwrap();
-        let transfer_conditions = transfer_conditions(c, t);
+        let transfer_conditions = transfer_conditions(c, 1);
         set_transfer_exception::<T>(alice.origin().into(), ticker, bob.did());
         Module::<T>::base_set_asset_transfer_compliance(alice.origin().into(), asset_scope, transfer_conditions).unwrap();
-        
+
         for idx in 0..c {
             add_identity_claim::<T>(
                 alice.did(),
@@ -284,10 +281,8 @@ benchmarks! {
         // In the worst case, `ActiveAssetStats` has the maximum number of statistics (T::MaxStatsPerAsset), all
         // are of type `StatOpType::Balance` and have identity claims. This would mean four reads and two writes everytime.
 
-        // Number of active statistics of type `StatOpType::Balance` or `StatOpType::Count`
+        // Number of active statistics
         let s in 0..T::MaxStatsPerAsset::get() -1;
-        // Number of writes/reads to `AssetStats`
-        let a in 0..1;
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
@@ -297,7 +292,7 @@ benchmarks! {
         make_asset::<T>(&alice, Some(ticker.as_ref()));
         let statistics_types = statistics_types(s);
         Module::<T>::set_active_asset_stats(alice.origin().into(), asset_scope, statistics_types).unwrap();
-        for i in 0..a {
+        for i in 0..s {
             add_identity_claim::<T>(
                 alice.did(),
                 Claim::Accredited(Scope::Ticker(ticker)),
