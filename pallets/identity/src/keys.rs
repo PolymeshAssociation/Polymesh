@@ -155,7 +155,7 @@ impl<T: Config> Module<T> {
                 })
                 .collect();
             RpcDidRecords::Success {
-                primary_key: record.primary_key,
+                primary_key: record.primary_key.unwrap_or_else(types::zero_account_id),
                 secondary_keys,
             }
         } else {

@@ -12,6 +12,10 @@ pub type Error = Vec<u8>;
 pub type CddStatus = Result<IdentityId, Error>;
 pub type AssetDidResult = Result<IdentityId, Error>;
 
+pub fn zero_account_id<AccountId: Decode>() -> AccountId {
+    AccountId::decode(&mut vec![0u8; 32].as_slice()).expect("Zero account id")
+}
+
 /// A result of execution of get_votes.
 #[derive(Eq, PartialEq, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
@@ -19,7 +23,7 @@ pub type AssetDidResult = Result<IdentityId, Error>;
 pub enum RpcDidRecords<AccountId> {
     /// Id was found and has the following primary key and secondary keys.
     Success {
-        primary_key: Option<AccountId>,
+        primary_key: AccountId,
         secondary_keys: Vec<SecondaryKey<AccountId>>,
     },
     /// Error.
@@ -55,7 +59,7 @@ pub mod v1 {
     pub enum RpcDidRecords<AccountId> {
         /// Id was found and has the following primary key and secondary keys.
         Success {
-            primary_key: Option<AccountId>,
+            primary_key: AccountId,
             secondary_keys: Vec<v1::SecondaryKey<AccountId>>,
         },
         /// Error.
