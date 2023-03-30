@@ -4,8 +4,7 @@ use super::{
     ExtBuilder,
 };
 
-use codec::Decode;
-use polymesh_primitives::{AccountId, Beneficiary, IdentityId};
+use polymesh_primitives::{Beneficiary, IdentityId};
 use sp_runtime::DispatchError;
 use test_client::AccountKeyring;
 
