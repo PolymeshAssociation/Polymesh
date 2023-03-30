@@ -98,7 +98,7 @@ fn bad_disbursement_did() {
 fn bad_disbursement_did_we() {
     let alice = User::new(AccountKeyring::Alice);
     let bob = User::new(AccountKeyring::Bob);
-    let default_key = AccountId::decode(&mut vec![0u8; 32].as_slice()).expect("Zero account");
+    let default_key = pallet_identity::types::zero_account_id();
 
     let total_issuance = Balances::total_issuance();
     let treasury_balance = 10_000;
