@@ -930,7 +930,7 @@ pub fn provide_scope_claim(
     assert_ok!(add_investor_uniqueness_claim(
         claim_to, scope, scope_id, cdd_id, proof
     ));
-    (scope_id, cdd_id)
+    (claim_to.into(), cdd_id)
 }
 
 pub fn add_investor_uniqueness_claim(
@@ -940,6 +940,9 @@ pub fn add_investor_uniqueness_claim(
     cdd_id: CddId,
     proof: InvestorZKProofData,
 ) -> DispatchResult {
+    if Asset::disable_iu(scope) {
+        return Ok(());
+    }
     let signed_claim_to = RuntimeOrigin::signed(get_primary_key(claim_to));
 
     // Provide the InvestorUniqueness.

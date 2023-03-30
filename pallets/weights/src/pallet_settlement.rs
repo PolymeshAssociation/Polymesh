@@ -338,12 +338,13 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     }
     // Storage: Settlement InstructionAffirmsPending (r:1 w:1)
     // Storage: Settlement InstructionDetails (r:1 w:1)
-    // Storage: Settlement InstructionLegs (r:1 w:0)
-    // Storage: Settlement VenueInstructions (r:0 w:1)
-    // Storage: Settlement VenueFiltering (r:1 w:0)
-    // Storage: Settlement InstructionLegStatus (r:1 w:1)
+    // Storage: Settlement InstructionStatuses (r:1 w:1)
+    // Storage: Settlement InstructionLegsV2 (r:102 w:101)
+    // Storage: Settlement VenueFiltering (r:101 w:0)
+    // Storage: Settlement InstructionLegStatus (r:101 w:101)
     // Storage: Portfolio PortfolioLockedAssets (r:1 w:1)
-    // Storage: Asset Frozen (r:1 w:0)
+    // Storage: Portfolio PortfolioLockedNFT (r:100 w:100)
+    // Storage: Asset Frozen (r:101 w:0)
     // Storage: Asset DisableInvestorUniqueness (r:1 w:0)
     // Storage: Timestamp Now (r:1 w:0)
     // Storage: Identity Claims (r:52 w:0)
@@ -355,25 +356,34 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: Statistics AssetTransferCompliances (r:1 w:0)
     // Storage: Statistics AssetStats (r:1 w:1)
     // Storage: Statistics TransferConditionExemptEntities (r:1 w:0)
-    // Storage: ComplianceManager AssetCompliances (r:1 w:0)
+    // Storage: ComplianceManager AssetCompliances (r:101 w:0)
     // Storage: Asset BalanceOf (r:2 w:2)
     // Storage: Checkpoint Schedules (r:1 w:0)
     // Storage: Checkpoint CheckpointIdSequence (r:1 w:0)
     // Storage: Portfolio PortfolioAssetCount (r:2 w:2)
     // Storage: Statistics ActiveAssetStats (r:1 w:0)
+    // Storage: NFT CollectionTicker (r:100 w:0)
+    // Storage: NFT NumberOfNFTs (r:200 w:200)
+    // Storage: Portfolio PortfolioNFT (r:100 w:200)
     // Storage: Settlement UserAffirmations (r:0 w:2)
+    // Storage: Settlement VenueInstructions (r:0 w:1)
     // Storage: Settlement AffirmsReceived (r:0 w:2)
     // Storage: Asset BalanceOfAtScope (r:0 w:2)
-    /// The range of component `l` is `[0, 10]`.
-    fn execute_scheduled_instruction(l: u32) -> Weight {
-        // Minimum execution time: 49_561 nanoseconds.
-        Weight::from_ref_time(169_535_200)
-            // Standard Error: 1_232_382
-            .saturating_add(Weight::from_ref_time(405_339_852).saturating_mul(l.into()))
-            .saturating_add(DbWeight::get().reads(36))
-            .saturating_add(DbWeight::get().reads((31_u64).saturating_mul(l.into())))
-            .saturating_add(DbWeight::get().writes(4))
-            .saturating_add(DbWeight::get().writes((16_u64).saturating_mul(l.into())))
+    /// The range of component `f` is `[1, 10]`.
+    /// The range of component `n` is `[1, 100]`.
+    fn execute_scheduled_instruction(f: u32, n: u32) -> Weight {
+        // Minimum execution time: 5_781_471 nanoseconds.
+        Weight::from_ref_time(311_175_455)
+            // Standard Error: 5_194_608
+            .saturating_add(Weight::from_ref_time(505_702_752).saturating_mul(f.into()))
+            // Standard Error: 488_125
+            .saturating_add(Weight::from_ref_time(399_295_432).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(59))
+            .saturating_add(DbWeight::get().reads((24_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().reads((10_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes(12))
+            .saturating_add(DbWeight::get().writes((10_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().writes((7_u64).saturating_mul(n.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Settlement InstructionDetails (r:1 w:1)
