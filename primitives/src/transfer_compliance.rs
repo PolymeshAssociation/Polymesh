@@ -16,10 +16,10 @@
 use crate::statistics::{v1, AssetScope, Percentage, StatClaim, StatOpType, StatType};
 use crate::{ClaimType, IdentityId};
 use codec::{Decode, Encode};
+use frame_support::{pallet_prelude::Get, BoundedBTreeSet};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_runtime::{Deserialize, Serialize};
-use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
 
 /// Transfer condition.
@@ -122,22 +122,24 @@ pub struct TransferConditionExemptKey {
 }
 
 /// List of transfer compliance requirements associated to an asset.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Decode, Encode, TypeInfo)]
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct AssetTransferCompliance {
+#[derive(Clone, PartialEq, Eq)]
+#[scale_info(skip_type_params(S))]
+pub struct AssetTransferCompliance<S: Get<u32>> {
     /// This flag indicates if asset transfer compliance should be enforced.
     pub paused: bool,
     /// List of transfer compliance requirements.
-    pub requirements: BTreeSet<TransferCondition>,
+    pub requirements: BoundedBTreeSet<TransferCondition, S>,
 }
 
-impl AssetTransferCompliance {
-    /// Get list of StatTypes from the transfer conditions.
-    pub fn get_stat_types(&self) -> Vec<StatType> {
-        self.requirements
-            .iter()
-            .map(|cond| cond.get_stat_type())
-            .collect()
+impl<S> Default for AssetTransferCompliance<S>
+where
+    S: Get<u32>,
+{
+    fn default() -> Self {
+        Self {
+            paused: Default::default(),
+            requirements: Default::default(),
+        }
     }
 }

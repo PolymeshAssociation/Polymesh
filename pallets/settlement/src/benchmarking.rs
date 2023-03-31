@@ -13,35 +13,34 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::*;
-
 pub use frame_benchmarking::{account, benchmarks};
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
-use pallet_identity as identity;
-use pallet_nft::benchmarking::create_collection_issue_nfts;
-use pallet_portfolio::PortfolioAssetBalances;
-use polymesh_common_utilities::{
-    benchs::{make_asset, user, AccountIdOf, User, UserBuilder},
-    constants::currency::{ONE_UNIT, POLY},
-    constants::ENSURED_MAX_LEN,
-    traits::asset::AssetFnTrait,
-    TestUtilsFn,
-};
-use polymesh_primitives::{
-    asset::NonFungibleType,
-    checked_inc::CheckedInc,
-    statistics::{Stat2ndKey, StatType, StatUpdate},
-    transfer_compliance::{TransferCondition, TransferConditionExemptKey},
-    Claim, Condition, ConditionType, CountryCode, IdentityId, NFTId, PortfolioId, PortfolioKind,
-    PortfolioName, PortfolioNumber, Scope, Ticker, TrustedIssuer,
-};
+use scale_info::prelude::format;
+use sp_core::sr25519::Signature;
+use sp_runtime::MultiSignature;
 use sp_runtime::SaturatedConversion;
 use sp_std::convert::TryInto;
 use sp_std::prelude::*;
 
-use sp_core::sr25519::Signature;
-use sp_runtime::MultiSignature;
+use pallet_identity as identity;
+use pallet_nft::benchmarking::create_collection_issue_nfts;
+use pallet_portfolio::PortfolioAssetBalances;
+use polymesh_common_utilities::asset::AssetFnTrait;
+use polymesh_common_utilities::benchs::{make_asset, user, AccountIdOf, User, UserBuilder};
+use polymesh_common_utilities::constants::currency::{ONE_UNIT, POLY};
+use polymesh_common_utilities::constants::ENSURED_MAX_LEN;
+use polymesh_common_utilities::TestUtilsFn;
+use polymesh_primitives::asset::NonFungibleType;
+use polymesh_primitives::checked_inc::CheckedInc;
+use polymesh_primitives::statistics::{Stat2ndKey, StatType, StatUpdate};
+use polymesh_primitives::transfer_compliance::{TransferCondition, TransferConditionExemptKey};
+use polymesh_primitives::{
+    Claim, Condition, ConditionType, CountryCode, IdentityId, NFTId, PortfolioId, PortfolioKind,
+    PortfolioName, PortfolioNumber, Scope, Ticker, TrustedIssuer,
+};
+
+use crate::*;
 
 const MAX_VENUE_DETAILS_LENGTH: u32 = ENSURED_MAX_LEN;
 const MAX_SIGNERS_ALLOWED: u32 = 50;
@@ -922,7 +921,7 @@ benchmarks! {
         let portfolio_id = (l - 1) as usize;
     }: _(origin, instruction_id, portfolios[portfolio_id], l)
     verify {
-        assert_eq!(Module::<T>::instruction_details(instruction_id).status, InstructionStatus::Unknown, "Settlement: Failed to reject instruction");
+        assert_eq!(Module::<T>::instruction_status(instruction_id), InstructionStatus::Rejected(frame_system::Pallet::<T>::block_number()));
     }
 
 
@@ -970,49 +969,6 @@ benchmarks! {
         assert!(Module::<T>::receipts_used(&signer.account(), 0), "Settlement: change_receipt_validity didn't work");
     }
 
-    execute_scheduled_instruction {
-        // This dispatch execute an instruction.
-        //
-        // Worst case scenarios.
-        // 1. Create maximum legs and both traded assets are different assets/securities.
-        // 2. Assets have maximum compliance restriction complexity.
-        // 3. Assets have maximum no. of TMs.
-
-        let l in 0 .. T::MaxNumberOfFungibleAssets::get() as u32;
-        let c = T::MaxConditionComplexity::get() as u32;
-
-        // Setup affirm instruction (One party (i.e from) already affirms the instruction)
-        let (portfolios_to, from, to, tickers, legs) = setup_affirm_instruction::<T>(l);
-        // Keep the portfolio asset balance before the instruction execution to verify it later.
-        let legs_count: u32 = legs.len().try_into().unwrap();
-        let first_leg = legs.into_iter().nth(0).unwrap_or_default();
-        let before_transfer_balance = PortfolioAssetBalances::get(first_leg.from, first_leg.asset);
-        // It always be one as no other instruction is already scheduled.
-        let instruction_id = InstructionId(1);
-        let origin = RawOrigin::Root;
-        let from_origin = RawOrigin::Signed(from.account.clone());
-        let to_origin = RawOrigin::Signed(to.account.clone());
-        // Do another affirmations that lead to scheduling an instruction.
-        Module::<T>::affirm_instruction((to_origin.clone()).into(), instruction_id, portfolios_to, (legs_count / 2).into()).expect("Settlement: Failed to affirm instruction");
-        // Create trusted issuer for both the ticker
-        let t_issuer = UserBuilder::<T>::default().generate_did().build("TrustedClaimIssuer");
-        let trusted_issuer = TrustedIssuer::from(t_issuer.did());
-
-        // Need to provide the Investor uniqueness claim for both sender and receiver,
-        // for both assets also add the compliance rules as per the `MaxConditionComplexity`.
-        for ticker in tickers {
-            compliance_setup::<T>(c, ticker, from_origin.clone(), from.did, to.did, trusted_issuer.clone());
-            add_transfer_conditions::<T>(ticker, from_origin.clone(), from.did, MAX_CONDITIONS);
-        }
-    }: _(origin, instruction_id, l)
-    verify {
-        // Assert that any one leg processed through that give sufficient evidence of successful execution of instruction.
-        let after_transfer_balance = PortfolioAssetBalances::get(first_leg.from, first_leg.asset);
-        let traded_amount = before_transfer_balance - after_transfer_balance;
-        let expected_transfer_amount = first_leg.amount;
-        assert_eq!(traded_amount, expected_transfer_amount,"Settlement: Failed to execute the instruction");
-    }
-
     reschedule_instruction {
         let l = T::MaxNumberOfFungibleAssets::get() as u32;
 
@@ -1023,13 +979,13 @@ benchmarks! {
         tickers.iter().for_each(|ticker| Asset::<T>::freeze(RawOrigin::Signed(from.account.clone()).into(), *ticker).unwrap());
         Module::<T>::affirm_instruction(RawOrigin::Signed(to.account.clone()).into(), instruction_id, to_portfolios, l).unwrap();
         next_block::<T>();
-        assert_eq!(Module::<T>::instruction_details(instruction_id).status, InstructionStatus::Failed);
+        assert_eq!(Module::<T>::instruction_status(instruction_id), InstructionStatus::Failed);
         tickers.iter().for_each(|ticker| Asset::<T>::unfreeze(RawOrigin::Signed(from.account.clone()).into(), *ticker).unwrap());
     }: _(RawOrigin::Signed(to.account), instruction_id)
     verify {
-        assert_eq!(Module::<T>::instruction_details(instruction_id).status, InstructionStatus::Pending, "Settlement: reschedule_instruction didn't work");
+        assert_eq!(Module::<T>::instruction_status(instruction_id), InstructionStatus::Pending, "Settlement: reschedule_instruction didn't work");
         next_block::<T>();
-        assert_eq!(Module::<T>::instruction_details(instruction_id).status, InstructionStatus::Failed, "Settlement: reschedule_instruction didn't work");
+        assert_eq!(Module::<T>::instruction_status(instruction_id), InstructionStatus::Failed, "Settlement: reschedule_instruction didn't work");
     }
 
     add_instruction_with_memo_and_settle_on_block_type {
@@ -1161,6 +1117,32 @@ benchmarks! {
             parameters.memo
         ).expect("failed to add instruction");
     }: _(parameters.sender.origin, InstructionId(1), parameters.sender_portfolios[0], f, n)
+
+    execute_scheduled_instruction {
+        let f in 1..T::MaxNumberOfFungibleAssets::get() as u32;
+        let n in 1..T::MaxNumberOfNFTs::get() as u32;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+
+        // Creates `f` assets and sets the worst case for scenario for their compliance,
+        // transfer conditions and active statistics
+        //for idx in f {
+        //    let ticker: Ticker = Ticker::from_slice_truncated(sp_std::fmt!("TICKER{}", idx).as_ref());
+        //    let (sender_portfolio, receiver_portfolio) = setup_asset_transfer::<T>(&alice, &bob, ticker, x, y, z);
+        //}
+
+        // Creates `n` NFT collections, mints one nft for each collection and sets the worst case for scenario
+        // for their compliance, transfer conditions and active statistics
+        //for idx in n {
+        //    let ticker: Ticker = Ticker::from_slice_truncated(sp_std::fmt!("NFTTICKER{}", idx).as_ref());
+        //    let (sender_portfolio, receiver_portfolio) = setup_asset_transfer::<T>(&alice, &bob, ticker, x, y, z);
+        //}
+
+
+
+    }: execute_scheduled_instruction_v2(RawOrigin::Root, InstructionId(1), f, n)
+
 }
 
 pub fn next_block<T: Config + pallet_scheduler::Config>() {
