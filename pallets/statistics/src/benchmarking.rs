@@ -238,10 +238,9 @@ benchmarks! {
 
     verify_transfer_restrictions {
         // In the worst case, each condition (at most T::MaxTransferConditionsPerAsset) calls `Identity::<T>::fetch_claim' two times
-        // and `AssetStats` one time. The number of calls to `TransferConditionExemptEntities` would be 12
-        // (3 (Accredited, Affiliate, Jurisdiction) * 2 (balance, count) * 2 (from_did, to_did)).
+        // and both `AssetStats` and `TransferConditionExemptEntities` one time.
 
-        let c in 0..T::MaxTransferConditionsPerAsset::get() - 2;
+        let c = T::MaxTransferConditionsPerAsset::get() - 2;
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
@@ -249,7 +248,7 @@ benchmarks! {
         let asset_scope = AssetScope::Ticker(ticker);
 
         make_asset::<T>(&alice, Some(ticker.as_ref()));
-        let statistics_types = statistics_types(T::MaxStatsPerAsset::get() -1);
+        let statistics_types = statistics_types(9);
         Module::<T>::set_active_asset_stats(alice.origin().into(), asset_scope, statistics_types).unwrap();
         let transfer_conditions = transfer_conditions(c, 1);
         set_transfer_exception::<T>(alice.origin().into(), ticker, bob.did());

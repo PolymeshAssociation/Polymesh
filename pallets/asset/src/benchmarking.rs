@@ -198,7 +198,9 @@ fn setup_create_asset<T: Config + TestUtilsFn<<T as frame_system::Config>::Accou
     (owner.origin, name, ticker, token, identifiers, fundr)
 }
 
-/// Creates an asset, adds a compliance rule, transfer restrictions and active statitics for `ticker`.
+/// Creates an asset for `ticker`, adds a compliance rule that will require `compliance_identity_fetch_calls` reads to the
+/// `Claim` storage, adds transfer restrictions containing `n_ownership_conditions` that will require three reads for each
+/// condition, and sets `n_active_statistics` active statitics that will trigger four reads and two writes for each statistic.
 /// Returns the sender and receiver portfolio.
 pub fn setup_asset_transfer<T>(
     sender: &User<T>,
@@ -207,6 +209,8 @@ pub fn setup_asset_transfer<T>(
     compliance_identity_fetch_calls: u32,
     n_ownership_conditions: u32,
     n_active_statistics: u32,
+    sender_portfolio_name: Option<&str>,
+    receiver_portolfio_name: Option<&str>,
 ) -> (PortfolioId, PortfolioId)
 where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
@@ -216,8 +220,10 @@ where
         .build("TrustedUser");
     let trusted_issuer = TrustedIssuer::from(trusted_user.did());
     let asset_scope = AssetScope::Ticker(ticker);
-    let sender_portfolio = create_portfolio::<T>(sender, "SenderPortfolio");
-    let receiver_portfolio = create_portfolio::<T>(receiver, "ReceiverPortfolio");
+    let sender_portfolio =
+        create_portfolio::<T>(sender, sender_portfolio_name.unwrap_or("SenderPortfolio"));
+    let receiver_portfolio =
+        create_portfolio::<T>(receiver, receiver_portolfio_name.unwrap_or("RcvPortfolio"));
 
     // creates the asset and enable asset uniqueness
     make_asset::<T>(sender, Some(ticker.as_ref()));
@@ -271,7 +277,7 @@ where
 }
 
 /// Creates a user portfolio for `user`.
-fn create_portfolio<T: Config>(user: &User<T>, portofolio_name: &str) -> PortfolioId {
+pub fn create_portfolio<T: Config>(user: &User<T>, portofolio_name: &str) -> PortfolioId {
     let portfolio_number = Portfolio::<T>::next_portfolio_number(user.did()).0;
 
     Portfolio::<T>::create_portfolio(
@@ -713,7 +719,7 @@ benchmarks! {
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
 
         let (sender_portfolio, receiver_portfolio) =
-            setup_asset_transfer::<T>(&alice, &bob, ticker, i, c, s);
+            setup_asset_transfer::<T>(&alice, &bob, ticker, i, c, s, None, None);
     }: {
         Module::<T>::base_transfer(sender_portfolio, receiver_portfolio, &ticker, ONE_UNIT).unwrap();
     }

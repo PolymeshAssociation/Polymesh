@@ -4,7 +4,8 @@ use scale_info::prelude::format;
 use sp_std::prelude::*;
 use sp_std::vec::Vec;
 
-use polymesh_common_utilities::benchs::{user, AccountIdOf, UserBuilder};
+use pallet_asset::benchmarking::create_portfolio;
+use polymesh_common_utilities::benchs::{user, AccountIdOf, User, UserBuilder};
 use polymesh_common_utilities::traits::asset::AssetFnTrait;
 use polymesh_common_utilities::traits::compliance_manager::ComplianceFnConfig;
 use polymesh_common_utilities::{with_transaction, TestUtilsFn};
@@ -78,6 +79,56 @@ pub fn create_collection_issue_nfts<T: Config>(
         )
         .expect("failed to mint nft");
     }
+}
+
+/// Creates one NFT collection for `ticker`, mints `n_nfts` for that collection and adds a compliance rule
+/// that will require `trusted_claims_calls`, `id_fetch_claim_calls` and `external_agents_calls`
+/// reads to the `TrustedClaimIssuer`, `Claims` and `GroupOfAgent` storage, respectively.
+pub fn setup_nft_transfer<T>(
+    sender: &User<T>,
+    receiver: &User<T>,
+    ticker: Ticker,
+    n_nfts: u32,
+    trusted_claims_calls: u32,
+    id_fetch_claim_calls: u32,
+    external_agents_calls: u32,
+    sender_portfolio_name: Option<&str>,
+    receiver_portolfio_name: Option<&str>,
+) -> (PortfolioId, PortfolioId)
+where
+    T: Config + TestUtilsFn<AccountIdOf<T>>,
+{
+    let trusted_user = UserBuilder::<T>::default()
+        .generate_did()
+        .build("TrustedUser");
+    let trusted_issuer = TrustedIssuer::from(trusted_user.did());
+    let sender_portfolio =
+        create_portfolio::<T>(sender, sender_portfolio_name.unwrap_or("SenderPortfolio"));
+    let receiver_portfolio =
+        create_portfolio::<T>(receiver, receiver_portolfio_name.unwrap_or("RcvPortfolio"));
+
+    create_collection_issue_nfts::<T>(
+        sender.origin().into(),
+        ticker,
+        Some(NonFungibleType::Derivative),
+        0,
+        n_nfts,
+        sender_portfolio.kind,
+    );
+
+    T::Compliance::setup_ticker_compliance(
+        sender.origin().into(),
+        sender.did(),
+        ticker,
+        trusted_issuer,
+        receiver.did(),
+        receiver.origin().into(),
+        trusted_claims_calls,
+        id_fetch_claim_calls,
+        external_agents_calls,
+    );
+
+    (sender_portfolio, receiver_portfolio)
 }
 
 benchmarks! {
@@ -169,37 +220,8 @@ benchmarks! {
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let nft_type: Option<NonFungibleType> = Some(NonFungibleType::Derivative);
 
-        // Creates a collection for `ticker` and mints `n` NFTs
-        create_collection_issue_nfts::<T>(
-            alice.origin().into(),
-            ticker,
-            nft_type,
-            0,
-            n,
-            PortfolioKind::Default,
-        );
-        // Adds the compliance rule for allowing transferring the asset
-        T::Compliance::setup_ticker_compliance(
-            alice.origin().into(),
-            alice.did(),
-            ticker,
-            trusted_issuer,
-            bob.did(),
-            bob.origin().into(),
-            t,
-            i,
-            e
-        );
-
-        // Base parameters for calling the function
-        let sender_portfolio = PortfolioId {
-            did: alice.did(),
-            kind: PortfolioKind::Default,
-        };
-        let receiver_portfolio = PortfolioId {
-            did: bob.did(),
-            kind: PortfolioKind::Default,
-        };
+        let (sender_portfolio, receiver_portfolio) =
+            setup_nft_transfer::<T>(&alice, &bob, ticker, n, t, i, e, None, None);
         let nfts = NFTs::new_unverified(ticker, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
     }: {
         with_transaction(|| {
