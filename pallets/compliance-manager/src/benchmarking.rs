@@ -14,6 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use frame_benchmarking::benchmarks;
+use scale_info::prelude::format;
 use sp_std::convert::TryFrom;
 
 use pallet_asset::SecurityToken;
@@ -22,7 +23,8 @@ use polymesh_common_utilities::benchs::{setup_compliance, AccountIdOf, User, Use
 use polymesh_common_utilities::{identity::Config as IdentityConfig, TestUtilsFn};
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::{
-    asset::AssetType, AuthorizationData, ClaimType, CountryCode, Scope, TrustedFor, TrustedIssuer,
+    asset::AssetType, AuthorizationData, ClaimType, CountryCode, Scope, TargetIdentity, TrustedFor,
+    TrustedIssuer,
 };
 
 use crate::*;
@@ -316,6 +318,66 @@ fn add_external_agent<T>(
         .unwrap();
 }
 
+fn setup_is_condition_satisfied<T>(
+    sender: &User<T>,
+    ticker: Ticker,
+    n_claims: u32,
+    n_issuers: u32,
+    read_trusted_issuers_storage: bool,
+    receiver: &User<T>,
+) -> Condition
+where
+    T: Config + TestUtilsFn<AccountIdOf<T>>,
+{
+    if n_claims == 0 {
+        add_external_agent::<T>(
+            ticker,
+            sender.did(),
+            receiver.did(),
+            receiver.origin().into(),
+        );
+        return Condition::new(
+            ConditionType::IsIdentity(TargetIdentity::ExternalAgent),
+            Vec::new(),
+        );
+    }
+
+    let claims: Vec<Claim> = (0..n_claims)
+        .map(|i| Claim::Jurisdiction(CountryCode::BR, Scope::Custom(vec![i as u8])))
+        .collect();
+
+    let trusted_issuers: Vec<TrustedIssuer> = (0..n_issuers)
+        .map(|i| {
+            let trusted_user = UserBuilder::<T>::default()
+                .generate_did()
+                .build(&format!("TrustedIssuer{}", i));
+            TrustedIssuer::from(trusted_user.did())
+        })
+        .collect();
+
+    // Adds claims for the identity
+    (0..n_issuers).for_each(|i| {
+        let claim: Claim = Claim::Jurisdiction(CountryCode::US, Scope::Custom(vec![i as u8]));
+        add_identity_claim::<T>(sender.did(), claim, trusted_issuers[i as usize].issuer);
+    });
+
+    if read_trusted_issuers_storage {
+        // Adds all trusted issuers as the default for the ticker
+        trusted_issuers.into_iter().for_each(|trusted_issuer| {
+            T::ComplianceFn::add_default_trusted_claim_issuer(
+                sender.origin().into(),
+                ticker,
+                trusted_issuer,
+            )
+            .unwrap();
+        });
+        let condition = Condition::new(ConditionType::IsNoneOf(claims), Vec::new());
+        return condition;
+    }
+
+    Condition::new(ConditionType::IsNoneOf(claims), trusted_issuers)
+}
+
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
@@ -530,5 +592,23 @@ benchmarks! {
         );
     }: {
         Module::<T>::verify_restriction(&ticker, Some(alice.did()), Some(bob.did()), 0).unwrap();
+    }
+
+    is_condition_satisfied {
+        // Number of claims
+        let c in 0..T::MaxConditionComplexity::get();
+        // Number of trusted issuers
+        let i in 0..T::MaxConditionComplexity::get();
+        // If `TrustedClaimIssuer` should be read
+        let t in 0..1;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+
+        make_token::<T>(&alice, ticker.as_ref().to_vec());
+        let condition = setup_is_condition_satisfied::<T>(&alice, ticker, c, i, t == 1, &bob);
+    }: {
+        assert!(Module::<T>::is_condition_satisfied(&ticker, alice.did(), &condition, &mut None));
     }
 }
