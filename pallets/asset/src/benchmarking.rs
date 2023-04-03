@@ -248,7 +248,7 @@ where
     let statistics_types = statistics_types(n_active_statistics);
     Statistics::<T>::set_active_asset_stats(sender.origin().into(), asset_scope, statistics_types)
         .unwrap();
-    let transfer_conditions = transfer_conditions(n_ownership_conditions, 1);
+    let transfer_conditions = transfer_conditions(n_ownership_conditions, true);
     set_transfer_exception::<T>(sender.origin().into(), ticker, receiver.did());
     Statistics::<T>::set_asset_transfer_compliance(
         sender.origin().into(),
@@ -258,14 +258,7 @@ where
     .unwrap();
 
     // Adds identity claims
-    for idx in 0..n_ownership_conditions {
-        add_identity_claim::<T>(
-            sender.did(),
-            Claim::Accredited(Scope::Ticker(ticker)),
-            IdentityId::from(idx as u128),
-        );
-    }
-    for idx in 10..n_active_statistics {
+    for idx in 0..n_active_statistics {
         add_identity_claim::<T>(
             sender.did(),
             Claim::Accredited(Scope::Ticker(ticker)),
@@ -704,22 +697,22 @@ benchmarks! {
 
     base_transfer {
         // For the worst case, investor uniqueness is enabled and the portfolios are not the
-        // the default ones. The complexity of the transfer depends on the complexity of the transfer
-        // restrictions, the complexity of the compliance rules, and the number of statistics to be updated.
+        // the default ones. The complexity of the transfer depends on the complexity of the compliance rules
+        // and the number of statistics to be updated.
+        // Note: Since duplicated reads are not counted and all different transfer restriction require an active
+        // statistic, the number of reads is dependent only on the number of statistics.
 
         // Compliance parameters
-        let i in 2..45;
-        // Transfer restrictions parameters
-        let c in 0..10;
+        let i in 2..48;
         // Update asset statistics parameters
-        let s in 11..20;
+        let s in 0..9;
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
 
         let (sender_portfolio, receiver_portfolio) =
-            setup_asset_transfer::<T>(&alice, &bob, ticker, i, c, s, None, None);
+            setup_asset_transfer::<T>(&alice, &bob, ticker, i, s, s, None, None);
     }: {
         Module::<T>::base_transfer(sender_portfolio, receiver_portfolio, &ticker, ONE_UNIT).unwrap();
     }

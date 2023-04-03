@@ -1121,9 +1121,8 @@ benchmarks! {
     execute_scheduled_instruction {
         let f in 0..T::MaxNumberOfFungibleAssets::get();
         let n in 0..T::MaxNumberOfNFTs::get();
-        let c = 48;
+        let c = 49;
         let s = 9;
-        let t = 3;
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
@@ -1143,7 +1142,7 @@ benchmarks! {
                     &bob,
                     ticker,
                     c,
-                    t,
+                    3,
                     s,
                     Some(&ticker_name),
                     Some(&ticker_name)

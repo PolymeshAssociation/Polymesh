@@ -210,7 +210,7 @@ benchmarks! {
 
         let n in 1..10;
         let t in 0..1;
-        let i in 2..3;
+        let i in 2..49;
         let e in 1..2;
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");

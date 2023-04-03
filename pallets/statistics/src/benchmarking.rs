@@ -120,32 +120,31 @@ pub fn statistics_types(n_issuers: u32) -> BTreeSet<StatType> {
         .collect()
 }
 
-/// Returns a set of `c` `TransferCondition` that will succeed and `t` conditions that will fail.
-pub fn transfer_conditions(c: u32, t: u32) -> BTreeSet<TransferCondition> {
-    let valid_claim_conditions: Vec<TransferCondition> = (0..c)
-        .map(|idx| {
-            TransferCondition::ClaimOwnership(
-                StatClaim::Accredited(true),
-                IdentityId::from(idx as u128),
-                Permill::zero(),
-                Permill::one(),
-            )
-        })
-        .collect();
-
-    let failed_claim_conditions: Vec<TransferCondition> = (0..t)
-        .map(|_| {
-            TransferCondition::ClaimOwnership(
-                StatClaim::Accredited(true),
-                IdentityId::from(0),
-                Permill::one(),
-                Permill::zero(),
-            )
-        })
-        .collect();
-
-    let all_conditions = [valid_claim_conditions, failed_claim_conditions].concat();
-    all_conditions.into_iter().collect()
+/// Returns a set of `c` `TransferCondition` that will either succeed or fail.
+pub fn transfer_conditions(c: u32, trigger_failed_condition: bool) -> BTreeSet<TransferCondition> {
+    if trigger_failed_condition {
+        (0..c)
+            .map(|idx| {
+                TransferCondition::ClaimOwnership(
+                    StatClaim::Accredited(true),
+                    IdentityId::from(idx as u128),
+                    Permill::one(),
+                    Permill::zero(),
+                )
+            })
+            .collect()
+    } else {
+        (0..c)
+            .map(|idx| {
+                TransferCondition::ClaimOwnership(
+                    StatClaim::Accredited(true),
+                    IdentityId::from(idx as u128),
+                    Permill::zero(),
+                    Permill::one(),
+                )
+            })
+            .collect()
+    }
 }
 
 /// Exempts `exempt_user_id` to follow a transfer condition of claim type `Accredited` for `ticker`.
@@ -238,9 +237,10 @@ benchmarks! {
 
     verify_transfer_restrictions {
         // In the worst case, each condition (at most T::MaxTransferConditionsPerAsset) calls `Identity::<T>::fetch_claim' two times
-        // and both `AssetStats` and `TransferConditionExemptEntities` one time.
+        // and `AssetStats` one time.`TransferConditionExemptEntities` is called at most one time, regardless of the number of conditions.
 
-        let c = T::MaxTransferConditionsPerAsset::get() - 2;
+        let c in 0..T::MaxTransferConditionsPerAsset::get() - 2;
+        let x in 0..1;
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
@@ -248,9 +248,9 @@ benchmarks! {
         let asset_scope = AssetScope::Ticker(ticker);
 
         make_asset::<T>(&alice, Some(ticker.as_ref()));
-        let statistics_types = statistics_types(9);
+        let statistics_types = statistics_types(c);
         Module::<T>::set_active_asset_stats(alice.origin().into(), asset_scope, statistics_types).unwrap();
-        let transfer_conditions = transfer_conditions(c, 1);
+        let transfer_conditions = transfer_conditions(c, x == 1);
         set_transfer_exception::<T>(alice.origin().into(), ticker, bob.did());
         Module::<T>::base_set_asset_transfer_compliance(alice.origin().into(), asset_scope, transfer_conditions).unwrap();
 
