@@ -1,4 +1,5 @@
 use frame_benchmarking::benchmarks;
+use frame_support::weights::WeightMeter;
 use frame_system::RawOrigin;
 use scale_info::prelude::format;
 use sp_std::prelude::*;
@@ -223,9 +224,10 @@ benchmarks! {
         let (sender_portfolio, receiver_portfolio) =
             setup_nft_transfer::<T>(&alice, &bob, ticker, n, t, i, e, None, None);
         let nfts = NFTs::new_unverified(ticker, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
+        let mut weight_meter = WeightMeter::max_limit();
     }: {
         with_transaction(|| {
-            Module::<T>::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts)
+            Module::<T>::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts, &mut weight_meter)
         }).unwrap();
     }
 }

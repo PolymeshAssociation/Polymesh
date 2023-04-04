@@ -77,29 +77,25 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use core::result::Result;
-use frame_support::{
-    decl_error, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
-    ensure,
-    traits::Get,
-    weights::Weight,
-};
+use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::traits::Get;
+use frame_support::weights::{Weight, WeightMeter};
+use frame_support::{decl_error, decl_module, decl_storage, ensure};
+use sp_std::{convert::From, prelude::*};
+
 use pallet_base::ensure_length_ok;
+use polymesh_common_utilities::constants::*;
+use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 pub use polymesh_common_utilities::traits::compliance_manager::{
     ComplianceFnConfig, Config, Event, WeightInfo,
 };
-use polymesh_common_utilities::{
-    constants::*,
-    protocol_fee::{ChargeProtocolFee, ProtocolOp},
+use polymesh_primitives::compliance_manager::{
+    AssetCompliance, AssetComplianceResult, ComplianceRequirement, ConditionResult,
 };
 use polymesh_primitives::{
-    compliance_manager::{
-        AssetCompliance, AssetComplianceResult, ComplianceRequirement, ConditionResult,
-    },
     proposition, storage_migration_ver, Balance, Claim, Condition, ConditionType, Context,
-    IdentityId, Ticker, TrustedFor, TrustedIssuer,
+    IdentityId, TargetIdentity, Ticker, TrustedFor, TrustedIssuer,
 };
-use sp_std::{convert::From, prelude::*};
 
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
 type Identity<T> = pallet_identity::Module<T>;
@@ -439,6 +435,7 @@ impl<T: Config> Module<T> {
         ticker: &Ticker,
         slot: &'a mut Option<Vec<TrustedIssuer>>,
         condition: &'a Condition,
+        weight_meter: &mut WeightMeter,
     ) -> proposition::Context<impl 'a + Iterator<Item = Claim>> {
         // Because of `-> impl Iterator`, we need to return a **single type** in each of the branches below.
         // To do this, we use `Either<Either<MatchArm1, MatchArm2>, MatchArm3>`,
@@ -447,16 +444,36 @@ impl<T: Config> Module<T> {
         use either::Either::{Left, Right};
 
         let claims = match &condition.condition_type {
-            ConditionType::IsPresent(claim) | ConditionType::IsAbsent(claim) => Left(Left(
-                Self::fetch_claims(id, claim, Self::issuers_for(ticker, condition, slot)),
-            )),
+            ConditionType::IsPresent(claim) | ConditionType::IsAbsent(claim) => {
+                let trusted_issuers = Self::issuers_for(ticker, condition, slot);
+                // consumes the weight for this condition
+                weight_meter.check_accrue(<T as Config>::WeightInfo::is_condition_satisfied(
+                    trusted_issuers.len() as u32,
+                    condition.issuers.is_empty() as u32,
+                ));
+                Left(Left(Self::fetch_claims(id, claim, trusted_issuers)))
+            }
             ConditionType::IsAnyOf(claims) | ConditionType::IsNoneOf(claims) => {
-                let issuers = Self::issuers_for(ticker, condition, slot);
+                let trusted_issuers = Self::issuers_for(ticker, condition, slot);
+                // consumes the weight for this condition
+                weight_meter.check_accrue(<T as Config>::WeightInfo::is_condition_satisfied(
+                    (trusted_issuers.len() * claims.len()) as u32,
+                    condition.issuers.is_empty() as u32,
+                ));
                 Left(Right(claims.iter().flat_map(move |claim| {
-                    Self::fetch_claims(id, claim, issuers)
+                    Self::fetch_claims(id, claim, trusted_issuers)
                 })))
             }
-            ConditionType::IsIdentity(_) => Right(core::iter::empty()),
+            ConditionType::IsIdentity(TargetIdentity::ExternalAgent) => {
+                // consumes the weight for this condition
+                weight_meter.check_accrue(<T as Config>::WeightInfo::is_identity_condition(1));
+                Right(core::iter::empty())
+            }
+            ConditionType::IsIdentity(TargetIdentity::Specific(_)) => {
+                // consumes the weight for this condition
+                weight_meter.check_accrue(<T as Config>::WeightInfo::is_identity_condition(0));
+                Right(core::iter::empty())
+            }
         };
 
         proposition::Context { claims, id }
@@ -467,11 +484,12 @@ impl<T: Config> Module<T> {
         ticker: &Ticker,
         did: IdentityId,
         conditions: &[Condition],
+        weight_meter: &mut WeightMeter,
     ) -> bool {
         let slot = &mut None;
-        conditions
-            .iter()
-            .all(|condition| Self::is_condition_satisfied(ticker, did, condition, slot))
+        conditions.iter().all(|condition| {
+            Self::is_condition_satisfied(ticker, did, condition, slot, weight_meter)
+        })
     }
 
     /// Checks whether the given condition is satisfied or not.
@@ -480,8 +498,9 @@ impl<T: Config> Module<T> {
         did: IdentityId,
         condition: &Condition,
         slot: &mut Option<Vec<TrustedIssuer>>,
+        weight_meter: &mut WeightMeter,
     ) -> bool {
-        let context = Self::fetch_context(did, ticker, slot, &condition);
+        let context = Self::fetch_context(did, ticker, slot, &condition, weight_meter);
         let any_ea = |ctx: Context<_>| ExternalAgents::<T>::agents(ticker, ctx.id).is_some();
         proposition::run(&condition, context, any_ea)
     }
@@ -494,8 +513,16 @@ impl<T: Config> Module<T> {
         did: IdentityId,
         conditions: &mut [ConditionResult],
     ) -> bool {
+        // TODO: remove this meter
+        let mut weight_meter = WeightMeter::max_limit();
         conditions.iter_mut().fold(true, |overall, res| {
-            res.result = Self::is_condition_satisfied(ticker, did, &res.condition, &mut None);
+            res.result = Self::is_condition_satisfied(
+                ticker,
+                did,
+                &res.condition,
+                &mut None,
+                &mut weight_meter,
+            );
             overall & res.result
         })
     }
@@ -595,6 +622,7 @@ impl<T: Config> ComplianceFnConfig<T::RuntimeOrigin> for Module<T> {
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
         _: Balance,
+        weight_meter: &mut WeightMeter,
     ) -> Result<u8, DispatchError> {
         // Transfer is valid if ALL receiver AND sender conditions of ANY asset conditions are valid.
         let asset_compliance = Self::asset_compliance(ticker);
@@ -604,14 +632,24 @@ impl<T: Config> ComplianceFnConfig<T::RuntimeOrigin> for Module<T> {
 
         for req in asset_compliance.requirements {
             if let Some(from_did) = from_did_opt {
-                if !Self::are_all_conditions_satisfied(ticker, from_did, &req.sender_conditions) {
+                if !Self::are_all_conditions_satisfied(
+                    ticker,
+                    from_did,
+                    &req.sender_conditions,
+                    weight_meter,
+                ) {
                     // Skips checking receiver conditions because sender conditions are not satisfied.
                     continue;
                 }
             }
 
             if let Some(to_did) = to_did_opt {
-                if Self::are_all_conditions_satisfied(ticker, to_did, &req.receiver_conditions) {
+                if Self::are_all_conditions_satisfied(
+                    ticker,
+                    to_did,
+                    &req.receiver_conditions,
+                    weight_meter,
+                ) {
                     // All conditions satisfied, return early
                     return Ok(ERC1400_TRANSFER_SUCCESS);
                 }

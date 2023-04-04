@@ -91,6 +91,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure, fail,
     traits::Get,
+    weights::WeightMeter,
 };
 use frame_system::ensure_root;
 use pallet_base::{
@@ -1362,6 +1363,7 @@ impl<T: Config> Module<T> {
         from_portfolio: PortfolioId,
         to_portfolio: PortfolioId,
         value: Balance,
+        weight_meter: &mut WeightMeter,
     ) -> StdResult<u8, DispatchError> {
         if Self::frozen(ticker) {
             return Ok(ERC1400_TRANSFERS_HALTED);
@@ -1384,6 +1386,7 @@ impl<T: Config> Module<T> {
             Some(from_portfolio.did),
             Some(to_portfolio.did),
             value,
+            weight_meter,
         )
         .unwrap_or(COMPLIANCE_MANAGER_FAILURE);
 
@@ -1702,9 +1705,17 @@ impl<T: Config> Module<T> {
         } else if Self::portfolio_failure(&from_portfolio, &to_portfolio, ticker, value) {
             PORTFOLIO_FAILURE
         } else {
+            // TODO: Remove this
+            let mut weight_meter = WeightMeter::max_limit();
             // Compliance manager & Smart Extension check
-            Self::_is_valid_transfer(&ticker, from_portfolio, to_portfolio, value)
-                .unwrap_or(ERC1400_TRANSFER_FAILURE)
+            Self::_is_valid_transfer(
+                &ticker,
+                from_portfolio,
+                to_portfolio,
+                value,
+                &mut weight_meter,
+            )
+            .unwrap_or(ERC1400_TRANSFER_FAILURE)
         })
     }
 
@@ -1714,6 +1725,7 @@ impl<T: Config> Module<T> {
         to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: Balance,
+        weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         // NB: This function does not check if the sender/receiver have custodian permissions on the portfolios.
         // The custodian permissions must be checked before this function is called.
@@ -1722,7 +1734,7 @@ impl<T: Config> Module<T> {
 
         // Validate the transfer
         let is_transfer_success =
-            Self::_is_valid_transfer(&ticker, from_portfolio, to_portfolio, value)?;
+            Self::_is_valid_transfer(&ticker, from_portfolio, to_portfolio, value, weight_meter)?;
 
         ensure!(
             is_transfer_success == ERC1400_TRANSFER_SUCCESS,

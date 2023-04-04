@@ -72,7 +72,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::Get,
-    weights::Weight,
+    weights::{Weight, WeightMeter},
 };
 use pallet_asset::{self as asset, checkpoint};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
@@ -552,7 +552,9 @@ impl<T: Config> Module<T> {
 
             // Transfer remainder (`gain`) to DID.
             let to = PortfolioId::default_portfolio(holder);
-            <Asset<T>>::base_transfer(dist.from, to, &dist.currency, gain)
+            // TODO: remove this
+            let mut weight_meter = WeightMeter::max_limit();
+            <Asset<T>>::base_transfer(dist.from, to, &dist.currency, gain, &mut weight_meter)
         })?;
 
         // Note that DID was paid.

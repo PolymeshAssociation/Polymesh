@@ -14,6 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use frame_benchmarking::benchmarks;
+use frame_support::weights::WeightMeter;
 use scale_info::prelude::format;
 use sp_std::convert::TryFrom;
 
@@ -324,24 +325,10 @@ fn setup_is_condition_satisfied<T>(
     n_claims: u32,
     n_issuers: u32,
     read_trusted_issuers_storage: bool,
-    receiver: &User<T>,
 ) -> Condition
 where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
 {
-    if n_claims == 0 {
-        add_external_agent::<T>(
-            ticker,
-            sender.did(),
-            receiver.did(),
-            receiver.origin().into(),
-        );
-        return Condition::new(
-            ConditionType::IsIdentity(TargetIdentity::ExternalAgent),
-            Vec::new(),
-        );
-    }
-
     let claims: Vec<Claim> = (0..n_claims)
         .map(|i| Claim::Jurisdiction(CountryCode::BR, Scope::Custom(vec![i as u8])))
         .collect();
@@ -590,15 +577,14 @@ benchmarks! {
             i,
             e
         );
+        let mut weight_meter = WeightMeter::max_limit();
     }: {
-        Module::<T>::verify_restriction(&ticker, Some(alice.did()), Some(bob.did()), 0).unwrap();
+        Module::<T>::verify_restriction(&ticker, Some(alice.did()), Some(bob.did()), 0, &mut weight_meter).unwrap();
     }
 
     is_condition_satisfied {
-        // Number of claims
-        let c in 0..T::MaxConditionComplexity::get();
-        // Number of trusted issuers
-        let i in 0..T::MaxConditionComplexity::get();
+        // Number of claims * issuers
+        let c in 1..400;
         // If `TrustedClaimIssuer` should be read
         let t in 0..1;
 
@@ -607,8 +593,35 @@ benchmarks! {
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
 
         make_token::<T>(&alice, ticker.as_ref().to_vec());
-        let condition = setup_is_condition_satisfied::<T>(&alice, ticker, c, i, t == 1, &bob);
+        let condition = setup_is_condition_satisfied::<T>(&alice, ticker, 1, c, t == 1);
+        let mut weight_meter = WeightMeter::max_limit();
     }: {
-        assert!(Module::<T>::is_condition_satisfied(&ticker, alice.did(), &condition, &mut None));
+        assert!(Module::<T>::is_condition_satisfied(&ticker, alice.did(), &condition, &mut None, &mut weight_meter));
+    }
+
+    is_identity_condition {
+        // If `ExternalAgents::<T>::agents` should be read
+        let e in 0..1;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let mut weight_meter = WeightMeter::max_limit();
+
+        make_token::<T>(&alice, ticker.as_ref().to_vec());
+        let condition = if e == 1 {
+            add_external_agent::<T>(ticker, alice.did(), bob.did(), bob.origin().into());
+            Condition::new(
+                ConditionType::IsIdentity(TargetIdentity::ExternalAgent),
+                Vec::new(),
+            )
+        } else {
+            Condition::new(
+                ConditionType::IsIdentity(TargetIdentity::Specific(alice.did())),
+                Vec::new(),
+            )
+        };
+    }: {
+        assert!(Module::<T>::is_condition_satisfied(&ticker, alice.did(), &condition, &mut None, &mut weight_meter));
     }
 }

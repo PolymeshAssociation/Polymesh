@@ -59,7 +59,7 @@ use frame_support::{
         schedule::{DispatchTime, Named as ScheduleNamed},
         Get,
     },
-    weights::Weight,
+    weights::{Weight, WeightMeter},
     IterableStorageDoubleMap,
 };
 use frame_system::{ensure_root, RawOrigin};
@@ -1622,6 +1622,13 @@ impl<T: Config> Module<T> {
     }
 
     fn execute_instruction(instruction_id: InstructionId) -> Result<u32, DispatchError> {
+        // Tracks the actual consumed weight for the execution
+        let mut weight_meter =
+            WeightMeter::from_limit(<T as Config>::WeightInfo::execute_scheduled_instruction(
+                T::MaxNumberOfFungibleAssets::get(),
+                T::MaxNumberOfNFTs::get(),
+            ));
+
         // Verifies that there are no pending affirmations for the given instruction
         ensure!(
             Self::instruction_affirms_pending(instruction_id) == 0,
@@ -1662,7 +1669,11 @@ impl<T: Config> Module<T> {
         }
 
         match frame_storage_with_transaction(|| {
-            Self::release_asset_locks_and_transfer_pending_legs(instruction_id, &instruction_legs)
+            Self::release_asset_locks_and_transfer_pending_legs(
+                instruction_id,
+                &instruction_legs,
+                &mut weight_meter,
+            )
         })? {
             Ok(_) => {
                 Self::deposit_event(RawEvent::InstructionExecuted(
@@ -1692,18 +1703,29 @@ impl<T: Config> Module<T> {
     fn release_asset_locks_and_transfer_pending_legs(
         instruction_id: InstructionId,
         instruction_legs: &[(LegId, LegV2)],
+        weight_meter: &mut WeightMeter,
     ) -> TransactionOutcome<Result<Result<(), LegId>, DispatchError>> {
         Self::unchecked_release_locks(instruction_id, instruction_legs);
         for (leg_id, leg) in instruction_legs {
             if Self::instruction_leg_status(instruction_id, leg_id) == LegStatus::ExecutionPending {
                 match &leg.asset {
                     LegAsset::Fungible { ticker, amount } => {
-                        if <Asset<T>>::base_transfer(leg.from, leg.to, &ticker, *amount).is_err() {
+                        if <Asset<T>>::base_transfer(
+                            leg.from,
+                            leg.to,
+                            &ticker,
+                            *amount,
+                            weight_meter,
+                        )
+                        .is_err()
+                        {
                             return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
                         }
                     }
                     LegAsset::NonFungible(nfts) => {
-                        if <Nft<T>>::base_nft_transfer(&leg.from, &leg.to, &nfts).is_err() {
+                        if <Nft<T>>::base_nft_transfer(&leg.from, &leg.to, &nfts, weight_meter)
+                            .is_err()
+                        {
                             return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
                         }
                     }

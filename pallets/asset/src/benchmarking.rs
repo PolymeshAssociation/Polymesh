@@ -14,6 +14,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use frame_benchmarking::benchmarks;
+use frame_support::weights::WeightMeter;
 use frame_support::StorageValue;
 use frame_system::RawOrigin;
 use sp_io::hashing::keccak_256;
@@ -713,7 +714,8 @@ benchmarks! {
 
         let (sender_portfolio, receiver_portfolio) =
             setup_asset_transfer::<T>(&alice, &bob, ticker, i, s, s, None, None);
+        let mut weight_meter = WeightMeter::max_limit();
     }: {
-        Module::<T>::base_transfer(sender_portfolio, receiver_portfolio, &ticker, ONE_UNIT).unwrap();
+        Module::<T>::base_transfer(sender_portfolio, receiver_portfolio, &ticker, ONE_UNIT, &mut weight_meter).unwrap();
     }
 }

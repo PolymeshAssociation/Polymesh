@@ -20,7 +20,7 @@ use core::result::Result;
 use frame_support::decl_event;
 use frame_support::dispatch::DispatchError;
 use frame_support::traits::Get;
-use frame_support::weights::Weight;
+use frame_support::weights::{Weight, WeightMeter};
 use sp_std::prelude::*;
 
 use polymesh_primitives::compliance_manager::{AssetComplianceResult, ComplianceRequirement};
@@ -90,6 +90,7 @@ pub trait ComplianceFnConfig<Origin> {
         from_id: Option<IdentityId>,
         to_id: Option<IdentityId>,
         _value: Balance,
+        weight_meter: &mut WeightMeter,
     ) -> Result<u8, DispatchError>;
 
     fn verify_restriction_granular(
@@ -175,4 +176,7 @@ pub trait WeightInfo {
             claim_types,
         ))
     }
+
+    fn is_condition_satisfied(c: u32, t: u32) -> Weight;
+    fn is_identity_condition(e: u32) -> Weight;
 }
