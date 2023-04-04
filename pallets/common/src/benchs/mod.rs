@@ -16,9 +16,6 @@
 mod asset;
 pub use asset::{make_asset, make_indivisible_asset, make_ticker, ResultTicker};
 
-mod compliance_manager;
-pub use compliance_manager::setup_compliance;
-
 mod user;
 pub use user::{PublicKey, SecretKey, User};
 

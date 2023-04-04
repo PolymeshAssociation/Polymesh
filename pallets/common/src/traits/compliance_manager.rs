@@ -100,36 +100,14 @@ pub trait ComplianceFnConfig<Origin> {
     ) -> AssetComplianceResult;
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn add_compliance_requirement(
-        origin: Origin,
-        ticker: Ticker,
-        sender_conditions: Vec<Condition>,
-        receiver_conditions: Vec<Condition>,
-    ) -> DispatchResult;
-
-    #[cfg(feature = "runtime-benchmarks")]
     fn add_default_trusted_claim_issuer(
         origin: Origin,
         ticker: Ticker,
         issuer: TrustedIssuer,
     ) -> DispatchResult;
 
-    /// Adds a compliance rule that will require `trusted_claims_calls`, `id_fetch_claim_calls` and `external_agents_calls`
-    /// reads to the `TrustedClaimIssuer`, `Claims` and `GroupOfAgent` storage, respectively.
-    /// This setup also adds `receiver_id` as an external agent of `ticker`, sets `trusted_issuer` as a trusted issuer for the asset
-    /// and adds `id_fetch_claim_calls` - 1 claims to `sender_id` and one claim to `receiver_id`.
     #[cfg(feature = "runtime-benchmarks")]
-    fn setup_ticker_compliance(
-        sender_origin: Origin,
-        sender_did: IdentityId,
-        ticker: Ticker,
-        trusted_issuer: TrustedIssuer,
-        receiver_id: IdentityId,
-        receiver_origin: Origin,
-        trusted_claims_calls: u32,
-        id_fetch_claim_calls: u32,
-        external_agents_calls: u32,
-    );
+    fn pause_compliance(origin: Origin, ticker: Ticker) -> DispatchResult;
 }
 
 pub trait WeightInfo {

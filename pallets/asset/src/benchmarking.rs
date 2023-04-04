@@ -21,9 +21,6 @@ use sp_io::hashing::keccak_256;
 use sp_std::{convert::TryInto, iter, prelude::*};
 
 use pallet_portfolio::{MovePortfolioItem, NextPortfolioNumber, PortfolioAssetBalances};
-use pallet_statistics::benchmarking::{
-    add_identity_claim, set_transfer_exception, statistics_types, transfer_conditions,
-};
 use polymesh_common_utilities::benchs::{
     make_asset, make_indivisible_asset, make_ticker, user, AccountIdOf, User, UserBuilder,
 };
@@ -36,11 +33,9 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataDescription, AssetMetadataKey, AssetMetadataName, AssetMetadataSpec,
     AssetMetadataValue, AssetMetadataValueDetail,
 };
-use polymesh_primitives::statistics::AssetScope;
 use polymesh_primitives::ticker::TICKER_LEN;
 use polymesh_primitives::{
-    AuthorizationData, Claim, NFTCollectionKeys, PortfolioName, PortfolioNumber, Scope, Signatory,
-    Ticker, TrustedIssuer, Url,
+    AuthorizationData, NFTCollectionKeys, PortfolioName, PortfolioNumber, Signatory, Ticker, Url,
 };
 
 use crate::*;
@@ -199,28 +194,18 @@ fn setup_create_asset<T: Config + TestUtilsFn<<T as frame_system::Config>::Accou
     (owner.origin, name, ticker, token, identifiers, fundr)
 }
 
-/// Creates an asset for `ticker`, adds a compliance rule that will require `compliance_identity_fetch_calls` reads to the
-/// `Claim` storage, adds transfer restrictions containing `n_ownership_conditions` that will require three reads for each
-/// condition, and sets `n_active_statistics` active statitics that will trigger four reads and two writes for each statistic.
+/// Creates an asset for `ticker`, creates a custom portfolio for the sender and receiver, and pauses compliance.
 /// Returns the sender and receiver portfolio.
 pub fn setup_asset_transfer<T>(
     sender: &User<T>,
     receiver: &User<T>,
     ticker: Ticker,
-    compliance_identity_fetch_calls: u32,
-    n_ownership_conditions: u32,
-    n_active_statistics: u32,
     sender_portfolio_name: Option<&str>,
     receiver_portolfio_name: Option<&str>,
 ) -> (PortfolioId, PortfolioId)
 where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
 {
-    let trusted_user = UserBuilder::<T>::default()
-        .generate_did()
-        .build("TrustedUser");
-    let trusted_issuer = TrustedIssuer::from(trusted_user.did());
-    let asset_scope = AssetScope::Ticker(ticker);
     let sender_portfolio =
         create_portfolio::<T>(sender, sender_portfolio_name.unwrap_or("SenderPortfolio"));
     let receiver_portfolio =
@@ -232,40 +217,7 @@ where
     Module::<T>::add_investor_uniqueness_claim(sender.did(), ticker);
     Module::<T>::add_investor_uniqueness_claim(receiver.did(), ticker);
 
-    // Add a compliance rule for the ticker
-    T::ComplianceManager::setup_ticker_compliance(
-        sender.origin().into(),
-        sender.did(),
-        ticker,
-        trusted_issuer,
-        receiver.did(),
-        receiver.origin().into(),
-        1,
-        compliance_identity_fetch_calls,
-        1,
-    );
-
-    // Adds active statistics and transfer rules
-    let statistics_types = statistics_types(n_active_statistics);
-    Statistics::<T>::set_active_asset_stats(sender.origin().into(), asset_scope, statistics_types)
-        .unwrap();
-    let transfer_conditions = transfer_conditions(n_ownership_conditions, true);
-    set_transfer_exception::<T>(sender.origin().into(), ticker, receiver.did());
-    Statistics::<T>::set_asset_transfer_compliance(
-        sender.origin().into(),
-        asset_scope,
-        transfer_conditions,
-    )
-    .unwrap();
-
-    // Adds identity claims
-    for idx in 0..n_active_statistics {
-        add_identity_claim::<T>(
-            sender.did(),
-            Claim::Accredited(Scope::Ticker(ticker)),
-            IdentityId::from(idx as u128),
-        );
-    }
+    T::ComplianceManager::pause_compliance(sender.origin().into(), ticker).unwrap();
 
     (sender_portfolio, receiver_portfolio)
 }
@@ -700,20 +652,15 @@ benchmarks! {
         // For the worst case, investor uniqueness is enabled and the portfolios are not the
         // the default ones. The complexity of the transfer depends on the complexity of the compliance rules
         // and the number of statistics to be updated.
-        // Note: Since duplicated reads are not counted and all different transfer restriction require an active
-        // statistic, the number of reads is dependent only on the number of statistics.
-
-        // Compliance parameters
-        let i in 2..48;
-        // Update asset statistics parameters
-        let s in 0..9;
+        // Since the compliance weight will be charged separately, the rules were paused and only the `Self::asset_compliance(ticker)`
+        // read will be considered (this read was not charged in the is_condition_satisfied benchmark).
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
 
         let (sender_portfolio, receiver_portfolio) =
-            setup_asset_transfer::<T>(&alice, &bob, ticker, i, s, s, None, None);
+            setup_asset_transfer::<T>(&alice, &bob, ticker, None, None);
         let mut weight_meter = WeightMeter::max_limit();
     }: {
         Module::<T>::base_transfer(sender_portfolio, receiver_portfolio, &ticker, ONE_UNIT, &mut weight_meter).unwrap();

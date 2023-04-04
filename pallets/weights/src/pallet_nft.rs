@@ -119,4 +119,8 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes(2 as u64))
             .saturating_add(DbWeight::get().writes((1 as u64).saturating_mul(n as u64)))
     }
+
+    fn base_nft_transfer(n: u32) -> Weight {
+        unimplemented!()
+    }
 }

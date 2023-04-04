@@ -119,6 +119,7 @@ pub trait WeightInfo {
     fn update_asset_type() -> Weight;
     fn remove_local_metadata_key() -> Weight;
     fn remove_metadata_value() -> Weight;
+    fn base_transfer() -> Weight;
 }
 
 /// The module's configuration trait.

@@ -446,7 +446,7 @@ impl<T: Config> Module<T> {
         let claims = match &condition.condition_type {
             ConditionType::IsPresent(claim) | ConditionType::IsAbsent(claim) => {
                 let trusted_issuers = Self::issuers_for(ticker, condition, slot);
-                // consumes the weight for this condition
+                // Consumes the weight for this condition
                 weight_meter.check_accrue(<T as Config>::WeightInfo::is_condition_satisfied(
                     trusted_issuers.len() as u32,
                     condition.issuers.is_empty() as u32,
@@ -455,7 +455,7 @@ impl<T: Config> Module<T> {
             }
             ConditionType::IsAnyOf(claims) | ConditionType::IsNoneOf(claims) => {
                 let trusted_issuers = Self::issuers_for(ticker, condition, slot);
-                // consumes the weight for this condition
+                // Consumes the weight for this condition
                 weight_meter.check_accrue(<T as Config>::WeightInfo::is_condition_satisfied(
                     (trusted_issuers.len() * claims.len()) as u32,
                     condition.issuers.is_empty() as u32,
@@ -465,12 +465,12 @@ impl<T: Config> Module<T> {
                 })))
             }
             ConditionType::IsIdentity(TargetIdentity::ExternalAgent) => {
-                // consumes the weight for this condition
+                // Consumes the weight for this condition
                 weight_meter.check_accrue(<T as Config>::WeightInfo::is_identity_condition(1));
                 Right(core::iter::empty())
             }
             ConditionType::IsIdentity(TargetIdentity::Specific(_)) => {
-                // consumes the weight for this condition
+                // Consumes the weight for this condition
                 weight_meter.check_accrue(<T as Config>::WeightInfo::is_identity_condition(0));
                 Right(core::iter::empty())
             }
@@ -688,16 +688,6 @@ impl<T: Config> ComplianceFnConfig<T::RuntimeOrigin> for Module<T> {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn add_compliance_requirement(
-        origin: T::RuntimeOrigin,
-        ticker: Ticker,
-        sender_conditions: Vec<Condition>,
-        receiver_conditions: Vec<Condition>,
-    ) -> DispatchResult {
-        Self::add_compliance_requirement(origin, ticker, sender_conditions, receiver_conditions)
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
     fn add_default_trusted_claim_issuer(
         origin: T::RuntimeOrigin,
         ticker: Ticker,
@@ -707,27 +697,7 @@ impl<T: Config> ComplianceFnConfig<T::RuntimeOrigin> for Module<T> {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn setup_ticker_compliance(
-        sender_origin: T::RuntimeOrigin,
-        sender_did: IdentityId,
-        ticker: Ticker,
-        trusted_issuer: TrustedIssuer,
-        receiver_id: IdentityId,
-        receiver_origin: T::RuntimeOrigin,
-        trusted_claims_calls: u32,
-        id_fetch_claim_calls: u32,
-        external_agents_calls: u32,
-    ) {
-        crate::benchmarking::setup_verify_restriction::<T>(
-            sender_origin,
-            sender_did,
-            ticker,
-            trusted_issuer,
-            receiver_id,
-            receiver_origin,
-            trusted_claims_calls,
-            id_fetch_claim_calls,
-            external_agents_calls,
-        );
+    fn pause_compliance(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
+        Self::pause_asset_compliance(origin, ticker)
     }
 }

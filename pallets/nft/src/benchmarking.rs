@@ -15,7 +15,7 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataSpec, AssetMetadataValue,
 };
 use polymesh_primitives::nft::{NFTCollectionId, NFTCollectionKeys, NFTId};
-use polymesh_primitives::{PortfolioKind, TrustedIssuer};
+use polymesh_primitives::PortfolioKind;
 
 use crate::*;
 
@@ -82,27 +82,19 @@ pub fn create_collection_issue_nfts<T: Config>(
     }
 }
 
-/// Creates one NFT collection for `ticker`, mints `n_nfts` for that collection and adds a compliance rule
-/// that will require `trusted_claims_calls`, `id_fetch_claim_calls` and `external_agents_calls`
-/// reads to the `TrustedClaimIssuer`, `Claims` and `GroupOfAgent` storage, respectively.
+/// Creates one NFT collection for `ticker`, mints `n_nfts` for that collection and
+/// pauses the compliance rules.
 pub fn setup_nft_transfer<T>(
     sender: &User<T>,
     receiver: &User<T>,
     ticker: Ticker,
     n_nfts: u32,
-    trusted_claims_calls: u32,
-    id_fetch_claim_calls: u32,
-    external_agents_calls: u32,
     sender_portfolio_name: Option<&str>,
     receiver_portolfio_name: Option<&str>,
 ) -> (PortfolioId, PortfolioId)
 where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
 {
-    let trusted_user = UserBuilder::<T>::default()
-        .generate_did()
-        .build("TrustedUser");
-    let trusted_issuer = TrustedIssuer::from(trusted_user.did());
     let sender_portfolio =
         create_portfolio::<T>(sender, sender_portfolio_name.unwrap_or("SenderPortfolio"));
     let receiver_portfolio =
@@ -117,17 +109,7 @@ where
         sender_portfolio.kind,
     );
 
-    T::Compliance::setup_ticker_compliance(
-        sender.origin().into(),
-        sender.did(),
-        ticker,
-        trusted_issuer,
-        receiver.did(),
-        receiver.origin().into(),
-        trusted_claims_calls,
-        id_fetch_claim_calls,
-        external_agents_calls,
-    );
+    T::Compliance::pause_compliance(sender.origin().into(), ticker).unwrap();
 
     (sender_portfolio, receiver_portfolio)
 }
@@ -205,26 +187,21 @@ benchmarks! {
     }
 
     base_nft_transfer {
-        // Transfering depends on the number of ids in the `NFTs` vec and the complexity of
-        // the compliance rules (i.e number of calls to `TrustedClaimIssuer`, `Identity::<T>::fetch_claim`
-        // and ExternalAgents::<T>::agents)
+        // Transfering depends on the number of ids in the `NFTs` vec and the complexity of the compliance rules.
+        // Since the compliance weight will be charged separately, the rules were paused and only the `Self::asset_compliance(ticker)`
+        // read will be considered (this read was not charged in the is_condition_satisfied benchmark).
 
         let n in 1..10;
-        let t in 0..1;
-        let i in 2..40;
-        let e in 1..2;
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let trusted_user = UserBuilder::<T>::default().generate_did().build("TrustedUser");
-        let trusted_issuer = TrustedIssuer::from(trusted_user.did());
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let nft_type: Option<NonFungibleType> = Some(NonFungibleType::Derivative);
+        let mut weight_meter = WeightMeter::max_limit();
 
         let (sender_portfolio, receiver_portfolio) =
-            setup_nft_transfer::<T>(&alice, &bob, ticker, n, t, i, e, None, None);
+            setup_nft_transfer::<T>(&alice, &bob, ticker, n, None, None);
         let nfts = NFTs::new_unverified(ticker, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
-        let mut weight_meter = WeightMeter::max_limit();
     }: {
         with_transaction(|| {
             Module::<T>::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts, &mut weight_meter)

@@ -470,4 +470,7 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(6 as u64))
             .saturating_add(DbWeight::get().writes(2 as u64))
     }
+    fn base_transfer() -> Weight {
+        unimplemented!()
+    }
 }
