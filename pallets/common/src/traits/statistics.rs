@@ -31,6 +31,11 @@ pub trait WeightInfo {
     fn batch_update_asset_stats(i: u32) -> Weight;
     fn set_asset_transfer_compliance(i: u32) -> Weight;
     fn set_entities_exempt(i: u32) -> Weight;
+    fn max_investor_count_restriction(a: u32) -> Weight;
+    fn max_investor_ownership_restriction() -> Weight;
+    fn claim_count_restriction_no_stats(c: u32) -> Weight;
+    fn claim_count_restriction_with_stats() -> Weight;
+    fn claim_ownership_restriction(a: u32) -> Weight;
 }
 
 decl_event!(

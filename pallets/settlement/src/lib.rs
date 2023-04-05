@@ -1623,12 +1623,7 @@ impl<T: Config> Module<T> {
 
     fn execute_instruction(instruction_id: InstructionId) -> Result<u32, DispatchError> {
         // Tracks the actual consumed weight for the execution
-        let mut weight_meter =
-            WeightMeter::from_limit(<T as Config>::WeightInfo::execute_scheduled_instruction(
-                T::MaxNumberOfFungibleAssets::get(),
-                T::MaxNumberOfNFTs::get(),
-            ));
-
+        let mut weight_meter = WeightMeter::max_limit();
         // Verifies that there are no pending affirmations for the given instruction
         ensure!(
             Self::instruction_affirms_pending(instruction_id) == 0,

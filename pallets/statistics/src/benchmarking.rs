@@ -110,43 +110,6 @@ fn init_exempts<T: Config + Asset + TestUtilsFn<AccountIdOf<T>>>(
     (owner, exempt_key, scope_ids)
 }
 
-/// Returns a set of `StatType`.
-pub fn statistics_types(n_issuers: u32) -> BTreeSet<StatType> {
-    (0..n_issuers)
-        .map(|idx| StatType {
-            op: StatOpType::Balance,
-            claim_issuer: Some((ClaimType::Accredited, IdentityId::from(idx as u128))),
-        })
-        .collect()
-}
-
-/// Returns a set of `c` `TransferCondition` that will either succeed or fail.
-pub fn transfer_conditions(c: u32, trigger_failed_condition: bool) -> BTreeSet<TransferCondition> {
-    if trigger_failed_condition {
-        (0..c)
-            .map(|idx| {
-                TransferCondition::ClaimOwnership(
-                    StatClaim::Accredited(true),
-                    IdentityId::from(idx as u128),
-                    Permill::one(),
-                    Permill::zero(),
-                )
-            })
-            .collect()
-    } else {
-        (0..c)
-            .map(|idx| {
-                TransferCondition::ClaimOwnership(
-                    StatClaim::Accredited(true),
-                    IdentityId::from(idx as u128),
-                    Permill::zero(),
-                    Permill::one(),
-                )
-            })
-            .collect()
-    }
-}
-
 /// Exempts `exempt_user_id` to follow a transfer condition of claim type `Accredited` for `ticker`.
 pub fn set_transfer_exception<T: Config>(
     origin: T::RuntimeOrigin,
@@ -235,77 +198,134 @@ benchmarks! {
         let (owner, exempt_key, scope_ids) = init_exempts::<T>(i);
     }: set_entities_exempt(owner.origin, true, exempt_key, scope_ids)
 
-    verify_transfer_restrictions {
-        // In the worst case, each condition (at most T::MaxTransferConditionsPerAsset) calls `Identity::<T>::fetch_claim' two times
-        // and `AssetStats` one time.`TransferConditionExemptEntities` is called at most one time, regardless of the number of conditions.
-
-        let c in 0..T::MaxTransferConditionsPerAsset::get() - 2;
-        let x in 0..1;
+    max_investor_count_restriction {
+        // If `AssetStats` should be read
+        let a in 0..1;
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let asset_scope = AssetScope::Ticker(ticker);
 
         make_asset::<T>(&alice, Some(ticker.as_ref()));
-        let statistics_types = statistics_types(c);
-        Module::<T>::set_active_asset_stats(alice.origin().into(), asset_scope, statistics_types).unwrap();
-        let transfer_conditions = transfer_conditions(c, x == 1);
-        set_transfer_exception::<T>(alice.origin().into(), ticker, bob.did());
-        Module::<T>::base_set_asset_transfer_compliance(alice.origin().into(), asset_scope, transfer_conditions).unwrap();
-
-        for idx in 0..c {
-            add_identity_claim::<T>(
-                alice.did(),
-                Claim::Accredited(Scope::Ticker(ticker)),
-                IdentityId::from(idx as u128)
-            );
-        }
+        let transfer_condition = TransferCondition::MaxInvestorCount(1);
+        let changes = if a == 1 { Some((false, true)) } else { Some((true, true)) };
     }: {
-        Module::<T>::verify_transfer_restrictions(
-            &ticker,
+        assert!(Module::<T>::check_transfer_condition(
+            &transfer_condition,
+            AssetScope::Ticker(ticker),
             alice.did(),
             bob.did(),
             &alice.did(),
             &bob.did(),
-            ONE_UNIT * POLY,
             0,
             ONE_UNIT,
-            ONE_UNIT * POLY
-        )
-        .unwrap();
+            ONE_UNIT * POLY,
+            changes
+        ));
     }
 
-    update_asset_stats {
-        // In the worst case, `ActiveAssetStats` has the maximum number of statistics (T::MaxStatsPerAsset), all
-        // are of type `StatOpType::Balance` and have identity claims. This would mean four reads and two writes everytime.
+    max_investor_ownership_restriction {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
 
-        // Number of active statistics
-        let s in 0..T::MaxStatsPerAsset::get() -1;
+        make_asset::<T>(&alice, Some(ticker.as_ref()));
+        let transfer_condition = TransferCondition::MaxInvestorOwnership(Permill::one());
+    }: {
+        assert!(Module::<T>::check_transfer_condition(
+            &transfer_condition,
+            AssetScope::Ticker(ticker),
+            alice.did(),
+            bob.did(),
+            &alice.did(),
+            &bob.did(),
+            0,
+            ONE_UNIT,
+            ONE_UNIT * POLY,
+            None
+        ));
+    }
+
+    claim_count_restriction_no_stats {
+        // If `Claims` should be read
+        let c in 0..1;
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let asset_scope = AssetScope::Ticker(ticker);
 
         make_asset::<T>(&alice, Some(ticker.as_ref()));
-        let statistics_types = statistics_types(s);
-        Module::<T>::set_active_asset_stats(alice.origin().into(), asset_scope, statistics_types).unwrap();
-        for i in 0..s {
+        let changes = if c == 0 { None } else { Some((false, false)) };
+        let transfer_condition =
+            TransferCondition::ClaimCount(StatClaim::Accredited(true), alice.did(), 0, Some(1));
+    }: {
+        assert!(Module::<T>::check_transfer_condition(
+            &transfer_condition,
+            AssetScope::Ticker(ticker),
+            alice.did(),
+            bob.did(),
+            &alice.did(),
+            &bob.did(),
+            0,
+            ONE_UNIT,
+            ONE_UNIT * POLY,
+            changes
+        ));
+    }
+
+    claim_count_restriction_with_stats {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+
+        make_asset::<T>(&alice, Some(ticker.as_ref()));
+        let transfer_condition =
+            TransferCondition::ClaimCount(StatClaim::Accredited(true), alice.did(), 0, Some(1));
+    }: {
+        assert!(Module::<T>::check_transfer_condition(
+            &transfer_condition,
+            AssetScope::Ticker(ticker),
+            alice.did(),
+            bob.did(),
+            &alice.did(),
+            &bob.did(),
+            0,
+            ONE_UNIT,
+            ONE_UNIT * POLY,
+            Some((false, true))
+        ));
+    }
+
+    claim_ownership_restriction {
+        // If `AssetStats` should be read
+        let a in 0..1;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+
+        make_asset::<T>(&alice, Some(ticker.as_ref()));
+        let transfer_condition =
+            TransferCondition::ClaimOwnership(StatClaim::Accredited(true), IdentityId::from(0), Permill::zero(), Permill::one());
+        if a == 1 {
             add_identity_claim::<T>(
                 alice.did(),
                 Claim::Accredited(Scope::Ticker(ticker)),
-                IdentityId::from(i as u128)
+                IdentityId::from(0)
             );
         }
     }: {
-        Module::<T>::update_asset_stats(
-            &ticker,
-            Some(&alice.did()),
-            Some(&bob.did()),
-            Some(ONE_UNIT * POLY),
-            Some(ONE_UNIT),
-            ONE_UNIT
-        );
+        assert!(Module::<T>::check_transfer_condition(
+            &transfer_condition,
+            AssetScope::Ticker(ticker),
+            alice.did(),
+            bob.did(),
+            &alice.did(),
+            &bob.did(),
+            0,
+            ONE_UNIT,
+            ONE_UNIT * POLY,
+            None
+        ));
     }
 }

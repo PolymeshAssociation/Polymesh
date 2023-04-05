@@ -187,7 +187,7 @@ benchmarks! {
     }
 
     base_nft_transfer {
-        // Transfering depends on the number of ids in the `NFTs` vec and the complexity of the compliance rules.
+        // The weight depends on the number of ids in the `NFTs` vec and the complexity of the compliance rules.
         // Since the compliance weight will be charged separately, the rules were paused and only the `Self::asset_compliance(ticker)`
         // read will be considered (this read was not charged in the is_condition_satisfied benchmark).
 

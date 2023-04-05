@@ -112,4 +112,46 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(i.into())))
     }
+    // Storage: Statistics AssetStats (r:1 w:0)
+    /// The range of component `a` is `[0, 1]`.
+    fn max_investor_count_restriction(a: u32) -> Weight {
+        // Minimum execution time: 577 nanoseconds.
+        Weight::from_ref_time(677_614)
+            // Standard Error: 15_612
+            .saturating_add(Weight::from_ref_time(13_671_385).saturating_mul(a.into()))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(a.into())))
+    }
+    fn max_investor_ownership_restriction() -> Weight {
+        // Minimum execution time: 816 nanoseconds.
+        Weight::from_ref_time(855_000)
+    }
+    // Storage: Timestamp Now (r:1 w:0)
+    // Storage: Identity Claims (r:2 w:0)
+    /// The range of component `c` is `[0, 1]`.
+    fn claim_count_restriction_no_stats(c: u32) -> Weight {
+        // Minimum execution time: 638 nanoseconds.
+        Weight::from_ref_time(737_136)
+            // Standard Error: 15_710
+            .saturating_add(Weight::from_ref_time(27_981_196).saturating_mul(c.into()))
+            .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(c.into())))
+    }
+    // Storage: Timestamp Now (r:1 w:0)
+    // Storage: Identity Claims (r:2 w:0)
+    // Storage: Statistics AssetStats (r:1 w:0)
+    fn claim_count_restriction_with_stats() -> Weight {
+        // Minimum execution time: 34_906 nanoseconds.
+        Weight::from_ref_time(35_190_000).saturating_add(DbWeight::get().reads(4))
+    }
+    // Storage: Timestamp Now (r:1 w:0)
+    // Storage: Identity Claims (r:2 w:0)
+    // Storage: Statistics AssetStats (r:1 w:0)
+    /// The range of component `a` is `[0, 1]`.
+    fn claim_ownership_restriction(a: u32) -> Weight {
+        // Minimum execution time: 27_705 nanoseconds.
+        Weight::from_ref_time(28_557_076)
+            // Standard Error: 109_469
+            .saturating_add(Weight::from_ref_time(11_865_923).saturating_mul(a.into()))
+            .saturating_add(DbWeight::get().reads(3))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(a.into())))
+    }
 }

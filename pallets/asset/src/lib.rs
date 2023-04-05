@@ -1377,7 +1377,13 @@ impl<T: Config> Module<T> {
             return Ok(PORTFOLIO_FAILURE);
         }
 
-        if Self::statistics_failures(&from_portfolio.did, &to_portfolio.did, ticker, value) {
+        if Self::statistics_failures(
+            &from_portfolio.did,
+            &to_portfolio.did,
+            ticker,
+            value,
+            weight_meter,
+        ) {
             return Ok(TRANSFER_MANAGER_FAILURE);
         }
 
@@ -1733,7 +1739,7 @@ impl<T: Config> Module<T> {
         // checks custodial permissions when the instruction is authorized.
 
         // Consumes the weight for this function
-        weight_meter.check_accrue(<T as Config>::WeightInfo::base_transfer());
+        //weight_meter.check_accrue(<T as Config>::WeightInfo::base_transfer());
         // Validate the transfer
         let is_transfer_success =
             Self::_is_valid_transfer(&ticker, from_portfolio, to_portfolio, value, weight_meter)?;
@@ -2579,6 +2585,7 @@ impl<T: Config> Module<T> {
         to_did: &IdentityId,
         ticker: &Ticker,
         value: Balance,
+        weight_meter: &mut WeightMeter,
     ) -> bool {
         let (from_scope_id, to_scope_id, token) =
             Self::setup_statistics_failures(from_did, to_did, ticker);
@@ -2592,6 +2599,7 @@ impl<T: Config> Module<T> {
             Self::aggregate_balance_of(ticker, &to_scope_id),
             value,
             token.total_supply,
+            weight_meter,
         )
         .is_err()
     }
