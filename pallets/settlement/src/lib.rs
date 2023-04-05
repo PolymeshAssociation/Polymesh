@@ -1631,37 +1631,23 @@ impl<T: Config> Module<T> {
         );
 
         // Verifies that the instruction is not in a Failed or in an Unknown state
-        let details = Self::instruction_details(instruction_id);
         ensure!(
             Self::instruction_status(instruction_id) == InstructionStatus::Pending,
             Error::<T>::InstructionNotPending
         );
 
-        let mut instruction_legs: Vec<(LegId, LegV2)> = Self::get_instruction_legs(&instruction_id);
+        let venue_id = Self::instruction_details(instruction_id).venue_id;
+
         // NB: The order of execution of the legs matter in some edge cases around compliance.
         // E.g: Consider a token with a total supply of 100 and maximum percentage ownership of 10%.
         // In a given moment, Alice owns 10 tokens, Bob owns 5 and Charlie owns 0.
         // Now, consider one instruction with two legs: 1. Alice transfers 5 tokens to Charlie; 2. Bob transfers 5 tokens to Alice;
         // If the second leg gets executed before the first leg, Alice will momentarily hold 15% of the asset and hence the settlement will fail compliance.
+        let mut instruction_legs: Vec<(LegId, LegV2)> = Self::get_instruction_legs(&instruction_id);
         instruction_legs.sort_by_key(|leg_id_leg| leg_id_leg.0);
 
-        // Verifies that the venue still has the required permissions for the tokens involved.
-        let mut tickers: BTreeSet<Ticker> = BTreeSet::new();
-        for (_, leg) in &instruction_legs {
-            // Each ticker is only checked once
-            let ticker = leg.asset.ticker_and_amount().0;
-            if tickers.insert(ticker)
-                && Self::venue_filtering(ticker)
-                && !Self::venue_allow_list(ticker, details.venue_id)
-            {
-                Self::deposit_event(RawEvent::VenueUnauthorized(
-                    SettlementDID.as_id(),
-                    ticker,
-                    details.venue_id,
-                ));
-                return Err(Error::<T>::UnauthorizedVenue.into());
-            }
-        }
+        // Verifies if the venue is allowed for all tickers in the instruction
+        Self::ensure_allowed_venue(&instruction_legs, venue_id)?;
 
         match frame_storage_with_transaction(|| {
             Self::release_asset_locks_and_transfer_pending_legs(
@@ -1693,6 +1679,32 @@ impl<T: Config> Module<T> {
         }
 
         Ok(instruction_legs.len().try_into().unwrap_or_default())
+    }
+
+    /// Ensures that all tickers in the instruction that have venue filtering enabled are also
+    /// in the venue allowed list.
+    fn ensure_allowed_venue(
+        instruction_legs: &[(LegId, LegV2)],
+        venue_id: VenueId,
+    ) -> DispatchResult {
+        // Avoids reading the storage multiple times for the same ticker
+        let mut tickers: BTreeSet<Ticker> = BTreeSet::new();
+
+        for (_, leg) in instruction_legs {
+            let ticker = leg.asset.ticker_and_amount().0;
+            if tickers.insert(ticker)
+                && Self::venue_filtering(ticker)
+                && !Self::venue_allow_list(ticker, venue_id)
+            {
+                Self::deposit_event(RawEvent::VenueUnauthorized(
+                    SettlementDID.as_id(),
+                    ticker,
+                    venue_id,
+                ));
+                return Err(Error::<T>::UnauthorizedVenue.into());
+            }
+        }
+        Ok(())
     }
 
     fn release_asset_locks_and_transfer_pending_legs(

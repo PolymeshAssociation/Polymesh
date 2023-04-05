@@ -1117,104 +1117,78 @@ benchmarks! {
         ).expect("failed to add instruction");
     }: _(parameters.sender.origin, InstructionId(1), parameters.sender_portfolios[0], f, n)
 
-//    execute_scheduled_instruction {
-//        let f in 0..T::MaxNumberOfFungibleAssets::get();
-//        let n in 0..T::MaxNumberOfNFTs::get();
-//        let c = 49;
-//        let s = 9;
-//
-//        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-//        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-//        let venue_id = create_venue_::<T>(alice.did(), vec![]);
-//        let mut sender_portfolios = Vec::new();
-//        let mut receiver_portfolios = Vec::new();
-//
-//        // Creates `f` assets and sets the worst case scenario for their compliance,
-//        // transfer conditions and active statistics
-//        let mut fungible_legs = Vec::new();
-//        for idx in 0..f {
-//            let ticker_name = format!("TICKER{}", idx);
-//            let ticker: Ticker = Ticker::from_slice_truncated(ticker_name.as_bytes());
-//            let (sender_portfolio, receiver_portfolio) =
-//                setup_asset_transfer::<T>(
-//                    &alice,
-//                    &bob,
-//                    ticker,
-//                    c,
-//                    3,
-//                    s,
-//                    Some(&ticker_name),
-//                    Some(&ticker_name)
-//                );
-//            sender_portfolios.push(sender_portfolio.clone());
-//            receiver_portfolios.push(receiver_portfolio.clone());
-//
-//            fungible_legs.push(
-//                LegV2 {
-//                    from: sender_portfolio,
-//                    to: receiver_portfolio,
-//                    asset: LegAsset::Fungible {
-//                        ticker: ticker,
-//                        amount: ONE_UNIT,
-//                    },
-//                }
-//            );
-//        }
-//
-//        // Creates `n` NFT collections, mints one nft for each collection and sets the worst case scenario
-//        // for their compliance
-//        let mut nft_legs = Vec::new();
-//        for idx in 0..n {
-//            let ticker_name = format!("NFTTICKER{}", idx);
-//            let ticker: Ticker = Ticker::from_slice_truncated(ticker_name.as_bytes());
-//            let (sender_portfolio, receiver_portfolio) =
-//                setup_nft_transfer::<T>(
-//                    &alice,
-//                    &bob,
-//                    ticker,
-//                    1,
-//                    1,
-//                    c,
-//                    1,
-//                    Some(&ticker_name),
-//                    Some(&ticker_name)
-//                );
-//            sender_portfolios.push(sender_portfolio.clone());
-//            receiver_portfolios.push(receiver_portfolio.clone());
-//
-//            nft_legs.push(
-//                LegV2 {
-//                    from: sender_portfolio,
-//                    to: receiver_portfolio,
-//                    asset: LegAsset::NonFungible(NFTs::new_unverified(ticker, vec![NFTId(1)])),
-//                }
-//            );
-//        }
-//
-//        let legs_v2 = [fungible_legs, nft_legs].concat();
-//        Module::<T>::add_and_affirm_instruction_with_memo_v2(
-//            alice.origin().into(),
-//            venue_id,
-//            SettlementType::SettleOnAffirmation,
-//            None,
-//            None,
-//            legs_v2,
-//            sender_portfolios,
-//            None,
-//        )
-//        .expect("failed to add instruction");
-//
-//        Module::<T>::affirm_instruction_v2(
-//            bob.origin().into(),
-//            InstructionId(1),
-//            receiver_portfolios,
-//            f,
-//            n,
-//        )
-//        .expect("failed to affirm instruction");
-//
-//    }: execute_scheduled_instruction_v2(RawOrigin::Root, InstructionId(1), f, n)
+    ensure_allowed_venue {
+        // Number of UNIQUE tickers in the legs
+        let n in 1..T::MaxNumberOfFungibleAssets::get() + T::MaxNumberOfNFTs::get();
 
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let venue_id = create_venue_::<T>(alice.did(), vec![]);
+
+        let instruction_legs: Vec<(LegId, LegV2)> = (0..n)
+            .map(|i| {
+                let ticker = Ticker::from_slice_truncated(format!("TICKER{}", i).as_bytes());
+                create_collection_issue_nfts::<T>(
+                    alice.origin().into(),
+                    ticker,
+                    Some(NonFungibleType::Derivative),
+                    0,
+                    1,
+                    PortfolioKind::Default,
+                );
+                Module::<T>::set_venue_filtering(alice.origin().into(), ticker, true).unwrap();
+                Module::<T>::allow_venues(alice.origin().into(), ticker, vec![venue_id]).unwrap();
+                (
+                    LegId(i.into()),
+                    LegV2 {
+                        from: PortfolioId {
+                            did: alice.did(),
+                            kind: PortfolioKind::Default,
+                        },
+                        to: PortfolioId {
+                            did: bob.did(),
+                            kind: PortfolioKind::Default,
+                        },
+                        asset: LegAsset::NonFungible(NFTs::new_unverified(ticker, vec![NFTId(1)])),
+                    },
+                )
+            })
+            .collect();
+    }: {
+        Module::<T>::ensure_allowed_venue(&instruction_legs, venue_id).unwrap();
+    }
+
+    base_execute_instruction {
+        let n in 1..T::MaxNumberOfFungibleAssets::get() + T::MaxNumberOfNFTs::get();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let instruction_id = InstructionId(1);
+
+        (0..n)
+            .for_each(|i| {
+                let leg = LegV2 {
+                    from: PortfolioId {
+                        did: alice.did(),
+                        kind: PortfolioKind::Default,
+                    },
+                    to: PortfolioId {
+                        did: bob.did(),
+                        kind: PortfolioKind::Default,
+                    },
+                    asset: LegAsset::NonFungible(NFTs::new_unverified(ticker, vec![NFTId(1)])),
+                };
+                InstructionLegsV2::insert(instruction_id, LegId(i.into()), leg);
+            });
+        InstructionStatuses::<T>::insert(instruction_id, InstructionStatus::Pending);
+    }: {
+        assert!(Module::<T>::instruction_affirms_pending(instruction_id) == 0);
+        assert!(Module::<T>::instruction_status(instruction_id) == InstructionStatus::Pending);
+        let venue_id = Module::<T>::instruction_details(instruction_id).venue_id;
+        let mut instruction_legs: Vec<(LegId, LegV2)> = Module::<T>::get_instruction_legs(&instruction_id);
+        instruction_legs.sort_by_key(|leg_id_leg| leg_id_leg.0);
+    }
 }
 
 pub fn next_block<T: Config + pallet_scheduler::Config>() {
