@@ -344,27 +344,38 @@ impl<T: Config> Module<T> {
         from_balance: Option<Balance>,
         to_balance: Option<Balance>,
         amount: Balance,
+        weight_meter: &mut WeightMeter,
     ) {
         // If 2nd keys are the same and it is not a mint/burn.
         if from_key2 == to_key2 && from_balance.is_some() && to_balance.is_some() {
             // Then the `amount` is transferred between investors
             // with the same claim/non-claim.
             // So no change is needed.
+            // Consumes the weight for this function
+            weight_meter.check_accrue(<T as Config>::WeightInfo::update_asset_balance_stats(0));
             return;
         }
 
+        let mut n_reads = 0;
         if from_balance.is_some() {
+            n_reads += 1;
             // Remove `amount` from `from_key2`.
             AssetStats::mutate(key1, from_key2, |balance| {
                 *balance = balance.saturating_sub(amount)
             });
         }
         if to_balance.is_some() {
+            n_reads += 1;
             // Add `amount` to `to_key2`.
             AssetStats::mutate(key1, to_key2, |balance| {
                 *balance = balance.saturating_add(amount)
             });
         }
+
+        // Consumes the weight for this function
+        weight_meter.check_accrue(<T as Config>::WeightInfo::update_asset_balance_stats(
+            n_reads,
+        ));
     }
 
     /// Update unique investor count per asset per claim.
@@ -377,16 +388,25 @@ impl<T: Config> Module<T> {
         from_key2: Stat2ndKey,
         to_key2: Stat2ndKey,
         changes: (bool, bool),
+        weight_meter: &mut WeightMeter,
     ) {
         match changes {
             (true, true) if from_key2 == to_key2 => {
                 // Remove one investor and add another.
                 // Both 2nd keys match, so don't need to update the counter.
+                // Consumes the weight for this function
+                weight_meter.check_accrue(<T as Config>::WeightInfo::update_asset_count_stats(0));
             }
             (false, false) => {
                 // No changes needed.
+                // Consumes the weight for this function
+                weight_meter.check_accrue(<T as Config>::WeightInfo::update_asset_count_stats(0));
             }
             (from_change, to_change) => {
+                // Consumes the weight for this function
+                weight_meter.check_accrue(<T as Config>::WeightInfo::update_asset_count_stats(
+                    from_change as u32 + to_change as u32,
+                ));
                 if from_change {
                     // Remove one investor.
                     AssetStats::mutate(key1, from_key2, |counter| {
@@ -451,6 +471,7 @@ impl<T: Config> Module<T> {
         from_balance: Option<Balance>,
         to_balance: Option<Balance>,
         amount: Balance,
+        weight_meter: &mut WeightMeter,
     ) {
         // No updates needed if the transfer amount is zero.
         if amount == 0u128 {
@@ -470,7 +491,13 @@ impl<T: Config> Module<T> {
                     if let Some(changes) = count_changes {
                         let from_key2 = Self::fetch_claim_as_key(from_did, &key1);
                         let to_key2 = Self::fetch_claim_as_key(to_did, &key1);
-                        Self::update_asset_count_stats(key1, from_key2, to_key2, changes);
+                        Self::update_asset_count_stats(
+                            key1,
+                            from_key2,
+                            to_key2,
+                            changes,
+                            weight_meter,
+                        );
                     }
                 }
                 StatOpType::Balance => {
@@ -484,6 +511,7 @@ impl<T: Config> Module<T> {
                         from_balance,
                         to_balance,
                         amount,
+                        weight_meter,
                     );
                 }
             }

@@ -993,7 +993,6 @@ macro_rules! runtime_apis {
                     receiver_portfolio: &PortfolioId,
                     nfts: &NFTs
                 ) -> frame_support::dispatch::DispatchResult {
-                    // TODO: remove this meter
                     let mut weight_meter = WeightMeter::max_limit();
                     Nft::validate_nft_transfer(sender_portfolio, receiver_portfolio, nfts, &mut weight_meter)
                 }

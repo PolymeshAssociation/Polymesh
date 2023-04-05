@@ -36,6 +36,8 @@ pub trait WeightInfo {
     fn claim_count_restriction_no_stats(c: u32) -> Weight;
     fn claim_count_restriction_with_stats() -> Weight;
     fn claim_ownership_restriction(a: u32) -> Weight;
+    fn update_asset_count_stats(a: u32) -> Weight;
+    fn update_asset_balance_stats(a: u32) -> Weight;
 }
 
 decl_event!(

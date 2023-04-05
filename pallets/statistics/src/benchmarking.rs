@@ -205,6 +205,7 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let mut weight_meter = WeightMeter::max_limit();
 
         make_asset::<T>(&alice, Some(ticker.as_ref()));
         let transfer_condition = TransferCondition::MaxInvestorCount(1);
@@ -220,7 +221,8 @@ benchmarks! {
             0,
             ONE_UNIT,
             ONE_UNIT * POLY,
-            changes
+            changes,
+            &mut weight_meter
         ));
     }
 
@@ -228,6 +230,7 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let mut weight_meter = WeightMeter::max_limit();
 
         make_asset::<T>(&alice, Some(ticker.as_ref()));
         let transfer_condition = TransferCondition::MaxInvestorOwnership(Permill::one());
@@ -242,7 +245,8 @@ benchmarks! {
             0,
             ONE_UNIT,
             ONE_UNIT * POLY,
-            None
+            None,
+            &mut weight_meter
         ));
     }
 
@@ -253,6 +257,7 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let mut weight_meter = WeightMeter::max_limit();
 
         make_asset::<T>(&alice, Some(ticker.as_ref()));
         let changes = if c == 0 { None } else { Some((false, false)) };
@@ -269,7 +274,8 @@ benchmarks! {
             0,
             ONE_UNIT,
             ONE_UNIT * POLY,
-            changes
+            changes,
+            &mut weight_meter
         ));
     }
 
@@ -277,6 +283,7 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let mut weight_meter = WeightMeter::max_limit();
 
         make_asset::<T>(&alice, Some(ticker.as_ref()));
         let transfer_condition =
@@ -292,7 +299,8 @@ benchmarks! {
             0,
             ONE_UNIT,
             ONE_UNIT * POLY,
-            Some((false, true))
+            Some((false, true)),
+            &mut weight_meter
         ));
     }
 
@@ -303,6 +311,7 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let mut weight_meter = WeightMeter::max_limit();
 
         make_asset::<T>(&alice, Some(ticker.as_ref()));
         let transfer_condition =
@@ -325,7 +334,86 @@ benchmarks! {
             0,
             ONE_UNIT,
             ONE_UNIT * POLY,
-            None
+            None,
+            &mut weight_meter
         ));
+    }
+
+    update_asset_count_stats {
+        // Number of times `AssetStats` is read/written
+        let a in 0..2;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let issuer_id = IdentityId::from(0);
+        let asset = AssetScope::Ticker(ticker);
+        let stat_type = StatType{op: StatOpType::Count, claim_issuer: Some((ClaimType::Accredited, issuer_id))};
+        let key1 = Stat1stKey { asset, stat_type };
+        let mut weight_meter = WeightMeter::max_limit();
+
+        make_asset::<T>(&alice, Some(ticker.as_ref()));
+        let changes = {
+            if a == 0 {
+                (true, true)
+            } else if a == 1 {
+                (false, true)
+            } else {
+                add_identity_claim::<T>(
+                    alice.did(),
+                    Claim::Accredited(Scope::Ticker(ticker)),
+                    issuer_id,
+                );
+                (true, true)
+            }
+        };
+    }: {
+        let from_key2 = Module::<T>::fetch_claim_as_key(Some(&alice.did()), &key1);
+        let to_key2 = Module::<T>::fetch_claim_as_key(Some(&bob.did()), &key1);
+        Module::<T>::update_asset_count_stats(key1, from_key2, to_key2, changes, &mut weight_meter);
+    }
+
+    update_asset_balance_stats {
+        // Number of times `AssetStats` is read/written
+        let a in 0..2;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let issuer_id = IdentityId::from(0);
+        let asset = AssetScope::Ticker(ticker);
+        let stat_type = StatType{op: StatOpType::Balance, claim_issuer: Some((ClaimType::Accredited, issuer_id))};
+        let key1 = Stat1stKey { asset, stat_type };
+        let mut weight_meter = WeightMeter::max_limit();
+
+        make_asset::<T>(&alice, Some(ticker.as_ref()));
+        let (from_balance, to_balance) = {
+            if a == 0 {
+                (Some(ONE_UNIT), Some(ONE_UNIT))
+            } else {
+                add_identity_claim::<T>(
+                    alice.did(),
+                    Claim::Accredited(Scope::Ticker(ticker)),
+                    issuer_id,
+                );
+                if a == 1 {
+                    (Some(ONE_UNIT), None)
+                } else {
+                    (Some(ONE_UNIT), Some(ONE_UNIT))
+                }
+            }
+        };
+    }: {
+        let from_key2 = Module::<T>::fetch_claim_as_key(Some(&alice.did()), &key1);
+        let to_key2 = Module::<T>::fetch_claim_as_key(Some(&bob.did()), &key1);
+        Module::<T>::update_asset_balance_stats(
+            key1,
+            from_key2,
+            to_key2,
+            from_balance,
+            to_balance,
+            ONE_UNIT,
+            &mut weight_meter
+        );
     }
 }

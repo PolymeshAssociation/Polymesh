@@ -154,4 +154,30 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(a.into())))
     }
+    // Storage: Timestamp Now (r:1 w:0)
+    // Storage: Identity Claims (r:2 w:0)
+    // Storage: Statistics AssetStats (r:1 w:1)
+    /// The range of component `a` is `[0, 2]`.
+    fn update_asset_count_stats(a: u32) -> Weight {
+        // Minimum execution time: 26_627 nanoseconds.
+        Weight::from_ref_time(28_142_169)
+            // Standard Error: 71_971
+            .saturating_add(Weight::from_ref_time(7_143_638).saturating_mul(a.into()))
+            .saturating_add(DbWeight::get().reads(3))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(a.into())))
+            .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(a.into())))
+    }
+    // Storage: Timestamp Now (r:1 w:0)
+    // Storage: Identity Claims (r:2 w:0)
+    // Storage: Statistics AssetStats (r:1 w:1)
+    /// The range of component `a` is `[0, 2]`.
+    fn update_asset_balance_stats(a: u32) -> Weight {
+        // Minimum execution time: 26_157 nanoseconds.
+        Weight::from_ref_time(27_557_392)
+            // Standard Error: 120_188
+            .saturating_add(Weight::from_ref_time(12_861_203).saturating_mul(a.into()))
+            .saturating_add(DbWeight::get().reads(3))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(a.into())))
+            .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(a.into())))
+    }
 }

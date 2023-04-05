@@ -119,17 +119,18 @@ fn emulate_controller_transfer<T: Config>(
     investor_did: IdentityId,
     pia: IdentityId,
 ) {
+    let mut weight_meter = WeightMeter::max_limit();
     // Assign balance to an investor.
-    let mock_storage = |id: IdentityId, bal: Balance| {
+    let mock_storage = |id: IdentityId, bal: Balance, meter: &mut WeightMeter| {
         let s_id: ScopeId = id;
         BalanceOf::insert(ticker, id, bal);
         BalanceOfAtScope::insert(s_id, id, bal);
         AggregateBalance::insert(ticker, id, bal);
         ScopeIdOf::insert(ticker, id, s_id);
-        Statistics::<T>::update_asset_stats(&ticker, None, Some(&id), None, Some(bal), bal);
+        Statistics::<T>::update_asset_stats(&ticker, None, Some(&id), None, Some(bal), bal, meter);
     };
-    mock_storage(investor_did, 1000u32.into());
-    mock_storage(pia, 5000u32.into());
+    mock_storage(investor_did, 1000u32.into(), &mut weight_meter);
+    mock_storage(pia, 5000u32.into(), &mut weight_meter);
 }
 
 fn owner<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> User<T> {
@@ -658,10 +659,10 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let mut weight_meter = WeightMeter::max_limit();
 
         let (sender_portfolio, receiver_portfolio) =
             setup_asset_transfer::<T>(&alice, &bob, ticker, None, None);
-        let mut weight_meter = WeightMeter::max_limit();
     }: {
         Module::<T>::base_transfer(sender_portfolio, receiver_portfolio, &ticker, ONE_UNIT, &mut weight_meter).unwrap();
     }

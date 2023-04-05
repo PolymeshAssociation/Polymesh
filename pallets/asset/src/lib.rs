@@ -1409,6 +1409,7 @@ impl<T: Config> Module<T> {
         to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: Balance,
+        weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         Self::ensure_granular(ticker, value)?;
 
@@ -1481,6 +1482,7 @@ impl<T: Config> Module<T> {
             Some(Self::aggregate_balance_of(ticker, &from_scope_id)),
             Some(Self::aggregate_balance_of(ticker, &to_scope_id)),
             value,
+            weight_meter,
         );
 
         Self::deposit_event(RawEvent::Transfer(
@@ -1578,6 +1580,7 @@ impl<T: Config> Module<T> {
             // Using the aggregate balance to update the unique investor count.
             updated_to_balance = Self::aggregate_balance_of(ticker, &scope_id);
         }
+        let mut weight_meter = WeightMeter::max_limit();
         Statistics::<T>::update_asset_stats(
             &ticker,
             None,
@@ -1585,6 +1588,7 @@ impl<T: Config> Module<T> {
             None,
             Some(updated_to_balance),
             value,
+            &mut weight_meter,
         );
 
         let round = Self::funding_round(ticker);
@@ -1711,7 +1715,6 @@ impl<T: Config> Module<T> {
         } else if Self::portfolio_failure(&from_portfolio, &to_portfolio, ticker, value) {
             PORTFOLIO_FAILURE
         } else {
-            // TODO: Remove this
             let mut weight_meter = WeightMeter::max_limit();
             // Compliance manager & Smart Extension check
             Self::_is_valid_transfer(
@@ -1749,7 +1752,7 @@ impl<T: Config> Module<T> {
             Error::<T>::InvalidTransfer
         );
 
-        Self::unsafe_transfer(from_portfolio, to_portfolio, ticker, value)?;
+        Self::unsafe_transfer(from_portfolio, to_portfolio, ticker, value, weight_meter)?;
 
         Ok(())
     }
@@ -2026,6 +2029,7 @@ impl<T: Config> Module<T> {
         // Update statistic info.
         // Using the aggregate balance to update the unique investor count.
         let updated_from_balance = Some(Self::aggregate_balance_of(ticker, &scope_id));
+        let mut weight_meter = WeightMeter::max_limit();
         Statistics::<T>::update_asset_stats(
             &ticker,
             Some(&portfolio.did),
@@ -2033,6 +2037,7 @@ impl<T: Config> Module<T> {
             updated_from_balance,
             None,
             value,
+            &mut weight_meter,
         );
 
         Self::deposit_event(RawEvent::Transfer(
@@ -2449,7 +2454,14 @@ impl<T: Config> Module<T> {
             Self::ensure_agent_with_custody_and_perms(origin, ticker, PortfolioKind::Default)?;
 
         // Transfer `value` of ticker tokens from `investor_did` to controller
-        Self::unsafe_transfer(from_portfolio, to_portfolio, &ticker, value)?;
+        let mut weight_meter = WeightMeter::max_limit();
+        Self::unsafe_transfer(
+            from_portfolio,
+            to_portfolio,
+            &ticker,
+            value,
+            &mut weight_meter,
+        )?;
         Self::deposit_event(RawEvent::ControllerTransfer(
             to_portfolio.did,
             ticker,
