@@ -1,6 +1,7 @@
 use super::{
     asset_test::{an_asset, basic_asset, max_len, max_len_bytes, set_timestamp, token},
     committee_test::gc_vmo,
+    exec_noop, exec_ok,
     ext_builder::PROTOCOL_OP_BASE_FEE,
     storage::{
         account_from, add_secondary_key, add_secondary_key_with_perms,
@@ -26,7 +27,8 @@ use polymesh_common_utilities::{
     traits::{
         group::GroupTrait,
         identity::{
-            Config as IdentityConfig, RawEvent, SecondaryKeyWithAuth, TargetIdAuthorization,
+            Config as IdentityConfig, CreateChildIdentityWithAuth, RawEvent, SecondaryKeyWithAuth,
+            TargetIdAuthorization,
         },
         transaction_payment::CddAndFeeDetails,
     },
@@ -50,6 +52,7 @@ type Asset = pallet_asset::Module<TestStorage>;
 type Balances = balances::Module<TestStorage>;
 type BaseError = pallet_base::Error<TestStorage>;
 type Identity = pallet_identity::Module<TestStorage>;
+type ParentDid = pallet_identity::ParentDid;
 type MultiSig = pallet_multisig::Module<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
@@ -2198,4 +2201,215 @@ fn cdd_register_did_events() {
                 ))
             );
         });
+}
+
+#[test]
+fn child_identity_test() {
+    ExtBuilder::default()
+        .balance_factor(1_000)
+        .monied(true)
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
+        .build()
+        .execute_with(&do_child_identity_test);
+}
+
+fn do_child_identity_test() {
+    let cdd = Origin::signed(AccountKeyring::Eve.to_account_id());
+    let alice = User::new(AccountKeyring::Alice);
+    let bob = User::new_with(alice.did, AccountKeyring::Bob);
+    let dave = User::new_with(alice.did, AccountKeyring::Dave);
+
+    let charlie = User::new(AccountKeyring::Charlie);
+
+    // Helper functions.
+    let did_of = |u: User| Identity::get_identity(&u.acc());
+    let valid_cdd = |u: User| did_of(u).map(Identity::has_valid_cdd).unwrap_or_default();
+    let inc_acc_ref = |u: User| Identity::add_account_key_ref_count(&u.acc());
+    let rejoin_parent = |parent: User, child: User| {
+        ParentDid::insert(child.did, parent.did);
+    };
+
+    // Create some secondary keys.
+    add_secondary_key(alice.did, bob.acc());
+    add_secondary_key(alice.did, dave.acc());
+
+    // Check KeyRecords map
+    assert_eq!(did_of(bob), Some(alice.did));
+    assert_eq!(did_of(dave), Some(alice.did));
+    assert!(valid_cdd(alice));
+    assert!(valid_cdd(bob));
+    assert!(valid_cdd(dave));
+
+    // The new child identity's primary key must be a secondary key.
+    exec_noop!(
+        Identity::create_child_identity(alice.origin(), charlie.acc()),
+        Error::NotASigner,
+    );
+
+    // The new child identity's primary key must be unlinkable (no account references).
+    inc_acc_ref(dave);
+    exec_noop!(
+        Identity::create_child_identity(alice.origin(), dave.acc()),
+        Error::AccountKeyIsBeingUsed,
+    );
+
+    // Only a secondary key from the parent identity can be used as the primary key for the child identity.
+    exec_noop!(
+        Identity::create_child_identity(alice.origin(), alice.acc()),
+        Error::NotASigner,
+    );
+
+    // Only the primary key can create a child identity.
+    exec_noop!(
+        Identity::create_child_identity(bob.origin(), bob.acc()),
+        Error::KeyNotAllowed,
+    );
+
+    // Create child identity with Bob as the primary key.
+    exec_ok!(Identity::create_child_identity(alice.origin(), bob.acc()));
+    // Update bob's identity.
+    let bob_did = did_of(bob).expect("Bob's new identity");
+    let bob = User::new_with(bob_did, AccountKeyring::Bob);
+
+    // Ensure bob has a new identity.
+    assert!(valid_cdd(bob));
+    assert_ne!(bob.did, alice.did);
+    let (bob_cdd_id, _bob_uid) = create_cdd_id_and_investor_uid(bob_did);
+
+    // Attach secondary key to child identity.
+    let ferdie = User::new_with(bob.did, AccountKeyring::Ferdie);
+    add_secondary_key(bob.did, ferdie.acc());
+
+    // Child identity can't create a child identity.
+    exec_noop!(
+        Identity::create_child_identity(bob.origin(), ferdie.acc()),
+        Error::IsChildIdentity,
+    );
+
+    // Parent can force unlinking of child identity without CDD claim.
+    exec_ok!(Identity::unlink_child_identity(alice.origin(), bob_did));
+    rejoin_parent(alice, bob);
+
+    // Child can force unlinking from parent identity without CDD claim.
+    exec_ok!(Identity::unlink_child_identity(bob.origin(), bob_did));
+    rejoin_parent(alice, bob);
+
+    // Child identity can receive a CDD Claim.
+    assert_ok!(Identity::add_claim(
+        cdd.clone(),
+        bob_did,
+        Claim::CustomerDueDiligence(bob_cdd_id),
+        None
+    ));
+
+    // Parent can unlink child identity (has CDD claim).
+    exec_ok!(Identity::unlink_child_identity(alice.origin(), bob_did));
+    rejoin_parent(alice, bob);
+
+    // Child can unlink from parent identity.
+    exec_ok!(Identity::unlink_child_identity(bob.origin(), bob_did));
+
+    // Bob's identity doesn't have a parent.
+    exec_noop!(
+        Identity::unlink_child_identity(alice.origin(), bob_did),
+        Error::NoParentIdentity,
+    );
+
+    // Rejoin parent identity for testing.
+    rejoin_parent(alice, bob);
+
+    // The caller's identity must be the parent or child.
+    exec_noop!(
+        Identity::unlink_child_identity(charlie.origin(), bob_did),
+        Error::NotParentOrChildIdentity,
+    );
+
+    // Only the parent's primary key can unlink a child identity.
+    exec_noop!(
+        Identity::unlink_child_identity(dave.origin(), bob_did),
+        Error::KeyNotAllowed,
+    );
+
+    // Only the child's primary key can unlink a child identity.
+    exec_noop!(
+        Identity::unlink_child_identity(ferdie.origin(), bob_did),
+        Error::KeyNotAllowed,
+    );
+
+    // Unlink child from parent again.
+    exec_ok!(Identity::unlink_child_identity(bob.origin(), bob_did));
+
+    assert!(valid_cdd(bob));
+
+    // Bob's identity is no longer a child identity.  It can create child identities.
+    exec_ok!(Identity::create_child_identity(bob.origin(), ferdie.acc()));
+    // Update ferdie's identity.
+    let ferdie_did = did_of(ferdie).expect("Ferdie's new identity");
+    let ferdie = User::new_with(ferdie_did, AccountKeyring::Ferdie);
+    assert!(valid_cdd(ferdie));
+}
+
+#[test]
+fn create_child_identities_with_auth_test() {
+    ExtBuilder::default()
+        .balance_factor(1_000)
+        .monied(true)
+        .cdd_providers(vec![AccountKeyring::Eve.to_account_id()])
+        .build()
+        .execute_with(&do_create_child_identities_with_auth_test);
+}
+
+fn do_create_child_identities_with_auth_test() {
+    let alice = User::new(AccountKeyring::Alice);
+    let charlie = User::new_with(alice.did, AccountKeyring::Charlie);
+    // Create some secondary keys.
+    add_secondary_key(alice.did, charlie.acc());
+
+    let expires_at = 100;
+    let auth = || {
+        let auth = TargetIdAuthorization {
+            target_id: alice.did,
+            nonce: Identity::offchain_authorization_nonce(alice.did),
+            expires_at,
+        };
+        auth.encode()
+    };
+    let create_with_auth = |child: AccountKeyring| {
+        let auth_encoded = auth();
+        CreateChildIdentityWithAuth {
+            key: child.to_account_id(),
+            auth_signature: H512::from(child.sign(&auth_encoded)),
+        }
+    };
+
+    // Try creating a child identity with a key already linked to another identity.
+    let child_keys = vec![create_with_auth(charlie.ring)];
+    assert_noop!(
+        Identity::create_child_identities(alice.origin(), child_keys, expires_at),
+        Error::AlreadyLinked
+    );
+
+    // Repeat a key.
+    let child_keys = vec![
+        create_with_auth(AccountKeyring::Bob),
+        create_with_auth(AccountKeyring::Dave),
+        create_with_auth(AccountKeyring::Ferdie),
+        create_with_auth(AccountKeyring::Bob), // Duplicate key.
+    ];
+    assert_noop!(
+        Identity::create_child_identities(alice.origin(), child_keys, expires_at),
+        Error::DuplicateKey
+    );
+
+    // Create multiple child identities from unlinked keys.
+    let child_keys = vec![
+        create_with_auth(AccountKeyring::Bob),
+        create_with_auth(AccountKeyring::Dave),
+        create_with_auth(AccountKeyring::Ferdie),
+    ];
+    assert_ok!(Identity::create_child_identities(
+        alice.origin(),
+        child_keys,
+        expires_at
+    ));
 }
