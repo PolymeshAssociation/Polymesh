@@ -625,4 +625,45 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((2 as u64).saturating_mul(f as u64)))
             .saturating_add(DbWeight::get().writes((1 as u64).saturating_mul(n as u64)))
     }
+    // Storage: Settlement VenueFiltering (r:1 w:0)
+    // Storage: Settlement VenueAllowList (r:1 w:0)
+    /// The range of component `n` is `[1, 110]`.
+    fn ensure_allowed_venue(n: u32) -> Weight {
+        // Minimum execution time: 23_690 nanoseconds.
+        Weight::from_ref_time(46_294_649)
+            // Standard Error: 41_108
+            .saturating_add(Weight::from_ref_time(7_723_084).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads((2_u64).saturating_mul(n.into())))
+    }
+    // Storage: Settlement InstructionAffirmsPending (r:1 w:0)
+    // Storage: Settlement InstructionStatuses (r:1 w:0)
+    // Storage: Settlement InstructionDetails (r:1 w:0)
+    // Storage: Settlement InstructionLegsV2 (r:2 w:0)
+    /// The range of component `n` is `[1, 110]`.
+    fn base_execute_instruction(n: u32) -> Weight {
+        // Minimum execution time: 37_653 nanoseconds.
+        Weight::from_ref_time(25_182_678)
+            // Standard Error: 33_686
+            .saturating_add(Weight::from_ref_time(7_473_922).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(4))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+    }
+    // Storage: Settlement InstructionLegStatus (r:10 w:0)
+    // Storage: Portfolio PortfolioLockedNFT (r:100 w:100)
+    // Storage: Portfolio PortfolioLockedAssets (r:1 w:1)
+    /// The range of component `f` is `[0, 10]`.
+    /// The range of component `n` is `[0, 100]`.
+    fn unchecked_release_locks(f: u32, n: u32) -> Weight {
+        // Minimum execution time: 97_932 nanoseconds.
+        Weight::from_ref_time(33_273_379)
+            // Standard Error: 79_242
+            .saturating_add(Weight::from_ref_time(7_627_259).saturating_mul(f.into()))
+            // Standard Error: 8_130
+            .saturating_add(Weight::from_ref_time(7_096_432).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes(1))
+            .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
+    }
 }

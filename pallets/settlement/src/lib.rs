@@ -487,6 +487,9 @@ pub trait WeightInfo {
         let (f, n) = get_transfer_by_asset(legs_v2);
         Self::execute_scheduled_instruction(f, n)
     }
+    fn ensure_allowed_venue(n: u32) -> Weight;
+    fn base_execute_instruction(n: u32) -> Weight;
+    fn unchecked_release_locks(f: u32, n: u32) -> Weight;
 }
 
 type EnsureValidInstructionResult<AccountId, Moment, BlockNumber> = Result<
@@ -1612,7 +1615,9 @@ impl<T: Config> Module<T> {
     /// Execute the instruction with `instruction_id`, pruning it on success.
     /// On error, set the instruction status to failed.
     fn execute_instruction_retryable(id: InstructionId) -> Result<u32, DispatchError> {
-        let result = Self::execute_instruction(id);
+        // Tracks the actual consumed weight for the execution
+        let mut weight_meter = WeightMeter::max_limit();
+        let result = Self::execute_instruction(id, &mut weight_meter);
         if result.is_ok() {
             Self::prune_instruction(id, true);
         } else if <InstructionDetails<T>>::contains_key(id) {
@@ -1621,9 +1626,10 @@ impl<T: Config> Module<T> {
         result
     }
 
-    fn execute_instruction(instruction_id: InstructionId) -> Result<u32, DispatchError> {
-        // Tracks the actual consumed weight for the execution
-        let mut weight_meter = WeightMeter::max_limit();
+    fn execute_instruction(
+        instruction_id: InstructionId,
+        weight_meter: &mut WeightMeter,
+    ) -> Result<u32, DispatchError> {
         // Verifies that there are no pending affirmations for the given instruction
         ensure!(
             Self::instruction_affirms_pending(instruction_id) == 0,
@@ -1646,14 +1652,19 @@ impl<T: Config> Module<T> {
         let mut instruction_legs: Vec<(LegId, LegV2)> = Self::get_instruction_legs(&instruction_id);
         instruction_legs.sort_by_key(|leg_id_leg| leg_id_leg.0);
 
+        // Chanrges the weight consumed so far
+        weight_meter.check_accrue(<T as Config>::WeightInfo::base_execute_instruction(
+            instruction_legs.len() as u32,
+        ));
+
         // Verifies if the venue is allowed for all tickers in the instruction
-        Self::ensure_allowed_venue(&instruction_legs, venue_id)?;
+        Self::ensure_allowed_venue(&instruction_legs, venue_id, weight_meter)?;
 
         match frame_storage_with_transaction(|| {
             Self::release_asset_locks_and_transfer_pending_legs(
                 instruction_id,
                 &instruction_legs,
-                &mut weight_meter,
+                weight_meter,
             )
         })? {
             Ok(_) => {
@@ -1686,6 +1697,7 @@ impl<T: Config> Module<T> {
     fn ensure_allowed_venue(
         instruction_legs: &[(LegId, LegV2)],
         venue_id: VenueId,
+        weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         // Avoids reading the storage multiple times for the same ticker
         let mut tickers: BTreeSet<Ticker> = BTreeSet::new();
@@ -1696,6 +1708,10 @@ impl<T: Config> Module<T> {
                 && Self::venue_filtering(ticker)
                 && !Self::venue_allow_list(ticker, venue_id)
             {
+                // Charges the weight consumed
+                weight_meter.check_accrue(<T as Config>::WeightInfo::ensure_allowed_venue(
+                    tickers.len() as u32,
+                ));
                 Self::deposit_event(RawEvent::VenueUnauthorized(
                     SettlementDID.as_id(),
                     ticker,
@@ -1704,6 +1720,10 @@ impl<T: Config> Module<T> {
                 return Err(Error::<T>::UnauthorizedVenue.into());
             }
         }
+        // Charges the weight consumed
+        weight_meter.check_accrue(<T as Config>::WeightInfo::ensure_allowed_venue(
+            tickers.len() as u32,
+        ));
         Ok(())
     }
 
@@ -1713,6 +1733,12 @@ impl<T: Config> Module<T> {
         weight_meter: &mut WeightMeter,
     ) -> TransactionOutcome<Result<Result<(), LegId>, DispatchError>> {
         Self::unchecked_release_locks(instruction_id, instruction_legs);
+        // Charges the weight consumed
+        let transfer_data = Self::get_transfer_data(&instruction_legs).unwrap();
+        weight_meter.check_accrue(<T as Config>::WeightInfo::unchecked_release_locks(
+            transfer_data.fungible(),
+            transfer_data.non_fungible(),
+        ));
         for (leg_id, leg) in instruction_legs {
             if Self::instruction_leg_status(instruction_id, leg_id) == LegStatus::ExecutionPending {
                 match &leg.asset {
@@ -2140,7 +2166,9 @@ impl<T: Config> Module<T> {
             // We use execute_instruction here directly
             // and not the execute_instruction_retryable variant
             // because direct settlement is not retryable.
-            Self::execute_instruction(id)?;
+            // Tracks the actual consumed weight for the execution
+            let mut weight_meter = WeightMeter::max_limit();
+            Self::execute_instruction(id, &mut weight_meter)?;
         }
         Ok(())
     }

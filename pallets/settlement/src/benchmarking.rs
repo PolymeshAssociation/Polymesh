@@ -1124,6 +1124,7 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let venue_id = create_venue_::<T>(alice.did(), vec![]);
+        let mut weight_meter = WeightMeter::max_limit();
 
         let instruction_legs: Vec<(LegId, LegV2)> = (0..n)
             .map(|i| {
@@ -1155,10 +1156,11 @@ benchmarks! {
             })
             .collect();
     }: {
-        Module::<T>::ensure_allowed_venue(&instruction_legs, venue_id).unwrap();
+        Module::<T>::ensure_allowed_venue(&instruction_legs, venue_id, &mut weight_meter).unwrap();
     }
 
     base_execute_instruction {
+        // Number of legs in the instruction
         let n in 1..T::MaxNumberOfFungibleAssets::get() + T::MaxNumberOfNFTs::get();
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
@@ -1189,6 +1191,28 @@ benchmarks! {
         let mut instruction_legs: Vec<(LegId, LegV2)> = Module::<T>::get_instruction_legs(&instruction_id);
         instruction_legs.sort_by_key(|leg_id_leg| leg_id_leg.0);
     }
+
+    unchecked_release_locks {
+        // Number of fungible and non fungible assets in the legs
+        let f in 0..T::MaxNumberOfFungibleAssets::get();
+        let n in 0..T::MaxNumberOfNFTs::get();
+
+        let parameters = setup_v2_extrinsics_parameters::<T>(f, n);
+        Module::<T>::add_and_affirm_instruction_with_memo_v2(
+            parameters.sender.clone().origin.into(),
+            parameters.venue_id,
+            parameters.settlement_type,
+            parameters.date,
+            parameters.date,
+            parameters.legs_v2.clone(),
+            parameters.sender_portfolios.clone(),
+            parameters.memo
+        ).expect("failed to add instruction");
+        let instruction_legs: Vec<(LegId, LegV2)> = Module::<T>::get_instruction_legs(&InstructionId(1));
+    }: {
+        Module::<T>::unchecked_release_locks(InstructionId(1), &instruction_legs);
+    }
+
 }
 
 pub fn next_block<T: Config + pallet_scheduler::Config>() {
