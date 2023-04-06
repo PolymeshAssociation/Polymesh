@@ -235,10 +235,6 @@ pub use nft::{NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, N
 pub mod portfolio;
 pub use portfolio::{Fund, FundDescription, Memo};
 
-/// Settlement type definitions.
-pub mod settlement;
-pub use settlement::ExecuteInstructionComplexity;
-
 /// Represents custom transaction errors.
 #[repr(u8)]
 pub enum TransactionError {
