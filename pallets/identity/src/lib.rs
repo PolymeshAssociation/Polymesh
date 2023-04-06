@@ -107,8 +107,8 @@ use polymesh_common_utilities::{
     constants::did::SECURITY_TOKEN,
     protocol_fee::{ChargeProtocolFee, ProtocolOp},
     traits::identity::{
-        AuthorizationNonce, Config, IdentityFnTrait, RawEvent, SecondaryKeyWithAuth,
-        SecondaryKeyWithAuthV1,
+        AuthorizationNonce, Config, CreateChildIdentityWithAuth, IdentityFnTrait, RawEvent,
+        SecondaryKeyWithAuth, SecondaryKeyWithAuthV1,
     },
     SystematicIssuers, GC_DID,
 };
@@ -191,6 +191,10 @@ decl_storage! {
         ///
         pub AccountKeyRefCount get(fn account_key_ref_count):
             map hasher(blake2_128_concat) T::AccountId => u64;
+
+        /// Parent identity if the DID is a child Identity.
+        pub ParentDid get(fn parent_did):
+            map hasher(identity) IdentityId => Option<IdentityId>;
     }
     add_extra_genesis {
         // Identities at genesis.
@@ -587,6 +591,62 @@ decl_module! {
             Self::base_add_claim(target_did, cdd_claim, cdd_did, expiry)?;
         }
 
+        /// Create a child identity and make the `secondary_key` it's primary key.
+        ///
+        /// Only the primary key can create child identities.
+        ///
+        /// # Arguments
+        /// - `secondary_key` the secondary key that will become the primary key of the new identity.
+        ///
+        /// # Errors
+        /// - `KeyNotAllowed` only the primary key can create a new identity.
+        /// - `NotASigner` the `secondary_key` is not a secondary key of the caller's identity.
+        /// - `AccountKeyIsBeingUsed` the `secondary_key` can't be unlinked from it's current identity.
+        /// - `IsChildIdentity` the caller's identity is already a child identity and can't create child identities.
+        #[weight = <T as Config>::WeightInfo::create_child_identity()]
+        pub fn create_child_identity(origin, secondary_key: T::AccountId) {
+            Self::base_create_child_identity(origin, secondary_key)?;
+        }
+
+        /// Create a child identities.
+        ///
+        /// The new primary key for each child identity will need to sign (off-chain)
+        /// an authorization.
+        ///
+        /// Only the primary key can create child identities.
+        ///
+        /// # Arguments
+        /// - `child_keys` the keys that will become primary keys of their own child identity.
+        ///
+        /// # Errors
+        /// - `KeyNotAllowed` only the primary key can create a new identity.
+        /// - `AlreadyLinked` one of the keys is already linked to an identity.
+        /// - `DuplicateKey` one of the keys is included multiple times.
+        /// - `IsChildIdentity` the caller's identity is already a child identity and can't create child identities.
+        #[weight = <T as Config>::WeightInfo::create_child_identities(child_keys.len() as u32)]
+        pub fn create_child_identities(
+            origin,
+            child_keys: Vec<CreateChildIdentityWithAuth<T::AccountId>>,
+            expires_at: T::Moment
+        ) {
+            Self::base_create_child_identities(origin, child_keys, expires_at)?;
+        }
+
+        /// Unlink a child identity from it's parent identity.
+        ///
+        /// Only the primary key of the parent or child identities can unlink the identities.
+        ///
+        /// # Arguments
+        /// - `child_did` the child identity to unlink from its parent identity.
+        ///
+        /// # Errors
+        /// - `KeyNotAllowed` only the primary key of either the parent or child identity can unlink the identities.
+        /// - `NoParentIdentity` the identity `child_did` doesn't have a parent identity.
+        /// - `NotParentOrChildIdentity` the caller's identity isn't the parent or child identity.
+        #[weight = <T as Config>::WeightInfo::unlink_child_identity()]
+        pub fn unlink_child_identity(origin, child_did: IdentityId) {
+            Self::base_unlink_child_identity(origin, child_did)?;
+        }
     }
 }
 
@@ -665,6 +725,14 @@ decl_error! {
         CustomClaimTypeDoesNotExist,
         /// Claim does not exist.
         ClaimDoesNotExist,
+        /// Identity is already a child of an other identity, can't create grand-child identity.
+        IsChildIdentity,
+        /// The Identity doesn't have a parent identity.
+        NoParentIdentity,
+        /// The caller is not the parent or child identity.
+        NotParentOrChildIdentity,
+        /// The same key was included multiple times.
+        DuplicateKey,
     }
 }
 
