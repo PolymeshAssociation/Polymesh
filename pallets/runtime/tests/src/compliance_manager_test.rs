@@ -7,6 +7,7 @@ use super::{
     ExtBuilder,
 };
 use chrono::prelude::Utc;
+use frame_support::weights::WeightMeter;
 use frame_support::{assert_noop, assert_ok, traits::Currency};
 use pallet_balances as balances;
 use pallet_compliance_manager::{self as compliance_manager, Error as CMError};
@@ -41,12 +42,14 @@ type EAError = pallet_external_agents::Error<TestStorage>;
 
 macro_rules! assert_invalid_transfer {
     ($ticker:expr, $from:expr, $to:expr, $amount:expr) => {
+        let mut weight_meter = WeightMeter::max_limit();
         assert_ne!(
             Asset::_is_valid_transfer(
                 &$ticker,
                 PortfolioId::default_portfolio($from),
                 PortfolioId::default_portfolio($to),
-                $amount
+                $amount,
+                &mut weight_meter
             ),
             Ok(ERC1400_TRANSFER_SUCCESS)
         );
@@ -55,12 +58,14 @@ macro_rules! assert_invalid_transfer {
 
 macro_rules! assert_valid_transfer {
     ($ticker:expr, $from:expr, $to:expr, $amount:expr) => {
+        let mut weight_meter = WeightMeter::max_limit();
         assert_eq!(
             Asset::_is_valid_transfer(
                 &$ticker,
                 PortfolioId::default_portfolio($from),
                 PortfolioId::default_portfolio($to),
-                $amount
+                $amount,
+                &mut weight_meter
             ),
             Ok(ERC1400_TRANSFER_SUCCESS)
         );
@@ -1331,8 +1336,15 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
     );
 
     // No compliance requirement is present, compliance should fail
+    let mut weight_meter = WeightMeter::max_limit();
     assert_ok!(
-        ComplianceManager::verify_restriction(&ticker, None, Some(issuer.did), amount),
+        ComplianceManager::verify_restriction(
+            &ticker,
+            None,
+            Some(issuer.did),
+            amount,
+            &mut weight_meter
+        ),
         ERC1400_TRANSFER_FAILURE
     );
 
@@ -1352,18 +1364,33 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
         conditions(TargetIdentity::Specific(other.did)),
     ));
 
-    let verify = |from: User, to: User| {
-        ComplianceManager::verify_restriction(&ticker, Some(from.did), Some(to.did), amount)
+    let verify = |from: User, to: User, weight_meter: &mut WeightMeter| {
+        ComplianceManager::verify_restriction(
+            &ticker,
+            Some(from.did),
+            Some(to.did),
+            amount,
+            weight_meter,
+        )
     };
 
     // From primary issuance agent to the random guy should succeed
-    assert_ok!(verify(issuer, other), ERC1400_TRANSFER_SUCCESS);
+    assert_ok!(
+        verify(issuer, other, &mut weight_meter),
+        ERC1400_TRANSFER_SUCCESS
+    );
 
     // From primary issuance agent to owner should fail
-    assert_ok!(verify(issuer, owner), ERC1400_TRANSFER_FAILURE);
+    assert_ok!(
+        verify(issuer, owner, &mut weight_meter),
+        ERC1400_TRANSFER_FAILURE
+    );
 
     // From random guy to primary issuance agent should fail
-    assert_ok!(verify(other, issuer), ERC1400_TRANSFER_FAILURE);
+    assert_ok!(
+        verify(other, issuer, &mut weight_meter),
+        ERC1400_TRANSFER_FAILURE
+    );
 }
 
 #[test]

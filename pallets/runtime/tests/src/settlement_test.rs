@@ -9,6 +9,7 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
+use frame_support::weights::WeightMeter;
 use frame_support::{assert_noop, assert_ok, IterableStorageDoubleMap, StorageDoubleMap};
 use pallet_asset as asset;
 use pallet_balances as balances;
@@ -1476,12 +1477,14 @@ fn test_weights_for_settlement_transaction() {
             set_current_block_number(100);
             assert_affirm_instruction_with_zero_leg!(bob_signed.clone(), instruction_id, bob_did);
 
+            let mut weight_meter = WeightMeter::max_limit();
             assert_ok!(
                 Asset::_is_valid_transfer(
                     &TICKER,
                     PortfolioId::default_portfolio(alice_did),
                     PortfolioId::default_portfolio(bob_did),
                     100,
+                    &mut weight_meter
                 ),
                 ERC1400_TRANSFER_SUCCESS
             );

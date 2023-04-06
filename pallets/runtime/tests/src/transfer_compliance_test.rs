@@ -4,6 +4,7 @@ use super::{
     },
     ExtBuilder,
 };
+use frame_support::weights::WeightMeter;
 use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
@@ -461,11 +462,13 @@ impl AssetTracker {
     }
 
     fn do_transfer(&mut self, from: u64, to: u64, amount: u128) -> DispatchResult {
+        let mut weight_meter = WeightMeter::max_limit();
         Asset::base_transfer(
             self.get_investor_portfolio(from),
             self.get_investor_portfolio(to),
             &self.asset,
             amount,
+            &mut weight_meter,
         )?;
 
         // Update investor balances.

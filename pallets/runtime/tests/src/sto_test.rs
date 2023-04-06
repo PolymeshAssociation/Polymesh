@@ -14,6 +14,7 @@ use pallet_sto::{
 use polymesh_primitives::{asset::AssetType, checked_inc::CheckedInc, PortfolioId, Ticker};
 
 use crate::storage::provide_scope_claim_to_multiple_parties;
+use frame_support::weights::WeightMeter;
 use frame_support::{assert_noop, assert_ok};
 use sp_runtime::DispatchError;
 use test_client::AccountKeyring;
@@ -133,11 +134,13 @@ fn raise_happy_path() {
     } = init_raise_context(1_000_000, Some(RAISE_SUPPLY));
     let raise_ticker = raise_ticker.unwrap();
 
+    let mut weight_meter = WeightMeter::max_limit();
     assert_ok!(Asset::unsafe_transfer(
         alice_portfolio,
         bob_portfolio,
         &raise_ticker,
-        RAISE_SUPPLY
+        RAISE_SUPPLY,
+        &mut weight_meter
     ));
 
     allow_all_transfers(offering_ticker, alice);
@@ -370,11 +373,13 @@ fn raise_unhappy_path() {
 
     create_asset(alice.origin(), raise_ticker, 1_000_000);
 
+    let mut weight_meter = WeightMeter::max_limit();
     assert_ok!(Asset::unsafe_transfer(
         alice_portfolio,
         bob_portfolio,
         &raise_ticker,
-        1_000_000
+        1_000_000,
+        &mut weight_meter
     ));
 
     allow_all_transfers(offering_ticker, alice);

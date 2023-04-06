@@ -513,7 +513,6 @@ impl<T: Config> Module<T> {
         did: IdentityId,
         conditions: &mut [ConditionResult],
     ) -> bool {
-        // TODO: remove this meter
         let mut weight_meter = WeightMeter::max_limit();
         conditions.iter_mut().fold(true, |overall, res| {
             res.result = Self::is_condition_satisfied(

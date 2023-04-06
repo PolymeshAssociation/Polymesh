@@ -50,37 +50,36 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
+use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::storage::{
+    with_transaction as frame_storage_with_transaction, TransactionOutcome,
+};
+use frame_support::traits::schedule::{DispatchTime, Named as ScheduleNamed};
+use frame_support::traits::Get;
+use frame_support::weights::{Weight, WeightMeter};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
-    ensure,
-    storage::{with_transaction as frame_storage_with_transaction, TransactionOutcome},
-    traits::{
-        schedule::{DispatchTime, Named as ScheduleNamed},
-        Get,
-    },
-    weights::{Weight, WeightMeter},
-    IterableStorageDoubleMap,
+    decl_error, decl_event, decl_module, decl_storage, ensure, IterableStorageDoubleMap,
 };
 use frame_system::{ensure_root, RawOrigin};
+use scale_info::TypeInfo;
+use sp_runtime::traits::{One, Verify};
+use sp_std::collections::btree_set::BTreeSet;
+use sp_std::convert::TryFrom;
+use sp_std::prelude::*;
+
 use pallet_base::{ensure_string_limited, try_next_post};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
-use polymesh_common_utilities::{
-    constants::queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY,
-    traits::{
-        asset, identity::Config as IdentityConfig, portfolio::PortfolioSubTrait, CommonConfig,
-    },
-    with_transaction,
-    SystematicIssuers::Settlement as SettlementDID,
+use polymesh_common_utilities::constants::queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY;
+use polymesh_common_utilities::traits::{
+    asset, identity::Config as IdentityConfig, portfolio::PortfolioSubTrait, CommonConfig,
 };
+use polymesh_common_utilities::with_transaction;
+use polymesh_common_utilities::SystematicIssuers::Settlement as SettlementDID;
 use polymesh_primitives::{
     impl_checked_inc, storage_migrate_on, storage_migration_ver, Balance, IdentityId, NFTs,
     PortfolioId, SecondaryKey, Ticker,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
-use scale_info::TypeInfo;
-use sp_runtime::traits::{One, Verify};
-use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
 
 type Identity<T> = identity::Module<T>;
 type System<T> = frame_system::Pallet<T>;
@@ -1161,8 +1160,9 @@ decl_module! {
             // check that the instruction leg count matches
             ensure!(instruction_legs.len() as u32 <= legs_count, Error::<T>::LegCountTooSmall);
 
+            let mut weight_meter = WeightMeter::max_limit();
             // Executes the instruction
-            Self::execute_instruction_retryable(id)?;
+            Self::execute_instruction_retryable(id, &mut weight_meter)?;
 
             Self::deposit_event(RawEvent::SettlementManuallyExecuted(did, id));
         }
@@ -1612,24 +1612,26 @@ impl<T: Config> Module<T> {
         Ok(details)
     }
 
-    /// Execute the instruction with `instruction_id`, pruning it on success.
-    /// On error, set the instruction status to failed.
-    fn execute_instruction_retryable(id: InstructionId) -> Result<u32, DispatchError> {
-        // Tracks the actual consumed weight for the execution
-        let mut weight_meter = WeightMeter::max_limit();
-        let result = Self::execute_instruction(id, &mut weight_meter);
-        if result.is_ok() {
-            Self::prune_instruction(id, true);
-        } else if <InstructionDetails<T>>::contains_key(id) {
-            InstructionStatuses::<T>::insert(id, InstructionStatus::Failed);
+    /// Executes the instruction of the given `id`. If the execution succeeds, the instruction gets pruned,
+    /// otherwise the instruction status is set to failed.
+    fn execute_instruction_retryable(
+        id: InstructionId,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        if let Err(e) = Self::execute_instruction(id, weight_meter) {
+            if <InstructionDetails<T>>::contains_key(id) {
+                InstructionStatuses::<T>::insert(id, InstructionStatus::Failed);
+            }
+            return Err(e);
         }
-        result
+        Self::prune_instruction(id, true);
+        Ok(())
     }
 
     fn execute_instruction(
         instruction_id: InstructionId,
         weight_meter: &mut WeightMeter,
-    ) -> Result<u32, DispatchError> {
+    ) -> DispatchResult {
         // Verifies that there are no pending affirmations for the given instruction
         ensure!(
             Self::instruction_affirms_pending(instruction_id) == 0,
@@ -1660,69 +1662,31 @@ impl<T: Config> Module<T> {
         // Verifies if the venue is allowed for all tickers in the instruction
         Self::ensure_allowed_venue(&instruction_legs, venue_id, weight_meter)?;
 
-        match frame_storage_with_transaction(|| {
+        // Attempts to release the locks and transfer all fungible an non fungible assets
+        if let Err(leg_id) = frame_storage_with_transaction(|| {
             Self::release_asset_locks_and_transfer_pending_legs(
                 instruction_id,
                 &instruction_legs,
                 weight_meter,
             )
         })? {
-            Ok(_) => {
-                Self::deposit_event(RawEvent::InstructionExecuted(
-                    SettlementDID.as_id(),
-                    instruction_id,
-                ));
-            }
-            Err(leg_id) => {
-                Self::deposit_event(RawEvent::LegFailedExecution(
-                    SettlementDID.as_id(),
-                    instruction_id,
-                    leg_id,
-                ));
-                Self::deposit_event(RawEvent::InstructionFailed(
-                    SettlementDID.as_id(),
-                    instruction_id,
-                ));
-                // Unclaim receipts for the failed transaction so that they can be reused
-                Self::unsafe_unclaim_receipts(instruction_id, &instruction_legs);
-                return Err(Error::<T>::InstructionFailed.into());
-            }
+            Self::deposit_event(RawEvent::LegFailedExecution(
+                SettlementDID.as_id(),
+                instruction_id,
+                leg_id,
+            ));
+            Self::deposit_event(RawEvent::InstructionFailed(
+                SettlementDID.as_id(),
+                instruction_id,
+            ));
+            // Unclaim receipts for the failed transaction so that they can be reused
+            Self::unsafe_unclaim_receipts(instruction_id, &instruction_legs);
+            return Err(Error::<T>::InstructionFailed.into());
         }
 
-        Ok(instruction_legs.len().try_into().unwrap_or_default())
-    }
-
-    /// Ensures that all tickers in the instruction that have venue filtering enabled are also
-    /// in the venue allowed list.
-    fn ensure_allowed_venue(
-        instruction_legs: &[(LegId, LegV2)],
-        venue_id: VenueId,
-        weight_meter: &mut WeightMeter,
-    ) -> DispatchResult {
-        // Avoids reading the storage multiple times for the same ticker
-        let mut tickers: BTreeSet<Ticker> = BTreeSet::new();
-
-        for (_, leg) in instruction_legs {
-            let ticker = leg.asset.ticker_and_amount().0;
-            if tickers.insert(ticker)
-                && Self::venue_filtering(ticker)
-                && !Self::venue_allow_list(ticker, venue_id)
-            {
-                // Charges the weight consumed
-                weight_meter.check_accrue(<T as Config>::WeightInfo::ensure_allowed_venue(
-                    tickers.len() as u32,
-                ));
-                Self::deposit_event(RawEvent::VenueUnauthorized(
-                    SettlementDID.as_id(),
-                    ticker,
-                    venue_id,
-                ));
-                return Err(Error::<T>::UnauthorizedVenue.into());
-            }
-        }
-        // Charges the weight consumed
-        weight_meter.check_accrue(<T as Config>::WeightInfo::ensure_allowed_venue(
-            tickers.len() as u32,
+        Self::deposit_event(RawEvent::InstructionExecuted(
+            SettlementDID.as_id(),
+            instruction_id,
         ));
         Ok(())
     }
@@ -2330,6 +2294,38 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    /// Ensures that all tickers in the instruction that have venue filtering enabled are also
+    /// in the venue allowed list.
+    fn ensure_allowed_venue(
+        instruction_legs: &[(LegId, LegV2)],
+        venue_id: VenueId,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        // Avoids reading the storage multiple times for the same ticker
+        let mut tickers: BTreeSet<Ticker> = BTreeSet::new();
+
+        for (_, leg) in instruction_legs {
+            let ticker = leg.asset.ticker_and_amount().0;
+            if let Err(e) = Self::ensure_venue_filtering(&mut tickers, ticker, &venue_id) {
+                // Charges the weight consumed
+                weight_meter.check_accrue(<T as Config>::WeightInfo::ensure_allowed_venue(
+                    tickers.len() as u32,
+                ));
+                Self::deposit_event(RawEvent::VenueUnauthorized(
+                    SettlementDID.as_id(),
+                    ticker,
+                    venue_id,
+                ));
+                return Err(e);
+            }
+        }
+        // Charges the weight consumed
+        weight_meter.check_accrue(<T as Config>::WeightInfo::ensure_allowed_venue(
+            tickers.len() as u32,
+        ));
+        Ok(())
+    }
+
     /// If `tickers` doesn't contain the given `ticker` and venue_filtering is enabled, ensures that venue_id is in the allowed list
     fn ensure_venue_filtering(
         tickers: &mut BTreeSet<Ticker>,
@@ -2380,7 +2376,8 @@ impl<T: Config> Module<T> {
     }
 
     fn base_execute_scheduled_instruction(id: InstructionId) {
-        if let Err(e) = Self::execute_instruction_retryable(id) {
+        let mut weight_meter = WeightMeter::max_limit();
+        if let Err(e) = Self::execute_instruction_retryable(id, &mut weight_meter) {
             Self::deposit_event(RawEvent::FailedToExecuteInstruction(id, e));
         }
     }

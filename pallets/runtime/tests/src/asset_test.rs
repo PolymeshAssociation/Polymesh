@@ -9,6 +9,7 @@ use crate::{
     },
 };
 use chrono::prelude::Utc;
+use frame_support::weights::WeightMeter;
 use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
@@ -192,11 +193,13 @@ fn enable_investor_count(ticker: Ticker, owner: User) {
 }
 
 pub(crate) fn transfer(ticker: Ticker, from: User, to: User, amount: u128) -> DispatchResult {
+    let mut weight_meter = WeightMeter::max_limit();
     Asset::base_transfer(
         PortfolioId::default_portfolio(from.did),
         PortfolioId::default_portfolio(to.did),
         &ticker,
         amount,
+        &mut weight_meter,
     )
 }
 
@@ -378,11 +381,13 @@ fn issuers_can_redeem_tokens() {
 }
 
 fn default_transfer(from: User, to: User, ticker: Ticker, val: u128) {
+    let mut weight_meter = WeightMeter::max_limit();
     assert_ok!(Asset::unsafe_transfer(
         PortfolioId::default_portfolio(from.did),
         PortfolioId::default_portfolio(to.did),
         &ticker,
         val,
+        &mut weight_meter
     ));
 }
 
@@ -2032,6 +2037,7 @@ fn invalid_ticker_registry_test() {
 fn sender_same_as_receiver_test() {
     test_with_owner(|owner| {
         let ticker = an_asset(owner, true);
+        let mut weight_meter = WeightMeter::max_limit();
 
         // Create new portfolio
         let eu_portfolio = PortfolioId::default_portfolio(owner.did);
@@ -2039,7 +2045,13 @@ fn sender_same_as_receiver_test() {
 
         // Enforce an unsafe tranfer.
         assert_noop!(
-            Asset::unsafe_transfer(eu_portfolio, uk_portfolio, &ticker, 1_000),
+            Asset::unsafe_transfer(
+                eu_portfolio,
+                uk_portfolio,
+                &ticker,
+                1_000,
+                &mut weight_meter
+            ),
             AssetError::SenderSameAsReceiver
         );
     });
