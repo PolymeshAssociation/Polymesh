@@ -448,6 +448,34 @@ impl InstructionInfo {
     }
 }
 
+/// Provides the details of the pruned instruction
+pub struct PruneDetails {
+    /// Number of legs that were pruned.
+    n_legs: u32,
+    /// Number of unique counter parties that were in the instruction.
+    unique_counter_parties: u32,
+}
+
+impl PruneDetails {
+    /// Creates a new instance of `PruneDetails`.
+    fn new(n_legs: usize, unique_counter_parties: usize) -> Self {
+        PruneDetails {
+            n_legs: n_legs as u32,
+            unique_counter_parties: unique_counter_parties as u32,
+        }
+    }
+
+    /// Returns the number of legs that were pruned.
+    fn n_legs(&self) -> u32 {
+        self.n_legs
+    }
+
+    /// Returns the number of legs that were in the instruction.
+    fn unique_counter_parties(&self) -> u32 {
+        self.unique_counter_parties
+    }
+}
+
 pub trait WeightInfo {
     fn create_venue(d: u32, u: u32) -> Weight;
     fn update_venue_details(d: u32) -> Weight;
@@ -489,6 +517,8 @@ pub trait WeightInfo {
     fn ensure_allowed_venue(n: u32) -> Weight;
     fn base_execute_instruction(n: u32) -> Weight;
     fn unchecked_release_locks(f: u32, n: u32) -> Weight;
+    fn prune_instruction(l: u32, p: u32) -> Weight;
+    fn post_failed_execution() -> Weight;
 }
 
 type EnsureValidInstructionResult<AccountId, Moment, BlockNumber> = Result<
@@ -1622,9 +1652,16 @@ impl<T: Config> Module<T> {
             if <InstructionDetails<T>>::contains_key(id) {
                 InstructionStatuses::<T>::insert(id, InstructionStatus::Failed);
             }
+            // Consumes the weight for this function
+            weight_meter.check_accrue(<T as Config>::WeightInfo::post_failed_execution());
             return Err(e);
         }
-        Self::prune_instruction(id, true);
+        let prune_details = Self::prune_instruction(id, true);
+        // Consumes the weight for this function
+        weight_meter.check_accrue(<T as Config>::WeightInfo::prune_instruction(
+            prune_details.n_legs(),
+            prune_details.unique_counter_parties(),
+        ));
         Ok(())
     }
 
@@ -1732,7 +1769,7 @@ impl<T: Config> Module<T> {
         TransactionOutcome::Commit(Ok(Ok(())))
     }
 
-    fn prune_instruction(id: InstructionId, executed: bool) {
+    fn prune_instruction(id: InstructionId, executed: bool) -> PruneDetails {
         let legs: Vec<(LegId, LegV2)> = Self::drain_instruction_legs(&id);
         let details = <InstructionDetails<T>>::take(id);
         VenueInstructions::remove(details.venue_id, id);
@@ -1760,9 +1797,10 @@ impl<T: Config> Module<T> {
             counter_parties.insert(leg.from);
             counter_parties.insert(leg.to);
         }
-        for counter_party in counter_parties {
-            UserAffirmations::remove(counter_party, id);
+        for counter_party in &counter_parties {
+            UserAffirmations::remove(&counter_party, id);
         }
+        PruneDetails::new(legs.len(), counter_parties.len())
     }
 
     pub fn unsafe_affirm_instruction(

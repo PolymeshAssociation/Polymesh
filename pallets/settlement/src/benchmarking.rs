@@ -1213,6 +1213,62 @@ benchmarks! {
         Module::<T>::unchecked_release_locks(InstructionId(1), &instruction_legs);
     }
 
+    prune_instruction {
+        // Number of legs and unique parties in the instruction
+        let l in 1..T::MaxNumberOfFungibleAssets::get() + T::MaxNumberOfNFTs::get();
+        let p in 1..T::MaxNumberOfFungibleAssets::get() + T::MaxNumberOfNFTs::get();
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let alice_portfolio = PortfolioId {
+            did: alice.did(),
+            kind: PortfolioKind::Default,
+        };
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let instruction_id = InstructionId(1);
+
+        for i in 0..l {
+            let sender_portfolio = {
+                // Controls the number of unique portfolios
+                if i + 1 < p {
+                    PortfolioId {
+                        did: IdentityId::from(i as u128),
+                        kind: PortfolioKind::Default,
+                    }
+                } else {
+                    alice_portfolio
+                }
+            };
+            let leg = LegV2 {
+                from: sender_portfolio,
+                to: alice_portfolio,
+                asset: LegAsset::NonFungible(NFTs::new_unverified(ticker, vec![NFTId(1)])),
+            };
+            InstructionLegsV2::insert(instruction_id, LegId(i.into()), leg);
+            InstructionLegStatus::<T>::insert(instruction_id, LegId(i.into()), LegStatus::ExecutionPending);
+            AffirmsReceived::insert(
+                instruction_id,
+                sender_portfolio,
+                AffirmationStatus::Affirmed,
+            );
+            UserAffirmations::insert(
+                sender_portfolio,
+                instruction_id,
+                AffirmationStatus::Affirmed,
+            )
+        }
+    }: {
+        Module::<T>::prune_instruction(InstructionId(1), true)
+    }
+
+    post_failed_execution {
+        let instruction_id = InstructionId(1);
+        <InstructionDetails<T>>::insert(instruction_id, Instruction::default());
+    }: {
+        if <InstructionDetails<T>>::contains_key(instruction_id) {
+            InstructionStatuses::<T>::insert(instruction_id, InstructionStatus::Failed);
+        }
+    }
+
 }
 
 pub fn next_block<T: Config + pallet_scheduler::Config>() {

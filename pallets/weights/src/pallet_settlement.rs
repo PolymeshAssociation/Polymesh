@@ -666,4 +666,35 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes(1))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(n.into())))
     }
+    // Storage: Settlement InstructionLegsV2 (r:2 w:1)
+    // Storage: Settlement InstructionDetails (r:1 w:0)
+    // Storage: Settlement UserAffirmations (r:0 w:2)
+    // Storage: Settlement InstructionAffirmsPending (r:0 w:1)
+    // Storage: Settlement InstructionStatuses (r:0 w:1)
+    // Storage: Settlement VenueInstructions (r:0 w:1)
+    // Storage: Settlement AffirmsReceived (r:0 w:1)
+    // Storage: Settlement InstructionLegStatus (r:0 w:1)
+    /// The range of component `l` is `[1, 110]`.
+    /// The range of component `p` is `[1, 110]`.
+    fn prune_instruction(l: u32, p: u32) -> Weight {
+        // Minimum execution time: 55_738 nanoseconds.
+        Weight::from_ref_time(56_084_000)
+            // Standard Error: 47_388
+            .saturating_add(Weight::from_ref_time(10_345_536).saturating_mul(l.into()))
+            // Standard Error: 47_388
+            .saturating_add(Weight::from_ref_time(1_035_224).saturating_mul(p.into()))
+            .saturating_add(DbWeight::get().reads(2))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(l.into())))
+            .saturating_add(DbWeight::get().writes(8))
+            .saturating_add(DbWeight::get().writes((3_u64).saturating_mul(l.into())))
+            .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(p.into())))
+    }
+    // Storage: Settlement InstructionDetails (r:1 w:0)
+    // Storage: Settlement InstructionStatuses (r:0 w:1)
+    fn post_failed_execution() -> Weight {
+        // Minimum execution time: 11_810 nanoseconds.
+        Weight::from_ref_time(12_129_000)
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().writes(1))
+    }
 }
