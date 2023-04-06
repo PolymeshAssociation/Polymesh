@@ -261,7 +261,7 @@ decl_storage! {
             double_map
                 hasher(blake2_128_concat) Ticker,
                 hasher(twox_64_concat) FundraiserId
-                => FundraiserName;
+                => Option<FundraiserName>;
     }
 }
 

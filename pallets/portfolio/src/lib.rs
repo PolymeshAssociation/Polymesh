@@ -76,7 +76,7 @@ decl_storage! {
         /// pair maps to `Some(name)` then such a portfolio exists and is called `name`.
         pub Portfolios get(fn portfolios):
             double_map hasher(identity) IdentityId, hasher(twox_64_concat) PortfolioNumber =>
-                PortfolioName;
+                Option<PortfolioName>;
 
         /// Inverse map of `Portfolios` used to ensure bijectivitiy,
         /// and uniqueness of names in `Portfolios`.
@@ -206,11 +206,10 @@ decl_module! {
             ensure!(PortfolioLockedNFT::iter_prefix(pid).count() == 0, Error::<T>::PortfolioNotEmpty);
 
             // Check that the portfolio exists and the secondary key has access to it.
-            Self::ensure_user_portfolio_validity(primary_did, num)?;
+            let portfolio = Self::ensure_user_portfolio_validity(primary_did, num)?;
             Self::ensure_portfolio_custody_and_permission(pid, primary_did, secondary_key.as_ref())?;
 
             // Delete from storage.
-            let portfolio = Portfolios::get(&primary_did, &num);
             Portfolios::remove(&primary_did, &num);
             NameToNumber::remove(&primary_did, &portfolio);
             PortfolioAssetCount::remove(&pid);
@@ -246,18 +245,18 @@ decl_module! {
 
             // Enforce custody & validty of portfolio.
             Self::ensure_user_portfolio_permission(secondary_key.as_ref(), PortfolioId::user_portfolio(primary_did, num))?;
-            Self::ensure_user_portfolio_validity(primary_did, num)?;
+            let old_name = Self::ensure_user_portfolio_validity(primary_did, num)?;
 
             // Enforce new name uniqueness.
             // A side-effect of the ordering here is that you cannot rename e.g., "foo" to "foo".
             // You would first need to rename to "bar" and then back to "foo".
             Self::ensure_name_unique(&primary_did, &to_name)?;
 
+            // Remove old name.
+            NameToNumber::remove(&primary_did, old_name);
             // Change the name in storage.
-            Portfolios::mutate(&primary_did, &num, |p| {
-                NameToNumber::remove(&primary_did, mem::replace(p, to_name.clone()));
-                NameToNumber::insert(&primary_did, &to_name, num);
-            });
+            Portfolios::insert(&primary_did, &num, &to_name);
+            NameToNumber::insert(&primary_did, &to_name, num);
 
             // Emit Event.
             Self::deposit_event(Event::PortfolioRenamed(
@@ -467,18 +466,20 @@ impl<T: Config> Module<T> {
     pub fn ensure_portfolio_validity(portfolio: &PortfolioId) -> DispatchResult {
         // Default portfolio are always valid. Custom portfolios must be created explicitly.
         if let PortfolioKind::User(num) = portfolio.kind {
-            Self::ensure_user_portfolio_validity(portfolio.did, num)?;
+            ensure!(
+                Portfolios::contains_key(portfolio.did, num),
+                Error::<T>::PortfolioDoesNotExist
+            );
         }
         Ok(())
     }
 
     /// Ensure that the `PortfolioNumber` is valid.
-    fn ensure_user_portfolio_validity(did: IdentityId, num: PortfolioNumber) -> DispatchResult {
-        ensure!(
-            Portfolios::contains_key(did, num),
-            Error::<T>::PortfolioDoesNotExist
-        );
-        Ok(())
+    fn ensure_user_portfolio_validity(
+        did: IdentityId,
+        num: PortfolioNumber,
+    ) -> Result<PortfolioName, DispatchError> {
+        Ok(Portfolios::get(did, num).ok_or(Error::<T>::PortfolioDoesNotExist)?)
     }
 
     /// Ensure that the `secondary_key` has access to `portfolio`.
