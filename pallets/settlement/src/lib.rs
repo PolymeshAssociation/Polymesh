@@ -50,7 +50,9 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
-use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::dispatch::{
+    DispatchError, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo,
+};
 use frame_support::storage::{
     with_transaction as frame_storage_with_transaction, TransactionOutcome,
 };
@@ -1043,7 +1045,7 @@ decl_module! {
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
         #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*_legs_count, 0)]
-        fn execute_scheduled_instruction(origin, id: InstructionId, _legs_count: u32) {
+        fn execute_scheduled_instruction(origin, id: InstructionId, _legs_count: u32) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             Self::base_execute_scheduled_instruction(id)
         }
@@ -1330,9 +1332,9 @@ decl_module! {
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
         #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*_fungible_transfers, *_nfts_transfers)]
-        fn execute_scheduled_instruction_v2(origin, id: InstructionId, _fungible_transfers: u32, _nfts_transfers: u32) {
+        fn execute_scheduled_instruction_v2(origin, id: InstructionId, _fungible_transfers: u32, _nfts_transfers: u32) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            Self::base_execute_scheduled_instruction(id);
+            Self::base_execute_scheduled_instruction(id)
         }
     }
 }
@@ -2413,11 +2415,12 @@ impl<T: Config> Module<T> {
         drained_legs
     }
 
-    fn base_execute_scheduled_instruction(id: InstructionId) {
+    fn base_execute_scheduled_instruction(id: InstructionId) -> DispatchResultWithPostInfo {
         let mut weight_meter = WeightMeter::max_limit();
         if let Err(e) = Self::execute_instruction_retryable(id, &mut weight_meter) {
             Self::deposit_event(RawEvent::FailedToExecuteInstruction(id, e));
         }
+        Ok(PostDispatchInfo::from(Some(weight_meter.consumed)))
     }
 }
 
