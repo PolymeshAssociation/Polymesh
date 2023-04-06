@@ -56,8 +56,6 @@ std = [
     "pallet-base/std",
     "pallet-balances/std",
     "pallet-identity/std",
-    #"polymesh-contracts/std",
-    #"pallet-contracts/std",
     "pallet-portfolio/std",
     "pallet-session/std",
     "pallet-timestamp/std",

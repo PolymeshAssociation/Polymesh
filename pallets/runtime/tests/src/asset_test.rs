@@ -115,6 +115,10 @@ macro_rules! assert_too_long {
     };
 }
 
+pub(crate) fn token_details(ticker: &Ticker) -> SecurityToken {
+    Asset::token_details(ticker).unwrap_or_default()
+}
+
 pub(crate) fn token(name: &[u8], owner_did: IdentityId) -> (Ticker, SecurityToken) {
     let ticker = Ticker::from_slice_truncated(name);
     let token = SecurityToken {
@@ -281,7 +285,7 @@ fn issuers_can_create_and_rename_tokens() {
         assert_eq!(Statistics::investor_count(ticker), 1);
 
         // A correct entry is added
-        assert_eq!(Asset::token_details(ticker), token);
+        assert_eq!(token_details(&ticker), token);
         assert_eq!(
             Asset::asset_ownership_relation(token.owner_did, ticker),
             AssetOwnershipRelation::AssetOwned
@@ -296,11 +300,11 @@ fn issuers_can_create_and_rename_tokens() {
             EAError::UnauthorizedAgent
         );
         // The token should remain unchanged in storage.
-        assert_eq!(Asset::token_details(ticker), token);
+        assert_eq!(token_details(&ticker), token);
         // Rename the token and check storage has been updated.
         let new: AssetName = [0x42].into();
         assert_ok!(Asset::rename_asset(owner.origin(), ticker, new.clone()));
-        assert_eq!(Asset::asset_names(ticker), new);
+        assert_eq!(Asset::asset_names(ticker), Some(new));
         assert!(Asset::identifiers(ticker).is_empty());
     });
 }
@@ -368,7 +372,7 @@ fn issuers_can_redeem_tokens() {
             assert_ok!(Asset::redeem(owner.origin(), ticker, token.total_supply));
 
             assert_eq!(Asset::balance_of(&ticker, owner.did), 0);
-            assert_eq!(Asset::token_details(&ticker).total_supply, 0);
+            assert_eq!(token_details(&ticker).total_supply, 0);
 
             assert_noop!(
                 Asset::redeem(owner.origin(), ticker, 1),
@@ -454,7 +458,7 @@ fn register_ticker() {
 
         assert_eq!(Asset::is_ticker_registry_valid(&ticker, owner.did), true);
         assert_eq!(Asset::is_ticker_available(&ticker), false);
-        let stored_token = Asset::token_details(&ticker);
+        let stored_token = token_details(&ticker);
         assert_eq!(stored_token.asset_type, token.asset_type);
         assert_eq!(Asset::identifiers(ticker), identifiers);
         assert_noop!(
@@ -672,7 +676,7 @@ fn transfer_token_ownership() {
             None,
         );
 
-        assert_eq!(Asset::token_details(&ticker).owner_did, owner.did);
+        assert_eq!(token_details(&ticker).owner_did, owner.did);
 
         assert_noop!(
             Asset::accept_asset_ownership_transfer(alice.origin(), auth_id_alice + 1),
@@ -688,7 +692,7 @@ fn transfer_token_ownership() {
             alice.origin(),
             auth_id_alice
         ));
-        assert_eq!(Asset::token_details(&ticker).owner_did, alice.did);
+        assert_eq!(token_details(&ticker).owner_did, alice.did);
         assert_eq!(
             Asset::asset_ownership_relation(owner.did, ticker),
             AssetOwnershipRelation::NotOwned
@@ -757,7 +761,7 @@ fn transfer_token_ownership() {
             bob.origin(),
             auth_id
         ));
-        assert_eq!(Asset::token_details(&ticker).owner_did, bob.did);
+        assert_eq!(token_details(&ticker).owner_did, bob.did);
     })
 }
 
@@ -775,7 +779,7 @@ fn update_identifiers() {
 
         // Create: A correct entry was added.
         assert_ok!(create(vec![cusip()]));
-        assert_eq!(Asset::token_details(ticker), token);
+        assert_eq!(token_details(&ticker), token);
         assert_eq!(Asset::identifiers(ticker), vec![cusip()]);
 
         // Create: A bad entry was rejected.
@@ -836,7 +840,10 @@ fn adding_removing_documents() {
         ));
 
         for (idx, doc) in documents.into_iter().enumerate() {
-            assert_eq!(doc, Asset::asset_documents(ticker, DocumentId(idx as u32)));
+            assert_eq!(
+                Some(doc),
+                Asset::asset_documents(ticker, DocumentId(idx as u32))
+            );
         }
 
         assert_ok!(Asset::remove_documents(
@@ -940,7 +947,7 @@ fn frozen_secondary_keys_create_asset_we() {
         true,
     ));
     assert_ok!(Asset::issue(bob.origin(), ticker_1, token_1.total_supply));
-    assert_eq!(Asset::token_details(ticker_1), token_1);
+    assert_eq!(token_details(&ticker_1), token_1);
 
     // 3. Alice freezes her secondary keys.
     assert_ok!(Identity::freeze_secondary_keys(alice.origin()));
@@ -1299,7 +1306,7 @@ fn classic_ticker_register_works() {
             ));
             assert_eq!(
                 Asset::ticker_registration(classic.ticker),
-                TickerRegistration { owner, expiry },
+                Some(TickerRegistration { owner, expiry }),
             );
             assert_eq!(
                 Asset::classic_ticker_registration(classic.ticker).unwrap(),
@@ -1507,7 +1514,10 @@ fn classic_ticker_claim_works() {
                 ticker,
                 eth_sig.clone()
             ));
-            assert_eq!(alice.did, Tickers::<TestStorage>::get(ticker).owner);
+            assert_eq!(
+                Some(alice.did),
+                Tickers::<TestStorage>::get(ticker).map(|t| t.owner)
+            );
             assert!(matches!(
                 &*System::events(),
                 [
@@ -1616,7 +1626,7 @@ fn check_unique_investor_count() {
             assert_ok!(basic_asset(alice, ticker, &token));
 
             // Verify the asset creation
-            assert_eq!(Asset::token_details(&ticker), token);
+            assert_eq!(token_details(&ticker), token);
 
             // Verify the balance of the alice and the investor count for the asset.
             assert_eq!(Asset::balance_of(&ticker, alice.did), total_supply); // It should be equal to total supply.
@@ -2146,7 +2156,7 @@ fn asset_type_custom_works() {
             let id = CustomAssetTypeId(id);
             let data = data.as_bytes();
             assert_eq!(CustomTypes::get(id), data);
-            assert_eq!(CustomTypesInverse::get(data), id);
+            assert_eq!(CustomTypesInverse::get(data), Some(id));
         };
 
         // Nothing so far. Generator (G) at 0.
@@ -2390,10 +2400,7 @@ fn issuers_can_redeem_tokens_from_portfolio() {
                 Asset::balance_of(&ticker, owner.did),
                 token.total_supply / 2
             );
-            assert_eq!(
-                Asset::token_details(&ticker).total_supply,
-                token.total_supply / 2
-            );
+            assert_eq!(token_details(&ticker).total_supply, token.total_supply / 2);
 
             // Add auth for custody to be moved to bob
             let auth_id = Identity::add_auth(
@@ -2495,7 +2502,7 @@ fn issuers_can_change_asset_type() {
             AssetType::EquityPreferred
         ));
         assert_eq!(
-            Asset::token_details(&ticker).asset_type,
+            token_details(&ticker).asset_type,
             AssetType::EquityPreferred
         );
     })
