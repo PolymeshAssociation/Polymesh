@@ -450,6 +450,7 @@ impl InstructionInfo {
     }
 }
 
+#[allow(dead_code)]
 /// Provides the details of the pruned instruction
 pub struct PruneDetails {
     /// Number of legs that were pruned.
@@ -467,11 +468,13 @@ impl PruneDetails {
         }
     }
 
+    #[allow(dead_code)]
     /// Returns the number of legs that were pruned.
     fn n_legs(&self) -> u32 {
         self.n_legs
     }
 
+    #[allow(dead_code)]
     /// Returns the number of legs that were in the instruction.
     fn unique_counter_parties(&self) -> u32 {
         self.unique_counter_parties
@@ -517,10 +520,11 @@ pub trait WeightInfo {
         Self::execute_scheduled_instruction(f, n)
     }
     fn ensure_allowed_venue(n: u32) -> Weight;
-    fn base_execute_instruction(n: u32) -> Weight;
+    fn execute_instruction_initial_checks(n: u32) -> Weight;
     fn unchecked_release_locks(f: u32, n: u32) -> Weight;
     fn prune_instruction(l: u32, p: u32) -> Weight;
     fn post_failed_execution() -> Weight;
+    fn execute_instruction_paused(f: u32, n: u32) -> Weight;
 }
 
 type EnsureValidInstructionResult<AccountId, Moment, BlockNumber> = Result<
@@ -1073,7 +1077,7 @@ decl_module! {
             // Schedule instruction to be executed in the next block.
             let execution_at = System::<T>::block_number() + One::one();
             let instruction_legs = Self::get_instruction_legs(&id);
-            let transfer_data = Self::get_transfer_data(&instruction_legs)?;
+            let transfer_data = Self::get_transfer_data(&instruction_legs);
             Self::schedule_instruction(id, execution_at, transfer_data.fungible(), transfer_data.non_fungible());
 
             Self::deposit_event(RawEvent::InstructionRescheduled(did, id));
@@ -1651,19 +1655,10 @@ impl<T: Config> Module<T> {
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         if let Err(e) = Self::execute_instruction(id, weight_meter) {
-            if <InstructionDetails<T>>::contains_key(id) {
-                InstructionStatuses::<T>::insert(id, InstructionStatus::Failed);
-            }
-            // Consumes the weight for this function
-            weight_meter.check_accrue(<T as Config>::WeightInfo::post_failed_execution());
+            InstructionStatuses::<T>::insert(id, InstructionStatus::Failed);
             return Err(e);
         }
-        let prune_details = Self::prune_instruction(id, true);
-        // Consumes the weight for this function
-        weight_meter.check_accrue(<T as Config>::WeightInfo::prune_instruction(
-            prune_details.n_legs(),
-            prune_details.unique_counter_parties(),
-        ));
+        Self::prune_instruction(id, true);
         Ok(())
     }
 
@@ -1693,13 +1688,8 @@ impl<T: Config> Module<T> {
         let mut instruction_legs: Vec<(LegId, LegV2)> = Self::get_instruction_legs(&instruction_id);
         instruction_legs.sort_by_key(|leg_id_leg| leg_id_leg.0);
 
-        // Chanrges the weight consumed so far
-        weight_meter.check_accrue(<T as Config>::WeightInfo::base_execute_instruction(
-            instruction_legs.len() as u32,
-        ));
-
         // Verifies if the venue is allowed for all tickers in the instruction
-        Self::ensure_allowed_venue(&instruction_legs, venue_id, weight_meter)?;
+        Self::ensure_allowed_venue(&instruction_legs, venue_id)?;
 
         // Attempts to release the locks and transfer all fungible an non fungible assets
         if let Err(leg_id) = frame_storage_with_transaction(|| {
@@ -1736,12 +1726,6 @@ impl<T: Config> Module<T> {
         weight_meter: &mut WeightMeter,
     ) -> TransactionOutcome<Result<Result<(), LegId>, DispatchError>> {
         Self::unchecked_release_locks(instruction_id, instruction_legs);
-        // Charges the weight consumed
-        let transfer_data = Self::get_transfer_data(&instruction_legs).unwrap();
-        weight_meter.check_accrue(<T as Config>::WeightInfo::unchecked_release_locks(
-            transfer_data.fungible(),
-            transfer_data.non_fungible(),
-        ));
         for (leg_id, leg) in instruction_legs {
             if Self::instruction_leg_status(instruction_id, leg_id) == LegStatus::ExecutionPending {
                 match &leg.asset {
@@ -2214,7 +2198,7 @@ impl<T: Config> Module<T> {
             .into_iter()
             .filter(|(_, leg_v2)| portfolio_set.contains(&leg_v2.from))
             .collect();
-        let transfer_data = Self::get_transfer_data(&legs_from_set)?;
+        let transfer_data = Self::get_transfer_data(&legs_from_set);
         Self::ensure_valid_input_cost(&transfer_data, fungible_transfers, nfts_transfers)?;
         Ok((n_instruction_legs, legs_from_set))
     }
@@ -2273,7 +2257,7 @@ impl<T: Config> Module<T> {
                 .any(|(_, leg_v2)| leg_v2.from == portfolio || leg_v2.to == portfolio),
             Error::<T>::CallerIsNotAParty
         );
-        let transfer_data = Self::get_transfer_data(&legs_v2)?;
+        let transfer_data = Self::get_transfer_data(&legs_v2);
         Self::ensure_valid_input_cost(&transfer_data, fungible_transfers, nfts_transfers)?;
 
         // Verifies if the caller has the right permissions for this call
@@ -2293,23 +2277,17 @@ impl<T: Config> Module<T> {
     }
 
     /// Returns the number of fungible and non fungible transfers in a slice of legs.
-    /// In case that T::MaxNumberOfNFTsPerLeg is exceeded an error will be returned.
-    fn get_transfer_data(legs_v2: &[(LegId, LegV2)]) -> Result<TransferData, DispatchError> {
+    /// Since this function is only called after the legs have already been inserted, casting is safe.
+    fn get_transfer_data(legs_v2: &[(LegId, LegV2)]) -> TransferData {
         let mut nfts_transfers = 0;
         let mut fungible_transfers = 0;
         for (_, leg_v2) in legs_v2 {
             match &leg_v2.asset {
                 LegAsset::Fungible { .. } => fungible_transfers += 1,
-                LegAsset::NonFungible(nfts) => {
-                    ensure!(
-                        nfts.len() <= T::MaxNumberOfNFTsPerLeg::get() as usize,
-                        Error::<T>::MaxNumberOfNFTsPerLegExceeded
-                    );
-                    nfts_transfers += nfts.len();
-                }
+                LegAsset::NonFungible(nfts) => nfts_transfers += nfts.len(),
             }
         }
-        Ok(TransferData::new(fungible_transfers, nfts_transfers as u32))
+        TransferData::new(fungible_transfers, nfts_transfers as u32)
     }
 
     /// Returns ok if the number of fungible assets and nfts being transferred is under the input given by the user.
@@ -2339,30 +2317,13 @@ impl<T: Config> Module<T> {
     fn ensure_allowed_venue(
         instruction_legs: &[(LegId, LegV2)],
         venue_id: VenueId,
-        weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         // Avoids reading the storage multiple times for the same ticker
         let mut tickers: BTreeSet<Ticker> = BTreeSet::new();
-
         for (_, leg) in instruction_legs {
             let ticker = leg.asset.ticker_and_amount().0;
-            if let Err(e) = Self::ensure_venue_filtering(&mut tickers, ticker, &venue_id) {
-                // Charges the weight consumed
-                weight_meter.check_accrue(<T as Config>::WeightInfo::ensure_allowed_venue(
-                    tickers.len() as u32,
-                ));
-                Self::deposit_event(RawEvent::VenueUnauthorized(
-                    SettlementDID.as_id(),
-                    ticker,
-                    venue_id,
-                ));
-                return Err(e);
-            }
+            Self::ensure_venue_filtering(&mut tickers, ticker, &venue_id)?;
         }
-        // Charges the weight consumed
-        weight_meter.check_accrue(<T as Config>::WeightInfo::ensure_allowed_venue(
-            tickers.len() as u32,
-        ));
         Ok(())
     }
 

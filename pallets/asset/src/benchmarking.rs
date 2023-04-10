@@ -21,6 +21,7 @@ use sp_io::hashing::keccak_256;
 use sp_std::{convert::TryInto, iter, prelude::*};
 
 use pallet_portfolio::{MovePortfolioItem, NextPortfolioNumber, PortfolioAssetBalances};
+use pallet_statistics::benchmarking::setup_transfer_restrictions;
 use polymesh_common_utilities::benchs::{
     make_asset, make_indivisible_asset, make_ticker, user, AccountIdOf, User, UserBuilder,
 };
@@ -203,6 +204,8 @@ pub fn setup_asset_transfer<T>(
     ticker: Ticker,
     sender_portfolio_name: Option<&str>,
     receiver_portolfio_name: Option<&str>,
+    pause_compliance: bool,
+    pause_restrictions: bool,
 ) -> (PortfolioId, PortfolioId)
 where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
@@ -212,13 +215,30 @@ where
     let receiver_portfolio =
         create_portfolio::<T>(receiver, receiver_portolfio_name.unwrap_or("RcvPortfolio"));
 
-    // creates the asset and enable asset uniqueness
+    // Creates the asset and enable asset uniqueness
     make_asset::<T>(sender, Some(ticker.as_ref()));
     move_from_default_portfolio::<T>(sender, ticker, ONE_UNIT * POLY, sender_portfolio);
     Module::<T>::add_investor_uniqueness_claim(sender.did(), ticker);
     Module::<T>::add_investor_uniqueness_claim(receiver.did(), ticker);
 
-    T::ComplianceManager::pause_compliance(sender.origin().into(), ticker).unwrap();
+    // Adds the maximum number of compliance requirement
+    // If pause_compliance is true, only the decoding cost will be considered.
+    T::ComplianceManager::setup_ticker_compliance(
+        sender.origin().into(),
+        ticker,
+        50,
+        pause_compliance,
+    );
+
+    // Adds transfer conditions only to consider the cost of decoding it
+    // If pause_restrictions is true, only the decoding cost will be considered.
+    setup_transfer_restrictions::<T>(
+        sender.origin().into(),
+        sender.did(),
+        ticker,
+        4,
+        pause_restrictions,
+    );
 
     (sender_portfolio, receiver_portfolio)
 }
@@ -662,7 +682,7 @@ benchmarks! {
         let mut weight_meter = WeightMeter::max_limit();
 
         let (sender_portfolio, receiver_portfolio) =
-            setup_asset_transfer::<T>(&alice, &bob, ticker, None, None);
+            setup_asset_transfer::<T>(&alice, &bob, ticker, None, None, true, true);
     }: {
         Module::<T>::base_transfer(sender_portfolio, receiver_portfolio, &ticker, ONE_UNIT, &mut weight_meter).unwrap();
     }

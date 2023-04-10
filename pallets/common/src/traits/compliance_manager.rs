@@ -108,6 +108,17 @@ pub trait ComplianceFnConfig<Origin> {
 
     #[cfg(feature = "runtime-benchmarks")]
     fn pause_compliance(origin: Origin, ticker: Ticker) -> DispatchResult;
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn add_compliance_requirement(
+        origin: Origin,
+        ticker: Ticker,
+        sender_conditions: Vec<Condition>,
+        receiver_conditions: Vec<Condition>,
+    ) -> DispatchResult;
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn setup_ticker_compliance(origin: Origin, ticker: Ticker, n: u32, pause_compliance: bool);
 }
 
 pub trait WeightInfo {

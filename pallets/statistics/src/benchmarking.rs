@@ -141,6 +141,48 @@ pub fn add_identity_claim<T: Config>(id: IdentityId, claim: Claim, issuer_id: Id
     );
 }
 
+/// Adds the maximum number of active statistics, adds `n` transfer restrictions and if `pause_restrictions` is true,
+/// pauses analyzing the restrictions
+pub fn setup_transfer_restrictions<T: Config>(
+    origin: T::RuntimeOrigin,
+    sender_id: IdentityId,
+    ticker: Ticker,
+    n: u32,
+    pause_restrictions: bool,
+) {
+    let asset_scope = AssetScope::from(ticker);
+
+    // Adds the maximum number of active statistics
+    let active_stats = (0..10)
+        .map(|i| StatType {
+            op: StatOpType::Count,
+            claim_issuer: Some((ClaimType::Accredited, IdentityId::from(i as u128))),
+        })
+        .collect();
+    Module::<T>::set_active_asset_stats(origin.clone(), asset_scope, active_stats).unwrap();
+
+    let transfer_conditions: BTreeSet<TransferCondition> = (0..n)
+        .map(|i| {
+            let issuer_id = IdentityId::from(i as u128);
+            add_identity_claim::<T>(
+                sender_id,
+                Claim::Accredited(Scope::Ticker(ticker)),
+                issuer_id,
+            );
+            TransferCondition::ClaimCount(StatClaim::Accredited(true), issuer_id, 0, Some(1))
+        })
+        .collect();
+    Module::<T>::set_asset_transfer_compliance(origin.clone(), asset_scope, transfer_conditions)
+        .unwrap();
+    if pause_restrictions {
+        ActiveAssetStats::<T>::remove(&asset_scope);
+        AssetTransferCompliances::<T>::mutate(asset_scope, |atc| {
+            atc.paused = true;
+        });
+        return;
+    }
+}
+
 #[cfg(feature = "running-ci")]
 mod limits {
     pub const MAX_EXEMPTED_IDENTITIES: u32 = 10;

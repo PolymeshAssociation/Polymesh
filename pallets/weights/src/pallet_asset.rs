@@ -486,8 +486,8 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
     // Storage: Statistics ActiveAssetStats (r:1 w:0)
     // Storage: Asset BalanceOfAtScope (r:0 w:2)
     fn base_transfer() -> Weight {
-        // Minimum execution time: 136_614 nanoseconds.
-        Weight::from_ref_time(137_187_000)
+        // Minimum execution time: 177_578 nanoseconds.
+        Weight::from_ref_time(186_484_000)
             .saturating_add(DbWeight::get().reads(18))
             .saturating_add(DbWeight::get().writes(9))
     }

@@ -1741,9 +1741,6 @@ impl<T: Config> Module<T> {
         // The only place this function is used right now is the settlement engine and the settlement engine
         // checks custodial permissions when the instruction is authorized.
 
-        // Consumes the weight for this function
-        weight_meter.check_accrue(<T as Config>::WeightInfo::base_transfer());
-        
         // Validate the transfer
         let is_transfer_success =
             Self::_is_valid_transfer(&ticker, from_portfolio, to_portfolio, value, weight_meter)?;

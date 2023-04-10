@@ -640,7 +640,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: Settlement InstructionDetails (r:1 w:0)
     // Storage: Settlement InstructionLegsV2 (r:2 w:0)
     /// The range of component `n` is `[1, 110]`.
-    fn base_execute_instruction(n: u32) -> Weight {
+    fn execute_instruction_initial_checks(n: u32) -> Weight {
         // Minimum execution time: 37_653 nanoseconds.
         Weight::from_ref_time(25_182_678)
             // Standard Error: 33_686
@@ -696,5 +696,49 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
         Weight::from_ref_time(12_129_000)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
+    }
+    // Storage: Settlement InstructionAffirmsPending (r:1 w:1)
+    // Storage: Settlement InstructionStatuses (r:1 w:1)
+    // Storage: Settlement InstructionDetails (r:1 w:1)
+    // Storage: Settlement InstructionLegsV2 (r:102 w:101)
+    // Storage: Settlement VenueFiltering (r:101 w:0)
+    // Storage: Settlement InstructionLegStatus (r:101 w:101)
+    // Storage: Portfolio PortfolioLockedAssets (r:1 w:1)
+    // Storage: Portfolio PortfolioLockedNFT (r:100 w:100)
+    // Storage: Asset Frozen (r:101 w:0)
+    // Storage: Asset DisableInvestorUniqueness (r:1 w:0)
+    // Storage: Portfolio Portfolios (r:2 w:0)
+    // Storage: Asset Tokens (r:1 w:0)
+    // Storage: Portfolio PortfolioAssetBalances (r:2 w:2)
+    // Storage: Asset AggregateBalance (r:2 w:2)
+    // Storage: Statistics AssetTransferCompliances (r:1 w:0)
+    // Storage: ComplianceManager AssetCompliances (r:101 w:0)
+    // Storage: Asset BalanceOf (r:2 w:2)
+    // Storage: Checkpoint Schedules (r:1 w:0)
+    // Storage: Checkpoint CheckpointIdSequence (r:1 w:0)
+    // Storage: Portfolio PortfolioAssetCount (r:1 w:1)
+    // Storage: Statistics ActiveAssetStats (r:1 w:0)
+    // Storage: NFT CollectionTicker (r:100 w:0)
+    // Storage: NFT NumberOfNFTs (r:200 w:200)
+    // Storage: Portfolio PortfolioNFT (r:100 w:200)
+    // Storage: Settlement UserAffirmations (r:0 w:202)
+    // Storage: Settlement VenueInstructions (r:0 w:1)
+    // Storage: Settlement AffirmsReceived (r:0 w:202)
+    // Storage: Asset BalanceOfAtScope (r:0 w:2)
+    /// The range of component `f` is `[1, 10]`.
+    /// The range of component `n` is `[0, 100]`.
+    fn execute_instruction_paused(f: u32, n: u32) -> Weight {
+        // Minimum execution time: 1_960_543 nanoseconds.
+        Weight::from_ref_time(1_973_335_000)
+            // Standard Error: 3_399_418
+            .saturating_add(Weight::from_ref_time(60_129_475).saturating_mul(f.into()))
+            // Standard Error: 350_626
+            .saturating_add(Weight::from_ref_time(102_160_006).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(4))
+            .saturating_add(DbWeight::get().reads((21_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().reads((10_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes(6))
+            .saturating_add(DbWeight::get().writes((14_u64).saturating_mul(f.into())))
+            .saturating_add(DbWeight::get().writes((11_u64).saturating_mul(n.into())))
     }
 }

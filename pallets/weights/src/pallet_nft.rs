@@ -126,10 +126,10 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
     // Storage: ComplianceManager AssetCompliances (r:1 w:0)
     /// The range of component `n` is `[1, 10]`.
     fn base_nft_transfer(n: u32) -> Weight {
-        // Minimum execution time: 64_025 nanoseconds.
-        Weight::from_ref_time(57_301_148)
-            // Standard Error: 30_347
-            .saturating_add(Weight::from_ref_time(9_025_378).saturating_mul(n.into()))
+        // Minimum execution time: 100_853 nanoseconds.
+        Weight::from_ref_time(94_453_219)
+            // Standard Error: 25_703
+            .saturating_add(Weight::from_ref_time(9_033_745).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes(2))

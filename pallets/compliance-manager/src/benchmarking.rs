@@ -325,6 +325,37 @@ where
     Condition::new(ConditionType::IsNoneOf(claims), trusted_issuers)
 }
 
+/// Adds `n` requirements for `ticker` and pauses compliance if `pause_compliance` is true.
+pub fn setup_ticker_compliance<T: Config>(
+    origin: T::RuntimeOrigin,
+    ticker: Ticker,
+    n: u32,
+    pause_compliance: bool,
+) {
+    (0..n).for_each(|i| {
+        let trusted_issuers = vec![TrustedIssuer::from(IdentityId::from(i as u128))];
+        let claims = vec![Claim::Jurisdiction(
+            CountryCode::BR,
+            Scope::Custom(vec![i as u8]),
+        )];
+        let sender_conditions = vec![Condition::new(
+            ConditionType::IsNoneOf(claims),
+            trusted_issuers,
+        )];
+        Module::<T>::add_compliance_requirement(
+            origin.clone(),
+            ticker,
+            sender_conditions,
+            Vec::new(),
+        )
+        .unwrap();
+    });
+
+    if pause_compliance {
+        Module::<T>::pause_compliance(origin, ticker).unwrap();
+    }
+}
+
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 

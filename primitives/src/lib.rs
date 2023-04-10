@@ -235,6 +235,10 @@ pub use nft::{NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, N
 pub mod portfolio;
 pub use portfolio::{Fund, FundDescription, Memo};
 
+/// Custom WeightMeter definitions.
+pub mod weight_meter;
+pub use weight_meter::WeightMeter;
+
 /// Represents custom transaction errors.
 #[repr(u8)]
 pub enum TransactionError {

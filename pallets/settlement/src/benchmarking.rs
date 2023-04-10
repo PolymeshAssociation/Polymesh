@@ -23,6 +23,7 @@ use sp_runtime::SaturatedConversion;
 use sp_std::convert::TryInto;
 use sp_std::prelude::*;
 
+use pallet_asset::benchmarking::setup_asset_transfer;
 use pallet_nft::benchmarking::{create_collection_issue_nfts, setup_nft_transfer};
 use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_common_utilities::asset::AssetFnTrait;
@@ -722,6 +723,100 @@ where
     }
 }
 
+/// Creates a venue, creates `f` assets and `n` collections, adds and affirms both sides of a settlement instruction.
+/// Each leg will transfer between custom portfolios, all tickers have the maximum number of compliance requirements, active
+/// statistics and transfer restrictions.
+fn setup_execute_instruction<T>(
+    sender: &User<T>,
+    receiver: &User<T>,
+    f: u32,
+    n: u32,
+    pause_compliance: bool,
+    pause_restrictions: bool,
+) where
+    T: Config + TestUtilsFn<AccountIdOf<T>>,
+{
+    let venue_id = create_venue_::<T>(sender.did(), vec![]);
+    let mut sender_portfolios = Vec::new();
+    let mut receiver_portfolios = Vec::new();
+
+    // Creates one asset, creates two portfolios, adds maximum compliance requirements, adds maximum transfer conditions and pauses them.
+    let fungible_legs: Vec<LegV2> = (0..f)
+        .map(|i| {
+            let ticker = Ticker::from_slice_truncated(format!("Ticker{}", i).as_bytes());
+            let sdr_portfolio_name = format!("SdrPortfolioTicker{}", i);
+            let rcv_portfolio_name = format!("RcvPortfolioTicker{}", i);
+            let (sdr_portfolio, rvc_portfolio) = setup_asset_transfer(
+                sender,
+                receiver,
+                ticker,
+                Some(&sdr_portfolio_name),
+                Some(&rcv_portfolio_name),
+                pause_compliance,
+                pause_restrictions,
+            );
+            sender_portfolios.push(sdr_portfolio.clone());
+            receiver_portfolios.push(rvc_portfolio.clone());
+            LegV2 {
+                from: sdr_portfolio,
+                to: rvc_portfolio,
+                asset: LegAsset::Fungible {
+                    ticker,
+                    amount: ONE_UNIT,
+                },
+            }
+        })
+        .collect();
+
+    // Creates one collection, mints one NFT, creates two portfolios, adds maximum compliance requirements and pauses it.
+    let nft_legs: Vec<LegV2> = (0..n)
+        .map(|i| {
+            let ticker = Ticker::from_slice_truncated(format!("NFTTicker{}", i).as_bytes());
+            let sdr_portfolio_name = format!("SdrPortfolioNFTTicker{}", i);
+            let rcv_portfolio_name = format!("RcvPortfolioNFTTicker{}", i);
+            let (sdr_portfolio, rcv_portfolio) = setup_nft_transfer(
+                sender,
+                receiver,
+                ticker,
+                1,
+                Some(&sdr_portfolio_name),
+                Some(&rcv_portfolio_name),
+                pause_compliance,
+            );
+            sender_portfolios.push(sdr_portfolio.clone());
+            receiver_portfolios.push(rcv_portfolio.clone());
+            LegV2 {
+                from: sdr_portfolio,
+                to: rcv_portfolio,
+                asset: LegAsset::NonFungible(NFTs::new_unverified(ticker, vec![NFTId(1)])),
+            }
+        })
+        .collect();
+
+    // Adds and affirms both sides of the instruction before executing it.
+    let legs_v2 = [fungible_legs, nft_legs].concat();
+    Module::<T>::add_and_affirm_instruction_with_memo_v2(
+        sender.origin().into(),
+        venue_id,
+        SettlementType::SettleOnAffirmation,
+        None,
+        None,
+        legs_v2,
+        sender_portfolios,
+        None,
+    )
+    .unwrap();
+
+    Module::<T>::affirm_instruction_v2(
+        receiver.origin().into(),
+        InstructionId(1),
+        receiver_portfolios,
+        f,
+        n,
+    )
+    .unwrap();
+}
+
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>>, T: pallet_scheduler::Config }
 
@@ -1124,7 +1219,6 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let venue_id = create_venue_::<T>(alice.did(), vec![]);
-        let mut weight_meter = WeightMeter::max_limit();
 
         let instruction_legs: Vec<(LegId, LegV2)> = (0..n)
             .map(|i| {
@@ -1156,10 +1250,10 @@ benchmarks! {
             })
             .collect();
     }: {
-        Module::<T>::ensure_allowed_venue(&instruction_legs, venue_id, &mut weight_meter).unwrap();
+        Module::<T>::ensure_allowed_venue(&instruction_legs, venue_id).unwrap();
     }
 
-    base_execute_instruction {
+    execute_instruction_initial_checks {
         // Number of legs in the instruction
         let n in 1..T::MaxNumberOfFungibleAssets::get() + T::MaxNumberOfNFTs::get();
 
@@ -1264,11 +1358,30 @@ benchmarks! {
         let instruction_id = InstructionId(1);
         <InstructionDetails<T>>::insert(instruction_id, Instruction::default());
     }: {
-        if <InstructionDetails<T>>::contains_key(instruction_id) {
-            InstructionStatuses::<T>::insert(instruction_id, InstructionStatus::Failed);
-        }
+        InstructionStatuses::<T>::insert(instruction_id, InstructionStatus::Failed);
     }
 
+    execute_instruction_paused {
+        // Number of assets and nfts in the instruction
+        let f in 1..T::MaxNumberOfFungibleAssets::get() as u32;
+        let n in 0..T::MaxNumberOfNFTs::get() as u32;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+
+        setup_execute_instruction::<T>(&alice, &bob, f, n, true, true);
+    }: execute_scheduled_instruction_v2(RawOrigin::Root, InstructionId(1), f, n)
+
+    execute_instruction {
+        // Number of assets and nfts in the instruction
+        let f in 1..T::MaxNumberOfFungibleAssets::get() as u32;
+        let n in 0..T::MaxNumberOfNFTs::get() as u32;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+
+        setup_execute_instruction::<T>(&alice, &bob, f, n, false, false);
+    }: execute_scheduled_instruction_v2(RawOrigin::Root, InstructionId(1), f, n)
 }
 
 pub fn next_block<T: Config + pallet_scheduler::Config>() {

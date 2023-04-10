@@ -91,6 +91,7 @@ pub fn setup_nft_transfer<T>(
     n_nfts: u32,
     sender_portfolio_name: Option<&str>,
     receiver_portolfio_name: Option<&str>,
+    pause_compliance: bool,
 ) -> (PortfolioId, PortfolioId)
 where
     T: Config + TestUtilsFn<AccountIdOf<T>>,
@@ -109,7 +110,8 @@ where
         sender_portfolio.kind,
     );
 
-    T::Compliance::pause_compliance(sender.origin().into(), ticker).unwrap();
+    // Adds the maximum number of compliance requirement
+    T::Compliance::setup_ticker_compliance(sender.origin().into(), ticker, 50, pause_compliance);
 
     (sender_portfolio, receiver_portfolio)
 }
@@ -200,7 +202,7 @@ benchmarks! {
         let mut weight_meter = WeightMeter::max_limit();
 
         let (sender_portfolio, receiver_portfolio) =
-            setup_nft_transfer::<T>(&alice, &bob, ticker, n, None, None);
+            setup_nft_transfer::<T>(&alice, &bob, ticker, n, None, None, true);
         let nfts = NFTs::new_unverified(ticker, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
     }: {
         with_transaction(|| {

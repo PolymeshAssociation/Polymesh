@@ -360,10 +360,6 @@ impl<T: Config> Module<T> {
         nfts: &NFTs,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        // Consumes the weight for this function
-        weight_meter.check_accrue(<T as Config>::WeightInfo::base_nft_transfer(
-            nfts.ids().len() as u32,
-        ));
         // Verifies if there is a collection associated to the NFTs
         CollectionTicker::try_get(nfts.ticker())
             .map_err(|_| Error::<T>::InvalidNFTTransferCollectionNotFound)?;
