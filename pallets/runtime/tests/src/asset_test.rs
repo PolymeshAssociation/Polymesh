@@ -9,7 +9,6 @@ use crate::{
     },
 };
 use chrono::prelude::Utc;
-use frame_support::weights::WeightMeter;
 use frame_support::{
     assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
@@ -52,7 +51,7 @@ use polymesh_primitives::{
     statistics::StatType,
     AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document,
     DocumentId, IdentityId, InvestorUid, Moment, NFTCollectionKeys, Permissions, PortfolioId,
-    PortfolioKind, PortfolioName, SecondaryKey, Signatory, Ticker,
+    PortfolioKind, PortfolioName, SecondaryKey, Signatory, Ticker, WeightMeter,
 };
 use rand::Rng;
 use sp_consensus_babe::Slot;

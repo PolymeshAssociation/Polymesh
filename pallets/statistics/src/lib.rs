@@ -21,7 +21,6 @@ pub mod benchmarking;
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Get;
-use frame_support::weights::WeightMeter;
 use frame_support::{decl_error, decl_module, decl_storage, ensure, BoundedBTreeSet};
 use sp_std::{collections::btree_set::BTreeSet, vec, vec::Vec};
 
@@ -32,7 +31,9 @@ use polymesh_primitives::statistics::{
 use polymesh_primitives::transfer_compliance::{
     AssetTransferCompliance, TransferCondition, TransferConditionExemptKey, TransferConditionResult,
 };
-use polymesh_primitives::{storage_migration_ver, Balance, IdentityId, ScopeId, Ticker};
+use polymesh_primitives::{
+    storage_migration_ver, Balance, IdentityId, ScopeId, Ticker, WeightMeter,
+};
 
 type Identity<T> = pallet_identity::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;

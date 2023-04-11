@@ -72,7 +72,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::Get,
-    weights::{Weight, WeightMeter},
+    weights::Weight,
 };
 use pallet_asset::{self as asset, checkpoint};
 use pallet_identity::{self as identity, PermissionedCallOriginData};
@@ -84,7 +84,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     storage_migration_ver, Balance, EventDid, IdentityId, Moment, PortfolioId, PortfolioNumber,
-    SecondaryKey, Ticker,
+    SecondaryKey, Ticker, WeightMeter,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;

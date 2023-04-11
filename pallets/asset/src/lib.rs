@@ -81,51 +81,49 @@
 pub mod benchmarking;
 pub mod checkpoint;
 
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
+
 use arrayvec::ArrayVec;
 use codec::{Decode, Encode};
 use core::mem;
 use core::result::Result as StdResult;
 use currency::*;
-use frame_support::{
-    decl_error, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
-    ensure, fail,
-    traits::Get,
-    weights::WeightMeter,
-};
+use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::traits::Get;
+use frame_support::{decl_error, decl_module, decl_storage, ensure, fail};
 use frame_system::ensure_root;
+use scale_info::TypeInfo;
+use sp_runtime::traits::Zero;
+use sp_std::{convert::TryFrom, prelude::*};
+
 use pallet_base::{
     ensure_opt_string_limited, ensure_string_limited, try_next_pre, Error::CounterOverflow,
 };
-use pallet_identity::{self as identity, PermissionedCallOriginData};
+use pallet_identity::PermissionedCallOriginData;
+use polymesh_common_utilities::asset::{AssetFnTrait, AssetSubTrait};
+use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
+use polymesh_common_utilities::constants::*;
+use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 pub use polymesh_common_utilities::traits::asset::{Config, Event, RawEvent, WeightInfo};
-use polymesh_common_utilities::{
-    asset::{AssetFnTrait, AssetSubTrait},
-    compliance_manager::ComplianceFnConfig,
-    constants::*,
-    protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    traits::nft::NFTTrait,
-    with_transaction, SystematicIssuers,
+use polymesh_common_utilities::traits::nft::NFTTrait;
+use polymesh_common_utilities::{with_transaction, SystematicIssuers};
+
+use polymesh_primitives::agent::AgentGroup;
+use polymesh_primitives::asset::{
+    AssetName, AssetType, CustomAssetTypeId, FundingRoundName, GranularCanTransferResult,
 };
+use polymesh_primitives::asset_metadata::{
+    AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName,
+    AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
+};
+use polymesh_primitives::calendar::CheckpointId;
+use polymesh_primitives::ethereum::{self, EcdsaSignature, EthereumAddress};
+use polymesh_primitives::transfer_compliance::TransferConditionResult;
 use polymesh_primitives::{
-    agent::AgentGroup,
-    asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName, GranularCanTransferResult},
-    asset_metadata::{
-        AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName,
-        AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
-    },
-    calendar::CheckpointId,
-    ethereum::{self, EcdsaSignature, EthereumAddress},
-    extract_auth, storage_migration_ver,
-    transfer_compliance::TransferConditionResult,
-    AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, PortfolioKind,
-    ScopeId, SecondaryKey, Ticker,
+    extract_auth, storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId,
+    IdentityId, PortfolioId, PortfolioKind, ScopeId, SecondaryKey, Ticker, WeightMeter,
 };
-use scale_info::TypeInfo;
-use sp_runtime::traits::Zero;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
-use sp_std::{convert::TryFrom, prelude::*};
 
 type Checkpoint<T> = checkpoint::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
@@ -356,7 +354,7 @@ decl_storage! {
     }
 }
 
-type Identity<T> = identity::Module<T>;
+type Identity<T> = pallet_identity::Module<T>;
 
 // Public interface for this runtime module.
 decl_module! {

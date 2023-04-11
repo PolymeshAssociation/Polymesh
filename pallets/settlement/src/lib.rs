@@ -58,7 +58,7 @@ use frame_support::storage::{
 };
 use frame_support::traits::schedule::{DispatchTime, Named as ScheduleNamed};
 use frame_support::traits::Get;
-use frame_support::weights::{Weight, WeightMeter};
+use frame_support::weights::Weight;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, ensure, IterableStorageDoubleMap,
 };
@@ -79,7 +79,7 @@ use polymesh_common_utilities::with_transaction;
 use polymesh_common_utilities::SystematicIssuers::Settlement as SettlementDID;
 use polymesh_primitives::{
     impl_checked_inc, storage_migrate_on, storage_migration_ver, Balance, IdentityId, NFTs,
-    PortfolioId, SecondaryKey, Ticker,
+    PortfolioId, SecondaryKey, Ticker, WeightMeter,
 };
 use polymesh_primitives_derive::VecU8StrongTyped;
 
@@ -2381,7 +2381,7 @@ impl<T: Config> Module<T> {
         if let Err(e) = Self::execute_instruction_retryable(id, &mut weight_meter) {
             Self::deposit_event(RawEvent::FailedToExecuteInstruction(id, e));
         }
-        Ok(PostDispatchInfo::from(Some(weight_meter.consumed)))
+        Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
 }
 

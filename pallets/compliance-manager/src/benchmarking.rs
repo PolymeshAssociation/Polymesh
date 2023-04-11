@@ -14,7 +14,6 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use frame_benchmarking::benchmarks;
-use frame_support::weights::WeightMeter;
 use scale_info::prelude::format;
 use sp_std::convert::TryFrom;
 
@@ -25,7 +24,7 @@ use polymesh_common_utilities::{identity::Config as IdentityConfig, TestUtilsFn}
 use polymesh_primitives::agent::AgentGroup;
 use polymesh_primitives::{
     asset::AssetType, AuthorizationData, ClaimType, CountryCode, Scope, TargetIdentity, TrustedFor,
-    TrustedIssuer,
+    TrustedIssuer, WeightMeter,
 };
 
 use crate::*;

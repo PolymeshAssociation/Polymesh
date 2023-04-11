@@ -7,7 +7,6 @@ use super::{
     ExtBuilder,
 };
 use chrono::prelude::Utc;
-use frame_support::weights::WeightMeter;
 use frame_support::{assert_noop, assert_ok, traits::Currency};
 use pallet_balances as balances;
 use pallet_compliance_manager::{self as compliance_manager, Error as CMError};
@@ -23,7 +22,7 @@ use polymesh_primitives::{
         AssetComplianceResult, ComplianceRequirement, ComplianceRequirementResult,
     },
     AuthorizationData, Claim, ClaimType, Condition, ConditionType, CountryCode, IdentityId,
-    PortfolioId, Scope, Signatory, TargetIdentity, Ticker, TrustedFor,
+    PortfolioId, Scope, Signatory, TargetIdentity, Ticker, TrustedFor, WeightMeter,
 };
 use sp_std::prelude::*;
 use test_client::AccountKeyring;

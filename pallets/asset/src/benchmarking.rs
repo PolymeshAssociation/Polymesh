@@ -14,7 +14,6 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use frame_benchmarking::benchmarks;
-use frame_support::weights::WeightMeter;
 use frame_support::StorageValue;
 use frame_system::RawOrigin;
 use sp_io::hashing::keccak_256;
@@ -37,6 +36,7 @@ use polymesh_primitives::asset_metadata::{
 use polymesh_primitives::ticker::TICKER_LEN;
 use polymesh_primitives::{
     AuthorizationData, NFTCollectionKeys, PortfolioName, PortfolioNumber, Signatory, Ticker, Url,
+    WeightMeter,
 };
 
 use crate::*;
@@ -303,7 +303,7 @@ benchmarks! {
         let did = new_owner.did();
 
         Module::<T>::asset_ownership_relation(owner.did(), ticker);
-        let new_owner_auth_id = identity::Module::<T>::add_auth(
+        let new_owner_auth_id = pallet_identity::Module::<T>::add_auth(
             owner.did(),
             Signatory::from(did),
             AuthorizationData::TransferTicker(ticker),
@@ -319,7 +319,7 @@ benchmarks! {
         let new_owner = UserBuilder::<T>::default().generate_did().build("new_owner");
         let did = new_owner.did();
 
-        let new_owner_auth_id = identity::Module::<T>::add_auth(
+        let new_owner_auth_id = pallet_identity::Module::<T>::add_auth(
             owner.did(),
             Signatory::from(did),
             AuthorizationData::TransferAssetOwnership(ticker),
@@ -493,7 +493,7 @@ benchmarks! {
         let (owner, ticker) = owned_ticker::<T>();
         let pia = UserBuilder::<T>::default().generate_did().build("1stIssuance");
         let investor = UserBuilder::<T>::default().generate_did().build("investor");
-        let auth_id = identity::Module::<T>::add_auth(
+        let auth_id = pallet_identity::Module::<T>::add_auth(
             owner.did(),
             Signatory::from(pia.did()),
             AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),

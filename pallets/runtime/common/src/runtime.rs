@@ -560,14 +560,17 @@ macro_rules! misc_pallet_impls {
 #[macro_export]
 macro_rules! runtime_apis {
     ($($extra:item)*) => {
-        use node_rpc_runtime_api::asset as rpc_api_asset;
         use frame_support::dispatch::GetStorageVersion;
-        use frame_support::weights::WeightMeter;
         use sp_inherents::{CheckInherentsResult, InherentData};
+        use node_rpc_runtime_api::asset as rpc_api_asset;
+
         use pallet_identity::types::{AssetDidResult, CddStatus, RpcDidRecords, DidStatus, KeyIdentityData};
         use pallet_pips::{Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
-        use polymesh_primitives::{calendar::CheckpointId, compliance_manager::AssetComplianceResult, IdentityId, Index, PortfolioId, Signatory, Ticker, NFTs};
+        use polymesh_primitives::{
+            calendar::CheckpointId, compliance_manager::AssetComplianceResult, IdentityId, Index, NFTs,
+            PortfolioId, Signatory, Ticker, WeightMeter,
+        };
 
         /// The address format for describing accounts.
         pub type Address = <Indices as StaticLookup>::Source;

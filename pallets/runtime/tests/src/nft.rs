@@ -1,6 +1,6 @@
 use chrono::prelude::Utc;
-use frame_support::weights::WeightMeter;
 use frame_support::{assert_noop, assert_ok, StorageDoubleMap, StorageMap};
+
 use pallet_nft::{Collection, CollectionKeys, MetadataValue, NumberOfNFTs};
 use pallet_portfolio::PortfolioNFT;
 use polymesh_common_utilities::with_transaction;
@@ -11,11 +11,11 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::{
     NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId,
-    PortfolioKind, PortfolioNumber, Ticker,
+    PortfolioKind, PortfolioNumber, Ticker, WeightMeter,
 };
 use test_client::AccountKeyring;
 
-use super::asset_test::set_timestamp;
+use crate::asset_test::set_timestamp;
 use crate::ext_builder::ExtBuilder;
 use crate::storage::{TestStorage, User};
 

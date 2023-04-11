@@ -79,7 +79,7 @@ use codec::{Decode, Encode};
 use core::result::Result;
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Get;
-use frame_support::weights::{Weight, WeightMeter};
+use frame_support::weights::Weight;
 use frame_support::{decl_error, decl_module, decl_storage, ensure};
 use sp_std::{convert::From, prelude::*};
 
@@ -94,7 +94,7 @@ use polymesh_primitives::compliance_manager::{
 };
 use polymesh_primitives::{
     proposition, storage_migration_ver, Balance, Claim, Condition, ConditionType, Context,
-    IdentityId, TargetIdentity, Ticker, TrustedFor, TrustedIssuer,
+    IdentityId, TargetIdentity, Ticker, TrustedFor, TrustedIssuer, WeightMeter,
 };
 
 type ExternalAgents<T> = pallet_external_agents::Module<T>;

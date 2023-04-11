@@ -9,7 +9,6 @@ use super::{
     ExtBuilder,
 };
 use codec::Encode;
-use frame_support::weights::WeightMeter;
 use frame_support::{assert_noop, assert_ok, IterableStorageDoubleMap, StorageDoubleMap};
 use pallet_asset as asset;
 use pallet_balances as balances;
@@ -30,7 +29,7 @@ use polymesh_primitives::{
     checked_inc::CheckedInc,
     AccountId, AuthorizationData, Balance, Claim, Condition, ConditionType, IdentityId,
     NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind,
-    PortfolioName, PortfolioNumber, Signatory, Ticker,
+    PortfolioName, PortfolioNumber, Signatory, Ticker, WeightMeter,
 };
 use rand::{prelude::*, thread_rng};
 use sp_runtime::AnySignature;

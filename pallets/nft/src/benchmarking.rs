@@ -1,5 +1,4 @@
 use frame_benchmarking::benchmarks;
-use frame_support::weights::WeightMeter;
 use frame_system::RawOrigin;
 use scale_info::prelude::format;
 use sp_std::prelude::*;
@@ -15,7 +14,7 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataSpec, AssetMetadataValue,
 };
 use polymesh_primitives::nft::{NFTCollectionId, NFTCollectionKeys, NFTId};
-use polymesh_primitives::PortfolioKind;
+use polymesh_primitives::{PortfolioKind, WeightMeter};
 
 use crate::*;
 

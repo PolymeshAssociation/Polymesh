@@ -20,12 +20,12 @@ use core::result::Result;
 use frame_support::decl_event;
 use frame_support::dispatch::DispatchError;
 use frame_support::traits::Get;
-use frame_support::weights::{Weight, WeightMeter};
+use frame_support::weights::Weight;
 use sp_std::prelude::*;
 
 use polymesh_primitives::compliance_manager::{AssetComplianceResult, ComplianceRequirement};
 use polymesh_primitives::condition::{conditions_total_counts, Condition};
-use polymesh_primitives::{Balance, IdentityId, Ticker, TrustedIssuer};
+use polymesh_primitives::{Balance, IdentityId, Ticker, TrustedIssuer, WeightMeter};
 
 use crate::asset::AssetFnTrait;
 use crate::balances::Config as BalancesConfig;
