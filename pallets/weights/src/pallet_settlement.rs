@@ -727,7 +727,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: Asset BalanceOfAtScope (r:0 w:2)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
-    fn execute_instruction_paused(f: u32, n: u32, ) -> Weight {
+    fn execute_instruction_paused(f: u32, n: u32) -> Weight {
         // Minimum execution time: 1_925_227 nanoseconds.
         Weight::from_ref_time(1_925_926_000)
             // Standard Error: 2_859_750
@@ -774,7 +774,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: Asset BalanceOfAtScope (r:0 w:2)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
-    fn execute_instruction(f: u32, n: u32, ) -> Weight {
+    fn execute_instruction(f: u32, n: u32) -> Weight {
         // Minimum execution time: 3_952_306 nanoseconds.
         Weight::from_ref_time(3_955_838_000)
             // Standard Error: 5_581_857
