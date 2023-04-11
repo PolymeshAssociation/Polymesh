@@ -1372,7 +1372,7 @@ benchmarks! {
         setup_execute_instruction::<T>(&alice, &bob, f, n, true, true);
     }: execute_scheduled_instruction_v2(RawOrigin::Root, InstructionId(1), f, n)
 
-    execute_instruction {
+    execute_scheduled_instruction {
         // Number of assets and nfts in the instruction
         let f in 1..T::MaxNumberOfFungibleAssets::get() as u32;
         let n in 0..T::MaxNumberOfNFTs::get() as u32;

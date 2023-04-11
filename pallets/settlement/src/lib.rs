@@ -496,7 +496,6 @@ pub trait WeightInfo {
     fn disallow_venues(u: u32) -> Weight;
     fn reject_instruction(u: u32) -> Weight;
     fn change_receipt_validity() -> Weight;
-    fn execute_scheduled_instruction(f: u32, n: u32) -> Weight;
     fn reschedule_instruction() -> Weight;
     fn execute_manual_instruction(l: u32) -> Weight;
 
@@ -525,6 +524,7 @@ pub trait WeightInfo {
     fn prune_instruction(l: u32, p: u32) -> Weight;
     fn post_failed_execution() -> Weight;
     fn execute_instruction_paused(f: u32, n: u32) -> Weight;
+    fn execute_scheduled_instruction(f: u32, n: u32) -> Weight;
 }
 
 type EnsureValidInstructionResult<AccountId, Moment, BlockNumber> = Result<

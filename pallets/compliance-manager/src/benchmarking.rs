@@ -352,7 +352,7 @@ pub fn setup_ticker_compliance<T: Config>(
     });
 
     if pause_compliance {
-        Module::<T>::pause_compliance(origin, ticker).unwrap();
+        Module::<T>::pause_asset_compliance(origin, ticker).unwrap();
     }
 }
 

@@ -696,21 +696,6 @@ impl<T: Config> ComplianceFnConfig<T::RuntimeOrigin> for Module<T> {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn pause_compliance(origin: T::RuntimeOrigin, ticker: Ticker) -> DispatchResult {
-        Self::pause_asset_compliance(origin, ticker)
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn add_compliance_requirement(
-        origin: T::RuntimeOrigin,
-        ticker: Ticker,
-        sender_conditions: Vec<Condition>,
-        receiver_conditions: Vec<Condition>,
-    ) -> DispatchResult {
-        Self::add_compliance_requirement(origin, ticker, sender_conditions, receiver_conditions)
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
     fn setup_ticker_compliance(
         origin: T::RuntimeOrigin,
         ticker: Ticker,
