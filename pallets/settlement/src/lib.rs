@@ -1175,10 +1175,10 @@ decl_module! {
         /// * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
         #[weight = <T as Config>::WeightInfo::execute_manual_instruction(*legs_count)]
         pub fn execute_manual_instruction(
-            origin, 
-            id: InstructionId, 
-            legs_count: u32, 
-            portfolio: Option<PortfolioId>, 
+            origin,
+            id: InstructionId,
+            legs_count: u32,
+            portfolio: Option<PortfolioId>,
             weight_limit: Option<Weight>
         ) -> DispatchResultWithPostInfo {
             // check origin has the permissions required and valid instruction
