@@ -128,7 +128,8 @@ fn emulate_controller_transfer<T: Config>(
         BalanceOfAtScope::insert(s_id, id, bal);
         AggregateBalance::insert(ticker, id, bal);
         ScopeIdOf::insert(ticker, id, s_id);
-        Statistics::<T>::update_asset_stats(&ticker, None, Some(&id), None, Some(bal), bal, meter);
+        Statistics::<T>::update_asset_stats(&ticker, None, Some(&id), None, Some(bal), bal, meter)
+            .unwrap();
     };
     mock_storage(investor_did, 1000u32.into(), &mut weight_meter);
     mock_storage(pia, 5000u32.into(), &mut weight_meter);

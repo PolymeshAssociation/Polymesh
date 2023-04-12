@@ -1481,7 +1481,7 @@ impl<T: Config> Module<T> {
             Some(Self::aggregate_balance_of(ticker, &to_scope_id)),
             value,
             weight_meter,
-        );
+        )?;
 
         Self::deposit_event(RawEvent::Transfer(
             from_portfolio.did,
@@ -1587,7 +1587,7 @@ impl<T: Config> Module<T> {
             Some(updated_to_balance),
             value,
             &mut weight_meter,
-        );
+        )?;
 
         let round = Self::funding_round(ticker);
         let ticker_round = (*ticker, round.clone());
@@ -2034,7 +2034,7 @@ impl<T: Config> Module<T> {
             None,
             value,
             &mut weight_meter,
-        );
+        )?;
 
         Self::deposit_event(RawEvent::Transfer(
             portfolio.did,
@@ -2474,7 +2474,8 @@ impl<T: Config> Module<T> {
         to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: Balance,
-    ) -> GranularCanTransferResult {
+        weight_meter: &mut WeightMeter,
+    ) -> Result<GranularCanTransferResult, DispatchError> {
         let invalid_granularity = Self::invalid_granularity(ticker, value);
         let self_transfer = Self::self_transfer(&from_portfolio, &to_portfolio);
         let invalid_receiver_cdd = Self::invalid_cdd(from_portfolio.did);
@@ -2498,14 +2499,16 @@ impl<T: Config> Module<T> {
             &to_portfolio.did,
             ticker,
             value,
-        );
+            weight_meter,
+        )?;
         let compliance_result = T::ComplianceManager::verify_restriction_granular(
             ticker,
             Some(from_portfolio.did),
             Some(to_portfolio.did),
-        );
+            weight_meter,
+        )?;
 
-        GranularCanTransferResult {
+        Ok(GranularCanTransferResult {
             invalid_granularity,
             self_transfer,
             invalid_receiver_cdd,
@@ -2530,7 +2533,7 @@ impl<T: Config> Module<T> {
             transfer_condition_result,
             compliance_result,
             portfolio_validity_result,
-        }
+        })
     }
 
     fn invalid_granularity(ticker: &Ticker, value: Balance) -> bool {
@@ -2617,7 +2620,8 @@ impl<T: Config> Module<T> {
         to_did: &IdentityId,
         ticker: &Ticker,
         value: Balance,
-    ) -> Vec<TransferConditionResult> {
+        weight_meter: &mut WeightMeter,
+    ) -> Result<Vec<TransferConditionResult>, DispatchError> {
         let (from_scope_id, to_scope_id, token) =
             Self::setup_statistics_failures(from_did, to_did, ticker);
         Statistics::<T>::get_transfer_restrictions_results(
@@ -2630,6 +2634,7 @@ impl<T: Config> Module<T> {
             Self::aggregate_balance_of(ticker, &to_scope_id),
             value,
             token.total_supply,
+            weight_meter,
         )
     }
 

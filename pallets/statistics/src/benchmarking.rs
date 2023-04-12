@@ -265,7 +265,7 @@ benchmarks! {
             ONE_UNIT * POLY,
             changes,
             &mut weight_meter
-        ));
+        ).unwrap());
     }
 
     max_investor_ownership_restriction {
@@ -289,7 +289,7 @@ benchmarks! {
             ONE_UNIT * POLY,
             None,
             &mut weight_meter
-        ));
+        ).unwrap());
     }
 
     claim_count_restriction_no_stats {
@@ -318,7 +318,7 @@ benchmarks! {
             ONE_UNIT * POLY,
             changes,
             &mut weight_meter
-        ));
+        ).unwrap());
     }
 
     claim_count_restriction_with_stats {
@@ -343,7 +343,7 @@ benchmarks! {
             ONE_UNIT * POLY,
             Some((false, true)),
             &mut weight_meter
-        ));
+        ).unwrap());
     }
 
     claim_ownership_restriction {
@@ -378,7 +378,7 @@ benchmarks! {
             ONE_UNIT * POLY,
             None,
             &mut weight_meter
-        ));
+        ).unwrap());
     }
 
     update_asset_count_stats {
@@ -412,7 +412,14 @@ benchmarks! {
     }: {
         let from_key2 = Module::<T>::fetch_claim_as_key(Some(&alice.did()), &key1);
         let to_key2 = Module::<T>::fetch_claim_as_key(Some(&bob.did()), &key1);
-        Module::<T>::update_asset_count_stats(key1, from_key2, to_key2, changes, &mut weight_meter);
+        Module::<T>::update_asset_count_stats(
+            key1,
+            from_key2,
+            to_key2,
+            changes,
+            &mut weight_meter
+        )
+        .unwrap();
     }
 
     update_asset_balance_stats {
@@ -456,6 +463,7 @@ benchmarks! {
             to_balance,
             ONE_UNIT,
             &mut weight_meter
-        );
+        )
+        .unwrap();
     }
 }

@@ -129,16 +129,18 @@ decl_error! {
     pub enum Error for Module<T: Config> {
         /// User is not authorized.
         Unauthorized,
-        /// Did not exist
+        /// Did not exist.
         DidNotExist,
-        /// Compliance requirement id doesn't exist
+        /// Compliance requirement id doesn't exist.
         InvalidComplianceRequirementId,
-        /// Issuer exist but trying to add it again
+        /// Issuer exist but trying to add it again.
         IncorrectOperationOnTrustedIssuer,
         /// There are duplicate compliance requirements.
         DuplicateComplianceRequirements,
-        /// The worst case scenario of the compliance requirement is too complex
+        /// The worst case scenario of the compliance requirement is too complex.
         ComplianceRequirementTooComplex,
+        /// The maximum weight limit for executing the function was exceeded.
+        WeightLimitExceeded
     }
 }
 
@@ -436,7 +438,7 @@ impl<T: Config> Module<T> {
         slot: &'a mut Option<Vec<TrustedIssuer>>,
         condition: &'a Condition,
         weight_meter: &mut WeightMeter,
-    ) -> proposition::Context<impl 'a + Iterator<Item = Claim>> {
+    ) -> Result<proposition::Context<impl 'a + Iterator<Item = Claim>>, DispatchError> {
         // Because of `-> impl Iterator`, we need to return a **single type** in each of the branches below.
         // To do this, we use `Either<Either<MatchArm1, MatchArm2>, MatchArm3>`,
         // equivalent to a 3-variant enum with iterators in each variant corresponding to the branches below.
@@ -447,36 +449,48 @@ impl<T: Config> Module<T> {
             ConditionType::IsPresent(claim) | ConditionType::IsAbsent(claim) => {
                 let trusted_issuers = Self::issuers_for(ticker, condition, slot);
                 // Consumes the weight for this condition
-                weight_meter.check_accrue(<T as Config>::WeightInfo::is_condition_satisfied(
-                    trusted_issuers.len() as u32,
-                    condition.issuers.is_empty() as u32,
-                ));
+                Self::consume_weight_meter(
+                    weight_meter,
+                    <T as Config>::WeightInfo::is_condition_satisfied(
+                        trusted_issuers.len() as u32,
+                        condition.issuers.is_empty() as u32,
+                    ),
+                )?;
                 Left(Left(Self::fetch_claims(id, claim, trusted_issuers)))
             }
             ConditionType::IsAnyOf(claims) | ConditionType::IsNoneOf(claims) => {
                 let trusted_issuers = Self::issuers_for(ticker, condition, slot);
                 // Consumes the weight for this condition
-                weight_meter.check_accrue(<T as Config>::WeightInfo::is_condition_satisfied(
-                    (trusted_issuers.len() * claims.len()) as u32,
-                    condition.issuers.is_empty() as u32,
-                ));
+                Self::consume_weight_meter(
+                    weight_meter,
+                    <T as Config>::WeightInfo::is_condition_satisfied(
+                        (trusted_issuers.len() * claims.len()) as u32,
+                        condition.issuers.is_empty() as u32,
+                    ),
+                )?;
                 Left(Right(claims.iter().flat_map(move |claim| {
                     Self::fetch_claims(id, claim, trusted_issuers)
                 })))
             }
             ConditionType::IsIdentity(TargetIdentity::ExternalAgent) => {
                 // Consumes the weight for this condition
-                weight_meter.check_accrue(<T as Config>::WeightInfo::is_identity_condition(1));
+                Self::consume_weight_meter(
+                    weight_meter,
+                    <T as Config>::WeightInfo::is_identity_condition(1),
+                )?;
                 Right(core::iter::empty())
             }
             ConditionType::IsIdentity(TargetIdentity::Specific(_)) => {
                 // Consumes the weight for this condition
-                weight_meter.check_accrue(<T as Config>::WeightInfo::is_identity_condition(0));
+                Self::consume_weight_meter(
+                    weight_meter,
+                    <T as Config>::WeightInfo::is_identity_condition(0),
+                )?;
                 Right(core::iter::empty())
             }
         };
 
-        proposition::Context { claims, id }
+        Ok(proposition::Context { claims, id })
     }
 
     /// Loads the context for each condition in `conditions` and verifies that all of them evaluate to `true`.
@@ -485,11 +499,14 @@ impl<T: Config> Module<T> {
         did: IdentityId,
         conditions: &[Condition],
         weight_meter: &mut WeightMeter,
-    ) -> bool {
+    ) -> Result<bool, DispatchError> {
         let slot = &mut None;
-        conditions.iter().all(|condition| {
-            Self::is_condition_satisfied(ticker, did, condition, slot, weight_meter)
-        })
+        for condition in conditions {
+            if !Self::is_condition_satisfied(ticker, did, condition, slot, weight_meter)? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
     }
 
     /// Checks whether the given condition is satisfied or not.
@@ -499,10 +516,10 @@ impl<T: Config> Module<T> {
         condition: &Condition,
         slot: &mut Option<Vec<TrustedIssuer>>,
         weight_meter: &mut WeightMeter,
-    ) -> bool {
-        let context = Self::fetch_context(did, ticker, slot, &condition, weight_meter);
+    ) -> Result<bool, DispatchError> {
+        let context = Self::fetch_context(did, ticker, slot, &condition, weight_meter)?;
         let any_ea = |ctx: Context<_>| ExternalAgents::<T>::agents(ticker, ctx.id).is_some();
-        proposition::run(&condition, context, any_ea)
+        Ok(proposition::run(&condition, context, any_ea))
     }
 
     /// Returns whether all conditions, in their proper context, hold when evaluated.
@@ -512,18 +529,21 @@ impl<T: Config> Module<T> {
         ticker: &Ticker,
         did: IdentityId,
         conditions: &mut [ConditionResult],
-    ) -> bool {
-        let mut weight_meter = WeightMeter::max_limit();
-        conditions.iter_mut().fold(true, |overall, res| {
-            res.result = Self::is_condition_satisfied(
+        weight_meter: &mut WeightMeter,
+    ) -> Result<bool, DispatchError> {
+        let mut all_conditions_hold = true;
+        for condition in conditions {
+            let condition_holds = Self::is_condition_satisfied(
                 ticker,
                 did,
-                &res.condition,
+                &condition.condition,
                 &mut None,
-                &mut weight_meter,
-            );
-            overall & res.result
-        })
+                weight_meter,
+            )?;
+            condition.result = condition_holds;
+            all_conditions_hold = all_conditions_hold & condition_holds;
+        }
+        Ok(all_conditions_hold)
     }
 
     /// Pauses or resumes the asset compliance.
@@ -612,6 +632,14 @@ impl<T: Config> Module<T> {
             TrustedFor::Specific(cts) => ensure_length_ok::<T>(cts.len()),
         }
     }
+
+    /// Consumes from `weight_meter` the given `weight`.
+    /// If the new consumed weight is greater than the limit, consumed will be set to limit and an error will be returned.
+    fn consume_weight_meter(weight_meter: &mut WeightMeter, weight: Weight) -> DispatchResult {
+        weight_meter
+            .consume_weght_until_limit(weight)
+            .map_err(|_| Error::<T>::WeightLimitExceeded.into())
+    }
 }
 
 impl<T: Config> ComplianceFnConfig<T::RuntimeOrigin> for Module<T> {
@@ -636,7 +664,7 @@ impl<T: Config> ComplianceFnConfig<T::RuntimeOrigin> for Module<T> {
                     from_did,
                     &req.sender_conditions,
                     weight_meter,
-                ) {
+                )? {
                     // Skips checking receiver conditions because sender conditions are not satisfied.
                     continue;
                 }
@@ -648,7 +676,7 @@ impl<T: Config> ComplianceFnConfig<T::RuntimeOrigin> for Module<T> {
                     to_did,
                     &req.receiver_conditions,
                     weight_meter,
-                ) {
+                )? {
                     // All conditions satisfied, return early
                     return Ok(ERC1400_TRANSFER_SUCCESS);
                 }
@@ -664,26 +692,28 @@ impl<T: Config> ComplianceFnConfig<T::RuntimeOrigin> for Module<T> {
         ticker: &Ticker,
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
-    ) -> AssetComplianceResult {
+        weight_meter: &mut WeightMeter,
+    ) -> Result<AssetComplianceResult, DispatchError> {
         let mut compliance_with_results =
             AssetComplianceResult::from(Self::asset_compliance(ticker));
 
         // Evaluates all conditions.
         // False result in any of the conditions => False requirement result.
-        let eval = |did: Option<_>, conds| {
-            did.filter(|did| !Self::evaluate_conditions(ticker, *did, conds))
-                .is_some()
+        let all_conditions_hold = |did, conditions, weight_meter: &mut WeightMeter| match did {
+            Some(did) => Self::evaluate_conditions(ticker, did, conditions, weight_meter),
+            None => Ok(false),
         };
+
         for req in &mut compliance_with_results.requirements {
-            if eval(from_did_opt, &mut req.sender_conditions) {
+            if !all_conditions_hold(from_did_opt, &mut req.sender_conditions, weight_meter)? {
                 req.result = false;
             }
-            if eval(to_did_opt, &mut req.receiver_conditions) {
+            if !all_conditions_hold(to_did_opt, &mut req.receiver_conditions, weight_meter)? {
                 req.result = false;
             }
             compliance_with_results.result |= req.result;
         }
-        compliance_with_results
+        Ok(compliance_with_results)
     }
 
     #[cfg(feature = "runtime-benchmarks")]

@@ -956,7 +956,17 @@ macro_rules! runtime_apis {
                     value: Balance
                 ) -> polymesh_primitives::asset::GranularCanTransferResult
                 {
-                    Asset::unsafe_can_transfer_granular(from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value)
+                    let mut weight_meter = WeightMeter::max_limit();
+                    Asset::unsafe_can_transfer_granular(
+                        from_custodian,
+                        from_portfolio,
+                        to_custodian,
+                        to_portfolio,
+                        ticker,
+                        value,
+                        &mut weight_meter
+                    )
+                    .unwrap()
                 }
             }
 
@@ -971,7 +981,14 @@ macro_rules! runtime_apis {
                 ) -> AssetComplianceResult
                 {
                     use polymesh_common_utilities::compliance_manager::Config;
-                    ComplianceManager::verify_restriction_granular(&ticker, from_did, to_did)
+                    let mut weight_meter = WeightMeter::max_limit();
+                    ComplianceManager::verify_restriction_granular(
+                        &ticker,
+                        from_did,
+                        to_did,
+                        &mut weight_meter
+                    )
+                    .unwrap()
                 }
             }
 

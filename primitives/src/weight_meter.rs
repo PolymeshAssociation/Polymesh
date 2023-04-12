@@ -16,7 +16,7 @@
 use frame_support::weights::{Weight, WeightMeter as FrameWeightMeter};
 use scale_info::prelude::string::String;
 
-/// Customed Meters consumed weight and a hard limit for the maximal consumable weight.
+/// Meters consumed weight and a hard limit for the maximal consumable weight.
 pub struct WeightMeter(FrameWeightMeter);
 
 impl WeightMeter {

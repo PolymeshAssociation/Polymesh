@@ -11,7 +11,9 @@ use pallet_sto::{
     Fundraiser, FundraiserId, FundraiserName, FundraiserStatus, FundraiserTier, PriceTier,
     MAX_TIERS,
 };
-use polymesh_primitives::{asset::AssetType, checked_inc::CheckedInc, PortfolioId, Ticker, WeightMeter};
+use polymesh_primitives::{
+    asset::AssetType, checked_inc::CheckedInc, PortfolioId, Ticker, WeightMeter,
+};
 
 use crate::storage::provide_scope_claim_to_multiple_parties;
 use frame_support::{assert_noop, assert_ok};

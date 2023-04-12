@@ -169,7 +169,9 @@ fn should_add_and_verify_compliance_requirement_we() {
             &ticker,
             Some(owner.did),
             Some(token_rec.did),
+            &mut WeightMeter::max_limit(),
         )
+        .unwrap()
     };
     let second_unpassed = |result: AssetComplianceResult| {
         assert!(!result.result);
@@ -1020,7 +1022,13 @@ fn cm_test_case_9_we() {
     let verify_restriction_granular = |user: User, claim| {
         assert_ok!(Identity::add_claim(issuer.origin(), user.did, claim, None));
         assert_valid_transfer!(ticker, owner.did, user.did, 100);
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(user.did))
+        ComplianceManager::verify_restriction_granular(
+            &ticker,
+            Some(owner.did),
+            Some(user.did),
+            &mut WeightMeter::max_limit(),
+        )
+        .unwrap()
     };
 
     // 3.1. Charlie has a 'KnowYourCustomer' Claim.
@@ -1042,8 +1050,13 @@ fn cm_test_case_9_we() {
 
     // 3.4 Ferdie has none of the required claims
     assert_invalid_transfer!(ticker, owner.did, ferdie.did, 100);
-    let result =
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(ferdie.did));
+    let result = ComplianceManager::verify_restriction_granular(
+        &ticker,
+        Some(owner.did),
+        Some(ferdie.did),
+        &mut WeightMeter::max_limit(),
+    )
+    .unwrap();
     assert!(!result.result);
     assert!(!result.requirements[0].result);
     assert!(!result.requirements[0].receiver_conditions[0].result);
@@ -1113,8 +1126,13 @@ fn cm_test_case_11_we() {
         None
     ));
     assert_valid_transfer!(ticker, owner.did, charlie.did, 100);
-    let result =
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(charlie.did));
+    let result = ComplianceManager::verify_restriction_granular(
+        &ticker,
+        Some(owner.did),
+        Some(charlie.did),
+        &mut WeightMeter::max_limit(),
+    )
+    .unwrap();
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1135,8 +1153,13 @@ fn cm_test_case_11_we() {
     ));
 
     assert_invalid_transfer!(ticker, owner.did, dave.did, 100);
-    let result =
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(dave.did));
+    let result = ComplianceManager::verify_restriction_granular(
+        &ticker,
+        Some(owner.did),
+        Some(dave.did),
+        &mut WeightMeter::max_limit(),
+    )
+    .unwrap();
     assert!(!result.result);
     assert!(!result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1157,8 +1180,13 @@ fn cm_test_case_11_we() {
     ));
 
     assert_valid_transfer!(ticker, owner.did, eve.did, 100);
-    let result =
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(eve.did));
+    let result = ComplianceManager::verify_restriction_granular(
+        &ticker,
+        Some(owner.did),
+        Some(eve.did),
+        &mut WeightMeter::max_limit(),
+    )
+    .unwrap();
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1233,7 +1261,13 @@ fn cm_test_case_13_we() {
     ));
 
     assert_invalid_transfer!(ticker, owner.did, charlie.did, 100);
-    let result = ComplianceManager::verify_restriction_granular(&ticker, None, Some(charlie.did));
+    let result = ComplianceManager::verify_restriction_granular(
+        &ticker,
+        None,
+        Some(charlie.did),
+        &mut WeightMeter::max_limit(),
+    )
+    .unwrap();
     assert!(!result.result);
     assert!(!result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1262,7 +1296,13 @@ fn cm_test_case_13_we() {
     );
 
     assert_invalid_transfer!(ticker, owner.did, dave.did, 100);
-    let result = ComplianceManager::verify_restriction_granular(&ticker, None, Some(dave.did));
+    let result = ComplianceManager::verify_restriction_granular(
+        &ticker,
+        None,
+        Some(dave.did),
+        &mut WeightMeter::max_limit(),
+    )
+    .unwrap();
     assert!(!result.result);
     assert!(!result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1290,8 +1330,13 @@ fn cm_test_case_13_we() {
     );
 
     assert_valid_transfer!(ticker, owner.did, eve.did, 100);
-    let result =
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(eve.did));
+    let result = ComplianceManager::verify_restriction_granular(
+        &ticker,
+        Some(owner.did),
+        Some(eve.did),
+        &mut WeightMeter::max_limit(),
+    )
+    .unwrap();
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1469,7 +1514,9 @@ fn check_new_return_type_of_rpc() {
             &ticker,
             Some(owner.did),
             Some(receiver.did),
-        );
+            &mut WeightMeter::max_limit(),
+        )
+        .unwrap();
 
         let compliance_requirement = ComplianceRequirementResult {
             sender_conditions: vec![],

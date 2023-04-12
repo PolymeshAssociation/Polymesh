@@ -97,7 +97,8 @@ pub trait ComplianceFnConfig<Origin> {
         ticker: &Ticker,
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
-    ) -> AssetComplianceResult;
+        weight_meter: &mut WeightMeter,
+    ) -> Result<AssetComplianceResult, DispatchError>;
 
     #[cfg(feature = "runtime-benchmarks")]
     fn add_default_trusted_claim_issuer(
