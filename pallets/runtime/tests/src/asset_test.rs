@@ -997,6 +997,7 @@ fn test_can_transfer_rpc() {
                     PortfolioId::default_portfolio(to_did),
                     &ticker,
                     amount, // It only passed when it should be the multiple of currency::ONE_UNIT
+                    &mut WeightMeter::max_limit(),
                 )
                 .unwrap()
             };
@@ -2251,8 +2252,16 @@ fn unsafe_can_transfer_all_status_codes_test() {
         let uk_portfolio = new_portfolio(owner.acc(), "UK");
         let default_portfolio = PortfolioId::default_portfolio(owner.did);
         let do_unsafe_can_transfer = || {
-            Asset::unsafe_can_transfer(None, default_portfolio, None, uk_portfolio, &ticker, 100)
-                .unwrap()
+            Asset::unsafe_can_transfer(
+                None,
+                default_portfolio,
+                None,
+                uk_portfolio,
+                &ticker,
+                100,
+                &mut WeightMeter::max_limit(),
+            )
+            .unwrap()
         };
 
         // INVALID_GRANULARITY
@@ -2275,6 +2284,7 @@ fn unsafe_can_transfer_all_status_codes_test() {
             default_portfolio,
             &ticker,
             100,
+            &mut WeightMeter::max_limit(),
         )
         .unwrap();
         assert_eq!(code, INVALID_SENDER_DID);

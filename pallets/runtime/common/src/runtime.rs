@@ -942,7 +942,8 @@ macro_rules! runtime_apis {
                     ticker: &Ticker,
                     value: Balance) -> rpc_api_asset::CanTransferResult
                 {
-                    Asset::unsafe_can_transfer(from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value)
+                    let mut weight_meter = WeightMeter::max_limit();
+                    Asset::unsafe_can_transfer(from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value, &mut weight_meter)
                         .map_err(|msg| msg.as_bytes().to_vec())
                 }
 

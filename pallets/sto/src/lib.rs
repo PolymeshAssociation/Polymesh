@@ -45,7 +45,7 @@ use polymesh_primitives_derive::VecU8StrongTyped;
 use scale_info::TypeInfo;
 
 use frame_support::weights::Weight;
-use polymesh_primitives::{Balance, EventDid, IdentityId, PortfolioId, Ticker};
+use polymesh_primitives::{Balance, EventDid, IdentityId, PortfolioId, Ticker, WeightMeter};
 use sp_runtime::DispatchError;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
@@ -478,7 +478,8 @@ decl_module! {
                     None,
                     legs,
                     None,
-                    true
+                    true,
+                    None
                 )?;
 
                 let portfolios = [fundraiser.offering_portfolio, fundraiser.raising_portfolio].iter().copied().collect::<BTreeSet<_>>();
@@ -491,7 +492,8 @@ decl_module! {
                     receipt,
                     portfolios,
                     2,
-                    None
+                    None,
+                    &mut WeightMeter::max_limit()
                 )
             })?;
 

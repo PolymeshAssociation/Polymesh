@@ -524,7 +524,8 @@ decl_module! {
         pub fn issue(origin, ticker: Ticker, amount: Balance) -> DispatchResult {
             // Ensure origin is agent with custody and permissions for default portfolio.
             let portfolio = Self::ensure_agent_with_custody_and_perms(origin, ticker, PortfolioKind::Default)?;
-            Self::_mint(&ticker, portfolio.did, amount, Some(ProtocolOp::AssetIssue))
+            let mut weight_meter = WeightMeter::max_limit();
+            Self::_mint(&ticker, portfolio.did, amount, Some(ProtocolOp::AssetIssue), &mut weight_meter)
         }
 
         /// Redeems existing tokens by reducing the balance of the caller's default portfolio and the total supply of the token
@@ -544,7 +545,8 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::redeem()]
         pub fn redeem(origin, ticker: Ticker, value: Balance) -> DispatchResult {
-            Self::base_redeem(origin, ticker, value, PortfolioKind::Default)
+            let mut weight_meter = WeightMeter::max_limit();
+            Self::base_redeem(origin, ticker, value, PortfolioKind::Default, &mut weight_meter)
         }
 
         /// Makes an indivisible token divisible.
@@ -682,7 +684,8 @@ decl_module! {
         /// * `from_portfolio` From whom portfolio tokens gets transferred.
         #[weight = <T as Config>::WeightInfo::controller_transfer()]
         pub fn controller_transfer(origin, ticker: Ticker, value: Balance, from_portfolio: PortfolioId) -> DispatchResult {
-            Self::base_controller_transfer(origin, ticker, value, from_portfolio)
+            let mut weight_meter = WeightMeter::max_limit();
+            Self::base_controller_transfer(origin, ticker, value, from_portfolio, &mut weight_meter)
         }
 
         /// Registers a custom asset type.
@@ -858,7 +861,8 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::redeem_from_portfolio()]
         pub fn redeem_from_portfolio(origin, ticker: Ticker, value: Balance, portfolio: PortfolioKind) -> DispatchResult {
-            Self::base_redeem(origin, ticker, value, portfolio)
+            let mut weight_meter = WeightMeter::max_limit();
+            Self::base_redeem(origin, ticker, value, portfolio, &mut weight_meter)
         }
 
         /// Updates the type of an asset.
@@ -1520,6 +1524,7 @@ impl<T: Config> Module<T> {
         to_did: IdentityId,
         value: Balance,
         protocol_fee_data: Option<ProtocolOp>,
+        weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         Self::ensure_granular(ticker, value)?;
         // Read the token details
@@ -1578,7 +1583,7 @@ impl<T: Config> Module<T> {
             // Using the aggregate balance to update the unique investor count.
             updated_to_balance = Self::aggregate_balance_of(ticker, &scope_id);
         }
-        let mut weight_meter = WeightMeter::max_limit();
+
         Statistics::<T>::update_asset_stats(
             &ticker,
             None,
@@ -1586,7 +1591,7 @@ impl<T: Config> Module<T> {
             None,
             Some(updated_to_balance),
             value,
-            &mut weight_meter,
+            weight_meter,
         )?;
 
         let round = Self::funding_round(ticker);
@@ -1689,6 +1694,7 @@ impl<T: Config> Module<T> {
         to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: Balance,
+        weight_meter: &mut WeightMeter,
     ) -> StdResult<u8, &'static str> {
         Ok(if Self::invalid_granularity(ticker, value) {
             // Granularity check
@@ -1713,16 +1719,9 @@ impl<T: Config> Module<T> {
         } else if Self::portfolio_failure(&from_portfolio, &to_portfolio, ticker, value) {
             PORTFOLIO_FAILURE
         } else {
-            let mut weight_meter = WeightMeter::max_limit();
             // Compliance manager & Smart Extension check
-            Self::_is_valid_transfer(
-                &ticker,
-                from_portfolio,
-                to_portfolio,
-                value,
-                &mut weight_meter,
-            )
-            .unwrap_or(ERC1400_TRANSFER_FAILURE)
+            Self::_is_valid_transfer(&ticker, from_portfolio, to_portfolio, value, weight_meter)
+                .unwrap_or(ERC1400_TRANSFER_FAILURE)
         })
     }
 
@@ -1980,6 +1979,7 @@ impl<T: Config> Module<T> {
         ticker: Ticker,
         value: Balance,
         portfolio_kind: PortfolioKind,
+        weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         // Ensure origin is agent with custody and permissions for portfolio.
         let portfolio = Self::ensure_agent_with_custody_and_perms(origin, ticker, portfolio_kind)?;
@@ -2025,7 +2025,6 @@ impl<T: Config> Module<T> {
         // Update statistic info.
         // Using the aggregate balance to update the unique investor count.
         let updated_from_balance = Some(Self::aggregate_balance_of(ticker, &scope_id));
-        let mut weight_meter = WeightMeter::max_limit();
         Statistics::<T>::update_asset_stats(
             &ticker,
             Some(&portfolio.did),
@@ -2033,7 +2032,7 @@ impl<T: Config> Module<T> {
             updated_from_balance,
             None,
             value,
-            &mut weight_meter,
+            weight_meter,
         )?;
 
         Self::deposit_event(RawEvent::Transfer(
@@ -2444,20 +2443,14 @@ impl<T: Config> Module<T> {
         ticker: Ticker,
         value: Balance,
         from_portfolio: PortfolioId,
+        weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         // Ensure `origin` has perms.
         let to_portfolio =
             Self::ensure_agent_with_custody_and_perms(origin, ticker, PortfolioKind::Default)?;
 
         // Transfer `value` of ticker tokens from `investor_did` to controller
-        let mut weight_meter = WeightMeter::max_limit();
-        Self::unsafe_transfer(
-            from_portfolio,
-            to_portfolio,
-            &ticker,
-            value,
-            &mut weight_meter,
-        )?;
+        Self::unsafe_transfer(from_portfolio, to_portfolio, &ticker, value, weight_meter)?;
         Self::deposit_event(RawEvent::ControllerTransfer(
             to_portfolio.did,
             ticker,

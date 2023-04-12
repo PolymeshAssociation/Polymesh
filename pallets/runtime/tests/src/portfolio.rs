@@ -675,6 +675,7 @@ fn delete_portfolio_with_locked_nfts() {
             legs,
             vec![PortfolioId::user_portfolio(alice.did, PortfolioNumber(1))],
             Some(InstructionMemo::default()),
+            None
         ));
 
         assert_noop!(

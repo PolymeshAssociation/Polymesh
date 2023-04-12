@@ -809,7 +809,8 @@ fn failed_execution() {
         // Reschedule instruction and ensure the state is identical to the original state.
         assert_ok!(Settlement::reschedule_instruction(
             alice.origin(),
-            instruction_id
+            instruction_id,
+            None
         ));
         assert_eq!(
             Settlement::instruction_details(instruction_id),
@@ -2337,6 +2338,7 @@ fn settle_manual_instruction() {
                 alice.origin(),
                 instruction_id,
                 legs.len() as u32,
+                None,
                 None
             ),
             Error::InstructionSettleBlockNotReached
@@ -2348,13 +2350,20 @@ fn settle_manual_instruction() {
                 bob.origin(),
                 instruction_id,
                 legs.len() as u32,
+                None,
                 None
             ),
             Error::Unauthorized
         );
         // Ensure correct error message when wrong number of legs is given
         assert_noop!(
-            Settlement::execute_manual_instruction(alice.origin(), instruction_id, 0u32, None),
+            Settlement::execute_manual_instruction(
+                alice.origin(),
+                instruction_id,
+                0u32,
+                None,
+                None
+            ),
             Error::LegCountTooSmall
         );
         // Ensure it succeeds as the execute block was reached
@@ -2362,6 +2371,7 @@ fn settle_manual_instruction() {
             alice.origin(),
             instruction_id,
             legs.len() as u32,
+            None,
             None
         ));
         assert_user_affirms(instruction_id, &alice, AffirmationStatus::Unknown);
@@ -2419,7 +2429,8 @@ fn settle_manual_instruction_with_portfolio() {
                 alice.origin(),
                 instruction_id,
                 legs.len() as u32,
-                Some(alice_portfolio)
+                Some(alice_portfolio),
+                None
             ),
             Error::InstructionSettleBlockNotReached
         );
@@ -2430,7 +2441,8 @@ fn settle_manual_instruction_with_portfolio() {
                 charlie.origin(),
                 instruction_id,
                 legs.len() as u32,
-                Some(charlie_portfolio)
+                Some(charlie_portfolio),
+                None,
             ),
             Error::CallerIsNotAParty
         );
@@ -2440,7 +2452,8 @@ fn settle_manual_instruction_with_portfolio() {
                 alice.origin(),
                 instruction_id,
                 0u32,
-                Some(alice_portfolio)
+                Some(alice_portfolio),
+                None
             ),
             Error::LegCountTooSmall
         );
@@ -2449,7 +2462,8 @@ fn settle_manual_instruction_with_portfolio() {
             alice.origin(),
             instruction_id,
             legs.len() as u32,
-            Some(alice_portfolio)
+            Some(alice_portfolio),
+            None
         ));
         assert_user_affirms(instruction_id, &alice, AffirmationStatus::Unknown);
         assert_locked_assets(&TICKER, &alice, 0);
@@ -2482,6 +2496,7 @@ fn add_nft_instruction_with_duplicated_nfts() {
                 None,
                 legs,
                 Some(InstructionMemo::default()),
+                None
             ),
             NFTError::DuplicatedNFTId
         );
@@ -2526,6 +2541,7 @@ fn add_nft_instruction_exceeding_nfts() {
                 None,
                 legs,
                 Some(InstructionMemo::default()),
+                None
             ),
             NFTError::MaxNumberOfNFTsPerLegExceeded
         );
@@ -2554,6 +2570,7 @@ fn add_nft_instruction() {
             None,
             legs,
             Some(InstructionMemo::default()),
+            None
         ));
     });
 }
@@ -2598,6 +2615,7 @@ fn add_and_affirm_nft_instruction() {
             legs,
             default_portfolio_vec(alice.did),
             Some(InstructionMemo::default()),
+            None
         ));
 
         // Before bob accepts the transaction balances must not be changed and the NFT must be locked.
@@ -2691,6 +2709,7 @@ fn add_and_affirm_nft_not_owned() {
                 legs,
                 default_portfolio_vec(alice.did),
                 Some(InstructionMemo::default()),
+                None
             ),
             PortfolioError::NFTNotFoundInPortfolio
         );
@@ -2748,6 +2767,7 @@ fn add_same_nft_different_legs() {
                 legs,
                 default_portfolio_vec(alice.did),
                 Some(InstructionMemo::default()),
+                None
             ),
             PortfolioError::NFTAlreadyLocked
         );
@@ -2790,6 +2810,7 @@ fn add_and_affirm_with_receipts_nfts() {
             None,
             legs,
             Some(InstructionMemo::default()),
+            None
         ));
         assert_noop!(
             Settlement::affirm_with_receipts(
