@@ -197,7 +197,7 @@ fn setup_create_asset<T: Config + TestUtilsFn<<T as frame_system::Config>::Accou
     (owner.origin, name, ticker, token, identifiers, fundr)
 }
 
-/// Creates an asset for `ticker`, creates a custom portfolio for the sender and receiver, and pauses compliance.
+/// Creates an asset for `ticker`, creates a custom portfolio for the sender and receiver, sets up compliance and transfer restrictions.
 /// Returns the sender and receiver portfolio.
 pub fn setup_asset_transfer<T>(
     sender: &User<T>,

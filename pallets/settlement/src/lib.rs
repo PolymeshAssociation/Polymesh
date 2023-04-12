@@ -1051,10 +1051,9 @@ decl_module! {
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
         #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*_legs_count, 0)]
-        fn execute_scheduled_instruction(origin, id: InstructionId, _legs_count: u32) -> DispatchResultWithPostInfo {
+        fn execute_scheduled_instruction(origin, id: InstructionId, _legs_count: u32) {
             ensure_root(origin)?;
-            let mut weight_meter = WeightMeter::max_limit();
-            Self::base_execute_scheduled_instruction(id, &mut weight_meter)
+            let _ = Self::base_execute_scheduled_instruction(id, &mut WeightMeter::max_limit());
         }
 
         /// Reschedules a failed instruction.
@@ -1175,7 +1174,13 @@ decl_module! {
         /// # Errors
         /// * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
         #[weight = <T as Config>::WeightInfo::execute_manual_instruction(*legs_count)]
-        pub fn execute_manual_instruction(origin, id: InstructionId, legs_count: u32, portfolio: Option<PortfolioId>, weight_limit: Option<Weight>) {
+        pub fn execute_manual_instruction(
+            origin, 
+            id: InstructionId, 
+            legs_count: u32, 
+            portfolio: Option<PortfolioId>, 
+            weight_limit: Option<Weight>
+        ) -> DispatchResultWithPostInfo {
             // check origin has the permissions required and valid instruction
             let (did, sk, instruction_details) = Self::ensure_origin_perm_and_instruction_validity(origin, id, true)?;
 
@@ -1212,6 +1217,7 @@ decl_module! {
             Self::execute_instruction_retryable(id, &mut weight_meter)?;
 
             Self::deposit_event(RawEvent::SettlementManuallyExecuted(did, id));
+            Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
         }
 
         /// Adds a new instruction with memo.
@@ -1351,10 +1357,9 @@ decl_module! {
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
         #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*_fungible_transfers, *_nfts_transfers)]
-        fn execute_scheduled_instruction_v2(origin, id: InstructionId, _fungible_transfers: u32, _nfts_transfers: u32) -> DispatchResultWithPostInfo {
+        fn execute_scheduled_instruction_v2(origin, id: InstructionId, _fungible_transfers: u32, _nfts_transfers: u32) {
             ensure_root(origin)?;
-            let mut weight_meter = WeightMeter::max_limit();
-            Self::base_execute_scheduled_instruction(id, &mut weight_meter)
+            let _ = Self::base_execute_scheduled_instruction(id, &mut WeightMeter::max_limit());
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.

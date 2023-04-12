@@ -82,7 +82,7 @@ pub fn create_collection_issue_nfts<T: Config>(
 }
 
 /// Creates one NFT collection for `ticker`, mints `n_nfts` for that collection and
-/// pauses the compliance rules.
+/// sets up compliance rules.
 pub fn setup_nft_transfer<T>(
     sender: &User<T>,
     receiver: &User<T>,
