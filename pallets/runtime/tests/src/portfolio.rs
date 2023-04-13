@@ -1,30 +1,29 @@
-use super::{
-    assert_last_event,
-    asset_test::{create_token, max_len_bytes},
-    nft::{create_nft_collection, mint_nft},
-    settlement_test::create_venue,
-    storage::{EventTest, System, TestStorage, User},
-    ExtBuilder,
-};
 use frame_support::storage::StorageDoubleMap;
 use frame_support::{assert_noop, assert_ok, StorageMap};
 use frame_system::EventRecord;
+
 use pallet_portfolio::{
     Event, MovePortfolioItem, NameToNumber, PortfolioAssetBalances, PortfolioNFT,
 };
-use pallet_settlement::{InstructionMemo, LegAsset, LegV2, SettlementType};
 use polymesh_common_utilities::balances::Memo;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
 use polymesh_primitives::asset::{AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue,
 };
+use polymesh_primitives::settlement::{InstructionMemo, LegAsset, LegV2, SettlementType};
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, Fund, FundDescription, NFTCollectionKeys, NFTId,
     NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
     Signatory, Ticker,
 };
 use test_client::AccountKeyring;
+
+use super::asset_test::{create_token, max_len_bytes};
+use super::nft::{create_nft_collection, mint_nft};
+use super::settlement_test::create_venue;
+use super::storage::{EventTest, System, TestStorage, User};
+use super::{assert_last_event, ExtBuilder};
 
 type Asset = pallet_asset::Module<TestStorage>;
 type Error = pallet_portfolio::Error<TestStorage>;

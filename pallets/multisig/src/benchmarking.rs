@@ -13,16 +13,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::*;
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
-use polymesh_common_utilities::{
-    benchs::{AccountIdOf, User, UserBuilder},
-    TestUtilsFn,
-};
+
+use polymesh_common_utilities::benchs::{AccountIdOf, User, UserBuilder};
+use polymesh_common_utilities::TestUtilsFn;
+
+use crate::*;
 
 pub type MultiSig<T> = crate::Module<T>;
-pub type Identity<T> = identity::Module<T>;
+pub type Identity<T> = pallet_identity::Module<T>;
 pub type Timestamp<T> = pallet_timestamp::Pallet<T>;
 
 fn generate_signers<T: Config + TestUtilsFn<AccountIdOf<T>>>(
@@ -40,7 +40,7 @@ fn generate_signers<T: Config + TestUtilsFn<AccountIdOf<T>>>(
 }
 
 fn get_last_auth_id<T: Config>(signatory: &Signatory<T::AccountId>) -> u64 {
-    <identity::Authorizations<T>>::iter_prefix_values(signatory)
+    <pallet_identity::Authorizations<T>>::iter_prefix_values(signatory)
         .into_iter()
         .map(|x| x.auth_id)
         .max()

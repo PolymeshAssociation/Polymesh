@@ -239,6 +239,12 @@ pub use portfolio::{Fund, FundDescription, Memo};
 pub mod weight_meter;
 pub use weight_meter::WeightMeter;
 
+/// Settlement type definitions.
+pub mod settlement;
+
+/// Constants definitions.
+pub mod constants;
+
 /// Represents custom transaction errors.
 #[repr(u8)]
 pub enum TransactionError {
