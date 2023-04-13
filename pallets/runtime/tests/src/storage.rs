@@ -943,7 +943,7 @@ pub fn add_investor_uniqueness_claim(
     if Asset::disable_iu(scope) {
         return Ok(());
     }
-    let signed_claim_to = Origin::signed(get_primary_key(claim_to));
+    let signed_claim_to = RuntimeOrigin::signed(get_primary_key(claim_to));
 
     // Provide the InvestorUniqueness.
     Identity::add_investor_uniqueness_claim(
