@@ -16,6 +16,7 @@
 //! Shareable types.
 
 use codec::{Decode, Encode};
+use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec::Vec;
@@ -337,6 +338,30 @@ impl TransferData {
     /// Adds `nfts.len()` to the number of non fungible transfers.
     pub fn add_non_fungible(&mut self, nfts: &NFTs) {
         self.non_fungible += nfts.len() as u32;
+    }
+
+    /// Gets the `TransferData` from a slice of `LegV2`.
+    pub fn from_legs(legs_v2: &[LegV2]) -> Result<TransferData, String> {
+        let mut transfer_data = TransferData::default();
+        for leg_v2 in legs_v2 {
+            match &leg_v2.asset {
+                LegAsset::Fungible { .. } => {
+                    if transfer_data.fungible().checked_add(1).is_none() {
+                        return Err(String::from(
+                            "Number of fungible assets is greater than allowed",
+                        ));
+                    }
+                    transfer_data.add_fungible();
+                }
+                LegAsset::NonFungible(nfts) => {
+                    if nfts.len() + transfer_data.non_fungible() as usize > u32::MAX as usize {
+                        return Err(String::from("Number of NFTs is greater than allowed"));
+                    }
+                    transfer_data.add_non_fungible(nfts);
+                }
+            }
+        }
+        Ok(transfer_data)
     }
 }
 

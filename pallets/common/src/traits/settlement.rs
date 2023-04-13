@@ -4,7 +4,7 @@ use frame_support::weights::Weight;
 use sp_std::vec::Vec;
 
 use polymesh_primitives::settlement::{
-    InstructionId, InstructionMemo, Leg, LegAsset, LegId, LegV2, ReceiptMetadata, SettlementType,
+    InstructionId, InstructionMemo, Leg, LegId, LegV2, ReceiptMetadata, SettlementType,
     TransferData, VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
@@ -138,13 +138,8 @@ pub trait WeightInfo {
     fn execute_instruction_paused(f: u32, n: u32) -> Weight;
     fn execute_scheduled_instruction(f: u32, n: u32) -> Weight;
     fn get_transfer_by_asset(legs_v2: &[LegV2]) -> (u32, u32) {
-        let mut transfer_data = TransferData::default();
-        for leg_v2 in legs_v2 {
-            match &leg_v2.asset {
-                LegAsset::Fungible { .. } => transfer_data.add_fungible(),
-                LegAsset::NonFungible(nfts) => transfer_data.add_non_fungible(&nfts),
-            }
-        }
+        let transfer_data =
+            TransferData::from_legs(legs_v2).unwrap_or(TransferData::new(u32::MAX, u32::MAX));
         (transfer_data.fungible(), transfer_data.non_fungible())
     }
 }

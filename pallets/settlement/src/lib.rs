@@ -206,7 +206,7 @@ decl_error! {
         /// Off-chain receipts are not accepted for non-fungible tokens.
         ReceiptForNonFungibleAsset,
         /// The maximum weight limit for executing the function was exceeded.
-        WeightLimitExceeded
+        WeightLimitExceeded,
     }
 }
 
@@ -793,14 +793,14 @@ decl_module! {
             let did = Identity::<T>::ensure_perms(origin.clone())?;
             with_transaction(|| {
                 let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
-                let (fungible_transfers, nfts_transfers) = Self::get_transfer_by_asset(&legs);
+                let transfer_data = TransferData::from_legs(&legs).map_err(|_| Error::<T>::MaxNumberOfNFTsExceeded)?;
                 let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo, false, weight_limit)?;
                 Self::affirm_and_maybe_schedule_instruction(
                     origin,
                     instruction_id,
                     portfolios_set.into_iter(),
-                    fungible_transfers,
-                    Some(nfts_transfers),
+                    transfer_data.fungible(),
+                    Some(transfer_data.non_fungible()),
                     weight_limit
                 )
             })
@@ -1868,19 +1868,6 @@ impl<T: Config> Module<T> {
             }
         }
         transfer_data
-    }
-
-    /// Returns the number of fungible and non fungible transfers in a slice of legs.
-    /// Since this function is only called after the legs have already been inserted, casting is safe.
-    fn get_transfer_by_asset(legs_v2: &[LegV2]) -> (u32, u32) {
-        let mut transfer_data = TransferData::default();
-        for leg_v2 in legs_v2 {
-            match &leg_v2.asset {
-                LegAsset::Fungible { .. } => transfer_data.add_fungible(),
-                LegAsset::NonFungible(nfts) => transfer_data.add_non_fungible(&nfts),
-            }
-        }
-        (transfer_data.fungible(), transfer_data.non_fungible())
     }
 
     /// Returns ok if the number of fungible assets and nfts being transferred is under the input given by the user.
