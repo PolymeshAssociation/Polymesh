@@ -997,7 +997,7 @@ decl_error! {
         /// Attempt to update the type of a non fungible token to a fungible token or the other way around.
         IncompatibleAssetTypeUpdate,
         /// Investor Uniqueness not allowed.
-        InvestorUniquenessNotAllowed
+        InvestorUniquenessNotAllowed,
         /// Attempt to delete a key that is needed for an NFT collection.
         AssetMetadataKeyBelongsToNFTCollection,
         /// Attempt to lock a metadata value that is empty.

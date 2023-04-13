@@ -140,7 +140,7 @@ struct AssetTracker {
     asset: Ticker,
     total_supply: Balance,
     disable_iu: bool,
-    asset_scope: AssetScope,
+    pub asset_scope: AssetScope,
 
     issuers: HashMap<IdentityId, IssuerState>,
 
@@ -158,7 +158,7 @@ impl AssetTracker {
         Self::new_full(0, "ACME", true)
     }
 
-    pub fn new_full(owner_id: u64, name: &str) -> Self {
+    pub fn new_full(owner_id: u64, name: &str, disable_iu: bool) -> Self {
         let asset = Ticker::from_slice_truncated(name.as_bytes());
         let investor_start_id = owner_id + 1000;
         let mut tracker = Self {

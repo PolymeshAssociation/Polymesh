@@ -345,45 +345,6 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
-    // Storage: Settlement InstructionAffirmsPending (r:1 w:1)
-    // Storage: Settlement InstructionDetails (r:1 w:1)
-    // Storage: Settlement InstructionLegs (r:1 w:0)
-    // Storage: Settlement VenueInstructions (r:0 w:1)
-    // Storage: Settlement VenueFiltering (r:1 w:0)
-    // Storage: Settlement InstructionLegStatus (r:1 w:1)
-    // Storage: Portfolio PortfolioLockedAssets (r:1 w:1)
-    // Storage: Asset Frozen (r:1 w:0)
-    // Storage: Asset DisableInvestorUniqueness (r:1 w:0)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Storage: Identity Claims (r:52 w:0)
-    // Storage: Portfolio Portfolios (r:2 w:0)
-    // Storage: Asset Tokens (r:1 w:0)
-    // Storage: Portfolio PortfolioAssetBalances (r:2 w:2)
-    // Storage: Asset ScopeIdOf (r:2 w:0)
-    // Storage: Asset AggregateBalance (r:2 w:2)
-    // Storage: Statistics AssetTransferCompliances (r:1 w:0)
-    // Storage: Statistics AssetStats (r:1 w:1)
-    // Storage: Statistics TransferConditionExemptEntities (r:1 w:0)
-    // Storage: ComplianceManager AssetCompliances (r:1 w:0)
-    // Storage: Asset BalanceOf (r:2 w:2)
-    // Storage: Checkpoint Schedules (r:1 w:0)
-    // Storage: Checkpoint CheckpointIdSequence (r:1 w:0)
-    // Storage: Portfolio PortfolioAssetCount (r:2 w:2)
-    // Storage: Statistics ActiveAssetStats (r:1 w:0)
-    // Storage: Settlement UserAffirmations (r:0 w:2)
-    // Storage: Settlement AffirmsReceived (r:0 w:2)
-    // Storage: Asset BalanceOfAtScope (r:0 w:2)
-    /// The range of component `l` is `[0, 10]`.
-    fn execute_scheduled_instruction(l: u32) -> Weight {
-        // Minimum execution time: 49_561 nanoseconds.
-        Weight::from_ref_time(169_535_200)
-            // Standard Error: 1_232_382
-            .saturating_add(Weight::from_ref_time(405_339_852).saturating_mul(l.into()))
-            .saturating_add(DbWeight::get().reads(36))
-            .saturating_add(DbWeight::get().reads((31_u64).saturating_mul(l.into())))
-            .saturating_add(DbWeight::get().writes(4))
-            .saturating_add(DbWeight::get().writes((16_u64).saturating_mul(l.into())))
-    }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Settlement InstructionDetails (r:1 w:1)
     // Storage: Settlement InstructionLegsV2 (r:1 w:0)
@@ -659,16 +620,16 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: Settlement AffirmsReceived (r:0 w:2)
     // Storage: Asset BalanceOfAtScope (r:0 w:2)
     fn execute_scheduled_instruction(f: u32, n: u32) -> Weight {
-        (3_907_651_000 as Weight)
-            // Standard Error: 183_402_000
-            .saturating_add((557_992_000 as Weight).saturating_mul(f as Weight))
-            // Standard Error: 9_215_000
-            .saturating_add((627_229_000 as Weight).saturating_mul(n as Weight))
-            .saturating_add(DbWeight::get().reads(59 as Weight))
-            .saturating_add(DbWeight::get().reads((20 as Weight).saturating_mul(f as Weight)))
-            .saturating_add(DbWeight::get().reads((10 as Weight).saturating_mul(n as Weight)))
-            .saturating_add(DbWeight::get().writes(12 as Weight))
-            .saturating_add(DbWeight::get().writes((10 as Weight).saturating_mul(f as Weight)))
-            .saturating_add(DbWeight::get().writes((7 as Weight).saturating_mul(n as Weight)))
+        Weight::from_ref_time(3_907_651_000 as u64)
+            // Standard Error: 365_000
+            .saturating_add(Weight::from_ref_time(557_992_000 as u64).saturating_mul(f as u64))
+            // Standard Error: 18_000
+            .saturating_add(Weight::from_ref_time(627_229_000 as u64).saturating_mul(n as u64))
+            .saturating_add(DbWeight::get().reads(59 as u64))
+            .saturating_add(DbWeight::get().reads((20 as u64).saturating_mul(f as u64)))
+            .saturating_add(DbWeight::get().reads((10 as u64).saturating_mul(n as u64)))
+            .saturating_add(DbWeight::get().writes(12 as u64))
+            .saturating_add(DbWeight::get().writes((10 as u64).saturating_mul(f as u64)))
+            .saturating_add(DbWeight::get().writes((7 as u64).saturating_mul(n as u64)))
     }
 }

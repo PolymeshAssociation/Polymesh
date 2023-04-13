@@ -1159,9 +1159,9 @@ benchmarks! {
 
         let mut nft_legs = Vec::new();
         for index in 0..n {
-            let ticker = Ticker::try_from(
+            let ticker = Ticker::from_slice_truncated(
                 format!("NFTTICKER{}", index).as_bytes(),
-            ).unwrap();
+            );
             create_collection_issue_nfts::<T>(
                 alice.origin().into(),
                 ticker,
