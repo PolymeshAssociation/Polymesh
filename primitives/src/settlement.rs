@@ -354,10 +354,20 @@ impl TransferData {
                     transfer_data.add_fungible();
                 }
                 LegAsset::NonFungible(nfts) => {
-                    if nfts.len() + transfer_data.non_fungible() as usize > u32::MAX as usize {
-                        return Err(String::from("Number of NFTs is greater than allowed"));
+                    match nfts
+                        .len()
+                        .checked_add(transfer_data.non_fungible() as usize)
+                    {
+                        Some(added_value) => {
+                            if added_value > u32::MAX as usize {
+                                return Err(String::from("Number of NFTs is greater than allowed"));
+                            }
+                            transfer_data.add_non_fungible(nfts);
+                        }
+                        None => {
+                            return Err(String::from("Number of NFTs is greater than allowed"));
+                        }
                     }
-                    transfer_data.add_non_fungible(nfts);
                 }
             }
         }
