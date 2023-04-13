@@ -514,7 +514,7 @@ benchmarks! {
             AssetType::NonFungible(NonFungibleType::Derivative),
             Vec::new(),
             None,
-            false,
+            true,
         ).unwrap();
         // Creates two metadata keys, one that belong to the NFT collection and one that doesn't
         let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
@@ -552,7 +552,7 @@ benchmarks! {
             AssetType::NonFungible(NonFungibleType::Derivative),
             Vec::new(),
             None,
-            false,
+            true,
         ).unwrap();
         // Creates one metadata key and set its value
         let asset_metadata_name = AssetMetadataName(b"mylocalkey".to_vec());
