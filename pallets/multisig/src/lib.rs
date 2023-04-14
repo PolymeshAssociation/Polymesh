@@ -102,7 +102,7 @@ use polymesh_common_utilities::multisig::MultiSigSubTrait;
 use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
 use polymesh_common_utilities::transaction_payment::CddAndFeeDetails;
 use polymesh_common_utilities::Context;
-use polymesh_primitives::constants::schedule_name_prefix::MULTISIG_PROPOSAL_EXECUTION;
+use polymesh_primitives::constants::MULTISIG_PROPOSAL_EXECUTION;
 use polymesh_primitives::{
     extract_auth, storage_migration_ver, AuthorizationData, IdentityId, KeyRecord, Permissions,
     Signatory,

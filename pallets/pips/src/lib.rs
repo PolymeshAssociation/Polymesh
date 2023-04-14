@@ -117,7 +117,7 @@ use polymesh_common_utilities::traits::{
     balances::LockableCurrencyExt, governance_group::GovernanceGroupTrait, group::GroupTrait,
 };
 use polymesh_common_utilities::{with_transaction, CommonConfig, Context, MaybeBlock, GC_DID};
-use polymesh_primitives::constants::schedule_name_prefix::{PIP_EXECUTION, PIP_EXPIRY};
+use polymesh_primitives::constants::{PIP_EXECUTION, PIP_EXPIRY};
 use polymesh_primitives::{impl_checked_inc, storage_migration_ver, Balance, IdentityId, Url};
 use polymesh_primitives_derive::VecU8StrongTyped;
 use polymesh_runtime_common::PipsEnactSnapshotMaximumWeight;
@@ -1540,7 +1540,7 @@ pub fn enact_snapshot_results<T: Config>(results: &[(PipId, SnapshotResult)]) ->
 mod test {
     use super::PipId;
     use codec::Encode;
-    use polymesh_primitives::constants::schedule_name_prefix::{PIP_EXECUTION, PIP_EXPIRY};
+    use polymesh_primitives::constants::{PIP_EXECUTION, PIP_EXPIRY};
 
     fn old_pip_execution_name(id: PipId) -> Vec<u8> {
         old_pip_schedule_name(&PIP_EXECUTION[..], id)

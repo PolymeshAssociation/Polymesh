@@ -23,7 +23,7 @@ use sp_std::vec::Vec;
 
 use polymesh_primitives_derive::VecU8StrongTyped;
 
-use crate::constants::schedule_name_prefix::SETTLEMENT_INSTRUCTION_EXECUTION;
+use crate::constants::SETTLEMENT_INSTRUCTION_EXECUTION;
 use crate::{impl_checked_inc, Balance, IdentityId, NFTs, PortfolioId, Ticker};
 
 /// A global and unique venue ID.
@@ -340,35 +340,40 @@ impl TransferData {
         self.non_fungible += nfts.len() as u32;
     }
 
+    /// Adds one to the number of fungible assets.
+    /// Returns an error if the number of fungible assets is greater than 1024.
+    pub fn try_add_fungible(&mut self) -> Result<(), String> {
+        if self.fungible + 1 > 1024 {
+            return Err(String::from(
+                "Number of fungible assets is greater than allowed",
+            ));
+        }
+        self.fungible += 1;
+        Ok(())
+    }
+
+    /// Adds `nfts.len()` to the number of non fungible transfers.
+    /// Returns an error if the number of non fungible transfers is greater than 1024.
+    pub fn try_add_non_fungible(&mut self, nfts: &NFTs) -> Result<(), String> {
+        match nfts.len().checked_add(self.non_fungible as usize) {
+            Some(new_value) => {
+                if new_value > 1024 {
+                    return Err(String::from("Number of NFTs is greater than allowed"));
+                }
+                self.non_fungible += nfts.len() as u32;
+            }
+            None => return Err(String::from("Number of NFTs is greater than allowed")),
+        }
+        Ok(())
+    }
+
     /// Gets the `TransferData` from a slice of `LegV2`.
     pub fn from_legs(legs_v2: &[LegV2]) -> Result<TransferData, String> {
         let mut transfer_data = TransferData::default();
         for leg_v2 in legs_v2 {
             match &leg_v2.asset {
-                LegAsset::Fungible { .. } => {
-                    if transfer_data.fungible().checked_add(1).is_none() {
-                        return Err(String::from(
-                            "Number of fungible assets is greater than allowed",
-                        ));
-                    }
-                    transfer_data.add_fungible();
-                }
-                LegAsset::NonFungible(nfts) => {
-                    match nfts
-                        .len()
-                        .checked_add(transfer_data.non_fungible() as usize)
-                    {
-                        Some(added_value) => {
-                            if added_value > u32::MAX as usize {
-                                return Err(String::from("Number of NFTs is greater than allowed"));
-                            }
-                            transfer_data.add_non_fungible(nfts);
-                        }
-                        None => {
-                            return Err(String::from("Number of NFTs is greater than allowed"));
-                        }
-                    }
-                }
+                LegAsset::Fungible { .. } => transfer_data.try_add_fungible()?,
+                LegAsset::NonFungible(nfts) => transfer_data.try_add_non_fungible(&nfts)?,
             }
         }
         Ok(transfer_data)
