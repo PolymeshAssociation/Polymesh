@@ -15,7 +15,7 @@
 
 use crate::{
     types, AccountKeyRefCount, Config, DidKeys, DidRecords, Error, IsDidFrozen, KeyRecords, Module,
-    MultiPurposeNonce, OffChainAuthorizationNonce, PermissionedCallOriginData, RawEvent,
+    MultiPurposeNonce, OffChainAuthorizationNonce, ParentDid, PermissionedCallOriginData, RawEvent,
     RpcDidRecords,
 };
 use codec::{Decode, Encode as _};
@@ -29,7 +29,9 @@ use frame_system::ensure_signed;
 use pallet_base::{ensure_custom_length_ok, ensure_custom_string_limited};
 use polymesh_common_utilities::constants::did::USER;
 use polymesh_common_utilities::group::GroupTrait;
-use polymesh_common_utilities::identity::{SecondaryKeyWithAuth, TargetIdAuthorization};
+use polymesh_common_utilities::identity::{
+    CreateChildIdentityWithAuth, SecondaryKeyWithAuth, TargetIdAuthorization,
+};
 use polymesh_common_utilities::multisig::MultiSigSubTrait as _;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee as _, ProtocolOp};
 use polymesh_common_utilities::traits::{
@@ -44,6 +46,7 @@ use sp_core::sr25519::Signature;
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{AccountIdConversion as _, IdentifyAccount, Verify};
 use sp_runtime::{AnySignature, DispatchError};
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{vec, vec::Vec};
 
 // Maximum secondary keys to return from RPC `identity_getDidRecords`.
@@ -68,6 +71,11 @@ impl<T: Config> Module<T> {
 
     pub fn ensure_no_id_record(id: IdentityId) -> DispatchResult {
         ensure!(!Self::is_identity_exists(&id), Error::<T>::DidAlreadyExists);
+        Ok(())
+    }
+
+    pub fn ensure_no_parent(id: IdentityId) -> DispatchResult {
+        ensure!(!ParentDid::contains_key(id), Error::<T>::IsChildIdentity);
         Ok(())
     }
 
@@ -423,6 +431,144 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    /// Create a child identity.
+    pub(crate) fn base_create_child_identity(
+        origin: T::RuntimeOrigin,
+        secondary_key: T::AccountId,
+    ) -> DispatchResult {
+        let (_, parent_did) = Self::ensure_primary_key(origin)?;
+
+        // Make sure `parent_did` has no parent.
+        Self::ensure_no_parent(parent_did)?;
+
+        // Ensure that the key is a secondary key.
+        Self::ensure_secondary_key(parent_did, &secondary_key)?;
+
+        // Ensure that the key can be unlinked.
+        Self::ensure_key_unlinkable_from_did(&secondary_key)?;
+
+        // Generate a new DID for the child.
+        let child_did = Self::make_did()?;
+
+        // Unlink the secondary account key.
+        Self::remove_key_record(&secondary_key, Some(parent_did));
+        Self::deposit_event(RawEvent::SecondaryKeysRemoved(
+            parent_did,
+            vec![secondary_key.clone()],
+        ));
+
+        let primary_key = secondary_key;
+        // Create a new identity record and link the primary key.
+        Self::add_key_record(&primary_key, KeyRecord::PrimaryKey(child_did));
+        Self::deposit_event(RawEvent::DidCreated(child_did, primary_key.clone(), vec![]));
+
+        // Link new identity to parent identity.
+        ParentDid::insert(child_did, parent_did);
+
+        Self::deposit_event(RawEvent::ChildDidCreated(
+            parent_did,
+            child_did,
+            primary_key,
+        ));
+
+        Ok(())
+    }
+
+    /// Create a child identities.
+    pub(crate) fn base_create_child_identities(
+        origin: T::RuntimeOrigin,
+        child_keys: Vec<CreateChildIdentityWithAuth<T::AccountId>>,
+        expires_at: T::Moment,
+    ) -> DispatchResult {
+        let (_, parent_did) = Self::ensure_primary_key(origin)?;
+
+        // Make sure `parent_did` has no parent.
+        Self::ensure_no_parent(parent_did)?;
+
+        // Create authorization data that the child keys need to sign.
+        let now = <pallet_timestamp::Pallet<T>>::get();
+        ensure!(now < expires_at, Error::<T>::AuthorizationExpired);
+        let authorization = TargetIdAuthorization {
+            target_id: parent_did,
+            nonce: Self::offchain_authorization_nonce(parent_did),
+            expires_at,
+        };
+        let auth_encoded = authorization.encode();
+
+        // Verify signatures.
+        let mut keys = BTreeSet::new();
+        for auth in &child_keys {
+            // Ensure the key isn't linked to an identity.
+            Self::ensure_key_did_unlinked(&auth.key)?;
+
+            // Check for duplicate keys.
+            ensure!(!keys.contains(&auth.key), Error::<T>::DuplicateKey);
+            keys.insert(auth.key.clone());
+
+            // Verify the signature.
+            let signature = AnySignature::from(Signature::from_h512(auth.auth_signature));
+            let signer: <<AnySignature as Verify>::Signer as IdentifyAccount>::AccountId =
+                Decode::decode(&mut &auth.key.encode()[..])
+                    .map_err(|_| Error::<T>::CannotDecodeSignerAccountId)?;
+            ensure!(
+                signature.verify(auth_encoded.as_slice(), &signer),
+                Error::<T>::InvalidAuthorizationSignature
+            );
+        }
+
+        // Generate a new identity for each child.
+        let mut children = Vec::with_capacity(child_keys.len());
+        for auth in child_keys {
+            // Generate a new DID for the child.
+            // NOTE: `make_did` increases a nonce value (storage modification)
+            // and also checks that the new identity is unique.  It is unlikely
+            // to fail, but we check anyways.
+            let child_did = Self::make_did()?;
+            children.push((auth.key, child_did));
+        }
+
+        // Update that identity's offchain authorization nonce.
+        OffChainAuthorizationNonce::mutate(parent_did, |nonce| *nonce = authorization.nonce + 1);
+
+        for (key, child_did) in children {
+            // Create a new identity record and link the primary key.
+            Self::add_key_record(&key, KeyRecord::PrimaryKey(child_did));
+            Self::deposit_event(RawEvent::DidCreated(child_did, key.clone(), vec![]));
+
+            // Link new identity to parent identity.
+            ParentDid::insert(child_did, parent_did);
+
+            Self::deposit_event(RawEvent::ChildDidCreated(parent_did, child_did, key));
+        }
+
+        Ok(())
+    }
+
+    /// Unlink a child identity.
+    pub(crate) fn base_unlink_child_identity(
+        origin: T::RuntimeOrigin,
+        child_did: IdentityId,
+    ) -> DispatchResult {
+        let (_, caller_did) = Self::ensure_primary_key(origin)?;
+
+        // Make sure that `child_did` is a child and get their parent identity.
+        let parent_did = ParentDid::get(child_did).ok_or(Error::<T>::NoParentIdentity)?;
+
+        // Only the parent or child can unlink `child_did` from their parent.
+        if caller_did != parent_did && caller_did != child_did {
+            return Err(Error::<T>::NotParentOrChildIdentity.into());
+        }
+
+        // Unlink child identity from parent identity.
+        ParentDid::remove(child_did);
+
+        Self::deposit_event(RawEvent::ChildDidUnlinked(
+            caller_did, parent_did, child_did,
+        ));
+
+        Ok(())
+    }
+
     /// Removes specified secondary keys of a DID if present.
     pub(crate) fn base_remove_secondary_keys(
         origin: T::RuntimeOrigin,
@@ -588,12 +734,22 @@ impl<T: Config> Module<T> {
     }
 
     /// Create a new DID out of the parent block hash and a `nonce`.
-    fn make_did(nonce: u64) -> IdentityId {
+    fn make_did() -> Result<IdentityId, DispatchError> {
+        let nonce = Self::multi_purpose_nonce() + 7u64;
+        // Even if this transaction fails, nonce should be increased for added unpredictability of dids
+        MultiPurposeNonce::put(&nonce);
+
         // TODO: Look into getting randomness from `pallet_babe`.
         // NB: We can't get the current block's hash while processing
         // an extrinsic, so we use parent hash here.
         let parent_hash = System::<T>::parent_hash();
-        IdentityId(blake2_256(&(USER, parent_hash, nonce).encode()))
+        let did = IdentityId(blake2_256(&(USER, parent_hash, nonce).encode()));
+
+        // Make sure there's no pre-existing entry for the DID
+        // This should never happen but just being defensive here
+        Self::ensure_no_id_record(did)?;
+
+        Ok(did)
     }
 
     /// Registers a did without adding a CDD claim for it.
@@ -602,10 +758,6 @@ impl<T: Config> Module<T> {
         secondary_keys: Vec<SecondaryKey<T::AccountId>>,
         protocol_fee_data: Option<ProtocolOp>,
     ) -> Result<IdentityId, DispatchError> {
-        let new_nonce = Self::multi_purpose_nonce() + 7u64;
-        // Even if this transaction fails, nonce should be increased for added unpredictability of dids
-        MultiPurposeNonce::put(&new_nonce);
-
         // 1 Check constraints.
         // Primary key is not linked to any identity.
         Self::ensure_key_did_unlinked(&sender)?;
@@ -615,11 +767,7 @@ impl<T: Config> Module<T> {
             Error::<T>::SecondaryKeysContainPrimaryKey
         );
 
-        let did = Self::make_did(new_nonce);
-
-        // Make sure there's no pre-existing entry for the DID
-        // This should never happen but just being defensive here
-        Self::ensure_no_id_record(did)?;
+        let did = Self::make_did()?;
 
         // Secondary keys can be linked to the new identity.
         for sk in &secondary_keys {

@@ -15,7 +15,7 @@
 
 use crate::{
     Claim1stKey, Claim2ndKey, Claims, CustomClaimIdSequence, CustomClaims, CustomClaimsInverse,
-    DidRecords, Error, Event, Module,
+    DidRecords, Error, Event, Module, ParentDid,
 };
 use core::convert::From;
 use frame_support::{
@@ -32,7 +32,7 @@ use polymesh_common_utilities::{
         group::{GroupTrait, InactiveMember},
         identity::{Config, RawEvent},
     },
-    SystematicIssuers, SYSTEMATIC_ISSUERS,
+    SystematicIssuers,
 };
 use polymesh_primitives::identity_claim::CustomClaimTypeId;
 use polymesh_primitives::{
@@ -42,13 +42,33 @@ use polymesh_primitives::{
 use sp_runtime::traits::{CheckedAdd, SaturatedConversion, Zero};
 use sp_std::prelude::*;
 
-impl<T: Config> Module<T> {
-    /// Ensure that any `Scope::Custom(data)` is limited to 32 characters.
-    pub fn ensure_custom_scopes_limited(claim: &Claim) -> DispatchResult {
-        if let Some(Scope::Custom(data)) = claim.as_scope() {
-            ensure!(data.len() <= 32, Error::<T>::CustomScopeTooLong);
+struct CddClaimChecker<T: Config> {
+    filter_cdd_id: Option<CddId>,
+    exp_with_leeway: T::Moment,
+    active_cdds: Vec<IdentityId>,
+    inactive_cdds: Option<Vec<InactiveMember<T::Moment>>>,
+}
+
+impl<T: Config> CddClaimChecker<T> {
+    pub fn new(_claim_for: IdentityId, leeway: T::Moment, filter_cdd_id: Option<CddId>) -> Self {
+        let exp_with_leeway = <pallet_timestamp::Pallet<T>>::get()
+            .checked_add(&leeway)
+            .unwrap_or_default();
+
+        // Supressing `mut` warning since we need mut in `runtime-benchmarks` feature but not otherwise.
+        #[allow(unused_mut)]
+        let mut active_cdds = T::CddServiceProviders::get_active_members();
+
+        // For the benchmarks, self cdd claims are allowed and hence the claim target is added to the cdd providers list.
+        #[cfg(feature = "runtime-benchmarks")]
+        active_cdds.push(_claim_for);
+
+        Self {
+            filter_cdd_id,
+            exp_with_leeway,
+            active_cdds,
+            inactive_cdds: None,
         }
-        Ok(())
     }
 
     /// It returns true if `id_claim` is not expired at `moment`.
@@ -59,6 +79,69 @@ impl<T: Config> Module<T> {
         } else {
             true
         }
+    }
+
+    /// Issuer is an active CDD provider.
+    fn is_active(&self, id_claim: &IdentityClaim) -> bool {
+        self.active_cdds.contains(&id_claim.claim_issuer)
+    }
+
+    /// Issuer is the SystematicIssuers::CDDProvider.
+    fn is_systematic_cdd_provider(&self, id_claim: &IdentityClaim) -> bool {
+        SystematicIssuers::CDDProvider.as_id() == id_claim.claim_issuer
+    }
+
+    /// Issuer is an inactive CDD provider but claim was updated/created before that it was
+    /// deactivated.
+    fn is_inactive(&mut self, id_claim: &IdentityClaim) -> bool {
+        // Lazy build list of inactive cdd providers.
+        let inactive_cdds = self.inactive_cdds.get_or_insert_with(|| {
+            T::CddServiceProviders::get_inactive_members()
+                .into_iter()
+                .filter(|cdd| !T::CddServiceProviders::is_member_expired(cdd, self.exp_with_leeway))
+                .collect::<Vec<_>>()
+        });
+
+        inactive_cdds
+            .iter()
+            .filter(|cdd| cdd.id == id_claim.claim_issuer)
+            .any(|cdd| id_claim.last_update_date < cdd.deactivated_at.saturated_into::<u64>())
+    }
+
+    /// A CDD claims is considered valid if:
+    /// * Claim is not expired at `exp_with_leeway` moment.
+    /// * Its issuer is valid, that means:
+    ///   * Issuer is an active CDD provider, or
+    ///   * Issuer is the SystematicIssuers::CDDProvider, or
+    ///   * Issuer is an inactive CDD provider but claim was updated/created before that it was
+    ///   deactivated.
+    fn is_cdd_claim_valid(&mut self, id_claim: &IdentityClaim) -> bool {
+        Self::is_identity_claim_not_expired_at(id_claim, self.exp_with_leeway)
+            && (self.is_active(id_claim)
+                || self.is_systematic_cdd_provider(id_claim)
+                || self.is_inactive(id_claim))
+    }
+
+    fn filter_cdd_claims(&mut self, id_claim: &IdentityClaim) -> bool {
+        if let Some(cdd_id) = &self.filter_cdd_id {
+            if let Claim::CustomerDueDiligence(claim_cdd_id) = &id_claim.claim {
+                if claim_cdd_id != cdd_id {
+                    return false;
+                }
+            }
+        }
+
+        self.is_cdd_claim_valid(id_claim)
+    }
+}
+
+impl<T: Config> Module<T> {
+    /// Ensure that any `Scope::Custom(data)` is limited to 32 characters.
+    pub fn ensure_custom_scopes_limited(claim: &Claim) -> DispatchResult {
+        if let Some(Scope::Custom(data)) = claim.as_scope() {
+            ensure!(data.len() <= 32, Error::<T>::CustomScopeTooLong);
+        }
+        Ok(())
     }
 
     /// It fetches an specific `claim_type` claim type for target identity `id`, which was issued
@@ -74,11 +157,10 @@ impl<T: Config> Module<T> {
 
         Self::fetch_base_claim_with_issuer(id, claim_type, issuer, scope)
             .into_iter()
-            .find(|c| Self::is_identity_claim_not_expired_at(c, now))
+            .find(|c| CddClaimChecker::<T>::is_identity_claim_not_expired_at(c, now))
     }
 
     /// See `Self::fetch_cdd`.
-    #[inline]
     pub fn has_valid_cdd(claim_for: IdentityId) -> bool {
         // It will never happen in production but helpful during testing.
         #[cfg(feature = "no_cdd")]
@@ -86,7 +168,7 @@ impl<T: Config> Module<T> {
             return true;
         }
 
-        Self::base_fetch_cdd(claim_for, T::Moment::zero(), None).is_some()
+        Self::base_fetch_cdd(claim_for, T::Moment::zero(), None, true).is_some()
     }
 
     /// It returns the CDD identity which issued the current valid CDD claim for `claim_for`
@@ -99,85 +181,64 @@ impl<T: Config> Module<T> {
     /// No state change is allowed in this function because this function is used within the RPC
     /// calls.
     pub fn fetch_cdd(claim_for: IdentityId, leeway: T::Moment) -> Option<IdentityId> {
-        Self::base_fetch_cdd(claim_for, leeway, None)
+        Self::base_fetch_cdd(claim_for, leeway, None, true)
     }
 
     fn base_fetch_cdd(
         claim_for: IdentityId,
         leeway: T::Moment,
         filter_cdd_id: Option<CddId>,
+        include_parent: bool,
     ) -> Option<IdentityId> {
-        Self::base_fetch_valid_cdd_claims(claim_for, leeway, filter_cdd_id)
+        Self::base_fetch_valid_cdd_claims(claim_for, leeway, filter_cdd_id, include_parent)
             .map(|id_claim| id_claim.claim_issuer)
             .next()
     }
 
-    pub fn base_fetch_valid_cdd_claims(
+    // Returns a lazy iterator that will return the CDD claims from the
+    // parent of `did` if they are a child identity.
+    //
+    // If `include_parent` is `false` then the iterator will not return claims
+    // from the parent.
+    pub fn base_fetch_parent_cdd_claims(
+        did: IdentityId,
+        include_parent: bool,
+    ) -> impl Iterator<Item = IdentityClaim> {
+        let mut first_call = include_parent;
+        let mut parent_claims = None;
+        core::iter::from_fn(move || -> Option<IdentityClaim> {
+            // The first time this iterator function is called
+            // we will initialize the `parent_claims` iterator.
+            if first_call {
+                first_call = false;
+                parent_claims = ParentDid::get(did).map(|parent_did| {
+                    Self::fetch_base_claims(parent_did, ClaimType::CustomerDueDiligence)
+                });
+            }
+
+            // If `parent_claims` is `None` then this returns early with `None`.
+            let claim = parent_claims.as_mut()?.next();
+            if claim.is_none() {
+                parent_claims = None;
+            }
+            claim
+        })
+    }
+
+    pub(crate) fn base_fetch_valid_cdd_claims(
         claim_for: IdentityId,
         leeway: T::Moment,
         filter_cdd_id: Option<CddId>,
+        include_parent: bool,
     ) -> impl Iterator<Item = IdentityClaim> {
-        let exp_with_leeway = <pallet_timestamp::Pallet<T>>::get()
-            .checked_add(&leeway)
-            .unwrap_or_default();
+        let mut cdd_checker = CddClaimChecker::<T>::new(claim_for, leeway, filter_cdd_id);
 
-        // Supressing `mut` warning since we need mut in `runtime-benchmarks` feature but not otherwise.
-        #[allow(unused_mut)]
-        let mut active_cdds_temp = T::CddServiceProviders::get_active_members();
-
-        // For the benchmarks, self cdd claims are allowed and hence the claim target is added to the cdd providers list.
-        #[cfg(feature = "runtime-benchmarks")]
-        active_cdds_temp.push(claim_for);
-
-        let active_cdds = active_cdds_temp;
-        let inactive_not_expired_cdds = T::CddServiceProviders::get_inactive_members()
-            .into_iter()
-            .filter(|cdd| !T::CddServiceProviders::is_member_expired(cdd, exp_with_leeway))
-            .collect::<Vec<_>>();
-
-        Self::fetch_base_claims(claim_for, ClaimType::CustomerDueDiligence).filter(
-            move |id_claim| {
-                if let Some(cdd_id) = &filter_cdd_id {
-                    if let Claim::CustomerDueDiligence(claim_cdd_id) = &id_claim.claim {
-                        if claim_cdd_id != cdd_id {
-                            return false;
-                        }
-                    }
-                }
-
-                Self::is_identity_cdd_claim_valid(
-                    id_claim,
-                    exp_with_leeway,
-                    &active_cdds,
-                    &inactive_not_expired_cdds,
-                )
-            },
-        )
-    }
-
-    /// A CDD claims is considered valid if:
-    /// * Claim is not expired at `exp_with_leeway` moment.
-    /// * Its issuer is valid, that means:
-    ///   * Issuer is an active CDD provider, or
-    ///   * Issuer is an inactive CDD provider but claim was updated/created before that it was
-    ///   deactivated.
-    fn is_identity_cdd_claim_valid(
-        id_claim: &IdentityClaim,
-        exp_with_leeway: T::Moment,
-        active_cdds: &[IdentityId],
-        inactive_not_expired_cdds: &[InactiveMember<T::Moment>],
-    ) -> bool {
-        Self::is_identity_claim_not_expired_at(id_claim, exp_with_leeway)
-            && (active_cdds.contains(&id_claim.claim_issuer)
-                || SYSTEMATIC_ISSUERS
-                    .iter()
-                    .any(|si| si.as_id() == id_claim.claim_issuer)
-                || inactive_not_expired_cdds
-                    .iter()
-                    .filter(|cdd| cdd.id == id_claim.claim_issuer)
-                    .any(|cdd| {
-                        id_claim.last_update_date < cdd.deactivated_at.saturated_into::<u64>()
-                    }))
+        Self::fetch_base_claims(claim_for, ClaimType::CustomerDueDiligence)
+            .chain(Self::base_fetch_parent_cdd_claims(
+                claim_for,
+                include_parent,
+            ))
+            .filter(move |id_claim| cdd_checker.filter_cdd_claims(id_claim))
     }
 
     /// It iterates over all claims of type `claim_type` for target `id` identity.
@@ -284,7 +345,7 @@ impl<T: Config> Module<T> {
         if let Claim::CustomerDueDiligence(cdd_id) = claim {
             ensure!(
                 cdd_id.is_default_cdd()
-                    || Self::base_fetch_valid_cdd_claims(target, 0u32.into(), None)
+                    || Self::base_fetch_valid_cdd_claims(target, 0u32.into(), None, false)
                         .filter_map(|c| match c.claim {
                             Claim::CustomerDueDiligence(c_id) => Some(c_id),
                             _ => None,
@@ -358,7 +419,7 @@ impl<T: Config> Module<T> {
         );
         // Verify the owner of that CDD_ID.
         ensure!(
-            Self::base_fetch_cdd(target, T::Moment::zero(), Some(*cdd_id)).is_some(),
+            Self::base_fetch_cdd(target, T::Moment::zero(), Some(*cdd_id), false).is_some(),
             Error::<T>::InvalidCDDId
         );
 
