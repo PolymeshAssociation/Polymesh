@@ -669,7 +669,7 @@ benchmarks! {
     }: _(user.origin, ticker, AssetMetadataKey::Local(AssetMetadataLocalKey(1)))
 
     base_transfer {
-        // For the worst case, the portfolios are not the the default ones, the complexity of the transfer depends on 
+        // For the worst case, the portfolios are not the the default ones, the complexity of the transfer depends on
         // the complexity of the compliance rules and the number of statistics to be updated.
         // Since the compliance weight will be charged separately, the rules were paused and only the `Self::asset_compliance(ticker)`
         // read will be considered (this read was not charged in the is_condition_satisfied benchmark).

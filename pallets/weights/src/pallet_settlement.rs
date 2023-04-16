@@ -435,7 +435,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: NFT NumberOfNFTs (r:4 w:4)
     // Storage: Portfolio PortfolioNFT (r:2 w:4)
     /// The range of component `l` is `[1, 110]`.
-    fn execute_manual_instruction(l: u32, ) -> Weight {
+    fn execute_manual_instruction(l: u32) -> Weight {
         // Minimum execution time: 575_046 nanoseconds.
         Weight::from_ref_time(2_337_263_331)
             // Standard Error: 740_855
@@ -681,7 +681,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: Asset BalanceOfAtScope (r:0 w:2)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
-    fn execute_instruction_paused(f: u32, n: u32, ) -> Weight {
+    fn execute_instruction_paused(f: u32, n: u32) -> Weight {
         // Minimum execution time: 1_973_164 nanoseconds.
         Weight::from_ref_time(1_980_475_000)
             // Standard Error: 3_069_487
@@ -728,7 +728,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: Asset BalanceOfAtScope (r:0 w:2)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
-    fn execute_scheduled_instruction(f: u32, n: u32, ) -> Weight {
+    fn execute_scheduled_instruction(f: u32, n: u32) -> Weight {
         // Minimum execution time: 4_055_497 nanoseconds.
         Weight::from_ref_time(4_064_906_000)
             // Standard Error: 6_065_937
