@@ -403,44 +403,47 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Settlement InstructionDetails (r:1 w:1)
+    // Storage: Settlement InstructionStatuses (r:1 w:1)
+    // Storage: Settlement InstructionLegsV2 (r:2 w:1)
     // Storage: Portfolio PortfolioCustodian (r:1 w:0)
-    // Storage: Settlement InstructionLegs (r:2 w:1)
     // Storage: Settlement InstructionAffirmsPending (r:1 w:1)
     // Storage: Settlement VenueFiltering (r:1 w:0)
     // Storage: Settlement InstructionLegStatus (r:1 w:1)
     // Storage: Portfolio PortfolioLockedAssets (r:1 w:1)
     // Storage: Asset Frozen (r:1 w:0)
     // Storage: Asset DisableInvestorUniqueness (r:1 w:0)
-    // Storage: Timestamp Now (r:1 w:0)
-    // Storage: Identity Claims (r:52 w:0)
     // Storage: Portfolio Portfolios (r:2 w:0)
     // Storage: Asset Tokens (r:1 w:0)
     // Storage: Portfolio PortfolioAssetBalances (r:2 w:2)
-    // Storage: Asset ScopeIdOf (r:2 w:0)
     // Storage: Asset AggregateBalance (r:2 w:2)
     // Storage: Statistics AssetTransferCompliances (r:1 w:0)
-    // Storage: Statistics AssetStats (r:1 w:1)
-    // Storage: Statistics TransferConditionExemptEntities (r:1 w:0)
+    // Storage: Timestamp Now (r:1 w:0)
+    // Storage: Identity Claims (r:21 w:0)
+    // Storage: Statistics AssetStats (r:14 w:10)
     // Storage: ComplianceManager AssetCompliances (r:1 w:0)
     // Storage: Asset BalanceOf (r:2 w:2)
     // Storage: Checkpoint Schedules (r:1 w:0)
     // Storage: Checkpoint CheckpointIdSequence (r:1 w:0)
-    // Storage: Portfolio PortfolioAssetCount (r:2 w:2)
+    // Storage: Portfolio PortfolioAssetCount (r:1 w:1)
     // Storage: Statistics ActiveAssetStats (r:1 w:0)
     // Storage: Settlement UserAffirmations (r:0 w:2)
     // Storage: Settlement VenueInstructions (r:0 w:1)
     // Storage: Settlement AffirmsReceived (r:0 w:2)
     // Storage: Asset BalanceOfAtScope (r:0 w:2)
-    /// The range of component `l` is `[1, 10]`.
-    fn execute_manual_instruction(l: u32) -> Weight {
-        // Minimum execution time: 579_329 nanoseconds.
-        Weight::from_ref_time(131_712_065)
-            // Standard Error: 447_198
-            .saturating_add(Weight::from_ref_time(436_517_218).saturating_mul(l.into()))
-            .saturating_add(DbWeight::get().reads(56))
-            .saturating_add(DbWeight::get().reads((28_u64).saturating_mul(l.into())))
-            .saturating_add(DbWeight::get().writes(5))
-            .saturating_add(DbWeight::get().writes((16_u64).saturating_mul(l.into())))
+    // Storage: Portfolio PortfolioLockedNFT (r:2 w:2)
+    // Storage: NFT CollectionTicker (r:2 w:0)
+    // Storage: NFT NumberOfNFTs (r:4 w:4)
+    // Storage: Portfolio PortfolioNFT (r:2 w:4)
+    /// The range of component `l` is `[1, 110]`.
+    fn execute_manual_instruction(l: u32, ) -> Weight {
+        // Minimum execution time: 575_046 nanoseconds.
+        Weight::from_ref_time(2_337_263_331)
+            // Standard Error: 740_855
+            .saturating_add(Weight::from_ref_time(132_101_374).saturating_mul(l.into()))
+            .saturating_add(DbWeight::get().reads(381))
+            .saturating_add(DbWeight::get().reads((11_u64).saturating_mul(l.into())))
+            .saturating_add(DbWeight::get().writes(114))
+            .saturating_add(DbWeight::get().writes((11_u64).saturating_mul(l.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Settlement VenueInfo (r:1 w:0)
@@ -678,13 +681,13 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: Asset BalanceOfAtScope (r:0 w:2)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
-    fn execute_instruction_paused(f: u32, n: u32) -> Weight {
-        // Minimum execution time: 1_925_227 nanoseconds.
-        Weight::from_ref_time(1_925_926_000)
-            // Standard Error: 2_859_750
-            .saturating_add(Weight::from_ref_time(61_670_137).saturating_mul(f.into()))
-            // Standard Error: 294_963
-            .saturating_add(Weight::from_ref_time(99_017_749).saturating_mul(n.into()))
+    fn execute_instruction_paused(f: u32, n: u32, ) -> Weight {
+        // Minimum execution time: 1_973_164 nanoseconds.
+        Weight::from_ref_time(1_980_475_000)
+            // Standard Error: 3_069_487
+            .saturating_add(Weight::from_ref_time(59_979_655).saturating_mul(f.into()))
+            // Standard Error: 316_596
+            .saturating_add(Weight::from_ref_time(102_053_605).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().reads((21_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((10_u64).saturating_mul(n.into())))
@@ -725,13 +728,13 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: Asset BalanceOfAtScope (r:0 w:2)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
-    fn execute_scheduled_instruction(f: u32, n: u32) -> Weight {
-        // Minimum execution time: 3_952_306 nanoseconds.
-        Weight::from_ref_time(3_955_838_000)
-            // Standard Error: 5_581_857
-            .saturating_add(Weight::from_ref_time(126_109_297).saturating_mul(f.into()))
-            // Standard Error: 575_729
-            .saturating_add(Weight::from_ref_time(92_177_335).saturating_mul(n.into()))
+    fn execute_scheduled_instruction(f: u32, n: u32, ) -> Weight {
+        // Minimum execution time: 4_055_497 nanoseconds.
+        Weight::from_ref_time(4_064_906_000)
+            // Standard Error: 6_065_937
+            .saturating_add(Weight::from_ref_time(135_689_919).saturating_mul(f.into()))
+            // Standard Error: 625_658
+            .saturating_add(Weight::from_ref_time(95_340_899).saturating_mul(n.into()))
             .saturating_add(DbWeight::get().reads(6))
             .saturating_add(DbWeight::get().reads((55_u64).saturating_mul(f.into())))
             .saturating_add(DbWeight::get().reads((10_u64).saturating_mul(n.into())))
