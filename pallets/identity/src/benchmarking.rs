@@ -34,6 +34,8 @@ use sp_std::prelude::*;
 
 const SEED: u32 = 0;
 
+const SYS_CDD_DID: IdentityId = SystematicIssuers::CDDProvider.as_id();
+
 fn setup_investor_uniqueness_claim_common<T, P, IF, CF, SF, IUF, PF>(
     name: &'static str,
     make_investor_uid: IF,
@@ -57,7 +59,7 @@ where
     let investor_uid = make_investor_uid(did.as_bytes());
     let cdd_id = make_cdd_id(did, investor_uid.clone());
     let cdd_claim = Claim::CustomerDueDiligence(cdd_id.clone());
-    Module::<T>::unverified_add_claim_with_scope(did, cdd_claim, None, GC_DID, None);
+    Module::<T>::unverified_add_claim_with_scope(did, cdd_claim, None, SYS_CDD_DID, None);
 
     // Create the scope.
     let ticker = Ticker::default();
@@ -152,6 +154,81 @@ use limits::*;
 
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
+
+    create_child_identity {
+        // Create parent identity.
+        let parent = user::<T>("parent", 0);
+        let parent_did = parent.did.unwrap();
+
+        let child_key: T::AccountId = account("child", 0, SEED);
+        Module::<T>::unsafe_join_identity(parent_did, Permissions::default(), child_key.clone());
+
+    }: _(parent.origin, child_key.clone())
+    verify {
+        let child_did = Module::<T>::get_identity(&child_key).unwrap();
+        assert_ne!(child_did, parent_did);
+    }
+
+    create_child_identities {
+        // Number of keys.
+        let i in 0 .. 100;
+
+        // Create parent identity.
+        let parent = user::<T>("parent", 0);
+        let parent_did = parent.did.unwrap();
+
+        let expires_at: T::Moment = 600u32.into();
+        let authorization = TargetIdAuthorization::<T::Moment> {
+            target_id: parent_did,
+            nonce: Module::<T>::offchain_authorization_nonce(parent_did),
+            expires_at,
+        };
+        let auth_encoded = authorization.encode();
+
+        let child_keys_with_auth = (0..i).map(|x| {
+            let user = user_without_did::<T>("key", x);
+            CreateChildIdentityWithAuth {
+                key: user.account(),
+                auth_signature: H512::from(user.sign(&auth_encoded).unwrap()),
+            }
+        }).collect::<Vec<_>>();
+    }: _(parent.origin, child_keys_with_auth.clone(), expires_at)
+    verify {
+        for auth in child_keys_with_auth {
+            let child_did = Module::<T>::get_identity(&auth.key).unwrap();
+            assert_ne!(child_did, parent_did);
+        }
+    }
+
+    unlink_child_identity {
+        // Create parent identity.
+        let parent = user::<T>("parent", 0);
+        let parent_did = parent.did.unwrap();
+
+        // Create a secondary key.
+        let child_key: T::AccountId = account("child", 0, SEED);
+        Module::<T>::unsafe_join_identity(parent_did, Permissions::default(), child_key.clone());
+
+        // Create a child identity using the secondary key.
+        Module::<T>::create_child_identity(
+            parent.origin().into(),
+            child_key.clone()
+        ).unwrap();
+        let child_did = Module::<T>::get_identity(&child_key).unwrap();
+
+        // Generate valid CDD claim for child identity.
+        let investor_uid = make_investor_uid(child_did.as_bytes());
+        let cdd_id = CddId::new_v1(child_did, investor_uid.into());
+        let cdd_claim = Claim::CustomerDueDiligence(cdd_id.clone());
+
+        // Add CDD claim to the child identity.
+        let cdd = cdd_provider::<T>("cdd", 0).did.unwrap();
+        Module::<T>::unverified_add_claim_with_scope(child_did, cdd_claim, None, cdd, None);
+
+    }: _(parent.origin, child_did)
+    verify {
+        assert!(Module::<T>::has_valid_cdd(child_did));
+    }
 
     cdd_register_did {
         // Number of secondary items.

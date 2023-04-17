@@ -54,6 +54,44 @@ use polymesh_runtime_common::{RocksDbWeight as DbWeight, Weight};
 pub struct SubstrateWeight;
 impl pallet_identity::WeightInfo for SubstrateWeight {
     // Storage: Identity KeyRecords (r:2 w:1)
+    // Storage: Identity ParentDid (r:1 w:1)
+    // Storage: Identity AccountKeyRefCount (r:1 w:0)
+    // Storage: MultiSig MultiSigToIdentity (r:1 w:0)
+    // Storage: Identity MultiPurposeNonce (r:1 w:1)
+    // Storage: System ParentHash (r:1 w:0)
+    // Storage: Identity DidRecords (r:1 w:1)
+    // Storage: Identity Authorizations (r:1 w:0)
+    // Storage: Identity DidKeys (r:0 w:2)
+    fn create_child_identity() -> Weight {
+        Weight::from_ref_time(143_356_000)
+            .saturating_add(DbWeight::get().reads(9))
+            .saturating_add(DbWeight::get().writes(6))
+    }
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Storage: Identity ParentDid (r:1 w:0)
+    // Storage: Timestamp Now (r:1 w:0)
+    // Storage: Identity OffChainAuthorizationNonce (r:1 w:1)
+    // Storage: Identity MultiPurposeNonce (r:1 w:1)
+    // Storage: System ParentHash (r:1 w:0)
+    // Storage: Identity DidRecords (r:50 w:50)
+    // Storage: Identity DidKeys (r:0 w:50)
+    fn create_child_identities(i: u32) -> Weight {
+        Weight::from_ref_time(96_123_000)
+            // Standard Error: 2_070_000
+            .saturating_add(Weight::from_ref_time(133_102_000).saturating_mul(i.into()))
+            .saturating_add(DbWeight::get().reads(4))
+            .saturating_add(DbWeight::get().reads((2u64).saturating_mul(i.into())))
+            .saturating_add(DbWeight::get().writes(1))
+            .saturating_add(DbWeight::get().writes((4u64).saturating_mul(i.into())))
+    }
+    // Storage: Identity KeyRecords (r:1 w:0)
+    // Storage: Identity ParentDid (r:1 w:1)
+    fn unlink_child_identity() -> Weight {
+        Weight::from_ref_time(72_309_000)
+            .saturating_add(DbWeight::get().reads(2))
+            .saturating_add(DbWeight::get().writes(1))
+    }
+    // Storage: Identity KeyRecords (r:2 w:1)
     // Storage: Instance2Group ActiveMembers (r:1 w:0)
     // Storage: Identity MultiPurposeNonce (r:1 w:1)
     // Storage: System ParentHash (r:1 w:0)

@@ -216,11 +216,9 @@ where
     let receiver_portfolio =
         create_portfolio::<T>(receiver, receiver_portolfio_name.unwrap_or("RcvPortfolio"));
 
-    // Creates the asset and enable asset uniqueness
+    // Creates the asset
     make_asset::<T>(sender, Some(ticker.as_ref()));
     move_from_default_portfolio::<T>(sender, ticker, ONE_UNIT * POLY, sender_portfolio);
-    Module::<T>::add_investor_uniqueness_claim(sender.did(), ticker);
-    Module::<T>::add_investor_uniqueness_claim(receiver.did(), ticker);
 
     // Adds the maximum number of compliance requirement
     // If pause_compliance is true, only the decoding cost will be considered.
@@ -671,9 +669,8 @@ benchmarks! {
     }: _(user.origin, ticker, AssetMetadataKey::Local(AssetMetadataLocalKey(1)))
 
     base_transfer {
-        // For the worst case, investor uniqueness is enabled and the portfolios are not the
-        // the default ones. The complexity of the transfer depends on the complexity of the compliance rules
-        // and the number of statistics to be updated.
+        // For the worst case, the portfolios are not the the default ones, the complexity of the transfer depends on
+        // the complexity of the compliance rules and the number of statistics to be updated.
         // Since the compliance weight will be charged separately, the rules were paused and only the `Self::asset_compliance(ticker)`
         // read will be considered (this read was not charged in the is_condition_satisfied benchmark).
 

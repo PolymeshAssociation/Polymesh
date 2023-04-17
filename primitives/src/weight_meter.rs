@@ -51,16 +51,10 @@ impl WeightMeter {
     /// Consumes the given `weight`.
     /// If the new consumed weight is greater than the limit, consumed will be set to limit and an error will be returned.
     pub fn consume_weght_until_limit(&mut self, weight: Weight) -> Result<(), String> {
-        let updated_weight = self
-            .0
-            .consumed
-            .checked_add(&weight)
-            .ok_or(String::from("Weight value overflow"))?;
-        if updated_weight.any_gt(self.0.limit) {
+        if !self.0.check_accrue(weight) {
             self.0.consumed = self.0.limit;
             return Err(String::from("Maximum weight limit exceeded"));
         }
-        self.0.consumed = updated_weight;
         Ok(())
     }
 }

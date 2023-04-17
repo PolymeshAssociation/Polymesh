@@ -567,6 +567,7 @@ macro_rules! runtime_apis {
         use pallet_identity::types::{AssetDidResult, CddStatus, RpcDidRecords, DidStatus, KeyIdentityData};
         use pallet_pips::{Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
+        use polymesh_primitives::settlement::{InstructionId, ExecuteInstructionInfo};
         use polymesh_primitives::{
             calendar::CheckpointId, compliance_manager::AssetComplianceResult, IdentityId, Index, NFTs,
             PortfolioId, Signatory, Ticker, WeightMeter,
@@ -1016,6 +1017,16 @@ macro_rules! runtime_apis {
                 ) -> frame_support::dispatch::DispatchResult {
                     let mut weight_meter = WeightMeter::max_limit();
                     Nft::validate_nft_transfer(sender_portfolio, receiver_portfolio, nfts, &mut weight_meter)
+                }
+            }
+
+            impl node_rpc_runtime_api::settlement::SettlementApi<Block> for Runtime {
+                #[inline]
+                fn get_execute_instruction_info(
+                    instruction_id: &InstructionId
+                ) -> ExecuteInstructionInfo {
+                    // TODO: return the actual value
+                    ExecuteInstructionInfo::new(0, 0, Weight::zero())
                 }
             }
 
