@@ -2525,6 +2525,7 @@ impl<T: Config> Module<T> {
                 && compliance_result.result,
             transfer_condition_result,
             compliance_result,
+            consumed_weight: Some(weight_meter.consumed()),
             portfolio_validity_result,
         })
     }
