@@ -49,6 +49,9 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
+
 use codec::{Decode, Encode};
 use frame_support::dispatch::{
     DispatchError, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo,
@@ -233,6 +236,7 @@ impl_checked_inc!(LegId);
 /// A global and unique instruction ID.
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct InstructionId(pub u64);
 impl_checked_inc!(InstructionId);
 
@@ -697,6 +701,29 @@ decl_error! {
         ReceiptForNonFungibleAsset,
         /// The maximum weight limit for executing the function was exceeded.
         WeightLimitExceeded
+    }
+}
+
+/// Stores relevant information for executing an instruction.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Decode, Encode)]
+pub struct ExecuteInstructionInfo {
+    /// Number of fungible tokens in the instruction.
+    fungible_tokens: u32,
+    /// Number of non fungible tokens in the instruction.
+    non_fungible_tokens: u32,
+    /// The weight needed for executing the instruction.
+    consumed_weight: Weight,
+}
+
+impl ExecuteInstructionInfo {
+    /// Creates an instance of `ExecuteInstructionInfo`.
+    pub fn new(fungible_tokens: u32, non_fungible_tokens: u32, consumed_weight: Weight) -> Self {
+        Self {
+            fungible_tokens,
+            non_fungible_tokens,
+            consumed_weight,
+        }
     }
 }
 

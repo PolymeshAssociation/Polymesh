@@ -571,6 +571,7 @@ macro_rules! runtime_apis {
             calendar::CheckpointId, compliance_manager::AssetComplianceResult, IdentityId, Index, NFTs,
             PortfolioId, Signatory, Ticker, WeightMeter,
         };
+        use pallet_settlement::{InstructionId, ExecuteInstructionInfo};
 
         /// The address format for describing accounts.
         pub type Address = <Indices as StaticLookup>::Source;
@@ -1016,6 +1017,16 @@ macro_rules! runtime_apis {
                 ) -> frame_support::dispatch::DispatchResult {
                     let mut weight_meter = WeightMeter::max_limit();
                     Nft::validate_nft_transfer(sender_portfolio, receiver_portfolio, nfts, &mut weight_meter)
+                }
+            }
+
+            impl node_rpc_runtime_api::settlement::SettlementApi<Block> for Runtime {
+                #[inline]
+                fn get_execute_instruction_info(
+                    instruction_id: &InstructionId
+                ) -> pallet_settlement::ExecuteInstructionInfo {
+                    // TODO: return the actual value
+                    ExecuteInstructionInfo::new(0, 0, Weight::zero())
                 }
             }
 
