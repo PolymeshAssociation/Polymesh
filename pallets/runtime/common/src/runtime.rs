@@ -560,7 +560,7 @@ macro_rules! misc_pallet_impls {
 #[macro_export]
 macro_rules! runtime_apis {
     ($($extra:item)*) => {
-        use frame_support::dispatch::GetStorageVersion;
+        use frame_support::dispatch::{GetStorageVersion, DispatchError};
         use sp_inherents::{CheckInherentsResult, InherentData};
         use node_rpc_runtime_api::asset as rpc_api_asset;
 
@@ -1024,9 +1024,9 @@ macro_rules! runtime_apis {
                 #[inline]
                 fn get_execute_instruction_info(
                     instruction_id: &InstructionId
-                ) -> pallet_settlement::ExecuteInstructionInfo {
-                    // TODO: return the actual value
-                    ExecuteInstructionInfo::new(0, 0, Weight::zero())
+                ) -> Result<ExecuteInstructionInfo, DispatchError> {
+                    // TODO: calculate the cost of updating the statistics
+                    Settlement::get_execute_instruction_info(instruction_id)
                 }
             }
 

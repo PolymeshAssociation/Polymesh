@@ -15,6 +15,8 @@
 
 //! Runtime API definition for Settlement module.
 
+use frame_support::dispatch::DispatchError;
+
 use pallet_settlement::{ExecuteInstructionInfo, InstructionId};
 
 sp_api::decl_runtime_apis! {
@@ -31,6 +33,6 @@ sp_api::decl_runtime_apis! {
         ///     "params":[]
         ///   }'
         /// ```
-        fn get_execute_instruction_info(instruction_id: &InstructionId) -> ExecuteInstructionInfo;
+        fn get_execute_instruction_info(instruction_id: &InstructionId) -> Result<ExecuteInstructionInfo, DispatchError>;
     }
 }
