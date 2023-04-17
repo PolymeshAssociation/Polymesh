@@ -23,7 +23,6 @@ pallet-pips = { path = "../../pallets/pips", default-features = false }
 pallet-portfolio = { path = "../../pallets/portfolio", default-features = false }
 pallet-identity = { path = "../../pallets/identity", default-features = false }
 pallet-transaction-payment = { path = "../../pallets/transaction-payment", default-features = false }
-pallet-settlement = { path = "../../pallets/settlement", default-features = false}
 
 # Other
 serde = { version = "1.0.104", optional = true, features = ["derive"] }

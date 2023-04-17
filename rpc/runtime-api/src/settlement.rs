@@ -15,7 +15,7 @@
 
 //! Runtime API definition for Settlement module.
 
-use pallet_settlement::{ExecuteInstructionInfo, InstructionId};
+use polymesh_primitives::settlement::{ExecuteInstructionInfo, InstructionId};
 
 sp_api::decl_runtime_apis! {
     pub trait SettlementApi {

@@ -15,7 +15,11 @@
 
 //! Shareable types.
 
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
+
 use codec::{Decode, Encode};
+use frame_support::weights::Weight;
 use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
 use sp_std::collections::btree_set::BTreeSet;
@@ -137,8 +141,9 @@ pub struct LegId(pub u64);
 impl_checked_inc!(LegId);
 
 /// A global and unique instruction ID.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, TypeInfo)]
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+#[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct InstructionId(pub u64);
 impl_checked_inc!(InstructionId);
 
@@ -438,5 +443,28 @@ impl PruneDetails {
     /// Returns the number of legs that were in the instruction.
     pub fn unique_counter_parties(&self) -> u32 {
         self.unique_counter_parties
+    }
+}
+
+/// Stores relevant information for executing an instruction.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Decode, Encode)]
+pub struct ExecuteInstructionInfo {
+    /// Number of fungible tokens in the instruction.
+    fungible_tokens: u32,
+    /// Number of non fungible tokens in the instruction.
+    non_fungible_tokens: u32,
+    /// The weight needed for executing the instruction.
+    consumed_weight: Weight,
+}
+
+impl ExecuteInstructionInfo {
+    /// Creates an instance of `ExecuteInstructionInfo`.
+    pub fn new(fungible_tokens: u32, non_fungible_tokens: u32, consumed_weight: Weight) -> Self {
+        Self {
+            fungible_tokens,
+            non_fungible_tokens,
+            consumed_weight,
+        }
     }
 }
