@@ -19,6 +19,7 @@
 use serde::{Deserialize, Serialize};
 
 use codec::{Decode, Encode};
+use frame_support::dispatch::DispatchError;
 use frame_support::weights::Weight;
 use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
@@ -456,15 +457,23 @@ pub struct ExecuteInstructionInfo {
     non_fungible_tokens: u32,
     /// The weight needed for executing the instruction.
     consumed_weight: Weight,
+    /// If the instruction would fail, contains the error.
+    error: Option<DispatchError>,
 }
 
 impl ExecuteInstructionInfo {
     /// Creates an instance of `ExecuteInstructionInfo`.
-    pub fn new(fungible_tokens: u32, non_fungible_tokens: u32, consumed_weight: Weight) -> Self {
+    pub fn new(
+        fungible_tokens: u32,
+        non_fungible_tokens: u32,
+        consumed_weight: Weight,
+        error: Option<DispatchError>,
+    ) -> Self {
         Self {
             fungible_tokens,
             non_fungible_tokens,
             consumed_weight,
+            error,
         }
     }
 }

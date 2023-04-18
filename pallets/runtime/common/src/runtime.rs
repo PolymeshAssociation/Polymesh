@@ -1024,9 +1024,8 @@ macro_rules! runtime_apis {
                 #[inline]
                 fn get_execute_instruction_info(
                     instruction_id: &InstructionId
-                ) -> Result<ExecuteInstructionInfo, DispatchError> {
-                    // TODO: calculate the cost of updating the statistics
-                    Settlement::get_execute_instruction_info(instruction_id)
+                ) -> ExecuteInstructionInfo {
+                    Settlement::execute_instruction_info(instruction_id)
                 }
             }
 
