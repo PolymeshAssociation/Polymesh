@@ -657,8 +657,8 @@ pub mod general {
             },
             balances: Default::default(),
             bridge: pallet_bridge::GenesisConfig {
-                admin: initial_authorities[0].1.clone(),
-                creator: initial_authorities[0].1.clone(),
+                admin: Some(initial_authorities[0].1.clone()),
+                creator: Some(initial_authorities[0].1.clone()),
                 signatures_required: 1,
                 signers: bridge_signers(),
                 timelock: 10,
@@ -666,7 +666,9 @@ pub mod general {
                 complete_txs,
             },
             indices: pallet_indices::GenesisConfig { indices: vec![] },
-            sudo: pallet_sudo::GenesisConfig { key: root_key },
+            sudo: pallet_sudo::GenesisConfig {
+                key: Some(root_key),
+            },
             session: session!(initial_authorities, session_keys),
             staking: staking!(
                 initial_authorities,
@@ -825,8 +827,8 @@ pub mod testnet {
             },
             balances: Default::default(),
             bridge: pallet_bridge::GenesisConfig {
-                admin: root_key.clone(),
-                creator: root_key.clone(),
+                admin: Some(root_key.clone()),
+                creator: Some(root_key.clone()),
                 signatures_required: 3,
                 signers: bridge_signers(),
                 timelock: time::MINUTES * 15,
@@ -834,7 +836,9 @@ pub mod testnet {
                 complete_txs,
             },
             indices: pallet_indices::GenesisConfig { indices: vec![] },
-            sudo: pallet_sudo::GenesisConfig { key: root_key },
+            sudo: pallet_sudo::GenesisConfig {
+                key: Some(root_key),
+            },
             session: session!(initial_authorities, session_keys),
             staking: staking!(
                 initial_authorities,
@@ -1024,8 +1028,8 @@ pub mod mainnet {
             },
             balances: Default::default(),
             bridge: pallet_bridge::GenesisConfig {
-                admin: root_key.clone(),
-                creator: root_key.clone(),
+                admin: Some(root_key.clone()),
+                creator: Some(root_key.clone()),
                 signatures_required: 4,
                 signers: bridge_signers(),
                 timelock: time::HOURS * 24,
@@ -1033,7 +1037,9 @@ pub mod mainnet {
                 complete_txs,
             },
             indices: pallet_indices::GenesisConfig { indices: vec![] },
-            sudo: pallet_sudo::GenesisConfig { key: root_key },
+            sudo: pallet_sudo::GenesisConfig {
+                key: Some(root_key),
+            },
             session: session!(initial_authorities, session_keys),
             staking: staking!(
                 initial_authorities,
@@ -1228,8 +1234,8 @@ pub mod general {
             },
             balances: Default::default(),
             bridge: pallet_bridge::GenesisConfig {
-                admin: seeded_acc_id("polymath_1"),
-                creator: seeded_acc_id("polymath_1"),
+                admin: Some(seeded_acc_id("polymath_1")),
+                creator: Some(seeded_acc_id("polymath_1")),
                 signatures_required: 3,
                 signers: bridge_signers(),
                 timelock: time::MINUTES * 15,
@@ -1237,7 +1243,9 @@ pub mod general {
                 complete_txs,
             },
             indices: pallet_indices::GenesisConfig { indices: vec![] },
-            sudo: pallet_sudo::GenesisConfig { key: root_key },
+            sudo: pallet_sudo::GenesisConfig {
+                key: Some(root_key),
+            },
             session: session!(initial_authorities, session_keys),
             staking: staking!(initial_authorities, stakers, PerThing::zero()),
             pips: pips!(time::DAYS * 7, MaybeBlock::None, 1000),

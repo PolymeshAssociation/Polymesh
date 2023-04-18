@@ -369,7 +369,7 @@ where
 
 /// A secondary key and its permissions.
 #[derive(Encode, Decode, TypeInfo)]
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct SecondaryKey<AccountId> {
     /// The account key.

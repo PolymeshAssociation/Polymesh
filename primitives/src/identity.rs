@@ -24,11 +24,17 @@ use sp_runtime::{Deserialize, Serialize};
 ///
 /// Asset Identities don't have a primary key.
 #[derive(Encode, Decode, TypeInfo)]
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct DidRecord<AccountId> {
     /// The identity's primary key, if it has one.
     pub primary_key: Option<AccountId>,
+}
+
+impl<AccountId> Default for DidRecord<AccountId> {
+    fn default() -> Self {
+        Self { primary_key: None }
+    }
 }
 
 impl<AccountId> DidRecord<AccountId> {

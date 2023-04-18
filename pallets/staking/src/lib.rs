@@ -459,12 +459,21 @@ pub struct ActiveEraInfo {
 /// Reward points of an era. Used to split era total payout between validators.
 ///
 /// This points will be used to reward validators and their respective nominators.
-#[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct EraRewardPoints<AccountId: Ord> {
     /// Total number of points. Equals the sum of reward points for each validator.
     pub total: RewardPoint,
     /// The reward points earned by a given validator.
     pub individual: BTreeMap<AccountId, RewardPoint>,
+}
+
+impl<AccountId: Ord> Default for EraRewardPoints<AccountId> {
+    fn default() -> Self {
+        Self {
+            total: Default::default(),
+            individual: BTreeMap::new(),
+        }
+    }
 }
 
 /// Indicates the initial status of the staker.
@@ -721,7 +730,7 @@ pub struct IndividualExposure<AccountId, Balance: HasCompact> {
 }
 
 /// A snapshot of the stake backing a single validator in the system.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, Default, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct Exposure<AccountId, Balance: HasCompact> {
     /// The total balance backing this validator.
     #[codec(compact)]
@@ -733,9 +742,19 @@ pub struct Exposure<AccountId, Balance: HasCompact> {
     pub others: Vec<IndividualExposure<AccountId, Balance>>,
 }
 
+impl<AccountId, Balance: HasCompact + Default> Default for Exposure<AccountId, Balance> {
+    fn default() -> Self {
+        Self {
+            total: Default::default(),
+            own: Default::default(),
+            others: Vec::new(),
+        }
+    }
+}
+
 /// A pending slash record. The value of the slash has been computed but not applied yet,
 /// rather deferred for several eras.
-#[derive(Encode, Decode, Default, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct UnappliedSlash<AccountId, Balance: HasCompact> {
     /// The stash ID of the offending validator.
     pub validator: AccountId,

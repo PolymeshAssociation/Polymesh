@@ -778,7 +778,7 @@ pub fn register_keyring_account_with_balance(
 }
 
 pub fn get_primary_key(target: IdentityId) -> AccountId {
-    Identity::get_primary_key(target).unwrap_or_default()
+    Identity::get_primary_key(target).expect("Primary key")
 }
 
 pub fn get_secondary_keys(target: IdentityId) -> Vec<SecondaryKey<AccountId>> {

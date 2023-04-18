@@ -811,46 +811,52 @@ impl ExtBuilder {
                 // (primary_account_id, service provider did, target did, expiry time of CustomerDueDiligence claim i.e 10 days is ms)
                 // Provide Identity
                 GenesisIdentityRecord {
-                    primary_key: 1005,
+                    primary_key: Some(1005),
                     issuers: vec![IdentityId::from(1)],
                     did: IdentityId::from(1),
                     investor: InvestorUid::from(b"uid1".as_ref()),
-                    ..Default::default()
+                    secondary_keys: Default::default(),
+                    cdd_claim_expiry: None,
                 },
                 GenesisIdentityRecord {
-                    primary_key: 11,
+                    primary_key: Some(11),
                     issuers: vec![IdentityId::from(1)],
                     did: IdentityId::from(11),
                     investor: InvestorUid::from(b"uid11".as_ref()),
-                    ..Default::default()
+                    secondary_keys: Default::default(),
+                    cdd_claim_expiry: None,
                 },
                 GenesisIdentityRecord {
-                    primary_key: 21,
+                    primary_key: Some(21),
                     issuers: vec![IdentityId::from(1)],
                     did: IdentityId::from(21),
                     investor: InvestorUid::from(b"uid21".as_ref()),
-                    ..Default::default()
+                    secondary_keys: Default::default(),
+                    cdd_claim_expiry: None,
                 },
                 GenesisIdentityRecord {
-                    primary_key: 31,
+                    primary_key: Some(31),
                     issuers: vec![IdentityId::from(1)],
                     did: IdentityId::from(31),
                     investor: InvestorUid::from(b"uid31".as_ref()),
-                    ..Default::default()
+                    secondary_keys: Default::default(),
+                    cdd_claim_expiry: None,
                 },
                 GenesisIdentityRecord {
-                    primary_key: 41,
+                    primary_key: Some(41),
                     issuers: vec![IdentityId::from(1)],
                     did: IdentityId::from(41),
                     investor: InvestorUid::from(b"uid41".as_ref()),
-                    ..Default::default()
+                    secondary_keys: Default::default(),
+                    cdd_claim_expiry: None,
                 },
                 GenesisIdentityRecord {
-                    primary_key: 101,
+                    primary_key: Some(101),
                     issuers: vec![IdentityId::from(1)],
                     did: IdentityId::from(101),
                     investor: InvestorUid::from(b"uid101".as_ref()),
-                    ..Default::default()
+                    secondary_keys: Default::default(),
+                    cdd_claim_expiry: None,
                 },
             ],
             ..Default::default()

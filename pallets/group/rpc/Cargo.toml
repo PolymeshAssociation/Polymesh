@@ -30,4 +30,4 @@ pallet-group-rpc-runtime-api = { version = "2.0.0", path = "./runtime-api" }
 serde = { version = "1.0.104", features = ["derive"] }
 
 [dev-dependencies]
-substrate-test-runtime-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12"}
+substrate-test-runtime-client = { git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12-1"}
