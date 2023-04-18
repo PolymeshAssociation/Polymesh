@@ -20,7 +20,6 @@ use serde::{Deserialize, Serialize};
 
 use codec::alloc::string::ToString;
 use codec::{Decode, Encode};
-use frame_support::dispatch::DispatchError;
 use frame_support::weights::Weight;
 use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
