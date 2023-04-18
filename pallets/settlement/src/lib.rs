@@ -1985,7 +1985,7 @@ impl<T: Config> Module<T> {
                 transfer_data.fungible(),
                 transfer_data.non_fungible(),
                 weight_meter.consumed(),
-                Some(e),
+                Some(e.into()),
             ),
         }
     }

@@ -18,6 +18,7 @@
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
+use codec::alloc::string::ToString;
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchError;
 use frame_support::weights::Weight;
@@ -458,7 +459,7 @@ pub struct ExecuteInstructionInfo {
     /// The weight needed for executing the instruction.
     consumed_weight: Weight,
     /// If the instruction would fail, contains the error.
-    error: Option<DispatchError>,
+    error: Option<String>,
 }
 
 impl ExecuteInstructionInfo {
@@ -467,13 +468,13 @@ impl ExecuteInstructionInfo {
         fungible_tokens: u32,
         non_fungible_tokens: u32,
         consumed_weight: Weight,
-        error: Option<DispatchError>,
+        error: Option<&str>,
     ) -> Self {
         Self {
             fungible_tokens,
             non_fungible_tokens,
             consumed_weight,
-            error,
+            error: error.map(|e| e.to_string()),
         }
     }
 }
