@@ -714,15 +714,23 @@ pub struct ExecuteInstructionInfo {
     non_fungible_tokens: u32,
     /// The weight needed for executing the instruction.
     consumed_weight: Weight,
+    /// If the instruction would fail, contains the error.
+    error: Option<DispatchError>,
 }
 
 impl ExecuteInstructionInfo {
     /// Creates an instance of `ExecuteInstructionInfo`.
-    pub fn new(fungible_tokens: u32, non_fungible_tokens: u32, consumed_weight: Weight) -> Self {
+    pub fn new(
+        fungible_tokens: u32,
+        non_fungible_tokens: u32,
+        consumed_weight: Weight,
+        error: Option<DispatchError>,
+    ) -> Self {
         Self {
             fungible_tokens,
             non_fungible_tokens,
             consumed_weight,
+            error,
         }
     }
 }
@@ -2484,52 +2492,28 @@ impl<T: Config> Module<T> {
         Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
 
-    /// Calculates the consumed weight for executing the instruction of id `instruction_id`. This excludes the cost of
-    /// updating the asset's statistics.
-    /// Returns an error if any rule for transferring the asset fails, but not all checks for validating
-    /// the instruction are performed.
-    pub fn get_execute_instruction_info(
-        instruction_id: &InstructionId,
-    ) -> Result<ExecuteInstructionInfo, DispatchError> {
+    /// Returns an instance of `ExecuteInstructionInfo`, which contains the number of fungible and non fungible assets
+    /// in the instruction, and the weight consumed for executing the instruction. If the instruction would fail its
+    /// execution, it also contains the error.
+    pub fn execute_instruction_info(instruction_id: &InstructionId) -> ExecuteInstructionInfo {
+        let instruction_legs: Vec<(LegId, LegV2)> = Self::get_instruction_legs(&instruction_id);
+        let transfer_data = Self::get_transfer_data(&instruction_legs);
         let mut weight_meter = WeightMeter::max_limit();
 
-        let mut instruction_legs: Vec<(LegId, LegV2)> = Self::get_instruction_legs(&instruction_id);
-        instruction_legs.sort_by_key(|leg_id_leg| leg_id_leg.0);
-
-        let transfer_data = Self::get_transfer_data(&instruction_legs);
-        weight_meter
-            .check_accrue(<T as Config>::WeightInfo::execute_instruction_paused(
+        match Self::execute_instruction_retryable(*instruction_id, &mut weight_meter) {
+            Ok(_) => ExecuteInstructionInfo::new(
                 transfer_data.fungible(),
                 transfer_data.non_fungible(),
-            ))
-            .map_err(|_| Error::<T>::WeightLimitExceeded)?;
-
-        for (_, leg_v2) in instruction_legs {
-            match leg_v2.asset {
-                LegAsset::Fungible { ticker, amount } => {
-                    Asset::<T>::_is_valid_transfer(
-                        &ticker,
-                        leg_v2.from,
-                        leg_v2.to,
-                        amount,
-                        &mut weight_meter,
-                    )?;
-                }
-                LegAsset::NonFungible(nfts) => {
-                    <Nft<T>>::validate_nft_transfer(
-                        &leg_v2.from,
-                        &leg_v2.to,
-                        &nfts,
-                        &mut weight_meter,
-                    )?;
-                }
-            }
+                weight_meter.consumed(),
+                None,
+            ),
+            Err(e) => ExecuteInstructionInfo::new(
+                transfer_data.fungible(),
+                transfer_data.non_fungible(),
+                weight_meter.consumed(),
+                Some(e),
+            ),
         }
-        Ok(ExecuteInstructionInfo::new(
-            transfer_data.fungible(),
-            transfer_data.non_fungible(),
-            weight_meter.consumed(),
-        ))
     }
 }
 
