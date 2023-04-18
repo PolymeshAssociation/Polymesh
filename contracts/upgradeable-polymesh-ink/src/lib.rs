@@ -20,11 +20,12 @@ pub use polymesh_api::{
         pallet_settlement::{Leg, SettlementType, VenueDetails, VenueId, VenueType},
         polymesh_primitives::{
             asset::{AssetName, AssetType},
-            identity_id::{PortfolioId, PortfolioKind, PortfolioName},
+            identity_id::{PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber},
             ticker::Ticker,
         },
     },
 };
+pub use polymesh_api::polymesh::types;
 
 #[cfg(feature = "tracker")]
 pub const API_VERSION: WrappedApi = (*b"POLY", 5);
