@@ -111,13 +111,15 @@ use frame_support::{
     traits::Randomness,
 };
 use frame_system::ensure_signed;
+use pallet_base::try_next_post;
 use mercat::{
     account::{convert_asset_ids, AccountValidator},
     asset::AssetValidator,
     confidential_identity_core::asset_proofs::AssetId,
     transaction::TransactionValidator,
     AccountCreatorVerifier, AssetTransactionVerifier, EncryptedAmount, EncryptedAssetId,
-    EncryptionPubKey, InitializedAssetTx, JustifiedTransferTx, PubAccount, PubAccountTx,
+    EncryptionPubKey, InitializedAssetTx,
+    InitializedTransferTx, FinalizedTransferTx, JustifiedTransferTx, PubAccount, PubAccountTx,
     TransferTransactionVerifier,
 };
 use pallet_identity as identity;
@@ -127,7 +129,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     asset::{AssetName, AssetType, Base64Vec, FundingRoundName},
-    AssetIdentifier, Balance, IdentityId, Ticker,
+    impl_checked_inc, AssetIdentifier, Balance, IdentityId, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Zero, SaturatedConversion};
@@ -139,16 +141,28 @@ use sp_std::{
 use rand_chacha::ChaCha20Rng as Rng;
 use rand_core::SeedableRng;
 
+type Identity<T> = identity::Module<T>;
+
+/// TODO: Import venue ID.
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+pub struct VenueId(pub u64);
+
+/// TODO: Import leg ID.
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+pub struct TransactionLegId(pub u64);
+
 /// The module's configuration trait.
 pub trait Config:
     frame_system::Config + BalancesConfig + IdentityConfig + pallet_statistics::Config
 {
     /// Pallet's events.
-    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
+    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
     /// Non-confidential asset methods.
     type NonConfidentialAsset: AssetFnTrait<
         <Self as frame_system::Config>::AccountId,
-        <Self as frame_system::Config>::Origin,
+        <Self as frame_system::Config>::RuntimeOrigin,
     >;
     /// Randomness source.
     type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
@@ -277,7 +291,83 @@ impl InitializedAssetTxWrapper {
     }
 }
 
-type Identity<T> = identity::Module<T>;
+/// Confidential transaction leg.
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
+pub struct TransactionLeg {
+    pub sender_did: IdentityId,
+    pub receiver_did: IdentityId,
+    /// Mercat account id of the sender.
+    pub sender: MercatAccountId,
+    /// Mercat account id of the receiver.
+    pub receiver: MercatAccountId,
+    /// Mediator.  TODO: create a `MediatorId`.
+    pub mediator: IdentityId,
+}
+
+/// Collect the proofs from the 3 parties (buyer, seller, mediator).
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
+pub struct TransactionLegProofs {
+    /// The sender proof.
+    sender: Option<Base64Vec>,
+    /// The receiver proof.
+    receiver: Option<Base64Vec>,
+    /// The mediator proof.
+    mediator: Option<Base64Vec>,
+}
+
+impl TransactionLegProofs {
+    pub fn get_sender_proof<T: Config>(&self) -> Result<Option<InitializedTransferTx>, DispatchError> {
+        if let Some(tx_data) = &self.sender {
+            let tx = tx_data
+                .decode().ok()
+                .and_then(|d| InitializedTransferTx::decode(&mut &d[..]).ok())
+                .ok_or(Error::<T>::InvalidMercatTransferProof)?;
+            Ok(Some(tx))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn get_receiver_proof<T: Config>(&self) -> Result<Option<FinalizedTransferTx>, DispatchError> {
+        if let Some(tx_data) = &self.receiver {
+            let tx = tx_data
+                .decode().ok()
+                .and_then(|d| FinalizedTransferTx::decode(&mut &d[..]).ok())
+                .ok_or(Error::<T>::InvalidMercatTransferProof)?;
+            Ok(Some(tx))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn get_mediator_proof<T: Config>(&self) -> Result<Option<JustifiedTransferTx>, DispatchError> {
+        if let Some(tx_data) = &self.mediator {
+            let tx = tx_data
+                .decode().ok()
+                .and_then(|d| JustifiedTransferTx::decode(&mut &d[..]).ok())
+                .ok_or(Error::<T>::InvalidMercatTransferProof)?;
+            Ok(Some(tx))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn is_affirmed(&self) -> bool {
+        self.sender.is_some() && self.receiver.is_some() && self.mediator.is_some()
+    }
+
+    pub fn ensure_affirmed<T: Config>(&self) -> Result<JustifiedTransferTx, DispatchError> {
+        ensure!(self.is_affirmed(), Error::<T>::InstructionNotAffirmed);
+        let justified_tx = self.get_mediator_proof::<T>()?.ok_or(Error::<T>::InstructionNotAffirmed)?;
+        Ok(justified_tx)
+    }
+}
+
+/// A global and unique confidential transaction ID.
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+pub struct TransactionId(pub u64);
+impl_checked_inc!(TransactionId);
 
 decl_storage! {
     trait Store for Module<T: Config> as ConfidentialAsset {
@@ -321,8 +411,8 @@ decl_storage! {
             hasher(blake2_128_concat) MercatAccountId
             => EncryptedBalanceWrapper;
 
-        /// Stores the pending state for a given instruction.
-        /// ((did, account_id, instruction_id)) -> EncryptedBalanceWrapper.
+        /// Stores the pending state for a given transaction.
+        /// ((did, account_id, transaction_id)) -> EncryptedBalanceWrapper.
         pub TxPendingState get(fn mercat_tx_pending_state):
         map hasher(blake2_128_concat) (IdentityId, MercatAccountId, u64)
             => EncryptedBalanceWrapper;
@@ -330,12 +420,24 @@ decl_storage! {
         /// List of Tickers of the type ConfidentialAsset.
         /// Returns a list of confidential tickers.
         pub ConfidentialTickers get(fn confidential_tickers): Vec<AssetId>;
+
+        /// Legs of a transaction. (transaction_id, leg_id) -> Leg
+        pub TransactionLegs get(fn transaction_legs):
+            double_map hasher(twox_64_concat) TransactionId, hasher(twox_64_concat) TransactionLegId => TransactionLeg;
+
+        /// The storage for mercat transaction proofs.
+        /// The key is the transaction_id.
+        TransactionProofs get(fn transaction_proofs):
+            double_map hasher(twox_64_concat) TransactionId, hasher(twox_64_concat) TransactionLegId => TransactionLegProofs;
+
+        /// Number of transactions in the system (It's one more than the actual number)
+        TransactionCounter get(fn transaction_counter) build(|_| TransactionId(1u64)): TransactionId;
     }
 }
 
 // Public interface for this runtime module.
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::Origin {
+    pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::RuntimeOrigin {
         type Error = Error<T>;
 
         /// Initialize the default event for this module
@@ -584,6 +686,41 @@ decl_module! {
                 current_balance
             ));
         }
+
+        /// Adds a new transaction.
+        ///
+        #[weight = 3_000_000_000]
+        pub fn add_transaction(
+            origin,
+            venue_id: VenueId,
+            legs: Vec<TransactionLeg>,
+        ) {
+            let did = Identity::<T>::ensure_perms(origin)?;
+            Self::base_add_transaction(did, venue_id, legs)?;
+        }
+
+        /// Affirm a transaction.
+        #[weight = 3_000_000_000]
+        pub fn affirm_transaction(
+            origin,
+            transaction_id: TransactionId,
+            leg_id: TransactionLegId,
+            proofs: TransactionLegProofs,
+        ) {
+            let did = Identity::<T>::ensure_perms(origin.clone())?;
+            Self::base_affirm_transaction(did, transaction_id, leg_id, proofs)?;
+        }
+
+        /// Execute transaction.
+        #[weight = 3_000_000_000]
+        pub fn execute_transaction(
+            origin,
+            transaction_id: TransactionId,
+            leg_count: u32,
+        ) {
+            let did = Identity::<T>::ensure_perms(origin.clone())?;
+            Self::base_execute_transaction(did, transaction_id, leg_count as usize)?;
+        }
     }
 }
 
@@ -782,6 +919,128 @@ impl<T: Config> Module<T> {
         TxPendingState::remove((owner_did, account_id, instruction_id));
     }
 
+    pub fn base_add_transaction(
+        did: IdentityId,
+        venue_id: VenueId,
+        legs: Vec<TransactionLeg>,
+    ) -> Result<TransactionId, DispatchError> {
+        // TODO: Ensure transaction does not have too many legs.
+
+        // TODO: Ensure venue exists & sender is its creator.
+        //Self::venue_for_management(venue_id, did)?;
+
+        // Create a list of unique counter parties involved in the transaction.
+        // TODO: Counter parties? or just the number of missing proofs?
+
+        // TODO: Check if the venue has required permissions from token owners.
+
+        // Advance and get next `transaction_id`.
+        let transaction_id = TransactionCounter::try_mutate(try_next_post::<T, _>)?;
+
+        for (i, leg) in legs.iter().enumerate() {
+            TransactionLegs::insert(
+                transaction_id,
+                u64::try_from(i).map(TransactionLegId).unwrap_or_default(),
+                leg.clone(),
+            );
+        }
+
+        /*
+        // TODO: Record transaction details: venue id, status, etc...
+        let transaction = Transaction {
+            transaction_id,
+            venue_id,
+            status: TransactionStatus::Pending,
+        };
+        <TransactionDetails<T>>::insert(transaction_id, transaction);
+        */
+
+        Self::deposit_event(Event::TransactionCreated(
+            did,
+            venue_id,
+            transaction_id,
+            legs,
+        ));
+
+        Ok(transaction_id)
+    }
+
+    fn base_execute_transaction(
+        _did: IdentityId,
+        id: TransactionId,
+        leg_count: usize,
+    ) -> DispatchResult {
+        let legs = TransactionLegs::drain_prefix(id).collect::<Vec<_>>();
+        ensure!(legs.len() <= leg_count, Error::<T>::LegCountTooSmall);
+
+        for (leg_id, leg) in legs {
+            let proofs = TransactionProofs::take(id, leg_id);
+            let justified_tx = proofs.ensure_affirmed::<T>()?;
+            Self::base_confidential_transfer(
+                &leg.sender_did,
+                &leg.sender,
+                &leg.receiver_did,
+                &leg.receiver,
+                &justified_tx,
+                id.0,
+            )?;
+        }
+
+        Ok(())
+    }
+
+    fn base_affirm_transaction(
+        did: IdentityId,
+        id: TransactionId,
+        leg_id: TransactionLegId,
+        mut proofs: TransactionLegProofs,
+    ) -> DispatchResult {
+        // TODO: check that the proof accounts match the leg accounts.
+
+        // Update the transaction sender's ordering state.
+        if let Some(tx) = proofs.get_sender_proof::<T>()? {
+            // TODO: Verify sender's proof.
+
+            // Temporarily store the current pending state as this instruction's pending state.
+            Self::set_tx_pending_state(
+                &did,
+                &tx.memo.sender_account_id,
+                id.0,
+            )?;
+            Self::add_pending_outgoing_balance(
+                &did,
+                &tx.memo.sender_account_id,
+                tx.memo.enc_amount_using_sender,
+            )?;
+        }
+
+        // Verify receiver's proof.
+        if let Some(_tx) = proofs.get_receiver_proof::<T>()? {
+            // TODO.
+        }
+
+        // Verify mediator's proof.
+        if let Some(_tx) = proofs.get_mediator_proof::<T>()? {
+            // TODO.
+        }
+
+        TransactionProofs::try_mutate(id, leg_id, |tx_proofs| {
+            // TODO: Don't allow replacing an existing proof.
+            if let Some(data) = proofs.sender.take() {
+                tx_proofs.sender = Some(data);
+            }
+            if let Some(data) = proofs.receiver.take() {
+                tx_proofs.receiver = Some(data);
+            }
+            if let Some(data) = proofs.mediator.take() {
+                tx_proofs.mediator = Some(data);
+            }
+            Result::<_, Error<T>>::Ok(())
+        })?;
+
+        Ok(())
+    }
+
     /// Transfers an asset from one identity's portfolio to another.
     pub fn base_confidential_transfer(
         from_did: &IdentityId,
@@ -884,6 +1143,15 @@ decl_event! {
         /// Event for resetting the ordering state.
         /// caller DID/ owner DID, mercat account id, current encrypted account balance
         ResetConfidentialAccountOrderingState(IdentityId, MercatAccountId, EncryptedBalanceWrapper),
+
+        /// A new transaction has been created
+        /// (did, venue_id, transaction_id, legs)
+        TransactionCreated(
+            IdentityId,
+            VenueId,
+            TransactionId,
+            Vec<TransactionLeg>,
+        ),
     }
 }
 
@@ -921,5 +1189,78 @@ decl_error! {
 
         /// Confidential transfer's proofs are invalid.
         ConfidentialTransferValidationFailure,
+
+        /// Error during the decoding base64 values.
+        DecodeBase64Error,
+        /// We only support one confidential transfer per instruction at the moment.
+        MoreThanOneConfidentialLeg,
+        /// Certain transfer modes are not yet supported in confidential modes.
+        ConfidentialModeNotSupportedYet,
+        /// Transaction proof failed to verify.
+        /// Failed to maintain confidential transaction's ordering state.
+        InvalidMercatOrderingState,
+        /// Undefined leg type.
+        UndefinedLegKind,
+        /// Confidential legs do not have assets or amounts.
+        ConfidentialLegHasNoAssetOrAmount,
+        /// Only `LegKind::NonConfidential` has receipt functionality.
+        InvalidLegKind,
+        /// The MERCAT transfer proof is invalid.
+        InvalidMercatTransferProof,
+
+        /// Venue does not exist.
+        InvalidVenue,
+        /// No pending affirmation for the provided instruction.
+        NoPendingAffirm,
+        /// Instruction has not been affirmed.
+        InstructionNotAffirmed,
+        /// Provided instruction is not pending execution.
+        InstructionNotPending,
+        /// Provided instruction is not failing execution.
+        InstructionNotFailed,
+        /// Provided leg is not pending execution.
+        LegNotPending,
+        /// Signer is not authorized by the venue.
+        UnauthorizedSigner,
+        /// Receipt already used.
+        ReceiptAlreadyClaimed,
+        /// Receipt not used yet.
+        ReceiptNotClaimed,
+        /// Venue does not have required permissions.
+        UnauthorizedVenue,
+        /// While affirming the transfer, system failed to lock the assets involved.
+        FailedToLockTokens,
+        /// Instruction failed to execute.
+        InstructionFailed,
+        /// Instruction has invalid dates
+        InstructionDatesInvalid,
+        /// Instruction's target settle block reached.
+        InstructionSettleBlockPassed,
+        /// Offchain signature is invalid.
+        InvalidSignature,
+        /// Sender and receiver are the same.
+        SameSenderReceiver,
+        /// Portfolio in receipt does not match with portfolios provided by the user.
+        PortfolioMismatch,
+        /// The provided settlement block number is in the past and cannot be used by the scheduler.
+        SettleOnPastBlock,
+        /// Portfolio based actions require at least one portfolio to be provided as input.
+        NoPortfolioProvided,
+        /// The current instruction affirmation status does not support the requested action.
+        UnexpectedAffirmationStatus,
+        /// Scheduling of an instruction fails.
+        FailedToSchedule,
+        /// Legs count should matches with the total number of legs in which given portfolio act as `from_portfolio`.
+        LegCountTooSmall,
+        /// Instruction status is unknown
+        UnknownInstruction,
+        /// Maximum legs that can be in a single instruction.
+        InstructionHasTooManyLegs,
+        /// Signer is already added to venue.
+        SignerAlreadyExists,
+        /// Signer is not added to venue.
+        SignerDoesNotExist,
+        /// Instruction leg amount can't be zero
+        ZeroAmount,
     }
 }

@@ -1493,6 +1493,7 @@ checksum = "1c359b7249347e46fb28804470d071c921156ad62b3eef5d34e2ba867533dec8"
 dependencies = [
  "byteorder",
  "digest 0.9.0",
+ "packed_simd_2",
  "rand_core 0.6.4",
  "serde",
  "subtle-ng",
@@ -1896,6 +1897,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e43f2f1833d64e33f15592464d6fdd70f349dda7b1a53088eb83cd94014008c5"
 dependencies = [
  "futures",
+]
+
+[[package]]
+name = "failure"
+version = "0.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d32e9bd16cc02eae7db7ef620b392808b89f6a5e16bb3497d159c6b92a0f4f86"
+dependencies = [
+ "backtrace",
+ "failure_derive",
+]
+
+[[package]]
+name = "failure_derive"
+version = "0.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa4da3c766cd7a0db8242e326e9e4e081edd567072893ed320008189715366a4"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+ "synstructure",
 ]
 
 [[package]]
@@ -3305,6 +3328,12 @@ dependencies = [
 
 [[package]]
 name = "libm"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7fc7aa29613bd6a620df431842069224d8bc9011086b1db4c0e0cd47fa03ec9a"
+
+[[package]]
+name = "libm"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "292a948cd991e376cf75541fe5b97a1081d713c618b4f1b9500f8844e49eb565"
@@ -3978,6 +4007,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 
 [[package]]
+name = "mercat"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c235760f2eb51dd3e3fa6b3f1ed7257caafee750f64643c99b44d99d996ef32b"
+dependencies = [
+ "byteorder",
+ "confidential_identity_core",
+ "criterion",
+ "failure",
+ "parity-scale-codec 3.2.1",
+ "rand 0.8.5",
+ "rand_core 0.6.4",
+ "serde",
+ "serde_json",
+ "sha3 0.9.1",
+ "sp-std 5.0.0",
+ "zeroize",
+]
+
+[[package]]
 name = "merlin"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4505,7 +4554,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "578ede34cf02f8924ab9447f50c28075b4d3e5b269972345e7e0372b38c6cdcd"
 dependencies = [
  "autocfg",
- "libm",
+ "libm 0.2.5",
 ]
 
 [[package]]
@@ -4565,6 +4614,16 @@ name = "os_str_bytes"
 version = "6.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ff7415e9ae3fff1225851df9e0d9e4e5479f947619774677a63572e55e80eff"
+
+[[package]]
+name = "packed_simd_2"
+version = "0.3.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1914cd452d8fccd6f9db48147b29fd4ae05bea9dc5d9ad578509f72415de282"
+dependencies = [
+ "cfg-if 1.0.0",
+ "libm 0.1.4",
+]
 
 [[package]]
 name = "pallet-asset"
@@ -4793,6 +4852,30 @@ dependencies = [
  "sp-runtime",
  "sp-std 5.0.0",
  "sp-version",
+]
+
+[[package]]
+name = "pallet-confidential-asset"
+version = "0.1.0"
+dependencies = [
+ "base64 0.12.3",
+ "frame-support",
+ "frame-system",
+ "mercat",
+ "pallet-balances 0.1.0",
+ "pallet-base",
+ "pallet-identity",
+ "pallet-portfolio",
+ "pallet-statistics",
+ "parity-scale-codec 3.2.1",
+ "polymesh-common-utilities",
+ "polymesh-primitives",
+ "polymesh-primitives-derive",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+ "scale-info",
+ "sp-runtime",
+ "sp-std 5.0.0",
 ]
 
 [[package]]
@@ -6110,6 +6193,7 @@ dependencies = [
  "pallet-balances 0.1.0",
  "pallet-bridge",
  "pallet-committee",
+ "pallet-confidential-asset",
  "pallet-corporate-actions",
  "pallet-external-agents",
  "pallet-group",
@@ -6394,6 +6478,7 @@ dependencies = [
  "pallet-bridge",
  "pallet-committee",
  "pallet-compliance-manager",
+ "pallet-confidential-asset",
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-corporate-actions",
@@ -6478,6 +6563,7 @@ dependencies = [
  "pallet-bridge",
  "pallet-committee",
  "pallet-compliance-manager",
+ "pallet-confidential-asset",
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-corporate-actions",
@@ -6563,6 +6649,7 @@ dependencies = [
  "pallet-bridge",
  "pallet-committee",
  "pallet-compliance-manager",
+ "pallet-confidential-asset",
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-corporate-actions",
@@ -6647,6 +6734,7 @@ dependencies = [
  "lazy_static",
  "libsecp256k1 0.6.0",
  "log",
+ "mercat",
  "node-rpc-runtime-api",
  "pallet-asset",
  "pallet-authority-discovery",
@@ -6657,6 +6745,7 @@ dependencies = [
  "pallet-bridge",
  "pallet-committee",
  "pallet-compliance-manager",
+ "pallet-confidential-asset",
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-corporate-actions",
@@ -6703,7 +6792,8 @@ dependencies = [
  "polymesh-runtime-common",
  "polymesh-runtime-develop",
  "polymesh-weights",
- "rand 0.7.3",
+ "rand 0.8.5",
+ "rand_core 0.6.4",
  "scale-info",
  "serde",
  "serde_json",
@@ -11130,7 +11220,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57d20cb3c59b788653d99541c646c561c9dd26506f25c0cebfe810659c54c6d7"
 dependencies = [
  "downcast-rs",
- "libm",
+ "libm 0.2.5",
  "memory_units",
  "num-rational",
  "num-traits",
@@ -11143,7 +11233,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c5bf998ab792be85e20e771fe14182b4295571ad1d4f89d3da521c1bef5f597a"
 dependencies = [
  "downcast-rs",
- "libm",
+ "libm 0.2.5",
  "num-traits",
 ]
 

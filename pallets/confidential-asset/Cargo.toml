@@ -11,6 +11,7 @@ polymesh-primitives-derive = { path = "../../primitives_derive", default-feature
 polymesh-common-utilities = { path = "../common", default-features = false }
 
 # Our Pallets
+pallet-base = { path = "../base", default-features = false  }
 pallet-balances = { path = "../balances", default-features = false  }
 pallet-identity = { path = "../identity", default-features = false }
 pallet-portfolio = { path = "../portfolio", default-features = false }
@@ -19,7 +20,7 @@ pallet-statistics = { path = "../statistics", default-features = false }
 # Crypto
 rand_core = { version = "0.6", default-features = false }
 rand_chacha = { version = "0.3", default-features = false }
-mercat = { version = "1.0.0", default-features = false }
+mercat = { version = "1.1.0", default-features = false }
 base64 = { version = "0.12.1", default-features = false, features = ["alloc"] }
 
 # Substrate
@@ -27,8 +28,8 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
 frame-system = { version = "4.0.0-dev", default-features = false }
 frame-support = { version = "4.0.0-dev", default-features = false }
-sp-std = { version = "4.0.0", default-features = false }
-sp-runtime = { version = "6.0.0", default-features = false }
+sp-std = { version = "5.0.0", default-features = false }
+sp-runtime = { version = "7.0.0", default-features = false }
 
 [features]
 equalize = []
