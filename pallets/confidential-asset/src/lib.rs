@@ -124,12 +124,12 @@ use mercat::{
 };
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    asset::AssetFnTrait, balances::Config as BalancesConfig, constants::currency::ONE_UNIT,
+    balances::Config as BalancesConfig,
     identity::Config as IdentityConfig, Context,
 };
 use polymesh_primitives::{
-    asset::{AssetName, AssetType, Base64Vec, FundingRoundName},
-    impl_checked_inc, AssetIdentifier, Balance, IdentityId, Ticker,
+    asset::{AssetName, AssetType},
+    impl_checked_inc, Balance, IdentityId, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Zero, SaturatedConversion};
@@ -142,6 +142,49 @@ use rand_chacha::ChaCha20Rng as Rng;
 use rand_core::SeedableRng;
 
 type Identity<T> = identity::Module<T>;
+
+// TODO: Remove base64 hack.
+use base64;
+/// A wrapper for a base-64 encoded vector of bytes.
+#[derive(
+    Encode,
+    Decode,
+    TypeInfo,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Default,
+    PartialOrd,
+    Ord
+)]
+pub struct Base64Vec(pub Vec<u8>);
+
+impl Base64Vec {
+    /// Decodes a Base64-encoded vector of bytes.
+    ///
+    /// ## Errors
+    /// - `DecodeBase64Error` if `self` is not Base64-encoded.
+    pub fn decode(&self) -> Result<Vec<u8>, DispatchError> {
+        base64::decode(&self.0[..]).map_err(|_| DecodeBase64Error.into())
+    }
+
+    /// Creates a new Base64-encoded object by encoding a byte vector `inp`.
+    pub fn new(inp: Vec<u8>) -> Self {
+        Self(base64::encode(inp).as_bytes().to_vec())
+    }
+}
+
+/// The error type for `Base64Vec`.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub struct DecodeBase64Error;
+
+impl From<DecodeBase64Error> for DispatchError {
+    fn from(_: DecodeBase64Error) -> DispatchError {
+        // TODO: why does this error message look unrelated?
+        DispatchError::Other("Authorization does not exist")
+    }
+}
 
 /// TODO: Import venue ID.
 #[derive(Encode, Decode, TypeInfo)]
@@ -159,11 +202,6 @@ pub trait Config:
 {
     /// Pallet's events.
     type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
-    /// Non-confidential asset methods.
-    type NonConfidentialAsset: AssetFnTrait<
-        <Self as frame_system::Config>::AccountId,
-        <Self as frame_system::Config>::RuntimeOrigin,
-    >;
     /// Randomness source.
     type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
 }
@@ -369,8 +407,22 @@ impl TransactionLegProofs {
 pub struct TransactionId(pub u64);
 impl_checked_inc!(TransactionId);
 
+/// Confidential asset details.
+#[derive(Encode, Decode, TypeInfo, Default, Clone, PartialEq, Debug)]
+pub struct ConfidentialAssetDetails {
+    /// Total supply of the asset.
+    pub total_supply: Balance,
+    /// Asset's owner DID.
+    pub owner_did: IdentityId,
+    /// Type of the asset.
+    pub asset_type: AssetType,
+}
+
 decl_storage! {
     trait Store for Module<T: Config> as ConfidentialAsset {
+        /// Details of the confidential asset.
+        /// (ticker) -> ConfidentialAssetDetails
+        pub Details get(fn confidential_asset_details): map hasher(blake2_128_concat) Ticker => ConfidentialAssetDetails;
 
         /// Contains the encryption key for a mercat mediator.
         pub MediatorMercatAccounts get(fn mediator_mercat_accounts):
@@ -521,38 +573,41 @@ decl_module! {
         /// - `BadOrigin` if not signed.
         ///
         /// # Weight
-        /// `3_000_000_000 + 20_000 * identifiers.len()`
-        #[weight = 3_000_000_000 + 20_000 * u64::try_from(identifiers.len()).unwrap_or_default()]
+        /// `3_000_000_000 + 20_000`
+        #[weight = 3_000_000_000 + 20_000]
         pub fn create_confidential_asset(
             origin,
-            name: AssetName,
+            _name: AssetName,
             ticker: Ticker,
-            divisible: bool,
             asset_type: AssetType,
-            identifiers: Vec<AssetIdentifier>,
-            funding_round: Option<FundingRoundName>,
         ) -> DispatchResult {
-            let primary_owner_did = T::NonConfidentialAsset::create_asset(
-                origin,
-                name,
-                ticker,
-                divisible,
-                asset_type.clone(),
-                identifiers,
-                funding_round,
-                true
-            )?;
+            let owner_did = Identity::<T>::ensure_perms(origin)?;
+
+            // TODO: store asset name?
+
+            // Ensure the asset hasn't been created yet.
+            ensure!(
+                !Details::contains_key(ticker),
+                Error::<T>::AssetAlreadyCreated
+            );
+
+            let details = ConfidentialAssetDetails {
+                total_supply: Zero::zero(),
+                owner_did,
+                asset_type,
+            };
+            Details::insert(ticker, details);
 
             // Append the ticker to the list of confidential tickers.
             <ConfidentialTickers>::append(AssetId { id: ticker.as_bytes().clone() });
 
             Self::deposit_event(Event::ConfidentialAssetCreated(
-                primary_owner_did,
+                owner_did,
                 ticker,
                 Zero::zero(),
-                divisible,
+                true,
                 asset_type,
-                primary_owner_did,
+                owner_did,
             ));
             Ok(())
         }
@@ -588,7 +643,7 @@ decl_module! {
         ) -> DispatchResult {
             let owner = ensure_signed(origin)?;
             let owner_did = Context::current_identity_or::<Identity<T>>(&owner)?;
-            let details = T::NonConfidentialAsset::token_details(&ticker);
+            let mut details = Self::confidential_asset_details(&ticker);
 
             // Only the owner of the asset can change its total supply.
             ensure!(
@@ -614,14 +669,6 @@ decl_module! {
                 }),
                 Error::<T>::UnknownConfidentialAsset
             );
-
-            if !details.divisible {
-                ensure!(
-                    // Non-divisible asset amounts must maintain a 6 decimal places of precision.
-                    total_supply % ONE_UNIT == 0u32.into(),
-                    Error::<T>::InvalidTotalSupply
-                );
-            }
 
             // At the moment, mercat lib imposes that balances can be at most u32 integers.
             let max_balance_mercat = u32::MAX.saturated_into::<Balance>();
@@ -649,7 +696,9 @@ decl_module! {
             );
 
             // This will emit the total supply changed event.
-            T::NonConfidentialAsset::unchecked_set_total_supply(owner_did, &ticker, total_supply);
+            details.total_supply = total_supply;
+            Details::insert(ticker, details);
+            // TODO: emit Issue event.
 
             Ok(())
         }
@@ -707,7 +756,7 @@ decl_module! {
             leg_id: TransactionLegId,
             proofs: TransactionLegProofs,
         ) {
-            let did = Identity::<T>::ensure_perms(origin.clone())?;
+            let did = Identity::<T>::ensure_perms(origin)?;
             Self::base_affirm_transaction(did, transaction_id, leg_id, proofs)?;
         }
 
@@ -718,7 +767,7 @@ decl_module! {
             transaction_id: TransactionId,
             leg_count: u32,
         ) {
-            let did = Identity::<T>::ensure_perms(origin.clone())?;
+            let did = Identity::<T>::ensure_perms(origin)?;
             Self::base_execute_transaction(did, transaction_id, leg_count as usize)?;
         }
     }
@@ -1207,6 +1256,9 @@ decl_error! {
         InvalidLegKind,
         /// The MERCAT transfer proof is invalid.
         InvalidMercatTransferProof,
+
+        /// The token has already been created.
+        AssetAlreadyCreated,
 
         /// Venue does not exist.
         InvalidVenue,
