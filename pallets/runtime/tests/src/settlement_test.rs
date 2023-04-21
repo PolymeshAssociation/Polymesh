@@ -1090,7 +1090,7 @@ fn basic_fuzzing() {
 
         let fail: bool = random();
         let mut rng = thread_rng();
-        let failed_user = rng.gen_range(0, 4);
+        let failed_user = rng.gen_range(0..4);
         if fail {
             assert_ok!(Settlement::withdraw_affirmation(
                 users[failed_user].origin(),

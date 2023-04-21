@@ -111,21 +111,19 @@ use frame_support::{
     traits::Randomness,
 };
 use frame_system::ensure_signed;
-use pallet_base::try_next_post;
 use mercat::{
     account::{convert_asset_ids, AccountValidator},
     asset::AssetValidator,
     confidential_identity_core::asset_proofs::AssetId,
     transaction::TransactionValidator,
     AccountCreatorVerifier, AssetTransactionVerifier, EncryptedAmount, EncryptedAssetId,
-    EncryptionPubKey, InitializedAssetTx,
-    InitializedTransferTx, FinalizedTransferTx, JustifiedTransferTx, PubAccount, PubAccountTx,
-    TransferTransactionVerifier,
+    EncryptionPubKey, FinalizedTransferTx, InitializedAssetTx, InitializedTransferTx,
+    JustifiedTransferTx, PubAccount, PubAccountTx, TransferTransactionVerifier,
 };
+use pallet_base::try_next_post;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    balances::Config as BalancesConfig,
-    identity::Config as IdentityConfig, Context,
+    balances::Config as BalancesConfig, identity::Config as IdentityConfig, Context,
 };
 use polymesh_primitives::{
     asset::{AssetName, AssetType},
@@ -147,16 +145,7 @@ type Identity<T> = identity::Module<T>;
 use base64;
 /// A wrapper for a base-64 encoded vector of bytes.
 #[derive(
-    Encode,
-    Decode,
-    TypeInfo,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Default,
-    PartialOrd,
-    Ord
+    Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, Default, PartialOrd, Ord
 )]
 pub struct Base64Vec(pub Vec<u8>);
 
@@ -346,18 +335,45 @@ pub struct TransactionLeg {
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
 pub struct TransactionLegProofs {
     /// The sender proof.
-    sender: Option<Base64Vec>,
+    pub sender: Option<Base64Vec>,
     /// The receiver proof.
-    receiver: Option<Base64Vec>,
+    pub receiver: Option<Base64Vec>,
     /// The mediator proof.
-    mediator: Option<Base64Vec>,
+    pub mediator: Option<Base64Vec>,
 }
 
 impl TransactionLegProofs {
-    pub fn get_sender_proof<T: Config>(&self) -> Result<Option<InitializedTransferTx>, DispatchError> {
+    pub fn new_sender(tx: Base64Vec) -> Self {
+        Self {
+            sender: Some(tx),
+            receiver: None,
+            mediator: None,
+        }
+    }
+
+    pub fn new_receiver(tx: Base64Vec) -> Self {
+        Self {
+            sender: None,
+            receiver: Some(tx),
+            mediator: None,
+        }
+    }
+
+    pub fn new_mediator(tx: Base64Vec) -> Self {
+        Self {
+            sender: None,
+            receiver: None,
+            mediator: Some(tx),
+        }
+    }
+
+    pub fn get_sender_proof<T: Config>(
+        &self,
+    ) -> Result<Option<InitializedTransferTx>, DispatchError> {
         if let Some(tx_data) = &self.sender {
             let tx = tx_data
-                .decode().ok()
+                .decode()
+                .ok()
                 .and_then(|d| InitializedTransferTx::decode(&mut &d[..]).ok())
                 .ok_or(Error::<T>::InvalidMercatTransferProof)?;
             Ok(Some(tx))
@@ -366,10 +382,13 @@ impl TransactionLegProofs {
         }
     }
 
-    pub fn get_receiver_proof<T: Config>(&self) -> Result<Option<FinalizedTransferTx>, DispatchError> {
+    pub fn get_receiver_proof<T: Config>(
+        &self,
+    ) -> Result<Option<FinalizedTransferTx>, DispatchError> {
         if let Some(tx_data) = &self.receiver {
             let tx = tx_data
-                .decode().ok()
+                .decode()
+                .ok()
                 .and_then(|d| FinalizedTransferTx::decode(&mut &d[..]).ok())
                 .ok_or(Error::<T>::InvalidMercatTransferProof)?;
             Ok(Some(tx))
@@ -378,10 +397,13 @@ impl TransactionLegProofs {
         }
     }
 
-    pub fn get_mediator_proof<T: Config>(&self) -> Result<Option<JustifiedTransferTx>, DispatchError> {
+    pub fn get_mediator_proof<T: Config>(
+        &self,
+    ) -> Result<Option<JustifiedTransferTx>, DispatchError> {
         if let Some(tx_data) = &self.mediator {
             let tx = tx_data
-                .decode().ok()
+                .decode()
+                .ok()
                 .and_then(|d| JustifiedTransferTx::decode(&mut &d[..]).ok())
                 .ok_or(Error::<T>::InvalidMercatTransferProof)?;
             Ok(Some(tx))
@@ -396,7 +418,9 @@ impl TransactionLegProofs {
 
     pub fn ensure_affirmed<T: Config>(&self) -> Result<JustifiedTransferTx, DispatchError> {
         ensure!(self.is_affirmed(), Error::<T>::InstructionNotAffirmed);
-        let justified_tx = self.get_mediator_proof::<T>()?.ok_or(Error::<T>::InstructionNotAffirmed)?;
+        let justified_tx = self
+            .get_mediator_proof::<T>()?
+            .ok_or(Error::<T>::InstructionNotAffirmed)?;
         Ok(justified_tx)
     }
 }
@@ -1051,11 +1075,7 @@ impl<T: Config> Module<T> {
             // TODO: Verify sender's proof.
 
             // Temporarily store the current pending state as this instruction's pending state.
-            Self::set_tx_pending_state(
-                &did,
-                &tx.memo.sender_account_id,
-                id.0,
-            )?;
+            Self::set_tx_pending_state(&did, &tx.memo.sender_account_id, id.0)?;
             Self::add_pending_outgoing_balance(
                 &did,
                 &tx.memo.sender_account_id,

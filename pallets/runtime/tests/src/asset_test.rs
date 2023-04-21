@@ -410,7 +410,7 @@ fn checkpoints_fuzz_test() {
             let mut bob_balance: [u128; 100] = [0; 100];
             let mut rng = rand::thread_rng();
             for j in 1..100 {
-                let transfers = rng.gen_range(0, 10);
+                let transfers = rng.gen_range(0..10);
                 owner_balance[j] = owner_balance[j - 1];
                 bob_balance[j] = bob_balance[j - 1];
                 for _k in 0..transfers {

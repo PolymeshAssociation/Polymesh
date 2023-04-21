@@ -364,11 +364,6 @@ macro_rules! misc_pallet_impls {
             type MaxConditionComplexity = MaxConditionComplexity;
         }
 
-        impl pallet_confidential_asset::Config for Runtime {
-            type Event = Event;
-            type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
-        }
-
         impl pallet_corporate_actions::Config for Runtime {
             type RuntimeEvent = RuntimeEvent;
             type MaxTargetIds = MaxTargetIds;

@@ -998,9 +998,9 @@ dependencies = [
 
 [[package]]
 name = "confidential_identity_core"
-version = "1.1.0"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1165f4fc4f30b6a80fb56753d50546bee544590a09b4a5096f7f4ebca8de1917"
+checksum = "f8f1f8380aeb30d18810ea5b900120456cf257c50131ce7760c6e509e5e33a56"
 dependencies = [
  "blake2",
  "bulletproofs",
@@ -1011,6 +1011,7 @@ dependencies = [
  "parity-scale-codec 3.2.1",
  "rand 0.8.5",
  "rand_core 0.6.4",
+ "scale-info",
  "serde",
  "sha3 0.9.1",
  "sp-std 5.0.0",
@@ -1019,9 +1020,9 @@ dependencies = [
 
 [[package]]
 name = "confidential_identity_v1"
-version = "1.1.0"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5dcf7e6037d21fc4eeafc61abcfafaa9f0a25cee1dd52891d6cc63c865002d8"
+checksum = "37c51392e6439c55efc843b9085dee0c21e496621788bae8ffac9b3fe224b74e"
 dependencies = [
  "blake2",
  "byteorder",
@@ -1043,9 +1044,9 @@ dependencies = [
 
 [[package]]
 name = "confidential_identity_v2"
-version = "2.1.0"
+version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb85825cd7bde6b3fe4edb80580a02e16d3f376ba68dc35a8137ebdf40437521"
+checksum = "a2acb6ce1c002176a7279510e113cf25e8f1410424834eb023e04fc74e76f8ac"
 dependencies = [
  "blake2",
  "byteorder",
@@ -4008,9 +4009,9 @@ checksum = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 
 [[package]]
 name = "mercat"
-version = "1.1.0"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c235760f2eb51dd3e3fa6b3f1ed7257caafee750f64643c99b44d99d996ef32b"
+checksum = "64027074f86a11aeb9e5a778c210f8da135969d3ad3892a754496a6b48d30da6"
 dependencies = [
  "byteorder",
  "confidential_identity_core",
@@ -6563,7 +6564,6 @@ dependencies = [
  "pallet-bridge",
  "pallet-committee",
  "pallet-compliance-manager",
- "pallet-confidential-asset",
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-corporate-actions",
@@ -6649,7 +6649,6 @@ dependencies = [
  "pallet-bridge",
  "pallet-committee",
  "pallet-compliance-manager",
- "pallet-confidential-asset",
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-corporate-actions",
@@ -10785,9 +10784,9 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if 0.1.10",
  "digest 0.10.5",
- "rand 0.8.5",
+ "rand 0.7.3",
  "static_assertions",
 ]
 
@@ -10952,7 +10951,7 @@ checksum = "e7141e445af09c8919f1d5f8a20dae0b20c3b57a45dee0d5823c6ed5d237f15a"
 dependencies = [
  "bitflags",
  "chrono",
- "rustc_version 0.4.0",
+ "rustc_version 0.2.3",
 ]
 
 [[package]]

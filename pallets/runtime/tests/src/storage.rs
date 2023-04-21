@@ -187,6 +187,11 @@ parameter_types! {
     pub const MaxNumberOfOffChainAssets: u32 = 10;
 }
 
+impl pallet_confidential_asset::Config for TestStorage {
+    type RuntimeEvent = RuntimeEvent;
+    type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
+}
+
 frame_support::construct_runtime!(
     pub enum TestStorage where
     Block = Block,
