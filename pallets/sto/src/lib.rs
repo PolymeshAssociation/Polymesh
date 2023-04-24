@@ -477,12 +477,11 @@ decl_module! {
                     None,
                     legs,
                     None,
-                    true,
                     None
                 )?;
 
                 let portfolios = [fundraiser.offering_portfolio, fundraiser.raising_portfolio].iter().copied().collect::<BTreeSet<_>>();
-                Settlement::<T>::unsafe_affirm_instruction(fundraiser.creator, instruction_id, portfolios, 1, None, None)?;
+                Settlement::<T>::unsafe_affirm_instruction(fundraiser.creator, instruction_id, portfolios, 1, 0, None)?;
 
                 let portfolios = vec![investment_portfolio, funding_portfolio];
                 Settlement::<T>::affirm_and_execute_instruction(
@@ -491,7 +490,7 @@ decl_module! {
                     receipt,
                     portfolios,
                     2,
-                    None,
+                    0,
                     &mut WeightMeter::max_limit()
                 )
             })?;

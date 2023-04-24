@@ -177,36 +177,6 @@ pub struct Instruction<Moment, BlockNumber> {
     pub value_date: Option<Moment>,
 }
 
-/// Details of a leg including the leg id in the instruction.
-#[derive(Encode, Decode, TypeInfo)]
-#[derive(Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct Leg {
-    /// Portfolio of the sender
-    pub from: PortfolioId,
-    /// Portfolio of the receiver
-    pub to: PortfolioId,
-    /// Ticker of the asset being transferred
-    pub asset: Ticker,
-    /// Amount being transferred
-    pub amount: Balance,
-}
-
-impl TryFrom<LegV2> for Leg {
-    type Error = &'static str;
-
-    fn try_from(leg_v2: LegV2) -> Result<Self, Self::Error> {
-        match leg_v2.asset {
-            LegAsset::NonFungible(_nfts) => Err("InvalidLegAsset"),
-            LegAsset::Fungible { ticker, amount } => Ok(Leg {
-                from: leg_v2.from,
-                to: leg_v2.to,
-                asset: ticker,
-                amount,
-            }),
-        }
-    }
-}
-
 /// Type of assets that can be transferred in a `Leg`.
 #[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
 pub enum LegAsset {
@@ -249,19 +219,6 @@ pub struct LegV2 {
     pub to: PortfolioId,
     /// Assets being transferred.
     pub asset: LegAsset,
-}
-
-impl From<Leg> for LegV2 {
-    fn from(leg: Leg) -> Self {
-        LegV2 {
-            from: leg.from,
-            to: leg.to,
-            asset: LegAsset::Fungible {
-                ticker: leg.asset,
-                amount: leg.amount,
-            },
-        }
-    }
 }
 
 /// Details about a venue.

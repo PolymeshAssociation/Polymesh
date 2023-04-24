@@ -17,27 +17,19 @@ pub use frame_benchmarking::{account, benchmarks};
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use scale_info::prelude::format;
-use sp_core::sr25519::Signature;
-use sp_runtime::MultiSignature;
-use sp_runtime::SaturatedConversion;
 use sp_std::prelude::*;
 
 use pallet_asset::benchmarking::setup_asset_transfer;
 use pallet_nft::benchmarking::{create_collection_issue_nfts, setup_nft_transfer};
 use pallet_portfolio::PortfolioAssetBalances;
-use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::benchs::{make_asset, user, AccountIdOf, User, UserBuilder};
 use polymesh_common_utilities::constants::currency::{ONE_UNIT, POLY};
 use polymesh_common_utilities::constants::ENSURED_MAX_LEN;
 use polymesh_common_utilities::TestUtilsFn;
 use polymesh_primitives::asset::NonFungibleType;
 use polymesh_primitives::checked_inc::CheckedInc;
-use polymesh_primitives::settlement::ReceiptMetadata;
-use polymesh_primitives::statistics::{Stat2ndKey, StatType, StatUpdate};
-use polymesh_primitives::transfer_compliance::{TransferCondition, TransferConditionExemptKey};
 use polymesh_primitives::{
-    Balance, Claim, Condition, ConditionType, CountryCode, IdentityId, NFTId, NFTs, PortfolioId,
-    PortfolioKind, PortfolioName, PortfolioNumber, Scope, Ticker, TrustedIssuer,
+    IdentityId, NFTId, NFTs, PortfolioId, PortfolioKind, PortfolioNumber, Ticker,
 };
 
 use crate::*;
@@ -45,8 +37,6 @@ use crate::*;
 const MAX_VENUE_DETAILS_LENGTH: u32 = ENSURED_MAX_LEN;
 const MAX_SIGNERS_ALLOWED: u32 = 50;
 const MAX_VENUE_ALLOWED: u32 = 100;
-
-type Portfolio<T> = pallet_portfolio::Module<T>;
 
 #[derive(Encode, Decode, Clone, Copy)]
 pub struct UserData<T: Config> {
@@ -76,10 +66,6 @@ pub struct BaseV2Parameters<T: Config> {
     pub memo: Option<InstructionMemo>,
 }
 
-fn set_block_number<T: Config>(new_block_no: u64) {
-    frame_system::Pallet::<T>::set_block_number(new_block_no.saturated_into::<T::BlockNumber>());
-}
-
 fn creator<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> User<T> {
     UserBuilder::<T>::default().generate_did().build("creator")
 }
@@ -100,417 +86,8 @@ fn create_venue_<T: Config>(did: IdentityId, signers: Vec<T::AccountId>) -> Venu
     venue_counter
 }
 
-// create asset
 pub fn create_asset_<T: Config>(owner: &User<T>) -> Ticker {
     make_asset::<T>(owner, Some(&Ticker::generate(8u64)))
-}
-
-// fund portfolio
-fn fund_portfolio<T: Config>(portfolio: &PortfolioId, ticker: &Ticker, amount: Balance) {
-    PortfolioAssetBalances::insert(portfolio, ticker, amount);
-}
-
-fn setup_leg_and_portfolio<T: Config + TestUtilsFn<AccountIdOf<T>>>(
-    owner: &User<T>,
-    to_user: Option<UserData<T>>,
-    from_user: Option<UserData<T>>,
-    index: u32,
-    legs: &mut Vec<Leg>,
-    sender_portfolios: &mut Vec<PortfolioId>,
-    receiver_portfolios: &mut Vec<PortfolioId>,
-    onchain: bool,
-) {
-    let variance = index + 1;
-    let portfolio_from = generate_portfolio::<T>("", variance + 500, from_user);
-    let ticker = if onchain {
-        let ticker = make_asset::<T>(owner, Some(&Ticker::generate(variance.into())));
-        let _ = fund_portfolio::<T>(&portfolio_from, &ticker, 500u32.into());
-        ticker
-    } else {
-        Ticker::generate_into(variance.into())
-    };
-    let portfolio_to = generate_portfolio::<T>("to_did", variance + 800, to_user);
-    legs.push(Leg {
-        from: portfolio_from,
-        to: portfolio_to,
-        asset: ticker,
-        amount: 100u32.into(),
-    });
-    receiver_portfolios.push(portfolio_to);
-    sender_portfolios.push(portfolio_from);
-}
-
-fn generate_portfolio<T: Config + TestUtilsFn<AccountIdOf<T>>>(
-    portfolio_to: &'static str,
-    pseudo_random_no: u32,
-    user: Option<UserData<T>>,
-) -> PortfolioId {
-    let u = match user {
-        None => {
-            let user = UserBuilder::<T>::default()
-                .generate_did()
-                .seed(pseudo_random_no)
-                .build(portfolio_to);
-            UserData::from(&user)
-        }
-        Some(u) => u,
-    };
-    let portfolio_no = (Portfolio::<T>::next_portfolio_number(u.did)).0;
-    let portfolio_name =
-        PortfolioName::try_from(vec![b'P'; portfolio_no as usize].as_slice()).unwrap();
-    Portfolio::<T>::create_portfolio(
-        RawOrigin::Signed(u.account.clone()).into(),
-        portfolio_name.clone(),
-    )
-    .expect("Failed to generate portfolio");
-    PortfolioId::user_portfolio(u.did, PortfolioNumber::from(portfolio_no))
-}
-
-fn populate_legs_for_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
-    index: u32,
-    legs: &mut Vec<Leg>,
-) {
-    legs.push(Leg {
-        from: generate_portfolio::<T>("from_did", index + 500, None),
-        to: generate_portfolio::<T>("to_did", index + 800, None),
-        asset: Ticker::generate_into(index.into()),
-        amount: 100u32.into(),
-    });
-}
-
-fn verify_add_instruction<T: Config>(
-    v_id: VenueId,
-    s_type: SettlementType<T::BlockNumber>,
-) -> DispatchResult {
-    assert_eq!(
-        Module::<T>::instruction_counter(),
-        InstructionId(2),
-        "Instruction counter not increased"
-    );
-    let id = InstructionId(Module::<T>::instruction_counter().0 - 1);
-    let Instruction {
-        instruction_id,
-        venue_id,
-        settlement_type,
-        ..
-    } = Module::<T>::instruction_details(id);
-    assert_eq!(instruction_id, InstructionId(1u64));
-    assert_eq!(venue_id, v_id);
-    assert_eq!(settlement_type, s_type);
-    Ok(())
-}
-
-fn verify_add_and_affirm_instruction<T: Config>(
-    venue_id: VenueId,
-    settlement_type: SettlementType<T::BlockNumber>,
-    portfolios: Vec<PortfolioId>,
-) -> DispatchResult {
-    let _ = verify_add_instruction::<T>(venue_id, settlement_type).unwrap();
-    for portfolio_id in portfolios.iter() {
-        assert!(
-            matches!(
-                Module::<T>::affirms_received(InstructionId(1), portfolio_id),
-                AffirmationStatus::Affirmed
-            ),
-            "Affirmation fails"
-        );
-    }
-    Ok(())
-}
-
-fn emulate_add_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
-    l: u32,
-    create_portfolios: bool,
-    onchain: bool,
-) -> Result<
-    (
-        Vec<Leg>,
-        VenueId,
-        RawOrigin<T::AccountId>,
-        IdentityId,
-        Vec<PortfolioId>,
-        Vec<PortfolioId>,
-        T::AccountId,
-    ),
-    DispatchError,
-> {
-    let mut legs: Vec<Leg> = Vec::with_capacity(l as usize);
-    let mut sender_portfolios: Vec<PortfolioId> = Vec::with_capacity(l as usize);
-    let mut receiver_portfolios: Vec<PortfolioId> = Vec::with_capacity(l as usize);
-    // create venue
-    let user = creator::<T>();
-    let user_data = UserData::from(&user);
-    let venue_id = create_venue_::<T>(user_data.did, vec![user_data.account.clone()]);
-
-    // Create legs vector.
-    // Assuming the worst case where there is no dedup of `from` and `to` in the legs vector.
-    if create_portfolios {
-        // Assumption here is that instruction will never be executed as still there is one auth pending.
-        for n in 0..l {
-            setup_leg_and_portfolio::<T>(
-                &user,
-                None,
-                Some(user_data.clone()),
-                n,
-                &mut legs,
-                &mut sender_portfolios,
-                &mut receiver_portfolios,
-                onchain,
-            );
-        }
-    } else {
-        for i in 1..l {
-            populate_legs_for_instruction::<T>(i, &mut legs);
-        }
-    }
-    <pallet_timestamp::Now<T>>::set(100000000u32.into());
-    Ok((
-        legs,
-        venue_id,
-        RawOrigin::Signed(user_data.account.clone()),
-        user_data.did,
-        sender_portfolios,
-        receiver_portfolios,
-        user_data.account,
-    ))
-}
-
-fn emulate_portfolios<T: Config + TestUtilsFn<AccountIdOf<T>>>(
-    sender: Option<UserData<T>>,
-    receiver: Option<UserData<T>>,
-    ticker: Ticker,
-    index: u32,
-    legs: &mut Vec<Leg>,
-    sender_portfolios: &mut Vec<PortfolioId>,
-    receiver_portfolios: &mut Vec<PortfolioId>,
-) {
-    let transacted_amount = 500 * POLY;
-    let sender_portfolio = generate_portfolio::<T>("", index + 500, sender);
-    let receiver_portfolio = generate_portfolio::<T>("", index + 800, receiver);
-    let _ = fund_portfolio::<T>(&sender_portfolio, &ticker, transacted_amount.into());
-    sender_portfolios.push(sender_portfolio);
-    receiver_portfolios.push(receiver_portfolio);
-    legs.push(Leg {
-        from: sender_portfolio,
-        to: receiver_portfolio,
-        asset: ticker,
-        amount: transacted_amount.into(),
-    })
-}
-
-// Generate signature.
-fn get_encoded_signature<T: Config>(signer: &User<T>, msg: &Receipt<Balance>) -> Vec<u8> {
-    let raw_signature: [u8; 64] = signer.sign(&msg.encode()).expect("Data cannot be signed").0;
-    let encoded = MultiSignature::from(Signature::from_raw(raw_signature)).encode();
-    encoded
-}
-
-fn add_trusted_issuer<T: Config>(
-    origin: RawOrigin<T::AccountId>,
-    ticker: Ticker,
-    issuer: TrustedIssuer,
-) {
-    pallet_compliance_manager::Module::<T>::add_default_trusted_claim_issuer(
-        origin.into(),
-        ticker,
-        issuer,
-    )
-    .expect("Default trusted claim issuer cannot be added");
-}
-
-pub fn setup_conditions<T: Config>(
-    count: u32,
-    trusted_issuer: TrustedIssuer,
-    dids: Vec<IdentityId>,
-) -> Vec<Condition> {
-    (0..count)
-        .map(|i| {
-            let scope = Scope::Custom((vec![i]).encode());
-            let claim = Claim::Jurisdiction(CountryCode::AF, scope.clone());
-            for did in &dids {
-                pallet_identity::Module::<T>::unverified_add_claim_with_scope(
-                    did.clone(),
-                    claim.clone(),
-                    Some(scope.clone()),
-                    trusted_issuer.issuer,
-                    None,
-                );
-            }
-            Condition::new(
-                ConditionType::IsPresent(claim),
-                vec![trusted_issuer.clone()],
-            )
-        })
-        .collect()
-}
-
-pub fn compliance_setup<T: Config>(
-    max_complexity: u32,
-    ticker: Ticker,
-    origin: RawOrigin<T::AccountId>,
-    from_did: IdentityId,
-    to_did: IdentityId,
-    trusted_issuer: TrustedIssuer,
-) {
-    // Add investor uniqueness claim.
-    <T as pallet_compliance_manager::Config>::Asset::add_investor_uniqueness_claim(
-        from_did, ticker,
-    );
-    <T as pallet_compliance_manager::Config>::Asset::add_investor_uniqueness_claim(to_did, ticker);
-    // Add trusted issuer.
-    add_trusted_issuer::<T>(origin.clone(), ticker, trusted_issuer.clone());
-
-    let conditions =
-        setup_conditions::<T>(max_complexity / 2, trusted_issuer, vec![from_did, to_did]);
-    pallet_compliance_manager::Module::<T>::add_compliance_requirement(
-        origin.clone().into(),
-        ticker,
-        conditions.clone(),
-        conditions,
-    )
-    .expect("Failed to add the asset compliance");
-}
-
-fn setup_affirm_instruction<T: Config + TestUtilsFn<AccountIdOf<T>>>(
-    l: u32,
-) -> (
-    Vec<PortfolioId>,
-    UserData<T>,
-    UserData<T>,
-    Vec<Ticker>,
-    Vec<Leg>,
-) {
-    // create venue
-    let from = creator::<T>();
-    let venue_id = create_venue_::<T>(from.did(), vec![]);
-    let settlement_type: SettlementType<T::BlockNumber> = SettlementType::SettleOnAffirmation;
-    let to = UserBuilder::<T>::default().generate_did().build("receiver");
-    let mut portfolios_from: Vec<PortfolioId> = Vec::with_capacity(l as usize);
-    let mut portfolios_to: Vec<PortfolioId> = Vec::with_capacity(l as usize);
-    let mut legs: Vec<Leg> = Vec::with_capacity(l as usize);
-    let mut tickers = Vec::with_capacity(l as usize);
-    let from_data = UserData::from(&from);
-    let to_data = UserData::from(&to);
-
-    for n in 0..l {
-        tickers.push(make_asset::<T>(
-            &from,
-            Some(&Ticker::generate(n as u64 + 1)),
-        ));
-        emulate_portfolios::<T>(
-            Some(from_data.clone()),
-            Some(to_data.clone()),
-            tickers[n as usize],
-            l,
-            &mut legs,
-            &mut portfolios_from,
-            &mut portfolios_to,
-        );
-    }
-    Module::<T>::add_and_affirm_instruction(
-        (RawOrigin::Signed(from_data.account.clone())).into(),
-        venue_id,
-        settlement_type,
-        None,
-        None,
-        legs.clone(),
-        portfolios_from,
-    )
-    .expect("Unable to add and affirm the instruction");
-
-    (portfolios_to, from_data, to_data, tickers, legs)
-}
-
-fn create_receipt_details<T: Config + TestUtilsFn<AccountIdOf<T>>>(
-    index: u32,
-    leg: Leg,
-) -> ReceiptDetails<T::AccountId, T::OffChainSignature> {
-    let User {
-        account, secret, ..
-    } = creator::<T>();
-    let msg = Receipt {
-        receipt_uid: index as u64,
-        from: leg.from,
-        to: leg.to,
-        asset: leg.asset,
-        amount: leg.amount,
-    };
-    let origin = RawOrigin::Signed(account.clone());
-    let creator = User {
-        account: account.clone(),
-        secret,
-        origin,
-        uid: None,
-        did: None,
-    };
-    let encoded = get_encoded_signature::<T>(&creator, &msg);
-    let signature = T::OffChainSignature::decode(&mut &encoded[..])
-        .expect("OffChainSignature cannot be decoded from a MultiSignature");
-    // Receipt details.
-    ReceiptDetails {
-        receipt_uid: index as u64,
-        leg_id: LegId(index as u64),
-        signer: account,
-        signature,
-        metadata: ReceiptMetadata::from(vec![b'D'; 10 as usize].as_slice()),
-    }
-}
-
-pub const MAX_CONDITIONS: u32 = 3;
-
-pub fn add_transfer_conditions<T: Config>(
-    ticker: Ticker,
-    origin: RawOrigin<T::AccountId>,
-    exempted_entity: IdentityId,
-    count_conditions: u32,
-) {
-    let stat_type = StatType::investor_count();
-    // Add Investor count stat.
-    <pallet_statistics::Module<T>>::set_active_asset_stats(
-        origin.clone().into(),
-        ticker.into(),
-        [stat_type].iter().cloned().collect(),
-    )
-    .expect("failed to add stats");
-
-    let conditions = (0..count_conditions)
-        .into_iter()
-        .map(|i| TransferCondition::MaxInvestorCount(i.into()))
-        .collect();
-    // Add MaxInvestorCount transfer conditions.
-    <pallet_statistics::Module<T>>::set_asset_transfer_compliance(
-        origin.clone().into(),
-        ticker.into(),
-        conditions,
-    )
-    .expect("failed to add transfer conditions");
-
-    // Exempt the user.
-    let exempt_key = TransferConditionExemptKey {
-        asset: ticker.into(),
-        op: stat_type.op,
-        claim_type: None,
-    };
-    <pallet_statistics::Module<T>>::set_entities_exempt(
-        origin.clone().into(),
-        true,
-        exempt_key,
-        [exempted_entity].iter().cloned().collect(),
-    )
-    .expect("failed to add exempted entities");
-
-    // Update investor count stats.
-    let update = StatUpdate {
-        key2: Stat2ndKey::NoClaimStat,
-        value: Some(count_conditions.into()),
-    };
-    <pallet_statistics::Module<T>>::batch_update_asset_stats(
-        origin.clone().into(),
-        ticker.into(),
-        stat_type,
-        [update].iter().cloned().collect(),
-    )
-    .expect("failed to add exempted entities");
 }
 
 /// Creates a fungible asset for the given `ticker` and returns a `Vec<LegV2>` containing `n_legs`.
@@ -825,63 +402,6 @@ benchmarks! {
         }
     }
 
-
-    add_instruction {
-
-        let l in 1 .. T::MaxNumberOfFungibleAssets::get(); // Variation for the MAX leg count.
-        // Define settlement type
-        let settlement_type = SettlementType::SettleOnAffirmation;
-        // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , _, _, _ ) = emulate_add_instruction::<T>(l, false, true).unwrap();
-
-    }: _(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs)
-    verify {
-        verify_add_instruction::<T>(venue_id, settlement_type).unwrap();
-    }
-
-
-    add_instruction_with_settle_on_block_type {
-        let l in 1 .. T::MaxNumberOfFungibleAssets::get(); // Variation for the MAX leg count.
-        // Define settlement type
-        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
-        set_block_number::<T>(50);
-
-        // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , _, _, _ ) = emulate_add_instruction::<T>(l, false, true).unwrap();
-
-    }: add_instruction(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs)
-    verify {
-        verify_add_instruction::<T>(venue_id, settlement_type).unwrap();
-    }
-
-
-    add_and_affirm_instruction {
-        let l in 1 .. T::MaxNumberOfFungibleAssets::get();
-        // Define settlement type
-        let settlement_type = SettlementType::SettleOnAffirmation;
-        // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true, true).unwrap();
-        let s_portfolios = portfolios.clone();
-    }: _(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs, s_portfolios)
-    verify {
-        verify_add_and_affirm_instruction::<T>(venue_id, settlement_type, portfolios).unwrap();
-    }
-
-
-    add_and_affirm_instruction_with_settle_on_block_type {
-        let l in 1 .. T::MaxNumberOfFungibleAssets::get();
-        // Define settlement type.
-        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
-        set_block_number::<T>(50);
-        // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true, true).unwrap();
-        let s_portfolios = portfolios.clone();
-    }: add_and_affirm_instruction(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs, s_portfolios)
-    verify {
-        verify_add_and_affirm_instruction::<T>(venue_id, settlement_type, portfolios).unwrap();
-    }
-
-
     set_venue_filtering {
         // Constant time function. It is only for allow venue filtering.
         let user = creator::<T>();
@@ -890,7 +410,6 @@ benchmarks! {
     verify {
         assert!(Module::<T>::venue_filtering(ticker), "Fail: set_venue_filtering failed");
     }
-
 
     allow_venues {
         // Count of venue is variant for this dispatchable.
@@ -909,7 +428,6 @@ benchmarks! {
         }
     }
 
-
     disallow_venues {
         // Count of venue is variant for this dispatchable.
         let v in 0 .. MAX_VENUE_ALLOWED;
@@ -927,79 +445,8 @@ benchmarks! {
         }
     }
 
-
-    withdraw_affirmation {
-        // Below setup is for the onchain affirmation.
-
-        let l in 0 .. T::MaxNumberOfFungibleAssets::get();
-        // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true, true).unwrap();
-        // Add instruction
-        let legs_v2: Vec<LegV2> = legs.iter().map(|leg| leg.clone().into()).collect();
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs_v2, None, true, None).unwrap();
-        let instruction_id = InstructionId(1);
-        // Affirm an instruction
-        let portfolios_set = portfolios.clone().into_iter().collect::<BTreeSet<_>>();
-        Module::<T>::unsafe_affirm_instruction(did, instruction_id, portfolios_set, l.into(), None, None).unwrap();
-
-    }: _(origin, instruction_id, portfolios, l.into())
-    verify {
-        for (idx, leg) in legs.iter().enumerate() {
-            let leg_id = u64::try_from(idx).map(LegId).unwrap_or_default();
-            assert!(matches!(Module::<T>::instruction_leg_status(instruction_id, leg_id), LegStatus::PendingTokenLock), "Fail: withdraw affirmation dispatch");
-        }
-    }
-
-    reject_instruction {
-        let l in 1 .. T::MaxNumberOfFungibleAssets::get() as u32;
-        // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , portfolios, _, account_id) = emulate_add_instruction::<T>(l, true, true).unwrap();
-        // Add and affirm instruction.
-        Module::<T>::add_and_affirm_instruction((origin.clone()).into(), venue_id, SettlementType::SettleOnAffirmation, None, None, legs, portfolios.clone()).expect("Unable to add and affirm the instruction");
-        let instruction_id = InstructionId(1);
-        let portfolio_id = (l - 1) as usize;
-    }: _(origin, instruction_id, portfolios[portfolio_id], l)
-    verify {
-        assert_eq!(Module::<T>::instruction_status(instruction_id), InstructionStatus::Rejected(frame_system::Pallet::<T>::block_number()));
-    }
-
-
-    affirm_instruction {
-        let l in 0 .. T::MaxNumberOfFungibleAssets::get() as u32; // At least 2 legs needed to achieve worst case.
-        let (portfolios_to, _, to, _, _) = setup_affirm_instruction::<T>(l);
-        let instruction_id = InstructionId(1); // It will always be `1` as we know there is no other instruction in the storage yet.
-        let to_portfolios = portfolios_to.clone();
-        let legs_count = (l / 2).into();
-    }: _(RawOrigin::Signed(to.account), instruction_id, to_portfolios, legs_count)
-    verify {
-        for p in portfolios_to.iter() {
-            assert_eq!(Module::<T>::affirms_received(instruction_id, p), AffirmationStatus::Affirmed, "Settlement: Failed to affirm instruction");
-        }
-    }
-
-    affirm_with_receipts {
-        // Catalyst here is the length of receipts vector.
-        let r in 1 .. T::MaxNumberOfFungibleAssets::get() as u32;
-        // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , s_portfolios, r_portfolios, account_id) = emulate_add_instruction::<T>(r, true, false).unwrap();
-        // Add instruction
-        let legs_v2: Vec<LegV2> = legs.iter().map(|leg| leg.clone().into()).collect();
-        Module::<T>::base_add_instruction(did, venue_id, SettlementType::SettleOnAffirmation, None, None, legs_v2, None, true, None).unwrap();
-        let instruction_id = InstructionId(1);
-        let mut receipt_details = Vec::with_capacity(r as usize);
-        legs.clone().into_iter().enumerate().for_each(|(idx, l)| {
-            receipt_details.push(create_receipt_details::<T>(idx as u32, l));
-        });
-        let s_receipt_details = receipt_details.clone();
-    }: _(origin, instruction_id, s_receipt_details, s_portfolios, r)
-    verify {
-        for (i, receipt) in receipt_details.iter().enumerate() {
-            assert_eq!(Module::<T>::instruction_leg_status(instruction_id, LegId(i as u64)),  LegStatus::ExecutionToBeSkipped(
-                receipt.signer.clone(),
-                receipt.receipt_uid,
-            ), "Settlement: Fail to affirm with receipts");
-        }
-    }
+    //affirm_with_receipts {}: _()
+    //verify { }
 
     change_receipt_validity {
         let signer = user::<T>("signer", 0);
@@ -1008,54 +455,8 @@ benchmarks! {
         assert!(Module::<T>::receipts_used(&signer.account(), 0), "Settlement: change_receipt_validity didn't work");
     }
 
-    reschedule_instruction {
-        let l = T::MaxNumberOfFungibleAssets::get() as u32;
-
-        let (portfolios_to, from, to, tickers, _) = setup_affirm_instruction::<T>(l);
-        // It will always be `1` as we know there is no other instruction in the storage yet.
-        let instruction_id = InstructionId(1);
-        let to_portfolios = portfolios_to.clone();
-        tickers.iter().for_each(|ticker| Asset::<T>::freeze(RawOrigin::Signed(from.account.clone()).into(), *ticker).unwrap());
-        Module::<T>::affirm_instruction(RawOrigin::Signed(to.account.clone()).into(), instruction_id, to_portfolios, l).unwrap();
-        next_block::<T>();
-        assert_eq!(Module::<T>::instruction_status(instruction_id), InstructionStatus::Failed);
-        tickers.iter().for_each(|ticker| Asset::<T>::unfreeze(RawOrigin::Signed(from.account.clone()).into(), *ticker).unwrap());
-    }: _(RawOrigin::Signed(to.account), instruction_id, None)
-    verify {
-        assert_eq!(Module::<T>::instruction_status(instruction_id), InstructionStatus::Pending, "Settlement: reschedule_instruction didn't work");
-        next_block::<T>();
-        assert_eq!(Module::<T>::instruction_status(instruction_id), InstructionStatus::Failed, "Settlement: reschedule_instruction didn't work");
-    }
-
-    add_instruction_with_memo_and_settle_on_block_type {
-        let l in 1 .. T::MaxNumberOfFungibleAssets::get(); // Variation for the MAX leg count.
-        // Define settlement type
-        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
-        let instruction_id = InstructionId(1);
-        set_block_number::<T>(50);
-
-        // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , _, _, _ ) = emulate_add_instruction::<T>(l, false, true).unwrap();
-
-    }: add_instruction_with_memo(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs, Some(InstructionMemo::default()))
-    verify {
-        assert_eq!(Module::<T>::memo(instruction_id).unwrap(), InstructionMemo::default());
-    }
-
-    add_and_affirm_instruction_with_memo_and_settle_on_block_type {
-        let l in 1 .. T::MaxNumberOfFungibleAssets::get();
-        // Define settlement type.
-        let settlement_type = SettlementType::SettleOnBlock(100u32.into());
-        let instruction_id = InstructionId(1);
-        set_block_number::<T>(50);
-        // Emulate the add instruction and get all the necessary arguments.
-        let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true, true).unwrap();
-        let s_portfolios = portfolios.clone();
-    }: add_and_affirm_instruction_with_memo(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs, s_portfolios, Some(InstructionMemo::default()))
-    verify {
-        verify_add_and_affirm_instruction::<T>(venue_id, settlement_type, portfolios).unwrap();
-        assert_eq!(Module::<T>::memo(instruction_id).unwrap(), InstructionMemo::default());
-    }
+    //reschedule_instruction {}: _()
+    //verify {}
 
     execute_manual_instruction {
         let l in 1..T::MaxNumberOfFungibleAssets::get() + T::MaxNumberOfNFTs::get();
@@ -1234,7 +635,8 @@ benchmarks! {
         assert!(Module::<T>::instruction_affirms_pending(instruction_id) == 0);
         assert!(Module::<T>::instruction_status(instruction_id) == InstructionStatus::Pending);
         let venue_id = Module::<T>::instruction_details(instruction_id).venue_id;
-        let mut instruction_legs: Vec<(LegId, LegV2)> = Module::<T>::get_instruction_legs(&instruction_id);
+        let mut instruction_legs: Vec<(LegId, LegV2)> =
+            InstructionLegsV2::iter_prefix(&InstructionId(1)).collect();
         instruction_legs.sort_by_key(|leg_id_leg| leg_id_leg.0);
     }
 
@@ -1255,7 +657,8 @@ benchmarks! {
             parameters.memo,
             None
         ).expect("failed to add instruction");
-        let instruction_legs: Vec<(LegId, LegV2)> = Module::<T>::get_instruction_legs(&InstructionId(1));
+        let instruction_legs: Vec<(LegId, LegV2)> =
+            InstructionLegsV2::iter_prefix(&InstructionId(1)).collect();
     }: {
         Module::<T>::unchecked_release_locks(InstructionId(1), &instruction_legs);
     }

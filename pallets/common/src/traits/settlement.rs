@@ -4,8 +4,8 @@ use frame_support::weights::Weight;
 use sp_std::vec::Vec;
 
 use polymesh_primitives::settlement::{
-    InstructionId, InstructionMemo, Leg, LegId, LegV2, ReceiptMetadata, SettlementType,
-    TransferData, VenueDetails, VenueId, VenueType,
+    InstructionId, InstructionMemo, LegId, LegV2, ReceiptMetadata, SettlementType, TransferData,
+    VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
 
@@ -22,18 +22,6 @@ decl_event!(
         VenueDetailsUpdated(IdentityId, VenueId, VenueDetails),
         /// An existing venue's type has been updated (did, venue_id, type)
         VenueTypeUpdated(IdentityId, VenueId, VenueType),
-        /// A new instruction has been created
-        /// (did, venue_id, instruction_id, settlement_type, trade_date, value_date, legs, memo)
-        InstructionCreated(
-            IdentityId,
-            VenueId,
-            InstructionId,
-            SettlementType<BlockNumber>,
-            Option<Moment>,
-            Option<Moment>,
-            Vec<Leg>,
-            Option<InstructionMemo>,
-        ),
         /// An instruction has been affirmed (did, portfolio, instruction_id)
         InstructionAffirmed(IdentityId, PortfolioId, InstructionId),
         /// An affirmation has been withdrawn (did, portfolio, instruction_id)
