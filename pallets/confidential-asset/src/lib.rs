@@ -192,7 +192,7 @@ pub trait Config:
     /// Pallet's events.
     type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
     /// Randomness source.
-    type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
+    type Randomness: Randomness<<Rng as SeedableRng>::Seed, Self::BlockNumber>;
 }
 
 /// Wrapper for Elgamal Encryption keys that correspond to `EncryptionPubKey`.
@@ -508,6 +508,9 @@ decl_storage! {
 
         /// Number of transactions in the system (It's one more than the actual number)
         TransactionCounter get(fn transaction_counter) build(|_| TransactionId(1u64)): TransactionId;
+
+        /// RngNonce - Nonce used as `subject` to `Randomness`.
+        RngNonce get(fn rng_nonce): u64;
     }
 }
 
@@ -1187,11 +1190,12 @@ impl<T: Config> Module<T> {
     }
 
     fn get_rng() -> Rng {
-        // TODO:
-        let (random_hash, _) = T::Randomness::random(b"TODO: add nonce.");
-        let seed = <u64>::decode(&mut random_hash.as_ref())
-            .expect("secure hashes should always be bigger than u64; qed");
-        Rng::seed_from_u64(seed)
+        // Increase the nonce each time.
+        let nonce = RngNonce::get();
+        RngNonce::put(nonce.wrapping_add(1));
+        // Use the `nonce` and chain randomness to generate a new seed.
+        let (random_seed, _) = T::Randomness::random(&(b"ConfidentialAsset", nonce).encode());
+        Rng::from_seed(random_seed)
     }
 }
 
