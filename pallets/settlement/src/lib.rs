@@ -81,8 +81,8 @@ use polymesh_primitives::settlement::{
     ReceiptDetails, SettlementType, TransferData, Venue, VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::{
-    storage_migrate_on, storage_migration_ver, IdentityId, PortfolioId, SecondaryKey, Ticker,
-    WeightMeter,
+    storage_migrate_on, storage_migration_ver, Balance, IdentityId, NFTs, PortfolioId,
+    SecondaryKey, Ticker, WeightMeter,
 };
 
 type Identity<T> = pallet_identity::Module<T>;
@@ -200,6 +200,10 @@ decl_error! {
         MaxNumberOfOffChainAssetsExceeded,
         /// The given number of fungible transfers was underestimated.
         NumberOfFungibleTransfersUnderestimated,
+        /// Ticker exists in the polymesh chain.
+        UnexpectedOnChainAsset,
+        /// Ticker could not be found on chain.
+        UnexpectedOFFChainAsset
     }
 }
 
@@ -898,9 +902,9 @@ impl<T: Config> Module<T> {
         Ok(instruction_id)
     }
 
-    /// Makes sure the legs are valid. For both types of assets the sender and receiver must be different,
+    /// Makes sure the legs are valid. For all types of assets the sender and receiver must be different,
     /// the amount being transferred must be greater than zero, and if filtering is enabled the venue list is also checked.
-    /// The number of fungible an non fungible assets in the legs must be within the valid limits allowed.
+    /// The number of each asset type in the legs must be within the valid limits allowed.
     /// Returns a set of the unique counter parties involved in the legs.
     fn ensure_valid_legs(
         legs: &[LegV2],
@@ -913,22 +917,19 @@ impl<T: Config> Module<T> {
             ensure!(leg.from != leg.to, Error::<T>::SameSenderReceiver);
             match &leg.asset {
                 LegAsset::Fungible { ticker, amount } => {
-                    ensure!(*amount > 0, Error::<T>::ZeroAmount);
-                    Self::ensure_venue_filtering(&mut tickers, ticker.clone(), &venue_id)?;
+                    Self::ensure_valid_fungible_leg(&mut tickers, *ticker, *amount, &venue_id)?;
                     transfer_data
                         .try_add_fungible()
                         .map_err(|_| Error::<T>::MaxNumberOfFungibleAssetsExceeded)?;
                 }
                 LegAsset::NonFungible(nfts) => {
-                    <Nft<T>>::ensure_within_nfts_transfer_limits(&nfts)?;
-                    Self::ensure_venue_filtering(&mut tickers, nfts.ticker().clone(), &venue_id)?;
-                    <Nft<T>>::ensure_no_duplicate_nfts(&nfts)?;
+                    Self::ensure_valid_nft_leg(&mut tickers, &nfts, &venue_id)?;
                     transfer_data
                         .try_add_non_fungible(&nfts)
                         .map_err(|_| Error::<T>::MaxNumberOfNFTsExceeded)?;
                 }
-                LegAsset::OffChain { .. } => {
-                    // TODO: validations
+                LegAsset::OffChain { ticker, amount } => {
+                    Self::ensure_valid_off_chain_leg(&mut tickers, *ticker, *amount, &venue_id)?;
                     transfer_data
                         .try_add_off_chain()
                         .map_err(|_| Error::<T>::MaxNumberOfOffChainAssetsExceeded)?;
@@ -1780,6 +1781,63 @@ impl<T: Config> Module<T> {
             Self::deposit_event(RawEvent::FailedToExecuteInstruction(id, e));
         }
         PostDispatchInfo::from(Some(weight_meter.consumed()))
+    }
+
+    /// Ensures all checks needed for a fungible leg hold. This includes making sure that the `amount` being
+    /// transferred is not zero, that `ticker` exists on chain and that `venue_id` is allowed.
+    fn ensure_valid_fungible_leg(
+        tickers: &mut BTreeSet<Ticker>,
+        ticker: Ticker,
+        amount: Balance,
+        venue_id: &VenueId,
+    ) -> DispatchResult {
+        ensure!(amount > 0, Error::<T>::ZeroAmount);
+        ensure!(
+            Self::is_on_chain_asset(&ticker),
+            Error::<T>::UnexpectedOFFChainAsset
+        );
+        Self::ensure_venue_filtering(tickers, ticker, venue_id)?;
+        Ok(())
+    }
+
+    /// Ensures all checks needed for a non fungible leg hold. This includes making sure that the number of NFTs being
+    /// transferred is within the defined limits, that there are no duplicate NFTs in the same leg, that `ticker` exists on chain,
+    /// and that `venue_id` is allowed.
+    fn ensure_valid_nft_leg(
+        tickers: &mut BTreeSet<Ticker>,
+        nfts: &NFTs,
+        venue_id: &VenueId,
+    ) -> DispatchResult {
+        ensure!(
+            Self::is_on_chain_asset(nfts.ticker()),
+            Error::<T>::UnexpectedOFFChainAsset
+        );
+        <Nft<T>>::ensure_within_nfts_transfer_limits(&nfts)?;
+        <Nft<T>>::ensure_no_duplicate_nfts(&nfts)?;
+        Self::ensure_venue_filtering(tickers, nfts.ticker().clone(), venue_id)?;
+        Ok(())
+    }
+
+    /// Ensures all checks needed for an off-chain asset leg hold. This includes making sure that the `amount` being
+    /// transferred is not zero, that `ticker` doesn't exist on chain and that `venue_id` is allowed.
+    fn ensure_valid_off_chain_leg(
+        tickers: &mut BTreeSet<Ticker>,
+        ticker: Ticker,
+        amount: Balance,
+        venue_id: &VenueId,
+    ) -> DispatchResult {
+        ensure!(amount > 0, Error::<T>::ZeroAmount);
+        ensure!(
+            !Self::is_on_chain_asset(&ticker),
+            Error::<T>::UnexpectedOnChainAsset
+        );
+        Self::ensure_venue_filtering(tickers, ticker, venue_id)?;
+        Ok(())
+    }
+
+    /// Returns true if the ticker is on-chain and false otherwise.
+    fn is_on_chain_asset(ticker: &Ticker) -> bool {
+        pallet_asset::Tokens::contains_key(ticker)
     }
 
     /// Returns an instance of `ExecuteInstructionInfo`, which contains the number of fungible and non fungible assets
