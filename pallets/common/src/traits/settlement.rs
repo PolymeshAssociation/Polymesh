@@ -86,25 +86,13 @@ pub trait WeightInfo {
     fn update_venue_details(d: u32) -> Weight;
     fn update_venue_type() -> Weight;
     fn update_venue_signers(u: u32) -> Weight;
-    fn add_instruction(u: u32) -> Weight;
-    fn add_and_affirm_instruction(u: u32) -> Weight;
-    fn affirm_instruction(l: u32) -> Weight;
-    fn withdraw_affirmation(u: u32) -> Weight;
     fn affirm_with_receipts(r: u32) -> Weight;
     fn set_venue_filtering() -> Weight;
     fn allow_venues(u: u32) -> Weight;
     fn disallow_venues(u: u32) -> Weight;
-    fn reject_instruction(u: u32) -> Weight;
     fn change_receipt_validity() -> Weight;
     fn reschedule_instruction() -> Weight;
     fn execute_manual_instruction(l: u32) -> Weight;
-
-    // Some multiple paths based extrinsic.
-    // TODO: Will be removed once we get the worst case weight.
-    fn add_instruction_with_settle_on_block_type(u: u32) -> Weight;
-    fn add_and_affirm_instruction_with_settle_on_block_type(u: u32) -> Weight;
-    fn add_instruction_with_memo_and_settle_on_block_type(u: u32) -> Weight;
-    fn add_and_affirm_instruction_with_memo_and_settle_on_block_type(u: u32) -> Weight;
     fn add_instruction_with_memo_v2(f: u32) -> Weight;
     fn add_and_affirm_instruction_with_memo_v2(f: u32, n: u32) -> Weight;
     fn affirm_instruction_v2(f: u32, n: u32) -> Weight;
@@ -126,8 +114,11 @@ pub trait WeightInfo {
     fn execute_instruction_paused(f: u32, n: u32) -> Weight;
     fn execute_scheduled_instruction(f: u32, n: u32) -> Weight;
     fn get_transfer_by_asset(legs_v2: &[LegV2]) -> (u32, u32) {
-        let transfer_data =
-            TransferData::from_legs(legs_v2).unwrap_or(TransferData::new(u32::MAX, u32::MAX));
+        let transfer_data = TransferData::from_legs(legs_v2).unwrap_or(TransferData::new(
+            u32::MAX,
+            u32::MAX,
+            u32::MAX,
+        ));
         (transfer_data.fungible(), transfer_data.non_fungible())
     }
 }

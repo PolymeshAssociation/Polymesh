@@ -189,6 +189,13 @@ pub enum LegAsset {
     },
     /// Non Fungible token.
     NonFungible(NFTs),
+    /// Assets that don't settle on-chain (e.g USD).
+    OffChain {
+        /// Ticker for the off-chain asset.
+        ticker: Ticker,
+        /// Amount transferred.
+        amount: Balance,
+    },
 }
 
 impl LegAsset {
@@ -197,6 +204,7 @@ impl LegAsset {
         match self {
             LegAsset::Fungible { ticker, amount } => (*ticker, *amount),
             LegAsset::NonFungible(nfts) => (*nfts.ticker(), nfts.len() as Balance),
+            LegAsset::OffChain { ticker, amount } => (*ticker, *amount),
         }
     }
 }
@@ -271,14 +279,16 @@ pub struct ReceiptDetails<AccountId, OffChainSignature> {
 pub struct TransferData {
     fungible: u32,
     non_fungible: u32,
+    off_chain: u32,
 }
 
 impl TransferData {
     /// Creates an instance of `TransfersData`.
-    pub fn new(fungible: u32, non_fungible: u32) -> Self {
+    pub fn new(fungible: u32, non_fungible: u32, off_chain: u32) -> Self {
         TransferData {
             fungible,
             non_fungible,
+            off_chain,
         }
     }
 
@@ -292,6 +302,11 @@ impl TransferData {
         self.non_fungible
     }
 
+    /// Returns the number of off-chain assets.
+    pub fn off_chain(&self) -> u32 {
+        self.off_chain
+    }
+
     /// Adds one to the number of fungible transfers.
     pub fn add_fungible(&mut self) {
         self.fungible += 1;
@@ -300,6 +315,11 @@ impl TransferData {
     /// Adds `nfts.len()` to the number of non fungible transfers.
     pub fn add_non_fungible(&mut self, nfts: &NFTs) {
         self.non_fungible += nfts.len() as u32;
+    }
+
+    /// Adds one to the number of off-chain assets.
+    pub fn add_off_chain(&mut self) {
+        self.off_chain += 1;
     }
 
     /// Adds one to the number of fungible assets.
@@ -329,6 +349,18 @@ impl TransferData {
         Ok(())
     }
 
+    /// Adds one to the number of off-chain assets.
+    /// Returns an error if the number of off-chain assets is greater than 1024.
+    pub fn try_add_off_chain(&mut self) -> Result<(), String> {
+        if self.off_chain + 1 > 1024 {
+            return Err(String::from(
+                "Number of off-chain assets is greater than allowed",
+            ));
+        }
+        self.off_chain += 1;
+        Ok(())
+    }
+
     /// Gets the `TransferData` from a slice of `LegV2`.
     pub fn from_legs(legs_v2: &[LegV2]) -> Result<TransferData, String> {
         let mut transfer_data = TransferData::default();
@@ -336,6 +368,7 @@ impl TransferData {
             match &leg_v2.asset {
                 LegAsset::Fungible { .. } => transfer_data.try_add_fungible()?,
                 LegAsset::NonFungible(nfts) => transfer_data.try_add_non_fungible(&nfts)?,
+                LegAsset::OffChain { .. } => transfer_data.try_add_off_chain()?,
             }
         }
         Ok(transfer_data)

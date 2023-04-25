@@ -128,6 +128,9 @@ pub trait Config:
 
     /// Maximum number of NFTs that can be transferred in a instruction.
     type MaxNumberOfNFTs: Get<u32>;
+
+    /// Maximum number of off-chain assets that can be transferred in a instruction.
+    type MaxNumberOfOffChainAssets: Get<u32>;
 }
 
 decl_error! {
@@ -137,22 +140,16 @@ decl_error! {
         InvalidVenue,
         /// Sender does not have required permissions.
         Unauthorized,
-        /// No pending affirmation for the provided instruction.
-        NoPendingAffirm,
         /// Instruction has not been affirmed.
         InstructionNotAffirmed,
         /// Provided instruction is not pending execution.
         InstructionNotPending,
         /// Provided instruction is not failing execution.
         InstructionNotFailed,
-        /// Provided leg is not pending execution.
-        LegNotPending,
         /// Signer is not authorized by the venue.
         UnauthorizedSigner,
         /// Receipt already used.
         ReceiptAlreadyClaimed,
-        /// Receipt not used yet.
-        ReceiptNotClaimed,
         /// Venue does not have required permissions.
         UnauthorizedVenue,
         /// While affirming the transfer, system failed to lock the assets involved.
@@ -171,8 +168,6 @@ decl_error! {
         PortfolioMismatch,
         /// The provided settlement block number is in the past and cannot be used by the scheduler.
         SettleOnPastBlock,
-        /// Portfolio based actions require at least one portfolio to be provided as input.
-        NoPortfolioProvided,
         /// The current instruction affirmation status does not support the requested action.
         UnexpectedAffirmationStatus,
         /// Scheduling of an instruction fails.
@@ -181,8 +176,6 @@ decl_error! {
         LegCountTooSmall,
         /// Instruction status is unknown
         UnknownInstruction,
-        /// Maximum legs that can be in a single instruction.
-        InstructionHasTooManyLegs,
         /// Signer is already added to venue.
         SignerAlreadyExists,
         /// Signer is not added to venue.
@@ -193,20 +186,20 @@ decl_error! {
         InstructionSettleBlockNotReached,
         /// The caller is not a party of this instruction.
         CallerIsNotAParty,
-        /// Expected a different type of asset in a leg.
-        InvalidLegAsset,
         /// The number of nfts being transferred in the instruction was exceeded.
         MaxNumberOfNFTsExceeded,
-        /// The maximum number of nfts being transferred in one leg was exceeded.
-        MaxNumberOfNFTsPerLegExceeded,
         /// The given number of nfts being transferred was underestimated.
         NumberOfTransferredNFTsUnderestimated,
-        /// Deprecated function has been called on a v2 instruction.
-        DeprecatedCallOnV2Instruction,
         /// Off-chain receipts are not accepted for non-fungible tokens.
         ReceiptForNonFungibleAsset,
         /// The maximum weight limit for executing the function was exceeded.
         WeightLimitExceeded,
+        /// The maximum number of fungible assets was exceeded.
+        MaxNumberOfFungibleAssetsExceeded,
+        /// The maximum number of off-chain assets was exceeded.
+        MaxNumberOfOffChainAssetsExceeded,
+        /// The given number of fungible transfers was underestimated.
+        NumberOfFungibleTransfersUnderestimated,
     }
 }
 
@@ -379,7 +372,7 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::affirm_with_receipts(*max_legs_count as u32).max(<T as Config>::WeightInfo::affirm_instruction(*max_legs_count as u32))]
+        #[weight = 1_000]
         pub fn affirm_with_receipts(
             origin,
             id: InstructionId,
@@ -771,6 +764,7 @@ impl<T: Config> Module<T> {
                 }
                 Ok(())
             }),
+            LegAsset::OffChain { .. } => Ok(()),
         }
     }
 
@@ -785,6 +779,7 @@ impl<T: Config> Module<T> {
                 }
                 Ok(())
             }),
+            LegAsset::OffChain { .. } => Ok(()),
         }
     }
 
@@ -911,8 +906,7 @@ impl<T: Config> Module<T> {
         legs: &[LegV2],
         venue_id: VenueId,
     ) -> Result<InstructionInfo, DispatchError> {
-        let mut nfts_transfers = 0;
-        let mut fungible_transfers = 0;
+        let mut transfer_data = TransferData::default();
         let mut parties = BTreeSet::new();
         let mut tickers = BTreeSet::new();
         for leg in legs {
@@ -921,30 +915,41 @@ impl<T: Config> Module<T> {
                 LegAsset::Fungible { ticker, amount } => {
                     ensure!(*amount > 0, Error::<T>::ZeroAmount);
                     Self::ensure_venue_filtering(&mut tickers, ticker.clone(), &venue_id)?;
-                    fungible_transfers += 1;
+                    transfer_data
+                        .try_add_fungible()
+                        .map_err(|_| Error::<T>::MaxNumberOfFungibleAssetsExceeded)?;
                 }
                 LegAsset::NonFungible(nfts) => {
                     <Nft<T>>::ensure_within_nfts_transfer_limits(&nfts)?;
                     Self::ensure_venue_filtering(&mut tickers, nfts.ticker().clone(), &venue_id)?;
                     <Nft<T>>::ensure_no_duplicate_nfts(&nfts)?;
-                    nfts_transfers += nfts.len();
+                    transfer_data
+                        .try_add_non_fungible(&nfts)
+                        .map_err(|_| Error::<T>::MaxNumberOfNFTsExceeded)?;
+                }
+                LegAsset::OffChain { .. } => {
+                    // TODO: validations
+                    transfer_data
+                        .try_add_off_chain()
+                        .map_err(|_| Error::<T>::MaxNumberOfOffChainAssetsExceeded)?;
                 }
             }
             parties.insert(leg.from);
             parties.insert(leg.to);
         }
         ensure!(
-            nfts_transfers <= T::MaxNumberOfNFTs::get() as usize,
+            transfer_data.non_fungible() <= T::MaxNumberOfNFTs::get(),
             Error::<T>::MaxNumberOfNFTsExceeded
         );
         ensure!(
-            fungible_transfers <= T::MaxNumberOfFungibleAssets::get(),
-            Error::<T>::InstructionHasTooManyLegs
+            transfer_data.fungible() <= T::MaxNumberOfFungibleAssets::get(),
+            Error::<T>::MaxNumberOfFungibleAssetsExceeded
         );
-        Ok(InstructionInfo::new(
-            parties,
-            TransferData::new(fungible_transfers, nfts_transfers as u32),
-        ))
+        ensure!(
+            transfer_data.off_chain() <= T::MaxNumberOfOffChainAssets::get(),
+            Error::<T>::MaxNumberOfOffChainAssetsExceeded
+        );
+        Ok(InstructionInfo::new(parties, transfer_data))
     }
 
     fn unsafe_withdraw_instruction_affirmation(
@@ -1153,6 +1158,9 @@ impl<T: Config> Module<T> {
                         {
                             return TransactionOutcome::Rollback(Ok(Err(*leg_id)));
                         }
+                    }
+                    LegAsset::OffChain { .. } => {
+                        // TODO: off_chain
                     }
                 }
             }
@@ -1708,6 +1716,7 @@ impl<T: Config> Module<T> {
             match &leg_v2.asset {
                 LegAsset::Fungible { .. } => transfer_data.add_fungible(),
                 LegAsset::NonFungible(nfts) => transfer_data.add_non_fungible(&nfts),
+                LegAsset::OffChain { .. } => transfer_data.add_off_chain(),
             }
         }
         transfer_data
@@ -1727,7 +1736,7 @@ impl<T: Config> Module<T> {
         // Verifies if the number of fungible transfers is under the limit
         ensure!(
             transfer_data.fungible() <= fungible_transfers,
-            Error::<T>::LegCountTooSmall
+            Error::<T>::NumberOfFungibleTransfersUnderestimated
         );
         Ok(())
     }
@@ -1813,6 +1822,7 @@ impl<T: Config> Module<T> {
                         &mut weight_meter,
                     )?;
                 }
+                LegAsset::OffChain { .. } => unimplemented!(),
             }
         }
         Ok(ExecuteInstructionInfo::new(
