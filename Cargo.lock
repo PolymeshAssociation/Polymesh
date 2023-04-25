@@ -998,9 +998,9 @@ dependencies = [
 
 [[package]]
 name = "confidential_identity_core"
-version = "1.1.1"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8f1f8380aeb30d18810ea5b900120456cf257c50131ce7760c6e509e5e33a56"
+checksum = "6c054a32f6ebb95f6f6e6631be0db04fb770eae53d1de38e87663e346c2f0293"
 dependencies = [
  "blake2",
  "bulletproofs",
@@ -1020,9 +1020,9 @@ dependencies = [
 
 [[package]]
 name = "confidential_identity_v1"
-version = "1.1.1"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37c51392e6439c55efc843b9085dee0c21e496621788bae8ffac9b3fe224b74e"
+checksum = "82cc87f28deea9c51e94157efdeaf7fdbfda2c258ebb9bb7b648f5a78dcdfdac"
 dependencies = [
  "blake2",
  "byteorder",
@@ -1044,9 +1044,9 @@ dependencies = [
 
 [[package]]
 name = "confidential_identity_v2"
-version = "2.1.1"
+version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2acb6ce1c002176a7279510e113cf25e8f1410424834eb023e04fc74e76f8ac"
+checksum = "cff6815dedb8ca89a080ef1b939dae28e46ea1c9f593ad77e57c654a40fbb10d"
 dependencies = [
  "blake2",
  "byteorder",
@@ -4009,9 +4009,9 @@ checksum = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 
 [[package]]
 name = "mercat"
-version = "1.1.1"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64027074f86a11aeb9e5a778c210f8da135969d3ad3892a754496a6b48d30da6"
+checksum = "7b0ef0039002efb3b19ec8e24c3d07ddc2cbed8b414f5328d4b24baaae539aea"
 dependencies = [
  "byteorder",
  "confidential_identity_core",
