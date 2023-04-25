@@ -15,7 +15,6 @@
 
 use std::sync::Arc;
 
-use frame_support::dispatch::DispatchError;
 use jsonrpsee::{
     core::RpcResult,
     proc_macros::rpc,
@@ -38,7 +37,7 @@ pub trait SettlementApi<BlockHash> {
         &self,
         instruction_id: InstructionId,
         at: Option<BlockHash>,
-    ) -> RpcResult<Result<ExecuteInstructionInfo, DispatchError>>;
+    ) -> RpcResult<ExecuteInstructionInfo>;
 }
 
 /// An implementation of Settlement specific RPC methods.
@@ -67,7 +66,7 @@ where
         &self,
         instruction_id: InstructionId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Result<ExecuteInstructionInfo, DispatchError>> {
+    ) -> RpcResult<ExecuteInstructionInfo> {
         let api = self.client.runtime_api();
         // If the block hash is not supplied assume the best block.
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));

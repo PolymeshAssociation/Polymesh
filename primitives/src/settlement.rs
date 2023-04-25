@@ -18,6 +18,7 @@
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
+use codec::alloc::string::ToString;
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
 use scale_info::prelude::string::String;
@@ -406,6 +407,11 @@ impl InstructionInfo {
     pub fn nfts_transferred(&self) -> u32 {
         self.transfer_data.non_fungible()
     }
+
+    /// Returns the number of off-chain transfers.
+    pub fn off_chain(&self) -> u32 {
+        self.transfer_data.off_chain()
+    }
 }
 
 /// Provides details of the pruned instruction.
@@ -444,17 +450,29 @@ pub struct ExecuteInstructionInfo {
     fungible_tokens: u32,
     /// Number of non fungible tokens in the instruction.
     non_fungible_tokens: u32,
+    /// Number of off-chain assets in the instruction.
+    off_chain_assets: u32,
     /// The weight needed for executing the instruction.
     consumed_weight: Weight,
+    /// If the instruction would fail, contains the error.
+    error: Option<String>,
 }
 
 impl ExecuteInstructionInfo {
     /// Creates an instance of `ExecuteInstructionInfo`.
-    pub fn new(fungible_tokens: u32, non_fungible_tokens: u32, consumed_weight: Weight) -> Self {
+    pub fn new(
+        fungible_tokens: u32,
+        non_fungible_tokens: u32,
+        off_chain_assets: u32,
+        consumed_weight: Weight,
+        error: Option<&str>,
+    ) -> Self {
         Self {
             fungible_tokens,
             non_fungible_tokens,
+            off_chain_assets,
             consumed_weight,
+            error: error.map(|e| e.to_string()),
         }
     }
 }
