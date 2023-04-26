@@ -192,7 +192,7 @@ pub trait Config:
     /// Pallet's events.
     type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
     /// Randomness source.
-    type Randomness: Randomness<<Rng as SeedableRng>::Seed, Self::BlockNumber>;
+    type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
 }
 
 /// Wrapper for Elgamal Encryption keys that correspond to `EncryptionPubKey`.
@@ -1194,8 +1194,12 @@ impl<T: Config> Module<T> {
         let nonce = RngNonce::get();
         RngNonce::put(nonce.wrapping_add(1));
         // Use the `nonce` and chain randomness to generate a new seed.
-        let (random_seed, _) = T::Randomness::random(&(b"ConfidentialAsset", nonce).encode());
-        Rng::from_seed(random_seed)
+        let (random_hash, _) = T::Randomness::random(&(b"ConfidentialAsset", nonce).encode());
+        let s = random_hash.as_ref();
+        let mut seed = [0u8; 32];
+        let len = seed.len().min(s.len());
+        seed[..len].copy_from_slice(&s[..len]);
+        Rng::from_seed(seed)
     }
 }
 
