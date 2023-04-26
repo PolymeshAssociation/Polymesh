@@ -1220,15 +1220,15 @@ fn claim_multiple_receipts_during_authorization() {
         let mut bob = UserWithBalance::new(AccountKeyring::Bob, &[TICKER]);
         let venue_counter = create_venue(alice.user);
         let instruction_id = Settlement::instruction_counter();
-        let amount = 100u128;
         alice.refresh_init_balances();
         bob.refresh_init_balances();
+        let amount = 100;
 
         let legs = vec![
             LegV2 {
                 from: PortfolioId::default_portfolio(alice.did),
                 to: PortfolioId::default_portfolio(bob.did),
-                asset: LegAsset::Fungible {
+                asset: LegAsset::OffChain {
                     ticker: TICKER,
                     amount,
                 },
@@ -1236,7 +1236,7 @@ fn claim_multiple_receipts_during_authorization() {
             LegV2 {
                 from: PortfolioId::default_portfolio(alice.did),
                 to: PortfolioId::default_portfolio(bob.did),
-                asset: LegAsset::Fungible {
+                asset: LegAsset::OffChain {
                     ticker: TICKER2,
                     amount,
                 },
@@ -1256,7 +1256,6 @@ fn claim_multiple_receipts_during_authorization() {
 
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
-
         let msg1 = Receipt {
             receipt_uid: 0,
             from: PortfolioId::default_portfolio(alice.did),
@@ -1345,7 +1344,6 @@ fn claim_multiple_receipts_during_authorization() {
 
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
-
         set_current_block_number(1);
 
         assert_affirm_instruction_with_zero_leg!(bob.origin(), instruction_id, bob.did);
@@ -1395,7 +1393,7 @@ fn overload_instruction() {
                 None,
                 None
             ),
-            Error::InstructionHasTooManyLegs
+            Error::MaxNumberOfFungibleAssetsExceeded
         );
         legs.truncate(leg_limit);
         assert_ok!(Settlement::add_instruction_with_memo_v2(
@@ -2918,7 +2916,7 @@ fn add_same_nft_different_legs() {
     });
 }
 
-/// Receipts can only be used for fungible assets
+/// Receipts can only be used for offchain assets.
 #[test]
 fn add_and_affirm_with_receipts_nfts() {
     test_with_cdd_provider(|_eve| {
@@ -2981,7 +2979,91 @@ fn add_and_affirm_with_receipts_nfts() {
                 vec![PortfolioId::default_portfolio(alice.did)],
                 1
             ),
-            Error::ReceiptForNonFungibleAsset
+            Error::ReceiptForInvalidLegType
+        );
+    });
+}
+
+/// An instruction must reject legs that are not of type off-chain if the ticker is not on chain.
+#[test]
+fn add_instruction_unexpected_offchain_asset() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let venue_counter = create_venue(alice);
+
+        let nfts = NFTs::new_unverified(TICKER, vec![NFTId(1)]);
+        let legs: Vec<LegV2> = vec![LegV2 {
+            from: PortfolioId::default_portfolio(alice.did),
+            to: PortfolioId::default_portfolio(bob.did),
+            asset: LegAsset::NonFungible(nfts),
+        }];
+        assert_noop!(
+            Settlement::add_instruction_with_memo_v2(
+                alice.origin(),
+                venue_counter,
+                SettlementType::SettleOnAffirmation,
+                None,
+                None,
+                legs,
+                Some(InstructionMemo::default()),
+                None
+            ),
+            Error::UnexpectedOFFChainAsset
+        );
+
+        let legs: Vec<LegV2> = vec![LegV2 {
+            from: PortfolioId::default_portfolio(alice.did),
+            to: PortfolioId::default_portfolio(bob.did),
+            asset: LegAsset::Fungible {
+                ticker: TICKER,
+                amount: 1,
+            },
+        }];
+        assert_noop!(
+            Settlement::add_instruction_with_memo_v2(
+                alice.origin(),
+                venue_counter,
+                SettlementType::SettleOnAffirmation,
+                None,
+                None,
+                legs,
+                Some(InstructionMemo::default()),
+                None
+            ),
+            Error::UnexpectedOFFChainAsset
+        );
+    });
+}
+
+/// An instruction must reject off-chain legs for ticker that exist on chain.
+#[test]
+fn add_instruction_unexpected_onchain_asset() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let venue_counter = create_token_and_venue(TICKER, alice);
+
+        let legs: Vec<LegV2> = vec![LegV2 {
+            from: PortfolioId::default_portfolio(alice.did),
+            to: PortfolioId::default_portfolio(bob.did),
+            asset: LegAsset::OffChain {
+                ticker: TICKER,
+                amount: 1,
+            },
+        }];
+        assert_noop!(
+            Settlement::add_instruction_with_memo_v2(
+                alice.origin(),
+                venue_counter,
+                SettlementType::SettleOnAffirmation,
+                None,
+                None,
+                legs,
+                Some(InstructionMemo::default()),
+                None
+            ),
+            Error::UnexpectedOnChainAsset
         );
     });
 }

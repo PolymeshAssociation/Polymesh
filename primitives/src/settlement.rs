@@ -208,6 +208,14 @@ impl LegAsset {
             LegAsset::OffChain { ticker, amount } => (*ticker, *amount),
         }
     }
+
+    /// Returns true if it's an off-chain leg.
+    pub fn is_off_chain(&self) -> bool {
+        if let LegAsset::OffChain { .. } = self {
+            return true;
+        }
+        false
+    }
 }
 
 impl Default for LegAsset {

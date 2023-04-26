@@ -190,8 +190,8 @@ decl_error! {
         MaxNumberOfNFTsExceeded,
         /// The given number of nfts being transferred was underestimated.
         NumberOfTransferredNFTsUnderestimated,
-        /// Off-chain receipts are not accepted for non-fungible tokens.
-        ReceiptForNonFungibleAsset,
+        /// Off-chain receipts can only be used for off-chain leg type.
+        ReceiptForInvalidLegType,
         /// The maximum weight limit for executing the function was exceeded.
         WeightLimitExceeded,
         /// The maximum number of fungible assets was exceeded.
@@ -1380,9 +1380,10 @@ impl<T: Config> Module<T> {
             );
 
             let leg = InstructionLegsV2::get(&id, &receipt.leg_id);
-            if let LegAsset::NonFungible(_) = leg.asset {
-                return Err(Error::<T>::ReceiptForNonFungibleAsset.into());
-            }
+            ensure!(
+                leg.asset.is_off_chain(),
+                Error::<T>::ReceiptForInvalidLegType
+            );
             ensure!(
                 portfolios_set.contains(&leg.from),
                 Error::<T>::PortfolioMismatch
