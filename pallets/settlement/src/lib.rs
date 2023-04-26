@@ -203,7 +203,11 @@ decl_error! {
         /// Ticker exists in the polymesh chain.
         UnexpectedOnChainAsset,
         /// Ticker could not be found on chain.
-        UnexpectedOFFChainAsset
+        UnexpectedOFFChainAsset,
+        /// Off-Chain assets cannot be locked.
+        OffChainAssetCantBeLocked,
+        /// Off-Chain assets must be Affirmed with Receipts.
+        OffChainAssetMustBeAffirmedWithReceipts
     }
 }
 
@@ -768,7 +772,7 @@ impl<T: Config> Module<T> {
                 }
                 Ok(())
             }),
-            LegAsset::OffChain { .. } => Ok(()),
+            LegAsset::OffChain { .. } => Err(Error::<T>::OffChainAssetCantBeLocked.into()),
         }
     }
 
@@ -783,7 +787,7 @@ impl<T: Config> Module<T> {
                 }
                 Ok(())
             }),
-            LegAsset::OffChain { .. } => Ok(()),
+            LegAsset::OffChain { .. } => Err(Error::<T>::OffChainAssetCantBeLocked.into()),
         }
     }
 
@@ -1223,8 +1227,12 @@ impl<T: Config> Module<T> {
         let (total_leg_count, filtered_legs) =
             Self::filtered_legs(&id, &portfolios, fungible_transfers, nfts_trasferred)?;
         with_transaction(|| {
-            for (leg_id, leg_details) in filtered_legs {
-                Self::lock_via_leg(&leg_details)?;
+            for (leg_id, leg) in filtered_legs {
+                ensure!(
+                    !leg.asset.is_off_chain(),
+                    Error::<T>::OffChainAssetMustBeAffirmedWithReceipts
+                );
+                Self::lock_via_leg(&leg)?;
                 <InstructionLegStatus<T>>::insert(id, leg_id, LegStatus::ExecutionPending);
             }
             Ok(())

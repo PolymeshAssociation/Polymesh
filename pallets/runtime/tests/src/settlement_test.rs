@@ -3036,7 +3036,7 @@ fn add_instruction_unexpected_offchain_asset() {
     });
 }
 
-/// An instruction must reject off-chain legs for ticker that exist on chain.
+/// An instruction must reject off-chain legs for ticker that exists on chain.
 #[test]
 fn add_instruction_unexpected_onchain_asset() {
     ExtBuilder::default().build().execute_with(|| {
@@ -3064,6 +3064,47 @@ fn add_instruction_unexpected_onchain_asset() {
                 None
             ),
             Error::UnexpectedOnChainAsset
+        );
+    });
+}
+
+/// Off-chain assets can only be affirmed with receipts.
+#[test]
+fn affirm_offchain_asset_without_receipt() {
+    ExtBuilder::default().build().execute_with(|| {
+        let alice = User::new(AccountKeyring::Alice);
+        let bob = User::new(AccountKeyring::Bob);
+        let venue = create_venue(alice);
+        let alice_portfolio = PortfolioId::default_portfolio(alice.did);
+
+        let legs: Vec<LegV2> = vec![LegV2 {
+            from: alice_portfolio,
+            to: PortfolioId::default_portfolio(bob.did),
+            asset: LegAsset::OffChain {
+                ticker: TICKER,
+                amount: 1,
+            },
+        }];
+        assert_ok!(Settlement::add_instruction_with_memo_v2(
+            alice.origin(),
+            venue,
+            SettlementType::SettleOnAffirmation,
+            None,
+            None,
+            legs,
+            Some(InstructionMemo::default()),
+            None
+        ),);
+        assert_noop!(
+            Settlement::affirm_instruction_v2(
+                alice.origin(),
+                InstructionId(0),
+                vec![alice_portfolio],
+                0,
+                0,
+                None
+            ),
+            Error::OffChainAssetMustBeAffirmedWithReceipts
         );
     });
 }
