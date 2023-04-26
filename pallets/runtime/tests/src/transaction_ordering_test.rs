@@ -2,18 +2,17 @@ use super::{
     storage::{TestStorage, User},
     ExtBuilder,
 };
-use codec::{Decode, Encode};
+use codec::Encode;
 use frame_support::assert_ok;
 
 use mercat::{
     confidential_identity_core::asset_proofs::AssetId,
     transaction::{CtxMediator, CtxReceiver, CtxSender},
-    Account, EncryptedAmount, FinalizedTransferTx, InitializedTransferTx, PubAccount, SecAccount,
-    TransferTransactionMediator, TransferTransactionReceiver, TransferTransactionSender,
+    Account, EncryptedAmount, PubAccount, SecAccount, TransferTransactionMediator,
+    TransferTransactionReceiver, TransferTransactionSender,
 };
 use pallet_confidential_asset::{
-    Base64Vec, MercatAccountId, TransactionId, TransactionLeg, TransactionLegId,
-    TransactionLegProofs, VenueId,
+    MercatAccountId, TransactionId, TransactionLeg, TransactionLegId, TransactionLegProofs, VenueId,
 };
 use polymesh_primitives::Ticker;
 use rand::prelude::*;
@@ -90,7 +89,7 @@ fn initialize_transaction(
             &mut rng,
         )
         .unwrap();
-    let initialized_tx = TransactionLegProofs::new_sender(Base64Vec::new(sender_data.encode()));
+    let initialized_tx = TransactionLegProofs::new_sender(sender_data.encode());
     // Sender authorizes the transaction and passes in the proofs.
     assert_ok!(ConfidentialAsset::affirm_transaction(
         sender_creds.user.origin(),
@@ -107,10 +106,7 @@ fn initialize_transaction(
             sender: Some(init),
             receiver: None,
             mediator: None,
-        } => {
-            let mut data: &[u8] = &init.decode().unwrap();
-            InitializedTransferTx::decode(&mut data).unwrap()
-        }
+        } => init.try_decode().unwrap(),
         _ => {
             panic!("Unexpected data type");
         }
@@ -119,7 +115,7 @@ fn initialize_transaction(
     let receiver_encrypted_transfer_amount = decoded_initialized_tx.memo.enc_amount_using_receiver;
 
     // Receiver computes the proofs in the wallet.
-    let finalized_tx = TransactionLegProofs::new_receiver(Base64Vec::new(
+    let finalized_tx = TransactionLegProofs::new_receiver(
         CtxReceiver
             .finalize_transaction(
                 decoded_initialized_tx,
@@ -132,7 +128,7 @@ fn initialize_transaction(
             )
             .unwrap()
             .encode(),
-    ));
+    );
 
     // Receiver submits the proof to the chain.
     assert_ok!(ConfidentialAsset::affirm_transaction(
@@ -176,10 +172,7 @@ fn finalize_transaction(
             sender: Some(_),
             receiver: Some(finalized),
             mediator: None,
-        } => {
-            let mut data: &[u8] = &finalized.decode().unwrap();
-            FinalizedTransferTx::decode(&mut data).unwrap()
-        }
+        } => finalized.try_decode().unwrap(),
         _ => {
             panic!("Unexpected data type");
         }
@@ -193,7 +186,7 @@ fn finalize_transaction(
         sender_creds.account_id.clone(),
         transaction_id.0,
     ))
-    .to_mercat::<TestStorage>()
+    .try_decode()
     .unwrap();
 
     let result = CtxMediator.justify_transaction(
@@ -214,7 +207,7 @@ fn finalize_transaction(
         return;
     }
 
-    let justified_tx = TransactionLegProofs::new_mediator(Base64Vec::new(result.unwrap().encode()));
+    let justified_tx = TransactionLegProofs::new_mediator(result.unwrap().encode());
 
     // Affirms and process the transaction.
     assert_ok!(ConfidentialAsset::affirm_transaction(
@@ -235,7 +228,7 @@ fn finalize_transaction(
     // Verify by decrypting the new balance of both Sender and Receiver.
     let new_sender_balance =
         ConfidentialAsset::mercat_account_balance(sender_creds.user.did, sender_creds.account_id)
-            .to_mercat::<TestStorage>()
+            .try_decode()
             .unwrap();
 
     if let Some(secret_account) = sender_secret_account {
@@ -250,7 +243,7 @@ fn finalize_transaction(
         receiver_creds.user.did,
         receiver_creds.account_id,
     )
-    .to_mercat::<TestStorage>()
+    .try_decode()
     .unwrap();
 
     if let Some(secret_account) = receiver_secret_account {
@@ -821,7 +814,7 @@ fn mercat_whitepaper_scenario2() {
                 alice_creds.user.did.clone(),
                 alice_creds.account_id.clone(),
             )
-            .to_mercat::<TestStorage>()
+            .try_decode()
             .unwrap();
             // Since tx_1003 has not settled yet, it has to be accounted for in the pending balance.
             let alice_pending_balance = alice_init_balance - alice_sent_amount_1003;

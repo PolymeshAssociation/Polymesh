@@ -94,7 +94,7 @@
 //!
 //! ## Implementation Details
 //!
-//! - The proofs should be base64-encoded before getting passed to the chain.
+//! - The proofs should be SCALE-encoded before getting passed to the chain.
 //!
 //! ## Related Modules
 //!
@@ -141,39 +141,74 @@ use rand_core::SeedableRng;
 
 type Identity<T> = identity::Module<T>;
 
-// TODO: Remove base64 hack.
-use base64;
-/// A wrapper for a base-64 encoded vector of bytes.
-#[derive(
-    Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, Default, PartialOrd, Ord
-)]
-pub struct Base64Vec(pub Vec<u8>);
+/// The error type for Mercat type decoding.
+#[derive(Clone, Debug)]
+pub struct DecodeMercatError;
 
-impl Base64Vec {
-    /// Decodes a Base64-encoded vector of bytes.
-    ///
-    /// ## Errors
-    /// - `DecodeBase64Error` if `self` is not Base64-encoded.
-    pub fn decode(&self) -> Result<Vec<u8>, DispatchError> {
-        base64::decode(&self.0[..]).map_err(|_| DecodeBase64Error.into())
-    }
-
-    /// Creates a new Base64-encoded object by encoding a byte vector `inp`.
-    pub fn new(inp: Vec<u8>) -> Self {
-        Self(base64::encode(inp).as_bytes().to_vec())
+impl From<DecodeMercatError> for DispatchError {
+    fn from(_: DecodeMercatError) -> DispatchError {
+        // TODO: Try converting to pallet error.
+        DispatchError::Other("Mercat decoding failed")
     }
 }
 
-/// The error type for `Base64Vec`.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct DecodeBase64Error;
+macro_rules! impl_wrapper {
+    ($wrapper:ident, $wrapped:ident) => {
+        /// A wrapper for EncryptionPubKey.
+        #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, Default)]
+        pub struct $wrapper(Vec<u8>);
 
-impl From<DecodeBase64Error> for DispatchError {
-    fn from(_: DecodeBase64Error) -> DispatchError {
-        // TODO: why does this error message look unrelated?
-        DispatchError::Other("Authorization does not exist")
-    }
+        impl From<Vec<u8>> for $wrapper {
+            fn from(data: Vec<u8>) -> Self {
+                Self(data)
+            }
+        }
+
+        impl TryFrom<&$wrapper> for $wrapped {
+            type Error = DecodeMercatError;
+
+            fn try_from(data: &$wrapper) -> Result<Self, Self::Error> {
+                Self::decode(&mut &data.0[..]).map_err(|_| DecodeMercatError)
+            }
+        }
+
+        impl From<&$wrapped> for $wrapper {
+            fn from(data: &$wrapped) -> Self {
+                Self(data.encode())
+            }
+        }
+
+        impl $wrapper {
+            pub fn try_decode(&self) -> Result<$wrapped, DecodeMercatError> {
+                self.try_into()
+            }
+        }
+
+        impl TryFrom<$wrapper> for $wrapped {
+            type Error = DecodeMercatError;
+
+            fn try_from(data: $wrapper) -> Result<Self, Self::Error> {
+                Self::decode(&mut &data.0[..]).map_err(|_| DecodeMercatError)
+            }
+        }
+
+        impl From<$wrapped> for $wrapper {
+            fn from(data: $wrapped) -> Self {
+                Self(data.encode())
+            }
+        }
+    };
 }
+
+impl_wrapper!(EncryptionPubKeyWrapper, EncryptionPubKey);
+
+impl_wrapper!(PubAccountTxWrapper, PubAccountTx);
+impl_wrapper!(InitializedAssetTxWrapper, InitializedAssetTx);
+impl_wrapper!(InitializedTransferTxWrapper, InitializedTransferTx);
+impl_wrapper!(FinalizedTransferTxWrapper, FinalizedTransferTx);
+impl_wrapper!(JustifiedTransferTxWrapper, JustifiedTransferTx);
+impl_wrapper!(EncryptedBalanceWrapper, EncryptedAmount);
+impl_wrapper!(EncryptedAssetIdWrapper, EncryptedAssetId);
 
 /// TODO: Import venue ID.
 #[derive(Encode, Decode, TypeInfo)]
@@ -195,71 +230,9 @@ pub trait Config:
     type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
 }
 
-/// Wrapper for Elgamal Encryption keys that correspond to `EncryptionPubKey`.
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, Default)]
-pub struct EncryptionPubKeyWrapper(pub Base64Vec);
-
-impl From<EncryptionPubKey> for EncryptionPubKeyWrapper {
-    fn from(key: EncryptionPubKey) -> Self {
-        Self(Base64Vec::new(key.encode()))
-    }
-}
-
-impl EncryptionPubKeyWrapper {
-    /// Unwraps the value so that it can be passed to mercat library.
-    pub fn to_mercat<T: Config>(&self) -> Result<EncryptionPubKey, DispatchError> {
-        let mut data: &[u8] = &self.0.decode()?;
-        EncryptionPubKey::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError.into())
-    }
-}
-
-/// Wrapper for Ciphertexts that correspond to `EncryptedAssetId`.
-/// This is needed since `mercat::asset_proofs::elgamal_encryption::CipherText` implements
-/// Encode and Decode, instead of deriving them. As a result, the `EncodeLike` operator is
-/// not automatically implemented.
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, Default)]
-pub struct EncryptedAssetIdWrapper(pub Base64Vec);
-
-impl From<EncryptedAssetId> for EncryptedAssetIdWrapper {
-    fn from(asset_id: EncryptedAssetId) -> Self {
-        Self(Base64Vec::new(asset_id.encode()))
-    }
-}
-
-impl EncryptedAssetIdWrapper {
-    /// Unwraps the value so that it can be passed to mercat library.
-    pub fn to_mercat<T: Config>(&self) -> Result<EncryptedAssetId, DispatchError> {
-        let mut data: &[u8] = &self.0.decode()?;
-        EncryptedAssetId::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError.into())
-    }
-}
-
 /// Created for better code readability. Its content are the same as the `pallet_confidential_asset::EncryptedAssetIdWrapper`.
-#[derive(
-    Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, Default, PartialOrd, Ord
-)]
-pub struct MercatAccountId(pub Base64Vec);
-
-/// Wrapper for Ciphertexts that correspond to EncryptedBalance.
-/// This is needed since `mercat::asset_proofs::elgamal_encryption::CipherText` implements
-/// Encode and Decode, instead of deriving them. As a result, the EncodeLike operator is
-/// not automatically implemented.
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, Default)]
-pub struct EncryptedBalanceWrapper(pub Base64Vec);
-
-impl From<EncryptedAmount> for EncryptedBalanceWrapper {
-    fn from(amount: EncryptedAmount) -> Self {
-        Self(Base64Vec::from(Base64Vec::new(amount.encode())))
-    }
-}
-
-impl EncryptedBalanceWrapper {
-    /// Unwraps the value so that it can be passed to mercat library.
-    pub fn to_mercat<T: Config>(&self) -> Result<EncryptedAmount, DispatchError> {
-        let mut data: &[u8] = &self.0.decode()?;
-        EncryptedAmount::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError.into())
-    }
-}
+pub struct MercatAccountId(pub EncryptedAssetIdWrapper);
 
 /// A mercat account consists of the public key that is used for encryption purposes and the
 /// encrypted asset id. The encrypted asset id also acts as the unique identifier of this
@@ -270,51 +243,23 @@ pub struct MercatAccount {
     pub encryption_pub_key: EncryptionPubKeyWrapper,
 }
 
-impl MercatAccount {
-    /// Unwraps the value so that it can be passed to mercat library.
-    pub fn to_mercat<T: Config>(&self) -> Result<PubAccount, DispatchError> {
-        Ok(PubAccount {
-            enc_asset_id: self.encrypted_asset_id.to_mercat::<T>()?,
-            owner_enc_pub_key: self.encryption_pub_key.to_mercat::<T>()?,
+impl TryFrom<MercatAccount> for PubAccount {
+    type Error = DispatchError;
+
+    fn try_from(data: MercatAccount) -> Result<Self, DispatchError> {
+        Ok(Self {
+            enc_asset_id: data.encrypted_asset_id.try_into()?,
+            owner_enc_pub_key: data.encryption_pub_key.try_into()?,
         })
     }
 }
 
-/// Wrapper for the mercat account proof that correspond to base64 encoding of `PubAccountTx`.
-/// Since this is received as input from user and is a binary data, the `Vec<u8>` will be a base64 encoded.
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, Default)]
-pub struct PubAccountTxWrapper(pub Base64Vec);
-
-impl From<PubAccountTx> for PubAccountTxWrapper {
-    fn from(tx: PubAccountTx) -> Self {
-        Self(Base64Vec::new(tx.encode()))
-    }
-}
-
-impl PubAccountTxWrapper {
-    /// Unwraps the value so that it can be passed to mercat library.
-    pub fn to_mercat<T: Config>(&self) -> Result<PubAccountTx, DispatchError> {
-        let mut data: &[u8] = &self.0.decode()?;
-        PubAccountTx::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError.into())
-    }
-}
-
-/// Wrapper for the asset issuance proof that correspond to `InitializedAssetTx`.
-/// Since this is received as input from user and is a binary data, the `Vec<u8>` will be a base64 encoded.
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, Default)]
-pub struct InitializedAssetTxWrapper(pub Base64Vec);
-
-impl From<InitializedAssetTx> for InitializedAssetTxWrapper {
-    fn from(tx: InitializedAssetTx) -> Self {
-        Self(Base64Vec::new(tx.encode()))
-    }
-}
-
-impl InitializedAssetTxWrapper {
-    /// Unwraps the value so that it can be passed to mercat library.
-    pub fn to_mercat<T: Config>(&self) -> Result<InitializedAssetTx, DispatchError> {
-        let mut data: &[u8] = &self.0.decode()?;
-        InitializedAssetTx::decode(&mut data).map_err(|_| Error::<T>::UnwrapMercatDataError.into())
+impl From<PubAccount> for MercatAccount {
+    fn from(data: PubAccount) -> Self {
+        Self {
+            encrypted_asset_id: data.enc_asset_id.into(),
+            encryption_pub_key: data.owner_enc_pub_key.into(),
+        }
     }
 }
 
@@ -335,35 +280,35 @@ pub struct TransactionLeg {
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
 pub struct TransactionLegProofs {
     /// The sender proof.
-    pub sender: Option<Base64Vec>,
+    pub sender: Option<InitializedTransferTxWrapper>,
     /// The receiver proof.
-    pub receiver: Option<Base64Vec>,
+    pub receiver: Option<FinalizedTransferTxWrapper>,
     /// The mediator proof.
-    pub mediator: Option<Base64Vec>,
+    pub mediator: Option<JustifiedTransferTxWrapper>,
 }
 
 impl TransactionLegProofs {
-    pub fn new_sender(tx: Base64Vec) -> Self {
+    pub fn new_sender(tx: Vec<u8>) -> Self {
         Self {
-            sender: Some(tx),
+            sender: Some(tx.into()),
             receiver: None,
             mediator: None,
         }
     }
 
-    pub fn new_receiver(tx: Base64Vec) -> Self {
+    pub fn new_receiver(tx: Vec<u8>) -> Self {
         Self {
             sender: None,
-            receiver: Some(tx),
+            receiver: Some(tx.into()),
             mediator: None,
         }
     }
 
-    pub fn new_mediator(tx: Base64Vec) -> Self {
+    pub fn new_mediator(tx: Vec<u8>) -> Self {
         Self {
             sender: None,
             receiver: None,
-            mediator: Some(tx),
+            mediator: Some(tx.into()),
         }
     }
 
@@ -371,11 +316,7 @@ impl TransactionLegProofs {
         &self,
     ) -> Result<Option<InitializedTransferTx>, DispatchError> {
         if let Some(tx_data) = &self.sender {
-            let tx = tx_data
-                .decode()
-                .ok()
-                .and_then(|d| InitializedTransferTx::decode(&mut &d[..]).ok())
-                .ok_or(Error::<T>::InvalidMercatTransferProof)?;
+            let tx = tx_data.try_into()?;
             Ok(Some(tx))
         } else {
             Ok(None)
@@ -386,11 +327,7 @@ impl TransactionLegProofs {
         &self,
     ) -> Result<Option<FinalizedTransferTx>, DispatchError> {
         if let Some(tx_data) = &self.receiver {
-            let tx = tx_data
-                .decode()
-                .ok()
-                .and_then(|d| FinalizedTransferTx::decode(&mut &d[..]).ok())
-                .ok_or(Error::<T>::InvalidMercatTransferProof)?;
+            let tx = tx_data.try_into()?;
             Ok(Some(tx))
         } else {
             Ok(None)
@@ -401,11 +338,7 @@ impl TransactionLegProofs {
         &self,
     ) -> Result<Option<JustifiedTransferTx>, DispatchError> {
         if let Some(tx_data) = &self.mediator {
-            let tx = tx_data
-                .decode()
-                .ok()
-                .and_then(|d| JustifiedTransferTx::decode(&mut &d[..]).ok())
-                .ok_or(Error::<T>::InvalidMercatTransferProof)?;
+            let tx = tx_data.try_into()?;
             Ok(Some(tx))
         } else {
             Ok(None)
@@ -540,13 +473,13 @@ decl_module! {
         ) -> DispatchResult {
             let owner_acc = ensure_signed(origin)?;
             let owner_id = Context::current_identity_or::<Identity<T>>(&owner_acc)?;
-            let tx = tx.to_mercat::<T>()?;
+            let tx = tx.try_into()?;
 
             let valid_asset_ids = convert_asset_ids(Self::confidential_tickers());
             AccountValidator.verify(&tx, &valid_asset_ids).map_err(|_| Error::<T>::InvalidAccountCreationProof)?;
             let wrapped_enc_asset_id = EncryptedAssetIdWrapper::from(tx.pub_account.enc_asset_id);
             let wrapped_enc_pub_key = EncryptionPubKeyWrapper::from(tx.pub_account.owner_enc_pub_key);
-            let account_id = MercatAccountId(wrapped_enc_asset_id.0.clone());
+            let account_id = MercatAccountId(wrapped_enc_asset_id.clone());
             <MercatAccounts>::insert(&owner_id, &account_id, MercatAccount {
                 encrypted_asset_id: wrapped_enc_asset_id,
                 encryption_pub_key: wrapped_enc_pub_key,
@@ -704,14 +637,14 @@ decl_module! {
                 Error::<T>::TotalSupplyAboveU32Limit
             );
 
-            let asset_mint_proof = asset_mint_proof.to_mercat::<T>()?;
-            let account_id = MercatAccountId(Base64Vec::new(asset_mint_proof.account_id.encode()));
+            let asset_mint_proof = asset_mint_proof.try_decode()?;
+            let account_id = MercatAccountId(asset_mint_proof.account_id.into());
             let new_encrypted_balance = AssetValidator
                                         .verify_asset_transaction(
                                             total_supply.saturated_into::<u32>(),
                                             &asset_mint_proof,
-                                            &Self::mercat_accounts(owner_did, &account_id).to_mercat::<T>()?,
-                                            &Self::mercat_account_balance(owner_did, &account_id).to_mercat::<T>()?,
+                                            &Self::mercat_accounts(owner_did, &account_id).try_into()?,
+                                            &Self::mercat_account_balance(owner_did, &account_id).try_into()?,
                                             &[]
                                         ).map_err(|_| Error::<T>::InvalidAccountMintProof)?;
 
@@ -819,8 +752,7 @@ impl<T: Config> Module<T> {
         account_id: &MercatAccountId,
         amount: EncryptedAmount,
     ) -> DispatchResult {
-        let current_balance =
-            Self::mercat_account_balance(owner_did, account_id).to_mercat::<T>()?;
+        let current_balance = Self::mercat_account_balance(owner_did, account_id).try_decode()?;
         MercatAccountBalance::insert(
             owner_did,
             account_id,
@@ -837,8 +769,7 @@ impl<T: Config> Module<T> {
         account_id: &MercatAccountId,
         amount: EncryptedAmount,
     ) -> DispatchResult {
-        let current_balance =
-            Self::mercat_account_balance(owner_did, account_id).to_mercat::<T>()?;
+        let current_balance = Self::mercat_account_balance(owner_did, account_id).try_decode()?;
         MercatAccountBalance::insert(
             owner_did,
             account_id,
@@ -846,8 +777,7 @@ impl<T: Config> Module<T> {
         );
 
         // Update the pending balance accumulator.
-        let pending_balance =
-            Self::pending_outgoing_balance(owner_did, account_id).to_mercat::<T>()?;
+        let pending_balance = Self::pending_outgoing_balance(owner_did, account_id).try_decode()?;
 
         PendingOutgoingBalance::insert(
             owner_did,
@@ -864,20 +794,19 @@ impl<T: Config> Module<T> {
         account_id: &MercatAccountId,
     ) -> Result<EncryptedAmount, DispatchError> {
         let mut current_balance =
-            Self::mercat_account_balance(owner_did, account_id).to_mercat::<T>()?;
+            Self::mercat_account_balance(owner_did, account_id).try_decode()?;
 
         if PendingOutgoingBalance::contains_key(owner_did, account_id) {
             current_balance -=
-                Self::pending_outgoing_balance(owner_did, account_id).to_mercat::<T>()?;
+                Self::pending_outgoing_balance(owner_did, account_id).try_decode()?;
         }
 
         if IncomingBalance::contains_key(owner_did, account_id) {
-            current_balance -= Self::incoming_balance(owner_did, account_id).to_mercat::<T>()?;
+            current_balance -= Self::incoming_balance(owner_did, account_id).try_decode()?;
         }
 
         if FailedOutgoingBalance::contains_key(owner_did, account_id) {
-            current_balance -=
-                Self::failed_outgoing_balance(owner_did, account_id).to_mercat::<T>()?;
+            current_balance -= Self::failed_outgoing_balance(owner_did, account_id).try_decode()?;
         }
         Ok(current_balance)
     }
@@ -889,12 +818,12 @@ impl<T: Config> Module<T> {
         amount: EncryptedAmount,
     ) -> DispatchResult {
         let wrapped_enc_asset_id = EncryptedAssetIdWrapper::from(account_id.clone());
-        let account_id = MercatAccountId(wrapped_enc_asset_id.0);
+        let account_id = MercatAccountId(wrapped_enc_asset_id);
 
         let pending_balances =
             if PendingOutgoingBalance::contains_key(owner_did, account_id.clone()) {
-                let pending_balance = Self::pending_outgoing_balance(owner_did, account_id.clone())
-                    .to_mercat::<T>()?;
+                let pending_balance =
+                    Self::pending_outgoing_balance(owner_did, account_id.clone()).try_decode()?;
                 pending_balance + amount
             } else {
                 amount
@@ -916,8 +845,7 @@ impl<T: Config> Module<T> {
         amount: EncryptedAmount,
     ) -> DispatchResult {
         let incoming_balances = if IncomingBalance::contains_key(owner_did, account_id) {
-            let previous_balance =
-                Self::incoming_balance(owner_did, account_id).to_mercat::<T>()?;
+            let previous_balance = Self::incoming_balance(owner_did, account_id).try_decode()?;
             previous_balance + amount
         } else {
             amount
@@ -941,7 +869,7 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         let failed_balances = if FailedOutgoingBalance::contains_key(owner_did, account_id) {
             let failed_balance =
-                Self::failed_outgoing_balance(owner_did, account_id).to_mercat::<T>()?;
+                Self::failed_outgoing_balance(owner_did, account_id).try_decode()?;
             failed_balance + amount
         } else {
             amount
@@ -956,8 +884,7 @@ impl<T: Config> Module<T> {
         // We never reset or remove the pending outgoing accumulator.
         // The settlement state transition works in a way that this amount has definitely been added to the
         // pending state by this point.
-        let pending_balance =
-            Self::pending_outgoing_balance(owner_did, account_id).to_mercat::<T>()?;
+        let pending_balance = Self::pending_outgoing_balance(owner_did, account_id).try_decode()?;
         PendingOutgoingBalance::insert(
             owner_did,
             account_id,
@@ -976,7 +903,7 @@ impl<T: Config> Module<T> {
         instruction_id: u64,
     ) -> DispatchResult {
         let wrapped_enc_asset_id = EncryptedAssetIdWrapper::from(account_id.clone());
-        let account_id = MercatAccountId(wrapped_enc_asset_id.0);
+        let account_id = MercatAccountId(wrapped_enc_asset_id);
 
         let pending_state = Self::get_pending_balance(owner_did, &account_id)?;
         TxPendingState::insert(
@@ -1125,13 +1052,13 @@ impl<T: Config> Module<T> {
         // Read the mercat_accounts from the confidential-asset pallet.
         let from_mercat_pending_state =
             Self::mercat_tx_pending_state((from_did, from_account_id, instruction_id))
-                .to_mercat::<T>()?;
+                .try_into()?;
 
         // Get receiver's account.
-        let to_mercat = Self::mercat_accounts(to_did, to_account_id).to_mercat::<T>()?;
+        let to_mercat = Self::mercat_accounts(to_did, to_account_id).try_into()?;
 
         // Get sender's account.
-        let from_mercat = Self::mercat_accounts(from_did, from_account_id).to_mercat::<T>()?;
+        let from_mercat = Self::mercat_accounts(from_did, from_account_id).try_into()?;
 
         // Verify the proofs.
         let mut rng = Self::get_rng();
@@ -1267,8 +1194,8 @@ decl_error! {
         /// Confidential transfer's proofs are invalid.
         ConfidentialTransferValidationFailure,
 
-        /// Error during the decoding base64 values.
-        DecodeBase64Error,
+        /// Error during the decoding of mercat values.
+        DecodeMercatError,
         /// We only support one confidential transfer per instruction at the moment.
         MoreThanOneConfidentialLeg,
         /// Certain transfer modes are not yet supported in confidential modes.

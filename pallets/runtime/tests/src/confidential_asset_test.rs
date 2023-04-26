@@ -2,7 +2,7 @@ use super::{
     storage::{TestStorage, User},
     ExtBuilder,
 };
-use codec::{Decode, Encode};
+use codec::Encode;
 use core::convert::TryInto;
 use frame_support::assert_ok;
 
@@ -15,13 +15,12 @@ use mercat::{
     },
     transaction::{CtxMediator, CtxReceiver, CtxSender},
     Account, AccountCreatorInitializer, AssetTransactionIssuer, EncryptedAmount, EncryptionKeys,
-    FinalizedTransferTx, InitializedTransferTx, PubAccount, PubAccountTx, SecAccount,
-    TransferTransactionMediator, TransferTransactionReceiver, TransferTransactionSender,
+    PubAccount, PubAccountTx, SecAccount, TransferTransactionMediator, TransferTransactionReceiver,
+    TransferTransactionSender,
 };
 use pallet_confidential_asset::{
-    Base64Vec, ConfidentialAssetDetails, EncryptedAssetIdWrapper, InitializedAssetTxWrapper,
-    MercatAccountId, PubAccountTxWrapper, TransactionLeg, TransactionLegId, TransactionLegProofs,
-    VenueId,
+    ConfidentialAssetDetails, EncryptedAssetIdWrapper, InitializedAssetTxWrapper, MercatAccountId,
+    PubAccountTxWrapper, TransactionLeg, TransactionLegId, TransactionLegProofs, VenueId,
 };
 use polymesh_primitives::{
     asset::{AssetName, AssetType},
@@ -103,19 +102,17 @@ pub fn init_account(
         PubAccountTxWrapper::from(mercat_account_tx.clone())
     ));
 
-    let account_id = MercatAccountId(
-        EncryptedAssetIdWrapper::from(mercat_account_tx.pub_account.enc_asset_id)
-            .0
-            .clone(),
-    );
+    let account_id = MercatAccountId(EncryptedAssetIdWrapper::from(
+        mercat_account_tx.pub_account.enc_asset_id,
+    ));
     (
         secret_account,
         account_id.clone(),
         ConfidentialAsset::mercat_accounts(owner.did, account_id.clone())
-            .to_mercat::<TestStorage>()
+            .try_into()
             .unwrap(),
         ConfidentialAsset::mercat_account_balance(owner.did, account_id)
-            .to_mercat::<TestStorage>()
+            .try_decode()
             .unwrap(),
     )
 }
@@ -196,13 +193,11 @@ pub fn create_account_and_mint_token(
     );
 
     // -------------------------- Ensure the encrypted balance matches the minted amount.
-    let account_id = MercatAccountId(
-        EncryptedAssetIdWrapper::from(mercat_account_tx.pub_account.enc_asset_id)
-            .0
-            .clone(),
-    );
+    let account_id = MercatAccountId(EncryptedAssetIdWrapper::from(
+        mercat_account_tx.pub_account.enc_asset_id,
+    ));
     let stored_balance = ConfidentialAsset::mercat_account_balance(owner.did, account_id.clone())
-        .to_mercat::<TestStorage>()
+        .try_decode()
         .unwrap();
     let stored_balance = secret_account
         .enc_keys
@@ -216,10 +211,10 @@ pub fn create_account_and_mint_token(
         secret_account,
         account_id.clone(),
         ConfidentialAsset::mercat_accounts(owner.did, &account_id)
-            .to_mercat::<TestStorage>()
+            .try_into()
             .unwrap(),
         ConfidentialAsset::mercat_account_balance(owner.did, account_id)
-            .to_mercat::<TestStorage>()
+            .try_decode()
             .unwrap(),
     )
 }
@@ -423,14 +418,12 @@ fn issuers_can_create_and_mint_tokens() {
         );
 
         // -------------------------- Ensure that the account balance is set properly.
-        let account_id = MercatAccountId(
-            EncryptedAssetIdWrapper::from(mercat_account_tx.pub_account.enc_asset_id)
-                .0
-                .clone(),
-        );
+        let account_id = MercatAccountId(EncryptedAssetIdWrapper::from(
+            mercat_account_tx.pub_account.enc_asset_id,
+        ));
 
         let stored_balance = ConfidentialAsset::mercat_account_balance(owner.did, account_id)
-            .to_mercat::<TestStorage>()
+            .try_decode()
             .unwrap();
         let stored_balance = secret_account
             .enc_keys
@@ -476,21 +469,18 @@ fn account_create_tx() {
         // Ensure that the transaction was verified and that MERCAT account is created on the chain.
         let wrapped_enc_asset_id =
             EncryptedAssetIdWrapper::from(mercat_account_tx.pub_account.enc_asset_id);
-        let account_id = MercatAccountId(wrapped_enc_asset_id.0.clone());
+        let account_id = MercatAccountId(wrapped_enc_asset_id.clone());
         let stored_account = ConfidentialAsset::mercat_accounts(alice.did, account_id.clone());
 
         assert_eq!(stored_account.encrypted_asset_id, wrapped_enc_asset_id);
         assert_eq!(
-            stored_account
-                .encryption_pub_key
-                .to_mercat::<TestStorage>()
-                .unwrap(),
+            stored_account.encryption_pub_key.try_decode().unwrap(),
             mercat_account_tx.pub_account.owner_enc_pub_key,
         );
 
         // Ensure that the account has an initial balance of zero.
         let stored_balance = ConfidentialAsset::mercat_account_balance(alice.did, account_id)
-            .to_mercat::<TestStorage>()
+            .try_decode()
             .unwrap();
         let stored_balance = secret_account
             .enc_keys
@@ -612,8 +602,7 @@ fn basic_confidential_settlement() {
                 .unwrap();
             let alice_encrypted_transfer_amount = sender_data.memo.enc_amount_using_sender;
             let bob_encrypted_transfer_amount = sender_data.memo.enc_amount_using_receiver;
-            let initialized_tx =
-                TransactionLegProofs::new_sender(Base64Vec::new(sender_data.encode()));
+            let initialized_tx = TransactionLegProofs::new_sender(sender_data.encode());
             // Sender authorizes the transaction and passes in the proofs.
             assert_affirm_confidential_transaction!(
                 alice.origin(),
@@ -631,10 +620,7 @@ fn basic_confidential_settlement() {
                     sender: Some(init),
                     receiver: None,
                     mediator: None,
-                } => {
-                    let mut data: &[u8] = &init.decode().unwrap();
-                    InitializedTransferTx::decode(&mut data).unwrap()
-                }
+                } => init.try_decode().unwrap(),
                 _ => {
                     println!("{:?}", tx_data);
                     panic!("Unexpected data type");
@@ -642,7 +628,7 @@ fn basic_confidential_settlement() {
             };
 
             // Receiver computes the proofs in the wallet.
-            let finalized_tx = TransactionLegProofs::new_receiver(Base64Vec::new(
+            let finalized_tx = TransactionLegProofs::new_receiver(
                 CtxReceiver
                     .finalize_transaction(
                         decoded_initialized_tx,
@@ -655,7 +641,7 @@ fn basic_confidential_settlement() {
                     )
                     .unwrap()
                     .encode(),
-            ));
+            );
 
             // Receiver submits the proof to the chain.
             assert_affirm_confidential_transaction!(
@@ -674,17 +660,14 @@ fn basic_confidential_settlement() {
                     sender: Some(_),
                     receiver: Some(finalized),
                     mediator: None,
-                } => {
-                    let mut data: &[u8] = &finalized.decode().unwrap();
-                    FinalizedTransferTx::decode(&mut data).unwrap()
-                }
+                } => finalized.try_decode().unwrap(),
                 _ => {
                     panic!("Unexpected data type");
                 }
             };
 
             // Mediator verifies the proofs in the wallet.
-            let justified_tx = TransactionLegProofs::new_mediator(Base64Vec::new(
+            let justified_tx = TransactionLegProofs::new_mediator(
                 CtxMediator
                     .justify_transaction(
                         decoded_finalized_tx,
@@ -700,7 +683,7 @@ fn basic_confidential_settlement() {
                     )
                     .unwrap()
                     .encode(),
-            ));
+            );
 
             println!("-------------> This should trigger the execution");
             assert_affirm_confidential_transaction!(
@@ -720,7 +703,7 @@ fn basic_confidential_settlement() {
             // Verify by decrypting the new balance of both Alice and Bob.
             let new_alice_balance =
                 ConfidentialAsset::mercat_account_balance(alice.did, alice_account_id)
-                    .to_mercat::<TestStorage>()
+                    .try_decode()
                     .unwrap();
             let expected_alice_balance =
                 alice_encrypted_init_balance - alice_encrypted_transfer_amount;
@@ -735,7 +718,7 @@ fn basic_confidential_settlement() {
 
             let new_bob_balance =
                 ConfidentialAsset::mercat_account_balance(bob.did, bob_account_id)
-                    .to_mercat::<TestStorage>()
+                    .try_decode()
                     .unwrap();
 
             let expected_bob_balance = bob_encrypted_init_balance + bob_encrypted_transfer_amount;
