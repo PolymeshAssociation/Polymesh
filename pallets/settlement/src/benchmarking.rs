@@ -17,6 +17,8 @@ pub use frame_benchmarking::{account, benchmarks};
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use scale_info::prelude::format;
+use sp_core::sr25519::Signature;
+use sp_runtime::MultiSignature;
 use sp_std::prelude::*;
 
 use pallet_asset::benchmarking::setup_asset_transfer;
@@ -28,6 +30,7 @@ use polymesh_common_utilities::constants::ENSURED_MAX_LEN;
 use polymesh_common_utilities::TestUtilsFn;
 use polymesh_primitives::asset::NonFungibleType;
 use polymesh_primitives::checked_inc::CheckedInc;
+use polymesh_primitives::settlement::ReceiptMetadata;
 use polymesh_primitives::{
     IdentityId, NFTId, NFTs, PortfolioId, PortfolioKind, PortfolioNumber, Ticker,
 };
@@ -37,6 +40,8 @@ use crate::*;
 const MAX_VENUE_DETAILS_LENGTH: u32 = ENSURED_MAX_LEN;
 const MAX_SIGNERS_ALLOWED: u32 = 50;
 const MAX_VENUE_ALLOWED: u32 = 100;
+const OFFCHAIN_TICKER: Ticker =
+    Ticker::new_unchecked([b'O', b'F', b'F', b'C', b'H', b'A', b'I', b'N', 0, 0, 0, 0]);
 
 #[derive(Encode, Decode, Clone, Copy)]
 pub struct UserData<T: Config> {
@@ -116,6 +121,31 @@ fn setup_fungible_legs_v2<T: Config>(
         .collect()
 }
 
+/// Returns a `Vec<LegV2>` containing `n_legs` with offchain assets.
+fn setup_off_chain_legs<T: Config>(
+    sender: &User<T>,
+    receiver: &User<T>,
+    ticker: Ticker,
+    n_legs: u32,
+) -> Vec<LegV2> {
+    (0..n_legs)
+        .map(|_| LegV2 {
+            from: PortfolioId {
+                did: sender.did(),
+                kind: PortfolioKind::Default,
+            },
+            to: PortfolioId {
+                did: receiver.did(),
+                kind: PortfolioKind::Default,
+            },
+            asset: LegAsset::OffChain {
+                ticker: ticker.clone(),
+                amount: ONE_UNIT,
+            },
+        })
+        .collect()
+}
+
 /// Creates an nft collection for `ticker`, mints `n_nfts` for `token_sender`, and returns a `Vec<LegV2>`
 /// containing `n_legs` with a total of `n_nfts` split among the legs.
 /// For this function only calls with the minimum number of legs to contain all `n_nfts` are allowed.
@@ -187,7 +217,11 @@ fn setup_nft_legs<T: Config>(
 /// This includes: creating one fungible asset, one NFT collection with `n_nfts`, and
 /// the instruction legs filled with `n_nfts` and `fungible_transfers`.
 /// All other parameters are also included in the `BaseV2Parameters` struct.
-fn setup_v2_extrinsics_parameters<T>(fungible_transfers: u32, n_nfts: u32) -> BaseV2Parameters<T>
+fn setup_v2_extrinsics_parameters<T>(
+    fungible_transfers: u32,
+    n_nfts: u32,
+    n_offchain: u32,
+) -> BaseV2Parameters<T>
 where
     T: TestUtilsFn<AccountIdOf<T>> + Config,
 {
@@ -196,24 +230,25 @@ where
     let bob = UserBuilder::<T>::default().generate_did().build("Bob");
     let fungible_ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
     let nft_ticker: Ticker = Ticker::from_slice_truncated(b"TICKER0".as_ref());
-    let venue_id = create_venue_::<T>(alice.did(), vec![]);
+    let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
     let sender_portfolios = vec![PortfolioId {
         did: alice.did(),
         kind: PortfolioKind::Default,
     }];
 
-    let mut fungible_legs = setup_fungible_legs_v2(
+    let fungible_legs = setup_fungible_legs_v2(
         alice.clone(),
         bob.clone(),
         fungible_ticker,
         fungible_transfers,
     );
+
     let n_nft_legs = if n_nfts % max_nfts == 0 {
         n_nfts / max_nfts
     } else {
         n_nfts / max_nfts + 1
     };
-    let mut non_fungible_legs = setup_nft_legs(
+    let non_fungible_legs = setup_nft_legs(
         alice.clone(),
         bob.clone(),
         nft_ticker,
@@ -221,9 +256,10 @@ where
         n_nfts,
         None,
     );
-    non_fungible_legs.append(&mut fungible_legs);
-    let legs_v2 = non_fungible_legs;
 
+    let off_chain_legs = setup_off_chain_legs(&alice, &bob, OFFCHAIN_TICKER, n_offchain);
+
+    let legs_v2 = [off_chain_legs, fungible_legs, non_fungible_legs].concat();
     let settlement_type = SettlementType::SettleOnBlock(100u32.into());
     let date = Some(99999999u32.into());
     let memo = Some(InstructionMemo::default());
@@ -339,6 +375,33 @@ fn setup_execute_instruction<T>(
     .unwrap();
 }
 
+/// Returns the receipt details of a transfer of `amount` for `ticker` signed by `sender` to `receiver`.
+fn setup_receipt_details<T: Config>(
+    sender: &User<T>,
+    receiver: &User<T>,
+    ticker: Ticker,
+    amount: Balance,
+    leg_id: u32,
+) -> ReceiptDetails<T::AccountId, T::OffChainSignature> {
+    let receipt = Receipt {
+        receipt_uid: leg_id as u64,
+        from: PortfolioId::default_portfolio(sender.did()),
+        to: PortfolioId::default_portfolio(receiver.did()),
+        asset: ticker,
+        amount,
+    };
+    let raw_signature: [u8; 64] = sender.sign(&receipt.encode()).unwrap().0;
+    let encoded_signature = MultiSignature::from(Signature::from_raw(raw_signature)).encode();
+    let signature = T::OffChainSignature::decode(&mut &encoded_signature[..]).unwrap();
+    ReceiptDetails {
+        receipt_uid: leg_id as u64,
+        leg_id: LegId(leg_id as u64),
+        signer: sender.account(),
+        signature,
+        metadata: ReceiptMetadata::from(b"ReceiptMet"),
+    }
+}
+
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>>, T: pallet_scheduler::Config }
 
@@ -445,8 +508,39 @@ benchmarks! {
         }
     }
 
-    //affirm_with_receipts {}: _()
-    //verify { }
+    affirm_with_receipts {
+        let f in 1..T::MaxNumberOfFungibleAssets::get();
+        let n in 0..T::MaxNumberOfNFTs::get();
+        let o in 0..T::MaxNumberOfOffChainAssets::get();
+
+        let parameters = setup_v2_extrinsics_parameters::<T>(f, n, o);
+        Module::<T>::add_instruction_with_memo_v2(
+            parameters.sender.clone().origin.into(),
+            parameters.venue_id,
+            parameters.settlement_type,
+            parameters.date,
+            parameters.date,
+            parameters.legs_v2.clone(),
+            parameters.memo,
+            None
+        ).expect("failed to add instruction");
+
+        let receipt_details = (0..o)
+            .map(|i| {
+                setup_receipt_details(
+                    &parameters.sender,
+                    &parameters.receiver,
+                    OFFCHAIN_TICKER,
+                    ONE_UNIT,
+                    i
+                )
+            })
+            .collect();
+
+    }: _(parameters.sender.origin, InstructionId(1), receipt_details, parameters.sender_portfolios, f + n + o)
+    verify {
+        assert!(true);
+    }
 
     change_receipt_validity {
         let signer = user::<T>("signer", 0);
@@ -502,21 +596,21 @@ benchmarks! {
     add_instruction_with_memo_v2 {
         let f in 1..T::MaxNumberOfFungibleAssets::get() as u32;
 
-        let parameters = setup_v2_extrinsics_parameters::<T>(f, T::MaxNumberOfNFTs::get());
+        let parameters = setup_v2_extrinsics_parameters::<T>(f, T::MaxNumberOfNFTs::get(), T::MaxNumberOfOffChainAssets::get());
     }: _(parameters.sender.origin, parameters.venue_id, parameters.settlement_type, parameters.date, parameters.date, parameters.legs_v2, parameters.memo, None)
 
     add_and_affirm_instruction_with_memo_v2 {
         let f in 1..T::MaxNumberOfFungibleAssets::get() as u32;
         let n in 1..T::MaxNumberOfNFTs::get() as u32;
 
-        let parameters = setup_v2_extrinsics_parameters::<T>(f, n);
+        let parameters = setup_v2_extrinsics_parameters::<T>(f, n, 0);
     }: _(parameters.sender.origin, parameters.venue_id, parameters.settlement_type, parameters.date, parameters.date, parameters.legs_v2, parameters.sender_portfolios, parameters.memo, None)
 
     affirm_instruction_v2 {
         let f in 1..T::MaxNumberOfFungibleAssets::get() as u32;
         let n in 1..T::MaxNumberOfNFTs::get() as u32;
 
-        let parameters = setup_v2_extrinsics_parameters::<T>(f, n);
+        let parameters = setup_v2_extrinsics_parameters::<T>(f, n, 0);
         Module::<T>::add_instruction_with_memo_v2(
             parameters.sender.clone().origin.into(),
             parameters.venue_id,
@@ -532,8 +626,9 @@ benchmarks! {
     withdraw_affirmation_v2 {
         let f in 1..T::MaxNumberOfFungibleAssets::get() as u32;
         let n in 1..T::MaxNumberOfNFTs::get() as u32;
+        let o in 1..T::MaxNumberOfOffChainAssets::get();
 
-        let parameters = setup_v2_extrinsics_parameters::<T>(f, n);
+        let parameters = setup_v2_extrinsics_parameters::<T>(f, n, o);
         Module::<T>::add_and_affirm_instruction_with_memo_v2(
             parameters.sender.clone().origin.into(),
             parameters.venue_id,
@@ -550,8 +645,9 @@ benchmarks! {
     reject_instruction_v2 {
         let f in 1..T::MaxNumberOfFungibleAssets::get() as u32;
         let n in 1..T::MaxNumberOfNFTs::get() as u32;
+        let o in 1..T::MaxNumberOfOffChainAssets::get();
 
-        let parameters = setup_v2_extrinsics_parameters::<T>(f, n);
+        let parameters = setup_v2_extrinsics_parameters::<T>(f, n, o);
         Module::<T>::add_and_affirm_instruction_with_memo_v2(
             parameters.sender.clone().origin.into(),
             parameters.venue_id,
@@ -567,7 +663,7 @@ benchmarks! {
 
     ensure_allowed_venue {
         // Number of UNIQUE tickers in the legs
-        let n in 1..T::MaxNumberOfFungibleAssets::get() + T::MaxNumberOfNFTs::get();
+        let n in 1..T::MaxNumberOfFungibleAssets::get() + T::MaxNumberOfNFTs::get() + T::MaxNumberOfOffChainAssets::get();
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
@@ -608,7 +704,7 @@ benchmarks! {
 
     execute_instruction_initial_checks {
         // Number of legs in the instruction
-        let n in 1..T::MaxNumberOfFungibleAssets::get() + T::MaxNumberOfNFTs::get();
+        let n in 1..T::MaxNumberOfFungibleAssets::get() + T::MaxNumberOfNFTs::get() + T::MaxNumberOfOffChainAssets::get();
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
@@ -645,7 +741,7 @@ benchmarks! {
         let f in 0..T::MaxNumberOfFungibleAssets::get();
         let n in 0..T::MaxNumberOfNFTs::get();
 
-        let parameters = setup_v2_extrinsics_parameters::<T>(f, n);
+        let parameters = setup_v2_extrinsics_parameters::<T>(f, n, 0);
         Module::<T>::add_and_affirm_instruction_with_memo_v2(
             parameters.sender.clone().origin.into(),
             parameters.venue_id,
@@ -665,8 +761,8 @@ benchmarks! {
 
     prune_instruction {
         // Number of legs and unique parties in the instruction
-        let l in 1..T::MaxNumberOfFungibleAssets::get() + T::MaxNumberOfNFTs::get();
-        let p in 1..T::MaxNumberOfFungibleAssets::get() + T::MaxNumberOfNFTs::get();
+        let l in 1..T::MaxNumberOfFungibleAssets::get() + T::MaxNumberOfNFTs::get() + T::MaxNumberOfOffChainAssets::get();
+        let p in 1..T::MaxNumberOfFungibleAssets::get() + T::MaxNumberOfNFTs::get() + T::MaxNumberOfOffChainAssets::get();
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let alice_portfolio = PortfolioId {
@@ -738,11 +834,4 @@ benchmarks! {
 
         setup_execute_instruction::<T>(&alice, &bob, SettlementType::SettleOnAffirmation, f, n, false, false);
     }: execute_scheduled_instruction_v3(RawOrigin::Root, InstructionId(1), f, n, None)
-}
-
-pub fn next_block<T: Config + pallet_scheduler::Config>() {
-    use frame_support::traits::OnInitialize;
-    let block_number = frame_system::Pallet::<T>::block_number() + 1u32.into();
-    frame_system::Pallet::<T>::set_block_number(block_number);
-    pallet_scheduler::Pallet::<T>::on_initialize(block_number);
 }

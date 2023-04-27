@@ -1299,7 +1299,9 @@ fn claim_multiple_receipts_during_authorization() {
                     },
                 ],
                 default_portfolio_vec(alice.did),
-                10
+                0,
+                0,
+                2
             ),
             Error::ReceiptAlreadyClaimed
         );
@@ -1324,7 +1326,9 @@ fn claim_multiple_receipts_during_authorization() {
                 },
             ],
             default_portfolio_vec(alice.did),
-            10
+            0,
+            0,
+            2
         ));
 
         assert_affirms_pending(instruction_id, 1);
@@ -2977,7 +2981,9 @@ fn add_and_affirm_with_receipts_nfts() {
                     metadata: ReceiptMetadata::default()
                 }],
                 vec![PortfolioId::default_portfolio(alice.did)],
-                1
+                0,
+                1,
+                0
             ),
             Error::ReceiptForInvalidLegType
         );
