@@ -23,17 +23,14 @@ use sp_std::prelude::*;
 
 use pallet_asset::benchmarking::{create_portfolio, setup_asset_transfer};
 use pallet_nft::benchmarking::{create_collection_issue_nfts, setup_nft_transfer};
-use pallet_portfolio::PortfolioAssetBalances;
 use polymesh_common_utilities::benchs::{make_asset, user, AccountIdOf, User, UserBuilder};
-use polymesh_common_utilities::constants::currency::{ONE_UNIT, POLY};
+use polymesh_common_utilities::constants::currency::ONE_UNIT;
 use polymesh_common_utilities::constants::ENSURED_MAX_LEN;
 use polymesh_common_utilities::TestUtilsFn;
 use polymesh_primitives::asset::NonFungibleType;
 use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::settlement::ReceiptMetadata;
-use polymesh_primitives::{
-    IdentityId, NFTId, NFTs, PortfolioId, PortfolioKind, PortfolioNumber, Ticker,
-};
+use polymesh_primitives::{IdentityId, NFTId, NFTs, PortfolioId, PortfolioKind, Ticker};
 
 use crate::*;
 
@@ -472,7 +469,7 @@ benchmarks! {
     //verify {}
 
     execute_manual_instruction {
-        // Number of fungible, non fungible and offchain assets
+        // Number of fungible, non-fungible and offchain assets in the instruction
         let f in 1..T::MaxNumberOfFungibleAssets::get();
         let n in 0..T::MaxNumberOfNFTs::get();
         let o in 0..T::MaxNumberOfOffChainAssets::get();
@@ -487,7 +484,7 @@ benchmarks! {
     }: _(alice.origin, InstructionId(1), None, f, n, o, None)
 
     add_instruction{
-        // Number of fungible, non fungible and offchain legs
+        // Number of fungible, non-fungible and offchain LEGS in the instruction
         let f in 1..T::MaxNumberOfFungibleAssets::get();
         let n in 0..T::MaxNumberOfNFTs::get();
         let o in 0..T::MaxNumberOfOffChainAssets::get();
@@ -502,6 +499,7 @@ benchmarks! {
     }: _(alice.origin, venue_id, settlement_type, None, None, parameters.legs, memo, None)
 
     add_and_affirm_instruction {
+        // Number of fungible, non-fungible and offchain LEGS in the instruction
         let f in 1..T::MaxNumberOfFungibleAssets::get();
         let n in 0..T::MaxNumberOfNFTs::get();
         let o in 0..T::MaxNumberOfOffChainAssets::get();
@@ -516,6 +514,7 @@ benchmarks! {
     }: _(alice.origin, venue_id, settlement_type, None, None, parameters.legs, parameters.portfolios.sdr_portfolios, memo, None)
 
     affirm_instruction {
+        // Number of fungible and non-fungible assets in the instruction
         let f in 1..T::MaxNumberOfFungibleAssets::get() as u32;
         let n in 1..T::MaxNumberOfNFTs::get() as u32;
 
@@ -538,6 +537,7 @@ benchmarks! {
     }: _(alice.origin, InstructionId(1), parameters.portfolios.sdr_portfolios, f, n, None)
 
     withdraw_affirmation {
+        // Number of fungible, non-fungible and offchain LEGS in the instruction
         let f in 1..T::MaxNumberOfFungibleAssets::get();
         let n in 0..T::MaxNumberOfNFTs::get();
         let o in 0..T::MaxNumberOfOffChainAssets::get();
@@ -554,6 +554,7 @@ benchmarks! {
     }: _(alice.origin, InstructionId(1),  portfolios, f, n, o)
 
     reject_instruction {
+        // Number of fungible, non-fungible and offchain LEGS in the instruction
         let f in 1..T::MaxNumberOfFungibleAssets::get();
         let n in 0..T::MaxNumberOfNFTs::get();
         let o in 0..T::MaxNumberOfOffChainAssets::get();

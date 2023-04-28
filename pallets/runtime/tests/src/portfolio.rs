@@ -11,7 +11,7 @@ use polymesh_primitives::asset::{AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue,
 };
-use polymesh_primitives::settlement::{InstructionMemo, LegAsset, Leg, SettlementType};
+use polymesh_primitives::settlement::{InstructionMemo, Leg, LegAsset, SettlementType};
 use polymesh_primitives::{
     AuthorizationData, AuthorizationError, Fund, FundDescription, NFTCollectionKeys, NFTId,
     NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
