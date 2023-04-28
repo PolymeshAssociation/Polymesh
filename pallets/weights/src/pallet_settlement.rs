@@ -462,7 +462,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: Portfolio PortfolioLockedAssets (r:1 w:1)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
-    fn unchecked_release_locks(f: u32, n: u32, ) -> Weight {
+    fn unchecked_release_locks(f: u32, n: u32) -> Weight {
         // Minimum execution time: 185_781 nanoseconds.
         Weight::from_ref_time(12_298_725)
             // Standard Error: 297_006

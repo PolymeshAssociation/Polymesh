@@ -208,6 +208,8 @@ decl_error! {
         OffChainAssetMustBeAffirmedWithReceipts,
         /// The given number of off-chain transfers was underestimated.
         NumberOfOffChainTransfersUnderestimated,
+        /// No leg with the given id was found
+        LegNotFound
     }
 }
 
@@ -272,7 +274,7 @@ decl_storage! {
             map hasher(twox_64_concat) InstructionId => InstructionStatus<T::BlockNumber>;
         /// Legs under an instruction. (instruction_id, leg_id) -> Leg
         pub InstructionLegsV2 get(fn instruction_legsv2):
-            double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => LegV2;
+            double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => Option<LegV2>;
     }
 }
 
@@ -1399,7 +1401,8 @@ impl<T: Config> Module<T> {
                 Error::<T>::ReceiptAlreadyClaimed
             );
 
-            let leg = InstructionLegsV2::get(&id, &receipt.leg_id);
+            let leg =
+                InstructionLegsV2::get(&id, &receipt.leg_id).ok_or(Error::<T>::LegNotFound)?;
             ensure!(
                 leg.asset.is_off_chain(),
                 Error::<T>::ReceiptForInvalidLegType
