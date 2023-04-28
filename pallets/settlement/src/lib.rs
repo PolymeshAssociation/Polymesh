@@ -172,8 +172,6 @@ decl_error! {
         UnexpectedAffirmationStatus,
         /// Scheduling of an instruction fails.
         FailedToSchedule,
-        /// Legs count should matches with the total number of legs in which given portfolio act as `from_portfolio`.
-        LegCountTooSmall,
         /// Instruction status is unknown
         UnknownInstruction,
         /// Signer is already added to venue.
@@ -472,7 +470,7 @@ decl_module! {
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
-        #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*_legs_count, 0)]
+        #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*_legs_count, 0, 0)]
         fn execute_scheduled_instruction(origin, id: InstructionId, _legs_count: u32) {
             ensure_root(origin)?;
             Self::base_execute_scheduled_instruction(id, &mut WeightMeter::max_limit());
@@ -502,8 +500,14 @@ decl_module! {
             let execution_at = System::<T>::block_number() + One::one();
             let instruction_legs: Vec<(LegId, LegV2)> = InstructionLegsV2::iter_prefix(&id).collect();
             let transfer_data = Self::get_transfer_data(&instruction_legs);
-            Self::schedule_instruction(id, execution_at, transfer_data.fungible(), transfer_data.non_fungible(), weight_limit);
-
+            Self::schedule_instruction(
+                id,
+                execution_at,
+                transfer_data.fungible(),
+                transfer_data.non_fungible(),
+                transfer_data.off_chain(),
+                weight_limit
+            );
             Self::deposit_event(RawEvent::InstructionRescheduled(did, id));
         }
 
@@ -534,12 +538,14 @@ decl_module! {
         ///
         /// # Errors
         /// * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
-        #[weight = <T as Config>::WeightInfo::execute_manual_instruction(*legs_count)]
+        #[weight = <T as Config>::WeightInfo::execute_manual_instruction(*fungible_transfers, *nfts_transfers, *offchain_transfers)]
         pub fn execute_manual_instruction(
             origin,
             id: InstructionId,
-            legs_count: u32,
             portfolio: Option<PortfolioId>,
+            fungible_transfers: u32,
+            nfts_transfers: u32,
+            offchain_transfers: u32,
             weight_limit: Option<Weight>
         ) -> DispatchResultWithPostInfo {
             // check origin has the permissions required and valid instruction
@@ -562,14 +568,15 @@ decl_module! {
                 }
             }
 
-            // check that the instruction leg count matches
-            ensure!(instruction_legs.len() as u32 <= legs_count, Error::<T>::LegCountTooSmall);
+            let transfer_data = Self::get_transfer_data(&instruction_legs);
+            let input_cost = TransferData::new(fungible_transfers, nfts_transfers, offchain_transfers);
+            Self::ensure_valid_input_cost(&transfer_data, &input_cost)?;
 
             let weight_limit = weight_limit.unwrap_or_else(|| {
-                let transfer_data = Self::get_transfer_data(&instruction_legs);
                 <T as Config>::WeightInfo::execute_scheduled_instruction(
                     transfer_data.fungible(),
                     transfer_data.non_fungible(),
+                    transfer_data.off_chain(),
                 )
                 .saturating_mul(2)
             });
@@ -595,7 +602,7 @@ decl_module! {
         /// # Weight
         /// `950_000_000 + 1_000_000 * legs.len()`
         #[weight =
-            <T as Config>::WeightInfo::add_instruction_with_memo_v2(legs.len() as u32)
+            <T as Config>::WeightInfo::add_instruction_legs(legs)
             .saturating_add( <T as Config>::WeightInfo::execute_scheduled_instruction_v2(legs))
         ]
         pub fn add_instruction_with_memo_v2(
@@ -696,18 +703,19 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::withdraw_affirmation_v2(*fungible_transfers, *nfts_transfers)]
+        #[weight = <T as Config>::WeightInfo::withdraw_affirmation_v2(*fungible_transfers, *nfts_transfers, *offchain_transfers)]
         pub fn withdraw_affirmation_v2(
             origin,
             id: InstructionId,
             portfolios: Vec<PortfolioId>,
             fungible_transfers: u32,
-            nfts_transfers: u32
+            nfts_transfers: u32,
+            offchain_transfers: u32
         ) -> DispatchResult {
             let (did, secondary_key, details) = Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
 
-            let input_cost = TransferData::new(fungible_transfers, nfts_transfers, 0);
+            let input_cost = TransferData::new(fungible_transfers, nfts_transfers, offchain_transfers);
             Self::unsafe_withdraw_instruction_affirmation(did, id, portfolios_set, secondary_key.as_ref(), &input_cost)?;
             if details.settlement_type == SettlementType::SettleOnAffirmation {
                 // Cancel the scheduled task for the execution of a given instruction.
@@ -726,32 +734,34 @@ decl_module! {
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::reject_instruction_v2(*fungible_transfers, *nfts_transfers)]
+        #[weight = <T as Config>::WeightInfo::reject_instruction_v2(*fungible_transfers, *nfts_transfers, *offchain_transfers)]
         pub fn reject_instruction_v2(
             origin,
             id: InstructionId,
             portfolio: PortfolioId,
             fungible_transfers: u32,
-            nfts_transfers: u32
+            nfts_transfers: u32,
+            offchain_transfers: u32
         ) -> DispatchResult {
-            let input_cost = TransferData::new(fungible_transfers, nfts_transfers, 0);
+            let input_cost = TransferData::new(fungible_transfers, nfts_transfers, offchain_transfers);
             Self::base_reject_instruction(origin, id, portfolio, &input_cost)
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
-        #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*_fungible_transfers, *_nfts_transfers)]
+        #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*_fungible_transfers, *_nfts_transfers, 0)]
         fn execute_scheduled_instruction_v2(origin, id: InstructionId, _fungible_transfers: u32, _nfts_transfers: u32) {
             ensure_root(origin)?;
             Self::base_execute_scheduled_instruction(id, &mut WeightMeter::max_limit());
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
-        #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*_fungible_transfers, *_nfts_transfers)]
+        #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*_fungible_transfers, *_nfts_transfers, *_offchain_transfers)]
         fn execute_scheduled_instruction_v3(
             origin,
             id: InstructionId,
             _fungible_transfers: u32,
             _nfts_transfers: u32,
+            _offchain_transfers: u32,
             weight_limit: Option<Weight>
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
@@ -876,6 +886,7 @@ impl<T: Config> Module<T> {
                 block_number,
                 instruction_info.fungible_transfers(),
                 instruction_info.nfts_transferred(),
+                instruction_info.off_chain(),
                 weight_limit,
             );
         }
@@ -1100,6 +1111,7 @@ impl<T: Config> Module<T> {
             .check_accrue(<T as Config>::WeightInfo::execute_instruction_paused(
                 transfer_data.fungible(),
                 transfer_data.non_fungible(),
+                transfer_data.off_chain(),
             ))
             .map_err(|_| Error::<T>::WeightLimitExceeded)?;
 
@@ -1304,6 +1316,7 @@ impl<T: Config> Module<T> {
                 execution_at,
                 input_cost.fungible(),
                 input_cost.non_fungible(),
+                input_cost.off_chain(),
                 weight_limit,
             );
         }
@@ -1319,12 +1332,14 @@ impl<T: Config> Module<T> {
         execution_at: T::BlockNumber,
         _fungible_transfers: u32,
         _nfts_transfers: u32,
+        _offchain_transfers: u32,
         weight_limit: Option<Weight>,
     ) {
         let call = Call::<T>::execute_scheduled_instruction_v3 {
             id,
             _fungible_transfers,
             _nfts_transfers,
+            _offchain_transfers,
             weight_limit,
         }
         .into();
@@ -1390,16 +1405,11 @@ impl<T: Config> Module<T> {
                 Error::<T>::ReceiptForInvalidLegType
             );
             ensure!(
-                portfolios_set.contains(&leg.from),
+                portfolios_set.contains(&leg.from) || portfolios_set.contains(&leg.to),
                 Error::<T>::PortfolioMismatch
             );
 
             let (asset, amount) = leg.asset.ticker_and_amount();
-            ensure!(
-                !pallet_asset::Tokens::contains_key(&asset),
-                Error::<T>::UnauthorizedVenue
-            );
-
             let msg = Receipt {
                 receipt_uid: receipt.receipt_uid,
                 from: leg.from,

@@ -551,6 +551,7 @@ fn token_swap() {
             instruction_id,
             default_portfolio_vec(alice.did),
             1,
+            0,
             0
         ));
 
@@ -1098,6 +1099,7 @@ fn basic_fuzzing() {
                         instruction_id,
                         default_portfolio_vec(user.did),
                         leg_count,
+                        0,
                         0
                     ));
                 }
@@ -1140,6 +1142,7 @@ fn basic_fuzzing() {
                 instruction_id,
                 default_portfolio_vec(users[failed_user].did),
                 *legs_count.get(&users[failed_user].did).unwrap_or(&0),
+                0,
                 0
             ));
             locked_assets.retain(|(did, _), _| *did != users[failed_user].did);
@@ -1194,6 +1197,7 @@ fn basic_fuzzing() {
                 instruction_id,
                 PortfolioId::default_portfolio(users[0].did),
                 legs.len() as u32,
+                0,
                 0
             ));
             assert_eq!(
@@ -1724,6 +1728,7 @@ fn multiple_portfolio_settlement() {
                     PortfolioId::user_portfolio(alice.did, alice_num)
                 ],
                 2,
+                0,
                 0
             ),
             Error::UnexpectedAffirmationStatus
@@ -1943,6 +1948,7 @@ fn multiple_custodian_settlement() {
                 instruction_id,
                 portfolios_vec,
                 2,
+                0,
                 0
             ),
             PortfolioError::UnauthorizedCustodian
@@ -1954,6 +1960,7 @@ fn multiple_custodian_settlement() {
             instruction_id,
             default_portfolio_vec(alice.did),
             1,
+            0,
             0
         ));
         assert_locked_assets(&TICKER, &alice, 0);
@@ -2000,6 +2007,7 @@ fn reject_instruction() {
                 instruction_id,
                 PortfolioId::default_portfolio(user.did),
                 1,
+                0,
                 0,
             )
         };
@@ -2161,6 +2169,7 @@ fn reject_failed_instruction() {
             instruction_id,
             PortfolioId::default_portfolio(bob.did),
             1,
+            0,
             0
         ));
 
@@ -2477,8 +2486,10 @@ fn settle_manual_instruction() {
             Settlement::execute_manual_instruction(
                 alice.origin(),
                 instruction_id,
-                legs.len() as u32,
                 None,
+                1,
+                0,
+                0,
                 None
             ),
             Error::InstructionSettleBlockNotReached
@@ -2489,8 +2500,10 @@ fn settle_manual_instruction() {
             Settlement::execute_manual_instruction(
                 bob.origin(),
                 instruction_id,
-                legs.len() as u32,
                 None,
+                1,
+                0,
+                0,
                 None
             ),
             Error::Unauthorized
@@ -2500,18 +2513,22 @@ fn settle_manual_instruction() {
             Settlement::execute_manual_instruction(
                 alice.origin(),
                 instruction_id,
-                0u32,
                 None,
+                0,
+                0,
+                0,
                 None
             ),
-            Error::LegCountTooSmall
+            Error::NumberOfFungibleTransfersUnderestimated
         );
         // Ensure it succeeds as the execute block was reached
         assert_ok!(Settlement::execute_manual_instruction(
             alice.origin(),
             instruction_id,
-            legs.len() as u32,
             None,
+            1,
+            0,
+            0,
             None
         ));
         assert_user_affirms(instruction_id, &alice, AffirmationStatus::Unknown);
@@ -2572,8 +2589,10 @@ fn settle_manual_instruction_with_portfolio() {
             Settlement::execute_manual_instruction(
                 alice.origin(),
                 instruction_id,
-                legs.len() as u32,
                 Some(alice_portfolio),
+                1,
+                0,
+                0,
                 None
             ),
             Error::InstructionSettleBlockNotReached
@@ -2584,8 +2603,10 @@ fn settle_manual_instruction_with_portfolio() {
             Settlement::execute_manual_instruction(
                 charlie.origin(),
                 instruction_id,
-                legs.len() as u32,
                 Some(charlie_portfolio),
+                1,
+                0,
+                0,
                 None,
             ),
             Error::CallerIsNotAParty
@@ -2595,18 +2616,22 @@ fn settle_manual_instruction_with_portfolio() {
             Settlement::execute_manual_instruction(
                 alice.origin(),
                 instruction_id,
-                0u32,
                 Some(alice_portfolio),
+                0,
+                0,
+                0,
                 None
             ),
-            Error::LegCountTooSmall
+            Error::NumberOfFungibleTransfersUnderestimated
         );
         // Ensure it succeeds as the execute block was reached
         assert_ok!(Settlement::execute_manual_instruction(
             alice.origin(),
             instruction_id,
-            legs.len() as u32,
             Some(alice_portfolio),
+            1,
+            0,
+            0,
             None
         ));
         assert_user_affirms(instruction_id, &alice, AffirmationStatus::Unknown);

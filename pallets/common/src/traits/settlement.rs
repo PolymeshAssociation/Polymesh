@@ -86,39 +86,47 @@ pub trait WeightInfo {
     fn update_venue_details(d: u32) -> Weight;
     fn update_venue_type() -> Weight;
     fn update_venue_signers(u: u32) -> Weight;
-    fn affirm_with_receipts(r: u32) -> Weight;
+    fn affirm_with_receipts(f: u32, n: u32, o: u32) -> Weight;
     fn set_venue_filtering() -> Weight;
     fn allow_venues(u: u32) -> Weight;
     fn disallow_venues(u: u32) -> Weight;
     fn change_receipt_validity() -> Weight;
     fn reschedule_instruction() -> Weight;
-    fn execute_manual_instruction(l: u32) -> Weight;
-    fn add_instruction_with_memo_v2(f: u32) -> Weight;
-    fn add_and_affirm_instruction_with_memo_v2(f: u32, n: u32) -> Weight;
+    fn execute_manual_instruction(f: u32, n: u32, o: u32) -> Weight;
+    fn add_instruction_legs(legs_v2: &[LegV2]) -> Weight {
+        let (f, n, o) = Self::get_transfer_by_asset(legs_v2);
+        Self::add_instruction_with_memo_v2(f, n, o)
+    }
+    fn add_instruction_with_memo_v2(f: u32, n: u32, o: u32) -> Weight;
+    fn add_and_affirm_instruction_with_memo_v2(f: u32, n: u32, o: u32) -> Weight;
     fn affirm_instruction_v2(f: u32, n: u32) -> Weight;
-    fn withdraw_affirmation_v2(f: u32, n: u32) -> Weight;
-    fn reject_instruction_v2(f: u32, n: u32) -> Weight;
+    fn withdraw_affirmation_v2(f: u32, n: u32, o: u32) -> Weight;
+    fn reject_instruction_v2(f: u32, n: u32, o: u32) -> Weight;
     fn add_and_affirm_instruction_with_memo_v2_legs(legs_v2: &[LegV2]) -> Weight {
-        let (f, n) = Self::get_transfer_by_asset(legs_v2);
-        Self::add_and_affirm_instruction_with_memo_v2(f, n)
+        let (f, n, o) = Self::get_transfer_by_asset(legs_v2);
+        Self::add_and_affirm_instruction_with_memo_v2(f, n, o)
     }
     fn execute_scheduled_instruction_v2(legs_v2: &[LegV2]) -> Weight {
-        let (f, n) = Self::get_transfer_by_asset(legs_v2);
-        Self::execute_scheduled_instruction(f, n)
+        let (f, n, o) = Self::get_transfer_by_asset(legs_v2);
+        Self::execute_scheduled_instruction(f, n, o)
     }
     fn ensure_allowed_venue(n: u32) -> Weight;
     fn execute_instruction_initial_checks(n: u32) -> Weight;
     fn unchecked_release_locks(f: u32, n: u32) -> Weight;
     fn prune_instruction(l: u32, p: u32) -> Weight;
     fn post_failed_execution() -> Weight;
-    fn execute_instruction_paused(f: u32, n: u32) -> Weight;
-    fn execute_scheduled_instruction(f: u32, n: u32) -> Weight;
-    fn get_transfer_by_asset(legs_v2: &[LegV2]) -> (u32, u32) {
+    fn execute_instruction_paused(f: u32, n: u32, o: u32) -> Weight;
+    fn execute_scheduled_instruction(f: u32, n: u32, o: u32) -> Weight;
+    fn get_transfer_by_asset(legs_v2: &[LegV2]) -> (u32, u32, u32) {
         let transfer_data = TransferData::from_legs(legs_v2).unwrap_or(TransferData::new(
             u32::MAX,
             u32::MAX,
             u32::MAX,
         ));
-        (transfer_data.fungible(), transfer_data.non_fungible())
+        (
+            transfer_data.fungible(),
+            transfer_data.non_fungible(),
+            transfer_data.off_chain(),
+        )
     }
 }
