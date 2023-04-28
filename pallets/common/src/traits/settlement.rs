@@ -4,7 +4,7 @@ use frame_support::weights::Weight;
 use sp_std::vec::Vec;
 
 use polymesh_primitives::settlement::{
-    InstructionId, InstructionMemo, LegId, LegV2, ReceiptMetadata, SettlementType, TransferData,
+    InstructionId, InstructionMemo, Leg, LegId, ReceiptMetadata, SettlementType, TransferData,
     VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
@@ -66,14 +66,14 @@ decl_event!(
         SettlementManuallyExecuted(IdentityId, InstructionId),
         /// A new instruction has been created
         /// (did, venue_id, instruction_id, settlement_type, trade_date, value_date, legs, memo)
-        InstructionV2Created(
+        InstructionCreated(
             IdentityId,
             VenueId,
             InstructionId,
             SettlementType<BlockNumber>,
             Option<Moment>,
             Option<Moment>,
-            Vec<LegV2>,
+            Vec<Leg>,
             Option<InstructionMemo>,
         ),
         /// Failed to execute instruction.
@@ -93,21 +93,21 @@ pub trait WeightInfo {
     fn change_receipt_validity() -> Weight;
     fn reschedule_instruction() -> Weight;
     fn execute_manual_instruction(f: u32, n: u32, o: u32) -> Weight;
-    fn add_instruction_legs(legs_v2: &[LegV2]) -> Weight {
-        let (f, n, o) = Self::get_transfer_by_asset(legs_v2);
-        Self::add_instruction_with_memo_v2(f, n, o)
+    fn add_instruction_legs(legs: &[Leg]) -> Weight {
+        let (f, n, o) = Self::get_transfer_by_asset(legs);
+        Self::add_instruction(f, n, o)
     }
-    fn add_instruction_with_memo_v2(f: u32, n: u32, o: u32) -> Weight;
-    fn add_and_affirm_instruction_with_memo_v2(f: u32, n: u32, o: u32) -> Weight;
-    fn affirm_instruction_v2(f: u32, n: u32) -> Weight;
-    fn withdraw_affirmation_v2(f: u32, n: u32, o: u32) -> Weight;
-    fn reject_instruction_v2(f: u32, n: u32, o: u32) -> Weight;
-    fn add_and_affirm_instruction_with_memo_v2_legs(legs_v2: &[LegV2]) -> Weight {
-        let (f, n, o) = Self::get_transfer_by_asset(legs_v2);
-        Self::add_and_affirm_instruction_with_memo_v2(f, n, o)
+    fn add_instruction(f: u32, n: u32, o: u32) -> Weight;
+    fn add_and_affirm_instruction(f: u32, n: u32, o: u32) -> Weight;
+    fn affirm_instruction(f: u32, n: u32) -> Weight;
+    fn withdraw_affirmation(f: u32, n: u32, o: u32) -> Weight;
+    fn reject_instruction(f: u32, n: u32, o: u32) -> Weight;
+    fn add_and_affirm_instruction_legs(legs: &[Leg]) -> Weight {
+        let (f, n, o) = Self::get_transfer_by_asset(legs);
+        Self::add_and_affirm_instruction(f, n, o)
     }
-    fn execute_scheduled_instruction_v2(legs_v2: &[LegV2]) -> Weight {
-        let (f, n, o) = Self::get_transfer_by_asset(legs_v2);
+    fn execute_scheduled_instruction_legs(legs: &[Leg]) -> Weight {
+        let (f, n, o) = Self::get_transfer_by_asset(legs);
         Self::execute_scheduled_instruction(f, n, o)
     }
     fn ensure_allowed_venue(n: u32) -> Weight;
@@ -117,8 +117,8 @@ pub trait WeightInfo {
     fn post_failed_execution() -> Weight;
     fn execute_instruction_paused(f: u32, n: u32, o: u32) -> Weight;
     fn execute_scheduled_instruction(f: u32, n: u32, o: u32) -> Weight;
-    fn get_transfer_by_asset(legs_v2: &[LegV2]) -> (u32, u32, u32) {
-        let transfer_data = TransferData::from_legs(legs_v2).unwrap_or(TransferData::new(
+    fn get_transfer_by_asset(legs: &[Leg]) -> (u32, u32, u32) {
+        let transfer_data = TransferData::from_legs(legs).unwrap_or(TransferData::new(
             u32::MAX,
             u32::MAX,
             u32::MAX,

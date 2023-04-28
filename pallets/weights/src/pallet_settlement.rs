@@ -270,7 +270,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
-    fn add_instruction_with_memo_v2(f: u32, n: u32, o: u32) -> Weight {
+    fn add_instruction(f: u32, n: u32, o: u32) -> Weight {
         // Minimum execution time: 395_294 nanoseconds.
         Weight::from_ref_time(127_120_175)
             // Standard Error: 602_612
@@ -314,7 +314,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
-    fn add_and_affirm_instruction_with_memo_v2(f: u32, n: u32, o: u32) -> Weight {
+    fn add_and_affirm_instruction(f: u32, n: u32, o: u32) -> Weight {
         // Minimum execution time: 836_111 nanoseconds.
         Weight::from_ref_time(184_321_409)
             // Standard Error: 1_026_512
@@ -349,7 +349,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     // Storage: Settlement InstructionLegStatus (r:0 w:101)
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[1, 100]`.
-    fn affirm_instruction_v2(f: u32, n: u32) -> Weight {
+    fn affirm_instruction(f: u32, n: u32) -> Weight {
         // Minimum execution time: 687_736 nanoseconds.
         Weight::from_ref_time(323_357_782)
             // Standard Error: 646_659
@@ -379,7 +379,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
-    fn withdraw_affirmation_v2(f: u32, n: u32, o: u32) -> Weight {
+    fn withdraw_affirmation(f: u32, n: u32, o: u32) -> Weight {
         // Minimum execution time: 890_863 nanoseconds.
         Weight::from_ref_time(890_983_000)
             // Standard Error: 1_245_212
@@ -416,7 +416,7 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
     /// The range of component `f` is `[1, 10]`.
     /// The range of component `n` is `[0, 100]`.
     /// The range of component `o` is `[0, 10]`.
-    fn reject_instruction_v2(f: u32, n: u32, o: u32) -> Weight {
+    fn reject_instruction(f: u32, n: u32, o: u32) -> Weight {
         // Minimum execution time: 917_575 nanoseconds.
         Weight::from_ref_time(231_674_739)
             // Standard Error: 550_694

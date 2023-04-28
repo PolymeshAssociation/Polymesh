@@ -57,7 +57,7 @@ impl<T: Config> From<&User<T>> for UserData<T> {
 }
 
 pub struct Parameters {
-    pub legs: Vec<LegV2>,
+    pub legs: Vec<Leg>,
     pub portfolios: Portfolios,
 }
 
@@ -108,7 +108,7 @@ where
     let mut portfolios = Portfolios::default();
 
     // Creates offchain legs and new portfolios for each leg
-    let offchain_legs: Vec<LegV2> = (0..o)
+    let offchain_legs: Vec<Leg> = (0..o)
         .map(|i| {
             let ticker = Ticker::from_slice_truncated(format!("OFFTicker{}", i).as_bytes());
             let sdr_portfolio =
@@ -121,7 +121,7 @@ where
             portfolios
                 .rcv_receipt_portfolios
                 .push(rcv_portfolio.clone());
-            LegV2 {
+            Leg {
                 from: sdr_portfolio,
                 to: rcv_portfolio,
                 asset: LegAsset::OffChain {
@@ -133,7 +133,7 @@ where
         .collect();
 
     // Creates f assets, creates two portfolios, adds maximum compliance requirements, adds maximum transfer conditions and pauses them
-    let fungible_legs: Vec<LegV2> = (0..f)
+    let fungible_legs: Vec<Leg> = (0..f)
         .map(|i| {
             let ticker = Ticker::from_slice_truncated(format!("Ticker{}", i).as_bytes());
             let sdr_portfolio_name = format!("SdrPortfolioTicker{}", i);
@@ -149,7 +149,7 @@ where
             );
             portfolios.sdr_portfolios.push(sdr_portfolio.clone());
             portfolios.rcv_portfolios.push(rvc_portfolio.clone());
-            LegV2 {
+            Leg {
                 from: sdr_portfolio,
                 to: rvc_portfolio,
                 asset: LegAsset::Fungible {
@@ -161,7 +161,7 @@ where
         .collect();
 
     // Creates n collections, mints one NFT, creates two portfolios, adds maximum compliance requirements and pauses it
-    let nft_legs: Vec<LegV2> = (0..n)
+    let nft_legs: Vec<Leg> = (0..n)
         .map(|i| {
             let ticker = Ticker::from_slice_truncated(format!("NFTTicker{}", i).as_bytes());
             let sdr_portfolio_name = format!("SdrPortfolioNFTTicker{}", i);
@@ -177,7 +177,7 @@ where
             );
             portfolios.sdr_portfolios.push(sdr_portfolio.clone());
             portfolios.rcv_portfolios.push(rcv_portfolio.clone());
-            LegV2 {
+            Leg {
                 from: sdr_portfolio,
                 to: rcv_portfolio,
                 asset: LegAsset::NonFungible(NFTs::new_unverified(ticker, vec![NFTId(1)])),
@@ -218,7 +218,7 @@ where
         pause_compliance,
         pause_restrictions,
     );
-    Module::<T>::add_instruction_with_memo_v2(
+    Module::<T>::add_instruction(
         sender.origin.clone().into(),
         venue_id,
         settlement_type,
@@ -432,7 +432,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
-        Module::<T>::add_instruction_with_memo_v2(
+        Module::<T>::add_instruction(
             alice.origin.clone().into(),
             venue_id,
             SettlementType::SettleOnAffirmation,
@@ -486,7 +486,7 @@ benchmarks! {
         setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, false, false);
     }: _(alice.origin, InstructionId(1), None, f, n, o, None)
 
-    add_instruction_with_memo_v2 {
+    add_instruction{
         // Number of fungible, non fungible and offchain legs
         let f in 1..T::MaxNumberOfFungibleAssets::get();
         let n in 0..T::MaxNumberOfNFTs::get();
@@ -501,7 +501,7 @@ benchmarks! {
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
     }: _(alice.origin, venue_id, settlement_type, None, None, parameters.legs, memo, None)
 
-    add_and_affirm_instruction_with_memo_v2 {
+    add_and_affirm_instruction {
         let f in 1..T::MaxNumberOfFungibleAssets::get();
         let n in 0..T::MaxNumberOfNFTs::get();
         let o in 0..T::MaxNumberOfOffChainAssets::get();
@@ -515,7 +515,7 @@ benchmarks! {
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
     }: _(alice.origin, venue_id, settlement_type, None, None, parameters.legs, parameters.portfolios.sdr_portfolios, memo, None)
 
-    affirm_instruction_v2 {
+    affirm_instruction {
         let f in 1..T::MaxNumberOfFungibleAssets::get() as u32;
         let n in 1..T::MaxNumberOfNFTs::get() as u32;
 
@@ -525,7 +525,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, T::MaxNumberOfOffChainAssets::get(), false, false);
-        Module::<T>::add_instruction_with_memo_v2(
+        Module::<T>::add_instruction(
             alice.origin.clone().into(),
             venue_id,
             SettlementType::SettleOnAffirmation,
@@ -537,7 +537,7 @@ benchmarks! {
         ).unwrap();
     }: _(alice.origin, InstructionId(1), parameters.portfolios.sdr_portfolios, f, n, None)
 
-    withdraw_affirmation_v2 {
+    withdraw_affirmation {
         let f in 1..T::MaxNumberOfFungibleAssets::get();
         let n in 0..T::MaxNumberOfNFTs::get();
         let o in 0..T::MaxNumberOfOffChainAssets::get();
@@ -553,7 +553,7 @@ benchmarks! {
             [parameters.portfolios.sdr_portfolios, parameters.portfolios.sdr_receipt_portfolios].concat();
     }: _(alice.origin, InstructionId(1),  portfolios, f, n, o)
 
-    reject_instruction_v2 {
+    reject_instruction {
         let f in 1..T::MaxNumberOfFungibleAssets::get();
         let n in 0..T::MaxNumberOfNFTs::get();
         let o in 0..T::MaxNumberOfOffChainAssets::get();
@@ -577,7 +577,7 @@ benchmarks! {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let venue_id = create_venue_::<T>(alice.did(), vec![]);
 
-        let instruction_legs: Vec<(LegId, LegV2)> = (0..n)
+        let instruction_legs: Vec<(LegId, Leg)> = (0..n)
             .map(|i| {
                 let ticker = Ticker::from_slice_truncated(format!("TICKER{}", i).as_bytes());
                 create_collection_issue_nfts::<T>(
@@ -592,7 +592,7 @@ benchmarks! {
                 Module::<T>::allow_venues(alice.origin().into(), ticker, vec![venue_id]).unwrap();
                 (
                     LegId(i.into()),
-                    LegV2 {
+                    Leg {
                         from: PortfolioId {
                             did: alice.did(),
                             kind: PortfolioKind::Default,
@@ -621,7 +621,7 @@ benchmarks! {
 
         (0..n)
             .for_each(|i| {
-                let leg = LegV2 {
+                let leg = Leg {
                     from: PortfolioId {
                         did: alice.did(),
                         kind: PortfolioKind::Default,
@@ -632,15 +632,15 @@ benchmarks! {
                     },
                     asset: LegAsset::NonFungible(NFTs::new_unverified(ticker, vec![NFTId(1)])),
                 };
-                InstructionLegsV2::insert(instruction_id, LegId(i.into()), leg);
+                InstructionLegs::insert(instruction_id, LegId(i.into()), leg);
             });
         InstructionStatuses::<T>::insert(instruction_id, InstructionStatus::Pending);
     }: {
         assert!(Module::<T>::instruction_affirms_pending(instruction_id) == 0);
         assert!(Module::<T>::instruction_status(instruction_id) == InstructionStatus::Pending);
         let venue_id = Module::<T>::instruction_details(instruction_id).venue_id;
-        let mut instruction_legs: Vec<(LegId, LegV2)> =
-            InstructionLegsV2::iter_prefix(&InstructionId(1)).collect();
+        let mut instruction_legs: Vec<(LegId, Leg)> =
+            InstructionLegs::iter_prefix(&InstructionId(1)).collect();
         instruction_legs.sort_by_key(|leg_id_leg| leg_id_leg.0);
     }
 
@@ -655,7 +655,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, T::MaxNumberOfOffChainAssets::get(), false, false);
-        Module::<T>::add_and_affirm_instruction_with_memo_v2(
+        Module::<T>::add_and_affirm_instruction(
             alice.origin.clone().into(),
             venue_id,
             SettlementType::SettleOnAffirmation,
@@ -666,7 +666,7 @@ benchmarks! {
             Some(InstructionMemo::default()),
             None
         ).unwrap();
-        Module::<T>::affirm_instruction_v2(
+        Module::<T>::affirm_instruction(
             bob.origin.clone().into(),
             InstructionId(1),
             parameters.portfolios.rcv_portfolios,
@@ -674,8 +674,8 @@ benchmarks! {
             0,
             None
         ).unwrap();
-        let instruction_legs: Vec<(LegId, LegV2)> =
-            InstructionLegsV2::iter_prefix(&InstructionId(1)).collect();
+        let instruction_legs: Vec<(LegId, Leg)> =
+            InstructionLegs::iter_prefix(&InstructionId(1)).collect();
     }: {
         Module::<T>::unchecked_release_locks(InstructionId(1), &instruction_legs);
     }
@@ -705,12 +705,12 @@ benchmarks! {
                     alice_portfolio
                 }
             };
-            let leg = LegV2 {
+            let leg = Leg {
                 from: sender_portfolio,
                 to: alice_portfolio,
                 asset: LegAsset::NonFungible(NFTs::new_unverified(ticker, vec![NFTId(1)])),
             };
-            InstructionLegsV2::insert(instruction_id, LegId(i.into()), leg);
+            InstructionLegs::insert(instruction_id, LegId(i.into()), leg);
             InstructionLegStatus::<T>::insert(instruction_id, LegId(i.into()), LegStatus::ExecutionPending);
             AffirmsReceived::insert(
                 instruction_id,

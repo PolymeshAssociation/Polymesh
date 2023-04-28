@@ -229,7 +229,7 @@ impl Default for LegAsset {
 
 /// Defines a leg (i.e the action of a settlement).
 #[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
-pub struct LegV2 {
+pub struct Leg {
     /// Portfolio of the sender.
     pub from: PortfolioId,
     /// Portfolio of the receiver.
@@ -371,10 +371,10 @@ impl TransferData {
     }
 
     /// Gets the `TransferData` from a slice of `LegV2`.
-    pub fn from_legs(legs_v2: &[LegV2]) -> Result<TransferData, String> {
+    pub fn from_legs(legs: &[Leg]) -> Result<TransferData, String> {
         let mut transfer_data = TransferData::default();
-        for leg_v2 in legs_v2 {
-            match &leg_v2.asset {
+        for leg in legs {
+            match &leg.asset {
                 LegAsset::Fungible { .. } => transfer_data.try_add_fungible()?,
                 LegAsset::NonFungible(nfts) => transfer_data.try_add_non_fungible(&nfts)?,
                 LegAsset::OffChain { .. } => transfer_data.try_add_off_chain()?,

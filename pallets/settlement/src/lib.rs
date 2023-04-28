@@ -77,7 +77,7 @@ use polymesh_common_utilities::with_transaction;
 use polymesh_common_utilities::SystematicIssuers::Settlement as SettlementDID;
 use polymesh_primitives::settlement::{
     AffirmationStatus, ExecuteInstructionInfo, Instruction, InstructionId, InstructionInfo,
-    InstructionMemo, InstructionStatus, LegAsset, LegId, LegStatus, LegV2, PruneDetails, Receipt,
+    InstructionMemo, InstructionStatus, Leg, LegAsset, LegId, LegStatus, PruneDetails, Receipt,
     ReceiptDetails, SettlementType, TransferData, Venue, VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::{
@@ -273,8 +273,8 @@ decl_storage! {
         InstructionStatuses get(fn instruction_status):
             map hasher(twox_64_concat) InstructionId => InstructionStatus<T::BlockNumber>;
         /// Legs under an instruction. (instruction_id, leg_id) -> Leg
-        pub InstructionLegsV2 get(fn instruction_legsv2):
-            double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => Option<LegV2>;
+        pub InstructionLegs get(fn instruction_legsv2):
+            double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => Option<Leg>;
     }
 }
 
@@ -500,7 +500,7 @@ decl_module! {
 
             // Schedule instruction to be executed in the next block.
             let execution_at = System::<T>::block_number() + One::one();
-            let instruction_legs: Vec<(LegId, LegV2)> = InstructionLegsV2::iter_prefix(&id).collect();
+            let instruction_legs: Vec<(LegId, Leg)> = InstructionLegs::iter_prefix(&id).collect();
             let transfer_data = Self::get_transfer_data(&instruction_legs);
             Self::schedule_instruction(
                 id,
@@ -554,7 +554,7 @@ decl_module! {
             let (did, sk, instruction_details) = Self::ensure_origin_perm_and_instruction_validity(origin, id, true)?;
 
             // Check for portfolio
-            let instruction_legs: Vec<(LegId, LegV2)> = InstructionLegsV2::iter_prefix(&id).collect();
+            let instruction_legs: Vec<(LegId, Leg)> = InstructionLegs::iter_prefix(&id).collect();
             match portfolio {
                 Some(portfolio) => {
                     // Ensure that the caller is a party of this instruction.
@@ -590,30 +590,31 @@ decl_module! {
             Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
         }
 
-        /// Adds a new instruction with memo.
+        /// Adds a new instruction.
         ///
         /// # Arguments
         /// * `venue_id` - ID of the venue this instruction belongs to.
-        /// * `settlement_type` - Defines if the instruction should be settled
-        ///    in the next block after receiving all affirmations or waiting till a specific block.
+        /// * `settlement_type` - Defines if the instruction should be settled in the next block, after receiving all affirmations
+        /// or waiting till a specific block.
         /// * `trade_date` - Optional date from which people can interact with this instruction.
         /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
         /// * `legs` - Legs included in this instruction.
         /// * `memo` - Memo field for this instruction.
+        /// * `weight_limit` - Optional value that defines a maximum weight for executing the instruction.
         ///
         /// # Weight
         /// `950_000_000 + 1_000_000 * legs.len()`
         #[weight =
             <T as Config>::WeightInfo::add_instruction_legs(legs)
-            .saturating_add( <T as Config>::WeightInfo::execute_scheduled_instruction_v2(legs))
+            .saturating_add( <T as Config>::WeightInfo::execute_scheduled_instruction_legs(legs))
         ]
-        pub fn add_instruction_with_memo_v2(
+        pub fn add_instruction(
             origin,
             venue_id: VenueId,
             settlement_type: SettlementType<T::BlockNumber>,
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
-            legs: Vec<LegV2>,
+            legs: Vec<Leg>,
             instruction_memo: Option<InstructionMemo>,
             weight_limit: Option<Weight>
         ) {
@@ -625,27 +626,28 @@ decl_module! {
         ///
         /// # Arguments
         /// * `venue_id` - ID of the venue this instruction belongs to.
-        /// * `settlement_type` - Defines if the instruction should be settled
-        ///    in the next block after receiving all affirmations or waiting till a specific block.
+        /// * `settlement_type` - Defines if the instruction should be settled in the next block, after receiving all affirmations
+        /// or waiting till a specific block.
         /// * `trade_date` - Optional date from which people can interact with this instruction.
         /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
         /// * `legs` - Legs included in this instruction.
         /// * `portfolios` - Portfolios that the sender controls and wants to use in this affirmations.
         /// * `memo` - Memo field for this instruction.
+        /// * `weight_limit` - Optional value that defines a maximum weight for executing the instruction.
         ///
         /// # Permissions
         /// * Portfolio
         #[weight =
-            <T as Config>::WeightInfo::add_and_affirm_instruction_with_memo_v2_legs(legs)
-            .saturating_add( <T as Config>::WeightInfo::execute_scheduled_instruction_v2(legs))
+            <T as Config>::WeightInfo::add_and_affirm_instruction_legs(legs)
+            .saturating_add( <T as Config>::WeightInfo::execute_scheduled_instruction_legs(legs))
         ]
-        pub fn add_and_affirm_instruction_with_memo_v2(
+        pub fn add_and_affirm_instruction(
             origin,
             venue_id: VenueId,
             settlement_type: SettlementType<T::BlockNumber>,
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
-            legs: Vec<LegV2>,
+            legs: Vec<Leg>,
             portfolios: Vec<PortfolioId>,
             instruction_memo: Option<InstructionMemo>,
             weight_limit: Option<Weight>
@@ -668,15 +670,16 @@ decl_module! {
         /// Provide affirmation to an existing instruction.
         ///
         /// # Arguments
-        /// * `id` - Instruction id to affirm.
+        /// * `id` - The `InstructionId` of the instruction to be affirmed.
         /// * `portfolios` - Portfolios that the sender controls and wants to affirm this instruction.
         /// * `fungible_transfers` - number of fungible transfers in the instruction.
         /// * `nfts_transfers` - total number of NFTs being transferred in the instruction.
+        /// * `weight_limit` - Optional value that defines a maximum weight for executing the instruction.
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::affirm_instruction_v2(*fungible_transfers, *nfts_transfers)]
-        pub fn affirm_instruction_v2(
+        #[weight = <T as Config>::WeightInfo::affirm_instruction(*fungible_transfers, *nfts_transfers)]
+        pub fn affirm_instruction(
             origin,
             id: InstructionId,
             portfolios: Vec<PortfolioId>,
@@ -702,11 +705,12 @@ decl_module! {
         /// * `portfolios` - Portfolios that the sender controls and wants to withdraw affirmation.
         /// * `fungible_transfers` - number of fungible transfers in the instruction.
         /// * `nfts_transfers` - total number of NFTs being transferred in the instruction.
+        /// * `offchain_transfers` - The number of offchain assets in the instruction.
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::withdraw_affirmation_v2(*fungible_transfers, *nfts_transfers, *offchain_transfers)]
-        pub fn withdraw_affirmation_v2(
+        #[weight = <T as Config>::WeightInfo::withdraw_affirmation(*fungible_transfers, *nfts_transfers, *offchain_transfers)]
+        pub fn withdraw_affirmation(
             origin,
             id: InstructionId,
             portfolios: Vec<PortfolioId>,
@@ -733,11 +737,12 @@ decl_module! {
         /// * `portfolio` - Portfolio to reject the instruction.
         /// * `fungible_transfers` - number of fungible transfers in the instruction.
         /// * `nfts_transfers` - total number of NFTs being transferred in the instruction.
+        /// * `offchain_transfers` - The number of offchain assets in the instruction.
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::reject_instruction_v2(*fungible_transfers, *nfts_transfers, *offchain_transfers)]
-        pub fn reject_instruction_v2(
+        #[weight = <T as Config>::WeightInfo::reject_instruction(*fungible_transfers, *nfts_transfers, *offchain_transfers)]
+        pub fn reject_instruction(
             origin,
             id: InstructionId,
             portfolio: PortfolioId,
@@ -775,7 +780,7 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
-    fn lock_via_leg(leg: &LegV2) -> DispatchResult {
+    fn lock_via_leg(leg: &Leg) -> DispatchResult {
         match &leg.asset {
             LegAsset::Fungible { ticker, amount } => {
                 T::Portfolio::lock_tokens(&leg.from, &ticker, *amount)
@@ -790,7 +795,7 @@ impl<T: Config> Module<T> {
         }
     }
 
-    fn unlock_via_leg(leg: &LegV2) -> DispatchResult {
+    fn unlock_via_leg(leg: &Leg) -> DispatchResult {
         match &leg.asset {
             LegAsset::Fungible { ticker, amount } => {
                 T::Portfolio::unlock_tokens(&leg.from, &ticker, *amount)
@@ -837,7 +842,7 @@ impl<T: Config> Module<T> {
         settlement_type: SettlementType<T::BlockNumber>,
         trade_date: Option<T::Moment>,
         value_date: Option<T::Moment>,
-        legs: Vec<LegV2>,
+        legs: Vec<Leg>,
         memo: Option<InstructionMemo>,
         weight_limit: Option<Weight>,
     ) -> Result<InstructionId, DispatchError> {
@@ -905,9 +910,9 @@ impl<T: Config> Module<T> {
         }
 
         legs.iter().enumerate().for_each(|(index, leg)| {
-            InstructionLegsV2::insert(instruction_id, LegId(index as u64), leg.clone())
+            InstructionLegs::insert(instruction_id, LegId(index as u64), leg.clone())
         });
-        Self::deposit_event(RawEvent::InstructionV2Created(
+        Self::deposit_event(RawEvent::InstructionCreated(
             did,
             venue_id,
             instruction_id,
@@ -926,7 +931,7 @@ impl<T: Config> Module<T> {
     /// The number of each asset type in the legs must be within the valid limits allowed.
     /// Returns a set of the unique counter parties involved in the legs.
     fn ensure_valid_legs(
-        legs: &[LegV2],
+        legs: &[Leg],
         venue_id: VenueId,
     ) -> Result<InstructionInfo, DispatchError> {
         let mut transfer_data = TransferData::default();
@@ -1104,8 +1109,8 @@ impl<T: Config> Module<T> {
         // In a given moment, Alice owns 10 tokens, Bob owns 5 and Charlie owns 0.
         // Now, consider one instruction with two legs: 1. Alice transfers 5 tokens to Charlie; 2. Bob transfers 5 tokens to Alice;
         // If the second leg gets executed before the first leg, Alice will momentarily hold 15% of the asset and hence the settlement will fail compliance.
-        let mut instruction_legs: Vec<(LegId, LegV2)> =
-            InstructionLegsV2::iter_prefix(&instruction_id).collect();
+        let mut instruction_legs: Vec<(LegId, Leg)> =
+            InstructionLegs::iter_prefix(&instruction_id).collect();
         instruction_legs.sort_by_key(|leg_id_leg| leg_id_leg.0);
 
         let transfer_data = Self::get_transfer_data(&instruction_legs);
@@ -1151,7 +1156,7 @@ impl<T: Config> Module<T> {
 
     fn release_asset_locks_and_transfer_pending_legs(
         instruction_id: InstructionId,
-        instruction_legs: &[(LegId, LegV2)],
+        instruction_legs: &[(LegId, Leg)],
         weight_meter: &mut WeightMeter,
     ) -> TransactionOutcome<Result<Result<(), LegId>, DispatchError>> {
         Self::unchecked_release_locks(instruction_id, instruction_legs);
@@ -1188,7 +1193,7 @@ impl<T: Config> Module<T> {
     }
 
     fn prune_instruction(id: InstructionId, executed: bool) -> PruneDetails {
-        let drained_legs: Vec<(LegId, LegV2)> = InstructionLegsV2::drain_prefix(&id).collect();
+        let drained_legs: Vec<(LegId, Leg)> = InstructionLegs::drain_prefix(&id).collect();
         let details = <InstructionDetails<T>>::take(id);
         VenueInstructions::remove(details.venue_id, id);
         #[allow(deprecated)]
@@ -1269,7 +1274,7 @@ impl<T: Config> Module<T> {
 
     // Unclaims all receipts for an instruction
     // Should only be used if user is unclaiming, or instruction has failed
-    fn unsafe_unclaim_receipts(id: InstructionId, legs: &[(LegId, LegV2)]) {
+    fn unsafe_unclaim_receipts(id: InstructionId, legs: &[(LegId, Leg)]) {
         for (leg_id, _) in legs {
             match Self::instruction_leg_status(id, leg_id) {
                 LegStatus::ExecutionToBeSkipped(signer, receipt_uid) => {
@@ -1287,7 +1292,7 @@ impl<T: Config> Module<T> {
         }
     }
 
-    fn unchecked_release_locks(id: InstructionId, instruction_legs: &[(LegId, LegV2)]) {
+    fn unchecked_release_locks(id: InstructionId, instruction_legs: &[(LegId, Leg)]) {
         for (leg_id, leg) in instruction_legs {
             match Self::instruction_leg_status(id, leg_id) {
                 LegStatus::ExecutionPending => {
@@ -1401,8 +1406,7 @@ impl<T: Config> Module<T> {
                 Error::<T>::ReceiptAlreadyClaimed
             );
 
-            let leg =
-                InstructionLegsV2::get(&id, &receipt.leg_id).ok_or(Error::<T>::LegNotFound)?;
+            let leg = InstructionLegs::get(&id, &receipt.leg_id).ok_or(Error::<T>::LegNotFound)?;
             ensure!(
                 leg.asset.is_off_chain(),
                 Error::<T>::ReceiptForInvalidLegType
@@ -1605,12 +1609,12 @@ impl<T: Config> Module<T> {
         id: &InstructionId,
         portfolio_set: &BTreeSet<PortfolioId>,
         input_cost: &TransferData,
-    ) -> Result<Vec<(LegId, LegV2)>, DispatchError> {
-        let instruction_legs: Vec<(LegId, LegV2)> = InstructionLegsV2::iter_prefix(&id).collect();
+    ) -> Result<Vec<(LegId, Leg)>, DispatchError> {
+        let instruction_legs: Vec<(LegId, Leg)> = InstructionLegs::iter_prefix(&id).collect();
         // Gets all legs where the sender is in the given set
-        let legs_from_set: Vec<(LegId, LegV2)> = instruction_legs
+        let legs_from_set: Vec<(LegId, Leg)> = instruction_legs
             .into_iter()
-            .filter(|(_, leg_v2)| portfolio_set.contains(&leg_v2.from))
+            .filter(|(_, leg)| portfolio_set.contains(&leg.from))
             .collect();
         let transfer_data = Self::get_transfer_data(&legs_from_set);
         Self::ensure_valid_input_cost(&transfer_data, input_cost)?;
@@ -1663,14 +1667,13 @@ impl<T: Config> Module<T> {
             Error::<T>::UnknownInstruction
         );
         // Gets all legs for the instruction, checks if portfolio is in any of the legs, and validates the input cost.
-        let legs_v2: Vec<(LegId, LegV2)> = InstructionLegsV2::iter_prefix(&id).collect();
+        let legs: Vec<(LegId, Leg)> = InstructionLegs::iter_prefix(&id).collect();
         ensure!(
-            legs_v2
-                .iter()
-                .any(|(_, leg_v2)| leg_v2.from == portfolio || leg_v2.to == portfolio),
+            legs.iter()
+                .any(|(_, leg)| leg.from == portfolio || leg.to == portfolio),
             Error::<T>::CallerIsNotAParty
         );
-        let transfer_data = Self::get_transfer_data(&legs_v2);
+        let transfer_data = Self::get_transfer_data(&legs);
         Self::ensure_valid_input_cost(&transfer_data, input_cost)?;
 
         // Verifies if the caller has the right permissions for this call
@@ -1681,8 +1684,8 @@ impl<T: Config> Module<T> {
             origin_data.secondary_key.as_ref(),
         )?;
 
-        Self::unsafe_unclaim_receipts(id, &legs_v2);
-        Self::unchecked_release_locks(id, &legs_v2);
+        Self::unsafe_unclaim_receipts(id, &legs);
+        Self::unchecked_release_locks(id, &legs);
         let _ = T::Scheduler::cancel_named(id.execution_name());
         Self::prune_instruction(id, false);
         Self::deposit_event(RawEvent::InstructionRejected(origin_data.primary_did, id));
@@ -1691,10 +1694,10 @@ impl<T: Config> Module<T> {
 
     /// Returns the number of fungible and non fungible transfers in a slice of legs.
     /// Since this function is only called after the legs have already been inserted, casting is safe.
-    fn get_transfer_data(legs_v2: &[(LegId, LegV2)]) -> TransferData {
+    fn get_transfer_data(legs: &[(LegId, Leg)]) -> TransferData {
         let mut transfer_data = TransferData::default();
-        for (_, leg_v2) in legs_v2 {
-            match &leg_v2.asset {
+        for (_, leg) in legs {
+            match &leg.asset {
                 LegAsset::Fungible { .. } => transfer_data.add_fungible(),
                 LegAsset::NonFungible(nfts) => transfer_data.add_non_fungible(&nfts),
                 LegAsset::OffChain { .. } => transfer_data.add_off_chain(),
@@ -1729,7 +1732,7 @@ impl<T: Config> Module<T> {
     /// Ensures that all tickers in the instruction that have venue filtering enabled are also
     /// in the venue allowed list.
     fn ensure_allowed_venue(
-        instruction_legs: &[(LegId, LegV2)],
+        instruction_legs: &[(LegId, Leg)],
         venue_id: VenueId,
     ) -> DispatchResult {
         // Avoids reading the storage multiple times for the same ticker
@@ -1828,8 +1831,8 @@ impl<T: Config> Module<T> {
     /// in the instruction, and the weight consumed for executing the instruction. If the instruction would fail its
     /// execution, it also contains the error.
     pub fn execute_instruction_info(instruction_id: &InstructionId) -> ExecuteInstructionInfo {
-        let instruction_legs: Vec<(LegId, LegV2)> =
-            InstructionLegsV2::iter_prefix(&instruction_id).collect();
+        let instruction_legs: Vec<(LegId, Leg)> =
+            InstructionLegs::iter_prefix(&instruction_id).collect();
         let transfer_data = Self::get_transfer_data(&instruction_legs);
         let mut weight_meter = WeightMeter::max_limit();
 

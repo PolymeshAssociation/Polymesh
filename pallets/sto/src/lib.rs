@@ -43,7 +43,7 @@ use polymesh_common_utilities::traits::{identity, portfolio};
 use polymesh_common_utilities::with_transaction;
 use polymesh_primitives::impl_checked_inc;
 use polymesh_primitives::settlement::{
-    LegAsset, LegV2, ReceiptDetails, SettlementType, TransferData, VenueId, VenueType,
+    Leg, LegAsset, ReceiptDetails, SettlementType, TransferData, VenueId, VenueType,
 };
 use polymesh_primitives::{Balance, EventDid, IdentityId, PortfolioId, Ticker, WeightMeter};
 use polymesh_primitives_derive::VecU8StrongTyped;
@@ -454,12 +454,12 @@ decl_module! {
             );
 
             let legs = vec![
-                LegV2 {
+                Leg {
                     from: fundraiser.offering_portfolio,
                     to: investment_portfolio,
                     asset: LegAsset::Fungible { ticker: fundraiser.offering_asset, amount: purchase_amount }
                 },
-                LegV2 {
+                Leg {
                     from: funding_portfolio,
                     to: fundraiser.raising_portfolio,
                     asset: LegAsset::Fungible { ticker: fundraiser.raising_asset, amount: cost }
