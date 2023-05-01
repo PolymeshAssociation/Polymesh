@@ -362,7 +362,6 @@ macro_rules! misc_pallet_impls {
             type Asset = Asset;
             type WeightInfo = polymesh_weights::pallet_compliance_manager::SubstrateWeight;
             type MaxConditionComplexity = MaxConditionComplexity;
-            type ComplianceFn = ComplianceManager;
         }
 
         impl pallet_corporate_actions::Config for Runtime {

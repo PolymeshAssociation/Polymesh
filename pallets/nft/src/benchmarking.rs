@@ -110,7 +110,7 @@ where
     );
 
     // Adds the maximum number of compliance requirement
-    T::Compliance::setup_ticker_compliance(sender.origin().into(), ticker, 50, pause_compliance);
+    T::Compliance::setup_ticker_compliance(sender.did(), ticker, 50, pause_compliance);
 
     (sender_portfolio, receiver_portfolio)
 }

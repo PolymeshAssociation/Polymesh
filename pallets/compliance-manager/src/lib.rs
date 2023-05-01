@@ -165,32 +165,14 @@ decl_module! {
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::add_compliance_requirement_full(&sender_conditions, &receiver_conditions)]
-        pub fn add_compliance_requirement(origin, ticker: Ticker, sender_conditions: Vec<Condition>, receiver_conditions: Vec<Condition>) {
-            let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
-
-            // Ensure `Scope::Custom(..)`s are limited.
-            Self::ensure_custom_scopes_limited(sender_conditions.iter())?;
-            Self::ensure_custom_scopes_limited(receiver_conditions.iter())?;
-
-            // Bundle as a requirement.
-            let id = Self::get_latest_requirement_id(ticker) + 1u32;
-            let mut new_req = ComplianceRequirement { sender_conditions, receiver_conditions, id };
-
-            // Dedup `ClaimType`s and ensure issuers are limited in length.
-            Self::dedup_and_ensure_requirement_limited(&mut new_req)?;
-
-            // Add to existing requirements, and place a limit on the total complexity.
-            let mut asset_compliance = AssetCompliances::get(ticker);
-            let reqs = &mut asset_compliance.requirements;
-            reqs.push(new_req.clone());
-            Self::verify_compliance_complexity(&reqs, ticker, 0)?;
-
-            // Last storage change, now we can charge the fee.
-            T::ProtocolFee::charge_fee(ProtocolOp::ComplianceManagerAddComplianceRequirement)?;
-
-            // Commit new compliance to storage & emit event.
-            AssetCompliances::insert(&ticker, asset_compliance);
-            Self::deposit_event(Event::ComplianceRequirementCreated(did, ticker, new_req));
+        pub fn add_compliance_requirement(
+            origin,
+            ticker: Ticker,
+            sender_conditions: Vec<Condition>,
+            receiver_conditions: Vec<Condition>
+        ) -> DispatchResult {
+            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+            Self::base_add_compliance_requirement(caller_did, ticker, sender_conditions, receiver_conditions)
         }
 
         /// Removes a compliance requirement from an asset's compliance.
@@ -309,31 +291,9 @@ decl_module! {
         /// # Permissions
         /// * Asset
         #[weight = <T as Config>::WeightInfo::add_default_trusted_claim_issuer()]
-        pub fn add_default_trusted_claim_issuer(origin, ticker: Ticker, issuer: TrustedIssuer) {
-            let did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
-            ensure!(<Identity<T>>::is_identity_exists(&issuer.issuer), Error::<T>::DidNotExist);
-
-            // Ensure the new `issuer` is limited; the existing ones we have previously checked.
-            Self::ensure_issuer_limited(&issuer)?;
-
-            TrustedClaimIssuer::try_mutate(ticker, |issuers| {
-                // Ensure we don't have too many issuers now in total.
-                let new_count = issuers.len().saturating_add(1);
-                ensure_length_ok::<T>(new_count)?;
-
-                // Ensure the new issuer is new.
-                ensure!(!issuers.contains(&issuer), Error::<T>::IncorrectOperationOnTrustedIssuer);
-
-                // Ensure the complexity is limited for the ticker.
-                Self::base_verify_compliance_complexity(&AssetCompliances::get(ticker).requirements, new_count)?;
-
-                // Finally add the new issuer & commit...
-                issuers.push(issuer.clone());
-                Ok(()) as DispatchResult
-            })?;
-
-            // ...and emit the event.
-            Self::deposit_event(Event::TrustedDefaultClaimIssuerAdded(did, ticker, issuer));
+        pub fn add_default_trusted_claim_issuer(origin, ticker: Ticker, issuer: TrustedIssuer) -> DispatchResult {
+            let caller_did = <ExternalAgents<T>>::ensure_perms(origin, ticker)?;
+            Self::base_add_default_trusted_claim_issuer(caller_did, ticker, issuer)
         }
 
         /// Removes the given `issuer` from the set of default trusted claim issuers at the ticker level.
@@ -396,6 +356,86 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
+    /// Adds a compliance requirement to the given `ticker`.
+    fn base_add_compliance_requirement(
+        caller_did: IdentityId,
+        ticker: Ticker,
+        sender_conditions: Vec<Condition>,
+        receiver_conditions: Vec<Condition>,
+    ) -> DispatchResult {
+        // Ensure `Scope::Custom(..)`s are limited.
+        Self::ensure_custom_scopes_limited(sender_conditions.iter())?;
+        Self::ensure_custom_scopes_limited(receiver_conditions.iter())?;
+
+        // Bundle as a requirement.
+        let id = Self::get_latest_requirement_id(ticker) + 1;
+        let mut new_req = ComplianceRequirement {
+            sender_conditions,
+            receiver_conditions,
+            id,
+        };
+
+        // Dedup `ClaimType`s and ensure issuers are limited in length.
+        Self::dedup_and_ensure_requirement_limited(&mut new_req)?;
+
+        // Add to existing requirements, and place a limit on the total complexity.
+        let mut asset_compliance = AssetCompliances::get(ticker);
+        asset_compliance.requirements.push(new_req.clone());
+        Self::verify_compliance_complexity(&asset_compliance.requirements, ticker, 0)?;
+
+        // Last storage change, now we can charge the fee.
+        T::ProtocolFee::charge_fee(ProtocolOp::ComplianceManagerAddComplianceRequirement)?;
+
+        // Commit new compliance to storage & emit event.
+        AssetCompliances::insert(&ticker, asset_compliance);
+        Self::deposit_event(Event::ComplianceRequirementCreated(
+            caller_did, ticker, new_req,
+        ));
+        Ok(())
+    }
+
+    /// Adds a `issuer` as a default trusted claim issuer for `ticker`.
+    fn base_add_default_trusted_claim_issuer(
+        caller_did: IdentityId,
+        ticker: Ticker,
+        issuer: TrustedIssuer,
+    ) -> DispatchResult {
+        ensure!(
+            <Identity<T>>::is_identity_exists(&issuer.issuer),
+            Error::<T>::DidNotExist
+        );
+
+        // Ensure the new `issuer` is limited; the existing ones we have previously checked.
+        Self::ensure_issuer_limited(&issuer)?;
+
+        TrustedClaimIssuer::try_mutate(ticker, |issuers| {
+            // Ensure we don't have too many issuers now in total.
+            let new_count = issuers.len().saturating_add(1);
+            ensure_length_ok::<T>(new_count)?;
+
+            // Ensure the new issuer is new.
+            ensure!(
+                !issuers.contains(&issuer),
+                Error::<T>::IncorrectOperationOnTrustedIssuer
+            );
+
+            // Ensure the complexity is limited for the ticker.
+            Self::base_verify_compliance_complexity(
+                &AssetCompliances::get(ticker).requirements,
+                new_count,
+            )?;
+
+            // Finally add the new issuer & commit...
+            issuers.push(issuer.clone());
+            Ok(()) as DispatchResult
+        })?;
+
+        Self::deposit_event(Event::TrustedDefaultClaimIssuerAdded(
+            caller_did, ticker, issuer,
+        ));
+        Ok(())
+    }
+
     /// Fetches all claims of `target` identity with type
     /// and scope from `claim` and generated by any of `issuers`.
     fn fetch_claims<'a>(
@@ -642,7 +682,7 @@ impl<T: Config> Module<T> {
     }
 }
 
-impl<T: Config> ComplianceFnConfig<T::RuntimeOrigin> for Module<T> {
+impl<T: Config> ComplianceFnConfig for Module<T> {
     ///  Sender restriction verification
     fn verify_restriction(
         ticker: &Ticker,
@@ -717,21 +757,12 @@ impl<T: Config> ComplianceFnConfig<T::RuntimeOrigin> for Module<T> {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn add_default_trusted_claim_issuer(
-        origin: T::RuntimeOrigin,
-        ticker: Ticker,
-        issuer: TrustedIssuer,
-    ) -> DispatchResult {
-        Self::add_default_trusted_claim_issuer(origin, ticker, issuer)
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
     fn setup_ticker_compliance(
-        origin: T::RuntimeOrigin,
+        caller_did: IdentityId,
         ticker: Ticker,
         n: u32,
         pause_compliance: bool,
     ) {
-        benchmarking::setup_ticker_compliance::<T>(origin, ticker, n, pause_compliance);
+        benchmarking::setup_ticker_compliance::<T>(caller_did, ticker, n, pause_compliance);
     }
 }

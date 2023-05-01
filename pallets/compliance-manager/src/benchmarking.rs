@@ -310,8 +310,8 @@ where
     if read_trusted_issuers_storage {
         // Adds all trusted issuers as the default for the ticker
         trusted_issuers.into_iter().for_each(|trusted_issuer| {
-            T::ComplianceFn::add_default_trusted_claim_issuer(
-                sender.origin().into(),
+            Module::<T>::base_add_default_trusted_claim_issuer(
+                sender.did(),
                 ticker,
                 trusted_issuer,
             )
@@ -326,7 +326,7 @@ where
 
 /// Adds `n` requirements for `ticker` and pauses compliance if `pause_compliance` is true.
 pub fn setup_ticker_compliance<T: Config>(
-    origin: T::RuntimeOrigin,
+    caller_did: IdentityId,
     ticker: Ticker,
     n: u32,
     pause_compliance: bool,
@@ -341,8 +341,8 @@ pub fn setup_ticker_compliance<T: Config>(
             ConditionType::IsNoneOf(claims),
             trusted_issuers,
         )];
-        Module::<T>::add_compliance_requirement(
-            origin.clone(),
+        Module::<T>::base_add_compliance_requirement(
+            caller_did,
             ticker,
             sender_conditions,
             Vec::new(),
@@ -351,7 +351,7 @@ pub fn setup_ticker_compliance<T: Config>(
     });
 
     if pause_compliance {
-        Module::<T>::pause_asset_compliance(origin, ticker).unwrap();
+        AssetCompliances::mutate(&ticker, |compliance| compliance.paused = true);
     }
 }
 
