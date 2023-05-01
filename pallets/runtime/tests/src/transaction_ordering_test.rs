@@ -2,7 +2,6 @@ use super::{
     storage::{TestStorage, User},
     ExtBuilder,
 };
-use codec::Encode;
 use frame_support::assert_ok;
 
 use mercat::{
@@ -75,7 +74,7 @@ fn initialize_transaction(
 
     // Sender authorizes.
     // Sender computes the proofs in the wallet.
-    let sender_data = CtxSender
+    let sender_tx = CtxSender
         .create_transaction(
             &Account {
                 public: sender_creds.public_account.clone(),
@@ -89,7 +88,7 @@ fn initialize_transaction(
             &mut rng,
         )
         .unwrap();
-    let initialized_tx = TransactionLegProofs::new_sender(sender_data.encode());
+    let initialized_tx = TransactionLegProofs::new_sender(sender_tx);
     // Sender authorizes the transaction and passes in the proofs.
     assert_ok!(ConfidentialAsset::affirm_transaction(
         sender_creds.user.origin(),
@@ -106,7 +105,7 @@ fn initialize_transaction(
             sender: Some(init),
             receiver: None,
             mediator: None,
-        } => init.try_decode().unwrap(),
+        } => *init,
         _ => {
             panic!("Unexpected data type");
         }
@@ -126,8 +125,7 @@ fn initialize_transaction(
                 amount,
                 &mut rng,
             )
-            .unwrap()
-            .encode(),
+            .unwrap(),
     );
 
     // Receiver submits the proof to the chain.
@@ -172,7 +170,7 @@ fn finalize_transaction(
             sender: Some(_),
             receiver: Some(finalized),
             mediator: None,
-        } => finalized.try_decode().unwrap(),
+        } => *finalized,
         _ => {
             panic!("Unexpected data type");
         }
@@ -181,13 +179,11 @@ fn finalize_transaction(
     // Mediator verifies the proofs in the wallet.
     // Mediator has access to the ticker name in plaintext.
     // Mediator gets the pending state for this transaction from chain.
-    let sender_pending_balance = ConfidentialAsset::mercat_tx_pending_state((
+    let sender_pending_balance = *ConfidentialAsset::mercat_tx_pending_state((
         sender_creds.user.did,
         sender_creds.account_id.clone(),
         transaction_id.0,
-    ))
-    .try_decode()
-    .unwrap();
+    ));
 
     let result = CtxMediator.justify_transaction(
         decoded_finalized_tx.clone(),
@@ -207,7 +203,7 @@ fn finalize_transaction(
         return;
     }
 
-    let justified_tx = TransactionLegProofs::new_mediator(result.unwrap().encode());
+    let justified_tx = TransactionLegProofs::new_mediator(result.unwrap());
 
     // Affirms and process the transaction.
     assert_ok!(ConfidentialAsset::affirm_transaction(
@@ -227,9 +223,7 @@ fn finalize_transaction(
     // Transaction should've settled.
     // Verify by decrypting the new balance of both Sender and Receiver.
     let new_sender_balance =
-        ConfidentialAsset::mercat_account_balance(sender_creds.user.did, sender_creds.account_id)
-            .try_decode()
-            .unwrap();
+        *ConfidentialAsset::mercat_account_balance(sender_creds.user.did, sender_creds.account_id);
 
     if let Some(secret_account) = sender_secret_account {
         // Invoked for debugging
@@ -239,12 +233,10 @@ fn finalize_transaction(
     }
     assert_eq!(new_sender_balance, expected_sender_balance);
 
-    let new_receiver_balance = ConfidentialAsset::mercat_account_balance(
+    let new_receiver_balance = *ConfidentialAsset::mercat_account_balance(
         receiver_creds.user.did,
         receiver_creds.account_id,
-    )
-    .try_decode()
-    .unwrap();
+    );
 
     if let Some(secret_account) = receiver_secret_account {
         // Invoked for debugging
@@ -810,12 +802,10 @@ fn mercat_whitepaper_scenario2() {
                 alice_creds.account_id.clone(),
             ));
             // On the Alice's wallet side, she also resets her pending state.
-            let alice_init_balance = ConfidentialAsset::mercat_account_balance(
+            let alice_init_balance = *ConfidentialAsset::mercat_account_balance(
                 alice_creds.user.did.clone(),
                 alice_creds.account_id.clone(),
-            )
-            .try_decode()
-            .unwrap();
+            );
             // Since tx_1003 has not settled yet, it has to be accounted for in the pending balance.
             let alice_pending_balance = alice_init_balance - alice_sent_amount_1003;
 
