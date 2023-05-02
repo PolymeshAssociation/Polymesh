@@ -100,24 +100,24 @@ fn initialize_transaction(
     // Receiver authorizes.
     // Receiver reads the sender's proof from the chain.
     let tx_data = ConfidentialAsset::transaction_proofs(transaction_id, TransactionLegId(0));
-    let decoded_initialized_tx = match tx_data {
+    let init_tx = match tx_data {
         TransactionLegProofs {
             sender: Some(init),
             receiver: None,
             mediator: None,
-        } => *init,
+        } => init,
         _ => {
             panic!("Unexpected data type");
         }
     };
-    let sender_encrypted_transfer_amount = decoded_initialized_tx.memo.enc_amount_using_sender;
-    let receiver_encrypted_transfer_amount = decoded_initialized_tx.memo.enc_amount_using_receiver;
+    let sender_encrypted_transfer_amount = init_tx.memo.enc_amount_using_sender;
+    let receiver_encrypted_transfer_amount = init_tx.memo.enc_amount_using_receiver;
 
     // Receiver computes the proofs in the wallet.
     let finalized_tx = TransactionLegProofs::new_receiver(
         CtxReceiver
             .finalize_transaction(
-                decoded_initialized_tx,
+                &init_tx,
                 Account {
                     public: receiver_creds.public_account.clone(),
                     secret: receiver_secret_account.clone(),
@@ -165,12 +165,12 @@ fn finalize_transaction(
     // Mediator authorizes.
     // Mediator reads the receiver's proofs from the chain (it contains the sender's proofs as well).
     let tx_data = ConfidentialAsset::transaction_proofs(transaction_id, TransactionLegId(0));
-    let decoded_finalized_tx = match tx_data {
+    let (init_tx, finalized_tx) = match tx_data {
         TransactionLegProofs {
-            sender: Some(_),
+            sender: Some(init),
             receiver: Some(finalized),
             mediator: None,
-        } => *finalized,
+        } => (init, finalized),
         _ => {
             panic!("Unexpected data type");
         }
@@ -182,11 +182,12 @@ fn finalize_transaction(
     let sender_pending_balance = *ConfidentialAsset::mercat_tx_pending_state((
         sender_creds.user.did,
         sender_creds.account_id.clone(),
-        transaction_id.0,
+        transaction_id,
     ));
 
     let result = CtxMediator.justify_transaction(
-        decoded_finalized_tx.clone(),
+        &init_tx,
+        &finalized_tx,
         &mediator_secret_account.enc_keys,
         &sender_creds.public_account,
         &sender_pending_balance,

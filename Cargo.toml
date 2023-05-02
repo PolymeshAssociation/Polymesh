@@ -112,10 +112,10 @@ bulletproofs = { version = "4.0.0", git = "https://github.com/PolymeshAssociatio
 #confidential_identity_v1 = { path = "../cryptography/confidential-identity-v1" }
 #confidential_identity_v2 = { path = "../cryptography/confidential-identity-v2" }
 
-#mercat = { version = "1.0.0", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_update" }
-#confidential_identity_core = { version = "1.0.0", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_update" }
-#confidential_identity_v1 = { version = "1.0.0", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_update" }
-#confidential_identity_v2 = { version = "2.0.0", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_update" }
+mercat = { version = "1.1.0", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_polymesh_v6.0" }
+confidential_identity_core = { version = "1.1", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_polymesh_v6.0" }
+confidential_identity_v1 = { version = "1.1", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_polymesh_v6.0" }
+confidential_identity_v2 = { version = "2.1", git = "https://github.com/PolymeshAssociation/cryptography", branch = "mercat_polymesh_v6.0" }
 
 [workspace]
 members = [

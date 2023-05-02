@@ -999,8 +999,7 @@ dependencies = [
 [[package]]
 name = "confidential_identity_core"
 version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c054a32f6ebb95f6f6e6631be0db04fb770eae53d1de38e87663e346c2f0293"
+source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#39ced37ea1781e06ca75fa1c8dca48645c9a9460"
 dependencies = [
  "blake2",
  "bulletproofs",
@@ -1021,8 +1020,7 @@ dependencies = [
 [[package]]
 name = "confidential_identity_v1"
 version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82cc87f28deea9c51e94157efdeaf7fdbfda2c258ebb9bb7b648f5a78dcdfdac"
+source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#39ced37ea1781e06ca75fa1c8dca48645c9a9460"
 dependencies = [
  "blake2",
  "byteorder",
@@ -1045,8 +1043,7 @@ dependencies = [
 [[package]]
 name = "confidential_identity_v2"
 version = "2.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cff6815dedb8ca89a080ef1b939dae28e46ea1c9f593ad77e57c654a40fbb10d"
+source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#39ced37ea1781e06ca75fa1c8dca48645c9a9460"
 dependencies = [
  "blake2",
  "byteorder",
@@ -4010,8 +4007,7 @@ checksum = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 [[package]]
 name = "mercat"
 version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b0ef0039002efb3b19ec8e24c3d07ddc2cbed8b414f5328d4b24baaae539aea"
+source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#39ced37ea1781e06ca75fa1c8dca48645c9a9460"
 dependencies = [
  "byteorder",
  "confidential_identity_core",
@@ -10783,7 +10779,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if 0.1.10",
  "digest 0.10.5",
  "rand 0.8.5",
  "static_assertions",
@@ -10950,7 +10946,7 @@ checksum = "e7141e445af09c8919f1d5f8a20dae0b20c3b57a45dee0d5823c6ed5d237f15a"
 dependencies = [
  "bitflags",
  "chrono",
- "rustc_version 0.4.0",
+ "rustc_version 0.2.3",
 ]
 
 [[package]]

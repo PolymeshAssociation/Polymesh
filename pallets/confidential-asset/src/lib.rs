@@ -115,7 +115,9 @@ use mercat::{
     account::{convert_asset_ids, AccountValidator},
     asset::AssetValidator,
     confidential_identity_core::asset_proofs::AssetId,
-    transaction::TransactionValidator,
+    transaction::{
+        verify_finalized_transaction, verify_initialized_transaction, TransactionValidator,
+    },
     AccountCreatorVerifier, AssetTransactionVerifier, EncryptedAmount, EncryptedAssetId,
     EncryptionPubKey, FinalizedTransferTx, InitializedAssetTx, InitializedTransferTx,
     JustifiedTransferTx, PubAccount, PubAccountTx, TransferTransactionVerifier,
@@ -141,6 +143,8 @@ use rand_core::SeedableRng;
 
 type Identity<T> = identity::Module<T>;
 
+/// Mercat types are uploaded as bytes (hex).
+/// This make it easy to copy paste the proofs from CLI tools.
 macro_rules! impl_wrapper {
     ($wrapper:ident, $wrapped:ident) => {
         #[derive(Clone, Debug)]
@@ -347,13 +351,19 @@ impl TransactionLegProofs {
         self.sender.is_some() && self.receiver.is_some() && self.mediator.is_some()
     }
 
-    pub fn ensure_affirmed<T: Config>(&self) -> Result<&JustifiedTransferTx, DispatchError> {
+    pub fn ensure_affirmed<T: Config>(
+        &self,
+    ) -> Result<(&InitializedTransferTx, &FinalizedTransferTx), DispatchError> {
         ensure!(self.is_affirmed(), Error::<T>::InstructionNotAffirmed);
-        let justified_tx = self
-            .mediator
+        let init_tx = self
+            .sender
             .as_deref()
             .ok_or(Error::<T>::InstructionNotAffirmed)?;
-        Ok(justified_tx)
+        let finalized_tx = self
+            .receiver
+            .as_deref()
+            .ok_or(Error::<T>::InstructionNotAffirmed)?;
+        Ok((init_tx, finalized_tx))
     }
 }
 
@@ -422,7 +432,7 @@ decl_storage! {
         /// Stores the pending state for a given transaction.
         /// ((did, account_id, transaction_id)) -> EncryptedBalanceWrapper.
         pub TxPendingState get(fn mercat_tx_pending_state):
-        map hasher(blake2_128_concat) (IdentityId, MercatAccountId, u64)
+        map hasher(blake2_128_concat) (IdentityId, MercatAccountId, TransactionId)
             => EncryptedBalanceWrapper;
 
         /// List of Tickers of the type ConfidentialAsset.
@@ -476,13 +486,9 @@ decl_module! {
 
             let valid_asset_ids = convert_asset_ids(Self::confidential_tickers());
             AccountValidator.verify(&tx, &valid_asset_ids).map_err(|_| Error::<T>::InvalidAccountCreationProof)?;
-            let wrapped_enc_asset_id = EncryptedAssetIdWrapper::from(tx.pub_account.enc_asset_id);
-            let wrapped_enc_pub_key = EncryptionPubKeyWrapper::from(tx.pub_account.owner_enc_pub_key);
-            let account_id = MercatAccountId(wrapped_enc_asset_id.clone());
-            <MercatAccounts>::insert(&owner_id, &account_id, MercatAccount {
-                encrypted_asset_id: wrapped_enc_asset_id,
-                encryption_pub_key: wrapped_enc_pub_key,
-            });
+            let account_id = MercatAccountId(tx.pub_account.enc_asset_id.into());
+            let mercat_account: MercatAccount = tx.pub_account.into();
+            MercatAccounts::insert(&owner_id, &account_id, mercat_account);
             let wrapped_enc_balance = EncryptedBalanceWrapper::from(tx.initial_balance);
             MercatAccountBalance::insert(&owner_id, &account_id, wrapped_enc_balance.clone());
 
@@ -558,7 +564,7 @@ decl_module! {
             Details::insert(ticker, details);
 
             // Append the ticker to the list of confidential tickers.
-            <ConfidentialTickers>::append(AssetId { id: ticker.as_bytes().clone() });
+            ConfidentialTickers::append(AssetId { id: ticker.as_bytes().clone() });
 
             Self::deposit_event(Event::ConfidentialAssetCreated(
                 owner_did,
@@ -896,7 +902,7 @@ impl<T: Config> Module<T> {
     pub fn set_tx_pending_state(
         owner_did: &IdentityId,
         account_id: &EncryptedAssetId,
-        instruction_id: u64,
+        instruction_id: TransactionId,
     ) -> DispatchResult {
         let wrapped_enc_asset_id = EncryptedAssetIdWrapper::from(account_id.clone());
         let account_id = MercatAccountId(wrapped_enc_asset_id);
@@ -913,7 +919,7 @@ impl<T: Config> Module<T> {
     pub fn remove_tx_pending_state(
         owner_did: &IdentityId,
         account_id: &MercatAccountId,
-        instruction_id: u64,
+        instruction_id: TransactionId,
     ) {
         TxPendingState::remove((owner_did, account_id, instruction_id));
     }
@@ -972,16 +978,19 @@ impl<T: Config> Module<T> {
         let legs = TransactionLegs::drain_prefix(id).collect::<Vec<_>>();
         ensure!(legs.len() <= leg_count, Error::<T>::LegCountTooSmall);
 
+        let mut rng = Self::get_rng();
         for (leg_id, leg) in legs {
             let proofs = TransactionProofs::take(id, leg_id);
-            let justified_tx = proofs.ensure_affirmed::<T>()?;
+            let (init_tx, finalized_tx) = proofs.ensure_affirmed::<T>()?;
             Self::base_confidential_transfer(
                 &leg.sender_did,
                 &leg.sender,
                 &leg.receiver_did,
                 &leg.receiver,
-                justified_tx,
-                id.0,
+                init_tx,
+                finalized_tx,
+                id,
+                &mut rng,
             )?;
         }
 
@@ -992,46 +1001,67 @@ impl<T: Config> Module<T> {
         did: IdentityId,
         id: TransactionId,
         leg_id: TransactionLegId,
-        mut proofs: TransactionLegProofs,
+        mut affirms: TransactionLegProofs,
     ) -> DispatchResult {
         // TODO: check that the proof accounts match the leg accounts.
+        let leg = TransactionLegs::get(id, leg_id);
+
+        // Read the mercat_accounts from the confidential-asset pallet.
+        let from_mercat_pending_state =
+            Self::mercat_tx_pending_state((leg.sender_did, &leg.sender, id)).into();
+
+        // Get receiver's account.
+        let to_mercat = Self::mercat_accounts(leg.receiver_did, &leg.receiver).into();
+
+        // Get sender's account.
+        let from_mercat = Self::mercat_accounts(leg.sender_did, &leg.sender).into();
+
+        let mut proofs = TransactionProofs::get(id, leg_id);
 
         // Update the transaction sender's ordering state.
-        if let Some(tx) = proofs.sender.as_deref() {
-            // TODO: Verify sender's proof.
+        if let Some(init_tx) = affirms.sender.take() {
+            let mut rng = Self::get_rng();
+            // Verify the sender's proof.
+            verify_initialized_transaction(
+                &init_tx,
+                &from_mercat,
+                &from_mercat_pending_state,
+                &to_mercat,
+                &[],
+                &mut rng,
+            )
+            .map_err(|_| Error::<T>::InvalidMercatTransferProof)?;
 
             // Temporarily store the current pending state as this instruction's pending state.
-            Self::set_tx_pending_state(&did, &tx.memo.sender_account_id, id.0)?;
+            Self::set_tx_pending_state(&did, &init_tx.memo.sender_account_id, id)?;
             Self::add_pending_outgoing_balance(
                 &did,
-                &tx.memo.sender_account_id,
-                tx.memo.enc_amount_using_sender,
+                &init_tx.memo.sender_account_id,
+                init_tx.memo.enc_amount_using_sender,
             )?;
+            proofs.sender = Some(init_tx);
         }
 
         // Verify receiver's proof.
-        if let Some(_tx) = proofs.receiver.as_deref() {
-            // TODO.
+        if let Some(finalized_tx) = affirms.receiver.take() {
+            if let Some(init_tx) = proofs.sender.as_deref() {
+                verify_finalized_transaction(&init_tx, &finalized_tx, &to_mercat)
+                    .map_err(|_| Error::<T>::InvalidMercatTransferProof)?;
+                // TODO.
+                proofs.receiver = Some(finalized_tx);
+            } else {
+                return Err(Error::<T>::MissingMercatInitializedTransferProof.into());
+            }
         }
 
         // Verify mediator's proof.
-        if let Some(_tx) = proofs.mediator.as_deref() {
-            // TODO.
+        // TODO: No proof to verify.  Check that the caller is the mediator.
+        if let Some(tx) = affirms.mediator.take() {
+            proofs.mediator = Some(tx);
         }
 
-        TransactionProofs::try_mutate(id, leg_id, |tx_proofs| {
-            // TODO: Don't allow replacing an existing proof.
-            if let Some(data) = proofs.sender.take() {
-                tx_proofs.sender = Some(data);
-            }
-            if let Some(data) = proofs.receiver.take() {
-                tx_proofs.receiver = Some(data);
-            }
-            if let Some(data) = proofs.mediator.take() {
-                tx_proofs.mediator = Some(data);
-            }
-            Result::<_, Error<T>>::Ok(())
-        })?;
+        // Save new proofs.
+        TransactionProofs::insert(id, leg_id, proofs);
 
         Ok(())
     }
@@ -1042,8 +1072,10 @@ impl<T: Config> Module<T> {
         from_account_id: &MercatAccountId,
         to_did: &IdentityId,
         to_account_id: &MercatAccountId,
-        tx_data: &JustifiedTransferTx,
-        instruction_id: u64,
+        init_tx: &InitializedTransferTx,
+        finalized_tx: &FinalizedTransferTx,
+        instruction_id: TransactionId,
+        rng: &mut Rng,
     ) -> DispatchResult {
         // Read the mercat_accounts from the confidential-asset pallet.
         let from_mercat_pending_state =
@@ -1056,26 +1088,22 @@ impl<T: Config> Module<T> {
         let from_mercat = Self::mercat_accounts(from_did, from_account_id).into();
 
         // Verify the proofs.
-        let mut rng = Self::get_rng();
         let _ = TransactionValidator
             .verify_transaction(
-                tx_data,
+                init_tx,
+                finalized_tx,
                 &from_mercat,
                 &from_mercat_pending_state,
                 &to_mercat,
                 &[],
-                &mut rng,
+                rng,
             )
             .map_err(|_| {
                 // Upon transaction validation failure, update the failed outgoing accumulator.
                 let _ = Self::add_failed_outgoing_balance(
                     from_did,
                     from_account_id,
-                    tx_data
-                        .finalized_data
-                        .init_data
-                        .memo
-                        .enc_amount_using_sender,
+                    init_tx.memo.enc_amount_using_sender,
                 );
 
                 // There's no need to keep a copy of the pending state anymore.
@@ -1088,21 +1116,13 @@ impl<T: Config> Module<T> {
         let _ = Self::mercat_account_withdraw_amount(
             from_did,
             from_account_id,
-            tx_data
-                .finalized_data
-                .init_data
-                .memo
-                .enc_amount_using_sender,
+            init_tx.memo.enc_amount_using_sender,
         )?;
 
         let _ = Self::mercat_account_deposit_amount(
             to_did,
             to_account_id,
-            tx_data
-                .finalized_data
-                .init_data
-                .memo
-                .enc_amount_using_receiver,
+            init_tx.memo.enc_amount_using_receiver,
         )?;
 
         // There's no need to keep a copy of the pending state anymore.
@@ -1204,6 +1224,8 @@ decl_error! {
         InvalidLegKind,
         /// The MERCAT transfer proof is invalid.
         InvalidMercatTransferProof,
+        /// Need sender's proof to verify receiver's proof.
+        MissingMercatInitializedTransferProof,
 
         /// The token has already been created.
         AssetAlreadyCreated,
@@ -1240,12 +1262,8 @@ decl_error! {
         InvalidSignature,
         /// Sender and receiver are the same.
         SameSenderReceiver,
-        /// Portfolio in receipt does not match with portfolios provided by the user.
-        PortfolioMismatch,
         /// The provided settlement block number is in the past and cannot be used by the scheduler.
         SettleOnPastBlock,
-        /// Portfolio based actions require at least one portfolio to be provided as input.
-        NoPortfolioProvided,
         /// The current instruction affirmation status does not support the requested action.
         UnexpectedAffirmationStatus,
         /// Scheduling of an instruction fails.

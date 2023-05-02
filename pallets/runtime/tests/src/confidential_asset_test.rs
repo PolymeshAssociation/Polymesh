@@ -604,12 +604,12 @@ fn basic_confidential_settlement() {
             println!("-------------> Bob is going to authorize.");
             let tx_data =
                 ConfidentialAsset::transaction_proofs(transaction_counter, TransactionLegId(0));
-            let decoded_initialized_tx = match tx_data {
+            let init_tx = match tx_data {
                 TransactionLegProofs {
                     sender: Some(init),
                     receiver: None,
                     mediator: None,
-                } => *init,
+                } => init,
                 _ => {
                     println!("{:?}", tx_data);
                     panic!("Unexpected data type");
@@ -620,7 +620,7 @@ fn basic_confidential_settlement() {
             let finalized_tx = TransactionLegProofs::new_receiver(
                 CtxReceiver
                     .finalize_transaction(
-                        decoded_initialized_tx,
+                        &init_tx,
                         Account {
                             public: bob_public_account.clone(),
                             secret: bob_secret_account.clone(),
@@ -643,12 +643,12 @@ fn basic_confidential_settlement() {
             println!("-------------> Charlie is going to authorize.");
             let tx_data =
                 ConfidentialAsset::transaction_proofs(transaction_counter, TransactionLegId(0));
-            let decoded_finalized_tx = match tx_data {
+            let (init_tx, finalized_tx) = match tx_data {
                 TransactionLegProofs {
-                    sender: Some(_),
+                    sender: Some(init),
                     receiver: Some(finalized),
                     mediator: None,
-                } => *finalized,
+                } => (init, finalized),
                 _ => {
                     panic!("Unexpected data type");
                 }
@@ -658,7 +658,8 @@ fn basic_confidential_settlement() {
             let justified_tx = TransactionLegProofs::new_mediator(
                 CtxMediator
                     .justify_transaction(
-                        decoded_finalized_tx,
+                        &init_tx,
+                        &finalized_tx,
                         &charlie_secret_account.enc_keys,
                         &alice_public_account,
                         &alice_encrypted_init_balance,
