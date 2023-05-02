@@ -23,7 +23,7 @@ pub trait Config:
 
     type WeightInfo: WeightInfo;
 
-    type Compliance: ComplianceFnConfig<Self::RuntimeOrigin>;
+    type Compliance: ComplianceFnConfig;
 
     type MaxNumberOfCollectionKeys: Get<u8>;
 

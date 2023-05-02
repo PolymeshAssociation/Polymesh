@@ -77,8 +77,8 @@ use polymesh_common_utilities::with_transaction;
 use polymesh_common_utilities::SystematicIssuers::Settlement as SettlementDID;
 use polymesh_primitives::settlement::{
     AffirmationStatus, ExecuteInstructionInfo, Instruction, InstructionId, InstructionInfo,
-    InstructionMemo, InstructionStatus, Leg, LegAsset, LegId, LegStatus, PruneDetails, Receipt,
-    ReceiptDetails, SettlementType, TransferData, Venue, VenueDetails, VenueId, VenueType,
+    InstructionMemo, InstructionStatus, Leg, LegAsset, LegId, LegStatus, Receipt, ReceiptDetails,
+    SettlementType, TransferData, Venue, VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::{
     storage_migrate_on, storage_migration_ver, Balance, IdentityId, NFTs, PortfolioId,
@@ -209,7 +209,9 @@ decl_error! {
         /// The given number of off-chain transfers was underestimated.
         NumberOfOffChainTransfersUnderestimated,
         /// No leg with the given id was found
-        LegNotFound
+        LegNotFound,
+        /// The input weight is less than the minimum required.
+        InputWeightIsLessThanMinimum,
     }
 }
 
@@ -395,7 +397,7 @@ decl_module! {
             offchain_transfers: u32
         ) -> DispatchResult {
             let input_cost = TransferData::new(fungible_transfers, nfts_transfers, offchain_transfers);
-            Self::affirm_with_receipts_and_maybe_schedule_instruction(origin, id, receipt_details, portfolios, &input_cost, None)
+            Self::affirm_with_receipts_and_maybe_schedule_instruction(origin, id, receipt_details, portfolios, &input_cost)
         }
 
         /// Placeholder for removed `claim_receipt`
@@ -491,7 +493,7 @@ decl_module! {
         /// # Errors
         /// * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
         #[weight = <T as Config>::WeightInfo::reschedule_instruction()]
-        pub fn reschedule_instruction(origin, id: InstructionId, weight_limit: Option<Weight>) {
+        pub fn reschedule_instruction(origin, id: InstructionId) {
             let did = Identity::<T>::ensure_perms(origin)?;
 
             <InstructionStatuses<T>>::try_mutate(id, |status| {
@@ -503,15 +505,13 @@ decl_module! {
             // Schedule instruction to be executed in the next block.
             let execution_at = System::<T>::block_number() + One::one();
             let instruction_legs: Vec<(LegId, Leg)> = InstructionLegs::iter_prefix(&id).collect();
-            let transfer_data = Self::get_transfer_data(&instruction_legs);
-            Self::schedule_instruction(
-                id,
-                execution_at,
-                transfer_data.fungible(),
-                transfer_data.non_fungible(),
-                transfer_data.off_chain(),
-                weight_limit
+            let instruction_data = Self::get_transfer_data(&instruction_legs);
+            let weight_limit = Self::execute_scheduled_instruction_weight_limit(
+                instruction_data.non_fungible(),
+                instruction_data.fungible(),
+                instruction_data.off_chain()
             );
+            Self::schedule_instruction(id, execution_at, weight_limit);
             Self::deposit_event(RawEvent::InstructionRescheduled(did, id));
         }
 
@@ -542,7 +542,8 @@ decl_module! {
         ///
         /// # Errors
         /// * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
-        #[weight = <T as Config>::WeightInfo::execute_manual_instruction(*fungible_transfers, *nfts_transfers, *offchain_transfers)]
+
+        #[weight = <T as Config>::WeightInfo::execute_manual_instruction_weight(weight_limit, fungible_transfers, nfts_transfers, offchain_transfers)]
         pub fn execute_manual_instruction(
             origin,
             id: InstructionId,
@@ -552,6 +553,7 @@ decl_module! {
             offchain_transfers: u32,
             weight_limit: Option<Weight>
         ) -> DispatchResultWithPostInfo {
+            let weight_limit = Self::ensure_manual_weight_limit(weight_limit, fungible_transfers, nfts_transfers, offchain_transfers)?;
             // check origin has the permissions required and valid instruction
             let (did, sk, instruction_details) = Self::ensure_origin_perm_and_instruction_validity(origin, id, true)?;
 
@@ -576,17 +578,10 @@ decl_module! {
             let input_cost = TransferData::new(fungible_transfers, nfts_transfers, offchain_transfers);
             Self::ensure_valid_input_cost(&transfer_data, &input_cost)?;
 
-            let weight_limit = weight_limit.unwrap_or_else(|| {
-                <T as Config>::WeightInfo::execute_scheduled_instruction(
-                    transfer_data.fungible(),
-                    transfer_data.non_fungible(),
-                    transfer_data.off_chain(),
-                )
-                .saturating_mul(2)
-            });
             let mut weight_meter = WeightMeter::from_limit(weight_limit);
             // Executes the instruction
             Self::execute_instruction_retryable(id, &mut weight_meter)?;
+            Self::ensure_minum_weight_is_charged(&mut weight_meter, Self::execute_manual_instruction_minimum_weight())?;
 
             Self::deposit_event(RawEvent::SettlementManuallyExecuted(did, id));
             Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
@@ -618,10 +613,9 @@ decl_module! {
             value_date: Option<T::Moment>,
             legs: Vec<Leg>,
             instruction_memo: Option<InstructionMemo>,
-            weight_limit: Option<Weight>
         ) {
             let did = Identity::<T>::ensure_perms(origin)?;
-            Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo, weight_limit)?;
+            Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo)?;
         }
 
         /// Adds and affirms a new instruction.
@@ -652,19 +646,17 @@ decl_module! {
             legs: Vec<Leg>,
             portfolios: Vec<PortfolioId>,
             instruction_memo: Option<InstructionMemo>,
-            weight_limit: Option<Weight>
         ) -> DispatchResult {
             let did = Identity::<T>::ensure_perms(origin.clone())?;
             with_transaction(|| {
                 let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
                 let transfer_data = TransferData::from_legs(&legs).map_err(|_| Error::<T>::MaxNumberOfNFTsExceeded)?;
-                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo, weight_limit)?;
+                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo)?;
                 Self::affirm_and_maybe_schedule_instruction(
                     origin,
                     instruction_id,
                     portfolios_set.into_iter(),
                     &transfer_data,
-                    weight_limit
                 )
             })
         }
@@ -687,7 +679,6 @@ decl_module! {
             portfolios: Vec<PortfolioId>,
             fungible_transfers: u32,
             nfts_transfers: u32,
-            weight_limit: Option<Weight>
         ) -> DispatchResult {
             let input_cost =
                 TransferData::new(fungible_transfers, nfts_transfers, T::MaxNumberOfOffChainAssets::get());
@@ -696,7 +687,6 @@ decl_module! {
                 id,
                 portfolios.into_iter(),
                 &input_cost,
-                weight_limit
             )
         }
 
@@ -764,17 +754,13 @@ decl_module! {
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
-        #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*_fungible_transfers, *_nfts_transfers, *_offchain_transfers)]
+        #[weight = *weight_limit]
         fn execute_scheduled_instruction_v3(
             origin,
             id: InstructionId,
-            _fungible_transfers: u32,
-            _nfts_transfers: u32,
-            _offchain_transfers: u32,
-            weight_limit: Option<Weight>
+            weight_limit: Weight
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            let weight_limit = weight_limit.unwrap_or(Weight::MAX);
             let mut weight_meter = WeightMeter::from_limit(weight_limit);
             Ok(Self::base_execute_scheduled_instruction(id, &mut weight_meter))
         }
@@ -846,7 +832,6 @@ impl<T: Config> Module<T> {
         value_date: Option<T::Moment>,
         legs: Vec<Leg>,
         memo: Option<InstructionMemo>,
-        weight_limit: Option<Weight>,
     ) -> Result<InstructionId, DispatchError> {
         // Verifies if the block number is in the future so that `T::Scheduler::schedule_named` doesn't fail.
         if let SettlementType::SettleOnBlock(block_number) = &settlement_type {
@@ -890,14 +875,12 @@ impl<T: Config> Module<T> {
         }
 
         if let SettlementType::SettleOnBlock(block_number) = settlement_type {
-            Self::schedule_instruction(
-                instruction_id,
-                block_number,
+            let weight_limit = Self::execute_scheduled_instruction_weight_limit(
                 instruction_info.fungible_transfers(),
                 instruction_info.nfts_transferred(),
                 instruction_info.off_chain(),
-                weight_limit,
             );
+            Self::schedule_instruction(instruction_id, block_number, weight_limit);
         }
 
         <InstructionDetails<T>>::insert(instruction_id, instruction);
@@ -985,7 +968,7 @@ impl<T: Config> Module<T> {
         portfolios: BTreeSet<PortfolioId>,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
         input_cost: &TransferData,
-    ) -> DispatchResult {
+    ) -> Result<TransferData, DispatchError> {
         // checks custodianship of portfolios and affirmation status
         Self::ensure_portfolios_and_affirmation_status(
             id,
@@ -995,7 +978,7 @@ impl<T: Config> Module<T> {
             &[AffirmationStatus::Affirmed],
         )?;
         // Unlock tokens that were previously locked during the affirmation
-        let filtered_legs = Self::filtered_legs(&id, &portfolios, input_cost)?;
+        let (instruction_data, filtered_legs) = Self::filtered_legs(&id, &portfolios, input_cost)?;
         for (leg_id, leg_details) in filtered_legs {
             match Self::instruction_leg_status(id, leg_id) {
                 LegStatus::ExecutionToBeSkipped(signer, receipt_uid) => {
@@ -1030,8 +1013,7 @@ impl<T: Config> Module<T> {
         InstructionAffirmsPending::mutate(id, |affirms_pending| {
             *affirms_pending += u64::try_from(portfolios.len()).unwrap_or_default()
         });
-
-        Ok(())
+        Ok(instruction_data)
     }
 
     fn ensure_instruction_validity(
@@ -1194,7 +1176,7 @@ impl<T: Config> Module<T> {
         TransactionOutcome::Commit(Ok(Ok(())))
     }
 
-    fn prune_instruction(id: InstructionId, executed: bool) -> PruneDetails {
+    fn prune_instruction(id: InstructionId, executed: bool) {
         let drained_legs: Vec<(LegId, Leg)> = InstructionLegs::drain_prefix(&id).collect();
         let details = <InstructionDetails<T>>::take(id);
         VenueInstructions::remove(details.venue_id, id);
@@ -1225,7 +1207,6 @@ impl<T: Config> Module<T> {
         for counter_party in &counter_parties {
             UserAffirmations::remove(&counter_party, id);
         }
-        PruneDetails::new(drained_legs.len(), counter_parties.len())
     }
 
     pub fn unsafe_affirm_instruction(
@@ -1234,7 +1215,7 @@ impl<T: Config> Module<T> {
         portfolios: BTreeSet<PortfolioId>,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
         input_cost: &TransferData,
-    ) -> DispatchResult {
+    ) -> Result<TransferData, DispatchError> {
         // Checks portfolio's custodian and if it is a counter party with a pending affirmation.
         Self::ensure_portfolios_and_affirmation_status(
             id,
@@ -1244,7 +1225,7 @@ impl<T: Config> Module<T> {
             &[AffirmationStatus::Pending],
         )?;
 
-        let filtered_legs = Self::filtered_legs(&id, &portfolios, input_cost)?;
+        let (instruction_data, filtered_legs) = Self::filtered_legs(&id, &portfolios, input_cost)?;
         with_transaction(|| {
             for (leg_id, leg) in filtered_legs {
                 ensure!(
@@ -1270,8 +1251,7 @@ impl<T: Config> Module<T> {
             id,
             affirms_pending.saturating_sub(u64::try_from(portfolios.len()).unwrap_or_default()),
         );
-
-        Ok(())
+        Ok(instruction_data)
     }
 
     // Unclaims all receipts for an instruction
@@ -1309,25 +1289,13 @@ impl<T: Config> Module<T> {
 
     /// Schedule a given instruction to be executed on the next block only if the
     /// settlement type is `SettleOnAffirmation` and no. of affirms pending is 0.
-    fn maybe_schedule_instruction(
-        affirms_pending: u64,
-        id: InstructionId,
-        input_cost: &TransferData,
-        weight_limit: Option<Weight>,
-    ) {
+    fn maybe_schedule_instruction(affirms_pending: u64, id: InstructionId, weight_limit: Weight) {
         if affirms_pending == 0
             && Self::instruction_details(id).settlement_type == SettlementType::SettleOnAffirmation
         {
             // Schedule instruction to be executed in the next block.
             let execution_at = System::<T>::block_number() + One::one();
-            Self::schedule_instruction(
-                id,
-                execution_at,
-                input_cost.fungible(),
-                input_cost.non_fungible(),
-                input_cost.off_chain(),
-                weight_limit,
-            );
+            Self::schedule_instruction(id, execution_at, weight_limit);
         }
     }
 
@@ -1336,22 +1304,8 @@ impl<T: Config> Module<T> {
     /// NB - It is expected to execute the given instruction into the given block number but
     /// it is not a guaranteed behavior, Scheduler may have other high priority task scheduled
     /// for the given block so there are chances where the instruction execution block no. may drift.
-    fn schedule_instruction(
-        id: InstructionId,
-        execution_at: T::BlockNumber,
-        _fungible_transfers: u32,
-        _nfts_transfers: u32,
-        _offchain_transfers: u32,
-        weight_limit: Option<Weight>,
-    ) {
-        let call = Call::<T>::execute_scheduled_instruction_v3 {
-            id,
-            _fungible_transfers,
-            _nfts_transfers,
-            _offchain_transfers,
-            weight_limit,
-        }
-        .into();
+    fn schedule_instruction(id: InstructionId, execution_at: T::BlockNumber, weight_limit: Weight) {
+        let call = Call::<T>::execute_scheduled_instruction_v3 { id, weight_limit }.into();
         if let Err(_) = T::Scheduler::schedule_named(
             id.execution_name(),
             DispatchTime::At(execution_at),
@@ -1372,7 +1326,7 @@ impl<T: Config> Module<T> {
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
         input_cost: &TransferData,
-    ) -> DispatchResult {
+    ) -> Result<TransferData, DispatchError> {
         let (did, secondary_key, instruction_details) =
             Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
         let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
@@ -1432,7 +1386,8 @@ impl<T: Config> Module<T> {
             );
         }
 
-        let filtered_legs = Self::filtered_legs(&id, &portfolios_set, input_cost)?;
+        let (instruction_data, filtered_legs) =
+            Self::filtered_legs(&id, &portfolios_set, input_cost)?;
         // Lock tokens that do not have a receipt attached to their leg.
         with_transaction(|| {
             for (leg_id, leg_details) in filtered_legs {
@@ -1483,7 +1438,7 @@ impl<T: Config> Module<T> {
         }
 
         InstructionAffirmsPending::insert(id, affirms_pending);
-        Ok(())
+        Ok(instruction_data)
     }
 
     pub fn base_affirm_instruction(
@@ -1491,7 +1446,7 @@ impl<T: Config> Module<T> {
         id: InstructionId,
         portfolios: impl Iterator<Item = PortfolioId>,
         input_cost: &TransferData,
-    ) -> DispatchResult {
+    ) -> Result<TransferData, DispatchError> {
         let (did, sk, _) = Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
         let portfolios_set = portfolios.collect::<BTreeSet<_>>();
         // Provide affirmation to the instruction
@@ -1506,16 +1461,18 @@ impl<T: Config> Module<T> {
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
         input_cost: &TransferData,
-        weight_limit: Option<Weight>,
     ) -> DispatchResult {
-        Self::base_affirm_with_receipts(origin, id, receipt_details, portfolios, input_cost)?;
-        // Schedule instruction to be execute in the next block (expected) if conditions are met.
-        Self::maybe_schedule_instruction(
-            Self::instruction_affirms_pending(id),
-            id,
-            input_cost,
-            weight_limit,
+        let instruction_data =
+            Self::base_affirm_with_receipts(origin, id, receipt_details, portfolios, input_cost)?;
+        let weight_limit = Self::execute_scheduled_instruction_weight_limit(
+            instruction_data.fungible(),
+            instruction_data.non_fungible(),
+            instruction_data.off_chain(),
         );
+        // Schedule instruction to be execute in the next block (expected) if conditions are met.
+        Self::maybe_schedule_instruction(Self::instruction_affirms_pending(id), id, weight_limit);
+        // Schedule instruction to be execute in the next block (expected) if conditions are met.
+        Self::maybe_schedule_instruction(Self::instruction_affirms_pending(id), id, weight_limit);
         Ok(())
     }
 
@@ -1526,16 +1483,17 @@ impl<T: Config> Module<T> {
         id: InstructionId,
         portfolios: impl Iterator<Item = PortfolioId>,
         input_cost: &TransferData,
-        weight_limit: Option<Weight>,
     ) -> DispatchResult {
-        Self::base_affirm_instruction(origin, id, portfolios, input_cost)?;
-        // Schedule the instruction if conditions are met
-        Self::maybe_schedule_instruction(
-            Self::instruction_affirms_pending(id),
-            id,
-            input_cost,
-            weight_limit,
+        let instruction_data = Self::base_affirm_instruction(origin, id, portfolios, input_cost)?;
+        let weight_limit = Self::execute_scheduled_instruction_weight_limit(
+            instruction_data.fungible(),
+            instruction_data.non_fungible(),
+            instruction_data.off_chain(),
         );
+        // Schedule the instruction if conditions are met
+        Self::maybe_schedule_instruction(Self::instruction_affirms_pending(id), id, weight_limit);
+        // Schedule the instruction if conditions are met
+        Self::maybe_schedule_instruction(Self::instruction_affirms_pending(id), id, weight_limit);
         Ok(())
     }
 
@@ -1605,14 +1563,16 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Returns a vector of legs where the sender is in the `portfolio_set`.
-    /// Ensures that the number of assets being transferred is under the given limit.
+    /// Returns the total number of fungible and non-fungible assets in the instruction, and a vector of legs
+    /// where the sender is in the `portfolio_set`. Ensures that the number of assets being transferred is under
+    /// the given limit.
     fn filtered_legs(
         id: &InstructionId,
         portfolio_set: &BTreeSet<PortfolioId>,
         input_cost: &TransferData,
-    ) -> Result<Vec<(LegId, Leg)>, DispatchError> {
+    ) -> Result<(TransferData, Vec<(LegId, Leg)>), DispatchError> {
         let instruction_legs: Vec<(LegId, Leg)> = InstructionLegs::iter_prefix(&id).collect();
+        let instruction_data = Self::get_transfer_data(&instruction_legs);
         // Gets all legs where the sender is in the given set
         let legs_from_set: Vec<(LegId, Leg)> = instruction_legs
             .into_iter()
@@ -1620,7 +1580,7 @@ impl<T: Config> Module<T> {
             .collect();
         let transfer_data = Self::get_transfer_data(&legs_from_set);
         Self::ensure_valid_input_cost(&transfer_data, input_cost)?;
-        Ok(legs_from_set)
+        Ok((instruction_data, legs_from_set))
     }
 
     fn base_update_venue_signers(
@@ -1769,6 +1729,10 @@ impl<T: Config> Module<T> {
         if let Err(e) = Self::execute_instruction_retryable(id, weight_meter) {
             Self::deposit_event(RawEvent::FailedToExecuteInstruction(id, e));
         }
+        let _ = Self::ensure_minum_weight_is_charged(
+            weight_meter,
+            Self::execute_scheduled_instruction_minimum_weight(),
+        );
         PostDispatchInfo::from(Some(weight_meter.consumed()))
     }
 
@@ -1827,6 +1791,61 @@ impl<T: Config> Module<T> {
     /// Returns true if the ticker is on-chain and false otherwise.
     fn is_on_chain_asset(ticker: &Ticker) -> bool {
         pallet_asset::Tokens::contains_key(ticker)
+    }
+
+    /// If the weight meter has not been charged anything, charges the input `minimum_charge`.
+    fn ensure_minum_weight_is_charged(
+        weight_meter: &mut WeightMeter,
+        minimum_charge: Weight,
+    ) -> DispatchResult {
+        if weight_meter.consumed() == Weight::zero() {
+            weight_meter
+                .check_accrue(minimum_charge)
+                .map_err(|_| Error::<T>::WeightLimitExceeded)?;
+        }
+        Ok(())
+    }
+
+    /// If `weight_limit` is None, returns the worst case weight for executing a manual instruction of `n_legs`,
+    /// otherwise verifies if the value is greater than the minimum and returns it.
+    fn ensure_manual_weight_limit(
+        weight_limit: Option<Weight>,
+        f: u32,
+        n: u32,
+        o: u32,
+    ) -> Result<Weight, DispatchError> {
+        match weight_limit {
+            Some(weight_limit) => {
+                ensure!(
+                    weight_limit.all_gt(Self::execute_manual_instruction_minimum_weight()),
+                    Error::<T>::InputWeightIsLessThanMinimum
+                );
+                Ok(weight_limit)
+            }
+            None => Ok(Self::execute_manual_instruction_weight_limit(f, n, o)),
+        }
+    }
+
+    /// Returns the worst case weight for an instruction with `f` fungible legs,
+    /// `n` nfts being transferred and `o` offchain assets.
+    fn execute_scheduled_instruction_weight_limit(f: u32, n: u32, o: u32) -> Weight {
+        <T as Config>::WeightInfo::execute_scheduled_instruction(f, n, o)
+    }
+
+    /// Returns the minimum weight for calling the `execute_scheduled_instruction` function.
+    fn execute_scheduled_instruction_minimum_weight() -> Weight {
+        <T as Config>::WeightInfo::execute_scheduled_instruction(0, 0, 0)
+    }
+
+    /// Returns the worst case weight for manually executing an instruction with `f` fungible legs,
+    /// `n` nfts being transferred and `o` offchain assets.
+    fn execute_manual_instruction_weight_limit(f: u32, n: u32, o: u32) -> Weight {
+        <T as Config>::WeightInfo::execute_manual_instruction(f, n, o).saturating_mul(2)
+    }
+
+    /// Returns the minimum weight for calling the `execute_manual_instruction` extrinsic.
+    fn execute_manual_instruction_minimum_weight() -> Weight {
+        <T as Config>::WeightInfo::execute_manual_instruction(0, 0, 0)
     }
 
     /// Returns an instance of `ExecuteInstructionInfo`, which contains the number of fungible and non fungible assets

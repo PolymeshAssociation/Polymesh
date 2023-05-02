@@ -93,15 +93,18 @@ pub trait WeightInfo {
     fn change_receipt_validity() -> Weight;
     fn reschedule_instruction() -> Weight;
     fn execute_manual_instruction(f: u32, n: u32, o: u32) -> Weight;
-    fn add_instruction_legs(legs: &[Leg]) -> Weight {
-        let (f, n, o) = Self::get_transfer_by_asset(legs);
-        Self::add_instruction(f, n, o)
-    }
     fn add_instruction(f: u32, n: u32, o: u32) -> Weight;
     fn add_and_affirm_instruction(f: u32, n: u32, o: u32) -> Weight;
     fn affirm_instruction(f: u32, n: u32) -> Weight;
     fn withdraw_affirmation(f: u32, n: u32, o: u32) -> Weight;
     fn reject_instruction(f: u32, n: u32, o: u32) -> Weight;
+    fn execute_instruction_paused(f: u32, n: u32, o: u32) -> Weight;
+    fn execute_scheduled_instruction(f: u32, n: u32, o: u32) -> Weight;
+
+    fn add_instruction_legs(legs: &[Leg]) -> Weight {
+        let (f, n, o) = Self::get_transfer_by_asset(legs);
+        Self::add_instruction(f, n, o)
+    }
     fn add_and_affirm_instruction_legs(legs: &[Leg]) -> Weight {
         let (f, n, o) = Self::get_transfer_by_asset(legs);
         Self::add_and_affirm_instruction(f, n, o)
@@ -110,13 +113,17 @@ pub trait WeightInfo {
         let (f, n, o) = Self::get_transfer_by_asset(legs);
         Self::execute_scheduled_instruction(f, n, o)
     }
-    fn ensure_allowed_venue(n: u32) -> Weight;
-    fn execute_instruction_initial_checks(n: u32) -> Weight;
-    fn unchecked_release_locks(f: u32, n: u32) -> Weight;
-    fn prune_instruction(l: u32, p: u32) -> Weight;
-    fn post_failed_execution() -> Weight;
-    fn execute_instruction_paused(f: u32, n: u32, o: u32) -> Weight;
-    fn execute_scheduled_instruction(f: u32, n: u32, o: u32) -> Weight;
+    fn execute_manual_instruction_weight(
+        weight_limit: &Option<Weight>,
+        f: &u32,
+        n: &u32,
+        o: &u32,
+    ) -> Weight {
+        match weight_limit {
+            Some(weight_limit) => *weight_limit,
+            None => Self::execute_manual_instruction(*f, *n, *o),
+        }
+    }
     fn get_transfer_by_asset(legs: &[Leg]) -> (u32, u32, u32) {
         let transfer_data = TransferData::from_legs(legs).unwrap_or(TransferData::new(
             u32::MAX,

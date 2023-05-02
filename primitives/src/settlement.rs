@@ -422,34 +422,6 @@ impl InstructionInfo {
     }
 }
 
-/// Provides details of the pruned instruction.
-pub struct PruneDetails {
-    /// Number of legs that were pruned.
-    n_legs: u32,
-    /// Number of unique counter parties that were in the instruction.
-    unique_counter_parties: u32,
-}
-
-impl PruneDetails {
-    /// Creates a new instance of `PruneDetails`.
-    pub fn new(n_legs: usize, unique_counter_parties: usize) -> Self {
-        PruneDetails {
-            n_legs: n_legs as u32,
-            unique_counter_parties: unique_counter_parties as u32,
-        }
-    }
-
-    /// Returns the number of legs that were pruned.
-    pub fn n_legs(&self) -> u32 {
-        self.n_legs
-    }
-
-    /// Returns the number of legs that were in the instruction.
-    pub fn unique_counter_parties(&self) -> u32 {
-        self.unique_counter_parties
-    }
-}
-
 /// Stores relevant information for executing an instruction.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Decode, Encode)]

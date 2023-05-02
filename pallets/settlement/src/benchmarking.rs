@@ -223,7 +223,6 @@ where
         None,
         parameters.legs.clone(),
         Some(InstructionMemo::default()),
-        None,
     )
     .unwrap();
     // Affirms the sender side of the instruction
@@ -437,7 +436,6 @@ benchmarks! {
             None,
             parameters.legs,
             Some(InstructionMemo::default()),
-            None
         ).unwrap();
 
         let receipt_details = (0..o)
@@ -496,7 +494,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
-    }: _(alice.origin, venue_id, settlement_type, None, None, parameters.legs, memo, None)
+    }: _(alice.origin, venue_id, settlement_type, None, None, parameters.legs, memo)
 
     add_and_affirm_instruction {
         // Number of fungible, non-fungible and offchain LEGS in the instruction
@@ -511,10 +509,10 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, o, false, false);
-    }: _(alice.origin, venue_id, settlement_type, None, None, parameters.legs, parameters.portfolios.sdr_portfolios, memo, None)
+    }: _(alice.origin, venue_id, settlement_type, None, None, parameters.legs, parameters.portfolios.sdr_portfolios, memo)
 
     affirm_instruction {
-        // Number of fungible and non-fungible assets in the instruction
+        // Number of fungible and non-fungible assets in the portfolios
         let f in 1..T::MaxNumberOfFungibleAssets::get() as u32;
         let n in 1..T::MaxNumberOfNFTs::get() as u32;
 
@@ -532,12 +530,11 @@ benchmarks! {
             None,
             parameters.legs,
             Some(InstructionMemo::default()),
-            None
         ).unwrap();
-    }: _(alice.origin, InstructionId(1), parameters.portfolios.sdr_portfolios, f, n, None)
+    }: _(alice.origin, InstructionId(1), parameters.portfolios.sdr_portfolios, f, n)
 
     withdraw_affirmation {
-        // Number of fungible, non-fungible and offchain LEGS in the instruction
+        // Number of fungible, non-fungible and offchain LEGS in the portfolios
         let f in 1..T::MaxNumberOfFungibleAssets::get();
         let n in 0..T::MaxNumberOfNFTs::get();
         let o in 0..T::MaxNumberOfOffChainAssets::get();
@@ -665,7 +662,6 @@ benchmarks! {
             parameters.legs,
             parameters.portfolios.sdr_portfolios,
             Some(InstructionMemo::default()),
-            None
         ).unwrap();
         Module::<T>::affirm_instruction(
             bob.origin.clone().into(),
@@ -673,7 +669,6 @@ benchmarks! {
             parameters.portfolios.rcv_portfolios,
             0,
             0,
-            None
         ).unwrap();
         let instruction_legs: Vec<(LegId, Leg)> =
             InstructionLegs::iter_prefix(&InstructionId(1)).collect();
@@ -747,7 +742,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
 
         setup_execute_instruction::<T>(&alice, &bob, SettlementType::SettleOnAffirmation, venue_id, f, n, o, true, true);
-    }: execute_scheduled_instruction_v3(RawOrigin::Root, InstructionId(1), f, n, o, None)
+    }: execute_scheduled_instruction_v3(RawOrigin::Root, InstructionId(1), Weight::MAX)
 
     execute_scheduled_instruction {
         // Number of fungible, non-fungible and offchain assets in the instruction
@@ -761,5 +756,5 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
 
         setup_execute_instruction::<T>(&alice, &bob, SettlementType::SettleOnAffirmation, venue_id, f, n, o, false, false);
-    }: execute_scheduled_instruction_v3(RawOrigin::Root, InstructionId(1), f, n, o, None)
+    }: execute_scheduled_instruction_v3(RawOrigin::Root, InstructionId(1), Weight::MAX)
 }
