@@ -13,9 +13,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-#[cfg(feature = "runtime-benchmarks")]
-use frame_support::dispatch::DispatchResult;
-
 use core::result::Result;
 use frame_support::decl_event;
 use frame_support::dispatch::DispatchError;
@@ -47,9 +44,6 @@ pub trait Config:
 
     /// The maximum claim reads that are allowed to happen in worst case of a condition resolution
     type MaxConditionComplexity: Get<u32>;
-
-    /// Compliance functions - used for benchmarking
-    type ComplianceFn: ComplianceFnConfig<Self::RuntimeOrigin>;
 }
 
 decl_event!(
@@ -84,7 +78,7 @@ decl_event!(
     }
 );
 
-pub trait ComplianceFnConfig<Origin> {
+pub trait ComplianceFnConfig {
     fn verify_restriction(
         ticker: &Ticker,
         from_id: Option<IdentityId>,
@@ -101,14 +95,12 @@ pub trait ComplianceFnConfig<Origin> {
     ) -> Result<AssetComplianceResult, DispatchError>;
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn add_default_trusted_claim_issuer(
-        origin: Origin,
+    fn setup_ticker_compliance(
+        caler_did: IdentityId,
         ticker: Ticker,
-        issuer: TrustedIssuer,
-    ) -> DispatchResult;
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn setup_ticker_compliance(origin: Origin, ticker: Ticker, n: u32, pause_compliance: bool);
+        n: u32,
+        pause_compliance: bool,
+    );
 }
 
 pub trait WeightInfo {

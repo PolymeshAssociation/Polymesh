@@ -130,16 +130,17 @@ pub trait WeightInfo {
         let (f, n) = Self::get_transfer_by_asset(legs_v2);
         Self::execute_scheduled_instruction(f, n)
     }
-    fn ensure_allowed_venue(n: u32) -> Weight;
-    fn execute_instruction_initial_checks(n: u32) -> Weight;
-    fn unchecked_release_locks(f: u32, n: u32) -> Weight;
-    fn prune_instruction(l: u32, p: u32) -> Weight;
-    fn post_failed_execution() -> Weight;
     fn execute_instruction_paused(f: u32, n: u32) -> Weight;
     fn execute_scheduled_instruction(f: u32, n: u32) -> Weight;
     fn get_transfer_by_asset(legs_v2: &[LegV2]) -> (u32, u32) {
         let transfer_data =
             TransferData::from_legs(legs_v2).unwrap_or(TransferData::new(u32::MAX, u32::MAX));
         (transfer_data.fungible(), transfer_data.non_fungible())
+    }
+    fn execute_manual_instruction_weight(weight_limit: &Option<Weight>, n_legs: &u32) -> Weight {
+        match weight_limit {
+            Some(weight_limit) => *weight_limit,
+            None => Self::execute_manual_instruction(*n_legs),
+        }
     }
 }

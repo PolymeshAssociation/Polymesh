@@ -163,10 +163,10 @@ pub struct GranularCanTransferResult {
     pub transfer_condition_result: Vec<TransferConditionResult>,
     /// Result of compliance check.
     pub compliance_result: AssetComplianceResult,
-    /// The weight for checking the asset's compliance and transfer restrictions.
-    pub consumed_weight: Option<Weight>,
     /// Final evaluation result.
     pub result: bool,
+    /// The weight for checking the asset's compliance and transfer restrictions.
+    pub consumed_weight: Option<Weight>,
 }
 
 impl From<v1::GranularCanTransferResult> for GranularCanTransferResult {

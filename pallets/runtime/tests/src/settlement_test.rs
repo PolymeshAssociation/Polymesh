@@ -809,7 +809,6 @@ fn failed_execution() {
         assert_ok!(Settlement::reschedule_instruction(
             alice.origin(),
             instruction_id,
-            None
         ));
         assert_eq!(
             Settlement::instruction_details(instruction_id),
@@ -2495,7 +2494,6 @@ fn add_nft_instruction_with_duplicated_nfts() {
                 None,
                 legs,
                 Some(InstructionMemo::default()),
-                None
             ),
             NFTError::DuplicatedNFTId
         );
@@ -2540,7 +2538,6 @@ fn add_nft_instruction_exceeding_nfts() {
                 None,
                 legs,
                 Some(InstructionMemo::default()),
-                None
             ),
             NFTError::MaxNumberOfNFTsPerLegExceeded
         );
@@ -2569,7 +2566,6 @@ fn add_nft_instruction() {
             None,
             legs,
             Some(InstructionMemo::default()),
-            None
         ));
     });
 }
@@ -2614,7 +2610,6 @@ fn add_and_affirm_nft_instruction() {
             legs,
             default_portfolio_vec(alice.did),
             Some(InstructionMemo::default()),
-            None
         ));
 
         // Before bob accepts the transaction balances must not be changed and the NFT must be locked.
@@ -2708,7 +2703,6 @@ fn add_and_affirm_nft_not_owned() {
                 legs,
                 default_portfolio_vec(alice.did),
                 Some(InstructionMemo::default()),
-                None
             ),
             PortfolioError::NFTNotFoundInPortfolio
         );
@@ -2766,7 +2760,6 @@ fn add_same_nft_different_legs() {
                 legs,
                 default_portfolio_vec(alice.did),
                 Some(InstructionMemo::default()),
-                None
             ),
             PortfolioError::NFTAlreadyLocked
         );
@@ -2809,7 +2802,6 @@ fn add_and_affirm_with_receipts_nfts() {
             None,
             legs,
             Some(InstructionMemo::default()),
-            None
         ));
         assert_noop!(
             Settlement::affirm_with_receipts(

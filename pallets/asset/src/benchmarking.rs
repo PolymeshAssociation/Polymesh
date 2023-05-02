@@ -222,12 +222,7 @@ where
 
     // Adds the maximum number of compliance requirement
     // If pause_compliance is true, only the decoding cost will be considered.
-    T::ComplianceManager::setup_ticker_compliance(
-        sender.origin().into(),
-        ticker,
-        50,
-        pause_compliance,
-    );
+    T::ComplianceManager::setup_ticker_compliance(sender.did(), ticker, 50, pause_compliance);
 
     // Adds transfer conditions only to consider the cost of decoding it
     // If pause_restrictions is true, only the decoding cost will be considered.
