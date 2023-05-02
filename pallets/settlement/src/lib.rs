@@ -77,8 +77,8 @@ use polymesh_common_utilities::with_transaction;
 use polymesh_common_utilities::SystematicIssuers::Settlement as SettlementDID;
 use polymesh_primitives::settlement::{
     AffirmationStatus, ExecuteInstructionInfo, Instruction, InstructionId, InstructionInfo,
-    InstructionMemo, InstructionStatus, Leg, LegAsset, LegId, LegStatus, LegV2,
-    Receipt, ReceiptDetails, SettlementType, TransferData, Venue, VenueDetails, VenueId, VenueType,
+    InstructionMemo, InstructionStatus, Leg, LegAsset, LegId, LegStatus, LegV2, Receipt,
+    ReceiptDetails, SettlementType, TransferData, Venue, VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::{
     storage_migrate_on, storage_migration_ver, IdentityId, PortfolioId, SecondaryKey, Ticker,
