@@ -28,7 +28,7 @@ sp_api::decl_runtime_apis! {
         ///     "id":1,
         ///     "jsonrpc":"2.0",
         ///     "method": "settlement_GetExecuteInstructionInfo",
-        ///     "params":[]
+        ///     "params": [1]
         ///   }'
         /// ```
         fn get_execute_instruction_info(instruction_id: &InstructionId) -> ExecuteInstructionInfo;
