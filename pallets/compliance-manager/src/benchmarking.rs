@@ -547,7 +547,7 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let mut weight_meter = WeightMeter::max_limit();
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         make_token::<T>(&alice, ticker.as_ref().to_vec());
         let condition = setup_is_condition_satisfied::<T>(&alice, ticker, 1, c, t == 1);
@@ -571,7 +571,7 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let mut weight_meter = WeightMeter::max_limit();
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         make_token::<T>(&alice, ticker.as_ref().to_vec());
         let condition = if e == 1 {

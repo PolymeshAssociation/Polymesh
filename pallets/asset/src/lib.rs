@@ -524,7 +524,7 @@ decl_module! {
         pub fn issue(origin, ticker: Ticker, amount: Balance) -> DispatchResult {
             // Ensure origin is agent with custody and permissions for default portfolio.
             let portfolio = Self::ensure_agent_with_custody_and_perms(origin, ticker, PortfolioKind::Default)?;
-            let mut weight_meter = WeightMeter::max_limit();
+            let mut weight_meter = WeightMeter::max_limit_no_minimum();
             Self::_mint(&ticker, portfolio.did, amount, Some(ProtocolOp::AssetIssue), &mut weight_meter)
         }
 
@@ -545,7 +545,7 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::redeem()]
         pub fn redeem(origin, ticker: Ticker, value: Balance) -> DispatchResult {
-            let mut weight_meter = WeightMeter::max_limit();
+            let mut weight_meter = WeightMeter::max_limit_no_minimum();
             Self::base_redeem(origin, ticker, value, PortfolioKind::Default, &mut weight_meter)
         }
 
@@ -684,7 +684,7 @@ decl_module! {
         /// * `from_portfolio` From whom portfolio tokens gets transferred.
         #[weight = <T as Config>::WeightInfo::controller_transfer()]
         pub fn controller_transfer(origin, ticker: Ticker, value: Balance, from_portfolio: PortfolioId) -> DispatchResult {
-            let mut weight_meter = WeightMeter::max_limit();
+            let mut weight_meter = WeightMeter::max_limit_no_minimum();
             Self::base_controller_transfer(origin, ticker, value, from_portfolio, &mut weight_meter)
         }
 
@@ -861,7 +861,7 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::redeem_from_portfolio()]
         pub fn redeem_from_portfolio(origin, ticker: Ticker, value: Balance, portfolio: PortfolioKind) -> DispatchResult {
-            let mut weight_meter = WeightMeter::max_limit();
+            let mut weight_meter = WeightMeter::max_limit_no_minimum();
             Self::base_redeem(origin, ticker, value, portfolio, &mut weight_meter)
         }
 

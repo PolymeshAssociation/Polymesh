@@ -135,7 +135,7 @@ fn raise_happy_path() {
     } = init_raise_context(1_000_000, Some(RAISE_SUPPLY));
     let raise_ticker = raise_ticker.unwrap();
 
-    let mut weight_meter = WeightMeter::max_limit();
+    let mut weight_meter = WeightMeter::max_limit_no_minimum();
     assert_ok!(Asset::unsafe_transfer(
         alice_portfolio,
         bob_portfolio,
@@ -374,7 +374,7 @@ fn raise_unhappy_path() {
 
     create_asset(alice.origin(), raise_ticker, 1_000_000);
 
-    let mut weight_meter = WeightMeter::max_limit();
+    let mut weight_meter = WeightMeter::max_limit_no_minimum();
     assert_ok!(Asset::unsafe_transfer(
         alice_portfolio,
         bob_portfolio,

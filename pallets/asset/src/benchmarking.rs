@@ -120,7 +120,7 @@ fn emulate_controller_transfer<T: Config>(
     investor_did: IdentityId,
     pia: IdentityId,
 ) {
-    let mut weight_meter = WeightMeter::max_limit();
+    let mut weight_meter = WeightMeter::max_limit_no_minimum();
     // Assign balance to an investor.
     let mock_storage = |id: IdentityId, bal: Balance, meter: &mut WeightMeter| {
         let s_id: ScopeId = id;
@@ -672,7 +672,7 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let mut weight_meter = WeightMeter::max_limit();
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         let (sender_portfolio, receiver_portfolio) =
             setup_asset_transfer::<T>(&alice, &bob, ticker, None, None, true, true);

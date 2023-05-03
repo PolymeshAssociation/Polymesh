@@ -461,7 +461,7 @@ impl AssetTracker {
     }
 
     fn do_transfer(&mut self, from: u64, to: u64, amount: u128) -> DispatchResult {
-        let mut weight_meter = WeightMeter::max_limit();
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
         Asset::base_transfer(
             self.get_investor_portfolio(from),
             self.get_investor_portfolio(to),

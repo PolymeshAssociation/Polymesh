@@ -1058,9 +1058,13 @@ decl_module! {
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
         #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*_legs_count, 0)]
-        fn execute_scheduled_instruction(origin, id: InstructionId, _legs_count: u32) {
+        fn execute_scheduled_instruction(origin, id: InstructionId, _legs_count: u32) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            let _ = Self::base_execute_scheduled_instruction(id, &mut WeightMeter::max_limit());
+            let mut weight_meter = WeightMeter::from_limit(
+                Self::execute_scheduled_instruction_minimum_weight(),
+                Self::execute_scheduled_instruction_weight_limit(_legs_count, 0)
+            );
+            Self::base_execute_scheduled_instruction(id, &mut weight_meter)
         }
 
         /// Reschedules a failed instruction.
@@ -1183,7 +1187,10 @@ decl_module! {
         ///
         /// # Errors
         /// * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
-        #[weight = <T as Config>::WeightInfo::execute_manual_instruction_weight(weight_limit, legs_count)]
+        #[weight =
+            <T as Config>::WeightInfo::execute_manual_instruction_weight(weight_limit, legs_count)
+            .max(<T as Config>::WeightInfo::execute_manual_instruction(0))
+        ]
         pub fn execute_manual_instruction(
             origin,
             id: InstructionId,
@@ -1191,38 +1198,7 @@ decl_module! {
             portfolio: Option<PortfolioId>,
             weight_limit: Option<Weight>
         ) -> DispatchResultWithPostInfo {
-            let weight_limit = Self::ensure_manual_weight_limit(weight_limit, legs_count)?;
-            // check origin has the permissions required and valid instruction
-            let (did, sk, instruction_details) = Self::ensure_origin_perm_and_instruction_validity(origin, id, true)?;
-
-            // Check for portfolio
-            let instruction_legs: Vec<(LegId, LegV2)> = Self::get_instruction_legs(&id);
-            match portfolio {
-                Some(portfolio) => {
-                    // Ensure that the caller is a party of this instruction.
-                    T::Portfolio::ensure_portfolio_custody_and_permission(portfolio, did, sk.as_ref())?;
-                    ensure!(
-                        instruction_legs.iter().any(|(_, leg)| leg.from == portfolio || leg.to == portfolio),
-                        Error::<T>::CallerIsNotAParty
-                    );
-                }
-                None => {
-                    // Ensure venue exists & sender is its creator.
-                    Self::venue_for_management(instruction_details.venue_id, did)?;
-                }
-            }
-
-            // check that the instruction leg count matches
-            ensure!(instruction_legs.len() as u32 <= legs_count, Error::<T>::LegCountTooSmall);
-
-
-            let mut weight_meter = WeightMeter::from_limit(weight_limit);
-            // Executes the instruction
-            Self::execute_instruction_retryable(id, &mut weight_meter)?;
-            Self::ensure_minum_weight_is_charged(&mut weight_meter, Self::execute_manual_instruction_minimum_weight())?;
-
-            Self::deposit_event(RawEvent::SettlementManuallyExecuted(did, id));
-            Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
+            Self::base_execute_manual_instruction(origin, id, legs_count, portfolio, weight_limit)
         }
 
         /// Adds a new instruction with memo.
@@ -1360,20 +1336,32 @@ decl_module! {
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
         #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*_fungible_transfers, *_nfts_transfers)]
-        fn execute_scheduled_instruction_v2(origin, id: InstructionId, _fungible_transfers: u32, _nfts_transfers: u32) {
+        fn execute_scheduled_instruction_v2(
+            origin,
+            id: InstructionId,
+            _fungible_transfers: u32,
+            _nfts_transfers: u32
+        ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            let _ = Self::base_execute_scheduled_instruction(id, &mut WeightMeter::max_limit());
+            let mut weight_meter = WeightMeter::from_limit(
+                Self::execute_scheduled_instruction_minimum_weight(),
+                Self::execute_scheduled_instruction_weight_limit(_fungible_transfers, _nfts_transfers)
+            );
+            Self::base_execute_scheduled_instruction(id, &mut weight_meter)
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
-        #[weight = *weight_limit]
+        #[weight = (*weight_limit).max(<T as Config>::WeightInfo::execute_scheduled_instruction(0, 0))]
         fn execute_scheduled_instruction_v3(
             origin,
             id: InstructionId,
             weight_limit: Weight
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            let mut weight_meter = WeightMeter::from_limit(weight_limit);
+            let mut weight_meter = WeightMeter::from_limit(
+                Self::execute_scheduled_instruction_minimum_weight(),
+                weight_limit
+            );
             Self::base_execute_scheduled_instruction(id, &mut weight_meter)
         }
     }
@@ -1722,11 +1710,11 @@ impl<T: Config> Module<T> {
         let mut instruction_legs: Vec<(LegId, LegV2)> = Self::get_instruction_legs(&instruction_id);
         instruction_legs.sort_by_key(|leg_id_leg| leg_id_leg.0);
 
-        let transfer_data = Self::get_transfer_data(&instruction_legs);
+        let instruction_data = Self::get_transfer_data(&instruction_legs);
         weight_meter
             .check_accrue(<T as Config>::WeightInfo::execute_instruction_paused(
-                transfer_data.fungible(),
-                transfer_data.non_fungible(),
+                instruction_data.fungible(),
+                instruction_data.non_fungible(),
             ))
             .map_err(|_| Error::<T>::WeightLimitExceeded)?;
 
@@ -2412,24 +2400,55 @@ impl<T: Config> Module<T> {
         if let Err(e) = Self::execute_instruction_retryable(id, weight_meter) {
             Self::deposit_event(RawEvent::FailedToExecuteInstruction(id, e));
         }
-        let _ = Self::ensure_minum_weight_is_charged(
-            weight_meter,
-            Self::execute_scheduled_instruction_minimum_weight(),
-        );
         Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
 
-    /// If the weight meter has not been charged anything, charges the input `minimum_charge`.
-    fn ensure_minum_weight_is_charged(
-        weight_meter: &mut WeightMeter,
-        minimum_charge: Weight,
-    ) -> DispatchResult {
-        if weight_meter.consumed() == Weight::zero() {
-            weight_meter
-                .check_accrue(minimum_charge)
-                .map_err(|_| Error::<T>::WeightLimitExceeded)?;
+    fn base_execute_manual_instruction(
+        origin: T::RuntimeOrigin,
+        id: InstructionId,
+        legs_count: u32,
+        portfolio: Option<PortfolioId>,
+        weight_limit: Option<Weight>,
+    ) -> DispatchResultWithPostInfo {
+        let weight_limit = Self::ensure_manual_weight_limit(weight_limit, legs_count)?;
+        // check origin has the permissions required and valid instruction
+        let (did, sk, instruction_details) =
+            Self::ensure_origin_perm_and_instruction_validity(origin, id, true)?;
+
+        // Check for portfolio
+        let instruction_legs: Vec<(LegId, LegV2)> = Self::get_instruction_legs(&id);
+        match portfolio {
+            Some(portfolio) => {
+                // Ensure that the caller is a party of this instruction.
+                T::Portfolio::ensure_portfolio_custody_and_permission(portfolio, did, sk.as_ref())?;
+                ensure!(
+                    instruction_legs
+                        .iter()
+                        .any(|(_, leg)| leg.from == portfolio || leg.to == portfolio),
+                    Error::<T>::CallerIsNotAParty
+                );
+            }
+            None => {
+                // Ensure venue exists & sender is its creator.
+                Self::venue_for_management(instruction_details.venue_id, did)?;
+            }
         }
-        Ok(())
+
+        // check that the instruction leg count matches
+        ensure!(
+            instruction_legs.len() as u32 <= legs_count,
+            Error::<T>::LegCountTooSmall
+        );
+
+        let mut weight_meter = WeightMeter::from_limit(
+            Self::execute_manual_instruction_minimum_weight(),
+            weight_limit,
+        );
+        // Executes the instruction
+        Self::execute_instruction_retryable(id, &mut weight_meter)?;
+
+        Self::deposit_event(RawEvent::SettlementManuallyExecuted(did, id));
+        Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
 
     /// If `weight_limit` is None, returns the worst case weight for executing a manual instruction of `n_legs`,
@@ -2476,7 +2495,8 @@ impl<T: Config> Module<T> {
     pub fn execute_instruction_info(instruction_id: &InstructionId) -> ExecuteInstructionInfo {
         let instruction_legs: Vec<(LegId, LegV2)> = Self::get_instruction_legs(&instruction_id);
         let transfer_data = Self::get_transfer_data(&instruction_legs);
-        let mut weight_meter = WeightMeter::max_limit();
+        let mut weight_meter =
+            WeightMeter::max_limit(Self::execute_scheduled_instruction_minimum_weight());
 
         match Self::execute_instruction_retryable(*instruction_id, &mut weight_meter) {
             Ok(_) => ExecuteInstructionInfo::new(
