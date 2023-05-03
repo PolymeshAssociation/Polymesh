@@ -192,7 +192,7 @@ fn enable_investor_count(ticker: Ticker, owner: User) {
 }
 
 pub(crate) fn transfer(ticker: Ticker, from: User, to: User, amount: u128) -> DispatchResult {
-    let mut weight_meter = WeightMeter::max_limit();
+    let mut weight_meter = WeightMeter::max_limit_no_minimum();
     Asset::base_transfer(
         PortfolioId::default_portfolio(from.did),
         PortfolioId::default_portfolio(to.did),
@@ -380,7 +380,7 @@ fn issuers_can_redeem_tokens() {
 }
 
 fn default_transfer(from: User, to: User, ticker: Ticker, val: u128) {
-    let mut weight_meter = WeightMeter::max_limit();
+    let mut weight_meter = WeightMeter::max_limit_no_minimum();
     assert_ok!(Asset::unsafe_transfer(
         PortfolioId::default_portfolio(from.did),
         PortfolioId::default_portfolio(to.did),
@@ -997,7 +997,7 @@ fn test_can_transfer_rpc() {
                     PortfolioId::default_portfolio(to_did),
                     &ticker,
                     amount, // It only passed when it should be the multiple of currency::ONE_UNIT
-                    &mut WeightMeter::max_limit(),
+                    &mut WeightMeter::max_limit_no_minimum(),
                 )
                 .unwrap()
             };
@@ -2037,7 +2037,7 @@ fn invalid_ticker_registry_test() {
 fn sender_same_as_receiver_test() {
     test_with_owner(|owner| {
         let ticker = an_asset(owner, true);
-        let mut weight_meter = WeightMeter::max_limit();
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         // Create new portfolio
         let eu_portfolio = PortfolioId::default_portfolio(owner.did);
@@ -2259,7 +2259,7 @@ fn unsafe_can_transfer_all_status_codes_test() {
                 uk_portfolio,
                 &ticker,
                 100,
-                &mut WeightMeter::max_limit(),
+                &mut WeightMeter::max_limit_no_minimum(),
             )
             .unwrap()
         };
@@ -2284,7 +2284,7 @@ fn unsafe_can_transfer_all_status_codes_test() {
             default_portfolio,
             &ticker,
             100,
-            &mut WeightMeter::max_limit(),
+            &mut WeightMeter::max_limit_no_minimum(),
         )
         .unwrap();
         assert_eq!(code, INVALID_SENDER_DID);

@@ -491,7 +491,7 @@ decl_module! {
                     portfolios,
                     2,
                     None,
-                    &mut WeightMeter::max_limit()
+                    &mut WeightMeter::max_limit_no_minimum()
                 )
             })?;
 

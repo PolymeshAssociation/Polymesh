@@ -198,7 +198,7 @@ benchmarks! {
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let nft_type: Option<NonFungibleType> = Some(NonFungibleType::Derivative);
-        let mut weight_meter = WeightMeter::max_limit();
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         let (sender_portfolio, receiver_portfolio) =
             setup_nft_transfer::<T>(&alice, &bob, ticker, n, None, None, true);

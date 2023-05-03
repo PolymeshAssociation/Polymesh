@@ -41,7 +41,7 @@ type EAError = pallet_external_agents::Error<TestStorage>;
 
 macro_rules! assert_invalid_transfer {
     ($ticker:expr, $from:expr, $to:expr, $amount:expr) => {
-        let mut weight_meter = WeightMeter::max_limit();
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert_ne!(
             Asset::_is_valid_transfer(
                 &$ticker,
@@ -57,7 +57,7 @@ macro_rules! assert_invalid_transfer {
 
 macro_rules! assert_valid_transfer {
     ($ticker:expr, $from:expr, $to:expr, $amount:expr) => {
-        let mut weight_meter = WeightMeter::max_limit();
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert_eq!(
             Asset::_is_valid_transfer(
                 &$ticker,
@@ -169,7 +169,7 @@ fn should_add_and_verify_compliance_requirement_we() {
             &ticker,
             Some(owner.did),
             Some(token_rec.did),
-            &mut WeightMeter::max_limit(),
+            &mut WeightMeter::max_limit_no_minimum(),
         )
         .unwrap()
     };
@@ -1026,7 +1026,7 @@ fn cm_test_case_9_we() {
             &ticker,
             Some(owner.did),
             Some(user.did),
-            &mut WeightMeter::max_limit(),
+            &mut WeightMeter::max_limit_no_minimum(),
         )
         .unwrap()
     };
@@ -1054,7 +1054,7 @@ fn cm_test_case_9_we() {
         &ticker,
         Some(owner.did),
         Some(ferdie.did),
-        &mut WeightMeter::max_limit(),
+        &mut WeightMeter::max_limit_no_minimum(),
     )
     .unwrap();
     assert!(!result.result);
@@ -1130,7 +1130,7 @@ fn cm_test_case_11_we() {
         &ticker,
         Some(owner.did),
         Some(charlie.did),
-        &mut WeightMeter::max_limit(),
+        &mut WeightMeter::max_limit_no_minimum(),
     )
     .unwrap();
     assert!(result.result);
@@ -1157,7 +1157,7 @@ fn cm_test_case_11_we() {
         &ticker,
         Some(owner.did),
         Some(dave.did),
-        &mut WeightMeter::max_limit(),
+        &mut WeightMeter::max_limit_no_minimum(),
     )
     .unwrap();
     assert!(!result.result);
@@ -1184,7 +1184,7 @@ fn cm_test_case_11_we() {
         &ticker,
         Some(owner.did),
         Some(eve.did),
-        &mut WeightMeter::max_limit(),
+        &mut WeightMeter::max_limit_no_minimum(),
     )
     .unwrap();
     assert!(result.result);
@@ -1265,7 +1265,7 @@ fn cm_test_case_13_we() {
         &ticker,
         None,
         Some(charlie.did),
-        &mut WeightMeter::max_limit(),
+        &mut WeightMeter::max_limit_no_minimum(),
     )
     .unwrap();
     assert!(!result.result);
@@ -1300,7 +1300,7 @@ fn cm_test_case_13_we() {
         &ticker,
         None,
         Some(dave.did),
-        &mut WeightMeter::max_limit(),
+        &mut WeightMeter::max_limit_no_minimum(),
     )
     .unwrap();
     assert!(!result.result);
@@ -1334,7 +1334,7 @@ fn cm_test_case_13_we() {
         &ticker,
         Some(owner.did),
         Some(eve.did),
-        &mut WeightMeter::max_limit(),
+        &mut WeightMeter::max_limit_no_minimum(),
     )
     .unwrap();
     assert!(result.result);
@@ -1380,7 +1380,7 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
     );
 
     // No compliance requirement is present, compliance should fail
-    let mut weight_meter = WeightMeter::max_limit();
+    let mut weight_meter = WeightMeter::max_limit_no_minimum();
     assert_ok!(
         ComplianceManager::verify_restriction(
             &ticker,
@@ -1514,7 +1514,7 @@ fn check_new_return_type_of_rpc() {
             &ticker,
             Some(owner.did),
             Some(receiver.did),
-            &mut WeightMeter::max_limit(),
+            &mut WeightMeter::max_limit_no_minimum(),
         )
         .unwrap();
 
