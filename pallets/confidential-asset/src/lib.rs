@@ -1007,8 +1007,7 @@ impl<T: Config> Module<T> {
         let leg = TransactionLegs::get(id, leg_id);
 
         // Read the mercat_accounts from the confidential-asset pallet.
-        let from_mercat_pending_state =
-            Self::mercat_tx_pending_state((leg.sender_did, &leg.sender, id)).into();
+        let from_mercat_balance = Self::mercat_account_balance(leg.sender_did, &leg.sender).into();
 
         // Get receiver's account.
         let to_mercat = Self::mercat_accounts(leg.receiver_did, &leg.receiver).into();
@@ -1025,7 +1024,7 @@ impl<T: Config> Module<T> {
             verify_initialized_transaction(
                 &init_tx,
                 &from_mercat,
-                &from_mercat_pending_state,
+                &from_mercat_balance,
                 &to_mercat,
                 &[],
                 &mut rng,
