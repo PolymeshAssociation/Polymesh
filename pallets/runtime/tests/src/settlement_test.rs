@@ -1537,7 +1537,7 @@ fn test_weights_for_settlement_transaction() {
             set_current_block_number(100);
             assert_affirm_instruction_with_zero_leg!(bob_signed.clone(), instruction_id, bob_did);
 
-            let mut weight_meter = WeightMeter::max_limit();
+            let mut weight_meter = WeightMeter::max_limit_no_minimum();
             assert_ok!(
                 Asset::_is_valid_transfer(
                     &TICKER,

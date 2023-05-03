@@ -552,7 +552,7 @@ impl<T: Config> Module<T> {
 
             // Transfer remainder (`gain`) to DID.
             let to = PortfolioId::default_portfolio(holder);
-            let mut weight_meter = WeightMeter::max_limit();
+            let mut weight_meter = WeightMeter::max_limit_no_minimum();
             <Asset<T>>::base_transfer(dist.from, to, &dist.currency, gain, &mut weight_meter)
         })?;
 

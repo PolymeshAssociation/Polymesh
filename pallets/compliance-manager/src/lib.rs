@@ -677,7 +677,7 @@ impl<T: Config> Module<T> {
     /// If the new consumed weight is greater than the limit, consumed will be set to limit and an error will be returned.
     fn consume_weight_meter(weight_meter: &mut WeightMeter, weight: Weight) -> DispatchResult {
         weight_meter
-            .consume_weght_until_limit(weight)
+            .consume_weight_until_limit(weight)
             .map_err(|_| Error::<T>::WeightLimitExceeded.into())
     }
 }

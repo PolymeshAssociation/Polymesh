@@ -943,7 +943,7 @@ macro_rules! runtime_apis {
                     ticker: &Ticker,
                     value: Balance) -> rpc_api_asset::CanTransferResult
                 {
-                    let mut weight_meter = WeightMeter::max_limit();
+                    let mut weight_meter = WeightMeter::max_limit_no_minimum();
                     Asset::unsafe_can_transfer(from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value, &mut weight_meter)
                         .map_err(|msg| msg.as_bytes().to_vec())
                 }
@@ -958,7 +958,7 @@ macro_rules! runtime_apis {
                     value: Balance
                 ) -> polymesh_primitives::asset::GranularCanTransferResult
                 {
-                    let mut weight_meter = WeightMeter::max_limit();
+                    let mut weight_meter = WeightMeter::max_limit_no_minimum();
                     Asset::unsafe_can_transfer_granular(
                         from_custodian,
                         from_portfolio,
@@ -983,7 +983,7 @@ macro_rules! runtime_apis {
                 ) -> AssetComplianceResult
                 {
                     use polymesh_common_utilities::compliance_manager::Config;
-                    let mut weight_meter = WeightMeter::max_limit();
+                    let mut weight_meter = WeightMeter::max_limit_no_minimum();
                     ComplianceManager::verify_restriction_granular(
                         &ticker,
                         from_did,
@@ -1015,7 +1015,7 @@ macro_rules! runtime_apis {
                     receiver_portfolio: &PortfolioId,
                     nfts: &NFTs
                 ) -> frame_support::dispatch::DispatchResult {
-                    let mut weight_meter = WeightMeter::max_limit();
+                    let mut weight_meter = WeightMeter::max_limit_no_minimum();
                     Nft::validate_nft_transfer(sender_portfolio, receiver_portfolio, nfts, &mut weight_meter)
                 }
             }

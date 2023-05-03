@@ -495,7 +495,7 @@ decl_module! {
                     receipt,
                     portfolios,
                     &TransferData::new(2, 0, 0),
-                    &mut WeightMeter::max_limit()
+                    &mut WeightMeter::max_limit_no_minimum()
                 )
             })?;
 

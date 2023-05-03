@@ -538,7 +538,7 @@ fn transfer_nft_without_collection() {
         let alice: User = User::new(AccountKeyring::Alice);
         let bob: User = User::new(AccountKeyring::Bob);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let mut weight_meter = WeightMeter::max_limit();
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let sender_portfolio = PortfolioId {
             did: alice.did,
             kind: PortfolioKind::Default,
@@ -574,7 +574,7 @@ fn transfer_nft_same_portfolio() {
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
-        let mut weight_meter = WeightMeter::max_limit();
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
         create_nft_collection(
             alice.clone(),
             ticker.clone(),
@@ -616,7 +616,7 @@ fn transfer_nft_invalid_count() {
         let alice: User = User::new(AccountKeyring::Alice);
         let bob: User = User::new(AccountKeyring::Bob);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let mut weight_meter = WeightMeter::max_limit();
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
         create_nft_collection(
@@ -670,7 +670,7 @@ fn transfer_nft_not_owned() {
         let alice: User = User::new(AccountKeyring::Alice);
         let bob: User = User::new(AccountKeyring::Bob);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let mut weight_meter = WeightMeter::max_limit();
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
         create_nft_collection(
@@ -724,7 +724,7 @@ fn transfer_nft_failing_compliance() {
         let alice: User = User::new(AccountKeyring::Alice);
         let bob: User = User::new(AccountKeyring::Bob);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let mut weight_meter = WeightMeter::max_limit();
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
         create_nft_collection(
@@ -778,7 +778,7 @@ fn transfer_nft() {
         let alice: User = User::new(AccountKeyring::Alice);
         let bob: User = User::new(AccountKeyring::Bob);
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let mut weight_meter = WeightMeter::max_limit();
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
         let collection_keys: NFTCollectionKeys =
             vec![AssetMetadataKey::Local(AssetMetadataLocalKey(1))].into();
         create_nft_collection(

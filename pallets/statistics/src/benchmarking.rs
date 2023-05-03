@@ -247,7 +247,7 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let mut weight_meter = WeightMeter::max_limit();
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         make_asset::<T>(&alice, Some(ticker.as_ref()));
         let transfer_condition = TransferCondition::MaxInvestorCount(1);
@@ -272,7 +272,7 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let mut weight_meter = WeightMeter::max_limit();
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         make_asset::<T>(&alice, Some(ticker.as_ref()));
         let transfer_condition = TransferCondition::MaxInvestorOwnership(Permill::one());
@@ -299,7 +299,7 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let mut weight_meter = WeightMeter::max_limit();
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         make_asset::<T>(&alice, Some(ticker.as_ref()));
         let changes = if c == 0 { None } else { Some((false, false)) };
@@ -325,7 +325,7 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let mut weight_meter = WeightMeter::max_limit();
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         make_asset::<T>(&alice, Some(ticker.as_ref()));
         let transfer_condition =
@@ -353,7 +353,7 @@ benchmarks! {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        let mut weight_meter = WeightMeter::max_limit();
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         make_asset::<T>(&alice, Some(ticker.as_ref()));
         let transfer_condition =
@@ -392,7 +392,7 @@ benchmarks! {
         let asset = AssetScope::Ticker(ticker);
         let stat_type = StatType{op: StatOpType::Count, claim_issuer: Some((ClaimType::Accredited, issuer_id))};
         let key1 = Stat1stKey { asset, stat_type };
-        let mut weight_meter = WeightMeter::max_limit();
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         make_asset::<T>(&alice, Some(ticker.as_ref()));
         let changes = {
@@ -433,7 +433,7 @@ benchmarks! {
         let asset = AssetScope::Ticker(ticker);
         let stat_type = StatType{op: StatOpType::Balance, claim_issuer: Some((ClaimType::Accredited, issuer_id))};
         let key1 = Stat1stKey { asset, stat_type };
-        let mut weight_meter = WeightMeter::max_limit();
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         make_asset::<T>(&alice, Some(ticker.as_ref()));
         let (from_balance, to_balance) = {
