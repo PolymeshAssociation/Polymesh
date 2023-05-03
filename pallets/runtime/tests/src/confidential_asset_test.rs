@@ -6,10 +6,10 @@ use core::convert::TryInto;
 use frame_support::assert_ok;
 
 use mercat::{
-    account::{convert_asset_ids, AccountCreator},
+    account::AccountCreator,
     asset::AssetIssuer,
     confidential_identity_core::{
-        asset_proofs::{AssetId, CommitmentWitness, ElgamalSecretKey},
+        asset_proofs::{AssetId, ElgamalSecretKey},
         curve25519_dalek::scalar::Scalar,
     },
     transaction::{CtxMediator, CtxReceiver, CtxSender},
@@ -18,8 +18,8 @@ use mercat::{
     TransferTransactionSender,
 };
 use pallet_confidential_asset::{
-    ConfidentialAssetDetails, EncryptedAssetIdWrapper, InitializedAssetTxWrapper, MercatAccountId,
-    PubAccountTxWrapper, TransactionLeg, TransactionLegId, TransactionLegProofs, VenueId,
+    ConfidentialAssetDetails, InitializedAssetTxWrapper, MercatAccountId, PubAccountTxWrapper,
+    TransactionLeg, TransactionLegId, TransactionLegProofs, VenueId,
 };
 use polymesh_primitives::{
     asset::{AssetName, AssetType},
@@ -28,6 +28,10 @@ use polymesh_primitives::{
 use rand::{rngs::StdRng, SeedableRng};
 use sp_runtime::traits::Zero;
 use test_client::AccountKeyring;
+
+pub fn asset_to_ticker(asset_id: AssetId) -> Ticker {
+    Ticker::from(asset_id.id)
+}
 
 type ConfidentialAsset = pallet_confidential_asset::Module<TestStorage>;
 
@@ -53,11 +57,7 @@ fn create_confidential_token(token_name: &[u8], ticker: Ticker, user: User) {
 
 /// Creates a mercat account and returns its secret part (to be stored in the wallet) and
 /// the account creation proofs (to be submitted to the chain).
-pub fn gen_account(
-    mut rng: &mut StdRng,
-    token_name: &[u8],
-    valid_asset_ids: Vec<AssetId>,
-) -> (SecAccount, PubAccountTx) {
+pub fn gen_account(mut rng: &mut StdRng, ticker: Ticker) -> (SecAccount, PubAccountTx) {
     // These are the encryptions keys used by MERCAT and are different from the signing keys
     // that Polymesh uses.
     let elg_secret = ElgamalSecretKey::new(Scalar::random(&mut rng));
@@ -68,19 +68,11 @@ pub fn gen_account(
     };
 
     let asset_id = AssetId {
-        id: *Ticker::from_slice_truncated(token_name).as_bytes(),
+        id: *ticker.as_bytes(),
     };
 
-    let blinding = Scalar::random(rng);
-    let asset_id_witness = CommitmentWitness::new(asset_id.clone().into(), blinding);
-    let secret_account = SecAccount {
-        enc_keys,
-        asset_id_witness,
-    };
-    let valid_asset_ids = convert_asset_ids(valid_asset_ids);
-    let mercat_account_tx = AccountCreator
-        .create(&secret_account, &valid_asset_ids, &mut rng)
-        .unwrap();
+    let secret_account = SecAccount { enc_keys, asset_id };
+    let mercat_account_tx = AccountCreator.create(&secret_account, &mut rng).unwrap();
 
     (secret_account, mercat_account_tx)
 }
@@ -90,20 +82,18 @@ pub fn gen_account(
 /// encrypted balance of zero.
 pub fn init_account(
     mut rng: &mut StdRng,
-    token_name: &[u8],
+    ticker: Ticker,
     owner: User,
 ) -> (SecAccount, MercatAccountId, PubAccount, EncryptedAmount) {
-    let valid_asset_ids = ConfidentialAsset::confidential_tickers();
-    let (secret_account, mercat_account_tx) = gen_account(&mut rng, token_name, valid_asset_ids);
+    let (secret_account, mercat_account_tx) = gen_account(&mut rng, ticker);
 
     assert_ok!(ConfidentialAsset::validate_mercat_account(
         owner.origin(),
+        ticker,
         PubAccountTxWrapper::from(mercat_account_tx.clone())
     ));
 
-    let account_id = MercatAccountId(EncryptedAssetIdWrapper::from(
-        mercat_account_tx.pub_account.enc_asset_id,
-    ));
+    let account_id = MercatAccountId(asset_to_ticker(mercat_account_tx.pub_account.asset_id));
     (
         secret_account,
         account_id.clone(),
@@ -145,12 +135,11 @@ pub fn create_account_and_mint_token(
 
     // ---------------- prepare for minting the asset
 
-    let valid_asset_ids = ConfidentialAsset::confidential_tickers();
-
-    let (secret_account, mercat_account_tx) = gen_account(&mut rng, &token_name, valid_asset_ids);
+    let (secret_account, mercat_account_tx) = gen_account(&mut rng, ticker);
 
     assert_ok!(ConfidentialAsset::validate_mercat_account(
         owner.origin(),
+        ticker,
         PubAccountTxWrapper::from(mercat_account_tx.clone())
     ));
 
@@ -181,18 +170,8 @@ pub fn create_account_and_mint_token(
         token.owner_did
     );
 
-    // Ticker is added to the list of confidential tokens.
-    assert_eq!(
-        ConfidentialAsset::confidential_tickers().last(),
-        Some(&AssetId {
-            id: *ticker.as_bytes()
-        })
-    );
-
     // -------------------------- Ensure the encrypted balance matches the minted amount.
-    let account_id = MercatAccountId(EncryptedAssetIdWrapper::from(
-        mercat_account_tx.pub_account.enc_asset_id,
-    ));
+    let account_id = MercatAccountId(asset_to_ticker(mercat_account_tx.pub_account.asset_id));
     let stored_balance = *ConfidentialAsset::mercat_account_balance(owner.did, account_id.clone());
     let stored_balance = secret_account
         .enc_keys
@@ -242,14 +221,6 @@ fn issuers_can_create_and_rename_confidential_tokens() {
         assert_eq!(
             ConfidentialAsset::confidential_asset_details(ticker),
             token_with_zero_supply
-        );
-
-        // Ticker is added to the list of confidential tokens.
-        assert_eq!(
-            ConfidentialAsset::confidential_tickers(),
-            vec![AssetId {
-                id: ticker.as_bytes().clone()
-            }]
         );
 
         /*
@@ -305,18 +276,6 @@ fn issuers_can_create_and_rename_confidential_tokens() {
             ConfidentialAsset::confidential_asset_details(ticker2),
             token_with_zero_supply
         );
-        // Ticker is added to the list of confidential tokens.
-        assert_eq!(
-            ConfidentialAsset::confidential_tickers(),
-            vec![
-                AssetId {
-                    id: ticker.as_bytes().clone()
-                },
-                AssetId {
-                    id: ticker2.as_bytes().clone()
-                }
-            ]
-        );
     });
 }
 
@@ -362,14 +321,12 @@ fn issuers_can_create_and_mint_tokens() {
 
         // ---------------- Setup: prepare for minting the asset
 
-        let valid_asset_ids: Vec<AssetId> = ConfidentialAsset::confidential_tickers();
-
         let mut rng = StdRng::from_seed([10u8; 32]);
-        let (secret_account, mercat_account_tx) =
-            gen_account(&mut rng, &token_names[1][..], valid_asset_ids);
+        let (secret_account, mercat_account_tx) = gen_account(&mut rng, ticker);
 
         ConfidentialAsset::validate_mercat_account(
             owner.origin(),
+            ticker,
             PubAccountTxWrapper::from(mercat_account_tx.clone()),
         )
         .unwrap();
@@ -402,18 +359,8 @@ fn issuers_can_create_and_mint_tokens() {
         // A correct entry is added.
         assert_eq!(ConfidentialAsset::confidential_asset_details(ticker), token);
 
-        // Ticker is added to the list of confidential tokens.
-        assert_eq!(
-            ConfidentialAsset::confidential_tickers().last(),
-            Some(&AssetId {
-                id: *ticker.as_bytes()
-            })
-        );
-
         // -------------------------- Ensure that the account balance is set properly.
-        let account_id = MercatAccountId(EncryptedAssetIdWrapper::from(
-            mercat_account_tx.pub_account.enc_asset_id,
-        ));
+        let account_id = MercatAccountId(asset_to_ticker(mercat_account_tx.pub_account.asset_id));
 
         let stored_balance = *ConfidentialAsset::mercat_account_balance(owner.did, account_id);
         let stored_balance = secret_account
@@ -433,37 +380,27 @@ fn account_create_tx() {
         let bob = User::new(AccountKeyring::Bob);
         // Simulating the case were issuers have registered some tickers and therefore the list of
         // valid asset ids contains some values.
-        let token_names = [[b'A'], [b'B'], [b'C']];
-        for token_name in token_names.iter() {
-            create_confidential_token(
-                &token_name[..],
-                Ticker::from_slice_truncated(&token_name[..]),
-                bob,
-            );
-        }
-
-        let valid_asset_ids: Vec<AssetId> = ConfidentialAsset::confidential_tickers();
+        let ticker = Ticker::from_slice_truncated(b"A".as_ref());
 
         // ------------- START: Computations that will happen in Alice's Wallet ----------
         let mut rng = StdRng::from_seed([10u8; 32]);
-        let (secret_account, mercat_account_tx) =
-            gen_account(&mut rng, &token_names[1][..], valid_asset_ids);
+        let (secret_account, mercat_account_tx) = gen_account(&mut rng, ticker);
         // ------------- END: Computations that will happen in the Wallet ----------
 
         // Wallet submits the transaction to the chain for verification.
         ConfidentialAsset::validate_mercat_account(
             alice.origin(),
+            ticker,
             PubAccountTxWrapper::from(mercat_account_tx.clone()),
         )
         .unwrap();
 
         // Ensure that the transaction was verified and that MERCAT account is created on the chain.
-        let wrapped_enc_asset_id =
-            EncryptedAssetIdWrapper::from(mercat_account_tx.pub_account.enc_asset_id);
-        let account_id = MercatAccountId(wrapped_enc_asset_id.clone());
+        let asset_id = asset_to_ticker(mercat_account_tx.pub_account.asset_id);
+        let account_id = MercatAccountId(asset_id);
         let stored_account = ConfidentialAsset::mercat_accounts(alice.did, account_id.clone());
 
-        assert_eq!(stored_account.encrypted_asset_id, wrapped_enc_asset_id);
+        assert_eq!(stored_account.ticker, asset_id);
         assert_eq!(
             *stored_account.encryption_pub_key,
             mercat_account_tx.pub_account.owner_enc_pub_key,
@@ -524,10 +461,10 @@ fn basic_confidential_settlement() {
                 bob_account_id,
                 bob_public_account,
                 bob_encrypted_init_balance,
-            ) = init_account(&mut rng, token_name, bob);
+            ) = init_account(&mut rng, ticker, bob);
 
             let (charlie_secret_account, _, charlie_public_account, _) =
-                init_account(&mut rng, token_name, charlie);
+                init_account(&mut rng, ticker, charlie);
 
             // Mediator creates a venue
             let venue_counter = VenueId(0); /*ConfidentialAsset::venue_counter();
@@ -626,7 +563,6 @@ fn basic_confidential_settlement() {
                             secret: bob_secret_account.clone(),
                         },
                         amount,
-                        &mut rng,
                     )
                     .unwrap(),
             );
@@ -665,9 +601,6 @@ fn basic_confidential_settlement() {
                         &alice_encrypted_init_balance,
                         &bob_public_account,
                         &[],
-                        AssetId {
-                            id: *ticker.as_bytes(),
-                        },
                         &mut rng,
                     )
                     .unwrap(),

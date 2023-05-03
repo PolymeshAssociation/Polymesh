@@ -112,15 +112,15 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use mercat::{
-    account::{convert_asset_ids, AccountValidator},
+    account::AccountValidator,
     asset::AssetValidator,
     confidential_identity_core::asset_proofs::AssetId,
     transaction::{
         verify_finalized_transaction, verify_initialized_transaction, TransactionValidator,
     },
-    AccountCreatorVerifier, AssetTransactionVerifier, EncryptedAmount, EncryptedAssetId,
-    EncryptionPubKey, FinalizedTransferTx, InitializedAssetTx, InitializedTransferTx,
-    JustifiedTransferTx, PubAccount, PubAccountTx, TransferTransactionVerifier,
+    AccountCreatorVerifier, AssetTransactionVerifier, EncryptedAmount, EncryptionPubKey,
+    FinalizedTransferTx, InitializedAssetTx, InitializedTransferTx, JustifiedTransferTx,
+    PubAccount, PubAccountTx, TransferTransactionVerifier,
 };
 use pallet_base::try_next_post;
 use pallet_identity as identity;
@@ -227,7 +227,6 @@ impl_wrapper!(InitializedTransferTxWrapper, InitializedTransferTx);
 impl_wrapper!(FinalizedTransferTxWrapper, FinalizedTransferTx);
 impl_wrapper!(JustifiedTransferTxWrapper, JustifiedTransferTx);
 impl_wrapper!(EncryptedBalanceWrapper, EncryptedAmount);
-impl_wrapper!(EncryptedAssetIdWrapper, EncryptedAssetId);
 
 impl Default for EncryptionPubKeyWrapper {
     fn default() -> Self {
@@ -236,12 +235,6 @@ impl Default for EncryptionPubKeyWrapper {
 }
 
 impl Default for EncryptedBalanceWrapper {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
-impl Default for EncryptedAssetIdWrapper {
     fn default() -> Self {
         Self(Default::default())
     }
@@ -267,23 +260,25 @@ pub trait Config:
     type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
 }
 
-/// Created for better code readability. Its content are the same as the `pallet_confidential_asset::EncryptedAssetIdWrapper`.
+/// Created for better code readability.
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, Default)]
-pub struct MercatAccountId(pub EncryptedAssetIdWrapper);
+pub struct MercatAccountId(pub Ticker);
 
 /// A mercat account consists of the public key that is used for encryption purposes and the
 /// encrypted asset id. The encrypted asset id also acts as the unique identifier of this
 /// struct.
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Default)]
 pub struct MercatAccount {
-    pub encrypted_asset_id: EncryptedAssetIdWrapper,
+    pub ticker: Ticker,
     pub encryption_pub_key: EncryptionPubKeyWrapper,
 }
 
 impl From<MercatAccount> for PubAccount {
     fn from(data: MercatAccount) -> Self {
         Self {
-            enc_asset_id: *data.encrypted_asset_id,
+            asset_id: AssetId {
+                id: *data.ticker.as_bytes(),
+            },
             owner_enc_pub_key: *data.encryption_pub_key,
         }
     }
@@ -292,7 +287,7 @@ impl From<MercatAccount> for PubAccount {
 impl From<PubAccount> for MercatAccount {
     fn from(data: PubAccount) -> Self {
         Self {
-            encrypted_asset_id: data.enc_asset_id.into(),
+            ticker: data.asset_id.id.into(),
             encryption_pub_key: data.owner_enc_pub_key.into(),
         }
     }
@@ -307,7 +302,7 @@ pub struct TransactionLeg {
     pub sender: MercatAccountId,
     /// Mercat account id of the receiver.
     pub receiver: MercatAccountId,
-    /// Mediator.  TODO: create a `MediatorId`.
+    /// Mediator.
     pub mediator: IdentityId,
 }
 
@@ -435,10 +430,6 @@ decl_storage! {
         map hasher(blake2_128_concat) (IdentityId, MercatAccountId, TransactionId)
             => EncryptedBalanceWrapper;
 
-        /// List of Tickers of the type ConfidentialAsset.
-        /// Returns a list of confidential tickers.
-        pub ConfidentialTickers get(fn confidential_tickers): Vec<AssetId>;
-
         /// Legs of a transaction. (transaction_id, leg_id) -> Leg
         pub TransactionLegs get(fn transaction_legs):
             double_map hasher(twox_64_concat) TransactionId, hasher(twox_64_concat) TransactionLegId => TransactionLeg;
@@ -466,9 +457,7 @@ decl_module! {
 
         /// Verifies the proofs given the `tx` (transaction) for creating a mercat account.
         /// If all proofs pass, it stores the mercat account for the origin identity, sets the
-        /// initial encrypted balance, and emits account creation event. The proofs for the
-        /// transaction require that the encrypted asset id inside the `tx`
-        /// (`tx.pub_account.enc_asset_id`) is a member of the list of all the confidential asset ids.
+        /// initial encrypted balance, and emits account creation event.
         ///
         /// # Arguments
         /// * `tx` The account creation transaction created by the mercat lib.
@@ -478,15 +467,15 @@ decl_module! {
         /// * `BadOrigin` if `origin` isn't signed.
         #[weight = 1_000_000_000]
         pub fn validate_mercat_account(origin,
+            ticker: Ticker,
             tx: PubAccountTxWrapper,
         ) -> DispatchResult {
             let owner_acc = ensure_signed(origin)?;
             let owner_id = Context::current_identity_or::<Identity<T>>(&owner_acc)?;
             let tx = tx.into();
 
-            let valid_asset_ids = convert_asset_ids(Self::confidential_tickers());
-            AccountValidator.verify(&tx, &valid_asset_ids).map_err(|_| Error::<T>::InvalidAccountCreationProof)?;
-            let account_id = MercatAccountId(tx.pub_account.enc_asset_id.into());
+            AccountValidator.verify(&tx).map_err(|_| Error::<T>::InvalidAccountCreationProof)?;
+            let account_id = MercatAccountId(ticker);
             let mercat_account: MercatAccount = tx.pub_account.into();
             MercatAccounts::insert(&owner_id, &account_id, mercat_account);
             let wrapped_enc_balance = EncryptedBalanceWrapper::from(tx.initial_balance);
@@ -563,9 +552,6 @@ decl_module! {
             };
             Details::insert(ticker, details);
 
-            // Append the ticker to the list of confidential tickers.
-            ConfidentialTickers::append(AssetId { id: ticker.as_bytes().clone() });
-
             Self::deposit_event(Event::ConfidentialAssetCreated(
                 owner_did,
                 ticker,
@@ -617,6 +603,7 @@ decl_module! {
             );
 
             // Current total supply must be zero.
+            // TODO: Allow increasing the total supply?
             ensure!(
                 details.total_supply == Zero::zero(),
                 Error::<T>::CanSetTotalSupplyOnlyOnce
@@ -629,9 +616,7 @@ decl_module! {
             );
 
             ensure!(
-                Self::confidential_tickers().contains(&AssetId {
-                    id: *ticker.as_bytes(),
-                }),
+                Details::contains_key(ticker),
                 Error::<T>::UnknownConfidentialAsset
             );
 
@@ -643,7 +628,7 @@ decl_module! {
             );
 
             let asset_mint_proof = asset_mint_proof;
-            let account_id = MercatAccountId(asset_mint_proof.account_id.into());
+            let account_id = MercatAccountId(ticker);
             let new_encrypted_balance = AssetValidator
                                         .verify_asset_transaction(
                                             total_supply.saturated_into::<u32>(),
@@ -817,12 +802,9 @@ impl<T: Config> Module<T> {
     /// Add the amount to the account's pending outgoing accumulator.
     pub fn add_pending_outgoing_balance(
         owner_did: &IdentityId,
-        account_id: &EncryptedAssetId,
+        account_id: &MercatAccountId,
         amount: EncryptedAmount,
     ) -> DispatchResult {
-        let wrapped_enc_asset_id = EncryptedAssetIdWrapper::from(account_id.clone());
-        let account_id = MercatAccountId(wrapped_enc_asset_id);
-
         let pending_balances =
             if PendingOutgoingBalance::contains_key(owner_did, account_id.clone()) {
                 let pending_balance =
@@ -901,12 +883,9 @@ impl<T: Config> Module<T> {
     /// as soon as the transaction is settled.
     pub fn set_tx_pending_state(
         owner_did: &IdentityId,
-        account_id: &EncryptedAssetId,
+        account_id: &MercatAccountId,
         instruction_id: TransactionId,
     ) -> DispatchResult {
-        let wrapped_enc_asset_id = EncryptedAssetIdWrapper::from(account_id.clone());
-        let account_id = MercatAccountId(wrapped_enc_asset_id);
-
         let pending_state = Self::get_pending_balance(owner_did, &account_id)?;
         TxPendingState::insert(
             (owner_did, account_id, instruction_id),
@@ -1032,10 +1011,10 @@ impl<T: Config> Module<T> {
             .map_err(|_| Error::<T>::InvalidMercatTransferProof)?;
 
             // Temporarily store the current pending state as this instruction's pending state.
-            Self::set_tx_pending_state(&did, &init_tx.memo.sender_account_id, id)?;
+            Self::set_tx_pending_state(&did, &leg.sender, id)?;
             Self::add_pending_outgoing_balance(
                 &did,
-                &init_tx.memo.sender_account_id,
+                &leg.sender,
                 init_tx.memo.enc_amount_using_sender,
             )?;
             proofs.sender = Some(init_tx);

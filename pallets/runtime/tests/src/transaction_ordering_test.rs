@@ -5,7 +5,6 @@ use super::{
 use frame_support::assert_ok;
 
 use mercat::{
-    confidential_identity_core::asset_proofs::AssetId,
     transaction::{CtxMediator, CtxReceiver, CtxSender},
     Account, EncryptedAmount, PubAccount, SecAccount, TransferTransactionMediator,
     TransferTransactionReceiver, TransferTransactionSender,
@@ -123,7 +122,6 @@ fn initialize_transaction(
                     secret: receiver_secret_account.clone(),
                 },
                 amount,
-                &mut rng,
             )
             .unwrap(),
     );
@@ -193,9 +191,6 @@ fn finalize_transaction(
         &sender_pending_balance,
         &receiver_creds.public_account,
         &[],
-        AssetId {
-            id: *mediator_creds.ticker.as_bytes(),
-        },
         &mut rng,
     );
 
@@ -294,7 +289,7 @@ fn chain_set_up(
 
     // Create an account for Charlie.
     let (charlie_secret_account, _, charlie_public_account, _) =
-        init_account(&mut rng, token_name, charlie);
+        init_account(&mut rng, ticker, charlie);
     let charlie_creds = MediatorCredentials {
         user: charlie,
         mediator_public_account: charlie_public_account,
@@ -318,8 +313,11 @@ fn create_investor_account(
     // Create accounts for the key holder.
     let user = User::new(key);
 
-    let (secret_account, account_id, public_account, init_balance) =
-        init_account(&mut rng, token_name, user);
+    let (secret_account, account_id, public_account, init_balance) = init_account(
+        &mut rng,
+        Ticker::from_slice_truncated(token_name.as_ref()),
+        user,
+    );
 
     let creds = AccountCredentials {
         user,
