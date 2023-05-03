@@ -2449,7 +2449,7 @@ impl<T: Config> Module<T> {
     ) -> GranularCanTransferResult {
         let invalid_granularity = Self::invalid_granularity(ticker, value);
         let self_transfer = Self::self_transfer(&from_portfolio, &to_portfolio);
-        let invalid_receiver_cdd = Self::invalid_cdd(from_portfolio.did);
+        let invalid_receiver_cdd = Self::invalid_cdd(to_portfolio.did);
         let invalid_sender_cdd = Self::invalid_cdd(from_portfolio.did);
         let missing_scope_claim = Self::missing_scope_claim(ticker, &to_portfolio, &from_portfolio);
         let receiver_custodian_error =
