@@ -38,8 +38,10 @@ export async function addInstruction(
     from: getDefaultPortfolio(signerDid),
     to: getDefaultPortfolio(receiverDid),
     asset: {
-      ticker: ticker,
-      amount: amount
+      "Fungible": {
+        ticker: ticker,
+        amount: amount
+      }
     }
   };
 
@@ -69,7 +71,8 @@ export async function affirmInstruction(
   const transaction = api.tx.settlement.affirmInstruction(
     instructionCounter,
     [getDefaultPortfolio(did)],
-    legCounter
+    legCounter,
+    0
   );
   await sendTx(signer, transaction);
 }
@@ -101,7 +104,7 @@ export async function withdrawInstruction(
   did: IdentityId
 ): Promise<void> {
   const api = await ApiSingleton.getInstance();
-  const transaction = api.tx.settlement.rejectInstruction(instructionCounter, portfolioId, numOfLegs);
+  const transaction = api.tx.settlement.rejectInstruction(instructionCounter, portfolioId, numOfLegs, 0, 0);
   await sendTx(signer, transaction);
 }
 
@@ -124,8 +127,10 @@ export async function addGroupInstruction(
     from: group[1],
     to: group[0],
     asset: {
-      ticker: ticker2,
-      amount: amount
+      "Fungible": {
+        ticker: ticker2,
+        amount: amount
+      }
     }
   };
 
@@ -133,8 +138,10 @@ export async function addGroupInstruction(
     from: group[0],
     to: group[1],
     asset: {
-      ticker: ticker,
-      amount: amount
+      "Fungible": {
+        ticker: ticker,
+        amount: amount
+      }
     }
   };
 
@@ -142,8 +149,10 @@ export async function addGroupInstruction(
     from: group[0],
     to: group[2],
     asset: {
-      ticker: ticker,
-      amount: amount
+      "Fungible": {
+        ticker: ticker,
+        amount: amount
+      }
     }
   };
 
@@ -151,8 +160,10 @@ export async function addGroupInstruction(
     from: group[0],
     to: group[3],
     asset: {
-      ticker: ticker,
-      amount: amount
+      "Fungible": {
+        ticker: ticker,
+        amount: amount
+      }
     }
   };
 
@@ -160,8 +171,10 @@ export async function addGroupInstruction(
     from: group[0],
     to: group[4],
     asset: {
-      ticker: ticker,
-      amount: amount
+      "Fungible": {
+        ticker: ticker,
+        amount: amount
+      }
     }
   };
 

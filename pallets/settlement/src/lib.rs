@@ -1448,8 +1448,8 @@ impl<T: Config> Module<T> {
         Self::unsafe_affirm_instruction(did, id, portfolios_set, sk.as_ref(), input_cost)
     }
 
-    // It affirms the instruction and may schedule the instruction
-    // depends on the settlement type.
+    /// It affirms the instruction and may schedule the instruction
+    /// depends on the settlement type.
     pub fn affirm_with_receipts_and_maybe_schedule_instruction(
         origin: <T as frame_system::Config>::RuntimeOrigin,
         id: InstructionId,
