@@ -51,7 +51,8 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::{
-    DispatchError, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo,
+    DispatchError, DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo,
+    PostDispatchInfo,
 };
 use frame_support::storage::{
     with_transaction as frame_storage_with_transaction, TransactionOutcome,
@@ -481,7 +482,7 @@ decl_module! {
             ensure_root(origin)?;
             let mut weight_meter = WeightMeter::from_limit(
                 Self::execute_scheduled_instruction_minimum_weight(),
-                Self::execute_scheduled_instruction_weight_limit(_legs_count, 0, 0)
+                Self::execute_scheduled_instruction_weight_limit(_legs_count, 0, 0),
             );
             Ok(Self::base_execute_scheduled_instruction(id, &mut weight_meter))
         }
@@ -559,15 +560,17 @@ decl_module! {
             offchain_transfers: u32,
             weight_limit: Option<Weight>
         ) -> DispatchResultWithPostInfo {
-            Self::base_execute_manual_instruction(
-                origin,
-                id,
-                portfolio,
-                fungible_transfers,
-                nfts_transfers,
-                offchain_transfers,
+            let weight_limit = Self::ensure_manual_weight_limit(weight_limit, fungible_transfers, nfts_transfers, offchain_transfers)?;
+            let mut weight_meter = WeightMeter::from_limit(
+                Self::execute_manual_instruction_minimum_weight(),
                 weight_limit,
-            )
+            );
+            let input_cost = TransferData::new(fungible_transfers, nfts_transfers, offchain_transfers);
+            Self::base_execute_manual_instruction(origin, id, portfolio, &input_cost, &mut weight_meter)
+                .map_err(|e| DispatchErrorWithPostInfo {
+                    post_info: Some(weight_meter.consumed()).into(),
+                    error: e.error,
+                })
         }
 
         /// Adds a new instruction.
@@ -740,7 +743,7 @@ decl_module! {
             ensure_root(origin)?;
             let mut weight_meter = WeightMeter::from_limit(
                 Self::execute_scheduled_instruction_minimum_weight(),
-                Self::execute_scheduled_instruction_weight_limit(_fungible_transfers, _nfts_transfers, 0)
+                Self::execute_scheduled_instruction_weight_limit(_fungible_transfers, _nfts_transfers, 0),
             );
             Ok(Self::base_execute_scheduled_instruction(id, &mut weight_meter))
         }
@@ -755,7 +758,7 @@ decl_module! {
             ensure_root(origin)?;
             let mut weight_meter = WeightMeter::from_limit(
                 Self::execute_scheduled_instruction_minimum_weight(),
-                weight_limit
+                weight_limit,
             );
             Ok(Self::base_execute_scheduled_instruction(id, &mut weight_meter))
         }
@@ -1788,17 +1791,9 @@ impl<T: Config> Module<T> {
         origin: T::RuntimeOrigin,
         id: InstructionId,
         portfolio: Option<PortfolioId>,
-        fungible_transfers: u32,
-        nfts_transfers: u32,
-        offchain_transfers: u32,
-        weight_limit: Option<Weight>,
+        input_cost: &TransferData,
+        weight_meter: &mut WeightMeter,
     ) -> DispatchResultWithPostInfo {
-        let weight_limit = Self::ensure_manual_weight_limit(
-            weight_limit,
-            fungible_transfers,
-            nfts_transfers,
-            offchain_transfers,
-        )?;
         // check origin has the permissions required and valid instruction
         let (did, sk, instruction_details) =
             Self::ensure_origin_perm_and_instruction_validity(origin, id, true)?;
@@ -1823,15 +1818,11 @@ impl<T: Config> Module<T> {
         }
 
         let transfer_data = Self::get_transfer_data(&instruction_legs);
-        let input_cost = TransferData::new(fungible_transfers, nfts_transfers, offchain_transfers);
-        Self::ensure_valid_input_cost(&transfer_data, &input_cost)?;
+        Self::ensure_valid_input_cost(&transfer_data, input_cost)?;
 
-        let mut weight_meter = WeightMeter::from_limit(
-            Self::execute_manual_instruction_minimum_weight(),
-            weight_limit,
-        );
         // Executes the instruction
-        Self::execute_instruction_retryable(id, &mut weight_meter)?;
+        Self::execute_instruction_retryable(id, weight_meter)?;
+
         Self::deposit_event(RawEvent::SettlementManuallyExecuted(did, id));
 
         Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
@@ -1875,7 +1866,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Returns the minimum weight for calling the `execute_manual_instruction` extrinsic.
-    fn execute_manual_instruction_minimum_weight() -> Weight {
+    pub fn execute_manual_instruction_minimum_weight() -> Weight {
         <T as Config>::WeightInfo::execute_manual_instruction(0, 0, 0)
     }
 

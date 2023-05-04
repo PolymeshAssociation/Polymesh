@@ -3,6 +3,7 @@ use std::convert::TryFrom;
 use std::ops::Deref;
 
 use codec::Encode;
+use frame_support::dispatch::DispatchErrorWithPostInfo;
 use frame_support::{assert_noop, assert_ok, IterableStorageDoubleMap, StorageDoubleMap};
 use rand::{prelude::*, thread_rng};
 use sp_runtime::AnySignature;
@@ -2449,7 +2450,10 @@ fn settle_manual_instruction() {
                 0,
                 None
             ),
-            Error::InstructionSettleBlockNotReached
+            DispatchErrorWithPostInfo {
+                post_info: Some(Settlement::execute_manual_instruction_minimum_weight()).into(),
+                error: Error::InstructionSettleBlockNotReached.into()
+            }
         );
         next_block();
         // Ensure bob can't execute instruction with portfolio set to none since he is not the venue creator
@@ -2463,7 +2467,10 @@ fn settle_manual_instruction() {
                 0,
                 None
             ),
-            Error::Unauthorized
+            DispatchErrorWithPostInfo {
+                post_info: Some(Settlement::execute_manual_instruction_minimum_weight()).into(),
+                error: Error::Unauthorized.into()
+            }
         );
         // Ensure correct error message when wrong number of legs is given
         assert_noop!(
@@ -2476,7 +2483,10 @@ fn settle_manual_instruction() {
                 0,
                 None
             ),
-            Error::NumberOfFungibleTransfersUnderestimated
+            DispatchErrorWithPostInfo {
+                post_info: Some(Settlement::execute_manual_instruction_minimum_weight()).into(),
+                error: Error::NumberOfFungibleTransfersUnderestimated.into()
+            }
         );
         // Ensure it succeeds as the execute block was reached
         assert_ok!(Settlement::execute_manual_instruction(
@@ -2551,7 +2561,10 @@ fn settle_manual_instruction_with_portfolio() {
                 0,
                 None
             ),
-            Error::InstructionSettleBlockNotReached
+            DispatchErrorWithPostInfo {
+                post_info: Some(Settlement::execute_manual_instruction_minimum_weight()).into(),
+                error: Error::InstructionSettleBlockNotReached.into()
+            }
         );
         next_block();
         // Ensure correct error is shown when non party member tries to execute function
@@ -2565,7 +2578,10 @@ fn settle_manual_instruction_with_portfolio() {
                 0,
                 None,
             ),
-            Error::CallerIsNotAParty
+            DispatchErrorWithPostInfo {
+                post_info: Some(Settlement::execute_manual_instruction_minimum_weight()).into(),
+                error: Error::CallerIsNotAParty.into()
+            }
         );
         // Ensure correct error message when wrong number of legs is given
         assert_noop!(
@@ -2578,7 +2594,10 @@ fn settle_manual_instruction_with_portfolio() {
                 0,
                 None
             ),
-            Error::NumberOfFungibleTransfersUnderestimated
+            DispatchErrorWithPostInfo {
+                post_info: Some(Settlement::execute_manual_instruction_minimum_weight()).into(),
+                error: Error::NumberOfFungibleTransfersUnderestimated.into()
+            }
         );
         // Ensure it succeeds as the execute block was reached
         assert_ok!(Settlement::execute_manual_instruction(

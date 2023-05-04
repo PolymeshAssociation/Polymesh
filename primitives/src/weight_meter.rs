@@ -57,7 +57,7 @@ impl WeightMeter {
 
     /// Returns the minimum charge if the consumed weight is less than the minimum, otherwise returns the consumed weight.
     pub fn consumed(&self) -> Weight {
-        if self.0.meter.consumed.all_lt(self.0.minimum_charge) {
+        if self.0.meter.consumed.ref_time() < self.0.minimum_charge.ref_time() {
             return self.0.minimum_charge;
         }
         self.0.meter.consumed
