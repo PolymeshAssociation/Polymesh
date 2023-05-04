@@ -51,7 +51,8 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::{
-    DispatchError, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo,
+    DispatchError, DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo,
+    PostDispatchInfo,
 };
 use frame_support::storage::{
     with_transaction as frame_storage_with_transaction, TransactionOutcome,
@@ -567,9 +568,14 @@ decl_module! {
             ensure_root(origin)?;
             let mut weight_meter = WeightMeter::from_limit(
                 Self::execute_scheduled_instruction_minimum_weight(),
-                Self::execute_scheduled_instruction_weight_limit(_legs_count, 0)
+                Self::execute_scheduled_instruction_weight_limit(_legs_count, 0),
             );
-            Self::base_execute_scheduled_instruction(id, &mut weight_meter)
+            Self::base_execute_scheduled_instruction(id, &mut weight_meter).map_err(|e| {
+                DispatchErrorWithPostInfo {
+                    post_info: Some(weight_meter.consumed()).into(),
+                    error: e.error,
+                }
+            })
         }
 
         /// Reschedules a failed instruction.
@@ -703,7 +709,16 @@ decl_module! {
             portfolio: Option<PortfolioId>,
             weight_limit: Option<Weight>
         ) -> DispatchResultWithPostInfo {
-            Self::base_execute_manual_instruction(origin, id, legs_count, portfolio, weight_limit)
+            let weight_limit = Self::ensure_manual_weight_limit(weight_limit, legs_count)?;
+            let mut weight_meter = WeightMeter::from_limit(
+                Self::execute_manual_instruction_minimum_weight(),
+                weight_limit,
+            );
+            Self::base_execute_manual_instruction(origin, id, legs_count, portfolio, &mut weight_meter)
+                .map_err(|e| DispatchErrorWithPostInfo {
+                    post_info: Some(weight_meter.consumed()).into(),
+                    error: e.error,
+                })
         }
 
         /// Adds a new instruction with memo.
@@ -850,24 +865,30 @@ decl_module! {
             ensure_root(origin)?;
             let mut weight_meter = WeightMeter::from_limit(
                 Self::execute_scheduled_instruction_minimum_weight(),
-                Self::execute_scheduled_instruction_weight_limit(_fungible_transfers, _nfts_transfers)
+                Self::execute_scheduled_instruction_weight_limit(_fungible_transfers, _nfts_transfers),
             );
-            Self::base_execute_scheduled_instruction(id, &mut weight_meter)
+            Self::base_execute_scheduled_instruction(id, &mut weight_meter).map_err(|e| {
+                DispatchErrorWithPostInfo {
+                    post_info: Some(weight_meter.consumed()).into(),
+                    error: e.error,
+                }
+            })
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
         #[weight = (*weight_limit).max(<T as Config>::WeightInfo::execute_scheduled_instruction(0, 0))]
-        fn execute_scheduled_instruction_v3(
-            origin,
-            id: InstructionId,
-            weight_limit: Weight
-        ) -> DispatchResultWithPostInfo {
+        fn execute_scheduled_instruction_v3(origin, id: InstructionId, weight_limit: Weight) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             let mut weight_meter = WeightMeter::from_limit(
                 Self::execute_scheduled_instruction_minimum_weight(),
-                weight_limit
+                weight_limit,
             );
-            Self::base_execute_scheduled_instruction(id, &mut weight_meter)
+            Self::base_execute_scheduled_instruction(id, &mut weight_meter).map_err(|e| {
+                DispatchErrorWithPostInfo {
+                    post_info: Some(weight_meter.consumed()).into(),
+                    error: e.error,
+                }
+            })
         }
     }
 }
@@ -1912,9 +1933,8 @@ impl<T: Config> Module<T> {
         id: InstructionId,
         legs_count: u32,
         portfolio: Option<PortfolioId>,
-        weight_limit: Option<Weight>,
+        weight_meter: &mut WeightMeter,
     ) -> DispatchResultWithPostInfo {
-        let weight_limit = Self::ensure_manual_weight_limit(weight_limit, legs_count)?;
         // check origin has the permissions required and valid instruction
         let (did, sk, instruction_details) =
             Self::ensure_origin_perm_and_instruction_validity(origin, id, true)?;
@@ -1944,12 +1964,8 @@ impl<T: Config> Module<T> {
             Error::<T>::LegCountTooSmall
         );
 
-        let mut weight_meter = WeightMeter::from_limit(
-            Self::execute_manual_instruction_minimum_weight(),
-            weight_limit,
-        );
         // Executes the instruction
-        Self::execute_instruction_retryable(id, &mut weight_meter)?;
+        Self::execute_instruction_retryable(id, weight_meter)?;
 
         Self::deposit_event(RawEvent::SettlementManuallyExecuted(did, id));
         Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
@@ -1989,7 +2005,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Returns the minimum weight for calling the `execute_manual_instruction` extrinsic.
-    fn execute_manual_instruction_minimum_weight() -> Weight {
+    pub fn execute_manual_instruction_minimum_weight() -> Weight {
         <T as Config>::WeightInfo::execute_manual_instruction(0)
     }
 
