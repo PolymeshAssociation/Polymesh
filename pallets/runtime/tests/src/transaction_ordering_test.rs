@@ -42,7 +42,8 @@ fn initialize_transaction(
     receiver_creds: AccountCredentials,
     mediator_creds: MediatorCredentials,
     amount: u32,
-) -> (TransactionId, EncryptedAmount, EncryptedAmount) {
+    validation_failure_expected: bool,
+) -> Option<(TransactionId, EncryptedAmount, EncryptedAmount)> {
     // The rest of rngs are built from it.
     let mut rng = StdRng::from_seed([10u8; 32]);
 
@@ -89,12 +90,17 @@ fn initialize_transaction(
         .unwrap();
     let initialized_tx = TransactionLegProofs::new_sender(sender_tx);
     // Sender authorizes the transaction and passes in the proofs.
-    assert_ok!(ConfidentialAsset::affirm_transaction(
+    let result = ConfidentialAsset::affirm_transaction(
         sender_creds.user.origin(),
         transaction_id,
         TransactionLegId(0),
         initialized_tx,
-    ));
+    );
+
+    if validation_failure_expected {
+        assert!(result.is_err());
+        return None;
+    }
 
     // Receiver authorizes.
     // Receiver reads the sender's proof from the chain.
@@ -134,11 +140,11 @@ fn initialize_transaction(
         finalized_tx,
     ));
 
-    (
+    Some((
         transaction_id,
         sender_encrypted_transfer_amount,
         receiver_encrypted_transfer_amount,
-    )
+    ))
 }
 
 fn decrypt_balance(secret_account: &SecAccount, balance: &EncryptedAmount) -> u32 {
@@ -363,7 +369,9 @@ fn settle_out_of_order() {
                     bob_creds.clone(),
                     charlie_creds.clone(),
                     5,
-                );
+                    false,
+                )
+                .expect("initialized_tx");
 
             let alice_init_balance2 = alice_init_balance - alice_sent_amount_1000;
             let (transaction_id1001, alice_sent_amount_1001, bob_received_amount_1001) =
@@ -375,7 +383,9 @@ fn settle_out_of_order() {
                     bob_creds.clone(),
                     charlie_creds.clone(),
                     3,
-                );
+                    false,
+                )
+                .expect("initialized_tx");
 
             // Approve and process tx:1001.
             finalize_transaction(
@@ -446,35 +456,39 @@ fn double_spending_fails() {
                     bob_creds.clone(),
                     charlie_creds.clone(),
                     5,
-                );
+                    false,
+                )
+                .expect("initialized_tx");
 
-            let (transaction_id1001, alice_sent_amount_1001, dave_received_amount_1001) =
-                initialize_transaction(
-                    alice_secret_account.clone(),
-                    alice_creds.clone(),
-                    // Alice is reusing her initial balance as the pending balance.
-                    // This is an attempt to double spend.
-                    // She should have used `alice_init_balance - alice_sent_amount_1000`.
-                    alice_init_balance.clone(),
-                    dave_secret_account.clone(),
-                    dave_creds.clone(),
-                    charlie_creds.clone(),
-                    10,
-                );
-
-            // Mediator fails the tx:1001.
-            finalize_transaction(
-                transaction_id1001,
+            assert!(initialize_transaction(
+                alice_secret_account.clone(),
                 alice_creds.clone(),
+                // Alice is reusing her initial balance as the pending balance.
+                // This is an attempt to double spend.
+                // She should have used `alice_init_balance - alice_sent_amount_1000`.
+                alice_init_balance.clone(),
+                dave_secret_account.clone(),
                 dave_creds.clone(),
                 charlie_creds.clone(),
-                charlie_secret_account.clone(),
-                alice_init_balance - alice_sent_amount_1001,
-                dave_init_balance + dave_received_amount_1001,
-                None,
-                None,
-                true, // Validation failure expected.
-            );
+                10,
+                true,
+            )
+            .is_none());
+
+            // Mediator fails the tx:1001.
+            // The sender can't affirm a double spend.
+            //finalize_transaction(
+            //    transaction_id1001,
+            //    alice_creds.clone(),
+            //    dave_creds.clone(),
+            //    charlie_creds.clone(),
+            //    charlie_secret_account.clone(),
+            //    alice_init_balance - alice_sent_amount_1001,
+            //    dave_init_balance + dave_received_amount_1001,
+            //    None,
+            //    None,
+            //    true, // Validation failure expected.
+            //);
 
             // Approve and process tx:1000.
             finalize_transaction(
@@ -527,7 +541,9 @@ fn mercat_whitepaper_scenario1() {
                     dave_creds.clone(),
                     charlie_creds.clone(),
                     10,
-                );
+                    false,
+                )
+                .expect("initialized_tx");
             finalize_transaction(
                 transaction_id999,
                 alice_creds.clone(),
@@ -563,7 +579,9 @@ fn mercat_whitepaper_scenario1() {
                     bob_creds.clone(),
                     charlie_creds.clone(),
                     10,
-                );
+                    false,
+                )
+                .expect("initialized_tx");
             let alice_pending_balance = alice_init_balance - alice_sent_amount_1000;
 
             let (transaction_id1001, dave_sent_amount_1001, alice_received_amount_1001) =
@@ -575,7 +593,9 @@ fn mercat_whitepaper_scenario1() {
                     alice_creds.clone(),
                     charlie_creds.clone(),
                     8,
-                );
+                    false,
+                )
+                .expect("initialized_tx");
 
             let (transaction_id1002, alice_sent_amount_1002, dave_received_amount_1002) =
                 initialize_transaction(
@@ -586,7 +606,9 @@ fn mercat_whitepaper_scenario1() {
                     dave_creds.clone(),
                     charlie_creds.clone(),
                     14,
-                );
+                    false,
+                )
+                .expect("initialized_tx");
 
             // Approve and process tx:1001.
             finalize_transaction(
@@ -672,7 +694,9 @@ fn mercat_whitepaper_scenario2() {
                     dave_creds.clone(),
                     charlie_creds.clone(),
                     10,
-                );
+                    false,
+                )
+                .expect("initialized_tx");
             finalize_transaction(
                 transaction_id999,
                 alice_creds.clone(),
@@ -711,7 +735,9 @@ fn mercat_whitepaper_scenario2() {
                     bob_creds.clone(),
                     charlie_creds.clone(),
                     10,
-                );
+                    false,
+                )
+                .expect("initialized_tx");
             let alice_pending_balance = alice_init_balance - alice_sent_amount_1000;
 
             let (transaction_id1001, dave_sent_amount_1001, alice_received_amount_1001) =
@@ -723,7 +749,9 @@ fn mercat_whitepaper_scenario2() {
                     alice_creds.clone(),
                     charlie_creds.clone(),
                     8,
-                );
+                    false,
+                )
+                .expect("initialized_tx");
 
             let (transaction_id1002, alice_sent_amount_1002, dave_received_amount_1002) =
                 initialize_transaction(
@@ -734,7 +762,9 @@ fn mercat_whitepaper_scenario2() {
                     dave_creds.clone(),
                     charlie_creds.clone(),
                     14,
-                );
+                    false,
+                )
+                .expect("initialized_tx");
             let alice_pending_balance = alice_pending_balance - alice_sent_amount_1002;
 
             // Approve and process tx:1001.
@@ -793,7 +823,9 @@ fn mercat_whitepaper_scenario2() {
                     bob_creds.clone(),
                     charlie_creds.clone(),
                     19,
-                );
+                    false,
+                )
+                .expect("initialized_tx");
 
             // Reset Alice's pending state.
             assert_ok!(ConfidentialAsset::reset_ordering_state(
@@ -818,7 +850,9 @@ fn mercat_whitepaper_scenario2() {
                     dave_creds.clone(),
                     charlie_creds.clone(),
                     55,
-                );
+                    false,
+                )
+                .expect("initialized_tx");
 
             // Approve and process tx:1004.
             finalize_transaction(

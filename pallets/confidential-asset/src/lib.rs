@@ -885,13 +885,13 @@ impl<T: Config> Module<T> {
         owner_did: &IdentityId,
         account_id: &MercatAccountId,
         instruction_id: TransactionId,
-    ) -> DispatchResult {
+    ) -> Result<EncryptedAmount, DispatchError> {
         let pending_state = Self::get_pending_balance(owner_did, &account_id)?;
         TxPendingState::insert(
             (owner_did, account_id, instruction_id),
             EncryptedBalanceWrapper::from(pending_state),
         );
-        Ok(())
+        Ok(pending_state)
     }
 
     /// Once the transaction is settled remove its pending state.
@@ -985,9 +985,6 @@ impl<T: Config> Module<T> {
         // TODO: check that the proof accounts match the leg accounts.
         let leg = TransactionLegs::get(id, leg_id);
 
-        // Read the mercat_accounts from the confidential-asset pallet.
-        let from_mercat_balance = Self::mercat_account_balance(leg.sender_did, &leg.sender).into();
-
         // Get receiver's account.
         let to_mercat = Self::mercat_accounts(leg.receiver_did, &leg.receiver).into();
 
@@ -998,25 +995,27 @@ impl<T: Config> Module<T> {
 
         // Update the transaction sender's ordering state.
         if let Some(init_tx) = affirms.sender.take() {
-            let mut rng = Self::get_rng();
+            // Temporarily store the current pending state as this instruction's pending state.
+            let from_current_balance = Self::set_tx_pending_state(&did, &leg.sender, id)?;
+            Self::add_pending_outgoing_balance(
+                &did,
+                &leg.sender,
+                init_tx.memo.enc_amount_using_sender,
+            )?;
+
             // Verify the sender's proof.
+            let mut rng = Self::get_rng();
             verify_initialized_transaction(
                 &init_tx,
                 &from_mercat,
-                &from_mercat_balance,
+                &from_current_balance,
                 &to_mercat,
                 &[],
                 &mut rng,
             )
             .map_err(|_| Error::<T>::InvalidMercatTransferProof)?;
 
-            // Temporarily store the current pending state as this instruction's pending state.
-            Self::set_tx_pending_state(&did, &leg.sender, id)?;
-            Self::add_pending_outgoing_balance(
-                &did,
-                &leg.sender,
-                init_tx.memo.enc_amount_using_sender,
-            )?;
+            // Save sender's proof.
             proofs.sender = Some(init_tx);
         }
 
