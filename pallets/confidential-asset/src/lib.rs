@@ -114,7 +114,6 @@ use frame_system::ensure_signed;
 use mercat::{
     account::AccountValidator,
     asset::AssetValidator,
-    confidential_identity_core::asset_proofs::AssetId,
     transaction::{
         verify_finalized_transaction, verify_initialized_transaction, TransactionValidator,
     },
@@ -260,26 +259,24 @@ pub trait Config:
     type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
 }
 
-/// Created for better code readability.
+/// A mercat account consists of the public key that is used for encryption purposes.
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, Default)]
-pub struct MercatAccountId(pub Ticker);
-
-/// A mercat account consists of the public key that is used for encryption purposes and the
-/// encrypted asset id. The encrypted asset id also acts as the unique identifier of this
-/// struct.
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Default)]
 pub struct MercatAccount {
-    pub ticker: Ticker,
-    pub encryption_pub_key: EncryptionPubKeyWrapper,
+    pub pub_key: EncryptionPubKeyWrapper,
 }
 
 impl From<MercatAccount> for PubAccount {
     fn from(data: MercatAccount) -> Self {
         Self {
-            asset_id: AssetId {
-                id: *data.ticker.as_bytes(),
-            },
-            owner_enc_pub_key: *data.encryption_pub_key,
+            owner_enc_pub_key: *data.pub_key,
+        }
+    }
+}
+
+impl From<&MercatAccount> for PubAccount {
+    fn from(data: &MercatAccount) -> Self {
+        Self {
+            owner_enc_pub_key: *data.pub_key.clone(),
         }
     }
 }
@@ -287,8 +284,15 @@ impl From<MercatAccount> for PubAccount {
 impl From<PubAccount> for MercatAccount {
     fn from(data: PubAccount) -> Self {
         Self {
-            ticker: data.asset_id.id.into(),
-            encryption_pub_key: data.owner_enc_pub_key.into(),
+            pub_key: data.owner_enc_pub_key.into(),
+        }
+    }
+}
+
+impl From<&PubAccount> for MercatAccount {
+    fn from(data: &PubAccount) -> Self {
+        Self {
+            pub_key: data.owner_enc_pub_key.into(),
         }
     }
 }
@@ -296,12 +300,13 @@ impl From<PubAccount> for MercatAccount {
 /// Confidential transaction leg.
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
 pub struct TransactionLeg {
+    pub ticker: Ticker,
     pub sender_did: IdentityId,
     pub receiver_did: IdentityId,
-    /// Mercat account id of the sender.
-    pub sender: MercatAccountId,
-    /// Mercat account id of the receiver.
-    pub receiver: MercatAccountId,
+    /// Mercat account of the sender.
+    pub sender: MercatAccount,
+    /// Mercat account of the receiver.
+    pub receiver: MercatAccount,
     /// Mediator.
     pub mediator: IdentityId,
 }
@@ -387,47 +392,46 @@ decl_storage! {
 
         /// Contains the encryption key for a mercat mediator.
         pub MediatorMercatAccounts get(fn mediator_mercat_accounts):
-            map hasher(twox_64_concat) IdentityId => EncryptionPubKeyWrapper;
+            map hasher(twox_64_concat) IdentityId => Option<EncryptionPubKeyWrapper>;
 
-        /// Contains the mercat accounts for an identity.
-        /// (did, account_id) -> MercatAccount.
-        pub MercatAccounts get(fn mercat_accounts):
-            double_map hasher(twox_64_concat) IdentityId,
-            hasher(blake2_128_concat) MercatAccountId
-            => MercatAccount;
+        /// Records the did for a mercat account.
+        /// account -> IdentityId.
+        pub MercatAccountDid get(fn mercat_account_did):
+            map hasher(blake2_128_concat) MercatAccount
+            => Option<IdentityId>;
 
         /// Contains the encrypted balance of a mercat account.
-        /// (did, account_id) -> EncryptedBalanceWrapper.
+        /// (account, ticker) -> EncryptedBalanceWrapper.
         pub MercatAccountBalance get(fn mercat_account_balance):
-            double_map hasher(twox_64_concat) IdentityId,
-            hasher(blake2_128_concat) MercatAccountId
+            double_map hasher(blake2_128_concat) MercatAccount,
+            hasher(blake2_128_concat) Ticker
             => EncryptedBalanceWrapper;
 
         /// Accumulates the encrypted pending balance for a mercat account.
-        /// (did, account_id) -> EncryptedBalanceWrapper.
+        /// (account, ticker) -> EncryptedBalanceWrapper.
         PendingOutgoingBalance get(fn pending_outgoing_balance):
-            double_map hasher(twox_64_concat) IdentityId,
-            hasher(blake2_128_concat) MercatAccountId
+            double_map hasher(blake2_128_concat) MercatAccount,
+            hasher(blake2_128_concat) Ticker
             => EncryptedBalanceWrapper;
 
         /// Accumulates the encrypted incoming balance for a mercat account.
-        /// (did, account_id) -> EncryptedBalanceWrapper.
+        /// (account, ticker) -> EncryptedBalanceWrapper.
         IncomingBalance get(fn incoming_balance):
-            double_map hasher(twox_64_concat) IdentityId,
-            hasher(blake2_128_concat) MercatAccountId
+            double_map hasher(blake2_128_concat) MercatAccount,
+            hasher(blake2_128_concat) Ticker
             => EncryptedBalanceWrapper;
 
         /// Accumulates the encrypted failed balance for a mercat account.
-        /// (did, account_id) -> EncryptedBalanceWrapper.
+        /// (account, ticker) -> EncryptedBalanceWrapper.
         FailedOutgoingBalance get(fn failed_outgoing_balance):
-            double_map hasher(twox_64_concat) IdentityId,
-            hasher(blake2_128_concat) MercatAccountId
+            double_map hasher(blake2_128_concat) MercatAccount,
+            hasher(blake2_128_concat) Ticker
             => EncryptedBalanceWrapper;
 
         /// Stores the pending state for a given transaction.
-        /// ((did, account_id, transaction_id)) -> EncryptedBalanceWrapper.
+        /// ((account, ticker, transaction_id)) -> EncryptedBalanceWrapper.
         pub TxPendingState get(fn mercat_tx_pending_state):
-        map hasher(blake2_128_concat) (IdentityId, MercatAccountId, TransactionId)
+            map hasher(blake2_128_concat) (MercatAccount, Ticker, TransactionId)
             => EncryptedBalanceWrapper;
 
         /// Legs of a transaction. (transaction_id, leg_id) -> Leg
@@ -471,17 +475,41 @@ decl_module! {
             tx: PubAccountTxWrapper,
         ) -> DispatchResult {
             let owner_acc = ensure_signed(origin)?;
-            let owner_id = Context::current_identity_or::<Identity<T>>(&owner_acc)?;
-            let tx = tx.into();
+            let owner_did = Context::current_identity_or::<Identity<T>>(&owner_acc)?;
+            let tx: PubAccountTx = tx.into();
 
+            let account: MercatAccount = tx.pub_account.clone().into();
+            // Ensure the mercat account doesn't exist, or is already linked to the caller's identity.
+            let new_account = match MercatAccountDid::get(&account) {
+                Some(account_did) => {
+                    // Ensure the caller's identity is the same.
+                    ensure!(
+                        account_did == owner_did,
+                        Error::<T>::MercatAccountAlreadyCreated
+                    );
+                    false
+                }
+                // New mercat account.
+                None => true,
+            };
+            // Ensure the mercat account's balance hasn't been initialized.
+            ensure!(
+                !MercatAccountBalance::contains_key(&account, ticker),
+                Error::<T>::MercatAccountAlreadyInitialized
+            );
+
+            // Validate the balance ininitalization proof.
             AccountValidator.verify(&tx).map_err(|_| Error::<T>::InvalidAccountCreationProof)?;
-            let account_id = MercatAccountId(ticker);
-            let mercat_account: MercatAccount = tx.pub_account.into();
-            MercatAccounts::insert(&owner_id, &account_id, mercat_account);
-            let wrapped_enc_balance = EncryptedBalanceWrapper::from(tx.initial_balance);
-            MercatAccountBalance::insert(&owner_id, &account_id, wrapped_enc_balance.clone());
 
-            Self::deposit_event(Event::AccountCreated(owner_id, account_id, wrapped_enc_balance));
+            // Link the mercat account to the caller's identity if it is a new account.
+            if new_account {
+                MercatAccountDid::insert(&account, &owner_did);
+            }
+            // Initialize the mercat account balance.
+            let wrapped_enc_balance = EncryptedBalanceWrapper::from(tx.initial_balance);
+            MercatAccountBalance::insert(&account, ticker, wrapped_enc_balance.clone());
+
+            Self::deposit_event(Event::AccountCreated(owner_did, account, ticker, wrapped_enc_balance));
             Ok(())
         }
 
@@ -497,11 +525,11 @@ decl_module! {
             public_key: EncryptionPubKeyWrapper,
         ) -> DispatchResult {
             let owner_acc = ensure_signed(origin)?;
-            let owner_id = Context::current_identity_or::<Identity<T>>(&owner_acc)?;
+            let owner_did = Context::current_identity_or::<Identity<T>>(&owner_acc)?;
 
-            MediatorMercatAccounts::insert(&owner_id, &public_key);
+            MediatorMercatAccounts::insert(&owner_did, &public_key);
 
-            Self::deposit_event(Event::MediatorAccountCreated(owner_id, public_key));
+            Self::deposit_event(Event::MediatorAccountCreated(owner_did, public_key));
             Ok(())
         }
 
@@ -594,7 +622,7 @@ decl_module! {
         ) -> DispatchResult {
             let owner = ensure_signed(origin)?;
             let owner_did = Context::current_identity_or::<Identity<T>>(&owner)?;
-            let mut details = Self::confidential_asset_details(&ticker);
+            let mut details = Self::confidential_asset_details(ticker);
 
             // Only the owner of the asset can change its total supply.
             ensure!(
@@ -627,21 +655,27 @@ decl_module! {
                 Error::<T>::TotalSupplyAboveU32Limit
             );
 
-            let asset_mint_proof = asset_mint_proof;
-            let account_id = MercatAccountId(ticker);
+            let account: MercatAccount = asset_mint_proof.account.clone().into();
+            // TODO: How to handle asset issuer's asset balance?
+            //// Ensure the mercat account's balance hasn't been initialized.
+            //ensure!(
+            //    !MercatAccountBalance::contains_key(&account, ticker),
+            //    Error::<T>::MercatAccountAlreadyInitialized
+            //);
+
             let new_encrypted_balance = AssetValidator
                                         .verify_asset_transaction(
                                             total_supply.saturated_into::<u32>(),
                                             &asset_mint_proof,
-                                            &Self::mercat_accounts(owner_did, &account_id).into(),
-                                            &Self::mercat_account_balance(owner_did, &account_id).into(),
+                                            &asset_mint_proof.account,
+                                            &Self::mercat_account_balance(&account, ticker).into(),
                                             &[]
                                         ).map_err(|_| Error::<T>::InvalidAccountMintProof)?;
 
             // Set the total supply (both encrypted and plain).
             MercatAccountBalance::insert(
-                &owner_did,
-                &account_id,
+                &account,
+                ticker,
                 EncryptedBalanceWrapper::from(new_encrypted_balance),
             );
 
@@ -669,19 +703,21 @@ decl_module! {
         #[weight = 3_000_000_000]
         pub fn reset_ordering_state(
             origin,
-            account_id: MercatAccountId,
+            account: MercatAccount,
+            ticker: Ticker,
         ) {
             let owner = ensure_signed(origin)?;
             let owner_did = Context::current_identity_or::<Identity<T>>(&owner)?;
 
-            Self::reset_mercat_pending_state(&owner_did, &account_id);
+            Self::reset_mercat_pending_state(&account, ticker);
 
             // Emit an event and include account's current balance for account owner's information.
             let current_balance =
-                Self::mercat_account_balance(owner_did, &account_id);
+                Self::mercat_account_balance(&account, ticker);
             Self::deposit_event(Event::ResetConfidentialAccountOrderingState(
                 owner_did,
-                account_id,
+                account,
+                ticker,
                 current_balance
             ));
         }
@@ -726,52 +762,52 @@ decl_module! {
 impl<T: Config> Module<T> {
     /// Reset `IncomingBalance` and `FailedOutgoingBalance` accumulators, by doing this
     /// we are no longer keeping track of the old/settled transactions.
-    fn reset_mercat_pending_state(owner_did: &IdentityId, account_id: &MercatAccountId) {
-        if IncomingBalance::contains_key(owner_did, account_id) {
-            IncomingBalance::remove(owner_did, account_id);
+    fn reset_mercat_pending_state(account: &MercatAccount, ticker: Ticker) {
+        if IncomingBalance::contains_key(account, ticker) {
+            IncomingBalance::remove(account, ticker);
         }
 
-        if FailedOutgoingBalance::contains_key(owner_did, account_id) {
-            FailedOutgoingBalance::remove(owner_did, account_id);
+        if FailedOutgoingBalance::contains_key(account, ticker) {
+            FailedOutgoingBalance::remove(account, ticker);
         }
     }
 
     /// Add the `amount` to the mercat account balance, and update the `IncomingBalance` accumulator.
     pub fn mercat_account_deposit_amount(
-        owner_did: &IdentityId,
-        account_id: &MercatAccountId,
+        account: &MercatAccount,
+        ticker: Ticker,
         amount: EncryptedAmount,
     ) -> DispatchResult {
-        let current_balance = *Self::mercat_account_balance(owner_did, account_id);
+        let current_balance = *Self::mercat_account_balance(account, ticker);
         MercatAccountBalance::insert(
-            owner_did,
-            account_id,
+            account,
+            ticker,
             EncryptedBalanceWrapper::from(current_balance + amount),
         );
 
         // Update the incoming balance accumulator.
-        Self::add_incoming_balance(owner_did, account_id, amount)
+        Self::add_incoming_balance(account, ticker, amount)
     }
 
     /// Subtract the `amount` from the mercat account balance, and update the `PendingOutgoingBalance` accumulator.
     pub fn mercat_account_withdraw_amount(
-        owner_did: &IdentityId,
-        account_id: &MercatAccountId,
+        account: &MercatAccount,
+        ticker: Ticker,
         amount: EncryptedAmount,
     ) -> DispatchResult {
-        let current_balance = *Self::mercat_account_balance(owner_did, account_id);
+        let current_balance = *Self::mercat_account_balance(account, ticker);
         MercatAccountBalance::insert(
-            owner_did,
-            account_id,
+            account,
+            ticker,
             EncryptedBalanceWrapper::from(current_balance - amount),
         );
 
         // Update the pending balance accumulator.
-        let pending_balance = *Self::pending_outgoing_balance(owner_did, account_id);
+        let pending_balance = *Self::pending_outgoing_balance(account, ticker);
 
         PendingOutgoingBalance::insert(
-            owner_did,
-            account_id,
+            account,
+            ticker,
             EncryptedBalanceWrapper::from(pending_balance - amount),
         );
         Ok(())
@@ -780,43 +816,41 @@ impl<T: Config> Module<T> {
     /// Calculate account owner's (transaction sender's) pending balance, given the previous
     /// pending outgoing, incoming, and failed outgoing transaction amounts.
     pub fn get_pending_balance(
-        owner_did: &IdentityId,
-        account_id: &MercatAccountId,
+        account: &MercatAccount,
+        ticker: Ticker,
     ) -> Result<EncryptedAmount, DispatchError> {
-        let mut current_balance = *Self::mercat_account_balance(owner_did, account_id);
+        let mut current_balance = *Self::mercat_account_balance(account, ticker);
 
-        if PendingOutgoingBalance::contains_key(owner_did, account_id) {
-            current_balance -= *Self::pending_outgoing_balance(owner_did, account_id);
+        if PendingOutgoingBalance::contains_key(account, ticker) {
+            current_balance -= *Self::pending_outgoing_balance(account, ticker);
         }
 
-        if IncomingBalance::contains_key(owner_did, account_id) {
-            current_balance -= *Self::incoming_balance(owner_did, account_id);
+        if IncomingBalance::contains_key(account, ticker) {
+            current_balance -= *Self::incoming_balance(account, ticker);
         }
 
-        if FailedOutgoingBalance::contains_key(owner_did, account_id) {
-            current_balance -= *Self::failed_outgoing_balance(owner_did, account_id);
+        if FailedOutgoingBalance::contains_key(account, ticker) {
+            current_balance -= *Self::failed_outgoing_balance(account, ticker);
         }
         Ok(current_balance)
     }
 
     /// Add the amount to the account's pending outgoing accumulator.
     pub fn add_pending_outgoing_balance(
-        owner_did: &IdentityId,
-        account_id: &MercatAccountId,
+        account: &MercatAccount,
+        ticker: Ticker,
         amount: EncryptedAmount,
     ) -> DispatchResult {
-        let pending_balances =
-            if PendingOutgoingBalance::contains_key(owner_did, account_id.clone()) {
-                let pending_balance =
-                    *Self::pending_outgoing_balance(owner_did, account_id.clone());
-                pending_balance + amount
-            } else {
-                amount
-            };
+        let pending_balances = if PendingOutgoingBalance::contains_key(account, ticker) {
+            let pending_balance = *Self::pending_outgoing_balance(account, ticker);
+            pending_balance + amount
+        } else {
+            amount
+        };
 
         PendingOutgoingBalance::insert(
-            owner_did,
-            account_id,
+            account,
+            ticker,
             EncryptedBalanceWrapper::from(pending_balances),
         );
 
@@ -825,20 +859,20 @@ impl<T: Config> Module<T> {
 
     /// Add the amount to the account's incoming balance accumulator.
     fn add_incoming_balance(
-        owner_did: &IdentityId,
-        account_id: &MercatAccountId,
+        account: &MercatAccount,
+        ticker: Ticker,
         amount: EncryptedAmount,
     ) -> DispatchResult {
-        let incoming_balances = if IncomingBalance::contains_key(owner_did, account_id) {
-            let previous_balance = *Self::incoming_balance(owner_did, account_id);
+        let incoming_balances = if IncomingBalance::contains_key(account, ticker) {
+            let previous_balance = *Self::incoming_balance(account, ticker);
             previous_balance + amount
         } else {
             amount
         };
 
         IncomingBalance::insert(
-            owner_did,
-            account_id,
+            account,
+            ticker,
             EncryptedBalanceWrapper::from(incoming_balances),
         );
         Ok(())
@@ -848,30 +882,30 @@ impl<T: Config> Module<T> {
     /// i.e. transition the settlement amount from the pending outgoing accumulator to the failed outgoing
     /// accumulator.
     pub fn add_failed_outgoing_balance(
-        owner_did: &IdentityId,
-        account_id: &MercatAccountId,
+        account: &MercatAccount,
+        ticker: Ticker,
         amount: EncryptedAmount,
     ) -> DispatchResult {
-        let failed_balances = if FailedOutgoingBalance::contains_key(owner_did, account_id) {
-            let failed_balance = *Self::failed_outgoing_balance(owner_did, account_id);
+        let failed_balances = if FailedOutgoingBalance::contains_key(account, ticker) {
+            let failed_balance = *Self::failed_outgoing_balance(account, ticker);
             failed_balance + amount
         } else {
             amount
         };
 
         FailedOutgoingBalance::insert(
-            owner_did,
-            account_id,
+            account,
+            ticker,
             EncryptedBalanceWrapper::from(failed_balances),
         );
 
         // We never reset or remove the pending outgoing accumulator.
         // The settlement state transition works in a way that this amount has definitely been added to the
         // pending state by this point.
-        let pending_balance = *Self::pending_outgoing_balance(owner_did, account_id);
+        let pending_balance = *Self::pending_outgoing_balance(account, ticker);
         PendingOutgoingBalance::insert(
-            owner_did,
-            account_id,
+            account,
+            ticker,
             EncryptedBalanceWrapper::from(pending_balance - amount),
         );
 
@@ -882,13 +916,13 @@ impl<T: Config> Module<T> {
     /// validation by the network validators, and can be removed, using the `remove_tx_pending_state()` API,
     /// as soon as the transaction is settled.
     pub fn set_tx_pending_state(
-        owner_did: &IdentityId,
-        account_id: &MercatAccountId,
+        account: &MercatAccount,
+        ticker: Ticker,
         instruction_id: TransactionId,
     ) -> Result<EncryptedAmount, DispatchError> {
-        let pending_state = Self::get_pending_balance(owner_did, &account_id)?;
+        let pending_state = Self::get_pending_balance(&account, ticker)?;
         TxPendingState::insert(
-            (owner_did, account_id, instruction_id),
+            (account, ticker, instruction_id),
             EncryptedBalanceWrapper::from(pending_state),
         );
         Ok(pending_state)
@@ -896,11 +930,11 @@ impl<T: Config> Module<T> {
 
     /// Once the transaction is settled remove its pending state.
     pub fn remove_tx_pending_state(
-        owner_did: &IdentityId,
-        account_id: &MercatAccountId,
+        account: &MercatAccount,
+        ticker: Ticker,
         instruction_id: TransactionId,
     ) {
-        TxPendingState::remove((owner_did, account_id, instruction_id));
+        TxPendingState::remove((account, ticker, instruction_id));
     }
 
     pub fn base_add_transaction(
@@ -962,9 +996,8 @@ impl<T: Config> Module<T> {
             let proofs = TransactionProofs::take(id, leg_id);
             let (init_tx, finalized_tx) = proofs.ensure_affirmed::<T>()?;
             Self::base_confidential_transfer(
-                &leg.sender_did,
+                leg.ticker,
                 &leg.sender,
-                &leg.receiver_did,
                 &leg.receiver,
                 init_tx,
                 finalized_tx,
@@ -977,7 +1010,7 @@ impl<T: Config> Module<T> {
     }
 
     fn base_affirm_transaction(
-        did: IdentityId,
+        _did: IdentityId,
         id: TransactionId,
         leg_id: TransactionLegId,
         mut affirms: TransactionLegProofs,
@@ -986,20 +1019,20 @@ impl<T: Config> Module<T> {
         let leg = TransactionLegs::get(id, leg_id);
 
         // Get receiver's account.
-        let to_mercat = Self::mercat_accounts(leg.receiver_did, &leg.receiver).into();
+        let to_mercat = leg.receiver.clone().into();
 
         // Get sender's account.
-        let from_mercat = Self::mercat_accounts(leg.sender_did, &leg.sender).into();
+        let from_mercat = leg.sender.clone().into();
 
         let mut proofs = TransactionProofs::get(id, leg_id);
 
         // Update the transaction sender's ordering state.
         if let Some(init_tx) = affirms.sender.take() {
             // Temporarily store the current pending state as this instruction's pending state.
-            let from_current_balance = Self::set_tx_pending_state(&did, &leg.sender, id)?;
+            let from_current_balance = Self::set_tx_pending_state(&leg.sender, leg.ticker, id)?;
             Self::add_pending_outgoing_balance(
-                &did,
                 &leg.sender,
+                leg.ticker,
                 init_tx.memo.enc_amount_using_sender,
             )?;
 
@@ -1045,10 +1078,9 @@ impl<T: Config> Module<T> {
 
     /// Transfers an asset from one identity's portfolio to another.
     pub fn base_confidential_transfer(
-        from_did: &IdentityId,
-        from_account_id: &MercatAccountId,
-        to_did: &IdentityId,
-        to_account_id: &MercatAccountId,
+        ticker: Ticker,
+        from_account: &MercatAccount,
+        to_account: &MercatAccount,
         init_tx: &InitializedTransferTx,
         finalized_tx: &FinalizedTransferTx,
         instruction_id: TransactionId,
@@ -1056,13 +1088,10 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         // Read the mercat_accounts from the confidential-asset pallet.
         let from_mercat_pending_state =
-            Self::mercat_tx_pending_state((from_did, from_account_id, instruction_id)).into();
+            Self::mercat_tx_pending_state((from_account, ticker, instruction_id)).into();
 
-        // Get receiver's account.
-        let to_mercat = Self::mercat_accounts(to_did, to_account_id).into();
-
-        // Get sender's account.
-        let from_mercat = Self::mercat_accounts(from_did, from_account_id).into();
+        let from_mercat = from_account.into();
+        let to_mercat = to_account.into();
 
         // Verify the proofs.
         let _ = TransactionValidator
@@ -1078,32 +1107,32 @@ impl<T: Config> Module<T> {
             .map_err(|_| {
                 // Upon transaction validation failure, update the failed outgoing accumulator.
                 let _ = Self::add_failed_outgoing_balance(
-                    from_did,
-                    from_account_id,
+                    from_account,
+                    ticker,
                     init_tx.memo.enc_amount_using_sender,
                 );
 
                 // There's no need to keep a copy of the pending state anymore.
-                Self::remove_tx_pending_state(from_did, from_account_id, instruction_id);
+                Self::remove_tx_pending_state(from_account, ticker, instruction_id);
 
                 Error::<T>::ConfidentialTransferValidationFailure
             })?;
 
         // Note that storage failures could be a problem, if only some of the storage is updated.
         let _ = Self::mercat_account_withdraw_amount(
-            from_did,
-            from_account_id,
+            from_account,
+            ticker,
             init_tx.memo.enc_amount_using_sender,
         )?;
 
         let _ = Self::mercat_account_deposit_amount(
-            to_did,
-            to_account_id,
+            to_account,
+            ticker,
             init_tx.memo.enc_amount_using_receiver,
         )?;
 
         // There's no need to keep a copy of the pending state anymore.
-        Self::remove_tx_pending_state(from_did, from_account_id, instruction_id);
+        Self::remove_tx_pending_state(from_account, ticker, instruction_id);
 
         Ok(())
     }
@@ -1130,7 +1159,7 @@ decl_event! {
 
         /// Event for creation of a Mercat account.
         /// caller DID/ owner DID, mercat account id (which is equal to encrypted asset ID), encrypted balance
-        AccountCreated(IdentityId, MercatAccountId, EncryptedBalanceWrapper),
+        AccountCreated(IdentityId, MercatAccount, Ticker, EncryptedBalanceWrapper),
 
         /// Event for creation of a confidential asset.
         /// caller DID/ owner DID, ticker, total supply, divisibility, asset type, beneficiary DID
@@ -1138,7 +1167,7 @@ decl_event! {
 
         /// Event for resetting the ordering state.
         /// caller DID/ owner DID, mercat account id, current encrypted account balance
-        ResetConfidentialAccountOrderingState(IdentityId, MercatAccountId, EncryptedBalanceWrapper),
+        ResetConfidentialAccountOrderingState(IdentityId, MercatAccount, Ticker, EncryptedBalanceWrapper),
 
         /// A new transaction has been created
         /// (did, venue_id, transaction_id, legs)
@@ -1156,8 +1185,11 @@ decl_error! {
         /// The MERCAT account creation proofs are invalid.
         InvalidAccountCreationProof,
 
-        /// Unwrapping the wrapped data types into mercat data types has failed.
-        UnwrapMercatDataError,
+        /// Mercat account already created.
+        MercatAccountAlreadyCreated,
+
+        /// Mercat account's balance already initialized.
+        MercatAccountAlreadyInitialized,
 
         /// The MERCAT asset issuance proofs are invalid.
         InvalidAccountMintProof,

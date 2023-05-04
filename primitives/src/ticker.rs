@@ -49,12 +49,6 @@ impl AsRef<[u8]> for Ticker {
     }
 }
 
-impl From<[u8; TICKER_LEN]> for Ticker {
-    fn from(other: [u8; TICKER_LEN]) -> Self {
-        Self(other)
-    }
-}
-
 impl Ticker {
     /// Used to make an unchecked ticker.
     pub const fn new_unchecked(bytes: [u8; TICKER_LEN]) -> Self {
