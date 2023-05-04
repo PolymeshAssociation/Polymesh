@@ -111,7 +111,7 @@ substrate-test-utils = { version = "4.0.0-dev", optional = true }
 [dev-dependencies]
 libsecp256k1 = { version = "0.6", default-features = false }
 wat = "1.0"
-sp-tracing = { version = "5.0.0", default-features = false }
+sp-tracing = { version = "5.0.0", default-features = false, features = ["std"] }
 
 [features]
 default = ["std", "equalize"]
