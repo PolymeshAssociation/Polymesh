@@ -377,7 +377,6 @@ fn issuers_can_create_and_mint_tokens() {
 fn account_create_tx() {
     ExtBuilder::default().build().execute_with(|| {
         let alice = User::new(AccountKeyring::Alice);
-        let bob = User::new(AccountKeyring::Bob);
         // Simulating the case were issuers have registered some tickers and therefore the list of
         // valid asset ids contains some values.
         let ticker = Ticker::from_slice_truncated(b"A".as_ref());
