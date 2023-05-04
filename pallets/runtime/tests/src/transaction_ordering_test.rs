@@ -439,7 +439,7 @@ fn double_spending_fails() {
             let (bob_secret_account, bob_creds, bob_init_balance) =
                 create_investor_account(AccountKeyring::Bob);
 
-            let (dave_secret_account, dave_creds, dave_init_balance) =
+            let (dave_secret_account, dave_creds, _dave_init_balance) =
                 create_investor_account(AccountKeyring::Dave);
 
             // Alice has 10 assets.
