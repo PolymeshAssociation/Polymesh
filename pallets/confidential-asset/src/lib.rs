@@ -117,9 +117,9 @@ use mercat::{
     transaction::{
         verify_finalized_transaction, verify_initialized_transaction, TransactionValidator,
     },
-    AccountCreatorVerifier, AssetTransactionVerifier, EncryptedAmount, EncryptionPubKey,
-    FinalizedTransferTx, InitializedAssetTx, InitializedTransferTx, JustifiedTransferTx,
-    PubAccount, PubAccountTx, TransferTransactionVerifier,
+    AccountCreatorVerifier, AssetTransactionVerifier, EncryptedAmount, EncryptedAmountWithHint,
+    EncryptionPubKey, FinalizedTransferTx, InitializedAssetTx, InitializedTransferTx,
+    JustifiedTransferTx, PubAccount, PubAccountTx, TransferTransactionVerifier,
 };
 use pallet_base::try_next_post;
 use pallet_identity as identity;
@@ -219,13 +219,15 @@ macro_rules! impl_wrapper {
 }
 
 impl_wrapper!(EncryptionPubKeyWrapper, EncryptionPubKey);
+impl_wrapper!(EncryptedAmountWrapper, EncryptedAmount);
+impl_wrapper!(EncryptedAmountWithHintWrapper, EncryptedAmountWithHint);
 
 impl_wrapper!(PubAccountTxWrapper, PubAccountTx);
 impl_wrapper!(InitializedAssetTxWrapper, InitializedAssetTx);
+
 impl_wrapper!(InitializedTransferTxWrapper, InitializedTransferTx);
 impl_wrapper!(FinalizedTransferTxWrapper, FinalizedTransferTx);
 impl_wrapper!(JustifiedTransferTxWrapper, JustifiedTransferTx);
-impl_wrapper!(EncryptedBalanceWrapper, EncryptedAmount);
 
 impl Default for EncryptionPubKeyWrapper {
     fn default() -> Self {
@@ -233,7 +235,7 @@ impl Default for EncryptionPubKeyWrapper {
     }
 }
 
-impl Default for EncryptedBalanceWrapper {
+impl Default for EncryptedAmountWrapper {
     fn default() -> Self {
         Self(Default::default())
     }
@@ -300,6 +302,7 @@ impl From<&PubAccount> for MercatAccount {
 /// Confidential transaction leg.
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
 pub struct TransactionLeg {
+    /// Asset ticker.
     pub ticker: Ticker,
     /// Mercat account of the sender.
     pub sender: MercatAccount,
@@ -399,38 +402,38 @@ decl_storage! {
             => Option<IdentityId>;
 
         /// Contains the encrypted balance of a mercat account.
-        /// (account, ticker) -> EncryptedBalanceWrapper.
+        /// (account, ticker) -> EncryptedAmountWrapper.
         pub MercatAccountBalance get(fn mercat_account_balance):
             double_map hasher(blake2_128_concat) MercatAccount,
             hasher(blake2_128_concat) Ticker
-            => EncryptedBalanceWrapper;
+            => EncryptedAmountWrapper;
 
         /// Accumulates the encrypted pending balance for a mercat account.
-        /// (account, ticker) -> EncryptedBalanceWrapper.
+        /// (account, ticker) -> EncryptedAmountWrapper.
         PendingOutgoingBalance get(fn pending_outgoing_balance):
             double_map hasher(blake2_128_concat) MercatAccount,
             hasher(blake2_128_concat) Ticker
-            => EncryptedBalanceWrapper;
+            => EncryptedAmountWrapper;
 
         /// Accumulates the encrypted incoming balance for a mercat account.
-        /// (account, ticker) -> EncryptedBalanceWrapper.
+        /// (account, ticker) -> EncryptedAmountWrapper.
         IncomingBalance get(fn incoming_balance):
             double_map hasher(blake2_128_concat) MercatAccount,
             hasher(blake2_128_concat) Ticker
-            => EncryptedBalanceWrapper;
+            => EncryptedAmountWrapper;
 
         /// Accumulates the encrypted failed balance for a mercat account.
-        /// (account, ticker) -> EncryptedBalanceWrapper.
+        /// (account, ticker) -> EncryptedAmountWrapper.
         FailedOutgoingBalance get(fn failed_outgoing_balance):
             double_map hasher(blake2_128_concat) MercatAccount,
             hasher(blake2_128_concat) Ticker
-            => EncryptedBalanceWrapper;
+            => EncryptedAmountWrapper;
 
         /// Stores the pending state for a given transaction.
-        /// ((account, ticker, transaction_id)) -> EncryptedBalanceWrapper.
+        /// ((account, ticker, transaction_id)) -> EncryptedAmountWrapper.
         pub TxPendingState get(fn mercat_tx_pending_state):
             map hasher(blake2_128_concat) (MercatAccount, Ticker, TransactionId)
-            => EncryptedBalanceWrapper;
+            => EncryptedAmountWrapper;
 
         /// Legs of a transaction. (transaction_id, leg_id) -> Leg
         pub TransactionLegs get(fn transaction_legs):
@@ -504,7 +507,7 @@ decl_module! {
                 MercatAccountDid::insert(&account, &owner_did);
             }
             // Initialize the mercat account balance.
-            let wrapped_enc_balance = EncryptedBalanceWrapper::from(tx.initial_balance);
+            let wrapped_enc_balance = EncryptedAmountWrapper::from(tx.initial_balance);
             MercatAccountBalance::insert(&account, ticker, wrapped_enc_balance.clone());
 
             Self::deposit_event(Event::AccountCreated(owner_did, account, ticker, wrapped_enc_balance));
@@ -671,7 +674,7 @@ decl_module! {
             MercatAccountBalance::insert(
                 &account,
                 ticker,
-                EncryptedBalanceWrapper::from(new_encrypted_balance),
+                EncryptedAmountWrapper::from(new_encrypted_balance),
             );
 
             // This will emit the total supply changed event.
@@ -777,7 +780,7 @@ impl<T: Config> Module<T> {
         MercatAccountBalance::insert(
             account,
             ticker,
-            EncryptedBalanceWrapper::from(current_balance + amount),
+            EncryptedAmountWrapper::from(current_balance + amount),
         );
 
         // Update the incoming balance accumulator.
@@ -794,7 +797,7 @@ impl<T: Config> Module<T> {
         MercatAccountBalance::insert(
             account,
             ticker,
-            EncryptedBalanceWrapper::from(current_balance - amount),
+            EncryptedAmountWrapper::from(current_balance - amount),
         );
 
         // Update the pending balance accumulator.
@@ -803,7 +806,7 @@ impl<T: Config> Module<T> {
         PendingOutgoingBalance::insert(
             account,
             ticker,
-            EncryptedBalanceWrapper::from(pending_balance - amount),
+            EncryptedAmountWrapper::from(pending_balance - amount),
         );
         Ok(())
     }
@@ -846,7 +849,7 @@ impl<T: Config> Module<T> {
         PendingOutgoingBalance::insert(
             account,
             ticker,
-            EncryptedBalanceWrapper::from(pending_balances),
+            EncryptedAmountWrapper::from(pending_balances),
         );
 
         Ok(())
@@ -868,7 +871,7 @@ impl<T: Config> Module<T> {
         IncomingBalance::insert(
             account,
             ticker,
-            EncryptedBalanceWrapper::from(incoming_balances),
+            EncryptedAmountWrapper::from(incoming_balances),
         );
         Ok(())
     }
@@ -891,7 +894,7 @@ impl<T: Config> Module<T> {
         FailedOutgoingBalance::insert(
             account,
             ticker,
-            EncryptedBalanceWrapper::from(failed_balances),
+            EncryptedAmountWrapper::from(failed_balances),
         );
 
         // We never reset or remove the pending outgoing accumulator.
@@ -901,7 +904,7 @@ impl<T: Config> Module<T> {
         PendingOutgoingBalance::insert(
             account,
             ticker,
-            EncryptedBalanceWrapper::from(pending_balance - amount),
+            EncryptedAmountWrapper::from(pending_balance - amount),
         );
 
         Ok(())
@@ -918,7 +921,7 @@ impl<T: Config> Module<T> {
         let pending_state = Self::get_pending_balance(&account, ticker)?;
         TxPendingState::insert(
             (account, ticker, instruction_id),
-            EncryptedBalanceWrapper::from(pending_state),
+            EncryptedAmountWrapper::from(pending_state),
         );
         Ok(pending_state)
     }
@@ -990,15 +993,7 @@ impl<T: Config> Module<T> {
         for (leg_id, leg) in legs {
             let proofs = TransactionProofs::take(id, leg_id);
             let (init_tx, finalized_tx) = proofs.ensure_affirmed::<T>()?;
-            Self::base_confidential_transfer(
-                leg.ticker,
-                &leg.sender,
-                &leg.receiver,
-                init_tx,
-                finalized_tx,
-                id,
-                &mut rng,
-            )?;
+            Self::base_confidential_transfer(leg, init_tx, finalized_tx, id, &mut rng)?;
         }
 
         Ok(())
@@ -1049,18 +1044,12 @@ impl<T: Config> Module<T> {
 
         // Verify receiver's proof.
         if let Some(finalized_tx) = affirms.receiver.take() {
-            if let Some(init_tx) = proofs.sender.as_deref() {
-                verify_finalized_transaction(&init_tx, &finalized_tx, &to_mercat)
-                    .map_err(|_| Error::<T>::InvalidMercatTransferProof)?;
-                // TODO.
-                proofs.receiver = Some(finalized_tx);
-            } else {
-                return Err(Error::<T>::MissingMercatInitializedTransferProof.into());
-            }
+            // TODO: Check that the caller is the receiver.
+            proofs.receiver = Some(finalized_tx);
         }
 
         // Verify mediator's proof.
-        // TODO: No proof to verify.  Check that the caller is the mediator.
+        // TODO: Check that the caller is the mediator.
         if let Some(tx) = affirms.mediator.take() {
             proofs.mediator = Some(tx);
         }
@@ -1073,14 +1062,15 @@ impl<T: Config> Module<T> {
 
     /// Transfers an asset from one identity's portfolio to another.
     pub fn base_confidential_transfer(
-        ticker: Ticker,
-        from_account: &MercatAccount,
-        to_account: &MercatAccount,
+        leg: TransactionLeg,
         init_tx: &InitializedTransferTx,
         finalized_tx: &FinalizedTransferTx,
         instruction_id: TransactionId,
         rng: &mut Rng,
     ) -> DispatchResult {
+        let ticker = leg.ticker;
+        let from_account = &leg.sender;
+        let to_account = &leg.receiver;
         // Read the mercat_accounts from the confidential-asset pallet.
         let from_mercat_pending_state =
             Self::mercat_tx_pending_state((from_account, ticker, instruction_id)).into();
@@ -1154,7 +1144,7 @@ decl_event! {
 
         /// Event for creation of a Mercat account.
         /// caller DID/ owner DID, mercat account id (which is equal to encrypted asset ID), encrypted balance
-        AccountCreated(IdentityId, MercatAccount, Ticker, EncryptedBalanceWrapper),
+        AccountCreated(IdentityId, MercatAccount, Ticker, EncryptedAmountWrapper),
 
         /// Event for creation of a confidential asset.
         /// caller DID/ owner DID, ticker, total supply, divisibility, asset type, beneficiary DID
@@ -1162,7 +1152,7 @@ decl_event! {
 
         /// Event for resetting the ordering state.
         /// caller DID/ owner DID, mercat account id, current encrypted account balance
-        ResetConfidentialAccountOrderingState(IdentityId, MercatAccount, Ticker, EncryptedBalanceWrapper),
+        ResetConfidentialAccountOrderingState(IdentityId, MercatAccount, Ticker, EncryptedAmountWrapper),
 
         /// A new transaction has been created
         /// (did, venue_id, transaction_id, legs)
