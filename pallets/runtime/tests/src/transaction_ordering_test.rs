@@ -102,6 +102,8 @@ fn initialize_transaction(
     if validation_failure_expected {
         assert!(result.is_err());
         return None;
+    } else {
+        assert!(result.is_ok());
     }
 
     // Receiver authorizes.
@@ -114,7 +116,7 @@ fn initialize_transaction(
             mediator: None,
         } => init,
         _ => {
-            panic!("Unexpected data type");
+            panic!("Unexpected data type: {tx_data:?}");
         }
     };
     let sender_encrypted_transfer_amount = init_tx.memo.enc_amount_using_sender;
@@ -526,7 +528,7 @@ fn mercat_whitepaper_scenario1() {
         .build()
         .execute_with(|| {
             // Setting:
-            //   - Alice is the token issuer, and has 10 assets in her supply.
+            //   - Alice is the token issuer, and has 90 assets in her supply.
             //   - Bob has a normal account.
             //   - Dave has a normal account.
             //   - Charlie is the mediator.
@@ -571,7 +573,7 @@ fn mercat_whitepaper_scenario1() {
                 alice_init_balance - alice_sent_amount_999,
                 dave_init_balance + dave_received_amount_999,
                 Some(alice_secret_account.clone()),
-                Some(bob_secret_account.clone()),
+                Some(dave_secret_account.clone()),
                 false,
             );
             // Reset Dave's pending state.
@@ -642,8 +644,8 @@ fn mercat_whitepaper_scenario1() {
                 charlie_secret_account.clone(),
                 dave_init_balance - dave_sent_amount_1001,
                 alice_init_balance + alice_received_amount_1001,
+                Some(dave_secret_account.clone()),
                 Some(alice_secret_account.clone()),
-                Some(bob_secret_account.clone()),
                 false,
             );
 
@@ -676,7 +678,7 @@ fn mercat_whitepaper_scenario1() {
                 alice_init_balance + alice_received_amount_1001 - alice_sent_amount_1002,
                 dave_init_balance - dave_sent_amount_1001 + dave_received_amount_1002,
                 Some(alice_secret_account.clone()),
-                Some(bob_secret_account.clone()),
+                Some(dave_secret_account.clone()),
                 false,
             );
         });
@@ -689,7 +691,7 @@ fn mercat_whitepaper_scenario2() {
         .build()
         .execute_with(|| {
             // Setting:
-            //   - Alice is the token issuer, and has 10 assets in her supply.
+            //   - Alice is the token issuer, and has 90 assets in her supply.
             //   - Bob has a normal account.
             //   - Dave has a normal account.
             //   - Charlie is the mediator.

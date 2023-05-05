@@ -656,19 +656,16 @@ decl_module! {
             );
 
             let account: MercatAccount = asset_mint_proof.account.clone().into();
-            // TODO: How to handle asset issuer's asset balance?
-            //// Ensure the mercat account's balance hasn't been initialized.
-            //ensure!(
-            //    !MercatAccountBalance::contains_key(&account, ticker),
-            //    Error::<T>::MercatAccountAlreadyInitialized
-            //);
+            // Ensure the mercat account's balance has been initialized.
+            let old_balance = MercatAccountBalance::try_get(&account, ticker)
+                .map_err(|_| Error::<T>::MercatAccountMissing)?;
 
             let new_encrypted_balance = AssetValidator
                                         .verify_asset_transaction(
                                             total_supply.saturated_into::<u32>(),
                                             &asset_mint_proof,
                                             &asset_mint_proof.account,
-                                            &Self::mercat_account_balance(&account, ticker).into(),
+                                            &old_balance.into(),
                                             &[]
                                         ).map_err(|_| Error::<T>::InvalidAccountMintProof)?;
 
@@ -1184,6 +1181,9 @@ decl_error! {
     pub enum Error for Module<T: Config> {
         /// The MERCAT account creation proofs are invalid.
         InvalidAccountCreationProof,
+
+        /// Mercat account hasn't been created yet.
+        MercatAccountMissing,
 
         /// Mercat account already created.
         MercatAccountAlreadyCreated,

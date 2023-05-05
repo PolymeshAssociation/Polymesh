@@ -306,13 +306,14 @@ fn issuers_can_create_and_mint_tokens() {
             PubAccountTxWrapper::from(mercat_account_tx.clone()),
         )
         .unwrap();
+        let pub_account = mercat_account_tx.pub_account;
+        let account: MercatAccount = pub_account.clone().into();
 
         // ------------- START: Computations that will happen in Alice's Wallet ----------
         let amount: u32 = token.total_supply.try_into().unwrap(); // mercat amounts are 32 bit integers.
-        let mut rng = StdRng::from_seed([42u8; 32]);
         let issuer_account = Account {
             secret: secret_account.clone(),
-            public: mercat_account_tx.pub_account.clone(),
+            public: pub_account,
         };
 
         let initialized_asset_tx = AssetIssuer
@@ -336,11 +337,9 @@ fn issuers_can_create_and_mint_tokens() {
         assert_eq!(ConfidentialAsset::confidential_asset_details(ticker), token);
 
         // -------------------------- Ensure that the account balance is set properly.
-        let account: MercatAccount = mercat_account_tx.pub_account.into();
         let balance = *ConfidentialAsset::mercat_account_balance(&account, ticker);
 
         let stored_balance = secret_account.enc_keys.secret.decrypt(&balance).unwrap();
-
         assert_eq!(stored_balance, amount);
     })
 }

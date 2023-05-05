@@ -116,7 +116,7 @@ sp-tracing = { version = "5.0.0", default-features = false, features = ["std"] }
 [features]
 default = ["std", "equalize"]
 
-default_identity = [ "polymesh-common-utilities/default_identity" ]
+default_identity = ["polymesh-common-utilities/default_identity"]
 
 equalize = []
 only-staking = []
@@ -124,74 +124,7 @@ only-staking = []
 # Backends
 u64_backend = ["mercat/u64_backend", "confidential_identity_core/u64_backend", "polymesh-primitives/u64_backend"]
 
-no_std = [
-		"pallet-confidential-asset/no_std",
-    "mercat/no_std",
-    "confidential_identity_core/no_std",
-    "u64_backend"
-]
+no_std = ["pallet-confidential-asset/no_std", "mercat/no_std", "confidential_identity_core/no_std", "u64_backend"]
 
-std = [
-    "u64_backend",
-		"rand_core/std",
-		"rand/std",
-    "mercat/std",
-    "confidential_identity_core/std",
-    "confidential_identity_v1/std",
-    "frame-support/std",
-    "frame-system/std",
-    "frame-election-provider-support/std",
-    "ink_primitives/std",
-    "pallet-asset/std",
-    "pallet-confidential-asset/std",
-    "pallet-authorship/std",
-    "pallet-base/std",
-    "pallet-babe/std",
-    "pallet-balances/std",
-    "pallet-sto/std",
-    "pallet-bridge/std",
-    "pallet-committee/std",
-    "pallet-compliance-manager/std",
-		"pallet-confidential-asset/std",
-    "pallet-contracts/std",
-    "pallet-corporate-actions/std",
-    "pallet-external-agents/std",
-    "polymesh-weights/std",
-    "pallet-group-rpc-runtime-api/std",
-    "pallet-group/std",
-    "pallet-identity/std",
-    "pallet-multisig/std",
-    "pallet-nft/std",
-    "pallet-permissions/std",
-    "pallet-preimage/std",
-    "pallet-pips/std",
-    "pallet-portfolio/std",
-    "pallet-relayer/std",
-    "pallet-randomness-collective-flip/std",
-    "pallet-scheduler/std",
-    "pallet-session/std",
-    "pallet-staking/std",
-    "pallet-statistics/std",
-    "pallet-timestamp/std",
-    "pallet-transaction-payment/std",
-    "pallet-treasury/std",
-    "pallet-sudo/std",
-    "polymesh-common-utilities/std",
-    "polymesh-primitives/std",
-    "polymesh-runtime-common/std",
-    "polymesh-contracts/std",
-    "polymesh-weights/std",
-    "serde/std",
-    "sp-arithmetic/std",
-    "sp-core/std",
-    "sp-io/std",
-    "sp-npos-elections/std",
-    "sp-runtime/std",
-    "sp-staking/std",
-    "sp-std/std",
-    "substrate-test-utils",
-    "test_client",
-]
-runtime-benchmarks = [
-    "frame-benchmarking/runtime-benchmarks",
-]
+std = ["u64_backend", "rand_core/std", "rand/std", "mercat/std", "confidential_identity_core/std", "confidential_identity_v1/std", "frame-support/std", "frame-system/std", "frame-election-provider-support/std", "ink_primitives/std", "pallet-asset/std", "pallet-confidential-asset/std", "pallet-authorship/std", "pallet-base/std", "pallet-babe/std", "pallet-balances/std", "pallet-sto/std", "pallet-bridge/std", "pallet-committee/std", "pallet-compliance-manager/std", "pallet-confidential-asset/std", "pallet-contracts/std", "pallet-corporate-actions/std", "pallet-external-agents/std", "polymesh-weights/std", "pallet-group-rpc-runtime-api/std", "pallet-group/std", "pallet-identity/std", "pallet-multisig/std", "pallet-nft/std", "pallet-permissions/std", "pallet-preimage/std", "pallet-pips/std", "pallet-portfolio/std", "pallet-relayer/std", "pallet-randomness-collective-flip/std", "pallet-scheduler/std", "pallet-session/std", "pallet-staking/std", "pallet-statistics/std", "pallet-timestamp/std", "pallet-transaction-payment/std", "pallet-treasury/std", "pallet-sudo/std", "polymesh-common-utilities/std", "polymesh-primitives/std", "polymesh-runtime-common/std", "polymesh-contracts/std", "polymesh-weights/std", "serde/std", "sp-arithmetic/std", "sp-core/std", "sp-io/std", "sp-npos-elections/std", "sp-runtime/std", "sp-staking/std", "sp-std/std", "substrate-test-utils", "test_client"]
+runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks"]
