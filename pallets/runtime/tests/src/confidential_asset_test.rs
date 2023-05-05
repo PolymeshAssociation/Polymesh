@@ -339,8 +339,11 @@ fn issuers_can_create_and_mint_tokens() {
         // -------------------------- Ensure that the account balance is set properly.
         let balance = *ConfidentialAsset::mercat_account_balance(&account, ticker);
 
-        let stored_balance = secret_account.enc_keys.secret.decrypt(&balance).unwrap();
-        assert_eq!(stored_balance, amount);
+        secret_account
+            .enc_keys
+            .secret
+            .verify(&balance, &amount.into())
+            .expect("verify new balance");
     })
 }
 
