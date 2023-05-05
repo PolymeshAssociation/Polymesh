@@ -66,8 +66,6 @@ fn initialize_transaction(
         venue_counter,
         vec![TransactionLeg {
             ticker,
-            sender_did: sender_creds.user.did,
-            receiver_did: receiver_creds.user.did,
             sender: sender_creds.account.clone(),
             receiver: receiver_creds.account.clone(),
             mediator: mediator_creds.user.did,

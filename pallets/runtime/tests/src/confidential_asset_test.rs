@@ -455,8 +455,6 @@ fn basic_confidential_settlement() {
                 venue_counter,
                 vec![TransactionLeg {
                     ticker,
-                    sender_did: alice.did,
-                    receiver_did: bob.did,
                     sender: alice_account.clone(),
                     receiver: bob_account.clone(),
                     mediator: charlie.did,

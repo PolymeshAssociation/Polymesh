@@ -301,8 +301,6 @@ impl From<&PubAccount> for MercatAccount {
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
 pub struct TransactionLeg {
     pub ticker: Ticker,
-    pub sender_did: IdentityId,
-    pub receiver_did: IdentityId,
     /// Mercat account of the sender.
     pub sender: MercatAccount,
     /// Mercat account of the receiver.
