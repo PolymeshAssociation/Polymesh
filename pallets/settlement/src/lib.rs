@@ -276,7 +276,7 @@ decl_storage! {
         InstructionStatuses get(fn instruction_status):
             map hasher(twox_64_concat) InstructionId => InstructionStatus<T::BlockNumber>;
         /// Legs under an instruction. (instruction_id, leg_id) -> Leg
-        pub InstructionLegs get(fn instruction_legsv2):
+        pub InstructionLegs get(fn instruction_legs):
             double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => Option<Leg>;
     }
 }
