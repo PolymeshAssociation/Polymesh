@@ -233,7 +233,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> TransactionState<T> {
     pub fn new(total_supply: u32, amount: u32, rng: &mut StdRng) -> Self {
         // Setup confidential asset.
         let (ticker, issuer) =
-            create_account_and_mint_token::<T>("issuer", total_supply, b"A", rng);
+            create_account_and_mint_token::<T>("issuer", total_supply as u128, b"A", rng);
 
         // Setup mediator.
         let mediator = MercatUser::<T>::new("mediator", rng);
@@ -393,7 +393,7 @@ benchmarks! {
 
         let total_supply = 4_000_000_000u32;
         let mint_tx = issuer.mint_tx(total_supply, &mut rng);
-    }: _(issuer.origin(), ticker, total_supply.into(), mint_tx)
+    }: mint_confidential_asset(issuer.origin(), ticker, total_supply.into(), mint_tx)
 
     add_transaction {
         let mut rng = StdRng::from_seed([10u8; 32]);
