@@ -22,7 +22,7 @@ use sp_std::prelude::*;
 
 use polymesh_primitives::compliance_manager::{AssetComplianceResult, ComplianceRequirement};
 use polymesh_primitives::condition::{conditions_total_counts, Condition};
-use polymesh_primitives::{Balance, IdentityId, Ticker, TrustedIssuer, WeightMeter};
+use polymesh_primitives::{IdentityId, Ticker, TrustedIssuer, WeightMeter};
 
 use crate::asset::AssetFnTrait;
 use crate::balances::Config as BalancesConfig;
@@ -79,13 +79,14 @@ decl_event!(
 );
 
 pub trait ComplianceFnConfig {
-    fn verify_restriction(
+    /// Returns `false` if there are no requirements for the asset or if all of the
+    /// asset's requirement don't hold, otherwise returns`true`.
+    fn is_compliant(
         ticker: &Ticker,
-        from_id: Option<IdentityId>,
-        to_id: Option<IdentityId>,
-        _value: Balance,
+        sender_did: IdentityId,
+        receiver_did: IdentityId,
         weight_meter: &mut WeightMeter,
-    ) -> Result<u8, DispatchError>;
+    ) -> Result<bool, DispatchError>;
 
     fn verify_restriction_granular(
         ticker: &Ticker,

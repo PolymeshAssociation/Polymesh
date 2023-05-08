@@ -1389,16 +1389,12 @@ impl<T: Config> Module<T> {
             return Ok(TRANSFER_MANAGER_FAILURE);
         }
 
-        let status_code = T::ComplianceManager::verify_restriction(
+        if !T::ComplianceManager::is_compliant(
             ticker,
-            Some(from_portfolio.did),
-            Some(to_portfolio.did),
-            value,
+            from_portfolio.did,
+            to_portfolio.did,
             weight_meter,
-        )
-        .unwrap_or(COMPLIANCE_MANAGER_FAILURE);
-
-        if status_code != ERC1400_TRANSFER_SUCCESS {
+        )? {
             return Ok(COMPLIANCE_MANAGER_FAILURE);
         }
 

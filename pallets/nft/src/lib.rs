@@ -8,7 +8,6 @@ use pallet_asset::Frozen;
 use pallet_base::try_next_pre;
 use pallet_portfolio::PortfolioNFT;
 use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
-use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 pub use polymesh_common_utilities::traits::nft::{Config, Event, NFTTrait, WeightInfo};
 use polymesh_primitives::asset::{AssetName, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
@@ -422,15 +421,14 @@ impl<T: Config> Module<T> {
         NumberOfNFTs::get(nfts.ticker(), receiver_portfolio.did)
             .checked_add(nfts_transferred)
             .ok_or(Error::<T>::InvalidNFTTransferCountOverflow)?;
+
         // Verifies that all compliance rules are being respected
-        let code = T::Compliance::verify_restriction(
+        if !T::Compliance::is_compliant(
             nfts.ticker(),
-            Some(sender_portfolio.did),
-            Some(receiver_portfolio.did),
-            nfts_transferred.into(),
+            sender_portfolio.did,
+            receiver_portfolio.did,
             weight_meter,
-        )?;
-        if code != ERC1400_TRANSFER_SUCCESS {
+        )? {
             return Err(Error::<T>::InvalidNFTTransferComplianceFailure.into());
         }
 
