@@ -25,10 +25,7 @@ pub use user_builder::{uid_from_name_and_idx, AccountIdOf, UserBuilder};
 use crate::traits::{identity::Config, TestUtilsFn};
 use frame_system::Config as SysTrait;
 
-pub fn user<T: Config + TestUtilsFn<<T as SysTrait>::AccountId>>(
-    prefix: &'static str,
-    u: u32,
-) -> User<T> {
+pub fn user<T: Config + TestUtilsFn<<T as SysTrait>::AccountId>>(prefix: &str, u: u32) -> User<T> {
     UserBuilder::<T>::default()
         .generate_did()
         .seed(u)
@@ -36,14 +33,14 @@ pub fn user<T: Config + TestUtilsFn<<T as SysTrait>::AccountId>>(
 }
 
 pub fn user_without_did<T: Config + TestUtilsFn<<T as SysTrait>::AccountId>>(
-    prefix: &'static str,
+    prefix: &str,
     u: u32,
 ) -> User<T> {
     UserBuilder::<T>::default().seed(u).build(prefix)
 }
 
 pub fn cdd_provider<T: Config + TestUtilsFn<<T as SysTrait>::AccountId>>(
-    prefix: &'static str,
+    prefix: &str,
     u: u32,
 ) -> User<T> {
     UserBuilder::<T>::default()
