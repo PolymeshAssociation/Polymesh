@@ -107,9 +107,9 @@ use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    weights::Weight,
     ensure,
     traits::Randomness,
+    weights::Weight,
 };
 use frame_system::ensure_signed;
 use mercat::{
