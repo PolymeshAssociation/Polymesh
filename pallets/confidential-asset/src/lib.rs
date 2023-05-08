@@ -114,9 +114,7 @@ use frame_system::ensure_signed;
 use mercat::{
     account::AccountValidator,
     asset::AssetValidator,
-    transaction::{
-        verify_finalized_transaction, verify_initialized_transaction, TransactionValidator,
-    },
+    transaction::{verify_initialized_transaction, TransactionValidator},
     AccountCreatorVerifier, AssetTransactionVerifier, EncryptedAmount, EncryptedAmountWithHint,
     EncryptionPubKey, FinalizedTransferTx, InitializedAssetTx, InitializedTransferTx,
     JustifiedTransferTx, PubAccount, PubAccountTx, TransferTransactionVerifier,
@@ -141,6 +139,9 @@ use rand_chacha::ChaCha20Rng as Rng;
 use rand_core::SeedableRng;
 
 type Identity<T> = identity::Module<T>;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 
 /// Mercat types are uploaded as bytes (hex).
 /// This make it easy to copy paste the proofs from CLI tools.

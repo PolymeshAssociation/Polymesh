@@ -340,6 +340,7 @@ mod benches {
         [pallet_sto, Sto]
         [pallet_checkpoint, Checkpoint]
         [pallet_compliance_manager, ComplianceManager]
+        [pallet_confidential_asset, ConfidentialAsset]
         [pallet_corporate_actions, CorporateAction]
         [pallet_corporate_ballot, CorporateBallot]
         [pallet_capital_distribution, CapitalDistribution]

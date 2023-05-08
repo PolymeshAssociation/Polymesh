@@ -219,6 +219,7 @@ runtime-benchmarks = [
     "pallet-balances/runtime-benchmarks",
     "pallet-committee/runtime-benchmarks",
     "pallet-compliance-manager/runtime-benchmarks",
+    "pallet-confidential-asset/runtime-benchmarks",
     "pallet-contracts/runtime-benchmarks",
     "pallet-corporate-actions/runtime-benchmarks",
     "pallet-external-agents/runtime-benchmarks",
