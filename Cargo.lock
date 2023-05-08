@@ -6826,6 +6826,7 @@ dependencies = [
  "pallet-balances 0.1.0",
  "pallet-committee",
  "pallet-compliance-manager",
+ "pallet-confidential-asset",
  "pallet-corporate-actions",
  "pallet-external-agents",
  "pallet-grandpa",

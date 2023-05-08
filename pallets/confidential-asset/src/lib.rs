@@ -107,6 +107,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
+    weights::Weight,
     ensure,
     traits::Randomness,
 };
@@ -142,6 +143,19 @@ type Identity<T> = identity::Module<T>;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+
+pub trait WeightInfo {
+    fn validate_mercat_account() -> Weight;
+    fn add_mediator_mercat_account() -> Weight;
+    fn create_confidential_asset() -> Weight;
+    fn mint_confidential_asset() -> Weight;
+    fn add_transaction() -> Weight;
+    fn sender_affirm_transaction() -> Weight;
+    fn receiver_affirm_transaction() -> Weight;
+    fn mediator_affirm_transaction() -> Weight;
+    fn execute_transaction() -> Weight;
+    fn reset_ordering_state() -> Weight;
+}
 
 /// Mercat types are uploaded as bytes (hex).
 /// This make it easy to copy paste the proofs from CLI tools.
