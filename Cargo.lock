@@ -638,7 +638,7 @@ dependencies = [
 [[package]]
 name = "bulletproofs"
 version = "4.0.0"
-source = "git+https://github.com/PolymeshAssociation/bulletproofs?branch=polymesh#b73845c70516fe45039c58136618305b09358268"
+source = "git+https://github.com/PolymeshAssociation/bulletproofs?branch=polymesh#b8670ba8905d4e5d5c204677c4b391eea5d4b158"
 dependencies = [
  "byteorder",
  "curve25519-dalek-ng",
@@ -999,7 +999,7 @@ dependencies = [
 [[package]]
 name = "confidential_identity_core"
 version = "1.1.2"
-source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#0b7f5b34daedf53fc2b0ec7ec48cc4bfb06a2325"
+source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#f7d864111017b3b9e414e578d291680527d2dcf6"
 dependencies = [
  "blake2",
  "bulletproofs",
@@ -1020,7 +1020,7 @@ dependencies = [
 [[package]]
 name = "confidential_identity_v1"
 version = "1.1.2"
-source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#0b7f5b34daedf53fc2b0ec7ec48cc4bfb06a2325"
+source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#f7d864111017b3b9e414e578d291680527d2dcf6"
 dependencies = [
  "blake2",
  "byteorder",
@@ -1043,7 +1043,7 @@ dependencies = [
 [[package]]
 name = "confidential_identity_v2"
 version = "2.1.2"
-source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#0b7f5b34daedf53fc2b0ec7ec48cc4bfb06a2325"
+source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#f7d864111017b3b9e414e578d291680527d2dcf6"
 dependencies = [
  "blake2",
  "byteorder",
@@ -4007,7 +4007,7 @@ checksum = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 [[package]]
 name = "mercat"
 version = "1.1.2"
-source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#0b7f5b34daedf53fc2b0ec7ec48cc4bfb06a2325"
+source = "git+https://github.com/PolymeshAssociation/cryptography?branch=mercat_polymesh_v6.0#f7d864111017b3b9e414e578d291680527d2dcf6"
 dependencies = [
  "byteorder",
  "confidential_identity_core",

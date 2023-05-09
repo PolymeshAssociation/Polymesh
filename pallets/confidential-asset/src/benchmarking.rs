@@ -169,7 +169,7 @@ pub fn create_account_and_mint_token<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     total_supply: u128,
     token_name: &[u8],
     rng: &mut StdRng,
-) -> (Ticker, MercatUser<T>) {
+) -> (Ticker, MercatUser<T>, u32) {
     let owner = MercatUser::new(name, rng);
     let token = ConfidentialAssetDetails {
         total_supply,
@@ -213,13 +213,14 @@ pub fn create_account_and_mint_token<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     // -------------------------- Ensure the encrypted balance matches the minted amount.
     owner.ensure_mercat_balance(ticker, amount);
 
-    (ticker, owner)
+    (ticker, owner, amount)
 }
 
 #[derive(Clone)]
 pub struct TransactionState<T: Config + TestUtilsFn<AccountIdOf<T>>> {
     pub ticker: Ticker,
     pub amount: u32,
+    pub issuer_balance: u32,
     pub issuer: MercatUser<T>,
     pub investor: MercatUser<T>,
     pub mediator: MercatUser<T>,
@@ -232,7 +233,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> TransactionState<T> {
     /// Create 3 mercat accounts (issuer, investor, mediator), create asset, mint.
     pub fn new(total_supply: u32, amount: u32, rng: &mut StdRng) -> Self {
         // Setup confidential asset.
-        let (ticker, issuer) =
+        let (ticker, issuer, issuer_balance) =
             create_account_and_mint_token::<T>("issuer", total_supply as u128, b"A", rng);
 
         // Setup mediator.
@@ -256,6 +257,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> TransactionState<T> {
         Self {
             ticker,
             amount,
+            issuer_balance,
             issuer,
             investor,
             mediator,
@@ -285,6 +287,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> TransactionState<T> {
             .create_transaction(
                 &issuer_account,
                 &issuer_enc_balance,
+                self.issuer_balance,
                 &investor_pub_account,
                 &self.mediator.pub_key(),
                 &[],
@@ -403,18 +406,6 @@ benchmarks! {
 
     }: _(tx.issuer.origin(), tx.venue_id, tx.legs)
 
-    sender_affirm_transaction_large_amount {
-        let mut rng = StdRng::from_seed([10u8; 32]);
-
-        // Setup for transaction.
-        let amount = 4_000_000_000;
-        let mut tx = TransactionState::<T>::new(amount + 10, amount, &mut rng);
-        tx.add_transaction();
-        let leg_id = TransactionLegId(0);
-
-        let proof = tx.sender_proof(&mut rng);
-    }: affirm_transaction(tx.issuer.origin(), tx.id, leg_id, proof)
-
     sender_affirm_transaction {
         let mut rng = StdRng::from_seed([10u8; 32]);
 
@@ -475,4 +466,28 @@ benchmarks! {
         tx.mediator_affirm(leg_id);
         tx.execute();
     }: _(tx.issuer.origin(), tx.issuer.mercat(), tx.ticker)
+
+    sender_affirm_transaction_large_amount {
+        let mut rng = StdRng::from_seed([10u8; 32]);
+
+        // Setup for transaction.
+        let amount = 10_000_000;
+        let mut tx = TransactionState::<T>::new(amount + 10, amount, &mut rng);
+        tx.add_transaction();
+        let leg_id = TransactionLegId(0);
+
+        let proof = tx.sender_proof(&mut rng);
+    }: affirm_transaction(tx.issuer.origin(), tx.id, leg_id, proof)
+
+    //sender_affirm_transaction_large_amount1 {
+    //    let mut rng = StdRng::from_seed([10u8; 32]);
+
+    //    // Setup for transaction.
+    //    let amount = 100_000_000;
+    //    let mut tx = TransactionState::<T>::new(amount + 10, amount, &mut rng);
+    //    tx.add_transaction();
+    //    let leg_id = TransactionLegId(0);
+
+    //    let proof = tx.sender_proof(&mut rng);
+    //}: affirm_transaction(tx.issuer.origin(), tx.id, leg_id, proof)
 }

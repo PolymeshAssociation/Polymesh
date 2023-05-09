@@ -38,7 +38,7 @@ fn initialize_transaction(
     ticker: Ticker,
     sender_secret_account: SecAccount,
     sender_creds: AccountCredentials,
-    sender_pending_balance: EncryptedAmount,
+    sender_pending_enc_balance: EncryptedAmount,
     receiver_secret_account: SecAccount,
     receiver_creds: AccountCredentials,
     mediator_creds: MediatorCredentials,
@@ -72,6 +72,11 @@ fn initialize_transaction(
         }]
     ));
 
+    let sender_pending_balance = sender_secret_account
+            .enc_keys
+            .secret
+            .decrypt(&sender_pending_enc_balance)
+            .unwrap();
     // Sender authorizes.
     // Sender computes the proofs in the wallet.
     let sender_tx = CtxSender
@@ -80,7 +85,8 @@ fn initialize_transaction(
                 public: sender_creds.public_account.clone(),
                 secret: sender_secret_account.clone(),
             },
-            &sender_pending_balance,
+            &sender_pending_enc_balance,
+            sender_pending_balance,
             &receiver_creds.public_account,
             &mediator_creds.mediator_public_account.owner_enc_pub_key,
             &[],

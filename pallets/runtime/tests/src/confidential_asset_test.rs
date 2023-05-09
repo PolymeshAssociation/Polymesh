@@ -466,14 +466,12 @@ fn basic_confidential_settlement() {
 
             println!("-------------> Checking if alice has enough funds.");
             // Ensure that Alice has minted enough tokens.
-            assert!(
-                alice_secret_account
+            let alice_init_balance = alice_secret_account
                     .enc_keys
                     .secret
                     .decrypt(&alice_encrypted_init_balance)
-                    .unwrap()
-                    > amount
-            );
+                    .unwrap();
+            assert!(alice_init_balance > amount);
 
             // ----- Sender authorizes.
             // Sender computes the proofs in the wallet.
@@ -485,6 +483,7 @@ fn basic_confidential_settlement() {
                         secret: alice_secret_account.clone(),
                     },
                     &alice_encrypted_init_balance,
+                    alice_init_balance,
                     &bob_public_account,
                     &charlie_public_account.owner_enc_pub_key,
                     &[],
