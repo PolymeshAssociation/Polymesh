@@ -73,10 +73,10 @@ fn initialize_transaction(
     ));
 
     let sender_pending_balance = sender_secret_account
-            .enc_keys
-            .secret
-            .decrypt(&sender_pending_enc_balance)
-            .unwrap();
+        .enc_keys
+        .secret
+        .decrypt(&sender_pending_enc_balance)
+        .unwrap();
     // Sender authorizes.
     // Sender computes the proofs in the wallet.
     let sender_tx = CtxSender

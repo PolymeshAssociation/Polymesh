@@ -467,10 +467,10 @@ fn basic_confidential_settlement() {
             println!("-------------> Checking if alice has enough funds.");
             // Ensure that Alice has minted enough tokens.
             let alice_init_balance = alice_secret_account
-                    .enc_keys
-                    .secret
-                    .decrypt(&alice_encrypted_init_balance)
-                    .unwrap();
+                .enc_keys
+                .secret
+                .decrypt(&alice_encrypted_init_balance)
+                .unwrap();
             assert!(alice_init_balance > amount);
 
             // ----- Sender authorizes.
