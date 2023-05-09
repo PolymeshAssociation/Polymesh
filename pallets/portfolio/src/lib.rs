@@ -47,29 +47,25 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use core::{iter, mem};
-use frame_support::{
-    decl_error, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult, Weight},
-    ensure,
-};
-use pallet_identity::{self as identity, PermissionedCallOriginData};
-use polymesh_common_utilities::traits::balances::Memo;
-use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
-pub use polymesh_common_utilities::traits::{
-    asset::AssetFnTrait,
-    portfolio::{Config, Event, WeightInfo},
-};
-use polymesh_primitives::{
-    extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, Fund,
-    FundDescription, IdentityId, NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
-    SecondaryKey, Ticker,
-};
+use frame_support::dispatch::{DispatchError, DispatchResult, Weight};
+use frame_support::{decl_error, decl_module, decl_storage, ensure};
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::Zero;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
 
-type Identity<T> = identity::Module<T>;
+use pallet_identity::PermissionedCallOriginData;
+pub use polymesh_common_utilities::portfolio::{Config, Event, WeightInfo};
+use polymesh_common_utilities::traits::asset::AssetFnTrait;
+use polymesh_common_utilities::traits::balances::Memo;
+use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
+use polymesh_primitives::{
+    extract_auth, identity_id::PortfolioValidityResult, storage_migration_ver, Balance, Fund,
+    FundDescription, IdentityId, NFTId, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
+    SecondaryKey, Ticker,
+};
+
+type Identity<T> = pallet_identity::Module<T>;
 
 /// The ticker and balance of an asset to be moved from one portfolio to another.
 #[derive(Encode, Decode, TypeInfo)]
@@ -133,6 +129,14 @@ decl_storage! {
         /// All locked nft for a given portfolio.
         pub PortfolioLockedNFT get(fn portfolio_locked_nft):
             double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) (Ticker, NFTId) => bool;
+
+        /// All tickers that don't need an affirmation to be received by an identity.
+        pub PreApprovedTicker get(fn pre_approved_tickers):
+            double_map hasher(identity) IdentityId, hasher(blake2_128_concat) Ticker => bool;
+
+        /// All portfolios that don't need to affirm the receivement of a given ticker.
+        pub PreApprovedPortfolios get(fn pre_approved_portfolios):
+            double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) Ticker => bool;
 
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(2)): Version;
@@ -386,6 +390,26 @@ decl_module! {
             Self::unchecked_move_funds(primary_did, from, to, funds);
 
             Ok(())
+        }
+
+        #[weight = <T as Config>::WeightInfo::pre_approve_ticker()]
+        pub fn pre_approve_ticker(origin, ticker: Ticker) -> DispatchResult {
+            Self::base_pre_approve_ticker(origin, &ticker)
+        }
+
+        #[weight = <T as Config>::WeightInfo::remove_ticker_pre_approval()]
+        pub fn remove_ticker_pre_approval(origin, ticker: Ticker) -> DispatchResult {
+            Self::base_remove_ticker_pre_approval(origin, &ticker)
+        }
+
+        #[weight = <T as Config>::WeightInfo::pre_approve_portfolio()]
+        pub fn pre_approve_portfolio(origin, ticker: Ticker, portfolio_id: PortfolioId) -> DispatchResult {
+            Self::base_pre_approve_portfolio(origin, &ticker, portfolio_id)
+        }
+
+        #[weight = <T as Config>::WeightInfo::remove_portfolio_pre_approval()]
+        pub fn remove_portfolio_pre_approval(origin, ticker: Ticker, portfolio_id: PortfolioId) -> DispatchResult {
+            Self::base_remove_portfolio_pre_approval(origin, &ticker, portfolio_id)
         }
 
         fn on_runtime_upgrade() -> Weight {
@@ -788,6 +812,55 @@ impl<T: Config> Module<T> {
                 }
             }
         }
+    }
+
+    fn base_pre_approve_ticker(origin: T::RuntimeOrigin, ticker: &Ticker) -> DispatchResult {
+        let caller_did = Identity::<T>::ensure_perms(origin)?;
+        PreApprovedTicker::insert(&caller_did, ticker, true);
+        Ok(())
+    }
+
+    fn base_remove_ticker_pre_approval(
+        origin: T::RuntimeOrigin,
+        ticker: &Ticker,
+    ) -> DispatchResult {
+        let caller_did = Identity::<T>::ensure_perms(origin)?;
+        PreApprovedTicker::remove(&caller_did, ticker);
+        Ok(())
+    }
+
+    fn base_pre_approve_portfolio(
+        origin: T::RuntimeOrigin,
+        ticker: &Ticker,
+        portfolio_id: PortfolioId,
+    ) -> DispatchResult {
+        let origin_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
+        Self::ensure_portfolio_validity(&portfolio_id)?;
+        Self::ensure_portfolio_custody_and_permission(
+            portfolio_id,
+            origin_data.primary_did,
+            origin_data.secondary_key.as_ref(),
+        )?;
+
+        PreApprovedPortfolios::insert(&portfolio_id, ticker, true);
+        Ok(())
+    }
+
+    fn base_remove_portfolio_pre_approval(
+        origin: T::RuntimeOrigin,
+        ticker: &Ticker,
+        portfolio_id: PortfolioId,
+    ) -> DispatchResult {
+        let origin_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
+        Self::ensure_portfolio_validity(&portfolio_id)?;
+        Self::ensure_portfolio_custody_and_permission(
+            portfolio_id,
+            origin_data.primary_did,
+            origin_data.secondary_key.as_ref(),
+        )?;
+
+        PreApprovedPortfolios::remove(&portfolio_id, ticker);
+        Ok(())
     }
 }
 
