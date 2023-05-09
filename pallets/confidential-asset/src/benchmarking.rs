@@ -231,7 +231,9 @@ pub struct TransactionState<T: Config + TestUtilsFn<AccountIdOf<T>>> {
 
 impl<T: Config + TestUtilsFn<AccountIdOf<T>>> TransactionState<T> {
     /// Create 3 mercat accounts (issuer, investor, mediator), create asset, mint.
-    pub fn new(total_supply: u32, amount: u32, rng: &mut StdRng) -> Self {
+    pub fn new(rng: &mut StdRng) -> Self {
+        let amount = 4_000_000_000u32;
+        let total_supply = amount + 10;
         // Setup confidential asset.
         let (ticker, issuer, issuer_balance) =
             create_account_and_mint_token::<T>("issuer", total_supply as u128, b"A", rng);
@@ -379,30 +381,15 @@ benchmarks! {
         );
         issuer.init_account(ticker, &mut rng);
 
-        let total_supply = 100u32;
-        let mint_tx = issuer.mint_tx(total_supply, &mut rng);
-    }: _(issuer.origin(), ticker, total_supply.into(), mint_tx)
-
-    mint_confidential_asset_large_amount {
-        let mut rng = StdRng::from_seed([10u8; 32]);
-        let issuer = MercatUser::<T>::new("issuer", &mut rng);
-        let ticker = Ticker::from_slice_truncated(b"A".as_ref());
-        create_confidential_token(
-            &issuer.user,
-            b"Name".as_slice(),
-            ticker,
-        );
-        issuer.init_account(ticker, &mut rng);
-
         let total_supply = 4_000_000_000u32;
         let mint_tx = issuer.mint_tx(total_supply, &mut rng);
-    }: mint_confidential_asset(issuer.origin(), ticker, total_supply.into(), mint_tx)
+    }: _(issuer.origin(), ticker, total_supply.into(), mint_tx)
 
     add_transaction {
         let mut rng = StdRng::from_seed([10u8; 32]);
 
         // Setup for transaction.
-        let tx = TransactionState::<T>::new(100, 10, &mut rng);
+        let tx = TransactionState::<T>::new(&mut rng);
 
     }: _(tx.issuer.origin(), tx.venue_id, tx.legs)
 
@@ -410,7 +397,7 @@ benchmarks! {
         let mut rng = StdRng::from_seed([10u8; 32]);
 
         // Setup for transaction.
-        let mut tx = TransactionState::<T>::new(100, 10, &mut rng);
+        let mut tx = TransactionState::<T>::new(&mut rng);
         tx.add_transaction();
         let leg_id = TransactionLegId(0);
 
@@ -421,7 +408,7 @@ benchmarks! {
         let mut rng = StdRng::from_seed([10u8; 32]);
 
         // Setup for transaction.
-        let mut tx = TransactionState::<T>::new(100, 10, &mut rng);
+        let mut tx = TransactionState::<T>::new(&mut rng);
         tx.add_transaction();
         let leg_id = TransactionLegId(0);
         tx.sender_affirm(leg_id, &mut rng);
@@ -433,7 +420,7 @@ benchmarks! {
         let mut rng = StdRng::from_seed([10u8; 32]);
 
         // Setup for transaction.
-        let mut tx = TransactionState::<T>::new(100, 10, &mut rng);
+        let mut tx = TransactionState::<T>::new(&mut rng);
         tx.add_transaction();
         let leg_id = TransactionLegId(0);
         tx.sender_affirm(leg_id, &mut rng);
@@ -446,7 +433,7 @@ benchmarks! {
         let mut rng = StdRng::from_seed([10u8; 32]);
 
         // Setup for transaction.
-        let mut tx = TransactionState::<T>::new(100, 10, &mut rng);
+        let mut tx = TransactionState::<T>::new(&mut rng);
         tx.add_transaction();
         let leg_id = TransactionLegId(0);
         tx.sender_affirm(leg_id, &mut rng);
@@ -458,7 +445,7 @@ benchmarks! {
         let mut rng = StdRng::from_seed([10u8; 32]);
 
         // Setup for transaction.
-        let mut tx = TransactionState::<T>::new(100, 10, &mut rng);
+        let mut tx = TransactionState::<T>::new(&mut rng);
         tx.add_transaction();
         let leg_id = TransactionLegId(0);
         tx.sender_affirm(leg_id, &mut rng);
@@ -466,16 +453,4 @@ benchmarks! {
         tx.mediator_affirm(leg_id);
         tx.execute();
     }: _(tx.issuer.origin(), tx.issuer.mercat(), tx.ticker)
-
-    sender_affirm_transaction_large_amount {
-        let mut rng = StdRng::from_seed([10u8; 32]);
-
-        // Setup for transaction.
-        let amount = 4_000_000_000;
-        let mut tx = TransactionState::<T>::new(amount + 10, amount, &mut rng);
-        tx.add_transaction();
-        let leg_id = TransactionLegId(0);
-
-        let proof = tx.sender_proof(&mut rng);
-    }: affirm_transaction(tx.issuer.origin(), tx.id, leg_id, proof)
 }
