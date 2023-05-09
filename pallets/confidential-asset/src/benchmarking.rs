@@ -471,23 +471,11 @@ benchmarks! {
         let mut rng = StdRng::from_seed([10u8; 32]);
 
         // Setup for transaction.
-        let amount = 10_000_000;
+        let amount = 4_000_000_000;
         let mut tx = TransactionState::<T>::new(amount + 10, amount, &mut rng);
         tx.add_transaction();
         let leg_id = TransactionLegId(0);
 
         let proof = tx.sender_proof(&mut rng);
     }: affirm_transaction(tx.issuer.origin(), tx.id, leg_id, proof)
-
-    //sender_affirm_transaction_large_amount1 {
-    //    let mut rng = StdRng::from_seed([10u8; 32]);
-
-    //    // Setup for transaction.
-    //    let amount = 100_000_000;
-    //    let mut tx = TransactionState::<T>::new(amount + 10, amount, &mut rng);
-    //    tx.add_transaction();
-    //    let leg_id = TransactionLegId(0);
-
-    //    let proof = tx.sender_proof(&mut rng);
-    //}: affirm_transaction(tx.issuer.origin(), tx.id, leg_id, proof)
 }
