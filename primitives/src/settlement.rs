@@ -386,24 +386,32 @@ impl TransferData {
 
 /// Stores information about an Instruction.
 pub struct InstructionInfo {
-    /// Unique counter parties involved in the instruction.
-    parties: BTreeSet<PortfolioId>,
-    /// The number of fungible and non fungible transfers in the instruction.
+    /// The number of fungible, non fungible and off-chain transfers in the instruction.
     transfer_data: TransferData,
+    /// All portfolios that still need to affirm the instruction.
+    portfolios_pending_approval: BTreeSet<PortfolioId>,
 }
 
 impl InstructionInfo {
     /// Creates an instance of `InstructionInfo`.
-    pub fn new(parties: BTreeSet<PortfolioId>, transfer_data: TransferData) -> Self {
+    pub fn new(
+        transfer_data: TransferData,
+        portfolios_pending_approval: BTreeSet<PortfolioId>,
+    ) -> Self {
         Self {
-            parties,
             transfer_data,
+            portfolios_pending_approval,
         }
     }
 
-    /// Returns a slice of all unique parties in the instruction.
-    pub fn parties(&self) -> &BTreeSet<PortfolioId> {
-        &self.parties
+    /// Returns a slice of all portfolios that still have to affirm the instruction.
+    pub fn portfolios_pending_approval(&self) -> &BTreeSet<PortfolioId> {
+        &self.portfolios_pending_approval
+    }
+
+    /// Returns the number of portfolios that still have to affirm the instruction.
+    pub fn number_of_pending_affirmations(&self) -> usize {
+        self.portfolios_pending_approval.len()
     }
 
     /// Returns the number of fungible transfers.

@@ -943,4 +943,12 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Module<T> {
         PortfolioLockedNFT::remove(portfolio_id, (ticker, nft_id));
         Ok(())
     }
+
+    /// Returns `true` if the portfolio has pre-approved the receivement of `ticker`.
+    fn skip_portfolio_affirmation(portfolio_id: &PortfolioId, ticker: &Ticker) -> bool {
+        if PreApprovedTicker::get(portfolio_id.did, ticker) {
+            return true;
+        }
+        PreApprovedPortfolios::get(portfolio_id, ticker)
+    }
 }

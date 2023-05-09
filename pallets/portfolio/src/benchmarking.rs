@@ -15,16 +15,15 @@
 
 use core::convert::TryInto;
 use frame_benchmarking::benchmarks;
-use polymesh_common_utilities::{
-    asset::Config as AssetConfig,
-    benchs::{make_asset, user, AccountIdOf, User, UserBuilder},
-    constants::currency::ONE_UNIT,
-    TestUtilsFn,
-};
-use polymesh_primitives::{AuthorizationData, NFTs, PortfolioName, Signatory};
 use scale_info::prelude::format;
 use sp_api_hidden_includes_decl_storage::hidden_include::traits::Get;
 use sp_std::prelude::*;
+
+use polymesh_common_utilities::asset::Config as AssetConfig;
+use polymesh_common_utilities::benchs::{make_asset, user, AccountIdOf, User, UserBuilder};
+use polymesh_common_utilities::constants::currency::ONE_UNIT;
+use polymesh_common_utilities::TestUtilsFn;
+use polymesh_primitives::{AuthorizationData, NFTs, PortfolioName, Signatory};
 
 use crate::*;
 
@@ -47,7 +46,7 @@ fn owner_portfolio<T: Config + TestUtilsFn<<T as frame_system::Config>::AccountI
 }
 
 fn add_auth<T: Config>(owner: &User<T>, custodian: &User<T>, pid: PortfolioId) -> u64 {
-    identity::Module::<T>::add_auth(
+    pallet_identity::Module::<T>::add_auth(
         owner.did(),
         Signatory::from(custodian.did()),
         AuthorizationData::PortfolioCustody(pid),
