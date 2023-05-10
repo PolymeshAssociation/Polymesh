@@ -186,4 +186,32 @@ benchmarks! {
             assert_eq!(PortfolioNFT::get(&alice_custom_portfolio, (&nft_ticker, NFTId(i as u64))), true);
         }
     }
+
+    pre_approve_ticker {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+    }: _(alice.origin, ticker)
+
+    remove_ticker_pre_approval {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        Module::<T>::pre_approve_ticker(alice.clone().origin().into(), ticker).unwrap();
+    }: _(alice.origin, ticker)
+
+    pre_approve_portfolio {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let alice_custom_portfolio = PortfolioId { did: alice.did(), kind: PortfolioKind::User(PortfolioNumber(1)) };
+
+        Module::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
+    }: _(alice.origin, ticker, alice_custom_portfolio)
+
+    remove_portfolio_pre_approval {
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let alice_custom_portfolio = PortfolioId { did: alice.did(), kind: PortfolioKind::User(PortfolioNumber(1)) };
+
+        Module::<T>::create_portfolio(alice.clone().origin().into(), PortfolioName(b"MyOwnPortfolio".to_vec())).unwrap();
+        Module::<T>::pre_approve_portfolio(alice.clone().origin().into(), ticker, alice_custom_portfolio).unwrap();
+    }: _(alice.origin, ticker, alice_custom_portfolio)
 }
