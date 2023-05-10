@@ -117,9 +117,9 @@ use mercat::{
     asset::AssetValidator,
     confidential_identity_core::asset_proofs::Balance as MercatBalance,
     transaction::{verify_initialized_transaction, TransactionValidator},
-    AccountCreatorVerifier, AssetTransactionVerifier, EncryptedAmount, EncryptedAmountWithHint,
-    EncryptionPubKey, FinalizedTransferTx, InitializedAssetTx, InitializedTransferTx,
-    JustifiedTransferTx, PubAccount, PubAccountTx, TransferTransactionVerifier,
+    AccountCreatorVerifier, AssetTransactionVerifier, EncryptedAmount, EncryptionPubKey,
+    FinalizedTransferTx, InitializedAssetTx, InitializedTransferTx, JustifiedTransferTx,
+    PubAccount, PubAccountTx, TransferTransactionVerifier,
 };
 use pallet_base::try_next_post;
 use pallet_identity as identity;
@@ -236,7 +236,6 @@ macro_rules! impl_wrapper {
 
 impl_wrapper!(EncryptionPubKeyWrapper, EncryptionPubKey);
 impl_wrapper!(EncryptedAmountWrapper, EncryptedAmount);
-impl_wrapper!(EncryptedAmountWithHintWrapper, EncryptedAmountWithHint);
 
 impl_wrapper!(PubAccountTxWrapper, PubAccountTx);
 impl_wrapper!(InitializedAssetTxWrapper, InitializedAssetTx);
@@ -275,6 +274,9 @@ pub trait Config:
     type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
     /// Randomness source.
     type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
+
+    /// Confidential asset pallet weights.
+    type WeightInfo: WeightInfo;
 }
 
 /// A mercat account consists of the public key that is used for encryption purposes.
@@ -486,7 +488,7 @@ decl_module! {
         /// # Errors
         /// * `InvalidAccountCreationProof` if the provided proofs fail to verify.
         /// * `BadOrigin` if `origin` isn't signed.
-        #[weight = 1_000_000_000]
+        #[weight = <T as Config>::WeightInfo::validate_mercat_account()]
         pub fn validate_mercat_account(origin,
             ticker: Ticker,
             tx: PubAccountTxWrapper,
@@ -537,7 +539,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `BadOrigin` if `origin` isn't signed.
-        #[weight = 1_000_000_000]
+        #[weight = <T as Config>::WeightInfo::add_mediator_mercat_account()]
         pub fn add_mediator_mercat_account(origin,
             public_key: EncryptionPubKeyWrapper,
         ) -> DispatchResult {
@@ -570,10 +572,7 @@ decl_module! {
         /// - `InvalidTotalSupply` if not `divisible` but `total_supply` is not a multiply of unit.
         /// - `TotalSupplyAboveLimit` if `total_supply` exceeds the limit.
         /// - `BadOrigin` if not signed.
-        ///
-        /// # Weight
-        /// `3_000_000_000 + 20_000`
-        #[weight = 3_000_000_000 + 20_000]
+        #[weight = <T as Config>::WeightInfo::create_confidential_asset()]
         pub fn create_confidential_asset(
             origin,
             _name: AssetName,
@@ -627,10 +626,7 @@ decl_module! {
         /// - `TotalSupplyAboveBalanceLimit` if `total_supply` exceeds the mercat balance limit. This is imposed by the MERCAT lib.
         /// - `UnknownConfidentialAsset` The ticker is not part of the set of confidential assets.
         /// - `InvalidAccountMintProof` if the proofs of ticker name and total supply are incorrect.
-        ///
-        /// # Weight
-        /// `3_000_000_000`
-        #[weight = 3_000_000_000]
+        #[weight = <T as Config>::WeightInfo::mint_confidential_asset()]
         pub fn mint_confidential_asset(
             origin,
             ticker: Ticker,
@@ -711,10 +707,7 @@ decl_module! {
         ///
         /// # Errors
         /// - `BadOrigin` if not signed.
-        ///
-        /// # Weight
-        /// `3_000_000_000`
-        #[weight = 3_000_000_000]
+        #[weight = <T as Config>::WeightInfo::reset_ordering_state()]
         pub fn reset_ordering_state(
             origin,
             account: MercatAccount,
@@ -738,7 +731,7 @@ decl_module! {
 
         /// Adds a new transaction.
         ///
-        #[weight = 3_000_000_000]
+        #[weight = <T as Config>::WeightInfo::add_transaction()]
         pub fn add_transaction(
             origin,
             venue_id: VenueId,
@@ -749,7 +742,7 @@ decl_module! {
         }
 
         /// Affirm a transaction.
-        #[weight = 3_000_000_000]
+        #[weight = <T as Config>::WeightInfo::sender_affirm_transaction()]
         pub fn affirm_transaction(
             origin,
             transaction_id: TransactionId,
@@ -761,7 +754,7 @@ decl_module! {
         }
 
         /// Execute transaction.
-        #[weight = 3_000_000_000]
+        #[weight = <T as Config>::WeightInfo::execute_transaction()]
         pub fn execute_transaction(
             origin,
             transaction_id: TransactionId,

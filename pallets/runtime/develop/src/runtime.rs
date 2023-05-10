@@ -320,6 +320,7 @@ impl TestUtilsFn<AccountId> for Runtime {
 impl pallet_confidential_asset::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
+    type WeightInfo = polymesh_weights::pallet_confidential_asset::SubstrateWeight;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
