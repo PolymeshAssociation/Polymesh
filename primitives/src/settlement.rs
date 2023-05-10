@@ -390,6 +390,8 @@ pub struct InstructionInfo {
     transfer_data: TransferData,
     /// All portfolios that still need to affirm the instruction.
     portfolios_pending_approval: BTreeSet<PortfolioId>,
+    /// All portfolios that have pre-approved the transfer of a ticker.
+    portfolios_pre_approved: BTreeSet<PortfolioId>,
 }
 
 impl InstructionInfo {
@@ -397,16 +399,25 @@ impl InstructionInfo {
     pub fn new(
         transfer_data: TransferData,
         portfolios_pending_approval: BTreeSet<PortfolioId>,
+        portfolios_pre_approved: BTreeSet<PortfolioId>,
     ) -> Self {
         Self {
             transfer_data,
             portfolios_pending_approval,
+            portfolios_pre_approved,
         }
     }
 
     /// Returns a slice of all portfolios that still have to affirm the instruction.
     pub fn portfolios_pending_approval(&self) -> &BTreeSet<PortfolioId> {
         &self.portfolios_pending_approval
+    }
+
+    /// Returns a `BTreeSet<&PortfolioId>` of all portfolios that are in `portfolios_pre_approved`, but not in `portfolios_pending_approval`.
+    pub fn portfolios_pre_approved_difference(&self) -> BTreeSet<&PortfolioId> {
+        self.portfolios_pre_approved
+            .difference(&self.portfolios_pending_approval)
+            .collect()
     }
 
     /// Returns the number of portfolios that still have to affirm the instruction.

@@ -250,12 +250,12 @@ decl_storage! {
         InstructionLegStatus get(fn instruction_leg_status):
             double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) LegId => LegStatus<T::AccountId>;
         /// Number of affirmations pending before instruction is executed. instruction_id -> affirm_pending
-        InstructionAffirmsPending get(fn instruction_affirms_pending): map hasher(twox_64_concat) InstructionId => u64;
+        pub InstructionAffirmsPending get(fn instruction_affirms_pending): map hasher(twox_64_concat) InstructionId => u64;
         /// Tracks affirmations received for an instruction. (instruction_id, counter_party) -> AffirmationStatus
-        AffirmsReceived get(fn affirms_received): double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) PortfolioId => AffirmationStatus;
+        pub AffirmsReceived get(fn affirms_received): double_map hasher(twox_64_concat) InstructionId, hasher(twox_64_concat) PortfolioId => AffirmationStatus;
         /// Helps a user track their pending instructions and affirmations (only needed for UI).
         /// (counter_party, instruction_id) -> AffirmationStatus
-        UserAffirmations get(fn user_affirmations):
+        pub UserAffirmations get(fn user_affirmations):
             double_map hasher(twox_64_concat) PortfolioId, hasher(twox_64_concat) InstructionId => AffirmationStatus;
         /// Tracks redemption of receipts. (signer, receipt_uid) -> receipt_used
         ReceiptsUsed get(fn receipts_used): double_map hasher(twox_64_concat) T::AccountId, hasher(blake2_128_concat) u64 => bool;
@@ -271,7 +271,7 @@ decl_storage! {
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
         /// Instruction memo
-        InstructionMemos get(fn memo): map hasher(twox_64_concat) InstructionId => Option<InstructionMemo>;
+        pub InstructionMemos get(fn memo): map hasher(twox_64_concat) InstructionId => Option<InstructionMemo>;
         /// Instruction statuses. instruction_id -> InstructionStatus
         InstructionStatuses get(fn instruction_status):
             map hasher(twox_64_concat) InstructionId => InstructionStatus<T::BlockNumber>;
@@ -862,6 +862,10 @@ impl<T: Config> Module<T> {
         for portfolio_id in instruction_info.portfolios_pending_approval() {
             UserAffirmations::insert(portfolio_id, instruction_id, AffirmationStatus::Pending);
         }
+        for portfolio_id in instruction_info.portfolios_pre_approved_difference() {
+            UserAffirmations::insert(portfolio_id, instruction_id, AffirmationStatus::Affirmed);
+            AffirmsReceived::insert(instruction_id, portfolio_id, AffirmationStatus::Affirmed);
+        }
         InstructionAffirmsPending::insert(
             instruction_id,
             instruction_info.number_of_pending_affirmations() as u64,
@@ -918,6 +922,8 @@ impl<T: Config> Module<T> {
         let mut instruction_data = TransferData::default();
         // Tracks all portfolios that have not been pre-affirmed
         let mut portfolios_pending_approval = BTreeSet::new();
+        // Tracks all portfolios that have pre-approved the transfer.
+        let mut portfolios_pre_approved = BTreeSet::new();
         // Tracks all tickers that have been checked for filtering
         let mut tickers = BTreeSet::new();
 
@@ -925,17 +931,21 @@ impl<T: Config> Module<T> {
         for leg in legs {
             let ticker =
                 Self::ensure_valid_leg(leg, venue_id, &mut tickers, &mut instruction_data)?;
-            if !T::Portfolio::skip_portfolio_affirmation(&leg.to, &ticker) {
+
+            portfolios_pending_approval.insert(leg.from);
+            if T::Portfolio::skip_portfolio_affirmation(&leg.to, &ticker) {
+                portfolios_pre_approved.insert(leg.to);
+            } else {
                 portfolios_pending_approval.insert(leg.to);
             }
-            portfolios_pending_approval.insert(leg.from);
         }
-        // The maximum number of each asset type in one instruction are checked here
+        // The maximum number of each asset type in one instruction is checked here
         Self::ensure_within_instruction_max(&instruction_data)?;
 
         Ok(InstructionInfo::new(
             instruction_data,
             portfolios_pending_approval,
+            portfolios_pre_approved,
         ))
     }
 
