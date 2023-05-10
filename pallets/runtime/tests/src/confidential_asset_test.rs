@@ -12,9 +12,9 @@ use mercat::{
         asset_proofs::ElgamalSecretKey, curve25519_dalek::scalar::Scalar,
     },
     transaction::{CtxMediator, CtxReceiver, CtxSender},
-    Account, AccountCreatorInitializer, AssetTransactionIssuer, EncryptedAmount, EncryptionKeys,
-    PubAccount, PubAccountTx, SecAccount, TransferTransactionMediator, TransferTransactionReceiver,
-    TransferTransactionSender,
+    Account, AccountCreatorInitializer, AmountSource, AssetTransactionIssuer, EncryptedAmount,
+    EncryptionKeys, PubAccount, PubAccountTx, SecAccount, TransferTransactionMediator,
+    TransferTransactionReceiver, TransferTransactionSender,
 };
 use pallet_confidential_asset::{
     ConfidentialAssetDetails, InitializedAssetTxWrapper, MercatAccount, PubAccountTxWrapper,
@@ -485,7 +485,7 @@ fn basic_confidential_settlement() {
                     &alice_encrypted_init_balance,
                     alice_init_balance,
                     &bob_public_account,
-                    &charlie_public_account.owner_enc_pub_key,
+                    Some(&charlie_public_account.owner_enc_pub_key),
                     &[],
                     amount,
                     &mut rng,
@@ -561,7 +561,7 @@ fn basic_confidential_settlement() {
                     .justify_transaction(
                         &init_tx,
                         &finalized_tx,
-                        &charlie_secret_account.enc_keys,
+                        AmountSource::Encrypted(&charlie_secret_account.enc_keys),
                         &alice_public_account,
                         &alice_encrypted_init_balance,
                         &bob_public_account,

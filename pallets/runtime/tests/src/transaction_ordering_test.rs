@@ -6,7 +6,7 @@ use frame_support::assert_ok;
 
 use mercat::{
     transaction::{CtxMediator, CtxReceiver, CtxSender},
-    Account, EncryptedAmount, PubAccount, SecAccount, TransferTransactionMediator,
+    Account, AmountSource, EncryptedAmount, PubAccount, SecAccount, TransferTransactionMediator,
     TransferTransactionReceiver, TransferTransactionSender,
 };
 use pallet_confidential_asset::{
@@ -88,7 +88,7 @@ fn initialize_transaction(
             &sender_pending_enc_balance,
             sender_pending_balance,
             &receiver_creds.public_account,
-            &mediator_creds.mediator_public_account.owner_enc_pub_key,
+            Some(&mediator_creds.mediator_public_account.owner_enc_pub_key),
             &[],
             amount,
             &mut rng,
@@ -201,7 +201,7 @@ fn finalize_transaction(
     let result = CtxMediator.justify_transaction(
         &init_tx,
         &finalized_tx,
-        &mediator_secret_account.enc_keys,
+        AmountSource::Encrypted(&mediator_secret_account.enc_keys),
         &sender_creds.public_account,
         &sender_pending_balance,
         &receiver_creds.public_account,

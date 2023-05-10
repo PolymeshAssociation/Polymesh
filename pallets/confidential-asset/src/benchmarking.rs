@@ -291,7 +291,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> TransactionState<T> {
                 &issuer_enc_balance,
                 self.issuer_balance,
                 &investor_pub_account,
-                &self.mediator.pub_key(),
+                Some(&self.mediator.pub_key()),
                 &[],
                 self.amount,
                 rng,
