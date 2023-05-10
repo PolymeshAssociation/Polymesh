@@ -5,6 +5,7 @@ use super::{
 use frame_support::assert_ok;
 
 use mercat::{
+    confidential_identity_core::asset_proofs::Balance as MercatBalance,
     transaction::{CtxMediator, CtxReceiver, CtxSender},
     Account, AmountSource, EncryptedAmount, PubAccount, SecAccount, TransferTransactionMediator,
     TransferTransactionReceiver, TransferTransactionSender,
@@ -42,7 +43,7 @@ fn initialize_transaction(
     receiver_secret_account: SecAccount,
     receiver_creds: AccountCredentials,
     mediator_creds: MediatorCredentials,
-    amount: u32,
+    amount: MercatBalance,
     validation_failure_expected: bool,
 ) -> Option<(TransactionId, EncryptedAmount, EncryptedAmount)> {
     // The rest of rngs are built from it.
@@ -155,7 +156,7 @@ fn initialize_transaction(
     ))
 }
 
-fn decrypt_balance(secret_account: &SecAccount, balance: &EncryptedAmount) -> u32 {
+fn decrypt_balance(secret_account: &SecAccount, balance: &EncryptedAmount) -> MercatBalance {
     secret_account.enc_keys.secret.decrypt(balance).unwrap()
 }
 

@@ -9,7 +9,8 @@ use mercat::{
     account::AccountCreator,
     asset::AssetIssuer,
     confidential_identity_core::{
-        asset_proofs::ElgamalSecretKey, curve25519_dalek::scalar::Scalar,
+        asset_proofs::{Balance as MercatBalance, ElgamalSecretKey},
+        curve25519_dalek::scalar::Scalar,
     },
     transaction::{CtxMediator, CtxReceiver, CtxSender},
     Account, AccountCreatorInitializer, AmountSource, AssetTransactionIssuer, EncryptedAmount,
@@ -130,7 +131,7 @@ pub fn create_account_and_mint_token(
     ));
 
     // ------------- Computations that will happen in owner's Wallet ----------
-    let amount: u32 = token.total_supply.try_into().unwrap(); // mercat amounts are 32 bit integers.
+    let amount: MercatBalance = token.total_supply.try_into().unwrap(); // mercat amounts are 32 bit integers.
     let issuer_account = Account {
         secret: secret_account.clone(),
         public: mercat_account_tx.pub_account.clone(),
@@ -310,7 +311,7 @@ fn issuers_can_create_and_mint_tokens() {
         let account: MercatAccount = pub_account.clone().into();
 
         // ------------- START: Computations that will happen in Alice's Wallet ----------
-        let amount: u32 = token.total_supply.try_into().unwrap(); // mercat amounts are 32 bit integers.
+        let amount: MercatBalance = token.total_supply.try_into().unwrap(); // mercat amounts are 32 bit integers.
         let issuer_account = Account {
             secret: secret_account.clone(),
             public: pub_account,
@@ -462,7 +463,7 @@ fn basic_confidential_settlement() {
             ));
 
             // -------------------------- Perform the transfer
-            let amount = 100u32; // This plain format is only used on functions that emulate the work of the wallet.
+            let amount = 100 as MercatBalance; // This plain format is only used on functions that emulate the work of the wallet.
 
             println!("-------------> Checking if alice has enough funds.");
             // Ensure that Alice has minted enough tokens.

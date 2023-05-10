@@ -115,6 +115,7 @@ use frame_system::ensure_signed;
 use mercat::{
     account::AccountValidator,
     asset::AssetValidator,
+    confidential_identity_core::asset_proofs::Balance as MercatBalance,
     transaction::{verify_initialized_transaction, TransactionValidator},
     AccountCreatorVerifier, AssetTransactionVerifier, EncryptedAmount, EncryptedAmountWithHint,
     EncryptionPubKey, FinalizedTransferTx, InitializedAssetTx, InitializedTransferTx,
@@ -623,7 +624,7 @@ decl_module! {
         /// - `CanSetTotalSupplyOnlyOnce` if this function is called more than once.
         /// - `TotalSupplyMustBePositive` if total supply is zero.
         /// - `InvalidTotalSupply` if `total_supply` is not a multiply of unit.
-        /// - `TotalSupplyAboveU32Limit` if `total_supply` exceeds the u32 limit. This is imposed by the MERCAT lib.
+        /// - `TotalSupplyAboveBalanceLimit` if `total_supply` exceeds the mercat balance limit. This is imposed by the MERCAT lib.
         /// - `UnknownConfidentialAsset` The ticker is not part of the set of confidential assets.
         /// - `InvalidAccountMintProof` if the proofs of ticker name and total supply are incorrect.
         ///
@@ -664,11 +665,11 @@ decl_module! {
                 Error::<T>::UnknownConfidentialAsset
             );
 
-            // At the moment, mercat lib imposes that balances can be at most u32 integers.
-            let max_balance_mercat = u32::MAX.saturated_into::<Balance>();
+            // At the moment, mercat lib imposes that balances can be at most 32/64 bits.
+            let max_balance_mercat = MercatBalance::MAX.saturated_into::<Balance>();
             ensure!(
                 total_supply <= max_balance_mercat,
-                Error::<T>::TotalSupplyAboveU32Limit
+                Error::<T>::TotalSupplyAboveBalanceLimit
             );
 
             let account: MercatAccount = asset_mint_proof.account.clone().into();
@@ -678,7 +679,7 @@ decl_module! {
 
             let new_encrypted_balance = AssetValidator
                                         .verify_asset_transaction(
-                                            total_supply.saturated_into::<u32>(),
+                                            total_supply.saturated_into::<MercatBalance>(),
                                             &asset_mint_proof,
                                             &asset_mint_proof.account,
                                             &old_balance.into(),
@@ -1200,8 +1201,8 @@ decl_error! {
         /// The provided total supply of a confidential asset is invalid.
         InvalidTotalSupply,
 
-        /// The balance values does not fit `u32`.
-        TotalSupplyAboveU32Limit,
+        /// The balance values does not fit a mercat balance.
+        TotalSupplyAboveBalanceLimit,
 
         /// The user is not authorized.
         Unauthorized,

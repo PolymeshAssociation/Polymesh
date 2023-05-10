@@ -24,7 +24,8 @@ use mercat::{
     account::AccountCreator,
     asset::AssetIssuer,
     confidential_identity_core::{
-        asset_proofs::ElgamalSecretKey, curve25519_dalek::scalar::Scalar,
+        asset_proofs::{Balance as MercatBalance, ElgamalSecretKey},
+        curve25519_dalek::scalar::Scalar,
     },
     transaction::CtxSender,
     Account, AccountCreatorInitializer, AssetTransactionIssuer, EncryptedAmount, EncryptionKeys,
@@ -120,7 +121,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> MercatUser<T> {
     }
 
     /// Create asset mint proof.
-    pub fn mint_tx(&self, amount: u32, rng: &mut StdRng) -> InitializedAssetTxWrapper {
+    pub fn mint_tx(&self, amount: MercatBalance, rng: &mut StdRng) -> InitializedAssetTxWrapper {
         let issuer_account = Account {
             secret: self.sec.clone(),
             public: self.pub_account(),
@@ -146,7 +147,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> MercatUser<T> {
         *Module::<T>::mercat_account_balance(self.mercat(), ticker)
     }
 
-    pub fn ensure_mercat_balance(&self, ticker: Ticker, balance: u32) {
+    pub fn ensure_mercat_balance(&self, ticker: Ticker, balance: MercatBalance) {
         let enc_balance = self.mercat_enc_balance(ticker);
         self.sec
             .enc_keys
@@ -169,7 +170,7 @@ pub fn create_account_and_mint_token<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     total_supply: u128,
     token_name: &[u8],
     rng: &mut StdRng,
-) -> (Ticker, MercatUser<T>, u32) {
+) -> (Ticker, MercatUser<T>, MercatBalance) {
     let owner = MercatUser::new(name, rng);
     let token = ConfidentialAssetDetails {
         total_supply,
@@ -191,7 +192,7 @@ pub fn create_account_and_mint_token<T: Config + TestUtilsFn<AccountIdOf<T>>>(
     owner.init_account(ticker, rng);
 
     // ------------- Computations that will happen in owner's Wallet ----------
-    let amount: u32 = token.total_supply.try_into().unwrap(); // mercat amounts are 32 bit integers.
+    let amount: MercatBalance = token.total_supply.try_into().unwrap(); // mercat amounts are 32 bit integers.
     let mint_tx = owner.mint_tx(amount, rng);
 
     // Wallet submits the transaction to the chain for verification.
@@ -219,8 +220,8 @@ pub fn create_account_and_mint_token<T: Config + TestUtilsFn<AccountIdOf<T>>>(
 #[derive(Clone)]
 pub struct TransactionState<T: Config + TestUtilsFn<AccountIdOf<T>>> {
     pub ticker: Ticker,
-    pub amount: u32,
-    pub issuer_balance: u32,
+    pub amount: MercatBalance,
+    pub issuer_balance: MercatBalance,
     pub issuer: MercatUser<T>,
     pub investor: MercatUser<T>,
     pub mediator: MercatUser<T>,
@@ -232,7 +233,7 @@ pub struct TransactionState<T: Config + TestUtilsFn<AccountIdOf<T>>> {
 impl<T: Config + TestUtilsFn<AccountIdOf<T>>> TransactionState<T> {
     /// Create 3 mercat accounts (issuer, investor, mediator), create asset, mint.
     pub fn new(rng: &mut StdRng) -> Self {
-        let amount = 4_000_000_000u32;
+        let amount = 4_000_000_000 as MercatBalance;
         let total_supply = amount + 10;
         // Setup confidential asset.
         let (ticker, issuer, issuer_balance) =
@@ -381,7 +382,7 @@ benchmarks! {
         );
         issuer.init_account(ticker, &mut rng);
 
-        let total_supply = 4_000_000_000u32;
+        let total_supply = 4_000_000_000 as MercatBalance;
         let mint_tx = issuer.mint_tx(total_supply, &mut rng);
     }: _(issuer.origin(), ticker, total_supply.into(), mint_tx)
 
