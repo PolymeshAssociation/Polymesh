@@ -913,7 +913,8 @@ impl<T: Config> Module<T> {
         Ok(instruction_id)
     }
 
-    /// Returns `InstructionInfo` if all legs are valid, otherwise returns an error.
+    /// Returns [`InstructionInfo`] if all legs are valid, otherwise returns an error.
+    /// See also: [`Module::ensure_valid_fungible_leg`], [`Module::ensure_valid_nft_leg`] and [`Module::ensure_valid_off_chain_leg`].
     fn ensure_valid_legs(
         legs: &[Leg],
         venue_id: &VenueId,
@@ -1719,7 +1720,8 @@ impl<T: Config> Module<T> {
         PostDispatchInfo::from(Some(weight_meter.consumed()))
     }
 
-    /// Returns the `ticker` if the leg is valid, otherwise returns an error.
+    /// Returns [`Ticker`] if the leg is valid, otherwise returns an error.
+    /// See also: [`Module::ensure_valid_fungible_leg`], [`Module::ensure_valid_nft_leg`] and [`Module::ensure_valid_off_chain_leg`].
     fn ensure_valid_leg(
         leg: &Leg,
         venue_id: &VenueId,

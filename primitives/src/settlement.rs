@@ -283,7 +283,7 @@ pub struct ReceiptDetails<AccountId, OffChainSignature> {
     pub metadata: ReceiptMetadata,
 }
 
-/// Stores the number of fungible and non fungible transfers in a set of legs.
+/// Stores the number of fungible, non fungible and offchain transfers in a set of legs.
 #[derive(Default)]
 pub struct TransferData {
     fungible: u32,
@@ -292,7 +292,7 @@ pub struct TransferData {
 }
 
 impl TransferData {
-    /// Creates an instance of `TransfersData`.
+    /// Creates an instance of [`TransfersData`].
     pub fn new(fungible: u32, non_fungible: u32, off_chain: u32) -> Self {
         TransferData {
             fungible,
@@ -384,7 +384,10 @@ impl TransferData {
     }
 }
 
-/// Stores information about an Instruction.
+/**
+Stores [`TransferData`], all portfolio that have pre-affirmed the transfer and all portfolios that
+still have to approve the transfer.
+*/
 pub struct InstructionInfo {
     /// The number of fungible, non fungible and off-chain transfers in the instruction.
     transfer_data: TransferData,
@@ -395,7 +398,7 @@ pub struct InstructionInfo {
 }
 
 impl InstructionInfo {
-    /// Creates an instance of `InstructionInfo`.
+    /// Creates an instance of [`InstructionInfo`].
     pub fn new(
         transfer_data: TransferData,
         portfolios_pending_approval: BTreeSet<PortfolioId>,
@@ -413,7 +416,7 @@ impl InstructionInfo {
         &self.portfolios_pending_approval
     }
 
-    /// Returns a `BTreeSet<&PortfolioId>` of all portfolios that are in `portfolios_pre_approved`, but not in `portfolios_pending_approval`.
+    /// Returns a [`BTreeSet<&PortfolioId>`] of all portfolios that are in `self.portfolios_pre_approved`, but not in `self.portfolios_pending_approval`.
     pub fn portfolios_pre_approved_difference(&self) -> BTreeSet<&PortfolioId> {
         self.portfolios_pre_approved
             .difference(&self.portfolios_pending_approval)
@@ -441,7 +444,10 @@ impl InstructionInfo {
     }
 }
 
-/// Stores relevant information for executing an instruction.
+/**
+Stores the number of fungible, non fungible and offchain assets in an instruction, the consumed weight for executing the instruction, and
+if executing the instruction would fail, the error thrown.
+*/
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Decode, Encode)]
 pub struct ExecuteInstructionInfo {
@@ -458,7 +464,7 @@ pub struct ExecuteInstructionInfo {
 }
 
 impl ExecuteInstructionInfo {
-    /// Creates an instance of `ExecuteInstructionInfo`.
+    /// Creates an instance of [`ExecuteInstructionInfo`].
     pub fn new(
         fungible_tokens: u32,
         non_fungible_tokens: u32,
