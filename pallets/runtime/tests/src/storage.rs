@@ -190,6 +190,7 @@ parameter_types! {
 impl pallet_confidential_asset::Config for TestStorage {
     type RuntimeEvent = RuntimeEvent;
     type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
+    type WeightInfo = polymesh_weights::pallet_confidential_asset::SubstrateWeight;
 }
 
 frame_support::construct_runtime!(
