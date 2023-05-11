@@ -187,17 +187,6 @@ benchmarks! {
         }
     }
 
-    pre_approve_ticker {
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-    }: _(alice.origin, ticker)
-
-    remove_ticker_pre_approval {
-        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
-        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
-        Module::<T>::pre_approve_ticker(alice.clone().origin().into(), ticker).unwrap();
-    }: _(alice.origin, ticker)
-
     pre_approve_portfolio {
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());

@@ -384,10 +384,8 @@ impl TransferData {
     }
 }
 
-/**
-Stores [`TransferData`], all portfolio that have pre-affirmed the transfer and all portfolios that
-still have to approve the transfer.
-*/
+/// Stores [`TransferData`], all portfolio that have pre-affirmed the transfer and all portfolios that
+/// still have to approve the transfer.
 pub struct InstructionInfo {
     /// The number of fungible, non fungible and off-chain transfers in the instruction.
     transfer_data: TransferData,
@@ -444,10 +442,8 @@ impl InstructionInfo {
     }
 }
 
-/**
-Stores the number of fungible, non fungible and offchain assets in an instruction, the consumed weight for executing the instruction, and
-if executing the instruction would fail, the error thrown.
-*/
+/// Stores the number of fungible, non fungible and offchain assets in an instruction, the consumed weight for executing the instruction,
+/// and if executing the instruction would fail, the error thrown.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Decode, Encode)]
 pub struct ExecuteInstructionInfo {

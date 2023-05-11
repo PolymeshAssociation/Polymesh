@@ -3124,8 +3124,8 @@ fn add_instruction_with_pre_affirmed_tickers() {
         Portfolio::create_portfolio(bob.origin(), b"BobUserPortfolio".into()).unwrap();
 
         // Both users have pre-affirmed the ticker
-        Portfolio::pre_approve_ticker(alice.origin(), TICKER).unwrap();
-        Portfolio::pre_approve_ticker(bob.origin(), TICKER).unwrap();
+        Asset::pre_approve_ticker(alice.origin(), TICKER).unwrap();
+        Asset::pre_approve_ticker(bob.origin(), TICKER).unwrap();
 
         let legs: Vec<Leg> = vec![
             Leg {
@@ -3248,9 +3248,9 @@ fn add_instruction_with_single_pre_affirmed() {
         create_token(TICKER2, alice);
 
         // Bob has pre-affirmed TICKER but not TICKER2
-        Portfolio::pre_approve_ticker(bob.origin(), TICKER).unwrap();
-        Portfolio::pre_approve_ticker(alice.origin(), TICKER).unwrap();
-        Portfolio::pre_approve_ticker(alice.origin(), TICKER2).unwrap();
+        Asset::pre_approve_ticker(bob.origin(), TICKER).unwrap();
+        Asset::pre_approve_ticker(alice.origin(), TICKER).unwrap();
+        Asset::pre_approve_ticker(alice.origin(), TICKER2).unwrap();
 
         let legs: Vec<Leg> = vec![
             Leg {

@@ -491,4 +491,16 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(18))
             .saturating_add(DbWeight::get().writes(9))
     }
+    fn exempt_ticker_affirmation() -> Weight {
+        unimplemented!();
+    }
+    fn remove_ticker_affirmation_exemption() -> Weight {
+        unimplemented!();
+    }
+    fn pre_approve_ticker() -> Weight {
+        unimplemented!();
+    }
+    fn remove_ticker_pre_approval() -> Weight {
+        unimplemented!();
+    }
 }

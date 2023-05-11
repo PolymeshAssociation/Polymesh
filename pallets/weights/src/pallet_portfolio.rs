@@ -147,12 +147,6 @@ impl pallet_portfolio::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((2 as u64).saturating_mul(f as u64)))
             .saturating_add(DbWeight::get().writes((2 as u64).saturating_mul(n as u64)))
     }
-    fn pre_approve_ticker() -> Weight {
-        unimplemented!();
-    }
-    fn remove_ticker_pre_approval() -> Weight {
-        unimplemented!();
-    }
     fn pre_approve_portfolio() -> Weight {
         unimplemented!();
     }

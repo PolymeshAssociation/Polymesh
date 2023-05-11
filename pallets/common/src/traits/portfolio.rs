@@ -83,7 +83,7 @@ pub trait PortfolioSubTrait<AccountId> {
     /// * `nft_id` - the id of the nft to be unlocked.
     fn unlock_nft(portfolio_id: &PortfolioId, ticker: &Ticker, nft_id: &NFTId) -> DispatchResult;
 
-    /// Returns `true` if the portfolio has pre-approved the receivement of `ticker`.
+    /// Returns `true` if the portfolio has pre-approved the receivement of `ticker`, otherwise returns `false`.
     fn skip_portfolio_affirmation(portfolio_id: &PortfolioId, ticker: &Ticker) -> bool;
 }
 
@@ -96,8 +96,6 @@ pub trait WeightInfo {
     fn accept_portfolio_custody() -> Weight;
     fn pre_approve_portfolio() -> Weight;
     fn remove_portfolio_pre_approval() -> Weight;
-    fn pre_approve_ticker() -> Weight;
-    fn remove_ticker_pre_approval() -> Weight;
     fn move_portfolio_funds_v2(f: u32, u: u32) -> Weight;
     fn move_portfolio_v2(funds: &[Fund]) -> Weight {
         let (f, n) = count_token_moves(funds);

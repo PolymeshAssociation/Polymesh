@@ -130,10 +130,6 @@ decl_storage! {
         pub PortfolioLockedNFT get(fn portfolio_locked_nft):
             double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) (Ticker, NFTId) => bool;
 
-        /// All tickers that don't need an affirmation to be received by an identity.
-        pub PreApprovedTicker get(fn pre_approved_tickers):
-            double_map hasher(identity) IdentityId, hasher(blake2_128_concat) Ticker => bool;
-
         /// All portfolios that don't need to affirm the receivement of a given ticker.
         pub PreApprovedPortfolios get(fn pre_approved_portfolios):
             double_map hasher(twox_64_concat) PortfolioId, hasher(blake2_128_concat) Ticker => bool;
@@ -392,21 +388,29 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = <T as Config>::WeightInfo::pre_approve_ticker()]
-        pub fn pre_approve_ticker(origin, ticker: Ticker) -> DispatchResult {
-            Self::base_pre_approve_ticker(origin, &ticker)
-        }
-
-        #[weight = <T as Config>::WeightInfo::remove_ticker_pre_approval()]
-        pub fn remove_ticker_pre_approval(origin, ticker: Ticker) -> DispatchResult {
-            Self::base_remove_ticker_pre_approval(origin, &ticker)
-        }
-
+        /// Pre-approves the receivement of an asset to a portfolio.
+        ///
+        /// # Arguments
+        /// * `origin` - the secondary key of the sender.
+        /// * `ticker` - the [`Ticker`] that will be exempt from affirmation.
+        /// * `portfolio_id` - the [`PortfolioId`] that can receive `ticker` without affirmation.
+        ///
+        /// # Permissions
+        /// * Portfolio
         #[weight = <T as Config>::WeightInfo::pre_approve_portfolio()]
         pub fn pre_approve_portfolio(origin, ticker: Ticker, portfolio_id: PortfolioId) -> DispatchResult {
             Self::base_pre_approve_portfolio(origin, &ticker, portfolio_id)
         }
 
+        /// Removes the pre approval of an asset to a portfolio.
+        ///
+        /// # Arguments
+        /// * `origin` - the secondary key of the sender.
+        /// * `ticker` - the [`Ticker`] that will be exempt from affirmation.
+        /// * `portfolio_id` - the [`PortfolioId`] that can receive `ticker` without affirmation.
+        ///
+        /// # Permissions
+        /// * Portfolio
         #[weight = <T as Config>::WeightInfo::remove_portfolio_pre_approval()]
         pub fn remove_portfolio_pre_approval(origin, ticker: Ticker, portfolio_id: PortfolioId) -> DispatchResult {
             Self::base_remove_portfolio_pre_approval(origin, &ticker, portfolio_id)
@@ -814,21 +818,6 @@ impl<T: Config> Module<T> {
         }
     }
 
-    fn base_pre_approve_ticker(origin: T::RuntimeOrigin, ticker: &Ticker) -> DispatchResult {
-        let caller_did = Identity::<T>::ensure_perms(origin)?;
-        PreApprovedTicker::insert(&caller_did, ticker, true);
-        Ok(())
-    }
-
-    fn base_remove_ticker_pre_approval(
-        origin: T::RuntimeOrigin,
-        ticker: &Ticker,
-    ) -> DispatchResult {
-        let caller_did = Identity::<T>::ensure_perms(origin)?;
-        PreApprovedTicker::remove(&caller_did, ticker);
-        Ok(())
-    }
-
     fn base_pre_approve_portfolio(
         origin: T::RuntimeOrigin,
         ticker: &Ticker,
@@ -944,9 +933,8 @@ impl<T: Config> PortfolioSubTrait<T::AccountId> for Module<T> {
         Ok(())
     }
 
-    /// Returns `true` if the portfolio has pre-approved the receivement of `ticker`.
     fn skip_portfolio_affirmation(portfolio_id: &PortfolioId, ticker: &Ticker) -> bool {
-        if PreApprovedTicker::get(portfolio_id.did, ticker) {
+        if T::Asset::skip_ticker_affirmation(&portfolio_id.did, ticker) {
             return true;
         }
         PreApprovedPortfolios::get(portfolio_id, ticker)
