@@ -11,7 +11,7 @@ use mercat::{
     TransferTransactionReceiver, TransferTransactionSender,
 };
 use pallet_confidential_asset::{
-    MercatAccount, TransactionId, TransactionLeg, TransactionLegId, TransactionLegProofs, VenueId,
+    AffirmLeg, MercatAccount, TransactionId, TransactionLeg, TransactionLegId, VenueId,
 };
 use polymesh_primitives::Ticker;
 use rand::prelude::*;
@@ -61,6 +61,7 @@ fn initialize_transaction(
 
     // Mediator creates an transaction.
     let transaction_id = ConfidentialAsset::transaction_counter();
+    let leg_id = TransactionLegId(0);
 
     assert_ok!(ConfidentialAsset::add_transaction(
         mediator_creds.user.origin(),
@@ -95,12 +96,11 @@ fn initialize_transaction(
             &mut rng,
         )
         .unwrap();
-    let initialized_tx = TransactionLegProofs::new_sender(sender_tx);
+    let initialized_tx = AffirmLeg::new_sender(leg_id, sender_tx);
     // Sender authorizes the transaction and passes in the proofs.
     let result = ConfidentialAsset::affirm_transaction(
         sender_creds.user.origin(),
         transaction_id,
-        TransactionLegId(0),
         initialized_tx,
     );
 
@@ -113,39 +113,29 @@ fn initialize_transaction(
 
     // Receiver authorizes.
     // Receiver reads the sender's proof from the chain.
-    let tx_data = ConfidentialAsset::transaction_proofs(transaction_id, TransactionLegId(0));
-    let init_tx = match tx_data {
-        TransactionLegProofs {
-            sender: Some(init),
-            receiver: None,
-            mediator: None,
-        } => init,
-        _ => {
-            panic!("Unexpected data type: {tx_data:?}");
-        }
-    };
+    let sender_proof =
+        ConfidentialAsset::sender_proofs(transaction_id, leg_id).expect("Sender proof");
+    let init_tx = sender_proof.0;
     let sender_encrypted_transfer_amount = init_tx.memo.enc_amount_using_sender;
     let receiver_encrypted_transfer_amount = init_tx.memo.enc_amount_using_receiver;
 
     // Receiver computes the proofs in the wallet.
-    let finalized_tx = TransactionLegProofs::new_receiver(
-        CtxReceiver
-            .finalize_transaction(
-                &init_tx,
-                Account {
-                    public: receiver_creds.public_account.clone(),
-                    secret: receiver_secret_account.clone(),
-                },
-                amount,
-            )
-            .unwrap(),
-    );
+    CtxReceiver
+        .finalize_transaction(
+            &init_tx,
+            Account {
+                public: receiver_creds.public_account.clone(),
+                secret: receiver_secret_account.clone(),
+            },
+            amount,
+        )
+        .unwrap();
+    let finalized_tx = AffirmLeg::new_receiver(leg_id);
 
     // Receiver submits the proof to the chain.
     assert_ok!(ConfidentialAsset::affirm_transaction(
         receiver_creds.user.origin(),
         transaction_id,
-        TransactionLegId(0),
         finalized_tx,
     ));
 
@@ -175,20 +165,13 @@ fn finalize_transaction(
 ) {
     // The rest of rngs are built from it.
     let mut rng = StdRng::from_seed([10u8; 32]);
+    let leg_id = TransactionLegId(0);
 
     // Mediator authorizes.
     // Mediator reads the receiver's proofs from the chain (it contains the sender's proofs as well).
-    let tx_data = ConfidentialAsset::transaction_proofs(transaction_id, TransactionLegId(0));
-    let (init_tx, finalized_tx) = match tx_data {
-        TransactionLegProofs {
-            sender: Some(init),
-            receiver: Some(finalized),
-            mediator: None,
-        } => (init, finalized),
-        _ => {
-            panic!("Unexpected data type");
-        }
-    };
+    let sender_proof =
+        ConfidentialAsset::sender_proofs(transaction_id, leg_id).expect("Sender proof");
+    let init_tx = sender_proof.0;
 
     // Mediator verifies the proofs in the wallet.
     // Mediator has access to the ticker name in plaintext.
@@ -201,7 +184,6 @@ fn finalize_transaction(
 
     let result = CtxMediator.justify_transaction(
         &init_tx,
-        &finalized_tx,
         AmountSource::Encrypted(&mediator_secret_account.enc_keys),
         &sender_creds.public_account,
         &sender_pending_balance,
@@ -215,13 +197,12 @@ fn finalize_transaction(
         return;
     }
 
-    let justified_tx = TransactionLegProofs::new_mediator(result.unwrap());
+    let justified_tx = AffirmLeg::new_mediator(leg_id);
 
     // Affirms and process the transaction.
     assert_ok!(ConfidentialAsset::affirm_transaction(
         mediator_creds.user.origin(),
         transaction_id,
-        TransactionLegId(0),
         justified_tx,
     ));
 

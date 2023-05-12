@@ -18,8 +18,8 @@ use mercat::{
     TransferTransactionReceiver, TransferTransactionSender,
 };
 use pallet_confidential_asset::{
-    ConfidentialAssetDetails, InitializedAssetTxWrapper, MercatAccount, PubAccountTxWrapper,
-    TransactionLeg, TransactionLegId, TransactionLegProofs, VenueId,
+    AffirmLeg, ConfidentialAssetDetails, InitializedAssetTxWrapper, MercatAccount,
+    PubAccountTxWrapper, TransactionLeg, TransactionLegId, VenueId,
 };
 use polymesh_primitives::{
     asset::{AssetName, AssetType},
@@ -36,7 +36,6 @@ macro_rules! assert_affirm_confidential_transaction {
         assert_ok!(ConfidentialAsset::affirm_transaction(
             $signer,
             $transaction_id,
-            TransactionLegId(0),
             $data,
         ));
     };
@@ -445,7 +444,8 @@ fn basic_confidential_settlement() {
                                             */
 
             // Mediator creates an transaction
-            let transaction_counter = ConfidentialAsset::transaction_counter();
+            let transaction_id = ConfidentialAsset::transaction_counter();
+            let leg_id = TransactionLegId(0);
 
             //// Provide scope claim to sender and receiver of the transaction.
             //provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], ticker, alice);
@@ -494,95 +494,58 @@ fn basic_confidential_settlement() {
                 .unwrap();
             let alice_encrypted_transfer_amount = sender_tx.memo.enc_amount_using_sender;
             let bob_encrypted_transfer_amount = sender_tx.memo.enc_amount_using_receiver;
-            let initialized_tx = TransactionLegProofs::new_sender(sender_tx);
+            let initialized_tx = AffirmLeg::new_sender(leg_id, sender_tx);
             // Sender authorizes the transaction and passes in the proofs.
-            assert_affirm_confidential_transaction!(
-                alice.origin(),
-                transaction_counter,
-                initialized_tx
-            );
+            assert_affirm_confidential_transaction!(alice.origin(), transaction_id, initialized_tx);
 
             // ------ Receiver authorizes.
             // Receiver reads the sender's proof from the chain.
             println!("-------------> Bob is going to authorize.");
-            let tx_data =
-                ConfidentialAsset::transaction_proofs(transaction_counter, TransactionLegId(0));
-            let init_tx = match tx_data {
-                TransactionLegProofs {
-                    sender: Some(init),
-                    receiver: None,
-                    mediator: None,
-                } => init,
-                _ => {
-                    println!("{:?}", tx_data);
-                    panic!("Unexpected data type");
-                }
-            };
+            let sender_proof =
+                ConfidentialAsset::sender_proofs(transaction_id, TransactionLegId(0))
+                    .expect("Sender proof");
 
             // Receiver computes the proofs in the wallet.
-            let finalized_tx = TransactionLegProofs::new_receiver(
-                CtxReceiver
-                    .finalize_transaction(
-                        &init_tx,
-                        Account {
-                            public: bob_public_account.clone(),
-                            secret: bob_secret_account.clone(),
-                        },
-                        amount,
-                    )
-                    .unwrap(),
-            );
+            CtxReceiver
+                .finalize_transaction(
+                    &sender_proof.0,
+                    Account {
+                        public: bob_public_account.clone(),
+                        secret: bob_secret_account.clone(),
+                    },
+                    amount,
+                )
+                .unwrap();
+            let finalized_tx = AffirmLeg::new_receiver(leg_id);
 
             // Receiver submits the proof to the chain.
-            assert_affirm_confidential_transaction!(
-                bob.origin(),
-                transaction_counter,
-                finalized_tx
-            );
+            assert_affirm_confidential_transaction!(bob.origin(), transaction_id, finalized_tx);
 
             // ------ Mediator authorizes.
             // Mediator reads the receiver's proofs from the chain (it contains the sender's proofs as well).
             println!("-------------> Charlie is going to authorize.");
-            let tx_data =
-                ConfidentialAsset::transaction_proofs(transaction_counter, TransactionLegId(0));
-            let (init_tx, finalized_tx) = match tx_data {
-                TransactionLegProofs {
-                    sender: Some(init),
-                    receiver: Some(finalized),
-                    mediator: None,
-                } => (init, finalized),
-                _ => {
-                    panic!("Unexpected data type");
-                }
-            };
 
             // Mediator verifies the proofs in the wallet.
-            let justified_tx = TransactionLegProofs::new_mediator(
-                CtxMediator
-                    .justify_transaction(
-                        &init_tx,
-                        &finalized_tx,
-                        AmountSource::Encrypted(&charlie_secret_account.enc_keys),
-                        &alice_public_account,
-                        &alice_encrypted_init_balance,
-                        &bob_public_account,
-                        &[],
-                        &mut rng,
-                    )
-                    .unwrap(),
-            );
+            CtxMediator
+                .justify_transaction(
+                    &sender_proof.0,
+                    AmountSource::Encrypted(&charlie_secret_account.enc_keys),
+                    &alice_public_account,
+                    &alice_encrypted_init_balance,
+                    &bob_public_account,
+                    &[],
+                    &mut rng,
+                )
+                .unwrap();
+            let justified_tx = AffirmLeg::new_mediator(leg_id);
 
             println!("-------------> This should trigger the execution");
-            assert_affirm_confidential_transaction!(
-                charlie.origin(),
-                transaction_counter,
-                justified_tx
-            );
+            assert_affirm_confidential_transaction!(charlie.origin(), transaction_id, justified_tx);
 
             // Execute affirmed transaction.
             assert_ok!(ConfidentialAsset::execute_transaction(
                 charlie.origin(),
-                transaction_counter,
+                transaction_id,
                 1,
             ));
 

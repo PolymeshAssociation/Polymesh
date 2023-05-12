@@ -132,10 +132,7 @@ use polymesh_primitives::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Zero, SaturatedConversion};
-use sp_std::{
-    convert::{From, TryFrom},
-    prelude::*,
-};
+use sp_std::{convert::From, prelude::*};
 
 use rand_chacha::ChaCha20Rng as Rng;
 use rand_core::SeedableRng;
@@ -156,6 +153,14 @@ pub trait WeightInfo {
     fn mediator_affirm_transaction() -> Weight;
     fn execute_transaction() -> Weight;
     fn reset_ordering_state() -> Weight;
+
+    fn affirm_transaction(affirm: &AffirmLeg) -> Weight {
+        match affirm.parity {
+            ParityAffirmLeg::SenderProof(_) => Self::sender_affirm_transaction(),
+            ParityAffirmLeg::ReceiverAffirm => Self::receiver_affirm_transaction(),
+            ParityAffirmLeg::MediatorAffirm => Self::mediator_affirm_transaction(),
+        }
+    }
 }
 
 /// Mercat types are uploaded as bytes (hex).
@@ -330,59 +335,44 @@ pub struct TransactionLeg {
     pub mediator: IdentityId,
 }
 
-/// Collect the proofs from the 3 parties (buyer, seller, mediator).
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq)]
-pub struct TransactionLegProofs {
-    /// The sender proof.
-    pub sender: Option<InitializedTransferTxWrapper>,
-    /// The receiver proof.
-    pub receiver: Option<FinalizedTransferTxWrapper>,
-    /// The mediator proof.
-    pub mediator: Option<JustifiedTransferTxWrapper>,
+/// Mercat sender proof.
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq)]
+pub struct SenderProof(pub InitializedTransferTxWrapper);
+
+/// Who is affirming the transaction leg.
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq)]
+pub enum ParityAffirmLeg {
+    SenderProof(InitializedTransferTxWrapper),
+    ReceiverAffirm,
+    MediatorAffirm,
 }
 
-impl TransactionLegProofs {
-    pub fn new_sender(tx: InitializedTransferTx) -> Self {
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq)]
+pub struct AffirmLeg {
+    leg_id: TransactionLegId,
+    parity: ParityAffirmLeg,
+}
+
+impl AffirmLeg {
+    pub fn new_sender(leg_id: TransactionLegId, tx: InitializedTransferTx) -> Self {
         Self {
-            sender: Some(tx.into()),
-            receiver: None,
-            mediator: None,
+            leg_id,
+            parity: ParityAffirmLeg::SenderProof(tx.into()),
         }
     }
 
-    pub fn new_receiver(tx: FinalizedTransferTx) -> Self {
+    pub fn new_receiver(leg_id: TransactionLegId) -> Self {
         Self {
-            sender: None,
-            receiver: Some(tx.into()),
-            mediator: None,
+            leg_id,
+            parity: ParityAffirmLeg::ReceiverAffirm,
         }
     }
 
-    pub fn new_mediator(tx: JustifiedTransferTx) -> Self {
+    pub fn new_mediator(leg_id: TransactionLegId) -> Self {
         Self {
-            sender: None,
-            receiver: None,
-            mediator: Some(tx.into()),
+            leg_id,
+            parity: ParityAffirmLeg::MediatorAffirm,
         }
-    }
-
-    pub fn is_affirmed(&self) -> bool {
-        self.sender.is_some() && self.receiver.is_some() && self.mediator.is_some()
-    }
-
-    pub fn ensure_affirmed<T: Config>(
-        &self,
-    ) -> Result<(&InitializedTransferTx, &FinalizedTransferTx), DispatchError> {
-        ensure!(self.is_affirmed(), Error::<T>::InstructionNotAffirmed);
-        let init_tx = self
-            .sender
-            .as_deref()
-            .ok_or(Error::<T>::InstructionNotAffirmed)?;
-        let finalized_tx = self
-            .receiver
-            .as_deref()
-            .ok_or(Error::<T>::InstructionNotAffirmed)?;
-        Ok((init_tx, finalized_tx))
     }
 }
 
@@ -457,10 +447,17 @@ decl_storage! {
         pub TransactionLegs get(fn transaction_legs):
             double_map hasher(twox_64_concat) TransactionId, hasher(twox_64_concat) TransactionLegId => TransactionLeg;
 
-        /// The storage for mercat transaction proofs.
-        /// The key is the transaction_id.
-        TransactionProofs get(fn transaction_proofs):
-            double_map hasher(twox_64_concat) TransactionId, hasher(twox_64_concat) TransactionLegId => TransactionLegProofs;
+        /// Number of affirmations pending before transaction is executed. transaction_id -> affirms_pending
+        PendingAffirms get(fn affirms_pending): map hasher(twox_64_concat) TransactionId => u32;
+
+        /// Track pending transaction affirmations.
+        /// (counter_party, (transaction_id, leg_id)) -> Option<bool>
+        UserAffirmations get(fn user_affirmations):
+            double_map hasher(twox_64_concat) IdentityId, hasher(twox_64_concat) (TransactionId, TransactionLegId) => Option<bool>;
+
+        /// The storage for mercat sender proofs.
+        SenderProofs get(fn sender_proofs):
+            double_map hasher(twox_64_concat) TransactionId, hasher(twox_64_concat) TransactionLegId => Option<SenderProof>;
 
         /// Number of transactions in the system (It's one more than the actual number)
         TransactionCounter get(fn transaction_counter) build(|_| TransactionId(1u64)): TransactionId;
@@ -742,15 +739,14 @@ decl_module! {
         }
 
         /// Affirm a transaction.
-        #[weight = <T as Config>::WeightInfo::sender_affirm_transaction()]
+        #[weight = <T as Config>::WeightInfo::affirm_transaction(&affirm)]
         pub fn affirm_transaction(
             origin,
             transaction_id: TransactionId,
-            leg_id: TransactionLegId,
-            proofs: TransactionLegProofs,
+            affirm: AffirmLeg,
         ) {
             let did = Identity::<T>::ensure_perms(origin)?;
-            Self::base_affirm_transaction(did, transaction_id, leg_id, proofs)?;
+            Self::base_affirm_transaction(did, transaction_id, affirm.leg_id, affirm.parity)?;
         }
 
         /// Execute transaction.
@@ -777,6 +773,10 @@ impl<T: Config> Module<T> {
         if FailedOutgoingBalance::contains_key(account, ticker) {
             FailedOutgoingBalance::remove(account, ticker);
         }
+    }
+
+    pub fn get_mercat_account_did(account: &MercatAccount) -> Result<IdentityId, DispatchError> {
+        Self::mercat_account_did(account).ok_or(Error::<T>::MercatAccountMissing.into())
     }
 
     /// Add the `amount` to the mercat account balance, and update the `IncomingBalance` accumulator.
@@ -962,12 +962,17 @@ impl<T: Config> Module<T> {
         // Advance and get next `transaction_id`.
         let transaction_id = TransactionCounter::try_mutate(try_next_post::<T, _>)?;
 
+        let pending_affirms = (legs.len() * 3) as u32;
+        PendingAffirms::insert(transaction_id, pending_affirms);
+
         for (i, leg) in legs.iter().enumerate() {
-            TransactionLegs::insert(
-                transaction_id,
-                u64::try_from(i).map(TransactionLegId).unwrap_or_default(),
-                leg.clone(),
-            );
+            let leg_id = TransactionLegId(i as u64);
+            let sender_did = Self::get_mercat_account_did(&leg.sender)?;
+            let receiver_did = Self::get_mercat_account_did(&leg.receiver)?;
+            UserAffirmations::insert(sender_did, (transaction_id, leg_id), false);
+            UserAffirmations::insert(receiver_did, (transaction_id, leg_id), false);
+            UserAffirmations::insert(&leg.mediator, (transaction_id, leg_id), false);
+            TransactionLegs::insert(transaction_id, leg_id, leg.clone());
         }
 
         /*
@@ -1000,71 +1005,67 @@ impl<T: Config> Module<T> {
 
         let mut rng = Self::get_rng();
         for (leg_id, leg) in legs {
-            let proofs = TransactionProofs::take(id, leg_id);
-            let (init_tx, finalized_tx) = proofs.ensure_affirmed::<T>()?;
-            Self::base_confidential_transfer(leg, init_tx, finalized_tx, id, &mut rng)?;
+            let proofs =
+                SenderProofs::take(id, leg_id).ok_or(Error::<T>::InstructionNotAffirmed)?;
+            Self::base_confidential_transfer(leg, &proofs.0, id, &mut rng)?;
         }
 
         Ok(())
     }
 
     fn base_affirm_transaction(
-        _did: IdentityId,
+        caller_did: IdentityId,
         id: TransactionId,
         leg_id: TransactionLegId,
-        mut affirms: TransactionLegProofs,
+        parity: ParityAffirmLeg,
     ) -> DispatchResult {
         // TODO: check that the proof accounts match the leg accounts.
         let leg = TransactionLegs::get(id, leg_id);
 
-        // Get receiver's account.
-        let to_mercat = leg.receiver.clone().into();
+        match parity {
+            ParityAffirmLeg::SenderProof(init_tx) => {
+                let sender_did = Self::mercat_account_did(&leg.sender);
+                ensure!(Some(caller_did) == sender_did, Error::<T>::Unauthorized);
+                // Get receiver's account.
+                let to_mercat = leg.receiver.clone().into();
 
-        // Get sender's account.
-        let from_mercat = leg.sender.clone().into();
+                // Get sender's account.
+                let from_mercat = leg.sender.clone().into();
 
-        let mut proofs = TransactionProofs::get(id, leg_id);
+                // Temporarily store the current pending state as this instruction's pending state.
+                let from_current_balance = Self::set_tx_pending_state(&leg.sender, leg.ticker, id)?;
+                Self::add_pending_outgoing_balance(
+                    &leg.sender,
+                    leg.ticker,
+                    init_tx.memo.enc_amount_using_sender,
+                )?;
 
-        // Update the transaction sender's ordering state.
-        if let Some(init_tx) = affirms.sender.take() {
-            // Temporarily store the current pending state as this instruction's pending state.
-            let from_current_balance = Self::set_tx_pending_state(&leg.sender, leg.ticker, id)?;
-            Self::add_pending_outgoing_balance(
-                &leg.sender,
-                leg.ticker,
-                init_tx.memo.enc_amount_using_sender,
-            )?;
+                // Verify the sender's proof.
+                let mut rng = Self::get_rng();
+                verify_initialized_transaction(
+                    &init_tx,
+                    &from_mercat,
+                    &from_current_balance,
+                    &to_mercat,
+                    &[],
+                    &mut rng,
+                )
+                .map_err(|_| Error::<T>::InvalidMercatTransferProof)?;
 
-            // Verify the sender's proof.
-            let mut rng = Self::get_rng();
-            verify_initialized_transaction(
-                &init_tx,
-                &from_mercat,
-                &from_current_balance,
-                &to_mercat,
-                &[],
-                &mut rng,
-            )
-            .map_err(|_| Error::<T>::InvalidMercatTransferProof)?;
-
-            // Save sender's proof.
-            proofs.sender = Some(init_tx);
+                SenderProofs::insert(id, leg_id, SenderProof(init_tx.into()));
+            }
+            ParityAffirmLeg::ReceiverAffirm => {
+                let receiver_did = Self::mercat_account_did(&leg.receiver);
+                ensure!(Some(caller_did) == receiver_did, Error::<T>::Unauthorized);
+            }
+            ParityAffirmLeg::MediatorAffirm => {
+                ensure!(caller_did == leg.mediator, Error::<T>::Unauthorized);
+            }
         }
-
-        // Verify receiver's proof.
-        if let Some(finalized_tx) = affirms.receiver.take() {
-            // TODO: Check that the caller is the receiver.
-            proofs.receiver = Some(finalized_tx);
-        }
-
-        // Verify mediator's proof.
-        // TODO: Check that the caller is the mediator.
-        if let Some(tx) = affirms.mediator.take() {
-            proofs.mediator = Some(tx);
-        }
-
-        // Save new proofs.
-        TransactionProofs::insert(id, leg_id, proofs);
+        UserAffirmations::insert(caller_did, (id, leg_id), true);
+        PendingAffirms::mutate(id, |pending| {
+            *pending = pending.saturating_sub(1);
+        });
 
         Ok(())
     }
@@ -1073,7 +1074,6 @@ impl<T: Config> Module<T> {
     pub fn base_confidential_transfer(
         leg: TransactionLeg,
         init_tx: &InitializedTransferTx,
-        finalized_tx: &FinalizedTransferTx,
         instruction_id: TransactionId,
         rng: &mut Rng,
     ) -> DispatchResult {
@@ -1091,7 +1091,6 @@ impl<T: Config> Module<T> {
         let _ = TransactionValidator
             .verify_transaction(
                 init_tx,
-                finalized_tx,
                 &from_mercat,
                 &from_mercat_pending_state,
                 &to_mercat,

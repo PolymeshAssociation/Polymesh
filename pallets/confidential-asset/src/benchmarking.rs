@@ -279,7 +279,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> TransactionState<T> {
         ));
     }
 
-    pub fn sender_proof(&self, rng: &mut StdRng) -> TransactionLegProofs {
+    pub fn sender_proof(&self, leg_id: TransactionLegId, rng: &mut StdRng) -> AffirmLeg {
         let issuer_account = Account {
             secret: self.issuer.sec.clone(),
             public: self.issuer.pub_account(),
@@ -298,44 +298,31 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> TransactionState<T> {
                 rng,
             )
             .unwrap();
-        TransactionLegProofs::new_sender(sender_tx)
-    }
-
-    pub fn receiver_proof(&self) -> TransactionLegProofs {
-        TransactionLegProofs::new_receiver(FinalizedTransferTx {})
-    }
-
-    pub fn mediator_proof(&self) -> TransactionLegProofs {
-        TransactionLegProofs::new_mediator(JustifiedTransferTx {})
+        AffirmLeg::new_sender(leg_id, sender_tx)
     }
 
     pub fn sender_affirm(&self, leg_id: TransactionLegId, rng: &mut StdRng) {
-        let proof = self.sender_proof(rng);
+        let affirm = self.sender_proof(leg_id, rng);
         assert_ok!(Module::<T>::affirm_transaction(
             self.issuer.origin().into(),
             self.id,
-            leg_id,
-            proof
+            affirm
         ));
     }
 
     pub fn receiver_affirm(&self, leg_id: TransactionLegId) {
-        let proof = self.receiver_proof();
         assert_ok!(Module::<T>::affirm_transaction(
             self.investor.origin().into(),
             self.id,
-            leg_id,
-            proof,
+            AffirmLeg::new_receiver(leg_id),
         ));
     }
 
     pub fn mediator_affirm(&self, leg_id: TransactionLegId) {
-        let proof = self.mediator_proof();
         assert_ok!(Module::<T>::affirm_transaction(
-            self.investor.origin().into(),
+            self.mediator.origin().into(),
             self.id,
-            leg_id,
-            proof,
+            AffirmLeg::new_mediator(leg_id),
         ));
     }
 
@@ -402,8 +389,8 @@ benchmarks! {
         tx.add_transaction();
         let leg_id = TransactionLegId(0);
 
-        let proof = tx.sender_proof(&mut rng);
-    }: affirm_transaction(tx.issuer.origin(), tx.id, leg_id, proof)
+        let affirm = tx.sender_proof(leg_id, &mut rng);
+    }: affirm_transaction(tx.issuer.origin(), tx.id, affirm)
 
     receiver_affirm_transaction {
         let mut rng = StdRng::from_seed([10u8; 32]);
@@ -414,8 +401,8 @@ benchmarks! {
         let leg_id = TransactionLegId(0);
         tx.sender_affirm(leg_id, &mut rng);
 
-        let proof = tx.receiver_proof();
-    }: affirm_transaction(tx.investor.origin(), tx.id, leg_id, proof)
+        let affirm = AffirmLeg::new_receiver(leg_id);
+    }: affirm_transaction(tx.investor.origin(), tx.id, affirm)
 
     mediator_affirm_transaction {
         let mut rng = StdRng::from_seed([10u8; 32]);
@@ -427,8 +414,8 @@ benchmarks! {
         tx.sender_affirm(leg_id, &mut rng);
         tx.receiver_affirm(leg_id);
 
-        let proof = tx.mediator_proof();
-    }: affirm_transaction(tx.mediator.origin(), tx.id, leg_id, proof)
+        let affirm = AffirmLeg::new_mediator(leg_id);
+    }: affirm_transaction(tx.mediator.origin(), tx.id, affirm)
 
     execute_transaction {
         let mut rng = StdRng::from_seed([10u8; 32]);
