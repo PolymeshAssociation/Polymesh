@@ -598,4 +598,28 @@ benchmarks! {
             .unwrap()
         );
     }
+
+    verify_restriction_loop {
+        let i in 0..T::MaxConditionComplexity::get();
+
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+
+        let requirements: Vec<ComplianceRequirement> = (0..i)
+            .map(|i| ComplianceRequirement {
+                sender_conditions: vec![Condition {
+                    condition_type: ConditionType::IsPresent(Claim::NoData),
+                    issuers: Vec::new(),
+                }],
+                receiver_conditions: Vec::new(),
+                id: i as u32,
+            })
+            .collect();
+    }: {
+        for requirement in requirements {
+            let slot: &mut Option<Vec<TrustedIssuer>>  = &mut None;
+            for condition in requirement.sender_conditions {}
+        }
+    }
 }

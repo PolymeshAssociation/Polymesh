@@ -466,4 +466,19 @@ benchmarks! {
         )
         .unwrap();
     }
+
+    transfer_restriction_loop {
+        let i in 0..T::MaxTransferConditionsPerAsset::get();
+
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+
+        let restrictions: BTreeSet<TransferCondition> = (0..i)
+            .map(|i| TransferCondition::MaxInvestorCount(i as u64))
+            .collect();
+        assert_eq!(restrictions.len(), i as usize);
+    }: {
+        for restriction in restrictions {}
+    }
 }
