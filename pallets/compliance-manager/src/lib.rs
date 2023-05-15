@@ -84,7 +84,6 @@ use frame_support::{decl_error, decl_module, decl_storage, ensure};
 use sp_std::{convert::From, prelude::*};
 
 use pallet_base::ensure_length_ok;
-use polymesh_common_utilities::constants::*;
 use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 pub use polymesh_common_utilities::traits::compliance_manager::{
     ComplianceFnConfig, Config, Event, WeightInfo,
@@ -93,8 +92,8 @@ use polymesh_primitives::compliance_manager::{
     AssetCompliance, AssetComplianceResult, ComplianceRequirement, ConditionResult,
 };
 use polymesh_primitives::{
-    proposition, storage_migration_ver, Balance, Claim, Condition, ConditionType, Context,
-    IdentityId, TargetIdentity, Ticker, TrustedFor, TrustedIssuer, WeightMeter,
+    proposition, storage_migration_ver, Claim, Condition, ConditionType, Context, IdentityId,
+    TargetIdentity, Ticker, TrustedFor, TrustedIssuer, WeightMeter,
 };
 
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
@@ -680,49 +679,65 @@ impl<T: Config> Module<T> {
             .consume_weight_until_limit(weight)
             .map_err(|_| Error::<T>::WeightLimitExceeded.into())
     }
+
+    // Returns `true` if any requirement is satisfied, otherwise returns `false`.
+    fn is_any_requirement_compliant(
+        ticker: &Ticker,
+        requirements: &[ComplianceRequirement],
+        sender_did: IdentityId,
+        receiver_did: IdentityId,
+        weight_meter: &mut WeightMeter,
+    ) -> Result<bool, DispatchError> {
+        for requirement in requirements {
+            // Consumes the weight for the loop
+            Self::consume_weight_meter(
+                weight_meter,
+                <T as Config>::WeightInfo::is_any_requirement_compliant_loop(
+                    requirement.sender_conditions.len() as u32
+                        + requirement.receiver_conditions.len() as u32,
+                ),
+            )?;
+            // Returns true if all conditions for the sender and receiver are satisfied
+            if Self::are_all_conditions_satisfied(
+                ticker,
+                sender_did,
+                &requirement.sender_conditions,
+                weight_meter,
+            )? && Self::are_all_conditions_satisfied(
+                ticker,
+                receiver_did,
+                &requirement.receiver_conditions,
+                weight_meter,
+            )? {
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
+    }
 }
 
 impl<T: Config> ComplianceFnConfig for Module<T> {
-    ///  Sender restriction verification
-    fn verify_restriction(
+    fn is_compliant(
         ticker: &Ticker,
-        from_did_opt: Option<IdentityId>,
-        to_did_opt: Option<IdentityId>,
-        _: Balance,
+        sender_did: IdentityId,
+        receiver_did: IdentityId,
         weight_meter: &mut WeightMeter,
-    ) -> Result<u8, DispatchError> {
-        // Transfer is valid if ALL receiver AND sender conditions of ANY asset conditions are valid.
+    ) -> Result<bool, DispatchError> {
         let asset_compliance = Self::asset_compliance(ticker);
+
+        // If compliance is paused, the rules are not checked
         if asset_compliance.paused {
-            return Ok(ERC1400_TRANSFER_SUCCESS);
+            return Ok(true);
         }
 
-        for req in asset_compliance.requirements {
-            if let Some(from_did) = from_did_opt {
-                if !Self::are_all_conditions_satisfied(
-                    ticker,
-                    from_did,
-                    &req.sender_conditions,
-                    weight_meter,
-                )? {
-                    // Skips checking receiver conditions because sender conditions are not satisfied.
-                    continue;
-                }
-            }
-
-            if let Some(to_did) = to_did_opt {
-                if Self::are_all_conditions_satisfied(
-                    ticker,
-                    to_did,
-                    &req.receiver_conditions,
-                    weight_meter,
-                )? {
-                    // All conditions satisfied, return early
-                    return Ok(ERC1400_TRANSFER_SUCCESS);
-                }
-            }
-        }
-        Ok(ERC1400_TRANSFER_FAILURE)
+        Self::is_any_requirement_compliant(
+            ticker,
+            &asset_compliance.requirements,
+            sender_did,
+            receiver_did,
+            weight_meter,
+        )
     }
 
     /// verifies all requirements and returns the result in an array of booleans.

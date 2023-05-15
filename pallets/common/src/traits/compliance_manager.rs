@@ -22,7 +22,7 @@ use sp_std::prelude::*;
 
 use polymesh_primitives::compliance_manager::{AssetComplianceResult, ComplianceRequirement};
 use polymesh_primitives::condition::{conditions_total_counts, Condition};
-use polymesh_primitives::{Balance, IdentityId, Ticker, TrustedIssuer, WeightMeter};
+use polymesh_primitives::{IdentityId, Ticker, TrustedIssuer, WeightMeter};
 
 use crate::asset::AssetFnTrait;
 use crate::balances::Config as BalancesConfig;
@@ -79,13 +79,14 @@ decl_event!(
 );
 
 pub trait ComplianceFnConfig {
-    fn verify_restriction(
+    /// Returns `false` if there are no requirements for the asset or if all of the
+    /// asset's requirement don't hold, otherwise returns`true`.
+    fn is_compliant(
         ticker: &Ticker,
-        from_id: Option<IdentityId>,
-        to_id: Option<IdentityId>,
-        _value: Balance,
+        sender_did: IdentityId,
+        receiver_did: IdentityId,
         weight_meter: &mut WeightMeter,
-    ) -> Result<u8, DispatchError>;
+    ) -> Result<bool, DispatchError>;
 
     fn verify_restriction_granular(
         ticker: &Ticker,
@@ -113,6 +114,9 @@ pub trait WeightInfo {
     fn change_compliance_requirement(c: u32) -> Weight;
     fn replace_asset_compliance(c: u32) -> Weight;
     fn reset_asset_compliance() -> Weight;
+    fn is_condition_satisfied(c: u32, t: u32) -> Weight;
+    fn is_identity_condition(e: u32) -> Weight;
+    fn is_any_requirement_compliant(i: u32) -> Weight;
 
     fn condition_costs(conditions: u32, claims: u32, issuers: u32, claim_types: u32) -> Weight;
 
@@ -148,6 +152,8 @@ pub trait WeightInfo {
         ))
     }
 
-    fn is_condition_satisfied(c: u32, t: u32) -> Weight;
-    fn is_identity_condition(e: u32) -> Weight;
+    fn is_any_requirement_compliant_loop(i: u32) -> Weight {
+        Self::is_any_requirement_compliant(i)
+            .saturating_sub(Self::is_identity_condition(0).saturating_mul(i.into()))
+    }
 }

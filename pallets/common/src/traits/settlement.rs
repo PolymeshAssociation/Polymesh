@@ -137,10 +137,10 @@ pub trait WeightInfo {
             TransferData::from_legs(legs_v2).unwrap_or(TransferData::new(u32::MAX, u32::MAX));
         (transfer_data.fungible(), transfer_data.non_fungible())
     }
-    fn execute_manual_instruction_weight(weight_limit: &Option<Weight>, n_legs: &u32) -> Weight {
-        match weight_limit {
-            Some(weight_limit) => *weight_limit,
-            None => Self::execute_manual_instruction(*n_legs),
+    fn execute_manual_weight_limit(weight_limit: &Option<Weight>, n_legs: &u32) -> Weight {
+        if let Some(weight_limit) = weight_limit {
+            return weight_limit.max(Self::execute_manual_instruction(0));
         }
+        Self::execute_manual_instruction(*n_legs)
     }
 }

@@ -804,45 +804,82 @@ impl<T: Config> Module<T> {
     /// Verify transfer restrictions for a transfer.
     pub fn verify_transfer_restrictions(
         ticker: &Ticker,
-        from: ScopeId,
-        to: ScopeId,
-        from_did: &IdentityId,
-        to_did: &IdentityId,
-        from_balance: Balance,
-        to_balance: Balance,
-        amount: Balance,
+        sender_scope: ScopeId,
+        receiver_scope: ScopeId,
+        sender_did: &IdentityId,
+        receiver_did: &IdentityId,
+        sender_balance: Balance,
+        receiver_balance: Balance,
+        transfer_amount: Balance,
         total_supply: Balance,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        let asset = AssetScope::Ticker(*ticker);
-        let tm = AssetTransferCompliances::<T>::get(&asset);
-        if tm.paused {
-            // Transfer rules are paused.
+        let asset_scope = AssetScope::Ticker(*ticker);
+        let asset_transfer_requirements = AssetTransferCompliances::<T>::get(&asset_scope);
+
+        // If the requirements are paused, the conditions are not checked
+        if asset_transfer_requirements.paused {
             return Ok(());
         }
 
-        // Pre-Calculate the investor count changes.
-        let count_changes = Self::investor_count_changes(
-            Some(from_balance.saturating_sub(amount)),
-            Some(to_balance.saturating_add(amount)),
-            amount,
+        Self::verify_requirements(
+            &asset_transfer_requirements.requirements,
+            asset_scope,
+            sender_scope,
+            receiver_scope,
+            sender_did,
+            receiver_did,
+            sender_balance,
+            receiver_balance,
+            transfer_amount,
+            total_supply,
+            weight_meter,
+        )
+    }
+
+    /// Returns `true` if all `requirements` are met, otherwise returns `false`.
+    fn verify_requirements<S: Get<u32>>(
+        transfer_conditions: &BoundedBTreeSet<TransferCondition, S>,
+        asset_scope: AssetScope,
+        sender_scope: ScopeId,
+        receiver_scope: ScopeId,
+        sender_did: &IdentityId,
+        receiver_did: &IdentityId,
+        sender_balance: Balance,
+        receiver_balance: Balance,
+        transfer_amount: Balance,
+        total_supply: Balance,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        // Consumes the weight for the loop
+        Self::consume_weight_meter(
+            weight_meter,
+            <T as Config>::WeightInfo::verify_requirements_loop(transfer_conditions.len() as u32),
+        )?;
+
+        // Checks if the number of investors should be updated
+        let change_investors_count = Self::investor_count_changes(
+            Some(sender_balance.saturating_sub(transfer_amount)),
+            Some(receiver_balance.saturating_add(transfer_amount)),
+            transfer_amount,
         );
 
-        for condition in tm.requirements {
-            let result = Self::check_transfer_condition(
-                &condition,
-                asset,
-                from,
-                to,
-                from_did,
-                to_did,
-                to_balance,
-                amount,
+        for transfer_condition in transfer_conditions {
+            if !Self::check_transfer_condition(
+                &transfer_condition,
+                asset_scope,
+                sender_scope,
+                receiver_scope,
+                sender_did,
+                receiver_did,
+                receiver_balance,
+                transfer_amount,
                 total_supply,
-                count_changes,
+                change_investors_count,
                 weight_meter,
-            )?;
-            ensure!(result, Error::<T>::InvalidTransfer);
+            )? {
+                return Err(Error::<T>::InvalidTransfer.into());
+            }
         }
 
         Ok(())

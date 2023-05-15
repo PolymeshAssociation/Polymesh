@@ -1090,7 +1090,7 @@ benchmarks! {
 
         let before_transfer_balance = PortfolioAssetBalances::get(portfolio_id, ticker);
         assert_eq!(before_transfer_balance, POLY * ONE_UNIT);
-    }: _(alice.origin, InstructionId(1), l, Some(portfolio_id), None)
+    }: _(alice.origin, InstructionId(1), l, Some(portfolio_id), Some(Weight::MAX))
     verify {
         let after_transfer_balance = PortfolioAssetBalances::get(portfolio_id, ticker);
         assert_eq!(after_transfer_balance, before_transfer_balance - ONE_UNIT);
