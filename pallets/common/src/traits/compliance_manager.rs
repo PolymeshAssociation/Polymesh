@@ -114,6 +114,9 @@ pub trait WeightInfo {
     fn change_compliance_requirement(c: u32) -> Weight;
     fn replace_asset_compliance(c: u32) -> Weight;
     fn reset_asset_compliance() -> Weight;
+    fn is_condition_satisfied(c: u32, t: u32) -> Weight;
+    fn is_identity_condition(e: u32) -> Weight;
+    fn is_any_requirement_compliant(i: u32) -> Weight;
 
     fn condition_costs(conditions: u32, claims: u32, issuers: u32, claim_types: u32) -> Weight;
 
@@ -149,6 +152,8 @@ pub trait WeightInfo {
         ))
     }
 
-    fn is_condition_satisfied(c: u32, t: u32) -> Weight;
-    fn is_identity_condition(e: u32) -> Weight;
+    fn is_any_requirement_compliant_loop(i: u32) -> Weight {
+        Self::is_any_requirement_compliant(i)
+            .saturating_sub(Self::is_identity_condition(0).saturating_mul(i.into()))
+    }
 }

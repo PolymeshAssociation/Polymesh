@@ -679,24 +679,24 @@ impl<T: Config> Module<T> {
             .consume_weight_until_limit(weight)
             .map_err(|_| Error::<T>::WeightLimitExceeded.into())
     }
-}
 
-impl<T: Config> ComplianceFnConfig for Module<T> {
-    fn is_compliant(
+    // Returns `true` if any requirement is satisfied, otherwise returns `false`.
+    fn is_any_requirement_compliant(
         ticker: &Ticker,
+        requirements: &[ComplianceRequirement],
         sender_did: IdentityId,
         receiver_did: IdentityId,
         weight_meter: &mut WeightMeter,
     ) -> Result<bool, DispatchError> {
-        let asset_compliance = Self::asset_compliance(ticker);
-
-        // If compliance is paused, the rules are not checked
-        if asset_compliance.paused {
-            return Ok(true);
-        }
-
-        // If any requirement is satisfied, transferring is allowed
-        for requirement in asset_compliance.requirements {
+        for requirement in requirements {
+            // Consumes the weight for the loop
+            Self::consume_weight_meter(
+                weight_meter,
+                <T as Config>::WeightInfo::is_any_requirement_compliant_loop(
+                    requirement.sender_conditions.len() as u32
+                        + requirement.receiver_conditions.len() as u32,
+                ),
+            )?;
             // Returns true if all conditions for the sender and receiver are satisfied
             if Self::are_all_conditions_satisfied(
                 ticker,
@@ -714,6 +714,30 @@ impl<T: Config> ComplianceFnConfig for Module<T> {
         }
 
         Ok(false)
+    }
+}
+
+impl<T: Config> ComplianceFnConfig for Module<T> {
+    fn is_compliant(
+        ticker: &Ticker,
+        sender_did: IdentityId,
+        receiver_did: IdentityId,
+        weight_meter: &mut WeightMeter,
+    ) -> Result<bool, DispatchError> {
+        let asset_compliance = Self::asset_compliance(ticker);
+
+        // If compliance is paused, the rules are not checked
+        if asset_compliance.paused {
+            return Ok(true);
+        }
+
+        Self::is_any_requirement_compliant(
+            ticker,
+            &asset_compliance.requirements,
+            sender_did,
+            receiver_did,
+            weight_meter,
+        )
     }
 
     /// verifies all requirements and returns the result in an array of booleans.

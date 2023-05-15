@@ -38,6 +38,11 @@ pub trait WeightInfo {
     fn claim_ownership_restriction(a: u32) -> Weight;
     fn update_asset_count_stats(a: u32) -> Weight;
     fn update_asset_balance_stats(a: u32) -> Weight;
+    fn verify_requirements(i: u32) -> Weight;
+    fn verify_requirements_loop(i: u32) -> Weight {
+        Self::verify_requirements(i)
+            .saturating_sub(Self::max_investor_count_restriction(0).saturating_mul(i.into()))
+    }
 }
 
 decl_event!(

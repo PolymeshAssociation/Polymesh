@@ -599,17 +599,18 @@ benchmarks! {
         );
     }
 
-    verify_restriction_loop {
+    is_any_requirement_compliant {
         let i in 0..T::MaxConditionComplexity::get();
 
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
 
         let requirements: Vec<ComplianceRequirement> = (0..i)
             .map(|i| ComplianceRequirement {
                 sender_conditions: vec![Condition {
-                    condition_type: ConditionType::IsPresent(Claim::NoData),
+                    condition_type: ConditionType::IsIdentity(TargetIdentity::Specific(bob.did())),
                     issuers: Vec::new(),
                 }],
                 receiver_conditions: Vec::new(),
@@ -617,9 +618,16 @@ benchmarks! {
             })
             .collect();
     }: {
-        for requirement in requirements {
-            let slot: &mut Option<Vec<TrustedIssuer>>  = &mut None;
-            for condition in requirement.sender_conditions {}
-        }
+        // We want this to return false to make sure it loops through all requirements
+        assert!(
+            !Module::<T>::is_any_requirement_compliant(
+                &ticker,
+                &requirements,
+                alice.did(),
+                bob.did(),
+                &mut weight_meter
+            )
+            .unwrap()
+        );
     }
 }

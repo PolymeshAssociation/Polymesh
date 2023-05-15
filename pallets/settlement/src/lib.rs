@@ -498,7 +498,7 @@ pub trait WeightInfo {
         if let Some(weight_limit) = weight_limit {
             return weight_limit.max(Self::execute_manual_instruction(0));
         }
-        Self::execute_manual_instruction(*n_legs).saturating_mul(2)
+        Self::execute_manual_instruction(*n_legs)
     }
 }
 
