@@ -547,10 +547,7 @@ decl_module! {
         ///
         /// # Errors
         /// * `InstructionNotFailed` - Instruction not in a failed state or does not exist.
-        #[weight =
-            <T as Config>::WeightInfo::execute_manual_instruction_weight(weight_limit, fungible_transfers, nfts_transfers, offchain_transfers)
-            .max(<T as Config>::WeightInfo::execute_manual_instruction(0, 0, 0))
-        ]
+        #[weight = <T as Config>::WeightInfo::execute_manual_weight_limit(weight_limit, fungible_transfers, nfts_transfers, offchain_transfers)]
         pub fn execute_manual_instruction(
             origin,
             id: InstructionId,
@@ -560,10 +557,9 @@ decl_module! {
             offchain_transfers: u32,
             weight_limit: Option<Weight>
         ) -> DispatchResultWithPostInfo {
-            let weight_limit = Self::ensure_manual_weight_limit(weight_limit, fungible_transfers, nfts_transfers, offchain_transfers)?;
             let mut weight_meter = WeightMeter::from_limit(
                 Self::execute_manual_instruction_minimum_weight(),
-                weight_limit,
+                Self::execute_manual_weight_limit(&weight_limit, fungible_transfers, nfts_transfers, offchain_transfers),
             );
             let input_cost = TransferData::new(fungible_transfers, nfts_transfers, offchain_transfers);
             Self::base_execute_manual_instruction(origin, id, portfolio, &input_cost, &mut weight_meter)
@@ -733,17 +729,17 @@ decl_module! {
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
-        #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*_fungible_transfers, *_nfts_transfers, 0)]
+        #[weight = <T as Config>::WeightInfo::execute_scheduled_instruction(*fungible_transfers, *nfts_transfers, 0)]
         fn execute_scheduled_instruction_v2(
             origin,
             id: InstructionId,
-            _fungible_transfers: u32,
-            _nfts_transfers: u32
+            fungible_transfers: u32,
+            nfts_transfers: u32
         ) -> DispatchResultWithPostInfo{
             ensure_root(origin)?;
             let mut weight_meter = WeightMeter::from_limit(
                 Self::execute_scheduled_instruction_minimum_weight(),
-                Self::execute_scheduled_instruction_weight_limit(_fungible_transfers, _nfts_transfers, 0),
+                Self::execute_scheduled_instruction_weight_limit(fungible_transfers, nfts_transfers, 0),
             );
             Ok(Self::base_execute_scheduled_instruction(id, &mut weight_meter))
         }
@@ -1828,26 +1824,6 @@ impl<T: Config> Module<T> {
         Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
 
-    /// If `weight_limit` is None, returns the worst case weight for executing a manual instruction of `n_legs`,
-    /// otherwise verifies if the value is greater than the minimum and returns it.
-    fn ensure_manual_weight_limit(
-        weight_limit: Option<Weight>,
-        f: u32,
-        n: u32,
-        o: u32,
-    ) -> Result<Weight, DispatchError> {
-        match weight_limit {
-            Some(weight_limit) => {
-                ensure!(
-                    weight_limit.all_gt(Self::execute_manual_instruction_minimum_weight()),
-                    Error::<T>::InputWeightIsLessThanMinimum
-                );
-                Ok(weight_limit)
-            }
-            None => Ok(Self::execute_manual_instruction_weight_limit(f, n, o)),
-        }
-    }
-
     /// Returns the worst case weight for an instruction with `f` fungible legs,
     /// `n` nfts being transferred and `o` offchain assets.
     fn execute_scheduled_instruction_weight_limit(f: u32, n: u32, o: u32) -> Weight {
@@ -1859,10 +1835,15 @@ impl<T: Config> Module<T> {
         <T as Config>::WeightInfo::execute_scheduled_instruction(0, 0, 0)
     }
 
-    /// Returns the worst case weight for manually executing an instruction with `f` fungible legs,
-    /// `n` nfts being transferred and `o` offchain assets.
-    fn execute_manual_instruction_weight_limit(f: u32, n: u32, o: u32) -> Weight {
-        <T as Config>::WeightInfo::execute_manual_instruction(f, n, o).saturating_mul(2)
+    /// If `weight_limit` is None, returns the worst case weight for executing a manual instruction of `n_legs`,
+    /// otherwise returns the max of `weight_limit` and the minimum weight.
+    fn execute_manual_weight_limit(
+        weight_limit: &Option<Weight>,
+        f: u32,
+        n: u32,
+        o: u32,
+    ) -> Weight {
+        <T as Config>::WeightInfo::execute_manual_weight_limit(weight_limit, &f, &n, &o)
     }
 
     /// Returns the minimum weight for calling the `execute_manual_instruction` extrinsic.

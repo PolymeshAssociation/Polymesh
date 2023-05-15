@@ -479,7 +479,7 @@ benchmarks! {
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
 
         setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, false, false);
-    }: _(alice.origin, InstructionId(1), None, f, n, o, None)
+    }: _(alice.origin, InstructionId(1), None, f, n, o, Some(Weight::MAX))
 
     add_instruction{
         // Number of fungible, non-fungible and offchain LEGS in the instruction

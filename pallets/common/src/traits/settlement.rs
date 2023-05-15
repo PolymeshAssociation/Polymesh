@@ -113,16 +113,16 @@ pub trait WeightInfo {
         let (f, n, o) = Self::get_transfer_by_asset(legs);
         Self::execute_scheduled_instruction(f, n, o)
     }
-    fn execute_manual_instruction_weight(
+    fn execute_manual_weight_limit(
         weight_limit: &Option<Weight>,
         f: &u32,
         n: &u32,
         o: &u32,
     ) -> Weight {
-        match weight_limit {
-            Some(weight_limit) => *weight_limit,
-            None => Self::execute_manual_instruction(*f, *n, *o),
+        if let Some(weight_limit) = weight_limit {
+            return weight_limit.max(Self::execute_manual_instruction(0, 0, 0));
         }
+        Self::execute_manual_instruction(*f, *n, *o)
     }
     fn get_transfer_by_asset(legs: &[Leg]) -> (u32, u32, u32) {
         let transfer_data = TransferData::from_legs(legs).unwrap_or(TransferData::new(

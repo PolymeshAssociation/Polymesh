@@ -180,4 +180,11 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(a.into())))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(a.into())))
     }
+    /// The range of component `i` is `[0, 1004]`.
+    fn verify_requirements(i: u32) -> Weight {
+        // Minimum execution time: 600 nanoseconds.
+        Weight::from_ref_time(1_086_371)
+            // Standard Error: 168
+            .saturating_add(Weight::from_ref_time(26_328).saturating_mul(i.into()))
+    }
 }
