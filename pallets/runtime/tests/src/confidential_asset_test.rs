@@ -564,6 +564,12 @@ fn basic_confidential_settlement() {
                 .unwrap();
             assert_eq!(new_alice_balance as u128, total_supply - amount as u128);
 
+            // Bob update's their balance.
+            assert_ok!(ConfidentialAsset::apply_incoming_balance(
+                bob.origin(),
+                bob_account.clone(),
+                ticker
+            ));
             let new_bob_balance = *ConfidentialAsset::mercat_account_balance(&bob_account, ticker);
 
             let expected_bob_balance = bob_encrypted_init_balance + bob_encrypted_transfer_amount;

@@ -176,11 +176,10 @@ fn finalize_transaction(
     // Mediator verifies the proofs in the wallet.
     // Mediator has access to the ticker name in plaintext.
     // Mediator gets the pending state for this transaction from chain.
-    let sender_pending_balance = *ConfidentialAsset::mercat_tx_pending_state((
-        &sender_creds.account,
-        ticker,
-        transaction_id,
-    ));
+    let sender_pending_balance =
+        *ConfidentialAsset::mercat_tx_pending_state((transaction_id, leg_id))
+            .expect("Transaction leg pending state")
+            .sender_init_balance;
 
     let result = CtxMediator.justify_transaction(
         &init_tx,
@@ -226,6 +225,12 @@ fn finalize_transaction(
     }
     assert_eq!(new_sender_balance, expected_sender_balance);
 
+    // Update receiver's balance.
+    assert_ok!(ConfidentialAsset::apply_incoming_balance(
+        receiver_creds.user.origin(),
+        receiver_creds.account.clone(),
+        ticker
+    ));
     let new_receiver_balance =
         *ConfidentialAsset::mercat_account_balance(&receiver_creds.account, ticker);
 
@@ -388,7 +393,7 @@ fn settle_out_of_order() {
                 bob_creds.clone(),
                 charlie_creds.clone(),
                 charlie_secret_account.clone(),
-                alice_init_balance - alice_sent_amount_1001,
+                alice_init_balance - alice_sent_amount_1001 - alice_sent_amount_1000,
                 bob_init_balance + bob_received_amount_1001,
                 None,
                 None,
@@ -562,8 +567,8 @@ fn mercat_whitepaper_scenario1() {
                 Some(dave_secret_account.clone()),
                 false,
             );
-            // Reset Dave's pending state.
-            assert_ok!(ConfidentialAsset::reset_ordering_state(
+            // Dave update's their balance.
+            assert_ok!(ConfidentialAsset::apply_incoming_balance(
                 dave_creds.user.origin(),
                 dave_creds.account.clone(),
                 ticker
@@ -629,7 +634,8 @@ fn mercat_whitepaper_scenario1() {
                 charlie_creds.clone(),
                 charlie_secret_account.clone(),
                 dave_init_balance - dave_sent_amount_1001,
-                alice_init_balance + alice_received_amount_1001,
+                alice_init_balance - alice_sent_amount_1000 - alice_sent_amount_1002
+                    + alice_received_amount_1001,
                 Some(dave_secret_account.clone()),
                 Some(alice_secret_account.clone()),
                 false,
@@ -661,7 +667,8 @@ fn mercat_whitepaper_scenario1() {
                 dave_creds.clone(),
                 charlie_creds.clone(),
                 charlie_secret_account.clone(),
-                alice_init_balance + alice_received_amount_1001 - alice_sent_amount_1002,
+                alice_init_balance - alice_sent_amount_1000 - alice_sent_amount_1002
+                    + alice_received_amount_1001,
                 dave_init_balance - dave_sent_amount_1001 + dave_received_amount_1002,
                 Some(alice_secret_account.clone()),
                 Some(dave_secret_account.clone()),
@@ -725,8 +732,8 @@ fn mercat_whitepaper_scenario2() {
                 None,
                 false,
             );
-            // Reset Dave's pending state.
-            assert_ok!(ConfidentialAsset::reset_ordering_state(
+            // Dave update's their balance.
+            assert_ok!(ConfidentialAsset::apply_incoming_balance(
                 dave_creds.user.origin(),
                 dave_creds.account.clone(),
                 ticker
@@ -796,11 +803,12 @@ fn mercat_whitepaper_scenario2() {
                 charlie_creds.clone(),
                 charlie_secret_account.clone(),
                 dave_init_balance - dave_sent_amount_1001,
-                alice_init_balance + alice_received_amount_1001,
+                alice_pending_balance + alice_received_amount_1001,
                 None,
                 None,
                 false,
             );
+            let alice_pending_balance = alice_pending_balance + alice_received_amount_1001;
 
             // Alice has a change of heart and rejects the transaction to Bob!
             /*
@@ -828,7 +836,7 @@ fn mercat_whitepaper_scenario2() {
                 dave_creds.clone(),
                 charlie_creds.clone(),
                 charlie_secret_account.clone(),
-                alice_init_balance + alice_received_amount_1001 - alice_sent_amount_1002,
+                alice_pending_balance,
                 dave_init_balance - dave_sent_amount_1001 + dave_received_amount_1002,
                 None,
                 None,
@@ -849,18 +857,17 @@ fn mercat_whitepaper_scenario2() {
                     false,
                 )
                 .expect("initialized_tx");
+            let alice_pending_balance = alice_pending_balance - alice_sent_amount_1003;
 
-            // Reset Alice's pending state.
-            assert_ok!(ConfidentialAsset::reset_ordering_state(
+            // Alice update's their balance.
+            assert_ok!(ConfidentialAsset::apply_incoming_balance(
                 alice_creds.user.origin(),
                 alice_creds.account.clone(),
                 ticker
             ));
-            // On the Alice's wallet side, she also resets her pending state.
+            // On the Alice's wallet side, they update the balance.
             let alice_init_balance =
                 *ConfidentialAsset::mercat_account_balance(&alice_creds.account, ticker);
-            // Since tx_1003 has not settled yet, it has to be accounted for in the pending balance.
-            let alice_pending_balance = alice_init_balance - alice_sent_amount_1003;
 
             // tx_id:1004 => Alice sends 55 assets to Dave.
             let (transaction_id1004, alice_sent_amount_1004, dave_received_amount_1004) =
@@ -868,7 +875,7 @@ fn mercat_whitepaper_scenario2() {
                     ticker,
                     alice_secret_account.clone(),
                     alice_creds.clone(),
-                    alice_pending_balance.clone(),
+                    alice_init_balance.clone(),
                     dave_secret_account.clone(),
                     dave_creds.clone(),
                     charlie_creds.clone(),
@@ -876,6 +883,7 @@ fn mercat_whitepaper_scenario2() {
                     false,
                 )
                 .expect("initialized_tx");
+            let alice_pending_balance = alice_pending_balance - alice_sent_amount_1004;
 
             // Approve and process tx:1004.
             finalize_transaction(
@@ -885,7 +893,7 @@ fn mercat_whitepaper_scenario2() {
                 dave_creds.clone(),
                 charlie_creds.clone(),
                 charlie_secret_account.clone(),
-                alice_init_balance - alice_sent_amount_1004,
+                alice_pending_balance,
                 dave_init_balance - dave_sent_amount_1001
                     + dave_received_amount_1002
                     + dave_received_amount_1004,
@@ -902,7 +910,7 @@ fn mercat_whitepaper_scenario2() {
                 bob_creds.clone(),
                 charlie_creds.clone(),
                 charlie_secret_account.clone(),
-                alice_init_balance - alice_sent_amount_1004 - alice_sent_amount_1003,
+                alice_pending_balance,
                 bob_init_balance + bob_received_amount_1003,
                 None,
                 None,

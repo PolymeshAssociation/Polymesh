@@ -155,7 +155,7 @@ impl pallet_confidential_asset::WeightInfo for SubstrateWeight {
     // Storage: ConfidentialAsset IncomingBalance (r:1 w:0)
     // Storage: ConfidentialAsset FailedOutgoingBalance (r:1 w:0)
     // Storage: ConfidentialAsset MercatAccountBalance (r:1 w:0)
-    fn reset_ordering_state() -> Weight {
+    fn apply_incoming_balance() -> Weight {
         // Minimum execution time: 475_900 nanoseconds.
         Weight::from_ref_time(521_617_000).saturating_add(DbWeight::get().reads(5))
     }

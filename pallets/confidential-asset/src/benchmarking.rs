@@ -418,6 +418,8 @@ benchmarks! {
     }: affirm_transaction(tx.mediator.origin(), tx.id, affirm)
 
     execute_transaction {
+        let l in 1..10;
+
         let mut rng = StdRng::from_seed([10u8; 32]);
 
         // Setup for transaction.
@@ -427,9 +429,9 @@ benchmarks! {
         tx.sender_affirm(leg_id, &mut rng);
         tx.receiver_affirm(leg_id);
         tx.mediator_affirm(leg_id);
-    }: _(tx.issuer.origin(), tx.id, 1)
+    }: _(tx.issuer.origin(), tx.id, l)
 
-    reset_ordering_state {
+    apply_incoming_balance {
         let mut rng = StdRng::from_seed([10u8; 32]);
 
         // Setup for transaction.

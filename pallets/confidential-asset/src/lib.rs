@@ -111,20 +111,17 @@ use frame_support::{
     traits::Randomness,
     weights::Weight,
 };
-use frame_system::ensure_signed;
 use mercat::{
-    account::AccountValidator,
-    asset::AssetValidator,
+    account::AccountValidator, asset::AssetValidator,
     confidential_identity_core::asset_proofs::Balance as MercatBalance,
-    transaction::{verify_initialized_transaction, TransactionValidator},
-    AccountCreatorVerifier, AssetTransactionVerifier, EncryptedAmount, EncryptionPubKey,
-    FinalizedTransferTx, InitializedAssetTx, InitializedTransferTx, JustifiedTransferTx,
-    PubAccount, PubAccountTx, TransferTransactionVerifier,
+    transaction::verify_initialized_transaction, AccountCreatorVerifier, AssetTransactionVerifier,
+    EncryptedAmount, EncryptionPubKey, FinalizedTransferTx, InitializedAssetTx,
+    InitializedTransferTx, JustifiedTransferTx, PubAccount, PubAccountTx,
 };
 use pallet_base::try_next_post;
 use pallet_identity as identity;
 use polymesh_common_utilities::{
-    balances::Config as BalancesConfig, identity::Config as IdentityConfig, Context,
+    balances::Config as BalancesConfig, identity::Config as IdentityConfig,
 };
 use polymesh_primitives::{
     asset::{AssetName, AssetType},
@@ -152,7 +149,7 @@ pub trait WeightInfo {
     fn receiver_affirm_transaction() -> Weight;
     fn mediator_affirm_transaction() -> Weight;
     fn execute_transaction() -> Weight;
-    fn reset_ordering_state() -> Weight;
+    fn apply_incoming_balance() -> Weight;
 
     fn affirm_transaction(affirm: &AffirmLeg) -> Weight {
         match affirm.parity {
@@ -261,6 +258,24 @@ impl Default for EncryptedAmountWrapper {
     }
 }
 
+impl core::ops::AddAssign<EncryptedAmount> for EncryptedAmountWrapper {
+    fn add_assign(&mut self, other: EncryptedAmount) {
+        self.0 += other;
+    }
+}
+
+impl core::ops::AddAssign for EncryptedAmountWrapper {
+    fn add_assign(&mut self, other: Self) {
+        self.0 += other.0;
+    }
+}
+
+impl core::ops::SubAssign<EncryptedAmount> for EncryptedAmountWrapper {
+    fn sub_assign(&mut self, other: EncryptedAmount) {
+        self.0 -= other;
+    }
+}
+
 /// TODO: Import venue ID.
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
@@ -333,6 +348,17 @@ pub struct TransactionLeg {
     pub receiver: MercatAccount,
     /// Mediator.
     pub mediator: IdentityId,
+}
+
+/// This pending state is initialized from the sender's proof.
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq)]
+pub struct LegPendingState {
+    /// The sender's initial balance used to verify the sender's proof.
+    pub sender_init_balance: EncryptedAmountWrapper,
+    /// The transaction amount encrypted using the sender's public key.
+    pub sender_amount: EncryptedAmountWrapper,
+    /// The transaction amount encrypted using the receiver's public key.
+    pub receiver_amount: EncryptedAmountWrapper,
 }
 
 /// Mercat sender proof.
@@ -416,32 +442,17 @@ decl_storage! {
             hasher(blake2_128_concat) Ticker
             => EncryptedAmountWrapper;
 
-        /// Accumulates the encrypted pending balance for a mercat account.
-        /// (account, ticker) -> EncryptedAmountWrapper.
-        PendingOutgoingBalance get(fn pending_outgoing_balance):
-            double_map hasher(blake2_128_concat) MercatAccount,
-            hasher(blake2_128_concat) Ticker
-            => EncryptedAmountWrapper;
-
         /// Accumulates the encrypted incoming balance for a mercat account.
         /// (account, ticker) -> EncryptedAmountWrapper.
         IncomingBalance get(fn incoming_balance):
             double_map hasher(blake2_128_concat) MercatAccount,
             hasher(blake2_128_concat) Ticker
-            => EncryptedAmountWrapper;
-
-        /// Accumulates the encrypted failed balance for a mercat account.
-        /// (account, ticker) -> EncryptedAmountWrapper.
-        FailedOutgoingBalance get(fn failed_outgoing_balance):
-            double_map hasher(blake2_128_concat) MercatAccount,
-            hasher(blake2_128_concat) Ticker
-            => EncryptedAmountWrapper;
+            => Option<EncryptedAmountWrapper>;
 
         /// Stores the pending state for a given transaction.
-        /// ((account, ticker, transaction_id)) -> EncryptedAmountWrapper.
+        /// (transaction_id, leg_id) -> Option<LegPendingState>
         pub TxPendingState get(fn mercat_tx_pending_state):
-            map hasher(blake2_128_concat) (MercatAccount, Ticker, TransactionId)
-            => EncryptedAmountWrapper;
+            map hasher(blake2_128_concat) (TransactionId, TransactionLegId) => Option<LegPendingState>;
 
         /// Legs of a transaction. (transaction_id, leg_id) -> Leg
         pub TransactionLegs get(fn transaction_legs):
@@ -490,8 +501,7 @@ decl_module! {
             ticker: Ticker,
             tx: PubAccountTxWrapper,
         ) -> DispatchResult {
-            let owner_acc = ensure_signed(origin)?;
-            let owner_did = Context::current_identity_or::<Identity<T>>(&owner_acc)?;
+            let owner_did = Identity::<T>::ensure_perms(origin)?;
             let tx: PubAccountTx = tx.into();
 
             let account: MercatAccount = tx.pub_account.clone().into();
@@ -540,8 +550,7 @@ decl_module! {
         pub fn add_mediator_mercat_account(origin,
             public_key: EncryptionPubKeyWrapper,
         ) -> DispatchResult {
-            let owner_acc = ensure_signed(origin)?;
-            let owner_did = Context::current_identity_or::<Identity<T>>(&owner_acc)?;
+            let owner_did = Identity::<T>::ensure_perms(origin)?;
 
             MediatorMercatAccounts::insert(&owner_did, &public_key);
 
@@ -630,8 +639,7 @@ decl_module! {
             total_supply: Balance,
             asset_mint_proof: InitializedAssetTxWrapper,
         ) -> DispatchResult {
-            let owner = ensure_signed(origin)?;
-            let owner_did = Context::current_identity_or::<Identity<T>>(&owner)?;
+            let owner_did = Identity::<T>::ensure_perms(origin)?;
             let mut details = Self::confidential_asset_details(ticker);
 
             // Only the owner of the asset can change its total supply.
@@ -694,36 +702,39 @@ decl_module! {
             Ok(())
         }
 
-        /// Resets the `FailedOutgoingBalance` and `IncomingBalance` accumulators for the caller's account.
-        /// If successful, the account owner must use their current balance minus the sum of all unsettled outgoing
-        /// balances as their pending balance.
+        /// Applies any incoming balance to the mercat account balance.
         ///
         /// # Arguments
         /// * `origin` - contains the secondary key of the caller (i.e who signed the transaction to execute this function).
-        /// * `account_id` - the mercat account ID of the `origin`.
+        /// * `account` - the mercat account (mercat public key) of the `origin`.
+        /// * `ticker` - Ticker of mercat account.
         ///
         /// # Errors
         /// - `BadOrigin` if not signed.
-        #[weight = <T as Config>::WeightInfo::reset_ordering_state()]
-        pub fn reset_ordering_state(
+        #[weight = <T as Config>::WeightInfo::apply_incoming_balance()]
+        pub fn apply_incoming_balance(
             origin,
             account: MercatAccount,
             ticker: Ticker,
         ) {
-            let owner = ensure_signed(origin)?;
-            let owner_did = Context::current_identity_or::<Identity<T>>(&owner)?;
+            let did = Identity::<T>::ensure_perms(origin)?;
+            let account_did = Self::get_mercat_account_did(&account)?;
+            // Ensure the caller is the owner of the mercat account.
+            ensure!(
+                account_did == did,
+                Error::<T>::Unauthorized
+            );
 
-            Self::reset_mercat_pending_state(&account, ticker);
-
-            // Emit an event and include account's current balance for account owner's information.
-            let current_balance =
-                Self::mercat_account_balance(&account, ticker);
-            Self::deposit_event(Event::ResetConfidentialAccountOrderingState(
-                owner_did,
-                account,
-                ticker,
-                current_balance
-            ));
+            // Take the incoming balance.
+            match IncomingBalance::take(&account, ticker) {
+                Some(incoming_balance) => {
+                    // If there is an incoming balance, apply it to the mercat account balance.
+                    MercatAccountBalance::mutate(&account, ticker, |balance| {
+                        *balance += *incoming_balance;
+                    });
+                }
+                None => (),
+            }
         }
 
         /// Adds a new transaction.
@@ -759,189 +770,51 @@ decl_module! {
             let did = Identity::<T>::ensure_perms(origin)?;
             Self::base_execute_transaction(did, transaction_id, leg_count as usize)?;
         }
+
+        /// Revert pending transaction.
+        #[weight = <T as Config>::WeightInfo::execute_transaction()]
+        pub fn revert_transaction(
+            origin,
+            _transaction_id: TransactionId,
+            _leg_count: u32,
+        ) {
+            let _did = Identity::<T>::ensure_perms(origin)?;
+            // TODO:
+            //Self::base_revert_transaction(did, transaction_id, leg_count as usize)?;
+        }
     }
 }
 
 impl<T: Config> Module<T> {
-    /// Reset `IncomingBalance` and `FailedOutgoingBalance` accumulators, by doing this
-    /// we are no longer keeping track of the old/settled transactions.
-    fn reset_mercat_pending_state(account: &MercatAccount, ticker: Ticker) {
-        if IncomingBalance::contains_key(account, ticker) {
-            IncomingBalance::remove(account, ticker);
-        }
-
-        if FailedOutgoingBalance::contains_key(account, ticker) {
-            FailedOutgoingBalance::remove(account, ticker);
-        }
-    }
-
     pub fn get_mercat_account_did(account: &MercatAccount) -> Result<IdentityId, DispatchError> {
         Self::mercat_account_did(account).ok_or(Error::<T>::MercatAccountMissing.into())
     }
 
-    /// Add the `amount` to the mercat account balance, and update the `IncomingBalance` accumulator.
+    /// Add the `amount` to the mercat account's `IncomingBalance` accumulator.
     pub fn mercat_account_deposit_amount(
         account: &MercatAccount,
         ticker: Ticker,
         amount: EncryptedAmount,
-    ) -> DispatchResult {
-        let current_balance = *Self::mercat_account_balance(account, ticker);
-        MercatAccountBalance::insert(
-            account,
-            ticker,
-            EncryptedAmountWrapper::from(current_balance + amount),
-        );
-
-        // Update the incoming balance accumulator.
-        Self::add_incoming_balance(account, ticker, amount)
+    ) {
+        IncomingBalance::mutate(account, ticker, |incoming_balance| match incoming_balance {
+            Some(previous_balance) => {
+                *previous_balance += amount;
+            }
+            None => {
+                *incoming_balance = Some(amount.into());
+            }
+        });
     }
 
-    /// Subtract the `amount` from the mercat account balance, and update the `PendingOutgoingBalance` accumulator.
+    /// Subtract the `amount` from the mercat account balance.
     pub fn mercat_account_withdraw_amount(
         account: &MercatAccount,
         ticker: Ticker,
         amount: EncryptedAmount,
-    ) -> DispatchResult {
-        let current_balance = *Self::mercat_account_balance(account, ticker);
-        MercatAccountBalance::insert(
-            account,
-            ticker,
-            EncryptedAmountWrapper::from(current_balance - amount),
-        );
-
-        // Update the pending balance accumulator.
-        let pending_balance = *Self::pending_outgoing_balance(account, ticker);
-
-        PendingOutgoingBalance::insert(
-            account,
-            ticker,
-            EncryptedAmountWrapper::from(pending_balance - amount),
-        );
-        Ok(())
-    }
-
-    /// Calculate account owner's (transaction sender's) pending balance, given the previous
-    /// pending outgoing, incoming, and failed outgoing transaction amounts.
-    pub fn get_pending_balance(
-        account: &MercatAccount,
-        ticker: Ticker,
-    ) -> Result<EncryptedAmount, DispatchError> {
-        let mut current_balance = *Self::mercat_account_balance(account, ticker);
-
-        if PendingOutgoingBalance::contains_key(account, ticker) {
-            current_balance -= *Self::pending_outgoing_balance(account, ticker);
-        }
-
-        if IncomingBalance::contains_key(account, ticker) {
-            current_balance -= *Self::incoming_balance(account, ticker);
-        }
-
-        if FailedOutgoingBalance::contains_key(account, ticker) {
-            current_balance -= *Self::failed_outgoing_balance(account, ticker);
-        }
-        Ok(current_balance)
-    }
-
-    /// Add the amount to the account's pending outgoing accumulator.
-    pub fn add_pending_outgoing_balance(
-        account: &MercatAccount,
-        ticker: Ticker,
-        amount: EncryptedAmount,
-    ) -> DispatchResult {
-        let pending_balances = if PendingOutgoingBalance::contains_key(account, ticker) {
-            let pending_balance = *Self::pending_outgoing_balance(account, ticker);
-            pending_balance + amount
-        } else {
-            amount
-        };
-
-        PendingOutgoingBalance::insert(
-            account,
-            ticker,
-            EncryptedAmountWrapper::from(pending_balances),
-        );
-
-        Ok(())
-    }
-
-    /// Add the amount to the account's incoming balance accumulator.
-    fn add_incoming_balance(
-        account: &MercatAccount,
-        ticker: Ticker,
-        amount: EncryptedAmount,
-    ) -> DispatchResult {
-        let incoming_balances = if IncomingBalance::contains_key(account, ticker) {
-            let previous_balance = *Self::incoming_balance(account, ticker);
-            previous_balance + amount
-        } else {
-            amount
-        };
-
-        IncomingBalance::insert(
-            account,
-            ticker,
-            EncryptedAmountWrapper::from(incoming_balances),
-        );
-        Ok(())
-    }
-
-    /// Subtracts the `amount` from the pending balance counter and adds it to the failed balance counter,
-    /// i.e. transition the settlement amount from the pending outgoing accumulator to the failed outgoing
-    /// accumulator.
-    pub fn add_failed_outgoing_balance(
-        account: &MercatAccount,
-        ticker: Ticker,
-        amount: EncryptedAmount,
-    ) -> DispatchResult {
-        let failed_balances = if FailedOutgoingBalance::contains_key(account, ticker) {
-            let failed_balance = *Self::failed_outgoing_balance(account, ticker);
-            failed_balance + amount
-        } else {
-            amount
-        };
-
-        FailedOutgoingBalance::insert(
-            account,
-            ticker,
-            EncryptedAmountWrapper::from(failed_balances),
-        );
-
-        // We never reset or remove the pending outgoing accumulator.
-        // The settlement state transition works in a way that this amount has definitely been added to the
-        // pending state by this point.
-        let pending_balance = *Self::pending_outgoing_balance(account, ticker);
-        PendingOutgoingBalance::insert(
-            account,
-            ticker,
-            EncryptedAmountWrapper::from(pending_balance - amount),
-        );
-
-        Ok(())
-    }
-
-    /// Store the current pending state for the given instruction_id. This is used at the time of transaction
-    /// validation by the network validators, and can be removed, using the `remove_tx_pending_state()` API,
-    /// as soon as the transaction is settled.
-    pub fn set_tx_pending_state(
-        account: &MercatAccount,
-        ticker: Ticker,
-        instruction_id: TransactionId,
-    ) -> Result<EncryptedAmount, DispatchError> {
-        let pending_state = Self::get_pending_balance(&account, ticker)?;
-        TxPendingState::insert(
-            (account, ticker, instruction_id),
-            EncryptedAmountWrapper::from(pending_state),
-        );
-        Ok(pending_state)
-    }
-
-    /// Once the transaction is settled remove its pending state.
-    pub fn remove_tx_pending_state(
-        account: &MercatAccount,
-        ticker: Ticker,
-        instruction_id: TransactionId,
     ) {
-        TxPendingState::remove((account, ticker, instruction_id));
+        MercatAccountBalance::mutate(account, ticker, |balance| {
+            *balance -= amount;
+        });
     }
 
     pub fn base_add_transaction(
@@ -1000,14 +873,16 @@ impl<T: Config> Module<T> {
         id: TransactionId,
         leg_count: usize,
     ) -> DispatchResult {
+        // Take transaction legs.
         let legs = TransactionLegs::drain_prefix(id).collect::<Vec<_>>();
         ensure!(legs.len() <= leg_count, Error::<T>::LegCountTooSmall);
 
-        let mut rng = Self::get_rng();
+        // Take pending affirms count and ensure that the transaction has been affirmed.
+        let pending_affirms = PendingAffirms::take(id);
+        ensure!(pending_affirms == 0, Error::<T>::InstructionNotAffirmed);
+
         for (leg_id, leg) in legs {
-            let proofs =
-                SenderProofs::take(id, leg_id).ok_or(Error::<T>::InstructionNotAffirmed)?;
-            Self::base_confidential_transfer(leg, &proofs.0, id, &mut rng)?;
+            Self::base_confidential_transfer(id, leg_id, leg)?;
         }
 
         Ok(())
@@ -1019,26 +894,27 @@ impl<T: Config> Module<T> {
         leg_id: TransactionLegId,
         parity: ParityAffirmLeg,
     ) -> DispatchResult {
-        // TODO: check that the proof accounts match the leg accounts.
         let leg = TransactionLegs::get(id, leg_id);
+
+        // Ensure the caller hasn't already affirmed this leg.
+        let caller_affirm = UserAffirmations::take(caller_did, (id, leg_id));
+        ensure!(
+            caller_affirm == Some(false),
+            Error::<T>::InstructionAlreadyAffirmed
+        );
 
         match parity {
             ParityAffirmLeg::SenderProof(init_tx) => {
                 let sender_did = Self::mercat_account_did(&leg.sender);
                 ensure!(Some(caller_did) == sender_did, Error::<T>::Unauthorized);
+
                 // Get receiver's account.
                 let to_mercat = leg.receiver.clone().into();
 
                 // Get sender's account.
                 let from_mercat = leg.sender.clone().into();
-
-                // Temporarily store the current pending state as this instruction's pending state.
-                let from_current_balance = Self::set_tx_pending_state(&leg.sender, leg.ticker, id)?;
-                Self::add_pending_outgoing_balance(
-                    &leg.sender,
-                    leg.ticker,
-                    init_tx.memo.enc_amount_using_sender,
-                )?;
+                // Get the sender's current balance.
+                let from_current_balance = *Self::mercat_account_balance(&leg.sender, leg.ticker);
 
                 // Verify the sender's proof.
                 let mut rng = Self::get_rng();
@@ -1052,6 +928,24 @@ impl<T: Config> Module<T> {
                 )
                 .map_err(|_| Error::<T>::InvalidMercatTransferProof)?;
 
+                // Withdraw the transaction amount when the sender affirms.
+                Self::mercat_account_withdraw_amount(
+                    &leg.sender,
+                    leg.ticker,
+                    init_tx.memo.enc_amount_using_sender,
+                );
+
+                // Store the pending state for this transaction leg.
+                TxPendingState::insert(
+                    &(id, leg_id),
+                    LegPendingState {
+                        sender_init_balance: from_current_balance.into(),
+                        sender_amount: init_tx.memo.enc_amount_using_sender.into(),
+                        receiver_amount: init_tx.memo.enc_amount_using_receiver.into(),
+                    },
+                );
+
+                // Store the sender's proof.
                 SenderProofs::insert(id, leg_id, SenderProof(init_tx.into()));
             }
             ParityAffirmLeg::ReceiverAffirm => {
@@ -1062,6 +956,7 @@ impl<T: Config> Module<T> {
                 ensure!(caller_did == leg.mediator, Error::<T>::Unauthorized);
             }
         }
+        // Update affirmations.
         UserAffirmations::insert(caller_did, (id, leg_id), true);
         PendingAffirms::mutate(id, |pending| {
             *pending = pending.saturating_sub(1);
@@ -1072,60 +967,41 @@ impl<T: Config> Module<T> {
 
     /// Transfers an asset from one identity's portfolio to another.
     pub fn base_confidential_transfer(
-        leg: TransactionLeg,
-        init_tx: &InitializedTransferTx,
         instruction_id: TransactionId,
-        rng: &mut Rng,
+        leg_id: TransactionLegId,
+        leg: TransactionLeg,
     ) -> DispatchResult {
         let ticker = leg.ticker;
-        let from_account = &leg.sender;
-        let to_account = &leg.receiver;
-        // Read the mercat_accounts from the confidential-asset pallet.
-        let from_mercat_pending_state =
-            Self::mercat_tx_pending_state((from_account, ticker, instruction_id)).into();
 
-        let from_mercat = from_account.into();
-        let to_mercat = to_account.into();
+        // Check affirmations and remove them.
+        let sender_did = Self::get_mercat_account_did(&leg.sender)?;
+        let sender_affirm = UserAffirmations::take(sender_did, (instruction_id, leg_id));
+        ensure!(
+            sender_affirm == Some(true),
+            Error::<T>::InstructionNotAffirmed
+        );
+        let receiver_did = Self::get_mercat_account_did(&leg.receiver)?;
+        let receiver_affirm = UserAffirmations::take(receiver_did, (instruction_id, leg_id));
+        ensure!(
+            receiver_affirm == Some(true),
+            Error::<T>::InstructionNotAffirmed
+        );
+        let mediator_affirm = UserAffirmations::take(leg.mediator, (instruction_id, leg_id));
+        ensure!(
+            mediator_affirm == Some(true),
+            Error::<T>::InstructionNotAffirmed
+        );
 
-        // Verify the proofs.
-        let _ = TransactionValidator
-            .verify_transaction(
-                init_tx,
-                &from_mercat,
-                &from_mercat_pending_state,
-                &to_mercat,
-                &[],
-                rng,
-            )
-            .map_err(|_| {
-                // Upon transaction validation failure, update the failed outgoing accumulator.
-                let _ = Self::add_failed_outgoing_balance(
-                    from_account,
-                    ticker,
-                    init_tx.memo.enc_amount_using_sender,
-                );
+        // Take the transaction leg's pending state.
+        let pending_state = TxPendingState::take((instruction_id, leg_id))
+            .ok_or(Error::<T>::InstructionNotAffirmed)?;
 
-                // There's no need to keep a copy of the pending state anymore.
-                Self::remove_tx_pending_state(from_account, ticker, instruction_id);
+        // Take the sender proof.
+        let sender_proof = SenderProofs::take(instruction_id, leg_id);
+        ensure!(sender_proof.is_some(), Error::<T>::InstructionNotAffirmed);
 
-                Error::<T>::ConfidentialTransferValidationFailure
-            })?;
-
-        // Note that storage failures could be a problem, if only some of the storage is updated.
-        let _ = Self::mercat_account_withdraw_amount(
-            from_account,
-            ticker,
-            init_tx.memo.enc_amount_using_sender,
-        )?;
-
-        let _ = Self::mercat_account_deposit_amount(
-            to_account,
-            ticker,
-            init_tx.memo.enc_amount_using_receiver,
-        )?;
-
-        // There's no need to keep a copy of the pending state anymore.
-        Self::remove_tx_pending_state(from_account, ticker, instruction_id);
+        // Deposit the transaction amount into the receiver's account.
+        Self::mercat_account_deposit_amount(&leg.receiver, ticker, *pending_state.receiver_amount);
 
         Ok(())
     }
@@ -1241,6 +1117,8 @@ decl_error! {
         NoPendingAffirm,
         /// Instruction has not been affirmed.
         InstructionNotAffirmed,
+        /// Instruction has already been affirmed.
+        InstructionAlreadyAffirmed,
         /// Provided instruction is not pending execution.
         InstructionNotPending,
         /// Provided instruction is not failing execution.
