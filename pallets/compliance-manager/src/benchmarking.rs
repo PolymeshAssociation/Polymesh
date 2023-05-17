@@ -600,7 +600,7 @@ benchmarks! {
     }
 
     is_any_requirement_compliant {
-        let i in 0..T::MaxConditionComplexity::get();
+        let i in 0..10_000;
 
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");

@@ -24,11 +24,17 @@ pub struct WeightMeter {
 
 impl WeightMeter {
     /// Creates [`Self`] from a limit for the maximal consumable weight and a minimum charge of `minimum_charge`.
-    pub fn from_limit(minimum_charge: Weight, limit: Weight) -> Self {
-        Self {
+    pub fn from_limit(minimum_charge: Weight, limit: Weight) -> Result<Self, String> {
+        if limit.ref_time() < minimum_charge.ref_time() {
+            return Err(String::from(
+                "The limit must be higher than the minimum_charge",
+            ));
+        }
+
+        Ok(Self {
             minimum_charge,
             meter: FrameWeightMeter::from_limit(limit),
-        }
+        })
     }
 
     /// Creates [`Self`] with the maximal possible limit for the consumable weight and a minimum charge of `minimum_charge`.

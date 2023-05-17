@@ -481,7 +481,7 @@ benchmarks! {
             .collect();
     }: {
         assert!(
-            Module::<T>::verify_requirements::<T::MaxStatsPerAsset>(
+            Module::<T>::verify_requirements::<T::MaxTransferConditionsPerAsset>(
                 &transfer_conditions.try_into().unwrap(),
                 asset_scope,
                 alice.did(),
@@ -495,6 +495,44 @@ benchmarks! {
                 &mut weight_meter
             )
             .is_ok()
+        );
+    }
+
+    active_asset_statistics_load {
+        let a in 1..T::MaxStatsPerAsset::get();
+
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let asset_scope = AssetScope::Ticker(ticker);
+
+        let statistics: BTreeSet<StatType> = (0..a)
+            .map(|a| StatType {
+                op: StatOpType::Count,
+                claim_issuer: Some((ClaimType::Accredited, alice.did())),
+            })
+            .collect();
+        let statistics: BoundedBTreeSet<StatType, T::MaxStatsPerAsset> = statistics.try_into().unwrap();
+        ActiveAssetStats::<T>::insert(&asset_scope, statistics);
+    }: {
+        Module::<T>::active_asset_stats(asset_scope).into_iter();
+    }
+
+    is_exempt {
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let asset_scope = AssetScope::Ticker(ticker);
+        let statistic_claim = StatClaim::Jurisdiction(Some(CountryCode::BR));
+        let transfer_condition = TransferCondition::ClaimOwnership(statistic_claim, alice.did(), Permill::zero(), Permill::zero());
+        TransferConditionExemptEntities::insert(transfer_condition.get_exempt_key(asset_scope.clone()), bob.did(), true);
+    }: {
+        assert!(
+            Module::<T>::is_exempt(
+                asset_scope,
+                &transfer_condition,
+                &alice.did(),
+                &bob.did()
+            )
         );
     }
 }

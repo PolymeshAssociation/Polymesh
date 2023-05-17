@@ -1329,6 +1329,12 @@ benchmarks! {
 
         setup_execute_instruction::<T>(&alice, &bob, SettlementType::SettleOnAffirmation, f, n, false, false);
     }: execute_scheduled_instruction_v3(RawOrigin::Root, InstructionId(1), Weight::MAX)
+
+    ensure_root_origin {
+        let origin = RawOrigin::Root;
+    }: {
+        assert!(Module::<T>::ensure_root_origin(origin.into()).is_ok());
+    }
 }
 
 pub fn next_block<T: Config + pallet_scheduler::Config>() {

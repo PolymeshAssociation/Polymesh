@@ -689,14 +689,6 @@ impl<T: Config> Module<T> {
         weight_meter: &mut WeightMeter,
     ) -> Result<bool, DispatchError> {
         for requirement in requirements {
-            // Consumes the weight for the loop
-            Self::consume_weight_meter(
-                weight_meter,
-                <T as Config>::WeightInfo::is_any_requirement_compliant_loop(
-                    requirement.sender_conditions.len() as u32
-                        + requirement.receiver_conditions.len() as u32,
-                ),
-            )?;
             // Returns true if all conditions for the sender and receiver are satisfied
             if Self::are_all_conditions_satisfied(
                 ticker,

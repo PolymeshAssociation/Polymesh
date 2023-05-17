@@ -139,8 +139,9 @@ pub trait WeightInfo {
     }
     fn execute_manual_weight_limit(weight_limit: &Option<Weight>, n_legs: &u32) -> Weight {
         if let Some(weight_limit) = weight_limit {
-            return weight_limit.max(Self::execute_manual_instruction(0));
+            return *weight_limit;
         }
         Self::execute_manual_instruction(*n_legs)
     }
+    fn ensure_root_origin() -> Weight;
 }
