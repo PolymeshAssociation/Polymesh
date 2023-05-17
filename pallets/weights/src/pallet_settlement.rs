@@ -535,4 +535,8 @@ impl pallet_settlement::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes((11_u64).saturating_mul(n.into())))
             .saturating_add(DbWeight::get().writes((6_u64).saturating_mul(o.into())))
     }
+    fn ensure_root_origin() -> Weight {
+        // Minimum execution time: 607 nanoseconds.
+        Weight::from_ref_time(712_000)
+    }
 }

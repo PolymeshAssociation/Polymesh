@@ -100,6 +100,7 @@ pub trait WeightInfo {
     fn reject_instruction(f: u32, n: u32, o: u32) -> Weight;
     fn execute_instruction_paused(f: u32, n: u32, o: u32) -> Weight;
     fn execute_scheduled_instruction(f: u32, n: u32, o: u32) -> Weight;
+    fn ensure_root_origin() -> Weight;
 
     fn add_instruction_legs(legs: &[Leg]) -> Weight {
         let (f, n, o) = Self::get_transfer_by_asset(legs);
@@ -120,7 +121,7 @@ pub trait WeightInfo {
         o: &u32,
     ) -> Weight {
         if let Some(weight_limit) = weight_limit {
-            return weight_limit.max(Self::execute_manual_instruction(0, 0, 0));
+            return *weight_limit;
         }
         Self::execute_manual_instruction(*f, *n, *o)
     }

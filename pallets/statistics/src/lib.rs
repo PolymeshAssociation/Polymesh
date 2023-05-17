@@ -489,6 +489,11 @@ impl<T: Config> Module<T> {
             return Ok(());
         }
 
+        Self::consume_weight_meter(
+            weight_meter,
+            <T as Config>::WeightInfo::active_asset_statistics_load(T::MaxStatsPerAsset::get()),
+        )?;
+
         // Pre-Calculate the investor count changes.
         let count_changes = Self::investor_count_changes(from_balance, to_balance, amount);
 
@@ -745,59 +750,80 @@ impl<T: Config> Module<T> {
         count_changes: Option<(bool, bool)>,
         weight_meter: &mut WeightMeter,
     ) -> Result<bool, DispatchError> {
-        use TransferCondition::*;
-
         let stat_type = condition.get_stat_type();
         let key1 = Stat1stKey { asset, stat_type };
 
         let passed = match &condition {
-            MaxInvestorCount(max_count) => Self::verify_asset_count_restriction(
+            TransferCondition::MaxInvestorCount(max_count) => Self::verify_asset_count_restriction(
                 key1,
                 count_changes,
                 *max_count as u128,
                 weight_meter,
             )?,
-            MaxInvestorOwnership(max_percentage) => Self::verify_ownership_restriction(
-                amount,
-                to_balance,
-                total_supply,
-                *max_percentage,
-                weight_meter,
-            )?,
-            ClaimCount(claim, _, min, max) => Self::verify_claim_count_restriction(
-                key1,
-                claim.into(),
-                from_did,
-                to_did,
-                count_changes,
-                *min as u128,
-                max.map(|m| m as u128),
-                weight_meter,
-            )?,
-            ClaimOwnership(claim, _, min, max) => Self::verify_claim_ownership_restriction(
-                key1,
-                claim.into(),
-                from_did,
-                to_did,
-                amount,
-                total_supply,
-                *min,
-                *max,
-                weight_meter,
-            )?,
+            TransferCondition::MaxInvestorOwnership(max_percentage) => {
+                Self::verify_ownership_restriction(
+                    amount,
+                    to_balance,
+                    total_supply,
+                    *max_percentage,
+                    weight_meter,
+                )?
+            }
+            TransferCondition::ClaimCount(claim, _, min, max) => {
+                Self::verify_claim_count_restriction(
+                    key1,
+                    claim.into(),
+                    from_did,
+                    to_did,
+                    count_changes,
+                    *min as u128,
+                    max.map(|m| m as u128),
+                    weight_meter,
+                )?
+            }
+            TransferCondition::ClaimOwnership(claim, _, min, max) => {
+                Self::verify_claim_ownership_restriction(
+                    key1,
+                    claim.into(),
+                    from_did,
+                    to_did,
+                    amount,
+                    total_supply,
+                    *min,
+                    *max,
+                    weight_meter,
+                )?
+            }
         };
         if passed {
             Ok(true)
         } else {
-            let exempt_key = condition.get_exempt_key(asset);
-            let id = match exempt_key.op {
-                // Count transfer conditions require the sender to be exempt.
-                StatOpType::Count => from,
-                // Percent ownersip transfer conditions require the receiver to be exempt.
-                StatOpType::Balance => to,
-            };
-            let is_exempt = Self::transfer_condition_exempt_entities(exempt_key, id);
-            Ok(is_exempt)
+            Self::consume_weight_meter(weight_meter, <T as Config>::WeightInfo::is_exempt())?;
+            Ok(Self::is_exempt(asset, condition, &from, &to))
+        }
+    }
+
+    /// Returns `true` if the [`TransferCondition`] operation is of type [`StatOpType::Count`] and `sender_scope_id`
+    /// is in the exemption list or if [`TransferCondition`] operation is of type [`StatOpType::Balance`] and
+    /// `receiver_scope_id` is in the exemption list, otherwise returns `false`.
+    fn is_exempt(
+        asset_scope: AssetScope,
+        transfer_condition: &TransferCondition,
+        sender_scope_id: &ScopeId,
+        receiver_scope_id: &ScopeId,
+    ) -> bool {
+        let transfer_condition_exempt_key = transfer_condition.get_exempt_key(asset_scope);
+        match transfer_condition_exempt_key.op {
+            // Count transfer conditions require the sender to be exempt.
+            StatOpType::Count => Self::transfer_condition_exempt_entities(
+                transfer_condition_exempt_key,
+                sender_scope_id,
+            ),
+            // Percent ownersip transfer conditions require the receiver to be exempt.
+            StatOpType::Balance => Self::transfer_condition_exempt_entities(
+                transfer_condition_exempt_key,
+                receiver_scope_id,
+            ),
         }
     }
 
@@ -851,12 +877,6 @@ impl<T: Config> Module<T> {
         total_supply: Balance,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        // Consumes the weight for the loop
-        Self::consume_weight_meter(
-            weight_meter,
-            <T as Config>::WeightInfo::verify_requirements_loop(transfer_conditions.len() as u32),
-        )?;
-
         // Checks if the number of investors should be updated
         let change_investors_count = Self::investor_count_changes(
             Some(sender_balance.saturating_sub(transfer_amount)),
