@@ -29,7 +29,7 @@ use mercat::{
     },
     transaction::CtxSender,
     Account, AccountCreatorInitializer, AssetTransactionIssuer, EncryptedAmount, EncryptionKeys,
-    PubAccount, PubAccountTx, SecAccount, TransferTransactionSender,
+    EncryptionPubKey, PubAccount, PubAccountTx, SecAccount, TransferTransactionSender,
 };
 
 use polymesh_common_utilities::{
@@ -157,7 +157,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> MercatUser<T> {
     pub fn add_mediator(&self) {
         assert_ok!(Module::<T>::add_mediator_mercat_account(
             self.origin().into(),
-            EncryptionPubKeyWrapper::from(self.pub_key()),
+            self.mercat(),
         ));
     }
 }
@@ -352,8 +352,8 @@ benchmarks! {
     add_mediator_mercat_account {
         let mut rng = StdRng::from_seed([10u8; 32]);
         let mediator = MercatUser::<T>::new("mediator", &mut rng);
-        let pub_key = EncryptionPubKeyWrapper::from(mediator.pub_key());
-    }: _(mediator.origin(), pub_key)
+        let account = mediator.mercat();
+    }: _(mediator.origin(), account)
 
     create_confidential_asset {
         let ticker = Ticker::from_slice_truncated(b"A".as_ref());
@@ -420,7 +420,8 @@ benchmarks! {
     }: affirm_transaction(tx.mediator.origin(), tx.id, affirm)
 
     execute_transaction {
-        let l in 1..10;
+        //let l in 1..10;
+        let l = 1;
 
         let mut rng = StdRng::from_seed([10u8; 32]);
 

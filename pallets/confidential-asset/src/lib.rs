@@ -115,8 +115,8 @@ use mercat::{
     account::AccountValidator, asset::AssetValidator,
     confidential_identity_core::asset_proofs::Balance as MercatBalance,
     transaction::verify_initialized_transaction, AccountCreatorVerifier, AssetTransactionVerifier,
-    EncryptedAmount, EncryptionPubKey, InitializedAssetTx, InitializedTransferTx, PubAccount,
-    PubAccountTx,
+    CompressedEncryptionPubKey, EncryptedAmount, InitializedAssetTx, InitializedTransferTx,
+    PubAccount, PubAccountTx,
 };
 use pallet_base::try_next_post;
 use pallet_identity as identity;
@@ -236,7 +236,6 @@ macro_rules! impl_wrapper {
     };
 }
 
-impl_wrapper!(EncryptionPubKeyWrapper, EncryptionPubKey);
 impl_wrapper!(EncryptedAmountWrapper, EncryptedAmount);
 
 impl_wrapper!(PubAccountTxWrapper, PubAccountTx);
@@ -287,28 +286,21 @@ pub trait Config:
 
 /// A mercat account consists of the public key that is used for encryption purposes.
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
-pub struct MercatAccount(EncryptionPubKeyWrapper);
+pub struct MercatAccount(CompressedEncryptionPubKey);
 
-impl core::ops::Deref for MercatAccount {
-    type Target = EncryptionPubKey;
-    fn deref(&self) -> &Self::Target {
-        &self.0 .0
+impl MercatAccount {
+    pub fn from_pub_account(account: &PubAccount) -> Self {
+        Self(account.owner_enc_pub_key.into())
     }
-}
 
-impl From<MercatAccount> for PubAccount {
-    fn from(data: MercatAccount) -> Self {
-        Self {
-            owner_enc_pub_key: *data.0,
-        }
+    pub fn pub_account(&self) -> Option<PubAccount> {
+        self.0.into_public_key().map(|pub_key| PubAccount {
+            owner_enc_pub_key: pub_key,
+        })
     }
-}
 
-impl From<&MercatAccount> for PubAccount {
-    fn from(data: &MercatAccount) -> Self {
-        Self {
-            owner_enc_pub_key: *data.0.clone(),
-        }
+    pub fn is_valid(&self) -> bool {
+        self.0.into_public_key().is_some()
     }
 }
 
@@ -335,6 +327,21 @@ pub struct TransactionLeg {
     pub receiver: MercatAccount,
     /// Mediator.
     pub mediator: IdentityId,
+}
+
+impl TransactionLeg {
+    /// Check if the sender/receiver accounts are valid.
+    pub fn verify_accounts(&self) -> bool {
+        self.sender.is_valid() && self.receiver.is_valid()
+    }
+
+    pub fn sender_account(&self) -> Option<PubAccount> {
+        self.sender.pub_account()
+    }
+
+    pub fn receiver_account(&self) -> Option<PubAccount> {
+        self.receiver.pub_account()
+    }
 }
 
 /// This pending state is initialized from the sender's proof.
@@ -414,7 +421,7 @@ decl_storage! {
 
         /// Contains the encryption key for a mercat mediator.
         pub MediatorMercatAccounts get(fn mediator_mercat_accounts):
-            map hasher(twox_64_concat) IdentityId => Option<EncryptionPubKeyWrapper>;
+            map hasher(twox_64_concat) IdentityId => Option<MercatAccount>;
 
         /// Records the did for a mercat account.
         /// account -> IdentityId.
@@ -501,10 +508,10 @@ decl_module! {
         /// * `BadOrigin` if `origin` isn't signed.
         #[weight = <T as Config>::WeightInfo::add_mediator_mercat_account()]
         pub fn add_mediator_mercat_account(origin,
-            public_key: EncryptionPubKeyWrapper,
+            account: MercatAccount,
         ) -> DispatchResult {
             let caller_did = Identity::<T>::ensure_perms(origin)?;
-            Self::base_add_mediator_mercat_account(caller_did, public_key)
+            Self::base_add_mediator_mercat_account(caller_did, account)
         }
 
         /// Initializes a new confidential security token.
@@ -687,11 +694,13 @@ impl<T: Config> Module<T> {
 
     fn base_add_mediator_mercat_account(
         caller_did: IdentityId,
-        public_key: EncryptionPubKeyWrapper,
+        account: MercatAccount,
     ) -> DispatchResult {
-        MediatorMercatAccounts::insert(&caller_did, &public_key);
+        ensure!(account.is_valid(), Error::<T>::InvalidMercatAccount);
 
-        Self::deposit_event(Event::MediatorAccountCreated(caller_did, public_key));
+        MediatorMercatAccounts::insert(&caller_did, &account);
+
+        Self::deposit_event(Event::MediatorAccountCreated(caller_did, account));
         Ok(())
     }
 
@@ -880,6 +889,7 @@ impl<T: Config> Module<T> {
         PendingAffirms::insert(transaction_id, pending_affirms);
 
         for (i, leg) in legs.iter().enumerate() {
+            ensure!(leg.verify_accounts(), Error::<T>::InvalidMercatAccount);
             let leg_id = TransactionLegId(i as u64);
             let sender_did = Self::get_mercat_account_did(&leg.sender)?;
             let receiver_did = Self::get_mercat_account_did(&leg.receiver)?;
@@ -952,11 +962,18 @@ impl<T: Config> Module<T> {
                 let sender_did = Self::mercat_account_did(&leg.sender);
                 ensure!(Some(caller_did) == sender_did, Error::<T>::Unauthorized);
 
-                // Get receiver's account.
-                let to_mercat = leg.receiver.clone().into();
+                // Ensure the sender/receiver accounts match with the transaction leg.
+                let sender_account = &init_tx.memo.sender_account;
+                ensure!(
+                    MercatAccount::from(sender_account) == leg.sender,
+                    Error::<T>::InvalidMercatTransferProof
+                );
+                let receiver_account = &init_tx.memo.receiver_account;
+                ensure!(
+                    MercatAccount::from(receiver_account) == leg.receiver,
+                    Error::<T>::InvalidMercatTransferProof
+                );
 
-                // Get sender's account.
-                let from_mercat = leg.sender.clone().into();
                 // Get the sender's current balance.
                 let from_current_balance = *Self::mercat_account_balance(&leg.sender, leg.ticker)
                     .ok_or(Error::<T>::MercatAccountMissing)?;
@@ -965,9 +982,9 @@ impl<T: Config> Module<T> {
                 let mut rng = Self::get_rng();
                 verify_initialized_transaction(
                     &init_tx,
-                    &from_mercat,
+                    sender_account,
                     &from_current_balance,
-                    &to_mercat,
+                    receiver_account,
                     &[],
                     &mut rng,
                 )
@@ -1073,7 +1090,7 @@ decl_event! {
     pub enum Event {
         /// Event for creation of a Mediator Mercat account.
         /// caller DID/ owner DID and encryption public key
-        MediatorAccountCreated(IdentityId, EncryptionPubKeyWrapper),
+        MediatorAccountCreated(IdentityId, MercatAccount),
 
         /// Event for creation of a Mercat account.
         /// caller DID/ owner DID, mercat account id (which is equal to encrypted asset ID), encrypted balance
@@ -1117,6 +1134,9 @@ decl_error! {
 
         /// The provided total supply of a confidential asset is invalid.
         InvalidTotalSupply,
+
+        /// Mercat account isn't a valid CompressedEncryptionPubKey.
+        InvalidMercatAccount,
 
         /// The balance values does not fit a mercat balance.
         TotalSupplyAboveBalanceLimit,
