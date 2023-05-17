@@ -384,10 +384,7 @@ fn account_create_tx() {
         let pub_account = &mercat_account_tx.pub_account;
         let account: MercatAccount = pub_account.into();
 
-        assert_eq!(
-            *account.pub_key,
-            mercat_account_tx.pub_account.owner_enc_pub_key,
-        );
+        assert_eq!(*account, mercat_account_tx.pub_account.owner_enc_pub_key,);
 
         // Ensure that the account has an initial balance of zero.
         let stored_balance =

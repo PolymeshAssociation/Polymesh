@@ -115,8 +115,8 @@ use mercat::{
     account::AccountValidator, asset::AssetValidator,
     confidential_identity_core::asset_proofs::Balance as MercatBalance,
     transaction::verify_initialized_transaction, AccountCreatorVerifier, AssetTransactionVerifier,
-    EncryptedAmount, EncryptionPubKey, FinalizedTransferTx, InitializedAssetTx,
-    InitializedTransferTx, JustifiedTransferTx, PubAccount, PubAccountTx,
+    EncryptedAmount, EncryptionPubKey, InitializedAssetTx, InitializedTransferTx, PubAccount,
+    PubAccountTx,
 };
 use pallet_base::try_next_post;
 use pallet_identity as identity;
@@ -243,8 +243,6 @@ impl_wrapper!(PubAccountTxWrapper, PubAccountTx);
 impl_wrapper!(InitializedAssetTxWrapper, InitializedAssetTx);
 
 impl_wrapper!(InitializedTransferTxWrapper, InitializedTransferTx);
-impl_wrapper!(FinalizedTransferTxWrapper, FinalizedTransferTx);
-impl_wrapper!(JustifiedTransferTxWrapper, JustifiedTransferTx);
 
 impl core::ops::AddAssign<EncryptedAmount> for EncryptedAmountWrapper {
     fn add_assign(&mut self, other: EncryptedAmount) {
@@ -289,14 +287,19 @@ pub trait Config:
 
 /// A mercat account consists of the public key that is used for encryption purposes.
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
-pub struct MercatAccount {
-    pub pub_key: EncryptionPubKeyWrapper,
+pub struct MercatAccount(EncryptionPubKeyWrapper);
+
+impl core::ops::Deref for MercatAccount {
+    type Target = EncryptionPubKey;
+    fn deref(&self) -> &Self::Target {
+        &self.0 .0
+    }
 }
 
 impl From<MercatAccount> for PubAccount {
     fn from(data: MercatAccount) -> Self {
         Self {
-            owner_enc_pub_key: *data.pub_key,
+            owner_enc_pub_key: *data.0,
         }
     }
 }
@@ -304,24 +307,20 @@ impl From<MercatAccount> for PubAccount {
 impl From<&MercatAccount> for PubAccount {
     fn from(data: &MercatAccount) -> Self {
         Self {
-            owner_enc_pub_key: *data.pub_key.clone(),
+            owner_enc_pub_key: *data.0.clone(),
         }
     }
 }
 
 impl From<PubAccount> for MercatAccount {
     fn from(data: PubAccount) -> Self {
-        Self {
-            pub_key: data.owner_enc_pub_key.into(),
-        }
+        Self(data.owner_enc_pub_key.into())
     }
 }
 
 impl From<&PubAccount> for MercatAccount {
     fn from(data: &PubAccount) -> Self {
-        Self {
-            pub_key: data.owner_enc_pub_key.into(),
-        }
+        Self(data.owner_enc_pub_key.into())
     }
 }
 
@@ -1047,9 +1046,8 @@ impl<T: Config> Module<T> {
         let pending_state = TxPendingState::take((instruction_id, leg_id))
             .ok_or(Error::<T>::InstructionNotAffirmed)?;
 
-        // Take the sender proof.
-        let sender_proof = SenderProofs::take(instruction_id, leg_id);
-        ensure!(sender_proof.is_some(), Error::<T>::InstructionNotAffirmed);
+        // Remove the sender proof.
+        SenderProofs::remove(instruction_id, leg_id);
 
         // Deposit the transaction amount into the receiver's account.
         Self::mercat_account_deposit_amount(&leg.receiver, ticker, *pending_state.receiver_amount);

@@ -102,9 +102,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> MercatUser<T> {
     }
 
     pub fn mercat(&self) -> MercatAccount {
-        MercatAccount {
-            pub_key: self.sec.enc_keys.public.into(),
-        }
+        MercatAccount(self.sec.enc_keys.public.into())
     }
 
     pub fn did(&self) -> IdentityId {
@@ -144,7 +142,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> MercatUser<T> {
     }
 
     pub fn mercat_enc_balance(&self, ticker: Ticker) -> EncryptedAmount {
-        *Module::<T>::mercat_account_balance(self.mercat(), ticker)
+        *Module::<T>::mercat_account_balance(self.mercat(), ticker).expect("mercat account balance")
     }
 
     pub fn ensure_mercat_balance(&self, ticker: Ticker, balance: MercatBalance) {
@@ -183,7 +181,9 @@ pub fn create_account_and_mint_token<T: Config + TestUtilsFn<AccountIdOf<T>>>(
 
     // In the initial call, the total_supply must be zero.
     assert_eq!(
-        Module::<T>::confidential_asset_details(ticker).total_supply,
+        Module::<T>::confidential_asset_details(ticker)
+            .expect("Asset details")
+            .total_supply,
         Zero::zero()
     );
 
@@ -207,7 +207,9 @@ pub fn create_account_and_mint_token<T: Config + TestUtilsFn<AccountIdOf<T>>>(
 
     // A correct entry is added.
     assert_eq!(
-        Module::<T>::confidential_asset_details(ticker).owner_did,
+        Module::<T>::confidential_asset_details(ticker)
+            .expect("Asset details")
+            .owner_did,
         token.owner_did
     );
 
