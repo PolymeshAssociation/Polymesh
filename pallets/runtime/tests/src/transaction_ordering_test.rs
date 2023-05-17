@@ -113,9 +113,10 @@ fn initialize_transaction(
 
     // Receiver authorizes.
     // Receiver reads the sender's proof from the chain.
-    let sender_proof =
-        ConfidentialAsset::sender_proofs(transaction_id, leg_id).expect("Sender proof");
-    let init_tx = sender_proof.0;
+    let init_tx = ConfidentialAsset::sender_proofs(transaction_id, leg_id)
+        .expect("Sender proof")
+        .into_tx()
+        .expect("Valid sender proof");
     let sender_encrypted_transfer_amount = init_tx.memo.enc_amount_using_sender;
     let receiver_encrypted_transfer_amount = init_tx.memo.enc_amount_using_receiver;
 
@@ -169,9 +170,10 @@ fn finalize_transaction(
 
     // Mediator authorizes.
     // Mediator reads the receiver's proofs from the chain (it contains the sender's proofs as well).
-    let sender_proof =
-        ConfidentialAsset::sender_proofs(transaction_id, leg_id).expect("Sender proof");
-    let init_tx = sender_proof.0;
+    let init_tx = ConfidentialAsset::sender_proofs(transaction_id, leg_id)
+        .expect("Sender proof")
+        .into_tx()
+        .expect("Valid sender proof");
 
     // Mediator verifies the proofs in the wallet.
     // Mediator has access to the ticker name in plaintext.

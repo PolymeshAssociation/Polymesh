@@ -357,12 +357,18 @@ pub struct LegPendingState {
 
 /// Mercat sender proof.
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq)]
-pub struct SenderProof(pub InitializedTransferTxWrapper);
+pub struct SenderProof(Vec<u8>);
+
+impl SenderProof {
+    pub fn into_tx(&self) -> Option<InitializedTransferTx> {
+        InitializedTransferTx::decode(&mut self.0.as_slice()).ok()
+    }
+}
 
 /// Who is affirming the transaction leg.
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq)]
 pub enum ParityAffirmLeg {
-    SenderProof(InitializedTransferTxWrapper),
+    SenderProof(Vec<u8>),
     ReceiverAffirm,
     MediatorAffirm,
 }
@@ -377,7 +383,7 @@ impl AffirmLeg {
     pub fn new_sender(leg_id: TransactionLegId, tx: InitializedTransferTx) -> Self {
         Self {
             leg_id,
-            parity: ParityAffirmLeg::SenderProof(tx.into()),
+            parity: ParityAffirmLeg::SenderProof(tx.encode()),
         }
     }
 
@@ -958,7 +964,9 @@ impl<T: Config> Module<T> {
         );
 
         match parity {
-            ParityAffirmLeg::SenderProof(init_tx) => {
+            ParityAffirmLeg::SenderProof(enc_tx) => {
+                let init_tx = InitializedTransferTx::decode(&mut enc_tx.as_slice())
+                    .map_err(|_| Error::<T>::InvalidMercatTransferProof)?;
                 let sender_did = Self::mercat_account_did(&leg.sender);
                 ensure!(Some(caller_did) == sender_did, Error::<T>::Unauthorized);
 
@@ -1008,7 +1016,7 @@ impl<T: Config> Module<T> {
                 );
 
                 // Store the sender's proof.
-                SenderProofs::insert(id, leg_id, SenderProof(init_tx.into()));
+                SenderProofs::insert(id, leg_id, SenderProof(enc_tx));
             }
             ParityAffirmLeg::ReceiverAffirm => {
                 let receiver_did = Self::mercat_account_did(&leg.receiver);

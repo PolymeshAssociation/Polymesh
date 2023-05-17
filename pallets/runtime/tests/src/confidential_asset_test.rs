@@ -511,12 +511,14 @@ fn basic_confidential_settlement() {
             println!("-------------> Bob is going to authorize.");
             let sender_proof =
                 ConfidentialAsset::sender_proofs(transaction_id, TransactionLegId(0))
-                    .expect("Sender proof");
+                    .expect("Sender proof")
+                    .into_tx()
+                    .expect("Valid sender proof");
 
             // Receiver computes the proofs in the wallet.
             CtxReceiver
                 .finalize_transaction(
-                    &sender_proof.0,
+                    &sender_proof,
                     Account {
                         public: bob_public_account.clone(),
                         secret: bob_secret_account.clone(),
@@ -536,7 +538,7 @@ fn basic_confidential_settlement() {
             // Mediator verifies the proofs in the wallet.
             CtxMediator
                 .justify_transaction(
-                    &sender_proof.0,
+                    &sender_proof,
                     AmountSource::Encrypted(&charlie_secret_account.enc_keys),
                     &alice_public_account,
                     &alice_encrypted_init_balance,
