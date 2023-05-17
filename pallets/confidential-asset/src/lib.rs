@@ -501,42 +501,8 @@ decl_module! {
             ticker: Ticker,
             tx: PubAccountTxWrapper,
         ) -> DispatchResult {
-            let owner_did = Identity::<T>::ensure_perms(origin)?;
-            let tx: PubAccountTx = tx.into();
-
-            let account: MercatAccount = tx.pub_account.clone().into();
-            // Ensure the mercat account doesn't exist, or is already linked to the caller's identity.
-            let new_account = match MercatAccountDid::get(&account) {
-                Some(account_did) => {
-                    // Ensure the caller's identity is the same.
-                    ensure!(
-                        account_did == owner_did,
-                        Error::<T>::MercatAccountAlreadyCreated
-                    );
-                    false
-                }
-                // New mercat account.
-                None => true,
-            };
-            // Ensure the mercat account's balance hasn't been initialized.
-            ensure!(
-                !MercatAccountBalance::contains_key(&account, ticker),
-                Error::<T>::MercatAccountAlreadyInitialized
-            );
-
-            // Validate the balance ininitalization proof.
-            AccountValidator.verify(&tx).map_err(|_| Error::<T>::InvalidAccountCreationProof)?;
-
-            // Link the mercat account to the caller's identity if it is a new account.
-            if new_account {
-                MercatAccountDid::insert(&account, &owner_did);
-            }
-            // Initialize the mercat account balance.
-            let wrapped_enc_balance = EncryptedAmountWrapper::from(tx.initial_balance);
-            MercatAccountBalance::insert(&account, ticker, wrapped_enc_balance.clone());
-
-            Self::deposit_event(Event::AccountCreated(owner_did, account, ticker, wrapped_enc_balance));
-            Ok(())
+            let caller_did = Identity::<T>::ensure_perms(origin)?;
+            Self::base_validate_mercat_account(caller_did, ticker, tx)
         }
 
         /// Stores mediator's public key.
@@ -550,12 +516,8 @@ decl_module! {
         pub fn add_mediator_mercat_account(origin,
             public_key: EncryptionPubKeyWrapper,
         ) -> DispatchResult {
-            let owner_did = Identity::<T>::ensure_perms(origin)?;
-
-            MediatorMercatAccounts::insert(&owner_did, &public_key);
-
-            Self::deposit_event(Event::MediatorAccountCreated(owner_did, public_key));
-            Ok(())
+            let caller_did = Identity::<T>::ensure_perms(origin)?;
+            Self::base_add_mediator_mercat_account(caller_did, public_key)
         }
 
         /// Initializes a new confidential security token.
@@ -581,36 +543,12 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::create_confidential_asset()]
         pub fn create_confidential_asset(
             origin,
-            _name: AssetName,
+            name: AssetName,
             ticker: Ticker,
             asset_type: AssetType,
         ) -> DispatchResult {
             let owner_did = Identity::<T>::ensure_perms(origin)?;
-
-            // TODO: store asset name?
-
-            // Ensure the asset hasn't been created yet.
-            ensure!(
-                !Details::contains_key(ticker),
-                Error::<T>::AssetAlreadyCreated
-            );
-
-            let details = ConfidentialAssetDetails {
-                total_supply: Zero::zero(),
-                owner_did,
-                asset_type,
-            };
-            Details::insert(ticker, details);
-
-            Self::deposit_event(Event::ConfidentialAssetCreated(
-                owner_did,
-                ticker,
-                Zero::zero(),
-                true,
-                asset_type,
-                owner_did,
-            ));
-            Ok(())
+            Self::base_create_confidential_asset(owner_did, name, ticker, asset_type)
         }
 
         /// Verifies the proof of the asset minting, `asset_mint_proof`. If successful, it sets the total
@@ -640,66 +578,7 @@ decl_module! {
             asset_mint_proof: InitializedAssetTxWrapper,
         ) -> DispatchResult {
             let owner_did = Identity::<T>::ensure_perms(origin)?;
-            let mut details = Self::confidential_asset_details(ticker);
-
-            // Only the owner of the asset can change its total supply.
-            ensure!(
-                details.owner_did == owner_did,
-                Error::<T>::Unauthorized
-            );
-
-            // Current total supply must be zero.
-            // TODO: Allow increasing the total supply?
-            ensure!(
-                details.total_supply == Zero::zero(),
-                Error::<T>::CanSetTotalSupplyOnlyOnce
-            );
-
-            // New total supply must be positive.
-            ensure!(
-                total_supply != Zero::zero(),
-                Error::<T>::TotalSupplyMustBePositive
-            );
-
-            ensure!(
-                Details::contains_key(ticker),
-                Error::<T>::UnknownConfidentialAsset
-            );
-
-            // At the moment, mercat lib imposes that balances can be at most 32/64 bits.
-            let max_balance_mercat = MercatBalance::MAX.saturated_into::<Balance>();
-            ensure!(
-                total_supply <= max_balance_mercat,
-                Error::<T>::TotalSupplyAboveBalanceLimit
-            );
-
-            let account: MercatAccount = asset_mint_proof.account.clone().into();
-            // Ensure the mercat account's balance has been initialized.
-            let old_balance = MercatAccountBalance::try_get(&account, ticker)
-                .map_err(|_| Error::<T>::MercatAccountMissing)?;
-
-            let new_encrypted_balance = AssetValidator
-                                        .verify_asset_transaction(
-                                            total_supply.saturated_into::<MercatBalance>(),
-                                            &asset_mint_proof,
-                                            &asset_mint_proof.account,
-                                            &old_balance.into(),
-                                            &[]
-                                        ).map_err(|_| Error::<T>::InvalidAccountMintProof)?;
-
-            // Set the total supply (both encrypted and plain).
-            MercatAccountBalance::insert(
-                &account,
-                ticker,
-                EncryptedAmountWrapper::from(new_encrypted_balance),
-            );
-
-            // This will emit the total supply changed event.
-            details.total_supply = total_supply;
-            Details::insert(ticker, details);
-            // TODO: emit Issue event.
-
-            Ok(())
+            Self::base_mint_confidential_asset(owner_did, ticker, total_supply, asset_mint_proof)
         }
 
         /// Applies any incoming balance to the mercat account balance.
@@ -716,25 +595,9 @@ decl_module! {
             origin,
             account: MercatAccount,
             ticker: Ticker,
-        ) {
-            let did = Identity::<T>::ensure_perms(origin)?;
-            let account_did = Self::get_mercat_account_did(&account)?;
-            // Ensure the caller is the owner of the mercat account.
-            ensure!(
-                account_did == did,
-                Error::<T>::Unauthorized
-            );
-
-            // Take the incoming balance.
-            match IncomingBalance::take(&account, ticker) {
-                Some(incoming_balance) => {
-                    // If there is an incoming balance, apply it to the mercat account balance.
-                    MercatAccountBalance::mutate(&account, ticker, |balance| {
-                        *balance += *incoming_balance;
-                    });
-                }
-                None => (),
-            }
+        ) -> DispatchResult {
+            let caller_did = Identity::<T>::ensure_perms(origin)?;
+            Self::base_apply_incoming_balance(caller_did, account, ticker)
         }
 
         /// Adds a new transaction.
@@ -786,6 +649,186 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
+    fn base_validate_mercat_account(
+        caller_did: IdentityId,
+        ticker: Ticker,
+        tx: PubAccountTxWrapper,
+    ) -> DispatchResult {
+        let tx: PubAccountTx = tx.into();
+
+        let account: MercatAccount = tx.pub_account.clone().into();
+        // Ensure the mercat account's balance hasn't been initialized.
+        ensure!(
+            !MercatAccountBalance::contains_key(&account, ticker),
+            Error::<T>::MercatAccountAlreadyInitialized
+        );
+        // Ensure the mercat account doesn't exist, or is already linked to the caller's identity.
+        MercatAccountDid::try_mutate(&account, |account_did| -> DispatchResult {
+            match account_did {
+                Some(account_did) => {
+                    // Ensure the caller's identity is the same.
+                    ensure!(
+                        *account_did == caller_did,
+                        Error::<T>::MercatAccountAlreadyCreated
+                    );
+                }
+                None => {
+                    // Link the mercat account to the caller's identity.
+                    *account_did = Some(caller_did);
+                }
+            }
+            Ok(())
+        })?;
+
+        // Validate the balance ininitalization proof.
+        AccountValidator
+            .verify(&tx)
+            .map_err(|_| Error::<T>::InvalidAccountCreationProof)?;
+
+        // Initialize the mercat account balance.
+        let wrapped_enc_balance = EncryptedAmountWrapper::from(tx.initial_balance);
+        MercatAccountBalance::insert(&account, ticker, wrapped_enc_balance.clone());
+
+        Self::deposit_event(Event::AccountCreated(
+            caller_did,
+            account,
+            ticker,
+            wrapped_enc_balance,
+        ));
+        Ok(())
+    }
+
+    fn base_add_mediator_mercat_account(
+        caller_did: IdentityId,
+        public_key: EncryptionPubKeyWrapper,
+    ) -> DispatchResult {
+        MediatorMercatAccounts::insert(&caller_did, &public_key);
+
+        Self::deposit_event(Event::MediatorAccountCreated(caller_did, public_key));
+        Ok(())
+    }
+
+    fn base_create_confidential_asset(
+        owner_did: IdentityId,
+        _name: AssetName,
+        ticker: Ticker,
+        asset_type: AssetType,
+    ) -> DispatchResult {
+        // TODO: store asset name?
+
+        // Ensure the asset hasn't been created yet.
+        ensure!(
+            !Details::contains_key(ticker),
+            Error::<T>::AssetAlreadyCreated
+        );
+
+        let details = ConfidentialAssetDetails {
+            total_supply: Zero::zero(),
+            owner_did,
+            asset_type,
+        };
+        Details::insert(ticker, details);
+
+        Self::deposit_event(Event::ConfidentialAssetCreated(
+            owner_did,
+            ticker,
+            Zero::zero(),
+            true,
+            asset_type,
+            owner_did,
+        ));
+        Ok(())
+    }
+
+    fn base_mint_confidential_asset(
+        owner_did: IdentityId,
+        ticker: Ticker,
+        total_supply: Balance,
+        asset_mint_proof: InitializedAssetTxWrapper,
+    ) -> DispatchResult {
+        let mut details = Self::confidential_asset_details(ticker);
+
+        // Only the owner of the asset can change its total supply.
+        ensure!(details.owner_did == owner_did, Error::<T>::Unauthorized);
+
+        // Current total supply must be zero.
+        // TODO: Allow increasing the total supply?
+        ensure!(
+            details.total_supply == Zero::zero(),
+            Error::<T>::CanSetTotalSupplyOnlyOnce
+        );
+
+        // New total supply must be positive.
+        ensure!(
+            total_supply != Zero::zero(),
+            Error::<T>::TotalSupplyMustBePositive
+        );
+
+        ensure!(
+            Details::contains_key(ticker),
+            Error::<T>::UnknownConfidentialAsset
+        );
+
+        // At the moment, mercat lib imposes that balances can be at most 32/64 bits.
+        let max_balance_mercat = MercatBalance::MAX.saturated_into::<Balance>();
+        ensure!(
+            total_supply <= max_balance_mercat,
+            Error::<T>::TotalSupplyAboveBalanceLimit
+        );
+
+        let account: MercatAccount = asset_mint_proof.account.clone().into();
+        // Ensure the mercat account's balance has been initialized.
+        let old_balance = MercatAccountBalance::try_get(&account, ticker)
+            .map_err(|_| Error::<T>::MercatAccountMissing)?;
+
+        let new_encrypted_balance = AssetValidator
+            .verify_asset_transaction(
+                total_supply.saturated_into::<MercatBalance>(),
+                &asset_mint_proof,
+                &asset_mint_proof.account,
+                &old_balance.into(),
+                &[],
+            )
+            .map_err(|_| Error::<T>::InvalidAccountMintProof)?;
+
+        // Set the total supply (both encrypted and plain).
+        MercatAccountBalance::insert(
+            &account,
+            ticker,
+            EncryptedAmountWrapper::from(new_encrypted_balance),
+        );
+
+        // This will emit the total supply changed event.
+        details.total_supply = total_supply;
+        Details::insert(ticker, details);
+        // TODO: emit Issue event.
+
+        Ok(())
+    }
+
+    fn base_apply_incoming_balance(
+        caller_did: IdentityId,
+        account: MercatAccount,
+        ticker: Ticker,
+    ) -> DispatchResult {
+        let account_did = Self::get_mercat_account_did(&account)?;
+        // Ensure the caller is the owner of the mercat account.
+        ensure!(account_did == caller_did, Error::<T>::Unauthorized);
+
+        // Take the incoming balance.
+        match IncomingBalance::take(&account, ticker) {
+            Some(incoming_balance) => {
+                // If there is an incoming balance, apply it to the mercat account balance.
+                MercatAccountBalance::mutate(&account, ticker, |balance| {
+                    *balance += *incoming_balance;
+                });
+            }
+            None => (),
+        }
+
+        Ok(())
+    }
+
     pub fn get_mercat_account_did(account: &MercatAccount) -> Result<IdentityId, DispatchError> {
         Self::mercat_account_did(account).ok_or(Error::<T>::MercatAccountMissing.into())
     }
