@@ -1976,6 +1976,31 @@ pub mod migration {
     }
 
     fn migrate_legs<T: Config>() {
+        // Migrate all itens from InstructionLegs
+        v1::InstructionLegs::drain().for_each(|(id, leg_id, old_leg)| {
+            let new_leg = {
+                if !pallet_asset::Tokens::contains_key(old_leg.asset) {
+                    Leg {
+                        from: old_leg.from,
+                        to: old_leg.to,
+                        asset: LegAsset::OffChain {
+                            ticker: old_leg.asset,
+                            amount: old_leg.amount,
+                        },
+                    }
+                } else {
+                    Leg {
+                        from: old_leg.from,
+                        to: old_leg.to,
+                        asset: LegAsset::Fungible {
+                            ticker: old_leg.asset,
+                            amount: old_leg.amount,
+                        },
+                    }
+                }
+            };
+            InstructionLegs::insert(&id, leg_id, new_leg);
+        });
         // Migrate all itens from InstructionLegsV2
         v1::InstructionLegsV2::drain().for_each(|(id, leg_id, leg_v2)| {
             let new_leg = {
@@ -2000,31 +2025,6 @@ pub mod migration {
                         to: leg_v2.to,
                         asset: LegAsset::NonFungible(nfts),
                     },
-                }
-            };
-            InstructionLegs::insert(&id, leg_id, new_leg);
-        });
-        // Migrate all itens from InstructionLegs
-        v1::InstructionLegs::drain().for_each(|(id, leg_id, old_leg)| {
-            let new_leg = {
-                if !pallet_asset::Tokens::contains_key(old_leg.asset) {
-                    Leg {
-                        from: old_leg.from,
-                        to: old_leg.to,
-                        asset: LegAsset::OffChain {
-                            ticker: old_leg.asset,
-                            amount: old_leg.amount,
-                        },
-                    }
-                } else {
-                    Leg {
-                        from: old_leg.from,
-                        to: old_leg.to,
-                        asset: LegAsset::Fungible {
-                            ticker: old_leg.asset,
-                            amount: old_leg.amount,
-                        },
-                    }
                 }
             };
             InstructionLegs::insert(&id, leg_id, new_leg);
