@@ -246,18 +246,6 @@ impl_wrapper!(InitializedTransferTxWrapper, InitializedTransferTx);
 impl_wrapper!(FinalizedTransferTxWrapper, FinalizedTransferTx);
 impl_wrapper!(JustifiedTransferTxWrapper, JustifiedTransferTx);
 
-impl Default for EncryptionPubKeyWrapper {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
-impl Default for EncryptedAmountWrapper {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
 impl core::ops::AddAssign<EncryptedAmount> for EncryptedAmountWrapper {
     fn add_assign(&mut self, other: EncryptedAmount) {
         self.0 += other;
@@ -300,7 +288,7 @@ pub trait Config:
 }
 
 /// A mercat account consists of the public key that is used for encryption purposes.
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
 pub struct MercatAccount {
     pub pub_key: EncryptionPubKeyWrapper,
 }
@@ -338,7 +326,7 @@ impl From<&PubAccount> for MercatAccount {
 }
 
 /// Confidential transaction leg.
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
 pub struct TransactionLeg {
     /// Asset ticker.
     pub ticker: Ticker,
