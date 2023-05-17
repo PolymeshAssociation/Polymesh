@@ -86,7 +86,8 @@ pub fn init_account(
 
     let pub_account = &mercat_account_tx.pub_account;
     let account: MercatAccount = pub_account.into();
-    let balance = *ConfidentialAsset::mercat_account_balance(&account, ticker);
+    let balance =
+        *ConfidentialAsset::mercat_account_balance(&account, ticker).expect("account balance");
     (secret_account, account, pub_account.clone(), balance)
 }
 
@@ -115,7 +116,9 @@ pub fn create_account_and_mint_token(
 
     // In the initial call, the total_supply must be zero.
     assert_eq!(
-        ConfidentialAsset::confidential_asset_details(ticker).total_supply,
+        ConfidentialAsset::confidential_asset_details(ticker)
+            .expect("Asset details")
+            .total_supply,
         Zero::zero()
     );
 
@@ -152,14 +155,17 @@ pub fn create_account_and_mint_token(
 
     // A correct entry is added.
     assert_eq!(
-        ConfidentialAsset::confidential_asset_details(ticker).owner_did,
+        ConfidentialAsset::confidential_asset_details(ticker)
+            .expect("Asset details")
+            .owner_did,
         token.owner_did
     );
 
     // -------------------------- Ensure the encrypted balance matches the minted amount.
     let pub_account = &mercat_account_tx.pub_account;
     let account: MercatAccount = pub_account.into();
-    let balance = *ConfidentialAsset::mercat_account_balance(&account, ticker);
+    let balance =
+        *ConfidentialAsset::mercat_account_balance(&account, ticker).expect("account balance");
     let stored_balance = secret_account.enc_keys.secret.decrypt(&balance).unwrap();
 
     assert_eq!(stored_balance, amount);
@@ -195,7 +201,7 @@ fn issuers_can_create_and_rename_confidential_tokens() {
             asset_type: token.asset_type.clone(),
         };
         assert_eq!(
-            ConfidentialAsset::confidential_asset_details(ticker),
+            ConfidentialAsset::confidential_asset_details(ticker).expect("Asset details"),
             token_with_zero_supply
         );
 
@@ -207,7 +213,7 @@ fn issuers_can_create_and_rename_confidential_tokens() {
             EAError::UnauthorizedAgent
         );
         // The token should remain unchanged in storage.
-        assert_eq!(ConfidentialAsset::confidential_asset_details(ticker), token_with_zero_supply);
+        assert_eq!(ConfidentialAsset::confidential_asset_details(ticker).expect("Asset details"), token_with_zero_supply);
         // Rename the token and check storage has been updated.
         let renamed_token_name = vec![0x42];
         let renamed_token = ConfidentialAssetDetails {
@@ -220,7 +226,7 @@ fn issuers_can_create_and_rename_confidential_tokens() {
             ticker,
             AssetName(renamed_token_name.clone())
         ));
-        assert_eq!(ConfidentialAsset::confidential_asset_details(ticker), renamed_token);
+        assert_eq!(ConfidentialAsset::confidential_asset_details(ticker).expect("Asset details"), renamed_token);
         */
 
         // Add another STO.
@@ -249,7 +255,7 @@ fn issuers_can_create_and_rename_confidential_tokens() {
 
         // A correct entry is added.
         assert_eq!(
-            ConfidentialAsset::confidential_asset_details(ticker2),
+            ConfidentialAsset::confidential_asset_details(ticker2).expect("Asset details"),
             token_with_zero_supply
         );
     });
@@ -291,7 +297,9 @@ fn issuers_can_create_and_mint_tokens() {
 
         // In the initial call, the total_supply must be zero.
         assert_eq!(
-            ConfidentialAsset::confidential_asset_details(ticker).total_supply,
+            ConfidentialAsset::confidential_asset_details(ticker)
+                .expect("Asset details")
+                .total_supply,
             Zero::zero()
         );
 
@@ -334,10 +342,14 @@ fn issuers_can_create_and_mint_tokens() {
         // ------------------------- Ensuring that the asset details are set correctly
 
         // A correct entry is added.
-        assert_eq!(ConfidentialAsset::confidential_asset_details(ticker), token);
+        assert_eq!(
+            ConfidentialAsset::confidential_asset_details(ticker),
+            Some(token)
+        );
 
         // -------------------------- Ensure that the account balance is set properly.
-        let balance = *ConfidentialAsset::mercat_account_balance(&account, ticker);
+        let balance =
+            *ConfidentialAsset::mercat_account_balance(&account, ticker).expect("account balance");
 
         secret_account
             .enc_keys
@@ -378,7 +390,8 @@ fn account_create_tx() {
         );
 
         // Ensure that the account has an initial balance of zero.
-        let stored_balance = *ConfidentialAsset::mercat_account_balance(&account, ticker);
+        let stored_balance =
+            *ConfidentialAsset::mercat_account_balance(&account, ticker).expect("account balance");
         let stored_balance = secret_account
             .enc_keys
             .secret
@@ -552,7 +565,8 @@ fn basic_confidential_settlement() {
             // Transaction should've settled.
             // Verify by decrypting the new balance of both Alice and Bob.
             let new_alice_balance =
-                *ConfidentialAsset::mercat_account_balance(&alice_account, ticker);
+                *ConfidentialAsset::mercat_account_balance(&alice_account, ticker)
+                    .expect("account balance");
             let expected_alice_balance =
                 alice_encrypted_init_balance - alice_encrypted_transfer_amount;
             assert_eq!(new_alice_balance, expected_alice_balance);
@@ -570,7 +584,8 @@ fn basic_confidential_settlement() {
                 bob_account.clone(),
                 ticker
             ));
-            let new_bob_balance = *ConfidentialAsset::mercat_account_balance(&bob_account, ticker);
+            let new_bob_balance = *ConfidentialAsset::mercat_account_balance(&bob_account, ticker)
+                .expect("account balance");
 
             let expected_bob_balance = bob_encrypted_init_balance + bob_encrypted_transfer_amount;
             assert_eq!(new_bob_balance, expected_bob_balance);

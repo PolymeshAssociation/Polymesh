@@ -215,7 +215,8 @@ fn finalize_transaction(
     // Transaction should've settled.
     // Verify by decrypting the new balance of both Sender and Receiver.
     let new_sender_balance =
-        *ConfidentialAsset::mercat_account_balance(&sender_creds.account, ticker);
+        *ConfidentialAsset::mercat_account_balance(&sender_creds.account, ticker)
+            .expect("account balance");
 
     if let Some(secret_account) = sender_secret_account {
         // Invoked for debugging
@@ -232,7 +233,8 @@ fn finalize_transaction(
         ticker
     ));
     let new_receiver_balance =
-        *ConfidentialAsset::mercat_account_balance(&receiver_creds.account, ticker);
+        *ConfidentialAsset::mercat_account_balance(&receiver_creds.account, ticker)
+            .expect("account balance");
 
     if let Some(secret_account) = receiver_secret_account {
         // Invoked for debugging
@@ -867,7 +869,8 @@ fn mercat_whitepaper_scenario2() {
             ));
             // On the Alice's wallet side, they update the balance.
             let alice_init_balance =
-                *ConfidentialAsset::mercat_account_balance(&alice_creds.account, ticker);
+                *ConfidentialAsset::mercat_account_balance(&alice_creds.account, ticker)
+                    .expect("account balance");
 
             // tx_id:1004 => Alice sends 55 assets to Dave.
             let (transaction_id1004, alice_sent_amount_1004, dave_received_amount_1004) =

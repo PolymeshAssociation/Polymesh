@@ -423,7 +423,7 @@ decl_storage! {
     trait Store for Module<T: Config> as ConfidentialAsset {
         /// Details of the confidential asset.
         /// (ticker) -> ConfidentialAssetDetails
-        pub Details get(fn confidential_asset_details): map hasher(blake2_128_concat) Ticker => ConfidentialAssetDetails;
+        pub Details get(fn confidential_asset_details): map hasher(blake2_128_concat) Ticker => Option<ConfidentialAssetDetails>;
 
         /// Contains the encryption key for a mercat mediator.
         pub MediatorMercatAccounts get(fn mediator_mercat_accounts):
@@ -440,7 +440,7 @@ decl_storage! {
         pub MercatAccountBalance get(fn mercat_account_balance):
             double_map hasher(blake2_128_concat) MercatAccount,
             hasher(blake2_128_concat) Ticker
-            => EncryptedAmountWrapper;
+            => Option<EncryptedAmountWrapper>;
 
         /// Accumulates the encrypted incoming balance for a mercat account.
         /// (account, ticker) -> EncryptedAmountWrapper.
@@ -456,10 +456,10 @@ decl_storage! {
 
         /// Legs of a transaction. (transaction_id, leg_id) -> Leg
         pub TransactionLegs get(fn transaction_legs):
-            double_map hasher(twox_64_concat) TransactionId, hasher(twox_64_concat) TransactionLegId => TransactionLeg;
+            double_map hasher(twox_64_concat) TransactionId, hasher(twox_64_concat) TransactionLegId => Option<TransactionLeg>;
 
         /// Number of affirmations pending before transaction is executed. transaction_id -> affirms_pending
-        PendingAffirms get(fn affirms_pending): map hasher(twox_64_concat) TransactionId => u32;
+        PendingAffirms get(fn affirms_pending): map hasher(twox_64_concat) TransactionId => Option<u32>;
 
         /// Track pending transaction affirmations.
         /// (counter_party, (transaction_id, leg_id)) -> Option<bool>
@@ -746,7 +746,8 @@ impl<T: Config> Module<T> {
         total_supply: Balance,
         asset_mint_proof: InitializedAssetTxWrapper,
     ) -> DispatchResult {
-        let mut details = Self::confidential_asset_details(ticker);
+        let mut details =
+            Self::confidential_asset_details(ticker).ok_or(Error::<T>::UnknownConfidentialAsset)?;
 
         // Only the owner of the asset can change its total supply.
         ensure!(details.owner_did == owner_did, Error::<T>::Unauthorized);
@@ -819,9 +820,14 @@ impl<T: Config> Module<T> {
         match IncomingBalance::take(&account, ticker) {
             Some(incoming_balance) => {
                 // If there is an incoming balance, apply it to the mercat account balance.
-                MercatAccountBalance::mutate(&account, ticker, |balance| {
-                    *balance += *incoming_balance;
-                });
+                MercatAccountBalance::try_mutate(&account, ticker, |balance| -> DispatchResult {
+                    if let Some(ref mut balance) = balance {
+                        *balance += *incoming_balance;
+                        Ok(())
+                    } else {
+                        Err(Error::<T>::MercatAccountMissing.into())
+                    }
+                })?;
             }
             None => (),
         }
@@ -854,10 +860,15 @@ impl<T: Config> Module<T> {
         account: &MercatAccount,
         ticker: Ticker,
         amount: EncryptedAmount,
-    ) {
-        MercatAccountBalance::mutate(account, ticker, |balance| {
-            *balance -= amount;
-        });
+    ) -> DispatchResult {
+        MercatAccountBalance::try_mutate(account, ticker, |balance| -> DispatchResult {
+            if let Some(ref mut balance) = balance {
+                *balance -= amount;
+                Ok(())
+            } else {
+                Err(Error::<T>::MercatAccountMissing.into())
+            }
+        })
     }
 
     pub fn base_add_transaction(
@@ -922,7 +933,10 @@ impl<T: Config> Module<T> {
 
         // Take pending affirms count and ensure that the transaction has been affirmed.
         let pending_affirms = PendingAffirms::take(id);
-        ensure!(pending_affirms == 0, Error::<T>::InstructionNotAffirmed);
+        ensure!(
+            pending_affirms == Some(0),
+            Error::<T>::InstructionNotAffirmed
+        );
 
         for (leg_id, leg) in legs {
             Self::base_confidential_transfer(id, leg_id, leg)?;
@@ -937,7 +951,7 @@ impl<T: Config> Module<T> {
         leg_id: TransactionLegId,
         parity: ParityAffirmLeg,
     ) -> DispatchResult {
-        let leg = TransactionLegs::get(id, leg_id);
+        let leg = TransactionLegs::get(id, leg_id).ok_or(Error::<T>::UnknownInstructionLeg)?;
 
         // Ensure the caller hasn't already affirmed this leg.
         let caller_affirm = UserAffirmations::take(caller_did, (id, leg_id));
@@ -957,7 +971,8 @@ impl<T: Config> Module<T> {
                 // Get sender's account.
                 let from_mercat = leg.sender.clone().into();
                 // Get the sender's current balance.
-                let from_current_balance = *Self::mercat_account_balance(&leg.sender, leg.ticker);
+                let from_current_balance = *Self::mercat_account_balance(&leg.sender, leg.ticker)
+                    .ok_or(Error::<T>::MercatAccountMissing)?;
 
                 // Verify the sender's proof.
                 let mut rng = Self::get_rng();
@@ -976,7 +991,7 @@ impl<T: Config> Module<T> {
                     &leg.sender,
                     leg.ticker,
                     init_tx.memo.enc_amount_using_sender,
-                );
+                )?;
 
                 // Store the pending state for this transaction leg.
                 TxPendingState::insert(
@@ -1001,9 +1016,14 @@ impl<T: Config> Module<T> {
         }
         // Update affirmations.
         UserAffirmations::insert(caller_did, (id, leg_id), true);
-        PendingAffirms::mutate(id, |pending| {
-            *pending = pending.saturating_sub(1);
-        });
+        PendingAffirms::try_mutate(id, |pending| -> DispatchResult {
+            if let Some(ref mut pending) = pending {
+                *pending = pending.saturating_sub(1);
+                Ok(())
+            } else {
+                Err(Error::<T>::UnknownInstruction.into())
+            }
+        })?;
 
         Ok(())
     }
@@ -1196,8 +1216,10 @@ decl_error! {
         FailedToSchedule,
         /// Legs count should matches with the total number of legs in which given portfolio act as `from_portfolio`.
         LegCountTooSmall,
-        /// Instruction status is unknown
+        /// Instruction is unknown.
         UnknownInstruction,
+        /// Instruction leg is unknown.
+        UnknownInstructionLeg,
         /// Maximum legs that can be in a single instruction.
         InstructionHasTooManyLegs,
         /// Signer is already added to venue.
