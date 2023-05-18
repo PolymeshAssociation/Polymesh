@@ -43,7 +43,7 @@ use polymesh_common_utilities::traits::{identity, portfolio};
 use polymesh_common_utilities::with_transaction;
 use polymesh_primitives::impl_checked_inc;
 use polymesh_primitives::settlement::{
-    Leg, LegAsset, ReceiptDetails, SettlementType, TransferData, VenueId, VenueType,
+    AssetCount, Leg, LegAsset, ReceiptDetails, SettlementType, VenueId, VenueType,
 };
 use polymesh_primitives::{Balance, EventDid, IdentityId, PortfolioId, Ticker, WeightMeter};
 use polymesh_primitives_derive::VecU8StrongTyped;
@@ -485,7 +485,7 @@ decl_module! {
                     instruction_id,
                     portfolios,
                     None,
-                    &TransferData::new(1, 0, 0)
+                    &AssetCount::new(1, 0, 0)
                 )?;
 
                 let portfolios = vec![investment_portfolio, funding_portfolio];
@@ -494,7 +494,7 @@ decl_module! {
                     instruction_id,
                     receipt,
                     portfolios,
-                    &TransferData::new(2, 0, 0),
+                    &AssetCount::new(2, 0, 0),
                     &mut WeightMeter::max_limit_no_minimum()
                 )
             })?;

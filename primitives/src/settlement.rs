@@ -283,18 +283,18 @@ pub struct ReceiptDetails<AccountId, OffChainSignature> {
     pub metadata: ReceiptMetadata,
 }
 
-/// Stores the number of fungible and non fungible transfers in a set of legs.
+/// Stores the number of fungible, non fungible and offchain transfers in a set of legs.
 #[derive(Default)]
-pub struct TransferData {
+pub struct AssetCount {
     fungible: u32,
     non_fungible: u32,
     off_chain: u32,
 }
 
-impl TransferData {
-    /// Creates an instance of `TransfersData`.
+impl AssetCount {
+    /// Creates an instance of [`AssetCount`].
     pub fn new(fungible: u32, non_fungible: u32, off_chain: u32) -> Self {
-        TransferData {
+        AssetCount {
             fungible,
             non_fungible,
             off_chain,
@@ -370,17 +370,17 @@ impl TransferData {
         Ok(())
     }
 
-    /// Gets the `TransferData` from a slice of `LegV2`.
-    pub fn from_legs(legs: &[Leg]) -> Result<TransferData, String> {
-        let mut transfer_data = TransferData::default();
+    /// Gets the [`AssetCount`] from a slice of [`Leg`].
+    pub fn from_legs(legs: &[Leg]) -> Result<AssetCount, String> {
+        let mut asset_count = AssetCount::default();
         for leg in legs {
             match &leg.asset {
-                LegAsset::Fungible { .. } => transfer_data.try_add_fungible()?,
-                LegAsset::NonFungible(nfts) => transfer_data.try_add_non_fungible(&nfts)?,
-                LegAsset::OffChain { .. } => transfer_data.try_add_off_chain()?,
+                LegAsset::Fungible { .. } => asset_count.try_add_fungible()?,
+                LegAsset::NonFungible(nfts) => asset_count.try_add_non_fungible(&nfts)?,
+                LegAsset::OffChain { .. } => asset_count.try_add_off_chain()?,
             }
         }
-        Ok(transfer_data)
+        Ok(asset_count)
     }
 }
 
@@ -388,16 +388,16 @@ impl TransferData {
 pub struct InstructionInfo {
     /// Unique counter parties involved in the instruction.
     parties: BTreeSet<PortfolioId>,
-    /// The number of fungible and non fungible transfers in the instruction.
-    transfer_data: TransferData,
+    /// The [`AssetCount`] for the instruction.
+    asset_count: AssetCount,
 }
 
 impl InstructionInfo {
     /// Creates an instance of `InstructionInfo`.
-    pub fn new(parties: BTreeSet<PortfolioId>, transfer_data: TransferData) -> Self {
+    pub fn new(parties: BTreeSet<PortfolioId>, asset_count: AssetCount) -> Self {
         Self {
             parties,
-            transfer_data,
+            asset_count,
         }
     }
 
@@ -408,17 +408,66 @@ impl InstructionInfo {
 
     /// Returns the number of fungible transfers.
     pub fn fungible_transfers(&self) -> u32 {
-        self.transfer_data.fungible()
+        self.asset_count.fungible()
     }
 
     /// Returns the number of non fungible transfers.
     pub fn nfts_transferred(&self) -> u32 {
-        self.transfer_data.non_fungible()
+        self.asset_count.non_fungible()
     }
 
     /// Returns the number of off-chain transfers.
     pub fn off_chain(&self) -> u32 {
-        self.transfer_data.off_chain()
+        self.asset_count.off_chain()
+    }
+}
+
+/// A subset of legs that belong to the instruction of `instruction_id` and the [`AssetCount`] for the instruction and the subset.
+pub struct FilteredLegs {
+    /// The [`InstructionId`] of the instruction of the subset of legs.
+    instruction_id: InstructionId,
+    /// A [`Vec<(LegId, Leg)>`] containing a subset of the legs.
+    legs: Vec<(LegId, Leg)>,
+    /// The [`AssetCount`] for the instruction.
+    instruction_asset_count: AssetCount,
+    /// The [`AssetCount`] for the subset of legs.
+    subset_asset_count: AssetCount,
+}
+
+impl FilteredLegs {
+    /// Creates a new [`FilteredLegs`] instance.
+    pub fn new(
+        instruction_id: InstructionId,
+        legs: Vec<(LegId, Leg)>,
+        instruction_asset_count: AssetCount,
+        subset_asset_count: AssetCount,
+    ) -> Self {
+        Self {
+            instruction_id,
+            legs,
+            instruction_asset_count,
+            subset_asset_count,
+        }
+    }
+
+    /// Returns the [`InstructionId`] of the intruction.
+    pub fn instruction_id(&self) -> InstructionId {
+        self.instruction_id
+    }
+
+    /// Returns a slice of `[(LegId, Leg)]` containing all legs in the subset.
+    pub fn legs(&self) -> &[(LegId, Leg)] {
+        &self.legs
+    }
+
+    /// Returns the [`AssetCount`] for the instruction.
+    pub fn instruction_asset_count(&self) -> &AssetCount {
+        &self.instruction_asset_count
+    }
+
+    /// Returns the [`AssetCount`] for the subset of legs.
+    pub fn subset_asset_count(&self) -> &AssetCount {
+        &self.subset_asset_count
     }
 }
 
