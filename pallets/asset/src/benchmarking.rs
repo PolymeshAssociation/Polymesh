@@ -13,36 +13,41 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::*;
-
 use frame_benchmarking::benchmarks;
 use frame_support::StorageValue;
 use frame_system::RawOrigin;
-use pallet_portfolio::{MovePortfolioItem, NextPortfolioNumber, PortfolioAssetBalances};
-use polymesh_common_utilities::benchs::user;
-use polymesh_common_utilities::{
-    benchs::{make_asset, make_indivisible_asset, make_ticker, AccountIdOf, User, UserBuilder},
-    constants::currency::POLY,
-    traits::nft::NFTTrait,
-    TestUtilsFn,
-};
-use polymesh_primitives::{
-    asset::{AssetName, NonFungibleType},
-    asset_metadata::{
-        AssetMetadataDescription, AssetMetadataKey, AssetMetadataName, AssetMetadataSpec,
-        AssetMetadataValue, AssetMetadataValueDetail,
-    },
-    ticker::TICKER_LEN,
-    AuthorizationData, NFTCollectionKeys, PortfolioName, Signatory, Ticker, Url,
-};
 use sp_io::hashing::keccak_256;
 use sp_std::{convert::TryInto, iter, prelude::*};
+
+use pallet_portfolio::{MovePortfolioItem, NextPortfolioNumber, PortfolioAssetBalances};
+use pallet_statistics::benchmarking::setup_transfer_restrictions;
+use polymesh_common_utilities::benchs::{
+    make_asset, make_indivisible_asset, make_ticker, user, AccountIdOf, User, UserBuilder,
+};
+use polymesh_common_utilities::constants::currency::POLY;
+use polymesh_common_utilities::traits::compliance_manager::ComplianceFnConfig;
+use polymesh_common_utilities::traits::nft::NFTTrait;
+use polymesh_common_utilities::TestUtilsFn;
+use polymesh_primitives::asset::{AssetName, NonFungibleType};
+use polymesh_primitives::asset_metadata::{
+    AssetMetadataDescription, AssetMetadataKey, AssetMetadataName, AssetMetadataSpec,
+    AssetMetadataValue, AssetMetadataValueDetail,
+};
+use polymesh_primitives::ticker::TICKER_LEN;
+use polymesh_primitives::{
+    AuthorizationData, NFTCollectionKeys, PortfolioName, PortfolioNumber, Signatory, Ticker, Url,
+    WeightMeter,
+};
+
+use crate::*;
 
 const MAX_DOCS_PER_ASSET: u32 = 64;
 const MAX_DOC_URI: usize = 1024;
 const MAX_DOC_NAME: usize = 1024;
 const MAX_DOC_TYPE: usize = 1024;
 const MAX_IDENTIFIERS_PER_ASSET: u32 = 512;
+
+type Statistics<T> = pallet_statistics::Module<T>;
 
 pub fn make_document() -> Document {
     Document {
@@ -115,17 +120,19 @@ fn emulate_controller_transfer<T: Config>(
     investor_did: IdentityId,
     pia: IdentityId,
 ) {
+    let mut weight_meter = WeightMeter::max_limit_no_minimum();
     // Assign balance to an investor.
-    let mock_storage = |id: IdentityId, bal: Balance| {
+    let mock_storage = |id: IdentityId, bal: Balance, meter: &mut WeightMeter| {
         let s_id: ScopeId = id;
         BalanceOf::insert(ticker, id, bal);
         BalanceOfAtScope::insert(s_id, id, bal);
         AggregateBalance::insert(ticker, id, bal);
         ScopeIdOf::insert(ticker, id, s_id);
-        Statistics::<T>::update_asset_stats(&ticker, None, Some(&id), None, Some(bal), bal);
+        Statistics::<T>::update_asset_stats(&ticker, None, Some(&id), None, Some(bal), bal, meter)
+            .unwrap();
     };
-    mock_storage(investor_did, 1000u32.into());
-    mock_storage(pia, 5000u32.into());
+    mock_storage(investor_did, 1000u32.into(), &mut weight_meter);
+    mock_storage(pia, 5000u32.into(), &mut weight_meter);
 }
 
 fn owner<T: Config + TestUtilsFn<AccountIdOf<T>>>() -> User<T> {
@@ -190,6 +197,86 @@ fn setup_create_asset<T: Config + TestUtilsFn<<T as frame_system::Config>::Accou
     (owner.origin, name, ticker, token, identifiers, fundr)
 }
 
+/// Creates an asset for `ticker`, creates a custom portfolio for the sender and receiver, sets up compliance and transfer restrictions.
+/// Returns the sender and receiver portfolio.
+pub fn setup_asset_transfer<T>(
+    sender: &User<T>,
+    receiver: &User<T>,
+    ticker: Ticker,
+    sender_portfolio_name: Option<&str>,
+    receiver_portolfio_name: Option<&str>,
+    pause_compliance: bool,
+    pause_restrictions: bool,
+) -> (PortfolioId, PortfolioId)
+where
+    T: Config + TestUtilsFn<AccountIdOf<T>>,
+{
+    let sender_portfolio =
+        create_portfolio::<T>(sender, sender_portfolio_name.unwrap_or("SenderPortfolio"));
+    let receiver_portfolio =
+        create_portfolio::<T>(receiver, receiver_portolfio_name.unwrap_or("RcvPortfolio"));
+
+    // Creates the asset
+    make_asset::<T>(sender, Some(ticker.as_ref()));
+    move_from_default_portfolio::<T>(sender, ticker, ONE_UNIT * POLY, sender_portfolio);
+
+    // Adds the maximum number of compliance requirement
+    // If pause_compliance is true, only the decoding cost will be considered.
+    T::ComplianceManager::setup_ticker_compliance(sender.did(), ticker, 50, pause_compliance);
+
+    // Adds transfer conditions only to consider the cost of decoding it
+    // If pause_restrictions is true, only the decoding cost will be considered.
+    setup_transfer_restrictions::<T>(
+        sender.origin().into(),
+        sender.did(),
+        ticker,
+        4,
+        pause_restrictions,
+    );
+
+    (sender_portfolio, receiver_portfolio)
+}
+
+/// Creates a user portfolio for `user`.
+pub fn create_portfolio<T: Config>(user: &User<T>, portofolio_name: &str) -> PortfolioId {
+    let portfolio_number = Portfolio::<T>::next_portfolio_number(user.did()).0;
+
+    Portfolio::<T>::create_portfolio(
+        user.origin().clone().into(),
+        PortfolioName(portofolio_name.as_bytes().to_vec()),
+    )
+    .unwrap();
+
+    PortfolioId {
+        did: user.did(),
+        kind: PortfolioKind::User(PortfolioNumber(portfolio_number)),
+    }
+}
+
+/// Moves `amount` from the user's default portfolio to `destination_portfolio`.
+fn move_from_default_portfolio<T: Config>(
+    user: &User<T>,
+    ticker: Ticker,
+    amount: Balance,
+    destination_portfolio: PortfolioId,
+) {
+    let moved_item = MovePortfolioItem {
+        ticker,
+        amount,
+        memo: None,
+    };
+    Portfolio::<T>::move_portfolio_funds(
+        user.origin().clone().into(),
+        PortfolioId {
+            did: user.did(),
+            kind: PortfolioKind::Default,
+        },
+        destination_portfolio,
+        vec![moved_item],
+    )
+    .unwrap();
+}
+
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
@@ -210,7 +297,7 @@ benchmarks! {
         let did = new_owner.did();
 
         Module::<T>::asset_ownership_relation(owner.did(), ticker);
-        let new_owner_auth_id = identity::Module::<T>::add_auth(
+        let new_owner_auth_id = pallet_identity::Module::<T>::add_auth(
             owner.did(),
             Signatory::from(did),
             AuthorizationData::TransferTicker(ticker),
@@ -226,7 +313,7 @@ benchmarks! {
         let new_owner = UserBuilder::<T>::default().generate_did().build("new_owner");
         let did = new_owner.did();
 
-        let new_owner_auth_id = identity::Module::<T>::add_auth(
+        let new_owner_auth_id = pallet_identity::Module::<T>::add_auth(
             owner.did(),
             Signatory::from(did),
             AuthorizationData::TransferAssetOwnership(ticker),
@@ -400,7 +487,7 @@ benchmarks! {
         let (owner, ticker) = owned_ticker::<T>();
         let pia = UserBuilder::<T>::default().generate_did().build("1stIssuance");
         let investor = UserBuilder::<T>::default().generate_did().build("investor");
-        let auth_id = identity::Module::<T>::add_auth(
+        let auth_id = pallet_identity::Module::<T>::add_auth(
             owner.did(),
             Signatory::from(pia.did()),
             AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),
@@ -575,4 +662,21 @@ benchmarks! {
             None,
         ).unwrap();
     }: _(user.origin, ticker, AssetMetadataKey::Local(AssetMetadataLocalKey(1)))
+
+    base_transfer {
+        // For the worst case, the portfolios are not the the default ones, the complexity of the transfer depends on
+        // the complexity of the compliance rules and the number of statistics to be updated.
+        // Since the compliance weight will be charged separately, the rules were paused and only the `Self::asset_compliance(ticker)`
+        // read will be considered (this read was not charged in the is_condition_satisfied benchmark).
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+
+        let (sender_portfolio, receiver_portfolio) =
+            setup_asset_transfer::<T>(&alice, &bob, ticker, None, None, true, true);
+    }: {
+        Module::<T>::base_transfer(sender_portfolio, receiver_portfolio, &ticker, ONE_UNIT, &mut weight_meter).unwrap();
+    }
 }

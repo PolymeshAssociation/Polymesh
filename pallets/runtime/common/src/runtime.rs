@@ -559,13 +559,18 @@ macro_rules! misc_pallet_impls {
 #[macro_export]
 macro_rules! runtime_apis {
     ($($extra:item)*) => {
-        use node_rpc_runtime_api::asset as rpc_api_asset;
-        use frame_support::dispatch::GetStorageVersion;
+        use frame_support::dispatch::{GetStorageVersion, DispatchError};
         use sp_inherents::{CheckInherentsResult, InherentData};
+        use node_rpc_runtime_api::asset as rpc_api_asset;
+
         use pallet_identity::types::{AssetDidResult, CddStatus, RpcDidRecords, DidStatus, KeyIdentityData};
         use pallet_pips::{Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
-        use polymesh_primitives::{calendar::CheckpointId, compliance_manager::AssetComplianceResult, IdentityId, Index, PortfolioId, Signatory, Ticker, NFTs};
+        use polymesh_primitives::settlement::{InstructionId, ExecuteInstructionInfo};
+        use polymesh_primitives::{
+            calendar::CheckpointId, compliance_manager::AssetComplianceResult, IdentityId, Index, NFTs,
+            PortfolioId, Signatory, Ticker, WeightMeter,
+        };
 
         /// The address format for describing accounts.
         pub type Address = <Indices as StaticLookup>::Source;
@@ -937,7 +942,8 @@ macro_rules! runtime_apis {
                     ticker: &Ticker,
                     value: Balance) -> rpc_api_asset::CanTransferResult
                 {
-                    Asset::unsafe_can_transfer(from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value)
+                    let mut weight_meter = WeightMeter::max_limit_no_minimum();
+                    Asset::unsafe_can_transfer(from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value, &mut weight_meter)
                         .map_err(|msg| msg.as_bytes().to_vec())
                 }
 
@@ -951,7 +957,17 @@ macro_rules! runtime_apis {
                     value: Balance
                 ) -> polymesh_primitives::asset::GranularCanTransferResult
                 {
-                    Asset::unsafe_can_transfer_granular(from_custodian, from_portfolio, to_custodian, to_portfolio, ticker, value)
+                    let mut weight_meter = WeightMeter::max_limit_no_minimum();
+                    Asset::unsafe_can_transfer_granular(
+                        from_custodian,
+                        from_portfolio,
+                        to_custodian,
+                        to_portfolio,
+                        ticker,
+                        value,
+                        &mut weight_meter
+                    )
+                    .unwrap()
                 }
             }
 
@@ -966,7 +982,14 @@ macro_rules! runtime_apis {
                 ) -> AssetComplianceResult
                 {
                     use polymesh_common_utilities::compliance_manager::Config;
-                    ComplianceManager::verify_restriction_granular(&ticker, from_did, to_did)
+                    let mut weight_meter = WeightMeter::max_limit_no_minimum();
+                    ComplianceManager::verify_restriction_granular(
+                        &ticker,
+                        from_did,
+                        to_did,
+                        &mut weight_meter
+                    )
+                    .unwrap()
                 }
             }
 
@@ -991,7 +1014,17 @@ macro_rules! runtime_apis {
                     receiver_portfolio: &PortfolioId,
                     nfts: &NFTs
                 ) -> frame_support::dispatch::DispatchResult {
-                    Nft::validate_nft_transfer(sender_portfolio, receiver_portfolio, nfts)
+                    let mut weight_meter = WeightMeter::max_limit_no_minimum();
+                    Nft::validate_nft_transfer(sender_portfolio, receiver_portfolio, nfts, &mut weight_meter)
+                }
+            }
+
+            impl node_rpc_runtime_api::settlement::SettlementApi<Block> for Runtime {
+                #[inline]
+                fn get_execute_instruction_info(
+                    instruction_id: &InstructionId
+                ) -> ExecuteInstructionInfo {
+                    Settlement::execute_instruction_info(instruction_id)
                 }
             }
 

@@ -1,30 +1,29 @@
-use super::{
-    asset_test::{allow_all_transfers, max_len_bytes, set_timestamp},
-    exec_noop, exec_ok,
-    storage::{make_account_with_portfolio, TestStorage, User},
-    ExtBuilder,
-};
-use pallet_asset as asset;
-use pallet_compliance_manager as compliance_manager;
-use pallet_settlement::{InstructionStatus, VenueDetails, VenueId, VenueType};
+use frame_support::{assert_noop, assert_ok};
+use sp_runtime::DispatchError;
+
 use pallet_sto::{
     Fundraiser, FundraiserId, FundraiserName, FundraiserStatus, FundraiserTier, PriceTier,
     MAX_TIERS,
 };
-use polymesh_primitives::{asset::AssetType, checked_inc::CheckedInc, PortfolioId, Ticker};
-
-use crate::storage::provide_scope_claim_to_multiple_parties;
-use frame_support::{assert_noop, assert_ok};
-use sp_runtime::DispatchError;
+use polymesh_primitives::settlement::{InstructionStatus, VenueDetails, VenueId, VenueType};
+use polymesh_primitives::{
+    asset::AssetType, checked_inc::CheckedInc, PortfolioId, Ticker, WeightMeter,
+};
 use test_client::AccountKeyring;
 
+use super::asset_test::{allow_all_transfers, max_len_bytes, set_timestamp};
+use super::storage::{
+    make_account_with_portfolio, provide_scope_claim_to_multiple_parties, TestStorage, User,
+};
+use super::{exec_noop, exec_ok, ExtBuilder};
+
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
-type Asset = asset::Module<TestStorage>;
+type Asset = pallet_asset::Module<TestStorage>;
 type Sto = pallet_sto::Module<TestStorage>;
 type Error = pallet_sto::Error<TestStorage>;
 type EAError = pallet_external_agents::Error<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
-type ComplianceManager = compliance_manager::Module<TestStorage>;
+type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
 type Settlement = pallet_settlement::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
@@ -133,11 +132,13 @@ fn raise_happy_path() {
     } = init_raise_context(1_000_000, Some(RAISE_SUPPLY));
     let raise_ticker = raise_ticker.unwrap();
 
+    let mut weight_meter = WeightMeter::max_limit_no_minimum();
     assert_ok!(Asset::unsafe_transfer(
         alice_portfolio,
         bob_portfolio,
         &raise_ticker,
-        RAISE_SUPPLY
+        RAISE_SUPPLY,
+        &mut weight_meter
     ));
 
     allow_all_transfers(offering_ticker, alice);
@@ -370,11 +371,13 @@ fn raise_unhappy_path() {
 
     create_asset(alice.origin(), raise_ticker, 1_000_000);
 
+    let mut weight_meter = WeightMeter::max_limit_no_minimum();
     assert_ok!(Asset::unsafe_transfer(
         alice_portfolio,
         bob_portfolio,
         &raise_ticker,
-        1_000_000
+        1_000_000,
+        &mut weight_meter
     ));
 
     allow_all_transfers(offering_ticker, alice);

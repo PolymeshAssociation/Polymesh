@@ -27,27 +27,26 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-};
+use frame_support::dispatch::DispatchResult;
+use frame_support::weights::Weight;
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
+use scale_info::TypeInfo;
+use sp_runtime::DispatchError;
+use sp_std::collections::btree_set::BTreeSet;
+use sp_std::prelude::*;
+
 use pallet_base::try_next_post;
 use pallet_identity::PermissionedCallOriginData;
-use pallet_settlement::{
-    LegAsset, LegV2, ReceiptDetails, SettlementType, VenueId, VenueInfo, VenueType,
-};
-use polymesh_common_utilities::{
-    portfolio::PortfolioSubTrait,
-    traits::{identity, portfolio},
-    with_transaction,
-};
+use pallet_settlement::VenueInfo;
+use polymesh_common_utilities::portfolio::PortfolioSubTrait;
+use polymesh_common_utilities::traits::{identity, portfolio};
+use polymesh_common_utilities::with_transaction;
 use polymesh_primitives::impl_checked_inc;
+use polymesh_primitives::settlement::{
+    LegAsset, LegV2, ReceiptDetails, SettlementType, VenueId, VenueType,
+};
+use polymesh_primitives::{Balance, EventDid, IdentityId, PortfolioId, Ticker, WeightMeter};
 use polymesh_primitives_derive::VecU8StrongTyped;
-use scale_info::TypeInfo;
-
-use frame_support::weights::Weight;
-use polymesh_primitives::{Balance, EventDid, IdentityId, PortfolioId, Ticker};
-use sp_runtime::DispatchError;
-use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 pub const MAX_TIERS: usize = 10;
 
@@ -478,7 +477,7 @@ decl_module! {
                     None,
                     legs,
                     None,
-                    true
+                    true,
                 )?;
 
                 let portfolios = [fundraiser.offering_portfolio, fundraiser.raising_portfolio].iter().copied().collect::<BTreeSet<_>>();
@@ -491,7 +490,8 @@ decl_module! {
                     receipt,
                     portfolios,
                     2,
-                    None
+                    None,
+                    &mut WeightMeter::max_limit_no_minimum()
                 )
             })?;
 

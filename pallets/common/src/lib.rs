@@ -19,7 +19,7 @@ pub mod constants;
 
 pub mod traits;
 pub use traits::{
-    asset, balances, base, compliance_manager, governance_group, group, identity, multisig,
+    asset, balances, base, compliance_manager, governance_group, group, identity, multisig, nft,
     portfolio, transaction_payment, CommonConfig, TestUtilsFn,
 };
 pub mod context;

@@ -118,6 +118,7 @@ where
     C::Api: BabeApi<Block>,
     C::Api: BlockBuilder<Block>,
     C::Api: node_rpc::nft::NFTRuntimeApi<Block>,
+    C::Api: node_rpc::settlement::SettlementRuntimeApi<Block>,
     P: TransactionPool + 'static,
     SC: SelectChain<Block> + 'static,
     B: sc_client_api::Backend<Block> + Send + Sync + 'static,
@@ -129,6 +130,7 @@ where
         identity::{Identity, IdentityApiServer},
         nft::{NFTApiServer, NFT},
         pips::{Pips, PipsApiServer},
+        settlement::{Settlement, SettlementApiServer},
         transaction_payment::{TransactionPayment, TransactionPaymentApiServer},
     };
     use pallet_group_rpc::{Group, GroupApiServer};
@@ -222,7 +224,8 @@ where
     io.merge(Asset::new(client.clone()).into_rpc())?;
     io.merge(Group::from(client.clone()).into_rpc())?;
     io.merge(ComplianceManager::new(client.clone()).into_rpc())?;
-    io.merge(NFT::new(client).into_rpc())?;
+    io.merge(NFT::new(client.clone()).into_rpc())?;
+    io.merge(Settlement::new(client).into_rpc())?;
 
     Ok(io)
 }

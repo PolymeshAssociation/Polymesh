@@ -13,16 +13,17 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+mod asset;
+pub use asset::{make_asset, make_indivisible_asset, make_ticker, ResultTicker};
+
 mod user;
-use crate::traits::{identity::Config, TestUtilsFn};
-use frame_system::Config as SysTrait;
 pub use user::{PublicKey, SecretKey, User};
 
 mod user_builder;
 pub use user_builder::{uid_from_name_and_idx, AccountIdOf, UserBuilder};
 
-mod asset;
-pub use asset::{make_asset, make_indivisible_asset, make_ticker, ResultTicker};
+use crate::traits::{identity::Config, TestUtilsFn};
+use frame_system::Config as SysTrait;
 
 pub fn user<T: Config + TestUtilsFn<<T as SysTrait>::AccountId>>(
     prefix: &'static str,

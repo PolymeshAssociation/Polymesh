@@ -84,7 +84,7 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     storage_migration_ver, Balance, EventDid, IdentityId, Moment, PortfolioId, PortfolioNumber,
-    SecondaryKey, Ticker,
+    SecondaryKey, Ticker, WeightMeter,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;
@@ -552,7 +552,8 @@ impl<T: Config> Module<T> {
 
             // Transfer remainder (`gain`) to DID.
             let to = PortfolioId::default_portfolio(holder);
-            <Asset<T>>::base_transfer(dist.from, to, &dist.currency, gain)
+            let mut weight_meter = WeightMeter::max_limit_no_minimum();
+            <Asset<T>>::base_transfer(dist.from, to, &dist.currency, gain, &mut weight_meter)
         })?;
 
         // Note that DID was paid.

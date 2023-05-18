@@ -81,50 +81,49 @@
 pub mod benchmarking;
 pub mod checkpoint;
 
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
+
 use arrayvec::ArrayVec;
 use codec::{Decode, Encode};
 use core::mem;
 use core::result::Result as StdResult;
 use currency::*;
-use frame_support::{
-    decl_error, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
-    ensure, fail,
-    traits::Get,
-};
+use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::traits::Get;
+use frame_support::{decl_error, decl_module, decl_storage, ensure, fail};
 use frame_system::ensure_root;
+use scale_info::TypeInfo;
+use sp_runtime::traits::Zero;
+use sp_std::{convert::TryFrom, prelude::*};
+
 use pallet_base::{
     ensure_opt_string_limited, ensure_string_limited, try_next_pre, Error::CounterOverflow,
 };
-use pallet_identity::{self as identity, PermissionedCallOriginData};
+use pallet_identity::PermissionedCallOriginData;
+use polymesh_common_utilities::asset::{AssetFnTrait, AssetSubTrait};
+use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
+use polymesh_common_utilities::constants::*;
+use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
 pub use polymesh_common_utilities::traits::asset::{Config, Event, RawEvent, WeightInfo};
-use polymesh_common_utilities::{
-    asset::{AssetFnTrait, AssetSubTrait},
-    compliance_manager::Config as ComplianceManagerConfig,
-    constants::*,
-    protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    traits::nft::NFTTrait,
-    with_transaction, SystematicIssuers,
+use polymesh_common_utilities::traits::nft::NFTTrait;
+use polymesh_common_utilities::{with_transaction, SystematicIssuers};
+
+use polymesh_primitives::agent::AgentGroup;
+use polymesh_primitives::asset::{
+    AssetName, AssetType, CustomAssetTypeId, FundingRoundName, GranularCanTransferResult,
 };
+use polymesh_primitives::asset_metadata::{
+    AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName,
+    AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
+};
+use polymesh_primitives::calendar::CheckpointId;
+use polymesh_primitives::ethereum::{self, EcdsaSignature, EthereumAddress};
+use polymesh_primitives::transfer_compliance::TransferConditionResult;
 use polymesh_primitives::{
-    agent::AgentGroup,
-    asset::{AssetName, AssetType, CustomAssetTypeId, FundingRoundName, GranularCanTransferResult},
-    asset_metadata::{
-        AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataName,
-        AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
-    },
-    calendar::CheckpointId,
-    ethereum::{self, EcdsaSignature, EthereumAddress},
-    extract_auth, storage_migration_ver,
-    transfer_compliance::TransferConditionResult,
-    AssetIdentifier, Balance, Document, DocumentId, IdentityId, PortfolioId, PortfolioKind,
-    ScopeId, SecondaryKey, Ticker,
+    extract_auth, storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId,
+    IdentityId, PortfolioId, PortfolioKind, ScopeId, SecondaryKey, Ticker, WeightMeter,
 };
-use scale_info::TypeInfo;
-use sp_runtime::traits::Zero;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
-use sp_std::{convert::TryFrom, prelude::*};
 
 type Checkpoint<T> = checkpoint::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
@@ -355,7 +354,7 @@ decl_storage! {
     }
 }
 
-type Identity<T> = identity::Module<T>;
+type Identity<T> = pallet_identity::Module<T>;
 
 // Public interface for this runtime module.
 decl_module! {
@@ -525,7 +524,8 @@ decl_module! {
         pub fn issue(origin, ticker: Ticker, amount: Balance) -> DispatchResult {
             // Ensure origin is agent with custody and permissions for default portfolio.
             let portfolio = Self::ensure_agent_with_custody_and_perms(origin, ticker, PortfolioKind::Default)?;
-            Self::_mint(&ticker, portfolio.did, amount, Some(ProtocolOp::AssetIssue))
+            let mut weight_meter = WeightMeter::max_limit_no_minimum();
+            Self::_mint(&ticker, portfolio.did, amount, Some(ProtocolOp::AssetIssue), &mut weight_meter)
         }
 
         /// Redeems existing tokens by reducing the balance of the caller's default portfolio and the total supply of the token
@@ -545,7 +545,8 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::redeem()]
         pub fn redeem(origin, ticker: Ticker, value: Balance) -> DispatchResult {
-            Self::base_redeem(origin, ticker, value, PortfolioKind::Default)
+            let mut weight_meter = WeightMeter::max_limit_no_minimum();
+            Self::base_redeem(origin, ticker, value, PortfolioKind::Default, &mut weight_meter)
         }
 
         /// Makes an indivisible token divisible.
@@ -683,7 +684,8 @@ decl_module! {
         /// * `from_portfolio` From whom portfolio tokens gets transferred.
         #[weight = <T as Config>::WeightInfo::controller_transfer()]
         pub fn controller_transfer(origin, ticker: Ticker, value: Balance, from_portfolio: PortfolioId) -> DispatchResult {
-            Self::base_controller_transfer(origin, ticker, value, from_portfolio)
+            let mut weight_meter = WeightMeter::max_limit_no_minimum();
+            Self::base_controller_transfer(origin, ticker, value, from_portfolio, &mut weight_meter)
         }
 
         /// Registers a custom asset type.
@@ -859,7 +861,8 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::redeem_from_portfolio()]
         pub fn redeem_from_portfolio(origin, ticker: Ticker, value: Balance, portfolio: PortfolioKind) -> DispatchResult {
-            Self::base_redeem(origin, ticker, value, portfolio)
+            let mut weight_meter = WeightMeter::max_limit_no_minimum();
+            Self::base_redeem(origin, ticker, value, portfolio, &mut weight_meter)
         }
 
         /// Updates the type of an asset.
@@ -1362,6 +1365,7 @@ impl<T: Config> Module<T> {
         from_portfolio: PortfolioId,
         to_portfolio: PortfolioId,
         value: Balance,
+        weight_meter: &mut WeightMeter,
     ) -> StdResult<u8, DispatchError> {
         if Self::frozen(ticker) {
             return Ok(ERC1400_TRANSFERS_HALTED);
@@ -1375,19 +1379,22 @@ impl<T: Config> Module<T> {
             return Ok(PORTFOLIO_FAILURE);
         }
 
-        if Self::statistics_failures(&from_portfolio.did, &to_portfolio.did, ticker, value) {
+        if Self::statistics_failures(
+            &from_portfolio.did,
+            &to_portfolio.did,
+            ticker,
+            value,
+            weight_meter,
+        ) {
             return Ok(TRANSFER_MANAGER_FAILURE);
         }
 
-        let status_code = T::ComplianceManager::verify_restriction(
+        if !T::ComplianceManager::is_compliant(
             ticker,
-            Some(from_portfolio.did),
-            Some(to_portfolio.did),
-            value,
-        )
-        .unwrap_or(COMPLIANCE_MANAGER_FAILURE);
-
-        if status_code != ERC1400_TRANSFER_SUCCESS {
+            from_portfolio.did,
+            to_portfolio.did,
+            weight_meter,
+        )? {
             return Ok(COMPLIANCE_MANAGER_FAILURE);
         }
 
@@ -1400,6 +1407,7 @@ impl<T: Config> Module<T> {
         to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: Balance,
+        weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         Self::ensure_granular(ticker, value)?;
 
@@ -1472,7 +1480,8 @@ impl<T: Config> Module<T> {
             Some(Self::aggregate_balance_of(ticker, &from_scope_id)),
             Some(Self::aggregate_balance_of(ticker, &to_scope_id)),
             value,
-        );
+            weight_meter,
+        )?;
 
         Self::deposit_event(RawEvent::Transfer(
             from_portfolio.did,
@@ -1511,6 +1520,7 @@ impl<T: Config> Module<T> {
         to_did: IdentityId,
         value: Balance,
         protocol_fee_data: Option<ProtocolOp>,
+        weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         Self::ensure_granular(ticker, value)?;
         // Read the token details
@@ -1569,6 +1579,7 @@ impl<T: Config> Module<T> {
             // Using the aggregate balance to update the unique investor count.
             updated_to_balance = Self::aggregate_balance_of(ticker, &scope_id);
         }
+
         Statistics::<T>::update_asset_stats(
             &ticker,
             None,
@@ -1576,7 +1587,8 @@ impl<T: Config> Module<T> {
             None,
             Some(updated_to_balance),
             value,
-        );
+            weight_meter,
+        )?;
 
         let round = Self::funding_round(ticker);
         let ticker_round = (*ticker, round.clone());
@@ -1678,6 +1690,7 @@ impl<T: Config> Module<T> {
         to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: Balance,
+        weight_meter: &mut WeightMeter,
     ) -> StdResult<u8, &'static str> {
         Ok(if Self::invalid_granularity(ticker, value) {
             // Granularity check
@@ -1703,7 +1716,7 @@ impl<T: Config> Module<T> {
             PORTFOLIO_FAILURE
         } else {
             // Compliance manager & Smart Extension check
-            Self::_is_valid_transfer(&ticker, from_portfolio, to_portfolio, value)
+            Self::_is_valid_transfer(&ticker, from_portfolio, to_portfolio, value, weight_meter)
                 .unwrap_or(ERC1400_TRANSFER_FAILURE)
         })
     }
@@ -1714,6 +1727,7 @@ impl<T: Config> Module<T> {
         to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: Balance,
+        weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         // NB: This function does not check if the sender/receiver have custodian permissions on the portfolios.
         // The custodian permissions must be checked before this function is called.
@@ -1722,14 +1736,14 @@ impl<T: Config> Module<T> {
 
         // Validate the transfer
         let is_transfer_success =
-            Self::_is_valid_transfer(&ticker, from_portfolio, to_portfolio, value)?;
+            Self::_is_valid_transfer(&ticker, from_portfolio, to_portfolio, value, weight_meter)?;
 
         ensure!(
             is_transfer_success == ERC1400_TRANSFER_SUCCESS,
             Error::<T>::InvalidTransfer
         );
 
-        Self::unsafe_transfer(from_portfolio, to_portfolio, ticker, value)?;
+        Self::unsafe_transfer(from_portfolio, to_portfolio, ticker, value, weight_meter)?;
 
         Ok(())
     }
@@ -1961,6 +1975,7 @@ impl<T: Config> Module<T> {
         ticker: Ticker,
         value: Balance,
         portfolio_kind: PortfolioKind,
+        weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         // Ensure origin is agent with custody and permissions for portfolio.
         let portfolio = Self::ensure_agent_with_custody_and_perms(origin, ticker, portfolio_kind)?;
@@ -2013,7 +2028,8 @@ impl<T: Config> Module<T> {
             updated_from_balance,
             None,
             value,
-        );
+            weight_meter,
+        )?;
 
         Self::deposit_event(RawEvent::Transfer(
             portfolio.did,
@@ -2423,13 +2439,14 @@ impl<T: Config> Module<T> {
         ticker: Ticker,
         value: Balance,
         from_portfolio: PortfolioId,
+        weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         // Ensure `origin` has perms.
         let to_portfolio =
             Self::ensure_agent_with_custody_and_perms(origin, ticker, PortfolioKind::Default)?;
 
         // Transfer `value` of ticker tokens from `investor_did` to controller
-        Self::unsafe_transfer(from_portfolio, to_portfolio, &ticker, value)?;
+        Self::unsafe_transfer(from_portfolio, to_portfolio, &ticker, value, weight_meter)?;
         Self::deposit_event(RawEvent::ControllerTransfer(
             to_portfolio.did,
             ticker,
@@ -2446,7 +2463,8 @@ impl<T: Config> Module<T> {
         to_portfolio: PortfolioId,
         ticker: &Ticker,
         value: Balance,
-    ) -> GranularCanTransferResult {
+        weight_meter: &mut WeightMeter,
+    ) -> Result<GranularCanTransferResult, DispatchError> {
         let invalid_granularity = Self::invalid_granularity(ticker, value);
         let self_transfer = Self::self_transfer(&from_portfolio, &to_portfolio);
         let invalid_receiver_cdd = Self::invalid_cdd(to_portfolio.did);
@@ -2470,14 +2488,16 @@ impl<T: Config> Module<T> {
             &to_portfolio.did,
             ticker,
             value,
-        );
+            weight_meter,
+        )?;
         let compliance_result = T::ComplianceManager::verify_restriction_granular(
             ticker,
             Some(from_portfolio.did),
             Some(to_portfolio.did),
-        );
+            weight_meter,
+        )?;
 
-        GranularCanTransferResult {
+        Ok(GranularCanTransferResult {
             invalid_granularity,
             self_transfer,
             invalid_receiver_cdd,
@@ -2501,8 +2521,9 @@ impl<T: Config> Module<T> {
                 && compliance_result.result,
             transfer_condition_result,
             compliance_result,
+            consumed_weight: Some(weight_meter.consumed()),
             portfolio_validity_result,
-        }
+        })
     }
 
     fn invalid_granularity(ticker: &Ticker, value: Balance) -> bool {
@@ -2565,6 +2586,7 @@ impl<T: Config> Module<T> {
         to_did: &IdentityId,
         ticker: &Ticker,
         value: Balance,
+        weight_meter: &mut WeightMeter,
     ) -> bool {
         let (from_scope_id, to_scope_id, token) =
             Self::setup_statistics_failures(from_did, to_did, ticker);
@@ -2578,6 +2600,7 @@ impl<T: Config> Module<T> {
             Self::aggregate_balance_of(ticker, &to_scope_id),
             value,
             token.total_supply,
+            weight_meter,
         )
         .is_err()
     }
@@ -2587,7 +2610,8 @@ impl<T: Config> Module<T> {
         to_did: &IdentityId,
         ticker: &Ticker,
         value: Balance,
-    ) -> Vec<TransferConditionResult> {
+        weight_meter: &mut WeightMeter,
+    ) -> Result<Vec<TransferConditionResult>, DispatchError> {
         let (from_scope_id, to_scope_id, token) =
             Self::setup_statistics_failures(from_did, to_did, ticker);
         Statistics::<T>::get_transfer_restrictions_results(
@@ -2600,6 +2624,7 @@ impl<T: Config> Module<T> {
             Self::aggregate_balance_of(ticker, &to_scope_id),
             value,
             token.total_supply,
+            weight_meter,
         )
     }
 

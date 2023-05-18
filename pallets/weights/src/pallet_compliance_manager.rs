@@ -184,4 +184,35 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(1))
     }
+    // Storage: ComplianceManager TrustedClaimIssuer (r:1 w:0)
+    // Storage: Timestamp Now (r:1 w:0)
+    // Storage: Identity Claims (r:1 w:0)
+    /// The range of component `c` is `[1, 400]`.
+    /// The range of component `t` is `[0, 1]`.
+    fn is_condition_satisfied(c: u32, t: u32) -> Weight {
+        // Minimum execution time: 35_544 nanoseconds.
+        Weight::from_ref_time(17_753_392)
+            // Standard Error: 4_340
+            .saturating_add(Weight::from_ref_time(4_628_473).saturating_mul(c.into()))
+            // Standard Error: 1_146_187
+            .saturating_add(Weight::from_ref_time(21_491_328).saturating_mul(t.into()))
+            .saturating_add(DbWeight::get().reads(1))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(c.into())))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(t.into())))
+    }
+    /// The range of component `e` is `[0, 1]`.
+    fn is_identity_condition(e: u32) -> Weight {
+        // Minimum execution time: 841 nanoseconds.
+        Weight::from_ref_time(973_690)
+            // Standard Error: 66_766
+            .saturating_add(Weight::from_ref_time(19_986_642).saturating_mul(e.into()))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(e.into())))
+    }
+    /// The range of component `i` is `[0, 10000]`.
+    fn is_any_requirement_compliant(i: u32) -> Weight {
+        // Minimum execution time: 702 nanoseconds.
+        Weight::from_ref_time(856_950)
+            // Standard Error: 70
+            .saturating_add(Weight::from_ref_time(114_615).saturating_mul(i.into()))
+    }
 }

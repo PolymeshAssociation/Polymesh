@@ -29,7 +29,7 @@ use polymesh_primitives::{IdentityId, InvestorUid};
 use sp_io::hashing::blake2_256;
 use sp_std::prelude::*;
 
-pub fn uid_from_name_and_idx(name: &'static str, u: u32) -> InvestorUid {
+pub fn uid_from_name_and_idx(name: &str, u: u32) -> InvestorUid {
     InvestorUid::from((name, u).encode().as_slice())
 }
 
@@ -55,7 +55,7 @@ macro_rules! self_update {
 
 impl<T: Config + TestUtilsFn<AccountIdOf<T>>> UserBuilder<T> {
     /// Create an account based on the builder configuration.
-    pub fn build(self, name: &'static str) -> User<T> {
+    pub fn build(self, name: &str) -> User<T> {
         let (account, secret) = self
             .account
             .clone()
@@ -130,7 +130,7 @@ impl<T: Config> UserBuilder<T> {
         self_update!(self, balance, b.into())
     }
 
-    fn make_key_pair(name: &'static str, u: u32) -> (T::AccountId, Option<SecretKey>) {
+    fn make_key_pair(name: &str, u: u32) -> (T::AccountId, Option<SecretKey>) {
         let seed = (name, u).using_encoded(blake2_256);
 
         let keypair = MiniSecretKey::from_bytes(&seed[..])

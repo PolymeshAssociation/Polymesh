@@ -19,23 +19,22 @@
 pub mod benchmarking;
 
 use codec::{Decode, Encode};
-use frame_support::{
-    decl_error, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
-    ensure,
-    traits::Get,
-    BoundedBTreeSet,
-};
-pub use polymesh_common_utilities::traits::statistics::{Config, Event, WeightInfo};
-use polymesh_primitives::{
-    statistics::{
-        AssetScope, Percentage, Stat1stKey, Stat2ndKey, StatOpType, StatType, StatUpdate,
-    },
-    storage_migration_ver,
-    transfer_compliance::*,
-    Balance, IdentityId, ScopeId, Ticker,
-};
+use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::traits::Get;
+use frame_support::weights::Weight;
+use frame_support::{decl_error, decl_module, decl_storage, ensure, BoundedBTreeSet};
 use sp_std::{collections::btree_set::BTreeSet, vec, vec::Vec};
+
+pub use polymesh_common_utilities::traits::statistics::{Config, Event, WeightInfo};
+use polymesh_primitives::statistics::{
+    AssetScope, Percentage, Stat1stKey, Stat2ndKey, StatOpType, StatType, StatUpdate,
+};
+use polymesh_primitives::transfer_compliance::{
+    AssetTransferCompliance, TransferCondition, TransferConditionExemptKey, TransferConditionResult,
+};
+use polymesh_primitives::{
+    storage_migration_ver, Balance, IdentityId, ScopeId, Ticker, WeightMeter,
+};
 
 type Identity<T> = pallet_identity::Module<T>;
 type ExternalAgents<T> = pallet_external_agents::Module<T>;
@@ -347,15 +346,26 @@ impl<T: Config> Module<T> {
         from_balance: Option<Balance>,
         to_balance: Option<Balance>,
         amount: Balance,
-    ) {
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
         // If 2nd keys are the same and it is not a mint/burn.
         if from_key2 == to_key2 && from_balance.is_some() && to_balance.is_some() {
             // Then the `amount` is transferred between investors
             // with the same claim/non-claim.
             // So no change is needed.
-            return;
+            Self::consume_weight_meter(
+                weight_meter,
+                <T as Config>::WeightInfo::update_asset_balance_stats(0),
+            )?;
+            return Ok(());
         }
 
+        Self::consume_weight_meter(
+            weight_meter,
+            <T as Config>::WeightInfo::update_asset_balance_stats(
+                from_balance.is_some() as u32 + to_balance.is_some() as u32,
+            ),
+        )?;
         if from_balance.is_some() {
             // Remove `amount` from `from_key2`.
             AssetStats::mutate(key1, from_key2, |balance| {
@@ -368,6 +378,7 @@ impl<T: Config> Module<T> {
                 *balance = balance.saturating_add(amount)
             });
         }
+        Ok(())
     }
 
     /// Update unique investor count per asset per claim.
@@ -380,16 +391,32 @@ impl<T: Config> Module<T> {
         from_key2: Stat2ndKey,
         to_key2: Stat2ndKey,
         changes: (bool, bool),
-    ) {
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
         match changes {
             (true, true) if from_key2 == to_key2 => {
                 // Remove one investor and add another.
                 // Both 2nd keys match, so don't need to update the counter.
+                Self::consume_weight_meter(
+                    weight_meter,
+                    <T as Config>::WeightInfo::update_asset_count_stats(0),
+                )?;
             }
             (false, false) => {
                 // No changes needed.
+                // Consumes the weight for this function
+                Self::consume_weight_meter(
+                    weight_meter,
+                    <T as Config>::WeightInfo::update_asset_count_stats(0),
+                )?;
             }
             (from_change, to_change) => {
+                Self::consume_weight_meter(
+                    weight_meter,
+                    <T as Config>::WeightInfo::update_asset_count_stats(
+                        from_change as u32 + to_change as u32,
+                    ),
+                )?;
                 if from_change {
                     // Remove one investor.
                     AssetStats::mutate(key1, from_key2, |counter| {
@@ -404,6 +431,7 @@ impl<T: Config> Module<T> {
                 }
             }
         }
+        Ok(())
     }
 
     /// Fetch a claim for an identity as needed by the stat type.
@@ -454,11 +482,17 @@ impl<T: Config> Module<T> {
         from_balance: Option<Balance>,
         to_balance: Option<Balance>,
         amount: Balance,
-    ) {
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
         // No updates needed if the transfer amount is zero.
         if amount == 0u128 {
-            return;
+            return Ok(());
         }
+
+        Self::consume_weight_meter(
+            weight_meter,
+            <T as Config>::WeightInfo::active_asset_statistics_load(T::MaxStatsPerAsset::get()),
+        )?;
 
         // Pre-Calculate the investor count changes.
         let count_changes = Self::investor_count_changes(from_balance, to_balance, amount);
@@ -473,7 +507,13 @@ impl<T: Config> Module<T> {
                     if let Some(changes) = count_changes {
                         let from_key2 = Self::fetch_claim_as_key(from_did, &key1);
                         let to_key2 = Self::fetch_claim_as_key(to_did, &key1);
-                        Self::update_asset_count_stats(key1, from_key2, to_key2, changes);
+                        Self::update_asset_count_stats(
+                            key1,
+                            from_key2,
+                            to_key2,
+                            changes,
+                            weight_meter,
+                        )?;
                     }
                 }
                 StatOpType::Balance => {
@@ -487,10 +527,12 @@ impl<T: Config> Module<T> {
                         from_balance,
                         to_balance,
                         amount,
-                    );
+                        weight_meter,
+                    )?;
                 }
             }
         }
+        Ok(())
     }
 
     /// Verify asset investor count restrictions.
@@ -498,25 +540,42 @@ impl<T: Config> Module<T> {
         key1: Stat1stKey,
         changes: Option<(bool, bool)>,
         max_count: u128,
-    ) -> bool {
+        weight_meter: &mut WeightMeter,
+    ) -> Result<bool, DispatchError> {
         match changes {
             Some((true, true)) => {
                 // Remove one investor and add another.
                 // No count change.
-                true
+                Self::consume_weight_meter(
+                    weight_meter,
+                    <T as Config>::WeightInfo::max_investor_count_restriction(0),
+                )?;
+                Ok(true)
             }
             Some((false, false)) | None => {
                 // No count change.
-                true
+                Self::consume_weight_meter(
+                    weight_meter,
+                    <T as Config>::WeightInfo::max_investor_count_restriction(0),
+                )?;
+                Ok(true)
             }
             Some((true, false)) => {
                 // Remove one investor.
                 // Count is decreasing, no need to check max limit.
-                true
+                Self::consume_weight_meter(
+                    weight_meter,
+                    <T as Config>::WeightInfo::max_investor_count_restriction(0),
+                )?;
+                Ok(true)
             }
             Some((false, true)) => {
+                Self::consume_weight_meter(
+                    weight_meter,
+                    <T as Config>::WeightInfo::max_investor_count_restriction(1),
+                )?;
                 let current_count = AssetStats::get(key1, Stat2ndKey::NoClaimStat);
-                current_count < max_count
+                Ok(current_count < max_count)
             }
         }
     }
@@ -530,12 +589,17 @@ impl<T: Config> Module<T> {
         changes: Option<(bool, bool)>,
         min: u128,
         max: Option<u128>,
-    ) -> bool {
+        weight_meter: &mut WeightMeter,
+    ) -> Result<bool, DispatchError> {
         let changes = match changes {
             Some(changes) => changes,
             None => {
                 // No investor count changes, allow the transfer.
-                return true;
+                Self::consume_weight_meter(
+                    weight_meter,
+                    <T as Config>::WeightInfo::claim_count_restriction_no_stats(0),
+                )?;
+                return Ok(true);
             }
         };
         // Check if the investors have the claim.
@@ -545,11 +609,23 @@ impl<T: Config> Module<T> {
             (true, true) if from_matches == to_matches => {
                 // Remove one investor and add another.
                 // No count change.
+                Self::consume_weight_meter(
+                    weight_meter,
+                    <T as Config>::WeightInfo::claim_count_restriction_no_stats(1),
+                )?;
             }
             (false, false) => {
                 // No count change.
+                Self::consume_weight_meter(
+                    weight_meter,
+                    <T as Config>::WeightInfo::claim_count_restriction_no_stats(1),
+                )?;
             }
             (from_change, to_change) => {
+                Self::consume_weight_meter(
+                    weight_meter,
+                    <T as Config>::WeightInfo::claim_count_restriction_with_stats(),
+                )?;
                 // Get current investor count.
                 let count = AssetStats::get(key1, key2);
                 // Check minimum count restriction.
@@ -558,7 +634,7 @@ impl<T: Config> Module<T> {
                     // is transfering the last of their tokens (`from_change == true`)
                     // so the investor count for the claim is decreasing.
                     if count <= min {
-                        return false;
+                        return Ok(false);
                     }
                 }
                 // Check the maximum count restriction.
@@ -568,13 +644,13 @@ impl<T: Config> Module<T> {
                         // has a token balance of zero (`to_change == true`)
                         // so the investor count for the claim is increasing.
                         if count >= max {
-                            return false;
+                            return Ok(false);
                         }
                     }
                 }
             }
         }
-        return true;
+        Ok(true)
     }
 
     /// Verify asset % ownership restrictions.
@@ -583,10 +659,15 @@ impl<T: Config> Module<T> {
         receiver_balance: Balance,
         total_supply: Balance,
         max_percentage: Percentage,
-    ) -> bool {
+        weight_meter: &mut WeightMeter,
+    ) -> Result<bool, DispatchError> {
+        Self::consume_weight_meter(
+            weight_meter,
+            <T as Config>::WeightInfo::max_investor_ownership_restriction(),
+        )?;
         let new_percentage =
             sp_arithmetic::Permill::from_rational(receiver_balance + value, total_supply);
-        new_percentage <= max_percentage
+        Ok(new_percentage <= max_percentage)
     }
 
     /// Verify claim % ownership restrictions.
@@ -599,22 +680,34 @@ impl<T: Config> Module<T> {
         total_supply: Balance,
         min_percentage: Percentage,
         max_percentage: Percentage,
-    ) -> bool {
+        weight_meter: &mut WeightMeter,
+    ) -> Result<bool, DispatchError> {
         let from_maches = Self::has_matching_claim(from_did, &key1, &key2);
         let to_maches = Self::has_matching_claim(to_did, &key1, &key2);
         match (from_maches, to_maches) {
             (true, true) => {
                 // Both have the claim.  No % ownership change.
-                true
+                Self::consume_weight_meter(
+                    weight_meter,
+                    <T as Config>::WeightInfo::claim_ownership_restriction(0),
+                )?;
+                Ok(true)
             }
             (false, false) => {
                 // Neither have the claim.  No % ownership change.
-                true
+                Self::consume_weight_meter(
+                    weight_meter,
+                    <T as Config>::WeightInfo::claim_ownership_restriction(0),
+                )?;
+                Ok(true)
             }
             (false, true) => {
                 // Only the receiver has the claim.
                 // Increasing the % ownership of the claim.
-
+                Self::consume_weight_meter(
+                    weight_meter,
+                    <T as Config>::WeightInfo::claim_ownership_restriction(1),
+                )?;
                 // Calculate new claim % ownership.
                 let claim_balance = AssetStats::get(key1, key2);
                 let new_percentage = sp_arithmetic::Permill::from_rational(
@@ -622,12 +715,15 @@ impl<T: Config> Module<T> {
                     total_supply,
                 );
                 // Check new % ownership is less then maximum.
-                new_percentage <= max_percentage
+                Ok(new_percentage <= max_percentage)
             }
             (true, false) => {
                 // Only the sender has the claim.
                 // Decreasing the % ownership of the claim.
-
+                Self::consume_weight_meter(
+                    weight_meter,
+                    <T as Config>::WeightInfo::claim_ownership_restriction(1),
+                )?;
                 // Calculate new claim % ownership.
                 let claim_balance = AssetStats::get(key1, key2);
                 let new_percentage = sp_arithmetic::Permill::from_rational(
@@ -635,7 +731,7 @@ impl<T: Config> Module<T> {
                     total_supply,
                 );
                 // Check new % ownership is more then the minimum.
-                new_percentage >= min_percentage
+                Ok(new_percentage >= min_percentage)
             }
         }
     }
@@ -652,97 +748,158 @@ impl<T: Config> Module<T> {
         amount: Balance,
         total_supply: Balance,
         count_changes: Option<(bool, bool)>,
-    ) -> bool {
-        use TransferCondition::*;
-
+        weight_meter: &mut WeightMeter,
+    ) -> Result<bool, DispatchError> {
         let stat_type = condition.get_stat_type();
         let key1 = Stat1stKey { asset, stat_type };
 
         let passed = match &condition {
-            MaxInvestorCount(max_count) => {
-                Self::verify_asset_count_restriction(key1, count_changes, *max_count as u128)
-            }
-            MaxInvestorOwnership(max_percentage) => Self::verify_ownership_restriction(
-                amount,
-                to_balance,
-                total_supply,
-                *max_percentage,
-            ),
-            ClaimCount(claim, _, min, max) => Self::verify_claim_count_restriction(
+            TransferCondition::MaxInvestorCount(max_count) => Self::verify_asset_count_restriction(
                 key1,
-                claim.into(),
-                from_did,
-                to_did,
                 count_changes,
-                *min as u128,
-                max.map(|m| m as u128),
-            ),
-            ClaimOwnership(claim, _, min, max) => Self::verify_claim_ownership_restriction(
-                key1,
-                claim.into(),
-                from_did,
-                to_did,
-                amount,
-                total_supply,
-                *min,
-                *max,
-            ),
+                *max_count as u128,
+                weight_meter,
+            )?,
+            TransferCondition::MaxInvestorOwnership(max_percentage) => {
+                Self::verify_ownership_restriction(
+                    amount,
+                    to_balance,
+                    total_supply,
+                    *max_percentage,
+                    weight_meter,
+                )?
+            }
+            TransferCondition::ClaimCount(claim, _, min, max) => {
+                Self::verify_claim_count_restriction(
+                    key1,
+                    claim.into(),
+                    from_did,
+                    to_did,
+                    count_changes,
+                    *min as u128,
+                    max.map(|m| m as u128),
+                    weight_meter,
+                )?
+            }
+            TransferCondition::ClaimOwnership(claim, _, min, max) => {
+                Self::verify_claim_ownership_restriction(
+                    key1,
+                    claim.into(),
+                    from_did,
+                    to_did,
+                    amount,
+                    total_supply,
+                    *min,
+                    *max,
+                    weight_meter,
+                )?
+            }
         };
         if passed {
-            true
+            Ok(true)
         } else {
-            let exempt_key = condition.get_exempt_key(asset);
-            let id = match exempt_key.op {
-                // Count transfer conditions require the sender to be exempt.
-                StatOpType::Count => from,
-                // Percent ownersip transfer conditions require the receiver to be exempt.
-                StatOpType::Balance => to,
-            };
-            let is_exempt = Self::transfer_condition_exempt_entities(exempt_key, id);
-            is_exempt
+            Self::consume_weight_meter(weight_meter, <T as Config>::WeightInfo::is_exempt())?;
+            Ok(Self::is_exempt(asset, condition, &from, &to))
+        }
+    }
+
+    /// Returns `true` if the [`TransferCondition`] operation is of type [`StatOpType::Count`] and `sender_scope_id`
+    /// is in the exemption list or if [`TransferCondition`] operation is of type [`StatOpType::Balance`] and
+    /// `receiver_scope_id` is in the exemption list, otherwise returns `false`.
+    fn is_exempt(
+        asset_scope: AssetScope,
+        transfer_condition: &TransferCondition,
+        sender_scope_id: &ScopeId,
+        receiver_scope_id: &ScopeId,
+    ) -> bool {
+        let transfer_condition_exempt_key = transfer_condition.get_exempt_key(asset_scope);
+        match transfer_condition_exempt_key.op {
+            // Count transfer conditions require the sender to be exempt.
+            StatOpType::Count => Self::transfer_condition_exempt_entities(
+                transfer_condition_exempt_key,
+                sender_scope_id,
+            ),
+            // Percent ownersip transfer conditions require the receiver to be exempt.
+            StatOpType::Balance => Self::transfer_condition_exempt_entities(
+                transfer_condition_exempt_key,
+                receiver_scope_id,
+            ),
         }
     }
 
     /// Verify transfer restrictions for a transfer.
     pub fn verify_transfer_restrictions(
         ticker: &Ticker,
-        from: ScopeId,
-        to: ScopeId,
-        from_did: &IdentityId,
-        to_did: &IdentityId,
-        from_balance: Balance,
-        to_balance: Balance,
-        amount: Balance,
+        sender_scope: ScopeId,
+        receiver_scope: ScopeId,
+        sender_did: &IdentityId,
+        receiver_did: &IdentityId,
+        sender_balance: Balance,
+        receiver_balance: Balance,
+        transfer_amount: Balance,
         total_supply: Balance,
+        weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
-        let asset = AssetScope::Ticker(*ticker);
-        let tm = AssetTransferCompliances::<T>::get(&asset);
-        if tm.paused {
-            // Transfer rules are paused.
+        let asset_scope = AssetScope::Ticker(*ticker);
+        let asset_transfer_requirements = AssetTransferCompliances::<T>::get(&asset_scope);
+
+        // If the requirements are paused, the conditions are not checked
+        if asset_transfer_requirements.paused {
             return Ok(());
         }
 
-        // Pre-Calculate the investor count changes.
-        let count_changes = Self::investor_count_changes(
-            Some(from_balance.saturating_sub(amount)),
-            Some(to_balance.saturating_add(amount)),
-            amount,
+        Self::verify_requirements(
+            &asset_transfer_requirements.requirements,
+            asset_scope,
+            sender_scope,
+            receiver_scope,
+            sender_did,
+            receiver_did,
+            sender_balance,
+            receiver_balance,
+            transfer_amount,
+            total_supply,
+            weight_meter,
+        )
+    }
+
+    /// Returns `true` if all `requirements` are met, otherwise returns `false`.
+    fn verify_requirements<S: Get<u32>>(
+        transfer_conditions: &BoundedBTreeSet<TransferCondition, S>,
+        asset_scope: AssetScope,
+        sender_scope: ScopeId,
+        receiver_scope: ScopeId,
+        sender_did: &IdentityId,
+        receiver_did: &IdentityId,
+        sender_balance: Balance,
+        receiver_balance: Balance,
+        transfer_amount: Balance,
+        total_supply: Balance,
+        weight_meter: &mut WeightMeter,
+    ) -> DispatchResult {
+        // Checks if the number of investors should be updated
+        let change_investors_count = Self::investor_count_changes(
+            Some(sender_balance.saturating_sub(transfer_amount)),
+            Some(receiver_balance.saturating_add(transfer_amount)),
+            transfer_amount,
         );
 
-        for condition in tm.requirements {
-            let result = Self::check_transfer_condition(
-                &condition,
-                asset,
-                from,
-                to,
-                from_did,
-                to_did,
-                to_balance,
-                amount,
+        for transfer_condition in transfer_conditions {
+            if !Self::check_transfer_condition(
+                &transfer_condition,
+                asset_scope,
+                sender_scope,
+                receiver_scope,
+                sender_did,
+                receiver_did,
+                receiver_balance,
+                transfer_amount,
                 total_supply,
-                count_changes,
-            );
-            ensure!(result, Error::<T>::InvalidTransfer);
+                change_investors_count,
+                weight_meter,
+            )? {
+                return Err(Error::<T>::InvalidTransfer.into());
+            }
         }
 
         Ok(())
@@ -759,7 +916,8 @@ impl<T: Config> Module<T> {
         to_balance: Balance,
         amount: Balance,
         total_supply: Balance,
-    ) -> Vec<TransferConditionResult> {
+        weight_meter: &mut WeightMeter,
+    ) -> Result<Vec<TransferConditionResult>, DispatchError> {
         let asset = AssetScope::Ticker(*ticker);
         let tm = AssetTransferCompliances::<T>::get(&asset);
 
@@ -770,29 +928,40 @@ impl<T: Config> Module<T> {
             amount,
         );
 
-        tm.requirements
-            .into_iter()
-            .map(|condition| {
-                let result = Self::check_transfer_condition(
-                    &condition,
-                    asset,
-                    from,
-                    to,
-                    from_did,
-                    to_did,
-                    to_balance,
-                    amount,
-                    total_supply,
-                    count_changes,
-                );
-                TransferConditionResult { condition, result }
-            })
-            .collect()
+        let mut transfer_conditions = Vec::new();
+        for condition in tm.requirements {
+            let condition_holds = Self::check_transfer_condition(
+                &condition,
+                asset,
+                from,
+                to,
+                from_did,
+                to_did,
+                to_balance,
+                amount,
+                total_supply,
+                count_changes,
+                weight_meter,
+            )?;
+            transfer_conditions.push(TransferConditionResult {
+                condition,
+                result: condition_holds,
+            });
+        }
+        Ok(transfer_conditions)
     }
 
     /// Helper function to get investor count for tests.
     pub fn investor_count(ticker: Ticker) -> u128 {
         AssetStats::get(Stat1stKey::investor_count(ticker), Stat2ndKey::NoClaimStat)
+    }
+
+    /// Consumes from `weight_meter` the given `weight`.
+    /// If the new consumed weight is greater than the limit, consumed will be set to limit and an error will be returned.
+    fn consume_weight_meter(weight_meter: &mut WeightMeter, weight: Weight) -> DispatchResult {
+        weight_meter
+            .consume_weight_until_limit(weight)
+            .map_err(|_| Error::<T>::WeightLimitExceeded.into())
     }
 
     /// Helper function to set investor count for benchmarks.
@@ -821,5 +990,7 @@ decl_error! {
         StatTypeLimitReached,
         /// The limit of TransferConditions allowed for an asset has been reached.
         TransferConditionLimitReached,
+        /// The maximum weight limit for executing the function was exceeded.
+        WeightLimitExceeded
     }
 }

@@ -14,26 +14,94 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 use core::result::Result;
-use frame_support::{dispatch::DispatchError, weights::Weight};
-use polymesh_primitives::{
-    compliance_manager::{AssetComplianceResult, ComplianceRequirement},
-    condition::{conditions_total_counts, Condition},
-    Balance, IdentityId, Ticker,
-};
+use frame_support::decl_event;
+use frame_support::dispatch::DispatchError;
+use frame_support::traits::Get;
+use frame_support::weights::Weight;
+use sp_std::prelude::*;
 
-pub trait Config {
-    fn verify_restriction(
+use polymesh_primitives::compliance_manager::{AssetComplianceResult, ComplianceRequirement};
+use polymesh_primitives::condition::{conditions_total_counts, Condition};
+use polymesh_primitives::{IdentityId, Ticker, TrustedIssuer, WeightMeter};
+
+use crate::asset::AssetFnTrait;
+use crate::balances::Config as BalancesConfig;
+use crate::identity::Config as IdentityConfig;
+use crate::traits::external_agents::Config as EAConfig;
+
+/// The module's configuration trait.
+pub trait Config:
+    pallet_timestamp::Config + frame_system::Config + BalancesConfig + IdentityConfig + EAConfig
+{
+    /// The overarching event type.
+    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
+
+    /// Asset module
+    type Asset: AssetFnTrait<Self::AccountId, Self::RuntimeOrigin>;
+
+    /// Weight details of all extrinsic
+    type WeightInfo: WeightInfo;
+
+    /// The maximum claim reads that are allowed to happen in worst case of a condition resolution
+    type MaxConditionComplexity: Get<u32>;
+}
+
+decl_event!(
+    pub enum Event {
+        /// Emitted when new compliance requirement is created.
+        /// (caller DID, Ticker, ComplianceRequirement).
+        ComplianceRequirementCreated(IdentityId, Ticker, ComplianceRequirement),
+        /// Emitted when a compliance requirement is removed.
+        /// (caller DID, Ticker, requirement_id).
+        ComplianceRequirementRemoved(IdentityId, Ticker, u32),
+        /// Emitted when an asset compliance is replaced.
+        /// Parameters: caller DID, ticker, new asset compliance.
+        AssetComplianceReplaced(IdentityId, Ticker, Vec<ComplianceRequirement>),
+        /// Emitted when an asset compliance of a ticker is reset.
+        /// (caller DID, Ticker).
+        AssetComplianceReset(IdentityId, Ticker),
+        /// Emitted when an asset compliance for a given ticker gets resume.
+        /// (caller DID, Ticker).
+        AssetComplianceResumed(IdentityId, Ticker),
+        /// Emitted when an asset compliance for a given ticker gets paused.
+        /// (caller DID, Ticker).
+        AssetCompliancePaused(IdentityId, Ticker),
+        /// Emitted when compliance requirement get modified/change.
+        /// (caller DID, Ticker, ComplianceRequirement).
+        ComplianceRequirementChanged(IdentityId, Ticker, ComplianceRequirement),
+        /// Emitted when default claim issuer list for a given ticker gets added.
+        /// (caller DID, Ticker, Added TrustedIssuer).
+        TrustedDefaultClaimIssuerAdded(IdentityId, Ticker, TrustedIssuer),
+        /// Emitted when default claim issuer list for a given ticker get removed.
+        /// (caller DID, Ticker, Removed TrustedIssuer).
+        TrustedDefaultClaimIssuerRemoved(IdentityId, Ticker, IdentityId),
+    }
+);
+
+pub trait ComplianceFnConfig {
+    /// Returns `false` if there are no requirements for the asset or if all of the
+    /// asset's requirement don't hold, otherwise returns`true`.
+    fn is_compliant(
         ticker: &Ticker,
-        from_id: Option<IdentityId>,
-        to_id: Option<IdentityId>,
-        _value: Balance,
-    ) -> Result<u8, DispatchError>;
+        sender_did: IdentityId,
+        receiver_did: IdentityId,
+        weight_meter: &mut WeightMeter,
+    ) -> Result<bool, DispatchError>;
 
     fn verify_restriction_granular(
         ticker: &Ticker,
         from_did_opt: Option<IdentityId>,
         to_did_opt: Option<IdentityId>,
-    ) -> AssetComplianceResult;
+        weight_meter: &mut WeightMeter,
+    ) -> Result<AssetComplianceResult, DispatchError>;
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn setup_ticker_compliance(
+        caler_did: IdentityId,
+        ticker: Ticker,
+        n: u32,
+        pause_compliance: bool,
+    );
 }
 
 pub trait WeightInfo {
@@ -46,6 +114,9 @@ pub trait WeightInfo {
     fn change_compliance_requirement(c: u32) -> Weight;
     fn replace_asset_compliance(c: u32) -> Weight;
     fn reset_asset_compliance() -> Weight;
+    fn is_condition_satisfied(c: u32, t: u32) -> Weight;
+    fn is_identity_condition(e: u32) -> Weight;
+    fn is_any_requirement_compliant(i: u32) -> Weight;
 
     fn condition_costs(conditions: u32, claims: u32, issuers: u32, claim_types: u32) -> Weight;
 
@@ -79,5 +150,10 @@ pub trait WeightInfo {
             issuers,
             claim_types,
         ))
+    }
+
+    fn is_any_requirement_compliant_loop(i: u32) -> Weight {
+        Self::is_any_requirement_compliant(i)
+            .saturating_sub(Self::is_identity_condition(0).saturating_mul(i.into()))
     }
 }

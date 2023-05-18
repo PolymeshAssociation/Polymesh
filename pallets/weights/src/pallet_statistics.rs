@@ -112,4 +112,90 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(i.into())))
     }
+    // Storage: Statistics AssetStats (r:1 w:0)
+    /// The range of component `a` is `[0, 1]`.
+    fn max_investor_count_restriction(a: u32) -> Weight {
+        // Minimum execution time: 577 nanoseconds.
+        Weight::from_ref_time(677_614)
+            // Standard Error: 15_612
+            .saturating_add(Weight::from_ref_time(13_671_385).saturating_mul(a.into()))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(a.into())))
+    }
+    fn max_investor_ownership_restriction() -> Weight {
+        // Minimum execution time: 816 nanoseconds.
+        Weight::from_ref_time(855_000)
+    }
+    // Storage: Timestamp Now (r:1 w:0)
+    // Storage: Identity Claims (r:2 w:0)
+    /// The range of component `c` is `[0, 1]`.
+    fn claim_count_restriction_no_stats(c: u32) -> Weight {
+        // Minimum execution time: 638 nanoseconds.
+        Weight::from_ref_time(737_136)
+            // Standard Error: 15_710
+            .saturating_add(Weight::from_ref_time(27_981_196).saturating_mul(c.into()))
+            .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(c.into())))
+    }
+    // Storage: Timestamp Now (r:1 w:0)
+    // Storage: Identity Claims (r:2 w:0)
+    // Storage: Statistics AssetStats (r:1 w:0)
+    fn claim_count_restriction_with_stats() -> Weight {
+        // Minimum execution time: 34_906 nanoseconds.
+        Weight::from_ref_time(35_190_000).saturating_add(DbWeight::get().reads(4))
+    }
+    // Storage: Timestamp Now (r:1 w:0)
+    // Storage: Identity Claims (r:2 w:0)
+    // Storage: Statistics AssetStats (r:1 w:0)
+    /// The range of component `a` is `[0, 1]`.
+    fn claim_ownership_restriction(a: u32) -> Weight {
+        // Minimum execution time: 27_705 nanoseconds.
+        Weight::from_ref_time(28_557_076)
+            // Standard Error: 109_469
+            .saturating_add(Weight::from_ref_time(11_865_923).saturating_mul(a.into()))
+            .saturating_add(DbWeight::get().reads(3))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(a.into())))
+    }
+    // Storage: Timestamp Now (r:1 w:0)
+    // Storage: Identity Claims (r:2 w:0)
+    // Storage: Statistics AssetStats (r:1 w:1)
+    /// The range of component `a` is `[0, 2]`.
+    fn update_asset_count_stats(a: u32) -> Weight {
+        // Minimum execution time: 26_627 nanoseconds.
+        Weight::from_ref_time(28_142_169)
+            // Standard Error: 71_971
+            .saturating_add(Weight::from_ref_time(7_143_638).saturating_mul(a.into()))
+            .saturating_add(DbWeight::get().reads(3))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(a.into())))
+            .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(a.into())))
+    }
+    // Storage: Timestamp Now (r:1 w:0)
+    // Storage: Identity Claims (r:2 w:0)
+    // Storage: Statistics AssetStats (r:1 w:1)
+    /// The range of component `a` is `[0, 2]`.
+    fn update_asset_balance_stats(a: u32) -> Weight {
+        // Minimum execution time: 26_157 nanoseconds.
+        Weight::from_ref_time(27_557_392)
+            // Standard Error: 120_188
+            .saturating_add(Weight::from_ref_time(12_861_203).saturating_mul(a.into()))
+            .saturating_add(DbWeight::get().reads(3))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(a.into())))
+            .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(a.into())))
+    }
+    /// The range of component `i` is `[0, 1004]`.
+    fn verify_requirements(i: u32) -> Weight {
+        // Minimum execution time: 600 nanoseconds.
+        Weight::from_ref_time(1_086_371)
+            // Standard Error: 168
+            .saturating_add(Weight::from_ref_time(26_328).saturating_mul(i.into()))
+    }
+    // Storage: Statistics ActiveAssetStats (r:1 w:0)
+    /// The range of component `a` is `[1, 1010]`.
+    fn active_asset_statistics_load(_a: u32) -> Weight {
+        // Minimum execution time: 13_435 nanoseconds.
+        Weight::from_ref_time(14_162_313).saturating_add(DbWeight::get().reads(1))
+    }
+    // Storage: Statistics TransferConditionExemptEntities (r:1 w:0)
+    fn is_exempt() -> Weight {
+        // Minimum execution time: 14_858 nanoseconds.
+        Weight::from_ref_time(15_080_000).saturating_add(DbWeight::get().reads(1))
+    }
 }
