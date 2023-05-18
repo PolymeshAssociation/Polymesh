@@ -126,7 +126,7 @@ pub fn generate_secondary_keys<T: Config>(n: usize) -> Vec<SecondaryKey<T::Accou
     for x in 0..n {
         secondary_keys.push(SecondaryKey {
             key: account("key", x as u32, SEED),
-            ..Default::default()
+            permissions: Default::default(),
         });
     }
     secondary_keys

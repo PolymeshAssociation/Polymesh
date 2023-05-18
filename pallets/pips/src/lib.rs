@@ -319,7 +319,7 @@ impl Default for ProposalState {
 }
 
 /// Information about deposit.
-#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Default)]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct DepositInfo<AccountId> {
     /// Owner of the deposit.
@@ -476,7 +476,7 @@ decl_storage! {
 
         /// Those who have locked a deposit.
         /// proposal (id, proposer) -> deposit
-        pub Deposits get(fn deposits): double_map hasher(twox_64_concat) PipId, hasher(twox_64_concat) T::AccountId => DepositInfo<T::AccountId>;
+        pub Deposits get(fn deposits): double_map hasher(twox_64_concat) PipId, hasher(twox_64_concat) T::AccountId => Option<DepositInfo<T::AccountId>>;
 
         /// Actual proposal for a given id, if it's current.
         /// proposal id -> proposal
@@ -868,7 +868,7 @@ decl_module! {
 
             with_transaction(|| {
                 // Reserve the deposit, or refund if needed.
-                let curr_deposit = Self::deposits(id, &voter).amount;
+                let curr_deposit = Self::deposits(id, &voter).map(|d| d.amount).unwrap_or_default();
                 if deposit < curr_deposit {
                     Self::reduce_lock(&voter, curr_deposit - deposit)?;
                 } else {

@@ -716,7 +716,7 @@ fn do_remove_secondary_keys_test_with_externalities() {
     let charlie = User::new(AccountKeyring::Charlie);
     let dave_key = AccountKeyring::Dave.to_account_id();
 
-    let ms_address = MultiSig::get_next_multisig_address(alice.acc());
+    let ms_address = MultiSig::get_next_multisig_address(alice.acc()).expect("Next MS");
 
     assert_ok!(MultiSig::create_multisig(
         alice.origin(),
@@ -829,7 +829,7 @@ fn leave_identity_test_with_externalities() {
     let bob_sk = SecondaryKey::new(bob.acc(), Permissions::empty());
     let dave_key = AccountKeyring::Dave.to_account_id();
 
-    let ms_address = MultiSig::get_next_multisig_address(alice.acc());
+    let ms_address = MultiSig::get_next_multisig_address(alice.acc()).expect("Next MS");
 
     assert_ok!(MultiSig::create_multisig(
         alice.origin(),

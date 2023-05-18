@@ -83,7 +83,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use codec::{Decode, Encode, Error as CodecError};
+use codec::{Decode, Encode};
 use core::convert::From;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -794,8 +794,7 @@ impl<T: Config> Module<T> {
             .checked_add(1)
             .ok_or(Error::<T>::NonceOverflow)?;
         MultiSigNonce::put(new_nonce);
-        let account_id =
-            Self::get_multisig_address(sender, new_nonce).map_err(|_| Error::<T>::DecodingError)?;
+        let account_id = Self::get_multisig_address(sender, new_nonce)?;
         for signer in signers {
             <Identity<T>>::add_auth(
                 sender_did,
@@ -1089,20 +1088,20 @@ impl<T: Config> Module<T> {
     }
 
     /// Gets the next available multisig account ID.
-    pub fn get_next_multisig_address(sender: T::AccountId) -> T::AccountId {
+    pub fn get_next_multisig_address(sender: T::AccountId) -> Result<T::AccountId, DispatchError> {
         // Nonce is always only incremented by small numbers and hence can never overflow 64 bits.
         // Also, this is just a helper function that does not modify state.
         let new_nonce = Self::ms_nonce() + 1;
-        Self::get_multisig_address(sender, new_nonce).unwrap_or_default()
+        Self::get_multisig_address(sender, new_nonce)
     }
 
     /// Constructs a multisig account given a nonce.
     pub fn get_multisig_address(
         sender: T::AccountId,
         nonce: u64,
-    ) -> Result<T::AccountId, CodecError> {
+    ) -> Result<T::AccountId, DispatchError> {
         let h: T::Hash = T::Hashing::hash(&(b"MULTI_SIG", nonce, sender).encode());
-        T::AccountId::decode(&mut &h.encode()[..])
+        Ok(T::AccountId::decode(&mut &h.encode()[..]).map_err(|_| Error::<T>::DecodingError)?)
     }
 
     /// Helper function that checks if someone is an authorized signer of a multisig or not.

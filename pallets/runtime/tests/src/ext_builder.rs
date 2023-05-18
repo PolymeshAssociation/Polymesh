@@ -22,7 +22,7 @@ use sp_std::{cell::RefCell, convert::From, iter};
 use test_client::AccountKeyring;
 
 /// Identity information.
-#[derive(Default, Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct IdentityRecord {
     primary_key: AccountId,
     secondary_keys: Vec<SecondaryKey<AccountId>>,
@@ -226,7 +226,7 @@ impl ExtBuilder {
             .iter()
             .map(|acc: &AccountId| IdentityRecord {
                 primary_key: acc.clone(),
-                ..Default::default()
+                secondary_keys: Vec::new(),
             })
             .collect::<Vec<_>>();
 
@@ -331,7 +331,7 @@ impl ExtBuilder {
                 let investor: InvestorUid = make_investor_uid(did.as_bytes()).into();
 
                 GenesisIdentityRecord {
-                    primary_key,
+                    primary_key: Some(primary_key),
                     issuers: issuers.clone(),
                     did,
                     investor,
@@ -355,7 +355,8 @@ impl ExtBuilder {
     fn build_bridge(&self, storage: &mut Storage) {
         if let Some(creator) = &self.bridge.admin {
             pallet_bridge::GenesisConfig::<TestStorage> {
-                creator: creator.clone(),
+                creator: Some(creator.clone()),
+                admin: Some(creator.clone()),
                 signers: self.bridge.signers.clone(),
                 signatures_required: self.bridge.signatures_required,
                 bridge_limit: (self.bridge.limit.unwrap_or(DEFAULT_BRIGDE_LIMIT), 1),
@@ -520,7 +521,7 @@ impl ExtBuilder {
             Self::make_identities(gc_only_accs.iter().cloned(), cdd_identities.len(), vec![]);
         let gc_and_cdd_identities = cdd_identities.iter().filter(|gen_id| {
             self.governance_committee_members
-                .contains(&gen_id.primary_key)
+                .contains(gen_id.primary_key.as_ref().unwrap())
         });
         let gc_full_identities = gc_only_identities
             .iter()
@@ -547,7 +548,7 @@ impl ExtBuilder {
             if let Some(user) = self
                 .regular_users
                 .iter()
-                .find(|ru| ru.primary_key == user_id.primary_key)
+                .find(|ru| Some(&ru.primary_key) == user_id.primary_key.as_ref())
             {
                 user_id.secondary_keys = user.secondary_keys.clone();
             }
