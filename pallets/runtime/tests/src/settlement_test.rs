@@ -1,52 +1,51 @@
-use super::{
-    asset_test::{allow_all_transfers, max_len_bytes},
-    next_block,
-    nft::{create_nft_collection, mint_nft},
-    storage::{
-        default_portfolio_vec, make_account_without_cdd, provide_scope_claim_to_multiple_parties,
-        user_portfolio_vec, TestStorage, User,
-    },
-    ExtBuilder,
-};
+use std::collections::HashMap;
+use std::convert::TryFrom;
+use std::ops::Deref;
+
 use codec::Encode;
 use frame_support::dispatch::DispatchErrorWithPostInfo;
 use frame_support::{assert_noop, assert_ok, IterableStorageDoubleMap, StorageDoubleMap};
-use pallet_asset as asset;
-use pallet_balances as balances;
-use pallet_compliance_manager as compliance_manager;
-use pallet_identity as identity;
+use rand::{prelude::*, thread_rng};
+use sp_runtime::AnySignature;
+
 use pallet_nft::NumberOfNFTs;
 use pallet_portfolio::{MovePortfolioItem, PortfolioLockedNFT, PortfolioNFT};
 use pallet_scheduler as scheduler;
-use pallet_settlement::{
+use pallet_settlement::VenueInstructions;
+use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
+use polymesh_primitives::asset::{AssetType, NonFungibleType};
+use polymesh_primitives::asset_metadata::{
+    AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue,
+};
+use polymesh_primitives::checked_inc::CheckedInc;
+use polymesh_primitives::settlement::{
     AffirmationStatus, Instruction, InstructionId, InstructionMemo, InstructionStatus, Leg,
     LegAsset, LegId, LegStatus, LegV2, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType,
-    VenueDetails, VenueId, VenueInstructions, VenueType,
+    VenueDetails, VenueId, VenueType,
 };
-use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
 use polymesh_primitives::{
-    asset::{AssetType, NonFungibleType},
-    asset_metadata::{AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue},
-    checked_inc::CheckedInc,
     AccountId, AuthorizationData, Balance, Claim, Condition, ConditionType, IdentityId,
     NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind,
     PortfolioName, PortfolioNumber, Signatory, Ticker, WeightMeter,
 };
-use rand::{prelude::*, thread_rng};
-use sp_runtime::AnySignature;
-use std::collections::HashMap;
-use std::convert::TryFrom;
-use std::ops::Deref;
 use test_client::AccountKeyring;
 
-type Identity = identity::Module<TestStorage>;
-type Balances = balances::Module<TestStorage>;
-type Asset = asset::Module<TestStorage>;
+use super::asset_test::{allow_all_transfers, max_len_bytes};
+use super::nft::{create_nft_collection, mint_nft};
+use super::storage::{
+    default_portfolio_vec, make_account_without_cdd, provide_scope_claim_to_multiple_parties,
+    user_portfolio_vec, TestStorage, User,
+};
+use super::{next_block, ExtBuilder};
+
+type Identity = pallet_identity::Module<TestStorage>;
+type Balances = pallet_balances::Module<TestStorage>;
+type Asset = pallet_asset::Module<TestStorage>;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
-type ComplianceManager = compliance_manager::Module<TestStorage>;
-type AssetError = asset::Error<TestStorage>;
+type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
+type AssetError = pallet_asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type Moment = <TestStorage as pallet_timestamp::Config>::Moment;
@@ -54,7 +53,7 @@ type BlockNumber = <TestStorage as frame_system::Config>::BlockNumber;
 type Settlement = pallet_settlement::Module<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 type Error = pallet_settlement::Error<TestStorage>;
-type Scheduler = scheduler::Pallet<TestStorage>;
+type Scheduler = pallet_scheduler::Pallet<TestStorage>;
 type NFTError = pallet_nft::Error<TestStorage>;
 
 const TICKER: Ticker = Ticker::new_unchecked([b'A', b'C', b'M', b'E', 0, 0, 0, 0, 0, 0, 0, 0]);

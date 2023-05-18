@@ -43,6 +43,7 @@ pub use transaction_payment::{CddAndFeeDetails, ChargeTxFee};
 pub mod permissions;
 pub use permissions::{AccountCallPermissionsData, CheckAccountCallPermissions};
 pub mod relayer;
+pub mod settlement;
 pub mod statistics;
 
 pub trait TestUtilsFn<AccountId> {

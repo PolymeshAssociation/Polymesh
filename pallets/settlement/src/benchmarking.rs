@@ -32,11 +32,12 @@ use polymesh_common_utilities::constants::ENSURED_MAX_LEN;
 use polymesh_common_utilities::TestUtilsFn;
 use polymesh_primitives::asset::NonFungibleType;
 use polymesh_primitives::checked_inc::CheckedInc;
+use polymesh_primitives::settlement::ReceiptMetadata;
 use polymesh_primitives::statistics::{Stat2ndKey, StatType, StatUpdate};
 use polymesh_primitives::transfer_compliance::{TransferCondition, TransferConditionExemptKey};
 use polymesh_primitives::{
-    Claim, Condition, ConditionType, CountryCode, IdentityId, NFTId, PortfolioId, PortfolioKind,
-    PortfolioName, PortfolioNumber, Scope, Ticker, TrustedIssuer,
+    Balance, Claim, Condition, ConditionType, CountryCode, IdentityId, NFTId, NFTs, PortfolioId,
+    PortfolioKind, PortfolioName, PortfolioNumber, Scope, Ticker, TrustedIssuer,
 };
 
 use crate::*;

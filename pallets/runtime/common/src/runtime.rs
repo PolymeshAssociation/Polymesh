@@ -566,11 +566,11 @@ macro_rules! runtime_apis {
         use pallet_identity::types::{AssetDidResult, CddStatus, RpcDidRecords, DidStatus, KeyIdentityData};
         use pallet_pips::{Vote, VoteCount};
         use pallet_protocol_fee_rpc_runtime_api::CappedFee;
+        use polymesh_primitives::settlement::{InstructionId, ExecuteInstructionInfo};
         use polymesh_primitives::{
             calendar::CheckpointId, compliance_manager::AssetComplianceResult, IdentityId, Index, NFTs,
             PortfolioId, Signatory, Ticker, WeightMeter,
         };
-        use pallet_settlement::{InstructionId, ExecuteInstructionInfo};
 
         /// The address format for describing accounts.
         pub type Address = <Indices as StaticLookup>::Source;

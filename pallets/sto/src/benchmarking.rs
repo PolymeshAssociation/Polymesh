@@ -1,16 +1,14 @@
-use crate::*;
 use frame_benchmarking::benchmarks;
 use frame_support::dispatch::DispatchError;
 use frame_support::traits::Get;
-use pallet_settlement::{
-    benchmarking::{add_transfer_conditions, compliance_setup, MAX_CONDITIONS},
-    VenueDetails,
-};
-use polymesh_common_utilities::{
-    benchs::{make_asset, AccountIdOf, User, UserBuilder},
-    TestUtilsFn,
-};
+
+use pallet_settlement::benchmarking::{add_transfer_conditions, compliance_setup, MAX_CONDITIONS};
+use polymesh_common_utilities::benchs::{make_asset, AccountIdOf, User, UserBuilder};
+use polymesh_common_utilities::TestUtilsFn;
+use polymesh_primitives::settlement::VenueDetails;
 use polymesh_primitives::TrustedIssuer;
+
+use crate::*;
 
 const OFFERING_TICKER: Ticker = Ticker::repeating(b'A');
 const RAISE_TICKER: Ticker = Ticker::repeating(b'B');

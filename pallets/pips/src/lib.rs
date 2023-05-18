@@ -87,42 +87,40 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use codec::{Decode, Encode, FullCodec};
-use core::{cmp::Ordering, mem};
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchClass::Operational, DispatchResult, DispatchResultWithPostInfo, Weight},
-    ensure,
-    storage::IterableStorageMap,
-    traits::{
-        schedule::{DispatchTime, Named as ScheduleNamed, Priority, HARD_DEADLINE},
-        Currency, EnsureOrigin, Get, LockIdentifier, WithdrawReasons,
-    },
-    StorageValue,
-};
-use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
-use pallet_base::{ensure_opt_string_limited, try_next_post};
-use pallet_identity::{self as identity, PermissionedCallOriginData};
-use polymesh_common_utilities::{
-    constants::PIP_MAX_REPORTING_SIZE,
-    identity::Config as IdentityConfig,
-    protocol_fee::{ChargeProtocolFee, ProtocolOp},
-    traits::{
-        balances::LockableCurrencyExt, governance_group::GovernanceGroupTrait, group::GroupTrait,
-    },
-    with_transaction, CommonConfig, Context, MaybeBlock, GC_DID,
-};
-use polymesh_primitives::{impl_checked_inc, storage_migration_ver, Balance, IdentityId, Url};
-use polymesh_primitives_derive::VecU8StrongTyped;
-use polymesh_runtime_common::PipsEnactSnapshotMaximumWeight;
-use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
+
+use codec::{Decode, Encode, FullCodec};
+use core::{cmp::Ordering, mem};
+use frame_support::dispatch::DispatchClass::Operational;
+use frame_support::dispatch::{DispatchResult, DispatchResultWithPostInfo, Weight};
+use frame_support::storage::{IterableStorageMap, StorageValue};
+use frame_support::traits::schedule::{
+    DispatchTime, Named as ScheduleNamed, Priority, HARD_DEADLINE,
+};
+use frame_support::traits::{Currency, EnsureOrigin, Get, LockIdentifier, WithdrawReasons};
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
+use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
+use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, Dispatchable, Hash, One, Saturating, Zero};
 use sp_runtime::DispatchError;
 use sp_std::{convert::From, prelude::*};
 use sp_version::RuntimeVersion;
+
+use pallet_base::{ensure_opt_string_limited, try_next_post};
+use pallet_identity::{self as identity, PermissionedCallOriginData};
+use polymesh_common_utilities::constants::PIP_MAX_REPORTING_SIZE;
+use polymesh_common_utilities::protocol_fee::{ChargeProtocolFee, ProtocolOp};
+use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
+use polymesh_common_utilities::traits::{
+    balances::LockableCurrencyExt, governance_group::GovernanceGroupTrait, group::GroupTrait,
+};
+use polymesh_common_utilities::{with_transaction, CommonConfig, Context, MaybeBlock, GC_DID};
+use polymesh_primitives::constants::{PIP_EXECUTION, PIP_EXPIRY};
+use polymesh_primitives::{impl_checked_inc, storage_migration_ver, Balance, IdentityId, Url};
+use polymesh_primitives_derive::VecU8StrongTyped;
+use polymesh_runtime_common::PipsEnactSnapshotMaximumWeight;
 
 const PIPS_LOCK_ID: LockIdentifier = *b"pips    ";
 
@@ -173,13 +171,11 @@ impl_checked_inc!(PipId);
 impl PipId {
     /// Converts a PIP ID into a name of a PIP scheduled for execution.
     pub fn execution_name(&self) -> Vec<u8> {
-        use polymesh_common_utilities::constants::schedule_name_prefix::*;
         (PIP_EXECUTION, self.0).encode()
     }
 
     /// Converts a PIP ID into a name of a PIP scheduled for expiry.
     pub fn expiry_name(&self) -> Vec<u8> {
-        use polymesh_common_utilities::constants::schedule_name_prefix::*;
         (PIP_EXPIRY, self.0).encode()
     }
 }
@@ -1544,14 +1540,13 @@ pub fn enact_snapshot_results<T: Config>(results: &[(PipId, SnapshotResult)]) ->
 mod test {
     use super::PipId;
     use codec::Encode;
+    use polymesh_primitives::constants::{PIP_EXECUTION, PIP_EXPIRY};
 
     fn old_pip_execution_name(id: PipId) -> Vec<u8> {
-        use polymesh_common_utilities::constants::schedule_name_prefix::*;
         old_pip_schedule_name(&PIP_EXECUTION[..], id)
     }
 
     fn old_pip_expiry_name(id: PipId) -> Vec<u8> {
-        use polymesh_common_utilities::constants::schedule_name_prefix::*;
         old_pip_schedule_name(&PIP_EXPIRY[..], id)
     }
 

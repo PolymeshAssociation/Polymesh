@@ -26,7 +26,7 @@ use sp_runtime::generic::BlockId;
 use sp_runtime::traits::Block as BlockT;
 
 pub use node_rpc_runtime_api::settlement::SettlementApi as SettlementRuntimeApi;
-use pallet_settlement::{ExecuteInstructionInfo, InstructionId};
+use polymesh_primitives::settlement::{ExecuteInstructionInfo, InstructionId};
 
 use crate::Error;
 
