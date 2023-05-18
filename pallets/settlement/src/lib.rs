@@ -1825,7 +1825,6 @@ impl<T: Config> Module<T> {
         Self::execute_instruction_retryable(id, weight_meter)?;
 
         Self::deposit_event(RawEvent::SettlementManuallyExecuted(did, id));
-
         Ok(PostDispatchInfo::from(Some(weight_meter.consumed())))
     }
 

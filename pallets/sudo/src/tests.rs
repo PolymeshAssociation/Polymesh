@@ -28,7 +28,7 @@ use mock::{
 fn test_setup_works() {
     // Environment setup, logger storage, and sudo `key` retrieval should work as expected.
     new_test_ext(1).execute_with(|| {
-        assert_eq!(Sudo::key(), 1u64);
+        assert_eq!(Sudo::key(), Some(1u64));
         assert!(Logger::i32_log().is_empty());
         assert!(Logger::account_log().is_empty());
     });
@@ -152,7 +152,7 @@ fn set_key_basics() {
     new_test_ext(1).execute_with(|| {
         // A root `key` can change the root `key`
         assert_ok!(Sudo::set_key(RuntimeOrigin::signed(1), 2));
-        assert_eq!(Sudo::key(), 2u64);
+        assert_eq!(Sudo::key(), Some(2u64));
     });
 
     new_test_ext(1).execute_with(|| {
@@ -175,11 +175,11 @@ fn set_key_emits_events_correctly() {
 
         // A root `key` can change the root `key`.
         assert_ok!(Sudo::set_key(RuntimeOrigin::signed(1), 2));
-        let expected_event = RuntimeEvent::Sudo(RawEvent::KeyChanged(1));
+        let expected_event = RuntimeEvent::Sudo(RawEvent::KeyChanged(Some(1)));
         assert!(System::events().iter().any(|a| a.event == expected_event));
         // Double check.
         assert_ok!(Sudo::set_key(RuntimeOrigin::signed(2), 4));
-        let expected_event = RuntimeEvent::Sudo(RawEvent::KeyChanged(2));
+        let expected_event = RuntimeEvent::Sudo(RawEvent::KeyChanged(Some(2)));
         assert!(System::events().iter().any(|a| a.event == expected_event));
     });
 }

@@ -657,8 +657,8 @@ pub mod general {
             },
             balances: Default::default(),
             bridge: pallet_bridge::GenesisConfig {
-                admin: initial_authorities[0].1.clone(),
-                creator: initial_authorities[0].1.clone(),
+                admin: Some(initial_authorities[0].1.clone()),
+                creator: Some(initial_authorities[0].1.clone()),
                 signatures_required: 1,
                 signers: bridge_signers(),
                 timelock: 10,
@@ -666,7 +666,9 @@ pub mod general {
                 complete_txs,
             },
             indices: pallet_indices::GenesisConfig { indices: vec![] },
-            sudo: pallet_sudo::GenesisConfig { key: root_key },
+            sudo: pallet_sudo::GenesisConfig {
+                key: Some(root_key),
+            },
             session: session!(initial_authorities, session_keys),
             staking: staking!(
                 initial_authorities,
@@ -825,8 +827,8 @@ pub mod testnet {
             },
             balances: Default::default(),
             bridge: pallet_bridge::GenesisConfig {
-                admin: root_key.clone(),
-                creator: root_key.clone(),
+                admin: Some(root_key.clone()),
+                creator: Some(root_key.clone()),
                 signatures_required: 3,
                 signers: bridge_signers(),
                 timelock: time::MINUTES * 15,
@@ -834,7 +836,9 @@ pub mod testnet {
                 complete_txs,
             },
             indices: pallet_indices::GenesisConfig { indices: vec![] },
-            sudo: pallet_sudo::GenesisConfig { key: root_key },
+            sudo: pallet_sudo::GenesisConfig {
+                key: Some(root_key),
+            },
             session: session!(initial_authorities, session_keys),
             staking: staking!(
                 initial_authorities,
@@ -900,6 +904,9 @@ pub mod testnet {
     pub fn bootstrap_config() -> ChainSpec {
         // provide boot nodes
         let boot_nodes = vec![
+            "/dns4/testnet-bootnode-001.polymesh.live/tcp/443/wss/p2p/12D3KooWNG4hedmYixq3Vx4crj5VFxHLFWjqYfbAZwFekHJ8Y7du".parse().expect("Unable to parse bootnode"),
+            "/dns4/testnet-bootnode-002.polymesh.live/tcp/443/wss/p2p/12D3KooW9uY8zFnHB5UKyLuwUpZLpPUSJYT2tYfFvpfNCd2K1ceZ".parse().expect("Unable to parse bootnode"),
+            "/dns4/testnet-bootnode-003.polymesh.live/tcp/443/wss/p2p/12D3KooWB7AyqsmerKTmcMoyMJJw6ddwWUJ7nFBDGw2viNGN2DBX".parse().expect("Unable to parse bootnode"),
             "/dns4/testnet-bootnode-001.polymesh.live/tcp/30333/p2p/12D3KooWNG4hedmYixq3Vx4crj5VFxHLFWjqYfbAZwFekHJ8Y7du".parse().expect("Unable to parse bootnode"),
             "/dns4/testnet-bootnode-002.polymesh.live/tcp/30333/p2p/12D3KooW9uY8zFnHB5UKyLuwUpZLpPUSJYT2tYfFvpfNCd2K1ceZ".parse().expect("Unable to parse bootnode"),
             "/dns4/testnet-bootnode-003.polymesh.live/tcp/30333/p2p/12D3KooWB7AyqsmerKTmcMoyMJJw6ddwWUJ7nFBDGw2viNGN2DBX".parse().expect("Unable to parse bootnode"),
@@ -1024,8 +1031,8 @@ pub mod mainnet {
             },
             balances: Default::default(),
             bridge: pallet_bridge::GenesisConfig {
-                admin: root_key.clone(),
-                creator: root_key.clone(),
+                admin: Some(root_key.clone()),
+                creator: Some(root_key.clone()),
                 signatures_required: 4,
                 signers: bridge_signers(),
                 timelock: time::HOURS * 24,
@@ -1033,7 +1040,9 @@ pub mod mainnet {
                 complete_txs,
             },
             indices: pallet_indices::GenesisConfig { indices: vec![] },
-            sudo: pallet_sudo::GenesisConfig { key: root_key },
+            sudo: pallet_sudo::GenesisConfig {
+                key: Some(root_key),
+            },
             session: session!(initial_authorities, session_keys),
             staking: staking!(
                 initial_authorities,
@@ -1099,6 +1108,13 @@ pub mod mainnet {
     pub fn bootstrap_config() -> ChainSpec {
         // provide boot nodes
         let boot_nodes = vec![
+            "/dns4/mainnet-bootnode-001.polymesh.network/tcp/443/wss/p2p/12D3KooWDiaRBvzjt1p95mTqJETxJw3nz1E6fF2Yf62ojimEGJS7".parse().expect("Unable to parse bootnode"),
+            "/dns4/mainnet-bootnode-002.polymesh.network/tcp/443/wss/p2p/12D3KooWN9E6gtgybnXwDVNMUGwSA82pzBj72ibGYfZuomyEDQTU".parse().expect("Unable to parse bootnode"),
+            "/dns4/mainnet-bootnode-003.polymesh.network/tcp/443/wss/p2p/12D3KooWQ3K8jGadCQSVhihLEsJfSz3TJGgBHMU3vTtK3jd2Wq5E".parse().expect("Unable to parse bootnode"),
+            "/dns4/mainnet-bootnode-004.polymesh.network/tcp/443/wss/p2p/12D3KooWAjLb7S2FKk1Bxyw3vkaqgcSpjfxHwpGvqcXACFYSK8Xq".parse().expect("Unable to parse bootnode"),
+            "/dns4/mainnet-bootnode-005.polymesh.network/tcp/443/wss/p2p/12D3KooWKvXCP5b5PW4tHFAYyFVk3kRhwF3qXJbnVcPSGHP6Zmjg".parse().expect("Unable to parse bootnode"),
+            "/dns4/mainnet-bootnode-006.polymesh.network/tcp/443/wss/p2p/12D3KooWBQhDAjfo13dM4nsogXD39F5TcN9iTVzjXgPqFn9Yaccz".parse().expect("Unable to parse bootnode"),
+            "/dns4/mainnet-bootnode-007.polymesh.network/tcp/443/wss/p2p/12D3KooWMwFdYC53MqdyR9WYvJiPfxfYXh65NfY9QSuZeyKa53fg".parse().expect("Unable to parse bootnode"),
             "/dns4/mainnet-bootnode-001.polymesh.network/tcp/30333/p2p/12D3KooWDiaRBvzjt1p95mTqJETxJw3nz1E6fF2Yf62ojimEGJS7".parse().expect("Unable to parse bootnode"),
             "/dns4/mainnet-bootnode-002.polymesh.network/tcp/30333/p2p/12D3KooWN9E6gtgybnXwDVNMUGwSA82pzBj72ibGYfZuomyEDQTU".parse().expect("Unable to parse bootnode"),
             "/dns4/mainnet-bootnode-003.polymesh.network/tcp/30333/p2p/12D3KooWQ3K8jGadCQSVhihLEsJfSz3TJGgBHMU3vTtK3jd2Wq5E".parse().expect("Unable to parse bootnode"),
@@ -1228,8 +1244,8 @@ pub mod general {
             },
             balances: Default::default(),
             bridge: pallet_bridge::GenesisConfig {
-                admin: seeded_acc_id("polymath_1"),
-                creator: seeded_acc_id("polymath_1"),
+                admin: Some(seeded_acc_id("polymath_1")),
+                creator: Some(seeded_acc_id("polymath_1")),
                 signatures_required: 3,
                 signers: bridge_signers(),
                 timelock: time::MINUTES * 15,
@@ -1237,7 +1253,9 @@ pub mod general {
                 complete_txs,
             },
             indices: pallet_indices::GenesisConfig { indices: vec![] },
-            sudo: pallet_sudo::GenesisConfig { key: root_key },
+            sudo: pallet_sudo::GenesisConfig {
+                key: Some(root_key),
+            },
             session: session!(initial_authorities, session_keys),
             staking: staking!(initial_authorities, stakers, PerThing::zero()),
             pips: pips!(time::DAYS * 7, MaybeBlock::None, 1000),

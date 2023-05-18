@@ -12,6 +12,10 @@ pub type Error = Vec<u8>;
 pub type CddStatus = Result<IdentityId, Error>;
 pub type AssetDidResult = Result<IdentityId, Error>;
 
+pub fn zero_account_id<AccountId: Decode>() -> AccountId {
+    AccountId::decode(&mut vec![0u8; 32].as_slice()).expect("Zero account id")
+}
+
 /// A result of execution of get_votes.
 #[derive(Eq, PartialEq, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
