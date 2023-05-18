@@ -85,33 +85,30 @@ pub mod benchmarking;
 
 use codec::{Decode, Encode};
 use core::convert::From;
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult, GetDispatchInfo, Weight},
-    ensure,
-    traits::{
-        schedule::{DispatchTime, Named as ScheduleNamed},
-        Get, GetCallMetadata,
-    },
-    StorageDoubleMap, StorageValue,
-};
+use frame_support::dispatch::{DispatchError, DispatchResult, GetDispatchInfo, Weight};
+use frame_support::storage::{StorageDoubleMap, StorageValue};
+use frame_support::traits::schedule::{DispatchTime, Named as ScheduleNamed};
+use frame_support::traits::{Get, GetCallMetadata};
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::{self as system, ensure_root, ensure_signed, RawOrigin};
-use pallet_identity::{self as identity, PermissionedCallOriginData};
-use pallet_permissions::with_call_metadata;
-use polymesh_common_utilities::constants::queue_priority::MULTISIG_PROPOSAL_EXECUTION_PRIORITY;
-use polymesh_common_utilities::{
-    identity::Config as IdentityConfig, multisig::MultiSigSubTrait,
-    transaction_payment::CddAndFeeDetails, Context,
-};
-use polymesh_primitives::{
-    extract_auth, storage_migration_ver, AuthorizationData, IdentityId, KeyRecord, Permissions,
-    Signatory,
-};
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Dispatchable, Hash, One};
 use sp_std::{convert::TryFrom, prelude::*};
 
-type Identity<T> = identity::Module<T>;
+use pallet_identity::PermissionedCallOriginData;
+use pallet_permissions::with_call_metadata;
+use polymesh_common_utilities::constants::queue_priority::MULTISIG_PROPOSAL_EXECUTION_PRIORITY;
+use polymesh_common_utilities::multisig::MultiSigSubTrait;
+use polymesh_common_utilities::traits::identity::Config as IdentityConfig;
+use polymesh_common_utilities::transaction_payment::CddAndFeeDetails;
+use polymesh_common_utilities::Context;
+use polymesh_primitives::constants::MULTISIG_PROPOSAL_EXECUTION;
+use polymesh_primitives::{
+    extract_auth, storage_migration_ver, AuthorizationData, IdentityId, KeyRecord, Permissions,
+    Signatory,
+};
+
+type Identity<T> = pallet_identity::Module<T>;
 
 storage_migration_ver!(2);
 
@@ -185,7 +182,6 @@ impl Default for ProposalStatus {
 
 /// Convert multisig account and proposal id into a scheduler name.
 fn proposal_execution_name<AccountId: Encode>(multisig: &AccountId, proposal_id: u64) -> Vec<u8> {
-    use polymesh_common_utilities::constants::schedule_name_prefix::*;
     (MULTISIG_PROPOSAL_EXECUTION, multisig, proposal_id).encode()
 }
 

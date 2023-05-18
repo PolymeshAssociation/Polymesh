@@ -2,20 +2,19 @@
 
 use frame_support::dispatch::DispatchResult;
 use frame_support::traits::Get;
-use frame_support::{decl_error, decl_module, decl_storage};
-use frame_support::{ensure, require_transactional};
+use frame_support::{decl_error, decl_module, decl_storage, ensure, require_transactional};
+
 use pallet_asset::Frozen;
 use pallet_base::try_next_pre;
 use pallet_portfolio::PortfolioNFT;
-use polymesh_common_utilities::compliance_manager::Config as ComplianceManagerConfig;
-use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
+use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
 pub use polymesh_common_utilities::traits::nft::{Config, Event, NFTTrait, WeightInfo};
 use polymesh_primitives::asset::{AssetName, AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{AssetMetadataKey, AssetMetadataValue};
 use polymesh_primitives::nft::{
     NFTCollection, NFTCollectionId, NFTCollectionKeys, NFTCount, NFTId, NFTMetadataAttribute, NFTs,
 };
-use polymesh_primitives::{IdentityId, PortfolioId, PortfolioKind, Ticker};
+use polymesh_primitives::{IdentityId, PortfolioId, PortfolioKind, Ticker, WeightMeter};
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{vec, vec::Vec};
@@ -358,12 +357,13 @@ impl<T: Config> Module<T> {
         sender_portfolio: &PortfolioId,
         receiver_portfolio: &PortfolioId,
         nfts: &NFTs,
+        weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         // Verifies if there is a collection associated to the NFTs
         CollectionTicker::try_get(nfts.ticker())
             .map_err(|_| Error::<T>::InvalidNFTTransferCollectionNotFound)?;
         // Verifies if all rules for transfering the NFTs are being respected
-        Self::validate_nft_transfer(sender_portfolio, receiver_portfolio, &nfts)?;
+        Self::validate_nft_transfer(sender_portfolio, receiver_portfolio, &nfts, weight_meter)?;
 
         // Transfer ownership of the NFT
         // Update the balance of the sender and the receiver
@@ -388,6 +388,7 @@ impl<T: Config> Module<T> {
         sender_portfolio: &PortfolioId,
         receiver_portfolio: &PortfolioId,
         nfts: &NFTs,
+        weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         let nfts_transferred = nfts.len() as u64;
         // Verifies that the sender and receiver are not the same
@@ -420,14 +421,14 @@ impl<T: Config> Module<T> {
         NumberOfNFTs::get(nfts.ticker(), receiver_portfolio.did)
             .checked_add(nfts_transferred)
             .ok_or(Error::<T>::InvalidNFTTransferCountOverflow)?;
+
         // Verifies that all compliance rules are being respected
-        let code = T::Compliance::verify_restriction(
+        if !T::Compliance::is_compliant(
             nfts.ticker(),
-            Some(sender_portfolio.did),
-            Some(receiver_portfolio.did),
-            nfts_transferred.into(),
-        )?;
-        if code != ERC1400_TRANSFER_SUCCESS {
+            sender_portfolio.did,
+            receiver_portfolio.did,
+            weight_meter,
+        )? {
             return Err(Error::<T>::InvalidNFTTransferComplianceFailure.into());
         }
 

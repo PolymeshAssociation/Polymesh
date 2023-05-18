@@ -119,4 +119,20 @@ impl pallet_nft::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().writes(2 as u64))
             .saturating_add(DbWeight::get().writes((1 as u64).saturating_mul(n as u64)))
     }
+    // Storage: NFT CollectionTicker (r:1 w:0)
+    // Storage: Asset Frozen (r:1 w:0)
+    // Storage: NFT NumberOfNFTs (r:2 w:2)
+    // Storage: Portfolio PortfolioNFT (r:1 w:2)
+    // Storage: ComplianceManager AssetCompliances (r:1 w:0)
+    /// The range of component `n` is `[1, 10]`.
+    fn base_nft_transfer(n: u32) -> Weight {
+        // Minimum execution time: 100_853 nanoseconds.
+        Weight::from_ref_time(94_453_219)
+            // Standard Error: 25_703
+            .saturating_add(Weight::from_ref_time(9_033_745).saturating_mul(n.into()))
+            .saturating_add(DbWeight::get().reads(5))
+            .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+            .saturating_add(DbWeight::get().writes(2))
+            .saturating_add(DbWeight::get().writes((2_u64).saturating_mul(n.into())))
+    }
 }

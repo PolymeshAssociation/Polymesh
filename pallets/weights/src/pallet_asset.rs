@@ -470,4 +470,25 @@ impl pallet_asset::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads(6 as u64))
             .saturating_add(DbWeight::get().writes(2 as u64))
     }
+    // Storage: Asset Frozen (r:1 w:0)
+    // Storage: Asset DisableInvestorUniqueness (r:1 w:0)
+    // Storage: Portfolio Portfolios (r:2 w:0)
+    // Storage: Asset Tokens (r:1 w:0)
+    // Storage: Portfolio PortfolioAssetBalances (r:2 w:2)
+    // Storage: Portfolio PortfolioLockedAssets (r:1 w:0)
+    // Storage: Asset AggregateBalance (r:2 w:2)
+    // Storage: Statistics AssetTransferCompliances (r:1 w:0)
+    // Storage: ComplianceManager AssetCompliances (r:1 w:0)
+    // Storage: Asset BalanceOf (r:2 w:2)
+    // Storage: Checkpoint Schedules (r:1 w:0)
+    // Storage: Checkpoint CheckpointIdSequence (r:1 w:0)
+    // Storage: Portfolio PortfolioAssetCount (r:1 w:1)
+    // Storage: Statistics ActiveAssetStats (r:1 w:0)
+    // Storage: Asset BalanceOfAtScope (r:0 w:2)
+    fn base_transfer() -> Weight {
+        // Minimum execution time: 177_578 nanoseconds.
+        Weight::from_ref_time(186_484_000)
+            .saturating_add(DbWeight::get().reads(18))
+            .saturating_add(DbWeight::get().writes(9))
+    }
 }

@@ -1,17 +1,20 @@
 use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
-use polymesh_common_utilities::benchs::{user, AccountIdOf};
+use scale_info::prelude::format;
+use sp_std::prelude::*;
+use sp_std::vec::Vec;
+
+use pallet_asset::benchmarking::create_portfolio;
+use polymesh_common_utilities::benchs::{user, AccountIdOf, User, UserBuilder};
 use polymesh_common_utilities::traits::asset::AssetFnTrait;
-use polymesh_common_utilities::TestUtilsFn;
+use polymesh_common_utilities::traits::compliance_manager::ComplianceFnConfig;
+use polymesh_common_utilities::{with_transaction, TestUtilsFn};
 use polymesh_primitives::asset::NonFungibleType;
 use polymesh_primitives::asset_metadata::{
     AssetMetadataGlobalKey, AssetMetadataKey, AssetMetadataSpec, AssetMetadataValue,
 };
 use polymesh_primitives::nft::{NFTCollectionId, NFTCollectionKeys, NFTId};
-use polymesh_primitives::PortfolioKind;
-use scale_info::prelude::format;
-use sp_std::prelude::*;
-use sp_std::vec::Vec;
+use polymesh_primitives::{PortfolioKind, WeightMeter};
 
 use crate::*;
 
@@ -76,6 +79,40 @@ pub fn create_collection_issue_nfts<T: Config>(
         )
         .expect("failed to mint nft");
     }
+}
+
+/// Creates one NFT collection for `ticker`, mints `n_nfts` for that collection and
+/// sets up compliance rules.
+pub fn setup_nft_transfer<T>(
+    sender: &User<T>,
+    receiver: &User<T>,
+    ticker: Ticker,
+    n_nfts: u32,
+    sender_portfolio_name: Option<&str>,
+    receiver_portolfio_name: Option<&str>,
+    pause_compliance: bool,
+) -> (PortfolioId, PortfolioId)
+where
+    T: Config + TestUtilsFn<AccountIdOf<T>>,
+{
+    let sender_portfolio =
+        create_portfolio::<T>(sender, sender_portfolio_name.unwrap_or("SenderPortfolio"));
+    let receiver_portfolio =
+        create_portfolio::<T>(receiver, receiver_portolfio_name.unwrap_or("RcvPortfolio"));
+
+    create_collection_issue_nfts::<T>(
+        sender.origin().into(),
+        ticker,
+        Some(NonFungibleType::Derivative),
+        0,
+        n_nfts,
+        sender_portfolio.kind,
+    );
+
+    // Adds the maximum number of compliance requirement
+    T::Compliance::setup_ticker_compliance(sender.did(), ticker, 50, pause_compliance);
+
+    (sender_portfolio, receiver_portfolio)
 }
 
 benchmarks! {
@@ -148,5 +185,27 @@ benchmarks! {
                 )
             );
         }
+    }
+
+    base_nft_transfer {
+        // The weight depends on the number of ids in the `NFTs` vec and the complexity of the compliance rules.
+        // Since the compliance weight will be charged separately, the rules were paused and only the `Self::asset_compliance(ticker)`
+        // read will be considered (this read was not charged in the is_condition_satisfied benchmark).
+
+        let n in 1..10;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let nft_type: Option<NonFungibleType> = Some(NonFungibleType::Derivative);
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+
+        let (sender_portfolio, receiver_portfolio) =
+            setup_nft_transfer::<T>(&alice, &bob, ticker, n, None, None, true);
+        let nfts = NFTs::new_unverified(ticker, (0..n).map(|i| NFTId((i + 1) as u64)).collect());
+    }: {
+        with_transaction(|| {
+            Module::<T>::base_nft_transfer(&sender_portfolio, &receiver_portfolio, &nfts, &mut weight_meter)
+        }).unwrap();
     }
 }

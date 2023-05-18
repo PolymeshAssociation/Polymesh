@@ -1,39 +1,35 @@
-use super::{
-    asset_test::{allow_all_transfers, create_token, set_timestamp},
-    storage::{
-        create_cdd_id, create_investor_uid, get_primary_key,
-        provide_scope_claim_to_multiple_parties, set_curr_did, TestStorage, User,
-    },
-    ExtBuilder,
-};
 use chrono::prelude::Utc;
-use frame_support::{assert_noop, assert_ok, traits::Currency};
-use pallet_balances as balances;
-use pallet_compliance_manager::{self as compliance_manager, Error as CMError};
-use pallet_group as group;
-use pallet_identity as identity;
-use polymesh_common_utilities::{
-    compliance_manager::Config as _,
-    constants::{ERC1400_TRANSFER_FAILURE, ERC1400_TRANSFER_SUCCESS},
+use frame_support::traits::Currency;
+use frame_support::{assert_noop, assert_ok};
+use sp_std::prelude::*;
+
+use pallet_compliance_manager::Error as CMError;
+use polymesh_common_utilities::compliance_manager::ComplianceFnConfig;
+use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
+use polymesh_primitives::agent::AgentGroup;
+use polymesh_primitives::compliance_manager::{
+    AssetComplianceResult, ComplianceRequirement, ComplianceRequirementResult,
 };
 use polymesh_primitives::{
-    agent::AgentGroup,
-    compliance_manager::{
-        AssetComplianceResult, ComplianceRequirement, ComplianceRequirementResult,
-    },
     AuthorizationData, Claim, ClaimType, Condition, ConditionType, CountryCode, IdentityId,
-    PortfolioId, Scope, Signatory, TargetIdentity, Ticker, TrustedFor,
+    PortfolioId, Scope, Signatory, TargetIdentity, Ticker, TrustedFor, WeightMeter,
 };
-use sp_std::prelude::*;
 use test_client::AccountKeyring;
 
-type Identity = identity::Module<TestStorage>;
-type IdError = identity::Error<TestStorage>;
-type Balances = balances::Module<TestStorage>;
+use super::asset_test::{allow_all_transfers, create_token, set_timestamp};
+use super::storage::{
+    create_cdd_id, create_investor_uid, get_primary_key, provide_scope_claim_to_multiple_parties,
+    set_curr_did, TestStorage, User,
+};
+use super::ExtBuilder;
+
+type Identity = pallet_identity::Module<TestStorage>;
+type IdError = pallet_identity::Error<TestStorage>;
+type Balances = pallet_balances::Module<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
 type Asset = pallet_asset::Module<TestStorage>;
-type ComplianceManager = compliance_manager::Module<TestStorage>;
-type CDDGroup = group::Module<TestStorage, group::Instance2>;
+type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
+type CDDGroup = pallet_group::Module<TestStorage, pallet_group::Instance2>;
 type Moment = u64;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type ExternalAgents = pallet_external_agents::Module<TestStorage>;
@@ -41,12 +37,14 @@ type EAError = pallet_external_agents::Error<TestStorage>;
 
 macro_rules! assert_invalid_transfer {
     ($ticker:expr, $from:expr, $to:expr, $amount:expr) => {
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert_ne!(
             Asset::_is_valid_transfer(
                 &$ticker,
                 PortfolioId::default_portfolio($from),
                 PortfolioId::default_portfolio($to),
-                $amount
+                $amount,
+                &mut weight_meter
             ),
             Ok(ERC1400_TRANSFER_SUCCESS)
         );
@@ -55,12 +53,14 @@ macro_rules! assert_invalid_transfer {
 
 macro_rules! assert_valid_transfer {
     ($ticker:expr, $from:expr, $to:expr, $amount:expr) => {
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
         assert_eq!(
             Asset::_is_valid_transfer(
                 &$ticker,
                 PortfolioId::default_portfolio($from),
                 PortfolioId::default_portfolio($to),
-                $amount
+                $amount,
+                &mut weight_meter
             ),
             Ok(ERC1400_TRANSFER_SUCCESS)
         );
@@ -165,7 +165,9 @@ fn should_add_and_verify_compliance_requirement_we() {
             &ticker,
             Some(owner.did),
             Some(token_rec.did),
+            &mut WeightMeter::max_limit_no_minimum(),
         )
+        .unwrap()
     };
     let second_unpassed = |result: AssetComplianceResult| {
         assert!(!result.result);
@@ -1016,7 +1018,13 @@ fn cm_test_case_9_we() {
     let verify_restriction_granular = |user: User, claim| {
         assert_ok!(Identity::add_claim(issuer.origin(), user.did, claim, None));
         assert_valid_transfer!(ticker, owner.did, user.did, 100);
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(user.did))
+        ComplianceManager::verify_restriction_granular(
+            &ticker,
+            Some(owner.did),
+            Some(user.did),
+            &mut WeightMeter::max_limit_no_minimum(),
+        )
+        .unwrap()
     };
 
     // 3.1. Charlie has a 'KnowYourCustomer' Claim.
@@ -1038,8 +1046,13 @@ fn cm_test_case_9_we() {
 
     // 3.4 Ferdie has none of the required claims
     assert_invalid_transfer!(ticker, owner.did, ferdie.did, 100);
-    let result =
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(ferdie.did));
+    let result = ComplianceManager::verify_restriction_granular(
+        &ticker,
+        Some(owner.did),
+        Some(ferdie.did),
+        &mut WeightMeter::max_limit_no_minimum(),
+    )
+    .unwrap();
     assert!(!result.result);
     assert!(!result.requirements[0].result);
     assert!(!result.requirements[0].receiver_conditions[0].result);
@@ -1109,8 +1122,13 @@ fn cm_test_case_11_we() {
         None
     ));
     assert_valid_transfer!(ticker, owner.did, charlie.did, 100);
-    let result =
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(charlie.did));
+    let result = ComplianceManager::verify_restriction_granular(
+        &ticker,
+        Some(owner.did),
+        Some(charlie.did),
+        &mut WeightMeter::max_limit_no_minimum(),
+    )
+    .unwrap();
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1131,8 +1149,13 @@ fn cm_test_case_11_we() {
     ));
 
     assert_invalid_transfer!(ticker, owner.did, dave.did, 100);
-    let result =
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(dave.did));
+    let result = ComplianceManager::verify_restriction_granular(
+        &ticker,
+        Some(owner.did),
+        Some(dave.did),
+        &mut WeightMeter::max_limit_no_minimum(),
+    )
+    .unwrap();
     assert!(!result.result);
     assert!(!result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1153,8 +1176,13 @@ fn cm_test_case_11_we() {
     ));
 
     assert_valid_transfer!(ticker, owner.did, eve.did, 100);
-    let result =
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(eve.did));
+    let result = ComplianceManager::verify_restriction_granular(
+        &ticker,
+        Some(owner.did),
+        Some(eve.did),
+        &mut WeightMeter::max_limit_no_minimum(),
+    )
+    .unwrap();
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1229,7 +1257,13 @@ fn cm_test_case_13_we() {
     ));
 
     assert_invalid_transfer!(ticker, owner.did, charlie.did, 100);
-    let result = ComplianceManager::verify_restriction_granular(&ticker, None, Some(charlie.did));
+    let result = ComplianceManager::verify_restriction_granular(
+        &ticker,
+        None,
+        Some(charlie.did),
+        &mut WeightMeter::max_limit_no_minimum(),
+    )
+    .unwrap();
     assert!(!result.result);
     assert!(!result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1258,7 +1292,13 @@ fn cm_test_case_13_we() {
     );
 
     assert_invalid_transfer!(ticker, owner.did, dave.did, 100);
-    let result = ComplianceManager::verify_restriction_granular(&ticker, None, Some(dave.did));
+    let result = ComplianceManager::verify_restriction_granular(
+        &ticker,
+        None,
+        Some(dave.did),
+        &mut WeightMeter::max_limit_no_minimum(),
+    )
+    .unwrap();
     assert!(!result.result);
     assert!(!result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1286,8 +1326,13 @@ fn cm_test_case_13_we() {
     );
 
     assert_valid_transfer!(ticker, owner.did, eve.did, 100);
-    let result =
-        ComplianceManager::verify_restriction_granular(&ticker, Some(owner.did), Some(eve.did));
+    let result = ComplianceManager::verify_restriction_granular(
+        &ticker,
+        Some(owner.did),
+        Some(eve.did),
+        &mut WeightMeter::max_limit_no_minimum(),
+    )
+    .unwrap();
     assert!(result.result);
     assert!(result.requirements[0].result);
     assert!(result.requirements[0].receiver_conditions[0].result);
@@ -1321,7 +1366,6 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
         issuer.origin(),
         auth_id
     ));
-    let amount = 1_000;
 
     // Provide scope claim for sender and receiver.
     provide_scope_claim_to_multiple_parties(
@@ -1331,9 +1375,10 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
     );
 
     // No compliance requirement is present, compliance should fail
+    let mut weight_meter = WeightMeter::max_limit_no_minimum();
     assert_ok!(
-        ComplianceManager::verify_restriction(&ticker, None, Some(issuer.did), amount),
-        ERC1400_TRANSFER_FAILURE
+        ComplianceManager::is_compliant(&ticker, issuer.did, other.did, &mut weight_meter),
+        false
     );
 
     let conditions = |ident: TargetIdentity| {
@@ -1352,18 +1397,18 @@ fn can_verify_restriction_with_primary_issuance_agent_we() {
         conditions(TargetIdentity::Specific(other.did)),
     ));
 
-    let verify = |from: User, to: User| {
-        ComplianceManager::verify_restriction(&ticker, Some(from.did), Some(to.did), amount)
+    let verify = |from: User, to: User, weight_meter: &mut WeightMeter| {
+        ComplianceManager::is_compliant(&ticker, from.did, to.did, weight_meter)
     };
 
     // From primary issuance agent to the random guy should succeed
-    assert_ok!(verify(issuer, other), ERC1400_TRANSFER_SUCCESS);
+    assert_ok!(verify(issuer, other, &mut weight_meter), true);
 
     // From primary issuance agent to owner should fail
-    assert_ok!(verify(issuer, owner), ERC1400_TRANSFER_FAILURE);
+    assert_ok!(verify(issuer, owner, &mut weight_meter), false);
 
     // From random guy to primary issuance agent should fail
-    assert_ok!(verify(other, issuer), ERC1400_TRANSFER_FAILURE);
+    assert_ok!(verify(other, issuer, &mut weight_meter), false);
 }
 
 #[test]
@@ -1443,7 +1488,9 @@ fn check_new_return_type_of_rpc() {
             &ticker,
             Some(owner.did),
             Some(receiver.did),
-        );
+            &mut WeightMeter::max_limit_no_minimum(),
+        )
+        .unwrap();
 
         let compliance_requirement = ComplianceRequirementResult {
             sender_conditions: vec![],

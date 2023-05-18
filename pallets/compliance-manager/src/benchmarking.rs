@@ -13,16 +13,21 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::*;
-
 use frame_benchmarking::benchmarks;
-use pallet_asset::SecurityToken;
-use polymesh_common_utilities::{
-    benchs::{AccountIdOf, User, UserBuilder},
-    TestUtilsFn,
-};
-use polymesh_primitives::{asset::AssetType, ClaimType, Scope, TrustedFor, TrustedIssuer};
+use scale_info::prelude::format;
 use sp_std::convert::TryFrom;
+
+use pallet_asset::SecurityToken;
+use polymesh_common_utilities::asset::AssetFnTrait;
+use polymesh_common_utilities::benchs::{AccountIdOf, User, UserBuilder};
+use polymesh_common_utilities::{identity::Config as IdentityConfig, TestUtilsFn};
+use polymesh_primitives::agent::AgentGroup;
+use polymesh_primitives::{
+    asset::AssetType, AuthorizationData, ClaimType, CountryCode, Scope, TargetIdentity, TrustedFor,
+    TrustedIssuer, WeightMeter,
+};
+
+use crate::*;
 
 const MAX_DEFAULT_TRUSTED_CLAIM_ISSUERS: u32 = 3;
 const MAX_TRUSTED_ISSUER_PER_CONDITION: u32 = 3;
@@ -243,6 +248,113 @@ fn conditions_bench(conditions: Vec<Condition>) {
     }
 }
 
+/// Adds `claim` issued by `trusted_issuer_id` to `id`.
+fn add_identity_claim<T: Config>(id: IdentityId, claim: Claim, trusted_issuer_id: IdentityId) {
+    pallet_identity::Module::<T>::unverified_add_claim_with_scope(
+        id,
+        claim.clone(),
+        claim.as_scope().cloned(),
+        trusted_issuer_id,
+        None,
+    );
+}
+
+/// Adds `external_agent_id` as an enternal agent for `ticker`.
+fn add_external_agent<T>(
+    ticker: Ticker,
+    ticker_owner: IdentityId,
+    external_agent_id: IdentityId,
+    external_agent_origin: T::RuntimeOrigin,
+) where
+    T: Config,
+{
+    let auth_id = pallet_identity::Module::<T>::add_auth(
+        ticker_owner,
+        external_agent_id.into(),
+        AuthorizationData::BecomeAgent(ticker, AgentGroup::Full),
+        None,
+    );
+    pallet_external_agents::Module::<T>::accept_become_agent(external_agent_origin, auth_id)
+        .unwrap();
+}
+
+fn setup_is_condition_satisfied<T>(
+    sender: &User<T>,
+    ticker: Ticker,
+    n_claims: u32,
+    n_issuers: u32,
+    read_trusted_issuers_storage: bool,
+) -> Condition
+where
+    T: Config + TestUtilsFn<AccountIdOf<T>>,
+{
+    let claims: Vec<Claim> = (0..n_claims)
+        .map(|i| Claim::Jurisdiction(CountryCode::BR, Scope::Custom(vec![i as u8])))
+        .collect();
+
+    let trusted_issuers: Vec<TrustedIssuer> = (0..n_issuers)
+        .map(|i| {
+            let trusted_user = UserBuilder::<T>::default()
+                .generate_did()
+                .build(&format!("TrustedIssuer{}", i));
+            TrustedIssuer::from(trusted_user.did())
+        })
+        .collect();
+
+    // Adds claims for the identity
+    (0..n_issuers).for_each(|i| {
+        let claim: Claim = Claim::Jurisdiction(CountryCode::US, Scope::Custom(vec![i as u8]));
+        add_identity_claim::<T>(sender.did(), claim, trusted_issuers[i as usize].issuer);
+    });
+
+    if read_trusted_issuers_storage {
+        // Adds all trusted issuers as the default for the ticker
+        trusted_issuers.into_iter().for_each(|trusted_issuer| {
+            Module::<T>::base_add_default_trusted_claim_issuer(
+                sender.did(),
+                ticker,
+                trusted_issuer,
+            )
+            .unwrap();
+        });
+        let condition = Condition::new(ConditionType::IsNoneOf(claims), Vec::new());
+        return condition;
+    }
+
+    Condition::new(ConditionType::IsNoneOf(claims), trusted_issuers)
+}
+
+/// Adds `n` requirements for `ticker` and pauses compliance if `pause_compliance` is true.
+pub fn setup_ticker_compliance<T: Config>(
+    caller_did: IdentityId,
+    ticker: Ticker,
+    n: u32,
+    pause_compliance: bool,
+) {
+    (0..n).for_each(|i| {
+        let trusted_issuers = vec![TrustedIssuer::from(IdentityId::from(i as u128))];
+        let claims = vec![Claim::Jurisdiction(
+            CountryCode::BR,
+            Scope::Custom(vec![i as u8]),
+        )];
+        let sender_conditions = vec![Condition::new(
+            ConditionType::IsNoneOf(claims),
+            trusted_issuers,
+        )];
+        Module::<T>::base_add_compliance_requirement(
+            caller_did,
+            ticker,
+            sender_conditions,
+            Vec::new(),
+        )
+        .unwrap();
+    });
+
+    if pause_compliance {
+        AssetCompliances::mutate(&ticker, |compliance| compliance.paused = true);
+    }
+}
+
 benchmarks! {
     where_clause { where T: TestUtilsFn<AccountIdOf<T>> }
 
@@ -425,5 +537,97 @@ benchmarks! {
         assert!(
             Module::<T>::asset_compliance(d.ticker).requirements.is_empty(),
             "Compliance Requeriment was not reset");
+    }
+    is_condition_satisfied {
+        // Number of claims * issuers
+        let c in 1..400;
+        // If `TrustedClaimIssuer` should be read
+        let t in 0..1;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+
+        make_token::<T>(&alice, ticker.as_ref().to_vec());
+        let condition = setup_is_condition_satisfied::<T>(&alice, ticker, 1, c, t == 1);
+    }: {
+        assert!(
+            Module::<T>::is_condition_satisfied(
+                &ticker,
+                alice.did(),
+                &condition,
+                &mut None,
+                &mut weight_meter
+            )
+            .unwrap()
+        );
+    }
+
+    is_identity_condition {
+        // If `ExternalAgents::<T>::agents` should be read
+        let e in 0..1;
+
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+
+        make_token::<T>(&alice, ticker.as_ref().to_vec());
+        let condition = if e == 1 {
+            add_external_agent::<T>(ticker, alice.did(), bob.did(), bob.origin().into());
+            Condition::new(
+                ConditionType::IsIdentity(TargetIdentity::ExternalAgent),
+                Vec::new(),
+            )
+        } else {
+            Condition::new(
+                ConditionType::IsIdentity(TargetIdentity::Specific(alice.did())),
+                Vec::new(),
+            )
+        };
+    }: {
+        assert!(
+            Module::<T>::is_condition_satisfied(
+                &ticker,
+                alice.did(),
+                &condition,
+                &mut None,
+                &mut weight_meter
+            )
+            .unwrap()
+        );
+    }
+
+    is_any_requirement_compliant {
+        let i in 0..10_000;
+
+        let bob = UserBuilder::<T>::default().generate_did().build("Bob");
+        let alice = UserBuilder::<T>::default().generate_did().build("Alice");
+        let ticker: Ticker = Ticker::from_slice_truncated(b"TICKER".as_ref());
+        let mut weight_meter = WeightMeter::max_limit_no_minimum();
+
+        let requirements: Vec<ComplianceRequirement> = (0..i)
+            .map(|i| ComplianceRequirement {
+                sender_conditions: vec![Condition {
+                    condition_type: ConditionType::IsIdentity(TargetIdentity::Specific(bob.did())),
+                    issuers: Vec::new(),
+                }],
+                receiver_conditions: Vec::new(),
+                id: i as u32,
+            })
+            .collect();
+    }: {
+        // We want this to return false to make sure it loops through all requirements
+        assert!(
+            !Module::<T>::is_any_requirement_compliant(
+                &ticker,
+                &requirements,
+                alice.did(),
+                bob.did(),
+                &mut weight_meter
+            )
+            .unwrap()
+        );
     }
 }

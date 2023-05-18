@@ -13,7 +13,7 @@ use polymesh_primitives::nft::{NFTCollectionId, NFTId};
 use polymesh_primitives::ticker::Ticker;
 use polymesh_primitives::IdentityId;
 
-use crate::compliance_manager::Config as ComplianceManagerConfig;
+use crate::compliance_manager::ComplianceFnConfig;
 use crate::{asset, base, identity, portfolio};
 
 pub trait Config:
@@ -23,7 +23,7 @@ pub trait Config:
 
     type WeightInfo: WeightInfo;
 
-    type Compliance: ComplianceManagerConfig;
+    type Compliance: ComplianceFnConfig;
 
     type MaxNumberOfCollectionKeys: Get<u8>;
 
@@ -45,6 +45,7 @@ pub trait WeightInfo {
     fn create_nft_collection(n: u32) -> Weight;
     fn issue_nft(n: u32) -> Weight;
     fn redeem_nft(n: u32) -> Weight;
+    fn base_nft_transfer(n: u32) -> Weight;
 }
 
 pub trait NFTTrait<Origin> {

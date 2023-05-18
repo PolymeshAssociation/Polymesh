@@ -1,51 +1,51 @@
-use super::{
-    asset_test::{allow_all_transfers, max_len_bytes},
-    next_block,
-    nft::{create_nft_collection, mint_nft},
-    storage::{
-        default_portfolio_vec, make_account_without_cdd, provide_scope_claim_to_multiple_parties,
-        user_portfolio_vec, TestStorage, User,
-    },
-    ExtBuilder,
-};
-use codec::Encode;
-use frame_support::{assert_noop, assert_ok, IterableStorageDoubleMap, StorageDoubleMap};
-use pallet_asset as asset;
-use pallet_balances as balances;
-use pallet_compliance_manager as compliance_manager;
-use pallet_identity as identity;
-use pallet_nft::NumberOfNFTs;
-use pallet_portfolio::{MovePortfolioItem, PortfolioLockedNFT, PortfolioNFT};
-use pallet_scheduler as scheduler;
-use pallet_settlement::{
-    AffirmationStatus, Instruction, InstructionId, InstructionMemo, InstructionStatus, Leg,
-    LegAsset, LegId, LegStatus, LegV2, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType,
-    VenueDetails, VenueId, VenueInstructions, VenueType,
-};
-use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
-use polymesh_primitives::{
-    asset::{AssetType, NonFungibleType},
-    asset_metadata::{AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue},
-    checked_inc::CheckedInc,
-    AccountId, AuthorizationData, Balance, Claim, Condition, ConditionType, IdentityId,
-    NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind,
-    PortfolioName, PortfolioNumber, Signatory, Ticker,
-};
-use rand::{prelude::*, thread_rng};
-use sp_runtime::AnySignature;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::ops::Deref;
+
+use codec::Encode;
+use frame_support::dispatch::DispatchErrorWithPostInfo;
+use frame_support::{assert_noop, assert_ok, IterableStorageDoubleMap, StorageDoubleMap};
+use rand::{prelude::*, thread_rng};
+use sp_runtime::AnySignature;
+
+use pallet_nft::NumberOfNFTs;
+use pallet_portfolio::{MovePortfolioItem, PortfolioLockedNFT, PortfolioNFT};
+use pallet_scheduler as scheduler;
+use pallet_settlement::VenueInstructions;
+use polymesh_common_utilities::constants::ERC1400_TRANSFER_SUCCESS;
+use polymesh_primitives::asset::{AssetType, NonFungibleType};
+use polymesh_primitives::asset_metadata::{
+    AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue,
+};
+use polymesh_primitives::checked_inc::CheckedInc;
+use polymesh_primitives::settlement::{
+    AffirmationStatus, Instruction, InstructionId, InstructionMemo, InstructionStatus, Leg,
+    LegAsset, LegId, LegStatus, LegV2, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType,
+    VenueDetails, VenueId, VenueType,
+};
+use polymesh_primitives::{
+    AccountId, AuthorizationData, Balance, Claim, Condition, ConditionType, IdentityId,
+    NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind,
+    PortfolioName, PortfolioNumber, Signatory, Ticker, WeightMeter,
+};
 use test_client::AccountKeyring;
 
-type Identity = identity::Module<TestStorage>;
-type Balances = balances::Module<TestStorage>;
-type Asset = asset::Module<TestStorage>;
+use super::asset_test::{allow_all_transfers, max_len_bytes};
+use super::nft::{create_nft_collection, mint_nft};
+use super::storage::{
+    default_portfolio_vec, make_account_without_cdd, provide_scope_claim_to_multiple_parties,
+    user_portfolio_vec, TestStorage, User,
+};
+use super::{next_block, ExtBuilder};
+
+type Identity = pallet_identity::Module<TestStorage>;
+type Balances = pallet_balances::Module<TestStorage>;
+type Asset = pallet_asset::Module<TestStorage>;
 type Portfolio = pallet_portfolio::Module<TestStorage>;
 type PortfolioError = pallet_portfolio::Error<TestStorage>;
 type Timestamp = pallet_timestamp::Pallet<TestStorage>;
-type ComplianceManager = compliance_manager::Module<TestStorage>;
-type AssetError = asset::Error<TestStorage>;
+type ComplianceManager = pallet_compliance_manager::Module<TestStorage>;
+type AssetError = pallet_asset::Error<TestStorage>;
 type OffChainSignature = AnySignature;
 type Origin = <TestStorage as frame_system::Config>::RuntimeOrigin;
 type Moment = <TestStorage as pallet_timestamp::Config>::Moment;
@@ -53,7 +53,7 @@ type BlockNumber = <TestStorage as frame_system::Config>::BlockNumber;
 type Settlement = pallet_settlement::Module<TestStorage>;
 type System = frame_system::Pallet<TestStorage>;
 type Error = pallet_settlement::Error<TestStorage>;
-type Scheduler = scheduler::Pallet<TestStorage>;
+type Scheduler = pallet_scheduler::Pallet<TestStorage>;
 type NFTError = pallet_nft::Error<TestStorage>;
 
 const TICKER: Ticker = Ticker::new_unchecked([b'A', b'C', b'M', b'E', 0, 0, 0, 0, 0, 0, 0, 0]);
@@ -809,7 +809,7 @@ fn failed_execution() {
         // Reschedule instruction and ensure the state is identical to the original state.
         assert_ok!(Settlement::reschedule_instruction(
             alice.origin(),
-            instruction_id
+            instruction_id,
         ));
         assert_eq!(
             Settlement::instruction_details(instruction_id),
@@ -1476,12 +1476,14 @@ fn test_weights_for_settlement_transaction() {
             set_current_block_number(100);
             assert_affirm_instruction_with_zero_leg!(bob_signed.clone(), instruction_id, bob_did);
 
+            let mut weight_meter = WeightMeter::max_limit_no_minimum();
             assert_ok!(
                 Asset::_is_valid_transfer(
                     &TICKER,
                     PortfolioId::default_portfolio(alice_did),
                     PortfolioId::default_portfolio(bob_did),
                     100,
+                    &mut weight_meter
                 ),
                 ERC1400_TRANSFER_SUCCESS
             );
@@ -2335,9 +2337,13 @@ fn settle_manual_instruction() {
                 alice.origin(),
                 instruction_id,
                 legs.len() as u32,
+                None,
                 None
             ),
-            Error::InstructionSettleBlockNotReached
+            DispatchErrorWithPostInfo {
+                post_info: Some(Settlement::execute_manual_instruction_minimum_weight()).into(),
+                error: Error::InstructionSettleBlockNotReached.into()
+            }
         );
         next_block();
         // Ensure bob can't execute instruction with portfolio set to none since he is not the venue creator
@@ -2346,20 +2352,34 @@ fn settle_manual_instruction() {
                 bob.origin(),
                 instruction_id,
                 legs.len() as u32,
+                None,
                 None
             ),
-            Error::Unauthorized
+            DispatchErrorWithPostInfo {
+                post_info: Some(Settlement::execute_manual_instruction_minimum_weight()).into(),
+                error: Error::Unauthorized.into()
+            }
         );
         // Ensure correct error message when wrong number of legs is given
         assert_noop!(
-            Settlement::execute_manual_instruction(alice.origin(), instruction_id, 0u32, None),
-            Error::LegCountTooSmall
+            Settlement::execute_manual_instruction(
+                alice.origin(),
+                instruction_id,
+                0u32,
+                None,
+                None
+            ),
+            DispatchErrorWithPostInfo {
+                post_info: Some(Settlement::execute_manual_instruction_minimum_weight()).into(),
+                error: Error::LegCountTooSmall.into()
+            }
         );
         // Ensure it succeeds as the execute block was reached
         assert_ok!(Settlement::execute_manual_instruction(
             alice.origin(),
             instruction_id,
             legs.len() as u32,
+            None,
             None
         ));
         assert_user_affirms(instruction_id, &alice, AffirmationStatus::Unknown);
@@ -2417,9 +2437,13 @@ fn settle_manual_instruction_with_portfolio() {
                 alice.origin(),
                 instruction_id,
                 legs.len() as u32,
-                Some(alice_portfolio)
+                Some(alice_portfolio),
+                None
             ),
-            Error::InstructionSettleBlockNotReached
+            DispatchErrorWithPostInfo {
+                post_info: Some(Settlement::execute_manual_instruction_minimum_weight()).into(),
+                error: Error::InstructionSettleBlockNotReached.into()
+            }
         );
         next_block();
         // Ensure correct error is shown when non party member tries to execute function
@@ -2428,9 +2452,13 @@ fn settle_manual_instruction_with_portfolio() {
                 charlie.origin(),
                 instruction_id,
                 legs.len() as u32,
-                Some(charlie_portfolio)
+                Some(charlie_portfolio),
+                None,
             ),
-            Error::CallerIsNotAParty
+            DispatchErrorWithPostInfo {
+                post_info: Some(Settlement::execute_manual_instruction_minimum_weight()).into(),
+                error: Error::CallerIsNotAParty.into()
+            }
         );
         // Ensure correct error message when wrong number of legs is given
         assert_noop!(
@@ -2438,16 +2466,21 @@ fn settle_manual_instruction_with_portfolio() {
                 alice.origin(),
                 instruction_id,
                 0u32,
-                Some(alice_portfolio)
+                Some(alice_portfolio),
+                None
             ),
-            Error::LegCountTooSmall
+            DispatchErrorWithPostInfo {
+                post_info: Some(Settlement::execute_manual_instruction_minimum_weight()).into(),
+                error: Error::LegCountTooSmall.into()
+            }
         );
         // Ensure it succeeds as the execute block was reached
         assert_ok!(Settlement::execute_manual_instruction(
             alice.origin(),
             instruction_id,
             legs.len() as u32,
-            Some(alice_portfolio)
+            Some(alice_portfolio),
+            None
         ));
         assert_user_affirms(instruction_id, &alice, AffirmationStatus::Unknown);
         assert_locked_assets(&TICKER, &alice, 0);

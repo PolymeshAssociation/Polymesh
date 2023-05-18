@@ -31,6 +31,7 @@ use polymesh_common_utilities::{
     constants::currency::{DOLLARS, POLY},
     protocol_fee::ProtocolOp,
     traits::{
+        compliance_manager::ComplianceFnConfig,
         group::GroupTrait,
         transaction_payment::{CddAndFeeDetails, ChargeTxFee},
     },

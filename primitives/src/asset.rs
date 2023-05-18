@@ -13,16 +13,19 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+#[cfg(feature = "std")]
+use sp_runtime::{Deserialize, Serialize};
+
+use codec::{Decode, Encode};
+use frame_support::weights::Weight;
+use polymesh_primitives_derive::VecU8StrongTyped;
+use scale_info::TypeInfo;
+use sp_std::prelude::Vec;
+
 use crate::compliance_manager::AssetComplianceResult;
 use crate::identity_id::PortfolioValidityResult;
 use crate::impl_checked_inc;
 use crate::transfer_compliance::TransferConditionResult;
-use codec::{Decode, Encode};
-use polymesh_primitives_derive::VecU8StrongTyped;
-use scale_info::TypeInfo;
-#[cfg(feature = "std")]
-use sp_runtime::{Deserialize, Serialize};
-use sp_std::prelude::Vec;
 
 /// A wrapper for a token name.
 #[derive(Encode, Decode, TypeInfo, VecU8StrongTyped)]
@@ -162,6 +165,8 @@ pub struct GranularCanTransferResult {
     pub compliance_result: AssetComplianceResult,
     /// Final evaluation result.
     pub result: bool,
+    /// The weight for checking the asset's compliance and transfer restrictions.
+    pub consumed_weight: Option<Weight>,
 }
 
 impl From<v1::GranularCanTransferResult> for GranularCanTransferResult {
@@ -183,6 +188,7 @@ impl From<v1::GranularCanTransferResult> for GranularCanTransferResult {
                 .map(|tm| tm.into())
                 .collect(),
             compliance_result: old.compliance_result,
+            consumed_weight: None,
             result: old.result,
         }
     }

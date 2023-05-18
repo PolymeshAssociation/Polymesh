@@ -110,6 +110,7 @@ pub trait RuntimeApiCollection:
     + pallet_group_rpc_runtime_api::GroupApi<Block>
     + node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, AccountId>
     + node_rpc_runtime_api::nft::NFTApi<Block>
+    + node_rpc_runtime_api::settlement::SettlementApi<Block>
 where
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
@@ -135,7 +136,8 @@ where
         + node_rpc_runtime_api::asset::AssetApi<Block, AccountId>
         + pallet_group_rpc_runtime_api::GroupApi<Block>
         + node_rpc_runtime_api::compliance_manager::ComplianceManagerApi<Block, AccountId>
-        + node_rpc_runtime_api::nft::NFTApi<Block>,
+        + node_rpc_runtime_api::nft::NFTApi<Block>
+        + node_rpc_runtime_api::settlement::SettlementApi<Block>,
     <Self as sp_api::ApiExt<Block>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
 }
