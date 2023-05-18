@@ -381,24 +381,21 @@ decl_module! {
         /// * `signer` - Signer of the receipt.
         /// * `signed_data` - Signed receipt.
         /// * `portfolios` - Portfolios that the sender controls and wants to accept this instruction with.
-        /// * `fungible_transfers` - number of fungible transfers in the instruction.
-        /// * `nfts_transfers` - total number of NFTs being transferred in the instruction.
-        /// * `offchain_transfers` - The number of offchain assets in the instruction.
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::affirm_with_receipts(*fungible_transfers, *nfts_transfers, *offchain_transfers)]
+        #[weight = <T as Config>::WeightInfo::affirm_with_receipts(
+            T::MaxNumberOfFungibleAssets::get(),
+            T::MaxNumberOfNFTs::get(),
+            T::MaxNumberOfOffChainAssets::get()
+        )]
         pub fn affirm_with_receipts(
             origin,
             id: InstructionId,
             receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
             portfolios: Vec<PortfolioId>,
-            fungible_transfers: u32,
-            nfts_transfers: u32,
-            offchain_transfers: u32
-        ) -> DispatchResult {
-            let input_cost = AssetCount::new(fungible_transfers, nfts_transfers, offchain_transfers);
-            Self::affirm_with_receipts_and_maybe_schedule_instruction(origin, id, receipt_details, portfolios, &input_cost)
+        ) -> DispatchResultWithPostInfo {
+            Self::affirm_with_receipts_and_maybe_schedule_instruction(origin, id, receipt_details, portfolios)
         }
 
         /// Placeholder for removed `claim_receipt`
@@ -615,8 +612,7 @@ decl_module! {
         /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
         /// * `legs` - Legs included in this instruction.
         /// * `portfolios` - Portfolios that the sender controls and wants to use in this affirmations.
-        /// * `memo` - Memo field for this instruction.
-        /// * `weight_limit` - Optional value that defines a maximum weight for executing the instruction.
+        /// * `instruction_memo` - Memo field for this instruction.
         ///
         /// # Permissions
         /// * Portfolio
@@ -633,19 +629,18 @@ decl_module! {
             legs: Vec<Leg>,
             portfolios: Vec<PortfolioId>,
             instruction_memo: Option<InstructionMemo>,
-        ) -> DispatchResult {
+        ) {
             let did = Identity::<T>::ensure_perms(origin.clone())?;
-            with_transaction(|| {
-                let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
-                let instruction_asset_count = AssetCount::try_from_legs(&legs).map_err(|_| Error::<T>::MaxNumberOfNFTsExceeded)?;
-                let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo)?;
-                Self::affirm_and_maybe_schedule_instruction(
-                    origin,
-                    instruction_id,
-                    portfolios_set.into_iter(),
-                    &instruction_asset_count,
-                )
-            })
+            let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
+            let instruction_asset_count = AssetCount::try_from_legs(&legs).map_err(|_| Error::<T>::MaxNumberOfNFTsExceeded)?;
+            let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo)?;
+            Self::affirm_and_maybe_schedule_instruction(
+                origin,
+                instruction_id,
+                portfolios_set.into_iter(),
+                &instruction_asset_count,
+            )
+            .map_err(|e| e.error)?;
         }
 
         /// Provide affirmation to an existing instruction.
@@ -653,22 +648,16 @@ decl_module! {
         /// # Arguments
         /// * `id` - The `InstructionId` of the instruction to be affirmed.
         /// * `portfolios` - Portfolios that the sender controls and wants to affirm this instruction.
-        /// * `fungible_transfers` - number of fungible transfers in the instruction.
-        /// * `nfts_transfers` - total number of NFTs being transferred in the instruction.
-        /// * `weight_limit` - Optional value that defines a maximum weight for executing the instruction.
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::affirm_instruction(*fungible_transfers, *nfts_transfers)]
-        pub fn affirm_instruction(
-            origin,
-            id: InstructionId,
-            portfolios: Vec<PortfolioId>,
-            fungible_transfers: u32,
-            nfts_transfers: u32,
-        ) -> DispatchResult {
-            let input_cost =
-                AssetCount::new(fungible_transfers, nfts_transfers, T::MaxNumberOfOffChainAssets::get());
+        #[weight = <T as Config>::WeightInfo::affirm_instruction(T::MaxNumberOfFungibleAssets::get(), T::MaxNumberOfNFTs::get())]
+        pub fn affirm_instruction(origin, id: InstructionId, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
+            let input_cost = AssetCount::new(
+                T::MaxNumberOfFungibleAssets::get(),
+                T::MaxNumberOfNFTs::get(),
+                T::MaxNumberOfOffChainAssets::get(),
+            );
             Self::affirm_and_maybe_schedule_instruction(
                 origin,
                 id,
@@ -1319,6 +1308,8 @@ impl<T: Config> Module<T> {
         }
     }
 
+    /// Affirms all legs from the instruction of the given `id`, where `portfolios` are a counter party.
+    /// If the portfolio is the sender, the asset is also locked.
     pub fn base_affirm_with_receipts(
         origin: <T as frame_system::Config>::RuntimeOrigin,
         id: InstructionId,
@@ -1451,17 +1442,23 @@ impl<T: Config> Module<T> {
         Self::unsafe_affirm_instruction(did, id, portfolios_set, sk.as_ref(), input_cost)
     }
 
-    /// It affirms the instruction and may schedule the instruction
-    /// depends on the settlement type.
+    /// Affirms all legs from the instruction of the given `id`, where `portfolios` are a counter party.
+    /// If the portfolio is the sender, the asset is also locked. If all affirmation have been received and
+    /// the settlement type is [`SettlementType::SettleOnAffirmation`] the instruction will be scheduled for
+    /// the next block.
     pub fn affirm_with_receipts_and_maybe_schedule_instruction(
         origin: <T as frame_system::Config>::RuntimeOrigin,
         id: InstructionId,
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
-        input_cost: &AssetCount,
-    ) -> DispatchResult {
+    ) -> DispatchResultWithPostInfo {
+        let input_cost = AssetCount::new(
+            T::MaxNumberOfFungibleAssets::get(),
+            T::MaxNumberOfNFTs::get(),
+            T::MaxNumberOfOffChainAssets::get(),
+        );
         let filtered_legs =
-            Self::base_affirm_with_receipts(origin, id, receipt_details, portfolios, input_cost)?;
+            Self::base_affirm_with_receipts(origin, id, receipt_details, portfolios, &input_cost)?;
         let instruction_asset_count = filtered_legs.instruction_asset_count();
         let weight_limit = Self::execute_scheduled_instruction_weight_limit(
             instruction_asset_count.fungible(),
@@ -1470,17 +1467,21 @@ impl<T: Config> Module<T> {
         );
         // Schedule instruction to be execute in the next block (expected) if conditions are met.
         Self::maybe_schedule_instruction(Self::instruction_affirms_pending(id), id, weight_limit);
-        Ok(())
+        Ok(PostDispatchInfo::from(Some(
+            Self::affirm_with_receipts_weight(filtered_legs.subset_asset_count()),
+        )))
     }
 
-    /// Schedule settlement instruction execution in the next block, unless already scheduled.
-    /// Used for general purpose settlement.
+    /// Affirms all legs from the instruction of the given `id`, where `portfolios` are a counter party.
+    /// If the portfolio is the sender, the asset is also locked. If all affirmation have been received and
+    /// the settlement type is [`SettlementType::SettleOnAffirmation`] the instruction will be scheduled for
+    /// the next block.
     pub fn affirm_and_maybe_schedule_instruction(
         origin: <T as frame_system::Config>::RuntimeOrigin,
         id: InstructionId,
         portfolios: impl Iterator<Item = PortfolioId>,
         input_cost: &AssetCount,
-    ) -> DispatchResult {
+    ) -> DispatchResultWithPostInfo {
         let filtered_legs = Self::base_affirm_instruction(origin, id, portfolios, input_cost)?;
         let instruction_asset_count = filtered_legs.instruction_asset_count();
         let weight_limit = Self::execute_scheduled_instruction_weight_limit(
@@ -1490,7 +1491,9 @@ impl<T: Config> Module<T> {
         );
         // Schedule the instruction if conditions are met
         Self::maybe_schedule_instruction(Self::instruction_affirms_pending(id), id, weight_limit);
-        Ok(())
+        Ok(PostDispatchInfo::from(Some(
+            Self::affirm_instruction_weight(filtered_legs.subset_asset_count()),
+        )))
     }
 
     /// Affirm with or without receipts, executing the instruction when all affirmations have been received.
@@ -1850,6 +1853,23 @@ impl<T: Config> Module<T> {
     /// Returns the minimum weight for calling the `execute_manual_instruction` extrinsic.
     pub fn execute_manual_instruction_minimum_weight() -> Weight {
         <T as Config>::WeightInfo::execute_manual_instruction(0, 0, 0)
+    }
+
+    /// Returns the weight for calling `affirm_with_receipts` with the number of assets in `assets_in_portfolio`.
+    fn affirm_with_receipts_weight(assets_in_portfolio: &AssetCount) -> Weight {
+        <T as Config>::WeightInfo::affirm_with_receipts(
+            assets_in_portfolio.fungible(),
+            assets_in_portfolio.non_fungible(),
+            assets_in_portfolio.off_chain(),
+        )
+    }
+
+    /// Returns the weight for calling `affirm_instruction` with the number of assets in `assets_in_portfolio`.
+    fn affirm_instruction_weight(assets_in_portfolio: &AssetCount) -> Weight {
+        <T as Config>::WeightInfo::affirm_instruction(
+            assets_in_portfolio.fungible(),
+            assets_in_portfolio.non_fungible(),
+        )
     }
 
     /// Returns an instance of `ExecuteInstructionInfo`, which contains the number of fungible and non fungible assets

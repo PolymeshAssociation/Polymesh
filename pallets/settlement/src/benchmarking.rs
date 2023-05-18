@@ -247,9 +247,6 @@ where
         InstructionId(1),
         receipt_details.clone(),
         sdr_portfolios,
-        f,
-        n,
-        o,
     )
     .unwrap();
     // Affirms the receiver side of the instruction
@@ -274,9 +271,6 @@ where
         InstructionId(1),
         receipt_details,
         rcv_portfolios,
-        f,
-        n,
-        o,
     )
     .unwrap();
 
@@ -451,10 +445,7 @@ benchmarks! {
             .collect();
         let portfolios =
             [parameters.portfolios.sdr_portfolios, parameters.portfolios.sdr_receipt_portfolios].concat();
-    }: _(alice.origin, InstructionId(1), receipt_details, portfolios, f, n, o)
-    verify {
-        assert!(true);
-    }
+    }: _(alice.origin, InstructionId(1), receipt_details, portfolios)
 
     change_receipt_validity {
         let signer = user::<T>("signer", 0);
@@ -531,7 +522,7 @@ benchmarks! {
             parameters.legs,
             Some(InstructionMemo::default()),
         ).unwrap();
-    }: _(alice.origin, InstructionId(1), parameters.portfolios.sdr_portfolios, f, n)
+    }: _(alice.origin, InstructionId(1), parameters.portfolios.sdr_portfolios)
 
     withdraw_affirmation {
         // Number of fungible, non-fungible and offchain LEGS in the portfolios
@@ -667,8 +658,6 @@ benchmarks! {
             bob.origin.clone().into(),
             InstructionId(1),
             parameters.portfolios.rcv_portfolios,
-            0,
-            0,
         ).unwrap();
         let instruction_legs: Vec<(LegId, Leg)> =
             InstructionLegs::iter_prefix(&InstructionId(1)).collect();

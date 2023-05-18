@@ -383,8 +383,8 @@ impl AssetCount {
         Ok(asset_count)
     }
 
-    /// Gets the [`AssetCount`] from a slice of &[(LegId, Leg)].
-    /// Note: Doesn't check for overflows
+    /// Gets the [`AssetCount`] from a slice of [`(LegId, Leg)`].
+    /// Note: Doesn't check for overflows.
     pub fn from_legs(legs: &[(LegId, Leg)]) -> AssetCount {
         let mut asset_count = AssetCount::default();
         for (_, leg) in legs {
