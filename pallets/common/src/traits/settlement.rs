@@ -127,7 +127,7 @@ pub trait WeightInfo {
     }
     fn get_transfer_by_asset(legs: &[Leg]) -> (u32, u32, u32) {
         let asset_count =
-            AssetCount::from_legs(legs).unwrap_or(AssetCount::new(u32::MAX, u32::MAX, u32::MAX));
+            AssetCount::try_from_legs(legs).unwrap_or(AssetCount::new(1024, 1024, 1024));
         (
             asset_count.fungible(),
             asset_count.non_fungible(),

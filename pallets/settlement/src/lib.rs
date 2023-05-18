@@ -511,7 +511,7 @@ decl_module! {
             // Schedule instruction to be executed in the next block.
             let execution_at = System::<T>::block_number() + One::one();
             let instruction_legs: Vec<(LegId, Leg)> = InstructionLegs::iter_prefix(&id).collect();
-            let instruction_asset_count = Self::get_asset_count(&instruction_legs);
+            let instruction_asset_count = AssetCount::from_legs(&instruction_legs);
             let weight_limit = Self::execute_scheduled_instruction_weight_limit(
                 instruction_asset_count.non_fungible(),
                 instruction_asset_count.fungible(),
@@ -637,7 +637,7 @@ decl_module! {
             let did = Identity::<T>::ensure_perms(origin.clone())?;
             with_transaction(|| {
                 let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
-                let instruction_asset_count = AssetCount::from_legs(&legs).map_err(|_| Error::<T>::MaxNumberOfNFTsExceeded)?;
+                let instruction_asset_count = AssetCount::try_from_legs(&legs).map_err(|_| Error::<T>::MaxNumberOfNFTsExceeded)?;
                 let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo)?;
                 Self::affirm_and_maybe_schedule_instruction(
                     origin,
@@ -1096,7 +1096,7 @@ impl<T: Config> Module<T> {
             InstructionLegs::iter_prefix(&instruction_id).collect();
         instruction_legs.sort_by_key(|leg_id_leg| leg_id_leg.0);
 
-        let instruction_asset_count = Self::get_asset_count(&instruction_legs);
+        let instruction_asset_count = AssetCount::from_legs(&instruction_legs);
         weight_meter
             .check_accrue(<T as Config>::WeightInfo::execute_instruction_paused(
                 instruction_asset_count.fungible(),
@@ -1566,13 +1566,13 @@ impl<T: Config> Module<T> {
         input_cost: &AssetCount,
     ) -> Result<FilteredLegs, DispatchError> {
         let instruction_legs: Vec<(LegId, Leg)> = InstructionLegs::iter_prefix(&id).collect();
-        let instruction_asset_count = Self::get_asset_count(&instruction_legs);
+        let instruction_asset_count = AssetCount::from_legs(&instruction_legs);
         // Gets all legs where the sender is in the given set
         let legs_from_set: Vec<(LegId, Leg)> = instruction_legs
             .into_iter()
             .filter(|(_, leg)| portfolio_set.contains(&leg.from))
             .collect();
-        let subset_asset_count = Self::get_asset_count(&legs_from_set);
+        let subset_asset_count = AssetCount::from_legs(&legs_from_set);
         Self::ensure_valid_input_cost(&subset_asset_count, input_cost)?;
         Ok(FilteredLegs::new(
             id,
@@ -1634,7 +1634,7 @@ impl<T: Config> Module<T> {
                 .any(|(_, leg)| leg.from == portfolio || leg.to == portfolio),
             Error::<T>::CallerIsNotAParty
         );
-        let instruction_asset_count = Self::get_asset_count(&legs);
+        let instruction_asset_count = AssetCount::from_legs(&legs);
         Self::ensure_valid_input_cost(&instruction_asset_count, input_cost)?;
 
         // Verifies if the caller has the right permissions for this call
@@ -1651,20 +1651,6 @@ impl<T: Config> Module<T> {
         Self::prune_instruction(id, false);
         Self::deposit_event(RawEvent::InstructionRejected(origin_data.primary_did, id));
         Ok(())
-    }
-
-    /// Returns the number of fungible and non fungible transfers in a slice of legs.
-    /// Since this function is only called after the legs have already been inserted, casting is safe.
-    fn get_asset_count(legs: &[(LegId, Leg)]) -> AssetCount {
-        let mut asset_count = AssetCount::default();
-        for (_, leg) in legs {
-            match &leg.asset {
-                LegAsset::Fungible { .. } => asset_count.add_fungible(),
-                LegAsset::NonFungible(nfts) => asset_count.add_non_fungible(&nfts),
-                LegAsset::OffChain { .. } => asset_count.add_off_chain(),
-            }
-        }
-        asset_count
     }
 
     /// Returns ok if the number of fungible assets and nfts being transferred is under the input given by the user.
@@ -1815,7 +1801,7 @@ impl<T: Config> Module<T> {
             }
         }
 
-        let instruction_asset_count = Self::get_asset_count(&instruction_legs);
+        let instruction_asset_count = AssetCount::from_legs(&instruction_legs);
         Self::ensure_valid_input_cost(&instruction_asset_count, input_cost)?;
 
         // Executes the instruction
@@ -1872,7 +1858,7 @@ impl<T: Config> Module<T> {
     pub fn execute_instruction_info(instruction_id: &InstructionId) -> ExecuteInstructionInfo {
         let instruction_legs: Vec<(LegId, Leg)> =
             InstructionLegs::iter_prefix(&instruction_id).collect();
-        let instruction_asset_count = Self::get_asset_count(&instruction_legs);
+        let instruction_asset_count = AssetCount::from_legs(&instruction_legs);
         let mut weight_meter =
             WeightMeter::max_limit(Self::execute_scheduled_instruction_minimum_weight());
 

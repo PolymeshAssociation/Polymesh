@@ -371,7 +371,7 @@ impl AssetCount {
     }
 
     /// Gets the [`AssetCount`] from a slice of [`Leg`].
-    pub fn from_legs(legs: &[Leg]) -> Result<AssetCount, String> {
+    pub fn try_from_legs(legs: &[Leg]) -> Result<AssetCount, String> {
         let mut asset_count = AssetCount::default();
         for leg in legs {
             match &leg.asset {
@@ -381,6 +381,20 @@ impl AssetCount {
             }
         }
         Ok(asset_count)
+    }
+
+    /// Gets the [`AssetCount`] from a slice of &[(LegId, Leg)].
+    /// Note: Doesn't check for overflows
+    pub fn from_legs(legs: &[(LegId, Leg)]) -> AssetCount {
+        let mut asset_count = AssetCount::default();
+        for (_, leg) in legs {
+            match &leg.asset {
+                LegAsset::Fungible { .. } => asset_count.add_fungible(),
+                LegAsset::NonFungible(nfts) => asset_count.add_non_fungible(&nfts),
+                LegAsset::OffChain { .. } => asset_count.add_off_chain(),
+            }
+        }
+        asset_count
     }
 }
 
