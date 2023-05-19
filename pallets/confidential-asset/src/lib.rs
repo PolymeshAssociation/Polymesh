@@ -152,8 +152,8 @@ pub trait WeightInfo {
     fn sender_unaffirm_transaction() -> Weight;
     fn receiver_unaffirm_transaction() -> Weight;
     fn mediator_unaffirm_transaction() -> Weight;
-    fn execute_transaction() -> Weight;
-    fn revert_transaction() -> Weight;
+    fn execute_transaction(l: u32) -> Weight;
+    fn revert_transaction(l: u32) -> Weight;
 
     fn affirm_transaction(affirm: &AffirmLeg) -> Weight {
         match affirm.parity {
@@ -682,7 +682,7 @@ decl_module! {
         }
 
         /// Execute transaction.
-        #[weight = <T as Config>::WeightInfo::execute_transaction()]
+        #[weight = <T as Config>::WeightInfo::execute_transaction(*leg_count)]
         pub fn execute_transaction(
             origin,
             transaction_id: TransactionId,
@@ -693,7 +693,7 @@ decl_module! {
         }
 
         /// Revert pending transaction.
-        #[weight = <T as Config>::WeightInfo::execute_transaction()]
+        #[weight = <T as Config>::WeightInfo::execute_transaction(*leg_count)]
         pub fn revert_transaction(
             origin,
             transaction_id: TransactionId,

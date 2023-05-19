@@ -235,8 +235,13 @@ pub struct TransactionState<T: Config + TestUtilsFn<AccountIdOf<T>>> {
 impl<T: Config + TestUtilsFn<AccountIdOf<T>>> TransactionState<T> {
     /// Create 3 mercat accounts (issuer, investor, mediator), create asset, mint.
     pub fn new(rng: &mut StdRng) -> Self {
+        Self::new_legs(1, rng)
+    }
+
+    /// Create 3 mercat accounts (issuer, investor, mediator), create asset, mint.
+    pub fn new_legs(leg_count: u32, rng: &mut StdRng) -> Self {
         let amount = 4_000_000_000 as MercatBalance;
-        let total_supply = amount + 10;
+        let total_supply = (amount * leg_count as MercatBalance) + 100_000_000;
         // Setup confidential asset.
         let (ticker, issuer, issuer_balance) =
             create_account_and_mint_token::<T>("issuer", total_supply as u128, b"A", rng);
@@ -253,12 +258,15 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> TransactionState<T> {
         let investor = MercatUser::<T>::new("investor", rng);
         investor.init_account(ticker, rng);
 
-        let legs = vec![TransactionLeg {
-            ticker,
-            sender: issuer.mercat(),
-            receiver: investor.mercat(),
-            mediator: mediator.did(),
-        }];
+        let legs = (0..leg_count)
+            .into_iter()
+            .map(|_| TransactionLeg {
+                ticker,
+                sender: issuer.mercat(),
+                receiver: investor.mercat(),
+                mediator: mediator.did(),
+            })
+            .collect();
         Self {
             ticker,
             amount,
@@ -281,18 +289,19 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> TransactionState<T> {
         ));
     }
 
-    pub fn sender_proof(&self, leg_id: TransactionLegId, rng: &mut StdRng) -> AffirmLeg {
+    pub fn sender_proof(&self, leg_id: u64, rng: &mut StdRng) -> AffirmLeg {
         let issuer_account = Account {
             secret: self.issuer.sec.clone(),
             public: self.issuer.pub_account(),
         };
         let investor_pub_account = self.investor.pub_account();
+        let issuer_balance = self.issuer_balance - (leg_id as MercatBalance * self.amount);
         let issuer_enc_balance = self.issuer.mercat_enc_balance(self.ticker);
         let sender_tx = CtxSender
             .create_transaction(
                 &issuer_account,
                 &issuer_enc_balance,
-                self.issuer_balance,
+                issuer_balance,
                 &investor_pub_account,
                 Some(&self.mediator.pub_key()),
                 &[],
@@ -300,10 +309,10 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> TransactionState<T> {
                 rng,
             )
             .unwrap();
-        AffirmLeg::sender(leg_id, sender_tx)
+        AffirmLeg::sender(TransactionLegId(leg_id as _), sender_tx)
     }
 
-    pub fn sender_affirm(&self, leg_id: TransactionLegId, rng: &mut StdRng) {
+    pub fn sender_affirm(&self, leg_id: u64, rng: &mut StdRng) {
         let affirm = self.sender_proof(leg_id, rng);
         assert_ok!(Module::<T>::affirm_transaction(
             self.issuer.origin().into(),
@@ -312,44 +321,56 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> TransactionState<T> {
         ));
     }
 
-    pub fn receiver_affirm(&self, leg_id: TransactionLegId) {
+    pub fn receiver_affirm(&self, leg_id: u64) {
         assert_ok!(Module::<T>::affirm_transaction(
             self.investor.origin().into(),
             self.id,
-            AffirmLeg::receiver(leg_id),
+            AffirmLeg::receiver(TransactionLegId(leg_id as _)),
         ));
     }
 
-    pub fn mediator_affirm(&self, leg_id: TransactionLegId) {
+    pub fn mediator_affirm(&self, leg_id: u64) {
         assert_ok!(Module::<T>::affirm_transaction(
             self.mediator.origin().into(),
             self.id,
-            AffirmLeg::mediator(leg_id),
+            AffirmLeg::mediator(TransactionLegId(leg_id as _)),
         ));
     }
 
-    pub fn sender_unaffirm(&self, leg_id: TransactionLegId) {
+    pub fn sender_unaffirm(&self, leg_id: u64) {
         assert_ok!(Module::<T>::unaffirm_transaction(
             self.issuer.origin().into(),
             self.id,
-            UnaffirmLeg::sender(leg_id),
+            UnaffirmLeg::sender(TransactionLegId(leg_id as _)),
         ));
     }
 
-    pub fn receiver_unaffirm(&self, leg_id: TransactionLegId) {
+    pub fn receiver_unaffirm(&self, leg_id: u64) {
         assert_ok!(Module::<T>::unaffirm_transaction(
             self.investor.origin().into(),
             self.id,
-            UnaffirmLeg::receiver(leg_id),
+            UnaffirmLeg::receiver(TransactionLegId(leg_id as _)),
         ));
     }
 
-    pub fn mediator_unaffirm(&self, leg_id: TransactionLegId) {
+    pub fn mediator_unaffirm(&self, leg_id: u64) {
         assert_ok!(Module::<T>::unaffirm_transaction(
             self.mediator.origin().into(),
             self.id,
-            UnaffirmLeg::mediator(leg_id),
+            UnaffirmLeg::mediator(TransactionLegId(leg_id as _)),
         ));
+    }
+
+    pub fn affirm_leg(&self, leg_id: u64, rng: &mut StdRng) {
+        self.sender_affirm(leg_id, rng);
+        self.receiver_affirm(leg_id);
+        self.mediator_affirm(leg_id);
+    }
+
+    pub fn affirm_legs(&self, rng: &mut StdRng) {
+        for idx in 0..self.legs.len() {
+            self.affirm_leg(idx as _, rng);
+        }
     }
 
     pub fn execute(&self) {
@@ -405,10 +426,7 @@ benchmarks! {
         // Setup for transaction.
         let mut tx = TransactionState::<T>::new(&mut rng);
         tx.add_transaction();
-        let leg_id = TransactionLegId(0);
-        tx.sender_affirm(leg_id, &mut rng);
-        tx.receiver_affirm(leg_id);
-        tx.mediator_affirm(leg_id);
+        tx.affirm_legs(&mut rng);
         tx.execute();
     }: _(tx.issuer.origin(), tx.issuer.mercat(), tx.ticker)
 
@@ -426,9 +444,8 @@ benchmarks! {
         // Setup for transaction.
         let mut tx = TransactionState::<T>::new(&mut rng);
         tx.add_transaction();
-        let leg_id = TransactionLegId(0);
 
-        let affirm = tx.sender_proof(leg_id, &mut rng);
+        let affirm = tx.sender_proof(0, &mut rng);
     }: affirm_transaction(tx.issuer.origin(), tx.id, affirm)
 
     receiver_affirm_transaction {
@@ -437,10 +454,9 @@ benchmarks! {
         // Setup for transaction.
         let mut tx = TransactionState::<T>::new(&mut rng);
         tx.add_transaction();
-        let leg_id = TransactionLegId(0);
-        tx.sender_affirm(leg_id, &mut rng);
+        tx.sender_affirm(0, &mut rng);
 
-        let affirm = AffirmLeg::receiver(leg_id);
+        let affirm = AffirmLeg::receiver(TransactionLegId(0));
     }: affirm_transaction(tx.investor.origin(), tx.id, affirm)
 
     mediator_affirm_transaction {
@@ -449,11 +465,10 @@ benchmarks! {
         // Setup for transaction.
         let mut tx = TransactionState::<T>::new(&mut rng);
         tx.add_transaction();
-        let leg_id = TransactionLegId(0);
-        tx.sender_affirm(leg_id, &mut rng);
-        tx.receiver_affirm(leg_id);
+        tx.sender_affirm(0, &mut rng);
+        tx.receiver_affirm(0);
 
-        let affirm = AffirmLeg::mediator(leg_id);
+        let affirm = AffirmLeg::mediator(TransactionLegId(0));
     }: affirm_transaction(tx.mediator.origin(), tx.id, affirm)
 
     sender_unaffirm_transaction {
@@ -462,10 +477,9 @@ benchmarks! {
         // Setup for transaction.
         let mut tx = TransactionState::<T>::new(&mut rng);
         tx.add_transaction();
-        let leg_id = TransactionLegId(0);
 
-        tx.sender_affirm(leg_id, &mut rng);
-        let unaffirm = UnaffirmLeg::sender(leg_id);
+        tx.sender_affirm(0, &mut rng);
+        let unaffirm = UnaffirmLeg::sender(TransactionLegId(0));
     }: unaffirm_transaction(tx.issuer.origin(), tx.id, unaffirm)
 
     receiver_unaffirm_transaction {
@@ -474,11 +488,10 @@ benchmarks! {
         // Setup for transaction.
         let mut tx = TransactionState::<T>::new(&mut rng);
         tx.add_transaction();
-        let leg_id = TransactionLegId(0);
-        tx.sender_affirm(leg_id, &mut rng);
-        tx.receiver_affirm(leg_id);
+        tx.sender_affirm(0, &mut rng);
+        tx.receiver_affirm(0);
 
-        let unaffirm = UnaffirmLeg::receiver(leg_id);
+        let unaffirm = UnaffirmLeg::receiver(TransactionLegId(0));
     }: unaffirm_transaction(tx.investor.origin(), tx.id, unaffirm)
 
     mediator_unaffirm_transaction {
@@ -487,41 +500,30 @@ benchmarks! {
         // Setup for transaction.
         let mut tx = TransactionState::<T>::new(&mut rng);
         tx.add_transaction();
-        let leg_id = TransactionLegId(0);
-        tx.sender_affirm(leg_id, &mut rng);
-        tx.receiver_affirm(leg_id);
-        tx.mediator_affirm(leg_id);
+        tx.affirm_leg(0, &mut rng);
 
-        let unaffirm = UnaffirmLeg::mediator(leg_id);
+        let unaffirm = UnaffirmLeg::mediator(TransactionLegId(0));
     }: unaffirm_transaction(tx.mediator.origin(), tx.id, unaffirm)
 
     execute_transaction {
-        //let l in 1..10;
-        let l = 1;
+        let l in 1..4;
 
         let mut rng = StdRng::from_seed([10u8; 32]);
 
         // Setup for transaction.
-        let mut tx = TransactionState::<T>::new(&mut rng);
+        let mut tx = TransactionState::<T>::new_legs(l, &mut rng);
         tx.add_transaction();
-        let leg_id = TransactionLegId(0);
-        tx.sender_affirm(leg_id, &mut rng);
-        tx.receiver_affirm(leg_id);
-        tx.mediator_affirm(leg_id);
+        tx.affirm_legs(&mut rng);
     }: _(tx.issuer.origin(), tx.id, l)
 
     revert_transaction {
-        //let l in 1..10;
-        let l = 1;
+        let l in 1..4;
 
         let mut rng = StdRng::from_seed([10u8; 32]);
 
         // Setup for transaction.
-        let mut tx = TransactionState::<T>::new(&mut rng);
+        let mut tx = TransactionState::<T>::new_legs(l, &mut rng);
         tx.add_transaction();
-        let leg_id = TransactionLegId(0);
-        tx.sender_affirm(leg_id, &mut rng);
-        tx.receiver_affirm(leg_id);
-        tx.mediator_affirm(leg_id);
+        tx.affirm_legs(&mut rng);
     }: _(tx.issuer.origin(), tx.id, l)
 }

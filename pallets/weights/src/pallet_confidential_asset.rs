@@ -187,7 +187,7 @@ impl pallet_confidential_asset::WeightInfo for SubstrateWeight {
     // Storage: ConfidentialAsset TxPendingState (r:1 w:1)
     // Storage: ConfidentialAsset IncomingBalance (r:1 w:1)
     // Storage: ConfidentialAsset SenderProofs (r:0 w:1)
-    fn execute_transaction() -> Weight {
+    fn execute_transaction(_l: u32) -> Weight {
         // Minimum execution time: 502_724 nanoseconds.
         Weight::from_ref_time(551_013_000)
             .saturating_add(DbWeight::get().reads(11))
@@ -201,7 +201,7 @@ impl pallet_confidential_asset::WeightInfo for SubstrateWeight {
     // Storage: ConfidentialAsset IncomingBalance (r:1 w:1)
     // Storage: ConfidentialAsset PendingAffirms (r:0 w:1)
     // Storage: ConfidentialAsset SenderProofs (r:0 w:1)
-    fn revert_transaction() -> Weight {
+    fn revert_transaction(_l: u32) -> Weight {
         // Minimum execution time: 490_066 nanoseconds.
         Weight::from_ref_time(494_972_000)
             .saturating_add(DbWeight::get().reads(8))
