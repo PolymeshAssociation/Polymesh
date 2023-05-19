@@ -71,8 +71,6 @@ export async function affirmInstruction(
   const transaction = api.tx.settlement.affirmInstruction(
     instructionCounter,
     [getDefaultPortfolio(did)],
-    legCounter,
-    0
   );
   await sendTx(signer, transaction);
 }
@@ -104,7 +102,7 @@ export async function withdrawInstruction(
   did: IdentityId
 ): Promise<void> {
   const api = await ApiSingleton.getInstance();
-  const transaction = api.tx.settlement.rejectInstruction(instructionCounter, portfolioId, numOfLegs, 0, 0);
+  const transaction = api.tx.settlement.rejectInstruction(instructionCounter, portfolioId);
   await sendTx(signer, transaction);
 }
 

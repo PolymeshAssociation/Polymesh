@@ -3050,8 +3050,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * * `value_date` - Optional date after which the instruction should be settled (not enforced)
        * * `legs` - Legs included in this instruction.
        * * `portfolios` - Portfolios that the sender controls and wants to use in this affirmations.
-       * * `memo` - Memo field for this instruction.
-       * * `weight_limit` - Optional value that defines a maximum weight for executing the instruction.
+       * * `instruction_memo` - Memo field for this instruction.
        * 
        * # Permissions
        * * Portfolio
@@ -3068,7 +3067,6 @@ declare module '@polkadot/api-base/types/submittable' {
        * * `value_date` - Optional date after which the instruction should be settled (not enforced)
        * * `legs` - Legs included in this instruction.
        * * `memo` - Memo field for this instruction.
-       * * `weight_limit` - Optional value that defines a maximum weight for executing the instruction.
        * 
        * # Weight
        * `950_000_000 + 1_000_000 * legs.len()`
@@ -3080,14 +3078,11 @@ declare module '@polkadot/api-base/types/submittable' {
        * # Arguments
        * * `id` - The `InstructionId` of the instruction to be affirmed.
        * * `portfolios` - Portfolios that the sender controls and wants to affirm this instruction.
-       * * `fungible_transfers` - number of fungible transfers in the instruction.
-       * * `nfts_transfers` - total number of NFTs being transferred in the instruction.
-       * * `weight_limit` - Optional value that defines a maximum weight for executing the instruction.
        * 
        * # Permissions
        * * Portfolio
        **/
-      affirmInstruction: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, portfolios: Vec<PolymeshPrimitivesIdentityIdPortfolioId> | (PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array)[], fungibleTransfers: u32 | AnyNumber | Uint8Array, nftsTransfers: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64, Vec<PolymeshPrimitivesIdentityIdPortfolioId>, u32, u32]>;
+      affirmInstruction: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, portfolios: Vec<PolymeshPrimitivesIdentityIdPortfolioId> | (PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [u64, Vec<PolymeshPrimitivesIdentityIdPortfolioId>]>;
       /**
        * Accepts an instruction and claims a signed receipt.
        * 
@@ -3098,14 +3093,11 @@ declare module '@polkadot/api-base/types/submittable' {
        * * `signer` - Signer of the receipt.
        * * `signed_data` - Signed receipt.
        * * `portfolios` - Portfolios that the sender controls and wants to accept this instruction with.
-       * * `fungible_transfers` - number of fungible transfers in the instruction.
-       * * `nfts_transfers` - total number of NFTs being transferred in the instruction.
-       * * `offchain_transfers` - The number of offchain assets in the instruction.
        * 
        * # Permissions
        * * Portfolio
        **/
-      affirmWithReceipts: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, receiptDetails: Vec<PolymeshPrimitivesSettlementReceiptDetails> | (PolymeshPrimitivesSettlementReceiptDetails | { receiptUid?: any; legId?: any; signer?: any; signature?: any; metadata?: any } | string | Uint8Array)[], portfolios: Vec<PolymeshPrimitivesIdentityIdPortfolioId> | (PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array)[], fungibleTransfers: u32 | AnyNumber | Uint8Array, nftsTransfers: u32 | AnyNumber | Uint8Array, offchainTransfers: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64, Vec<PolymeshPrimitivesSettlementReceiptDetails>, Vec<PolymeshPrimitivesIdentityIdPortfolioId>, u32, u32, u32]>;
+      affirmWithReceipts: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, receiptDetails: Vec<PolymeshPrimitivesSettlementReceiptDetails> | (PolymeshPrimitivesSettlementReceiptDetails | { receiptUid?: any; legId?: any; signer?: any; signature?: any; metadata?: any } | string | Uint8Array)[], portfolios: Vec<PolymeshPrimitivesIdentityIdPortfolioId> | (PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [u64, Vec<PolymeshPrimitivesSettlementReceiptDetails>, Vec<PolymeshPrimitivesIdentityIdPortfolioId>]>;
       /**
        * Allows additional venues to create instructions involving an asset.
        * 
@@ -3207,14 +3199,11 @@ declare module '@polkadot/api-base/types/submittable' {
        * # Arguments
        * * `id` - Instruction id to reject.
        * * `portfolio` - Portfolio to reject the instruction.
-       * * `fungible_transfers` - number of fungible transfers in the instruction.
-       * * `nfts_transfers` - total number of NFTs being transferred in the instruction.
-       * * `offchain_transfers` - The number of offchain assets in the instruction.
        * 
        * # Permissions
        * * Portfolio
        **/
-      rejectInstruction: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, portfolio: PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array, fungibleTransfers: u32 | AnyNumber | Uint8Array, nftsTransfers: u32 | AnyNumber | Uint8Array, offchainTransfers: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64, PolymeshPrimitivesIdentityIdPortfolioId, u32, u32, u32]>;
+      rejectInstruction: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, portfolio: PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64, PolymeshPrimitivesIdentityIdPortfolioId]>;
       /**
        * Reschedules a failed instruction.
        * 
@@ -3266,14 +3255,11 @@ declare module '@polkadot/api-base/types/submittable' {
        * # Arguments
        * * `id` - Instruction id for that affirmation get withdrawn.
        * * `portfolios` - Portfolios that the sender controls and wants to withdraw affirmation.
-       * * `fungible_transfers` - number of fungible transfers in the instruction.
-       * * `nfts_transfers` - total number of NFTs being transferred in the instruction.
-       * * `offchain_transfers` - The number of offchain assets in the instruction.
        * 
        * # Permissions
        * * Portfolio
        **/
-      withdrawAffirmation: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, portfolios: Vec<PolymeshPrimitivesIdentityIdPortfolioId> | (PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array)[], fungibleTransfers: u32 | AnyNumber | Uint8Array, nftsTransfers: u32 | AnyNumber | Uint8Array, offchainTransfers: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64, Vec<PolymeshPrimitivesIdentityIdPortfolioId>, u32, u32, u32]>;
+      withdrawAffirmation: AugmentedSubmittable<(id: u64 | AnyNumber | Uint8Array, portfolios: Vec<PolymeshPrimitivesIdentityIdPortfolioId> | (PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [u64, Vec<PolymeshPrimitivesIdentityIdPortfolioId>]>;
       /**
        * Generic tx
        **/

@@ -1063,7 +1063,7 @@ export interface LegAsset extends Enum {
   readonly isNonFungible: boolean;
   readonly asNonFungible: NFTs;
   readonly isOffChain: boolean;
-  readonly asOffChain: NFTs;
+  readonly asOffChain: OffChainAsset;
   readonly type: 'Fungible' | 'NonFungible' | 'OffChain';
 }
 
@@ -1145,8 +1145,8 @@ export interface NonFungibleType extends Enum {
   readonly type: 'Derivative' | 'FixedIncome' | 'Invoice' | 'Custom';
 }
 
-/** @name OffChain */
-export interface OffChain extends Struct {
+/** @name OffChainAsset */
+export interface OffChainAsset extends Struct {
   readonly ticker: Ticker;
   readonly amount: Balance;
 }

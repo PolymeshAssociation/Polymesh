@@ -1094,7 +1094,7 @@ declare module '@polkadot/types/lookup' {
     readonly isSudid: boolean;
     readonly asSudid: Result<Null, SpRuntimeDispatchError>;
     readonly isKeyChanged: boolean;
-    readonly asKeyChanged: AccountId32;
+    readonly asKeyChanged: Option<AccountId32>;
     readonly isSudoAsDone: boolean;
     readonly asSudoAsDone: Result<Null, SpRuntimeDispatchError>;
     readonly type: 'Sudid' | 'KeyChanged' | 'SudoAsDone';
@@ -3999,9 +3999,6 @@ declare module '@polkadot/types/lookup' {
       readonly id: u64;
       readonly receiptDetails: Vec<PolymeshPrimitivesSettlementReceiptDetails>;
       readonly portfolios: Vec<PolymeshPrimitivesIdentityIdPortfolioId>;
-      readonly fungibleTransfers: u32;
-      readonly nftsTransfers: u32;
-      readonly offchainTransfers: u32;
     } & Struct;
     readonly isPlaceholderClaimReceipt: boolean;
     readonly isPlaceholderUnclaimReceipt: boolean;
@@ -4074,24 +4071,16 @@ declare module '@polkadot/types/lookup' {
     readonly asAffirmInstruction: {
       readonly id: u64;
       readonly portfolios: Vec<PolymeshPrimitivesIdentityIdPortfolioId>;
-      readonly fungibleTransfers: u32;
-      readonly nftsTransfers: u32;
     } & Struct;
     readonly isWithdrawAffirmation: boolean;
     readonly asWithdrawAffirmation: {
       readonly id: u64;
       readonly portfolios: Vec<PolymeshPrimitivesIdentityIdPortfolioId>;
-      readonly fungibleTransfers: u32;
-      readonly nftsTransfers: u32;
-      readonly offchainTransfers: u32;
     } & Struct;
     readonly isRejectInstruction: boolean;
     readonly asRejectInstruction: {
       readonly id: u64;
       readonly portfolio: PolymeshPrimitivesIdentityIdPortfolioId;
-      readonly fungibleTransfers: u32;
-      readonly nftsTransfers: u32;
-      readonly offchainTransfers: u32;
     } & Struct;
     readonly isExecuteScheduledInstructionV2: boolean;
     readonly asExecuteScheduledInstructionV2: {
