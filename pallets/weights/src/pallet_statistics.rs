@@ -180,4 +180,22 @@ impl pallet_statistics::WeightInfo for SubstrateWeight {
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(a.into())))
             .saturating_add(DbWeight::get().writes((1_u64).saturating_mul(a.into())))
     }
+    /// The range of component `i` is `[0, 1004]`.
+    fn verify_requirements(i: u32) -> Weight {
+        // Minimum execution time: 600 nanoseconds.
+        Weight::from_ref_time(1_086_371)
+            // Standard Error: 168
+            .saturating_add(Weight::from_ref_time(26_328).saturating_mul(i.into()))
+    }
+    // Storage: Statistics ActiveAssetStats (r:1 w:0)
+    /// The range of component `a` is `[1, 1010]`.
+    fn active_asset_statistics_load(_a: u32) -> Weight {
+        // Minimum execution time: 13_435 nanoseconds.
+        Weight::from_ref_time(14_162_313).saturating_add(DbWeight::get().reads(1))
+    }
+    // Storage: Statistics TransferConditionExemptEntities (r:1 w:0)
+    fn is_exempt() -> Weight {
+        // Minimum execution time: 14_858 nanoseconds.
+        Weight::from_ref_time(15_080_000).saturating_add(DbWeight::get().reads(1))
+    }
 }

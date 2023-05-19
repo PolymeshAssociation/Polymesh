@@ -59,7 +59,7 @@ fn test_with_controller(test: &dyn Fn(&[AccountId])) {
 }
 
 fn signed_admin() -> Origin {
-    Origin::signed(Bridge::admin())
+    Origin::signed(Bridge::admin().expect("Bridge admin"))
 }
 
 fn make_bridge_tx(recipient: AccountId, amount: u128) -> BridgeTx {
@@ -98,7 +98,7 @@ fn make_bridge_txs(amount: u128) -> [BridgeTx; 3] {
 }
 
 fn signers_approve_bridge_tx(tx: BridgeTx, signers: &[AccountId]) -> BridgeTx {
-    let controller = Bridge::controller();
+    let controller = Bridge::controller().expect("Bridge controller");
     let proposal = bridge_tx_to_proposal(&tx);
     let mut proposal_id = None;
 
@@ -151,7 +151,7 @@ fn can_issue_to_identity() {
         fast_forward_blocks(Bridge::timelock() + 1);
         assert_eq!(alice_tx_details(1).status, BridgeTxStatus::Handled);
 
-        let controller = Origin::signed(Bridge::controller());
+        let controller = Origin::signed(Bridge::controller().expect("Bridge controller"));
         assert_noop!(
             Bridge::handle_bridge_tx(controller, tx),
             Error::ProposalAlreadyHandled
@@ -168,7 +168,7 @@ fn can_change_controller() {
             signed_admin(),
             controller.clone()
         ));
-        assert_eq!(Bridge::controller(), controller);
+        assert_eq!(Bridge::controller(), Some(controller));
     });
 }
 
@@ -191,7 +191,7 @@ fn cannot_propose_without_controller() {
 #[test]
 fn cannot_call_bridge_callback_extrinsics() {
     test_with_controller(&|_signers| {
-        let controller = Bridge::controller();
+        let controller = Bridge::controller().expect("Bridge controller");
         let no_admin = Origin::signed(Bob.to_account_id());
         assert_noop!(
             Bridge::change_controller(no_admin.clone(), controller),
@@ -462,14 +462,14 @@ fn do_force_mint(signers: &[AccountId]) {
 fn change_admin() {
     test_with_controller(&|signers| {
         let new_admin = signers[0].clone();
-        assert_ne!(new_admin, Bridge::admin());
+        assert_ne!(new_admin, Bridge::admin().expect("Bridge admin"));
 
         assert_noop!(
             Bridge::change_admin(Origin::signed(new_admin.clone()), new_admin.clone()),
             Error::BadAdmin
         );
         assert_ok!(Bridge::change_admin(signed_admin(), new_admin.clone()));
-        assert_eq!(Bridge::admin(), new_admin);
+        assert_eq!(Bridge::admin(), Some(new_admin));
     });
 }
 

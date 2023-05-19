@@ -4,7 +4,7 @@ use frame_support::weights::Weight;
 use sp_std::vec::Vec;
 
 use polymesh_primitives::settlement::{
-    InstructionId, InstructionMemo, Leg, LegId, ReceiptMetadata, SettlementType, TransferData,
+    AssetCount, InstructionId, InstructionMemo, Leg, LegId, ReceiptMetadata, SettlementType,
     VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
@@ -100,6 +100,7 @@ pub trait WeightInfo {
     fn reject_instruction(f: u32, n: u32, o: u32) -> Weight;
     fn execute_instruction_paused(f: u32, n: u32, o: u32) -> Weight;
     fn execute_scheduled_instruction(f: u32, n: u32, o: u32) -> Weight;
+    fn ensure_root_origin() -> Weight;
 
     fn add_instruction_legs(legs: &[Leg]) -> Weight {
         let (f, n, o) = Self::get_transfer_by_asset(legs);
@@ -113,27 +114,24 @@ pub trait WeightInfo {
         let (f, n, o) = Self::get_transfer_by_asset(legs);
         Self::execute_scheduled_instruction(f, n, o)
     }
-    fn execute_manual_instruction_weight(
+    fn execute_manual_weight_limit(
         weight_limit: &Option<Weight>,
         f: &u32,
         n: &u32,
         o: &u32,
     ) -> Weight {
-        match weight_limit {
-            Some(weight_limit) => *weight_limit,
-            None => Self::execute_manual_instruction(*f, *n, *o),
+        if let Some(weight_limit) = weight_limit {
+            return *weight_limit;
         }
+        Self::execute_manual_instruction(*f, *n, *o)
     }
     fn get_transfer_by_asset(legs: &[Leg]) -> (u32, u32, u32) {
-        let transfer_data = TransferData::from_legs(legs).unwrap_or(TransferData::new(
-            u32::MAX,
-            u32::MAX,
-            u32::MAX,
-        ));
+        let asset_count =
+            AssetCount::try_from_legs(legs).unwrap_or(AssetCount::new(1024, 1024, 1024));
         (
-            transfer_data.fungible(),
-            transfer_data.non_fungible(),
-            transfer_data.off_chain(),
+            asset_count.fungible(),
+            asset_count.non_fungible(),
+            asset_count.off_chain(),
         )
     }
 }

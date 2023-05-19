@@ -256,7 +256,7 @@ decl_storage! {
         /// The multisig account of the bridge controller. The genesis signers accept their
         /// authorizations and are able to get their proposals delivered. The bridge creator
         /// transfers some POLY to their identity.
-        Controller get(fn controller) build(genesis::controller): T::AccountId;
+        pub Controller get(fn controller) build(genesis::controller): Option<T::AccountId>;
 
         /// Details of bridge transactions identified with pairs of the recipient account and the
         /// bridge transaction nonce.
@@ -267,7 +267,7 @@ decl_storage! {
                 BridgeTxDetail<T::BlockNumber>;
 
         /// The admin key.
-        Admin get(fn admin) config(): T::AccountId;
+        Admin get(fn admin) build(genesis::admin): Option<T::AccountId>;
 
         /// Whether or not the bridge operation is frozen.
         Frozen get(fn frozen): bool;
@@ -295,11 +295,13 @@ decl_storage! {
     }
     add_extra_genesis {
         /// AccountId of the multisig creator.
-        config(creator): T::AccountId;
+        config(creator): Option<T::AccountId>;
         /// The set of initial signers from which a multisig address is created at genesis time.
         config(signers): Vec<Signatory<T::AccountId>>;
         /// The number of required signatures in the genesis signer set.
         config(signatures_required): u64;
+        /// Admin account.
+        config(admin): Option<T::AccountId>;
         /// Complete transactions at genesis.
         config(complete_txs): Vec<BridgeTx<T::AccountId>>;
     }
@@ -564,18 +566,28 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
-    pub fn controller_key() -> T::AccountId {
-        Self::controller()
-    }
-
     fn ensure_admin_did(origin: T::RuntimeOrigin) -> Result<IdentityId, DispatchError> {
         let sender = Self::ensure_admin(origin)?;
         Context::current_identity_or::<Identity<T>>(&sender)
     }
 
+    fn is_controller(key: &T::AccountId) -> bool {
+        match Self::controller() {
+            Some(controller) => key == &controller,
+            None => false,
+        }
+    }
+
+    fn is_admin(key: &T::AccountId) -> bool {
+        match Self::admin() {
+            Some(admin) => key == &admin,
+            None => false,
+        }
+    }
+
     fn ensure_admin(origin: T::RuntimeOrigin) -> Result<T::AccountId, DispatchError> {
         let sender = ensure_signed(origin)?;
-        ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
+        ensure!(Self::is_admin(&sender), Error::<T>::BadAdmin);
         Ok(sender)
     }
 
@@ -583,17 +595,13 @@ impl<T: Config> Module<T> {
         let sender = ensure_signed(origin)?;
         if !<FreezeAdmins<T>>::get(&sender) {
             // Not a freeze admin, check if they are the main admin.
-            ensure!(sender == Self::admin(), Error::<T>::BadAdmin);
+            ensure!(Self::is_admin(&sender), Error::<T>::BadAdmin);
         }
         Context::current_identity_or::<Identity<T>>(&sender)
     }
 
-    fn ensure_controller_set() -> DispatchResult {
-        ensure!(
-            Self::controller() != Default::default(),
-            Error::<T>::ControllerNotSet
-        );
-        Ok(())
+    fn ensure_controller_set() -> Result<T::AccountId, DispatchError> {
+        Ok(Self::controller().ok_or(Error::<T>::ControllerNotSet)?)
     }
 
     pub fn get_tx_details(tx: &BridgeTx<T::AccountId>) -> BridgeTxDetail<T::BlockNumber> {
@@ -751,14 +759,14 @@ impl<T: Config> Module<T> {
         send_event: bool,
     ) -> DispatchResult {
         let sender = ensure_signed(origin)?;
-        Self::ensure_controller_set()?;
+        let controller = Self::ensure_controller_set()?;
 
         let sender_signer = Signatory::Account(sender);
         let propose = |bridge_tx| {
             let proposal = <T as Config>::Proposal::from(Call::<T>::handle_bridge_tx { bridge_tx });
             let boxed_proposal = Box::new(proposal.into());
             <multisig::Module<T>>::create_or_approve_proposal(
-                Self::controller(),
+                controller.clone(),
                 sender_signer.clone(),
                 boxed_proposal,
                 None,
@@ -780,7 +788,7 @@ impl<T: Config> Module<T> {
         let sender = ensure_signed(origin)?;
         let ensure_caller = || -> DispatchResult {
             ensure!(
-                sender == Self::controller() || sender == Self::admin(),
+                Self::is_controller(&sender) || Self::is_admin(&sender),
                 Error::<T>::BadCaller
             );
             Ok(())

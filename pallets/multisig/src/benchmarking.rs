@@ -54,7 +54,7 @@ fn generate_multisig_with_extra_signers<T: Config + TestUtilsFn<AccountIdOf<T>>>
     num_of_signers_required: u32,
 ) -> Result<T::AccountId, DispatchError> {
     generate_signers::<T>(&mut signers, num_of_extra_signers as usize);
-    let multisig = <MultiSig<T>>::get_next_multisig_address(caller.account());
+    let multisig = <MultiSig<T>>::get_next_multisig_address(caller.account()).expect("Next MS");
     <MultiSig<T>>::create_multisig(
         caller.origin.clone().into(),
         signers.clone(),

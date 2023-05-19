@@ -101,7 +101,7 @@ sp-std = { version = "5.0.0", default-features = false }
 sp-transaction-pool = { version = "4.0.0-dev", default-features = false }
 sp-version = { version = "5.0.0", default-features = false }
 
-test_client = { package = "substrate-test-runtime-client", git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12", optional = true }
+test_client = { package = "substrate-test-runtime-client", git = "https://github.com/PolymeshAssociation/substrate", branch = "polymesh-monthly-2022-12-1", optional = true }
 substrate-test-utils = { version = "4.0.0-dev", optional = true }
 
 [dev-dependencies]

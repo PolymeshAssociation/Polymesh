@@ -299,7 +299,7 @@ declare module '@polkadot/api-base/types/storage' {
       /**
        * The admin key.
        **/
-      admin: AugmentedQuery<ApiType, () => Observable<AccountId32>, []> & QueryableStorageEntry<ApiType, []>;
+      admin: AugmentedQuery<ApiType, () => Observable<Option<AccountId32>>, []> & QueryableStorageEntry<ApiType, []>;
       /**
        * The maximum number of bridged POLYX per identity within a set interval of
        * blocks. Fields: POLYX amount and the block interval duration.
@@ -319,7 +319,7 @@ declare module '@polkadot/api-base/types/storage' {
        * authorizations and are able to get their proposals delivered. The bridge creator
        * transfers some POLY to their identity.
        **/
-      controller: AugmentedQuery<ApiType, () => Observable<AccountId32>, []> & QueryableStorageEntry<ApiType, []>;
+      controller: AugmentedQuery<ApiType, () => Observable<Option<AccountId32>>, []> & QueryableStorageEntry<ApiType, []>;
       /**
        * Freeze bridge admins.  These accounts can only freeze the bridge.
        **/
@@ -1015,7 +1015,7 @@ declare module '@polkadot/api-base/types/storage' {
        * Those who have locked a deposit.
        * proposal (id, proposer) -> deposit
        **/
-      deposits: AugmentedQuery<ApiType, (arg1: u32 | AnyNumber | Uint8Array, arg2: AccountId32 | string | Uint8Array) => Observable<PalletPipsDepositInfo>, [u32, AccountId32]> & QueryableStorageEntry<ApiType, [u32, AccountId32]>;
+      deposits: AugmentedQuery<ApiType, (arg1: u32 | AnyNumber | Uint8Array, arg2: AccountId32 | string | Uint8Array) => Observable<Option<PalletPipsDepositInfo>>, [u32, AccountId32]> & QueryableStorageEntry<ApiType, [u32, AccountId32]>;
       /**
        * A live priority queue (lowest priority at index 0)
        * of pending PIPs up to the active limit.
@@ -1699,7 +1699,7 @@ declare module '@polkadot/api-base/types/storage' {
       /**
        * The `AccountId` of the sudo key.
        **/
-      key: AugmentedQuery<ApiType, () => Observable<AccountId32>, []> & QueryableStorageEntry<ApiType, []>;
+      key: AugmentedQuery<ApiType, () => Observable<Option<AccountId32>>, []> & QueryableStorageEntry<ApiType, []>;
       /**
        * Generic query
        **/

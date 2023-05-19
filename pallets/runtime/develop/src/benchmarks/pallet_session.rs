@@ -21,6 +21,7 @@
 // Modified by Polymath Inc - 4th January 2021
 // - It uses our Staking pallet.
 
+use codec::Decode;
 use core::convert::TryInto;
 use frame_benchmarking::benchmarks;
 use frame_support::traits::{Currency, OnInitialize};
@@ -30,6 +31,7 @@ use pallet_staking::{
     benchmarking::create_validator_with_nominators_with_balance, MAX_NOMINATIONS,
 };
 use polymesh_common_utilities::{benchs::AccountIdOf, TestUtilsFn};
+use sp_runtime::traits::TrailingZeroInput;
 use sp_std::prelude::*;
 use sp_std::vec;
 
@@ -72,7 +74,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> ValidatorInfo<T> {
         .account();
         let controller = pallet_staking::Module::<T>::bonded(&stash).expect("not stash");
 
-        let keys = T::Keys::default();
+        let keys = T::Keys::decode(&mut TrailingZeroInput::zeroes()).unwrap();
         let proof: Vec<u8> = vec![0, 1, 2, 3];
 
         // Whitelist controller account from further DB operations.

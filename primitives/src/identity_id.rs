@@ -32,11 +32,11 @@ const POLY_DID_LEN: usize = POLY_DID_PREFIX_LEN + UUID_LEN * 2;
 const UUID_LEN: usize = 32usize;
 
 /// The record to initialize an identity in the chain spec.
-#[derive(Default, Clone)]
+#[derive(Clone)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Debug))]
 pub struct GenesisIdentityRecord<AccountId> {
     /// Identity primary key.
-    pub primary_key: AccountId,
+    pub primary_key: Option<AccountId>,
     /// Secondary keys with permissions.
     pub secondary_keys: Vec<SecondaryKey<AccountId>>,
     /// issuers DIDs.
@@ -49,12 +49,25 @@ pub struct GenesisIdentityRecord<AccountId> {
     pub cdd_claim_expiry: Option<u64>,
 }
 
+impl Default for GenesisIdentityRecord<AccountId> {
+    fn default() -> Self {
+        Self {
+            primary_key: None,
+            secondary_keys: Vec::new(),
+            issuers: Vec::new(),
+            did: Default::default(),
+            investor: Default::default(),
+            cdd_claim_expiry: None,
+        }
+    }
+}
+
 impl GenesisIdentityRecord<AccountId> {
     /// Creates a new CDD less `GenesisIdentityRecord` from a nonce and the primary key
     pub fn new(nonce: u8, primary_key: AccountId) -> Self {
         Self {
-            primary_key,                              // No CDD claim will be issued
-            did: IdentityId::from(nonce as u128),     // Identity = 0xi000...0000
+            primary_key: Some(primary_key),       // No CDD claim will be issued
+            did: IdentityId::from(nonce as u128), // Identity = 0xi000...0000
             investor: InvestorUid::from([nonce; 16]), // Irrelevant since no CDD claim is issued
             ..Default::default()
         }

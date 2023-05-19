@@ -4,7 +4,7 @@ use super::{
     ExtBuilder,
 };
 
-use polymesh_primitives::{AccountId, Beneficiary, IdentityId};
+use polymesh_primitives::{Beneficiary, IdentityId};
 use sp_runtime::DispatchError;
 use test_client::AccountKeyring;
 
@@ -97,7 +97,7 @@ fn bad_disbursement_did() {
 fn bad_disbursement_did_we() {
     let alice = User::new(AccountKeyring::Alice);
     let bob = User::new(AccountKeyring::Bob);
-    let default_key = AccountId::default();
+    let default_key = pallet_identity::types::zero_account_id();
 
     let total_issuance = Balances::total_issuance();
     let treasury_balance = 10_000;

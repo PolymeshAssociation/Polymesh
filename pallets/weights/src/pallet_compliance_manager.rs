@@ -208,4 +208,11 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
             .saturating_add(Weight::from_ref_time(19_986_642).saturating_mul(e.into()))
             .saturating_add(DbWeight::get().reads((1_u64).saturating_mul(e.into())))
     }
+    /// The range of component `i` is `[0, 10000]`.
+    fn is_any_requirement_compliant(i: u32) -> Weight {
+        // Minimum execution time: 702 nanoseconds.
+        Weight::from_ref_time(856_950)
+            // Standard Error: 70
+            .saturating_add(Weight::from_ref_time(114_615).saturating_mul(i.into()))
+    }
 }

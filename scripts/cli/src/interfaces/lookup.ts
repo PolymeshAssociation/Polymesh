@@ -742,7 +742,7 @@ export default {
   PalletSudoRawEvent: {
     _enum: {
       Sudid: 'Result<Null, SpRuntimeDispatchError>',
-      KeyChanged: 'AccountId32',
+      KeyChanged: 'Option<AccountId32>',
       SudoAsDone: 'Result<Null, SpRuntimeDispatchError>'
     }
   },
@@ -3354,9 +3354,6 @@ export default {
         id: 'u64',
         receiptDetails: 'Vec<PolymeshPrimitivesSettlementReceiptDetails>',
         portfolios: 'Vec<PolymeshPrimitivesIdentityIdPortfolioId>',
-        fungibleTransfers: 'u32',
-        nftsTransfers: 'u32',
-        offchainTransfers: 'u32',
       },
       placeholder_claim_receipt: 'Null',
       placeholder_unclaim_receipt: 'Null',
@@ -3418,22 +3415,14 @@ export default {
       affirm_instruction: {
         id: 'u64',
         portfolios: 'Vec<PolymeshPrimitivesIdentityIdPortfolioId>',
-        fungibleTransfers: 'u32',
-        nftsTransfers: 'u32',
       },
       withdraw_affirmation: {
         id: 'u64',
         portfolios: 'Vec<PolymeshPrimitivesIdentityIdPortfolioId>',
-        fungibleTransfers: 'u32',
-        nftsTransfers: 'u32',
-        offchainTransfers: 'u32',
       },
       reject_instruction: {
         id: 'u64',
         portfolio: 'PolymeshPrimitivesIdentityIdPortfolioId',
-        fungibleTransfers: 'u32',
-        nftsTransfers: 'u32',
-        offchainTransfers: 'u32',
       },
       execute_scheduled_instruction_v2: {
         id: 'u64',

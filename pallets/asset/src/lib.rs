@@ -1455,16 +1455,12 @@ impl<T: Config> Module<T> {
             return Ok(TRANSFER_MANAGER_FAILURE);
         }
 
-        let status_code = T::ComplianceManager::verify_restriction(
+        if !T::ComplianceManager::is_compliant(
             ticker,
-            Some(from_portfolio.did),
-            Some(to_portfolio.did),
-            value,
+            from_portfolio.did,
+            to_portfolio.did,
             weight_meter,
-        )
-        .unwrap_or(COMPLIANCE_MANAGER_FAILURE);
-
-        if status_code != ERC1400_TRANSFER_SUCCESS {
+        )? {
             return Ok(COMPLIANCE_MANAGER_FAILURE);
         }
 
@@ -2537,7 +2533,7 @@ impl<T: Config> Module<T> {
     ) -> Result<GranularCanTransferResult, DispatchError> {
         let invalid_granularity = Self::invalid_granularity(ticker, value);
         let self_transfer = Self::self_transfer(&from_portfolio, &to_portfolio);
-        let invalid_receiver_cdd = Self::invalid_cdd(from_portfolio.did);
+        let invalid_receiver_cdd = Self::invalid_cdd(to_portfolio.did);
         let invalid_sender_cdd = Self::invalid_cdd(from_portfolio.did);
         let missing_scope_claim = Self::missing_scope_claim(ticker, &to_portfolio, &from_portfolio);
         let receiver_custodian_error =

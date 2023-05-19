@@ -1558,7 +1558,7 @@ declare module '@polkadot/api-base/types/events' {
       /**
        * The \[sudoer\] just switched identity; the old key is supplied.
        **/
-      KeyChanged: AugmentedEvent<ApiType, [AccountId32]>;
+      KeyChanged: AugmentedEvent<ApiType, [Option<AccountId32>]>;
       /**
        * A sudo just took place. \[result\]
        **/
