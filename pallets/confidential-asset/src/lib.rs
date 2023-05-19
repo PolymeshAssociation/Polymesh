@@ -156,18 +156,18 @@ pub trait WeightInfo {
     fn revert_transaction(l: u32) -> Weight;
 
     fn affirm_transaction(affirm: &AffirmLeg) -> Weight {
-        match affirm.parity {
-            AffirmParity::Sender(_) => Self::sender_affirm_transaction(),
-            AffirmParity::Receiver => Self::receiver_affirm_transaction(),
-            AffirmParity::Mediator => Self::mediator_affirm_transaction(),
+        match affirm.party {
+            AffirmParty::Sender(_) => Self::sender_affirm_transaction(),
+            AffirmParty::Receiver => Self::receiver_affirm_transaction(),
+            AffirmParty::Mediator => Self::mediator_affirm_transaction(),
         }
     }
 
     fn unaffirm_transaction(unaffirm: &UnaffirmLeg) -> Weight {
-        match unaffirm.parity {
-            UnaffirmParity::Sender => Self::sender_unaffirm_transaction(),
-            UnaffirmParity::Receiver => Self::receiver_unaffirm_transaction(),
-            UnaffirmParity::Mediator => Self::mediator_unaffirm_transaction(),
+        match unaffirm.party {
+            UnaffirmParty::Sender => Self::sender_unaffirm_transaction(),
+            UnaffirmParty::Receiver => Self::receiver_unaffirm_transaction(),
+            UnaffirmParty::Mediator => Self::mediator_unaffirm_transaction(),
         }
     }
 }
@@ -377,7 +377,7 @@ impl SenderProof {
 
 /// Who is affirming the transaction leg.
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq)]
-pub enum AffirmParity {
+pub enum AffirmParty {
     Sender(SenderProof),
     Receiver,
     Mediator,
@@ -386,35 +386,35 @@ pub enum AffirmParity {
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq)]
 pub struct AffirmLeg {
     leg_id: TransactionLegId,
-    parity: AffirmParity,
+    party: AffirmParty,
 }
 
 impl AffirmLeg {
     pub fn sender(leg_id: TransactionLegId, tx: InitializedTransferTx) -> Self {
         Self {
             leg_id,
-            parity: AffirmParity::Sender(SenderProof(tx.encode())),
+            party: AffirmParty::Sender(SenderProof(tx.encode())),
         }
     }
 
     pub fn receiver(leg_id: TransactionLegId) -> Self {
         Self {
             leg_id,
-            parity: AffirmParity::Receiver,
+            party: AffirmParty::Receiver,
         }
     }
 
     pub fn mediator(leg_id: TransactionLegId) -> Self {
         Self {
             leg_id,
-            parity: AffirmParity::Mediator,
+            party: AffirmParty::Mediator,
         }
     }
 }
 
 /// Who is unaffirming the transaction leg.
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq)]
-pub enum UnaffirmParity {
+pub enum UnaffirmParty {
     Sender,
     Receiver,
     Mediator,
@@ -423,28 +423,28 @@ pub enum UnaffirmParity {
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq)]
 pub struct UnaffirmLeg {
     leg_id: TransactionLegId,
-    parity: UnaffirmParity,
+    party: UnaffirmParty,
 }
 
 impl UnaffirmLeg {
     pub fn sender(leg_id: TransactionLegId) -> Self {
         Self {
             leg_id,
-            parity: UnaffirmParity::Sender,
+            party: UnaffirmParty::Sender,
         }
     }
 
     pub fn receiver(leg_id: TransactionLegId) -> Self {
         Self {
             leg_id,
-            parity: UnaffirmParity::Receiver,
+            party: UnaffirmParty::Receiver,
         }
     }
 
     pub fn mediator(leg_id: TransactionLegId) -> Self {
         Self {
             leg_id,
-            parity: UnaffirmParity::Mediator,
+            party: UnaffirmParty::Mediator,
         }
     }
 }
@@ -961,8 +961,8 @@ impl<T: Config> Module<T> {
             Error::<T>::InstructionAlreadyAffirmed
         );
 
-        match affirm.parity {
-            AffirmParity::Sender(proof) => {
+        match affirm.party {
+            AffirmParty::Sender(proof) => {
                 let init_tx = proof
                     .into_tx()
                     .ok_or(Error::<T>::InvalidMercatTransferProof)?;
@@ -1017,11 +1017,11 @@ impl<T: Config> Module<T> {
                 // Store the sender's proof.
                 SenderProofs::insert(id, leg_id, proof);
             }
-            AffirmParity::Receiver => {
+            AffirmParty::Receiver => {
                 let receiver_did = Self::mercat_account_did(&leg.receiver);
                 ensure!(Some(caller_did) == receiver_did, Error::<T>::Unauthorized);
             }
-            AffirmParity::Mediator => {
+            AffirmParty::Mediator => {
                 ensure!(caller_did == leg.mediator, Error::<T>::Unauthorized);
             }
         }
@@ -1054,8 +1054,8 @@ impl<T: Config> Module<T> {
         );
 
         let leg = TransactionLegs::get(id, leg_id).ok_or(Error::<T>::UnknownInstructionLeg)?;
-        match unaffirm.parity {
-            UnaffirmParity::Sender => {
+        match unaffirm.party {
+            UnaffirmParty::Sender => {
                 let sender_did = Self::mercat_account_did(&leg.sender);
                 ensure!(Some(caller_did) == sender_did, Error::<T>::Unauthorized);
 
@@ -1073,11 +1073,11 @@ impl<T: Config> Module<T> {
                     *pending_state.sender_amount,
                 )?;
             }
-            UnaffirmParity::Receiver => {
+            UnaffirmParty::Receiver => {
                 let receiver_did = Self::mercat_account_did(&leg.receiver);
                 ensure!(Some(caller_did) == receiver_did, Error::<T>::Unauthorized);
             }
-            UnaffirmParity::Mediator => {
+            UnaffirmParty::Mediator => {
                 ensure!(caller_did == leg.mediator, Error::<T>::Unauthorized);
             }
         }
