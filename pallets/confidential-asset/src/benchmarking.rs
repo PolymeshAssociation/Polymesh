@@ -119,7 +119,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> MercatUser<T> {
     }
 
     /// Create asset mint proof.
-    pub fn mint_tx(&self, amount: MercatBalance, rng: &mut StdRng) -> InitializedAssetTxWrapper {
+    pub fn mint_tx(&self, amount: MercatBalance, rng: &mut StdRng) -> MercatMintAssetTx {
         let issuer_account = Account {
             secret: self.sec.clone(),
             public: self.pub_account(),
@@ -128,7 +128,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> MercatUser<T> {
         let initialized_asset_tx = AssetIssuer
             .initialize_asset_transaction(&issuer_account, &[], amount, rng)
             .unwrap();
-        InitializedAssetTxWrapper::from(initialized_asset_tx)
+        MercatMintAssetTx::from(initialized_asset_tx)
     }
 
     /// Initialize a new mercat account on-chain for `ticker`.
@@ -137,7 +137,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> MercatUser<T> {
         assert_ok!(Module::<T>::validate_mercat_account(
             self.origin().into(),
             ticker,
-            PubAccountTxWrapper::from(mercat_account_tx.clone())
+            MercatPubAccountTx::from(mercat_account_tx.clone())
         ));
     }
 
@@ -300,7 +300,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> TransactionState<T> {
                 rng,
             )
             .unwrap();
-        AffirmLeg::new_sender(leg_id, sender_tx)
+        AffirmLeg::sender(leg_id, sender_tx)
     }
 
     pub fn sender_affirm(&self, leg_id: TransactionLegId, rng: &mut StdRng) {
@@ -316,7 +316,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> TransactionState<T> {
         assert_ok!(Module::<T>::affirm_transaction(
             self.investor.origin().into(),
             self.id,
-            AffirmLeg::new_receiver(leg_id),
+            AffirmLeg::receiver(leg_id),
         ));
     }
 
@@ -324,7 +324,31 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> TransactionState<T> {
         assert_ok!(Module::<T>::affirm_transaction(
             self.mediator.origin().into(),
             self.id,
-            AffirmLeg::new_mediator(leg_id),
+            AffirmLeg::mediator(leg_id),
+        ));
+    }
+
+    pub fn sender_unaffirm(&self, leg_id: TransactionLegId) {
+        assert_ok!(Module::<T>::unaffirm_transaction(
+            self.issuer.origin().into(),
+            self.id,
+            UnaffirmLeg::sender(leg_id),
+        ));
+    }
+
+    pub fn receiver_unaffirm(&self, leg_id: TransactionLegId) {
+        assert_ok!(Module::<T>::unaffirm_transaction(
+            self.investor.origin().into(),
+            self.id,
+            UnaffirmLeg::receiver(leg_id),
+        ));
+    }
+
+    pub fn mediator_unaffirm(&self, leg_id: TransactionLegId) {
+        assert_ok!(Module::<T>::unaffirm_transaction(
+            self.mediator.origin().into(),
+            self.id,
+            UnaffirmLeg::mediator(leg_id),
         ));
     }
 
@@ -345,7 +369,7 @@ benchmarks! {
         let ticker = Ticker::from_slice_truncated(b"A".as_ref());
         let user = MercatUser::<T>::new("user", &mut rng);
         let mercat_account_tx = user.account_tx(&mut rng);
-        let account_tx = PubAccountTxWrapper::from(mercat_account_tx.clone());
+        let account_tx = MercatPubAccountTx::from(mercat_account_tx.clone());
 
     }: _(user.origin(), ticker, account_tx)
 
@@ -375,6 +399,19 @@ benchmarks! {
         let mint_tx = issuer.mint_tx(total_supply, &mut rng);
     }: _(issuer.origin(), ticker, total_supply.into(), mint_tx)
 
+    apply_incoming_balance {
+        let mut rng = StdRng::from_seed([10u8; 32]);
+
+        // Setup for transaction.
+        let mut tx = TransactionState::<T>::new(&mut rng);
+        tx.add_transaction();
+        let leg_id = TransactionLegId(0);
+        tx.sender_affirm(leg_id, &mut rng);
+        tx.receiver_affirm(leg_id);
+        tx.mediator_affirm(leg_id);
+        tx.execute();
+    }: _(tx.issuer.origin(), tx.issuer.mercat(), tx.ticker)
+
     add_transaction {
         let mut rng = StdRng::from_seed([10u8; 32]);
 
@@ -403,7 +440,7 @@ benchmarks! {
         let leg_id = TransactionLegId(0);
         tx.sender_affirm(leg_id, &mut rng);
 
-        let affirm = AffirmLeg::new_receiver(leg_id);
+        let affirm = AffirmLeg::receiver(leg_id);
     }: affirm_transaction(tx.investor.origin(), tx.id, affirm)
 
     mediator_affirm_transaction {
@@ -416,8 +453,47 @@ benchmarks! {
         tx.sender_affirm(leg_id, &mut rng);
         tx.receiver_affirm(leg_id);
 
-        let affirm = AffirmLeg::new_mediator(leg_id);
+        let affirm = AffirmLeg::mediator(leg_id);
     }: affirm_transaction(tx.mediator.origin(), tx.id, affirm)
+
+    sender_unaffirm_transaction {
+        let mut rng = StdRng::from_seed([10u8; 32]);
+
+        // Setup for transaction.
+        let mut tx = TransactionState::<T>::new(&mut rng);
+        tx.add_transaction();
+        let leg_id = TransactionLegId(0);
+
+        tx.sender_affirm(leg_id, &mut rng);
+        let unaffirm = UnaffirmLeg::sender(leg_id);
+    }: unaffirm_transaction(tx.issuer.origin(), tx.id, unaffirm)
+
+    receiver_unaffirm_transaction {
+        let mut rng = StdRng::from_seed([10u8; 32]);
+
+        // Setup for transaction.
+        let mut tx = TransactionState::<T>::new(&mut rng);
+        tx.add_transaction();
+        let leg_id = TransactionLegId(0);
+        tx.sender_affirm(leg_id, &mut rng);
+        tx.receiver_affirm(leg_id);
+
+        let unaffirm = UnaffirmLeg::receiver(leg_id);
+    }: unaffirm_transaction(tx.investor.origin(), tx.id, unaffirm)
+
+    mediator_unaffirm_transaction {
+        let mut rng = StdRng::from_seed([10u8; 32]);
+
+        // Setup for transaction.
+        let mut tx = TransactionState::<T>::new(&mut rng);
+        tx.add_transaction();
+        let leg_id = TransactionLegId(0);
+        tx.sender_affirm(leg_id, &mut rng);
+        tx.receiver_affirm(leg_id);
+        tx.mediator_affirm(leg_id);
+
+        let unaffirm = UnaffirmLeg::mediator(leg_id);
+    }: unaffirm_transaction(tx.mediator.origin(), tx.id, unaffirm)
 
     execute_transaction {
         //let l in 1..10;
@@ -434,7 +510,10 @@ benchmarks! {
         tx.mediator_affirm(leg_id);
     }: _(tx.issuer.origin(), tx.id, l)
 
-    apply_incoming_balance {
+    revert_transaction {
+        //let l in 1..10;
+        let l = 1;
+
         let mut rng = StdRng::from_seed([10u8; 32]);
 
         // Setup for transaction.
@@ -444,6 +523,5 @@ benchmarks! {
         tx.sender_affirm(leg_id, &mut rng);
         tx.receiver_affirm(leg_id);
         tx.mediator_affirm(leg_id);
-        tx.execute();
-    }: _(tx.issuer.origin(), tx.issuer.mercat(), tx.ticker)
+    }: _(tx.issuer.origin(), tx.id, l)
 }

@@ -18,8 +18,8 @@ use mercat::{
     TransferTransactionReceiver, TransferTransactionSender,
 };
 use pallet_confidential_asset::{
-    AffirmLeg, ConfidentialAssetDetails, InitializedAssetTxWrapper, MercatAccount,
-    PubAccountTxWrapper, TransactionLeg, TransactionLegId, VenueId,
+    AffirmLeg, ConfidentialAssetDetails, MercatAccount, MercatMintAssetTx, MercatPubAccountTx,
+    TransactionLeg, TransactionLegId, VenueId,
 };
 use polymesh_primitives::{
     asset::{AssetName, AssetType},
@@ -81,7 +81,7 @@ pub fn init_account(
     assert_ok!(ConfidentialAsset::validate_mercat_account(
         owner.origin(),
         ticker,
-        PubAccountTxWrapper::from(mercat_account_tx.clone())
+        MercatPubAccountTx::from(mercat_account_tx.clone())
     ));
 
     let pub_account = &mercat_account_tx.pub_account;
@@ -129,7 +129,7 @@ pub fn create_account_and_mint_token(
     assert_ok!(ConfidentialAsset::validate_mercat_account(
         owner.origin(),
         ticker,
-        PubAccountTxWrapper::from(mercat_account_tx.clone())
+        MercatPubAccountTx::from(mercat_account_tx.clone())
     ));
 
     // ------------- Computations that will happen in owner's Wallet ----------
@@ -148,7 +148,7 @@ pub fn create_account_and_mint_token(
         owner.origin(),
         ticker,
         amount.into(), // convert to u128
-        InitializedAssetTxWrapper::from(initialized_asset_tx),
+        MercatMintAssetTx::from(initialized_asset_tx),
     ));
 
     // ------------------------- Ensuring that the asset details are set correctly
@@ -311,7 +311,7 @@ fn issuers_can_create_and_mint_tokens() {
         ConfidentialAsset::validate_mercat_account(
             owner.origin(),
             ticker,
-            PubAccountTxWrapper::from(mercat_account_tx.clone()),
+            MercatPubAccountTx::from(mercat_account_tx.clone()),
         )
         .unwrap();
         let pub_account = mercat_account_tx.pub_account;
@@ -335,7 +335,7 @@ fn issuers_can_create_and_mint_tokens() {
             owner.origin(),
             ticker,
             amount.into(), // convert to u128
-            InitializedAssetTxWrapper::from(initialized_asset_tx),
+            MercatMintAssetTx::from(initialized_asset_tx),
         )
         .unwrap();
 
@@ -376,7 +376,7 @@ fn account_create_tx() {
         ConfidentialAsset::validate_mercat_account(
             alice.origin(),
             ticker,
-            PubAccountTxWrapper::from(mercat_account_tx.clone()),
+            MercatPubAccountTx::from(mercat_account_tx.clone()),
         )
         .unwrap();
 
@@ -455,10 +455,6 @@ fn basic_confidential_settlement() {
             let transaction_id = ConfidentialAsset::transaction_counter();
             let leg_id = TransactionLegId(0);
 
-            //// Provide scope claim to sender and receiver of the transaction.
-            //provide_scope_claim_to_multiple_parties(&[alice.did, bob.did], ticker, alice);
-            // TODO: CRYP-172 I think we decided not to do this as it would leak the ticker name
-
             assert_ok!(ConfidentialAsset::add_transaction(
                 charlie.origin(),
                 venue_counter,
@@ -502,7 +498,7 @@ fn basic_confidential_settlement() {
                 .unwrap();
             let alice_encrypted_transfer_amount = sender_tx.memo.enc_amount_using_sender;
             let bob_encrypted_transfer_amount = sender_tx.memo.enc_amount_using_receiver;
-            let initialized_tx = AffirmLeg::new_sender(leg_id, sender_tx);
+            let initialized_tx = AffirmLeg::sender(leg_id, sender_tx);
             // Sender authorizes the transaction and passes in the proofs.
             assert_affirm_confidential_transaction!(alice.origin(), transaction_id, initialized_tx);
 
@@ -526,7 +522,7 @@ fn basic_confidential_settlement() {
                     amount,
                 )
                 .unwrap();
-            let finalized_tx = AffirmLeg::new_receiver(leg_id);
+            let finalized_tx = AffirmLeg::receiver(leg_id);
 
             // Receiver submits the proof to the chain.
             assert_affirm_confidential_transaction!(bob.origin(), transaction_id, finalized_tx);
@@ -547,7 +543,7 @@ fn basic_confidential_settlement() {
                     &mut rng,
                 )
                 .unwrap();
-            let justified_tx = AffirmLeg::new_mediator(leg_id);
+            let justified_tx = AffirmLeg::mediator(leg_id);
 
             println!("-------------> This should trigger the execution");
             assert_affirm_confidential_transaction!(charlie.origin(), transaction_id, justified_tx);

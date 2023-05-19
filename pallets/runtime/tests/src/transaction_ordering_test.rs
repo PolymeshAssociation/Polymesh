@@ -11,7 +11,7 @@ use mercat::{
     TransferTransactionReceiver, TransferTransactionSender,
 };
 use pallet_confidential_asset::{
-    AffirmLeg, MercatAccount, TransactionId, TransactionLeg, TransactionLegId, VenueId,
+    AffirmLeg, MercatAccount, TransactionId, TransactionLeg, TransactionLegId, UnaffirmLeg, VenueId,
 };
 use polymesh_primitives::Ticker;
 use rand::prelude::*;
@@ -96,7 +96,7 @@ fn initialize_transaction(
             &mut rng,
         )
         .unwrap();
-    let initialized_tx = AffirmLeg::new_sender(leg_id, sender_tx);
+    let initialized_tx = AffirmLeg::sender(leg_id, sender_tx);
     // Sender authorizes the transaction and passes in the proofs.
     let result = ConfidentialAsset::affirm_transaction(
         sender_creds.user.origin(),
@@ -131,7 +131,7 @@ fn initialize_transaction(
             amount,
         )
         .unwrap();
-    let finalized_tx = AffirmLeg::new_receiver(leg_id);
+    let finalized_tx = AffirmLeg::receiver(leg_id);
 
     // Receiver submits the proof to the chain.
     assert_ok!(ConfidentialAsset::affirm_transaction(
@@ -198,7 +198,7 @@ fn finalize_transaction(
         return;
     }
 
-    let justified_tx = AffirmLeg::new_mediator(leg_id);
+    let justified_tx = AffirmLeg::mediator(leg_id);
 
     // Affirms and process the transaction.
     assert_ok!(ConfidentialAsset::affirm_transaction(
@@ -586,7 +586,7 @@ fn mercat_whitepaper_scenario1() {
             //            => Charlie (the mediator) fails tx_id:1000.
             //            => Charlie (the mediator) approves tx_id:1001.
             //            => Charlie (the mediator) approves tx_id:1002.
-            let (_transaction_id1000, alice_sent_amount_1000, _bob_received_amount_1000) =
+            let (transaction_id1000, alice_sent_amount_1000, _bob_received_amount_1000) =
                 initialize_transaction(
                     ticker,
                     alice_secret_account.clone(),
@@ -646,22 +646,20 @@ fn mercat_whitepaper_scenario1() {
             );
 
             // Alice has a change of heart and rejects the transaction to Bob!
-            /*
-            TODO: add reject.
-            assert_ok!(ConfidentialAsset::reject_transaction(
+            let leg_id = TransactionLegId(0);
+            let unaffirm = UnaffirmLeg::sender(leg_id);
+            assert_ok!(ConfidentialAsset::unaffirm_transaction(
                 alice_creds.user.origin(),
                 transaction_id1000,
-                PortfolioId::default_portfolio(alice_creds.user.did),
-                1
+                unaffirm,
             ));
 
-            // Execute affirmed transaction.
-            assert_ok!(ConfidentialAsset::execute_transaction(
-                mediator_creds.user.origin(),
+            // Revert transaction.
+            assert_ok!(ConfidentialAsset::revert_transaction(
+                charlie_creds.user.origin(),
                 transaction_id1000,
                 1,
             ));
-            */
 
             // Approve and process tx:1002.
             finalize_transaction(
@@ -671,8 +669,7 @@ fn mercat_whitepaper_scenario1() {
                 dave_creds.clone(),
                 charlie_creds.clone(),
                 charlie_secret_account.clone(),
-                alice_init_balance - alice_sent_amount_1000 - alice_sent_amount_1002
-                    + alice_received_amount_1001,
+                alice_init_balance - alice_sent_amount_1002 + alice_received_amount_1001,
                 dave_init_balance - dave_sent_amount_1001 + dave_received_amount_1002,
                 Some(alice_secret_account.clone()),
                 Some(dave_secret_account.clone()),
@@ -754,7 +751,7 @@ fn mercat_whitepaper_scenario2() {
             // tx_id:1003 => Alice sends 19 assets to Bob.
             // Alice resets her pending state.
             // tx_id:1004 => Alice sends 55 assets to Dave.
-            let (_transaction_id1000, alice_sent_amount_1000, _bob_received_amount_1000) =
+            let (transaction_id1000, alice_sent_amount_1000, _bob_received_amount_1000) =
                 initialize_transaction(
                     ticker,
                     alice_secret_account.clone(),
@@ -815,22 +812,21 @@ fn mercat_whitepaper_scenario2() {
             let alice_pending_balance = alice_pending_balance + alice_received_amount_1001;
 
             // Alice has a change of heart and rejects the transaction to Bob!
-            /*
-            TODO: add reject.
-            assert_ok!(ConfidentialAsset::reject_transaction(
+            let leg_id = TransactionLegId(0);
+            let unaffirm = UnaffirmLeg::sender(leg_id);
+            assert_ok!(ConfidentialAsset::unaffirm_transaction(
                 alice_creds.user.origin(),
                 transaction_id1000,
-                PortfolioId::default_portfolio(alice_creds.user.did),
-                1
+                unaffirm,
             ));
+            let alice_pending_balance = alice_pending_balance + alice_sent_amount_1000;
 
-            // Execute affirmed transaction.
-            assert_ok!(ConfidentialAsset::execute_transaction(
-                mediator_creds.user.origin(),
+            // Revert transaction.
+            assert_ok!(ConfidentialAsset::revert_transaction(
+                charlie_creds.user.origin(),
                 transaction_id1000,
                 1,
             ));
-            */
 
             // Approve and process tx:1002.
             finalize_transaction(
