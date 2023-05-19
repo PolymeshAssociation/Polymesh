@@ -671,31 +671,24 @@ decl_module! {
         /// # Arguments
         /// * `id` - Instruction id for that affirmation get withdrawn.
         /// * `portfolios` - Portfolios that the sender controls and wants to withdraw affirmation.
-        /// * `fungible_transfers` - number of fungible transfers in the instruction.
-        /// * `nfts_transfers` - total number of NFTs being transferred in the instruction.
-        /// * `offchain_transfers` - The number of offchain assets in the instruction.
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::withdraw_affirmation(*fungible_transfers, *nfts_transfers, *offchain_transfers)]
-        pub fn withdraw_affirmation(
-            origin,
-            id: InstructionId,
-            portfolios: Vec<PortfolioId>,
-            fungible_transfers: u32,
-            nfts_transfers: u32,
-            offchain_transfers: u32
-        ) -> DispatchResult {
-            let (did, secondary_key, details) = Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
-            let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
-
-            let input_cost = AssetCount::new(fungible_transfers, nfts_transfers, offchain_transfers);
-            Self::unsafe_withdraw_instruction_affirmation(did, id, portfolios_set, secondary_key.as_ref(), &input_cost)?;
+        #[weight = <T as Config>::WeightInfo::withdraw_affirmation(
+            T::MaxNumberOfFungibleAssets::get(),
+            T::MaxNumberOfNFTs::get(),
+            T::MaxNumberOfOffChainAssets::get()
+        )]
+        pub fn withdraw_affirmation(origin, id: InstructionId, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
+            let (did, secondary_key, details) =
+                Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
+            let filtered_legs =
+                Self::unsafe_withdraw_instruction_affirmation(did, id, portfolios, secondary_key.as_ref())?;
             if details.settlement_type == SettlementType::SettleOnAffirmation {
                 // Cancel the scheduled task for the execution of a given instruction.
                 let _fix_this = T::Scheduler::cancel_named(id.execution_name());
             }
-            Ok(())
+            Ok(PostDispatchInfo::from(Some(Self::withdraw_affirmation_weight(filtered_legs.subset_asset_count()))))
         }
 
         /// Rejects an existing instruction.
@@ -953,10 +946,10 @@ impl<T: Config> Module<T> {
     fn unsafe_withdraw_instruction_affirmation(
         did: IdentityId,
         id: InstructionId,
-        portfolios: BTreeSet<PortfolioId>,
+        portfolios: Vec<PortfolioId>,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
-        input_cost: &AssetCount,
     ) -> Result<FilteredLegs, DispatchError> {
+        let portfolios = portfolios.into_iter().collect::<BTreeSet<_>>();
         // checks custodianship of portfolios and affirmation status
         Self::ensure_portfolios_and_affirmation_status(
             id,
@@ -966,8 +959,8 @@ impl<T: Config> Module<T> {
             &[AffirmationStatus::Affirmed],
         )?;
         // Unlock tokens that were previously locked during the affirmation
-        let filtered_legs = Self::filtered_legs(id, &portfolios, input_cost)?;
-        for (leg_id, leg_details) in filtered_legs.legs() {
+        let filtered_legs = Self::filtered_legs(id, &portfolios, None)?;
+        for (leg_id, leg) in filtered_legs.legs() {
             match Self::instruction_leg_status(id, leg_id) {
                 LegStatus::ExecutionToBeSkipped(signer, receipt_uid) => {
                     // Receipt was claimed for this instruction. Therefore, no token unlocking is required, we just unclaim the receipt.
@@ -982,7 +975,7 @@ impl<T: Config> Module<T> {
                 }
                 LegStatus::ExecutionPending => {
                     // Tokens are locked, need to be unlocked.
-                    Self::unlock_via_leg(&leg_details)?;
+                    Self::unlock_via_leg(&leg)?;
                 }
                 LegStatus::PendingTokenLock => {
                     return Err(Error::<T>::InstructionNotAffirmed.into());
@@ -1213,7 +1206,7 @@ impl<T: Config> Module<T> {
             &[AffirmationStatus::Pending],
         )?;
 
-        let filtered_legs = Self::filtered_legs(id, &portfolios, input_cost)?;
+        let filtered_legs = Self::filtered_legs(id, &portfolios, Some(input_cost))?;
         with_transaction(|| {
             for (leg_id, leg) in filtered_legs.legs() {
                 ensure!(
@@ -1315,7 +1308,7 @@ impl<T: Config> Module<T> {
         id: InstructionId,
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
-        input_cost: &AssetCount,
+        input_cost: Option<&AssetCount>,
     ) -> Result<FilteredLegs, DispatchError> {
         let (did, secondary_key, instruction_details) =
             Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
@@ -1452,13 +1445,8 @@ impl<T: Config> Module<T> {
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
     ) -> DispatchResultWithPostInfo {
-        let input_cost = AssetCount::new(
-            T::MaxNumberOfFungibleAssets::get(),
-            T::MaxNumberOfNFTs::get(),
-            T::MaxNumberOfOffChainAssets::get(),
-        );
         let filtered_legs =
-            Self::base_affirm_with_receipts(origin, id, receipt_details, portfolios, &input_cost)?;
+            Self::base_affirm_with_receipts(origin, id, receipt_details, portfolios, None)?;
         let instruction_asset_count = filtered_legs.instruction_asset_count();
         let weight_limit = Self::execute_scheduled_instruction_weight_limit(
             instruction_asset_count.fungible(),
@@ -1508,9 +1496,13 @@ impl<T: Config> Module<T> {
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         match receipt {
-            Some(receipt) => {
-                Self::base_affirm_with_receipts(origin, id, vec![receipt], portfolios, input_cost)?
-            }
+            Some(receipt) => Self::base_affirm_with_receipts(
+                origin,
+                id,
+                vec![receipt],
+                portfolios,
+                Some(input_cost),
+            )?,
             None => Self::base_affirm_instruction(origin, id, portfolios.into_iter(), input_cost)?,
         };
         Self::execute_settle_on_affirmation_instruction(
@@ -1566,7 +1558,7 @@ impl<T: Config> Module<T> {
     fn filtered_legs(
         id: InstructionId,
         portfolio_set: &BTreeSet<PortfolioId>,
-        input_cost: &AssetCount,
+        input_cost: Option<&AssetCount>,
     ) -> Result<FilteredLegs, DispatchError> {
         let instruction_legs: Vec<(LegId, Leg)> = InstructionLegs::iter_prefix(&id).collect();
         let instruction_asset_count = AssetCount::from_legs(&instruction_legs);
@@ -1576,7 +1568,9 @@ impl<T: Config> Module<T> {
             .filter(|(_, leg)| portfolio_set.contains(&leg.from))
             .collect();
         let subset_asset_count = AssetCount::from_legs(&legs_from_set);
-        Self::ensure_valid_input_cost(&subset_asset_count, input_cost)?;
+        if let Some(input_cost) = input_cost {
+            Self::ensure_valid_input_cost(&subset_asset_count, input_cost)?;
+        }
         Ok(FilteredLegs::new(
             id,
             legs_from_set,
@@ -1656,7 +1650,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Returns ok if the number of fungible assets and nfts being transferred is under the input given by the user.
+    /// Returns `Ok` if the number of fungible, nonfungible and offchain assets is under the input given by the user.
     fn ensure_valid_input_cost(real_cost: &AssetCount, input_cost: &AssetCount) -> DispatchResult {
         // Verifies if the number of nfts being transferred is under the limit
         ensure!(
@@ -1869,6 +1863,15 @@ impl<T: Config> Module<T> {
         <T as Config>::WeightInfo::affirm_instruction(
             assets_in_portfolio.fungible(),
             assets_in_portfolio.non_fungible(),
+        )
+    }
+
+    /// Returns the weight for calling `withdraw_affirmation` with the number of assets in `assets_in_portfolio`.
+    fn withdraw_affirmation_weight(assets_in_portfolio: &AssetCount) -> Weight {
+        <T as Config>::WeightInfo::withdraw_affirmation(
+            assets_in_portfolio.fungible(),
+            assets_in_portfolio.non_fungible(),
+            assets_in_portfolio.off_chain(),
         )
     }
 

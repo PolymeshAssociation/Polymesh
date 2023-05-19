@@ -539,7 +539,7 @@ benchmarks! {
         let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, false, false);
         let portfolios =
             [parameters.portfolios.sdr_portfolios, parameters.portfolios.sdr_receipt_portfolios].concat();
-    }: _(alice.origin, InstructionId(1),  portfolios, f, n, o)
+    }: _(alice.origin, InstructionId(1),  portfolios)
 
     reject_instruction {
         // Number of fungible, non-fungible and offchain LEGS in the instruction

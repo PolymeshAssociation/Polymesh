@@ -529,9 +529,6 @@ fn token_swap() {
             alice.origin(),
             instruction_id,
             default_portfolio_vec(alice.did),
-            1,
-            0,
-            0
         ));
 
         assert_affirms_pending(instruction_id, 2);
@@ -1052,7 +1049,6 @@ fn basic_fuzzing() {
 
         // Authorize instructions and do a few authorize/deny in between
         for (_, user) in users.clone().iter().enumerate() {
-            let leg_count = *legs_count.get(&user.did).unwrap_or(&0);
             for _ in 0..2 {
                 if random() {
                     assert_affirm_instruction!(user.origin(), instruction_id, user.did);
@@ -1060,9 +1056,6 @@ fn basic_fuzzing() {
                         user.origin(),
                         instruction_id,
                         default_portfolio_vec(user.did),
-                        leg_count,
-                        0,
-                        0
                     ));
                 }
             }
@@ -1103,9 +1096,6 @@ fn basic_fuzzing() {
                 users[failed_user].origin(),
                 instruction_id,
                 default_portfolio_vec(users[failed_user].did),
-                *legs_count.get(&users[failed_user].did).unwrap_or(&0),
-                0,
-                0
             ));
             locked_assets.retain(|(did, _), _| *did != users[failed_user].did);
         }
@@ -1667,9 +1657,6 @@ fn multiple_portfolio_settlement() {
                     PortfolioId::default_portfolio(alice.did),
                     PortfolioId::user_portfolio(alice.did, alice_num)
                 ],
-                2,
-                0,
-                0
             ),
             Error::UnexpectedAffirmationStatus
         );
@@ -1863,14 +1850,7 @@ fn multiple_custodian_settlement() {
         // Alice fails to deny the instruction from both her portfolios since she doesn't have the custody
         next_block();
         assert_noop!(
-            Settlement::withdraw_affirmation(
-                alice.origin(),
-                instruction_id,
-                portfolios_vec,
-                2,
-                0,
-                0
-            ),
+            Settlement::withdraw_affirmation(alice.origin(), instruction_id, portfolios_vec,),
             PortfolioError::UnauthorizedCustodian
         );
 
@@ -1879,9 +1859,6 @@ fn multiple_custodian_settlement() {
             alice.origin(),
             instruction_id,
             default_portfolio_vec(alice.did),
-            1,
-            0,
-            0
         ));
         assert_locked_assets(&TICKER, &alice, 0);
 
