@@ -57,24 +57,24 @@ impl pallet_confidential_asset::WeightInfo for SubstrateWeight {
     // Storage: ConfidentialAsset MercatAccountBalance (r:1 w:1)
     // Storage: ConfidentialAsset MercatAccountDid (r:1 w:1)
     fn validate_mercat_account() -> Weight {
-        // Minimum execution time: 3_267_268 nanoseconds.
-        Weight::from_ref_time(3_354_277_000)
+        // Minimum execution time: 3_083_840 nanoseconds.
+        Weight::from_ref_time(3_116_370_000)
             .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().writes(2))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ConfidentialAsset MediatorMercatAccounts (r:0 w:1)
     fn add_mediator_mercat_account() -> Weight {
-        // Minimum execution time: 118_909 nanoseconds.
-        Weight::from_ref_time(119_825_000)
+        // Minimum execution time: 119_143 nanoseconds.
+        Weight::from_ref_time(119_600_000)
             .saturating_add(DbWeight::get().reads(1))
             .saturating_add(DbWeight::get().writes(1))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ConfidentialAsset Details (r:1 w:1)
     fn create_confidential_asset() -> Weight {
-        // Minimum execution time: 89_228 nanoseconds.
-        Weight::from_ref_time(89_904_000)
+        // Minimum execution time: 89_538 nanoseconds.
+        Weight::from_ref_time(90_313_000)
             .saturating_add(DbWeight::get().reads(2))
             .saturating_add(DbWeight::get().writes(1))
     }
@@ -82,8 +82,8 @@ impl pallet_confidential_asset::WeightInfo for SubstrateWeight {
     // Storage: ConfidentialAsset Details (r:1 w:1)
     // Storage: ConfidentialAsset MercatAccountBalance (r:1 w:1)
     fn mint_confidential_asset() -> Weight {
-        // Minimum execution time: 6_016_725 nanoseconds.
-        Weight::from_ref_time(6_189_188_000)
+        // Minimum execution time: 5_848_558 nanoseconds.
+        Weight::from_ref_time(5_990_400_000)
             .saturating_add(DbWeight::get().reads(3))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -91,8 +91,8 @@ impl pallet_confidential_asset::WeightInfo for SubstrateWeight {
     // Storage: ConfidentialAsset MercatAccountDid (r:1 w:0)
     // Storage: ConfidentialAsset IncomingBalance (r:1 w:0)
     fn apply_incoming_balance() -> Weight {
-        // Minimum execution time: 78_954 nanoseconds.
-        Weight::from_ref_time(100_611_000).saturating_add(DbWeight::get().reads(3))
+        // Minimum execution time: 78_549 nanoseconds.
+        Weight::from_ref_time(109_414_000).saturating_add(DbWeight::get().reads(3))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ConfidentialAsset TransactionCounter (r:1 w:1)
@@ -101,8 +101,8 @@ impl pallet_confidential_asset::WeightInfo for SubstrateWeight {
     // Storage: ConfidentialAsset UserAffirmations (r:0 w:3)
     // Storage: ConfidentialAsset TransactionLegs (r:0 w:1)
     fn add_transaction() -> Weight {
-        // Minimum execution time: 210_502 nanoseconds.
-        Weight::from_ref_time(222_561_000)
+        // Minimum execution time: 209_199 nanoseconds.
+        Weight::from_ref_time(224_744_000)
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(6))
     }
@@ -118,8 +118,8 @@ impl pallet_confidential_asset::WeightInfo for SubstrateWeight {
     // Storage: ConfidentialAsset SenderProofs (r:0 w:1)
     // Storage: ConfidentialAsset TxPendingState (r:0 w:1)
     fn sender_affirm_transaction() -> Weight {
-        // Minimum execution time: 61_778_668 nanoseconds.
-        Weight::from_ref_time(63_367_081_000)
+        // Minimum execution time: 60_919_424 nanoseconds.
+        Weight::from_ref_time(62_263_620_000)
             .saturating_add(DbWeight::get().reads(9))
             .saturating_add(DbWeight::get().writes(6))
     }
@@ -129,8 +129,8 @@ impl pallet_confidential_asset::WeightInfo for SubstrateWeight {
     // Storage: ConfidentialAsset MercatAccountDid (r:1 w:0)
     // Storage: ConfidentialAsset PendingAffirms (r:1 w:1)
     fn receiver_affirm_transaction() -> Weight {
-        // Minimum execution time: 113_528 nanoseconds.
-        Weight::from_ref_time(144_399_000)
+        // Minimum execution time: 110_638 nanoseconds.
+        Weight::from_ref_time(122_367_000)
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -139,8 +139,8 @@ impl pallet_confidential_asset::WeightInfo for SubstrateWeight {
     // Storage: ConfidentialAsset UserAffirmations (r:1 w:1)
     // Storage: ConfidentialAsset PendingAffirms (r:1 w:1)
     fn mediator_affirm_transaction() -> Weight {
-        // Minimum execution time: 98_428 nanoseconds.
-        Weight::from_ref_time(114_076_000)
+        // Minimum execution time: 102_466 nanoseconds.
+        Weight::from_ref_time(110_253_000)
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -153,8 +153,8 @@ impl pallet_confidential_asset::WeightInfo for SubstrateWeight {
     // Storage: ConfidentialAsset PendingAffirms (r:1 w:1)
     // Storage: ConfidentialAsset SenderProofs (r:0 w:1)
     fn sender_unaffirm_transaction() -> Weight {
-        // Minimum execution time: 534_873 nanoseconds.
-        Weight::from_ref_time(558_880_000)
+        // Minimum execution time: 557_121 nanoseconds.
+        Weight::from_ref_time(568_025_000)
             .saturating_add(DbWeight::get().reads(7))
             .saturating_add(DbWeight::get().writes(5))
     }
@@ -164,8 +164,8 @@ impl pallet_confidential_asset::WeightInfo for SubstrateWeight {
     // Storage: ConfidentialAsset MercatAccountDid (r:1 w:0)
     // Storage: ConfidentialAsset PendingAffirms (r:1 w:1)
     fn receiver_unaffirm_transaction() -> Weight {
-        // Minimum execution time: 106_315 nanoseconds.
-        Weight::from_ref_time(121_548_000)
+        // Minimum execution time: 105_518 nanoseconds.
+        Weight::from_ref_time(113_781_000)
             .saturating_add(DbWeight::get().reads(5))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -174,8 +174,8 @@ impl pallet_confidential_asset::WeightInfo for SubstrateWeight {
     // Storage: ConfidentialAsset TransactionLegs (r:1 w:0)
     // Storage: ConfidentialAsset PendingAffirms (r:1 w:1)
     fn mediator_unaffirm_transaction() -> Weight {
-        // Minimum execution time: 97_743 nanoseconds.
-        Weight::from_ref_time(110_603_000)
+        // Minimum execution time: 97_322 nanoseconds.
+        Weight::from_ref_time(116_022_000)
             .saturating_add(DbWeight::get().reads(4))
             .saturating_add(DbWeight::get().writes(2))
     }
@@ -187,11 +187,16 @@ impl pallet_confidential_asset::WeightInfo for SubstrateWeight {
     // Storage: ConfidentialAsset TxPendingState (r:1 w:1)
     // Storage: ConfidentialAsset IncomingBalance (r:1 w:1)
     // Storage: ConfidentialAsset SenderProofs (r:0 w:1)
-    fn execute_transaction(_l: u32) -> Weight {
-        // Minimum execution time: 502_724 nanoseconds.
-        Weight::from_ref_time(551_013_000)
-            .saturating_add(DbWeight::get().reads(11))
-            .saturating_add(DbWeight::get().writes(8))
+    /// The range of component `l` is `[1, 4]`.
+    fn execute_transaction(l: u32) -> Weight {
+        // Minimum execution time: 493_083 nanoseconds.
+        Weight::from_ref_time(29_961_761)
+            // Standard Error: 2_448_831
+            .saturating_add(Weight::from_ref_time(511_775_286).saturating_mul(l.into()))
+            .saturating_add(DbWeight::get().reads(6))
+            .saturating_add(DbWeight::get().reads((5_u64).saturating_mul(l.into())))
+            .saturating_add(DbWeight::get().writes(2))
+            .saturating_add(DbWeight::get().writes((6_u64).saturating_mul(l.into())))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ConfidentialAsset TransactionLegs (r:2 w:1)
@@ -201,10 +206,15 @@ impl pallet_confidential_asset::WeightInfo for SubstrateWeight {
     // Storage: ConfidentialAsset IncomingBalance (r:1 w:1)
     // Storage: ConfidentialAsset PendingAffirms (r:0 w:1)
     // Storage: ConfidentialAsset SenderProofs (r:0 w:1)
-    fn revert_transaction(_l: u32) -> Weight {
-        // Minimum execution time: 490_066 nanoseconds.
-        Weight::from_ref_time(494_972_000)
-            .saturating_add(DbWeight::get().reads(8))
-            .saturating_add(DbWeight::get().writes(8))
+    /// The range of component `l` is `[1, 4]`.
+    fn revert_transaction(l: u32) -> Weight {
+        // Minimum execution time: 477_101 nanoseconds.
+        Weight::from_ref_time(17_285_488)
+            // Standard Error: 2_373_628
+            .saturating_add(Weight::from_ref_time(503_078_837).saturating_mul(l.into()))
+            .saturating_add(DbWeight::get().reads(5))
+            .saturating_add(DbWeight::get().reads((3_u64).saturating_mul(l.into())))
+            .saturating_add(DbWeight::get().writes(2))
+            .saturating_add(DbWeight::get().writes((6_u64).saturating_mul(l.into())))
     }
 }
