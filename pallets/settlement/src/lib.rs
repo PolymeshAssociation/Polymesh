@@ -581,7 +581,6 @@ decl_module! {
         /// * `value_date` - Optional date after which the instruction should be settled (not enforced)
         /// * `legs` - Legs included in this instruction.
         /// * `memo` - Memo field for this instruction.
-        /// * `weight_limit` - Optional value that defines a maximum weight for executing the instruction.
         ///
         /// # Weight
         /// `950_000_000 + 1_000_000 * legs.len()`
