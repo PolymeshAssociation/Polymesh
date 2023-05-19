@@ -436,47 +436,43 @@ impl InstructionInfo {
     }
 }
 
-/// A subset of legs that belong to the instruction of `instruction_id` and the [`AssetCount`] for the instruction and the subset.
+/// A subset of legs and the [`AssetCount`] for the unfiltered set and the subset.
 pub struct FilteredLegs {
-    /// The [`InstructionId`] of the instruction of the subset of legs.
-    instruction_id: InstructionId,
     /// A [`Vec<(LegId, Leg)>`] containing a subset of the legs.
-    legs: Vec<(LegId, Leg)>,
-    /// The [`AssetCount`] for the instruction.
-    instruction_asset_count: AssetCount,
+    leg_subset: Vec<(LegId, Leg)>,
+    /// The [`AssetCount`] for the unfiltered set.
+    unfiltered_asset_count: AssetCount,
     /// The [`AssetCount`] for the subset of legs.
     subset_asset_count: AssetCount,
 }
 
 impl FilteredLegs {
-    /// Creates a new [`FilteredLegs`] instance.
-    pub fn new(
-        instruction_id: InstructionId,
-        legs: Vec<(LegId, Leg)>,
-        instruction_asset_count: AssetCount,
-        subset_asset_count: AssetCount,
+    /// Returns [`FilteredLegs`] where the subset of legs are the legs where the sender is in the given `portfolio_set`.
+    pub fn filter_sender(
+        original_set: Vec<(LegId, Leg)>,
+        portfolio_set: &BTreeSet<PortfolioId>,
     ) -> Self {
-        Self {
-            instruction_id,
-            legs,
-            instruction_asset_count,
+        let unfiltered_asset_count = AssetCount::from_legs(&original_set);
+        let leg_subset: Vec<(LegId, Leg)> = original_set
+            .into_iter()
+            .filter(|(_, leg)| portfolio_set.contains(&leg.from))
+            .collect();
+        let subset_asset_count = AssetCount::from_legs(&leg_subset);
+        FilteredLegs {
+            leg_subset,
+            unfiltered_asset_count,
             subset_asset_count,
         }
     }
 
-    /// Returns the [`InstructionId`] of the intruction.
-    pub fn instruction_id(&self) -> InstructionId {
-        self.instruction_id
-    }
-
     /// Returns a slice of `[(LegId, Leg)]` containing all legs in the subset.
-    pub fn legs(&self) -> &[(LegId, Leg)] {
-        &self.legs
+    pub fn leg_subset(&self) -> &[(LegId, Leg)] {
+        &self.leg_subset
     }
 
-    /// Returns the [`AssetCount`] for the instruction.
-    pub fn instruction_asset_count(&self) -> &AssetCount {
-        &self.instruction_asset_count
+    /// Returns the [`AssetCount`] for the unfiltered set.
+    pub fn unfiltered_asset_count(&self) -> &AssetCount {
+        &self.unfiltered_asset_count
     }
 
     /// Returns the [`AssetCount`] for the subset of legs.

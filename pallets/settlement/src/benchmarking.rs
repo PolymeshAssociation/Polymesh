@@ -589,7 +589,7 @@ benchmarks! {
         let parameters = setup_execute_instruction::<T>(&alice, &bob, settlement_type, venue_id, f, n, o, false, false);
         let portfolios =
             [parameters.portfolios.sdr_portfolios.clone(), parameters.portfolios.sdr_receipt_portfolios].concat();
-    }: _(alice.origin, InstructionId(1), parameters.portfolios.sdr_portfolios[0], f, n, o)
+    }: _(alice.origin, InstructionId(1), parameters.portfolios.sdr_portfolios[0])
 
     ensure_allowed_venue {
         // Number of UNIQUE tickers in the legs

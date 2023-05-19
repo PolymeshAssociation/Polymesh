@@ -464,13 +464,9 @@ decl_module! {
         /// * `validity` - New validity of the receipt.
         #[weight = <T as Config>::WeightInfo::change_receipt_validity()]
         pub fn change_receipt_validity(origin, receipt_uid: u64, validity: bool) {
-            let PermissionedCallOriginData {
-                primary_did,
-                sender: signer,
-                ..
-            } = Identity::<T>::ensure_origin_call_permissions(origin)?;
-            <ReceiptsUsed<T>>::insert(&signer, receipt_uid, !validity);
-            Self::deposit_event(RawEvent::ReceiptValidityChanged(primary_did, signer, receipt_uid, validity));
+            let origin_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
+            <ReceiptsUsed<T>>::insert(&origin_data.sender, receipt_uid, !validity);
+            Self::deposit_event(RawEvent::ReceiptValidityChanged(origin_data.primary_did, &origin_data.sender, receipt_uid, validity));
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
@@ -631,13 +627,11 @@ decl_module! {
         ) {
             let did = Identity::<T>::ensure_perms(origin.clone())?;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
-            let instruction_asset_count = AssetCount::try_from_legs(&legs).map_err(|_| Error::<T>::MaxNumberOfNFTsExceeded)?;
             let instruction_id = Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo)?;
             Self::affirm_and_maybe_schedule_instruction(
                 origin,
                 instruction_id,
                 portfolios_set.into_iter(),
-                &instruction_asset_count,
             )
             .map_err(|e| e.error)?;
         }
@@ -652,16 +646,10 @@ decl_module! {
         /// * Portfolio
         #[weight = <T as Config>::WeightInfo::affirm_instruction(T::MaxNumberOfFungibleAssets::get(), T::MaxNumberOfNFTs::get())]
         pub fn affirm_instruction(origin, id: InstructionId, portfolios: Vec<PortfolioId>) -> DispatchResultWithPostInfo {
-            let input_cost = AssetCount::new(
-                T::MaxNumberOfFungibleAssets::get(),
-                T::MaxNumberOfNFTs::get(),
-                T::MaxNumberOfOffChainAssets::get(),
-            );
             Self::affirm_and_maybe_schedule_instruction(
                 origin,
                 id,
                 portfolios.into_iter(),
-                &input_cost,
             )
         }
 
@@ -695,23 +683,16 @@ decl_module! {
         /// # Arguments
         /// * `id` - Instruction id to reject.
         /// * `portfolio` - Portfolio to reject the instruction.
-        /// * `fungible_transfers` - number of fungible transfers in the instruction.
-        /// * `nfts_transfers` - total number of NFTs being transferred in the instruction.
-        /// * `offchain_transfers` - The number of offchain assets in the instruction.
         ///
         /// # Permissions
         /// * Portfolio
-        #[weight = <T as Config>::WeightInfo::reject_instruction(*fungible_transfers, *nfts_transfers, *offchain_transfers)]
-        pub fn reject_instruction(
-            origin,
-            id: InstructionId,
-            portfolio: PortfolioId,
-            fungible_transfers: u32,
-            nfts_transfers: u32,
-            offchain_transfers: u32
-        ) -> DispatchResult {
-            let input_cost = AssetCount::new(fungible_transfers, nfts_transfers, offchain_transfers);
-            Self::base_reject_instruction(origin, id, portfolio, &input_cost)
+        #[weight = <T as Config>::WeightInfo::reject_instruction(
+            T::MaxNumberOfFungibleAssets::get(),
+            T::MaxNumberOfNFTs::get(),
+            T::MaxNumberOfOffChainAssets::get()
+        )]
+        pub fn reject_instruction(origin, id: InstructionId, portfolio: PortfolioId) -> DispatchResultWithPostInfo {
+            Self::base_reject_instruction(origin, id, portfolio)
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
@@ -784,14 +765,10 @@ impl<T: Config> Module<T> {
         id: InstructionId,
         is_execute: bool,
     ) -> EnsureValidInstructionResult<T::AccountId, T::Moment, T::BlockNumber> {
-        let PermissionedCallOriginData {
-            primary_did,
-            secondary_key,
-            ..
-        } = Identity::<T>::ensure_origin_call_permissions(origin)?;
+        let origin_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
         Ok((
-            primary_did,
-            secondary_key,
+            origin_data.primary_did,
+            origin_data.secondary_key,
             Self::ensure_instruction_validity(id, is_execute)?,
         ))
     }
@@ -958,8 +935,8 @@ impl<T: Config> Module<T> {
             &[AffirmationStatus::Affirmed],
         )?;
         // Unlock tokens that were previously locked during the affirmation
-        let filtered_legs = Self::filtered_legs(id, &portfolios, None)?;
-        for (leg_id, leg) in filtered_legs.legs() {
+        let filtered_legs = Self::filtered_legs(id, &portfolios);
+        for (leg_id, leg) in filtered_legs.leg_subset() {
             match Self::instruction_leg_status(id, leg_id) {
                 LegStatus::ExecutionToBeSkipped(signer, receipt_uid) => {
                     // Receipt was claimed for this instruction. Therefore, no token unlocking is required, we just unclaim the receipt.
@@ -1194,7 +1171,6 @@ impl<T: Config> Module<T> {
         id: InstructionId,
         portfolios: BTreeSet<PortfolioId>,
         secondary_key: Option<&SecondaryKey<T::AccountId>>,
-        input_cost: &AssetCount,
     ) -> Result<FilteredLegs, DispatchError> {
         // Checks portfolio's custodian and if it is a counter party with a pending affirmation.
         Self::ensure_portfolios_and_affirmation_status(
@@ -1205,9 +1181,9 @@ impl<T: Config> Module<T> {
             &[AffirmationStatus::Pending],
         )?;
 
-        let filtered_legs = Self::filtered_legs(id, &portfolios, Some(input_cost))?;
+        let filtered_legs = Self::filtered_legs(id, &portfolios);
         with_transaction(|| {
-            for (leg_id, leg) in filtered_legs.legs() {
+            for (leg_id, leg) in filtered_legs.leg_subset() {
                 ensure!(
                     !leg.asset.is_off_chain(),
                     Error::<T>::OffChainAssetMustBeAffirmedWithReceipts
@@ -1307,7 +1283,6 @@ impl<T: Config> Module<T> {
         id: InstructionId,
         receipt_details: Vec<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
-        input_cost: Option<&AssetCount>,
     ) -> Result<FilteredLegs, DispatchError> {
         let (did, secondary_key, instruction_details) =
             Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
@@ -1368,10 +1343,10 @@ impl<T: Config> Module<T> {
             );
         }
 
-        let filtered_legs = Self::filtered_legs(id, &portfolios_set, input_cost)?;
+        let filtered_legs = Self::filtered_legs(id, &portfolios_set);
         // Lock tokens that do not have a receipt attached to their leg.
         with_transaction(|| {
-            for (leg_id, leg) in filtered_legs.legs() {
+            for (leg_id, leg) in filtered_legs.leg_subset() {
                 // Receipt for the leg was provided
                 if let Some(receipt) = receipt_details
                     .iter()
@@ -1426,12 +1401,11 @@ impl<T: Config> Module<T> {
         origin: <T as frame_system::Config>::RuntimeOrigin,
         id: InstructionId,
         portfolios: impl Iterator<Item = PortfolioId>,
-        input_cost: &AssetCount,
     ) -> Result<FilteredLegs, DispatchError> {
         let (did, sk, _) = Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
         let portfolios_set = portfolios.collect::<BTreeSet<_>>();
         // Provide affirmation to the instruction
-        Self::unsafe_affirm_instruction(did, id, portfolios_set, sk.as_ref(), input_cost)
+        Self::unsafe_affirm_instruction(did, id, portfolios_set, sk.as_ref())
     }
 
     /// Affirms all legs from the instruction of the given `id`, where `portfolios` are a counter party.
@@ -1445,8 +1419,8 @@ impl<T: Config> Module<T> {
         portfolios: Vec<PortfolioId>,
     ) -> DispatchResultWithPostInfo {
         let filtered_legs =
-            Self::base_affirm_with_receipts(origin, id, receipt_details, portfolios, None)?;
-        let instruction_asset_count = filtered_legs.instruction_asset_count();
+            Self::base_affirm_with_receipts(origin, id, receipt_details, portfolios)?;
+        let instruction_asset_count = filtered_legs.unfiltered_asset_count();
         let weight_limit = Self::execute_scheduled_instruction_weight_limit(
             instruction_asset_count.fungible(),
             instruction_asset_count.non_fungible(),
@@ -1467,10 +1441,9 @@ impl<T: Config> Module<T> {
         origin: <T as frame_system::Config>::RuntimeOrigin,
         id: InstructionId,
         portfolios: impl Iterator<Item = PortfolioId>,
-        input_cost: &AssetCount,
     ) -> DispatchResultWithPostInfo {
-        let filtered_legs = Self::base_affirm_instruction(origin, id, portfolios, input_cost)?;
-        let instruction_asset_count = filtered_legs.instruction_asset_count();
+        let filtered_legs = Self::base_affirm_instruction(origin, id, portfolios)?;
+        let instruction_asset_count = filtered_legs.unfiltered_asset_count();
         let weight_limit = Self::execute_scheduled_instruction_weight_limit(
             instruction_asset_count.fungible(),
             instruction_asset_count.non_fungible(),
@@ -1491,18 +1464,13 @@ impl<T: Config> Module<T> {
         id: InstructionId,
         receipt: Option<ReceiptDetails<T::AccountId, T::OffChainSignature>>,
         portfolios: Vec<PortfolioId>,
-        input_cost: &AssetCount,
         weight_meter: &mut WeightMeter,
     ) -> DispatchResult {
         match receipt {
-            Some(receipt) => Self::base_affirm_with_receipts(
-                origin,
-                id,
-                vec![receipt],
-                portfolios,
-                Some(input_cost),
-            )?,
-            None => Self::base_affirm_instruction(origin, id, portfolios.into_iter(), input_cost)?,
+            Some(receipt) => {
+                Self::base_affirm_with_receipts(origin, id, vec![receipt], portfolios)?
+            }
+            None => Self::base_affirm_instruction(origin, id, portfolios.into_iter())?,
         };
         Self::execute_settle_on_affirmation_instruction(
             id,
@@ -1553,29 +1521,11 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Returns [`FilteredLegs`] where the subset of legs correspond to the legs where the sender is in the given `portfolio_set`.
-    fn filtered_legs(
-        id: InstructionId,
-        portfolio_set: &BTreeSet<PortfolioId>,
-        input_cost: Option<&AssetCount>,
-    ) -> Result<FilteredLegs, DispatchError> {
+    /// Returns [`FilteredLegs`] where the orginal set is all legs in the instruction of the given
+    /// `id` and the subset of legs are all legs where the sender is in the given `portfolio_set`.
+    fn filtered_legs(id: InstructionId, portfolio_set: &BTreeSet<PortfolioId>) -> FilteredLegs {
         let instruction_legs: Vec<(LegId, Leg)> = InstructionLegs::iter_prefix(&id).collect();
-        let instruction_asset_count = AssetCount::from_legs(&instruction_legs);
-        // Gets all legs where the sender is in the given set
-        let legs_from_set: Vec<(LegId, Leg)> = instruction_legs
-            .into_iter()
-            .filter(|(_, leg)| portfolio_set.contains(&leg.from))
-            .collect();
-        let subset_asset_count = AssetCount::from_legs(&legs_from_set);
-        if let Some(input_cost) = input_cost {
-            Self::ensure_valid_input_cost(&subset_asset_count, input_cost)?;
-        }
-        Ok(FilteredLegs::new(
-            id,
-            legs_from_set,
-            instruction_asset_count,
-            subset_asset_count,
-        ))
+        FilteredLegs::filter_sender(instruction_legs, portfolio_set)
     }
 
     fn base_update_venue_signers(
@@ -1617,8 +1567,7 @@ impl<T: Config> Module<T> {
         origin: T::RuntimeOrigin,
         id: InstructionId,
         portfolio: PortfolioId,
-        input_cost: &AssetCount,
-    ) -> DispatchResult {
+    ) -> DispatchResultWithPostInfo {
         ensure!(
             Self::instruction_status(id) != InstructionStatus::Unknown,
             Error::<T>::UnknownInstruction
@@ -1631,7 +1580,6 @@ impl<T: Config> Module<T> {
             Error::<T>::CallerIsNotAParty
         );
         let instruction_asset_count = AssetCount::from_legs(&legs);
-        Self::ensure_valid_input_cost(&instruction_asset_count, input_cost)?;
 
         // Verifies if the caller has the right permissions for this call
         let origin_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
@@ -1646,7 +1594,9 @@ impl<T: Config> Module<T> {
         let _ = T::Scheduler::cancel_named(id.execution_name());
         Self::prune_instruction(id, false);
         Self::deposit_event(RawEvent::InstructionRejected(origin_data.primary_did, id));
-        Ok(())
+        Ok(PostDispatchInfo::from(Some(
+            Self::reject_instruction_weight(&instruction_asset_count),
+        )))
     }
 
     /// Returns `Ok` if the number of fungible, nonfungible and offchain assets is under the input given by the user.
@@ -1871,6 +1821,15 @@ impl<T: Config> Module<T> {
             assets_in_portfolio.fungible(),
             assets_in_portfolio.non_fungible(),
             assets_in_portfolio.off_chain(),
+        )
+    }
+
+    /// Returns the weight for calling `reject_instruction_weight` with the number of assets in `instruction_asset_count`.
+    fn reject_instruction_weight(instruction_asset_count: &AssetCount) -> Weight {
+        <T as Config>::WeightInfo::reject_instruction(
+            instruction_asset_count.fungible(),
+            instruction_asset_count.non_fungible(),
+            instruction_asset_count.off_chain(),
         )
     }
 

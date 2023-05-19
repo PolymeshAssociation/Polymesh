@@ -1148,9 +1148,6 @@ fn basic_fuzzing() {
                 users[0].origin(),
                 instruction_id,
                 PortfolioId::default_portfolio(users[0].did),
-                legs.len() as u32,
-                0,
-                0
             ));
             assert_eq!(
                 Settlement::instruction_status(instruction_id),
@@ -1900,9 +1897,6 @@ fn reject_instruction() {
                 user.origin(),
                 instruction_id,
                 PortfolioId::default_portfolio(user.did),
-                1,
-                0,
-                0,
             )
         };
 
@@ -2055,9 +2049,6 @@ fn reject_failed_instruction() {
             bob.origin(),
             instruction_id,
             PortfolioId::default_portfolio(bob.did),
-            1,
-            0,
-            0
         ));
 
         // Go to next block to have the scheduled execution run and ensure it has pruned the instruction.
