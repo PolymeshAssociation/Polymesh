@@ -69,7 +69,6 @@ use sp_std::prelude::*;
 use sp_std::vec;
 
 use pallet_base::{ensure_string_limited, try_next_post};
-use pallet_identity::PermissionedCallOriginData;
 use polymesh_common_utilities::constants::queue_priority::SETTLEMENT_INSTRUCTION_EXECUTION_PRIORITY;
 use polymesh_common_utilities::traits::portfolio::PortfolioSubTrait;
 pub use polymesh_common_utilities::traits::settlement::{Event, RawEvent, WeightInfo};
@@ -466,7 +465,7 @@ decl_module! {
         pub fn change_receipt_validity(origin, receipt_uid: u64, validity: bool) {
             let origin_data = Identity::<T>::ensure_origin_call_permissions(origin)?;
             <ReceiptsUsed<T>>::insert(&origin_data.sender, receipt_uid, !validity);
-            Self::deposit_event(RawEvent::ReceiptValidityChanged(origin_data.primary_did, &origin_data.sender, receipt_uid, validity));
+            Self::deposit_event(RawEvent::ReceiptValidityChanged(origin_data.primary_did, origin_data.sender, receipt_uid, validity));
         }
 
         /// Root callable extrinsic, used as an internal call to execute a scheduled settlement instruction.
