@@ -204,13 +204,17 @@ impl pallet_identity::WeightInfo for SubstrateWeight {
     /// The range of component `p` is `[0, 1000]`.
     /// The range of component `l` is `[0, 100]`.
     /// The range of component `e` is `[0, 100]`.
-    fn permissions_cost(_a: u32, _p: u32, l: u32, e: u32) -> Weight {
-        // Minimum execution time: 261_449 nanoseconds.
-        Weight::from_ref_time(263_862_000)
-            // Standard Error: 576_752
-            .saturating_add(Weight::from_ref_time(24_197_207).saturating_mul(l.into()))
-            // Standard Error: 576_752
-            .saturating_add(Weight::from_ref_time(23_306_416).saturating_mul(e.into()))
+    fn permissions_cost(a: u32, p: u32, l: u32, e: u32) -> Weight {
+        // Minimum execution time: 200_481 nanoseconds.
+        Weight::from_ref_time(0)
+            // Manually set for `a`
+            .saturating_add(Weight::from_ref_time(163_000).saturating_mul(a.into()))
+            // Manually set for `p`
+            .saturating_add(Weight::from_ref_time(296_000).saturating_mul(p.into()))
+            // Standard Error: 140_388
+            .saturating_add(Weight::from_ref_time(33_906_000).saturating_mul(l.into()))
+            // Standard Error: 140_388
+            .saturating_add(Weight::from_ref_time(33_316_000).saturating_mul(e.into()))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: Identity IsDidFrozen (r:0 w:1)

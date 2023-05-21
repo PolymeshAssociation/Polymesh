@@ -341,9 +341,12 @@ impl pallet_staking::WeightInfo for SubstrateWeight {
     /// The range of component `u` is `[0, 1000]`.
     /// The range of component `l` is `[1, 32]`.
     fn rebond(u: u32) -> Weight {
-        // Minimum execution time: 103_392 nanoseconds.
-        Weight::from_ref_time(151_335_738)
+        // Minimum execution time: 47_949 nanoseconds.
+        Weight::from_ref_time(49_739_043)
+            // Standard Error: 5_104
             .saturating_add(Weight::from_ref_time(1_000).saturating_mul(u.into()))
+            .saturating_add(DbWeight::get().reads(4))
+            .saturating_add(DbWeight::get().writes(3))
     }
     // Storage: Staking CurrentEra (r:1 w:0)
     // Storage: Staking HistoryDepth (r:1 w:1)

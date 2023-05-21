@@ -117,13 +117,13 @@ impl pallet_corporate_actions::WeightInfo for SubstrateWeight {
     // Storage: CorporateAction Details (r:0 w:1)
     /// The range of component `w` is `[0, 1000]`.
     /// The range of component `t` is `[0, 500]`.
-    fn initiate_corporate_action_use_defaults(w: u32, _t: u32) -> Weight {
-        // Minimum execution time: 562_486 nanoseconds.
-        Weight::from_ref_time(541_251_904)
-            // Standard Error: 21_161
-            .saturating_add(Weight::from_ref_time(679_786).saturating_mul(w.into()))
-            .saturating_add(DbWeight::get().reads(15))
-            .saturating_add(DbWeight::get().writes(6))
+    fn initiate_corporate_action_use_defaults(w: u32, t: u32) -> Weight {
+        // Minimum execution time: 218_163 nanoseconds.
+        Weight::from_ref_time(192_138_698)
+            // Standard Error: 2_478
+            .saturating_add(Weight::from_ref_time(181_016).saturating_mul(w.into()))
+            // Standard Error: 4_953
+            .saturating_add(Weight::from_ref_time(24_264).saturating_mul(t.into()))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)

@@ -57,13 +57,17 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
     /// The range of component `b` is `[1, 10]`.
     /// The range of component `c` is `[1, 10]`.
     /// The range of component `d` is `[1, 10]`.
-    fn condition_costs(a: u32, _b: u32, c: u32, _d: u32) -> Weight {
-        // Minimum execution time: 19_510 nanoseconds.
-        Weight::from_ref_time(20_964_000)
-            // Standard Error: 128_368
-            .saturating_add(Weight::from_ref_time(6_124_168).saturating_mul(a.into()))
-            // Standard Error: 128_368
-            .saturating_add(Weight::from_ref_time(2_365_139).saturating_mul(c.into()))
+    fn condition_costs(a: u32, b: u32, c: u32, d: u32) -> Weight {
+        // Minimum execution time: 7_864 nanoseconds.
+        Weight::from_ref_time(8_114_000)
+            // Standard Error: 39_365
+            .saturating_add(Weight::from_ref_time(2_949_096).saturating_mul(a.into()))
+            // Standard Error: 39_365
+            .saturating_add(Weight::from_ref_time(411_324).saturating_mul(b.into()))
+            // Standard Error: 39_365
+            .saturating_add(Weight::from_ref_time(671_782).saturating_mul(c.into()))
+            // Manually set for `d`
+            .saturating_add(Weight::from_ref_time(721_394).saturating_mul(d.into()))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
@@ -146,11 +150,11 @@ impl pallet_compliance_manager::WeightInfo for SubstrateWeight {
     // Storage: ComplianceManager AssetCompliances (r:1 w:1)
     // Storage: ComplianceManager TrustedClaimIssuer (r:1 w:0)
     /// The range of component `c` is `[1, 6]`.
-    fn change_compliance_requirement(_c: u32) -> Weight {
-        // Minimum execution time: 122_858 nanoseconds.
-        Weight::from_ref_time(149_457_622)
-            .saturating_add(DbWeight::get().reads(6))
-            .saturating_add(DbWeight::get().writes(1))
+    fn change_compliance_requirement(c: u32) -> Weight {
+        // Minimum execution time: 55_072 nanoseconds.
+        Weight::from_ref_time(57_468_205)
+            // Standard Error: 32_981
+            .saturating_add(Weight::from_ref_time(683_464).saturating_mul(c.into()))
     }
     // Storage: Identity KeyRecords (r:1 w:0)
     // Storage: ExternalAgents GroupOfAgent (r:1 w:0)
