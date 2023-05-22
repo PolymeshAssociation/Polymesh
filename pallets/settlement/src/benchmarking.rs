@@ -73,7 +73,7 @@ pub struct BaseV2Parameters<T: Config> {
     pub sender_portfolios: Vec<PortfolioId>,
     pub settlement_type: SettlementType<T::BlockNumber>,
     pub date: Option<T::Moment>,
-    pub memo: Option<InstructionMemo>,
+    pub memo: Option<Memo>,
 }
 
 fn set_block_number<T: Config>(new_block_no: u64) {
@@ -649,7 +649,7 @@ where
 
     let settlement_type = SettlementType::SettleOnBlock(100u32.into());
     let date = Some(99999999u32.into());
-    let memo = Some(InstructionMemo::default());
+    let memo = Some(Memo::default());
 
     BaseV2Parameters::<T> {
         sender: alice,
@@ -1035,9 +1035,9 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , _, _, _ ) = emulate_add_instruction::<T>(l, false, true).unwrap();
 
-    }: add_instruction_with_memo(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs, Some(InstructionMemo::default()))
+    }: add_instruction_with_memo(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs, Some(Memo::default()))
     verify {
-        assert_eq!(Module::<T>::memo(instruction_id).unwrap(), InstructionMemo::default());
+        assert_eq!(Module::<T>::memo(instruction_id).unwrap(), Memo::default());
     }
 
     add_and_affirm_instruction_with_memo_and_settle_on_block_type {
@@ -1049,10 +1049,10 @@ benchmarks! {
         // Emulate the add instruction and get all the necessary arguments.
         let (legs, venue_id, origin, did , portfolios, _, _) = emulate_add_instruction::<T>(l, true, true).unwrap();
         let s_portfolios = portfolios.clone();
-    }: add_and_affirm_instruction_with_memo(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs, s_portfolios, Some(InstructionMemo::default()))
+    }: add_and_affirm_instruction_with_memo(origin, venue_id, settlement_type, Some(99999999u32.into()), Some(99999999u32.into()), legs, s_portfolios, Some(Memo::default()))
     verify {
         verify_add_and_affirm_instruction::<T>(venue_id, settlement_type, portfolios).unwrap();
-        assert_eq!(Module::<T>::memo(instruction_id).unwrap(), InstructionMemo::default());
+        assert_eq!(Module::<T>::memo(instruction_id).unwrap(), Memo::default());
     }
 
     execute_manual_instruction {

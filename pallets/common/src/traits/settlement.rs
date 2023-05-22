@@ -4,10 +4,10 @@ use frame_support::weights::Weight;
 use sp_std::vec::Vec;
 
 use polymesh_primitives::settlement::{
-    InstructionId, InstructionMemo, Leg, LegId, LegV2, ReceiptMetadata, SettlementType,
-    TransferData, VenueDetails, VenueId, VenueType,
+    InstructionId, Leg, LegId, LegV2, ReceiptMetadata, SettlementType, TransferData, VenueDetails,
+    VenueId, VenueType,
 };
-use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
+use polymesh_primitives::{IdentityId, Memo, PortfolioId, Ticker};
 
 decl_event!(
     pub enum Event<T>
@@ -32,7 +32,7 @@ decl_event!(
             Option<Moment>,
             Option<Moment>,
             Vec<Leg>,
-            Option<InstructionMemo>,
+            Option<Memo>,
         ),
         /// An instruction has been affirmed (did, portfolio, instruction_id)
         InstructionAffirmed(IdentityId, PortfolioId, InstructionId),
@@ -86,7 +86,7 @@ decl_event!(
             Option<Moment>,
             Option<Moment>,
             Vec<LegV2>,
-            Option<InstructionMemo>,
+            Option<Memo>,
         ),
         /// Failed to execute instruction.
         FailedToExecuteInstruction(InstructionId, DispatchError),

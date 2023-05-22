@@ -22,7 +22,7 @@ use blake2::{Blake2b, Digest};
 use codec::{Decode, Encode};
 use confidential_identity_v1::Scalar as ScalarV1;
 use frame_support::weights::Weight;
-use polymesh_primitives_derive::VecU8StrongTyped;
+use polymesh_primitives_derive::{SliceU8StrongTyped, VecU8StrongTyped};
 use scale_info::TypeInfo;
 use sp_runtime::{generic, traits::BlakeTwo256, MultiSignature};
 #[cfg(feature = "std")]
@@ -233,7 +233,7 @@ pub use nft::{NFTCollectionId, NFTCollectionKeys, NFTId, NFTMetadataAttribute, N
 
 /// Portfolio type definitions.
 pub mod portfolio;
-pub use portfolio::{Fund, FundDescription, Memo};
+pub use portfolio::{Fund, FundDescription};
 
 /// Custom WeightMeter definitions.
 pub mod weight_meter;
@@ -268,6 +268,11 @@ pub struct Beneficiary<Balance> {
     /// Amount requested to this beneficiary.
     pub amount: Balance,
 }
+
+/// A short on-chain memo for POLYX transfer, asset transfer and portfolio moves.
+#[derive(Decode, Encode, TypeInfo, SliceU8StrongTyped)]
+#[derive(Clone, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Memo(pub [u8; 32]);
 
 /// Url for linking to off-chain resources.
 #[derive(Decode, Encode, TypeInfo, VecU8StrongTyped)]

@@ -5,7 +5,7 @@ use super::{
 use pallet_balances as balances;
 use pallet_identity as identity;
 use pallet_test_utils as test_utils;
-use polymesh_common_utilities::traits::balances::{Memo, RawEvent as BalancesRawEvent};
+use polymesh_common_utilities::traits::balances::RawEvent as BalancesRawEvent;
 use polymesh_runtime_develop::{runtime, Runtime};
 
 use frame_support::{
@@ -15,7 +15,7 @@ use frame_support::{
 };
 use frame_system::{EventRecord, Phase};
 use pallet_transaction_payment::ChargeTransactionPayment;
-use polymesh_primitives::{traits::BlockRewardsReserveCurrency, InvestorUid};
+use polymesh_primitives::{traits::BlockRewardsReserveCurrency, InvestorUid, Memo};
 use sp_runtime::traits::SignedExtension;
 use test_client::AccountKeyring;
 
