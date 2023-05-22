@@ -125,7 +125,9 @@ use polymesh_common_utilities::{
 };
 use polymesh_primitives::{
     asset::{AssetName, AssetType},
-    impl_checked_inc, Balance, IdentityId, Ticker,
+    impl_checked_inc,
+    settlement::VenueId,
+    Balance, IdentityId, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Zero, SaturatedConversion};
@@ -170,6 +172,19 @@ pub trait WeightInfo {
             UnaffirmParty::Mediator => Self::mediator_unaffirm_transaction(),
         }
     }
+}
+
+/// The module's configuration trait.
+pub trait Config:
+    frame_system::Config + BalancesConfig + IdentityConfig + pallet_statistics::Config
+{
+    /// Pallet's events.
+    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
+    /// Randomness source.
+    type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
+
+    /// Confidential asset pallet weights.
+    type WeightInfo: WeightInfo;
 }
 
 /// Mercat types are uploaded as bytes (hex).
@@ -248,51 +263,21 @@ macro_rules! impl_wrapper {
     };
 }
 
-impl_wrapper!(MercatEncryptedAmount, EncryptedAmount);
-
 impl_wrapper!(MercatPubAccountTx, PubAccountTx);
 impl_wrapper!(MercatMintAssetTx, InitializedAssetTx);
 
-impl core::ops::AddAssign<EncryptedAmount> for MercatEncryptedAmount {
-    fn add_assign(&mut self, other: EncryptedAmount) {
-        self.0 += other;
-    }
-}
-
-impl core::ops::AddAssign for MercatEncryptedAmount {
-    fn add_assign(&mut self, other: Self) {
-        self.0 += other.0;
-    }
-}
-
-impl core::ops::SubAssign<EncryptedAmount> for MercatEncryptedAmount {
-    fn sub_assign(&mut self, other: EncryptedAmount) {
-        self.0 -= other;
-    }
-}
-
-/// TODO: Import venue ID.
+/// A global and unique confidential transaction ID.
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
-pub struct VenueId(pub u64);
+pub struct TransactionId(#[codec(compact)] pub u64);
+impl_checked_inc!(TransactionId);
 
-/// TODO: Import leg ID.
+/// Transaction leg ID.
+///
+/// The leg ID is it's index position (i.e. the first leg is 0).
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
-pub struct TransactionLegId(pub u64);
-
-/// The module's configuration trait.
-pub trait Config:
-    frame_system::Config + BalancesConfig + IdentityConfig + pallet_statistics::Config
-{
-    /// Pallet's events.
-    type RuntimeEvent: From<Event> + Into<<Self as frame_system::Config>::RuntimeEvent>;
-    /// Randomness source.
-    type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
-
-    /// Confidential asset pallet weights.
-    type WeightInfo: WeightInfo;
-}
+pub struct TransactionLegId(#[codec(compact)] pub u64);
 
 /// A mercat account consists of the public key that is used for encryption purposes.
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
@@ -352,17 +337,6 @@ impl TransactionLeg {
     pub fn receiver_account(&self) -> Option<PubAccount> {
         self.receiver.pub_account()
     }
-}
-
-/// This pending state is initialized from the sender's proof.
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq)]
-pub struct LegPendingState {
-    /// The sender's initial balance used to verify the sender's proof.
-    pub sender_init_balance: MercatEncryptedAmount,
-    /// The transaction amount encrypted using the sender's public key.
-    pub sender_amount: MercatEncryptedAmount,
-    /// The transaction amount encrypted using the receiver's public key.
-    pub receiver_amount: MercatEncryptedAmount,
 }
 
 /// Mercat sender proof.
@@ -449,12 +423,6 @@ impl UnaffirmLeg {
     }
 }
 
-/// A global and unique confidential transaction ID.
-#[derive(Encode, Decode, TypeInfo)]
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
-pub struct TransactionId(pub u64);
-impl_checked_inc!(TransactionId);
-
 /// Confidential asset details.
 #[derive(Encode, Decode, TypeInfo, Default, Clone, PartialEq, Debug)]
 pub struct ConfidentialAssetDetails {
@@ -483,27 +451,43 @@ decl_storage! {
             => Option<IdentityId>;
 
         /// Contains the encrypted balance of a mercat account.
-        /// (account, ticker) -> MercatEncryptedAmount.
+        /// (account, ticker) -> EncryptedAmount.
         pub MercatAccountBalance get(fn mercat_account_balance):
             double_map hasher(blake2_128_concat) MercatAccount,
             hasher(blake2_128_concat) Ticker
-            => Option<MercatEncryptedAmount>;
+            => Option<EncryptedAmount>;
 
         /// Accumulates the encrypted incoming balance for a mercat account.
-        /// (account, ticker) -> MercatEncryptedAmount.
+        /// (account, ticker) -> EncryptedAmount.
         IncomingBalance get(fn incoming_balance):
             double_map hasher(blake2_128_concat) MercatAccount,
             hasher(blake2_128_concat) Ticker
-            => Option<MercatEncryptedAmount>;
-
-        /// Stores the pending state for a given transaction.
-        /// (transaction_id, leg_id) -> Option<LegPendingState>
-        pub TxPendingState get(fn mercat_tx_pending_state):
-            map hasher(blake2_128_concat) (TransactionId, TransactionLegId) => Option<LegPendingState>;
+            => Option<EncryptedAmount>;
 
         /// Legs of a transaction. (transaction_id, leg_id) -> Leg
         pub TransactionLegs get(fn transaction_legs):
             double_map hasher(twox_64_concat) TransactionId, hasher(twox_64_concat) TransactionLegId => Option<TransactionLeg>;
+
+        /// Stores the sender's initial balance when they affirmed the transaction leg.
+        ///
+        /// This is needed to verify the sender's proof.
+        /// (transaction_id, leg_id) -> Option<EncryptedAmount>
+        pub TxLegSenderBalance get(fn tx_leg_sender_balance):
+            map hasher(blake2_128_concat) (TransactionId, TransactionLegId) => Option<EncryptedAmount>;
+
+        /// Stores the transfer amount encrypted using the sender's public key.
+        ///
+        /// This is needed to revert the transaction.
+        /// (transaction_id, leg_id) -> Option<EncryptedAmount>
+        pub TxLegSenderAmount get(fn tx_leg_sender_amount):
+            map hasher(blake2_128_concat) (TransactionId, TransactionLegId) => Option<EncryptedAmount>;
+
+        /// Stores the transfer amount encrypted using the receiver's public key.
+        ///
+        /// This is needed to execute the transaction.
+        /// (transaction_id, leg_id) -> Option<EncryptedAmount>
+        pub TxLegReceiverAmount get(fn tx_leg_receiver_amount):
+            map hasher(blake2_128_concat) (TransactionId, TransactionLegId) => Option<EncryptedAmount>;
 
         /// Number of affirmations pending before transaction is executed. transaction_id -> affirms_pending
         PendingAffirms get(fn affirms_pending): map hasher(twox_64_concat) TransactionId => Option<u32>;
@@ -743,7 +727,7 @@ impl<T: Config> Module<T> {
             .map_err(|_| Error::<T>::InvalidAccountCreationProof)?;
 
         // Initialize the mercat account balance.
-        let wrapped_enc_balance = MercatEncryptedAmount::from(tx.initial_balance);
+        let wrapped_enc_balance = tx.initial_balance;
         MercatAccountBalance::insert(&account, ticker, wrapped_enc_balance.clone());
 
         Self::deposit_event(Event::AccountCreated(
@@ -852,11 +836,7 @@ impl<T: Config> Module<T> {
             .map_err(|_| Error::<T>::InvalidAccountMintProof)?;
 
         // Set the total supply (both encrypted and plain).
-        MercatAccountBalance::insert(
-            &account,
-            ticker,
-            MercatEncryptedAmount::from(new_encrypted_balance),
-        );
+        MercatAccountBalance::insert(&account, ticker, new_encrypted_balance);
 
         // This will emit the total supply changed event.
         details.total_supply = total_supply;
@@ -881,7 +861,7 @@ impl<T: Config> Module<T> {
                 // If there is an incoming balance, apply it to the mercat account balance.
                 MercatAccountBalance::try_mutate(&account, ticker, |balance| -> DispatchResult {
                     if let Some(ref mut balance) = balance {
-                        *balance += *incoming_balance;
+                        *balance += incoming_balance;
                         Ok(())
                     } else {
                         Err(Error::<T>::MercatAccountMissing.into())
@@ -917,7 +897,7 @@ impl<T: Config> Module<T> {
 
         for (i, leg) in legs.iter().enumerate() {
             ensure!(leg.verify_accounts(), Error::<T>::InvalidMercatAccount);
-            let leg_id = TransactionLegId(i as u64);
+            let leg_id = TransactionLegId(i as _);
             let sender_did = Self::get_mercat_account_did(&leg.sender)?;
             let receiver_did = Self::get_mercat_account_did(&leg.receiver)?;
             UserAffirmations::insert(sender_did, (transaction_id, leg_id), false);
@@ -982,7 +962,7 @@ impl<T: Config> Module<T> {
                 );
 
                 // Get the sender's current balance.
-                let from_current_balance = *Self::mercat_account_balance(&leg.sender, leg.ticker)
+                let from_current_balance = Self::mercat_account_balance(&leg.sender, leg.ticker)
                     .ok_or(Error::<T>::MercatAccountMissing)?;
 
                 // Verify the sender's proof.
@@ -1005,14 +985,9 @@ impl<T: Config> Module<T> {
                 )?;
 
                 // Store the pending state for this transaction leg.
-                TxPendingState::insert(
-                    &(id, leg_id),
-                    LegPendingState {
-                        sender_init_balance: from_current_balance.into(),
-                        sender_amount: init_tx.memo.enc_amount_using_sender.into(),
-                        receiver_amount: init_tx.memo.enc_amount_using_receiver.into(),
-                    },
-                );
+                TxLegSenderBalance::insert(&(id, leg_id), from_current_balance);
+                TxLegSenderAmount::insert(&(id, leg_id), init_tx.memo.enc_amount_using_sender);
+                TxLegReceiverAmount::insert(&(id, leg_id), init_tx.memo.enc_amount_using_receiver);
 
                 // Store the sender's proof.
                 SenderProofs::insert(id, leg_id, proof);
@@ -1060,18 +1035,16 @@ impl<T: Config> Module<T> {
                 ensure!(Some(caller_did) == sender_did, Error::<T>::Unauthorized);
 
                 // Take the transaction leg's pending state.
-                let pending_state =
-                    TxPendingState::take((id, leg_id)).ok_or(Error::<T>::InstructionNotAffirmed)?;
+                TxLegSenderBalance::remove((id, leg_id));
+                let sender_amount = TxLegSenderAmount::take((id, leg_id))
+                    .ok_or(Error::<T>::InstructionNotAffirmed)?;
+                TxLegReceiverAmount::remove((id, leg_id));
 
                 // Remove the sender proof.
                 SenderProofs::remove(id, leg_id);
 
                 // Deposit the transaction amount back into the sender's account.
-                Self::mercat_account_deposit_amount(
-                    &leg.sender,
-                    leg.ticker,
-                    *pending_state.sender_amount,
-                )?;
+                Self::mercat_account_deposit_amount(&leg.sender, leg.ticker, sender_amount)?;
             }
             UnaffirmParty::Receiver => {
                 let receiver_did = Self::mercat_account_did(&leg.receiver);
@@ -1146,18 +1119,16 @@ impl<T: Config> Module<T> {
         );
 
         // Take the transaction leg's pending state.
-        let pending_state = TxPendingState::take((transaction_id, leg_id))
+        TxLegSenderBalance::remove((transaction_id, leg_id));
+        TxLegSenderAmount::remove((transaction_id, leg_id));
+        let receiver_amount = TxLegReceiverAmount::take((transaction_id, leg_id))
             .ok_or(Error::<T>::InstructionNotAffirmed)?;
 
         // Remove the sender proof.
         SenderProofs::remove(transaction_id, leg_id);
 
         // Deposit the transaction amount into the receiver's account.
-        Self::mercat_account_deposit_amount_incoming(
-            &leg.receiver,
-            ticker,
-            *pending_state.receiver_amount,
-        );
+        Self::mercat_account_deposit_amount_incoming(&leg.receiver, ticker, receiver_amount);
 
         Ok(())
     }
@@ -1196,17 +1167,19 @@ impl<T: Config> Module<T> {
 
         if sender_affirm == Some(true) {
             // Take the transaction leg's pending state.
-            match TxPendingState::take((transaction_id, leg_id)) {
-                Some(pending_state) => {
+            match TxLegSenderAmount::take((transaction_id, leg_id)) {
+                Some(sender_amount) => {
                     // Deposit the transaction amount back into the sender's incoming account.
                     Self::mercat_account_deposit_amount_incoming(
                         &leg.sender,
                         leg.ticker,
-                        *pending_state.sender_amount,
+                        sender_amount,
                     );
                 }
                 None => (),
             }
+            TxLegSenderBalance::remove((transaction_id, leg_id));
+            TxLegReceiverAmount::remove((transaction_id, leg_id));
 
             // Remove the sender proof.
             SenderProofs::remove(transaction_id, leg_id);
@@ -1289,7 +1262,7 @@ decl_event! {
 
         /// Event for creation of a Mercat account.
         /// caller DID/ owner DID, mercat account id (which is equal to encrypted asset ID), encrypted balance
-        AccountCreated(IdentityId, MercatAccount, Ticker, MercatEncryptedAmount),
+        AccountCreated(IdentityId, MercatAccount, Ticker, EncryptedAmount),
 
         /// Event for creation of a confidential asset.
         /// caller DID/ owner DID, ticker, total supply, divisibility, asset type, beneficiary DID
@@ -1297,7 +1270,7 @@ decl_event! {
 
         /// Event for resetting the ordering state.
         /// caller DID/ owner DID, mercat account id, current encrypted account balance
-        ResetConfidentialAccountOrderingState(IdentityId, MercatAccount, Ticker, MercatEncryptedAmount),
+        ResetConfidentialAccountOrderingState(IdentityId, MercatAccount, Ticker, EncryptedAmount),
 
         /// A new transaction has been created
         /// (did, venue_id, transaction_id, legs)

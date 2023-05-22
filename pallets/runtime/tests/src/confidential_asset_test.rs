@@ -19,10 +19,11 @@ use mercat::{
 };
 use pallet_confidential_asset::{
     AffirmLeg, ConfidentialAssetDetails, MercatAccount, MercatMintAssetTx, MercatPubAccountTx,
-    TransactionLeg, TransactionLegId, VenueId,
+    TransactionLeg, TransactionLegId,
 };
 use polymesh_primitives::{
     asset::{AssetName, AssetType},
+    settlement::VenueId,
     Ticker,
 };
 use rand::{rngs::StdRng, SeedableRng};
@@ -87,7 +88,7 @@ pub fn init_account(
     let pub_account = &mercat_account_tx.pub_account;
     let account: MercatAccount = pub_account.into();
     let balance =
-        *ConfidentialAsset::mercat_account_balance(&account, ticker).expect("account balance");
+        ConfidentialAsset::mercat_account_balance(&account, ticker).expect("account balance");
     (secret_account, account, pub_account.clone(), balance)
 }
 
@@ -165,7 +166,7 @@ pub fn create_account_and_mint_token(
     let pub_account = &mercat_account_tx.pub_account;
     let account: MercatAccount = pub_account.into();
     let balance =
-        *ConfidentialAsset::mercat_account_balance(&account, ticker).expect("account balance");
+        ConfidentialAsset::mercat_account_balance(&account, ticker).expect("account balance");
     let stored_balance = secret_account.enc_keys.secret.decrypt(&balance).unwrap();
 
     assert_eq!(stored_balance, amount);
@@ -349,7 +350,7 @@ fn issuers_can_create_and_mint_tokens() {
 
         // -------------------------- Ensure that the account balance is set properly.
         let balance =
-            *ConfidentialAsset::mercat_account_balance(&account, ticker).expect("account balance");
+            ConfidentialAsset::mercat_account_balance(&account, ticker).expect("account balance");
 
         secret_account
             .enc_keys
@@ -386,7 +387,7 @@ fn account_create_tx() {
 
         // Ensure that the account has an initial balance of zero.
         let stored_balance =
-            *ConfidentialAsset::mercat_account_balance(&account, ticker).expect("account balance");
+            ConfidentialAsset::mercat_account_balance(&account, ticker).expect("account balance");
         let stored_balance = secret_account
             .enc_keys
             .secret
@@ -558,7 +559,7 @@ fn basic_confidential_settlement() {
             // Transaction should've settled.
             // Verify by decrypting the new balance of both Alice and Bob.
             let new_alice_balance =
-                *ConfidentialAsset::mercat_account_balance(&alice_account, ticker)
+                ConfidentialAsset::mercat_account_balance(&alice_account, ticker)
                     .expect("account balance");
             let expected_alice_balance =
                 alice_encrypted_init_balance - alice_encrypted_transfer_amount;
@@ -577,7 +578,7 @@ fn basic_confidential_settlement() {
                 bob_account.clone(),
                 ticker
             ));
-            let new_bob_balance = *ConfidentialAsset::mercat_account_balance(&bob_account, ticker)
+            let new_bob_balance = ConfidentialAsset::mercat_account_balance(&bob_account, ticker)
                 .expect("account balance");
 
             let expected_bob_balance = bob_encrypted_init_balance + bob_encrypted_transfer_amount;

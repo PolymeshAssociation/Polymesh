@@ -11,9 +11,9 @@ use mercat::{
     TransferTransactionReceiver, TransferTransactionSender,
 };
 use pallet_confidential_asset::{
-    AffirmLeg, MercatAccount, TransactionId, TransactionLeg, TransactionLegId, UnaffirmLeg, VenueId,
+    AffirmLeg, MercatAccount, TransactionId, TransactionLeg, TransactionLegId, UnaffirmLeg,
 };
-use polymesh_primitives::Ticker;
+use polymesh_primitives::{settlement::VenueId, Ticker};
 use rand::prelude::*;
 use test_client::AccountKeyring;
 
@@ -178,10 +178,8 @@ fn finalize_transaction(
     // Mediator verifies the proofs in the wallet.
     // Mediator has access to the ticker name in plaintext.
     // Mediator gets the pending state for this transaction from chain.
-    let sender_pending_balance =
-        *ConfidentialAsset::mercat_tx_pending_state((transaction_id, leg_id))
-            .expect("Transaction leg pending state")
-            .sender_init_balance;
+    let sender_pending_balance = ConfidentialAsset::tx_leg_sender_balance((transaction_id, leg_id))
+        .expect("Transaction leg pending state");
 
     let result = CtxMediator.justify_transaction(
         &init_tx,
@@ -217,7 +215,7 @@ fn finalize_transaction(
     // Transaction should've settled.
     // Verify by decrypting the new balance of both Sender and Receiver.
     let new_sender_balance =
-        *ConfidentialAsset::mercat_account_balance(&sender_creds.account, ticker)
+        ConfidentialAsset::mercat_account_balance(&sender_creds.account, ticker)
             .expect("account balance");
 
     if let Some(secret_account) = sender_secret_account {
@@ -235,7 +233,7 @@ fn finalize_transaction(
         ticker
     ));
     let new_receiver_balance =
-        *ConfidentialAsset::mercat_account_balance(&receiver_creds.account, ticker)
+        ConfidentialAsset::mercat_account_balance(&receiver_creds.account, ticker)
             .expect("account balance");
 
     if let Some(secret_account) = receiver_secret_account {
@@ -867,7 +865,7 @@ fn mercat_whitepaper_scenario2() {
             ));
             // On the Alice's wallet side, they update the balance.
             let alice_init_balance =
-                *ConfidentialAsset::mercat_account_balance(&alice_creds.account, ticker)
+                ConfidentialAsset::mercat_account_balance(&alice_creds.account, ticker)
                     .expect("account balance");
 
             // tx_id:1004 => Alice sends 55 assets to Dave.

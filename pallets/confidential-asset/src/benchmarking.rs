@@ -142,7 +142,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> MercatUser<T> {
     }
 
     pub fn mercat_enc_balance(&self, ticker: Ticker) -> EncryptedAmount {
-        *Module::<T>::mercat_account_balance(self.mercat(), ticker).expect("mercat account balance")
+        Module::<T>::mercat_account_balance(self.mercat(), ticker).expect("mercat account balance")
     }
 
     pub fn ensure_mercat_balance(&self, ticker: Ticker, balance: MercatBalance) {
