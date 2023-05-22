@@ -1173,17 +1173,13 @@ impl<T: Config> Module<T> {
                 let sender_did = Self::mercat_account_did(&leg.sender);
                 ensure!(Some(caller_did) == sender_did, Error::<T>::Unauthorized);
 
-                // Ensure the sender/receiver accounts match with the transaction leg.
-                let sender_account = &init_tx.memo.sender_account;
-                ensure!(
-                    MercatAccount::from(sender_account) == leg.sender,
-                    Error::<T>::InvalidMercatTransferProof
-                );
-                let receiver_account = &init_tx.memo.receiver_account;
-                ensure!(
-                    MercatAccount::from(receiver_account) == leg.receiver,
-                    Error::<T>::InvalidMercatTransferProof
-                );
+                // Get sender/receiver accounts from the leg.
+                let sender_account = leg
+                    .sender_account()
+                    .ok_or(Error::<T>::InvalidMercatAccount)?;
+                let receiver_account = leg
+                    .receiver_account()
+                    .ok_or(Error::<T>::InvalidMercatAccount)?;
 
                 // Get the sender's current balance.
                 let from_current_balance = Self::mercat_account_balance(&leg.sender, leg.ticker)
@@ -1193,9 +1189,9 @@ impl<T: Config> Module<T> {
                 let mut rng = Self::get_rng();
                 verify_initialized_transaction(
                     &init_tx,
-                    sender_account,
+                    &sender_account,
                     &from_current_balance,
-                    receiver_account,
+                    &receiver_account,
                     &[],
                     &mut rng,
                 )
