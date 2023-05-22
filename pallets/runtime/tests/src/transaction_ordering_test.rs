@@ -13,7 +13,7 @@ use mercat::{
 use pallet_confidential_asset::{
     AffirmLeg, MercatAccount, TransactionId, TransactionLeg, TransactionLegId, UnaffirmLeg,
 };
-use polymesh_primitives::{settlement::VenueId, Ticker};
+use polymesh_primitives::Ticker;
 use rand::prelude::*;
 use test_client::AccountKeyring;
 
@@ -50,14 +50,10 @@ fn initialize_transaction(
     let mut rng = StdRng::from_seed([10u8; 32]);
 
     // Mediator creates a venue.
-    let venue_counter = VenueId(0); /*ConfidentialAsset::venue_counter();
-                                    assert_ok!(ConfidentialAsset::create_venue(
-                                        mediator_creds.user.origin(),
-                                        VenueDetails::default(),
-                                        vec![mediator_creds.user.acc()],
-                                        VenueType::Other
-                                    ));
-                                    */
+    let venue_counter = ConfidentialAsset::venue_counter();
+    assert_ok!(ConfidentialAsset::create_venue(
+        mediator_creds.user.origin()
+    ));
 
     // Mediator creates an transaction.
     let transaction_id = ConfidentialAsset::transaction_counter();
@@ -71,7 +67,8 @@ fn initialize_transaction(
             sender: sender_creds.account.clone(),
             receiver: receiver_creds.account.clone(),
             mediator: mediator_creds.user.did,
-        }]
+        }],
+        None
     ));
 
     let sender_pending_balance = sender_secret_account

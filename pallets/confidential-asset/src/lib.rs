@@ -127,16 +127,18 @@ use polymesh_primitives::{
     asset::{AssetName, AssetType},
     impl_checked_inc,
     settlement::VenueId,
-    Balance, IdentityId, Ticker,
+    Balance, IdentityId, Memo, Ticker,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Zero, SaturatedConversion};
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{convert::From, prelude::*};
 
 use rand_chacha::ChaCha20Rng as Rng;
 use rand_core::SeedableRng;
 
 type Identity<T> = identity::Module<T>;
+type System<T> = frame_system::Pallet<T>;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -147,6 +149,10 @@ pub trait WeightInfo {
     fn create_confidential_asset() -> Weight;
     fn mint_confidential_asset() -> Weight;
     fn apply_incoming_balance() -> Weight;
+    fn create_venue() -> Weight;
+    fn set_venue_filtering() -> Weight;
+    fn allow_venues(l: u32) -> Weight;
+    fn disallow_venues(l: u32) -> Weight;
     fn add_transaction() -> Weight;
     fn sender_affirm_transaction() -> Weight;
     fn receiver_affirm_transaction() -> Weight;
@@ -426,6 +432,8 @@ impl UnaffirmLeg {
 /// Confidential asset details.
 #[derive(Encode, Decode, TypeInfo, Default, Clone, PartialEq, Debug)]
 pub struct ConfidentialAssetDetails {
+    /// Confidential asset name.
+    pub name: AssetName,
     /// Total supply of the asset.
     pub total_supply: Balance,
     /// Asset's owner DID.
@@ -434,43 +442,114 @@ pub struct ConfidentialAssetDetails {
     pub asset_type: AssetType,
 }
 
+/// Transaction information.
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Default, Debug, PartialEq, Eq)]
+pub struct Transaction<BlockNumber> {
+    /// Id of the venue this instruction belongs to
+    pub venue_id: VenueId,
+    /// BlockNumber that the transaction was created.
+    pub created_at: BlockNumber,
+    /// Memo attached to the transaction.
+    pub memo: Option<Memo>,
+}
+
+/// Status of a transaction.
+#[derive(Encode, Decode, TypeInfo)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TransactionStatus<BlockNumber> {
+    /// Pending affirmation and execution.
+    Pending,
+    /// Executed at block.
+    Executed(BlockNumber),
+    /// Reverted at block.
+    Reverted(BlockNumber),
+}
+
 decl_storage! {
     trait Store for Module<T: Config> as ConfidentialAsset {
+        /// Venue creator.
+        ///
+        /// venue_id -> Option<IdentityId>
+        pub VenueCreator get(fn venue_creator):
+            map hasher(twox_64_concat) VenueId => Option<IdentityId>;
+
+        /// Track venues created by an identity.
+        /// Only needed for the UI.
+        ///
+        /// venue_id -> creator_did -> Option<bool>
+        pub IdentityVenues get(fn identity_venues):
+            double_map hasher(twox_64_concat) VenueId,
+                       hasher(twox_64_concat) IdentityId
+                    => ();
+
+        /// Transaction created by a venue.
+        /// Only needed for the UI.
+        ///
+        /// venue_id -> transaction_id -> ()
+        pub VenueTransactions get(fn venue_transactions):
+            double_map hasher(twox_64_concat) VenueId,
+                       hasher(twox_64_concat) TransactionId
+                    => ();
+
+        /// Tracks if a token has enabled filtering venues that can create transactions involving their token.
+        ///
+        /// ticker -> filtering_enabled
+        VenueFiltering get(fn venue_filtering): map hasher(blake2_128_concat) Ticker => bool;
+
+        /// Venues that are allowed to create transactions involving a particular ticker. Only used if filtering is enabled.
+        ///
+        /// ticker -> venue_id -> allowed
+        VenueAllowList get(fn venue_allow_list): double_map hasher(blake2_128_concat) Ticker, hasher(twox_64_concat) VenueId => bool;
+
+        /// Number of venues in the system (It's one more than the actual number)
+        VenueCounter get(fn venue_counter) build(|_| VenueId(1u64)): VenueId;
+
         /// Details of the confidential asset.
-        /// (ticker) -> ConfidentialAssetDetails
+        ///
+        /// ticker -> Option<ConfidentialAssetDetails>
         pub Details get(fn confidential_asset_details): map hasher(blake2_128_concat) Ticker => Option<ConfidentialAssetDetails>;
 
         /// Contains the encryption key for a mercat mediator.
+        ///
+        /// identity_id -> Option<MercatAccount>
         pub MediatorMercatAccounts get(fn mediator_mercat_accounts):
             map hasher(twox_64_concat) IdentityId => Option<MercatAccount>;
 
         /// Records the did for a mercat account.
-        /// account -> IdentityId.
+        ///
+        /// account -> Option<IdentityId>.
         pub MercatAccountDid get(fn mercat_account_did):
             map hasher(blake2_128_concat) MercatAccount
             => Option<IdentityId>;
 
         /// Contains the encrypted balance of a mercat account.
-        /// (account, ticker) -> EncryptedAmount.
+        ///
+        /// account -> ticker -> Option<EncryptedAmount>
         pub MercatAccountBalance get(fn mercat_account_balance):
             double_map hasher(blake2_128_concat) MercatAccount,
             hasher(blake2_128_concat) Ticker
             => Option<EncryptedAmount>;
 
         /// Accumulates the encrypted incoming balance for a mercat account.
-        /// (account, ticker) -> EncryptedAmount.
+        ///
+        /// account -> ticker -> Option<EncryptedAmount>
         IncomingBalance get(fn incoming_balance):
             double_map hasher(blake2_128_concat) MercatAccount,
             hasher(blake2_128_concat) Ticker
             => Option<EncryptedAmount>;
 
-        /// Legs of a transaction. (transaction_id, leg_id) -> Leg
+        /// Legs of a transaction.
+        ///
+        /// transaction_id -> leg_id -> Option<Leg>
         pub TransactionLegs get(fn transaction_legs):
             double_map hasher(twox_64_concat) TransactionId, hasher(twox_64_concat) TransactionLegId => Option<TransactionLeg>;
 
         /// Stores the sender's initial balance when they affirmed the transaction leg.
         ///
-        /// This is needed to verify the sender's proof.
+        /// This is needed to verify the sender's proof.  It is only stored
+        /// for clients to use during off-chain proof verification.
+        ///
         /// (transaction_id, leg_id) -> Option<EncryptedAmount>
         pub TxLegSenderBalance get(fn tx_leg_sender_balance):
             map hasher(blake2_128_concat) (TransactionId, TransactionLegId) => Option<EncryptedAmount>;
@@ -478,6 +557,7 @@ decl_storage! {
         /// Stores the transfer amount encrypted using the sender's public key.
         ///
         /// This is needed to revert the transaction.
+        ///
         /// (transaction_id, leg_id) -> Option<EncryptedAmount>
         pub TxLegSenderAmount get(fn tx_leg_sender_amount):
             map hasher(blake2_128_concat) (TransactionId, TransactionLegId) => Option<EncryptedAmount>;
@@ -485,21 +565,39 @@ decl_storage! {
         /// Stores the transfer amount encrypted using the receiver's public key.
         ///
         /// This is needed to execute the transaction.
+        ///
         /// (transaction_id, leg_id) -> Option<EncryptedAmount>
         pub TxLegReceiverAmount get(fn tx_leg_receiver_amount):
             map hasher(blake2_128_concat) (TransactionId, TransactionLegId) => Option<EncryptedAmount>;
 
-        /// Number of affirmations pending before transaction is executed. transaction_id -> affirms_pending
+        /// Number of affirmations pending before transaction is executed.
+        ///
+        /// transaction_id -> Option<affirms_pending>
         PendingAffirms get(fn affirms_pending): map hasher(twox_64_concat) TransactionId => Option<u32>;
 
         /// Track pending transaction affirmations.
-        /// (counter_party, (transaction_id, leg_id)) -> Option<bool>
+        ///
+        /// counter_party -> (transaction_id, leg_id) -> Option<bool>
         UserAffirmations get(fn user_affirmations):
             double_map hasher(twox_64_concat) IdentityId, hasher(twox_64_concat) (TransactionId, TransactionLegId) => Option<bool>;
 
         /// The storage for mercat sender proofs.
+        ///
+        /// transaction_id -> leg_id -> Option<SenderProof>
         SenderProofs get(fn sender_proofs):
             double_map hasher(twox_64_concat) TransactionId, hasher(twox_64_concat) TransactionLegId => Option<SenderProof>;
+
+        /// Transaction statuses.
+        ///
+        /// transaction_id -> Option<TransactionStatus>
+        TransactionStatuses get(fn transaction_status):
+            map hasher(twox_64_concat) TransactionId => Option<TransactionStatus<T::BlockNumber>>;
+
+        /// Details about an instruction.
+        ///
+        /// transaction_id -> transaction_details
+        pub Transactions get(fn transactions):
+            map hasher(twox_64_concat) TransactionId => Option<Transaction<T::BlockNumber>>;
 
         /// Number of transactions in the system (It's one more than the actual number)
         TransactionCounter get(fn transaction_counter) build(|_| TransactionId(1u64)): TransactionId;
@@ -631,6 +729,45 @@ decl_module! {
             Self::base_apply_incoming_balance(caller_did, account, ticker)
         }
 
+        /// Registers a new venue.
+        ///
+        #[weight = <T as Config>::WeightInfo::create_venue()]
+        pub fn create_venue(origin) -> DispatchResult {
+            let did = Identity::<T>::ensure_perms(origin)?;
+            Self::base_create_venue(did)
+        }
+
+        /// Enables or disabled venue filtering for a token.
+        ///
+        /// # Arguments
+        /// * `ticker` - Ticker of the token in question.
+        /// * `enabled` - Boolean that decides if the filtering should be enabled.
+        #[weight = <T as Config>::WeightInfo::set_venue_filtering()]
+        pub fn set_venue_filtering(origin, ticker: Ticker, enabled: bool) -> DispatchResult {
+            let did = Identity::<T>::ensure_perms(origin)?;
+            Self::base_set_venue_filtering(did, ticker, enabled)
+        }
+
+        /// Allows additional venues to create instructions involving an asset.
+        ///
+        /// * `ticker` - Ticker of the token in question.
+        /// * `venues` - Array of venues that are allowed to create instructions for the token in question.
+        #[weight = <T as Config>::WeightInfo::allow_venues(venues.len() as u32)]
+        pub fn allow_venues(origin, ticker: Ticker, venues: Vec<VenueId>) -> DispatchResult {
+            let did = Identity::<T>::ensure_perms(origin)?;
+            Self::base_update_venue_allow_list(did, ticker, venues, true)
+        }
+
+        /// Revokes permission given to venues for creating instructions involving a particular asset.
+        ///
+        /// * `ticker` - Ticker of the token in question.
+        /// * `venues` - Array of venues that are no longer allowed to create instructions for the token in question.
+        #[weight = <T as Config>::WeightInfo::disallow_venues(venues.len() as u32)]
+        pub fn disallow_venues(origin, ticker: Ticker, venues: Vec<VenueId>) -> DispatchResult {
+            let did = Identity::<T>::ensure_perms(origin)?;
+            Self::base_update_venue_allow_list(did, ticker, venues, false)
+        }
+
         /// Adds a new transaction.
         ///
         #[weight = <T as Config>::WeightInfo::add_transaction()]
@@ -638,9 +775,10 @@ decl_module! {
             origin,
             venue_id: VenueId,
             legs: Vec<TransactionLeg>,
+            memo: Option<Memo>,
         ) {
             let did = Identity::<T>::ensure_perms(origin)?;
-            Self::base_add_transaction(did, venue_id, legs)?;
+            Self::base_add_transaction(did, venue_id, legs, memo)?;
         }
 
         /// Affirm a transaction.
@@ -753,12 +891,10 @@ impl<T: Config> Module<T> {
 
     fn base_create_confidential_asset(
         owner_did: IdentityId,
-        _name: AssetName,
+        name: AssetName,
         ticker: Ticker,
         asset_type: AssetType,
     ) -> DispatchResult {
-        // TODO: store asset name?
-
         // Ensure the asset hasn't been created yet.
         ensure!(
             !Details::contains_key(ticker),
@@ -766,6 +902,7 @@ impl<T: Config> Module<T> {
         );
 
         let details = ConfidentialAssetDetails {
+            name,
             total_supply: Zero::zero(),
             owner_did,
             asset_type,
@@ -789,11 +926,8 @@ impl<T: Config> Module<T> {
         total_supply: Balance,
         asset_mint_proof: MercatMintAssetTx,
     ) -> DispatchResult {
-        let mut details =
-            Self::confidential_asset_details(ticker).ok_or(Error::<T>::UnknownConfidentialAsset)?;
-
-        // Only the owner of the asset can change its total supply.
-        ensure!(details.owner_did == owner_did, Error::<T>::Unauthorized);
+        // Ensure the caller is the asset owner and get the asset details.
+        let mut details = Self::ensure_asset_owner(ticker, owner_did)?;
 
         // Current total supply must be zero.
         // TODO: Allow increasing the total supply?
@@ -874,28 +1008,116 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    // Ensure the caller is the asset owner.
+    fn ensure_asset_owner(
+        ticker: Ticker,
+        did: IdentityId,
+    ) -> Result<ConfidentialAssetDetails, DispatchError> {
+        let details =
+            Self::confidential_asset_details(ticker).ok_or(Error::<T>::UnknownConfidentialAsset)?;
+
+        // Ensure that the caller is the asset owner.
+        ensure!(details.owner_did == did, Error::<T>::Unauthorized);
+        Ok(details)
+    }
+
+    // Ensure the caller is the venue creator.
+    fn ensure_venue_creator(id: VenueId, did: IdentityId) -> Result<(), DispatchError> {
+        // Get the venue creator.
+        let creator_did = Self::venue_creator(id).ok_or(Error::<T>::InvalidVenue)?;
+        ensure!(creator_did == did, Error::<T>::Unauthorized);
+        Ok(())
+    }
+
+    /// If `tickers` doesn't contain the given `ticker` and venue_filtering is enabled, ensures that venue_id is in the allowed list
+    fn ensure_venue_filtering(
+        tickers: &mut BTreeSet<Ticker>,
+        ticker: Ticker,
+        venue_id: &VenueId,
+    ) -> DispatchResult {
+        if tickers.insert(ticker) && Self::venue_filtering(ticker) {
+            ensure!(
+                Self::venue_allow_list(ticker, venue_id),
+                Error::<T>::UnauthorizedVenue
+            );
+        }
+        Ok(())
+    }
+
+    fn base_create_venue(did: IdentityId) -> DispatchResult {
+        // Advance venue counter.
+        // NB: Venue counter starts with 1.
+        let venue_id = VenueCounter::try_mutate(try_next_post::<T, _>)?;
+
+        // Other commits to storage + emit event.
+        VenueCreator::insert(venue_id, did);
+        IdentityVenues::insert(venue_id, did, ());
+        // TODO:
+        //Self::deposit_event(RawEvent::VenueCreated(did, id, details, typ));
+        Ok(())
+    }
+
+    fn base_set_venue_filtering(did: IdentityId, ticker: Ticker, enabled: bool) -> DispatchResult {
+        // Ensure the caller is the asset owner.
+        Self::ensure_asset_owner(ticker, did)?;
+        if enabled {
+            VenueFiltering::insert(ticker, enabled);
+        } else {
+            VenueFiltering::remove(ticker);
+        }
+        // TODO:
+        //Self::deposit_event(RawEvent::VenueFiltering(did, ticker, enabled));
+        Ok(())
+    }
+
+    fn base_update_venue_allow_list(
+        did: IdentityId,
+        ticker: Ticker,
+        venues: Vec<VenueId>,
+        allow: bool,
+    ) -> DispatchResult {
+        // Ensure the caller is the asset owner.
+        Self::ensure_asset_owner(ticker, did)?;
+        if allow {
+            for venue in &venues {
+                VenueAllowList::insert(&ticker, venue, true);
+            }
+            // TODO:
+            //Self::deposit_event(RawEvent::VenuesAllowed(did, ticker, venues));
+        } else {
+            for venue in &venues {
+                VenueAllowList::remove(&ticker, venue);
+            }
+            // TODO:
+            //Self::deposit_event(RawEvent::VenuesBlocked(did, ticker, venues));
+        }
+        Ok(())
+    }
+
     pub fn base_add_transaction(
         did: IdentityId,
         venue_id: VenueId,
         legs: Vec<TransactionLeg>,
+        memo: Option<Memo>,
     ) -> Result<TransactionId, DispatchError> {
-        // TODO: Ensure transaction does not have too many legs.
+        // Ensure transaction does not have too many legs.
+        // TODO: Add pallet constant for limit.
+        ensure!(legs.len() <= 10, Error::<T>::InstructionHasTooManyLegs);
 
-        // TODO: Ensure venue exists & sender is its creator.
-        //Self::venue_for_management(venue_id, did)?;
-
-        // Create a list of unique counter parties involved in the transaction.
-        // TODO: Counter parties? or just the number of missing proofs?
-
-        // TODO: Check if the venue has required permissions from token owners.
+        // Ensure venue exists and the caller is its creator.
+        Self::ensure_venue_creator(venue_id, did)?;
 
         // Advance and get next `transaction_id`.
         let transaction_id = TransactionCounter::try_mutate(try_next_post::<T, _>)?;
+        VenueTransactions::insert(venue_id, transaction_id, ());
 
         let pending_affirms = (legs.len() * 3) as u32;
         PendingAffirms::insert(transaction_id, pending_affirms);
 
+        let mut tickers: BTreeSet<Ticker> = BTreeSet::new();
         for (i, leg) in legs.iter().enumerate() {
+            // Check if the venue has required permissions from asset owners.
+            Self::ensure_venue_filtering(&mut tickers, leg.ticker, &venue_id)?;
             ensure!(leg.verify_accounts(), Error::<T>::InvalidMercatAccount);
             let leg_id = TransactionLegId(i as _);
             let sender_did = Self::get_mercat_account_did(&leg.sender)?;
@@ -906,21 +1128,23 @@ impl<T: Config> Module<T> {
             TransactionLegs::insert(transaction_id, leg_id, leg.clone());
         }
 
-        /*
-        // TODO: Record transaction details: venue id, status, etc...
-        let transaction = Transaction {
+        // Record transaction details and status.
+        <Transactions<T>>::insert(
             transaction_id,
-            venue_id,
-            status: TransactionStatus::Pending,
-        };
-        <TransactionDetails<T>>::insert(transaction_id, transaction);
-        */
+            Transaction {
+                venue_id,
+                created_at: System::<T>::block_number(),
+                memo: memo.clone(),
+            },
+        );
+        <TransactionStatuses<T>>::insert(transaction_id, TransactionStatus::Pending);
 
         Self::deposit_event(Event::TransactionCreated(
             did,
             venue_id,
             transaction_id,
             legs,
+            memo,
         ));
 
         Ok(transaction_id)
@@ -1084,10 +1308,17 @@ impl<T: Config> Module<T> {
             Error::<T>::InstructionNotAffirmed
         );
 
+        // Execute transaction legs.
         for (leg_id, leg) in legs {
             Self::execute_leg(transaction_id, leg_id, leg)?;
         }
 
+        // Remove transaction details and update status.
+        <Transactions<T>>::remove(transaction_id);
+        let block = System::<T>::block_number();
+        <TransactionStatuses<T>>::insert(transaction_id, TransactionStatus::Executed(block));
+
+        // TODO: emit event.
         Ok(())
     }
 
@@ -1145,10 +1376,17 @@ impl<T: Config> Module<T> {
         // Remove the pending affirmation count.
         PendingAffirms::remove(transaction_id);
 
+        // Revert transaction legs.
         for (leg_id, leg) in legs {
             Self::revert_leg(transaction_id, leg_id, leg)?;
         }
 
+        // Remove transaction details and update status.
+        <Transactions<T>>::remove(transaction_id);
+        let block = System::<T>::block_number();
+        <TransactionStatuses<T>>::insert(transaction_id, TransactionStatus::Reverted(block));
+
+        // TODO: emit event.
         Ok(())
     }
 
@@ -1273,12 +1511,13 @@ decl_event! {
         ResetConfidentialAccountOrderingState(IdentityId, MercatAccount, Ticker, EncryptedAmount),
 
         /// A new transaction has been created
-        /// (did, venue_id, transaction_id, legs)
+        /// (did, venue_id, transaction_id, legs, memo)
         TransactionCreated(
             IdentityId,
             VenueId,
             TransactionId,
             Vec<TransactionLeg>,
+            Option<Memo>,
         ),
     }
 }

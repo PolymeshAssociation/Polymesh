@@ -23,7 +23,6 @@ use pallet_confidential_asset::{
 };
 use polymesh_primitives::{
     asset::{AssetName, AssetType},
-    settlement::VenueId,
     Ticker,
 };
 use rand::{rngs::StdRng, SeedableRng};
@@ -102,6 +101,7 @@ pub fn create_account_and_mint_token(
     mut rng: &mut StdRng,
 ) -> (SecAccount, MercatAccount, PubAccount, EncryptedAmount) {
     let token = ConfidentialAssetDetails {
+        name: AssetName(token_name.clone()),
         total_supply,
         owner_did: owner.did,
         asset_type: AssetType::default(),
@@ -110,7 +110,7 @@ pub fn create_account_and_mint_token(
 
     assert_ok!(ConfidentialAsset::create_confidential_asset(
         owner.origin(),
-        AssetName(token_name.clone()),
+        token.name.clone(),
         ticker,
         token.asset_type.clone(),
     ));
@@ -181,6 +181,7 @@ fn issuers_can_create_and_rename_confidential_tokens() {
         // Expected token entry
         let token_name = vec![b'A'];
         let token = ConfidentialAssetDetails {
+            name: AssetName(token_name.clone()),
             owner_did: owner.did,
             total_supply: 1_000_000,
             asset_type: AssetType::default(),
@@ -190,13 +191,14 @@ fn issuers_can_create_and_rename_confidential_tokens() {
         // Issuance is successful.
         assert_ok!(ConfidentialAsset::create_confidential_asset(
             owner.origin(),
-            AssetName(token_name.clone()),
+            token.name.clone(),
             ticker,
             token.asset_type.clone(),
         ));
 
         // A correct entry is added.
         let token_with_zero_supply = ConfidentialAssetDetails {
+            name: AssetName(token_name.clone()),
             owner_did: token.owner_did,
             total_supply: Zero::zero(),
             asset_type: token.asset_type.clone(),
@@ -218,6 +220,7 @@ fn issuers_can_create_and_rename_confidential_tokens() {
         // Rename the token and check storage has been updated.
         let renamed_token_name = vec![0x42];
         let renamed_token = ConfidentialAssetDetails {
+            name: AssetName(token_name.clone()),
             owner_did: token.owner_did,
             total_supply: token_with_zero_supply.total_supply,
             asset_type: token.asset_type.clone(),
@@ -225,7 +228,7 @@ fn issuers_can_create_and_rename_confidential_tokens() {
         assert_ok!(Asset::rename_asset(
             owner.origin(),
             ticker,
-            AssetName(renamed_token_name.clone())
+            token.name.clone(),
         ));
         assert_eq!(ConfidentialAsset::confidential_asset_details(ticker).expect("Asset details"), renamed_token);
         */
@@ -234,6 +237,7 @@ fn issuers_can_create_and_rename_confidential_tokens() {
         // Expected token entry.
         let token_name = vec![b'B'];
         let token = ConfidentialAssetDetails {
+            name: AssetName(token_name.clone()),
             owner_did: owner.did,
             total_supply: 1_000_000,
             asset_type: AssetType::default(),
@@ -243,12 +247,13 @@ fn issuers_can_create_and_rename_confidential_tokens() {
         // Second Issuance is successful.
         assert_ok!(ConfidentialAsset::create_confidential_asset(
             owner.origin(),
-            AssetName(token_name.clone()),
+            token.name.clone(),
             ticker2,
             token.asset_type.clone(),
         ));
 
         let token_with_zero_supply = ConfidentialAssetDetails {
+            name: AssetName(token_name.clone()),
             owner_did: token.owner_did,
             total_supply: Zero::zero(),
             asset_type: token.asset_type.clone(),
@@ -283,6 +288,7 @@ fn issuers_can_create_and_mint_tokens() {
         // Expected token entry
         let token_name = vec![b'D'];
         let token = ConfidentialAssetDetails {
+            name: AssetName(token_name.clone()),
             owner_did: owner.did,
             total_supply,
             asset_type: AssetType::default(),
@@ -291,7 +297,7 @@ fn issuers_can_create_and_mint_tokens() {
 
         assert_ok!(ConfidentialAsset::create_confidential_asset(
             owner.origin(),
-            AssetName(token_name.clone()),
+            token.name.clone(),
             ticker,
             token.asset_type.clone(),
         ));
@@ -443,14 +449,8 @@ fn basic_confidential_settlement() {
                 init_account(&mut rng, ticker, charlie);
 
             // Mediator creates a venue
-            let venue_counter = VenueId(0); /*ConfidentialAsset::venue_counter();
-                                            assert_ok!(ConfidentialAsset::create_venue(
-                                                charlie.origin(),
-                                                VenueDetails::default(),
-                                                vec![charlie.acc()],
-                                                VenueType::Other
-                                            ));
-                                            */
+            let venue_counter = ConfidentialAsset::venue_counter();
+            assert_ok!(ConfidentialAsset::create_venue(charlie.origin()));
 
             // Mediator creates an transaction
             let transaction_id = ConfidentialAsset::transaction_counter();
@@ -464,7 +464,8 @@ fn basic_confidential_settlement() {
                     sender: alice_account.clone(),
                     receiver: bob_account.clone(),
                     mediator: charlie.did,
-                }]
+                }],
+                None
             ));
 
             // -------------------------- Perform the transfer

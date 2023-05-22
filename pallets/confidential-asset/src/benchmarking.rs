@@ -171,6 +171,7 @@ pub fn create_account_and_mint_token<T: Config + TestUtilsFn<AccountIdOf<T>>>(
 ) -> (Ticker, MercatUser<T>, MercatBalance) {
     let owner = MercatUser::new(name, rng);
     let token = ConfidentialAssetDetails {
+        name: AssetName(token_name.into()),
         total_supply,
         owner_did: owner.did(),
         asset_type: AssetType::default(),
@@ -251,8 +252,20 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> TransactionState<T> {
         mediator.add_mediator();
 
         // Setup venue.
-        // TODO:
-        let venue_id = VenueId(0);
+        let venue_id = Module::<T>::venue_counter();
+        assert_ok!(Module::<T>::create_venue(issuer.origin().into(),));
+
+        // Setup venue filtering and allow our venue.
+        assert_ok!(Module::<T>::set_venue_filtering(
+            issuer.origin().into(),
+            ticker,
+            true
+        ));
+        assert_ok!(Module::<T>::allow_venues(
+            issuer.origin().into(),
+            ticker,
+            vec![venue_id]
+        ));
 
         // Setup investor.
         let investor = MercatUser::<T>::new("investor", rng);
@@ -286,6 +299,7 @@ impl<T: Config + TestUtilsFn<AccountIdOf<T>>> TransactionState<T> {
             self.issuer.origin().into(),
             self.venue_id,
             self.legs.clone(),
+            Some(Memo([7u8; 32])),
         ));
     }
 
@@ -430,13 +444,81 @@ benchmarks! {
         tx.execute();
     }: _(tx.issuer.origin(), tx.issuer.mercat(), tx.ticker)
 
+    create_venue {
+        let issuer = user::<T>("issuer", SEED);
+    }: _(issuer.origin())
+
+    set_venue_filtering {
+        let mut rng = StdRng::from_seed([10u8; 32]);
+        let issuer = MercatUser::<T>::new("issuer", &mut rng);
+        let ticker = Ticker::from_slice_truncated(b"A".as_ref());
+        create_confidential_token(
+            &issuer.user,
+            b"Name".as_slice(),
+            ticker,
+        );
+    }: _(issuer.origin(), ticker, true)
+
+    allow_venues {
+        // Count of venues.
+        let v in 0 .. 100;
+
+        let mut rng = StdRng::from_seed([10u8; 32]);
+        let issuer = MercatUser::<T>::new("issuer", &mut rng);
+        let ticker = Ticker::from_slice_truncated(b"A".as_ref());
+        create_confidential_token(
+            &issuer.user,
+            b"Name".as_slice(),
+            ticker,
+        );
+        let mut venues = Vec::new();
+        for i in 0 .. v {
+            venues.push(VenueId(i.into()));
+        }
+        let s_venues = venues.clone();
+    }: _(issuer.origin(), ticker, s_venues)
+    verify {
+        for v in venues.iter() {
+            assert!(Module::<T>::venue_allow_list(ticker, v), "Fail: allow_venue dispatch");
+        }
+    }
+
+    disallow_venues {
+        // Count of venues.
+        let v in 0 .. 100;
+
+        let mut rng = StdRng::from_seed([10u8; 32]);
+        let issuer = MercatUser::<T>::new("issuer", &mut rng);
+        let ticker = Ticker::from_slice_truncated(b"A".as_ref());
+        create_confidential_token(
+            &issuer.user,
+            b"Name".as_slice(),
+            ticker,
+        );
+        let mut venues = Vec::new();
+        for i in 0 .. v {
+            venues.push(VenueId(i.into()));
+        }
+        assert_ok!(Module::<T>::allow_venues(
+            issuer.origin().into(),
+            ticker,
+            venues.clone(),
+        ));
+        let s_venues = venues.clone();
+    }: _(issuer.origin(), ticker, s_venues)
+    verify {
+        for v in venues.iter() {
+            assert!(!Module::<T>::venue_allow_list(ticker, v), "Fail: allow_venue dispatch");
+        }
+    }
+
     add_transaction {
         let mut rng = StdRng::from_seed([10u8; 32]);
 
         // Setup for transaction.
         let tx = TransactionState::<T>::new(&mut rng);
 
-    }: _(tx.issuer.origin(), tx.venue_id, tx.legs)
+    }: _(tx.issuer.origin(), tx.venue_id, tx.legs, Some(Memo([7u8; 32])))
 
     sender_affirm_transaction {
         let mut rng = StdRng::from_seed([10u8; 32]);
