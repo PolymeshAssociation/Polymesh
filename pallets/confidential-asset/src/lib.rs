@@ -477,10 +477,10 @@ decl_storage! {
         /// Track venues created by an identity.
         /// Only needed for the UI.
         ///
-        /// venue_id -> creator_did -> Option<bool>
+        /// creator_did -> venue_id -> ()
         pub IdentityVenues get(fn identity_venues):
-            double_map hasher(twox_64_concat) VenueId,
-                       hasher(twox_64_concat) IdentityId
+            double_map hasher(twox_64_concat) IdentityId,
+                       hasher(twox_64_concat) VenueId
                     => ();
 
         /// Transaction created by a venue.
@@ -1051,7 +1051,7 @@ impl<T: Config> Module<T> {
 
         // Other commits to storage + emit event.
         VenueCreator::insert(venue_id, did);
-        IdentityVenues::insert(venue_id, did, ());
+        IdentityVenues::insert(did, venue_id, ());
         // TODO:
         //Self::deposit_event(RawEvent::VenueCreated(did, id, details, typ));
         Ok(())
