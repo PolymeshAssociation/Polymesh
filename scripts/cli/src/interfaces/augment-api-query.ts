@@ -2,10 +2,10 @@
 /* eslint-disable */
 
 import type { ApiTypes } from '@polkadot/api-base/types';
-import type { BTreeSet, Bytes, Null, Option, U8aFixed, Vec, WrapperOpaque, bool, u128, u16, u32, u64, u8 } from '@polkadot/types-codec';
+import type { BTreeSet, Bytes, Compact, Null, Option, U8aFixed, Vec, WrapperOpaque, bool, u128, u16, u32, u64, u8 } from '@polkadot/types-codec';
 import type { AnyNumber, ITuple } from '@polkadot/types-codec/types';
 import type { AccountId32, Call, H256, Perbill, Permill } from '@polkadot/types/interfaces/runtime';
-import type { FrameSupportDispatchPerDispatchClassWeight, FrameSystemAccountInfo, FrameSystemEventRecord, FrameSystemLastRuntimeUpgradeInfo, FrameSystemPhase, PalletAssetAssetOwnershipRelation, PalletAssetClassicTickerRegistration, PalletAssetSecurityToken, PalletAssetTickerRegistration, PalletAssetTickerRegistrationConfig, PalletAuthorshipUncleEntryItem, PalletBalancesBalanceLock, PalletBridgeBridgeTxDetail, PalletCommitteePolymeshVotes, PalletContractsStorageContractInfo, PalletContractsStorageDeletedContract, PalletContractsWasmOwnerInfo, PalletContractsWasmPrefabWasmModule, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCorporateAction, PalletCorporateActionsDistribution, PalletCorporateActionsTargetIdentities, PalletGrandpaStoredPendingChange, PalletGrandpaStoredState, PalletIdentityClaim1stKey, PalletIdentityClaim2ndKey, PalletImOnlineBoundedOpaqueNetworkState, PalletImOnlineSr25519AppSr25519Public, PalletMultisigProposalDetails, PalletPipsDepositInfo, PalletPipsPip, PalletPipsPipsMetadata, PalletPipsProposalState, PalletPipsSnapshotMetadata, PalletPipsSnapshottedPip, PalletPipsVote, PalletPipsVotingResult, PalletPreimageRequestStatus, PalletRelayerSubsidy, PalletRewardsItnRewardStatus, PalletSchedulerScheduled, PalletStakingActiveEraInfo, PalletStakingElectionResult, PalletStakingElectionStatus, PalletStakingEraRewardPoints, PalletStakingExposure, PalletStakingForcing, PalletStakingNominations, PalletStakingPermissionedIdentityPrefs, PalletStakingReleases, PalletStakingRewardDestination, PalletStakingSlashingSlashingSpans, PalletStakingSlashingSpanRecord, PalletStakingSlashingSwitch, PalletStakingStakingLedger, PalletStakingUnappliedSlash, PalletStakingValidatorPrefs, PalletStoFundraiser, PalletTransactionPaymentReleases, PolymeshCommonUtilitiesCheckpointStoredSchedule, PolymeshCommonUtilitiesGroupInactiveMember, PolymeshCommonUtilitiesMaybeBlock, PolymeshCommonUtilitiesProtocolFeeProtocolOp, PolymeshContractsChainExtensionExtrinsicId, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAssetMetadataAssetMetadataKey, PolymeshPrimitivesAssetMetadataAssetMetadataSpec, PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail, PolymeshPrimitivesAuthorization, PolymeshPrimitivesComplianceManagerAssetCompliance, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesIdentityClaim, PolymeshPrimitivesIdentityDidRecord, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesNftNftCollection, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKeyKeyRecord, PolymeshPrimitivesSecondaryKeySignatory, PolymeshPrimitivesSettlementAffirmationStatus, PolymeshPrimitivesSettlementInstruction, PolymeshPrimitivesSettlementInstructionMemo, PolymeshPrimitivesSettlementInstructionStatus, PolymeshPrimitivesSettlementLeg, PolymeshPrimitivesSettlementLegStatus, PolymeshPrimitivesSettlementVenue, PolymeshPrimitivesStatisticsAssetScope, PolymeshPrimitivesStatisticsStat1stKey, PolymeshPrimitivesStatisticsStat2ndKey, PolymeshPrimitivesStatisticsStatType, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions, PolymeshPrimitivesTicker, PolymeshPrimitivesTransferComplianceAssetTransferCompliance, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, PolymeshRuntimeDevelopRuntimeSessionKeys, SpConsensusBabeAppPublic, SpConsensusBabeBabeEpochConfiguration, SpConsensusBabeDigestsNextConfigDescriptor, SpConsensusBabeDigestsPreDigest, SpCoreCryptoKeyTypeId, SpNposElectionsElectionScore, SpRuntimeDigest, SpStakingOffenceOffenceDetails } from '@polkadot/types/lookup';
+import type { ConfidentialIdentityCoreAssetProofsElgamalEncryptionCipherText, FrameSupportDispatchPerDispatchClassWeight, FrameSystemAccountInfo, FrameSystemEventRecord, FrameSystemLastRuntimeUpgradeInfo, FrameSystemPhase, PalletAssetAssetOwnershipRelation, PalletAssetClassicTickerRegistration, PalletAssetSecurityToken, PalletAssetTickerRegistration, PalletAssetTickerRegistrationConfig, PalletAuthorshipUncleEntryItem, PalletBalancesBalanceLock, PalletBridgeBridgeTxDetail, PalletCommitteePolymeshVotes, PalletConfidentialAssetConfidentialAssetDetails, PalletConfidentialAssetMercatAccount, PalletConfidentialAssetTransaction, PalletConfidentialAssetTransactionId, PalletConfidentialAssetTransactionLeg, PalletConfidentialAssetTransactionLegId, PalletConfidentialAssetTransactionStatus, PalletContractsStorageContractInfo, PalletContractsStorageDeletedContract, PalletContractsWasmOwnerInfo, PalletContractsWasmPrefabWasmModule, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCorporateAction, PalletCorporateActionsDistribution, PalletCorporateActionsTargetIdentities, PalletGrandpaStoredPendingChange, PalletGrandpaStoredState, PalletIdentityClaim1stKey, PalletIdentityClaim2ndKey, PalletImOnlineBoundedOpaqueNetworkState, PalletImOnlineSr25519AppSr25519Public, PalletMultisigProposalDetails, PalletPipsDepositInfo, PalletPipsPip, PalletPipsPipsMetadata, PalletPipsProposalState, PalletPipsSnapshotMetadata, PalletPipsSnapshottedPip, PalletPipsVote, PalletPipsVotingResult, PalletPreimageRequestStatus, PalletRelayerSubsidy, PalletRewardsItnRewardStatus, PalletSchedulerScheduled, PalletStakingActiveEraInfo, PalletStakingElectionResult, PalletStakingElectionStatus, PalletStakingEraRewardPoints, PalletStakingExposure, PalletStakingForcing, PalletStakingNominations, PalletStakingPermissionedIdentityPrefs, PalletStakingReleases, PalletStakingRewardDestination, PalletStakingSlashingSlashingSpans, PalletStakingSlashingSpanRecord, PalletStakingSlashingSwitch, PalletStakingStakingLedger, PalletStakingUnappliedSlash, PalletStakingValidatorPrefs, PalletStoFundraiser, PalletTransactionPaymentReleases, PolymeshCommonUtilitiesCheckpointStoredSchedule, PolymeshCommonUtilitiesGroupInactiveMember, PolymeshCommonUtilitiesMaybeBlock, PolymeshCommonUtilitiesProtocolFeeProtocolOp, PolymeshContractsChainExtensionExtrinsicId, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAssetMetadataAssetMetadataKey, PolymeshPrimitivesAssetMetadataAssetMetadataSpec, PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail, PolymeshPrimitivesAuthorization, PolymeshPrimitivesComplianceManagerAssetCompliance, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesIdentityClaim, PolymeshPrimitivesIdentityDidRecord, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesMemo, PolymeshPrimitivesNftNftCollection, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKeyKeyRecord, PolymeshPrimitivesSecondaryKeySignatory, PolymeshPrimitivesSettlementAffirmationStatus, PolymeshPrimitivesSettlementInstruction, PolymeshPrimitivesSettlementInstructionStatus, PolymeshPrimitivesSettlementLeg, PolymeshPrimitivesSettlementLegStatus, PolymeshPrimitivesSettlementVenue, PolymeshPrimitivesStatisticsAssetScope, PolymeshPrimitivesStatisticsStat1stKey, PolymeshPrimitivesStatisticsStat2ndKey, PolymeshPrimitivesStatisticsStatType, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions, PolymeshPrimitivesTicker, PolymeshPrimitivesTransferComplianceAssetTransferCompliance, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, PolymeshRuntimeDevelopRuntimeSessionKeys, SpConsensusBabeAppPublic, SpConsensusBabeBabeEpochConfiguration, SpConsensusBabeDigestsNextConfigDescriptor, SpConsensusBabeDigestsPreDigest, SpCoreCryptoKeyTypeId, SpNposElectionsElectionScore, SpRuntimeDigest, SpStakingOffenceOffenceDetails } from '@polkadot/types/lookup';
 import type { Observable } from '@polkadot/types/types';
 
 declare module '@polkadot/api-base/types/storage' {
@@ -495,6 +495,147 @@ declare module '@polkadot/api-base/types/storage' {
        * List of trusted claim issuer Ticker -> Issuer Identity
        **/
       trustedClaimIssuer: AugmentedQuery<ApiType, (arg: PolymeshPrimitivesTicker | string | Uint8Array) => Observable<Vec<PolymeshPrimitivesConditionTrustedIssuer>>, [PolymeshPrimitivesTicker]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesTicker]>;
+      /**
+       * Generic query
+       **/
+      [key: string]: QueryableStorageEntry<ApiType>;
+    };
+    confidentialAsset: {
+      /**
+       * Details of the confidential asset.
+       * 
+       * ticker -> Option<ConfidentialAssetDetails>
+       **/
+      details: AugmentedQuery<ApiType, (arg: PolymeshPrimitivesTicker | string | Uint8Array) => Observable<Option<PalletConfidentialAssetConfidentialAssetDetails>>, [PolymeshPrimitivesTicker]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesTicker]>;
+      /**
+       * Track venues created by an identity.
+       * Only needed for the UI.
+       * 
+       * creator_did -> venue_id -> ()
+       **/
+      identityVenues: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesIdentityId | string | Uint8Array, arg2: u64 | AnyNumber | Uint8Array) => Observable<Null>, [PolymeshPrimitivesIdentityId, u64]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesIdentityId, u64]>;
+      /**
+       * Accumulates the encrypted incoming balance for a mercat account.
+       * 
+       * account -> ticker -> Option<EncryptedAmount>
+       **/
+      incomingBalance: AugmentedQuery<ApiType, (arg1: PalletConfidentialAssetMercatAccount | string | Uint8Array, arg2: PolymeshPrimitivesTicker | string | Uint8Array) => Observable<Option<ConfidentialIdentityCoreAssetProofsElgamalEncryptionCipherText>>, [PalletConfidentialAssetMercatAccount, PolymeshPrimitivesTicker]> & QueryableStorageEntry<ApiType, [PalletConfidentialAssetMercatAccount, PolymeshPrimitivesTicker]>;
+      /**
+       * Contains the encryption key for a mercat mediator.
+       * 
+       * identity_id -> Option<MercatAccount>
+       **/
+      mediatorMercatAccounts: AugmentedQuery<ApiType, (arg: PolymeshPrimitivesIdentityId | string | Uint8Array) => Observable<Option<U8aFixed>>, [PolymeshPrimitivesIdentityId]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesIdentityId]>;
+      /**
+       * Contains the encrypted balance of a mercat account.
+       * 
+       * account -> ticker -> Option<EncryptedAmount>
+       **/
+      mercatAccountBalance: AugmentedQuery<ApiType, (arg1: PalletConfidentialAssetMercatAccount | string | Uint8Array, arg2: PolymeshPrimitivesTicker | string | Uint8Array) => Observable<Option<ConfidentialIdentityCoreAssetProofsElgamalEncryptionCipherText>>, [PalletConfidentialAssetMercatAccount, PolymeshPrimitivesTicker]> & QueryableStorageEntry<ApiType, [PalletConfidentialAssetMercatAccount, PolymeshPrimitivesTicker]>;
+      /**
+       * Records the did for a mercat account.
+       * 
+       * account -> Option<IdentityId>.
+       **/
+      mercatAccountDid: AugmentedQuery<ApiType, (arg: PalletConfidentialAssetMercatAccount | string | Uint8Array) => Observable<Option<U8aFixed>>, [PalletConfidentialAssetMercatAccount]> & QueryableStorageEntry<ApiType, [PalletConfidentialAssetMercatAccount]>;
+      /**
+       * Number of affirmations pending before transaction is executed.
+       * 
+       * transaction_id -> Option<affirms_pending>
+       **/
+      pendingAffirms: AugmentedQuery<ApiType, (arg: PalletConfidentialAssetTransactionId | AnyNumber | Uint8Array) => Observable<Option<u32>>, [PalletConfidentialAssetTransactionId]> & QueryableStorageEntry<ApiType, [PalletConfidentialAssetTransactionId]>;
+      /**
+       * RngNonce - Nonce used as `subject` to `Randomness`.
+       **/
+      rngNonce: AugmentedQuery<ApiType, () => Observable<u64>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * The storage for mercat sender proofs.
+       * 
+       * transaction_id -> leg_id -> Option<SenderProof>
+       **/
+      senderProofs: AugmentedQuery<ApiType, (arg1: PalletConfidentialAssetTransactionId | AnyNumber | Uint8Array, arg2: PalletConfidentialAssetTransactionLegId | AnyNumber | Uint8Array) => Observable<Option<Bytes>>, [PalletConfidentialAssetTransactionId, PalletConfidentialAssetTransactionLegId]> & QueryableStorageEntry<ApiType, [PalletConfidentialAssetTransactionId, PalletConfidentialAssetTransactionLegId]>;
+      /**
+       * Number of transactions in the system (It's one more than the actual number)
+       **/
+      transactionCounter: AugmentedQuery<ApiType, () => Observable<Compact<u64>>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * Legs of a transaction.
+       * 
+       * transaction_id -> leg_id -> Option<Leg>
+       **/
+      transactionLegs: AugmentedQuery<ApiType, (arg1: PalletConfidentialAssetTransactionId | AnyNumber | Uint8Array, arg2: PalletConfidentialAssetTransactionLegId | AnyNumber | Uint8Array) => Observable<Option<PalletConfidentialAssetTransactionLeg>>, [PalletConfidentialAssetTransactionId, PalletConfidentialAssetTransactionLegId]> & QueryableStorageEntry<ApiType, [PalletConfidentialAssetTransactionId, PalletConfidentialAssetTransactionLegId]>;
+      /**
+       * Details about an instruction.
+       * 
+       * transaction_id -> transaction_details
+       **/
+      transactions: AugmentedQuery<ApiType, (arg: PalletConfidentialAssetTransactionId | AnyNumber | Uint8Array) => Observable<Option<PalletConfidentialAssetTransaction>>, [PalletConfidentialAssetTransactionId]> & QueryableStorageEntry<ApiType, [PalletConfidentialAssetTransactionId]>;
+      /**
+       * Transaction statuses.
+       * 
+       * transaction_id -> Option<TransactionStatus>
+       **/
+      transactionStatuses: AugmentedQuery<ApiType, (arg: PalletConfidentialAssetTransactionId | AnyNumber | Uint8Array) => Observable<Option<PalletConfidentialAssetTransactionStatus>>, [PalletConfidentialAssetTransactionId]> & QueryableStorageEntry<ApiType, [PalletConfidentialAssetTransactionId]>;
+      /**
+       * Stores the transfer amount encrypted using the receiver's public key.
+       * 
+       * This is needed to execute the transaction.
+       * 
+       * (transaction_id, leg_id) -> Option<EncryptedAmount>
+       **/
+      txLegReceiverAmount: AugmentedQuery<ApiType, (arg: ITuple<[PalletConfidentialAssetTransactionId, PalletConfidentialAssetTransactionLegId]> | [PalletConfidentialAssetTransactionId | AnyNumber | Uint8Array, PalletConfidentialAssetTransactionLegId | AnyNumber | Uint8Array]) => Observable<Option<ConfidentialIdentityCoreAssetProofsElgamalEncryptionCipherText>>, [ITuple<[PalletConfidentialAssetTransactionId, PalletConfidentialAssetTransactionLegId]>]> & QueryableStorageEntry<ApiType, [ITuple<[PalletConfidentialAssetTransactionId, PalletConfidentialAssetTransactionLegId]>]>;
+      /**
+       * Stores the transfer amount encrypted using the sender's public key.
+       * 
+       * This is needed to revert the transaction.
+       * 
+       * (transaction_id, leg_id) -> Option<EncryptedAmount>
+       **/
+      txLegSenderAmount: AugmentedQuery<ApiType, (arg: ITuple<[PalletConfidentialAssetTransactionId, PalletConfidentialAssetTransactionLegId]> | [PalletConfidentialAssetTransactionId | AnyNumber | Uint8Array, PalletConfidentialAssetTransactionLegId | AnyNumber | Uint8Array]) => Observable<Option<ConfidentialIdentityCoreAssetProofsElgamalEncryptionCipherText>>, [ITuple<[PalletConfidentialAssetTransactionId, PalletConfidentialAssetTransactionLegId]>]> & QueryableStorageEntry<ApiType, [ITuple<[PalletConfidentialAssetTransactionId, PalletConfidentialAssetTransactionLegId]>]>;
+      /**
+       * Stores the sender's initial balance when they affirmed the transaction leg.
+       * 
+       * This is needed to verify the sender's proof.  It is only stored
+       * for clients to use during off-chain proof verification.
+       * 
+       * (transaction_id, leg_id) -> Option<EncryptedAmount>
+       **/
+      txLegSenderBalance: AugmentedQuery<ApiType, (arg: ITuple<[PalletConfidentialAssetTransactionId, PalletConfidentialAssetTransactionLegId]> | [PalletConfidentialAssetTransactionId | AnyNumber | Uint8Array, PalletConfidentialAssetTransactionLegId | AnyNumber | Uint8Array]) => Observable<Option<ConfidentialIdentityCoreAssetProofsElgamalEncryptionCipherText>>, [ITuple<[PalletConfidentialAssetTransactionId, PalletConfidentialAssetTransactionLegId]>]> & QueryableStorageEntry<ApiType, [ITuple<[PalletConfidentialAssetTransactionId, PalletConfidentialAssetTransactionLegId]>]>;
+      /**
+       * Track pending transaction affirmations.
+       * 
+       * counter_party -> (transaction_id, leg_id) -> Option<bool>
+       **/
+      userAffirmations: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesIdentityId | string | Uint8Array, arg2: ITuple<[PalletConfidentialAssetTransactionId, PalletConfidentialAssetTransactionLegId]> | [PalletConfidentialAssetTransactionId | AnyNumber | Uint8Array, PalletConfidentialAssetTransactionLegId | AnyNumber | Uint8Array]) => Observable<Option<bool>>, [PolymeshPrimitivesIdentityId, ITuple<[PalletConfidentialAssetTransactionId, PalletConfidentialAssetTransactionLegId]>]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesIdentityId, ITuple<[PalletConfidentialAssetTransactionId, PalletConfidentialAssetTransactionLegId]>]>;
+      /**
+       * Venues that are allowed to create transactions involving a particular ticker. Only used if filtering is enabled.
+       * 
+       * ticker -> venue_id -> allowed
+       **/
+      venueAllowList: AugmentedQuery<ApiType, (arg1: PolymeshPrimitivesTicker | string | Uint8Array, arg2: u64 | AnyNumber | Uint8Array) => Observable<bool>, [PolymeshPrimitivesTicker, u64]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesTicker, u64]>;
+      /**
+       * Number of venues in the system (It's one more than the actual number)
+       **/
+      venueCounter: AugmentedQuery<ApiType, () => Observable<u64>, []> & QueryableStorageEntry<ApiType, []>;
+      /**
+       * Venue creator.
+       * 
+       * venue_id -> Option<IdentityId>
+       **/
+      venueCreator: AugmentedQuery<ApiType, (arg: u64 | AnyNumber | Uint8Array) => Observable<Option<U8aFixed>>, [u64]> & QueryableStorageEntry<ApiType, [u64]>;
+      /**
+       * Tracks if a token has enabled filtering venues that can create transactions involving their token.
+       * 
+       * ticker -> filtering_enabled
+       **/
+      venueFiltering: AugmentedQuery<ApiType, (arg: PolymeshPrimitivesTicker | string | Uint8Array) => Observable<bool>, [PolymeshPrimitivesTicker]> & QueryableStorageEntry<ApiType, [PolymeshPrimitivesTicker]>;
+      /**
+       * Transaction created by a venue.
+       * Only needed for the UI.
+       * 
+       * venue_id -> transaction_id -> ()
+       **/
+      venueTransactions: AugmentedQuery<ApiType, (arg1: u64 | AnyNumber | Uint8Array, arg2: PalletConfidentialAssetTransactionId | AnyNumber | Uint8Array) => Observable<Null>, [u64, PalletConfidentialAssetTransactionId]> & QueryableStorageEntry<ApiType, [u64, PalletConfidentialAssetTransactionId]>;
       /**
        * Generic query
        **/

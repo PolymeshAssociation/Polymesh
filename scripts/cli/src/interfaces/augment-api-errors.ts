@@ -524,6 +524,213 @@ declare module '@polkadot/api-base/types/errors' {
        **/
       [key: string]: AugmentedError<ApiType>;
     };
+    confidentialAsset: {
+      /**
+       * The token has already been created.
+       **/
+      AssetAlreadyCreated: AugmentedError<ApiType>;
+      /**
+       * After registering the confidential asset, its total supply can change once from zero to a positive value.
+       **/
+      CanSetTotalSupplyOnlyOnce: AugmentedError<ApiType>;
+      /**
+       * Confidential legs do not have assets or amounts.
+       **/
+      ConfidentialLegHasNoAssetOrAmount: AugmentedError<ApiType>;
+      /**
+       * Certain transfer modes are not yet supported in confidential modes.
+       **/
+      ConfidentialModeNotSupportedYet: AugmentedError<ApiType>;
+      /**
+       * Confidential transfer's proofs are invalid.
+       **/
+      ConfidentialTransferValidationFailure: AugmentedError<ApiType>;
+      /**
+       * While affirming the transfer, system failed to lock the assets involved.
+       **/
+      FailedToLockTokens: AugmentedError<ApiType>;
+      /**
+       * Scheduling of an instruction fails.
+       **/
+      FailedToSchedule: AugmentedError<ApiType>;
+      /**
+       * Instruction has already been affirmed.
+       **/
+      InstructionAlreadyAffirmed: AugmentedError<ApiType>;
+      /**
+       * Instruction has invalid dates
+       **/
+      InstructionDatesInvalid: AugmentedError<ApiType>;
+      /**
+       * Instruction failed to execute.
+       **/
+      InstructionFailed: AugmentedError<ApiType>;
+      /**
+       * Maximum legs that can be in a single instruction.
+       **/
+      InstructionHasTooManyLegs: AugmentedError<ApiType>;
+      /**
+       * Instruction has not been affirmed.
+       **/
+      InstructionNotAffirmed: AugmentedError<ApiType>;
+      /**
+       * Provided instruction is not failing execution.
+       **/
+      InstructionNotFailed: AugmentedError<ApiType>;
+      /**
+       * Provided instruction is not pending execution.
+       **/
+      InstructionNotPending: AugmentedError<ApiType>;
+      /**
+       * Instruction's target settle block reached.
+       **/
+      InstructionSettleBlockPassed: AugmentedError<ApiType>;
+      /**
+       * Insufficient mercat authorizations are provided.
+       **/
+      InsufficientMercatAuthorizations: AugmentedError<ApiType>;
+      /**
+       * The MERCAT account creation proofs are invalid.
+       **/
+      InvalidAccountCreationProof: AugmentedError<ApiType>;
+      /**
+       * The MERCAT asset issuance proofs are invalid.
+       **/
+      InvalidAccountMintProof: AugmentedError<ApiType>;
+      /**
+       * Only `LegKind::NonConfidential` has receipt functionality.
+       **/
+      InvalidLegKind: AugmentedError<ApiType>;
+      /**
+       * Mercat account isn't a valid CompressedEncryptionPubKey.
+       **/
+      InvalidMercatAccount: AugmentedError<ApiType>;
+      /**
+       * Transaction proof failed to verify.
+       * Failed to maintain confidential transaction's ordering state.
+       **/
+      InvalidMercatOrderingState: AugmentedError<ApiType>;
+      /**
+       * The MERCAT transfer proof is invalid.
+       **/
+      InvalidMercatTransferProof: AugmentedError<ApiType>;
+      /**
+       * Offchain signature is invalid.
+       **/
+      InvalidSignature: AugmentedError<ApiType>;
+      /**
+       * The provided total supply of a confidential asset is invalid.
+       **/
+      InvalidTotalSupply: AugmentedError<ApiType>;
+      /**
+       * Venue does not exist.
+       **/
+      InvalidVenue: AugmentedError<ApiType>;
+      /**
+       * Legs count should matches with the total number of legs in the transaction.
+       **/
+      LegCountTooSmall: AugmentedError<ApiType>;
+      /**
+       * Provided leg is not pending execution.
+       **/
+      LegNotPending: AugmentedError<ApiType>;
+      /**
+       * Mercat account already created.
+       **/
+      MercatAccountAlreadyCreated: AugmentedError<ApiType>;
+      /**
+       * Mercat account's balance already initialized.
+       **/
+      MercatAccountAlreadyInitialized: AugmentedError<ApiType>;
+      /**
+       * Mercat account hasn't been created yet.
+       **/
+      MercatAccountMissing: AugmentedError<ApiType>;
+      /**
+       * Need sender's proof to verify receiver's proof.
+       **/
+      MissingMercatInitializedTransferProof: AugmentedError<ApiType>;
+      /**
+       * We only support one confidential transfer per instruction at the moment.
+       **/
+      MoreThanOneConfidentialLeg: AugmentedError<ApiType>;
+      /**
+       * No pending affirmation for the provided instruction.
+       **/
+      NoPendingAffirm: AugmentedError<ApiType>;
+      /**
+       * Receipt already used.
+       **/
+      ReceiptAlreadyClaimed: AugmentedError<ApiType>;
+      /**
+       * Receipt not used yet.
+       **/
+      ReceiptNotClaimed: AugmentedError<ApiType>;
+      /**
+       * Sender and receiver are the same.
+       **/
+      SameSenderReceiver: AugmentedError<ApiType>;
+      /**
+       * The provided settlement block number is in the past and cannot be used by the scheduler.
+       **/
+      SettleOnPastBlock: AugmentedError<ApiType>;
+      /**
+       * Signer is already added to venue.
+       **/
+      SignerAlreadyExists: AugmentedError<ApiType>;
+      /**
+       * Signer is not added to venue.
+       **/
+      SignerDoesNotExist: AugmentedError<ApiType>;
+      /**
+       * The balance values does not fit a mercat balance.
+       **/
+      TotalSupplyAboveBalanceLimit: AugmentedError<ApiType>;
+      /**
+       * A confidential asset's total supply must be positive.
+       **/
+      TotalSupplyMustBePositive: AugmentedError<ApiType>;
+      /**
+       * The user is not authorized.
+       **/
+      Unauthorized: AugmentedError<ApiType>;
+      /**
+       * Signer is not authorized by the venue.
+       **/
+      UnauthorizedSigner: AugmentedError<ApiType>;
+      /**
+       * Venue does not have required permissions.
+       **/
+      UnauthorizedVenue: AugmentedError<ApiType>;
+      /**
+       * Undefined leg type.
+       **/
+      UndefinedLegKind: AugmentedError<ApiType>;
+      /**
+       * The current instruction affirmation status does not support the requested action.
+       **/
+      UnexpectedAffirmationStatus: AugmentedError<ApiType>;
+      /**
+       * The provided asset is not among the set of valid asset ids.
+       **/
+      UnknownConfidentialAsset: AugmentedError<ApiType>;
+      /**
+       * Instruction is unknown.
+       **/
+      UnknownInstruction: AugmentedError<ApiType>;
+      /**
+       * Instruction leg is unknown.
+       **/
+      UnknownInstructionLeg: AugmentedError<ApiType>;
+      /**
+       * Instruction leg amount can't be zero
+       **/
+      ZeroAmount: AugmentedError<ApiType>;
+      /**
+       * Generic error
+       **/
+      [key: string]: AugmentedError<ApiType>;
+    };
     contracts: {
       /**
        * Code removal was denied because the code is still in use by at least one contract.
@@ -1723,6 +1930,10 @@ declare module '@polkadot/api-base/types/errors' {
        * The maximum number of off-chain assets was exceeded.
        **/
       MaxNumberOfOffChainAssetsExceeded: AugmentedError<ApiType>;
+      /**
+       * The maximum number of receipts was exceeded.
+       **/
+      MaxNumberOfReceiptsExceeded: AugmentedError<ApiType>;
       /**
        * The given number of fungible transfers was underestimated.
        **/

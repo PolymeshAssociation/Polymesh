@@ -5,7 +5,7 @@ import type { ApiTypes } from '@polkadot/api-base/types';
 import type { Bytes, Null, Option, Result, U8aFixed, Vec, bool, u128, u32, u64, u8 } from '@polkadot/types-codec';
 import type { ITuple } from '@polkadot/types-codec/types';
 import type { AccountId32, H256, Perbill, Permill } from '@polkadot/types/interfaces/runtime';
-import type { FrameSupportDispatchDispatchInfo, FrameSupportTokensMiscBalanceStatus, PalletBridgeBridgeTx, PalletBridgeHandledTxStatus, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCorporateAction, PalletCorporateActionsDistribution, PalletCorporateActionsTargetIdentities, PalletImOnlineSr25519AppSr25519Public, PalletPipsProposalData, PalletPipsProposalState, PalletPipsProposer, PalletPipsSnapshottedPip, PalletStakingElectionCompute, PalletStakingExposure, PalletStakingSlashingSwitch, PalletStoFundraiser, PolymeshCommonUtilitiesBalancesMemo, PolymeshCommonUtilitiesCheckpointStoredSchedule, PolymeshCommonUtilitiesMaybeBlock, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetAssetType, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAssetMetadataAssetMetadataKey, PolymeshPrimitivesAssetMetadataAssetMetadataSpec, PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail, PolymeshPrimitivesAuthorizationAuthorizationData, PolymeshPrimitivesCddIdInvestorUid, PolymeshPrimitivesComplianceManagerComplianceRequirement, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesEthereumEthereumAddress, PolymeshPrimitivesEventOnly, PolymeshPrimitivesIdentityClaim, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesNftNfTs, PolymeshPrimitivesPortfolioMemo, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKey, PolymeshPrimitivesSecondaryKeyPermissions, PolymeshPrimitivesSecondaryKeySignatory, PolymeshPrimitivesSettlementInstructionMemo, PolymeshPrimitivesSettlementLeg, PolymeshPrimitivesSettlementSettlementType, PolymeshPrimitivesSettlementVenueType, PolymeshPrimitivesStatisticsAssetScope, PolymeshPrimitivesStatisticsStatType, PolymeshPrimitivesStatisticsStatUpdate, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions, PolymeshPrimitivesTicker, PolymeshPrimitivesTransferComplianceTransferCondition, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, SpFinalityGrandpaAppPublic, SpRuntimeDispatchError } from '@polkadot/types/lookup';
+import type { ConfidentialIdentityCoreAssetProofsElgamalEncryptionCipherText, FrameSupportDispatchDispatchInfo, FrameSupportTokensMiscBalanceStatus, PalletBridgeBridgeTx, PalletBridgeHandledTxStatus, PalletConfidentialAssetMercatAccount, PalletConfidentialAssetTransactionId, PalletConfidentialAssetTransactionLeg, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCorporateAction, PalletCorporateActionsDistribution, PalletCorporateActionsTargetIdentities, PalletImOnlineSr25519AppSr25519Public, PalletPipsProposalData, PalletPipsProposalState, PalletPipsProposer, PalletPipsSnapshottedPip, PalletStakingElectionCompute, PalletStakingExposure, PalletStakingSlashingSwitch, PalletStoFundraiser, PolymeshCommonUtilitiesCheckpointStoredSchedule, PolymeshCommonUtilitiesMaybeBlock, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetAssetType, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAssetMetadataAssetMetadataKey, PolymeshPrimitivesAssetMetadataAssetMetadataSpec, PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail, PolymeshPrimitivesAuthorizationAuthorizationData, PolymeshPrimitivesCddIdInvestorUid, PolymeshPrimitivesComplianceManagerComplianceRequirement, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesEthereumEthereumAddress, PolymeshPrimitivesEventOnly, PolymeshPrimitivesIdentityClaim, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesMemo, PolymeshPrimitivesNftNfTs, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKey, PolymeshPrimitivesSecondaryKeyPermissions, PolymeshPrimitivesSecondaryKeySignatory, PolymeshPrimitivesSettlementLeg, PolymeshPrimitivesSettlementSettlementType, PolymeshPrimitivesSettlementVenueType, PolymeshPrimitivesStatisticsAssetScope, PolymeshPrimitivesStatisticsStatType, PolymeshPrimitivesStatisticsStatUpdate, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions, PolymeshPrimitivesTicker, PolymeshPrimitivesTransferComplianceTransferCondition, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, SpFinalityGrandpaAppPublic, SpRuntimeDispatchError } from '@polkadot/types/lookup';
 
 declare module '@polkadot/api-base/types/events' {
   export interface AugmentedEvents<ApiType extends ApiTypes> {
@@ -184,7 +184,7 @@ declare module '@polkadot/api-base/types/events' {
       /**
        * Transfer succeeded (from_did, from, to_did, to, value, memo).
        **/
-      Transfer: AugmentedEvent<ApiType, [Option<PolymeshPrimitivesIdentityId>, AccountId32, Option<PolymeshPrimitivesIdentityId>, AccountId32, u128, Option<PolymeshCommonUtilitiesBalancesMemo>]>;
+      Transfer: AugmentedEvent<ApiType, [Option<PolymeshPrimitivesIdentityId>, AccountId32, Option<PolymeshPrimitivesIdentityId>, AccountId32, u128, Option<PolymeshPrimitivesMemo>]>;
       /**
        * Some balance was unreserved (moved from reserved to free). \[who, value]
        **/
@@ -464,6 +464,37 @@ declare module '@polkadot/api-base/types/events' {
        * (caller DID, Ticker, Removed TrustedIssuer).
        **/
       TrustedDefaultClaimIssuerRemoved: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, PolymeshPrimitivesIdentityId]>;
+      /**
+       * Generic event
+       **/
+      [key: string]: AugmentedEvent<ApiType>;
+    };
+    confidentialAsset: {
+      /**
+       * Event for creation of a Mercat account.
+       * caller DID/ owner DID, mercat account id (which is equal to encrypted asset ID), encrypted balance
+       **/
+      AccountCreated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PalletConfidentialAssetMercatAccount, PolymeshPrimitivesTicker, ConfidentialIdentityCoreAssetProofsElgamalEncryptionCipherText]>;
+      /**
+       * Event for creation of a confidential asset.
+       * caller DID/ owner DID, ticker, total supply, divisibility, asset type, beneficiary DID
+       **/
+      ConfidentialAssetCreated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesTicker, u128, bool, PolymeshPrimitivesAssetAssetType, PolymeshPrimitivesIdentityId]>;
+      /**
+       * Event for creation of a Mediator Mercat account.
+       * caller DID/ owner DID and encryption public key
+       **/
+      MediatorAccountCreated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PalletConfidentialAssetMercatAccount]>;
+      /**
+       * Event for resetting the ordering state.
+       * caller DID/ owner DID, mercat account id, current encrypted account balance
+       **/
+      ResetConfidentialAccountOrderingState: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PalletConfidentialAssetMercatAccount, PolymeshPrimitivesTicker, ConfidentialIdentityCoreAssetProofsElgamalEncryptionCipherText]>;
+      /**
+       * A new transaction has been created
+       * (did, venue_id, transaction_id, legs, memo)
+       **/
+      TransactionCreated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, u64, PalletConfidentialAssetTransactionId, Vec<PalletConfidentialAssetTransactionLeg>, Option<PolymeshPrimitivesMemo>]>;
       /**
        * Generic event
        **/
@@ -1107,7 +1138,7 @@ declare module '@polkadot/api-base/types/events' {
        * * asset ticker
        * * asset balance that was moved
        **/
-      FungibleTokensMovedBetweenPortfolios: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesTicker, u128, Option<PolymeshPrimitivesPortfolioMemo>]>;
+      FungibleTokensMovedBetweenPortfolios: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesTicker, u128, Option<PolymeshPrimitivesMemo>]>;
       /**
        * A token amount has been moved from one portfolio to another.
        * 
@@ -1118,7 +1149,7 @@ declare module '@polkadot/api-base/types/events' {
        * * asset ticker
        * * asset balance that was moved
        **/
-      MovedBetweenPortfolios: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesTicker, u128, Option<PolymeshCommonUtilitiesBalancesMemo>]>;
+      MovedBetweenPortfolios: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesTicker, u128, Option<PolymeshPrimitivesMemo>]>;
       /**
        * NFTs have been moved from one portfolio to another.
        * 
@@ -1128,7 +1159,7 @@ declare module '@polkadot/api-base/types/events' {
        * * destination portfolio
        * * NFTs
        **/
-      NFTsMovedBetweenPortfolios: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesNftNfTs, Option<PolymeshPrimitivesPortfolioMemo>]>;
+      NFTsMovedBetweenPortfolios: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesNftNfTs, Option<PolymeshPrimitivesMemo>]>;
       /**
        * The portfolio has been successfully created.
        * 
@@ -1311,7 +1342,7 @@ declare module '@polkadot/api-base/types/events' {
        * A new instruction has been created
        * (did, venue_id, instruction_id, settlement_type, trade_date, value_date, legs, memo)
        **/
-      InstructionCreated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, u64, u64, PolymeshPrimitivesSettlementSettlementType, Option<u64>, Option<u64>, Vec<PolymeshPrimitivesSettlementLeg>, Option<PolymeshPrimitivesSettlementInstructionMemo>]>;
+      InstructionCreated: AugmentedEvent<ApiType, [PolymeshPrimitivesIdentityId, u64, u64, PolymeshPrimitivesSettlementSettlementType, Option<u64>, Option<u64>, Vec<PolymeshPrimitivesSettlementLeg>, Option<PolymeshPrimitivesMemo>]>;
       /**
        * Instruction executed successfully(did, instruction_id)
        **/

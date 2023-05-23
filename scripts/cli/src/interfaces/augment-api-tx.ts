@@ -5,7 +5,7 @@ import type { ApiTypes } from '@polkadot/api-base/types';
 import type { BTreeSet, Bytes, Compact, Option, U8aFixed, Vec, bool, u128, u16, u32, u64, u8 } from '@polkadot/types-codec';
 import type { AnyNumber, ITuple } from '@polkadot/types-codec/types';
 import type { AccountId32, Call, H256, MultiAddress, Perbill, Percent, Permill } from '@polkadot/types/interfaces/runtime';
-import type { ConfidentialIdentityV2ClaimProofsScopeClaimProof, PalletAssetCheckpointScheduleSpec, PalletAssetClassicTickerImport, PalletAssetTickerRegistrationConfig, PalletBridgeBridgeTx, PalletContractsWasmDeterminism, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCaKind, PalletCorporateActionsInitiateCorporateActionArgs, PalletCorporateActionsRecordDateSpec, PalletCorporateActionsTargetIdentities, PalletImOnlineHeartbeat, PalletImOnlineSr25519AppSr25519Signature, PalletPipsSnapshotResult, PalletPortfolioMovePortfolioItem, PalletRewardsItnRewardStatus, PalletStakingCompactAssignments, PalletStakingElectionSize, PalletStakingRewardDestination, PalletStakingSlashingSwitch, PalletStakingValidatorPrefs, PalletStoPriceTier, PalletUtilityUniqueCall, PolymeshCommonUtilitiesBalancesMemo, PolymeshCommonUtilitiesIdentityCreateChildIdentityWithAuth, PolymeshCommonUtilitiesIdentitySecondaryKeyWithAuth, PolymeshCommonUtilitiesIdentitySecondaryKeyWithAuthV1, PolymeshCommonUtilitiesMaybeBlock, PolymeshCommonUtilitiesProtocolFeeProtocolOp, PolymeshContractsChainExtensionExtrinsicId, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetAssetType, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAssetMetadataAssetMetadataKey, PolymeshPrimitivesAssetMetadataAssetMetadataSpec, PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail, PolymeshPrimitivesAssetNonFungibleType, PolymeshPrimitivesAuthorizationAuthorizationData, PolymeshPrimitivesBeneficiary, PolymeshPrimitivesCddIdInvestorUid, PolymeshPrimitivesComplianceManagerComplianceRequirement, PolymeshPrimitivesCondition, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesEthereumEcdsaSignature, PolymeshPrimitivesIdentityClaimClaim, PolymeshPrimitivesIdentityClaimClaimType, PolymeshPrimitivesIdentityClaimScope, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesIdentityIdPortfolioKind, PolymeshPrimitivesNftNftCollectionKeys, PolymeshPrimitivesNftNftMetadataAttribute, PolymeshPrimitivesPortfolioFund, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKey, PolymeshPrimitivesSecondaryKeyPermissions, PolymeshPrimitivesSecondaryKeySignatory, PolymeshPrimitivesSettlementInstructionMemo, PolymeshPrimitivesSettlementLeg, PolymeshPrimitivesSettlementReceiptDetails, PolymeshPrimitivesSettlementSettlementType, PolymeshPrimitivesSettlementVenueType, PolymeshPrimitivesStatisticsAssetScope, PolymeshPrimitivesStatisticsStatType, PolymeshPrimitivesStatisticsStatUpdate, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions, PolymeshPrimitivesTicker, PolymeshPrimitivesTransferComplianceTransferCondition, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, PolymeshRuntimeDevelopRuntimeSessionKeys, SpConsensusBabeDigestsNextConfigDescriptor, SpConsensusSlotsEquivocationProof, SpFinalityGrandpaEquivocationProof, SpNposElectionsElectionScore, SpRuntimeHeader, SpRuntimeMultiSignature, SpSessionMembershipProof, SpWeightsWeightV2Weight } from '@polkadot/types/lookup';
+import type { ConfidentialIdentityV2ClaimProofsScopeClaimProof, PalletAssetCheckpointScheduleSpec, PalletAssetClassicTickerImport, PalletAssetTickerRegistrationConfig, PalletBridgeBridgeTx, PalletConfidentialAssetAffirmLeg, PalletConfidentialAssetMercatAccount, PalletConfidentialAssetTransactionId, PalletConfidentialAssetTransactionLeg, PalletConfidentialAssetUnaffirmLeg, PalletContractsWasmDeterminism, PalletCorporateActionsBallotBallotMeta, PalletCorporateActionsBallotBallotTimeRange, PalletCorporateActionsBallotBallotVote, PalletCorporateActionsCaId, PalletCorporateActionsCaKind, PalletCorporateActionsInitiateCorporateActionArgs, PalletCorporateActionsRecordDateSpec, PalletCorporateActionsTargetIdentities, PalletImOnlineHeartbeat, PalletImOnlineSr25519AppSr25519Signature, PalletPipsSnapshotResult, PalletPortfolioMovePortfolioItem, PalletRewardsItnRewardStatus, PalletStakingCompactAssignments, PalletStakingElectionSize, PalletStakingRewardDestination, PalletStakingSlashingSwitch, PalletStakingValidatorPrefs, PalletStoPriceTier, PalletUtilityUniqueCall, PolymeshCommonUtilitiesIdentityCreateChildIdentityWithAuth, PolymeshCommonUtilitiesIdentitySecondaryKeyWithAuth, PolymeshCommonUtilitiesIdentitySecondaryKeyWithAuthV1, PolymeshCommonUtilitiesMaybeBlock, PolymeshCommonUtilitiesProtocolFeeProtocolOp, PolymeshContractsChainExtensionExtrinsicId, PolymeshPrimitivesAgentAgentGroup, PolymeshPrimitivesAssetAssetType, PolymeshPrimitivesAssetIdentifier, PolymeshPrimitivesAssetMetadataAssetMetadataKey, PolymeshPrimitivesAssetMetadataAssetMetadataSpec, PolymeshPrimitivesAssetMetadataAssetMetadataValueDetail, PolymeshPrimitivesAssetNonFungibleType, PolymeshPrimitivesAuthorizationAuthorizationData, PolymeshPrimitivesBeneficiary, PolymeshPrimitivesCddIdInvestorUid, PolymeshPrimitivesComplianceManagerComplianceRequirement, PolymeshPrimitivesCondition, PolymeshPrimitivesConditionTrustedIssuer, PolymeshPrimitivesDocument, PolymeshPrimitivesEthereumEcdsaSignature, PolymeshPrimitivesIdentityClaimClaim, PolymeshPrimitivesIdentityClaimClaimType, PolymeshPrimitivesIdentityClaimScope, PolymeshPrimitivesIdentityId, PolymeshPrimitivesIdentityIdPortfolioId, PolymeshPrimitivesIdentityIdPortfolioKind, PolymeshPrimitivesMemo, PolymeshPrimitivesNftNftCollectionKeys, PolymeshPrimitivesNftNftMetadataAttribute, PolymeshPrimitivesPortfolioFund, PolymeshPrimitivesPosRatio, PolymeshPrimitivesSecondaryKey, PolymeshPrimitivesSecondaryKeyPermissions, PolymeshPrimitivesSecondaryKeySignatory, PolymeshPrimitivesSettlementLeg, PolymeshPrimitivesSettlementReceiptDetails, PolymeshPrimitivesSettlementSettlementType, PolymeshPrimitivesSettlementVenueType, PolymeshPrimitivesStatisticsAssetScope, PolymeshPrimitivesStatisticsStatType, PolymeshPrimitivesStatisticsStatUpdate, PolymeshPrimitivesSubsetSubsetRestrictionPalletPermissions, PolymeshPrimitivesTicker, PolymeshPrimitivesTransferComplianceTransferCondition, PolymeshPrimitivesTransferComplianceTransferConditionExemptKey, PolymeshRuntimeDevelopRuntimeSessionKeys, SpConsensusBabeDigestsNextConfigDescriptor, SpConsensusSlotsEquivocationProof, SpFinalityGrandpaEquivocationProof, SpNposElectionsElectionScore, SpRuntimeHeader, SpRuntimeMultiSignature, SpSessionMembershipProof, SpWeightsWeightV2Weight } from '@polkadot/types/lookup';
 
 declare module '@polkadot/api-base/types/submittable' {
   export interface AugmentedSubmittables<ApiType extends ApiTypes> {
@@ -554,7 +554,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * - Origin account is already in memory, so no DB operations for them.
        * # </weight>
        **/
-      transferWithMemo: AugmentedSubmittable<(dest: MultiAddress | { Id: any } | { Index: any } | { Raw: any } | { Address32: any } | { Address20: any } | string | Uint8Array, value: Compact<u128> | AnyNumber | Uint8Array, memo: Option<PolymeshCommonUtilitiesBalancesMemo> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [MultiAddress, Compact<u128>, Option<PolymeshCommonUtilitiesBalancesMemo>]>;
+      transferWithMemo: AugmentedSubmittable<(dest: MultiAddress | { Id: any } | { Index: any } | { Raw: any } | { Address32: any } | { Address20: any } | string | Uint8Array, value: Compact<u128> | AnyNumber | Uint8Array, memo: Option<PolymeshPrimitivesMemo> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [MultiAddress, Compact<u128>, Option<PolymeshPrimitivesMemo>]>;
       /**
        * Generic tx
        **/
@@ -1202,6 +1202,140 @@ declare module '@polkadot/api-base/types/submittable' {
        * * Asset
        **/
       resumeAssetCompliance: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker]>;
+      /**
+       * Generic tx
+       **/
+      [key: string]: SubmittableExtrinsicFunction<ApiType>;
+    };
+    confidentialAsset: {
+      /**
+       * Stores mediator's public key.
+       * 
+       * # Arguments
+       * * `public_key` the encryption public key, used during mercat operations.
+       * 
+       * # Errors
+       * * `BadOrigin` if `origin` isn't signed.
+       **/
+      addMediatorMercatAccount: AugmentedSubmittable<(account: PalletConfidentialAssetMercatAccount | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PalletConfidentialAssetMercatAccount]>;
+      /**
+       * Adds a new transaction.
+       * 
+       **/
+      addTransaction: AugmentedSubmittable<(venueId: u64 | AnyNumber | Uint8Array, legs: Vec<PalletConfidentialAssetTransactionLeg> | (PalletConfidentialAssetTransactionLeg | { ticker?: any; sender?: any; receiver?: any; mediator?: any } | string | Uint8Array)[], memo: Option<PolymeshPrimitivesMemo> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64, Vec<PalletConfidentialAssetTransactionLeg>, Option<PolymeshPrimitivesMemo>]>;
+      /**
+       * Affirm a transaction.
+       **/
+      affirmTransaction: AugmentedSubmittable<(transactionId: PalletConfidentialAssetTransactionId | AnyNumber | Uint8Array, affirm: PalletConfidentialAssetAffirmLeg | { legId?: any; party?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PalletConfidentialAssetTransactionId, PalletConfidentialAssetAffirmLeg]>;
+      /**
+       * Allows additional venues to create instructions involving an asset.
+       * 
+       * * `ticker` - Ticker of the token in question.
+       * * `venues` - Array of venues that are allowed to create instructions for the token in question.
+       **/
+      allowVenues: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array, venues: Vec<u64> | (u64 | AnyNumber | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker, Vec<u64>]>;
+      /**
+       * Applies any incoming balance to the mercat account balance.
+       * 
+       * # Arguments
+       * * `origin` - contains the secondary key of the caller (i.e who signed the transaction to execute this function).
+       * * `account` - the mercat account (mercat public key) of the `origin`.
+       * * `ticker` - Ticker of mercat account.
+       * 
+       * # Errors
+       * - `BadOrigin` if not signed.
+       **/
+      applyIncomingBalance: AugmentedSubmittable<(account: PalletConfidentialAssetMercatAccount | string | Uint8Array, ticker: PolymeshPrimitivesTicker | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PalletConfidentialAssetMercatAccount, PolymeshPrimitivesTicker]>;
+      /**
+       * Initializes a new confidential security token.
+       * Makes the initiating account the owner of the security token
+       * & the balance of the owner is set to total zero. To set to total supply, `mint_confidential_asset` should
+       * be called after a successful call of this function.
+       * 
+       * # Arguments
+       * * `origin` - contains the secondary key of the caller (i.e who signed the transaction to execute this function).
+       * * `name` - the name of the token.
+       * * `ticker` - the ticker symbol of the token.
+       * * `divisible` - a boolean to identify the divisibility status of the token.
+       * * `asset_type` - the asset type.
+       * * `identifiers` - a vector of asset identifiers.
+       * * `funding_round` - name of the funding round.
+       * 
+       * # Errors
+       * - `TickerAlreadyRegistered` if the ticker was already registered, e.g., by `origin`.
+       * - `TickerRegistrationExpired` if the ticker's registration has expired.
+       * - `InvalidTotalSupply` if not `divisible` but `total_supply` is not a multiply of unit.
+       * - `TotalSupplyAboveLimit` if `total_supply` exceeds the limit.
+       * - `BadOrigin` if not signed.
+       **/
+      createConfidentialAsset: AugmentedSubmittable<(name: Bytes | string | Uint8Array, ticker: PolymeshPrimitivesTicker | string | Uint8Array, assetType: PolymeshPrimitivesAssetAssetType | { EquityCommon: any } | { EquityPreferred: any } | { Commodity: any } | { FixedIncome: any } | { REIT: any } | { Fund: any } | { RevenueShareAgreement: any } | { StructuredProduct: any } | { Derivative: any } | { Custom: any } | { StableCoin: any } | { NonFungible: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [Bytes, PolymeshPrimitivesTicker, PolymeshPrimitivesAssetAssetType]>;
+      /**
+       * Registers a new venue.
+       * 
+       **/
+      createVenue: AugmentedSubmittable<() => SubmittableExtrinsic<ApiType>, []>;
+      /**
+       * Revokes permission given to venues for creating instructions involving a particular asset.
+       * 
+       * * `ticker` - Ticker of the token in question.
+       * * `venues` - Array of venues that are no longer allowed to create instructions for the token in question.
+       **/
+      disallowVenues: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array, venues: Vec<u64> | (u64 | AnyNumber | Uint8Array)[]) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker, Vec<u64>]>;
+      /**
+       * Execute transaction.
+       **/
+      executeTransaction: AugmentedSubmittable<(transactionId: PalletConfidentialAssetTransactionId | AnyNumber | Uint8Array, legCount: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [PalletConfidentialAssetTransactionId, u32]>;
+      /**
+       * Verifies the proof of the asset minting, `asset_mint_proof`. If successful, it sets the total
+       * balance of the owner to `total_supply`. This function should only be called once with a non-zero total supply,
+       * after `create_confidential_asset` is called.
+       * 
+       * # Arguments
+       * * `origin` - contains the secondary key of the caller (i.e who signed the transaction to execute this function).
+       * * `ticker` - the ticker symbol of the token.
+       * * `total_supply` - the total supply of the token.
+       * * `asset_mint_proof` - The proofs that the encrypted asset id is a valid ticker name and that the `total_supply` matches encrypted value.
+       * 
+       * # Errors
+       * - `BadOrigin` if not signed.
+       * - `Unauthorized` if origin is not the owner of the asset.
+       * - `CanSetTotalSupplyOnlyOnce` if this function is called more than once.
+       * - `TotalSupplyMustBePositive` if total supply is zero.
+       * - `InvalidTotalSupply` if `total_supply` is not a multiply of unit.
+       * - `TotalSupplyAboveBalanceLimit` if `total_supply` exceeds the mercat balance limit. This is imposed by the MERCAT lib.
+       * - `UnknownConfidentialAsset` The ticker is not part of the set of confidential assets.
+       * - `InvalidAccountMintProof` if the proofs of ticker name and total supply are incorrect.
+       **/
+      mintConfidentialAsset: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array, totalSupply: u128 | AnyNumber | Uint8Array, assetMintProof: Bytes | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker, u128, Bytes]>;
+      /**
+       * Revert pending transaction.
+       **/
+      revertTransaction: AugmentedSubmittable<(transactionId: PalletConfidentialAssetTransactionId | AnyNumber | Uint8Array, legCount: u32 | AnyNumber | Uint8Array) => SubmittableExtrinsic<ApiType>, [PalletConfidentialAssetTransactionId, u32]>;
+      /**
+       * Enables or disabled venue filtering for a token.
+       * 
+       * # Arguments
+       * * `ticker` - Ticker of the token in question.
+       * * `enabled` - Boolean that decides if the filtering should be enabled.
+       **/
+      setVenueFiltering: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array, enabled: bool | boolean | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker, bool]>;
+      /**
+       * Unaffirm a transaction.
+       **/
+      unaffirmTransaction: AugmentedSubmittable<(transactionId: PalletConfidentialAssetTransactionId | AnyNumber | Uint8Array, unaffirm: PalletConfidentialAssetUnaffirmLeg | { legId?: any; party?: any } | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PalletConfidentialAssetTransactionId, PalletConfidentialAssetUnaffirmLeg]>;
+      /**
+       * Verifies the proofs given the `tx` (transaction) for creating a mercat account.
+       * If all proofs pass, it stores the mercat account for the origin identity, sets the
+       * initial encrypted balance, and emits account creation event.
+       * 
+       * # Arguments
+       * * `tx` The account creation transaction created by the mercat lib.
+       * 
+       * # Errors
+       * * `InvalidAccountCreationProof` if the provided proofs fail to verify.
+       * * `BadOrigin` if `origin` isn't signed.
+       **/
+      validateMercatAccount: AugmentedSubmittable<(ticker: PolymeshPrimitivesTicker | string | Uint8Array, tx: Bytes | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [PolymeshPrimitivesTicker, Bytes]>;
       /**
        * Generic tx
        **/
@@ -3055,7 +3189,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * # Permissions
        * * Portfolio
        **/
-      addAndAffirmInstruction: AugmentedSubmittable<(venueId: u64 | AnyNumber | Uint8Array, settlementType: PolymeshPrimitivesSettlementSettlementType | { SettleOnAffirmation: any } | { SettleOnBlock: any } | { SettleManual: any } | string | Uint8Array, tradeDate: Option<u64> | null | object | string | Uint8Array, valueDate: Option<u64> | null | object | string | Uint8Array, legs: Vec<PolymeshPrimitivesSettlementLeg> | (PolymeshPrimitivesSettlementLeg | { from?: any; to?: any; asset?: any } | string | Uint8Array)[], portfolios: Vec<PolymeshPrimitivesIdentityIdPortfolioId> | (PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array)[], instructionMemo: Option<PolymeshPrimitivesSettlementInstructionMemo> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64, PolymeshPrimitivesSettlementSettlementType, Option<u64>, Option<u64>, Vec<PolymeshPrimitivesSettlementLeg>, Vec<PolymeshPrimitivesIdentityIdPortfolioId>, Option<PolymeshPrimitivesSettlementInstructionMemo>]>;
+      addAndAffirmInstruction: AugmentedSubmittable<(venueId: u64 | AnyNumber | Uint8Array, settlementType: PolymeshPrimitivesSettlementSettlementType | { SettleOnAffirmation: any } | { SettleOnBlock: any } | { SettleManual: any } | string | Uint8Array, tradeDate: Option<u64> | null | object | string | Uint8Array, valueDate: Option<u64> | null | object | string | Uint8Array, legs: Vec<PolymeshPrimitivesSettlementLeg> | (PolymeshPrimitivesSettlementLeg | { from?: any; to?: any; asset?: any } | string | Uint8Array)[], portfolios: Vec<PolymeshPrimitivesIdentityIdPortfolioId> | (PolymeshPrimitivesIdentityIdPortfolioId | { did?: any; kind?: any } | string | Uint8Array)[], instructionMemo: Option<PolymeshPrimitivesMemo> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64, PolymeshPrimitivesSettlementSettlementType, Option<u64>, Option<u64>, Vec<PolymeshPrimitivesSettlementLeg>, Vec<PolymeshPrimitivesIdentityIdPortfolioId>, Option<PolymeshPrimitivesMemo>]>;
       /**
        * Adds a new instruction.
        * 
@@ -3071,7 +3205,7 @@ declare module '@polkadot/api-base/types/submittable' {
        * # Weight
        * `950_000_000 + 1_000_000 * legs.len()`
        **/
-      addInstruction: AugmentedSubmittable<(venueId: u64 | AnyNumber | Uint8Array, settlementType: PolymeshPrimitivesSettlementSettlementType | { SettleOnAffirmation: any } | { SettleOnBlock: any } | { SettleManual: any } | string | Uint8Array, tradeDate: Option<u64> | null | object | string | Uint8Array, valueDate: Option<u64> | null | object | string | Uint8Array, legs: Vec<PolymeshPrimitivesSettlementLeg> | (PolymeshPrimitivesSettlementLeg | { from?: any; to?: any; asset?: any } | string | Uint8Array)[], instructionMemo: Option<PolymeshPrimitivesSettlementInstructionMemo> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64, PolymeshPrimitivesSettlementSettlementType, Option<u64>, Option<u64>, Vec<PolymeshPrimitivesSettlementLeg>, Option<PolymeshPrimitivesSettlementInstructionMemo>]>;
+      addInstruction: AugmentedSubmittable<(venueId: u64 | AnyNumber | Uint8Array, settlementType: PolymeshPrimitivesSettlementSettlementType | { SettleOnAffirmation: any } | { SettleOnBlock: any } | { SettleManual: any } | string | Uint8Array, tradeDate: Option<u64> | null | object | string | Uint8Array, valueDate: Option<u64> | null | object | string | Uint8Array, legs: Vec<PolymeshPrimitivesSettlementLeg> | (PolymeshPrimitivesSettlementLeg | { from?: any; to?: any; asset?: any } | string | Uint8Array)[], instructionMemo: Option<PolymeshPrimitivesMemo> | null | object | string | Uint8Array) => SubmittableExtrinsic<ApiType>, [u64, PolymeshPrimitivesSettlementSettlementType, Option<u64>, Option<u64>, Vec<PolymeshPrimitivesSettlementLeg>, Option<PolymeshPrimitivesMemo>]>;
       /**
        * Provide affirmation to an existing instruction.
        * 
