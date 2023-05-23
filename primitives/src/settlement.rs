@@ -155,11 +155,6 @@ impl InstructionId {
     }
 }
 
-/// A wrapper for InstructionMemo
-#[derive(Encode, Decode, TypeInfo)]
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct InstructionMemo(pub [u8; 32]);
-
 /// Details about an instruction.
 #[derive(Encode, Decode, TypeInfo)]
 #[derive(Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]

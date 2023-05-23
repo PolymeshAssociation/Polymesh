@@ -78,11 +78,11 @@ use polymesh_common_utilities::with_transaction;
 use polymesh_common_utilities::SystematicIssuers::Settlement as SettlementDID;
 use polymesh_primitives::settlement::{
     AffirmationStatus, ExecuteInstructionInfo, Instruction, InstructionId, InstructionInfo,
-    InstructionMemo, InstructionStatus, Leg, LegAsset, LegId, LegStatus, LegV2, Receipt,
-    ReceiptDetails, SettlementType, TransferData, Venue, VenueDetails, VenueId, VenueType,
+    InstructionStatus, Leg, LegAsset, LegId, LegStatus, LegV2, Receipt, ReceiptDetails,
+    SettlementType, TransferData, Venue, VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::{
-    storage_migrate_on, storage_migration_ver, IdentityId, PortfolioId, SecondaryKey, Ticker,
+    storage_migrate_on, storage_migration_ver, IdentityId, Memo, PortfolioId, SecondaryKey, Ticker,
     WeightMeter,
 };
 
@@ -271,7 +271,7 @@ decl_storage! {
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
         /// Instruction memo
-        InstructionMemos get(fn memo): map hasher(twox_64_concat) InstructionId => Option<InstructionMemo>;
+        InstructionMemos get(fn memo): map hasher(twox_64_concat) InstructionId => Option<Memo>;
         /// Instruction statuses. instruction_id -> InstructionStatus
         InstructionStatuses get(fn instruction_status):
             map hasher(twox_64_concat) InstructionId => InstructionStatus<T::BlockNumber>;
@@ -645,7 +645,7 @@ decl_module! {
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
             legs: Vec<Leg>,
-            instruction_memo: Option<InstructionMemo>,
+            instruction_memo: Option<Memo>,
         ) {
             let did = Identity::<T>::ensure_perms(origin)?;
             let legs: Vec<LegV2> = legs.into_iter().map(|leg| leg.into()).collect();
@@ -678,7 +678,7 @@ decl_module! {
             value_date: Option<T::Moment>,
             legs: Vec<Leg>,
             portfolios: Vec<PortfolioId>,
-            instruction_memo: Option<InstructionMemo>,
+            instruction_memo: Option<Memo>,
         ) -> DispatchResult {
             let did = Identity::<T>::ensure_perms(origin.clone())?;
             let legs: Vec<LegV2> = legs.into_iter().map(|leg| leg.into()).collect();
@@ -741,7 +741,7 @@ decl_module! {
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
             legs: Vec<LegV2>,
-            instruction_memo: Option<InstructionMemo>,
+            instruction_memo: Option<Memo>,
         ) {
             let did = Identity::<T>::ensure_perms(origin)?;
             Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo, false)?;
@@ -773,7 +773,7 @@ decl_module! {
             value_date: Option<T::Moment>,
             legs: Vec<LegV2>,
             portfolios: Vec<PortfolioId>,
-            instruction_memo: Option<InstructionMemo>,
+            instruction_memo: Option<Memo>,
         ) -> DispatchResult {
             let did = Identity::<T>::ensure_perms(origin.clone())?;
             with_transaction(|| {
@@ -951,7 +951,7 @@ impl<T: Config> Module<T> {
         trade_date: Option<T::Moment>,
         value_date: Option<T::Moment>,
         legs: Vec<LegV2>,
-        memo: Option<InstructionMemo>,
+        memo: Option<Memo>,
         emit_deprecated_event: bool,
     ) -> Result<InstructionId, DispatchError> {
         // Verifies if the block number is in the future so that `T::Scheduler::schedule_named` doesn't fail.

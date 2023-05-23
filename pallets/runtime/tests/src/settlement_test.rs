@@ -19,12 +19,12 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::settlement::{
-    AffirmationStatus, Instruction, InstructionId, InstructionMemo, InstructionStatus, Leg,
-    LegAsset, LegId, LegStatus, LegV2, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType,
-    VenueDetails, VenueId, VenueType,
+    AffirmationStatus, Instruction, InstructionId, InstructionStatus, Leg, LegAsset, LegId,
+    LegStatus, LegV2, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails,
+    VenueId, VenueType,
 };
 use polymesh_primitives::{
-    AccountId, AuthorizationData, Balance, Claim, Condition, ConditionType, IdentityId,
+    AccountId, AuthorizationData, Balance, Claim, Condition, ConditionType, IdentityId, Memo,
     NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind,
     PortfolioName, PortfolioNumber, Signatory, Ticker, WeightMeter,
 };
@@ -2241,16 +2241,13 @@ fn basic_settlement_with_memo() {
                 asset: TICKER,
                 amount: amount
             }],
-            Some(InstructionMemo::default()),
+            Some(Memo::default()),
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
 
         // check that the memo was stored correctly
-        assert_eq!(
-            Settlement::memo(instruction_id).unwrap(),
-            InstructionMemo::default()
-        );
+        assert_eq!(Settlement::memo(instruction_id).unwrap(), Memo::default());
 
         assert_affirm_instruction_with_one_leg!(alice.origin(), instruction_id, alice.did);
 
@@ -2512,7 +2509,7 @@ fn add_nft_instruction_with_duplicated_nfts() {
                 None,
                 None,
                 legs,
-                Some(InstructionMemo::default()),
+                Some(Memo::default()),
             ),
             NFTError::DuplicatedNFTId
         );
@@ -2556,7 +2553,7 @@ fn add_nft_instruction_exceeding_nfts() {
                 None,
                 None,
                 legs,
-                Some(InstructionMemo::default()),
+                Some(Memo::default()),
             ),
             NFTError::MaxNumberOfNFTsPerLegExceeded
         );
@@ -2584,7 +2581,7 @@ fn add_nft_instruction() {
             None,
             None,
             legs,
-            Some(InstructionMemo::default()),
+            Some(Memo::default()),
         ));
     });
 }
@@ -2628,7 +2625,7 @@ fn add_and_affirm_nft_instruction() {
             None,
             legs,
             default_portfolio_vec(alice.did),
-            Some(InstructionMemo::default()),
+            Some(Memo::default()),
         ));
 
         // Before bob accepts the transaction balances must not be changed and the NFT must be locked.
@@ -2721,7 +2718,7 @@ fn add_and_affirm_nft_not_owned() {
                 None,
                 legs,
                 default_portfolio_vec(alice.did),
-                Some(InstructionMemo::default()),
+                Some(Memo::default()),
             ),
             PortfolioError::NFTNotFoundInPortfolio
         );
@@ -2778,7 +2775,7 @@ fn add_same_nft_different_legs() {
                 None,
                 legs,
                 default_portfolio_vec(alice.did),
-                Some(InstructionMemo::default()),
+                Some(Memo::default()),
             ),
             PortfolioError::NFTAlreadyLocked
         );
@@ -2820,7 +2817,7 @@ fn add_and_affirm_with_receipts_nfts() {
             None,
             None,
             legs,
-            Some(InstructionMemo::default()),
+            Some(Memo::default()),
         ));
         assert_noop!(
             Settlement::affirm_with_receipts(

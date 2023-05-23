@@ -5,15 +5,14 @@ use frame_system::EventRecord;
 use pallet_portfolio::{
     Event, MovePortfolioItem, NameToNumber, PortfolioAssetBalances, PortfolioNFT,
 };
-use polymesh_common_utilities::balances::Memo;
 use polymesh_common_utilities::portfolio::PortfolioSubTrait;
 use polymesh_primitives::asset::{AssetType, NonFungibleType};
 use polymesh_primitives::asset_metadata::{
     AssetMetadataKey, AssetMetadataLocalKey, AssetMetadataValue,
 };
-use polymesh_primitives::settlement::{InstructionMemo, LegAsset, LegV2, SettlementType};
+use polymesh_primitives::settlement::{LegAsset, LegV2, SettlementType};
 use polymesh_primitives::{
-    AuthorizationData, AuthorizationError, Fund, FundDescription, NFTCollectionKeys, NFTId,
+    AuthorizationData, AuthorizationError, Fund, FundDescription, Memo, NFTCollectionKeys, NFTId,
     NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind, PortfolioName, PortfolioNumber,
     Signatory, Ticker,
 };
@@ -673,7 +672,7 @@ fn delete_portfolio_with_locked_nfts() {
             None,
             legs,
             vec![PortfolioId::user_portfolio(alice.did, PortfolioNumber(1))],
-            Some(InstructionMemo::default()),
+            Some(Memo::default()),
         ));
 
         assert_noop!(
