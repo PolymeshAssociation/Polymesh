@@ -212,6 +212,8 @@ decl_error! {
         LegNotFound,
         /// The input weight is less than the minimum required.
         InputWeightIsLessThanMinimum,
+        /// The maximum number of receipts was exceeded.
+        MaxNumberOfReceiptsExceeded,
     }
 }
 
@@ -1286,6 +1288,11 @@ impl<T: Config> Module<T> {
         let (did, secondary_key, instruction_details) =
             Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
         let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
+
+        ensure!(
+            receipt_details.len() <= T::MaxNumberOfOffChainAssets::get() as usize,
+            Error::<T>::MaxNumberOfReceiptsExceeded
+        );
 
         // Verify that the receipts provided are unique
         let receipt_ids = receipt_details
