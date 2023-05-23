@@ -709,6 +709,7 @@ pub mod general {
             corporate_action: corporate_actions!(),
             rewards: rewards!(),
             polymesh_contracts: polymesh_contracts!(),
+            ..Default::default()
         }
     }
 
@@ -1292,6 +1293,7 @@ pub mod general {
             corporate_action: corporate_actions!(),
             rewards: rewards!(),
             polymesh_contracts: polymesh_contracts!(),
+            ..Default::default()
         }
     }
 
