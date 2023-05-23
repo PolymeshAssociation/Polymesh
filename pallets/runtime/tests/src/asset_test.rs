@@ -25,7 +25,6 @@ use pallet_portfolio::{MovePortfolioItem, NextPortfolioNumber, PortfolioAssetBal
 use polymesh_common_utilities::asset::AssetFnTrait;
 use polymesh_common_utilities::constants::*;
 use polymesh_common_utilities::protocol_fee::ProtocolOp;
-use polymesh_common_utilities::traits::balances::Memo;
 use polymesh_common_utilities::traits::checkpoint::{ScheduleId, StoredSchedule};
 use polymesh_common_utilities::traits::CddAndFeeDetails as _;
 use polymesh_common_utilities::SystematicIssuers;
@@ -43,7 +42,7 @@ use polymesh_primitives::calendar::{
 use polymesh_primitives::statistics::StatType;
 use polymesh_primitives::{
     ethereum, AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError,
-    Document, DocumentId, IdentityId, InvestorUid, Moment, NFTCollectionKeys, Permissions,
+    Document, DocumentId, IdentityId, InvestorUid, Memo, Moment, NFTCollectionKeys, Permissions,
     PortfolioId, PortfolioKind, PortfolioName, SecondaryKey, Signatory, Ticker, WeightMeter,
 };
 use test_client::AccountKeyring;

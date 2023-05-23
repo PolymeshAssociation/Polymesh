@@ -26,12 +26,12 @@ use polymesh_primitives::asset_metadata::{
 };
 use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::settlement::{
-    AffirmationStatus, Instruction, InstructionId, InstructionMemo, InstructionStatus, Leg,
-    LegAsset, LegId, LegStatus, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType,
-    VenueDetails, VenueId, VenueType,
+    AffirmationStatus, Instruction, InstructionId, InstructionStatus, Leg, LegAsset, LegId,
+    LegStatus, Receipt, ReceiptDetails, ReceiptMetadata, SettlementType, VenueDetails, VenueId,
+    VenueType,
 };
 use polymesh_primitives::{
-    AccountId, AuthorizationData, Balance, Claim, Condition, ConditionType, IdentityId,
+    AccountId, AuthorizationData, Balance, Claim, Condition, ConditionType, IdentityId, Memo,
     NFTCollectionKeys, NFTId, NFTMetadataAttribute, NFTs, PortfolioId, PortfolioKind,
     PortfolioName, PortfolioNumber, Signatory, Ticker, WeightMeter,
 };
@@ -2269,16 +2269,13 @@ fn basic_settlement_with_memo() {
                     amount,
                 },
             }],
-            Some(InstructionMemo::default()),
+            Some(Memo::default()),
         ));
         alice.assert_all_balances_unchanged();
         bob.assert_all_balances_unchanged();
 
         // check that the memo was stored correctly
-        assert_eq!(
-            Settlement::memo(instruction_id).unwrap(),
-            InstructionMemo::default()
-        );
+        assert_eq!(Settlement::memo(instruction_id).unwrap(), Memo::default());
 
         assert_affirm_instruction!(alice.origin(), instruction_id, alice.did);
 
@@ -2562,7 +2559,7 @@ fn add_nft_instruction_with_duplicated_nfts() {
                 None,
                 None,
                 legs,
-                Some(InstructionMemo::default()),
+                Some(Memo::default()),
             ),
             NFTError::DuplicatedNFTId
         );
@@ -2606,7 +2603,7 @@ fn add_nft_instruction_exceeding_nfts() {
                 None,
                 None,
                 legs,
-                Some(InstructionMemo::default()),
+                Some(Memo::default()),
             ),
             NFTError::MaxNumberOfNFTsPerLegExceeded
         );
@@ -2634,7 +2631,7 @@ fn add_nft_instruction() {
             None,
             None,
             legs,
-            Some(InstructionMemo::default()),
+            Some(Memo::default()),
         ));
     });
 }
@@ -2678,7 +2675,7 @@ fn add_and_affirm_nft_instruction() {
             None,
             legs,
             default_portfolio_vec(alice.did),
-            Some(InstructionMemo::default()),
+            Some(Memo::default()),
         ));
 
         // Before bob accepts the transaction balances must not be changed and the NFT must be locked.
@@ -2770,7 +2767,7 @@ fn add_and_affirm_nft_not_owned() {
                 None,
                 legs,
                 default_portfolio_vec(alice.did),
-                Some(InstructionMemo::default()),
+                Some(Memo::default()),
             ),
             PortfolioError::NFTNotFoundInPortfolio
         );
@@ -2827,7 +2824,7 @@ fn add_same_nft_different_legs() {
                 None,
                 legs,
                 default_portfolio_vec(alice.did),
-                Some(InstructionMemo::default()),
+                Some(Memo::default()),
             ),
             PortfolioError::NFTAlreadyLocked
         );
@@ -2869,7 +2866,7 @@ fn add_and_affirm_with_receipts_nfts() {
             None,
             None,
             legs,
-            Some(InstructionMemo::default()),
+            Some(Memo::default()),
         ));
         assert_noop!(
             Settlement::affirm_with_receipts(
@@ -2922,7 +2919,7 @@ fn add_instruction_unexpected_offchain_asset() {
                 None,
                 None,
                 legs,
-                Some(InstructionMemo::default()),
+                Some(Memo::default()),
             ),
             Error::UnexpectedOFFChainAsset
         );
@@ -2943,7 +2940,7 @@ fn add_instruction_unexpected_offchain_asset() {
                 None,
                 None,
                 legs,
-                Some(InstructionMemo::default()),
+                Some(Memo::default()),
             ),
             Error::UnexpectedOFFChainAsset
         );
@@ -2974,7 +2971,7 @@ fn add_instruction_unexpected_onchain_asset() {
                 None,
                 None,
                 legs,
-                Some(InstructionMemo::default()),
+                Some(Memo::default()),
             ),
             Error::UnexpectedOnChainAsset
         );
@@ -3005,7 +3002,7 @@ fn affirm_offchain_asset_without_receipt() {
             None,
             None,
             legs,
-            Some(InstructionMemo::default()),
+            Some(Memo::default()),
         ),);
         assert_noop!(
             Settlement::affirm_instruction(
@@ -3029,7 +3026,7 @@ fn add_instruction_with_pre_affirmed_tickers() {
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let bob_user_porfolio = PortfolioId::user_portfolio(bob.did, PortfolioNumber(1));
         let venue = create_token_and_venue(TICKER, alice);
-        let instruction_memo = Some(InstructionMemo::default());
+        let instruction_memo = Some(Memo::default());
         Portfolio::create_portfolio(bob.origin(), b"BobUserPortfolio".into()).unwrap();
 
         // Both users have pre-affirmed the ticker
@@ -3089,7 +3086,7 @@ fn add_instruction_with_pre_affirmed_portfolio() {
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let bob_user_porfolio = PortfolioId::user_portfolio(bob.did, PortfolioNumber(1));
         let venue = create_token_and_venue(TICKER, alice);
-        let instruction_memo = Some(InstructionMemo::default());
+        let instruction_memo = Some(Memo::default());
         Portfolio::create_portfolio(bob.origin(), b"BobUserPortfolio".into()).unwrap();
         Portfolio::create_portfolio(alice.origin(), b"AliceUserPortfolio".into()).unwrap();
 
@@ -3153,7 +3150,7 @@ fn add_instruction_with_single_pre_affirmed() {
         let bob = User::new(AccountKeyring::Bob);
         let bob_default_portfolio = PortfolioId::default_portfolio(bob.did);
         let venue = create_token_and_venue(TICKER, alice);
-        let instruction_memo = Some(InstructionMemo::default());
+        let instruction_memo = Some(Memo::default());
         create_token(TICKER2, alice);
 
         // Bob has pre-affirmed TICKER but not TICKER2
@@ -3210,7 +3207,7 @@ fn assert_add_instruction_storage(
     instruction_id: &InstructionId,
     portfolios_pending_approval: &BTreeSet<PortfolioId>,
     portfolios_pre_approved: &BTreeSet<PortfolioId>,
-    instruction_memo: Option<InstructionMemo>,
+    instruction_memo: Option<Memo>,
     legs: &[Leg],
 ) {
     portfolios_pending_approval.iter().for_each(|portfolio_id| {

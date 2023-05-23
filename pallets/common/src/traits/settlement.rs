@@ -4,10 +4,10 @@ use frame_support::weights::Weight;
 use sp_std::vec::Vec;
 
 use polymesh_primitives::settlement::{
-    AssetCount, InstructionId, InstructionMemo, Leg, LegId, ReceiptMetadata, SettlementType,
-    VenueDetails, VenueId, VenueType,
+    AssetCount, InstructionId, Leg, LegId, ReceiptMetadata, SettlementType, VenueDetails, VenueId,
+    VenueType,
 };
-use polymesh_primitives::{IdentityId, PortfolioId, Ticker};
+use polymesh_primitives::{IdentityId, Memo, PortfolioId, Ticker};
 
 decl_event!(
     pub enum Event<T>
@@ -74,7 +74,7 @@ decl_event!(
             Option<Moment>,
             Option<Moment>,
             Vec<Leg>,
-            Option<InstructionMemo>,
+            Option<Memo>,
         ),
         /// Failed to execute instruction.
         FailedToExecuteInstruction(InstructionId, DispatchError),

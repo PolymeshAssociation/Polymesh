@@ -77,11 +77,11 @@ use polymesh_common_utilities::with_transaction;
 use polymesh_common_utilities::SystematicIssuers::Settlement as SettlementDID;
 use polymesh_primitives::settlement::{
     AffirmationStatus, AssetCount, ExecuteInstructionInfo, FilteredLegs, Instruction,
-    InstructionId, InstructionInfo, InstructionMemo, InstructionStatus, Leg, LegAsset, LegId,
-    LegStatus, Receipt, ReceiptDetails, SettlementType, Venue, VenueDetails, VenueId, VenueType,
+    InstructionId, InstructionInfo, InstructionStatus, Leg, LegAsset, LegId, LegStatus, Receipt,
+    ReceiptDetails, SettlementType, Venue, VenueDetails, VenueId, VenueType,
 };
 use polymesh_primitives::{
-    storage_migrate_on, storage_migration_ver, Balance, IdentityId, NFTs, PortfolioId,
+    storage_migrate_on, storage_migration_ver, Balance, IdentityId, Memo, NFTs, PortfolioId,
     SecondaryKey, Ticker, WeightMeter,
 };
 
@@ -212,6 +212,8 @@ decl_error! {
         LegNotFound,
         /// The input weight is less than the minimum required.
         InputWeightIsLessThanMinimum,
+        /// The maximum number of receipts was exceeded.
+        MaxNumberOfReceiptsExceeded,
     }
 }
 
@@ -270,7 +272,7 @@ decl_storage! {
         /// Storage version.
         StorageVersion get(fn storage_version) build(|_| Version::new(1)): Version;
         /// Instruction memo
-        pub InstructionMemos get(fn memo): map hasher(twox_64_concat) InstructionId => Option<InstructionMemo>;
+        pub InstructionMemos get(fn memo): map hasher(twox_64_concat) InstructionId => Option<Memo>;
         /// Instruction statuses. instruction_id -> InstructionStatus
         InstructionStatuses get(fn instruction_status):
             map hasher(twox_64_concat) InstructionId => InstructionStatus<T::BlockNumber>;
@@ -590,7 +592,7 @@ decl_module! {
             trade_date: Option<T::Moment>,
             value_date: Option<T::Moment>,
             legs: Vec<Leg>,
-            instruction_memo: Option<InstructionMemo>,
+            instruction_memo: Option<Memo>,
         ) {
             let did = Identity::<T>::ensure_perms(origin)?;
             Self::base_add_instruction(did, venue_id, settlement_type, trade_date, value_date, legs, instruction_memo)?;
@@ -622,7 +624,7 @@ decl_module! {
             value_date: Option<T::Moment>,
             legs: Vec<Leg>,
             portfolios: Vec<PortfolioId>,
-            instruction_memo: Option<InstructionMemo>,
+            instruction_memo: Option<Memo>,
         ) {
             let did = Identity::<T>::ensure_perms(origin.clone())?;
             let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
@@ -787,7 +789,7 @@ impl<T: Config> Module<T> {
         trade_date: Option<T::Moment>,
         value_date: Option<T::Moment>,
         legs: Vec<Leg>,
-        memo: Option<InstructionMemo>,
+        memo: Option<Memo>,
     ) -> Result<InstructionId, DispatchError> {
         // Verifies if the block number is in the future so that `T::Scheduler::schedule_named` doesn't fail.
         if let SettlementType::SettleOnBlock(block_number) = &settlement_type {
@@ -1276,6 +1278,11 @@ impl<T: Config> Module<T> {
         let (did, secondary_key, instruction_details) =
             Self::ensure_origin_perm_and_instruction_validity(origin, id, false)?;
         let portfolios_set = portfolios.into_iter().collect::<BTreeSet<_>>();
+
+        ensure!(
+            receipt_details.len() <= T::MaxNumberOfOffChainAssets::get() as usize,
+            Error::<T>::MaxNumberOfReceiptsExceeded
+        );
 
         // Verify that the receipts provided are unique
         let receipt_ids = receipt_details
