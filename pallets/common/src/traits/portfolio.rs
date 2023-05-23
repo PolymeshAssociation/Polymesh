@@ -17,14 +17,14 @@
 //!
 //! The interface allows to accept portfolio custody
 
-use crate::{asset::AssetFnTrait, balances::Memo, base, identity, CommonConfig};
+use crate::{asset::AssetFnTrait, base, identity, CommonConfig};
 use frame_support::decl_event;
 use frame_support::dispatch::DispatchResult;
 use frame_support::pallet_prelude::Get;
 use frame_support::weights::Weight;
 use polymesh_primitives::{
-    Balance, Fund, FundDescription, IdentityId, Memo as PortfolioMemo, NFTId, NFTs, PortfolioId,
-    PortfolioName, PortfolioNumber, SecondaryKey, Ticker,
+    Balance, Fund, FundDescription, IdentityId, Memo, NFTId, NFTs, PortfolioId, PortfolioName,
+    PortfolioNumber, SecondaryKey, Ticker,
 };
 use sp_std::vec::Vec;
 
@@ -172,7 +172,7 @@ decl_event! {
             PortfolioId,
             PortfolioId,
             NFTs,
-            Option<PortfolioMemo>
+            Option<Memo>
         ),
         /// A token amount has been moved from one portfolio to another.
         ///
@@ -188,7 +188,7 @@ decl_event! {
             PortfolioId,
             Ticker,
             Balance,
-            Option<PortfolioMemo>,
+            Option<Memo>,
         ),
     }
 }

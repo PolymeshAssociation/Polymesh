@@ -32,7 +32,6 @@ use pallet_statistics as statistics;
 use polymesh_common_utilities::{
     constants::*,
     protocol_fee::ProtocolOp,
-    traits::balances::Memo,
     traits::checkpoint::{ScheduleId, StoredSchedule},
     traits::CddAndFeeDetails as _,
     SystematicIssuers,
@@ -50,7 +49,7 @@ use polymesh_primitives::{
     },
     statistics::StatType,
     AccountId, AssetIdentifier, AssetPermissions, AuthorizationData, AuthorizationError, Document,
-    DocumentId, IdentityId, InvestorUid, Moment, NFTCollectionKeys, Permissions, PortfolioId,
+    DocumentId, IdentityId, InvestorUid, Memo, Moment, NFTCollectionKeys, Permissions, PortfolioId,
     PortfolioKind, PortfolioName, SecondaryKey, Signatory, Ticker, WeightMeter,
 };
 use rand::Rng;

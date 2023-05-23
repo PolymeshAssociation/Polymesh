@@ -31,7 +31,7 @@ use polymesh_common_utilities::TestUtilsFn;
 use polymesh_primitives::asset::NonFungibleType;
 use polymesh_primitives::checked_inc::CheckedInc;
 use polymesh_primitives::settlement::ReceiptMetadata;
-use polymesh_primitives::{IdentityId, NFTId, NFTs, PortfolioId, PortfolioKind, Ticker};
+use polymesh_primitives::{IdentityId, Memo, NFTId, NFTs, PortfolioId, PortfolioKind, Ticker};
 
 use crate::*;
 
@@ -229,7 +229,7 @@ where
         None,
         None,
         parameters.legs.clone(),
-        Some(InstructionMemo::default()),
+        Some(Memo::default()),
     )
     .unwrap();
     // Affirms the sender side of the instruction
@@ -436,7 +436,7 @@ benchmarks! {
             None,
             None,
             parameters.legs,
-            Some(InstructionMemo::default()),
+            Some(Memo::default()),
         ).unwrap();
 
         let receipt_details = (0..o)
@@ -513,7 +513,7 @@ benchmarks! {
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let memo = Some(InstructionMemo::default());
+        let memo = Some(Memo::default());
         let settlement_type = SettlementType::SettleOnBlock(100u32.into());
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
 
@@ -528,7 +528,7 @@ benchmarks! {
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let memo = Some(InstructionMemo::default());
+        let memo = Some(Memo::default());
         let settlement_type = SettlementType::SettleOnBlock(100u32.into());
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
 
@@ -542,7 +542,7 @@ benchmarks! {
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let memo = Some(InstructionMemo::default());
+        let memo = Some(Memo::default());
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account()]);
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, T::MaxNumberOfOffChainAssets::get(), false, false);
@@ -565,7 +565,6 @@ benchmarks! {
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let memo = Some(InstructionMemo::default());
         let settlement_type = SettlementType::SettleOnBlock(100u32.into());
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
 
@@ -582,7 +581,6 @@ benchmarks! {
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let memo = Some(InstructionMemo::default());
         let settlement_type = SettlementType::SettleOnBlock(100u32.into());
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
 
@@ -673,7 +671,7 @@ benchmarks! {
 
         let alice = UserBuilder::<T>::default().generate_did().build("Alice");
         let bob = UserBuilder::<T>::default().generate_did().build("Bob");
-        let memo = Some(InstructionMemo::default());
+        let memo = Some(Memo::default());
         let venue_id = create_venue_::<T>(alice.did(), vec![alice.account(), bob.account()]);
 
         let parameters = setup_legs::<T>(&alice, &bob, f, n, T::MaxNumberOfOffChainAssets::get(), false, false);

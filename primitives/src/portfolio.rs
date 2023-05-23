@@ -16,7 +16,7 @@
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
-use crate::{Balance, NFTs, Ticker};
+use crate::{Balance, Memo, NFTs, Ticker};
 
 /// Describes what should be moved between portfolios. It can be either fungible or non-fungible tokens.
 #[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
@@ -40,7 +40,3 @@ pub enum FundDescription {
     /// Fungible token.
     NonFungible(NFTs),
 }
-
-/// A memo describing the transfer.
-#[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
-pub struct Memo(pub [u8; 32]);
