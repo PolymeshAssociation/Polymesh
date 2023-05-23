@@ -9,8 +9,12 @@ import {
   sendTx,
   ApiSingleton,
 } from "../util/init";
+import type { Ticker } from "../types";
 import { createIdentities } from "../helpers/identity_helper";
 import { distributePoly } from "../helpers/poly_helper";
+
+import type { KeyringPair } from "@polkadot/keyring/types";
+import { stringToU8a, u8aConcat, compactToU8a } from "@polkadot/util";
 
 import {
   create_account,
@@ -22,22 +26,21 @@ import {
   Account,
   PubAccount,
   decrypt,
-} from "../../mercat/";
+} from "mercat-wasm";
 
 // Disconnects api after all the tests have completed
 afterAll(async () => {
   await disconnect();
 });
 
+// Seeds needs to be at least 32 bytes.  These are bad seeds, please use a crypt-rng.
+function makeSeed(name: string): Uint8Array {
+	const seed = `${name}::Confidential Asset Test Seed         `;
+	return stringToU8a(seed.substr(0, 32));
+}
+
 describe("17 - Confidential Asset Unit Test", () => {
   test("Basic transfer", async () => {
-    // Seeds needs to be at least 32 bytes.  These are bad seeds, please use a crypt-rng.
-    const seed_bob = "Confidential Asset Test Seed:  1";
-    const seed_charlie = "Confidential Asset Test Seed:  2";
-    const seed_dave = "Confidential Asset Test Seed:  3";
-    const seed4 = "Confidential Asset Test Seed:  4";
-    const seed5 = "Confidential Asset Test Seed:  5";
-
     const ticker = padTicker("17ATICKER");
     const testEntities = await initMain();
     const alice = testEntities[0];
@@ -70,18 +73,18 @@ describe("17 - Confidential Asset Unit Test", () => {
 
     // Dave and Bob create their Mercat account locally and submit the proof to the chain
     console.log("-----------> Creating Dave and Bob's mercat accounts.");
-    const daveMercatInfo = create_account(seed_dave);
-    const bobMercatInfo = create_account(seed_bob);
+    const daveMercatInfo = create_account(makeSeed("17_dave"));
+    const bobMercatInfo = create_account(makeSeed("17_bob"));
 
     // Validate Dave and Bob's Mercat Accounts
     console.log("-----------> Submitting dave mercat account proofs.");
-    await validateMercatAccount(dave, daveMercatInfo.account_tx);
+    await validateMercatAccount(dave, daveMercatInfo.account_tx, ticker);
     console.log("-----------> Submitting bob mercat account proofs.");
-    await validateMercatAccount(bob, bobMercatInfo.account_tx);
+    await validateMercatAccount(bob, bobMercatInfo.account_tx, ticker);
 
     // Charlie creates his mediator Mercat Account
     console.log("-----------> Creating Charlie's account.");
-    const charlieMercatAccount = createMercatMediatorAccount(seed_charlie).account();
+    const charlieMercatAccount = createMercatMediatorAccount(makeSeed("17_charlie"));
     const charliePublicKey = charlieMercatAccount.public_account;
     const charlieAccount = charlieMercatAccount.secret_account;
 
@@ -89,24 +92,41 @@ describe("17 - Confidential Asset Unit Test", () => {
     console.log("-----------> Submitting Charlie's account.");
     await addMediatorMercatAccount(charlie, charliePublicKey);
 
+		// Mint Tokens
+  	console.log("-----------> Minting assets.");
+  	await mintTokens(makeSeed("17_mint"), dave, ticker, 1000, daveMercatInfo.account);
+
+  	// Create Venue
+  	console.log("-----------> Creating venue.");
+  	const venueCounter = await createVenue(charlie);
+
   });
 });
 
-function createMercatMediatorAccount() {
-  const charlieMercatInfo = create_mediator_account();
+function createMercatMediatorAccount(seed: Uint8Array): Account {
+  const charlieMercatInfo = create_mediator_account(seed);
 
-  return charlieMercatInfo;
+  return charlieMercatInfo.account;
 }
 
-async function validateMercatAccount(signer: KeyringPair, proof) {
+function wrapTX(tx: Uint8Array): Uint8Array {
+	return u8aConcat(
+		compactToU8a(tx.length),
+		tx
+	);
+}
+
+async function validateMercatAccount(signer: KeyringPair, proof: Uint8Array, ticker: Ticker) {
   const api = await ApiSingleton.getInstance();
-  const transaction = await api.tx.confidentialAsset.validateMercatAccount(proof);
+	const wrapped = wrapTX(proof);
+  const transaction = await api.tx.confidentialAsset.validateMercatAccount(ticker, wrapped);
 
   await sendTx(signer, transaction);
 }
 
-async function addMediatorMercatAccount(signer: KeyringPair, public_key) {
+async function addMediatorMercatAccount(signer: KeyringPair, account: PubAccount) {
   const api = await ApiSingleton.getInstance();
+	const public_key = account.public_key;
   const transaction = await api.tx.confidentialAsset.addMediatorMercatAccount(public_key);
 
   await sendTx(signer, transaction);
@@ -123,37 +143,25 @@ async function createConfidentialAsset(signer: KeyringPair, ticker: Ticker) {
   await sendTx(signer, transaction);
 }
 
+async function mintTokens(seed: Uint8Array, signer: KeyringPair, ticker: Ticker, amount: number, account: Account) {
+  const api = await ApiSingleton.getInstance();
+  const mintTxInfo = mint_asset(seed, amount, account);
+  const mintProof = wrapTX(mintTxInfo.asset_tx);
+
+  const transaction = await api.tx.confidentialAsset.mintConfidentialAsset(ticker, amount, mintProof);
+  await sendTx(signer, transaction);
+}
+
 async function createVenue(signer: KeyringPair): Promise<number> {
   const api = await ApiSingleton.getInstance();
   let venueCounter = (await api.query.confidentialAsset.venueCounter()).toNumber();
-  const transaction = api.tx.settlement.createVenue();
+  const transaction = api.tx.confidentialAsset.createVenue();
   await sendTx(signer, transaction);
   return venueCounter;
 }
 
 /*
 async function main() {
-  // Dave and Bob create their Mercat account locally and submit the proof to the chain
-  console.log("-----------> Creating Dave and Bob's mercat accounts.");
-  const daveMercatInfo = create_account(tickersHexList, tickerHex);
-  const bobMercatInfo = create_account(tickersHexList, tickerHex);
-
-  // Validate Dave and Bob's Mercat Accounts
-  console.log("-----------> Submitting dave mercat account proofs.");
-  await validateMercatAccount(api, dave, daveMercatInfo.account_tx);
-  console.log("-----------> Submitting bob mercat account proofs.");
-  await validateMercatAccount(api, bob, bobMercatInfo.account_tx);
-
-  // Charlie creates his mediator Mercat Account
-  console.log("-----------> Creating Charlie's account.");
-  const charlieMercatAccount = createMercatMediatorAccount();
-  const charliePublicKey = charlieMercatAccount.public_key;
-  const charlieAccount = charlieMercatAccount.secret_account;
-
-  // Validate Charlie's Mercat Account
-  console.log("-----------> Submitting Charlie's account.");
-  await addMediatorMercatAccount(api, charlie, charliePublicKey);
-
   await displayBalance(api, daveDid, daveMercatInfo, "Dave initial balance");
   await displayBalance(api, bobDid, bobMercatInfo, "Bob initial balance");
 
@@ -265,17 +273,6 @@ async function displayBalance(api, did, mercatAccountInfo, message) {
     console.log(`${message}: ${accountBalance}`);
 
     return accountEncryptedBalance;
-}
-
-async function mintTokens(api, signer, ticker, amount, mercatAccountInfo) {
-  const publicAccount = new PubAccount(mercatAccountInfo.account_id,  mercatAccountInfo.public_key);
-  const account = new Account(mercatAccountInfo.secret_account, publicAccount);
-  const mintTxInfo = new mint_asset(amount, account);
-  const mintProof = mintTxInfo.asset_tx;
-
-  const transaction = await api.tx.confidentialAsset.mintConfidentialAsset(ticker, amount, mintProof);
-  let tx = await sendTx(signer, transaction);
-  if(tx !== -1) fail_count--;
 }
 
 async function getEncryptedBalance(api, did, mercatAccountID){

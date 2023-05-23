@@ -15,9 +15,10 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,
+    "allowJs": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
-    "skipLibCheck": true,
+    "skipLibCheck": true
   },
   "include": ["src/tests/*", "src/util/*", "src/types.ts", "src/__tests__"],
   "exclude": ["node_modules"]
