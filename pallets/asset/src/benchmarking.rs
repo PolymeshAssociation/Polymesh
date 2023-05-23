@@ -101,20 +101,6 @@ fn make_default_reg_config<T: Config>() -> TickerRegistrationConfig<T::Moment> {
     }
 }
 
-fn make_classic_ticker<T: Config>(eth_owner: ethereum::EthereumAddress, ticker: Ticker) {
-    let classic_ticker = ClassicTickerImport {
-        eth_owner,
-        ticker,
-        is_created: false,
-        is_contract: false,
-    };
-    let reg_config = make_default_reg_config::<T>();
-    let root = RawOrigin::Root.into();
-
-    <Module<T>>::reserve_classic_ticker(root, classic_ticker, 0u128.into(), reg_config)
-        .expect("`reserve_classic_ticker` failed");
-}
-
 fn emulate_controller_transfer<T: Config>(
     ticker: Ticker,
     investor_did: IdentityId,
@@ -465,22 +451,6 @@ benchmarks! {
     }: _(owner.origin, ticker, eth_sig)
     verify {
         assert_eq!(did, Module::<T>::ticker_registration(ticker).owner);
-    }
-
-    reserve_classic_ticker {
-        let owner = owner::<T>();
-
-        let ticker: Ticker = Ticker::from_slice_truncated(&b"ACME"[..]);
-        let config = make_default_reg_config::<T>();
-        let classic = ClassicTickerImport {
-            eth_owner: ethereum::EthereumAddress(*b"0x012345678987654321"),
-            ticker,
-            is_created: true,
-            is_contract: false,
-        };
-    }: _(RawOrigin::Root, classic, owner.did(), config)
-    verify {
-        assert_eq!(<Tickers<T>>::contains_key(&ticker), true);
     }
 
     controller_transfer {
