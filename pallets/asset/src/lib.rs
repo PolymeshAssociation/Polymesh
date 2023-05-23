@@ -89,10 +89,11 @@ use codec::{Decode, Encode};
 use core::mem;
 use core::result::Result as StdResult;
 use currency::*;
-use frame_support::dispatch::{DispatchError, DispatchResult};
-use frame_support::traits::Get;
+use frame_support::dispatch::{DispatchError, DispatchResult, Weight};
+use frame_support::traits::{Get, PalletInfoAccess};
 use frame_support::{decl_error, decl_module, decl_storage, ensure, fail};
 use frame_system::ensure_root;
+
 use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;
 use sp_std::{convert::TryFrom, prelude::*};
@@ -118,7 +119,6 @@ use polymesh_primitives::asset_metadata::{
     AssetMetadataSpec, AssetMetadataValue, AssetMetadataValueDetail,
 };
 use polymesh_primitives::calendar::CheckpointId;
-use polymesh_primitives::ethereum::{self, EcdsaSignature, EthereumAddress};
 use polymesh_primitives::transfer_compliance::TransferConditionResult;
 use polymesh_primitives::{
     extract_auth, storage_migration_ver, AssetIdentifier, Balance, Document, DocumentId,
@@ -190,16 +190,6 @@ impl Default for RestrictionResult {
     }
 }
 
-/// Data about a ticker registration from Polymath Classic on-genesis importation.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
-pub struct ClassicTickerRegistration {
-    /// Owner of the registration.
-    pub eth_owner: EthereumAddress,
-    /// Has the ticker been elevated to a created asset on classic?
-    pub is_created: bool,
-}
-
 storage_migration_ver!(2);
 
 decl_storage! {
@@ -252,8 +242,6 @@ decl_storage! {
         /// Per-ticker document ID counter.
         /// (ticker) -> doc_id
         pub AssetDocumentsIdSequence get(fn asset_documents_id_sequence): map hasher(blake2_128_concat) Ticker => DocumentId;
-        /// Ticker registration details on Polymath Classic / Ethereum.
-        pub ClassicTickers get(fn classic_ticker_registration): map hasher(blake2_128_concat) Ticker => Option<ClassicTickerRegistration>;
         /// Balances get stored on the basis of the `ScopeId`.
         /// Right now it is only helpful for the UI purposes but in future it can be used to do miracles on-chain.
         /// (ScopeId, IdentityId) => Balance.
@@ -316,8 +304,6 @@ decl_storage! {
     add_extra_genesis {
         config(reserved_country_currency_codes): Vec<Ticker>;
         build(|config: &GenesisConfig<T>| {
-            use frame_system::RawOrigin;
-
             // Reserving country currency logic
             let fiat_tickers_reservation_did = SystematicIssuers::FiatTickersReservation.as_id();
             for currency_ticker in &config.reserved_country_currency_codes {
@@ -347,10 +333,10 @@ decl_module! {
 
         // Remove all storage related to classic tickers in this module
         fn on_runtime_upgrade() -> Weight {
+            use polymesh_primitives::storage_migrate_on;
             storage_migrate_on!(StorageVersion, 1, {
-                frame_support::storage::migration::remove_storage_prefix(<Pallet<T>>::name().as_bytes(), b"ClassicTickers", b"");
+                let _ = frame_support::storage::migration::clear_storage_prefix(<Pallet<T>>::name().as_bytes(), b"ClassicTickers", b"", None, None);
             });
-
             Weight::zero()
         }
 
