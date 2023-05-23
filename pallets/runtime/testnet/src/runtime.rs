@@ -95,6 +95,7 @@ parameter_types! {
     pub const UncleGenerations: BlockNumber = 0;
 
     // Settlement:
+    pub const MaxNumberOfOffChainAssets: u32 = 10;
     pub const MaxNumberOfFungibleAssets: u32 = 10;
     pub const MaxNumberOfNFTsPerLeg: u32 = 10;
     pub const MaxNumberOfNFTs: u32 = 100;

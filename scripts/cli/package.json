@@ -71,7 +71,8 @@
     "nodejs-fs-utils": "1.2.6",
     "path": "0.12.7",
     "pm2": "^5.1.2",
-    "readline-sync": "1.4.10"
+    "readline-sync": "1.4.10",
+    "ts-node-dev": "^2.0.0"
   },
   "devDependencies": {
     "@babel/plugin-transform-modules-commonjs": "7.14.5",
@@ -86,7 +87,7 @@
     "nodemon": "^2.0.19",
     "pretty-error": "^3.0.4",
     "ts-jest": "^27.0.5",
-    "ts-node": "9.1.1",
+    "ts-node": "^10.9.1",
     "type-coverage": "2.16.3",
     "typescript": "^4.3.5"
   }

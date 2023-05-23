@@ -173,36 +173,6 @@ pub struct Instruction<Moment, BlockNumber> {
     pub value_date: Option<Moment>,
 }
 
-/// Details of a leg including the leg id in the instruction.
-#[derive(Encode, Decode, TypeInfo)]
-#[derive(Default, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct Leg {
-    /// Portfolio of the sender
-    pub from: PortfolioId,
-    /// Portfolio of the receiver
-    pub to: PortfolioId,
-    /// Ticker of the asset being transferred
-    pub asset: Ticker,
-    /// Amount being transferred
-    pub amount: Balance,
-}
-
-impl TryFrom<LegV2> for Leg {
-    type Error = &'static str;
-
-    fn try_from(leg_v2: LegV2) -> Result<Self, Self::Error> {
-        match leg_v2.asset {
-            LegAsset::NonFungible(_nfts) => Err("InvalidLegAsset"),
-            LegAsset::Fungible { ticker, amount } => Ok(Leg {
-                from: leg_v2.from,
-                to: leg_v2.to,
-                asset: ticker,
-                amount,
-            }),
-        }
-    }
-}
-
 /// Type of assets that can be transferred in a `Leg`.
 #[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
 pub enum LegAsset {
@@ -215,6 +185,13 @@ pub enum LegAsset {
     },
     /// Non Fungible token.
     NonFungible(NFTs),
+    /// Assets that don't settle on-chain (e.g USD).
+    OffChain {
+        /// Ticker for the off-chain asset.
+        ticker: Ticker,
+        /// Amount transferred.
+        amount: Balance,
+    },
 }
 
 impl LegAsset {
@@ -223,7 +200,16 @@ impl LegAsset {
         match self {
             LegAsset::Fungible { ticker, amount } => (*ticker, *amount),
             LegAsset::NonFungible(nfts) => (*nfts.ticker(), nfts.len() as Balance),
+            LegAsset::OffChain { ticker, amount } => (*ticker, *amount),
         }
+    }
+
+    /// Returns true if it's an off-chain leg.
+    pub fn is_off_chain(&self) -> bool {
+        if let LegAsset::OffChain { .. } = self {
+            return true;
+        }
+        false
     }
 }
 
@@ -238,26 +224,13 @@ impl Default for LegAsset {
 
 /// Defines a leg (i.e the action of a settlement).
 #[derive(Clone, Debug, Decode, Default, Encode, Eq, PartialEq, TypeInfo)]
-pub struct LegV2 {
+pub struct Leg {
     /// Portfolio of the sender.
     pub from: PortfolioId,
     /// Portfolio of the receiver.
     pub to: PortfolioId,
     /// Assets being transferred.
     pub asset: LegAsset,
-}
-
-impl From<Leg> for LegV2 {
-    fn from(leg: Leg) -> Self {
-        LegV2 {
-            from: leg.from,
-            to: leg.to,
-            asset: LegAsset::Fungible {
-                ticker: leg.asset,
-                amount: leg.amount,
-            },
-        }
-    }
 }
 
 /// Details about a venue.
@@ -305,19 +278,21 @@ pub struct ReceiptDetails<AccountId, OffChainSignature> {
     pub metadata: ReceiptMetadata,
 }
 
-/// Stores the number of fungible and non fungible transfers in a set of legs.
+/// Stores the number of fungible, non fungible and offchain transfers in a set of legs.
 #[derive(Default)]
-pub struct TransferData {
+pub struct AssetCount {
     fungible: u32,
     non_fungible: u32,
+    off_chain: u32,
 }
 
-impl TransferData {
-    /// Creates an instance of `TransfersData`.
-    pub fn new(fungible: u32, non_fungible: u32) -> Self {
-        TransferData {
+impl AssetCount {
+    /// Creates an instance of [`AssetCount`].
+    pub fn new(fungible: u32, non_fungible: u32, off_chain: u32) -> Self {
+        AssetCount {
             fungible,
             non_fungible,
+            off_chain,
         }
     }
 
@@ -331,6 +306,11 @@ impl TransferData {
         self.non_fungible
     }
 
+    /// Returns the number of off-chain assets.
+    pub fn off_chain(&self) -> u32 {
+        self.off_chain
+    }
+
     /// Adds one to the number of fungible transfers.
     pub fn add_fungible(&mut self) {
         self.fungible += 1;
@@ -339,6 +319,11 @@ impl TransferData {
     /// Adds `nfts.len()` to the number of non fungible transfers.
     pub fn add_non_fungible(&mut self, nfts: &NFTs) {
         self.non_fungible += nfts.len() as u32;
+    }
+
+    /// Adds one to the number of off-chain assets.
+    pub fn add_off_chain(&mut self) {
+        self.off_chain += 1;
     }
 
     /// Adds one to the number of fungible assets.
@@ -368,16 +353,43 @@ impl TransferData {
         Ok(())
     }
 
-    /// Gets the `TransferData` from a slice of `LegV2`.
-    pub fn from_legs(legs_v2: &[LegV2]) -> Result<TransferData, String> {
-        let mut transfer_data = TransferData::default();
-        for leg_v2 in legs_v2 {
-            match &leg_v2.asset {
-                LegAsset::Fungible { .. } => transfer_data.try_add_fungible()?,
-                LegAsset::NonFungible(nfts) => transfer_data.try_add_non_fungible(&nfts)?,
+    /// Adds one to the number of off-chain assets.
+    /// Returns an error if the number of off-chain assets is greater than 1024.
+    pub fn try_add_off_chain(&mut self) -> Result<(), String> {
+        if self.off_chain + 1 > 1024 {
+            return Err(String::from(
+                "Number of off-chain assets is greater than allowed",
+            ));
+        }
+        self.off_chain += 1;
+        Ok(())
+    }
+
+    /// Gets the [`AssetCount`] from a slice of [`Leg`].
+    pub fn try_from_legs(legs: &[Leg]) -> Result<AssetCount, String> {
+        let mut asset_count = AssetCount::default();
+        for leg in legs {
+            match &leg.asset {
+                LegAsset::Fungible { .. } => asset_count.try_add_fungible()?,
+                LegAsset::NonFungible(nfts) => asset_count.try_add_non_fungible(&nfts)?,
+                LegAsset::OffChain { .. } => asset_count.try_add_off_chain()?,
             }
         }
-        Ok(transfer_data)
+        Ok(asset_count)
+    }
+
+    /// Gets the [`AssetCount`] from a slice of [`(LegId, Leg)`].
+    /// Note: Doesn't check for overflows.
+    pub fn from_legs(legs: &[(LegId, Leg)]) -> AssetCount {
+        let mut asset_count = AssetCount::default();
+        for (_, leg) in legs {
+            match &leg.asset {
+                LegAsset::Fungible { .. } => asset_count.add_fungible(),
+                LegAsset::NonFungible(nfts) => asset_count.add_non_fungible(&nfts),
+                LegAsset::OffChain { .. } => asset_count.add_off_chain(),
+            }
+        }
+        asset_count
     }
 }
 
@@ -385,16 +397,16 @@ impl TransferData {
 pub struct InstructionInfo {
     /// Unique counter parties involved in the instruction.
     parties: BTreeSet<PortfolioId>,
-    /// The number of fungible and non fungible transfers in the instruction.
-    transfer_data: TransferData,
+    /// The [`AssetCount`] for the instruction.
+    asset_count: AssetCount,
 }
 
 impl InstructionInfo {
     /// Creates an instance of `InstructionInfo`.
-    pub fn new(parties: BTreeSet<PortfolioId>, transfer_data: TransferData) -> Self {
+    pub fn new(parties: BTreeSet<PortfolioId>, asset_count: AssetCount) -> Self {
         Self {
             parties,
-            transfer_data,
+            asset_count,
         }
     }
 
@@ -405,12 +417,62 @@ impl InstructionInfo {
 
     /// Returns the number of fungible transfers.
     pub fn fungible_transfers(&self) -> u32 {
-        self.transfer_data.fungible()
+        self.asset_count.fungible()
     }
 
     /// Returns the number of non fungible transfers.
     pub fn nfts_transferred(&self) -> u32 {
-        self.transfer_data.non_fungible()
+        self.asset_count.non_fungible()
+    }
+
+    /// Returns the number of off-chain transfers.
+    pub fn off_chain(&self) -> u32 {
+        self.asset_count.off_chain()
+    }
+}
+
+/// A subset of legs and the [`AssetCount`] for the unfiltered set and the subset.
+pub struct FilteredLegs {
+    /// A [`Vec<(LegId, Leg)>`] containing a subset of the legs.
+    leg_subset: Vec<(LegId, Leg)>,
+    /// The [`AssetCount`] for the unfiltered set.
+    unfiltered_asset_count: AssetCount,
+    /// The [`AssetCount`] for the subset of legs.
+    subset_asset_count: AssetCount,
+}
+
+impl FilteredLegs {
+    /// Returns [`FilteredLegs`] where the subset of legs are the legs where the sender is in the given `portfolio_set`.
+    pub fn filter_sender(
+        original_set: Vec<(LegId, Leg)>,
+        portfolio_set: &BTreeSet<PortfolioId>,
+    ) -> Self {
+        let unfiltered_asset_count = AssetCount::from_legs(&original_set);
+        let leg_subset: Vec<(LegId, Leg)> = original_set
+            .into_iter()
+            .filter(|(_, leg)| portfolio_set.contains(&leg.from))
+            .collect();
+        let subset_asset_count = AssetCount::from_legs(&leg_subset);
+        FilteredLegs {
+            leg_subset,
+            unfiltered_asset_count,
+            subset_asset_count,
+        }
+    }
+
+    /// Returns a slice of `[(LegId, Leg)]` containing all legs in the subset.
+    pub fn leg_subset(&self) -> &[(LegId, Leg)] {
+        &self.leg_subset
+    }
+
+    /// Returns the [`AssetCount`] for the unfiltered set.
+    pub fn unfiltered_asset_count(&self) -> &AssetCount {
+        &self.unfiltered_asset_count
+    }
+
+    /// Returns the [`AssetCount`] for the subset of legs.
+    pub fn subset_asset_count(&self) -> &AssetCount {
+        &self.subset_asset_count
     }
 }
 
@@ -422,6 +484,8 @@ pub struct ExecuteInstructionInfo {
     fungible_tokens: u32,
     /// Number of non fungible tokens in the instruction.
     non_fungible_tokens: u32,
+    /// Number of off-chain assets in the instruction.
+    off_chain_assets: u32,
     /// The weight needed for executing the instruction.
     consumed_weight: Weight,
     /// If the instruction would fail, contains the error.
@@ -433,12 +497,14 @@ impl ExecuteInstructionInfo {
     pub fn new(
         fungible_tokens: u32,
         non_fungible_tokens: u32,
+        off_chain_assets: u32,
         consumed_weight: Weight,
         error: Option<&str>,
     ) -> Self {
         Self {
             fungible_tokens,
             non_fungible_tokens,
+            off_chain_assets,
             consumed_weight,
             error: error.map(|e| e.to_string()),
         }
