@@ -55,7 +55,7 @@ The test scripts include those named below, and most make up `npm test`:
  - 14_investment
  - 15_portfolio
  - 16_relayer
- - 17_itn_rewards
+ - 17_confidential_assets
 
  To run a single script:
  ```shell
